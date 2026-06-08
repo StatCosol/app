@@ -203,7 +203,7 @@ export class PayrollController {
   }
 
   // GET /api/payroll/payslips — real DB query
-  @Roles('PAYROLL', 'ADMIN', 'CRM')
+  @Roles('PAYROLL', 'ADMIN', 'CRM', 'CCO')
   @ApiOperation({ summary: 'List Payslips' })
   @Get('payslips')
   async listPayslips(
@@ -225,7 +225,7 @@ export class PayrollController {
   }
 
   // POST /api/payroll/registers-records — payroll-side upload (challans/ECRs/returns)
-  @Roles('PAYROLL', 'ADMIN', 'CRM')
+  @Roles('PAYROLL', 'ADMIN', 'CRM', 'CCO')
   @ApiOperation({ summary: 'Upload Register Record (Payroll)' })
   @Post('registers-records')
   @UseInterceptors(
@@ -320,7 +320,7 @@ export class PayrollController {
   }
 
   // Frontend expects: GET /api/payroll/runs
-  @Roles('PAYROLL', 'ADMIN', 'CRM')
+  @Roles('PAYROLL', 'ADMIN', 'CRM', 'CCO')
   @ApiOperation({ summary: 'List Runs' })
   @Get('runs')
   listRuns(@CurrentUser() user: ReqUser, @Query() q: PayrollRunsQueryDto) {
@@ -363,7 +363,7 @@ export class PayrollController {
   }
 
   // Frontend expects: GET /api/payroll/runs/:runId/employees
-  @Roles('PAYROLL', 'ADMIN', 'CRM')
+  @Roles('PAYROLL', 'ADMIN', 'CRM', 'CCO')
   @ApiOperation({ summary: 'List Run Employees' })
   @Get('runs/:runId/employees')
   listRunEmployees(

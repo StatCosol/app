@@ -1117,11 +1117,17 @@ export class CrmReturnsFilingsComponent implements OnInit, OnDestroy {
       });
   }
 
-  bulkReturnToBranch(): void {
+  async bulkReturnToBranch(): Promise<void> {
     const ids = [...this.selectedTaskIds];
     if (!ids.length) return;
 
-    const remarks = prompt('Enter CRM remarks for bulk return to branch') || '';
+    const result = await this.dialog.prompt(
+      'Return To Branch',
+      'Enter CRM remarks for bulk return to branch.',
+      { placeholder: 'Remarks', confirmText: 'Return' },
+    );
+    if (!result.confirmed) return;
+    const remarks = result.value || '';
 
     this.crmReturns
       .bulkReviewBranchInput(ids, {

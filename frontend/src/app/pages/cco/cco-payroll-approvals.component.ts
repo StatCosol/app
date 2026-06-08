@@ -11,6 +11,23 @@ import { PayrollEngineApiService, SalaryStructure, StructureItem, StructureAppro
 
 type StatusFilter = 'PENDING' | 'APPROVED' | 'REJECTED' | 'DRAFT';
 type QueueRow = SalaryStructure & { clientName?: string | null };
+type ApprovalMode = 'RUNS' | 'STRUCTURES';
+type RunStatusFilter = 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'PROCESSED';
+type PayrollRunRow = {
+  id: string;
+  clientId: string;
+  clientName?: string | null;
+  periodYear: number;
+  periodMonth: number;
+  status: string;
+  employeeCount: number;
+  createdAt?: string | null;
+  submittedAt?: string | null;
+  approvedAt?: string | null;
+  rejectedAt?: string | null;
+  rejectionReason?: string | null;
+  approvalComments?: string | null;
+};
 
 @Component({
   selector: 'app-cco-payroll-approvals',
@@ -23,14 +40,21 @@ type QueueRow = SalaryStructure & { clientName?: string | null };
 export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private readonly base = `${environment.apiBaseUrl}/api/v1/payroll/engine`;
+  private readonly payrollBase = `${environment.apiBaseUrl}/api/v1/payroll`;
 
   loading = true;
+  runsLoading = true;
   acting = false;
+  mode: ApprovalMode = 'RUNS';
   statusFilter: StatusFilter = 'PENDING';
   statusOptions: StatusFilter[] = ['PENDING', 'APPROVED', 'REJECTED', 'DRAFT'];
+  runStatusFilter: RunStatusFilter = 'SUBMITTED';
+  runStatusOptions: RunStatusFilter[] = ['SUBMITTED', 'APPROVED', 'REJECTED', 'PROCESSED'];
 
   structures: QueueRow[] = [];
+  runs: PayrollRunRow[] = [];
   selected: QueueRow | null = null;
+  selectedRun: PayrollRunRow | null = null;
   selectedItems: StructureItem[] = [];
   itemsLoading = false;
 
@@ -43,7 +67,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.load();
+    this.loadRuns();
   }
 
   ngOnDestroy(): void {
@@ -53,6 +77,50 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
 
   clientLabel(row: QueueRow): string {
     return row.clientName || row.clientId.slice(0, 8);
+  }
+
+  runClientLabel(row: PayrollRunRow): string {
+    return row.clientName || row.clientId.slice(0, 8);
+  }
+
+  setMode(mode: ApprovalMode): void {
+    this.mode = mode;
+    if (mode === 'RUNS') {
+      this.loadRuns();
+    } else {
+      this.load();
+    }
+  }
+
+  refresh(): void {
+    if (this.mode === 'RUNS') this.loadRuns();
+    else this.load();
+  }
+
+  loadRuns(): void {
+    this.runsLoading = true;
+    this.selectedRun = null;
+    this.http
+      .get<PayrollRunRow[]>(`${this.payrollBase}/runs`, {
+        params: { status: this.runStatusFilter },
+      })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.runsLoading = false;
+          this.loading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (rows) => {
+          this.runs = rows || [];
+        },
+        error: (e) => {
+          this.toast.error(e?.error?.message || 'Failed to load payroll run approvals');
+          this.runs = [];
+        },
+      });
   }
 
   load(): void {
@@ -104,6 +172,59 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
       });
   }
 
+  selectRun(row: PayrollRunRow): void {
+    this.selectedRun = row;
+  }
+
+  async approveRun(row: PayrollRunRow): Promise<void> {
+    if (row.status !== 'SUBMITTED') return;
+    const result = await this.dialog.prompt(
+      'Approve Payroll Run',
+      `Approve ${this.periodLabel(row)} payroll run for ${this.runClientLabel(row)}? Comments are optional.`,
+      { placeholder: 'Comments', confirmText: 'Approve' },
+    );
+    if (!result.confirmed) return;
+    this.acting = true;
+    this.http
+      .post(`${environment.apiBaseUrl}/api/v1/payroll/runs/${row.id}/approve`, {
+        comments: (result.value || '').trim() || undefined,
+      })
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.acting = false; this.cdr.markForCheck(); }))
+      .subscribe({
+        next: () => {
+          this.toast.success('Payroll run approved');
+          this.loadRuns();
+        },
+        error: (e) => this.toast.error(e?.error?.message || 'Run approval failed'),
+      });
+  }
+
+  async rejectRun(row: PayrollRunRow): Promise<void> {
+    if (row.status !== 'SUBMITTED') return;
+    const result = await this.dialog.prompt(
+      'Reject Payroll Run',
+      `Reason for rejecting ${this.periodLabel(row)} payroll run for ${this.runClientLabel(row)}:`,
+      { placeholder: 'Reason', confirmText: 'Reject' },
+    );
+    if (!result.confirmed) return;
+    const reason = (result.value || '').trim();
+    if (!reason) {
+      this.toast.error('Rejection reason is required');
+      return;
+    }
+    this.acting = true;
+    this.http
+      .post(`${environment.apiBaseUrl}/api/v1/payroll/runs/${row.id}/reject`, { reason })
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.acting = false; this.cdr.markForCheck(); }))
+      .subscribe({
+        next: () => {
+          this.toast.success('Payroll run rejected');
+          this.loadRuns();
+        },
+        error: (e) => this.toast.error(e?.error?.message || 'Run rejection failed'),
+      });
+  }
+
   async approve(row: QueueRow): Promise<void> {
     if (row.approvalStatus !== 'PENDING') return;
     const ok = await this.dialog.confirm(
@@ -126,15 +247,20 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
 
   async reject(row: QueueRow): Promise<void> {
     if (row.approvalStatus !== 'PENDING') return;
-    const reason = window.prompt('Reason for rejection (required):', '');
-    if (reason === null) return;
-    if (!reason.trim()) {
+    const result = await this.dialog.prompt(
+      'Reject Structure',
+      'Reason for rejection (required):',
+      { placeholder: 'Reason', confirmText: 'Reject' },
+    );
+    if (!result.confirmed) return;
+    const reason = (result.value || '').trim();
+    if (!reason) {
       this.toast.error('Rejection reason is required');
       return;
     }
     this.acting = true;
     this.engineApi
-      .rejectStructure(row.id, reason.trim())
+      .rejectStructure(row.id, reason)
       .pipe(takeUntil(this.destroy$), finalize(() => { this.acting = false; this.cdr.markForCheck(); }))
       .subscribe({
         next: () => {
@@ -154,6 +280,15 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
     }
   }
 
+  runBadgeClass(s: string): string {
+    switch ((s || '').toUpperCase()) {
+      case 'SUBMITTED': return 'badge badge-warn';
+      case 'APPROVED': return 'badge badge-ok';
+      case 'REJECTED': return 'badge badge-err';
+      default: return 'badge badge-muted';
+    }
+  }
+
   formatDate(s: string | null | undefined): string {
     if (!s) return '—';
     return new Date(s).toLocaleDateString();
@@ -162,6 +297,11 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
   formatDateTime(s: string | null | undefined): string {
     if (!s) return '—';
     return new Date(s).toLocaleString();
+  }
+
+  periodLabel(row: Pick<PayrollRunRow, 'periodMonth' | 'periodYear'>): string {
+    const d = new Date(Number(row.periodYear), Number(row.periodMonth) - 1, 1);
+    return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   }
 
   scopeText(row: QueueRow): string {
@@ -174,6 +314,10 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
   }
 
   trackRow(_: number, r: QueueRow) {
+    return r.id;
+  }
+
+  trackRun(_: number, r: PayrollRunRow) {
     return r.id;
   }
 }

@@ -31,6 +31,8 @@ const CcoControlsRegisterPageComponent = () =>
   import('./controls/cco-controls-register-page.component').then(
     (m) => m.CcoControlsRegisterPageComponent,
   );
+const NewsDetailComponent = () =>
+  import('../../shared/news/news-detail.component').then((m) => m.NewsDetailComponent);
 
 export const CCO_ROUTES: Routes = [
   {
@@ -51,6 +53,8 @@ export const CCO_ROUTES: Routes = [
       { path: 'controls', loadComponent: CcoControlsRegisterPageComponent },
       { path: 'registers', loadComponent: CcoRegistersComponent },
       { path: 'notifications', loadComponent: CcoNotificationsComponent },
+      { path: 'news', loadComponent: NewsDetailComponent },
+      { path: 'news/:newsId', loadComponent: NewsDetailComponent },
       { path: 'profile', loadComponent: CcoProfileComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],

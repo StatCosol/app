@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, forkJoin, of } from 'rxjs';
+import { Subject, forkJoin, fromEvent, interval, merge, of } from 'rxjs';
 import { catchError, finalize, takeUntil } from 'rxjs/operators';
 
 import { ToastService } from '../../../shared/toast/toast.service';
@@ -121,8 +121,11 @@ const ATTENDANCE_STATUSES = [
             <ui-button size="sm" variant="danger" [disabled]="actionBusy" [loading]="actionBusy && actionType==='reject'" (clicked)="bulkReject()">
               Reject Selected
             </ui-button>
+            <ui-button size="sm" variant="danger" [disabled]="actionBusy" [loading]="actionBusy && actionType==='delete'" (clicked)="bulkDelete()">
+              Delete Selected
+            </ui-button>
             <ui-button size="sm" variant="ghost" [disabled]="actionBusy" (clicked)="clearSelection()">
-              Clear
+              Clear Selection
             </ui-button>
           </div>
         </section>
@@ -136,6 +139,9 @@ const ATTENDANCE_STATUSES = [
             </ui-button>
             <ui-button size="sm" variant="primary" [disabled]="actionBusy" [loading]="actionBusy && actionType==='approveAll'" (clicked)="approveAllPending()">
               Approve All Pending
+            </ui-button>
+            <ui-button size="sm" variant="danger" [disabled]="actionBusy" [loading]="actionBusy && actionType==='rejectAll'" (clicked)="rejectAllPending()">
+              Reject All Pending
             </ui-button>
           </div>
         </section>
@@ -169,6 +175,7 @@ const ATTENDANCE_STATUSES = [
                   <th>Hours</th>
                   <th>OT</th>
                   <th>Source</th>
+                  <th>Location</th>
                   <th>Approval</th>
                   <th>Actions</th>
                 </tr>
@@ -195,19 +202,41 @@ const ATTENDANCE_STATUSES = [
                       {{ displaySource(row) }}
                     </span>
                   </td>
+                  <td class="location-cell">
+                    <a *ngIf="hasLocation(row)"
+                      [href]="locationMapUrl(row)"
+                      target="_blank"
+                      rel="noopener">
+                      {{ displayLocation(row) }}
+                    </a>
+                    <span *ngIf="!hasLocation(row)">-</span>
+                  </td>
                   <td>
                     <span class="approval-chip" [attr.data-approval]="row.approvalStatus">
                       {{ row.approvalStatus }}
                     </span>
                   </td>
-                  <td class="actions-cell">
-                    <ui-button size="sm" variant="ghost" (clicked)="openEdit(row)">Edit</ui-button>
+                  <td>
+                    <div class="actions-cell">
+                      <ui-button size="sm" variant="ghost" (clicked)="openEdit(row)">Edit</ui-button>
                     <ui-button size="sm" variant="primary"
                       *ngIf="row.approvalStatus !== 'APPROVED'"
                       [disabled]="actionBusy"
                       (clicked)="approveSingle(row.id)">
                       Approve
                     </ui-button>
+                    <ui-button size="sm" variant="danger"
+                      *ngIf="row.approvalStatus !== 'REJECTED'"
+                      [disabled]="actionBusy"
+                      (clicked)="rejectSingle(row.id)">
+                      Reject
+                    </ui-button>
+                    <ui-button size="sm" variant="danger"
+                      [disabled]="actionBusy"
+                      (clicked)="deleteSingle(row.id)">
+                      Delete
+                    </ui-button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -290,7 +319,7 @@ const ATTENDANCE_STATUSES = [
       .bulk-bar { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; }
       .bulk-bar span { font-weight: 600; color: #111827; font-size: .84rem; }
       .table-wrap { overflow: auto; }
-      table { width: 100%; min-width: 1000px; border-collapse: collapse; }
+      table { width: 100%; min-width: 1120px; border-collapse: collapse; }
       th, td { border-bottom: 1px solid #e5e7eb; text-align: left; padding: .5rem .45rem; font-size: .8rem; color: #1f2937; }
       th { color: #6b7280; text-transform: uppercase; letter-spacing: .02em; font-size: .7rem; font-weight: 700; white-space: nowrap; }
       .col-check { width: 36px; text-align: center; }
@@ -305,13 +334,17 @@ const ATTENDANCE_STATUSES = [
       .att-chip[data-status=WEEK_OFF] { border-color: #d1d5db; color: #6b7280; background: #f3f4f6; }
       .source-chip { font-size: .7rem; font-weight: 600; color: #4b5563; }
       .source-chip.self { color: #0369a1; }
+      .location-cell { font-size: .72rem; white-space: nowrap; }
+      .location-cell a { color: #0369a1; font-weight: 600; text-decoration: none; }
+      .location-cell a:hover { text-decoration: underline; }
       .approval-chip { border: 1px solid #d1d5db; background: #f9fafb; color: #374151; border-radius: 999px; font-size: .68rem; font-weight: 700; padding: .1rem .5rem; white-space: nowrap; }
       .approval-chip[data-approval=PENDING] { border-color: #fcd34d; color: #92400e; background: #fffbeb; }
       .approval-chip[data-approval=APPROVED] { border-color: #86efac; color: #166534; background: #f0fdf4; }
       .approval-chip[data-approval=REJECTED] { border-color: #fca5a5; color: #991b1b; background: #fef2f2; }
       .row-pending { background: #fffbeb; }
       .row-rejected { background: #fef2f2; }
-      .actions-cell { white-space: nowrap; display: flex; gap: .3rem; }
+      .actions-cell { width: 88px; margin: 0 auto; display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: .35rem; }
+      .actions-cell ui-button { display: block; width: 100%; }
       .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
       .modal-card { background: #fff; border-radius: 16px; padding: 1.2rem; width: 480px; max-width: 95vw; max-height: 90vh; overflow: auto; box-shadow: 0 12px 40px rgba(0,0,0,.15); }
       .modal-card h3 { margin: 0 0 .3rem; font-size: 1rem; color: #111827; }
@@ -326,6 +359,7 @@ const ATTENDANCE_STATUSES = [
 })
 export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
+  private readonly liveRefreshMs = 5000;
 
   readonly attendanceStatuses = ATTENDANCE_STATUSES;
 
@@ -358,6 +392,7 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadBranches();
     this.load();
+    this.startLiveRefresh();
   }
 
   ngOnDestroy(): void {
@@ -385,9 +420,13 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
       });
   }
 
-  load(): void {
-    this.loading = true;
-    this.selectedIds.clear();
+  load(silent = false): void {
+    if (this.loading) return;
+
+    if (!silent) {
+      this.loading = true;
+      this.selectedIds.clear();
+    }
 
     const bid = this.branchId || undefined;
 
@@ -400,7 +439,7 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
-          this.loading = false;
+          if (!silent) this.loading = false;
           this.cdr.markForCheck();
         }),
       )
@@ -436,28 +475,35 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
   }
 
   toggleSelect(id: string): void {
-    if (this.selectedIds.has(id)) this.selectedIds.delete(id);
-    else this.selectedIds.add(id);
+    const next = new Set(this.selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this.selectedIds = next;
     this.cdr.markForCheck();
   }
 
   toggleSelectAll(ev: Event): void {
     const checked = (ev.target as HTMLInputElement).checked;
+    const next = new Set(this.selectedIds);
     if (checked) {
-      this.filteredRecords.forEach((r) => this.selectedIds.add(r.id));
+      this.filteredRecords.forEach((r) => next.add(r.id));
     } else {
-      this.filteredRecords.forEach((r) => this.selectedIds.delete(r.id));
+      this.filteredRecords.forEach((r) => next.delete(r.id));
     }
+    this.selectedIds = next;
     this.cdr.markForCheck();
   }
 
   selectAllPending(): void {
-    this.pendingRecords.forEach((r) => this.selectedIds.add(r.id));
+    this.selectedIds = new Set([
+      ...this.selectedIds,
+      ...this.pendingRecords.map((r) => r.id),
+    ]);
     this.cdr.markForCheck();
   }
 
   clearSelection(): void {
-    this.selectedIds.clear();
+    this.selectedIds = new Set<string>();
     this.cdr.markForCheck();
   }
 
@@ -479,7 +525,7 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res) => {
           this.toast.success(`${res.approved} record(s) approved.`);
-          this.selectedIds.clear();
+          this.clearSelection();
           this.load();
         },
         error: () => this.toast.error('Failed to approve records.'),
@@ -504,7 +550,7 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res) => {
           this.toast.success(`${res.rejected} record(s) rejected.`);
-          this.selectedIds.clear();
+          this.clearSelection();
           this.load();
         },
         error: () => this.toast.error('Failed to reject records.'),
@@ -535,6 +581,58 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
       });
   }
 
+  bulkDelete(): void {
+    const ids = [...this.selectedIds];
+    if (!ids.length) return;
+    if (!window.confirm(`Delete ${ids.length} selected attendance record(s)? This also removes linked face/biometric punches so they will not return after refresh.`)) {
+      return;
+    }
+    this.actionBusy = true;
+    this.actionType = 'delete';
+    this.svc
+      .deleteRecords(ids)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.actionBusy = false;
+          this.actionType = '';
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          this.toast.success(`${res.deleted} record(s) deleted.`);
+          this.clearSelection();
+          this.load();
+        },
+        error: () => this.toast.error('Failed to delete records.'),
+      });
+  }
+
+  rejectAllPending(): void {
+    const ids = this.pendingRecords.map((r) => r.id);
+    if (!ids.length) return;
+    this.actionBusy = true;
+    this.actionType = 'rejectAll';
+    this.svc
+      .rejectRecords(ids)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.actionBusy = false;
+          this.actionType = '';
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          this.toast.success(`${res.rejected} record(s) rejected.`);
+          this.load();
+        },
+        error: () => this.toast.error('Failed to reject records.'),
+      });
+  }
+
   approveSingle(id: string): void {
     this.actionBusy = true;
     this.actionType = 'approve';
@@ -554,6 +652,54 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
           this.load();
         },
         error: () => this.toast.error('Failed to approve.'),
+      });
+  }
+
+  rejectSingle(id: string): void {
+    this.actionBusy = true;
+    this.actionType = 'reject';
+    this.svc
+      .rejectRecords([id])
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.actionBusy = false;
+          this.actionType = '';
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('Record rejected.');
+          this.load();
+        },
+        error: () => this.toast.error('Failed to reject.'),
+      });
+  }
+
+  deleteSingle(id: string): void {
+    if (!window.confirm('Delete this attendance record? Linked face/biometric punches will also be removed so it will not return after refresh.')) {
+      return;
+    }
+    this.actionBusy = true;
+    this.actionType = 'delete';
+    this.svc
+      .deleteRecords([id])
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.actionBusy = false;
+          this.actionType = '';
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('Record deleted.');
+          this.clearSelection();
+          this.load();
+        },
+        error: () => this.toast.error('Failed to delete.'),
       });
   }
 
@@ -618,8 +764,62 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
     return row.source;
   }
 
+  hasLocation(row: DailyAttendanceRecord): boolean {
+    return this.locationPair(row) !== null;
+  }
+
+  displayLocation(row: DailyAttendanceRecord): string {
+    const pair = this.locationPair(row);
+    if (!pair) return '-';
+    return `${pair.label}: ${pair.lat.toFixed(5)}, ${pair.lng.toFixed(5)}`;
+  }
+
+  locationMapUrl(row: DailyAttendanceRecord): string {
+    const pair = this.locationPair(row);
+    if (!pair) return '#';
+    return `https://www.google.com/maps?q=${pair.lat},${pair.lng}`;
+  }
+
+  private locationPair(row: DailyAttendanceRecord): { label: string; lat: number; lng: number } | null {
+    const inLat = this.toNumberOrNull(row.checkInLat);
+    const inLng = this.toNumberOrNull(row.checkInLng);
+    if (inLat != null && inLng != null) return { label: 'IN', lat: inLat, lng: inLng };
+
+    const outLat = this.toNumberOrNull(row.checkOutLat);
+    const outLng = this.toNumberOrNull(row.checkOutLng);
+    if (outLat != null && outLng != null) return { label: 'OUT', lat: outLat, lng: outLng };
+
+    return null;
+  }
+
+  private toNumberOrNull(value: string | number | null | undefined): number | null {
+    if (value == null || value === '') return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+
   private todayStr(): string {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  private startLiveRefresh(): void {
+    merge(interval(this.liveRefreshMs), fromEvent(window, 'focus'))
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        if (this.shouldLiveRefresh()) {
+          this.load(true);
+        }
+      });
+  }
+
+  private shouldLiveRefresh(): boolean {
+    return (
+      this.selectedDate === this.todayStr() &&
+      !this.loading &&
+      !this.actionBusy &&
+      !this.editBusy &&
+      !this.editRow
+    );
   }
 }

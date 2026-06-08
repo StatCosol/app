@@ -16,7 +16,7 @@ android {
 
         // Production ESS portal entry point. Override at runtime via the in-app
         // Settings screen (long-press the toolbar) when pointing at staging.
-        buildConfigField("String", "DEFAULT_PORTAL_URL", "\"https://app.statcosol.com/ess/login\"")
+        buildConfigField("String", "DEFAULT_PORTAL_URL", "\"https://app.statcosol.com/app/ess/login\"")
         buildConfigField("String", "ALLOWED_HOST_SUFFIX", "\"statcosol.com\"")
     }
 

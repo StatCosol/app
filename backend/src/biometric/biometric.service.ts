@@ -80,6 +80,11 @@ export class BiometricService {
       const ts = new Date(it.punchTime);
       if (isNaN(ts.getTime())) continue;
 
+      const requestedSource = (
+        it as IngestPunchItemDto & {
+          source?: BiometricPunchEntity['source'];
+        }
+      ).source;
       toInsert.push({
         clientId,
         branchId: emp?.branchId ?? it.branchId ?? null,
@@ -88,7 +93,7 @@ export class BiometricService {
         punchTime: ts,
         direction: it.direction ?? 'AUTO',
         deviceId: it.deviceId ?? null,
-        source: 'DEVICE',
+        source: requestedSource ?? 'DEVICE',
         rawPayload: { ...it },
       });
 
@@ -281,6 +286,7 @@ export class BiometricService {
       const captureMethod: AttendanceEntity['captureMethod'] = allMobile
         ? 'FACE'
         : 'BIOMETRIC';
+      const requiresAttendanceReview = captureMethod === 'FACE';
 
       if (existing) {
         // Only overwrite if existing was BIOMETRIC or empty — preserve manual edits
@@ -295,7 +301,12 @@ export class BiometricService {
         existing.overtimeHours = overtimeHours.toFixed(2);
         existing.source = 'BIOMETRIC';
         existing.captureMethod = captureMethod;
-        existing.approvalStatus = 'APPROVED';
+        if (requiresAttendanceReview) {
+          existing.approvalStatus = 'PENDING';
+          existing.approvedByUserId = null;
+          existing.approvedAt = null;
+          existing.rejectionReason = null;
+        }
         await this.attRepo.save(existing);
       } else {
         existing = await this.attRepo.save(
@@ -312,7 +323,7 @@ export class BiometricService {
             overtimeHours: overtimeHours.toFixed(2),
             source: 'BIOMETRIC',
             captureMethod,
-            approvalStatus: 'APPROVED',
+            approvalStatus: requiresAttendanceReview ? 'PENDING' : 'APPROVED',
           } as Partial<AttendanceEntity>),
         );
       }

@@ -396,7 +396,7 @@ export class PayrollEngineController {
     summary: 'List Approval Queue (PENDING structures across clients)',
   })
   @Get('structures/approval-queue')
-  @Roles('CCO', 'ADMIN')
+  @Roles('CCO')
   async listApprovalQueue(
     @CurrentUser() user: ReqUser,
     @Query('status') status?: string,

@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, DataSource } from 'typeorm';
 import { AttendanceEntity } from './entities/attendance.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
+import { BiometricPunchEntity } from '../biometric/entities/biometric-punch.entity';
+import { BiometricService } from '../biometric/biometric.service';
 
 @Injectable()
 export class AttendanceService {
@@ -12,6 +14,7 @@ export class AttendanceService {
     @InjectRepository(EmployeeEntity)
     private readonly empRepo: Repository<EmployeeEntity>,
     private readonly ds: DataSource,
+    private readonly biometricService: BiometricService,
   ) {}
 
   /** Mark attendance for a single employee/date */
@@ -102,6 +105,13 @@ export class AttendanceService {
     from: string;
     to: string;
   }) {
+    await this.biometricService.processRange(
+      params.clientId,
+      params.from,
+      params.to,
+      false,
+    );
+
     const qb = this.repo
       .createQueryBuilder('a')
       .where('a.client_id = :clientId', { clientId: params.clientId })
@@ -136,6 +146,13 @@ export class AttendanceService {
     const lastDay = new Date(params.year, params.month, 0);
     const toDate = `${params.year}-${String(params.month).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
     const totalDays = lastDay.getDate();
+
+    await this.biometricService.processRange(
+      params.clientId,
+      firstDay,
+      toDate,
+      false,
+    );
 
     const qb = this.repo
       .createQueryBuilder('a')
@@ -327,6 +344,13 @@ export class AttendanceService {
     branchId?: string;
     approvalStatus?: string;
   }) {
+    await this.biometricService.processRange(
+      params.clientId,
+      params.date,
+      params.date,
+      true,
+    );
+
     const qb = this.ds
       .createQueryBuilder()
       .select([
@@ -344,6 +368,10 @@ export class AttendanceService {
         'a.source        AS "source"',
         'a.capture_method AS "captureMethod"',
         'a.self_marked   AS "selfMarked"',
+        'a.check_in_lat  AS "checkInLat"',
+        'a.check_in_lng  AS "checkInLng"',
+        'a.check_out_lat AS "checkOutLat"',
+        'a.check_out_lng AS "checkOutLng"',
         'a.short_work_reason AS "shortWorkReason"',
         'a.approval_status   AS "approvalStatus"',
         'a.approved_by_user_id AS "approvedByUserId"',
@@ -449,8 +477,41 @@ export class AttendanceService {
     return { rejected: records.length };
   }
 
+  /** Delete wrong attendance records and their source biometric/face punches. */
+  async deleteRecords(clientId: string, ids: string[]) {
+    const records = await this.repo.find({
+      where: { clientId, id: In(ids) },
+    });
+    if (!records.length) throw new NotFoundException('No records found');
+
+    const recordIds = records.map((r) => r.id);
+
+    return this.ds.transaction(async (manager) => {
+      const punchDelete = await manager
+        .getRepository(BiometricPunchEntity)
+        .delete({
+          clientId,
+          attendanceId: In(recordIds),
+        });
+
+      const attendanceDelete = await manager
+        .getRepository(AttendanceEntity)
+        .delete({
+          clientId,
+          id: In(recordIds),
+        });
+
+      return {
+        deleted: attendanceDelete.affected ?? 0,
+        deletedPunches: punchDelete.affected ?? 0,
+      };
+    });
+  }
+
   /** Approval stats for a given day */
   async getApprovalStats(clientId: string, date: string, branchId?: string) {
+    await this.biometricService.processRange(clientId, date, date, true);
+
     const qb = this.repo
       .createQueryBuilder('a')
       .select('a.approval_status', 'status')

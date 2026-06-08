@@ -48,6 +48,23 @@ class ApiClient(private val config: DeviceConfig) {
         }
     }
 
+    fun fetchDeviceInfo(): DeviceInfoResponse {
+        val token = requireToken()
+        val req = Request.Builder()
+            .url("${config.apiBase}/api/v1/mobile-attendance/config")
+            .header("X-Device-Token", token)
+            .header("X-Android-Id", config.androidId)
+            .get()
+            .build()
+        http.newCall(req).execute().use { resp ->
+            val body = resp.body?.string() ?: throw IOException("empty body")
+            if (resp.code == 404) return fetchRoster().toDeviceInfo()
+            if (!resp.isSuccessful) throw IOException("config ${resp.code}: $body")
+            return moshi.adapter(DeviceInfoResponse::class.java).fromJson(body)
+                ?: throw IOException("could not parse config response")
+        }
+    }
+
     fun postPunch(body: PunchBody): PunchResponse {
         val token = requireToken()
         val json = moshi.adapter(PunchBody::class.java).toJson(body)
@@ -62,6 +79,40 @@ class ApiClient(private val config: DeviceConfig) {
             if (!resp.isSuccessful) throw IOException("punch ${resp.code}: $text")
             return moshi.adapter(PunchResponse::class.java).fromJson(text)
                 ?: throw IOException("could not parse punch response")
+        }
+    }
+
+    fun postContractorPunch(body: ContractorPunchBody): PunchResponse {
+        val token = requireToken()
+        val json = moshi.adapter(ContractorPunchBody::class.java).toJson(body)
+        val req = Request.Builder()
+            .url("${config.apiBase}/api/v1/mobile-attendance/punch/contractor")
+            .header("X-Device-Token", token)
+            .header("X-Android-Id", config.androidId)
+            .post(json.toRequestBody(JSON))
+            .build()
+        http.newCall(req).execute().use { resp ->
+            val text = resp.body?.string() ?: throw IOException("empty body")
+            if (!resp.isSuccessful) throw IOException("contractor punch ${resp.code}: $text")
+            return moshi.adapter(PunchResponse::class.java).fromJson(text)
+                ?: throw IOException("could not parse contractor punch response")
+        }
+    }
+
+    fun postFailedScan(body: FailedScanBody): FailedScanResponse {
+        val token = requireToken()
+        val json = moshi.adapter(FailedScanBody::class.java).toJson(body)
+        val req = Request.Builder()
+            .url("${config.apiBase}/api/v1/mobile-attendance/failed-scan")
+            .header("X-Device-Token", token)
+            .header("X-Android-Id", config.androidId)
+            .post(json.toRequestBody(JSON))
+            .build()
+        http.newCall(req).execute().use { resp ->
+            val text = resp.body?.string() ?: throw IOException("empty body")
+            if (!resp.isSuccessful) throw IOException("failed-scan ${resp.code}: $text")
+            return moshi.adapter(FailedScanResponse::class.java).fromJson(text)
+                ?: throw IOException("could not parse failed-scan response")
         }
     }
 
@@ -146,13 +197,37 @@ class ApiClient(private val config: DeviceConfig) {
         http.newCall(req).execute().use { resp ->
             val text = resp.body?.string() ?: throw IOException("empty body")
             if (!resp.isSuccessful) {
-                throw IOException("kiosk-enroll submit ${resp.code}: $text")
+                throw IOException(apiErrorMessage("kiosk-enroll submit", resp.code, text))
             }
             return moshi.adapter(KioskEnrollSubmitResponse::class.java).fromJson(text)
                 ?: throw IOException("could not parse kiosk-enroll submit response")
         }
     }
 
+    private fun apiErrorMessage(prefix: String, code: Int, body: String): String {
+        val parsed = runCatching {
+            moshi.adapter(ApiErrorResponse::class.java).fromJson(body)
+        }.getOrNull()
+        val message = parsed?.message
+            ?.takeIf { it.isNotBlank() }
+            ?: parsed?.error?.takeIf { it.isNotBlank() }
+        return message ?: "$prefix failed ($code)"
+    }
+
     private fun requireToken(): String =
         config.installToken ?: throw IllegalStateException("device not registered")
+
+    private fun RosterResponse.toDeviceInfo(): DeviceInfoResponse =
+        DeviceInfoResponse(
+            deviceId = deviceId,
+            mode = mode,
+            clientId = clientId,
+            clientName = clientName,
+            branchId = branchId,
+            branchName = branchName,
+            geofenceLat = geofenceLat,
+            geofenceLng = geofenceLng,
+            geofenceRadiusM = geofenceRadiusM,
+            essEmployeeId = essEmployeeId,
+        )
 }

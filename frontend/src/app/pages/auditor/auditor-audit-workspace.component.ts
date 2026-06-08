@@ -25,6 +25,7 @@ import { AuditorObservationsService } from '../../core/auditor-observations.serv
 import { ToastService } from '../../shared/toast/toast.service';
 import { ClientContextStripComponent } from '../../shared/ui';
 import { ProtectedFileService } from '../../shared/files/services/protected-file.service';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 interface ChecklistItem {
   label: string;
@@ -164,6 +165,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     private readonly auditApi: AuditorAuditService,
     private readonly observationsApi: AuditorObservationsService,
     private readonly toast: ToastService,
+    private readonly dialog: ConfirmDialogService,
     private readonly cdr: ChangeDetectorRef,
     private readonly protectedFiles: ProtectedFileService,
   ) {}
@@ -594,9 +596,14 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     });
   }
 
-  forceCompleteAudit(): void {
+  async forceCompleteAudit(): Promise<void> {
     if (!this.auditId || this.busy) return;
-    if (!confirm('Finalize this audit? Pending documents and non-compliances will be overridden. This cannot be undone.')) return;
+    const ok = await this.dialog.confirm(
+      'Finalize Audit',
+      'Finalize this audit? Pending documents and non-compliances will be overridden. This cannot be undone.',
+      { variant: 'danger', confirmText: 'Finalize' },
+    );
+    if (!ok) return;
     this.busy = true;
     this.auditsApi.auditorForceCompleteAudit(this.auditId, this.finalRemark || undefined).pipe(
       takeUntil(this.destroy$),

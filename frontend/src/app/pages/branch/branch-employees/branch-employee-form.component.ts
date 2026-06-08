@@ -243,6 +243,20 @@ import {
           <span>{{ formError }}</span>
         </div>
 
+        <div *ngIf="isMinimumWageError"
+             class="override-panel">
+          <label class="override-check">
+            <input autocomplete="off" type="checkbox" name="minimumWageOverride" [(ngModel)]="form.minimumWageOverride" />
+            <span>Override minimum-wage validation for this employee</span>
+          </label>
+          <label *ngIf="form.minimumWageOverride" class="form-field">
+            <span class="form-label">Override Reason *</span>
+            <textarea class="form-textarea" name="minimumWageOverrideReason" rows="3"
+                      [(ngModel)]="form.minimumWageOverrideReason"
+                      placeholder="Enter approval / business reason for below minimum wage"></textarea>
+          </label>
+        </div>
+
         <div *ngIf="successMsg"
              class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center gap-2">
           <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -298,6 +312,25 @@ import {
         font-size: 0.875rem; color: #111827; background: white; transition: border-color 0.2s; height: 38px;
       }
       .form-date-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+      .form-textarea {
+        min-height: 76px;
+        padding: 0.6rem 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        color: #111827;
+        resize: vertical;
+      }
+      .form-textarea:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+      .override-panel {
+        border: 1px solid #f59e0b;
+        background: #fffbeb;
+        border-radius: 0.75rem;
+        padding: 1rem;
+        color: #78350f;
+      }
+      .override-check { display: flex; align-items: center; gap: 0.55rem; font-size: 0.875rem; font-weight: 600; }
+      .override-check input { width: 16px; height: 16px; }
       .action-bar { display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid #e5e7eb; }
       @media (max-width: 640px) { .section-grid { grid-template-columns: 1fr; } .page { padding: 1rem 0.5rem; } }
     `,
@@ -438,6 +471,10 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
     return '';
   }
 
+  get isMinimumWageError(): boolean {
+    return !!this.form.minimumWageOverride || /below the statutory minimum wage/i.test(this.formError || '');
+  }
+
   onDobChange(): void {
     this.dobWarning = this.calcDobWarning(this.form.dateOfBirth);
   }
@@ -486,6 +523,14 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
     }
     if (this.form.dateOfBirth) {
       this.dobWarning = this.calcDobWarning(this.form.dateOfBirth);
+    }
+    if (this.form.minimumWageOverride) {
+      const reason = String(this.form.minimumWageOverrideReason || '').trim();
+      if (reason.length < 8) {
+        this.formError = 'Override reason is required for minimum-wage override.';
+        return;
+      }
+      this.form.minimumWageOverrideReason = reason;
     }
     this.saving = true;
     this.formError = '';

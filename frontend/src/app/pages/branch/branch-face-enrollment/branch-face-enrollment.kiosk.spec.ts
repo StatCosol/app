@@ -67,6 +67,10 @@ const makeComponent = (
     info: vi.fn(),
     error: vi.fn(),
   };
+  const dialog: any = {
+    confirm: vi.fn().mockResolvedValue(true),
+    prompt: vi.fn().mockResolvedValue({ confirmed: true, value: 'Test reason' }),
+  };
   return new BranchFaceEnrollmentComponent(
     auth,
     empSvc,
@@ -74,6 +78,7 @@ const makeComponent = (
     svc,
     toast,
     noopCdr,
+    dialog,
   );
 };
 

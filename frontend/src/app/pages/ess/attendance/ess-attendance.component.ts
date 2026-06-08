@@ -102,7 +102,7 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
                        [disabled]="opt.comingSoon" class="sr-only" />
                 <span class="capture-icon" [innerHTML]="opt.icon"></span>
                 <span class="capture-label">{{ opt.label }}</span>
-                <span class="capture-badge" *ngIf="opt.comingSoon">Soon</span>
+                <span class="capture-badge" *ngIf="opt.comingSoon">{{ opt.value === 'FACE' ? 'App only' : 'Soon' }}</span>
               </label>
             </div>
           </div>
@@ -541,6 +541,7 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
   selectedCapture: CaptureMethod = 'MANUAL';
   currentLat: number | null = null;
   currentLng: number | null = null;
+  private readonly isEssNativeApp = /\bStatcoEssPortal\//i.test(navigator.userAgent || '');
 
   // Face ID selfie capture
   @ViewChild('selfieVideo') selfieVideoRef?: ElementRef<HTMLVideoElement>;
@@ -574,6 +575,9 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.captureOptions = this.captureOptions.map((opt) =>
+      opt.value === 'FACE' ? { ...opt, comingSoon: !this.isEssNativeApp } : opt,
+    );
     this.updateClock();
     this.clockInterval = setInterval(() => this.updateClock(), 1000);
     this.loadTodayStatus();
@@ -591,10 +595,19 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
   /** Returns false when Face ID is selected but no selfie has been captured yet. */
   get canSubmitCapture(): boolean {
     if (this.selectedCapture !== 'FACE') return true;
+    if (!this.isEssNativeApp) return false;
     return !!this.selfieDataUrl;
   }
 
   onCaptureChange(method: CaptureMethod): void {
+    if (method === 'FACE' && !this.isEssNativeApp) {
+      this.selectedCapture = 'MANUAL';
+      this.toast.error('Face ID attendance is available only in the StatCo ESS app.');
+      this.discardSelfie();
+      this.stopCamera();
+      this.cdr.markForCheck();
+      return;
+    }
     this.selectedCapture = method;
     if (method === 'FACE') {
       // Defer to next tick so the <video> element is rendered before we attach the stream.
@@ -606,6 +619,12 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
   }
 
   private async startCamera(): Promise<void> {
+    if (!this.isEssNativeApp) {
+      this.cameraError = 'Face ID attendance is available only in the StatCo ESS app.';
+      this.selectedCapture = 'MANUAL';
+      this.cdr.markForCheck();
+      return;
+    }
     if (this.cameraStream) return;
     this.cameraError = '';
     this.cameraReady = false;
@@ -636,6 +655,10 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
   }
 
   captureSelfie(): void {
+    if (!this.isEssNativeApp) {
+      this.toast.error('Face ID attendance is available only in the StatCo ESS app.');
+      return;
+    }
     const video = this.selfieVideoRef?.nativeElement;
     if (!video || !this.cameraReady) return;
     this.capturingSelfie = true;
@@ -743,12 +766,22 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
   }
 
   doCheckIn(): void {
+    if (this.selectedCapture === 'FACE' && !this.isEssNativeApp) {
+      this.toast.error('Face ID attendance is available only in the StatCo ESS app.');
+      this.selectedCapture = 'MANUAL';
+      return;
+    }
     if (!this.canSubmitCapture) {
       this.toast.error('Please capture a selfie before checking in.');
       return;
     }
     this.checkingIn = true;
-    this.resolveLocation().then(() => {
+    this.resolveLocation().then((locationOk) => {
+      if (!locationOk) {
+        this.checkingIn = false;
+        this.toast.error('Location is required for this attendance method.');
+        return;
+      }
       const payload: CheckInOutPayload = {
         captureMethod: this.selectedCapture,
         latitude: this.currentLat ?? undefined,
@@ -775,12 +808,22 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
   }
 
   doCheckOut(): void {
+    if (this.selectedCapture === 'FACE' && !this.isEssNativeApp) {
+      this.toast.error('Face ID attendance is available only in the StatCo ESS app.');
+      this.selectedCapture = 'MANUAL';
+      return;
+    }
     if (!this.canSubmitCapture) {
       this.toast.error('Please capture a selfie before checking out.');
       return;
     }
     this.checkingOut = true;
-    this.resolveLocation().then(() => {
+    this.resolveLocation().then((locationOk) => {
+      if (!locationOk) {
+        this.checkingOut = false;
+        this.toast.error('Location is required for this attendance method.');
+        return;
+      }
       const payload: CheckInOutPayload = {
         captureMethod: this.selectedCapture,
         latitude: this.currentLat ?? undefined,
@@ -954,14 +997,17 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
     this.todayFormatted = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
   }
 
-  private resolveLocation(): Promise<void> {
-    if (this.selectedCapture !== 'GEOLOCATION') {
+  private resolveLocation(): Promise<boolean> {
+    const requiresLocation = this.selectedCapture === 'GEOLOCATION' || this.selectedCapture === 'FACE';
+    if (!requiresLocation) {
       this.geoStatus = '';
-      return Promise.resolve();
+      return Promise.resolve(true);
     }
     if (!navigator.geolocation) {
       this.geoStatus = 'Geolocation not supported';
-      return Promise.resolve();
+      this.currentLat = null;
+      this.currentLng = null;
+      return Promise.resolve(false);
     }
     this.geoStatus = 'Acquiring location...';
     return new Promise((resolve) => {
@@ -970,13 +1016,13 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
           this.currentLat = pos.coords.latitude;
           this.currentLng = pos.coords.longitude;
           this.geoStatus = `Location: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
-          resolve();
+          resolve(true);
         },
         () => {
           this.geoStatus = 'Location access denied';
           this.currentLat = null;
           this.currentLng = null;
-          resolve();
+          resolve(false);
         },
         { enableHighAccuracy: true, timeout: 10000 },
       );

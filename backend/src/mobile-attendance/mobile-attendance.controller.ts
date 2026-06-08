@@ -21,6 +21,7 @@ import {
   CreateContractorReenrollRequestDto,
   ContractorMobilePunchDto,
   CreateKioskEnrollTicketDto,
+  DeviceFailedScanDto,
   EnrollContractorFaceDto,
   EnrollFaceDto,
   EnrollSelfDto,
@@ -28,6 +29,7 @@ import {
   RegisterMobileDeviceDto,
   CreateReenrollRequestDto,
   ReviewReenrollRequestDto,
+  ReviewKioskEnrollTicketDto,
   SubmitKioskEnrollDto,
 } from './mobile-attendance.dto';
 import { MobileAttendanceService } from './mobile-attendance.service';
@@ -846,7 +848,13 @@ export class MobileAttendanceAdminController {
   listKioskEnrollTickets(
     @CurrentUser() u: ReqUser,
     @Query('status')
-    status?: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED',
+    status?:
+      | 'PENDING'
+      | 'REVIEW_PENDING'
+      | 'COMPLETED'
+      | 'REJECTED'
+      | 'CANCELLED'
+      | 'EXPIRED',
   ) {
     if (!u?.clientId) throw new BadRequestException('Client context required');
     const allowedBranchIds = scopeBranchIds(u);
@@ -872,6 +880,28 @@ export class MobileAttendanceAdminController {
     if (!u?.clientId) throw new BadRequestException('Client context required');
     if (!u?.userId) throw new BadRequestException('User context required');
     return this.svc.cancelKioskEnrollTicket(u.clientId, u.userId, id);
+  }
+
+  @ApiOperation({
+    summary: 'Approve or reject a kiosk-captured face before activating it',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Post('kiosk-enroll/tickets/:id/review')
+  reviewKioskEnrollTicket(
+    @CurrentUser() u: ReqUser,
+    @Param('id') id: string,
+    @Body() body: ReviewKioskEnrollTicketDto,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    if (!u?.userId) throw new BadRequestException('User context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.reviewKioskEnrollTicket(
+      u.clientId,
+      u.userId,
+      allowedBranchIds,
+      id,
+      body,
+    );
   }
 }
 
@@ -906,6 +936,18 @@ export class MobileAttendanceDeviceController {
   ) {
     const dev = await this.svc.resolveDeviceByToken(token, androidId);
     return this.svc.roster(dev);
+  }
+
+  @ApiOperation({
+    summary: 'Pull lightweight device config without roster embeddings',
+  })
+  @Get('config')
+  async config(
+    @Headers('x-device-token') token: string,
+    @Headers('x-android-id') androidId: string,
+  ) {
+    const dev = await this.svc.resolveDeviceByToken(token, androidId);
+    return this.svc.deviceConfig(dev);
   }
 
   @ApiOperation({
@@ -1015,6 +1057,26 @@ export class MobileAttendanceDeviceController {
   ) {
     const dev = await this.svc.resolveDeviceByToken(token, androidId);
     return this.svc.submitKioskEnrollTicket(dev, id, body);
+  }
+
+  @ApiOperation({
+    summary:
+      'Kiosk reports repeated local face failures that never reached punch validation',
+  })
+  @Post('failed-scan')
+  async reportDeviceFailedScan(
+    @Headers('x-device-token') token: string,
+    @Headers('x-android-id') androidId: string,
+    @Headers('user-agent') userAgent: string | undefined,
+    @Req() req: Request,
+    @Body() body: DeviceFailedScanDto,
+  ) {
+    const dev = await this.svc.resolveDeviceByToken(token, androidId);
+    return this.svc.reportDeviceFailedScan(
+      dev,
+      body,
+      deriveMeta(req, userAgent),
+    );
   }
 }
 

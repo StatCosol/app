@@ -20,6 +20,7 @@ import {
   ContractorProfileApiService,
 } from '../../../core/contractor-profile-api.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
   EmptyStateComponent,
   LoadingSpinnerComponent,
@@ -216,7 +217,7 @@ interface BulkPreviewRow {
                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">PF</th>
                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">ESI</th>
                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
+                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[130px]">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
@@ -267,23 +268,44 @@ interface BulkPreviewRow {
                     {{ emp.exitReason | slice:0:24 }}{{ (emp.exitReason.length > 24) ? '…' : '' }}
                   </div>
                 </td>
-                <td class="px-4 py-3 text-right">
-                  <div class="flex items-center justify-end gap-2">
+                <td class="px-4 py-3 text-center min-w-[130px] align-middle">
+                  <div class="mx-auto flex w-[104px] flex-col items-center justify-center gap-2">
+                    <ng-container *ngIf="emp.status === 'PENDING_DELETE'; else availableActions">
+                      <span class="inline-flex min-w-[96px] items-center justify-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 border border-amber-200">
+                        Pending approval
+                      </span>
+                      <button
+                        (click)="openEdit(emp)"
+                        class="inline-flex w-full items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                      >Edit</button>
+                    </ng-container>
+
+                    <ng-template #availableActions>
+                      <button
+                        *ngIf="!emp.isActive"
+                        (click)="doReactivate(emp)"
+                        [disabled]="saving"
+                        class="inline-flex w-full items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50"
+                      >Reactivate</button>
+
                     <button
                       (click)="openEdit(emp)"
-                      class="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+                        class="inline-flex w-full items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
                     >Edit</button>
+
                     <button
                       *ngIf="emp.isActive"
                       (click)="confirmDeactivate(emp)"
-                      class="text-xs font-medium text-red-500 hover:text-red-700 hover:underline"
+                        [disabled]="saving"
+                        class="inline-flex w-full items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100 disabled:opacity-50"
                     >Deactivate</button>
+
                     <button
-                      *ngIf="!emp.isActive"
-                      (click)="doReactivate(emp)"
-                      [disabled]="saving"
-                      class="text-xs font-medium text-emerald-600 hover:text-emerald-800 hover:underline disabled:opacity-50"
-                    >Reactivate</button>
+                      (click)="requestDelete(emp)"
+                        [disabled]="saving"
+                        class="inline-flex w-full items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-50"
+                      >Delete</button>
+                    </ng-template>
                   </div>
                 </td>
               </tr>
@@ -770,6 +792,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     private api: ContractorEmployeesApiService,
     private profileApi: ContractorProfileApiService,
     private toast: ToastService,
+    private dialog: ConfirmDialogService,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -1005,6 +1028,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
   }
 
   statusLabel(emp: ContractorEmployee): string {
+    if (emp.status === 'PENDING_DELETE') return 'Delete pending';
     if (emp.isActive) return 'Active';
     if (emp.status === 'LEFT') return 'Left';
     if (emp.status === 'INACTIVE') return 'Inactive';
@@ -1012,6 +1036,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
   }
 
   statusBadgeClass(emp: ContractorEmployee): string {
+    if (emp.status === 'PENDING_DELETE') return 'bg-red-50 text-red-700 border-red-200';
     if (emp.isActive) return 'bg-green-50 text-green-700 border-green-200';
     if (emp.status === 'LEFT') return 'bg-amber-50 text-amber-800 border-amber-200';
     return 'bg-gray-100 text-gray-500 border-gray-200';
@@ -1044,6 +1069,59 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
   }
 
   // ────────────────────────── Bulk Upload ──────────────────────────
+  async requestDelete(emp: ContractorEmployee): Promise<void> {
+    if (this.saving || emp.status === 'PENDING_DELETE') return;
+    const result = await this.dialog.prompt(
+      'Request Worker Deletion',
+      `Send ${emp.name} deletion request to BranchDesk for approval?`,
+      {
+        defaultValue: 'Worker no longer engaged',
+        placeholder: 'Reason',
+        confirmText: 'Send Request',
+      },
+    );
+    const reason = result.value?.trim();
+    if (!result.confirmed || !reason) return;
+
+    this.saving = true;
+    this.api
+      .requestDelete(emp.id, reason)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.saving = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.allRows = this.allRows.map((row) =>
+            row.id === emp.id ? { ...row, status: 'PENDING_DELETE' } : row,
+          );
+          this.applyFilters();
+          this.toast.success(
+            'Delete request sent',
+            'BranchDesk approval is required before deletion.',
+          );
+        },
+        error: (err: any) => {
+          if (err?.status === 409) {
+            this.allRows = this.allRows.map((row) =>
+              row.id === emp.id ? { ...row, status: 'PENDING_DELETE' } : row,
+            );
+            this.applyFilters();
+            this.load();
+            this.toast.warning(
+              'Delete request already pending',
+              'BranchDesk approval is required before deletion.',
+            );
+            return;
+          }
+          this.toast.error('Error', err?.error?.message || 'Could not send delete request.');
+        },
+      });
+  }
+
   openBulkUpload(): void {
     this.bulkOpen = true;
     this.bulkPreview = [];

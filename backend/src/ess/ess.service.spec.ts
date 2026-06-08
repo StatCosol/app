@@ -98,4 +98,15 @@ describe('EssService', () => {
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
+
+  it('uses India business date/time for today attendance', () => {
+    const businessNow = (service as any).businessNow(
+      new Date('2026-05-28T22:45:12.000Z'),
+    );
+
+    expect(businessNow).toEqual({
+      date: '2026-05-29',
+      time: '04:15:12',
+    });
+  });
 });

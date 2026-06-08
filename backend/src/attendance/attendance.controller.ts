@@ -18,6 +18,7 @@ import {
   EditAttendanceDto,
   ApproveAttendanceDto,
   RejectAttendanceDto,
+  DeleteAttendanceDto,
 } from './attendance.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
@@ -229,5 +230,16 @@ export class AttendanceController {
       user.userId ?? user.id,
       body.reason,
     );
+  }
+
+  @ApiOperation({ summary: 'Delete wrong attendance records' })
+  @Post('delete')
+  deleteRecords(
+    @CurrentUser() user: ReqUser,
+    @Body() body: DeleteAttendanceDto,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.svc.deleteRecords(clientId, body.ids);
   }
 }

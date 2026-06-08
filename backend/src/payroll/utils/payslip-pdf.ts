@@ -214,6 +214,8 @@ export async function generatePayslipPdfBuffer(
       const slEarned = cv['SL_ACCRUED'] ?? 0;
       const plBalance = Math.max(cv['EL_BALANCE'] ?? 0, 0);
       const slBalance = Math.max(cv['SL_BALANCE'] ?? 0, 0);
+      const showSlSummary =
+        slAvailed !== 0 || slEarned !== 0 || slBalance !== 0;
       doc.text('Days Worked:', leftCol, infoY);
       doc.text(String(workedDays), leftCol + infoLabelWidth, infoY);
       doc.text('Payable Days:', rightCol, infoY);
@@ -234,15 +236,20 @@ export async function generatePayslipPdfBuffer(
 
       doc.text('PL Balance:', leftCol, infoY);
       doc.text(String(plBalance), leftCol + infoLabelWidth, infoY);
-      doc.text('SL Availed:', rightCol, infoY);
-      doc.text(String(slAvailed), rightCol + 100, infoY);
+      if (showSlSummary) {
+        doc.text('SL Availed:', rightCol, infoY);
+        doc.text(String(slAvailed), rightCol + 100, infoY);
+      }
       infoY += 18;
 
-      doc.text('SL Earned:', leftCol, infoY);
-      doc.text(String(slEarned), leftCol + infoLabelWidth, infoY);
-      doc.text('SL Balance:', rightCol, infoY);
-      doc.text(String(slBalance), rightCol + 100, infoY);
-      infoY += 24;
+      if (showSlSummary) {
+        doc.text('SL Earned:', leftCol, infoY);
+        doc.text(String(slEarned), leftCol + infoLabelWidth, infoY);
+        doc.text('SL Balance:', rightCol, infoY);
+        doc.text(String(slBalance), rightCol + 100, infoY);
+        infoY += 18;
+      }
+      infoY += 6;
 
       doc.y = infoY;
 

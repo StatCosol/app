@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { AccountsBillingService } from '../services/accounts-billing.service';
 import { Invoice, InvoicePayment, PAYMENT_MODES } from '../models/billing.models';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 
 @Component({
   selector: 'app-billing-invoice-view',
@@ -264,6 +266,8 @@ export class BillingInvoiceViewComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private svc: AccountsBillingService,
+    private dialog: ConfirmDialogService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -292,8 +296,14 @@ export class BillingInvoiceViewComponent implements OnInit {
     });
   }
 
-  cancel(): void {
-    if (!this.invoice || !confirm('Cancel this invoice?')) return;
+  async cancel(): Promise<void> {
+    if (!this.invoice) return;
+    const ok = await this.dialog.confirm(
+      'Cancel Invoice',
+      'Cancel this invoice?',
+      { confirmText: 'Cancel Invoice', variant: 'danger' },
+    );
+    if (!ok) return;
     this.svc.cancelInvoice(this.invoice.id).subscribe((inv) => {
       this.invoice = inv;
     });
@@ -326,7 +336,7 @@ export class BillingInvoiceViewComponent implements OnInit {
       error: (e) => {
         this.generatingPdf = false;
         console.error('[billing] generate PDF failed', e);
-        alert('Failed to generate PDF. ' + (e?.error?.message || e?.message || ''));
+        this.toast.error('Failed to generate PDF. ' + (e?.error?.message || e?.message || ''));
       },
     });
   }

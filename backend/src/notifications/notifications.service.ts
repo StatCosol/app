@@ -1,10 +1,14 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, IsNull, Repository } from 'typeorm';
+import * as fs from 'fs';
+import * as path from 'path';
+import type { Response } from 'express';
 import { NotificationEntity } from './entities/notification.entity';
 import { NotificationMessageEntity } from './entities/notification-message.entity';
 import { NotificationReadEntity } from './entities/notification-read.entity';
@@ -344,6 +348,13 @@ export class NotificationsService {
         m.notification_id AS "notificationId",
         m.message,
         m.created_at AS "createdAt",
+        CASE
+          WHEN m.attachment_path IS NULL OR m.attachment_path = '' THEN '[]'::json
+          ELSE json_build_array(json_build_object(
+            'name', regexp_replace(m.attachment_path, '^.*[\\\\/]', ''),
+            'url', '/api/v1/notifications/messages/' || m.id || '/attachment'
+          ))
+        END AS "attachments",
         json_build_object(
           'id', u.id,
           'name', u.name,
@@ -372,6 +383,54 @@ export class NotificationsService {
       },
       messages,
     };
+  }
+
+  async downloadMessageAttachmentForUser(
+    user: ReqUser,
+    messageId: string,
+    res: Response,
+  ) {
+    const message = await this.messagesRepo.findOne({
+      where: { id: messageId },
+      relations: { notification: true },
+    });
+    if (!message) throw new NotFoundException('Message not found');
+    if (
+      !message.notification ||
+      !this.canAccessThread(user, message.notification)
+    ) {
+      throw new ForbiddenException('Access denied');
+    }
+    if (!message.attachmentPath) {
+      throw new NotFoundException('Attachment not found');
+    }
+
+    const resolved = this.resolveUploadPath(message.attachmentPath);
+    if (!fs.existsSync(resolved)) {
+      throw new NotFoundException('Attachment file not found');
+    }
+
+    return res.download(resolved, path.basename(resolved));
+  }
+
+  private resolveUploadPath(storedPath: string): string {
+    if (
+      /(^|[\\/])\.\.([\\/]|$)/.test(storedPath) ||
+      path.isAbsolute(storedPath)
+    ) {
+      throw new ForbiddenException('Invalid attachment path');
+    }
+
+    const uploadsRoot = path.resolve(process.cwd(), 'uploads');
+    const normalized = storedPath
+      .replace(/^\/+/, '')
+      .replace(/^uploads[\\/]/i, '');
+    const resolved = path.resolve(uploadsRoot, normalized);
+    const rel = path.relative(uploadsRoot, resolved);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+      throw new ForbiddenException('Invalid attachment path');
+    }
+    return resolved;
   }
 
   async replyAsUser(

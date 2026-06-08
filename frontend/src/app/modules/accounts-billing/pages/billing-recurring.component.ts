@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AccountsBillingService } from '../services/accounts-billing.service';
 import { BillingClient, BILLING_FREQUENCIES } from '../models/billing.models';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 interface RecurringConfig {
   id: string;
@@ -199,7 +200,10 @@ export class BillingRecurringComponent implements OnInit {
 
   form: any = this.emptyForm();
 
-  constructor(private svc: AccountsBillingService) {}
+  constructor(
+    private svc: AccountsBillingService,
+    private dialog: ConfirmDialogService,
+  ) {}
 
   ngOnInit() {
     this.load();
@@ -300,8 +304,13 @@ export class BillingRecurringComponent implements OnInit {
     });
   }
 
-  onDelete(r: RecurringConfig) {
-    if (!confirm(`Delete recurring config "${r.invoiceName}"?`)) return;
+  async onDelete(r: RecurringConfig): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Delete Recurring Config',
+      `Delete recurring config "${r.invoiceName}"?`,
+      { confirmText: 'Delete', variant: 'danger' },
+    );
+    if (!ok) return;
     this.svc.deleteRecurringConfig(r.id).subscribe({
       next: () => {
         this.flash('Deleted.');
@@ -311,8 +320,13 @@ export class BillingRecurringComponent implements OnInit {
     });
   }
 
-  runNow() {
-    if (!confirm('Run the recurring invoice job now? This will generate and email invoices for all due active configs.')) return;
+  async runNow(): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Run Recurring Job',
+      'Run the recurring invoice job now? This will generate and email invoices for all due active configs.',
+      { confirmText: 'Run Now' },
+    );
+    if (!ok) return;
     this.running = true;
     this.svc.runRecurringNow().subscribe({
       next: (r: any) => {

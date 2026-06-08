@@ -7,6 +7,7 @@ import android.graphics.ImageFormat
 import android.graphics.Matrix
 import android.graphics.Rect
 import android.graphics.YuvImage
+import android.util.Size
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -15,11 +16,15 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 /**
  * Shared front-camera session. Binds CameraX to a [PreviewView] and forwards
@@ -43,11 +48,13 @@ class FaceCaptureSession(
     private val detector = FaceDetector()
     private val embedder by lazy { FaceEmbedder(context) }
     private val analysisLock = Mutex()
+    @Volatile private var analysisExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     @Volatile private var cameraProvider: ProcessCameraProvider? = null
     @Volatile private var modelMissing = false
     @Volatile private var lastErrorAt: Long = 0
     @Volatile private var lastHintAt: Long = 0
     @Volatile private var lastHintCode: String? = null
+    @Volatile private var stopped = false
 
     /** Emit a hint code (e.g. "hint:too_small") at most once per HINT_INTERVAL_MS,
      *  and never the same code back-to-back, so the kiosk doesn't flicker. */
@@ -60,17 +67,23 @@ class FaceCaptureSession(
     }
 
     fun start() {
+        stopped = false
+        if (analysisExecutor.isShutdown) {
+            analysisExecutor = Executors.newSingleThreadExecutor()
+        }
         val provider = ProcessCameraProvider.getInstance(context)
         provider.addListener({
+            if (stopped) return@addListener
             val cameraProvider = provider.get()
             this.cameraProvider = cameraProvider
             val preview = Preview.Builder().build().also {
                 it.setSurfaceProvider(previewView.surfaceProvider)
             }
             val analyzer = ImageAnalysis.Builder()
+                .setTargetResolution(Size(640, 480))
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
-            analyzer.setAnalyzer(ContextCompat.getMainExecutor(context)) { proxy ->
+            analyzer.setAnalyzer(analysisExecutor) { proxy ->
                 handleFrame(proxy)
             }
             cameraProvider.unbindAll()
@@ -85,30 +98,39 @@ class FaceCaptureSession(
      *  the ESS punch flow can leave a stale binding that fights the next
      *  Activity for the camera. */
     fun stop() {
+        stopped = true
         try {
             cameraProvider?.unbindAll()
         } catch (_: Throwable) { /* best-effort */ }
+        analysisExecutor.shutdown()
         cameraProvider = null
     }
 
     private fun handleFrame(proxy: ImageProxy) {
         val rotation = proxy.imageInfo.rotationDegrees
-        val bitmap = proxy.toBitmap().rotated(rotation)
-        proxy.close()
+        val mediaImage = proxy.image
+        if (mediaImage == null) {
+            proxy.close()
+            return
+        }
 
-        scope.launch {
-            if (!analysisLock.tryLock()) return@launch
+        scope.launch(Dispatchers.Default) {
+            if (!analysisLock.tryLock()) {
+                proxy.close()
+                return@launch
+            }
             try {
                 // Quick luminance gate before running ML Kit. Cheap (avg of
                 // every 64th pixel) so we can fail fast in dark conditions
                 // and tell the user to step into the light.
-                val lum = quickLuminance(bitmap)
+                val lum = quickLuminance(proxy)
                 if (lum < MIN_LUMINANCE) {
                     emitHint("hint:too_dim")
                     return@launch
                 }
 
-                val detection = detector.detectLargest(bitmap, rotationDegrees = 0)
+                val image = InputImage.fromMediaImage(mediaImage, rotation)
+                val detection = detector.detectLargest(image)
                 if (detection == null) {
                     emitHint("hint:no_face")
                     return@launch
@@ -136,16 +158,27 @@ class FaceCaptureSession(
                         headPitchDeg = detection.headPitchDeg,
                     )
                 )
+                if (
+                    kotlin.math.abs(detection.headYawDeg) > MAX_EMBED_YAW_DEG ||
+                    kotlin.math.abs(detection.headPitchDeg) > MAX_EMBED_PITCH_DEG
+                ) {
+                    emitHint("hint:not_straight")
+                    return@launch
+                }
                 // Face area ratio gate. Below MIN_FACE_AREA_RATIO of the
                 // frame the worker is too far away → embeddings are noisy
                 // and matches degrade quickly.
                 val faceBox = detection.face.boundingBox
+                val frameWidth = if (rotation == 90 || rotation == 270) proxy.height else proxy.width
+                val frameHeight = if (rotation == 90 || rotation == 270) proxy.width else proxy.height
                 val areaRatio = (faceBox.width().toDouble() * faceBox.height()) /
-                        (bitmap.width.toDouble() * bitmap.height)
+                        (frameWidth.toDouble() * frameHeight)
                 if (areaRatio < MIN_FACE_AREA_RATIO) {
                     emitHint("hint:too_small")
                     return@launch
                 }
+                val bitmap = proxy.toBitmap().rotated(rotation)
+                val crop = detector.cropFace(bitmap, faceBox)
                 // Clear any stale hint now that we're about to do real work.
                 lastHintCode = null
                 if (modelMissing) {
@@ -159,7 +192,7 @@ class FaceCaptureSession(
                     return@launch
                 }
                 val embedding = try {
-                    embedder.embed(detection.crop)
+                    embedder.embed(crop)
                 } catch (e: java.io.FileNotFoundException) {
                     modelMissing = true
                     lastErrorAt = System.currentTimeMillis()
@@ -177,6 +210,7 @@ class FaceCaptureSession(
                 onFace(embedding, detection.livenessScore)
             } finally {
                 analysisLock.unlock()
+                proxy.close()
             }
         }
     }
@@ -251,22 +285,22 @@ class FaceCaptureSession(
         return nv21
     }
 
-    /** Cheap mean-luma estimate. Samples every 64th pixel of the bitmap and
-     *  computes the BT.601 luma. Good enough as a "is it pitch dark" gate. */
-    private fun quickLuminance(bm: Bitmap): Double {
+    /** Cheap mean-luma estimate from the camera Y plane. Avoids building a
+     *  Bitmap for frames that are too dark to use. */
+    private fun quickLuminance(image: ImageProxy): Double {
+        val plane = image.planes[0]
+        val buffer = plane.buffer
         var sum = 0L
         var n = 0
-        val step = 8
+        val step = 16
         var y = 0
-        while (y < bm.height) {
+        while (y < image.height) {
             var x = 0
-            while (x < bm.width) {
-                val p = bm.getPixel(x, y)
-                val r = (p shr 16) and 0xFF
-                val g = (p shr 8) and 0xFF
-                val b = p and 0xFF
-                // BT.601 luma
-                sum += (0.299 * r + 0.587 * g + 0.114 * b).toLong()
+            while (x < image.width) {
+                val idx = y * plane.rowStride + x * plane.pixelStride
+                if (idx < buffer.limit()) {
+                    sum += buffer.get(idx).toInt() and 0xFF
+                }
                 n++
                 x += step
             }
@@ -287,6 +321,8 @@ class FaceCaptureSession(
         /** Face must occupy at least this fraction of the camera frame
          *  to be considered close enough for a confident embedding. */
         private const val MIN_FACE_AREA_RATIO = 0.06
+        private const val MAX_EMBED_YAW_DEG = 18f
+        private const val MAX_EMBED_PITCH_DEG = 15f
     }
 }
 

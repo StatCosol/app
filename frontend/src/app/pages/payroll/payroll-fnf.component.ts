@@ -20,6 +20,7 @@ import {
 import { ActivatedRoute } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 type FnfLifecycleFilter = 'ALL' | 'INITIATED' | 'UNDER_REVIEW' | 'APPROVED' | 'SETTLED' | 'DOCS_ISSUED' | 'COMPLETED';
 type LifecycleAction = 'UNDER_REVIEW' | 'APPROVED' | 'SETTLED' | 'DOCS_ISSUED' | 'COMPLETED';
@@ -130,6 +131,7 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
   constructor(
     private readonly payrollApi: PayrollApiService,
     private readonly toast: ToastService,
+    private readonly dialog: ConfirmDialogService,
     private readonly cdr: ChangeDetectorRef,
     private readonly route: ActivatedRoute,
   ) {}
@@ -294,16 +296,27 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
 
   onCreateClientChange(): void {
     this.createModel.employeeId = '';
+    this.createModel.separationDate = '';
+    this.createModel.lastWorkingDay = '';
     this.modalEmployees = [];
     if (this.createModel.clientId) {
       this.loadModalEmployees(this.createModel.clientId);
     }
   }
 
+  onCreateEmployeeChange(): void {
+    const emp = this.modalEmployees.find((row) => row.id === this.createModel.employeeId);
+    const exitDate = emp?.dateOfExit || '';
+    if (exitDate) {
+      this.createModel.separationDate = exitDate;
+      this.createModel.lastWorkingDay = exitDate;
+    }
+  }
+
   private loadModalEmployees(clientId: string): void {
     this.modalEmployeesLoading = true;
     this.payrollApi
-      .getEmployees({ clientId, status: 'ACTIVE', limit: 1000 })
+      .getEmployees({ clientId, status: 'EXITED', limit: 1000 })
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -314,7 +327,8 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res) => {
           this.modalEmployees = (res.data || []).slice().sort((a, b) =>
-            (a.employeeCode || '').localeCompare(b.employeeCode || ''),
+            (a.dateOfExit || '').localeCompare(b.dateOfExit || '') ||
+              (a.employeeCode || '').localeCompare(b.employeeCode || ''),
           );
         },
         error: () => {
@@ -588,8 +602,13 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
     { value: 'NO_DUES_CERTIFICATE', label: 'No Dues Certificate' },
   ];
 
-  deleteFnfDoc(doc: any): void {
-    if (!confirm('Remove this document permanently?')) return;
+  async deleteFnfDoc(doc: any): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Remove Document',
+      'Remove this document permanently?',
+      { variant: 'danger', confirmText: 'Remove' },
+    );
+    if (!ok) return;
     this.payrollApi
       .deleteFnfDocument(doc.id)
       .pipe(takeUntil(this.destroy$))

@@ -118,15 +118,32 @@ describe('MobileAttendanceService.resolveDeviceByToken (androidId binding)', () 
       transaction: jest.fn(async (fn: any) => fn(mgr)),
     };
     return new MobileAttendanceService(
-      {} as any, {} as any, {} as any, {} as any, {} as any,
-      {} as any, {} as any, {} as any, {} as any, {} as any,
-      {} as any, {} as any, {} as any, {} as any, {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
       ds,
     );
   };
 
-  it('claims androidId on first use when row is unbound', async () => {
-    const row: any = { id: 'd1', isActive: true, androidId: null };
+  it('claims androidId on first use when row is unbound and fresh', async () => {
+    const row: any = {
+      id: 'd1',
+      isActive: true,
+      androidId: null,
+      registeredAt: new Date(),
+    };
     const save = jest.fn(async (_e: any, v: any) => v);
     const svc = makeService(row, save);
     const out = await svc.resolveDeviceByToken('tok', 'android-xyz');
@@ -137,9 +154,9 @@ describe('MobileAttendanceService.resolveDeviceByToken (androidId binding)', () 
   it('accepts when supplied androidId matches the bound value', async () => {
     const row: any = { id: 'd1', isActive: true, androidId: 'android-xyz' };
     const svc = makeService(row);
-    await expect(
-      svc.resolveDeviceByToken('tok', 'android-xyz'),
-    ).resolves.toBe(row);
+    await expect(svc.resolveDeviceByToken('tok', 'android-xyz')).resolves.toBe(
+      row,
+    );
   });
 
   it('rejects when supplied androidId differs from the bound value', async () => {
@@ -150,7 +167,7 @@ describe('MobileAttendanceService.resolveDeviceByToken (androidId binding)', () 
     ).rejects.toThrow(/already activated/i);
   });
 
-  it('rejects when header is missing but row has a bound androidId (H4)', async () => {
+  it('rejects when header is missing', async () => {
     const row: any = { id: 'd1', isActive: true, androidId: 'android-xyz' };
     const svc = makeService(row);
     await expect(svc.resolveDeviceByToken('tok', '')).rejects.toThrow(
@@ -161,10 +178,38 @@ describe('MobileAttendanceService.resolveDeviceByToken (androidId binding)', () 
     );
   });
 
-  it('allows missing header when row has no bound androidId yet', async () => {
+  it('rejects missing header even when row is not bound yet', async () => {
     const row: any = { id: 'd1', isActive: true, androidId: null };
     const svc = makeService(row);
-    await expect(svc.resolveDeviceByToken('tok', '')).resolves.toBe(row);
+    await expect(svc.resolveDeviceByToken('tok', '')).rejects.toThrow(
+      /header missing/i,
+    );
+  });
+
+  it('rejects stale unbound install codes', async () => {
+    const row: any = {
+      id: 'd1',
+      isActive: true,
+      androidId: null,
+      registeredAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+    };
+    const svc = makeService(row);
+    await expect(
+      svc.resolveDeviceByToken('tok', 'android-xyz'),
+    ).rejects.toThrow(/expired before activation/i);
+  });
+
+  it('allows an old code when it is already bound to the same device', async () => {
+    const row: any = {
+      id: 'd1',
+      isActive: true,
+      androidId: 'android-xyz',
+      registeredAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+    };
+    const svc = makeService(row);
+    await expect(svc.resolveDeviceByToken('tok', 'android-xyz')).resolves.toBe(
+      row,
+    );
   });
 
   it('throws Unauthorized on revoked (isActive=false) device', async () => {
@@ -183,3 +228,38 @@ describe('MobileAttendanceService.resolveDeviceByToken (androidId binding)', () 
   });
 });
 
+describe('MobileAttendanceService post-logout cooldown direction handling', () => {
+  const makeService = () =>
+    new MobileAttendanceService(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    ) as any;
+
+  it('treats explicit OUT as a logout regardless of same-day prior punches', () => {
+    expect(makeService().isLogoutCooldownViolation('OUT', 0)).toBe(true);
+  });
+
+  it('treats AUTO as logout only when it is not the first same-day punch', () => {
+    const svc = makeService();
+    expect(svc.isLogoutCooldownViolation('AUTO', 0)).toBe(false);
+    expect(svc.isLogoutCooldownViolation('AUTO', 1)).toBe(true);
+  });
+
+  it('does not treat explicit IN as logout', () => {
+    expect(makeService().isLogoutCooldownViolation('IN', 3)).toBe(false);
+  });
+});

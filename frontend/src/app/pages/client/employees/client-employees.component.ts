@@ -89,9 +89,9 @@ import {
           (ngModelChange)="onSearch()">
         </ui-form-input>
         <ui-form-select
-          label="Status"
-          [options]="statusOptions"
-          [(ngModel)]="activeFilter"
+          label="Employment"
+          [options]="employmentOptions"
+          [(ngModel)]="employmentFilter"
           (ngModelChange)="load()">
         </ui-form-select>
         <ui-form-select
@@ -127,7 +127,7 @@ import {
 
       <!-- Total Badge -->
       <div *ngIf="!loading && !error && employees.length > 0" class="total-badge">
-        {{ total }} employee{{ total !== 1 ? 's' : '' }}
+        {{ total }} {{ currentListLabel.toLowerCase() }}{{ total !== 1 ? 's' : '' }}
       </div>
 
       <!-- Employee Table -->
@@ -163,7 +163,10 @@ import {
         </ng-template>
 
         <ng-template uiTableCell="status" let-row>
-          <ui-status-badge [status]="row.isActive ? 'ACTIVE' : 'INACTIVE'"></ui-status-badge>
+          <ui-status-badge [status]="row.dateOfExit ? 'EXITED' : (row.isActive ? 'ACTIVE' : 'INACTIVE')"></ui-status-badge>
+          <div *ngIf="row.dateOfExit" class="text-[10px] text-gray-400 mt-1">
+            {{ row.dateOfExit | date:'dd/MM/yyyy' }}
+          </div>
         </ng-template>
 
         <ng-template uiTableCell="approval" let-row>
@@ -191,11 +194,11 @@ import {
               Reject
             </button>
             <button
-              *ngIf="row.isActive && row.approvalStatus !== 'PENDING'"
+              *ngIf="row.isActive && !row.dateOfExit && row.approvalStatus !== 'PENDING'"
               class="employee-action text-red-600 hover:underline"
-              title="Deactivate employee"
+              title="Mark employee exit"
               (click)="$event.stopPropagation(); confirmDeactivate(row)">
-              Deactivate
+              Mark Exit
             </button>
           </div>
         </ng-template>
@@ -269,7 +272,7 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
   loading = false;
   error = '';
   searchTerm = '';
-  activeFilter = '';
+  employmentFilter = 'ACTIVE';
 
   columns: TableColumn[] = [
     { key: 'name', header: 'Employee', sortable: true, width: '220px' },
@@ -281,10 +284,11 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
     { key: 'actions', header: 'Actions', width: '230px', align: 'center' },
   ];
 
-  statusOptions = [
+  employmentOptions = [
+    { label: 'Active', value: 'ACTIVE' },
+    { label: 'Exited', value: 'EXITED' },
+    { label: 'Inactive', value: 'INACTIVE' },
     { label: 'All', value: '' },
-    { label: 'Active', value: 'true' },
-    { label: 'Inactive', value: 'false' },
   ];
 
   approvalOptions = [
@@ -334,7 +338,7 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
     this.svc
       .list({
         search: this.searchTerm || undefined,
-        isActive: this.activeFilter || undefined,
+        employmentStatus: this.employmentFilter || undefined,
         approvalStatus: this.approvalFilter || undefined,
       })
       .pipe(takeUntil(this.destroy$), finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
@@ -371,30 +375,58 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
   }
 
   async confirmDeactivate(emp: Employee): Promise<void> {
-    const result = await this.dialog.prompt('Exit Employee', `Exit ${emp.name}? Please provide a reason:`, {
-      placeholder: 'e.g. Resignation, Termination, Contract End...',
+    const dateResult = await this.dialog.prompt('Mark Employee Exit', `Enter exit date for ${emp.name}:`, {
+      placeholder: 'YYYY-MM-DD',
+      defaultValue: this.todayIsoDate(),
+      confirmText: 'Next',
+    });
+    if (!dateResult.confirmed) return;
+    const dateOfExit = (dateResult.value || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfExit)) {
+      this.toast.error('Exit date must be in YYYY-MM-DD format');
+      return;
+    }
+
+    const result = await this.dialog.prompt('Exit Reason', `Enter reason for exiting ${emp.name}:`, {
+      placeholder: 'e.g. Resignation, Termination, Contract End',
       confirmText: 'Confirm Exit',
     });
     if (!result.confirmed || !result.value?.trim()) {
       if (result.confirmed) this.toast.error('Exit reason is required');
       return;
     }
-    this.svc.deactivate(emp.id, { exitReason: result.value.trim() }).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => { this.toast.success('Employee exited'); this.load(); },
-      error: (e) => this.toast.error(e?.error?.message || 'Failed to deactivate'),
+    this.svc.markExit(emp.id, { dateOfExit, exitReason: result.value.trim() }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => { this.toast.success('Employee exit marked'); this.load(); },
+      error: (e) => this.toast.error(e?.error?.message || 'Failed to mark exit'),
     });
   }
 
-  approveEmployee(emp: Employee): void {
-    if (!confirm(`Approve registration of ${emp.name}?`)) return;
+  private todayIsoDate(): string {
+    const now = new Date();
+    const tzOffsetMs = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - tzOffsetMs).toISOString().slice(0, 10);
+  }
+
+  async approveEmployee(emp: Employee): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Approve Registration',
+      `Approve registration of ${emp.name}?`,
+      { confirmText: 'Approve' },
+    );
+    if (!ok) return;
     this.svc.approve(emp.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.toast.success('Employee approved'); this.load(); },
       error: (e) => this.toast.error(e?.error?.message || 'Failed to approve'),
     });
   }
 
-  rejectEmployee(emp: Employee): void {
-    if (!confirm(`Reject registration of ${emp.name}? The employee will be deactivated.`)) return;
+  async rejectEmployee(emp: Employee): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Reject Registration',
+      `Reject registration of ${emp.name}? The employee will be deactivated.`,
+      { variant: 'danger', confirmText: 'Reject' },
+    );
+    if (!ok) return;
     this.svc.reject(emp.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.toast.success('Employee rejected'); this.load(); },
       error: (e) => this.toast.error(e?.error?.message || 'Failed to reject'),
@@ -493,7 +525,7 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
   downloadEmployees(): void {
     const params = new URLSearchParams();
     if (this.searchTerm) params.set('search', this.searchTerm);
-    if (this.activeFilter) params.set('isActive', this.activeFilter);
+    if (this.employmentFilter) params.set('employmentStatus', this.employmentFilter);
     if (this.approvalFilter) params.set('approvalStatus', this.approvalFilter);
     const qs = params.toString();
     this.http.get(`${environment.apiBaseUrl}/api/v1/client/employees/export${qs ? '?' + qs : ''}`, {
@@ -527,5 +559,12 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
       },
       error: () => this.toast.error('Failed to download appointment letters'),
     });
+  }
+
+  get currentListLabel(): string {
+    if (this.employmentFilter === 'EXITED') return 'Exited employee';
+    if (this.employmentFilter === 'INACTIVE') return 'Inactive employee';
+    if (this.employmentFilter === 'ACTIVE') return 'Active employee';
+    return 'Employee';
   }
 }

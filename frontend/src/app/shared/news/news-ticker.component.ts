@@ -9,7 +9,7 @@ import { Subject, takeUntil } from 'rxjs';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div *ngIf="newsItems.length" class="news-ticker-bar">
+    <div class="news-ticker-bar">
       <div class="ticker-label" (click)="openAllNews()" style="cursor:pointer">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -21,7 +21,7 @@ import { Subject, takeUntil } from 'rxjs';
         </svg>
       </div>
       <div class="ticker-track">
-        <div class="ticker-scroll" [style.animation-duration]="scrollDuration">
+        <div *ngIf="newsItems.length; else tickerPlaceholder" class="ticker-scroll" [style.animation-duration]="scrollDuration">
           <ng-container *ngFor="let item of doubledItems; let i = index">
             <span
               class="ticker-item"
@@ -30,9 +30,14 @@ import { Subject, takeUntil } from 'rxjs';
             >
               {{ item.title }}
             </span>
-            <span class="ticker-separator">•</span>
+            <span class="ticker-separator">&bull;</span>
           </ng-container>
         </div>
+        <ng-template #tickerPlaceholder>
+          <span class="ticker-placeholder">
+            {{ loading ? 'Loading latest news...' : loadFailed ? 'Latest news temporarily unavailable' : 'No active news' }}
+          </span>
+        </ng-template>
       </div>
     </div>
   `,
@@ -66,11 +71,13 @@ import { Subject, takeUntil } from 'rxjs';
       flex: 1;
       overflow: hidden;
       position: relative;
+      height: 100%;
     }
 
     .ticker-scroll {
       display: inline-flex;
       align-items: center;
+      height: 100%;
       white-space: nowrap;
       animation: ticker-move linear infinite;
     }
@@ -80,9 +87,19 @@ import { Subject, takeUntil } from 'rxjs';
       padding: 0 8px;
       transition: color 0.2s;
     }
+
     .ticker-item:hover {
       color: #60a5fa;
       text-decoration: underline;
+    }
+
+    .ticker-placeholder {
+      display: inline-flex;
+      align-items: center;
+      height: 100%;
+      padding: 0 12px;
+      color: rgba(255,255,255,0.78);
+      font-weight: 500;
     }
 
     .ticker-separator {
@@ -94,12 +111,14 @@ import { Subject, takeUntil } from 'rxjs';
       0%   { transform: translateX(0); }
       100% { transform: translateX(-50%); }
     }
-  `]
+  `],
 })
 export class NewsTickerComponent implements OnInit, OnDestroy {
   newsItems: NewsItem[] = [];
   doubledItems: NewsItem[] = [];
   scrollDuration = '20s';
+  loading = true;
+  loadFailed = false;
 
   private destroy$ = new Subject<void>();
 
@@ -113,33 +132,42 @@ export class NewsTickerComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (items) => {
+          this.loading = false;
+          this.loadFailed = false;
           this.newsItems = items;
-          // Double the items so the scroll loops seamlessly
           this.doubledItems = [...items, ...items];
-          // Scale duration by number of items (approx 5s per item)
           this.scrollDuration = Math.max(10, items.length * 5) + 's';
+        },
+        error: () => {
+          this.loading = false;
+          this.loadFailed = true;
+          this.newsItems = [];
+          this.doubledItems = [];
         },
       });
   }
 
   openNews(item: NewsItem): void {
-    // Navigate to news detail within the current portal
-    const url = this.router.url;
-    let portalBase = '/';
-    if (url.startsWith('/contractor')) portalBase = '/contractor';
-    else if (url.startsWith('/client')) portalBase = '/client';
-    else if (url.startsWith('/branch')) portalBase = '/branch';
-
+    const portalBase = this.portalBase();
     this.router.navigate([portalBase, 'news', item.id]);
   }
 
   openAllNews(): void {
-    const url = this.router.url;
-    let portalBase = '/';
-    if (url.startsWith('/contractor')) portalBase = '/contractor';
-    else if (url.startsWith('/client')) portalBase = '/client';
-    else if (url.startsWith('/branch')) portalBase = '/branch';
+    const portalBase = this.portalBase();
     this.router.navigate([portalBase, 'news']);
+  }
+
+  private portalBase(): string {
+    const url = this.router.url;
+    if (url.startsWith('/contractor')) return '/contractor';
+    if (url.startsWith('/client')) return '/client';
+    if (url.startsWith('/branch')) return '/branch';
+    if (url.startsWith('/crm')) return '/crm';
+    if (url.startsWith('/cco')) return '/cco';
+    if (url.startsWith('/ceo')) return '/ceo';
+    if (url.startsWith('/auditor')) return '/auditor';
+    if (url.startsWith('/admin')) return '/admin';
+    return '/';
   }
 
   ngOnDestroy(): void {

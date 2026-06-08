@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { ContractorEmployeeEntity } from './entities/contractor-employee.entity';
 import { MinimumWageService } from './minimum-wage.service';
 import { UserEntity } from '../../users/entities/user.entity';
@@ -18,7 +18,7 @@ const SKILL_CATEGORIES = [
 ] as const;
 type SkillCategory = (typeof SKILL_CATEGORIES)[number];
 
-const STATUSES = ['ACTIVE', 'LEFT', 'INACTIVE'] as const;
+const STATUSES = ['ACTIVE', 'LEFT', 'INACTIVE', 'PENDING_DELETE'] as const;
 type EmployeeStatus = (typeof STATUSES)[number];
 
 function normalizeSkill(value: any): SkillCategory | null {
@@ -64,6 +64,7 @@ export class ContractorEmployeesService {
     private readonly userRepo: Repository<UserEntity>,
     @InjectRepository(BranchContractorEntity)
     private readonly branchContractorRepo: Repository<BranchContractorEntity>,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -374,6 +375,11 @@ export class ContractorEmployeesService {
     exitReason?: string,
   ): Promise<ContractorEmployeeEntity> {
     const emp = await this.findById(id, contractorUserId);
+    if (emp.status === 'PENDING_DELETE') {
+      throw new BadRequestException(
+        'Delete request is pending branch approval',
+      );
+    }
     emp.isActive = false;
     emp.status = 'LEFT';
     emp.dateOfExit = new Date().toISOString().split('T')[0];
@@ -387,6 +393,11 @@ export class ContractorEmployeesService {
     contractorUserId: string,
   ): Promise<ContractorEmployeeEntity> {
     const emp = await this.findById(id, contractorUserId);
+    if (emp.status === 'PENDING_DELETE') {
+      throw new BadRequestException(
+        'Delete request is pending branch approval',
+      );
+    }
     emp.isActive = true;
     emp.status = 'ACTIVE';
     emp.dateOfExit = null;
@@ -409,5 +420,353 @@ export class ContractorEmployeesService {
       [clientId, branchId],
     );
     return row?.[0] || { total: 0, male: 0, female: 0 };
+  }
+
+  async requestDelete(
+    id: string,
+    contractorUserId: string,
+    reason?: string,
+  ): Promise<{ message: string; requestId: string; status: string }> {
+    const emp = await this.findById(id, contractorUserId);
+    if (emp.status === 'PENDING_DELETE') {
+      const existing = await this.findPendingDeleteRequest(id);
+      if (existing) {
+        return {
+          message: 'Delete request already pending branch approval',
+          requestId: existing.id,
+          status: existing.status,
+        };
+      }
+    }
+
+    const existing = await this.findPendingDeleteRequest(id);
+    if (existing) {
+      emp.status = 'PENDING_DELETE';
+      await this.repo.save(emp);
+      return {
+        message: 'Delete request already pending branch approval',
+        requestId: existing.id,
+        status: existing.status,
+      };
+    }
+
+    let rows: Array<{ id: string; status: string }>;
+    try {
+      rows = await this.dataSource.query(
+        `INSERT INTO approval_requests
+           (request_type, requester_user_id, target_entity_id, target_entity_type, reason, status, created_at, updated_at)
+         VALUES
+           ('DELETE_CONTRACTOR_EMPLOYEE', $1, $2, 'CONTRACTOR_EMPLOYEE', $3, 'PENDING', NOW(), NOW())
+         RETURNING id::text, status`,
+        [
+          contractorUserId,
+          id,
+          reason?.trim() || `Contractor requested deletion of ${emp.name}`,
+        ],
+      );
+    } catch (err: any) {
+      if (err?.code !== '23505') throw err;
+      const latest = await this.findLatestDeleteRequest(id);
+      if (latest?.id) {
+        await this.dataSource.query(
+          `UPDATE approval_requests
+              SET status = 'PENDING',
+                  requester_user_id = $2,
+                  reason = $3,
+                  approver_user_id = NULL,
+                  approver_notes = NULL,
+                  approved_at = NULL,
+                  updated_at = NOW()
+            WHERE id = $1::uuid`,
+          [
+            latest.id,
+            contractorUserId,
+            reason?.trim() || `Contractor requested deletion of ${emp.name}`,
+          ],
+        );
+      }
+      emp.status = 'PENDING_DELETE';
+      await this.repo.save(emp);
+      return {
+        message: 'Delete request already pending branch approval',
+        requestId: latest?.id || '',
+        status: 'PENDING',
+      };
+    }
+
+    emp.status = 'PENDING_DELETE';
+    await this.repo.save(emp);
+
+    return {
+      message: 'Delete request submitted for branch approval',
+      requestId: rows?.[0]?.id,
+      status: rows?.[0]?.status || 'PENDING',
+    };
+  }
+
+  async listPendingDeleteRequests(
+    clientId: string,
+    allowedBranchIds: string[] | 'ALL',
+  ): Promise<
+    Array<{
+      id: string;
+      contractorEmployeeId: string;
+      contractorEmployeeName: string;
+      contractorUserId: string;
+      contractorName: string | null;
+      branchId: string;
+      reason: string | null;
+      status: string;
+      createdAt: string;
+    }>
+  > {
+    await this.repairMissingPendingDeleteRequests(clientId);
+
+    const params: any[] = [clientId];
+    let branchSql = '';
+    if (allowedBranchIds !== 'ALL') {
+      if (!allowedBranchIds.length) return [];
+      params.push(allowedBranchIds);
+      branchSql = ` AND ce.branch_id = ANY($${params.length}::uuid[])`;
+    }
+    return this.dataSource.query(
+      `SELECT
+          ar.id::text AS "id",
+          ce.id::text AS "contractorEmployeeId",
+          ce.name AS "contractorEmployeeName",
+          ce.contractor_user_id::text AS "contractorUserId",
+          u.name AS "contractorName",
+          ce.branch_id::text AS "branchId",
+          ar.reason AS "reason",
+          ar.status AS "status",
+          ar.created_at AS "createdAt"
+       FROM approval_requests ar
+       JOIN contractor_employees ce ON ce.id = ar.target_entity_id
+       LEFT JOIN users u ON u.id = ce.contractor_user_id
+       WHERE ar.request_type = 'DELETE_CONTRACTOR_EMPLOYEE'
+         AND ar.target_entity_type = 'CONTRACTOR_EMPLOYEE'
+         AND ar.status = 'PENDING'
+         AND ce.client_id = $1
+         ${branchSql}
+       ORDER BY ar.created_at DESC`,
+      params,
+    );
+  }
+
+  async reviewDeleteRequest(
+    clientId: string,
+    requestId: string,
+    reviewerUserId: string,
+    decision: 'APPROVED' | 'REJECTED',
+    notes: string | null,
+    allowedBranchIds: string[] | 'ALL',
+  ): Promise<{ ok: true; status: string }> {
+    if (!['APPROVED', 'REJECTED'].includes(decision)) {
+      throw new BadRequestException('Decision must be APPROVED or REJECTED');
+    }
+
+    return this.dataSource.transaction(async (mgr) => {
+      const rows = await mgr.query(
+        `SELECT
+            ar.id::text AS id,
+            ar.status,
+            ar.reason,
+            ce.id::text AS contractor_employee_id,
+            ce.branch_id::text AS branch_id,
+            ce.name
+         FROM approval_requests ar
+         JOIN contractor_employees ce ON ce.id = ar.target_entity_id
+         WHERE ar.id = $1::uuid
+           AND ar.request_type = 'DELETE_CONTRACTOR_EMPLOYEE'
+           AND ar.target_entity_type = 'CONTRACTOR_EMPLOYEE'
+           AND ce.client_id = $2
+         FOR UPDATE`,
+        [requestId, clientId],
+      );
+      const req = rows?.[0];
+      if (!req) throw new NotFoundException('Delete request not found');
+      if (req.status !== 'PENDING') {
+        throw new BadRequestException(`Request is already ${req.status}`);
+      }
+      if (
+        allowedBranchIds !== 'ALL' &&
+        !allowedBranchIds.includes(req.branch_id)
+      ) {
+        throw new BadRequestException('Request is outside your branch scope');
+      }
+
+      if (decision === 'REJECTED') {
+        await mgr.query(
+          `UPDATE approval_requests
+              SET status = 'REJECTED',
+                  approver_user_id = $2,
+                  approver_notes = $3,
+                  approved_at = NOW(),
+                  updated_at = NOW()
+            WHERE id = $1::uuid`,
+          [requestId, reviewerUserId, notes],
+        );
+        await mgr.query(
+          `UPDATE contractor_employees
+              SET status = CASE WHEN is_active THEN 'ACTIVE' ELSE 'INACTIVE' END,
+                  updated_at = NOW()
+            WHERE id = $1::uuid
+              AND status = 'PENDING_DELETE'`,
+          [req.contractor_employee_id],
+        );
+        return { ok: true as const, status: 'REJECTED' };
+      }
+
+      await mgr.query(
+        `UPDATE contractor_face_enrollments
+            SET is_active = false, updated_at = NOW()
+          WHERE contractor_employee_id = $1::uuid`,
+        [req.contractor_employee_id],
+      );
+      await mgr.query(
+        `UPDATE contractor_face_reenrollment_requests
+            SET status = 'CANCELLED',
+                reviewed_by = $2,
+                reviewed_at = NOW(),
+                review_notes = COALESCE(review_notes, $3)
+          WHERE contractor_employee_id = $1::uuid
+            AND status = 'PENDING'`,
+        [
+          req.contractor_employee_id,
+          reviewerUserId,
+          'Cancelled after worker deletion',
+        ],
+      );
+      await mgr.query(
+        `UPDATE kiosk_enroll_tickets
+            SET status = 'CANCELLED',
+                cancelled_at = NOW(),
+                cancelled_by = $2,
+                reviewed_at = COALESCE(reviewed_at, NOW()),
+                reviewed_by = COALESCE(reviewed_by, $2),
+                notes = COALESCE(notes, $3)
+          WHERE contractor_employee_id = $1::uuid
+            AND status IN ('PENDING', 'REVIEW_PENDING')`,
+        [
+          req.contractor_employee_id,
+          reviewerUserId,
+          'Cancelled after worker deletion',
+        ],
+      );
+      await mgr.query(
+        `UPDATE contractor_employees
+            SET is_active = false,
+                status = 'INACTIVE',
+                date_of_exit = COALESCE(date_of_exit, CURRENT_DATE),
+                exit_reason = COALESCE($2, reason.reason, 'Deleted after branch approval'),
+                updated_at = NOW()
+           FROM (SELECT reason FROM approval_requests WHERE id = $3::uuid) reason
+          WHERE contractor_employees.id = $1::uuid`,
+        [req.contractor_employee_id, notes, requestId],
+      );
+      await mgr.query(
+        `UPDATE approval_requests
+            SET status = 'APPROVED',
+                approver_user_id = $2,
+                approver_notes = $3,
+                approved_at = NOW(),
+                updated_at = NOW()
+          WHERE id = $1::uuid`,
+        [requestId, reviewerUserId, notes],
+      );
+      return { ok: true as const, status: 'APPROVED' };
+    });
+  }
+
+  private async findPendingDeleteRequest(
+    contractorEmployeeId: string,
+  ): Promise<{ id: string; status: string } | null> {
+    const rows = await this.dataSource.query(
+      `SELECT id::text, status
+         FROM approval_requests
+        WHERE request_type = 'DELETE_CONTRACTOR_EMPLOYEE'
+          AND target_entity_type = 'CONTRACTOR_EMPLOYEE'
+          AND target_entity_id = $1::uuid
+          AND status = 'PENDING'
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [contractorEmployeeId],
+    );
+    return rows?.[0] ?? null;
+  }
+
+  private async findLatestDeleteRequest(
+    contractorEmployeeId: string,
+  ): Promise<{ id: string; status: string } | null> {
+    const rows = await this.dataSource.query(
+      `SELECT id::text, status
+         FROM approval_requests
+        WHERE request_type = 'DELETE_CONTRACTOR_EMPLOYEE'
+          AND target_entity_type = 'CONTRACTOR_EMPLOYEE'
+          AND target_entity_id = $1::uuid
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [contractorEmployeeId],
+    );
+    return rows?.[0] ?? null;
+  }
+
+  private async repairMissingPendingDeleteRequests(clientId: string) {
+    await this.dataSource.query(
+      `WITH stale AS (
+         SELECT
+           ce.id AS employee_id,
+           ce.contractor_user_id,
+           ce.name,
+           latest.id AS latest_request_id
+         FROM contractor_employees ce
+         LEFT JOIN LATERAL (
+           SELECT ar.id
+             FROM approval_requests ar
+            WHERE ar.request_type = 'DELETE_CONTRACTOR_EMPLOYEE'
+              AND ar.target_entity_type = 'CONTRACTOR_EMPLOYEE'
+              AND ar.target_entity_id = ce.id
+            ORDER BY ar.created_at DESC
+            LIMIT 1
+         ) latest ON TRUE
+         WHERE ce.client_id = $1
+           AND ce.status = 'PENDING_DELETE'
+           AND NOT EXISTS (
+             SELECT 1
+               FROM approval_requests pending
+              WHERE pending.request_type = 'DELETE_CONTRACTOR_EMPLOYEE'
+                AND pending.target_entity_type = 'CONTRACTOR_EMPLOYEE'
+                AND pending.target_entity_id = ce.id
+                AND pending.status = 'PENDING'
+           )
+       ),
+       reopened AS (
+         UPDATE approval_requests ar
+            SET status = 'PENDING',
+                requester_user_id = stale.contractor_user_id,
+                reason = COALESCE(ar.reason, 'Contractor requested deletion of ' || stale.name),
+                approver_user_id = NULL,
+                approver_notes = NULL,
+                approved_at = NULL,
+                updated_at = NOW()
+           FROM stale
+          WHERE ar.id = stale.latest_request_id
+          RETURNING stale.employee_id
+       )
+       INSERT INTO approval_requests
+         (request_type, requester_user_id, target_entity_id, target_entity_type, reason, status, created_at, updated_at)
+       SELECT
+         'DELETE_CONTRACTOR_EMPLOYEE',
+         stale.contractor_user_id,
+         stale.employee_id,
+         'CONTRACTOR_EMPLOYEE',
+         'Contractor requested deletion of ' || stale.name,
+         'PENDING',
+         NOW(),
+         NOW()
+       FROM stale
+       WHERE stale.latest_request_id IS NULL`,
+      [clientId],
+    );
   }
 }

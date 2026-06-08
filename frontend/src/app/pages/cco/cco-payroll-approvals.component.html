@@ -2,21 +2,49 @@
   <header class="page-head">
     <div>
       <p class="eyebrow">Governance Review</p>
-      <h1>Payroll Structure Approvals</h1>
-      <p class="muted">Review payroll salary structures submitted by Payroll managers and approve or reject them.</p>
+      <h1>Payroll Approvals</h1>
+      <p class="muted">Approve submitted payroll runs and review salary structures.</p>
     </div>
     <div class="head-controls">
       <label>
+        Queue
+        <select [(ngModel)]="mode" (change)="setMode(mode)">
+          <option value="RUNS">Payroll Runs</option>
+          <option value="STRUCTURES">Salary Structures</option>
+        </select>
+      </label>
+      <label *ngIf="mode === 'RUNS'">
+        Status
+        <select [(ngModel)]="runStatusFilter" (change)="loadRuns()">
+          <option *ngFor="let s of runStatusOptions" [value]="s">{{ s }}</option>
+        </select>
+      </label>
+      <label *ngIf="mode === 'STRUCTURES'">
         Status
         <select [(ngModel)]="statusFilter" (change)="load()">
           <option *ngFor="let s of statusOptions" [value]="s">{{ s }}</option>
         </select>
       </label>
-      <button type="button" class="btn btn-secondary" (click)="load()" [disabled]="loading">Refresh</button>
+      <button type="button" class="btn btn-secondary" (click)="refresh()" [disabled]="runsLoading || loading">Refresh</button>
     </div>
   </header>
 
-  <div class="summary-strip">
+  <div class="summary-strip" *ngIf="mode === 'RUNS'">
+    <div class="summary-card summary-card--pending">
+      <span class="summary-value">{{ runs.length }}</span>
+      <span class="summary-label">{{ runStatusFilter }} runs</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-value">{{ selectedRun ? '1' : '0' }}</span>
+      <span class="summary-label">Selected</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-value">{{ selectedRun?.employeeCount || 0 }}</span>
+      <span class="summary-label">Employees</span>
+    </div>
+  </div>
+
+  <div class="summary-strip" *ngIf="mode === 'STRUCTURES'">
     <div class="summary-card summary-card--pending">
       <span class="summary-value">{{ structures.length }}</span>
       <span class="summary-label">{{ statusFilter }} queue</span>
@@ -31,9 +59,93 @@
     </div>
   </div>
 
-  <div *ngIf="loading" class="loader">Loading...</div>
+  <div *ngIf="mode === 'RUNS' && runsLoading" class="loader">Loading payroll runs...</div>
+  <section *ngIf="mode === 'RUNS' && !runsLoading" class="grid" [class.grid--with-detail]="selectedRun">
+    <article class="card list-pane">
+      <header class="section-head">
+        <div>
+          <h2>{{ runStatusFilter }} payroll runs</h2>
+          <p>Payroll runs submitted for CCO maker-checker approval</p>
+        </div>
+        <span>{{ runs.length }} rows</span>
+      </header>
 
-  <section *ngIf="!loading" class="grid">
+      <div *ngIf="!runs.length" class="empty-state">
+        <div class="empty-icon">OK</div>
+        <h3>No payroll runs match</h3>
+        <p>Submitted runs from payroll will appear here for CCO approval.</p>
+      </div>
+
+      <div *ngIf="runs.length" class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Period</th>
+              <th>Employees</th>
+              <th>Submitted</th>
+              <th>Status</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let row of runs; trackBy: trackRun"
+              [class.selected]="selectedRun?.id === row.id"
+              (click)="selectRun(row)">
+              <td>
+                <div class="strong">{{ runClientLabel(row) }}</div>
+                <div class="minor mono">{{ row.clientId.slice(0, 8) }}...</div>
+              </td>
+              <td>
+                <div class="strong">{{ periodLabel(row) }}</div>
+                <div class="minor mono">{{ row.id.slice(0, 8) }}...</div>
+              </td>
+              <td class="mono">{{ row.employeeCount }}</td>
+              <td>{{ formatDateTime(row.submittedAt || row.createdAt) }}</td>
+              <td><span [class]="runBadgeClass(row.status)">{{ row.status }}</span></td>
+              <td class="text-right">
+                <ng-container *ngIf="row.status === 'SUBMITTED'">
+                  <button type="button" class="link" [disabled]="acting" (click)="approveRun(row); $event.stopPropagation()">Approve</button>
+                  <button type="button" class="link link-danger" [disabled]="acting" (click)="rejectRun(row); $event.stopPropagation()">Reject</button>
+                </ng-container>
+                <span *ngIf="row.status !== 'SUBMITTED'" class="minor">-</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <aside class="card detail-pane" *ngIf="selectedRun as r">
+      <header class="section-head">
+        <div>
+          <h2>{{ periodLabel(r) }}</h2>
+          <p>Payroll run approval detail</p>
+        </div>
+        <span [class]="runBadgeClass(r.status)">{{ r.status }}</span>
+      </header>
+
+      <dl class="kv">
+        <dt>Client</dt><dd>{{ runClientLabel(r) }}</dd>
+        <dt>Employees</dt><dd>{{ r.employeeCount }}</dd>
+        <dt>Created</dt><dd>{{ formatDateTime(r.createdAt) }}</dd>
+        <dt>Submitted</dt><dd>{{ formatDateTime(r.submittedAt) }}</dd>
+        <dt *ngIf="r.approvedAt">Approved</dt><dd *ngIf="r.approvedAt">{{ formatDateTime(r.approvedAt) }}</dd>
+        <dt *ngIf="r.rejectedAt">Rejected</dt><dd *ngIf="r.rejectedAt">{{ formatDateTime(r.rejectedAt) }}</dd>
+        <dt *ngIf="r.approvalComments">Comments</dt><dd *ngIf="r.approvalComments">{{ r.approvalComments }}</dd>
+        <dt *ngIf="r.rejectionReason">Reason</dt><dd *ngIf="r.rejectionReason">{{ r.rejectionReason }}</dd>
+      </dl>
+
+      <div class="action-row" *ngIf="r.status === 'SUBMITTED'">
+        <button type="button" class="btn btn-primary" [disabled]="acting" (click)="approveRun(r)">Approve Run</button>
+        <button type="button" class="btn btn-danger" [disabled]="acting" (click)="rejectRun(r)">Reject Run</button>
+      </div>
+    </aside>
+  </section>
+
+  <div *ngIf="mode === 'STRUCTURES' && loading" class="loader">Loading structures...</div>
+  <section *ngIf="mode === 'STRUCTURES' && !loading" class="grid" [class.grid--with-detail]="selected">
     <article class="card list-pane">
       <header class="section-head">
         <div>
@@ -44,7 +156,7 @@
       </header>
 
       <div *ngIf="!structures.length" class="empty-state">
-        <div class="empty-icon">✓</div>
+        <div class="empty-icon">OK</div>
         <h3>No structures match</h3>
         <p>There are no payroll structures for the selected approval status.</p>
       </div>
@@ -86,20 +198,8 @@
               <td><span [class]="badgeClass(row.approvalStatus)">{{ row.approvalStatus }}</span></td>
               <td class="text-right">
                 <ng-container *ngIf="row.approvalStatus === 'PENDING'">
-                  <button
-                    type="button"
-                    class="link"
-                    [disabled]="acting"
-                    (click)="approve(row); $event.stopPropagation()">
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    class="link link-danger"
-                    [disabled]="acting"
-                    (click)="reject(row); $event.stopPropagation()">
-                    Reject
-                  </button>
+                  <button type="button" class="link" [disabled]="acting" (click)="approve(row); $event.stopPropagation()">Approve</button>
+                  <button type="button" class="link link-danger" [disabled]="acting" (click)="reject(row); $event.stopPropagation()">Reject</button>
                 </ng-container>
                 <span *ngIf="row.approvalStatus !== 'PENDING'" class="minor">-</span>
               </td>

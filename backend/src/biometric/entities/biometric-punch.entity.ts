@@ -46,7 +46,7 @@ export class BiometricPunchEntity {
     length: 20,
     default: 'DEVICE',
   })
-  source: 'DEVICE' | 'IMPORT' | 'MANUAL';
+  source: 'DEVICE' | 'IMPORT' | 'MANUAL' | 'MOBILE_KIOSK' | 'MOBILE_ESS';
 
   @Column({ name: 'raw_payload', type: 'jsonb', nullable: true })
   rawPayload: Record<string, unknown> | null;

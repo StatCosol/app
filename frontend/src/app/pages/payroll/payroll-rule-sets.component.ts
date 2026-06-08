@@ -18,6 +18,7 @@ import {
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
 import { ActivatedRoute } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
 
 interface RuleSetFormModel {
@@ -107,6 +108,7 @@ export class PayrollRuleSetsComponent implements OnInit, OnDestroy {
     private readonly engineApi: PayrollEngineApiService,
     private readonly payrollApi: PayrollApiService,
     private readonly toast: ToastService,
+    private readonly dialog: ConfirmDialogService,
     private readonly cdr: ChangeDetectorRef,
     private readonly route: ActivatedRoute,
   ) {}
@@ -344,9 +346,11 @@ export class PayrollRuleSetsComponent implements OnInit, OnDestroy {
       });
   }
 
-  deleteRuleSet(ruleSet: RuleSet): void {
-    const ok = window.confirm(
+  async deleteRuleSet(ruleSet: RuleSet): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Delete Rule Set',
       `Delete "${ruleSet.name}"? This disables the version and keeps audit history.`,
+      { confirmText: 'Delete', variant: 'danger' },
     );
     if (!ok) return;
     this.engineApi
@@ -361,7 +365,7 @@ export class PayrollRuleSetsComponent implements OnInit, OnDestroy {
       });
   }
 
-  activateVersion(ruleSet: RuleSet): void {
+  async activateVersion(ruleSet: RuleSet): Promise<void> {
     if (!this.selectedClientId) return;
     const guardReason = this.ruleSetActivationReason(
       ruleSet,
@@ -397,7 +401,11 @@ export class PayrollRuleSetsComponent implements OnInit, OnDestroy {
         ? `Activate "${ruleSet.name}" and deactivate ${deactivateCount} active sibling version(s)?`
         : `Activate "${ruleSet.name}" as the current version?`;
 
-    const ok = window.confirm(confirmText);
+    const ok = await this.dialog.confirm(
+      'Activate Rule Set',
+      confirmText,
+      { confirmText: 'Activate' },
+    );
     if (!ok) return;
     this.saving = true;
     forkJoin(updates)
@@ -500,9 +508,13 @@ export class PayrollRuleSetsComponent implements OnInit, OnDestroy {
       });
   }
 
-  deleteParam(param: RuleParameter): void {
+  async deleteParam(param: RuleParameter): Promise<void> {
     if (!this.selectedRuleSet) return;
-    const ok = window.confirm(`Delete parameter "${param.key}"?`);
+    const ok = await this.dialog.confirm(
+      'Delete Parameter',
+      `Delete parameter "${param.key}"?`,
+      { confirmText: 'Delete', variant: 'danger' },
+    );
     if (!ok) return;
     this.engineApi
       .deleteParameter(this.selectedRuleSet!.id, param.id)

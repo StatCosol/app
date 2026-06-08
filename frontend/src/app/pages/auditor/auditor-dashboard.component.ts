@@ -16,6 +16,7 @@ import { AuditsService } from '../../core/audits.service';
 import { AuditorObservationsService } from '../../core/auditor-observations.service';
 import { environment } from '../../../environments/environment';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
   PageHeaderComponent,
   DataTableComponent,
@@ -160,6 +161,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     private auditsService: AuditsService,
     private observationsService: AuditorObservationsService,
     private toast: ToastService,
+    private dialog: ConfirmDialogService,
     private router: Router,
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
@@ -607,8 +609,13 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
   }
 
   /** Close observation */
-  closeObservation(obs: AuditorObservationPending): void {
-    if (!confirm(`Close observation "${obs.title}"? This action cannot be undone.`)) return;
+  async closeObservation(obs: AuditorObservationPending): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Close Observation',
+      `Close observation "${obs.title}"? This action cannot be undone.`,
+      { variant: 'danger', confirmText: 'Close' },
+    );
+    if (!ok) return;
     this.observationsService.update(obs.observationId, { status: 'CLOSED' }).pipe(
       takeUntil(this.destroy$),
       timeout(10000),
@@ -634,8 +641,13 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
   }
 
   /** Mark evidence as not required */
-  markNotRequired(ev: AuditorEvidencePending): void {
-    if (!confirm(`Mark "${ev.evidenceName}" as not required?`)) return;
+  async markNotRequired(ev: AuditorEvidencePending): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Mark Not Required',
+      `Mark "${ev.evidenceName}" as not required?`,
+      { confirmText: 'Mark' },
+    );
+    if (!ok) return;
     this.http.patch(`${environment.apiBaseUrl}/api/v1/auditor/dashboard/evidence/${ev.id}/status`, { status: 'NOT_REQUIRED' }).pipe(
       takeUntil(this.destroy$),
       timeout(10000),

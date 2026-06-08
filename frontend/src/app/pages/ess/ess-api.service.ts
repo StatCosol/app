@@ -162,6 +162,10 @@ export interface EssAttendanceRecord {
   source: string | null;
   captureMethod: string | null;
   selfMarked: boolean;
+  checkInLat?: string | null;
+  checkInLng?: string | null;
+  checkOutLat?: string | null;
+  checkOutLng?: string | null;
 }
 
 export interface TodayAttendance {
@@ -171,6 +175,10 @@ export interface TodayAttendance {
   checkOut: string | null;
   captureMethod?: string;
   selfMarked?: boolean;
+  checkInLat?: string | null;
+  checkInLng?: string | null;
+  checkOutLat?: string | null;
+  checkOutLng?: string | null;
 }
 
 export interface CheckInOutPayload {

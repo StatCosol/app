@@ -2,6 +2,13 @@ package com.statcosol.attendance.api
 
 import com.squareup.moshi.JsonClass
 
+@JsonClass(generateAdapter = true)
+data class ApiErrorResponse(
+    val message: String? = null,
+    val error: String? = null,
+    val statusCode: Int? = null
+)
+
 /** GET /api/v1/mobile-attendance/roster response. */
 @JsonClass(generateAdapter = true)
 data class RosterResponse(
@@ -15,7 +22,23 @@ data class RosterResponse(
     val geofenceLng: Double?,
     val geofenceRadiusM: Int?,
     val essEmployeeId: String?,       // populated when mode == ESS
-    val enrollments: List<RosterEntry>
+    val enrollments: List<RosterEntry>,
+    val contractorEnrollments: List<ContractorRosterEntry> = emptyList(),
+)
+
+/** GET /api/v1/mobile-attendance/config response, no embeddings. */
+@JsonClass(generateAdapter = true)
+data class DeviceInfoResponse(
+    val deviceId: String,
+    val mode: String,
+    val clientId: String,
+    val clientName: String? = null,
+    val branchId: String?,
+    val branchName: String? = null,
+    val geofenceLat: Double?,
+    val geofenceLng: Double?,
+    val geofenceRadiusM: Int?,
+    val essEmployeeId: String?,
 )
 
 /** One enrolled employee. `embeddingB64` decodes to a Float32[] of 192 dims. */
@@ -25,6 +48,16 @@ data class RosterEntry(
     val employeeCode: String,
     val displayName: String,
     val embeddingB64: String
+)
+
+/** One enrolled contractor worker for kiosk 1:N matching. */
+@JsonClass(generateAdapter = true)
+data class ContractorRosterEntry(
+    val contractorEmployeeId: String,
+    val displayName: String,
+    val branchId: String? = null,
+    val embeddingB64: String,
+    val embeddingModel: String? = null,
 )
 
 /** POST /api/v1/mobile-attendance/punch body. */
@@ -68,6 +101,42 @@ data class PunchResponse(
     val ok: Boolean,
     val punchId: String? = null,
     val message: String? = null
+)
+
+/** POST /api/v1/mobile-attendance/punch/contractor body. */
+@JsonClass(generateAdapter = true)
+data class ContractorPunchBody(
+    val contractorEmployeeId: String,
+    val punchTime: String,
+    val direction: String,
+    val matchScore: Double,
+    val livenessScore: Double,
+    val captureLat: Double?,
+    val captureLng: Double?,
+    val captureAccuracyM: Double?,
+    val photoB64: String? = null,
+    val probeEmbeddingB64: String? = null,
+    val isMockLocation: Boolean? = null,
+    val isRooted: Boolean? = null,
+    val offlineSync: Boolean? = null,
+    val livenessChallengeType: String? = null,
+    val livenessChallengePassedAt: String? = null,
+    val livenessNonce: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class FailedScanBody(
+    val reason: String,
+    val reasonDetail: String? = null,
+    val matchScore: Double? = null,
+    val livenessScore: Double? = null,
+    val captureLat: Double? = null,
+    val captureLng: Double? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class FailedScanResponse(
+    val ok: Boolean,
 )
 
 /** POST /api/v1/mobile-attendance/liveness/challenge body. */

@@ -13,6 +13,7 @@ import { EmployeeEntity } from '../../employees/entities/employee.entity';
 import { AttendanceService } from '../../attendance/attendance.service';
 import { LeaveLedgerEntity } from '../../ess/entities/leave-ledger.entity';
 import { LeaveBalanceEntity } from '../../ess/entities/leave-balance.entity';
+import { LeavePolicyEntity } from '../../ess/entities/leave-policy.entity';
 import { StructureResolverService } from './structure-resolver.service';
 import { RulesetResolverService } from './ruleset-resolver.service';
 import { StatutoryCalculatorService } from '../services/statutory-calculator.service';
@@ -98,6 +99,10 @@ describe('PayrollEngineService', () => {
         },
         {
           provide: getRepositoryToken(LeaveBalanceEntity),
+          useFactory: mockRepo,
+        },
+        {
+          provide: getRepositoryToken(LeavePolicyEntity),
           useFactory: mockRepo,
         },
       ],

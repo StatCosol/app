@@ -20,7 +20,9 @@ import {
 } from '../../shared/ui';
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
+import { AuthService } from '../../core/auth.service';
 
 interface PayrollRunItem {
   id: string;
@@ -32,6 +34,7 @@ interface PayrollRunItem {
   employeeCount?: number;
   createdAt?: string;
   submittedAt?: string;
+  submittedByUserId?: string | null;
   approvedAt?: string;
   rejectedAt?: string;
   rejectionReason?: string;
@@ -283,7 +286,9 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     private readonly http: HttpClient,
     private readonly cdr: ChangeDetectorRef,
     private readonly toast: ToastService,
+    private readonly dialog: ConfirmDialogService,
     private readonly payrollApi: PayrollApiService,
+    private readonly auth: AuthService,
     private readonly route: ActivatedRoute,
     private readonly router: Router,
   ) {}
@@ -327,6 +332,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
             employeeCount: Number(row?.employeeCount || 0),
             createdAt: row?.createdAt || row?.created_at || null,
             submittedAt: row?.submittedAt || row?.submitted_at || null,
+            submittedByUserId: row?.submittedByUserId || row?.submitted_by_user_id || null,
             approvedAt: row?.approvedAt || row?.approved_at || null,
             rejectedAt: row?.rejectedAt || row?.rejected_at || null,
             rejectionReason: row?.rejectionReason || row?.rejection_reason || null,
@@ -413,7 +419,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     this.loadRunWorkspaceData(run.id, true);
   }
 
-  createRun(): void {
+  async createRun(): Promise<void> {
     if (this.creatingRun) return;
     const clientId = this.selectedClientId;
     if (!clientId) {
@@ -428,7 +434,12 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     }
     const monthName = this.monthOptions[periodMonth - 1] || '';
 
-    if (!confirm(`Create a new payroll run for ${monthName} ${periodYear}?`)) return;
+    const ok = await this.dialog.confirm(
+      'Create Payroll Run',
+      `Create a new payroll run for ${monthName} ${periodYear}?`,
+      { confirmText: 'Create' },
+    );
+    if (!ok) return;
 
     this.creatingRun = true;
     this.http
@@ -454,14 +465,19 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       });
   }
 
-  processRun(run: PayrollRunItem): void {
+  async processRun(run: PayrollRunItem): Promise<void> {
     if (this.isConsoleBusy()) return;
     const guard = this.actionGuardReason(run, 'PROCESS');
     if (guard) {
       this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
-    if (!confirm('Are you sure you want to process this payroll run?')) return;
+    const ok = await this.dialog.confirm(
+      'Process Payroll Run',
+      'Are you sure you want to process this payroll run?',
+      { confirmText: 'Process' },
+    );
+    if (!ok) return;
     this.actionBusy = true;
     this.http
       .post(`/api/v1/payroll/runs/${run.id}/process`, {})
@@ -482,14 +498,19 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       });
   }
 
-  submitRun(run: PayrollRunItem): void {
+  async submitRun(run: PayrollRunItem): Promise<void> {
     if (this.isConsoleBusy()) return;
     const guard = this.actionGuardReason(run, 'SUBMIT');
     if (guard) {
       this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
-    if (!confirm('Are you sure you want to submit this run for approval?')) return;
+    const ok = await this.dialog.confirm(
+      'Submit Payroll Run',
+      'Are you sure you want to submit this run for approval?',
+      { confirmText: 'Submit' },
+    );
+    if (!ok) return;
     this.actionBusy = true;
     this.http
       .post(`/api/v1/payroll/runs/${run.id}/submit`, {})
@@ -510,14 +531,19 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       });
   }
 
-  approveRun(run: PayrollRunItem): void {
+  async approveRun(run: PayrollRunItem): Promise<void> {
     if (this.isConsoleBusy()) return;
     const guard = this.actionGuardReason(run, 'APPROVE');
     if (guard) {
       this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
-    if (!confirm('Are you sure you want to approve this payroll run?')) return;
+    const ok = await this.dialog.confirm(
+      'Approve Payroll Run',
+      'Are you sure you want to approve this payroll run?',
+      { confirmText: 'Approve' },
+    );
+    if (!ok) return;
     this.actionBusy = true;
     this.http
       .post(`/api/v1/payroll/runs/${run.id}/approve`, {})
@@ -561,26 +587,36 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     this.approveRun(run);
   }
 
-  rerunRun(run: PayrollRunItem): void {
+  async rerunRun(run: PayrollRunItem): Promise<void> {
     if (this.isConsoleBusy()) return;
     const guard = this.actionGuardReason(run, 'RERUN');
     if (guard) {
       this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
-    if (!confirm('Are you sure you want to rerun this payroll run? This will reprocess the data.')) return;
+    const ok = await this.dialog.confirm(
+      'Rerun Payroll Run',
+      'Are you sure you want to rerun this payroll run? This will reprocess the data.',
+      { confirmText: 'Rerun' },
+    );
+    if (!ok) return;
     this.addRunEvent(run.id, 'RERUN', 'Rerun requested', 'Run sent for reprocessing');
     this.processRun(run);
   }
 
-  rejectRun(run: PayrollRunItem): void {
+  async rejectRun(run: PayrollRunItem): Promise<void> {
     if (this.isConsoleBusy()) return;
     const guard = this.actionGuardReason(run, 'REJECT');
     if (guard) {
       this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
-    const reason = prompt('Enter rejection reason:');
+    const result = await this.dialog.prompt(
+      'Reject Payroll Run',
+      'Enter rejection reason:',
+      { placeholder: 'Reason', confirmText: 'Reject' },
+    );
+    const reason = (result.value || '').trim();
     if (!reason) return;
     this.actionBusy = true;
     this.http
@@ -603,14 +639,19 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       });
   }
 
-  rollbackRun(run: PayrollRunItem): void {
+  async rollbackRun(run: PayrollRunItem): Promise<void> {
     if (this.isConsoleBusy()) return;
     const guard = this.actionGuardReason(run, 'ROLLBACK');
     if (guard) {
       this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
-    if (!confirm('Are you sure you want to rollback this payroll run? This will revert it to draft.')) return;
+    const ok = await this.dialog.confirm(
+      'Rollback Payroll Run',
+      'Are you sure you want to rollback this payroll run? This will revert it to draft.',
+      { confirmText: 'Rollback', variant: 'danger' },
+    );
+    if (!ok) return;
     this.actionBusy = true;
     this.http
       .post(`/api/v1/payroll/runs/${run.id}/revert`, {})
@@ -632,14 +673,19 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       });
   }
 
-  deleteRun(run: PayrollRunItem): void {
+  async deleteRun(run: PayrollRunItem): Promise<void> {
     if (this.isConsoleBusy()) return;
     if (!this.canDeleteRun(run)) {
       this.toast.warning('Approved runs are locked and cannot be deleted.');
       return;
     }
     const period = `${this.monthLabel(run.periodMonth)} ${run.periodYear}`;
-    if (!confirm(`Delete payroll run for ${run.clientName || 'client'} (${period})? This will remove all computed payslips and cannot be undone.`)) return;
+    const ok = await this.dialog.confirm(
+      'Delete Payroll Run',
+      `Delete payroll run for ${run.clientName || 'client'} (${period})? This will remove all computed payslips and cannot be undone.`,
+      { confirmText: 'Delete', variant: 'danger' },
+    );
+    if (!ok) return;
 
     this.actionBusy = true;
     this.http
@@ -1321,9 +1367,20 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     // and the wrapping *ngIf). Cache by run+selectedRun+exception count so
     // repeated lookups inside the same CD pass don't re-run the cascade.
     const status = this.statusKey(run);
+    const approval = this.runApprovalStatusByRunId[run.id];
     const exCount =
       this.selectedRun?.id === run.id ? this.validationExceptions().length : 0;
-    const cacheKey = `${run.id}|${status}|${run.employeeCount || 0}|${this.selectedRun?.id || ''}|${exCount}|${action}`;
+    const cacheKey = [
+      run.id,
+      status,
+      run.employeeCount || 0,
+      this.selectedRun?.id || '',
+      exCount,
+      action,
+      approval?.submittedByUserId || run.submittedByUserId || '',
+      this.currentUserId(),
+      this.currentRoleCode(),
+    ].join('|');
     const cached = this._guardCache.get(cacheKey);
     if (cached !== undefined) return cached;
     const reason = this._actionGuardReasonImpl(run, action, status, exCount);
@@ -1366,6 +1423,12 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
     if (action === 'APPROVE') {
       if (status !== 'SUBMITTED') return 'Only submitted runs can be approved.';
+      if (!this.canApprovePayrollRunRole()) {
+        return 'Only CCO can approve payroll runs.';
+      }
+      if (this.isSelfSubmittedRun(run)) {
+        return 'You submitted this run; a different CCO must approve it.';
+      }
       return null;
     }
 
@@ -1497,9 +1560,11 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
             rejectedAt: row?.rejectedAt || row?.rejected_at || null,
             rejectionReason: row?.rejectionReason || row?.rejection_reason || null,
           };
+          this._guardCache.clear();
         },
         error: () => {
           delete this.runApprovalStatusByRunId[runId];
+          this._guardCache.clear();
           if (toastOnError) {
             this.toast.error('Could not load approval status for this run.');
           }
@@ -1523,6 +1588,26 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       const text = `${row.clientName || ''} ${row.status || ''} ${row.periodMonth}/${row.periodYear}`.toLowerCase();
       return text.includes(q);
     });
+  }
+
+  private currentUserId(): string {
+    const user = this.auth.getUser() || {};
+    return String(user?.id ?? user?.userId ?? user?.sub ?? '').trim();
+  }
+
+  private currentRoleCode(): string {
+    return String(this.auth.getRoleCode() || this.auth.getUser()?.roleCode || '').toUpperCase();
+  }
+
+  private canApprovePayrollRunRole(): boolean {
+    return this.currentRoleCode() === 'CCO';
+  }
+
+  private isSelfSubmittedRun(run: PayrollRunItem): boolean {
+    const approval = this.runApprovalStatusByRunId[run.id];
+    const submittedBy = String(approval?.submittedByUserId || run.submittedByUserId || '').trim();
+    const currentUser = this.currentUserId();
+    return !!submittedBy && !!currentUser && submittedBy === currentUser;
   }
 
   private toArray(payload: any): any[] {
@@ -1763,10 +1848,15 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     reader.readAsText(this.addEmpFile);
   }
 
-  uploadAddEmpFile(): void {
+  async uploadAddEmpFile(): Promise<void> {
     if (!this.selectedRun || !this.addEmpParsedCodes.length) return;
     const codes = this.addEmpParsedCodes;
-    if (!confirm(`Add ${codes.length} employee(s) from file to this payroll run and compute their payroll?`)) return;
+    const ok = await this.dialog.confirm(
+      'Add Employees From File',
+      `Add ${codes.length} employee(s) from file to this payroll run and compute their payroll?`,
+      { confirmText: 'Add' },
+    );
+    if (!ok) return;
 
     this.addEmpUploadBusy = true;
     this.http
@@ -1801,10 +1891,15 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       });
   }
 
-  confirmAddEmployees(): void {
+  async confirmAddEmployees(): Promise<void> {
     if (!this.selectedRun || !this.addEmpSelected.size) return;
     const codes = Array.from(this.addEmpSelected);
-    if (!confirm(`Add ${codes.length} employee(s) to this payroll run and compute their payroll?`)) return;
+    const ok = await this.dialog.confirm(
+      'Add Employees',
+      `Add ${codes.length} employee(s) to this payroll run and compute their payroll?`,
+      { confirmText: 'Add' },
+    );
+    if (!ok) return;
 
     this.addEmpBusy = true;
     this.http

@@ -9,6 +9,8 @@ import {
   CreateNewsPayload,
 } from '../../../shared/services/news.service';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
+import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 @Component({
   selector: 'app-admin-news',
@@ -343,7 +345,11 @@ export class AdminNewsComponent implements OnInit {
 
   private debounceTimer: any;
 
-  constructor(private newsService: NewsService) {}
+  constructor(
+    private newsService: NewsService,
+    private toast: ToastService,
+    private dialog: ConfirmDialogService,
+  ) {}
 
   ngOnInit(): void {
     this.loadNews();
@@ -439,8 +445,13 @@ export class AdminNewsComponent implements OnInit {
       .subscribe({ next: () => this.loadNews() });
   }
 
-  deleteItem(item: NewsItem): void {
-    if (!confirm(`Delete "${item.title}"?`)) return;
+  async deleteItem(item: NewsItem): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Delete News',
+      `Delete "${item.title}"? This removes it from all portal news ribbons.`,
+      { variant: 'danger', confirmText: 'Delete' },
+    );
+    if (!ok) return;
     this.newsService.deleteNews(item.id).subscribe({ next: () => this.loadNews() });
   }
 
@@ -461,7 +472,7 @@ export class AdminNewsComponent implements OnInit {
     const file = input.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      alert('File must be less than 5 MB');
+      this.toast.error('File must be less than 5 MB');
       input.value = '';
       return;
     }
@@ -473,7 +484,7 @@ export class AdminNewsComponent implements OnInit {
         input.value = '';
       },
       error: () => {
-        alert('Image upload failed. Please try again.');
+        this.toast.error('Image upload failed. Please try again.');
         this.uploadingImage = false;
         input.value = '';
       },

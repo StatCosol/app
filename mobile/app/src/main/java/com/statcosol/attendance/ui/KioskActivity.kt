@@ -18,14 +18,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.statcosol.attendance.AttendanceApp
 import com.statcosol.attendance.BuildConfig
 import com.statcosol.attendance.R
+import com.statcosol.attendance.api.ContractorPunchBody
+import com.statcosol.attendance.api.FailedScanBody
 import com.statcosol.attendance.api.KioskEnrollSubmitBody
 import com.statcosol.attendance.api.KioskEnrollTicket
+import com.statcosol.attendance.api.PunchBody
 import com.statcosol.attendance.databinding.ActivityCameraBinding
 import com.statcosol.attendance.db.QueuedPunch
 import com.statcosol.attendance.face.FaceCaptureSession
@@ -98,7 +99,8 @@ class KioskActivity : AppCompatActivity() {
     /** Operator-supervised enrollment state. When [enrollTicket] is non-null
      *  the kiosk is in enrollment mode: normal matching is paused, frames are
      *  collected into [enrollFrames], and once enough frames + the liveness
-     *  challenge are satisfied the [showEnrollRegisterDialog] is shown. */
+     *  challenge are satisfied the enrollment is submitted without touching
+     *  the kiosk screen. */
     @Volatile private var enrollTicket: KioskEnrollTicket? = null
     private val enrollFrames = mutableListOf<FloatArray>()
     private var enrollRunningAvg: FloatArray? = null
@@ -106,12 +108,15 @@ class KioskActivity : AppCompatActivity() {
     @Volatile private var enrollChallenge: LivenessChallengeTracker? = null
     @Volatile private var enrollChallengePassed: Boolean = false
     @Volatile private var enrollSubmitting: Boolean = false
+    @Volatile private var rosterFastRefreshUntil: Long = 0L
     private val enrollChallengeTimeout = Runnable { abortKioskEnrollment("liveness timed out") }
 
     /** Voice feedback for noisy factory floors. Best-effort — silently
      *  no-ops if the device has no TTS engine installed. */
     private var tts: TextToSpeech? = null
     @Volatile private var ttsReady: Boolean = false
+    private var consecutiveNoMatchCount: Int = 0
+    private var lastFailedScanReportAt: Long = 0L
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -182,6 +187,8 @@ class KioskActivity : AppCompatActivity() {
         mainHandler.removeCallbacks(rosterRefreshRunnable)
         mainHandler.removeCallbacks(enrollTicketPollRunnable)
         mainHandler.removeCallbacks(enrollChallengeTimeout)
+        capture?.stop()
+        capture = null
         try { tts?.stop(); tts?.shutdown() } catch (_: Exception) {}
         super.onDestroy()
     }
@@ -232,10 +239,15 @@ class KioskActivity : AppCompatActivity() {
      * and finish() back to the device launcher.
      */
     private fun setupAdminExit() {
-        binding.headerBrand.setOnLongClickListener {
+        val listener = View.OnLongClickListener {
             showAdminExitDialog()
             true
         }
+        binding.headerStrip.setOnLongClickListener(listener)
+        binding.headerBrand.setOnLongClickListener(listener)
+        binding.headerBranch.setOnLongClickListener(listener)
+        binding.headerClock.setOnLongClickListener(listener)
+        binding.headerDate.setOnLongClickListener(listener)
     }
 
     private fun showAdminExitDialog() {
@@ -274,16 +286,44 @@ class KioskActivity : AppCompatActivity() {
         tts = TextToSpeech(applicationContext) { status ->
             ttsReady = status == TextToSpeech.SUCCESS
             if (ttsReady) {
-                // Match the device locale so Hindi/Telugu speakers get
-                // localised voice feedback when those engines are present.
-                runCatching { tts?.language = Locale.getDefault() }
+                configureTtsLanguage(Locale.getDefault())
             }
         }
     }
 
-    private fun speak(text: String) {
+    private fun configureTtsLanguage(locale: Locale): Boolean {
+        val engine = tts ?: return false
+        val available = runCatching { engine.isLanguageAvailable(locale) }
+            .getOrDefault(TextToSpeech.LANG_NOT_SUPPORTED)
+        if (available < TextToSpeech.LANG_AVAILABLE) return false
+
+        runCatching { engine.language = locale }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            runCatching {
+                engine.voices
+                    ?.filter { it.locale.language == locale.language }
+                    ?.sortedWith(
+                        compareBy(
+                            { it.isNetworkConnectionRequired },
+                            { it.name.contains("male", ignoreCase = true) },
+                            { it.name },
+                        ),
+                    )
+                    ?.firstOrNull()
+                    ?.let { engine.voice = it }
+            }
+        }
+        runCatching { engine.setPitch(1.02f) }
+        runCatching { engine.setSpeechRate(if (locale.language == "te") 0.82f else 0.92f) }
+        return true
+    }
+
+    private fun speak(text: String, locale: Locale? = null) {
         if (!ttsReady) return
         try {
+            if (!configureTtsLanguage(locale ?: Locale.getDefault())) {
+                configureTtsLanguage(Locale.ENGLISH)
+            }
             tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "kiosk")
         } catch (_: Exception) {}
     }
@@ -298,14 +338,7 @@ class KioskActivity : AppCompatActivity() {
     private fun loadRoster() {
         lifecycleScope.launch {
             try {
-                val roster = withContext(Dispatchers.IO) { app.apiClient.fetchRoster() }
-                matcher = RosterMatcher(roster.enrollments)
-                binding.headerBranch.text = roster.branchName
-                    ?: roster.clientName
-                    ?: getString(R.string.kiosk_branch_unknown)
-                if (roster.enrollments.isEmpty()) {
-                    binding.statusText.text = getString(R.string.roster_empty)
-                }
+                refreshRosterNow(showEmptyMessage = true)
             } catch (e: Exception) {
                 // Soft-fail on refresh: keep the cached matcher in use rather
                 // than dropping all employees if the API blips.
@@ -316,12 +349,29 @@ class KioskActivity : AppCompatActivity() {
         }
     }
 
+    private suspend fun refreshRosterNow(showEmptyMessage: Boolean): Int {
+        val roster = withContext(Dispatchers.IO) { app.apiClient.fetchRoster() }
+        matcher = RosterMatcher(roster.enrollments, roster.contractorEnrollments)
+        binding.headerBranch.text = roster.branchName
+            ?: roster.clientName
+            ?: getString(R.string.kiosk_branch_unknown)
+        if (showEmptyMessage && roster.enrollments.isEmpty() && roster.contractorEnrollments.isEmpty()) {
+            binding.statusText.text = getString(R.string.roster_empty)
+        }
+        return roster.enrollments.size + roster.contractorEnrollments.size
+    }
+
     /** Phase 3f: re-fetch the roster every [ROSTER_REFRESH_MS] so newly
      *  enrolled employees become matchable without restarting the kiosk. */
     private val rosterRefreshRunnable = object : Runnable {
         override fun run() {
             loadRoster()
-            mainHandler.postDelayed(this, ROSTER_REFRESH_MS)
+            val delay = if (System.currentTimeMillis() < rosterFastRefreshUntil) {
+                ENROLL_ROSTER_FAST_REFRESH_MS
+            } else {
+                ROSTER_REFRESH_MS
+            }
+            mainHandler.postDelayed(this, delay)
         }
     }
 
@@ -348,6 +398,7 @@ class KioskActivity : AppCompatActivity() {
             code == "hint:no_face" -> getString(R.string.hint_no_face)
             code == "hint:too_small" -> getString(R.string.hint_too_small)
             code == "hint:too_dim" -> getString(R.string.hint_too_dim)
+            code == "hint:not_straight" -> getString(R.string.hint_not_straight)
             else -> code
         }
     }
@@ -369,12 +420,15 @@ class KioskActivity : AppCompatActivity() {
         if (liveness < MIN_LIVENESS) return
 
         val match = matcherSnap.match(probe, MIN_MATCH) ?: run {
+            consecutiveNoMatchCount += 1
+            maybeReportRepeatedNoMatch(liveness)
             runOnUiThread {
                 binding.statusText.text = getString(R.string.kiosk_match_low)
                 speak(getString(R.string.kiosk_voice_face_not_recognised))
             }
             return
         }
+        consecutiveNoMatchCount = 0
 
         // Roll the per-day map over at midnight.
         val day = currentDayKey()
@@ -383,8 +437,8 @@ class KioskActivity : AppCompatActivity() {
             todayPunches.clear()
         }
 
-        val empId = match.entry.employeeId
-        val prev = todayPunches[empId]
+        val subjectKey = match.entry.subjectKey
+        val prev = todayPunches[subjectKey]
         when {
             prev == null -> {
                 // First time today on this device -> log them IN immediately.
@@ -392,11 +446,11 @@ class KioskActivity : AppCompatActivity() {
                 beginChallenge(match, "IN", liveness)
             }
             prev.direction == "IN" -> {
-                // Already punched in today — confirm before queuing OUT so accidental
-                // looks at the camera don't log the user out.
-                lastPunchAt = now  // still throttle so we don't spam the dialog
+                // Already punched in today -> require the same server-issued
+                // liveness gesture, then log OUT without touching the kiosk.
+                lastPunchAt = now
                 pendingChallengeProbe = probe
-                runOnUiThread { showLogoutConfirmation(match, liveness) }
+                beginChallenge(match, "OUT", liveness)
             }
             else -> {
                 // Already punched out today -> just acknowledge, never queue
@@ -427,28 +481,27 @@ class KioskActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 android.util.Log.w("KioskActivity", "liveness challenge request failed", e)
-                requestingChallenge = false
-                pendingChallengeProbe = null
-                runOnUiThread {
-                    binding.statusText.text = getString(R.string.liveness_request_failed)
-                }
-                lastPunchAt = System.currentTimeMillis() - (COOLDOWN_MS - 3_000L).coerceAtLeast(0L)
-                return@launch
+                null
             }
-            val challenge = LivenessChallenge.fromWire(resp.challengeType)
-            if (challenge == null) {
-                android.util.Log.e("KioskActivity", "unknown challengeType=${resp.challengeType}")
-                requestingChallenge = false
-                pendingChallengeProbe = null
-                runOnUiThread {
-                    binding.statusText.text = getString(R.string.liveness_request_failed)
+            val challenge = if (resp == null) {
+                LivenessChallenge.random()
+            } else {
+                val serverChallenge = LivenessChallenge.fromWire(resp.challengeType)
+                if (serverChallenge == null) {
+                    android.util.Log.e("KioskActivity", "unknown challengeType=${resp.challengeType}")
+                    requestingChallenge = false
+                    pendingChallengeProbe = null
+                    runOnUiThread {
+                        binding.statusText.text = getString(R.string.liveness_request_failed)
+                    }
+                    return@launch
                 }
-                return@launch
+                serverChallenge
             }
             pendingChallengeMatch = match
             pendingChallengeLiveness = liveness
             pendingChallengeDirection = direction
-            pendingChallengeNonce = resp.nonce
+            pendingChallengeNonce = resp?.nonce
             pendingChallengeTracker = LivenessChallengeTracker(challenge)
             requestingChallenge = false
             runOnUiThread {
@@ -513,6 +566,28 @@ class KioskActivity : AppCompatActivity() {
         LivenessChallenge.HEAD_TURN_RIGHT -> R.string.liveness_prompt_head_right
     }
 
+    private fun maybeReportRepeatedNoMatch(liveness: Double) {
+        if (consecutiveNoMatchCount < FAILED_SCAN_REPORT_AFTER) return
+        val now = System.currentTimeMillis()
+        if (now - lastFailedScanReportAt < FAILED_SCAN_REPORT_COOLDOWN_MS) return
+        lastFailedScanReportAt = now
+        lifecycleScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    app.apiClient.postFailedScan(
+                        FailedScanBody(
+                            reason = "FACE_MISMATCH",
+                            reasonDetail = "Kiosk local 1:N match failed $consecutiveNoMatchCount times",
+                            livenessScore = liveness,
+                        )
+                    )
+                }
+            }.onFailure {
+                android.util.Log.w("KioskActivity", "failed-scan report failed", it)
+            }
+        }
+    }
+
     private fun showAlreadyDoneInfo(match: RosterMatcher.Match) {
         if (dialogActive) return
         dialogActive = true
@@ -524,30 +599,6 @@ class KioskActivity : AppCompatActivity() {
             .setPositiveButton(R.string.kiosk_already_done_ok) { d, _ ->
                 d.dismiss()
                 dialogActive = false
-                lastPunchAt = System.currentTimeMillis()
-                binding.statusText.text = getString(R.string.kiosk_look_at_camera)
-            }
-            .show()
-    }
-
-    private fun showLogoutConfirmation(match: RosterMatcher.Match, liveness: Double) {
-        if (dialogActive) return
-        dialogActive = true
-        MaterialAlertDialogBuilder(this)
-            .setIcon(R.drawable.ic_shield_check)
-            .setTitle(R.string.kiosk_logout_confirm_title)
-            .setMessage(getString(R.string.kiosk_logout_confirm_message, match.entry.displayName))
-            .setCancelable(false)
-            .setPositiveButton(R.string.kiosk_logout_confirm_yes) { d, _ ->
-                d.dismiss()
-                dialogActive = false
-                lastPunchAt = System.currentTimeMillis()
-                beginChallenge(match, "OUT", liveness)
-            }
-            .setNegativeButton(R.string.kiosk_logout_confirm_no) { d, _ ->
-                d.dismiss()
-                dialogActive = false
-                // Reset cooldown so the dialog doesn't pop again immediately.
                 lastPunchAt = System.currentTimeMillis()
                 binding.statusText.text = getString(R.string.kiosk_look_at_camera)
             }
@@ -568,10 +619,29 @@ class KioskActivity : AppCompatActivity() {
         pendingChallengeProbe = null
         pendingChallengeNonce = null
         mainHandler.removeCallbacks(pendingChallengeTimeout)
+        val punchTimeIso = isoNow()
+        if (match.entry.subjectType == "CONTRACTOR") {
+            val accepted = recordContractorPunch(
+                match = match,
+                direction = direction,
+                liveness = liveness,
+                punchTimeIso = punchTimeIso,
+                challengeType = challengeType,
+                challengePassedAt = challengePassedAt,
+                nonce = nonce,
+                probe = probe,
+            )
+            if (accepted) {
+                todayPunches[match.entry.subjectKey] = PunchState(direction, now)
+                runOnUiThread { showPunchSuccess(match.entry.displayName, direction) }
+            }
+            return
+        }
+        val employeeId = match.entry.employeeId ?: return
         val q = QueuedPunch(
-            employeeId = match.entry.employeeId,
+            employeeId = employeeId,
             employeeCode = match.entry.employeeCode,
-            punchTimeIso = isoNow(),
+            punchTimeIso = punchTimeIso,
             direction = direction,
             matchScore = match.score,
             livenessScore = liveness,
@@ -583,13 +653,140 @@ class KioskActivity : AppCompatActivity() {
             livenessNonce = nonce,
             probeEmbeddingB64 = probe?.let { com.statcosol.attendance.face.FaceEmbedder.encodeEmbeddingB64(it) },
         )
-        withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }
-        WorkManager.getInstance(this).enqueue(
-            OneTimeWorkRequestBuilder<PunchSyncWorker>().build()
-        )
-        todayPunches[match.entry.employeeId] = PunchState(direction, now)
-        runOnUiThread { showPunchSuccess(match.entry.displayName, direction) }
+        val punchAccepted = try {
+            withContext(Dispatchers.IO) {
+                val resp = app.apiClient.postPunch(q.toPunchBody(offlineSync = false))
+                resp.ok
+            }
+        } catch (e: Exception) {
+            val msg = e.message.orEmpty()
+            val status = parseHttpStatus(msg)
+            if (status in 400..499) {
+                handleRejectedPunch(match, msg)
+                return
+            }
+            withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }
+            PunchSyncWorker.enqueue(this)
+            runOnUiThread {
+                binding.statusText.text = getString(R.string.kiosk_punch_queued)
+            }
+            false
+        }
+        if (punchAccepted) {
+            todayPunches[match.entry.subjectKey] = PunchState(direction, now)
+            runOnUiThread { showPunchSuccess(match.entry.displayName, direction) }
+        }
     }
+
+    private suspend fun recordContractorPunch(
+        match: RosterMatcher.Match,
+        direction: String,
+        liveness: Double,
+        punchTimeIso: String,
+        challengeType: String?,
+        challengePassedAt: String?,
+        nonce: String?,
+        probe: FloatArray?,
+    ): Boolean {
+        val contractorId = match.entry.contractorEmployeeId ?: return false
+        val probeB64 = probe?.let { FaceEmbedder.encodeEmbeddingB64(it) }
+        val q = QueuedPunch(
+            contractorEmployeeId = contractorId,
+            punchTimeIso = punchTimeIso,
+            direction = direction,
+            matchScore = match.score,
+            livenessScore = liveness,
+            captureLat = null,
+            captureLng = null,
+            captureAccuracyM = null,
+            livenessChallengeType = challengeType,
+            livenessChallengePassedAtIso = challengePassedAt,
+            livenessNonce = nonce,
+            probeEmbeddingB64 = probeB64,
+        )
+        return try {
+            withContext(Dispatchers.IO) {
+                val resp = app.apiClient.postContractorPunch(
+                    ContractorPunchBody(
+                        contractorEmployeeId = contractorId,
+                        punchTime = punchTimeIso,
+                        direction = direction,
+                        matchScore = match.score,
+                        livenessScore = liveness,
+                        captureLat = null,
+                        captureLng = null,
+                        captureAccuracyM = null,
+                        isRooted = if (app.isDeviceRooted) true else null,
+                        offlineSync = false,
+                        livenessChallengeType = challengeType,
+                        livenessChallengePassedAt = challengePassedAt,
+                        livenessNonce = nonce,
+                        probeEmbeddingB64 = probeB64,
+                    )
+                )
+                resp.ok
+            }
+        } catch (e: Exception) {
+            val msg = e.message.orEmpty()
+            val status = parseHttpStatus(msg)
+            if (status in 400..499) {
+                handleRejectedPunch(match, msg)
+            } else {
+                withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }
+                PunchSyncWorker.enqueue(this)
+                runOnUiThread {
+                    binding.statusText.text = getString(R.string.kiosk_punch_queued)
+                }
+            }
+            false
+        }
+    }
+
+    private fun QueuedPunch.toPunchBody(offlineSync: Boolean): PunchBody {
+        val id = requireNotNull(employeeId) { "employeeId required for employee punch" }
+        val code = requireNotNull(employeeCode) { "employeeCode required for employee punch" }
+        return PunchBody(
+            employeeId = id,
+            employeeCode = code,
+            punchTime = punchTimeIso,
+            direction = direction,
+            matchScore = matchScore,
+            livenessScore = livenessScore,
+            captureLat = captureLat,
+            captureLng = captureLng,
+            captureAccuracyM = captureAccuracyM,
+            isRooted = if (app.isDeviceRooted) true else null,
+            offlineSync = offlineSync,
+            livenessChallengeType = livenessChallengeType,
+            livenessChallengePassedAt = livenessChallengePassedAtIso,
+            livenessNonce = livenessNonce,
+            probeEmbeddingB64 = probeEmbeddingB64,
+        )
+    }
+
+    private fun handleRejectedPunch(match: RosterMatcher.Match, message: String) {
+        if (
+            message.contains("No active face enrollment", ignoreCase = true) ||
+            message.contains("No active face enrollment for contractor", ignoreCase = true) ||
+            message.contains("roster is stale", ignoreCase = true)
+        ) {
+            matcher = null
+            lifecycleScope.launch {
+                runCatching { refreshRosterNow(showEmptyMessage = true) }
+            }
+        }
+        runOnUiThread {
+            binding.statusText.text = getString(R.string.kiosk_punch_rejected)
+            speak(getString(R.string.kiosk_voice_face_not_recognised))
+        }
+        android.util.Log.w(
+            "KioskActivity",
+            "punch rejected for ${match.entry.employeeCode.ifBlank { match.entry.subjectKey }}: ${message.take(300)}",
+        )
+    }
+
+    private fun parseHttpStatus(msg: String): Int =
+        Regex("""\b(\d{3})\b""").find(msg)?.value?.toIntOrNull() ?: 0
 
     private fun showPunchSuccess(name: String, direction: String) {
         val isOut = direction == "OUT"
@@ -616,10 +813,10 @@ class KioskActivity : AppCompatActivity() {
         binding.statusText.text = getString(R.string.kiosk_look_at_camera)
         speak(
             getString(
-                if (isOut) R.string.kiosk_voice_logout_recorded
-                else R.string.kiosk_voice_recorded,
-                name,
-            )
+                if (isOut) R.string.kiosk_voice_logout_motivation
+                else R.string.kiosk_voice_login_motivation,
+            ),
+            TELUGU_VOICE_LOCALE,
         )
         mainHandler.removeCallbacks(hideOverlayRunnable)
         mainHandler.postDelayed(hideOverlayRunnable, OVERLAY_VISIBLE_MS)
@@ -665,9 +862,9 @@ class KioskActivity : AppCompatActivity() {
         enrollRunningAvg = null
         enrollLastAcceptedAt = 0L
         enrollChallengePassed = false
-        // Arm a random liveness challenge so the operator can't enroll
-        // a static photo.
-        val challenge = LivenessChallenge.random()
+        // Use blink-only liveness for the kiosk demo flow: no screen touch,
+        // simple instruction, still blocks static-photo enrollment.
+        val challenge = LivenessChallenge.BLINK
         enrollChallenge = LivenessChallengeTracker(challenge)
         mainHandler.removeCallbacks(enrollChallengeTimeout)
         mainHandler.postDelayed(enrollChallengeTimeout, ENROLL_CHALLENGE_TIMEOUT_MS)
@@ -703,7 +900,7 @@ class KioskActivity : AppCompatActivity() {
     }
 
     private fun maybeShowEnrollRegisterDialog() {
-        val t = enrollTicket ?: return
+        if (enrollTicket == null) return
         if (enrollFrames.size < ENROLL_REQUIRED_FRAMES) return
         if (!enrollChallengePassed) return
         if (dialogActive || enrollSubmitting) return
@@ -719,28 +916,7 @@ class KioskActivity : AppCompatActivity() {
             enrollRunningAvg = null
             return
         }
-        runOnUiThread { showEnrollRegisterDialog(t) }
-    }
-
-    private fun showEnrollRegisterDialog(t: KioskEnrollTicket) {
-        if (dialogActive) return
-        dialogActive = true
-        MaterialAlertDialogBuilder(this)
-            .setIcon(R.drawable.ic_shield_check)
-            .setTitle(R.string.kiosk_enroll_ready_title)
-            .setMessage(getString(R.string.kiosk_enroll_ready_message, t.subjectName))
-            .setCancelable(false)
-            .setPositiveButton(R.string.kiosk_enroll_register_btn) { d, _ ->
-                d.dismiss()
-                dialogActive = false
-                submitKioskEnrollment()
-            }
-            .setNegativeButton(R.string.kiosk_enroll_cancel_btn) { d, _ ->
-                d.dismiss()
-                dialogActive = false
-                abortKioskEnrollment(reason = "cancelled by operator")
-            }
-            .show()
+        submitKioskEnrollment()
     }
 
     private fun submitKioskEnrollment() {
@@ -757,16 +933,25 @@ class KioskActivity : AppCompatActivity() {
                     app.apiClient.submitKioskEnrollTicket(t.id, body)
                 }
                 if (resp.ok) {
+                    val rosterSize = runCatching {
+                        refreshRosterNow(showEmptyMessage = false)
+                    }.getOrNull()
                     runOnUiThread {
-                        binding.statusText.text =
+                        val successMessage =
                             getString(R.string.kiosk_enroll_success, t.subjectName)
-                        speak(getString(R.string.kiosk_enroll_success, t.subjectName))
+                        binding.statusText.text = successMessage
+                        speak(successMessage)
                     }
+                    startFastRosterRefresh()
                     clearKioskEnrollmentState()
                     runOnUiThread {
                         mainHandler.postDelayed({
                             binding.statusText.text = getString(R.string.kiosk_look_at_camera)
-                        }, 3_000L)
+                        }, 5_000L)
+                    }
+                    if (rosterSize == null) {
+                        mainHandler.removeCallbacks(rosterRefreshRunnable)
+                        mainHandler.postDelayed(rosterRefreshRunnable, 1_000L)
                     }
                 } else {
                     abortKioskEnrollment(resp.message ?: "server rejected")
@@ -777,6 +962,12 @@ class KioskActivity : AppCompatActivity() {
                 enrollSubmitting = false
             }
         }
+    }
+
+    private fun startFastRosterRefresh() {
+        rosterFastRefreshUntil = System.currentTimeMillis() + ENROLL_ROSTER_FAST_REFRESH_WINDOW_MS
+        mainHandler.removeCallbacks(rosterRefreshRunnable)
+        mainHandler.postDelayed(rosterRefreshRunnable, ENROLL_ROSTER_FAST_REFRESH_MS)
     }
 
     private fun abortKioskEnrollment(reason: String) {
@@ -845,14 +1036,19 @@ class KioskActivity : AppCompatActivity() {
         /** Phase 3f: re-fetch the roster every 5 minutes so freshly
          *  enrolled employees become matchable without restarting. */
         private const val ROSTER_REFRESH_MS = 5 * 60_000L
+        private const val FAILED_SCAN_REPORT_AFTER = 3
+        private const val FAILED_SCAN_REPORT_COOLDOWN_MS = 60_000L
 
         // Operator-supervised enrollment constants.
-        private const val ENROLL_POLL_FIRST_MS = 3_000L
-        private const val ENROLL_POLL_MS = 8_000L
-        private const val ENROLL_REQUIRED_FRAMES = 8
-        private const val ENROLL_MIN_LIVENESS = 0.7
-        private const val ENROLL_MIN_FRAME_INTERVAL_MS = 350L
-        private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.78
+        private const val ENROLL_POLL_FIRST_MS = 1_000L
+        private const val ENROLL_POLL_MS = 3_000L
+        private const val ENROLL_REQUIRED_FRAMES = 3
+        private const val ENROLL_MIN_LIVENESS = 0.5
+        private const val ENROLL_MIN_FRAME_INTERVAL_MS = 250L
+        private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.68
         private const val ENROLL_CHALLENGE_TIMEOUT_MS = 12_000L
+        private const val ENROLL_ROSTER_FAST_REFRESH_MS = 5_000L
+        private const val ENROLL_ROSTER_FAST_REFRESH_WINDOW_MS = 2 * 60_000L
+        private val TELUGU_VOICE_LOCALE: Locale = Locale("te", "IN")
     }
 }

@@ -333,9 +333,9 @@
 
       <label>
         Employee
-        <select id="pf-employee-id" name="createEmployeeId" [(ngModel)]="createModel.employeeId" [disabled]="!createModel.clientId || modalEmployeesLoading">
-          <option value="">{{ modalEmployeesLoading ? 'Loading…' : (createModel.clientId ? 'Select employee' : 'Pick client first') }}</option>
-          <option *ngFor="let e of modalEmployees" [value]="e.id">{{ e.employeeCode }} — {{ e.name }}</option>
+        <select id="pf-employee-id" name="createEmployeeId" [(ngModel)]="createModel.employeeId" (ngModelChange)="onCreateEmployeeChange()" [disabled]="!createModel.clientId || modalEmployeesLoading">
+          <option value="">{{ modalEmployeesLoading ? 'Loading...' : (createModel.clientId ? 'Select exited employee' : 'Pick client first') }}</option>
+          <option *ngFor="let e of modalEmployees" [value]="e.id">{{ e.employeeCode }} - {{ e.name }}{{ e.dateOfExit ? ' (Exit: ' + formatDate(e.dateOfExit) + ')' : '' }}</option>
         </select>
       </label>
 

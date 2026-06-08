@@ -195,3 +195,11 @@ export class RejectAttendanceDto {
   @IsString()
   reason?: string;
 }
+
+export class DeleteAttendanceDto {
+  @ApiProperty({ description: 'Array of attendance record IDs to delete' })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  ids: string[];
+}

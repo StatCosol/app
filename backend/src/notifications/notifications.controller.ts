@@ -5,8 +5,10 @@ import {
   Param,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { NotificationsService } from './notifications.service';
@@ -50,6 +52,16 @@ export class NotificationsController {
   @Get('threads/:threadId')
   thread(@CurrentUser() user: ReqUser, @Param('threadId') threadId: string) {
     return this.svc.getThreadDetailForUser(user, threadId);
+  }
+
+  @ApiOperation({ summary: 'Download message attachment' })
+  @Get('messages/:messageId/attachment')
+  downloadMessageAttachment(
+    @CurrentUser() user: ReqUser,
+    @Param('messageId') messageId: string,
+    @Res() res: Response,
+  ) {
+    return this.svc.downloadMessageAttachmentForUser(user, messageId, res);
   }
 
   @ApiOperation({ summary: 'Thread Reply' })

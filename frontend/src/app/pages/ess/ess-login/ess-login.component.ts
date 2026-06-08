@@ -52,6 +52,7 @@ import { AuthService } from '../../../core/auth.service';
               <p>Empowering<br/>Employees</p>
             </div>
           </div>
+          <p class="brand-footer">&copy; {{ currentYear }} StatCo Solutions</p>
         </aside>
 
         <!-- ═══════ RIGHT: LOGIN PANEL ═══════ -->
@@ -148,16 +149,27 @@ import { AuthService } from '../../../core/auth.service';
                 </span>
               </button>
 
-              <div class="or">
-                <i></i><p>or</p><i></i>
-              </div>
+            <div class="or">
+              <i></i><p>or</p><i></i>
+            </div>
 
-              <button type="button" class="bio" (click)="loginWithBiometrics()">
+            <button type="button" class="bio" (click)="loginWithBiometrics()">
                 <span aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11v3a2 2 0 002 2"/><path d="M5.5 9.5A8 8 0 0112 6a8 8 0 016.5 3.5"/><path d="M3 13a10 10 0 014-7.5"/><path d="M21 13a10 10 0 00-4-7.5"/><path d="M7 14a5 5 0 015-5 5 5 0 015 5v2"/><path d="M9 19a3 3 0 003-3"/><path d="M15 21a8 8 0 002-5"/></svg>
                 </span>
                 Login with Biometrics
               </button>
+
+              <div class="support-strip">
+                <a href="tel:+919000607839">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.2 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.77.62 2.61a2 2 0 0 1-.45 2.11L8 9.72a16 16 0 0 0 6.28 6.28l1.28-1.28a2 2 0 0 1 2.11-.45c.84.29 1.71.5 2.61.62A2 2 0 0 1 22 16.92z"/></svg>
+                  +91 9000607839
+                </a>
+                <a href="mailto:it_admin@statcosol.com">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+                  it_admin@statcosol.com
+                </a>
+              </div>
             </form>
 
             <div class="help">
@@ -197,60 +209,97 @@ import { AuthService } from '../../../core/auth.service';
     .page {
       min-height: 100vh;
       width: 100%;
-      background: #005cff;
+      background:
+        linear-gradient(43deg, transparent 0 61%, #ffffff 61.15% 62.05%, transparent 62.2%),
+        linear-gradient(43deg, transparent 0 55%, #06335f 55.15%, #087ef5 68%, #06335f 96%),
+        #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 32px clamp(32px, 6vw, 120px);
+      padding: 18px clamp(18px, 4vw, 64px);
+      overflow-x: hidden;
+      position: relative;
+      isolation: isolate;
+    }
+    .page::before {
+      content: "";
+      position: absolute;
+      left: -10vw;
+      bottom: -18vh;
+      width: min(42vw, 560px);
+      height: min(48vh, 440px);
+      background:
+        linear-gradient(135deg, rgba(15,94,154,.1), rgba(8,126,245,.18)),
+        repeating-linear-gradient(135deg, rgba(8,126,245,.16) 0 2px, transparent 2px 24px);
+      clip-path: polygon(0 28%, 74% 0, 100% 72%, 20% 100%);
+      z-index: -1;
+    }
+    .page::after {
+      content: "";
+      position: absolute;
+      right: clamp(24px, 5vw, 86px);
+      top: clamp(86px, 15vh, 150px);
+      width: min(18vw, 260px);
+      height: min(38vh, 360px);
+      background:
+        linear-gradient(135deg, transparent 0 42%, rgba(255,255,255,.72) 42.4% 44.4%, transparent 44.8%),
+        repeating-linear-gradient(135deg, rgba(255,255,255,.62) 0 1px, transparent 1px 18px);
+      opacity: .68;
+      transform: skewX(-8deg);
+      z-index: -1;
     }
 
     /* ═══ SCREEN (white card) ═════════════════ */
     .screen {
       width: 100%;
-      max-width: 1080px;
-      min-height: min(1360px, calc(100vh - 64px));
+      max-width: 840px;
+      min-height: min(580px, calc(100vh - 36px));
       background: #fff;
-      border-radius: 44px;
+      border-radius: 24px;
       display: grid;
-      grid-template-columns: 38% 62%;
+      grid-template-columns: 34% 66%;
       overflow: hidden;
-      box-shadow: 0 35px 90px rgba(0, 30, 100, .45);
+      box-shadow: 0 26px 70px rgba(15, 38, 79, .2);
       margin: 0 auto;
+      position: relative;
+      z-index: 1;
     }
 
     /* ═══ LEFT BRAND PANEL ═════════════════════ */
     .left {
       color: #fff;
-      padding: 90px 64px;
+      padding: 36px 30px;
       background:
-        linear-gradient(180deg, rgba(0,95,255,.95), rgba(0,20,95,.98)),
-        radial-gradient(circle at 20% 80%, #48c7ff, transparent 35%);
+        linear-gradient(180deg, rgba(15, 94, 154, .96), rgba(7, 37, 84, .98)),
+        radial-gradient(circle at 20% 80%, rgba(20, 184, 166, .8), transparent 35%);
       position: relative;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
     .left::after {
       content: "";
       position: absolute;
       bottom: 0; left: 0;
-      width: 100%; height: 320px;
+      width: 100%; height: 180px;
       background: linear-gradient(transparent, rgba(0,0,0,.35));
       pointer-events: none;
     }
 
     .logo-box {
-      width: 145px; height: 145px;
+      width: 72px; height: 72px;
       background: #fff;
-      border-radius: 34px;
+      border-radius: 22px;
       display: flex; align-items: center; justify-content: center;
       box-shadow: 0 20px 45px rgba(0,0,0,.18);
       position: relative;
       z-index: 2;
     }
-    .people-icon { width: 92px; height: 92px; }
+    .people-icon { width: 46px; height: 46px; }
 
     .left h1 {
-      font-size: 96px;
-      margin: 58px 0 0;
+      font-size: 44px;
+      margin: 24px 0 0;
       line-height: 1;
       font-weight: 900;
       letter-spacing: -1.5px;
@@ -258,17 +307,17 @@ import { AuthService } from '../../../core/auth.service';
       z-index: 2;
     }
     .left h3 {
-      font-size: 26px;
-      margin: 20px 0 0;
+      font-size: 15px;
+      margin: 12px 0 0;
       font-weight: 600;
       position: relative;
       z-index: 2;
     }
     .line {
       width: 74px;
-      height: 5px;
+      height: 4px;
       background: #19c8ff;
-      margin: 38px 0 70px;
+      margin: 18px 0 22px;
       border-radius: 20px;
       position: relative;
       z-index: 2;
@@ -278,7 +327,7 @@ import { AuthService } from '../../../core/auth.service';
       position: relative;
       z-index: 2;
       display: grid;
-      gap: 34px;
+      gap: 12px;
     }
     .features > div {
       display: flex;
@@ -287,37 +336,48 @@ import { AuthService } from '../../../core/auth.service';
     }
     .features span {
       flex-shrink: 0;
-      width: 58px; height: 58px;
+      width: 34px; height: 34px;
       border: 1px solid rgba(255,255,255,.45);
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       background: rgba(255,255,255,.08);
       color: #fff;
     }
-    .features span svg { width: 26px; height: 26px; }
+    .features span svg { width: 17px; height: 17px; }
     .features p {
       margin: 0;
-      font-size: 17px;
+      font-size: 12px;
       line-height: 1.45;
+    }
+    .brand-footer {
+      margin-top: auto;
+      padding-top: 24px;
+      position: relative;
+      z-index: 2;
+      color: rgba(255,255,255,.72);
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.4;
     }
 
     /* ═══ RIGHT LOGIN PANEL ═══════════════════ */
     .right {
       background: #fbfdff;
-      border-top-left-radius: 145px;
-      padding: 70px 58px;
+      border-top-left-radius: 76px;
+      padding: 26px 36px;
       position: relative;
+      overflow-y: auto;
     }
 
     .language {
       position: absolute;
-      top: 56px; right: 58px;
+      top: 22px; right: 36px;
       background: #fff;
       border: 0;
       border-radius: 35px;
-      padding: 14px 22px;
+      padding: 8px 14px;
       color: #33405c;
-      font-size: 17px;
+      font-size: 14px;
       box-shadow: 0 10px 30px rgba(0,0,0,.08);
       display: inline-flex;
       align-items: center;
@@ -325,58 +385,61 @@ import { AuthService } from '../../../core/auth.service';
       cursor: pointer;
       font-family: inherit;
     }
-    .language svg { width: 18px; height: 18px; color: #005cff; }
-    .language .caret { width: 14px; height: 14px; color: #8794ad; }
+    .language svg { width: 15px; height: 15px; color: #005cff; }
+    .language .caret { width: 12px; height: 12px; color: #8794ad; }
 
     .shield {
       position: absolute;
-      top: 270px; right: 122px;
-      width: 95px; height: 95px;
-      border-radius: 30px;
+      top: 112px; right: 68px;
+      width: 46px; height: 46px;
+      border-radius: 18px;
       background: linear-gradient(145deg, #1685ff, #0046d9);
       color: #fff;
       display: flex; align-items: center; justify-content: center;
       box-shadow: 0 18px 36px rgba(0,98,255,.3);
       animation: floatY 3.4s ease-in-out infinite;
     }
-    .shield svg { width: 46px; height: 46px; }
+    .shield svg { width: 24px; height: 24px; }
 
-    .form-area { margin-top: 245px; }
+    .form-area {
+      margin-top: 74px;
+      max-width: 370px;
+    }
 
     .form-area h2 {
-      font-size: 42px;
+      font-size: 25px;
       color: #11284f;
       margin: 0;
       font-weight: 900;
       letter-spacing: -.4px;
     }
     .caption {
-      font-size: 20px;
+      font-size: 13px;
       color: #68738a;
-      margin: 14px 0 0;
+      margin: 10px 0 0;
     }
     .blue-line {
       width: 70px;
-      height: 5px;
+      height: 4px;
       background: #086dff;
       border-radius: 20px;
-      margin: 36px 0 48px;
+      margin: 12px 0 18px;
     }
 
     .frm { display: block; }
 
-    .field { margin-bottom: 8px; }
+    .field { margin-bottom: 6px; }
 
     .input {
-      height: 86px;
-      border-radius: 22px;
+      height: 46px;
+      border-radius: 14px;
       background: #fff;
       border: 1px solid #dde7f6;
       display: flex;
       align-items: center;
-      gap: 22px;
-      padding: 0 28px;
-      margin-bottom: 8px;
+      gap: 14px;
+      padding: 0 18px;
+      margin-bottom: 4px;
       box-shadow: 0 12px 28px rgba(30,80,150,.07);
       transition: border-color .2s, box-shadow .2s;
     }
@@ -389,13 +452,13 @@ import { AuthService } from '../../../core/auth.service';
       display: inline-flex; align-items: center; justify-content: center;
       color: #6b7790;
     }
-    .input > span svg { width: 24px; height: 24px; }
+    .input > span svg { width: 18px; height: 18px; }
 
     .input input {
       flex: 1;
       border: 0;
       outline: 0;
-      font-size: 20px;
+      font-size: 14px;
       color: #11284f;
       background: transparent;
       font-family: inherit;
@@ -417,9 +480,9 @@ import { AuthService } from '../../../core/auth.service';
 
     .field-err {
       display: block;
-      font-size: 13px;
+      font-size: 12px;
       color: #dc2626;
-      margin: 6px 4px 14px;
+      margin: 4px 4px 8px;
     }
     .caps-note {
       display: inline-flex; align-items: center; gap: 6px;
@@ -447,8 +510,8 @@ import { AuthService } from '../../../core/auth.service';
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin: 14px 4px 32px;
-      font-size: 18px;
+      margin: 6px 4px 10px;
+      font-size: 13px;
       flex-wrap: wrap;
       gap: 10px;
     }
@@ -459,7 +522,7 @@ import { AuthService } from '../../../core/auth.service';
       user-select: none;
     }
     .remember input {
-      width: 22px; height: 22px;
+      width: 16px; height: 16px;
       accent-color: #0072ff;
       margin-right: 10px;
       cursor: pointer;
@@ -486,11 +549,11 @@ import { AuthService } from '../../../core/auth.service';
 
     .login {
       width: 100%;
-      height: 88px;
+      height: 46px;
       border: 0;
-      border-radius: 22px;
+      border-radius: 14px;
       color: #fff;
-      font-size: 26px;
+      font-size: 15px;
       font-weight: 800;
       background: linear-gradient(135deg, #087cff, #003ab8);
       box-shadow: 0 18px 38px rgba(0,82,255,.35);
@@ -509,11 +572,11 @@ import { AuthService } from '../../../core/auth.service';
     .login:disabled { opacity: .7; cursor: progress; }
     .login .arrow {
       position: absolute;
-      right: 24px;
+      right: 18px;
       top: 50%; transform: translateY(-50%);
       display: inline-flex;
     }
-    .login .arrow svg { width: 26px; height: 26px; }
+    .login .arrow svg { width: 20px; height: 20px; }
     .spinner {
       width: 18px; height: 18px;
       border: 2.5px solid rgba(255,255,255,.4);
@@ -529,7 +592,7 @@ import { AuthService } from '../../../core/auth.service';
       display: flex;
       align-items: center;
       gap: 26px;
-      margin: 36px 0 30px;
+      margin: 12px 0 10px;
       color: #8d96a8;
     }
     .or i {
@@ -541,12 +604,12 @@ import { AuthService } from '../../../core/auth.service';
 
     .bio {
       width: 100%;
-      height: 72px;
-      border-radius: 20px;
+      height: 42px;
+      border-radius: 14px;
       border: 1px solid #d3e1f5;
       background: #fff;
       color: #005cff;
-      font-size: 20px;
+      font-size: 14px;
       font-weight: 700;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
@@ -556,37 +619,55 @@ import { AuthService } from '../../../core/auth.service';
     }
     .bio:hover { background: #f1f7ff; border-color: #086dff; }
     .bio span { display: inline-flex; }
-    .bio span svg { width: 26px; height: 26px; }
+    .bio span svg { width: 20px; height: 20px; }
 
-    .help {
-      margin-top: 42px;
-      background: #eef5ff;
-      border-radius: 22px;
-      padding: 24px;
+    .support-strip {
+      margin-top: 12px;
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      gap: 18px;
+      gap: 8px 14px;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.35;
     }
+    .support-strip a {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #0f766e;
+      font-weight: 700;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .support-strip a:hover { color: #0f5e9a; text-decoration: underline; }
+    .support-strip svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
+    .help { display: none; }
     .help-icon {
       flex-shrink: 0;
-      width: 66px; height: 66px;
+      width: 38px; height: 38px;
       background: #d9ebff;
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       color: #005cff;
     }
-    .help-icon svg { width: 28px; height: 28px; }
+    .help-icon svg { width: 18px; height: 18px; }
     .help-text { flex: 1; min-width: 0; }
     .help h4 {
       margin: 0;
-      font-size: 20px;
+      font-size: 14px;
       color: #11284f;
       font-weight: 700;
     }
     .help p {
       margin: 7px 0 0;
       color: #68738a;
-      font-size: 16px;
+      font-size: 12px;
     }
     .help p a {
       color: #005cff;
@@ -595,23 +676,13 @@ import { AuthService } from '../../../core/auth.service';
     .help p a:hover { text-decoration: underline; }
     .help strong {
       margin-left: auto;
-      font-size: 42px;
+      font-size: 28px;
       color: #8792a5;
       line-height: 1;
       font-weight: 400;
     }
 
-    .secure {
-      text-align: center;
-      margin-top: 34px;
-      color: #7b9ad1;
-      font-size: 16px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      width: 100%;
-      justify-content: center;
-    }
+    .secure { display: none; }
     .secure svg { width: 16px; height: 16px; }
 
     /* ═══ ANIMATIONS ═══════════════════════════ */
@@ -633,17 +704,19 @@ import { AuthService } from '../../../core/auth.service';
 
     /* tablet — tighten paddings, reduce hero typography */
     @media (max-width: 1100px) {
-      .left { padding: 64px 44px; }
-      .left h1 { font-size: 78px; }
-      .right { padding: 60px 44px; border-top-left-radius: 110px; }
-      .language { top: 40px; right: 44px; }
-      .shield { top: 230px; right: 88px; width: 84px; height: 84px; }
-      .form-area { margin-top: 210px; }
+      .screen { max-width: 880px; grid-template-columns: 32% 68%; }
+      .left { padding: 38px 32px; }
+      .left h1 { font-size: 48px; }
+      .right { padding: 30px 36px; border-top-left-radius: 64px; }
+      .language { top: 24px; right: 36px; }
+      .shield { top: 140px; right: 68px; width: 52px; height: 52px; }
+      .form-area { margin-top: 96px; max-width: 400px; }
     }
 
     /* phone — stack panels, hide hero ornaments */
     @media (max-width: 900px) {
       .page { padding: 0; align-items: stretch; background: #fff; }
+      .page::before, .page::after { display: none; }
       .screen {
         height: auto;
         min-height: 100vh;
@@ -658,14 +731,19 @@ import { AuthService } from '../../../core/auth.service';
       }
       .logo-box {
         margin: 0 auto;
-        width: 110px; height: 110px;
-        border-radius: 28px;
+        width: 86px; height: 86px;
+        border-radius: 22px;
       }
-      .people-icon { width: 70px; height: 70px; }
-      .left h1 { font-size: 62px; margin-top: 32px; }
-      .left h3 { font-size: 20px; }
+      .people-icon { width: 54px; height: 54px; }
+      .left h1 { font-size: 46px; margin-top: 24px; }
+      .left h3 { font-size: 18px; }
       .line { margin: 22px auto 0; }
       .features { display: none; }
+      .brand-footer {
+        margin-top: 22px;
+        padding-top: 0;
+        text-align: center;
+      }
 
       .right {
         border-top-left-radius: 0;
@@ -674,24 +752,24 @@ import { AuthService } from '../../../core/auth.service';
       .language, .shield { display: none; }
 
       .form-area { margin-top: 8px; }
-      .form-area h2 { font-size: 32px; }
+      .form-area h2 { font-size: 28px; }
       .caption { font-size: 16px; }
       .blue-line { margin: 24px 0 32px; }
 
       .input {
-        height: 64px;
-        padding: 0 20px;
+        height: 56px;
+        padding: 0 18px;
         gap: 16px;
-        border-radius: 18px;
+        border-radius: 14px;
       }
       .input > span svg { width: 20px; height: 20px; }
       .input input { font-size: 16px; /* prevents iOS focus-zoom */ }
 
       .row { font-size: 15px; margin: 8px 4px 22px; }
       .login {
-        height: 60px;
-        font-size: 18px;
-        border-radius: 18px;
+        height: 54px;
+        font-size: 17px;
+        border-radius: 14px;
       }
       .login .arrow { right: 18px; }
       .login .arrow svg { width: 20px; height: 20px; }
@@ -699,12 +777,16 @@ import { AuthService } from '../../../core/auth.service';
       .or { margin: 26px 0 22px; }
 
       .bio {
-        height: 56px;
-        font-size: 16px;
-        border-radius: 16px;
+        height: 48px;
+        font-size: 15px;
+        border-radius: 14px;
       }
       .bio span svg { width: 22px; height: 22px; }
 
+      .support-strip {
+        justify-content: center;
+        font-size: 12px;
+      }
       .help { padding: 16px; gap: 14px; margin-top: 28px; }
       .help-icon { width: 52px; height: 52px; }
       .help-icon svg { width: 22px; height: 22px; }

@@ -7,6 +7,8 @@ import {
   ClientCommType,
   MailTemplate,
 } from './client-contacts.service';
+import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 interface EditState {
   subjectTemplate: string;
@@ -96,6 +98,8 @@ const TYPE_LABELS: Record<ClientCommType, string> = {
 })
 export class AdminMailTemplatesComponent implements OnInit {
   private readonly svc = inject(ClientContactsService);
+  private readonly toast = inject(ToastService);
+  private readonly dialog = inject(ConfirmDialogService);
 
   loading = signal(true);
   templates = signal<MailTemplate[]>([]);
@@ -133,7 +137,7 @@ export class AdminMailTemplatesComponent implements OnInit {
   save(t: MailTemplate) {
     const s = this.state[t.commType];
     if (!s.subjectTemplate.trim() || !s.bodyTemplate.trim()) {
-      alert('Subject and Body are required');
+      this.toast.error('Subject and Body are required');
       return;
     }
     s.saving = true;
@@ -146,25 +150,29 @@ export class AdminMailTemplatesComponent implements OnInit {
         next: (r) => {
           s.saving = false;
           if (r.ok) {
-            alert('Template saved');
+            this.toast.success('Template saved');
             this.refresh();
           } else {
-            alert(r.error || 'Save failed');
+            this.toast.error(r.error || 'Save failed');
           }
         },
         error: (e) => {
           s.saving = false;
-          alert(e?.error?.message || 'Save failed');
+          this.toast.error(e?.error?.message || 'Save failed');
         },
       });
   }
 
-  resetToDefault(t: MailTemplate) {
-    if (!confirm(`Reset ${this.labelFor(t.commType)} to the built-in default?`))
-      return;
+  async resetToDefault(t: MailTemplate): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Reset Template',
+      `Reset ${this.labelFor(t.commType)} to the built-in default?`,
+      { confirmText: 'Reset' },
+    );
+    if (!ok) return;
     this.svc.resetTemplate(t.commType).subscribe({
       next: () => this.refresh(),
-      error: (e) => alert(e?.error?.message || 'Reset failed'),
+      error: (e) => this.toast.error(e?.error?.message || 'Reset failed'),
     });
   }
 
@@ -178,7 +186,7 @@ export class AdminMailTemplatesComponent implements OnInit {
       .subscribe({
         next: (r) => {
           if (!r.ok) {
-            alert(r.error || 'Preview failed');
+            this.toast.error(r.error || 'Preview failed');
             return;
           }
           s.previewSubject = r.subject || '';
@@ -186,7 +194,7 @@ export class AdminMailTemplatesComponent implements OnInit {
           s.source = r.source;
           s.showPreview = true;
         },
-        error: (e) => alert(e?.error?.message || 'Preview failed'),
+        error: (e) => this.toast.error(e?.error?.message || 'Preview failed'),
       });
   }
 }

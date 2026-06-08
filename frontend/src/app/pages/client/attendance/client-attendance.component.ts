@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, forkJoin, of } from 'rxjs';
+import { Subject, forkJoin, fromEvent, interval, merge, of } from 'rxjs';
 import { catchError, finalize, takeUntil } from 'rxjs/operators';
 
 import { ToastService } from '../../../shared/toast/toast.service';
@@ -327,6 +327,7 @@ interface AttendanceIssue {
 })
 export class ClientAttendanceComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
+  private readonly liveRefreshMs = 10000;
 
   selectedMonth = this.defaultMonth();
   branchId = '';
@@ -361,6 +362,7 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadWorkspace();
+    this.startLiveRefresh();
   }
 
   ngOnDestroy(): void {
@@ -368,13 +370,16 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  loadWorkspace(): void {
+  loadWorkspace(silent = false): void {
+    if (this.loading) return;
     const { year, month, from, to } = this.monthRange(this.selectedMonth);
-    this.loading = true;
-    this.attendanceApproved = false;
-    this.handoffMessage = '';
-    this.handoffError = false;
-    this.handoffHistory = [];
+    if (!silent) {
+      this.loading = true;
+      this.attendanceApproved = false;
+      this.handoffMessage = '';
+      this.handoffError = false;
+      this.handoffHistory = [];
+    }
 
     forkJoin({
       records: this.attendanceSvc.list({
@@ -395,7 +400,7 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
-          this.loading = false;
+          if (!silent) this.loading = false;
           this.cdr.markForCheck();
         }),
       )
@@ -418,13 +423,30 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
           this.loadHandoffHistory(year, month);
         },
         error: (err) => {
-          this.records = [];
-          this.summaryRows = [];
-          this.mismatches = [];
-          this.lopRows = [];
-          this.handoffHistory = [];
-          this.toast.error(err?.error?.message || 'Could not load attendance workspace.');
+          if (!silent) {
+            this.records = [];
+            this.summaryRows = [];
+            this.mismatches = [];
+            this.lopRows = [];
+            this.handoffHistory = [];
+            this.toast.error(err?.error?.message || 'Could not load attendance workspace.');
+          }
         },
+      });
+  }
+
+  private startLiveRefresh(): void {
+    merge(interval(this.liveRefreshMs), fromEvent(window, 'focus'))
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        if (
+          !this.loading &&
+          !this.approving &&
+          !this.handoffBusy &&
+          this.isCurrentMonthSelected()
+        ) {
+          this.loadWorkspace(true);
+        }
       });
   }
 
@@ -684,6 +706,10 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
       'December',
     ];
     return names[Math.max(0, Math.min(11, month - 1))];
+  }
+
+  private isCurrentMonthSelected(): boolean {
+    return this.selectedMonth === this.defaultMonth();
   }
 
   private defaultMonth(): string {

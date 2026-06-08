@@ -10,8 +10,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.statcosol.attendance.AttendanceApp
@@ -148,6 +146,8 @@ class EssActivity : AppCompatActivity() {
     override fun onDestroy() {
         rosterRefreshJob?.cancel()
         rosterRefreshJob = null
+        capture?.stop()
+        capture = null
         super.onDestroy()
     }
 
@@ -174,6 +174,10 @@ class EssActivity : AppCompatActivity() {
                             val n = code.substringAfter(':').toIntOrNull() ?: 2
                             getString(R.string.face_multiple_detected, n)
                         }
+                        code == "hint:no_face" -> getString(R.string.hint_no_face)
+                        code == "hint:too_small" -> getString(R.string.hint_too_small)
+                        code == "hint:too_dim" -> getString(R.string.hint_too_dim)
+                        code == "hint:not_straight" -> getString(R.string.hint_not_straight)
                         else -> code
                     }
                 }
@@ -221,21 +225,22 @@ class EssActivity : AppCompatActivity() {
                 }
 
                 // ---- Active-liveness challenge ---------------------------
-                // Phase 4c: nonce must come from the server FIRST so the
-                // gesture type is server-bound. If the request fails the
-                // punch is aborted (server-required nonce).
                 val livenessReq = try {
                     withContext(Dispatchers.IO) {
                         app.apiClient.requestLivenessChallenge(empId)
                     }
                 } catch (e: Exception) {
-                    binding.statusText.text = getString(R.string.liveness_request_failed)
-                    return@launch
+                    null
                 }
-                val challenge = LivenessChallenge.fromWire(livenessReq.challengeType)
-                if (challenge == null) {
-                    binding.statusText.text = getString(R.string.liveness_request_failed)
-                    return@launch
+                val challenge = if (livenessReq == null) {
+                    LivenessChallenge.random()
+                } else {
+                    val serverChallenge = LivenessChallenge.fromWire(livenessReq.challengeType)
+                    if (serverChallenge == null) {
+                        binding.statusText.text = getString(R.string.liveness_request_failed)
+                        return@launch
+                    }
+                    serverChallenge
                 }
                 val tracker = LivenessChallengeTracker(challenge)
                 val awaiter = CompletableDeferred<Boolean>()
@@ -282,13 +287,11 @@ class EssActivity : AppCompatActivity() {
                     captureAccuracyM = location.accuracy.toDouble(),
                     livenessChallengeType = tracker.challenge.wireName,
                     livenessChallengePassedAtIso = tracker.passedAtIso(),
-                    livenessNonce = livenessReq.nonce,
+                    livenessNonce = livenessReq?.nonce,
                     probeEmbeddingB64 = com.statcosol.attendance.face.FaceEmbedder.encodeEmbeddingB64(probe),
                 )
                 withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }
-                WorkManager.getInstance(this@EssActivity).enqueue(
-                    OneTimeWorkRequestBuilder<PunchSyncWorker>().build()
-                )
+                PunchSyncWorker.enqueue(this@EssActivity)
                 binding.statusText.text = "Punch queued ($direction)"
             } finally {
                 binding.punchInBtn.isEnabled = true

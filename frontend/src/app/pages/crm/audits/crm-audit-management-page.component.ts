@@ -950,10 +950,16 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     });
   }
 
-  sendBackReport(): void {
+  async sendBackReport(): Promise<void> {
     const id = this.currentAudit?.id;
     if (!id || this.governanceBusy) return;
-    const reason = window.prompt('Reason for sending back (optional):') ?? '';
+    const result = await this.dialog.prompt(
+      'Send Back Report',
+      'Reason for sending back (optional):',
+      { placeholder: 'Reason', confirmText: 'Send Back' },
+    );
+    if (!result.confirmed) return;
+    const reason = result.value ?? '';
     this.governanceBusy = true;
     this.auditsService.crmSendBackReport(id, reason).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
@@ -970,10 +976,16 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     });
   }
 
-  holdReport(): void {
+  async holdReport(): Promise<void> {
     const id = this.currentAudit?.id;
     if (!id || this.governanceBusy) return;
-    const notes = window.prompt('Hold notes (optional):') ?? '';
+    const result = await this.dialog.prompt(
+      'Hold Report',
+      'Hold notes (optional):',
+      { placeholder: 'Notes', confirmText: 'Hold' },
+    );
+    if (!result.confirmed) return;
+    const notes = result.value ?? '';
     this.governanceBusy = true;
     this.auditsService.crmHoldReport(id, notes).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {

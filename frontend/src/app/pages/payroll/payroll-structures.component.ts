@@ -24,6 +24,7 @@ import {
 import { ClientMasterDataService, MasterItem } from '../client/master-data/client-master-data.service';
 import { ActivatedRoute } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
 import {
   FormulaBuilderComponent,
@@ -187,6 +188,7 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
     private readonly setupApi: PayrollSetupApiService,
     private readonly masterDataSvc: ClientMasterDataService,
     private readonly toast: ToastService,
+    private readonly dialog: ConfirmDialogService,
     private readonly cdr: ChangeDetectorRef,
     private readonly route: ActivatedRoute,
   ) {}
@@ -555,13 +557,15 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       });
   }
 
-  deleteStructure(structure: SalaryStructure): void {
+  async deleteStructure(structure: SalaryStructure): Promise<void> {
     if (structure.isActive) {
       this.toast.error('Active structure cannot be deleted. Activate another version first.');
       return;
     }
-    const ok = window.confirm(
+    const ok = await this.dialog.confirm(
+      'Delete Structure',
       `Delete "${structure.name}" permanently? Its mapped items for this inactive version will also be removed.`,
+      { confirmText: 'Delete', variant: 'danger' },
     );
     if (!ok) return;
     this.engineApi
@@ -576,15 +580,17 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       });
   }
 
-  cleanupInactiveStructures(): void {
+  async cleanupInactiveStructures(): Promise<void> {
     const inactive = this.structures.filter((row) => !row.isActive);
     if (!inactive.length) {
       this.toast.success('No inactive structures to remove');
       return;
     }
 
-    const ok = window.confirm(
+    const ok = await this.dialog.confirm(
+      'Delete Inactive Structures',
       `Delete ${inactive.length} inactive structure(s)? Active structure(s) will be kept.`,
+      { confirmText: 'Delete', variant: 'danger' },
     );
     if (!ok) return;
 
@@ -621,7 +627,7 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
     return !structure.isActive;
   }
 
-  activateStructure(structure: SalaryStructure): void {
+  async activateStructure(structure: SalaryStructure): Promise<void> {
     const guardReason = this.activateGuardReason(
       structure,
       this.selectedStructure?.id === structure.id,
@@ -631,8 +637,10 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const ok = window.confirm(
+    const ok = await this.dialog.confirm(
+      'Activate Structure',
       `Make "${structure.name}" effective and deactivate other versions in this scope group?`,
+      { confirmText: 'Activate' },
     );
     if (!ok) return;
 
@@ -661,8 +669,13 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
   }
 
   // ── Approval workflow (Phase 2B) ──────────────────────────
-  submitForApproval(structure: SalaryStructure): void {
-    if (!window.confirm(`Submit "${structure.name}" for approval?`)) return;
+  async submitForApproval(structure: SalaryStructure): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Submit Structure',
+      `Submit "${structure.name}" for approval?`,
+      { confirmText: 'Submit' },
+    );
+    if (!ok) return;
     this.saving = true;
     this.engineApi
       .submitStructure(structure.id)
@@ -682,8 +695,13 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       });
   }
 
-  approveStructure(structure: SalaryStructure): void {
-    if (!window.confirm(`Approve "${structure.name}"? It will become eligible for activation.`)) return;
+  async approveStructure(structure: SalaryStructure): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Approve Structure',
+      `Approve "${structure.name}"? It will become eligible for activation.`,
+      { confirmText: 'Approve' },
+    );
+    if (!ok) return;
     this.saving = true;
     this.engineApi
       .approveStructure(structure.id)
@@ -703,8 +721,13 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       });
   }
 
-  rejectStructure(structure: SalaryStructure): void {
-    const reason = (window.prompt('Rejection reason (required):') || '').trim();
+  async rejectStructure(structure: SalaryStructure): Promise<void> {
+    const result = await this.dialog.prompt(
+      'Reject Structure',
+      'Rejection reason (required):',
+      { placeholder: 'Reason', confirmText: 'Reject' },
+    );
+    const reason = (result.value || '').trim();
     if (!reason) {
       this.toast.error('Rejection reason is required');
       return;
@@ -728,8 +751,13 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       });
   }
 
-  withdrawStructure(structure: SalaryStructure): void {
-    if (!window.confirm(`Withdraw submission of "${structure.name}" back to DRAFT?`)) return;
+  async withdrawStructure(structure: SalaryStructure): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Withdraw Structure',
+      `Withdraw submission of "${structure.name}" back to DRAFT?`,
+      { confirmText: 'Withdraw' },
+    );
+    if (!ok) return;
     this.saving = true;
     this.engineApi
       .withdrawStructure(structure.id)
@@ -1114,10 +1142,14 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       });
   }
 
-  deleteItem(item: StructureItem): void {
+  async deleteItem(item: StructureItem): Promise<void> {
     if (!this.selectedStructure) return;
     const name = this.getComponentName(item.componentId);
-    const ok = window.confirm(`Delete mapping for ${name}?`);
+    const ok = await this.dialog.confirm(
+      'Delete Mapping',
+      `Delete mapping for ${name}?`,
+      { confirmText: 'Delete', variant: 'danger' },
+    );
     if (!ok) return;
     this.engineApi
       .deleteStructureItem(this.selectedStructure!.id, item.id)

@@ -59,6 +59,7 @@ import { PayrollFnfDocumentEntity } from './entities/payroll-fnf-document.entity
 import { PayrollRunItemEntity } from './entities/payroll-run-item.entity';
 import { LeaveLedgerEntity } from '../ess/entities/leave-ledger.entity';
 import { LeaveBalanceEntity } from '../ess/entities/leave-balance.entity';
+import { LeavePolicyEntity } from '../ess/entities/leave-policy.entity';
 import { AttendanceService } from '../attendance/attendance.service';
 import { ReqUser } from '../access/access-scope.service';
 import { evaluateFormula } from './engine/expression';
@@ -118,6 +119,8 @@ export class PayrollService {
     private readonly leaveLedgerRepo: Repository<LeaveLedgerEntity>,
     @InjectRepository(LeaveBalanceEntity)
     private readonly leaveBalanceRepo: Repository<LeaveBalanceEntity>,
+    @InjectRepository(LeavePolicyEntity)
+    private readonly leavePolicyRepo: Repository<LeavePolicyEntity>,
     private readonly notificationsSvc: NotificationsService,
     private readonly attendanceService: AttendanceService,
   ) {}
@@ -140,6 +143,10 @@ export class PayrollService {
     month: number,
   ): Promise<void> {
     const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+    const hasSlPolicy =
+      (await this.leavePolicyRepo.count({
+        where: { clientId, leaveType: 'SL', isActive: true },
+      })) > 0;
 
     // ── EL_ACCRUED: read from ledger if available, else compute from WORKED_DAYS / 20 ──
     if (employeeId) {
@@ -224,8 +231,9 @@ export class PayrollService {
           if (entryYear !== year) continue;
           if (entryMonth > month) continue;
           const qty = Math.abs(Number(entry.qty) || 0);
-          if (entry.refType === 'EL_ACCRUAL') accrual += qty;
-          else if (entry.refType === 'EL_PAID_LEAVE') used += qty;
+          if (entry.refType === 'EL_ACCRUAL') {
+            accrual += qty;
+          } else if (entry.refType === 'EL_PAID_LEAVE') used += qty;
         }
         cv['EL_BALANCE'] = Math.max(
           Math.round((opening + accrual - used) * 100) / 100,
@@ -237,6 +245,12 @@ export class PayrollService {
     } else {
       if (cv['EL_PAID_LEAVE_DAYS'] === undefined) cv['EL_PAID_LEAVE_DAYS'] = 0;
       if (cv['EL_BALANCE'] === undefined) cv['EL_BALANCE'] = 0;
+    }
+
+    if (!hasSlPolicy && !Number(cv['SL_DAYS'] || 0)) {
+      cv['SL_ACCRUED'] = 0;
+      cv['SL_BALANCE'] = 0;
+      cv['SL_DAYS'] = 0;
     }
 
     // ── HOLIDAYS: always recompute from attendance ──
@@ -1879,7 +1893,11 @@ export class PayrollService {
 
   /** Helper: get assigned client IDs for user */
   private async getAssignedClientIds(user: ReqUser): Promise<string[]> {
-    if (user.roleCode === 'ADMIN' || user.roleCode === 'CRM') {
+    if (
+      user.roleCode === 'ADMIN' ||
+      user.roleCode === 'CRM' ||
+      user.roleCode === 'CCO'
+    ) {
       const clients = await this.clientRepo
         .createQueryBuilder('c')
         .select('c.id')
@@ -1932,10 +1950,14 @@ export class PayrollService {
     if (q?.clientId) {
       qb.andWhere('e.client_id = :cid', { cid: q.clientId });
     }
-    if (q?.status === 'ACTIVE') {
+    const statusFilter = String(q?.status || '').toUpperCase();
+    if (statusFilter === 'ACTIVE') {
       qb.andWhere('e.is_active = TRUE');
-    } else if (q?.status === 'INACTIVE') {
+    } else if (statusFilter === 'INACTIVE') {
       qb.andWhere('e.is_active = FALSE');
+    } else if (statusFilter === 'EXITED') {
+      qb.andWhere('e.is_active = FALSE');
+      qb.andWhere('e.date_of_exit IS NOT NULL');
     }
     if (q?.search) {
       qb.andWhere(
@@ -2537,7 +2559,7 @@ export class PayrollService {
 
     // Determine allowed clientIds
     let allowedClientIds: string[] = [];
-    if (user.roleCode === 'ADMIN' || user.roleCode === 'CRM') {
+    if (['ADMIN', 'CRM', 'CEO', 'CCO'].includes(user.roleCode)) {
       const all = await this.clientRepo
         .createQueryBuilder('c')
         .select('c.id', 'id')

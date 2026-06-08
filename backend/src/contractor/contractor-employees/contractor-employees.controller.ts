@@ -86,6 +86,18 @@ export class ContractorEmployeesController {
     return this.svc.deactivate(id, user.userId, body.exitReason);
   }
 
+  @ApiOperation({
+    summary: 'Request employee deletion (requires BranchDesk approval)',
+  })
+  @Post(':id/delete-request')
+  async requestDelete(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+    @Body() body: { reason?: string },
+  ) {
+    return this.svc.requestDelete(id, user.userId, body.reason);
+  }
+
   @ApiOperation({ summary: 'Reactivate previously exited employee' })
   @Put(':id/reactivate')
   async reactivate(@CurrentUser() user: ReqUser, @Param('id') id: string) {
@@ -126,7 +138,7 @@ export class ContractorEmployeesController {
 @ApiBearerAuth('JWT')
 @Controller({ path: 'client/contractor-employees', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('CLIENT', 'ADMIN', 'CRM')
+@Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
 export class ClientContractorEmployeesController {
   constructor(
     private readonly svc: ContractorEmployeesService,
@@ -162,5 +174,49 @@ export class ClientContractorEmployeesController {
             : undefined,
       search: query.search || undefined,
     });
+  }
+
+  @ApiOperation({
+    summary:
+      'List pending contractor employee delete requests for branch approval',
+  })
+  @Get('delete-requests')
+  async listDeleteRequests(@CurrentUser() user: ReqUser) {
+    const clientId = user.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    const allowed = await this.branchAccess.getAllowedBranchIds(
+      user.userId,
+      clientId,
+    );
+    return this.svc.listPendingDeleteRequests(clientId, allowed);
+  }
+
+  @ApiOperation({
+    summary: 'Approve or reject a contractor employee delete request',
+  })
+  @Post('delete-requests/:id/review')
+  async reviewDeleteRequest(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      decision: 'APPROVED' | 'REJECTED';
+      notes?: string | null;
+    },
+  ) {
+    const clientId = user.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    const allowed = await this.branchAccess.getAllowedBranchIds(
+      user.userId,
+      clientId,
+    );
+    return this.svc.reviewDeleteRequest(
+      clientId,
+      id,
+      user.userId,
+      body.decision,
+      body.notes ?? null,
+      allowed,
+    );
   }
 }

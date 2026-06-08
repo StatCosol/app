@@ -12,6 +12,7 @@ import {
   ClientDepartmentContact,
   CreateContactPayload,
 } from './client-contacts.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 interface ContactForm {
   id: string | null;
@@ -390,6 +391,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
 export class AdminClientContactsComponent implements OnInit {
   private readonly clientsSvc = inject(AdminClientsService);
   private readonly contactsSvc = inject(ClientContactsService);
+  private readonly dialog = inject(ConfirmDialogService);
 
   readonly departments = ALL_DEPARTMENTS;
 
@@ -556,8 +558,13 @@ export class AdminClientContactsComponent implements OnInit {
     }
   }
 
-  remove(c: ClientDepartmentContact): void {
-    if (!confirm(`Delete contact "${c.name}" (${c.email})?`)) return;
+  async remove(c: ClientDepartmentContact): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Delete Contact',
+      `Delete contact "${c.name}" (${c.email})?`,
+      { variant: 'danger', confirmText: 'Delete' },
+    );
+    if (!ok) return;
     this.contactsSvc.remove(c.id).subscribe({
       next: () => {
         this.flash('ok', 'Contact deleted');
@@ -568,13 +575,13 @@ export class AdminClientContactsComponent implements OnInit {
     });
   }
 
-  triggerPayrollMail(c: Client): void {
-    if (
-      !confirm(
-        `Send payroll-input request email now to PAYROLL contacts of ${c.clientName}?`,
-      )
-    )
-      return;
+  async triggerPayrollMail(c: Client): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Send Payroll Mail',
+      `Send payroll-input request email now to PAYROLL contacts of ${c.clientName}?`,
+      { confirmText: 'Send' },
+    );
+    if (!ok) return;
     this.busyTrigger.set(true);
     this.contactsSvc.triggerPayrollNow(c.id).subscribe({
       next: (res) => {
@@ -592,13 +599,13 @@ export class AdminClientContactsComponent implements OnInit {
     });
   }
 
-  triggerMcdMail(c: Client): void {
-    if (
-      !confirm(
-        `Send MCD data-request email now to contractors of ${c.clientName}?`,
-      )
-    )
-      return;
+  async triggerMcdMail(c: Client): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Send MCD Mail',
+      `Send MCD data-request email now to contractors of ${c.clientName}?`,
+      { confirmText: 'Send' },
+    );
+    if (!ok) return;
     this.busyTrigger.set(true);
     this.contactsSvc.triggerMcdNow(c.id).subscribe({
       next: (res) => {

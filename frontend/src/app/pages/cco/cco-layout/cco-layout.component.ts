@@ -3,12 +3,13 @@ import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { CcoSidebarComponent } from './cco-sidebar.component';
 import { AuthService } from '../../../core/auth.service';
+import { NewsTickerComponent } from '../../../shared/news/news-ticker.component';
 
 @Component({
   selector: 'app-cco-layout',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterOutlet, CcoSidebarComponent],
+  imports: [CommonModule, RouterOutlet, CcoSidebarComponent, NewsTickerComponent],
   template: `
     <div class="cco-shell">
       <!-- Mobile menu toggle -->
@@ -84,6 +85,9 @@ import { AuthService } from '../../../core/auth.service';
             </div>
           </div>
         </header>
+
+        <!-- News ticker ribbon -->
+        <app-news-ticker></app-news-ticker>
 
         <!-- Page content -->
         <main class="flex-1 bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50">

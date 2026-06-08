@@ -10,6 +10,8 @@ import { takeUntil, finalize } from 'rxjs/operators';
 import { ClientEmployeesService, Employee } from '../../client/employees/client-employees.service';
 import { AuthService } from '../../../core/auth.service';
 import { environment } from '../../../../environments/environment';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 
 @Component({
   selector: 'app-branch-employees',
@@ -26,11 +28,12 @@ import { environment } from '../../../../environments/environment';
         <div class="flex items-center gap-3">
           <label for="emp-search" class="sr-only">Search employees</label>
           <input autocomplete="off" id="emp-search" name="searchQuery" type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearch()" placeholder="Search employees..." class="search-input" />
-          <label for="emp-status-filter" class="sr-only">Status filter</label>
-          <select id="emp-status-filter" name="statusFilter" [(ngModel)]="statusFilter" (ngModelChange)="onSearch()" class="filter-select">
+          <label for="emp-status-filter" class="sr-only">Employment filter</label>
+          <select id="emp-status-filter" name="employmentFilter" [(ngModel)]="employmentFilter" (ngModelChange)="onSearch()" class="filter-select">
+            <option value="ACTIVE">Active</option>
+            <option value="EXITED">Exited</option>
+            <option value="INACTIVE">Inactive</option>
             <option value="">All</option>
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
           </select>
           <button (click)="showImportDialog = !showImportDialog" class="btn-secondary">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -102,15 +105,15 @@ import { environment } from '../../../../environments/environment';
       <div class="summary-strip">
         <div class="summary-card">
           <span class="summary-value text-blue-600">{{ total }}</span>
-          <span class="summary-label">Total Employees</span>
+          <span class="summary-label">{{ currentListLabel }}</span>
         </div>
         <div class="summary-card">
           <span class="summary-value text-emerald-600">{{ activeCount }}</span>
           <span class="summary-label">Active</span>
         </div>
         <div class="summary-card">
-          <span class="summary-value text-gray-500">{{ total - activeCount }}</span>
-          <span class="summary-label">Inactive</span>
+          <span class="summary-value text-gray-500">{{ exitedCount }}</span>
+          <span class="summary-label">Exited</span>
         </div>
       </div>
 
@@ -157,8 +160,11 @@ import { environment } from '../../../../environments/environment';
                 <td>
                   <span class="badge" [class.bg-emerald-100]="emp.isActive" [class.text-emerald-700]="emp.isActive"
                         [class.bg-red-100]="!emp.isActive" [class.text-red-700]="!emp.isActive">
-                    {{ emp.isActive ? 'Active' : 'Inactive' }}
+                    {{ emp.dateOfExit ? 'Exited' : (emp.isActive ? 'Active' : 'Inactive') }}
                   </span>
+                  <div *ngIf="emp.dateOfExit" class="text-[10px] text-slate-400 mt-1">
+                    {{ emp.dateOfExit | date:'dd/MM/yyyy' }}
+                  </div>
                 </td>
                 <td>
                   <span class="badge"
@@ -169,7 +175,15 @@ import { environment } from '../../../../environments/environment';
                   </span>
                 </td>
                 <td>
-                  <button (click)="editEmployee(emp.id)" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Edit</button>
+                  <div class="row-actions">
+                    <button (click)="editEmployee(emp.id)" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Edit</button>
+                    <button
+                      *ngIf="emp.isActive && !emp.dateOfExit && emp.approvalStatus !== 'PENDING'"
+                      (click)="markExit(emp)"
+                      class="text-red-600 hover:text-red-800 text-xs font-medium">
+                      Mark Exit
+                    </button>
+                  </div>
                 </td>
               </tr>
               <tr *ngIf="employees.length === 0">
@@ -226,6 +240,7 @@ import { environment } from '../../../../environments/environment';
     .data-table th { text-align: left; padding: 0.75rem 1rem; font-size: 0.6875rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; background: #f8fafc; border-bottom: 2px solid #f1f5f9; }
     .data-table td { padding: 0.75rem 1rem; font-size: 0.8125rem; border-bottom: 1px solid #f8fafc; }
     .data-row:hover { background: #f8fafc; }
+    .row-actions { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem; }
     .badge { display: inline-flex; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 600; }
     .spinner { width: 32px; height: 32px; border: 3px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -234,10 +249,11 @@ import { environment } from '../../../../environments/environment';
 export class BranchEmployeesComponent implements OnInit, OnDestroy {
   loading = true;
   searchQuery = '';
-  statusFilter = '';
+  employmentFilter = 'ACTIVE';
   employees: Employee[] = [];
   total = 0;
   activeCount = 0;
+  exitedCount = 0;
   err = '';
   showImportDialog = false;
   importFile: File | null = null;
@@ -257,6 +273,8 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private router: Router,
     private http: HttpClient,
+    private dialog: ConfirmDialogService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -269,7 +287,7 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
     const branchId = this.authService.getBranchIds()?.[0] || undefined;
     this.empService.list({
       branchId,
-      isActive: this.statusFilter || undefined,
+      employmentStatus: this.employmentFilter || undefined,
       search: this.searchQuery?.trim() || undefined,
       limit: 500,
     }).pipe(
@@ -280,6 +298,7 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
         this.employees = res.data;
         this.total = res.total;
         this.activeCount = res.data.filter(e => e.isActive).length;
+        this.exitedCount = res.data.filter(e => !!e.dateOfExit).length;
       },
       error: (e) => {
         this.err = e?.error?.message || 'Failed to load employees';
@@ -297,6 +316,43 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
 
   editEmployee(id: string): void {
     this.router.navigate(['/branch/employees', id, 'edit']);
+  }
+
+  async markExit(emp: Employee): Promise<void> {
+    const dateResult = await this.dialog.prompt('Mark Employee Exit', `Enter exit date for ${emp.name}:`, {
+      placeholder: 'YYYY-MM-DD',
+      defaultValue: this.todayIsoDate(),
+      confirmText: 'Next',
+    });
+    if (!dateResult.confirmed) return;
+    const dateOfExit = (dateResult.value || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfExit)) {
+      this.toast.error('Exit date must be in YYYY-MM-DD format');
+      return;
+    }
+
+    const reasonResult = await this.dialog.prompt('Exit Reason', `Enter reason for exiting ${emp.name}:`, {
+      placeholder: 'e.g. Resignation, Termination, Contract End',
+      confirmText: 'Confirm Exit',
+    });
+    if (!reasonResult.confirmed || !reasonResult.value?.trim()) {
+      if (reasonResult.confirmed) this.toast.error('Exit reason is required');
+      return;
+    }
+
+    this.empService.markExit(emp.id, { dateOfExit, exitReason: reasonResult.value.trim() }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => {
+        this.toast.success('Employee exit marked');
+        this.loadEmployees();
+      },
+      error: (e) => this.toast.error(e?.error?.message || 'Failed to mark exit'),
+    });
+  }
+
+  private todayIsoDate(): string {
+    const now = new Date();
+    const tzOffsetMs = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - tzOffsetMs).toISOString().slice(0, 10);
   }
 
   trackById(_: number, emp: Employee): string { return emp.id; }
@@ -367,13 +423,16 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
     });
   }
 
-  revertLastImport(): void {
+  async revertLastImport(): Promise<void> {
     if (!this.lastImportBatchId || this.reverting) return;
     const batchId = this.lastImportBatchId;
     const count = this.lastImportNewCount;
-    if (!window.confirm(`Revert this import? This will permanently delete the ${count} employee(s) newly created in the last bulk upload. Updated existing employees will NOT be reverted.`)) {
-      return;
-    }
+    const ok = await this.dialog.confirm(
+      'Revert Import',
+      `Revert this import? This will permanently delete the ${count} employee(s) newly created in the last bulk upload. Updated existing employees will NOT be reverted.`,
+      { variant: 'danger', confirmText: 'Revert' },
+    );
+    if (!ok) return;
     this.reverting = true;
     this.cdr.markForCheck();
     this.http.delete<any>(`${environment.apiBaseUrl}/api/v1/client/employees/bulk-import/${batchId}/revert`).pipe(
@@ -403,7 +462,7 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
   downloadEmployees(): void {
     const params = new URLSearchParams();
     if (this.searchQuery) params.set('search', this.searchQuery);
-    if (this.statusFilter) params.set('isActive', this.statusFilter);
+    if (this.employmentFilter) params.set('employmentStatus', this.employmentFilter);
     const branchId = this.authService.getBranchIds()?.[0];
     if (branchId) params.set('branchId', branchId);
     const qs = params.toString();
@@ -438,5 +497,12 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
       },
       error: () => { this.importResult = 'Failed to download appointment letters'; this.importHasError = true; this.cdr.markForCheck(); },
     });
+  }
+
+  get currentListLabel(): string {
+    if (this.employmentFilter === 'EXITED') return 'Exited Employees';
+    if (this.employmentFilter === 'INACTIVE') return 'Inactive Employees';
+    if (this.employmentFilter === 'ACTIVE') return 'Active Employees';
+    return 'Total Employees';
   }
 }
