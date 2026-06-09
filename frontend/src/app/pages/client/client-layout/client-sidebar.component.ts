@@ -509,13 +509,13 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
       ? this.navGroupsInput
       : this.defaultNavGroups();
 
-    // Hide MCD Uploads for master users (only branch users can upload)
+    // Hide branch-only monthly uploads for master users.
     if (this.auth.isMasterUser()) {
       this.navGroups = this.navGroups.map(g => ({
         ...g,
-        items: g.items.filter(i => i.label !== 'MCD Uploads'),
+        items: g.items.filter(i => i.route !== '/client/compliance/mcd'),
       }));
-      this.collapsedLinks = this.collapsedLinks.filter(i => i.label !== 'MCD Uploads');
+      this.collapsedLinks = this.collapsedLinks.filter(i => i.route !== '/client/compliance/mcd');
     }
   }
 
@@ -554,7 +554,7 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
         expanded: false,
         items: [
           { label: 'Compliance Status', route: '/client/compliance/status', icon: this.svg('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z') },
-          { label: 'Branch Compliance', route: '/client/branch-compliance', icon: this.svg('M9 12h6m-6 4h6M7 20h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z') },
+          { label: 'Upload Status', route: '/client/branch-compliance', icon: this.svg('M9 12h6m-6 4h6M7 20h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Safety', route: '/client/safety', icon: this.svg('M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z') },
           { label: 'Returns / Filings', route: '/client/compliance/returns', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
           { label: 'Returns Summary', route: '/client/returns-summary', icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
@@ -562,9 +562,8 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
           { label: 'Registrations & Licenses', route: '/client/compliance/registrations', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
           { label: 'Renewals', route: '/client/renewals', icon: this.svg('M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15') },
           { label: 'Renewals Status', route: '/client/renewals-status', icon: this.svg('M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15') },
-          { label: 'Unit Documents', route: '/client/unit-documents', icon: this.svg('M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z') },
-          { label: 'Compliance Upload Center', route: '/client/compliance/mcd', icon: this.svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12') },
-          { label: 'Document Repository', route: '/client/compliance/library', icon: this.svg('M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4') },
+          { label: 'Monthly Uploads', route: '/client/compliance/mcd', icon: this.svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12') },
+          { label: 'Compliance Documents', route: '/client/compliance/library', icon: this.svg('M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4') },
           { label: 'Audits', route: '/client/audits', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
           { label: 'Audit Summaries', route: '/client/audit-summaries', icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
         ],

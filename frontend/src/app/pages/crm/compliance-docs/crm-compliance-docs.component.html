@@ -1,7 +1,7 @@
 <div class="page">
   <ui-page-header
-    title="Compliance Document Library"
-    subtitle="Upload and manage compliance documents for this client">
+    title="Client Compliance Library"
+    subtitle="Upload compliance reference files for client and branch visibility">
     <ui-client-context-strip [inline]="true"></ui-client-context-strip>
   </ui-page-header>
 
@@ -124,7 +124,7 @@
   <ui-loading-spinner *ngIf="loading" text="Loading documents..."></ui-loading-spinner>
   <ui-empty-state *ngIf="!loading && documents.length === 0"
     title="No documents yet"
-    description="Upload compliance documents for this client using the button above.">
+    description="Upload client compliance library files using the button above.">
   </ui-empty-state>
 
   <!-- Documents table -->

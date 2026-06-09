@@ -43,8 +43,8 @@ type ScopeFilter = '' | CrmDocumentScope;
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
-        title="Unit Documents"
-        subtitle="View CRM documents shared at company or branch scope">
+        title="CRM Shared Files"
+        subtitle="View files shared by CRM at company or branch scope">
       </ui-page-header>
 
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
@@ -108,7 +108,7 @@ type ScopeFilter = '' | CrmDocumentScope;
         *ngIf="!loading && documents.length === 0"
         icon="document"
         title="No Documents Found"
-        message="No CRM-uploaded documents match the selected filters.">
+        message="No CRM shared files match the selected filters.">
       </ui-empty-state>
 
       <div *ngIf="!loading && documents.length > 0" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
