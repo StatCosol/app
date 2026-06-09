@@ -2,9 +2,10 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { Subject } from 'rxjs';
-import { takeUntil, finalize } from 'rxjs/operators';
+import { of, Subject } from 'rxjs';
+import { catchError, finalize, takeUntil, timeout } from 'rxjs/operators';
 import { AuthService } from '../../core/auth.service';
+import { ClientBranchesService } from '../../core/client-branches.service';
 import {
   BranchComplianceService,
   BranchComplianceResponse,
@@ -393,6 +394,7 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
   constructor(
     private api: BranchComplianceService,
     private auth: AuthService,
+    private branchesApi: ClientBranchesService,
     private route: ActivatedRoute,
     private router: Router,
   ) {}
@@ -402,21 +404,71 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
     const now = new Date();
     this.selectedMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-    // If route has branchId param (branch portal), use it directly
+    this.resolveBranchAndLoad();
+  }
+
+  private resolveBranchAndLoad(): void {
     const paramBranch = this.route.snapshot.paramMap.get('branchId');
     if (paramBranch) {
       this.fixedBranchId = paramBranch;
       this.selectedBranchId = paramBranch;
-    } else {
-      // Client portal: use branchIds from token
-      this.branchIds = this.auth.getBranchIds().map(String);
-      if (this.branchIds.length === 1) {
-        this.fixedBranchId = this.branchIds[0];
-      }
-      this.selectedBranchId = this.branchIds[0] || '';
+      this.load();
+      return;
     }
 
-    this.load();
+    if (this.applyBranchIds(this.auth.getBranchIds())) {
+      this.load();
+      return;
+    }
+
+    this.loading = true;
+    this.error = '';
+    this.data = null;
+
+    this.auth.fetchMe().pipe(
+      takeUntil(this.destroy$),
+      timeout(15000),
+      catchError(() => of(null)),
+    ).subscribe(() => {
+      if (this.applyBranchIds(this.auth.getBranchIds())) {
+        this.load();
+        return;
+      }
+
+      this.loadBranchListFallback();
+    });
+  }
+
+  private loadBranchListFallback(): void {
+    this.branchesApi.list().pipe(
+      takeUntil(this.destroy$),
+      timeout(15000),
+      finalize(() => {
+        if (!this.selectedBranchId) this.loading = false;
+      }),
+    ).subscribe({
+      next: (branches: any[]) => {
+        const ids = (branches || []).map((b) => String(b.id)).filter(Boolean);
+        if (this.applyBranchIds(ids)) {
+          this.load();
+        } else {
+          this.error = 'No branch is available for this user.';
+        }
+      },
+      error: (err) => {
+        this.error = err?.error?.message || 'Failed to load branch details.';
+      },
+    });
+  }
+
+  private applyBranchIds(ids: unknown[] | null | undefined): boolean {
+    this.branchIds = (ids || []).map(String).filter(Boolean);
+    if (!this.branchIds.length) return false;
+    if (this.branchIds.length === 1) {
+      this.fixedBranchId = this.branchIds[0];
+    }
+    this.selectedBranchId = this.selectedBranchId || this.branchIds[0];
+    return true;
   }
 
   ngOnDestroy(): void {
@@ -435,6 +487,7 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
       .getComplianceItems(this.selectedBranchId, this.selectedMonth)
       .pipe(
         takeUntil(this.destroy$),
+        timeout(15000),
         finalize(() => (this.loading = false)),
       )
       .subscribe({
