@@ -53,8 +53,8 @@ type ScopeFilter = '' | CrmDocumentScope;
   ],
   template: `
     <ui-page-header
-      title="Unit Documents"
-      subtitle="Upload and manage CRM documents at company or branch scope">
+      title="CRM Shared Files"
+      subtitle="Upload and manage files shared with client and branch users">
       <ui-client-context-strip [inline]="true"></ui-client-context-strip>
     </ui-page-header>
 
@@ -237,7 +237,7 @@ type ScopeFilter = '' | CrmDocumentScope;
       <ui-empty-state
         *ngIf="!loading && !documents.length"
         title="No documents found"
-        message="Upload CRM documents for company or branch scope using the button above.">
+        message="Upload shared files for company or branch scope using the button above.">
       </ui-empty-state>
 
       <div *ngIf="!loading && documents.length" class="overflow-x-auto">
