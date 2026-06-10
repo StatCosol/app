@@ -8,6 +8,7 @@ import {
   Headers,
   Param,
   Post,
+  Put,
   Query,
   Req,
   Res,
@@ -19,6 +20,7 @@ import { Public } from '../auth/public.decorator';
 import { Roles } from '../auth/roles.decorator';
 import {
   CreateContractorReenrollRequestDto,
+  CreateContractorPunchAdminDto,
   ContractorMobilePunchDto,
   CreateKioskEnrollTicketDto,
   DeviceFailedScanDto,
@@ -31,6 +33,7 @@ import {
   ReviewReenrollRequestDto,
   ReviewKioskEnrollTicketDto,
   SubmitKioskEnrollDto,
+  UpdateContractorPunchDto,
 } from './mobile-attendance.dto';
 import { MobileAttendanceService } from './mobile-attendance.service';
 import type { PunchRequestMeta } from './mobile-attendance.service';
@@ -322,6 +325,51 @@ export class MobileAttendanceAdminController {
       },
       allowedBranchIds,
     );
+  }
+
+  @ApiOperation({
+    summary: 'Create a manual contractor attendance punch',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Post('contractors/punches')
+  createContractorPunch(
+    @CurrentUser() u: ReqUser,
+    @Body() body: CreateContractorPunchAdminDto,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.createContractorPunch(u.clientId, body, allowedBranchIds);
+  }
+
+  @ApiOperation({
+    summary: 'Edit a contractor attendance punch time or direction',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Put('contractors/punches/:id')
+  updateContractorPunch(
+    @CurrentUser() u: ReqUser,
+    @Param('id') id: string,
+    @Body() body: UpdateContractorPunchDto,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.updateContractorPunch(
+      u.clientId,
+      id,
+      body,
+      allowedBranchIds,
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Delete a wrong contractor attendance punch',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Delete('contractors/punches/:id')
+  deleteContractorPunch(@CurrentUser() u: ReqUser, @Param('id') id: string) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.deleteContractorPunch(u.clientId, id, allowedBranchIds);
   }
 
   @ApiOperation({

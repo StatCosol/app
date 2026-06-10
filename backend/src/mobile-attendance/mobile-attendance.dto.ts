@@ -363,6 +363,27 @@ export class ContractorMobilePunchDto {
   livenessNonce?: string;
 }
 
+export class UpdateContractorPunchDto {
+  @IsOptional()
+  @IsString()
+  punchTime?: string;
+
+  @IsOptional()
+  @IsIn(['IN', 'OUT', 'AUTO'])
+  direction?: 'IN' | 'OUT' | 'AUTO';
+}
+
+export class CreateContractorPunchAdminDto {
+  @IsUUID()
+  contractorEmployeeId!: string;
+
+  @IsString()
+  punchTime!: string;
+
+  @IsIn(['IN', 'OUT', 'AUTO'])
+  direction!: 'IN' | 'OUT' | 'AUTO';
+}
+
 // ---------------------------------------------------------------------------
 // Phase 3e: re-enrollment approval workflow.
 // ---------------------------------------------------------------------------
