@@ -390,6 +390,7 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
   fixedBranchId = '';
 
   private destroy$ = new Subject<void>();
+  private initialLoadStarted = false;
 
   constructor(
     private api: BranchComplianceService,
@@ -408,16 +409,16 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
   }
 
   private resolveBranchAndLoad(): void {
+    this.initialLoadStarted = false;
     const paramBranch = this.route.snapshot.paramMap.get('branchId');
     if (paramBranch) {
       this.fixedBranchId = paramBranch;
       this.selectedBranchId = paramBranch;
-      this.load();
+      this.startInitialLoad();
       return;
     }
 
-    if (this.applyBranchIds(this.auth.getBranchIds())) {
-      this.load();
+    if (this.applyBranchIdsAndLoad(this.auth.getBranchIds())) {
       return;
     }
 
@@ -425,17 +426,14 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
     this.error = '';
     this.data = null;
 
+    this.loadBranchListFallback();
+
     this.auth.fetchMe().pipe(
       takeUntil(this.destroy$),
       timeout(15000),
       catchError(() => of(null)),
     ).subscribe(() => {
-      if (this.applyBranchIds(this.auth.getBranchIds())) {
-        this.load();
-        return;
-      }
-
-      this.loadBranchListFallback();
+      this.applyBranchIdsAndLoad(this.auth.getBranchIds());
     });
   }
 
@@ -448,9 +446,11 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
       }),
     ).subscribe({
       next: (branches: any[]) => {
-        const ids = (branches || []).map((b) => String(b.id)).filter(Boolean);
-        if (this.applyBranchIds(ids)) {
-          this.load();
+        const ids = (branches || [])
+          .map((branch) => this.extractBranchId(branch))
+          .filter((id): id is string => !!id);
+        if (this.applyBranchIdsAndLoad(ids)) {
+          return;
         } else {
           this.error = 'No branch is available for this user.';
         }
@@ -462,13 +462,37 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
   }
 
   private applyBranchIds(ids: unknown[] | null | undefined): boolean {
-    this.branchIds = (ids || []).map(String).filter(Boolean);
+    this.branchIds = (ids || [])
+      .map((id) => this.extractBranchId(id))
+      .filter((id): id is string => !!id);
     if (!this.branchIds.length) return false;
     if (this.branchIds.length === 1) {
       this.fixedBranchId = this.branchIds[0];
     }
     this.selectedBranchId = this.selectedBranchId || this.branchIds[0];
     return true;
+  }
+
+  private applyBranchIdsAndLoad(ids: unknown[] | null | undefined): boolean {
+    if (!this.applyBranchIds(ids)) return false;
+    this.startInitialLoad();
+    return true;
+  }
+
+  private startInitialLoad(): void {
+    if (this.initialLoadStarted) return;
+    this.initialLoadStarted = true;
+    this.load();
+  }
+
+  private extractBranchId(value: unknown): string | null {
+    if (!value) return null;
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number') return String(value);
+    if (typeof value !== 'object') return null;
+    const row = value as Record<string, unknown>;
+    const id = row['id'] ?? row['branchId'] ?? row['branch_id'];
+    return id ? String(id) : null;
   }
 
   ngOnDestroy(): void {
