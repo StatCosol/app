@@ -3079,6 +3079,167 @@ export class MobileAttendanceService implements OnModuleInit {
     return this.withViewPhotos(rows);
   }
 
+  async updateContractorPunch(
+    clientId: string,
+    punchId: string,
+    body: {
+      punchTime?: string | null;
+      direction?: 'IN' | 'OUT' | 'AUTO' | null;
+    },
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{
+    ok: true;
+    id: string;
+    punchTime: string;
+    direction: 'IN' | 'OUT' | 'AUTO';
+  }> {
+    const punch = await this.contractorPunchRepo.findOne({
+      where: { id: punchId, clientId },
+    });
+    if (!punch)
+      throw new NotFoundException('Contractor attendance punch not found');
+
+    if (allowedBranchIds && allowedBranchIds.length === 0) {
+      throw new ForbiddenException('Branch access required');
+    }
+    if (
+      allowedBranchIds &&
+      allowedBranchIds.length > 0 &&
+      (!punch.branchId || !allowedBranchIds.includes(punch.branchId))
+    ) {
+      throw new ForbiddenException('Punch is outside your branch scope');
+    }
+
+    if (body.punchTime !== undefined && body.punchTime !== null) {
+      const next = new Date(body.punchTime);
+      if (Number.isNaN(next.getTime())) {
+        throw new BadRequestException('Invalid punchTime');
+      }
+      punch.punchTime = next;
+    }
+
+    if (body.direction !== undefined && body.direction !== null) {
+      if (!['IN', 'OUT', 'AUTO'].includes(body.direction)) {
+        throw new BadRequestException('Invalid direction');
+      }
+      punch.direction = body.direction;
+    }
+
+    try {
+      const saved = await this.contractorPunchRepo.save(punch);
+      return {
+        ok: true,
+        id: saved.id,
+        punchTime: saved.punchTime.toISOString(),
+        direction: saved.direction,
+      };
+    } catch (err: any) {
+      if (err?.code === '23505') {
+        throw new ConflictException(
+          'A contractor attendance punch already exists at this time',
+        );
+      }
+      throw err;
+    }
+  }
+
+  async createContractorPunch(
+    clientId: string,
+    body: {
+      contractorEmployeeId: string;
+      punchTime: string;
+      direction: 'IN' | 'OUT' | 'AUTO';
+    },
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{
+    ok: true;
+    id: string;
+    punchTime: string;
+    direction: 'IN' | 'OUT' | 'AUTO';
+  }> {
+    const employee = await this.contractorEmpRepo.findOne({
+      where: { id: body.contractorEmployeeId, clientId, isActive: true },
+    });
+    if (!employee) {
+      throw new NotFoundException('Contractor employee not found');
+    }
+
+    if (allowedBranchIds && allowedBranchIds.length === 0) {
+      throw new ForbiddenException('Branch access required');
+    }
+    if (
+      allowedBranchIds &&
+      allowedBranchIds.length > 0 &&
+      !allowedBranchIds.includes(employee.branchId)
+    ) {
+      throw new ForbiddenException(
+        'Contractor employee is outside your branch scope',
+      );
+    }
+
+    const punchTime = new Date(body.punchTime);
+    if (Number.isNaN(punchTime.getTime())) {
+      throw new BadRequestException('Invalid punchTime');
+    }
+
+    try {
+      const saved = await this.contractorPunchRepo.save(
+        this.contractorPunchRepo.create({
+          clientId,
+          branchId: employee.branchId,
+          contractorEmployeeId: employee.id,
+          punchTime,
+          direction: body.direction,
+          source: 'MANUAL',
+          deviceId: 'manual:portal',
+        }),
+      );
+
+      return {
+        ok: true,
+        id: saved.id,
+        punchTime: saved.punchTime.toISOString(),
+        direction: saved.direction,
+      };
+    } catch (err: any) {
+      if (err?.code === '23505') {
+        throw new ConflictException(
+          'A contractor attendance punch already exists at this time',
+        );
+      }
+      throw err;
+    }
+  }
+
+  async deleteContractorPunch(
+    clientId: string,
+    punchId: string,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{ ok: true; deleted: number }> {
+    const punch = await this.contractorPunchRepo.findOne({
+      where: { id: punchId, clientId },
+    });
+    if (!punch)
+      throw new NotFoundException('Contractor attendance punch not found');
+
+    if (allowedBranchIds && allowedBranchIds.length === 0) {
+      throw new ForbiddenException('Branch access required');
+    }
+    if (
+      allowedBranchIds &&
+      allowedBranchIds.length > 0 &&
+      (!punch.branchId || !allowedBranchIds.includes(punch.branchId))
+    ) {
+      throw new ForbiddenException('Punch is outside your branch scope');
+    }
+
+    const deleted = await this.contractorPunchRepo.delete({
+      id: punchId,
+      clientId,
+    });
+    return { ok: true, deleted: deleted.affected ?? 0 };
+  }
+
   /**
    * Admin/CRM read endpoint: recent face_failed_scan_logs rows with optional
    * window + subject/reason/branch filters. `subjectType='EMPLOYEE'` returns
@@ -4386,7 +4547,9 @@ export class MobileAttendanceService implements OnModuleInit {
     }));
   }
 
-  private withViewPhotos<T extends { photoUrl: string | null }>(rows: T[]): T[] {
+  private withViewPhotos<T extends { photoUrl: string | null }>(
+    rows: T[],
+  ): T[] {
     return rows.map((row) => ({
       ...row,
       photoUrl: this.facePhotos.toViewUrl(row.photoUrl),
