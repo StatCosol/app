@@ -8,10 +8,10 @@ import {
   Post,
   Query,
   Res,
-  UploadedFile,
+  UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { Roles } from '../../auth/roles.decorator';
 import { CrmDocumentsService } from '../crm-documents.service';
@@ -23,6 +23,16 @@ import {
   makeSafeUploadOptions,
   assertSafeFile,
 } from '../../common/safe-upload';
+
+const CRM_UNIT_DOCUMENT_EXTENSIONS = new Set([
+  '.pdf',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.xls',
+  '.xlsx',
+  '.zip',
+]);
 
 /**
  * CRM-only controller for unit document uploads.
@@ -39,19 +49,41 @@ export class CrmUnitDocumentsController {
   @ApiOperation({ summary: 'File Interceptor' })
   @Post('upload')
   @UseInterceptors(
-    FileInterceptor('file', makeSafeUploadOptions({ memory: true, maxMb: 10 })),
+    FilesInterceptor(
+      'file',
+      25,
+      makeSafeUploadOptions({
+        memory: true,
+        maxMb: 10,
+        maxFiles: 25,
+        allowedMimes: [
+          'application/pdf',
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.ms-excel',
+          'application/zip',
+          'application/x-zip-compressed',
+        ],
+      }),
+    ),
   )
   async upload(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFiles() files: Express.Multer.File[],
     @Body() dto: UploadCrmDocumentDto,
     @CurrentUser() user: ReqUser,
   ) {
-    assertSafeFile(file);
-    const doc = await this.svc.upload(dto, file, user.id);
+    files = files || [];
+    files.forEach((file) => assertSafeFile(file, CRM_UNIT_DOCUMENT_EXTENSIONS));
+    const docs = await this.svc.uploadMany(dto, files, user.id);
     return {
-      id: doc.id,
-      fileName: doc.fileName,
-      createdAt: doc.createdAt,
+      count: docs.length,
+      documents: docs.map((doc) => ({
+        id: doc.id,
+        fileName: doc.fileName,
+        createdAt: doc.createdAt,
+      })),
     };
   }
 
