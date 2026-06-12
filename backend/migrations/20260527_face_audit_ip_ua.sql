@@ -10,9 +10,14 @@ ALTER TABLE biometric_punches
   ADD COLUMN IF NOT EXISTS capture_ip inet NULL,
   ADD COLUMN IF NOT EXISTS capture_user_agent text NULL;
 
-ALTER TABLE contractor_biometric_punches
-  ADD COLUMN IF NOT EXISTS capture_ip inet NULL,
-  ADD COLUMN IF NOT EXISTS capture_user_agent text NULL;
+DO $$
+BEGIN
+  IF to_regclass('public.contractor_biometric_punches') IS NOT NULL THEN
+    ALTER TABLE contractor_biometric_punches
+      ADD COLUMN IF NOT EXISTS capture_ip inet NULL,
+      ADD COLUMN IF NOT EXISTS capture_user_agent text NULL;
+  END IF;
+END $$;
 
 ALTER TABLE face_failed_scan_logs
   ADD COLUMN IF NOT EXISTS user_agent text NULL;

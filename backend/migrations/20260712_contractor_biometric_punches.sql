@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS contractor_biometric_punches (
   capture_lat numeric NULL,
   capture_lng numeric NULL,
   capture_accuracy_m numeric NULL,
+  capture_ip inet NULL,
+  capture_user_agent text NULL,
   photo_url text NULL,
   match_score numeric NULL,
   liveness_score numeric NULL,
