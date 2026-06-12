@@ -1015,14 +1015,14 @@ class KioskActivity : AppCompatActivity() {
     }
 
     companion object {
-        // Mapped (cos+1)/2. 0.85 == raw cos 0.70. Phase 3a started at 0.78
+        // Mapped (cos+1)/2. 0.90 == raw cos 0.80. Phase 3a started at 0.78
         // (raw 0.56) which was inside the inter-class noise band of
         // MobileFaceNet without alignment — strangers occasionally scored
         // above it. Combined with the ambiguity-margin check inside
         // RosterMatcher.match(), 0.85 keeps same-person accept rates high
         // while sharply cutting cross-identity false accepts.
-        private const val MIN_MATCH = 0.85
-        private const val MIN_LIVENESS = 0.5
+        private const val MIN_MATCH = 0.90
+        private const val MIN_LIVENESS = 0.7
         // Bumped from 8 s -> 30 s so the kiosk doesn't immediately re-capture
         // a person right after their punch is recorded (which previously felt
         // like an instant logout).
@@ -1042,10 +1042,10 @@ class KioskActivity : AppCompatActivity() {
         // Operator-supervised enrollment constants.
         private const val ENROLL_POLL_FIRST_MS = 1_000L
         private const val ENROLL_POLL_MS = 3_000L
-        private const val ENROLL_REQUIRED_FRAMES = 3
-        private const val ENROLL_MIN_LIVENESS = 0.5
-        private const val ENROLL_MIN_FRAME_INTERVAL_MS = 250L
-        private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.68
+        private const val ENROLL_REQUIRED_FRAMES = 7
+        private const val ENROLL_MIN_LIVENESS = 0.7
+        private const val ENROLL_MIN_FRAME_INTERVAL_MS = 600L
+        private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.72
         private const val ENROLL_CHALLENGE_TIMEOUT_MS = 12_000L
         private const val ENROLL_ROSTER_FAST_REFRESH_MS = 5_000L
         private const val ENROLL_ROSTER_FAST_REFRESH_WINDOW_MS = 2 * 60_000L

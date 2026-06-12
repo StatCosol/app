@@ -46,6 +46,23 @@ import {
   SubmitKioskEnrollDto,
 } from './mobile-attendance.dto';
 
+// Emergency production stop-switch for shared kiosks. Default OFF because the
+// field rollout showed repeated false accepts/duplicates; re-enable only after
+// the branch is re-enrolled and acceptance-tested.
+const KIOSK_LIVE_ATTENDANCE_ENABLED =
+  String(process.env.FACE_KIOSK_LIVE_ATTENDANCE_ENABLED ?? 'false')
+    .toLowerCase()
+    .trim() === 'true';
+
+// Newly approved enrollments must not be visible to a shared kiosk
+// immediately. This prevents a just-captured wrong template from being used
+// for attendance before an operator can spot and correct it.
+const KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS = (() => {
+  const raw = Number(process.env.FACE_KIOSK_ACTIVATION_DELAY_MIN);
+  const minutes = Number.isFinite(raw) && raw >= 0 ? raw : 5;
+  return minutes * 60 * 1000;
+})();
+
 // Mapped (cos+1)/2 threshold. Bumped 0.70 → 0.78 (Phase 3a) → 0.85 after
 // field reports of cross-identity false accepts on the kiosk (a different
 // person scanning was being marked present against an enrolled face).
@@ -56,11 +73,11 @@ import {
 // per-punch payload.
 const MIN_MATCH_SCORE = (() => {
   const raw = process.env.FACE_MIN_MATCH_SCORE;
-  if (raw == null || raw === '') return 0.85;
+  if (raw == null || raw === '') return 0.9;
   const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.85;
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.9;
 })();
-const MIN_LIVENESS_SCORE = 0.5;
+const MIN_LIVENESS_SCORE = 0.7;
 // Face-quality gate at enrollment time (roadmap #2). face-svc returns a
 // 0..1 confidence/quality score per embedded photo; rejecting low-quality
 // enrollments here prevents bad reference embeddings from cascading into
@@ -68,9 +85,9 @@ const MIN_LIVENESS_SCORE = 0.5;
 // loosen it if a site has poor lighting before the camera is replaced.
 const MIN_FACE_QUALITY_SCORE = (() => {
   const raw = process.env.FACE_MIN_QUALITY_SCORE;
-  if (raw == null || raw === '') return 0.5;
+  if (raw == null || raw === '') return 0.65;
   const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.5;
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.65;
 })();
 // Phase 3d / 4c: active liveness challenge. Default ON — the device
 // must request a server nonce via POST /mobile-attendance/liveness/
@@ -124,7 +141,7 @@ const MAX_OFFLINE_BACKLOG_MS = 24 * 60 * 60 * 1000; // 24h behind for live; queu
 // This must be stricter than attendance matching because an accepted
 // duplicate poisons the roster and can make later 1:N punches ambiguous.
 const DUPLICATE_FACE_THRESHOLD = Number(
-  process.env.FACE_DUPLICATE_THRESHOLD || 0.8,
+  process.env.FACE_DUPLICATE_THRESHOLD || 0.88,
 );
 // After an OUT (logout) punch, the same employee cannot record any further
 // punch (IN or OUT) until this cooldown elapses. This enforces a minimum
@@ -214,6 +231,11 @@ export class MobileAttendanceService implements OnModuleInit {
    *  them in the deploy logs rather than discovering them after a
    *  fraudulent punch is investigated. */
   onModuleInit(): void {
+    if (!KIOSK_LIVE_ATTENDANCE_ENABLED) {
+      this.logger.warn(
+        'FACE_KIOSK_LIVE_ATTENDANCE_ENABLED is OFF - shared-kiosk live face attendance will be rejected until production retesting is complete.',
+      );
+    }
     if (!LIVENESS_CHALLENGE_REQUIRED) {
       this.logger.warn(
         'FACE_LIVENESS_CHALLENGE_REQUIRED is OFF — punches will be accepted ' +
@@ -1024,7 +1046,15 @@ export class MobileAttendanceService implements OnModuleInit {
     } else if (device.branchId) {
       where.branchId = device.branchId;
     }
-    const rows = await this.faceRepo.find({ where: where as any });
+    let rows = await this.faceRepo.find({ where: where as any });
+    if (device.mode === 'KIOSK') {
+      if (!KIOSK_LIVE_ATTENDANCE_ENABLED) {
+        rows = [];
+      } else if (KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS > 0) {
+        const activeBefore = Date.now() - KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS;
+        rows = rows.filter((r) => r.enrolledAt.getTime() <= activeBefore);
+      }
+    }
 
     let enrollments: Array<{
       employeeId: string;
@@ -1065,9 +1095,15 @@ export class MobileAttendanceService implements OnModuleInit {
         isActive: true,
       };
       if (device.branchId) ctrWhere.branchId = device.branchId;
-      const ctrRows = await this.contractorFaceRepo.find({
+      let ctrRows = await this.contractorFaceRepo.find({
         where: ctrWhere as any,
       });
+      if (!KIOSK_LIVE_ATTENDANCE_ENABLED) {
+        ctrRows = [];
+      } else if (KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS > 0) {
+        const activeBefore = Date.now() - KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS;
+        ctrRows = ctrRows.filter((r) => r.enrolledAt.getTime() <= activeBefore);
+      }
       if (ctrRows.length) {
         const ctrIds = ctrRows.map((r) => r.contractorEmployeeId);
         const nameRows: Array<{ id: string; name: string }> =
@@ -1662,6 +1698,12 @@ export class MobileAttendanceService implements OnModuleInit {
     actorEmployeeId?: string | null,
     meta?: PunchRequestMeta,
   ) {
+    if (device.mode === 'KIOSK' && !KIOSK_LIVE_ATTENDANCE_ENABLED) {
+      throw new ForbiddenException(
+        'Shared-kiosk face attendance is temporarily disabled for production retesting',
+      );
+    }
+
     // ESS mode: punch must be for the bound employee. Prefer the device
     // binding (it's authoritative) over the supplied employeeId.
     const expectedEmpId =
@@ -1694,6 +1736,17 @@ export class MobileAttendanceService implements OnModuleInit {
       throw new ForbiddenException(
         `No active face enrollment for employee ${emp.employeeCode ?? emp.id} — ` +
           `the device roster is stale. Please re-open the app to refresh.`,
+      );
+    }
+
+    if (
+      device.mode === 'KIOSK' &&
+      KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS > 0 &&
+      Date.now() - activeEnrollment.enrolledAt.getTime() <
+        KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS
+    ) {
+      throw new ForbiddenException(
+        'Face enrollment is still in activation hold. Please retry after verification is complete.',
       );
     }
 
@@ -2156,6 +2209,11 @@ export class MobileAttendanceService implements OnModuleInit {
         'Contractor punches are only allowed from KIOSK devices',
       );
     }
+    if (!KIOSK_LIVE_ATTENDANCE_ENABLED) {
+      throw new ForbiddenException(
+        'Shared-kiosk face attendance is temporarily disabled for production retesting',
+      );
+    }
 
     const ctr = await this.contractorEmpRepo.findOne({
       where: { id: body.contractorEmployeeId, clientId: device.clientId },
@@ -2176,6 +2234,16 @@ export class MobileAttendanceService implements OnModuleInit {
       throw new ForbiddenException(
         `No active face enrollment for contractor ${ctr.id} — the device ` +
           `roster is stale. Please re-open the app to refresh.`,
+      );
+    }
+
+    if (
+      KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS > 0 &&
+      Date.now() - activeCtrEnrollment.enrolledAt.getTime() <
+        KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS
+    ) {
+      throw new ForbiddenException(
+        'Face enrollment is still in activation hold. Please retry after verification is complete.',
       );
     }
 

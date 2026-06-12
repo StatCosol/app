@@ -5,6 +5,7 @@ import { AttendanceService } from './attendance.service';
 import { AttendanceEntity } from './entities/attendance.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { BiometricService } from '../biometric/biometric.service';
+import { FacePhotoStorage } from '../mobile-attendance/face-photo-storage.service';
 
 describe('AttendanceService', () => {
   let service: AttendanceService;
@@ -35,6 +36,10 @@ describe('AttendanceService', () => {
         { provide: getRepositoryToken(EmployeeEntity), useValue: mockRepo() },
         { provide: DataSource, useValue: {} },
         { provide: BiometricService, useValue: biometricService },
+        {
+          provide: FacePhotoStorage,
+          useValue: { toViewUrl: (url: string | null) => url },
+        },
       ],
     }).compile();
 

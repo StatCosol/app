@@ -217,7 +217,7 @@ class EnrollActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val REQUIRED_FRAMES = 5
+        private const val REQUIRED_FRAMES = 7
         private const val MIN_LIVENESS = 0.7
         private const val CAPTURE_TIMEOUT_MS = 8_000L
         /** Minimum wall-clock gap between accepted enrollment frames so

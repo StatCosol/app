@@ -55,7 +55,7 @@ const makeService = (d: Deps = {}): MobileAttendanceService =>
     {} as any,
     {} as any,
     {} as any,
-    d.facePhotos ?? ({} as any),
+    d.facePhotos ?? ({ toViewUrl: (url: string | null) => url } as any),
     {} as any,
     {} as any,
     d.ds ?? ({} as any),

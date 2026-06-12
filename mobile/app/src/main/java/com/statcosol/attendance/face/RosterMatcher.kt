@@ -71,8 +71,8 @@ class RosterMatcher(
      */
     fun match(
         probe: FloatArray,
-        minScore: Double = 0.78,
-        minMargin: Double = 0.04,
+        minScore: Double = 0.90,
+        minMargin: Double = 0.08,
     ): Match? {
         if (entries.isEmpty()) {
             Log.w(TAG, "match() called with empty roster")
@@ -108,7 +108,7 @@ class RosterMatcher(
     }
 
     /** ESS path: 1:1 verify against the bound employee. */
-    fun verify(probe: FloatArray, employeeId: String, minScore: Double = 0.78): Match? {
+    fun verify(probe: FloatArray, employeeId: String, minScore: Double = 0.90): Match? {
         val target = entries.firstOrNull { it.first.employeeId == employeeId } ?: run {
             Log.w(TAG, "verify: bound employee $employeeId not in roster (size=${entries.size})")
             return null
