@@ -38,9 +38,10 @@ This blocks live kiosk punches even if a device still attempts to submit attenda
 - Kiosk live attendance defaults OFF.
 - Minimum auto-accept face match score is now 0.90.
 - Liveness threshold is now 0.7.
-- Enrollment quality threshold default is now 0.65, with production recommendation 0.75.
+- Enrollment quality threshold default is now 0.75.
 - Duplicate threshold default is now 0.88.
 - Kiosk enrollment capture now requires 7 frames.
+- Kiosk enrollment now requires a server-issued liveness challenge.
 - Shared-kiosk roster hides newly enrolled faces during activation hold.
 - Punch API rejects kiosk attendance during activation hold.
 - Ambiguous 1:N device matches require a stronger first-vs-second score gap.
@@ -64,4 +65,3 @@ Use a phased approach:
 - Engineering: hotfix deployed and logs monitored.
 - QA: acceptance checklist completed.
 - Management: live re-enable approved.
-

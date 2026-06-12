@@ -27,9 +27,9 @@ Use this safe configuration while validating:
 
 ```bash
 FACE_KIOSK_LIVE_ATTENDANCE_ENABLED=false
-FACE_KIOSK_ACTIVATION_DELAY_MIN=5
+FACE_KIOSK_ACTIVATION_DELAY_MIN=15
 FACE_MIN_MATCH_SCORE=0.90
-FACE_MIN_FACE_QUALITY_SCORE=0.75
+FACE_MIN_QUALITY_SCORE=0.75
 FACE_DUPLICATE_THRESHOLD=0.88
 FACE_LIVENESS_CHALLENGE_REQUIRED=true
 FACE_PUNCH_REQUIRE_SERVER_PROBE=true
@@ -44,4 +44,3 @@ Only set `FACE_KIOSK_LIVE_ATTENDANCE_ENABLED=true` after staging and live kiosk 
 - [ ] Engineering confirms backend and kiosk APK versions match.
 - [ ] QA completes the checklist in `FACE_ATTENDANCE_OPS_GUIDE.md`.
 - [ ] Management approves live kiosk re-enable.
-

@@ -59,7 +59,7 @@ const KIOSK_LIVE_ATTENDANCE_ENABLED =
 // for attendance before an operator can spot and correct it.
 const KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS = (() => {
   const raw = Number(process.env.FACE_KIOSK_ACTIVATION_DELAY_MIN);
-  const minutes = Number.isFinite(raw) && raw >= 0 ? raw : 5;
+  const minutes = Number.isFinite(raw) && raw >= 0 ? raw : 15;
   return minutes * 60 * 1000;
 })();
 
@@ -85,9 +85,9 @@ const MIN_LIVENESS_SCORE = 0.7;
 // loosen it if a site has poor lighting before the camera is replaced.
 const MIN_FACE_QUALITY_SCORE = (() => {
   const raw = process.env.FACE_MIN_QUALITY_SCORE;
-  if (raw == null || raw === '') return 0.65;
+  if (raw == null || raw === '') return 0.75;
   const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.65;
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.75;
 })();
 // Phase 3d / 4c: active liveness challenge. Default ON — the device
 // must request a server nonce via POST /mobile-attendance/liveness/
@@ -4331,6 +4331,45 @@ export class MobileAttendanceService implements OnModuleInit {
         { status: 'EXPIRED' },
       );
       throw new ConflictException('Ticket has expired');
+    }
+    if (LIVENESS_CHALLENGE_REQUIRED) {
+      if (
+        !body.livenessNonce ||
+        !body.livenessChallengeType ||
+        !body.livenessChallengePassedAt
+      ) {
+        throw new BadRequestException(
+          'Enrollment requires a completed liveness challenge',
+        );
+      }
+      if (
+        !LIVENESS_CHALLENGE_TYPES.includes(body.livenessChallengeType as any)
+      ) {
+        throw new BadRequestException('Invalid enrollment liveness challenge');
+      }
+      const consumed = await this.consumeLivenessNonce(
+        device.id,
+        body.livenessNonce,
+      );
+      if (!consumed.ok) {
+        throw new BadRequestException(
+          'Enrollment liveness challenge expired or already used',
+        );
+      }
+      if (consumed.challengeType !== body.livenessChallengeType) {
+        throw new BadRequestException(
+          'Enrollment liveness challenge does not match the issued action',
+        );
+      }
+      const passedAt = Date.parse(body.livenessChallengePassedAt);
+      if (Number.isNaN(passedAt)) {
+        throw new BadRequestException('Invalid enrollment liveness timestamp');
+      }
+      if (Math.abs(Date.now() - passedAt) > LIVENESS_CHALLENGE_MAX_AGE_MS) {
+        throw new BadRequestException(
+          'Enrollment liveness challenge is too old; please retry',
+        );
+      }
     }
 
     const embedding = Buffer.from(body.embeddingBase64, 'base64');

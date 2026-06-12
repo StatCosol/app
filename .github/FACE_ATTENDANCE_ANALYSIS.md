@@ -50,7 +50,7 @@ Mitigation now applied:
 
 - Kiosk roster filters out enrollments inside activation hold.
 - Kiosk punch endpoint rejects enrollments inside activation hold.
-- Default hold is 5 minutes, configurable by `FACE_KIOSK_ACTIVATION_DELAY_MIN`.
+- Default hold is 15 minutes, configurable by `FACE_KIOSK_ACTIVATION_DELAY_MIN`.
 
 ### 5. Stale Pending Data And Cache
 
@@ -76,9 +76,7 @@ Do not use live shared-kiosk attendance until all of these pass:
 
 ## Remaining Engineering Work
 
-- Enrollment liveness enforcement.
 - Advanced quality metrics from face service: blur, exposure, multiple faces, face size, head pose, eye visibility.
 - Manual review queue for medium-confidence scores.
 - Multi-image enrollment schema.
 - Appearance drift detection and re-enrollment workflow.
-

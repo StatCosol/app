@@ -499,6 +499,22 @@ export class SubmitKioskEnrollDto {
   @Min(0)
   @Max(1)
   selfMatchScore?: number;
+
+  @IsOptional()
+  @IsIn(['BLINK', 'SMILE', 'HEAD_TURN_LEFT', 'HEAD_TURN_RIGHT'])
+  livenessChallengeType?:
+    | 'BLINK'
+    | 'SMILE'
+    | 'HEAD_TURN_LEFT'
+    | 'HEAD_TURN_RIGHT';
+
+  @IsOptional()
+  @IsString()
+  livenessChallengePassedAt?: string;
+
+  @IsOptional()
+  @IsString()
+  livenessNonce?: string;
 }
 
 export class ReviewKioskEnrollTicketDto {
