@@ -34,6 +34,7 @@ type Deps = {
   faceRepo?: any;
   contractorFaceRepo?: any;
   deviceRepo?: any;
+  nonceRepo?: any;
   empRepo?: any;
   contractorEmpRepo?: any;
   kioskTicketRepo?: any;
@@ -47,7 +48,7 @@ const makeService = (d: Deps = {}): MobileAttendanceService =>
     d.contractorFaceRepo ?? ({} as any),
     {} as any,
     d.deviceRepo ?? ({} as any),
-    {} as any,
+    d.nonceRepo ?? ({} as any),
     d.empRepo ?? ({} as any),
     d.contractorEmpRepo ?? ({} as any),
     {} as any,
@@ -373,6 +374,34 @@ describe('MobileAttendanceService.listKioskEnrollTickets', () => {
       ([sql]) => typeof sql === 'string' && sql.includes('branch_id'),
     );
     expect(branchCall).toBeUndefined();
+  });
+});
+
+describe('MobileAttendanceService.issueLivenessChallenge', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('can issue blink, smile, left-turn, and right-turn challenges', async () => {
+    const insert = jest.fn().mockResolvedValue({});
+    const svc = makeService({ nonceRepo: { insert } });
+    const device = { id: 'd-1', clientId: 'c-1' };
+    const randomSpy = jest.spyOn(Math, 'random');
+    const issued: string[] = [];
+
+    for (const randomValue of [0, 0.25, 0.5, 0.75]) {
+      randomSpy.mockReturnValueOnce(randomValue);
+      const resp = await svc.issueLivenessChallenge(device as any, null);
+      issued.push(resp.challengeType);
+    }
+
+    expect(issued).toEqual([
+      'BLINK',
+      'SMILE',
+      'HEAD_TURN_LEFT',
+      'HEAD_TURN_RIGHT',
+    ]);
+    expect(insert).toHaveBeenCalledTimes(4);
   });
 });
 
