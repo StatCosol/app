@@ -7,6 +7,7 @@ import android.graphics.ImageFormat
 import android.graphics.Matrix
 import android.graphics.Rect
 import android.graphics.YuvImage
+import android.util.Base64
 import android.util.Size
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -38,7 +39,11 @@ class FaceCaptureSession(
     private val owner: LifecycleOwner,
     private val previewView: PreviewView,
     private val scope: CoroutineScope,
-    private val onFace: suspend (probe: FloatArray, livenessScore: Double) -> Unit,
+    private val onFace: suspend (
+        probe: FloatArray,
+        livenessScore: Double,
+        facePhotoBase64: String?,
+    ) -> Unit,
     private val onError: ((message: String) -> Unit)? = null,
     /** Fired for every analysed frame that contains exactly one face,
      *  before any embedding work. Used by the active-liveness challenge
@@ -80,7 +85,7 @@ class FaceCaptureSession(
                 it.setSurfaceProvider(previewView.surfaceProvider)
             }
             val analyzer = ImageAnalysis.Builder()
-                .setTargetResolution(Size(640, 480))
+                .setTargetResolution(Size(1280, 720))
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
             analyzer.setAnalyzer(analysisExecutor) { proxy ->
@@ -207,7 +212,7 @@ class FaceCaptureSession(
                     }
                     return@launch
                 }
-                onFace(embedding, detection.livenessScore)
+                onFace(embedding, detection.livenessScore, crop.toJpegBase64())
             } finally {
                 analysisLock.unlock()
                 proxy.close()
@@ -228,6 +233,12 @@ class FaceCaptureSession(
         if (deg == 0) return this
         val m = Matrix().apply { postRotate(deg.toFloat()) }
         return Bitmap.createBitmap(this, 0, 0, width, height, m, true)
+    }
+
+    private fun Bitmap.toJpegBase64(): String {
+        val out = ByteArrayOutputStream()
+        compress(Bitmap.CompressFormat.JPEG, 86, out)
+        return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
     }
 
     private fun yuv420ToNv21(image: ImageProxy): ByteArray {
@@ -320,7 +331,7 @@ class FaceCaptureSession(
 
         /** Face must occupy at least this fraction of the camera frame
          *  to be considered close enough for a confident embedding. */
-        private const val MIN_FACE_AREA_RATIO = 0.06
+        private const val MIN_FACE_AREA_RATIO = 0.035
         private const val MAX_EMBED_YAW_DEG = 18f
         private const val MAX_EMBED_PITCH_DEG = 15f
     }

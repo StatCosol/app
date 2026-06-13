@@ -363,6 +363,27 @@ export class ContractorMobilePunchDto {
   livenessNonce?: string;
 }
 
+export class UpdateContractorPunchDto {
+  @IsOptional()
+  @IsString()
+  punchTime?: string;
+
+  @IsOptional()
+  @IsIn(['IN', 'OUT', 'AUTO'])
+  direction?: 'IN' | 'OUT' | 'AUTO';
+}
+
+export class CreateContractorPunchAdminDto {
+  @IsUUID()
+  contractorEmployeeId!: string;
+
+  @IsString()
+  punchTime!: string;
+
+  @IsIn(['IN', 'OUT', 'AUTO'])
+  direction!: 'IN' | 'OUT' | 'AUTO';
+}
+
 // ---------------------------------------------------------------------------
 // Phase 3e: re-enrollment approval workflow.
 // ---------------------------------------------------------------------------
@@ -478,6 +499,22 @@ export class SubmitKioskEnrollDto {
   @Min(0)
   @Max(1)
   selfMatchScore?: number;
+
+  @IsOptional()
+  @IsIn(['BLINK', 'SMILE', 'HEAD_TURN_LEFT', 'HEAD_TURN_RIGHT'])
+  livenessChallengeType?:
+    | 'BLINK'
+    | 'SMILE'
+    | 'HEAD_TURN_LEFT'
+    | 'HEAD_TURN_RIGHT';
+
+  @IsOptional()
+  @IsString()
+  livenessChallengePassedAt?: string;
+
+  @IsOptional()
+  @IsString()
+  livenessNonce?: string;
 }
 
 export class ReviewKioskEnrollTicketDto {

@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as path from 'path';
 import * as fs from 'fs';
+import { randomUUID } from 'crypto';
 
 import { CrmUnitDocumentEntity } from './entities/crm-unit-document.entity';
 import { ClientAssignmentCurrentEntity } from '../assignments/entities/client-assignment-current.entity';
@@ -21,6 +22,12 @@ type UploadedFile = {
 };
 
 type DocumentScope = 'COMPANY' | 'BRANCH';
+type PreparedUpload = {
+  doc: CrmUnitDocumentEntity;
+  fullPath: string;
+};
+
+const MAX_CRM_UPLOAD_TOTAL_BYTES = 50 * 1024 * 1024;
 
 @Injectable()
 export class CrmDocumentsService {
@@ -28,9 +35,11 @@ export class CrmDocumentsService {
     'application/pdf',
     'image/png',
     'image/jpeg',
+    'image/jpg',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.ms-excel',
     'application/zip',
+    'application/x-zip-compressed',
   ]);
 
   constructor(
@@ -134,7 +143,61 @@ export class CrmDocumentsService {
       await this.assertBranchBelongsToClient(dto.branchId, dto.clientId);
     }
 
-    // File validation
+    const prepared = this.prepareUploadRecord(dto, file, crmUserId, scope);
+    try {
+      return await this.docRepo.save(prepared.doc);
+    } catch (err) {
+      this.safeUnlink(prepared.fullPath);
+      throw err;
+    }
+  }
+
+  async uploadMany(
+    dto: UploadCrmDocumentDto,
+    files: UploadedFile[],
+    crmUserId: string,
+  ): Promise<CrmUnitDocumentEntity[]> {
+    if (!files.length) {
+      throw new BadRequestException('At least one file is required');
+    }
+
+    const totalBytes = files.reduce((sum, file) => sum + (file.size || 0), 0);
+    if (totalBytes > MAX_CRM_UPLOAD_TOTAL_BYTES) {
+      throw new BadRequestException('Total upload size must not exceed 50 MB');
+    }
+
+    const scope = this.resolveScope(dto);
+    await this.assertCrmAssigned(dto.clientId, crmUserId);
+    if (scope === 'BRANCH' && dto.branchId) {
+      await this.assertBranchBelongsToClient(dto.branchId, dto.clientId);
+    }
+
+    const prepared: PreparedUpload[] = [];
+    try {
+      for (const file of files) {
+        prepared.push(this.prepareUploadRecord(dto, file, crmUserId, scope));
+      }
+
+      return await this.docRepo.manager.transaction((manager) =>
+        manager.save(
+          CrmUnitDocumentEntity,
+          prepared.map((item) => item.doc),
+        ),
+      );
+    } catch (err) {
+      for (const item of prepared) {
+        this.safeUnlink(item.fullPath);
+      }
+      throw err;
+    }
+  }
+
+  private prepareUploadRecord(
+    dto: UploadCrmDocumentDto,
+    file: UploadedFile,
+    crmUserId: string,
+    scope: DocumentScope,
+  ): PreparedUpload {
     if (!file || !file.buffer) {
       throw new BadRequestException('File is required');
     }
@@ -159,7 +222,7 @@ export class CrmDocumentsService {
 
     const ts = Date.now();
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const diskName = `${ts}_${safeName}`;
+    const diskName = `${ts}_${randomUUID()}_${safeName}`;
     const fullPath = path.join(dir, diskName);
     fs.writeFileSync(fullPath, file.buffer);
 
@@ -189,7 +252,15 @@ export class CrmDocumentsService {
       originalOwnerRole: scope === 'BRANCH' ? 'BRANCH' : 'CLIENT',
     });
 
-    return this.docRepo.save(doc);
+    return { doc, fullPath };
+  }
+
+  private safeUnlink(fullPath: string): void {
+    try {
+      fs.unlinkSync(fullPath);
+    } catch {
+      /* best-effort cleanup */
+    }
   }
 
   /* ───────── CRM: list ───────── */

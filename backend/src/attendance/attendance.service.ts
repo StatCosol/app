@@ -15,6 +15,7 @@ import { AttendanceEntity } from './entities/attendance.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { BiometricPunchEntity } from '../biometric/entities/biometric-punch.entity';
 import { BiometricService } from '../biometric/biometric.service';
+import { FacePhotoStorage } from '../mobile-attendance/face-photo-storage.service';
 
 @Injectable()
 export class AttendanceService {
@@ -25,6 +26,7 @@ export class AttendanceService {
     private readonly empRepo: Repository<EmployeeEntity>,
     private readonly ds: DataSource,
     private readonly biometricService: BiometricService,
+    private readonly facePhotos: FacePhotoStorage,
   ) {}
 
   private applyBranchScope<T extends ObjectLiteral>(
@@ -373,11 +375,13 @@ export class AttendanceService {
     this.assertRequestedBranchAllowed(branchId, allowedBranchIds);
     if (allowedBranchIds && !branchId) {
       if (!allowedBranchIds.length)
-        return { created: 0, employees: 0, days: 0 };
+        return {
+          created: 0,
+          employees: 0,
+          days: new Date(year, month, 0).getDate(),
+        };
       if (allowedBranchIds.length === 1) {
         branchId = allowedBranchIds[0];
-      } else {
-        throw new ForbiddenException('Branch is required for scoped users');
       }
     }
     const lastDay = new Date(year, month, 0).getDate();
@@ -461,6 +465,12 @@ export class AttendanceService {
         'a.approved_by_user_id AS "approvedByUserId"',
         'a.approved_at   AS "approvedAt"',
         'a.rejection_reason AS "rejectionReason"',
+        `(SELECT p.photo_url
+            FROM biometric_punches p
+           WHERE p.attendance_id = a.id
+             AND p.photo_url IS NOT NULL
+           ORDER BY p.punch_time DESC, p.created_at DESC
+           LIMIT 1) AS "photoUrl"`,
         'e.name          AS "employeeName"',
         'b.branchname    AS "branchName"',
       ])
@@ -476,7 +486,11 @@ export class AttendanceService {
     if (params.branchId) {
       qb.andWhere('a.branch_id = :branchId', { branchId: params.branchId });
     } else if (
-      !this.applyBranchScope(qb as any, 'a', params.allowedBranchIds)
+      !this.applyBranchScope(
+        qb as unknown as SelectQueryBuilder<ObjectLiteral>,
+        'a',
+        params.allowedBranchIds,
+      )
     ) {
       return [];
     }
@@ -486,7 +500,11 @@ export class AttendanceService {
       });
     }
 
-    return qb.getRawMany();
+    const rows = await qb.getRawMany();
+    return rows.map((row) => ({
+      ...row,
+      photoUrl: this.facePhotos.toViewUrl(row.photoUrl),
+    }));
   }
 
   /** Edit an attendance record (status, check-in/out, hours, remarks) */
@@ -519,10 +537,7 @@ export class AttendanceService {
     if (body.remarks !== undefined) record.remarks = body.remarks || null;
 
     // Reset approval when edited
-    record.approvalStatus = 'PENDING';
-    record.approvedByUserId = null;
-    record.approvedAt = null;
-    record.rejectionReason = null;
+    this.resetApproval(record);
 
     return this.repo.save(record);
   }

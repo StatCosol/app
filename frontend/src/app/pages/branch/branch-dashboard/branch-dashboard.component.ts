@@ -277,7 +277,7 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
       actions.push({ label: 'Address critical compliance items', count: queues.critical.length, severity: 'high', route: '/branch/monthly-compliance' });
     }
     if (queues?.pending?.length > 0) {
-      actions.push({ label: 'Complete pending uploads', count: queues.pending.length, severity: 'low', route: '/branch/documents' });
+      actions.push({ label: 'Complete pending uploads', count: queues.pending.length, severity: 'low', route: '/branch/compliance/monthly' });
     }
 
     this.pendingActions = actions;

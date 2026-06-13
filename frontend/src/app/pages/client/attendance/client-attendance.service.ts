@@ -15,7 +15,7 @@ export interface AttendanceRecord {
   workedHours?: number;
   overtimeHours?: number;
   remarks?: string;
-  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | string;
 }
 
 export interface AttendanceSummary {
@@ -48,83 +48,59 @@ export class ClientAttendanceService {
 
   constructor(private http: HttpClient) {}
 
-  mark(body: {
-    employeeId: string;
-    date: string;
-    status: string;
-    checkIn?: string;
-    checkOut?: string;
-    remarks?: string;
-  }): Observable<any> {
+  mark(body: { employeeId: string; date: string; status: string; checkIn?: string; checkOut?: string; remarks?: string }): Observable<any> {
     return this.http.post(`${this.base}/mark`, body);
   }
 
-  bulkMark(body: {
-    date: string;
-    entries: { employeeId: string; status: string }[];
-  }): Observable<any> {
+  bulkMark(body: { date: string; entries: { employeeId: string; status: string }[] }): Observable<any> {
     return this.http.post(`${this.base}/bulk`, body);
   }
 
-  list(q: {
-    from: string;
-    to: string;
-    branchId?: string;
-    employeeId?: string;
-  }): Observable<AttendanceRecord[]> {
+  list(q: { from: string; to: string; branchId?: string; employeeId?: string }): Observable<AttendanceRecord[]> {
     let p = new HttpParams().set('from', q.from).set('to', q.to);
     if (q.branchId) p = p.set('branchId', q.branchId);
     if (q.employeeId) p = p.set('employeeId', q.employeeId);
-    return this.http
-      .get<any>(this.base, { params: p })
-      .pipe(map((res) => (Array.isArray(res) ? res : (res?.data ?? []))));
+    return this.http.get<any>(this.base, { params: p }).pipe(
+      map(res => Array.isArray(res) ? res : res?.data ?? []),
+    );
   }
 
   summary(year: number, month: number, branchId?: string): Observable<AttendanceSummary[]> {
     let p = new HttpParams().set('year', String(year)).set('month', String(month));
     if (branchId) p = p.set('branchId', branchId);
-    return this.http
-      .get<any>(`${this.base}/summary`, { params: p })
-      .pipe(map((res) => (Array.isArray(res) ? res : (res?.data ?? []))));
+    return this.http.get<any>(`${this.base}/summary`, { params: p }).pipe(
+      map(res => Array.isArray(res) ? res : res?.data ?? []),
+    );
   }
 
   mismatches(year: number, month: number, branchId?: string): Observable<AttendanceMismatch[]> {
     let p = new HttpParams().set('year', String(year)).set('month', String(month));
     if (branchId) p = p.set('branchId', branchId);
-    return this.http
-      .get<any>(`${this.base}/mismatches`, { params: p })
-      .pipe(map((res) => (Array.isArray(res) ? res : (res?.data ?? []))));
+    return this.http.get<any>(`${this.base}/mismatches`, { params: p }).pipe(
+      map((res) => (Array.isArray(res) ? res : res?.data ?? [])),
+    );
   }
 
   lopPreview(year: number, month: number, branchId?: string): Observable<AttendanceSummary[]> {
     let p = new HttpParams().set('year', String(year)).set('month', String(month));
     if (branchId) p = p.set('branchId', branchId);
-    return this.http
-      .get<any>(`${this.base}/lop-preview`, { params: p })
-      .pipe(map((res) => (Array.isArray(res) ? res : (res?.data ?? []))));
+    return this.http.get<any>(`${this.base}/lop-preview`, { params: p }).pipe(
+      map((res) => (Array.isArray(res) ? res : res?.data ?? [])),
+    );
   }
 
-  seedDefaults(body: {
-    year: number;
-    month: number;
-    branchId?: string;
-    weeklyOffDays?: number[];
-  }): Observable<any> {
+  seedDefaults(body: { year: number; month: number; branchId?: string; weeklyOffDays?: number[] }): Observable<any> {
     return this.http.post(`${this.base}/seed-defaults`, body);
   }
 
   // ── Daily Attendance Management ────────────────────────────
-  listDaily(
-    date: string,
-    branchId?: string,
-    approvalStatus?: string,
-  ): Observable<DailyAttendanceRecord[]> {
+  listDaily(date: string, branchId?: string, approvalStatus?: string): Observable<DailyAttendanceRecord[]> {
     let p = new HttpParams().set('date', date);
     if (branchId) p = p.set('branchId', branchId);
     if (approvalStatus) p = p.set('approvalStatus', approvalStatus);
-    return this.http
-      .get<any>(`${this.base}/daily`, { params: p })
-      .pipe(map((res) => (Array.isArray(res) ? res : (res?.data ?? []))));
+    return this.http.get<any>(`${this.base}/daily`, { params: p }).pipe(
+      map(res => Array.isArray(res) ? res : res?.data ?? []),
+    );
   }
 
   getApprovalStats(date: string, branchId?: string): Observable<ApprovalStats> {
@@ -133,17 +109,14 @@ export class ClientAttendanceService {
     return this.http.get<ApprovalStats>(`${this.base}/daily/stats`, { params: p });
   }
 
-  editRecord(
-    id: string,
-    body: {
-      status: string;
-      checkIn?: string;
-      checkOut?: string;
-      workedHours?: number;
-      overtimeHours?: number;
-      remarks?: string;
-    },
-  ): Observable<any> {
+  editRecord(id: string, body: {
+    status: string;
+    checkIn?: string;
+    checkOut?: string;
+    workedHours?: number;
+    overtimeHours?: number;
+    remarks?: string;
+  }): Observable<any> {
     return this.http.put(`${this.base}/${id}`, body);
   }
 
@@ -156,9 +129,7 @@ export class ClientAttendanceService {
   }
 
   deleteRecords(ids: string[]): Observable<{ deleted: number; deletedPunches: number }> {
-    return this.http.post<{ deleted: number; deletedPunches: number }>(`${this.base}/delete`, {
-      ids,
-    });
+    return this.http.post<{ deleted: number; deletedPunches: number }>(`${this.base}/delete`, { ids });
   }
 }
 
@@ -188,6 +159,7 @@ export interface DailyAttendanceRecord {
   approvedByUserId: string | null;
   approvedAt: string | null;
   rejectionReason: string | null;
+  photoUrl: string | null;
 }
 
 export interface ApprovalStats {

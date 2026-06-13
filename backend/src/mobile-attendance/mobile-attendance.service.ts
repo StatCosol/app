@@ -46,6 +46,23 @@ import {
   SubmitKioskEnrollDto,
 } from './mobile-attendance.dto';
 
+// Emergency production stop-switch for shared kiosks. Default OFF because the
+// field rollout showed repeated false accepts/duplicates; re-enable only after
+// the branch is re-enrolled and acceptance-tested.
+const KIOSK_LIVE_ATTENDANCE_ENABLED =
+  String(process.env.FACE_KIOSK_LIVE_ATTENDANCE_ENABLED ?? 'false')
+    .toLowerCase()
+    .trim() === 'true';
+
+// Newly approved enrollments must not be visible to a shared kiosk
+// immediately. This prevents a just-captured wrong template from being used
+// for attendance before an operator can spot and correct it.
+const KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS = (() => {
+  const raw = Number(process.env.FACE_KIOSK_ACTIVATION_DELAY_MIN);
+  const minutes = Number.isFinite(raw) && raw >= 0 ? raw : 15;
+  return minutes * 60 * 1000;
+})();
+
 // Mapped (cos+1)/2 threshold. Bumped 0.70 → 0.78 (Phase 3a) → 0.85 after
 // field reports of cross-identity false accepts on the kiosk (a different
 // person scanning was being marked present against an enrolled face).
@@ -56,11 +73,11 @@ import {
 // per-punch payload.
 const MIN_MATCH_SCORE = (() => {
   const raw = process.env.FACE_MIN_MATCH_SCORE;
-  if (raw == null || raw === '') return 0.85;
+  if (raw == null || raw === '') return 0.9;
   const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.85;
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.9;
 })();
-const MIN_LIVENESS_SCORE = 0.5;
+const MIN_LIVENESS_SCORE = 0.7;
 // Face-quality gate at enrollment time (roadmap #2). face-svc returns a
 // 0..1 confidence/quality score per embedded photo; rejecting low-quality
 // enrollments here prevents bad reference embeddings from cascading into
@@ -68,9 +85,9 @@ const MIN_LIVENESS_SCORE = 0.5;
 // loosen it if a site has poor lighting before the camera is replaced.
 const MIN_FACE_QUALITY_SCORE = (() => {
   const raw = process.env.FACE_MIN_QUALITY_SCORE;
-  if (raw == null || raw === '') return 0.5;
+  if (raw == null || raw === '') return 0.75;
   const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.5;
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.75;
 })();
 // Phase 3d / 4c: active liveness challenge. Default ON — the device
 // must request a server nonce via POST /mobile-attendance/liveness/
@@ -87,7 +104,12 @@ const OFFLINE_LIVENESS_FALLBACK_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // may issue — the device must perform exactly the type returned and
 // echo back the nonce on the next punch. Adding to this list also
 // requires updating the Android client.
-const LIVENESS_CHALLENGE_TYPES = ['BLINK'] as const;
+const LIVENESS_CHALLENGE_TYPES = [
+  'BLINK',
+  'SMILE',
+  'HEAD_TURN_LEFT',
+  'HEAD_TURN_RIGHT',
+] as const;
 // Lifetime of an issued nonce. Must be long enough for the user to
 // perform the action + capture the punch, short enough to limit replay.
 const LIVENESS_NONCE_TTL_MS = LIVENESS_CHALLENGE_MAX_AGE_MS;
@@ -118,19 +140,27 @@ const ENROLLMENT_PHOTO_RETENTION_DAYS = (() => {
 // window are rejected unless `body.offlineSync === true`, which is set by
 // the Android queue worker when draining offline rows.
 const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000; // 5 min ahead
-const MAX_OFFLINE_BACKLOG_MS = 24 * 60 * 60 * 1000; // 24h behind for live; queue worker can override
+const MAX_OFFLINE_BACKLOG_MS = (() => {
+  const raw = Number(process.env.FACE_MAX_OFFLINE_BACKLOG_HOURS);
+  const hours = Number.isFinite(raw) && raw > 0 ? raw : 24;
+  return hours * 60 * 60 * 1000;
+})(); // live punches only; offline queue worker can override
 // Duplicate-face guard at enrollment: reject when another active enrollment
 // or pending kiosk review in the same client is too similar to the new face.
 // This must be stricter than attendance matching because an accepted
 // duplicate poisons the roster and can make later 1:N punches ambiguous.
 const DUPLICATE_FACE_THRESHOLD = Number(
-  process.env.FACE_DUPLICATE_THRESHOLD || 0.8,
+  process.env.FACE_DUPLICATE_THRESHOLD || 0.88,
 );
 // After an OUT (logout) punch, the same employee cannot record any further
 // punch (IN or OUT) until this cooldown elapses. This enforces a minimum
 // 8-hour gap between a shift end and the next shift start, even if the
 // next shift crosses midnight.
-const POST_LOGOUT_COOLDOWN_MS = 8 * 60 * 60 * 1000;
+const POST_LOGOUT_COOLDOWN_MS = (() => {
+  const raw = Number(process.env.FACE_POST_LOGOUT_COOLDOWN_HOURS);
+  const hours = Number.isFinite(raw) && raw > 0 ? raw : 8;
+  return hours * 60 * 60 * 1000;
+})();
 
 // Phase 4c roadmap #16: real-time alerts. Only these rejection reasons
 // are considered "security-relevant" \u2014 benign reasons (cooldown,
@@ -148,15 +178,15 @@ const SUSPICIOUS_REJECTION_REASONS: ReadonlySet<string> = new Set([
 ]);
 const REJECTION_ALERT_WINDOW_MIN = (() => {
   const raw = Number(process.env.FACE_REJECTION_ALERT_WINDOW_MIN);
-  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 10;
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 15;
 })();
 const REJECTION_ALERT_THRESHOLD = (() => {
   const raw = Number(process.env.FACE_REJECTION_ALERT_THRESHOLD);
-  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 3;
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 5;
 })();
 const DEVICE_REJECTION_ALERT_THRESHOLD = (() => {
   const raw = Number(process.env.FACE_DEVICE_REJECTION_ALERT_THRESHOLD);
-  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 5;
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 10;
 })();
 const DEVICE_INSTALL_TOKEN_TTL_MS = (() => {
   const raw = Number(process.env.MOBILE_DEVICE_INSTALL_TOKEN_TTL_MIN);
@@ -214,6 +244,11 @@ export class MobileAttendanceService implements OnModuleInit {
    *  them in the deploy logs rather than discovering them after a
    *  fraudulent punch is investigated. */
   onModuleInit(): void {
+    if (!KIOSK_LIVE_ATTENDANCE_ENABLED) {
+      this.logger.warn(
+        'FACE_KIOSK_LIVE_ATTENDANCE_ENABLED is OFF - shared-kiosk live face attendance will be rejected until production retesting is complete.',
+      );
+    }
     if (!LIVENESS_CHALLENGE_REQUIRED) {
       this.logger.warn(
         'FACE_LIVENESS_CHALLENGE_REQUIRED is OFF — punches will be accepted ' +
@@ -820,7 +855,7 @@ export class MobileAttendanceService implements OnModuleInit {
       // Branch-scoped user with no branches → see nothing.
       return [];
     }
-    return this.faceRepo.manager.query(
+    const rows = await this.faceRepo.manager.query(
       `SELECT r.id, r.employee_id AS "employeeId",
               e.employee_code AS "employeeCode", e.name AS "employeeName",
               r.branch_id AS "branchId",
@@ -839,6 +874,7 @@ export class MobileAttendanceService implements OnModuleInit {
         LIMIT 500`,
       params,
     );
+    return this.withViewPhotos(rows);
   }
 
   async reviewReenrollRequest(
@@ -1023,7 +1059,15 @@ export class MobileAttendanceService implements OnModuleInit {
     } else if (device.branchId) {
       where.branchId = device.branchId;
     }
-    const rows = await this.faceRepo.find({ where: where as any });
+    let rows = await this.faceRepo.find({ where: where as any });
+    if (device.mode === 'KIOSK') {
+      if (!KIOSK_LIVE_ATTENDANCE_ENABLED) {
+        rows = [];
+      } else if (KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS > 0) {
+        const activeBefore = Date.now() - KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS;
+        rows = rows.filter((r) => r.enrolledAt.getTime() <= activeBefore);
+      }
+    }
 
     let enrollments: Array<{
       employeeId: string;
@@ -1064,9 +1108,15 @@ export class MobileAttendanceService implements OnModuleInit {
         isActive: true,
       };
       if (device.branchId) ctrWhere.branchId = device.branchId;
-      const ctrRows = await this.contractorFaceRepo.find({
+      let ctrRows = await this.contractorFaceRepo.find({
         where: ctrWhere as any,
       });
+      if (!KIOSK_LIVE_ATTENDANCE_ENABLED) {
+        ctrRows = [];
+      } else if (KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS > 0) {
+        const activeBefore = Date.now() - KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS;
+        ctrRows = ctrRows.filter((r) => r.enrolledAt.getTime() <= activeBefore);
+      }
       if (ctrRows.length) {
         const ctrIds = ctrRows.map((r) => r.contractorEmployeeId);
         const nameRows: Array<{ id: string; name: string }> =
@@ -1661,6 +1711,12 @@ export class MobileAttendanceService implements OnModuleInit {
     actorEmployeeId?: string | null,
     meta?: PunchRequestMeta,
   ) {
+    if (device.mode === 'KIOSK' && !KIOSK_LIVE_ATTENDANCE_ENABLED) {
+      throw new ForbiddenException(
+        'Shared-kiosk face attendance is temporarily disabled for production retesting',
+      );
+    }
+
     // ESS mode: punch must be for the bound employee. Prefer the device
     // binding (it's authoritative) over the supplied employeeId.
     const expectedEmpId =
@@ -1693,6 +1749,17 @@ export class MobileAttendanceService implements OnModuleInit {
       throw new ForbiddenException(
         `No active face enrollment for employee ${emp.employeeCode ?? emp.id} — ` +
           `the device roster is stale. Please re-open the app to refresh.`,
+      );
+    }
+
+    if (
+      device.mode === 'KIOSK' &&
+      KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS > 0 &&
+      Date.now() - activeEnrollment.enrolledAt.getTime() <
+        KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS
+    ) {
+      throw new ForbiddenException(
+        'Face enrollment is still in activation hold. Please retry after verification is complete.',
       );
     }
 
@@ -2155,6 +2222,11 @@ export class MobileAttendanceService implements OnModuleInit {
         'Contractor punches are only allowed from KIOSK devices',
       );
     }
+    if (!KIOSK_LIVE_ATTENDANCE_ENABLED) {
+      throw new ForbiddenException(
+        'Shared-kiosk face attendance is temporarily disabled for production retesting',
+      );
+    }
 
     const ctr = await this.contractorEmpRepo.findOne({
       where: { id: body.contractorEmployeeId, clientId: device.clientId },
@@ -2175,6 +2247,16 @@ export class MobileAttendanceService implements OnModuleInit {
       throw new ForbiddenException(
         `No active face enrollment for contractor ${ctr.id} — the device ` +
           `roster is stale. Please re-open the app to refresh.`,
+      );
+    }
+
+    if (
+      KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS > 0 &&
+      Date.now() - activeCtrEnrollment.enrolledAt.getTime() <
+        KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS
+    ) {
+      throw new ForbiddenException(
+        'Face enrollment is still in activation hold. Please retry after verification is complete.',
       );
     }
 
@@ -3052,7 +3134,7 @@ export class MobileAttendanceService implements OnModuleInit {
 
     const limit = Math.min(Math.max(Number(opts.limit) || 100, 1), 500);
 
-    return this.contractorPunchRepo.manager.query(
+    const rows = await this.contractorPunchRepo.manager.query(
       `SELECT p.id,
               p.contractor_employee_id AS "contractorEmployeeId",
               ce.name AS "contractorEmployeeName",
@@ -3075,6 +3157,168 @@ export class MobileAttendanceService implements OnModuleInit {
         LIMIT ${limit}`,
       params,
     );
+    return this.withViewPhotos(rows);
+  }
+
+  async updateContractorPunch(
+    clientId: string,
+    punchId: string,
+    body: {
+      punchTime?: string | null;
+      direction?: 'IN' | 'OUT' | 'AUTO' | null;
+    },
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{
+    ok: true;
+    id: string;
+    punchTime: string;
+    direction: 'IN' | 'OUT' | 'AUTO';
+  }> {
+    const punch = await this.contractorPunchRepo.findOne({
+      where: { id: punchId, clientId },
+    });
+    if (!punch)
+      throw new NotFoundException('Contractor attendance punch not found');
+
+    if (allowedBranchIds && allowedBranchIds.length === 0) {
+      throw new ForbiddenException('Branch access required');
+    }
+    if (
+      allowedBranchIds &&
+      allowedBranchIds.length > 0 &&
+      (!punch.branchId || !allowedBranchIds.includes(punch.branchId))
+    ) {
+      throw new ForbiddenException('Punch is outside your branch scope');
+    }
+
+    if (body.punchTime !== undefined && body.punchTime !== null) {
+      const next = new Date(body.punchTime);
+      if (Number.isNaN(next.getTime())) {
+        throw new BadRequestException('Invalid punchTime');
+      }
+      punch.punchTime = next;
+    }
+
+    if (body.direction !== undefined && body.direction !== null) {
+      if (!['IN', 'OUT', 'AUTO'].includes(body.direction)) {
+        throw new BadRequestException('Invalid direction');
+      }
+      punch.direction = body.direction;
+    }
+
+    try {
+      const saved = await this.contractorPunchRepo.save(punch);
+      return {
+        ok: true,
+        id: saved.id,
+        punchTime: saved.punchTime.toISOString(),
+        direction: saved.direction,
+      };
+    } catch (err: any) {
+      if (err?.code === '23505') {
+        throw new ConflictException(
+          'A contractor attendance punch already exists at this time',
+        );
+      }
+      throw err;
+    }
+  }
+
+  async createContractorPunch(
+    clientId: string,
+    body: {
+      contractorEmployeeId: string;
+      punchTime: string;
+      direction: 'IN' | 'OUT' | 'AUTO';
+    },
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{
+    ok: true;
+    id: string;
+    punchTime: string;
+    direction: 'IN' | 'OUT' | 'AUTO';
+  }> {
+    const employee = await this.contractorEmpRepo.findOne({
+      where: { id: body.contractorEmployeeId, clientId, isActive: true },
+    });
+    if (!employee) {
+      throw new NotFoundException('Contractor employee not found');
+    }
+
+    if (allowedBranchIds && allowedBranchIds.length === 0) {
+      throw new ForbiddenException('Branch access required');
+    }
+    if (
+      allowedBranchIds &&
+      allowedBranchIds.length > 0 &&
+      !allowedBranchIds.includes(employee.branchId)
+    ) {
+      throw new ForbiddenException(
+        'Contractor employee is outside your branch scope',
+      );
+    }
+
+    const punchTime = new Date(body.punchTime);
+    if (Number.isNaN(punchTime.getTime())) {
+      throw new BadRequestException('Invalid punchTime');
+    }
+
+    try {
+      const saved = await this.contractorPunchRepo.save(
+        this.contractorPunchRepo.create({
+          clientId,
+          branchId: employee.branchId,
+          contractorEmployeeId: employee.id,
+          punchTime,
+          direction: body.direction,
+          source: 'MANUAL',
+          deviceId: 'manual:portal',
+        }),
+      );
+
+      return {
+        ok: true,
+        id: saved.id,
+        punchTime: saved.punchTime.toISOString(),
+        direction: saved.direction,
+      };
+    } catch (err: any) {
+      if (err?.code === '23505') {
+        throw new ConflictException(
+          'A contractor attendance punch already exists at this time',
+        );
+      }
+      throw err;
+    }
+  }
+
+  async deleteContractorPunch(
+    clientId: string,
+    punchId: string,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{ ok: true; deleted: number }> {
+    const punch = await this.contractorPunchRepo.findOne({
+      where: { id: punchId, clientId },
+    });
+    if (!punch)
+      throw new NotFoundException('Contractor attendance punch not found');
+
+    if (allowedBranchIds && allowedBranchIds.length === 0) {
+      throw new ForbiddenException('Branch access required');
+    }
+    if (
+      allowedBranchIds &&
+      allowedBranchIds.length > 0 &&
+      (!punch.branchId || !allowedBranchIds.includes(punch.branchId))
+    ) {
+      throw new ForbiddenException('Punch is outside your branch scope');
+    }
+
+    const deleted = await this.contractorPunchRepo.delete({
+      id: punchId,
+      clientId,
+    });
+    return { ok: true, deleted: deleted.affected ?? 0 };
   }
 
   /**
@@ -3652,7 +3896,7 @@ export class MobileAttendanceService implements OnModuleInit {
     } else if (allowedBranchIds && allowedBranchIds.length === 0) {
       return [];
     }
-    return this.contractorFaceRepo.manager.query(
+    const rows = await this.contractorFaceRepo.manager.query(
       `SELECT r.id,
               r.contractor_employee_id AS "contractorEmployeeId",
               ce.name AS "contractorName",
@@ -3672,6 +3916,7 @@ export class MobileAttendanceService implements OnModuleInit {
         LIMIT 500`,
       params,
     );
+    return this.withViewPhotos(rows);
   }
 
   async reviewContractorReenrollRequest(
@@ -3914,7 +4159,7 @@ export class MobileAttendanceService implements OnModuleInit {
   // ---------------------------------------------------- kiosk-supervised
   // -------------------------------------------------- enrollment tickets
 
-  private static readonly KIOSK_ENROLL_TTL_MIN = 5;
+  private static readonly KIOSK_ENROLL_TTL_MIN = 10;
 
   /**
    * Branch / client operator creates a single-use ticket telling one
@@ -4010,16 +4255,14 @@ export class MobileAttendanceService implements OnModuleInit {
       branchId = ce.branchId ?? branchId;
     }
 
-    // Cancel any existing PENDING ticket for this device first — the partial
-    // unique index would block a fresh INSERT otherwise.
-    await this.kioskTicketRepo.update(
-      { deviceId: device.id, status: 'PENDING' },
-      {
-        status: 'CANCELLED',
-        cancelledAt: new Date(),
-        cancelledBy: createdBy,
-      },
-    );
+    const existingPending = await this.kioskTicketRepo.findOne({
+      where: { deviceId: device.id, status: 'PENDING' },
+    });
+    if (existingPending) {
+      throw new ConflictException(
+        `A kiosk enrollment is already pending for ${existingPending.subjectName}. Complete or cancel that ticket before starting another.`,
+      );
+    }
 
     const expiresAt = new Date(
       Date.now() + MobileAttendanceService.KIOSK_ENROLL_TTL_MIN * 60 * 1000,
@@ -4100,6 +4343,63 @@ export class MobileAttendanceService implements OnModuleInit {
       );
       throw new ConflictException('Ticket has expired');
     }
+    if (LIVENESS_CHALLENGE_REQUIRED) {
+      if (
+        !body.livenessNonce ||
+        !body.livenessChallengeType ||
+        !body.livenessChallengePassedAt
+      ) {
+        throw new BadRequestException(
+          'Enrollment requires a completed liveness challenge',
+        );
+      }
+      if (
+        !LIVENESS_CHALLENGE_TYPES.includes(body.livenessChallengeType as any)
+      ) {
+        throw new BadRequestException('Invalid enrollment liveness challenge');
+      }
+      const consumed = await this.consumeLivenessNonce(
+        device.id,
+        body.livenessNonce,
+      );
+      if (!consumed.ok) {
+        throw new BadRequestException(
+          'Enrollment liveness challenge expired or already used',
+        );
+      }
+      if (consumed.challengeType !== body.livenessChallengeType) {
+        throw new BadRequestException(
+          'Enrollment liveness challenge does not match the issued action',
+        );
+      }
+      const passedAt = Date.parse(body.livenessChallengePassedAt);
+      if (Number.isNaN(passedAt)) {
+        throw new BadRequestException('Invalid enrollment liveness timestamp');
+      }
+      if (Math.abs(Date.now() - passedAt) > LIVENESS_CHALLENGE_MAX_AGE_MS) {
+        throw new BadRequestException(
+          'Enrollment liveness challenge is too old; please retry',
+        );
+      }
+    }
+
+    if (!body.photoBase64) {
+      throw new BadRequestException(
+        'Kiosk enrollment requires the latest APK with face photo capture; reinstall the kiosk app and retry',
+      );
+    }
+    let qualityReviewNote: string | null = null;
+    if (this.faceEmbeddingClient.isEnabled()) {
+      const result = await this.faceEmbeddingClient.embedPhoto(
+        body.photoBase64,
+      );
+      if (result && result.faceScore < MIN_FACE_QUALITY_SCORE) {
+        qualityReviewNote =
+          `Server face quality score ${result.faceScore.toFixed(2)} is below ` +
+          `${MIN_FACE_QUALITY_SCORE}; admin must inspect the captured photo ` +
+          `before approving.`;
+      }
+    }
 
     const embedding = Buffer.from(body.embeddingBase64, 'base64');
     if (embedding.length === 0 || embedding.length % 4 !== 0) {
@@ -4150,6 +4450,7 @@ export class MobileAttendanceService implements OnModuleInit {
         photoUrl,
         matchScoreSelf:
           body.selfMatchScore != null ? String(body.selfMatchScore) : null,
+        notes: [ticket.notes, qualityReviewNote].filter(Boolean).join('\n'),
       },
     );
     return { ok: true, ticketId: ticket.id };
@@ -4376,7 +4677,20 @@ export class MobileAttendanceService implements OnModuleInit {
       qb.andWhere('t.branch_id = ANY(:bids)', { bids: allowedBranchIds });
     }
     qb.orderBy('t.created_at', 'DESC').limit(100);
-    return qb.getMany();
+    const rows = await qb.getMany();
+    return rows.map((row) => ({
+      ...row,
+      photoUrl: this.facePhotos.toViewUrl(row.photoUrl),
+    }));
+  }
+
+  private withViewPhotos<T extends { photoUrl: string | null }>(
+    rows: T[],
+  ): T[] {
+    return rows.map((row) => ({
+      ...row,
+      photoUrl: this.facePhotos.toViewUrl(row.photoUrl),
+    }));
   }
 }
 

@@ -41,4 +41,4 @@ USER statco
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD wget -qO- http://localhost:3000/api/v1/health || exit 1
-CMD ["sh", "-c", "node scripts/apply-migrations.mjs && node dist/src/main.js"]
+CMD ["node", "dist/src/main.js"]

@@ -33,6 +33,8 @@ export interface SafeUploadOptions {
   memory?: boolean;
   /** Maximum file size in megabytes. Default: 10. */
   maxMb?: number;
+  /** Maximum number of files accepted by the interceptor. Default: 1. */
+  maxFiles?: number;
   /**
    * Allowed MIME types. Defaults to common document/image types.
    * Pass a stricter list for sensitive endpoints.
@@ -99,7 +101,7 @@ export function makeSafeUploadOptions(opts: SafeUploadOptions = {}) {
     storage,
     limits: {
       fileSize: maxMb * 1024 * 1024,
-      files: 1,
+      files: opts.maxFiles ?? 1,
     },
     fileFilter: (
       _req: unknown,
@@ -125,10 +127,13 @@ export function makeSafeUploadOptions(opts: SafeUploadOptions = {}) {
  *
  * Throws BadRequestException on mismatch.
  */
-export function assertSafeFile(file: Express.Multer.File | undefined): void {
+export function assertSafeFile(
+  file: Express.Multer.File | undefined,
+  allowedExts?: Set<string>,
+): void {
   if (!file) throw new BadRequestException('File is required');
   // Magic bytes are only available when buffer is present (memoryStorage).
-  validateUploadedFile(file.originalname, file.buffer);
+  validateUploadedFile(file.originalname, file.buffer, allowedExts);
 }
 
 /**

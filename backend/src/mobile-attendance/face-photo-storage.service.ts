@@ -1,7 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import { BlobServiceClient, ContainerClient } from '@azure/storage-blob';
+import {
+  BlobSASPermissions,
+  BlobServiceClient,
+  ContainerClient,
+  generateBlobSASQueryParameters,
+  StorageSharedKeyCredential,
+} from '@azure/storage-blob';
 
 /**
  * Phase 3c: face-evidence storage.
@@ -32,6 +38,10 @@ export class FacePhotoStorage {
   private readonly logger = new Logger(FacePhotoStorage.name);
   private readonly mode: 'disabled' | 'local' | 'azure-blob';
   private readonly rootDir: string;
+  private readonly conn: string | undefined;
+  private readonly containerName: string;
+  private readonly accountName: string | null;
+  private readonly accountKey: string | null;
   /** Lazily-initialised Azure container client. Null when not in
    *  `azure-blob` mode or when init failed. */
   private blobContainer: ContainerClient | null = null;
@@ -46,6 +56,11 @@ export class FacePhotoStorage {
     this.rootDir =
       process.env.FACE_PHOTO_AUDIT_DIR ||
       path.resolve(process.cwd(), 'uploads', 'face-evidence');
+    this.conn = process.env.FACE_PHOTO_AUDIT_BLOB_CONN;
+    this.containerName =
+      process.env.FACE_PHOTO_AUDIT_BLOB_CONTAINER || 'face-evidence';
+    this.accountName = this.parseConnectionValue('AccountName');
+    this.accountKey = this.parseConnectionValue('AccountKey');
     if (this.mode === 'azure-blob') {
       this.initBlob();
     }
@@ -54,6 +69,16 @@ export class FacePhotoStorage {
         `FacePhotoStorage active: mode=${this.mode} root=${this.rootDir}`,
       );
     }
+  }
+
+  toViewUrl(url: string | null | undefined): string | null {
+    if (!url) return null;
+    if (this.mode !== 'azure-blob') return url;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) return url;
+
+    const sas = this.getReadSas(url);
+    if (!sas) return url;
+    return `${url}${url.includes('?') ? '&' : '?'}${sas}`;
   }
 
   isEnabled(): boolean {
@@ -132,15 +157,13 @@ export class FacePhotoStorage {
    * fall back to returning null instead of crashing the punch flow.
    */
   private initBlob(): void {
-    const conn = process.env.FACE_PHOTO_AUDIT_BLOB_CONN;
+    const conn = this.conn;
     if (!conn) {
       this.blobInitError =
         'FACE_PHOTO_AUDIT_BLOB_CONN is not set; face-photo audit disabled.';
       this.logger.error(this.blobInitError);
       return;
     }
-    const containerName =
-      process.env.FACE_PHOTO_AUDIT_BLOB_CONTAINER || 'face-evidence';
     try {
       // Two accepted forms:
       //   1. Storage account connection string ("DefaultEndpointsProtocol=...").
@@ -149,15 +172,63 @@ export class FacePhotoStorage {
         this.blobContainer = new ContainerClient(conn);
       } else {
         const svc = BlobServiceClient.fromConnectionString(conn);
-        this.blobContainer = svc.getContainerClient(containerName);
+        this.blobContainer = svc.getContainerClient(this.containerName);
       }
       this.logger.log(
-        `FacePhotoStorage azure-blob container ready (${this.blobContainer.containerName ?? containerName})`,
+        `FacePhotoStorage azure-blob container ready (${this.blobContainer.containerName ?? this.containerName})`,
       );
     } catch (e: any) {
       this.blobInitError = `FacePhotoStorage azure-blob init failed: ${e?.message ?? e}`;
       this.logger.error(this.blobInitError);
       this.blobContainer = null;
+    }
+  }
+
+  private parseConnectionValue(key: string): string | null {
+    const conn = this.conn;
+    if (!conn || conn.startsWith('http://') || conn.startsWith('https://')) {
+      return null;
+    }
+    const part = conn
+      .split(';')
+      .map((p) => p.trim())
+      .find((p) => p.toLowerCase().startsWith(`${key.toLowerCase()}=`));
+    return part ? part.slice(key.length + 1) : null;
+  }
+
+  private getReadSas(blobUrl: string): string | null {
+    try {
+      const container = this.blobContainer;
+      if (!container) return null;
+      const containerUrl = new URL(container.url);
+      if (containerUrl.search) {
+        return containerUrl.search.slice(1);
+      }
+      if (!this.accountName || !this.accountKey) return null;
+
+      const expectedPrefix = `${containerUrl.origin}${containerUrl.pathname}/`;
+      if (!blobUrl.startsWith(expectedPrefix)) return null;
+      const blobName = decodeURIComponent(blobUrl.slice(expectedPrefix.length));
+      const credential = new StorageSharedKeyCredential(
+        this.accountName,
+        this.accountKey,
+      );
+      const startsOn = new Date(Date.now() - 5 * 60 * 1000);
+      const expiresOn = new Date(Date.now() + 15 * 60 * 1000);
+      return generateBlobSASQueryParameters(
+        {
+          containerName: this.containerName,
+          blobName,
+          permissions: BlobSASPermissions.parse('r'),
+          startsOn,
+          expiresOn,
+          contentType: 'image/jpeg',
+        },
+        credential,
+      ).toString();
+    } catch (e: any) {
+      this.logger.warn(`FacePhotoStorage.toViewUrl failed: ${e?.message ?? e}`);
+      return null;
     }
   }
 

@@ -157,7 +157,7 @@ class EssActivity : AppCompatActivity() {
             owner = this,
             previewView = binding.previewView,
             scope = lifecycleScope,
-            onFace = { probe, liveness ->
+            onFace = { probe, liveness, _ ->
                 // Only consume frames while a punch is pending.
                 pending?.let { p ->
                     if (!p.isCompleted && liveness >= MIN_LIVENESS) {

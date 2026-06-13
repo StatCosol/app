@@ -89,7 +89,7 @@ class EnrollActivity : AppCompatActivity() {
             owner = this,
             previewView = binding.previewView,
             scope = lifecycleScope,
-            onFace = { probe, liveness ->
+            onFace = { probe, liveness, _ ->
                 val p = pending ?: return@FaceCaptureSession
                 if (p.isCompleted) return@FaceCaptureSession
                 // Tighter liveness gate during enrollment so the template
@@ -217,7 +217,7 @@ class EnrollActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val REQUIRED_FRAMES = 5
+        private const val REQUIRED_FRAMES = 7
         private const val MIN_LIVENESS = 0.7
         private const val CAPTURE_TIMEOUT_MS = 8_000L
         /** Minimum wall-clock gap between accepted enrollment frames so
