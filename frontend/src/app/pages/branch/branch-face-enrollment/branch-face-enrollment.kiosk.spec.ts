@@ -172,6 +172,35 @@ describe('BranchFaceEnrollmentComponent kiosk-enroll flow', () => {
       expect(create).not.toHaveBeenCalled();
     });
 
+    it('reuses an existing active ticket instead of creating a duplicate', () => {
+      vi.useFakeTimers();
+      const create = vi.fn();
+      const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn() };
+      const existing = buildTicket({
+        id: 't-open',
+        deviceId: 'd-1',
+        status: 'PENDING',
+        subjectName: 'Veershappa',
+      });
+      const cmp = makeComponent({
+        svc: { createKioskEnrollTicket: create },
+        toast,
+      });
+      cmp.kioskSelectedDeviceId = 'd-1';
+      cmp.kioskConsentGiven = true;
+      cmp.kioskTickets = [existing];
+
+      cmp.startKioskEnrollment();
+
+      expect(create).not.toHaveBeenCalled();
+      expect(cmp.kioskActiveTicket).toEqual(existing);
+      expect(toast.info).toHaveBeenCalledWith(
+        expect.stringContaining('already has an active kiosk enrollment'),
+      );
+
+      (cmp as any).stopKioskTimers();
+    });
+
     it('posts the ticket request and stores the returned ticket', () => {
       const ticket = buildTicket();
       const create = vi.fn().mockReturnValue(of(ticket));

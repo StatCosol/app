@@ -109,6 +109,8 @@ class KioskActivity : AppCompatActivity() {
     @Volatile private var enrollChallengePassed: Boolean = false
     @Volatile private var enrollChallengePassedAtIso: String? = null
     @Volatile private var enrollSubmitting: Boolean = false
+    @Volatile private var enrollPhotoBase64: String? = null
+    @Volatile private var enrollMinSelfMatchScore: Double? = null
     @Volatile private var rosterFastRefreshUntil: Long = 0L
     private val enrollChallengeTimeout = Runnable { abortKioskEnrollment("liveness timed out") }
     private val enrollCaptureTimeout = Runnable { abortKioskEnrollment("capture timed out") }
@@ -391,7 +393,7 @@ class KioskActivity : AppCompatActivity() {
             owner = this,
             previewView = binding.previewView,
             scope = lifecycleScope,
-            onFace = { probe, liveness -> handleFace(probe, liveness) },
+            onFace = { probe, liveness, photo -> handleFace(probe, liveness, photo) },
             onError = { code -> runOnUiThread { showCaptureError(code) } },
             onFaceSignal = { signal -> handleFaceSignal(signal) },
         ).also { it.start() }
@@ -413,10 +415,10 @@ class KioskActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun handleFace(probe: FloatArray, liveness: Double) {
+    private suspend fun handleFace(probe: FloatArray, liveness: Double, facePhotoBase64: String?) {
         // Operator-supervised enrollment takes priority over normal matching.
         if (enrollTicket != null) {
-            handleEnrollmentFrame(probe, liveness)
+            handleEnrollmentFrame(probe, liveness, facePhotoBase64)
             return
         }
         val now = System.currentTimeMillis()
@@ -880,6 +882,8 @@ class KioskActivity : AppCompatActivity() {
         enrollChallengePassed = false
         enrollChallengeState = null
         enrollChallengePassedAtIso = null
+        enrollPhotoBase64 = null
+        enrollMinSelfMatchScore = null
         runOnUiThread {
             binding.statusText.text = getString(R.string.kiosk_enroll_prompt, t.subjectName)
             speak(getString(R.string.kiosk_enroll_prompt, t.subjectName))
@@ -921,7 +925,11 @@ class KioskActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleEnrollmentFrame(probe: FloatArray, liveness: Double) {
+    private fun handleEnrollmentFrame(
+        probe: FloatArray,
+        liveness: Double,
+        facePhotoBase64: String?,
+    ) {
         if (enrollSubmitting) return
         if (enrollChallengeState == null) return
         if (!enrollChallengePassed) return
@@ -930,9 +938,13 @@ class KioskActivity : AppCompatActivity() {
         val now = System.currentTimeMillis()
         if (now - enrollLastAcceptedAt < ENROLL_MIN_FRAME_INTERVAL_MS) return
         val avg = enrollRunningAvg
-        if (avg != null && cosine(avg, probe) < ENROLL_MIN_PROBE_TO_AVG_COS) return
+        val candidateSelfMatch = avg?.let { cosine(it, probe) }
+        if (candidateSelfMatch != null && candidateSelfMatch < ENROLL_MIN_PROBE_TO_AVG_COS) return
         enrollLastAcceptedAt = now
         enrollFrames += probe
+        if (!facePhotoBase64.isNullOrBlank()) enrollPhotoBase64 = facePhotoBase64
+        enrollMinSelfMatchScore = listOfNotNull(enrollMinSelfMatchScore, candidateSelfMatch)
+            .minOrNull()
         enrollRunningAvg = averageAndNormalize(enrollFrames)
         mainHandler.removeCallbacks(enrollCaptureTimeout)
         mainHandler.postDelayed(enrollCaptureTimeout, ENROLL_CAPTURE_TIMEOUT_MS)
@@ -965,6 +977,8 @@ class KioskActivity : AppCompatActivity() {
             // capture doesn't turn into a hard failure after 7/7 frames.
             enrollFrames.clear()
             enrollRunningAvg = null
+            enrollMinSelfMatchScore = null
+            enrollPhotoBase64 = null
             enrollLastAcceptedAt = 0L
             mainHandler.removeCallbacks(enrollCaptureTimeout)
             mainHandler.postDelayed(enrollCaptureTimeout, ENROLL_CAPTURE_TIMEOUT_MS)
@@ -985,6 +999,8 @@ class KioskActivity : AppCompatActivity() {
             try {
                 val body = KioskEnrollSubmitBody(
                     embeddingBase64 = FaceEmbedder.encodeEmbeddingB64(avg),
+                    photoBase64 = enrollPhotoBase64,
+                    selfMatchScore = enrollMinSelfMatchScore,
                     livenessChallengeType = challengeState.challenge.wireName,
                     livenessChallengePassedAt = enrollChallengePassedAtIso,
                     livenessNonce = challengeState.nonce,
@@ -1053,6 +1069,8 @@ class KioskActivity : AppCompatActivity() {
         enrollChallengeState = null
         enrollChallengePassed = false
         enrollChallengePassedAtIso = null
+        enrollPhotoBase64 = null
+        enrollMinSelfMatchScore = null
         enrollLastAcceptedAt = 0L
         mainHandler.removeCallbacks(enrollChallengeTimeout)
         mainHandler.removeCallbacks(enrollCaptureTimeout)
