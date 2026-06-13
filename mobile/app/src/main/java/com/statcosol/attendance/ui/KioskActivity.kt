@@ -111,6 +111,7 @@ class KioskActivity : AppCompatActivity() {
     @Volatile private var enrollSubmitting: Boolean = false
     @Volatile private var rosterFastRefreshUntil: Long = 0L
     private val enrollChallengeTimeout = Runnable { abortKioskEnrollment("liveness timed out") }
+    private val enrollCaptureTimeout = Runnable { abortKioskEnrollment("capture timed out") }
 
     /** Voice feedback for noisy factory floors. Best-effort — silently
      *  no-ops if the device has no TTS engine installed. */
@@ -195,6 +196,7 @@ class KioskActivity : AppCompatActivity() {
         mainHandler.removeCallbacks(rosterRefreshRunnable)
         mainHandler.removeCallbacks(enrollTicketPollRunnable)
         mainHandler.removeCallbacks(enrollChallengeTimeout)
+        mainHandler.removeCallbacks(enrollCaptureTimeout)
         capture?.stop()
         capture = null
         try { tts?.stop(); tts?.shutdown() } catch (_: Exception) {}
@@ -536,6 +538,8 @@ class KioskActivity : AppCompatActivity() {
             enrollRunningAvg = null
             enrollLastAcceptedAt = 0L
             mainHandler.removeCallbacks(enrollChallengeTimeout)
+            mainHandler.removeCallbacks(enrollCaptureTimeout)
+            mainHandler.postDelayed(enrollCaptureTimeout, ENROLL_CAPTURE_TIMEOUT_MS)
             runOnUiThread { binding.statusText.text = getString(R.string.liveness_passed) }
             maybeShowEnrollRegisterDialog()
             return
@@ -930,6 +934,8 @@ class KioskActivity : AppCompatActivity() {
         enrollLastAcceptedAt = now
         enrollFrames += probe
         enrollRunningAvg = averageAndNormalize(enrollFrames)
+        mainHandler.removeCallbacks(enrollCaptureTimeout)
+        mainHandler.postDelayed(enrollCaptureTimeout, ENROLL_CAPTURE_TIMEOUT_MS)
         runOnUiThread {
             binding.statusText.text = getString(
                 R.string.kiosk_enroll_capturing,
@@ -967,6 +973,7 @@ class KioskActivity : AppCompatActivity() {
         if (challengeState.ticketId != t.id) return
         val avg = enrollRunningAvg ?: averageAndNormalize(enrollFrames)
         enrollSubmitting = true
+        mainHandler.removeCallbacks(enrollCaptureTimeout)
         runOnUiThread { binding.statusText.text = getString(R.string.kiosk_enroll_uploading) }
         lifecycleScope.launch {
             try {
@@ -1042,6 +1049,7 @@ class KioskActivity : AppCompatActivity() {
         enrollChallengePassedAtIso = null
         enrollLastAcceptedAt = 0L
         mainHandler.removeCallbacks(enrollChallengeTimeout)
+        mainHandler.removeCallbacks(enrollCaptureTimeout)
     }
 
     private fun averageAndNormalize(frames: List<FloatArray>): FloatArray {
@@ -1097,6 +1105,7 @@ class KioskActivity : AppCompatActivity() {
         private const val ENROLL_MIN_FRAME_INTERVAL_MS = 600L
         private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.72
         private const val ENROLL_CHALLENGE_TIMEOUT_MS = 12_000L
+        private const val ENROLL_CAPTURE_TIMEOUT_MS = 20_000L
         private const val ENROLL_RESULT_VISIBLE_MS = 12_000L
         private const val ENROLL_ROSTER_FAST_REFRESH_MS = 5_000L
         private const val ENROLL_ROSTER_FAST_REFRESH_WINDOW_MS = 2 * 60_000L
