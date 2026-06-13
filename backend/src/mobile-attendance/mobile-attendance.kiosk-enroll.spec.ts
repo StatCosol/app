@@ -602,7 +602,9 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
     ).rejects.toThrow('latest APK');
   });
 
-  it('rejects kiosk enrollment when server photo quality is too low', async () => {
+  it('keeps low server photo quality in review instead of trapping the kiosk in retry', async () => {
+    const update = jest.fn().mockResolvedValue({});
+    const put = jest.fn().mockResolvedValue('face-photo-url');
     const svc = makeService({
       ds: livenessDs(),
       faceEmbeddingClient: {
@@ -613,7 +615,13 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
           faceScore: 0.42,
         }),
       },
+      faceRepo: {
+        manager: { query: jest.fn().mockResolvedValue(undefined) },
+        find: jest.fn().mockResolvedValue([]),
+      },
+      contractorFaceRepo: { find: jest.fn().mockResolvedValue([]) },
       kioskTicketRepo: {
+        find: jest.fn().mockResolvedValue([]),
         findOne: jest.fn().mockResolvedValue({
           id: 't-1',
           deviceId: 'd-1',
@@ -625,8 +633,11 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
           subjectCode: 'E001',
           branchId: 'b-1',
           createdBy: 'user-1',
+          notes: null,
         }),
+        update,
       },
+      facePhotos: { put, toViewUrl: (url: string | null) => url },
     });
     await expect(
       svc.submitKioskEnrollTicket(kioskDevice as any, 't-1', {
@@ -634,7 +645,14 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
         photoBase64: 'jpeg-base64',
         ...livenessProof(),
       }),
-    ).rejects.toThrow('Face image quality too low');
+    ).resolves.toEqual({ ok: true, ticketId: 't-1' });
+    expect(update).toHaveBeenCalledWith(
+      { id: 't-1' },
+      expect.objectContaining({
+        status: 'REVIEW_PENDING',
+        notes: expect.stringContaining('below 0.75'),
+      }),
+    );
   });
 
   it('stores kiosk enrollment photo and self-match score for review', async () => {
