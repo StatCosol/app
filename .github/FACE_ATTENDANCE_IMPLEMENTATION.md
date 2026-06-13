@@ -18,7 +18,7 @@ This hotfix focuses on immediate production safety:
 File: `backend/src/mobile-attendance/mobile-attendance.service.ts`
 
 - Added `FACE_KIOSK_LIVE_ATTENDANCE_ENABLED`, default `false`.
-- Added `FACE_KIOSK_ACTIVATION_DELAY_MIN`, default `5`.
+- Added `FACE_KIOSK_ACTIVATION_DELAY_MIN`, default `15`.
 - Raised default `FACE_MIN_MATCH_SCORE` to `0.90`.
 - Raised liveness gate to `0.7`.
 - Raised duplicate threshold default to `0.88`.
@@ -93,4 +93,3 @@ FACE_KIOSK_LIVE_ATTENDANCE_ENABLED=false
 ```
 
 until QA signs off.
-

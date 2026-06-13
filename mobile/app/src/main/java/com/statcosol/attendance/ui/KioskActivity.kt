@@ -107,6 +107,9 @@ class KioskActivity : AppCompatActivity() {
     @Volatile private var enrollLastAcceptedAt: Long = 0L
     @Volatile private var enrollChallenge: LivenessChallengeTracker? = null
     @Volatile private var enrollChallengePassed: Boolean = false
+    @Volatile private var enrollChallengeNonce: String? = null
+    @Volatile private var enrollChallengeType: String? = null
+    @Volatile private var enrollChallengePassedAtIso: String? = null
     @Volatile private var enrollSubmitting: Boolean = false
     @Volatile private var rosterFastRefreshUntil: Long = 0L
     private val enrollChallengeTimeout = Runnable { abortKioskEnrollment("liveness timed out") }
@@ -523,6 +526,7 @@ class KioskActivity : AppCompatActivity() {
             val tracker = enrollChallenge ?: return
             if (!tracker.feed(signal)) return
             enrollChallengePassed = true
+            enrollChallengePassedAtIso = isoNow()
             mainHandler.removeCallbacks(enrollChallengeTimeout)
             runOnUiThread { binding.statusText.text = getString(R.string.liveness_passed) }
             maybeShowEnrollRegisterDialog()
@@ -862,24 +866,48 @@ class KioskActivity : AppCompatActivity() {
         enrollRunningAvg = null
         enrollLastAcceptedAt = 0L
         enrollChallengePassed = false
-        // Use blink-only liveness for the kiosk demo flow: no screen touch,
-        // simple instruction, still blocks static-photo enrollment.
-        val challenge = LivenessChallenge.BLINK
-        enrollChallenge = LivenessChallengeTracker(challenge)
-        mainHandler.removeCallbacks(enrollChallengeTimeout)
-        mainHandler.postDelayed(enrollChallengeTimeout, ENROLL_CHALLENGE_TIMEOUT_MS)
+        enrollChallenge = null
+        enrollChallengeNonce = null
+        enrollChallengeType = null
+        enrollChallengePassedAtIso = null
         runOnUiThread {
-            binding.statusText.text = getString(
-                R.string.kiosk_liveness_prompt_with_name,
-                t.subjectName,
-                getString(promptResFor(challenge)),
-            )
+            binding.statusText.text = getString(R.string.kiosk_enroll_prompt, t.subjectName)
             speak(getString(R.string.kiosk_enroll_prompt, t.subjectName))
+        }
+        lifecycleScope.launch {
+            val resp = try {
+                withContext(Dispatchers.IO) { app.apiClient.requestLivenessChallenge(null) }
+            } catch (e: Exception) {
+                android.util.Log.w("KioskActivity", "enrollment liveness request failed", e)
+                null
+            }
+            if (resp == null) {
+                abortKioskEnrollment("liveness challenge unavailable")
+                return@launch
+            }
+            val challenge = LivenessChallenge.fromWire(resp.challengeType)
+            if (challenge == null) {
+                abortKioskEnrollment("unknown liveness challenge")
+                return@launch
+            }
+            enrollChallengeNonce = resp.nonce
+            enrollChallengeType = resp.challengeType
+            enrollChallenge = LivenessChallengeTracker(challenge)
+            mainHandler.removeCallbacks(enrollChallengeTimeout)
+            mainHandler.postDelayed(enrollChallengeTimeout, ENROLL_CHALLENGE_TIMEOUT_MS)
+            runOnUiThread {
+                binding.statusText.text = getString(
+                    R.string.kiosk_liveness_prompt_with_name,
+                    t.subjectName,
+                    getString(promptResFor(challenge)),
+                )
+            }
         }
     }
 
     private fun handleEnrollmentFrame(probe: FloatArray, liveness: Double) {
         if (enrollSubmitting) return
+        if (enrollChallenge == null) return
         if (enrollFrames.size >= ENROLL_REQUIRED_FRAMES) return
         if (liveness < ENROLL_MIN_LIVENESS) return
         val now = System.currentTimeMillis()
@@ -928,6 +956,9 @@ class KioskActivity : AppCompatActivity() {
             try {
                 val body = KioskEnrollSubmitBody(
                     embeddingBase64 = FaceEmbedder.encodeEmbeddingB64(avg),
+                    livenessChallengeType = enrollChallengeType,
+                    livenessChallengePassedAt = enrollChallengePassedAtIso,
+                    livenessNonce = enrollChallengeNonce,
                 )
                 val resp = withContext(Dispatchers.IO) {
                     app.apiClient.submitKioskEnrollTicket(t.id, body)
@@ -990,6 +1021,9 @@ class KioskActivity : AppCompatActivity() {
         enrollRunningAvg = null
         enrollChallenge = null
         enrollChallengePassed = false
+        enrollChallengeNonce = null
+        enrollChallengeType = null
+        enrollChallengePassedAtIso = null
         enrollLastAcceptedAt = 0L
         mainHandler.removeCallbacks(enrollChallengeTimeout)
     }

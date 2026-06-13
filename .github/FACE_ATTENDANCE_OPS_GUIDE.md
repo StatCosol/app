@@ -38,9 +38,9 @@ Use this while testing the hotfix:
 
 ```bash
 FACE_KIOSK_LIVE_ATTENDANCE_ENABLED=false
-FACE_KIOSK_ACTIVATION_DELAY_MIN=5
+FACE_KIOSK_ACTIVATION_DELAY_MIN=15
 FACE_MIN_MATCH_SCORE=0.90
-FACE_MIN_FACE_QUALITY_SCORE=0.75
+FACE_MIN_QUALITY_SCORE=0.75
 FACE_DUPLICATE_THRESHOLD=0.88
 FACE_LIVENESS_CHALLENGE_REQUIRED=true
 FACE_PUNCH_REQUIRE_SERVER_PROBE=true
@@ -188,6 +188,7 @@ ORDER BY fe.enrolled_at DESC;
 - Beard/moustache employee enrolls and punches under current appearance.
 - Employee cannot punch during activation hold.
 - Punch without liveness nonce is rejected.
+- Enrollment submit without liveness nonce is rejected.
 - Low confidence is rejected, not marked present.
 - Failed scans and duplicate attempts are logged.
 - Kiosk works during shift-start queue without stale roster matches.
@@ -198,7 +199,6 @@ The following items are documented as target behavior but are not part of the cu
 
 - Manual-review punch status for medium confidence scores.
 - Multi-image enrollment table with separate angle embeddings.
-- Enrollment liveness challenge enforcement.
 - Advanced face-svc quality metrics for blur, exposure, face size, head pose, and multiple faces.
 
 Until these are implemented, do not run test cases that expect `MANUAL_REVIEW` punch responses or manual-review endpoints.

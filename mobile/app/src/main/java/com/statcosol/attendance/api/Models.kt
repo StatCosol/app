@@ -196,7 +196,10 @@ data class KioskEnrollSubmitBody(
     val embeddingBase64: String,
     val embeddingModel: String = "mobilefacenet-v1",
     val photoBase64: String? = null,
-    val selfMatchScore: Double? = null
+    val selfMatchScore: Double? = null,
+    val livenessChallengeType: String? = null,
+    val livenessChallengePassedAt: String? = null,
+    val livenessNonce: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
