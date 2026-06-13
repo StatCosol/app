@@ -45,7 +45,7 @@ describe('AttendanceService', () => {
     expect(service).toBeDefined();
   });
 
-  it('processes biometric punches before listing daily attendance', async () => {
+  it('processes unprocessed biometric punches before listing daily attendance', async () => {
     const qb: any = {
       select: jest.fn().mockReturnThis(),
       from: jest.fn().mockReturnThis(),
@@ -64,7 +64,7 @@ describe('AttendanceService', () => {
       'client-1',
       '2026-05-28',
       '2026-05-28',
-      true,
+      false,
     );
     expect(qb.getRawMany).toHaveBeenCalled();
   });
@@ -84,7 +84,7 @@ describe('AttendanceService', () => {
     );
   });
 
-  it('processes biometric punches before returning daily approval stats', async () => {
+  it('processes unprocessed biometric punches before returning daily approval stats', async () => {
     const qb: any = {
       select: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
@@ -101,7 +101,7 @@ describe('AttendanceService', () => {
       'client-1',
       '2026-05-28',
       '2026-05-28',
-      true,
+      false,
     );
   });
 

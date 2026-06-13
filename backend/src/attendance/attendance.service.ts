@@ -432,7 +432,7 @@ export class AttendanceService {
       params.clientId,
       params.date,
       params.date,
-      true,
+      false,
     );
 
     const qb = this.ds
@@ -625,7 +625,7 @@ export class AttendanceService {
     branchId?: string,
     allowedBranchIds: string[] | null = null,
   ) {
-    await this.biometricService.processRange(clientId, date, date, true);
+    await this.biometricService.processRange(clientId, date, date, false);
 
     const qb = this.repo
       .createQueryBuilder('a')
