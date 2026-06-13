@@ -336,6 +336,7 @@ interface EnrollForm {
                 <th class="text-left py-2 pr-3">Subject</th>
                 <th class="text-left py-2 pr-3">Type</th>
                 <th class="text-left py-2 pr-3">Status</th>
+                <th class="text-left py-2 pr-3">Evidence</th>
                 <th class="text-left py-2 pr-3">Created</th>
                 <th class="text-left py-2 pr-3">Resolved</th>
                 <th class="text-right py-2"></th>
@@ -351,6 +352,21 @@ interface EnrollForm {
                 <td class="py-2 pr-3">
                   <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
                     [ngClass]="kioskTicketStatusClass(t.status)">{{ kioskTicketStatusLabel(t.status) }}</span>
+                </td>
+                <td class="py-2 pr-3 min-w-56">
+                  <div *ngIf="t.notes" class="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900 whitespace-pre-line">
+                    <div class="font-semibold">Review note</div>
+                    {{ t.notes }}
+                  </div>
+                  <a *ngIf="t.photoUrl"
+                    [href]="t.photoUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="mt-1 inline-flex items-center gap-2 text-xs text-indigo-700 hover:underline">
+                    <img [src]="t.photoUrl" alt="Kiosk capture" class="h-10 w-10 rounded object-cover border border-gray-200">
+                    Inspect photo
+                  </a>
+                  <span *ngIf="!t.notes && !t.photoUrl" class="text-xs text-gray-400">-</span>
                 </td>
                 <td class="py-2 pr-3 text-xs text-gray-700">{{ t.createdAt | date:'medium' }}</td>
                 <td class="py-2 pr-3 text-xs text-gray-700">
@@ -1386,8 +1402,20 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     return `Ticket status: ${String(s).replace(/_/g, ' ')}`;
   }
 
-  approveKioskTicket(t: KioskEnrollTicket): void {
+  async approveKioskTicket(t: KioskEnrollTicket): Promise<void> {
     if (t.status !== 'REVIEW_PENDING') return;
+    if (t.notes || t.photoUrl) {
+      const details = [
+        t.notes ? `Review note:\n${t.notes}` : null,
+        t.photoUrl ? 'Captured photo is available in the Evidence column.' : null,
+        'Approve this capture only after inspecting the note and photo evidence.',
+      ].filter(Boolean).join('\n\n');
+      const confirmed = await this.dialog.confirm('Approve Kiosk Capture', details, {
+        confirmText: 'Approve',
+        cancelText: 'Review First',
+      });
+      if (!confirmed) return;
+    }
     this.svc
       .reviewKioskEnrollTicket(t.id, { decision: 'APPROVED' })
       .pipe(takeUntil(this.destroy$))
