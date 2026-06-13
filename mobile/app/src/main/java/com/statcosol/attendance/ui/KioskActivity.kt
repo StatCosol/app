@@ -958,10 +958,16 @@ class KioskActivity : AppCompatActivity() {
         if (minCos < ENROLL_MIN_PROBE_TO_AVG_COS) {
             runOnUiThread {
                 binding.statusText.text = getString(R.string.kiosk_enroll_inconsistent)
+                speak(getString(R.string.kiosk_enroll_inconsistent))
             }
-            // Reset frames and let the operator have another attempt.
+            // Reset only the frame batch, not the already-passed liveness.
+            // Keep enrollment active so a natural head movement at the end of
+            // capture doesn't turn into a hard failure after 7/7 frames.
             enrollFrames.clear()
             enrollRunningAvg = null
+            enrollLastAcceptedAt = 0L
+            mainHandler.removeCallbacks(enrollCaptureTimeout)
+            mainHandler.postDelayed(enrollCaptureTimeout, ENROLL_CAPTURE_TIMEOUT_MS)
             return
         }
         submitKioskEnrollment()
@@ -1103,7 +1109,7 @@ class KioskActivity : AppCompatActivity() {
         private const val ENROLL_REQUIRED_FRAMES = 7
         private const val ENROLL_MIN_LIVENESS = 0.7
         private const val ENROLL_MIN_FRAME_INTERVAL_MS = 600L
-        private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.72
+        private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.6
         private const val ENROLL_CHALLENGE_TIMEOUT_MS = 12_000L
         private const val ENROLL_CAPTURE_TIMEOUT_MS = 20_000L
         private const val ENROLL_RESULT_VISIBLE_MS = 12_000L
