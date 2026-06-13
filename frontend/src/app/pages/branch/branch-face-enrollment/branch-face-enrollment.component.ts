@@ -1137,6 +1137,21 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   startKioskEnrollment(): void {
     if (!this.kioskSelectedDeviceId || !this.kioskConsentGiven) return;
     this.kioskError = '';
+    const blockingTicket = this.kioskTickets.find(
+      (t) =>
+        t.deviceId === this.kioskSelectedDeviceId &&
+        (t.status === 'PENDING' || t.status === 'REVIEW_PENDING'),
+    );
+    if (blockingTicket) {
+      this.kioskActiveTicket = blockingTicket;
+      if (blockingTicket.status === 'PENDING') this.startKioskTimers();
+      else this.stopKioskTimers();
+      this.toast.info(
+        `${blockingTicket.subjectName} already has an active kiosk enrollment. Complete, approve, reject, or cancel it before starting another.`,
+      );
+      this.cdr.markForCheck();
+      return;
+    }
     this.kioskCreating = true;
     const body: CreateKioskEnrollTicketBody = {
       deviceId: this.kioskSelectedDeviceId,

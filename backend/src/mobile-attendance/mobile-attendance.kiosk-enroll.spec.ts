@@ -38,6 +38,7 @@ type Deps = {
   empRepo?: any;
   contractorEmpRepo?: any;
   kioskTicketRepo?: any;
+  faceEmbeddingClient?: any;
   facePhotos?: any;
   ds?: any;
 };
@@ -54,7 +55,7 @@ const makeService = (d: Deps = {}): MobileAttendanceService =>
     {} as any,
     d.kioskTicketRepo ?? ({} as any),
     {} as any,
-    {} as any,
+    d.faceEmbeddingClient ?? ({ isEnabled: () => false } as any),
     {} as any,
     d.facePhotos ?? ({ toViewUrl: (url: string | null) => url } as any),
     {} as any,
@@ -140,17 +141,17 @@ describe('MobileAttendanceService.createKioskEnrollTicket', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('cancels any existing PENDING ticket for the device before inserting', async () => {
+  it('creates a pending ticket when the device has no active enrollment', async () => {
     const deviceRepo = {
       findOne: jest.fn().mockResolvedValue(activeKioskDevice),
     };
     const empRepo = { findOne: jest.fn().mockResolvedValue(activeEmployee) };
-    const update = jest.fn().mockResolvedValue({});
+    const findOne = jest.fn().mockResolvedValue(null);
     const create = jest.fn((x) => x);
     const save = jest
       .fn()
       .mockImplementation(async (x) => ({ id: 't-1', ...x }));
-    const kioskTicketRepo = { update, create, save };
+    const kioskTicketRepo = { findOne, create, save };
 
     const svc = makeService({ deviceRepo, empRepo, kioskTicketRepo });
     const t = await svc.createKioskEnrollTicket(
@@ -160,10 +161,9 @@ describe('MobileAttendanceService.createKioskEnrollTicket', () => {
       baseBody,
     );
 
-    expect(update).toHaveBeenCalledWith(
-      { deviceId: 'dev-1', status: 'PENDING' },
-      expect.objectContaining({ status: 'CANCELLED', cancelledBy: 'user-1' }),
-    );
+    expect(findOne).toHaveBeenCalledWith({
+      where: { deviceId: 'dev-1', status: 'PENDING' },
+    });
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         clientId: 'c-1',
@@ -182,10 +182,36 @@ describe('MobileAttendanceService.createKioskEnrollTicket', () => {
     expect(save).toHaveBeenCalled();
     expect(t.id).toBe('t-1');
 
-    // expiresAt must be ~5 min in the future.
+    // expiresAt must be ~10 min in the future.
     const ttlMs = (t as any).expiresAt.getTime() - Date.now();
-    expect(ttlMs).toBeGreaterThan(4 * 60 * 1000);
-    expect(ttlMs).toBeLessThanOrEqual(5 * 60 * 1000 + 1000);
+    expect(ttlMs).toBeGreaterThan(9 * 60 * 1000);
+    expect(ttlMs).toBeLessThanOrEqual(10 * 60 * 1000 + 1000);
+  });
+
+  it('rejects a second ticket while one is already pending on the kiosk', async () => {
+    const deviceRepo = {
+      findOne: jest.fn().mockResolvedValue(activeKioskDevice),
+    };
+    const empRepo = { findOne: jest.fn().mockResolvedValue(activeEmployee) };
+    const create = jest.fn();
+    const save = jest.fn();
+    const kioskTicketRepo = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 't-open',
+        deviceId: 'dev-1',
+        status: 'PENDING',
+        subjectName: 'Veershappa',
+      }),
+      create,
+      save,
+    };
+    const svc = makeService({ deviceRepo, empRepo, kioskTicketRepo });
+
+    await expect(
+      svc.createKioskEnrollTicket('c-1', 'user-1', null, baseBody),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(create).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
   });
 
   it('uses contractor repo for subjectType=CONTRACTOR', async () => {
@@ -202,7 +228,7 @@ describe('MobileAttendanceService.createKioskEnrollTicket', () => {
       }),
     };
     const kioskTicketRepo = {
-      update: jest.fn().mockResolvedValue({}),
+      findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((x) => x),
       save: jest.fn().mockImplementation(async (x) => ({ id: 't-2', ...x })),
     };
@@ -520,6 +546,7 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
     await expect(
       svc.submitKioskEnrollTicket(kioskDevice as any, 't-1', {
         embeddingBase64: Buffer.from([1, 2, 3]).toString('base64'),
+        photoBase64: 'jpeg-base64',
         ...livenessProof(),
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -547,6 +574,124 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
         embeddingBase64: embeddingB64([1, 0]),
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects kiosk enrollment from old APKs that omit the face photo', async () => {
+    const svc = makeService({
+      ds: livenessDs(),
+      kioskTicketRepo: {
+        findOne: jest.fn().mockResolvedValue({
+          id: 't-1',
+          deviceId: 'd-1',
+          status: 'PENDING',
+          expiresAt: new Date(Date.now() + 60_000),
+          subjectType: 'EMPLOYEE',
+          employeeId: 'e-1',
+          clientId: 'c-1',
+          subjectCode: 'E001',
+          branchId: 'b-1',
+          createdBy: 'user-1',
+        }),
+      },
+    });
+    await expect(
+      svc.submitKioskEnrollTicket(kioskDevice as any, 't-1', {
+        embeddingBase64: embeddingB64([1, 0]),
+        ...livenessProof(),
+      }),
+    ).rejects.toThrow('latest APK');
+  });
+
+  it('rejects kiosk enrollment when server photo quality is too low', async () => {
+    const svc = makeService({
+      ds: livenessDs(),
+      faceEmbeddingClient: {
+        isEnabled: () => true,
+        embedPhoto: jest.fn().mockResolvedValue({
+          embeddingBase64: embeddingB64([1, 0]),
+          embeddingModel: 'mobilefacenet-v1',
+          faceScore: 0.42,
+        }),
+      },
+      kioskTicketRepo: {
+        findOne: jest.fn().mockResolvedValue({
+          id: 't-1',
+          deviceId: 'd-1',
+          status: 'PENDING',
+          expiresAt: new Date(Date.now() + 60_000),
+          subjectType: 'EMPLOYEE',
+          employeeId: 'e-1',
+          clientId: 'c-1',
+          subjectCode: 'E001',
+          branchId: 'b-1',
+          createdBy: 'user-1',
+        }),
+      },
+    });
+    await expect(
+      svc.submitKioskEnrollTicket(kioskDevice as any, 't-1', {
+        embeddingBase64: embeddingB64([1, 0]),
+        photoBase64: 'jpeg-base64',
+        ...livenessProof(),
+      }),
+    ).rejects.toThrow('Face image quality too low');
+  });
+
+  it('stores kiosk enrollment photo and self-match score for review', async () => {
+    const ticket = {
+      id: 't-1',
+      deviceId: 'd-1',
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 60_000),
+      subjectType: 'EMPLOYEE',
+      employeeId: 'emp-1',
+      clientId: 'c-1',
+      subjectCode: 'E001',
+      branchId: 'b-1',
+      createdBy: 'user-1',
+    };
+    const update = jest.fn().mockResolvedValue({});
+    const put = jest.fn().mockResolvedValue('face-photo-url');
+    const svc = makeService({
+      ds: livenessDs(),
+      faceRepo: {
+        manager: { query: jest.fn().mockResolvedValue(undefined) },
+        find: jest.fn().mockResolvedValue([]),
+      },
+      contractorFaceRepo: { find: jest.fn().mockResolvedValue([]) },
+      kioskTicketRepo: {
+        find: jest.fn().mockResolvedValue([]),
+        findOne: jest.fn().mockResolvedValue(ticket),
+        update,
+      },
+      facePhotos: { put, toViewUrl: (url: string | null) => url },
+    });
+
+    await expect(
+      svc.submitKioskEnrollTicket(kioskDevice as any, 't-1', {
+        embeddingBase64: embeddingB64([1, 0]),
+        photoBase64: 'jpeg-base64',
+        selfMatchScore: 0.91,
+        ...livenessProof(),
+      }),
+    ).resolves.toEqual({ ok: true, ticketId: 't-1' });
+
+    expect(put).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientId: 'c-1',
+        employeeCode: 'E001',
+        purpose: 'enroll',
+        photoB64: 'jpeg-base64',
+      }),
+    );
+    expect(update).toHaveBeenCalledWith(
+      { id: 't-1' },
+      expect.objectContaining({
+        status: 'REVIEW_PENDING',
+        photoUrl: 'face-photo-url',
+        matchScoreSelf: '0.91',
+      }),
+    );
   });
 
   it('rejects employee enrollment when the submitted face matches another employee', async () => {
@@ -593,6 +738,7 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
       svc.submitKioskEnrollTicket(kioskDevice as any, 't-1', {
         // raw cosine 0.80 => mapped duplicate score 0.90, above the 0.88 guard.
         embeddingBase64: embeddingB64([0.8, 0.6]),
+        photoBase64: 'jpeg-base64',
         ...livenessProof(),
       }),
     ).rejects.toBeInstanceOf(ConflictException);
@@ -654,6 +800,7 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
     await expect(
       svc.submitKioskEnrollTicket(kioskDevice as any, 't-2', {
         embeddingBase64: embeddingB64([0.8, 0.6]),
+        photoBase64: 'jpeg-base64',
         ...livenessProof(),
       }),
     ).rejects.toBeInstanceOf(ConflictException);

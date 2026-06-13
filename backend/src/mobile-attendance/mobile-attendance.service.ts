@@ -4159,7 +4159,7 @@ export class MobileAttendanceService implements OnModuleInit {
   // ---------------------------------------------------- kiosk-supervised
   // -------------------------------------------------- enrollment tickets
 
-  private static readonly KIOSK_ENROLL_TTL_MIN = 5;
+  private static readonly KIOSK_ENROLL_TTL_MIN = 10;
 
   /**
    * Branch / client operator creates a single-use ticket telling one
@@ -4255,16 +4255,14 @@ export class MobileAttendanceService implements OnModuleInit {
       branchId = ce.branchId ?? branchId;
     }
 
-    // Cancel any existing PENDING ticket for this device first — the partial
-    // unique index would block a fresh INSERT otherwise.
-    await this.kioskTicketRepo.update(
-      { deviceId: device.id, status: 'PENDING' },
-      {
-        status: 'CANCELLED',
-        cancelledAt: new Date(),
-        cancelledBy: createdBy,
-      },
-    );
+    const existingPending = await this.kioskTicketRepo.findOne({
+      where: { deviceId: device.id, status: 'PENDING' },
+    });
+    if (existingPending) {
+      throw new ConflictException(
+        `A kiosk enrollment is already pending for ${existingPending.subjectName}. Complete or cancel that ticket before starting another.`,
+      );
+    }
 
     const expiresAt = new Date(
       Date.now() + MobileAttendanceService.KIOSK_ENROLL_TTL_MIN * 60 * 1000,
@@ -4381,6 +4379,20 @@ export class MobileAttendanceService implements OnModuleInit {
       if (Math.abs(Date.now() - passedAt) > LIVENESS_CHALLENGE_MAX_AGE_MS) {
         throw new BadRequestException(
           'Enrollment liveness challenge is too old; please retry',
+        );
+      }
+    }
+
+    if (!body.photoBase64) {
+      throw new BadRequestException(
+        'Kiosk enrollment requires the latest APK with face photo capture; reinstall the kiosk app and retry',
+      );
+    }
+    if (this.faceEmbeddingClient.isEnabled()) {
+      const result = await this.faceEmbeddingClient.embedPhoto(body.photoBase64);
+      if (result && result.faceScore < MIN_FACE_QUALITY_SCORE) {
+        throw new BadRequestException(
+          `Face image quality too low (score ${result.faceScore.toFixed(2)} < ${MIN_FACE_QUALITY_SCORE}) — improve lighting, focus, and face position before retrying`,
         );
       }
     }

@@ -89,7 +89,7 @@ class EnrollActivity : AppCompatActivity() {
             owner = this,
             previewView = binding.previewView,
             scope = lifecycleScope,
-            onFace = { probe, liveness ->
+            onFace = { probe, liveness, _ ->
                 val p = pending ?: return@FaceCaptureSession
                 if (p.isCompleted) return@FaceCaptureSession
                 // Tighter liveness gate during enrollment so the template
