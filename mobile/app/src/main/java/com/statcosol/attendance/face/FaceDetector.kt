@@ -93,7 +93,7 @@ class FaceDetector {
 
     private fun safeCrop(src: Bitmap, box: Rect): Bitmap {
         val side = max(box.width(), box.height())
-        val padded = (side * 1.65f).toInt()
+        val padded = (side * 1.35f).toInt()
         val cx = box.centerX()
         val cy = box.centerY()
         val x = max(0, cx - padded / 2)
