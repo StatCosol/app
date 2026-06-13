@@ -110,6 +110,7 @@ const LIVENESS_CHALLENGE_TYPES = [
   'HEAD_TURN_LEFT',
   'HEAD_TURN_RIGHT',
 ] as const;
+type LivenessChallengeType = (typeof LIVENESS_CHALLENGE_TYPES)[number];
 // Lifetime of an issued nonce. Must be long enough for the user to
 // perform the action + capture the punch, short enough to limit replay.
 const LIVENESS_NONCE_TTL_MS = LIVENESS_CHALLENGE_MAX_AGE_MS;
@@ -4353,9 +4354,10 @@ export class MobileAttendanceService implements OnModuleInit {
           'Enrollment requires a completed liveness challenge',
         );
       }
-      if (
-        !LIVENESS_CHALLENGE_TYPES.includes(body.livenessChallengeType as any)
-      ) {
+      const suppliedChallenge = normalizeLivenessChallengeType(
+        body.livenessChallengeType,
+      );
+      if (!suppliedChallenge) {
         throw new BadRequestException('Invalid enrollment liveness challenge');
       }
       const consumed = await this.consumeLivenessNonce(
@@ -4367,7 +4369,10 @@ export class MobileAttendanceService implements OnModuleInit {
           'Enrollment liveness challenge expired or already used',
         );
       }
-      if (consumed.challengeType !== body.livenessChallengeType) {
+      const issuedChallenge = normalizeLivenessChallengeType(
+        consumed.challengeType,
+      );
+      if (!issuedChallenge || issuedChallenge !== suppliedChallenge) {
         throw new BadRequestException(
           'Enrollment liveness challenge does not match the issued action',
         );
@@ -4730,6 +4735,17 @@ function rejectionMatchScore(e: any, fallback: number | null): number | null {
   return typeof e?.matchScore === 'number' && Number.isFinite(e.matchScore)
     ? e.matchScore
     : fallback;
+}
+
+function normalizeLivenessChallengeType(
+  value: string | null | undefined,
+): LivenessChallengeType | null {
+  const normalized = String(value ?? '')
+    .trim()
+    .toUpperCase();
+  return LIVENESS_CHALLENGE_TYPES.includes(normalized as LivenessChallengeType)
+    ? (normalized as LivenessChallengeType)
+    : null;
 }
 
 function haversineMeters(
