@@ -13,6 +13,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 
 import { SafetyDocumentEntity } from './entities/safety-document.entity';
 import { UploadSafetyDocumentDto } from './dto/upload-safety-document.dto';
+import { uniqueUploadDiskName } from '../common/safe-upload';
 
 type UploadedFile = {
   originalname: string;
@@ -165,9 +166,7 @@ export class SafetyDocumentsService {
     );
     fs.mkdirSync(dir, { recursive: true });
 
-    const ts = Date.now();
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const diskName = `${ts}_${safeName}`;
+    const diskName = uniqueUploadDiskName(file.originalname);
     const fullPath = path.join(dir, diskName);
     fs.writeFileSync(fullPath, file.buffer);
 

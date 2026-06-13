@@ -8,11 +8,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as path from 'path';
 import * as fs from 'fs';
-import { randomUUID } from 'crypto';
 
 import { CrmUnitDocumentEntity } from './entities/crm-unit-document.entity';
 import { ClientAssignmentCurrentEntity } from '../assignments/entities/client-assignment-current.entity';
 import { UploadCrmDocumentDto } from './dto/upload-crm-document.dto';
+import { uniqueUploadDiskName } from '../common/safe-upload';
 
 type UploadedFile = {
   originalname: string;
@@ -220,9 +220,7 @@ export class CrmDocumentsService {
     );
     fs.mkdirSync(dir, { recursive: true });
 
-    const ts = Date.now();
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const diskName = `${ts}_${randomUUID()}_${safeName}`;
+    const diskName = uniqueUploadDiskName(file.originalname);
     const fullPath = path.join(dir, diskName);
     fs.writeFileSync(fullPath, file.buffer);
 

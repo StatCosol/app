@@ -20,6 +20,7 @@ import { ListComplianceDocumentsDto } from './dto/list-compliance-documents.dto'
 import { UpdateCompanySettingsDto } from './dto/update-company-settings.dto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { uniqueUploadDiskName } from '../common/safe-upload';
 
 type UploadedFile = {
   originalname: string;
@@ -106,9 +107,7 @@ export class ComplianceDocumentsService {
     );
     fs.mkdirSync(dir, { recursive: true });
 
-    const ts = Date.now();
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const diskName = `${ts}_${safeName}`;
+    const diskName = uniqueUploadDiskName(file.originalname);
     const filePath = path.join(dir, diskName);
     fs.writeFileSync(filePath, file.buffer);
 

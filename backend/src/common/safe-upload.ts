@@ -73,6 +73,29 @@ function sanitizeExt(filename: string): string {
   );
 }
 
+export function sanitizeUploadBaseName(filename: string): string {
+  const base = path.basename(filename || 'upload');
+  const dot = base.lastIndexOf('.');
+  const stem = dot > 0 ? base.slice(0, dot) : base;
+  return (
+    stem
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^[_ .-]+|[_ .-]+$/g, '')
+      .slice(0, 80) || 'upload'
+  );
+}
+
+export function uniqueUploadDiskName(
+  originalname: string,
+  prefix?: string,
+): string {
+  const safePrefix = prefix
+    ? `${prefix.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80)}_`
+    : '';
+  return `${safePrefix}${Date.now()}_${randomUUID()}_${sanitizeUploadBaseName(originalname)}${sanitizeExt(originalname)}`;
+}
+
 export function makeSafeUploadOptions(opts: SafeUploadOptions = {}) {
   const maxMb = opts.maxMb ?? 10;
   const allowed = opts.allowedMimes ?? DEFAULT_ALLOWED_MIMES;
