@@ -542,7 +542,14 @@ class KioskActivity : AppCompatActivity() {
             mainHandler.removeCallbacks(enrollChallengeTimeout)
             mainHandler.removeCallbacks(enrollCaptureTimeout)
             mainHandler.postDelayed(enrollCaptureTimeout, ENROLL_CAPTURE_TIMEOUT_MS)
-            runOnUiThread { binding.statusText.text = getString(R.string.liveness_passed) }
+            runOnUiThread {
+                binding.statusText.text = getString(
+                    R.string.kiosk_enroll_capturing,
+                    0,
+                    ENROLL_REQUIRED_FRAMES,
+                    0,
+                )
+            }
             maybeShowEnrollRegisterDialog()
             return
         }
@@ -949,10 +956,14 @@ class KioskActivity : AppCompatActivity() {
         mainHandler.removeCallbacks(enrollCaptureTimeout)
         mainHandler.postDelayed(enrollCaptureTimeout, ENROLL_CAPTURE_TIMEOUT_MS)
         runOnUiThread {
+            val pct = ((enrollFrames.size * 100.0) / ENROLL_REQUIRED_FRAMES)
+                .toInt()
+                .coerceIn(0, 100)
             binding.statusText.text = getString(
                 R.string.kiosk_enroll_capturing,
                 enrollFrames.size,
                 ENROLL_REQUIRED_FRAMES,
+                pct,
             )
         }
         if (enrollFrames.size >= ENROLL_REQUIRED_FRAMES) maybeShowEnrollRegisterDialog()

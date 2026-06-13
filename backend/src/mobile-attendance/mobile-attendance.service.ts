@@ -4388,12 +4388,14 @@ export class MobileAttendanceService implements OnModuleInit {
         'Kiosk enrollment requires the latest APK with face photo capture; reinstall the kiosk app and retry',
       );
     }
+    let qualityReviewNote: string | null = null;
     if (this.faceEmbeddingClient.isEnabled()) {
       const result = await this.faceEmbeddingClient.embedPhoto(body.photoBase64);
       if (result && result.faceScore < MIN_FACE_QUALITY_SCORE) {
-        throw new BadRequestException(
-          `Face image quality too low (score ${result.faceScore.toFixed(2)} < ${MIN_FACE_QUALITY_SCORE}) — improve lighting, focus, and face position before retrying`,
-        );
+        qualityReviewNote =
+          `Server face quality score ${result.faceScore.toFixed(2)} is below ` +
+          `${MIN_FACE_QUALITY_SCORE}; admin must inspect the captured photo ` +
+          `before approving.`;
       }
     }
 
@@ -4446,6 +4448,7 @@ export class MobileAttendanceService implements OnModuleInit {
         photoUrl,
         matchScoreSelf:
           body.selfMatchScore != null ? String(body.selfMatchScore) : null,
+        notes: [ticket.notes, qualityReviewNote].filter(Boolean).join('\n'),
       },
     );
     return { ok: true, ticketId: ticket.id };
