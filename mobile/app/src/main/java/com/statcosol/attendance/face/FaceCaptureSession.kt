@@ -80,7 +80,7 @@ class FaceCaptureSession(
                 it.setSurfaceProvider(previewView.surfaceProvider)
             }
             val analyzer = ImageAnalysis.Builder()
-                .setTargetResolution(Size(640, 480))
+                .setTargetResolution(Size(1280, 720))
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
             analyzer.setAnalyzer(analysisExecutor) { proxy ->
@@ -320,7 +320,7 @@ class FaceCaptureSession(
 
         /** Face must occupy at least this fraction of the camera frame
          *  to be considered close enough for a confident embedding. */
-        private const val MIN_FACE_AREA_RATIO = 0.06
+        private const val MIN_FACE_AREA_RATIO = 0.035
         private const val MAX_EMBED_YAW_DEG = 18f
         private const val MAX_EMBED_PITCH_DEG = 15f
     }
