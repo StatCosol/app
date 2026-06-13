@@ -9,19 +9,19 @@ export class ToastService {
   private readonly _toasts = new BehaviorSubject<ToastMessage[]>([]);
   readonly toasts$ = this._toasts.asObservable();
 
-  success(title: string, message = '', duration = 3000): void {
+  success(title: string, message = '', duration = 8000): void {
     this.show('success', title, message, duration);
   }
 
-  error(title: string, message = '', duration = 5000): void {
+  error(title: string, message = '', duration = 12000): void {
     this.show('error', title, message, duration);
   }
 
-  warning(title: string, message = '', duration = 4000): void {
+  warning(title: string, message = '', duration = 10000): void {
     this.show('warning', title, message, duration);
   }
 
-  info(title: string, message = '', duration = 3000): void {
+  info(title: string, message = '', duration = 8000): void {
     this.show('info', title, message, duration);
   }
 
