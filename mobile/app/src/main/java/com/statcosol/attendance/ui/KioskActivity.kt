@@ -977,7 +977,9 @@ class KioskActivity : AppCompatActivity() {
                     clearKioskEnrollmentState()
                     runOnUiThread {
                         mainHandler.postDelayed({
-                            binding.statusText.text = getString(R.string.kiosk_look_at_camera)
+                            if (enrollTicket == null) {
+                                binding.statusText.text = getString(R.string.kiosk_look_at_camera)
+                            }
                         }, ENROLL_RESULT_VISIBLE_MS)
                     }
                     if (rosterSize == null) {
