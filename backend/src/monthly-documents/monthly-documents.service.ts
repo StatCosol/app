@@ -9,6 +9,7 @@ import { MonthlyComplianceUploadEntity } from './entities/monthly-compliance-upl
 import { BranchAccessService } from '../auth/branch-access.service';
 import * as fs from 'fs';
 import * as path from 'path';
+import { uniqueUploadDiskName } from '../common/safe-upload';
 
 type UploadedFile = {
   originalname: string;
@@ -89,9 +90,7 @@ export class MonthlyDocumentsService {
     );
     fs.mkdirSync(dir, { recursive: true });
 
-    const ts = Date.now();
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const diskName = `${ts}_${code}_${safeName}`;
+    const diskName = uniqueUploadDiskName(file.originalname, code);
     const filePath = path.join(dir, diskName);
     fs.writeFileSync(filePath, file.buffer);
 
