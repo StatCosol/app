@@ -19,13 +19,13 @@
         android:layout_gravity="center"
         android:background="@drawable/bg_face_oval" />
 
-    <!-- Top brand/branch/clock strip. Stays visible at all times so workers
-         confirm they're at the right gate / shift. -->
+    <!-- Bottom brand/branch/clock strip. Keeping it at the foot leaves the
+         camera and face guide clear while the worker follows prompts. -->
     <LinearLayout
         android:id="@+id/headerStrip"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="top"
+        android:layout_gravity="bottom"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:background="@drawable/bg_kiosk_top_strip"
@@ -98,7 +98,7 @@
         android:id="@+id/statusText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
+        android:layout_gravity="top"
         android:padding="24dp"
         android:textColor="#FFFFFF"
         android:textSize="20sp"
