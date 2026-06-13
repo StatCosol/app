@@ -1,6 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository, DataSource } from 'typeorm';
+import {
+  In,
+  Repository,
+  DataSource,
+  SelectQueryBuilder,
+  ObjectLiteral,
+} from 'typeorm';
 import { AttendanceEntity } from './entities/attendance.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { BiometricPunchEntity } from '../biometric/entities/biometric-punch.entity';
@@ -19,6 +29,48 @@ export class AttendanceService {
     private readonly facePhotos: FacePhotoStorage,
   ) {}
 
+  private applyBranchScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+    allowedBranchIds: string[] | null = null,
+  ): boolean {
+    if (!allowedBranchIds) return true;
+    if (!allowedBranchIds.length) return false;
+    qb.andWhere(`${alias}.branch_id IN (:...allowedBranchIds)`, {
+      allowedBranchIds,
+    });
+    return true;
+  }
+
+  private assertBranchAllowed(
+    branchId: string | null | undefined,
+    allowedBranchIds: string[] | null = null,
+  ): void {
+    if (!allowedBranchIds) return;
+    if (!branchId || !allowedBranchIds.includes(branchId)) {
+      throw new ForbiddenException(
+        'Attendance record is outside your branch scope',
+      );
+    }
+  }
+
+  private assertRequestedBranchAllowed(
+    branchId: string | null | undefined,
+    allowedBranchIds: string[] | null = null,
+  ): void {
+    if (!allowedBranchIds || !branchId) return;
+    if (!allowedBranchIds.includes(branchId)) {
+      throw new ForbiddenException('Branch not in scope');
+    }
+  }
+
+  private resetApproval(record: AttendanceEntity): void {
+    record.approvalStatus = 'PENDING';
+    record.approvedByUserId = null;
+    record.approvedAt = null;
+    record.rejectionReason = null;
+  }
+
   /** Mark attendance for a single employee/date */
   async markAttendance(
     clientId: string,
@@ -32,17 +84,20 @@ export class AttendanceService {
       overtimeHours?: number;
       remarks?: string;
     },
+    allowedBranchIds: string[] | null = null,
   ) {
     const emp = await this.empRepo.findOne({
       where: { id: body.employeeId, clientId },
     });
     if (!emp) throw new NotFoundException('Employee not found');
+    this.assertBranchAllowed(emp.branchId, allowedBranchIds);
 
     const existing = await this.repo.findOne({
-      where: { employeeId: body.employeeId, date: body.date },
+      where: { clientId, employeeId: body.employeeId, date: body.date },
     });
 
     if (existing) {
+      this.assertBranchAllowed(existing.branchId, allowedBranchIds);
       existing.status = body.status;
       if (body.checkIn !== undefined) existing.checkIn = body.checkIn;
       if (body.checkOut !== undefined) existing.checkOut = body.checkOut;
@@ -51,6 +106,7 @@ export class AttendanceService {
       if (body.overtimeHours !== undefined)
         existing.overtimeHours = String(body.overtimeHours);
       if (body.remarks !== undefined) existing.remarks = body.remarks;
+      this.resetApproval(existing);
       return this.repo.save(existing);
     }
 
@@ -87,13 +143,18 @@ export class AttendanceService {
         remarks?: string;
       }[];
     },
+    allowedBranchIds: string[] | null = null,
   ) {
     const results: { employeeId: string; status: string }[] = [];
     for (const entry of body.entries) {
-      await this.markAttendance(clientId, {
-        ...entry,
-        date: body.date,
-      });
+      await this.markAttendance(
+        clientId,
+        {
+          ...entry,
+          date: body.date,
+        },
+        allowedBranchIds,
+      );
       results.push({ employeeId: entry.employeeId, status: 'saved' });
     }
     return { date: body.date, saved: results.length, results };
@@ -106,6 +167,7 @@ export class AttendanceService {
     employeeId?: string;
     from: string;
     to: string;
+    allowedBranchIds?: string[] | null;
   }) {
     await this.biometricService.processRange(
       params.clientId,
@@ -124,8 +186,11 @@ export class AttendanceService {
       .orderBy('a.date', 'ASC')
       .addOrderBy('a.employee_code', 'ASC');
 
+    this.assertRequestedBranchAllowed(params.branchId, params.allowedBranchIds);
     if (params.branchId) {
       qb.andWhere('a.branch_id = :branchId', { branchId: params.branchId });
+    } else if (!this.applyBranchScope(qb, 'a', params.allowedBranchIds)) {
+      return [];
     }
     if (params.employeeId) {
       qb.andWhere('a.employee_id = :employeeId', {
@@ -143,6 +208,7 @@ export class AttendanceService {
     year: number;
     month: number;
     approvedOnly?: boolean;
+    allowedBranchIds?: string[] | null;
   }) {
     const firstDay = `${params.year}-${String(params.month).padStart(2, '0')}-01`;
     const lastDay = new Date(params.year, params.month, 0);
@@ -175,8 +241,11 @@ export class AttendanceService {
       .groupBy('a.employee_id')
       .addGroupBy('a.employee_code');
 
+    this.assertRequestedBranchAllowed(params.branchId, params.allowedBranchIds);
     if (params.branchId) {
       qb.andWhere('a.branch_id = :branchId', { branchId: params.branchId });
+    } else if (!this.applyBranchScope(qb, 'a', params.allowedBranchIds)) {
+      return [];
     }
     if (params.approvedOnly) {
       qb.andWhere("a.approval_status = 'APPROVED'");
@@ -217,6 +286,7 @@ export class AttendanceService {
     branchId?: string;
     year: number;
     month: number;
+    allowedBranchIds?: string[] | null;
   }) {
     const firstDay = `${params.year}-${String(params.month).padStart(2, '0')}-01`;
     const lastDay = new Date(params.year, params.month, 0);
@@ -226,6 +296,7 @@ export class AttendanceService {
       branchId: params.branchId,
       from: firstDay,
       to: toDate,
+      allowedBranchIds: params.allowedBranchIds,
     });
 
     const issues: Array<{
@@ -284,6 +355,7 @@ export class AttendanceService {
     branchId?: string;
     year: number;
     month: number;
+    allowedBranchIds?: string[] | null;
   }) {
     const summary = await this.getMonthlySummary(params);
     return summary
@@ -298,7 +370,20 @@ export class AttendanceService {
     year: number,
     month: number,
     weeklyOffDays: number[] = [0], // 0=Sunday
+    allowedBranchIds: string[] | null = null,
   ) {
+    this.assertRequestedBranchAllowed(branchId, allowedBranchIds);
+    if (allowedBranchIds && !branchId) {
+      if (!allowedBranchIds.length)
+        return {
+          created: 0,
+          employees: 0,
+          days: new Date(year, month, 0).getDate(),
+        };
+      if (allowedBranchIds.length === 1) {
+        branchId = allowedBranchIds[0];
+      }
+    }
     const lastDay = new Date(year, month, 0).getDate();
     const employees = await this.empRepo.find({
       where: {
@@ -328,7 +413,7 @@ export class AttendanceService {
             employeeId: emp.id,
             employeeCode: emp.employeeCode,
             date: dateStr,
-            status: isOff ? 'WEEK_OFF' : 'PRESENT',
+            status: isOff ? 'WEEK_OFF' : 'ABSENT',
             source: 'MANUAL',
           }),
         );
@@ -345,12 +430,13 @@ export class AttendanceService {
     date: string;
     branchId?: string;
     approvalStatus?: string;
+    allowedBranchIds?: string[] | null;
   }) {
     await this.biometricService.processRange(
       params.clientId,
       params.date,
       params.date,
-      true,
+      false,
     );
 
     const qb = this.ds
@@ -396,8 +482,17 @@ export class AttendanceService {
       .orderBy('e.name', 'ASC')
       .addOrderBy('a.employee_code', 'ASC');
 
+    this.assertRequestedBranchAllowed(params.branchId, params.allowedBranchIds);
     if (params.branchId) {
       qb.andWhere('a.branch_id = :branchId', { branchId: params.branchId });
+    } else if (
+      !this.applyBranchScope(
+        qb as unknown as SelectQueryBuilder<ObjectLiteral>,
+        'a',
+        params.allowedBranchIds,
+      )
+    ) {
+      return [];
     }
     if (params.approvalStatus) {
       qb.andWhere('a.approval_status = :approvalStatus', {
@@ -424,11 +519,13 @@ export class AttendanceService {
       overtimeHours?: number;
       remarks?: string;
     },
+    allowedBranchIds: string[] | null = null,
   ) {
     const record = await this.repo.findOne({
       where: { id: recordId, clientId },
     });
     if (!record) throw new NotFoundException('Attendance record not found');
+    this.assertBranchAllowed(record.branchId, allowedBranchIds);
 
     record.status = body.status;
     if (body.checkIn !== undefined) record.checkIn = body.checkIn || null;
@@ -440,20 +537,25 @@ export class AttendanceService {
     if (body.remarks !== undefined) record.remarks = body.remarks || null;
 
     // Reset approval when edited
-    record.approvalStatus = 'PENDING';
-    record.approvedByUserId = null;
-    record.approvedAt = null;
-    record.rejectionReason = null;
+    this.resetApproval(record);
 
     return this.repo.save(record);
   }
 
   /** Bulk approve attendance records */
-  async approveRecords(clientId: string, ids: string[], userId: string) {
+  async approveRecords(
+    clientId: string,
+    ids: string[],
+    userId: string,
+    allowedBranchIds: string[] | null = null,
+  ) {
     const records = await this.repo.find({
       where: { clientId, id: In(ids) },
     });
     if (!records.length) throw new NotFoundException('No records found');
+    records.forEach((record) =>
+      this.assertBranchAllowed(record.branchId, allowedBranchIds),
+    );
 
     const now = new Date();
     for (const rec of records) {
@@ -472,11 +574,15 @@ export class AttendanceService {
     ids: string[],
     userId: string,
     reason?: string,
+    allowedBranchIds: string[] | null = null,
   ) {
     const records = await this.repo.find({
       where: { clientId, id: In(ids) },
     });
     if (!records.length) throw new NotFoundException('No records found');
+    records.forEach((record) =>
+      this.assertBranchAllowed(record.branchId, allowedBranchIds),
+    );
 
     const now = new Date();
     for (const rec of records) {
@@ -490,11 +596,18 @@ export class AttendanceService {
   }
 
   /** Delete wrong attendance records and their source biometric/face punches. */
-  async deleteRecords(clientId: string, ids: string[]) {
+  async deleteRecords(
+    clientId: string,
+    ids: string[],
+    allowedBranchIds: string[] | null = null,
+  ) {
     const records = await this.repo.find({
       where: { clientId, id: In(ids) },
     });
     if (!records.length) throw new NotFoundException('No records found');
+    records.forEach((record) =>
+      this.assertBranchAllowed(record.branchId, allowedBranchIds),
+    );
 
     const recordIds = records.map((r) => r.id);
 
@@ -521,8 +634,13 @@ export class AttendanceService {
   }
 
   /** Approval stats for a given day */
-  async getApprovalStats(clientId: string, date: string, branchId?: string) {
-    await this.biometricService.processRange(clientId, date, date, true);
+  async getApprovalStats(
+    clientId: string,
+    date: string,
+    branchId?: string,
+    allowedBranchIds: string[] | null = null,
+  ) {
+    await this.biometricService.processRange(clientId, date, date, false);
 
     const qb = this.repo
       .createQueryBuilder('a')
@@ -532,8 +650,11 @@ export class AttendanceService {
       .andWhere('a.date = :date', { date })
       .groupBy('a.approval_status');
 
+    this.assertRequestedBranchAllowed(branchId, allowedBranchIds);
     if (branchId) {
       qb.andWhere('a.branch_id = :branchId', { branchId });
+    } else if (!this.applyBranchScope(qb, 'a', allowedBranchIds)) {
+      return { total: 0, pending: 0, approved: 0, rejected: 0 };
     }
 
     const rows = await qb.getRawMany();

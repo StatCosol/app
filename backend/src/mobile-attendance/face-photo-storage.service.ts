@@ -227,9 +227,7 @@ export class FacePhotoStorage {
         credential,
       ).toString();
     } catch (e: any) {
-      this.logger.warn(
-        `FacePhotoStorage.toViewUrl failed: ${e?.message ?? e}`,
-      );
+      this.logger.warn(`FacePhotoStorage.toViewUrl failed: ${e?.message ?? e}`);
       return null;
     }
   }

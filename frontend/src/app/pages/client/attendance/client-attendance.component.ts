@@ -1,4 +1,10 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  OnDestroy,
+  OnInit,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, forkJoin, fromEvent, interval, merge, of } from 'rxjs';
@@ -59,8 +65,11 @@ interface AttendanceIssue {
     <div class="page">
       <ui-page-header
         title="Attendance Review & Payroll Handoff"
-        subtitle="Validate monthly attendance, review mismatches and LOP preview, then handoff to payroll.">
-        <ui-button variant="secondary" [disabled]="loading" (clicked)="loadWorkspace()">Refresh</ui-button>
+        subtitle="Validate monthly attendance, review mismatches and LOP preview, then handoff to payroll."
+      >
+        <ui-button variant="secondary" [disabled]="loading" (clicked)="loadWorkspace()"
+          >Refresh</ui-button
+        >
       </ui-page-header>
 
       <section class="card mb-4">
@@ -68,19 +77,38 @@ interface AttendanceIssue {
         <div class="toolbar">
           <label>
             <span>Attendance Month</span>
-            <input autocomplete="off" id="ca-selected-month" name="selectedMonth" type="month" [(ngModel)]="selectedMonth" />
+            <input
+              autocomplete="off"
+              id="ca-selected-month"
+              name="selectedMonth"
+              type="month"
+              [(ngModel)]="selectedMonth"
+            />
           </label>
           <label>
             <span>Branch ID (optional)</span>
-            <input autocomplete="off" id="ca-branch-id" name="branchId" type="text" [(ngModel)]="branchId" placeholder="Filter by branch id" />
+            <input
+              autocomplete="off"
+              id="ca-branch-id"
+              name="branchId"
+              type="text"
+              [(ngModel)]="branchId"
+              placeholder="Filter by branch id"
+            />
           </label>
           <div class="actions">
-            <ui-button variant="primary" [disabled]="loading" (clicked)="loadWorkspace()">Load</ui-button>
+            <ui-button variant="primary" [disabled]="loading" (clicked)="loadWorkspace()"
+              >Load</ui-button
+            >
           </div>
         </div>
       </section>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading attendance workspace..." size="lg"></ui-loading-spinner>
+      <ui-loading-spinner
+        *ngIf="loading"
+        text="Loading attendance workspace..."
+        size="lg"
+      ></ui-loading-spinner>
 
       <ng-container *ngIf="!loading">
         <section class="summary-grid mb-4">
@@ -118,14 +146,21 @@ interface AttendanceIssue {
               <div class="head-actions">
                 <span>{{ visibleMismatches.length }} shown / {{ mismatches.length }} total</span>
                 <label class="toggle">
-                  <input autocomplete="off" id="ca-show-unresolved-only" name="showUnresolvedOnly" type="checkbox" [(ngModel)]="showUnresolvedOnly" />
+                  <input
+                    autocomplete="off"
+                    id="ca-show-unresolved-only"
+                    name="showUnresolvedOnly"
+                    type="checkbox"
+                    [(ngModel)]="showUnresolvedOnly"
+                  />
                   <span>Unresolved only</span>
                 </label>
                 <ui-button
                   size="sm"
                   variant="ghost"
                   [disabled]="unresolvedMismatchCount === 0"
-                  (clicked)="resolveAllMismatches()">
+                  (clicked)="resolveAllMismatches()"
+                >
                   Resolve All
                 </ui-button>
               </div>
@@ -134,7 +169,8 @@ interface AttendanceIssue {
             <ui-empty-state
               *ngIf="!visibleMismatches.length"
               title="No mismatches"
-              description="No attendance mismatches found for the selected filter.">
+              description="No attendance mismatches found for the selected filter."
+            >
             </ui-empty-state>
 
             <div class="table-wrap" *ngIf="visibleMismatches.length">
@@ -155,7 +191,9 @@ interface AttendanceIssue {
                     <td>{{ row.employeeCode || row.employeeId }}</td>
                     <td>{{ row.date }}</td>
                     <td>
-                      <span class="severity" [class.high]="row.severity === 'HIGH'">{{ row.severity }}</span>
+                      <span class="severity" [class.high]="row.severity === 'HIGH'">{{
+                        row.severity
+                      }}</span>
                     </td>
                     <td>{{ row.issue }}</td>
                     <td>{{ row.detail }}</td>
@@ -168,7 +206,8 @@ interface AttendanceIssue {
                       <ui-button
                         size="sm"
                         [variant]="row.resolved ? 'secondary' : 'primary'"
-                        (clicked)="toggleMismatchResolved(row)">
+                        (clicked)="toggleMismatchResolved(row)"
+                      >
                         {{ row.resolved ? 'Reopen' : 'Resolve' }}
                       </ui-button>
                     </td>
@@ -186,7 +225,8 @@ interface AttendanceIssue {
             <ui-empty-state
               *ngIf="!lopRows.length"
               title="No LOP impact"
-              description="No LOP days for the selected month.">
+              description="No LOP days for the selected month."
+            >
             </ui-empty-state>
             <div class="table-wrap" *ngIf="lopRows.length">
               <table>
@@ -203,7 +243,7 @@ interface AttendanceIssue {
                 <tbody>
                   <tr *ngFor="let row of lopRows; trackBy: trackBySummary">
                     <td>{{ row.employeeCode || row.employeeId }}</td>
-                    <td>{{ row.daysPresent + (row.halfDays * 0.5) }}</td>
+                    <td>{{ row.daysPresent + row.halfDays * 0.5 }}</td>
                     <td>{{ row.daysOnLeave }}</td>
                     <td>{{ row.weekOffs }}</td>
                     <td>{{ row.holidays }}</td>
@@ -222,6 +262,13 @@ interface AttendanceIssue {
             <small *ngIf="unresolvedMismatchCount > 0" class="error">
               Resolve {{ unresolvedMismatchCount }} open mismatch(es) before approval.
             </small>
+            <small
+              *ngIf="records.length > 0 && !allRowsApproved && unresolvedMismatchCount === 0"
+              class="error"
+            >
+              {{ records.length - approvedRecordCount }} attendance row(s) still need backend
+              approval.
+            </small>
             <small *ngIf="handoffMessage" [class.error]="handoffError">{{ handoffMessage }}</small>
           </div>
           <div class="actions">
@@ -229,14 +276,16 @@ interface AttendanceIssue {
               variant="secondary"
               [disabled]="approving || handoffBusy || unresolvedMismatchCount > 0"
               [loading]="approving"
-              (clicked)="approveAttendance()">
-              Approve Attendance
+              (clicked)="approveAttendance()"
+            >
+              {{ allRowsApproved ? 'Attendance Approved' : 'Approve Attendance' }}
             </ui-button>
             <ui-button
               variant="primary"
-              [disabled]="!attendanceApproved || handoffBusy || approving"
+              [disabled]="!allRowsApproved || handoffBusy || approving"
               [loading]="handoffBusy"
-              (clicked)="sendToPayroll()">
+              (clicked)="sendToPayroll()"
+            >
               Send to Payroll
             </ui-button>
           </div>
@@ -250,7 +299,8 @@ interface AttendanceIssue {
           <ui-empty-state
             *ngIf="!handoffHistory.length"
             title="No handoff history"
-            description="No attendance payroll handoffs found for this month.">
+            description="No attendance payroll handoffs found for this month."
+          >
           </ui-empty-state>
           <div class="table-wrap" *ngIf="handoffHistory.length">
             <table>
@@ -268,12 +318,15 @@ interface AttendanceIssue {
                   <td>{{ item.id }}</td>
                   <td>{{ item.title }}</td>
                   <td>
-                    <span class="state-chip" [class.resolved]="item.status === 'SUBMITTED' || item.status === 'APPROVED'">
+                    <span
+                      class="state-chip"
+                      [class.resolved]="item.status === 'SUBMITTED' || item.status === 'APPROVED'"
+                    >
                       {{ item.status }}
                     </span>
                   </td>
                   <td>{{ item.filesCount }}</td>
-                  <td>{{ item.createdAt | date:'dd MMM yyyy, hh:mm a' }}</td>
+                  <td>{{ item.createdAt | date: 'dd MMM yyyy, hh:mm a' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -282,47 +335,218 @@ interface AttendanceIssue {
       </ng-container>
     </div>
   `,
-  styles: [`
-    .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
-    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1rem; box-shadow: 0 6px 20px rgba(15, 23, 42, .04); }
-    .section-title { font-size: .95rem; font-weight: 700; color: #111827; margin-bottom: .6rem; }
-    .toolbar { display: grid; grid-template-columns: 240px 1fr auto; gap: .7rem; align-items: end; }
-    label { display: flex; flex-direction: column; gap: .35rem; }
-    label > span { color: #4b5563; font-size: .78rem; font-weight: 600; }
-    input { width: 100%; border: 1px solid #d1d5db; border-radius: 10px; padding: .5rem .65rem; font-size: .84rem; }
-    .summary-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .75rem; }
-    .summary-card { background: linear-gradient(180deg, #fff 0%, #f8fafc 100%); border: 1px solid #e5e7eb; border-radius: 12px; padding: .75rem; }
-    .summary-card h4 { margin: 0 0 .3rem; color: #6b7280; font-size: .76rem; text-transform: uppercase; letter-spacing: .02em; }
-    .summary-card div { color: #111827; font-size: 1.28rem; font-weight: 700; line-height: 1.1; }
-    .summary-card p { margin: .3rem 0 0; color: #6b7280; font-size: .74rem; }
-    .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .section-head { display: flex; justify-content: space-between; gap: .5rem; align-items: center; margin-bottom: .6rem; }
-    .section-head h3 { margin: 0; font-size: 1rem; font-weight: 700; color: #111827; }
-    .section-head span { font-size: .78rem; color: #6b7280; }
-    .head-actions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
-    .toggle { display: inline-flex; align-items: center; gap: .3rem; font-size: .74rem; color: #4b5563; }
-    .toggle input { width: auto; margin: 0; }
-    .table-wrap { overflow: auto; }
-    table { width: 100%; min-width: 520px; border-collapse: collapse; }
-    th, td { border-bottom: 1px solid #e5e7eb; text-align: left; padding: .55rem .5rem; font-size: .8rem; color: #1f2937; }
-    th { color: #6b7280; text-transform: uppercase; letter-spacing: .02em; font-size: .72rem; font-weight: 700; white-space: nowrap; }
-    .lop { color: #b91c1c; font-weight: 700; }
-    .severity { border: 1px solid #fdba74; color: #9a3412; background: #fff7ed; border-radius: 999px; font-size: .69rem; padding: .1rem .45rem; font-weight: 700; }
-    .severity.high { border-color: #fca5a5; color: #991b1b; background: #fef2f2; }
-    .state-chip { border: 1px solid #d1d5db; color: #4b5563; background: #f9fafb; border-radius: 999px; font-size: .69rem; padding: .1rem .45rem; font-weight: 700; }
-    .state-chip.resolved { border-color: #86efac; color: #166534; background: #f0fdf4; }
-    .mt-4 { margin-top: 1rem; }
-    .action-footer { display: flex; justify-content: space-between; align-items: center; gap: .9rem; flex-wrap: wrap; }
-    .action-footer h3 { margin: 0 0 .2rem; font-size: .95rem; color: #111827; }
-    .action-footer p { margin: 0; font-size: .8rem; color: #6b7280; }
-    small { color: #047857; font-size: .75rem; }
-    small.error { color: #b91c1c; }
-    .actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-    @media (max-width: 980px) {
-      .toolbar, .grid-layout, .summary-grid { grid-template-columns: 1fr; }
-      .action-footer { align-items: flex-start; }
-    }
-  `],
+  styles: [
+    `
+      .page {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 1rem;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 1rem;
+        box-shadow: 0 6px 20px rgba(15, 23, 42, 0.04);
+      }
+      .section-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #111827;
+        margin-bottom: 0.6rem;
+      }
+      .toolbar {
+        display: grid;
+        grid-template-columns: 240px 1fr auto;
+        gap: 0.7rem;
+        align-items: end;
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+      label > span {
+        color: #4b5563;
+        font-size: 0.78rem;
+        font-weight: 600;
+      }
+      input {
+        width: 100%;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        padding: 0.5rem 0.65rem;
+        font-size: 0.84rem;
+      }
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 0.75rem;
+      }
+      .summary-card {
+        background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 0.75rem;
+      }
+      .summary-card h4 {
+        margin: 0 0 0.3rem;
+        color: #6b7280;
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+      }
+      .summary-card div {
+        color: #111827;
+        font-size: 1.28rem;
+        font-weight: 700;
+        line-height: 1.1;
+      }
+      .summary-card p {
+        margin: 0.3rem 0 0;
+        color: #6b7280;
+        font-size: 0.74rem;
+      }
+      .grid-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+      }
+      .section-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+        align-items: center;
+        margin-bottom: 0.6rem;
+      }
+      .section-head h3 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #111827;
+      }
+      .section-head span {
+        font-size: 0.78rem;
+        color: #6b7280;
+      }
+      .head-actions {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.74rem;
+        color: #4b5563;
+      }
+      .toggle input {
+        width: auto;
+        margin: 0;
+      }
+      .table-wrap {
+        overflow: auto;
+      }
+      table {
+        width: 100%;
+        min-width: 520px;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        border-bottom: 1px solid #e5e7eb;
+        text-align: left;
+        padding: 0.55rem 0.5rem;
+        font-size: 0.8rem;
+        color: #1f2937;
+      }
+      th {
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        font-size: 0.72rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .lop {
+        color: #b91c1c;
+        font-weight: 700;
+      }
+      .severity {
+        border: 1px solid #fdba74;
+        color: #9a3412;
+        background: #fff7ed;
+        border-radius: 999px;
+        font-size: 0.69rem;
+        padding: 0.1rem 0.45rem;
+        font-weight: 700;
+      }
+      .severity.high {
+        border-color: #fca5a5;
+        color: #991b1b;
+        background: #fef2f2;
+      }
+      .state-chip {
+        border: 1px solid #d1d5db;
+        color: #4b5563;
+        background: #f9fafb;
+        border-radius: 999px;
+        font-size: 0.69rem;
+        padding: 0.1rem 0.45rem;
+        font-weight: 700;
+      }
+      .state-chip.resolved {
+        border-color: #86efac;
+        color: #166534;
+        background: #f0fdf4;
+      }
+      .mt-4 {
+        margin-top: 1rem;
+      }
+      .action-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.9rem;
+        flex-wrap: wrap;
+      }
+      .action-footer h3 {
+        margin: 0 0 0.2rem;
+        font-size: 0.95rem;
+        color: #111827;
+      }
+      .action-footer p {
+        margin: 0;
+        font-size: 0.8rem;
+        color: #6b7280;
+      }
+      small {
+        color: #047857;
+        font-size: 0.75rem;
+      }
+      small.error {
+        color: #b91c1c;
+      }
+      .actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      @media (max-width: 980px) {
+        .toolbar,
+        .grid-layout,
+        .summary-grid {
+          grid-template-columns: 1fr;
+        }
+        .action-footer {
+          align-items: flex-start;
+        }
+      }
+    `,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ClientAttendanceComponent implements OnInit, OnDestroy {
@@ -382,11 +606,13 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
     }
 
     forkJoin({
-      records: this.attendanceSvc.list({
-        from,
-        to,
-        branchId: this.branchId.trim() || undefined,
-      }).pipe(catchError(() => of([]))),
+      records: this.attendanceSvc
+        .list({
+          from,
+          to,
+          branchId: this.branchId.trim() || undefined,
+        })
+        .pipe(catchError(() => of([]))),
       summary: this.attendanceSvc
         .summary(year, month, this.branchId.trim() || undefined)
         .pipe(catchError(() => of([]))),
@@ -407,6 +633,7 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
       .subscribe({
         next: ({ records, summary, mismatches, lopPreview }) => {
           this.records = records || [];
+          this.attendanceApproved = this.allRowsApproved;
           this.summaryRows = this.normalizeSummary(summary || []);
           this.mismatches = this.normalizeMismatches(mismatches || []);
           if (!this.mismatches.length) {
@@ -452,6 +679,13 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
 
   approveAttendance(): void {
     if (this.approving || this.handoffBusy) return;
+    const ids = this.records.map((row) => row.id).filter(Boolean);
+    if (!ids.length) {
+      this.handoffMessage = 'No attendance rows are available to approve.';
+      this.handoffError = true;
+      this.toast.error(this.handoffMessage);
+      return;
+    }
     if (this.unresolvedMismatchCount > 0) {
       this.handoffMessage = `Resolve ${this.unresolvedMismatchCount} open mismatch(es) before approval.`;
       this.handoffError = true;
@@ -462,17 +696,36 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
     this.handoffMessage = '';
     this.handoffError = false;
 
-    setTimeout(() => {
-      this.approving = false;
-      this.attendanceApproved = true;
-      this.handoffMessage = 'Attendance review approved. You can now handoff to payroll.';
-      this.toast.success('Attendance review approved for payroll handoff.');
-      this.cdr.markForCheck();
-    }, 300);
+    this.attendanceSvc
+      .approveRecords(ids)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.approving = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          const approvedIds = new Set(ids);
+          this.records = this.records.map((row) =>
+            approvedIds.has(row.id) ? { ...row, approvalStatus: 'APPROVED' } : row,
+          );
+          this.attendanceApproved = this.allRowsApproved;
+          this.handoffMessage = `${res.approved} attendance row(s) approved. You can now handoff to payroll.`;
+          this.toast.success('Attendance review approved for payroll handoff.');
+        },
+        error: (err) => {
+          this.attendanceApproved = false;
+          this.handoffMessage = err?.error?.message || 'Could not approve attendance rows.';
+          this.handoffError = true;
+          this.toast.error(this.handoffMessage);
+        },
+      });
   }
 
   sendToPayroll(): void {
-    if (!this.attendanceApproved || this.handoffBusy) return;
+    if (!this.allRowsApproved || this.handoffBusy) return;
     const { year, month } = this.monthRange(this.selectedMonth);
     const monthText = `${this.monthName(month)} ${year}`;
     const remarks = [
@@ -581,6 +834,14 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
     }).length;
   }
 
+  get approvedRecordCount(): number {
+    return this.records.filter((row) => row.approvalStatus === 'APPROVED').length;
+  }
+
+  get allRowsApproved(): boolean {
+    return this.records.length > 0 && this.approvedRecordCount === this.records.length;
+  }
+
   private normalizeSummary(rows: any[]): AttendanceSummaryRow[] {
     return (rows || []).map((row) => ({
       employeeId: String(row?.employeeId || row?.employee_id || ''),
@@ -659,7 +920,11 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
         next: (res: any) => {
           const rows = Array.isArray(res) ? res : res?.data || [];
           this.handoffHistory = rows
-            .filter((item: any) => String(item?.title || '').toLowerCase().includes('attendance handoff'))
+            .filter((item: any) =>
+              String(item?.title || '')
+                .toLowerCase()
+                .includes('attendance handoff'),
+            )
             .map((item: any) => ({
               id: String(item?.id || ''),
               title: String(item?.title || ''),
@@ -667,9 +932,8 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
               filesCount: Number(item?.filesCount || 0),
               createdAt: String(item?.createdAt || ''),
             }))
-            .sort(
-              (a: { createdAt: string }, b: { createdAt: string }) =>
-                String(b.createdAt).localeCompare(String(a.createdAt)),
+            .sort((a: { createdAt: string }, b: { createdAt: string }) =>
+              String(b.createdAt).localeCompare(String(a.createdAt)),
             );
           this.cdr.markForCheck();
         },
@@ -680,7 +944,12 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
       });
   }
 
-  private monthRange(monthValue: string): { year: number; month: number; from: string; to: string } {
+  private monthRange(monthValue: string): {
+    year: number;
+    month: number;
+    from: string;
+    to: string;
+  } {
     const [yRaw, mRaw] = String(monthValue || '').split('-');
     const year = Number(yRaw || new Date().getFullYear());
     const month = Number(mRaw || new Date().getMonth() + 1);

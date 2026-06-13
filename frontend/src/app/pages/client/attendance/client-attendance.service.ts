@@ -15,6 +15,7 @@ export interface AttendanceRecord {
   workedHours?: number;
   overtimeHours?: number;
   remarks?: string;
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | string;
 }
 
 export interface AttendanceSummary {

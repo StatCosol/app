@@ -30,6 +30,13 @@ import { ReqUser } from '../access/access-scope.service';
 export class AttendanceController {
   constructor(private readonly svc: AttendanceService) {}
 
+  private branchScope(user: ReqUser): string[] | null {
+    if (user?.userType === 'BRANCH' || user?.roleCode === 'BRANCH_DESK') {
+      return user.branchIds ?? [];
+    }
+    return null;
+  }
+
   private resolvePeriod(
     yearRaw?: string,
     monthRaw?: string,
@@ -66,7 +73,7 @@ export class AttendanceController {
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.svc.markAttendance(clientId, body);
+    return this.svc.markAttendance(clientId, body, this.branchScope(user));
   }
 
   @ApiOperation({ summary: 'Bulk Mark' })
@@ -74,7 +81,7 @@ export class AttendanceController {
   bulkMark(@CurrentUser() user: ReqUser, @Body() body: BulkMarkAttendanceDto) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.svc.bulkMark(clientId, body);
+    return this.svc.bulkMark(clientId, body, this.branchScope(user));
   }
 
   @ApiOperation({ summary: 'List' })
@@ -90,7 +97,14 @@ export class AttendanceController {
     if (!clientId) throw new BadRequestException('Client context required');
     if (!from || !to)
       throw new BadRequestException('from and to date required');
-    return this.svc.list({ clientId, branchId, employeeId, from, to });
+    return this.svc.list({
+      clientId,
+      branchId,
+      employeeId,
+      from,
+      to,
+      allowedBranchIds: this.branchScope(user),
+    });
   }
 
   @ApiOperation({ summary: 'Get Monthly Summary' })
@@ -109,6 +123,7 @@ export class AttendanceController {
       branchId,
       year: period.year,
       month: period.month,
+      allowedBranchIds: this.branchScope(user),
     });
   }
 
@@ -128,6 +143,7 @@ export class AttendanceController {
       branchId,
       year: period.year,
       month: period.month,
+      allowedBranchIds: this.branchScope(user),
     });
   }
 
@@ -147,6 +163,7 @@ export class AttendanceController {
       branchId,
       year: period.year,
       month: period.month,
+      allowedBranchIds: this.branchScope(user),
     });
   }
 
@@ -161,6 +178,7 @@ export class AttendanceController {
       body.year,
       body.month,
       body.weeklyOffDays ?? [0],
+      this.branchScope(user),
     );
   }
 
@@ -177,7 +195,13 @@ export class AttendanceController {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     if (!date) throw new BadRequestException('date query param required');
-    return this.svc.listDaily({ clientId, date, branchId, approvalStatus });
+    return this.svc.listDaily({
+      clientId,
+      date,
+      branchId,
+      approvalStatus,
+      allowedBranchIds: this.branchScope(user),
+    });
   }
 
   @ApiOperation({ summary: 'Get approval stats for a date' })
@@ -190,7 +214,12 @@ export class AttendanceController {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     if (!date) throw new BadRequestException('date query param required');
-    return this.svc.getApprovalStats(clientId, date, branchId);
+    return this.svc.getApprovalStats(
+      clientId,
+      date,
+      branchId,
+      this.branchScope(user),
+    );
   }
 
   @ApiOperation({ summary: 'Edit an attendance record' })
@@ -202,7 +231,7 @@ export class AttendanceController {
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.svc.editRecord(clientId, id, body);
+    return this.svc.editRecord(clientId, id, body, this.branchScope(user));
   }
 
   @ApiOperation({ summary: 'Bulk approve attendance records' })
@@ -213,7 +242,12 @@ export class AttendanceController {
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.svc.approveRecords(clientId, body.ids, user.userId ?? user.id);
+    return this.svc.approveRecords(
+      clientId,
+      body.ids,
+      user.userId ?? user.id,
+      this.branchScope(user),
+    );
   }
 
   @ApiOperation({ summary: 'Bulk reject attendance records' })
@@ -229,6 +263,7 @@ export class AttendanceController {
       body.ids,
       user.userId ?? user.id,
       body.reason,
+      this.branchScope(user),
     );
   }
 
@@ -240,6 +275,6 @@ export class AttendanceController {
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.svc.deleteRecords(clientId, body.ids);
+    return this.svc.deleteRecords(clientId, body.ids, this.branchScope(user));
   }
 }

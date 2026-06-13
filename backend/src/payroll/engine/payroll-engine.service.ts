@@ -1002,7 +1002,19 @@ export class PayrollEngineService {
         // For update: recalculate from all ledger entries for this year
         await qr.manager.query(
           `INSERT INTO leave_balances (id, employee_id, client_id, year, leave_type, opening, accrued, used, lapsed, available, created_at)
-           VALUES (gen_random_uuid(), $1, $2, $3, 'EL', 0, $4, $5, 0, $6, NOW())
+           VALUES (gen_random_uuid(), $1, $2, $3, 'EL', 0, $4, $5, 0,
+                   GREATEST(
+                     COALESCE((
+                       SELECT SUM(ABS(qty)) FROM leave_ledger
+                       WHERE employee_id = $1 AND leave_type = 'EL' AND ref_type = 'EL_ACCRUAL'
+                         AND EXTRACT(YEAR FROM entry_date::date) = $3
+                     ), 0)
+                     - COALESCE((
+                       SELECT SUM(ABS(qty)) FROM leave_ledger
+                       WHERE employee_id = $1 AND leave_type = 'EL' AND ref_type = 'EL_PAID_LEAVE'
+                         AND EXTRACT(YEAR FROM entry_date::date) = $3
+                     ), 0), 0),
+                   NOW())
            ON CONFLICT (employee_id, year, leave_type)
            DO UPDATE SET accrued   = COALESCE((
                            SELECT SUM(ABS(qty)) FROM leave_ledger
@@ -1014,7 +1026,17 @@ export class PayrollEngineService {
                            WHERE employee_id = $1 AND leave_type = 'EL' AND ref_type = 'EL_PAID_LEAVE'
                              AND EXTRACT(YEAR FROM entry_date::date) = $3
                          ), 0),
-                         available = $6,
+                         available = GREATEST(leave_balances.opening
+                           + COALESCE((
+                               SELECT SUM(ABS(qty)) FROM leave_ledger
+                               WHERE employee_id = $1 AND leave_type = 'EL' AND ref_type = 'EL_ACCRUAL'
+                                 AND EXTRACT(YEAR FROM entry_date::date) = $3
+                             ), 0)
+                           - COALESCE((
+                               SELECT SUM(ABS(qty)) FROM leave_ledger
+                               WHERE employee_id = $1 AND leave_type = 'EL' AND ref_type = 'EL_PAID_LEAVE'
+                                 AND EXTRACT(YEAR FROM entry_date::date) = $3
+                             ), 0), 0),
                          last_updated_at = NOW()`,
           [
             emp.employeeId,
@@ -1022,7 +1044,6 @@ export class PayrollEngineService {
             run.periodYear,
             elAccrued,
             paidLeaveDays,
-            elBalanceAfter,
           ],
         );
       }

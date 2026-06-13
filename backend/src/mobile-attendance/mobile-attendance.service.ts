@@ -4390,7 +4390,9 @@ export class MobileAttendanceService implements OnModuleInit {
     }
     let qualityReviewNote: string | null = null;
     if (this.faceEmbeddingClient.isEnabled()) {
-      const result = await this.faceEmbeddingClient.embedPhoto(body.photoBase64);
+      const result = await this.faceEmbeddingClient.embedPhoto(
+        body.photoBase64,
+      );
       if (result && result.faceScore < MIN_FACE_QUALITY_SCORE) {
         qualityReviewNote =
           `Server face quality score ${result.faceScore.toFixed(2)} is below ` +
