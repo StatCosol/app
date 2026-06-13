@@ -105,10 +105,8 @@ class KioskActivity : AppCompatActivity() {
     private val enrollFrames = mutableListOf<FloatArray>()
     private var enrollRunningAvg: FloatArray? = null
     @Volatile private var enrollLastAcceptedAt: Long = 0L
-    @Volatile private var enrollChallenge: LivenessChallengeTracker? = null
+    @Volatile private var enrollChallengeState: EnrollmentChallengeState? = null
     @Volatile private var enrollChallengePassed: Boolean = false
-    @Volatile private var enrollChallengeNonce: String? = null
-    @Volatile private var enrollChallengeType: String? = null
     @Volatile private var enrollChallengePassedAtIso: String? = null
     @Volatile private var enrollSubmitting: Boolean = false
     @Volatile private var rosterFastRefreshUntil: Long = 0L
@@ -122,6 +120,13 @@ class KioskActivity : AppCompatActivity() {
     private var lastFailedScanReportAt: Long = 0L
 
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    private data class EnrollmentChallengeState(
+        val ticketId: String,
+        val nonce: String,
+        val challenge: LivenessChallenge,
+        val tracker: LivenessChallengeTracker,
+    )
 
     /** Repaints the header clock once a minute. */
     private val clockRunnable = object : Runnable {
@@ -523,10 +528,10 @@ class KioskActivity : AppCompatActivity() {
     private fun handleFaceSignal(signal: FaceSignal) {
         // Route to enrollment challenge tracker when in enroll mode.
         if (enrollTicket != null) {
-            val tracker = enrollChallenge ?: return
-            if (!tracker.feed(signal)) return
+            val state = enrollChallengeState ?: return
+            if (!state.tracker.feed(signal)) return
             enrollChallengePassed = true
-            enrollChallengePassedAtIso = isoNow()
+            enrollChallengePassedAtIso = state.tracker.passedAtIso() ?: isoNow()
             mainHandler.removeCallbacks(enrollChallengeTimeout)
             runOnUiThread { binding.statusText.text = getString(R.string.liveness_passed) }
             maybeShowEnrollRegisterDialog()
@@ -866,9 +871,7 @@ class KioskActivity : AppCompatActivity() {
         enrollRunningAvg = null
         enrollLastAcceptedAt = 0L
         enrollChallengePassed = false
-        enrollChallenge = null
-        enrollChallengeNonce = null
-        enrollChallengeType = null
+        enrollChallengeState = null
         enrollChallengePassedAtIso = null
         runOnUiThread {
             binding.statusText.text = getString(R.string.kiosk_enroll_prompt, t.subjectName)
@@ -890,9 +893,13 @@ class KioskActivity : AppCompatActivity() {
                 abortKioskEnrollment("unknown liveness challenge")
                 return@launch
             }
-            enrollChallengeNonce = resp.nonce
-            enrollChallengeType = resp.challengeType
-            enrollChallenge = LivenessChallengeTracker(challenge)
+            if (enrollTicket?.id != t.id || enrollSubmitting) return@launch
+            enrollChallengeState = EnrollmentChallengeState(
+                ticketId = t.id,
+                nonce = resp.nonce,
+                challenge = challenge,
+                tracker = LivenessChallengeTracker(challenge),
+            )
             mainHandler.removeCallbacks(enrollChallengeTimeout)
             mainHandler.postDelayed(enrollChallengeTimeout, ENROLL_CHALLENGE_TIMEOUT_MS)
             runOnUiThread {
@@ -907,7 +914,7 @@ class KioskActivity : AppCompatActivity() {
 
     private fun handleEnrollmentFrame(probe: FloatArray, liveness: Double) {
         if (enrollSubmitting) return
-        if (enrollChallenge == null) return
+        if (enrollChallengeState == null) return
         if (enrollFrames.size >= ENROLL_REQUIRED_FRAMES) return
         if (liveness < ENROLL_MIN_LIVENESS) return
         val now = System.currentTimeMillis()
@@ -931,6 +938,7 @@ class KioskActivity : AppCompatActivity() {
         if (enrollTicket == null) return
         if (enrollFrames.size < ENROLL_REQUIRED_FRAMES) return
         if (!enrollChallengePassed) return
+        if (enrollChallengeState?.ticketId != enrollTicket?.id) return
         if (dialogActive || enrollSubmitting) return
         // Outlier check: every captured frame must be similar to the average.
         val avg = enrollRunningAvg ?: averageAndNormalize(enrollFrames)
@@ -949,6 +957,8 @@ class KioskActivity : AppCompatActivity() {
 
     private fun submitKioskEnrollment() {
         val t = enrollTicket ?: return
+        val challengeState = enrollChallengeState ?: return
+        if (challengeState.ticketId != t.id) return
         val avg = enrollRunningAvg ?: averageAndNormalize(enrollFrames)
         enrollSubmitting = true
         runOnUiThread { binding.statusText.text = getString(R.string.kiosk_enroll_uploading) }
@@ -956,9 +966,9 @@ class KioskActivity : AppCompatActivity() {
             try {
                 val body = KioskEnrollSubmitBody(
                     embeddingBase64 = FaceEmbedder.encodeEmbeddingB64(avg),
-                    livenessChallengeType = enrollChallengeType,
+                    livenessChallengeType = challengeState.challenge.wireName,
                     livenessChallengePassedAt = enrollChallengePassedAtIso,
-                    livenessNonce = enrollChallengeNonce,
+                    livenessNonce = challengeState.nonce,
                 )
                 val resp = withContext(Dispatchers.IO) {
                     app.apiClient.submitKioskEnrollTicket(t.id, body)
@@ -1021,10 +1031,8 @@ class KioskActivity : AppCompatActivity() {
         enrollTicket = null
         enrollFrames.clear()
         enrollRunningAvg = null
-        enrollChallenge = null
+        enrollChallengeState = null
         enrollChallengePassed = false
-        enrollChallengeNonce = null
-        enrollChallengeType = null
         enrollChallengePassedAtIso = null
         enrollLastAcceptedAt = 0L
         mainHandler.removeCallbacks(enrollChallengeTimeout)
