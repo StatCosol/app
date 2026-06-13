@@ -532,6 +532,9 @@ class KioskActivity : AppCompatActivity() {
             if (!state.tracker.feed(signal)) return
             enrollChallengePassed = true
             enrollChallengePassedAtIso = state.tracker.passedAtIso() ?: isoNow()
+            enrollFrames.clear()
+            enrollRunningAvg = null
+            enrollLastAcceptedAt = 0L
             mainHandler.removeCallbacks(enrollChallengeTimeout)
             runOnUiThread { binding.statusText.text = getString(R.string.liveness_passed) }
             maybeShowEnrollRegisterDialog()
@@ -903,11 +906,13 @@ class KioskActivity : AppCompatActivity() {
             mainHandler.removeCallbacks(enrollChallengeTimeout)
             mainHandler.postDelayed(enrollChallengeTimeout, ENROLL_CHALLENGE_TIMEOUT_MS)
             runOnUiThread {
+                val prompt = getString(promptResFor(challenge))
                 binding.statusText.text = getString(
                     R.string.kiosk_liveness_prompt_with_name,
                     t.subjectName,
-                    getString(promptResFor(challenge)),
+                    prompt,
                 )
+                speak(prompt)
             }
         }
     }
@@ -915,6 +920,7 @@ class KioskActivity : AppCompatActivity() {
     private fun handleEnrollmentFrame(probe: FloatArray, liveness: Double) {
         if (enrollSubmitting) return
         if (enrollChallengeState == null) return
+        if (!enrollChallengePassed) return
         if (enrollFrames.size >= ENROLL_REQUIRED_FRAMES) return
         if (liveness < ENROLL_MIN_LIVENESS) return
         val now = System.currentTimeMillis()
