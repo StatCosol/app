@@ -4159,7 +4159,7 @@ export class MobileAttendanceService implements OnModuleInit {
   // ---------------------------------------------------- kiosk-supervised
   // -------------------------------------------------- enrollment tickets
 
-  private static readonly KIOSK_ENROLL_TTL_MIN = 5;
+  private static readonly KIOSK_ENROLL_TTL_MIN = 10;
 
   /**
    * Branch / client operator creates a single-use ticket telling one

@@ -182,10 +182,10 @@ describe('MobileAttendanceService.createKioskEnrollTicket', () => {
     expect(save).toHaveBeenCalled();
     expect(t.id).toBe('t-1');
 
-    // expiresAt must be ~5 min in the future.
+    // expiresAt must be ~10 min in the future.
     const ttlMs = (t as any).expiresAt.getTime() - Date.now();
-    expect(ttlMs).toBeGreaterThan(4 * 60 * 1000);
-    expect(ttlMs).toBeLessThanOrEqual(5 * 60 * 1000 + 1000);
+    expect(ttlMs).toBeGreaterThan(9 * 60 * 1000);
+    expect(ttlMs).toBeLessThanOrEqual(10 * 60 * 1000 + 1000);
   });
 
   it('uses contractor repo for subjectType=CONTRACTOR', async () => {
