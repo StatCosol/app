@@ -135,7 +135,11 @@ const ENROLLMENT_PHOTO_RETENTION_DAYS = (() => {
 // window are rejected unless `body.offlineSync === true`, which is set by
 // the Android queue worker when draining offline rows.
 const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000; // 5 min ahead
-const MAX_OFFLINE_BACKLOG_MS = 24 * 60 * 60 * 1000; // 24h behind for live; queue worker can override
+const MAX_OFFLINE_BACKLOG_MS = (() => {
+  const raw = Number(process.env.FACE_MAX_OFFLINE_BACKLOG_HOURS);
+  const hours = Number.isFinite(raw) && raw > 0 ? raw : 24;
+  return hours * 60 * 60 * 1000;
+})(); // live punches only; offline queue worker can override
 // Duplicate-face guard at enrollment: reject when another active enrollment
 // or pending kiosk review in the same client is too similar to the new face.
 // This must be stricter than attendance matching because an accepted
@@ -147,7 +151,11 @@ const DUPLICATE_FACE_THRESHOLD = Number(
 // punch (IN or OUT) until this cooldown elapses. This enforces a minimum
 // 8-hour gap between a shift end and the next shift start, even if the
 // next shift crosses midnight.
-const POST_LOGOUT_COOLDOWN_MS = 8 * 60 * 60 * 1000;
+const POST_LOGOUT_COOLDOWN_MS = (() => {
+  const raw = Number(process.env.FACE_POST_LOGOUT_COOLDOWN_HOURS);
+  const hours = Number.isFinite(raw) && raw > 0 ? raw : 8;
+  return hours * 60 * 60 * 1000;
+})();
 
 // Phase 4c roadmap #16: real-time alerts. Only these rejection reasons
 // are considered "security-relevant" \u2014 benign reasons (cooldown,
@@ -165,15 +173,15 @@ const SUSPICIOUS_REJECTION_REASONS: ReadonlySet<string> = new Set([
 ]);
 const REJECTION_ALERT_WINDOW_MIN = (() => {
   const raw = Number(process.env.FACE_REJECTION_ALERT_WINDOW_MIN);
-  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 10;
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 15;
 })();
 const REJECTION_ALERT_THRESHOLD = (() => {
   const raw = Number(process.env.FACE_REJECTION_ALERT_THRESHOLD);
-  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 3;
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 5;
 })();
 const DEVICE_REJECTION_ALERT_THRESHOLD = (() => {
   const raw = Number(process.env.FACE_DEVICE_REJECTION_ALERT_THRESHOLD);
-  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 5;
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 10;
 })();
 const DEVICE_INSTALL_TOKEN_TTL_MS = (() => {
   const raw = Number(process.env.MOBILE_DEVICE_INSTALL_TOKEN_TTL_MIN);
