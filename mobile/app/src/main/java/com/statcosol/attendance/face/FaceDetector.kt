@@ -27,7 +27,7 @@ class FaceDetector {
             .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
             .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
             .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-            .setMinFaceSize(0.25f)
+            .setMinFaceSize(0.18f)
             .build()
     )
 
@@ -93,7 +93,7 @@ class FaceDetector {
 
     private fun safeCrop(src: Bitmap, box: Rect): Bitmap {
         val side = max(box.width(), box.height())
-        val padded = (side * 1.35f).toInt()
+        val padded = (side * 1.65f).toInt()
         val cx = box.centerX()
         val cy = box.centerY()
         val x = max(0, cx - padded / 2)
