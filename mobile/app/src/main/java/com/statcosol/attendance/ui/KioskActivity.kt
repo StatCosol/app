@@ -977,8 +977,10 @@ class KioskActivity : AppCompatActivity() {
                     clearKioskEnrollmentState()
                     runOnUiThread {
                         mainHandler.postDelayed({
-                            binding.statusText.text = getString(R.string.kiosk_look_at_camera)
-                        }, 5_000L)
+                            if (enrollTicket == null) {
+                                binding.statusText.text = getString(R.string.kiosk_look_at_camera)
+                            }
+                        }, ENROLL_RESULT_VISIBLE_MS)
                     }
                     if (rosterSize == null) {
                         mainHandler.removeCallbacks(rosterRefreshRunnable)
@@ -1011,7 +1013,7 @@ class KioskActivity : AppCompatActivity() {
                 if (enrollTicket == null) {
                     binding.statusText.text = getString(R.string.kiosk_look_at_camera)
                 }
-            }, 3_000L)
+            }, ENROLL_RESULT_VISIBLE_MS)
         }
     }
 
@@ -1061,7 +1063,7 @@ class KioskActivity : AppCompatActivity() {
         // a person right after their punch is recorded (which previously felt
         // like an instant logout).
         private const val COOLDOWN_MS = 30_000L
-        private const val OVERLAY_VISIBLE_MS = 4_000L
+        private const val OVERLAY_VISIBLE_MS = 10_000L
         /** How long the user has to perform the active-liveness gesture
          *  after their face has been matched. Tuned to be long enough for
          *  a head-turn but short enough that a person who walks away
@@ -1081,6 +1083,7 @@ class KioskActivity : AppCompatActivity() {
         private const val ENROLL_MIN_FRAME_INTERVAL_MS = 600L
         private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.72
         private const val ENROLL_CHALLENGE_TIMEOUT_MS = 12_000L
+        private const val ENROLL_RESULT_VISIBLE_MS = 12_000L
         private const val ENROLL_ROSTER_FAST_REFRESH_MS = 5_000L
         private const val ENROLL_ROSTER_FAST_REFRESH_WINDOW_MS = 2 * 60_000L
         private val TELUGU_VOICE_LOCALE: Locale = Locale("te", "IN")
