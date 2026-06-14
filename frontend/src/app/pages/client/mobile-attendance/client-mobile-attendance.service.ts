@@ -223,19 +223,12 @@ export class ClientMobileAttendanceService {
   }
 
   // ── Contractor face enrollment (Phase 4a) ──
-  enrollContractorFace(
-    body: EnrollContractorFaceBody,
-  ): Observable<ContractorFaceEnrollment> {
-    return this.http.post<ContractorFaceEnrollment>(
-      `${this.base}/contractors/enroll`,
-      body,
-    );
+  enrollContractorFace(body: EnrollContractorFaceBody): Observable<ContractorFaceEnrollment> {
+    return this.http.post<ContractorFaceEnrollment>(`${this.base}/contractors/enroll`, body);
   }
 
   listContractorEnrollments(): Observable<ContractorEnrollmentStatusRow[]> {
-    return this.http.get<ContractorEnrollmentStatusRow[]>(
-      `${this.base}/contractors/enrollments`,
-    );
+    return this.http.get<ContractorEnrollmentStatusRow[]>(`${this.base}/contractors/enrollments`);
   }
 
   deactivateContractorEnrollment(
@@ -257,9 +250,7 @@ export class ClientMobileAttendanceService {
       ok: true;
       deleted: true;
       contractorEmployeeId: string;
-    }>(
-      `${this.base}/contractors/enroll/${contractorEmployeeId}/permanent${qs}`,
-    );
+    }>(`${this.base}/contractors/enroll/${contractorEmployeeId}/permanent${qs}`);
   }
 
   // ── Contractor re-enrollment approval queue (Phase 4c) ──
@@ -282,13 +273,9 @@ export class ClientMobileAttendanceService {
   }
 
   // ── Branch-portal contractor attendance (Phase 4d) ──
-  listContractorsForBranch(
-    branchId?: string,
-  ): Observable<ContractorForBranchRow[]> {
+  listContractorsForBranch(branchId?: string): Observable<ContractorForBranchRow[]> {
     const qs = branchId ? `?branchId=${encodeURIComponent(branchId)}` : '';
-    return this.http.get<ContractorForBranchRow[]>(
-      `${this.base}/contractors/for-branch${qs}`,
-    );
+    return this.http.get<ContractorForBranchRow[]>(`${this.base}/contractors/for-branch${qs}`);
   }
 
   listContractorPunches(
@@ -311,12 +298,41 @@ export class ClientMobileAttendanceService {
       parts.push(`contractorUserId=${encodeURIComponent(opts.contractorUserId)}`);
     if (opts.limit) parts.push(`limit=${opts.limit}`);
     const qs = parts.length ? `?${parts.join('&')}` : '';
-    return this.http.get<ContractorPunchRow[]>(
-      `${this.base}/contractors/punches${qs}`,
-    );
+    return this.http.get<ContractorPunchRow[]>(`${this.base}/contractors/punches${qs}`);
   }
 
   // ── Admin face-failure audit (Phase 4d step 7) ──
+  updateContractorPunch(
+    id: string,
+    body: { punchTime?: string; direction?: 'IN' | 'OUT' | 'AUTO' },
+  ): Observable<{ ok: true; id: string; punchTime: string; direction: string }> {
+    return this.http.put<{
+      ok: true;
+      id: string;
+      punchTime: string;
+      direction: string;
+    }>(`${this.base}/contractors/punches/${id}`, body);
+  }
+
+  createContractorPunch(body: {
+    contractorEmployeeId: string;
+    punchTime: string;
+    direction: 'IN' | 'OUT' | 'AUTO';
+  }): Observable<{ ok: true; id: string; punchTime: string; direction: string }> {
+    return this.http.post<{
+      ok: true;
+      id: string;
+      punchTime: string;
+      direction: string;
+    }>(`${this.base}/contractors/punches`, body);
+  }
+
+  deleteContractorPunch(id: string): Observable<{ ok: true; deleted: number }> {
+    return this.http.delete<{ ok: true; deleted: number }>(
+      `${this.base}/contractors/punches/${id}`,
+    );
+  }
+
   listFailedScans(
     opts: {
       from?: string;
@@ -335,8 +351,7 @@ export class ClientMobileAttendanceService {
     if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
     if (opts.reason) parts.push(`reason=${encodeURIComponent(opts.reason)}`);
     if (opts.subjectType) parts.push(`subjectType=${opts.subjectType}`);
-    if (opts.employeeId)
-      parts.push(`employeeId=${encodeURIComponent(opts.employeeId)}`);
+    if (opts.employeeId) parts.push(`employeeId=${encodeURIComponent(opts.employeeId)}`);
     if (opts.contractorEmployeeId)
       parts.push(`contractorEmployeeId=${encodeURIComponent(opts.contractorEmployeeId)}`);
     if (opts.limit) parts.push(`limit=${opts.limit}`);
@@ -359,9 +374,7 @@ export class ClientMobileAttendanceService {
     if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
     if (opts.subjectType) parts.push(`subjectType=${opts.subjectType}`);
     const qs = parts.length ? `?${parts.join('&')}` : '';
-    return this.http.get<FailedScanStats>(
-      `${this.base}/failed-scans/stats${qs}`,
-    );
+    return this.http.get<FailedScanStats>(`${this.base}/failed-scans/stats${qs}`);
   }
 
   // ── Face-failure CSV export (Phase 4d step 12) ──
@@ -382,12 +395,9 @@ export class ClientMobileAttendanceService {
     if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
     if (opts.reason) parts.push(`reason=${encodeURIComponent(opts.reason)}`);
     if (opts.subjectType) parts.push(`subjectType=${opts.subjectType}`);
-    if (opts.employeeId)
-      parts.push(`employeeId=${encodeURIComponent(opts.employeeId)}`);
+    if (opts.employeeId) parts.push(`employeeId=${encodeURIComponent(opts.employeeId)}`);
     if (opts.contractorEmployeeId)
-      parts.push(
-        `contractorEmployeeId=${encodeURIComponent(opts.contractorEmployeeId)}`,
-      );
+      parts.push(`contractorEmployeeId=${encodeURIComponent(opts.contractorEmployeeId)}`);
     const qs = parts.length ? `?${parts.join('&')}` : '';
     return this.http.get(`${this.base}/failed-scans/export.csv${qs}`, {
       responseType: 'blob',
@@ -409,8 +419,7 @@ export class ClientMobileAttendanceService {
     if (opts.to) parts.push(`to=${encodeURIComponent(opts.to)}`);
     if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
     if (opts.subjectType) parts.push(`subjectType=${opts.subjectType}`);
-    if (opts.topSubjectsLimit)
-      parts.push(`topSubjectsLimit=${opts.topSubjectsLimit}`);
+    if (opts.topSubjectsLimit) parts.push(`topSubjectsLimit=${opts.topSubjectsLimit}`);
     const qs = parts.length ? `?${parts.join('&')}` : '';
     return this.http.get(`${this.base}/failed-scans/stats-export.csv${qs}`, {
       responseType: 'blob',
@@ -436,48 +445,30 @@ export class ClientMobileAttendanceService {
     if (opts.limit) parts.push(`limit=${opts.limit}`);
     if (opts.minCount && opts.minCount > 0) parts.push(`minCount=${opts.minCount}`);
     const qs = parts.length ? `?${parts.join('&')}` : '';
-    return this.http.get<TopFailedScanSubjectRow[]>(
-      `${this.base}/failed-scans/top-subjects${qs}`,
-    );
+    return this.http.get<TopFailedScanSubjectRow[]>(`${this.base}/failed-scans/top-subjects${qs}`);
   }
 
   // ── Recent face-failure spike alerts (last 7d) emitted by the cron ──
   listFaceFailureAlerts(limit = 20): Observable<FaceFailureAlertRow[]> {
-    return this.http.get<FaceFailureAlertRow[]>(
-      `${this.base}/failed-scans/alerts?limit=${limit}`,
-    );
+    return this.http.get<FaceFailureAlertRow[]>(`${this.base}/failed-scans/alerts?limit=${limit}`);
   }
 
   // ── Operator-supervised kiosk enrollment tickets ──
-  createKioskEnrollTicket(
-    body: CreateKioskEnrollTicketBody,
-  ): Observable<KioskEnrollTicket> {
-    return this.http.post<KioskEnrollTicket>(
-      `${this.base}/kiosk-enroll/tickets`,
-      body,
-    );
+  createKioskEnrollTicket(body: CreateKioskEnrollTicketBody): Observable<KioskEnrollTicket> {
+    return this.http.post<KioskEnrollTicket>(`${this.base}/kiosk-enroll/tickets`, body);
   }
 
   getKioskEnrollTicket(id: string): Observable<KioskEnrollTicket> {
-    return this.http.get<KioskEnrollTicket>(
-      `${this.base}/kiosk-enroll/tickets/${id}`,
-    );
+    return this.http.get<KioskEnrollTicket>(`${this.base}/kiosk-enroll/tickets/${id}`);
   }
 
   cancelKioskEnrollTicket(id: string): Observable<{ ok: true }> {
-    return this.http.post<{ ok: true }>(
-      `${this.base}/kiosk-enroll/tickets/${id}/cancel`,
-      {},
-    );
+    return this.http.post<{ ok: true }>(`${this.base}/kiosk-enroll/tickets/${id}/cancel`, {});
   }
 
-  listKioskEnrollTickets(
-    status?: KioskEnrollTicketStatus,
-  ): Observable<KioskEnrollTicket[]> {
+  listKioskEnrollTickets(status?: KioskEnrollTicketStatus): Observable<KioskEnrollTicket[]> {
     const qs = status ? `?status=${encodeURIComponent(status)}` : '';
-    return this.http.get<KioskEnrollTicket[]>(
-      `${this.base}/kiosk-enroll/tickets${qs}`,
-    );
+    return this.http.get<KioskEnrollTicket[]>(`${this.base}/kiosk-enroll/tickets${qs}`);
   }
 
   reviewKioskEnrollTicket(
@@ -529,6 +520,7 @@ export interface KioskEnrollTicket {
   cancelledAt: string | null;
   cancelledBy: string | null;
   embeddingModel: string | null;
+  matchScoreSelf: number | null;
   photoUrl: string | null;
   notes: string | null;
 }
