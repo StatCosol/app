@@ -61,7 +61,8 @@ const KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS = (() => {
   const env = process.env.FACE_KIOSK_ACTIVATION_DELAY_MIN;
   const raw = Number(env);
   // Treat empty/unset as default (5 min). Only accept explicit positive number.
-  const minutes = env && env.trim() !== '' && Number.isFinite(raw) && raw >= 0 ? raw : 5;
+  const minutes =
+    env && env.trim() !== '' && Number.isFinite(raw) && raw >= 0 ? raw : 5;
   return minutes * 60 * 1000;
 })();
 
@@ -1901,7 +1902,7 @@ export class MobileAttendanceService implements OnModuleInit {
           suppliedChallenge !== issuedChallenge
         ) {
           this.logger.warn(
-            `Liveness challenge type mismatch ignored device=${device.id} client=${device.clientId} supplied=${suppliedChallenge} nonceType=${issuedChallenge}`,
+            `Liveness challenge type mismatch ignored device=${device.id} client=${device.clientId} supplied=${suppliedChallenge as string} nonceType=${issuedChallenge as string}`,
           );
         }
         if (body.livenessChallengePassedAt) {
@@ -2369,7 +2370,7 @@ export class MobileAttendanceService implements OnModuleInit {
           suppliedChallenge !== issuedChallenge
         ) {
           this.logger.warn(
-            `Liveness challenge type mismatch ignored contractor device=${device.id} client=${device.clientId} supplied=${suppliedChallenge} nonceType=${issuedChallenge}`,
+            `Liveness challenge type mismatch ignored contractor device=${device.id} client=${device.clientId} supplied=${suppliedChallenge as string} nonceType=${issuedChallenge as string}`,
           );
         }
         if (body.livenessChallengePassedAt) {
@@ -4458,8 +4459,7 @@ export class MobileAttendanceService implements OnModuleInit {
         embeddingModel,
         pendingEmbedding: embedding,
         photoUrl,
-        matchScoreSelf:
-          body.selfMatchScore != null ? String(body.selfMatchScore) : null,
+        matchScoreSelf: body.selfMatchScore ?? null,
       },
     );
     await this.reviewKioskEnrollTicket(
@@ -4564,9 +4564,14 @@ export class MobileAttendanceService implements OnModuleInit {
         where: { id: ceId, clientId: ticket.clientId },
       });
       if (!ce) throw new NotFoundException('Contractor employee not found');
-      await this.assertContractorFaceNotDuplicate(ticket.clientId, ce.id, embedding, {
-        includePendingTickets: true,
-      });
+      await this.assertContractorFaceNotDuplicate(
+        ticket.clientId,
+        ce.id,
+        embedding,
+        {
+          includePendingTickets: true,
+        },
+      );
       const payload: Partial<ContractorFaceEnrollmentEntity> = {
         contractorEmployeeId: ce.id,
         clientId: ticket.clientId,
