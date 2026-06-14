@@ -5,7 +5,6 @@ import { AttendanceService } from './attendance.service';
 import { AttendanceEntity } from './entities/attendance.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { BiometricService } from '../biometric/biometric.service';
-import { FacePhotoStorage } from '../mobile-attendance/face-photo-storage.service';
 
 describe('AttendanceService', () => {
   let service: AttendanceService;
@@ -36,10 +35,6 @@ describe('AttendanceService', () => {
         { provide: getRepositoryToken(EmployeeEntity), useValue: mockRepo() },
         { provide: DataSource, useValue: {} },
         { provide: BiometricService, useValue: biometricService },
-        {
-          provide: FacePhotoStorage,
-          useValue: { toViewUrl: (url: string | null) => url },
-        },
       ],
     }).compile();
 
@@ -50,7 +45,7 @@ describe('AttendanceService', () => {
     expect(service).toBeDefined();
   });
 
-  it('processes unprocessed biometric punches before listing daily attendance', async () => {
+  it('reprocesses all biometric punches before listing daily attendance', async () => {
     const qb: any = {
       select: jest.fn().mockReturnThis(),
       from: jest.fn().mockReturnThis(),
@@ -69,7 +64,7 @@ describe('AttendanceService', () => {
       'client-1',
       '2026-05-28',
       '2026-05-28',
-      false,
+      true,
     );
     expect(qb.getRawMany).toHaveBeenCalled();
   });
@@ -89,7 +84,7 @@ describe('AttendanceService', () => {
     );
   });
 
-  it('processes unprocessed biometric punches before returning daily approval stats', async () => {
+  it('reprocesses all biometric punches before returning daily approval stats', async () => {
     const qb: any = {
       select: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
@@ -106,7 +101,7 @@ describe('AttendanceService', () => {
       'client-1',
       '2026-05-28',
       '2026-05-28',
-      false,
+      true,
     );
   });
 
