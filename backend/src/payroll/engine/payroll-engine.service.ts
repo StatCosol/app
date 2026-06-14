@@ -1004,7 +1004,8 @@ export class PayrollEngineService {
           `INSERT INTO leave_balances (id, employee_id, client_id, year, leave_type, opening, accrued, used, lapsed, available, created_at)
            VALUES (gen_random_uuid(), $1, $2, $3, 'EL', 0, $4, $5, 0,
                    GREATEST(
-                     COALESCE((
+                     COALESCE((SELECT opening FROM leave_balances WHERE employee_id = $1 AND year = $3 AND leave_type = 'EL'), 0)
+                     + COALESCE((
                        SELECT SUM(ABS(qty)) FROM leave_ledger
                        WHERE employee_id = $1 AND leave_type = 'EL' AND ref_type = 'EL_ACCRUAL'
                          AND EXTRACT(YEAR FROM entry_date::date) = $3

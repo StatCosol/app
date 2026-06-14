@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { BiometricService } from '../biometric/biometric.service';
 import { ContractorEmployeeEntity } from '../contractor/contractor-employees/entities/contractor-employee.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
@@ -46,6 +46,25 @@ import {
   SubmitKioskEnrollDto,
 } from './mobile-attendance.dto';
 
+// Emergency production stop-switch for shared kiosks. Default OFF because the
+// field rollout showed repeated false accepts/duplicates; re-enable only after
+// the branch is re-enrolled and acceptance-tested.
+const KIOSK_LIVE_ATTENDANCE_ENABLED =
+  String(process.env.FACE_KIOSK_LIVE_ATTENDANCE_ENABLED ?? 'false')
+    .toLowerCase()
+    .trim() === 'true';
+
+// Newly approved enrollments must not be accepted for attendance immediately.
+// The roster may show them right away so the kiosk does not report a false
+// "no employees enrolled" state after successful enrollment.
+const KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS = (() => {
+  const env = process.env.FACE_KIOSK_ACTIVATION_DELAY_MIN;
+  const raw = Number(env);
+  // Treat empty/unset as default (5 min). Only accept explicit positive number.
+  const minutes = env && env.trim() !== '' && Number.isFinite(raw) && raw >= 0 ? raw : 5;
+  return minutes * 60 * 1000;
+})();
+
 // Mapped (cos+1)/2 threshold. Bumped 0.70 → 0.78 (Phase 3a) → 0.85 after
 // field reports of cross-identity false accepts on the kiosk (a different
 // person scanning was being marked present against an enrolled face).
@@ -56,11 +75,11 @@ import {
 // per-punch payload.
 const MIN_MATCH_SCORE = (() => {
   const raw = process.env.FACE_MIN_MATCH_SCORE;
-  if (raw == null || raw === '') return 0.85;
+  if (raw == null || raw === '') return 0.9;
   const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.85;
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.9;
 })();
-const MIN_LIVENESS_SCORE = 0.5;
+const MIN_LIVENESS_SCORE = 0.7;
 // Face-quality gate at enrollment time (roadmap #2). face-svc returns a
 // 0..1 confidence/quality score per embedded photo; rejecting low-quality
 // enrollments here prevents bad reference embeddings from cascading into
@@ -68,9 +87,9 @@ const MIN_LIVENESS_SCORE = 0.5;
 // loosen it if a site has poor lighting before the camera is replaced.
 const MIN_FACE_QUALITY_SCORE = (() => {
   const raw = process.env.FACE_MIN_QUALITY_SCORE;
-  if (raw == null || raw === '') return 0.5;
+  if (raw == null || raw === '') return 0.65;
   const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.5;
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.65;
 })();
 // Phase 3d / 4c: active liveness challenge. Default ON — the device
 // must request a server nonce via POST /mobile-attendance/liveness/
@@ -88,6 +107,7 @@ const OFFLINE_LIVENESS_FALLBACK_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // echo back the nonce on the next punch. Adding to this list also
 // requires updating the Android client.
 const LIVENESS_CHALLENGE_TYPES = ['BLINK'] as const;
+type LivenessChallengeType = (typeof LIVENESS_CHALLENGE_TYPES)[number];
 // Lifetime of an issued nonce. Must be long enough for the user to
 // perform the action + capture the punch, short enough to limit replay.
 const LIVENESS_NONCE_TTL_MS = LIVENESS_CHALLENGE_MAX_AGE_MS;
@@ -119,12 +139,13 @@ const ENROLLMENT_PHOTO_RETENTION_DAYS = (() => {
 // the Android queue worker when draining offline rows.
 const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000; // 5 min ahead
 const MAX_OFFLINE_BACKLOG_MS = 24 * 60 * 60 * 1000; // 24h behind for live; queue worker can override
-// Duplicate-face guard at enrollment: reject when another active enrollment
-// or pending kiosk review in the same client is too similar to the new face.
+// Duplicate-face guard at enrollment: reject when another active enrollment,
+// review-pending kiosk capture, or completed kiosk capture in the same client
+// is too similar to the new face.
 // This must be stricter than attendance matching because an accepted
 // duplicate poisons the roster and can make later 1:N punches ambiguous.
 const DUPLICATE_FACE_THRESHOLD = Number(
-  process.env.FACE_DUPLICATE_THRESHOLD || 0.8,
+  process.env.FACE_DUPLICATE_THRESHOLD || 0.88,
 );
 // After an OUT (logout) punch, the same employee cannot record any further
 // punch (IN or OUT) until this cooldown elapses. This enforces a minimum
@@ -214,6 +235,11 @@ export class MobileAttendanceService implements OnModuleInit {
    *  them in the deploy logs rather than discovering them after a
    *  fraudulent punch is investigated. */
   onModuleInit(): void {
+    if (!KIOSK_LIVE_ATTENDANCE_ENABLED) {
+      this.logger.warn(
+        'FACE_KIOSK_LIVE_ATTENDANCE_ENABLED is OFF - shared-kiosk live face attendance will be rejected until production retesting is complete.',
+      );
+    }
     if (!LIVENESS_CHALLENGE_REQUIRED) {
       this.logger.warn(
         'FACE_LIVENESS_CHALLENGE_REQUIRED is OFF — punches will be accepted ' +
@@ -1023,7 +1049,10 @@ export class MobileAttendanceService implements OnModuleInit {
     } else if (device.branchId) {
       where.branchId = device.branchId;
     }
-    const rows = await this.faceRepo.find({ where: where as any });
+    let rows = await this.faceRepo.find({ where: where as any });
+    if (device.mode === 'KIOSK' && !KIOSK_LIVE_ATTENDANCE_ENABLED) {
+      rows = [];
+    }
 
     let enrollments: Array<{
       employeeId: string;
@@ -1064,9 +1093,12 @@ export class MobileAttendanceService implements OnModuleInit {
         isActive: true,
       };
       if (device.branchId) ctrWhere.branchId = device.branchId;
-      const ctrRows = await this.contractorFaceRepo.find({
+      let ctrRows = await this.contractorFaceRepo.find({
         where: ctrWhere as any,
       });
+      if (!KIOSK_LIVE_ATTENDANCE_ENABLED) {
+        ctrRows = [];
+      }
       if (ctrRows.length) {
         const ctrIds = ctrRows.map((r) => r.contractorEmployeeId);
         const nameRows: Array<{ id: string; name: string }> =
@@ -1444,6 +1476,9 @@ export class MobileAttendanceService implements OnModuleInit {
     }
 
     if (exclude.includePendingTickets && bestScore < DUPLICATE_FACE_THRESHOLD) {
+      // Only scan REVIEW_PENDING — COMPLETED tickets have already had their
+      // embedding written to face_enrollments and are covered by the primary
+      // table scan above. Including COMPLETED causes redundant double-scoring.
       const pendingRows = await this.kioskTicketRepo.find({
         where: { clientId, status: 'REVIEW_PENDING' },
       });
@@ -1661,6 +1696,12 @@ export class MobileAttendanceService implements OnModuleInit {
     actorEmployeeId?: string | null,
     meta?: PunchRequestMeta,
   ) {
+    if (device.mode === 'KIOSK' && !KIOSK_LIVE_ATTENDANCE_ENABLED) {
+      throw new ForbiddenException(
+        'Shared-kiosk live face attendance is temporarily disabled. Use manual review until face enrollment and matching are corrected.',
+      );
+    }
+
     // ESS mode: punch must be for the bound employee. Prefer the device
     // binding (it's authoritative) over the supplied employeeId.
     const expectedEmpId =
@@ -1693,6 +1734,18 @@ export class MobileAttendanceService implements OnModuleInit {
       throw new ForbiddenException(
         `No active face enrollment for employee ${emp.employeeCode ?? emp.id} — ` +
           `the device roster is stale. Please re-open the app to refresh.`,
+      );
+    }
+
+    if (
+      device.mode === 'KIOSK' &&
+      KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS > 0 &&
+      Date.now() - activeEnrollment.enrolledAt.getTime() <
+        KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS
+    ) {
+      const minutes = Math.ceil(KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS / 60_000);
+      throw new ForbiddenException(
+        `Face enrollment for ${emp.employeeCode ?? emp.id} is still inside the ${minutes}-minute activation cooling period. Attendance requires manual review.`,
       );
     }
 
@@ -1836,12 +1889,19 @@ export class MobileAttendanceService implements OnModuleInit {
             'Liveness challenge expired or already used — please retake the action',
           );
         }
+        const suppliedChallenge = normalizeLivenessChallengeType(
+          body.livenessChallengeType,
+        );
+        const issuedChallenge = normalizeLivenessChallengeType(
+          consumed.challengeType,
+        );
         if (
-          body.livenessChallengeType &&
-          body.livenessChallengeType !== consumed.challengeType
+          suppliedChallenge &&
+          issuedChallenge &&
+          suppliedChallenge !== issuedChallenge
         ) {
           this.logger.warn(
-            `Liveness challenge type mismatch ignored device=${device.id} client=${device.clientId} supplied=${body.livenessChallengeType} nonceType=${consumed.challengeType}`,
+            `Liveness challenge type mismatch ignored device=${device.id} client=${device.clientId} supplied=${suppliedChallenge} nonceType=${issuedChallenge}`,
           );
         }
         if (body.livenessChallengePassedAt) {
@@ -2155,6 +2215,11 @@ export class MobileAttendanceService implements OnModuleInit {
         'Contractor punches are only allowed from KIOSK devices',
       );
     }
+    if (!KIOSK_LIVE_ATTENDANCE_ENABLED) {
+      throw new ForbiddenException(
+        'Shared-kiosk live face attendance is temporarily disabled. Use manual review until face enrollment and matching are corrected.',
+      );
+    }
 
     const ctr = await this.contractorEmpRepo.findOne({
       where: { id: body.contractorEmployeeId, clientId: device.clientId },
@@ -2175,6 +2240,17 @@ export class MobileAttendanceService implements OnModuleInit {
       throw new ForbiddenException(
         `No active face enrollment for contractor ${ctr.id} — the device ` +
           `roster is stale. Please re-open the app to refresh.`,
+      );
+    }
+
+    if (
+      KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS > 0 &&
+      Date.now() - activeCtrEnrollment.enrolledAt.getTime() <
+        KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS
+    ) {
+      const minutes = Math.ceil(KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS / 60_000);
+      throw new ForbiddenException(
+        `Face enrollment for contractor ${ctr.id} is still inside the ${minutes}-minute activation cooling period. Attendance requires manual review.`,
       );
     }
 
@@ -2281,12 +2357,19 @@ export class MobileAttendanceService implements OnModuleInit {
             'Liveness challenge expired or already used — please retake the action',
           );
         }
+        const suppliedChallenge = normalizeLivenessChallengeType(
+          body.livenessChallengeType,
+        );
+        const issuedChallenge = normalizeLivenessChallengeType(
+          consumed.challengeType,
+        );
         if (
-          body.livenessChallengeType &&
-          body.livenessChallengeType !== consumed.challengeType
+          suppliedChallenge &&
+          issuedChallenge &&
+          suppliedChallenge !== issuedChallenge
         ) {
           this.logger.warn(
-            `Liveness challenge type mismatch ignored contractor device=${device.id} client=${device.clientId} supplied=${body.livenessChallengeType} nonceType=${consumed.challengeType}`,
+            `Liveness challenge type mismatch ignored contractor device=${device.id} client=${device.clientId} supplied=${suppliedChallenge} nonceType=${issuedChallenge}`,
           );
         }
         if (body.livenessChallengePassedAt) {
@@ -3075,6 +3158,170 @@ export class MobileAttendanceService implements OnModuleInit {
         LIMIT ${limit}`,
       params,
     );
+  }
+
+  async updateContractorPunch(
+    clientId: string,
+    punchId: string,
+    body: {
+      punchTime?: string | null;
+      direction?: 'IN' | 'OUT' | 'AUTO' | null;
+    },
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{
+    ok: true;
+    id: string;
+    punchTime: string;
+    direction: 'IN' | 'OUT' | 'AUTO';
+  }> {
+    const punch = await this.contractorPunchRepo.findOne({
+      where: { id: punchId, clientId },
+    });
+    if (!punch)
+      throw new NotFoundException('Contractor attendance punch not found');
+
+    // Branch scope checks happen after the 404 guard so callers learn the
+    // resource doesn't exist before they learn they lack access to it.
+    if (allowedBranchIds !== null) {
+      if (!punch.branchId || !allowedBranchIds.includes(punch.branchId)) {
+        throw new ForbiddenException('Punch is outside your branch scope');
+      }
+    }
+
+    if (body.punchTime !== undefined && body.punchTime !== null) {
+      if (!/Z|[+-]\d{2}:?\d{2}/.test(body.punchTime)) {
+        throw new BadRequestException(
+          'punchTime must include a timezone offset (e.g. 2026-06-15T09:00:00+05:30)',
+        );
+      }
+      const next = new Date(body.punchTime);
+      if (Number.isNaN(next.getTime())) {
+        throw new BadRequestException('Invalid punchTime');
+      }
+      punch.punchTime = next;
+    }
+
+    if (body.direction !== undefined && body.direction !== null) {
+      if (!['IN', 'OUT', 'AUTO'].includes(body.direction)) {
+        throw new BadRequestException('Invalid direction');
+      }
+      punch.direction = body.direction;
+    }
+
+    try {
+      const saved = await this.contractorPunchRepo.save(punch);
+      return {
+        ok: true,
+        id: saved.id,
+        punchTime: saved.punchTime.toISOString(),
+        direction: saved.direction,
+      };
+    } catch (err: any) {
+      if (err?.code === '23505') {
+        throw new ConflictException(
+          'A contractor attendance punch already exists at this time',
+        );
+      }
+      throw err;
+    }
+  }
+
+  async createContractorPunch(
+    clientId: string,
+    body: {
+      contractorEmployeeId: string;
+      punchTime: string;
+      direction: 'IN' | 'OUT' | 'AUTO';
+    },
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{
+    ok: true;
+    id: string;
+    punchTime: string;
+    direction: 'IN' | 'OUT' | 'AUTO';
+  }> {
+    const employee = await this.contractorEmpRepo.findOne({
+      where: { id: body.contractorEmployeeId, clientId, isActive: true },
+    });
+    if (!employee) {
+      throw new NotFoundException('Contractor employee not found');
+    }
+
+    if (allowedBranchIds !== null) {
+      if (!employee.branchId) {
+        throw new ForbiddenException(
+          'Contractor employee is not assigned to a branch and cannot be accessed with a branch-scoped account',
+        );
+      }
+      if (!allowedBranchIds.includes(employee.branchId)) {
+        throw new ForbiddenException(
+          'Contractor employee is outside your branch scope',
+        );
+      }
+    }
+
+    // Require explicit timezone to avoid server-local-time ambiguity.
+    if (!/Z|[+-]\d{2}:?\d{2}/.test(body.punchTime)) {
+      throw new BadRequestException(
+        'punchTime must include a timezone offset (e.g. 2026-06-15T09:00:00+05:30)',
+      );
+    }
+    const punchTime = new Date(body.punchTime);
+    if (Number.isNaN(punchTime.getTime())) {
+      throw new BadRequestException('Invalid punchTime');
+    }
+
+    try {
+      const saved = await this.contractorPunchRepo.save(
+        this.contractorPunchRepo.create({
+          clientId,
+          branchId: employee.branchId,
+          contractorEmployeeId: employee.id,
+          punchTime,
+          direction: body.direction,
+          source: 'MANUAL',
+          deviceId: 'manual:portal',
+        }),
+      );
+
+      return {
+        ok: true,
+        id: saved.id,
+        punchTime: saved.punchTime.toISOString(),
+        direction: saved.direction,
+      };
+    } catch (err: any) {
+      if (err?.code === '23505') {
+        throw new ConflictException(
+          'A contractor attendance punch already exists at this time',
+        );
+      }
+      throw err;
+    }
+  }
+
+  async deleteContractorPunch(
+    clientId: string,
+    punchId: string,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{ ok: true; deleted: number }> {
+    const punch = await this.contractorPunchRepo.findOne({
+      where: { id: punchId, clientId },
+    });
+    if (!punch)
+      throw new NotFoundException('Contractor attendance punch not found');
+
+    if (allowedBranchIds !== null) {
+      if (!punch.branchId || !allowedBranchIds.includes(punch.branchId)) {
+        throw new ForbiddenException('Punch is outside your branch scope');
+      }
+    }
+
+    const deleted = await this.contractorPunchRepo.delete({
+      id: punchId,
+      clientId,
+    });
+    return { ok: true, deleted: deleted.affected ?? 0 };
   }
 
   /**
@@ -4100,6 +4347,45 @@ export class MobileAttendanceService implements OnModuleInit {
       );
       throw new ConflictException('Ticket has expired');
     }
+    // Validate all static liveness fields BEFORE consuming the nonce so that
+    // format/range errors don't permanently spend the token.
+    let livenessSuppliedChallenge: LivenessChallengeType | null = null;
+    let livenessNonceToConsume: string | null = null;
+    if (LIVENESS_CHALLENGE_REQUIRED) {
+      if (
+        !body.livenessNonce ||
+        !body.livenessChallengeType ||
+        !body.livenessChallengePassedAt
+      ) {
+        throw new BadRequestException(
+          'Enrollment requires a completed liveness challenge',
+        );
+      }
+      livenessSuppliedChallenge = normalizeLivenessChallengeType(
+        body.livenessChallengeType,
+      );
+      if (!livenessSuppliedChallenge) {
+        throw new BadRequestException('Invalid enrollment liveness challenge');
+      }
+      const passedAt = Date.parse(body.livenessChallengePassedAt);
+      if (Number.isNaN(passedAt)) {
+        throw new BadRequestException('Invalid enrollment liveness timestamp');
+      }
+      const now2 = Date.now();
+      if (passedAt > now2) {
+        throw new BadRequestException(
+          'Enrollment liveness challenge timestamp is in the future',
+        );
+      }
+      if (now2 - passedAt > LIVENESS_CHALLENGE_MAX_AGE_MS) {
+        throw new BadRequestException(
+          'Enrollment liveness challenge is too old; please retry',
+        );
+      }
+      // All static checks passed — save the nonce for consumption immediately
+      // before the ticket write so a DB failure doesn't permanently spend it.
+      livenessNonceToConsume = body.livenessNonce;
+    }
 
     const embedding = Buffer.from(body.embeddingBase64, 'base64');
     if (embedding.length === 0 || embedding.length % 4 !== 0) {
@@ -4123,7 +4409,9 @@ export class MobileAttendanceService implements OnModuleInit {
       });
     } else {
       const ceId = ticket.contractorEmployeeId!;
-      const ce = await this.contractorEmpRepo.findOne({ where: { id: ceId } });
+      const ce = await this.contractorEmpRepo.findOne({
+        where: { id: ceId, clientId: ticket.clientId },
+      });
       if (!ce) throw new NotFoundException('Contractor employee not found');
       await this.assertContractorFaceNotDuplicate(
         ticket.clientId,
@@ -4140,6 +4428,28 @@ export class MobileAttendanceService implements OnModuleInit {
       });
     }
 
+    // Consume the nonce as late as possible — immediately before the write —
+    // so that DB failures before this point do not permanently spend the token.
+    if (livenessNonceToConsume && livenessSuppliedChallenge) {
+      const consumed = await this.consumeLivenessNonce(
+        device.id,
+        livenessNonceToConsume,
+      );
+      if (!consumed.ok) {
+        throw new BadRequestException(
+          'Enrollment liveness challenge expired or already used',
+        );
+      }
+      const issuedChallenge = normalizeLivenessChallengeType(
+        consumed.challengeType,
+      );
+      if (!issuedChallenge || issuedChallenge !== livenessSuppliedChallenge) {
+        throw new BadRequestException(
+          'Enrollment liveness challenge does not match the issued action',
+        );
+      }
+    }
+
     await this.kioskTicketRepo.update(
       { id: ticket.id },
       {
@@ -4151,6 +4461,13 @@ export class MobileAttendanceService implements OnModuleInit {
         matchScoreSelf:
           body.selfMatchScore != null ? String(body.selfMatchScore) : null,
       },
+    );
+    await this.reviewKioskEnrollTicket(
+      ticket.clientId,
+      'system:kiosk-auto-approve',
+      null,
+      ticket.id,
+      { decision: 'APPROVED' },
     );
     return { ok: true, ticketId: ticket.id };
   }
@@ -4166,13 +4483,12 @@ export class MobileAttendanceService implements OnModuleInit {
       where: { id: ticketId, clientId },
     });
     if (!ticket) throw new NotFoundException('Ticket not found');
-    if (
-      allowedBranchIds &&
-      allowedBranchIds.length > 0 &&
-      ticket.branchId &&
-      !allowedBranchIds.includes(ticket.branchId)
-    ) {
-      throw new ForbiddenException('Ticket is outside your branch scope');
+    if (allowedBranchIds && allowedBranchIds.length > 0) {
+      // A null branchId means the enrollment has no branch assignment — a
+      // branch-scoped reviewer must not be allowed to approve it silently.
+      if (!ticket.branchId || !allowedBranchIds.includes(ticket.branchId)) {
+        throw new ForbiddenException('Ticket is outside your branch scope');
+      }
     }
     if (ticket.status !== 'REVIEW_PENDING') {
       throw new ConflictException(
@@ -4204,7 +4520,11 @@ export class MobileAttendanceService implements OnModuleInit {
 
     if (ticket.subjectType === 'EMPLOYEE') {
       const empId = ticket.employeeId!;
-      await this.assertFaceNotDuplicate(ticket.clientId, empId, embedding);
+      // includePendingTickets catches concurrent REVIEW_PENDING submissions for
+      // the same face that would be invisible if we only checked face_enrollments.
+      await this.assertFaceNotDuplicate(ticket.clientId, empId, embedding, {
+        includePendingTickets: true,
+      });
       const payload: Partial<FaceEnrollmentEntity> = {
         employeeId: empId,
         clientId: ticket.clientId,
@@ -4221,10 +4541,13 @@ export class MobileAttendanceService implements OnModuleInit {
         deactivationReason: null,
       };
       const existing = await this.faceRepo.findOne({
-        where: { employeeId: empId },
+        where: { employeeId: empId, clientId: ticket.clientId },
       });
       if (existing) {
-        await this.faceRepo.update({ employeeId: empId }, payload);
+        await this.faceRepo.update(
+          { employeeId: empId, clientId: ticket.clientId },
+          payload,
+        );
       } else {
         await this.faceRepo.save(this.faceRepo.create(payload));
       }
@@ -4237,13 +4560,13 @@ export class MobileAttendanceService implements OnModuleInit {
       });
     } else {
       const ceId = ticket.contractorEmployeeId!;
-      const ce = await this.contractorEmpRepo.findOne({ where: { id: ceId } });
+      const ce = await this.contractorEmpRepo.findOne({
+        where: { id: ceId, clientId: ticket.clientId },
+      });
       if (!ce) throw new NotFoundException('Contractor employee not found');
-      await this.assertContractorFaceNotDuplicate(
-        ticket.clientId,
-        ce.id,
-        embedding,
-      );
+      await this.assertContractorFaceNotDuplicate(ticket.clientId, ce.id, embedding, {
+        includePendingTickets: true,
+      });
       const payload: Partial<ContractorFaceEnrollmentEntity> = {
         contractorEmployeeId: ce.id,
         clientId: ticket.clientId,
@@ -4261,11 +4584,11 @@ export class MobileAttendanceService implements OnModuleInit {
         deactivationReason: null,
       };
       const existing = await this.contractorFaceRepo.findOne({
-        where: { contractorEmployeeId: ce.id },
+        where: { contractorEmployeeId: ce.id, clientId: ticket.clientId },
       });
       if (existing) {
         await this.contractorFaceRepo.update(
-          { contractorEmployeeId: ce.id },
+          { contractorEmployeeId: ce.id, clientId: ticket.clientId },
           payload,
         );
       } else {
@@ -4416,6 +4739,17 @@ function rejectionMatchScore(e: any, fallback: number | null): number | null {
   return typeof e?.matchScore === 'number' && Number.isFinite(e.matchScore)
     ? e.matchScore
     : fallback;
+}
+
+function normalizeLivenessChallengeType(
+  value: string | null | undefined,
+): LivenessChallengeType | null {
+  const normalized = String(value ?? '')
+    .trim()
+    .toUpperCase();
+  return LIVENESS_CHALLENGE_TYPES.includes(normalized as LivenessChallengeType)
+    ? (normalized as LivenessChallengeType)
+    : null;
 }
 
 function haversineMeters(

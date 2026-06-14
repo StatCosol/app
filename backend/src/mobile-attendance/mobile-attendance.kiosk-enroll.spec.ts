@@ -41,6 +41,16 @@ type Deps = {
   ds?: any;
 };
 
+const livenessBody = {
+  livenessNonce: 'nonce-1',
+  livenessChallengeType: 'BLINK',
+  livenessChallengePassedAt: new Date().toISOString(),
+} as const;
+
+const livenessDs = () => ({
+  query: jest.fn().mockResolvedValue([{ challenge_type: 'BLINK' }]),
+});
+
 const makeService = (d: Deps = {}): MobileAttendanceService =>
   new MobileAttendanceService(
     d.faceRepo ?? ({} as any),
@@ -523,12 +533,14 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
       contractorFaceRepo,
       empRepo,
       kioskTicketRepo: { findOne: jest.fn().mockResolvedValue(ticket) },
+      ds: livenessDs(),
     });
 
     await expect(
       svc.submitKioskEnrollTicket(kioskDevice as any, 't-1', {
         // raw cosine 0.80 => mapped duplicate score 0.90, above the 0.88 guard.
         embeddingBase64: embeddingB64([0.8, 0.6]),
+        ...livenessBody,
       }),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(faceRepo.manager.query).toHaveBeenCalledWith(
@@ -583,11 +595,13 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
       contractorEmpRepo,
       empRepo,
       kioskTicketRepo: { findOne: jest.fn().mockResolvedValue(ticket) },
+      ds: livenessDs(),
     });
 
     await expect(
       svc.submitKioskEnrollTicket(kioskDevice as any, 't-2', {
         embeddingBase64: embeddingB64([0.8, 0.6]),
+        ...livenessBody,
       }),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(contractorSave).not.toHaveBeenCalled();

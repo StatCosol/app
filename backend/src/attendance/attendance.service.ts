@@ -45,7 +45,12 @@ export class AttendanceService {
     allowedBranchIds: string[] | null = null,
   ): void {
     if (!allowedBranchIds) return;
-    if (!branchId || !allowedBranchIds.includes(branchId)) {
+    if (!branchId) {
+      throw new ForbiddenException(
+        'Employee is not assigned to a branch and cannot be accessed with a branch-scoped account',
+      );
+    }
+    if (!allowedBranchIds.includes(branchId)) {
       throw new ForbiddenException(
         'Attendance record is outside your branch scope',
       );
@@ -143,16 +148,19 @@ export class AttendanceService {
     },
     allowedBranchIds: string[] | null = null,
   ) {
+    // Validate all entries before writing any — prevents partial saves when
+    // a branch-scope or not-found error would otherwise leave earlier entries committed.
+    for (const entry of body.entries) {
+      const emp = await this.empRepo.findOne({
+        where: { id: entry.employeeId, clientId },
+      });
+      if (!emp) throw new NotFoundException(`Employee ${entry.employeeId} not found`);
+      this.assertBranchAllowed(emp.branchId, allowedBranchIds);
+    }
+
     const results: { employeeId: string; status: string }[] = [];
     for (const entry of body.entries) {
-      await this.markAttendance(
-        clientId,
-        {
-          ...entry,
-          date: body.date,
-        },
-        allowedBranchIds,
-      );
+      await this.markAttendance(clientId, { ...entry, date: body.date }, allowedBranchIds);
       results.push({ employeeId: entry.employeeId, status: 'saved' });
     }
     return { date: body.date, saved: results.length, results };
@@ -398,7 +406,7 @@ export class AttendanceService {
 
       for (const emp of employees) {
         const exists = await this.repo.findOne({
-          where: { employeeId: emp.id, date: dateStr },
+          where: { clientId, employeeId: emp.id, date: dateStr },
         });
         if (exists) continue;
 
@@ -428,11 +436,12 @@ export class AttendanceService {
     approvalStatus?: string;
     allowedBranchIds?: string[] | null;
   }) {
+    // reprocess=true: always reconcile corrected punches before showing the review grid
     await this.biometricService.processRange(
       params.clientId,
       params.date,
       params.date,
-      false,
+      true,
     );
 
     const qb = this.ds
@@ -518,12 +527,7 @@ export class AttendanceService {
       record.overtimeHours = String(body.overtimeHours);
     if (body.remarks !== undefined) record.remarks = body.remarks || null;
 
-    // Reset approval when edited
-    record.approvalStatus = 'PENDING';
-    record.approvedByUserId = null;
-    record.approvedAt = null;
-    record.rejectionReason = null;
-
+    this.resetApproval(record);
     return this.repo.save(record);
   }
 
@@ -538,6 +542,11 @@ export class AttendanceService {
       where: { clientId, id: In(ids) },
     });
     if (!records.length) throw new NotFoundException('No records found');
+    if (records.length !== ids.length) {
+      throw new NotFoundException(
+        `${ids.length - records.length} record(s) not found or do not belong to this client`,
+      );
+    }
     records.forEach((record) =>
       this.assertBranchAllowed(record.branchId, allowedBranchIds),
     );
@@ -565,6 +574,11 @@ export class AttendanceService {
       where: { clientId, id: In(ids) },
     });
     if (!records.length) throw new NotFoundException('No records found');
+    if (records.length !== ids.length) {
+      throw new NotFoundException(
+        `${ids.length - records.length} record(s) not found or do not belong to this client`,
+      );
+    }
     records.forEach((record) =>
       this.assertBranchAllowed(record.branchId, allowedBranchIds),
     );
@@ -625,7 +639,7 @@ export class AttendanceService {
     branchId?: string,
     allowedBranchIds: string[] | null = null,
   ) {
-    await this.biometricService.processRange(clientId, date, date, false);
+    await this.biometricService.processRange(clientId, date, date, true);
 
     const qb = this.repo
       .createQueryBuilder('a')
