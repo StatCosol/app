@@ -71,7 +71,7 @@ export class KioskEnrollTicketEntity {
   @Column({ name: 'reviewed_at', type: 'timestamptz', nullable: true })
   reviewedAt: Date | null;
 
-  @Column({ name: 'reviewed_by', type: 'uuid', nullable: true })
+  @Column({ name: 'reviewed_by', type: 'text', nullable: true })
   reviewedBy: string | null;
 
   @Column({ name: 'rejection_reason', type: 'text', nullable: true })
