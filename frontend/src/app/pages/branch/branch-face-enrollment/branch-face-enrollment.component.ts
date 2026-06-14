@@ -1,5 +1,13 @@
-import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { fromEvent, interval, merge, Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
@@ -33,7 +41,7 @@ type SubjectType = 'employee' | 'contractor';
 
 interface EnrollForm {
   subjectType: SubjectType;
-  subjectId: string;            // employees.id OR contractor_employees.id
+  subjectId: string; // employees.id OR contractor_employees.id
   photoBase64: string;
   photoMime: string;
   photoFileName: string;
@@ -59,53 +67,75 @@ interface EnrollForm {
 
     <div class="p-4 md:p-6 space-y-4">
       <!-- Subject-type tabs (Employee vs Contractor) -->
-      <div class="bg-white rounded-xl border border-gray-200 p-2 shadow-sm flex gap-1" role="tablist">
-        <button type="button" role="tab"
+      <div
+        class="bg-white rounded-xl border border-gray-200 p-2 shadow-sm flex gap-1"
+        role="tablist"
+      >
+        <button
+          type="button"
+          role="tab"
           class="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition"
           [class.bg-indigo-600]="subjectType === 'employee'"
           [class.text-white]="subjectType === 'employee'"
           [class.text-gray-700]="subjectType !== 'employee'"
           [class.hover:bg-gray-100]="subjectType !== 'employee'"
           [attr.aria-selected]="subjectType === 'employee'"
-          (click)="switchSubjectType('employee')">
+          (click)="switchSubjectType('employee')"
+        >
           Employees
         </button>
-        <button type="button" role="tab"
+        <button
+          type="button"
+          role="tab"
           class="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition"
           [class.bg-indigo-600]="subjectType === 'contractor'"
           [class.text-white]="subjectType === 'contractor'"
           [class.text-gray-700]="subjectType !== 'contractor'"
           [class.hover:bg-gray-100]="subjectType !== 'contractor'"
           [attr.aria-selected]="subjectType === 'contractor'"
-          (click)="switchSubjectType('contractor')">
+          (click)="switchSubjectType('contractor')"
+        >
           Contractor Employees
         </button>
       </div>
 
       <!-- Notice: employees self-enroll from their paired ESS device. -->
-      <div *ngIf="subjectType === 'employee'" class="bg-indigo-50 border border-indigo-200 rounded-xl p-5 shadow-sm">
-        <h3 class="font-semibold text-indigo-900 mb-1">Employee face enrollment moved to the ESS mobile app</h3>
+      <div
+        *ngIf="subjectType === 'employee'"
+        class="bg-indigo-50 border border-indigo-200 rounded-xl p-5 shadow-sm"
+      >
+        <h3 class="font-semibold text-indigo-900 mb-1">
+          Employee face enrollment moved to the ESS mobile app
+        </h3>
         <p class="text-sm text-indigo-800">
           To strengthen identity assurance, employees now enroll their face directly from their
           paired ESS device using a live 8-frame capture. Pair the device under
-          <strong>Mobile Devices</strong>, link it to the employee, and ask them to open the
-          ESS app — the enroll screen launches automatically the first time.
+          <strong>Mobile Devices</strong>, link it to the employee, and ask them to open the ESS app
+          — the enroll screen launches automatically the first time.
         </p>
         <p class="text-xs text-indigo-700 mt-2">
-          You can still view enrollment status and deactivate / delete a stored template below.
-          For exceptional re-enrollments, use the re-enrollment request workflow.
+          You can still view enrollment status and deactivate / delete a stored template below. For
+          exceptional re-enrollments, use the re-enrollment request workflow.
         </p>
       </div>
 
-      <div *ngIf="subjectType === 'contractor'" class="bg-indigo-50 border border-indigo-200 rounded-xl p-5 shadow-sm">
-        <h3 class="font-semibold text-indigo-900 mb-1">Contractor face enrollment uses kiosk review</h3>
+      <div
+        *ngIf="subjectType === 'contractor'"
+        class="bg-indigo-50 border border-indigo-200 rounded-xl p-5 shadow-sm"
+      >
+        <h3 class="font-semibold text-indigo-900 mb-1">
+          Contractor face enrollment uses kiosk review
+        </h3>
         <p class="text-sm text-indigo-800">
-          Select a contractor employee below and use <strong>Enroll on Kiosk</strong>. The kiosk captures only;
-          the registration becomes active only after web approval.
+          Select a contractor employee below and use <strong>Enroll on Kiosk</strong>. The kiosk
+          captures only; the registration becomes active only after web approval.
         </p>
       </div>
 
-      <div *ngIf="false && subjectType === 'contractor'" class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+      <div
+        *ngIf="false && subjectType === 'contractor'"
+        class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm"
+      >
         <h3 class="font-semibold text-gray-900 mb-3">Enroll a Contractor Employee Face</h3>
 
         <div *ngIf="loadingSubjects" class="py-6 flex justify-center">
@@ -115,10 +145,16 @@ interface EnrollForm {
         <ng-container *ngIf="!loadingSubjects">
           <div *ngIf="!subjectCount">
             <ui-empty-state
-              [title]="subjectType === 'contractor' ? 'No contractor employees found' : 'No employees found'"
-              [description]="subjectType === 'contractor'
-                ? 'There are no active contractor employees in your branch yet.'
-                : 'There are no active employees in your branch yet.'"
+              [title]="
+                subjectType === 'contractor'
+                  ? 'No contractor employees found'
+                  : 'No employees found'
+              "
+              [description]="
+                subjectType === 'contractor'
+                  ? 'There are no active contractor employees in your branch yet.'
+                  : 'There are no active employees in your branch yet.'
+              "
             ></ui-empty-state>
           </div>
 
@@ -127,9 +163,17 @@ interface EnrollForm {
               <label for="enroll-subj" class="block text-xs font-medium text-gray-600 mb-1">
                 {{ subjectType === 'contractor' ? 'Contractor Employee' : 'Employee' }}
               </label>
-              <select id="enroll-subj" name="subjectId" [(ngModel)]="enrollForm.subjectId" (ngModelChange)="onEnrollSubjectChange()" class="ui-input">
+              <select
+                id="enroll-subj"
+                name="subjectId"
+                [(ngModel)]="enrollForm.subjectId"
+                (ngModelChange)="onEnrollSubjectChange()"
+                class="ui-input"
+              >
                 <option value="">— Select —</option>
-                <option *ngFor="let c of contractors" [value]="c.id">{{ c.name }}<span *ngIf="c.designation"> · {{ c.designation }}</span></option>
+                <option *ngFor="let c of contractors" [value]="c.id">
+                  {{ c.name }}<span *ngIf="c.designation"> · {{ c.designation }}</span>
+                </option>
               </select>
             </div>
 
@@ -138,22 +182,66 @@ interface EnrollForm {
               <div class="flex items-center justify-between mb-2">
                 <div>
                   <h4 class="text-sm font-semibold text-gray-800">Live Camera Capture</h4>
-                  <p class="text-xs text-gray-500">Capture a clear, well-lit, front-facing photo using the camera.</p>
+                  <p class="text-xs text-gray-500">
+                    Capture a clear, well-lit, front-facing photo using the camera.
+                  </p>
                 </div>
                 <div class="flex gap-2">
-                  <ui-button *ngIf="!cameraActive" variant="secondary" size="sm" (clicked)="startCamera()">Start Camera</ui-button>
-                  <ui-button *ngIf="cameraActive" variant="primary" size="sm" (clicked)="capturePhoto()">📷 Capture</ui-button>
-                  <ui-button *ngIf="cameraActive" variant="secondary" size="sm" (clicked)="stopCamera()">Stop</ui-button>
-                  <ui-button *ngIf="!cameraActive && enrollForm.photoBase64" variant="secondary" size="sm" (clicked)="clearCapturedPhoto()">Retake</ui-button>
+                  <ui-button
+                    *ngIf="!cameraActive"
+                    variant="secondary"
+                    size="sm"
+                    (clicked)="startCamera()"
+                    >Start Camera</ui-button
+                  >
+                  <ui-button
+                    *ngIf="cameraActive"
+                    variant="primary"
+                    size="sm"
+                    (clicked)="capturePhoto()"
+                    >📷 Capture</ui-button
+                  >
+                  <ui-button
+                    *ngIf="cameraActive"
+                    variant="secondary"
+                    size="sm"
+                    (clicked)="stopCamera()"
+                    >Stop</ui-button
+                  >
+                  <ui-button
+                    *ngIf="!cameraActive && enrollForm.photoBase64"
+                    variant="secondary"
+                    size="sm"
+                    (clicked)="clearCapturedPhoto()"
+                    >Retake</ui-button
+                  >
                 </div>
               </div>
-              <div class="relative bg-gray-900 rounded-lg overflow-hidden" [style.maxWidth.px]="480" [style.aspectRatio]="'4 / 3'">
-                <video #cameraVideo autoplay playsinline muted [hidden]="!cameraActive" class="w-full h-full object-cover"></video>
-                <div *ngIf="!cameraActive" class="flex items-center justify-center h-full text-gray-400 text-sm" style="min-height: 180px;">
+              <div
+                class="relative bg-gray-900 rounded-lg overflow-hidden"
+                [style.maxWidth.px]="480"
+                [style.aspectRatio]="'4 / 3'"
+              >
+                <video
+                  #cameraVideo
+                  autoplay
+                  playsinline
+                  muted
+                  [hidden]="!cameraActive"
+                  class="w-full h-full object-cover"
+                ></video>
+                <div
+                  *ngIf="!cameraActive"
+                  class="flex items-center justify-center h-full text-gray-400 text-sm"
+                  style="min-height: 180px;"
+                >
                   Camera off — click “Start Camera” to begin
                 </div>
               </div>
-              <p *ngIf="!cameraActive && enrollForm.photoBase64" class="text-xs text-emerald-700 mt-2">
+              <p
+                *ngIf="!cameraActive && enrollForm.photoBase64"
+                class="text-xs text-emerald-700 mt-2"
+              >
                 ✓ Photo captured ({{ photoKB }} KB) — ready to enroll
               </p>
               <p *ngIf="cameraError" class="text-xs text-red-600 mt-2">{{ cameraError }}</p>
@@ -161,26 +249,38 @@ interface EnrollForm {
             </div>
 
             <div class="mt-4 flex items-start gap-2">
-              <input id="enroll-consent" type="checkbox" name="consentGiven"
-                [(ngModel)]="enrollForm.consentGiven" class="mt-0.5">
+              <input
+                id="enroll-consent"
+                type="checkbox"
+                name="consentGiven"
+                [(ngModel)]="enrollForm.consentGiven"
+                class="mt-0.5"
+              />
               <label for="enroll-consent" class="text-sm text-gray-700">
-                I confirm the {{ subjectType === 'contractor' ? 'contractor employee' : 'employee' }} has read the biometric data privacy notice and has given explicit
-                informed consent for face enrollment under the DPDP Act 2023.
+                I confirm the
+                {{ subjectType === 'contractor' ? 'contractor employee' : 'employee' }} has read the
+                biometric data privacy notice and has given explicit informed consent for face
+                enrollment under the DPDP Act 2023.
               </label>
             </div>
 
             <div *ngIf="enrollError" class="mt-3 text-sm text-red-600">{{ enrollError }}</div>
 
             <div class="mt-4 flex gap-2">
-              <ui-button variant="primary" (clicked)="submitEnroll()" [loading]="enrolling" [disabled]="!canEnroll">
+              <ui-button
+                variant="primary"
+                (clicked)="submitEnroll()"
+                [loading]="enrolling"
+                [disabled]="!canEnroll"
+              >
                 Enroll Face
               </ui-button>
               <ui-button variant="secondary" (clicked)="resetEnroll()">Reset</ui-button>
             </div>
 
             <p class="mt-3 text-xs text-gray-500">
-              The photo is processed on the server to compute a face embedding (MobileFaceNet, 192-d).
-              Only the embedding is stored — the photo itself is not retained.
+              The photo is processed on the server to compute a face embedding (MobileFaceNet,
+              192-d). Only the embedding is stored — the photo itself is not retained.
             </p>
           </ng-container>
         </ng-container>
@@ -191,7 +291,9 @@ interface EnrollForm {
         <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div>
             <h3 class="font-semibold text-gray-900">
-              {{ subjectType === 'contractor' ? 'Contractor Enrollment Status' : 'Enrollment Status' }}
+              {{
+                subjectType === 'contractor' ? 'Contractor Enrollment Status' : 'Enrollment Status'
+              }}
             </h3>
             <p class="text-xs text-gray-500">
               <span class="font-semibold text-gray-900">{{ enrolledCount }}</span> enrolled ·
@@ -200,9 +302,20 @@ interface EnrollForm {
             </p>
           </div>
           <div class="flex items-center gap-2">
-            <input type="text" placeholder="Search…" [(ngModel)]="statusSearch" name="statusSearch"
-              class="ui-input" style="width: 200px;">
-            <select [(ngModel)]="statusFilter" name="statusFilter" class="ui-input" style="width: 160px;">
+            <input
+              type="text"
+              placeholder="Search…"
+              [(ngModel)]="statusSearch"
+              name="statusSearch"
+              class="ui-input"
+              style="width: 200px;"
+            />
+            <select
+              [(ngModel)]="statusFilter"
+              name="statusFilter"
+              class="ui-input"
+              style="width: 160px;"
+            >
               <option value="all">All</option>
               <option value="pending">Pending only</option>
               <option value="enrolled">Enrolled only</option>
@@ -217,7 +330,12 @@ interface EnrollForm {
         </div>
 
         <!-- Employee status table -->
-        <div *ngIf="!loadingEnrollments && subjectType === 'employee' && filteredEnrollments.length > 0" class="overflow-x-auto">
+        <div
+          *ngIf="
+            !loadingEnrollments && subjectType === 'employee' && filteredEnrollments.length > 0
+          "
+          class="overflow-x-auto"
+        >
           <table class="w-full text-sm">
             <thead>
               <tr class="bg-gray-50 border-b border-gray-200">
@@ -229,26 +347,56 @@ interface EnrollForm {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let r of filteredEnrollments" class="border-b border-gray-100 hover:bg-gray-50">
+              <tr
+                *ngFor="let r of filteredEnrollments"
+                class="border-b border-gray-100 hover:bg-gray-50"
+              >
                 <td class="px-3 py-2 text-gray-700 font-mono text-xs">{{ r.employeeCode }}</td>
                 <td class="px-3 py-2 text-gray-900 font-medium">{{ r.employeeName }}</td>
                 <td class="px-3 py-2 text-center">
-                  <span *ngIf="r.isEnrolled && r.isActive"
-                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Enrolled</span>
-                  <span *ngIf="r.isEnrolled && !r.isActive"
-                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Deactivated</span>
-                  <span *ngIf="!r.isEnrolled"
-                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pending</span>
+                  <span
+                    *ngIf="r.isEnrolled && r.isActive"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700"
+                    >Enrolled</span
+                  >
+                  <span
+                    *ngIf="r.isEnrolled && !r.isActive"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600"
+                    >Deactivated</span
+                  >
+                  <span
+                    *ngIf="!r.isEnrolled"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800"
+                    >Pending</span
+                  >
                 </td>
-                <td class="px-3 py-2 text-gray-700">{{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}</td>
+                <td class="px-3 py-2 text-gray-700">
+                  {{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}
+                </td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <button *ngIf="r.isEnrolled && r.isActive" class="text-xs text-red-600 hover:underline mr-3"
-                    (click)="deactivate(r)">Deactivate</button>
-                  <button *ngIf="r.isEnrolled" class="text-xs text-red-700 hover:underline font-semibold"
-                    (click)="hardDelete(r)" title="Permanently remove this enrollment row (audit history preserved)">Delete</button>
-                  <button *ngIf="!r.isEnrolled" class="text-xs text-indigo-600 hover:underline font-semibold"
+                  <button
+                    *ngIf="r.isEnrolled && r.isActive"
+                    class="text-xs text-red-600 hover:underline mr-3"
+                    (click)="deactivate(r)"
+                  >
+                    Deactivate
+                  </button>
+                  <button
+                    *ngIf="r.isEnrolled"
+                    class="text-xs text-red-700 hover:underline font-semibold"
+                    (click)="hardDelete(r)"
+                    title="Permanently remove this enrollment row (audit history preserved)"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    *ngIf="!r.isEnrolled"
+                    class="text-xs text-indigo-600 hover:underline font-semibold"
                     (click)="openKioskEnrollForEmployee(r)"
-                    title="Send a one-time capture instruction to a KIOSK device">Enroll on Kiosk</button>
+                    title="Send a one-time capture instruction to a KIOSK device"
+                  >
+                    Enroll on Kiosk
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -256,7 +404,14 @@ interface EnrollForm {
         </div>
 
         <!-- Contractor status table -->
-        <div *ngIf="!loadingEnrollments && subjectType === 'contractor' && filteredContractorEnrollments.length > 0" class="overflow-x-auto">
+        <div
+          *ngIf="
+            !loadingEnrollments &&
+            subjectType === 'contractor' &&
+            filteredContractorEnrollments.length > 0
+          "
+          class="overflow-x-auto"
+        >
           <table class="w-full text-sm">
             <thead>
               <tr class="bg-gray-50 border-b border-gray-200">
@@ -267,37 +422,79 @@ interface EnrollForm {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let r of filteredContractorEnrollments" class="border-b border-gray-100 hover:bg-gray-50">
+              <tr
+                *ngFor="let r of filteredContractorEnrollments"
+                class="border-b border-gray-100 hover:bg-gray-50"
+              >
                 <td class="px-3 py-2 text-gray-900 font-medium">{{ r.name }}</td>
                 <td class="px-3 py-2 text-center">
-                  <span *ngIf="r.isEnrolled && r.isActive"
-                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Enrolled</span>
-                  <span *ngIf="r.isEnrolled && !r.isActive"
-                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Deactivated</span>
-                  <span *ngIf="!r.isEnrolled"
-                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pending</span>
+                  <span
+                    *ngIf="r.isEnrolled && r.isActive"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700"
+                    >Enrolled</span
+                  >
+                  <span
+                    *ngIf="r.isEnrolled && !r.isActive"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600"
+                    >Deactivated</span
+                  >
+                  <span
+                    *ngIf="!r.isEnrolled"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800"
+                    >Pending</span
+                  >
                 </td>
-                <td class="px-3 py-2 text-gray-700">{{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}</td>
+                <td class="px-3 py-2 text-gray-700">
+                  {{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}
+                </td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <button *ngIf="!r.isEnrolled" class="text-xs text-indigo-600 hover:underline mr-3"
-                    (click)="selectContractorForEnroll(r)">Enroll</button>
-                  <button *ngIf="!r.isEnrolled" class="text-xs text-indigo-600 hover:underline mr-3 font-semibold"
+                  <button
+                    *ngIf="!r.isEnrolled"
+                    class="text-xs text-indigo-600 hover:underline mr-3"
+                    (click)="selectContractorForEnroll(r)"
+                  >
+                    Enroll
+                  </button>
+                  <button
+                    *ngIf="!r.isEnrolled"
+                    class="text-xs text-indigo-600 hover:underline mr-3 font-semibold"
                     (click)="openKioskEnrollForContractor(r)"
-                    title="Send a one-time capture instruction to a KIOSK device">Enroll on Kiosk</button>
-                  <button *ngIf="r.isEnrolled && r.isActive" class="text-xs text-red-600 hover:underline mr-3"
-                    (click)="deactivateContractor(r)">Deactivate</button>
-                  <button *ngIf="r.isEnrolled" class="text-xs text-red-700 hover:underline font-semibold"
-                    (click)="hardDeleteContractor(r)" title="Permanently remove this enrollment row (audit history preserved)">Delete</button>
+                    title="Send a one-time capture instruction to a KIOSK device"
+                  >
+                    Enroll on Kiosk
+                  </button>
+                  <button
+                    *ngIf="r.isEnrolled && r.isActive"
+                    class="text-xs text-red-600 hover:underline mr-3"
+                    (click)="deactivateContractor(r)"
+                  >
+                    Deactivate
+                  </button>
+                  <button
+                    *ngIf="r.isEnrolled"
+                    class="text-xs text-red-700 hover:underline font-semibold"
+                    (click)="hardDeleteContractor(r)"
+                    title="Permanently remove this enrollment row (audit history preserved)"
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <div *ngIf="!loadingEnrollments && activeRows.length > 0 && activeFilteredRows.length === 0"
-             class="text-sm text-gray-500">No {{ subjectType === 'contractor' ? 'contractor employees' : 'employees' }} match the current filter.</div>
-        <div *ngIf="!loadingEnrollments && activeRows.length === 0"
-             class="text-sm text-gray-500">No {{ subjectType === 'contractor' ? 'contractor employees' : 'employees' }} found in your branch.</div>
+        <div
+          *ngIf="!loadingEnrollments && activeRows.length > 0 && activeFilteredRows.length === 0"
+          class="text-sm text-gray-500"
+        >
+          No {{ subjectType === 'contractor' ? 'contractor employees' : 'employees' }} match the
+          current filter.
+        </div>
+        <div *ngIf="!loadingEnrollments && activeRows.length === 0" class="text-sm text-gray-500">
+          No {{ subjectType === 'contractor' ? 'contractor employees' : 'employees' }} found in your
+          branch.
+        </div>
       </div>
 
       <!-- Kiosk-enroll ticket history -->
@@ -305,10 +502,13 @@ interface EnrollForm {
         <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div>
             <h3 class="font-semibold text-gray-900">Kiosk Enrollment Tickets</h3>
-            <p class="text-xs text-gray-500">Last 100 tickets you sent to a kiosk, most recent first.</p>
+            <p class="text-xs text-gray-500">
+              Last 100 tickets you sent to a kiosk, most recent first.
+            </p>
           </div>
           <div class="flex items-center gap-2">
-            <button type="button"
+            <button
+              type="button"
               *ngFor="let s of kioskTicketStatusFilters"
               class="px-3 py-1 rounded-full text-xs font-medium border transition"
               [class.bg-indigo-600]="kioskTicketStatusFilter === s.value"
@@ -317,17 +517,29 @@ interface EnrollForm {
               [class.text-gray-700]="kioskTicketStatusFilter !== s.value"
               [class.border-gray-300]="kioskTicketStatusFilter !== s.value"
               [class.hover:bg-gray-50]="kioskTicketStatusFilter !== s.value"
-              (click)="setKioskTicketStatusFilter(s.value)">{{ s.label }}</button>
-            <button type="button"
+              (click)="setKioskTicketStatusFilter(s.value)"
+            >
+              {{ s.label }}
+            </button>
+            <button
+              type="button"
               class="px-3 py-1 rounded-lg text-xs font-medium border border-gray-300 text-gray-700 hover:bg-gray-50"
-              (click)="loadKioskTickets()" [disabled]="loadingKioskTickets">Refresh</button>
+              (click)="loadKioskTickets()"
+              [disabled]="loadingKioskTickets"
+            >
+              Refresh
+            </button>
           </div>
         </div>
 
         <ui-loading-spinner *ngIf="loadingKioskTickets"></ui-loading-spinner>
 
-        <div *ngIf="!loadingKioskTickets && kioskTickets.length === 0"
-             class="text-sm text-gray-500">No tickets in this view yet.</div>
+        <div
+          *ngIf="!loadingKioskTickets && kioskTickets.length === 0"
+          class="text-sm text-gray-500"
+        >
+          No tickets in this view yet.
+        </div>
 
         <div *ngIf="!loadingKioskTickets && kioskTickets.length > 0" class="overflow-x-auto">
           <table class="min-w-full text-sm">
@@ -348,47 +560,97 @@ interface EnrollForm {
                   <div class="font-medium text-gray-900">{{ t.subjectName }}</div>
                   <div class="text-xs text-gray-500" *ngIf="t.subjectCode">{{ t.subjectCode }}</div>
                 </td>
-                <td class="py-2 pr-3 text-gray-700">{{ t.subjectType === 'EMPLOYEE' ? 'Employee' : 'Contractor' }}</td>
-                <td class="py-2 pr-3">
-                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                    [ngClass]="kioskTicketStatusClass(t.status)">{{ kioskTicketStatusLabel(t.status) }}</span>
+                <td class="py-2 pr-3 text-gray-700">
+                  {{ t.subjectType === 'EMPLOYEE' ? 'Employee' : 'Contractor' }}
                 </td>
-                <td class="py-2 pr-3 min-w-56">
-                  <div *ngIf="t.notes" class="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900 whitespace-pre-line">
+                <td class="py-2 pr-3">
+                  <span
+                    class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                    [ngClass]="kioskTicketStatusClass(t.status)"
+                    >{{ kioskTicketStatusLabel(t.status) }}</span
+                  >
+                </td>
+                <td class="py-2 pr-3 text-xs">
+                  <div
+                    *ngIf="t.notes"
+                    class="max-w-xs rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-amber-900"
+                  >
                     <div class="font-semibold">Review note</div>
-                    {{ t.notes }}
+                    <div class="whitespace-pre-line">{{ t.notes }}</div>
                   </div>
-                  <a *ngIf="t.photoUrl"
+                  <a
+                    *ngIf="t.photoUrl"
+                    class="mt-1 inline-flex items-center gap-2 text-indigo-700 hover:underline"
                     [href]="t.photoUrl"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="mt-1 inline-flex items-center gap-2 text-xs text-indigo-700 hover:underline">
-                    <img [src]="t.photoUrl" alt="Kiosk capture" class="h-10 w-10 rounded object-cover border border-gray-200">
-                    Inspect photo
+                  >
+                    <img
+                      [src]="t.photoUrl"
+                      alt="Captured face"
+                      class="h-10 w-10 rounded border border-gray-200 object-cover"
+                    />
+                    <span>Inspect photo</span>
                   </a>
-                  <span *ngIf="!t.notes && !t.photoUrl" class="text-xs text-gray-400">-</span>
+                  <div
+                    *ngIf="t.rejectionReason"
+                    class="mt-1 max-w-xs rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-red-900"
+                  >
+                    <div class="font-semibold">Rejection reason</div>
+                    <div class="whitespace-pre-line">{{ t.rejectionReason }}</div>
+                  </div>
+                  <span *ngIf="!t.notes && !t.photoUrl && !t.rejectionReason" class="text-gray-400"
+                    >-</span
+                  >
                 </td>
-                <td class="py-2 pr-3 text-xs text-gray-700">{{ t.createdAt | date:'medium' }}</td>
+                <td class="py-2 pr-3 text-xs text-gray-700">{{ t.createdAt | date: 'medium' }}</td>
                 <td class="py-2 pr-3 text-xs text-gray-700">
-                  <span *ngIf="t.completedAt">{{ t.completedAt | date:'medium' }}</span>
-                  <span *ngIf="!t.completedAt && t.reviewedAt">{{ t.reviewedAt | date:'medium' }}</span>
-                  <span *ngIf="!t.completedAt && !t.reviewedAt && t.capturedAt">{{ t.capturedAt | date:'medium' }}</span>
-                  <span *ngIf="!t.completedAt && t.cancelledAt">{{ t.cancelledAt | date:'medium' }}</span>
-                  <span *ngIf="!t.completedAt && !t.cancelledAt && t.status === 'PENDING'" class="text-gray-400">expires {{ t.expiresAt | date:'shortTime' }}</span>
+                  <span *ngIf="t.completedAt">{{ t.completedAt | date: 'medium' }}</span>
+                  <span *ngIf="!t.completedAt && t.reviewedAt">{{
+                    t.reviewedAt | date: 'medium'
+                  }}</span>
+                  <span *ngIf="!t.completedAt && !t.reviewedAt && t.capturedAt">{{
+                    t.capturedAt | date: 'medium'
+                  }}</span>
+                  <span *ngIf="!t.completedAt && t.cancelledAt">{{
+                    t.cancelledAt | date: 'medium'
+                  }}</span>
+                  <span
+                    *ngIf="!t.completedAt && !t.cancelledAt && t.status === 'PENDING'"
+                    class="text-gray-400"
+                    >expires {{ t.expiresAt | date: 'shortTime' }}</span
+                  >
+                  <span
+                    *ngIf="!t.completedAt && !t.cancelledAt && t.status === 'EXPIRED'"
+                    class="text-gray-400"
+                    >expired {{ t.expiresAt | date: 'medium' }}</span
+                  >
                 </td>
                 <td class="py-2 text-right whitespace-nowrap">
-                  <button type="button"
+                  <button
+                    type="button"
                     *ngIf="t.status === 'REVIEW_PENDING'"
                     class="text-xs text-emerald-700 hover:underline mr-3"
-                    (click)="approveKioskTicket(t)">Register</button>
-                  <button type="button"
+                    (click)="approveKioskTicket(t)"
+                  >
+                    Register
+                  </button>
+                  <button
+                    type="button"
                     *ngIf="t.status === 'REVIEW_PENDING'"
                     class="text-xs text-red-700 hover:underline mr-3"
-                    (click)="rejectKioskTicket(t)">Reject</button>
-                  <button type="button"
+                    (click)="rejectKioskTicket(t)"
+                  >
+                    Reject
+                  </button>
+                  <button
+                    type="button"
                     *ngIf="t.status === 'PENDING'"
                     class="text-xs text-red-700 hover:underline"
-                    (click)="cancelKioskTicketFromList(t)">Cancel</button>
+                    (click)="cancelKioskTicketFromList(t)"
+                  >
+                    Cancel
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -397,10 +659,15 @@ interface EnrollForm {
       </div>
 
       <!-- Kiosk-supervised enrollment modal -->
-      <div *ngIf="kioskModalOpen"
+      <div
+        *ngIf="kioskModalOpen"
         class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-        (click)="closeKioskModal()">
-        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-5" (click)="$event.stopPropagation()">
+        (click)="closeKioskModal()"
+      >
+        <div
+          class="bg-white rounded-xl shadow-xl max-w-md w-full p-5"
+          (click)="$event.stopPropagation()"
+        >
           <h3 class="text-lg font-semibold text-gray-900 mb-1">Enroll on Kiosk</h3>
           <p class="text-xs text-gray-500 mb-3">
             Capturing for <strong class="text-gray-800">{{ kioskSubjectName }}</strong>
@@ -409,66 +676,118 @@ interface EnrollForm {
 
           <ng-container *ngIf="!kioskActiveTicket">
             <div class="mb-3">
-              <label class="block text-xs font-medium text-gray-600 mb-1" for="kiosk-device-sel">Kiosk device</label>
-              <select id="kiosk-device-sel" [(ngModel)]="kioskSelectedDeviceId" name="kioskDeviceId" class="ui-input">
+              <label class="block text-xs font-medium text-gray-600 mb-1" for="kiosk-device-sel"
+                >Kiosk device</label
+              >
+              <select
+                id="kiosk-device-sel"
+                [(ngModel)]="kioskSelectedDeviceId"
+                name="kioskDeviceId"
+                class="ui-input"
+              >
                 <option value="">— Select a kiosk —</option>
                 <option *ngFor="let d of kioskDevicesForSubject" [value]="d.id">
-                  {{ d.deviceLabel || ('Device ' + d.id.slice(0, 8)) }}
+                  {{ d.deviceLabel || 'Device ' + d.id.slice(0, 8) }}
                 </option>
               </select>
-              <p *ngIf="!loadingKioskDevices && kioskDevicesForSubject.length === 0"
-                class="text-xs text-amber-700 mt-1">
+              <p
+                *ngIf="!loadingKioskDevices && kioskDevicesForSubject.length === 0"
+                class="text-xs text-amber-700 mt-1"
+              >
                 No active KIOSK device is registered in this subject's branch.
               </p>
-              <div *ngIf="loadingKioskDevices" class="py-2"><ui-loading-spinner></ui-loading-spinner></div>
+              <div *ngIf="loadingKioskDevices" class="py-2">
+                <ui-loading-spinner></ui-loading-spinner>
+              </div>
             </div>
             <div class="flex items-start gap-2 mb-4">
-              <input id="kiosk-consent" type="checkbox" [(ngModel)]="kioskConsentGiven" name="kioskConsent" class="mt-0.5">
+              <input
+                id="kiosk-consent"
+                type="checkbox"
+                [(ngModel)]="kioskConsentGiven"
+                name="kioskConsent"
+                class="mt-0.5"
+              />
               <label for="kiosk-consent" class="text-xs text-gray-700">
-                I confirm the subject has given explicit informed consent for face capture at the kiosk (DPDP Act 2023).
+                I confirm the subject has given explicit informed consent for face capture at the
+                kiosk (DPDP Act 2023).
               </label>
             </div>
             <div *ngIf="kioskError" class="text-sm text-red-600 mb-3">{{ kioskError }}</div>
             <div class="flex justify-end gap-2">
               <ui-button variant="secondary" (clicked)="closeKioskModal()">Cancel</ui-button>
-              <ui-button variant="primary"
+              <ui-button
+                variant="primary"
                 [disabled]="!kioskSelectedDeviceId || !kioskConsentGiven || kioskCreating"
                 [loading]="kioskCreating"
-                (clicked)="startKioskEnrollment()">Send to Kiosk</ui-button>
+                (clicked)="startKioskEnrollment()"
+                >Send to Kiosk</ui-button
+              >
             </div>
           </ng-container>
 
           <ng-container *ngIf="kioskActiveTicket">
-            <div class="rounded-lg border p-3 mb-3"
+            <div
+              class="rounded-lg border p-3 mb-3"
               [class.bg-amber-50]="kioskActiveTicket.status === 'PENDING'"
               [class.bg-blue-50]="kioskActiveTicket.status === 'REVIEW_PENDING'"
               [class.bg-emerald-50]="kioskActiveTicket.status === 'COMPLETED'"
               [class.bg-red-50]="kioskActiveTicket.status === 'REJECTED'"
-              [class.bg-gray-100]="kioskActiveTicket.status === 'CANCELLED' || kioskActiveTicket.status === 'EXPIRED'">
-              <div class="text-sm font-semibold"
+              [class.bg-gray-100]="
+                kioskActiveTicket.status === 'CANCELLED' || kioskActiveTicket.status === 'EXPIRED'
+              "
+            >
+              <div
+                class="text-sm font-semibold"
                 [class.text-amber-800]="kioskActiveTicket.status === 'PENDING'"
                 [class.text-blue-800]="kioskActiveTicket.status === 'REVIEW_PENDING'"
                 [class.text-emerald-800]="kioskActiveTicket.status === 'COMPLETED'"
                 [class.text-red-800]="kioskActiveTicket.status === 'REJECTED'"
-                [class.text-gray-700]="kioskActiveTicket.status === 'CANCELLED' || kioskActiveTicket.status === 'EXPIRED'">
-                <span *ngIf="!isKnownKioskTicketStatus(kioskActiveTicket.status)">{{ kioskActiveTicketMessage(kioskActiveTicket.status) }}</span>
-                <span *ngIf="kioskActiveTicket.status === 'PENDING'">Waiting for kiosk capture…</span>
-                <span *ngIf="kioskActiveTicket.status === 'REVIEW_PENDING'">Captured — approve from web to activate</span>
-                <span *ngIf="kioskActiveTicket.status === 'COMPLETED'">✓ Face enrolled successfully</span>
+                [class.text-gray-700]="
+                  kioskActiveTicket.status === 'CANCELLED' || kioskActiveTicket.status === 'EXPIRED'
+                "
+              >
+                <span *ngIf="!isKnownKioskTicketStatus(kioskActiveTicket.status)">{{
+                  kioskActiveTicketMessage(kioskActiveTicket.status)
+                }}</span>
+                <span *ngIf="kioskActiveTicket.status === 'PENDING'"
+                  >Waiting for kiosk capture…</span
+                >
+                <span *ngIf="kioskActiveTicket.status === 'REVIEW_PENDING'"
+                  >Captured — approve from web to activate</span
+                >
+                <span *ngIf="kioskActiveTicket.status === 'COMPLETED'"
+                  >✓ Face enrolled successfully</span
+                >
                 <span *ngIf="kioskActiveTicket.status === 'REJECTED'">Rejected</span>
                 <span *ngIf="kioskActiveTicket.status === 'CANCELLED'">Cancelled</span>
-                <span *ngIf="kioskActiveTicket.status === 'EXPIRED'">Ticket expired — try again</span>
+                <span *ngIf="kioskActiveTicket.status === 'EXPIRED'"
+                  >Ticket expired — try again</span
+                >
               </div>
-              <div *ngIf="kioskActiveTicket.status === 'PENDING'" class="text-xs text-amber-700 mt-1">
-                Expires in {{ kioskCountdownLabel }}. Tell the subject to stand in front of the selected kiosk.
+              <div
+                *ngIf="kioskActiveTicket.status === 'PENDING'"
+                class="text-xs text-amber-700 mt-1"
+              >
+                Expires in {{ kioskCountdownLabel }}. Tell the subject to stand in front of the
+                selected kiosk.
               </div>
-              <div *ngIf="!isKnownKioskTicketStatus(kioskActiveTicket.status)" class="text-xs text-gray-600 mt-1">
-                Refreshing ticket status. Close this dialog and check the ticket list if it does not update.
+              <div
+                *ngIf="!isKnownKioskTicketStatus(kioskActiveTicket.status)"
+                class="text-xs text-gray-600 mt-1"
+              >
+                Refreshing ticket status. Close this dialog and check the ticket list if it does not
+                update.
               </div>
             </div>
             <div class="flex justify-end gap-2">
-              <ui-button *ngIf="kioskActiveTicket.status === 'PENDING'" variant="secondary"
-                (clicked)="cancelKioskEnrollment()" [loading]="kioskCancelling">Cancel Ticket</ui-button>
+              <ui-button
+                *ngIf="kioskActiveTicket.status === 'PENDING'"
+                variant="secondary"
+                (clicked)="cancelKioskEnrollment()"
+                [loading]="kioskCancelling"
+                >Cancel Ticket</ui-button
+              >
               <ui-button variant="primary" (clicked)="closeKioskModal()">Close</ui-button>
             </div>
           </ng-container>
@@ -476,13 +795,24 @@ interface EnrollForm {
       </div>
     </div>
   `,
-  styles: [`
-    .ui-input {
-      display: block; width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db;
-      border-radius: 0.5rem; font-size: 0.875rem; background: #fff;
-    }
-    .ui-input:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 2px rgba(79,70,229,.15); }
-  `],
+  styles: [
+    `
+      .ui-input {
+        display: block;
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        background: #fff;
+      }
+      .ui-input:focus {
+        outline: none;
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+      }
+    `,
+  ],
 })
 export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
@@ -538,9 +868,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   private kioskTicketPollTimer: any = null;
   // Auto-refresh interval while at least one PENDING ticket is in view.
   static readonly KIOSK_TICKET_POLL_MS = 30_000;
-  kioskTicketStatusFilter:
-    | ''
-    | KioskEnrollTicketStatus = '';
+  kioskTicketStatusFilter: '' | KioskEnrollTicketStatus = '';
   readonly kioskTicketStatusFilters: ReadonlyArray<{
     label: string;
     value: '' | KioskEnrollTicketStatus;
@@ -627,10 +955,21 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     this.loadingEmployees = true;
     this.empSvc
       .list({ branchId, isActive: 'true', limit: 1000 })
-      .pipe(takeUntil(this.destroy$), finalize(() => { this.loadingEmployees = false; this.cdr.markForCheck(); }))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loadingEmployees = false;
+          this.cdr.markForCheck();
+        }),
+      )
       .subscribe({
-        next: (r) => { this.employees = r?.data ?? []; this.cdr.markForCheck(); },
-        error: (e) => { this.toast.error(e?.error?.message || 'Failed to load employees'); },
+        next: (r) => {
+          this.employees = r?.data ?? [];
+          this.cdr.markForCheck();
+        },
+        error: (e) => {
+          this.toast.error(e?.error?.message || 'Failed to load employees');
+        },
       });
   }
 
@@ -645,10 +984,21 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     // @Roles('CONTRACTOR') and 403s for branch (CLIENT-role) users.
     this.contractorEmpSvc
       .listForBranch({ branchId, isActive: true })
-      .pipe(takeUntil(this.destroy$), finalize(() => { this.loadingContractors = false; this.cdr.markForCheck(); }))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loadingContractors = false;
+          this.cdr.markForCheck();
+        }),
+      )
       .subscribe({
-        next: (r) => { this.contractors = r?.data ?? []; this.cdr.markForCheck(); },
-        error: (e) => { this.toast.error(e?.error?.message || 'Failed to load contractor employees'); },
+        next: (r) => {
+          this.contractors = r?.data ?? [];
+          this.cdr.markForCheck();
+        },
+        error: (e) => {
+          this.toast.error(e?.error?.message || 'Failed to load contractor employees');
+        },
       });
   }
 
@@ -662,8 +1012,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
         location.hostname === 'localhost' ||
         location.hostname === '127.0.0.1');
     if (!isSecure) {
-      this.cameraError =
-        'Camera blocked: this page must be loaded over HTTPS to use the camera.';
+      this.cameraError = 'Camera blocked: this page must be loaded over HTTPS to use the camera.';
       this.toast.error(this.cameraError);
       this.cdr.detectChanges();
       return;
@@ -695,33 +1044,51 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const cams = devices.filter((d) => d.kind === 'videoinput');
-        const VIRTUAL = /(phone link|phone\s*\(|droidcam|obs|snap camera|virtual|xsplit|ndi|manycam)/i;
+        const VIRTUAL =
+          /(phone link|phone\s*\(|droidcam|obs|snap camera|virtual|xsplit|ndi|manycam)/i;
         const real = cams.find((c) => c.label && !VIRTUAL.test(c.label));
-        console.info('[face-enrollment] cameras:', cams.map((c) => c.label || '(no label)'));
+        console.info(
+          '[face-enrollment] cameras:',
+          cams.map((c) => c.label || '(no label)'),
+        );
         if (real?.deviceId) {
           chosenLabel = real.label;
           constraints = {
-            video: { deviceId: { exact: real.deviceId }, width: { ideal: 640 }, height: { ideal: 480 } },
+            video: {
+              deviceId: { exact: real.deviceId },
+              width: { ideal: 640 },
+              height: { ideal: 480 },
+            },
             audio: false,
           };
         }
-      } catch { /* enumerateDevices is best-effort */ }
+      } catch {
+        /* enumerateDevices is best-effort */
+      }
       // Race getUserMedia against an 8s timeout. Some virtual cameras
       // (notably Windows Phone Link in 'connecting' state) leave the
       // promise pending forever instead of rejecting.
       let timedOut = false;
       const gumPromise = navigator.mediaDevices.getUserMedia(constraints);
-      gumPromise.then((s) => { if (timedOut) s.getTracks().forEach((t) => t.stop()); }).catch(() => {});
+      gumPromise
+        .then((s) => {
+          if (timedOut) s.getTracks().forEach((t) => t.stop());
+        })
+        .catch(() => {});
       const stream = await Promise.race<MediaStream>([
         gumPromise,
-        new Promise<MediaStream>((_, rej) => setTimeout(() => {
-          timedOut = true;
-          rej(new Error(
-            `Camera open timed out (8s)${chosenLabel ? ` on "${chosenLabel}"` : ''}. ` +
-            'A virtual camera (Windows Phone Link "Use as connected camera", DroidCam, OBS, Snap Camera) is most likely holding it. ' +
-            'Disable it in Windows Settings → Bluetooth & devices → Cameras, or close the app, then retry.'
-          ));
-        }, 8000)),
+        new Promise<MediaStream>((_, rej) =>
+          setTimeout(() => {
+            timedOut = true;
+            rej(
+              new Error(
+                `Camera open timed out (8s)${chosenLabel ? ` on "${chosenLabel}"` : ''}. ` +
+                  'A virtual camera (Windows Phone Link "Use as connected camera", DroidCam, OBS, Snap Camera) is most likely holding it. ' +
+                  'Disable it in Windows Settings → Bluetooth & devices → Cameras, or close the app, then retry.',
+              ),
+            );
+          }, 8000),
+        ),
       ]);
       this.cameraStream = stream;
       const v = this.cameraVideo?.nativeElement;
@@ -741,7 +1108,11 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       // the first call (some Android Chrome builds need a tick after
       // srcObject is assigned before play() is allowed).
       v.play().catch(() => {
-        requestAnimationFrame(() => { v.play().catch(() => { /* ignore */ }); });
+        requestAnimationFrame(() => {
+          v.play().catch(() => {
+            /* ignore */
+          });
+        });
       });
       // Wait for the first real video frame. If none arrives in 6s the
       // camera is almost certainly held by another app (Windows Phone
@@ -757,7 +1128,9 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
         const check = () => {
           if (done) return;
           if (v.videoWidth > 0 && v.videoHeight > 0) {
-            done = true; cleanup(); resolve();
+            done = true;
+            cleanup();
+            resolve();
           }
         };
         v.addEventListener('loadedmetadata', check);
@@ -767,14 +1140,17 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
         check();
         setTimeout(() => {
           if (done) return;
-          done = true; cleanup();
+          done = true;
+          cleanup();
           if (v.videoWidth > 0 && v.videoHeight > 0) {
             resolve();
           } else {
             const label = stream.getVideoTracks()[0]?.label || 'unknown';
-            reject(new Error(
-              `Camera "${label}" was opened but is not sending frames. Another app (e.g. Windows Phone Link "use phone as webcam", Teams, Zoom, OBS) is most likely holding it. Close that app and click Start again.`
-            ));
+            reject(
+              new Error(
+                `Camera "${label}" was opened but is not sending frames. Another app (e.g. Windows Phone Link "use phone as webcam", Teams, Zoom, OBS) is most likely holding it. Close that app and click Start again.`,
+              ),
+            );
           }
         }, 6000);
       });
@@ -830,7 +1206,10 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     c.width = w;
     c.height = h;
     const ctx = c.getContext('2d');
-    if (!ctx) { this.toast.error('Canvas not supported'); return; }
+    if (!ctx) {
+      this.toast.error('Canvas not supported');
+      return;
+    }
     ctx.drawImage(v, 0, 0, w, h);
     const dataUrl = c.toDataURL('image/jpeg', 0.9);
     const comma = dataUrl.indexOf(',');
@@ -849,7 +1228,10 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       return;
     }
     this.enrolling = true;
-    const done = () => { this.enrolling = false; this.cdr.markForCheck(); };
+    const done = () => {
+      this.enrolling = false;
+      this.cdr.markForCheck();
+    };
     if (this.subjectType === 'contractor') {
       const body: EnrollContractorFaceBody = {
         contractorEmployeeId: this.enrollForm.subjectId,
@@ -861,7 +1243,11 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
         .enrollContractorFace(body)
         .pipe(takeUntil(this.destroy$), finalize(done))
         .subscribe({
-          next: () => { this.toast.success('Contractor face enrolled'); this.resetEnroll(); this.loadEnrollments(); },
+          next: () => {
+            this.toast.success('Contractor face enrolled');
+            this.resetEnroll();
+            this.loadEnrollments();
+          },
           error: (e) => {
             this.enrollError = e?.error?.message || 'Enrollment failed';
             this.clearCapturedPhoto();
@@ -880,7 +1266,11 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       .enrollFace(body)
       .pipe(takeUntil(this.destroy$), finalize(done))
       .subscribe({
-        next: () => { this.toast.success('Face enrolled'); this.resetEnroll(); this.loadEnrollments(); },
+        next: () => {
+          this.toast.success('Face enrolled');
+          this.resetEnroll();
+          this.loadEnrollments();
+        },
         error: (e) => {
           this.enrollError = e?.error?.message || 'Enrollment failed';
           this.clearCapturedPhoto();
@@ -915,21 +1305,37 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   loadEnrollments(silent = false): void {
     if (this.loadingEnrollments) return;
     if (!silent) this.loadingEnrollments = true;
-    const done = () => { if (!silent) this.loadingEnrollments = false; this.cdr.markForCheck(); };
+    const done = () => {
+      if (!silent) this.loadingEnrollments = false;
+      this.cdr.markForCheck();
+    };
     if (this.subjectType === 'contractor') {
-      this.svc.listContractorEnrollments()
+      this.svc
+        .listContractorEnrollments()
         .pipe(takeUntil(this.destroy$), finalize(done))
         .subscribe({
-          next: (rows) => { this.contractorEnrollmentRows = rows || []; this.cdr.markForCheck(); },
-          error: (e) => { if (!silent) this.toast.error(e?.error?.message || 'Failed to load contractor enrollments'); },
+          next: (rows) => {
+            this.contractorEnrollmentRows = rows || [];
+            this.cdr.markForCheck();
+          },
+          error: (e) => {
+            if (!silent)
+              this.toast.error(e?.error?.message || 'Failed to load contractor enrollments');
+          },
         });
       return;
     }
-    this.svc.listEnrollments()
+    this.svc
+      .listEnrollments()
       .pipe(takeUntil(this.destroy$), finalize(done))
       .subscribe({
-        next: (rows) => { this.enrollmentRows = rows || []; this.cdr.markForCheck(); },
-        error: (e) => { if (!silent) this.toast.error(e?.error?.message || 'Failed to load enrollments'); },
+        next: (rows) => {
+          this.enrollmentRows = rows || [];
+          this.cdr.markForCheck();
+        },
+        error: (e) => {
+          if (!silent) this.toast.error(e?.error?.message || 'Failed to load enrollments');
+        },
       });
   }
 
@@ -939,7 +1345,9 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   }
 
   get activeFilteredRows(): Array<EnrollmentStatusRow | ContractorEnrollmentStatusRow> {
-    return this.subjectType === 'contractor' ? this.filteredContractorEnrollments : this.filteredEnrollments;
+    return this.subjectType === 'contractor'
+      ? this.filteredContractorEnrollments
+      : this.filteredEnrollments;
   }
 
   get enrolledCount(): number {
@@ -961,7 +1369,11 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     const q = this.statusSearch.trim().toLowerCase();
     return this.enrollmentRows.filter((r) => {
       if (!this.matchesFilter(r)) return false;
-      if (q && !(r.employeeCode.toLowerCase().includes(q) || r.employeeName.toLowerCase().includes(q))) return false;
+      if (
+        q &&
+        !(r.employeeCode.toLowerCase().includes(q) || r.employeeName.toLowerCase().includes(q))
+      )
+        return false;
       return true;
     });
   }
@@ -992,39 +1404,62 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   }
 
   async deactivate(r: EnrollmentStatusRow): Promise<void> {
-    const result = await this.dialog.prompt('Deactivate Enrollment', `Deactivate face enrollment for ${r.employeeName}?`, {
-      defaultValue: 'Employee request',
-      placeholder: 'Reason required for DPDP audit',
-      confirmText: 'Deactivate',
-    });
+    const result = await this.dialog.prompt(
+      'Deactivate Enrollment',
+      `Deactivate face enrollment for ${r.employeeName}?`,
+      {
+        defaultValue: 'Employee request',
+        placeholder: 'Reason required for DPDP audit',
+        confirmText: 'Deactivate',
+      },
+    );
     const reason = result.value?.trim();
     if (!result.confirmed || !reason) return;
-    this.svc.deactivateEnrollment(r.employeeId, reason)
+    this.svc
+      .deactivateEnrollment(r.employeeId, reason)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: () => { this.toast.success('Enrollment deactivated'); this.loadEnrollments(); },
+        next: () => {
+          this.toast.success('Enrollment deactivated');
+          this.loadEnrollments();
+        },
         error: (e) => this.toast.error(e?.error?.message || 'Deactivation failed'),
       });
   }
 
   async deactivateContractor(r: ContractorEnrollmentStatusRow): Promise<void> {
-    const result = await this.dialog.prompt('Deactivate Enrollment', `Deactivate face enrollment for ${r.name}?`, {
-      defaultValue: 'Contractor request',
-      placeholder: 'Reason required for DPDP audit',
-      confirmText: 'Deactivate',
-    });
+    const result = await this.dialog.prompt(
+      'Deactivate Enrollment',
+      `Deactivate face enrollment for ${r.name}?`,
+      {
+        defaultValue: 'Contractor request',
+        placeholder: 'Reason required for DPDP audit',
+        confirmText: 'Deactivate',
+      },
+    );
     const reason = result.value?.trim();
     if (!result.confirmed || !reason) return;
-    this.svc.deactivateContractorEnrollment(r.contractorEmployeeId, reason)
+    this.svc
+      .deactivateContractorEnrollment(r.contractorEmployeeId, reason)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: () => { this.toast.success('Enrollment deactivated'); this.loadEnrollments(); },
+        next: () => {
+          this.toast.success('Enrollment deactivated');
+          this.loadEnrollments();
+        },
         error: (e) => this.toast.error(e?.error?.message || 'Deactivation failed'),
       });
   }
 
   async hardDelete(r: EnrollmentStatusRow): Promise<void> {
-    if (!(await this.dialog.confirm('Delete Face Enrollment', `Permanently delete the face enrollment row for ${r.employeeName}?\n\nThis removes the stored face template so the employee can be enrolled again from scratch. The audit history is preserved.\n\nThis action cannot be undone.`, { variant: 'danger', confirmText: 'Delete' }))) return;
+    if (
+      !(await this.dialog.confirm(
+        'Delete Face Enrollment',
+        `Permanently delete the face enrollment row for ${r.employeeName}?\n\nThis removes the stored face template so the employee can be enrolled again from scratch. The audit history is preserved.\n\nThis action cannot be undone.`,
+        { variant: 'danger', confirmText: 'Delete' },
+      ))
+    )
+      return;
     const result = await this.dialog.prompt('Delete Reason', 'Reason required for DPDP audit:', {
       defaultValue: 'Wrong enrollment - re-enrollment required',
       placeholder: 'Reason',
@@ -1032,16 +1467,27 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     });
     const reason = result.value?.trim();
     if (!result.confirmed || !reason) return;
-    this.svc.deleteEnrollment(r.employeeId, reason)
+    this.svc
+      .deleteEnrollment(r.employeeId, reason)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: () => { this.toast.success('Enrollment permanently deleted'); this.loadEnrollments(); },
+        next: () => {
+          this.toast.success('Enrollment permanently deleted');
+          this.loadEnrollments();
+        },
         error: (e) => this.toast.error(e?.error?.message || 'Delete failed'),
       });
   }
 
   async hardDeleteContractor(r: ContractorEnrollmentStatusRow): Promise<void> {
-    if (!(await this.dialog.confirm('Delete Contractor Enrollment', `Permanently delete the face enrollment row for ${r.name}?\n\nThis removes the stored face template so the contractor employee can be enrolled again from scratch. The audit history is preserved.\n\nThis action cannot be undone.`, { variant: 'danger', confirmText: 'Delete' }))) return;
+    if (
+      !(await this.dialog.confirm(
+        'Delete Contractor Enrollment',
+        `Permanently delete the face enrollment row for ${r.name}?\n\nThis removes the stored face template so the contractor employee can be enrolled again from scratch. The audit history is preserved.\n\nThis action cannot be undone.`,
+        { variant: 'danger', confirmText: 'Delete' },
+      ))
+    )
+      return;
     const result = await this.dialog.prompt('Delete Reason', 'Reason required for DPDP audit:', {
       defaultValue: 'Wrong enrollment - re-enrollment required',
       placeholder: 'Reason',
@@ -1049,10 +1495,14 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     });
     const reason = result.value?.trim();
     if (!result.confirmed || !reason) return;
-    this.svc.deleteContractorEnrollment(r.contractorEmployeeId, reason)
+    this.svc
+      .deleteContractorEnrollment(r.contractorEmployeeId, reason)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: () => { this.toast.success('Enrollment permanently deleted'); this.loadEnrollments(); },
+        next: () => {
+          this.toast.success('Enrollment permanently deleted');
+          this.loadEnrollments();
+        },
         error: (e) => this.toast.error(e?.error?.message || 'Delete failed'),
       });
   }
@@ -1100,8 +1550,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     this.kioskSubjectId = opts.subjectId;
     this.kioskSubjectName = opts.subjectName;
     this.kioskSubjectCode = opts.subjectCode;
-    this.kioskSubjectBranchId =
-      opts.subjectBranchId ?? this.auth.getBranchIds()?.[0] ?? null;
+    this.kioskSubjectBranchId = opts.subjectBranchId ?? this.auth.getBranchIds()?.[0] ?? null;
     this.kioskSelectedDeviceId = '';
     this.kioskConsentGiven = false;
     this.kioskError = '';
@@ -1125,10 +1574,13 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     this.loadingKioskDevices = true;
     this.svc
       .listDevices()
-      .pipe(takeUntil(this.destroy$), finalize(() => {
-        this.loadingKioskDevices = false;
-        this.cdr.markForCheck();
-      }))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loadingKioskDevices = false;
+          this.cdr.markForCheck();
+        }),
+      )
       .subscribe({
         next: (rows) => {
           this.kioskDevices = rows ?? [];
@@ -1143,31 +1595,13 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   get kioskDevicesForSubject(): MobileAttendanceDevice[] {
     const bid = this.kioskSubjectBranchId;
     return this.kioskDevices.filter(
-      (d) =>
-        d.isActive &&
-        d.mode === 'KIOSK' &&
-        (!bid || !d.branchId || d.branchId === bid),
+      (d) => d.isActive && d.mode === 'KIOSK' && (!bid || !d.branchId || d.branchId === bid),
     );
   }
 
   startKioskEnrollment(): void {
     if (!this.kioskSelectedDeviceId || !this.kioskConsentGiven) return;
     this.kioskError = '';
-    const blockingTicket = this.kioskTickets.find(
-      (t) =>
-        t.deviceId === this.kioskSelectedDeviceId &&
-        (t.status === 'PENDING' || t.status === 'REVIEW_PENDING'),
-    );
-    if (blockingTicket) {
-      this.kioskActiveTicket = blockingTicket;
-      if (blockingTicket.status === 'PENDING') this.startKioskTimers();
-      else this.stopKioskTimers();
-      this.toast.info(
-        `${blockingTicket.subjectName} already has an active kiosk enrollment. Complete, approve, reject, or cancel it before starting another.`,
-      );
-      this.cdr.markForCheck();
-      return;
-    }
     this.kioskCreating = true;
     const body: CreateKioskEnrollTicketBody = {
       deviceId: this.kioskSelectedDeviceId,
@@ -1177,10 +1611,13 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     };
     this.svc
       .createKioskEnrollTicket(body)
-      .pipe(takeUntil(this.destroy$), finalize(() => {
-        this.kioskCreating = false;
-        this.cdr.markForCheck();
-      }))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.kioskCreating = false;
+          this.cdr.markForCheck();
+        }),
+      )
       .subscribe({
         next: (t) => {
           this.kioskActiveTicket = t;
@@ -1198,10 +1635,13 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     this.kioskCancelling = true;
     this.svc
       .cancelKioskEnrollTicket(this.kioskActiveTicket.id)
-      .pipe(takeUntil(this.destroy$), finalize(() => {
-        this.kioskCancelling = false;
-        this.cdr.markForCheck();
-      }))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.kioskCancelling = false;
+          this.cdr.markForCheck();
+        }),
+      )
       .subscribe({
         next: () => {
           if (this.kioskActiveTicket) {
@@ -1220,10 +1660,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   private startKioskTimers(): void {
     this.stopKioskTimers();
     this.updateKioskCountdown();
-    this.kioskCountdownTimer = setInterval(
-      () => this.updateKioskCountdown(),
-      1000,
-    );
+    this.kioskCountdownTimer = setInterval(() => this.updateKioskCountdown(), 1000);
     this.kioskPollTimer = setInterval(() => this.pollKioskTicket(), 2000);
   }
 
@@ -1240,8 +1677,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
 
   private updateKioskCountdown(): void {
     if (!this.kioskActiveTicket) return;
-    const ms =
-      new Date(this.kioskActiveTicket.expiresAt).getTime() - Date.now();
+    const ms = new Date(this.kioskActiveTicket.expiresAt).getTime() - Date.now();
     if (ms <= 0) {
       this.kioskCountdownLabel = '0:00';
       return;
@@ -1272,8 +1708,18 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
           }
           this.cdr.markForCheck();
         },
-        error: () => {
-          /* transient — keep polling */
+        error: (e: unknown) => {
+          const status = e instanceof HttpErrorResponse ? e.status : 0;
+          if (status === 401 || status === 403) {
+            this.stopKioskTimers();
+            this.kioskError =
+              status === 401
+                ? 'Your login session expired. Please log in again and restart kiosk enrollment.'
+                : 'You do not have access to this kiosk enrollment ticket.';
+            this.toast.error(this.kioskError);
+            this.cdr.markForCheck();
+          }
+          /* Other failures are transient network/server blips — keep polling. */
         },
       });
   }
@@ -1305,9 +1751,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
         },
         error: (e) => {
           if (!silent) {
-            this.toast.error(
-              e?.error?.message || 'Failed to load kiosk tickets',
-            );
+            this.toast.error(e?.error?.message || 'Failed to load kiosk tickets');
           }
         },
       });
@@ -1392,9 +1836,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     );
   }
 
-  kioskActiveTicketMessage(
-    s: KioskEnrollTicketStatus | string | null | undefined,
-  ): string {
+  kioskActiveTicketMessage(s: KioskEnrollTicketStatus | string | null | undefined): string {
     if (!s) return 'Ticket created. Waiting for kiosk status...';
     if (this.isKnownKioskTicketStatus(s)) {
       return this.kioskTicketStatusLabel(s);
@@ -1405,16 +1847,18 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   async approveKioskTicket(t: KioskEnrollTicket): Promise<void> {
     if (t.status !== 'REVIEW_PENDING') return;
     if (t.notes || t.photoUrl) {
-      const details = [
-        t.notes ? `Review note:\n${t.notes}` : null,
-        t.photoUrl ? 'Captured photo is available in the Evidence column.' : null,
-        'Approve this capture only after inspecting the note and photo evidence.',
-      ].filter(Boolean).join('\n\n');
-      const confirmed = await this.dialog.confirm('Approve Kiosk Capture', details, {
-        confirmText: 'Approve',
-        cancelText: 'Review First',
-      });
-      if (!confirmed) return;
+      const evidence = [
+        t.notes ? `Review note:\n${t.notes}` : '',
+        t.photoUrl ? 'Captured photo is available from the Evidence column.' : '',
+      ]
+        .filter(Boolean)
+        .join('\n\n');
+      const ok = await this.dialog.confirm(
+        'Approve Kiosk Capture',
+        `${evidence}\n\nApprove this capture only after inspecting the note and photo evidence.`,
+        { confirmText: 'Approve', cancelText: 'Review First' },
+      );
+      if (!ok) return;
     }
     this.svc
       .reviewKioskEnrollTicket(t.id, { decision: 'APPROVED' })
@@ -1425,18 +1869,21 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
           this.loadKioskTickets();
           this.loadEnrollments();
         },
-        error: (e) =>
-          this.toast.error(e?.error?.message || 'Approval failed'),
+        error: (e) => this.toast.error(e?.error?.message || 'Approval failed'),
       });
   }
 
   async rejectKioskTicket(t: KioskEnrollTicket): Promise<void> {
     if (t.status !== 'REVIEW_PENDING') return;
-    const result = await this.dialog.prompt('Reject Kiosk Capture', `Reject kiosk capture for ${t.subjectName}?`, {
-      defaultValue: 'Recapture required',
-      placeholder: 'Reason',
-      confirmText: 'Reject',
-    });
+    const result = await this.dialog.prompt(
+      'Reject Kiosk Capture',
+      `Reject kiosk capture for ${t.subjectName}?`,
+      {
+        defaultValue: 'Recapture required',
+        placeholder: 'Reason',
+        confirmText: 'Reject',
+      },
+    );
     const reason = result.value?.trim();
     if (!result.confirmed || !reason) return;
     this.svc
@@ -1450,8 +1897,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
           this.toast.info('Kiosk capture rejected');
           this.loadKioskTickets();
         },
-        error: (e) =>
-          this.toast.error(e?.error?.message || 'Rejection failed'),
+        error: (e) => this.toast.error(e?.error?.message || 'Rejection failed'),
       });
   }
 
@@ -1465,8 +1911,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
           this.toast.info('Ticket cancelled');
           this.loadKioskTickets();
         },
-        error: (e) =>
-          this.toast.error(e?.error?.message || 'Cancel failed'),
+        error: (e) => this.toast.error(e?.error?.message || 'Cancel failed'),
       });
   }
 }
