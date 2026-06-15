@@ -17,10 +17,12 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { config as loadEnv } from 'dotenv';
 import pg from 'pg';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(__dirname, '..', 'migrations');
+loadEnv({ path: join(__dirname, '..', '.env') });
 
 const args = process.argv.slice(2);
 const bootstrap = args.includes('--bootstrap');
