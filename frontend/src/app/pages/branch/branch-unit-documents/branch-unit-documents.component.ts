@@ -113,7 +113,7 @@ type ScopeFilter = '' | CrmDocumentScope;
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Remarks</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Uploaded</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
@@ -140,12 +140,10 @@ type ScopeFilter = '' | CrmDocumentScope;
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-500">{{ doc.createdAt | date:'short' }}</td>
                 <td class="px-4 py-3 text-sm">
-                  <button (click)="view(doc)" class="text-emerald-600 hover:text-emerald-800 font-medium text-sm mr-3">
-                    View
-                  </button>
-                  <button (click)="download(doc)" class="text-indigo-600 hover:text-indigo-800 font-medium text-sm">
-                    Download
-                  </button>
+                  <div class="flex gap-3 justify-end">
+                    <button (click)="view(doc)" class="text-emerald-600 hover:text-emerald-800 font-medium text-sm">View</button>
+                    <button (click)="download(doc)" class="text-indigo-600 hover:text-indigo-800 font-medium text-sm">Download</button>
+                  </div>
                 </td>
               </tr>
             </tbody>

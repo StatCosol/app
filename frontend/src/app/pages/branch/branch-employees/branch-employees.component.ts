@@ -240,7 +240,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
     .data-table th { text-align: left; padding: 0.75rem 1rem; font-size: 0.6875rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; background: #f8fafc; border-bottom: 2px solid #f1f5f9; }
     .data-table td { padding: 0.75rem 1rem; font-size: 0.8125rem; border-bottom: 1px solid #f8fafc; }
     .data-row:hover { background: #f8fafc; }
-    .row-actions { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem; }
+    .row-actions { display: flex; flex-direction: row; align-items: center; justify-content: flex-end; gap: 0.5rem; flex-wrap: wrap; }
     .badge { display: inline-flex; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 600; }
     .spinner { width: 32px; height: 32px; border: 3px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }

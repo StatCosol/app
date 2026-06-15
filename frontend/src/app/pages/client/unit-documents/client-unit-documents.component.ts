@@ -109,7 +109,7 @@ type ScopeFilter = '' | CrmDocumentScope;
         *ngIf="!loading && documents.length === 0"
         icon="document"
         title="No Documents Found"
-        message="No CRM shared files match the selected filters.">
+        description="No CRM shared files match the selected filters.">
       </ui-empty-state>
 
       <div *ngIf="!loading && documents.length > 0" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
