@@ -103,11 +103,15 @@ const LIVENESS_CHALLENGE_REQUIRED =
   ).toLowerCase() !== 'false';
 const LIVENESS_CHALLENGE_MAX_AGE_MS = 2 * 60 * 1000; // 2 minutes
 const OFFLINE_LIVENESS_FALLBACK_MAX_AGE_MS = 10 * 60 * 1000;
-// Phase 4c: server-issued nonce flow. The set of challenges the server
-// may issue — the device must perform exactly the type returned and
-// echo back the nonce on the next punch. Adding to this list also
-// requires updating the Android client.
-const LIVENESS_CHALLENGE_TYPES = ['BLINK'] as const;
+// Phase 4c: server-issued nonce flow. The Android client and DTOs support
+// these values verbatim; normalization must accept every value that can be
+// returned by older servers or stored on existing nonce rows.
+const LIVENESS_CHALLENGE_TYPES = [
+  'BLINK',
+  'SMILE',
+  'HEAD_TURN_LEFT',
+  'HEAD_TURN_RIGHT',
+] as const;
 type LivenessChallengeType = (typeof LIVENESS_CHALLENGE_TYPES)[number];
 // Lifetime of an issued nonce. Must be long enough for the user to
 // perform the action + capture the punch, short enough to limit replay.

@@ -47,8 +47,8 @@ const livenessBody = {
   livenessChallengePassedAt: new Date().toISOString(),
 } as const;
 
-const livenessDs = () => ({
-  query: jest.fn().mockResolvedValue([{ challenge_type: 'BLINK' }]),
+const livenessDs = (challengeType = 'BLINK') => ({
+  query: jest.fn().mockResolvedValue([{ challenge_type: challengeType }]),
 });
 
 const makeService = (d: Deps = {}): MobileAttendanceService =>
@@ -538,13 +538,14 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
         update,
       },
       facePhotos: { put: jest.fn().mockResolvedValue(null) },
-      ds: livenessDs(),
+      ds: livenessDs('SMILE'),
     });
 
     await expect(
       svc.submitKioskEnrollTicket(kioskDevice as any, 't-1', {
         embeddingBase64: embedding.toString('base64'),
         ...livenessBody,
+        livenessChallengeType: 'SMILE',
       }),
     ).resolves.toEqual({ ok: true, ticketId: 't-1' });
 
