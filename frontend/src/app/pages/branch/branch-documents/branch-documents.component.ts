@@ -29,8 +29,8 @@ interface DocumentItem {
     <div class="page-container">
       <div class="page-header">
         <div>
-          <h1 class="page-title">Documents</h1>
-          <p class="page-subtitle">Branch document repository — upload, track, and manage compliance documents</p>
+          <h1 class="page-title">Branch Document Repository</h1>
+          <p class="page-subtitle">Branch files kept for reference and review</p>
         </div>
         <div class="flex items-center gap-3">
           <select *ngIf="branches.length > 1" id="bd-branch-filter" name="branchFilter" [(ngModel)]="branchFilter" (change)="applyFilter()" class="filter-select">
