@@ -558,11 +558,21 @@ class KioskActivity : AppCompatActivity() {
         // thread and clear the timeout. recordPunch() reads the tracker
         // back out for the wire fields, so we don't pass them in here.
         mainHandler.removeCallbacks(pendingChallengeTimeout)
+        // Clear all challenge state before launching the punch so a concurrent
+        // abortChallenge() can't fire with stale state.
+        pendingChallengeTracker = null
+        pendingChallengeMatch = null
+        pendingChallengeProbe = null
+        pendingChallengeNonce = null
+        val capturedLiveness = pendingChallengeLiveness
+        val capturedDirection = pendingChallengeDirection
+        pendingChallengeLiveness = 0.0
+        pendingChallengeDirection = "IN"
         runOnUiThread {
             binding.statusText.text = getString(R.string.liveness_passed)
         }
         lifecycleScope.launch {
-            recordPunch(match, pendingChallengeDirection, pendingChallengeLiveness)
+            recordPunch(match, capturedDirection, capturedLiveness)
         }
     }
 
@@ -572,6 +582,8 @@ class KioskActivity : AppCompatActivity() {
         pendingChallengeMatch = null
         pendingChallengeProbe = null
         pendingChallengeNonce = null
+        pendingChallengeLiveness = 0.0
+        pendingChallengeDirection = "IN"
         mainHandler.removeCallbacks(pendingChallengeTimeout)
         // Reset cooldown so a determined user can immediately retry.
         lastPunchAt = System.currentTimeMillis() - (COOLDOWN_MS - 3_000L).coerceAtLeast(0L)

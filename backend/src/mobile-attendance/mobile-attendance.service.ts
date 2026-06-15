@@ -112,6 +112,10 @@ type LivenessChallengeType = (typeof LIVENESS_CHALLENGE_TYPES)[number];
 // Lifetime of an issued nonce. Must be long enough for the user to
 // perform the action + capture the punch, short enough to limit replay.
 const LIVENESS_NONCE_TTL_MS = LIVENESS_CHALLENGE_MAX_AGE_MS;
+// Minimum margin between best and second-best face match scores.
+// Enforces the 1:N ambiguity check server-side so a modified APK that skips
+// the on-device margin cannot slip through on a near-duplicate roster.
+const MIN_MATCH_MARGIN = 0.04;
 // Phase 4c: defence-in-depth gate that forces every punch to carry a
 // server-recomputable probe embedding (probeEmbeddingB64). When true a
 // tampered APK can no longer post a synthetic matchScore for any
@@ -1617,7 +1621,9 @@ export class MobileAttendanceService implements OnModuleInit {
         'Offline liveness timestamp does not match punch time',
       );
     }
-    if (Date.now() - punchAt > OFFLINE_LIVENESS_FALLBACK_MAX_AGE_MS) {
+    // Validate liveness timestamp against server time (not device punchTime)
+    // so a device cannot fabricate a recent liveness claim by also faking punchTime.
+    if (Date.now() - passedAt > OFFLINE_LIVENESS_FALLBACK_MAX_AGE_MS) {
       throw new BadRequestException(
         'Offline liveness proof is older than 24 hours',
       );
@@ -1816,6 +1822,17 @@ export class MobileAttendanceService implements OnModuleInit {
     } else if (body.matchScore != null && body.matchScore < MIN_MATCH_SCORE) {
       throw new BadRequestException(
         `Face match score ${body.matchScore.toFixed(2)} below threshold ${MIN_MATCH_SCORE}`,
+      );
+    }
+    // Ambiguity margin: best score must beat the runner-up by at least
+    // MIN_MATCH_MARGIN so we don't match on near-duplicate enrollments.
+    if (
+      body.secondBestScore != null &&
+      effectiveMatchScore != null &&
+      effectiveMatchScore - body.secondBestScore < MIN_MATCH_MARGIN
+    ) {
+      throw new BadRequestException(
+        `Face match is ambiguous — scores too close (best ${effectiveMatchScore.toFixed(2)}, next-best ${body.secondBestScore.toFixed(2)})`,
       );
     }
     if (body.livenessScore != null && body.livenessScore < MIN_LIVENESS_SCORE) {
@@ -2244,6 +2261,18 @@ export class MobileAttendanceService implements OnModuleInit {
       );
     }
 
+    // Branch isolation: a branch-scoped kiosk may only punch contractors
+    // whose enrollment is scoped to the same branch (or has no branch scope).
+    if (
+      device.branchId &&
+      activeCtrEnrollment.branchId &&
+      activeCtrEnrollment.branchId !== device.branchId
+    ) {
+      throw new ForbiddenException(
+        `Contractor is enrolled for a different branch and cannot punch on this kiosk`,
+      );
+    }
+
     if (
       KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS > 0 &&
       Date.now() - activeCtrEnrollment.enrolledAt.getTime() <
@@ -2299,6 +2328,16 @@ export class MobileAttendanceService implements OnModuleInit {
         (err as any).matchScore = serverScore;
         throw err;
       }
+    }
+    // Ambiguity margin (contractor parity — see employee punch path).
+    if (
+      body.secondBestScore != null &&
+      effectiveMatchScore != null &&
+      effectiveMatchScore - body.secondBestScore < MIN_MATCH_MARGIN
+    ) {
+      throw new BadRequestException(
+        `Face match is ambiguous — scores too close (best ${effectiveMatchScore.toFixed(2)}, next-best ${body.secondBestScore.toFixed(2)})`,
+      );
     }
 
     // Roadmap #11 / K11: PAD anti-spoof gate (contractor parity).
@@ -4498,8 +4537,11 @@ export class MobileAttendanceService implements OnModuleInit {
 
     const now = new Date();
     if (body.decision === 'REJECTED') {
-      await this.kioskTicketRepo.update(
-        { id: ticket.id },
+      // Include status = REVIEW_PENDING in the WHERE clause so a concurrent
+      // approve/reject from another session produces 0 affected rows and we
+      // can detect the race instead of double-writing.
+      const result = await this.kioskTicketRepo.update(
+        { id: ticket.id, status: 'REVIEW_PENDING' },
         {
           status: 'REJECTED',
           reviewedAt: now,
@@ -4508,6 +4550,9 @@ export class MobileAttendanceService implements OnModuleInit {
           pendingEmbedding: null,
         },
       );
+      if (!result.affected) {
+        throw new ConflictException('Ticket was already reviewed by another session');
+      }
       return { ok: true, status: 'REJECTED' };
     }
 
@@ -4611,8 +4656,8 @@ export class MobileAttendanceService implements OnModuleInit {
       });
     }
 
-    await this.kioskTicketRepo.update(
-      { id: ticket.id },
+    const completedResult = await this.kioskTicketRepo.update(
+      { id: ticket.id, status: 'REVIEW_PENDING' },
       {
         status: 'COMPLETED',
         completedAt: now,
@@ -4621,6 +4666,9 @@ export class MobileAttendanceService implements OnModuleInit {
         pendingEmbedding: null,
       },
     );
+    if (!completedResult.affected) {
+      throw new ConflictException('Ticket was already reviewed by another session');
+    }
     return { ok: true, status: 'COMPLETED' };
   }
 
