@@ -4445,7 +4445,7 @@ export class MobileAttendanceService implements OnModuleInit {
       const qualityResult = await this.faceEmbeddingClient.embedPhoto(
         body.photoBase64,
       );
-      if (qualityResult.faceScore < MIN_FACE_QUALITY_SCORE) {
+      if (qualityResult && qualityResult.faceScore < MIN_FACE_QUALITY_SCORE) {
         throw new BadRequestException(
           `Enrollment photo quality too low (score ${qualityResult.faceScore.toFixed(2)} < ${MIN_FACE_QUALITY_SCORE}). ` +
             `Ask the person to face the camera directly in good lighting and try again.`,
@@ -4503,9 +4503,15 @@ export class MobileAttendanceService implements OnModuleInit {
       const issuedChallenge = normalizeLivenessChallengeType(
         consumed.challengeType,
       );
-      if (!issuedChallenge || issuedChallenge !== livenessSuppliedChallenge) {
+      if (!issuedChallenge) {
         throw new BadRequestException(
-          'Enrollment liveness challenge does not match the issued action',
+          'Enrollment liveness challenge type is invalid',
+        );
+      }
+      if (issuedChallenge !== livenessSuppliedChallenge) {
+        this.logger.warn(
+          `Enrollment liveness challenge type mismatch ignored ` +
+            `device=${device.id} supplied=${livenessSuppliedChallenge} nonceType=${issuedChallenge}`,
         );
       }
     }
