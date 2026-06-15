@@ -18,6 +18,7 @@ import {
 const LAW_CATEGORIES = ['PF', 'ESI', 'PT', 'FACTORY', 'CLRA', 'LWF', 'OTHER'];
 const DOC_TYPES = [
   'Return',
+  'TRRN',
   'Receipt',
   'Challan',
   'Acknowledgement',
@@ -139,6 +140,9 @@ type ScopeFilter = '' | CrmDocumentScope;
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-500">{{ doc.createdAt | date:'short' }}</td>
                 <td class="px-4 py-3 text-sm">
+                  <button (click)="view(doc)" class="text-emerald-600 hover:text-emerald-800 font-medium text-sm mr-3">
+                    View
+                  </button>
                   <button (click)="download(doc)" class="text-indigo-600 hover:text-indigo-800 font-medium text-sm">
                     Download
                   </button>
@@ -222,6 +226,17 @@ export class BranchUnitDocumentsComponent implements OnInit, OnDestroy {
         URL.revokeObjectURL(url);
       },
       error: () => this.toast.error('Download failed'),
+    });
+  }
+
+  view(doc: CrmUnitDocument): void {
+    this.api.downloadBranch(doc.id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank', 'noopener');
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      },
+      error: () => this.toast.error('View failed'),
     });
   }
 }

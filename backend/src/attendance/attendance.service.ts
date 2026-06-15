@@ -154,13 +154,18 @@ export class AttendanceService {
       const emp = await this.empRepo.findOne({
         where: { id: entry.employeeId, clientId },
       });
-      if (!emp) throw new NotFoundException(`Employee ${entry.employeeId} not found`);
+      if (!emp)
+        throw new NotFoundException(`Employee ${entry.employeeId} not found`);
       this.assertBranchAllowed(emp.branchId, allowedBranchIds);
     }
 
     const results: { employeeId: string; status: string }[] = [];
     for (const entry of body.entries) {
-      await this.markAttendance(clientId, { ...entry, date: body.date }, allowedBranchIds);
+      await this.markAttendance(
+        clientId,
+        { ...entry, date: body.date },
+        allowedBranchIds,
+      );
       results.push({ employeeId: entry.employeeId, status: 'saved' });
     }
     return { date: body.date, saved: results.length, results };

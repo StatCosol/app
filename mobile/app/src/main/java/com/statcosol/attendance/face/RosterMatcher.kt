@@ -108,7 +108,7 @@ class RosterMatcher(
     }
 
     /** ESS path: 1:1 verify against the bound employee. */
-    fun verify(probe: FloatArray, employeeId: String, minScore: Double = 0.90): Match? {
+    fun verify(probe: FloatArray, employeeId: String, minScore: Double = 0.78): Match? {
         val target = entries.firstOrNull { it.first.employeeId == employeeId } ?: run {
             Log.w(TAG, "verify: bound employee $employeeId not in roster (size=${entries.size})")
             return null

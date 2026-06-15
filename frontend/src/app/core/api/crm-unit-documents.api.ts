@@ -33,7 +33,7 @@ export class CrmUnitDocumentsApi {
 
   /* ── CRM endpoints ── */
 
-  uploadDocument(formData: FormData): Observable<{ id: string; fileName: string; createdAt: string }> {
+  uploadDocument(formData: FormData): Observable<{ count: number; documents: Array<{ id: string; fileName: string; createdAt: string }> }> {
     return this.http.post<any>(`${this.base}/crm/unit-documents/upload`, formData);
   }
 

@@ -40,9 +40,13 @@ interface EmployeeRow {
 interface ApiEmployee {
   id: string;
   employeeCode: string;
+  name?: string;
+  employeeName?: string;
   fullName?: string;
   firstName?: string;
   lastName?: string;
+  aadhaarName?: string;
+  nameAsPerAadhaar?: string;
   designation?: string;
   isActive?: boolean;
 }
@@ -393,10 +397,7 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
             return {
               employeeId: e.id,
               employeeCode: e.employeeCode,
-              employeeName:
-                e.fullName ||
-                [e.firstName, e.lastName].filter(Boolean).join(' ') ||
-                e.employeeCode,
+              employeeName: this.employeeDisplayName(e),
               designation: e.designation,
               status,
               checkIn,
@@ -557,10 +558,7 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
             .filter((e) => e.isActive !== false)
             .map((e) => ({
               ...e,
-              displayName:
-                e.fullName ||
-                [e.firstName, e.lastName].filter(Boolean).join(' ') ||
-                e.employeeCode,
+              displayName: this.employeeDisplayName(e),
             }))
             .sort((a, b) => a.displayName.localeCompare(b.displayName));
 
@@ -732,6 +730,24 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
     // Accept "HH:mm" or "HH:mm:ss"
     const m = /^(\d{2}):(\d{2})/.exec(t);
     return m ? `${m[1]}:${m[2]}` : '';
+  }
+
+  private employeeDisplayName(e: ApiEmployee): string {
+    const joinedName = [e.firstName, e.lastName]
+      .map((part) => String(part || '').trim())
+      .filter(Boolean)
+      .join(' ');
+    const display = String(
+      e.name ||
+        e.employeeName ||
+        e.fullName ||
+        e.nameAsPerAadhaar ||
+        e.aadhaarName ||
+        joinedName ||
+        e.employeeCode ||
+        '',
+    ).trim();
+    return display || e.employeeCode;
   }
 
   private todayIso(): string {

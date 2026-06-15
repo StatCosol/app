@@ -24,16 +24,6 @@ import {
   assertSafeFile,
 } from '../../common/safe-upload';
 
-const CRM_UNIT_DOCUMENT_EXTENSIONS = new Set([
-  '.pdf',
-  '.png',
-  '.jpg',
-  '.jpeg',
-  '.xls',
-  '.xlsx',
-  '.zip',
-]);
-
 /**
  * CRM-only controller for unit document uploads.
  * Base: /api/v1/crm/unit-documents
@@ -75,7 +65,7 @@ export class CrmUnitDocumentsController {
     @CurrentUser() user: ReqUser,
   ) {
     files = files || [];
-    files.forEach((file) => assertSafeFile(file, CRM_UNIT_DOCUMENT_EXTENSIONS));
+    files.forEach((file) => assertSafeFile(file));
     const docs = await this.svc.uploadMany(dto, files, user.id);
     return {
       count: docs.length,

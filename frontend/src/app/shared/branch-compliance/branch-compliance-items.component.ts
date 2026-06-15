@@ -433,9 +433,7 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
       timeout(15000),
       catchError(() => of(null)),
     ).subscribe(() => {
-      const ids = this.auth.getBranchIds();
-      if (!ids.length && this.branchIds.length) return;
-      this.applyBranchIdsAndLoad(ids);
+      this.applyBranchIdsAndLoad(this.auth.getBranchIds());
     });
   }
 

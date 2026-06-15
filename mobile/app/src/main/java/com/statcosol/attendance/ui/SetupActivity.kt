@@ -92,11 +92,27 @@ class SetupActivity : AppCompatActivity() {
                 app.deviceConfig.essEmployeeId = info.essEmployeeId
                 launchModeActivity(info.mode)
             } catch (e: Exception) {
-                binding.statusText.text = e.message ?: "registration failed"
+                binding.statusText.text = registrationErrorMessage(e)
                 app.deviceConfig.installToken = null
             } finally {
                 binding.progress.visibility = View.GONE
             }
+        }
+    }
+
+    private fun registrationErrorMessage(e: Exception): String {
+        val message = e.message.orEmpty()
+        return when {
+            message.contains("Invalid device token", ignoreCase = true) ->
+                getString(R.string.setup_invalid_device_token)
+            message.contains("already activated", ignoreCase = true) ->
+                getString(R.string.setup_token_already_used)
+            message.contains("expired", ignoreCase = true) ->
+                getString(R.string.setup_token_expired)
+            message.contains("identity header missing", ignoreCase = true) ->
+                getString(R.string.setup_update_app_required)
+            message.isNotBlank() -> message
+            else -> getString(R.string.setup_registration_failed)
         }
     }
 
