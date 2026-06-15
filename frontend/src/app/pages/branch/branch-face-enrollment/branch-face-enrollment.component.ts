@@ -712,6 +712,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   kioskActiveTicket: KioskEnrollTicket | null = null;
   kioskCountdownLabel = '5:00';
   private kioskPollTimer: any = null;
+  private kioskPollErrorCount = 0;
   private kioskCountdownTimer: any = null;
 
   // Kiosk ticket history panel
@@ -1373,7 +1374,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       subjectId: r.employeeId,
       subjectName: r.employeeName,
       subjectCode: r.employeeCode,
-      subjectBranchId: (r as any).branchId ?? null,
+      subjectBranchId: r.branchId ?? null,
     });
   }
 
@@ -1383,7 +1384,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       subjectId: r.contractorEmployeeId,
       subjectName: r.name,
       subjectCode: null,
-      subjectBranchId: (r as any).branchId ?? null,
+      subjectBranchId: r.branchId ?? null,
     });
   }
 
@@ -1403,6 +1404,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     this.kioskConsentGiven = false;
     this.kioskError = '';
     this.kioskActiveTicket = null;
+    this.kioskPollErrorCount = 0;
     this.kioskModalOpen = true;
     this.loadKioskDevices();
     this.cdr.markForCheck();
@@ -1411,8 +1413,12 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   closeKioskModal(): void {
     this.kioskModalOpen = false;
     this.stopKioskTimers();
-    if (this.kioskActiveTicket?.status === 'COMPLETED') {
+    if (
+      this.kioskActiveTicket?.status === 'COMPLETED' ||
+      this.kioskActiveTicket?.status === 'REVIEW_PENDING'
+    ) {
       this.loadEnrollments();
+      this.loadKioskTickets();
     }
     this.kioskActiveTicket = null;
     this.cdr.markForCheck();
@@ -1544,6 +1550,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (t) => {
+          this.kioskPollErrorCount = 0;
           this.kioskActiveTicket = t;
           if (t.status !== 'PENDING') {
             this.stopKioskTimers();
@@ -1566,8 +1573,14 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
                 : 'You do not have access to this kiosk enrollment ticket.';
             this.toast.error(this.kioskError);
             this.cdr.markForCheck();
+            return;
           }
-          /* Other failures are transient network/server blips — keep polling. */
+          this.kioskPollErrorCount++;
+          if (this.kioskPollErrorCount >= 8) {
+            this.stopKioskTimers();
+            this.kioskError = 'Lost connection while waiting. Close and retry.';
+            this.cdr.markForCheck();
+          }
         },
       });
   }
@@ -1664,6 +1677,8 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
         return 'bg-gray-100 text-gray-700';
       case 'EXPIRED':
         return 'bg-red-100 text-red-700';
+      default:
+        return 'bg-gray-200 text-gray-800';
     }
   }
 

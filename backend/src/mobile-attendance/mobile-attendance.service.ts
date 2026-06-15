@@ -4505,6 +4505,7 @@ export class MobileAttendanceService implements OnModuleInit {
           reviewedAt: now,
           reviewedBy,
           rejectionReason: body.reason ?? null,
+          pendingEmbedding: null,
         },
       );
       return { ok: true, status: 'REJECTED' };
@@ -4617,6 +4618,7 @@ export class MobileAttendanceService implements OnModuleInit {
         completedAt: now,
         reviewedAt: now,
         reviewedBy,
+        pendingEmbedding: null,
       },
     );
     return { ok: true, status: 'COMPLETED' };
