@@ -175,7 +175,6 @@ const ATTENDANCE_STATUSES = [
                   <th>Hours</th>
                   <th>OT</th>
                   <th>Source</th>
-                  <th>Photo</th>
                   <th>Location</th>
                   <th>Approval</th>
                   <th>Actions</th>
@@ -202,16 +201,6 @@ const ATTENDANCE_STATUSES = [
                     <span class="source-chip" [class.self]="row.selfMarked">
                       {{ displaySource(row) }}
                     </span>
-                  </td>
-                  <td>
-                    <a *ngIf="row.photoUrl"
-                      class="photo-link"
-                      [href]="row.photoUrl"
-                      target="_blank"
-                      rel="noopener">
-                      View
-                    </a>
-                    <span *ngIf="!row.photoUrl">-</span>
                   </td>
                   <td class="location-cell">
                     <a *ngIf="hasLocation(row)"
@@ -345,8 +334,6 @@ const ATTENDANCE_STATUSES = [
       .att-chip[data-status=WEEK_OFF] { border-color: #d1d5db; color: #6b7280; background: #f3f4f6; }
       .source-chip { font-size: .7rem; font-weight: 600; color: #4b5563; }
       .source-chip.self { color: #0369a1; }
-      .photo-link { color: #0369a1; font-weight: 700; font-size: .72rem; text-decoration: none; }
-      .photo-link:hover { text-decoration: underline; }
       .location-cell { font-size: .72rem; white-space: nowrap; }
       .location-cell a { color: #0369a1; font-weight: 600; text-decoration: none; }
       .location-cell a:hover { text-decoration: underline; }

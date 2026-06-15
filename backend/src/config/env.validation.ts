@@ -81,9 +81,6 @@ export const envValidationSchema = Joi.object({
     .default(true),
   FACE_PUNCH_PHOTO_RETENTION_DAYS: Joi.number().integer().min(1).optional(),
   FACE_ENROLL_PHOTO_RETENTION_DAYS: Joi.number().integer().min(1).optional(),
-  FACE_POST_LOGOUT_COOLDOWN_HOURS: Joi.number().positive().optional(),
-  FACE_MAX_OFFLINE_BACKLOG_HOURS: Joi.number().positive().optional(),
-  MOBILE_DEVICE_INSTALL_TOKEN_TTL_MIN: Joi.number().integer().min(1).optional(),
 
   // Phase 4c hardening — real-time rejection alerts (roadmap #16)
   FACE_REJECTION_ALERT_WINDOW_MIN: Joi.number().integer().min(1).optional(),

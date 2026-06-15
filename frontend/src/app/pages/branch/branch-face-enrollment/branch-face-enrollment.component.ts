@@ -132,160 +132,6 @@ interface EnrollForm {
         </p>
       </div>
 
-      <div
-        *ngIf="false && subjectType === 'contractor'"
-        class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm"
-      >
-        <h3 class="font-semibold text-gray-900 mb-3">Enroll a Contractor Employee Face</h3>
-
-        <div *ngIf="loadingSubjects" class="py-6 flex justify-center">
-          <ui-loading-spinner></ui-loading-spinner>
-        </div>
-
-        <ng-container *ngIf="!loadingSubjects">
-          <div *ngIf="!subjectCount">
-            <ui-empty-state
-              [title]="
-                subjectType === 'contractor'
-                  ? 'No contractor employees found'
-                  : 'No employees found'
-              "
-              [description]="
-                subjectType === 'contractor'
-                  ? 'There are no active contractor employees in your branch yet.'
-                  : 'There are no active employees in your branch yet.'
-              "
-            ></ui-empty-state>
-          </div>
-
-          <ng-container *ngIf="subjectCount">
-            <div>
-              <label for="enroll-subj" class="block text-xs font-medium text-gray-600 mb-1">
-                {{ subjectType === 'contractor' ? 'Contractor Employee' : 'Employee' }}
-              </label>
-              <select
-                id="enroll-subj"
-                name="subjectId"
-                [(ngModel)]="enrollForm.subjectId"
-                (ngModelChange)="onEnrollSubjectChange()"
-                class="ui-input"
-              >
-                <option value="">— Select —</option>
-                <option *ngFor="let c of contractors" [value]="c.id">
-                  {{ c.name }}<span *ngIf="c.designation"> · {{ c.designation }}</span>
-                </option>
-              </select>
-            </div>
-
-            <!-- Live camera capture (only enrollment method — uploads disabled by design) -->
-            <div class="mt-4 border-t border-gray-100 pt-4">
-              <div class="flex items-center justify-between mb-2">
-                <div>
-                  <h4 class="text-sm font-semibold text-gray-800">Live Camera Capture</h4>
-                  <p class="text-xs text-gray-500">
-                    Capture a clear, well-lit, front-facing photo using the camera.
-                  </p>
-                </div>
-                <div class="flex gap-2">
-                  <ui-button
-                    *ngIf="!cameraActive"
-                    variant="secondary"
-                    size="sm"
-                    (clicked)="startCamera()"
-                    >Start Camera</ui-button
-                  >
-                  <ui-button
-                    *ngIf="cameraActive"
-                    variant="primary"
-                    size="sm"
-                    (clicked)="capturePhoto()"
-                    >📷 Capture</ui-button
-                  >
-                  <ui-button
-                    *ngIf="cameraActive"
-                    variant="secondary"
-                    size="sm"
-                    (clicked)="stopCamera()"
-                    >Stop</ui-button
-                  >
-                  <ui-button
-                    *ngIf="!cameraActive && enrollForm.photoBase64"
-                    variant="secondary"
-                    size="sm"
-                    (clicked)="clearCapturedPhoto()"
-                    >Retake</ui-button
-                  >
-                </div>
-              </div>
-              <div
-                class="relative bg-gray-900 rounded-lg overflow-hidden"
-                [style.maxWidth.px]="480"
-                [style.aspectRatio]="'4 / 3'"
-              >
-                <video
-                  #cameraVideo
-                  autoplay
-                  playsinline
-                  muted
-                  [hidden]="!cameraActive"
-                  class="w-full h-full object-cover"
-                ></video>
-                <div
-                  *ngIf="!cameraActive"
-                  class="flex items-center justify-center h-full text-gray-400 text-sm"
-                  style="min-height: 180px;"
-                >
-                  Camera off — click “Start Camera” to begin
-                </div>
-              </div>
-              <p
-                *ngIf="!cameraActive && enrollForm.photoBase64"
-                class="text-xs text-emerald-700 mt-2"
-              >
-                ✓ Photo captured ({{ photoKB }} KB) — ready to enroll
-              </p>
-              <p *ngIf="cameraError" class="text-xs text-red-600 mt-2">{{ cameraError }}</p>
-              <canvas #cameraCanvas hidden></canvas>
-            </div>
-
-            <div class="mt-4 flex items-start gap-2">
-              <input
-                id="enroll-consent"
-                type="checkbox"
-                name="consentGiven"
-                [(ngModel)]="enrollForm.consentGiven"
-                class="mt-0.5"
-              />
-              <label for="enroll-consent" class="text-sm text-gray-700">
-                I confirm the
-                {{ subjectType === 'contractor' ? 'contractor employee' : 'employee' }} has read the
-                biometric data privacy notice and has given explicit informed consent for face
-                enrollment under the DPDP Act 2023.
-              </label>
-            </div>
-
-            <div *ngIf="enrollError" class="mt-3 text-sm text-red-600">{{ enrollError }}</div>
-
-            <div class="mt-4 flex gap-2">
-              <ui-button
-                variant="primary"
-                (clicked)="submitEnroll()"
-                [loading]="enrolling"
-                [disabled]="!canEnroll"
-              >
-                Enroll Face
-              </ui-button>
-              <ui-button variant="secondary" (clicked)="resetEnroll()">Reset</ui-button>
-            </div>
-
-            <p class="mt-3 text-xs text-gray-500">
-              The photo is processed on the server to compute a face embedding (MobileFaceNet,
-              192-d). Only the embedding is stored — the photo itself is not retained.
-            </p>
-          </ng-container>
-        </ng-container>
-      </div>
-
       <!-- Enrollment status table -->
       <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -593,13 +439,19 @@ interface EnrollForm {
                     <span>Inspect photo</span>
                   </a>
                   <div
+                    *ngIf="t.matchScoreSelf"
+                    class="mt-1 text-xs text-gray-500"
+                  >
+                    Score: {{ (t.matchScoreSelf! * 100).toFixed(1) }}%
+                  </div>
+                  <div
                     *ngIf="t.rejectionReason"
                     class="mt-1 max-w-xs rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-red-900"
                   >
                     <div class="font-semibold">Rejection reason</div>
                     <div class="whitespace-pre-line">{{ t.rejectionReason }}</div>
                   </div>
-                  <span *ngIf="!t.notes && !t.photoUrl && !t.rejectionReason" class="text-gray-400"
+                  <span *ngIf="!t.notes && !t.photoUrl && !t.rejectionReason && !t.matchScoreSelf" class="text-gray-400"
                     >-</span
                   >
                 </td>
@@ -1047,10 +899,6 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
         const VIRTUAL =
           /(phone link|phone\s*\(|droidcam|obs|snap camera|virtual|xsplit|ndi|manycam)/i;
         const real = cams.find((c) => c.label && !VIRTUAL.test(c.label));
-        console.info(
-          '[face-enrollment] cameras:',
-          cams.map((c) => c.label || '(no label)'),
-        );
         if (real?.deviceId) {
           chosenLabel = real.label;
           constraints = {
@@ -1846,8 +1694,13 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
 
   async approveKioskTicket(t: KioskEnrollTicket): Promise<void> {
     if (t.status !== 'REVIEW_PENDING') return;
-    if (t.notes || t.photoUrl) {
+    const scoreDisplay =
+      t.matchScoreSelf != null
+        ? `Match score: ${(t.matchScoreSelf * 100).toFixed(1)}%`
+        : null;
+    if (t.notes || t.photoUrl || scoreDisplay) {
       const evidence = [
+        scoreDisplay,
         t.notes ? `Review note:\n${t.notes}` : '',
         t.photoUrl ? 'Captured photo is available from the Evidence column.' : '',
       ]
@@ -1855,7 +1708,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
         .join('\n\n');
       const ok = await this.dialog.confirm(
         'Approve Kiosk Capture',
-        `${evidence}\n\nApprove this capture only after inspecting the note and photo evidence.`,
+        `${evidence}\n\nApprove this capture only after inspecting the evidence.`,
         { confirmText: 'Approve', cancelText: 'Review First' },
       );
       if (!ok) return;

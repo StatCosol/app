@@ -96,11 +96,11 @@ export class ClientEmployeesService {
   }
 
   create(body: Partial<Employee> & { stateCode?: string; branchCode?: string }): Observable<Employee> {
-    return this.http.post<any>(this.base, this.toEmployeePayload(body, true)).pipe(map((r) => this.mapEmployee(r)));
+    return this.http.post<any>(this.base, body).pipe(map((r) => this.mapEmployee(r)));
   }
 
   update(id: string, body: Partial<Employee>): Observable<Employee> {
-    return this.http.put<any>(`${this.base}/${id}`, this.toEmployeePayload(body)).pipe(map((r) => this.mapEmployee(r)));
+    return this.http.put<any>(`${this.base}/${id}`, body).pipe(map((r) => this.mapEmployee(r)));
   }
 
   deactivate(id: string, body?: { exitReason?: string; dateOfExit?: string }): Observable<Employee> {
@@ -170,54 +170,6 @@ export class ClientEmployeesService {
   /** Reject a pending employee registration */
   reject(id: string): Observable<Employee> {
     return this.http.put<any>(`${this.base}/${id}/reject`, {}).pipe(map((r) => this.mapEmployee(r)));
-  }
-
-  private toEmployeePayload(body: any, includeCreateOnly = false): Record<string, any> {
-    const allowed = [
-      'name',
-      'employeeCode',
-      'email',
-      'phone',
-      'aadhaar',
-      'dateOfBirth',
-      'branchId',
-      'stateCode',
-      'designation',
-      'department',
-      'designationId',
-      'departmentId',
-      'gradeId',
-      'gender',
-      'fatherName',
-      'maritalStatus',
-      'pan',
-      'uan',
-      'esic',
-      'esiNumber',
-      'bankName',
-      'bankAccount',
-      'ifsc',
-      'dateOfJoining',
-      'dateOfExit',
-      'grossSalary',
-      'ctc',
-      'monthlyGross',
-      'minimumWageOverride',
-      'minimumWageOverrideReason',
-      'skillCategory',
-      'pfApplicableFrom',
-      'pfServiceStartDate',
-      'basicAtPfStart',
-      'pfApplicable',
-      'esiApplicable',
-      'isActive',
-      'approvalStatus',
-    ];
-    if (includeCreateOnly) allowed.push('branchCode');
-    return allowed.reduce((acc, key) => {
-      if (Object.prototype.hasOwnProperty.call(body, key)) acc[key] = body[key];
-      return acc;
-    }, {} as Record<string, any>);
   }
 
   private mapEmployee(r: any): Employee {

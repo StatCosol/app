@@ -20,7 +20,6 @@ import { PayrollRunEmployeeEntity } from '../payroll/entities/payroll-run-employ
 import { PayrollRunComponentValueEntity } from '../payroll/entities/payroll-run-component-value.entity';
 import { ClientEntity } from '../clients/entities/client.entity';
 import { AttendanceService } from '../attendance/attendance.service';
-import { FacePhotoStorage } from '../mobile-attendance/face-photo-storage.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -88,7 +87,6 @@ export class EssService {
     @InjectRepository(ClientEntity)
     private readonly clientRepo: Repository<ClientEntity>,
     private readonly attendanceService: AttendanceService,
-    private readonly facePhotos: FacePhotoStorage,
     private readonly ds: DataSource,
   ) {}
 
@@ -419,17 +417,8 @@ export class EssService {
            a.check_in_lat AS "checkInLat",
            a.check_in_lng AS "checkInLng",
            a.check_out_lat AS "checkOutLat",
-           a.check_out_lng AS "checkOutLng",
-           bp.photo_url AS "photoUrl"
+           a.check_out_lng AS "checkOutLng"
          FROM attendance_records a
-         LEFT JOIN LATERAL (
-           SELECT p.photo_url
-           FROM biometric_punches p
-           WHERE p.attendance_id = a.id
-             AND p.photo_url IS NOT NULL
-           ORDER BY p.punch_time DESC, p.created_at DESC
-           LIMIT 1
-         ) bp ON TRUE
          WHERE a.employee_id = $1
            AND a.date >= $2::date
            AND a.date < $3::date
@@ -438,15 +427,10 @@ export class EssService {
       )
       .catch(() => []);
 
-    const records = rows.map((row) => ({
-      ...row,
-      photoUrl: this.facePhotos.toViewUrl(row.photoUrl),
-    }));
-
     return {
       month: range.month,
       daysInMonth: range.daysInMonth,
-      records,
+      records: rows,
     };
   }
 
@@ -519,25 +503,14 @@ export class EssService {
       `SELECT id, date::text AS date, status, check_in AS "checkIn", check_out AS "checkOut",
               capture_method AS "captureMethod", self_marked AS "selfMarked",
               check_in_lat AS "checkInLat", check_in_lng AS "checkInLng",
-              check_out_lat AS "checkOutLat", check_out_lng AS "checkOutLng",
-              bp.photo_url AS "photoUrl"
-       FROM attendance_records a
-       LEFT JOIN LATERAL (
-         SELECT p.photo_url
-         FROM biometric_punches p
-         WHERE p.attendance_id = a.id
-           AND p.photo_url IS NOT NULL
-         ORDER BY p.punch_time DESC, p.created_at DESC
-         LIMIT 1
-       ) bp ON TRUE
-       WHERE a.employee_id = $1 AND a.date = $2::date`,
+              check_out_lat AS "checkOutLat", check_out_lng AS "checkOutLng"
+       FROM attendance_records
+       WHERE employee_id = $1 AND date = $2::date`,
       [empId, today],
     );
-    const row = rows[0];
-    if (!row) {
-      return { date: today, status: null, checkIn: null, checkOut: null };
-    }
-    return { ...row, photoUrl: this.facePhotos.toViewUrl(row.photoUrl) };
+    return (
+      rows[0] || { date: today, status: null, checkIn: null, checkOut: null }
+    );
   }
 
   async selfCheckIn(
