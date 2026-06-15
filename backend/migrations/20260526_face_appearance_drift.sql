@@ -14,15 +14,25 @@ ALTER TABLE face_enrollments
   ADD COLUMN IF NOT EXISTS appearance_drift_avg_score numeric NULL,
   ADD COLUMN IF NOT EXISTS appearance_drift_sample_count integer NULL;
 
-ALTER TABLE contractor_face_enrollments
-  ADD COLUMN IF NOT EXISTS appearance_drift_flagged_at timestamptz NULL,
-  ADD COLUMN IF NOT EXISTS appearance_drift_avg_score numeric NULL,
-  ADD COLUMN IF NOT EXISTS appearance_drift_sample_count integer NULL;
+DO $$
+BEGIN
+  IF to_regclass('public.contractor_face_enrollments') IS NOT NULL THEN
+    ALTER TABLE contractor_face_enrollments
+      ADD COLUMN IF NOT EXISTS appearance_drift_flagged_at timestamptz NULL,
+      ADD COLUMN IF NOT EXISTS appearance_drift_avg_score numeric NULL,
+      ADD COLUMN IF NOT EXISTS appearance_drift_sample_count integer NULL;
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS ix_face_enrollments_drift_flagged
   ON face_enrollments (client_id, appearance_drift_flagged_at)
   WHERE appearance_drift_flagged_at IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS ix_contractor_face_enrollments_drift_flagged
-  ON contractor_face_enrollments (client_id, appearance_drift_flagged_at)
-  WHERE appearance_drift_flagged_at IS NOT NULL;
+DO $$
+BEGIN
+  IF to_regclass('public.contractor_face_enrollments') IS NOT NULL THEN
+    CREATE INDEX IF NOT EXISTS ix_contractor_face_enrollments_drift_flagged
+      ON contractor_face_enrollments (client_id, appearance_drift_flagged_at)
+      WHERE appearance_drift_flagged_at IS NOT NULL;
+  END IF;
+END $$;

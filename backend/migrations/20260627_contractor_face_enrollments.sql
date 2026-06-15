@@ -34,6 +34,9 @@ CREATE TABLE IF NOT EXISTS contractor_face_enrollments (
   is_active              boolean NOT NULL DEFAULT true,
   deactivated_at         timestamptz NULL,
   deactivation_reason    text NULL,
+  appearance_drift_flagged_at timestamptz NULL,
+  appearance_drift_avg_score numeric NULL,
+  appearance_drift_sample_count integer NULL,
   updated_at             timestamptz NOT NULL DEFAULT now()
 );
 
@@ -43,6 +46,10 @@ CREATE INDEX IF NOT EXISTS ix_contractor_face_enroll_branch
   ON contractor_face_enrollments (branch_id) WHERE is_active = true;
 CREATE INDEX IF NOT EXISTS ix_contractor_face_enroll_contractor
   ON contractor_face_enrollments (contractor_user_id) WHERE is_active = true;
+
+CREATE INDEX IF NOT EXISTS ix_contractor_face_enrollments_drift_flagged
+  ON contractor_face_enrollments (client_id, appearance_drift_flagged_at)
+  WHERE appearance_drift_flagged_at IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS contractor_face_enrollment_history (
   id                     uuid PRIMARY KEY DEFAULT gen_random_uuid(),

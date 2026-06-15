@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS contractor_biometric_punches (
   match_score numeric NULL,
   liveness_score numeric NULL,
   match_provider varchar(40) NULL,
+  capture_ip inet NULL,
+  capture_user_agent text NULL,
   raw_payload jsonb NULL,
   attendance_id uuid NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
