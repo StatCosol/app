@@ -807,7 +807,6 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
         // Auto-select if only one branch
         if (this.availableBranches.length === 1) {
           this.selectedBranchId = this.availableBranches[0].id;
-          this.bulkBranchId = this.availableBranches[0].id;
         }
         this.load();
         this.cdr.markForCheck();
@@ -1252,13 +1251,13 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
         monthlySalary: salaryNum,
         dailyWage: dailyWageNum,
         gender: raw['gender'] ? String(raw['gender']) : null,
-        dateOfBirth: this.parseBulkDate(raw['dateOfBirth']),
+        dateOfBirth: raw['dateOfBirth'] ? String(raw['dateOfBirth']) : null,
         fatherName: raw['fatherName'] ? String(raw['fatherName']) : null,
         phone: raw['phone'] ? String(raw['phone']) : null,
         email: raw['email'] ? String(raw['email']) : null,
         designation: raw['designation'] ? String(raw['designation']) : null,
         department: raw['department'] ? String(raw['department']) : null,
-        dateOfJoining: this.parseBulkDate(raw['dateOfJoining']),
+        dateOfJoining: raw['dateOfJoining'] ? String(raw['dateOfJoining']) : null,
         aadhaar: raw['aadhaar'] ? String(raw['aadhaar']) : null,
         pan: raw['pan'] ? String(raw['pan']).toUpperCase() : null,
         uan: raw['uan'] ? String(raw['uan']) : null,
@@ -1276,47 +1275,6 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     if (v === true || v === 1) return true;
     const s = String(v ?? '').trim().toLowerCase();
     return s === 'true' || s === 'yes' || s === 'y' || s === '1';
-  }
-
-  private parseBulkDate(value: any): string | null {
-    if (value == null || value === '') return null;
-    if (value instanceof Date && !Number.isNaN(value.getTime())) {
-      return value.toISOString().slice(0, 10);
-    }
-    const raw = String(value).trim();
-    if (!raw) return null;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-
-    const indianDate = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2}|\d{4})$/);
-    if (indianDate) {
-      const day = Number(indianDate[1]);
-      const month = Number(indianDate[2]);
-      const year =
-        indianDate[3].length === 2
-          ? 2000 + Number(indianDate[3])
-          : Number(indianDate[3]);
-      const parsed = new Date(Date.UTC(year, month - 1, day));
-      if (
-        parsed.getUTCFullYear() === year &&
-        parsed.getUTCMonth() === month - 1 &&
-        parsed.getUTCDate() === day
-      ) {
-        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      }
-    }
-
-    const serial = Number(raw);
-    if (Number.isFinite(serial) && serial > 0 && serial < 80000) {
-      const parsed = XLSX.SSF.parse_date_code(serial);
-      if (parsed?.y && parsed?.m && parsed?.d) {
-        const month = String(parsed.m).padStart(2, '0');
-        const day = String(parsed.d).padStart(2, '0');
-        return `${parsed.y}-${month}-${day}`;
-      }
-    }
-
-    const parsed = new Date(raw);
-    return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString().slice(0, 10);
   }
 
   submitBulk(): void {

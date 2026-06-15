@@ -16,7 +16,6 @@ import { PayrollRunEmployeeEntity } from '../payroll/entities/payroll-run-employ
 import { PayrollRunComponentValueEntity } from '../payroll/entities/payroll-run-component-value.entity';
 import { ClientEntity } from '../clients/entities/client.entity';
 import { AttendanceService } from '../attendance/attendance.service';
-import { FacePhotoStorage } from '../mobile-attendance/face-photo-storage.service';
 
 describe('EssService', () => {
   let service: EssService;
@@ -88,10 +87,6 @@ describe('EssService', () => {
         {
           provide: AttendanceService,
           useValue: { getAttendanceSummary: jest.fn() },
-        },
-        {
-          provide: FacePhotoStorage,
-          useValue: { toViewUrl: (url: string | null) => url },
         },
         { provide: DataSource, useValue: { query: jest.fn() } },
       ],

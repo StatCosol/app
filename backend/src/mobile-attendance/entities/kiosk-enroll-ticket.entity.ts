@@ -97,8 +97,16 @@ export class KioskEnrollTicketEntity {
   @Column({ name: 'photo_url', type: 'text', nullable: true })
   photoUrl: string | null;
 
-  @Column({ name: 'match_score_self', type: 'numeric', nullable: true })
-  matchScoreSelf: string | null;
+  @Column({
+    name: 'match_score_self',
+    type: 'numeric',
+    nullable: true,
+    transformer: {
+      to: (v: number | null) => v,
+      from: (v: string | null) => (v != null ? parseFloat(v) : null),
+    },
+  })
+  matchScoreSelf: number | null;
 
   @Column({ name: 'notes', type: 'text', nullable: true })
   notes: string | null;

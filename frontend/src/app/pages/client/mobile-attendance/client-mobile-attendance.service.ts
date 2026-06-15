@@ -520,6 +520,7 @@ export interface KioskEnrollTicket {
   cancelledAt: string | null;
   cancelledBy: string | null;
   embeddingModel: string | null;
+  matchScoreSelf: number | null;
   photoUrl: string | null;
   notes: string | null;
 }
