@@ -33,6 +33,8 @@ export interface SafeUploadOptions {
   memory?: boolean;
   /** Maximum file size in megabytes. Default: 10. */
   maxMb?: number;
+  /** Maximum number of files accepted by the interceptor. Default: 1. */
+  maxFiles?: number;
   /**
    * Allowed MIME types. Defaults to common document/image types.
    * Pass a stricter list for sensitive endpoints.
@@ -71,6 +73,29 @@ function sanitizeExt(filename: string): string {
   );
 }
 
+export function sanitizeUploadBaseName(filename: string): string {
+  const base = path.basename(filename || 'upload');
+  const dot = base.lastIndexOf('.');
+  const stem = dot > 0 ? base.slice(0, dot) : base;
+  return (
+    stem
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^[_ .-]+|[_ .-]+$/g, '')
+      .slice(0, 80) || 'upload'
+  );
+}
+
+export function uniqueUploadDiskName(
+  originalname: string,
+  prefix?: string,
+): string {
+  const safePrefix = prefix
+    ? `${prefix.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80)}_`
+    : '';
+  return `${safePrefix}${Date.now()}_${randomUUID()}_${sanitizeUploadBaseName(originalname)}${sanitizeExt(originalname)}`;
+}
+
 export function makeSafeUploadOptions(opts: SafeUploadOptions = {}) {
   const maxMb = opts.maxMb ?? 10;
   const allowed = opts.allowedMimes ?? DEFAULT_ALLOWED_MIMES;
@@ -99,7 +124,7 @@ export function makeSafeUploadOptions(opts: SafeUploadOptions = {}) {
     storage,
     limits: {
       fileSize: maxMb * 1024 * 1024,
-      files: 1,
+      files: opts.maxFiles ?? 1,
     },
     fileFilter: (
       _req: unknown,

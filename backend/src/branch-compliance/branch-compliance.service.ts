@@ -26,6 +26,7 @@ import * as path from 'path';
 import { ReqUser } from '../access/access-scope.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { RejectionMailService } from '../email/rejection-mail.service';
+import { uniqueUploadDiskName } from '../common/safe-upload';
 
 type UploadedFile = { originalname: string; buffer: Buffer; mimetype: string };
 
@@ -1689,8 +1690,10 @@ export class BranchComplianceService {
     );
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-    const ext = path.extname(file.originalname) || '.pdf';
-    const safeName = `${returnCode}_${year}_${Date.now()}${ext}`;
+    const safeName = uniqueUploadDiskName(
+      file.originalname,
+      `${returnCode}_${year}`,
+    );
     const filePath = path.join(dir, safeName);
     fs.writeFileSync(filePath, file.buffer);
 

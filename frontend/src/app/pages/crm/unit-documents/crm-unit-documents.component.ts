@@ -29,6 +29,7 @@ import {
 const LAW_CATEGORIES = ['PF', 'ESI', 'PT', 'FACTORY', 'CLRA', 'LWF', 'OTHER'];
 const DOC_TYPES = [
   'Return',
+  'TRRN',
   'Receipt',
   'Challan',
   'Acknowledgement',
@@ -53,8 +54,8 @@ type ScopeFilter = '' | CrmDocumentScope;
   ],
   template: `
     <ui-page-header
-      title="Unit Documents"
-      subtitle="Upload and manage CRM documents at company or branch scope">
+      title="CRM Shared Files"
+      subtitle="Upload and manage files shared with client and branch users">
       <ui-client-context-strip [inline]="true"></ui-client-context-strip>
     </ui-page-header>
 
@@ -204,15 +205,19 @@ type ScopeFilter = '' | CrmDocumentScope;
         </div>
 
         <div class="lg:col-span-2">
-          <label for="crm-ud-form-file" class="block text-xs font-medium text-gray-600 mb-1">File * (PDF, XLSX, JPG, PNG, ZIP)</label>
+          <label for="crm-ud-form-file" class="block text-xs font-medium text-gray-600 mb-1">Files * (PDF, XLSX, JPG, PNG, ZIP)</label>
           <input
             #fileInput
             id="crm-ud-form-file"
             name="file"
             type="file"
+            multiple
             (change)="onFileSelected($event)"
             accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png,.zip"
             class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+          <div *ngIf="selectedFiles.length" class="mt-1 text-xs text-gray-500">
+            {{ selectedFiles.length }} file{{ selectedFiles.length !== 1 ? 's' : '' }} selected
+          </div>
         </div>
       </div>
 
@@ -237,7 +242,7 @@ type ScopeFilter = '' | CrmDocumentScope;
       <ui-empty-state
         *ngIf="!loading && !documents.length"
         title="No documents found"
-        message="Upload CRM documents for company or branch scope using the button above.">
+        message="Upload shared files for company or branch scope using the button above.">
       </ui-empty-state>
 
       <div *ngIf="!loading && documents.length" class="overflow-x-auto">
@@ -287,6 +292,12 @@ type ScopeFilter = '' | CrmDocumentScope;
                   <button (click)="downloadDoc(doc)" class="text-blue-600 hover:text-blue-800 transition-colors" title="Download">
                     <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </button>
+                  <button (click)="viewDoc(doc)" class="text-emerald-600 hover:text-emerald-800 transition-colors" title="View">
+                    <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
                   </button>
                   <button (click)="deleteDoc(doc)" class="text-red-500 hover:text-red-700 transition-colors" title="Delete">
@@ -352,7 +363,7 @@ export class CrmUnitDocumentsComponent implements OnInit, OnDestroy {
     remarks: '',
   };
 
-  selectedFile: File | null = null;
+  selectedFiles: File[] = [];
 
   constructor(
     private readonly api: CrmUnitDocumentsApi,
@@ -436,7 +447,7 @@ export class CrmUnitDocumentsComponent implements OnInit, OnDestroy {
 
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.selectedFile = input.files?.[0] || null;
+    this.selectedFiles = Array.from(input.files || []);
   }
 
   canUpload(): boolean {
@@ -446,7 +457,7 @@ export class CrmUnitDocumentsComponent implements OnInit, OnDestroy {
       hasScopeTarget &&
       this.form.lawCategory &&
       this.form.documentType &&
-      this.selectedFile
+      this.selectedFiles.length > 0
     );
   }
 
@@ -455,7 +466,7 @@ export class CrmUnitDocumentsComponent implements OnInit, OnDestroy {
 
     this.uploading = true;
     const formData = new FormData();
-    formData.append('file', this.selectedFile!);
+    this.selectedFiles.forEach((file) => formData.append('file', file));
     formData.append('clientId', this.clientId);
     formData.append('scope', this.form.scope);
     if (this.form.scope === 'BRANCH') {
@@ -473,8 +484,9 @@ export class CrmUnitDocumentsComponent implements OnInit, OnDestroy {
       }),
       takeUntil(this.destroy$),
     ).subscribe({
-      next: () => {
-        this.toast.success('Document uploaded successfully');
+      next: (res) => {
+        const count = res?.count || this.selectedFiles.length;
+        this.toast.success(`${count} document${count !== 1 ? 's' : ''} uploaded successfully`);
         this.resetForm();
         this.loadDocuments();
       },
@@ -493,6 +505,17 @@ export class CrmUnitDocumentsComponent implements OnInit, OnDestroy {
         window.URL.revokeObjectURL(url);
       },
       error: () => this.toast.error('Download failed'),
+    });
+  }
+
+  viewDoc(doc: CrmUnitDocument): void {
+    this.api.downloadCrm(doc.id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, '_blank', 'noopener');
+        setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
+      },
+      error: () => this.toast.error('View failed'),
     });
   }
 
@@ -522,7 +545,7 @@ export class CrmUnitDocumentsComponent implements OnInit, OnDestroy {
       documentType: '',
       remarks: '',
     };
-    this.selectedFile = null;
+    this.selectedFiles = [];
     this.showUploadForm = false;
     if (this.fileInput) {
       this.fileInput.nativeElement.value = '';

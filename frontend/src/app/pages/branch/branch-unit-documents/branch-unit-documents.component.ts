@@ -18,6 +18,7 @@ import {
 const LAW_CATEGORIES = ['PF', 'ESI', 'PT', 'FACTORY', 'CLRA', 'LWF', 'OTHER'];
 const DOC_TYPES = [
   'Return',
+  'TRRN',
   'Receipt',
   'Challan',
   'Acknowledgement',
@@ -42,8 +43,8 @@ type ScopeFilter = '' | CrmDocumentScope;
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
-        title="Unit Documents"
-        subtitle="CRM documents available for this branch and company-wide visibility">
+        title="CRM Shared Files"
+        subtitle="Files shared by CRM for this branch and company-wide visibility">
       </ui-page-header>
 
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
@@ -96,7 +97,7 @@ type ScopeFilter = '' | CrmDocumentScope;
         *ngIf="!loading && documents.length === 0"
         icon="document"
         title="No Documents Found"
-        message="No CRM-uploaded documents match the selected filters.">
+        message="No CRM shared files match the selected filters.">
       </ui-empty-state>
 
       <div *ngIf="!loading && documents.length > 0" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -139,6 +140,9 @@ type ScopeFilter = '' | CrmDocumentScope;
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-500">{{ doc.createdAt | date:'short' }}</td>
                 <td class="px-4 py-3 text-sm">
+                  <button (click)="view(doc)" class="text-emerald-600 hover:text-emerald-800 font-medium text-sm mr-3">
+                    View
+                  </button>
                   <button (click)="download(doc)" class="text-indigo-600 hover:text-indigo-800 font-medium text-sm">
                     Download
                   </button>
@@ -222,6 +226,17 @@ export class BranchUnitDocumentsComponent implements OnInit, OnDestroy {
         URL.revokeObjectURL(url);
       },
       error: () => this.toast.error('Download failed'),
+    });
+  }
+
+  view(doc: CrmUnitDocument): void {
+    this.api.downloadBranch(doc.id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank', 'noopener');
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      },
+      error: () => this.toast.error('View failed'),
     });
   }
 }
