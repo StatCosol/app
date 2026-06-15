@@ -44,7 +44,7 @@ describe('MobileAttendanceService.roster', () => {
     };
     const contractorFaceRepo = { find: jest.fn().mockResolvedValue([]) };
     const empRepo = {
-      findByIds: jest
+      find: jest
         .fn()
         .mockResolvedValue([
           { id: 'emp-1', employeeCode: 'E001', name: 'Employee One' },

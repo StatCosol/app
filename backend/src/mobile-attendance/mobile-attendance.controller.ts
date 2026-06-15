@@ -6,6 +6,7 @@ import {
   ForbiddenException,
   Get,
   Headers,
+  Logger,
   Param,
   Post,
   Put,
@@ -506,17 +507,23 @@ export class MobileAttendanceAdminController {
   @Roles('ADMIN', 'SUPER_ADMIN')
   @Post('failed-scans/run-detector')
   runFaceFailureDetector(
+    @CurrentUser() u: ReqUser,
     @Query('threshold') threshold?: string,
     @Query('windowHours') windowHours?: string,
     @Query('dedupeHours') dedupeHours?: string,
     @Query('clientId') clientId?: string,
     @Query('branchId') branchId?: string,
   ) {
+    const isSuperAdmin = u?.roleCode === 'SUPER_ADMIN' || u?.userType === 'SUPER_ADMIN';
+    if (!isSuperAdmin && clientId && clientId !== u?.clientId) {
+      throw new ForbiddenException('Cannot run detector for another client');
+    }
+    const scopedClientId = isSuperAdmin ? clientId : u?.clientId;
     return this.faceAlertCron.runDetector({
       threshold: threshold !== undefined ? Number(threshold) : undefined,
       windowHours: windowHours !== undefined ? Number(windowHours) : undefined,
       dedupeHours: dedupeHours !== undefined ? Number(dedupeHours) : undefined,
-      clientId: clientId ?? undefined,
+      clientId: scopedClientId ?? undefined,
       branchId: branchId ?? undefined,
     });
   }
@@ -972,6 +979,7 @@ function scopeBranchIds(u: ReqUser): string[] | null {
 @Controller({ path: 'mobile-attendance', version: '1' })
 @Public()
 export class MobileAttendanceDeviceController {
+  private readonly logger = new Logger(MobileAttendanceDeviceController.name);
   constructor(private readonly svc: MobileAttendanceService) {}
 
   @ApiOperation({
@@ -1104,7 +1112,15 @@ export class MobileAttendanceDeviceController {
     @Body() body: SubmitKioskEnrollDto,
   ) {
     const dev = await this.svc.resolveDeviceByToken(token, androidId);
-    return this.svc.submitKioskEnrollTicket(dev, id, body);
+    try {
+      return await this.svc.submitKioskEnrollTicket(dev, id, body);
+    } catch (err: any) {
+      this.logger.warn(
+        `kiosk-enroll submit rejected ticketId=${id} device=${dev.id} ` +
+          `status=${err?.status ?? err?.statusCode ?? '?'} msg=${err?.message}`,
+      );
+      throw err;
+    }
   }
 
   @ApiOperation({

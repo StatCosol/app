@@ -102,12 +102,16 @@ const LIVENESS_CHALLENGE_REQUIRED =
     process.env.FACE_LIVENESS_CHALLENGE_REQUIRED ?? 'true',
   ).toLowerCase() !== 'false';
 const LIVENESS_CHALLENGE_MAX_AGE_MS = 2 * 60 * 1000; // 2 minutes
-const OFFLINE_LIVENESS_FALLBACK_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-// Phase 4c: server-issued nonce flow. The set of challenges the server
-// may issue — the device must perform exactly the type returned and
-// echo back the nonce on the next punch. Adding to this list also
-// requires updating the Android client.
-const LIVENESS_CHALLENGE_TYPES = ['BLINK'] as const;
+const OFFLINE_LIVENESS_FALLBACK_MAX_AGE_MS = 10 * 60 * 1000;
+// Phase 4c: server-issued nonce flow. The Android client and DTOs support
+// these values verbatim; normalization must accept every value that can be
+// returned by older servers or stored on existing nonce rows.
+const LIVENESS_CHALLENGE_TYPES = [
+  'BLINK',
+  'SMILE',
+  'HEAD_TURN_LEFT',
+  'HEAD_TURN_RIGHT',
+] as const;
 type LivenessChallengeType = (typeof LIVENESS_CHALLENGE_TYPES)[number];
 // Lifetime of an issued nonce. Must be long enough for the user to
 // perform the action + capture the punch, short enough to limit replay.
@@ -393,9 +397,28 @@ export class MobileAttendanceService implements OnModuleInit {
       );
     }
 
-    // Lock the device row for the read-modify-write of `androidId` to avoid
-    // two devices simultaneously binding the same install-token. Without the
-    // pessimistic lock, both calls see androidId=null and both succeed.
+    const existing = await this.deviceRepo.findOne({
+      where: { installToken: token },
+    });
+    if (!existing || !existing.isActive) {
+      throw new UnauthorizedException('Invalid device token');
+    }
+    if (existing.androidId) {
+      if (existing.androidId !== supplied) {
+        this.logger.warn(
+          `device token reuse blocked deviceId=${existing.id} bound=${existing.androidId} attempt=${supplied}`,
+        );
+        throw new UnauthorizedException(
+          'This install code is already activated on another device. Ask your administrator to revoke the existing device before re-using the code.',
+        );
+      }
+      existing.lastSeenAt = new Date();
+      await this.deviceRepo.save(existing);
+      return existing;
+    }
+
+    // Lock only for first activation of `androidId` to avoid two devices
+    // simultaneously binding the same install-token.
     return await this.ds.transaction(async (mgr) => {
       const dev = await mgr
         .createQueryBuilder(MobileAttendanceDeviceEntity, 'd')
@@ -920,6 +943,11 @@ export class MobileAttendanceService implements OnModuleInit {
       return { ok: true, status: 'REJECTED' };
     }
 
+    await this.assertFaceNotDuplicate(req.client_id, req.employee_id, req.embedding, {
+      includePendingTickets: true,
+      revealMatchedName: true,
+    });
+
     // APPROVED: copy the new embedding into face_enrollments, append a
     // RE_ENROLL row to history, then mark the request approved. Done in
     // a single transaction so a partial failure doesn't leave a stale
@@ -1067,7 +1095,9 @@ export class MobileAttendanceService implements OnModuleInit {
     }> = [];
     if (rows.length) {
       const empIds = rows.map((r) => r.employeeId);
-      const emps = await this.empRepo.findByIds(empIds);
+      const emps = await this.empRepo.find({
+        where: { id: In(empIds), clientId: device.clientId } as any,
+      });
       const byId = new Map(emps.map((e) => [e.id, e]));
       enrollments = rows
         .filter((r) => r.embedding)
@@ -1629,7 +1659,7 @@ export class MobileAttendanceService implements OnModuleInit {
     // so a device cannot fabricate a recent liveness claim by also faking punchTime.
     if (Date.now() - passedAt > OFFLINE_LIVENESS_FALLBACK_MAX_AGE_MS) {
       throw new BadRequestException(
-        'Offline liveness proof is older than 24 hours',
+        'Offline liveness proof is older than 10 minutes',
       );
     }
     this.logger.warn(
@@ -1642,12 +1672,16 @@ export class MobileAttendanceService implements OnModuleInit {
    *  the daily retention cron. */
   async cleanupExpiredLivenessNonces(): Promise<number> {
     const res = await this.ds.query(
-      `DELETE FROM face_liveness_nonces
-        WHERE expires_at < NOW() - INTERVAL '1 hour'
-           OR (consumed_at IS NOT NULL
-               AND consumed_at < NOW() - INTERVAL '7 days')`,
+      `WITH deleted AS (
+         DELETE FROM face_liveness_nonces
+          WHERE expires_at < NOW() - INTERVAL '1 hour'
+             OR (consumed_at IS NOT NULL
+                 AND consumed_at < NOW() - INTERVAL '7 days')
+          RETURNING 1
+       )
+       SELECT COUNT(*)::int AS count FROM deleted`,
     );
-    return Array.isArray(res) ? 0 : (res?.rowCount ?? 0);
+    return Number(res?.[0]?.count ?? 0);
   }
 
   // ------------------------------------------------------------------ punch
@@ -1917,13 +1951,12 @@ export class MobileAttendanceService implements OnModuleInit {
         const issuedChallenge = normalizeLivenessChallengeType(
           consumed.challengeType,
         );
-        if (
-          suppliedChallenge &&
-          issuedChallenge &&
-          suppliedChallenge !== issuedChallenge
-        ) {
-          this.logger.warn(
-            `Liveness challenge type mismatch ignored device=${device.id} client=${device.clientId} supplied=${suppliedChallenge as string} nonceType=${issuedChallenge as string}`,
+        if (!suppliedChallenge || !issuedChallenge) {
+          throw new BadRequestException('Invalid liveness challenge type');
+        }
+        if (suppliedChallenge !== issuedChallenge) {
+          throw new BadRequestException(
+            'Liveness challenge type mismatch; please retry',
           );
         }
         if (body.livenessChallengePassedAt) {
@@ -2407,13 +2440,12 @@ export class MobileAttendanceService implements OnModuleInit {
         const issuedChallenge = normalizeLivenessChallengeType(
           consumed.challengeType,
         );
-        if (
-          suppliedChallenge &&
-          issuedChallenge &&
-          suppliedChallenge !== issuedChallenge
-        ) {
-          this.logger.warn(
-            `Liveness challenge type mismatch ignored contractor device=${device.id} client=${device.clientId} supplied=${suppliedChallenge as string} nonceType=${issuedChallenge as string}`,
+        if (!suppliedChallenge || !issuedChallenge) {
+          throw new BadRequestException('Invalid liveness challenge type');
+        }
+        if (suppliedChallenge !== issuedChallenge) {
+          throw new BadRequestException(
+            'Liveness challenge type mismatch; please retry',
           );
         }
         if (body.livenessChallengePassedAt) {
@@ -3115,7 +3147,7 @@ export class MobileAttendanceService implements OnModuleInit {
   /**
    * Admin/CRM read endpoint: recent contractor kiosk punches with optional
    * window + contractor/branch filters. Branch-scoped users only see their
-   * own branches. Returns at most `limit` rows (default 100, max 500).
+   * own branches. Returns at most `limit` rows (default 100, max 5000).
    */
   async listContractorPunches(
     clientId: string,
@@ -3177,7 +3209,7 @@ export class MobileAttendanceService implements OnModuleInit {
       return [];
     }
 
-    const limit = Math.min(Math.max(Number(opts.limit) || 100, 1), 500);
+    const limit = Math.min(Math.max(Number(opts.limit) || 100, 1), 5000);
 
     return this.contractorPunchRepo.manager.query(
       `SELECT p.id,
@@ -4013,6 +4045,16 @@ export class MobileAttendanceService implements OnModuleInit {
       return { ok: true, status: 'REJECTED' };
     }
 
+    await this.assertContractorFaceNotDuplicate(
+      req.client_id,
+      req.contractor_employee_id,
+      req.embedding,
+      {
+        includePendingTickets: true,
+        revealMatchedName: true,
+      },
+    );
+
     // APPROVED: copy the new embedding into contractor_face_enrollments,
     // append a RE_ENROLL row to contractor_face_enrollment_history, then
     // mark the request approved. Single transaction so partial failure
@@ -4205,7 +4247,7 @@ export class MobileAttendanceService implements OnModuleInit {
   // ---------------------------------------------------- kiosk-supervised
   // -------------------------------------------------- enrollment tickets
 
-  private static readonly KIOSK_ENROLL_TTL_MIN = 5;
+  private static readonly KIOSK_ENROLL_TTL_MIN = 30;
 
   /**
    * Branch / client operator creates a single-use ticket telling one
@@ -4373,7 +4415,7 @@ export class MobileAttendanceService implements OnModuleInit {
       );
     }
     const ticket = await this.kioskTicketRepo.findOne({
-      where: { id: ticketId },
+      where: { id: ticketId, clientId: device.clientId },
     });
     if (!ticket) throw new NotFoundException('Ticket not found');
     if (ticket.deviceId !== device.id) {
@@ -4509,13 +4551,20 @@ export class MobileAttendanceService implements OnModuleInit {
         );
       }
       if (issuedChallenge !== livenessSuppliedChallenge) {
-        this.logger.warn(
-          `Enrollment liveness challenge type mismatch ignored ` +
-            `device=${device.id} supplied=${livenessSuppliedChallenge} nonceType=${issuedChallenge}`,
+        throw new BadRequestException(
+          'Enrollment liveness challenge type mismatch; please retry',
         );
       }
     }
 
+    if (!ticket.createdBy) {
+      this.logger.warn(
+        `kiosk-enroll auto-approve blocked ticketId=${ticket.id}: missing createdBy`,
+      );
+      throw new BadRequestException(
+        'Enrollment ticket is missing creator; cannot auto-approve',
+      );
+    }
     await this.kioskTicketRepo.update(
       { id: ticket.id },
       {
@@ -4529,7 +4578,7 @@ export class MobileAttendanceService implements OnModuleInit {
     );
     await this.reviewKioskEnrollTicket(
       ticket.clientId,
-      'system:kiosk-auto-approve',
+      ticket.createdBy,
       null,
       ticket.id,
       { decision: 'APPROVED' },
