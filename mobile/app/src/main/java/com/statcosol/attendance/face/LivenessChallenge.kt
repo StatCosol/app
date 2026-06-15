@@ -87,12 +87,12 @@ class LivenessChallengeTracker(val challenge: LivenessChallenge) {
         val left = s.leftEyeOpenProb ?: return false
         val right = s.rightEyeOpenProb ?: return false
         val avg = (left + right) / 2f
-        if (!sawClosed && avg < 0.30f) {
+        if (!sawClosed && avg < 0.45f) {
             sawClosed = true
             blinkStartedAt = now
             return false
         }
-        if (sawClosed && avg > 0.75f) {
+        if (sawClosed && avg > 0.60f) {
             // Eyes-open within reasonable window after eyes-closed.
             if (now - blinkStartedAt in 80..2_500) return true
             // Stale closure — reset and keep waiting.
@@ -104,19 +104,19 @@ class LivenessChallengeTracker(val challenge: LivenessChallenge) {
 
     private fun evalSmile(s: FaceSignal): Boolean {
         val smile = s.smilingProb ?: return false
-        return smile > 0.75f
+        return smile > 0.55f
     }
 
     private fun evalHeadTurnLeft(s: FaceSignal): Boolean {
         // From the user's perspective LEFT means turning their head to their
         // left — which in ML Kit yaw terms is a NEGATIVE Euler-Y angle.
-        if (!sawForward && abs(s.headYawDeg) < 8f) sawForward = true
-        return sawForward && s.headYawDeg <= -22f
+        if (!sawForward && abs(s.headYawDeg) < 12f) sawForward = true
+        return sawForward && s.headYawDeg <= -14f
     }
 
     private fun evalHeadTurnRight(s: FaceSignal): Boolean {
-        if (!sawForward && abs(s.headYawDeg) < 8f) sawForward = true
-        return sawForward && s.headYawDeg >= 22f
+        if (!sawForward && abs(s.headYawDeg) < 12f) sawForward = true
+        return sawForward && s.headYawDeg >= 14f
     }
 
     /** ISO-8601 UTC timestamp of when the challenge passed; null if not yet passed. */

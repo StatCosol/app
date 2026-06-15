@@ -59,7 +59,9 @@ class ApiClient(private val config: DeviceConfig) {
         http.newCall(req).execute().use { resp ->
             val body = resp.body?.string() ?: throw IOException("empty body")
             if (resp.code == 404) return fetchRoster().toDeviceInfo()
-            if (!resp.isSuccessful) throw IOException("config ${resp.code}: $body")
+            if (!resp.isSuccessful) {
+                throw IOException(apiErrorMessage("config", resp.code, body))
+            }
             return moshi.adapter(DeviceInfoResponse::class.java).fromJson(body)
                 ?: throw IOException("could not parse config response")
         }
