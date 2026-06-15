@@ -741,7 +741,9 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.addRunEvent(this.selectedRun!.id, 'IMPORT', 'Attendance uploaded', 'Attendance data imported');
+          if (this.selectedRun) {
+            this.addRunEvent(this.selectedRun.id, 'IMPORT', 'Attendance uploaded', 'Attendance data imported');
+          }
           this.toast.success('Attendance uploaded successfully.');
           this.importFile = null;
           this.loadRuns();

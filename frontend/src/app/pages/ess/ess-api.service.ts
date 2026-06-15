@@ -460,13 +460,13 @@ export class EssApiService {
 
   helpdeskGetMessages(ticketId: string): Observable<any[]> {
     return this.http
-      .get<any>(`${environment.apiBaseUrl}/api/v1/helpdesk/tickets/${ticketId}/messages`)
+      .get<any>(`${this.base}/helpdesk/tickets/${ticketId}/messages`)
       .pipe(map((res) => (Array.isArray(res) ? res : res?.data ?? [])));
   }
 
   helpdeskPostMessage(ticketId: string, message: string): Observable<any> {
     return this.http.post(
-      `${environment.apiBaseUrl}/api/v1/helpdesk/tickets/${ticketId}/messages`,
+      `${this.base}/helpdesk/tickets/${ticketId}/messages`,
       { message },
     );
   }

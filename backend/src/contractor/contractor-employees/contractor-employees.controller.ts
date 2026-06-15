@@ -17,6 +17,10 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ReqUser } from '../../access/access-scope.service';
 import { ContractorEmployeesService } from './contractor-employees.service';
 import { BranchAccessService } from '../../auth/branch-access.service';
+import {
+  CreateContractorEmployeeDto,
+  UpdateContractorEmployeeDto,
+} from './dto/contractor-employee.dto';
 
 // ── Contractor-facing: manage own employees ─────────────
 @ApiTags('Contractor Employees')
@@ -51,7 +55,7 @@ export class ContractorEmployeesController {
 
   @ApiOperation({ summary: 'Create employee' })
   @Post()
-  async create(@CurrentUser() user: ReqUser, @Body() body: any) {
+  async create(@CurrentUser() user: ReqUser, @Body() body: CreateContractorEmployeeDto) {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     const branchId = body.branchId || user.branchIds?.[0];
@@ -71,7 +75,7 @@ export class ContractorEmployeesController {
   async update(
     @CurrentUser() user: ReqUser,
     @Param('id') id: string,
-    @Body() body: any,
+    @Body() body: UpdateContractorEmployeeDto,
   ) {
     return this.svc.update(id, user.userId, body);
   }
