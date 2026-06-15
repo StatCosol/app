@@ -4629,7 +4629,7 @@ export class MobileAttendanceService implements OnModuleInit {
         clientId: ticket.clientId,
         action: existing ? 'RE_ENROLL' : 'ENROLL',
         embeddingModel,
-        actorUserId: reviewedBy,
+        actorUserId: enrolledByUuid,
       });
     } else {
       const ceId = ticket.contractorEmployeeId!;
@@ -4680,7 +4680,7 @@ export class MobileAttendanceService implements OnModuleInit {
         clientId: ticket.clientId,
         action: existing ? 'RE_ENROLL' : 'ENROLL',
         embeddingModel,
-        actorUserId: reviewedBy,
+        actorUserId: enrolledByUuid,
       });
     }
 
