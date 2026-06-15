@@ -41,6 +41,7 @@
     <string name="hint_too_small">Please move closer to the camera</string>
     <string name="hint_too_dim">Lighting too low — please move into the light</string>
     <string name="hint_not_straight">Please look straight at the camera</string>
+    <string name="hint_too_blurry">Image blurry — hold still and look at the camera</string>
     <string name="kiosk_branch_unknown">Branch not assigned</string>
     <string name="kiosk_voice_recorded">Attendance recorded for %1$s</string>
     <string name="kiosk_voice_logout_recorded">Logout recorded for %1$s</string>

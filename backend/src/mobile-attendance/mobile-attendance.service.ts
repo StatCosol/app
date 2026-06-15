@@ -1322,13 +1322,16 @@ export class MobileAttendanceService implements OnModuleInit {
     clientId: string,
     employeeId: string,
     embeddingBuf: Buffer,
-    options: { includePendingTickets?: boolean } = {},
+    options: {
+      includePendingTickets?: boolean;
+      /** When true, include the matched person's name in the error message.
+       *  Safe for admin/kiosk paths; keep false for ESS self-enrollment to
+       *  avoid the endpoint being used as a roster oracle. */
+      revealMatchedName?: boolean;
+    } = {},
   ): Promise<void> {
     const probe = decodeEmbedding(embeddingBuf);
     if (!probe) {
-      // Embedding could not be decoded — this is a critical error that must not
-      // be silently ignored. A malformed embedding will cause duplicate detection
-      // to fail, allowing same face to be enrolled for different employees.
       throw new BadRequestException(
         `Face embedding is malformed or empty (buffer length: ${embeddingBuf?.length ?? 0} bytes). ` +
           `This may indicate an issue with the face encoding service. Contact your administrator.`,
@@ -1341,11 +1344,6 @@ export class MobileAttendanceService implements OnModuleInit {
     });
     if (!best || best.score < DUPLICATE_FACE_THRESHOLD) return;
 
-    // Redacted error: do NOT reveal which employee/contractor the face
-    // matched. The full match details (score, target id) are persisted to
-    // face_duplicate_attempt_logs so an admin can still investigate, but
-    // the caller only learns that the face is already registered. This
-    // prevents the enrol endpoint from being used as a roster oracle.
     if (best.kind === 'employee') {
       await this.logDuplicateAttempt({
         clientId,
@@ -1363,8 +1361,11 @@ export class MobileAttendanceService implements OnModuleInit {
         source: 'enroll-cross',
       });
     }
+    const matchInfo = options.revealMatchedName
+      ? ` — already registered as "${best.label}" (match score ${(best.score * 100).toFixed(0)}%)`
+      : '';
     throw new ConflictException(
-      'This face is already registered in the system. Contact your administrator to resolve the duplicate before enrolling.',
+      `Duplicate face detected${matchInfo}. Resolve the duplicate before enrolling this person.`,
     );
   }
 
@@ -1376,13 +1377,13 @@ export class MobileAttendanceService implements OnModuleInit {
     clientId: string,
     contractorEmployeeId: string,
     embeddingBuf: Buffer,
-    options: { includePendingTickets?: boolean } = {},
+    options: {
+      includePendingTickets?: boolean;
+      revealMatchedName?: boolean;
+    } = {},
   ): Promise<void> {
     const probe = decodeEmbedding(embeddingBuf);
     if (!probe) {
-      // Embedding could not be decoded — this is a critical error that must not
-      // be silently ignored. A malformed embedding will cause duplicate detection
-      // to fail, allowing same face to be enrolled for different employees.
       throw new BadRequestException(
         `Face embedding is malformed or empty (buffer length: ${embeddingBuf?.length ?? 0} bytes). ` +
           `This may indicate an issue with the face encoding service. Contact your administrator.`,
@@ -1412,8 +1413,11 @@ export class MobileAttendanceService implements OnModuleInit {
         source: 'enroll-cross',
       });
     }
+    const matchInfo = options.revealMatchedName
+      ? ` — already registered as "${best.label}" (match score ${(best.score * 100).toFixed(0)}%)`
+      : '';
     throw new ConflictException(
-      'This face is already registered in the system. Contact your administrator to resolve the duplicate before enrolling.',
+      `Duplicate face detected${matchInfo}. Resolve the duplicate before enrolling this person.`,
     );
   }
 
@@ -4434,11 +4438,27 @@ export class MobileAttendanceService implements OnModuleInit {
     const embeddingModel = body.embeddingModel ?? 'mobilefacenet-v1';
     const now = new Date();
 
+    // Server-side quality check on the enrollment photo — same gate as admin
+    // enrollment path. Kiosk operators can inadvertently capture blurry or
+    // partially-obscured photos; poor-quality enrollments degrade match rates.
+    if (body.photoBase64 && this.faceEmbeddingClient.isEnabled()) {
+      const qualityResult = await this.faceEmbeddingClient.embedPhoto(
+        body.photoBase64,
+      );
+      if (qualityResult.faceScore < MIN_FACE_QUALITY_SCORE) {
+        throw new BadRequestException(
+          `Enrollment photo quality too low (score ${qualityResult.faceScore.toFixed(2)} < ${MIN_FACE_QUALITY_SCORE}). ` +
+            `Ask the person to face the camera directly in good lighting and try again.`,
+        );
+      }
+    }
+
     let photoUrl: string | null = null;
     if (ticket.subjectType === 'EMPLOYEE') {
       const empId = ticket.employeeId!;
       await this.assertFaceNotDuplicate(ticket.clientId, empId, embedding, {
         includePendingTickets: true,
+        revealMatchedName: true,
       });
       photoUrl = await this.facePhotos.put({
         clientId: ticket.clientId,
@@ -4457,7 +4477,7 @@ export class MobileAttendanceService implements OnModuleInit {
         ticket.clientId,
         ce.id,
         embedding,
-        { includePendingTickets: true },
+        { includePendingTickets: true, revealMatchedName: true },
       );
       photoUrl = await this.facePhotos.put({
         clientId: ticket.clientId,
@@ -4570,6 +4590,7 @@ export class MobileAttendanceService implements OnModuleInit {
       // the same face that would be invisible if we only checked face_enrollments.
       await this.assertFaceNotDuplicate(ticket.clientId, empId, embedding, {
         includePendingTickets: true,
+        revealMatchedName: true,
       });
       const payload: Partial<FaceEnrollmentEntity> = {
         employeeId: empId,
@@ -4616,6 +4637,7 @@ export class MobileAttendanceService implements OnModuleInit {
         embedding,
         {
           includePendingTickets: true,
+          revealMatchedName: true,
         },
       );
       const payload: Partial<ContractorFaceEnrollmentEntity> = {
