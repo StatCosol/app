@@ -46,6 +46,7 @@ CREATE INDEX IF NOT EXISTS ix_contractor_face_enroll_branch
   ON contractor_face_enrollments (branch_id) WHERE is_active = true;
 CREATE INDEX IF NOT EXISTS ix_contractor_face_enroll_contractor
   ON contractor_face_enrollments (contractor_user_id) WHERE is_active = true;
+
 CREATE INDEX IF NOT EXISTS ix_contractor_face_enrollments_drift_flagged
   ON contractor_face_enrollments (client_id, appearance_drift_flagged_at)
   WHERE appearance_drift_flagged_at IS NOT NULL;
