@@ -290,6 +290,10 @@ export class BranchContractorAttendanceComponent implements OnInit {
   }
 
   async editRow(row: ContractorAttendanceRow): Promise<void> {
+    if (row.source && row.source !== 'MANUAL') {
+      this.toast.error('Only manually-entered punches can be edited');
+      return;
+    }
     const inResult = await this.dialog.prompt(
       'Edit In Time',
       `Enter in time for ${row.contractorEmployeeName || 'contractor employee'} (${this.localDayKey(row.date)}):`,
@@ -364,6 +368,10 @@ export class BranchContractorAttendanceComponent implements OnInit {
   }
 
   async deleteRow(row: ContractorAttendanceRow): Promise<void> {
+    if (row.source && row.source !== 'MANUAL') {
+      this.toast.error('Only manually-entered punches can be deleted');
+      return;
+    }
     const ok = await this.dialog.confirm(
       'Delete Contractor Attendance',
       `Delete ${row.punchCount} attendance punch${row.punchCount === 1 ? '' : 'es'} for ${row.contractorEmployeeName || 'this contractor employee'} on ${this.localDayKey(row.date)}?`,

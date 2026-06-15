@@ -31,7 +31,7 @@ const buildDevice = (
     id: 'd-1',
     clientId: 'c-1',
     branchId: 'b-1',
-    deviceName: 'Kiosk 1',
+    deviceLabel: 'Kiosk 1',
     mode: 'KIOSK',
     isActive: true,
     ...over,
