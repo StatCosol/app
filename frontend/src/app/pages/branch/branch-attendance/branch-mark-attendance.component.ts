@@ -176,8 +176,8 @@ const STANDARD_HOURS = 9;
                   <th>Status</th>
                   <th>In Time</th>
                   <th>Out Time</th>
-                  <th>Worked</th>
-                  <th>OT</th>
+                  <th class="num">Worked</th>
+                  <th class="num">OT</th>
                   <th>Remarks</th>
                 </tr>
               </thead>

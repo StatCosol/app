@@ -217,7 +217,7 @@ interface BulkPreviewRow {
                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">PF</th>
                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">ESI</th>
                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[130px]">Actions</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[130px]">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
@@ -268,15 +268,15 @@ interface BulkPreviewRow {
                     {{ emp.exitReason | slice:0:24 }}{{ (emp.exitReason.length > 24) ? '…' : '' }}
                   </div>
                 </td>
-                <td class="px-4 py-3 text-center min-w-[130px] align-middle">
-                  <div class="mx-auto flex w-[104px] flex-col items-center justify-center gap-2">
+                <td class="px-4 py-3 text-right min-w-[130px] align-middle">
+                  <div class="flex flex-wrap items-center justify-end gap-1.5">
                     <ng-container *ngIf="emp.status === 'PENDING_DELETE'; else availableActions">
                       <span class="inline-flex min-w-[96px] items-center justify-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 border border-amber-200">
                         Pending approval
                       </span>
                       <button
                         (click)="openEdit(emp)"
-                        class="inline-flex w-full items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                        class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
                       >Edit</button>
                     </ng-container>
 
@@ -285,25 +285,25 @@ interface BulkPreviewRow {
                         *ngIf="!emp.isActive"
                         (click)="doReactivate(emp)"
                         [disabled]="saving"
-                        class="inline-flex w-full items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50"
+                        class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50"
                       >Reactivate</button>
 
                     <button
                       (click)="openEdit(emp)"
-                        class="inline-flex w-full items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                        class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
                     >Edit</button>
 
                     <button
                       *ngIf="emp.isActive"
                       (click)="confirmDeactivate(emp)"
                         [disabled]="saving"
-                        class="inline-flex w-full items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100 disabled:opacity-50"
+                        class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100 disabled:opacity-50"
                     >Deactivate</button>
 
                     <button
                       (click)="requestDelete(emp)"
                         [disabled]="saving"
-                        class="inline-flex w-full items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-50"
+                        class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-50"
                       >Delete</button>
                     </ng-template>
                   </div>

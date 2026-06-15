@@ -461,7 +461,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
     { key: 'state', header: 'State', sortable: true, width: '140px' },
     { key: 'period', header: 'Period', sortable: true, width: '140px' },
     { key: 'status', header: 'Status', sortable: true, width: '120px' },
-    { key: 'actions', header: 'Actions', sortable: false, width: '260px', align: 'center' },
+    { key: 'actions', header: 'Actions', sortable: false, width: '260px', align: 'right' },
   ];
 
   q: { clientId: string | null; category: string; periodYear: number | null; periodMonth: number | null; registerType: string } = {
