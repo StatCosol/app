@@ -184,6 +184,17 @@ class FaceCaptureSession(
                 }
                 val bitmap = proxy.toBitmap().rotated(rotation)
                 val crop = detector.cropFace(bitmap, faceBox)
+
+                // Blur (sharpness) gate — Laplacian variance on the face crop.
+                // Blurry crops produce unstable embeddings that degrade match
+                // accuracy at punch time. Threshold tuned for 640×480 camera;
+                // lower = more permissive.
+                val sharpness = laplacianVariance(crop)
+                if (sharpness < MIN_SHARPNESS) {
+                    emitHint("hint:too_blurry")
+                    return@launch
+                }
+
                 // Clear any stale hint now that we're about to do real work.
                 lastHintCode = null
                 if (modelMissing) {
@@ -296,6 +307,41 @@ class FaceCaptureSession(
         return nv21
     }
 
+    /**
+     * Laplacian variance sharpness score on a grayscale bitmap.
+     * Computes the variance of a 3×3 Laplacian convolution — a standard
+     * no-reference blur metric. Higher = sharper.
+     */
+    private fun laplacianVariance(bmp: Bitmap): Double {
+        val w = bmp.width
+        val h = bmp.height
+        if (w < 3 || h < 3) return Double.MAX_VALUE
+        val pixels = IntArray(w * h)
+        bmp.getPixels(pixels, 0, w, 0, 0, w, h)
+        // Laplacian kernel: [0,1,0 / 1,-4,1 / 0,1,0]
+        var sum = 0.0
+        var sumSq = 0.0
+        var n = 0
+        for (y in 1 until h - 1) {
+            for (x in 1 until w - 1) {
+                fun gray(p: Int) = (0.299 * ((p shr 16) and 0xFF) +
+                        0.587 * ((p shr 8) and 0xFF) +
+                        0.114 * (p and 0xFF))
+                val lap = gray(pixels[(y - 1) * w + x]) +
+                        gray(pixels[(y + 1) * w + x]) +
+                        gray(pixels[y * w + x - 1]) +
+                        gray(pixels[y * w + x + 1]) -
+                        4.0 * gray(pixels[y * w + x])
+                sum += lap
+                sumSq += lap * lap
+                n++
+            }
+        }
+        if (n == 0) return Double.MAX_VALUE
+        val mean = sum / n
+        return sumSq / n - mean * mean
+    }
+
     /** Cheap mean-luma estimate from the camera Y plane. Avoids building a
      *  Bitmap for frames that are too dark to use. */
     private fun quickLuminance(image: ImageProxy): Double {
@@ -334,6 +380,11 @@ class FaceCaptureSession(
         private const val MIN_FACE_AREA_RATIO = 0.06
         private const val MAX_EMBED_YAW_DEG = 18f
         private const val MAX_EMBED_PITCH_DEG = 15f
+
+        /** Laplacian variance threshold below which the face crop is too blurry
+         *  to produce a reliable embedding. Tuned empirically: clear frontal
+         *  face crops at 640×480 score ~200–800; motion-blurred frames ~10–50. */
+        private const val MIN_SHARPNESS = 80.0
     }
 }
 

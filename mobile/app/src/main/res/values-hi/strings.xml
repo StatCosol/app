@@ -21,6 +21,7 @@
     <string name="hint_no_face">चेहरा नहीं मिला — कृपया कैमरे की ओर देखें</string>
     <string name="hint_too_small">कृपया कैमरे के पास आएँ</string>
     <string name="hint_too_dim">रोशनी बहुत कम है — कृपया रोशनी में आएँ</string>
+    <string name="hint_too_blurry">छवि धुंधली है — स्थिर रहें और कैमरे की ओर देखें</string>
     <string name="kiosk_branch_unknown">शाखा निर्धारित नहीं</string>
     <string name="kiosk_voice_recorded">%1$s की हाज़िरी दर्ज हो गई</string>
     <string name="kiosk_voice_logout_recorded">%1$s की छुट्टी दर्ज हो गई</string>

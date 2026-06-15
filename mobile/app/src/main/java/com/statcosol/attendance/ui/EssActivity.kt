@@ -178,6 +178,7 @@ class EssActivity : AppCompatActivity() {
                         code == "hint:too_small" -> getString(R.string.hint_too_small)
                         code == "hint:too_dim" -> getString(R.string.hint_too_dim)
                         code == "hint:not_straight" -> getString(R.string.hint_not_straight)
+                        code == "hint:too_blurry" -> getString(R.string.hint_too_blurry)
                         else -> code
                     }
                 }

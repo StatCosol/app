@@ -417,6 +417,7 @@ class KioskActivity : AppCompatActivity() {
             code == "hint:too_small" -> getString(R.string.hint_too_small)
             code == "hint:too_dim" -> getString(R.string.hint_too_dim)
             code == "hint:not_straight" -> getString(R.string.hint_not_straight)
+            code == "hint:too_blurry" -> getString(R.string.hint_too_blurry)
             else -> code
         }
     }
@@ -1135,7 +1136,7 @@ class KioskActivity : AppCompatActivity() {
         private const val ENROLL_POLL_FIRST_MS = 1_000L
         private const val ENROLL_POLL_MS = 3_000L
         private const val ENROLL_REQUIRED_FRAMES = 3
-        private const val ENROLL_MIN_LIVENESS = 0.45
+        private const val ENROLL_MIN_LIVENESS = 0.60
         private const val ENROLL_MIN_FRAME_INTERVAL_MS = 300L
         private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.60
         private const val ENROLL_BLINK_FALLBACK_MS = 8_000L
