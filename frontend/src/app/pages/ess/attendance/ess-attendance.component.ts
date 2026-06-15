@@ -839,7 +839,7 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
           let msg = 'Checked out at ' + res.checkOut;
           if (res.overtimeHours && parseFloat(res.overtimeHours) > 0) {
             msg += ` | OT: ${res.overtimeHours}h`;
-            if (res.overtimeType === 'COFF' && res.coffAccrued > 0) {
+            if (res.overtimeType === 'COFF' && (res.coffAccrued ?? 0) > 0) {
               msg += ` → ${res.coffAccrued} C/Off day(s) credited`;
             }
           }
