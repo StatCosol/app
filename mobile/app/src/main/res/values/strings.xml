@@ -10,6 +10,11 @@
     <string name="setup_register">Register Device</string>
     <string name="setup_invalid_token">Token must be 64 hex characters</string>
     <string name="setup_token_revoked">This device has been revoked by your administrator. Ask for a new install token.</string>
+    <string name="setup_invalid_device_token">Invalid install token. Please create a new mobile attendance device code in the web portal and paste the latest 64-character token.</string>
+    <string name="setup_token_already_used">This install token is already activated on another mobile. Revoke that device in the web portal, then create a new token.</string>
+    <string name="setup_token_expired">This install token has expired. Please create a new mobile attendance device code in the web portal.</string>
+    <string name="setup_update_app_required">This app build is old and cannot send the required device identity. Please install the latest APK.</string>
+    <string name="setup_registration_failed">Device registration failed. Please check network and try again.</string>
 
     <string name="kiosk_look_at_camera">Look at the camera to mark attendance</string>
     <string name="kiosk_match_low">Face not recognised — please try again</string>
@@ -97,4 +102,10 @@
     <string name="kiosk_enroll_failed">Enrollment failed: %1$s</string>
     <string name="kiosk_enroll_uploading">Uploading enrollment…</string>
     <string name="kiosk_enroll_inconsistent">Frames inconsistent — please retry</string>
+    <string name="kiosk_enroll_step_straight">Enrolling %1$s: look straight at the camera</string>
+    <string name="kiosk_enroll_step_left_loaded">Straight face loaded. Blink eyes</string>
+    <string name="kiosk_enroll_step_right_loaded">Left face loaded. Turn face RIGHT</string>
+    <string name="kiosk_enroll_step_smile_loaded">Right face loaded. Smile</string>
+    <string name="kiosk_enroll_step_blink_loaded">Straight face loaded. Blink eyes</string>
+    <string name="kiosk_enroll_step_all_loaded">Blink loaded. Completing enrollment</string>
 </resources>

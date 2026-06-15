@@ -71,8 +71,8 @@ class RosterMatcher(
      */
     fun match(
         probe: FloatArray,
-        minScore: Double = 0.78,
-        minMargin: Double = 0.04,
+        minScore: Double = 0.90,
+        minMargin: Double = 0.08,
     ): Match? {
         if (entries.isEmpty()) {
             Log.w(TAG, "match() called with empty roster")

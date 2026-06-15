@@ -157,7 +157,7 @@ class EssActivity : AppCompatActivity() {
             owner = this,
             previewView = binding.previewView,
             scope = lifecycleScope,
-            onFace = { probe, liveness ->
+            onFace = { probe, liveness, _ ->
                 // Only consume frames while a punch is pending.
                 pending?.let { p ->
                     if (!p.isCompleted && liveness >= MIN_LIVENESS) {
@@ -232,15 +232,14 @@ class EssActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     null
                 }
-                val challenge = if (livenessReq == null) {
-                    LivenessChallenge.random()
-                } else {
-                    val serverChallenge = LivenessChallenge.fromWire(livenessReq.challengeType)
-                    if (serverChallenge == null) {
-                        binding.statusText.text = getString(R.string.liveness_request_failed)
-                        return@launch
-                    }
-                    serverChallenge
+                if (livenessReq == null) {
+                    binding.statusText.text = getString(R.string.liveness_request_failed)
+                    return@launch
+                }
+                val challenge = LivenessChallenge.fromWire(livenessReq.challengeType)
+                if (challenge == null) {
+                    binding.statusText.text = getString(R.string.liveness_request_failed)
+                    return@launch
                 }
                 val tracker = LivenessChallengeTracker(challenge)
                 val awaiter = CompletableDeferred<Boolean>()
@@ -287,7 +286,7 @@ class EssActivity : AppCompatActivity() {
                     captureAccuracyM = location.accuracy.toDouble(),
                     livenessChallengeType = tracker.challenge.wireName,
                     livenessChallengePassedAtIso = tracker.passedAtIso(),
-                    livenessNonce = livenessReq?.nonce,
+                    livenessNonce = livenessReq.nonce,
                     probeEmbeddingB64 = com.statcosol.attendance.face.FaceEmbedder.encodeEmbeddingB64(probe),
                 )
                 withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }
