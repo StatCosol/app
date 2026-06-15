@@ -181,6 +181,18 @@ export class MobilePunchDto {
   @IsString()
   probeEmbeddingB64?: string;
 
+  /**
+   * Score of the next-best roster match (Phase 4c hardening).
+   * The server enforces a minimum margin (bestScore - secondBestScore >= 0.04)
+   * so a near-duplicate roster entry cannot slip through even if the APK skips
+   * the on-device ambiguity check.
+   */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  secondBestScore?: number;
+
   /** Optional captured photo (base64, no data: prefix) for audit / Azure verify. */
   @IsOptional()
   @IsString()
@@ -328,6 +340,13 @@ export class ContractorMobilePunchDto {
   @IsOptional()
   @IsString()
   probeEmbeddingB64?: string;
+
+  /** See MobilePunchDto.secondBestScore. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  secondBestScore?: number;
 
   @IsOptional()
   @IsString()
