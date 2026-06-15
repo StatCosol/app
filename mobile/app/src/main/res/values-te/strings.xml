@@ -19,6 +19,7 @@
     <string name="hint_no_face">ముఖం కనిపించలేదు — దయచేసి కెమెరా వైపు చూడండి</string>
     <string name="hint_too_small">దయచేసి కెమెరాకు దగ్గరగా రండి</string>
     <string name="hint_too_dim">వెలుతురు చాలా తక్కువగా ఉంది — దయచేసి వెలుతురులోకి రండి</string>
+    <string name="hint_too_blurry">చిత్రం అస్పష్టంగా ఉంది — స్థిరంగా ఉండి కెమెరా వైపు చూడండి</string>
     <string name="kiosk_branch_unknown">శాఖ కేటాయించబడలేదు</string>
     <string name="kiosk_voice_recorded">%1$s హాజరు నమోదైంది</string>
     <string name="kiosk_voice_logout_recorded">%1$s లాగౌట్ నమోదైంది</string>
