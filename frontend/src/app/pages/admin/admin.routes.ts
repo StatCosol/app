@@ -94,6 +94,8 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'clients', loadComponent: AdminClientsComponent },
       { path: 'clients/:id', loadComponent: AdminClientsComponent },
       { path: 'clients/:id/:tab', loadComponent: AdminClientsComponent },
+      // Note: :id and :id/:tab are intentional — AdminClientsComponent reads both
+      // ActivatedRoute.snapshot.params.id and .params.tab to show detail/tab views.
       { path: 'assignments', loadComponent: AdminAssignmentsComponent },
       { path: 'payroll-assignments', loadComponent: AdminPayrollAssignmentsComponent },
       { path: 'masters', loadComponent: AdminMastersComponent },
