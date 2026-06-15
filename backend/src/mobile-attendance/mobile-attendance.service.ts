@@ -4518,6 +4518,12 @@ export class MobileAttendanceService implements OnModuleInit {
     ticketId: string,
     body: ReviewKioskEnrollTicketDto,
   ): Promise<{ ok: true; status: 'COMPLETED' | 'REJECTED' }> {
+    // reviewedBy may be a system sentinel ('system:kiosk-auto-approve') — not
+    // a valid UUID. Coerce to null before writing to UUID columns in the DB.
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const enrolledByUuid = uuidRegex.test(reviewedBy) ? reviewedBy : null;
+
     const ticket = await this.kioskTicketRepo.findOne({
       where: { id: ticketId, clientId },
     });
@@ -4581,7 +4587,7 @@ export class MobileAttendanceService implements OnModuleInit {
         consentGivenAt: now,
         consentGivenBy: ticket.createdBy,
         enrolledAt: now,
-        enrolledBy: reviewedBy,
+        enrolledBy: enrolledByUuid,
         isActive: true,
         deactivatedAt: null,
         deactivationReason: null,
@@ -4629,7 +4635,7 @@ export class MobileAttendanceService implements OnModuleInit {
         consentGivenAt: now,
         consentGivenBy: ticket.createdBy,
         enrolledAt: now,
-        enrolledBy: reviewedBy,
+        enrolledBy: enrolledByUuid,
         isActive: true,
         deactivatedAt: null,
         deactivationReason: null,
