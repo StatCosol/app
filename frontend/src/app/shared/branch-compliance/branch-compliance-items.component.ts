@@ -2,9 +2,10 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { Subject } from 'rxjs';
-import { takeUntil, finalize } from 'rxjs/operators';
+import { of, Subject } from 'rxjs';
+import { catchError, finalize, takeUntil, timeout } from 'rxjs/operators';
 import { AuthService } from '../../core/auth.service';
+import { ClientBranchesService } from '../../core/client-branches.service';
 import {
   BranchComplianceService,
   BranchComplianceResponse,
@@ -389,10 +390,12 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
   fixedBranchId = '';
 
   private destroy$ = new Subject<void>();
+  private initialLoadStarted = false;
 
   constructor(
     private api: BranchComplianceService,
     private auth: AuthService,
+    private branchesApi: ClientBranchesService,
     private route: ActivatedRoute,
     private router: Router,
   ) {}
@@ -402,21 +405,94 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
     const now = new Date();
     this.selectedMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-    // If route has branchId param (branch portal), use it directly
+    this.resolveBranchAndLoad();
+  }
+
+  private resolveBranchAndLoad(): void {
+    this.initialLoadStarted = false;
     const paramBranch = this.route.snapshot.paramMap.get('branchId');
     if (paramBranch) {
       this.fixedBranchId = paramBranch;
       this.selectedBranchId = paramBranch;
-    } else {
-      // Client portal: use branchIds from token
-      this.branchIds = this.auth.getBranchIds().map(String);
-      if (this.branchIds.length === 1) {
-        this.fixedBranchId = this.branchIds[0];
-      }
-      this.selectedBranchId = this.branchIds[0] || '';
+      this.startInitialLoad();
+      return;
     }
 
+    if (this.applyBranchIdsAndLoad(this.auth.getBranchIds())) {
+      return;
+    }
+
+    this.loading = true;
+    this.error = '';
+    this.data = null;
+
+    this.loadBranchListFallback();
+
+    this.auth.fetchMe().pipe(
+      takeUntil(this.destroy$),
+      timeout(15000),
+      catchError(() => of(null)),
+    ).subscribe(() => {
+      this.applyBranchIdsAndLoad(this.auth.getBranchIds());
+    });
+  }
+
+  private loadBranchListFallback(): void {
+    this.branchesApi.list().pipe(
+      takeUntil(this.destroy$),
+      timeout(15000),
+      finalize(() => {
+        if (!this.selectedBranchId) this.loading = false;
+      }),
+    ).subscribe({
+      next: (branches: any[]) => {
+        const ids = (branches || [])
+          .map((branch) => this.extractBranchId(branch))
+          .filter((id): id is string => !!id);
+        if (this.applyBranchIdsAndLoad(ids)) {
+          return;
+        } else {
+          this.error = 'No branch is available for this user.';
+        }
+      },
+      error: (err) => {
+        this.error = err?.error?.message || 'Failed to load branch details.';
+      },
+    });
+  }
+
+  private applyBranchIds(ids: unknown[] | null | undefined): boolean {
+    this.branchIds = (ids || [])
+      .map((id) => this.extractBranchId(id))
+      .filter((id): id is string => !!id);
+    if (!this.branchIds.length) return false;
+    if (this.branchIds.length === 1) {
+      this.fixedBranchId = this.branchIds[0];
+    }
+    this.selectedBranchId = this.selectedBranchId || this.branchIds[0];
+    return true;
+  }
+
+  private applyBranchIdsAndLoad(ids: unknown[] | null | undefined): boolean {
+    if (!this.applyBranchIds(ids)) return false;
+    this.startInitialLoad();
+    return true;
+  }
+
+  private startInitialLoad(): void {
+    if (this.initialLoadStarted) return;
+    this.initialLoadStarted = true;
     this.load();
+  }
+
+  private extractBranchId(value: unknown): string | null {
+    if (!value) return null;
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number') return String(value);
+    if (typeof value !== 'object') return null;
+    const row = value as Record<string, unknown>;
+    const id = row['id'] ?? row['branchId'] ?? row['branch_id'];
+    return id ? String(id) : null;
   }
 
   ngOnDestroy(): void {
@@ -435,6 +511,7 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
       .getComplianceItems(this.selectedBranchId, this.selectedMonth)
       .pipe(
         takeUntil(this.destroy$),
+        timeout(15000),
         finalize(() => (this.loading = false)),
       )
       .subscribe({

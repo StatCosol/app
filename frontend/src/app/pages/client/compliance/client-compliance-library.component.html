@@ -1,7 +1,7 @@
 <div class="page">
   <ui-page-header
-    title="Compliance Document Library"
-    subtitle="View and download compliance documents uploaded by your CRM">
+    title="Compliance Documents"
+    subtitle="View and download compliance files shared by CRM">
   </ui-page-header>
 
   <div *ngIf="hasFocusContext()" class="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sky-900">
@@ -54,7 +54,7 @@
   <ui-empty-state
     *ngIf="!loading && filteredDocs.length === 0"
     title="No documents found"
-    description="No compliance documents match the current filters. Documents will appear here once your CRM uploads them.">
+    description="No compliance documents match the current filters. Files will appear here once CRM uploads them.">
   </ui-empty-state>
 
   <!-- Document grid -->
