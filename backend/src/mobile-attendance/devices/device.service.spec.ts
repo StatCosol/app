@@ -12,14 +12,15 @@ describe('DeviceService.listByClient', () => {
     await service.listByClient('client-1');
 
     expect(query).toHaveBeenCalledWith(
-      expect.stringContaining('device_name AS "deviceLabel"'),
+      expect.stringContaining(`to_jsonb(d)->>'device_name'`),
       ['client-1'],
     );
     const sql = query.mock.calls[0][0] as string;
-    expect(sql).toContain('created_at AS "registeredAt"');
-    expect(sql).toContain('last_seen_at AS "lastSeenAt"');
-    expect(sql).toContain('is_active AS "isActive"');
-    expect(sql).toContain('FROM mobile_attendance_devices');
+    expect(sql).toContain(`to_jsonb(d)->>'device_label'`);
+    expect(sql).toContain(`to_jsonb(d)->>'created_at'`);
+    expect(sql).toContain(`to_jsonb(d)->>'last_seen_at'`);
+    expect(sql).toContain(`to_jsonb(d)->>'is_active'`);
+    expect(sql).toContain('FROM mobile_attendance_devices d');
   });
 
   it('scopes devices to the user branches when branch IDs are supplied', async () => {
