@@ -211,13 +211,10 @@ class EssActivity : AppCompatActivity() {
         photo: String?,
     ) {
         val req = MobilePunchRequest(
-            probeEmbeddingB64 = embedder.toBase64(probe),
+            embeddingB64 = embedder.toBase64(probe),
             embeddingModel = "mobilefacenet",
-            matchScore = match.score.toFloat(),
-            secondBestScore = match.secondBestScore.toFloat(),
             livenessScore = liveness,
             livenessChallengeType = challenge.name,
-            livenessChallengePassedAt = passedAt,
             livenessNonce = nonce,
             direction = direction,
             punchTime = KioskActivity.isoNow(),

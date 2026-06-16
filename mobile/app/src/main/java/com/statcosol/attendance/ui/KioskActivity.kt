@@ -304,13 +304,10 @@ class KioskActivity : AppCompatActivity() {
     ) {
         try {
             val req = MobilePunchRequest(
-                probeEmbeddingB64 = embedder.toBase64(probe),
+                embeddingB64 = embedder.toBase64(probe),
                 embeddingModel = "mobilefacenet",
-                matchScore = match.score.toFloat(),
-                secondBestScore = match.secondBestScore.toFloat(),
                 livenessScore = liveness,
                 livenessChallengeType = challenge.name,
-                livenessChallengePassedAt = passedAt,
                 livenessNonce = nonce,
                 direction = "IN",
                 punchTime = isoNow(),
@@ -477,15 +474,15 @@ class KioskActivity : AppCompatActivity() {
             val selfSim = cosineSim(lastProbe, avgEmbedding).toFloat()
 
             val req = SubmitKioskEnrollRequest(
-                embeddingBase64 = embedder.toBase64(avgEmbedding),
+                ticketId = enrollState.ticket.id,
+                embeddingFrames = enrollFrames.map { embedder.toBase64(it) },
                 embeddingModel = "mobilefacenet",
                 livenessNonce = nonce,
                 livenessChallengeType = challenge.name,
-                livenessChallengePassedAt = passedAt,
-                selfMatchScore = selfSim,
+                consentGiven = true,
             )
 
-            val result = apiClient.submitEnrollTicket(enrollState.ticket.id, req)
+            val result = apiClient.submitEnrollTicket(req)
             result.fold(
                 onSuccess = {
                     val successMsg = getString(R.string.kiosk_enroll_success, enrollState.ticket.subjectName)
