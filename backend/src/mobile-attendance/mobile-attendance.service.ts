@@ -102,7 +102,10 @@ const LIVENESS_CHALLENGE_REQUIRED =
     process.env.FACE_LIVENESS_CHALLENGE_REQUIRED ?? 'true',
   ).toLowerCase() !== 'false';
 const LIVENESS_CHALLENGE_MAX_AGE_MS = 2 * 60 * 1000; // 2 minutes
-const OFFLINE_LIVENESS_FALLBACK_MAX_AGE_MS = 10 * 60 * 1000;
+// Offline-queued punches may be held for hours during connectivity outages
+// before PunchSyncWorker resubmits them. 24 h gives a full shift buffer
+// without accepting truly stale proofs; the online nonce path stays at 2 min.
+const OFFLINE_LIVENESS_FALLBACK_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // Phase 4c: server-issued nonce flow. The Android client and DTOs support
 // these values verbatim; normalization must accept every value that can be
 // returned by older servers or stored on existing nonce rows.
@@ -4780,17 +4783,20 @@ export class MobileAttendanceService implements OnModuleInit {
       // enrollment write.  The optimistic WHERE status='REVIEW_PENDING' guard
       // detects a concurrent session; rolling back here leaves face_enrollments
       // unchanged so neither session produces a half-written state.
-      const result = await tx.query(
+      // RETURNING id makes tx.query() return the updated rows as an array so
+      // we can check length — manager.query() does not expose pg's rowCount.
+      const updated: { id: string }[] = await tx.query(
         `UPDATE kiosk_enroll_tickets
             SET status = 'COMPLETED',
                 completed_at = $1,
                 reviewed_at = $1,
                 reviewed_by = $2,
                 pending_embedding = NULL
-          WHERE id = $3 AND status = 'REVIEW_PENDING'`,
+          WHERE id = $3 AND status = 'REVIEW_PENDING'
+          RETURNING id`,
         [now, reviewedBy, ticket.id],
       );
-      if (!result.rowCount) {
+      if (!updated.length) {
         throw new ConflictException('Ticket was already reviewed by another session');
       }
     });

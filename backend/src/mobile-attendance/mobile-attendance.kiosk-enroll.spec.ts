@@ -521,8 +521,8 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
     const txSave = jest.fn().mockResolvedValue({});
     const txQuery = jest
       .fn()
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce({ rowCount: 1 });
+      .mockResolvedValueOnce(undefined)   // history INSERT
+      .mockResolvedValueOnce([{ id: 't-1' }]); // UPDATE … RETURNING id
     const tx = {
       findOne: jest.fn().mockResolvedValue(null),
       update: jest.fn(),
