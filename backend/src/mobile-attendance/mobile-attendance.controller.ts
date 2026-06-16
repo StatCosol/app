@@ -97,6 +97,17 @@ export class MobileAttendanceDevicesController {
     if (!clientId) throw new BadRequestException('Client context required');
     return this.deviceService.revokeDevice(clientId, deviceId, user.userId);
   }
+
+  @ApiOperation({ summary: 'Permanently delete a revoked device' })
+  @Delete(':deviceId/permanent')
+  permanentlyDelete(
+    @Param('deviceId') deviceId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.deviceService.permanentlyDeleteDevice(clientId, deviceId, user.branchIds ?? []);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
