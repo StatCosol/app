@@ -972,6 +972,19 @@ class KioskActivity : AppCompatActivity() {
         enrollFrames += probe
         enrollRunningAvg = averageAndNormalize(enrollFrames)
         if (!photoBase64.isNullOrBlank()) enrollPhotoBase64 = photoBase64
+        val ticket = enrollTicket ?: return
+        val captured = enrollFrames.size
+        if (captured < ENROLL_REQUIRED_FRAMES) {
+            runOnUiThread {
+                binding.statusText.text = getString(
+                    R.string.kiosk_enroll_capturing_frames,
+                    captured,
+                    ENROLL_REQUIRED_FRAMES,
+                    ticket.subjectName,
+                )
+            }
+            return
+        }
         enrollChallengePassed = true
         enrollChallengePassedAtIso = isoNow()
         setEnrollmentStep(EnrollmentGestureStep.DONE)
