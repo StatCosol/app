@@ -47,10 +47,11 @@ class ApiClient(private val config: DeviceConfig) {
             parse(body)
         }
 
+    /** Bind this device's androidId to its pre-provisioned install token. */
     suspend fun registerDevice(req: RegisterDeviceRequest): RegisterDeviceResponse {
         val body = json.encodeToString(req).toRequestBody(JSON_MEDIA_TYPE)
         val request = Request.Builder()
-            .url("${baseUrl()}/api/mobile-attendance/register-device")
+            .url("${baseUrl()}/api/v1/mobile-attendance/devices/register")
             .post(body)
             .header("Content-Type", "application/json")
             .build()
@@ -58,13 +59,13 @@ class ApiClient(private val config: DeviceConfig) {
     }
 
     suspend fun getRoster(): RosterResponse {
-        val request = authedRequestBuilder("/api/mobile-attendance/roster").get().build()
+        val request = authedRequestBuilder("/api/v1/mobile-attendance/punches/roster").get().build()
         return execute(request) { json.decodeFromString(it) }
     }
 
     suspend fun issueLivenessChallenge(employeeId: String?): LivenessChallengeResponse {
         val reqBody = json.encodeToString(LivenessChallengeRequest(employeeId)).toRequestBody(JSON_MEDIA_TYPE)
-        val request = authedRequestBuilder("/api/mobile-attendance/liveness-challenge")
+        val request = authedRequestBuilder("/api/v1/mobile-attendance/liveness/challenge")
             .post(reqBody)
             .build()
         return execute(request) { json.decodeFromString(it) }
@@ -72,14 +73,14 @@ class ApiClient(private val config: DeviceConfig) {
 
     suspend fun recordPunch(req: MobilePunchRequest): MobilePunchResponse {
         val body = json.encodeToString(req).toRequestBody(JSON_MEDIA_TYPE)
-        val request = authedRequestBuilder("/api/mobile-attendance/punch")
+        val request = authedRequestBuilder("/api/v1/mobile-attendance/punches")
             .post(body)
             .build()
         return execute(request) { json.decodeFromString(it) }
     }
 
     suspend fun getPendingEnrollTicket(): KioskEnrollTicketResponse? {
-        val request = authedRequestBuilder("/api/mobile-attendance/kiosk-enroll-ticket/pending")
+        val request = authedRequestBuilder("/api/v1/mobile-attendance/enrollment/kiosk/tickets?status=PENDING")
             .get()
             .build()
         return withContext(Dispatchers.IO) {
@@ -87,14 +88,19 @@ class ApiClient(private val config: DeviceConfig) {
             if (response.code == 404) return@withContext null
             val body = response.body?.string() ?: ""
             if (!response.isSuccessful) throw ApiException(response.code, body)
-            if (body.isBlank() || body == "null") null
-            else json.decodeFromString(body)
+            if (body.isBlank() || body == "null" || body == "[]") null
+            else {
+                // Endpoint returns an array; pick first PENDING ticket
+                val tickets = json.decodeFromString<List<KioskEnrollTicketResponse>>(body)
+                tickets.firstOrNull { it.status == "PENDING" }
+            }
         }
     }
 
     suspend fun submitEnrollTicket(ticketId: String, req: SubmitKioskEnrollRequest): Result<Unit> {
+        // ticketId is now passed inside the request body (SubmitKioskEnrollRequest.ticketId)
         val body = json.encodeToString(req).toRequestBody(JSON_MEDIA_TYPE)
-        val request = authedRequestBuilder("/api/mobile-attendance/kiosk-enroll-ticket/$ticketId/submit")
+        val request = authedRequestBuilder("/api/v1/mobile-attendance/enrollment/kiosk/submit")
             .post(body)
             .build()
         return withContext(Dispatchers.IO) {

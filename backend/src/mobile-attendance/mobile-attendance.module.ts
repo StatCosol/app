@@ -12,6 +12,7 @@ import { ContractorBiometricPunchEntity } from './punch/contractor-punch.entity'
 import { FaceLivenessNonceEntity } from './liveness/liveness-nonce.entity';
 
 // Services
+import { DeviceAuthGuard } from './devices/device-auth.guard';
 import { DeviceService } from './devices/device.service';
 import { EnrollmentService } from './enrollment/enrollment.service';
 import { PunchService } from './punch/punch.service';
@@ -47,6 +48,7 @@ import {
     MobileAttendancePunchesController,
   ],
   providers: [
+    DeviceAuthGuard,
     DeviceService,
     EnrollmentService,
     PunchService,

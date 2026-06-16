@@ -62,12 +62,20 @@ export class PunchService {
   ) {}
 
   async getRoster(device: MobileAttendanceDeviceEntity): Promise<RosterEntry[]> {
+    // Scope roster to device assignment: branch-bound kiosks only cache their branch.
+    const empWhere: Record<string, unknown> = { clientId: device.clientId, isActive: true };
+    const conWhere: Record<string, unknown> = { clientId: device.clientId, isActive: true };
+    if (device.branchId) {
+      empWhere['branchId'] = device.branchId;
+      conWhere['branchId'] = device.branchId;
+    }
+
     const empRows = await this.enrollRepo.find({
-      where: { clientId: device.clientId, isActive: true },
+      where: empWhere as any,
       select: ['employeeId', 'embedding', 'embeddingModel', 'enrolledAt'],
     });
     const conRows = await this.contractorEnrollRepo.find({
-      where: { clientId: device.clientId, isActive: true },
+      where: conWhere as any,
       select: ['contractorEmployeeId', 'embedding', 'embeddingModel', 'enrolledAt'],
     });
 
@@ -138,21 +146,23 @@ export class PunchService {
       throw new BadRequestException('No eligible enrollments on this device');
     }
 
-    // Find best and second-best match
+    // Find best and second-best match.
+    // MIN_MATCH_SCORE is a raw cosine threshold (e.g. 0.90); toMatchScore is
+    // applied only to the value stored/returned for display.
     const scored = eligibleRoster
-      .map((r) => ({ ...r, score: toMatchScore(cosineSim(probe, r.embedding)) }))
-      .sort((a, b) => b.score - a.score);
+      .map((r) => ({ ...r, cosine: cosineSim(probe, r.embedding) }))
+      .sort((a, b) => b.cosine - a.cosine);
 
     const best = scored[0];
     const secondBest = scored[1];
 
-    if (best.score < MIN_MATCH_SCORE) {
+    if (best.cosine < MIN_MATCH_SCORE) {
       throw new BadRequestException(
-        `No face match above threshold (best score: ${best.score.toFixed(3)})`,
+        `No face match above threshold (best cosine: ${best.cosine.toFixed(3)})`,
       );
     }
 
-    const margin = secondBest ? best.score - secondBest.score : 1;
+    const margin = secondBest ? best.cosine - secondBest.cosine : 1;
     if (margin < MIN_MATCH_MARGIN) {
       throw new BadRequestException(
         `Ambiguous match: margin ${margin.toFixed(3)} below required ${MIN_MATCH_MARGIN}`,
@@ -176,7 +186,7 @@ export class PunchService {
         employeeId: best.subjectId,
         direction: dto.direction,
         punchTime,
-        matchScore: best.score,
+        matchScore: toMatchScore(best.cosine),
         livenessScore: dto.livenessScore ?? null,
         livenessChallengeType: dto.livenessChallengeType ?? null,
         livenessChallengePassedAt: livenessPassedAt,
@@ -195,7 +205,7 @@ export class PunchService {
         punchId: punch.id,
         subjectType: 'EMPLOYEE',
         subjectId: best.subjectId,
-        matchScore: best.score,
+        matchScore: toMatchScore(best.cosine),
         direction: dto.direction,
         punchTime,
       };
@@ -207,7 +217,7 @@ export class PunchService {
         contractorEmployeeId: best.subjectId,
         direction: dto.direction,
         punchTime,
-        matchScore: best.score,
+        matchScore: toMatchScore(best.cosine),
         livenessScore: dto.livenessScore ?? null,
         livenessChallengeType: dto.livenessChallengeType ?? null,
         livenessChallengePassedAt: livenessPassedAt,
@@ -226,7 +236,7 @@ export class PunchService {
         punchId: punch.id,
         subjectType: 'CONTRACTOR',
         subjectId: best.subjectId,
-        matchScore: best.score,
+        matchScore: toMatchScore(best.cosine),
         direction: dto.direction,
         punchTime,
       };

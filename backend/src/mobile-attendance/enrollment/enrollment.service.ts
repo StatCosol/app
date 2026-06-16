@@ -372,8 +372,8 @@ export class EnrollmentService {
     return this.contractorEnrollRepo.findOne({ where: { contractorEmployeeId, clientId } });
   }
 
-  async getTicket(ticketId: string): Promise<KioskEnrollTicketEntity | null> {
-    return this.ticketRepo.findOne({ where: { id: ticketId } });
+  async getTicket(ticketId: string, clientId: string): Promise<KioskEnrollTicketEntity | null> {
+    return this.ticketRepo.findOne({ where: { id: ticketId, clientId } });
   }
 
   async listTickets(

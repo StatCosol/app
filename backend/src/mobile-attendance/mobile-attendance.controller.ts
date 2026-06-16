@@ -13,11 +13,14 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
+import { UseGuards } from '@nestjs/common';
 import { Roles } from '../auth/roles.decorator';
+import { Public } from '../auth/public.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
 
 import { DeviceService } from './devices/device.service';
+import { DeviceAuthGuard } from './devices/device-auth.guard';
 import { RegisterDeviceDto, RevokeDeviceDto } from './devices/device.dto';
 
 import { EnrollmentService } from './enrollment/enrollment.service';
@@ -45,7 +48,26 @@ import { IssueChallengeDto } from './liveness/liveness.dto';
 export class MobileAttendanceDevicesController {
   constructor(private readonly deviceService: DeviceService) {}
 
-  @ApiOperation({ summary: 'Register / bind a device using its install token' })
+  @ApiOperation({ summary: 'Admin — provision a new device and generate an install token' })
+  @Post()
+  provision(
+    @CurrentUser() user: ReqUser,
+    @Body() body: { mode: 'KIOSK' | 'ESS'; branchId?: string; deviceLabel?: string },
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.deviceService.provisionDevice(
+      clientId,
+      body.mode,
+      body.branchId ?? null,
+      body.deviceLabel ?? null,
+      user.userId,
+    );
+  }
+
+  @ApiOperation({ summary: 'Device — bind androidId to a pre-provisioned install token' })
+  @Public()
+  @UseGuards(DeviceAuthGuard)
   @Post('register')
   register(@Body() dto: RegisterDeviceDto) {
     return this.deviceService.registerDevice(dto.installToken, dto.androidId, dto.deviceName);
@@ -112,16 +134,15 @@ export class MobileAttendanceEnrollmentController {
   }
 
   @ApiOperation({ summary: 'Device — submit captured frames for a kiosk ticket' })
+  @Public()
+  @UseGuards(DeviceAuthGuard)
   @Post('kiosk/submit')
-  @Roles('CLIENT', 'ADMIN', 'DEVICE')
   submitTicket(
-    @CurrentUser() user: ReqUser,
-    @Body() dto: SubmitKioskTicketDto,
     @Req() req: Request,
+    @Body() dto: SubmitKioskTicketDto,
   ) {
-    const deviceId = (req as any).deviceId as string | undefined;
-    if (!deviceId) throw new UnauthorizedException('Device authentication required');
-    return this.enrollmentService.submitKioskTicket(deviceId, dto, user?.userId ?? deviceId);
+    const deviceId = (req as any).deviceId as string;
+    return this.enrollmentService.submitKioskTicket(deviceId, dto, deviceId);
   }
 
   @ApiOperation({ summary: 'List enrollment tickets' })
@@ -139,8 +160,10 @@ export class MobileAttendanceEnrollmentController {
   @ApiOperation({ summary: 'Get a single enrollment ticket' })
   @Get('kiosk/tickets/:ticketId')
   @Roles('CLIENT', 'ADMIN')
-  getTicket(@Param('ticketId') ticketId: string) {
-    return this.enrollmentService.getTicket(ticketId);
+  getTicket(@Param('ticketId') ticketId: string, @CurrentUser() user: ReqUser) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.enrollmentService.getTicket(ticketId, clientId);
   }
 
   @ApiOperation({ summary: 'Deactivate a face enrollment (DPDP crypto-shred)' })
@@ -194,11 +217,11 @@ export class MobileAttendanceLivenessController {
   constructor(private readonly livenessService: LivenessService) {}
 
   @ApiOperation({ summary: 'Issue a liveness challenge nonce for a device' })
+  @Public()
+  @UseGuards(DeviceAuthGuard)
   @Post('challenge')
-  @Roles('CLIENT', 'ADMIN', 'DEVICE', 'EMPLOYEE')
   issueChallenge(@Req() req: Request, @Body() dto: IssueChallengeDto) {
-    const deviceId = (req as any).deviceId as string | undefined;
-    if (!deviceId) throw new UnauthorizedException('Device authentication required');
+    const deviceId = (req as any).deviceId as string;
     return this.livenessService.issueChallenge(deviceId, dto.employeeId, dto.offline ?? false);
   }
 }
@@ -217,14 +240,14 @@ export class MobileAttendancePunchesController {
   ) {}
 
   @ApiOperation({ summary: 'Record an attendance punch (face match + liveness)' })
+  @Public()
+  @UseGuards(DeviceAuthGuard)
   @Post()
-  @Roles('CLIENT', 'ADMIN', 'DEVICE', 'EMPLOYEE')
   async recordPunch(
     @Req() req: Request,
     @Body() dto: RecordPunchDto,
   ) {
-    const deviceId = (req as any).deviceId as string | undefined;
-    if (!deviceId) throw new UnauthorizedException('Device authentication required');
+    const deviceId = (req as any).deviceId as string;
     const device = await this.deviceService.findById(deviceId);
     if (!device) throw new UnauthorizedException('Device not found');
     const ip = req.ip ?? req.socket?.remoteAddress;
@@ -233,11 +256,11 @@ export class MobileAttendancePunchesController {
   }
 
   @ApiOperation({ summary: 'Fetch the face roster for offline use' })
+  @Public()
+  @UseGuards(DeviceAuthGuard)
   @Get('roster')
-  @Roles('CLIENT', 'ADMIN', 'DEVICE')
   async getRoster(@Req() req: Request) {
-    const deviceId = (req as any).deviceId as string | undefined;
-    if (!deviceId) throw new UnauthorizedException('Device authentication required');
+    const deviceId = (req as any).deviceId as string;
     const device = await this.deviceService.findById(deviceId);
     if (!device) throw new UnauthorizedException('Device not found');
     const roster = await this.punchService.getRoster(device);
@@ -245,8 +268,12 @@ export class MobileAttendancePunchesController {
       subjectType: r.subjectType,
       subjectId: r.subjectId,
       embeddingModel: r.embeddingModel,
-      // Return embedding as base64 for the device to cache
-      embeddingB64: Buffer.from(r.embedding.buffer).toString('base64'),
+      // Slice to view boundaries to avoid leaking bytes from a pooled backing buffer
+      embeddingB64: Buffer.from(
+        r.embedding.buffer,
+        r.embedding.byteOffset,
+        r.embedding.byteLength,
+      ).toString('base64'),
     }));
   }
 

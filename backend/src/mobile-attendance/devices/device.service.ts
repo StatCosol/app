@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { randomBytes } from 'crypto';
 import { MobileAttendanceDeviceEntity } from './device.entity';
 
 @Injectable()
@@ -15,6 +16,29 @@ export class DeviceService {
     private readonly deviceRepo: Repository<MobileAttendanceDeviceEntity>,
     private readonly dataSource: DataSource,
   ) {}
+
+  /**
+   * Admin creates a device record and generates a one-time install token.
+   * The Android app later calls registerDevice() to bind its androidId.
+   */
+  async provisionDevice(
+    clientId: string,
+    mode: 'KIOSK' | 'ESS',
+    branchId: string | null,
+    deviceLabel: string | null,
+    createdBy: string,
+  ): Promise<MobileAttendanceDeviceEntity> {
+    const installToken = randomBytes(24).toString('hex'); // 48-char hex token
+    const device = this.deviceRepo.create({
+      clientId,
+      mode,
+      branchId,
+      deviceName: deviceLabel,
+      installToken,
+      isActive: true,
+    });
+    return this.deviceRepo.save(device);
+  }
 
   /**
    * On first use: bind androidId to the token (pessimistic-write transaction to
