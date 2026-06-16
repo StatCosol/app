@@ -1,5 +1,15 @@
 -- Mobile Attendance v2 schema
 -- Generated 2026-06-16
+-- Drop old tables from the god-object service before recreating with clean schema.
+-- All 8 tables are rebuilt from scratch; no biometric data existed before this PR.
+DROP TABLE IF EXISTS face_liveness_nonces CASCADE;
+DROP TABLE IF EXISTS contractor_biometric_punches CASCADE;
+DROP TABLE IF EXISTS mobile_attendance_punches CASCADE;
+DROP TABLE IF EXISTS kiosk_enroll_tickets CASCADE;
+DROP TABLE IF EXISTS face_enrollment_history CASCADE;
+DROP TABLE IF EXISTS contractor_face_enrollments CASCADE;
+DROP TABLE IF EXISTS face_enrollments CASCADE;
+DROP TABLE IF EXISTS mobile_attendance_devices CASCADE;
 
 -- Devices
 CREATE TABLE IF NOT EXISTS mobile_attendance_devices (
