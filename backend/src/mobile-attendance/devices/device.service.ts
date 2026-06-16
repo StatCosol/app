@@ -1,8 +1,8 @@
 import {
+  ConflictException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
-  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -119,6 +119,94 @@ export class DeviceService {
     if (!result || result.length === 0) throw new NotFoundException('Device not found');
   }
 
+  async permanentlyDeleteDevice(
+    clientId: string,
+    deviceId: string,
+    branchIds: string[] = [],
+  ): Promise<{ ok: true; id: string }> {
+    const columns = await this.getDeviceColumns();
+    const isActiveCol = this.pickColumn(columns, 'is_active', 'isActive');
+    const activeFilter = isActiveCol
+      ? `AND COALESCE((to_jsonb(d)->>${this.sqlString(isActiveCol)})::boolean, true) = false`
+      : '';
+    const params: unknown[] = [deviceId, clientId];
+    let branchFilter = '';
+    if (branchIds.length > 0) {
+      params.push(branchIds);
+      branchFilter = `AND COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') = ANY($${params.length}::text[])`;
+    }
+
+    const existing = await this.dataSource.query<Array<{ id: string }>>(
+      `SELECT d.id
+         FROM mobile_attendance_devices d
+        WHERE d.id = $1::uuid
+          AND COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') = $2
+          ${activeFilter}
+          ${branchFilter}
+        LIMIT 1`,
+      params,
+    );
+
+    if (!existing || existing.length === 0) {
+      throw new ConflictException('Revoke the device before deleting it');
+    }
+
+    const history = await this.dataSource.query<Array<{ hasHistory: boolean }>>(
+      `SELECT (
+          EXISTS (
+            SELECT 1
+              FROM mobile_attendance_punches
+             WHERE device_id = $1::uuid
+               AND client_id = $2::uuid
+          )
+          OR EXISTS (
+            SELECT 1
+              FROM contractor_biometric_punches
+             WHERE device_id = $1::uuid
+               AND client_id = $2::uuid
+          )
+        ) AS "hasHistory"`,
+      [deviceId, clientId],
+    );
+
+    if (history?.[0]?.hasHistory) {
+      throw new ConflictException(
+        'Device has attendance history and cannot be permanently deleted; it remains revoked',
+      );
+    }
+
+    await this.dataSource.transaction(async (em) => {
+      await em.query(
+        `DELETE FROM kiosk_enroll_tickets
+          WHERE device_id = $1::uuid
+            AND client_id = $2::uuid
+            AND status IN ('PENDING', 'CANCELLED', 'EXPIRED')`,
+        [deviceId, clientId],
+      );
+
+      try {
+        const result = await em.query<Array<{ id: string }>>(
+          `DELETE FROM mobile_attendance_devices d
+            WHERE d.id = $1::uuid
+              AND COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') = $2
+              ${branchFilter}
+            RETURNING d.id`,
+          params,
+        );
+        if (!result || result.length === 0) throw new NotFoundException('Device not found');
+      } catch (err: any) {
+        if (err?.code === '23503') {
+          throw new ConflictException(
+            'Device has attendance history and cannot be permanently deleted; it remains revoked',
+          );
+        }
+        throw err;
+      }
+    });
+
+    return { ok: true, id: deviceId };
+  }
+
   async findById(deviceId: string): Promise<MobileAttendanceDeviceEntity | null> {
     return this.deviceRepo.findOne({ where: { id: deviceId } });
   }
@@ -178,6 +266,10 @@ export class DeviceService {
 
   private quoteIdentifier(identifier: string): string {
     return `"${identifier.replace(/"/g, '""')}"`;
+  }
+
+  private sqlString(value: string): string {
+    return `'${value.replace(/'/g, "''")}'`;
   }
 
   private isUuid(value: string): boolean {

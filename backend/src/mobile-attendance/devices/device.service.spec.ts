@@ -108,3 +108,124 @@ describe('DeviceService.revokeDevice', () => {
     ]);
   });
 });
+
+describe('DeviceService.permanentlyDeleteDevice', () => {
+  const deviceId = '00000000-0000-4000-8000-000000000001';
+  const clientId = '00000000-0000-4000-8000-000000000002';
+
+  function makeService(query: jest.Mock, transaction: jest.Mock) {
+    return new DeviceService({} as any, { query, transaction } as any);
+  }
+
+  it('deletes a revoked device and clears stale kiosk tickets first', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([
+        { column_name: 'id' },
+        { column_name: 'client_id' },
+        { column_name: 'branch_id' },
+        { column_name: 'is_active' },
+      ])
+      .mockResolvedValueOnce([{ id: deviceId }])
+      .mockResolvedValueOnce([{ hasHistory: false }]);
+    const txQuery = jest
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: deviceId }]);
+    const transaction = jest.fn(async (cb) => cb({ query: txQuery }));
+    const service = makeService(query, transaction);
+
+    await expect(
+      service.permanentlyDeleteDevice(clientId, deviceId, ['branch-1']),
+    ).resolves.toEqual({
+      ok: true,
+      id: deviceId,
+    });
+
+    expect(query.mock.calls[1][0]).toContain(`COALESCE((to_jsonb(d)->>'is_active')::boolean, true) = false`);
+    expect(query.mock.calls[1][0]).toContain(
+      `COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') = ANY($3::text[])`,
+    );
+    expect(txQuery).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('DELETE FROM kiosk_enroll_tickets'),
+      [deviceId, clientId],
+    );
+    expect(txQuery.mock.calls[0][0]).toContain(`status IN ('PENDING', 'CANCELLED', 'EXPIRED')`);
+    expect(txQuery).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('DELETE FROM mobile_attendance_devices'),
+      [deviceId, clientId, ['branch-1']],
+    );
+    expect(txQuery.mock.calls[1][0]).toContain(
+      `COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') = ANY($3::text[])`,
+    );
+  });
+
+  it('honors branch scope for permanent deletes', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([
+        { column_name: 'id' },
+        { column_name: 'client_id' },
+        { column_name: 'branch_id' },
+        { column_name: 'is_active' },
+      ])
+      .mockResolvedValueOnce([]);
+    const transaction = jest.fn();
+    const service = makeService(query, transaction);
+
+    await expect(
+      service.permanentlyDeleteDevice(clientId, deviceId, ['branch-1']),
+    ).rejects.toThrow('Revoke the device before deleting it');
+
+    expect(query).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining(
+        `COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') = ANY($3::text[])`,
+      ),
+      [deviceId, clientId, ['branch-1']],
+    );
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('requires the device to be revoked before permanent delete', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([
+        { column_name: 'id' },
+        { column_name: 'client_id' },
+        { column_name: 'is_active' },
+      ])
+      .mockResolvedValueOnce([]);
+    const transaction = jest.fn();
+    const service = makeService(query, transaction);
+
+    await expect(service.permanentlyDeleteDevice(clientId, deviceId)).rejects.toThrow(
+      'Revoke the device before deleting it',
+    );
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('returns a conflict when attendance history prevents physical deletion', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([
+        { column_name: 'id' },
+        { column_name: 'client_id' },
+        { column_name: 'is_active' },
+      ])
+      .mockResolvedValueOnce([{ id: deviceId }])
+      .mockResolvedValueOnce([{ hasHistory: true }]);
+    const transaction = jest.fn();
+    const service = makeService(query, transaction);
+
+    await expect(service.permanentlyDeleteDevice(clientId, deviceId)).rejects.toThrow(
+      'attendance history',
+    );
+    const historySql = query.mock.calls[2][0] as string;
+    expect(historySql).toContain('mobile_attendance_punches');
+    expect(historySql).toContain('contractor_biometric_punches');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+});
