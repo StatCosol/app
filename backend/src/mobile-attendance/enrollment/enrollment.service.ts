@@ -31,7 +31,7 @@ const KIOSK_REQUIRED_FRAMES = Number(process.env.FACE_KIOSK_REQUIRED_FRAMES ?? 3
 const ESS_REQUIRED_FRAMES = Number(process.env.FACE_ESS_REQUIRED_FRAMES ?? 7);
 const DUPLICATE_THRESHOLD = Number(process.env.FACE_DUPLICATE_THRESHOLD ?? 0.88);
 const MIN_QUALITY = Number(process.env.FACE_MIN_QUALITY_SCORE ?? 0.75);
-const TICKET_TTL_MS = 30 * 60 * 1000;
+const KIOSK_TICKET_TTL_MS = Number(process.env.FACE_KIOSK_TICKET_TTL_MS ?? 5 * 60 * 1000);
 
 @Injectable()
 export class EnrollmentService {
@@ -124,13 +124,27 @@ export class EnrollmentService {
     dto: CreateKioskTicketDto,
     createdBy: string,
   ): Promise<KioskEnrollTicketEntity> {
+    const [device] = await this.dataSource.query<Array<{ id: string }>>(
+      `SELECT d.id
+         FROM mobile_attendance_devices d
+        WHERE d.id = $1::uuid
+          AND COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') = $2
+          AND COALESCE(to_jsonb(d)->>'mode', 'KIOSK') = 'KIOSK'
+          AND COALESCE((to_jsonb(d)->>'isActive')::boolean, (to_jsonb(d)->>'is_active')::boolean, true) = true
+        LIMIT 1`,
+      [dto.deviceId, clientId],
+    );
+    if (!device) {
+      throw new BadRequestException('Selected kiosk device is not active for this client');
+    }
+
     // Cancel any existing PENDING ticket for the same device
     await this.ticketRepo.update(
       { deviceId: dto.deviceId, clientId, status: 'PENDING' },
       { status: 'CANCELLED', cancelledAt: new Date(), cancelledBy: createdBy },
     );
 
-    const expiresAt = new Date(Date.now() + TICKET_TTL_MS);
+    const expiresAt = new Date(Date.now() + KIOSK_TICKET_TTL_MS);
     const ticket = this.ticketRepo.create({
       clientId,
       branchId,
@@ -386,10 +400,22 @@ export class EnrollmentService {
   }
 
   async getPendingTicketForDevice(deviceId: string): Promise<KioskEnrollTicketEntity | null> {
-    return this.ticketRepo.findOne({
-      where: { deviceId, status: 'PENDING' },
-      order: { createdAt: 'ASC' },
-    });
+    await this.ticketRepo
+      .createQueryBuilder()
+      .update(KioskEnrollTicketEntity)
+      .set({ status: 'EXPIRED' })
+      .where('device_id = :deviceId', { deviceId })
+      .andWhere('status = :status', { status: 'PENDING' })
+      .andWhere('expires_at <= now()')
+      .execute();
+
+    return this.ticketRepo
+      .createQueryBuilder('ticket')
+      .where('ticket.deviceId = :deviceId', { deviceId })
+      .andWhere('ticket.status = :status', { status: 'PENDING' })
+      .andWhere('ticket.expiresAt > now()')
+      .orderBy('ticket.createdAt', 'ASC')
+      .getOne();
   }
 
   // ─── Admin list endpoints ──────────────────────────────────────────────────

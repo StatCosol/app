@@ -106,3 +106,109 @@ describe('EnrollmentService.listContractorEnrollments', () => {
     expect(query).toHaveBeenCalledWith(expect.any(String), ['client-1', ['branch-1']]);
   });
 });
+
+describe('EnrollmentService kiosk tickets', () => {
+  function makeService(ticketRepo: any, query = jest.fn().mockResolvedValue([{ id: 'device-1' }])) {
+    return new EnrollmentService(
+      {} as any,
+      {} as any,
+      ticketRepo,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      { query } as any,
+    );
+  }
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('creates kiosk tickets with a short default expiry window', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-06-16T10:00:00.000Z').getTime());
+    const ticketRepo = {
+      update: jest.fn().mockResolvedValue({ affected: 0 }),
+      create: jest.fn((entity) => entity),
+      save: jest.fn(async (entity) => entity),
+    };
+    const service = makeService(ticketRepo);
+
+    const saved = await service.createKioskTicket(
+      'client-1',
+      'branch-1',
+      {
+        deviceId: 'device-1',
+        subjectType: 'EMPLOYEE',
+        employeeId: 'employee-1',
+        subjectName: 'Alice',
+      } as any,
+      'user-1',
+    );
+
+    expect(saved.expiresAt.toISOString()).toBe('2026-06-16T10:05:00.000Z');
+    expect(ticketRepo.update).toHaveBeenCalledWith(
+      { deviceId: 'device-1', clientId: 'client-1', status: 'PENDING' },
+      expect.objectContaining({ status: 'CANCELLED' }),
+    );
+  });
+
+  it('rejects ticket creation for a device that is not an active kiosk for the client', async () => {
+    const ticketRepo = {
+      update: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+    };
+    const query = jest.fn().mockResolvedValue([]);
+    const service = makeService(ticketRepo, query);
+
+    await expect(
+      service.createKioskTicket(
+        'client-1',
+        'branch-1',
+        {
+          deviceId: 'device-1',
+          subjectType: 'EMPLOYEE',
+          employeeId: 'employee-1',
+          subjectName: 'Alice',
+        } as any,
+        'user-1',
+      ),
+    ).rejects.toThrow('Selected kiosk device is not active for this client');
+
+    expect(ticketRepo.update).not.toHaveBeenCalled();
+    expect(ticketRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('expires old pending tickets before returning the current pending ticket', async () => {
+    const execute = jest.fn().mockResolvedValue({ affected: 1 });
+    const getOne = jest.fn().mockResolvedValue({ id: 'ticket-1' });
+    const updateBuilder = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      execute,
+    };
+    const selectBuilder = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getOne,
+    };
+    const ticketRepo = {
+      createQueryBuilder: jest
+        .fn()
+        .mockReturnValueOnce(updateBuilder)
+        .mockReturnValueOnce(selectBuilder),
+    };
+    const service = makeService(ticketRepo);
+
+    const ticket = await service.getPendingTicketForDevice('device-1');
+
+    expect(ticket).toEqual({ id: 'ticket-1' });
+    expect(updateBuilder.set).toHaveBeenCalledWith({ status: 'EXPIRED' });
+    expect(updateBuilder.andWhere).toHaveBeenCalledWith('expires_at <= now()');
+    expect(selectBuilder.andWhere).toHaveBeenCalledWith('ticket.expiresAt > now()');
+  });
+});
