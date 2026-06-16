@@ -3,122 +3,124 @@ package com.statcosol.attendance.ui
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import android.widget.Button
+import android.widget.EditText
+import android.widget.ProgressBar
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.statcosol.attendance.AttendanceApp
 import com.statcosol.attendance.R
-import com.statcosol.attendance.databinding.ActivitySetupBinding
-import kotlinx.coroutines.Dispatchers
+import com.statcosol.attendance.api.ApiClient
+import com.statcosol.attendance.api.ApiException
+import com.statcosol.attendance.api.RegisterDeviceRequest
+import com.statcosol.attendance.prefs.DeviceConfig
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
-/**
- * First-launch screen. Operator pastes the install token issued by the admin
- * portal, optionally overrides the API base, and we call `/config` to confirm
- * the token + learn the device mode (KIOSK vs ESS). The full roster loads only
- * after the relevant mode Activity opens.
- */
 class SetupActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivitySetupBinding
-    private val app get() = application as AttendanceApp
+    private lateinit var config: DeviceConfig
+    private lateinit var etToken: EditText
+    private lateinit var etApiBase: EditText
+    private lateinit var btnRegister: Button
+    private lateinit var progressBar: ProgressBar
+    private lateinit var tvError: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivitySetupBinding.inflate(layoutInflater)
-        setContentView(binding.root)
 
-        val cfg = app.deviceConfig
-        binding.tokenInput.setText(cfg.installToken ?: "")
-        binding.apiInput.setText(cfg.apiBase)
+        config = DeviceConfig(this)
 
-        if (cfg.isRegistered() && cfg.mode != null) {
-            // Re-validate the token against the server before launching the
-            // mode activity. If admin has revoked the device (or rotated the
-            // token) we want to land back on this screen, not deep inside
-            // KioskActivity / EssActivity where the user can't recover.
-            binding.progress.visibility = View.VISIBLE
-            lifecycleScope.launch {
-                val ok = runCatching {
-                    withContext(Dispatchers.IO) { app.apiClient.fetchDeviceInfo() }
-                }
-                binding.progress.visibility = View.GONE
-                if (ok.isSuccess) {
-                    launchModeActivity(cfg.mode!!)
-                } else {
-                    val msg = ok.exceptionOrNull()?.message.orEmpty()
-                    if (msg.contains(" 401") || msg.contains(" 403")) {
-                        // Token revoked / rebound — force re-pairing.
-                        cfg.installToken = null
-                        cfg.mode = null
-                        cfg.deviceId = null
-                        cfg.essEmployeeId = null
-                        binding.tokenInput.setText("")
-                        binding.statusText.text =
-                            getString(R.string.setup_token_revoked)
-                    } else {
-                        // Network failure — allow offline use of cached mode.
-                        launchModeActivity(cfg.mode!!)
-                    }
-                }
-            }
-            binding.registerBtn.setOnClickListener { handleRegister() }
+        if (config.isRegistered()) {
+            navigateToMain()
             return
         }
 
-        binding.registerBtn.setOnClickListener { handleRegister() }
+        setContentView(R.layout.activity_setup)
+
+        etToken = findViewById(R.id.et_install_token)
+        etApiBase = findViewById(R.id.et_api_base)
+        btnRegister = findViewById(R.id.btn_register)
+        progressBar = findViewById(R.id.progress_bar)
+        tvError = findViewById(R.id.tv_error)
+
+        btnRegister.setOnClickListener { attemptRegistration() }
     }
 
-    private fun handleRegister() {
-        val token = binding.tokenInput.text?.toString()?.trim().orEmpty()
-        val apiBase = binding.apiInput.text?.toString()?.trim().orEmpty().ifBlank {
-            app.deviceConfig.apiBase
-        }
-        if (!token.matches(Regex("^[a-f0-9]{64}$"))) {
-            binding.statusText.text = getString(R.string.setup_invalid_token)
+    private fun attemptRegistration() {
+        val token = etToken.text.toString().trim()
+        val apiBase = etApiBase.text.toString().trim()
+
+        if (!token.matches(Regex("[0-9a-fA-F]{64}"))) {
+            tvError.text = getString(R.string.setup_invalid_token)
+            tvError.visibility = View.VISIBLE
             return
         }
 
-        binding.progress.visibility = View.VISIBLE
-        binding.statusText.text = ""
-        app.deviceConfig.installToken = token
-        app.deviceConfig.apiBase = apiBase
+        tvError.visibility = View.GONE
+        setLoading(true)
+
+        if (apiBase.isNotBlank()) {
+            config.apiBase = apiBase
+        }
+        config.installToken = token
+
+        val androidId = android.provider.Settings.Secure.getString(
+            contentResolver,
+            android.provider.Settings.Secure.ANDROID_ID,
+        ) ?: "unknown"
+        val deviceName = android.os.Build.MODEL
 
         lifecycleScope.launch {
             try {
-                val info = withContext(Dispatchers.IO) { app.apiClient.fetchDeviceInfo() }
-                app.deviceConfig.mode = info.mode
-                app.deviceConfig.deviceId = info.deviceId
-                app.deviceConfig.essEmployeeId = info.essEmployeeId
-                launchModeActivity(info.mode)
+                val client = ApiClient(config)
+                val response = client.registerDevice(
+                    RegisterDeviceRequest(
+                        installToken = token,
+                        androidId = androidId,
+                        deviceName = deviceName,
+                    )
+                )
+
+                config.deviceToken = response.deviceToken
+                config.deviceMode = response.mode
+
+                navigateToMain()
+            } catch (e: ApiException) {
+                setLoading(false)
+                val msg = when (e.code) {
+                    401, 403 -> getString(R.string.setup_invalid_device_token)
+                    409 -> getString(R.string.setup_token_already_used)
+                    410 -> getString(R.string.setup_token_expired)
+                    426 -> getString(R.string.setup_update_app_required)
+                    else -> getString(R.string.setup_registration_failed)
+                }
+                tvError.text = msg
+                tvError.visibility = View.VISIBLE
             } catch (e: Exception) {
-                binding.statusText.text = registrationErrorMessage(e)
-                app.deviceConfig.installToken = null
-            } finally {
-                binding.progress.visibility = View.GONE
+                setLoading(false)
+                tvError.text = getString(R.string.setup_registration_failed)
+                tvError.visibility = View.VISIBLE
             }
         }
     }
 
-    private fun registrationErrorMessage(e: Exception): String {
-        val message = e.message.orEmpty()
-        return when {
-            message.contains("Invalid device token", ignoreCase = true) ->
-                getString(R.string.setup_invalid_device_token)
-            message.contains("already activated", ignoreCase = true) ->
-                getString(R.string.setup_token_already_used)
-            message.contains("expired", ignoreCase = true) ->
-                getString(R.string.setup_token_expired)
-            message.contains("identity header missing", ignoreCase = true) ->
-                getString(R.string.setup_update_app_required)
-            message.isNotBlank() -> message
-            else -> getString(R.string.setup_registration_failed)
+    private fun navigateToMain() {
+        val mode = config.deviceMode
+        val intent = if (mode.equals("ess", ignoreCase = true)) {
+            Intent(this, EssActivity::class.java)
+        } else {
+            Intent(this, KioskActivity::class.java)
         }
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finish()
     }
 
-    private fun launchModeActivity(mode: String) {
-        val cls = if (mode == "ESS") EssActivity::class.java else KioskActivity::class.java
-        startActivity(Intent(this, cls))
-        finish()
+    private fun setLoading(loading: Boolean) {
+        progressBar.visibility = if (loading) View.VISIBLE else View.GONE
+        btnRegister.isEnabled = !loading
+        etToken.isEnabled = !loading
+        etApiBase.isEnabled = !loading
     }
 }

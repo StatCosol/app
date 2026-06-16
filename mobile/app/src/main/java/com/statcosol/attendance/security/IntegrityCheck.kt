@@ -1,64 +1,56 @@
 package com.statcosol.attendance.security
 
+import android.content.Context
 import android.location.Location
+import android.location.LocationManager
 import android.os.Build
 import java.io.File
 
-/**
- * Lightweight on-device integrity probes used by the mobile-attendance flow.
- *
- * These are heuristics — a determined attacker can hide a rooted device or
- * spoof the mock-location flag — so they're sent to the server as hints
- * rather than treated as authoritative. The server combines them with
- * face-match + liveness scores to decide whether to accept a punch.
- */
 object IntegrityCheck {
 
-    /**
-     * Returns true if the device is most likely rooted / Magisk-modified.
-     * Checks common su binary paths and Magisk artefact files.
-     */
-    fun isProbablyRooted(): Boolean {
-        val suPaths = listOf(
-            "/system/bin/su",
-            "/system/xbin/su",
-            "/sbin/su",
-            "/system/su",
-            "/system/app/Superuser.apk",
-            "/data/adb/magisk",
-            "/data/adb/modules",
-        )
-        for (p in suPaths) {
-            try {
-                if (File(p).exists()) return true
-            } catch (_: SecurityException) {
-                // /data paths block reads on non-root – treat as inconclusive.
-            }
+    fun isMockLocation(context: Context, location: Location): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            if (location.isFromMockProvider) return true
         }
-        // `which su` style probe via PATH lookup.
-        val pathEnv = System.getenv("PATH") ?: ""
-        for (dir in pathEnv.split(":")) {
-            try {
-                if (File(dir, "su").exists()) return true
-            } catch (_: SecurityException) {
-                // ignore
+        return try {
+            val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            val providers = lm.getProviders(true)
+            providers.any { provider ->
+                val lastKnown = lm.getLastKnownLocation(provider)
+                lastKnown?.isFromMockProvider == true
             }
+        } catch (e: Exception) {
+            false
         }
-        return false
     }
 
-    /**
-     * True when the supplied [Location] is reported as mock by the platform.
-     * Uses [Location.isMock] on API 31+, falls back to the deprecated
-     * [Location.isFromMockProvider] on older devices.
-     */
-    @Suppress("DEPRECATION")
-    fun isMockLocation(loc: Location?): Boolean {
-        if (loc == null) return false
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            loc.isMock
-        } else {
-            loc.isFromMockProvider
+    fun isDeviceRooted(): Boolean {
+        val buildTags = Build.TAGS
+        if (buildTags != null && buildTags.contains("test-keys")) return true
+
+        val suPaths = listOf(
+            "/system/app/Superuser.apk",
+            "/sbin/su",
+            "/system/bin/su",
+            "/system/xbin/su",
+            "/data/local/xbin/su",
+            "/data/local/bin/su",
+            "/system/sd/xbin/su",
+            "/system/bin/failsafe/su",
+            "/data/local/su",
+            "/su/bin/su",
+        )
+
+        for (path in suPaths) {
+            if (File(path).exists()) return true
+        }
+
+        return try {
+            val process = Runtime.getRuntime().exec(arrayOf("/system/xbin/which", "su"))
+            val result = process.inputStream.bufferedReader().readLine()
+            !result.isNullOrBlank()
+        } catch (e: Exception) {
+            false
         }
     }
 }

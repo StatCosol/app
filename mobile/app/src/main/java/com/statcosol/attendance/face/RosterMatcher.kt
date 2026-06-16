@@ -1,128 +1,81 @@
 package com.statcosol.attendance.face
 
-import android.util.Log
-import com.statcosol.attendance.api.ContractorRosterEntry
 import com.statcosol.attendance.api.RosterEntry
+import kotlin.math.sqrt
 
-/**
- * Holds the decoded roster embeddings in memory and runs nearest-neighbour
- * matching for KIOSK 1:N identification.
- */
-class RosterMatcher(
-    roster: List<RosterEntry>,
-    contractorRoster: List<ContractorRosterEntry> = emptyList(),
-) {
+data class MatchResult(
+    val employeeId: String,
+    val displayName: String,
+    val score: Double,
+    val secondBestScore: Double,
+    val margin: Double,
+)
 
-    data class MatchEntry(
-        val subjectType: String,
-        val employeeId: String?,
-        val contractorEmployeeId: String?,
-        val employeeCode: String,
-        val displayName: String,
-        val embeddingB64: String,
-    ) {
-        val subjectKey: String
-            get() = if (subjectType == "CONTRACTOR") {
-                "CONTRACTOR:${contractorEmployeeId.orEmpty()}"
-            } else {
-                "EMPLOYEE:${employeeId.orEmpty()}"
-            }
-    }
+class RosterMatcher {
 
-    data class Match(val entry: MatchEntry, val score: Double)
+    @Volatile
+    private var entries: List<Pair<RosterEntry, FloatArray>> = emptyList()
 
-    private val entries: List<Pair<MatchEntry, FloatArray>> =
-        roster.map {
-            MatchEntry(
-                subjectType = "EMPLOYEE",
-                employeeId = it.employeeId,
-                contractorEmployeeId = null,
-                employeeCode = it.employeeCode,
-                displayName = it.displayName,
-                embeddingB64 = it.embeddingB64,
-            )
-        }.plus(
-            contractorRoster.map {
-                MatchEntry(
-                    subjectType = "CONTRACTOR",
-                    employeeId = null,
-                    contractorEmployeeId = it.contractorEmployeeId,
-                    employeeCode = "",
-                    displayName = it.displayName,
-                    embeddingB64 = it.embeddingB64,
-                )
-            }
-        ).map { it to FaceEmbedder.decodeEmbeddingB64(it.embeddingB64) }
-
-    init {
-        Log.i(TAG, "RosterMatcher loaded ${entries.size} enrollments")
-    }
-
-    /**
-     * Returns the best match (cosine-derived score in 0..1) or null when no
-     * candidate beats [minScore]. Always logs the top-3 candidates so we can
-     * diagnose false negatives in production logs (logcat tag: FaceMatch).
-     *
-     * In addition to the absolute [minScore] gate, the 1:N kiosk path also
-     * enforces an ambiguity margin: the best score must beat the 2nd-best
-     * by at least [minMargin]. Without this, a probe that scores ~0.79 on
-     * three different roster entries gets silently bound to whichever one
-     * happens to win by a hair of noise — i.e. the wrong person is accepted.
-     */
-    fun match(
-        probe: FloatArray,
-        minScore: Double = 0.90,
-        minMargin: Double = 0.08,
-    ): Match? {
-        if (entries.isEmpty()) {
-            Log.w(TAG, "match() called with empty roster")
-            return null
+    fun load(newEntries: List<RosterEntry>) {
+        val parsed = newEntries.mapNotNull { entry ->
+            val embedding = decodeEmbedding(entry.embeddingB64) ?: return@mapNotNull null
+            entry to embedding
         }
-        // Score every candidate, then sort descending so we can log the top-3.
-        val scored = entries.map { (entry, emb) ->
-            entry to FaceEmbedder.toMatchScore(FaceEmbedder.cosineSimilarity(probe, emb))
+        synchronized(this) { entries = parsed }
+    }
+
+    fun match(probe: FloatArray): MatchResult? {
+        val snapshot = synchronized(this) { entries.toList() }
+        if (snapshot.isEmpty()) return null
+
+        val scores = snapshot.map { (entry, embedding) ->
+            entry to cosineSim(probe, embedding)
         }.sortedByDescending { it.second }
 
-        val topLog = scored.take(3).joinToString(", ") { (e, s) ->
-            "${e.employeeCode.ifBlank { e.contractorEmployeeId?.take(6) ?: e.employeeId?.take(6).orEmpty() }}=${"%.3f".format(s)}"
-        }
-        val (bestEntry, bestScore) = scored.first()
-        if (bestScore < minScore) {
-            Log.i(TAG, "match REJECT (best=${"%.3f".format(bestScore)} < $minScore) top: $topLog")
-            return null
-        }
-        // Ambiguity guard: require a clear winner over the runner-up.
-        if (scored.size >= 2) {
-            val secondScore = scored[1].second
-            val margin = bestScore - secondScore
-            if (margin < minMargin) {
-                Log.i(
-                    TAG,
-                    "match REJECT (ambiguous margin=${"%.3f".format(margin)} < $minMargin) top: $topLog",
-                )
-                return null
-            }
-        }
-        Log.i(TAG, "match OK ${bestEntry.employeeCode.ifBlank { bestEntry.subjectKey }} score=${"%.3f".format(bestScore)} top: $topLog")
-        return Match(bestEntry, bestScore)
+        val best = scores[0]
+        val secondBest = scores.getOrNull(1)?.second ?: 0.0
+        val margin = best.second - secondBest
+
+        if (best.second < MATCH_THRESHOLD) return null
+        if (margin < MARGIN_THRESHOLD) return null
+
+        return MatchResult(
+            employeeId = best.first.employeeId,
+            displayName = best.first.displayName,
+            score = best.second,
+            secondBestScore = secondBest,
+            margin = margin,
+        )
     }
 
-    /** ESS path: 1:1 verify against the bound employee. */
-    fun verify(probe: FloatArray, employeeId: String, minScore: Double = 0.78): Match? {
-        val target = entries.firstOrNull { it.first.employeeId == employeeId } ?: run {
-            Log.w(TAG, "verify: bound employee $employeeId not in roster (size=${entries.size})")
-            return null
+    private fun decodeEmbedding(b64: String): FloatArray? {
+        return try {
+            val bytes = android.util.Base64.decode(b64, android.util.Base64.NO_WRAP)
+            val buffer = java.nio.ByteBuffer.wrap(bytes).apply {
+                order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            }
+            FloatArray(bytes.size / 4) { buffer.float }
+        } catch (e: Exception) {
+            null
         }
-        val s = FaceEmbedder.toMatchScore(FaceEmbedder.cosineSimilarity(probe, target.second))
-        if (s < minScore) {
-            Log.i(TAG, "verify REJECT ${target.first.employeeCode} score=${"%.3f".format(s)} < $minScore")
-            return null
-        }
-        Log.i(TAG, "verify OK ${target.first.employeeCode} score=${"%.3f".format(s)}")
-        return Match(target.first, s)
     }
 
     companion object {
-        private const val TAG = "FaceMatch"
+        private const val MATCH_THRESHOLD = 0.90
+        private const val MARGIN_THRESHOLD = 0.04
+
+        fun cosineSim(a: FloatArray, b: FloatArray): Double {
+            var dot = 0.0
+            var normA = 0.0
+            var normB = 0.0
+            val len = minOf(a.size, b.size)
+            for (i in 0 until len) {
+                dot += a[i] * b[i]
+                normA += a[i] * a[i]
+                normB += b[i] * b[i]
+            }
+            val denom = sqrt(normA) * sqrt(normB)
+            return if (denom == 0.0) 0.0 else dot / denom
+        }
     }
 }

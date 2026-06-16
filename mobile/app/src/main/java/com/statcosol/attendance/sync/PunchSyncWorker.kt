@@ -1,140 +1,78 @@
 package com.statcosol.attendance.sync
 
 import android.content.Context
+import android.util.Log
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.statcosol.attendance.AttendanceApp
-import com.statcosol.attendance.api.ContractorPunchBody
-import com.statcosol.attendance.api.PunchBody
+import com.statcosol.attendance.api.ApiClient
+import com.statcosol.attendance.api.MobilePunchRequest
+import com.statcosol.attendance.db.AppDatabase
+import com.statcosol.attendance.prefs.DeviceConfig
+import kotlinx.serialization.json.Json
 import java.util.concurrent.TimeUnit
 
-/**
- * Drains the local punch queue. Scheduled by the Activities after each capture
- * (and periodically by WorkManager). Permanent failures (4xx other than 401/
- * 408/409/429) are dropped so the queue can't grow without bound; transient
- * failures use WorkManager's exponential backoff.
- */
-class PunchSyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
+class PunchSyncWorker(
+    appContext: Context,
+    params: WorkerParameters,
+) : CoroutineWorker(appContext, params) {
+
+    private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun doWork(): Result {
-        val app = applicationContext as AttendanceApp
-        val dao = app.database.punchDao()
-        val api = app.apiClient
+        val config = DeviceConfig(applicationContext)
+        if (!config.isRegistered()) return Result.success()
 
-        val pending = dao.next()
-        if (pending.isEmpty()) return Result.success()
+        val db = AppDatabase.getInstance(applicationContext)
+        val dao = db.queuedPunchDao()
+        val apiClient = ApiClient(config)
 
-        var transient = 0
-        for (q in pending) {
+        val queued = dao.getAll()
+        if (queued.isEmpty()) return Result.success()
+
+        Log.i(TAG, "Syncing ${queued.size} queued punch(es)")
+
+        var anyFailed = false
+        for (queuedPunch in queued) {
             try {
-                val resp = if (q.contractorEmployeeId != null) {
-                    api.postContractorPunch(
-                        ContractorPunchBody(
-                            contractorEmployeeId = q.contractorEmployeeId,
-                            punchTime = q.punchTimeIso,
-                            direction = q.direction,
-                            matchScore = q.matchScore,
-                            livenessScore = q.livenessScore,
-                            captureLat = q.captureLat,
-                            captureLng = q.captureLng,
-                            captureAccuracyM = q.captureAccuracyM,
-                            isRooted = if (app.isDeviceRooted) true else null,
-                            offlineSync = true,
-                            livenessChallengeType = q.livenessChallengeType,
-                            livenessChallengePassedAt = q.livenessChallengePassedAtIso,
-                            livenessNonce = q.livenessNonce,
-                            probeEmbeddingB64 = q.probeEmbeddingB64,
-                        )
-                    )
-                } else {
-                    val employeeId = q.employeeId
-                    val employeeCode = q.employeeCode
-                    if (employeeId.isNullOrBlank() || employeeCode.isNullOrBlank()) {
-                        dao.delete(q.id)
-                        continue
-                    }
-                    api.postPunch(
-                        PunchBody(
-                            employeeId = employeeId,
-                            employeeCode = employeeCode,
-                            punchTime = q.punchTimeIso,
-                            direction = q.direction,
-                            matchScore = q.matchScore,
-                            livenessScore = q.livenessScore,
-                            captureLat = q.captureLat,
-                            captureLng = q.captureLng,
-                            captureAccuracyM = q.captureAccuracyM,
-                            isRooted = if (app.isDeviceRooted) true else null,
-                            offlineSync = true,
-                            livenessChallengeType = q.livenessChallengeType,
-                            livenessChallengePassedAt = q.livenessChallengePassedAtIso,
-                            livenessNonce = q.livenessNonce,
-                            probeEmbeddingB64 = q.probeEmbeddingB64,
-                        )
-                    )
-                }
-                if (resp.ok) {
-                    dao.delete(q.id)
-                } else {
-                    dao.bumpAttempts(q.id)
-                    transient++
-                }
+                val req = json.decodeFromString<MobilePunchRequest>(queuedPunch.payloadJson)
+                val syncReq = req.copy(offlineSync = true)
+                apiClient.recordPunch(syncReq)
+                dao.deleteById(queuedPunch.id)
+                Log.i(TAG, "Synced punch id=${queuedPunch.id}")
             } catch (e: Exception) {
-                val msg = e.message.orEmpty()
-                val status = parseHttpStatus(msg)
-                when {
-                    // Permanent failures — server rejected the payload. No
-                    // amount of retrying will succeed, so drop the row.
-                    status in 400..499 && status !in PERMANENT_KEEP -> {
-                        dao.delete(q.id)
-                    }
-                    // 401 (token revoked) is fatal for the whole queue; stop
-                    // retrying until the user re-pairs in SetupActivity.
-                    status == 401 || status == 403 -> {
-                        dao.bumpAttempts(q.id)
-                        return Result.failure()
-                    }
-                    else -> {
-                        dao.bumpAttempts(q.id)
-                        transient++
-                    }
-                }
+                Log.w(TAG, "Failed to sync punch id=${queuedPunch.id}: ${e.message}")
+                anyFailed = true
             }
         }
-        return if (transient == 0) Result.success() else Result.retry()
-    }
 
-    private fun parseHttpStatus(msg: String): Int {
-        // ApiClient throws IOException("punch 4xx: ...") — pluck the code.
-        val re = Regex("""\b(\d{3})\b""")
-        return re.find(msg)?.value?.toIntOrNull() ?: 0
+        return if (anyFailed) Result.retry() else Result.success()
     }
 
     companion object {
-        /** 4xx codes worth retrying: timeout, conflict, rate-limit. */
-        private val PERMANENT_KEEP = setOf(401, 403, 408, 409, 429)
+        private const val TAG = "PunchSyncWorker"
+        private const val WORK_NAME = "punch_sync_periodic"
 
-        /** Schedule a one-shot run with exponential backoff. Callers should
-         *  use this instead of OneTimeWorkRequestBuilder directly so all
-         *  punch-sync work shares the same retry policy. */
-        fun enqueue(ctx: Context) {
-            val req = OneTimeWorkRequestBuilder<PunchSyncWorker>()
-                .setConstraints(
-                    Constraints.Builder()
-                        .setRequiredNetworkType(NetworkType.CONNECTED)
-                        .build()
-                )
-                .setBackoffCriteria(
-                    BackoffPolicy.EXPONENTIAL,
-                    30, TimeUnit.SECONDS,
-                )
+        fun schedulePeriodicSync(context: Context) {
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
-            WorkManager.getInstance(ctx).enqueue(req)
+
+            val request = PeriodicWorkRequestBuilder<PunchSyncWorker>(15, TimeUnit.MINUTES)
+                .setConstraints(constraints)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+                .build()
+
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                WORK_NAME,
+                ExistingPeriodicWorkPolicy.KEEP,
+                request,
+            )
         }
     }
 }

@@ -3,123 +3,86 @@ package com.statcosol.attendance.face
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Base64
-import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
-import org.tensorflow.lite.support.image.TensorImage
-import org.tensorflow.lite.support.image.ops.ResizeOp
-import org.tensorflow.lite.support.image.ImageProcessor
-import org.tensorflow.lite.support.common.ops.NormalizeOp
 import java.io.FileInputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
 import kotlin.math.sqrt
 
-/**
- * MobileFaceNet wrapper. Expects a 112×112 RGB face crop in -> 192-D L2-normalised
- * embedding out. Drop the model file at `app/src/main/assets/mobilefacenet.tflite`.
- *
- * Until the model is shipped, [embed] will throw — callers should treat that as
- * a "no embedding" error and surface it in setup logs.
- */
 class FaceEmbedder(context: Context) {
 
-    private val interpreter: Interpreter by lazy {
-        val mapped = loadModel(context, "mobilefacenet.tflite")
-        Interpreter(mapped)
-    }
+    private val interpreter: Interpreter
 
-    /** Read once: some MobileFaceNet TFLite builds expect FLOAT32 input, others UINT8. */
-    private val inputDataType: DataType by lazy { interpreter.getInputTensor(0).dataType() }
-
-    private val processor: ImageProcessor by lazy {
-        // MobileFaceNet expects normalised inputs in roughly [-1, 1] when the
-        // input tensor is FLOAT32. Feeding raw uint8 [0,255] floats saturates
-        // the network and collapses all faces to nearly the same embedding
-        // (verified in face-svc container: cos > 0.97 between strangers
-        // without normalisation; cos < 0.5 after). Quantised UINT8 models do
-        // their own dequantisation internally, so we skip Normalize there.
-        val builder = ImageProcessor.Builder()
-            .add(ResizeOp(INPUT_SIZE, INPUT_SIZE, ResizeOp.ResizeMethod.BILINEAR))
-        if (inputDataType == DataType.FLOAT32) {
-            builder.add(NormalizeOp(127.5f, 128f))
+    init {
+        val model = loadModelFile(context)
+        val options = Interpreter.Options().apply {
+            setNumThreads(2)
         }
-        builder.build()
+        interpreter = Interpreter(model, options)
     }
 
-    fun embed(face: Bitmap): FloatArray {
-        // TFLite needs ARGB_8888; some upstream sources hand us RGB_565 or HARDWARE bitmaps.
-        val rgba = if (face.config == Bitmap.Config.ARGB_8888) face
-                   else face.copy(Bitmap.Config.ARGB_8888, false)
-        // TensorImage(dtype) lazily casts uint8 pixels to FLOAT32 when the model demands it,
-        // matching the dtype-aware behaviour of face-svc/app/main.py.
-        val tensor = TensorImage(inputDataType).apply { load(rgba) }
-        val processed = processor.process(tensor)
-        val out = Array(1) { FloatArray(EMBED_DIM) }
-        interpreter.run(processed.buffer, out)
-        return l2Normalize(out[0])
+    private fun loadModelFile(context: Context): MappedByteBuffer {
+        val assetFileDescriptor = context.assets.openFd(MODEL_FILENAME)
+        val inputStream = FileInputStream(assetFileDescriptor.fileDescriptor)
+        val fileChannel = inputStream.channel
+        return fileChannel.map(
+            FileChannel.MapMode.READ_ONLY,
+            assetFileDescriptor.startOffset,
+            assetFileDescriptor.declaredLength,
+        )
     }
 
-    private fun loadModel(ctx: Context, asset: String): MappedByteBuffer {
-        ctx.assets.openFd(asset).use { fd ->
-            FileInputStream(fd.fileDescriptor).use { fis ->
-                return fis.channel.map(FileChannel.MapMode.READ_ONLY, fd.startOffset, fd.declaredLength)
-            }
+    fun embed(bitmap: Bitmap): FloatArray {
+        val resized = Bitmap.createScaledBitmap(bitmap, INPUT_SIZE, INPUT_SIZE, true)
+        val inputBuffer = ByteBuffer.allocateDirect(1 * INPUT_SIZE * INPUT_SIZE * 3 * 4).apply {
+            order(ByteOrder.nativeOrder())
+            rewind()
         }
+
+        val pixels = IntArray(INPUT_SIZE * INPUT_SIZE)
+        resized.getPixels(pixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE)
+
+        for (pixel in pixels) {
+            val r = ((pixel shr 16) and 0xFF) / 128f - 1f
+            val g = ((pixel shr 8) and 0xFF) / 128f - 1f
+            val b = (pixel and 0xFF) / 128f - 1f
+            inputBuffer.putFloat(r)
+            inputBuffer.putFloat(g)
+            inputBuffer.putFloat(b)
+        }
+
+        inputBuffer.rewind()
+
+        val output = Array(1) { FloatArray(EMBEDDING_SIZE) }
+        interpreter.run(inputBuffer, output)
+
+        val embedding = output[0]
+        return l2Normalize(embedding)
     }
+
+    private fun l2Normalize(vector: FloatArray): FloatArray {
+        val norm = sqrt(vector.fold(0f) { acc, v -> acc + v * v })
+        return if (norm > 0f) FloatArray(vector.size) { vector[it] / norm } else vector
+    }
+
+    fun toBase64(embedding: FloatArray): String {
+        val buffer = ByteBuffer.allocate(embedding.size * 4).apply {
+            order(ByteOrder.LITTLE_ENDIAN)
+            embedding.forEach { putFloat(it) }
+            rewind()
+        }
+        val bytes = ByteArray(buffer.remaining())
+        buffer.get(bytes)
+        return Base64.encodeToString(bytes, Base64.NO_WRAP)
+    }
+
+    fun close() = interpreter.close()
 
     companion object {
-        const val INPUT_SIZE = 112
-        const val EMBED_DIM = 192
-
-        /** Load the asset once at app start so a missing/corrupt model
-         *  fails at launch rather than at the first frame. Safe to call
-         *  multiple times; later [FaceEmbedder] instances will still lazy-
-         *  init their own Interpreter (cheap once the file is in cache). */
-        fun warmup(ctx: android.content.Context) {
-            ctx.assets.openFd("mobilefacenet.tflite").use { fd ->
-                java.io.FileInputStream(fd.fileDescriptor).use { fis ->
-                    fis.channel.map(
-                        java.nio.channels.FileChannel.MapMode.READ_ONLY,
-                        fd.startOffset, fd.declaredLength,
-                    )
-                }
-            }
-        }
-
-        fun l2Normalize(v: FloatArray): FloatArray {
-            var s = 0.0
-            for (x in v) s += x * x
-            val n = sqrt(s).toFloat().coerceAtLeast(1e-9f)
-            val out = FloatArray(v.size)
-            for (i in v.indices) out[i] = v[i] / n
-            return out
-        }
-
-        /** Cosine similarity for two L2-normalised vectors equals the dot product, in [-1,1]. */
-        fun cosineSimilarity(a: FloatArray, b: FloatArray): Float {
-            require(a.size == b.size) { "embedding dim mismatch" }
-            var d = 0f
-            for (i in a.indices) d += a[i] * b[i]
-            return d
-        }
-
-        /** Map cosine into [0,1] for our backend's matchScore field. */
-        fun toMatchScore(cos: Float): Double = ((cos + 1f) / 2f).toDouble()
-
-        /** Server expects bytes; embeddings are stored as base64 in the roster JSON. */
-        fun decodeEmbeddingB64(b64: String): FloatArray {
-            val bytes = Base64.decode(b64, Base64.DEFAULT)
-            val floats = FloatArray(bytes.size / 4)
-            val bb = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
-            for (i in floats.indices) floats[i] = bb.float
-            return floats
-        }
-
-        /** Encode a Float32 embedding into base64 little-endian bytes (mirror of [decodeEmbeddingB64]). */
-        fun encodeEmbeddingB64(emb: FloatArray): String {
-            val bb = java.nio.ByteBuffer.allocate(emb.size * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
-            for (v in emb) bb.putFloat(v)
-            return Base64.encodeToString(bb.array(), Base64.NO_WRAP)
-        }
+        private const val MODEL_FILENAME = "mobilefacenet.tflite"
+        private const val INPUT_SIZE = 112
+        private const val EMBEDDING_SIZE = 192
     }
 }

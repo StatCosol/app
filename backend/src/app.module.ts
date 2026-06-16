@@ -60,7 +60,6 @@ import { UnitsModule } from './units/units.module';
 import { ApplicabilityModule } from './applicability/applicability.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { BiometricModule } from './biometric/biometric.module';
-import { MobileAttendanceModule } from './mobile-attendance/mobile-attendance.module';
 import { NewsModule } from './news/news.module';
 import { AutomationModule } from './automation/automation.module';
 import { TaskCenterModule } from './task-center/task-center.module';
@@ -69,6 +68,7 @@ import { PerformanceAppraisalModule } from './performance-appraisal/performance-
 import { AccountsBillingModule } from './accounts-billing/accounts-billing.module';
 import { ClientContactsModule } from './client-contacts/client-contacts.module';
 import { SalesModule } from './sales/sales.module';
+import { MobileAttendanceModule } from './mobile-attendance/mobile-attendance.module';
 
 @Module({
   imports: [
@@ -201,7 +201,6 @@ import { SalesModule } from './sales/sales.module';
     ApplicabilityModule,
     AttendanceModule,
     BiometricModule,
-    MobileAttendanceModule,
     MastersModule,
     UnitsModule,
     NewsModule,
@@ -212,6 +211,7 @@ import { SalesModule } from './sales/sales.module';
     AccountsBillingModule,
     ClientContactsModule,
     SalesModule,
+    MobileAttendanceModule,
   ],
   controllers: [],
   providers: [

@@ -3,1161 +3,358 @@ import {
   Body,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
-  Headers,
-  Logger,
   Param,
   Post,
   Put,
   Query,
   Req,
-  Res,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Request } from 'express';
+import { UseGuards } from '@nestjs/common';
+import { Roles } from '../auth/roles.decorator';
+import { Public } from '../auth/public.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
-import { Public } from '../auth/public.decorator';
-import { Roles } from '../auth/roles.decorator';
-import {
-  CreateContractorReenrollRequestDto,
-  CreateContractorPunchAdminDto,
-  ContractorMobilePunchDto,
-  CreateKioskEnrollTicketDto,
-  DeviceFailedScanDto,
-  EnrollContractorFaceDto,
-  EnrollFaceDto,
-  EnrollSelfDto,
-  MobilePunchDto,
-  RegisterMobileDeviceDto,
-  CreateReenrollRequestDto,
-  ReviewReenrollRequestDto,
-  ReviewKioskEnrollTicketDto,
-  SubmitKioskEnrollDto,
-  UpdateContractorPunchDto,
-} from './mobile-attendance.dto';
-import { MobileAttendanceService } from './mobile-attendance.service';
-import type { PunchRequestMeta } from './mobile-attendance.service';
-import { FaceFailureAlertCronService } from './face-failure-alert-cron.service';
-import type { Request, Response } from 'express';
 
-// =============================================================================
-// Admin / Client controller — register devices, enroll faces, view roster.
-// Authenticated via the standard JWT + roles flow.
-// =============================================================================
-@ApiTags('Mobile Attendance (Admin)')
+import { DeviceService } from './devices/device.service';
+import { DeviceAuthGuard } from './devices/device-auth.guard';
+import { RegisterDeviceDto, RevokeDeviceDto } from './devices/device.dto';
+
+import { EnrollmentService } from './enrollment/enrollment.service';
+import {
+  CreateKioskTicketDto,
+  DeactivateEnrollmentDto,
+  SelfEnrollDto,
+  SubmitKioskTicketDto,
+} from './enrollment/enrollment.dto';
+
+import { PunchService } from './punch/punch.service';
+import { RecordPunchDto } from './punch/punch.dto';
+
+import { LivenessService } from './liveness/liveness.service';
+import { IssueChallengeDto } from './liveness/liveness.dto';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Device management  (admin / client role)
+// ─────────────────────────────────────────────────────────────────────────────
+
+@ApiTags('Mobile Attendance — Devices')
 @ApiBearerAuth('JWT')
-@Controller({ path: 'client/mobile-attendance', version: '1' })
-@Roles('CLIENT', 'ADMIN', 'CRM')
-export class MobileAttendanceAdminController {
+@Controller({ path: 'mobile-attendance/devices', version: '1' })
+@Roles('CLIENT', 'ADMIN')
+export class MobileAttendanceDevicesController {
+  constructor(private readonly deviceService: DeviceService) {}
+
+  @ApiOperation({ summary: 'Admin — provision a new device and generate an install token' })
+  @Post()
+  provision(
+    @CurrentUser() user: ReqUser,
+    @Body() body: { mode: 'KIOSK' | 'ESS'; branchId?: string; deviceLabel?: string },
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.deviceService.provisionDevice(
+      clientId,
+      body.mode,
+      body.branchId ?? null,
+      body.deviceLabel ?? null,
+      user.userId,
+    );
+  }
+
+  @ApiOperation({ summary: 'Device — bind androidId to a pre-provisioned install token' })
+  @Public()
+  @UseGuards(DeviceAuthGuard)
+  @Post('register')
+  register(@Body() dto: RegisterDeviceDto) {
+    return this.deviceService.registerDevice(dto.installToken, dto.androidId, dto.deviceName);
+  }
+
+  @ApiOperation({ summary: 'List devices for the current client' })
+  @Get()
+  list(@CurrentUser() user: ReqUser) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.deviceService.listByClient(clientId);
+  }
+
+  @ApiOperation({ summary: 'Revoke a device' })
+  @Delete(':deviceId')
+  revoke(
+    @Param('deviceId') deviceId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.deviceService.revokeDevice(clientId, deviceId, user.userId);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enrollment  (admin creates tickets; device submits; ESS self-enroll)
+// ─────────────────────────────────────────────────────────────────────────────
+
+@ApiTags('Mobile Attendance — Enrollment')
+@ApiBearerAuth('JWT')
+@Controller({ path: 'mobile-attendance/enrollment', version: '1' })
+export class MobileAttendanceEnrollmentController {
+  constructor(private readonly enrollmentService: EnrollmentService) {}
+
+  @ApiOperation({ summary: 'ESS — employee self-enroll from their phone' })
+  @Post('self')
+  @Roles('EMPLOYEE', 'CLIENT', 'ADMIN')
+  selfEnroll(@CurrentUser() user: ReqUser, @Body() dto: SelfEnrollDto) {
+    const employeeId = user?.employeeId ?? user?.userId;
+    const clientId = user?.clientId;
+    if (!employeeId || !clientId) throw new BadRequestException('Employee context required');
+    return this.enrollmentService.enrollSelf(
+      employeeId,
+      clientId,
+      user?.branchIds?.[0] ?? null,
+      dto,
+      user.userId,
+    );
+  }
+
+  @ApiOperation({ summary: 'Admin — create a kiosk enrollment ticket' })
+  @Post('kiosk/ticket')
+  @Roles('CLIENT', 'ADMIN')
+  createTicket(@CurrentUser() user: ReqUser, @Body() dto: CreateKioskTicketDto) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.enrollmentService.createKioskTicket(
+      clientId,
+      user?.branchIds?.[0] ?? null,
+      dto,
+      user.userId,
+    );
+  }
+
+  @ApiOperation({ summary: 'Device — submit captured frames for a kiosk ticket' })
+  @Public()
+  @UseGuards(DeviceAuthGuard)
+  @Post('kiosk/submit')
+  submitTicket(
+    @Req() req: Request,
+    @Body() dto: SubmitKioskTicketDto,
+  ) {
+    const deviceId = (req as any).deviceId as string;
+    return this.enrollmentService.submitKioskTicket(deviceId, dto, deviceId);
+  }
+
+  @ApiOperation({ summary: 'List enrollment tickets' })
+  @Get('kiosk/tickets')
+  @Roles('CLIENT', 'ADMIN')
+  listTickets(
+    @CurrentUser() user: ReqUser,
+    @Query('status') status?: string,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.enrollmentService.listTickets(clientId, status);
+  }
+
+  @ApiOperation({ summary: 'Get a single enrollment ticket' })
+  @Get('kiosk/tickets/:ticketId')
+  @Roles('CLIENT', 'ADMIN')
+  getTicket(@Param('ticketId') ticketId: string, @CurrentUser() user: ReqUser) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.enrollmentService.getTicket(ticketId, clientId);
+  }
+
+  @ApiOperation({ summary: 'Deactivate a face enrollment (DPDP crypto-shred)' })
+  @Post('deactivate')
+  @Roles('CLIENT', 'ADMIN')
+  deactivate(@CurrentUser() user: ReqUser, @Body() dto: DeactivateEnrollmentDto) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.enrollmentService.deactivateEnrollment(clientId, dto, user.userId);
+  }
+
+  @ApiOperation({ summary: 'Admin — list all active employee enrollments' })
+  @Get('employees')
+  @Roles('CLIENT', 'ADMIN')
+  listEmployeeEnrollments(@CurrentUser() user: ReqUser) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.enrollmentService.listEmployeeEnrollments(clientId);
+  }
+
+  @ApiOperation({ summary: 'Admin — list all contractor enrollments' })
+  @Get('contractors')
+  @Roles('CLIENT', 'ADMIN')
+  listContractorEnrollments(@CurrentUser() user: ReqUser) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.enrollmentService.listContractorEnrollments(clientId);
+  }
+
+  @ApiOperation({ summary: 'Admin — cancel a kiosk enrollment ticket' })
+  @Post('kiosk/tickets/:ticketId/cancel')
+  @Roles('CLIENT', 'ADMIN')
+  cancelKioskTicket(
+    @Param('ticketId') ticketId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.enrollmentService.cancelKioskTicket(clientId, ticketId, user.userId);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Liveness challenges
+// ─────────────────────────────────────────────────────────────────────────────
+
+@ApiTags('Mobile Attendance — Liveness')
+@ApiBearerAuth('JWT')
+@Controller({ path: 'mobile-attendance/liveness', version: '1' })
+export class MobileAttendanceLivenessController {
+  constructor(private readonly livenessService: LivenessService) {}
+
+  @ApiOperation({ summary: 'Issue a liveness challenge nonce for a device' })
+  @Public()
+  @UseGuards(DeviceAuthGuard)
+  @Post('challenge')
+  issueChallenge(@Req() req: Request, @Body() dto: IssueChallengeDto) {
+    const deviceId = (req as any).deviceId as string;
+    return this.livenessService.issueChallenge(deviceId, dto.employeeId, dto.offline ?? false);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Attendance punches
+// ─────────────────────────────────────────────────────────────────────────────
+
+@ApiTags('Mobile Attendance — Punches')
+@ApiBearerAuth('JWT')
+@Controller({ path: 'mobile-attendance/punches', version: '1' })
+export class MobileAttendancePunchesController {
   constructor(
-    private readonly svc: MobileAttendanceService,
-    private readonly faceAlertCron: FaceFailureAlertCronService,
+    private readonly punchService: PunchService,
+    private readonly deviceService: DeviceService,
   ) {}
 
-  @ApiOperation({ summary: 'List registered mobile attendance devices' })
-  @Get('devices')
-  listDevices(@CurrentUser() u: ReqUser) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    return this.svc.listDevices(u.clientId);
-  }
-
-  @ApiOperation({
-    summary: 'Register a new mobile attendance device (kiosk or ESS)',
-  })
-  @Post('devices')
-  registerDevice(
-    @CurrentUser() u: ReqUser,
-    @Body() body: RegisterMobileDeviceDto,
+  @ApiOperation({ summary: 'Record an attendance punch (face match + liveness)' })
+  @Public()
+  @UseGuards(DeviceAuthGuard)
+  @Post()
+  async recordPunch(
+    @Req() req: Request,
+    @Body() dto: RecordPunchDto,
   ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    return this.svc.registerDevice(u.clientId, u.userId ?? null, body);
+    const deviceId = (req as any).deviceId as string;
+    const device = await this.deviceService.findById(deviceId);
+    if (!device) throw new UnauthorizedException('Device not found');
+    const ip = req.ip ?? req.socket?.remoteAddress;
+    const ua = req.headers['user-agent'];
+    return this.punchService.recordPunch(device, dto, ip, ua);
   }
 
-  @ApiOperation({ summary: 'Revoke a mobile attendance device' })
-  @Delete('devices/:id')
-  revokeDevice(@CurrentUser() u: ReqUser, @Param('id') id: string) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    return this.svc.revokeDevice(u.clientId, id, u.userId ?? null);
+  @ApiOperation({ summary: 'Fetch the face roster for offline use' })
+  @Public()
+  @UseGuards(DeviceAuthGuard)
+  @Get('roster')
+  async getRoster(@Req() req: Request) {
+    const deviceId = (req as any).deviceId as string;
+    const device = await this.deviceService.findById(deviceId);
+    if (!device) throw new UnauthorizedException('Device not found');
+    const roster = await this.punchService.getRoster(device);
+    return roster.map((r) => ({
+      subjectType: r.subjectType,
+      subjectId: r.subjectId,
+      embeddingModel: r.embeddingModel,
+      // Slice to view boundaries to avoid leaking bytes from a pooled backing buffer
+      embeddingB64: Buffer.from(
+        r.embedding.buffer,
+        r.embedding.byteOffset,
+        r.embedding.byteLength,
+      ).toString('base64'),
+    }));
   }
 
-  @ApiOperation({
-    summary: 'Permanently delete a revoked mobile attendance device',
-  })
-  @Delete('devices/:id/permanent')
-  hardDeleteDevice(@CurrentUser() u: ReqUser, @Param('id') id: string) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    return this.svc.hardDeleteDevice(u.clientId, id);
-  }
-
-  @ApiOperation({
-    summary:
-      "DISABLED — face enrollment must be performed from the employee's paired ESS device",
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Post('enroll')
-  enroll(@CurrentUser() _u: ReqUser, @Body() _body: EnrollFaceDto) {
-    // Admin-side enrollment was retired so every employee embedding originates
-    // from a paired ESS device (X-Device-Token + live 8-frame averaging).
-    // Use POST /mobile-attendance/enroll-self from the device, or raise a
-    // re-enrollment request for the audited admin escape hatch.
-    throw new ForbiddenException(
-      "Face enrollment must be done from the employee's registered ESS mobile device. " +
-        'Pair the device, sign in, and use the in-app self-enroll flow. ' +
-        'For exceptions, raise a re-enrollment request.',
-    );
-  }
-
-  @ApiOperation({
-    summary: 'List employees with face-enrollment status (Enrolled / Pending)',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Get('enrollments')
-  listEnrollments(@CurrentUser() u: ReqUser) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.listEnrollmentStatus(u.clientId, allowedBranchIds);
-  }
-
-  @ApiOperation({
-    summary: 'Deactivate an employee face enrollment (DPDP delete)',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Delete('enroll/:employeeId')
-  deactivate(
-    @CurrentUser() u: ReqUser,
-    @Param('employeeId') employeeId: string,
-    @Query('reason') reason?: string,
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.deactivateEnrollment(
-      u.clientId,
-      employeeId,
-      u.userId ?? null,
-      reason ?? 'Admin deactivation',
-      allowedBranchIds,
-    );
-  }
-
-  @ApiOperation({
-    summary:
-      'Permanently delete an employee face enrollment row (audit history is preserved)',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Delete('enroll/:employeeId/permanent')
-  hardDeleteEnrollment(
-    @CurrentUser() u: ReqUser,
-    @Param('employeeId') employeeId: string,
-    @Query('reason') reason?: string,
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.deleteEnrollment(
-      u.clientId,
-      employeeId,
-      u.userId ?? null,
-      reason ?? 'Admin delete',
-      allowedBranchIds,
-    );
-  }
-
-  // ----------------------------- Phase 3e: re-enrollment approval queue.
-
-  @ApiOperation({
-    summary:
-      'Submit a re-enrollment request (held PENDING until a reviewer approves)',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Post('reenroll-requests')
-  createReenroll(
-    @CurrentUser() u: ReqUser,
-    @Body() body: CreateReenrollRequestDto,
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.createReenrollRequest(
-      u.clientId,
-      u.userId ?? null,
-      body,
-      allowedBranchIds,
-    );
-  }
-
-  @ApiOperation({
-    summary: 'List re-enrollment requests by status (default PENDING)',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Get('reenroll-requests')
-  listReenroll(
-    @CurrentUser() u: ReqUser,
-    @Query('status')
-    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' = 'PENDING',
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.listReenrollRequests(u.clientId, status, allowedBranchIds);
-  }
-
-  @ApiOperation({ summary: 'Approve or reject a re-enrollment request' })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Post('reenroll-requests/:id/review')
-  reviewReenroll(
-    @CurrentUser() u: ReqUser,
-    @Param('id') id: string,
-    @Body() body: ReviewReenrollRequestDto,
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.reviewReenrollRequest(
-      u.clientId,
-      id,
-      u.userId ?? null,
-      body,
-      allowedBranchIds,
-    );
-  }
-
-  // -------------------------- Phase 4a: contractor face-attendance bridge.
-
-  @ApiOperation({
-    summary: 'Enroll a contractor employee face (admin or branch desk)',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Post('contractors/enroll')
-  enrollContractor(
-    @CurrentUser() u: ReqUser,
-    @Body() body: EnrollContractorFaceDto,
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.enrollContractorFace(
-      u.clientId,
-      u.userId ?? null,
-      body,
-      allowedBranchIds,
-    );
-  }
-
-  @ApiOperation({
-    summary:
-      'List contractor employees with face-enrollment status (Enrolled / Pending)',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Get('contractors/enrollments')
-  listContractorEnrollments(@CurrentUser() u: ReqUser) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.listContractorEnrollmentStatus(
-      u.clientId,
-      allowedBranchIds,
-    );
-  }
-
-  @ApiOperation({
-    summary: 'Deactivate a contractor employee face enrollment (DPDP delete)',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Delete('contractors/enroll/:contractorEmployeeId')
-  deactivateContractor(
-    @CurrentUser() u: ReqUser,
-    @Param('contractorEmployeeId') contractorEmployeeId: string,
-    @Query('reason') reason?: string,
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.deactivateContractorEnrollment(
-      u.clientId,
-      contractorEmployeeId,
-      u.userId ?? null,
-      reason ?? 'Admin deactivation',
-      allowedBranchIds,
-    );
-  }
-
-  @ApiOperation({
-    summary:
-      'Permanently delete a contractor face enrollment row (audit history preserved)',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Delete('contractors/enroll/:contractorEmployeeId/permanent')
-  hardDeleteContractorEnrollment(
-    @CurrentUser() u: ReqUser,
-    @Param('contractorEmployeeId') contractorEmployeeId: string,
-    @Query('reason') reason?: string,
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.deleteContractorEnrollment(
-      u.clientId,
-      contractorEmployeeId,
-      u.userId ?? null,
-      reason ?? 'Admin delete',
-      allowedBranchIds,
-    );
-  }
-
-  @ApiOperation({
-    summary:
-      'List recent contractor kiosk punches (optional from/to/branch/contractor/contractorUser filters)',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Get('contractors/punches')
-  listContractorPunches(
-    @CurrentUser() u: ReqUser,
+  @ApiOperation({ summary: 'Admin — list employee punches with filters' })
+  @Get('employee')
+  @Roles('CLIENT', 'ADMIN')
+  listPunches(
+    @CurrentUser() user: ReqUser,
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('branchId') branchId?: string,
-    @Query('contractorEmployeeId') contractorEmployeeId?: string,
-    @Query('contractorUserId') contractorUserId?: string,
-    @Query('limit') limit?: string,
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.listContractorPunches(
-      u.clientId,
-      {
-        from: from ?? null,
-        to: to ?? null,
-        branchId: branchId ?? null,
-        contractorEmployeeId: contractorEmployeeId ?? null,
-        contractorUserId: contractorUserId ?? null,
-        limit: limit ? Number(limit) : null,
-      },
-      allowedBranchIds,
-    );
-  }
-
-  @ApiOperation({
-    summary: 'Create a manual contractor attendance punch',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Post('contractors/punches')
-  createContractorPunch(
-    @CurrentUser() u: ReqUser,
-    @Body() body: CreateContractorPunchAdminDto,
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.createContractorPunch(u.clientId, body, allowedBranchIds);
-  }
-
-  @ApiOperation({
-    summary: 'Edit a contractor attendance punch time or direction',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Put('contractors/punches/:id')
-  updateContractorPunch(
-    @CurrentUser() u: ReqUser,
-    @Param('id') id: string,
-    @Body() body: UpdateContractorPunchDto,
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.updateContractorPunch(
-      u.clientId,
-      id,
-      body,
-      allowedBranchIds,
-    );
-  }
-
-  @ApiOperation({
-    summary: 'Delete a wrong contractor attendance punch',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Delete('contractors/punches/:id')
-  deleteContractorPunch(@CurrentUser() u: ReqUser, @Param('id') id: string) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.deleteContractorPunch(u.clientId, id, allowedBranchIds);
-  }
-
-  @ApiOperation({
-    summary:
-      'List recent face-attendance rejections (optional window / subject / reason / branch filters)',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Get('failed-scans')
-  listFailedScans(
-    @CurrentUser() u: ReqUser,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-    @Query('branchId') branchId?: string,
-    @Query('reason') reason?: string,
-    @Query('subjectType') subjectType?: 'EMPLOYEE' | 'CONTRACTOR',
     @Query('employeeId') employeeId?: string,
-    @Query('contractorEmployeeId') contractorEmployeeId?: string,
     @Query('limit') limit?: string,
   ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    const subj =
-      subjectType === 'EMPLOYEE' || subjectType === 'CONTRACTOR'
-        ? subjectType
-        : null;
-    return this.svc.listFailedScans(
-      u.clientId,
-      {
-        from: from ?? null,
-        to: to ?? null,
-        branchId: branchId ?? null,
-        reason: reason ?? null,
-        subjectType: subj,
-        employeeId: employeeId ?? null,
-        contractorEmployeeId: contractorEmployeeId ?? null,
-        limit: limit ? Number(limit) : null,
-      },
-      allowedBranchIds,
-    );
-  }
-
-  @ApiOperation({
-    summary:
-      'Aggregated face-attendance failure counts (total / by reason / by branch / by day / by subject) for dashboards',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Get('failed-scans/stats')
-  failedScanStats(
-    @CurrentUser() u: ReqUser,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-    @Query('branchId') branchId?: string,
-    @Query('subjectType') subjectType?: 'EMPLOYEE' | 'CONTRACTOR',
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    const subj =
-      subjectType === 'EMPLOYEE' || subjectType === 'CONTRACTOR'
-        ? subjectType
-        : null;
-    return this.svc.failedScanStats(
-      u.clientId,
-      {
-        from: from ?? null,
-        to: to ?? null,
-        branchId: branchId ?? null,
-        subjectType: subj,
-      },
-      allowedBranchIds,
-    );
-  }
-
-  @ApiOperation({
-    summary:
-      'Top subjects (employees + contractor workers) ranked by face-failure count in the window',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Get('failed-scans/top-subjects')
-  topFailedScanSubjects(
-    @CurrentUser() u: ReqUser,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-    @Query('branchId') branchId?: string,
-    @Query('subjectType') subjectType?: 'EMPLOYEE' | 'CONTRACTOR',
-    @Query('limit') limit?: string,
-    @Query('minCount') minCount?: string,
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    const subj =
-      subjectType === 'EMPLOYEE' || subjectType === 'CONTRACTOR'
-        ? subjectType
-        : null;
-    const lim = limit ? parseInt(limit, 10) : null;
-    const mc = minCount ? parseInt(minCount, 10) : null;
-    return this.svc.topFailedScanSubjects(
-      u.clientId,
-      {
-        from: from ?? null,
-        to: to ?? null,
-        branchId: branchId ?? null,
-        subjectType: subj,
-        limit: Number.isFinite(lim) ? lim : null,
-        minCount: Number.isFinite(mc) ? mc : null,
-      },
-      allowedBranchIds,
-    );
-  }
-
-  @ApiOperation({
-    summary:
-      'Recent face-failure spike alerts (last 7 days) emitted by the daily detector cron',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Get('failed-scans/alerts')
-  listFaceFailureAlerts(
-    @CurrentUser() u: ReqUser,
-    @Query('limit') limit?: string,
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    const lim = limit ? parseInt(limit, 10) : 20;
-    return this.svc.listFaceFailureAlerts(
-      u.clientId,
-      allowedBranchIds,
-      Number.isFinite(lim) ? lim : 20,
-    );
-  }
-
-  @ApiOperation({
-    summary:
-      'Manually trigger the face-failure spike detector (admin only). Returns a run summary.',
-  })
-  @Roles('ADMIN', 'SUPER_ADMIN')
-  @Post('failed-scans/run-detector')
-  runFaceFailureDetector(
-    @CurrentUser() u: ReqUser,
-    @Query('threshold') threshold?: string,
-    @Query('windowHours') windowHours?: string,
-    @Query('dedupeHours') dedupeHours?: string,
-    @Query('clientId') clientId?: string,
-    @Query('branchId') branchId?: string,
-  ) {
-    const isSuperAdmin = u?.roleCode === 'SUPER_ADMIN' || u?.userType === 'SUPER_ADMIN';
-    if (!isSuperAdmin && clientId && clientId !== u?.clientId) {
-      throw new ForbiddenException('Cannot run detector for another client');
-    }
-    const scopedClientId = isSuperAdmin ? clientId : u?.clientId;
-    return this.faceAlertCron.runDetector({
-      threshold: threshold !== undefined ? Number(threshold) : undefined,
-      windowHours: windowHours !== undefined ? Number(windowHours) : undefined,
-      dedupeHours: dedupeHours !== undefined ? Number(dedupeHours) : undefined,
-      clientId: scopedClientId ?? undefined,
-      branchId: branchId ?? undefined,
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.punchService.listPunches(clientId, {
+      from,
+      to,
+      branchId,
+      employeeId,
+      limit: limit ? Number(limit) : undefined,
     });
   }
 
-  @ApiOperation({
-    summary:
-      'Download face-attendance rejections as CSV (same filters as the listing endpoint; up to 5000 rows)',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Get('failed-scans/export.csv')
-  async exportFailedScansCsv(
-    @CurrentUser() u: ReqUser,
-    @Res() res: Response,
+  @ApiOperation({ summary: 'Admin — list contractor punches with filters' })
+  @Get('contractor')
+  @Roles('CLIENT', 'ADMIN')
+  listContractorPunches(
+    @CurrentUser() user: ReqUser,
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('branchId') branchId?: string,
-    @Query('reason') reason?: string,
-    @Query('subjectType') subjectType?: 'EMPLOYEE' | 'CONTRACTOR',
-    @Query('employeeId') employeeId?: string,
     @Query('contractorEmployeeId') contractorEmployeeId?: string,
+    @Query('limit') limit?: string,
   ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    const subj =
-      subjectType === 'EMPLOYEE' || subjectType === 'CONTRACTOR'
-        ? subjectType
-        : null;
-    const rows = await this.svc.listFailedScans(
-      u.clientId,
-      {
-        from: from ?? null,
-        to: to ?? null,
-        branchId: branchId ?? null,
-        reason: reason ?? null,
-        subjectType: subj,
-        employeeId: employeeId ?? null,
-        contractorEmployeeId: contractorEmployeeId ?? null,
-        limit: 5000,
-      },
-      allowedBranchIds,
-    );
-
-    const esc = (v: unknown): string => {
-      if (v === null || v === undefined) return '';
-      let s: string;
-      if (typeof v === 'string') s = v;
-      else if (typeof v === 'number' || typeof v === 'boolean') s = String(v);
-      else if (v instanceof Date) s = v.toISOString();
-      else s = JSON.stringify(v);
-      if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-      return s;
-    };
-    const header = [
-      'attemptedAt',
-      'subject',
-      'employeeId',
-      'employeeCode',
-      'employeeName',
-      'contractorEmployeeId',
-      'contractorEmployeeName',
-      'contractorName',
-      'branchId',
-      'deviceId',
-      'reason',
-      'reasonDetail',
-      'matchScore',
-      'livenessScore',
-      'captureLat',
-      'captureLng',
-    ];
-    const lines: string[] = [header.join(',')];
-    for (const r of rows) {
-      const subject = r.employeeId
-        ? 'EMPLOYEE'
-        : r.contractorEmployeeId
-          ? 'CONTRACTOR'
-          : 'UNKNOWN';
-      lines.push(
-        [
-          r.attemptedAt,
-          subject,
-          r.employeeId,
-          r.employeeCode,
-          r.employeeName,
-          r.contractorEmployeeId,
-          r.contractorEmployeeName,
-          r.contractorName,
-          r.branchId,
-          r.deviceId,
-          r.reason,
-          r.reasonDetail,
-          r.matchScore,
-          r.livenessScore,
-          r.captureLat,
-          r.captureLng,
-        ]
-          .map(esc)
-          .join(','),
-      );
-    }
-
-    const stamp = new Date().toISOString().slice(0, 10);
-    const fileName = `face-failed-scans-${stamp}.csv`;
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    res.end(lines.join('\r\n'));
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.punchService.listContractorPunches(clientId, {
+      from,
+      to,
+      branchId,
+      contractorEmployeeId,
+      limit: limit ? Number(limit) : undefined,
+    });
   }
 
-  @ApiOperation({
-    summary:
-      'Download face-attendance failure analytics as a multi-section CSV (summary + top reasons / branches / devices / modes / day-of-week / hours / offenders)',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Get('failed-scans/stats-export.csv')
-  async exportFailedScanStatsCsv(
-    @CurrentUser() u: ReqUser,
-    @Res() res: Response,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-    @Query('branchId') branchId?: string,
-    @Query('subjectType') subjectType?: 'EMPLOYEE' | 'CONTRACTOR',
-    @Query('topSubjectsLimit') topSubjectsLimit?: string,
+  @ApiOperation({ summary: 'Admin — create a manual contractor punch' })
+  @Post('contractor')
+  @Roles('CLIENT', 'ADMIN')
+  createContractorPunch(
+    @CurrentUser() user: ReqUser,
+    @Body() body: { contractorEmployeeId: string; punchTime: string; direction: 'IN' | 'OUT' | 'AUTO' },
   ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    const subj =
-      subjectType === 'EMPLOYEE' || subjectType === 'CONTRACTOR'
-        ? subjectType
-        : null;
-    const stats = await this.svc.failedScanStats(
-      u.clientId,
-      {
-        from: from ?? null,
-        to: to ?? null,
-        branchId: branchId ?? null,
-        subjectType: subj,
-      },
-      allowedBranchIds,
-    );
-    const topLim = topSubjectsLimit ? parseInt(topSubjectsLimit, 10) : 25;
-    const top = await this.svc.topFailedScanSubjects(
-      u.clientId,
-      {
-        from: from ?? null,
-        to: to ?? null,
-        branchId: branchId ?? null,
-        subjectType: subj,
-        limit: Number.isFinite(topLim) ? topLim : 25,
-        minCount: null,
-      },
-      allowedBranchIds,
-    );
-
-    const esc = (v: unknown): string => {
-      if (v === null || v === undefined) return '';
-      let s: string;
-      if (typeof v === 'string') s = v;
-      else if (typeof v === 'number' || typeof v === 'boolean') s = String(v);
-      else if (v instanceof Date) s = v.toISOString();
-      else s = JSON.stringify(v);
-      if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-      return s;
-    };
-    const dowLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const lines: string[] = [];
-    const section = (title: string, header: string[], rows: unknown[][]) => {
-      lines.push(esc(title));
-      lines.push(header.join(','));
-      for (const r of rows) lines.push(r.map(esc).join(','));
-      lines.push('');
-    };
-
-    section(
-      'Filters',
-      ['key', 'value'],
-      [
-        ['from', from ?? ''],
-        ['to', to ?? ''],
-        ['branchId', branchId ?? ''],
-        ['subjectType', subj ?? ''],
-        ['generatedAt', new Date().toISOString()],
-      ],
-    );
-    section(
-      'Summary',
-      ['metric', 'value'],
-      [
-        ['total', stats.total],
-        ['employee', stats.bySubject.employee],
-        ['contractor', stats.bySubject.contractor],
-        ['unknown', stats.bySubject.unknown],
-      ],
-    );
-    section(
-      'By Reason',
-      ['reason', 'count'],
-      stats.byReason.map((r) => [r.reason, r.count]),
-    );
-    section(
-      'By Branch',
-      ['branchId', 'branchName', 'count'],
-      stats.byBranch.map((r) => [r.branchId, r.branchName, r.count]),
-    );
-    section(
-      'By Device',
-      ['deviceId', 'deviceLabel', 'mode', 'lastFailedAt', 'count'],
-      stats.byDevice.map((r) => [
-        r.deviceId,
-        r.deviceLabel,
-        r.mode,
-        r.lastFailedAt,
-        r.count,
-      ]),
-    );
-    section(
-      'By Mode',
-      ['mode', 'count'],
-      stats.byMode.map((r) => [r.mode, r.count]),
-    );
-    section(
-      'By Day Of Week',
-      ['dow', 'label', 'count'],
-      stats.byDayOfWeek.map((r) => [r.dow, dowLabels[r.dow] ?? '', r.count]),
-    );
-    section(
-      'By Hour',
-      ['hour', 'count'],
-      stats.byHour.map((r) => [r.hour, r.count]),
-    );
-    section(
-      'By Day',
-      ['day', 'count'],
-      stats.byDay.map((r) => [r.day, r.count]),
-    );
-    section(
-      'Top Offenders',
-      [
-        'subjectType',
-        'employeeId',
-        'employeeCode',
-        'employeeName',
-        'contractorEmployeeId',
-        'contractorEmployeeName',
-        'contractorName',
-        'count',
-      ],
-      top.map((r) => [
-        r.subjectType,
-        r.employeeId,
-        r.employeeCode,
-        r.employeeName,
-        r.contractorEmployeeId,
-        r.contractorEmployeeName,
-        r.contractorName,
-        r.count,
-      ]),
-    );
-
-    const stamp = new Date().toISOString().slice(0, 10);
-    const fileName = `face-failed-scans-stats-${stamp}.csv`;
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    res.end(lines.join('\r\n'));
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.punchService.createContractorPunch(clientId, body);
   }
 
-  @ApiOperation({
-    summary:
-      'List contractors (parent vendors) with active employees in the caller\u2019s allowed branches; drives the branch-portal contractor picker',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Get('contractors/for-branch')
-  listContractorsForBranch(
-    @CurrentUser() u: ReqUser,
-    @Query('branchId') branchId?: string,
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.listContractorsForBranch(
-      u.clientId,
-      { branchId: branchId ?? null },
-      allowedBranchIds,
-    );
-  }
-
-  // -------------- Phase 4c: contractor re-enrollment approval queue.
-
-  @ApiOperation({
-    summary:
-      'Submit a contractor re-enrollment request (held PENDING until reviewed)',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Post('contractors/reenroll-requests')
-  createContractorReenroll(
-    @CurrentUser() u: ReqUser,
-    @Body() body: CreateContractorReenrollRequestDto,
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.createContractorReenrollRequest(
-      u.clientId,
-      u.userId ?? null,
-      body,
-      allowedBranchIds,
-    );
-  }
-
-  @ApiOperation({
-    summary:
-      'List contractor re-enrollment requests by status (default PENDING)',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Get('contractors/reenroll-requests')
-  listContractorReenroll(
-    @CurrentUser() u: ReqUser,
-    @Query('status')
-    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' = 'PENDING',
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.listContractorReenrollRequests(
-      u.clientId,
-      status,
-      allowedBranchIds,
-    );
-  }
-
-  @ApiOperation({
-    summary: 'Approve or reject a contractor re-enrollment request',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Post('contractors/reenroll-requests/:id/review')
-  reviewContractorReenroll(
-    @CurrentUser() u: ReqUser,
+  @ApiOperation({ summary: 'Admin — update a contractor punch' })
+  @Put('contractor/:id')
+  @Roles('CLIENT', 'ADMIN')
+  updateContractorPunch(
     @Param('id') id: string,
-    @Body() body: ReviewReenrollRequestDto,
+    @CurrentUser() user: ReqUser,
+    @Body() body: { punchTime?: string; direction?: string },
   ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.reviewContractorReenrollRequest(
-      u.clientId,
-      id,
-      u.userId ?? null,
-      body,
-      allowedBranchIds,
-    );
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.punchService.updateContractorPunch(clientId, id, body);
   }
 
-  // ------------------------------------------------- kiosk-supervised
-  // ----------------------------------------------- enrollment tickets
-
-  @ApiOperation({
-    summary:
-      'Create a kiosk-supervised face-enrollment ticket targeting one device + subject',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Post('kiosk-enroll/tickets')
-  createKioskEnrollTicket(
-    @CurrentUser() u: ReqUser,
-    @Body() body: CreateKioskEnrollTicketDto,
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    if (!u?.userId) throw new BadRequestException('User context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.createKioskEnrollTicket(
-      u.clientId,
-      u.userId,
-      allowedBranchIds,
-      body,
-    );
-  }
-
-  @ApiOperation({
-    summary: 'List kiosk-supervised enrollment tickets (most recent first)',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Get('kiosk-enroll/tickets')
-  listKioskEnrollTickets(
-    @CurrentUser() u: ReqUser,
-    @Query('status')
-    status?:
-      | 'PENDING'
-      | 'REVIEW_PENDING'
-      | 'COMPLETED'
-      | 'REJECTED'
-      | 'CANCELLED'
-      | 'EXPIRED',
-  ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.listKioskEnrollTickets(
-      u.clientId,
-      allowedBranchIds,
-      status,
-    );
-  }
-
-  @ApiOperation({ summary: 'Poll the current status of one ticket' })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Get('kiosk-enroll/tickets/:id')
-  getKioskEnrollTicket(@CurrentUser() u: ReqUser, @Param('id') id: string) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    return this.svc.getKioskEnrollTicket(u.clientId, id);
-  }
-
-  @ApiOperation({ summary: 'Cancel a still-pending enrollment ticket' })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Post('kiosk-enroll/tickets/:id/cancel')
-  cancelKioskEnrollTicket(@CurrentUser() u: ReqUser, @Param('id') id: string) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    if (!u?.userId) throw new BadRequestException('User context required');
-    return this.svc.cancelKioskEnrollTicket(u.clientId, u.userId, id);
-  }
-
-  @ApiOperation({
-    summary: 'Approve or reject a kiosk-captured face before activating it',
-  })
-  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
-  @Post('kiosk-enroll/tickets/:id/review')
-  reviewKioskEnrollTicket(
-    @CurrentUser() u: ReqUser,
+  @ApiOperation({ summary: 'Admin — delete a contractor punch' })
+  @Delete('contractor/:id')
+  @Roles('CLIENT', 'ADMIN')
+  deleteContractorPunch(
     @Param('id') id: string,
-    @Body() body: ReviewKioskEnrollTicketDto,
+    @CurrentUser() user: ReqUser,
   ) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    if (!u?.userId) throw new BadRequestException('User context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.reviewKioskEnrollTicket(
-      u.clientId,
-      u.userId,
-      allowedBranchIds,
-      id,
-      body,
-    );
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.punchService.deleteContractorPunch(clientId, id);
   }
-}
-
-/**
- * Branch-scoped users (CLIENT + userType=BRANCH, virtual BRANCH_DESK) may
- * only enroll/deactivate employees inside their own branchIds. Non-branch
- * roles (ADMIN/CRM/CLIENT-master) get `null` meaning unrestricted.
- */
-function scopeBranchIds(u: ReqUser): string[] | null {
-  if (u?.userType === 'BRANCH') return u.branchIds ?? [];
-  return null;
-}
-
-// =============================================================================
-// Mobile-app controller — used by the Android app. Authenticated via the
-// per-device install token (header `X-Device-Token`). For ESS punches the
-// app additionally sends the user JWT so we can enforce employee identity.
-// =============================================================================
-@ApiTags('Mobile Attendance (Device)')
-@Controller({ path: 'mobile-attendance', version: '1' })
-@Public()
-export class MobileAttendanceDeviceController {
-  private readonly logger = new Logger(MobileAttendanceDeviceController.name);
-  constructor(private readonly svc: MobileAttendanceService) {}
-
-  @ApiOperation({
-    summary: 'Pull device config + employee roster (with embeddings)',
-  })
-  @Get('roster')
-  async roster(
-    @Headers('x-device-token') token: string,
-    @Headers('x-android-id') androidId: string,
-  ) {
-    const dev = await this.svc.resolveDeviceByToken(token, androidId);
-    return this.svc.roster(dev);
-  }
-
-  @ApiOperation({
-    summary: 'Pull lightweight device config without roster embeddings',
-  })
-  @Get('config')
-  async config(
-    @Headers('x-device-token') token: string,
-    @Headers('x-android-id') androidId: string,
-  ) {
-    const dev = await this.svc.resolveDeviceByToken(token, androidId);
-    return this.svc.deviceConfig(dev);
-  }
-
-  @ApiOperation({
-    summary: 'ESS self-enroll — from the device-bound employee phone',
-  })
-  @Post('enroll-self')
-  async enrollSelf(
-    @Headers('x-device-token') token: string,
-    @Headers('x-android-id') androidId: string,
-    @Body() body: EnrollSelfDto,
-  ) {
-    const dev = await this.svc.resolveDeviceByToken(token, androidId);
-    return this.svc.enrollSelf(dev, body);
-  }
-
-  @ApiOperation({ summary: 'Submit a face-verified attendance punch' })
-  @Post('punch')
-  async punch(
-    @Headers('x-device-token') token: string,
-    @Headers('x-android-id') androidId: string,
-    @Headers('user-agent') userAgent: string,
-    @Req() req: Request,
-    @Body() body: MobilePunchDto,
-  ) {
-    const dev = await this.svc.resolveDeviceByToken(token, androidId);
-    return this.svc.recordPunch(dev, body, null, deriveMeta(req, userAgent));
-  }
-
-  @ApiOperation({
-    summary:
-      'Phase 4c: issue a server-bound, single-use liveness challenge nonce',
-  })
-  @Post('liveness/challenge')
-  async issueLivenessChallenge(
-    @Headers('x-device-token') token: string,
-    @Headers('x-android-id') androidId: string,
-    @Body() body: { employeeId?: string | null } = {},
-  ) {
-    const dev = await this.svc.resolveDeviceByToken(token, androidId);
-    return this.svc.issueLivenessChallenge(dev, body?.employeeId ?? null);
-  }
-
-  @ApiOperation({
-    summary: 'Submit a face-verified contractor attendance punch (KIOSK only)',
-  })
-  @Post('punch/contractor')
-  async contractorPunch(
-    @Headers('x-device-token') token: string,
-    @Headers('x-android-id') androidId: string,
-    @Headers('user-agent') userAgent: string,
-    @Req() req: Request,
-    @Body() body: ContractorMobilePunchDto,
-  ) {
-    const dev = await this.svc.resolveDeviceByToken(token, androidId);
-    return this.svc.recordContractorPunch(
-      dev,
-      body,
-      deriveMeta(req, userAgent),
-    );
-  }
-
-  @ApiOperation({
-    summary: 'K9: compact today-at-a-glance dashboard for the kiosk side panel',
-  })
-  @Get('kiosk-dashboard')
-  async kioskDashboard(
-    @Headers('x-device-token') token: string,
-    @Headers('x-android-id') androidId: string,
-  ) {
-    const dev = await this.svc.resolveDeviceByToken(token, androidId);
-    return this.svc.kioskDashboard(dev);
-  }
-
-  @ApiOperation({
-    summary:
-      'Kiosk poll: pending operator-issued face enrollment ticket (if any)',
-  })
-  @Get('kiosk-enroll/pending')
-  async pendingKioskEnrollTicket(
-    @Headers('x-device-token') token: string,
-    @Headers('x-android-id') androidId: string,
-  ) {
-    const dev = await this.svc.resolveDeviceByToken(token, androidId);
-    const t = await this.svc.getPendingKioskEnrollTicket(dev);
-    if (!t) return { ticket: null };
-    return {
-      ticket: {
-        id: t.id,
-        subjectType: t.subjectType,
-        subjectName: t.subjectName,
-        subjectCode: t.subjectCode,
-        expiresAt: t.expiresAt.toISOString(),
-        notes: t.notes,
-      },
-    };
-  }
-
-  @ApiOperation({
-    summary: 'Kiosk submits the captured embedding for a pending ticket',
-  })
-  @Post('kiosk-enroll/tickets/:id/submit')
-  async submitKioskEnrollTicket(
-    @Headers('x-device-token') token: string,
-    @Headers('x-android-id') androidId: string,
-    @Param('id') id: string,
-    @Body() body: SubmitKioskEnrollDto,
-  ) {
-    const dev = await this.svc.resolveDeviceByToken(token, androidId);
-    try {
-      return await this.svc.submitKioskEnrollTicket(dev, id, body);
-    } catch (err: any) {
-      this.logger.warn(
-        `kiosk-enroll submit rejected ticketId=${id} device=${dev.id} ` +
-          `status=${err?.status ?? err?.statusCode ?? '?'} msg=${err?.message}`,
-      );
-      throw err;
-    }
-  }
-
-  @ApiOperation({
-    summary:
-      'Kiosk reports repeated local face failures that never reached punch validation',
-  })
-  @Post('failed-scan')
-  async reportDeviceFailedScan(
-    @Headers('x-device-token') token: string,
-    @Headers('x-android-id') androidId: string,
-    @Headers('user-agent') userAgent: string | undefined,
-    @Req() req: Request,
-    @Body() body: DeviceFailedScanDto,
-  ) {
-    const dev = await this.svc.resolveDeviceByToken(token, androidId);
-    return this.svc.reportDeviceFailedScan(
-      dev,
-      body,
-      deriveMeta(req, userAgent),
-    );
-  }
-}
-
-/**
- * Roadmap #17: extract a best-effort client IP for audit. Honors the
- * first entry of X-Forwarded-For (Azure Container Apps + Front Door set
- * it correctly), falls back to req.ip. UA is trimmed to 500 chars so a
- * malicious header can't bloat the audit table.
- */
-function deriveMeta(
-  req: Request,
-  userAgent: string | undefined,
-): PunchRequestMeta {
-  const xff = (req.headers['x-forwarded-for'] || '') as string;
-  const first = xff.split(',')[0]?.trim();
-  const ip =
-    first || req.ip || (req.socket && req.socket.remoteAddress) || null;
-  const ua = (userAgent || '').slice(0, 500) || null;
-  return { ip: ip || null, userAgent: ua };
 }

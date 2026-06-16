@@ -1,59 +1,61 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { BiometricModule } from '../biometric/biometric.module';
-import { ContractorEmployeeEntity } from '../contractor/contractor-employees/entities/contractor-employee.entity';
-import { EmployeeEntity } from '../employees/entities/employee.entity';
-import { NotificationsModule } from '../notifications/notifications.module';
-import { AttendanceShiftEntity } from './entities/attendance-shift.entity';
-import { ContractorBiometricPunchEntity } from './entities/contractor-biometric-punch.entity';
-import { ContractorFaceEnrollmentEntity } from './entities/contractor-face-enrollment.entity';
-import { FaceEnrollmentEntity } from './entities/face-enrollment.entity';
-import { FaceLivenessNonceEntity } from './entities/face-liveness-nonce.entity';
-import { KioskEnrollTicketEntity } from './entities/kiosk-enroll-ticket.entity';
-import { MobileAttendanceDeviceEntity } from './entities/mobile-attendance-device.entity';
+
+// Entities
+import { MobileAttendanceDeviceEntity } from './devices/device.entity';
+import { FaceEnrollmentEntity } from './enrollment/face-enrollment.entity';
+import { ContractorFaceEnrollmentEntity } from './enrollment/contractor-face-enrollment.entity';
+import { KioskEnrollTicketEntity } from './enrollment/kiosk-enroll-ticket.entity';
+import { FaceEnrollmentHistoryEntity } from './enrollment/enrollment-history.entity';
+import { MobileAttendancePunchEntity } from './punch/punch.entity';
+import { ContractorBiometricPunchEntity } from './punch/contractor-punch.entity';
+import { FaceLivenessNonceEntity } from './liveness/liveness-nonce.entity';
+
+// Services
+import { DeviceAuthGuard } from './devices/device-auth.guard';
+import { DeviceService } from './devices/device.service';
+import { EnrollmentService } from './enrollment/enrollment.service';
+import { PunchService } from './punch/punch.service';
+import { LivenessService } from './liveness/liveness.service';
+import { FaceEmbeddingClient } from './face/face-embedding.client';
+import { FacePhotoStorageService } from './face/face-photo-storage.service';
+
+// Controllers
 import {
-  MobileAttendanceAdminController,
-  MobileAttendanceDeviceController,
+  MobileAttendanceDevicesController,
+  MobileAttendanceEnrollmentController,
+  MobileAttendanceLivenessController,
+  MobileAttendancePunchesController,
 } from './mobile-attendance.controller';
-import { MobileAttendanceService } from './mobile-attendance.service';
-import { FaceEmbeddingClient } from './face-embedding.client';
-import { FacePhotoStorage } from './face-photo-storage.service';
-import { FaceFailureAlertCronService } from './face-failure-alert-cron.service';
-import { FacePhotoRetentionCron } from './face-photo-retention.cron';
-import { FaceAppearanceDriftCron } from './face-appearance-drift.cron';
-import { PAD_PROVIDER, createPadProvider } from './pad/pad-provider';
-import { MASK_DETECTOR, createMaskDetector } from './mask/mask-detector';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
+      MobileAttendanceDeviceEntity,
       FaceEnrollmentEntity,
       ContractorFaceEnrollmentEntity,
-      ContractorBiometricPunchEntity,
-      MobileAttendanceDeviceEntity,
-      FaceLivenessNonceEntity,
-      AttendanceShiftEntity,
-      EmployeeEntity,
-      ContractorEmployeeEntity,
       KioskEnrollTicketEntity,
+      FaceEnrollmentHistoryEntity,
+      MobileAttendancePunchEntity,
+      ContractorBiometricPunchEntity,
+      FaceLivenessNonceEntity,
     ]),
-    BiometricModule,
-    NotificationsModule,
   ],
   controllers: [
-    MobileAttendanceAdminController,
-    MobileAttendanceDeviceController,
+    MobileAttendanceDevicesController,
+    MobileAttendanceEnrollmentController,
+    MobileAttendanceLivenessController,
+    MobileAttendancePunchesController,
   ],
   providers: [
-    MobileAttendanceService,
+    DeviceAuthGuard,
+    DeviceService,
+    EnrollmentService,
+    PunchService,
+    LivenessService,
     FaceEmbeddingClient,
-    FacePhotoStorage,
-    FaceFailureAlertCronService,
-    FacePhotoRetentionCron,
-    FaceAppearanceDriftCron,
-    { provide: PAD_PROVIDER, useFactory: createPadProvider },
-    { provide: MASK_DETECTOR, useFactory: createMaskDetector },
+    FacePhotoStorageService,
   ],
-  exports: [MobileAttendanceService],
+  exports: [DeviceService, EnrollmentService, PunchService, LivenessService],
 })
 export class MobileAttendanceModule {}

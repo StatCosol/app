@@ -1,355 +1,259 @@
 package com.statcosol.attendance.ui
 
-import android.Manifest
-import android.annotation.SuppressLint
-import android.content.pm.PackageManager
-import android.location.Location
 import android.os.Bundle
+import android.util.Log
+import android.view.View
+import android.widget.Button
+import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import com.statcosol.attendance.AttendanceApp
 import com.statcosol.attendance.R
-import com.statcosol.attendance.api.RosterResponse
-import com.statcosol.attendance.databinding.ActivityEssBinding
+import com.statcosol.attendance.api.ApiClient
+import com.statcosol.attendance.api.MobilePunchRequest
+import com.statcosol.attendance.db.AppDatabase
 import com.statcosol.attendance.db.QueuedPunch
 import com.statcosol.attendance.face.FaceCaptureSession
-import com.statcosol.attendance.face.FaceSignal
+import com.statcosol.attendance.face.FaceDetector
+import com.statcosol.attendance.face.FaceEmbedder
 import com.statcosol.attendance.face.LivenessChallenge
-import com.statcosol.attendance.face.LivenessChallengeTracker
+import com.statcosol.attendance.face.MatchResult
 import com.statcosol.attendance.face.RosterMatcher
+import com.statcosol.attendance.prefs.DeviceConfig
 import com.statcosol.attendance.security.IntegrityCheck
-import com.statcosol.attendance.sync.PunchSyncWorker
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.coroutines.resume
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.sqrt
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
-/**
- * Personal-phone ESS mode. Bound to a single employee at registration time.
- *
- * Per tap of Punch In / Out:
- *   1. Acquire current location.
- *   2. Validate against the geofence from the roster response.
- *   3. Capture the next valid face frame via [FaceCaptureSession].
- *   4. Run 1:1 verify against the bound employee's enrollment.
- *   5. Queue the punch.
- */
+@ExperimentalGetImage
 class EssActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityEssBinding
-    private val app get() = application as AttendanceApp
-    private var matcher: RosterMatcher? = null
-    private var roster: RosterResponse? = null
-    private var capture: FaceCaptureSession? = null
+    private lateinit var previewView: PreviewView
+    private lateinit var tvHint: TextView
+    private lateinit var tvStatus: TextView
+    private lateinit var btnPunchIn: Button
+    private lateinit var btnPunchOut: Button
 
-    /** Set non-null while a Punch tap is awaiting the next live face frame. */
-    private var pending: CompletableDeferred<Pair<FloatArray, Double>>? = null
+    private lateinit var config: DeviceConfig
+    private lateinit var apiClient: ApiClient
+    private lateinit var embedder: FaceEmbedder
+    private lateinit var faceDetector: FaceDetector
+    private lateinit var matcher: RosterMatcher
+    private lateinit var cameraExecutor: ExecutorService
 
-    /** Set non-null while a Punch tap is in the active-liveness challenge
-     *  phase. Camera signals are forwarded into this tracker. */
-    @Volatile private var challengeTracker: LivenessChallengeTracker? = null
-    /** Awaiter that the punch flow blocks on; completed when the gesture
-     *  passes (true) or skipped/timed-out (false). */
-    private var challengeAwaiter: CompletableDeferred<Boolean>? = null
+    @Volatile private var lastProbe: FloatArray? = null
+    @Volatile private var lastLiveness: Double = 0.0
+    @Volatile private var lastPhoto: String? = null
+    @Volatile private var pendingDirection: String? = null
+    @Volatile private var pendingChallenge: LivenessChallenge? = null
+    @Volatile private var pendingNonce: String? = null
+    @Volatile private var pendingMatch: MatchResult? = null
+    @Volatile private var punchInFlight = false
 
-    private val cameraPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) startCamera() else binding.statusText.text = getString(R.string.permission_camera_required)
-        }
-    private val locationPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* checked at submit */ }
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityEssBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContentView(R.layout.activity_ess)
 
-        val empId = app.deviceConfig.essEmployeeId
-        if (empId.isNullOrBlank()) {
-            binding.statusText.text = getString(R.string.ess_no_enrollment)
-            disableButtons()
-            return
-        }
+        previewView = findViewById(R.id.preview_view)
+        tvHint = findViewById(R.id.tv_hint)
+        tvStatus = findViewById(R.id.tv_status)
+        btnPunchIn = findViewById(R.id.btn_punch_in)
+        btnPunchOut = findViewById(R.id.btn_punch_out)
 
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED) {
-            locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-        }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-            == PackageManager.PERMISSION_GRANTED) {
-            startCamera()
-        } else {
-            cameraPermission.launch(Manifest.permission.CAMERA)
-        }
+        config = DeviceConfig(this)
+        apiClient = ApiClient(config)
+        embedder = FaceEmbedder(this)
+        faceDetector = FaceDetector()
+        matcher = RosterMatcher()
+        cameraExecutor = Executors.newSingleThreadExecutor()
 
         loadRoster()
+        startCamera()
 
-        binding.punchInBtn.setOnClickListener { onPunchTap("IN") }
-        binding.punchOutBtn.setOnClickListener { onPunchTap("OUT") }
+        btnPunchIn.setOnClickListener { initiatePunch("IN") }
+        btnPunchOut.setOnClickListener { initiatePunch("OUT") }
     }
 
-    private fun disableButtons() {
-        binding.punchInBtn.isEnabled = false
-        binding.punchOutBtn.isEnabled = false
+    override fun onDestroy() {
+        super.onDestroy()
+        cameraExecutor.shutdown()
+        embedder.close()
+        faceDetector.close()
     }
 
     private fun loadRoster() {
         lifecycleScope.launch {
             try {
-                val r = withContext(Dispatchers.IO) { app.apiClient.fetchRoster() }
-                roster = r
-                matcher = RosterMatcher(r.enrollments)
-                val empId = app.deviceConfig.essEmployeeId
-                if (!empId.isNullOrBlank() && r.enrollments.none { it.employeeId == empId }) {
-                    // No enrollment for the bound employee — launch self-enroll once.
-                    startActivity(android.content.Intent(this@EssActivity, EnrollActivity::class.java))
-                    finish()
-                }
+                val roster = apiClient.getRoster()
+                matcher.load(roster.enrollments)
             } catch (e: Exception) {
-                // Soft-fail on refresh: only surface when we have no roster yet.
-                if (roster == null) {
-                    binding.statusText.text = "Roster load failed: ${e.message}"
-                }
+                Log.w(TAG, "Roster load failed: ${e.message}")
+                tvStatus.text = getString(R.string.ess_no_enrollment)
             }
         }
-        if (rosterRefreshJob == null) {
-            rosterRefreshJob = lifecycleScope.launch {
-                while (isActive) {
-                    delay(ROSTER_REFRESH_MS)
-                    loadRoster()
-                }
-            }
-        }
-    }
-
-    private var rosterRefreshJob: Job? = null
-
-    override fun onDestroy() {
-        rosterRefreshJob?.cancel()
-        rosterRefreshJob = null
-        capture?.stop()
-        capture = null
-        super.onDestroy()
     }
 
     private fun startCamera() {
-        capture = FaceCaptureSession(
-            context = this,
-            owner = this,
-            previewView = binding.previewView,
-            scope = lifecycleScope,
-            onFace = { probe, liveness, _ ->
-                // Only consume frames while a punch is pending.
-                pending?.let { p ->
-                    if (!p.isCompleted && liveness >= MIN_LIVENESS) {
-                        p.complete(probe to liveness)
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+        cameraProviderFuture.addListener({
+            val cameraProvider = cameraProviderFuture.get()
+            val preview = Preview.Builder().build().apply {
+                setSurfaceProvider(previewView.surfaceProvider)
+            }
+            val imageAnalysis = ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build()
+
+            val captureSession = FaceCaptureSession(
+                embedder = embedder,
+                detector = faceDetector,
+                onFace = { probe, liveness, photo ->
+                    lastProbe = probe
+                    lastLiveness = liveness
+                    lastPhoto = photo
+
+                    val challenge = pendingChallenge
+                    if (challenge != null) {
+                        handleLivenessFrame(probe, liveness, challenge)
                     }
-                }
-            },
-            onError = { code ->
-                runOnUiThread {
-                    binding.statusText.text = when {
-                        code == "face_model_missing" -> getString(R.string.face_model_missing)
-                        code.startsWith("face_embed_failed") -> getString(R.string.face_embed_failed, code.substringAfter(':'))
-                        code.startsWith("multiple_faces") -> {
-                            val n = code.substringAfter(':').toIntOrNull() ?: 2
-                            getString(R.string.face_multiple_detected, n)
-                        }
-                        code == "hint:no_face" -> getString(R.string.hint_no_face)
-                        code == "hint:too_small" -> getString(R.string.hint_too_small)
-                        code == "hint:too_dim" -> getString(R.string.hint_too_dim)
-                        code == "hint:not_straight" -> getString(R.string.hint_not_straight)
-                        code == "hint:too_blurry" -> getString(R.string.hint_too_blurry)
-                        else -> code
-                    }
-                }
-            },
-            onFaceSignal = { signal -> handleFaceSignal(signal) },
-        ).also { it.start() }
+                },
+                onHint = { hint -> runOnUiThread { tvHint.text = hint } },
+            )
+
+            imageAnalysis.setAnalyzer(cameraExecutor, captureSession)
+            cameraProvider.unbindAll()
+            cameraProvider.bindToLifecycle(
+                this,
+                CameraSelector.DEFAULT_FRONT_CAMERA,
+                preview,
+                imageAnalysis,
+            )
+        }, ContextCompat.getMainExecutor(this))
     }
 
-    private fun handleFaceSignal(signal: FaceSignal) {
-        val tracker = challengeTracker ?: return
-        val awaiter = challengeAwaiter ?: return
-        if (tracker.feed(signal) && !awaiter.isCompleted) {
-            awaiter.complete(true)
-        }
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun onPunchTap(direction: String) {
-        val empId = app.deviceConfig.essEmployeeId ?: return
-        val matcherSnap = matcher ?: run {
-            binding.statusText.text = "Roster not loaded yet"
+    private fun initiatePunch(direction: String) {
+        if (punchInFlight) return
+        val probe = lastProbe ?: run {
+            tvHint.text = getString(R.string.hint_no_face)
             return
         }
-        val r = roster ?: return
+        val match = matcher.match(probe) ?: run {
+            tvStatus.text = getString(R.string.kiosk_match_low)
+            return
+        }
 
-        binding.punchInBtn.isEnabled = false
-        binding.punchOutBtn.isEnabled = false
-        binding.statusText.text = "Locating…"
+        punchInFlight = true
+        pendingDirection = direction
+        pendingMatch = match
 
         lifecycleScope.launch {
             try {
-                val location = try {
-                    fetchLocation()
-                } catch (_: Exception) {
-                    Toast.makeText(this@EssActivity, R.string.permission_location_required, Toast.LENGTH_SHORT).show()
-                    return@launch
-                }
-                if (!isWithinGeofence(location, r)) {
-                    binding.statusText.text = getString(R.string.ess_outside_geofence)
-                    return@launch
-                }
-                if (IntegrityCheck.isMockLocation(location)) {
-                    binding.statusText.text = getString(R.string.ess_mock_location_blocked)
-                    return@launch
-                }
+                val challengeResp = apiClient.issueLivenessChallenge(match.employeeId)
+                val challenge = LivenessChallenge.fromWire(challengeResp.challengeType) ?: LivenessChallenge.BLINK
+                pendingChallenge = challenge
+                pendingNonce = challengeResp.nonce
 
-                // ---- Active-liveness challenge ---------------------------
-                val livenessReq = try {
-                    withContext(Dispatchers.IO) {
-                        app.apiClient.requestLivenessChallenge(empId)
-                    }
-                } catch (e: Exception) {
-                    null
+                val promptRes = when (challenge) {
+                    LivenessChallenge.BLINK -> R.string.liveness_prompt_blink
+                    LivenessChallenge.SMILE -> R.string.liveness_prompt_smile
+                    LivenessChallenge.HEAD_TURN_LEFT -> R.string.liveness_prompt_head_left
+                    LivenessChallenge.HEAD_TURN_RIGHT -> R.string.liveness_prompt_head_right
                 }
-                if (livenessReq == null) {
-                    binding.statusText.text = getString(R.string.liveness_request_failed)
-                    return@launch
-                }
-                val challenge = LivenessChallenge.fromWire(livenessReq.challengeType)
-                if (challenge == null) {
-                    binding.statusText.text = getString(R.string.liveness_request_failed)
-                    return@launch
-                }
-                val tracker = LivenessChallengeTracker(challenge)
-                val awaiter = CompletableDeferred<Boolean>()
-                challengeTracker = tracker
-                challengeAwaiter = awaiter
-                binding.statusText.text = getString(promptResFor(challenge))
-                val challengePassed = withTimeoutOrNull(CHALLENGE_TIMEOUT_MS) { awaiter.await() } ?: false
-                challengeTracker = null
-                challengeAwaiter = null
-                if (!challengePassed) {
-                    binding.statusText.text = getString(R.string.liveness_timeout)
-                    return@launch
-                }
-                binding.statusText.text = getString(R.string.liveness_passed)
-                // ----------------------------------------------------------
-
-                binding.statusText.text = "Look at the camera…"
-                val deferred = CompletableDeferred<Pair<FloatArray, Double>>()
-                pending = deferred
-                val captured = withTimeoutOrNull(CAPTURE_TIMEOUT_MS) { deferred.await() }
-                pending = null
-                if (captured == null) {
-                    binding.statusText.text = "No face captured — try again"
-                    return@launch
-                }
-                val (probe, liveness) = captured
-
-                val match = matcherSnap.verify(probe, empId, MIN_MATCH)
-                if (match == null) {
-                    binding.statusText.text = "Face did not match — try again"
-                    return@launch
-                }
-
-                val empCode = r.enrollments.firstOrNull { it.employeeId == empId }?.employeeCode ?: ""
-                val q = QueuedPunch(
-                    employeeId = empId,
-                    employeeCode = empCode,
-                    punchTimeIso = isoNow(),
-                    direction = direction,
-                    matchScore = match.score,
-                    livenessScore = liveness,
-                    captureLat = location.latitude,
-                    captureLng = location.longitude,
-                    captureAccuracyM = location.accuracy.toDouble(),
-                    livenessChallengeType = tracker.challenge.wireName,
-                    livenessChallengePassedAtIso = tracker.passedAtIso(),
-                    livenessNonce = livenessReq.nonce,
-                    probeEmbeddingB64 = com.statcosol.attendance.face.FaceEmbedder.encodeEmbeddingB64(probe),
-                )
-                withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }
-                PunchSyncWorker.enqueue(this@EssActivity)
-                binding.statusText.text = "Punch queued ($direction)"
-            } finally {
-                binding.punchInBtn.isEnabled = true
-                binding.punchOutBtn.isEnabled = true
+                runOnUiThread { tvHint.text = getString(promptRes) }
+            } catch (e: Exception) {
+                Log.w(TAG, "Liveness challenge failed: ${e.message}")
+                punchInFlight = false
             }
         }
     }
 
-    @SuppressLint("MissingPermission")
-    private suspend fun fetchLocation(): Location = suspendCancellableCoroutine { cont ->
-        val client = LocationServices.getFusedLocationProviderClient(this)
-        client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
-            .addOnSuccessListener { loc ->
-                cont.resume(loc ?: Location("none"))
+    private fun handleLivenessFrame(probe: FloatArray, liveness: Double, challenge: LivenessChallenge) {
+        val passed = when (challenge) {
+            LivenessChallenge.BLINK -> liveness < 0.3
+            LivenessChallenge.SMILE -> liveness > 0.8
+            LivenessChallenge.HEAD_TURN_LEFT -> liveness > 0.5
+            LivenessChallenge.HEAD_TURN_RIGHT -> liveness > 0.5
+        }
+        if (!passed) return
+
+        val passedAt = KioskActivity.isoNow()
+        val nonce = pendingNonce ?: return
+        val match = pendingMatch ?: return
+        val direction = pendingDirection ?: return
+        pendingChallenge = null
+
+        lifecycleScope.launch {
+            submitPunch(probe, liveness, match, challenge, passedAt, nonce, direction, lastPhoto)
+        }
+    }
+
+    private suspend fun submitPunch(
+        probe: FloatArray,
+        liveness: Double,
+        match: MatchResult,
+        challenge: LivenessChallenge,
+        passedAt: String,
+        nonce: String,
+        direction: String,
+        photo: String?,
+    ) {
+        val req = MobilePunchRequest(
+            probeEmbeddingB64 = embedder.toBase64(probe),
+            embeddingModel = "mobilefacenet",
+            matchScore = match.score.toFloat(),
+            secondBestScore = match.secondBestScore.toFloat(),
+            livenessScore = liveness,
+            livenessChallengeType = challenge.name,
+            livenessChallengePassedAt = passedAt,
+            livenessNonce = nonce,
+            direction = direction,
+            punchTime = KioskActivity.isoNow(),
+            photoB64 = photo,
+            isMockLocation = false,
+            isRooted = IntegrityCheck.isDeviceRooted(),
+            offlineSync = false,
+        )
+
+        try {
+            val resp = apiClient.recordPunch(req)
+            withContext(Dispatchers.Main) {
+                tvStatus.text = getString(R.string.kiosk_punch_recorded, resp.employeeName)
             }
-            .addOnFailureListener { cont.resume(Location("none")) }
-    }
-
-    private fun isWithinGeofence(loc: Location, r: RosterResponse): Boolean {
-        val lat = r.geofenceLat ?: return true
-        val lng = r.geofenceLng ?: return true
-        val rad = r.geofenceRadiusM ?: return true
-        return haversineMeters(loc.latitude, loc.longitude, lat, lng) <= rad
-    }
-
-    private fun haversineMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val r = 6371000.0
-        val dLat = Math.toRadians(lat2 - lat1)
-        val dLon = Math.toRadians(lon2 - lon1)
-        val a = sin(dLat / 2) * sin(dLat / 2) +
-                cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
-                sin(dLon / 2) * sin(dLon / 2)
-        return 2 * r * atan2(sqrt(a), sqrt(1 - a))
-    }
-
-    private fun isoNow(): String {
-        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
-        sdf.timeZone = TimeZone.getTimeZone("UTC")
-        return sdf.format(Date())
-    }
-
-    private fun promptResFor(c: LivenessChallenge): Int = when (c) {
-        LivenessChallenge.BLINK -> R.string.liveness_prompt_blink
-        LivenessChallenge.SMILE -> R.string.liveness_prompt_smile
-        LivenessChallenge.HEAD_TURN_LEFT -> R.string.liveness_prompt_head_left
-        LivenessChallenge.HEAD_TURN_RIGHT -> R.string.liveness_prompt_head_right
+        } catch (e: Exception) {
+            try {
+                val db = AppDatabase.getInstance(this@EssActivity)
+                db.queuedPunchDao().insert(QueuedPunch(payloadJson = json.encodeToString(req)))
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@EssActivity, getString(R.string.kiosk_punch_queued), Toast.LENGTH_SHORT).show()
+                }
+            } catch (dbEx: Exception) {
+                Log.e(TAG, "Failed to queue punch: ${dbEx.message}")
+                withContext(Dispatchers.Main) {
+                    tvStatus.text = getString(R.string.kiosk_punch_network_failed)
+                }
+            }
+        } finally {
+            punchInFlight = false
+            pendingDirection = null
+            pendingMatch = null
+            pendingNonce = null
+        }
     }
 
     companion object {
-        // Mapped (cos+1)/2. 0.85 == raw cos 0.70. See KioskActivity for the
-        // rationale; ESS is 1:1 against the bound employee so only the
-        // absolute threshold applies here (no margin guard needed).
-        private const val MIN_MATCH = 0.85
-        private const val MIN_LIVENESS = 0.5
-        private const val CAPTURE_TIMEOUT_MS = 10_000L
-        private const val CHALLENGE_TIMEOUT_MS = 8_000L
-        /** Phase 3f: re-fetch the roster every 5 minutes so freshly
-         *  enrolled employees become matchable without restarting. */
-        private const val ROSTER_REFRESH_MS = 5 * 60_000L
+        private const val TAG = "EssActivity"
     }
 }
