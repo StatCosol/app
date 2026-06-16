@@ -72,6 +72,7 @@ class KioskActivity : AppCompatActivity() {
     /** Per-employee punch state for the current local day (in-memory only). */
     private data class PunchState(val direction: String, val at: Long)
     private val todayPunches: MutableMap<String, PunchState> = mutableMapOf()
+    private val rejectedPunchCooldownUntil: MutableMap<String, Long> = mutableMapOf()
     private var todayKey: String = currentDayKey()
 
     /** True while the logout-confirmation dialog is on screen. */
@@ -111,7 +112,6 @@ class KioskActivity : AppCompatActivity() {
     @Volatile private var enrollChallengePassedAtIso: String? = null
     @Volatile private var enrollGestureStep: EnrollmentGestureStep = EnrollmentGestureStep.STRAIGHT
     @Volatile private var enrollGestureStepStartedAt: Long = 0L
-    private var enrollBlinkTracker = LivenessChallengeTracker(LivenessChallenge.BLINK)
     @Volatile private var enrollSubmitting: Boolean = false
     @Volatile private var rosterFastRefreshUntil: Long = 0L
     @Volatile private var nextCaptureAllowedAt: Long = 0L
@@ -132,10 +132,6 @@ class KioskActivity : AppCompatActivity() {
 
     private enum class EnrollmentGestureStep {
         STRAIGHT,
-        LEFT,
-        RIGHT,
-        SMILE,
-        BLINK,
         DONE,
     }
 
@@ -460,9 +456,17 @@ class KioskActivity : AppCompatActivity() {
         if (day != todayKey) {
             todayKey = day
             todayPunches.clear()
+            rejectedPunchCooldownUntil.clear()
         }
 
         val subjectKey = match.entry.subjectKey
+        val rejectedUntil = rejectedPunchCooldownUntil[subjectKey] ?: 0L
+        if (rejectedUntil > now) {
+            runOnUiThread {
+                binding.statusText.text = getString(R.string.kiosk_punch_rejected)
+            }
+            return
+        }
         val prev = todayPunches[subjectKey]
         when {
             prev == null -> {
@@ -495,6 +499,7 @@ class KioskActivity : AppCompatActivity() {
      */
     private fun beginChallenge(match: RosterMatcher.Match, direction: String, liveness: Double) {
         if (requestingChallenge || pendingChallengeTracker != null) return
+        lastPunchAt = System.currentTimeMillis()
         requestingChallenge = true
         runOnUiThread {
             binding.statusText.text = getString(R.string.liveness_requesting)
@@ -511,6 +516,7 @@ class KioskActivity : AppCompatActivity() {
             if (resp == null) {
                 requestingChallenge = false
                 pendingChallengeProbe = null
+                lastPunchAt = System.currentTimeMillis() - (COOLDOWN_MS - 3_000L).coerceAtLeast(0L)
                 runOnUiThread {
                     binding.statusText.text = getString(R.string.liveness_request_failed)
                 }
@@ -546,18 +552,21 @@ class KioskActivity : AppCompatActivity() {
     }
 
     private fun handleFaceSignal(signal: FaceSignal) {
-        // Route to enrollment challenge tracker when in enroll mode.
+        // Enrollment completes from the accepted embedding frame; liveness
+        // gestures below are only for attendance punches.
         if (enrollTicket != null) {
-            handleEnrollmentSignal(signal)
             maybeShowEnrollRegisterDialog()
             return
         }
         val tracker = pendingChallengeTracker ?: return
         val match = pendingChallengeMatch ?: return
         if (!tracker.feed(signal)) return
+        val capturedChallengeType = tracker.challenge.wireName
+        val capturedChallengePassedAt = tracker.passedAtIso()
+        val capturedProbe = pendingChallengeProbe
+        val capturedNonce = pendingChallengeNonce
         // Tracker just flipped to passed \u2014 finalise the punch on the main
-        // thread and clear the timeout. recordPunch() reads the tracker
-        // back out for the wire fields, so we don't pass them in here.
+        // thread and clear the timeout.
         mainHandler.removeCallbacks(pendingChallengeTimeout)
         // Clear all challenge state before launching the punch so a concurrent
         // abortChallenge() can't fire with stale state.
@@ -573,7 +582,15 @@ class KioskActivity : AppCompatActivity() {
             binding.statusText.text = getString(R.string.liveness_passed)
         }
         lifecycleScope.launch {
-            recordPunch(match, capturedDirection, capturedLiveness)
+            recordPunch(
+                match,
+                capturedDirection,
+                capturedLiveness,
+                capturedChallengeType,
+                capturedChallengePassedAt,
+                capturedNonce,
+                capturedProbe,
+            )
         }
     }
 
@@ -602,31 +619,6 @@ class KioskActivity : AppCompatActivity() {
         LivenessChallenge.HEAD_TURN_RIGHT -> R.string.liveness_prompt_head_right
     }
 
-    private fun handleEnrollmentSignal(signal: FaceSignal) {
-        when (enrollGestureStep) {
-            EnrollmentGestureStep.LEFT -> {
-                if (signal.headYawDeg <= -14f) setEnrollmentStep(EnrollmentGestureStep.RIGHT)
-            }
-            EnrollmentGestureStep.RIGHT -> {
-                if (signal.headYawDeg >= 14f) setEnrollmentStep(EnrollmentGestureStep.SMILE)
-            }
-            EnrollmentGestureStep.SMILE -> {
-                if ((signal.smilingProb ?: 0f) >= 0.50f) setEnrollmentStep(EnrollmentGestureStep.BLINK)
-            }
-            EnrollmentGestureStep.BLINK -> {
-                val blinkDetected = enrollBlinkTracker.feed(signal)
-                val blinkTimedOut =
-                    System.currentTimeMillis() - enrollGestureStepStartedAt > ENROLL_BLINK_FALLBACK_MS
-                if (blinkDetected || blinkTimedOut) {
-                    enrollChallengePassed = true
-                    enrollChallengePassedAtIso = isoNow()
-                    setEnrollmentStep(EnrollmentGestureStep.DONE)
-                }
-            }
-            else -> Unit
-        }
-    }
-
     private fun setEnrollmentStep(step: EnrollmentGestureStep) {
         if (enrollGestureStep == step) return
         enrollGestureStep = step
@@ -635,10 +627,6 @@ class KioskActivity : AppCompatActivity() {
         val message = when (step) {
             EnrollmentGestureStep.STRAIGHT ->
                 getString(R.string.kiosk_enroll_step_straight, ticket.subjectName)
-            EnrollmentGestureStep.LEFT -> getString(R.string.kiosk_enroll_step_left_loaded)
-            EnrollmentGestureStep.RIGHT -> getString(R.string.kiosk_enroll_step_right_loaded)
-            EnrollmentGestureStep.SMILE -> getString(R.string.kiosk_enroll_step_smile_loaded)
-            EnrollmentGestureStep.BLINK -> getString(R.string.kiosk_enroll_step_blink_loaded)
             EnrollmentGestureStep.DONE -> getString(R.string.kiosk_enroll_step_all_loaded)
         }
         runOnUiThread {
@@ -686,14 +674,17 @@ class KioskActivity : AppCompatActivity() {
             .show()
     }
 
-    private suspend fun recordPunch(match: RosterMatcher.Match, direction: String, liveness: Double) {
+    private suspend fun recordPunch(
+        match: RosterMatcher.Match,
+        direction: String,
+        liveness: Double,
+        challengeType: String?,
+        challengePassedAt: String?,
+        nonce: String?,
+        probe: FloatArray?,
+    ) {
         val now = System.currentTimeMillis()
         lastPunchAt = now
-        val tracker = pendingChallengeTracker
-        val challengeType = tracker?.challenge?.wireName
-        val challengePassedAt = tracker?.passedAtIso()
-        val probe = pendingChallengeProbe
-        val nonce = pendingChallengeNonce
         // Clear before any UI work so a stale tracker can't re-fire.
         pendingChallengeTracker = null
         pendingChallengeMatch = null
@@ -713,6 +704,7 @@ class KioskActivity : AppCompatActivity() {
                 probe = probe,
             )
             if (accepted) {
+                rejectedPunchCooldownUntil.remove(match.entry.subjectKey)
                 todayPunches[match.entry.subjectKey] = PunchState(direction, now)
                 runOnUiThread { showPunchSuccess(match.entry.displayName, direction) }
             }
@@ -754,6 +746,7 @@ class KioskActivity : AppCompatActivity() {
             false
         }
         if (punchAccepted) {
+            rejectedPunchCooldownUntil.remove(match.entry.subjectKey)
             todayPunches[match.entry.subjectKey] = PunchState(direction, now)
             runOnUiThread { showPunchSuccess(match.entry.displayName, direction) }
         }
@@ -846,6 +839,8 @@ class KioskActivity : AppCompatActivity() {
     }
 
     private fun handleRejectedPunch(match: RosterMatcher.Match, message: String) {
+        rejectedPunchCooldownUntil[match.entry.subjectKey] =
+            System.currentTimeMillis() + REJECTED_PUNCH_COOLDOWN_MS
         if (
             message.contains("No active face enrollment", ignoreCase = true) ||
             message.contains("No active face enrollment for contractor", ignoreCase = true) ||
@@ -950,7 +945,6 @@ class KioskActivity : AppCompatActivity() {
         enrollChallengePassedAtIso = null
         enrollGestureStep = EnrollmentGestureStep.STRAIGHT
         enrollGestureStepStartedAt = System.currentTimeMillis()
-        enrollBlinkTracker = LivenessChallengeTracker(LivenessChallenge.BLINK)
         runOnUiThread {
             val prompt = getString(R.string.kiosk_enroll_step_straight, t.subjectName)
             binding.statusText.text = prompt
@@ -978,7 +972,23 @@ class KioskActivity : AppCompatActivity() {
         enrollFrames += probe
         enrollRunningAvg = averageAndNormalize(enrollFrames)
         if (!photoBase64.isNullOrBlank()) enrollPhotoBase64 = photoBase64
-        setEnrollmentStep(EnrollmentGestureStep.BLINK)
+        val ticket = enrollTicket ?: return
+        val captured = enrollFrames.size
+        if (captured < ENROLL_REQUIRED_FRAMES) {
+            runOnUiThread {
+                binding.statusText.text = getString(
+                    R.string.kiosk_enroll_capturing_frames,
+                    captured,
+                    ENROLL_REQUIRED_FRAMES,
+                    ticket.subjectName,
+                )
+            }
+            return
+        }
+        enrollChallengePassed = true
+        enrollChallengePassedAtIso = isoNow()
+        setEnrollmentStep(EnrollmentGestureStep.DONE)
+        maybeShowEnrollRegisterDialog()
     }
 
     private fun maybeShowEnrollRegisterDialog() {
@@ -1082,7 +1092,6 @@ class KioskActivity : AppCompatActivity() {
         enrollChallengePassedAtIso = null
         enrollGestureStep = EnrollmentGestureStep.STRAIGHT
         enrollGestureStepStartedAt = 0L
-        enrollBlinkTracker = LivenessChallengeTracker(LivenessChallenge.BLINK)
         enrollLastAcceptedAt = 0L
     }
 
@@ -1119,6 +1128,7 @@ class KioskActivity : AppCompatActivity() {
         // a person right after their punch is recorded (which previously felt
         // like an instant logout).
         private const val COOLDOWN_MS = 30_000L
+        private const val REJECTED_PUNCH_COOLDOWN_MS = 5 * 60_000L
         private const val POST_SUCCESS_HOLD_MS = 10_000L
         private const val OVERLAY_VISIBLE_MS = POST_SUCCESS_HOLD_MS
         /** How long the user has to perform the active-liveness gesture
@@ -1139,7 +1149,6 @@ class KioskActivity : AppCompatActivity() {
         private const val ENROLL_MIN_LIVENESS = 0.60
         private const val ENROLL_MIN_FRAME_INTERVAL_MS = 300L
         private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.60
-        private const val ENROLL_BLINK_FALLBACK_MS = 8_000L
         private const val ENROLL_CHALLENGE_TIMEOUT_MS = 30_000L
         private const val ENROLL_ROSTER_FAST_REFRESH_MS = 5_000L
         private const val ENROLL_ROSTER_FAST_REFRESH_WINDOW_MS = 2 * 60_000L
