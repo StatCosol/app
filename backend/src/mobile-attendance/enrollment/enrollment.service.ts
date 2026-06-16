@@ -384,4 +384,66 @@ export class EnrollmentService {
     if (status) where['status'] = status;
     return this.ticketRepo.find({ where, order: { createdAt: 'DESC' } });
   }
+
+  // ─── Admin list endpoints ──────────────────────────────────────────────────
+
+  async listEmployeeEnrollments(clientId: string): Promise<any[]> {
+    return this.dataSource.query(
+      `SELECT fe.employee_id AS "employeeId",
+              fe.branch_id   AS "branchId",
+              fe.embedding_model AS "embeddingModel",
+              fe.photo_url   AS "photoUrl",
+              fe.enrolled_at AS "enrolledAt",
+              fe.is_active   AS "isActive",
+              fe.deactivated_at AS "deactivatedAt",
+              fe.deactivation_reason AS "deactivationReason",
+              e.employee_code AS "employeeCode",
+              e.employee_name AS "employeeName"
+       FROM face_enrollments fe
+       LEFT JOIN employees e ON e.id = fe.employee_id
+       WHERE fe.client_id = $1
+       ORDER BY fe.enrolled_at DESC`,
+      [clientId],
+    );
+  }
+
+  async listContractorEnrollments(clientId: string): Promise<any[]> {
+    return this.dataSource.query(
+      `SELECT cfe.contractor_employee_id AS "contractorEmployeeId",
+              cfe.branch_id              AS "branchId",
+              cfe.embedding_model        AS "embeddingModel",
+              cfe.photo_url              AS "photoUrl",
+              cfe.enrolled_at            AS "enrolledAt",
+              cfe.is_active              AS "isActive",
+              cfe.deactivated_at         AS "deactivatedAt",
+              cfe.deactivation_reason    AS "deactivationReason",
+              ce.name                    AS "employeeName"
+       FROM contractor_face_enrollments cfe
+       LEFT JOIN contractor_employees ce ON ce.id = cfe.contractor_employee_id
+       WHERE cfe.client_id = $1
+       ORDER BY cfe.enrolled_at DESC`,
+      [clientId],
+    );
+  }
+
+  async cancelKioskTicket(
+    clientId: string,
+    ticketId: string,
+    cancelledBy: string,
+  ): Promise<{ ok: true }> {
+    const result = await this.ticketRepo
+      .createQueryBuilder()
+      .update(KioskEnrollTicketEntity)
+      .set({ status: 'CANCELLED', cancelledAt: new Date(), cancelledBy })
+      .where(
+        'id = :ticketId AND client_id = :clientId AND status IN (:...statuses)',
+        { ticketId, clientId, statuses: ['PENDING', 'REVIEW_PENDING'] },
+      )
+      .execute();
+
+    if (!result.affected || result.affected === 0) {
+      throw new NotFoundException('Ticket not found or not cancellable');
+    }
+    return { ok: true };
+  }
 }

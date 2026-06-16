@@ -6,6 +6,7 @@ import {
   Get,
   Param,
   Post,
+  Put,
   Query,
   Req,
   UnauthorizedException,
@@ -150,6 +151,36 @@ export class MobileAttendanceEnrollmentController {
     if (!clientId) throw new BadRequestException('Client context required');
     return this.enrollmentService.deactivateEnrollment(clientId, dto, user.userId);
   }
+
+  @ApiOperation({ summary: 'Admin — list all active employee enrollments' })
+  @Get('employees')
+  @Roles('CLIENT', 'ADMIN')
+  listEmployeeEnrollments(@CurrentUser() user: ReqUser) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.enrollmentService.listEmployeeEnrollments(clientId);
+  }
+
+  @ApiOperation({ summary: 'Admin — list all contractor enrollments' })
+  @Get('contractors')
+  @Roles('CLIENT', 'ADMIN')
+  listContractorEnrollments(@CurrentUser() user: ReqUser) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.enrollmentService.listContractorEnrollments(clientId);
+  }
+
+  @ApiOperation({ summary: 'Admin — cancel a kiosk enrollment ticket' })
+  @Post('kiosk/tickets/:ticketId/cancel')
+  @Roles('CLIENT', 'ADMIN')
+  cancelKioskTicket(
+    @Param('ticketId') ticketId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.enrollmentService.cancelKioskTicket(clientId, ticketId, user.userId);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -217,5 +248,86 @@ export class MobileAttendancePunchesController {
       // Return embedding as base64 for the device to cache
       embeddingB64: Buffer.from(r.embedding.buffer).toString('base64'),
     }));
+  }
+
+  @ApiOperation({ summary: 'Admin — list employee punches with filters' })
+  @Get('employee')
+  @Roles('CLIENT', 'ADMIN')
+  listPunches(
+    @CurrentUser() user: ReqUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('branchId') branchId?: string,
+    @Query('employeeId') employeeId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.punchService.listPunches(clientId, {
+      from,
+      to,
+      branchId,
+      employeeId,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
+  @ApiOperation({ summary: 'Admin — list contractor punches with filters' })
+  @Get('contractor')
+  @Roles('CLIENT', 'ADMIN')
+  listContractorPunches(
+    @CurrentUser() user: ReqUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('branchId') branchId?: string,
+    @Query('contractorEmployeeId') contractorEmployeeId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.punchService.listContractorPunches(clientId, {
+      from,
+      to,
+      branchId,
+      contractorEmployeeId,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
+  @ApiOperation({ summary: 'Admin — create a manual contractor punch' })
+  @Post('contractor')
+  @Roles('CLIENT', 'ADMIN')
+  createContractorPunch(
+    @CurrentUser() user: ReqUser,
+    @Body() body: { contractorEmployeeId: string; punchTime: string; direction: 'IN' | 'OUT' | 'AUTO' },
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.punchService.createContractorPunch(clientId, body);
+  }
+
+  @ApiOperation({ summary: 'Admin — update a contractor punch' })
+  @Put('contractor/:id')
+  @Roles('CLIENT', 'ADMIN')
+  updateContractorPunch(
+    @Param('id') id: string,
+    @CurrentUser() user: ReqUser,
+    @Body() body: { punchTime?: string; direction?: string },
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.punchService.updateContractorPunch(clientId, id, body);
+  }
+
+  @ApiOperation({ summary: 'Admin — delete a contractor punch' })
+  @Delete('contractor/:id')
+  @Roles('CLIENT', 'ADMIN')
+  deleteContractorPunch(
+    @Param('id') id: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.punchService.deleteContractorPunch(clientId, id);
   }
 }

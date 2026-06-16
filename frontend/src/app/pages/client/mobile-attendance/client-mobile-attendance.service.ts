@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 
 export type MobileDeviceMode = 'KIOSK' | 'ESS';
@@ -162,7 +162,7 @@ export interface ContractorReenrollRequest {
 
 @Injectable({ providedIn: 'root' })
 export class ClientMobileAttendanceService {
-  private base = `${environment.apiBaseUrl}/api/v1/client/mobile-attendance`;
+  private base = `${environment.apiBaseUrl}/api/v1/mobile-attendance`;
 
   constructor(private http: HttpClient) {}
 
@@ -180,102 +180,99 @@ export class ClientMobileAttendanceService {
   }
 
   hardDeleteDevice(id: string): Observable<{ ok: true; id: string }> {
-    return this.http.delete<{ ok: true; id: string }>(`${this.base}/devices/${id}/permanent`);
+    // No permanent-delete endpoint in new API — maps to revoke
+    return this.http.delete<{ ok: true; id: string }>(`${this.base}/devices/${id}`);
   }
 
   // Enrollment
   enrollFace(body: EnrollFaceBody): Observable<FaceEnrollment> {
-    return this.http.post<FaceEnrollment>(`${this.base}/enroll`, body);
+    return this.http.post<FaceEnrollment>(`${this.base}/enrollment/self`, body);
   }
 
   listEnrollments(): Observable<EnrollmentStatusRow[]> {
-    return this.http.get<EnrollmentStatusRow[]>(`${this.base}/enrollments`);
+    return this.http.get<EnrollmentStatusRow[]>(`${this.base}/enrollment/employees`);
   }
 
-  deactivateEnrollment(employeeId: string, reason?: string): Observable<FaceEnrollment> {
-    const qs = reason ? `?reason=${encodeURIComponent(reason)}` : '';
-    return this.http.delete<FaceEnrollment>(`${this.base}/enroll/${employeeId}${qs}`);
+  deactivateEnrollment(employeeId: string, reason?: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/enrollment/deactivate`, {
+      subjectType: 'EMPLOYEE',
+      subjectId: employeeId,
+      reason,
+    });
   }
 
   deleteEnrollment(
     employeeId: string,
     reason?: string,
   ): Observable<{ ok: true; deleted: true; employeeId: string }> {
-    const qs = reason ? `?reason=${encodeURIComponent(reason)}` : '';
-    return this.http.delete<{ ok: true; deleted: true; employeeId: string }>(
-      `${this.base}/enroll/${employeeId}/permanent${qs}`,
+    return this.http.post<{ ok: true; deleted: true; employeeId: string }>(
+      `${this.base}/enrollment/deactivate`,
+      { subjectType: 'EMPLOYEE', subjectId: employeeId, reason, permanent: true },
     );
   }
 
-  // Re-enrollment approval queue (Phase 3e)
-  listReenrollRequests(status: ReenrollRequestStatus = 'PENDING'): Observable<ReenrollRequest[]> {
-    return this.http.get<ReenrollRequest[]>(`${this.base}/reenroll-requests?status=${status}`);
+  // Re-enrollment approval queue — not in new design; stubbed
+  listReenrollRequests(_status: ReenrollRequestStatus = 'PENDING'): Observable<ReenrollRequest[]> {
+    return of([]);
   }
 
   reviewReenrollRequest(
-    id: string,
-    body: ReviewReenrollBody,
+    _id: string,
+    _body: ReviewReenrollBody,
   ): Observable<{ ok: true; status: 'APPROVED' | 'REJECTED' }> {
-    return this.http.post<{ ok: true; status: 'APPROVED' | 'REJECTED' }>(
-      `${this.base}/reenroll-requests/${id}/review`,
-      body,
-    );
+    return throwError(() => new Error('Not implemented'));
   }
 
   // ── Contractor face enrollment (Phase 4a) ──
   enrollContractorFace(body: EnrollContractorFaceBody): Observable<ContractorFaceEnrollment> {
-    return this.http.post<ContractorFaceEnrollment>(`${this.base}/contractors/enroll`, body);
+    return this.http.post<ContractorFaceEnrollment>(`${this.base}/enrollment/self`, {
+      ...body,
+      subjectType: 'CONTRACTOR',
+    });
   }
 
   listContractorEnrollments(): Observable<ContractorEnrollmentStatusRow[]> {
-    return this.http.get<ContractorEnrollmentStatusRow[]>(`${this.base}/contractors/enrollments`);
+    return this.http.get<ContractorEnrollmentStatusRow[]>(`${this.base}/enrollment/contractors`);
   }
 
   deactivateContractorEnrollment(
     contractorEmployeeId: string,
     reason?: string,
   ): Observable<ContractorFaceEnrollment> {
-    const qs = reason ? `?reason=${encodeURIComponent(reason)}` : '';
-    return this.http.delete<ContractorFaceEnrollment>(
-      `${this.base}/contractors/enroll/${contractorEmployeeId}${qs}`,
-    );
+    return this.http.post<ContractorFaceEnrollment>(`${this.base}/enrollment/deactivate`, {
+      subjectType: 'CONTRACTOR',
+      subjectId: contractorEmployeeId,
+      reason,
+    });
   }
 
   deleteContractorEnrollment(
     contractorEmployeeId: string,
     reason?: string,
   ): Observable<{ ok: true; deleted: true; contractorEmployeeId: string }> {
-    const qs = reason ? `?reason=${encodeURIComponent(reason)}` : '';
-    return this.http.delete<{
-      ok: true;
-      deleted: true;
-      contractorEmployeeId: string;
-    }>(`${this.base}/contractors/enroll/${contractorEmployeeId}/permanent${qs}`);
+    return this.http.post<{ ok: true; deleted: true; contractorEmployeeId: string }>(
+      `${this.base}/enrollment/deactivate`,
+      { subjectType: 'CONTRACTOR', subjectId: contractorEmployeeId, reason, permanent: true },
+    );
   }
 
-  // ── Contractor re-enrollment approval queue (Phase 4c) ──
+  // ── Contractor re-enrollment approval queue (Phase 4c) — stubbed ──
   listContractorReenrollRequests(
-    status: ReenrollRequestStatus = 'PENDING',
+    _status: ReenrollRequestStatus = 'PENDING',
   ): Observable<ContractorReenrollRequest[]> {
-    return this.http.get<ContractorReenrollRequest[]>(
-      `${this.base}/contractors/reenroll-requests?status=${status}`,
-    );
+    return of([]);
   }
 
   reviewContractorReenrollRequest(
-    id: string,
-    body: ReviewReenrollBody,
+    _id: string,
+    _body: ReviewReenrollBody,
   ): Observable<{ ok: true; status: 'APPROVED' | 'REJECTED' }> {
-    return this.http.post<{ ok: true; status: 'APPROVED' | 'REJECTED' }>(
-      `${this.base}/contractors/reenroll-requests/${id}/review`,
-      body,
-    );
+    return throwError(() => new Error('Not implemented'));
   }
 
-  // ── Branch-portal contractor attendance (Phase 4d) ──
-  listContractorsForBranch(branchId?: string): Observable<ContractorForBranchRow[]> {
-    const qs = branchId ? `?branchId=${encodeURIComponent(branchId)}` : '';
-    return this.http.get<ContractorForBranchRow[]>(`${this.base}/contractors/for-branch${qs}`);
+  // ── Branch-portal contractor list — stubbed (no equivalent in new backend) ──
+  listContractorsForBranch(_branchId?: string): Observable<ContractorForBranchRow[]> {
+    return of([]);
   }
 
   listContractorPunches(
@@ -294,11 +291,9 @@ export class ClientMobileAttendanceService {
     if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
     if (opts.contractorEmployeeId)
       parts.push(`contractorEmployeeId=${encodeURIComponent(opts.contractorEmployeeId)}`);
-    if (opts.contractorUserId)
-      parts.push(`contractorUserId=${encodeURIComponent(opts.contractorUserId)}`);
     if (opts.limit) parts.push(`limit=${opts.limit}`);
     const qs = parts.length ? `?${parts.join('&')}` : '';
-    return this.http.get<ContractorPunchRow[]>(`${this.base}/contractors/punches${qs}`);
+    return this.http.get<ContractorPunchRow[]>(`${this.base}/punches/contractor${qs}`);
   }
 
   // ── Admin face-failure audit (Phase 4d step 7) ──
@@ -311,7 +306,7 @@ export class ClientMobileAttendanceService {
       id: string;
       punchTime: string;
       direction: string;
-    }>(`${this.base}/contractors/punches/${id}`, body);
+    }>(`${this.base}/punches/contractor/${id}`, body);
   }
 
   createContractorPunch(body: {
@@ -324,17 +319,18 @@ export class ClientMobileAttendanceService {
       id: string;
       punchTime: string;
       direction: string;
-    }>(`${this.base}/contractors/punches`, body);
+    }>(`${this.base}/punches/contractor`, body);
   }
 
   deleteContractorPunch(id: string): Observable<{ ok: true; deleted: number }> {
     return this.http.delete<{ ok: true; deleted: number }>(
-      `${this.base}/contractors/punches/${id}`,
+      `${this.base}/punches/contractor/${id}`,
     );
   }
 
+  // ── Failed scans — stubbed (not in new backend) ──
   listFailedScans(
-    opts: {
+    _opts: {
       from?: string;
       to?: string;
       branchId?: string;
@@ -345,41 +341,32 @@ export class ClientMobileAttendanceService {
       limit?: number;
     } = {},
   ): Observable<FailedScanRow[]> {
-    const parts: string[] = [];
-    if (opts.from) parts.push(`from=${encodeURIComponent(opts.from)}`);
-    if (opts.to) parts.push(`to=${encodeURIComponent(opts.to)}`);
-    if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
-    if (opts.reason) parts.push(`reason=${encodeURIComponent(opts.reason)}`);
-    if (opts.subjectType) parts.push(`subjectType=${opts.subjectType}`);
-    if (opts.employeeId) parts.push(`employeeId=${encodeURIComponent(opts.employeeId)}`);
-    if (opts.contractorEmployeeId)
-      parts.push(`contractorEmployeeId=${encodeURIComponent(opts.contractorEmployeeId)}`);
-    if (opts.limit) parts.push(`limit=${opts.limit}`);
-    const qs = parts.length ? `?${parts.join('&')}` : '';
-    return this.http.get<FailedScanRow[]>(`${this.base}/failed-scans${qs}`);
+    return of([]);
   }
 
-  // ── Face-failure aggregations (Phase 4d step 10) ──
   failedScanStats(
-    opts: {
+    _opts: {
       from?: string;
       to?: string;
       branchId?: string;
       subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
     } = {},
   ): Observable<FailedScanStats> {
-    const parts: string[] = [];
-    if (opts.from) parts.push(`from=${encodeURIComponent(opts.from)}`);
-    if (opts.to) parts.push(`to=${encodeURIComponent(opts.to)}`);
-    if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
-    if (opts.subjectType) parts.push(`subjectType=${opts.subjectType}`);
-    const qs = parts.length ? `?${parts.join('&')}` : '';
-    return this.http.get<FailedScanStats>(`${this.base}/failed-scans/stats${qs}`);
+    return of({
+      total: 0,
+      bySubject: { employee: 0, contractor: 0, unknown: 0 },
+      byReason: [],
+      byBranch: [],
+      byDay: [],
+      byHour: [],
+      byDevice: [],
+      byMode: [],
+      byDayOfWeek: [],
+    });
   }
 
-  // ── Face-failure CSV export (Phase 4d step 12) ──
   exportFailedScansCsv(
-    opts: {
+    _opts: {
       from?: string;
       to?: string;
       branchId?: string;
@@ -389,24 +376,11 @@ export class ClientMobileAttendanceService {
       contractorEmployeeId?: string;
     } = {},
   ): Observable<Blob> {
-    const parts: string[] = [];
-    if (opts.from) parts.push(`from=${encodeURIComponent(opts.from)}`);
-    if (opts.to) parts.push(`to=${encodeURIComponent(opts.to)}`);
-    if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
-    if (opts.reason) parts.push(`reason=${encodeURIComponent(opts.reason)}`);
-    if (opts.subjectType) parts.push(`subjectType=${opts.subjectType}`);
-    if (opts.employeeId) parts.push(`employeeId=${encodeURIComponent(opts.employeeId)}`);
-    if (opts.contractorEmployeeId)
-      parts.push(`contractorEmployeeId=${encodeURIComponent(opts.contractorEmployeeId)}`);
-    const qs = parts.length ? `?${parts.join('&')}` : '';
-    return this.http.get(`${this.base}/failed-scans/export.csv${qs}`, {
-      responseType: 'blob',
-    });
+    return of(new Blob());
   }
 
-  // ── Face-failure stats CSV export (Phase 4d step 26) ──
   exportFailedScanStatsCsv(
-    opts: {
+    _opts: {
       from?: string;
       to?: string;
       branchId?: string;
@@ -414,21 +388,11 @@ export class ClientMobileAttendanceService {
       topSubjectsLimit?: number;
     } = {},
   ): Observable<Blob> {
-    const parts: string[] = [];
-    if (opts.from) parts.push(`from=${encodeURIComponent(opts.from)}`);
-    if (opts.to) parts.push(`to=${encodeURIComponent(opts.to)}`);
-    if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
-    if (opts.subjectType) parts.push(`subjectType=${opts.subjectType}`);
-    if (opts.topSubjectsLimit) parts.push(`topSubjectsLimit=${opts.topSubjectsLimit}`);
-    const qs = parts.length ? `?${parts.join('&')}` : '';
-    return this.http.get(`${this.base}/failed-scans/stats-export.csv${qs}`, {
-      responseType: 'blob',
-    });
+    return of(new Blob());
   }
 
-  // ── Top offenders by failed-scan count (Phase 4d step 18) ──
   topFailedScanSubjects(
-    opts: {
+    _opts: {
       from?: string;
       to?: string;
       branchId?: string;
@@ -437,48 +401,37 @@ export class ClientMobileAttendanceService {
       minCount?: number;
     } = {},
   ): Observable<TopFailedScanSubjectRow[]> {
-    const parts: string[] = [];
-    if (opts.from) parts.push(`from=${encodeURIComponent(opts.from)}`);
-    if (opts.to) parts.push(`to=${encodeURIComponent(opts.to)}`);
-    if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
-    if (opts.subjectType) parts.push(`subjectType=${opts.subjectType}`);
-    if (opts.limit) parts.push(`limit=${opts.limit}`);
-    if (opts.minCount && opts.minCount > 0) parts.push(`minCount=${opts.minCount}`);
-    const qs = parts.length ? `?${parts.join('&')}` : '';
-    return this.http.get<TopFailedScanSubjectRow[]>(`${this.base}/failed-scans/top-subjects${qs}`);
+    return of([]);
   }
 
-  // ── Recent face-failure spike alerts (last 7d) emitted by the cron ──
-  listFaceFailureAlerts(limit = 20): Observable<FaceFailureAlertRow[]> {
-    return this.http.get<FaceFailureAlertRow[]>(`${this.base}/failed-scans/alerts?limit=${limit}`);
+  listFaceFailureAlerts(_limit = 20): Observable<FaceFailureAlertRow[]> {
+    return of([]);
   }
 
   // ── Operator-supervised kiosk enrollment tickets ──
   createKioskEnrollTicket(body: CreateKioskEnrollTicketBody): Observable<KioskEnrollTicket> {
-    return this.http.post<KioskEnrollTicket>(`${this.base}/kiosk-enroll/tickets`, body);
+    return this.http.post<KioskEnrollTicket>(`${this.base}/enrollment/kiosk/ticket`, body);
   }
 
   getKioskEnrollTicket(id: string): Observable<KioskEnrollTicket> {
-    return this.http.get<KioskEnrollTicket>(`${this.base}/kiosk-enroll/tickets/${id}`);
+    return this.http.get<KioskEnrollTicket>(`${this.base}/enrollment/kiosk/tickets/${id}`);
   }
 
   cancelKioskEnrollTicket(id: string): Observable<{ ok: true }> {
-    return this.http.post<{ ok: true }>(`${this.base}/kiosk-enroll/tickets/${id}/cancel`, {});
+    return this.http.post<{ ok: true }>(`${this.base}/enrollment/kiosk/tickets/${id}/cancel`, {});
   }
 
   listKioskEnrollTickets(status?: KioskEnrollTicketStatus): Observable<KioskEnrollTicket[]> {
     const qs = status ? `?status=${encodeURIComponent(status)}` : '';
-    return this.http.get<KioskEnrollTicket[]>(`${this.base}/kiosk-enroll/tickets${qs}`);
+    return this.http.get<KioskEnrollTicket[]>(`${this.base}/enrollment/kiosk/tickets${qs}`);
   }
 
   reviewKioskEnrollTicket(
-    id: string,
-    body: { decision: 'APPROVED' | 'REJECTED'; reason?: string },
+    _id: string,
+    _body: { decision: 'APPROVED' | 'REJECTED'; reason?: string },
   ): Observable<{ ok: true; status: 'COMPLETED' | 'REJECTED' }> {
-    return this.http.post<{ ok: true; status: 'COMPLETED' | 'REJECTED' }>(
-      `${this.base}/kiosk-enroll/tickets/${id}/review`,
-      body,
-    );
+    // Admin review removed — tickets auto-approve in new design
+    return throwError(() => new Error('Not implemented'));
   }
 }
 
