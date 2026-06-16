@@ -60,7 +60,6 @@ import { UnitsModule } from './units/units.module';
 import { ApplicabilityModule } from './applicability/applicability.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { BiometricModule } from './biometric/biometric.module';
-import { MobileAttendanceModule } from './mobile-attendance/mobile-attendance.module';
 import { NewsModule } from './news/news.module';
 import { AutomationModule } from './automation/automation.module';
 import { TaskCenterModule } from './task-center/task-center.module';
@@ -201,7 +200,6 @@ import { SalesModule } from './sales/sales.module';
     ApplicabilityModule,
     AttendanceModule,
     BiometricModule,
-    MobileAttendanceModule,
     MastersModule,
     UnitsModule,
     NewsModule,
