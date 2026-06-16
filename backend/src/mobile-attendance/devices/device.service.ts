@@ -109,14 +109,14 @@ export class DeviceService {
     let branchFilter = '';
     if (branchIds.length > 0) {
       params.push(branchIds);
-      branchFilter = ` AND branch_id = ANY($${params.length}::uuid[])`;
+      branchFilter = ` AND COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') = ANY($${params.length}::text[])`;
     }
 
     return this.dataSource.query(
       `SELECT d.id,
-              d.client_id AS "clientId",
-              d.branch_id AS "branchId",
-              d.mode,
+              COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') AS "clientId",
+              COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') AS "branchId",
+              COALESCE(to_jsonb(d)->>'mode', 'KIOSK') AS "mode",
               COALESCE(
                 to_jsonb(d)->>'deviceLabel',
                 to_jsonb(d)->>'device_label',
@@ -136,7 +136,7 @@ export class DeviceService {
               COALESCE(to_jsonb(d)->>'revokedBy', to_jsonb(d)->>'revoked_by') AS "revokedBy",
               NULL::uuid AS "essEmployeeId"
        FROM mobile_attendance_devices d
-       WHERE d.client_id = $1
+       WHERE COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') = $1
          ${branchFilter}
        ORDER BY COALESCE(to_jsonb(d)->>'registeredAt', to_jsonb(d)->>'registered_at', to_jsonb(d)->>'created_at') DESC NULLS LAST`,
       params,
