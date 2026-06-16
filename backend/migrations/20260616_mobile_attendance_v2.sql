@@ -24,9 +24,11 @@ CREATE TABLE IF NOT EXISTS mobile_attendance_devices (
   last_seen_at TIMESTAMPTZ,
   revoked_at TIMESTAMPTZ,
   revoked_by UUID,
+  deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_mad_client ON mobile_attendance_devices(client_id);
+CREATE INDEX IF NOT EXISTS idx_mad_deleted_at ON mobile_attendance_devices(deleted_at);
 
 -- Employee face enrollments (one row per employee — employee_id IS the PK)
 CREATE TABLE IF NOT EXISTS face_enrollments (
