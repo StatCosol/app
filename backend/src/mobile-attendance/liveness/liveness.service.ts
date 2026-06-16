@@ -7,7 +7,21 @@ import { DataSource, Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
 import { FaceLivenessNonceEntity } from './liveness-nonce.entity';
 
-const CHALLENGE_TYPES = ['BLINK', 'SMILE', 'HEAD_TURN_LEFT', 'HEAD_TURN_RIGHT'] as const;
+const DEFAULT_CHALLENGE_TYPES = ['BLINK'] as const;
+const ALLOWED_CHALLENGE_TYPES = new Set([
+  'BLINK',
+  'SMILE',
+  'HEAD_TURN_LEFT',
+  'HEAD_TURN_RIGHT',
+]);
+
+function configuredChallengeTypes(): string[] {
+  const configured = (process.env.FACE_LIVENESS_CHALLENGE_TYPES ?? '')
+    .split(',')
+    .map((type) => type.trim().toUpperCase())
+    .filter((type) => ALLOWED_CHALLENGE_TYPES.has(type));
+  return configured.length > 0 ? configured : [...DEFAULT_CHALLENGE_TYPES];
+}
 
 const LIVENESS_NONCE_TTL_MS = 2 * 60 * 1000;
 const OFFLINE_LIVENESS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -33,8 +47,9 @@ export class LivenessService {
     _employeeId?: string,
     offline = false,
   ): Promise<{ nonce: string; challengeType: string; expiresAt: Date }> {
+    const challengeTypes = configuredChallengeTypes();
     const challengeType =
-      CHALLENGE_TYPES[Math.floor(Math.random() * CHALLENGE_TYPES.length)];
+      challengeTypes[Math.floor(Math.random() * challengeTypes.length)];
     const nonce = randomBytes(32).toString('hex');
     const ttl = offline ? OFFLINE_LIVENESS_MAX_AGE_MS : LIVENESS_NONCE_TTL_MS;
     const expiresAt = new Date(Date.now() + ttl);
