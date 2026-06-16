@@ -67,10 +67,16 @@ export class MobileAttendanceDevicesController {
 
   @ApiOperation({ summary: 'Device — bind androidId to a pre-provisioned install token' })
   @Public()
-  @UseGuards(DeviceAuthGuard)
   @Post('register')
-  register(@Body() dto: RegisterDeviceDto) {
-    return this.deviceService.registerDevice(dto.installToken, dto.androidId, dto.deviceName);
+  async register(@Body() dto: RegisterDeviceDto) {
+    const device = await this.deviceService.registerDevice(dto.installToken, dto.androidId, dto.deviceName);
+    return {
+      deviceToken: device.installToken,
+      deviceId: device.id,
+      mode: device.mode,
+      clientId: device.clientId,
+      branchId: device.branchId ?? null,
+    };
   }
 
   @ApiOperation({ summary: 'List devices for the current client' })
@@ -131,6 +137,15 @@ export class MobileAttendanceEnrollmentController {
       dto,
       user.userId,
     );
+  }
+
+  @ApiOperation({ summary: 'Device — get the current PENDING ticket assigned to this device' })
+  @Public()
+  @UseGuards(DeviceAuthGuard)
+  @Get('kiosk/pending')
+  getPendingTicket(@Req() req: Request) {
+    const deviceId = (req as any).deviceId as string;
+    return this.enrollmentService.getPendingTicketForDevice(deviceId);
   }
 
   @ApiOperation({ summary: 'Device — submit captured frames for a kiosk ticket' })
@@ -264,17 +279,19 @@ export class MobileAttendancePunchesController {
     const device = await this.deviceService.findById(deviceId);
     if (!device) throw new UnauthorizedException('Device not found');
     const roster = await this.punchService.getRoster(device);
-    return roster.map((r) => ({
-      subjectType: r.subjectType,
-      subjectId: r.subjectId,
-      embeddingModel: r.embeddingModel,
-      // Slice to view boundaries to avoid leaking bytes from a pooled backing buffer
-      embeddingB64: Buffer.from(
-        r.embedding.buffer,
-        r.embedding.byteOffset,
-        r.embedding.byteLength,
-      ).toString('base64'),
-    }));
+    return {
+      enrollments: roster.map((r) => ({
+        employeeId: r.subjectId,
+        displayName: r.displayName ?? r.subjectId,
+        embeddingModel: r.embeddingModel ?? '',
+        // Slice to view boundaries to avoid leaking bytes from a pooled backing buffer
+        embeddingB64: Buffer.from(
+          r.embedding.buffer,
+          r.embedding.byteOffset,
+          r.embedding.byteLength,
+        ).toString('base64'),
+      })),
+    };
   }
 
   @ApiOperation({ summary: 'Admin — list employee punches with filters' })

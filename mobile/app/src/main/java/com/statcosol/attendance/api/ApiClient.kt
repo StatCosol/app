@@ -79,8 +79,9 @@ class ApiClient(private val config: DeviceConfig) {
         return execute(request) { json.decodeFromString(it) }
     }
 
+    /** Device-accessible endpoint — returns the single PENDING ticket for this device. */
     suspend fun getPendingEnrollTicket(): KioskEnrollTicketResponse? {
-        val request = authedRequestBuilder("/api/v1/mobile-attendance/enrollment/kiosk/tickets?status=PENDING")
+        val request = authedRequestBuilder("/api/v1/mobile-attendance/enrollment/kiosk/pending")
             .get()
             .build()
         return withContext(Dispatchers.IO) {
@@ -88,17 +89,13 @@ class ApiClient(private val config: DeviceConfig) {
             if (response.code == 404) return@withContext null
             val body = response.body?.string() ?: ""
             if (!response.isSuccessful) throw ApiException(response.code, body)
-            if (body.isBlank() || body == "null" || body == "[]") null
-            else {
-                // Endpoint returns an array; pick first PENDING ticket
-                val tickets = json.decodeFromString<List<KioskEnrollTicketResponse>>(body)
-                tickets.firstOrNull { it.status == "PENDING" }
-            }
+            if (body.isBlank() || body == "null") null
+            else json.decodeFromString(body)
         }
     }
 
-    suspend fun submitEnrollTicket(ticketId: String, req: SubmitKioskEnrollRequest): Result<Unit> {
-        // ticketId is now passed inside the request body (SubmitKioskEnrollRequest.ticketId)
+    /** ticketId is serialized inside SubmitKioskEnrollRequest body. */
+    suspend fun submitEnrollTicket(req: SubmitKioskEnrollRequest): Result<Unit> {
         val body = json.encodeToString(req).toRequestBody(JSON_MEDIA_TYPE)
         val request = authedRequestBuilder("/api/v1/mobile-attendance/enrollment/kiosk/submit")
             .post(body)

@@ -385,6 +385,13 @@ export class EnrollmentService {
     return this.ticketRepo.find({ where, order: { createdAt: 'DESC' } });
   }
 
+  async getPendingTicketForDevice(deviceId: string): Promise<KioskEnrollTicketEntity | null> {
+    return this.ticketRepo.findOne({
+      where: { deviceId, status: 'PENDING' },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
   // ─── Admin list endpoints ──────────────────────────────────────────────────
 
   async listEmployeeEnrollments(clientId: string): Promise<any[]> {

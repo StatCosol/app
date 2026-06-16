@@ -28,7 +28,7 @@ export class DeviceService {
     deviceLabel: string | null,
     createdBy: string,
   ): Promise<MobileAttendanceDeviceEntity> {
-    const installToken = randomBytes(24).toString('hex'); // 48-char hex token
+    const installToken = randomBytes(32).toString('hex'); // 64-char hex token — matches SetupActivity validation
     const device = this.deviceRepo.create({
       clientId,
       mode,

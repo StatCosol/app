@@ -45,13 +45,10 @@ data class LivenessChallengeResponse(
 
 @Serializable
 data class MobilePunchRequest(
-    val probeEmbeddingB64: String,
+    val embeddingB64: String,          // field name must match RecordPunchDto
     val embeddingModel: String,
-    val matchScore: Float,
-    val secondBestScore: Float,
     val livenessScore: Double,
     val livenessChallengeType: String,
-    val livenessChallengePassedAt: String,
     val livenessNonce: String,
     val direction: String,
     val punchTime: String,
@@ -86,11 +83,11 @@ data class KioskEnrollTicketResponse(
 
 @Serializable
 data class SubmitKioskEnrollRequest(
-    val embeddingBase64: String,
-    val embeddingModel: String,
+    val ticketId: String,              // required by SubmitKioskTicketDto
+    val embeddingFrames: List<String>, // list of per-frame base64 embeddings
+    val embeddingModel: String? = null,
     val livenessNonce: String,
     val livenessChallengeType: String,
-    val livenessChallengePassedAt: String,
-    val selfMatchScore: Float? = null,
-    val photoBase64: String? = null,
+    val consentGiven: Boolean = true,
+    val photoB64: String? = null,
 )

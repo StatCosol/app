@@ -187,16 +187,17 @@ class EnrollActivity : AppCompatActivity() {
 
                 @Serializable
                 data class EssEnrollRequest(
-                    val embeddingBase64: String,
+                    val embeddingFrames: List<String>,
                     val embeddingModel: String,
+                    val consentGiven: Boolean = true,
                 )
 
-                val reqBody = json.encodeToString(EssEnrollRequest(embeddingB64, "mobilefacenet"))
+                val reqBody = json.encodeToString(EssEnrollRequest(listOf(embeddingB64), "mobilefacenet"))
                     .toRequestBody("application/json".toMediaType())
 
                 val http = OkHttpClient()
                 val request = Request.Builder()
-                    .url("${config.apiBase.trimEnd('/')}/api/mobile-attendance/enroll-self")
+                    .url("${config.apiBase.trimEnd('/')}/api/v1/mobile-attendance/enrollment/self")
                     .post(reqBody)
                     .header("Authorization", "Bearer ${config.deviceToken}")
                     .header("Content-Type", "application/json")
