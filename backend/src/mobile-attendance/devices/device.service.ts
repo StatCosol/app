@@ -109,31 +109,36 @@ export class DeviceService {
     let branchFilter = '';
     if (branchIds.length > 0) {
       params.push(branchIds);
-      branchFilter = ` AND branch_id = ANY($${params.length}::uuid[])`;
+      branchFilter = ` AND COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') = ANY($${params.length}::text[])`;
     }
 
     return this.dataSource.query(
-      `SELECT id,
-              client_id AS "clientId",
-              branch_id AS "branchId",
-              mode,
-              device_name AS "deviceLabel",
-              install_token AS "installToken",
+      `SELECT d.id,
+              COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') AS "clientId",
+              COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') AS "branchId",
+              COALESCE(to_jsonb(d)->>'mode', 'KIOSK') AS "mode",
+              COALESCE(
+                to_jsonb(d)->>'deviceLabel',
+                to_jsonb(d)->>'device_label',
+                to_jsonb(d)->>'deviceName',
+                to_jsonb(d)->>'device_name'
+              ) AS "deviceLabel",
+              COALESCE(to_jsonb(d)->>'installToken', to_jsonb(d)->>'install_token') AS "installToken",
               NULL::numeric AS "geofenceLat",
               NULL::numeric AS "geofenceLng",
               NULL::integer AS "geofenceRadiusM",
-              created_at AS "registeredAt",
+              COALESCE(to_jsonb(d)->>'registeredAt', to_jsonb(d)->>'registered_at', to_jsonb(d)->>'created_at') AS "registeredAt",
               NULL::uuid AS "registeredBy",
-              last_seen_at AS "lastSeenAt",
+              COALESCE(to_jsonb(d)->>'lastSeenAt', to_jsonb(d)->>'last_seen_at') AS "lastSeenAt",
               NULL::timestamptz AS "lastPunchAt",
-              is_active AS "isActive",
-              revoked_at AS "revokedAt",
-              revoked_by AS "revokedBy",
+              COALESCE((to_jsonb(d)->>'isActive')::boolean, (to_jsonb(d)->>'is_active')::boolean, true) AS "isActive",
+              COALESCE(to_jsonb(d)->>'revokedAt', to_jsonb(d)->>'revoked_at') AS "revokedAt",
+              COALESCE(to_jsonb(d)->>'revokedBy', to_jsonb(d)->>'revoked_by') AS "revokedBy",
               NULL::uuid AS "essEmployeeId"
-       FROM mobile_attendance_devices
-       WHERE client_id = $1
+       FROM mobile_attendance_devices d
+       WHERE COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') = $1
          ${branchFilter}
-       ORDER BY created_at DESC`,
+       ORDER BY COALESCE(to_jsonb(d)->>'registeredAt', to_jsonb(d)->>'registered_at', to_jsonb(d)->>'created_at') DESC NULLS LAST`,
       params,
     );
   }
