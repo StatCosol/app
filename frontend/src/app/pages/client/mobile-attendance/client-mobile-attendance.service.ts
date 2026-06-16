@@ -180,8 +180,7 @@ export class ClientMobileAttendanceService {
   }
 
   hardDeleteDevice(id: string): Observable<{ ok: true; id: string }> {
-    // No permanent-delete endpoint in new API — maps to revoke
-    return this.http.delete<{ ok: true; id: string }>(`${this.base}/devices/${id}`);
+    return this.http.delete<{ ok: true; id: string }>(`${this.base}/devices/${id}/permanent`);
   }
 
   // Enrollment

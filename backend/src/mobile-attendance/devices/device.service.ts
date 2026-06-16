@@ -1,8 +1,8 @@
 import {
+  ConflictException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
-  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -29,15 +29,52 @@ export class DeviceService {
     createdBy: string,
   ): Promise<MobileAttendanceDeviceEntity> {
     const installToken = randomBytes(32).toString('hex'); // 64-char hex token — matches SetupActivity validation
-    const device = this.deviceRepo.create({
-      clientId,
-      mode,
-      branchId,
-      deviceName: deviceLabel,
-      installToken,
-      isActive: true,
-    });
-    return this.deviceRepo.save(device);
+    const columns = await this.getDeviceColumns();
+    const clientCol = this.requireColumn(columns, 'client_id', 'clientId');
+    const modeCol = this.requireColumn(columns, 'mode');
+    const tokenCol = this.requireColumn(columns, 'install_token', 'installToken');
+    const branchCol = this.pickColumn(columns, 'branch_id', 'branchId');
+    const nameCol = this.pickColumn(columns, 'device_name', 'deviceName', 'device_label', 'deviceLabel');
+    const isActiveCol = this.pickColumn(columns, 'is_active', 'isActive');
+    const createdByCol = this.pickColumn(columns, 'created_by', 'createdBy', 'registered_by', 'registeredBy');
+    const createdAtCol = this.pickColumn(columns, 'created_at', 'createdAt', 'registered_at', 'registeredAt');
+    const insertColumns = [clientCol, modeCol, tokenCol];
+    const params: unknown[] = [clientId, mode, installToken];
+
+    if (branchCol) {
+      insertColumns.push(branchCol);
+      params.push(branchId);
+    }
+    if (nameCol) {
+      insertColumns.push(nameCol);
+      params.push(deviceLabel);
+    }
+    if (isActiveCol) {
+      insertColumns.push(isActiveCol);
+      params.push(true);
+    }
+    if (createdByCol && this.isUuid(createdBy)) {
+      insertColumns.push(createdByCol);
+      params.push(createdBy);
+    }
+    if (createdAtCol) {
+      insertColumns.push(createdAtCol);
+      params.push(new Date());
+    }
+
+    const result = await this.dataSource.query<MobileAttendanceDeviceEntity[]>(
+      `WITH inserted AS (
+         INSERT INTO mobile_attendance_devices (${insertColumns.map((col) => this.quoteIdentifier(col)).join(', ')})
+         VALUES (${params.map((_, idx) => `$${idx + 1}`).join(', ')})
+         RETURNING *
+       )
+       SELECT ${this.deviceReturnProjection('d')}
+         FROM inserted d`,
+      params,
+    );
+
+    if (!result?.[0]) throw new ConflictException('Device could not be provisioned');
+    return result[0];
   }
 
   /**
@@ -50,22 +87,54 @@ export class DeviceService {
     deviceName?: string,
   ): Promise<MobileAttendanceDeviceEntity> {
     return this.dataSource.transaction(async (em) => {
-      const device = await em.findOne(MobileAttendanceDeviceEntity, {
-        where: { installToken },
-        lock: { mode: 'pessimistic_write' },
-      });
+      const columns = await this.getDeviceColumns();
+      const tokenCol = this.requireColumn(columns, 'install_token', 'installToken');
+      const androidCol = this.pickColumn(columns, 'android_id', 'androidId');
+      const nameCol = this.pickColumn(columns, 'device_name', 'deviceName', 'device_label', 'deviceLabel');
+      const lastSeenCol = this.pickColumn(columns, 'last_seen_at', 'lastSeenAt');
+      const rows = await em.query<MobileAttendanceDeviceEntity[]>(
+        `SELECT ${this.deviceReturnProjection('d')}
+           FROM mobile_attendance_devices d
+          WHERE to_jsonb(d)->>${this.sqlString(tokenCol)} = $1
+          FOR UPDATE`,
+        [installToken],
+      );
+      const device = rows?.[0] ?? null;
 
       if (!device) throw new NotFoundException('Install token not found');
-      if (!device.isActive) throw new UnauthorizedException('Device token revoked');
+      if (!this.rowIsActive(device)) throw new UnauthorizedException('Device token revoked');
 
       if (device.androidId && androidId && device.androidId !== androidId) {
         throw new ConflictException('Install token already bound to a different device');
       }
 
-      device.androidId = androidId ?? device.androidId;
-      device.deviceName = deviceName ?? device.deviceName;
-      device.lastSeenAt = new Date();
-      return em.save(device);
+      const assignments: string[] = [];
+      const params: unknown[] = [installToken];
+      if (androidCol && androidId) {
+        params.push(androidId);
+        assignments.push(`${this.quoteIdentifier(androidCol)} = $${params.length}`);
+      }
+      if (nameCol && deviceName) {
+        params.push(deviceName);
+        assignments.push(`${this.quoteIdentifier(nameCol)} = $${params.length}`);
+      }
+      if (lastSeenCol) assignments.push(`${this.quoteIdentifier(lastSeenCol)} = now()`);
+      if (assignments.length === 0) return device;
+
+      const updated = await em.query<MobileAttendanceDeviceEntity[]>(
+        `WITH updated AS (
+          UPDATE mobile_attendance_devices
+            SET ${assignments.join(', ')}
+          WHERE to_jsonb(mobile_attendance_devices)->>${this.sqlString(tokenCol)} = $1
+            AND ${this.deviceIsActiveExpression('mobile_attendance_devices')}
+          RETURNING *
+        )
+        SELECT ${this.deviceReturnProjection('d')}
+          FROM updated d`,
+        params,
+      );
+      if (!updated?.[0]) throw new UnauthorizedException('Device token revoked');
+      return updated[0];
     });
   }
 
@@ -73,15 +142,36 @@ export class DeviceService {
     installToken: string,
     androidId?: string,
   ): Promise<MobileAttendanceDeviceEntity> {
-    const device = await this.deviceRepo.findOne({ where: { installToken } });
-    if (!device || !device.isActive) throw new UnauthorizedException('Device not authorized');
+    const columns = await this.getDeviceColumns();
+    const tokenCol = this.requireColumn(columns, 'install_token', 'installToken');
+    const lastSeenCol = this.pickColumn(columns, 'last_seen_at', 'lastSeenAt');
+    const rows = await this.dataSource.query<MobileAttendanceDeviceEntity[]>(
+      `SELECT ${this.deviceReturnProjection('d')}
+         FROM mobile_attendance_devices d
+        WHERE to_jsonb(d)->>${this.sqlString(tokenCol)} = $1
+        LIMIT 1`,
+      [installToken],
+    );
+    const device = rows?.[0] ?? null;
+    if (!device || !this.rowIsActive(device)) throw new UnauthorizedException('Device not authorized');
 
     if (device.androidId && androidId && device.androidId !== androidId) {
       throw new UnauthorizedException('Device ID mismatch');
     }
 
-    device.lastSeenAt = new Date();
-    return this.deviceRepo.save(device);
+    if (!lastSeenCol) return device;
+    const updated = await this.dataSource.query<MobileAttendanceDeviceEntity[]>(
+      `WITH updated AS (
+        UPDATE mobile_attendance_devices
+          SET ${this.quoteIdentifier(lastSeenCol)} = now()
+        WHERE to_jsonb(mobile_attendance_devices)->>${this.sqlString(tokenCol)} = $1
+        RETURNING *
+      )
+      SELECT ${this.deviceReturnProjection('d')}
+        FROM updated d`,
+      [installToken],
+    );
+    return updated?.[0] ?? device;
   }
 
   async revokeDevice(
@@ -117,6 +207,94 @@ export class DeviceService {
     );
 
     if (!result || result.length === 0) throw new NotFoundException('Device not found');
+  }
+
+  async permanentlyDeleteDevice(
+    clientId: string,
+    deviceId: string,
+    branchIds: string[] = [],
+  ): Promise<{ ok: true; id: string }> {
+    const columns = await this.getDeviceColumns();
+    const isActiveCol = this.pickColumn(columns, 'is_active', 'isActive');
+    const activeFilter = isActiveCol
+      ? `AND COALESCE((to_jsonb(d)->>${this.sqlString(isActiveCol)})::boolean, true) = false`
+      : '';
+    const params: unknown[] = [deviceId, clientId];
+    let branchFilter = '';
+    if (branchIds.length > 0) {
+      params.push(branchIds);
+      branchFilter = `AND COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') = ANY($${params.length}::text[])`;
+    }
+
+    const existing = await this.dataSource.query<Array<{ id: string }>>(
+      `SELECT d.id
+         FROM mobile_attendance_devices d
+        WHERE d.id = $1::uuid
+          AND COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') = $2
+          ${activeFilter}
+          ${branchFilter}
+        LIMIT 1`,
+      params,
+    );
+
+    if (!existing || existing.length === 0) {
+      throw new ConflictException('Revoke the device before deleting it');
+    }
+
+    const history = await this.dataSource.query<Array<{ hasHistory: boolean }>>(
+      `SELECT (
+          EXISTS (
+            SELECT 1
+              FROM mobile_attendance_punches
+             WHERE device_id = $1::uuid
+               AND client_id = $2::uuid
+          )
+          OR EXISTS (
+            SELECT 1
+              FROM contractor_biometric_punches
+             WHERE device_id = $1::uuid
+               AND client_id = $2::uuid
+          )
+        ) AS "hasHistory"`,
+      [deviceId, clientId],
+    );
+
+    if (history?.[0]?.hasHistory) {
+      throw new ConflictException(
+        'Device has attendance history and cannot be permanently deleted; it remains revoked',
+      );
+    }
+
+    await this.dataSource.transaction(async (em) => {
+      await em.query(
+        `DELETE FROM kiosk_enroll_tickets
+          WHERE device_id = $1::uuid
+            AND client_id = $2::uuid
+            AND status IN ('PENDING', 'CANCELLED', 'EXPIRED')`,
+        [deviceId, clientId],
+      );
+
+      try {
+        const result = await em.query<Array<{ id: string }>>(
+          `DELETE FROM mobile_attendance_devices d
+            WHERE d.id = $1::uuid
+              AND COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') = $2
+              ${branchFilter}
+            RETURNING d.id`,
+          params,
+        );
+        if (!result || result.length === 0) throw new NotFoundException('Device not found');
+      } catch (err: any) {
+        if (err?.code === '23503') {
+          throw new ConflictException(
+            'Device has attendance history and cannot be permanently deleted; it remains revoked',
+          );
+        }
+        throw err;
+      }
+    });
+
+    return { ok: true, id: deviceId };
   }
 
   async findById(deviceId: string): Promise<MobileAttendanceDeviceEntity | null> {
@@ -176,8 +354,46 @@ export class DeviceService {
     return names.find((name) => columns.has(name)) ?? null;
   }
 
+  private requireColumn(columns: Set<string>, ...names: string[]): string {
+    const column = this.pickColumn(columns, ...names);
+    if (!column) throw new NotFoundException(`Device column not found: ${names.join('/')}`);
+    return column;
+  }
+
+  private deviceReturnProjection(alias: string): string {
+    return `${alias}.id,
+            COALESCE(to_jsonb(${alias})->>'clientId', to_jsonb(${alias})->>'client_id') AS "clientId",
+            COALESCE(to_jsonb(${alias})->>'branchId', to_jsonb(${alias})->>'branch_id') AS "branchId",
+            COALESCE(to_jsonb(${alias})->>'mode', 'KIOSK') AS "mode",
+            COALESCE(to_jsonb(${alias})->>'installToken', to_jsonb(${alias})->>'install_token') AS "installToken",
+            COALESCE(to_jsonb(${alias})->>'androidId', to_jsonb(${alias})->>'android_id') AS "androidId",
+            COALESCE(
+              to_jsonb(${alias})->>'deviceName',
+              to_jsonb(${alias})->>'device_name',
+              to_jsonb(${alias})->>'deviceLabel',
+              to_jsonb(${alias})->>'device_label'
+            ) AS "deviceName",
+            ${this.deviceIsActiveExpression(alias)} AS "isActive",
+            COALESCE(to_jsonb(${alias})->>'lastSeenAt', to_jsonb(${alias})->>'last_seen_at') AS "lastSeenAt",
+            COALESCE(to_jsonb(${alias})->>'revokedAt', to_jsonb(${alias})->>'revoked_at') AS "revokedAt",
+            COALESCE(to_jsonb(${alias})->>'revokedBy', to_jsonb(${alias})->>'revoked_by') AS "revokedBy",
+            COALESCE(to_jsonb(${alias})->>'createdAt', to_jsonb(${alias})->>'created_at', to_jsonb(${alias})->>'registeredAt', to_jsonb(${alias})->>'registered_at') AS "createdAt"`;
+  }
+
+  private deviceIsActiveExpression(alias: string): string {
+    return `COALESCE((to_jsonb(${alias})->>'isActive')::boolean, (to_jsonb(${alias})->>'is_active')::boolean, true)`;
+  }
+
+  private rowIsActive(device: Pick<MobileAttendanceDeviceEntity, 'isActive'>): boolean {
+    return device.isActive !== false;
+  }
+
   private quoteIdentifier(identifier: string): string {
     return `"${identifier.replace(/"/g, '""')}"`;
+  }
+
+  private sqlString(value: string): string {
+    return `'${value.replace(/'/g, "''")}'`;
   }
 
   private isUuid(value: string): boolean {
