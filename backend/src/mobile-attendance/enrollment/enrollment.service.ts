@@ -405,7 +405,7 @@ export class EnrollmentService {
               fe.deactivated_at AS "deactivatedAt",
               fe.deactivation_reason AS "deactivationReason",
               e.employee_code AS "employeeCode",
-              e.employee_name AS "employeeName"
+              e.name AS "employeeName"
        FROM face_enrollments fe
        LEFT JOIN employees e ON e.id = fe.employee_id
        WHERE fe.client_id = $1
