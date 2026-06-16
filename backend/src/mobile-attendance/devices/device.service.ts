@@ -241,24 +241,15 @@ export class DeviceService {
       throw new ConflictException('Revoke the device before deleting it');
     }
 
+    await this.deleteNonCompletedKioskTickets(deviceId, clientId);
+
     if (await this.deviceHasPunchHistory(deviceId, clientId)) {
-      throw new ConflictException(
-        'Device has attendance history and cannot be permanently deleted; it remains revoked',
-      );
+      await this.softDeleteDeviceRow(deviceId, clientId, params, branchFilter);
+      return { ok: true, id: deviceId };
     }
 
-    await this.dataSource.transaction(async (em) => {
-      if (await this.tableExists('kiosk_enroll_tickets')) {
-        await em.query(
-          `DELETE FROM kiosk_enroll_tickets k
-            WHERE device_id = $1::uuid
-              AND client_id = $2::uuid
-              AND COALESCE(to_jsonb(k)->>'status', '') <> 'COMPLETED'`,
-          [deviceId, clientId],
-        );
-      }
-
-      try {
+    try {
+      await this.dataSource.transaction(async (em) => {
         const result = await em.query<Array<{ id: string }>>(
           `DELETE FROM mobile_attendance_devices d
             WHERE d.id = $1::uuid
@@ -268,15 +259,14 @@ export class DeviceService {
           params,
         );
         if (!result || result.length === 0) throw new NotFoundException('Device not found');
-      } catch (err: any) {
-        if (err?.code === '23503') {
-          throw new ConflictException(
-            'Device has attendance history and cannot be permanently deleted; it remains revoked',
-          );
-        }
-        throw err;
+      });
+    } catch (err: any) {
+      if (err?.code === '23503') {
+        await this.softDeleteDeviceRow(deviceId, clientId, params, branchFilter);
+        return { ok: true, id: deviceId };
       }
-    });
+      throw err;
+    }
 
     return { ok: true, id: deviceId };
   }
@@ -318,6 +308,7 @@ export class DeviceService {
               NULL::uuid AS "essEmployeeId"
        FROM mobile_attendance_devices d
        WHERE COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') = $1
+         AND COALESCE(to_jsonb(d)->>'deletedAt', to_jsonb(d)->>'deleted_at') IS NULL
          ${branchFilter}
        ORDER BY COALESCE(to_jsonb(d)->>'registeredAt', to_jsonb(d)->>'registered_at', to_jsonb(d)->>'created_at') DESC NULLS LAST`,
       params,
@@ -345,6 +336,42 @@ export class DeviceService {
       [tableName],
     );
     return rows?.[0]?.exists === true;
+  }
+
+  private async deleteNonCompletedKioskTickets(deviceId: string, clientId: string): Promise<void> {
+    if (!(await this.tableExists('kiosk_enroll_tickets'))) return;
+    await this.dataSource.query(
+      `DELETE FROM kiosk_enroll_tickets k
+        WHERE device_id = $1::uuid
+          AND client_id = $2::uuid
+          AND COALESCE(to_jsonb(k)->>'status', '') <> 'COMPLETED'`,
+      [deviceId, clientId],
+    );
+  }
+
+  private async softDeleteDeviceRow(
+    deviceId: string,
+    clientId: string,
+    scopedParams: unknown[],
+    branchFilter: string,
+  ): Promise<void> {
+    const columns = await this.getDeviceColumns();
+    this.requireColumn(columns, 'deleted_at', 'deletedAt');
+    const isActiveCol = this.pickColumn(columns, 'is_active', 'isActive');
+    const assignments = ['deleted_at = now()'];
+    if (isActiveCol) assignments.push(`${this.quoteIdentifier(isActiveCol)} = false`);
+
+    const result = await this.dataSource.query<Array<{ id: string }>>(
+      `UPDATE mobile_attendance_devices d
+          SET ${assignments.join(', ')}
+        WHERE d.id = $1::uuid
+          AND COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') = $2
+          ${branchFilter}
+        RETURNING d.id`,
+      scopedParams,
+    );
+
+    if (!result || result.length === 0) throw new NotFoundException('Device not found');
   }
 
   private async deviceHasPunchHistory(deviceId: string, clientId: string): Promise<boolean> {
