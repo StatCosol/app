@@ -196,7 +196,7 @@ export class MobileAttendanceEnrollmentController {
   listEmployeeEnrollments(@CurrentUser() user: ReqUser) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.enrollmentService.listEmployeeEnrollments(clientId);
+    return this.enrollmentService.listEmployeeEnrollments(clientId, user.branchIds ?? []);
   }
 
   @ApiOperation({ summary: 'Admin — list all contractor enrollments' })
