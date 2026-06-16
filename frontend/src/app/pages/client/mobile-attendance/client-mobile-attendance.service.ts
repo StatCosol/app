@@ -446,8 +446,10 @@ export type KioskEnrollTicketStatus =
 export interface CreateKioskEnrollTicketBody {
   deviceId: string;
   subjectType: 'EMPLOYEE' | 'CONTRACTOR';
-  subjectId: string;
-  consentGiven: boolean;
+  employeeId?: string;
+  contractorEmployeeId?: string;
+  subjectName: string;
+  subjectCode?: string;
   notes?: string;
 }
 
