@@ -241,38 +241,22 @@ export class DeviceService {
       throw new ConflictException('Revoke the device before deleting it');
     }
 
-    const history = await this.dataSource.query<Array<{ hasHistory: boolean }>>(
-      `SELECT (
-          EXISTS (
-            SELECT 1
-              FROM mobile_attendance_punches
-             WHERE device_id = $1::uuid
-               AND client_id = $2::uuid
-          )
-          OR EXISTS (
-            SELECT 1
-              FROM contractor_biometric_punches
-             WHERE device_id = $1::uuid
-               AND client_id = $2::uuid
-          )
-        ) AS "hasHistory"`,
-      [deviceId, clientId],
-    );
-
-    if (history?.[0]?.hasHistory) {
+    if (await this.deviceHasPunchHistory(deviceId, clientId)) {
       throw new ConflictException(
         'Device has attendance history and cannot be permanently deleted; it remains revoked',
       );
     }
 
     await this.dataSource.transaction(async (em) => {
-      await em.query(
-        `DELETE FROM kiosk_enroll_tickets
-          WHERE device_id = $1::uuid
-            AND client_id = $2::uuid
-            AND status IN ('PENDING', 'CANCELLED', 'EXPIRED')`,
-        [deviceId, clientId],
-      );
+      if (await this.tableExists('kiosk_enroll_tickets')) {
+        await em.query(
+          `DELETE FROM kiosk_enroll_tickets k
+            WHERE device_id = $1::uuid
+              AND client_id = $2::uuid
+              AND COALESCE(to_jsonb(k)->>'status', '') <> 'COMPLETED'`,
+          [deviceId, clientId],
+        );
+      }
 
       try {
         const result = await em.query<Array<{ id: string }>>(
@@ -348,6 +332,37 @@ export class DeviceService {
           AND table_name = 'mobile_attendance_devices'`,
     );
     return new Set(rows.map((row) => row.column_name));
+  }
+
+  private async tableExists(tableName: string): Promise<boolean> {
+    const rows = await this.dataSource.query<Array<{ exists: boolean }>>(
+      `SELECT EXISTS (
+         SELECT 1
+           FROM information_schema.tables
+          WHERE table_schema = current_schema()
+            AND table_name = $1
+       ) AS "exists"`,
+      [tableName],
+    );
+    return rows?.[0]?.exists === true;
+  }
+
+  private async deviceHasPunchHistory(deviceId: string, clientId: string): Promise<boolean> {
+    const tables = ['mobile_attendance_punches', 'contractor_biometric_punches'];
+    for (const table of tables) {
+      if (!(await this.tableExists(table))) continue;
+      const rows = await this.dataSource.query<Array<{ hasHistory: boolean }>>(
+        `SELECT EXISTS (
+           SELECT 1
+             FROM ${this.quoteIdentifier(table)}
+            WHERE device_id = $1::uuid
+              AND client_id = $2::uuid
+         ) AS "hasHistory"`,
+        [deviceId, clientId],
+      );
+      if (rows?.[0]?.hasHistory) return true;
+    }
+    return false;
   }
 
   private pickColumn(columns: Set<string>, ...names: string[]): string | null {
