@@ -1,0 +1,39 @@
+package com.statcosol.attendance.prefs
+
+import android.content.Context
+import android.content.SharedPreferences
+
+class DeviceConfig(context: Context) {
+
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences(PREF_FILE, Context.MODE_PRIVATE)
+
+    var apiBase: String
+        get() = prefs.getString(KEY_API_BASE, DEFAULT_API_BASE) ?: DEFAULT_API_BASE
+        set(value) = prefs.edit().putString(KEY_API_BASE, value).apply()
+
+    var deviceToken: String
+        get() = prefs.getString(KEY_DEVICE_TOKEN, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_DEVICE_TOKEN, value).apply()
+
+    var installToken: String
+        get() = prefs.getString(KEY_INSTALL_TOKEN, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_INSTALL_TOKEN, value).apply()
+
+    var deviceMode: String
+        get() = prefs.getString(KEY_DEVICE_MODE, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_DEVICE_MODE, value).apply()
+
+    fun isRegistered(): Boolean = deviceToken.isNotBlank()
+
+    fun clear() = prefs.edit().clear().apply()
+
+    companion object {
+        private const val PREF_FILE = "device_config"
+        private const val KEY_API_BASE = "api_base"
+        private const val KEY_DEVICE_TOKEN = "device_token"
+        private const val KEY_INSTALL_TOKEN = "install_token"
+        private const val KEY_DEVICE_MODE = "device_mode"
+        private const val DEFAULT_API_BASE = "https://app.statcosolutions.com"
+    }
+}

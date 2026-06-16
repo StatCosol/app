@@ -1,0 +1,259 @@
+package com.statcosol.attendance.ui
+
+import android.os.Bundle
+import android.util.Log
+import android.view.View
+import android.widget.Button
+import android.widget.CheckBox
+import android.widget.ProgressBar
+import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import com.statcosol.attendance.R
+import com.statcosol.attendance.api.ApiClient
+import com.statcosol.attendance.face.FaceCaptureSession
+import com.statcosol.attendance.face.FaceDetector
+import com.statcosol.attendance.face.FaceEmbedder
+import com.statcosol.attendance.face.RosterMatcher
+import com.statcosol.attendance.prefs.DeviceConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import kotlin.math.sqrt
+
+@ExperimentalGetImage
+class EnrollActivity : AppCompatActivity() {
+
+    private lateinit var previewView: PreviewView
+    private lateinit var tvHint: TextView
+    private lateinit var tvProgress: TextView
+    private lateinit var btnStart: Button
+    private lateinit var cbConsent: CheckBox
+    private lateinit var progressBar: ProgressBar
+
+    private lateinit var config: DeviceConfig
+    private lateinit var apiClient: ApiClient
+    private lateinit var embedder: FaceEmbedder
+    private lateinit var faceDetector: FaceDetector
+    private lateinit var cameraExecutor: ExecutorService
+
+    private val capturedFrames = mutableListOf<FloatArray>()
+    private var avgEmbedding: FloatArray? = null
+    private var lastFrameMs = 0L
+    private var capturing = false
+    private var submitted = false
+
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_enroll)
+
+        previewView = findViewById(R.id.preview_view)
+        tvHint = findViewById(R.id.tv_hint)
+        tvProgress = findViewById(R.id.tv_progress)
+        btnStart = findViewById(R.id.btn_start_enrollment)
+        cbConsent = findViewById(R.id.cb_consent)
+        progressBar = findViewById(R.id.progress_bar)
+
+        config = DeviceConfig(this)
+        apiClient = ApiClient(config)
+        embedder = FaceEmbedder(this)
+        faceDetector = FaceDetector()
+        cameraExecutor = Executors.newSingleThreadExecutor()
+
+        tvHint.text = getString(R.string.enroll_intro)
+        tvProgress.text = getString(R.string.enroll_progress, 0, ESS_REQUIRED_FRAMES)
+
+        startCamera()
+
+        btnStart.setOnClickListener {
+            if (!cbConsent.isChecked) {
+                Toast.makeText(this, getString(R.string.enroll_consent_required), Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            startCapture()
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        cameraExecutor.shutdown()
+        embedder.close()
+        faceDetector.close()
+    }
+
+    private fun startCamera() {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+        cameraProviderFuture.addListener({
+            val cameraProvider = cameraProviderFuture.get()
+            val preview = Preview.Builder().build().apply {
+                setSurfaceProvider(previewView.surfaceProvider)
+            }
+            val imageAnalysis = ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build()
+
+            val captureSession = FaceCaptureSession(
+                embedder = embedder,
+                detector = faceDetector,
+                onFace = { probe, liveness, photo -> handleFrame(probe, liveness, photo) },
+                onHint = { hint -> if (!capturing) runOnUiThread { tvHint.text = hint } },
+            )
+
+            imageAnalysis.setAnalyzer(cameraExecutor, captureSession)
+            cameraProvider.unbindAll()
+            cameraProvider.bindToLifecycle(
+                this,
+                CameraSelector.DEFAULT_FRONT_CAMERA,
+                preview,
+                imageAnalysis,
+            )
+        }, ContextCompat.getMainExecutor(this))
+    }
+
+    private fun startCapture() {
+        capturedFrames.clear()
+        avgEmbedding = null
+        lastFrameMs = 0L
+        capturing = true
+        submitted = false
+        btnStart.isEnabled = false
+        cbConsent.isEnabled = false
+        tvHint.text = getString(R.string.enroll_intro)
+    }
+
+    private fun handleFrame(probe: FloatArray, liveness: Double, photo: String?) {
+        if (!capturing || submitted) return
+        if (capturedFrames.size >= ESS_REQUIRED_FRAMES) return
+        if (liveness < ENROLL_MIN_LIVENESS) return
+
+        val now = System.currentTimeMillis()
+        if (now - lastFrameMs < ENROLL_MIN_FRAME_INTERVAL_MS) return
+
+        val avg = avgEmbedding
+        if (avg != null) {
+            val sim = cosineSim(probe, avg)
+            if (sim < ENROLL_MIN_PROBE_TO_AVG_COS) {
+                runOnUiThread { tvHint.text = getString(R.string.kiosk_enroll_inconsistent) }
+                return
+            }
+        }
+
+        capturedFrames.add(probe)
+        lastFrameMs = now
+        avgEmbedding = averageAndNormalize(capturedFrames)
+
+        val count = capturedFrames.size
+        runOnUiThread {
+            tvProgress.text = getString(R.string.enroll_progress, count, ESS_REQUIRED_FRAMES)
+        }
+
+        if (capturedFrames.size >= ESS_REQUIRED_FRAMES) {
+            capturing = false
+            submitted = true
+            submitEnrollment()
+        }
+    }
+
+    private fun submitEnrollment() {
+        val finalEmbedding = averageAndNormalize(capturedFrames)
+
+        runOnUiThread {
+            tvHint.text = getString(R.string.enroll_uploading)
+            progressBar.visibility = View.VISIBLE
+        }
+
+        lifecycleScope.launch {
+            try {
+                val embeddingB64 = embedder.toBase64(finalEmbedding)
+
+                @Serializable
+                data class EssEnrollRequest(
+                    val embeddingBase64: String,
+                    val embeddingModel: String,
+                )
+
+                val reqBody = json.encodeToString(EssEnrollRequest(embeddingB64, "mobilefacenet"))
+                    .toRequestBody("application/json".toMediaType())
+
+                val http = OkHttpClient()
+                val request = Request.Builder()
+                    .url("${config.apiBase.trimEnd('/')}/api/mobile-attendance/enroll-self")
+                    .post(reqBody)
+                    .header("Authorization", "Bearer ${config.deviceToken}")
+                    .header("Content-Type", "application/json")
+                    .build()
+
+                val response = withContext(Dispatchers.IO) { http.newCall(request).execute() }
+                if (response.isSuccessful) {
+                    runOnUiThread {
+                        progressBar.visibility = View.GONE
+                        tvHint.text = getString(R.string.enroll_success)
+                        Toast.makeText(this@EnrollActivity, getString(R.string.enroll_success), Toast.LENGTH_LONG).show()
+                    }
+                    kotlinx.coroutines.delay(2000)
+                    finish()
+                } else {
+                    val errBody = response.body?.string() ?: ""
+                    throw Exception("HTTP ${response.code}: $errBody")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Enrollment failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    progressBar.visibility = View.GONE
+                    tvHint.text = getString(R.string.enroll_failed, e.message ?: "unknown")
+                    btnStart.isEnabled = true
+                    cbConsent.isEnabled = true
+                    capturing = false
+                    submitted = false
+                    capturedFrames.clear()
+                    avgEmbedding = null
+                }
+            }
+        }
+    }
+
+    companion object {
+        private const val TAG = "EnrollActivity"
+        private const val ESS_REQUIRED_FRAMES = 7
+        private const val ENROLL_MIN_LIVENESS = 0.70
+        private const val ENROLL_MIN_FRAME_INTERVAL_MS = 300L
+        private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.78
+
+        fun cosineSim(a: FloatArray, b: FloatArray): Double {
+            var dot = 0.0; var normA = 0.0; var normB = 0.0
+            val len = minOf(a.size, b.size)
+            for (i in 0 until len) { dot += a[i] * b[i]; normA += a[i] * a[i]; normB += b[i] * b[i] }
+            val denom = sqrt(normA) * sqrt(normB)
+            return if (denom == 0.0) 0.0 else dot / denom
+        }
+
+        fun averageAndNormalize(frames: List<FloatArray>): FloatArray {
+            if (frames.isEmpty()) return FloatArray(0)
+            val size = frames[0].size
+            val avg = FloatArray(size)
+            for (frame in frames) for (i in 0 until size) avg[i] += frame[i]
+            for (i in avg.indices) avg[i] /= frames.size
+            val norm = sqrt(avg.fold(0f) { acc, v -> acc + v * v })
+            return if (norm > 0f) FloatArray(size) { avg[it] / norm } else avg
+        }
+    }
+}
