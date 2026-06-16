@@ -89,15 +89,34 @@ export class DeviceService {
     deviceId: string,
     by: string,
   ): Promise<void> {
-    const device = await this.deviceRepo.findOne({
-      where: { id: deviceId, clientId },
-    });
-    if (!device) throw new NotFoundException('Device not found');
+    const columns = await this.getDeviceColumns();
+    const isActiveCol = this.pickColumn(columns, 'is_active', 'isActive');
+    const revokedAtCol = this.pickColumn(columns, 'revoked_at', 'revokedAt');
+    const revokedByCol = this.pickColumn(columns, 'revoked_by', 'revokedBy');
+    const assignments: string[] = [];
+    const params: unknown[] = [deviceId, clientId];
 
-    device.isActive = false;
-    device.revokedAt = new Date();
-    device.revokedBy = by;
-    await this.deviceRepo.save(device);
+    if (isActiveCol) assignments.push(`${this.quoteIdentifier(isActiveCol)} = false`);
+    if (revokedAtCol) assignments.push(`${this.quoteIdentifier(revokedAtCol)} = now()`);
+    if (revokedByCol && this.isUuid(by)) {
+      params.push(by);
+      assignments.push(`${this.quoteIdentifier(revokedByCol)} = $${params.length}::uuid`);
+    }
+
+    if (assignments.length === 0) {
+      throw new NotFoundException('Device revoke columns not found');
+    }
+
+    const result = await this.dataSource.query<Array<{ id: string }>>(
+      `UPDATE mobile_attendance_devices
+          SET ${assignments.join(', ')}
+        WHERE id = $1::uuid
+          AND COALESCE(to_jsonb(mobile_attendance_devices)->>'clientId', to_jsonb(mobile_attendance_devices)->>'client_id') = $2
+        RETURNING id`,
+      params,
+    );
+
+    if (!result || result.length === 0) throw new NotFoundException('Device not found');
   }
 
   async findById(deviceId: string): Promise<MobileAttendanceDeviceEntity | null> {
@@ -140,6 +159,30 @@ export class DeviceService {
          ${branchFilter}
        ORDER BY COALESCE(to_jsonb(d)->>'registeredAt', to_jsonb(d)->>'registered_at', to_jsonb(d)->>'created_at') DESC NULLS LAST`,
       params,
+    );
+  }
+
+  private async getDeviceColumns(): Promise<Set<string>> {
+    const rows = await this.dataSource.query<Array<{ column_name: string }>>(
+      `SELECT column_name
+         FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'mobile_attendance_devices'`,
+    );
+    return new Set(rows.map((row) => row.column_name));
+  }
+
+  private pickColumn(columns: Set<string>, ...names: string[]): string | null {
+    return names.find((name) => columns.has(name)) ?? null;
+  }
+
+  private quoteIdentifier(identifier: string): string {
+    return `"${identifier.replace(/"/g, '""')}"`;
+  }
+
+  private isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
     );
   }
 }
