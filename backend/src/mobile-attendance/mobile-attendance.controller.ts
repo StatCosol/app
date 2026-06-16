@@ -84,7 +84,7 @@ export class MobileAttendanceDevicesController {
   list(@CurrentUser() user: ReqUser) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.deviceService.listByClient(clientId);
+    return this.deviceService.listByClient(clientId, user.branchIds ?? []);
   }
 
   @ApiOperation({ summary: 'Revoke a device' })
