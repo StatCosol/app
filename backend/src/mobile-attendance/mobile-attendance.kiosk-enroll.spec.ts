@@ -518,13 +518,25 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
       photoUrl: null,
     };
     const update = jest.fn().mockResolvedValue({ affected: 1 });
-    const save = jest.fn().mockResolvedValue({});
+    const txSave = jest.fn().mockResolvedValue({});
+    const txQuery = jest
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({ rowCount: 1 });
+    const tx = {
+      findOne: jest.fn().mockResolvedValue(null),
+      update: jest.fn(),
+      save: txSave,
+      query: txQuery,
+    };
     const faceRepo = {
-      manager: { query: jest.fn().mockResolvedValue(undefined) },
+      manager: {
+        query: jest.fn().mockResolvedValue(undefined),
+        transaction: jest.fn(async (cb) => cb(tx)),
+      },
       find: jest.fn().mockResolvedValue([]),
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((payload) => payload),
-      save,
     };
     const svc = makeService({
       faceRepo,
@@ -549,19 +561,23 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
       }),
     ).resolves.toEqual({ ok: true, ticketId: 't-1' });
 
-    expect(save).toHaveBeenCalledWith(
+    expect(txSave).toHaveBeenCalledWith(
+      expect.any(Function),
       expect.objectContaining({
         employeeId: 'emp-divya',
         enrolledBy: '11111111-1111-1111-1111-111111111111',
         consentGivenBy: '11111111-1111-1111-1111-111111111111',
       }),
     );
-    expect(update).toHaveBeenLastCalledWith(
-      { id: 't-1', status: 'REVIEW_PENDING' },
+    expect(update).toHaveBeenCalledWith(
+      { id: 't-1' },
       expect.objectContaining({
-        status: 'COMPLETED',
-        reviewedBy: '11111111-1111-1111-1111-111111111111',
+        status: 'REVIEW_PENDING',
       }),
+    );
+    expect(txQuery).toHaveBeenLastCalledWith(
+      expect.stringContaining('UPDATE kiosk_enroll_tickets'),
+      expect.arrayContaining(['11111111-1111-1111-1111-111111111111', 't-1']),
     );
   });
 

@@ -62,7 +62,7 @@ const KIOSK_ENROLLMENT_ACTIVATION_DELAY_MS = (() => {
   const raw = Number(env);
   // Treat empty/unset as default (5 min). Only accept explicit positive number.
   const minutes =
-    env && env.trim() !== '' && Number.isFinite(raw) && raw >= 0 ? raw : 5;
+    env && env.trim() !== '' && Number.isFinite(raw) && raw >= 0 ? raw : 15;
   return minutes * 60 * 1000;
 })();
 
@@ -88,9 +88,9 @@ const MIN_LIVENESS_SCORE = 0.7;
 // loosen it if a site has poor lighting before the camera is replaced.
 const MIN_FACE_QUALITY_SCORE = (() => {
   const raw = process.env.FACE_MIN_QUALITY_SCORE;
-  if (raw == null || raw === '') return 0.65;
+  if (raw == null || raw === '') return 0.75;
   const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.65;
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.75;
 })();
 // Phase 3d / 4c: active liveness challenge. Default ON — the device
 // must request a server nonce via POST /mobile-attendance/liveness/
@@ -4576,13 +4576,39 @@ export class MobileAttendanceService implements OnModuleInit {
         matchScoreSelf: body.selfMatchScore ?? null,
       },
     );
-    await this.reviewKioskEnrollTicket(
-      ticket.clientId,
-      ticket.createdBy,
-      null,
-      ticket.id,
-      { decision: 'APPROVED' },
-    );
+    try {
+      await this.reviewKioskEnrollTicket(
+        ticket.clientId,
+        ticket.createdBy,
+        null,
+        ticket.id,
+        { decision: 'APPROVED' },
+      );
+    } catch (err: any) {
+      // ConflictException means a concurrent session already completed the
+      // ticket — leave it as-is (COMPLETED) and surface the error to the caller.
+      // For all other errors, revert the ticket to CANCELLED so it does not
+      // remain as a ghost REVIEW_PENDING record that pollutes future duplicate
+      // scans for other employees.
+      if (err?.status !== 409) {
+        await this.kioskTicketRepo
+          .update(
+            { id: ticket.id, status: 'REVIEW_PENDING' },
+            {
+              status: 'CANCELLED',
+              cancelledAt: now,
+              pendingEmbedding: null,
+              notes: `Auto-approve failed: ${err?.message ?? 'unknown error'}`,
+            },
+          )
+          .catch((e) =>
+            this.logger.error(
+              `Failed to revert ticket ${ticket.id} to CANCELLED: ${e?.message ?? e}`,
+            ),
+          );
+      }
+      throw err;
+    }
     return { ok: true, ticketId: ticket.id };
   }
 
@@ -4639,6 +4665,8 @@ export class MobileAttendanceService implements OnModuleInit {
     }
     const embeddingModel = ticket.embeddingModel ?? 'mobilefacenet-v1';
 
+    // Duplicate check must run BEFORE the transaction so it can use the
+    // normal repos and see all current state; the check itself doesn't write.
     if (ticket.subjectType === 'EMPLOYEE') {
       const empId = ticket.employeeId!;
       // includePendingTickets catches concurrent REVIEW_PENDING submissions for
@@ -4646,39 +4674,6 @@ export class MobileAttendanceService implements OnModuleInit {
       await this.assertFaceNotDuplicate(ticket.clientId, empId, embedding, {
         includePendingTickets: true,
         revealMatchedName: true,
-      });
-      const payload: Partial<FaceEnrollmentEntity> = {
-        employeeId: empId,
-        clientId: ticket.clientId,
-        branchId: ticket.branchId ?? null,
-        embedding,
-        embeddingModel,
-        photoUrl: ticket.photoUrl ?? null,
-        consentGivenAt: now,
-        consentGivenBy: ticket.createdBy,
-        enrolledAt: now,
-        enrolledBy: reviewedBy,
-        isActive: true,
-        deactivatedAt: null,
-        deactivationReason: null,
-      };
-      const existing = await this.faceRepo.findOne({
-        where: { employeeId: empId, clientId: ticket.clientId },
-      });
-      if (existing) {
-        await this.faceRepo.update(
-          { employeeId: empId, clientId: ticket.clientId },
-          payload,
-        );
-      } else {
-        await this.faceRepo.save(this.faceRepo.create(payload));
-      }
-      await this.logEnrollmentHistory({
-        employeeId: empId,
-        clientId: ticket.clientId,
-        action: existing ? 'RE_ENROLL' : 'ENROLL',
-        embeddingModel,
-        actorUserId: reviewedBy,
       });
     } else {
       const ceId = ticket.contractorEmployeeId!;
@@ -4690,62 +4685,116 @@ export class MobileAttendanceService implements OnModuleInit {
         ticket.clientId,
         ce.id,
         embedding,
-        {
-          includePendingTickets: true,
-          revealMatchedName: true,
-        },
+        { includePendingTickets: true, revealMatchedName: true },
       );
-      const payload: Partial<ContractorFaceEnrollmentEntity> = {
-        contractorEmployeeId: ce.id,
-        clientId: ticket.clientId,
-        branchId: ce.branchId ?? ticket.branchId ?? null,
-        contractorUserId: ce.contractorUserId ?? null,
-        embedding,
-        embeddingModel,
-        photoUrl: ticket.photoUrl ?? null,
-        consentGivenAt: now,
-        consentGivenBy: ticket.createdBy,
-        enrolledAt: now,
-        enrolledBy: reviewedBy,
-        isActive: true,
-        deactivatedAt: null,
-        deactivationReason: null,
-      };
-      const existing = await this.contractorFaceRepo.findOne({
-        where: { contractorEmployeeId: ce.id, clientId: ticket.clientId },
-      });
-      if (existing) {
-        await this.contractorFaceRepo.update(
-          { contractorEmployeeId: ce.id, clientId: ticket.clientId },
-          payload,
-        );
-      } else {
-        await this.contractorFaceRepo.save(
-          this.contractorFaceRepo.create(payload),
-        );
-      }
-      await this.logContractorEnrollmentHistory({
-        contractorEmployeeId: ce.id,
-        clientId: ticket.clientId,
-        action: existing ? 'RE_ENROLL' : 'ENROLL',
-        embeddingModel,
-        actorUserId: reviewedBy,
-      });
     }
 
-    const completedResult = await this.kioskTicketRepo.update(
-      { id: ticket.id, status: 'REVIEW_PENDING' },
-      {
-        status: 'COMPLETED',
-        completedAt: now,
-        reviewedAt: now,
-        reviewedBy,
-        pendingEmbedding: null,
-      },
-    );
-    if (!completedResult.affected) {
-      throw new ConflictException('Ticket was already reviewed by another session');
-    }
+    // Wrap the enrollment write + ticket completion in a single transaction so
+    // a concurrent-session race (two sessions both see REVIEW_PENDING) never
+    // leaves a half-written state: enrollment committed but ticket still
+    // REVIEW_PENDING with a non-null pendingEmbedding that would pollute future
+    // duplicate scans for other employees.
+    let enrollAction: 'ENROLL' | 'RE_ENROLL' = 'ENROLL';
+    await this.faceRepo.manager.transaction(async (tx) => {
+      if (ticket.subjectType === 'EMPLOYEE') {
+        const empId = ticket.employeeId!;
+        const payload: Partial<FaceEnrollmentEntity> = {
+          employeeId: empId,
+          clientId: ticket.clientId,
+          branchId: ticket.branchId ?? null,
+          embedding,
+          embeddingModel,
+          photoUrl: ticket.photoUrl ?? null,
+          consentGivenAt: now,
+          consentGivenBy: ticket.createdBy,
+          enrolledAt: now,
+          enrolledBy: reviewedBy,
+          isActive: true,
+          deactivatedAt: null,
+          deactivationReason: null,
+        };
+        const existing = await tx.findOne(FaceEnrollmentEntity, {
+          where: { employeeId: empId, clientId: ticket.clientId },
+        });
+        enrollAction = existing ? 'RE_ENROLL' : 'ENROLL';
+        if (existing) {
+          await tx.update(
+            FaceEnrollmentEntity,
+            { employeeId: empId, clientId: ticket.clientId },
+            payload,
+          );
+        } else {
+          await tx.save(FaceEnrollmentEntity, payload);
+        }
+        await tx.query(
+          `INSERT INTO face_enrollment_history
+             (employee_id, client_id, action, reason, embedding_model, actor_user_id)
+           VALUES ($1, $2, $3, NULL, $4, $5)`,
+          [empId, ticket.clientId, enrollAction, embeddingModel, reviewedBy],
+        );
+      } else {
+        const ceId = ticket.contractorEmployeeId!;
+        const ce = await this.contractorEmpRepo.findOne({
+          where: { id: ceId, clientId: ticket.clientId },
+        });
+        if (!ce) throw new NotFoundException('Contractor employee not found');
+        const payload: Partial<ContractorFaceEnrollmentEntity> = {
+          contractorEmployeeId: ce.id,
+          clientId: ticket.clientId,
+          branchId: ce.branchId ?? ticket.branchId ?? null,
+          contractorUserId: ce.contractorUserId ?? null,
+          embedding,
+          embeddingModel,
+          photoUrl: ticket.photoUrl ?? null,
+          consentGivenAt: now,
+          consentGivenBy: ticket.createdBy,
+          enrolledAt: now,
+          enrolledBy: reviewedBy,
+          isActive: true,
+          deactivatedAt: null,
+          deactivationReason: null,
+        };
+        const existing = await tx.findOne(ContractorFaceEnrollmentEntity, {
+          where: { contractorEmployeeId: ce.id, clientId: ticket.clientId },
+        });
+        enrollAction = existing ? 'RE_ENROLL' : 'ENROLL';
+        if (existing) {
+          await tx.update(
+            ContractorFaceEnrollmentEntity,
+            { contractorEmployeeId: ce.id, clientId: ticket.clientId },
+            payload,
+          );
+        } else {
+          await tx.save(ContractorFaceEnrollmentEntity, payload);
+        }
+        await tx.query(
+          `INSERT INTO contractor_face_enrollment_history
+             (contractor_employee_id, client_id, action, reason,
+              embedding_model, actor_user_id)
+           VALUES ($1, $2, $3, NULL, $4, $5)`,
+          [ce.id, ticket.clientId, enrollAction, embeddingModel, reviewedBy],
+        );
+      }
+
+      // Mark ticket COMPLETED and clear pendingEmbedding atomically with the
+      // enrollment write.  The optimistic WHERE status='REVIEW_PENDING' guard
+      // detects a concurrent session; rolling back here leaves face_enrollments
+      // unchanged so neither session produces a half-written state.
+      const result = await tx.query(
+        `UPDATE kiosk_enroll_tickets
+            SET status = 'COMPLETED',
+                completed_at = $1,
+                reviewed_at = $1,
+                reviewed_by = $2,
+                pending_embedding = NULL
+          WHERE id = $3 AND status = 'REVIEW_PENDING'`,
+        [now, reviewedBy, ticket.id],
+      );
+      if (!result.rowCount) {
+        throw new ConflictException('Ticket was already reviewed by another session');
+      }
+    });
+
     return { ok: true, status: 'COMPLETED' };
   }
 
