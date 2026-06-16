@@ -104,7 +104,37 @@ export class DeviceService {
     return this.deviceRepo.findOne({ where: { id: deviceId } });
   }
 
-  async listByClient(clientId: string): Promise<MobileAttendanceDeviceEntity[]> {
-    return this.deviceRepo.find({ where: { clientId }, order: { createdAt: 'DESC' } });
+  async listByClient(clientId: string, branchIds: string[] = []): Promise<any[]> {
+    const params: unknown[] = [clientId];
+    let branchFilter = '';
+    if (branchIds.length > 0) {
+      params.push(branchIds);
+      branchFilter = ` AND branch_id = ANY($${params.length}::uuid[])`;
+    }
+
+    return this.dataSource.query(
+      `SELECT id,
+              client_id AS "clientId",
+              branch_id AS "branchId",
+              mode,
+              device_name AS "deviceLabel",
+              install_token AS "installToken",
+              NULL::numeric AS "geofenceLat",
+              NULL::numeric AS "geofenceLng",
+              NULL::integer AS "geofenceRadiusM",
+              created_at AS "registeredAt",
+              NULL::uuid AS "registeredBy",
+              last_seen_at AS "lastSeenAt",
+              NULL::timestamptz AS "lastPunchAt",
+              is_active AS "isActive",
+              revoked_at AS "revokedAt",
+              revoked_by AS "revokedBy",
+              NULL::uuid AS "essEmployeeId"
+       FROM mobile_attendance_devices
+       WHERE client_id = $1
+         ${branchFilter}
+       ORDER BY created_at DESC`,
+      params,
+    );
   }
 }
