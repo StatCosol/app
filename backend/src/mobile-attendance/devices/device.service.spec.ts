@@ -39,3 +39,72 @@ describe('DeviceService.listByClient', () => {
     );
   });
 });
+
+describe('DeviceService.revokeDevice', () => {
+  function makeService(query: jest.Mock) {
+    return new DeviceService({} as any, { query } as any);
+  }
+
+  it('revokes devices using snake_case columns without entity selects', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([
+        { column_name: 'id' },
+        { column_name: 'client_id' },
+        { column_name: 'is_active' },
+        { column_name: 'revoked_at' },
+        { column_name: 'revoked_by' },
+      ])
+      .mockResolvedValueOnce([{ id: 'device-1' }]);
+    const service = makeService(query);
+
+    await service.revokeDevice(
+      'client-1',
+      '00000000-0000-4000-8000-000000000001',
+      '00000000-0000-4000-8000-000000000002',
+    );
+
+    expect(query).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('"is_active" = false'),
+      [
+        '00000000-0000-4000-8000-000000000001',
+        'client-1',
+        '00000000-0000-4000-8000-000000000002',
+      ],
+    );
+    const sql = query.mock.calls[1][0] as string;
+    expect(sql).toContain('"revoked_at" = now()');
+    expect(sql).toContain('"revoked_by" = $3::uuid');
+    expect(sql).toContain(`to_jsonb(mobile_attendance_devices)->>'client_id'`);
+  });
+
+  it('falls back to camelCase device columns', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([
+        { column_name: 'id' },
+        { column_name: 'clientId' },
+        { column_name: 'isActive' },
+        { column_name: 'revokedAt' },
+      ])
+      .mockResolvedValueOnce([{ id: 'device-1' }]);
+    const service = makeService(query);
+
+    await service.revokeDevice(
+      'client-1',
+      '00000000-0000-4000-8000-000000000001',
+      'system:kiosk',
+    );
+
+    const sql = query.mock.calls[1][0] as string;
+    expect(sql).toContain('"isActive" = false');
+    expect(sql).toContain('"revokedAt" = now()');
+    expect(sql).not.toContain('revoked_by');
+    expect(sql).not.toContain('revokedBy');
+    expect(query.mock.calls[1][1]).toEqual([
+      '00000000-0000-4000-8000-000000000001',
+      'client-1',
+    ]);
+  });
+});
