@@ -1460,9 +1460,14 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     const body: CreateKioskEnrollTicketBody = {
       deviceId: this.kioskSelectedDeviceId,
       subjectType: this.kioskSubjectType,
-      subjectId: this.kioskSubjectId,
-      consentGiven: true,
+      subjectName: this.kioskSubjectName,
+      subjectCode: this.kioskSubjectCode ?? undefined,
     };
+    if (this.kioskSubjectType === 'EMPLOYEE') {
+      body.employeeId = this.kioskSubjectId;
+    } else {
+      body.contractorEmployeeId = this.kioskSubjectId;
+    }
     this.svc
       .createKioskEnrollTicket(body)
       .pipe(

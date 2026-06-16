@@ -182,6 +182,8 @@ describe('BranchFaceEnrollmentComponent kiosk-enroll flow', () => {
       });
       cmp.kioskSubjectType = 'EMPLOYEE';
       cmp.kioskSubjectId = 'emp-1';
+      cmp.kioskSubjectName = 'Alice';
+      cmp.kioskSubjectCode = 'E001';
       cmp.kioskSelectedDeviceId = 'd-1';
       cmp.kioskConsentGiven = true;
 
@@ -190,8 +192,9 @@ describe('BranchFaceEnrollmentComponent kiosk-enroll flow', () => {
       expect(create).toHaveBeenCalledWith({
         deviceId: 'd-1',
         subjectType: 'EMPLOYEE',
-        subjectId: 'emp-1',
-        consentGiven: true,
+        employeeId: 'emp-1',
+        subjectName: 'Alice',
+        subjectCode: 'E001',
       });
       expect(cmp.kioskActiveTicket).toEqual(ticket);
       expect(toast.success).toHaveBeenCalled();
@@ -302,7 +305,9 @@ describe('BranchFaceEnrollmentComponent kiosk-enroll flow', () => {
 
   describe('closeKioskModal', () => {
     it('refreshes enrollments only when ticket completed', () => {
-      const cmp = makeComponent();
+      const cmp = makeComponent({
+        svc: { listKioskEnrollTickets: vi.fn().mockReturnValue(of([])) },
+      });
       const reload = vi
         .spyOn(cmp as any, 'loadEnrollments')
         .mockImplementation(() => undefined);
