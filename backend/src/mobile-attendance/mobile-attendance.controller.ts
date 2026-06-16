@@ -91,7 +91,7 @@ export class MobileAttendanceEnrollmentController {
     return this.enrollmentService.enrollSelf(
       employeeId,
       clientId,
-      user?.branchId ?? null,
+      user?.branchIds?.[0] ?? null,
       dto,
       user.userId,
     );
@@ -105,7 +105,7 @@ export class MobileAttendanceEnrollmentController {
     if (!clientId) throw new BadRequestException('Client context required');
     return this.enrollmentService.createKioskTicket(
       clientId,
-      user?.branchId ?? null,
+      user?.branchIds?.[0] ?? null,
       dto,
       user.userId,
     );
