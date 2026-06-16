@@ -206,7 +206,11 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
         { column_name: 'is_active' },
       ])
       .mockResolvedValueOnce([{ id: deviceId }])
-      .mockResolvedValueOnce([{ hasHistory: false }]);
+      .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([{ hasHistory: false }])
+      .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([{ hasHistory: false }])
+      .mockResolvedValueOnce([{ exists: true }]);
     const txQuery = jest
       .fn()
       .mockResolvedValueOnce([])
@@ -230,7 +234,8 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
       expect.stringContaining('DELETE FROM kiosk_enroll_tickets'),
       [deviceId, clientId],
     );
-    expect(txQuery.mock.calls[0][0]).toContain(`status IN ('PENDING', 'CANCELLED', 'EXPIRED')`);
+    expect(txQuery.mock.calls[0][0]).toContain(`COALESCE(to_jsonb(k)->>'status', '') <> 'COMPLETED'`);
+    expect(txQuery.mock.calls[0][0]).not.toContain(`status IN`);
     expect(txQuery).toHaveBeenNthCalledWith(
       2,
       expect.stringContaining('DELETE FROM mobile_attendance_devices'),
@@ -295,6 +300,7 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
         { column_name: 'is_active' },
       ])
       .mockResolvedValueOnce([{ id: deviceId }])
+      .mockResolvedValueOnce([{ exists: true }])
       .mockResolvedValueOnce([{ hasHistory: true }]);
     const transaction = jest.fn();
     const service = makeService(query, transaction);
@@ -302,9 +308,9 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
     await expect(service.permanentlyDeleteDevice(clientId, deviceId)).rejects.toThrow(
       'attendance history',
     );
-    const historySql = query.mock.calls[2][0] as string;
+    const historySql = query.mock.calls[3][0] as string;
     expect(historySql).toContain('mobile_attendance_punches');
-    expect(historySql).toContain('contractor_biometric_punches');
+    expect(historySql).not.toContain('contractor_biometric_punches');
     expect(transaction).not.toHaveBeenCalled();
   });
 });
