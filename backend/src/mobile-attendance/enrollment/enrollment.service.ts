@@ -441,22 +441,50 @@ export class EnrollmentService {
     );
   }
 
-  async listContractorEnrollments(clientId: string): Promise<any[]> {
+  async listContractorEnrollments(clientId: string, branchIds: string[] = []): Promise<any[]> {
+    const params: unknown[] = [clientId];
+    let contractorBranchFilter = '';
+    let enrollmentBranchFilter = '';
+    if (branchIds.length > 0) {
+      params.push(branchIds);
+      contractorBranchFilter = ` AND ce.branch_id = ANY($${params.length}::uuid[])`;
+      enrollmentBranchFilter = ` AND cfe.branch_id = ANY($${params.length}::uuid[])`;
+    }
+
     return this.dataSource.query(
-      `SELECT cfe.contractor_employee_id AS "contractorEmployeeId",
-              cfe.branch_id              AS "branchId",
-              cfe.embedding_model        AS "embeddingModel",
-              cfe.photo_url              AS "photoUrl",
-              cfe.enrolled_at            AS "enrolledAt",
-              cfe.is_active              AS "isActive",
-              cfe.deactivated_at         AS "deactivatedAt",
-              cfe.deactivation_reason    AS "deactivationReason",
-              ce.name                    AS "employeeName"
-       FROM contractor_face_enrollments cfe
-       LEFT JOIN contractor_employees ce ON ce.id = cfe.contractor_employee_id
-       WHERE cfe.client_id = $1
-       ORDER BY cfe.enrolled_at DESC`,
-      [clientId],
+      `SELECT ce.id AS "contractorEmployeeId",
+              scoped.branch_id AS "branchId",
+              ce.contractor_user_id AS "contractorUserId",
+              cfe.embedding_model AS "embeddingModel",
+              cfe.photo_url AS "photoUrl",
+              cfe.enrolled_at AS "enrolledAt",
+              COALESCE(cfe.is_active, false) AS "isActive",
+              cfe.contractor_employee_id IS NOT NULL AS "isEnrolled",
+              cfe.deactivated_at AS "deactivatedAt",
+              cfe.deactivation_reason AS "deactivationReason",
+              ce.name AS "name"
+       FROM (
+         SELECT ce.id AS contractor_employee_id, ce.branch_id
+         FROM contractor_employees ce
+         WHERE ce.client_id = $1
+           AND ce.is_active = TRUE
+           ${contractorBranchFilter}
+         UNION
+         SELECT cfe.contractor_employee_id, cfe.branch_id
+         FROM contractor_face_enrollments cfe
+         WHERE cfe.client_id = $1
+           ${enrollmentBranchFilter}
+       ) scoped
+       JOIN contractor_employees ce
+         ON ce.id = scoped.contractor_employee_id
+        AND ce.client_id = $1
+       LEFT JOIN contractor_face_enrollments cfe
+         ON cfe.contractor_employee_id = scoped.contractor_employee_id
+        AND cfe.client_id = ce.client_id
+        AND cfe.branch_id IS NOT DISTINCT FROM scoped.branch_id
+       ORDER BY COALESCE(cfe.enrolled_at, TIMESTAMPTZ 'epoch') DESC,
+                ce.name ASC`,
+      params,
     );
   }
 

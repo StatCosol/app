@@ -205,7 +205,7 @@ export class MobileAttendanceEnrollmentController {
   listContractorEnrollments(@CurrentUser() user: ReqUser) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.enrollmentService.listContractorEnrollments(clientId);
+    return this.enrollmentService.listContractorEnrollments(clientId, user.branchIds ?? []);
   }
 
   @ApiOperation({ summary: 'Admin — cancel a kiosk enrollment ticket' })
