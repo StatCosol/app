@@ -68,6 +68,7 @@ import { PerformanceAppraisalModule } from './performance-appraisal/performance-
 import { AccountsBillingModule } from './accounts-billing/accounts-billing.module';
 import { ClientContactsModule } from './client-contacts/client-contacts.module';
 import { SalesModule } from './sales/sales.module';
+import { MobileAttendanceModule } from './mobile-attendance/mobile-attendance.module';
 
 @Module({
   imports: [
@@ -210,6 +211,7 @@ import { SalesModule } from './sales/sales.module';
     AccountsBillingModule,
     ClientContactsModule,
     SalesModule,
+    MobileAttendanceModule,
   ],
   controllers: [],
   providers: [
