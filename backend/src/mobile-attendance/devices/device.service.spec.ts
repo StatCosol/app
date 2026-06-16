@@ -16,6 +16,10 @@ describe('DeviceService.listByClient', () => {
       ['client-1'],
     );
     const sql = query.mock.calls[0][0] as string;
+    expect(sql).toContain(`to_jsonb(d)->>'clientId'`);
+    expect(sql).toContain(`to_jsonb(d)->>'client_id'`);
+    expect(sql).toContain(`to_jsonb(d)->>'branchId'`);
+    expect(sql).toContain(`to_jsonb(d)->>'branch_id'`);
     expect(sql).toContain(`to_jsonb(d)->>'device_label'`);
     expect(sql).toContain(`to_jsonb(d)->>'created_at'`);
     expect(sql).toContain(`to_jsonb(d)->>'last_seen_at'`);
@@ -30,7 +34,7 @@ describe('DeviceService.listByClient', () => {
     await service.listByClient('client-1', ['branch-1']);
 
     expect(query).toHaveBeenCalledWith(
-      expect.stringContaining('branch_id = ANY($2::uuid[])'),
+      expect.stringContaining(`COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') = ANY($2::text[])`),
       ['client-1', ['branch-1']],
     );
   });
