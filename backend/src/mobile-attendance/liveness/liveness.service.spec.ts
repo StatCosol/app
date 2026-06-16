@@ -1,0 +1,54 @@
+import { LivenessService } from './liveness.service';
+
+describe('LivenessService', () => {
+  const originalEnv = process.env.FACE_LIVENESS_CHALLENGE_TYPES;
+
+  const makeService = () => {
+    const nonceRepo = {
+      create: jest.fn((entity) => entity),
+      save: jest.fn(async (entity) => entity),
+    };
+    const dataSource = { query: jest.fn() };
+    const service = new LivenessService(nonceRepo as any, dataSource as any);
+    return { service, nonceRepo };
+  };
+
+  afterEach(() => {
+    if (originalEnv === undefined) {
+      delete process.env.FACE_LIVENESS_CHALLENGE_TYPES;
+    } else {
+      process.env.FACE_LIVENESS_CHALLENGE_TYPES = originalEnv;
+    }
+    jest.restoreAllMocks();
+  });
+
+  it('issues blink-only challenges by default for kiosk APK compatibility', async () => {
+    delete process.env.FACE_LIVENESS_CHALLENGE_TYPES;
+    const { service, nonceRepo } = makeService();
+
+    const challenge = await service.issueChallenge('device-1');
+
+    expect(challenge.challengeType).toBe('BLINK');
+    expect(nonceRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ deviceId: 'device-1', challengeType: 'BLINK' }),
+    );
+  });
+
+  it('allows an explicit challenge-type list for future app builds', async () => {
+    process.env.FACE_LIVENESS_CHALLENGE_TYPES = 'SMILE';
+    const { service } = makeService();
+
+    const challenge = await service.issueChallenge('device-1');
+
+    expect(challenge.challengeType).toBe('SMILE');
+  });
+
+  it('ignores invalid env values and falls back to blink', async () => {
+    process.env.FACE_LIVENESS_CHALLENGE_TYPES = 'LEFT,TURN,';
+    const { service } = makeService();
+
+    const challenge = await service.issueChallenge('device-1');
+
+    expect(challenge.challengeType).toBe('BLINK');
+  });
+});
