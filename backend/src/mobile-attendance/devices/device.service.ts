@@ -316,11 +316,16 @@ export class DeviceService {
   }
 
   private async getDeviceColumns(): Promise<Set<string>> {
+    return this.getTableColumns('mobile_attendance_devices');
+  }
+
+  private async getTableColumns(tableName: string): Promise<Set<string>> {
     const rows = await this.dataSource.query<Array<{ column_name: string }>>(
       `SELECT column_name
          FROM information_schema.columns
         WHERE table_schema = current_schema()
-          AND table_name = 'mobile_attendance_devices'`,
+          AND table_name = $1`,
+      [tableName],
     );
     return new Set(rows.map((row) => row.column_name));
   }
@@ -340,10 +345,15 @@ export class DeviceService {
 
   private async deleteNonCompletedKioskTickets(deviceId: string, clientId: string): Promise<void> {
     if (!(await this.tableExists('kiosk_enroll_tickets'))) return;
+    const columns = await this.getTableColumns('kiosk_enroll_tickets');
+    const deviceCol = this.pickColumn(columns, 'device_id', 'deviceId');
+    const clientCol = this.pickColumn(columns, 'client_id', 'clientId');
+    if (!deviceCol || !clientCol) return;
+
     await this.dataSource.query(
       `DELETE FROM kiosk_enroll_tickets k
-        WHERE device_id = $1::uuid
-          AND client_id = $2::uuid
+        WHERE ${this.quoteIdentifier(deviceCol)}::text = $1
+          AND ${this.quoteIdentifier(clientCol)}::text = $2
           AND COALESCE(to_jsonb(k)->>'status', '') <> 'COMPLETED'`,
       [deviceId, clientId],
     );
@@ -356,9 +366,9 @@ export class DeviceService {
     branchFilter: string,
   ): Promise<void> {
     const columns = await this.getDeviceColumns();
-    this.requireColumn(columns, 'deleted_at', 'deletedAt');
+    const deletedAtCol = this.requireColumn(columns, 'deleted_at', 'deletedAt');
     const isActiveCol = this.pickColumn(columns, 'is_active', 'isActive');
-    const assignments = ['deleted_at = now()'];
+    const assignments = [`${this.quoteIdentifier(deletedAtCol)} = now()`];
     if (isActiveCol) assignments.push(`${this.quoteIdentifier(isActiveCol)} = false`);
 
     const result = await this.dataSource.query<Array<{ id: string }>>(
@@ -378,12 +388,17 @@ export class DeviceService {
     const tables = ['mobile_attendance_punches', 'contractor_biometric_punches'];
     for (const table of tables) {
       if (!(await this.tableExists(table))) continue;
+      const columns = await this.getTableColumns(table);
+      const deviceCol = this.pickColumn(columns, 'device_id', 'deviceId');
+      const clientCol = this.pickColumn(columns, 'client_id', 'clientId');
+      if (!deviceCol || !clientCol) continue;
+
       const rows = await this.dataSource.query<Array<{ hasHistory: boolean }>>(
         `SELECT EXISTS (
            SELECT 1
              FROM ${this.quoteIdentifier(table)}
-            WHERE device_id = $1::uuid
-              AND client_id = $2::uuid
+            WHERE ${this.quoteIdentifier(deviceCol)}::text = $1
+              AND ${this.quoteIdentifier(clientCol)}::text = $2
          ) AS "hasHistory"`,
         [deviceId, clientId],
       );
