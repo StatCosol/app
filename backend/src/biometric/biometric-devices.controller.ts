@@ -17,7 +17,10 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
 import { BiometricDeviceEntity } from './entities/biometric-device.entity';
-import { RegisterDeviceDto, UpdateDeviceDto } from './biometric-devices.dto';
+import {
+  RegisterBiometricDeviceDto,
+  UpdateDeviceDto,
+} from './biometric-devices.dto';
 
 @ApiTags('Biometric Devices')
 @ApiBearerAuth('JWT')
@@ -46,7 +49,7 @@ export class BiometricDevicesController {
   @Post()
   async register(
     @CurrentUser() user: ReqUser,
-    @Body() body: RegisterDeviceDto,
+    @Body() body: RegisterBiometricDeviceDto,
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
