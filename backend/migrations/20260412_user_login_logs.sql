@@ -4,7 +4,7 @@
 
 CREATE TABLE IF NOT EXISTS user_login_logs (
   id            uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id       uuid        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id       uuid        REFERENCES users(id) ON DELETE SET NULL,
   email         varchar(180) NOT NULL,
   role_code     varchar(50)  NOT NULL,
   client_id     uuid,

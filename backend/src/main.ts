@@ -152,7 +152,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api', {
     exclude: [
       { path: 'iclock', method: RequestMethod.ALL },
-      { path: 'iclock/(.*)', method: RequestMethod.ALL },
+      { path: 'iclock/*path', method: RequestMethod.ALL },
     ],
   });
 

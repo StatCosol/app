@@ -6,7 +6,7 @@ import {
   MaxLength,
 } from 'class-validator';
 
-export class RegisterDeviceDto {
+export class RegisterBiometricDeviceDto {
   @IsString()
   @MaxLength(80)
   serialNumber: string;
