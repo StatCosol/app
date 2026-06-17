@@ -17,6 +17,7 @@ jest.mock('bcryptjs', () => ({ compare: jest.fn().mockResolvedValue(true) }));
 describe('AuthService.login', () => {
   let service: AuthService;
   let usersRepo: Repository<UserEntity> & { __qb?: any };
+  let loginLogRepo: { insert: jest.Mock };
 
   beforeEach(async () => {
     const qb: any = {
@@ -32,6 +33,8 @@ describe('AuthService.login', () => {
       createQueryBuilder: jest.fn().mockReturnValue(qb),
     } as any;
 
+    loginLogRepo = { insert: jest.fn().mockResolvedValue(undefined) };
+
     const moduleRef = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -41,7 +44,7 @@ describe('AuthService.login', () => {
         { provide: getRepositoryToken(RoleEntity), useValue: {} },
         {
           provide: getRepositoryToken(UserLoginLogEntity),
-          useValue: { insert: jest.fn().mockResolvedValue(undefined) },
+          useValue: loginLogRepo,
         },
         {
           provide: getRepositoryToken(RefreshTokenEntity),
@@ -105,5 +108,22 @@ describe('AuthService.login', () => {
     await expect(
       service.login({ email: 'test@example.com', password: 'x' } as any),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('logs unknown-user failures without a fake user id', async () => {
+    usersRepo.__qb.getOne.mockResolvedValue(null);
+
+    await expect(
+      service.login({ email: 'missing@example.com', password: 'x' } as any),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(loginLogRepo.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: null,
+        email: 'missing@example.com',
+        status: 'FAILED',
+        failureReason: 'NOT_FOUND',
+      }),
+    );
   });
 });

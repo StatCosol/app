@@ -627,7 +627,7 @@ export class AuthService implements OnModuleInit {
   ) {
     this.loginLogRepo
       .insert({
-        userId: userId ?? '00000000-0000-0000-0000-000000000000',
+        userId: userId ?? null,
         email,
         roleCode: roleCode ?? 'UNKNOWN',
         clientId: clientId ?? null,

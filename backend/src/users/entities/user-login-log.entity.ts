@@ -12,8 +12,8 @@ export class UserLoginLogEntity {
   id: string;
 
   @Index('idx_ull_user_id')
-  @Column({ type: 'uuid', name: 'user_id' })
-  userId: string;
+  @Column({ type: 'uuid', name: 'user_id', nullable: true })
+  userId: string | null;
 
   @Column({ type: 'varchar', length: 180 })
   email: string;
