@@ -197,6 +197,12 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
     return new DeviceService({} as any, { query, transaction } as any);
   }
 
+  function findSqlCall(query: jest.Mock, text: string) {
+    const call = query.mock.calls.find(([sql]) => String(sql).includes(text));
+    expect(call).toBeDefined();
+    return call!;
+  }
+
   it('deletes a revoked device and clears stale kiosk tickets first', async () => {
     const query = jest
       .fn()
@@ -208,10 +214,23 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
       ])
       .mockResolvedValueOnce([{ id: deviceId }])
       .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'device_id' },
+        { column_name: 'client_id' },
+        { column_name: 'status' },
+      ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'device_id' },
+        { column_name: 'client_id' },
+      ])
       .mockResolvedValueOnce([{ hasHistory: false }])
       .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'device_id' },
+        { column_name: 'client_id' },
+      ])
       .mockResolvedValueOnce([{ hasHistory: false }]);
     const txQuery = jest.fn().mockResolvedValueOnce([{ id: deviceId }]);
     const transaction = jest.fn(async (cb) => cb({ query: txQuery }));
@@ -228,10 +247,12 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
     expect(query.mock.calls[1][0]).toContain(
       `COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') = ANY($3::text[])`,
     );
-    expect(query.mock.calls[3][0]).toContain(`DELETE FROM kiosk_enroll_tickets`);
-    expect(query.mock.calls[3][0]).toContain(`COALESCE(to_jsonb(k)->>'status', '') <> 'COMPLETED'`);
-    expect(query.mock.calls[3][0]).not.toContain(`status IN`);
-    expect(query.mock.calls[3][1]).toEqual([deviceId, clientId]);
+    const ticketDelete = findSqlCall(query, 'DELETE FROM kiosk_enroll_tickets');
+    expect(ticketDelete[0]).toContain(`"device_id"::text = $1`);
+    expect(ticketDelete[0]).toContain(`"client_id"::text = $2`);
+    expect(ticketDelete[0]).toContain(`COALESCE(to_jsonb(k)->>'status', '') <> 'COMPLETED'`);
+    expect(ticketDelete[0]).not.toContain(`status IN`);
+    expect(ticketDelete[1]).toEqual([deviceId, clientId]);
     expect(txQuery).toHaveBeenNthCalledWith(
       1,
       expect.stringContaining('DELETE FROM mobile_attendance_devices'),
@@ -253,8 +274,17 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
       ])
       .mockResolvedValueOnce([{ id: deviceId }])
       .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'device_id' },
+        { column_name: 'client_id' },
+        { column_name: 'status' },
+      ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'device_id' },
+        { column_name: 'client_id' },
+      ])
       .mockResolvedValueOnce([{ hasHistory: true }])
       .mockResolvedValueOnce([
         { column_name: 'id' },
@@ -270,12 +300,8 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
       ok: true,
       id: deviceId,
     });
-    expect(query).toHaveBeenNthCalledWith(
-      4,
-      expect.stringContaining('DELETE FROM kiosk_enroll_tickets'),
-      [deviceId, clientId],
-    );
-    expect(query.mock.calls[7][0]).toContain('deleted_at = now()');
+    expect(findSqlCall(query, 'DELETE FROM kiosk_enroll_tickets')[1]).toEqual([deviceId, clientId]);
+    expect(findSqlCall(query, 'UPDATE mobile_attendance_devices')[0]).toContain('"deleted_at" = now()');
     expect(transaction).not.toHaveBeenCalled();
   });
 
@@ -334,8 +360,17 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
       ])
       .mockResolvedValueOnce([{ id: deviceId }])
       .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'device_id' },
+        { column_name: 'client_id' },
+        { column_name: 'status' },
+      ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'device_id' },
+        { column_name: 'client_id' },
+      ])
       .mockResolvedValueOnce([{ hasHistory: true }])
       .mockResolvedValueOnce([
         { column_name: 'id' },
@@ -351,10 +386,10 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
       ok: true,
       id: deviceId,
     });
-    const historySql = query.mock.calls[5][0] as string;
+    const historySql = findSqlCall(query, 'FROM "mobile_attendance_punches"')[0] as string;
     expect(historySql).toContain('mobile_attendance_punches');
     expect(historySql).not.toContain('contractor_biometric_punches');
-    expect(query.mock.calls[7][0]).toContain('deleted_at = now()');
+    expect(findSqlCall(query, 'UPDATE mobile_attendance_devices')[0]).toContain('"deleted_at" = now()');
     expect(transaction).not.toHaveBeenCalled();
   });
 
@@ -368,10 +403,23 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
       ])
       .mockResolvedValueOnce([{ id: deviceId }])
       .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'device_id' },
+        { column_name: 'client_id' },
+        { column_name: 'status' },
+      ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'device_id' },
+        { column_name: 'client_id' },
+      ])
       .mockResolvedValueOnce([{ hasHistory: false }])
       .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'device_id' },
+        { column_name: 'client_id' },
+      ])
       .mockResolvedValueOnce([{ hasHistory: false }])
       .mockResolvedValueOnce([
         { column_name: 'id' },
@@ -388,6 +436,51 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
       ok: true,
       id: deviceId,
     });
-    expect(query.mock.calls[9][0]).toContain('deleted_at = now()');
+    expect(findSqlCall(query, 'UPDATE mobile_attendance_devices')[0]).toContain('"deleted_at" = now()');
+  });
+
+  it('supports camelCase legacy columns while hiding revoked devices', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([
+        { column_name: 'id' },
+        { column_name: 'clientId' },
+        { column_name: 'isActive' },
+      ])
+      .mockResolvedValueOnce([{ id: deviceId }])
+      .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'deviceId' },
+        { column_name: 'clientId' },
+        { column_name: 'status' },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'deviceId' },
+        { column_name: 'clientId' },
+      ])
+      .mockResolvedValueOnce([{ hasHistory: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'id' },
+        { column_name: 'clientId' },
+        { column_name: 'isActive' },
+        { column_name: 'deletedAt' },
+      ])
+      .mockResolvedValueOnce([{ id: deviceId }]);
+    const transaction = jest.fn();
+    const service = makeService(query, transaction);
+
+    await expect(service.permanentlyDeleteDevice(clientId, deviceId)).resolves.toEqual({
+      ok: true,
+      id: deviceId,
+    });
+
+    expect(findSqlCall(query, 'DELETE FROM kiosk_enroll_tickets')[0]).toContain('"deviceId"::text = $1');
+    expect(findSqlCall(query, 'FROM "mobile_attendance_punches"')[0]).toContain('"clientId"::text = $2');
+    const softDeleteSql = findSqlCall(query, 'UPDATE mobile_attendance_devices')[0] as string;
+    expect(softDeleteSql).toContain('"deletedAt" = now()');
+    expect(softDeleteSql).toContain('"isActive" = false');
+    expect(transaction).not.toHaveBeenCalled();
   });
 });
