@@ -496,10 +496,23 @@ interface BranchOption { id: string; name: string }
     <!-- Show install token after creation -->
     <ui-modal *ngIf="tokenModal" [isOpen]="tokenModal" [showFooter]="false" title="Install Token" (closed)="tokenModal = false">
       <div class="space-y-3 text-sm">
-        <p class="text-gray-700">Paste this 64-character token into the Android app on the device. It will not be displayed again — copy it now.</p>
-        <div class="bg-gray-50 border border-gray-200 rounded p-3 font-mono text-xs break-all select-all">{{ tokenToShow }}</div>
+        <p class="text-gray-700">Paste this 64-character token into the Android app on the device. Copy the full token before closing this window.</p>
+        <div class="flex items-center justify-between text-xs text-gray-500">
+          <span>Token length: {{ tokenLength }}/64</span>
+          <span *ngIf="tokenLength === 64" class="text-green-700 font-medium">Ready to paste</span>
+          <span *ngIf="tokenLength !== 64" class="text-red-700 font-medium">Create a new device token</span>
+        </div>
+        <div
+          class="bg-gray-50 border border-gray-200 rounded p-3 font-mono text-sm leading-6 break-words select-all"
+          [class.border-red-300]="tokenLength !== 64"
+          [class.bg-red-50]="tokenLength !== 64">
+          {{ formattedTokenToShow }}
+        </div>
+        <p *ngIf="tokenLength !== 64" class="text-xs text-red-700">
+          This token is not 64 characters, so the Android app will reject it. Delete this device and register a new KIOSK device.
+        </p>
         <div class="flex justify-end gap-2">
-          <ui-button variant="secondary" (clicked)="copyToken()">Copy</ui-button>
+          <ui-button variant="secondary" (clicked)="copyToken()">Copy full token</ui-button>
           <ui-button variant="primary" (clicked)="tokenModal = false">Done</ui-button>
         </div>
       </div>
@@ -550,6 +563,14 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   // Token reveal
   tokenModal = false;
   tokenToShow = '';
+
+  get tokenLength(): number {
+    return this.tokenToShow?.length || 0;
+  }
+
+  get formattedTokenToShow(): string {
+    return (this.tokenToShow || '').match(/.{1,8}/g)?.join(' ') || '';
+  }
 
   // Branches + Employees
   branches: BranchOption[] = [];
