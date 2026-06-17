@@ -11,7 +11,7 @@ import { timeout, catchError, finalize, takeUntil } from 'rxjs/operators';
 import {
   PageHeaderComponent, ActionButtonComponent,
   LoadingSpinnerComponent, DataTableComponent, TableCellDirective,
-  StatusBadgeComponent, TableColumn,
+  StatusBadgeComponent, TableColumn, KpiTileComponent,
 } from '../../shared/ui';
 
 @Component({
@@ -20,7 +20,7 @@ import {
   imports: [
     CommonModule, FormsModule, PageHeaderComponent, ActionButtonComponent,
     LoadingSpinnerComponent, DataTableComponent,
-    TableCellDirective, StatusBadgeComponent,
+    TableCellDirective, StatusBadgeComponent, KpiTileComponent,
   ],
   templateUrl: './admin-reports.component.html',
   styleUrls: ['./admin-reports.component.scss'],

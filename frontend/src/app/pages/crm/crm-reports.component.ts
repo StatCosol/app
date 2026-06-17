@@ -7,12 +7,12 @@ import { ReportsService } from '../../core/reports.service';
 import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
 import { CrmClientsApi } from '../../core/api/crm-clients.api';
-import { PageHeaderComponent, LoadingSpinnerComponent, StatusBadgeComponent, ActionButtonComponent } from '../../shared/ui';
+import { PageHeaderComponent, LoadingSpinnerComponent, StatusBadgeComponent, ActionButtonComponent, KpiTileComponent } from '../../shared/ui';
 
 @Component({
   selector: 'app-crm-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, StatusBadgeComponent, ActionButtonComponent],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, StatusBadgeComponent, ActionButtonComponent, KpiTileComponent],
   templateUrl: './crm-reports.component.html',
   styleUrls: ['./crm-reports.component.scss'],
 })

@@ -52,3 +52,7 @@ export { BranchAuditKpiComponent } from './branch-audit-kpi/branch-audit-kpi.com
 // Client Context Strip
 export { ClientContextStripComponent } from './client-context-strip/client-context-strip.component';
 export type { ContextBadge } from './client-context-strip/client-context-strip.component';
+
+// KPI Tile
+export { KpiTileComponent } from './kpi-tile/kpi-tile.component';
+export type { KpiTileColor } from './kpi-tile/kpi-tile.component';

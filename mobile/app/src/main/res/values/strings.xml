@@ -15,7 +15,9 @@
     <string name="setup_token_expired">This install token has expired. Please create a new mobile attendance device code in the web portal.</string>
     <string name="setup_update_app_required">This app build is old and cannot send the required device identity. Please install the latest APK.</string>
     <string name="setup_registration_failed">Device registration failed. Please check network and try again.</string>
+    <string name="setup_registration_failed_with_code">Device registration failed. Server returned HTTP %1$d.</string>
     <string name="setup_registration_network_failed">Device registration failed. Check internet and API base: %1$s</string>
+    <string name="setup_error_with_token_hint">%1$s\n\nLength: %2$d / 64\nToken: %3$s</string>
 
     <string name="kiosk_look_at_camera">Look at the camera to mark attendance</string>
     <string name="kiosk_match_low">Face not recognised — please try again</string>

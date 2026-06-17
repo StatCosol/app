@@ -43,7 +43,7 @@
               <p class="text-sm font-medium text-gray-900">{{ c.name }}</p>
               <p class="text-xs text-gray-500">Score {{ c.score }} · Upload {{ uploadPercentDisplay(c.uploadPercent) }}</p>
             </div>
-            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700">{{ c.score }}</span>
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700">{{ c.score }}</span>
           </div>
           <div *ngIf="!branchView?.top10HighestInBranch?.length" class="px-4 py-6 text-sm text-gray-500 text-center">No data</div>
         </div>
@@ -56,7 +56,7 @@
               <p class="text-sm font-medium text-gray-900">{{ c.name }}</p>
               <p class="text-xs text-gray-500">Score {{ c.score }} · Upload {{ uploadPercentDisplay(c.uploadPercent) }}</p>
             </div>
-            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">{{ c.score }}</span>
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">{{ c.score }}</span>
           </div>
           <div *ngIf="!branchView?.top10LowestInBranch?.length" class="px-4 py-6 text-sm text-gray-500 text-center">No data</div>
         </div>

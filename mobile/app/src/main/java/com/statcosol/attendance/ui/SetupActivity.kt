@@ -16,6 +16,7 @@ import com.statcosol.attendance.api.ApiException
 import com.statcosol.attendance.api.RegisterDeviceRequest
 import com.statcosol.attendance.prefs.DeviceConfig
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class SetupActivity : AppCompatActivity() {
 
@@ -48,7 +49,10 @@ class SetupActivity : AppCompatActivity() {
     }
 
     private fun attemptRegistration() {
-        val token = etToken.text.toString().replace(Regex("\\s+"), "").trim()
+        val token = etToken.text.toString()
+            .replace(Regex("\\s+"), "")
+            .trim()
+            .lowercase(Locale.US)
         val apiBase = normalizeApiBase(etApiBase.text.toString())
 
         if (!token.matches(Regex("[0-9a-fA-F]{64}"))) {
@@ -90,13 +94,20 @@ class SetupActivity : AppCompatActivity() {
             } catch (e: ApiException) {
                 setLoading(false)
                 val msg = when (e.code) {
-                    401, 403 -> getString(R.string.setup_invalid_device_token)
+                    400 -> getString(R.string.setup_invalid_token, token.length)
+                    401, 403 -> getString(R.string.setup_token_revoked)
+                    404 -> getString(R.string.setup_invalid_device_token)
                     409 -> getString(R.string.setup_token_already_used)
                     410 -> getString(R.string.setup_token_expired)
                     426 -> getString(R.string.setup_update_app_required)
-                    else -> getString(R.string.setup_registration_failed)
+                    else -> getString(R.string.setup_registration_failed_with_code, e.code)
                 }
-                tvError.text = msg
+                tvError.text = getString(
+                    R.string.setup_error_with_token_hint,
+                    msg,
+                    token.length,
+                    tokenFingerprint(token),
+                )
                 tvError.visibility = View.VISIBLE
             } catch (e: Exception) {
                 setLoading(false)
@@ -121,6 +132,12 @@ class SetupActivity : AppCompatActivity() {
         } else {
             withScheme
         }
+    }
+
+    private fun tokenFingerprint(token: String): String {
+        if (token.isBlank()) return "-"
+        if (token.length <= 12) return token
+        return "${token.take(6)}...${token.takeLast(6)}"
     }
 
     private fun navigateToMain() {

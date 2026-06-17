@@ -30,6 +30,7 @@ import {
   FormSelectComponent,
   FormInputComponent,
   SelectOption,
+  KpiTileComponent,
 } from '../../shared/ui';
 
 type Range = '7d' | '30d' | '90d';
@@ -52,6 +53,7 @@ type Range = '7d' | '30d' | '90d';
     FormInputComponent,
     LowestBranchesComponent,
     RiskRankingComponent,
+    KpiTileComponent,
   ],
   templateUrl: './admin-dashboard.component.html',
   styleUrls: ['./admin-dashboard.component.scss'],

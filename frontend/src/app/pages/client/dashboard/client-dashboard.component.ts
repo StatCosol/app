@@ -26,6 +26,7 @@ import {
 import { AiRiskApi, AiRiskBranchResponse } from '../../../core/api/ai-risk.api';
 import { AiRiskScoreComponent } from '../../../shared/ui/ai-risk-score/ai-risk-score.component';
 import { BranchAuditKpiComponent } from '../../../shared/ui/branch-audit-kpi/branch-audit-kpi.component';
+import { KpiTileComponent } from '../../../shared/ui';
 import {
   BranchComplianceDocService,
   LowestBranch,
@@ -52,7 +53,7 @@ type ChartKey =
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-client-dashboard',
-  imports: [CommonModule, FormsModule, RouterModule, AiRiskScoreComponent, BranchAuditKpiComponent, ComplianceCalendarWidgetComponent, ComplianceNotificationCenterComponent, FaceFailuresWidgetComponent],
+  imports: [CommonModule, FormsModule, RouterModule, AiRiskScoreComponent, BranchAuditKpiComponent, ComplianceCalendarWidgetComponent, ComplianceNotificationCenterComponent, FaceFailuresWidgetComponent, KpiTileComponent],
   templateUrl: './client-dashboard.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-dashboard.component.scss'],
 })

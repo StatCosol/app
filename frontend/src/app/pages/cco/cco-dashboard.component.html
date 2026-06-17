@@ -36,57 +36,29 @@
   </div>
   <!-- KPI Grid -->
   <div class="kpi-cards-grid">
-    <!-- Pending Approvals -->
-    <div class="kpi-tile kpi-tile--amber cursor-pointer" (click)="goToApprovals()">
-      <div class="kpi-tile__icon" style="background:#fef3c7">
-        <svg width="24" height="24" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-      </div>
-      <div class="kpi-tile__body">
-        <div class="kpi-tile__label">Pending Approvals</div>
-        <div class="kpi-tile__value">{{ data.pendingApprovals }}</div>
-      </div>
-    </div>
+    <ui-kpi-tile label="Pending Approvals" [value]="data.pendingApprovals" color="amber" (tileClick)="goToApprovals()">
+      <svg slot="icon" width="24" height="24" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </ui-kpi-tile>
 
-    <!-- Total CRMs -->
-    <div class="kpi-tile kpi-tile--blue cursor-pointer" (click)="goToCrms()">
-      <div class="kpi-tile__icon" style="background:#dbeafe">
-        <svg width="24" height="24" fill="none" stroke="#3b82f6" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
-        </svg>
-      </div>
-      <div class="kpi-tile__body">
-        <div class="kpi-tile__label">Total CRMs</div>
-        <div class="kpi-tile__value">{{ data.totalCrms }}</div>
-      </div>
-    </div>
+    <ui-kpi-tile label="Total CRMs" [value]="data.totalCrms" color="blue" (tileClick)="goToCrms()">
+      <svg slot="icon" width="24" height="24" fill="none" stroke="#3b82f6" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+      </svg>
+    </ui-kpi-tile>
 
-    <!-- Overdue Tasks -->
-    <div class="kpi-tile kpi-tile--red cursor-pointer" (click)="goToOverdueList()">
-      <div class="kpi-tile__icon" style="background:#fee2e2">
-        <svg width="24" height="24" fill="none" stroke="#ef4444" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-        </svg>
-      </div>
-      <div class="kpi-tile__body">
-        <div class="kpi-tile__label">Overdue Tasks</div>
-        <div class="kpi-tile__value text-red-600">{{ data.overdueTasks }}</div>
-      </div>
-    </div>
+    <ui-kpi-tile label="Overdue Tasks" [value]="data.overdueTasks" color="red" valueColor="red" (tileClick)="goToOverdueList()">
+      <svg slot="icon" width="24" height="24" fill="none" stroke="#ef4444" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      </svg>
+    </ui-kpi-tile>
 
-    <!-- Escalations -->
-    <div class="kpi-tile kpi-tile--purple">
-      <div class="kpi-tile__icon" style="background:#ede9fe">
-        <svg width="24" height="24" fill="none" stroke="#8b5cf6" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-        </svg>
-      </div>
-      <div class="kpi-tile__body">
-        <div class="kpi-tile__label">Escalations</div>
-        <div class="kpi-tile__value">{{ data.escalations }}</div>
-      </div>
-    </div>
+    <ui-kpi-tile label="Escalations" [value]="data.escalations" color="violet">
+      <svg slot="icon" width="24" height="24" fill="none" stroke="#8b5cf6" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+      </svg>
+    </ui-kpi-tile>
   </div>
 
   <!-- Row 2: CRM Team Performance -->

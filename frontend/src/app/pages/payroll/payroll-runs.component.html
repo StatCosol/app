@@ -462,14 +462,14 @@
           <div class="actions-title">Payroll Preview Employees</div>
           <div class="emp-preview-actions">
             <button
-              class="btn-download-payheet"
+              class="btn-outline-sm"
               type="button"
               (click)="downloadPayheetCsv()"
               [disabled]="!runEmployees.length"
-              title="Download the payheet as CSV">
+              title="Download the paysheet as CSV">
               ⬇ Download CSV
             </button>
-            <button class="btn-add-emp" (click)="toggleAddEmployeePanel()" [disabled]="addEmpBusy">
+            <button class="btn-primary-sm" (click)="toggleAddEmployeePanel()" [disabled]="addEmpBusy">
               {{ showAddEmployeePanel ? '✕ Close' : '+ Add Employee' }}
             </button>
           </div>

@@ -11,8 +11,8 @@
       <div *ngFor="let s of [1,2,3,4]" class="skeleton skeleton--card"></div>
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-      <div class="skeleton skeleton--card lg:col-span-1" style="height:10rem"></div>
-      <div class="skeleton skeleton--card lg:col-span-2" style="height:10rem"></div>
+      <div class="skeleton skeleton--card lg:col-span-1" class="h-40"></div>
+      <div class="skeleton skeleton--card lg:col-span-2" class="h-40"></div>
     </div>
   </ng-container>
 
@@ -398,7 +398,7 @@
       </div>
 
       <!-- Bar Chart -->
-      <div class="flex items-end gap-2 h-40 mb-4" style="min-height: 10rem;">
+      <div class="flex items-end gap-2 h-40 mb-4">
         <div *ngFor="let pt of scoreTrend" class="flex-1 flex flex-col items-center gap-1">
           <span class="text-xs font-bold" [ngClass]="getScoreTextColor(pt.score)">{{ pt.score }}</span>
           <div class="w-full rounded-t-md transition-all duration-300"
@@ -440,7 +440,7 @@
     </div>
 
     <!-- Task Center Section -->
-    <div class="mt-6 bg-white rounded-lg border border-gray-200 p-4">
+    <div class="mt-6 bg-white rounded-2xl border border-gray-200 p-4">
       <h3 class="text-base font-semibold text-gray-800 mb-3">System Tasks</h3>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <div class="rounded bg-blue-50 p-2 text-center">
