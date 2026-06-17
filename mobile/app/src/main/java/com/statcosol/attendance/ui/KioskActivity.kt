@@ -360,7 +360,9 @@ class KioskActivity : AppCompatActivity() {
         punchInFlight = false
         runOnUiThread {
             tvHint.text = getString(R.string.kiosk_look_at_camera)
-            tvStatus.text = ""
+            if (tvStatus !== tvHint) {
+                tvStatus.text = ""
+            }
         }
     }
 
