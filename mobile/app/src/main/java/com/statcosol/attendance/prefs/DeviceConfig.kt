@@ -34,6 +34,6 @@ class DeviceConfig(context: Context) {
         private const val KEY_DEVICE_TOKEN = "device_token"
         private const val KEY_INSTALL_TOKEN = "install_token"
         private const val KEY_DEVICE_MODE = "device_mode"
-        private const val DEFAULT_API_BASE = "https://app.statcosolutions.com"
+        private const val DEFAULT_API_BASE = "https://app.statcosol.com"
     }
 }

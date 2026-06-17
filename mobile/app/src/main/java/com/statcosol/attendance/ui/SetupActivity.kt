@@ -49,7 +49,7 @@ class SetupActivity : AppCompatActivity() {
 
     private fun attemptRegistration() {
         val token = etToken.text.toString().trim()
-        val apiBase = etApiBase.text.toString().trim()
+        val apiBase = normalizeApiBase(etApiBase.text.toString())
 
         if (!token.matches(Regex("[0-9a-fA-F]{64}"))) {
             tvError.text = getString(R.string.setup_invalid_token)
@@ -62,6 +62,7 @@ class SetupActivity : AppCompatActivity() {
 
         if (apiBase.isNotBlank()) {
             config.apiBase = apiBase
+            etApiBase.setText(apiBase)
         }
         config.installToken = token
 
@@ -99,9 +100,26 @@ class SetupActivity : AppCompatActivity() {
                 tvError.visibility = View.VISIBLE
             } catch (e: Exception) {
                 setLoading(false)
-                tvError.text = getString(R.string.setup_registration_failed)
+                tvError.text = getString(R.string.setup_registration_network_failed, config.apiBase)
                 tvError.visibility = View.VISIBLE
             }
+        }
+    }
+
+    private fun normalizeApiBase(raw: String): String {
+        val trimmed = raw.trim().trimEnd('/')
+        if (trimmed.isBlank()) return ""
+        val withScheme = if (trimmed.startsWith("http://", ignoreCase = true) ||
+            trimmed.startsWith("https://", ignoreCase = true)
+        ) {
+            trimmed
+        } else {
+            "https://$trimmed"
+        }
+        return if (withScheme.equals("http://app.statcosol.com", ignoreCase = true)) {
+            "https://app.statcosol.com"
+        } else {
+            withScheme
         }
     }
 
