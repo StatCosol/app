@@ -395,6 +395,10 @@ canvas {
 
   /* ===========================
      Cards - Premium styling
+     Border-radius convention:
+       rounded-2xl (1rem)  â€” main content cards (.card), standalone panels
+       rounded-xl  (0.75rem) â€” section panels inside pages, modal dialogs, table wrappers
+       rounded-lg  (0.5rem) â€” mini-cards, inner elements, form inputs, badges
      =========================== */
   .card {
     @apply bg-white rounded-2xl p-6 shadow-card;
@@ -947,7 +951,7 @@ svg {
 
 
 /* =========================================================================
-   ESS Portal — Mobile / WebView responsive overrides
+   ESS Portal ï¿½ Mobile / WebView responsive overrides
    Scoped to <app-ess-layout> so admin/CRM/branch/auditor portals are unaffected.
    These rules make every ESS page usable inside the Statco ESS Android APK
    (WebView wrapper) and on small browser windows.
@@ -973,7 +977,7 @@ svg {
 
     /* Tables become horizontally scrollable instead of overflowing the
        viewport. Used by Payslips, PF, ESI, Documents, Attendance (Comp Off),
-       Appraisals — they all use class="data-table" or similar. */
+       Appraisals ï¿½ they all use class="data-table" or similar. */
     table, .data-table, .doc-table, .coff-table {
       display: block !important;
       width: 100% !important;

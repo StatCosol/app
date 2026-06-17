@@ -64,7 +64,7 @@
         <label>Reference No.</label>
         <input type="text" [(ngModel)]="newNotice.referenceNo" class="field" placeholder="Optional" />
       </div>
-      <div class="form-field" style="grid-column: 1 / -1">
+      <div class="form-field col-span-full">
         <label>Subject *</label>
         <input type="text" [(ngModel)]="newNotice.subject" class="field" placeholder="Brief subject line" />
       </div>
@@ -86,7 +86,7 @@
           <option *ngFor="let s of severities" [value]="s">{{ s }}</option>
         </select>
       </div>
-      <div class="form-field" style="grid-column: 1 / -1">
+      <div class="form-field col-span-full">
         <label>Description</label>
         <textarea [(ngModel)]="newNotice.description" class="field" rows="2" placeholder="Optional details"></textarea>
       </div>
@@ -151,7 +151,7 @@
                 [class.active]="selected?.id === n.id"
                 [class.overdue]="isOverdue(n)"
                 (click)="selectNotice(n)"
-                style="cursor: pointer">
+                class="cursor-pointer">
               <td class="font-mono text-xs">{{ n.noticeCode }}</td>
               <td>{{ n.client?.clientName || '—' }}</td>
               <td class="max-w-[200px] truncate">{{ n.subject }}</td>

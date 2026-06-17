@@ -1,6 +1,7 @@
 import { Component, Input, Output, EventEmitter, OnDestroy, OnInit } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { Subject, of } from 'rxjs';
 import { filter, takeUntil, catchError } from 'rxjs/operators';
@@ -21,7 +22,7 @@ interface SidebarItem {
 @Component({
   selector: 'app-branch-sidebar',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, FormsModule],
   template: `
     <!-- Mobile overlay -->
     <div
@@ -36,19 +37,38 @@ interface SidebarItem {
       [class.mobile-open]="mobileOpen"
     >
       <!-- Brand area -->
-      <div *ngIf="!collapsed" class="px-5 pt-6 pb-4 flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-          <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-          </svg>
+      <div *ngIf="!collapsed" class="px-4 pt-5 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+          </div>
+          <div>
+            <span class="text-white font-bold text-[17px] tracking-tight">BranchDesk</span>
+            <span class="block text-white/40 text-[11px] font-medium">Compliance Execution Portal</span>
+          </div>
         </div>
-        <div>
-          <span class="text-white font-bold text-lg tracking-tight">BranchDesk</span>
-          <span class="block text-white/40 text-[12px] font-medium">Compliance Execution Portal</span>
+        <!-- Sidebar search filter -->
+        <div class="mt-3 relative">
+          <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="Filter navigation…"
+            [(ngModel)]="searchTerm"
+            class="sidebar-search w-full pl-8 pr-3 py-1.5 text-[12px] bg-white/8 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:bg-white/12 focus:border-white/20 transition-all"
+          />
         </div>
       </div>
-      <div *ngIf="collapsed" class="py-5 flex justify-center">
-        <span class="text-white/80 text-xs font-semibold tracking-wide">BD</span>
+      <div *ngIf="collapsed" class="py-4 flex flex-col items-center gap-1">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+          </svg>
+        </div>
+        <span class="text-white/60 text-[10px] font-bold tracking-widest">BD</span>
       </div>
 
       <!-- Collapse toggle (desktop only) -->
@@ -106,7 +126,7 @@ interface SidebarItem {
         </ng-container>
 
         <ng-template #expandedNav>
-          <ng-container *ngFor="let item of navItems">
+          <ng-container *ngFor="let item of filteredNavItems">
             <!-- Regular nav item (no children) -->
             <a
               *ngIf="!item.children"
@@ -389,6 +409,18 @@ interface SidebarItem {
       padding-left: 2.5rem;
       font-size: 12.5px;
     }
+
+    /* Sidebar search */
+    .sidebar-search {
+      background: rgba(255,255,255,0.06) !important;
+      border: 1px solid rgba(255,255,255,0.10) !important;
+      color: #e2e8f0;
+    }
+    .sidebar-search::placeholder { color: rgba(255,255,255,0.28); }
+    .sidebar-search:focus {
+      background: rgba(255,255,255,0.10) !important;
+      border-color: rgba(16,185,129,0.40) !important;
+    }
   `]
 })
 export class BranchSidebarComponent implements OnInit, OnDestroy {
@@ -399,7 +431,22 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
   @Output() mobileOpenChange = new EventEmitter<boolean>();
 
   navItems: SidebarItem[] = [];
+  searchTerm = '';
   private badges: SidebarBadges | null = null;
+
+  get filteredNavItems(): SidebarItem[] {
+    const q = this.searchTerm.trim().toLowerCase();
+    if (!q) return this.navItems;
+    return this.navItems.map(item => {
+      if (!item.children) {
+        return item.label.toLowerCase().includes(q) ? item : null;
+      }
+      const matchedChildren = item.children.filter(c => c.label.toLowerCase().includes(q));
+      if (matchedChildren.length) return { ...item, children: matchedChildren, expanded: true };
+      if (item.label.toLowerCase().includes(q)) return { ...item, expanded: true };
+      return null;
+    }).filter(Boolean) as SidebarItem[];
+  }
 
   private readonly destroy$ = new Subject<void>();
 
@@ -582,6 +629,8 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
           { label: 'Safety',              route: '/branch/safety',                  icon: this.svg('M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z') },
           { label: 'Audit Observations',   route: '/branch/audits/observations',     icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2') },
           { label: 'Review / Reupload',    route: '/branch/compliance-docs',         icon: this.svg('M9 12h6m-6 4h6M7 20h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z') },
+          { label: 'Unit Documents',       route: '/branch/unit-documents',          icon: this.svg('M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4') },
+          { label: 'Documents',            route: '/branch/documents',               icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
           { label: 'Notices',              route: '/branch/notices',                 icon: this.svg('M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z') },
         ],
       },

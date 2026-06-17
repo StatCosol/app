@@ -56,7 +56,7 @@
     </div>
 
     <!-- Quick Actions -->
-    <div class="bg-white rounded-xl border border-gray-200 p-4 mb-6 shadow-sm">
+    <div class="bg-white rounded-2xl border border-gray-200 p-4 mb-6 shadow-sm">
       <div class="flex flex-wrap gap-3">
         <ui-button variant="primary" (clicked)="goTo('/payroll/runs')">
           <span class="flex items-center gap-2">
@@ -113,7 +113,7 @@
       <h3 class="text-lg font-semibold text-gray-900 mb-3">Assigned Clients</h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div *ngFor="let client of clients"
-             class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+             class="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
              (click)="goTo('/payroll/runs')">
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-lg bg-statco-blue flex items-center justify-center text-white font-bold text-sm">

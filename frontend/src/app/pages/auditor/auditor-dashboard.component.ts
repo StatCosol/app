@@ -28,6 +28,7 @@ import {
   ActionButtonComponent,
   FormInputComponent,
   FormSelectComponent,
+  KpiTileComponent,
 } from '../../shared/ui';
 import {
   AuditorFilters,
@@ -54,6 +55,7 @@ import {
     ActionButtonComponent,
     FormInputComponent,
     FormSelectComponent,
+    KpiTileComponent,
   ],
   templateUrl: './auditor-dashboard.component.html',
   styleUrls: ['./auditor-dashboard.component.scss'],

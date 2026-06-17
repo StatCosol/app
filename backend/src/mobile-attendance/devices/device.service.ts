@@ -458,4 +458,45 @@ export class DeviceService {
       value,
     );
   }
+
+  // ── Fix #13: Geofence configuration with radius validation ──
+  static readonly GEOFENCE_RADIUS_MIN_M = 50;
+  static readonly GEOFENCE_RADIUS_MAX_M = 50_000;
+
+  async configureGeofence(
+    deviceId: string,
+    clientId: string,
+    params: { lat: number; lng: number; radiusM: number } | null,
+  ): Promise<MobileAttendanceDeviceEntity> {
+    const device = await this.deviceRepo.findOne({ where: { id: deviceId, clientId } });
+    if (!device) throw new NotFoundException('Device not found');
+
+    if (params === null) {
+      device.geofenceLat = null;
+      device.geofenceLng = null;
+      device.geofenceRadiusM = null;
+    } else {
+      const { lat, lng, radiusM } = params;
+      if (lat < -90 || lat > 90) {
+        throw new ConflictException('Latitude must be between -90 and 90');
+      }
+      if (lng < -180 || lng > 180) {
+        throw new ConflictException('Longitude must be between -180 and 180');
+      }
+      if (
+        !Number.isInteger(radiusM) ||
+        radiusM < DeviceService.GEOFENCE_RADIUS_MIN_M ||
+        radiusM > DeviceService.GEOFENCE_RADIUS_MAX_M
+      ) {
+        throw new ConflictException(
+          `Geofence radius must be between ${DeviceService.GEOFENCE_RADIUS_MIN_M}m and ${DeviceService.GEOFENCE_RADIUS_MAX_M}m`,
+        );
+      }
+      device.geofenceLat = String(lat);
+      device.geofenceLng = String(lng);
+      device.geofenceRadiusM = radiusM;
+    }
+
+    return this.deviceRepo.save(device);
+  }
 }

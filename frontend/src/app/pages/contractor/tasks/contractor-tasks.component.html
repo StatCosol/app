@@ -506,9 +506,8 @@
         </div>
 
         <!-- Upload lock banner -->
-        <div class="alert alert--warning" *ngIf="isAuditUploadLocked"
-          style="display:flex;align-items:center;gap:10px;">
-          <span style="font-size:16px;">&#128274;</span>
+        <div class="alert alert--warning flex items-center gap-2.5" *ngIf="isAuditUploadLocked">
+          <span class="text-base">&#128274;</span>
           <span>
             Document uploads are <strong>locked by the auditor</strong> until <strong>{{ auditUploadLockUntil }}</strong>.
             You cannot upload or re-upload documents during this period. Uploads will re-open after the lock date.

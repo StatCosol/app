@@ -191,7 +191,7 @@
                 <tr *ngFor="let v of topVendors">
                   <td class="font-medium text-slate-800">{{ v.contractorName }}</td>
                   <td class="text-center">
-                    <span class="text-xs font-semibold px-1.5 py-0.5 rounded-full"
+                    <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full"
                           [ngClass]="getVendorScoreBg(v.score)">
                       {{ v.score }}%
                     </span>
@@ -233,7 +233,7 @@
                 <tr *ngFor="let v of bottomVendors">
                   <td class="font-medium text-slate-800">{{ v.contractorName }}</td>
                   <td class="text-center">
-                    <span class="text-xs font-semibold px-1.5 py-0.5 rounded-full"
+                    <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full"
                           [ngClass]="getVendorScoreBg(v.score)">
                       {{ v.score }}%
                     </span>
@@ -419,15 +419,16 @@
           <p class="text-2xl font-bold text-amber-600">{{ taskSummary.dueSoon }}</p>
           <p class="text-xs text-slate-500">Due Soon</p>
         </div>
-        <div class="rounded-lg bg-slate-50 p-3 text-center">
+        <div class="rounded-lg bg-gray-50 p-3 text-center">
           <p class="text-2xl font-bold text-slate-600">{{ taskSummary.total }}</p>
           <p class="text-xs text-slate-500">Total</p>
         </div>
       </div>
 
-      <div *ngIf="pendingTasks.length > 0" class="bg-white rounded-lg border border-slate-200 overflow-hidden">
+      <div *ngIf="pendingTasks.length > 0" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
         <table class="w-full text-sm">
-          <thead class="bg-slate-50">
+          <thead class="bg-gray-50">
             <tr>
               <th class="px-3 py-2 text-left text-xs font-medium text-slate-500">Task</th>
               <th class="px-3 py-2 text-left text-xs font-medium text-slate-500">Module</th>
@@ -436,7 +437,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let t of pendingTasks" class="border-t border-slate-100 hover:bg-slate-50">
+            <tr *ngFor="let t of pendingTasks" class="border-t border-slate-100 hover:bg-gray-50">
               <td class="px-3 py-2 text-slate-800">{{ t.title }}</td>
               <td class="px-3 py-2 text-slate-500">{{ t.module }}</td>
               <td class="px-3 py-2">
@@ -451,6 +452,7 @@
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
       <div *ngIf="pendingTasks.length === 0" class="text-center text-sm text-slate-400 py-4">
         No pending tasks
