@@ -38,11 +38,11 @@ class SetupActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_setup)
 
-        etToken = findViewById(R.id.et_install_token)
-        etApiBase = findViewById(R.id.et_api_base)
-        btnRegister = findViewById(R.id.btn_register)
-        progressBar = findViewById(R.id.progress_bar)
-        tvError = findViewById(R.id.tv_error)
+        etToken = findViewById(R.id.tokenInput)
+        etApiBase = findViewById(R.id.apiInput)
+        btnRegister = findViewById(R.id.registerBtn)
+        progressBar = findViewById(R.id.progress)
+        tvError = findViewById(R.id.statusText)
 
         btnRegister.setOnClickListener { attemptRegistration() }
     }

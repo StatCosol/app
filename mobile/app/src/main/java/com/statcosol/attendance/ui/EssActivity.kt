@@ -67,11 +67,11 @@ class EssActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_ess)
 
-        previewView = findViewById(R.id.preview_view)
-        tvHint = findViewById(R.id.tv_hint)
-        tvStatus = findViewById(R.id.tv_status)
-        btnPunchIn = findViewById(R.id.btn_punch_in)
-        btnPunchOut = findViewById(R.id.btn_punch_out)
+        previewView = findViewById(R.id.previewView)
+        tvHint = findViewById(R.id.statusText)
+        tvStatus = findViewById(R.id.statusText)
+        btnPunchIn = findViewById(R.id.punchInBtn)
+        btnPunchOut = findViewById(R.id.punchOutBtn)
 
         config = DeviceConfig(this)
         apiClient = ApiClient(config)
