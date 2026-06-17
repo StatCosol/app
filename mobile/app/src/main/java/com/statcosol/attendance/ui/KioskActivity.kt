@@ -99,11 +99,11 @@ class KioskActivity : AppCompatActivity() {
     // ─────────────────────────────────────────────────────────────────────────
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_kiosk)
+        setContentView(R.layout.activity_camera)
 
-        previewView = findViewById(R.id.preview_view)
-        tvHint = findViewById(R.id.tv_hint)
-        tvStatus = findViewById(R.id.tv_status)
+        previewView = findViewById(R.id.previewView)
+        tvHint = findViewById(R.id.statusText)
+        tvStatus = findViewById(R.id.statusText)
 
         config = DeviceConfig(this)
         apiClient = ApiClient(config)
@@ -360,7 +360,9 @@ class KioskActivity : AppCompatActivity() {
         punchInFlight = false
         runOnUiThread {
             tvHint.text = getString(R.string.kiosk_look_at_camera)
-            tvStatus.text = ""
+            if (tvStatus !== tvHint) {
+                tvStatus.text = ""
+            }
         }
     }
 
@@ -507,7 +509,7 @@ class KioskActivity : AppCompatActivity() {
         private const val TAG = "KioskActivity"
 
         private const val ENROLL_REQUIRED_FRAMES = 3
-        private const val ENROLL_MIN_LIVENESS = 0.60
+        private const val ENROLL_MIN_LIVENESS = 0.35
         private const val ENROLL_MIN_FRAME_INTERVAL_MS = 300L
         private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.60
         private const val ENROLLMENT_POLL_INTERVAL_MS = 5_000L
@@ -536,10 +538,10 @@ class KioskActivity : AppCompatActivity() {
                     avg[i] += frame[i]
                 }
             }
-            for (i in avg.indices) avg[i] /= frames.size
+            for (i in avg.indices) avg[i] = avg[i] / frames.size
 
             val norm = sqrt(avg.fold(0f) { acc, v -> acc + v * v })
-            return if (norm > 0f) FloatArray(size) { avg[it] / norm } else avg
+            return if (norm > 0f) avg.map { it / norm }.toFloatArray() else avg
         }
 
         fun isoNow(): String {

@@ -66,12 +66,12 @@ class EnrollActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_enroll)
 
-        previewView = findViewById(R.id.preview_view)
-        tvHint = findViewById(R.id.tv_hint)
-        tvProgress = findViewById(R.id.tv_progress)
-        btnStart = findViewById(R.id.btn_start_enrollment)
-        cbConsent = findViewById(R.id.cb_consent)
-        progressBar = findViewById(R.id.progress_bar)
+        previewView = findViewById(R.id.previewView)
+        tvHint = findViewById(R.id.statusText)
+        tvProgress = findViewById(R.id.progressText)
+        btnStart = findViewById(R.id.captureBtn)
+        cbConsent = findViewById(R.id.consentCheck)
+        progressBar = ProgressBar(this).apply { visibility = View.GONE }
 
         config = DeviceConfig(this)
         apiClient = ApiClient(config)
@@ -252,9 +252,9 @@ class EnrollActivity : AppCompatActivity() {
             val size = frames[0].size
             val avg = FloatArray(size)
             for (frame in frames) for (i in 0 until size) avg[i] += frame[i]
-            for (i in avg.indices) avg[i] /= frames.size
+            for (i in avg.indices) avg[i] = avg[i] / frames.size
             val norm = sqrt(avg.fold(0f) { acc, v -> acc + v * v })
-            return if (norm > 0f) FloatArray(size) { avg[it] / norm } else avg
+            return if (norm > 0f) avg.map { it / norm }.toFloatArray() else avg
         }
     }
 }
