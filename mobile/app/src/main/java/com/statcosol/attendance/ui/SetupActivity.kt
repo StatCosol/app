@@ -48,11 +48,11 @@ class SetupActivity : AppCompatActivity() {
     }
 
     private fun attemptRegistration() {
-        val token = etToken.text.toString().trim()
+        val token = etToken.text.toString().replace(Regex("\\s+"), "").trim()
         val apiBase = normalizeApiBase(etApiBase.text.toString())
 
         if (!token.matches(Regex("[0-9a-fA-F]{64}"))) {
-            tvError.text = getString(R.string.setup_invalid_token)
+            tvError.text = getString(R.string.setup_invalid_token, token.length)
             tvError.visibility = View.VISIBLE
             return
         }

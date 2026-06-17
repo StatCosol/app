@@ -1,10 +1,11 @@
-import { IsOptional, IsString, Length } from 'class-validator';
+import { IsOptional, IsString, Length, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class RegisterDeviceDto {
-  @ApiProperty({ description: 'Install token provisioned by admin' })
+  @ApiProperty({ description: '64-character hex install token provisioned by admin' })
   @IsString()
-  @Length(1, 64)
+  @Length(64, 64)
+  @Matches(/^[0-9a-fA-F]{64}$/)
   installToken: string;
 
   @ApiPropertyOptional()
