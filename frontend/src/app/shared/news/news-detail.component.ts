@@ -277,6 +277,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
       height: 52px;
       border-radius: 14px;
       background: rgba(255,255,255,0.12);
+      -webkit-backdrop-filter: blur(8px);
       backdrop-filter: blur(8px);
       display: flex;
       align-items: center;

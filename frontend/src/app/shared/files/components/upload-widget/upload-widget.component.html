@@ -25,7 +25,7 @@
     <p *ngIf="config.maxSizeMB" class="text-xs text-gray-400 mt-0.5">Max {{ config.maxSizeMB }} MB &middot; {{ config.accept || 'Any' }}</p>
 
     <!-- Hidden input -->
-    <input type="file"
+    <input name="uploadWidgetDropzoneFile" type="file"
       class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
       [accept]="config.accept || ''"
       [disabled]="config.disabled || uploading"
@@ -44,7 +44,7 @@
       </svg>
       {{ config.label || 'Upload' }}
     </button>
-    <input type="file"
+    <input name="uploadWidgetButtonFile" type="file"
       class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
       [accept]="config.accept || ''"
       [disabled]="config.disabled || uploading"
