@@ -47,11 +47,6 @@ import { NewsTickerComponent } from '../../../shared/news/news-ticker.component'
                 <div class="leading-tight hidden sm:block">
                   <div class="flex items-center gap-2">
                     <span class="text-lg font-bold tracking-tight text-statco-blue">StatCo Solutions</span>
-                    <!-- Portal badge -->
-                    <span class="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold tracking-wide bg-rose-600 text-white">
-                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                      ConTrack
-                    </span>
                   </div>
                   <p class="text-[11px] font-medium text-slate-400">Contractor Compliance Portal</p>
                 </div>
