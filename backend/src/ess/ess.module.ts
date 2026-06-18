@@ -13,6 +13,7 @@ import { PayrollRunEntity } from '../payroll/entities/payroll-run.entity';
 import { PayrollRunEmployeeEntity } from '../payroll/entities/payroll-run-employee.entity';
 import { PayrollRunComponentValueEntity } from '../payroll/entities/payroll-run-component-value.entity';
 import { ClientEntity } from '../clients/entities/client.entity';
+import { EssDiscrepancyNoteEntity } from './entities/ess-discrepancy-note.entity';
 import { EssService } from './ess.service';
 import {
   EssController,
@@ -43,6 +44,7 @@ import { PerformanceAppraisalModule } from '../performance-appraisal/performance
       PayrollRunEmployeeEntity,
       PayrollRunComponentValueEntity,
       ClientEntity,
+      EssDiscrepancyNoteEntity,
     ]),
   ],
   controllers: [

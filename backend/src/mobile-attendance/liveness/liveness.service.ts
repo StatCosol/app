@@ -1,7 +1,9 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
@@ -28,6 +30,8 @@ const OFFLINE_LIVENESS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class LivenessService {
+  private readonly logger = new Logger(LivenessService.name);
+
   constructor(
     @InjectRepository(FaceLivenessNonceEntity)
     private readonly nonceRepo: Repository<FaceLivenessNonceEntity>,
@@ -94,12 +98,18 @@ export class LivenessService {
     return true;
   }
 
-  /** Purge expired/consumed nonces older than 24 h (for maintenance jobs). */
+  /** Purge expired/consumed nonces older than 24 h — runs nightly via cron. */
+  @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async pruneOldNonces(): Promise<void> {
-    await this.nonceRepo
-      .createQueryBuilder()
-      .delete()
-      .where(`created_at < now() - interval '24 hours'`)
-      .execute();
+    try {
+      const result = await this.nonceRepo
+        .createQueryBuilder()
+        .delete()
+        .where(`created_at < now() - interval '24 hours'`)
+        .execute();
+      this.logger.log(`Pruned ${result.affected ?? 0} expired liveness nonces.`);
+    } catch (err) {
+      this.logger.error('Liveness nonce pruning failed', err);
+    }
   }
 }

@@ -69,6 +69,8 @@ import { AccountsBillingModule } from './accounts-billing/accounts-billing.modul
 import { ClientContactsModule } from './client-contacts/client-contacts.module';
 import { SalesModule } from './sales/sales.module';
 import { MobileAttendanceModule } from './mobile-attendance/mobile-attendance.module';
+import { AccessModule } from './access/access.module';
+import { ListQueriesModule } from './list-queries/list-queries.module';
 
 @Module({
   imports: [
@@ -212,6 +214,8 @@ import { MobileAttendanceModule } from './mobile-attendance/mobile-attendance.mo
     ClientContactsModule,
     SalesModule,
     MobileAttendanceModule,
+    AccessModule,
+    ListQueriesModule,
   ],
   controllers: [],
   providers: [

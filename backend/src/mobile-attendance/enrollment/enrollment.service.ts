@@ -76,7 +76,7 @@ export class EnrollmentService {
 
     if (this.faceClient.enabled && dto.photoB64) {
       const result = await this.faceClient.extractEmbedding(dto.photoB64);
-      if (result.qualityScore < MIN_QUALITY) {
+      if (result !== null && result.qualityScore < MIN_QUALITY) {
         throw new BadRequestException(
           `Photo quality too low (${result.qualityScore.toFixed(2)} < ${MIN_QUALITY})`,
         );
@@ -197,7 +197,7 @@ export class EnrollmentService {
     // Quality gate via face-svc
     if (this.faceClient.enabled && dto.photoB64) {
       const res = await this.faceClient.extractEmbedding(dto.photoB64);
-      if (res.qualityScore < MIN_QUALITY) {
+      if (res !== null && res.qualityScore < MIN_QUALITY) {
         throw new BadRequestException(`Photo quality too low (${res.qualityScore.toFixed(2)})`);
       }
     }

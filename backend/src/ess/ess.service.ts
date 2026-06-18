@@ -19,6 +19,7 @@ import { PayrollRunEntity } from '../payroll/entities/payroll-run.entity';
 import { PayrollRunEmployeeEntity } from '../payroll/entities/payroll-run-employee.entity';
 import { PayrollRunComponentValueEntity } from '../payroll/entities/payroll-run-component-value.entity';
 import { ClientEntity } from '../clients/entities/client.entity';
+import { EssDiscrepancyNoteEntity } from './entities/ess-discrepancy-note.entity';
 import { AttendanceService } from '../attendance/attendance.service';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -86,6 +87,8 @@ export class EssService {
     private readonly compValRepo: Repository<PayrollRunComponentValueEntity>,
     @InjectRepository(ClientEntity)
     private readonly clientRepo: Repository<ClientEntity>,
+    @InjectRepository(EssDiscrepancyNoteEntity)
+    private readonly discrepancyRepo: Repository<EssDiscrepancyNoteEntity>,
     private readonly attendanceService: AttendanceService,
     private readonly ds: DataSource,
   ) {}
@@ -660,7 +663,8 @@ export class EssService {
     const checkOutMinutes = checkOutParts[0] * 60 + checkOutParts[1];
     const workedDecimal = Math.max(0, (checkOutMinutes - checkInMinutes) / 60);
     const workedHrs = workedDecimal.toFixed(2);
-    const STANDARD_HOURS = 9;
+    // Standard hours from env (set by HR/payroll config) or 9h default
+    const STANDARD_HOURS = Number(process.env.STANDARD_WORK_HOURS ?? 9);
 
     // Determine overtime / short-work
     const excessHrs = Math.max(0, workedDecimal - STANDARD_HOURS);
@@ -811,13 +815,13 @@ export class EssService {
          COALESCE(SUM(overtime_hours), 0) AS "totalOtHours",
          COALESCE(SUM(CASE WHEN overtime_type = 'OT' THEN overtime_hours ELSE 0 END), 0) AS "paidOtHours",
          COALESCE(SUM(CASE WHEN overtime_type = 'COFF' THEN overtime_hours ELSE 0 END), 0) AS "coffOtHours",
-         COUNT(*) FILTER (WHERE worked_hours < 9 AND status = 'PRESENT') AS "shortDays",
-         COUNT(*) FILTER (WHERE worked_hours < 9 AND status = 'PRESENT' AND short_work_reason IS NULL) AS "shortDaysPending",
+         COUNT(*) FILTER (WHERE worked_hours < $4 AND status = 'PRESENT') AS "shortDays",
+         COUNT(*) FILTER (WHERE worked_hours < $4 AND status = 'PRESENT' AND short_work_reason IS NULL) AS "shortDaysPending",
          COUNT(*) FILTER (WHERE overtime_hours > 0) AS "overtimeDays",
          COUNT(*) FILTER (WHERE status IN ('HOLIDAY','WEEK_OFF') AND check_in IS NOT NULL) AS "workedOnOffDays"
        FROM attendance_records
        WHERE employee_id = $1 AND date >= $2::date AND date < $3::date`,
-      [empId, range.startDate, range.endDate],
+      [empId, range.startDate, range.endDate, Number(process.env.STANDARD_WORK_HOURS ?? 9)],
     );
     const salaryInfo = await this.getEmployeeMonthlyGross(empId);
     return {
@@ -2127,5 +2131,77 @@ export class EssService {
       alreadyAccrued,
       details,
     };
+  }
+
+  // ── Fix #2: ESS Discrepancy Notes (replaces mailto:) ─────────
+
+  async submitDiscrepancyNote(
+    user: EssUser,
+    body: { attendanceDate: string; note: string },
+  ): Promise<EssDiscrepancyNoteEntity> {
+    const empId = this.ensureEmployee(user);
+    const emp = await this.empRepo.findOne({ where: { id: empId } });
+    if (!emp) throw new NotFoundException('Employee not found');
+
+    if (!body.attendanceDate || !/^\d{4}-\d{2}-\d{2}$/.test(body.attendanceDate)) {
+      throw new BadRequestException('attendanceDate is required (YYYY-MM-DD)');
+    }
+    if (!body.note || body.note.trim().length < 5) {
+      throw new BadRequestException('Note must be at least 5 characters');
+    }
+
+    const note = this.discrepancyRepo.create({
+      clientId: emp.clientId!,
+      employeeId: empId,
+      employeeCode: emp.employeeCode,
+      attendanceDate: body.attendanceDate,
+      note: body.note.trim(),
+      status: 'OPEN',
+    });
+    return this.discrepancyRepo.save(note);
+  }
+
+  async listMyDiscrepancyNotes(user: EssUser): Promise<EssDiscrepancyNoteEntity[]> {
+    const empId = this.ensureEmployee(user);
+    return this.discrepancyRepo.find({
+      where: { employeeId: empId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  // ── Fix #14: HR response tracking ────────────────────────────
+
+  async actionDiscrepancyNote(
+    noteId: string,
+    hrUserId: string,
+    clientId: string,
+    action: 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSED',
+    hrResponse?: string,
+  ): Promise<EssDiscrepancyNoteEntity> {
+    const note = await this.discrepancyRepo.findOne({
+      where: { id: noteId, clientId },
+    });
+    if (!note) throw new NotFoundException('Discrepancy note not found');
+    note.status = action;
+    note.hrResponse = hrResponse?.trim() ?? null;
+    note.hrUserId = hrUserId;
+    note.hrActionedAt = new Date();
+    return this.discrepancyRepo.save(note);
+  }
+
+  async listDiscrepancyNotes(
+    clientId: string,
+    branchId?: string,
+    status?: string,
+  ): Promise<EssDiscrepancyNoteEntity[]> {
+    const qb = this.discrepancyRepo
+      .createQueryBuilder('d')
+      .where('d.client_id = :clientId', { clientId })
+      .orderBy('d.created_at', 'DESC');
+
+    if (status) {
+      qb.andWhere('d.status = :status', { status });
+    }
+    return qb.getMany();
   }
 }

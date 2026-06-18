@@ -234,7 +234,13 @@ export class AttendanceController {
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.svc.editRecord(clientId, id, body, this.branchScope(user));
+    return this.svc.editRecord(
+      clientId,
+      id,
+      body,
+      this.branchScope(user),
+      user?.userId ?? user?.id ?? null,
+    );
   }
 
   @ApiOperation({ summary: 'Bulk approve attendance records' })
@@ -279,5 +285,92 @@ export class AttendanceController {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     return this.svc.deleteRecords(clientId, body.ids, this.branchScope(user));
+  }
+
+  // ── Persisted Mismatches (Fix #1) ─────────────────────────
+
+  @ApiOperation({ summary: 'List persisted attendance mismatches' })
+  @Get('mismatches/persisted')
+  listPersistedMismatches(
+    @CurrentUser() user: ReqUser,
+    @Query('year') year: string,
+    @Query('month') month: string,
+    @Query('branchId') branchId?: string,
+    @Query('resolved') resolved?: string,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    const period = this.resolvePeriod(year, month);
+    const resolvedFilter =
+      resolved === 'true' ? true : resolved === 'false' ? false : undefined;
+    return this.svc.listPersistedMismatches({
+      clientId,
+      branchId,
+      year: period.year,
+      month: period.month,
+      resolved: resolvedFilter,
+      allowedBranchIds: this.branchScope(user),
+    });
+  }
+
+  @ApiOperation({ summary: 'Resolve a persisted mismatch' })
+  @Post('mismatches/persisted/:id/resolve')
+  resolveMismatch(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+    @Body('note') note?: string,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.svc.resolveMismatch(
+      clientId,
+      id,
+      user.userId ?? user.id,
+      note,
+    );
+  }
+
+  @ApiOperation({ summary: 'Run mismatch detection for a specific date (manual trigger)' })
+  @Post('mismatches/detect')
+  runMismatchDetection(
+    @CurrentUser() user: ReqUser,
+    @Body('date') date?: string,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    const targetDate = date ?? new Date().toISOString().slice(0, 10);
+    return this.svc.persistMismatchesForDate(clientId, targetDate);
+  }
+
+  // ── Payroll Handoff Validation (Fix #7) ───────────────────
+
+  @ApiOperation({ summary: 'Validate payroll handoff — blocks if HIGH mismatches exist' })
+  @Get('payroll-handoff/validate')
+  validatePayrollHandoff(
+    @CurrentUser() user: ReqUser,
+    @Query('year') year: string,
+    @Query('month') month: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    const period = this.resolvePeriod(year, month);
+    return this.svc.validatePayrollHandoff({
+      clientId,
+      branchId,
+      year: period.year,
+      month: period.month,
+      allowedBranchIds: this.branchScope(user),
+    });
+  }
+
+  // ── Audit Log (Fix #3) ────────────────────────────────────
+
+  @ApiOperation({ summary: 'Get audit log for an attendance record' })
+  @Get(':id/audit-log')
+  getAuditLog(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.svc.getAuditLog(clientId, id);
   }
 }

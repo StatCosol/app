@@ -403,7 +403,7 @@
           <button class="btn btn-secondary" type="button" (click)="openRuleForm()">+ Add Rule</button>
         </header>
 
-        <div class="msg" style="background:#eef6ff;border-left:3px solid #2563eb;color:#1e3a8a;margin:8px 0;padding:8px 12px;font-size:0.9em;">
+        <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-900 my-2 py-2 px-3 text-sm rounded-r-lg">
           <strong>Note:</strong> Use the <em>Formula</em> button above to set how
           this component is calculated (BASIC = 40% of GROSS, HRA = 50% of BASIC,
           etc.). The "Rules" listed here are optional add-ons (e.g.
@@ -449,7 +449,7 @@
         <span class="section-meta">Read-only view of every rule the payroll engine will execute for this client. Edits here flow into the next run automatically.</span>
       </header>
 
-      <div class="msg" style="background:#eef6ff;border-left:3px solid #2563eb;color:#1e3a8a;">
+      <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-900 my-2 py-2 px-3 text-sm rounded-r-lg">
         Everything below comes from the same data the engine reads at run time.
         Use <strong>Edit in Builder</strong> to change formulas, components, or
         statutory config &mdash; saved changes apply to the next payroll run.
@@ -503,7 +503,7 @@
                     <span class="flag" *ngIf="c.statutory">STAT</span>
                     <span class="flag tax" *ngIf="c.taxable">TAX</span>
                     <span class="flag" *ngIf="c.isVisibleInPayslip">PAYSLIP</span>
-                    <span class="flag" *ngIf="!c.isActive" style="background:#fee;">INACTIVE</span>
+                    <span class="flag bg-red-50" *ngIf="!c.isActive">INACTIVE</span>
                   </td>
                 </tr>
               </tbody>
@@ -613,7 +613,7 @@
           <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:0.95em;">
             <div><span class="minor">Total Earnings:</span> <strong>{{ formatMoney(previewResult.totalEarnings) }}</strong></div>
             <div><span class="minor">Total Deductions:</span> <strong>{{ formatMoney(previewResult.totalDeductions) }}</strong></div>
-            <div><span class="minor">Net Pay:</span> <strong style="color:#15803d;">{{ formatMoney(previewResult.netPay) }}</strong></div>
+            <div><span class="minor">Net Pay:</span> <strong class="text-green-700">{{ formatMoney(previewResult.netPay) }}</strong></div>
           </div>
           <div *ngIf="previewResult.warnings.length" style="margin-top:8px;">
             <div class="minor">Warnings:</div>
@@ -741,7 +741,7 @@
       <button type="button" class="link" (click)="showFormulaModal = false">Close</button>
     </header>
 
-    <div class="msg" style="background:#eef6ff;border-left:3px solid #2563eb;color:#1e3a8a;margin:0 0 8px;padding:8px 12px;font-size:0.88em;">
+    <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-900 mb-2 py-2 px-3 text-sm rounded-r-lg">
       Saved values are used by the payroll engine on the next run. Variables you can use in formulas:
       <code>ACTUAL_GROSS</code>, <code>BASIC</code>, <code>HRA</code>, <code>GROSS</code>, <code>WORKED_DAYS</code>, <code>PAYABLE_DAYS</code>, <code>LOP_DAYS</code>, plus any other component code defined for this client.
       Operators: <code>+ - * / ( )</code>, <code>MIN(a,b)</code>, <code>MAX(a,b)</code>, <code>IF(cond, a, b)</code>, comparisons <code>&gt; &lt; &gt;= &lt;= == !=</code>.

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { createWriteStream, mkdirSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 /**
  * Handles face photo persistence.
@@ -16,6 +17,18 @@ export class FacePhotoStorageService {
 
   private get useS3(): boolean {
     return !!(process.env.AWS_S3_FACE_BUCKET);
+  }
+
+  private buildS3Client(): S3Client {
+    return new S3Client({
+      region: process.env.AWS_REGION ?? 'ap-south-1',
+      ...(process.env.AWS_ACCESS_KEY_ID && {
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        },
+      }),
+    });
   }
 
   async uploadPhoto(
@@ -34,11 +47,22 @@ export class FacePhotoStorageService {
     clientId: string,
     subjectId: string,
   ): Promise<string> {
-    // Stub: integrate @aws-sdk/client-s3 PutObjectCommand here.
     const bucket = process.env.AWS_S3_FACE_BUCKET!;
     const key = `faces/${clientId}/${subjectId}/${randomUUID()}.jpg`;
-    this.logger.log(`S3 upload stub: s3://${bucket}/${key}`);
-    // TODO: actual SDK call
+    const body = Buffer.from(photoB64, 'base64');
+
+    const client = this.buildS3Client();
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: body,
+        ContentType: 'image/jpeg',
+        ServerSideEncryption: 'AES256',
+      }),
+    );
+
+    this.logger.log(`Face photo uploaded to s3://${bucket}/${key}`);
     return `s3://${bucket}/${key}`;
   }
 

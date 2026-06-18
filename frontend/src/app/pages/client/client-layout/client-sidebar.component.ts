@@ -1,6 +1,7 @@
 import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, OnInit, SimpleChanges } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { Subject, of } from 'rxjs';
 import { filter, takeUntil, catchError } from 'rxjs/operators';
@@ -9,8 +10,10 @@ import { ClientPayrollSettingsService } from '../../../core/client-payroll-setti
 
 interface SidebarGroup {
   label: string;
+  icon?: SafeHtml;
   items: SidebarItem[];
   expanded?: boolean;
+  badge?: number;
 }
 
 interface SidebarItem {
@@ -18,12 +21,15 @@ interface SidebarItem {
   route: string;
   icon: SafeHtml;
   exact?: boolean;
+  badge?: number;
+  badgeColor?: 'red' | 'amber' | 'blue';
+  tag?: string;
 }
 
 @Component({
   selector: 'app-client-sidebar',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, FormsModule],
   template: `
     <!-- Mobile overlay -->
     <div
@@ -38,14 +44,38 @@ interface SidebarItem {
       [class.mobile-open]="mobileOpen"
     >
       <!-- Brand area -->
-      <div *ngIf="!collapsed" class="px-5 pt-6 pb-4 flex items-center gap-3">
-        <div>
-          <span class="text-white font-bold text-xl tracking-tight">LegitX</span>
-          <span class="block text-white/40 text-[13px] font-medium">Client Compliance Platform</span>
+      <div *ngIf="!collapsed" class="px-4 pt-5 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+            <svg class="w-4.5 h-4.5 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+          </div>
+          <div>
+            <span class="text-white font-bold text-[17px] tracking-tight">LegitX</span>
+            <span class="block text-white/40 text-[11px] font-medium">Client Compliance Platform</span>
+          </div>
+        </div>
+        <!-- Sidebar search filter -->
+        <div class="mt-3 relative">
+          <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="Filter navigation…"
+            [(ngModel)]="searchTerm"
+            class="sidebar-search w-full pl-8 pr-3 py-1.5 text-[12px] bg-white/8 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:bg-white/12 focus:border-white/20 transition-all"
+          />
         </div>
       </div>
-      <div *ngIf="collapsed" class="py-5 flex justify-center">
-        <span class="text-white/80 text-xs font-semibold tracking-wide">LX</span>
+      <div *ngIf="collapsed" class="py-4 flex flex-col items-center gap-1">
+        <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+          <svg class="w-4 h-4 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+        </div>
+        <span class="text-white/60 text-[10px] font-bold tracking-widest">LX</span>
       </div>
 
       <!-- Collapse toggle (desktop only) -->
@@ -90,15 +120,17 @@ interface SidebarItem {
 
         <ng-template #expandedNav>
           <div
-            *ngFor="let group of navGroups"
+            *ngFor="let group of filteredNavGroups"
           >
             <div
               class="sidebar-section"
               [class.active]="group.expanded"
               (click)="toggleGroup(group)"
             >
+              <span class="sidebar-section-icon" *ngIf="group.icon" [innerHTML]="group.icon"></span>
               <span class="section-label">{{ group.label }}</span>
-              <svg class="chevron" [class.open]="group.expanded" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <span *ngIf="group.badge" class="section-badge">{{ group.badge }}</span>
+              <svg class="chevron" [class.open]="group.expanded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
               </svg>
             </div>
@@ -112,6 +144,14 @@ interface SidebarItem {
               >
                 <span class="sidebar-icon" [innerHTML]="item.icon"></span>
                 <span class="sidebar-label">{{ item.label }}</span>
+                <span *ngIf="item.tag" class="item-tag">{{ item.tag }}</span>
+                <span
+                  *ngIf="item.badge"
+                  class="item-badge"
+                  [class.item-badge--red]="item.badgeColor === 'red'"
+                  [class.item-badge--amber]="item.badgeColor === 'amber'"
+                  [class.item-badge--blue]="item.badgeColor === 'blue' || !item.badgeColor"
+                >{{ item.badge }}</span>
               </a>
             </div>
           </div>
@@ -284,6 +324,66 @@ interface SidebarItem {
       box-shadow: 0 0 10px rgba(18, 168, 232, 0.6);
     }
 
+    /* Item badges */
+    .item-badge {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 4px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      background: rgba(18,168,232,0.25);
+      color: #7DD3F8;
+    }
+    .item-badge--red { background: rgba(239,68,68,0.25); color: #FCA5A5; }
+    .item-badge--amber { background: rgba(245,158,11,0.25); color: #FCD34D; }
+    .item-badge--blue { background: rgba(18,168,232,0.25); color: #7DD3F8; }
+    .item-tag {
+      margin-left: auto;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(16,185,129,0.2);
+      color: #6EE7B7;
+      text-transform: uppercase;
+    }
+    .section-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 4px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      background: rgba(239,68,68,0.3);
+      color: #FCA5A5;
+      margin-right: 4px;
+    }
+    .sidebar-section-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      color: #B9D2EC;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .sidebar-section-icon svg { width: 14px; height: 14px; stroke: currentColor; }
+    .sidebar-search {
+      background: rgba(255,255,255,0.06) !important;
+      border: 1px solid rgba(255,255,255,0.10) !important;
+      color: #e2e8f0;
+    }
+    .sidebar-search::placeholder { color: rgba(255,255,255,0.28); }
+
     .sidebar-item.sidebar-active .sidebar-icon {
       color: #FFFFFF;
     }
@@ -401,6 +501,16 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
 
   collapsedLinks: SidebarItem[] = [];
   navGroups: SidebarGroup[] = [];
+  searchTerm = '';
+
+  get filteredNavGroups(): SidebarGroup[] {
+    const q = this.searchTerm.trim().toLowerCase();
+    if (!q) return this.navGroups;
+    return this.navGroups
+      .map(g => ({ ...g, items: g.items.filter(i => i.label.toLowerCase().includes(q)) }))
+      .filter(g => g.items.length > 0)
+      .map(g => ({ ...g, expanded: true }));
+  }
 
   private readonly destroy$ = new Subject<void>();
 

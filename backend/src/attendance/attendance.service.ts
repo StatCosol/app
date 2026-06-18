@@ -1,6 +1,7 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -11,18 +12,27 @@ import {
   SelectQueryBuilder,
   ObjectLiteral,
 } from 'typeorm';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { AttendanceEntity } from './entities/attendance.entity';
+import { AttendanceMismatchEntity } from './entities/attendance-mismatch.entity';
+import { AttendanceAuditLogEntity } from './entities/attendance-audit-log.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { BiometricPunchEntity } from '../biometric/entities/biometric-punch.entity';
 import { BiometricService } from '../biometric/biometric.service';
 
 @Injectable()
 export class AttendanceService {
+  private readonly logger = new Logger(AttendanceService.name);
+
   constructor(
     @InjectRepository(AttendanceEntity)
     private readonly repo: Repository<AttendanceEntity>,
     @InjectRepository(EmployeeEntity)
     private readonly empRepo: Repository<EmployeeEntity>,
+    @InjectRepository(AttendanceMismatchEntity)
+    private readonly mismatchRepo: Repository<AttendanceMismatchEntity>,
+    @InjectRepository(AttendanceAuditLogEntity)
+    private readonly auditRepo: Repository<AttendanceAuditLogEntity>,
     private readonly ds: DataSource,
     private readonly biometricService: BiometricService,
   ) {}
@@ -516,12 +526,23 @@ export class AttendanceService {
       remarks?: string;
     },
     allowedBranchIds: string[] | null = null,
+    actorUserId: string | null = null,
   ) {
     const record = await this.repo.findOne({
       where: { id: recordId, clientId },
     });
     if (!record) throw new NotFoundException('Attendance record not found');
     this.assertBranchAllowed(record.branchId, allowedBranchIds);
+
+    const before = {
+      status: record.status,
+      checkIn: record.checkIn,
+      checkOut: record.checkOut,
+      workedHours: record.workedHours,
+      overtimeHours: record.overtimeHours,
+      remarks: record.remarks,
+      approvalStatus: record.approvalStatus,
+    };
 
     record.status = body.status;
     if (body.checkIn !== undefined) record.checkIn = body.checkIn || null;
@@ -533,7 +554,30 @@ export class AttendanceService {
     if (body.remarks !== undefined) record.remarks = body.remarks || null;
 
     this.resetApproval(record);
-    return this.repo.save(record);
+    const saved = await this.repo.save(record);
+
+    await this.auditRepo.save(
+      this.auditRepo.create({
+        attendanceId: saved.id,
+        clientId: saved.clientId,
+        employeeId: saved.employeeId,
+        date: saved.date,
+        action: 'EDIT',
+        actorUserId: actorUserId,
+        beforeSnapshot: before,
+        afterSnapshot: {
+          status: saved.status,
+          checkIn: saved.checkIn,
+          checkOut: saved.checkOut,
+          workedHours: saved.workedHours,
+          overtimeHours: saved.overtimeHours,
+          remarks: saved.remarks,
+          approvalStatus: saved.approvalStatus,
+        },
+      }),
+    );
+
+    return saved;
   }
 
   /** Bulk approve attendance records */
@@ -558,10 +602,23 @@ export class AttendanceService {
 
     const now = new Date();
     for (const rec of records) {
+      const before = { approvalStatus: rec.approvalStatus };
       rec.approvalStatus = 'APPROVED';
       rec.approvedByUserId = userId;
       rec.approvedAt = now;
       rec.rejectionReason = null;
+      await this.auditRepo.save(
+        this.auditRepo.create({
+          attendanceId: rec.id,
+          clientId: rec.clientId,
+          employeeId: rec.employeeId,
+          date: rec.date,
+          action: 'APPROVE',
+          actorUserId: userId,
+          beforeSnapshot: before,
+          afterSnapshot: { approvalStatus: 'APPROVED' },
+        }),
+      );
     }
     await this.repo.save(records);
     return { approved: records.length };
@@ -590,12 +647,27 @@ export class AttendanceService {
 
     const now = new Date();
     for (const rec of records) {
+      const before = { approvalStatus: rec.approvalStatus };
       rec.approvalStatus = 'REJECTED';
       rec.approvedByUserId = userId;
       rec.approvedAt = now;
       rec.rejectionReason = reason || null;
+      await this.auditRepo.save(
+        this.auditRepo.create({
+          attendanceId: rec.id,
+          clientId: rec.clientId,
+          employeeId: rec.employeeId,
+          date: rec.date,
+          action: 'REJECT',
+          actorUserId: userId,
+          beforeSnapshot: before,
+          afterSnapshot: { approvalStatus: 'REJECTED', rejectionReason: reason ?? null },
+          note: reason ?? null,
+        }),
+      );
     }
     await this.repo.save(records);
+    await this.notifyRejectedEmployees(records, reason);
     return { rejected: records.length };
   }
 
@@ -634,6 +706,244 @@ export class AttendanceService {
         deleted: attendanceDelete.affected ?? 0,
         deletedPunches: punchDelete.affected ?? 0,
       };
+    });
+  }
+
+  // ── Fix #6: Employee rejection notifications ────────────────
+  private async notifyRejectedEmployees(
+    records: AttendanceEntity[],
+    reason?: string,
+  ): Promise<void> {
+    if (!records.length) return;
+    try {
+      for (const rec of records) {
+        const body = reason
+          ? `Your attendance for ${rec.date} was rejected: ${reason}`
+          : `Your attendance for ${rec.date} was rejected.`;
+        await this.ds.query(
+          `INSERT INTO employee_notifications
+             (id, client_id, employee_id, type, title, body, ref_type, ref_id, created_at)
+           VALUES (gen_random_uuid(), $1::uuid, $2::uuid, 'ATTENDANCE_REJECTED',
+                   'Attendance Rejected', $3, 'attendance_records', $4::uuid, NOW())
+           ON CONFLICT DO NOTHING`,
+          [rec.clientId, rec.employeeId, body, rec.id],
+        );
+      }
+    } catch {
+      // Notifications table may not exist yet — log but don't fail the rejection
+      this.logger.warn('Could not insert rejection notifications (table may not exist yet)');
+    }
+  }
+
+  // ── Fix #1: Persisted mismatch detection via nightly cron ──
+  @Cron(CronExpression.EVERY_DAY_AT_1AM)
+  async detectMismatchesNightly(): Promise<void> {
+    this.logger.log('Running nightly attendance mismatch detection job…');
+    try {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const dateStr = yesterday.toISOString().slice(0, 10);
+
+      // Get distinct clientIds with attendance records yesterday
+      const clients = await this.ds.query<Array<{ client_id: string }>>(
+        `SELECT DISTINCT client_id FROM attendance_records WHERE date = $1`,
+        [dateStr],
+      );
+
+      let total = 0;
+      for (const { client_id } of clients) {
+        const count = await this.persistMismatchesForDate(client_id, dateStr);
+        total += count;
+      }
+      this.logger.log(`Mismatch detection complete. ${total} issues upserted.`);
+    } catch (err) {
+      this.logger.error('Nightly mismatch detection failed', err);
+    }
+  }
+
+  async persistMismatchesForDate(
+    clientId: string,
+    date: string,
+  ): Promise<number> {
+    const rows = await this.repo.find({
+      where: { clientId, date },
+    });
+
+    let upserted = 0;
+    for (const row of rows) {
+      const status = String(row.status || '').toUpperCase();
+      const issues: Array<{ type: string; detail: string; severity: 'HIGH' | 'MEDIUM' }> = [];
+
+      if (
+        (status === 'PRESENT' || status === 'HALF_DAY') &&
+        (!row.checkIn || !row.checkOut)
+      ) {
+        issues.push({
+          type: 'MISSING_CHECK_TIME',
+          detail: `Check-in: ${row.checkIn ?? '-'}, Check-out: ${row.checkOut ?? '-'}`,
+          severity: 'HIGH',
+        });
+      }
+
+      if (status === 'PRESENT' && Number(row.workedHours ?? 0) <= 0) {
+        issues.push({
+          type: 'INVALID_WORKED_HOURS',
+          detail: `Worked hours is ${row.workedHours ?? 0}`,
+          severity: 'MEDIUM',
+        });
+      }
+
+      for (const issue of issues) {
+        await this.ds.query(
+          `INSERT INTO attendance_mismatches
+             (id, client_id, branch_id, employee_id, employee_code, date,
+              issue_type, detail, severity, resolved, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1::uuid, $2::uuid, $3::uuid, $4, $5::date, $6, $7, $8, false, NOW(), NOW())
+           ON CONFLICT (client_id, employee_id, date, issue_type)
+           DO UPDATE SET detail = EXCLUDED.detail, severity = EXCLUDED.severity, updated_at = NOW()
+           WHERE attendance_mismatches.resolved = false`,
+          [clientId, row.branchId, row.employeeId, row.employeeCode, row.date,
+           issue.type, issue.detail, issue.severity],
+        );
+        upserted++;
+      }
+    }
+    return upserted;
+  }
+
+  /** Resolve a persisted mismatch */
+  async resolveMismatch(
+    clientId: string,
+    mismatchId: string,
+    userId: string,
+    note?: string,
+  ): Promise<AttendanceMismatchEntity> {
+    const record = await this.mismatchRepo.findOne({
+      where: { id: mismatchId, clientId },
+    });
+    if (!record) throw new NotFoundException('Mismatch not found');
+    record.resolved = true;
+    record.resolvedBy = userId;
+    record.resolvedAt = new Date();
+    record.resolutionNote = note ?? null;
+    return this.mismatchRepo.save(record);
+  }
+
+  /** List persisted mismatches */
+  async listPersistedMismatches(params: {
+    clientId: string;
+    branchId?: string;
+    year: number;
+    month: number;
+    resolved?: boolean;
+    allowedBranchIds?: string[] | null;
+  }): Promise<AttendanceMismatchEntity[]> {
+    const firstDay = `${params.year}-${String(params.month).padStart(2, '0')}-01`;
+    const lastDay = new Date(params.year, params.month, 0);
+    const toDate = `${params.year}-${String(params.month).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
+
+    const qb = this.mismatchRepo
+      .createQueryBuilder('m')
+      .where('m.client_id = :clientId', { clientId: params.clientId })
+      .andWhere('m.date BETWEEN :from AND :to', { from: firstDay, to: toDate })
+      .orderBy(
+        `CASE m.severity WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 ELSE 3 END`,
+        'ASC',
+      )
+      .addOrderBy('m.date', 'ASC');
+
+    if (params.branchId) {
+      qb.andWhere('m.branch_id = :branchId', { branchId: params.branchId });
+    } else if (params.allowedBranchIds?.length) {
+      qb.andWhere('m.branch_id IN (:...allowedBranchIds)', {
+        allowedBranchIds: params.allowedBranchIds,
+      });
+    }
+
+    if (params.resolved !== undefined) {
+      qb.andWhere('m.resolved = :resolved', { resolved: params.resolved });
+    }
+
+    return qb.getMany();
+  }
+
+  // ── Fix #8: Short work day escalation ───────────────────────
+  @Cron(CronExpression.EVERY_DAY_AT_2AM)
+  async escalateShortWorkDays(): Promise<void> {
+    this.logger.log('Running short-work-day escalation job…');
+    try {
+      const gracedays = Number(process.env.SHORT_WORK_GRACE_DAYS ?? 2);
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - gracedays);
+      const cutoffStr = cutoff.toISOString().slice(0, 10);
+      const standardHours = Number(process.env.STANDARD_WORK_HOURS ?? 9);
+
+      // Find PRESENT records where workedHours < standard and no short_work_reason, older than grace period
+      const rows = await this.ds.query<Array<{
+        id: string;
+        client_id: string;
+        employee_id: string;
+        employee_code: string;
+        branch_id: string | null;
+        date: string;
+        worked_hours: string;
+      }>>(
+        `SELECT id, client_id, employee_id, employee_code, branch_id, date, worked_hours
+         FROM attendance_records
+         WHERE status = 'PRESENT'
+           AND worked_hours IS NOT NULL
+           AND worked_hours::numeric < $1
+           AND short_work_reason IS NULL
+           AND date < $2::date`,
+        [standardHours, cutoffStr],
+      );
+
+      for (const row of rows) {
+        await this.ds.query(
+          `INSERT INTO attendance_mismatches
+             (id, client_id, branch_id, employee_id, employee_code, date,
+              issue_type, detail, severity, resolved, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1::uuid, $2::uuid, $3::uuid, $4, $5::date,
+                   'SHORT_WORK_NO_REASON', $6, 'MEDIUM', false, NOW(), NOW())
+           ON CONFLICT (client_id, employee_id, date, issue_type)
+           DO UPDATE SET detail = EXCLUDED.detail, updated_at = NOW()
+           WHERE attendance_mismatches.resolved = false`,
+          [row.client_id, row.branch_id, row.employee_id, row.employee_code, row.date,
+           `Worked ${Number(row.worked_hours).toFixed(1)}h < ${standardHours}h standard with no reason provided`],
+        );
+      }
+
+      this.logger.log(`Short-work escalation: flagged ${rows.length} records.`);
+    } catch (err) {
+      this.logger.error('Short-work escalation job failed', err);
+    }
+  }
+
+  // ── Fix #7: Payroll handoff validation ──────────────────────
+  async validatePayrollHandoff(params: {
+    clientId: string;
+    branchId?: string;
+    year: number;
+    month: number;
+    allowedBranchIds?: string[] | null;
+  }): Promise<{ canProceed: boolean; unresolvedHigh: number; issues: AttendanceMismatchEntity[] }> {
+    const issues = await this.listPersistedMismatches({ ...params, resolved: false });
+    const highSeverity = issues.filter((i) => i.severity === 'HIGH');
+    return {
+      canProceed: highSeverity.length === 0,
+      unresolvedHigh: highSeverity.length,
+      issues,
+    };
+  }
+
+  // ── Fix #3: Audit log query ─────────────────────────────────
+  async getAuditLog(
+    clientId: string,
+    attendanceId: string,
+  ): Promise<AttendanceAuditLogEntity[]> {
+    return this.auditRepo.find({
+      where: { clientId, attendanceId },
+      order: { createdAt: 'DESC' },
     });
   }
 

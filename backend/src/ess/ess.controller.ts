@@ -355,6 +355,23 @@ export class EssController {
       throw new BadRequestException('No employee record linked');
     return this.appraisalSvc.selfReview(id, body.items, user.employeeId);
   }
+
+  // ── Fix #2: Attendance Discrepancy Notes (replaces mailto:) ──
+
+  @ApiOperation({ summary: 'Submit attendance discrepancy note' })
+  @Post('attendance/discrepancy')
+  submitDiscrepancyNote(
+    @CurrentUser() user: ReqUser,
+    @Body() body: { attendanceDate: string; note: string },
+  ) {
+    return this.svc.submitDiscrepancyNote(user, body);
+  }
+
+  @ApiOperation({ summary: 'List my discrepancy notes' })
+  @Get('attendance/discrepancy')
+  listMyDiscrepancyNotes(@CurrentUser() user: ReqUser) {
+    return this.svc.listMyDiscrepancyNotes(user);
+  }
 }
 
 // ─── Branch Approval Controller ───────────────────────────────
@@ -683,5 +700,43 @@ export class LeaveManagementController {
     const year = body.year || now.getFullYear();
     const month = body.month || now.getMonth() + 1;
     return this.svc.accrueMonthlyEL(clientId, year, month);
+  }
+
+  // ── Fix #14: HR Discrepancy Note Management ───────────────
+
+  @ApiOperation({ summary: 'List all attendance discrepancy notes (HR view)' })
+  @Get('discrepancy-notes')
+  listDiscrepancyNotes(
+    @CurrentUser() user: ReqUser,
+    @Query('status') status?: string,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.svc.listDiscrepancyNotes(clientId, undefined, status);
+  }
+
+  @ApiOperation({ summary: 'Acknowledge / resolve a discrepancy note (HR action)' })
+  @Post('discrepancy-notes/:id/action')
+  actionDiscrepancyNote(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      action: 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSED';
+      hrResponse?: string;
+    },
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    if (!['ACKNOWLEDGED', 'RESOLVED', 'DISMISSED'].includes(body.action)) {
+      throw new BadRequestException('action must be ACKNOWLEDGED, RESOLVED, or DISMISSED');
+    }
+    return this.svc.actionDiscrepancyNote(
+      id,
+      user?.id,
+      clientId,
+      body.action,
+      body.hrResponse,
+    );
   }
 }

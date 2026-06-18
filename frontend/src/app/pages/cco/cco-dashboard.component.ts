@@ -9,7 +9,7 @@ import { ReportsService } from '../../core/reports.service';
 import {
   PageHeaderComponent, ActionButtonComponent, StatusBadgeComponent,
   DataTableComponent, TableCellDirective, TableColumn, LoadingSpinnerComponent,
-  EmptyStateComponent,
+  EmptyStateComponent, KpiTileComponent,
 } from '../../shared/ui';
 
 interface CcoDashboardData {
@@ -45,7 +45,7 @@ interface OversightItem {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule, FormsModule, PageHeaderComponent, ActionButtonComponent, StatusBadgeComponent,
-    DataTableComponent, TableCellDirective, LoadingSpinnerComponent, EmptyStateComponent,
+    DataTableComponent, TableCellDirective, LoadingSpinnerComponent, EmptyStateComponent, KpiTileComponent,
   ],
   templateUrl: './cco-dashboard.component.html',
   styleUrls: ['./cco-dashboard.component.scss'],
