@@ -15,7 +15,7 @@
         <tr>
           <!-- Checkbox header -->
           <th *ngIf="enableSelection" class="px-4 py-3 w-10">
-            <input type="checkbox"
+            <input name="dataTableSelectAll" type="checkbox"
               class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               [checked]="isAllSelected()"
               (change)="toggleAll($any($event.target).checked)" />
@@ -70,7 +70,7 @@
           <tr *ngFor="let row of rows" class="hover:bg-gray-50 transition-colors">
             <!-- Checkbox -->
             <td *ngIf="enableSelection" class="px-4 py-3">
-              <input type="checkbox"
+              <input name="dataTableSelectRow" type="checkbox"
                 class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 [checked]="isSelected(row)"
                 (change)="toggleRow(row, $any($event.target).checked)" />
@@ -132,6 +132,7 @@
       <div class="flex items-center gap-2 text-3xl leading-none font-semibold text-gray-900">
         <span class="text-base font-semibold text-gray-900">Page</span>
         <input
+          name="dataTablePage"
           type="number"
           min="1"
           [max]="totalPages()"
