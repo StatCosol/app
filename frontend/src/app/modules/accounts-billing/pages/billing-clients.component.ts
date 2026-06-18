@@ -20,9 +20,9 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
 
       <!-- Search -->
       <div class="flex gap-3">
-        <input [(ngModel)]="search" (keyup.enter)="loadClients()" placeholder="Search clients..."
+        <input name="bc-search" [(ngModel)]="search" (keyup.enter)="loadClients()" placeholder="Search clients..."
                class="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-        <select [(ngModel)]="statusFilter" (change)="loadClients()"
+        <select name="bc-status-filter" [(ngModel)]="statusFilter" (change)="loadClients()"
                 class="px-3 py-2 border rounded-lg text-sm">
           <option value="">All Status</option>
           <option value="ACTIVE">Active</option>
@@ -91,61 +91,61 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Legal Name *</label>
-                <input [(ngModel)]="form.legalName" class="w-full px-3 py-2 border rounded-lg text-sm">
+                <input name="bc-legal-name" [(ngModel)]="form.legalName" class="w-full px-3 py-2 border rounded-lg text-sm">
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Trade Name</label>
-                <input [(ngModel)]="form.tradeName" class="w-full px-3 py-2 border rounded-lg text-sm">
+                <input name="bc-trade-name" [(ngModel)]="form.tradeName" class="w-full px-3 py-2 border rounded-lg text-sm">
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Billing Email *</label>
-                <input [(ngModel)]="form.billingEmail" type="email" class="w-full px-3 py-2 border rounded-lg text-sm">
+                <input name="bc-billing-email" [(ngModel)]="form.billingEmail" type="email" class="w-full px-3 py-2 border rounded-lg text-sm">
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Contact Person</label>
-                <input [(ngModel)]="form.contactPerson" class="w-full px-3 py-2 border rounded-lg text-sm">
+                <input name="bc-contact-person" [(ngModel)]="form.contactPerson" class="w-full px-3 py-2 border rounded-lg text-sm">
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Mobile</label>
-                <input [(ngModel)]="form.mobile" class="w-full px-3 py-2 border rounded-lg text-sm">
+                <input name="bc-mobile" [(ngModel)]="form.mobile" class="w-full px-3 py-2 border rounded-lg text-sm">
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">CC Email</label>
-                <input [(ngModel)]="form.ccEmail" class="w-full px-3 py-2 border rounded-lg text-sm">
+                <input name="bc-cc-email" [(ngModel)]="form.ccEmail" class="w-full px-3 py-2 border rounded-lg text-sm">
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">GSTIN</label>
-                <input [(ngModel)]="form.gstin" class="w-full px-3 py-2 border rounded-lg text-sm" maxlength="15">
+                <input name="bc-gstin" [(ngModel)]="form.gstin" class="w-full px-3 py-2 border rounded-lg text-sm" maxlength="15">
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">PAN</label>
-                <input [(ngModel)]="form.pan" class="w-full px-3 py-2 border rounded-lg text-sm" maxlength="10">
+                <input name="bc-pan" [(ngModel)]="form.pan" class="w-full px-3 py-2 border rounded-lg text-sm" maxlength="10">
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">State *</label>
-                <select [(ngModel)]="form.stateCode" (change)="onStateChange()" class="w-full px-3 py-2 border rounded-lg text-sm">
+                <select name="bc-state-code" [(ngModel)]="form.stateCode" (change)="onStateChange()" class="w-full px-3 py-2 border rounded-lg text-sm">
                   <option value="">Select State</option>
                   <option *ngFor="let s of states" [value]="s.code">{{ s.name }} ({{ s.code }})</option>
                 </select>
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Default GST Rate %</label>
-                <input [(ngModel)]="form.defaultGstRate" type="number" class="w-full px-3 py-2 border rounded-lg text-sm">
+                <input name="bc-gst-rate" [(ngModel)]="form.defaultGstRate" type="number" class="w-full px-3 py-2 border rounded-lg text-sm">
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Payment Terms (days)</label>
-                <input [(ngModel)]="form.paymentTermsDays" type="number" class="w-full px-3 py-2 border rounded-lg text-sm">
+                <input name="bc-payment-terms" [(ngModel)]="form.paymentTermsDays" type="number" class="w-full px-3 py-2 border rounded-lg text-sm">
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Billing Frequency</label>
-                <select [(ngModel)]="form.billingFrequency" class="w-full px-3 py-2 border rounded-lg text-sm">
+                <select name="bc-billing-frequency" [(ngModel)]="form.billingFrequency" class="w-full px-3 py-2 border rounded-lg text-sm">
                   <option *ngFor="let f of frequencies" [value]="f.value">{{ f.label }}</option>
                 </select>
               </div>
             </div>
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Billing Address *</label>
-              <textarea [(ngModel)]="form.billingAddress" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea>
+              <textarea name="bc-billing-address" [(ngModel)]="form.billingAddress" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea>
             </div>
           </div>
           <div class="p-6 border-t flex justify-end gap-3">

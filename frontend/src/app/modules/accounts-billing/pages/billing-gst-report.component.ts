@@ -14,11 +14,11 @@ import { AccountsBillingService } from '../services/accounts-billing.service';
       <div class="flex gap-3 items-end">
         <div>
           <label class="block text-xs font-medium text-slate-600 mb-1">From Date</label>
-          <input [(ngModel)]="fromDate" type="date" class="px-3 py-2 border rounded-lg text-sm">
+          <input name="bgr-from-date" [(ngModel)]="fromDate" type="date" class="px-3 py-2 border rounded-lg text-sm">
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-600 mb-1">To Date</label>
-          <input [(ngModel)]="toDate" type="date" class="px-3 py-2 border rounded-lg text-sm">
+          <input name="bgr-to-date" [(ngModel)]="toDate" type="date" class="px-3 py-2 border rounded-lg text-sm">
         </div>
         <button (click)="load()" [disabled]="loading" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
           {{ loading ? 'Loading...' : 'Generate' }}

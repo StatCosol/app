@@ -60,6 +60,7 @@ async function bootstrap() {
   // from this origin; uploads are same-origin via /uploads with auth).
   app.use(
     helmet({
+      xXssProtection: false,
       hsts: {
         maxAge: 60 * 60 * 24 * 365, // 1 year
         includeSubDomains: true,
