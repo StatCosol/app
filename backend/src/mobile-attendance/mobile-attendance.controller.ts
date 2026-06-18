@@ -52,7 +52,14 @@ export class MobileAttendanceDevicesController {
   @Post()
   provision(
     @CurrentUser() user: ReqUser,
-    @Body() body: { mode: 'KIOSK' | 'ESS'; branchId?: string; deviceLabel?: string },
+    @Body() body: {
+      mode: 'KIOSK' | 'ESS';
+      branchId?: string;
+      deviceLabel?: string;
+      geofenceLat?: number;
+      geofenceLng?: number;
+      geofenceRadiusM?: number;
+    },
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
@@ -62,6 +69,9 @@ export class MobileAttendanceDevicesController {
       body.branchId ?? null,
       body.deviceLabel ?? null,
       user.userId,
+      body.geofenceLat ?? null,
+      body.geofenceLng ?? null,
+      body.geofenceRadiusM ?? null,
     );
   }
 
@@ -107,6 +117,22 @@ export class MobileAttendanceDevicesController {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     return this.deviceService.permanentlyDeleteDevice(clientId, deviceId, user.branchIds ?? []);
+  }
+
+  @ApiOperation({ summary: 'Configure or clear the geofence for a device' })
+  @Put(':deviceId/geofence')
+  configureGeofence(
+    @Param('deviceId') deviceId: string,
+    @CurrentUser() user: ReqUser,
+    @Body() body: { lat?: number; lng?: number; radiusM?: number } | null,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    const params =
+      body && body.lat != null && body.lng != null && body.radiusM != null
+        ? { lat: body.lat, lng: body.lng, radiusM: body.radiusM }
+        : null;
+    return this.deviceService.configureGeofence(deviceId, clientId, params);
   }
 }
 

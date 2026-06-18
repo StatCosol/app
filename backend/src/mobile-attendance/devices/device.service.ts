@@ -30,6 +30,9 @@ export class DeviceService {
     branchId: string | null,
     deviceLabel: string | null,
     _createdBy: string,
+    geofenceLat: number | null = null,
+    geofenceLng: number | null = null,
+    geofenceRadiusM: number | null = null,
   ): Promise<MobileAttendanceDeviceEntity> {
     const installToken = randomBytes(32).toString('hex');
     const device = this.deviceRepo.create({
@@ -39,6 +42,9 @@ export class DeviceService {
       deviceName: deviceLabel,
       installToken,
       isActive: true,
+      geofenceLat: geofenceLat !== null ? String(geofenceLat) : null,
+      geofenceLng: geofenceLng !== null ? String(geofenceLng) : null,
+      geofenceRadiusM: geofenceRadiusM ?? null,
     });
     const saved = await this.deviceRepo.save(device);
     this.logger.log(`provisionDevice: created device=${saved.id} isActive=${saved.isActive} mode=${saved.mode}`);
@@ -181,22 +187,22 @@ export class DeviceService {
 
     return this.dataSource.query(
       `SELECT d.id,
-              d.client_id                                  AS "clientId",
-              d.branch_id                                  AS "branchId",
-              d.mode                                       AS "mode",
-              d.device_name                                AS "deviceLabel",
-              d.install_token                              AS "installToken",
-              d.geofence_lat                               AS "geofenceLat",
-              d.geofence_lng                               AS "geofenceLng",
-              d.geofence_radius_m                          AS "geofenceRadiusM",
-              d.created_at                                 AS "registeredAt",
-              NULL::uuid                                   AS "registeredBy",
-              d.last_seen_at                               AS "lastSeenAt",
-              NULL::timestamptz                            AS "lastPunchAt",
-              d.is_active                                  AS "isActive",
-              d.revoked_at                                 AS "revokedAt",
-              d.revoked_by                                 AS "revokedBy",
-              NULL::uuid                                   AS "essEmployeeId"
+              d.client_id        AS "clientId",
+              d.branch_id        AS "branchId",
+              d.mode             AS "mode",
+              d.device_name      AS "deviceLabel",
+              d.install_token    AS "installToken",
+              d.geofence_lat     AS "geofenceLat",
+              d.geofence_lng     AS "geofenceLng",
+              d.geofence_radius_m AS "geofenceRadiusM",
+              d.created_at       AS "registeredAt",
+              NULL::uuid         AS "registeredBy",
+              d.last_seen_at     AS "lastSeenAt",
+              NULL::timestamptz  AS "lastPunchAt",
+              d.is_active        AS "isActive",
+              d.revoked_at       AS "revokedAt",
+              d.revoked_by       AS "revokedBy",
+              NULL::uuid         AS "essEmployeeId"
        FROM mobile_attendance_devices d
        WHERE d.client_id = $1::uuid
          AND d.deleted_at IS NULL
@@ -206,11 +212,18 @@ export class DeviceService {
     );
   }
 
+  /** Module-level cache for information_schema column lookups.
+   *  Schema doesn't change at runtime so indefinite caching is safe. */
+  private readonly columnCache = new Map<string, Set<string>>();
+
   private async getDeviceColumns(): Promise<Set<string>> {
     return this.getTableColumns('mobile_attendance_devices');
   }
 
   private async getTableColumns(tableName: string): Promise<Set<string>> {
+    const cached = this.columnCache.get(tableName);
+    if (cached) return cached;
+
     const rows = await this.dataSource.query<Array<{ column_name: string }>>(
       `SELECT column_name
          FROM information_schema.columns
@@ -218,7 +231,9 @@ export class DeviceService {
           AND table_name = $1`,
       [tableName],
     );
-    return new Set(rows.map((row) => row.column_name));
+    const result = new Set(rows.map((row) => row.column_name));
+    this.columnCache.set(tableName, result);
+    return result;
   }
 
   private async tableExists(tableName: string): Promise<boolean> {

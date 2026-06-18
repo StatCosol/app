@@ -31,10 +31,15 @@ class ApiClient(private val config: DeviceConfig) {
 
     private fun authedRequestBuilder(path: String): Request.Builder {
         val url = "${baseUrl()}$path"
-        return Request.Builder()
+        val builder = Request.Builder()
             .url(url)
             .header("Authorization", "Bearer ${config.deviceToken}")
             .header("Content-Type", "application/json")
+        val androidId = config.androidId
+        if (androidId.isNotBlank()) {
+            builder.header("X-Android-Id", androidId)
+        }
+        return builder
     }
 
     private suspend fun <T> execute(request: Request, parse: (String) -> T): T =

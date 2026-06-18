@@ -1,5 +1,6 @@
 package com.statcosol.attendance.ui
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -17,6 +18,7 @@ import androidx.lifecycle.lifecycleScope
 import com.google.mlkit.vision.face.Face
 import com.statcosol.attendance.R
 import com.statcosol.attendance.api.ApiClient
+import com.statcosol.attendance.api.ApiException
 import com.statcosol.attendance.api.KioskEnrollTicketResponse
 import com.statcosol.attendance.api.MobilePunchRequest
 import com.statcosol.attendance.api.SubmitKioskEnrollRequest
@@ -127,12 +129,28 @@ class KioskActivity : AppCompatActivity() {
 
     // ── Roster ───────────────────────────────────────────────────────────────
 
+    /** Handle a 401/403 from any authenticated API call: clear config and return to SetupActivity. */
+    private fun handleUnauthorized() {
+        Log.w(TAG, "Received 401/403 — device token revoked, clearing config and returning to SetupActivity")
+        config.clear()
+        val intent = Intent(this, SetupActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finish()
+    }
+
     private fun loadRoster() {
         lifecycleScope.launch {
             try {
                 val roster = apiClient.getRoster()
                 matcher.load(roster.enrollments)
                 Log.i(TAG, "Roster loaded: ${roster.enrollments.size} entries")
+            } catch (e: ApiException) {
+                if (e.code == 401 || e.code == 403) {
+                    handleUnauthorized()
+                } else {
+                    Log.w(TAG, "Roster load failed: ${e.message}")
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "Roster load failed: ${e.message}")
             }
@@ -186,6 +204,12 @@ class KioskActivity : AppCompatActivity() {
                     if (ticket != null) {
                         enterEnrollingState(ticket)
                     }
+                } catch (e: ApiException) {
+                    if (e.code == 401 || e.code == 403) {
+                        handleUnauthorized()
+                        break
+                    }
+                    Log.w(TAG, "Enrollment poll failed: ${e.message}")
                 } catch (e: Exception) {
                     Log.w(TAG, "Enrollment poll failed: ${e.message}")
                 }
@@ -324,6 +348,17 @@ class KioskActivity : AppCompatActivity() {
                     val msg = getString(R.string.kiosk_punch_recorded, resp.employeeName)
                     tvStatus.text = msg
                     tvHint.text = msg
+                }
+            } catch (e: ApiException) {
+                if (e.code == 401 || e.code == 403) {
+                    handleUnauthorized()
+                } else {
+                    // Queue for offline sync on other errors
+                    queuePunch(req)
+                    state = KioskState.Result(ok = true, name = match.displayName, direction = "IN")
+                    runOnUiThread {
+                        tvHint.text = getString(R.string.kiosk_punch_queued)
+                    }
                 }
             } catch (e: Exception) {
                 // Queue for offline sync

@@ -138,6 +138,7 @@ interface BranchOption { id: string; name: string }
                 </td>
                 <td class="px-4 py-3 text-right whitespace-nowrap">
                   <button *ngIf="d.isActive" class="text-xs text-blue-600 hover:underline mr-3" (click)="showToken(d)">Show Token</button>
+                  <button *ngIf="d.isActive" class="text-xs text-indigo-600 hover:underline mr-3" (click)="openGeofence(d)">Geofence</button>
                   <button *ngIf="d.isActive" class="text-xs text-red-600 hover:underline" (click)="revoke(d)">Revoke</button>
                   <button *ngIf="!d.isActive" class="text-xs text-red-700 hover:underline" (click)="hardDelete(d)">Delete</button>
                 </td>
@@ -384,6 +385,35 @@ interface BranchOption { id: string; name: string }
       </ng-container>
     </div>
 
+    <!-- Geofence Modal -->
+    <ui-modal *ngIf="geofenceModal" [isOpen]="geofenceModal" [showFooter]="false" title="Configure Geofence" (closed)="geofenceModal = false">
+      <form (ngSubmit)="saveGeofence()" class="space-y-3">
+        <p class="text-xs text-gray-500">Set the geofence centre and radius for this device. Leave blank and save to clear.</p>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Latitude</label>
+            <input type="number" step="0.0000001" class="ui-input" [(ngModel)]="geofenceForm.lat" name="gfLat" placeholder="e.g. 19.0760">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Longitude</label>
+            <input type="number" step="0.0000001" class="ui-input" [(ngModel)]="geofenceForm.lng" name="gfLng" placeholder="e.g. 72.8777">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Radius (m)</label>
+            <input type="number" step="1" min="50" max="50000" class="ui-input" [(ngModel)]="geofenceForm.radiusM" name="gfRadius" placeholder="100">
+          </div>
+        </div>
+        <div *ngIf="geofenceError" class="text-sm text-red-600">{{ geofenceError }}</div>
+        <div class="flex justify-between gap-2 pt-2">
+          <ui-button variant="secondary" type="button" (clicked)="clearGeofence()">Clear Geofence</ui-button>
+          <div class="flex gap-2">
+            <ui-button variant="secondary" type="button" (clicked)="geofenceModal = false">Cancel</ui-button>
+            <ui-button variant="primary" type="submit" [loading]="savingGeofence">Save</ui-button>
+          </div>
+        </div>
+      </form>
+    </ui-modal>
+
     <!-- Add Device Modal -->
     <ui-modal *ngIf="showModal" [isOpen]="showModal" [showFooter]="false" title="Register Mobile Device" (closed)="showModal = false">
       <form (ngSubmit)="save()" class="space-y-3">
@@ -563,6 +593,13 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   // Token reveal
   tokenModal = false;
   tokenToShow = '';
+
+  // Geofence modal
+  geofenceModal = false;
+  geofenceDeviceId = '';
+  geofenceForm: { lat: number | null; lng: number | null; radiusM: number | null } = { lat: null, lng: null, radiusM: null };
+  geofenceError = '';
+  savingGeofence = false;
 
   get tokenLength(): number {
     return this.tokenToShow?.length || 0;
@@ -880,6 +917,48 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
         next: () => { this.toast.success('Device deleted'); this.loadDevices(); },
         error: (e) => this.toast.error(e?.error?.message || 'Delete failed'),
       });
+  }
+
+  openGeofence(d: MobileAttendanceDevice): void {
+    this.geofenceDeviceId = d.id;
+    this.geofenceError = '';
+    this.geofenceForm = {
+      lat: d.geofenceLat ?? null,
+      lng: d.geofenceLng ?? null,
+      radiusM: d.geofenceRadiusM ?? null,
+    };
+    this.geofenceModal = true;
+  }
+
+  saveGeofence(): void {
+    this.geofenceError = '';
+    const { lat, lng, radiusM } = this.geofenceForm;
+    const hasValues = lat !== null && lng !== null && radiusM !== null;
+    if (hasValues && (lat! < -90 || lat! > 90 || lng! < -180 || lng! > 180)) {
+      this.geofenceError = 'Coordinates out of range';
+      return;
+    }
+    if (hasValues && (radiusM! < 50 || radiusM! > 50000)) {
+      this.geofenceError = 'Radius must be between 50 m and 50 000 m';
+      return;
+    }
+    this.savingGeofence = true;
+    const params = hasValues ? { lat: lat!, lng: lng!, radiusM: radiusM! } : null;
+    this.svc.configureGeofence(this.geofenceDeviceId, params)
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.savingGeofence = false; this.bump(); }))
+      .subscribe({
+        next: () => {
+          this.geofenceModal = false;
+          this.toast.success(params ? 'Geofence saved' : 'Geofence cleared');
+          this.loadDevices();
+        },
+        error: (e) => { this.geofenceError = e?.error?.message || 'Failed to save geofence'; this.bump(); },
+      });
+  }
+
+  clearGeofence(): void {
+    this.geofenceForm = { lat: null, lng: null, radiusM: null };
+    this.saveGeofence();
   }
 
   // ── Live camera + face enrollment ─────────────────────────

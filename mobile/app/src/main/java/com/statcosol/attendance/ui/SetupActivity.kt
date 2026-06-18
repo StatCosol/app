@@ -89,6 +89,7 @@ class SetupActivity : AppCompatActivity() {
 
                 config.deviceToken = response.deviceToken
                 config.deviceMode = response.mode
+                config.androidId = androidId
 
                 navigateToMain()
             } catch (e: ApiException) {
