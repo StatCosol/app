@@ -48,7 +48,7 @@ import { NewsTickerComponent } from '../../../shared/news/news-ticker.component'
                   <div class="flex items-center gap-2">
                     <span class="text-lg font-bold tracking-tight text-statco-blue">StatCo Solutions</span>
                   </div>
-                  <p class="text-[11px] font-medium text-slate-400">Contractor Compliance Portal</p>
+                  <p class="text-[11px] font-medium text-slate-400">Ensuring Compliance, Empowering Success</p>
                 </div>
                 <!-- Contact links (xl+) -->
                 <div class="hidden xl:flex flex-col items-start gap-0.5 ml-4 text-[11px] text-gray-400 border-l border-gray-100 pl-4">
