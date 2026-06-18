@@ -96,11 +96,14 @@ export class DeviceService {
       const androidCol = this.pickColumn(columns, 'android_id', 'androidId');
       const nameCol = this.pickColumn(columns, 'device_name', 'deviceName', 'device_label', 'deviceLabel');
       const lastSeenCol = this.pickColumn(columns, 'last_seen_at', 'lastSeenAt');
-      const rawRows = await em.query<Array<{ id: string; is_active: boolean | null }>>(
-        `SELECT id, is_active FROM mobile_attendance_devices WHERE ${this.quoteIdentifier(tokenCol)} = $1 LIMIT 1`,
-        [installToken],
-      );
-      this.logger.log(`registerDevice: raw DB is_active=${JSON.stringify(rawRows?.[0]?.is_active)} for token ${installToken.slice(0, 8)}...`);
+      const isActiveCol = this.pickColumn(columns, 'is_active', 'isActive');
+      const rawRows = isActiveCol
+        ? await em.query<Array<{ id: string; raw_is_active: boolean | null }>>(
+            `SELECT id, ${this.quoteIdentifier(isActiveCol)} AS raw_is_active FROM mobile_attendance_devices WHERE ${this.quoteIdentifier(tokenCol)} = $1 LIMIT 1`,
+            [installToken],
+          )
+        : [];
+      this.logger.log(`registerDevice: raw DB ${isActiveCol ?? '(no isActive col)'}=${JSON.stringify(rawRows?.[0]?.raw_is_active)} for token ${installToken.slice(0, 8)}...`);
       const rows = await em.query<MobileAttendanceDeviceEntity[]>(
         `SELECT ${this.deviceReturnProjection('d')}
            FROM mobile_attendance_devices d
@@ -112,7 +115,7 @@ export class DeviceService {
 
       if (!device) throw new NotFoundException('Install token not found');
       if (!this.rowIsActive(device)) {
-        this.logger.warn(`registerDevice: token found but revoked — isActive=${JSON.stringify(device.isActive)} raw_is_active=${JSON.stringify(rawRows?.[0]?.is_active)} device=${device.id}`);
+        this.logger.warn(`registerDevice: token found but revoked — isActive=${JSON.stringify(device.isActive)} rawCol=${isActiveCol}=${JSON.stringify(rawRows?.[0]?.raw_is_active)} device=${device.id}`);
         throw new UnauthorizedException('Device token revoked');
       }
 
