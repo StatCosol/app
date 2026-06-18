@@ -135,6 +135,7 @@ export class TableCellDirective {
           <div class="flex items-center gap-1.5 px-2 text-gray-800">
             <span class="text-sm font-semibold">Page</span>
             <input
+              name="uiDataTablePage"
               type="number"
               min="1"
               [max]="totalPages"

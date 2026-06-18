@@ -144,8 +144,8 @@ type Step = 'email' | 'sent';
     .card {
       width: 100%;
       background: rgba(255,255,255,.82);
-      backdrop-filter: blur(20px) saturate(1.4);
       -webkit-backdrop-filter: blur(20px) saturate(1.4);
+      backdrop-filter: blur(20px) saturate(1.4);
       border-radius: 28px;
       padding: 40px 36px 32px;
       box-shadow: 0 20px 60px rgba(14,58,110,.10), 0 1px 3px rgba(0,0,0,.06);
