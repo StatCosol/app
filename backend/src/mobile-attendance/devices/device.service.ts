@@ -29,56 +29,20 @@ export class DeviceService {
     mode: 'KIOSK' | 'ESS',
     branchId: string | null,
     deviceLabel: string | null,
-    createdBy: string,
+    _createdBy: string,
   ): Promise<MobileAttendanceDeviceEntity> {
-    const installToken = randomBytes(32).toString('hex'); // 64-char hex token — matches SetupActivity validation
-    const columns = await this.getDeviceColumns();
-    const clientCol = this.requireColumn(columns, 'client_id', 'clientId');
-    const modeCol = this.requireColumn(columns, 'mode');
-    const tokenCol = this.requireColumn(columns, 'install_token', 'installToken');
-    const branchCol = this.pickColumn(columns, 'branch_id', 'branchId');
-    const nameCol = this.pickColumn(columns, 'device_name', 'deviceName', 'device_label', 'deviceLabel');
-    const isActiveCol = this.pickColumn(columns, 'is_active', 'isActive');
-    const createdByCol = this.pickColumn(columns, 'created_by', 'createdBy', 'registered_by', 'registeredBy');
-    const createdAtCol = this.pickColumn(columns, 'created_at', 'createdAt', 'registered_at', 'registeredAt');
-    const insertColumns = [clientCol, modeCol, tokenCol];
-    const params: unknown[] = [clientId, mode, installToken];
-
-    if (branchCol) {
-      insertColumns.push(branchCol);
-      params.push(branchId);
-    }
-    if (nameCol) {
-      insertColumns.push(nameCol);
-      params.push(deviceLabel);
-    }
-    if (isActiveCol) {
-      insertColumns.push(isActiveCol);
-      params.push(true);
-    }
-    if (createdByCol && this.isUuid(createdBy)) {
-      insertColumns.push(createdByCol);
-      params.push(createdBy);
-    }
-    if (createdAtCol) {
-      insertColumns.push(createdAtCol);
-      params.push(new Date());
-    }
-
-    const result = await this.dataSource.query<MobileAttendanceDeviceEntity[]>(
-      `WITH inserted AS (
-         INSERT INTO mobile_attendance_devices (${insertColumns.map((col) => this.quoteIdentifier(col)).join(', ')})
-         VALUES (${params.map((_, idx) => `$${idx + 1}`).join(', ')})
-         RETURNING *
-       )
-       SELECT ${this.deviceReturnProjection('d')}
-         FROM inserted d`,
-      params,
-    );
-
-    if (!result?.[0]) throw new ConflictException('Device could not be provisioned');
-    this.logger.log(`provisionDevice: created device=${result[0].id} isActive=${result[0].isActive} mode=${result[0].mode}`);
-    return result[0];
+    const installToken = randomBytes(32).toString('hex');
+    const device = this.deviceRepo.create({
+      clientId,
+      mode,
+      branchId,
+      deviceName: deviceLabel,
+      installToken,
+      isActive: true,
+    });
+    const saved = await this.deviceRepo.save(device);
+    this.logger.log(`provisionDevice: created device=${saved.id} isActive=${saved.isActive} mode=${saved.mode}`);
+    return saved;
   }
 
   /**
