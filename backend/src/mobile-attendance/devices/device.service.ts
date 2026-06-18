@@ -91,31 +91,15 @@ export class DeviceService {
     deviceName?: string,
   ): Promise<MobileAttendanceDeviceEntity> {
     return this.dataSource.transaction(async (em) => {
-      const columns = await this.getDeviceColumns();
-      const tokenCol = this.requireColumn(columns, 'install_token', 'installToken');
-      const androidCol = this.pickColumn(columns, 'android_id', 'androidId');
-      const nameCol = this.pickColumn(columns, 'device_name', 'deviceName', 'device_label', 'deviceLabel');
-      const lastSeenCol = this.pickColumn(columns, 'last_seen_at', 'lastSeenAt');
-      const isActiveCol = this.pickColumn(columns, 'is_active', 'isActive');
-      const rawRows = isActiveCol
-        ? await em.query<Array<{ id: string; raw_is_active: boolean | null }>>(
-            `SELECT id, ${this.quoteIdentifier(isActiveCol)} AS raw_is_active FROM mobile_attendance_devices WHERE ${this.quoteIdentifier(tokenCol)} = $1 LIMIT 1`,
-            [installToken],
-          )
-        : [];
-      this.logger.log(`registerDevice: raw DB ${isActiveCol ?? '(no isActive col)'}=${JSON.stringify(rawRows?.[0]?.raw_is_active)} for token ${installToken.slice(0, 8)}...`);
-      const rows = await em.query<MobileAttendanceDeviceEntity[]>(
-        `SELECT ${this.deviceReturnProjection('d')}
-           FROM mobile_attendance_devices d
-          WHERE to_jsonb(d)->>${this.sqlString(tokenCol)} = $1
-          FOR UPDATE`,
-        [installToken],
-      );
-      const device = rows?.[0] ?? null;
+      const repo = em.getRepository(MobileAttendanceDeviceEntity);
+      const device = await repo.findOne({
+        where: { installToken },
+        lock: { mode: 'pessimistic_write' },
+      });
 
       if (!device) throw new NotFoundException('Install token not found');
-      if (!this.rowIsActive(device)) {
-        this.logger.warn(`registerDevice: token found but revoked — isActive=${JSON.stringify(device.isActive)} rawCol=${isActiveCol}=${JSON.stringify(rawRows?.[0]?.raw_is_active)} device=${device.id}`);
+      if (!device.isActive) {
+        this.logger.warn(`registerDevice: token revoked — isActive=${device.isActive} device=${device.id}`);
         throw new UnauthorizedException('Device token revoked');
       }
 
@@ -123,36 +107,11 @@ export class DeviceService {
         throw new ConflictException('Install token already bound to a different device');
       }
 
-      const assignments: string[] = [];
-      const params: unknown[] = [installToken];
-      if (androidCol && androidId) {
-        params.push(androidId);
-        assignments.push(`${this.quoteIdentifier(androidCol)} = $${params.length}`);
-      }
-      if (nameCol && deviceName) {
-        params.push(deviceName);
-        assignments.push(`${this.quoteIdentifier(nameCol)} = $${params.length}`);
-      }
-      if (lastSeenCol) assignments.push(`${this.quoteIdentifier(lastSeenCol)} = now()`);
-      if (assignments.length === 0) return device;
-
-      const updated = await em.query<MobileAttendanceDeviceEntity[]>(
-        `WITH updated AS (
-          UPDATE mobile_attendance_devices
-            SET ${assignments.join(', ')}
-          WHERE to_jsonb(mobile_attendance_devices)->>${this.sqlString(tokenCol)} = $1
-            AND ${this.deviceIsActiveExpression('mobile_attendance_devices')}
-          RETURNING *
-        )
-        SELECT ${this.deviceReturnProjection('d')}
-          FROM updated d`,
-        params,
-      );
-      if (!updated?.[0]) {
-        this.logger.warn(`registerDevice: UPDATE returned no rows — device was active at SELECT but UPDATE rejected it (token fingerprint: ${installToken.slice(0, 8)}...)`);
-        throw new UnauthorizedException('Device token revoked');
-      }
-      return updated[0];
+      device.androidId = androidId ?? device.androidId;
+      device.deviceName = deviceName ?? device.deviceName;
+      device.lastSeenAt = new Date();
+      await repo.save(device);
+      return device;
     });
   }
 
