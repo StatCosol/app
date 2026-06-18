@@ -52,6 +52,9 @@ export class MobileAttendanceDeviceEntity {
   @Column({ name: 'revoked_by', type: 'uuid', nullable: true })
   revokedBy: string | null;
 
+  @Column({ name: 'deleted_at', type: 'timestamptz', nullable: true })
+  deletedAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }
