@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -11,6 +12,8 @@ import { MobileAttendanceDeviceEntity } from './device.entity';
 
 @Injectable()
 export class DeviceService {
+  private readonly logger = new Logger(DeviceService.name);
+
   constructor(
     @InjectRepository(MobileAttendanceDeviceEntity)
     private readonly deviceRepo: Repository<MobileAttendanceDeviceEntity>,
@@ -74,6 +77,7 @@ export class DeviceService {
     );
 
     if (!result?.[0]) throw new ConflictException('Device could not be provisioned');
+    this.logger.log(`provisionDevice: created device=${result[0].id} isActive=${result[0].isActive} mode=${result[0].mode}`);
     return result[0];
   }
 
@@ -92,6 +96,14 @@ export class DeviceService {
       const androidCol = this.pickColumn(columns, 'android_id', 'androidId');
       const nameCol = this.pickColumn(columns, 'device_name', 'deviceName', 'device_label', 'deviceLabel');
       const lastSeenCol = this.pickColumn(columns, 'last_seen_at', 'lastSeenAt');
+      const isActiveCol = this.pickColumn(columns, 'is_active', 'isActive');
+      const rawRows = isActiveCol
+        ? await em.query<Array<{ id: string; raw_is_active: boolean | null }>>(
+            `SELECT id, ${this.quoteIdentifier(isActiveCol)} AS raw_is_active FROM mobile_attendance_devices WHERE ${this.quoteIdentifier(tokenCol)} = $1 LIMIT 1`,
+            [installToken],
+          )
+        : [];
+      this.logger.log(`registerDevice: raw DB ${isActiveCol ?? '(no isActive col)'}=${JSON.stringify(rawRows?.[0]?.raw_is_active)} for token ${installToken.slice(0, 8)}...`);
       const rows = await em.query<MobileAttendanceDeviceEntity[]>(
         `SELECT ${this.deviceReturnProjection('d')}
            FROM mobile_attendance_devices d
@@ -102,7 +114,10 @@ export class DeviceService {
       const device = rows?.[0] ?? null;
 
       if (!device) throw new NotFoundException('Install token not found');
-      if (!this.rowIsActive(device)) throw new UnauthorizedException('Device token revoked');
+      if (!this.rowIsActive(device)) {
+        this.logger.warn(`registerDevice: token found but revoked — isActive=${JSON.stringify(device.isActive)} rawCol=${isActiveCol}=${JSON.stringify(rawRows?.[0]?.raw_is_active)} device=${device.id}`);
+        throw new UnauthorizedException('Device token revoked');
+      }
 
       if (device.androidId && androidId && device.androidId !== androidId) {
         throw new ConflictException('Install token already bound to a different device');
@@ -133,7 +148,10 @@ export class DeviceService {
           FROM updated d`,
         params,
       );
-      if (!updated?.[0]) throw new UnauthorizedException('Device token revoked');
+      if (!updated?.[0]) {
+        this.logger.warn(`registerDevice: UPDATE returned no rows — device was active at SELECT but UPDATE rejected it (token fingerprint: ${installToken.slice(0, 8)}...)`);
+        throw new UnauthorizedException('Device token revoked');
+      }
       return updated[0];
     });
   }
