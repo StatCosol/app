@@ -207,7 +207,7 @@ export class DeviceService {
 
     try {
       await this.dataSource.transaction(async (em) => {
-        const result = await em.query<Array<{ id: string }>>(
+        const raw = await em.query(
           `DELETE FROM mobile_attendance_devices d
             WHERE d.id = $1::uuid
               AND d.client_id = $2::uuid
@@ -215,7 +215,8 @@ export class DeviceService {
             RETURNING d.id`,
           params,
         );
-        if (!result || result.length === 0) throw new NotFoundException('Device not found');
+        const rows: Array<{ id: string }> = Array.isArray(raw[0]) ? raw[0] : raw;
+        if (!rows || rows.length === 0) throw new NotFoundException('Device not found');
       });
     } catch (err: any) {
       if (err?.code === '23503') {
@@ -332,7 +333,7 @@ export class DeviceService {
     const assignments = [`${this.quoteIdentifier(deletedAtCol)} = now()`];
     if (isActiveCol) assignments.push(`${this.quoteIdentifier(isActiveCol)} = false`);
 
-    const result = await this.dataSource.query<Array<{ id: string }>>(
+    const raw = await this.dataSource.query(
       `UPDATE mobile_attendance_devices d
           SET ${assignments.join(', ')}
         WHERE d.id = $1::uuid
@@ -341,8 +342,8 @@ export class DeviceService {
         RETURNING d.id`,
       scopedParams,
     );
-
-    if (!result || result.length === 0) throw new NotFoundException('Device not found');
+    const rows: Array<{ id: string }> = Array.isArray(raw[0]) ? raw[0] : raw;
+    if (!rows || rows.length === 0) throw new NotFoundException('Device not found');
   }
 
   private async deviceHasPunchHistory(deviceId: string, clientId: string): Promise<boolean> {

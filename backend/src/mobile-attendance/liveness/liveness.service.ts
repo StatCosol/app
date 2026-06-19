@@ -73,7 +73,7 @@ export class LivenessService {
     nonce: string,
     suppliedType: string,
   ): Promise<true> {
-    const result = await this.dataSource.query<Array<{ challenge_type: string }>>(
+    const raw = await this.dataSource.query(
       `UPDATE face_liveness_nonces
          SET consumed_at = now()
        WHERE nonce = $1
@@ -83,12 +83,14 @@ export class LivenessService {
        RETURNING challenge_type`,
       [nonce, deviceId],
     );
+    // TypeORM 0.3.x returns [rows, rowCount] for UPDATE/DELETE, rows[] for SELECT
+    const rows: Array<{ challenge_type: string }> = Array.isArray(raw[0]) ? raw[0] : raw;
 
-    if (!result || result.length === 0) {
+    if (!rows || rows.length === 0) {
       throw new BadRequestException('Liveness nonce invalid, expired, or already used');
     }
 
-    const storedType: string = result[0].challenge_type;
+    const storedType: string = rows[0].challenge_type;
     if (storedType.toUpperCase() !== suppliedType.toUpperCase()) {
       throw new BadRequestException(
         `Liveness challenge type mismatch: expected ${storedType}, got ${suppliedType}`,
