@@ -61,27 +61,62 @@ export class DeviceService {
     deviceName?: string,
   ): Promise<MobileAttendanceDeviceEntity> {
     return this.dataSource.transaction(async (em) => {
-      const repo = em.getRepository(MobileAttendanceDeviceEntity);
-      const device = await repo.findOne({
-        where: { installToken },
-        lock: { mode: 'pessimistic_write' },
-      });
+      const columns = await this.getTableColumns('mobile_attendance_devices');
+      const tokenCol = this.requireColumn(columns, 'install_token', 'installToken');
+
+      const rows = await em.query<any[]>(
+        `SELECT ${this.deviceReturnProjection('d')}
+           FROM mobile_attendance_devices d
+          WHERE d.${this.quoteIdentifier(tokenCol)} = $1
+          FOR UPDATE`,
+        [installToken],
+      );
+      const device = rows[0];
 
       if (!device) throw new NotFoundException('Install token not found');
       if (!device.isActive) {
         this.logger.warn(`registerDevice: token revoked — isActive=${device.isActive} device=${device.id}`);
         throw new UnauthorizedException('Device token revoked');
       }
-
       if (device.androidId && androidId && device.androidId !== androidId) {
         throw new ConflictException('Install token already bound to a different device');
       }
 
-      device.androidId = androidId ?? device.androidId;
-      device.deviceName = deviceName ?? device.deviceName;
-      device.lastSeenAt = new Date();
-      await repo.save(device);
-      return device;
+      const sets: string[] = [];
+      const params: unknown[] = [device.id];
+
+      const lastSeenCol = this.pickColumn(columns, 'last_seen_at', 'lastSeenAt');
+      if (lastSeenCol) sets.push(`${this.quoteIdentifier(lastSeenCol)} = now()`);
+
+      if (androidId && !device.androidId) {
+        const androidIdCol = this.pickColumn(columns, 'android_id', 'androidId');
+        if (androidIdCol) {
+          params.push(androidId);
+          sets.push(`${this.quoteIdentifier(androidIdCol)} = $${params.length}`);
+        }
+      }
+
+      if (deviceName) {
+        const nameCol = this.pickColumn(columns, 'device_name', 'device_label', 'deviceName', 'deviceLabel');
+        if (nameCol) {
+          params.push(deviceName);
+          sets.push(`${this.quoteIdentifier(nameCol)} = $${params.length}`);
+        }
+      }
+
+      if (sets.length > 0) {
+        await em.query(
+          `UPDATE mobile_attendance_devices SET ${sets.join(', ')} WHERE id = $1::uuid`,
+          params,
+        );
+      }
+
+      return {
+        ...device,
+        androidId: androidId ?? device.androidId,
+        deviceName: deviceName ?? device.deviceName,
+        lastSeenAt: new Date(),
+      } as MobileAttendanceDeviceEntity;
     });
   }
 
@@ -89,17 +124,37 @@ export class DeviceService {
     installToken: string,
     androidId?: string,
   ): Promise<MobileAttendanceDeviceEntity> {
-    const device = await this.deviceRepo.findOne({
-      where: { installToken, deletedAt: null as any },
-    });
-    if (!device || !device.isActive) throw new UnauthorizedException('Device not authorized');
+    const columns = await this.getTableColumns('mobile_attendance_devices');
+    const tokenCol = this.requireColumn(columns, 'install_token', 'installToken');
+    const deletedAtCol = this.pickColumn(columns, 'deleted_at', 'deletedAt');
+    const deletedFilter = deletedAtCol
+      ? `AND d.${this.quoteIdentifier(deletedAtCol)} IS NULL`
+      : '';
 
+    const rows = await this.dataSource.query<any[]>(
+      `SELECT ${this.deviceReturnProjection('d')}
+         FROM mobile_attendance_devices d
+        WHERE d.${this.quoteIdentifier(tokenCol)} = $1
+          ${deletedFilter}
+        LIMIT 1`,
+      [installToken],
+    );
+    const device = rows[0];
+
+    if (!device || !device.isActive) throw new UnauthorizedException('Device not authorized');
     if (device.androidId && androidId && device.androidId !== androidId) {
       throw new UnauthorizedException('Device ID mismatch');
     }
 
-    device.lastSeenAt = new Date();
-    return this.deviceRepo.save(device);
+    const lastSeenCol = this.pickColumn(columns, 'last_seen_at', 'lastSeenAt');
+    if (lastSeenCol) {
+      await this.dataSource.query(
+        `UPDATE mobile_attendance_devices SET ${this.quoteIdentifier(lastSeenCol)} = now() WHERE id = $1::uuid`,
+        [device.id],
+      );
+    }
+
+    return { ...device, lastSeenAt: new Date() } as MobileAttendanceDeviceEntity;
   }
 
   async revokeDevice(
