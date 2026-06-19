@@ -82,6 +82,27 @@ export class DeviceService {
         throw new ConflictException('Install token already bound to a different device');
       }
 
+      // Prevent the same physical device from holding multiple active tokens
+      if (androidId && !device.androidId) {
+        const androidIdCol = this.pickColumn(columns, 'android_id', 'androidId');
+        const deletedAtCol = this.pickColumn(columns, 'deleted_at', 'deletedAt');
+        const notDeleted = deletedAtCol ? `AND d.${this.quoteIdentifier(deletedAtCol)} IS NULL` : '';
+        if (androidIdCol) {
+          const conflict = await em.query<any[]>(
+            `SELECT d.id FROM mobile_attendance_devices d
+              WHERE d.client_id = $1::uuid
+                AND d.${this.quoteIdentifier(androidIdCol)} = $2
+                AND d.id <> $3::uuid
+                ${notDeleted}
+             LIMIT 1`,
+            [device.clientId, androidId, device.id],
+          );
+          if (conflict.length > 0) {
+            throw new ConflictException('This Android device is already registered under another install token');
+          }
+        }
+      }
+
       const sets: string[] = [];
       const params: unknown[] = [device.id];
 

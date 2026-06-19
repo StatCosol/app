@@ -299,6 +299,7 @@ export class EnrollmentService {
           where: { employeeId: dto.employeeId, clientId },
         });
         if (!rec) throw new NotFoundException('Enrollment not found');
+        if (!rec.isActive) return; // already deactivated — idempotent
         rec.isActive = false;
         rec.deactivatedAt = new Date();
         rec.deactivationReason = dto.reason ?? null;
@@ -316,6 +317,7 @@ export class EnrollmentService {
           where: { contractorEmployeeId: dto.contractorEmployeeId, clientId },
         });
         if (!rec) throw new NotFoundException('Contractor enrollment not found');
+        if (!rec.isActive) return; // already deactivated — idempotent
         rec.isActive = false;
         rec.deactivatedAt = new Date();
         rec.deactivationReason = dto.reason ?? null;
