@@ -29,56 +29,26 @@ export class DeviceService {
     mode: 'KIOSK' | 'ESS',
     branchId: string | null,
     deviceLabel: string | null,
-    createdBy: string,
+    _createdBy: string,
+    geofenceLat: number | null = null,
+    geofenceLng: number | null = null,
+    geofenceRadiusM: number | null = null,
   ): Promise<MobileAttendanceDeviceEntity> {
-    const installToken = randomBytes(32).toString('hex'); // 64-char hex token — matches SetupActivity validation
-    const columns = await this.getDeviceColumns();
-    const clientCol = this.requireColumn(columns, 'client_id', 'clientId');
-    const modeCol = this.requireColumn(columns, 'mode');
-    const tokenCol = this.requireColumn(columns, 'install_token', 'installToken');
-    const branchCol = this.pickColumn(columns, 'branch_id', 'branchId');
-    const nameCol = this.pickColumn(columns, 'device_name', 'deviceName', 'device_label', 'deviceLabel');
-    const isActiveCol = this.pickColumn(columns, 'is_active', 'isActive');
-    const createdByCol = this.pickColumn(columns, 'created_by', 'createdBy', 'registered_by', 'registeredBy');
-    const createdAtCol = this.pickColumn(columns, 'created_at', 'createdAt', 'registered_at', 'registeredAt');
-    const insertColumns = [clientCol, modeCol, tokenCol];
-    const params: unknown[] = [clientId, mode, installToken];
-
-    if (branchCol) {
-      insertColumns.push(branchCol);
-      params.push(branchId);
-    }
-    if (nameCol) {
-      insertColumns.push(nameCol);
-      params.push(deviceLabel);
-    }
-    if (isActiveCol) {
-      insertColumns.push(isActiveCol);
-      params.push(true);
-    }
-    if (createdByCol && this.isUuid(createdBy)) {
-      insertColumns.push(createdByCol);
-      params.push(createdBy);
-    }
-    if (createdAtCol) {
-      insertColumns.push(createdAtCol);
-      params.push(new Date());
-    }
-
-    const result = await this.dataSource.query<MobileAttendanceDeviceEntity[]>(
-      `WITH inserted AS (
-         INSERT INTO mobile_attendance_devices (${insertColumns.map((col) => this.quoteIdentifier(col)).join(', ')})
-         VALUES (${params.map((_, idx) => `$${idx + 1}`).join(', ')})
-         RETURNING *
-       )
-       SELECT ${this.deviceReturnProjection('d')}
-         FROM inserted d`,
-      params,
-    );
-
-    if (!result?.[0]) throw new ConflictException('Device could not be provisioned');
-    this.logger.log(`provisionDevice: created device=${result[0].id} isActive=${result[0].isActive} mode=${result[0].mode}`);
-    return result[0];
+    const installToken = randomBytes(32).toString('hex');
+    const device = this.deviceRepo.create({
+      clientId,
+      mode,
+      branchId,
+      deviceName: deviceLabel,
+      installToken,
+      isActive: true,
+      geofenceLat: geofenceLat !== null ? String(geofenceLat) : null,
+      geofenceLng: geofenceLng !== null ? String(geofenceLng) : null,
+      geofenceRadiusM: geofenceRadiusM ?? null,
+    });
+    const saved = await this.deviceRepo.save(device);
+    this.logger.log(`provisionDevice: created device=${saved.id} isActive=${saved.isActive} mode=${saved.mode}`);
+    return saved;
   }
 
   /**
@@ -91,27 +61,62 @@ export class DeviceService {
     deviceName?: string,
   ): Promise<MobileAttendanceDeviceEntity> {
     return this.dataSource.transaction(async (em) => {
-      const repo = em.getRepository(MobileAttendanceDeviceEntity);
-      const device = await repo.findOne({
-        where: { installToken },
-        lock: { mode: 'pessimistic_write' },
-      });
+      const columns = await this.getTableColumns('mobile_attendance_devices');
+      const tokenCol = this.requireColumn(columns, 'install_token', 'installToken');
+
+      const rows = await em.query<any[]>(
+        `SELECT ${this.deviceReturnProjection('d')}
+           FROM mobile_attendance_devices d
+          WHERE d.${this.quoteIdentifier(tokenCol)} = $1
+          FOR UPDATE`,
+        [installToken],
+      );
+      const device = rows[0];
 
       if (!device) throw new NotFoundException('Install token not found');
       if (!device.isActive) {
         this.logger.warn(`registerDevice: token revoked — isActive=${device.isActive} device=${device.id}`);
         throw new UnauthorizedException('Device token revoked');
       }
-
       if (device.androidId && androidId && device.androidId !== androidId) {
         throw new ConflictException('Install token already bound to a different device');
       }
 
-      device.androidId = androidId ?? device.androidId;
-      device.deviceName = deviceName ?? device.deviceName;
-      device.lastSeenAt = new Date();
-      await repo.save(device);
-      return device;
+      const sets: string[] = [];
+      const params: unknown[] = [device.id];
+
+      const lastSeenCol = this.pickColumn(columns, 'last_seen_at', 'lastSeenAt');
+      if (lastSeenCol) sets.push(`${this.quoteIdentifier(lastSeenCol)} = now()`);
+
+      if (androidId && !device.androidId) {
+        const androidIdCol = this.pickColumn(columns, 'android_id', 'androidId');
+        if (androidIdCol) {
+          params.push(androidId);
+          sets.push(`${this.quoteIdentifier(androidIdCol)} = $${params.length}`);
+        }
+      }
+
+      if (deviceName) {
+        const nameCol = this.pickColumn(columns, 'device_name', 'device_label', 'deviceName', 'deviceLabel');
+        if (nameCol) {
+          params.push(deviceName);
+          sets.push(`${this.quoteIdentifier(nameCol)} = $${params.length}`);
+        }
+      }
+
+      if (sets.length > 0) {
+        await em.query(
+          `UPDATE mobile_attendance_devices SET ${sets.join(', ')} WHERE id = $1::uuid`,
+          params,
+        );
+      }
+
+      return {
+        ...device,
+        androidId: androidId ?? device.androidId,
+        deviceName: deviceName ?? device.deviceName,
+        lastSeenAt: new Date(),
+      } as MobileAttendanceDeviceEntity;
     });
   }
 
@@ -119,36 +124,37 @@ export class DeviceService {
     installToken: string,
     androidId?: string,
   ): Promise<MobileAttendanceDeviceEntity> {
-    const columns = await this.getDeviceColumns();
+    const columns = await this.getTableColumns('mobile_attendance_devices');
     const tokenCol = this.requireColumn(columns, 'install_token', 'installToken');
-    const lastSeenCol = this.pickColumn(columns, 'last_seen_at', 'lastSeenAt');
-    const rows = await this.dataSource.query<MobileAttendanceDeviceEntity[]>(
+    const deletedAtCol = this.pickColumn(columns, 'deleted_at', 'deletedAt');
+    const deletedFilter = deletedAtCol
+      ? `AND d.${this.quoteIdentifier(deletedAtCol)} IS NULL`
+      : '';
+
+    const rows = await this.dataSource.query<any[]>(
       `SELECT ${this.deviceReturnProjection('d')}
          FROM mobile_attendance_devices d
-        WHERE to_jsonb(d)->>${this.sqlString(tokenCol)} = $1
+        WHERE d.${this.quoteIdentifier(tokenCol)} = $1
+          ${deletedFilter}
         LIMIT 1`,
       [installToken],
     );
-    const device = rows?.[0] ?? null;
-    if (!device || !this.rowIsActive(device)) throw new UnauthorizedException('Device not authorized');
+    const device = rows[0];
 
+    if (!device || !device.isActive) throw new UnauthorizedException('Device not authorized');
     if (device.androidId && androidId && device.androidId !== androidId) {
       throw new UnauthorizedException('Device ID mismatch');
     }
 
-    if (!lastSeenCol) return device;
-    const updated = await this.dataSource.query<MobileAttendanceDeviceEntity[]>(
-      `WITH updated AS (
-        UPDATE mobile_attendance_devices
-          SET ${this.quoteIdentifier(lastSeenCol)} = now()
-        WHERE to_jsonb(mobile_attendance_devices)->>${this.sqlString(tokenCol)} = $1
-        RETURNING *
-      )
-      SELECT ${this.deviceReturnProjection('d')}
-        FROM updated d`,
-      [installToken],
-    );
-    return updated?.[0] ?? device;
+    const lastSeenCol = this.pickColumn(columns, 'last_seen_at', 'lastSeenAt');
+    if (lastSeenCol) {
+      await this.dataSource.query(
+        `UPDATE mobile_attendance_devices SET ${this.quoteIdentifier(lastSeenCol)} = now() WHERE id = $1::uuid`,
+        [device.id],
+      );
+    }
+
+    return { ...device, lastSeenAt: new Date() } as MobileAttendanceDeviceEntity;
   }
 
   async revokeDevice(
@@ -156,34 +162,12 @@ export class DeviceService {
     deviceId: string,
     by: string,
   ): Promise<void> {
-    const columns = await this.getDeviceColumns();
-    const isActiveCol = this.pickColumn(columns, 'is_active', 'isActive');
-    const revokedAtCol = this.pickColumn(columns, 'revoked_at', 'revokedAt');
-    const revokedByCol = this.pickColumn(columns, 'revoked_by', 'revokedBy');
-    const assignments: string[] = [];
-    const params: unknown[] = [deviceId, clientId];
-
-    if (isActiveCol) assignments.push(`${this.quoteIdentifier(isActiveCol)} = false`);
-    if (revokedAtCol) assignments.push(`${this.quoteIdentifier(revokedAtCol)} = now()`);
-    if (revokedByCol && this.isUuid(by)) {
-      params.push(by);
-      assignments.push(`${this.quoteIdentifier(revokedByCol)} = $${params.length}::uuid`);
-    }
-
-    if (assignments.length === 0) {
-      throw new NotFoundException('Device revoke columns not found');
-    }
-
-    const result = await this.dataSource.query<Array<{ id: string }>>(
-      `UPDATE mobile_attendance_devices
-          SET ${assignments.join(', ')}
-        WHERE id = $1::uuid
-          AND COALESCE(to_jsonb(mobile_attendance_devices)->>'clientId', to_jsonb(mobile_attendance_devices)->>'client_id') = $2
-        RETURNING id`,
-      params,
-    );
-
-    if (!result || result.length === 0) throw new NotFoundException('Device not found');
+    const device = await this.deviceRepo.findOne({ where: { id: deviceId, clientId } });
+    if (!device) throw new NotFoundException('Device not found');
+    device.isActive = false;
+    device.revokedAt = new Date();
+    if (this.isUuid(by)) device.revokedBy = by;
+    await this.deviceRepo.save(device);
   }
 
   async permanentlyDeleteDevice(
@@ -191,23 +175,19 @@ export class DeviceService {
     deviceId: string,
     branchIds: string[] = [],
   ): Promise<{ ok: true; id: string }> {
-    const columns = await this.getDeviceColumns();
-    const isActiveCol = this.pickColumn(columns, 'is_active', 'isActive');
-    const activeFilter = isActiveCol
-      ? `AND COALESCE((to_jsonb(d)->>${this.sqlString(isActiveCol)})::boolean, true) = false`
-      : '';
     const params: unknown[] = [deviceId, clientId];
     let branchFilter = '';
     if (branchIds.length > 0) {
       params.push(branchIds);
-      branchFilter = `AND COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') = ANY($${params.length}::text[])`;
+      branchFilter = `AND d.branch_id = ANY($${params.length}::uuid[])`;
     }
+    const activeFilter = `AND d.is_active = false`;
 
     const existing = await this.dataSource.query<Array<{ id: string }>>(
       `SELECT d.id
          FROM mobile_attendance_devices d
         WHERE d.id = $1::uuid
-          AND COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') = $2
+          AND d.client_id = $2::uuid
           ${activeFilter}
           ${branchFilter}
         LIMIT 1`,
@@ -230,7 +210,7 @@ export class DeviceService {
         const result = await em.query<Array<{ id: string }>>(
           `DELETE FROM mobile_attendance_devices d
             WHERE d.id = $1::uuid
-              AND COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') = $2
+              AND d.client_id = $2::uuid
               ${branchFilter}
             RETURNING d.id`,
           params,
@@ -257,46 +237,48 @@ export class DeviceService {
     let branchFilter = '';
     if (branchIds.length > 0) {
       params.push(branchIds);
-      branchFilter = ` AND COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') = ANY($${params.length}::text[])`;
+      branchFilter = ` AND d.branch_id = ANY($${params.length}::uuid[])`;
     }
 
     return this.dataSource.query(
       `SELECT d.id,
-              COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') AS "clientId",
-              COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') AS "branchId",
-              COALESCE(to_jsonb(d)->>'mode', 'KIOSK') AS "mode",
-              COALESCE(
-                to_jsonb(d)->>'deviceLabel',
-                to_jsonb(d)->>'device_label',
-                to_jsonb(d)->>'deviceName',
-                to_jsonb(d)->>'device_name'
-              ) AS "deviceLabel",
-              COALESCE(to_jsonb(d)->>'installToken', to_jsonb(d)->>'install_token') AS "installToken",
-              NULL::numeric AS "geofenceLat",
-              NULL::numeric AS "geofenceLng",
-              NULL::integer AS "geofenceRadiusM",
-              COALESCE(to_jsonb(d)->>'registeredAt', to_jsonb(d)->>'registered_at', to_jsonb(d)->>'created_at') AS "registeredAt",
-              NULL::uuid AS "registeredBy",
-              COALESCE(to_jsonb(d)->>'lastSeenAt', to_jsonb(d)->>'last_seen_at') AS "lastSeenAt",
-              NULL::timestamptz AS "lastPunchAt",
-              COALESCE((to_jsonb(d)->>'isActive')::boolean, (to_jsonb(d)->>'is_active')::boolean, true) AS "isActive",
-              COALESCE(to_jsonb(d)->>'revokedAt', to_jsonb(d)->>'revoked_at') AS "revokedAt",
-              COALESCE(to_jsonb(d)->>'revokedBy', to_jsonb(d)->>'revoked_by') AS "revokedBy",
-              NULL::uuid AS "essEmployeeId"
+              d.client_id        AS "clientId",
+              d.branch_id        AS "branchId",
+              d.mode             AS "mode",
+              d.device_name      AS "deviceLabel",
+              d.install_token    AS "installToken",
+              d.geofence_lat     AS "geofenceLat",
+              d.geofence_lng     AS "geofenceLng",
+              d.geofence_radius_m AS "geofenceRadiusM",
+              d.created_at       AS "registeredAt",
+              NULL::uuid         AS "registeredBy",
+              d.last_seen_at     AS "lastSeenAt",
+              NULL::timestamptz  AS "lastPunchAt",
+              d.is_active        AS "isActive",
+              d.revoked_at       AS "revokedAt",
+              d.revoked_by       AS "revokedBy",
+              NULL::uuid         AS "essEmployeeId"
        FROM mobile_attendance_devices d
-       WHERE COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') = $1
-         AND COALESCE(to_jsonb(d)->>'deletedAt', to_jsonb(d)->>'deleted_at') IS NULL
+       WHERE d.client_id = $1::uuid
+         AND d.deleted_at IS NULL
          ${branchFilter}
-       ORDER BY COALESCE(to_jsonb(d)->>'registeredAt', to_jsonb(d)->>'registered_at', to_jsonb(d)->>'created_at') DESC NULLS LAST`,
+       ORDER BY d.created_at DESC NULLS LAST`,
       params,
     );
   }
+
+  /** Module-level cache for information_schema column lookups.
+   *  Schema doesn't change at runtime so indefinite caching is safe. */
+  private readonly columnCache = new Map<string, Set<string>>();
 
   private async getDeviceColumns(): Promise<Set<string>> {
     return this.getTableColumns('mobile_attendance_devices');
   }
 
   private async getTableColumns(tableName: string): Promise<Set<string>> {
+    const cached = this.columnCache.get(tableName);
+    if (cached) return cached;
+
     const rows = await this.dataSource.query<Array<{ column_name: string }>>(
       `SELECT column_name
          FROM information_schema.columns
@@ -304,7 +286,9 @@ export class DeviceService {
           AND table_name = $1`,
       [tableName],
     );
-    return new Set(rows.map((row) => row.column_name));
+    const result = new Set(rows.map((row) => row.column_name));
+    this.columnCache.set(tableName, result);
+    return result;
   }
 
   private async tableExists(tableName: string): Promise<boolean> {
@@ -352,7 +336,7 @@ export class DeviceService {
       `UPDATE mobile_attendance_devices d
           SET ${assignments.join(', ')}
         WHERE d.id = $1::uuid
-          AND COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') = $2
+          AND d.client_id = $2::uuid
           ${branchFilter}
         RETURNING d.id`,
       scopedParams,

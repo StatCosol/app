@@ -11,6 +11,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.statcosol.attendance.api.ApiClient
+import com.statcosol.attendance.api.ApiException
 import com.statcosol.attendance.api.MobilePunchRequest
 import com.statcosol.attendance.db.AppDatabase
 import com.statcosol.attendance.prefs.DeviceConfig
@@ -45,6 +46,16 @@ class PunchSyncWorker(
                 apiClient.recordPunch(syncReq)
                 dao.deleteById(queuedPunch.id)
                 Log.i(TAG, "Synced punch id=${queuedPunch.id}")
+            } catch (e: ApiException) {
+                // 400 = bad request (e.g. expired punch TTL), 422 = unprocessable entity.
+                // These are permanent failures — delete the queued punch rather than retrying.
+                if (e.code == 400 || e.code == 422) {
+                    Log.w(TAG, "Punch id=${queuedPunch.id} permanently rejected (HTTP ${e.code}) — discarding: ${e.body}")
+                    dao.deleteById(queuedPunch.id)
+                } else {
+                    Log.w(TAG, "Failed to sync punch id=${queuedPunch.id} (HTTP ${e.code}): ${e.message}")
+                    anyFailed = true
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to sync punch id=${queuedPunch.id}: ${e.message}")
                 anyFailed = true

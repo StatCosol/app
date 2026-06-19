@@ -1,5 +1,6 @@
 package com.statcosol.attendance.ui
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -17,6 +18,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.statcosol.attendance.R
 import com.statcosol.attendance.api.ApiClient
+import com.statcosol.attendance.api.ApiException
 import com.statcosol.attendance.api.MobilePunchRequest
 import com.statcosol.attendance.db.AppDatabase
 import com.statcosol.attendance.db.QueuedPunch
@@ -94,11 +96,28 @@ class EssActivity : AppCompatActivity() {
         faceDetector.close()
     }
 
+    /** Handle a 401/403 from any authenticated API call: clear config and return to SetupActivity. */
+    private fun handleUnauthorized() {
+        Log.w(TAG, "Received 401/403 — device token revoked, clearing config and returning to SetupActivity")
+        config.clear()
+        val intent = Intent(this, SetupActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finish()
+    }
+
     private fun loadRoster() {
         lifecycleScope.launch {
             try {
                 val roster = apiClient.getRoster()
                 matcher.load(roster.enrollments)
+            } catch (e: ApiException) {
+                if (e.code == 401 || e.code == 403) {
+                    handleUnauthorized()
+                } else {
+                    Log.w(TAG, "Roster load failed: ${e.message}")
+                    tvStatus.text = getString(R.string.ess_no_enrollment)
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "Roster load failed: ${e.message}")
                 tvStatus.text = getString(R.string.ess_no_enrollment)
@@ -173,6 +192,13 @@ class EssActivity : AppCompatActivity() {
                     LivenessChallenge.HEAD_TURN_RIGHT -> R.string.liveness_prompt_head_right
                 }
                 runOnUiThread { tvHint.text = getString(promptRes) }
+            } catch (e: ApiException) {
+                if (e.code == 401 || e.code == 403) {
+                    handleUnauthorized()
+                } else {
+                    Log.w(TAG, "Liveness challenge failed: ${e.message}")
+                    punchInFlight = false
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "Liveness challenge failed: ${e.message}")
                 punchInFlight = false
@@ -228,6 +254,24 @@ class EssActivity : AppCompatActivity() {
             val resp = apiClient.recordPunch(req)
             withContext(Dispatchers.Main) {
                 tvStatus.text = getString(R.string.kiosk_punch_recorded, resp.employeeName)
+            }
+        } catch (e: ApiException) {
+            if (e.code == 401 || e.code == 403) {
+                withContext(Dispatchers.Main) { handleUnauthorized() }
+                return
+            }
+            // Queue for offline sync on other API errors
+            try {
+                val db = AppDatabase.getInstance(this@EssActivity)
+                db.queuedPunchDao().insert(QueuedPunch(payloadJson = json.encodeToString(req)))
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@EssActivity, getString(R.string.kiosk_punch_queued), Toast.LENGTH_SHORT).show()
+                }
+            } catch (dbEx: Exception) {
+                Log.e(TAG, "Failed to queue punch: ${dbEx.message}")
+                withContext(Dispatchers.Main) {
+                    tvStatus.text = getString(R.string.kiosk_punch_network_failed)
+                }
             }
         } catch (e: Exception) {
             try {

@@ -183,6 +183,13 @@ export class ClientMobileAttendanceService {
     return this.http.delete<{ ok: true; id: string }>(`${this.base}/devices/${id}/permanent`);
   }
 
+  configureGeofence(
+    id: string,
+    params: { lat: number; lng: number; radiusM: number } | null,
+  ): Observable<MobileAttendanceDevice> {
+    return this.http.put<MobileAttendanceDevice>(`${this.base}/devices/${id}/geofence`, params);
+  }
+
   // Enrollment
   enrollFace(body: EnrollFaceBody): Observable<FaceEnrollment> {
     return this.http.post<FaceEnrollment>(`${this.base}/enrollment/self`, body);
@@ -210,7 +217,8 @@ export class ClientMobileAttendanceService {
     );
   }
 
-  // Re-enrollment approval queue — not in new design; stubbed
+  // Re-enrollment approval queue
+  // TODO: backend endpoint not yet implemented — wire up GET /mobile-attendance/enrollment/reenroll-requests?status=... when available
   listReenrollRequests(_status: ReenrollRequestStatus = 'PENDING'): Observable<ReenrollRequest[]> {
     return of([]);
   }
@@ -255,7 +263,8 @@ export class ClientMobileAttendanceService {
     );
   }
 
-  // ── Contractor re-enrollment approval queue (Phase 4c) — stubbed ──
+  // ── Contractor re-enrollment approval queue (Phase 4c) ──
+  // TODO: backend endpoint not yet implemented — wire up GET /mobile-attendance/enrollment/contractor-reenroll-requests?status=... when available
   listContractorReenrollRequests(
     _status: ReenrollRequestStatus = 'PENDING',
   ): Observable<ContractorReenrollRequest[]> {
