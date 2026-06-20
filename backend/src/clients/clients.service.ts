@@ -596,7 +596,7 @@ export class ClientsService {
   }
 
   async findById(id: string, includeDeleted = false) {
-    return this.repo.findOne({
+    const client = await this.repo.findOne({
       select: [
         'id',
         'clientName',
@@ -607,6 +607,8 @@ export class ClientsService {
       ],
       where: includeDeleted ? { id } : { id, isDeleted: false },
     });
+    if (!client) throw new NotFoundException('Client not found');
+    return client;
   }
 
   /**

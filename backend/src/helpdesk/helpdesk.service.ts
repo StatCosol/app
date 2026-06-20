@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -159,7 +160,7 @@ export class HelpdeskService {
   /** Admin: assign ticket to a user */
   async assignTicket(ticketId: string, dto: AssignTicketDto) {
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
-    if (!t) throw new BadRequestException('Ticket not found');
+    if (!t) throw new NotFoundException('Ticket not found');
     if (dto.assignedToUserId) {
       const [assignee] = await this.dataSource.query(
         `SELECT u.id, r.code AS "roleCode"
@@ -245,7 +246,7 @@ export class HelpdeskService {
   async uploadFile(user: ReqUser, ticketId: string, file: Express.Multer.File) {
     if (!file) throw new BadRequestException('File is required');
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
-    if (!t) throw new BadRequestException('Ticket not found');
+    if (!t) throw new NotFoundException('Ticket not found');
     if (user?.roleCode === 'CLIENT' && user.clientId !== t.clientId) {
       throw new ForbiddenException('Invalid client');
     }
@@ -386,7 +387,7 @@ export class HelpdeskService {
 
   async getTicket(user: ReqUser, ticketId: string) {
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
-    if (!t) throw new BadRequestException('Ticket not found');
+    if (!t) throw new NotFoundException('Ticket not found');
     if (user?.roleCode === 'CLIENT' && user.clientId !== t.clientId) {
       throw new ForbiddenException('Invalid client');
     }
@@ -442,7 +443,7 @@ export class HelpdeskService {
     if (!(HELP_DESK_STATUS as readonly string[]).includes(dto.status))
       throw new BadRequestException('Invalid status');
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
-    if (!t) throw new BadRequestException('Ticket not found');
+    if (!t) throw new NotFoundException('Ticket not found');
 
     if (user?.roleCode === 'CLIENT' && user.clientId !== t.clientId) {
       throw new ForbiddenException('Invalid client');
@@ -465,7 +466,7 @@ export class HelpdeskService {
       throw new BadRequestException('Invalid status');
     }
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
-    if (!t) throw new BadRequestException('Ticket not found');
+    if (!t) throw new NotFoundException('Ticket not found');
     // Scope rules:
     if (user.roleCode === 'CRM') {
       const ids = await this.crmAssignedClientIds(user.id);
@@ -539,7 +540,7 @@ export class HelpdeskService {
 
   async listMessages(user: ReqUser, ticketId: string) {
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
-    if (!t) throw new BadRequestException('Ticket not found');
+    if (!t) throw new NotFoundException('Ticket not found');
     if (user?.roleCode === 'CLIENT' && user.clientId !== t.clientId) {
       throw new ForbiddenException('Invalid client');
     }
@@ -567,7 +568,7 @@ export class HelpdeskService {
 
   async postMessage(user: ReqUser, ticketId: string, dto: PostMessageDto) {
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
-    if (!t) throw new BadRequestException('Ticket not found');
+    if (!t) throw new NotFoundException('Ticket not found');
     if (user?.roleCode === 'CLIENT' && user.clientId !== t.clientId) {
       throw new ForbiddenException('Invalid client');
     }
@@ -639,7 +640,7 @@ export class HelpdeskService {
 
   async essGetTicket(user: ReqUser, ticketId: string) {
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
-    if (!t) throw new BadRequestException('Ticket not found');
+    if (!t) throw new NotFoundException('Ticket not found');
     if (t.createdByUserId !== user.id) {
       throw new ForbiddenException('Not your ticket');
     }

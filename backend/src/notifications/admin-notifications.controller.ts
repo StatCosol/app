@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -35,7 +36,7 @@ export class AdminNotificationsController {
 
   @ApiOperation({ summary: 'Detail' })
   @Get(':id')
-  async detail(@Param('id') id: string) {
+  async detail(@Param('id', ParseUUIDPipe) id: string) {
     return this.notificationsService.getTicketDetailForAdmin(id);
   }
 
@@ -52,7 +53,7 @@ export class AdminNotificationsController {
   @Post(':id/reply')
   async reply(
     @CurrentUser() user: ReqUser,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReplyNotificationDto,
   ) {
     return this.notificationsService.replyAsAdmin(
@@ -65,13 +66,13 @@ export class AdminNotificationsController {
 
   @ApiOperation({ summary: 'Mark Read' })
   @Post(':id/read')
-  async markRead(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+  async markRead(@CurrentUser() user: ReqUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.notificationsService.markRead(id, user.id);
   }
 
   @ApiOperation({ summary: 'Set Status' })
   @Patch(':id/status')
-  async setStatus(@Param('id') id: string, @Body() body: { status: string }) {
+  async setStatus(@Param('id', ParseUUIDPipe) id: string, @Body() body: { status: string }) {
     return this.notificationsService.setStatus(id, body.status);
   }
 }
