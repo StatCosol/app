@@ -71,6 +71,8 @@ import { SalesModule } from './sales/sales.module';
 import { MobileAttendanceModule } from './mobile-attendance/mobile-attendance.module';
 import { AccessModule } from './access/access.module';
 import { ListQueriesModule } from './list-queries/list-queries.module';
+import { ServiceEntitlementsModule } from './service-entitlements/service-entitlements.module';
+import { ServiceEntitlementsGuard } from './service-entitlements/service-entitlements.guard';
 
 @Module({
   imports: [
@@ -216,6 +218,7 @@ import { ListQueriesModule } from './list-queries/list-queries.module';
     MobileAttendanceModule,
     AccessModule,
     ListQueriesModule,
+    ServiceEntitlementsModule,
   ],
   controllers: [],
   providers: [
@@ -223,6 +226,7 @@ import { ListQueriesModule } from './list-queries/list-queries.module';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: ScopeGuard },
+    { provide: APP_GUARD, useClass: ServiceEntitlementsGuard },
   ],
 })
 export class AppModule {}

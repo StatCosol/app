@@ -1,0 +1,144 @@
+import { CommonModule } from '@angular/common';
+import { Component, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { forkJoin } from 'rxjs';
+import { AdminClientsService, Client } from '../clients/admin-clients.service';
+import {
+  ServiceChangeRequest,
+  ServiceEntitlementsApiService,
+  ServicePackageOption,
+} from '../../../core/service-entitlements.service';
+
+@Component({
+  selector: 'app-admin-service-packages',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
+  template: `
+    <section class="p-6 space-y-6">
+      <header>
+        <h1 class="text-2xl font-semibold text-slate-900">Client Service Packages</h1>
+        <p class="text-sm text-slate-500 mt-1">Create package requests for CCO approval.</p>
+      </header>
+
+      <div class="rounded-lg border border-slate-200 bg-white p-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <label class="block">
+          <span class="text-xs font-medium text-slate-600">Client</span>
+          <select class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" name="clientId" [(ngModel)]="form.clientId">
+            <option value="">Select client</option>
+            <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+          </select>
+        </label>
+        <label class="block">
+          <span class="text-xs font-medium text-slate-600">Package</span>
+          <select class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" name="packageCode" [(ngModel)]="form.packageCode">
+            <option *ngFor="let p of packages" [value]="p.code">{{ p.label }}</option>
+          </select>
+        </label>
+        <label class="block xl:col-span-1">
+          <span class="text-xs font-medium text-slate-600">Note</span>
+          <input class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" name="note" [(ngModel)]="form.note" placeholder="Reason for change">
+        </label>
+        <div class="flex items-end">
+          <button class="rounded-md bg-blue-700 px-4 py-2 text-white disabled:opacity-50" [disabled]="saving || !form.clientId" (click)="submit()">
+            Submit for CCO
+          </button>
+        </div>
+      </div>
+
+      <p *ngIf="message" class="text-sm" [class.text-green-700]="!error" [class.text-red-700]="error">{{ message }}</p>
+
+      <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+          <h2 class="font-semibold text-slate-900">Recent Requests</h2>
+          <button class="text-sm text-blue-700" (click)="load()">Refresh</button>
+        </div>
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="px-4 py-3">Client</th>
+              <th class="px-4 py-3">Package</th>
+              <th class="px-4 py-3">Status</th>
+              <th class="px-4 py-3">Requested</th>
+              <th class="px-4 py-3">Reviewed</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of requests" class="border-t border-slate-100">
+              <td class="px-4 py-3">{{ r.clientName || r.clientId }}</td>
+              <td class="px-4 py-3">{{ r.packageCode }}</td>
+              <td class="px-4 py-3">{{ r.status }}</td>
+              <td class="px-4 py-3">{{ r.requestedAt | date:'dd MMM, HH:mm' }}</td>
+              <td class="px-4 py-3">{{ r.reviewedAt ? (r.reviewedAt | date:'dd MMM, HH:mm') : '-' }}</td>
+            </tr>
+            <tr *ngIf="!loading && requests.length === 0">
+              <td class="px-4 py-8 text-center text-slate-500" colspan="5">No service package requests yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `,
+})
+export class AdminServicePackagesComponent implements OnInit {
+  clients: Client[] = [];
+  packages: ServicePackageOption[] = [];
+  requests: ServiceChangeRequest[] = [];
+  loading = false;
+  saving = false;
+  message = '';
+  error = false;
+  form = { clientId: '', packageCode: 'CONTRACTOR_AUDIT_ONLY', note: '' };
+
+  constructor(
+    private readonly clientsApi: AdminClientsService,
+    private readonly entitlements: ServiceEntitlementsApiService,
+  ) {}
+
+  ngOnInit(): void {
+    this.load();
+  }
+
+  load(): void {
+    this.loading = true;
+    forkJoin({
+      clients: this.clientsApi.getClients(),
+      packages: this.entitlements.listPackages(),
+      requests: this.entitlements.listRequests(),
+    }).subscribe({
+      next: ({ clients, packages, requests }) => {
+        this.clients = clients || [];
+        this.packages = packages || [];
+        this.requests = requests || [];
+        this.loading = false;
+      },
+      error: () => {
+        this.message = 'Failed to load service package data.';
+        this.error = true;
+        this.loading = false;
+      },
+    });
+  }
+
+  submit(): void {
+    this.saving = true;
+    this.message = '';
+    this.error = false;
+    this.entitlements.createRequest({
+      clientId: this.form.clientId,
+      packageCode: this.form.packageCode,
+      note: this.form.note || undefined,
+    }).subscribe({
+      next: () => {
+        this.message = 'Request submitted for CCO approval.';
+        this.saving = false;
+        this.form.note = '';
+        this.load();
+      },
+      error: (err) => {
+        this.message = err?.error?.message || 'Failed to submit request.';
+        this.error = true;
+        this.saving = false;
+      },
+    });
+  }
+}

@@ -459,6 +459,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
     private payrollSettings: ClientPayrollSettingsService,
   ) {
     this.navItems = this.buildNav();
+    this.applyModuleAccess();
   }
 
   ngOnInit(): void {
@@ -513,6 +514,36 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
         );
       }
     });
+  }
+
+  private applyModuleAccess(): void {
+    if (!this.auth.getServicePackage()) return;
+
+    const isAllowed = (route: string) => {
+      const module = this.moduleForRoute(route);
+      return !module || this.auth.hasModule(module);
+    };
+
+    this.navItems = this.navItems
+      .map(item => {
+        if (!item.children) return isAllowed(item.route) ? item : null;
+        const children = item.children.filter(child => isAllowed(child.route));
+        return children.length ? { ...item, children } : null;
+      })
+      .filter(Boolean) as SidebarItem[];
+  }
+
+  private moduleForRoute(route: string): string | null {
+    if (route === '/branch/dashboard' || route.startsWith('/branch/reports') || route.startsWith('/branch/notifications') || route.startsWith('/branch/helpdesk')) return null;
+    if (route.startsWith('/branch/contractors') || route.startsWith('/branch/audits/observations') || route.startsWith('/branch/audit-non-compliances')) return 'CONTRACTOR_AUDIT';
+    if (route.startsWith('/branch/attendance/contractor')) return 'CONTRACTOR_ATTENDANCE';
+    if (route.startsWith('/branch/face-enrollment') || route.startsWith('/branch/face-failures')) return 'CONTRACTOR_FACE_ATTENDANCE';
+    if (route.startsWith('/branch/payroll') || route.startsWith('/branch/branch-ctc')) return 'PAYROLL';
+    if (route.startsWith('/branch/employees')) return 'EMPLOYEE_COMPLIANCE';
+    if (route.startsWith('/branch/attendance')) return 'EMPLOYEE_ATTENDANCE';
+    if (route.startsWith('/branch/appraisal') || route.startsWith('/branch/appraisals')) return 'APPRAISAL';
+    if (route.startsWith('/branch/compliance') || route.startsWith('/branch/uploads') || route.startsWith('/branch/calendar') || route.startsWith('/branch/registrations') || route.startsWith('/branch/safety') || route.startsWith('/branch/unit-documents') || route.startsWith('/branch/documents') || route.startsWith('/branch/notices')) return 'EMPLOYEE_COMPLIANCE';
+    return null;
   }
 
   /** Insert Factory Compliance into the Compliance group */

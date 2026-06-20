@@ -249,6 +249,24 @@ export class AuthService {
     return this.getUser()?.userType ?? null;
   }
 
+  getEnabledModules(): string[] {
+    const modules = this.getUser()?.enabledModules;
+    return Array.isArray(modules) ? modules : [];
+  }
+
+  getServicePackage(): string | null {
+    return this.getUser()?.servicePackage ?? null;
+  }
+
+  hasModule(moduleCode: string): boolean {
+    const modules = this.getEnabledModules();
+    return modules.length === 0 || modules.includes(moduleCode);
+  }
+
+  isContractorAuditOnly(): boolean {
+    return this.getServicePackage() === 'CONTRACTOR_AUDIT_ONLY';
+  }
+
   /**
    * Get the redirect path for a given role code.
    * Single source of truth — used by login component and guards.
@@ -299,6 +317,8 @@ export class AuthService {
             me?.roleCode === 'CLIENT'
               ? (me?.isMasterUser ?? ((branchIds?.length ?? 0) === 0))
               : (me?.isMasterUser ?? current.isMasterUser ?? false),
+          servicePackage: me?.servicePackage ?? current.servicePackage ?? null,
+          enabledModules: me?.enabledModules ?? current.enabledModules ?? [],
         };
         sessionStorage.setItem(this.USER_KEY, JSON.stringify(merged));
       })

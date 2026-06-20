@@ -81,6 +81,10 @@ const AdminFaceFailureToolsComponent = () =>
   import('./face-failure-tools/admin-face-failure-tools.component').then(
     (m) => m.AdminFaceFailureToolsComponent,
   );
+const AdminServicePackagesComponent = () =>
+  import('./service-packages/admin-service-packages.component').then(
+    (m) => m.AdminServicePackagesComponent,
+  );
 
 export const ADMIN_ROUTES: Routes = [
   {
@@ -92,6 +96,7 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'reports', loadComponent: AdminReportsComponent },
       { path: 'users', loadComponent: UsersComponent },
       { path: 'clients', loadComponent: AdminClientsComponent },
+      { path: 'service-packages', loadComponent: AdminServicePackagesComponent },
       { path: 'clients/:id', loadComponent: AdminClientsComponent },
       { path: 'clients/:id/:tab', loadComponent: AdminClientsComponent },
       // Note: :id and :id/:tab are intentional — AdminClientsComponent reads both
