@@ -1,5 +1,44 @@
-import { IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsEnum, IsInt, IsLatitude, IsLongitude, IsOptional, IsString, IsUUID, Length, Matches, Max, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export enum DeviceMode {
+  KIOSK = 'KIOSK',
+  ESS = 'ESS',
+}
+
+export class ProvisionDeviceDto {
+  @ApiProperty({ enum: DeviceMode })
+  @IsEnum(DeviceMode)
+  mode: DeviceMode;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  branchId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(1, 200)
+  deviceLabel?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsLatitude()
+  geofenceLat?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsLongitude()
+  geofenceLng?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(50)
+  @Max(50000)
+  geofenceRadiusM?: number;
+}
 import { Transform } from 'class-transformer';
 
 export class RegisterDeviceDto {

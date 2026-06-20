@@ -21,7 +21,7 @@ import { ReqUser } from '../access/access-scope.service';
 
 import { DeviceService } from './devices/device.service';
 import { DeviceAuthGuard } from './devices/device-auth.guard';
-import { RegisterDeviceDto, RevokeDeviceDto } from './devices/device.dto';
+import { ProvisionDeviceDto, RegisterDeviceDto, RevokeDeviceDto } from './devices/device.dto';
 
 import { EnrollmentService } from './enrollment/enrollment.service';
 import {
@@ -52,14 +52,7 @@ export class MobileAttendanceDevicesController {
   @Post()
   provision(
     @CurrentUser() user: ReqUser,
-    @Body() body: {
-      mode: 'KIOSK' | 'ESS';
-      branchId?: string;
-      deviceLabel?: string;
-      geofenceLat?: number;
-      geofenceLng?: number;
-      geofenceRadiusM?: number;
-    },
+    @Body() body: ProvisionDeviceDto,
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
