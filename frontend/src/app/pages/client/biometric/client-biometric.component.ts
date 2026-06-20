@@ -158,7 +158,7 @@ interface BranchOption { id: string; name: string }
               <tr *ngFor="let p of punches" class="border-b border-gray-100 hover:bg-gray-50">
                 <td class="px-4 py-3 text-gray-900">{{ p.punchTime | date: 'dd MMM, HH:mm:ss' }}</td>
                 <td class="px-4 py-3 font-mono text-gray-700">{{ p.employeeCode }}</td>
-                <td class="px-4 py-3 font-mono text-gray-500 text-xs">{{ p.deviceId || '—' }}</td>
+                <td class="px-4 py-3 text-gray-600 text-xs">{{ deviceLabelForPunch(p.deviceId) }}</td>
                 <td class="px-4 py-3">
                   <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium"
                     [class.bg-blue-100]="p.direction === 'IN'"
@@ -512,6 +512,13 @@ export class ClientBiometricComponent implements OnInit, OnDestroy {
   }
 
   // ── Punches ───────────────────────────────────────────────
+  deviceLabelForPunch(deviceId: string | null): string {
+    if (!deviceId) return '—';
+    const dev = this.devices.find((d) => d.id === deviceId);
+    if (dev) return dev.label || dev.serialNumber || '—';
+    return '—';
+  }
+
   loadPunches(): void {
     if (!this.punchFrom || !this.punchTo) return;
     this.loadingPunches = true;

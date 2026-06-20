@@ -56,7 +56,7 @@ import { PfTeamApiService, HdTicket, HdMessage } from '../pf-team-api.service';
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-gray-500">
           <div><span class="uppercase tracking-wider">Employee Ref</span><br><span class="text-sm text-gray-700">{{ ticket.employeeRef || '—' }}</span></div>
           <div><span class="uppercase tracking-wider">Created</span><br><span class="text-sm text-gray-700">{{ ticket.createdAt | date:'dd MMM yyyy, HH:mm' }}</span></div>
-          <div><span class="uppercase tracking-wider">Ticket ID</span><br><span class="text-sm text-gray-700 font-mono">{{ ticket.id | slice:0:8 }}…</span></div>
+          <div><span class="uppercase tracking-wider">Ticket Ref</span><br><span class="text-sm text-gray-700 font-mono">#{{ ticket.id | slice:0:8 }}</span></div>
         </div>
       </div>
 

@@ -21,6 +21,16 @@ import {
 } from '../face/face-math';
 import { RecordPunchDto } from './punch.dto';
 
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6_371_000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 const MIN_MATCH_SCORE = Number(process.env.FACE_MIN_MATCH_SCORE ?? 0.90);
 const MIN_MATCH_MARGIN = Number(process.env.FACE_MIN_MATCH_MARGIN ?? 0.04);
 const ACTIVATION_DELAY_MS =
@@ -129,6 +139,23 @@ export class PunchService {
           device.id,
           dto.livenessNonce,
           dto.livenessChallengeType,
+        );
+      }
+    }
+
+    if (device.geofenceLat !== null && device.geofenceLat !== undefined &&
+        device.geofenceLng !== null && device.geofenceLng !== undefined &&
+        device.geofenceRadiusM !== null && device.geofenceRadiusM !== undefined) {
+      if (dto.captureLat == null || dto.captureLng == null) {
+        throw new BadRequestException('This device requires location for attendance — captureLat and captureLng are required');
+      }
+      const distM = haversineMeters(
+        dto.captureLat, dto.captureLng,
+        Number(device.geofenceLat), Number(device.geofenceLng),
+      );
+      if (distM > device.geofenceRadiusM) {
+        throw new BadRequestException(
+          `Punch rejected: capture location is ${Math.round(distM)}m from device geofence center (allowed radius: ${device.geofenceRadiusM}m)`,
         );
       }
     }

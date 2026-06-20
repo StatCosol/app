@@ -34,6 +34,28 @@ export class DeviceService {
     geofenceLng: number | null = null,
     geofenceRadiusM: number | null = null,
   ): Promise<MobileAttendanceDeviceEntity> {
+    const hasGeo = geofenceLat !== null || geofenceLng !== null || geofenceRadiusM !== null;
+    if (hasGeo) {
+      if (geofenceLat === null || geofenceLng === null || geofenceRadiusM === null) {
+        throw new ConflictException('Geofence requires lat, lng, and radiusM together');
+      }
+      if (geofenceLat < -90 || geofenceLat > 90) {
+        throw new ConflictException('Latitude must be between -90 and 90');
+      }
+      if (geofenceLng < -180 || geofenceLng > 180) {
+        throw new ConflictException('Longitude must be between -180 and 180');
+      }
+      if (
+        !Number.isInteger(geofenceRadiusM) ||
+        geofenceRadiusM < DeviceService.GEOFENCE_RADIUS_MIN_M ||
+        geofenceRadiusM > DeviceService.GEOFENCE_RADIUS_MAX_M
+      ) {
+        throw new ConflictException(
+          `Geofence radius must be between ${DeviceService.GEOFENCE_RADIUS_MIN_M}m and ${DeviceService.GEOFENCE_RADIUS_MAX_M}m`,
+        );
+      }
+    }
+
     const installToken = randomBytes(32).toString('hex');
     const device = this.deviceRepo.create({
       clientId,
@@ -417,7 +439,10 @@ export class DeviceService {
             COALESCE(to_jsonb(${alias})->>'lastSeenAt', to_jsonb(${alias})->>'last_seen_at') AS "lastSeenAt",
             COALESCE(to_jsonb(${alias})->>'revokedAt', to_jsonb(${alias})->>'revoked_at') AS "revokedAt",
             COALESCE(to_jsonb(${alias})->>'revokedBy', to_jsonb(${alias})->>'revoked_by') AS "revokedBy",
-            COALESCE(to_jsonb(${alias})->>'createdAt', to_jsonb(${alias})->>'created_at', to_jsonb(${alias})->>'registeredAt', to_jsonb(${alias})->>'registered_at') AS "createdAt"`;
+            COALESCE(to_jsonb(${alias})->>'createdAt', to_jsonb(${alias})->>'created_at', to_jsonb(${alias})->>'registeredAt', to_jsonb(${alias})->>'registered_at') AS "createdAt",
+            COALESCE(to_jsonb(${alias})->>'geofenceLat', to_jsonb(${alias})->>'geofence_lat') AS "geofenceLat",
+            COALESCE(to_jsonb(${alias})->>'geofenceLng', to_jsonb(${alias})->>'geofence_lng') AS "geofenceLng",
+            COALESCE(to_jsonb(${alias})->>'geofenceRadiusM', to_jsonb(${alias})->>'geofence_radius_m') AS "geofenceRadiusM"`;
   }
 
   private deviceIsActiveExpression(alias: string): string {

@@ -306,7 +306,7 @@ interface AttendanceIssue {
             <table>
               <thead>
                 <tr>
-                  <th>Input ID</th>
+                  <th>Ref</th>
                   <th>Title</th>
                   <th>Status</th>
                   <th>Files</th>
@@ -315,7 +315,7 @@ interface AttendanceIssue {
               </thead>
               <tbody>
                 <tr *ngFor="let item of handoffHistory; trackBy: trackByHandoff">
-                  <td>{{ item.id }}</td>
+                  <td class="font-mono text-xs text-gray-500">#{{ item.id | slice:0:8 }}</td>
                   <td>{{ item.title }}</td>
                   <td>
                     <span
