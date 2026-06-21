@@ -35,27 +35,27 @@
     </section>
 
     <section class="summary-grid">
-      <article class="summary-card">
+      <article *ngIf="hasEmployeeComplianceModule" class="summary-card">
         <div class="summary-label">On-Role Employees</div>
         <div class="summary-value">{{ branch.employeeCount ?? totalEmployees ?? 0 }}</div>
       </article>
-      <article class="summary-card">
+      <article *ngIf="hasContractorModule" class="summary-card">
         <div class="summary-label">Contract Employees</div>
         <div class="summary-value">{{ branch.contractorCount ?? contractors.length ?? 0 }}</div>
       </article>
-      <article class="summary-card">
+      <article *ngIf="hasEmployeeComplianceModule" class="summary-card">
         <div class="summary-label">Compliance Items</div>
         <div class="summary-value">{{ branch.complianceCount ?? complianceCards.applicable ?? 0 }}</div>
       </article>
-      <article class="summary-card">
+      <article *ngIf="hasEmployeeComplianceModule" class="summary-card">
         <div class="summary-label">Documents</div>
         <div class="summary-value">{{ branch.documentStats?.total ?? uploads.length ?? 0 }}</div>
       </article>
-      <article class="summary-card summary-card--risk">
+      <article *ngIf="hasEmployeeComplianceModule" class="summary-card summary-card--risk">
         <div class="summary-label">Risk Score</div>
         <div class="summary-value">{{ riskScore }}%</div>
       </article>
-      <article class="summary-card summary-card--ok">
+      <article *ngIf="hasEmployeeComplianceModule || hasContractorModule" class="summary-card summary-card--ok">
         <div class="summary-label">Completion</div>
         <div class="summary-value">{{ completionScore }}%</div>
       </article>
@@ -73,7 +73,7 @@
       <div class="main-panel">
         <nav class="tab-strip">
           <button type="button"
-            *ngFor="let tab of tabs"
+            *ngFor="let tab of visibleTabs"
             class="tab-btn"
             [class.active]="activeTab === tab.key"
             (click)="setTab(tab.key)">

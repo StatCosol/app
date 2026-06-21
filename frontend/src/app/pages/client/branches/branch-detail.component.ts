@@ -91,6 +91,18 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
     { key: 'contractors', label: 'Contract Employees' },
   ];
 
+  get visibleTabs(): Array<{ key: WorkspaceTab; label: string }> {
+    return this.tabs.filter((tab) => this.canAccessTab(tab.key));
+  }
+
+  get hasEmployeeComplianceModule(): boolean {
+    return this.auth.hasModule('EMPLOYEE_COMPLIANCE');
+  }
+
+  get hasContractorModule(): boolean {
+    return this.auth.hasModule('CONTRACTOR_AUDIT') || this.auth.hasModule('CONTRACTOR_DOCUMENTS');
+  }
+
   tabLoading: Record<WorkspaceTab, boolean> = {
     compliance: false,
     uploads: false,
@@ -177,9 +189,10 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
       }
       this.branchId = nextId;
       this.resetWorkspace();
+      this.activeTab = this.firstAllowedTab();
       this.loadBranchHeader();
       this.loadSidePanels();
-      this.loadTabData('compliance', true);
+      this.loadTabData(this.activeTab, true);
       this.preloadSecondaryTabs();
     });
   }
@@ -190,6 +203,7 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
   }
 
   setTab(tab: WorkspaceTab): void {
+    if (!this.canAccessTab(tab)) return;
     this.activeTab = tab;
     this.loadTabData(tab);
   }
@@ -440,30 +454,37 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
   }
 
   openComplianceModule(): void {
+    if (!this.hasEmployeeComplianceModule) return;
     this.router.navigate(['/client/compliance/status'], { queryParams: { branchId: this.branchId } });
   }
 
   openReturnsModule(): void {
+    if (!this.hasEmployeeComplianceModule) return;
     this.router.navigate(['/client/compliance/returns'], { queryParams: { branchId: this.branchId } });
   }
 
   openRegistrationsModule(): void {
+    if (!this.hasEmployeeComplianceModule) return;
     this.router.navigate(['/client/compliance/registrations'], { queryParams: { branchId: this.branchId } });
   }
 
   openSafetyModule(): void {
+    if (!this.hasEmployeeComplianceModule) return;
     this.router.navigate(['/client/safety'], { queryParams: { branchId: this.branchId } });
   }
 
   openAuditsModule(): void {
+    if (!this.hasContractorModule) return;
     this.router.navigate(['/client/audits'], { queryParams: { branchId: this.branchId } });
   }
 
   openEmployeesModule(): void {
+    if (!this.hasEmployeeComplianceModule) return;
     this.router.navigate(['/client/employees'], { queryParams: { branchId: this.branchId } });
   }
 
   openContractorsModule(): void {
+    if (!this.hasContractorModule) return;
     this.router.navigate(['/client/contractors/branch', this.branchId], { queryParams: { month: this.workspaceMonth } });
   }
 
@@ -492,10 +513,18 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
   private loadSidePanels(): void {
     this.sidePanelLoading = true;
     forkJoin({
-      risk: this.branchSvc.getRiskScore(this.workspaceMonth, this.branchId).pipe(catchError(() => of(null))),
-      completion: this.branchSvc.getComplianceCompletion(this.workspaceMonth, this.branchId).pipe(catchError(() => of(null))),
-      trend: this.branchSvc.getComplianceCompletionTrend(this.branchId, 6).pipe(catchError(() => of([]))),
-      dashboard: this.branchSvc.getDashboard(this.branchId, this.workspaceMonth).pipe(catchError(() => of(null))),
+      risk: this.hasEmployeeComplianceModule
+        ? this.branchSvc.getRiskScore(this.workspaceMonth, this.branchId).pipe(catchError(() => of(null)))
+        : of(null),
+      completion: this.hasEmployeeComplianceModule
+        ? this.branchSvc.getComplianceCompletion(this.workspaceMonth, this.branchId).pipe(catchError(() => of(null)))
+        : of(null),
+      trend: this.hasEmployeeComplianceModule
+        ? this.branchSvc.getComplianceCompletionTrend(this.branchId, 6).pipe(catchError(() => of([])))
+        : of([]),
+      dashboard: this.hasEmployeeComplianceModule || this.hasContractorModule
+        ? this.branchSvc.getDashboard(this.branchId, this.workspaceMonth).pipe(catchError(() => of(null)))
+        : of(null),
     })
       .pipe(
         takeUntil(this.destroy$),
@@ -541,6 +570,7 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
   }
 
   private loadTabData(tab: WorkspaceTab, force = false): void {
+    if (!this.canAccessTab(tab)) return;
     if (!force && this.tabLoaded[tab]) return;
     if (this.tabLoading[tab]) return;
 
@@ -573,7 +603,7 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
   }
 
   private preloadSecondaryTabs(force = false): void {
-    for (const tab of this.tabs.map((t) => t.key)) {
+    for (const tab of this.visibleTabs.map((t) => t.key)) {
       if (tab === this.activeTab) continue;
       this.loadTabData(tab, force);
     }
@@ -796,7 +826,7 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
     const employeesPending = this.employeesPendingApprovalCount();
     const contractorsAtRisk = this.contractorAtRiskCount();
 
-    this.pendingPanel = [
+    const panelItems: PendingPanelItem[] = [
       { label: 'Compliance Pending', count: compliancePending, tab: 'compliance' },
       { label: 'Uploads Pending', count: uploadsPending, tab: 'uploads' },
       { label: 'Returns Pending', count: returnsPending, tab: 'returns' },
@@ -806,6 +836,17 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
       { label: 'Employee Approvals', count: employeesPending, tab: 'employees' },
       { label: 'Contractors At Risk', count: contractorsAtRisk, tab: 'contractors' },
     ];
+
+    this.pendingPanel = panelItems.filter((item) => this.canAccessTab(item.tab));
+  }
+
+  private canAccessTab(tab: WorkspaceTab): boolean {
+    if (['audits', 'contractors'].includes(tab)) return this.hasContractorModule;
+    return this.hasEmployeeComplianceModule;
+  }
+
+  private firstAllowedTab(): WorkspaceTab {
+    return this.visibleTabs[0]?.key ?? 'contractors';
   }
 
   private matchBranch(row: any): boolean {

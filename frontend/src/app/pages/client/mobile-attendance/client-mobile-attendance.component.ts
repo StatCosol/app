@@ -14,6 +14,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import { ClientEmployeesService, Employee } from '../employees/client-employees.service';
+import { AuthService } from '../../../core/auth.service';
 import {
   ClientMobileAttendanceService,
   ContractorReenrollRequest,
@@ -68,7 +69,7 @@ interface BranchOption { id: string; name: string }
       <!-- Tabs -->
       <div class="tab-bar">
         <button class="tab-btn" [class.active]="tab === 'devices'" (click)="switchTab('devices')">Devices</button>
-        <button class="tab-btn" [class.active]="tab === 'status'" (click)="switchTab('status')">Enrollment Status</button>
+        <button *ngIf="hasEmployeeMobileAttendanceModule" class="tab-btn" [class.active]="tab === 'status'" (click)="switchTab('status')">Enrollment Status</button>
         <button class="tab-btn" [class.active]="tab === 'reenroll'" (click)="switchTab('reenroll')">
           Re-enrollment Requests
           <span *ngIf="totalPendingReenrollCount > 0"
@@ -231,7 +232,7 @@ interface BranchOption { id: string; name: string }
         <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
           <div class="flex items-center gap-3 flex-wrap">
             <div class="inline-flex rounded-md border border-gray-200 overflow-hidden text-sm">
-              <button type="button"
+              <button *ngIf="hasEmployeeMobileAttendanceModule" type="button"
                       class="px-3 py-1.5"
                       [class.bg-indigo-600]="reenrollScope === 'employee'"
                       [class.text-white]="reenrollScope === 'employee'"
@@ -248,7 +249,7 @@ interface BranchOption { id: string; name: string }
                   {{ pendingReenrollCount }}
                 </span>
               </button>
-              <button type="button"
+              <button *ngIf="hasContractorFaceAttendanceModule" type="button"
                       class="px-3 py-1.5 border-l border-gray-200"
                       [class.bg-indigo-600]="reenrollScope === 'contractor'"
                       [class.text-white]="reenrollScope === 'contractor'"
@@ -421,7 +422,7 @@ interface BranchOption { id: string; name: string }
           <label for="dev-mode" class="block text-xs font-medium text-gray-600 mb-1">Mode <span class="text-red-500">*</span></label>
           <select id="dev-mode" name="mode" [(ngModel)]="form.mode" (ngModelChange)="onModeChange()" class="ui-input">
             <option value="KIOSK">KIOSK — shared gate tablet (1:N identification)</option>
-            <option value="ESS">ESS — employee personal phone (1:1 + geofence)</option>
+            <option *ngIf="hasEmployeeMobileAttendanceModule" value="ESS">ESS — employee personal phone (1:1 + geofence)</option>
           </select>
         </div>
         <div>
@@ -632,7 +633,16 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   reviewingId: string | null = null;
 
   get totalPendingReenrollCount(): number {
-    return this.pendingReenrollCount + this.pendingContractorReenrollCount;
+    return (this.hasEmployeeMobileAttendanceModule ? this.pendingReenrollCount : 0)
+      + (this.hasContractorFaceAttendanceModule ? this.pendingContractorReenrollCount : 0);
+  }
+
+  get hasEmployeeMobileAttendanceModule(): boolean {
+    return this.auth.hasModule('MOBILE_ATTENDANCE');
+  }
+
+  get hasContractorFaceAttendanceModule(): boolean {
+    return this.auth.hasModule('CONTRACTOR_FACE_ATTENDANCE');
   }
 
   /** Employees selectable for ESS device binding — filtered to the branch
@@ -660,6 +670,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private zone: NgZone,
     private dialog: ConfirmDialogService,
+    private auth: AuthService,
   ) {}
 
   private bump(): void {
@@ -670,9 +681,14 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadBranches();
     this.loadDevices();
-    this.loadEmployees();
-    this.refreshPendingReenrollCount();
-    this.refreshPendingContractorReenrollCount();
+    if (this.hasEmployeeMobileAttendanceModule) {
+      this.loadEmployees();
+      this.refreshPendingReenrollCount();
+    }
+    if (this.hasContractorFaceAttendanceModule) {
+      this.reenrollScope = this.hasEmployeeMobileAttendanceModule ? this.reenrollScope : 'contractor';
+      this.refreshPendingContractorReenrollCount();
+    }
     this.startLiveRefresh();
   }
 
@@ -682,6 +698,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   }
 
   switchTab(t: 'devices' | 'help' | 'status' | 'reenroll'): void {
+    if (t === 'status' && !this.hasEmployeeMobileAttendanceModule) return;
     this.tab = t;
     if (t === 'status' && this.enrollmentRows.length === 0) {
       this.loadEnrollments();
@@ -705,6 +722,10 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   }
 
   loadEmployees(): void {
+    if (!this.hasEmployeeMobileAttendanceModule) {
+      this.employees = [];
+      return;
+    }
     this.employeesSvc.list({ isActive: 'true', limit: 1000 })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
@@ -968,6 +989,10 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
 
   // ── Enrollment status ────────────────────────────────────
   loadEnrollments(silent = false): void {
+    if (!this.hasEmployeeMobileAttendanceModule) {
+      this.enrollmentRows = [];
+      return;
+    }
     if (this.loadingEnrollments) return;
     if (!silent) this.loadingEnrollments = true;
     this.svc.listEnrollments()
@@ -1032,6 +1057,8 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
 
   // ── Re-enrollment requests (Phase 3e + 4c) ────────────────
   switchReenrollScope(scope: ReenrollScope): void {
+    if (scope === 'employee' && !this.hasEmployeeMobileAttendanceModule) return;
+    if (scope === 'contractor' && !this.hasContractorFaceAttendanceModule) return;
     if (this.reenrollScope === scope) return;
     this.reenrollScope = scope;
     this.reenrollRows = [];
@@ -1040,6 +1067,17 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
 
   loadReenrollRequests(silent = false): void {
     if (this.loadingReenroll) return;
+    if (this.reenrollScope === 'employee' && !this.hasEmployeeMobileAttendanceModule) {
+      this.reenrollScope = this.hasContractorFaceAttendanceModule ? 'contractor' : 'employee';
+    }
+    if (this.reenrollScope === 'contractor' && !this.hasContractorFaceAttendanceModule) {
+      this.reenrollRows = [];
+      return;
+    }
+    if (this.reenrollScope === 'employee' && !this.hasEmployeeMobileAttendanceModule) {
+      this.reenrollRows = [];
+      return;
+    }
     if (!silent) this.loadingReenroll = true;
     const scope = this.reenrollScope;
     const done = () => { if (!silent) this.loadingReenroll = false; this.bump(); };
@@ -1109,6 +1147,10 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   }
 
   private refreshPendingReenrollCount(): void {
+    if (!this.hasEmployeeMobileAttendanceModule) {
+      this.pendingReenrollCount = 0;
+      return;
+    }
     this.svc.listReenrollRequests('PENDING')
       .pipe(takeUntil(this.destroy$))
       .subscribe({
@@ -1118,6 +1160,10 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   }
 
   private refreshPendingContractorReenrollCount(): void {
+    if (!this.hasContractorFaceAttendanceModule) {
+      this.pendingContractorReenrollCount = 0;
+      return;
+    }
     this.svc.listContractorReenrollRequests('PENDING')
       .pipe(takeUntil(this.destroy$))
       .subscribe({
@@ -1131,10 +1177,10 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
         if (!this.shouldLiveRefresh()) return;
-        this.refreshPendingReenrollCount();
-        this.refreshPendingContractorReenrollCount();
+        if (this.hasEmployeeMobileAttendanceModule) this.refreshPendingReenrollCount();
+        if (this.hasContractorFaceAttendanceModule) this.refreshPendingContractorReenrollCount();
         if (this.tab === 'devices') this.loadDevices(true);
-        if (this.tab === 'status') this.loadEnrollments(true);
+        if (this.tab === 'status' && this.hasEmployeeMobileAttendanceModule) this.loadEnrollments(true);
         if (this.tab === 'reenroll') this.loadReenrollRequests(true);
       });
   }
