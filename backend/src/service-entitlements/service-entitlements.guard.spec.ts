@@ -79,6 +79,23 @@ describe('ServiceEntitlementsGuard', () => {
   });
 
   it.each([
+    '/api/v1/client/returns-visibility/client-1',
+    '/api/v1/client/expiry-visibility/client-1',
+    '/api/v1/client/compliance-summary/client-1',
+    '/api/v1/client/compliance-calendar/client-1',
+    '/api/v1/client/compliance-calendar/me',
+    '/api/v1/client/compliance-reminders/client-1',
+  ])('requires employee compliance for client visibility path %s', async (url) => {
+    await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
+
+    expect(entitlements.assertModule).toHaveBeenCalledWith(
+      clientId,
+      'EMPLOYEE_COMPLIANCE',
+    );
+    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
+  });
+
+  it.each([
     '/api/v1/client/branches',
     '/api/v1/client/branches/branch-1',
     '/api/v1/client/branches/branch-1/dashboard',
