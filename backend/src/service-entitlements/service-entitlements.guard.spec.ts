@@ -96,6 +96,22 @@ describe('ServiceEntitlementsGuard', () => {
   });
 
   it.each([
+    '/api/v1/client/attendance',
+    '/api/v1/client/attendance/daily',
+    '/api/v1/client/biometric',
+    '/api/v1/client/biometric/devices',
+    '/api/v1/client/biometric/punches',
+  ])('requires employee attendance for client attendance path %s', async (url) => {
+    await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
+
+    expect(entitlements.assertModule).toHaveBeenCalledWith(
+      clientId,
+      'EMPLOYEE_ATTENDANCE',
+    );
+    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
+  });
+
+  it.each([
     '/api/v1/client/branches',
     '/api/v1/client/branches/branch-1',
     '/api/v1/client/branches/branch-1/dashboard',

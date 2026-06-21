@@ -46,7 +46,7 @@ const BLOCKED_ROUTE_MODULES: Array<[RegExp, ServiceModuleRequirement]> = [
   [/^\/?(api\/v1\/)?sla\b/i, 'EMPLOYEE_COMPLIANCE'],
   [/^\/?(api\/v1\/)?escalations\b/i, 'EMPLOYEE_COMPLIANCE'],
   [/^\/?(api\/v1\/)?compliance-notifications\b/i, 'EMPLOYEE_COMPLIANCE'],
-  [/^\/?(api\/v1\/)?client\/biometric\b/i, 'MOBILE_ATTENDANCE'],
+  [/^\/?(api\/v1\/)?client\/biometric\b/i, 'EMPLOYEE_ATTENDANCE'],
   [/^\/?(api\/v1\/)?client\/mobile-attendance\b/i, 'MOBILE_ATTENDANCE'],
   [/^\/?(api\/v1\/)?mobile-attendance\/devices\b/i, 'CONTRACTOR_FACE_ATTENDANCE'],
   [/^\/?(api\/v1\/)?mobile-attendance\/enrollment\/employees\b/i, 'MOBILE_ATTENDANCE'],
