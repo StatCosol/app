@@ -31,6 +31,10 @@ const CcoControlsRegisterPageComponent = () =>
   import('./controls/cco-controls-register-page.component').then(
     (m) => m.CcoControlsRegisterPageComponent,
   );
+const CcoServicePackageApprovalsComponent = () =>
+  import('./service-packages/cco-service-package-approvals.component').then(
+    (m) => m.CcoServicePackageApprovalsComponent,
+  );
 const NewsDetailComponent = () =>
   import('../../shared/news/news-detail.component').then((m) => m.NewsDetailComponent);
 
@@ -44,6 +48,7 @@ export const CCO_ROUTES: Routes = [
     children: [
       { path: 'dashboard', loadComponent: CcoDashboardComponent },
       { path: 'approvals', loadComponent: CcoApprovalsComponent },
+      { path: 'service-package-approvals', loadComponent: CcoServicePackageApprovalsComponent },
       { path: 'payroll-approvals', loadComponent: CcoPayrollApprovalsComponent },
       { path: 'oversight', loadComponent: CcoOversightExceptionPageComponent },
       { path: 'crms-under-me', loadComponent: CcoCrmsUnderMeComponent },

@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { branchPortalGuard } from '../../core/branch-portal.guard';
 import { branchPayrollAccessGuard } from '../../core/branch-payroll-access.guard';
+import { moduleAccessGuard } from '../../core/module-access.guard';
 
 const BranchLayoutComponent = () =>
   import('./branch-layout/branch-layout.component').then((m) => m.BranchLayoutComponent);
@@ -114,11 +115,11 @@ export const BRANCH_ROUTES: Routes = [
     canActivate: [branchPortalGuard],
     children: [
       { path: 'dashboard', loadComponent: BranchDashboardComponent },
-      { path: 'employees/new', loadComponent: BranchEmployeeFormComponent },
-      { path: 'employees/:id/edit', loadComponent: BranchEmployeeFormComponent },
-      { path: 'employees/:id', loadComponent: BranchEmployeeDetailComponent },
-      { path: 'employees', loadComponent: BranchEmployeesComponent },
-      { path: 'contractors', loadComponent: BranchContractorsComponent },
+      { path: 'employees/new', loadComponent: BranchEmployeeFormComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
+      { path: 'employees/:id/edit', loadComponent: BranchEmployeeFormComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
+      { path: 'employees/:id', loadComponent: BranchEmployeeDetailComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
+      { path: 'employees', loadComponent: BranchEmployeesComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
+      { path: 'contractors', loadComponent: BranchContractorsComponent, canActivate: [moduleAccessGuard('CONTRACTOR_AUDIT')] },
 
       // Monthly compliance workbench
       { path: 'monthly-compliance', redirectTo: 'compliance/monthly', pathMatch: 'full' },
@@ -140,18 +141,18 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'compliance/yearly', redirectTo: 'uploads/yearly', pathMatch: 'full' },
 
       { path: 'registrations', loadComponent: BranchRegistrationsComponent },
-      { path: 'audits/observations', loadComponent: BranchAuditObservationsComponent },
+      { path: 'audits/observations', loadComponent: BranchAuditObservationsComponent, canActivate: [moduleAccessGuard('CONTRACTOR_AUDIT')] },
       { path: 'audit-observations', redirectTo: 'audits/observations', pathMatch: 'full' },
       { path: 'documents', loadComponent: BranchDocumentsComponent },
       { path: 'reports', loadComponent: BranchReportsComponent },
-      { path: 'payroll', loadComponent: BranchPayrollComponent, canActivate: [branchPayrollAccessGuard] },
-      { path: 'branch-ctc', loadComponent: BranchCtcComponent },
-      { path: 'attendance', loadComponent: BranchAttendanceReviewComponent },
-      { path: 'attendance/mark', loadComponent: BranchMarkAttendanceComponent },
-      { path: 'attendance/daily', loadComponent: BranchDailyAttendanceComponent },
-      { path: 'attendance/contractor', loadComponent: BranchContractorAttendanceComponent },
-      { path: 'face-enrollment', loadComponent: BranchFaceEnrollmentComponent },
-      { path: 'face-failures', loadComponent: BranchFaceFailuresComponent },
+      { path: 'payroll', loadComponent: BranchPayrollComponent, canActivate: [moduleAccessGuard('PAYROLL'), branchPayrollAccessGuard] },
+      { path: 'branch-ctc', loadComponent: BranchCtcComponent, canActivate: [moduleAccessGuard('PAYROLL')] },
+      { path: 'attendance', loadComponent: BranchAttendanceReviewComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
+      { path: 'attendance/mark', loadComponent: BranchMarkAttendanceComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
+      { path: 'attendance/daily', loadComponent: BranchDailyAttendanceComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
+      { path: 'attendance/contractor', loadComponent: BranchContractorAttendanceComponent, canActivate: [moduleAccessGuard('CONTRACTOR_ATTENDANCE')] },
+      { path: 'face-enrollment', loadComponent: BranchFaceEnrollmentComponent, canActivate: [moduleAccessGuard('CONTRACTOR_FACE_ATTENDANCE')] },
+      { path: 'face-failures', loadComponent: BranchFaceFailuresComponent, canActivate: [moduleAccessGuard('CONTRACTOR_FACE_ATTENDANCE')] },
       { path: 'notifications', loadComponent: BranchNotificationsComponent },
       { path: 'helpdesk', loadComponent: BranchHelpdeskComponent },
       { path: 'compliance-items', loadComponent: BranchComplianceItemsComponent },
@@ -167,11 +168,11 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'news', loadComponent: NewsDetailComponent },
       { path: 'news/:newsId', loadComponent: NewsDetailComponent },
       { path: 'notices', loadComponent: BranchNoticesComponent },
-      { path: 'appraisal-dashboard', loadComponent: BranchAppraisalDashboardComponent },
-      { path: 'appraisals', loadComponent: BranchAppraisalsListComponent },
-      { path: 'appraisals/:id', loadComponent: BranchAppraisalFormComponent },
-      { path: 'appraisal-cycles', loadComponent: BranchAppraisalCyclesComponent },
-      { path: 'audits/:id/non-compliances', loadComponent: VendorAuditNcsComponent },
+      { path: 'appraisal-dashboard', loadComponent: BranchAppraisalDashboardComponent, canActivate: [moduleAccessGuard('APPRAISAL')] },
+      { path: 'appraisals', loadComponent: BranchAppraisalsListComponent, canActivate: [moduleAccessGuard('APPRAISAL')] },
+      { path: 'appraisals/:id', loadComponent: BranchAppraisalFormComponent, canActivate: [moduleAccessGuard('APPRAISAL')] },
+      { path: 'appraisal-cycles', loadComponent: BranchAppraisalCyclesComponent, canActivate: [moduleAccessGuard('APPRAISAL')] },
+      { path: 'audits/:id/non-compliances', loadComponent: VendorAuditNcsComponent, canActivate: [moduleAccessGuard('CONTRACTOR_AUDIT')] },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

@@ -1814,6 +1814,11 @@ export class UsersService implements OnModuleInit {
       }
     }
 
+    const servicePackage =
+      user.clientId && ['CLIENT', 'CONTRACTOR', 'EMPLOYEE'].includes(roleCode ?? '')
+        ? await this.getClientServicePackage(user.clientId)
+        : null;
+
     return {
       id: user.id,
       roleId: user.roleId,
@@ -1828,7 +1833,59 @@ export class UsersService implements OnModuleInit {
       userType,
       branchIds,
       isMasterUser,
+      servicePackage: servicePackage?.packageCode ?? null,
+      enabledModules: servicePackage?.enabledModules ?? [],
       createdAt: user.createdAt,
+    };
+  }
+
+  private async getClientServicePackage(clientId: string): Promise<{
+    packageCode: string;
+    enabledModules: string[];
+  }> {
+    let packageRows: { package_code: string }[] = [];
+    try {
+      packageRows = await this.dataSource.query(
+        `SELECT package_code
+           FROM client_service_packages
+          WHERE client_id = $1::uuid
+          LIMIT 1`,
+        [clientId],
+      );
+    } catch (err: any) {
+      if (err?.code !== '42P01') throw err;
+    }
+    const packageCode = packageRows[0]?.package_code ?? 'FULL_SERVICE';
+    let entitlementRows: { module_code: string }[] = [];
+    try {
+      entitlementRows = await this.dataSource.query(
+        `SELECT module_code
+           FROM client_module_entitlements
+          WHERE client_id = $1::uuid
+            AND is_enabled = TRUE
+          ORDER BY module_code`,
+        [clientId],
+      );
+    } catch (err: any) {
+      if (err?.code !== '42P01') throw err;
+    }
+    const fullModules = [
+      'CONTRACTOR_AUDIT',
+      'CONTRACTOR_PORTAL',
+      'CONTRACTOR_DOCUMENTS',
+      'CONTRACTOR_ATTENDANCE',
+      'CONTRACTOR_FACE_ATTENDANCE',
+      'PAYROLL',
+      'EMPLOYEE_COMPLIANCE',
+      'EMPLOYEE_ATTENDANCE',
+      'MOBILE_ATTENDANCE',
+      'APPRAISAL',
+    ];
+    return {
+      packageCode,
+      enabledModules: entitlementRows.length
+        ? entitlementRows.map((r) => r.module_code)
+        : fullModules,
     };
   }
 

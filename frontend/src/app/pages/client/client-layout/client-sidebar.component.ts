@@ -627,6 +627,36 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
       }));
       this.collapsedLinks = this.collapsedLinks.filter(i => i.route !== '/client/compliance/mcd');
     }
+
+    this.applyModuleAccess();
+  }
+
+  private applyModuleAccess(): void {
+    if (!this.auth.getServicePackage()) return;
+
+    const isAllowed = (route: string) => {
+      const module = this.moduleForRoute(route);
+      return !module || this.auth.hasModule(module);
+    };
+
+    this.navGroups = this.navGroups
+      .map(g => ({ ...g, items: g.items.filter(i => isAllowed(i.route)) }))
+      .filter(g => g.items.length > 0);
+    this.collapsedLinks = this.collapsedLinks.filter(i => isAllowed(i.route));
+  }
+
+  private moduleForRoute(route: string): string | null {
+    if (route === '/client/dashboard' || route === '/client/profile' || route.startsWith('/client/queries')) return null;
+    if (route.startsWith('/client/contractors') || route.startsWith('/client/audits') || route.startsWith('/client/audit-summaries')) return 'CONTRACTOR_AUDIT';
+    if (route.startsWith('/client/branches')) return 'CONTRACTOR_AUDIT';
+    if (route.startsWith('/client/mobile-attendance') || route.startsWith('/client/face-failures')) return 'CONTRACTOR_FACE_ATTENDANCE';
+    if (route.startsWith('/client/payroll') || route.startsWith('/client/ctc-summary') || route.startsWith('/client/registers')) return 'PAYROLL';
+    if (route.startsWith('/client/employees') || route.startsWith('/client/master-data')) return 'EMPLOYEE_COMPLIANCE';
+    if (route.startsWith('/client/attendance') || route.startsWith('/client/biometric')) return 'EMPLOYEE_ATTENDANCE';
+    if (route.startsWith('/client/appraisal') || route.startsWith('/client/appraisals')) return 'APPRAISAL';
+    if (route.startsWith('/client/compliance') || route.startsWith('/client/branch-compliance') || route.startsWith('/client/safety') || route.startsWith('/client/returns') || route.startsWith('/client/renewals') || route.startsWith('/client/calendar') || route.startsWith('/client/reminders') || route.startsWith('/client/heatmap') || route.startsWith('/client/sla') || route.startsWith('/client/risk-trend') || route.startsWith('/client/escalations') || route.startsWith('/client/notices')) return 'EMPLOYEE_COMPLIANCE';
+    if (route.startsWith('/client/approvals') || route.startsWith('/client/settings')) return 'EMPLOYEE_COMPLIANCE';
+    return null;
   }
 
   /** Remove the Payroll group from sidebar (called when branch user lacks payroll access) */
