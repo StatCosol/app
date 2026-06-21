@@ -138,10 +138,10 @@ export const CLIENT_ROUTES: Routes = [
     canActivate: [roleGuard(['CLIENT'])],
     children: [
       { path: 'dashboard', loadComponent: ClientDashboardComponent },
-      { path: 'branches', loadComponent: ClientBranchesComponent },
-      { path: 'branches/:branchId', loadComponent: ClientBranchDetailWorkspacePageComponent },
-      { path: 'contractors', loadComponent: ClientContractorsComponent, canActivate: [moduleAccessGuard('CONTRACTOR_AUDIT')] },
-      { path: 'contractors/branch/:branchId', loadComponent: ClientContractorsBranchComponent, canActivate: [moduleAccessGuard('CONTRACTOR_AUDIT')] },
+      { path: 'branches', loadComponent: ClientBranchesComponent, canActivate: [moduleAccessGuard(['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'])] },
+      { path: 'branches/:branchId', loadComponent: ClientBranchDetailWorkspacePageComponent, canActivate: [moduleAccessGuard(['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'])] },
+      { path: 'contractors', loadComponent: ClientContractorsComponent, canActivate: [moduleAccessGuard(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'])] },
+      { path: 'contractors/branch/:branchId', loadComponent: ClientContractorsBranchComponent, canActivate: [moduleAccessGuard(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'])] },
       { path: 'compliance/status', loadComponent: ClientComplianceStatusComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')], runGuardsAndResolvers: 'always' },
       { path: 'compliance/mcd', loadComponent: ClientMcdComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')], runGuardsAndResolvers: 'always' },
       {
