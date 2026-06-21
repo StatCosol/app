@@ -66,6 +66,7 @@ import {
 } from './contractor-computation.controller';
 import { ContractorComputationService } from './contractor-computation.service';
 import { AccessModule } from '../access/access.module';
+import { ServiceEntitlementsModule } from '../service-entitlements/service-entitlements.module';
 
 @Module({
   imports: [
@@ -105,6 +106,7 @@ import { AccessModule } from '../access/access.module';
     ComplianceModule,
     NotificationsModule,
     AccessModule,
+    ServiceEntitlementsModule,
   ],
   controllers: [
     ContractorController,

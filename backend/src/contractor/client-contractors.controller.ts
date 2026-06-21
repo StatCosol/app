@@ -20,6 +20,7 @@ import { BranchAccessService } from '../auth/branch-access.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { ServiceEntitlementsService } from '../service-entitlements/service-entitlements.service';
 
 interface ContractorDocStat {
   contractorId: string;
@@ -43,6 +44,7 @@ export class ClientContractorsController {
     private readonly contractorDocsService: ContractorDocumentsService,
     private readonly dashboardService: ContractorDashboardService,
     private readonly branchAccess: BranchAccessService,
+    private readonly entitlements: ServiceEntitlementsService,
     @InjectRepository(ContractorDocumentEntity)
     private readonly docRepo: Repository<ContractorDocumentEntity>,
   ) {}
@@ -94,6 +96,10 @@ export class ClientContractorsController {
       branchIds,
       start,
       end,
+    );
+    const canViewAuditData = await this.entitlements.hasModule(
+      clientId,
+      'CONTRACTOR_AUDIT',
     );
 
     // Document stats per contractor (scoped to allowed branches)
@@ -151,7 +157,7 @@ export class ClientContractorsController {
         monthExpiredCount: m.monthExpiredCount ?? 0,
         monthMissingCount: m.monthMissingCount ?? 0,
         monthNcPoints: m.monthNcPoints ?? 0,
-        auditRiskPoints: m.monthAuditRiskPoints ?? 0,
+        auditRiskPoints: canViewAuditData ? (m.monthAuditRiskPoints ?? 0) : 0,
       };
     });
   }
