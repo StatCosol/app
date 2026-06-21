@@ -34,6 +34,7 @@ import {
 } from '../../../core/branch-compliance-doc.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import { ReturnsService } from '../../../core/returns.service';
+import { AuthService } from '../../../core/auth.service';
 import { ComplianceCalendarItem } from '../../../core/models/returns.models';
 import { ComplianceCalendarWidgetComponent } from '../../../shared/components/compliance-calendar-widget/compliance-calendar-widget.component';
 import { ComplianceNotificationCenterComponent } from '../../../shared/components/compliance-notification-center/compliance-notification-center.component';
@@ -170,6 +171,18 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
     return this.filters.branchId !== 'ALL' ? String(this.filters.branchId) : '';
   }
 
+  get hasPayrollModule(): boolean {
+    return this.auth.hasModule('PAYROLL');
+  }
+
+  get hasEmployeeComplianceModule(): boolean {
+    return this.auth.hasModule('EMPLOYEE_COMPLIANCE');
+  }
+
+  get hasContractorModule(): boolean {
+    return this.auth.hasModule('CONTRACTOR_AUDIT') || this.auth.hasModule('CONTRACTOR_DOCUMENTS');
+  }
+
   constructor(
     private legitx: LegitxDashboardService,
     private dashboard: DashboardService,
@@ -177,6 +190,7 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
     private complianceDocs: BranchComplianceDocService,
     private clientBranches: ClientBranchesService,
     private returnsService: ReturnsService,
+    private auth: AuthService,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -206,6 +220,9 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
     this.errorMsg = '';
     const monthStr = `${this.filters.year}-${this.two(this.filters.month)}`;
     const branchIdParam = this.filters.branchId === 'ALL' ? undefined : String(this.filters.branchId);
+    const hasPayroll = this.hasPayrollModule;
+    const hasEmployeeCompliance = this.hasEmployeeComplianceModule;
+    const hasContractor = this.hasContractorModule;
 
     this.loadSub = forkJoin({
       legitx: this.legitx.getSummary({
@@ -215,27 +232,41 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
         contractorId: this.filters.contractorId,
         toggle: this.filters.toggle,
       }),
-      pfEsi: this.dashboard.getClientPfEsiSummary({ month: monthStr, branchId: branchIdParam }).pipe(
-        catchError(() => of(null as PfEsiSummaryResponse | null)),
-      ),
-      contractor: this.dashboard.getClientContractorUploadSummary({ month: monthStr, branchId: branchIdParam }).pipe(
-        catchError(() => of(null as ContractorUploadSummaryResponse | null)),
-      ),
-      lowestBranches: this.complianceDocs.getLowestBranches({ year: this.filters.year, limit: 10 }).pipe(
-        catchError(() => of([] as LowestBranch[])),
-      ),
-      companyTrend: this.complianceDocs.getCompanyTrend({ year: this.filters.year }).pipe(
-        catchError(() => of([] as ComplianceTrendPoint[])),
-      ),
-      regSummary: this.clientBranches.getRegistrationSummary(branchIdParam).pipe(
-        catchError(() => of(null)),
-      ),
-      regAlerts: this.clientBranches.getRegistrationAlerts(branchIdParam).pipe(
-        catchError(() => of([])),
-      ),
-      companySummary: this.clientBranches.getComplianceSummary(monthStr).pipe(
-        catchError(() => of(null)),
-      ),
+      pfEsi: hasPayroll
+        ? this.dashboard.getClientPfEsiSummary({ month: monthStr, branchId: branchIdParam }).pipe(
+          catchError(() => of(null as PfEsiSummaryResponse | null)),
+        )
+        : of(null as PfEsiSummaryResponse | null),
+      contractor: hasContractor
+        ? this.dashboard.getClientContractorUploadSummary({ month: monthStr, branchId: branchIdParam }).pipe(
+          catchError(() => of(null as ContractorUploadSummaryResponse | null)),
+        )
+        : of(null as ContractorUploadSummaryResponse | null),
+      lowestBranches: hasEmployeeCompliance
+        ? this.complianceDocs.getLowestBranches({ year: this.filters.year, limit: 10 }).pipe(
+          catchError(() => of([] as LowestBranch[])),
+        )
+        : of([] as LowestBranch[]),
+      companyTrend: hasEmployeeCompliance
+        ? this.complianceDocs.getCompanyTrend({ year: this.filters.year }).pipe(
+          catchError(() => of([] as ComplianceTrendPoint[])),
+        )
+        : of([] as ComplianceTrendPoint[]),
+      regSummary: hasEmployeeCompliance
+        ? this.clientBranches.getRegistrationSummary(branchIdParam).pipe(
+          catchError(() => of(null)),
+        )
+        : of(null),
+      regAlerts: hasEmployeeCompliance
+        ? this.clientBranches.getRegistrationAlerts(branchIdParam).pipe(
+          catchError(() => of([])),
+        )
+        : of([]),
+      companySummary: hasEmployeeCompliance
+        ? this.clientBranches.getComplianceSummary(monthStr).pipe(
+          catchError(() => of(null)),
+        )
+        : of(null),
     })
       .pipe(
         takeUntil(this.destroy$),
@@ -258,7 +289,7 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
           this.regSummary = res.regSummary;
           this.regAlerts = res.regAlerts || [];
           this.companySummary = res.companySummary;
-          if (!res.pfEsi && !res.contractor) {
+          if ((hasPayroll && !res.pfEsi) || (hasContractor && !res.contractor)) {
             this.errorMsg = 'Some dashboard widgets could not be loaded. Partial data shown.';
           }
           this.branches = res.legitx.meta?.branches ?? [];
@@ -270,7 +301,12 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
           this.auditKpiFrom = `${y}-${this.two(m)}`;
           this.auditKpiTo = `${y}-${this.two(m)}`;
 
-          this.loadBranchRiskOverview();
+          if (hasEmployeeCompliance) {
+            this.loadBranchRiskOverview();
+          } else {
+            this.branchRiskOverview = [];
+            this.branchRiskError = '';
+          }
 
           // Charts must be rendered AFTER loading=false so that *ngIf reveals canvases.
           // finalize() sets loading=false; we defer chart render to the next tick.
@@ -327,6 +363,12 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   }
 
   downloadExportPack(): void {
+    if (!this.hasEmployeeComplianceModule) {
+      this.errorMsg = 'Compliance export is not available for this service package.';
+      this.cdr.markForCheck();
+      return;
+    }
+
     const monthStr = `${this.filters.year}-${this.two(this.filters.month)}`;
     this.exportingPack = true;
     this.cdr.markForCheck();
@@ -400,6 +442,11 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   }
 
   private loadCalendar(): void {
+    if (!this.hasEmployeeComplianceModule) {
+      this.calendarItems = [];
+      return;
+    }
+
     // clientId is resolved by backend from JWT; pass branchId filter if selected
     const branchId = this.filters.branchId === 'ALL' ? undefined : String(this.filters.branchId);
     this.returnsService.getComplianceCalendar('me', branchId)
@@ -415,6 +462,11 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
 
   private loadBranchRiskOverview(): void {
     this.riskSub?.unsubscribe();
+    if (!this.hasEmployeeComplianceModule) {
+      this.branchRiskOverview = [];
+      this.branchRiskError = '';
+      return;
+    }
     if (this.filters.branchId !== 'ALL') {
       this.branchRiskOverview = [];
       return;
@@ -459,13 +511,21 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   private renderAllCharts(): void {
     if (!this.data || !this.viewReady) return;
     this.destroyCharts();
-    this.renderComplianceTrend();
-    this.renderComplianceOps();
-    this.renderBranchRank();
+    if (this.hasEmployeeComplianceModule) {
+      this.renderComplianceTrend();
+      this.renderComplianceOps();
+      this.renderBranchRank();
+    }
     this.renderAuditDonut();
-    this.renderPayrollDonut();
-    this.renderEmployeeStatus();
-    this.renderDocsBucket();
+    if (this.hasPayrollModule) {
+      this.renderPayrollDonut();
+    }
+    if (this.hasEmployeeComplianceModule) {
+      this.renderEmployeeStatus();
+    }
+    if (this.hasContractorModule) {
+      this.renderDocsBucket();
+    }
   }
 
   private renderComplianceTrend(): void {

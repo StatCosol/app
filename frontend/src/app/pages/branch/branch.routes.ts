@@ -123,16 +123,16 @@ export const BRANCH_ROUTES: Routes = [
 
       // Monthly compliance workbench
       { path: 'monthly-compliance', redirectTo: 'compliance/monthly', pathMatch: 'full' },
-      { path: 'compliance/monthly', loadComponent: BranchMcdComponent, runGuardsAndResolvers: 'always' },
+      { path: 'compliance/monthly', loadComponent: BranchMcdComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')], runGuardsAndResolvers: 'always' },
 
       // Factory / Office compliance consolidated into monthly
       { path: 'compliance/factory', redirectTo: 'compliance/monthly', pathMatch: 'full' },
       { path: 'compliance/office', redirectTo: 'compliance/monthly', pathMatch: 'full' },
 
       // Periodic uploads workspace
-      { path: 'uploads', loadComponent: BranchPeriodicUploadsPageComponent, runGuardsAndResolvers: 'always' },
+      { path: 'uploads', loadComponent: BranchPeriodicUploadsPageComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')], runGuardsAndResolvers: 'always' },
       { path: 'uploads/monthly', redirectTo: 'compliance/monthly', pathMatch: 'full' },
-      { path: 'uploads/:periodicity', loadComponent: BranchPeriodicUploadsPageComponent, runGuardsAndResolvers: 'always' },
+      { path: 'uploads/:periodicity', loadComponent: BranchPeriodicUploadsPageComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')], runGuardsAndResolvers: 'always' },
 
       // Legacy periodic aliases
       { path: 'returns-filings', redirectTo: 'uploads/yearly', pathMatch: 'full' },
@@ -140,10 +140,10 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'compliance/half-yearly', redirectTo: 'uploads/half-yearly', pathMatch: 'full' },
       { path: 'compliance/yearly', redirectTo: 'uploads/yearly', pathMatch: 'full' },
 
-      { path: 'registrations', loadComponent: BranchRegistrationsComponent },
+      { path: 'registrations', loadComponent: BranchRegistrationsComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'audits/observations', loadComponent: BranchAuditObservationsComponent, canActivate: [moduleAccessGuard('CONTRACTOR_AUDIT')] },
       { path: 'audit-observations', redirectTo: 'audits/observations', pathMatch: 'full' },
-      { path: 'documents', loadComponent: BranchDocumentsComponent },
+      { path: 'documents', loadComponent: BranchDocumentsComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'reports', loadComponent: BranchReportsComponent },
       { path: 'payroll', loadComponent: BranchPayrollComponent, canActivate: [moduleAccessGuard('PAYROLL'), branchPayrollAccessGuard] },
       { path: 'branch-ctc', loadComponent: BranchCtcComponent, canActivate: [moduleAccessGuard('PAYROLL')] },
@@ -155,19 +155,19 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'face-failures', loadComponent: BranchFaceFailuresComponent, canActivate: [moduleAccessGuard('CONTRACTOR_FACE_ATTENDANCE')] },
       { path: 'notifications', loadComponent: BranchNotificationsComponent },
       { path: 'helpdesk', loadComponent: BranchHelpdeskComponent },
-      { path: 'compliance-items', loadComponent: BranchComplianceItemsComponent },
-      { path: 'compliance', loadComponent: BranchComplianceComponent },
-      { path: 'compliance-docs', loadComponent: BranchComplianceDocsComponent },
-      { path: 'calendar', loadComponent: ComplianceCalendarComponent },
-      { path: 'heatmap', loadComponent: HeatmapComponent },
-      { path: 'sla', loadComponent: SlaTrackerComponent },
-      { path: 'risk-trend', loadComponent: RiskTrendComponent },
-      { path: 'escalations', loadComponent: EscalationsComponent },
-      { path: 'unit-documents', loadComponent: BranchUnitDocumentsComponent },
-      { path: 'safety', loadComponent: BranchSafetyComponent },
+      { path: 'compliance-items', loadComponent: BranchComplianceItemsComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
+      { path: 'compliance', loadComponent: BranchComplianceComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
+      { path: 'compliance-docs', loadComponent: BranchComplianceDocsComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
+      { path: 'calendar', loadComponent: ComplianceCalendarComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
+      { path: 'heatmap', loadComponent: HeatmapComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
+      { path: 'sla', loadComponent: SlaTrackerComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
+      { path: 'risk-trend', loadComponent: RiskTrendComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
+      { path: 'escalations', loadComponent: EscalationsComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
+      { path: 'unit-documents', loadComponent: BranchUnitDocumentsComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
+      { path: 'safety', loadComponent: BranchSafetyComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'news', loadComponent: NewsDetailComponent },
       { path: 'news/:newsId', loadComponent: NewsDetailComponent },
-      { path: 'notices', loadComponent: BranchNoticesComponent },
+      { path: 'notices', loadComponent: BranchNoticesComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'appraisal-dashboard', loadComponent: BranchAppraisalDashboardComponent, canActivate: [moduleAccessGuard('APPRAISAL')] },
       { path: 'appraisals', loadComponent: BranchAppraisalsListComponent, canActivate: [moduleAccessGuard('APPRAISAL')] },
       { path: 'appraisals/:id', loadComponent: BranchAppraisalFormComponent, canActivate: [moduleAccessGuard('APPRAISAL')] },

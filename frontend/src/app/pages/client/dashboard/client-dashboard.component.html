@@ -59,7 +59,7 @@
       <!-- KPI strip -->
       <!-- KPI strip (Branch-style cards) -->
       <div class="kpi-cards-grid">
-        <ui-kpi-tile label="Employees" [value]="d.kpis.employees.active || 0" color="blue" (tileClick)="openDetail('EMPLOYEES')">
+        <ui-kpi-tile *ngIf="hasEmployeeComplianceModule" label="Employees" [value]="d.kpis.employees.active || 0" color="blue" (tileClick)="openDetail('EMPLOYEES')">
           <svg slot="icon" width="24" height="24" fill="none" stroke="#3b82f6" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
           </svg>
@@ -72,7 +72,7 @@
           </span>
         </ui-kpi-tile>
 
-        <ui-kpi-tile label="Contractors" [value]="d.kpis.contractors.total || 0" color="violet" (tileClick)="openDetail('CONTRACTORS')">
+        <ui-kpi-tile *ngIf="hasContractorModule" label="Contractors" [value]="d.kpis.contractors.total || 0" color="violet" (tileClick)="openDetail('CONTRACTORS')">
           <svg slot="icon" width="24" height="24" fill="none" stroke="#8b5cf6" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
           </svg>
@@ -83,7 +83,7 @@
           </span>
         </ui-kpi-tile>
 
-        <ui-kpi-tile label="Payroll Pending"
+        <ui-kpi-tile *ngIf="hasPayrollModule" label="Payroll Pending"
           [value]="d.kpis.payroll.pendingQueries + d.kpis.payroll.pendingEmployees + d.kpis.payroll.pfPendingEmployees + d.kpis.payroll.esiPendingEmployees"
           color="amber"
           [valueColor]="(d.kpis.payroll.pendingQueries + d.kpis.payroll.pendingEmployees + d.kpis.payroll.pfPendingEmployees + d.kpis.payroll.esiPendingEmployees) > 0 ? 'red' : ''"
@@ -94,7 +94,7 @@
           </svg>
         </ui-kpi-tile>
 
-        <ui-kpi-tile label="Branches Live" [value]="d.kpis.branches.live || 0" color="emerald"
+        <ui-kpi-tile *ngIf="hasEmployeeComplianceModule" label="Branches Live" [value]="d.kpis.branches.live || 0" color="emerald"
           [detail]="'of ' + (d.kpis.branches.total || 0) + ' total'"
           (tileClick)="openDetail('BRANCHES')">
           <svg slot="icon" width="24" height="24" fill="none" stroke="#10b981" stroke-width="2" viewBox="0 0 24 24">
@@ -104,8 +104,8 @@
         </ui-kpi-tile>
       </div>
 
-      <div class="kpi-cards-grid">
-        <ui-kpi-tile label="Compliance %" [value]="(d.kpis.compliance.overallPercent || 0) + '%'" color="blue"
+      <div class="kpi-cards-grid" *ngIf="hasEmployeeComplianceModule || hasContractorModule">
+        <ui-kpi-tile *ngIf="hasEmployeeComplianceModule" label="Compliance %" [value]="(d.kpis.compliance.overallPercent || 0) + '%'" color="blue"
           [detail]="'Branch avg ' + (d.kpis.compliance.branchAvgPercent || 0) + '%'"
           (tileClick)="openDetail('COMPLIANCE')">
           <svg slot="icon" width="24" height="24" fill="none" stroke="#3b82f6" stroke-width="2" viewBox="0 0 24 24">
@@ -121,7 +121,7 @@
           </svg>
         </ui-kpi-tile>
 
-        <ui-kpi-tile label="Critical" [value]="d.queues.critical.length || 0" color="red"
+        <ui-kpi-tile *ngIf="hasEmployeeComplianceModule" label="Critical" [value]="d.queues.critical.length || 0" color="red"
           [valueColor]="(d.queues.critical.length || 0) > 0 ? 'red' : ''" detail="Risk items"
           (tileClick)="openDetail('RISK')">
           <svg slot="icon" width="24" height="24" fill="none" stroke="#ef4444" stroke-width="2" viewBox="0 0 24 24">
@@ -129,7 +129,7 @@
           </svg>
         </ui-kpi-tile>
 
-        <ui-kpi-tile label="Pending" [value]="d.queues.pending.length || 0" color="amber" detail="Operational"
+        <ui-kpi-tile *ngIf="hasEmployeeComplianceModule" label="Pending" [value]="d.queues.pending.length || 0" color="amber" detail="Operational"
           (tileClick)="openDetail('RISK')">
           <svg slot="icon" width="24" height="24" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -239,7 +239,7 @@
         </div>
       </div>
 
-      <div *ngIf="activeDetail === 'PAYROLL' && d" #payrollDetails class="panel panel--highlight">
+      <div *ngIf="hasPayrollModule && activeDetail === 'PAYROLL' && d" #payrollDetails class="panel panel--highlight">
         <div class="panel-header">
           <div>
             <p class="panel-eyebrow">Payroll</p>
@@ -279,7 +279,7 @@
       </div>
 
       <!-- ═══════ AI Risk Assessment Section ═══════ -->
-      <div class="ai-risk-section" #aiRiskPanel>
+      <div *ngIf="hasEmployeeComplianceModule" class="ai-risk-section" #aiRiskPanel>
         <div class="ai-risk-section__header">
           <div class="flex items-center gap-3">
             <div class="ai-risk-icon">
@@ -373,8 +373,8 @@
       <!-- ═══════ End AI Risk Assessment ═══════ -->
 
       <!-- PF/ESI & Contractor upload summary cards -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div class="panel" #pfPanel>
+      <div *ngIf="hasPayrollModule || hasContractorModule" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div *ngIf="hasPayrollModule" class="panel" #pfPanel>
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">PF</p>
@@ -398,7 +398,7 @@
           </div>
         </div>
 
-        <div class="panel">
+        <div *ngIf="hasPayrollModule" class="panel">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">ESI</p>
@@ -422,7 +422,7 @@
           </div>
         </div>
 
-        <div class="panel" #contractorPanel [class.panel--highlight]="activeDetail === 'CONTRACTORS'">
+        <div *ngIf="hasContractorModule" class="panel" #contractorPanel [class.panel--highlight]="activeDetail === 'CONTRACTORS'">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Contractors</p>
@@ -509,7 +509,7 @@
       </div>
 
       <!-- PF/ESI pending details inline tables -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div *ngIf="hasPayrollModule" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div class="panel">
           <div class="panel-header">
             <div>
@@ -579,7 +579,7 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div *ngIf="hasContractorModule" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div class="panel">
           <div class="panel-header">
             <div>
@@ -647,7 +647,7 @@
 
       <!-- Charts Row 1 -->
       <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <div class="panel xl:col-span-2" #compliancePanel [class.panel--highlight]="activeDetail === 'COMPLIANCE'">
+        <div *ngIf="hasEmployeeComplianceModule" class="panel xl:col-span-2" #compliancePanel [class.panel--highlight]="activeDetail === 'COMPLIANCE'">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Compliance</p>
@@ -658,7 +658,7 @@
             <canvas #complianceTrendChart></canvas>
           </div>
         </div>
-        <div class="panel" #auditPanel [class.panel--highlight]="activeDetail === 'AUDIT'">
+        <div *ngIf="hasContractorModule || hasEmployeeComplianceModule" class="panel" #auditPanel [class.panel--highlight]="activeDetail === 'AUDIT'">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Audits</p>
@@ -674,7 +674,7 @@
 
       <!-- Charts Row 2 -->
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <div class="panel">
+        <div *ngIf="hasEmployeeComplianceModule" class="panel">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Compliance Ops</p>
@@ -685,7 +685,7 @@
             <canvas #complianceOpsChart></canvas>
           </div>
         </div>
-        <div class="panel" #payrollPanel>
+        <div *ngIf="hasPayrollModule" class="panel" #payrollPanel>
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Payroll</p>
@@ -700,7 +700,7 @@
 
       <!-- Charts Row 3 -->
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <div class="panel" #branchPanel [class.panel--highlight]="activeDetail === 'BRANCHES'">
+        <div *ngIf="hasEmployeeComplianceModule" class="panel" #branchPanel [class.panel--highlight]="activeDetail === 'BRANCHES'">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Branches</p>
@@ -711,7 +711,7 @@
             <canvas #branchRankChart></canvas>
           </div>
         </div>
-        <div class="panel" #docsPanel>
+        <div *ngIf="hasContractorModule" class="panel" #docsPanel>
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Contractors</p>
@@ -726,7 +726,7 @@
 
       <!-- Charts Row 4 -->
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <div class="panel" #employeePanel [class.panel--highlight]="activeDetail === 'EMPLOYEES'">
+        <div *ngIf="hasEmployeeComplianceModule" class="panel" #employeePanel [class.panel--highlight]="activeDetail === 'EMPLOYEES'">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Employees</p>
@@ -737,7 +737,7 @@
             <canvas #employeeStatusChart></canvas>
           </div>
         </div>
-        <div class="panel xl:col-span-1" #riskPanel [class.panel--highlight]="activeDetail === 'RISK'">
+        <div *ngIf="hasEmployeeComplianceModule" class="panel xl:col-span-1" #riskPanel [class.panel--highlight]="activeDetail === 'RISK'">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Critical & Pending</p>
@@ -845,13 +845,13 @@
       </div>
 
       <!-- ═══════ Compliance Calendar + Notification Center ═══════ -->
-      <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+      <div *ngIf="hasEmployeeComplianceModule" class="grid grid-cols-1 xl:grid-cols-2 gap-5">
         <ui-compliance-calendar-widget [items]="calendarItems"></ui-compliance-calendar-widget>
         <ui-compliance-notification-center></ui-compliance-notification-center>
       </div>
 
       <!-- ═══════ Face-scan failures (last 7 days) ═══════ -->
-      <div class="mt-5">
+      <div *ngIf="hasEmployeeComplianceModule" class="mt-5">
         <app-face-failures-widget route="/client/face-failures"></app-face-failures-widget>
       </div>
     </ng-container>
