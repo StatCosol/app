@@ -268,6 +268,21 @@ export class AuthService {
     return modules.length === 0 || moduleCodes.some((moduleCode) => modules.includes(moduleCode));
   }
 
+  getClientModuleHomePath(): string {
+    if (this.isBranchUser()) return '/branch';
+    if (this.hasModule('EMPLOYEE_COMPLIANCE')) return '/client/dashboard';
+    if (this.hasAnyModule(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'])) {
+      return '/client/contractors';
+    }
+    if (this.hasModule('CONTRACTOR_FACE_ATTENDANCE')) {
+      return '/client/mobile-attendance';
+    }
+    if (this.hasModule('PAYROLL')) return '/client/payroll';
+    if (this.hasModule('EMPLOYEE_ATTENDANCE')) return '/client/attendance';
+    if (this.hasModule('APPRAISAL')) return '/client/appraisal-dashboard';
+    return '/client/profile';
+  }
+
   isContractorAuditOnly(): boolean {
     return this.getServicePackage() === 'CONTRACTOR_AUDIT_ONLY';
   }

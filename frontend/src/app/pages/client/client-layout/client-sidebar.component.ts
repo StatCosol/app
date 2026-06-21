@@ -646,7 +646,8 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private moduleForRoute(route: string): string[] | null {
-    if (route === '/client/dashboard' || route === '/client/profile' || route.startsWith('/client/queries')) return null;
+    if (route === '/client/dashboard') return ['EMPLOYEE_COMPLIANCE'];
+    if (route === '/client/profile' || route.startsWith('/client/queries')) return null;
     if (route.startsWith('/client/contractors')) return ['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'];
     if (route.startsWith('/client/audits') || route.startsWith('/client/audit-summaries')) return ['CONTRACTOR_AUDIT'];
     if (route.startsWith('/client/branches')) return ['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'];
