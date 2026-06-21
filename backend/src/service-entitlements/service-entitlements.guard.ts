@@ -2,9 +2,12 @@ import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { ServiceEntitlementsService } from './service-entitlements.service';
 import { ServiceModuleCode } from './service-entitlements.constants';
 
-const BLOCKED_ROUTE_MODULES: Array<[RegExp, ServiceModuleCode]> = [
-  [/^\/?(api\/v1\/)?client\/contractors\b/i, 'CONTRACTOR_AUDIT'],
-  [/^\/?(api\/v1\/)?client\/contractor-employees\b/i, 'CONTRACTOR_AUDIT'],
+type ServiceModuleRequirement = ServiceModuleCode | ServiceModuleCode[];
+
+const BLOCKED_ROUTE_MODULES: Array<[RegExp, ServiceModuleRequirement]> = [
+  [/^\/?(api\/v1\/)?client\/contractors\/dashboard\b/i, 'CONTRACTOR_AUDIT'],
+  [/^\/?(api\/v1\/)?client\/contractors\b/i, ['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS']],
+  [/^\/?(api\/v1\/)?client\/contractor-employees\b/i, ['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS']],
   [/^\/?(api\/v1\/)?client\/contractor-required-documents\b/i, 'CONTRACTOR_DOCUMENTS'],
   [/^\/?(api\/v1\/)?contractor\/(dashboard|compliance|documents|employees|audits|audit-non-compliances|computation)\b/i, 'CONTRACTOR_PORTAL'],
   [/^\/?(api\/v1\/)?(payroll|client\/payroll|branch\/payroll)\b/i, 'PAYROLL'],
@@ -62,7 +65,12 @@ export class ServiceEntitlementsGuard implements CanActivate {
     const match = BLOCKED_ROUTE_MODULES.find(([pattern]) => pattern.test(path));
     if (!match) return true;
 
-    await this.entitlements.assertModule(user.clientId, match[1]);
+    const requirement = match[1];
+    if (Array.isArray(requirement)) {
+      await this.entitlements.assertAnyModule(user.clientId, requirement);
+    } else {
+      await this.entitlements.assertModule(user.clientId, requirement);
+    }
     return true;
   }
 }
