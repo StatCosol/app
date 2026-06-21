@@ -32,6 +32,7 @@ const BLOCKED_ROUTE_MODULES: Array<[RegExp, ServiceModuleRequirement]> = [
   [/^\/?(api\/v1\/)?client\/branch-compliance\b/i, 'EMPLOYEE_COMPLIANCE'],
   [/^\/?(api\/v1\/)?branch\/compliance-docs\b/i, 'EMPLOYEE_COMPLIANCE'],
   [/^\/?(api\/v1\/)?branch\/uploads\b/i, 'EMPLOYEE_COMPLIANCE'],
+  [/^\/?(api\/v1\/)?client\/expiry-visibility\b/i, 'EMPLOYEE_COMPLIANCE'],
   [/^\/?(api\/v1\/)?client\/returns\b/i, 'EMPLOYEE_COMPLIANCE'],
   [/^\/?(api\/v1\/)?returns\/upload\b/i, 'EMPLOYEE_COMPLIANCE'],
   [/^\/?(api\/v1\/)?client\/unit-documents\b/i, 'EMPLOYEE_COMPLIANCE'],
