@@ -263,6 +263,11 @@ export class AuthService {
     return modules.length === 0 || modules.includes(moduleCode);
   }
 
+  hasAnyModule(moduleCodes: string[]): boolean {
+    const modules = this.getEnabledModules();
+    return modules.length === 0 || moduleCodes.some((moduleCode) => modules.includes(moduleCode));
+  }
+
   isContractorAuditOnly(): boolean {
     return this.getServicePackage() === 'CONTRACTOR_AUDIT_ONLY';
   }

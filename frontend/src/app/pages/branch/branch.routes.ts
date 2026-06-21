@@ -119,7 +119,7 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'employees/:id/edit', loadComponent: BranchEmployeeFormComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'employees/:id', loadComponent: BranchEmployeeDetailComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'employees', loadComponent: BranchEmployeesComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
-      { path: 'contractors', loadComponent: BranchContractorsComponent, canActivate: [moduleAccessGuard('CONTRACTOR_AUDIT')] },
+      { path: 'contractors', loadComponent: BranchContractorsComponent, canActivate: [moduleAccessGuard(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'])] },
 
       // Monthly compliance workbench
       { path: 'monthly-compliance', redirectTo: 'compliance/monthly', pathMatch: 'full' },
@@ -151,8 +151,8 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'attendance/mark', loadComponent: BranchMarkAttendanceComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
       { path: 'attendance/daily', loadComponent: BranchDailyAttendanceComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
       { path: 'attendance/contractor', loadComponent: BranchContractorAttendanceComponent, canActivate: [moduleAccessGuard('CONTRACTOR_ATTENDANCE')] },
-      { path: 'face-enrollment', loadComponent: BranchFaceEnrollmentComponent, canActivate: [moduleAccessGuard('CONTRACTOR_FACE_ATTENDANCE')] },
-      { path: 'face-failures', loadComponent: BranchFaceFailuresComponent, canActivate: [moduleAccessGuard('CONTRACTOR_FACE_ATTENDANCE')] },
+      { path: 'face-enrollment', loadComponent: BranchFaceEnrollmentComponent, canActivate: [moduleAccessGuard(['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])] },
+      { path: 'face-failures', loadComponent: BranchFaceFailuresComponent, canActivate: [moduleAccessGuard(['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])] },
       { path: 'notifications', loadComponent: BranchNotificationsComponent },
       { path: 'helpdesk', loadComponent: BranchHelpdeskComponent },
       { path: 'compliance-items', loadComponent: BranchComplianceItemsComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
