@@ -109,6 +109,16 @@ export class ServiceEntitlementsService {
     return current.enabledModules.includes(module);
   }
 
+  async hasAnyModule(
+    clientId: string | null | undefined,
+    modules: ServiceModuleCode[],
+  ) {
+    if (!clientId) return true;
+    const current = await this.getCurrentForClient(clientId);
+    if (!current.isRestricted) return true;
+    return modules.some((module) => current.enabledModules.includes(module));
+  }
+
   async assertModule(
     clientId: string | null | undefined,
     module: ServiceModuleCode,
@@ -116,6 +126,19 @@ export class ServiceEntitlementsService {
     if (!(await this.hasModule(clientId, module))) {
       throw new ForbiddenException(
         `This client is not approved for ${module.replace(/_/g, ' ').toLowerCase()}`,
+      );
+    }
+  }
+
+  async assertAnyModule(
+    clientId: string | null | undefined,
+    modules: ServiceModuleCode[],
+  ) {
+    if (!(await this.hasAnyModule(clientId, modules))) {
+      throw new ForbiddenException(
+        `This client is not approved for ${modules
+          .map((module) => module.replace(/_/g, ' ').toLowerCase())
+          .join(' or ')}`,
       );
     }
   }
