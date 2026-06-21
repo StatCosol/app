@@ -112,6 +112,41 @@ describe('ServiceEntitlementsGuard', () => {
   });
 
   it.each([
+    '/api/v1/client/mobile-attendance',
+    '/api/v1/client/mobile-attendance/enrollment',
+    '/api/v1/mobile-attendance/enrollment/self',
+    '/api/v1/mobile-attendance/enrollment/employees',
+    '/api/v1/mobile-attendance/enrollment/employees?status=pending',
+  ])('requires mobile attendance for employee mobile path %s', async (url) => {
+    await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
+
+    expect(entitlements.assertModule).toHaveBeenCalledWith(
+      clientId,
+      'MOBILE_ATTENDANCE',
+    );
+    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    '/api/v1/mobile-attendance/devices',
+    '/api/v1/mobile-attendance/devices/device-1',
+    '/api/v1/mobile-attendance/enrollment/contractors',
+    '/api/v1/mobile-attendance/enrollment/kiosk/ticket',
+    '/api/v1/mobile-attendance/enrollment/kiosk/tickets',
+    '/api/v1/mobile-attendance/enrollment/kiosk/tickets/ticket-1',
+    '/api/v1/mobile-attendance/enrollment/kiosk/tickets/ticket-1/cancel',
+    '/api/v1/mobile-attendance/enrollment/deactivate',
+  ])('requires contractor face attendance for face device path %s', async (url) => {
+    await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
+
+    expect(entitlements.assertModule).toHaveBeenCalledWith(
+      clientId,
+      'CONTRACTOR_FACE_ATTENDANCE',
+    );
+    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
+  });
+
+  it.each([
     '/api/v1/client/branches',
     '/api/v1/client/branches/branch-1',
     '/api/v1/client/branches/branch-1/dashboard',
