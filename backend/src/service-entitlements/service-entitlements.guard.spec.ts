@@ -64,6 +64,21 @@ describe('ServiceEntitlementsGuard', () => {
   });
 
   it.each([
+    '/api/v1/client/audits',
+    '/api/v1/client/audits/summary',
+    '/api/v1/client/audits/summaries',
+    '/api/v1/client/audits/audit-1/latest-report',
+  ])('requires contractor audit for client audit path %s', async (url) => {
+    await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
+
+    expect(entitlements.assertModule).toHaveBeenCalledWith(
+      clientId,
+      'CONTRACTOR_AUDIT',
+    );
+    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
+  });
+
+  it.each([
     '/api/v1/client/branches',
     '/api/v1/client/branches/branch-1',
     '/api/v1/client/branches/branch-1/dashboard',
