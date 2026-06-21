@@ -31,7 +31,7 @@
     <!-- Row 1: KPI Cards -->
     <div class="kpi-grid">
       <!-- Employee Headcount -->
-      <div class="kpi-card kpi-blue">
+      <div *ngIf="hasEmployeeComplianceModule" class="kpi-card kpi-blue">
         <div class="kpi-icon-wrap bg-blue-100">
           <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
@@ -49,7 +49,7 @@
       </div>
 
       <!-- Contractor Headcount -->
-      <div class="kpi-card kpi-purple">
+      <div *ngIf="hasContractorModule" class="kpi-card kpi-purple">
         <div class="kpi-icon-wrap bg-purple-100">
           <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -67,7 +67,7 @@
       </div>
 
       <!-- PF Pending -->
-      <div class="kpi-card kpi-amber">
+      <div *ngIf="hasPayrollModule" class="kpi-card kpi-amber">
         <div class="kpi-icon-wrap bg-amber-100">
           <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
@@ -85,7 +85,7 @@
       </div>
 
       <!-- ESIC Pending -->
-      <div class="kpi-card kpi-red">
+      <div *ngIf="hasPayrollModule" class="kpi-card kpi-red">
         <div class="kpi-icon-wrap bg-red-100">
           <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
@@ -104,9 +104,9 @@
     </div>
 
     <!-- Row 2: Compliance Status -->
-    <div class="status-grid">
+    <div class="status-grid" *ngIf="hasEmployeeComplianceModule || hasContractorModule">
       <!-- Branch Compliance % -->
-      <div class="status-card">
+      <div *ngIf="hasEmployeeComplianceModule" class="status-card">
         <div class="status-header">
           <h3 class="status-title">Branch Compliance</h3>
           <span class="status-badge" [style.background]="getComplianceColor() + '20'" [style.color]="getComplianceColor()">
@@ -120,7 +120,7 @@
       </div>
 
       <!-- Document Upload % -->
-      <div class="status-card">
+      <div *ngIf="hasContractorModule" class="status-card">
         <div class="status-header">
           <h3 class="status-title">Document Uploads</h3>
           <span class="status-badge" [style.background]="getUploadColor() + '20'" [style.color]="getUploadColor()">
@@ -134,7 +134,7 @@
       </div>
 
       <!-- Open Audit Observations -->
-      <div class="status-card">
+      <div *ngIf="hasContractorModule" class="status-card">
         <div class="status-header">
           <h3 class="status-title">Open Observations</h3>
           <span class="status-badge"
@@ -288,7 +288,7 @@
     </div>
 
     <!-- Row 4: Expiry Tracker Table -->
-    <div class="section-card">
+    <div *ngIf="hasPayrollModule || hasEmployeeComplianceModule" class="section-card">
       <div class="section-header">
         <h2 class="section-title">
           <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -399,7 +399,7 @@
     </div>
 
     <!-- Face-scan failures widget -->
-    <div class="mt-6">
+    <div *ngIf="hasContractorFaceAttendanceModule" class="mt-6">
       <app-face-failures-widget route="/branch/face-failures"></app-face-failures-widget>
     </div>
 
