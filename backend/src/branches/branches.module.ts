@@ -34,6 +34,7 @@ import { BranchListController } from './branch-list.controller';
 import { BranchUploadsController } from './branch-uploads.controller';
 import { EmailModule } from '../email/email.module';
 import { ListQueriesModule } from '../list-queries/list-queries.module';
+import { ServiceEntitlementsModule } from '../service-entitlements/service-entitlements.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { ListQueriesModule } from '../list-queries/list-queries.module';
     AuthModule,
     EmailModule,
     ListQueriesModule,
+    ServiceEntitlementsModule,
   ],
   controllers: [
     BranchesController,

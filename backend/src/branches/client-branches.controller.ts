@@ -24,6 +24,7 @@ import { BranchApplicableComplianceEntity } from './entities/branch-applicable-c
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { ServiceEntitlementsService } from '../service-entitlements/service-entitlements.service';
 
 @ApiTags('Branches')
 @ApiBearerAuth('JWT')
@@ -41,6 +42,7 @@ export class ClientBranchesController {
     private readonly branchDocRepo: Repository<BranchDocumentEntity>,
     @InjectRepository(BranchApplicableComplianceEntity)
     private readonly applicableRepo: Repository<BranchApplicableComplianceEntity>,
+    private readonly entitlements: ServiceEntitlementsService,
   ) {}
 
   /** GET /api/client/branches — list with counts */
@@ -78,6 +80,7 @@ export class ClientBranchesController {
     // Contractor counts per branch
     const branchIds = branches.map((b) => b.id);
     if (!branchIds.length) return [];
+    const moduleAccess = await this.getModuleAccess(user, clientId);
 
     const contractorCounts = await this.branchContractorRepo
       .createQueryBuilder('bc')
@@ -133,10 +136,14 @@ export class ClientBranchesController {
       const docs = docMap.get(b.id) || { total: 0, approved: 0 };
       return {
         ...b,
-        contractorCount: countMap.get(b.id) ?? 0,
-        complianceCount: complianceMap.get(b.id) ?? 0,
-        documentCount: docs.total,
-        approvedDocCount: docs.approved,
+        contractorCount: moduleAccess.contractor
+          ? (countMap.get(b.id) ?? 0)
+          : 0,
+        complianceCount: moduleAccess.employeeCompliance
+          ? (complianceMap.get(b.id) ?? 0)
+          : 0,
+        documentCount: moduleAccess.employeeCompliance ? docs.total : 0,
+        approvedDocCount: moduleAccess.employeeCompliance ? docs.approved : 0,
       };
     });
   }
@@ -168,6 +175,7 @@ export class ClientBranchesController {
 
     // Branch access check
     await this.branchAccess.assertBranchAccess(user.userId, id);
+    const moduleAccess = await this.getModuleAccess(user, clientId);
 
     // Contractor count
     const contractorCount = await this.branchContractorRepo.count({
@@ -204,15 +212,23 @@ export class ClientBranchesController {
 
     return {
       ...branch,
-      contractorCount,
-      complianceCount,
-      documentStats: {
-        total: Number(docStats?.total || 0),
-        approved: Number(docStats?.approved || 0),
-        rejected: Number(docStats?.rejected || 0),
-        underReview: Number(docStats?.underReview || 0),
-        uploaded: Number(docStats?.uploaded || 0),
-      },
+      contractorCount: moduleAccess.contractor ? contractorCount : 0,
+      complianceCount: moduleAccess.employeeCompliance ? complianceCount : 0,
+      documentStats: moduleAccess.employeeCompliance
+        ? {
+            total: Number(docStats?.total || 0),
+            approved: Number(docStats?.approved || 0),
+            rejected: Number(docStats?.rejected || 0),
+            underReview: Number(docStats?.underReview || 0),
+            uploaded: Number(docStats?.uploaded || 0),
+          }
+        : {
+            total: 0,
+            approved: 0,
+            rejected: 0,
+            underReview: 0,
+            uploaded: 0,
+          },
     };
   }
 
@@ -230,6 +246,7 @@ export class ClientBranchesController {
       throw new NotFoundException('Branch not found for this client');
     }
     await this.branchAccess.assertBranchAccess(user.userId, id);
+    const moduleAccess = await this.getModuleAccess(user, clientId);
 
     // Parse month filter
     const now = new Date();
@@ -408,22 +425,55 @@ export class ClientBranchesController {
       branchId: id,
       branchName: branch.branchName,
       month: `${year}-${String(mo).padStart(2, '0')}`,
-      documentStats: {
-        total: totalDocs,
-        approved: approvedDocs,
-        rejected: Number(docStats?.rejected || 0),
-        underReview: Number(docStats?.underReview || 0),
-        uploaded: Number(docStats?.uploaded || 0),
-        uploadPct: docUploadPct,
-      },
-      complianceApplicable: applicableTotal,
-      vendorScorePercent: vendorScorePct,
-      documentsUploadPercent: documentsUploadPct,
-      contractors: {
-        total: contractors.length,
-        top10HighScoreVendors: top10High,
-        top10LowScoreVendors: top10Low,
-      },
+      documentStats: moduleAccess.employeeCompliance
+        ? {
+            total: totalDocs,
+            approved: approvedDocs,
+            rejected: Number(docStats?.rejected || 0),
+            underReview: Number(docStats?.underReview || 0),
+            uploaded: Number(docStats?.uploaded || 0),
+            uploadPct: docUploadPct,
+          }
+        : {
+            total: 0,
+            approved: 0,
+            rejected: 0,
+            underReview: 0,
+            uploaded: 0,
+            uploadPct: 0,
+          },
+      complianceApplicable: moduleAccess.employeeCompliance
+        ? applicableTotal
+        : 0,
+      vendorScorePercent: moduleAccess.contractor ? vendorScorePct : 0,
+      documentsUploadPercent: moduleAccess.contractor ? documentsUploadPct : 0,
+      contractors: moduleAccess.contractor
+        ? {
+            total: contractors.length,
+            top10HighScoreVendors: top10High,
+            top10LowScoreVendors: top10Low,
+          }
+        : {
+            total: 0,
+            top10HighScoreVendors: [],
+            top10LowScoreVendors: [],
+          },
     };
+  }
+
+  private async getModuleAccess(user: ReqUser, clientId?: string | null) {
+    if (user.roleCode !== 'CLIENT') {
+      return { employeeCompliance: true, contractor: true };
+    }
+
+    const [employeeCompliance, contractor] = await Promise.all([
+      this.entitlements.hasModule(clientId, 'EMPLOYEE_COMPLIANCE'),
+      this.entitlements.hasAnyModule(clientId, [
+        'CONTRACTOR_AUDIT',
+        'CONTRACTOR_DOCUMENTS',
+      ]),
+    ]);
+
+    return { employeeCompliance, contractor };
   }
 }
