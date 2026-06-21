@@ -12,7 +12,7 @@ export const moduleAccessGuard = (moduleCode: string | string[]): CanActivateFn 
     if (allowed) return true;
     const fallback = window.location.pathname.startsWith('/branch')
       ? '/branch/dashboard'
-      : '/client/dashboard';
+      : auth.getClientModuleHomePath();
     return router.parseUrl(fallback);
   };
 };
