@@ -134,11 +134,12 @@ export class ClientBranchesController {
 
     return branches.map((b) => {
       const docs = docMap.get(b.id) || { total: 0, approved: 0 };
+      const visibleContractorCount = moduleAccess.contractor
+        ? (countMap.get(b.id) ?? 0)
+        : 0;
       return {
-        ...b,
-        contractorCount: moduleAccess.contractor
-          ? (countMap.get(b.id) ?? 0)
-          : 0,
+        ...this.maskBranchHeadcounts(b, moduleAccess, visibleContractorCount),
+        contractorCount: visibleContractorCount,
         complianceCount: moduleAccess.employeeCompliance
           ? (complianceMap.get(b.id) ?? 0)
           : 0,
@@ -211,7 +212,7 @@ export class ClientBranchesController {
       .getRawOne();
 
     return {
-      ...branch,
+      ...this.maskBranchHeadcounts(branch, moduleAccess, contractorCount),
       contractorCount: moduleAccess.contractor ? contractorCount : 0,
       complianceCount: moduleAccess.employeeCompliance ? complianceCount : 0,
       documentStats: moduleAccess.employeeCompliance
@@ -475,5 +476,35 @@ export class ClientBranchesController {
     ]);
 
     return { employeeCompliance, contractor };
+  }
+
+  private maskBranchHeadcounts<
+    T extends {
+      employeeCount?: number | null;
+      contractorCount?: number | null;
+      headcount?: number | null;
+    },
+  >(
+    branch: T,
+    moduleAccess: { employeeCompliance: boolean; contractor: boolean },
+    contractorCount = Number(branch.contractorCount || 0),
+  ) {
+    const employeeCount = moduleAccess.employeeCompliance
+      ? Number(branch.employeeCount || 0)
+      : 0;
+    const visibleContractorCount = moduleAccess.contractor
+      ? contractorCount
+      : 0;
+    const headcount =
+      moduleAccess.employeeCompliance && moduleAccess.contractor
+        ? Number(branch.headcount || 0)
+        : employeeCount + visibleContractorCount;
+
+    return {
+      ...branch,
+      employeeCount,
+      contractorCount: visibleContractorCount,
+      headcount,
+    };
   }
 }
