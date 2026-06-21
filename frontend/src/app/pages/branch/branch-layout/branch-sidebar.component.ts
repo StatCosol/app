@@ -482,6 +482,8 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
 
   /** Load sidebar badge counts from API */
   private loadBadges(): void {
+    if (!this.auth.hasModule('EMPLOYEE_COMPLIANCE')) return;
+
     const ids = this.auth.getBranchIds();
     const branchId = ids.length ? String(ids[0]) : '';
     if (!branchId) return;
@@ -504,6 +506,8 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
 
   /** Hide Payroll nav if branch user lacks payroll access */
   private checkPayrollAccess(): void {
+    if (!this.auth.hasModule('PAYROLL')) return;
+
     this.payrollSettings.get().pipe(
       takeUntil(this.destroy$),
       catchError(() => of(null)),

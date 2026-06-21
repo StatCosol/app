@@ -532,7 +532,7 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnInit(): void {
     // For branch users, check if master has granted payroll access
-    if (this.auth.isBranchUser()) {
+    if (this.auth.isBranchUser() && this.auth.hasModule('PAYROLL')) {
       this.payrollSettings.get().pipe(
         takeUntil(this.destroy$),
         catchError(() => of(null)),

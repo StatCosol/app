@@ -68,6 +68,22 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
 
   private readonly destroy$ = new Subject<void>();
 
+  get hasPayrollModule(): boolean {
+    return this.authService.hasModule('PAYROLL');
+  }
+
+  get hasEmployeeComplianceModule(): boolean {
+    return this.authService.hasModule('EMPLOYEE_COMPLIANCE');
+  }
+
+  get hasContractorModule(): boolean {
+    return this.authService.hasModule('CONTRACTOR_AUDIT') || this.authService.hasModule('CONTRACTOR_DOCUMENTS');
+  }
+
+  get hasContractorFaceAttendanceModule(): boolean {
+    return this.authService.hasModule('CONTRACTOR_FACE_ATTENDANCE');
+  }
+
   constructor(
     private cdr: ChangeDetectorRef,
     private legitxService: LegitxDashboardService,
@@ -99,6 +115,9 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
 
     const [year, month] = this.currentMonth.split('-');
+    const hasPayroll = this.hasPayrollModule;
+    const hasEmployeeCompliance = this.hasEmployeeComplianceModule;
+    const hasContractor = this.hasContractorModule;
 
     // Load task center data in parallel
     const user = this.authService.getUser();
@@ -129,15 +148,19 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
         year: +year,
         branchId: this.branchId || undefined,
       }).pipe(catchError(() => of(null as any))),
-      pfEsi: this.dashboardService.getClientPfEsiSummary({
-        month: this.currentMonth,
-        branchId: this.branchId || undefined,
-      }).pipe(catchError(() => of(null as any))),
-      contractor: this.dashboardService.getClientContractorUploadSummary({
-        month: this.currentMonth,
-        branchId: this.branchId || undefined,
-      }).pipe(catchError(() => of(null as any))),
-      branchDash: this.branchId
+      pfEsi: hasPayroll
+        ? this.dashboardService.getClientPfEsiSummary({
+          month: this.currentMonth,
+          branchId: this.branchId || undefined,
+        }).pipe(catchError(() => of(null as any)))
+        : of(null as any),
+      contractor: hasContractor
+        ? this.dashboardService.getClientContractorUploadSummary({
+          month: this.currentMonth,
+          branchId: this.branchId || undefined,
+        }).pipe(catchError(() => of(null as any)))
+        : of(null as any),
+      branchDash: this.branchId && (hasContractor || hasEmployeeCompliance)
         ? this.branchesService.getDashboard(this.branchId, this.currentMonth).pipe(catchError(() => of(null)))
         : of(null),
     })
@@ -147,14 +170,14 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
         const kpis = legitx?.kpis;
 
         // Employee headcount
-        this.employeeTotal = kpis?.employees?.total || 0;
-        this.employeeMale = kpis?.employees?.male || 0;
-        this.employeeFemale = kpis?.employees?.female || 0;
+        this.employeeTotal = hasEmployeeCompliance ? (kpis?.employees?.total || 0) : 0;
+        this.employeeMale = hasEmployeeCompliance ? (kpis?.employees?.male || 0) : 0;
+        this.employeeFemale = hasEmployeeCompliance ? (kpis?.employees?.female || 0) : 0;
 
         // Contractor headcount
-        this.contractorTotal = kpis?.contractors?.total || 0;
-        this.contractorMale = kpis?.contractors?.male || 0;
-        this.contractorFemale = kpis?.contractors?.female || 0;
+        this.contractorTotal = hasContractor ? (kpis?.contractors?.total || 0) : 0;
+        this.contractorMale = hasContractor ? (kpis?.contractors?.male || 0) : 0;
+        this.contractorFemale = hasContractor ? (kpis?.contractors?.female || 0) : 0;
 
         // PF/ESI from pf-esi-summary
         this.pfRegistered = pfEsi?.pf?.registered || 0;
@@ -168,10 +191,10 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
         this.esiPendingEmployees = pfEsi?.esi?.pendingEmployees || [];
 
         // Compliance
-        this.compliancePercent = kpis?.compliance?.overallPercent || 0;
-        this.documentUploadPercent = contractor?.overallPercent || 0;
-        this.auditScore = kpis?.audits?.overallAuditScore || 0;
-        this.openObservations = (kpis?.audits?.pending || 0) + (kpis?.audits?.overdue || 0);
+        this.compliancePercent = hasEmployeeCompliance ? (kpis?.compliance?.overallPercent || 0) : 0;
+        this.documentUploadPercent = hasContractor ? (contractor?.overallPercent || 0) : 0;
+        this.auditScore = hasContractor ? (kpis?.audits?.overallAuditScore || 0) : 0;
+        this.openObservations = hasContractor ? ((kpis?.audits?.pending || 0) + (kpis?.audits?.overdue || 0)) : 0;
 
         // Vendor scores from branch dashboard API
         if (branchDash) {
@@ -264,19 +287,19 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
     const actions: PendingAction[] = [];
     const queues = legitx?.queues;
 
-    if (this.pfPending > 0) {
+    if (this.hasPayrollModule && this.pfPending > 0) {
       actions.push({ label: 'Complete PF registrations', count: this.pfPending, severity: 'high', route: '/branch/employees' });
     }
-    if (this.esicPending > 0) {
+    if (this.hasPayrollModule && this.esicPending > 0) {
       actions.push({ label: 'Complete ESIC registrations', count: this.esicPending, severity: 'high', route: '/branch/employees' });
     }
-    if (this.openObservations > 0) {
+    if (this.hasContractorModule && this.openObservations > 0) {
       actions.push({ label: 'Resolve audit observations', count: this.openObservations, severity: 'medium', route: '/branch/audits/observations' });
     }
-    if (queues?.critical?.length > 0) {
+    if (this.hasEmployeeComplianceModule && queues?.critical?.length > 0) {
       actions.push({ label: 'Address critical compliance items', count: queues.critical.length, severity: 'high', route: '/branch/monthly-compliance' });
     }
-    if (queues?.pending?.length > 0) {
+    if (this.hasEmployeeComplianceModule && queues?.pending?.length > 0) {
       actions.push({ label: 'Complete pending uploads', count: queues.pending.length, severity: 'low', route: '/branch/compliance/monthly' });
     }
 
