@@ -52,7 +52,10 @@ const BLOCKED_ROUTE_MODULES: Array<[RegExp, ServiceModuleRequirement]> = [
   [/^\/?(api\/v1\/)?mobile-attendance\/enrollment\/self\b/i, 'MOBILE_ATTENDANCE'],
   [/^\/?(api\/v1\/)?mobile-attendance\/enrollment\/employees\b/i, 'MOBILE_ATTENDANCE'],
   [/^\/?(api\/v1\/)?mobile-attendance\/enrollment\/contractors\b/i, 'CONTRACTOR_FACE_ATTENDANCE'],
-  [/^\/?(api\/v1\/)?mobile-attendance\/enrollment\/(kiosk|deactivate)\b/i, 'CONTRACTOR_FACE_ATTENDANCE'],
+  [
+    /^\/?(api\/v1\/)?mobile-attendance\/enrollment\/(kiosk|deactivate)\b/i,
+    ['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'],
+  ],
   [/^\/?(api\/v1\/)?mobile-attendance\/punches\/contractor\b/i, 'CONTRACTOR_ATTENDANCE'],
 ];
 
