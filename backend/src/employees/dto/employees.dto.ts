@@ -70,6 +70,7 @@ export class UpdateEmployeeDto {
   @IsOptional() @IsString() clientId?: string;
   @IsOptional() @IsString() employeeCode?: string;
   @IsOptional() @IsString() dateOfExit?: string;
+  @IsOptional() @IsString() exitReason?: string;
   @IsOptional() @IsString() approvalStatus?: string;
   @IsOptional() @IsString() name?: string;
   @IsOptional() @IsString() email?: string;
