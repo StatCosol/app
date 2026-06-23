@@ -6,7 +6,15 @@ import { environment } from '../../environments/environment';
 export interface ServicePackageOption {
   code: string;
   label: string;
+  description?: string;
   modules: string[];
+  allowCustomModules?: boolean;
+}
+
+export interface ServiceModuleOption {
+  code: string;
+  label: string;
+  description: string;
 }
 
 export interface ServiceChangeRequest {
@@ -33,6 +41,10 @@ export class ServiceEntitlementsApiService {
 
   listPackages(): Observable<ServicePackageOption[]> {
     return this.http.get<ServicePackageOption[]>(`${this.base}/packages`);
+  }
+
+  listModules(): Observable<ServiceModuleOption[]> {
+    return this.http.get<ServiceModuleOption[]>(`${this.base}/modules`);
   }
 
   getClientStatus(clientId: string): Observable<any> {

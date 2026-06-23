@@ -21,6 +21,11 @@ import { BranchEntity } from '../branches/entities/branch.entity';
 import { ConfigService } from '@nestjs/config';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ClientsService } from '../clients/clients.service';
+import {
+  FULL_SERVICE_PACKAGE,
+  PACKAGE_MODULES,
+  SERVICE_MODULE_CODES,
+} from '../service-entitlements/service-entitlements.constants';
 
 export type ListUsersPagedArgs = {
   q?: string;
@@ -1855,7 +1860,7 @@ export class UsersService implements OnModuleInit {
     } catch (err: any) {
       if (err?.code !== '42P01') throw err;
     }
-    const packageCode = packageRows[0]?.package_code ?? 'FULL_SERVICE';
+    const packageCode = packageRows[0]?.package_code ?? FULL_SERVICE_PACKAGE;
     let entitlementRows: { module_code: string }[] = [];
     try {
       entitlementRows = await this.dataSource.query(
@@ -1869,23 +1874,11 @@ export class UsersService implements OnModuleInit {
     } catch (err: any) {
       if (err?.code !== '42P01') throw err;
     }
-    const fullModules = [
-      'CONTRACTOR_AUDIT',
-      'CONTRACTOR_PORTAL',
-      'CONTRACTOR_DOCUMENTS',
-      'CONTRACTOR_ATTENDANCE',
-      'CONTRACTOR_FACE_ATTENDANCE',
-      'PAYROLL',
-      'EMPLOYEE_COMPLIANCE',
-      'EMPLOYEE_ATTENDANCE',
-      'MOBILE_ATTENDANCE',
-      'APPRAISAL',
-    ];
     return {
       packageCode,
       enabledModules: entitlementRows.length
         ? entitlementRows.map((r) => r.module_code)
-        : fullModules,
+        : (PACKAGE_MODULES[packageCode] ?? [...SERVICE_MODULE_CODES]),
     };
   }
 

@@ -8,6 +8,7 @@ import { takeUntil } from 'rxjs/operators';
 import { AdminClientsService, Client, Branch, BranchComplianceApplicability, ClientUserLink, ClientUserOption, BranchContractorLink, BranchUserLink, ContractorOption } from './admin-clients.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { AuthService } from '../../../core/auth.service';
+import { ServiceEntitlementsApiService, ServiceModuleOption } from '../../../core/service-entitlements.service';
 import { INDIAN_STATES } from '../../../shared/utils/indian-states';
 import {
   PageHeaderComponent,
@@ -43,6 +44,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   private cdr = inject(ChangeDetectorRef);
   private dialog = inject(ConfirmDialogService);
   private auth = inject(AuthService);
+  private entitlementsApi = inject(ServiceEntitlementsApiService);
 
   // Client section
   clients: Client[] = [];
@@ -53,7 +55,11 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     masterUserEmail: '',
     masterUserMobile: '',
     masterUserPassword: '',
+    servicePackageCode: 'CUSTOM_SERVICES',
+    serviceModules: ['EMPLOYEE_COMPLIANCE'],
+    servicePackageNote: '',
   };
+  serviceModuleOptions: ServiceModuleOption[] = [];
   showMasterPassword = false;
   createdMasterUser: { email: string; password: string } | null = null;
   regLogoFile: File | null = null;
@@ -246,6 +252,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadClients();
     this.loadCompliances();
+    this.loadServiceModules();
 
     // Subscribe to route param changes (reactive)
     this.routeSubscription = this.route.paramMap.subscribe(params => {
@@ -273,6 +280,28 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         this.activeTab = 'company';
       }
     });
+  }
+
+  private loadServiceModules(): void {
+    this.entitlementsApi.listModules().pipe(
+      timeout(10000),
+      catchError(() => of([])),
+      takeUntil(this.destroy$),
+    ).subscribe((modules) => {
+      this.serviceModuleOptions = modules || [];
+      this.cdr.detectChanges();
+    });
+  }
+
+  isServiceSelected(code: string): boolean {
+    return this.clientForm.serviceModules.includes(code);
+  }
+
+  toggleService(code: string, checked: boolean): void {
+    const current = new Set(this.clientForm.serviceModules);
+    if (checked) current.add(code);
+    else current.delete(code);
+    this.clientForm.serviceModules = Array.from(current);
   }
 
   ngOnDestroy(): void {
@@ -356,6 +385,10 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       this.error = this.masterUserMobileError;
       return;
     }
+    if (!this.clientForm.serviceModules.length) {
+      this.error = 'Select at least one client service';
+      return;
+    }
 
     this.loading = true;
     this.error = '';
@@ -367,7 +400,12 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       masterUserName: mu.masterUserName.trim(),
       masterUserEmail: mu.masterUserEmail.trim(),
       masterUserPassword: mu.masterUserPassword,
+      servicePackageCode: mu.servicePackageCode,
+      serviceModules: [...mu.serviceModules],
     };
+    if (mu.servicePackageNote.trim()) {
+      payload.servicePackageNote = mu.servicePackageNote.trim();
+    }
     if (mu.masterUserMobile.trim()) {
       payload.masterUserMobile = mu.masterUserMobile.trim();
     }
@@ -382,7 +420,9 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       finalize(() => { this.loading = false; this.cdr.detectChanges(); })
     ).subscribe({
       next: (res) => {
-        this.success = 'Client registered successfully';
+        this.success = res.serviceRequestId
+          ? 'Client registered. Service access sent to CCO for approval.'
+          : 'Client registered successfully';
         // Show master user credentials banner
         if (res.masterUserEmail) {
           this.createdMasterUser = {
@@ -396,6 +436,9 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
           masterUserEmail: '',
           masterUserMobile: '',
           masterUserPassword: '',
+          servicePackageCode: 'CUSTOM_SERVICES',
+          serviceModules: ['EMPLOYEE_COMPLIANCE'],
+          servicePackageNote: '',
         };
         // Upload logo if selected during registration
         if (res.id && this.regLogoFile) {

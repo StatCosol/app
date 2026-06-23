@@ -10,6 +10,7 @@ import {
   FULL_SERVICE_PACKAGE,
   PACKAGE_MODULES,
   SERVICE_MODULE_CODES,
+  SERVICE_MODULE_OPTIONS,
   SERVICE_PACKAGE_OPTIONS,
   ServiceModuleCode,
 } from './service-entitlements.constants';
@@ -30,6 +31,10 @@ export class ServiceEntitlementsService {
 
   listPackageOptions() {
     return SERVICE_PACKAGE_OPTIONS;
+  }
+
+  listModuleOptions() {
+    return SERVICE_MODULE_OPTIONS;
   }
 
   normalizeModules(packageCode: string, modules?: ServiceModuleCode[]) {

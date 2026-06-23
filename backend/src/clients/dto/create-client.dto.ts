@@ -4,7 +4,14 @@ import {
   IsUUID,
   IsEmail,
   MinLength,
+  IsArray,
+  IsIn,
 } from 'class-validator';
+import {
+  PACKAGE_MODULES,
+  SERVICE_MODULE_CODES,
+  ServiceModuleCode,
+} from '../../service-entitlements/service-entitlements.constants';
 
 export class CreateClientDto {
   @IsOptional()
@@ -72,4 +79,18 @@ export class CreateClientDto {
   @IsString()
   @MinLength(6)
   masterUserPassword?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(Object.keys(PACKAGE_MODULES))
+  servicePackageCode?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsIn(SERVICE_MODULE_CODES, { each: true })
+  serviceModules?: ServiceModuleCode[];
+
+  @IsOptional()
+  @IsString()
+  servicePackageNote?: string;
 }
