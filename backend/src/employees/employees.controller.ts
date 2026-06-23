@@ -434,10 +434,28 @@ export class ClientEmployeesController {
 
     // Check email not already used by any other user
     const existingUser = await this.usersService.findByEmail(emp.email);
-    if (existingUser)
+    if (existingUser) {
+      // If it's an EMPLOYEE-role user for this client, treat as re-provision
+      // (employee_id link may be missing due to a previous partial creation)
+      if (existingUser.role === 'EMPLOYEE' && existingUser.clientId === clientId) {
+        const rawPassword = body.password || this.generateDefaultPassword(emp);
+        const passwordHash = await bcrypt.hash(rawPassword, 12);
+        const essUser = await this.usersService.updateEssUser(existingUser.id, {
+          email: emp.email.toLowerCase(),
+          name: emp.name,
+          passwordHash,
+        });
+        return {
+          message: 'ESS login updated successfully',
+          userId: essUser.id,
+          email: emp.email.toLowerCase(),
+          generatedPassword: body.password ? undefined : rawPassword,
+        };
+      }
       throw new BadRequestException(
         'A user account with this email already exists',
       );
+    }
 
     // Get EMPLOYEE role
     const role = await this.usersService.findRoleByCode('EMPLOYEE');
