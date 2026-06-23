@@ -22,6 +22,11 @@ import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { EmailService } from '../email/email.service';
 import { ConfigService } from '@nestjs/config';
+import {
+  FULL_SERVICE_PACKAGE,
+  PACKAGE_MODULES,
+  SERVICE_MODULE_CODES,
+} from '../service-entitlements/service-entitlements.constants';
 
 // In-memory per-account login throttle (single-replica deployment).
 // Complements the IP-based ThrottlerGuard with a per-email lockout that
@@ -391,7 +396,7 @@ export class AuthService implements OnModuleInit {
     } catch (err: any) {
       if (err?.code !== '42P01') throw err;
     }
-    const packageCode = packageRows[0]?.package_code ?? 'FULL_SERVICE';
+    const packageCode = packageRows[0]?.package_code ?? FULL_SERVICE_PACKAGE;
     let entitlementRows: { module_code: string }[] = [];
     try {
       entitlementRows = await this.dataSource.query(
@@ -405,23 +410,11 @@ export class AuthService implements OnModuleInit {
     } catch (err: any) {
       if (err?.code !== '42P01') throw err;
     }
-    const fullModules = [
-      'CONTRACTOR_AUDIT',
-      'CONTRACTOR_PORTAL',
-      'CONTRACTOR_DOCUMENTS',
-      'CONTRACTOR_ATTENDANCE',
-      'CONTRACTOR_FACE_ATTENDANCE',
-      'PAYROLL',
-      'EMPLOYEE_COMPLIANCE',
-      'EMPLOYEE_ATTENDANCE',
-      'MOBILE_ATTENDANCE',
-      'APPRAISAL',
-    ];
     return {
       packageCode,
       enabledModules: entitlementRows.length
         ? entitlementRows.map((r) => r.module_code)
-        : fullModules,
+        : (PACKAGE_MODULES[packageCode] ?? [...SERVICE_MODULE_CODES]),
     };
   }
 

@@ -6,6 +6,7 @@ import { AdminClientsService, Client } from '../clients/admin-clients.service';
 import {
   ServiceChangeRequest,
   ServiceEntitlementsApiService,
+  ServiceModuleOption,
   ServicePackageOption,
 } from '../../../core/service-entitlements.service';
 
@@ -30,7 +31,7 @@ import {
         </label>
         <label class="block">
           <span class="text-xs font-medium text-slate-600">Package</span>
-          <select class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" name="packageCode" [(ngModel)]="form.packageCode">
+          <select class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" name="packageCode" [(ngModel)]="form.packageCode" (ngModelChange)="applyPackageModules()">
             <option *ngFor="let p of packages" [value]="p.code">{{ p.label }}</option>
           </select>
         </label>
@@ -39,9 +40,29 @@ import {
           <input class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" name="note" [(ngModel)]="form.note" placeholder="Reason for change">
         </label>
         <div class="flex items-end">
-          <button class="rounded-md bg-blue-700 px-4 py-2 text-white disabled:opacity-50" [disabled]="saving || !form.clientId" (click)="submit()">
+          <button class="rounded-md bg-blue-700 px-4 py-2 text-white disabled:opacity-50" [disabled]="saving || !form.clientId || !form.modules.length" (click)="submit()">
             Submit for CCO
           </button>
+        </div>
+      </div>
+
+      <div class="rounded-lg border border-slate-200 bg-white p-4">
+        <h2 class="font-semibold text-slate-900">Services</h2>
+        <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <label
+            *ngFor="let service of moduleOptions"
+            class="flex items-start gap-3 rounded-lg border border-slate-200 p-3 cursor-pointer hover:border-blue-300">
+            <input
+              type="checkbox"
+              class="mt-1 rounded border-slate-300"
+              [name]="'module_' + service.code"
+              [checked]="isModuleSelected(service.code)"
+              (change)="toggleModule(service.code, $any($event.target).checked)" />
+            <span>
+              <span class="block text-sm font-medium text-slate-900">{{ service.label }}</span>
+              <span class="block text-xs text-slate-500 mt-0.5">{{ service.description }}</span>
+            </span>
+          </label>
         </div>
       </div>
 
@@ -82,12 +103,18 @@ import {
 export class AdminServicePackagesComponent implements OnInit {
   clients: Client[] = [];
   packages: ServicePackageOption[] = [];
+  moduleOptions: ServiceModuleOption[] = [];
   requests: ServiceChangeRequest[] = [];
   loading = false;
   saving = false;
   message = '';
   error = false;
-  form = { clientId: '', packageCode: 'CONTRACTOR_AUDIT_ONLY', note: '' };
+  form = {
+    clientId: '',
+    packageCode: 'CUSTOM_SERVICES',
+    modules: ['EMPLOYEE_COMPLIANCE'],
+    note: '',
+  };
 
   constructor(
     private readonly clientsApi: AdminClientsService,
@@ -103,11 +130,13 @@ export class AdminServicePackagesComponent implements OnInit {
     forkJoin({
       clients: this.clientsApi.getClients(),
       packages: this.entitlements.listPackages(),
+      modules: this.entitlements.listModules(),
       requests: this.entitlements.listRequests(),
     }).subscribe({
-      next: ({ clients, packages, requests }) => {
+      next: ({ clients, packages, modules, requests }) => {
         this.clients = clients || [];
         this.packages = packages || [];
+        this.moduleOptions = modules || [];
         this.requests = requests || [];
         this.loading = false;
       },
@@ -119,13 +148,38 @@ export class AdminServicePackagesComponent implements OnInit {
     });
   }
 
+  applyPackageModules(): void {
+    const selected = this.packages.find((p) => p.code === this.form.packageCode);
+    this.form.modules = selected?.modules?.length
+      ? [...selected.modules]
+      : [...this.form.modules];
+  }
+
+  isModuleSelected(code: string): boolean {
+    return this.form.modules.includes(code);
+  }
+
+  toggleModule(code: string, checked: boolean): void {
+    const current = new Set(this.form.modules);
+    if (checked) current.add(code);
+    else current.delete(code);
+    this.form.modules = Array.from(current);
+    this.form.packageCode = 'CUSTOM_SERVICES';
+  }
+
   submit(): void {
+    if (!this.form.modules.length) {
+      this.message = 'Select at least one service.';
+      this.error = true;
+      return;
+    }
     this.saving = true;
     this.message = '';
     this.error = false;
     this.entitlements.createRequest({
       clientId: this.form.clientId,
       packageCode: this.form.packageCode,
+      modules: [...this.form.modules],
       note: this.form.note || undefined,
     }).subscribe({
       next: () => {

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import {
   ServiceChangeRequest,
   ServiceEntitlementsApiService,
+  ServiceModuleOption,
 } from '../../../core/service-entitlements.service';
 
 @Component({
@@ -50,7 +51,7 @@ import {
               <td class="px-4 py-3">{{ r.clientName || r.clientId }}</td>
               <td class="px-4 py-3">{{ r.packageCode }}</td>
               <td class="px-4 py-3">
-                <span class="inline-block rounded bg-slate-100 px-2 py-1 mr-1 mb-1 text-xs" *ngFor="let m of r.requestedModules">{{ m }}</span>
+                <span class="inline-block rounded bg-slate-100 px-2 py-1 mr-1 mb-1 text-xs" *ngFor="let m of r.requestedModules">{{ moduleLabel(m) }}</span>
               </td>
               <td class="px-4 py-3">{{ r.status }}</td>
               <td class="px-4 py-3">{{ r.requestNote || '-' }}</td>
@@ -78,11 +79,19 @@ export class CcoServicePackageApprovalsComponent implements OnInit {
   actionId: string | null = null;
   message = '';
   error = false;
+  moduleOptions: ServiceModuleOption[] = [];
 
   constructor(private readonly entitlements: ServiceEntitlementsApiService) {}
 
   ngOnInit(): void {
+    this.entitlements.listModules().subscribe({
+      next: (modules) => (this.moduleOptions = modules || []),
+    });
     this.load();
+  }
+
+  moduleLabel(code: string): string {
+    return this.moduleOptions.find((m) => m.code === code)?.label || code;
   }
 
   load(): void {

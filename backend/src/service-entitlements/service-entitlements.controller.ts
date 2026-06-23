@@ -21,6 +21,12 @@ export class ServiceEntitlementsController {
     return this.service.listPackageOptions();
   }
 
+  @Get('modules')
+  @ApiOperation({ summary: 'List selectable client service modules' })
+  listModules() {
+    return this.service.listModuleOptions();
+  }
+
   @Get('clients/:clientId')
   @Roles('ADMIN', 'CCO')
   @ApiOperation({ summary: 'Get active service package for one client' })

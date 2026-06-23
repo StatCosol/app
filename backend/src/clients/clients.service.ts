@@ -9,7 +9,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { ClientEntity } from './entities/client.entity';
 import { ClientUserEntity } from './entities/client-user.entity';
 import { BranchEntity } from '../branches/entities/branch.entity';
@@ -17,6 +17,12 @@ import { CreateClientDto } from './dto/create-client.dto';
 import { UsersService } from '../users/users.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { UserEntity } from '../users/entities/user.entity';
+import {
+  CUSTOM_SERVICES_PACKAGE,
+  PACKAGE_MODULES,
+  SERVICE_MODULE_CODES,
+  ServiceModuleCode,
+} from '../service-entitlements/service-entitlements.constants';
 
 interface RetentionSnapshotData {
   registers: any[];
@@ -42,6 +48,92 @@ export class ClientsService {
     private readonly auditLogs: AuditLogsService,
     private readonly dataSource: DataSource,
   ) {}
+
+  private normalizeRequestedServiceModules(dto: CreateClientDto): {
+    packageCode: string;
+    modules: ServiceModuleCode[];
+    note: string | null;
+  } | null {
+    if (!dto.servicePackageCode && !dto.serviceModules?.length) return null;
+
+    const packageCode = dto.servicePackageCode || CUSTOM_SERVICES_PACKAGE;
+    if (!PACKAGE_MODULES[packageCode]) {
+      throw new BadRequestException(`Unsupported service package: ${packageCode}`);
+    }
+
+    const allowed = new Set<string>(SERVICE_MODULE_CODES);
+    const source =
+      dto.serviceModules?.length
+        ? dto.serviceModules
+        : PACKAGE_MODULES[packageCode];
+    const modules = Array.from(new Set(source)).filter((moduleCode) =>
+      allowed.has(moduleCode),
+    ) as ServiceModuleCode[];
+
+    if (!modules.length) {
+      throw new BadRequestException('At least one client service must be selected');
+    }
+
+    return {
+      packageCode,
+      modules,
+      note: dto.servicePackageNote?.trim() || 'Initial service selection during client registration',
+    };
+  }
+
+  private async createInitialServiceRequest(
+    manager: EntityManager,
+    clientId: string,
+    requestedBy: string | undefined,
+    serviceSelection: {
+      packageCode: string;
+      modules: ServiceModuleCode[];
+      note: string | null;
+    },
+  ) {
+    await manager.query(
+      `INSERT INTO client_service_packages
+        (client_id, package_code, approved_by, approved_at, updated_at)
+       VALUES ($1::uuid, $2, NULL, NULL, NOW())
+       ON CONFLICT (client_id) DO UPDATE SET
+         package_code = EXCLUDED.package_code,
+         request_id = NULL,
+         approved_by = NULL,
+         approved_at = NULL,
+         updated_at = NOW()`,
+      [clientId, serviceSelection.packageCode],
+    );
+
+    const inserted: { id: string }[] = await manager.query(
+      `INSERT INTO client_module_change_requests
+        (client_id, package_code, requested_modules, current_modules, requested_by, request_note)
+       VALUES ($1::uuid, $2, $3::jsonb, '[]'::jsonb, $4::uuid, $5)
+       RETURNING id`,
+      [
+        clientId,
+        serviceSelection.packageCode,
+        JSON.stringify(serviceSelection.modules),
+        requestedBy ?? null,
+        serviceSelection.note,
+      ],
+    );
+
+    await manager.query(
+      `INSERT INTO client_module_audit_logs
+        (client_id, request_id, action, package_code, modules, actor_user_id, note)
+       VALUES ($1::uuid, $2::uuid, 'REQUESTED', $3, $4::jsonb, $5::uuid, $6)`,
+      [
+        clientId,
+        inserted[0].id,
+        serviceSelection.packageCode,
+        JSON.stringify(serviceSelection.modules),
+        requestedBy ?? null,
+        serviceSelection.note,
+      ],
+    );
+
+    return inserted[0].id;
+  }
 
   async create(dto: CreateClientDto, createdBy?: string, createdRole?: string) {
     this.logger.log('[create] Received DTO:', {
@@ -127,6 +219,8 @@ export class ClientsService {
         );
     }
 
+    const serviceSelection = this.normalizeRequestedServiceModules(dto);
+
     const clientData = {
       clientCode,
       clientName: dto.clientName,
@@ -183,7 +277,16 @@ export class ClientsService {
         });
         await clientUserRepo.save(clientUserLink);
 
-        return { saved, masterUser };
+        const serviceRequestId = serviceSelection
+          ? await this.createInitialServiceRequest(
+              manager,
+              saved.id,
+              createdBy,
+              serviceSelection,
+            )
+          : null;
+
+        return { saved, masterUser, serviceRequestId };
       });
 
       this.logger.log('[create] Saved client + master user to DB:', {
@@ -207,6 +310,8 @@ export class ClientsService {
         message: 'Client created with master user',
         masterUserId: result.masterUser.id,
         masterUserEmail: result.masterUser.email,
+        serviceRequestId: result.serviceRequestId,
+        servicePackageStatus: result.serviceRequestId ? 'PENDING_CCO' : null,
       };
     }
 
@@ -246,7 +351,25 @@ export class ClientsService {
       performedRole: createdRole ?? null,
       afterJson: saved,
     });
-    return { id: saved.id, message: 'Client created' };
+
+    let serviceRequestId: string | null = null;
+    if (serviceSelection) {
+      await this.dataSource.transaction(async (manager) => {
+        serviceRequestId = await this.createInitialServiceRequest(
+          manager,
+          saved.id,
+          createdBy,
+          serviceSelection,
+        );
+      });
+    }
+
+    return {
+      id: saved.id,
+      message: 'Client created',
+      serviceRequestId,
+      servicePackageStatus: serviceRequestId ? 'PENDING_CCO' : null,
+    };
   }
 
   async listClients(includeDeleted = false, ownerCcoId?: string | null) {

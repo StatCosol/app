@@ -130,6 +130,9 @@ export class AdminClientsService {
     masterUserEmail?: string;
     masterUserMobile?: string;
     masterUserPassword?: string;
+    servicePackageCode?: string;
+    serviceModules?: string[];
+    servicePackageNote?: string;
   }): Observable<any> {
     return this.http.post(`${this.apiUrl}/clients`, payload);
   }
