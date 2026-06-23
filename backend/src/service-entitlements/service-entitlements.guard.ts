@@ -10,6 +10,7 @@ const BLOCKED_ROUTE_MODULES: Array<[RegExp, ServiceModuleRequirement]> = [
   [/^\/?(api\/v1\/)?client\/contractor-employees\b/i, ['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS']],
   [/^\/?(api\/v1\/)?client\/contractor-required-documents\b/i, 'CONTRACTOR_DOCUMENTS'],
   [/^\/?(api\/v1\/)?client\/audits\b/i, 'CONTRACTOR_AUDIT'],
+  [/^\/?(api\/v1\/)?audit-kpi\/branch\b/i, 'CONTRACTOR_AUDIT'],
   [/^\/?(api\/v1\/)?contractor\/(dashboard|compliance|documents|employees|audits|audit-non-compliances|computation)\b/i, 'CONTRACTOR_PORTAL'],
   [/^\/?(api\/v1\/)?(payroll|client\/payroll|branch\/payroll)\b/i, 'PAYROLL'],
   [/^\/?(api\/v1\/)?client-dashboard\/pf-esi-summary\b/i, 'PAYROLL'],

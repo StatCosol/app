@@ -68,6 +68,8 @@ describe('ServiceEntitlementsGuard', () => {
     '/api/v1/client/audits/summary',
     '/api/v1/client/audits/summaries',
     '/api/v1/client/audits/audit-1/latest-report',
+    '/api/v1/audit-kpi/branch/branch-1',
+    '/api/v1/audit-kpi/branch/branch-1/2026-06',
     '/api/v1/branch/audit-non-compliances',
     '/api/v1/branch/audit-non-compliances/audit/audit-1',
     '/api/v1/branch/audit-non-compliances/nc-1/upload',
