@@ -19,6 +19,7 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { UserEntity } from '../users/entities/user.entity';
 import {
   CUSTOM_SERVICES_PACKAGE,
+  FULL_SERVICE_PACKAGE,
   PACKAGE_MODULES,
   SERVICE_MODULE_CODES,
   ServiceModuleCode,
@@ -427,12 +428,96 @@ export class ClientsService {
       });
     });
 
+    const clientIds = clients.map((client) => client.id);
+    const serviceMap = new Map<
+      string,
+      {
+        servicePackage: string;
+        enabledModules: string[];
+        pendingServiceRequestId: string | null;
+        servicePackageStatus: 'APPROVED' | 'PENDING_CCO';
+      }
+    >();
+
+    if (clientIds.length) {
+      try {
+        const [packageRows, entitlementRows, pendingRows] = await Promise.all([
+          this.dataSource.query(
+            `SELECT client_id AS "clientId", package_code AS "packageCode"
+               FROM client_service_packages
+              WHERE client_id = ANY($1::uuid[])`,
+            [clientIds],
+          ),
+          this.dataSource.query(
+            `SELECT client_id AS "clientId", module_code AS "moduleCode"
+               FROM client_module_entitlements
+              WHERE client_id = ANY($1::uuid[])
+                AND is_enabled = TRUE
+              ORDER BY module_code`,
+            [clientIds],
+          ),
+          this.dataSource.query(
+            `SELECT DISTINCT ON (client_id)
+                    client_id AS "clientId",
+                    id AS "requestId"
+               FROM client_module_change_requests
+              WHERE client_id = ANY($1::uuid[])
+                AND status = 'PENDING_CCO'
+              ORDER BY client_id, requested_at DESC`,
+            [clientIds],
+          ),
+        ]);
+
+        const modulesByClient = new Map<string, string[]>();
+        for (const row of entitlementRows) {
+          const modules = modulesByClient.get(row.clientId) || [];
+          modules.push(row.moduleCode);
+          modulesByClient.set(row.clientId, modules);
+        }
+
+        const packageByClient = new Map<string, string>();
+        for (const row of packageRows) {
+          packageByClient.set(row.clientId, row.packageCode);
+        }
+
+        const pendingByClient = new Map<string, string>();
+        for (const row of pendingRows) {
+          pendingByClient.set(row.clientId, row.requestId);
+        }
+
+        for (const clientId of clientIds) {
+          const packageCode =
+            packageByClient.get(clientId) || FULL_SERVICE_PACKAGE;
+          const modules =
+            modulesByClient.get(clientId) ||
+            (PACKAGE_MODULES[packageCode] ?? [...SERVICE_MODULE_CODES]);
+          const pendingServiceRequestId = pendingByClient.get(clientId) ?? null;
+          serviceMap.set(clientId, {
+            servicePackage: packageCode,
+            enabledModules: modules,
+            pendingServiceRequestId,
+            servicePackageStatus: pendingServiceRequestId
+              ? 'PENDING_CCO'
+              : 'APPROVED',
+          });
+        }
+      } catch (err: any) {
+        if (err?.code !== '42P01') throw err;
+      }
+    }
+
     // Attach aggregation to client list
     return clients.map((client) => ({
       ...client,
       branchesCount: aggMap.get(client.id)?.branchesCount || 0,
       totalEmployees: aggMap.get(client.id)?.totalEmployees || 0,
       contractorsCount: aggMap.get(client.id)?.contractorsCount || 0,
+      ...(serviceMap.get(client.id) || {
+        servicePackage: FULL_SERVICE_PACKAGE,
+        enabledModules: [...SERVICE_MODULE_CODES],
+        pendingServiceRequestId: null,
+        servicePackageStatus: 'APPROVED',
+      }),
     }));
   }
 

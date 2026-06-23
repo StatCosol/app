@@ -20,6 +20,10 @@ export interface Client {
   companyCode?: string;
   logoUrl?: string;
   crmOnBehalfEnabled?: boolean;
+  servicePackage?: string;
+  enabledModules?: string[];
+  pendingServiceRequestId?: string | null;
+  servicePackageStatus?: 'APPROVED' | 'PENDING_CCO';
 }
 
 export interface Branch {
