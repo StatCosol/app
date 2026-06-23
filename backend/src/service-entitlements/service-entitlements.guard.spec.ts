@@ -73,6 +73,7 @@ describe('ServiceEntitlementsGuard', () => {
     '/api/v1/branch/audit-non-compliances',
     '/api/v1/branch/audit-non-compliances/audit/audit-1',
     '/api/v1/branch/audit-non-compliances/nc-1/upload',
+    '/api/v1/branch/reports/audit-observations',
   ])('requires contractor audit for client audit path %s', async (url) => {
     await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
 
@@ -90,6 +91,10 @@ describe('ServiceEntitlementsGuard', () => {
     '/api/v1/client/compliance-calendar/client-1',
     '/api/v1/client/compliance-calendar/me',
     '/api/v1/client/compliance-reminders/client-1',
+    '/api/v1/branch/reports/registration-expiry',
+    '/api/v1/branch/reports/compliance-summary',
+    '/api/v1/branch/reports/pf-esic-status',
+    '/api/v1/branch/reports/headcount',
   ])('requires employee compliance for client visibility path %s', async (url) => {
     await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
 
@@ -112,6 +117,18 @@ describe('ServiceEntitlementsGuard', () => {
     expect(entitlements.assertModule).toHaveBeenCalledWith(
       clientId,
       'EMPLOYEE_ATTENDANCE',
+    );
+    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
+  });
+
+  it('requires contractor documents for branch contractor upload reports', async () => {
+    await expect(
+      guard.canActivate(contextFor('/api/v1/branch/reports/contractor-uploads')),
+    ).resolves.toBe(true);
+
+    expect(entitlements.assertModule).toHaveBeenCalledWith(
+      clientId,
+      'CONTRACTOR_DOCUMENTS',
     );
     expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
   });
