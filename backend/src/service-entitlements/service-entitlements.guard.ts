@@ -27,6 +27,7 @@ const BLOCKED_ROUTE_MODULES: Array<[RegExp, ServiceModuleRequirement]> = [
   [/^\/?(api\/v1\/)?client\/branches\/registration-(summary|alerts)\b/i, 'EMPLOYEE_COMPLIANCE'],
   [/^\/?(api\/v1\/)?client\/branches\/[^/]+\/(documents|mcd|registrations|registration-summary)\b/i, 'EMPLOYEE_COMPLIANCE'],
   [/^\/?(api\/v1\/)?client\/branches\/[^/]+\/audit-observations\b/i, 'CONTRACTOR_AUDIT'],
+  [/^\/?(api\/v1\/)?branch\/audit-non-compliances\b/i, 'CONTRACTOR_AUDIT'],
   [/^\/?(api\/v1\/)?client\/branches\b/i, ['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS']],
   [/^\/?(api\/v1\/)?client\/compliance\b/i, 'EMPLOYEE_COMPLIANCE'],
   [/^\/?(api\/v1\/)?client\/branch-compliance\b/i, 'EMPLOYEE_COMPLIANCE'],

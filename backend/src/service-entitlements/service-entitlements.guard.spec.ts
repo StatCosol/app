@@ -68,6 +68,9 @@ describe('ServiceEntitlementsGuard', () => {
     '/api/v1/client/audits/summary',
     '/api/v1/client/audits/summaries',
     '/api/v1/client/audits/audit-1/latest-report',
+    '/api/v1/branch/audit-non-compliances',
+    '/api/v1/branch/audit-non-compliances/audit/audit-1',
+    '/api/v1/branch/audit-non-compliances/nc-1/upload',
   ])('requires contractor audit for client audit path %s', async (url) => {
     await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
 
