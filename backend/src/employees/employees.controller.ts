@@ -418,7 +418,7 @@ export class ClientEmployeesController {
         throw new BadRequestException('A user account with this email already exists');
 
       const rawPassword = body.password || this.generateDefaultPassword(emp);
-      const passwordHash = body.password ? await bcrypt.hash(rawPassword, 12) : undefined;
+      const passwordHash = await bcrypt.hash(rawPassword, 12);
       const essUser = await this.usersService.updateEssUser(existingEssUser.id, {
         email: emp.email.toLowerCase(),
         name: emp.name,
@@ -428,7 +428,7 @@ export class ClientEmployeesController {
         message: 'ESS login updated successfully',
         userId: essUser.id,
         email: emp.email.toLowerCase(),
-        generatedPassword: body.password ? rawPassword : undefined,
+        generatedPassword: body.password ? undefined : rawPassword,
       };
     }
 
