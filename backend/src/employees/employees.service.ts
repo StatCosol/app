@@ -434,10 +434,9 @@ export class EmployeesService {
     const emp = await this.findById(clientId, id);
 
     // Validate & check duplicate phone if changed
-    if (dto.phone !== undefined) {
+    if (dto.phone !== undefined && dto.phone !== null) {
       const phoneNorm = (dto.phone || '').replace(/\s+/g, '');
-      if (!phoneNorm) throw new BadRequestException('Phone number is required');
-      if (phoneNorm !== emp.phone) {
+      if (phoneNorm && phoneNorm !== emp.phone) {
         const dup = await this.empRepo.findOne({
           where: { clientId, phone: phoneNorm },
         });
@@ -447,15 +446,13 @@ export class EmployeesService {
           );
         }
       }
-      dto.phone = phoneNorm;
+      (dto as any).phone = phoneNorm || null;
     }
 
     // Validate & check duplicate Aadhaar if changed
-    if (dto.aadhaar !== undefined) {
+    if (dto.aadhaar !== undefined && dto.aadhaar !== null) {
       const aadhaarNorm = (dto.aadhaar || '').replace(/\s+/g, '');
-      if (!aadhaarNorm)
-        throw new BadRequestException('Aadhaar number is required');
-      if (aadhaarNorm !== emp.aadhaar) {
+      if (aadhaarNorm && aadhaarNorm !== emp.aadhaar) {
         const dup = await this.empRepo.findOne({
           where: { clientId, aadhaar: aadhaarNorm },
         });
@@ -465,7 +462,7 @@ export class EmployeesService {
           );
         }
       }
-      dto.aadhaar = aadhaarNorm;
+      (dto as any).aadhaar = aadhaarNorm || null;
     }
 
     // Strip read-only fields the frontend may send

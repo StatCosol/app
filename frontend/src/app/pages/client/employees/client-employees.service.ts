@@ -12,6 +12,7 @@ export type Employee = {
   dateOfBirth: string | null;
   gender: string | null;
   fatherName: string | null;
+  maritalStatus: string | null;
   phone: string | null;
   email: string | null;
   aadhaar: string | null;
@@ -23,6 +24,9 @@ export type Employee = {
   ifsc: string | null;
   designation: string | null;
   department: string | null;
+  designationId: string | null;
+  departmentId: string | null;
+  gradeId: string | null;
   dateOfJoining: string | null;
   dateOfExit: string | null;
   exitReason: string | null;
@@ -30,6 +34,9 @@ export type Employee = {
   ctc: number | null;
   monthlyGross: number | null;
   pfApplicable: boolean;
+  pfApplicableFrom: string | null;
+  pfServiceStartDate: string | null;
+  basicAtPfStart: number | null;
   esiApplicable: boolean;
   isActive: boolean;
   approvalStatus: string;
@@ -182,6 +189,7 @@ export class ClientEmployeesService {
       dateOfBirth: r?.dateOfBirth ?? r?.date_of_birth ?? null,
       gender: r?.gender ?? null,
       fatherName: r?.fatherName ?? r?.father_name ?? null,
+      maritalStatus: r?.maritalStatus ?? r?.marital_status ?? null,
       phone: r?.phone ?? null,
       email: r?.email ?? null,
       aadhaar: r?.aadhaar ?? null,
@@ -193,6 +201,9 @@ export class ClientEmployeesService {
       ifsc: r?.ifsc ?? null,
       designation: r?.designation ?? null,
       department: r?.department ?? null,
+      designationId: r?.designationId ?? r?.designation_id ?? null,
+      departmentId: r?.departmentId ?? r?.department_id ?? null,
+      gradeId: r?.gradeId ?? r?.grade_id ?? null,
       dateOfJoining: r?.dateOfJoining ?? r?.date_of_joining ?? null,
       dateOfExit: r?.dateOfExit ?? r?.date_of_exit ?? null,
       exitReason: r?.exitReason ?? r?.exit_reason ?? null,
@@ -200,6 +211,9 @@ export class ClientEmployeesService {
       ctc: r?.ctc != null ? Number(r.ctc) : null,
       monthlyGross: r?.monthlyGross != null ? Number(r.monthlyGross) : (r?.monthly_gross != null ? Number(r.monthly_gross) : null),
       pfApplicable: !!(r?.pfApplicable ?? r?.pf_applicable ?? false),
+      pfApplicableFrom: r?.pfApplicableFrom ?? r?.pf_applicable_from ?? null,
+      pfServiceStartDate: r?.pfServiceStartDate ?? r?.pf_service_start_date ?? null,
+      basicAtPfStart: r?.basicAtPfStart != null ? Number(r.basicAtPfStart) : null,
       esiApplicable: !!(r?.esiApplicable ?? r?.esi_applicable ?? false),
       isActive: r?.isActive ?? r?.is_active ?? true,
       approvalStatus: (r?.approvalStatus ?? r?.approval_status ?? 'APPROVED').toUpperCase(),
