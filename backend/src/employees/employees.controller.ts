@@ -409,7 +409,30 @@ export class ClientEmployeesController {
         'Cannot create ESS login for inactive employee',
       );
 
-    // Check if user already exists for this employee
+    // Check if ESS user already exists for this employee (re-provision after email change)
+    const existingEssUser = await this.usersService.findByEmployeeId(emp.id);
+    if (existingEssUser) {
+      // Check new email isn't taken by a DIFFERENT user
+      const emailOwner = await this.usersService.findByEmail(emp.email);
+      if (emailOwner && emailOwner.id !== existingEssUser.id)
+        throw new BadRequestException('A user account with this email already exists');
+
+      const rawPassword = body.password || this.generateDefaultPassword(emp);
+      const passwordHash = body.password ? await bcrypt.hash(rawPassword, 12) : undefined;
+      const essUser = await this.usersService.updateEssUser(existingEssUser.id, {
+        email: emp.email.toLowerCase(),
+        name: emp.name,
+        passwordHash,
+      });
+      return {
+        message: 'ESS login updated successfully',
+        userId: essUser.id,
+        email: emp.email.toLowerCase(),
+        generatedPassword: body.password ? rawPassword : undefined,
+      };
+    }
+
+    // Check email not already used by any other user
     const existingUser = await this.usersService.findByEmail(emp.email);
     if (existingUser)
       throw new BadRequestException(

@@ -469,6 +469,34 @@ export class UsersService implements OnModuleInit {
     return created;
   }
 
+  async findByEmployeeId(employeeId: string): Promise<UserEntity | null> {
+    const rows = await this.usersRepo.manager.query(
+      `SELECT * FROM users WHERE employee_id = $1 LIMIT 1`,
+      [employeeId],
+    );
+    return rows?.[0] ?? null;
+  }
+
+  async updateEssUser(
+    userId: string,
+    dto: { email: string; name: string; passwordHash?: string },
+  ): Promise<UserEntity> {
+    if (dto.passwordHash) {
+      await this.usersRepo.manager.query(
+        `UPDATE users SET email = $1, name = $2, password_hash = $3 WHERE id = $4`,
+        [dto.email.toLowerCase(), dto.name, dto.passwordHash, userId],
+      );
+    } else {
+      await this.usersRepo.manager.query(
+        `UPDATE users SET email = $1, name = $2 WHERE id = $3`,
+        [dto.email.toLowerCase(), dto.name, userId],
+      );
+    }
+    const updated = await this.findById(userId);
+    if (!updated) throw new Error('Failed to retrieve updated user');
+    return updated;
+  }
+
   async listRoles(): Promise<RoleEntity[]> {
     return this.rolesRepo.find({ order: { id: 'ASC' } });
   }
