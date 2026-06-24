@@ -171,36 +171,55 @@ export class ServiceEntitlementsService {
     }
 
     const current = await this.getCurrentForClient(dto.clientId);
-    const inserted: { id: string }[] = await this.dataSource.query(
-      `INSERT INTO client_module_change_requests
-        (client_id, package_code, requested_modules, current_modules, requested_by, request_note)
-       VALUES ($1::uuid, $2, $3::jsonb, $4::jsonb, $5::uuid, $6)
-       RETURNING id`,
-      [
-        dto.clientId,
-        dto.packageCode,
-        JSON.stringify(modules),
-        JSON.stringify(current.enabledModules),
-        actor.userId || actor.id,
-        dto.note ?? null,
-      ],
-    );
+    let requestId: string;
+    try {
+      requestId = await this.dataSource.transaction(async (manager) => {
+        const inserted: { id: string }[] = await manager.query(
+          `INSERT INTO client_module_change_requests
+            (client_id, package_code, requested_modules, current_modules, requested_by, request_note)
+           VALUES ($1::uuid, $2, $3::jsonb, $4::jsonb, $5::uuid, $6)
+           RETURNING id`,
+          [
+            dto.clientId,
+            dto.packageCode,
+            JSON.stringify(modules),
+            JSON.stringify(current.enabledModules),
+            actor.userId || actor.id,
+            dto.note ?? null,
+          ],
+        );
 
-    await this.dataSource.query(
-      `INSERT INTO client_module_audit_logs
-        (client_id, request_id, action, package_code, modules, actor_user_id, note)
-       VALUES ($1::uuid, $2::uuid, 'REQUESTED', $3, $4::jsonb, $5::uuid, $6)`,
-      [
-        dto.clientId,
-        inserted[0].id,
-        dto.packageCode,
-        JSON.stringify(modules),
-        actor.userId || actor.id,
-        dto.note ?? null,
-      ],
-    );
+        await manager.query(
+          `INSERT INTO client_module_audit_logs
+            (client_id, request_id, action, package_code, modules, actor_user_id, note)
+           VALUES ($1::uuid, $2::uuid, 'REQUESTED', $3, $4::jsonb, $5::uuid, $6)`,
+          [
+            dto.clientId,
+            inserted[0].id,
+            dto.packageCode,
+            JSON.stringify(modules),
+            actor.userId || actor.id,
+            dto.note ?? null,
+          ],
+        );
 
-    return this.getRequest(inserted[0].id);
+        return inserted[0].id;
+      });
+    } catch (err: any) {
+      if (
+        err?.code === '23505' &&
+        String(err?.constraint || '').includes(
+          'uniq_client_module_change_requests_pending',
+        )
+      ) {
+        throw new BadRequestException(
+          'This client already has a service package request pending CCO review',
+        );
+      }
+      throw err;
+    }
+
+    return this.getRequest(requestId);
   }
 
   async listRequests(status?: string) {

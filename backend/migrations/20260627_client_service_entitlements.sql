@@ -18,6 +18,10 @@ CREATE TABLE IF NOT EXISTS client_module_change_requests (
 CREATE INDEX IF NOT EXISTS idx_client_module_change_requests_client_status
   ON client_module_change_requests (client_id, status, requested_at DESC);
 
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_client_module_change_requests_pending
+  ON client_module_change_requests (client_id)
+  WHERE status = 'PENDING_CCO';
+
 CREATE TABLE IF NOT EXISTS client_service_packages (
   client_id UUID PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,
   package_code TEXT NOT NULL DEFAULT 'FULL_SERVICE',
