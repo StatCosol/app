@@ -58,6 +58,7 @@ import {
               <td class="px-4 py-3 text-right">
                 <ng-container *ngIf="r.status === 'PENDING_CCO'; else reviewed">
                   <button class="text-green-700 font-medium mr-3" [disabled]="actionId === r.id" (click)="review(r, 'APPROVED')">Approve</button>
+                  <button class="text-amber-700 font-medium mr-3" [disabled]="actionId === r.id" (click)="review(r, 'CHANGES_REQUESTED')">Request changes</button>
                   <button class="text-red-700 font-medium" [disabled]="actionId === r.id" (click)="review(r, 'REJECTED')">Reject</button>
                 </ng-container>
                 <ng-template #reviewed>{{ r.reviewedAt ? (r.reviewedAt | date:'dd MMM, HH:mm') : '-' }}</ng-template>
@@ -109,15 +110,28 @@ export class CcoServicePackageApprovalsComponent implements OnInit {
     });
   }
 
-  review(row: ServiceChangeRequest, action: 'APPROVED' | 'REJECTED'): void {
-    const note = action === 'REJECTED' ? window.prompt('Rejection note') || '' : '';
-    if (action === 'REJECTED' && !note.trim()) return;
+  review(
+    row: ServiceChangeRequest,
+    action: 'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED',
+  ): void {
+    const note =
+      action === 'APPROVED'
+        ? ''
+        : window.prompt(
+            action === 'REJECTED' ? 'Rejection note' : 'Change request note',
+          ) || '';
+    if (action !== 'APPROVED' && !note.trim()) return;
     this.actionId = row.id;
     this.message = '';
     this.error = false;
     this.entitlements.reviewRequest(row.id, { action, note: note || undefined }).subscribe({
       next: () => {
-        this.message = action === 'APPROVED' ? 'Package approved.' : 'Request rejected.';
+        this.message =
+          action === 'APPROVED'
+            ? 'Package approved.'
+            : action === 'REJECTED'
+              ? 'Request rejected.'
+              : 'Changes requested.';
         this.actionId = null;
         this.load();
       },

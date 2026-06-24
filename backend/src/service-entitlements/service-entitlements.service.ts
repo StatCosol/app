@@ -156,6 +156,20 @@ export class ServiceEntitlementsService {
     );
     if (!clientRows.length) throw new NotFoundException('Client not found');
 
+    const pendingRows = await this.dataSource.query(
+      `SELECT id
+         FROM client_module_change_requests
+        WHERE client_id = $1::uuid
+          AND status = 'PENDING_CCO'
+        LIMIT 1`,
+      [dto.clientId],
+    );
+    if (pendingRows.length) {
+      throw new BadRequestException(
+        'This client already has a service package request pending CCO review',
+      );
+    }
+
     const current = await this.getCurrentForClient(dto.clientId);
     const inserted: { id: string }[] = await this.dataSource.query(
       `INSERT INTO client_module_change_requests
