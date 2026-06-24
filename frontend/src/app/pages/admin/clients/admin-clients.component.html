@@ -574,8 +574,8 @@
             <div class="text-sm font-medium text-gray-900">{{ serviceSummary(row) }}</div>
             <ui-status-badge
               size="sm"
-              [variant]="row.servicePackageStatus === 'PENDING_CCO' ? 'warning' : 'success'">
-              {{ row.servicePackageStatus === 'PENDING_CCO' ? 'Pending CCO' : 'Approved' }}
+              [variant]="serviceStatusVariant(row)"
+              [label]="serviceStatusLabel(row)">
             </ui-status-badge>
           </div>
         </ng-template>

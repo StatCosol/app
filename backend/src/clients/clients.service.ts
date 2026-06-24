@@ -435,15 +435,22 @@ export class ClientsService {
         servicePackage: string;
         enabledModules: string[];
         pendingServiceRequestId: string | null;
-        servicePackageStatus: 'APPROVED' | 'PENDING_CCO';
+        servicePackageStatus:
+          | 'APPROVED'
+          | 'PENDING_CCO'
+          | 'REJECTED'
+          | 'CHANGES_REQUESTED'
+          | 'UNAPPROVED';
       }
     >();
 
     if (clientIds.length) {
       try {
-        const [packageRows, entitlementRows, pendingRows] = await Promise.all([
+        const [packageRows, entitlementRows, requestRows] = await Promise.all([
           this.dataSource.query(
-            `SELECT client_id AS "clientId", package_code AS "packageCode"
+            `SELECT client_id AS "clientId",
+                    package_code AS "packageCode",
+                    approved_at AS "approvedAt"
                FROM client_service_packages
               WHERE client_id = ANY($1::uuid[])`,
             [clientIds],
@@ -459,10 +466,10 @@ export class ClientsService {
           this.dataSource.query(
             `SELECT DISTINCT ON (client_id)
                     client_id AS "clientId",
-                    id AS "requestId"
+                    id AS "requestId",
+                    status AS "status"
                FROM client_module_change_requests
               WHERE client_id = ANY($1::uuid[])
-                AND status = 'PENDING_CCO'
               ORDER BY client_id, requested_at DESC`,
             [clientIds],
           ),
@@ -475,30 +482,56 @@ export class ClientsService {
           modulesByClient.set(row.clientId, modules);
         }
 
-        const packageByClient = new Map<string, string>();
+        const packageByClient = new Map<
+          string,
+          { packageCode: string; approvedAt: Date | string | null }
+        >();
         for (const row of packageRows) {
-          packageByClient.set(row.clientId, row.packageCode);
+          packageByClient.set(row.clientId, {
+            packageCode: row.packageCode,
+            approvedAt: row.approvedAt ?? null,
+          });
         }
 
-        const pendingByClient = new Map<string, string>();
-        for (const row of pendingRows) {
-          pendingByClient.set(row.clientId, row.requestId);
+        const latestRequestByClient = new Map<
+          string,
+          { requestId: string; status: string }
+        >();
+        for (const row of requestRows) {
+          latestRequestByClient.set(row.clientId, {
+            requestId: row.requestId,
+            status: row.status,
+          });
         }
 
         for (const clientId of clientIds) {
+          const packageRow = packageByClient.get(clientId);
           const packageCode =
-            packageByClient.get(clientId) || FULL_SERVICE_PACKAGE;
+            packageRow?.packageCode || FULL_SERVICE_PACKAGE;
           const modules =
             modulesByClient.get(clientId) ||
             (PACKAGE_MODULES[packageCode] ?? [...SERVICE_MODULE_CODES]);
-          const pendingServiceRequestId = pendingByClient.get(clientId) ?? null;
+          const latestRequest = latestRequestByClient.get(clientId);
+          const pendingServiceRequestId =
+            latestRequest?.status === 'PENDING_CCO'
+              ? latestRequest.requestId
+              : null;
+          const servicePackageStatus = pendingServiceRequestId
+            ? 'PENDING_CCO'
+            : packageRow?.approvedAt
+              ? 'APPROVED'
+              : latestRequest?.status === 'REJECTED'
+                ? 'REJECTED'
+                : latestRequest?.status === 'CHANGES_REQUESTED'
+                  ? 'CHANGES_REQUESTED'
+                  : packageRow
+                    ? 'UNAPPROVED'
+                    : 'APPROVED';
           serviceMap.set(clientId, {
             servicePackage: packageCode,
             enabledModules: modules,
             pendingServiceRequestId,
-            servicePackageStatus: pendingServiceRequestId
-              ? 'PENDING_CCO'
-              : 'APPROVED',
+            servicePackageStatus,
           });
         }
       } catch (err: any) {

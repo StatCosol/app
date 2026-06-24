@@ -23,7 +23,12 @@ export interface Client {
   servicePackage?: string;
   enabledModules?: string[];
   pendingServiceRequestId?: string | null;
-  servicePackageStatus?: 'APPROVED' | 'PENDING_CCO';
+  servicePackageStatus?:
+    | 'APPROVED'
+    | 'PENDING_CCO'
+    | 'REJECTED'
+    | 'CHANGES_REQUESTED'
+    | 'UNAPPROVED';
 }
 
 export interface Branch {

@@ -312,6 +312,37 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     return `${count} active service${count === 1 ? '' : 's'}`;
   }
 
+  serviceStatusLabel(client: Client): string {
+    switch (client.servicePackageStatus) {
+      case 'PENDING_CCO':
+        return 'Pending CCO';
+      case 'REJECTED':
+        return 'Rejected';
+      case 'CHANGES_REQUESTED':
+        return 'Changes requested';
+      case 'UNAPPROVED':
+        return 'Not approved';
+      default:
+        return 'Approved';
+    }
+  }
+
+  serviceStatusVariant(
+    client: Client,
+  ): 'success' | 'warning' | 'error' | 'gray' {
+    switch (client.servicePackageStatus) {
+      case 'PENDING_CCO':
+      case 'CHANGES_REQUESTED':
+        return 'warning';
+      case 'REJECTED':
+        return 'error';
+      case 'UNAPPROVED':
+        return 'gray';
+      default:
+        return 'success';
+    }
+  }
+
   ngOnDestroy(): void {
     this.routeSubscription?.unsubscribe();
     this.destroy$.next();
