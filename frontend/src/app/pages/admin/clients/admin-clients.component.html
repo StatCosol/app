@@ -569,6 +569,17 @@
           <ui-status-badge [status]="row.status || 'ACTIVE'"></ui-status-badge>
         </ng-template>
 
+        <ng-template uiTableCell="servicePackage" let-row>
+          <div class="space-y-1">
+            <div class="text-sm font-medium text-gray-900">{{ serviceSummary(row) }}</div>
+            <ui-status-badge
+              size="sm"
+              [variant]="serviceStatusVariant(row)"
+              [label]="serviceStatusLabel(row)">
+            </ui-status-badge>
+          </div>
+        </ng-template>
+
         <ng-template uiTableCell="actions" let-row>
           <div class="flex gap-2">
             <ui-button variant="primary" size="sm" [routerLink]="['/admin/clients', row.id, 'branches']">Manage</ui-button>

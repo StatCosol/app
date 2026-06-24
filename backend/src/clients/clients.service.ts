@@ -19,6 +19,7 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { UserEntity } from '../users/entities/user.entity';
 import {
   CUSTOM_SERVICES_PACKAGE,
+  FULL_SERVICE_PACKAGE,
   PACKAGE_MODULES,
   SERVICE_MODULE_CODES,
   ServiceModuleCode,
@@ -427,12 +428,129 @@ export class ClientsService {
       });
     });
 
+    const clientIds = clients.map((client) => client.id);
+    const serviceMap = new Map<
+      string,
+      {
+        servicePackage: string;
+        enabledModules: string[];
+        pendingServiceRequestId: string | null;
+        servicePackageStatus:
+          | 'APPROVED'
+          | 'PENDING_CCO'
+          | 'REJECTED'
+          | 'CHANGES_REQUESTED'
+          | 'UNAPPROVED';
+      }
+    >();
+
+    if (clientIds.length) {
+      try {
+        const [packageRows, entitlementRows, requestRows] = await Promise.all([
+          this.dataSource.query(
+            `SELECT client_id AS "clientId",
+                    package_code AS "packageCode",
+                    approved_at AS "approvedAt"
+               FROM client_service_packages
+              WHERE client_id = ANY($1::uuid[])`,
+            [clientIds],
+          ),
+          this.dataSource.query(
+            `SELECT client_id AS "clientId", module_code AS "moduleCode"
+               FROM client_module_entitlements
+              WHERE client_id = ANY($1::uuid[])
+                AND is_enabled = TRUE
+              ORDER BY module_code`,
+            [clientIds],
+          ),
+          this.dataSource.query(
+            `SELECT DISTINCT ON (client_id)
+                    client_id AS "clientId",
+                    id AS "requestId",
+                    status AS "status"
+               FROM client_module_change_requests
+              WHERE client_id = ANY($1::uuid[])
+              ORDER BY client_id, requested_at DESC`,
+            [clientIds],
+          ),
+        ]);
+
+        const modulesByClient = new Map<string, string[]>();
+        for (const row of entitlementRows) {
+          const modules = modulesByClient.get(row.clientId) || [];
+          modules.push(row.moduleCode);
+          modulesByClient.set(row.clientId, modules);
+        }
+
+        const packageByClient = new Map<
+          string,
+          { packageCode: string; approvedAt: Date | string | null }
+        >();
+        for (const row of packageRows) {
+          packageByClient.set(row.clientId, {
+            packageCode: row.packageCode,
+            approvedAt: row.approvedAt ?? null,
+          });
+        }
+
+        const latestRequestByClient = new Map<
+          string,
+          { requestId: string; status: string }
+        >();
+        for (const row of requestRows) {
+          latestRequestByClient.set(row.clientId, {
+            requestId: row.requestId,
+            status: row.status,
+          });
+        }
+
+        for (const clientId of clientIds) {
+          const packageRow = packageByClient.get(clientId);
+          const packageCode =
+            packageRow?.packageCode || FULL_SERVICE_PACKAGE;
+          const modules =
+            modulesByClient.get(clientId) ||
+            (PACKAGE_MODULES[packageCode] ?? [...SERVICE_MODULE_CODES]);
+          const latestRequest = latestRequestByClient.get(clientId);
+          const pendingServiceRequestId =
+            latestRequest?.status === 'PENDING_CCO'
+              ? latestRequest.requestId
+              : null;
+          const servicePackageStatus = pendingServiceRequestId
+            ? 'PENDING_CCO'
+            : packageRow?.approvedAt
+              ? 'APPROVED'
+              : latestRequest?.status === 'REJECTED'
+                ? 'REJECTED'
+                : latestRequest?.status === 'CHANGES_REQUESTED'
+                  ? 'CHANGES_REQUESTED'
+                  : packageRow
+                    ? 'UNAPPROVED'
+                    : 'APPROVED';
+          serviceMap.set(clientId, {
+            servicePackage: packageCode,
+            enabledModules: modules,
+            pendingServiceRequestId,
+            servicePackageStatus,
+          });
+        }
+      } catch (err: any) {
+        if (err?.code !== '42P01') throw err;
+      }
+    }
+
     // Attach aggregation to client list
     return clients.map((client) => ({
       ...client,
       branchesCount: aggMap.get(client.id)?.branchesCount || 0,
       totalEmployees: aggMap.get(client.id)?.totalEmployees || 0,
       contractorsCount: aggMap.get(client.id)?.contractorsCount || 0,
+      ...(serviceMap.get(client.id) || {
+        servicePackage: FULL_SERVICE_PACKAGE,
+        enabledModules: [...SERVICE_MODULE_CODES],
+        pendingServiceRequestId: null,
+        servicePackageStatus: 'APPROVED',
+      }),
     }));
   }
 

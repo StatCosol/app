@@ -164,6 +164,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     { key: 'branchesCount', header: 'Branches' },
     { key: 'totalEmployees', header: 'Total Employees' },
     { key: 'contractorsCount', header: 'Contract Employees' },
+    { key: 'servicePackage', header: 'Services' },
     { key: 'actions', header: 'Actions', align: 'right' },
   ];
 
@@ -302,6 +303,44 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     if (checked) current.add(code);
     else current.delete(code);
     this.clientForm.serviceModules = Array.from(current);
+  }
+
+  serviceSummary(client: Client): string {
+    const count = client.enabledModules?.length || 0;
+    if (client.servicePackage === 'FULL_SERVICE') return 'Full Service';
+    if (!count) return 'No active services';
+    return `${count} active service${count === 1 ? '' : 's'}`;
+  }
+
+  serviceStatusLabel(client: Client): string {
+    switch (client.servicePackageStatus) {
+      case 'PENDING_CCO':
+        return 'Pending CCO';
+      case 'REJECTED':
+        return 'Rejected';
+      case 'CHANGES_REQUESTED':
+        return 'Changes requested';
+      case 'UNAPPROVED':
+        return 'Not approved';
+      default:
+        return 'Approved';
+    }
+  }
+
+  serviceStatusVariant(
+    client: Client,
+  ): 'success' | 'warning' | 'error' | 'gray' {
+    switch (client.servicePackageStatus) {
+      case 'PENDING_CCO':
+      case 'CHANGES_REQUESTED':
+        return 'warning';
+      case 'REJECTED':
+        return 'error';
+      case 'UNAPPROVED':
+        return 'gray';
+      default:
+        return 'success';
+    }
   }
 
   ngOnDestroy(): void {
