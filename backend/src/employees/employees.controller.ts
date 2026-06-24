@@ -437,7 +437,7 @@ export class ClientEmployeesController {
     if (existingUser) {
       // If it's an EMPLOYEE-role user for this client, treat as re-provision
       // (employee_id link may be missing due to a previous partial creation)
-      if (existingUser.role === 'EMPLOYEE' && existingUser.clientId === clientId) {
+      if (existingUser.clientId === clientId) {
         const rawPassword = body.password || this.generateDefaultPassword(emp);
         const passwordHash = await bcrypt.hash(rawPassword, 12);
         const essUser = await this.usersService.updateEssUser(existingUser.id, {
