@@ -1,7 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { forkJoin } from 'rxjs';
 import {
+  ServiceAuditLogEntry,
   ServiceChangeRequest,
   ServiceEntitlementsApiService,
   ServiceModuleOption,
@@ -79,11 +81,55 @@ import {
           </tbody>
         </table>
       </div>
+
+      <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+          <h2 class="font-semibold text-slate-900">Recent Audit Trail</h2>
+          <button class="text-sm text-blue-700" (click)="load()">Refresh</button>
+        </div>
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="px-4 py-3">Client</th>
+              <th class="px-4 py-3">Action</th>
+              <th class="px-4 py-3">Package</th>
+              <th class="px-4 py-3">Services</th>
+              <th class="px-4 py-3">Actor</th>
+              <th class="px-4 py-3">Note</th>
+              <th class="px-4 py-3">At</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let entry of auditLogs" class="border-t border-slate-100 align-top">
+              <td class="px-4 py-3">{{ entry.clientName || entry.clientId }}</td>
+              <td class="px-4 py-3">{{ entry.action }}</td>
+              <td class="px-4 py-3">{{ entry.packageCode || '-' }}</td>
+              <td class="px-4 py-3">
+                <div class="flex flex-wrap gap-1" *ngIf="entry.modules.length; else noAuditModules">
+                  <span
+                    *ngFor="let module of entry.modules"
+                    class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+                    {{ moduleLabel(module) }}
+                  </span>
+                </div>
+                <ng-template #noAuditModules>-</ng-template>
+              </td>
+              <td class="px-4 py-3">{{ entry.actorName || entry.actorUserId || '-' }}</td>
+              <td class="px-4 py-3">{{ entry.note || '-' }}</td>
+              <td class="px-4 py-3">{{ entry.createdAt | date:'dd MMM, HH:mm' }}</td>
+            </tr>
+            <tr *ngIf="!loading && auditLogs.length === 0">
+              <td class="px-4 py-8 text-center text-slate-500" colspan="7">No service package audit entries yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </section>
   `,
 })
 export class CcoServicePackageApprovalsComponent implements OnInit {
   requests: ServiceChangeRequest[] = [];
+  auditLogs: ServiceAuditLogEntry[] = [];
   loading = false;
   status = 'PENDING_CCO';
   actionId: string | null = null;
@@ -94,9 +140,6 @@ export class CcoServicePackageApprovalsComponent implements OnInit {
   constructor(private readonly entitlements: ServiceEntitlementsApiService) {}
 
   ngOnInit(): void {
-    this.entitlements.listModules().subscribe({
-      next: (modules) => (this.moduleOptions = modules || []),
-    });
     this.load();
   }
 
@@ -106,9 +149,15 @@ export class CcoServicePackageApprovalsComponent implements OnInit {
 
   load(): void {
     this.loading = true;
-    this.entitlements.listRequests(this.status || undefined).subscribe({
-      next: (rows) => {
-        this.requests = rows || [];
+    forkJoin({
+      modules: this.entitlements.listModules(),
+      requests: this.entitlements.listRequests(this.status || undefined),
+      auditLogs: this.entitlements.listAuditLogs(),
+    }).subscribe({
+      next: ({ modules, requests, auditLogs }) => {
+        this.moduleOptions = modules || [];
+        this.requests = requests || [];
+        this.auditLogs = auditLogs || [];
         this.loading = false;
       },
       error: () => {
