@@ -49,4 +49,37 @@ describe('ServiceEntitlementsService', () => {
       },
     );
   });
+
+  describe('getClientStatus', () => {
+    it('includes pending request modules and note details', async () => {
+      dataSource.query
+        .mockResolvedValueOnce([
+          { package_code: 'CUSTOM_SERVICES', approved_at: new Date() },
+        ])
+        .mockResolvedValueOnce([{ module_code: 'EMPLOYEE_COMPLIANCE' }])
+        .mockResolvedValueOnce([
+          {
+            id: 'request-1',
+            packageCode: 'CUSTOM_SERVICES',
+            requestedModules: ['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_DOCUMENTS'],
+            requestNote: 'Add contractor documents',
+            requestedAt: new Date('2026-06-26T10:00:00Z'),
+          },
+        ]);
+
+      const result = await service.getClientStatus('client-1');
+
+      expect(result.pendingRequests).toEqual([
+        {
+          id: 'request-1',
+          packageCode: 'CUSTOM_SERVICES',
+          requestedModules: ['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_DOCUMENTS'],
+          requestNote: 'Add contractor documents',
+          requestedAt: new Date('2026-06-26T10:00:00Z'),
+        },
+      ]);
+      expect(dataSource.query.mock.calls[2][0]).toContain('requested_modules');
+      expect(dataSource.query.mock.calls[2][0]).toContain('request_note');
+    });
+  });
 });

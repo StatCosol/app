@@ -58,6 +58,26 @@ import {
                 Pending CCO review
               </span>
             </p>
+            <div *ngIf="selectedClientStatus?.pendingRequests?.length" class="mt-3 space-y-2">
+              <div
+                *ngFor="let request of selectedClientStatus?.pendingRequests"
+                class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <span class="text-sm font-medium text-amber-950">{{ request.packageCode }}</span>
+                  <span class="text-xs text-amber-800">Requested {{ request.requestedAt | date:'dd MMM, HH:mm' }}</span>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-1">
+                  <span
+                    *ngFor="let module of request.requestedModules"
+                    class="rounded-full bg-white px-2 py-0.5 text-xs text-slate-700 border border-amber-100">
+                    {{ moduleLabel(module) }}
+                  </span>
+                </div>
+                <p *ngIf="request.requestNote" class="mt-2 text-xs text-amber-900">
+                  {{ request.requestNote }}
+                </p>
+              </div>
+            </div>
           </div>
           <button
             type="button"
