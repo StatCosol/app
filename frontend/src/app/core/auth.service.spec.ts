@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { firstValueFrom, of } from 'rxjs';
 import { AuthService } from './auth.service';
 
 describe('AuthService', () => {
@@ -32,6 +33,51 @@ describe('AuthService', () => {
     it('returns refresh token from sessionStorage', () => {
       sessionStorage.setItem('refreshToken', 'ref456');
       expect(service.getRefreshToken()).toBe('ref456');
+    });
+  });
+
+  describe('refreshAccessToken', () => {
+    it('merges refreshed service entitlements into the stored user', async () => {
+      sessionStorage.setItem('refreshToken', 'old-ref');
+      sessionStorage.setItem(
+        'user',
+        JSON.stringify({
+          id: 'u1',
+          roleCode: 'CLIENT',
+          enabledModules: ['EMPLOYEE_COMPLIANCE'],
+          servicePackage: 'CUSTOM_SERVICES',
+        }),
+      );
+      mockHttp.post = vi.fn().mockReturnValue(
+        of({
+          accessToken: 'new-access',
+          refreshToken: 'new-refresh',
+          user: {
+            enabledModules: ['CONTRACTOR_AUDIT'],
+            servicePackage: 'CONTRACTOR_AUDIT_ONLY',
+            branchIds: [],
+            userType: 'MASTER',
+            isMasterUser: true,
+          },
+        }),
+      );
+
+      await expect(firstValueFrom(service.refreshAccessToken())).resolves.toBe(
+        'new-access',
+      );
+
+      expect(sessionStorage.getItem('accessToken')).toBe('new-access');
+      expect(sessionStorage.getItem('refreshToken')).toBe('new-refresh');
+      expect(service.getUser()).toEqual(
+        expect.objectContaining({
+          id: 'u1',
+          roleCode: 'CLIENT',
+          enabledModules: ['CONTRACTOR_AUDIT'],
+          servicePackage: 'CONTRACTOR_AUDIT_ONLY',
+          userType: 'MASTER',
+          isMasterUser: true,
+        }),
+      );
     });
   });
 
