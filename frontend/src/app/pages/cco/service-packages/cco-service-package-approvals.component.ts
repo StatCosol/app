@@ -78,7 +78,11 @@ import {
               <td class="px-4 py-3">
                 <span class="inline-block rounded bg-blue-50 text-blue-700 px-2 py-1 mr-1 mb-1 text-xs" *ngFor="let m of r.requestedModules">{{ moduleLabel(m) }}</span>
               </td>
-              <td class="px-4 py-3">{{ r.status }}</td>
+              <td class="px-4 py-3">
+                <span class="rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="statusBadgeClass(r.status)">
+                  {{ statusLabel(r.status) }}
+                </span>
+              </td>
               <td class="px-4 py-3">{{ r.requestNote || '-' }}</td>
               <td class="px-4 py-3 text-right">
                 <ng-container *ngIf="r.status === 'PENDING_CCO'; else reviewed">
@@ -206,6 +210,32 @@ export class CcoServicePackageApprovalsComponent implements OnInit {
 
   moduleLabel(code: string): string {
     return this.moduleOptions.find((m) => m.code === code)?.label || code;
+  }
+
+  statusLabel(status: ServiceChangeRequest['status']): string {
+    switch (status) {
+      case 'PENDING_CCO':
+        return 'Pending CCO';
+      case 'CHANGES_REQUESTED':
+        return 'Changes requested';
+      case 'REJECTED':
+        return 'Rejected';
+      default:
+        return 'Approved';
+    }
+  }
+
+  statusBadgeClass(status: ServiceChangeRequest['status']): string {
+    switch (status) {
+      case 'PENDING_CCO':
+        return 'bg-blue-50 text-blue-700';
+      case 'CHANGES_REQUESTED':
+        return 'bg-amber-100 text-amber-800';
+      case 'REJECTED':
+        return 'bg-red-50 text-red-700';
+      default:
+        return 'bg-green-50 text-green-700';
+    }
   }
 
   get filteredRequests(): ServiceChangeRequest[] {
