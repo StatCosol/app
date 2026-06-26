@@ -87,6 +87,44 @@ import {
 
       <p *ngIf="message" class="text-sm" [class.text-green-700]="!error" [class.text-red-700]="error">{{ message }}</p>
 
+      <div *ngIf="changeRequestedRequests.length" class="rounded-lg border border-amber-200 bg-amber-50 overflow-hidden">
+        <div class="px-4 py-3 border-b border-amber-200 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="font-semibold text-amber-950">CCO Change Requests</h2>
+            <p class="text-xs text-amber-800 mt-1">Revise these requests and resubmit them for CCO approval.</p>
+          </div>
+          <span class="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">
+            {{ changeRequestedRequests.length }} pending revision{{ changeRequestedRequests.length === 1 ? '' : 's' }}
+          </span>
+        </div>
+        <div class="divide-y divide-amber-100">
+          <div *ngFor="let request of changeRequestedRequests" class="p-4 grid gap-3 lg:grid-cols-[1fr_auto]">
+            <div>
+              <div class="font-medium text-slate-900">{{ request.clientName || request.clientId }}</div>
+              <div class="mt-1 text-sm text-slate-700">{{ request.packageCode }}</div>
+              <div class="mt-2 flex flex-wrap gap-1">
+                <span
+                  *ngFor="let module of request.requestedModules"
+                  class="rounded-full bg-white px-2 py-0.5 text-xs text-slate-700 border border-amber-100">
+                  {{ moduleLabel(module) }}
+                </span>
+              </div>
+              <p class="mt-2 text-sm text-amber-900">
+                <span class="font-medium">CCO note:</span> {{ request.reviewNote || 'No note provided' }}
+              </p>
+            </div>
+            <div class="flex items-center justify-end">
+              <button
+                type="button"
+                class="rounded-md bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800"
+                (click)="reviseRequest(request)">
+                Revise request
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
           <h2 class="font-semibold text-slate-900">Recent Requests</h2>
@@ -287,6 +325,10 @@ export class AdminServicePackagesComponent implements OnInit {
 
   get hasPendingRequest(): boolean {
     return !!this.selectedClientStatus?.pendingRequests?.length;
+  }
+
+  get changeRequestedRequests(): ServiceChangeRequest[] {
+    return this.requests.filter((request) => request.status === 'CHANGES_REQUESTED');
   }
 
   reviseRequest(request: ServiceChangeRequest): void {
