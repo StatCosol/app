@@ -184,6 +184,7 @@ import {
               <th class="px-4 py-3">Client</th>
               <th class="px-4 py-3">Package</th>
               <th class="px-4 py-3">Status</th>
+              <th class="px-4 py-3">Notes</th>
               <th class="px-4 py-3">Requested</th>
               <th class="px-4 py-3">Reviewed</th>
               <th class="px-4 py-3 text-right">Actions</th>
@@ -198,6 +199,17 @@ import {
                   {{ statusLabel(r.status) }}
                 </span>
               </td>
+              <td class="px-4 py-3 max-w-xs">
+                <div class="space-y-1" *ngIf="r.requestNote || r.reviewNote; else noRequestNotes">
+                  <p *ngIf="r.requestNote" class="text-xs text-slate-600">
+                    <span class="font-medium text-slate-800">Admin:</span> {{ r.requestNote }}
+                  </p>
+                  <p *ngIf="r.reviewNote" class="text-xs text-amber-800">
+                    <span class="font-medium">CCO:</span> {{ r.reviewNote }}
+                  </p>
+                </div>
+                <ng-template #noRequestNotes>-</ng-template>
+              </td>
               <td class="px-4 py-3">{{ r.requestedAt | date:'dd MMM, HH:mm' }}</td>
               <td class="px-4 py-3">{{ r.reviewedAt ? (r.reviewedAt | date:'dd MMM, HH:mm') : '-' }}</td>
               <td class="px-4 py-3 text-right">
@@ -211,7 +223,7 @@ import {
               </td>
             </tr>
             <tr *ngIf="!loading && filteredRequests.length === 0">
-              <td class="px-4 py-8 text-center text-slate-500" colspan="6">No service package requests yet.</td>
+              <td class="px-4 py-8 text-center text-slate-500" colspan="7">No service package requests yet.</td>
             </tr>
           </tbody>
         </table>
