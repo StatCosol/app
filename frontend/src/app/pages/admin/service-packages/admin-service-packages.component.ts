@@ -99,6 +99,7 @@ import {
               <th class="px-4 py-3">Status</th>
               <th class="px-4 py-3">Requested</th>
               <th class="px-4 py-3">Reviewed</th>
+              <th class="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -108,9 +109,18 @@ import {
               <td class="px-4 py-3">{{ r.status }}</td>
               <td class="px-4 py-3">{{ r.requestedAt | date:'dd MMM, HH:mm' }}</td>
               <td class="px-4 py-3">{{ r.reviewedAt ? (r.reviewedAt | date:'dd MMM, HH:mm') : '-' }}</td>
+              <td class="px-4 py-3 text-right">
+                <button
+                  *ngIf="r.status === 'CHANGES_REQUESTED'"
+                  type="button"
+                  class="text-blue-700 font-medium"
+                  (click)="reviseRequest(r)">
+                  Revise
+                </button>
+              </td>
             </tr>
             <tr *ngIf="!loading && requests.length === 0">
-              <td class="px-4 py-8 text-center text-slate-500" colspan="5">No service package requests yet.</td>
+              <td class="px-4 py-8 text-center text-slate-500" colspan="6">No service package requests yet.</td>
             </tr>
           </tbody>
         </table>
@@ -181,17 +191,19 @@ export class AdminServicePackagesComponent implements OnInit {
     this.loadSelectedClientStatus(clientId);
   }
 
-  loadSelectedClientStatus(clientId: string): void {
+  loadSelectedClientStatus(clientId: string, applyCurrentToForm = true): void {
     if (!clientId) return;
     this.loadingClientStatus = true;
     this.entitlements.getClientStatus(clientId).subscribe({
       next: (status) => {
         if (this.form.clientId !== clientId) return;
         this.selectedClientStatus = status;
-        this.form.packageCode = status.packageCode || 'CUSTOM_SERVICES';
-        this.form.modules = status.enabledModules?.length
-          ? [...status.enabledModules]
-          : ['EMPLOYEE_COMPLIANCE'];
+        if (applyCurrentToForm) {
+          this.form.packageCode = status.packageCode || 'CUSTOM_SERVICES';
+          this.form.modules = status.enabledModules?.length
+            ? [...status.enabledModules]
+            : ['EMPLOYEE_COMPLIANCE'];
+        }
         this.loadingClientStatus = false;
       },
       error: () => {
@@ -224,6 +236,23 @@ export class AdminServicePackagesComponent implements OnInit {
 
   get hasPendingRequest(): boolean {
     return !!this.selectedClientStatus?.pendingRequests?.length;
+  }
+
+  reviseRequest(request: ServiceChangeRequest): void {
+    this.form.clientId = request.clientId;
+    this.form.packageCode = request.packageCode || 'CUSTOM_SERVICES';
+    this.form.modules = request.requestedModules?.length
+      ? [...request.requestedModules]
+      : ['EMPLOYEE_COMPLIANCE'];
+    this.form.note = request.reviewNote
+      ? `Revision after CCO note: ${request.reviewNote}`
+      : request.requestNote || '';
+    this.selectedClientStatus = null;
+    this.message = request.reviewNote
+      ? `CCO requested changes: ${request.reviewNote}`
+      : 'Revise the selected request and submit it again for CCO review.';
+    this.error = false;
+    this.loadSelectedClientStatus(request.clientId, false);
   }
 
   submit(): void {
