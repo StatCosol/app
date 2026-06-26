@@ -45,6 +45,12 @@ import {
       <p *ngIf="message" class="text-sm" [class.text-green-700]="!error" [class.text-red-700]="error">{{ message }}</p>
 
       <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-200">
+          <h2 class="font-semibold text-slate-900">Requests</h2>
+          <p class="mt-1 text-xs text-slate-500">
+            Showing {{ filteredRequests.length }} of {{ requests.length }} request{{ requests.length === 1 ? '' : 's' }}
+          </p>
+        </div>
         <table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
@@ -129,7 +135,12 @@ import {
 
       <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-          <h2 class="font-semibold text-slate-900">Recent Audit Trail</h2>
+          <div>
+            <h2 class="font-semibold text-slate-900">Recent Audit Trail</h2>
+            <p class="mt-1 text-xs text-slate-500">
+              Showing {{ filteredAuditLogs.length }} of {{ auditLogs.length }} entr{{ auditLogs.length === 1 ? 'y' : 'ies' }}
+            </p>
+          </div>
           <button class="text-sm text-blue-700" (click)="load()">Refresh</button>
         </div>
         <table class="w-full text-sm">

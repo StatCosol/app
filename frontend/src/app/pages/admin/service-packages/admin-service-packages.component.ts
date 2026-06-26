@@ -147,7 +147,12 @@ import {
 
       <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
-          <h2 class="font-semibold text-slate-900">Recent Requests</h2>
+          <div>
+            <h2 class="font-semibold text-slate-900">Recent Requests</h2>
+            <p class="mt-1 text-xs text-slate-500">
+              Showing {{ filteredRequests.length }} of {{ requests.length }} request{{ requests.length === 1 ? '' : 's' }}
+            </p>
+          </div>
           <div class="flex flex-wrap items-center gap-3">
             <label>
               <span class="sr-only">Filter service requests by status</span>
@@ -210,7 +215,12 @@ import {
 
       <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-          <h2 class="font-semibold text-slate-900">Audit Trail</h2>
+          <div>
+            <h2 class="font-semibold text-slate-900">Audit Trail</h2>
+            <p class="mt-1 text-xs text-slate-500">
+              Showing {{ filteredAuditLogs.length }} of {{ auditLogs.length }} entr{{ auditLogs.length === 1 ? 'y' : 'ies' }}
+            </p>
+          </div>
           <button class="text-sm text-blue-700" (click)="load()">Refresh</button>
         </div>
         <table class="w-full text-sm">
