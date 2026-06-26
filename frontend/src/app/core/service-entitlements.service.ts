@@ -33,6 +33,20 @@ export interface ServiceChangeRequest {
   reviewedByName: string | null;
 }
 
+export interface ServiceAuditLogEntry {
+  id: string;
+  clientId: string;
+  clientName: string | null;
+  requestId: string | null;
+  action: string;
+  packageCode: string | null;
+  modules: string[];
+  actorUserId: string | null;
+  actorName: string | null;
+  note: string | null;
+  createdAt: string;
+}
+
 export interface ClientServiceStatus {
   clientId: string;
   packageCode: string;
@@ -67,6 +81,12 @@ export class ServiceEntitlementsApiService {
     let params = new HttpParams();
     if (status) params = params.set('status', status);
     return this.http.get<ServiceChangeRequest[]>(`${this.base}/requests`, { params });
+  }
+
+  listAuditLogs(clientId?: string): Observable<ServiceAuditLogEntry[]> {
+    let params = new HttpParams();
+    if (clientId) params = params.set('clientId', clientId);
+    return this.http.get<ServiceAuditLogEntry[]>(`${this.base}/audit-logs`, { params });
   }
 
   createRequest(payload: {

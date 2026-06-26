@@ -41,6 +41,13 @@ export class ServiceEntitlementsController {
     return this.service.listRequests(status);
   }
 
+  @Get('audit-logs')
+  @Roles('ADMIN', 'CCO')
+  @ApiOperation({ summary: 'List client service package audit log entries' })
+  listAuditLogs(@Query('clientId') clientId?: string) {
+    return this.service.listAuditLogs(clientId);
+  }
+
   @Post('requests')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Admin creates a service package change request for CCO approval' })

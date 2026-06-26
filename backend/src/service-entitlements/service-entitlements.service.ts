@@ -263,6 +263,37 @@ export class ServiceEntitlementsService {
     return rows;
   }
 
+  async listAuditLogs(clientId?: string) {
+    const params: unknown[] = [];
+    let where = 'TRUE';
+    if (clientId) {
+      params.push(clientId);
+      where = `l.client_id = $${params.length}::uuid`;
+    }
+
+    const rows = await this.dataSource.query(
+      `SELECT l.id,
+              l.client_id AS "clientId",
+              c.client_name AS "clientName",
+              l.request_id AS "requestId",
+              l.action,
+              l.package_code AS "packageCode",
+              l.modules,
+              l.actor_user_id AS "actorUserId",
+              actor.name AS "actorName",
+              l.note,
+              l.created_at AS "createdAt"
+         FROM client_module_audit_logs l
+         LEFT JOIN clients c ON c.id = l.client_id
+         LEFT JOIN users actor ON actor.id = l.actor_user_id
+        WHERE ${where}
+        ORDER BY l.created_at DESC
+        LIMIT 200`,
+      params,
+    );
+    return rows;
+  }
+
   async getRequest(id: string) {
     const rows = await this.dataSource.query(
       `SELECT r.id,
