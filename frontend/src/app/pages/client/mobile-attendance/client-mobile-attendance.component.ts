@@ -68,7 +68,7 @@ interface BranchOption { id: string; name: string }
 
       <!-- Tabs -->
       <div class="tab-bar">
-        <button class="tab-btn" [class.active]="tab === 'devices'" (click)="switchTab('devices')">Devices</button>
+        <button *ngIf="hasContractorFaceAttendanceModule" class="tab-btn" [class.active]="tab === 'devices'" (click)="switchTab('devices')">Devices</button>
         <button *ngIf="hasEmployeeMobileAttendanceModule" class="tab-btn" [class.active]="tab === 'status'" (click)="switchTab('status')">Enrollment Status</button>
         <button class="tab-btn" [class.active]="tab === 'reenroll'" (click)="switchTab('reenroll')">
           Re-enrollment Requests
@@ -679,10 +679,14 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.loadBranches();
-    this.loadDevices();
+    this.selectInitialTab();
+    if (this.hasContractorFaceAttendanceModule) {
+      this.loadBranches();
+      this.loadDevices();
+    }
     if (this.hasEmployeeMobileAttendanceModule) {
-      this.loadEmployees();
+      if (this.hasContractorFaceAttendanceModule) this.loadEmployees();
+      if (this.tab === 'status') this.loadEnrollments();
       this.refreshPendingReenrollCount();
     }
     if (this.hasContractorFaceAttendanceModule) {
@@ -698,14 +702,30 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   }
 
   switchTab(t: 'devices' | 'help' | 'status' | 'reenroll'): void {
+    if (t === 'devices' && !this.hasContractorFaceAttendanceModule) return;
     if (t === 'status' && !this.hasEmployeeMobileAttendanceModule) return;
     this.tab = t;
+    if (t === 'devices' && this.devices.length === 0) {
+      this.loadDevices();
+    }
     if (t === 'status' && this.enrollmentRows.length === 0) {
       this.loadEnrollments();
     }
     if (t === 'reenroll') {
       this.loadReenrollRequests();
     }
+  }
+
+  private selectInitialTab(): void {
+    if (this.hasContractorFaceAttendanceModule) {
+      this.tab = 'devices';
+      return;
+    }
+    if (this.hasEmployeeMobileAttendanceModule) {
+      this.tab = 'status';
+      return;
+    }
+    this.tab = 'help';
   }
 
   // ── Branches / Employees ──────────────────────────────────
@@ -1179,7 +1199,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
         if (!this.shouldLiveRefresh()) return;
         if (this.hasEmployeeMobileAttendanceModule) this.refreshPendingReenrollCount();
         if (this.hasContractorFaceAttendanceModule) this.refreshPendingContractorReenrollCount();
-        if (this.tab === 'devices') this.loadDevices(true);
+        if (this.tab === 'devices' && this.hasContractorFaceAttendanceModule) this.loadDevices(true);
         if (this.tab === 'status' && this.hasEmployeeMobileAttendanceModule) this.loadEnrollments(true);
         if (this.tab === 'reenroll') this.loadReenrollRequests(true);
       });

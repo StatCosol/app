@@ -38,7 +38,16 @@ const BLOCKED_ROUTE_MODULES: Array<[RegExp, ServiceModuleRequirement]> = [
     /^\/?(api\/v1\/)?branch\/reports\/(registration-expiry|compliance-summary|pf-esic-status|headcount)\b/i,
     'EMPLOYEE_COMPLIANCE',
   ],
-  [/^\/?(api\/v1\/)?client\/branches\b/i, ['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS']],
+  [
+    /^\/?(api\/v1\/)?client\/branches\b/i,
+    [
+      'EMPLOYEE_COMPLIANCE',
+      'CONTRACTOR_AUDIT',
+      'CONTRACTOR_DOCUMENTS',
+      'MOBILE_ATTENDANCE',
+      'CONTRACTOR_FACE_ATTENDANCE',
+    ],
+  ],
   [/^\/?(api\/v1\/)?client\/compliance\b/i, 'EMPLOYEE_COMPLIANCE'],
   [/^\/?(api\/v1\/)?client\/branch-compliance\b/i, 'EMPLOYEE_COMPLIANCE'],
   [/^\/?(api\/v1\/)?branch\/compliance-docs\b/i, 'EMPLOYEE_COMPLIANCE'],
