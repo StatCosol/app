@@ -479,9 +479,26 @@ export class AuthService implements OnModuleInit {
       branchIds,
       stored.family,
     );
+    const servicePackage = user.clientId
+      ? await this.getClientServicePackage(user.clientId)
+      : null;
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
+      user: {
+        id: user.id,
+        userId: user.id,
+        roleCode,
+        clientId: user.clientId ?? null,
+        userType:
+          roleCode === 'CLIENT'
+            ? (user.userType ?? (branchIds.length ? 'BRANCH' : 'MASTER'))
+            : (user.userType ?? null),
+        isMasterUser: roleCode === 'CLIENT' ? branchIds.length === 0 : false,
+        branchIds,
+        servicePackage: servicePackage?.packageCode ?? null,
+        enabledModules: servicePackage?.enabledModules ?? [],
+      },
     };
   }
 

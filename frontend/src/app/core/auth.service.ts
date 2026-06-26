@@ -164,6 +164,24 @@ export class AuthService {
           if (this.loggingOut) return;
           sessionStorage.setItem(this.TOKEN_KEY, res.accessToken);
           sessionStorage.setItem(this.REFRESH_KEY, res.refreshToken);
+          if (res?.user) {
+            const current = this.getUser() || {};
+            sessionStorage.setItem(
+              this.USER_KEY,
+              JSON.stringify({
+                ...current,
+                ...res.user,
+                servicePackage:
+                  res.user.servicePackage ?? current.servicePackage ?? null,
+                enabledModules:
+                  res.user.enabledModules ?? current.enabledModules ?? [],
+                branchIds: res.user.branchIds ?? current.branchIds ?? [],
+                userType: res.user.userType ?? current.userType ?? null,
+                isMasterUser:
+                  res.user.isMasterUser ?? current.isMasterUser ?? false,
+              }),
+            );
+          }
         }),
         map((res) => res.accessToken),
       );
