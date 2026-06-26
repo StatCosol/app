@@ -68,9 +68,9 @@ import {
               <td class="px-4 py-3">{{ r.requestNote || '-' }}</td>
               <td class="px-4 py-3 text-right">
                 <ng-container *ngIf="r.status === 'PENDING_CCO'; else reviewed">
-                  <button class="text-green-700 font-medium mr-3" [disabled]="actionId === r.id" (click)="review(r, 'APPROVED')">Approve</button>
-                  <button class="text-amber-700 font-medium mr-3" [disabled]="actionId === r.id" (click)="review(r, 'CHANGES_REQUESTED')">Request changes</button>
-                  <button class="text-red-700 font-medium" [disabled]="actionId === r.id" (click)="review(r, 'REJECTED')">Reject</button>
+                  <button class="text-green-700 font-medium mr-3" [disabled]="actionId === r.id" (click)="submitReview(r, 'APPROVED')">Approve</button>
+                  <button class="text-amber-700 font-medium mr-3" [disabled]="actionId === r.id" (click)="openReviewPanel(r, 'CHANGES_REQUESTED')">Request changes</button>
+                  <button class="text-red-700 font-medium" [disabled]="actionId === r.id" (click)="openReviewPanel(r, 'REJECTED')">Reject</button>
                 </ng-container>
                 <ng-template #reviewed>{{ r.reviewedAt ? (r.reviewedAt | date:'dd MMM, HH:mm') : '-' }}</ng-template>
               </td>
@@ -80,6 +80,43 @@ import {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div *ngIf="reviewRow" class="rounded-lg border border-amber-200 bg-amber-50 p-4 shadow-sm">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 class="font-semibold text-slate-900">
+              {{ reviewAction === 'REJECTED' ? 'Reject service package request' : 'Request service package changes' }}
+            </h2>
+            <p class="mt-1 text-sm text-slate-600">
+              {{ reviewRow.clientName || reviewRow.clientId }} - {{ reviewRow.packageCode }}
+            </p>
+          </div>
+          <button class="text-sm text-slate-600 hover:text-slate-900" type="button" (click)="closeReviewPanel()">Cancel</button>
+        </div>
+        <label class="mt-3 block">
+          <span class="text-xs font-medium text-slate-700">Review note <span class="text-red-600">*</span></span>
+          <textarea
+            class="mt-1 w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
+            rows="3"
+            name="reviewNote"
+            [(ngModel)]="reviewNote"
+            placeholder="Explain what Admin must change before this can be approved.">
+          </textarea>
+        </label>
+        <p *ngIf="reviewNoteError" class="mt-2 text-sm text-red-700">{{ reviewNoteError }}</p>
+        <div class="mt-3 flex justify-end gap-2">
+          <button class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm" type="button" (click)="closeReviewPanel()">Cancel</button>
+          <button
+            class="rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            [class.bg-amber-700]="reviewAction === 'CHANGES_REQUESTED'"
+            [class.bg-red-700]="reviewAction === 'REJECTED'"
+            type="button"
+            [disabled]="actionId === reviewRow.id"
+            (click)="submitReview(reviewRow, reviewAction)">
+            {{ reviewAction === 'REJECTED' ? 'Reject request' : 'Send change request' }}
+          </button>
+        </div>
       </div>
 
       <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
@@ -133,6 +170,10 @@ export class CcoServicePackageApprovalsComponent implements OnInit {
   loading = false;
   status = 'PENDING_CCO';
   actionId: string | null = null;
+  reviewRow: ServiceChangeRequest | null = null;
+  reviewAction: 'REJECTED' | 'CHANGES_REQUESTED' = 'CHANGES_REQUESTED';
+  reviewNote = '';
+  reviewNoteError = '';
   message = '';
   error = false;
   moduleOptions: ServiceModuleOption[] = [];
@@ -168,17 +209,33 @@ export class CcoServicePackageApprovalsComponent implements OnInit {
     });
   }
 
-  review(
+  openReviewPanel(
+    row: ServiceChangeRequest,
+    action: 'REJECTED' | 'CHANGES_REQUESTED',
+  ): void {
+    this.reviewRow = row;
+    this.reviewAction = action;
+    this.reviewNote = '';
+    this.reviewNoteError = '';
+    this.message = '';
+    this.error = false;
+  }
+
+  closeReviewPanel(): void {
+    this.reviewRow = null;
+    this.reviewNote = '';
+    this.reviewNoteError = '';
+  }
+
+  submitReview(
     row: ServiceChangeRequest,
     action: 'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED',
   ): void {
-    const note =
-      action === 'APPROVED'
-        ? ''
-        : window.prompt(
-            action === 'REJECTED' ? 'Rejection note' : 'Change request note',
-          ) || '';
-    if (action !== 'APPROVED' && !note.trim()) return;
+    const note = action === 'APPROVED' ? '' : this.reviewNote.trim();
+    if (action !== 'APPROVED' && !note) {
+      this.reviewNoteError = 'Review note is required.';
+      return;
+    }
     this.actionId = row.id;
     this.message = '';
     this.error = false;
@@ -191,6 +248,7 @@ export class CcoServicePackageApprovalsComponent implements OnInit {
               ? 'Request rejected.'
               : 'Changes requested.';
         this.actionId = null;
+        this.closeReviewPanel();
         this.load();
       },
       error: (err) => {
