@@ -418,7 +418,11 @@ export class ServiceEntitlementsService {
   async getClientStatus(clientId: string) {
     const current = await this.getCurrentForClient(clientId);
     const pending = await this.dataSource.query(
-      `SELECT id, package_code AS "packageCode", requested_at AS "requestedAt"
+      `SELECT id,
+              package_code AS "packageCode",
+              requested_modules AS "requestedModules",
+              request_note AS "requestNote",
+              requested_at AS "requestedAt"
          FROM client_module_change_requests
         WHERE client_id = $1::uuid
           AND status = 'PENDING_CCO'

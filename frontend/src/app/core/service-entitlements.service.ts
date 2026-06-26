@@ -55,6 +55,8 @@ export interface ClientServiceStatus {
   pendingRequests: Array<{
     id: string;
     packageCode: string;
+    requestedModules: string[];
+    requestNote: string | null;
     requestedAt: string;
   }>;
 }
