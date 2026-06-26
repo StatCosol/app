@@ -40,7 +40,8 @@ import {
             <tr>
               <th class="px-4 py-3">Client</th>
               <th class="px-4 py-3">Package</th>
-              <th class="px-4 py-3">Modules</th>
+              <th class="px-4 py-3">Current services</th>
+              <th class="px-4 py-3">Requested services</th>
               <th class="px-4 py-3">Status</th>
               <th class="px-4 py-3">Note</th>
               <th class="px-4 py-3 text-right">Actions</th>
@@ -51,7 +52,15 @@ import {
               <td class="px-4 py-3">{{ r.clientName || r.clientId }}</td>
               <td class="px-4 py-3">{{ r.packageCode }}</td>
               <td class="px-4 py-3">
-                <span class="inline-block rounded bg-slate-100 px-2 py-1 mr-1 mb-1 text-xs" *ngFor="let m of r.requestedModules">{{ moduleLabel(m) }}</span>
+                <ng-container *ngIf="r.currentModules.length; else noCurrentModules">
+                  <span class="inline-block rounded bg-slate-100 px-2 py-1 mr-1 mb-1 text-xs" *ngFor="let m of r.currentModules">{{ moduleLabel(m) }}</span>
+                </ng-container>
+                <ng-template #noCurrentModules>
+                  <span class="text-xs text-slate-400">No approved services</span>
+                </ng-template>
+              </td>
+              <td class="px-4 py-3">
+                <span class="inline-block rounded bg-blue-50 text-blue-700 px-2 py-1 mr-1 mb-1 text-xs" *ngFor="let m of r.requestedModules">{{ moduleLabel(m) }}</span>
               </td>
               <td class="px-4 py-3">{{ r.status }}</td>
               <td class="px-4 py-3">{{ r.requestNote || '-' }}</td>
@@ -65,7 +74,7 @@ import {
               </td>
             </tr>
             <tr *ngIf="!loading && requests.length === 0">
-              <td class="px-4 py-8 text-center text-slate-500" colspan="6">No service package requests found.</td>
+              <td class="px-4 py-8 text-center text-slate-500" colspan="7">No service package requests found.</td>
             </tr>
           </tbody>
         </table>
