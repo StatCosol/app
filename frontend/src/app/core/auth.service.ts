@@ -278,12 +278,18 @@ export class AuthService {
 
   hasModule(moduleCode: string): boolean {
     const modules = this.getEnabledModules();
-    return modules.length === 0 || modules.includes(moduleCode);
+    if (modules.length) return modules.includes(moduleCode);
+    const servicePackage = this.getServicePackage();
+    return !servicePackage || servicePackage === 'FULL_SERVICE';
   }
 
   hasAnyModule(moduleCodes: string[]): boolean {
     const modules = this.getEnabledModules();
-    return modules.length === 0 || moduleCodes.some((moduleCode) => modules.includes(moduleCode));
+    if (modules.length) {
+      return moduleCodes.some((moduleCode) => modules.includes(moduleCode));
+    }
+    const servicePackage = this.getServicePackage();
+    return !servicePackage || servicePackage === 'FULL_SERVICE';
   }
 
   getClientModuleHomePath(): string {

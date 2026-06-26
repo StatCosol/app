@@ -384,10 +384,10 @@ export class AuthService implements OnModuleInit {
     packageCode: string;
     enabledModules: string[];
   }> {
-    let packageRows: { package_code: string }[] = [];
+    let packageRows: { package_code: string; approved_at: Date | null }[] = [];
     try {
       packageRows = await this.dataSource.query(
-        `SELECT package_code
+        `SELECT package_code, approved_at
            FROM client_service_packages
           WHERE client_id = $1::uuid
           LIMIT 1`,
@@ -396,7 +396,11 @@ export class AuthService implements OnModuleInit {
     } catch (err: any) {
       if (err?.code !== '42P01') throw err;
     }
-    const packageCode = packageRows[0]?.package_code ?? FULL_SERVICE_PACKAGE;
+    const packageRow = packageRows[0];
+    const packageCode = packageRow?.package_code ?? FULL_SERVICE_PACKAGE;
+    if (packageRow && !packageRow.approved_at) {
+      return { packageCode, enabledModules: [] };
+    }
     let entitlementRows: { module_code: string }[] = [];
     try {
       entitlementRows = await this.dataSource.query(

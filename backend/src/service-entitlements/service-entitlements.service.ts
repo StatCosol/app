@@ -53,10 +53,10 @@ export class ServiceEntitlementsService {
   }
 
   async getCurrentForClient(clientId: string): Promise<CurrentPackageRow> {
-    let packageRows: { package_code: string }[] = [];
+    let packageRows: { package_code: string; approved_at: Date | null }[] = [];
     try {
       packageRows = await this.dataSource.query(
-        `SELECT package_code
+        `SELECT package_code, approved_at
            FROM client_service_packages
           WHERE client_id = $1::uuid
           LIMIT 1`,
@@ -73,7 +73,15 @@ export class ServiceEntitlementsService {
       throw err;
     }
 
-    const packageCode = packageRows[0]?.package_code ?? FULL_SERVICE_PACKAGE;
+    const packageRow = packageRows[0];
+    const packageCode = packageRow?.package_code ?? FULL_SERVICE_PACKAGE;
+    if (packageRow && !packageRow.approved_at) {
+      return {
+        packageCode,
+        enabledModules: [],
+        isRestricted: true,
+      };
+    }
 
     let entitlementRows: { module_code: ServiceModuleCode }[] = [];
     try {
