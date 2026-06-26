@@ -330,6 +330,12 @@ export class ServiceEntitlementsService {
     if (existing.status !== 'PENDING_CCO') {
       throw new BadRequestException('Only pending requests can be reviewed');
     }
+    const reviewNote = dto.note?.trim() || null;
+    if (dto.action !== 'APPROVED' && !reviewNote) {
+      throw new BadRequestException(
+        'Review note is required when rejecting or requesting changes',
+      );
+    }
 
     await this.dataSource.transaction(async (manager) => {
       await manager.query(
@@ -339,7 +345,7 @@ export class ServiceEntitlementsService {
                 reviewed_at = NOW(),
                 review_note = $4
           WHERE id = $1::uuid`,
-        [id, dto.action, actor.userId || actor.id, dto.note ?? null],
+        [id, dto.action, actor.userId || actor.id, reviewNote],
       );
 
       if (dto.action === 'APPROVED') {
@@ -385,7 +391,7 @@ export class ServiceEntitlementsService {
             existing.packageCode,
             JSON.stringify(modules),
             actor.userId || actor.id,
-            dto.note ?? null,
+            reviewNote,
           ],
         );
       } else {
@@ -400,7 +406,7 @@ export class ServiceEntitlementsService {
             existing.packageCode,
             JSON.stringify(existing.requestedModules ?? []),
             actor.userId || actor.id,
-            dto.note ?? null,
+            reviewNote,
           ],
         );
       }
