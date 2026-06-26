@@ -59,7 +59,7 @@ import {
               <th class="px-4 py-3">Current services</th>
               <th class="px-4 py-3">Requested services</th>
               <th class="px-4 py-3">Status</th>
-              <th class="px-4 py-3">Note</th>
+              <th class="px-4 py-3">Notes</th>
               <th class="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
@@ -83,7 +83,17 @@ import {
                   {{ statusLabel(r.status) }}
                 </span>
               </td>
-              <td class="px-4 py-3">{{ r.requestNote || '-' }}</td>
+              <td class="px-4 py-3 max-w-xs">
+                <div class="space-y-1" *ngIf="r.requestNote || r.reviewNote; else noRequestNotes">
+                  <p *ngIf="r.requestNote" class="text-xs text-slate-600">
+                    <span class="font-medium text-slate-800">Admin:</span> {{ r.requestNote }}
+                  </p>
+                  <p *ngIf="r.reviewNote" class="text-xs text-amber-800">
+                    <span class="font-medium">CCO:</span> {{ r.reviewNote }}
+                  </p>
+                </div>
+                <ng-template #noRequestNotes>-</ng-template>
+              </td>
               <td class="px-4 py-3 text-right">
                 <ng-container *ngIf="r.status === 'PENDING_CCO'; else reviewed">
                   <button class="text-green-700 font-medium mr-3" [disabled]="actionId === r.id" (click)="submitReview(r, 'APPROVED')">Approve</button>
