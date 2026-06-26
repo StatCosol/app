@@ -149,6 +149,19 @@ import {
         <div class="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
           <h2 class="font-semibold text-slate-900">Recent Requests</h2>
           <div class="flex flex-wrap items-center gap-3">
+            <label>
+              <span class="sr-only">Filter service requests by status</span>
+              <select
+                class="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                name="requestStatusFilter"
+                [(ngModel)]="requestStatusFilter">
+                <option value="">All statuses</option>
+                <option value="PENDING_CCO">Pending CCO</option>
+                <option value="APPROVED">Approved</option>
+                <option value="REJECTED">Rejected</option>
+                <option value="CHANGES_REQUESTED">Changes requested</option>
+              </select>
+            </label>
             <label class="min-w-[260px]">
               <span class="sr-only">Search service requests</span>
               <input
@@ -252,6 +265,7 @@ export class AdminServicePackagesComponent implements OnInit {
   message = '';
   error = false;
   searchTerm = '';
+  requestStatusFilter = '';
   selectedClientStatus: ClientServiceStatus | null = null;
   form = {
     clientId: '',
@@ -364,10 +378,12 @@ export class AdminServicePackagesComponent implements OnInit {
 
   get filteredRequests(): ServiceChangeRequest[] {
     const query = this.normalizedSearchTerm;
-    if (!query) return this.requests;
-    return this.requests.filter((request) =>
-      this.requestSearchText(request).includes(query),
-    );
+    return this.requests.filter((request) => {
+      if (this.requestStatusFilter && request.status !== this.requestStatusFilter) {
+        return false;
+      }
+      return !query || this.requestSearchText(request).includes(query);
+    });
   }
 
   get filteredAuditLogs(): ServiceAuditLogEntry[] {
