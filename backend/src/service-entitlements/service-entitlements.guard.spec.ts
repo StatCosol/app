@@ -190,6 +190,8 @@ describe('ServiceEntitlementsGuard', () => {
       'EMPLOYEE_COMPLIANCE',
       'CONTRACTOR_AUDIT',
       'CONTRACTOR_DOCUMENTS',
+      'MOBILE_ATTENDANCE',
+      'CONTRACTOR_FACE_ATTENDANCE',
     ]);
     expect(entitlements.assertModule).not.toHaveBeenCalled();
   });
