@@ -193,7 +193,11 @@ import {
             <tr *ngFor="let r of filteredRequests" class="border-t border-slate-100">
               <td class="px-4 py-3">{{ r.clientName || r.clientId }}</td>
               <td class="px-4 py-3">{{ r.packageCode }}</td>
-              <td class="px-4 py-3">{{ r.status }}</td>
+              <td class="px-4 py-3">
+                <span class="rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="statusBadgeClass(r.status)">
+                  {{ statusLabel(r.status) }}
+                </span>
+              </td>
               <td class="px-4 py-3">{{ r.requestedAt | date:'dd MMM, HH:mm' }}</td>
               <td class="px-4 py-3">{{ r.reviewedAt ? (r.reviewedAt | date:'dd MMM, HH:mm') : '-' }}</td>
               <td class="px-4 py-3 text-right">
@@ -368,6 +372,32 @@ export class AdminServicePackagesComponent implements OnInit {
 
   moduleLabel(code: string): string {
     return this.moduleOptions.find((module) => module.code === code)?.label || code;
+  }
+
+  statusLabel(status: ServiceChangeRequest['status']): string {
+    switch (status) {
+      case 'PENDING_CCO':
+        return 'Pending CCO';
+      case 'CHANGES_REQUESTED':
+        return 'Changes requested';
+      case 'REJECTED':
+        return 'Rejected';
+      default:
+        return 'Approved';
+    }
+  }
+
+  statusBadgeClass(status: ServiceChangeRequest['status']): string {
+    switch (status) {
+      case 'PENDING_CCO':
+        return 'bg-blue-50 text-blue-700';
+      case 'CHANGES_REQUESTED':
+        return 'bg-amber-100 text-amber-800';
+      case 'REJECTED':
+        return 'bg-red-50 text-red-700';
+      default:
+        return 'bg-green-50 text-green-700';
+    }
   }
 
   toggleModule(code: string, checked: boolean): void {
