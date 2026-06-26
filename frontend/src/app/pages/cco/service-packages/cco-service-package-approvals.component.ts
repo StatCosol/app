@@ -20,7 +20,7 @@ import {
         <p class="text-sm text-slate-500 mt-1">Review client module changes requested by Admin.</p>
       </header>
 
-      <div class="flex gap-3 items-end">
+      <div class="flex flex-wrap gap-3 items-end">
         <label>
           <span class="block text-xs font-medium text-slate-600">Status</span>
           <select class="mt-1 rounded-md border border-slate-300 px-3 py-2" name="status" [(ngModel)]="status" (change)="load()">
@@ -30,6 +30,14 @@ import {
             <option value="REJECTED">Rejected</option>
             <option value="CHANGES_REQUESTED">Changes requested</option>
           </select>
+        </label>
+        <label class="min-w-[260px] flex-1 max-w-md">
+          <span class="block text-xs font-medium text-slate-600">Search</span>
+          <input
+            class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+            name="searchTerm"
+            [(ngModel)]="searchTerm"
+            placeholder="Client, package, service, or note">
         </label>
         <button class="rounded-md border border-slate-300 px-4 py-2 text-sm" (click)="load()">Refresh</button>
       </div>
@@ -50,7 +58,7 @@ import {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let r of requests" class="border-t border-slate-100 align-top">
+            <tr *ngFor="let r of filteredRequests" class="border-t border-slate-100 align-top">
               <td class="px-4 py-3">{{ r.clientName || r.clientId }}</td>
               <td class="px-4 py-3">{{ r.packageCode }}</td>
               <td class="px-4 py-3">
@@ -75,7 +83,7 @@ import {
                 <ng-template #reviewed>{{ r.reviewedAt ? (r.reviewedAt | date:'dd MMM, HH:mm') : '-' }}</ng-template>
               </td>
             </tr>
-            <tr *ngIf="!loading && requests.length === 0">
+            <tr *ngIf="!loading && filteredRequests.length === 0">
               <td class="px-4 py-8 text-center text-slate-500" colspan="7">No service package requests found.</td>
             </tr>
           </tbody>
@@ -137,7 +145,7 @@ import {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let entry of auditLogs" class="border-t border-slate-100 align-top">
+            <tr *ngFor="let entry of filteredAuditLogs" class="border-t border-slate-100 align-top">
               <td class="px-4 py-3">{{ entry.clientName || entry.clientId }}</td>
               <td class="px-4 py-3">{{ entry.action }}</td>
               <td class="px-4 py-3">{{ entry.packageCode || '-' }}</td>
@@ -155,7 +163,7 @@ import {
               <td class="px-4 py-3">{{ entry.note || '-' }}</td>
               <td class="px-4 py-3">{{ entry.createdAt | date:'dd MMM, HH:mm' }}</td>
             </tr>
-            <tr *ngIf="!loading && auditLogs.length === 0">
+            <tr *ngIf="!loading && filteredAuditLogs.length === 0">
               <td class="px-4 py-8 text-center text-slate-500" colspan="7">No service package audit entries yet.</td>
             </tr>
           </tbody>
@@ -169,6 +177,7 @@ export class CcoServicePackageApprovalsComponent implements OnInit {
   auditLogs: ServiceAuditLogEntry[] = [];
   loading = false;
   status = 'PENDING_CCO';
+  searchTerm = '';
   actionId: string | null = null;
   reviewRow: ServiceChangeRequest | null = null;
   reviewAction: 'REJECTED' | 'CHANGES_REQUESTED' = 'CHANGES_REQUESTED';
@@ -186,6 +195,57 @@ export class CcoServicePackageApprovalsComponent implements OnInit {
 
   moduleLabel(code: string): string {
     return this.moduleOptions.find((m) => m.code === code)?.label || code;
+  }
+
+  get filteredRequests(): ServiceChangeRequest[] {
+    const query = this.normalizedSearchTerm;
+    if (!query) return this.requests;
+    return this.requests.filter((request) =>
+      this.requestSearchText(request).includes(query),
+    );
+  }
+
+  get filteredAuditLogs(): ServiceAuditLogEntry[] {
+    const query = this.normalizedSearchTerm;
+    if (!query) return this.auditLogs;
+    return this.auditLogs.filter((entry) =>
+      [
+        entry.clientName,
+        entry.clientId,
+        entry.action,
+        entry.packageCode,
+        entry.actorName,
+        entry.actorUserId,
+        entry.note,
+        ...entry.modules.map((module) => this.moduleLabel(module)),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(query),
+    );
+  }
+
+  private get normalizedSearchTerm(): string {
+    return this.searchTerm.trim().toLowerCase();
+  }
+
+  private requestSearchText(request: ServiceChangeRequest): string {
+    return [
+      request.clientName,
+      request.clientId,
+      request.packageCode,
+      request.status,
+      request.requestNote,
+      request.reviewNote,
+      request.requestedByName,
+      request.reviewedByName,
+      ...request.currentModules.map((module) => this.moduleLabel(module)),
+      ...request.requestedModules.map((module) => this.moduleLabel(module)),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
   }
 
   load(): void {
