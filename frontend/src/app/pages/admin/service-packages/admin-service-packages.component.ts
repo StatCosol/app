@@ -242,7 +242,11 @@ import {
           <tbody>
             <tr *ngFor="let entry of filteredAuditLogs" class="border-t border-slate-100 align-top">
               <td class="px-4 py-3">{{ entry.clientName || entry.clientId }}</td>
-              <td class="px-4 py-3">{{ entry.action }}</td>
+              <td class="px-4 py-3">
+                <span class="rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="auditActionBadgeClass(entry.action)">
+                  {{ auditActionLabel(entry.action) }}
+                </span>
+              </td>
               <td class="px-4 py-3">{{ entry.packageCode || '-' }}</td>
               <td class="px-4 py-3">
                 <div class="flex flex-wrap gap-1" *ngIf="entry.modules.length; else noModules">
@@ -397,6 +401,36 @@ export class AdminServicePackagesComponent implements OnInit {
         return 'bg-red-50 text-red-700';
       default:
         return 'bg-green-50 text-green-700';
+    }
+  }
+
+  auditActionLabel(action: string): string {
+    switch (action) {
+      case 'REQUESTED':
+        return 'Requested';
+      case 'APPROVED':
+        return 'Approved';
+      case 'CHANGES_REQUESTED':
+        return 'Changes requested';
+      case 'REJECTED':
+        return 'Rejected';
+      default:
+        return action;
+    }
+  }
+
+  auditActionBadgeClass(action: string): string {
+    switch (action) {
+      case 'REQUESTED':
+        return 'bg-blue-50 text-blue-700';
+      case 'APPROVED':
+        return 'bg-green-50 text-green-700';
+      case 'CHANGES_REQUESTED':
+        return 'bg-amber-100 text-amber-800';
+      case 'REJECTED':
+        return 'bg-red-50 text-red-700';
+      default:
+        return 'bg-slate-100 text-slate-700';
     }
   }
 
