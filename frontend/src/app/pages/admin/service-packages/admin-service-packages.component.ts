@@ -146,9 +146,19 @@ import {
       </div>
 
       <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
-        <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+        <div class="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
           <h2 class="font-semibold text-slate-900">Recent Requests</h2>
-          <button class="text-sm text-blue-700" (click)="load()">Refresh</button>
+          <div class="flex flex-wrap items-center gap-3">
+            <label class="min-w-[260px]">
+              <span class="sr-only">Search service requests</span>
+              <input
+                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                name="searchTerm"
+                [(ngModel)]="searchTerm"
+                placeholder="Search client, package, service, or note">
+            </label>
+            <button class="text-sm text-blue-700" (click)="load()">Refresh</button>
+          </div>
         </div>
         <table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -162,7 +172,7 @@ import {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let r of requests" class="border-t border-slate-100">
+            <tr *ngFor="let r of filteredRequests" class="border-t border-slate-100">
               <td class="px-4 py-3">{{ r.clientName || r.clientId }}</td>
               <td class="px-4 py-3">{{ r.packageCode }}</td>
               <td class="px-4 py-3">{{ r.status }}</td>
@@ -178,7 +188,7 @@ import {
                 </button>
               </td>
             </tr>
-            <tr *ngIf="!loading && requests.length === 0">
+            <tr *ngIf="!loading && filteredRequests.length === 0">
               <td class="px-4 py-8 text-center text-slate-500" colspan="6">No service package requests yet.</td>
             </tr>
           </tbody>
@@ -203,7 +213,7 @@ import {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let entry of auditLogs" class="border-t border-slate-100 align-top">
+            <tr *ngFor="let entry of filteredAuditLogs" class="border-t border-slate-100 align-top">
               <td class="px-4 py-3">{{ entry.clientName || entry.clientId }}</td>
               <td class="px-4 py-3">{{ entry.action }}</td>
               <td class="px-4 py-3">{{ entry.packageCode || '-' }}</td>
@@ -221,7 +231,7 @@ import {
               <td class="px-4 py-3">{{ entry.note || '-' }}</td>
               <td class="px-4 py-3">{{ entry.createdAt | date:'dd MMM, HH:mm' }}</td>
             </tr>
-            <tr *ngIf="!loading && auditLogs.length === 0">
+            <tr *ngIf="!loading && filteredAuditLogs.length === 0">
               <td class="px-4 py-8 text-center text-slate-500" colspan="7">No service package audit entries yet.</td>
             </tr>
           </tbody>
@@ -241,6 +251,7 @@ export class AdminServicePackagesComponent implements OnInit {
   saving = false;
   message = '';
   error = false;
+  searchTerm = '';
   selectedClientStatus: ClientServiceStatus | null = null;
   form = {
     clientId: '',
@@ -349,6 +360,57 @@ export class AdminServicePackagesComponent implements OnInit {
 
   get changeRequestedRequests(): ServiceChangeRequest[] {
     return this.requests.filter((request) => request.status === 'CHANGES_REQUESTED');
+  }
+
+  get filteredRequests(): ServiceChangeRequest[] {
+    const query = this.normalizedSearchTerm;
+    if (!query) return this.requests;
+    return this.requests.filter((request) =>
+      this.requestSearchText(request).includes(query),
+    );
+  }
+
+  get filteredAuditLogs(): ServiceAuditLogEntry[] {
+    const query = this.normalizedSearchTerm;
+    if (!query) return this.auditLogs;
+    return this.auditLogs.filter((entry) =>
+      [
+        entry.clientName,
+        entry.clientId,
+        entry.action,
+        entry.packageCode,
+        entry.actorName,
+        entry.actorUserId,
+        entry.note,
+        ...entry.modules.map((module) => this.moduleLabel(module)),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(query),
+    );
+  }
+
+  private get normalizedSearchTerm(): string {
+    return this.searchTerm.trim().toLowerCase();
+  }
+
+  private requestSearchText(request: ServiceChangeRequest): string {
+    return [
+      request.clientName,
+      request.clientId,
+      request.packageCode,
+      request.status,
+      request.requestNote,
+      request.reviewNote,
+      request.requestedByName,
+      request.reviewedByName,
+      ...request.currentModules.map((module) => this.moduleLabel(module)),
+      ...request.requestedModules.map((module) => this.moduleLabel(module)),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
   }
 
   reviseRequest(request: ServiceChangeRequest): void {
