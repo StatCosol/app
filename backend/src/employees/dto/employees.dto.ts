@@ -108,8 +108,14 @@ export class UpdateEmployeeDto {
   @IsOptional() @IsString() pfServiceStartDate?: string;
   @IsOptional() @IsNumber() basicAtPfStart?: number;
   @IsOptional() @IsBoolean() pfApplicable?: boolean;
+  @IsOptional() @IsBoolean() pfRegistered?: boolean;
   @IsOptional() @IsBoolean() esiApplicable?: boolean;
+  @IsOptional() @IsBoolean() esiRegistered?: boolean;
+  @IsOptional() @IsString() esiApplicableFrom?: string;
   @IsOptional() @IsBoolean() isActive?: boolean;
+  @IsOptional() @IsString() bulkImportBatchId?: string;
+  @IsOptional() @IsString() createdAt?: string;
+  @IsOptional() @IsString() updatedAt?: string;
 }
 
 // ── Employee Nomination ──────────────────────────────────
