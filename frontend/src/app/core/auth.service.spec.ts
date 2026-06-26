@@ -98,6 +98,25 @@ describe('AuthService', () => {
     });
   });
 
+  describe('service module checks', () => {
+    it('allows legacy users without a service package when modules are empty', () => {
+      sessionStorage.setItem('user', '{"enabledModules":[]}');
+
+      expect(service.hasModule('EMPLOYEE_COMPLIANCE')).toBe(true);
+      expect(service.hasAnyModule(['CONTRACTOR_AUDIT'])).toBe(true);
+    });
+
+    it('denies unapproved custom packages when modules are empty', () => {
+      sessionStorage.setItem(
+        'user',
+        '{"servicePackage":"CUSTOM_SERVICES","enabledModules":[]}',
+      );
+
+      expect(service.hasModule('EMPLOYEE_COMPLIANCE')).toBe(false);
+      expect(service.hasAnyModule(['CONTRACTOR_AUDIT'])).toBe(false);
+    });
+  });
+
   describe('isLoggedIn', () => {
     it('returns false when no token and no user', () => {
       expect(service.isLoggedIn()).toBe(false);
