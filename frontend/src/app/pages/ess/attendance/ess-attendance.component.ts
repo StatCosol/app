@@ -998,12 +998,11 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
   }
 
   private resolveLocation(): Promise<boolean> {
-    const requiresLocation = this.selectedCapture === 'GEOLOCATION' || this.selectedCapture === 'FACE';
     if (!navigator.geolocation) {
-      this.geoStatus = requiresLocation ? 'Geolocation not supported' : '';
+      this.geoStatus = 'Geolocation not supported by this browser';
       this.currentLat = null;
       this.currentLng = null;
-      return Promise.resolve(!requiresLocation);
+      return Promise.resolve(false);
     }
     this.geoStatus = 'Acquiring location...';
     return new Promise((resolve) => {
@@ -1015,11 +1014,10 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
           resolve(true);
         },
         () => {
-          this.geoStatus = requiresLocation ? 'Location access denied' : '';
+          this.geoStatus = 'Location access denied — please allow location to mark attendance';
           this.currentLat = null;
           this.currentLng = null;
-          // For non-geolocation methods, allow check-in even if location is denied
-          resolve(!requiresLocation);
+          resolve(false);
         },
         { enableHighAccuracy: true, timeout: 10000 },
       );

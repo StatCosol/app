@@ -558,12 +558,9 @@ export class EssService {
         'Face ID attendance is available only in the StatCo ESS app.',
       );
     }
-    if (
-      (method === 'GEOLOCATION' || method === 'FACE') &&
-      (body.latitude == null || body.longitude == null)
-    ) {
+    if (body.latitude == null || body.longitude == null) {
       throw new BadRequestException(
-        'Location coordinates are required for this attendance method.',
+        'Location coordinates are required for attendance.',
       );
     }
 
@@ -696,12 +693,9 @@ export class EssService {
         'Face ID attendance is available only in the StatCo ESS app.',
       );
     }
-    if (
-      (method === 'GEOLOCATION' || method === 'FACE') &&
-      (body.latitude == null || body.longitude == null)
-    ) {
+    if (body.latitude == null || body.longitude == null) {
       throw new BadRequestException(
-        'Location coordinates are required for this attendance method.',
+        'Location coordinates are required for attendance.',
       );
     }
 
