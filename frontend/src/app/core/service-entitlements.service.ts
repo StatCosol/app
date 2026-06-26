@@ -33,6 +33,18 @@ export interface ServiceChangeRequest {
   reviewedByName: string | null;
 }
 
+export interface ClientServiceStatus {
+  clientId: string;
+  packageCode: string;
+  enabledModules: string[];
+  isRestricted: boolean;
+  pendingRequests: Array<{
+    id: string;
+    packageCode: string;
+    requestedAt: string;
+  }>;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ServiceEntitlementsApiService {
   private readonly base = `${environment.apiBaseUrl}/api/v1/service-entitlements`;
@@ -47,8 +59,8 @@ export class ServiceEntitlementsApiService {
     return this.http.get<ServiceModuleOption[]>(`${this.base}/modules`);
   }
 
-  getClientStatus(clientId: string): Observable<any> {
-    return this.http.get<any>(`${this.base}/clients/${clientId}`);
+  getClientStatus(clientId: string): Observable<ClientServiceStatus> {
+    return this.http.get<ClientServiceStatus>(`${this.base}/clients/${clientId}`);
   }
 
   listRequests(status?: string): Observable<ServiceChangeRequest[]> {

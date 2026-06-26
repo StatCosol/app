@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { AdminClientsService, Client } from '../clients/admin-clients.service';
 import {
+  ClientServiceStatus,
   ServiceChangeRequest,
   ServiceEntitlementsApiService,
   ServiceModuleOption,
@@ -24,7 +25,7 @@ import {
       <div class="rounded-lg border border-slate-200 bg-white p-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <label class="block">
           <span class="text-xs font-medium text-slate-600">Client</span>
-          <select class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" name="clientId" [(ngModel)]="form.clientId">
+          <select class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" name="clientId" [(ngModel)]="form.clientId" (ngModelChange)="onClientSelected($event)">
             <option value="">Select client</option>
             <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
           </select>
@@ -40,14 +41,31 @@ import {
           <input class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" name="note" [(ngModel)]="form.note" placeholder="Reason for change">
         </label>
         <div class="flex items-end">
-          <button class="rounded-md bg-blue-700 px-4 py-2 text-white disabled:opacity-50" [disabled]="saving || !form.clientId || !form.modules.length" (click)="submit()">
+          <button class="rounded-md bg-blue-700 px-4 py-2 text-white disabled:opacity-50" [disabled]="saving || loadingClientStatus || hasPendingRequest || !form.clientId || !form.modules.length" (click)="submit()">
             Submit for CCO
           </button>
         </div>
       </div>
 
       <div class="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 class="font-semibold text-slate-900">Services</h2>
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 class="font-semibold text-slate-900">Services</h2>
+            <p class="text-xs text-slate-500 mt-1" *ngIf="selectedClientStatus">
+              Current package: {{ selectedClientStatus.packageCode }}
+              <span *ngIf="selectedClientStatus.pendingRequests.length" class="ml-2 text-amber-700 font-medium">
+                Pending CCO review
+              </span>
+            </p>
+          </div>
+          <button
+            type="button"
+            class="text-sm text-blue-700 disabled:text-slate-400"
+            [disabled]="!form.clientId || loadingClientStatus"
+            (click)="loadSelectedClientStatus(form.clientId)">
+            {{ loadingClientStatus ? 'Loading...' : 'Reload current services' }}
+          </button>
+        </div>
         <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <label
             *ngFor="let service of moduleOptions"
@@ -106,9 +124,11 @@ export class AdminServicePackagesComponent implements OnInit {
   moduleOptions: ServiceModuleOption[] = [];
   requests: ServiceChangeRequest[] = [];
   loading = false;
+  loadingClientStatus = false;
   saving = false;
   message = '';
   error = false;
+  selectedClientStatus: ClientServiceStatus | null = null;
   form = {
     clientId: '',
     packageCode: 'CUSTOM_SERVICES',
@@ -148,6 +168,41 @@ export class AdminServicePackagesComponent implements OnInit {
     });
   }
 
+  onClientSelected(clientId: string): void {
+    this.selectedClientStatus = null;
+    this.message = '';
+    this.error = false;
+    if (!clientId) {
+      this.loadingClientStatus = false;
+      this.form.packageCode = 'CUSTOM_SERVICES';
+      this.form.modules = ['EMPLOYEE_COMPLIANCE'];
+      return;
+    }
+    this.loadSelectedClientStatus(clientId);
+  }
+
+  loadSelectedClientStatus(clientId: string): void {
+    if (!clientId) return;
+    this.loadingClientStatus = true;
+    this.entitlements.getClientStatus(clientId).subscribe({
+      next: (status) => {
+        if (this.form.clientId !== clientId) return;
+        this.selectedClientStatus = status;
+        this.form.packageCode = status.packageCode || 'CUSTOM_SERVICES';
+        this.form.modules = status.enabledModules?.length
+          ? [...status.enabledModules]
+          : ['EMPLOYEE_COMPLIANCE'];
+        this.loadingClientStatus = false;
+      },
+      error: () => {
+        if (this.form.clientId !== clientId) return;
+        this.message = 'Failed to load current services for this client.';
+        this.error = true;
+        this.loadingClientStatus = false;
+      },
+    });
+  }
+
   applyPackageModules(): void {
     const selected = this.packages.find((p) => p.code === this.form.packageCode);
     this.form.modules = selected?.modules?.length
@@ -165,6 +220,10 @@ export class AdminServicePackagesComponent implements OnInit {
     else current.delete(code);
     this.form.modules = Array.from(current);
     this.form.packageCode = 'CUSTOM_SERVICES';
+  }
+
+  get hasPendingRequest(): boolean {
+    return !!this.selectedClientStatus?.pendingRequests?.length;
   }
 
   submit(): void {
