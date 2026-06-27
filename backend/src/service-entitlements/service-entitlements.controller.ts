@@ -37,8 +37,11 @@ export class ServiceEntitlementsController {
   @Get('requests')
   @Roles('ADMIN', 'CCO')
   @ApiOperation({ summary: 'List client service package change requests' })
-  listRequests(@Query('status') status?: string) {
-    return this.service.listRequests(status);
+  listRequests(
+    @Query('status') status?: string,
+    @Query('clientId') clientId?: string,
+  ) {
+    return this.service.listRequests(status, clientId);
   }
 
   @Get('audit-logs')

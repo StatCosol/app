@@ -230,13 +230,18 @@ export class ServiceEntitlementsService {
     return this.getRequest(requestId);
   }
 
-  async listRequests(status?: string) {
+  async listRequests(status?: string, clientId?: string) {
     const params: unknown[] = [];
-    let where = 'TRUE';
+    const filters: string[] = [];
     if (status) {
       params.push(status);
-      where = `r.status = $${params.length}`;
+      filters.push(`r.status = $${params.length}`);
     }
+    if (clientId) {
+      params.push(clientId);
+      filters.push(`r.client_id = $${params.length}::uuid`);
+    }
+    const where = filters.length ? filters.join(' AND ') : 'TRUE';
     const rows = await this.dataSource.query(
       `SELECT r.id,
               r.client_id AS "clientId",
