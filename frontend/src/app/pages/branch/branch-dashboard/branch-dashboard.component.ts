@@ -81,7 +81,7 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
   }
 
   get hasContractorFaceAttendanceModule(): boolean {
-    return this.authService.hasModule('CONTRACTOR_FACE_ATTENDANCE');
+    return this.authService.hasAnyModule(['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE']);
   }
 
   constructor(

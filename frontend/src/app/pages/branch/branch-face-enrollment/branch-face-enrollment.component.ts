@@ -72,6 +72,7 @@ interface EnrollForm {
         role="tablist"
       >
         <button
+          *ngIf="canViewEmployeeFaceEnrollment"
           type="button"
           role="tab"
           class="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition"
@@ -85,6 +86,7 @@ interface EnrollForm {
           Employees
         </button>
         <button
+          *ngIf="canViewContractorFaceEnrollment"
           type="button"
           role="tab"
           class="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition"
@@ -236,7 +238,7 @@ interface EnrollForm {
                     Delete
                   </button>
                   <button
-                    *ngIf="!r.isEnrolled"
+                    *ngIf="!r.isEnrolled && canUseKioskEnrollment"
                     class="text-xs text-indigo-600 hover:underline font-semibold"
                     (click)="openKioskEnrollForEmployee(r)"
                     title="Send a one-time capture instruction to a KIOSK device"
@@ -295,14 +297,14 @@ interface EnrollForm {
                 </td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
                   <button
-                    *ngIf="!r.isEnrolled"
+                    *ngIf="!r.isEnrolled && canUseManualContractorEnrollment"
                     class="text-xs text-indigo-600 hover:underline mr-3"
                     (click)="selectContractorForEnroll(r)"
                   >
                     Enroll
                   </button>
                   <button
-                    *ngIf="!r.isEnrolled"
+                    *ngIf="!r.isEnrolled && canUseKioskEnrollment"
                     class="text-xs text-indigo-600 hover:underline mr-3 font-semibold"
                     (click)="openKioskEnrollForContractor(r)"
                     title="Send a one-time capture instruction to a KIOSK device"
@@ -381,13 +383,13 @@ interface EnrollForm {
         <ui-loading-spinner *ngIf="loadingKioskTickets"></ui-loading-spinner>
 
         <div
-          *ngIf="!loadingKioskTickets && kioskTickets.length === 0"
+          *ngIf="!loadingKioskTickets && visibleKioskTickets.length === 0"
           class="text-sm text-gray-500"
         >
           No tickets in this view yet.
         </div>
 
-        <div *ngIf="!loadingKioskTickets && kioskTickets.length > 0" class="overflow-x-auto">
+        <div *ngIf="!loadingKioskTickets && visibleKioskTickets.length > 0" class="overflow-x-auto">
           <table class="min-w-full text-sm">
             <thead class="text-xs uppercase text-gray-500 border-b border-gray-200">
               <tr>
@@ -401,7 +403,7 @@ interface EnrollForm {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let t of kioskTickets" class="border-b border-gray-100 last:border-0">
+              <tr *ngFor="let t of visibleKioskTickets" class="border-b border-gray-100 last:border-0">
                 <td class="py-2 pr-3">
                   <div class="font-medium text-gray-900">{{ t.subjectName }}</div>
                   <div class="text-xs text-gray-500" *ngIf="t.subjectCode">{{ t.subjectCode }}</div>
@@ -746,6 +748,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.selectInitialSubjectType();
     this.loadSubjects();
     this.loadEnrollments();
     this.loadKioskTickets();
@@ -783,8 +786,38 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     return this.subjectType === 'contractor' ? this.loadingContractors : this.loadingEmployees;
   }
 
+  get canViewEmployeeFaceEnrollment(): boolean {
+    return this.auth.hasModule('MOBILE_ATTENDANCE');
+  }
+
+  get canViewContractorFaceEnrollment(): boolean {
+    return this.auth.hasModule('CONTRACTOR_FACE_ATTENDANCE');
+  }
+
+  get canUseManualEmployeeEnrollment(): boolean {
+    return this.auth.hasModule('EMPLOYEE_COMPLIANCE');
+  }
+
+  get canUseManualContractorEnrollment(): boolean {
+    return this.auth.hasAnyModule(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS']);
+  }
+
+  get canUseKioskEnrollment(): boolean {
+    return this.auth.hasModule('CONTRACTOR_FACE_ATTENDANCE');
+  }
+
+  get visibleKioskTickets(): KioskEnrollTicket[] {
+    return this.kioskTickets.filter((t) =>
+      t.subjectType === 'EMPLOYEE'
+        ? this.canViewEmployeeFaceEnrollment
+        : this.canViewContractorFaceEnrollment,
+    );
+  }
+
   switchSubjectType(t: SubjectType): void {
     if (this.subjectType === t) return;
+    if (t === 'employee' && !this.canViewEmployeeFaceEnrollment) return;
+    if (t === 'contractor' && !this.canViewContractorFaceEnrollment) return;
     this.subjectType = t;
     this.enrollForm = this.emptyForm();
     this.enrollError = '';
@@ -795,8 +828,17 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   }
 
   private loadSubjects(): void {
-    this.loadEmployees();
-    this.loadContractors();
+    if (this.canUseManualEmployeeEnrollment) this.loadEmployees();
+    if (this.canUseManualContractorEnrollment) this.loadContractors();
+  }
+
+  private selectInitialSubjectType(): void {
+    if (this.canViewEmployeeFaceEnrollment) {
+      this.subjectType = 'employee';
+    } else if (this.canViewContractorFaceEnrollment) {
+      this.subjectType = 'contractor';
+    }
+    this.enrollForm = this.emptyForm();
   }
 
   private loadEmployees(): void {
@@ -1159,6 +1201,11 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck();
     };
     if (this.subjectType === 'contractor') {
+      if (!this.canViewContractorFaceEnrollment) {
+        this.contractorEnrollmentRows = [];
+        done();
+        return;
+      }
       this.svc
         .listContractorEnrollments()
         .pipe(takeUntil(this.destroy$), finalize(done))
@@ -1172,6 +1219,11 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
               this.toast.error(e?.error?.message || 'Failed to load contractor enrollments');
           },
         });
+      return;
+    }
+    if (!this.canViewEmployeeFaceEnrollment) {
+      this.enrollmentRows = [];
+      done();
       return;
     }
     this.svc
