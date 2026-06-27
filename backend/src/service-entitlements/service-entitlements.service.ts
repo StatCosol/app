@@ -7,6 +7,7 @@ import {
 import { DataSource } from 'typeorm';
 import { ReqUser } from '../access/access-scope.service';
 import {
+  CUSTOM_SERVICES_PACKAGE,
   FULL_SERVICE_PACKAGE,
   PACKAGE_MODULES,
   SERVICE_MODULE_CODES,
@@ -48,6 +49,18 @@ export class ServiceEntitlementsService {
     ) as ServiceModuleCode[];
     if (!normalized.length) {
       throw new BadRequestException('At least one module is required');
+    }
+    if (packageCode !== CUSTOM_SERVICES_PACKAGE && modules?.length) {
+      const fixedModules = PACKAGE_MODULES[packageCode];
+      const fixedSet = new Set(fixedModules);
+      const matchesFixedPackage =
+        normalized.length === fixedModules.length &&
+        normalized.every((module) => fixedSet.has(module));
+      if (!matchesFixedPackage) {
+        throw new BadRequestException(
+          'Only Custom Services can use a custom module selection',
+        );
+      }
     }
     return normalized;
   }
