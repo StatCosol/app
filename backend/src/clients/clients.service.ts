@@ -507,11 +507,17 @@ export class ClientsService {
           ),
         ]);
 
+        const allowedModules = new Set<string>(SERVICE_MODULE_CODES);
         const modulesByClient = new Map<string, string[]>();
+        // Pre-seed empty arrays for every client that has entitlement rows so
+        // that clients whose every row is filtered (unsupported module code) get
+        // [] instead of falling through to the package-defaults below.
         for (const row of entitlementRows) {
-          const modules = modulesByClient.get(row.clientId) || [];
-          modules.push(row.moduleCode);
-          modulesByClient.set(row.clientId, modules);
+          if (!modulesByClient.has(row.clientId)) modulesByClient.set(row.clientId, []);
+        }
+        for (const row of entitlementRows) {
+          if (!allowedModules.has(row.moduleCode)) continue;
+          modulesByClient.get(row.clientId)!.push(row.moduleCode);
         }
 
         const packageByClient = new Map<
@@ -540,9 +546,12 @@ export class ClientsService {
           const packageRow = packageByClient.get(clientId);
           const packageCode =
             packageRow?.packageCode || FULL_SERVICE_PACKAGE;
+          const packageApproved = !packageRow || Boolean(packageRow.approvedAt);
           const modules =
-            modulesByClient.get(clientId) ||
-            (PACKAGE_MODULES[packageCode] ?? [...SERVICE_MODULE_CODES]);
+            packageApproved
+              ? modulesByClient.get(clientId) ||
+                (PACKAGE_MODULES[packageCode] ?? [...SERVICE_MODULE_CODES])
+              : [];
           const latestRequest = latestRequestByClient.get(clientId);
           const pendingServiceRequestId =
             latestRequest?.status === 'PENDING_CCO'
