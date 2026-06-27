@@ -22,6 +22,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ClientsService } from '../clients/clients.service';
 import {
+  CUSTOM_SERVICES_PACKAGE,
   FULL_SERVICE_PACKAGE,
   PACKAGE_MODULES,
   SERVICE_MODULE_CODES,
@@ -1861,7 +1862,12 @@ export class UsersService implements OnModuleInit {
       if (err?.code !== '42P01') throw err;
     }
     const packageRow = packageRows[0];
-    const packageCode = packageRow?.package_code ?? FULL_SERVICE_PACKAGE;
+    const packageCode =
+      packageRow?.package_code && PACKAGE_MODULES[packageRow.package_code]
+        ? packageRow.package_code
+        : packageRow
+          ? CUSTOM_SERVICES_PACKAGE
+          : FULL_SERVICE_PACKAGE;
     if (packageRow && !packageRow.approved_at) {
       return { packageCode, enabledModules: [] };
     }

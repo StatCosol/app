@@ -114,7 +114,10 @@ export class ServiceEntitlementsService {
     }
 
     const packageRow = packageRows[0];
-    const packageCode = packageRow?.package_code ?? FULL_SERVICE_PACKAGE;
+    const packageCode = this.normalizeStoredPackageCode(
+      packageRow?.package_code,
+      packageRow ? CUSTOM_SERVICES_PACKAGE : FULL_SERVICE_PACKAGE,
+    );
     if (packageRow && !packageRow.approved_at) {
       return {
         packageCode,
@@ -531,7 +534,16 @@ export class ServiceEntitlementsService {
     const parsed = typeof value === 'string' ? JSON.parse(value) : value;
     const allowed = new Set(SERVICE_MODULE_CODES);
     return Array.isArray(parsed)
-      ? parsed.filter((module) => allowed.has(module)) as ServiceModuleCode[]
+      ? parsed.filter((module) =>
+          allowed.has(module as ServiceModuleCode),
+        ) as ServiceModuleCode[]
       : [];
+  }
+
+  private normalizeStoredPackageCode(
+    value: string | null | undefined,
+    fallback: string,
+  ): string {
+    return value && PACKAGE_MODULES[value] ? value : fallback;
   }
 }

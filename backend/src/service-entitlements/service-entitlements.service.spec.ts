@@ -290,6 +290,22 @@ describe('ServiceEntitlementsService', () => {
         isRestricted: true,
       });
     });
+
+    it('normalizes unsupported stored package codes to custom services', async () => {
+      dataSource.query
+        .mockResolvedValueOnce([
+          { package_code: 'OLD_PACKAGE', approved_at: new Date() },
+        ])
+        .mockResolvedValueOnce([{ module_code: 'EMPLOYEE_COMPLIANCE' }]);
+
+      const result = await service.getCurrentForClient('client-1');
+
+      expect(result).toEqual({
+        packageCode: 'CUSTOM_SERVICES',
+        enabledModules: ['EMPLOYEE_COMPLIANCE'],
+        isRestricted: true,
+      });
+    });
   });
 
   describe('getClientStatus', () => {

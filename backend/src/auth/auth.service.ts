@@ -23,6 +23,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { EmailService } from '../email/email.service';
 import { ConfigService } from '@nestjs/config';
 import {
+  CUSTOM_SERVICES_PACKAGE,
   FULL_SERVICE_PACKAGE,
   PACKAGE_MODULES,
   SERVICE_MODULE_CODES,
@@ -397,7 +398,12 @@ export class AuthService implements OnModuleInit {
       if (err?.code !== '42P01') throw err;
     }
     const packageRow = packageRows[0];
-    const packageCode = packageRow?.package_code ?? FULL_SERVICE_PACKAGE;
+    const packageCode =
+      packageRow?.package_code && PACKAGE_MODULES[packageRow.package_code]
+        ? packageRow.package_code
+        : packageRow
+          ? CUSTOM_SERVICES_PACKAGE
+          : FULL_SERVICE_PACKAGE;
     if (packageRow && !packageRow.approved_at) {
       return { packageCode, enabledModules: [] };
     }
