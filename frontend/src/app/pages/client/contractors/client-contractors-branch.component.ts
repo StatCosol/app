@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, combineLatest } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { ClientContractorsService } from '../../../core/client-contractors.service';
+import { AuthService } from '../../../core/auth.service';
 import { StatusBadgeComponent, LoadingSpinnerComponent } from '../../../shared/ui';
 
 @Component({
@@ -40,12 +41,17 @@ export class ClientContractorsBranchComponent implements OnInit, OnDestroy {
     private readonly route: ActivatedRoute,
     public readonly router: Router,
     private readonly api: ClientContractorsService,
+    private readonly auth: AuthService,
     private readonly cdr: ChangeDetectorRef,
   ) {
     const now = new Date();
     const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
     this.fromMonth = `${from.getUTCFullYear()}-${String(from.getUTCMonth() + 1).padStart(2, '0')}`;
     this.toMonth = this.month;
+  }
+
+  get hasContractorAuditModule(): boolean {
+    return this.auth.hasModule('CONTRACTOR_AUDIT');
   }
 
   ngOnInit(): void {
@@ -85,14 +91,24 @@ export class ClientContractorsBranchComponent implements OnInit, OnDestroy {
 
   refreshAll() {
     if (!this.branchId) return;
-    this.loadBranchView();
+    if (this.hasContractorAuditModule) {
+      this.loadBranchView();
+    } else {
+      this.branchView = null;
+    }
     this.loadContractors();
-    if (this.contractorId) {
+    if (this.contractorId && this.hasContractorAuditModule) {
       this.loadTrend();
+    } else if (!this.hasContractorAuditModule) {
+      this.trend = [];
     }
   }
 
   loadBranchView() {
+    if (!this.hasContractorAuditModule) {
+      this.branchView = null;
+      return;
+    }
     this.loadingBranch = true;
     this.api
       .getBranchDashboard(this.branchId, this.month)
@@ -148,7 +164,7 @@ export class ClientContractorsBranchComponent implements OnInit, OnDestroy {
     this.contractorId = c?.id ?? null;
     this.fromMonth = this.month;
     this.toMonth = this.month;
-    this.loadTrend();
+    if (this.hasContractorAuditModule) this.loadTrend();
   }
 
   backToList() {
@@ -158,7 +174,7 @@ export class ClientContractorsBranchComponent implements OnInit, OnDestroy {
   }
 
   loadTrend() {
-    if (!this.contractorId) {
+    if (!this.contractorId || !this.hasContractorAuditModule) {
       this.trend = [];
       return;
     }

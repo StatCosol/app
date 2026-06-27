@@ -118,6 +118,7 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
     const hasPayroll = this.hasPayrollModule;
     const hasEmployeeCompliance = this.hasEmployeeComplianceModule;
     const hasContractor = this.hasContractorModule;
+    const canLoadComplianceDashboard = hasEmployeeCompliance;
 
     // Load task center data in parallel
     const user = this.authService.getUser();
@@ -143,11 +144,13 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
       });
 
     forkJoin({
-      legitx: this.legitxService.getSummary({
-        month: +month,
-        year: +year,
-        branchId: this.branchId || undefined,
-      }).pipe(catchError(() => of(null as any))),
+      legitx: canLoadComplianceDashboard
+        ? this.legitxService.getSummary({
+          month: +month,
+          year: +year,
+          branchId: this.branchId || undefined,
+        }).pipe(catchError(() => of(null as any)))
+        : of(null as any),
       pfEsi: hasPayroll
         ? this.dashboardService.getClientPfEsiSummary({
           month: this.currentMonth,

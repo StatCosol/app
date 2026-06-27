@@ -210,11 +210,39 @@ describe('ServiceEntitlementsGuard', () => {
   });
 
   it.each([
+    '/api/v1/legitx/dashboard',
+    '/api/v1/legitx/dashboard/summary',
+  ])('requires employee compliance for full LegitX dashboard path %s', async (url) => {
+    await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
+
+    expect(entitlements.assertModule).toHaveBeenCalledWith(
+      clientId,
+      'EMPLOYEE_COMPLIANCE',
+    );
+    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
+  });
+
+  it.each([
     '/api/v1/client/branches',
     '/api/v1/client/branches/branch-1',
     '/api/v1/client/branches/branch-1/dashboard',
   ])('allows shared branch workspace path %s with any branch module', async (url) => {
     await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
+
+    expect(entitlements.assertAnyModule).toHaveBeenCalledWith(clientId, [
+      'EMPLOYEE_COMPLIANCE',
+      'CONTRACTOR_AUDIT',
+      'CONTRACTOR_DOCUMENTS',
+      'MOBILE_ATTENDANCE',
+      'CONTRACTOR_FACE_ATTENDANCE',
+    ]);
+    expect(entitlements.assertModule).not.toHaveBeenCalled();
+  });
+
+  it('keeps branch profile access available to mobile attendance modules', async () => {
+    await expect(
+      guard.canActivate(contextFor('/api/v1/client/branches/branch-1')),
+    ).resolves.toBe(true);
 
     expect(entitlements.assertAnyModule).toHaveBeenCalledWith(clientId, [
       'EMPLOYEE_COMPLIANCE',

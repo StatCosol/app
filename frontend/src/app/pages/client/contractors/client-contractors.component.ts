@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { ClientContractorsService } from '../../../core/client-contractors.service';
+import { AuthService } from '../../../core/auth.service';
 import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
@@ -42,11 +43,20 @@ export class ClientContractorsComponent implements OnInit, OnDestroy {
   top5: any[] = [];
   bottom5: any[] = [];
 
-  constructor(private api: ClientContractorsService, private cdr: ChangeDetectorRef, private router: Router) {
+  constructor(
+    private api: ClientContractorsService,
+    private auth: AuthService,
+    private cdr: ChangeDetectorRef,
+    private router: Router,
+  ) {
     const now = new Date();
     const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
     this.fromMonth = `${from.getUTCFullYear()}-${String(from.getUTCMonth() + 1).padStart(2, '0')}`;
     this.toMonth = this.month;
+  }
+
+  get hasContractorAuditModule(): boolean {
+    return this.auth.hasModule('CONTRACTOR_AUDIT');
   }
 
   ngOnInit() {
@@ -98,15 +108,22 @@ export class ClientContractorsComponent implements OnInit, OnDestroy {
   }
 
   refreshAll() {
-    this.loadOverview();
+    if (this.hasContractorAuditModule) {
+      this.loadOverview();
+    } else {
+      this.overview = null;
+      this.rebuildRankings();
+    }
     this.loadContractors();
-    if (this.branchId) {
+    if (this.branchId && this.hasContractorAuditModule) {
       this.loadBranchView();
     } else {
       this.branchView = null;
     }
-    if (this.contractorId) {
+    if (this.contractorId && this.hasContractorAuditModule) {
       this.loadTrend();
+    } else if (!this.hasContractorAuditModule) {
+      this.trend = [];
     }
   }
 
@@ -150,6 +167,12 @@ export class ClientContractorsComponent implements OnInit, OnDestroy {
   }
 
   loadOverview() {
+    if (!this.hasContractorAuditModule) {
+      this.overview = null;
+      this.rebuildRankings();
+      this.cdr.markForCheck();
+      return;
+    }
     this.api
       .getDashboard(this.month)
       .pipe(
@@ -171,7 +194,7 @@ export class ClientContractorsComponent implements OnInit, OnDestroy {
   }
 
   loadBranchView() {
-    if (!this.branchId) {
+    if (!this.branchId || !this.hasContractorAuditModule) {
       this.branchView = null;
       return;
     }
@@ -190,7 +213,7 @@ export class ClientContractorsComponent implements OnInit, OnDestroy {
   }
 
   loadTrend() {
-    if (!this.contractorId) {
+    if (!this.contractorId || !this.hasContractorAuditModule) {
       this.trend = [];
       return;
     }
