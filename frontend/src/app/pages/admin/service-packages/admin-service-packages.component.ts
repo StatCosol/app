@@ -155,6 +155,16 @@ import {
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <label>
+              <span class="sr-only">Filter service history by client</span>
+              <select
+                class="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                name="historyClientId"
+                [(ngModel)]="historyClientId">
+                <option value="">All clients</option>
+                <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+              </select>
+            </label>
+            <label>
               <span class="sr-only">Filter service requests by status</span>
               <select
                 class="rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -295,6 +305,7 @@ export class AdminServicePackagesComponent implements OnInit {
   message = '';
   error = false;
   searchTerm = '';
+  historyClientId = '';
   requestStatusFilter = '';
   selectedClientStatus: ClientServiceStatus | null = null;
   form = {
@@ -465,6 +476,9 @@ export class AdminServicePackagesComponent implements OnInit {
   get filteredRequests(): ServiceChangeRequest[] {
     const query = this.normalizedSearchTerm;
     return this.requests.filter((request) => {
+      if (this.historyClientId && request.clientId !== this.historyClientId) {
+        return false;
+      }
       if (this.requestStatusFilter && request.status !== this.requestStatusFilter) {
         return false;
       }
@@ -474,9 +488,12 @@ export class AdminServicePackagesComponent implements OnInit {
 
   get filteredAuditLogs(): ServiceAuditLogEntry[] {
     const query = this.normalizedSearchTerm;
-    if (!query) return this.auditLogs;
-    return this.auditLogs.filter((entry) =>
-      [
+    return this.auditLogs.filter((entry) => {
+      if (this.historyClientId && entry.clientId !== this.historyClientId) {
+        return false;
+      }
+      if (!query) return true;
+      return [
         entry.clientName,
         entry.clientId,
         entry.action,
@@ -490,8 +507,8 @@ export class AdminServicePackagesComponent implements OnInit {
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
-        .includes(query),
-    );
+        .includes(query);
+    });
   }
 
   private get normalizedSearchTerm(): string {
