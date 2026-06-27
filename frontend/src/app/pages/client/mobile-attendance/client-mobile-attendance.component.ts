@@ -211,7 +211,7 @@ interface BranchOption { id: string; name: string }
                 <td class="px-4 py-3 text-right whitespace-nowrap">
                   <span *ngIf="!r.isEnrolled" class="text-xs text-gray-500 italic"
                     title="Face enrollment is done by the Branch user on a paired kiosk/ESS device. Client admins only review status here.">Pending kiosk enrollment</span>
-                  <button *ngIf="r.isEnrolled && r.isActive" class="text-xs text-emerald-700 hover:underline mr-3"
+                  <button *ngIf="hasContractorFaceAttendanceModule && r.isEnrolled && r.isActive" class="text-xs text-emerald-700 hover:underline mr-3"
                     (click)="deputeAsEss(r)" title="Register a personal phone for this employee (ESS mode) — useful for project deputation">Depute (ESS)</button>
                   <button *ngIf="r.isEnrolled && r.isActive" class="text-xs text-red-600 hover:underline mr-3"
                     (click)="deactivate(r)">Deactivate</button>
@@ -680,8 +680,10 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.selectInitialTab();
-    if (this.hasContractorFaceAttendanceModule) {
+    if (this.hasEmployeeMobileAttendanceModule || this.hasContractorFaceAttendanceModule) {
       this.loadBranches();
+    }
+    if (this.hasContractorFaceAttendanceModule) {
       this.loadDevices();
     }
     if (this.hasEmployeeMobileAttendanceModule) {
@@ -776,6 +778,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   }
 
   openAdd(): void {
+    if (!this.hasContractorFaceAttendanceModule) return;
     this.formError = '';
     this.locationError = '';
     this.locationAccuracy = null;
@@ -846,6 +849,10 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
    * fill in the project geofence and submit.
    */
   deputeAsEss(r: EnrollmentStatusRow): void {
+    if (!this.hasContractorFaceAttendanceModule) {
+      this.toast.error('Device registration is not enabled for this service package');
+      return;
+    }
     this.formError = '';
     this.locationError = '';
     this.locationAccuracy = null;
@@ -867,6 +874,10 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
 
   save(): void {
     this.formError = '';
+    if (!this.hasContractorFaceAttendanceModule) {
+      this.formError = 'Device registration is not enabled for this service package';
+      return;
+    }
     if (this.form.mode === 'ESS' && !this.form.essEmployeeId) {
       this.formError = 'ESS mode requires a bound employee';
       return;
