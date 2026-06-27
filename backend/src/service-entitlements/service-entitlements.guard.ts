@@ -88,7 +88,7 @@ export class ServiceEntitlementsGuard implements CanActivate {
     const user = req.user;
     if (!user?.clientId) return true;
 
-    const role = String(user.roleCode || '');
+    const role = String(user.roleCode || '').toUpperCase();
     if (!['CLIENT', 'CONTRACTOR', 'EMPLOYEE'].includes(role)) return true;
 
     const path = String(req.originalUrl || req.url || '')
