@@ -5,7 +5,6 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
@@ -54,7 +53,6 @@ class KioskActivity : AppCompatActivity() {
     // ── UI ──────────────────────────────────────────────────────────────────
     private lateinit var previewView: PreviewView
     private lateinit var tvHint: TextView
-    private lateinit var tvStatus: TextView
 
     // ── Core dependencies ────────────────────────────────────────────────────
     private lateinit var config: DeviceConfig
@@ -105,7 +103,6 @@ class KioskActivity : AppCompatActivity() {
 
         previewView = findViewById(R.id.previewView)
         tvHint = findViewById(R.id.statusText)
-        tvStatus = findViewById(R.id.statusText)
 
         config = DeviceConfig(this)
         apiClient = ApiClient(config)
@@ -227,9 +224,7 @@ class KioskActivity : AppCompatActivity() {
         challengePassedAt = null
 
         runOnUiThread {
-            val prompt = getString(R.string.kiosk_enroll_prompt, ticket.subjectName)
-            tvStatus.text = prompt
-            tvHint.text = prompt
+            tvHint.text = getString(R.string.kiosk_enroll_prompt, ticket.subjectName)
         }
     }
 
@@ -240,7 +235,7 @@ class KioskActivity : AppCompatActivity() {
             is KioskState.Idle -> handleIdleFrame(probe, liveness, photo)
             is KioskState.Enrolling -> handleEnrollFrame(s, probe, liveness, photo)
             is KioskState.Punching -> handleLivenessFrame(probe, liveness)
-            else -> Unit
+            is KioskState.Result -> Unit
         }
     }
 
@@ -345,9 +340,7 @@ class KioskActivity : AppCompatActivity() {
                 val resp = apiClient.recordPunch(req)
                 state = KioskState.Result(ok = true, name = resp.employeeName, direction = resp.direction)
                 runOnUiThread {
-                    val msg = getString(R.string.kiosk_punch_recorded, resp.employeeName)
-                    tvStatus.text = msg
-                    tvHint.text = msg
+                    tvHint.text = getString(R.string.kiosk_punch_recorded, resp.employeeName)
                 }
             } catch (e: ApiException) {
                 if (e.code == 401 || e.code == 403) {
@@ -395,9 +388,6 @@ class KioskActivity : AppCompatActivity() {
         punchInFlight = false
         runOnUiThread {
             tvHint.text = getString(R.string.kiosk_look_at_camera)
-            if (tvStatus !== tvHint) {
-                tvStatus.text = ""
-            }
         }
     }
 
@@ -507,9 +497,6 @@ class KioskActivity : AppCompatActivity() {
         try {
             runOnUiThread { tvHint.text = getString(R.string.kiosk_enroll_uploading) }
 
-            val avgEmbedding = averageAndNormalize(enrollFrames)
-            val selfSim = cosineSim(lastProbe, avgEmbedding).toFloat()
-
             val req = SubmitKioskEnrollRequest(
                 ticketId = enrollState.ticket.id,
                 embeddingFrames = enrollFrames.map { embedder.toBase64(it) },
@@ -522,19 +509,15 @@ class KioskActivity : AppCompatActivity() {
             val result = apiClient.submitEnrollTicket(req)
             result.fold(
                 onSuccess = {
-                    val successMsg = getString(R.string.kiosk_enroll_success, enrollState.ticket.subjectName)
                     withContext(Dispatchers.Main) {
-                        tvHint.text = successMsg
-                        tvStatus.text = successMsg
+                        tvHint.text = getString(R.string.kiosk_enroll_success, enrollState.ticket.subjectName)
                     }
                     loadRoster()
                     delay(RESULT_DISPLAY_MS)
                 },
                 onFailure = { e ->
-                    val failMsg = getString(R.string.kiosk_enroll_failed, e.message ?: "unknown")
                     withContext(Dispatchers.Main) {
-                        tvHint.text = failMsg
-                        tvStatus.text = failMsg
+                        tvHint.text = getString(R.string.kiosk_enroll_failed, e.message ?: "unknown")
                     }
                     delay(RESULT_DISPLAY_MS)
                 }

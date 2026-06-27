@@ -39,21 +39,7 @@ export class DeviceService {
       if (geofenceLat === null || geofenceLng === null || geofenceRadiusM === null) {
         throw new ConflictException('Geofence requires lat, lng, and radiusM together');
       }
-      if (geofenceLat < -90 || geofenceLat > 90) {
-        throw new ConflictException('Latitude must be between -90 and 90');
-      }
-      if (geofenceLng < -180 || geofenceLng > 180) {
-        throw new ConflictException('Longitude must be between -180 and 180');
-      }
-      if (
-        !Number.isInteger(geofenceRadiusM) ||
-        geofenceRadiusM < DeviceService.GEOFENCE_RADIUS_MIN_M ||
-        geofenceRadiusM > DeviceService.GEOFENCE_RADIUS_MAX_M
-      ) {
-        throw new ConflictException(
-          `Geofence radius must be between ${DeviceService.GEOFENCE_RADIUS_MIN_M}m and ${DeviceService.GEOFENCE_RADIUS_MAX_M}m`,
-        );
-      }
+      this.validateGeofenceRange(geofenceLat, geofenceLng, geofenceRadiusM);
     }
 
     const installToken = randomBytes(32).toString('hex');
@@ -315,10 +301,6 @@ export class DeviceService {
    *  Schema doesn't change at runtime so indefinite caching is safe. */
   private readonly columnCache = new Map<string, Set<string>>();
 
-  private async getDeviceColumns(): Promise<Set<string>> {
-    return this.getTableColumns('mobile_attendance_devices');
-  }
-
   private async getTableColumns(tableName: string): Promise<Set<string>> {
     const cached = this.columnCache.get(tableName);
     if (cached) return cached;
@@ -370,7 +352,7 @@ export class DeviceService {
     scopedParams: unknown[],
     branchFilter: string,
   ): Promise<void> {
-    const columns = await this.getDeviceColumns();
+    const columns = await this.getTableColumns('mobile_attendance_devices');
     const deletedAtCol = this.requireColumn(columns, 'deleted_at', 'deletedAt');
     const isActiveCol = this.pickColumn(columns, 'is_active', 'isActive');
     const assignments = [`${this.quoteIdentifier(deletedAtCol)} = now()`];
@@ -449,16 +431,8 @@ export class DeviceService {
     return `COALESCE((to_jsonb(${alias})->>'isActive')::boolean, (to_jsonb(${alias})->>'is_active')::boolean, true)`;
   }
 
-  private rowIsActive(device: Pick<MobileAttendanceDeviceEntity, 'isActive'>): boolean {
-    return device.isActive !== false;
-  }
-
   private quoteIdentifier(identifier: string): string {
     return `"${identifier.replace(/"/g, '""')}"`;
-  }
-
-  private sqlString(value: string): string {
-    return `'${value.replace(/'/g, "''")}'`;
   }
 
   private isUuid(value: string): boolean {
@@ -467,9 +441,22 @@ export class DeviceService {
     );
   }
 
-  // ── Fix #13: Geofence configuration with radius validation ──
   static readonly GEOFENCE_RADIUS_MIN_M = 50;
   static readonly GEOFENCE_RADIUS_MAX_M = 50_000;
+
+  private validateGeofenceRange(lat: number, lng: number, radiusM: number): void {
+    if (lat < -90 || lat > 90) throw new ConflictException('Latitude must be between -90 and 90');
+    if (lng < -180 || lng > 180) throw new ConflictException('Longitude must be between -180 and 180');
+    if (
+      !Number.isInteger(radiusM) ||
+      radiusM < DeviceService.GEOFENCE_RADIUS_MIN_M ||
+      radiusM > DeviceService.GEOFENCE_RADIUS_MAX_M
+    ) {
+      throw new ConflictException(
+        `Geofence radius must be between ${DeviceService.GEOFENCE_RADIUS_MIN_M}m and ${DeviceService.GEOFENCE_RADIUS_MAX_M}m`,
+      );
+    }
+  }
 
   async configureGeofence(
     deviceId: string,
@@ -485,21 +472,7 @@ export class DeviceService {
       device.geofenceRadiusM = null;
     } else {
       const { lat, lng, radiusM } = params;
-      if (lat < -90 || lat > 90) {
-        throw new ConflictException('Latitude must be between -90 and 90');
-      }
-      if (lng < -180 || lng > 180) {
-        throw new ConflictException('Longitude must be between -180 and 180');
-      }
-      if (
-        !Number.isInteger(radiusM) ||
-        radiusM < DeviceService.GEOFENCE_RADIUS_MIN_M ||
-        radiusM > DeviceService.GEOFENCE_RADIUS_MAX_M
-      ) {
-        throw new ConflictException(
-          `Geofence radius must be between ${DeviceService.GEOFENCE_RADIUS_MIN_M}m and ${DeviceService.GEOFENCE_RADIUS_MAX_M}m`,
-        );
-      }
+      this.validateGeofenceRange(lat, lng, radiusM);
       device.geofenceLat = String(lat);
       device.geofenceLng = String(lng);
       device.geofenceRadiusM = radiusM;

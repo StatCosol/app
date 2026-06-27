@@ -4,8 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { MobileAttendanceDeviceEntity } from '../devices/device.entity';
 import { FaceEnrollmentEntity } from '../enrollment/face-enrollment.entity';
 import { ContractorFaceEnrollmentEntity } from '../enrollment/contractor-face-enrollment.entity';

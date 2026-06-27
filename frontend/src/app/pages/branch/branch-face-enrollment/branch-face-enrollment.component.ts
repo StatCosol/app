@@ -1560,7 +1560,15 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
           if (t.status !== 'PENDING') {
             this.stopKioskTimers();
             if (t.status === 'COMPLETED') {
-              this.toast.success(`${t.subjectName} enrolled successfully`);
+              this.toast.success(`✓ ${t.subjectName} enrolled successfully`);
+              this.loadEnrollments();
+              // Auto-close modal after 4 s so the branch user can see the result
+              // message before the dialog dismisses and the updated list appears.
+              setTimeout(() => {
+                this.kioskModalOpen = false;
+                this.kioskActiveTicket = null;
+                this.cdr.markForCheck();
+              }, 4000);
             } else if (t.status === 'REVIEW_PENDING') {
               this.toast.info(`${t.subjectName} captured, waiting for approval`);
             }
