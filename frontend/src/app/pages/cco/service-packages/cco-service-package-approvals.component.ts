@@ -2,13 +2,14 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
-import { AdminClientsService, Client } from '../../admin/clients/admin-clients.service';
 import {
   ServiceAuditLogEntry,
   ServiceChangeRequest,
   ServiceEntitlementsApiService,
   ServiceModuleOption,
 } from '../../../core/service-entitlements.service';
+import { ClientOption } from '../../../shared/filters/models/filter.model';
+import { FilterOptionsService } from '../../../shared/filters/services/filter-options.service';
 
 @Component({
   selector: 'app-cco-service-package-approvals',
@@ -30,7 +31,7 @@ import {
             [(ngModel)]="historyClientId"
             (ngModelChange)="load()">
             <option value="">All clients</option>
-            <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+            <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
           </select>
         </label>
         <label>
@@ -214,7 +215,7 @@ import {
   `,
 })
 export class CcoServicePackageApprovalsComponent implements OnInit {
-  clients: Client[] = [];
+  clients: ClientOption[] = [];
   requests: ServiceChangeRequest[] = [];
   auditLogs: ServiceAuditLogEntry[] = [];
   loading = false;
@@ -231,7 +232,7 @@ export class CcoServicePackageApprovalsComponent implements OnInit {
   moduleOptions: ServiceModuleOption[] = [];
 
   constructor(
-    private readonly clientsApi: AdminClientsService,
+    private readonly filterOptions: FilterOptionsService,
     private readonly entitlements: ServiceEntitlementsApiService,
   ) {}
 
@@ -355,7 +356,7 @@ export class CcoServicePackageApprovalsComponent implements OnInit {
   load(): void {
     this.loading = true;
     forkJoin({
-      clients: this.clientsApi.getClients(),
+      clients: this.filterOptions.ceoClients(),
       modules: this.entitlements.listModules(),
       requests: this.entitlements.listRequests(
         this.status || undefined,
