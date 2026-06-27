@@ -197,9 +197,9 @@ describe('AuthService', () => {
       expect(service.getRoleRedirectPath('UNKNOWN')).toBe('');
     });
 
-    it('returns /client for CLIENT master user', () => {
+    it('returns the module home for CLIENT master user', () => {
       sessionStorage.setItem('user', '{"roleCode":"CLIENT","userType":"MASTER","branchIds":[]}');
-      expect(service.getRoleRedirectPath('CLIENT')).toBe('/client');
+      expect(service.getRoleRedirectPath('CLIENT')).toBe('/client/dashboard');
     });
 
     it('returns /branch for CLIENT branch user', () => {
@@ -222,6 +222,38 @@ describe('AuthService', () => {
       );
 
       expect(service.getClientModuleHomePath()).toBe('/client/mobile-attendance');
+    });
+
+    it('routes appraisal only clients to appraisal dashboard', () => {
+      sessionStorage.setItem(
+        'user',
+        JSON.stringify({
+          roleCode: 'CLIENT',
+          userType: 'MASTER',
+          branchIds: [],
+          servicePackage: 'CUSTOM_SERVICES',
+          enabledModules: ['APPRAISAL'],
+        }),
+      );
+
+      expect(service.getClientModuleHomePath()).toBe('/client/appraisal-dashboard');
+      expect(service.getRoleRedirectPath('CLIENT')).toBe('/client/appraisal-dashboard');
+    });
+
+    it('keeps contractor attendance only clients on a safe client profile fallback', () => {
+      sessionStorage.setItem(
+        'user',
+        JSON.stringify({
+          roleCode: 'CLIENT',
+          userType: 'MASTER',
+          branchIds: [],
+          servicePackage: 'CUSTOM_SERVICES',
+          enabledModules: ['CONTRACTOR_ATTENDANCE'],
+        }),
+      );
+
+      expect(service.getClientModuleHomePath()).toBe('/client/profile');
+      expect(service.getRoleRedirectPath('CLIENT')).toBe('/client/profile');
     });
   });
 

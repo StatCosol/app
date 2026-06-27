@@ -212,7 +212,9 @@ describe('ServiceEntitlementsGuard', () => {
   it.each([
     '/api/v1/legitx/dashboard',
     '/api/v1/legitx/dashboard/summary',
-  ])('requires employee compliance for full LegitX dashboard path %s', async (url) => {
+    '/api/v1/legitx/mcd',
+    '/api/v1/legitx/compliance-status/summary',
+  ])('requires employee compliance for LegitX path %s', async (url) => {
     await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
 
     expect(entitlements.assertModule).toHaveBeenCalledWith(

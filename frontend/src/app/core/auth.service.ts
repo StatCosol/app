@@ -304,6 +304,7 @@ export class AuthService {
     if (this.hasModule('PAYROLL')) return '/client/payroll';
     if (this.hasModule('EMPLOYEE_ATTENDANCE')) return '/client/attendance';
     if (this.hasModule('APPRAISAL')) return '/client/appraisal-dashboard';
+    if (this.hasModule('CONTRACTOR_ATTENDANCE')) return '/client/profile';
     return '/client/profile';
   }
 
@@ -322,7 +323,7 @@ export class AuthService {
       CCO: '/cco',
       CRM: '/crm',
       AUDITOR: '/auditor',
-      CLIENT: this.isBranchUser() ? '/branch' : '/client',
+      CLIENT: this.isBranchUser() ? '/branch' : this.getClientModuleHomePath(),
       CONTRACTOR: '/contractor',
       PAYROLL: '/payroll',
       PF_TEAM: '/pf-team',
