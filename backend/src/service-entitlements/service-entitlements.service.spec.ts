@@ -5,6 +5,8 @@ import { ServiceEntitlementsService } from './service-entitlements.service';
 describe('ServiceEntitlementsService', () => {
   let dataSource: jest.Mocked<Pick<DataSource, 'query' | 'transaction'>>;
   let service: ServiceEntitlementsService;
+  const adminUserId = '11111111-1111-4111-8111-111111111111';
+  const ccoUserId = '22222222-2222-4222-8222-222222222222';
 
   beforeEach(() => {
     dataSource = {
@@ -102,7 +104,7 @@ describe('ServiceEntitlementsService', () => {
           service.reviewRequest(
             'request-1',
             { action, note: '   ' },
-            { id: 'cco-1', userId: 'cco-1' } as any,
+            { id: ccoUserId, userId: ccoUserId } as any,
           ),
         ).rejects.toBeInstanceOf(BadRequestException);
 
@@ -154,12 +156,12 @@ describe('ServiceEntitlementsService', () => {
       await service.reviewRequest(
         'request-1',
         { action: 'APPROVED' },
-        { id: 'cco-1', userId: 'cco-1' } as any,
+        { id: ccoUserId, userId: ccoUserId } as any,
       );
 
       expect(manager.query).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO client_module_entitlements'),
-        ['client-1', 'EMPLOYEE_COMPLIANCE', 'request-1', 'cco-1'],
+        ['client-1', 'EMPLOYEE_COMPLIANCE', 'request-1', ccoUserId],
       );
     });
 
@@ -191,7 +193,7 @@ describe('ServiceEntitlementsService', () => {
         service.reviewRequest(
           'request-1',
           { action: 'APPROVED' },
-          { id: 'cco-1', userId: 'cco-1' } as any,
+          { id: ccoUserId, userId: ccoUserId } as any,
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
 
@@ -230,7 +232,7 @@ describe('ServiceEntitlementsService', () => {
         service.reviewRequest(
           'request-1',
           { action: 'CHANGES_REQUESTED', note: 'Select supported services only' },
-          { id: 'cco-1', userId: 'cco-1' } as any,
+          { id: ccoUserId, userId: ccoUserId } as any,
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
 
@@ -259,10 +261,23 @@ describe('ServiceEntitlementsService', () => {
         service.reviewRequest(
           'request-1',
           { action: 'APPROVED' },
-          { id: 'cco-1', userId: 'cco-1' } as any,
+          { id: ccoUserId, userId: ccoUserId } as any,
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
 
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects malformed reviewer ids before reading or writing requests', async () => {
+      await expect(
+        service.reviewRequest(
+          'request-1',
+          { action: 'APPROVED' },
+          { id: 'not-a-uuid', userId: 'not-a-uuid' } as any,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(dataSource.query).not.toHaveBeenCalled();
       expect(dataSource.transaction).not.toHaveBeenCalled();
     });
   });
@@ -382,11 +397,27 @@ describe('ServiceEntitlementsService', () => {
           modules: ['EMPLOYEE_COMPLIANCE'],
           note: '  Add payroll  ',
         },
-        { id: 'admin-1', userId: 'admin-1' } as any,
+        { id: adminUserId, userId: adminUserId } as any,
       );
 
       expect(manager.query.mock.calls[0][1][5]).toBe('Add payroll');
       expect(manager.query.mock.calls[1][1][5]).toBe('Add payroll');
+    });
+
+    it('rejects malformed requester ids before querying clients', async () => {
+      await expect(
+        service.createRequest(
+          {
+            clientId: 'client-1',
+            packageCode: 'CUSTOM_SERVICES',
+            modules: ['EMPLOYEE_COMPLIANCE'],
+          },
+          { id: 'not-a-uuid', userId: 'not-a-uuid' } as any,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(dataSource.query).not.toHaveBeenCalled();
+      expect(dataSource.transaction).not.toHaveBeenCalled();
     });
   });
 
