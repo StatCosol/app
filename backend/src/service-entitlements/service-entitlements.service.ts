@@ -93,6 +93,7 @@ export class ServiceEntitlementsService {
   }
 
   async getCurrentForClient(clientId: string): Promise<CurrentPackageRow> {
+    this.assertValidRequiredUuid(clientId, 'clientId');
     let packageRows: { package_code: string; approved_at: Date | null }[] = [];
     try {
       packageRows = await this.dataSource.query(
@@ -202,6 +203,7 @@ export class ServiceEntitlementsService {
   async createRequest(dto: CreateModuleChangeRequestDto, actor: ReqUser) {
     const modules = this.normalizeModules(dto.packageCode, dto.modules);
     const requestNote = this.normalizeOptionalNote(dto.note);
+    this.assertValidRequiredUuid(dto.clientId, 'clientId');
     const actorId = this.actorIdOrThrow(actor);
     const clientRows = await this.dataSource.query(
       `SELECT id FROM clients WHERE id = $1::uuid LIMIT 1`,
@@ -505,6 +507,12 @@ export class ServiceEntitlementsService {
   private assertValidOptionalUuid(value: string | undefined, field: string): void {
     if (!value) return;
     if (!UUID_RE.test(value)) {
+      throw new BadRequestException(`${field} must be a UUID`);
+    }
+  }
+
+  private assertValidRequiredUuid(value: string | undefined, field: string): void {
+    if (!value || !UUID_RE.test(value)) {
       throw new BadRequestException(`${field} must be a UUID`);
     }
   }

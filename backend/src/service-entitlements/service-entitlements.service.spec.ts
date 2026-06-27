@@ -5,6 +5,7 @@ import { ServiceEntitlementsService } from './service-entitlements.service';
 describe('ServiceEntitlementsService', () => {
   let dataSource: jest.Mocked<Pick<DataSource, 'query' | 'transaction'>>;
   let service: ServiceEntitlementsService;
+  const clientId = '33333333-3333-4333-8333-333333333333';
   const adminUserId = '11111111-1111-4111-8111-111111111111';
   const ccoUserId = '22222222-2222-4222-8222-222222222222';
 
@@ -82,7 +83,7 @@ describe('ServiceEntitlementsService', () => {
       dataSource.query.mockResolvedValue([
         {
           id: 'request-1',
-          clientId: 'client-1',
+          clientId,
           packageCode: 'CUSTOM_SERVICES',
           requestedModules: ['EMPLOYEE_COMPLIANCE'],
           currentModules: [],
@@ -120,7 +121,7 @@ describe('ServiceEntitlementsService', () => {
         .mockResolvedValueOnce([
           {
             id: 'request-1',
-            clientId: 'client-1',
+            clientId,
             packageCode: 'CUSTOM_SERVICES',
             requestedModules: '["EMPLOYEE_COMPLIANCE"]',
             currentModules: '[]',
@@ -136,7 +137,7 @@ describe('ServiceEntitlementsService', () => {
         .mockResolvedValueOnce([
           {
             id: 'request-1',
-            clientId: 'client-1',
+            clientId,
             packageCode: 'CUSTOM_SERVICES',
             requestedModules: '["EMPLOYEE_COMPLIANCE"]',
             currentModules: '[]',
@@ -161,7 +162,7 @@ describe('ServiceEntitlementsService', () => {
 
       expect(manager.query).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO client_module_entitlements'),
-        ['client-1', 'EMPLOYEE_COMPLIANCE', 'request-1', ccoUserId],
+        [clientId, 'EMPLOYEE_COMPLIANCE', 'request-1', ccoUserId],
       );
     });
 
@@ -172,7 +173,7 @@ describe('ServiceEntitlementsService', () => {
       dataSource.query.mockResolvedValueOnce([
         {
           id: 'request-1',
-          clientId: 'client-1',
+          clientId,
           packageCode: 'CUSTOM_SERVICES',
           requestedModules: '["EMPLOYEE_COMPLIANCE","OLD_MODULE"]',
           currentModules: '[]',
@@ -211,7 +212,7 @@ describe('ServiceEntitlementsService', () => {
       dataSource.query.mockResolvedValueOnce([
         {
           id: 'request-1',
-          clientId: 'client-1',
+          clientId,
           packageCode: 'CUSTOM_SERVICES',
           requestedModules: '["EMPLOYEE_COMPLIANCE","OLD_MODULE"]',
           currentModules: '[]',
@@ -243,7 +244,7 @@ describe('ServiceEntitlementsService', () => {
       dataSource.query.mockResolvedValueOnce([
         {
           id: 'request-1',
-          clientId: 'client-1',
+          clientId,
           packageCode: 'CUSTOM_SERVICES',
           requestedModules: 'not-json',
           currentModules: '[]',
@@ -366,7 +367,7 @@ describe('ServiceEntitlementsService', () => {
           .mockResolvedValueOnce([]),
       };
       dataSource.query
-        .mockResolvedValueOnce([{ id: 'client-1' }])
+        .mockResolvedValueOnce([{ id: clientId }])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]);
@@ -376,7 +377,7 @@ describe('ServiceEntitlementsService', () => {
       dataSource.query.mockResolvedValueOnce([
         {
           id: 'request-1',
-          clientId: 'client-1',
+          clientId,
           packageCode: 'CUSTOM_SERVICES',
           requestedModules: ['EMPLOYEE_COMPLIANCE'],
           currentModules: [],
@@ -392,7 +393,7 @@ describe('ServiceEntitlementsService', () => {
 
       await service.createRequest(
         {
-          clientId: 'client-1',
+          clientId,
           packageCode: 'CUSTOM_SERVICES',
           modules: ['EMPLOYEE_COMPLIANCE'],
           note: '  Add payroll  ',
@@ -408,7 +409,7 @@ describe('ServiceEntitlementsService', () => {
       await expect(
         service.createRequest(
           {
-            clientId: 'client-1',
+            clientId,
             packageCode: 'CUSTOM_SERVICES',
             modules: ['EMPLOYEE_COMPLIANCE'],
           },
@@ -419,9 +420,33 @@ describe('ServiceEntitlementsService', () => {
       expect(dataSource.query).not.toHaveBeenCalled();
       expect(dataSource.transaction).not.toHaveBeenCalled();
     });
+
+    it('rejects malformed request client ids before querying clients', async () => {
+      await expect(
+        service.createRequest(
+          {
+            clientId: 'not-a-uuid',
+            packageCode: 'CUSTOM_SERVICES',
+            modules: ['EMPLOYEE_COMPLIANCE'],
+          },
+          { id: adminUserId, userId: adminUserId } as any,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(dataSource.query).not.toHaveBeenCalled();
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
   });
 
   describe('getCurrentForClient', () => {
+    it('rejects malformed client ids before querying current entitlements', async () => {
+      await expect(service.getCurrentForClient('not-a-uuid')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+
+      expect(dataSource.query).not.toHaveBeenCalled();
+    });
+
     it('ignores unsupported stored entitlement module rows', async () => {
       dataSource.query
         .mockResolvedValueOnce([
@@ -433,7 +458,7 @@ describe('ServiceEntitlementsService', () => {
           { module_code: '' },
         ]);
 
-      const result = await service.getCurrentForClient('client-1');
+      const result = await service.getCurrentForClient(clientId);
 
       expect(result).toEqual({
         packageCode: 'CUSTOM_SERVICES',
@@ -449,7 +474,7 @@ describe('ServiceEntitlementsService', () => {
         ])
         .mockResolvedValueOnce([{ module_code: 'EMPLOYEE_COMPLIANCE' }]);
 
-      const result = await service.getCurrentForClient('client-1');
+      const result = await service.getCurrentForClient(clientId);
 
       expect(result).toEqual({
         packageCode: 'CUSTOM_SERVICES',
@@ -460,6 +485,14 @@ describe('ServiceEntitlementsService', () => {
   });
 
   describe('getClientStatus', () => {
+    it('rejects malformed client ids before querying pending requests', async () => {
+      await expect(service.getClientStatus('not-a-uuid')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+
+      expect(dataSource.query).not.toHaveBeenCalled();
+    });
+
     it('includes pending request modules and note details', async () => {
       dataSource.query
         .mockResolvedValueOnce([
@@ -476,7 +509,7 @@ describe('ServiceEntitlementsService', () => {
           },
         ]);
 
-      const result = await service.getClientStatus('client-1');
+      const result = await service.getClientStatus(clientId);
 
       expect(result.pendingRequests).toEqual([
         {
