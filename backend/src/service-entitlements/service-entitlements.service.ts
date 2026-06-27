@@ -26,6 +26,16 @@ type CurrentPackageRow = {
   isRestricted: boolean;
 };
 
+const SERVICE_REQUEST_STATUSES = [
+  'PENDING_CCO',
+  'APPROVED',
+  'REJECTED',
+  'CHANGES_REQUESTED',
+] as const;
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 @Injectable()
 export class ServiceEntitlementsService {
   constructor(private readonly dataSource: DataSource) {}
@@ -244,6 +254,8 @@ export class ServiceEntitlementsService {
   }
 
   async listRequests(status?: string, clientId?: string) {
+    this.assertValidRequestStatus(status);
+    this.assertValidOptionalUuid(clientId, 'clientId');
     const params: unknown[] = [];
     const filters: string[] = [];
     if (status) {
@@ -282,6 +294,7 @@ export class ServiceEntitlementsService {
   }
 
   async listAuditLogs(clientId?: string) {
+    this.assertValidOptionalUuid(clientId, 'clientId');
     const params: unknown[] = [];
     let where = 'TRUE';
     if (clientId) {
@@ -448,5 +461,19 @@ export class ServiceEntitlementsService {
       [clientId],
     );
     return { clientId, ...current, pendingRequests: pending };
+  }
+
+  private assertValidRequestStatus(status?: string): void {
+    if (!status) return;
+    if (!SERVICE_REQUEST_STATUSES.includes(status as any)) {
+      throw new BadRequestException(`Unsupported service request status: ${status}`);
+    }
+  }
+
+  private assertValidOptionalUuid(value: string | undefined, field: string): void {
+    if (!value) return;
+    if (!UUID_RE.test(value)) {
+      throw new BadRequestException(`${field} must be a UUID`);
+    }
   }
 }
