@@ -109,6 +109,59 @@ describe('ServiceEntitlementsService', () => {
         expect(dataSource.transaction).not.toHaveBeenCalled();
       },
     );
+
+    it('normalizes stored JSON module text before approving requests', async () => {
+      const manager = {
+        query: jest.fn().mockResolvedValue([]),
+      };
+      dataSource.query
+        .mockResolvedValueOnce([
+          {
+            id: 'request-1',
+            clientId: 'client-1',
+            packageCode: 'CUSTOM_SERVICES',
+            requestedModules: '["EMPLOYEE_COMPLIANCE"]',
+            currentModules: '[]',
+            status: 'PENDING_CCO',
+            requestNote: null,
+            reviewNote: null,
+            requestedAt: new Date(),
+            reviewedAt: null,
+            requestedByName: 'Admin',
+            reviewedByName: null,
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: 'request-1',
+            clientId: 'client-1',
+            packageCode: 'CUSTOM_SERVICES',
+            requestedModules: '["EMPLOYEE_COMPLIANCE"]',
+            currentModules: '[]',
+            status: 'APPROVED',
+            requestNote: null,
+            reviewNote: null,
+            requestedAt: new Date(),
+            reviewedAt: new Date(),
+            requestedByName: 'Admin',
+            reviewedByName: 'CCO',
+          },
+        ]);
+      (dataSource.transaction as jest.Mock).mockImplementation(async (fn) =>
+        fn(manager as any),
+      );
+
+      await service.reviewRequest(
+        'request-1',
+        { action: 'APPROVED' },
+        { id: 'cco-1', userId: 'cco-1' } as any,
+      );
+
+      expect(manager.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO client_module_entitlements'),
+        ['client-1', 'EMPLOYEE_COMPLIANCE', 'request-1', 'cco-1'],
+      );
+    });
   });
 
   describe('list filters', () => {
@@ -134,6 +187,38 @@ describe('ServiceEntitlementsService', () => {
       );
 
       expect(dataSource.query).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('response module arrays', () => {
+    it('normalizes request module JSON text in list responses', async () => {
+      dataSource.query.mockResolvedValueOnce([
+        {
+          id: 'request-1',
+          clientId: 'client-1',
+          packageCode: 'CUSTOM_SERVICES',
+          requestedModules: '["EMPLOYEE_COMPLIANCE"]',
+          currentModules: '[]',
+        },
+      ]);
+
+      const result = await service.listRequests();
+
+      expect(result[0].requestedModules).toEqual(['EMPLOYEE_COMPLIANCE']);
+      expect(result[0].currentModules).toEqual([]);
+    });
+
+    it('normalizes audit module JSON text in list responses', async () => {
+      dataSource.query.mockResolvedValueOnce([
+        {
+          id: 'audit-1',
+          modules: '["PAYROLL"]',
+        },
+      ]);
+
+      const result = await service.listAuditLogs();
+
+      expect(result[0].modules).toEqual(['PAYROLL']);
     });
   });
 
@@ -196,7 +281,7 @@ describe('ServiceEntitlementsService', () => {
           {
             id: 'request-1',
             packageCode: 'CUSTOM_SERVICES',
-            requestedModules: ['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_DOCUMENTS'],
+            requestedModules: '["EMPLOYEE_COMPLIANCE","CONTRACTOR_DOCUMENTS"]',
             requestNote: 'Add contractor documents',
             requestedAt: new Date('2026-06-26T10:00:00Z'),
           },
