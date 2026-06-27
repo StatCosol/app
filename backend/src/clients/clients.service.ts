@@ -509,11 +509,15 @@ export class ClientsService {
 
         const allowedModules = new Set<string>(SERVICE_MODULE_CODES);
         const modulesByClient = new Map<string, string[]>();
+        // Pre-seed empty arrays for every client that has entitlement rows so
+        // that clients whose every row is filtered (unsupported module code) get
+        // [] instead of falling through to the package-defaults below.
+        for (const row of entitlementRows) {
+          if (!modulesByClient.has(row.clientId)) modulesByClient.set(row.clientId, []);
+        }
         for (const row of entitlementRows) {
           if (!allowedModules.has(row.moduleCode)) continue;
-          const modules = modulesByClient.get(row.clientId) || [];
-          modules.push(row.moduleCode);
-          modulesByClient.set(row.clientId, modules);
+          modulesByClient.get(row.clientId)!.push(row.moduleCode);
         }
 
         const packageByClient = new Map<
