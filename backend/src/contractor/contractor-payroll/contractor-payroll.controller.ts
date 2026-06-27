@@ -75,6 +75,64 @@ export class ContractorPayrollController {
     );
   }
 
+  // ─── Wage Breakup Template Download ──────────────────────────────────────
+
+  @Get('wage-breakup/template')
+  @Roles('CLIENT', 'BRANCH_DESK')
+  async downloadBreakupTemplate(
+    @Query('month') month: string,
+    @Query('year') year: string,
+    @Query('branchId') branchId: string | undefined,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const m = parseInt(month, 10);
+    const y = parseInt(year, 10);
+    const { clientId } = req.user;
+    const buf = await this.svc.generateWageBreakupTemplate(clientId, branchId ?? null, m, y);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="wage-breakup-template-${y}-${m}.xlsx"`,
+    });
+    res.send(buf);
+  }
+
+  // ─── Upload Wage Breakup ──────────────────────────────────────────────────
+
+  @Post('wage-breakup/upload')
+  @Roles('CLIENT', 'BRANCH_DESK')
+  @UseInterceptors(FileInterceptor('file', makeSafeUploadOptions({ memory: true })))
+  async uploadWageBreakup(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('month') month: string,
+    @Body('year') year: string,
+    @Body('branchId') branchId: string | undefined,
+    @Req() req: any,
+  ) {
+    const { clientId, userId } = req.user;
+    return this.svc.processWageBreakupUpload(
+      file,
+      clientId,
+      branchId ?? null,
+      userId,
+      parseInt(month, 10),
+      parseInt(year, 10),
+    );
+  }
+
+  // ─── Get Wage Breakup Rows ────────────────────────────────────────────────
+
+  @Get('wage-breakup')
+  @Roles('CLIENT', 'BRANCH_DESK', 'AUDITOR', 'CONTRACTOR')
+  async getWageBreakup(
+    @Query('month') month: string,
+    @Query('year') year: string,
+    @Req() req: any,
+  ) {
+    const { clientId } = req.user;
+    return this.svc.getWageBreakup(clientId, parseInt(month, 10), parseInt(year, 10));
+  }
+
   // ─── Generate / Refresh Wage Sheet ────────────────────────────────────────
 
   @Post('sheet/generate')

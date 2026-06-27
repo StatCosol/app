@@ -52,6 +52,20 @@ export interface AttendanceUploadResult {
   rowsProcessed: number;
 }
 
+export interface WageBreakupRow {
+  id: string;
+  contractorEmployeeId: string;
+  employeeName: string;
+  monthlyGross: number;
+  basic: number;
+  da: number;
+  hra: number;
+  specialAllowance: number;
+  otherAllowances: number;
+  month: number;
+  year: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ContractorPayrollApiService {
   private base = '/api/v1/contractor-payroll';
@@ -114,5 +128,30 @@ export class ContractorPayrollApiService {
 
   exportSheet(id: string): void {
     window.open(`${this.base}/sheet/${id}/export`, '_blank');
+  }
+
+  downloadBreakupTemplate(month: number, year: number, branchId?: string): void {
+    let params = new HttpParams().set('month', month).set('year', year);
+    if (branchId) params = params.set('branchId', branchId);
+    window.open(`${this.base}/wage-breakup/template?${params.toString()}`, '_blank');
+  }
+
+  uploadWageBreakup(
+    file: File,
+    month: number,
+    year: number,
+    branchId?: string,
+  ): Observable<AttendanceUploadResult> {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('month', String(month));
+    fd.append('year', String(year));
+    if (branchId) fd.append('branchId', branchId);
+    return this.http.post<AttendanceUploadResult>(`${this.base}/wage-breakup/upload`, fd);
+  }
+
+  getWageBreakup(month: number, year: number): Observable<WageBreakupRow[]> {
+    const params = new HttpParams().set('month', month).set('year', year);
+    return this.http.get<WageBreakupRow[]>(`${this.base}/wage-breakup`, { params });
   }
 }

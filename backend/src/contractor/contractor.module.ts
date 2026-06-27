@@ -72,6 +72,8 @@ import { ContractorAttendanceUploadEntity } from './contractor-payroll/entities/
 import { ContractorAttendanceRecordEntity } from './contractor-payroll/entities/contractor-attendance-record.entity';
 import { ContractorPayrollSheetEntity } from './contractor-payroll/entities/contractor-payroll-sheet.entity';
 import { ContractorPayrollSheetRowEntity } from './contractor-payroll/entities/contractor-payroll-sheet-row.entity';
+import { ContractorWageBreakupUploadEntity } from './contractor-payroll/entities/contractor-wage-breakup-upload.entity';
+import { ContractorWageBreakupRowEntity } from './contractor-payroll/entities/contractor-wage-breakup-row.entity';
 
 @Module({
   imports: [
@@ -104,6 +106,8 @@ import { ContractorPayrollSheetRowEntity } from './contractor-payroll/entities/c
       ContractorAttendanceRecordEntity,
       ContractorPayrollSheetEntity,
       ContractorPayrollSheetRowEntity,
+      ContractorWageBreakupUploadEntity,
+      ContractorWageBreakupRowEntity,
     ]),
     AuthModule, // ✅ required (ClientContractorsController uses BranchAccessService)
     UsersModule,

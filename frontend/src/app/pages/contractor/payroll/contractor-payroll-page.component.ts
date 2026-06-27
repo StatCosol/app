@@ -13,6 +13,7 @@ import {
   ContractorPayrollApiService,
   PayrollSheet,
   PayrollSheetRow,
+  WageBreakupRow,
 } from '../../../core/contractor-payroll-api.service';
 import {
   ContractorBranchItem,
@@ -67,6 +68,59 @@ const MONTHS = [
           (filesChange)="onAttendanceFile($event[0])" />
         <div *ngIf="uploadResult" class="upload-result success">
           ✓ Uploaded {{ uploadResult.rowsProcessed }} attendance records
+        </div>
+      </div>
+
+      <!-- Wage Breakup section (principal employer uploads approved component split) -->
+      <div class="section-card">
+        <div class="section-header">
+          <h3>Approved Wage Breakup</h3>
+          <div class="actions">
+            <button class="btn btn-outline" (click)="downloadBreakupTemplate()" [disabled]="downloadingBreakup">
+              {{ downloadingBreakup ? 'Downloading…' : '⬇ Download Template' }}
+            </button>
+          </div>
+        </div>
+        <p class="hint">
+          Principal employer downloads the template, fills Basic / DA / HRA / Special / Other per employee,
+          then uploads. PF is calculated on actual Basic + DA (capped at ₹15,000).
+        </p>
+        <app-file-dropzone accept=".xlsx,.xls" label="Drop wage breakup Excel here or click to browse"
+          (filesChange)="onBreakupFile($event[0])" />
+        <div *ngIf="breakupUploadResult" class="upload-result success">
+          ✓ Uploaded breakup for {{ breakupUploadResult.rowsProcessed }} employees
+        </div>
+
+        <div *ngIf="breakupRows.length > 0" class="table-wrap" style="margin-top:14px">
+          <table class="wage-table">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th class="num">Monthly Gross</th>
+                <th class="num">Basic</th>
+                <th class="num">DA</th>
+                <th class="num">HRA</th>
+                <th class="num">Special Allow.</th>
+                <th class="num">Other Allow.</th>
+                <th class="num">Basic + DA</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of breakupRows">
+                <td>{{ r.employeeName }}</td>
+                <td class="num">{{ r.monthlyGross | number:'1.2-2' }}</td>
+                <td class="num">{{ r.basic | number:'1.2-2' }}</td>
+                <td class="num">{{ r.da | number:'1.2-2' }}</td>
+                <td class="num">{{ r.hra | number:'1.2-2' }}</td>
+                <td class="num">{{ r.specialAllowance | number:'1.2-2' }}</td>
+                <td class="num">{{ r.otherAllowances | number:'1.2-2' }}</td>
+                <td class="num bold">{{ (r.basic + r.da) | number:'1.2-2' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div *ngIf="breakupRows.length === 0" class="empty-hint" style="padding:16px">
+          No approved wage breakup uploaded for this period. Upload above to enable accurate PF calculation.
         </div>
       </div>
 
@@ -190,11 +244,14 @@ export class ContractorPayrollPageComponent implements OnInit, OnDestroy {
   branches: ContractorBranchItem[] = [];
   sheet: PayrollSheet | null = null;
   rows: PayrollSheetRow[] = [];
+  breakupRows: WageBreakupRow[] = [];
 
   loading = false;
   generating = false;
   downloading = false;
+  downloadingBreakup = false;
   uploadResult: { rowsProcessed: number } | null = null;
+  breakupUploadResult: { rowsProcessed: number } | null = null;
 
   private destroy$ = new Subject<void>();
 
@@ -219,6 +276,7 @@ export class ContractorPayrollPageComponent implements OnInit, OnDestroy {
         },
       });
     this.loadSheet();
+    this.loadBreakup();
   }
 
   ngOnDestroy(): void {
@@ -240,7 +298,9 @@ export class ContractorPayrollPageComponent implements OnInit, OnDestroy {
 
   onFilterChange(): void {
     this.uploadResult = null;
+    this.breakupUploadResult = null;
     this.loadSheet();
+    this.loadBreakup();
   }
 
   loadSheet(): void {
@@ -277,6 +337,37 @@ export class ContractorPayrollPageComponent implements OnInit, OnDestroy {
           this.cdr.markForCheck();
         },
         error: (err) => this.toast.error(err?.error?.message ?? 'Upload failed'),
+      });
+  }
+
+  loadBreakup(): void {
+    this.api
+      .getWageBreakup(this.selectedMonth, this.selectedYear)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows) => { this.breakupRows = rows; this.cdr.markForCheck(); },
+      });
+  }
+
+  downloadBreakupTemplate(): void {
+    this.downloadingBreakup = true;
+    setTimeout(() => { this.downloadingBreakup = false; this.cdr.markForCheck(); }, 2000);
+    this.api.downloadBreakupTemplate(this.selectedMonth, this.selectedYear, this.selectedBranchId || undefined);
+  }
+
+  onBreakupFile(file: File): void {
+    if (!file) return;
+    this.breakupUploadResult = null;
+    this.api
+      .uploadWageBreakup(file, this.selectedMonth, this.selectedYear, this.selectedBranchId || undefined)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          this.breakupUploadResult = res;
+          this.toast.success(`Wage breakup uploaded for ${res.rowsProcessed} employees`);
+          this.loadBreakup();
+        },
+        error: (err) => this.toast.error(err?.error?.message ?? 'Breakup upload failed'),
       });
   }
 

@@ -13,6 +13,8 @@ import { ContractorAttendanceUploadEntity } from './entities/contractor-attendan
 import { ContractorAttendanceRecordEntity } from './entities/contractor-attendance-record.entity';
 import { ContractorPayrollSheetEntity } from './entities/contractor-payroll-sheet.entity';
 import { ContractorPayrollSheetRowEntity } from './entities/contractor-payroll-sheet-row.entity';
+import { ContractorWageBreakupUploadEntity } from './entities/contractor-wage-breakup-upload.entity';
+import { ContractorWageBreakupRowEntity } from './entities/contractor-wage-breakup-row.entity';
 
 const DAYS_IN_MONTH = 26; // statutory working days denominator (India standard)
 const PF_CAP = 15_000;
@@ -47,6 +49,10 @@ export class ContractorPayrollService {
     private readonly sheetRepo: Repository<ContractorPayrollSheetEntity>,
     @InjectRepository(ContractorPayrollSheetRowEntity)
     private readonly rowRepo: Repository<ContractorPayrollSheetRowEntity>,
+    @InjectRepository(ContractorWageBreakupUploadEntity)
+    private readonly breakupUploadRepo: Repository<ContractorWageBreakupUploadEntity>,
+    @InjectRepository(ContractorWageBreakupRowEntity)
+    private readonly breakupRowRepo: Repository<ContractorWageBreakupRowEntity>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -223,6 +229,177 @@ export class ContractorPayrollService {
     });
   }
 
+  // ─── Wage Breakup Template ─────────────────────────────────────────────────
+
+  async generateWageBreakupTemplate(
+    clientId: string,
+    branchId: string | null,
+    month: number,
+    year: number,
+  ): Promise<Buffer> {
+    const employees = await this.getActiveEmployees(clientId, branchId);
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Wage Breakup');
+
+    const headers = [
+      'Employee Name', 'Employee ID', 'Monthly Gross',
+      'Basic', 'DA (Dearness Allowance)', 'HRA (House Rent Allowance)',
+      'Special Allowance', 'Other Allowances',
+    ];
+    ws.addRow(headers);
+
+    const headerRow = ws.getRow(1);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F4E79' } };
+    headerRow.alignment = { horizontal: 'center', wrapText: true };
+
+    ws.getColumn(1).width = 30;
+    ws.getColumn(2).width = 36;
+    ws.columns.slice(2).forEach((c) => { c.width = 22; });
+    ws.views = [{ state: 'frozen', xSplit: 2, ySplit: 1 }];
+
+    // Load any existing breakup for pre-fill
+    const existing = await this.breakupRowRepo.find({ where: { clientId, month, year } });
+    const existingMap = new Map(existing.map((r) => [r.contractorEmployeeId, r]));
+
+    for (const emp of employees) {
+      const ex = existingMap.get(emp.id);
+      ws.addRow([
+        emp.name,
+        emp.id,
+        ex?.monthlyGross ?? (emp.monthlySalary ?? ''),
+        ex?.basic ?? '',
+        ex?.da ?? '',
+        ex?.hra ?? '',
+        ex?.specialAllowance ?? '',
+        ex?.otherAllowances ?? '',
+      ]);
+    }
+
+    // Protect Employee Name + ID columns
+    ws.getColumn(1).protection = { locked: true };
+    ws.getColumn(2).protection = { locked: true };
+
+    const instrRow = ws.addRow([
+      'NOTE: Basic + DA + HRA + Special + Other must equal Monthly Gross. '
+      + 'PF is calculated on min(Basic + DA, ₹15,000). ESI on earned gross if gross ≤ ₹21,000.',
+    ]);
+    instrRow.getCell(1).font = { italic: true, color: { argb: 'FF888888' } };
+
+    return wb.xlsx.writeBuffer() as unknown as Promise<Buffer>;
+  }
+
+  // ─── Upload Wage Breakup (Principal Employer) ─────────────────────────────
+
+  async processWageBreakupUpload(
+    file: Express.Multer.File,
+    clientId: string,
+    branchId: string | null,
+    uploadedBy: string,
+    month: number,
+    year: number,
+  ): Promise<{ uploadId: string; rowsProcessed: number }> {
+    const wb = new ExcelJS.Workbook();
+    await (wb.xlsx as any).load(file.buffer);
+    const ws = wb.getWorksheet('Wage Breakup') ?? wb.worksheets[0];
+    if (!ws) throw new BadRequestException('Could not find Wage Breakup sheet in uploaded file');
+
+    const errors: string[] = [];
+    type BreakupRow = {
+      empId: string; empName: string; monthlyGross: number;
+      basic: number; da: number; hra: number; special: number; other: number;
+    };
+    const rows: BreakupRow[] = [];
+
+    ws.eachRow((row, rowNum) => {
+      if (rowNum === 1) return;
+      const empName = String(row.getCell(1).value ?? '').trim();
+      const empId = String(row.getCell(2).value ?? '').trim();
+      if (!empId || empId.length < 30) return; // skip instruction/empty rows
+      if (empName === 'NOTE:' || empName.startsWith('NOTE')) return;
+
+      const gross = Number(row.getCell(3).value ?? 0);
+      const basic = Number(row.getCell(4).value ?? 0);
+      const da = Number(row.getCell(5).value ?? 0);
+      const hra = Number(row.getCell(6).value ?? 0);
+      const special = Number(row.getCell(7).value ?? 0);
+      const other = Number(row.getCell(8).value ?? 0);
+      const componentSum = round2(basic + da + hra + special + other);
+
+      if (gross <= 0) {
+        errors.push(`Row ${rowNum} (${empName}): Monthly Gross must be > 0`);
+        return;
+      }
+      if (Math.abs(componentSum - gross) > 1) {
+        errors.push(
+          `Row ${rowNum} (${empName}): Components sum (${componentSum}) ≠ Monthly Gross (${gross})`,
+        );
+        return;
+      }
+      rows.push({ empId, empName, monthlyGross: gross, basic, da, hra, special, other });
+    });
+
+    if (errors.length > 0) {
+      throw new BadRequestException(
+        `Wage breakup upload has ${errors.length} error(s): ${errors.slice(0, 5).join('; ')}`,
+      );
+    }
+    if (rows.length === 0) {
+      throw new BadRequestException('No valid rows found in uploaded wage breakup file');
+    }
+
+    return this.dataSource.transaction(async (em) => {
+      // One upload record per month (upsert)
+      await em
+        .createQueryBuilder()
+        .delete()
+        .from(ContractorWageBreakupUploadEntity)
+        .where('client_id = :clientId AND month = :month AND year = :year', { clientId, month, year })
+        .execute();
+
+      const upload = em.create(ContractorWageBreakupUploadEntity, {
+        clientId, branchId, uploadedBy, month, year, rowsProcessed: rows.length,
+      });
+      const saved = await em.save(ContractorWageBreakupUploadEntity, upload);
+
+      for (const r of rows) {
+        await em.upsert(
+          ContractorWageBreakupRowEntity,
+          {
+            uploadId: saved.id,
+            contractorEmployeeId: r.empId,
+            employeeName: r.empName,
+            clientId,
+            month,
+            year,
+            basic: r.basic,
+            da: r.da,
+            hra: r.hra,
+            specialAllowance: r.special,
+            otherAllowances: r.other,
+            monthlyGross: r.monthlyGross,
+          },
+          ['clientId', 'contractorEmployeeId', 'month', 'year'],
+        );
+      }
+
+      return { uploadId: saved.id, rowsProcessed: rows.length };
+    });
+  }
+
+  // ─── Get Wage Breakup Rows for a month (for display) ─────────────────────
+
+  async getWageBreakup(
+    clientId: string,
+    month: number,
+    year: number,
+  ): Promise<ContractorWageBreakupRowEntity[]> {
+    return this.breakupRowRepo.find({
+      where: { clientId, month, year },
+      order: { employeeName: 'ASC' },
+    });
+  }
+
   // ─── Generate / Refresh Wage Sheet ────────────────────────────────────────
 
   async generateSheet(
@@ -248,6 +425,12 @@ export class ContractorPayrollService {
     sheet.status = existing?.status === 'SUBMITTED' ? 'SUBMITTED' : 'DRAFT';
     const savedSheet = await this.sheetRepo.save(sheet);
 
+    // Load approved wage breakup for this month (keyed by employee id)
+    const breakupRows = await this.breakupRowRepo.find({
+      where: { clientId, month, year },
+    });
+    const breakupMap = new Map(breakupRows.map((r) => [r.contractorEmployeeId, r]));
+
     await this.dataSource.transaction(async (em) => {
       for (const emp of employees) {
         const { workedDays, source } = await this.computeWorkedDays(
@@ -258,12 +441,19 @@ export class ContractorPayrollService {
           year,
         );
 
-        const monthlyGross = emp.monthlySalary ?? 0;
-        const basicDaPct = emp.basicDaPct ?? 50;
+        // Use approved breakup when available; fall back to monthly_salary + basic_da_pct
+        const breakup = breakupMap.get(emp.id);
+        const monthlyGross = breakup ? breakup.monthlyGross : (emp.monthlySalary ?? 0);
+        const basicDa = breakup
+          ? round2(breakup.basic + breakup.da)
+          : round2(monthlyGross * (emp.basicDaPct ?? 50) / 100);
+        const basicDaPct = breakup
+          ? Math.round((basicDa / (monthlyGross || 1)) * 100)
+          : (emp.basicDaPct ?? 50);
+
         const dailyRate = monthlyGross / DAYS_IN_MONTH;
         const earnedGross = round2(dailyRate * workedDays);
 
-        const basicDa = round2(monthlyGross * basicDaPct / 100);
         const pfBasis = emp.pfApplicable ? round2(Math.min(basicDa, PF_CAP)) : 0;
         const pfEmployee = emp.pfApplicable ? round2(pfBasis * PF_EMPLOYEE_RATE) : 0;
         const pfEmployer = emp.pfApplicable ? round2(pfBasis * PF_EMPLOYER_RATE) : 0;
