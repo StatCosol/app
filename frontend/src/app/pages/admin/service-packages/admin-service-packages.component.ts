@@ -150,7 +150,7 @@ import {
           <div>
             <h2 class="font-semibold text-slate-900">Recent Requests</h2>
             <p class="mt-1 text-xs text-slate-500">
-              Showing {{ filteredRequests.length }} of {{ requests.length }} request{{ requests.length === 1 ? '' : 's' }}
+              Showing {{ filteredRequests.length }} of {{ historyRequests.length }} request{{ historyRequests.length === 1 ? '' : 's' }}
             </p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
@@ -159,7 +159,8 @@ import {
               <select
                 class="rounded-md border border-slate-300 px-3 py-2 text-sm"
                 name="historyClientId"
-                [(ngModel)]="historyClientId">
+                [(ngModel)]="historyClientId"
+                (ngModelChange)="loadHistory()">
                 <option value="">All clients</option>
                 <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
               </select>
@@ -169,7 +170,8 @@ import {
               <select
                 class="rounded-md border border-slate-300 px-3 py-2 text-sm"
                 name="requestStatusFilter"
-                [(ngModel)]="requestStatusFilter">
+                [(ngModel)]="requestStatusFilter"
+                (ngModelChange)="loadHistory()">
                 <option value="">All statuses</option>
                 <option value="PENDING_CCO">Pending CCO</option>
                 <option value="APPROVED">Approved</option>
@@ -298,6 +300,7 @@ export class AdminServicePackagesComponent implements OnInit {
   packages: ServicePackageOption[] = [];
   moduleOptions: ServiceModuleOption[] = [];
   requests: ServiceChangeRequest[] = [];
+  historyRequests: ServiceChangeRequest[] = [];
   auditLogs: ServiceAuditLogEntry[] = [];
   loading = false;
   loadingClientStatus = false;
@@ -331,18 +334,45 @@ export class AdminServicePackagesComponent implements OnInit {
       packages: this.entitlements.listPackages(),
       modules: this.entitlements.listModules(),
       requests: this.entitlements.listRequests(),
-      auditLogs: this.entitlements.listAuditLogs(),
+      historyRequests: this.entitlements.listRequests(
+        this.requestStatusFilter || undefined,
+        this.historyClientId || undefined,
+      ),
+      auditLogs: this.entitlements.listAuditLogs(this.historyClientId || undefined),
     }).subscribe({
-      next: ({ clients, packages, modules, requests, auditLogs }) => {
+      next: ({ clients, packages, modules, requests, historyRequests, auditLogs }) => {
         this.clients = clients || [];
         this.packages = packages || [];
         this.moduleOptions = modules || [];
         this.requests = requests || [];
+        this.historyRequests = historyRequests || [];
         this.auditLogs = auditLogs || [];
         this.loading = false;
       },
       error: () => {
         this.message = 'Failed to load service package data.';
+        this.error = true;
+        this.loading = false;
+      },
+    });
+  }
+
+  loadHistory(): void {
+    this.loading = true;
+    forkJoin({
+      requests: this.entitlements.listRequests(
+        this.requestStatusFilter || undefined,
+        this.historyClientId || undefined,
+      ),
+      auditLogs: this.entitlements.listAuditLogs(this.historyClientId || undefined),
+    }).subscribe({
+      next: ({ requests, auditLogs }) => {
+        this.historyRequests = requests || [];
+        this.auditLogs = auditLogs || [];
+        this.loading = false;
+      },
+      error: () => {
+        this.message = 'Failed to load service package history.';
         this.error = true;
         this.loading = false;
       },
@@ -475,7 +505,7 @@ export class AdminServicePackagesComponent implements OnInit {
 
   get filteredRequests(): ServiceChangeRequest[] {
     const query = this.normalizedSearchTerm;
-    return this.requests.filter((request) => {
+    return this.historyRequests.filter((request) => {
       if (this.historyClientId && request.clientId !== this.historyClientId) {
         return false;
       }
