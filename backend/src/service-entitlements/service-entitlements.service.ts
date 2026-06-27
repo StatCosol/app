@@ -145,7 +145,7 @@ export class ServiceEntitlementsService {
     }
 
     const enabledModules = entitlementRows.length
-      ? entitlementRows.map((r) => r.module_code)
+      ? this.normalizeStoredModuleArray(entitlementRows.map((r) => r.module_code))
       : PACKAGE_MODULES[packageCode] ?? PACKAGE_MODULES[FULL_SERVICE_PACKAGE];
 
     return {
@@ -529,6 +529,9 @@ export class ServiceEntitlementsService {
 
   private normalizeStoredModuleArray(value: unknown): ServiceModuleCode[] {
     const parsed = typeof value === 'string' ? JSON.parse(value) : value;
-    return Array.isArray(parsed) ? (parsed as ServiceModuleCode[]) : [];
+    const allowed = new Set(SERVICE_MODULE_CODES);
+    return Array.isArray(parsed)
+      ? parsed.filter((module) => allowed.has(module)) as ServiceModuleCode[]
+      : [];
   }
 }

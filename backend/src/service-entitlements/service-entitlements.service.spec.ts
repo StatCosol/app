@@ -270,6 +270,28 @@ describe('ServiceEntitlementsService', () => {
     });
   });
 
+  describe('getCurrentForClient', () => {
+    it('ignores unsupported stored entitlement module rows', async () => {
+      dataSource.query
+        .mockResolvedValueOnce([
+          { package_code: 'CUSTOM_SERVICES', approved_at: new Date() },
+        ])
+        .mockResolvedValueOnce([
+          { module_code: 'EMPLOYEE_COMPLIANCE' },
+          { module_code: 'UNKNOWN_MODULE' },
+          { module_code: '' },
+        ]);
+
+      const result = await service.getCurrentForClient('client-1');
+
+      expect(result).toEqual({
+        packageCode: 'CUSTOM_SERVICES',
+        enabledModules: ['EMPLOYEE_COMPLIANCE'],
+        isRestricted: true,
+      });
+    });
+  });
+
   describe('getClientStatus', () => {
     it('includes pending request modules and note details', async () => {
       dataSource.query

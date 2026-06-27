@@ -1878,11 +1878,16 @@ export class UsersService implements OnModuleInit {
     } catch (err: any) {
       if (err?.code !== '42P01') throw err;
     }
+    const allowedModules = new Set(SERVICE_MODULE_CODES);
+    const enabledModules = entitlementRows.length
+      ? entitlementRows
+          .map((r) => r.module_code)
+          .filter((module) => allowedModules.has(module as any))
+      : (PACKAGE_MODULES[packageCode] ?? [...SERVICE_MODULE_CODES]);
+
     return {
       packageCode,
-      enabledModules: entitlementRows.length
-        ? entitlementRows.map((r) => r.module_code)
-        : (PACKAGE_MODULES[packageCode] ?? [...SERVICE_MODULE_CODES]),
+      enabledModules,
     };
   }
 
