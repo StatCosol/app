@@ -236,6 +236,35 @@ describe('ServiceEntitlementsService', () => {
 
       expect(dataSource.transaction).not.toHaveBeenCalled();
     });
+
+    it('rejects reviews when stored request modules are malformed JSON text', async () => {
+      dataSource.query.mockResolvedValueOnce([
+        {
+          id: 'request-1',
+          clientId: 'client-1',
+          packageCode: 'CUSTOM_SERVICES',
+          requestedModules: 'not-json',
+          currentModules: '[]',
+          status: 'PENDING_CCO',
+          requestNote: null,
+          reviewNote: null,
+          requestedAt: new Date(),
+          reviewedAt: null,
+          requestedByName: 'Admin',
+          reviewedByName: null,
+        },
+      ]);
+
+      await expect(
+        service.reviewRequest(
+          'request-1',
+          { action: 'APPROVED' },
+          { id: 'cco-1', userId: 'cco-1' } as any,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
   });
 
   describe('list filters', () => {
@@ -279,6 +308,23 @@ describe('ServiceEntitlementsService', () => {
       const result = await service.listRequests();
 
       expect(result[0].requestedModules).toEqual(['EMPLOYEE_COMPLIANCE']);
+      expect(result[0].currentModules).toEqual([]);
+    });
+
+    it('normalizes malformed request module JSON text to empty arrays in list responses', async () => {
+      dataSource.query.mockResolvedValueOnce([
+        {
+          id: 'request-1',
+          clientId: 'client-1',
+          packageCode: 'CUSTOM_SERVICES',
+          requestedModules: 'not-json',
+          currentModules: '[]',
+        },
+      ]);
+
+      const result = await service.listRequests();
+
+      expect(result[0].requestedModules).toEqual([]);
       expect(result[0].currentModules).toEqual([]);
     });
 
