@@ -298,7 +298,7 @@ export class AuthService {
     if (this.hasAnyModule(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'])) {
       return '/client/contractors';
     }
-    if (this.hasModule('CONTRACTOR_FACE_ATTENDANCE')) {
+    if (this.hasAnyModule(['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])) {
       return '/client/mobile-attendance';
     }
     if (this.hasModule('PAYROLL')) return '/client/payroll';
