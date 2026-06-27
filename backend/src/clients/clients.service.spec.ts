@@ -15,6 +15,10 @@ describe('ClientsService', () => {
     save: jest.fn(),
     find: jest.fn(),
     findOne: jest.fn(),
+    createQueryBuilder: jest.fn().mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    }),
   };
 
   const mockUsersService = {
@@ -31,6 +35,7 @@ describe('ClientsService', () => {
   };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ClientsService,
@@ -142,6 +147,26 @@ describe('ClientsService', () => {
           serviceModules: ['EMPLOYEE_COMPLIANCE', null],
         }),
       ).toThrow(BadRequestException);
+    });
+  });
+
+  describe('create', () => {
+    it('rejects malformed service request actor ids before saving clients', async () => {
+      await expect(
+        service.create(
+          {
+            clientName: 'Acme Ltd',
+            servicePackageCode: 'CUSTOM_SERVICES',
+            serviceModules: ['EMPLOYEE_COMPLIANCE'],
+          } as any,
+          'not-a-uuid',
+          'ADMIN',
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(mockRepo.create).not.toHaveBeenCalled();
+      expect(mockRepo.save).not.toHaveBeenCalled();
+      expect(mockDataSource.createQueryRunner).not.toHaveBeenCalled();
     });
   });
 });
