@@ -14,6 +14,32 @@ describe('ServiceEntitlementsService', () => {
     service = new ServiceEntitlementsService(dataSource as unknown as DataSource);
   });
 
+  describe('normalizeModules', () => {
+    it('rejects custom module selections for fixed packages', () => {
+      expect(() =>
+        service.normalizeModules('FULL_SERVICE', ['EMPLOYEE_COMPLIANCE']),
+      ).toThrow(BadRequestException);
+    });
+
+    it('allows fixed packages when modules match the package definition', () => {
+      const modules = service.normalizeModules('CONTRACTOR_AUDIT_ONLY', [
+        'CONTRACTOR_AUDIT',
+        'CONTRACTOR_PORTAL',
+        'CONTRACTOR_DOCUMENTS',
+        'CONTRACTOR_ATTENDANCE',
+        'CONTRACTOR_FACE_ATTENDANCE',
+      ]);
+
+      expect(modules).toEqual([
+        'CONTRACTOR_AUDIT',
+        'CONTRACTOR_PORTAL',
+        'CONTRACTOR_DOCUMENTS',
+        'CONTRACTOR_ATTENDANCE',
+        'CONTRACTOR_FACE_ATTENDANCE',
+      ]);
+    });
+  });
+
   describe('reviewRequest', () => {
     beforeEach(() => {
       dataSource.query.mockResolvedValue([
