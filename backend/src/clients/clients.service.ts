@@ -25,6 +25,9 @@ import {
   ServiceModuleCode,
 } from '../service-entitlements/service-entitlements.constants';
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 interface RetentionSnapshotData {
   registers: any[];
   payrollRuns: any[];
@@ -99,6 +102,13 @@ export class ClientsService {
       modules,
       note: dto.servicePackageNote?.trim() || 'Initial service selection during client registration',
     };
+  }
+
+  private assertValidOptionalUuid(value: string | undefined, field: string): void {
+    if (!value) return;
+    if (!UUID_RE.test(value)) {
+      throw new BadRequestException(`${field} must be a UUID`);
+    }
   }
 
   private async createInitialServiceRequest(
@@ -240,6 +250,9 @@ export class ClientsService {
     }
 
     const serviceSelection = this.normalizeRequestedServiceModules(dto);
+    if (serviceSelection) {
+      this.assertValidOptionalUuid(createdBy, 'createdBy');
+    }
 
     const clientData = {
       clientCode,
