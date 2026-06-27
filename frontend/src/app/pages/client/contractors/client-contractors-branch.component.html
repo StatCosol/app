@@ -96,7 +96,7 @@
             <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700" *ngIf="pendingCount(c) > 0">⏳ {{ pendingCount(c) }} pending</span>
             <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-rose-50 text-rose-700" *ngIf="rejectedCount(c) > 0">✖ {{ rejectedCount(c) }} rejected</span>
             <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 text-slate-700">NC: {{ ncPoints(c) }}</span>
-            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 text-slate-700">Audit risk: {{ auditRiskPoints(c) }}</span>
+            <span *ngIf="hasContractorAuditModule" class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 text-slate-700">Audit risk: {{ auditRiskPoints(c) }}</span>
           </div>
           <svg class="w-4 h-4 text-gray-300 group-hover:text-statco-blue group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -107,7 +107,7 @@
     <div *ngIf="!loadingContractors && contractors.length === 0" class="text-center py-10 text-sm text-gray-500">No contractors for this branch.</div>
   </div>
 
-  <div class="bg-white border border-gray-200 rounded-2xl shadow-sm">
+  <div *ngIf="hasContractorAuditModule" class="bg-white border border-gray-200 rounded-2xl shadow-sm">
     <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3 justify-between">
       <div>
         <p class="text-sm font-semibold text-gray-900">Contractor Trend</p>
