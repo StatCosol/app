@@ -208,6 +208,23 @@ describe('AuthService', () => {
     });
   });
 
+  describe('getClientModuleHomePath', () => {
+    it('routes mobile attendance only clients to mobile attendance', () => {
+      sessionStorage.setItem(
+        'user',
+        JSON.stringify({
+          roleCode: 'CLIENT',
+          userType: 'MASTER',
+          branchIds: [],
+          servicePackage: 'CUSTOM_SERVICES',
+          enabledModules: ['MOBILE_ATTENDANCE'],
+        }),
+      );
+
+      expect(service.getClientModuleHomePath()).toBe('/client/mobile-attendance');
+    });
+  });
+
   describe('authenticateUrl', () => {
     it('returns empty url unchanged', () => {
       expect(service.authenticateUrl('')).toBe('');
