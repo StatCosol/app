@@ -29,7 +29,7 @@ import {
 
 const KIOSK_REQUIRED_FRAMES = Number(process.env.FACE_KIOSK_REQUIRED_FRAMES ?? 3);
 const ESS_REQUIRED_FRAMES = Number(process.env.FACE_ESS_REQUIRED_FRAMES ?? 7);
-const DUPLICATE_THRESHOLD = Number(process.env.FACE_DUPLICATE_THRESHOLD ?? 0.88);
+const DUPLICATE_THRESHOLD = Number(process.env.FACE_DUPLICATE_THRESHOLD ?? 0.97);
 const MIN_QUALITY = Number(process.env.FACE_MIN_QUALITY_SCORE ?? 0.75);
 const KIOSK_TICKET_TTL_MS = Number(process.env.FACE_KIOSK_TICKET_TTL_MS ?? 5 * 60 * 1000);
 
