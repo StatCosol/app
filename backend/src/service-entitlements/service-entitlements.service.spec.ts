@@ -76,6 +76,32 @@ describe('ServiceEntitlementsService', () => {
     );
   });
 
+  describe('list filters', () => {
+    it('rejects unsupported request statuses before querying', async () => {
+      await expect(service.listRequests('UNKNOWN')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+
+      expect(dataSource.query).not.toHaveBeenCalled();
+    });
+
+    it('rejects malformed request client ids before querying', async () => {
+      await expect(
+        service.listRequests('PENDING_CCO', 'not-a-uuid'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(dataSource.query).not.toHaveBeenCalled();
+    });
+
+    it('rejects malformed audit client ids before querying', async () => {
+      await expect(service.listAuditLogs('not-a-uuid')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+
+      expect(dataSource.query).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getClientStatus', () => {
     it('includes pending request modules and note details', async () => {
       dataSource.query
