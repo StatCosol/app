@@ -79,9 +79,10 @@ export class ServiceEntitlementsApiService {
     return this.http.get<ClientServiceStatus>(`${this.base}/clients/${clientId}`);
   }
 
-  listRequests(status?: string): Observable<ServiceChangeRequest[]> {
+  listRequests(status?: string, clientId?: string): Observable<ServiceChangeRequest[]> {
     let params = new HttpParams();
     if (status) params = params.set('status', status);
+    if (clientId) params = params.set('clientId', clientId);
     return this.http.get<ServiceChangeRequest[]>(`${this.base}/requests`, { params });
   }
 
