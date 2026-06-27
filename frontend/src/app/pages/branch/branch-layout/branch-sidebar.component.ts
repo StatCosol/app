@@ -538,7 +538,8 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
   }
 
   private moduleForRoute(route: string): string[] | null {
-    if (route === '/branch/dashboard' || route.startsWith('/branch/reports') || route.startsWith('/branch/notifications') || route.startsWith('/branch/helpdesk')) return null;
+    if (route === '/branch/dashboard' || route.startsWith('/branch/notifications') || route.startsWith('/branch/helpdesk')) return null;
+    if (route.startsWith('/branch/reports')) return ['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'];
     if (route.startsWith('/branch/contractors')) return ['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'];
     if (route.startsWith('/branch/audits/observations') || route.startsWith('/branch/audit-non-compliances')) return ['CONTRACTOR_AUDIT'];
     if (route.startsWith('/branch/attendance/contractor')) return ['CONTRACTOR_ATTENDANCE'];

@@ -650,7 +650,15 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
     if (route === '/client/profile' || route.startsWith('/client/queries')) return null;
     if (route.startsWith('/client/contractors')) return ['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'];
     if (route.startsWith('/client/audits') || route.startsWith('/client/audit-summaries')) return ['CONTRACTOR_AUDIT'];
-    if (route.startsWith('/client/branches')) return ['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'];
+    if (route.startsWith('/client/branches')) {
+      return [
+        'EMPLOYEE_COMPLIANCE',
+        'CONTRACTOR_AUDIT',
+        'CONTRACTOR_DOCUMENTS',
+        'MOBILE_ATTENDANCE',
+        'CONTRACTOR_FACE_ATTENDANCE',
+      ];
+    }
     if (route.startsWith('/client/mobile-attendance') || route.startsWith('/client/face-failures')) return ['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'];
     if (route.startsWith('/client/payroll') || route.startsWith('/client/ctc-summary') || route.startsWith('/client/registers')) return ['PAYROLL'];
     if (route.startsWith('/client/employees') || route.startsWith('/client/master-data')) return ['EMPLOYEE_COMPLIANCE'];

@@ -103,6 +103,10 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
     return this.auth.hasModule('CONTRACTOR_AUDIT') || this.auth.hasModule('CONTRACTOR_DOCUMENTS');
   }
 
+  get hasBranchWorkspaceModules(): boolean {
+    return this.hasEmployeeComplianceModule || this.hasContractorModule;
+  }
+
   tabLoading: Record<WorkspaceTab, boolean> = {
     compliance: false,
     uploads: false,
@@ -846,7 +850,7 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
   }
 
   private firstAllowedTab(): WorkspaceTab {
-    return this.visibleTabs[0]?.key ?? 'contractors';
+    return this.visibleTabs[0]?.key ?? 'compliance';
   }
 
   private matchBranch(row: any): boolean {
