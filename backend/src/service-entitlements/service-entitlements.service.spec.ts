@@ -102,6 +102,54 @@ describe('ServiceEntitlementsService', () => {
     });
   });
 
+  describe('createRequest', () => {
+    it('trims request notes before writing request and audit rows', async () => {
+      const manager = {
+        query: jest
+          .fn()
+          .mockResolvedValueOnce([{ id: 'request-1' }])
+          .mockResolvedValueOnce([]),
+      };
+      dataSource.query
+        .mockResolvedValueOnce([{ id: 'client-1' }])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+      (dataSource.transaction as jest.Mock).mockImplementation(async (fn) =>
+        fn(manager as any),
+      );
+      dataSource.query.mockResolvedValueOnce([
+        {
+          id: 'request-1',
+          clientId: 'client-1',
+          packageCode: 'CUSTOM_SERVICES',
+          requestedModules: ['EMPLOYEE_COMPLIANCE'],
+          currentModules: [],
+          status: 'PENDING_CCO',
+          requestNote: 'Add payroll',
+          reviewNote: null,
+          requestedAt: new Date(),
+          reviewedAt: null,
+          requestedByName: 'Admin',
+          reviewedByName: null,
+        },
+      ]);
+
+      await service.createRequest(
+        {
+          clientId: 'client-1',
+          packageCode: 'CUSTOM_SERVICES',
+          modules: ['EMPLOYEE_COMPLIANCE'],
+          note: '  Add payroll  ',
+        },
+        { id: 'admin-1', userId: 'admin-1' } as any,
+      );
+
+      expect(manager.query.mock.calls[0][1][5]).toBe('Add payroll');
+      expect(manager.query.mock.calls[1][1][5]).toBe('Add payroll');
+    });
+  });
+
   describe('getClientStatus', () => {
     it('includes pending request modules and note details', async () => {
       dataSource.query

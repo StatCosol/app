@@ -181,6 +181,7 @@ export class ServiceEntitlementsService {
 
   async createRequest(dto: CreateModuleChangeRequestDto, actor: ReqUser) {
     const modules = this.normalizeModules(dto.packageCode, dto.modules);
+    const requestNote = this.normalizeOptionalNote(dto.note);
     const clientRows = await this.dataSource.query(
       `SELECT id FROM clients WHERE id = $1::uuid LIMIT 1`,
       [dto.clientId],
@@ -216,7 +217,7 @@ export class ServiceEntitlementsService {
             JSON.stringify(modules),
             JSON.stringify(current.enabledModules),
             actor.userId || actor.id,
-            dto.note ?? null,
+            requestNote,
           ],
         );
 
@@ -230,7 +231,7 @@ export class ServiceEntitlementsService {
             dto.packageCode,
             JSON.stringify(modules),
             actor.userId || actor.id,
-            dto.note ?? null,
+            requestNote,
           ],
         );
 
@@ -475,5 +476,10 @@ export class ServiceEntitlementsService {
     if (!UUID_RE.test(value)) {
       throw new BadRequestException(`${field} must be a UUID`);
     }
+  }
+
+  private normalizeOptionalNote(note: string | undefined): string | null {
+    const trimmed = note?.trim();
+    return trimmed || null;
   }
 }
