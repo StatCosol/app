@@ -31,8 +31,8 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-const MIN_MATCH_SCORE = Number(process.env.FACE_MIN_MATCH_SCORE ?? 0.90);
-const MIN_MATCH_MARGIN = Number(process.env.FACE_MIN_MATCH_MARGIN ?? 0.04);
+const MIN_MATCH_SCORE = Number(process.env.FACE_MIN_MATCH_SCORE ?? 0.92);
+const MIN_MATCH_MARGIN = Number(process.env.FACE_MIN_MATCH_MARGIN ?? 0.06);
 const ACTIVATION_DELAY_MS =
   Number(process.env.FACE_KIOSK_ACTIVATION_DELAY_MIN ?? 15) * 60 * 1000;
 const OFFLINE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -163,19 +163,45 @@ export class PunchService {
     const probe = decodeEmbedding(dto.embeddingB64);
     const roster = await this.getRoster(device);
 
-    // Activation delay: reject if enrolled too recently on kiosk
+    // Activation delay: reject if enrolled too recently on kiosk.
+    // We also score against the excluded (recently enrolled) set so we can
+    // give a clear "pending activation" error rather than matching the wrong person.
+    const recentRoster =
+      device.mode === 'KIOSK'
+        ? roster.filter((r) => Date.now() - r.enrolledAt.getTime() < ACTIVATION_DELAY_MS)
+        : [];
     const eligibleRoster =
       device.mode === 'KIOSK'
         ? roster.filter((r) => Date.now() - r.enrolledAt.getTime() >= ACTIVATION_DELAY_MS)
         : roster;
+
+    if (eligibleRoster.length === 0 && recentRoster.length === 0) {
+      throw new BadRequestException('No eligible enrollments on this device');
+    }
+
+    // Check if the probe matches a recently-enrolled person above threshold.
+    // If so, surface a clear "pending activation" error to prevent a wrong-person match.
+    if (recentRoster.length > 0) {
+      const recentScored = recentRoster
+        .map((r) => ({ ...r, cosine: cosineSim(probe, r.embedding) }))
+        .sort((a, b) => b.cosine - a.cosine);
+      const recentBest = recentScored[0];
+      if (recentBest.cosine >= MIN_MATCH_SCORE) {
+        const waitMs = ACTIVATION_DELAY_MS - (Date.now() - recentBest.enrolledAt.getTime());
+        const waitMin = Math.ceil(waitMs / 60_000);
+        throw new BadRequestException(
+          `Enrollment is pending activation — please try again in ${waitMin} minute${waitMin !== 1 ? 's' : ''}`,
+        );
+      }
+    }
 
     if (eligibleRoster.length === 0) {
       throw new BadRequestException('No eligible enrollments on this device');
     }
 
     // Find best and second-best match.
-    // MIN_MATCH_SCORE is a raw cosine threshold (e.g. 0.90); toMatchScore is
-    // applied only to the value stored/returned for display.
+    // MIN_MATCH_SCORE is a raw cosine threshold; toMatchScore is applied only
+    // to the value stored/returned for display.
     const scored = eligibleRoster
       .map((r) => ({ ...r, cosine: cosineSim(probe, r.embedding) }))
       .sort((a, b) => b.cosine - a.cosine);
