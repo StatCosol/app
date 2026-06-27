@@ -34,7 +34,7 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
 const MIN_MATCH_SCORE = Number(process.env.FACE_MIN_MATCH_SCORE ?? 0.92);
 const MIN_MATCH_MARGIN = Number(process.env.FACE_MIN_MATCH_MARGIN ?? 0.06);
 const ACTIVATION_DELAY_MS =
-  Number(process.env.FACE_KIOSK_ACTIVATION_DELAY_MIN ?? 15) * 60 * 1000;
+  Number(process.env.FACE_KIOSK_ACTIVATION_DELAY_MIN ?? 5) * 60 * 1000;
 const OFFLINE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export interface RosterEntry {
@@ -219,6 +219,25 @@ export class PunchService {
     if (margin < MIN_MATCH_MARGIN) {
       throw new BadRequestException(
         `Ambiguous match: margin ${margin.toFixed(3)} below required ${MIN_MATCH_MARGIN}`,
+      );
+    }
+
+    // Block punch if the matched employee has a PENDING enrollment ticket
+    // (enrollment in progress — attendance must not be captured during this window).
+    const subjectCol =
+      best.subjectType === 'EMPLOYEE' ? 'employee_id' : 'contractor_employee_id';
+    const pendingTickets = await this.dataSource.query<Array<{ id: string }>>(
+      `SELECT id FROM kiosk_enroll_tickets
+        WHERE ${subjectCol}::text = $1
+          AND client_id::text = $2
+          AND status = 'PENDING'
+          AND expires_at > now()
+        LIMIT 1`,
+      [best.subjectId, device.clientId],
+    );
+    if (pendingTickets.length > 0) {
+      throw new BadRequestException(
+        `Enrollment in progress for ${best.displayName ?? best.subjectId} — please complete enrollment before capturing attendance`,
       );
     }
 

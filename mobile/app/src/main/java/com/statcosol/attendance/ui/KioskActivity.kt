@@ -524,15 +524,19 @@ class KioskActivity : AppCompatActivity() {
                 onSuccess = {
                     val successMsg = getString(R.string.kiosk_enroll_success, enrollState.ticket.subjectName)
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@KioskActivity, successMsg, Toast.LENGTH_LONG).show()
+                        tvHint.text = successMsg
+                        tvStatus.text = successMsg
                     }
                     loadRoster()
+                    delay(RESULT_DISPLAY_MS)
                 },
                 onFailure = { e ->
                     val failMsg = getString(R.string.kiosk_enroll_failed, e.message ?: "unknown")
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@KioskActivity, failMsg, Toast.LENGTH_LONG).show()
+                        tvHint.text = failMsg
+                        tvStatus.text = failMsg
                     }
+                    delay(RESULT_DISPLAY_MS)
                 }
             )
         } finally {
@@ -548,7 +552,7 @@ class KioskActivity : AppCompatActivity() {
         private const val ENROLL_MIN_FRAME_INTERVAL_MS = 300L
         private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.60
         private const val ENROLLMENT_POLL_INTERVAL_MS = 5_000L
-        private const val RESULT_DISPLAY_MS = 3_000L
+        private const val RESULT_DISPLAY_MS = 5_000L
 
         fun cosineSim(a: FloatArray, b: FloatArray): Double {
             var dot = 0.0
