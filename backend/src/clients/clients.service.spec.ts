@@ -94,6 +94,40 @@ describe('ClientsService', () => {
       });
     });
 
+    it('allows fixed packages when explicit modules match the package definition', () => {
+      expect(
+        normalize({
+          servicePackageCode: 'CONTRACTOR_AUDIT_ONLY',
+          serviceModules: [
+            'CONTRACTOR_AUDIT',
+            'CONTRACTOR_PORTAL',
+            'CONTRACTOR_DOCUMENTS',
+            'CONTRACTOR_ATTENDANCE',
+            'CONTRACTOR_FACE_ATTENDANCE',
+          ],
+        }),
+      ).toEqual({
+        packageCode: 'CONTRACTOR_AUDIT_ONLY',
+        modules: [
+          'CONTRACTOR_AUDIT',
+          'CONTRACTOR_PORTAL',
+          'CONTRACTOR_DOCUMENTS',
+          'CONTRACTOR_ATTENDANCE',
+          'CONTRACTOR_FACE_ATTENDANCE',
+        ],
+        note: 'Initial service selection during client registration',
+      });
+    });
+
+    it('rejects custom module selections for fixed service packages', () => {
+      expect(() =>
+        normalize({
+          servicePackageCode: 'CONTRACTOR_AUDIT_ONLY',
+          serviceModules: ['CONTRACTOR_AUDIT'],
+        }),
+      ).toThrow(BadRequestException);
+    });
+
     it('rejects unsupported requested service modules instead of dropping them', () => {
       expect(() =>
         normalize({

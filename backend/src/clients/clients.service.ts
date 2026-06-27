@@ -81,6 +81,18 @@ export class ClientsService {
     if (!modules.length) {
       throw new BadRequestException('At least one client service must be selected');
     }
+    if (packageCode !== CUSTOM_SERVICES_PACKAGE && dto.serviceModules?.length) {
+      const fixedModules = PACKAGE_MODULES[packageCode];
+      const fixedSet = new Set(fixedModules);
+      const matchesFixedPackage =
+        modules.length === fixedModules.length &&
+        modules.every((moduleCode) => fixedSet.has(moduleCode));
+      if (!matchesFixedPackage) {
+        throw new BadRequestException(
+          'Only Custom Services can use a custom module selection',
+        );
+      }
+    }
 
     return {
       packageCode,
