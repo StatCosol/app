@@ -41,6 +41,10 @@ const AuditorOverdueNcsComponent = () =>
   );
 const NewsDetailComponent = () =>
   import('../../shared/news/news-detail.component').then((m) => m.NewsDetailComponent);
+const AuditorContractorPayrollPageComponent = () =>
+  import('./contractor-payroll/auditor-contractor-payroll-page.component').then(
+    (m) => m.AuditorContractorPayrollPageComponent,
+  );
 export const AUDITOR_ROUTES: Routes = [
   {
     path: 'auditor',
@@ -63,6 +67,7 @@ export const AUDITOR_ROUTES: Routes = [
       { path: 'ai-audit', loadComponent: AuditorAiAuditComponent },
       { path: 'analytics/repeat-ncs', loadComponent: AuditorRepeatNcAnalyticsComponent },
       { path: 'analytics/overdue-ncs', loadComponent: AuditorOverdueNcsComponent },
+      { path: 'contractor-payroll', loadComponent: AuditorContractorPayrollPageComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

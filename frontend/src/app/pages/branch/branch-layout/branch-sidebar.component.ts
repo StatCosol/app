@@ -648,6 +648,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
           { label: 'Face Enrollment',   route: '/branch/face-enrollment',   icon: this.svg('M9 12a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H2zm15-3l2 2 4-4') },
           { label: 'Face Failures',     route: '/branch/face-failures',     icon: this.svg('M12 9v2m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3z') },
           { label: 'Contractors',       route: '/branch/contractors',        icon: this.svg('M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z') },
+          { label: 'Contractor Wages',  route: '/branch/contractors/payroll', icon: this.svg('M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z') },
         ],
       },
       {

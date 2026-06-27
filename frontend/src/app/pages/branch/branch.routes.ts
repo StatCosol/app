@@ -102,6 +102,10 @@ const BranchContractorAttendanceComponent = () =>
   import('./branch-contractor-attendance/branch-contractor-attendance.component').then(
     (m) => m.BranchContractorAttendanceComponent,
   );
+const BranchContractorPayrollPageComponent = () =>
+  import('./branch-contractor-payroll/branch-contractor-payroll-page.component').then(
+    (m) => m.BranchContractorPayrollPageComponent,
+  );
 const BranchFaceFailuresComponent = () =>
   import('./branch-face-failures/branch-face-failures.component').then(
     (m) => m.BranchFaceFailuresComponent,
@@ -150,6 +154,7 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'attendance/mark', loadComponent: BranchMarkAttendanceComponent },
       { path: 'attendance/daily', loadComponent: BranchDailyAttendanceComponent },
       { path: 'attendance/contractor', loadComponent: BranchContractorAttendanceComponent },
+      { path: 'contractors/payroll', loadComponent: BranchContractorPayrollPageComponent },
       { path: 'face-enrollment', loadComponent: BranchFaceEnrollmentComponent },
       { path: 'face-failures', loadComponent: BranchFaceFailuresComponent },
       { path: 'notifications', loadComponent: BranchNotificationsComponent },

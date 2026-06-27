@@ -25,6 +25,10 @@ const ClientContractorsBranchComponent = () =>
   import('./contractors/client-contractors-branch.component').then(
     (m) => m.ClientContractorsBranchComponent,
   );
+const ClientContractorPayrollPageComponent = () =>
+  import('./payroll/client-contractor-payroll-page.component').then(
+    (m) => m.ClientContractorPayrollPageComponent,
+  );
 const ClientPayrollMonitoringPageComponent = () =>
   import('./payroll/client-payroll-monitoring-page.component').then(
     (m) => m.ClientPayrollMonitoringPageComponent,
@@ -141,6 +145,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'branches/:branchId', loadComponent: ClientBranchDetailWorkspacePageComponent },
       { path: 'contractors', loadComponent: ClientContractorsComponent },
       { path: 'contractors/branch/:branchId', loadComponent: ClientContractorsBranchComponent },
+      { path: 'contractors/payroll', loadComponent: ClientContractorPayrollPageComponent },
       { path: 'compliance/status', loadComponent: ClientComplianceStatusComponent, runGuardsAndResolvers: 'always' },
       { path: 'compliance/mcd', loadComponent: ClientMcdComponent, runGuardsAndResolvers: 'always' },
       {
