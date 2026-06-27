@@ -212,15 +212,14 @@ describe('ServiceEntitlementsGuard', () => {
   it.each([
     '/api/v1/legitx/dashboard',
     '/api/v1/legitx/dashboard/summary',
-  ])('requires a compliance or contractor module for LegitX dashboard path %s', async (url) => {
+  ])('requires employee compliance for full LegitX dashboard path %s', async (url) => {
     await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
 
-    expect(entitlements.assertAnyModule).toHaveBeenCalledWith(clientId, [
+    expect(entitlements.assertModule).toHaveBeenCalledWith(
+      clientId,
       'EMPLOYEE_COMPLIANCE',
-      'CONTRACTOR_AUDIT',
-      'CONTRACTOR_DOCUMENTS',
-    ]);
-    expect(entitlements.assertModule).not.toHaveBeenCalled();
+    );
+    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
   });
 
   it.each([

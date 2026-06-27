@@ -118,7 +118,7 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
     const hasPayroll = this.hasPayrollModule;
     const hasEmployeeCompliance = this.hasEmployeeComplianceModule;
     const hasContractor = this.hasContractorModule;
-    const canLoadComplianceDashboard = hasEmployeeCompliance || hasContractor;
+    const canLoadComplianceDashboard = hasEmployeeCompliance;
 
     // Load task center data in parallel
     const user = this.authService.getUser();
