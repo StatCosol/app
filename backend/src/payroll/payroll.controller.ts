@@ -118,22 +118,6 @@ const templateUploadOptions = commonUploadOptions('payroll-templates');
 export class PayrollController {
   constructor(private readonly svc: PayrollService) {}
 
-  // One-time: Seed March 2026 EL from paysheet data
-  @Roles('ADMIN')
-  @ApiOperation({ summary: 'Seed March 2026 EL data' })
-  @Post('admin/seed-march-el/:runId')
-  seedMarchEl(@Param('runId') runId: string) {
-    return this.svc.seedMarchEl(runId);
-  }
-
-  // One-time: Remove employees not in paysheet from a run
-  @Roles('ADMIN')
-  @ApiOperation({ summary: 'Remove not-in-sheet employees from run' })
-  @Post('admin/remove-not-in-sheet/:runId')
-  removeNotInSheet(@Param('runId') runId: string) {
-    return this.svc.removeNotInSheet(runId);
-  }
-
   // Frontend expects: GET /api/payroll/summary
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   @ApiOperation({ summary: 'Get Payroll Summary' })
