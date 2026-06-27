@@ -390,7 +390,10 @@ export class ServiceEntitlementsService {
         'Review note is required when rejecting or requesting changes',
       );
     }
-    const requestedModules = this.parseStoredModuleArray(existing.requestedModules);
+    const requestedModules = this.parseStoredModuleArray(
+      existing.requestedModules,
+      { strict: true },
+    );
     const normalizedRequestedModules = this.normalizeModules(
       existing.packageCode,
       requestedModules as ServiceModuleCode[],
@@ -540,8 +543,21 @@ export class ServiceEntitlementsService {
     ) as ServiceModuleCode[];
   }
 
-  private parseStoredModuleArray(value: unknown): unknown[] {
-    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+  private parseStoredModuleArray(
+    value: unknown,
+    options: { strict?: boolean } = {},
+  ): unknown[] {
+    let parsed = value;
+    if (typeof value === 'string') {
+      try {
+        parsed = JSON.parse(value);
+      } catch {
+        if (options.strict) {
+          throw new BadRequestException('Stored service modules are malformed');
+        }
+        return [];
+      }
+    }
     return Array.isArray(parsed) ? parsed : [];
   }
 
