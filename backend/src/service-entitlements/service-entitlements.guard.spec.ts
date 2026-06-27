@@ -9,12 +9,12 @@ describe('ServiceEntitlementsGuard', () => {
   >;
   let guard: ServiceEntitlementsGuard;
 
-  const contextFor = (url: string, roleCode = 'CLIENT') =>
+  const contextFor = (url: string, roleCode = 'CLIENT', extraUser: any = {}) =>
     ({
       switchToHttp: () => ({
         getRequest: () => ({
           originalUrl: url,
-          user: { clientId, roleCode },
+          user: { clientId, roleCode, ...extraUser },
         }),
       }),
     }) as unknown as ExecutionContext;
@@ -199,6 +199,22 @@ describe('ServiceEntitlementsGuard', () => {
   it('enforces module access when role code casing is lower-case', async () => {
     await expect(
       guard.canActivate(contextFor('/api/v1/client/employees', 'client')),
+    ).resolves.toBe(true);
+
+    expect(entitlements.assertModule).toHaveBeenCalledWith(
+      clientId,
+      'EMPLOYEE_COMPLIANCE',
+    );
+    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
+  });
+
+  it('enforces module access when auth payload uses role instead of roleCode', async () => {
+    await expect(
+      guard.canActivate(
+        contextFor('/api/v1/client/employees', undefined as any, {
+          role: 'CLIENT',
+        }),
+      ),
     ).resolves.toBe(true);
 
     expect(entitlements.assertModule).toHaveBeenCalledWith(
