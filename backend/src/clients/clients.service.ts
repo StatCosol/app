@@ -507,8 +507,10 @@ export class ClientsService {
           ),
         ]);
 
+        const allowedModules = new Set<string>(SERVICE_MODULE_CODES);
         const modulesByClient = new Map<string, string[]>();
         for (const row of entitlementRows) {
+          if (!allowedModules.has(row.moduleCode)) continue;
           const modules = modulesByClient.get(row.clientId) || [];
           modules.push(row.moduleCode);
           modulesByClient.set(row.clientId, modules);
@@ -540,9 +542,12 @@ export class ClientsService {
           const packageRow = packageByClient.get(clientId);
           const packageCode =
             packageRow?.packageCode || FULL_SERVICE_PACKAGE;
+          const packageApproved = !packageRow || Boolean(packageRow.approvedAt);
           const modules =
-            modulesByClient.get(clientId) ||
-            (PACKAGE_MODULES[packageCode] ?? [...SERVICE_MODULE_CODES]);
+            packageApproved
+              ? modulesByClient.get(clientId) ||
+                (PACKAGE_MODULES[packageCode] ?? [...SERVICE_MODULE_CODES])
+              : [];
           const latestRequest = latestRequestByClient.get(clientId);
           const pendingServiceRequestId =
             latestRequest?.status === 'PENDING_CCO'
