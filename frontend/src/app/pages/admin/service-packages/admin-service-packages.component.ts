@@ -590,11 +590,12 @@ export class AdminServicePackagesComponent implements OnInit {
     this.saving = true;
     this.message = '';
     this.error = false;
+    const note = this.form.note.trim();
     this.entitlements.createRequest({
       clientId: this.form.clientId,
       packageCode: this.form.packageCode,
       modules: [...this.form.modules],
-      note: this.form.note || undefined,
+      note: note || undefined,
     }).subscribe({
       next: () => {
         this.message = 'Request submitted for CCO approval.';
