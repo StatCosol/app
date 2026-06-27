@@ -66,6 +66,12 @@ import {
 } from './contractor-computation.controller';
 import { ContractorComputationService } from './contractor-computation.service';
 import { AccessModule } from '../access/access.module';
+import { ContractorPayrollController } from './contractor-payroll/contractor-payroll.controller';
+import { ContractorPayrollService } from './contractor-payroll/contractor-payroll.service';
+import { ContractorAttendanceUploadEntity } from './contractor-payroll/entities/contractor-attendance-upload.entity';
+import { ContractorAttendanceRecordEntity } from './contractor-payroll/entities/contractor-attendance-record.entity';
+import { ContractorPayrollSheetEntity } from './contractor-payroll/entities/contractor-payroll-sheet.entity';
+import { ContractorPayrollSheetRowEntity } from './contractor-payroll/entities/contractor-payroll-sheet-row.entity';
 
 @Module({
   imports: [
@@ -94,6 +100,10 @@ import { AccessModule } from '../access/access.module';
       ClraRegisterRun,
       ContractorQuotationWageEntity,
       ContractorMcdComputationEntity,
+      ContractorAttendanceUploadEntity,
+      ContractorAttendanceRecordEntity,
+      ContractorPayrollSheetEntity,
+      ContractorPayrollSheetRowEntity,
     ]),
     AuthModule, // ✅ required (ClientContractorsController uses BranchAccessService)
     UsersModule,
@@ -122,6 +132,7 @@ import { AccessModule } from '../access/access.module';
     ClraAssignmentsController,
     ContractorComputationController,
     CrmContractorComputationController,
+    ContractorPayrollController,
   ],
   providers: [
     ContractorService,
@@ -133,6 +144,7 @@ import { AccessModule } from '../access/access.module';
     MinimumWageService,
     ClraAssignmentsService,
     ContractorComputationService,
+    ContractorPayrollService,
   ],
 })
 export class ContractorModule {}

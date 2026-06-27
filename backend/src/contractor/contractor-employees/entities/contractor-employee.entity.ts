@@ -122,6 +122,10 @@ export class ContractorEmployeeEntity {
   })
   dailyWage: number | null;
 
+  /** Basic+DA as % of monthly gross — used for PF basis calculation. */
+  @Column({ name: 'basic_da_pct', type: 'smallint', default: 50 })
+  basicDaPct: number;
+
   /** State code for minimum-wage lookup (Phase 2). */
   @Column({ name: 'state_code', type: 'varchar', length: 10, nullable: true })
   stateCode: string | null;

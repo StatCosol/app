@@ -27,6 +27,10 @@ const ContractorEmployeesPageComponent = () =>
   import('./employees/contractor-employees-page.component').then(
     (m) => m.ContractorEmployeesPageComponent,
   );
+const ContractorPayrollPageComponent = () =>
+  import('./payroll/contractor-payroll-page.component').then(
+    (m) => m.ContractorPayrollPageComponent,
+  );
 
 const VendorAuditNcsComponent = () =>
   import('../shared-vendor/vendor-audit-ncs.component').then((m) => m.VendorAuditNcsComponent);
@@ -49,6 +53,7 @@ export const CONTRACTOR_ROUTES: Routes = [
       { path: 'news', loadComponent: NewsDetailComponent },
       { path: 'news/:newsId', loadComponent: NewsDetailComponent },
       { path: 'employees', loadComponent: ContractorEmployeesPageComponent },
+      { path: 'payroll', loadComponent: ContractorPayrollPageComponent },
       { path: 'audits/:id/non-compliances', loadComponent: VendorAuditNcsComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
