@@ -53,10 +53,14 @@ export class ServiceEntitlementsService {
       throw new BadRequestException(`Unsupported package code: ${packageCode}`);
     }
     const allowed = new Set(SERVICE_MODULE_CODES);
-    const requested = modules?.length ? modules : PACKAGE_MODULES[packageCode];
-    const normalized = Array.from(new Set(requested)).filter((m) =>
-      allowed.has(m),
-    ) as ServiceModuleCode[];
+    const requested = Array.from(
+      new Set(modules?.length ? modules : PACKAGE_MODULES[packageCode]),
+    );
+    const unsupported = requested.find((module) => !allowed.has(module));
+    if (unsupported) {
+      throw new BadRequestException(`Unsupported service module: ${unsupported}`);
+    }
+    const normalized = requested as ServiceModuleCode[];
     if (!normalized.length) {
       throw new BadRequestException('At least one module is required');
     }

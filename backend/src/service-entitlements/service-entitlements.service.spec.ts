@@ -15,6 +15,25 @@ describe('ServiceEntitlementsService', () => {
   });
 
   describe('normalizeModules', () => {
+    it('rejects unsupported service modules', () => {
+      expect(() =>
+        service.normalizeModules('CUSTOM_SERVICES', [
+          'EMPLOYEE_COMPLIANCE',
+          'UNKNOWN_MODULE' as any,
+        ]),
+      ).toThrow(BadRequestException);
+    });
+
+    it('deduplicates selected custom service modules', () => {
+      expect(
+        service.normalizeModules('CUSTOM_SERVICES', [
+          'EMPLOYEE_COMPLIANCE',
+          'EMPLOYEE_COMPLIANCE',
+          'PAYROLL',
+        ]),
+      ).toEqual(['EMPLOYEE_COMPLIANCE', 'PAYROLL']);
+    });
+
     it('rejects custom module selections for fixed packages', () => {
       expect(() =>
         service.normalizeModules('FULL_SERVICE', ['EMPLOYEE_COMPLIANCE']),
