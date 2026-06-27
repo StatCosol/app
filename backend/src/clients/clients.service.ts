@@ -67,9 +67,16 @@ export class ClientsService {
       dto.serviceModules?.length
         ? dto.serviceModules
         : PACKAGE_MODULES[packageCode];
-    const modules = Array.from(new Set(source)).filter((moduleCode) =>
-      allowed.has(moduleCode),
-    ) as ServiceModuleCode[];
+    const requested = Array.from(new Set(source));
+    const unsupportedIndex = requested.findIndex(
+      (moduleCode) => !allowed.has(moduleCode),
+    );
+    if (unsupportedIndex >= 0) {
+      throw new BadRequestException(
+        `Unsupported service module: ${requested[unsupportedIndex]}`,
+      );
+    }
+    const modules = requested as ServiceModuleCode[];
 
     if (!modules.length) {
       throw new BadRequestException('At least one client service must be selected');
