@@ -195,4 +195,16 @@ describe('ServiceEntitlementsGuard', () => {
     ]);
     expect(entitlements.assertModule).not.toHaveBeenCalled();
   });
+
+  it('enforces module access when role code casing is lower-case', async () => {
+    await expect(
+      guard.canActivate(contextFor('/api/v1/client/employees', 'client')),
+    ).resolves.toBe(true);
+
+    expect(entitlements.assertModule).toHaveBeenCalledWith(
+      clientId,
+      'EMPLOYEE_COMPLIANCE',
+    );
+    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
+  });
 });
