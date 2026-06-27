@@ -162,6 +162,45 @@ describe('ServiceEntitlementsService', () => {
         ['client-1', 'EMPLOYEE_COMPLIANCE', 'request-1', 'cco-1'],
       );
     });
+
+    it('rejects approval when stored request modules contain stale codes', async () => {
+      const manager = {
+        query: jest.fn().mockResolvedValue([]),
+      };
+      dataSource.query.mockResolvedValueOnce([
+        {
+          id: 'request-1',
+          clientId: 'client-1',
+          packageCode: 'CUSTOM_SERVICES',
+          requestedModules: '["EMPLOYEE_COMPLIANCE","OLD_MODULE"]',
+          currentModules: '[]',
+          status: 'PENDING_CCO',
+          requestNote: null,
+          reviewNote: null,
+          requestedAt: new Date(),
+          reviewedAt: null,
+          requestedByName: 'Admin',
+          reviewedByName: null,
+        },
+      ]);
+      (dataSource.transaction as jest.Mock).mockImplementation(async (fn) =>
+        fn(manager as any),
+      );
+
+      await expect(
+        service.reviewRequest(
+          'request-1',
+          { action: 'APPROVED' },
+          { id: 'cco-1', userId: 'cco-1' } as any,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+      expect(manager.query).not.toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO client_module_entitlements'),
+        expect.anything(),
+      );
+    });
   });
 
   describe('list filters', () => {
