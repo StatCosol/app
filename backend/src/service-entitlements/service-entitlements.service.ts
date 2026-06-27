@@ -391,13 +391,10 @@ export class ServiceEntitlementsService {
       );
     }
     const requestedModules = this.parseStoredModuleArray(existing.requestedModules);
-    const approvedModules =
-      dto.action === 'APPROVED'
-        ? this.normalizeModules(
-            existing.packageCode,
-            requestedModules as ServiceModuleCode[],
-          )
-        : null;
+    const normalizedRequestedModules = this.normalizeModules(
+      existing.packageCode,
+      requestedModules as ServiceModuleCode[],
+    );
 
     await this.dataSource.transaction(async (manager) => {
       await manager.query(
@@ -429,7 +426,7 @@ export class ServiceEntitlementsService {
           [existing.clientId],
         );
 
-        for (const moduleCode of approvedModules ?? []) {
+        for (const moduleCode of normalizedRequestedModules) {
           await manager.query(
             `INSERT INTO client_module_entitlements
               (client_id, module_code, is_enabled, request_id, approved_by, approved_at, updated_at)
@@ -446,7 +443,7 @@ export class ServiceEntitlementsService {
             existing.clientId,
             id,
             existing.packageCode,
-            JSON.stringify(approvedModules ?? []),
+            JSON.stringify(normalizedRequestedModules),
             actor.userId || actor.id,
             reviewNote,
           ],
@@ -461,7 +458,7 @@ export class ServiceEntitlementsService {
             id,
             dto.action,
             existing.packageCode,
-            JSON.stringify(requestedModules),
+            JSON.stringify(normalizedRequestedModules),
             actor.userId || actor.id,
             reviewNote,
           ],
