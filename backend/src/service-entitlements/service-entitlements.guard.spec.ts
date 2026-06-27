@@ -9,10 +9,16 @@ describe('ServiceEntitlementsGuard', () => {
   >;
   let guard: ServiceEntitlementsGuard;
 
-  const contextFor = (url: string, roleCode = 'CLIENT', extraUser: any = {}) =>
+  const contextFor = (
+    url: string,
+    roleCode = 'CLIENT',
+    extraUser: any = {},
+    method = 'GET',
+  ) =>
     ({
       switchToHttp: () => ({
         getRequest: () => ({
+          method,
           originalUrl: url,
           user: { clientId, roleCode, ...extraUser },
         }),
@@ -151,10 +157,34 @@ describe('ServiceEntitlementsGuard', () => {
 
   it.each([
     '/api/v1/mobile-attendance/devices',
-    '/api/v1/mobile-attendance/devices/device-1',
-    '/api/v1/mobile-attendance/enrollment/contractors',
-  ])('requires contractor face attendance for face device path %s', async (url) => {
+    '/api/v1/mobile-attendance/devices?mode=KIOSK',
+  ])('allows either mobile attendance module to list kiosk devices %s', async (url) => {
     await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
+
+    expect(entitlements.assertAnyModule).toHaveBeenCalledWith(clientId, [
+      'MOBILE_ATTENDANCE',
+      'CONTRACTOR_FACE_ATTENDANCE',
+    ]);
+    expect(entitlements.assertModule).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    '/api/v1/mobile-attendance/devices',
+    '/api/v1/mobile-attendance/devices/device-1',
+  ])('requires contractor face attendance for device mutation path %s', async (url) => {
+    await expect(guard.canActivate(contextFor(url, 'CLIENT', {}, 'POST'))).resolves.toBe(true);
+
+    expect(entitlements.assertModule).toHaveBeenCalledWith(
+      clientId,
+      'CONTRACTOR_FACE_ATTENDANCE',
+    );
+    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
+  });
+
+  it('requires contractor face attendance for contractor enrollment status', async () => {
+    await expect(
+      guard.canActivate(contextFor('/api/v1/mobile-attendance/enrollment/contractors')),
+    ).resolves.toBe(true);
 
     expect(entitlements.assertModule).toHaveBeenCalledWith(
       clientId,

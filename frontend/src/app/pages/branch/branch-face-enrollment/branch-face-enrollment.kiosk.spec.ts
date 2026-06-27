@@ -158,6 +158,21 @@ describe('BranchFaceEnrollmentComponent kiosk-enroll flow', () => {
 
       expect(cmp.visibleKioskTickets.map((t) => t.id)).toEqual(['employee-ticket']);
     });
+
+    it('allows employee kiosk enrollment for mobile-attendance-only access', () => {
+      const auth = {
+        getBranchIds: () => ['b-1'],
+        hasModule: (module: string) => module === 'MOBILE_ATTENDANCE',
+        hasAnyModule: (modules: string[]) => modules.includes('MOBILE_ATTENDANCE'),
+      };
+      const cmp = makeComponent({ auth });
+
+      cmp.subjectType = 'employee';
+      expect(cmp.canUseKioskEnrollment).toBe(true);
+
+      cmp.subjectType = 'contractor';
+      expect(cmp.canUseKioskEnrollment).toBe(false);
+    });
   });
 
   describe('openKioskEnrollForEmployee', () => {
