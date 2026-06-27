@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -30,7 +39,7 @@ export class ServiceEntitlementsController {
   @Get('clients/:clientId')
   @Roles('ADMIN', 'CCO')
   @ApiOperation({ summary: 'Get active service package for one client' })
-  getClientStatus(@Param('clientId') clientId: string) {
+  getClientStatus(@Param('clientId', ParseUUIDPipe) clientId: string) {
     return this.service.getClientStatus(clientId);
   }
 
@@ -65,7 +74,7 @@ export class ServiceEntitlementsController {
   @Roles('CCO')
   @ApiOperation({ summary: 'CCO approves or rejects a service package change request' })
   reviewRequest(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReviewModuleChangeRequestDto,
     @CurrentUser() user: ReqUser,
   ) {
