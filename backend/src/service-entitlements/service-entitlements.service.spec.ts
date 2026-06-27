@@ -6,6 +6,7 @@ describe('ServiceEntitlementsService', () => {
   let dataSource: jest.Mocked<Pick<DataSource, 'query' | 'transaction'>>;
   let service: ServiceEntitlementsService;
   const clientId = '33333333-3333-4333-8333-333333333333';
+  const requestId = '44444444-4444-4444-8444-444444444444';
   const adminUserId = '11111111-1111-4111-8111-111111111111';
   const ccoUserId = '22222222-2222-4222-8222-222222222222';
 
@@ -82,7 +83,7 @@ describe('ServiceEntitlementsService', () => {
     beforeEach(() => {
       dataSource.query.mockResolvedValue([
         {
-          id: 'request-1',
+          id: requestId,
           clientId,
           packageCode: 'CUSTOM_SERVICES',
           requestedModules: ['EMPLOYEE_COMPLIANCE'],
@@ -103,7 +104,7 @@ describe('ServiceEntitlementsService', () => {
       async (action) => {
         await expect(
           service.reviewRequest(
-            'request-1',
+            requestId,
             { action, note: '   ' },
             { id: ccoUserId, userId: ccoUserId } as any,
           ),
@@ -120,7 +121,7 @@ describe('ServiceEntitlementsService', () => {
       dataSource.query
         .mockResolvedValueOnce([
           {
-            id: 'request-1',
+            id: requestId,
             clientId,
             packageCode: 'CUSTOM_SERVICES',
             requestedModules: '["EMPLOYEE_COMPLIANCE"]',
@@ -136,7 +137,7 @@ describe('ServiceEntitlementsService', () => {
         ])
         .mockResolvedValueOnce([
           {
-            id: 'request-1',
+            id: requestId,
             clientId,
             packageCode: 'CUSTOM_SERVICES',
             requestedModules: '["EMPLOYEE_COMPLIANCE"]',
@@ -155,14 +156,14 @@ describe('ServiceEntitlementsService', () => {
       );
 
       await service.reviewRequest(
-        'request-1',
+        requestId,
         { action: 'APPROVED' },
         { id: ccoUserId, userId: ccoUserId } as any,
       );
 
       expect(manager.query).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO client_module_entitlements'),
-        [clientId, 'EMPLOYEE_COMPLIANCE', 'request-1', ccoUserId],
+        [clientId, 'EMPLOYEE_COMPLIANCE', requestId, ccoUserId],
       );
     });
 
@@ -172,7 +173,7 @@ describe('ServiceEntitlementsService', () => {
       };
       dataSource.query.mockResolvedValueOnce([
         {
-          id: 'request-1',
+          id: requestId,
           clientId,
           packageCode: 'CUSTOM_SERVICES',
           requestedModules: '["EMPLOYEE_COMPLIANCE","OLD_MODULE"]',
@@ -192,7 +193,7 @@ describe('ServiceEntitlementsService', () => {
 
       await expect(
         service.reviewRequest(
-          'request-1',
+          requestId,
           { action: 'APPROVED' },
           { id: ccoUserId, userId: ccoUserId } as any,
         ),
@@ -211,7 +212,7 @@ describe('ServiceEntitlementsService', () => {
       };
       dataSource.query.mockResolvedValueOnce([
         {
-          id: 'request-1',
+          id: requestId,
           clientId,
           packageCode: 'CUSTOM_SERVICES',
           requestedModules: '["EMPLOYEE_COMPLIANCE","OLD_MODULE"]',
@@ -231,7 +232,7 @@ describe('ServiceEntitlementsService', () => {
 
       await expect(
         service.reviewRequest(
-          'request-1',
+          requestId,
           { action: 'CHANGES_REQUESTED', note: 'Select supported services only' },
           { id: ccoUserId, userId: ccoUserId } as any,
         ),
@@ -243,7 +244,7 @@ describe('ServiceEntitlementsService', () => {
     it('rejects reviews when stored request modules are malformed JSON text', async () => {
       dataSource.query.mockResolvedValueOnce([
         {
-          id: 'request-1',
+          id: requestId,
           clientId,
           packageCode: 'CUSTOM_SERVICES',
           requestedModules: 'not-json',
@@ -260,7 +261,7 @@ describe('ServiceEntitlementsService', () => {
 
       await expect(
         service.reviewRequest(
-          'request-1',
+          requestId,
           { action: 'APPROVED' },
           { id: ccoUserId, userId: ccoUserId } as any,
         ),
@@ -272,9 +273,22 @@ describe('ServiceEntitlementsService', () => {
     it('rejects malformed reviewer ids before reading or writing requests', async () => {
       await expect(
         service.reviewRequest(
-          'request-1',
+          requestId,
           { action: 'APPROVED' },
           { id: 'not-a-uuid', userId: 'not-a-uuid' } as any,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(dataSource.query).not.toHaveBeenCalled();
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects malformed request ids before querying reviews', async () => {
+      await expect(
+        service.reviewRequest(
+          'not-a-uuid',
+          { action: 'APPROVED' },
+          { id: ccoUserId, userId: ccoUserId } as any,
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
 
@@ -363,7 +377,7 @@ describe('ServiceEntitlementsService', () => {
       const manager = {
         query: jest
           .fn()
-          .mockResolvedValueOnce([{ id: 'request-1' }])
+          .mockResolvedValueOnce([{ id: requestId }])
           .mockResolvedValueOnce([]),
       };
       dataSource.query
@@ -376,7 +390,7 @@ describe('ServiceEntitlementsService', () => {
       );
       dataSource.query.mockResolvedValueOnce([
         {
-          id: 'request-1',
+          id: requestId,
           clientId,
           packageCode: 'CUSTOM_SERVICES',
           requestedModules: ['EMPLOYEE_COMPLIANCE'],
@@ -435,6 +449,16 @@ describe('ServiceEntitlementsService', () => {
 
       expect(dataSource.query).not.toHaveBeenCalled();
       expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getRequest', () => {
+    it('rejects malformed request ids before querying requests', async () => {
+      await expect(service.getRequest('not-a-uuid')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+
+      expect(dataSource.query).not.toHaveBeenCalled();
     });
   });
 

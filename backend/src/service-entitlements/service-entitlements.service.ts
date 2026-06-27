@@ -350,6 +350,7 @@ export class ServiceEntitlementsService {
   }
 
   async getRequest(id: string, options: { normalize?: boolean } = {}) {
+    this.assertValidRequiredUuid(id, 'requestId');
     const rows = await this.dataSource.query(
       `SELECT r.id,
               r.client_id AS "clientId",
