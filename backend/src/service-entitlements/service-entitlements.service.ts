@@ -26,6 +26,15 @@ type CurrentPackageRow = {
   isRestricted: boolean;
 };
 
+type ServiceRequestRow = {
+  requestedModules?: unknown;
+  currentModules?: unknown;
+};
+
+type ServiceAuditRow = {
+  modules?: unknown;
+};
+
 const SERVICE_REQUEST_STATUSES = [
   'PENDING_CCO',
   'APPROVED',
@@ -299,7 +308,7 @@ export class ServiceEntitlementsService {
         LIMIT 200`,
       params,
     );
-    return rows;
+    return rows.map((row) => this.normalizeRequestRow(row));
   }
 
   async listAuditLogs(clientId?: string) {
@@ -331,7 +340,7 @@ export class ServiceEntitlementsService {
         LIMIT 200`,
       params,
     );
-    return rows;
+    return rows.map((row) => this.normalizeAuditRow(row));
   }
 
   async getRequest(id: string) {
@@ -358,7 +367,7 @@ export class ServiceEntitlementsService {
       [id],
     );
     if (!rows.length) throw new NotFoundException('Service request not found');
-    return rows[0];
+    return this.normalizeRequestRow(rows[0]);
   }
 
   async reviewRequest(
@@ -469,7 +478,11 @@ export class ServiceEntitlementsService {
         ORDER BY requested_at DESC`,
       [clientId],
     );
-    return { clientId, ...current, pendingRequests: pending };
+    return {
+      clientId,
+      ...current,
+      pendingRequests: pending.map((row) => this.normalizeRequestRow(row)),
+    };
   }
 
   private assertValidRequestStatus(status?: string): void {
@@ -489,5 +502,33 @@ export class ServiceEntitlementsService {
   private normalizeOptionalNote(note: string | undefined): string | null {
     const trimmed = note?.trim();
     return trimmed || null;
+  }
+
+  private normalizeRequestRow<T extends ServiceRequestRow>(row: T): T {
+    const normalized = { ...row } as T;
+    if (Object.prototype.hasOwnProperty.call(row, 'requestedModules')) {
+      normalized.requestedModules = this.normalizeStoredModuleArray(
+        row.requestedModules,
+      );
+    }
+    if (Object.prototype.hasOwnProperty.call(row, 'currentModules')) {
+      normalized.currentModules = this.normalizeStoredModuleArray(
+        row.currentModules,
+      );
+    }
+    return normalized;
+  }
+
+  private normalizeAuditRow<T extends ServiceAuditRow>(row: T): T {
+    const normalized = { ...row } as T;
+    if (Object.prototype.hasOwnProperty.call(row, 'modules')) {
+      normalized.modules = this.normalizeStoredModuleArray(row.modules);
+    }
+    return normalized;
+  }
+
+  private normalizeStoredModuleArray(value: unknown): ServiceModuleCode[] {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    return Array.isArray(parsed) ? (parsed as ServiceModuleCode[]) : [];
   }
 }
