@@ -162,6 +162,45 @@ describe('ServiceEntitlementsService', () => {
         ['client-1', 'EMPLOYEE_COMPLIANCE', 'request-1', 'cco-1'],
       );
     });
+
+    it('rejects approval when stored request modules contain stale codes', async () => {
+      const manager = {
+        query: jest.fn().mockResolvedValue([]),
+      };
+      dataSource.query.mockResolvedValueOnce([
+        {
+          id: 'request-1',
+          clientId: 'client-1',
+          packageCode: 'CUSTOM_SERVICES',
+          requestedModules: '["EMPLOYEE_COMPLIANCE","OLD_MODULE"]',
+          currentModules: '[]',
+          status: 'PENDING_CCO',
+          requestNote: null,
+          reviewNote: null,
+          requestedAt: new Date(),
+          reviewedAt: null,
+          requestedByName: 'Admin',
+          reviewedByName: null,
+        },
+      ]);
+      (dataSource.transaction as jest.Mock).mockImplementation(async (fn) =>
+        fn(manager as any),
+      );
+
+      await expect(
+        service.reviewRequest(
+          'request-1',
+          { action: 'APPROVED' },
+          { id: 'cco-1', userId: 'cco-1' } as any,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+      expect(manager.query).not.toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO client_module_entitlements'),
+        expect.anything(),
+      );
+    });
   });
 
   describe('list filters', () => {
@@ -267,6 +306,28 @@ describe('ServiceEntitlementsService', () => {
 
       expect(manager.query.mock.calls[0][1][5]).toBe('Add payroll');
       expect(manager.query.mock.calls[1][1][5]).toBe('Add payroll');
+    });
+  });
+
+  describe('getCurrentForClient', () => {
+    it('ignores unsupported stored entitlement module rows', async () => {
+      dataSource.query
+        .mockResolvedValueOnce([
+          { package_code: 'CUSTOM_SERVICES', approved_at: new Date() },
+        ])
+        .mockResolvedValueOnce([
+          { module_code: 'EMPLOYEE_COMPLIANCE' },
+          { module_code: 'UNKNOWN_MODULE' },
+          { module_code: '' },
+        ]);
+
+      const result = await service.getCurrentForClient('client-1');
+
+      expect(result).toEqual({
+        packageCode: 'CUSTOM_SERVICES',
+        enabledModules: ['EMPLOYEE_COMPLIANCE'],
+        isRestricted: true,
+      });
     });
   });
 

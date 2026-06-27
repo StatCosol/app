@@ -145,7 +145,7 @@ export class ServiceEntitlementsService {
     }
 
     const enabledModules = entitlementRows.length
-      ? entitlementRows.map((r) => r.module_code)
+      ? this.normalizeStoredModuleArray(entitlementRows.map((r) => r.module_code))
       : PACKAGE_MODULES[packageCode] ?? PACKAGE_MODULES[FULL_SERVICE_PACKAGE];
 
     return {
@@ -343,7 +343,7 @@ export class ServiceEntitlementsService {
     return rows.map((row) => this.normalizeAuditRow(row));
   }
 
-  async getRequest(id: string) {
+  async getRequest(id: string, options: { normalize?: boolean } = {}) {
     const rows = await this.dataSource.query(
       `SELECT r.id,
               r.client_id AS "clientId",
@@ -367,7 +367,9 @@ export class ServiceEntitlementsService {
       [id],
     );
     if (!rows.length) throw new NotFoundException('Service request not found');
-    return this.normalizeRequestRow(rows[0]);
+    return options.normalize === false
+      ? rows[0]
+      : this.normalizeRequestRow(rows[0]);
   }
 
   async reviewRequest(
@@ -375,7 +377,7 @@ export class ServiceEntitlementsService {
     dto: ReviewModuleChangeRequestDto,
     actor: ReqUser,
   ) {
-    const existing = await this.getRequest(id);
+    const existing = await this.getRequest(id, { normalize: false });
     if (existing.status !== 'PENDING_CCO') {
       throw new BadRequestException('Only pending requests can be reviewed');
     }
@@ -385,6 +387,14 @@ export class ServiceEntitlementsService {
         'Review note is required when rejecting or requesting changes',
       );
     }
+    const requestedModules = this.parseStoredModuleArray(existing.requestedModules);
+    const approvedModules =
+      dto.action === 'APPROVED'
+        ? this.normalizeModules(
+            existing.packageCode,
+            requestedModules as ServiceModuleCode[],
+          )
+        : null;
 
     await this.dataSource.transaction(async (manager) => {
       await manager.query(
@@ -398,11 +408,6 @@ export class ServiceEntitlementsService {
       );
 
       if (dto.action === 'APPROVED') {
-        const modules = this.normalizeModules(
-          existing.packageCode,
-          existing.requestedModules,
-        );
-
         await manager.query(
           `INSERT INTO client_service_packages
             (client_id, package_code, request_id, approved_by, approved_at, updated_at)
@@ -421,7 +426,7 @@ export class ServiceEntitlementsService {
           [existing.clientId],
         );
 
-        for (const moduleCode of modules) {
+        for (const moduleCode of approvedModules ?? []) {
           await manager.query(
             `INSERT INTO client_module_entitlements
               (client_id, module_code, is_enabled, request_id, approved_by, approved_at, updated_at)
@@ -438,7 +443,7 @@ export class ServiceEntitlementsService {
             existing.clientId,
             id,
             existing.packageCode,
-            JSON.stringify(modules),
+            JSON.stringify(approvedModules ?? []),
             actor.userId || actor.id,
             reviewNote,
           ],
@@ -453,7 +458,7 @@ export class ServiceEntitlementsService {
             id,
             dto.action,
             existing.packageCode,
-            JSON.stringify(existing.requestedModules ?? []),
+            JSON.stringify(requestedModules),
             actor.userId || actor.id,
             reviewNote,
           ],
@@ -528,7 +533,15 @@ export class ServiceEntitlementsService {
   }
 
   private normalizeStoredModuleArray(value: unknown): ServiceModuleCode[] {
+    const parsed = this.parseStoredModuleArray(value);
+    const allowed = new Set(SERVICE_MODULE_CODES);
+    return parsed.filter((module) =>
+      allowed.has(module as ServiceModuleCode),
+    ) as ServiceModuleCode[];
+  }
+
+  private parseStoredModuleArray(value: unknown): unknown[] {
     const parsed = typeof value === 'string' ? JSON.parse(value) : value;
-    return Array.isArray(parsed) ? (parsed as ServiceModuleCode[]) : [];
+    return Array.isArray(parsed) ? parsed : [];
   }
 }
