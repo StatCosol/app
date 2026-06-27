@@ -506,6 +506,22 @@ describe('ServiceEntitlementsService', () => {
         isRestricted: true,
       });
     });
+
+    it('keeps restricted package access when entitlement table is unavailable', async () => {
+      dataSource.query
+        .mockResolvedValueOnce([
+          { package_code: 'CUSTOM_SERVICES', approved_at: new Date() },
+        ])
+        .mockRejectedValueOnce({ code: '42P01' });
+
+      const result = await service.getCurrentForClient(clientId);
+
+      expect(result).toEqual({
+        packageCode: 'CUSTOM_SERVICES',
+        enabledModules: [],
+        isRestricted: true,
+      });
+    });
   });
 
   describe('getClientStatus', () => {

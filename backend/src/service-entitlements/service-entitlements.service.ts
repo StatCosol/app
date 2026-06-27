@@ -140,9 +140,10 @@ export class ServiceEntitlementsService {
     } catch (err: any) {
       if (err?.code === '42P01') {
         return {
-          packageCode: FULL_SERVICE_PACKAGE,
-          enabledModules: PACKAGE_MODULES[FULL_SERVICE_PACKAGE],
-          isRestricted: false,
+          packageCode,
+          enabledModules:
+            PACKAGE_MODULES[packageCode] ?? PACKAGE_MODULES[FULL_SERVICE_PACKAGE],
+          isRestricted: packageCode !== FULL_SERVICE_PACKAGE,
         };
       }
       throw err;
