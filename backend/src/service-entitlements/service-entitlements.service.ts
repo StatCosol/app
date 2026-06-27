@@ -56,9 +56,13 @@ export class ServiceEntitlementsService {
     const requested = Array.from(
       new Set(modules?.length ? modules : PACKAGE_MODULES[packageCode]),
     );
-    const unsupported = requested.find((module) => !allowed.has(module));
-    if (unsupported) {
-      throw new BadRequestException(`Unsupported service module: ${unsupported}`);
+    const unsupportedIndex = requested.findIndex(
+      (module) => !allowed.has(module),
+    );
+    if (unsupportedIndex >= 0) {
+      throw new BadRequestException(
+        `Unsupported service module: ${requested[unsupportedIndex]}`,
+      );
     }
     const normalized = requested as ServiceModuleCode[];
     if (!normalized.length) {

@@ -24,6 +24,22 @@ describe('ServiceEntitlementsService', () => {
       ).toThrow(BadRequestException);
     });
 
+    it('rejects falsy unsupported service modules', () => {
+      expect(() =>
+        service.normalizeModules('CUSTOM_SERVICES', [
+          'EMPLOYEE_COMPLIANCE',
+          '' as any,
+        ]),
+      ).toThrow(BadRequestException);
+
+      expect(() =>
+        service.normalizeModules('CUSTOM_SERVICES', [
+          'EMPLOYEE_COMPLIANCE',
+          null as any,
+        ]),
+      ).toThrow(BadRequestException);
+    });
+
     it('deduplicates selected custom service modules', () => {
       expect(
         service.normalizeModules('CUSTOM_SERVICES', [
