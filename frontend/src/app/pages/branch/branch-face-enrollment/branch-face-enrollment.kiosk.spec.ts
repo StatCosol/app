@@ -54,13 +54,19 @@ const buildTicket = (over: Partial<KioskEnrollTicket> = {}): KioskEnrollTicket =
 const makeComponent = (
   overrides: {
     auth?: any;
+    empSvc?: any;
+    contractorEmpSvc?: any;
     svc?: any;
     toast?: any;
   } = {},
 ): BranchFaceEnrollmentComponent => {
-  const auth = overrides.auth ?? { getBranchIds: () => ['b-1'] };
-  const empSvc: any = {};
-  const contractorEmpSvc: any = {};
+  const auth = overrides.auth ?? {
+    getBranchIds: () => ['b-1'],
+    hasModule: () => false,
+    hasAnyModule: () => false,
+  };
+  const empSvc: any = overrides.empSvc ?? {};
+  const contractorEmpSvc: any = overrides.contractorEmpSvc ?? {};
   const svc = overrides.svc ?? {};
   const toast = overrides.toast ?? {
     success: vi.fn(),
@@ -85,6 +91,73 @@ const makeComponent = (
 describe('BranchFaceEnrollmentComponent kiosk-enroll flow', () => {
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  describe('module-aware loading', () => {
+    it('does not call employee or contractor subject APIs for mobile-attendance-only access', () => {
+      const auth = {
+        getBranchIds: () => ['b-1'],
+        hasModule: (module: string) => module === 'MOBILE_ATTENDANCE',
+        hasAnyModule: (modules: string[]) => modules.includes('MOBILE_ATTENDANCE'),
+      };
+      const empSvc = { list: vi.fn() };
+      const contractorEmpSvc = { listForBranch: vi.fn() };
+      const svc = {
+        listEnrollments: vi.fn().mockReturnValue(of([])),
+        listContractorEnrollments: vi.fn().mockReturnValue(of([])),
+        listKioskEnrollTickets: vi.fn().mockReturnValue(of([])),
+      };
+      const cmp = makeComponent({ auth, empSvc, contractorEmpSvc, svc });
+
+      cmp.ngOnInit();
+
+      expect(cmp.subjectType).toBe('employee');
+      expect(empSvc.list).not.toHaveBeenCalled();
+      expect(contractorEmpSvc.listForBranch).not.toHaveBeenCalled();
+      expect(svc.listEnrollments).toHaveBeenCalled();
+      expect(svc.listContractorEnrollments).not.toHaveBeenCalled();
+      cmp.ngOnDestroy();
+    });
+
+    it('defaults contractor-face-only access to contractor status without employee API calls', () => {
+      const auth = {
+        getBranchIds: () => ['b-1'],
+        hasModule: (module: string) => module === 'CONTRACTOR_FACE_ATTENDANCE',
+        hasAnyModule: (modules: string[]) => modules.includes('CONTRACTOR_FACE_ATTENDANCE'),
+      };
+      const empSvc = { list: vi.fn() };
+      const contractorEmpSvc = { listForBranch: vi.fn() };
+      const svc = {
+        listEnrollments: vi.fn().mockReturnValue(of([])),
+        listContractorEnrollments: vi.fn().mockReturnValue(of([])),
+        listKioskEnrollTickets: vi.fn().mockReturnValue(of([])),
+      };
+      const cmp = makeComponent({ auth, empSvc, contractorEmpSvc, svc });
+
+      cmp.ngOnInit();
+
+      expect(cmp.subjectType).toBe('contractor');
+      expect(empSvc.list).not.toHaveBeenCalled();
+      expect(contractorEmpSvc.listForBranch).not.toHaveBeenCalled();
+      expect(svc.listEnrollments).not.toHaveBeenCalled();
+      expect(svc.listContractorEnrollments).toHaveBeenCalled();
+      cmp.ngOnDestroy();
+    });
+
+    it('filters kiosk ticket history to subjects allowed by the active entitlement', () => {
+      const auth = {
+        getBranchIds: () => ['b-1'],
+        hasModule: (module: string) => module === 'MOBILE_ATTENDANCE',
+        hasAnyModule: (modules: string[]) => modules.includes('MOBILE_ATTENDANCE'),
+      };
+      const cmp = makeComponent({ auth });
+      cmp.kioskTickets = [
+        buildTicket({ id: 'employee-ticket', subjectType: 'EMPLOYEE' }),
+        buildTicket({ id: 'contractor-ticket', subjectType: 'CONTRACTOR' }),
+      ];
+
+      expect(cmp.visibleKioskTickets.map((t) => t.id)).toEqual(['employee-ticket']);
+    });
   });
 
   describe('openKioskEnrollForEmployee', () => {

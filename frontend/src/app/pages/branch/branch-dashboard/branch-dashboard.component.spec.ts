@@ -29,4 +29,18 @@ describe('BranchDashboardComponent', () => {
     expect(component.compliancePercent).toBe(0);
     expect(component.pfPending).toBe(0);
   });
+
+  it('shows face attendance widgets for employee mobile attendance access', () => {
+    sessionStorage.setItem(
+      'user',
+      JSON.stringify({
+        roleCode: 'CLIENT',
+        userType: 'BRANCH',
+        servicePackage: 'CUSTOM_SERVICES',
+        enabledModules: ['MOBILE_ATTENDANCE'],
+      }),
+    );
+
+    expect(component.hasContractorFaceAttendanceModule).toBe(true);
+  });
 });
