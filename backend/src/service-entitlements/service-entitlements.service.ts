@@ -202,6 +202,7 @@ export class ServiceEntitlementsService {
   async createRequest(dto: CreateModuleChangeRequestDto, actor: ReqUser) {
     const modules = this.normalizeModules(dto.packageCode, dto.modules);
     const requestNote = this.normalizeOptionalNote(dto.note);
+    const actorId = this.actorIdOrThrow(actor);
     const clientRows = await this.dataSource.query(
       `SELECT id FROM clients WHERE id = $1::uuid LIMIT 1`,
       [dto.clientId],
@@ -236,7 +237,7 @@ export class ServiceEntitlementsService {
             dto.packageCode,
             JSON.stringify(modules),
             JSON.stringify(current.enabledModules),
-            actor.userId || actor.id,
+            actorId,
             requestNote,
           ],
         );
@@ -250,7 +251,7 @@ export class ServiceEntitlementsService {
             inserted[0].id,
             dto.packageCode,
             JSON.stringify(modules),
-            actor.userId || actor.id,
+            actorId,
             requestNote,
           ],
         );
@@ -380,6 +381,7 @@ export class ServiceEntitlementsService {
     dto: ReviewModuleChangeRequestDto,
     actor: ReqUser,
   ) {
+    const actorId = this.actorIdOrThrow(actor);
     const existing = await this.getRequest(id, { normalize: false });
     if (existing.status !== 'PENDING_CCO') {
       throw new BadRequestException('Only pending requests can be reviewed');
@@ -407,7 +409,7 @@ export class ServiceEntitlementsService {
                 reviewed_at = NOW(),
                 review_note = $4
           WHERE id = $1::uuid`,
-        [id, dto.action, actor.userId || actor.id, reviewNote],
+        [id, dto.action, actorId, reviewNote],
       );
 
       if (dto.action === 'APPROVED') {
@@ -421,7 +423,7 @@ export class ServiceEntitlementsService {
              approved_by = EXCLUDED.approved_by,
              approved_at = EXCLUDED.approved_at,
              updated_at = NOW()`,
-          [existing.clientId, existing.packageCode, id, actor.userId || actor.id],
+          [existing.clientId, existing.packageCode, id, actorId],
         );
 
         await manager.query(
@@ -434,7 +436,7 @@ export class ServiceEntitlementsService {
             `INSERT INTO client_module_entitlements
               (client_id, module_code, is_enabled, request_id, approved_by, approved_at, updated_at)
              VALUES ($1::uuid, $2, TRUE, $3::uuid, $4::uuid, NOW(), NOW())`,
-            [existing.clientId, moduleCode, id, actor.userId || actor.id],
+            [existing.clientId, moduleCode, id, actorId],
           );
         }
 
@@ -447,7 +449,7 @@ export class ServiceEntitlementsService {
             id,
             existing.packageCode,
             JSON.stringify(normalizedRequestedModules),
-            actor.userId || actor.id,
+            actorId,
             reviewNote,
           ],
         );
@@ -462,7 +464,7 @@ export class ServiceEntitlementsService {
             dto.action,
             existing.packageCode,
             JSON.stringify(normalizedRequestedModules),
-            actor.userId || actor.id,
+            actorId,
             reviewNote,
           ],
         );
@@ -510,6 +512,14 @@ export class ServiceEntitlementsService {
   private normalizeOptionalNote(note: string | undefined): string | null {
     const trimmed = note?.trim();
     return trimmed || null;
+  }
+
+  private actorIdOrThrow(actor: ReqUser): string {
+    const actorId = actor?.userId || actor?.id;
+    if (!actorId || !UUID_RE.test(actorId)) {
+      throw new BadRequestException('Authenticated user id is invalid');
+    }
+    return actorId;
   }
 
   private normalizeRequestRow<T extends ServiceRequestRow>(row: T): T {
