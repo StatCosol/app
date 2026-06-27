@@ -3,8 +3,8 @@
     title="Branch Workspace"
     subtitle="Client-side branch operations workspace for compliance, uploads, returns, registrations, safety, audits, employees, and contractors">
     <ui-button variant="secondary" size="sm" (clicked)="goBack()">Back</ui-button>
-    <ui-button variant="secondary" size="sm" (clicked)="refreshActiveTab()">Refresh Tab</ui-button>
-    <ui-button variant="primary" size="sm" (clicked)="exportWorkspaceSummary()">Export Summary</ui-button>
+    <ui-button *ngIf="hasBranchWorkspaceModules" variant="secondary" size="sm" (clicked)="refreshActiveTab()">Refresh Tab</ui-button>
+    <ui-button *ngIf="hasBranchWorkspaceModules" variant="primary" size="sm" (clicked)="exportWorkspaceSummary()">Export Summary</ui-button>
   </ui-page-header>
 
   <div *ngIf="loading" class="loading-wrap">
@@ -34,7 +34,7 @@
       </div>
     </section>
 
-    <section class="summary-grid">
+    <section *ngIf="hasBranchWorkspaceModules" class="summary-grid">
       <article *ngIf="hasEmployeeComplianceModule" class="summary-card">
         <div class="summary-label">On-Role Employees</div>
         <div class="summary-value">{{ branch.employeeCount ?? totalEmployees ?? 0 }}</div>
@@ -69,7 +69,7 @@
       </article>
     </section>
 
-    <section class="workspace-grid">
+    <section *ngIf="hasBranchWorkspaceModules; else branchProfileOnly" class="workspace-grid">
       <div class="main-panel">
         <nav class="tab-strip">
           <button type="button"
@@ -490,5 +490,12 @@
         </section>
       </aside>
     </section>
+
+    <ng-template #branchProfileOnly>
+      <ui-empty-state
+        title="Branch Profile"
+        description="This service package can view branch details here. Compliance and contractor workspace tabs are available when those services are enabled.">
+      </ui-empty-state>
+    </ng-template>
   </ng-container>
 </div>
