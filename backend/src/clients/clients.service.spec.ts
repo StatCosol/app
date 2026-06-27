@@ -222,5 +222,53 @@ describe('ClientsService', () => {
         }),
       );
     });
+
+    it('preserves clients with only unsupported entitlement rows as empty modules', async () => {
+      const client = {
+        id: '33333333-3333-4333-8333-333333333333',
+        clientName: 'Acme Ltd',
+      };
+      mockRepo.createQueryBuilder.mockReturnValueOnce({
+        orderBy: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([client]),
+      } as any);
+      (mockRepo.manager.getRepository as jest.Mock).mockReturnValueOnce({
+        createQueryBuilder: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnThis(),
+          addSelect: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          groupBy: jest.fn().mockReturnThis(),
+          getRawMany: jest.fn().mockResolvedValue([]),
+        }),
+      });
+      mockDataSource.query
+        .mockResolvedValueOnce([
+          {
+            clientId: client.id,
+            packageCode: 'CONTRACTOR_AUDIT_ONLY',
+            approvedAt: new Date(),
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            clientId: client.id,
+            moduleCode: 'OLD_MODULE',
+          },
+        ])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.listClients();
+
+      expect(result[0]).toEqual(
+        expect.objectContaining({
+          servicePackage: 'CONTRACTOR_AUDIT_ONLY',
+          enabledModules: [],
+          pendingServiceRequestId: null,
+          servicePackageStatus: 'APPROVED',
+        }),
+      );
+    });
   });
 });
