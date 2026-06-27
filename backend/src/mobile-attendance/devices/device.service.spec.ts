@@ -118,6 +118,17 @@ describe('DeviceService.listByClient', () => {
       ['client-1', ['branch-1']],
     );
   });
+
+  it('omits install tokens when caller only needs kiosk selection metadata', async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const service = makeService(query);
+
+    await service.listByClient('client-1', [], false);
+
+    const sql = query.mock.calls[0][0] as string;
+    expect(sql).toContain('NULL::varchar AS "installToken"');
+    expect(sql).not.toContain('d.install_token    AS "installToken"');
+  });
 });
 
 describe('DeviceService.revokeDevice', () => {

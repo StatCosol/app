@@ -18,6 +18,7 @@ import { Roles } from '../auth/roles.decorator';
 import { Public } from '../auth/public.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { ServiceEntitlementsService } from '../service-entitlements/service-entitlements.service';
 
 import { DeviceService } from './devices/device.service';
 import { DeviceAuthGuard } from './devices/device-auth.guard';
@@ -46,7 +47,10 @@ import { IssueChallengeDto } from './liveness/liveness.dto';
 @Controller({ path: 'mobile-attendance/devices', version: '1' })
 @Roles('CLIENT', 'ADMIN')
 export class MobileAttendanceDevicesController {
-  constructor(private readonly deviceService: DeviceService) {}
+  constructor(
+    private readonly deviceService: DeviceService,
+    private readonly entitlements: ServiceEntitlementsService,
+  ) {}
 
   @ApiOperation({ summary: 'Admin — provision a new device and generate an install token' })
   @Post()
@@ -91,10 +95,18 @@ export class MobileAttendanceDevicesController {
 
   @ApiOperation({ summary: 'List devices for the current client' })
   @Get()
-  list(@CurrentUser() user: ReqUser) {
+  async list(@CurrentUser() user: ReqUser) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.deviceService.listByClient(clientId, user.branchIds ?? []);
+    const includeInstallToken = await this.entitlements.hasModule(
+      clientId,
+      'CONTRACTOR_FACE_ATTENDANCE',
+    );
+    return this.deviceService.listByClient(
+      clientId,
+      user.branchIds ?? [],
+      includeInstallToken,
+    );
   }
 
   @ApiOperation({ summary: 'Revoke a device' })

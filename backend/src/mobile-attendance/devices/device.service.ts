@@ -232,7 +232,11 @@ export class DeviceService {
     return this.deviceRepo.findOne({ where: { id: deviceId } });
   }
 
-  async listByClient(clientId: string, branchIds: string[] = []): Promise<any[]> {
+  async listByClient(
+    clientId: string,
+    branchIds: string[] = [],
+    includeInstallToken = true,
+  ): Promise<any[]> {
     const params: unknown[] = [clientId];
     let branchFilter = '';
     if (branchIds.length > 0) {
@@ -246,7 +250,7 @@ export class DeviceService {
               d.branch_id        AS "branchId",
               d.mode             AS "mode",
               d.device_name      AS "deviceLabel",
-              d.install_token    AS "installToken",
+              ${includeInstallToken ? 'd.install_token' : 'NULL::varchar'} AS "installToken",
               d.geofence_lat     AS "geofenceLat",
               d.geofence_lng     AS "geofenceLng",
               d.geofence_radius_m AS "geofenceRadiusM",

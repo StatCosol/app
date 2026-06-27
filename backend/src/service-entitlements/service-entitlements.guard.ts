@@ -79,6 +79,13 @@ const BLOCKED_ROUTE_MODULES: Array<[RegExp, ServiceModuleRequirement]> = [
   [/^\/?(api\/v1\/)?mobile-attendance\/punches\/contractor\b/i, 'CONTRACTOR_ATTENDANCE'],
 ];
 
+const MOBILE_ATTENDANCE_DEVICE_LIST_PATTERN =
+  /^\/?(api\/v1\/)?mobile-attendance\/devices\/?$/i;
+const MOBILE_ATTENDANCE_DEVICE_LIST_MODULES: ServiceModuleCode[] = [
+  'MOBILE_ATTENDANCE',
+  'CONTRACTOR_FACE_ATTENDANCE',
+];
+
 @Injectable()
 export class ServiceEntitlementsGuard implements CanActivate {
   constructor(private readonly entitlements: ServiceEntitlementsService) {}
@@ -94,6 +101,15 @@ export class ServiceEntitlementsGuard implements CanActivate {
     const path = String(req.originalUrl || req.url || '')
       .replace(/\?.*$/, '')
       .replace(/^\/+/, '');
+    const method = String(req.method || '').toUpperCase();
+
+    if (method === 'GET' && MOBILE_ATTENDANCE_DEVICE_LIST_PATTERN.test(path)) {
+      await this.entitlements.assertAnyModule(
+        user.clientId,
+        MOBILE_ATTENDANCE_DEVICE_LIST_MODULES,
+      );
+      return true;
+    }
 
     const match = BLOCKED_ROUTE_MODULES.find(([pattern]) => pattern.test(path));
     if (!match) return true;

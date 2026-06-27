@@ -803,7 +803,9 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   }
 
   get canUseKioskEnrollment(): boolean {
-    return this.auth.hasModule('CONTRACTOR_FACE_ATTENDANCE');
+    return this.subjectType === 'employee'
+      ? this.canViewEmployeeFaceEnrollment
+      : this.canViewContractorFaceEnrollment;
   }
 
   get visibleKioskTickets(): KioskEnrollTicket[] {
