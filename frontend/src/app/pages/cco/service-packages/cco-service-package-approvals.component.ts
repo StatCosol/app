@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
+import { AdminClientsService, Client } from '../../admin/clients/admin-clients.service';
 import {
   ServiceAuditLogEntry,
   ServiceChangeRequest,
@@ -21,6 +22,17 @@ import {
       </header>
 
       <div class="flex flex-wrap gap-3 items-end">
+        <label>
+          <span class="block text-xs font-medium text-slate-600">Client</span>
+          <select
+            class="mt-1 rounded-md border border-slate-300 px-3 py-2"
+            name="historyClientId"
+            [(ngModel)]="historyClientId"
+            (ngModelChange)="load()">
+            <option value="">All clients</option>
+            <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+          </select>
+        </label>
         <label>
           <span class="block text-xs font-medium text-slate-600">Status</span>
           <select class="mt-1 rounded-md border border-slate-300 px-3 py-2" name="status" [(ngModel)]="status" (change)="load()">
@@ -202,10 +214,12 @@ import {
   `,
 })
 export class CcoServicePackageApprovalsComponent implements OnInit {
+  clients: Client[] = [];
   requests: ServiceChangeRequest[] = [];
   auditLogs: ServiceAuditLogEntry[] = [];
   loading = false;
   status = 'PENDING_CCO';
+  historyClientId = '';
   searchTerm = '';
   actionId: string | null = null;
   reviewRow: ServiceChangeRequest | null = null;
@@ -216,7 +230,10 @@ export class CcoServicePackageApprovalsComponent implements OnInit {
   error = false;
   moduleOptions: ServiceModuleOption[] = [];
 
-  constructor(private readonly entitlements: ServiceEntitlementsApiService) {}
+  constructor(
+    private readonly clientsApi: AdminClientsService,
+    private readonly entitlements: ServiceEntitlementsApiService,
+  ) {}
 
   ngOnInit(): void {
     this.load();
@@ -338,11 +355,16 @@ export class CcoServicePackageApprovalsComponent implements OnInit {
   load(): void {
     this.loading = true;
     forkJoin({
+      clients: this.clientsApi.getClients(),
       modules: this.entitlements.listModules(),
-      requests: this.entitlements.listRequests(this.status || undefined),
-      auditLogs: this.entitlements.listAuditLogs(),
+      requests: this.entitlements.listRequests(
+        this.status || undefined,
+        this.historyClientId || undefined,
+      ),
+      auditLogs: this.entitlements.listAuditLogs(this.historyClientId || undefined),
     }).subscribe({
-      next: ({ modules, requests, auditLogs }) => {
+      next: ({ clients, modules, requests, auditLogs }) => {
+        this.clients = clients || [];
         this.moduleOptions = modules || [];
         this.requests = requests || [];
         this.auditLogs = auditLogs || [];
