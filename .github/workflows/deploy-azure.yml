@@ -70,10 +70,19 @@ jobs:
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --image "$IMAGE"
 
-          az containerapp ingress traffic set \
+          REVISION_MODE=$(az containerapp show \
             --name ${{ env.BACKEND_APP }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --revision-weight latest=100
+            --query "properties.configuration.activeRevisionsMode" \
+            -o tsv)
+          if [ "$REVISION_MODE" = "Multiple" ]; then
+            az containerapp ingress traffic set \
+              --name ${{ env.BACKEND_APP }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --revision-weight latest=100
+          else
+            echo "Backend revision mode is ${REVISION_MODE}; Azure routes the latest revision automatically."
+          fi
 
           for i in {1..60}; do
             ACTIVE_IMAGE=$(az containerapp revision list \
