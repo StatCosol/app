@@ -270,6 +270,8 @@ export class DeviceService {
       branchFilter = ` AND d.branch_id = ANY($${params.length}::uuid[])`;
     }
 
+    if (!(await this.tableExists('mobile_attendance_devices'))) return [];
+
     const columns = await this.getTableColumns('mobile_attendance_devices');
     const deletedAtCol = this.pickColumn(columns, 'deleted_at', 'deletedAt');
     const deletedFilter = deletedAtCol ? `AND d.${this.quoteIdentifier(deletedAtCol)} IS NULL` : '';

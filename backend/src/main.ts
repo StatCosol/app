@@ -778,9 +778,29 @@ async function bootstrap() {
       logger.warn(`Schema patch contractor payroll skipped: ${e?.message}`);
     }
 
-    // mobile_attendance_devices — backfill all columns added in v2 + fixes migrations
-    // Idempotent: safe to run even if migrations 20260616_v2 and 20260617 already ran
+    // mobile_attendance_devices — ensure table + all v2/fixes columns exist
     try {
+      await ds.query(`
+        CREATE TABLE IF NOT EXISTS mobile_attendance_devices (
+          id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          client_id      UUID NOT NULL,
+          branch_id      UUID,
+          mode           VARCHAR(10) NOT NULL DEFAULT 'KIOSK',
+          install_token  VARCHAR(64) NOT NULL UNIQUE,
+          android_id     VARCHAR(100),
+          device_name    VARCHAR(200),
+          is_active      BOOLEAN NOT NULL DEFAULT true,
+          last_seen_at   TIMESTAMPTZ,
+          revoked_at     TIMESTAMPTZ,
+          revoked_by     UUID,
+          deleted_at     TIMESTAMPTZ,
+          geofence_lat   NUMERIC(10,7),
+          geofence_lng   NUMERIC(10,7),
+          geofence_radius_m INTEGER,
+          created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `);
+      // Backfill columns for installs that had an older schema
       await ds.query(`
         ALTER TABLE mobile_attendance_devices
           ADD COLUMN IF NOT EXISTS android_id        VARCHAR(100),
@@ -794,8 +814,9 @@ async function bootstrap() {
           ADD COLUMN IF NOT EXISTS geofence_lng      NUMERIC(10,7),
           ADD COLUMN IF NOT EXISTS geofence_radius_m INTEGER
       `);
+      await ds.query(`CREATE INDEX IF NOT EXISTS idx_mad_client ON mobile_attendance_devices(client_id)`);
       await ds.query(`CREATE INDEX IF NOT EXISTS idx_mad_deleted_at ON mobile_attendance_devices(deleted_at)`);
-      logger.log('Schema patch: mobile_attendance_devices columns OK');
+      logger.log('Schema patch: mobile_attendance_devices OK');
     } catch (e: any) {
       logger.warn(`Schema patch mobile_attendance_devices skipped: ${e?.message}`);
     }
