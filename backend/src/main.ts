@@ -61,6 +61,10 @@ async function bootstrap() {
   app.use(
     helmet({
       xXssProtection: false,
+      // x-content-type-options: nosniff — prevents MIME-sniffing attacks
+      xContentTypeOptions: true,
+      // Do not send X-Frame-Options legacy header; CSP frame-ancestors covers this
+      xFrameOptions: false,
       hsts: {
         maxAge: 60 * 60 * 24 * 365, // 1 year
         includeSubDomains: true,
@@ -83,6 +87,26 @@ async function bootstrap() {
         },
       },
     }),
+    // Strip server identity and legacy cache headers; enforce charset=utf-8
+    (_req: any, res: any, next: any) => {
+      res.removeHeader('Server');
+      res.removeHeader('X-Powered-By');
+      res.removeHeader('Expires');
+      res.removeHeader('Pragma');
+      const origSetHeader = res.setHeader.bind(res);
+      res.setHeader = (name: string, value: string) => {
+        if (
+          name.toLowerCase() === 'content-type' &&
+          typeof value === 'string' &&
+          value.includes('application/json') &&
+          !value.includes('charset')
+        ) {
+          return origSetHeader(name, `${value}; charset=utf-8`);
+        }
+        return origSetHeader(name, value);
+      };
+      next();
+    },
   );
 
   // Response compression
