@@ -270,6 +270,10 @@ export class DeviceService {
       branchFilter = ` AND d.branch_id = ANY($${params.length}::uuid[])`;
     }
 
+    const columns = await this.getTableColumns('mobile_attendance_devices');
+    const deletedAtCol = this.pickColumn(columns, 'deleted_at', 'deletedAt');
+    const deletedFilter = deletedAtCol ? `AND d.${this.quoteIdentifier(deletedAtCol)} IS NULL` : '';
+
     return this.dataSource.query(
       `SELECT d.id,
               d.client_id        AS "clientId",
@@ -290,7 +294,7 @@ export class DeviceService {
               NULL::uuid         AS "essEmployeeId"
        FROM mobile_attendance_devices d
        WHERE d.client_id = $1::uuid
-         AND d.deleted_at IS NULL
+         ${deletedFilter}
          ${branchFilter}
        ORDER BY d.created_at DESC NULLS LAST`,
       params,
