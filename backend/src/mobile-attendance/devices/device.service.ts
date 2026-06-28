@@ -190,13 +190,42 @@ export class DeviceService {
     clientId: string,
     deviceId: string,
     by: string,
+    branchIds: string[] = [],
   ): Promise<void> {
-    const device = await this.deviceRepo.findOne({ where: { id: deviceId, clientId } });
-    if (!device) throw new NotFoundException('Device not found');
-    device.isActive = false;
-    device.revokedAt = new Date();
-    if (this.isUuid(by)) device.revokedBy = by;
-    await this.deviceRepo.save(device);
+    if (!(await this.tableExists('mobile_attendance_devices'))) {
+      throw new NotFoundException('Device not found');
+    }
+    const columns = await this.getTableColumns('mobile_attendance_devices');
+    const isActiveCol = this.requireColumn(columns, 'is_active', 'isActive');
+    const revokedAtCol = this.pickColumn(columns, 'revoked_at', 'revokedAt');
+    const revokedByCol = this.pickColumn(columns, 'revoked_by', 'revokedBy');
+    const branchCol = this.pickColumn(columns, 'branch_id', 'branchId');
+
+    const params: unknown[] = [deviceId, clientId];
+    const sets = [`${this.quoteIdentifier(isActiveCol)} = false`];
+    if (revokedAtCol) sets.push(`${this.quoteIdentifier(revokedAtCol)} = now()`);
+    if (revokedByCol && this.isUuid(by)) {
+      params.push(by);
+      sets.push(`${this.quoteIdentifier(revokedByCol)} = $${params.length}::uuid`);
+    }
+
+    let branchFilter = '';
+    if (branchIds.length > 0 && branchCol) {
+      params.push(branchIds);
+      branchFilter = `AND d.${this.quoteIdentifier(branchCol)} = ANY($${params.length}::uuid[])`;
+    }
+
+    const raw = await this.dataSource.query(
+      `UPDATE mobile_attendance_devices d
+          SET ${sets.join(', ')}
+        WHERE d.id = $1::uuid
+          AND d.client_id = $2::uuid
+          ${branchFilter}
+        RETURNING d.id`,
+      params,
+    );
+    const rows: Array<{ id: string }> = Array.isArray(raw[0]) ? raw[0] : raw;
+    if (!rows || rows.length === 0) throw new NotFoundException('Device not found');
   }
 
   async permanentlyDeleteDevice(

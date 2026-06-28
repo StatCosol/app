@@ -105,7 +105,7 @@ export class MobileAttendanceDevicesController {
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.deviceService.revokeDevice(clientId, deviceId, user.userId);
+    return this.deviceService.revokeDevice(clientId, deviceId, user.userId, user.branchIds ?? []);
   }
 
   @ApiOperation({ summary: 'Permanently delete a revoked device' })

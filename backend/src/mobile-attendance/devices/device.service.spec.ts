@@ -124,37 +124,79 @@ describe('DeviceService.listByClient', () => {
 // ─── revokeDevice ─────────────────────────────────────────────────────────────
 
 describe('DeviceService.revokeDevice', () => {
-  function makeService() {
-    const deviceRepo = {
-      findOne: jest.fn(),
-      save: jest.fn(async (d: any) => d),
-    };
-    return { service: new DeviceService(deviceRepo as any, {} as any), deviceRepo };
+  function makeService(query: jest.Mock) {
+    return new DeviceService({} as any, { query } as any);
   }
 
   it('sets isActive=false and records revocation details for a UUID actor', async () => {
-    const { service, deviceRepo } = makeService();
-    const device: any = { id: 'dev-1', clientId: 'client-1', isActive: true, revokedAt: null, revokedBy: null };
-    deviceRepo.findOne.mockResolvedValue(device);
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'is_active' },
+        { column_name: 'revoked_at' },
+        { column_name: 'revoked_by' },
+      ])
+      .mockResolvedValueOnce([{ id: 'dev-1' }]);
+    const service = makeService(query);
 
     await service.revokeDevice('client-1', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002');
 
-    expect(device.isActive).toBe(false);
-    expect(device.revokedAt).toBeInstanceOf(Date);
-    expect(device.revokedBy).toBe('00000000-0000-4000-8000-000000000002');
-    expect(deviceRepo.save).toHaveBeenCalledWith(device);
+    const updateSql = query.mock.calls[2][0] as string;
+    expect(updateSql).toContain('UPDATE mobile_attendance_devices d');
+    expect(updateSql).toContain('"is_active" = false');
+    expect(updateSql).toContain('"revoked_at" = now()');
+    expect(updateSql).toContain('"revoked_by" = $3::uuid');
+    expect(query.mock.calls[2][1]).toEqual([
+      '00000000-0000-4000-8000-000000000001',
+      'client-1',
+      '00000000-0000-4000-8000-000000000002',
+    ]);
   });
 
   it('omits revokedBy when the actor identifier is not a valid UUID', async () => {
-    const { service, deviceRepo } = makeService();
-    const device: any = { id: 'dev-1', clientId: 'client-1', isActive: true, revokedAt: null, revokedBy: null };
-    deviceRepo.findOne.mockResolvedValue(device);
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'is_active' },
+        { column_name: 'revoked_at' },
+        { column_name: 'revoked_by' },
+      ])
+      .mockResolvedValueOnce([{ id: 'dev-1' }]);
+    const service = makeService(query);
 
     await service.revokeDevice('client-1', '00000000-0000-4000-8000-000000000001', 'system:kiosk');
 
-    expect(device.isActive).toBe(false);
-    expect(device.revokedAt).toBeInstanceOf(Date);
-    expect(device.revokedBy).toBeNull();
+    const updateSql = query.mock.calls[2][0] as string;
+    expect(updateSql).not.toContain('"revoked_by"');
+    expect(query.mock.calls[2][1]).toEqual([
+      '00000000-0000-4000-8000-000000000001',
+      'client-1',
+    ]);
+  });
+
+  it('scopes revocation to branch IDs when supplied', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'is_active' },
+        { column_name: 'revoked_at' },
+        { column_name: 'branch_id' },
+      ])
+      .mockResolvedValueOnce([{ id: 'dev-1' }]);
+    const service = makeService(query);
+
+    await service.revokeDevice('client-1', '00000000-0000-4000-8000-000000000001', 'system:kiosk', ['branch-1']);
+
+    const updateSql = query.mock.calls[2][0] as string;
+    expect(updateSql).toContain('d."branch_id" = ANY($3::uuid[])');
+    expect(query.mock.calls[2][1]).toEqual([
+      '00000000-0000-4000-8000-000000000001',
+      'client-1',
+      ['branch-1'],
+    ]);
   });
 });
 
