@@ -106,6 +106,8 @@ describe('DeviceService.registerDevice', () => {
     await service.registerDevice('token', 'android-1', 'Tablet');
 
     expect(txQuery.mock.calls[0][0]).toContain('FOR UPDATE');
+    expect(txQuery.mock.calls[1][0]).toContain("to_jsonb(d)->>'is_active'");
+    expect(txQuery.mock.calls[1][0]).toContain('= true');
     const updateSql = txQuery.mock.calls[2][0] as string;
     expect(updateSql).toContain('"android_id" = $2');
     expect(updateSql).toContain('"device_label" = $3');

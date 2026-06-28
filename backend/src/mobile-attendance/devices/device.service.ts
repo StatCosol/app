@@ -133,6 +133,7 @@ export class DeviceService {
               WHERE d.client_id = $1::uuid
                 AND d.${this.quoteIdentifier(androidIdCol)} = $2
                 AND d.id <> $3::uuid
+                AND ${this.deviceIsActiveExpression('d')} = true
                 ${notDeleted}
              LIMIT 1`,
             [device.clientId, androidId, device.id],
