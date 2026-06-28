@@ -50,7 +50,7 @@ const MONTHS = [
         </select>
       </div>
 
-      <div *ngIf="loading" class="flex justify-center py-12"><app-loading-spinner /></div>
+      <div *ngIf="loading" class="flex justify-center py-12"><ui-loading-spinner /></div>
 
       <ng-container *ngIf="!loading">
 

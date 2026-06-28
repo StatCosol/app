@@ -45,7 +45,7 @@ const MONTHS = [
         <button *ngIf="sheet" class="btn btn-outline" (click)="exportSheet()">⬇ Export Excel</button>
       </div>
 
-      <div *ngIf="loading" class="flex-center py-12"><app-loading-spinner /></div>
+      <div *ngIf="loading" class="flex-center py-12"><ui-loading-spinner /></div>
 
       <ng-container *ngIf="!loading">
 

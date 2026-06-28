@@ -34,7 +34,7 @@ const MONTHS = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, LoadingSpinnerComponent, PageHeaderComponent, FileDropzoneComponent],
   template: `
-    <app-page-header title="Payroll & Wages" subtitle="Upload attendance and generate wage sheets" />
+    <ui-page-header title="Payroll & Wages" subtitle="Upload attendance and generate wage sheets" />
 
     <!-- Filters -->
     <div class="filter-bar">
@@ -50,7 +50,7 @@ const MONTHS = [
       </select>
     </div>
 
-    <div *ngIf="loading" class="center-spinner"><app-loading-spinner /></div>
+    <div *ngIf="loading" class="center-spinner"><ui-loading-spinner /></div>
 
     <ng-container *ngIf="!loading">
       <!-- Attendance section -->
