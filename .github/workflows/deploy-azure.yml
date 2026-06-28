@@ -64,10 +64,47 @@ jobs:
 
       - name: Deploy backend Container App
         run: |
+          IMAGE="${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}"
           az containerapp update \
             --name ${{ env.BACKEND_APP }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+            --image "$IMAGE"
+
+          REVISION_MODE=$(az containerapp show \
+            --name ${{ env.BACKEND_APP }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query "properties.configuration.activeRevisionsMode" \
+            -o tsv)
+          if [ "$REVISION_MODE" = "Multiple" ]; then
+            az containerapp ingress traffic set \
+              --name ${{ env.BACKEND_APP }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --revision-weight latest=100
+          else
+            echo "Backend revision mode is ${REVISION_MODE}; Azure routes the latest revision automatically."
+          fi
+
+          for i in {1..60}; do
+            ACTIVE_IMAGE=$(az containerapp revision list \
+              --name ${{ env.BACKEND_APP }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --query "[?properties.active && properties.trafficWeight == \`100\`].properties.template.containers[0].image | [0]" \
+              -o tsv)
+            if [ "$ACTIVE_IMAGE" = "$IMAGE" ]; then
+              echo "Backend active image verified: $ACTIVE_IMAGE"
+              exit 0
+            fi
+            echo "Waiting for backend active image. Current: ${ACTIVE_IMAGE:-none}"
+            sleep 5
+          done
+
+          echo "Backend did not switch 100% traffic to $IMAGE"
+          az containerapp revision list \
+            --name ${{ env.BACKEND_APP }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query "[].{name:name,image:properties.template.containers[0].image,traffic:properties.trafficWeight,state:properties.runningState,active:properties.active}" \
+            -o table
+          exit 1
 
       - name: Apply service entitlement migrations
         run: |
