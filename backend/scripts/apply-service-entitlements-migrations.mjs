@@ -21,6 +21,7 @@ const serviceMigrationFiles = new Set([
   '20260628g_client_service_approval_metadata_checks.sql',
   '20260628h_client_service_audit_note_checks.sql',
   '20260628i_client_service_nonempty_module_checks.sql',
+  '20260629_mobile_attendance_devices_created_at_compat.sql',
 ]);
 
 const config = {
