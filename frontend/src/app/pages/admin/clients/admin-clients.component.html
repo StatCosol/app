@@ -207,6 +207,12 @@
           <p class="text-xs text-gray-500 mb-3">
             Selected services are sent to CCO for approval before portal access is enabled.
           </p>
+          <div class="flex items-center gap-3 mb-2">
+            <button type="button" class="text-sm text-indigo-700 font-medium" (click)="selectAllServices()">Select All</button>
+            <span class="text-gray-300">|</span>
+            <button type="button" class="text-sm text-gray-500" (click)="deselectAllServices()">Deselect All</button>
+            <span class="ml-auto text-xs text-gray-500">{{ clientForm.serviceModules.length }} of {{ serviceModuleOptions.length }} selected</span>
+          </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <label
               *ngFor="let service of serviceModuleOptions"

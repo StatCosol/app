@@ -298,6 +298,14 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     return this.clientForm.serviceModules.includes(code);
   }
 
+  selectAllServices(): void {
+    this.clientForm.serviceModules = this.serviceModuleOptions.map((m) => m.code);
+  }
+
+  deselectAllServices(): void {
+    this.clientForm.serviceModules = [];
+  }
+
   toggleService(code: string, checked: boolean): void {
     const current = new Set(this.clientForm.serviceModules);
     if (checked) current.add(code);

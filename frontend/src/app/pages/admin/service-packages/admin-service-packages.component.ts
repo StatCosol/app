@@ -87,7 +87,25 @@ import {
             {{ loadingClientStatus ? 'Loading...' : 'Reload current services' }}
           </button>
         </div>
-        <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div class="mt-3 flex items-center gap-3 mb-2">
+          <button
+            type="button"
+            class="text-sm text-blue-700 font-medium disabled:text-slate-400"
+            [disabled]="!form.clientId || loadingClientStatus"
+            (click)="selectAllModules()">
+            Select All
+          </button>
+          <span class="text-slate-300">|</span>
+          <button
+            type="button"
+            class="text-sm text-slate-500 disabled:text-slate-300"
+            [disabled]="!form.clientId || loadingClientStatus"
+            (click)="deselectAllModules()">
+            Deselect All
+          </button>
+          <span class="ml-auto text-xs text-slate-500">{{ form.modules.length }} of {{ moduleOptions.length }} selected</span>
+        </div>
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <label
             *ngFor="let service of moduleOptions"
             class="flex items-start gap-3 rounded-lg border border-slate-200 p-3 cursor-pointer hover:border-blue-300">
@@ -485,6 +503,16 @@ export class AdminServicePackagesComponent implements OnInit {
       default:
         return 'bg-slate-100 text-slate-700';
     }
+  }
+
+  selectAllModules(): void {
+    this.form.modules = this.moduleOptions.map((m) => m.code);
+    this.form.packageCode = 'CUSTOM_SERVICES';
+  }
+
+  deselectAllModules(): void {
+    this.form.modules = [];
+    this.form.packageCode = 'CUSTOM_SERVICES';
   }
 
   toggleModule(code: string, checked: boolean): void {
