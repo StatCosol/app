@@ -778,13 +778,26 @@ async function bootstrap() {
       logger.warn(`Schema patch contractor payroll skipped: ${e?.message}`);
     }
 
-    // Soft-delete for mobile attendance devices (migration 20260616c)
+    // mobile_attendance_devices — backfill all columns added in v2 + fixes migrations
+    // Idempotent: safe to run even if migrations 20260616_v2 and 20260617 already ran
     try {
-      await ds.query(`ALTER TABLE mobile_attendance_devices ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
+      await ds.query(`
+        ALTER TABLE mobile_attendance_devices
+          ADD COLUMN IF NOT EXISTS android_id        VARCHAR(100),
+          ADD COLUMN IF NOT EXISTS device_name       VARCHAR(200),
+          ADD COLUMN IF NOT EXISTS is_active         BOOLEAN NOT NULL DEFAULT true,
+          ADD COLUMN IF NOT EXISTS last_seen_at      TIMESTAMPTZ,
+          ADD COLUMN IF NOT EXISTS revoked_at        TIMESTAMPTZ,
+          ADD COLUMN IF NOT EXISTS revoked_by        UUID,
+          ADD COLUMN IF NOT EXISTS deleted_at        TIMESTAMPTZ,
+          ADD COLUMN IF NOT EXISTS geofence_lat      NUMERIC(10,7),
+          ADD COLUMN IF NOT EXISTS geofence_lng      NUMERIC(10,7),
+          ADD COLUMN IF NOT EXISTS geofence_radius_m INTEGER
+      `);
       await ds.query(`CREATE INDEX IF NOT EXISTS idx_mad_deleted_at ON mobile_attendance_devices(deleted_at)`);
-      logger.log('Schema patch: mobile_attendance_devices deleted_at OK');
+      logger.log('Schema patch: mobile_attendance_devices columns OK');
     } catch (e: any) {
-      logger.warn(`Schema patch mobile_attendance_devices deleted_at skipped: ${e?.message}`);
+      logger.warn(`Schema patch mobile_attendance_devices skipped: ${e?.message}`);
     }
 
     const CRITICAL_TABLES = [

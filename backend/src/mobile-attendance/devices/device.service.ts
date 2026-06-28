@@ -275,23 +275,17 @@ export class DeviceService {
     const deletedFilter = deletedAtCol ? `AND d.${this.quoteIdentifier(deletedAtCol)} IS NULL` : '';
 
     return this.dataSource.query(
-      `SELECT d.id,
-              d.client_id        AS "clientId",
-              d.branch_id        AS "branchId",
-              d.mode             AS "mode",
-              d.device_name      AS "deviceLabel",
-              d.install_token    AS "installToken",
-              d.geofence_lat     AS "geofenceLat",
-              d.geofence_lng     AS "geofenceLng",
-              d.geofence_radius_m AS "geofenceRadiusM",
-              d.created_at       AS "registeredAt",
-              NULL::uuid         AS "registeredBy",
-              d.last_seen_at     AS "lastSeenAt",
-              NULL::timestamptz  AS "lastPunchAt",
-              d.is_active        AS "isActive",
-              d.revoked_at       AS "revokedAt",
-              d.revoked_by       AS "revokedBy",
-              NULL::uuid         AS "essEmployeeId"
+      `SELECT ${this.deviceReturnProjection('d')},
+              COALESCE(
+                to_jsonb(d)->>'deviceName',
+                to_jsonb(d)->>'device_name',
+                to_jsonb(d)->>'deviceLabel',
+                to_jsonb(d)->>'device_label'
+              ) AS "deviceLabel",
+              NULL::uuid AS "registeredBy",
+              COALESCE(to_jsonb(d)->>'createdAt', to_jsonb(d)->>'created_at', to_jsonb(d)->>'registeredAt', to_jsonb(d)->>'registered_at') AS "registeredAt",
+              NULL::timestamptz AS "lastPunchAt",
+              NULL::uuid AS "essEmployeeId"
        FROM mobile_attendance_devices d
        WHERE d.client_id = $1::uuid
          ${deletedFilter}

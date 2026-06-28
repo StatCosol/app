@@ -73,20 +73,21 @@ describe('DeviceService.listByClient', () => {
     return new DeviceService({} as any, { query } as any);
   }
 
-  it('returns frontend-compatible device fields using direct column names', async () => {
+  it('returns frontend-compatible device fields using schema-tolerant projections', async () => {
     const query = jest.fn().mockResolvedValue([]);
     const service = makeService(query);
 
     await service.listByClient('client-1');
 
-    const sql = query.mock.calls[0][0] as string;
-    expect(sql).toContain('d.device_name');
-    expect(sql).toContain('d.client_id');
-    expect(sql).toContain('d.branch_id');
-    expect(sql).toContain('d.is_active');
+    const sql = query.mock.calls[1][0] as string;
+    expect(sql).toContain("to_jsonb(d)->>'device_name'");
+    expect(sql).toContain("to_jsonb(d)->>'device_label'");
+    expect(sql).toContain("to_jsonb(d)->>'client_id'");
+    expect(sql).toContain("to_jsonb(d)->>'branch_id'");
+    expect(sql).toContain("to_jsonb(d)->>'is_active'");
     expect(sql).toContain('d.deleted_at IS NULL');
     expect(sql).toContain('FROM mobile_attendance_devices d');
-    expect(query.mock.calls[0][1]).toEqual(['client-1']);
+    expect(query.mock.calls[1][1]).toEqual(['client-1']);
   });
 
   it('scopes devices to supplied branch IDs', async () => {
@@ -95,9 +96,9 @@ describe('DeviceService.listByClient', () => {
 
     await service.listByClient('client-1', ['branch-1']);
 
-    const sql = query.mock.calls[0][0] as string;
+    const sql = query.mock.calls[1][0] as string;
     expect(sql).toContain('d.branch_id = ANY($2::uuid[])');
-    expect(query.mock.calls[0][1]).toEqual(['client-1', ['branch-1']]);
+    expect(query.mock.calls[1][1]).toEqual(['client-1', ['branch-1']]);
   });
 });
 
