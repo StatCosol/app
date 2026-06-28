@@ -778,6 +778,15 @@ async function bootstrap() {
       logger.warn(`Schema patch contractor payroll skipped: ${e?.message}`);
     }
 
+    // Soft-delete for mobile attendance devices (migration 20260616c)
+    try {
+      await ds.query(`ALTER TABLE mobile_attendance_devices ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
+      await ds.query(`CREATE INDEX IF NOT EXISTS idx_mad_deleted_at ON mobile_attendance_devices(deleted_at)`);
+      logger.log('Schema patch: mobile_attendance_devices deleted_at OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch mobile_attendance_devices deleted_at skipped: ${e?.message}`);
+    }
+
     const CRITICAL_TABLES = [
       'users',
       'roles',
