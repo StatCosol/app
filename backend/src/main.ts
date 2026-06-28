@@ -731,6 +731,13 @@ async function bootstrap() {
         UNIQUE (contractor_employee_id, attendance_date, source))`);
       await ds.query(`CREATE INDEX IF NOT EXISTS IDX_CAR_EMP_DATE ON contractor_attendance_records (contractor_employee_id, attendance_date)`);
       await ds.query(`CREATE INDEX IF NOT EXISTS IDX_CAR_CLIENT_MONTH ON contractor_attendance_records (client_id, date_trunc('month', attendance_date))`);
+      logger.log('Schema patch: contractor attendance tables OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch contractor attendance skipped: ${e?.message}`);
+    }
+
+    // Contractor payroll sheet tables — separate block so attendance failures don't block these
+    try {
       await ds.query(`CREATE TABLE IF NOT EXISTS contractor_payroll_sheets (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         client_id UUID NOT NULL, branch_id UUID,
@@ -756,9 +763,9 @@ async function bootstrap() {
         attendance_source VARCHAR(10) NOT NULL DEFAULT 'UPLOAD' CHECK (attendance_source IN ('UPLOAD','KIOSK','MIXED','NONE')),
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         UNIQUE (sheet_id, contractor_employee_id))`);
-      logger.log('Schema patch: contractor payroll tables OK');
+      logger.log('Schema patch: contractor payroll sheet tables OK');
     } catch (e: any) {
-      logger.warn(`Schema patch contractor payroll skipped: ${e?.message}`);
+      logger.warn(`Schema patch contractor payroll sheets skipped: ${e?.message}`);
     }
 
     // Contractor wage breakup tables — separate block so attendance/payroll failures don't block these

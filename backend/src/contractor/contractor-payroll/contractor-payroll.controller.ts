@@ -165,7 +165,12 @@ export class ContractorPayrollController {
     @Req() req: any,
   ) {
     const { clientId } = req.user;
-    return this.svc.getSheet(clientId, branchId ?? null, parseInt(month, 10), parseInt(year, 10));
+    try {
+      return await this.svc.getSheet(clientId, branchId ?? null, parseInt(month, 10), parseInt(year, 10));
+    } catch (err: any) {
+      this.logger.error(`getSheet failed client=${clientId} month=${month} year=${year}: ${err?.message}`, err?.stack);
+      return null;
+    }
   }
 
   // ─── List All Sheets ──────────────────────────────────────────────────────
