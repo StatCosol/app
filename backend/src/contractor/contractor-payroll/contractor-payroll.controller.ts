@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Logger,
   Param,
   ParseUUIDPipe,
   Post,
@@ -23,6 +24,7 @@ import { ContractorPayrollService } from './contractor-payroll.service';
 @Controller('contractor-payroll')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ContractorPayrollController {
+  private readonly logger = new Logger(ContractorPayrollController.name);
   constructor(private readonly svc: ContractorPayrollService) {}
 
   // ─── Attendance Template Download ─────────────────────────────────────────
@@ -130,7 +132,12 @@ export class ContractorPayrollController {
     @Req() req: any,
   ) {
     const { clientId } = req.user;
-    return this.svc.getWageBreakup(clientId, parseInt(month, 10), parseInt(year, 10));
+    try {
+      return await this.svc.getWageBreakup(clientId, parseInt(month, 10), parseInt(year, 10));
+    } catch (err: any) {
+      this.logger.error(`getWageBreakup failed client=${clientId} month=${month} year=${year}: ${err?.message}`, err?.stack);
+      return [];
+    }
   }
 
   // ─── Generate / Refresh Wage Sheet ────────────────────────────────────────

@@ -756,6 +756,13 @@ async function bootstrap() {
         attendance_source VARCHAR(10) NOT NULL DEFAULT 'UPLOAD' CHECK (attendance_source IN ('UPLOAD','KIOSK','MIXED','NONE')),
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         UNIQUE (sheet_id, contractor_employee_id))`);
+      logger.log('Schema patch: contractor payroll tables OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch contractor payroll skipped: ${e?.message}`);
+    }
+
+    // Contractor wage breakup tables — separate block so attendance/payroll failures don't block these
+    try {
       await ds.query(`CREATE TABLE IF NOT EXISTS contractor_wage_breakup_uploads (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         client_id UUID NOT NULL, branch_id UUID, uploaded_by UUID NOT NULL,
@@ -773,9 +780,9 @@ async function bootstrap() {
         other_allowances NUMERIC(12,2) NOT NULL DEFAULT 0, monthly_gross NUMERIC(12,2) NOT NULL DEFAULT 0,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         UNIQUE (client_id, contractor_employee_id, month, year))`);
-      logger.log('Schema patch: contractor payroll tables OK');
+      logger.log('Schema patch: contractor wage breakup tables OK');
     } catch (e: any) {
-      logger.warn(`Schema patch contractor payroll skipped: ${e?.message}`);
+      logger.warn(`Schema patch contractor wage breakup skipped: ${e?.message}`);
     }
 
     // mobile_attendance_devices — ensure table + all v2/fixes columns exist
