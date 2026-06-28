@@ -13,6 +13,8 @@ env:
   FRONTEND_IMAGE: statcompy-frontend
   BACKEND_APP: statcompy-backend
   FRONTEND_APP: statcompy-frontend
+  MIGRATION_JOB: statcompy-migrate
+  KEY_VAULT_NAME: statcompy-kv-prod
   CONTAINER_ENV: statcompy-env
 
 jobs:
@@ -67,6 +69,78 @@ jobs:
             --name ${{ env.BACKEND_APP }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --image ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+
+      - name: Apply service entitlement migrations
+        run: |
+          IMAGE="${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}"
+          DB_PASS_VALUE=$(az keyvault secret show \
+            --vault-name ${{ env.KEY_VAULT_NAME }} \
+            --name db-pass \
+            --query value -o tsv)
+
+          az containerapp job show \
+            --name ${{ env.MIGRATION_JOB }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --only-show-errors >/dev/null
+
+          az containerapp job secret set \
+            --name ${{ env.MIGRATION_JOB }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --secrets "db-pass=${DB_PASS_VALUE}" \
+            --only-show-errors >/dev/null
+
+          az containerapp job update \
+            --name ${{ env.MIGRATION_JOB }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image "$IMAGE" \
+            --command "node" "scripts/apply-service-entitlements-migrations.mjs" \
+            --set-env-vars \
+              NODE_ENV=production \
+              DB_HOST=statcompy-db.postgres.database.azure.com \
+              DB_PORT=5432 \
+              DB_USER=Statcocompy \
+              DB_PASS=secretref:db-pass \
+              DB_NAME=statcompy \
+              DB_SSL=true \
+            --only-show-errors
+
+          EXECUTION_NAME=$(az containerapp job start \
+            --name ${{ env.MIGRATION_JOB }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query name -o tsv)
+
+          echo "Migration execution: ${EXECUTION_NAME}"
+
+          for i in {1..60}; do
+            STATUS=$(az containerapp job execution show \
+              --name ${{ env.MIGRATION_JOB }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --job-execution-name "$EXECUTION_NAME" \
+              --query "properties.status" -o tsv)
+            echo "Migration status: ${STATUS}"
+            case "$STATUS" in
+              Succeeded)
+                exit 0
+                ;;
+              Failed|Canceled)
+                az containerapp job logs show \
+                  --name ${{ env.MIGRATION_JOB }} \
+                  --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+                  --execution "$EXECUTION_NAME" \
+                  --container ${{ env.MIGRATION_JOB }} || true
+                exit 1
+                ;;
+            esac
+            sleep 5
+          done
+
+          echo "Migration execution timed out"
+          az containerapp job logs show \
+            --name ${{ env.MIGRATION_JOB }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --execution "$EXECUTION_NAME" \
+            --container ${{ env.MIGRATION_JOB }} || true
+          exit 1
 
       - name: Verify backend health
         run: |
