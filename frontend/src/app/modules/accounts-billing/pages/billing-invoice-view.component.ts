@@ -153,7 +153,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
           <div class="p-6 border-b flex items-center justify-between">
             <h2 class="text-lg font-bold">Record Payment</h2>
-            <button (click)="showPaymentModal = false" class="text-slate-400 hover:text-slate-600">&times;</button>
+            <button (click)="showPaymentModal = false" class="text-slate-400 hover:text-slate-600" aria-label="Close">&times;</button>
           </div>
           <div class="p-6 space-y-4">
             <div>
@@ -204,7 +204,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
           <div class="p-6 border-b flex items-center justify-between">
             <h2 class="text-lg font-bold">Send Invoice Email</h2>
-            <button (click)="showEmailModal = false" class="text-slate-400 hover:text-slate-600">&times;</button>
+            <button (click)="showEmailModal = false" class="text-slate-400 hover:text-slate-600" aria-label="Close">&times;</button>
           </div>
           <div class="p-6 space-y-4">
             <div>

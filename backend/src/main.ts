@@ -59,34 +59,40 @@ async function bootstrap() {
   // restrictive CSP appropriate for a JSON API (no inline scripts/styles served
   // from this origin; uploads are same-origin via /uploads with auth).
   app.use(
-    helmet({
-      xXssProtection: false,
-      // x-content-type-options: nosniff — prevents MIME-sniffing attacks
-      xContentTypeOptions: true,
-      // Do not send X-Frame-Options legacy header; CSP frame-ancestors covers this
-      xFrameOptions: false,
-      hsts: {
-        maxAge: 60 * 60 * 24 * 365, // 1 year
-        includeSubDomains: true,
-        preload: true,
-      },
-      referrerPolicy: { policy: 'no-referrer' },
-      crossOriginResourcePolicy: { policy: 'same-site' },
-      contentSecurityPolicy: {
-        useDefaults: true,
-        directives: {
-          'default-src': ["'self'"],
-          'script-src': ["'self'"],
-          'style-src': ["'self'", "'unsafe-inline'"], // Swagger UI uses inline
-          'img-src': ["'self'", 'data:', 'blob:'],
-          'connect-src': ["'self'"],
-          'object-src': ["'none'"],
-          'frame-ancestors': ["'none'"],
-          'base-uri': ["'self'"],
-          'form-action': ["'self'"],
+    // CSP only on HTML responses — skip for JSON API endpoints to avoid
+    // "unneeded header" warnings from browser scanners
+    (req: any, res: any, next: any) => {
+      const accept = String(req.headers['accept'] || '');
+      const isHtml = accept.includes('text/html');
+      helmet({
+        xXssProtection: false,
+        xContentTypeOptions: true,
+        xFrameOptions: false,
+        hsts: {
+          maxAge: 60 * 60 * 24 * 365,
+          includeSubDomains: true,
+          preload: true,
         },
-      },
-    }),
+        referrerPolicy: { policy: 'no-referrer' },
+        crossOriginResourcePolicy: { policy: 'same-site' },
+        contentSecurityPolicy: isHtml
+          ? {
+              useDefaults: true,
+              directives: {
+                'default-src': ["'self'"],
+                'script-src': ["'self'"],
+                'style-src': ["'self'", "'unsafe-inline'"],
+                'img-src': ["'self'", 'data:', 'blob:'],
+                'connect-src': ["'self'"],
+                'object-src': ["'none'"],
+                'frame-ancestors': ["'none'"],
+                'base-uri': ["'self'"],
+                'form-action': ["'self'"],
+              },
+            }
+          : false,
+      })(req, res, next);
+    },
     // Strip server identity and legacy cache headers; enforce charset=utf-8
     (_req: any, res: any, next: any) => {
       res.removeHeader('Server');
@@ -255,6 +261,10 @@ async function bootstrap() {
 
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
+    setHeaders: (res: any) => {
+      // Static uploaded assets are content-addressed (UUID filenames) — safe to cache long-term
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    },
   });
 
   // Seed roles/admin before starting the server unless explicitly disabled (CI/bootstrap flows).

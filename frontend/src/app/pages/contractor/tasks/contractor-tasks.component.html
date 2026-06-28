@@ -1,4 +1,4 @@
-﻿<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header
     [title]="typeFilter === 'AUDIT' ? 'Audits' : 'My Workboard'"
     [description]="typeFilter === 'AUDIT' ? 'Upload compliance documents and complete audit checklist items' : 'Simple page to upload documents, fix rejected files, and complete audit work'"
@@ -638,7 +638,7 @@
           <div class="wizard-selected" *ngIf="auditDocType">
             <span class="wizard-selected__label">Selected:</span>
             <span class="wizard-selected__badge">{{ auditDocType }}</span>
-            <button type="button" class="wizard-selected__clear" (click)="auditDocType=''; auditDocTitle=''">✕</button>
+            <button type="button" class="wizard-selected__clear" (click)="auditDocType=''; auditDocTitle=''" aria-label="Close">✕</button>
           </div>
 
           <!-- Details + upload row -->

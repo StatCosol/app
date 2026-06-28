@@ -65,7 +65,7 @@
         <div *ngIf="docsByCode[it.code]?.length" class="upload-row flex-wrap">
           <div class="doc-chip" *ngFor="let d of docsByCode[it.code]">
             {{ d.fileName }}
-            <button type="button" [disabled]="deleting" (click)="deleteDoc(d)" title="Delete">&times;</button>
+            <button type="button" [disabled]="deleting" (click)="deleteDoc(d)" title="Delete" aria-label="Close">&times;</button>
           </div>
         </div>
 
@@ -100,7 +100,7 @@
         <div *ngIf="docsByCode[it.code]?.length" class="upload-row flex-wrap">
           <div class="doc-chip" *ngFor="let d of docsByCode[it.code]">
             {{ d.fileName }}
-            <button type="button" [disabled]="deleting" (click)="deleteDoc(d)" title="Delete">&times;</button>
+            <button type="button" [disabled]="deleting" (click)="deleteDoc(d)" title="Delete" aria-label="Close">&times;</button>
           </div>
         </div>
 

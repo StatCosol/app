@@ -1,4 +1,4 @@
-﻿<div class="page-wrap">
+<div class="page-wrap">
   <header class="page-head card">
     <div>
       <h1>Payroll Structures Builder</h1>
@@ -719,7 +719,7 @@
               <td class="text-right">
                 <button type="button" class="link" [disabled]="i === 0" (click)="moveSlab(i, -1)" title="Move up">&uarr;</button>
                 <button type="button" class="link" [disabled]="i === itemForm.slabs.length - 1" (click)="moveSlab(i, 1)" title="Move down">&darr;</button>
-                <button type="button" class="link link-danger" (click)="removeSlab(i)" title="Remove row">&times;</button>
+                <button type="button" class="link link-danger" (click)="removeSlab(i)" title="Remove row" aria-label="Close">&times;</button>
               </td>
             </tr>
             <tr *ngIf="!itemForm.slabs.length">

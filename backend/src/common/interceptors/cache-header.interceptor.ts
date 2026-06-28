@@ -33,12 +33,9 @@ export class CacheHeaderInterceptor implements NestInterceptor {
             `${meta.scope}, max-age=${meta.maxAge}`,
           );
         } else {
-          res.setHeader(
-            'Cache-Control',
-            'no-store, no-cache, must-revalidate, proxy-revalidate',
-          );
-          res.setHeader('Pragma', 'no-cache');
-          res.setHeader('Expires', '0');
+          // no-store is sufficient — must-revalidate/proxy-revalidate are
+          // redundant when no-store is set and cause browser warnings
+          res.setHeader('Cache-Control', 'no-store');
         }
       }),
     );

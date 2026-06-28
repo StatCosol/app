@@ -59,7 +59,7 @@
           </p>
           <p class="text-xs text-green-600 mt-1">Copy this password now; it will not be shown again.</p>
         </div>
-        <button type="button" (click)="masterUserResetResult = null" class="text-green-600 hover:text-green-800 text-lg font-bold">&times;</button>
+        <button type="button" (click)="masterUserResetResult = null" class="text-green-600 hover:text-green-800 text-lg font-bold" aria-label="Close">&times;</button>
       </div>
     </div>
 
@@ -235,7 +235,7 @@
               </p>
               <p class="text-xs text-green-600 mt-1">Save these credentials now; the password will not be shown again.</p>
             </div>
-            <button type="button" (click)="createdMasterUser = null" class="text-green-600 hover:text-green-800 text-lg font-bold">&times;</button>
+            <button type="button" (click)="createdMasterUser = null" class="text-green-600 hover:text-green-800 text-lg font-bold" aria-label="Close">&times;</button>
           </div>
         </div>
 
@@ -685,7 +685,7 @@
           </p>
           <p class="text-xs text-green-600 mt-1">Save these credentials now; the password will not be shown again.</p>
         </div>
-        <button type="button" (click)="createdBranchUser = null" class="text-green-600 hover:text-green-800 text-lg font-bold">&times;</button>
+        <button type="button" (click)="createdBranchUser = null" class="text-green-600 hover:text-green-800 text-lg font-bold" aria-label="Close">&times;</button>
       </div>
     </div>
 
@@ -765,7 +765,7 @@
         <div><strong>New password:</strong> <span class="font-mono select-all">{{ branchUserResetResult.newPassword }}</span></div>
         <p class="text-xs text-green-600 mt-1">Copy this password now; it will not be shown again. Share it securely with the user.</p>
       </div>
-      <button type="button" (click)="branchUserResetResult = null" class="text-green-600 hover:text-green-800 text-lg font-bold">&times;</button>
+      <button type="button" (click)="branchUserResetResult = null" class="text-green-600 hover:text-green-800 text-lg font-bold" aria-label="Close">&times;</button>
     </div>
 
     <ui-data-table

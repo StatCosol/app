@@ -160,7 +160,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             </p>
             <p class="text-xs text-green-600 mt-1">Please save these credentials — the password will not be shown again.</p>
           </div>
-          <button (click)="createdBranchUser = null" class="text-green-600 hover:text-green-800 text-lg font-bold ml-4">&times;</button>
+          <button (click)="createdBranchUser = null" class="text-green-600 hover:text-green-800 text-lg font-bold ml-4" aria-label="Close">&times;</button>
         </div>
       </div>
 

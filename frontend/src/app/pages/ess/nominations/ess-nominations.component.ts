@@ -77,7 +77,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
         <div class="modal-panel" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <h2 class="text-lg font-semibold">{{ editId ? 'Edit Nomination' : resubmitId ? 'Edit &amp; Resubmit' : 'Add Nomination' }}</h2>
-            <button (click)="closeForm()" class="text-gray-400 hover:text-gray-600">&times;</button>
+            <button (click)="closeForm()" class="text-gray-400 hover:text-gray-600" aria-label="Close">&times;</button>
           </div>
           <div class="modal-body space-y-4">
             <div class="grid grid-cols-2 gap-4">

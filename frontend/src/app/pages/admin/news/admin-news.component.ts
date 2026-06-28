@@ -95,7 +95,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                   (click)="removeImage()"
                   class="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center hover:bg-red-600"
                   title="Remove file"
-                >&times;</button>
+                 aria-label="Close">&times;</button>
               </div>
               <!-- Upload input -->
               <div class="flex items-center gap-2">

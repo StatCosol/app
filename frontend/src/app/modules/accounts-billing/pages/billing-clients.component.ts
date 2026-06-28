@@ -82,7 +82,7 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
         <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           <div class="p-6 border-b flex items-center justify-between">
             <h2 class="text-lg font-bold">{{ editClient ? 'Edit' : 'Add' }} Billing Client</h2>
-            <button (click)="showForm = false" class="text-slate-400 hover:text-slate-600">&times;</button>
+            <button (click)="showForm = false" class="text-slate-400 hover:text-slate-600" aria-label="Close">&times;</button>
           </div>
           <div class="p-6 space-y-4">
             <div *ngIf="saveError" class="bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded-lg">

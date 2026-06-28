@@ -66,7 +66,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
       <div *ngIf="showImportDialog" class="import-dialog">
         <div class="flex items-center justify-between mb-3">
           <h3 class="text-sm font-semibold text-gray-900">Bulk Import Employees from Excel</h3>
-          <button (click)="showImportDialog = false" class="text-gray-400 hover:text-gray-600">&times;</button>
+          <button (click)="showImportDialog = false" class="text-gray-400 hover:text-gray-600" aria-label="Close">&times;</button>
         </div>
         <p class="text-xs text-gray-500 mb-3">Download the template, fill in employee details, then upload the file.</p>
         <div class="flex items-end gap-3 flex-wrap">

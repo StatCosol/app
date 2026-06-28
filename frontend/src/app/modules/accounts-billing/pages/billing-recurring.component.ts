@@ -102,7 +102,7 @@ interface RecurringConfig {
         <div class="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           <div class="px-6 py-4 border-b flex justify-between items-center">
             <h2 class="text-lg font-bold">{{ editing ? 'Edit' : 'Add' }} Recurring Invoice</h2>
-            <button (click)="closeForm()" class="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
+            <button (click)="closeForm()" class="text-slate-400 hover:text-slate-700 text-2xl leading-none" aria-label="Close">&times;</button>
           </div>
           <div class="p-6 space-y-4">
             <div *ngIf="saveError" class="p-3 bg-red-50 text-red-700 text-sm rounded-lg">{{ saveError }}</div>
