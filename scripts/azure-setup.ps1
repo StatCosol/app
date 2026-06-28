@@ -171,12 +171,13 @@ az containerapp job create `
     --memory 1.0Gi `
     --trigger-type Manual `
     --replica-timeout 300 `
+    --secrets "db-pass=${DbPassword}" `
     --env-vars `
         NODE_ENV=production `
         "DB_HOST=${dbHost}" `
         DB_PORT=5432 `
         "DB_USER=${DbAdmin}" `
-        "DB_PASS=${DbPassword}" `
+        DB_PASS=secretref:db-pass `
         "DB_NAME=${DbName}" `
         DB_SSL=true `
     --command "node" "scripts/apply-migrations.mjs"
