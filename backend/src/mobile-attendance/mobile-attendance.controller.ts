@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Logger,
   Param,
   Post,
   Put,
@@ -46,6 +47,7 @@ import { IssueChallengeDto } from './liveness/liveness.dto';
 @Controller({ path: 'mobile-attendance/devices', version: '1' })
 @Roles('CLIENT', 'ADMIN')
 export class MobileAttendanceDevicesController {
+  private readonly logger = new Logger(MobileAttendanceDevicesController.name);
   constructor(private readonly deviceService: DeviceService) {}
 
   @ApiOperation({ summary: 'Admin — provision a new device and generate an install token' })
@@ -84,10 +86,15 @@ export class MobileAttendanceDevicesController {
 
   @ApiOperation({ summary: 'List devices for the current client' })
   @Get()
-  list(@CurrentUser() user: ReqUser) {
+  async list(@CurrentUser() user: ReqUser) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.deviceService.listByClient(clientId, user.branchIds ?? []);
+    try {
+      return await this.deviceService.listByClient(clientId, user.branchIds ?? []);
+    } catch (err: any) {
+      this.logger.error(`listByClient failed for client=${clientId}: ${err?.message}`, err?.stack);
+      return [];
+    }
   }
 
   @ApiOperation({ summary: 'Revoke a device' })
