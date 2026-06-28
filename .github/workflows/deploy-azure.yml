@@ -68,22 +68,6 @@ jobs:
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --image ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
 
-      - name: Apply service entitlement migrations
-        run: |
-          for i in {1..6}; do
-            if az containerapp exec \
-              --name ${{ env.BACKEND_APP }} \
-              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-              --command "node scripts/apply-service-entitlements-migrations.mjs"; then
-              echo "Service entitlement migrations applied"
-              exit 0
-            fi
-            echo "Migration exec retry ${i}/6..."
-            sleep 10
-          done
-          echo "Service entitlement migration failed"
-          exit 1
-
       - name: Verify backend health
         run: |
           BACKEND_FQDN=$(az containerapp show \
