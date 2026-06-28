@@ -26,6 +26,28 @@ describe('DeviceService.provisionDevice', () => {
     expect(deviceRepo.save).toHaveBeenCalled();
     expect(result.id).toBe('device-1');
   });
+
+  it('treats a radius-only kiosk payload as no geofence', async () => {
+    const { service, deviceRepo } = makeService();
+
+    await service.provisionDevice('client-1', 'KIOSK', 'branch-1', 'Gate', 'user-1', null, null, 100);
+
+    expect(deviceRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        geofenceLat: null,
+        geofenceLng: null,
+        geofenceRadiusM: null,
+      }),
+    );
+  });
+
+  it('rejects incomplete geofence coordinates', async () => {
+    const { service } = makeService();
+
+    await expect(
+      service.provisionDevice('client-1', 'ESS', 'branch-1', 'ESS', 'user-1', 17.4, null, 100),
+    ).rejects.toThrow('Geofence requires lat, lng, and radiusM together');
+  });
 });
 
 // ─── registerDevice ──────────────────────────────────────────────────────────

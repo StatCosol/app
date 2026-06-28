@@ -34,15 +34,19 @@ export class DeviceService {
     geofenceLng: number | null = null,
     geofenceRadiusM: number | null = null,
   ): Promise<MobileAttendanceDeviceEntity> {
-    const hasGeo = geofenceLat !== null || geofenceLng !== null || geofenceRadiusM !== null;
-    if (hasGeo) {
-      if (geofenceLat === null || geofenceLng === null || geofenceRadiusM === null) {
-        throw new ConflictException('Geofence requires lat, lng, and radiusM together');
-      }
+    const hasAnyCoordinate = geofenceLat !== null || geofenceLng !== null;
+    const hasCompleteGeo = geofenceLat !== null && geofenceLng !== null && geofenceRadiusM !== null;
+    if (hasAnyCoordinate && !hasCompleteGeo) {
+      throw new ConflictException('Geofence requires lat, lng, and radiusM together');
+    }
+    if (hasCompleteGeo) {
       this.validateGeofenceRange(geofenceLat, geofenceLng, geofenceRadiusM);
     }
 
     const installToken = randomBytes(32).toString('hex');
+    const effectiveLat = hasCompleteGeo ? geofenceLat : null;
+    const effectiveLng = hasCompleteGeo ? geofenceLng : null;
+    const effectiveRadiusM = hasCompleteGeo ? geofenceRadiusM : null;
     const device = this.deviceRepo.create({
       clientId,
       mode,
@@ -50,9 +54,9 @@ export class DeviceService {
       deviceName: deviceLabel,
       installToken,
       isActive: true,
-      geofenceLat: geofenceLat !== null ? String(geofenceLat) : null,
-      geofenceLng: geofenceLng !== null ? String(geofenceLng) : null,
-      geofenceRadiusM: geofenceRadiusM ?? null,
+      geofenceLat: effectiveLat !== null ? String(effectiveLat) : null,
+      geofenceLng: effectiveLng !== null ? String(effectiveLng) : null,
+      geofenceRadiusM: effectiveRadiusM,
     });
     const saved = await this.deviceRepo.save(device);
     this.logger.log(`provisionDevice: created device=${saved.id} isActive=${saved.isActive} mode=${saved.mode}`);
