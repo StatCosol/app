@@ -275,6 +275,7 @@ export class DeviceService {
     const columns = await this.getTableColumns('mobile_attendance_devices');
     const deletedAtCol = this.pickColumn(columns, 'deleted_at', 'deletedAt');
     const deletedFilter = deletedAtCol ? `AND d.${this.quoteIdentifier(deletedAtCol)} IS NULL` : '';
+    const orderBy = this.deviceCreatedAtOrderExpression('d');
 
     return this.dataSource.query(
       `SELECT ${this.deviceReturnProjection('d')},
@@ -292,7 +293,7 @@ export class DeviceService {
        WHERE d.client_id = $1::uuid
          ${deletedFilter}
          ${branchFilter}
-       ORDER BY d.created_at DESC NULLS LAST`,
+       ORDER BY ${orderBy} DESC NULLS LAST`,
       params,
     );
   }
@@ -429,6 +430,15 @@ export class DeviceService {
 
   private deviceIsActiveExpression(alias: string): string {
     return `COALESCE((to_jsonb(${alias})->>'isActive')::boolean, (to_jsonb(${alias})->>'is_active')::boolean, true)`;
+  }
+
+  private deviceCreatedAtOrderExpression(alias: string): string {
+    return `COALESCE(
+            NULLIF(to_jsonb(${alias})->>'createdAt', '')::timestamptz,
+            NULLIF(to_jsonb(${alias})->>'created_at', '')::timestamptz,
+            NULLIF(to_jsonb(${alias})->>'registeredAt', '')::timestamptz,
+            NULLIF(to_jsonb(${alias})->>'registered_at', '')::timestamptz
+          )`;
   }
 
   private quoteIdentifier(identifier: string): string {

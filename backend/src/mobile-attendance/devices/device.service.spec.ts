@@ -73,16 +73,26 @@ describe('DeviceService.listByClient', () => {
     return new DeviceService({} as any, { query } as any);
   }
 
+  function findDeviceListQuery(query: jest.Mock): [string, unknown[]] {
+    const call = query.mock.calls.find(([sql]) => {
+      const text = String(sql);
+      return text.includes('FROM mobile_attendance_devices d') && !text.includes('information_schema.columns');
+    });
+    if (!call) throw new Error('Device list SQL was not executed');
+    return call as [string, unknown[]];
+  }
+
   it('returns frontend-compatible device fields using schema-tolerant projections', async () => {
     const query = jest
       .fn()
+      .mockResolvedValueOnce([{ exists: true }])
       .mockResolvedValueOnce([{ column_name: 'deleted_at' }])
       .mockResolvedValueOnce([]);
     const service = makeService(query);
 
     await service.listByClient('client-1');
 
-    const sql = query.mock.calls[1][0] as string;
+    const [sql, params] = findDeviceListQuery(query);
     expect(sql).toContain("to_jsonb(d)->>'device_name'");
     expect(sql).toContain("to_jsonb(d)->>'device_label'");
     expect(sql).toContain("to_jsonb(d)->>'client_id'");
@@ -90,21 +100,24 @@ describe('DeviceService.listByClient', () => {
     expect(sql).toContain("to_jsonb(d)->>'is_active'");
     expect(sql).toContain('d."deleted_at" IS NULL');
     expect(sql).toContain('FROM mobile_attendance_devices d');
-    expect(query.mock.calls[1][1]).toEqual(['client-1']);
+    expect(sql).not.toContain('ORDER BY d.created_at');
+    expect(sql).toContain("to_jsonb(d)->>'created_at'");
+    expect(params).toEqual(['client-1']);
   });
 
   it('scopes devices to supplied branch IDs', async () => {
     const query = jest
       .fn()
+      .mockResolvedValueOnce([{ exists: true }])
       .mockResolvedValueOnce([{ column_name: 'deleted_at' }])
       .mockResolvedValueOnce([]);
     const service = makeService(query);
 
     await service.listByClient('client-1', ['branch-1']);
 
-    const sql = query.mock.calls[1][0] as string;
+    const [sql, params] = findDeviceListQuery(query);
     expect(sql).toContain('d.branch_id = ANY($2::uuid[])');
-    expect(query.mock.calls[1][1]).toEqual(['client-1', ['branch-1']]);
+    expect(params).toEqual(['client-1', ['branch-1']]);
   });
 });
 
