@@ -34,21 +34,61 @@ export class DeviceService {
     geofenceLng: number | null = null,
     geofenceRadiusM: number | null = null,
   ): Promise<MobileAttendanceDeviceEntity> {
+    const hasAnyCoordinate = geofenceLat !== null || geofenceLng !== null;
+    const hasCompleteGeo = geofenceLat !== null && geofenceLng !== null && geofenceRadiusM !== null;
+    if (hasAnyCoordinate && !hasCompleteGeo) {
+      throw new ConflictException('Geofence requires lat, lng, and radiusM together');
+    }
+    if (hasCompleteGeo) {
+      this.validateGeofenceRange(geofenceLat, geofenceLng, geofenceRadiusM);
+    }
+
     const installToken = randomBytes(32).toString('hex');
-    const device = this.deviceRepo.create({
-      clientId,
-      mode,
-      branchId,
-      deviceName: deviceLabel,
-      installToken,
-      isActive: true,
-      geofenceLat: geofenceLat !== null ? String(geofenceLat) : null,
-      geofenceLng: geofenceLng !== null ? String(geofenceLng) : null,
-      geofenceRadiusM: geofenceRadiusM ?? null,
-    });
-    const saved = await this.deviceRepo.save(device);
+    const effectiveLat = hasCompleteGeo ? geofenceLat : null;
+    const effectiveLng = hasCompleteGeo ? geofenceLng : null;
+    const effectiveRadiusM = hasCompleteGeo ? geofenceRadiusM : null;
+
+    const columns = await this.getTableColumns('mobile_attendance_devices');
+    const insertColumns: string[] = [];
+    const values: string[] = [];
+    const params: unknown[] = [];
+    const addValue = (column: string | null, value: unknown, cast = '') => {
+      if (!column) return;
+      params.push(value);
+      insertColumns.push(this.quoteIdentifier(column));
+      values.push(`$${params.length}${cast}`);
+    };
+    const addExpression = (column: string | null, expression: string) => {
+      if (!column) return;
+      insertColumns.push(this.quoteIdentifier(column));
+      values.push(expression);
+    };
+
+    addValue(this.requireColumn(columns, 'client_id', 'clientId'), clientId, '::uuid');
+    addValue(this.requireColumn(columns, 'mode'), mode);
+    addValue(this.requireColumn(columns, 'install_token', 'installToken'), installToken);
+    addValue(this.pickColumn(columns, 'branch_id', 'branchId'), branchId, '::uuid');
+    addValue(this.pickColumn(columns, 'device_name', 'device_label', 'deviceName', 'deviceLabel'), deviceLabel);
+    addValue(this.pickColumn(columns, 'is_active', 'isActive'), true);
+    addExpression(this.pickColumn(columns, 'created_at', 'createdAt', 'registered_at', 'registeredAt'), 'now()');
+    if (this.isUuid(_createdBy)) {
+      addValue(this.pickColumn(columns, 'registered_by', 'registeredBy'), _createdBy, '::uuid');
+    }
+    if (hasCompleteGeo) {
+      addValue(this.pickColumn(columns, 'geofence_lat', 'geofenceLat'), String(effectiveLat));
+      addValue(this.pickColumn(columns, 'geofence_lng', 'geofenceLng'), String(effectiveLng));
+      addValue(this.pickColumn(columns, 'geofence_radius_m', 'geofenceRadiusM'), effectiveRadiusM);
+    }
+
+    const rows = await this.dataSource.query<MobileAttendanceDeviceEntity[]>(
+      `INSERT INTO mobile_attendance_devices AS d (${insertColumns.join(', ')})
+       VALUES (${values.join(', ')})
+       RETURNING ${this.deviceReturnProjection('d')}`,
+      params,
+    );
+    const saved = rows[0];
     this.logger.log(`provisionDevice: created device=${saved.id} isActive=${saved.isActive} mode=${saved.mode}`);
-    return saved;
+    return saved as MobileAttendanceDeviceEntity;
   }
 
   /**
@@ -80,6 +120,28 @@ export class DeviceService {
       }
       if (device.androidId && androidId && device.androidId !== androidId) {
         throw new ConflictException('Install token already bound to a different device');
+      }
+
+      // Prevent the same physical device from holding multiple active tokens
+      if (androidId && !device.androidId) {
+        const androidIdCol = this.pickColumn(columns, 'android_id', 'androidId');
+        const deletedAtCol = this.pickColumn(columns, 'deleted_at', 'deletedAt');
+        const notDeleted = deletedAtCol ? `AND d.${this.quoteIdentifier(deletedAtCol)} IS NULL` : '';
+        if (androidIdCol) {
+          const conflict = await em.query<any[]>(
+            `SELECT d.id FROM mobile_attendance_devices d
+              WHERE d.client_id = $1::uuid
+                AND d.${this.quoteIdentifier(androidIdCol)} = $2
+                AND d.id <> $3::uuid
+                AND ${this.deviceIsActiveExpression('d')} = true
+                ${notDeleted}
+             LIMIT 1`,
+            [device.clientId, androidId, device.id],
+          );
+          if (conflict.length > 0) {
+            throw new ConflictException('This Android device is already registered under another install token');
+          }
+        }
       }
 
       const sets: string[] = [];
@@ -161,13 +223,38 @@ export class DeviceService {
     clientId: string,
     deviceId: string,
     by: string,
+    branchIds: string[] = [],
   ): Promise<void> {
-    const device = await this.deviceRepo.findOne({ where: { id: deviceId, clientId } });
-    if (!device) throw new NotFoundException('Device not found');
-    device.isActive = false;
-    device.revokedAt = new Date();
-    if (this.isUuid(by)) device.revokedBy = by;
-    await this.deviceRepo.save(device);
+    const columns = await this.getTableColumns('mobile_attendance_devices');
+    const isActiveCol = this.requireColumn(columns, 'is_active', 'isActive');
+    const revokedAtCol = this.pickColumn(columns, 'revoked_at', 'revokedAt');
+    const revokedByCol = this.pickColumn(columns, 'revoked_by', 'revokedBy');
+
+    const params: unknown[] = [deviceId, clientId];
+    const sets = [`${this.quoteIdentifier(isActiveCol)} = false`];
+    if (revokedAtCol) sets.push(`${this.quoteIdentifier(revokedAtCol)} = now()`);
+    if (revokedByCol && this.isUuid(by)) {
+      params.push(by);
+      sets.push(`${this.quoteIdentifier(revokedByCol)} = $${params.length}::uuid`);
+    }
+
+    let branchFilter = '';
+    if (branchIds.length > 0) {
+      params.push(branchIds);
+      branchFilter = `AND COALESCE(to_jsonb(mobile_attendance_devices)->>'branchId', to_jsonb(mobile_attendance_devices)->>'branch_id') = ANY($${params.length}::text[])`;
+    }
+
+    const raw = await this.dataSource.query(
+      `UPDATE mobile_attendance_devices
+          SET ${sets.join(', ')}
+        WHERE id = $1::uuid
+          AND COALESCE(to_jsonb(mobile_attendance_devices)->>'clientId', to_jsonb(mobile_attendance_devices)->>'client_id') = $2
+          ${branchFilter}
+        RETURNING id`,
+      params,
+    );
+    const rows: Array<{ id: string }> = Array.isArray(raw[0]) ? raw[0] : raw;
+    if (!rows || rows.length === 0) throw new NotFoundException('Device not found');
   }
 
   async permanentlyDeleteDevice(
@@ -207,7 +294,7 @@ export class DeviceService {
 
     try {
       await this.dataSource.transaction(async (em) => {
-        const result = await em.query<Array<{ id: string }>>(
+        const raw = await em.query(
           `DELETE FROM mobile_attendance_devices d
             WHERE d.id = $1::uuid
               AND d.client_id = $2::uuid
@@ -215,7 +302,8 @@ export class DeviceService {
             RETURNING d.id`,
           params,
         );
-        if (!result || result.length === 0) throw new NotFoundException('Device not found');
+        const rows: Array<{ id: string }> = Array.isArray(raw[0]) ? raw[0] : raw;
+        if (!rows || rows.length === 0) throw new NotFoundException('Device not found');
       });
     } catch (err: any) {
       if (err?.code === '23503') {
@@ -241,32 +329,46 @@ export class DeviceService {
     let branchFilter = '';
     if (branchIds.length > 0) {
       params.push(branchIds);
-      branchFilter = ` AND d.branch_id = ANY($${params.length}::uuid[])`;
+      branchFilter = ` AND COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') = ANY($${params.length}::text[])`;
     }
+
+    const orderBy = this.deviceCreatedAtOrderExpression('d');
 
     return this.dataSource.query(
       `SELECT d.id,
-              d.client_id        AS "clientId",
-              d.branch_id        AS "branchId",
-              d.mode             AS "mode",
-              d.device_name      AS "deviceLabel",
-              ${includeInstallToken ? 'd.install_token' : 'NULL::varchar'} AS "installToken",
-              d.geofence_lat     AS "geofenceLat",
-              d.geofence_lng     AS "geofenceLng",
-              d.geofence_radius_m AS "geofenceRadiusM",
-              d.created_at       AS "registeredAt",
-              NULL::uuid         AS "registeredBy",
-              d.last_seen_at     AS "lastSeenAt",
-              NULL::timestamptz  AS "lastPunchAt",
-              d.is_active        AS "isActive",
-              d.revoked_at       AS "revokedAt",
-              d.revoked_by       AS "revokedBy",
-              NULL::uuid         AS "essEmployeeId"
+              COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') AS "clientId",
+              COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') AS "branchId",
+              COALESCE(to_jsonb(d)->>'mode', 'KIOSK') AS "mode",
+              ${includeInstallToken ? `COALESCE(to_jsonb(d)->>'installToken', to_jsonb(d)->>'install_token')` : 'NULL::varchar'} AS "installToken",
+              COALESCE(to_jsonb(d)->>'androidId', to_jsonb(d)->>'android_id') AS "androidId",
+              COALESCE(
+                to_jsonb(d)->>'deviceName',
+                to_jsonb(d)->>'device_name',
+                to_jsonb(d)->>'deviceLabel',
+                to_jsonb(d)->>'device_label'
+              ) AS "deviceName",
+              COALESCE(
+                to_jsonb(d)->>'deviceName',
+                to_jsonb(d)->>'device_name',
+                to_jsonb(d)->>'deviceLabel',
+                to_jsonb(d)->>'device_label'
+              ) AS "deviceLabel",
+              COALESCE(to_jsonb(d)->>'geofenceLat', to_jsonb(d)->>'geofence_lat') AS "geofenceLat",
+              COALESCE(to_jsonb(d)->>'geofenceLng', to_jsonb(d)->>'geofence_lng') AS "geofenceLng",
+              COALESCE(to_jsonb(d)->>'geofenceRadiusM', to_jsonb(d)->>'geofence_radius_m') AS "geofenceRadiusM",
+              NULL::uuid AS "registeredBy",
+              COALESCE(to_jsonb(d)->>'createdAt', to_jsonb(d)->>'created_at', to_jsonb(d)->>'registeredAt', to_jsonb(d)->>'registered_at') AS "registeredAt",
+              NULL::timestamptz AS "lastPunchAt",
+              NULL::uuid AS "essEmployeeId",
+              ${this.deviceIsActiveExpression('d')} AS "isActive",
+              COALESCE(to_jsonb(d)->>'lastSeenAt', to_jsonb(d)->>'last_seen_at') AS "lastSeenAt",
+              COALESCE(to_jsonb(d)->>'revokedAt', to_jsonb(d)->>'revoked_at') AS "revokedAt",
+              COALESCE(to_jsonb(d)->>'revokedBy', to_jsonb(d)->>'revoked_by') AS "revokedBy"
        FROM mobile_attendance_devices d
-       WHERE d.client_id = $1::uuid
-         AND d.deleted_at IS NULL
+       WHERE COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') = $1
+         AND COALESCE(to_jsonb(d)->>'deletedAt', to_jsonb(d)->>'deleted_at') IS NULL
          ${branchFilter}
-       ORDER BY d.created_at DESC NULLS LAST`,
+       ORDER BY ${orderBy} DESC NULLS LAST`,
       params,
     );
   }
@@ -274,10 +376,6 @@ export class DeviceService {
   /** Module-level cache for information_schema column lookups.
    *  Schema doesn't change at runtime so indefinite caching is safe. */
   private readonly columnCache = new Map<string, Set<string>>();
-
-  private async getDeviceColumns(): Promise<Set<string>> {
-    return this.getTableColumns('mobile_attendance_devices');
-  }
 
   private async getTableColumns(tableName: string): Promise<Set<string>> {
     const cached = this.columnCache.get(tableName);
@@ -330,13 +428,13 @@ export class DeviceService {
     scopedParams: unknown[],
     branchFilter: string,
   ): Promise<void> {
-    const columns = await this.getDeviceColumns();
+    const columns = await this.getTableColumns('mobile_attendance_devices');
     const deletedAtCol = this.requireColumn(columns, 'deleted_at', 'deletedAt');
     const isActiveCol = this.pickColumn(columns, 'is_active', 'isActive');
     const assignments = [`${this.quoteIdentifier(deletedAtCol)} = now()`];
     if (isActiveCol) assignments.push(`${this.quoteIdentifier(isActiveCol)} = false`);
 
-    const result = await this.dataSource.query<Array<{ id: string }>>(
+    const raw = await this.dataSource.query(
       `UPDATE mobile_attendance_devices d
           SET ${assignments.join(', ')}
         WHERE d.id = $1::uuid
@@ -345,8 +443,8 @@ export class DeviceService {
         RETURNING d.id`,
       scopedParams,
     );
-
-    if (!result || result.length === 0) throw new NotFoundException('Device not found');
+    const rows: Array<{ id: string }> = Array.isArray(raw[0]) ? raw[0] : raw;
+    if (!rows || rows.length === 0) throw new NotFoundException('Device not found');
   }
 
   private async deviceHasPunchHistory(deviceId: string, clientId: string): Promise<boolean> {
@@ -399,23 +497,27 @@ export class DeviceService {
             COALESCE(to_jsonb(${alias})->>'lastSeenAt', to_jsonb(${alias})->>'last_seen_at') AS "lastSeenAt",
             COALESCE(to_jsonb(${alias})->>'revokedAt', to_jsonb(${alias})->>'revoked_at') AS "revokedAt",
             COALESCE(to_jsonb(${alias})->>'revokedBy', to_jsonb(${alias})->>'revoked_by') AS "revokedBy",
-            COALESCE(to_jsonb(${alias})->>'createdAt', to_jsonb(${alias})->>'created_at', to_jsonb(${alias})->>'registeredAt', to_jsonb(${alias})->>'registered_at') AS "createdAt"`;
+            COALESCE(to_jsonb(${alias})->>'createdAt', to_jsonb(${alias})->>'created_at', to_jsonb(${alias})->>'registeredAt', to_jsonb(${alias})->>'registered_at') AS "createdAt",
+            COALESCE(to_jsonb(${alias})->>'geofenceLat', to_jsonb(${alias})->>'geofence_lat') AS "geofenceLat",
+            COALESCE(to_jsonb(${alias})->>'geofenceLng', to_jsonb(${alias})->>'geofence_lng') AS "geofenceLng",
+            COALESCE(to_jsonb(${alias})->>'geofenceRadiusM', to_jsonb(${alias})->>'geofence_radius_m') AS "geofenceRadiusM"`;
   }
 
   private deviceIsActiveExpression(alias: string): string {
     return `COALESCE((to_jsonb(${alias})->>'isActive')::boolean, (to_jsonb(${alias})->>'is_active')::boolean, true)`;
   }
 
-  private rowIsActive(device: Pick<MobileAttendanceDeviceEntity, 'isActive'>): boolean {
-    return device.isActive !== false;
+  private deviceCreatedAtOrderExpression(alias: string): string {
+    return `COALESCE(
+            NULLIF(to_jsonb(${alias})->>'createdAt', '')::timestamptz,
+            NULLIF(to_jsonb(${alias})->>'created_at', '')::timestamptz,
+            NULLIF(to_jsonb(${alias})->>'registeredAt', '')::timestamptz,
+            NULLIF(to_jsonb(${alias})->>'registered_at', '')::timestamptz
+          )`;
   }
 
   private quoteIdentifier(identifier: string): string {
     return `"${identifier.replace(/"/g, '""')}"`;
-  }
-
-  private sqlString(value: string): string {
-    return `'${value.replace(/'/g, "''")}'`;
   }
 
   private isUuid(value: string): boolean {
@@ -424,9 +526,22 @@ export class DeviceService {
     );
   }
 
-  // ── Fix #13: Geofence configuration with radius validation ──
   static readonly GEOFENCE_RADIUS_MIN_M = 50;
   static readonly GEOFENCE_RADIUS_MAX_M = 50_000;
+
+  private validateGeofenceRange(lat: number, lng: number, radiusM: number): void {
+    if (lat < -90 || lat > 90) throw new ConflictException('Latitude must be between -90 and 90');
+    if (lng < -180 || lng > 180) throw new ConflictException('Longitude must be between -180 and 180');
+    if (
+      !Number.isInteger(radiusM) ||
+      radiusM < DeviceService.GEOFENCE_RADIUS_MIN_M ||
+      radiusM > DeviceService.GEOFENCE_RADIUS_MAX_M
+    ) {
+      throw new ConflictException(
+        `Geofence radius must be between ${DeviceService.GEOFENCE_RADIUS_MIN_M}m and ${DeviceService.GEOFENCE_RADIUS_MAX_M}m`,
+      );
+    }
+  }
 
   async configureGeofence(
     deviceId: string,
@@ -442,21 +557,7 @@ export class DeviceService {
       device.geofenceRadiusM = null;
     } else {
       const { lat, lng, radiusM } = params;
-      if (lat < -90 || lat > 90) {
-        throw new ConflictException('Latitude must be between -90 and 90');
-      }
-      if (lng < -180 || lng > 180) {
-        throw new ConflictException('Longitude must be between -180 and 180');
-      }
-      if (
-        !Number.isInteger(radiusM) ||
-        radiusM < DeviceService.GEOFENCE_RADIUS_MIN_M ||
-        radiusM > DeviceService.GEOFENCE_RADIUS_MAX_M
-      ) {
-        throw new ConflictException(
-          `Geofence radius must be between ${DeviceService.GEOFENCE_RADIUS_MIN_M}m and ${DeviceService.GEOFENCE_RADIUS_MAX_M}m`,
-        );
-      }
+      this.validateGeofenceRange(lat, lng, radiusM);
       device.geofenceLat = String(lat);
       device.geofenceLng = String(lng);
       device.geofenceRadiusM = radiusM;
@@ -465,3 +566,4 @@ export class DeviceService {
     return this.deviceRepo.save(device);
   }
 }
+

@@ -915,11 +915,13 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       mode: this.form.mode,
       branchId: this.form.branchId || undefined,
       deviceLabel: this.form.deviceLabel || undefined,
-      geofenceLat: this.form.geofenceLat ?? undefined,
-      geofenceLng: this.form.geofenceLng ?? undefined,
-      geofenceRadiusM: this.form.geofenceRadiusM ?? undefined,
       essEmployeeId: this.form.mode === 'ESS' ? this.form.essEmployeeId : undefined,
     };
+    if (this.form.mode === 'ESS') {
+      payload.geofenceLat = this.form.geofenceLat ?? undefined;
+      payload.geofenceLng = this.form.geofenceLng ?? undefined;
+      payload.geofenceRadiusM = this.form.geofenceRadiusM ?? undefined;
+    }
     this.svc.registerDevice(payload)
       .pipe(takeUntil(this.destroy$), finalize(() => { this.saving = false; this.bump(); }))
       .subscribe({
