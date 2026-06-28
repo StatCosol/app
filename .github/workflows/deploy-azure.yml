@@ -14,7 +14,6 @@ env:
   BACKEND_APP: statcompy-backend
   FRONTEND_APP: statcompy-frontend
   MIGRATION_JOB: statcompy-migrate
-  KEY_VAULT_NAME: statcompy-kv-prod
   CONTAINER_ENV: statcompy-env
 
 jobs:
@@ -73,20 +72,10 @@ jobs:
       - name: Apply service entitlement migrations
         run: |
           IMAGE="${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}"
-          DB_PASS_VALUE=$(az keyvault secret show \
-            --vault-name ${{ env.KEY_VAULT_NAME }} \
-            --name db-pass \
-            --query value -o tsv)
 
           az containerapp job show \
             --name ${{ env.MIGRATION_JOB }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --only-show-errors >/dev/null
-
-          az containerapp job secret set \
-            --name ${{ env.MIGRATION_JOB }} \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --secrets "db-pass=${DB_PASS_VALUE}" \
             --only-show-errors >/dev/null
 
           az containerapp job update \

@@ -1,7 +1,7 @@
 # StatCo Backend Go-Live Checklist
 
 ## 1. Environment & Secrets
-- All 7 production secrets (`db-pass`, `jwt-secret`, `ai-encryption-key`, `smtp-pass`, `smtp-pass-audit`, `smtp-pass-finance`, `smtp-pass-payroll`) live in **Azure Key Vault `statcompy-kv-prod`** (RBAC, soft-delete 90 d, purge protection ON). The `statcompy-backend` Container App references them as `keyvaultref:<vaultUri>/secrets/<name>` resolved via its system-assigned managed identity (role: `Key Vault Secrets User`). Versionless URIs ⇒ secret rotation in KV propagates without redeploy (replica restart is enough).
+- All 7 production secrets (`db-pass`, `jwt-secret`, `ai-encryption-key`, `smtp-pass`, `smtp-pass-audit`, `smtp-pass-finance`, `smtp-pass-payroll`) live in **Azure Key Vault `statcompy-kv-prod`** (RBAC, soft-delete 90 d, purge protection ON). The `statcompy-backend` Container App references them as `keyvaultref:<vaultUri>/secrets/<name>` resolved via its system-assigned managed identity (role: `Key Vault Secrets User`). The `statcompy-migrate` Container Apps job also references `db-pass` from the same versionless Key Vault URI for deploy-time migrations. Versionless URIs ⇒ secret rotation in KV propagates without redeploy (replica/job restart is enough).
 - Set production env vars:
   - `NODE_ENV=production`
   - `JWT_SECRET=<strong-random>`

@@ -17,6 +17,7 @@ param(
     [string]$DbName          = "statcompy",
     [string]$StorageAccount  = "statcompystorage",
     [string]$FileShareName   = "statcompy-uploads",
+    [string]$KeyVaultName    = "statcompy-kv-prod",
     [Parameter(Mandatory)][string]$DbAdmin,
     [Parameter(Mandatory)][string]$DbPassword,
     [Parameter(Mandatory)][string]$JwtSecret
@@ -171,15 +172,43 @@ az containerapp job create `
     --memory 1.0Gi `
     --trigger-type Manual `
     --replica-timeout 300 `
+    --mi-system-assigned `
+    --secrets "db-pass=${DbPassword}" `
     --env-vars `
         NODE_ENV=production `
         "DB_HOST=${dbHost}" `
         DB_PORT=5432 `
         "DB_USER=${DbAdmin}" `
-        "DB_PASS=${DbPassword}" `
+        DB_PASS=secretref:db-pass `
         "DB_NAME=${DbName}" `
         DB_SSL=true `
     --command "node" "scripts/apply-migrations.mjs"
+
+$migrationPrincipalId = az containerapp job show `
+    --name statcompy-migrate `
+    --resource-group $ResourceGroup `
+    --query "identity.principalId" -o tsv
+
+$keyVaultId = az keyvault show `
+    --name $KeyVaultName `
+    --resource-group $ResourceGroup `
+    --query id -o tsv 2>$null
+
+if ($keyVaultId -and $migrationPrincipalId) {
+    Write-Host "  >> Granting migration job Key Vault secret access" -ForegroundColor Yellow
+    az role assignment create `
+        --assignee-object-id $migrationPrincipalId `
+        --assignee-principal-type ServicePrincipal `
+        --role "Key Vault Secrets User" `
+        --scope $keyVaultId `
+        --only-show-errors | Out-Null
+
+    az containerapp job secret set `
+        --name statcompy-migrate `
+        --resource-group $ResourceGroup `
+        --secrets "db-pass=keyvaultref:https://${KeyVaultName}.vault.azure.net/secrets/db-pass,identityref:system" `
+        --only-show-errors | Out-Null
+}
 
 az containerapp job start `
     --name statcompy-migrate `
