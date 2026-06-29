@@ -998,33 +998,40 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
   }
 
   private resolveLocation(): Promise<boolean> {
-    const requiresLocation = this.selectedCapture === 'GEOLOCATION' || this.selectedCapture === 'FACE';
-    if (!requiresLocation) {
-      this.geoStatus = '';
-      return Promise.resolve(true);
-    }
     if (!navigator.geolocation) {
-      this.geoStatus = 'Geolocation not supported';
+      this.geoStatus = this.selectedCapture === 'GEOLOCATION' || this.selectedCapture === 'FACE'
+        ? 'Geolocation not supported'
+        : '';
       this.currentLat = null;
       this.currentLng = null;
-      return Promise.resolve(false);
+      // GEOLOCATION/FACE require location; MANUAL continues without it
+      return Promise.resolve(this.selectedCapture !== 'GEOLOCATION' && this.selectedCapture !== 'FACE');
     }
+
+    const required = this.selectedCapture === 'GEOLOCATION' || this.selectedCapture === 'FACE';
     this.geoStatus = 'Acquiring location...';
+
     return new Promise((resolve) => {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           this.currentLat = pos.coords.latitude;
           this.currentLng = pos.coords.longitude;
-          this.geoStatus = `Location: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+          this.geoStatus = `📍 ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
           resolve(true);
         },
         () => {
-          this.geoStatus = 'Location access denied';
           this.currentLat = null;
           this.currentLng = null;
-          resolve(false);
+          if (required) {
+            this.geoStatus = 'Location access denied';
+            resolve(false);
+          } else {
+            // MANUAL: location is optional — punch proceeds without coordinates
+            this.geoStatus = '';
+            resolve(true);
+          }
         },
-        { enableHighAccuracy: true, timeout: 10000 },
+        { enableHighAccuracy: true, timeout: 8000 },
       );
     });
   }
