@@ -1001,7 +1001,7 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
     if (!navigator.geolocation) {
       this.geoStatus = this.selectedCapture === 'GEOLOCATION' || this.selectedCapture === 'FACE'
         ? 'Geolocation not supported'
-        : '';
+        : 'Location unavailable — punch recorded without coordinates';
       this.currentLat = null;
       this.currentLng = null;
       // GEOLOCATION/FACE require location; MANUAL continues without it
@@ -1026,8 +1026,8 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
             this.geoStatus = 'Location access denied';
             resolve(false);
           } else {
-            // MANUAL: location is optional — punch proceeds without coordinates
-            this.geoStatus = '';
+            // MANUAL: location is optional — punch proceeds without coordinates, but warn user
+            this.geoStatus = 'Location unavailable — punch recorded without coordinates';
             resolve(true);
           }
         },
