@@ -3,9 +3,10 @@ package com.statcosol.attendance.ui
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationManager
 import android.os.Bundle
 import android.util.Log
-import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
@@ -87,27 +88,46 @@ class EssActivity : AppCompatActivity() {
         cameraExecutor = Executors.newSingleThreadExecutor()
 
         loadRoster()
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            startCamera()
-        } else {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_REQUEST_CODE)
-        }
+        requestRequiredPermissions()
 
         btnPunchIn.setOnClickListener { initiatePunch("IN") }
         btnPunchOut.setOnClickListener { initiatePunch("OUT") }
     }
 
+    private fun requestRequiredPermissions() {
+        val missing = REQUIRED_PERMISSIONS.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isEmpty()) {
+            startCamera()
+        } else {
+            ActivityCompat.requestPermissions(this, missing.toTypedArray(), PERMISSIONS_REQUEST_CODE)
+        }
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == CAMERA_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startCamera()
-            } else {
-                tvHint.text = getString(R.string.permission_camera_required)
-                btnPunchIn.isEnabled = false
-                btnPunchOut.isEnabled = false
-            }
+        if (requestCode != PERMISSIONS_REQUEST_CODE) return
+
+        val cameraGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        val locationGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+        if (!cameraGranted) {
+            tvHint.text = getString(R.string.permission_camera_required)
+            btnPunchIn.isEnabled = false
+            btnPunchOut.isEnabled = false
+            return
         }
+
+        if (!locationGranted) {
+            // Location is required for geofence; block punching without it
+            tvHint.text = getString(R.string.permission_location_required)
+            btnPunchIn.isEnabled = false
+            btnPunchOut.isEnabled = false
+            return
+        }
+
+        startCamera()
     }
 
     override fun onDestroy() {
@@ -189,6 +209,22 @@ class EssActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
+    /** Returns the best available last-known location, or null if unavailable. */
+    private fun getBestLastLocation(): Location? {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED) return null
+        return try {
+            val lm = getSystemService(LOCATION_SERVICE) as LocationManager
+            val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+            providers.mapNotNull { provider ->
+                try { lm.getLastKnownLocation(provider) } catch (e: Exception) { null }
+            }.maxByOrNull { it.accuracy }
+        } catch (e: Exception) {
+            Log.w(TAG, "Location unavailable: ${e.message}")
+            null
+        }
+    }
+
     private fun initiatePunch(direction: String) {
         if (punchInFlight) return
         val probe = lastProbe ?: run {
@@ -197,6 +233,14 @@ class EssActivity : AppCompatActivity() {
         }
         val match = matcher.match(probe) ?: run {
             tvStatus.text = getString(R.string.kiosk_match_low)
+            return
+        }
+
+        // Check for mock/fake GPS before committing to a punch
+        val location = getBestLastLocation()
+        if (location != null && IntegrityCheck.isMockLocation(this, location)) {
+            tvStatus.text = getString(R.string.ess_mock_location_blocked)
+            Log.w(TAG, "Punch blocked: mock location detected")
             return
         }
 
@@ -262,6 +306,10 @@ class EssActivity : AppCompatActivity() {
         direction: String,
         photo: String?,
     ) {
+        // Capture location at punch submission time
+        val location = withContext(Dispatchers.Main) { getBestLastLocation() }
+        val isMock = location != null && IntegrityCheck.isMockLocation(this@EssActivity, location)
+
         val req = MobilePunchRequest(
             embeddingB64 = embedder.toBase64(probe),
             embeddingModel = "mobilefacenet",
@@ -271,7 +319,9 @@ class EssActivity : AppCompatActivity() {
             direction = direction,
             punchTime = KioskActivity.isoNow(),
             photoB64 = photo,
-            isMockLocation = false,
+            captureLat = location?.latitude,
+            captureLng = location?.longitude,
+            isMockLocation = isMock,
             isRooted = IntegrityCheck.isDeviceRooted(),
             offlineSync = false,
         )
@@ -286,7 +336,6 @@ class EssActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) { handleUnauthorized() }
                 return
             }
-            // Queue for offline sync on other API errors
             try {
                 val db = AppDatabase.getInstance(this@EssActivity)
                 db.queuedPunchDao().insert(QueuedPunch(payloadJson = json.encodeToString(req)))
@@ -322,6 +371,10 @@ class EssActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "EssActivity"
-        private const val CAMERA_REQUEST_CODE = 1001
+        private const val PERMISSIONS_REQUEST_CODE = 1001
+        private val REQUIRED_PERMISSIONS = listOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+        )
     }
 }
