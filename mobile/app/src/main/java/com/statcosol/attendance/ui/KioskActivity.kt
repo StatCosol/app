@@ -20,6 +20,7 @@ import androidx.lifecycle.lifecycleScope
 import com.google.mlkit.vision.face.Face
 import com.statcosol.attendance.BuildConfig
 import com.statcosol.attendance.R
+import com.statcosol.attendance.admin.KioskDeviceAdmin
 import com.statcosol.attendance.api.ApiClient
 import com.statcosol.attendance.api.ApiException
 import com.statcosol.attendance.api.KioskEnrollTicketResponse
@@ -118,6 +119,7 @@ class KioskActivity : AppCompatActivity() {
         matcher = RosterMatcher()
         cameraExecutor = Executors.newSingleThreadExecutor()
 
+        KioskDeviceAdmin.allowlistForLockTask(this)
         startLockTask()
         setupAdminExitGesture()
 

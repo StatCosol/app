@@ -27,11 +27,6 @@ import com.statcosol.attendance.prefs.DeviceConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.concurrent.ExecutorService
@@ -190,38 +185,14 @@ class EnrollActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val embeddingB64 = embedder.toBase64(finalEmbedding)
-
-                @Serializable
-                data class EssEnrollRequest(
-                    val embeddingFrames: List<String>,
-                    val embeddingModel: String,
-                    val consentGiven: Boolean = true,
-                )
-
-                val reqBody = json.encodeToString(EssEnrollRequest(listOf(embeddingB64), "mobilefacenet"))
-                    .toRequestBody("application/json".toMediaType())
-
-                val http = OkHttpClient()
-                val request = Request.Builder()
-                    .url("${config.apiBase.trimEnd('/')}/api/v1/mobile-attendance/enrollment/self")
-                    .post(reqBody)
-                    .header("Authorization", "Bearer ${config.deviceToken}")
-                    .header("Content-Type", "application/json")
-                    .build()
-
-                val response = withContext(Dispatchers.IO) { http.newCall(request).execute() }
-                if (response.isSuccessful) {
-                    runOnUiThread {
-                        progressBar.visibility = View.GONE
-                        tvHint.text = getString(R.string.enroll_success)
-                        Toast.makeText(this@EnrollActivity, getString(R.string.enroll_success), Toast.LENGTH_LONG).show()
-                    }
-                    kotlinx.coroutines.delay(2000)
-                    finish()
-                } else {
-                    val errBody = response.body?.string() ?: ""
-                    throw Exception("HTTP ${response.code}: $errBody")
+                apiClient.enrollSelf(embeddingB64).getOrThrow()
+                runOnUiThread {
+                    progressBar.visibility = View.GONE
+                    tvHint.text = getString(R.string.enroll_success)
+                    Toast.makeText(this@EnrollActivity, getString(R.string.enroll_success), Toast.LENGTH_LONG).show()
                 }
+                kotlinx.coroutines.delay(2000)
+                finish()
             } catch (e: Exception) {
                 Log.e(TAG, "Enrollment failed: ${e.message}")
                 withContext(Dispatchers.Main) {

@@ -110,6 +110,21 @@ class ApiClient(private val config: DeviceConfig) {
         }
     }
 
+    /** ESS self-enrollment — sends face embedding from personal device. */
+    suspend fun enrollSelf(embeddingB64: String): Result<Unit> {
+        @kotlinx.serialization.Serializable
+        data class EssEnrollRequest(val embeddingFrames: List<String>, val embeddingModel: String, val consentGiven: Boolean = true)
+        val body = json.encodeToString(EssEnrollRequest(listOf(embeddingB64), "mobilefacenet")).toRequestBody(JSON_MEDIA_TYPE)
+        val request = authedRequestBuilder("/api/v1/mobile-attendance/enrollment/self").post(body).build()
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val response = http.newCall(request).execute()
+                val respBody = response.body?.string() ?: ""
+                if (!response.isSuccessful) throw ApiException(response.code, respBody)
+            }
+        }
+    }
+
     /** ticketId is serialized inside SubmitKioskEnrollRequest body. */
     suspend fun submitEnrollTicket(req: SubmitKioskEnrollRequest): Result<Unit> {
         val body = json.encodeToString(req).toRequestBody(JSON_MEDIA_TYPE)
