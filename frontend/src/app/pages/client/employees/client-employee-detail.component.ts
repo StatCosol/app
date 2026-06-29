@@ -910,10 +910,10 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
   }
 
   async resetEssPassword(): Promise<void> {
-    const ok = await this.confirm.confirm(
+    const ok = await this.dialog.confirm(
       'Reset ESS Password',
       `Generate a new password for ${this.emp?.name ?? 'this employee'}? Share it with them immediately — it won't be shown again.`,
-      { confirmText: 'Reset Password', confirmClass: 'btn-warning' },
+      { confirmText: 'Reset Password', variant: 'danger' },
     );
     if (!ok) return;
     this.resettingEssPassword = true;
