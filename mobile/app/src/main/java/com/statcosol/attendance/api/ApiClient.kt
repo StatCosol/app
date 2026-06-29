@@ -6,6 +6,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.CertificatePinner
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -19,10 +20,20 @@ class ApiClient(private val config: DeviceConfig) {
         encodeDefaults = true
     }
 
+    // Certificate pins for app.statcosol.com.
+    // Leaf cert expires 2026-09-30. Backup pin is the GeoTrust TLS RSA CA G1 intermediate.
+    // Before expiry, add new leaf pin here and release an app update before removing the old one.
+    // To regenerate: openssl s_client -connect app.statcosol.com:443 | openssl x509 -pubkey -noout | openssl pkey -pubin -outform DER | openssl dgst -sha256 -binary | base64
+    private val certificatePinner = CertificatePinner.Builder()
+        .add("app.statcosol.com", "sha256/l+YmAf2o3pqcMWaHzt8Yxd2V0ir9PZTZccVXHMoA700=") // leaf — expires 2026-09-30
+        .add("app.statcosol.com", "sha256/SDG5orEv8iX6MNenIAxa8nQFNpROB/6+llsZdXHZNqs=") // GeoTrust TLS RSA CA G1 (backup)
+        .build()
+
     private val http = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
+        .certificatePinner(certificatePinner)
         .build()
 
     private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
@@ -96,6 +107,21 @@ class ApiClient(private val config: DeviceConfig) {
             if (!response.isSuccessful) throw ApiException(response.code, body)
             if (body.isBlank() || body == "null") null
             else json.decodeFromString(body)
+        }
+    }
+
+    /** ESS self-enrollment — sends face embedding from personal device. */
+    suspend fun enrollSelf(embeddingB64: String): Result<Unit> {
+        @kotlinx.serialization.Serializable
+        data class EssEnrollRequest(val embeddingFrames: List<String>, val embeddingModel: String, val consentGiven: Boolean = true)
+        val body = json.encodeToString(EssEnrollRequest(listOf(embeddingB64), "mobilefacenet")).toRequestBody(JSON_MEDIA_TYPE)
+        val request = authedRequestBuilder("/api/v1/mobile-attendance/enrollment/self").post(body).build()
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val response = http.newCall(request).execute()
+                val respBody = response.body?.string() ?: ""
+                if (!response.isSuccessful) throw ApiException(response.code, respBody)
+            }
         }
     }
 
