@@ -242,12 +242,12 @@ async function bootstrap() {
     await usersService.seedAdminIfMissing();
   }
 
+  const ds = app.get(DataSource);
+
   // ── Critical schema validation ──────────────────────────────────
   // Verify that essential tables exist before the server accepts traffic.
   // Exits with a clear error message so missing migrations are caught early.
   {
-    const ds = app.get(DataSource);
-
     // ── Idempotent incremental migrations (run on every boot, safe to re-run) ──
     // These use ADD COLUMN IF NOT EXISTS / CREATE TABLE IF NOT EXISTS so they are
     // no-ops if the schema is already up to date.
