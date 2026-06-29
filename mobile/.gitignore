@@ -2,6 +2,7 @@
 .gradle/
 build/
 local.properties
+key.properties
 *.iml
 .idea/
 .cxx/
