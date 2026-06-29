@@ -64,6 +64,7 @@
 
     <string name="permission_camera_required">Camera permission is required for attendance.</string>
     <string name="permission_location_required">Location permission is required for ESS mode geofence.</string>
+    <string name="camera_start_failed">Camera could not start. Close other camera apps, allow Camera permission, then reopen the kiosk.</string>
 
     <string name="enroll_title">Enroll Face</string>
     <string name="enroll_intro">We need 7 clear photos to enroll your face. Look straight at the camera, keep still, and make sure no one else is in the frame.</string>
