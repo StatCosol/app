@@ -1,9 +1,11 @@
 package com.statcosol.attendance.ui
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -16,6 +18,7 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.mlkit.vision.face.Face
+import com.statcosol.attendance.BuildConfig
 import com.statcosol.attendance.R
 import com.statcosol.attendance.api.ApiClient
 import com.statcosol.attendance.api.ApiException
@@ -115,6 +118,9 @@ class KioskActivity : AppCompatActivity() {
         matcher = RosterMatcher()
         cameraExecutor = Executors.newSingleThreadExecutor()
 
+        startLockTask()
+        setupAdminExitGesture()
+
         loadRoster()
         startCamera()
         startEnrollmentPolling()
@@ -126,6 +132,37 @@ class KioskActivity : AppCompatActivity() {
         embedder.close()
         faceDetector.close()
         enrollPollJob?.cancel()
+    }
+
+    // Long-press the status text (3 seconds) to show admin PIN exit dialog.
+    private fun setupAdminExitGesture() {
+        tvStatus.setOnLongClickListener {
+            showAdminExitDialog()
+            true
+        }
+    }
+
+    private fun showAdminExitDialog() {
+        val pin = BuildConfig.ADMIN_EXIT_PIN
+        if (pin.isBlank()) {
+            Toast.makeText(this, "Admin exit PIN not configured.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val input = EditText(this).apply { hint = "Admin PIN"; inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD }
+        AlertDialog.Builder(this)
+            .setTitle("Admin Exit")
+            .setMessage("Enter admin PIN to exit kiosk mode")
+            .setView(input)
+            .setPositiveButton("Unlock") { _, _ ->
+                if (input.text.toString() == pin) {
+                    stopLockTask()
+                    finish()
+                } else {
+                    Toast.makeText(this, "Incorrect PIN", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     // ── Roster ───────────────────────────────────────────────────────────────
