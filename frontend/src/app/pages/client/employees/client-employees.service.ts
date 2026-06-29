@@ -169,6 +169,11 @@ export class ClientEmployeesService {
     return this.http.post(`${this.base}/${employeeId}/provision-ess`, body);
   }
 
+  /** Reset ESS password for an employee */
+  resetEssPassword(employeeId: string): Observable<{ message: string; email: string; newPassword: string }> {
+    return this.http.post<any>(`${this.base}/${employeeId}/reset-ess-password`, {});
+  }
+
   /** Approve a pending employee registration */
   approve(id: string): Observable<Employee> {
     return this.http.put<any>(`${this.base}/${id}/approve`, {}).pipe(map((r) => this.mapEmployee(r)));
