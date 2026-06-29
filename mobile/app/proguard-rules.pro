@@ -12,3 +12,7 @@
 # OkHttp certificate pinning
 -keep class okhttp3.CertificatePinner { *; }
 -dontwarn okhttp3.**
+
+# ML Kit Face Detection
+-keep class com.google.mlkit.vision.face.** { *; }
+-dontwarn com.google.mlkit.**

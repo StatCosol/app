@@ -1,7 +1,9 @@
 package com.statcosol.attendance.ui
 
+import android.Manifest
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -15,6 +17,7 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.mlkit.vision.face.Face
@@ -42,6 +45,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.text.SimpleDateFormat
@@ -92,6 +96,9 @@ class KioskActivity : AppCompatActivity() {
     // ── Poll job ─────────────────────────────────────────────────────────────
     private var enrollPollJob: Job? = null
 
+    // ── Liveness timeout job ─────────────────────────────────────────────────
+    private var livenessTimeoutJob: Job? = null
+
     // ── Punch-lock to prevent double punches ─────────────────────────────────
     @Volatile private var punchInFlight = false
 
@@ -120,12 +127,31 @@ class KioskActivity : AppCompatActivity() {
         cameraExecutor = Executors.newSingleThreadExecutor()
 
         KioskDeviceAdmin.allowlistForLockTask(this)
-        startLockTask()
+        try {
+            startLockTask()
+        } catch (e: Exception) {
+            Log.w(TAG, "startLockTask failed (screen-pinning fallback will apply): ${e.message}")
+        }
         setupAdminExitGesture()
 
         loadRoster()
-        startCamera()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            startCamera()
+        } else {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_REQUEST_CODE)
+        }
         startEnrollmentPolling()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == CAMERA_REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startCamera()
+            } else {
+                tvHint.text = getString(R.string.permission_camera_required)
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -134,6 +160,7 @@ class KioskActivity : AppCompatActivity() {
         embedder.close()
         faceDetector.close()
         enrollPollJob?.cancel()
+        livenessTimeoutJob?.cancel()
     }
 
     // Long-press the status text (3 seconds) to show admin PIN exit dialog.
@@ -263,6 +290,9 @@ class KioskActivity : AppCompatActivity() {
     }
 
     private fun enterEnrollingState(ticket: KioskEnrollTicketResponse) {
+        // Don't restart if already capturing frames for this ticket to avoid clearing mid-capture
+        val current = state
+        if (current is KioskState.Enrolling && current.ticket.id == ticket.id) return
         state = KioskState.Enrolling(ticket)
         enrollFrames.clear()
         enrollAvgEmbedding = null
@@ -328,6 +358,16 @@ class KioskActivity : AppCompatActivity() {
 
                 state = KioskState.Punching
                 runOnUiThread { tvHint.text = prompt }
+
+                // Safety timeout: if user doesn't complete liveness in time, reset to idle
+                livenessTimeoutJob?.cancel()
+                livenessTimeoutJob = lifecycleScope.launch {
+                    delay(LIVENESS_TIMEOUT_MS)
+                    if (pendingChallenge != null) {
+                        Log.w(TAG, "Liveness challenge timed out — resetting to idle")
+                        resetToIdle()
+                    }
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "Liveness challenge failed: ${e.message}")
                 punchInFlight = false
@@ -347,6 +387,8 @@ class KioskActivity : AppCompatActivity() {
         }
         if (!passed) return
 
+        livenessTimeoutJob?.cancel()
+        livenessTimeoutJob = null
         livenessScore = liveness
         val passedAt = isoNow()
         challengePassedAt = passedAt
@@ -430,6 +472,8 @@ class KioskActivity : AppCompatActivity() {
     }
 
     private fun resetToIdle() {
+        livenessTimeoutJob?.cancel()
+        livenessTimeoutJob = null
         state = KioskState.Idle
         pendingMatch = null
         pendingProbe = null
@@ -594,6 +638,8 @@ class KioskActivity : AppCompatActivity() {
         private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.60
         private const val ENROLLMENT_POLL_INTERVAL_MS = 5_000L
         private const val RESULT_DISPLAY_MS = 3_000L
+        private const val LIVENESS_TIMEOUT_MS = 12_000L
+        private const val CAMERA_REQUEST_CODE = 1001
 
         fun cosineSim(a: FloatArray, b: FloatArray): Double {
             var dot = 0.0

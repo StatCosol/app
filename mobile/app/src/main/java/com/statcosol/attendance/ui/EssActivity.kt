@@ -1,6 +1,8 @@
 package com.statcosol.attendance.ui
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -14,6 +16,7 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.statcosol.attendance.R
@@ -84,10 +87,27 @@ class EssActivity : AppCompatActivity() {
         cameraExecutor = Executors.newSingleThreadExecutor()
 
         loadRoster()
-        startCamera()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            startCamera()
+        } else {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_REQUEST_CODE)
+        }
 
         btnPunchIn.setOnClickListener { initiatePunch("IN") }
         btnPunchOut.setOnClickListener { initiatePunch("OUT") }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == CAMERA_REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startCamera()
+            } else {
+                tvHint.text = getString(R.string.permission_camera_required)
+                btnPunchIn.isEnabled = false
+                btnPunchOut.isEnabled = false
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -302,5 +322,6 @@ class EssActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "EssActivity"
+        private const val CAMERA_REQUEST_CODE = 1001
     }
 }

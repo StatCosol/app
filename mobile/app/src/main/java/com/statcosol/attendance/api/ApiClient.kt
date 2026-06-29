@@ -12,6 +12,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLPeerUnverifiedException
 
 class ApiClient(private val config: DeviceConfig) {
 
@@ -117,10 +118,15 @@ class ApiClient(private val config: DeviceConfig) {
         val body = json.encodeToString(EssEnrollRequest(listOf(embeddingB64), "mobilefacenet")).toRequestBody(JSON_MEDIA_TYPE)
         val request = authedRequestBuilder("/api/v1/mobile-attendance/enrollment/self").post(body).build()
         return withContext(Dispatchers.IO) {
-            runCatching {
+            try {
                 val response = http.newCall(request).execute()
                 val respBody = response.body?.string() ?: ""
                 if (!response.isSuccessful) throw ApiException(response.code, respBody)
+                Result.success(Unit)
+            } catch (e: SSLPeerUnverifiedException) {
+                throw e  // certificate pin failure — must not be swallowed
+            } catch (e: Exception) {
+                Result.failure(e)
             }
         }
     }
@@ -132,10 +138,15 @@ class ApiClient(private val config: DeviceConfig) {
             .post(body)
             .build()
         return withContext(Dispatchers.IO) {
-            runCatching {
+            try {
                 val response = http.newCall(request).execute()
                 val respBody = response.body?.string() ?: ""
                 if (!response.isSuccessful) throw ApiException(response.code, respBody)
+                Result.success(Unit)
+            } catch (e: SSLPeerUnverifiedException) {
+                throw e  // certificate pin failure — must not be swallowed
+            } catch (e: Exception) {
+                Result.failure(e)
             }
         }
     }
