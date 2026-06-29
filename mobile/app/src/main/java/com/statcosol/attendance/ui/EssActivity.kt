@@ -70,6 +70,7 @@ class EssActivity : AppCompatActivity() {
         setContentView(R.layout.activity_ess)
 
         previewView = findViewById(R.id.previewView)
+        previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         tvHint = findViewById(R.id.statusText)
         tvStatus = findViewById(R.id.statusText)
         btnPunchIn = findViewById(R.id.punchInBtn)
@@ -128,38 +129,43 @@ class EssActivity : AppCompatActivity() {
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
-            val cameraProvider = cameraProviderFuture.get()
-            val preview = Preview.Builder().build().apply {
-                setSurfaceProvider(previewView.surfaceProvider)
+            try {
+                val cameraProvider = cameraProviderFuture.get()
+                val preview = Preview.Builder().build().apply {
+                    setSurfaceProvider(previewView.surfaceProvider)
+                }
+                val imageAnalysis = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+
+                val captureSession = FaceCaptureSession(
+                    embedder = embedder,
+                    detector = faceDetector,
+                    onFace = { probe, liveness, photo ->
+                        lastProbe = probe
+                        lastLiveness = liveness
+                        lastPhoto = photo
+
+                        val challenge = pendingChallenge
+                        if (challenge != null) {
+                            handleLivenessFrame(probe, liveness, challenge)
+                        }
+                    },
+                    onHint = { hint -> runOnUiThread { tvHint.text = hint } },
+                )
+
+                imageAnalysis.setAnalyzer(cameraExecutor, captureSession)
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(
+                    this,
+                    CameraSelector.DEFAULT_FRONT_CAMERA,
+                    preview,
+                    imageAnalysis,
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Camera start failed", e)
+                tvHint.text = getString(R.string.camera_start_failed)
             }
-            val imageAnalysis = ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-
-            val captureSession = FaceCaptureSession(
-                embedder = embedder,
-                detector = faceDetector,
-                onFace = { probe, liveness, photo ->
-                    lastProbe = probe
-                    lastLiveness = liveness
-                    lastPhoto = photo
-
-                    val challenge = pendingChallenge
-                    if (challenge != null) {
-                        handleLivenessFrame(probe, liveness, challenge)
-                    }
-                },
-                onHint = { hint -> runOnUiThread { tvHint.text = hint } },
-            )
-
-            imageAnalysis.setAnalyzer(cameraExecutor, captureSession)
-            cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(
-                this,
-                CameraSelector.DEFAULT_FRONT_CAMERA,
-                preview,
-                imageAnalysis,
-            )
         }, ContextCompat.getMainExecutor(this))
     }
 
