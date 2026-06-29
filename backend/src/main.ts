@@ -772,8 +772,8 @@ async function bootstrap() {
       status VARCHAR(20) NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','SUBMITTED','APPROVED','REJECTED')),
       submitted_by UUID, submitted_at TIMESTAMPTZ,
       reviewed_by UUID, reviewed_at TIMESTAMPTZ, review_note TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      UNIQUE (client_id, COALESCE(branch_id, '00000000-0000-0000-0000-000000000000'::uuid), month, year))`);
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
+    await ds.query(`CREATE UNIQUE INDEX IF NOT EXISTS UQ_CPS_CLIENT_BRANCH_MONTH ON contractor_payroll_sheets (client_id, COALESCE(branch_id, '00000000-0000-0000-0000-000000000000'::uuid), month, year)`);
     await ds.query(`CREATE INDEX IF NOT EXISTS IDX_CPS_CLIENT_MONTH ON contractor_payroll_sheets (client_id, year, month)`);
     await ds.query(`CREATE TABLE IF NOT EXISTS contractor_payroll_sheet_rows (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -801,8 +801,8 @@ async function bootstrap() {
       client_id UUID NOT NULL, branch_id UUID, uploaded_by UUID NOT NULL,
       month SMALLINT NOT NULL CHECK (month BETWEEN 1 AND 12),
       year SMALLINT NOT NULL CHECK (year BETWEEN 2020 AND 2100),
-      rows_processed INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      UNIQUE (client_id, COALESCE(branch_id, '00000000-0000-0000-0000-000000000000'::uuid), month, year))`);
+      rows_processed INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
+    await ds.query(`CREATE UNIQUE INDEX IF NOT EXISTS UQ_CWBU_CLIENT_BRANCH_MONTH ON contractor_wage_breakup_uploads (client_id, COALESCE(branch_id, '00000000-0000-0000-0000-000000000000'::uuid), month, year)`);
     await ds.query(`CREATE TABLE IF NOT EXISTS contractor_wage_breakup_rows (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       upload_id UUID NOT NULL REFERENCES contractor_wage_breakup_uploads(id) ON DELETE CASCADE,
