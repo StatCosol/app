@@ -1,0 +1,6 @@
+# Copy this file to mobile/key.properties and fill in local signing credentials.
+# Never commit mobile/key.properties or the keystore file.
+storeFile=release/statco-upload-key.jks
+storePassword=change-me
+keyAlias=statco
+keyPassword=change-me
