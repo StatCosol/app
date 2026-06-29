@@ -89,6 +89,10 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
                 [title]="hasValidEmail() ? 'Create ESS login for this employee' : 'Add a valid employee email first to create ESS login'">
                 {{ provisioningEss ? 'Creating...' : 'Create ESS Login' }}
               </ui-button>
+              <ui-button *ngIf="emp.isActive && emp.approvalStatus !== 'PENDING'" variant="outline" [disabled]="resettingEssPassword || !hasValidEmail()" (clicked)="resetEssPassword()"
+                [title]="hasValidEmail() ? 'Reset ESS password for this employee' : 'Add a valid employee email first'">
+                {{ resettingEssPassword ? 'Resetting...' : 'Reset ESS Password' }}
+              </ui-button>
               <ui-button *ngIf="emp.isActive && emp.approvalStatus !== 'PENDING'" variant="danger" (clicked)="confirmDeactivate()">Mark Exit</ui-button>
             </div>
           </div>
@@ -101,7 +105,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
               <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
-              <h4 class="text-sm font-semibold text-green-800">ESS Login Created Successfully</h4>
+              <h4 class="text-sm font-semibold text-green-800">{{ resettingEssPassword ? 'ESS Password Reset' : 'ESS Login Created Successfully' }}</h4>
             </div>
             <button (click)="essResult = null" class="text-gray-400 hover:text-gray-600 p-1">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -670,6 +674,7 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
   provisioningEss = false;
   essResult: any = null;
   essError = '';
+  resettingEssPassword = false;
 
   // Appointment Letter
   downloadingLetter = false;
@@ -900,6 +905,32 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
         this.provisioningEss = false;
         this.essError = e?.error?.message || 'Failed to create ESS login';
         this.toast.error(this.essError);
+      },
+    });
+  }
+
+  async resetEssPassword(): Promise<void> {
+    const ok = await this.confirm.confirm(
+      'Reset ESS Password',
+      `Generate a new password for ${this.emp?.name ?? 'this employee'}? Share it with them immediately — it won't be shown again.`,
+      { confirmText: 'Reset Password', confirmClass: 'btn-warning' },
+    );
+    if (!ok) return;
+    this.resettingEssPassword = true;
+    this.essResult = null;
+    this.cdr.detectChanges();
+    this.svc.resetEssPassword(this.employeeId).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.resettingEssPassword = false; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: (res) => {
+        this.essResult = { email: res.email, generatedPassword: res.newPassword };
+        this.toast.success('ESS password reset — see new credentials below');
+        this.cdr.detectChanges();
+      },
+      error: (e) => {
+        const msg = e?.error?.message || 'Failed to reset ESS password';
+        this.toast.error(msg);
       },
     });
   }
