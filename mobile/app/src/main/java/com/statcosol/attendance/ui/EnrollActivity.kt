@@ -1,5 +1,7 @@
 package com.statcosol.attendance.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -15,6 +17,7 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.statcosol.attendance.R
@@ -78,7 +81,11 @@ class EnrollActivity : AppCompatActivity() {
         tvHint.text = getString(R.string.enroll_intro)
         tvProgress.text = getString(R.string.enroll_progress, 0, ESS_REQUIRED_FRAMES)
 
-        startCamera()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            startCamera()
+        } else {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_REQUEST_CODE)
+        }
 
         btnStart.setOnClickListener {
             if (!cbConsent.isChecked) {
@@ -86,6 +93,18 @@ class EnrollActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
             startCapture()
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == CAMERA_REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startCamera()
+            } else {
+                tvHint.text = getString(R.string.permission_camera_required)
+                btnStart.isEnabled = false
+            }
         }
     }
 
@@ -211,6 +230,7 @@ class EnrollActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "EnrollActivity"
+        private const val CAMERA_REQUEST_CODE = 1001
         private const val ESS_REQUIRED_FRAMES = 7
         private const val ENROLL_MIN_LIVENESS = 0.70
         private const val ENROLL_MIN_FRAME_INTERVAL_MS = 300L
