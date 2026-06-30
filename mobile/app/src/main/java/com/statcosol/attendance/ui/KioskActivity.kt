@@ -190,18 +190,16 @@ class KioskActivity : AppCompatActivity() {
     }
 
     private fun showDirectionArrow(challenge: LivenessChallenge) {
-        val arrow = when (challenge) {
-            LivenessChallenge.HEAD_TURN_LEFT  -> "←"
-            LivenessChallenge.HEAD_TURN_RIGHT -> "→"
-            else -> null
+        val (arrow, textSizeSp) = when (challenge) {
+            LivenessChallenge.HEAD_TURN_LEFT  -> "←" to 96f
+            LivenessChallenge.HEAD_TURN_RIGHT -> "→" to 96f
+            LivenessChallenge.BLINK           -> "BLINK!" to 64f
+            LivenessChallenge.SMILE           -> "SMILE!" to 64f
         }
         runOnUiThread {
-            if (arrow != null) {
-                tvDirectionArrow.text = arrow
-                tvDirectionArrow.visibility = View.VISIBLE
-            } else {
-                tvDirectionArrow.visibility = View.GONE
-            }
+            tvDirectionArrow.text = arrow
+            tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, textSizeSp)
+            tvDirectionArrow.visibility = View.VISIBLE
         }
     }
 
@@ -641,9 +639,9 @@ class KioskActivity : AppCompatActivity() {
                 speak(promptText)
                 showDirectionArrow(challenge)
 
-                // Enrollment liveness timeout — if user doesn't complete in 20 s, reset and try again
+                // Enrollment liveness timeout — if user doesn't complete in 30 s, reset and try again
                 livenessTimeoutJob = lifecycleScope.launch {
-                    delay(20_000)
+                    delay(30_000)
                     if (pendingChallenge != null) {
                         Log.w(TAG, "Enroll liveness timed out — resetting frame capture")
                         pendingChallenge = null
