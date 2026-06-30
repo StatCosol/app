@@ -578,7 +578,10 @@ class KioskActivity : AppCompatActivity() {
         if (enrollFrames.size >= ENROLL_REQUIRED_FRAMES) return
 
         // Only accept frontal frames for enrollment embedding (yaw gate)
-        if (Math.abs(metrics.headYaw) > ENROLL_MAX_YAW) return
+        if (Math.abs(metrics.headYaw) > ENROLL_MAX_YAW) {
+            runOnUiThread { tvHint.text = getString(R.string.hint_not_straight) }
+            return
+        }
         if (metrics.eyeOpenness < ENROLL_MIN_LIVENESS) return
 
         val now = System.currentTimeMillis()
@@ -712,7 +715,7 @@ class KioskActivity : AppCompatActivity() {
 
         private const val ENROLL_REQUIRED_FRAMES = 5        // more frames → more robust averaged embedding
         private const val ENROLL_MIN_LIVENESS = 0.50
-        private const val ENROLL_MAX_YAW = 12f               // tighter frontal gate for enrollment frames
+        private const val ENROLL_MAX_YAW = 15f               // frontal gate for enrollment frames
         private const val ENROLL_MIN_FRAME_INTERVAL_MS = 400L
         private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.65 // raised from 0.60 for better consistency
         private const val ENROLLMENT_POLL_INTERVAL_MS = 5_000L
