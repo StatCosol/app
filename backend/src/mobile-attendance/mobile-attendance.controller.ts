@@ -331,7 +331,7 @@ export class MobileAttendancePunchesController {
     return {
       enrollments: roster.map((r) => ({
         employeeId: r.subjectId,
-        displayName: r.displayName ?? r.subjectId,
+        displayName: r.displayName,
         embeddingModel: r.embeddingModel ?? '',
         // Slice to view boundaries to avoid leaking bytes from a pooled backing buffer
         embeddingB64: Buffer.from(

@@ -61,8 +61,10 @@ class RosterMatcher {
     }
 
     companion object {
-        private const val MATCH_THRESHOLD = 0.90
-        private const val MARGIN_THRESHOLD = 0.04
+        // MobileFaceNet real-world same-person cosine similarity is ~0.70–0.87.
+        // 0.90 was unreachable in practice — no one ever matched.
+        private const val MATCH_THRESHOLD = 0.72
+        private const val MARGIN_THRESHOLD = 0.02
 
         fun cosineSim(a: FloatArray, b: FloatArray): Double {
             var dot = 0.0

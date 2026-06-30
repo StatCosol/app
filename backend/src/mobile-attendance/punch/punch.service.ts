@@ -21,28 +21,30 @@ import {
 } from '../face/face-math';
 import { RecordPunchDto } from './punch.dto';
 
-const MIN_MATCH_SCORE = Number(process.env.FACE_MIN_MATCH_SCORE ?? 0.90);
-const MIN_MATCH_MARGIN = Number(process.env.FACE_MIN_MATCH_MARGIN ?? 0.04);
+// MobileFaceNet real-world same-person cosine similarity is ~0.70–0.87; 0.90 was unreachable.
+const MIN_MATCH_SCORE = Number(process.env.FACE_MIN_MATCH_SCORE ?? 0.72);
+const MIN_MATCH_MARGIN = Number(process.env.FACE_MIN_MATCH_MARGIN ?? 0.02);
+// 15-min delay blocked newly enrolled employees from punching — no activation delay by default.
 const ACTIVATION_DELAY_MS =
-  Number(process.env.FACE_KIOSK_ACTIVATION_DELAY_MIN ?? 15) * 60 * 1000;
+  Number(process.env.FACE_KIOSK_ACTIVATION_DELAY_MIN ?? 0) * 60 * 1000;
 const OFFLINE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export interface RosterEntry {
   subjectType: 'EMPLOYEE' | 'CONTRACTOR';
   subjectId: string;
-  displayName?: string;
+  displayName: string;
+  employeeCode?: string;
   embeddingModel: string | null;
   enrolledAt: Date;
   embedding: Float32Array;
 }
 
 export interface PunchResult {
-  punchId: string;
-  subjectType: 'EMPLOYEE' | 'CONTRACTOR';
-  subjectId: string;
-  matchScore: number;
+  ok: true;
+  employeeName: string;
+  employeeCode: string;
   direction: string;
-  punchTime: Date;
+  punchTime: string;
 }
 
 @Injectable()
@@ -62,22 +64,62 @@ export class PunchService {
   ) {}
 
   async getRoster(device: MobileAttendanceDeviceEntity): Promise<RosterEntry[]> {
-    // Scope roster to device assignment: branch-bound kiosks only cache their branch.
-    const empWhere: Record<string, unknown> = { clientId: device.clientId, isActive: true };
-    const conWhere: Record<string, unknown> = { clientId: device.clientId, isActive: true };
-    if (device.branchId) {
-      empWhere['branchId'] = device.branchId;
-      conWhere['branchId'] = device.branchId;
-    }
+    // Raw SQL so we can JOIN to employees/contractor_employees for display names.
+    const empParams: unknown[] = [device.clientId];
+    const empBranch = device.branchId
+      ? `AND fe.branch_id = $${empParams.push(device.branchId)}`
+      : '';
 
-    const empRows = await this.enrollRepo.find({
-      where: empWhere as any,
-      select: ['employeeId', 'embedding', 'embeddingModel', 'enrolledAt'],
-    });
-    const conRows = await this.contractorEnrollRepo.find({
-      where: conWhere as any,
-      select: ['contractorEmployeeId', 'embedding', 'embeddingModel', 'enrolledAt'],
-    });
+    const empRows = await this.dataSource.query<Array<{
+      employeeId: string;
+      name: string;
+      employeeCode: string;
+      embedding: Buffer;
+      embeddingModel: string | null;
+      enrolledAt: Date;
+    }>>(
+      `SELECT fe.employee_id   AS "employeeId",
+              e.name           AS "name",
+              e.employee_code  AS "employeeCode",
+              fe.embedding,
+              fe.embedding_model AS "embeddingModel",
+              fe.enrolled_at   AS "enrolledAt"
+         FROM face_enrollments fe
+         JOIN employees e
+           ON e.id = fe.employee_id
+          AND e.client_id = fe.client_id
+        WHERE fe.client_id = $1
+          AND fe.is_active = true
+          ${empBranch}`,
+      empParams,
+    );
+
+    const conParams: unknown[] = [device.clientId];
+    const conBranch = device.branchId
+      ? `AND cfe.branch_id = $${conParams.push(device.branchId)}`
+      : '';
+
+    const conRows = await this.dataSource.query<Array<{
+      contractorEmployeeId: string;
+      name: string;
+      embedding: Buffer;
+      embeddingModel: string | null;
+      enrolledAt: Date;
+    }>>(
+      `SELECT cfe.contractor_employee_id AS "contractorEmployeeId",
+              ce.name                    AS "name",
+              cfe.embedding,
+              cfe.embedding_model        AS "embeddingModel",
+              cfe.enrolled_at            AS "enrolledAt"
+         FROM contractor_face_enrollments cfe
+         JOIN contractor_employees ce
+           ON ce.id = cfe.contractor_employee_id
+          AND ce.client_id = cfe.client_id
+        WHERE cfe.client_id = $1
+          AND cfe.is_active = true
+          ${conBranch}`,
+      conParams,
+    );
 
     const entries: RosterEntry[] = [];
 
@@ -86,6 +128,8 @@ export class PunchService {
       entries.push({
         subjectType: 'EMPLOYEE',
         subjectId: r.employeeId,
+        displayName: r.name,
+        employeeCode: r.employeeCode,
         embeddingModel: r.embeddingModel,
         enrolledAt: r.enrolledAt,
         embedding: bufferToEmbedding(r.embedding),
@@ -96,6 +140,7 @@ export class PunchService {
       entries.push({
         subjectType: 'CONTRACTOR',
         subjectId: c.contractorEmployeeId,
+        displayName: c.name,
         embeddingModel: c.embeddingModel,
         enrolledAt: c.enrolledAt,
         embedding: bufferToEmbedding(c.embedding),
@@ -202,12 +247,11 @@ export class PunchService {
         offlineSync: dto.offlineSync ?? false,
       });
       return {
-        punchId: punch.id,
-        subjectType: 'EMPLOYEE',
-        subjectId: best.subjectId,
-        matchScore: toMatchScore(best.cosine),
+        ok: true,
+        employeeName: best.displayName,
+        employeeCode: best.employeeCode ?? best.subjectId,
         direction: dto.direction,
-        punchTime,
+        punchTime: punchTime.toISOString(),
       };
     } else {
       const punch = await this.contractorPunchRepo.save({
@@ -233,12 +277,11 @@ export class PunchService {
         offlineSync: dto.offlineSync ?? false,
       });
       return {
-        punchId: punch.id,
-        subjectType: 'CONTRACTOR',
-        subjectId: best.subjectId,
-        matchScore: toMatchScore(best.cosine),
+        ok: true,
+        employeeName: best.displayName,
+        employeeCode: best.subjectId,
         direction: dto.direction,
-        punchTime,
+        punchTime: punchTime.toISOString(),
       };
     }
   }

@@ -112,7 +112,7 @@ interface BranchOption { id: string; name: string }
             </thead>
             <tbody>
               <tr *ngFor="let d of devices" class="border-b border-gray-100 hover:bg-gray-50">
-                <td class="px-4 py-3 text-gray-900 font-medium">{{ d.deviceLabel || '—' }}</td>
+                <td class="px-4 py-3 text-gray-900 font-medium">{{ d.deviceLabel || d.deviceName || '—' }}</td>
                 <td class="px-4 py-3">
                   <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
                     [class.bg-blue-100]="d.mode === 'KIOSK'" [class.text-blue-700]="d.mode === 'KIOSK'"

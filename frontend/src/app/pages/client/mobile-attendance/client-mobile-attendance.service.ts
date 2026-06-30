@@ -11,6 +11,7 @@ export interface MobileAttendanceDevice {
   branchId: string | null;
   mode: MobileDeviceMode;
   deviceLabel: string | null;
+  deviceName: string | null;
   installToken: string;
   geofenceLat: number | null;
   geofenceLng: number | null;

@@ -14,7 +14,8 @@ class FaceDetector {
         .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
         .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
         .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-        .enableTracking()
+        // Tracking disabled: ML Kit skips classification on tracked frames, causing
+        // eyeOpenProbability to return null and breaking BLINK liveness checks.
         .build()
 
     private val detector: FaceDetector = FaceDetection.getClient(options)
