@@ -5,6 +5,7 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.view.View
 import android.widget.EditText
@@ -62,6 +63,11 @@ class KioskActivity : AppCompatActivity() {
     private lateinit var previewView: PreviewView
     private lateinit var tvHint: TextView
     private lateinit var tvStatus: TextView
+    private lateinit var tvDirectionArrow: TextView
+
+    // ── TTS ──────────────────────────────────────────────────────────────────
+    private var tts: TextToSpeech? = null
+    private var ttsReady = false
 
     // ── Core dependencies ────────────────────────────────────────────────────
     private lateinit var config: DeviceConfig
@@ -117,6 +123,12 @@ class KioskActivity : AppCompatActivity() {
         previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         tvHint = findViewById(R.id.statusText)
         tvStatus = findViewById(R.id.statusText)
+        tvDirectionArrow = findViewById(R.id.tvDirectionArrow)
+
+        tts = TextToSpeech(this) { status ->
+            ttsReady = (status == TextToSpeech.SUCCESS)
+            if (ttsReady) tts?.language = java.util.Locale.ENGLISH
+        }
 
         config = DeviceConfig(this)
         apiClient = ApiClient(config)
@@ -155,6 +167,8 @@ class KioskActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        tts?.stop()
+        tts?.shutdown()
         cameraExecutor.shutdown()
         embedder.close()
         faceDetector.close()
@@ -162,8 +176,37 @@ class KioskActivity : AppCompatActivity() {
         livenessTimeoutJob?.cancel()
     }
 
-    // Long-press the status text (3 seconds) to show admin PIN exit dialog.
+    private fun speak(text: String) {
+        if (ttsReady && tts != null) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+    }
+
+    private fun showDirectionArrow(challenge: LivenessChallenge) {
+        val arrow = when (challenge) {
+            LivenessChallenge.HEAD_TURN_LEFT  -> "←"
+            LivenessChallenge.HEAD_TURN_RIGHT -> "→"
+            else -> null
+        }
+        runOnUiThread {
+            if (arrow != null) {
+                tvDirectionArrow.text = arrow
+                tvDirectionArrow.visibility = View.VISIBLE
+            } else {
+                tvDirectionArrow.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun hideDirectionArrow() {
+        runOnUiThread { tvDirectionArrow.visibility = View.GONE }
+    }
+
+    // Long-press the brand label (bottom strip) OR the status text (top) to show admin PIN exit dialog.
     private fun setupAdminExitGesture() {
+        val brandLabel = findViewById<TextView?>(R.id.headerBrand)
+        brandLabel?.setOnLongClickListener {
+            showAdminExitDialog()
+            true
+        }
         tvStatus.setOnLongClickListener {
             showAdminExitDialog()
             true
@@ -357,6 +400,8 @@ class KioskActivity : AppCompatActivity() {
 
                 state = KioskState.Punching
                 runOnUiThread { tvHint.text = prompt }
+                speak(prompt)
+                showDirectionArrow(lvChallenge)
 
                 // Safety timeout: if user doesn't complete liveness in time, reset to idle
                 livenessTimeoutJob?.cancel()
@@ -430,11 +475,12 @@ class KioskActivity : AppCompatActivity() {
             try {
                 val resp = apiClient.recordPunch(req)
                 state = KioskState.Result(ok = true, name = resp.employeeName, direction = resp.direction)
+                val msg = getString(R.string.kiosk_punch_recorded, resp.employeeName)
                 runOnUiThread {
-                    val msg = getString(R.string.kiosk_punch_recorded, resp.employeeName)
                     tvStatus.text = msg
                     tvHint.text = msg
                 }
+                speak(msg)
             } catch (e: ApiException) {
                 if (e.code == 401 || e.code == 403) {
                     handleUnauthorized()
@@ -481,6 +527,7 @@ class KioskActivity : AppCompatActivity() {
         pendingNonce = null
         challengePassedAt = null
         punchInFlight = false
+        hideDirectionArrow()
         runOnUiThread {
             tvHint.text = getString(R.string.kiosk_look_at_camera)
             if (tvStatus !== tvHint) {
@@ -539,6 +586,8 @@ class KioskActivity : AppCompatActivity() {
     }
 
     private fun startEnrollLivenessChallenge(enrollState: KioskState.Enrolling) {
+        livenessTimeoutJob?.cancel()
+        livenessTimeoutJob = null
         lifecycleScope.launch {
             try {
                 val challengeResp = apiClient.issueLivenessChallenge(enrollState.ticket.employeeId)
@@ -552,7 +601,10 @@ class KioskActivity : AppCompatActivity() {
                     LivenessChallenge.HEAD_TURN_LEFT -> R.string.liveness_prompt_head_left
                     LivenessChallenge.HEAD_TURN_RIGHT -> R.string.liveness_prompt_head_right
                 }
-                runOnUiThread { tvHint.text = getString(promptRes) }
+                val promptText = getString(promptRes)
+                runOnUiThread { tvHint.text = promptText }
+                speak(promptText)
+                showDirectionArrow(challenge)
             } catch (e: Exception) {
                 Log.w(TAG, "Enroll liveness challenge failed: ${e.message}")
                 // Reset enrollment to try again
@@ -632,7 +684,7 @@ class KioskActivity : AppCompatActivity() {
         private const val TAG = "KioskActivity"
 
         private const val ENROLL_REQUIRED_FRAMES = 3
-        private const val ENROLL_MIN_LIVENESS = 0.35
+        private const val ENROLL_MIN_LIVENESS = 0.70
         private const val ENROLL_MIN_FRAME_INTERVAL_MS = 300L
         private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.60
         private const val ENROLLMENT_POLL_INTERVAL_MS = 5_000L
