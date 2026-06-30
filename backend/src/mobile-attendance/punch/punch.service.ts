@@ -28,6 +28,8 @@ const MIN_MATCH_MARGIN = Number(process.env.FACE_MIN_MATCH_MARGIN ?? 0.02);
 const ACTIVATION_DELAY_MS =
   Number(process.env.FACE_KIOSK_ACTIVATION_DELAY_MIN ?? 0) * 60 * 1000;
 const OFFLINE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+// Minimum gap between punches for the same person — prevents double-punch from retries or rapid re-scan.
+const PUNCH_COOLDOWN_MS = Number(process.env.FACE_PUNCH_COOLDOWN_SEC ?? 30) * 1000;
 
 export interface RosterEntry {
   subjectType: 'EMPLOYEE' | 'CONTRACTOR';
@@ -215,6 +217,35 @@ export class PunchService {
     }
 
     const punchTime = dto.punchTime ? new Date(dto.punchTime) : new Date();
+
+    // Cooldown: reject if same person punched within PUNCH_COOLDOWN_MS (prevents retries/double-scan).
+    if (PUNCH_COOLDOWN_MS > 0) {
+      const recent = await this.dataSource.query<Array<{ punch_time: Date }>>(
+        `SELECT punch_time FROM (
+           (SELECT punch_time FROM mobile_attendance_punches
+             WHERE client_id = $1 AND employee_id = $2
+             ORDER BY punch_time DESC LIMIT 1)
+           UNION ALL
+           (SELECT punch_time FROM contractor_biometric_punches
+             WHERE client_id = $1 AND contractor_employee_id = $2
+             ORDER BY punch_time DESC LIMIT 1)
+         ) t ORDER BY punch_time DESC LIMIT 1`,
+        [device.clientId, best.subjectId],
+      );
+      if (recent.length > 0) {
+        // Compare against the incoming punch's own timestamp, not wall-clock now —
+        // offline-queued retries carry an old punchTime and must not look "fresh"
+        // just because they synced late.
+        const gap = Math.abs(
+          punchTime.getTime() - new Date(recent[0].punch_time).getTime(),
+        );
+        if (gap < PUNCH_COOLDOWN_MS) {
+          throw new BadRequestException(
+            `Punch too soon — wait ${Math.ceil((PUNCH_COOLDOWN_MS - gap) / 1000)} more seconds`,
+          );
+        }
+      }
+    }
 
     let photoUrl: string | null = null;
     if (dto.photoB64) {

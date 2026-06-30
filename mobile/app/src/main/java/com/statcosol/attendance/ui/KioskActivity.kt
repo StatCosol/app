@@ -21,7 +21,6 @@ import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import com.google.mlkit.vision.face.Face
 import com.statcosol.attendance.BuildConfig
 import com.statcosol.attendance.R
 import com.statcosol.attendance.admin.KioskDeviceAdmin
@@ -35,9 +34,10 @@ import com.statcosol.attendance.db.QueuedPunch
 import com.statcosol.attendance.face.FaceCaptureSession
 import com.statcosol.attendance.face.FaceDetector
 import com.statcosol.attendance.face.FaceEmbedder
+import com.statcosol.attendance.face.FaceMetrics
 import com.statcosol.attendance.face.LivenessChallenge
-import com.statcosol.attendance.face.RosterMatcher
 import com.statcosol.attendance.face.MatchResult
+import com.statcosol.attendance.face.RosterMatcher
 import com.statcosol.attendance.prefs.DeviceConfig
 import com.statcosol.attendance.security.IntegrityCheck
 import kotlinx.coroutines.Dispatchers
@@ -155,6 +155,7 @@ class KioskActivity : AppCompatActivity() {
         setupAdminExitGesture()
 
         loadRoster()
+        startPeriodicRosterRefresh()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
             startCamera()
         } else {
@@ -257,6 +258,15 @@ class KioskActivity : AppCompatActivity() {
         finish()
     }
 
+    private fun startPeriodicRosterRefresh() {
+        lifecycleScope.launch {
+            while (isActive) {
+                delay(ROSTER_REFRESH_INTERVAL_MS)
+                loadRoster()
+            }
+        }
+    }
+
     private fun loadRoster() {
         lifecycleScope.launch {
             try {
@@ -294,7 +304,7 @@ class KioskActivity : AppCompatActivity() {
                 val captureSession = FaceCaptureSession(
                     embedder = embedder,
                     detector = faceDetector,
-                    onFace = { probe, liveness, photo -> handleFaceFrame(probe, liveness, photo) },
+                    onFace = { probe, metrics, photo -> handleFaceFrame(probe, metrics, photo) },
                     onHint = { hint -> runOnUiThread { tvHint.text = hint } },
                 )
 
@@ -361,22 +371,22 @@ class KioskActivity : AppCompatActivity() {
 
     // ── Frame handling ───────────────────────────────────────────────────────
 
-    private fun handleFaceFrame(probe: FloatArray, liveness: Double, photo: String?) {
+    private fun handleFaceFrame(probe: FloatArray, metrics: FaceMetrics, photo: String?) {
         when (val s = state) {
-            is KioskState.Idle -> handleIdleFrame(probe, liveness, photo)
-            is KioskState.Enrolling -> handleEnrollFrame(s, probe, liveness, photo)
-            is KioskState.Punching -> handleLivenessFrame(probe, liveness)
+            is KioskState.Idle -> handleIdleFrame(probe, metrics, photo)
+            is KioskState.Enrolling -> handleEnrollFrame(s, probe, metrics, photo)
+            is KioskState.Punching -> handleLivenessFrame(probe, metrics)
             else -> Unit
         }
     }
 
     // ── Idle: match → liveness → punch ───────────────────────────────────────
 
-    private fun handleIdleFrame(probe: FloatArray, liveness: Double, photo: String?) {
+    private fun handleIdleFrame(probe: FloatArray, metrics: FaceMetrics, photo: String?) {
         if (punchInFlight) return
         val challenge = pendingChallenge
         if (challenge != null) {
-            handleLivenessFrame(probe, liveness)
+            handleLivenessFrame(probe, metrics)
             return
         }
 
@@ -430,19 +440,19 @@ class KioskActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleLivenessFrame(probe: FloatArray, liveness: Double) {
+    private fun handleLivenessFrame(probe: FloatArray, metrics: FaceMetrics) {
         val challenge = pendingChallenge ?: return
         val passed = when (challenge) {
-            LivenessChallenge.BLINK -> liveness < 0.3
-            LivenessChallenge.SMILE -> liveness > 0.8
-            LivenessChallenge.HEAD_TURN_LEFT -> liveness > 0.5 // simplified: head yaw checked elsewhere
-            LivenessChallenge.HEAD_TURN_RIGHT -> liveness > 0.5
+            LivenessChallenge.BLINK          -> metrics.eyeOpenness < 0.3
+            LivenessChallenge.SMILE          -> metrics.smilingProbability > 0.7
+            LivenessChallenge.HEAD_TURN_LEFT -> metrics.headYaw < -20f
+            LivenessChallenge.HEAD_TURN_RIGHT -> metrics.headYaw > 20f
         }
         if (!passed) return
 
         livenessTimeoutJob?.cancel()
         livenessTimeoutJob = null
-        livenessScore = liveness
+        livenessScore = metrics.eyeOpenness
         val passedAt = isoNow()
         challengePassedAt = passedAt
         pendingChallenge = null
@@ -453,7 +463,7 @@ class KioskActivity : AppCompatActivity() {
         val nonce = pendingNonce ?: return
 
         lifecycleScope.launch {
-            submitPunch(match, probeArr, liveness, challenge, passedAt, nonce, photo)
+            submitPunch(match, probeArr, livenessScore, challenge, passedAt, nonce, photo)
         }
     }
 
@@ -493,17 +503,23 @@ class KioskActivity : AppCompatActivity() {
             } catch (e: ApiException) {
                 if (e.code == 401 || e.code == 403) {
                     handleUnauthorized()
-                } else {
-                    // Queue for offline sync on other errors
-                    queuePunch(req)
+                } else if (e.code in 500..599) {
+                    // Server error — transient, safe to retry offline
+                    queuePunch(req.copy(offlineSync = true))
                     state = KioskState.Result(ok = true, name = match.displayName, direction = "IN")
                     runOnUiThread {
                         tvHint.text = getString(R.string.kiosk_punch_queued)
                     }
+                } else {
+                    // Permanent rejection (e.g. cooldown, no match) — do not queue for retry
+                    state = KioskState.Result(ok = false, name = match.displayName, direction = "IN")
+                    runOnUiThread {
+                        tvHint.text = getString(R.string.kiosk_punch_rejected)
+                    }
                 }
             } catch (e: Exception) {
-                // Queue for offline sync
-                queuePunch(req)
+                // Network/unknown failure — transient, safe to retry offline
+                queuePunch(req.copy(offlineSync = true))
                 state = KioskState.Result(ok = true, name = match.displayName, direction = "IN")
                 runOnUiThread {
                     tvHint.text = getString(R.string.kiosk_punch_queued)
@@ -550,18 +566,20 @@ class KioskActivity : AppCompatActivity() {
     private fun handleEnrollFrame(
         enrollState: KioskState.Enrolling,
         probe: FloatArray,
-        liveness: Double,
+        metrics: FaceMetrics,
         photo: String?,
     ) {
         val challenge = pendingChallenge
         if (challenge != null) {
-            handleEnrollLivenessFrame(enrollState, probe, liveness, challenge)
+            handleEnrollLivenessFrame(enrollState, probe, metrics, challenge)
             return
         }
 
         if (enrollFrames.size >= ENROLL_REQUIRED_FRAMES) return
 
-        if (liveness < ENROLL_MIN_LIVENESS) return
+        // Only accept frontal frames for enrollment embedding (yaw gate)
+        if (Math.abs(metrics.headYaw) > ENROLL_MAX_YAW) return
+        if (metrics.eyeOpenness < ENROLL_MIN_LIVENESS) return
 
         val now = System.currentTimeMillis()
         if (now - lastEnrollFrameMs < ENROLL_MIN_FRAME_INTERVAL_MS) return
@@ -626,14 +644,14 @@ class KioskActivity : AppCompatActivity() {
     private fun handleEnrollLivenessFrame(
         enrollState: KioskState.Enrolling,
         probe: FloatArray,
-        liveness: Double,
+        metrics: FaceMetrics,
         challenge: LivenessChallenge,
     ) {
         val passed = when (challenge) {
-            LivenessChallenge.BLINK -> liveness < 0.3
-            LivenessChallenge.SMILE -> liveness > 0.8
-            LivenessChallenge.HEAD_TURN_LEFT -> liveness > 0.5
-            LivenessChallenge.HEAD_TURN_RIGHT -> liveness > 0.5
+            LivenessChallenge.BLINK          -> metrics.eyeOpenness < 0.3
+            LivenessChallenge.SMILE          -> metrics.smilingProbability > 0.7
+            LivenessChallenge.HEAD_TURN_LEFT -> metrics.headYaw < -20f
+            LivenessChallenge.HEAD_TURN_RIGHT -> metrics.headYaw > 20f
         }
         if (!passed) return
 
@@ -692,13 +710,15 @@ class KioskActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "KioskActivity"
 
-        private const val ENROLL_REQUIRED_FRAMES = 3
+        private const val ENROLL_REQUIRED_FRAMES = 5        // more frames → more robust averaged embedding
         private const val ENROLL_MIN_LIVENESS = 0.50
-        private const val ENROLL_MIN_FRAME_INTERVAL_MS = 300L
-        private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.60
+        private const val ENROLL_MAX_YAW = 12f               // tighter frontal gate for enrollment frames
+        private const val ENROLL_MIN_FRAME_INTERVAL_MS = 400L
+        private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.65 // raised from 0.60 for better consistency
         private const val ENROLLMENT_POLL_INTERVAL_MS = 5_000L
+        private const val ROSTER_REFRESH_INTERVAL_MS = 15 * 60 * 1000L  // refresh every 15 min
         private const val RESULT_DISPLAY_MS = 3_000L
-        private const val LIVENESS_TIMEOUT_MS = 12_000L
+        private const val LIVENESS_TIMEOUT_MS = 15_000L      // 15 s — head turns need more time
         private const val CAMERA_REQUEST_CODE = 1001
 
         fun cosineSim(a: FloatArray, b: FloatArray): Double {
