@@ -186,7 +186,33 @@ class KioskActivity : AppCompatActivity() {
     }
 
     private fun speak(text: String) {
-        if (ttsReady && tts != null) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+        if (ttsReady && tts != null) {
+            tts?.language = java.util.Locale.ENGLISH
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+        }
+    }
+
+    /** Speak the punch result: English name announcement then Telugu motivational message. */
+    private fun speakPunchResult(name: String, direction: String) {
+        if (!ttsReady || tts == null) return
+        val isOut = direction == "OUT"
+        val announcement = if (isOut)
+            getString(R.string.kiosk_voice_logout_recorded, name)
+        else
+            getString(R.string.kiosk_voice_recorded, name)
+        tts?.language = java.util.Locale.ENGLISH
+        tts?.speak(announcement, TextToSpeech.QUEUE_FLUSH, null, "name")
+
+        val motivation = if (isOut)
+            getString(R.string.kiosk_voice_logout_motivation)
+        else
+            getString(R.string.kiosk_voice_login_motivation)
+        val teluguLocale = java.util.Locale("te", "IN")
+        val teResult = tts?.setLanguage(teluguLocale)
+        if (teResult != TextToSpeech.LANG_NOT_SUPPORTED && teResult != TextToSpeech.LANG_MISSING_DATA) {
+            tts?.speak(motivation, TextToSpeech.QUEUE_ADD, null, "motivation")
+        }
+        tts?.language = java.util.Locale.ENGLISH
     }
 
     private fun showDirectionArrow(challenge: LivenessChallenge) {
@@ -497,7 +523,7 @@ class KioskActivity : AppCompatActivity() {
                     tvStatus.text = msg
                     tvHint.text = msg
                 }
-                speak(msg)
+                speakPunchResult(resp.employeeName, resp.direction)
             } catch (e: ApiException) {
                 if (e.code == 401 || e.code == 403) {
                     handleUnauthorized()
