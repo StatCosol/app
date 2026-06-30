@@ -88,9 +88,11 @@ class KioskActivity : AppCompatActivity() {
     @Volatile private var state: KioskState = KioskState.Idle
 
     // ── Enrollment capture state ─────────────────────────────────────────────
-    private val enrollFrames = mutableListOf<FloatArray>()
+    // CopyOnWriteArrayList: safe for concurrent reads from camera thread + writes from main/coroutine
+    private val enrollFrames = java.util.concurrent.CopyOnWriteArrayList<FloatArray>()
     private var lastEnrollFrameMs = 0L
     private var enrollAvgEmbedding: FloatArray? = null
+    @Volatile private var enrollLivenessInFlight = false  // prevents double liveness calls
 
     // ── Liveness tracking ────────────────────────────────────────────────────
     @Volatile private var pendingChallenge: LivenessChallenge? = null
@@ -130,12 +132,9 @@ class KioskActivity : AppCompatActivity() {
                 ttsReady = true
                 tts?.language = java.util.Locale.ENGLISH
             } else {
-                Log.w(TAG, "TTS init failed (status=$status) — triggering TTS engine install")
-                val installIntent = Intent(android.speech.tts.TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
-                installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                try { startActivity(installIntent) } catch (e: Exception) {
-                    Log.w(TAG, "Could not launch TTS install: ${e.message}")
-                }
+                // TTS engine unavailable — voice prompts will be skipped silently.
+                // Install TTS data via device Settings before deploying the kiosk APK.
+                Log.w(TAG, "TTS init failed (status=$status) — voice prompts disabled")
             }
         }
 
@@ -358,6 +357,7 @@ class KioskActivity : AppCompatActivity() {
         enrollFrames.clear()
         enrollAvgEmbedding = null
         lastEnrollFrameMs = 0L
+        enrollLivenessInFlight = false
         pendingChallenge = null
         pendingNonce = null
         challengePassedAt = null
@@ -552,6 +552,9 @@ class KioskActivity : AppCompatActivity() {
         pendingNonce = null
         challengePassedAt = null
         punchInFlight = false
+        enrollLivenessInFlight = false
+        enrollFrames.clear()
+        enrollAvgEmbedding = null
         hideDirectionArrow()
         runOnUiThread {
             tvHint.text = getString(R.string.kiosk_look_at_camera)
@@ -578,7 +581,10 @@ class KioskActivity : AppCompatActivity() {
         if (enrollFrames.size >= ENROLL_REQUIRED_FRAMES) return
 
         // Only accept frontal frames for enrollment embedding (yaw gate)
-        if (Math.abs(metrics.headYaw) > ENROLL_MAX_YAW) return
+        if (Math.abs(metrics.headYaw) > ENROLL_MAX_YAW) {
+            runOnUiThread { tvHint.text = getString(R.string.hint_not_straight) }
+            return
+        }
         if (metrics.eyeOpenness < ENROLL_MIN_LIVENESS) return
 
         val now = System.currentTimeMillis()
@@ -613,6 +619,8 @@ class KioskActivity : AppCompatActivity() {
     }
 
     private fun startEnrollLivenessChallenge(enrollState: KioskState.Enrolling) {
+        if (enrollLivenessInFlight) return
+        enrollLivenessInFlight = true
         livenessTimeoutJob?.cancel()
         livenessTimeoutJob = null
         lifecycleScope.launch {
@@ -632,11 +640,35 @@ class KioskActivity : AppCompatActivity() {
                 runOnUiThread { tvHint.text = promptText }
                 speak(promptText)
                 showDirectionArrow(challenge)
+
+                // Enrollment liveness timeout — if user doesn't complete in 20 s, reset and try again
+                livenessTimeoutJob = lifecycleScope.launch {
+                    delay(20_000)
+                    if (pendingChallenge != null) {
+                        Log.w(TAG, "Enroll liveness timed out — resetting frame capture")
+                        pendingChallenge = null
+                        pendingNonce = null
+                        enrollLivenessInFlight = false
+                        enrollFrames.clear()
+                        enrollAvgEmbedding = null
+                        runOnUiThread {
+                            tvHint.text = getString(R.string.kiosk_enroll_prompt, enrollState.ticket.subjectName)
+                        }
+                    }
+                }
             } catch (e: Exception) {
-                Log.w(TAG, "Enroll liveness challenge failed: ${e.message}")
-                // Reset enrollment to try again
+                Log.w(TAG, "Enroll liveness challenge failed (${e.javaClass.simpleName}): ${e.message}")
                 enrollFrames.clear()
                 enrollAvgEmbedding = null
+                val errMsg = "${e.javaClass.simpleName}: ${e.message ?: "unknown"}"
+                runOnUiThread {
+                    tvHint.text = getString(R.string.kiosk_enroll_liveness_retry, errMsg)
+                }
+                delay(3_000)
+                enrollLivenessInFlight = false
+                runOnUiThread {
+                    tvHint.text = getString(R.string.kiosk_enroll_prompt, enrollState.ticket.subjectName)
+                }
             }
         }
     }
@@ -658,6 +690,8 @@ class KioskActivity : AppCompatActivity() {
         val passedAt = isoNow()
         val nonce = pendingNonce ?: return
         pendingChallenge = null
+        livenessTimeoutJob?.cancel()
+        livenessTimeoutJob = null
 
         lifecycleScope.launch {
             submitEnrollment(enrollState, nonce, challenge, passedAt, probe)
@@ -712,7 +746,7 @@ class KioskActivity : AppCompatActivity() {
 
         private const val ENROLL_REQUIRED_FRAMES = 5        // more frames → more robust averaged embedding
         private const val ENROLL_MIN_LIVENESS = 0.50
-        private const val ENROLL_MAX_YAW = 12f               // tighter frontal gate for enrollment frames
+        private const val ENROLL_MAX_YAW = 15f               // frontal gate for enrollment frames
         private const val ENROLL_MIN_FRAME_INTERVAL_MS = 400L
         private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.65 // raised from 0.60 for better consistency
         private const val ENROLLMENT_POLL_INTERVAL_MS = 5_000L
