@@ -88,9 +88,11 @@ class KioskActivity : AppCompatActivity() {
     @Volatile private var state: KioskState = KioskState.Idle
 
     // ── Enrollment capture state ─────────────────────────────────────────────
-    private val enrollFrames = mutableListOf<FloatArray>()
+    // CopyOnWriteArrayList: safe for concurrent reads from camera thread + writes from main/coroutine
+    private val enrollFrames = java.util.concurrent.CopyOnWriteArrayList<FloatArray>()
     private var lastEnrollFrameMs = 0L
     private var enrollAvgEmbedding: FloatArray? = null
+    @Volatile private var enrollLivenessInFlight = false  // prevents double liveness calls
 
     // ── Liveness tracking ────────────────────────────────────────────────────
     @Volatile private var pendingChallenge: LivenessChallenge? = null
@@ -355,6 +357,7 @@ class KioskActivity : AppCompatActivity() {
         enrollFrames.clear()
         enrollAvgEmbedding = null
         lastEnrollFrameMs = 0L
+        enrollLivenessInFlight = false
         pendingChallenge = null
         pendingNonce = null
         challengePassedAt = null
@@ -549,6 +552,9 @@ class KioskActivity : AppCompatActivity() {
         pendingNonce = null
         challengePassedAt = null
         punchInFlight = false
+        enrollLivenessInFlight = false
+        enrollFrames.clear()
+        enrollAvgEmbedding = null
         hideDirectionArrow()
         runOnUiThread {
             tvHint.text = getString(R.string.kiosk_look_at_camera)
@@ -613,6 +619,8 @@ class KioskActivity : AppCompatActivity() {
     }
 
     private fun startEnrollLivenessChallenge(enrollState: KioskState.Enrolling) {
+        if (enrollLivenessInFlight) return
+        enrollLivenessInFlight = true
         livenessTimeoutJob?.cancel()
         livenessTimeoutJob = null
         lifecycleScope.launch {
@@ -632,16 +640,32 @@ class KioskActivity : AppCompatActivity() {
                 runOnUiThread { tvHint.text = promptText }
                 speak(promptText)
                 showDirectionArrow(challenge)
+
+                // Enrollment liveness timeout — if user doesn't complete in 20 s, reset and try again
+                livenessTimeoutJob = lifecycleScope.launch {
+                    delay(20_000)
+                    if (pendingChallenge != null) {
+                        Log.w(TAG, "Enroll liveness timed out — resetting frame capture")
+                        pendingChallenge = null
+                        pendingNonce = null
+                        enrollLivenessInFlight = false
+                        enrollFrames.clear()
+                        enrollAvgEmbedding = null
+                        runOnUiThread {
+                            tvHint.text = getString(R.string.kiosk_enroll_prompt, enrollState.ticket.subjectName)
+                        }
+                    }
+                }
             } catch (e: Exception) {
-                Log.w(TAG, "Enroll liveness challenge failed: ${e.message}")
+                Log.w(TAG, "Enroll liveness challenge failed (${e.javaClass.simpleName}): ${e.message}")
                 enrollFrames.clear()
                 enrollAvgEmbedding = null
-                val errMsg = e.message ?: "Network error"
+                val errMsg = "${e.javaClass.simpleName}: ${e.message ?: "unknown"}"
                 runOnUiThread {
                     tvHint.text = getString(R.string.kiosk_enroll_liveness_retry, errMsg)
                 }
                 delay(3_000)
-                // Re-show the enroll prompt so the operator knows to try again
+                enrollLivenessInFlight = false
                 runOnUiThread {
                     tvHint.text = getString(R.string.kiosk_enroll_prompt, enrollState.ticket.subjectName)
                 }
@@ -666,6 +690,8 @@ class KioskActivity : AppCompatActivity() {
         val passedAt = isoNow()
         val nonce = pendingNonce ?: return
         pendingChallenge = null
+        livenessTimeoutJob?.cancel()
+        livenessTimeoutJob = null
 
         lifecycleScope.launch {
             submitEnrollment(enrollState, nonce, challenge, passedAt, probe)
