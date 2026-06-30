@@ -328,7 +328,11 @@ class KioskActivity : AppCompatActivity() {
                     embedder = embedder,
                     detector = faceDetector,
                     onFace = { probe, metrics, photo -> handleFaceFrame(probe, metrics, photo) },
-                    onHint = { hint -> runOnUiThread { tvHint.text = hint } },
+                    // Suppress quality hints while a liveness challenge is active so the
+                    // challenge prompt is not overwritten by e.g. "No face detected"
+                    onHint = { hint ->
+                        if (pendingChallenge == null) runOnUiThread { tvHint.text = hint }
+                    },
                 )
 
                 imageAnalysis.setAnalyzer(cameraExecutor, captureSession)
@@ -604,9 +608,24 @@ class KioskActivity : AppCompatActivity() {
 
         if (enrollFrames.size >= ENROLL_REQUIRED_FRAMES) return
 
-        // Only accept frontal frames for enrollment embedding (yaw gate)
-        if (Math.abs(metrics.headYaw) > ENROLL_MAX_YAW) {
-            runOnUiThread { tvHint.text = getString(R.string.hint_not_straight) }
+        // Only accept frontal frames for enrollment embedding (yaw gate).
+        // Show a directional arrow so the employee knows which way to turn their head.
+        if (metrics.headYaw > ENROLL_MAX_YAW) {
+            runOnUiThread {
+                tvHint.text = getString(R.string.enroll_guide_turn_left)
+                tvDirectionArrow.text = "←"
+                tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 96f)
+                tvDirectionArrow.visibility = View.VISIBLE
+            }
+            return
+        }
+        if (metrics.headYaw < -ENROLL_MAX_YAW) {
+            runOnUiThread {
+                tvHint.text = getString(R.string.enroll_guide_turn_right)
+                tvDirectionArrow.text = "→"
+                tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 96f)
+                tvDirectionArrow.visibility = View.VISIBLE
+            }
             return
         }
         if (metrics.eyeOpenness < ENROLL_MIN_LIVENESS) return
@@ -629,6 +648,8 @@ class KioskActivity : AppCompatActivity() {
 
         val captured = enrollFrames.size
         runOnUiThread {
+            // Good frame accepted — hide any positioning arrow and show progress
+            tvDirectionArrow.visibility = View.GONE
             tvHint.text = getString(
                 R.string.kiosk_enroll_capturing_frames,
                 captured,
