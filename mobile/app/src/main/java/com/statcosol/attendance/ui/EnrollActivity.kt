@@ -130,7 +130,7 @@ class EnrollActivity : AppCompatActivity() {
                 val captureSession = FaceCaptureSession(
                     embedder = embedder,
                     detector = faceDetector,
-                    onFace = { probe, metrics, photo -> handleFrame(probe, metrics.eyeOpenness, photo) },
+                    onFace = { probe, metrics, photo -> handleFrame(probe, metrics.eyeOpenness, metrics.headYaw, photo) },
                     onHint = { hint -> if (!capturing) runOnUiThread { tvHint.text = hint } },
                 )
 
@@ -160,10 +160,13 @@ class EnrollActivity : AppCompatActivity() {
         tvHint.text = getString(R.string.enroll_intro)
     }
 
-    private fun handleFrame(probe: FloatArray, liveness: Double, photo: String?) {
+    private fun handleFrame(probe: FloatArray, liveness: Double, yaw: Float, photo: String?) {
         if (!capturing || submitted) return
         if (capturedFrames.size >= ESS_REQUIRED_FRAMES) return
         if (liveness < ENROLL_MIN_LIVENESS) return
+        // Enrollment frames must be frontal — FaceCaptureSession no longer gates yaw itself
+        // (it's relaxed there for HEAD_TURN liveness challenges), so re-check here.
+        if (Math.abs(yaw) > ENROLL_MAX_YAW) return
 
         val now = System.currentTimeMillis()
         if (now - lastFrameMs < ENROLL_MIN_FRAME_INTERVAL_MS) return
@@ -233,6 +236,7 @@ class EnrollActivity : AppCompatActivity() {
         private const val CAMERA_REQUEST_CODE = 1001
         private const val ESS_REQUIRED_FRAMES = 7
         private const val ENROLL_MIN_LIVENESS = 0.70
+        private const val ENROLL_MAX_YAW = 12f
         private const val ENROLL_MIN_FRAME_INTERVAL_MS = 300L
         private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.78
 

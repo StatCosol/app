@@ -233,7 +233,12 @@ export class PunchService {
         [device.clientId, best.subjectId],
       );
       if (recent.length > 0) {
-        const gap = Date.now() - new Date(recent[0].punch_time).getTime();
+        // Compare against the incoming punch's own timestamp, not wall-clock now —
+        // offline-queued retries carry an old punchTime and must not look "fresh"
+        // just because they synced late.
+        const gap = Math.abs(
+          punchTime.getTime() - new Date(recent[0].punch_time).getTime(),
+        );
         if (gap < PUNCH_COOLDOWN_MS) {
           throw new BadRequestException(
             `Punch too soon — wait ${Math.ceil((PUNCH_COOLDOWN_MS - gap) / 1000)} more seconds`,
