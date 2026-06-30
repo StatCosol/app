@@ -97,6 +97,14 @@ android {
         }
     }
 
+    // ess flavor superseded by the standalone essportal module — kept in source
+    // (other code/tooling may still reference it) but excluded from build tasks.
+    variantFilter {
+        if (flavors.any { it.name == "ess" }) {
+            ignore = true
+        }
+    }
+
     packaging {
         resources.excludes += setOf(
             "META-INF/AL2.0",

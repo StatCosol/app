@@ -130,7 +130,7 @@ class EnrollActivity : AppCompatActivity() {
                 val captureSession = FaceCaptureSession(
                     embedder = embedder,
                     detector = faceDetector,
-                    onFace = { probe, liveness, photo -> handleFrame(probe, liveness, photo) },
+                    onFace = { probe, metrics, photo -> handleFrame(probe, metrics.eyeOpenness, photo) },
                     onHint = { hint -> if (!capturing) runOnUiThread { tvHint.text = hint } },
                 )
 

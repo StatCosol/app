@@ -503,16 +503,22 @@ class KioskActivity : AppCompatActivity() {
             } catch (e: ApiException) {
                 if (e.code == 401 || e.code == 403) {
                     handleUnauthorized()
-                } else {
-                    // Queue as offline — server skips nonce check on retry, preventing duplicates
+                } else if (e.code in 500..599) {
+                    // Server error — transient, safe to retry offline
                     queuePunch(req.copy(offlineSync = true))
                     state = KioskState.Result(ok = true, name = match.displayName, direction = "IN")
                     runOnUiThread {
                         tvHint.text = getString(R.string.kiosk_punch_queued)
                     }
+                } else {
+                    // Permanent rejection (e.g. cooldown, no match) — do not queue for retry
+                    state = KioskState.Result(ok = false, name = match.displayName, direction = "IN")
+                    runOnUiThread {
+                        tvHint.text = getString(R.string.kiosk_punch_rejected)
+                    }
                 }
             } catch (e: Exception) {
-                // Queue as offline — server skips nonce check on retry, preventing duplicates
+                // Network/unknown failure — transient, safe to retry offline
                 queuePunch(req.copy(offlineSync = true))
                 state = KioskState.Result(ok = true, name = match.displayName, direction = "IN")
                 runOnUiThread {

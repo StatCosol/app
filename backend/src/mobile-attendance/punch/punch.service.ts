@@ -222,13 +222,13 @@ export class PunchService {
     if (PUNCH_COOLDOWN_MS > 0) {
       const recent = await this.dataSource.query<Array<{ punch_time: Date }>>(
         `SELECT punch_time FROM (
-           SELECT punch_time FROM mobile_attendance_punches
-            WHERE client_id = $1 AND employee_id = $2
-            ORDER BY punch_time DESC LIMIT 1
+           (SELECT punch_time FROM mobile_attendance_punches
+             WHERE client_id = $1 AND employee_id = $2
+             ORDER BY punch_time DESC LIMIT 1)
            UNION ALL
-           SELECT punch_time FROM contractor_biometric_punches
-            WHERE client_id = $1 AND contractor_employee_id = $2
-            ORDER BY punch_time DESC LIMIT 1
+           (SELECT punch_time FROM contractor_biometric_punches
+             WHERE client_id = $1 AND contractor_employee_id = $2
+             ORDER BY punch_time DESC LIMIT 1)
          ) t ORDER BY punch_time DESC LIMIT 1`,
         [device.clientId, best.subjectId],
       );

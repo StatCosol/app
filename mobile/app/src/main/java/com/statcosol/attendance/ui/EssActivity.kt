@@ -59,7 +59,7 @@ class EssActivity : AppCompatActivity() {
     private lateinit var cameraExecutor: ExecutorService
 
     @Volatile private var lastProbe: FloatArray? = null
-    @Volatile private var lastLiveness: Double = 0.0
+    @Volatile private var lastMetrics: com.statcosol.attendance.face.FaceMetrics? = null
     @Volatile private var lastPhoto: String? = null
     @Volatile private var pendingDirection: String? = null
     @Volatile private var pendingChallenge: LivenessChallenge? = null
@@ -181,14 +181,14 @@ class EssActivity : AppCompatActivity() {
                 val captureSession = FaceCaptureSession(
                     embedder = embedder,
                     detector = faceDetector,
-                    onFace = { probe, liveness, photo ->
+                    onFace = { probe, metrics, photo ->
                         lastProbe = probe
-                        lastLiveness = liveness
+                        lastMetrics = metrics
                         lastPhoto = photo
 
                         val challenge = pendingChallenge
                         if (challenge != null) {
-                            handleLivenessFrame(probe, liveness, challenge)
+                            handleLivenessFrame(probe, metrics, challenge)
                         }
                     },
                     onHint = { hint -> runOnUiThread { tvHint.text = hint } },
@@ -276,12 +276,12 @@ class EssActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleLivenessFrame(probe: FloatArray, liveness: Double, challenge: LivenessChallenge) {
+    private fun handleLivenessFrame(probe: FloatArray, metrics: com.statcosol.attendance.face.FaceMetrics, challenge: LivenessChallenge) {
         val passed = when (challenge) {
-            LivenessChallenge.BLINK -> liveness < 0.3
-            LivenessChallenge.SMILE -> liveness > 0.8
-            LivenessChallenge.HEAD_TURN_LEFT -> liveness > 0.5
-            LivenessChallenge.HEAD_TURN_RIGHT -> liveness > 0.5
+            LivenessChallenge.BLINK          -> metrics.eyeOpenness < 0.3
+            LivenessChallenge.SMILE          -> metrics.smilingProbability > 0.7
+            LivenessChallenge.HEAD_TURN_LEFT -> metrics.headYaw < -20f
+            LivenessChallenge.HEAD_TURN_RIGHT -> metrics.headYaw > 20f
         }
         if (!passed) return
 
@@ -292,7 +292,7 @@ class EssActivity : AppCompatActivity() {
         pendingChallenge = null
 
         lifecycleScope.launch {
-            submitPunch(probe, liveness, match, challenge, passedAt, nonce, direction, lastPhoto)
+            submitPunch(probe, metrics.eyeOpenness, match, challenge, passedAt, nonce, direction, lastPhoto)
         }
     }
 
@@ -336,9 +336,16 @@ class EssActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) { handleUnauthorized() }
                 return
             }
+            if (e.code !in 500..599) {
+                // Permanent rejection (e.g. cooldown, no match) — do not queue for retry
+                withContext(Dispatchers.Main) {
+                    tvStatus.text = getString(R.string.kiosk_punch_rejected)
+                }
+                return
+            }
             try {
                 val db = AppDatabase.getInstance(this@EssActivity)
-                db.queuedPunchDao().insert(QueuedPunch(payloadJson = json.encodeToString(req)))
+                db.queuedPunchDao().insert(QueuedPunch(payloadJson = json.encodeToString(req.copy(offlineSync = true))))
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@EssActivity, getString(R.string.kiosk_punch_queued), Toast.LENGTH_SHORT).show()
                 }
@@ -351,7 +358,7 @@ class EssActivity : AppCompatActivity() {
         } catch (e: Exception) {
             try {
                 val db = AppDatabase.getInstance(this@EssActivity)
-                db.queuedPunchDao().insert(QueuedPunch(payloadJson = json.encodeToString(req)))
+                db.queuedPunchDao().insert(QueuedPunch(payloadJson = json.encodeToString(req.copy(offlineSync = true))))
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@EssActivity, getString(R.string.kiosk_punch_queued), Toast.LENGTH_SHORT).show()
                 }
