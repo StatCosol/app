@@ -126,8 +126,17 @@ class KioskActivity : AppCompatActivity() {
         tvDirectionArrow = findViewById(R.id.tvDirectionArrow)
 
         tts = TextToSpeech(this) { status ->
-            ttsReady = (status == TextToSpeech.SUCCESS)
-            if (ttsReady) tts?.language = java.util.Locale.ENGLISH
+            if (status == TextToSpeech.SUCCESS) {
+                ttsReady = true
+                tts?.language = java.util.Locale.ENGLISH
+            } else {
+                Log.w(TAG, "TTS init failed (status=$status) — triggering TTS engine install")
+                val installIntent = Intent(android.speech.tts.TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
+                installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                try { startActivity(installIntent) } catch (e: Exception) {
+                    Log.w(TAG, "Could not launch TTS install: ${e.message}")
+                }
+            }
         }
 
         config = DeviceConfig(this)
@@ -684,7 +693,7 @@ class KioskActivity : AppCompatActivity() {
         private const val TAG = "KioskActivity"
 
         private const val ENROLL_REQUIRED_FRAMES = 3
-        private const val ENROLL_MIN_LIVENESS = 0.70
+        private const val ENROLL_MIN_LIVENESS = 0.50
         private const val ENROLL_MIN_FRAME_INTERVAL_MS = 300L
         private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.60
         private const val ENROLLMENT_POLL_INTERVAL_MS = 5_000L
