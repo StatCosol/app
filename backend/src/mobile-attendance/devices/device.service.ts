@@ -257,6 +257,36 @@ export class DeviceService {
     if (!rows || rows.length === 0) throw new NotFoundException('Device not found');
   }
 
+  async renameDevice(
+    clientId: string,
+    deviceId: string,
+    label: string,
+    branchIds: string[] = [],
+  ): Promise<{ ok: true; deviceLabel: string }> {
+    const columns = await this.getTableColumns('mobile_attendance_devices');
+    const labelCol = this.pickColumn(columns, 'device_name', 'device_label', 'deviceName', 'deviceLabel');
+    if (!labelCol) throw new NotFoundException('device_label column not found');
+
+    const params: unknown[] = [label, deviceId, clientId];
+    let branchFilter = '';
+    if (branchIds.length > 0) {
+      params.push(branchIds);
+      branchFilter = `AND COALESCE(to_jsonb(mobile_attendance_devices)->>'branchId', to_jsonb(mobile_attendance_devices)->>'branch_id') = ANY($${params.length}::text[])`;
+    }
+    const result = await this.dataSource.query(
+      `UPDATE mobile_attendance_devices
+          SET ${this.quoteIdentifier(labelCol)} = $1
+        WHERE id = $2::uuid
+          AND COALESCE(to_jsonb(mobile_attendance_devices)->>'clientId', to_jsonb(mobile_attendance_devices)->>'client_id') = $3
+          ${branchFilter}
+        RETURNING id`,
+      params,
+    );
+    const rows: Array<{ id: string }> = Array.isArray(result[0]) ? result[0] : result;
+    if (!rows || rows.length === 0) throw new NotFoundException('Device not found');
+    return { ok: true, deviceLabel: label };
+  }
+
   async permanentlyDeleteDevice(
     clientId: string,
     deviceId: string,

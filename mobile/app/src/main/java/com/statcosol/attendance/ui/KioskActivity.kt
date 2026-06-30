@@ -706,10 +706,15 @@ class KioskActivity : AppCompatActivity() {
                 enrollFrames.clear()
                 enrollAvgEmbedding = null
                 val errMsg = "${e.javaClass.simpleName}: ${e.message ?: "unknown"}"
+                // Show error prominently in center overlay so operator can read it clearly
                 runOnUiThread {
-                    tvHint.text = getString(R.string.kiosk_enroll_liveness_retry, errMsg)
+                    tvDirectionArrow.text = "!"
+                    tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 96f)
+                    tvDirectionArrow.visibility = View.VISIBLE
+                    tvHint.text = "Error: $errMsg"
                 }
-                delay(3_000)
+                delay(5_000)
+                runOnUiThread { tvDirectionArrow.visibility = View.GONE }
                 enrollLivenessInFlight = false
                 runOnUiThread {
                     tvHint.text = getString(R.string.kiosk_enroll_prompt, enrollState.ticket.subjectName)
@@ -770,15 +775,26 @@ class KioskActivity : AppCompatActivity() {
                 onSuccess = {
                     val successMsg = getString(R.string.kiosk_enroll_success, enrollState.ticket.subjectName)
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@KioskActivity, successMsg, Toast.LENGTH_LONG).show()
+                        tvHint.text = successMsg
+                        tvDirectionArrow.text = "✓"
+                        tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 96f)
+                        tvDirectionArrow.visibility = View.VISIBLE
                     }
                     loadRoster()
+                    delay(3_000)
+                    withContext(Dispatchers.Main) { tvDirectionArrow.visibility = View.GONE }
                 },
                 onFailure = { e ->
-                    val failMsg = getString(R.string.kiosk_enroll_failed, e.message ?: "unknown")
+                    val failMsg = "Enrollment failed: ${e.message ?: "unknown"}"
+                    Log.e(TAG, failMsg)
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@KioskActivity, failMsg, Toast.LENGTH_LONG).show()
+                        tvDirectionArrow.text = "!"
+                        tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 96f)
+                        tvDirectionArrow.visibility = View.VISIBLE
+                        tvHint.text = failMsg
                     }
+                    delay(6_000)
+                    withContext(Dispatchers.Main) { tvDirectionArrow.visibility = View.GONE }
                 }
             )
         } finally {

@@ -5,6 +5,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -129,6 +130,18 @@ export class MobileAttendanceDevicesController {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     return this.deviceService.permanentlyDeleteDevice(clientId, deviceId, user.branchIds ?? []);
+  }
+
+  @ApiOperation({ summary: 'Rename a device label' })
+  @Patch(':deviceId/label')
+  renameDevice(
+    @Param('deviceId') deviceId: string,
+    @CurrentUser() user: ReqUser,
+    @Body() body: { deviceLabel: string },
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.deviceService.renameDevice(clientId, deviceId, body.deviceLabel, user.branchIds ?? []);
   }
 
   @ApiOperation({ summary: 'Configure or clear the geofence for a device' })
