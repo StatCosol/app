@@ -130,12 +130,9 @@ class KioskActivity : AppCompatActivity() {
                 ttsReady = true
                 tts?.language = java.util.Locale.ENGLISH
             } else {
-                Log.w(TAG, "TTS init failed (status=$status) — triggering TTS engine install")
-                val installIntent = Intent(android.speech.tts.TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
-                installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                try { startActivity(installIntent) } catch (e: Exception) {
-                    Log.w(TAG, "Could not launch TTS install: ${e.message}")
-                }
+                // TTS engine unavailable — voice prompts will be skipped silently.
+                // Install TTS data via device Settings before deploying the kiosk APK.
+                Log.w(TAG, "TTS init failed (status=$status) — voice prompts disabled")
             }
         }
 
@@ -637,9 +634,17 @@ class KioskActivity : AppCompatActivity() {
                 showDirectionArrow(challenge)
             } catch (e: Exception) {
                 Log.w(TAG, "Enroll liveness challenge failed: ${e.message}")
-                // Reset enrollment to try again
                 enrollFrames.clear()
                 enrollAvgEmbedding = null
+                val errMsg = e.message ?: "Network error"
+                runOnUiThread {
+                    tvHint.text = getString(R.string.kiosk_enroll_liveness_retry, errMsg)
+                }
+                delay(3_000)
+                // Re-show the enroll prompt so the operator knows to try again
+                runOnUiThread {
+                    tvHint.text = getString(R.string.kiosk_enroll_prompt, enrollState.ticket.subjectName)
+                }
             }
         }
     }

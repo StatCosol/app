@@ -106,6 +106,7 @@
     <string name="kiosk_enroll_success">%1$s enrolled successfully. Thank you.</string>
     <string name="kiosk_enroll_failed">Enrollment failed: %1$s</string>
     <string name="kiosk_enroll_uploading">Uploading enrollment…</string>
+    <string name="kiosk_enroll_liveness_retry">Liveness check failed (%1$s) — please try again</string>
     <string name="kiosk_enroll_inconsistent">Frames inconsistent — please retry</string>
     <string name="kiosk_enroll_step_straight">Enrolling %1$s: look straight at the camera</string>
     <string name="kiosk_enroll_step_all_loaded">Face captured. Completing enrollment</string>
