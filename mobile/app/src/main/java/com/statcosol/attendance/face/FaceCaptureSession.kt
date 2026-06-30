@@ -134,8 +134,10 @@ class FaceCaptureSession(
     }
 
     private fun computeLiveness(face: Face): Double {
-        val leftEye = face.leftEyeOpenProbability ?: 0.5f
-        val rightEye = face.rightEyeOpenProbability ?: 0.5f
+        // Default to 1.0 (eyes open) when classification is unavailable.
+        // Defaulting to 0.5 would permanently fail BLINK checks (< 0.3).
+        val leftEye = face.leftEyeOpenProbability ?: 1.0f
+        val rightEye = face.rightEyeOpenProbability ?: 1.0f
         return ((leftEye + rightEye) / 2.0).coerceIn(0.0, 1.0)
     }
 
