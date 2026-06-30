@@ -21,10 +21,12 @@ class FaceCaptureSession(
     private val detector: FaceDetector,
     private val minFaceSize: Float = 0.15f,
     private val minLuminance: Float = 40f,
+    // maxYaw relaxed during liveness — HEAD_TURN challenges intentionally move the head.
+    // Quality gate only applies to the embedding capture phase (frontal-only frames).
     private val maxYaw: Float = 20f,
     private val maxPitch: Float = 15f,
     private val minSharpness: Float = 80f,
-    private val onFace: (probe: FloatArray, liveness: Double, photoBase64: String?) -> Unit,
+    private val onFace: (probe: FloatArray, metrics: FaceMetrics, photoBase64: String?) -> Unit,
     private val onHint: (String) -> Unit,
 ) : ImageAnalysis.Analyzer {
 
@@ -64,9 +66,7 @@ class FaceCaptureSession(
         }
 
         val face = faces[0]
-        val frameWidth = imageProxy.width.toFloat()
-        val frameHeight = imageProxy.height.toFloat()
-        val faceWidth = face.boundingBox.width().toFloat() / frameWidth
+        val faceWidth = face.boundingBox.width().toFloat() / imageProxy.width.toFloat()
 
         if (faceWidth < minFaceSize) {
             onHint("Please move closer to the camera")
@@ -75,8 +75,11 @@ class FaceCaptureSession(
 
         val yaw = face.headEulerAngleY
         val pitch = face.headEulerAngleX
+        val metrics = computeMetrics(face)
 
-        if (Math.abs(yaw) > maxYaw || Math.abs(pitch) > maxPitch) {
+        // Quality gate: frontal-only for embedding frames; skip for liveness (head turns).
+        // The activity decides which checks are relevant based on current challenge state.
+        if (Math.abs(pitch) > maxPitch) {
             onHint("Please look straight at the camera")
             return
         }
@@ -88,10 +91,9 @@ class FaceCaptureSession(
         }
 
         val embedding = embedder.embed(bitmap)
-        val liveness = computeLiveness(face)
         val photoB64 = bitmapToBase64(bitmap)
 
-        onFace(embedding, liveness, photoB64)
+        onFace(embedding, metrics, photoB64)
     }
 
     private fun computeLuminance(bitmap: Bitmap): Float {
@@ -133,12 +135,16 @@ class FaceCaptureSession(
         return (variance / pixels.size).toFloat()
     }
 
-    private fun computeLiveness(face: Face): Double {
-        // Default to 1.0 (eyes open) when classification is unavailable.
-        // Defaulting to 0.5 would permanently fail BLINK checks (< 0.3).
+    private fun computeMetrics(face: Face): FaceMetrics {
+        // Default eye openness to 1.0 (open) — 0.5 default would fail BLINK checks permanently.
         val leftEye = face.leftEyeOpenProbability ?: 1.0f
         val rightEye = face.rightEyeOpenProbability ?: 1.0f
-        return ((leftEye + rightEye) / 2.0).coerceIn(0.0, 1.0)
+        val smiling = face.smilingProbability ?: 0.0f
+        return FaceMetrics(
+            eyeOpenness = ((leftEye + rightEye) / 2.0).coerceIn(0.0, 1.0),
+            smilingProbability = smiling.toDouble().coerceIn(0.0, 1.0),
+            headYaw = face.headEulerAngleY,
+        )
     }
 
     private fun bitmapToBase64(bitmap: Bitmap): String {
