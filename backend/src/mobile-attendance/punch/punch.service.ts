@@ -21,10 +21,12 @@ import {
 } from '../face/face-math';
 import { RecordPunchDto } from './punch.dto';
 
-const MIN_MATCH_SCORE = Number(process.env.FACE_MIN_MATCH_SCORE ?? 0.90);
-const MIN_MATCH_MARGIN = Number(process.env.FACE_MIN_MATCH_MARGIN ?? 0.04);
+// MobileFaceNet real-world same-person cosine similarity is ~0.70–0.87; 0.90 was unreachable.
+const MIN_MATCH_SCORE = Number(process.env.FACE_MIN_MATCH_SCORE ?? 0.72);
+const MIN_MATCH_MARGIN = Number(process.env.FACE_MIN_MATCH_MARGIN ?? 0.02);
+// 15-min delay blocked newly enrolled employees from punching — no activation delay by default.
 const ACTIVATION_DELAY_MS =
-  Number(process.env.FACE_KIOSK_ACTIVATION_DELAY_MIN ?? 15) * 60 * 1000;
+  Number(process.env.FACE_KIOSK_ACTIVATION_DELAY_MIN ?? 0) * 60 * 1000;
 const OFFLINE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export interface RosterEntry {
