@@ -691,7 +691,8 @@ class KioskActivity : AppCompatActivity() {
                 speak(promptText)
                 showDirectionArrow(challenge)
 
-                // Enrollment liveness timeout: keep captured frames and retry the challenge.
+                // Enrollment liveness timeout: force a fresh frame set for the retry so
+                // embeddings cannot be reused with a different person's liveness.
                 livenessTimeoutJob = lifecycleScope.launch {
                     delay(45_000)
                     if (pendingChallenge != null) {
@@ -699,6 +700,9 @@ class KioskActivity : AppCompatActivity() {
                         pendingChallenge = null
                         pendingNonce = null
                         enrollLivenessInFlight = false
+                        enrollFrames.clear()
+                        enrollAvgEmbedding = null
+                        lastEnrollFrameMs = 0L
                         hideDirectionArrow()
                         runOnUiThread {
                             tvHint.text = getString(R.string.kiosk_enroll_prompt, enrollState.ticket.subjectName)
