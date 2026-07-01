@@ -2,6 +2,7 @@ import { LivenessService } from './liveness.service';
 
 describe('LivenessService', () => {
   const originalEnv = process.env.FACE_LIVENESS_CHALLENGE_TYPES;
+  const originalAdvancedEnv = process.env.FACE_ALLOW_ADVANCED_LIVENESS_CHALLENGES;
 
   const makeService = () => {
     const nonceRepo = {
@@ -19,6 +20,11 @@ describe('LivenessService', () => {
     } else {
       process.env.FACE_LIVENESS_CHALLENGE_TYPES = originalEnv;
     }
+    if (originalAdvancedEnv === undefined) {
+      delete process.env.FACE_ALLOW_ADVANCED_LIVENESS_CHALLENGES;
+    } else {
+      process.env.FACE_ALLOW_ADVANCED_LIVENESS_CHALLENGES = originalAdvancedEnv;
+    }
     jest.restoreAllMocks();
   });
 
@@ -35,6 +41,7 @@ describe('LivenessService', () => {
   });
 
   it('allows an explicit challenge-type list for future app builds', async () => {
+    process.env.FACE_ALLOW_ADVANCED_LIVENESS_CHALLENGES = 'true';
     process.env.FACE_LIVENESS_CHALLENGE_TYPES = 'SMILE';
     const { service } = makeService();
 
@@ -43,7 +50,18 @@ describe('LivenessService', () => {
     expect(challenge.challengeType).toBe('SMILE');
   });
 
+  it('ignores advanced challenge env unless explicitly enabled', async () => {
+    delete process.env.FACE_ALLOW_ADVANCED_LIVENESS_CHALLENGES;
+    process.env.FACE_LIVENESS_CHALLENGE_TYPES = 'SMILE';
+    const { service } = makeService();
+
+    const challenge = await service.issueChallenge('device-1');
+
+    expect(challenge.challengeType).toBe('BLINK');
+  });
+
   it('ignores invalid env values and falls back to blink', async () => {
+    process.env.FACE_ALLOW_ADVANCED_LIVENESS_CHALLENGES = 'true';
     process.env.FACE_LIVENESS_CHALLENGE_TYPES = 'LEFT,TURN,';
     const { service } = makeService();
 
