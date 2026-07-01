@@ -186,22 +186,46 @@ class KioskActivity : AppCompatActivity() {
     }
 
     private fun speak(text: String) {
-        if (ttsReady && tts != null) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+        if (ttsReady && tts != null) {
+            tts?.language = java.util.Locale.ENGLISH
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+        }
+    }
+
+    /** Speak the punch result: English name announcement then Telugu motivational message. */
+    private fun speakPunchResult(name: String, direction: String) {
+        if (!ttsReady || tts == null) return
+        val isOut = direction == "OUT"
+        val announcement = if (isOut)
+            getString(R.string.kiosk_voice_logout_recorded, name)
+        else
+            getString(R.string.kiosk_voice_recorded, name)
+        tts?.language = java.util.Locale.ENGLISH
+        tts?.speak(announcement, TextToSpeech.QUEUE_FLUSH, null, "name")
+
+        val motivation = if (isOut)
+            getString(R.string.kiosk_voice_logout_motivation)
+        else
+            getString(R.string.kiosk_voice_login_motivation)
+        val teluguLocale = java.util.Locale("te", "IN")
+        val teResult = tts?.setLanguage(teluguLocale)
+        if (teResult != TextToSpeech.LANG_NOT_SUPPORTED && teResult != TextToSpeech.LANG_MISSING_DATA) {
+            tts?.speak(motivation, TextToSpeech.QUEUE_ADD, null, "motivation")
+        }
+        tts?.language = java.util.Locale.ENGLISH
     }
 
     private fun showDirectionArrow(challenge: LivenessChallenge) {
-        val arrow = when (challenge) {
-            LivenessChallenge.HEAD_TURN_LEFT  -> "←"
-            LivenessChallenge.HEAD_TURN_RIGHT -> "→"
-            else -> null
+        val (arrow, textSizeSp) = when (challenge) {
+            LivenessChallenge.HEAD_TURN_LEFT  -> "←" to 96f
+            LivenessChallenge.HEAD_TURN_RIGHT -> "→" to 96f
+            LivenessChallenge.BLINK           -> "BLINK!" to 64f
+            LivenessChallenge.SMILE           -> "SMILE!" to 64f
         }
         runOnUiThread {
-            if (arrow != null) {
-                tvDirectionArrow.text = arrow
-                tvDirectionArrow.visibility = View.VISIBLE
-            } else {
-                tvDirectionArrow.visibility = View.GONE
-            }
+            tvDirectionArrow.text = arrow
+            tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, textSizeSp)
+            tvDirectionArrow.visibility = View.VISIBLE
         }
     }
 
@@ -304,7 +328,11 @@ class KioskActivity : AppCompatActivity() {
                     embedder = embedder,
                     detector = faceDetector,
                     onFace = { probe, metrics, photo -> handleFaceFrame(probe, metrics, photo) },
-                    onHint = { hint -> runOnUiThread { tvHint.text = hint } },
+                    // Suppress quality hints while a liveness challenge is active so the
+                    // challenge prompt is not overwritten by e.g. "No face detected"
+                    onHint = { hint ->
+                        if (pendingChallenge == null) runOnUiThread { tvHint.text = hint }
+                    },
                 )
 
                 imageAnalysis.setAnalyzer(cameraExecutor, captureSession)
@@ -499,7 +527,7 @@ class KioskActivity : AppCompatActivity() {
                     tvStatus.text = msg
                     tvHint.text = msg
                 }
-                speak(msg)
+                speakPunchResult(resp.employeeName, resp.direction)
             } catch (e: ApiException) {
                 if (e.code == 401 || e.code == 403) {
                     handleUnauthorized()
@@ -580,9 +608,24 @@ class KioskActivity : AppCompatActivity() {
 
         if (enrollFrames.size >= ENROLL_REQUIRED_FRAMES) return
 
-        // Only accept frontal frames for enrollment embedding (yaw gate)
-        if (Math.abs(metrics.headYaw) > ENROLL_MAX_YAW) {
-            runOnUiThread { tvHint.text = getString(R.string.hint_not_straight) }
+        // Only accept frontal frames for enrollment embedding (yaw gate).
+        // Show a directional arrow so the employee knows which way to turn their head.
+        if (metrics.headYaw > ENROLL_MAX_YAW) {
+            runOnUiThread {
+                tvHint.text = getString(R.string.enroll_guide_turn_left)
+                tvDirectionArrow.text = "←"
+                tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 96f)
+                tvDirectionArrow.visibility = View.VISIBLE
+            }
+            return
+        }
+        if (metrics.headYaw < -ENROLL_MAX_YAW) {
+            runOnUiThread {
+                tvHint.text = getString(R.string.enroll_guide_turn_right)
+                tvDirectionArrow.text = "→"
+                tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 96f)
+                tvDirectionArrow.visibility = View.VISIBLE
+            }
             return
         }
         if (metrics.eyeOpenness < ENROLL_MIN_LIVENESS) return
@@ -605,6 +648,8 @@ class KioskActivity : AppCompatActivity() {
 
         val captured = enrollFrames.size
         runOnUiThread {
+            // Good frame accepted — hide any positioning arrow and show progress
+            tvDirectionArrow.visibility = View.GONE
             tvHint.text = getString(
                 R.string.kiosk_enroll_capturing_frames,
                 captured,
@@ -641,9 +686,9 @@ class KioskActivity : AppCompatActivity() {
                 speak(promptText)
                 showDirectionArrow(challenge)
 
-                // Enrollment liveness timeout — if user doesn't complete in 20 s, reset and try again
+                // Enrollment liveness timeout — if user doesn't complete in 30 s, reset and try again
                 livenessTimeoutJob = lifecycleScope.launch {
-                    delay(20_000)
+                    delay(30_000)
                     if (pendingChallenge != null) {
                         Log.w(TAG, "Enroll liveness timed out — resetting frame capture")
                         pendingChallenge = null
@@ -651,6 +696,7 @@ class KioskActivity : AppCompatActivity() {
                         enrollLivenessInFlight = false
                         enrollFrames.clear()
                         enrollAvgEmbedding = null
+                        hideDirectionArrow()
                         runOnUiThread {
                             tvHint.text = getString(R.string.kiosk_enroll_prompt, enrollState.ticket.subjectName)
                         }
@@ -661,10 +707,15 @@ class KioskActivity : AppCompatActivity() {
                 enrollFrames.clear()
                 enrollAvgEmbedding = null
                 val errMsg = "${e.javaClass.simpleName}: ${e.message ?: "unknown"}"
+                // Show error prominently in center overlay so operator can read it clearly
                 runOnUiThread {
-                    tvHint.text = getString(R.string.kiosk_enroll_liveness_retry, errMsg)
+                    tvDirectionArrow.text = "!"
+                    tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 96f)
+                    tvDirectionArrow.visibility = View.VISIBLE
+                    tvHint.text = "Error: $errMsg"
                 }
-                delay(3_000)
+                delay(5_000)
+                runOnUiThread { tvDirectionArrow.visibility = View.GONE }
                 enrollLivenessInFlight = false
                 runOnUiThread {
                     tvHint.text = getString(R.string.kiosk_enroll_prompt, enrollState.ticket.subjectName)
@@ -725,15 +776,26 @@ class KioskActivity : AppCompatActivity() {
                 onSuccess = {
                     val successMsg = getString(R.string.kiosk_enroll_success, enrollState.ticket.subjectName)
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@KioskActivity, successMsg, Toast.LENGTH_LONG).show()
+                        tvHint.text = successMsg
+                        tvDirectionArrow.text = "✓"
+                        tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 96f)
+                        tvDirectionArrow.visibility = View.VISIBLE
                     }
                     loadRoster()
+                    delay(3_000)
+                    withContext(Dispatchers.Main) { tvDirectionArrow.visibility = View.GONE }
                 },
                 onFailure = { e ->
-                    val failMsg = getString(R.string.kiosk_enroll_failed, e.message ?: "unknown")
+                    val failMsg = "Enrollment failed: ${e.message ?: "unknown"}"
+                    Log.e(TAG, failMsg)
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@KioskActivity, failMsg, Toast.LENGTH_LONG).show()
+                        tvDirectionArrow.text = "!"
+                        tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 96f)
+                        tvDirectionArrow.visibility = View.VISIBLE
+                        tvHint.text = failMsg
                     }
+                    delay(6_000)
+                    withContext(Dispatchers.Main) { tvDirectionArrow.visibility = View.GONE }
                 }
             )
         } finally {

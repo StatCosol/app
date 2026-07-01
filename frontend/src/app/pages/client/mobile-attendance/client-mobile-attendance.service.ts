@@ -176,6 +176,10 @@ export class ClientMobileAttendanceService {
     return this.http.post<MobileAttendanceDevice>(`${this.base}/devices`, body);
   }
 
+  renameDevice(id: string, deviceLabel: string): Observable<{ ok: true; deviceLabel: string }> {
+    return this.http.patch<{ ok: true; deviceLabel: string }>(`${this.base}/devices/${id}/label`, { deviceLabel });
+  }
+
   revokeDevice(id: string): Observable<MobileAttendanceDevice> {
     return this.http.delete<MobileAttendanceDevice>(`${this.base}/devices/${id}`);
   }

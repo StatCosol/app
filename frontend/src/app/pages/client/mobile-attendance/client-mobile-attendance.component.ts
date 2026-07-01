@@ -139,6 +139,7 @@ interface BranchOption { id: string; name: string }
                 </td>
                 <td class="px-4 py-3 text-right whitespace-nowrap">
                   <button *ngIf="d.isActive" class="text-xs text-blue-600 hover:underline mr-3" (click)="showToken(d)">Show Token</button>
+                  <button *ngIf="d.isActive" class="text-xs text-green-600 hover:underline mr-3" (click)="renameDevice(d)">Rename</button>
                   <button *ngIf="d.isActive" class="text-xs text-indigo-600 hover:underline mr-3" (click)="openGeofence(d)">Geofence</button>
                   <button *ngIf="d.isActive" class="text-xs text-red-600 hover:underline" (click)="revoke(d)">Revoke</button>
                   <button *ngIf="!d.isActive" class="text-xs text-red-700 hover:underline" (click)="hardDelete(d)">Delete</button>
@@ -947,6 +948,18 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       () => this.toast.success('Token copied'),
       () => this.toast.error('Copy failed — select & copy manually'),
     );
+  }
+
+  async renameDevice(d: MobileAttendanceDevice): Promise<void> {
+    const current = d.deviceLabel || d.deviceName || '';
+    const newLabel = window.prompt('Enter new device name:', current);
+    if (newLabel === null || newLabel.trim() === '') return;
+    this.svc.renameDevice(d.id, newLabel.trim())
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => { this.toast.success('Device renamed'); this.loadDevices(); },
+        error: (e) => this.toast.error(e?.error?.message || 'Rename failed'),
+      });
   }
 
   async revoke(d: MobileAttendanceDevice): Promise<void> {

@@ -111,4 +111,9 @@
     <string name="kiosk_enroll_step_straight">Enrolling %1$s: look straight at the camera</string>
     <string name="kiosk_enroll_step_all_loaded">Face captured. Completing enrollment</string>
     <string name="kiosk_enroll_capturing_frames">Enrolling %3$s — hold still (%1$d/%2$d frames)</string>
+    <!-- Face positioning guidance during enrollment frame capture -->
+    <string name="enroll_guide_turn_left">← Turn your head to the left</string>
+    <string name="enroll_guide_turn_right">Turn your head to the right →</string>
+    <string name="enroll_guide_move_closer">Step closer to the camera</string>
+    <string name="enroll_guide_look_straight">Look straight at the camera</string>
 </resources>
