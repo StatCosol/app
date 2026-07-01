@@ -696,6 +696,7 @@ class KioskActivity : AppCompatActivity() {
                         enrollLivenessInFlight = false
                         enrollFrames.clear()
                         enrollAvgEmbedding = null
+                        hideDirectionArrow()
                         runOnUiThread {
                             tvHint.text = getString(R.string.kiosk_enroll_prompt, enrollState.ticket.subjectName)
                         }
