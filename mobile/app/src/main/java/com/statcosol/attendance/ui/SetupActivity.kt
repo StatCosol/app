@@ -74,7 +74,7 @@ class SetupActivity : AppCompatActivity() {
             contentResolver,
             android.provider.Settings.Secure.ANDROID_ID,
         ) ?: "unknown"
-        val deviceName = android.os.Build.MODEL
+        val deviceName = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim()
 
         lifecycleScope.launch {
             try {

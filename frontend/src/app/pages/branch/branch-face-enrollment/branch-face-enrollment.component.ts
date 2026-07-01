@@ -541,7 +541,7 @@ interface EnrollForm {
               >
                 <option value="">— Select a kiosk —</option>
                 <option *ngFor="let d of kioskDevicesForSubject" [value]="d.id">
-                  {{ d.deviceLabel || 'Device ' + d.id.slice(0, 8) }}
+                  {{ d.deviceLabel || d.deviceName || 'Device ' + d.id.slice(0, 8) }}
                 </option>
               </select>
               <p
