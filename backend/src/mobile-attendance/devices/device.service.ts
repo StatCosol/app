@@ -371,17 +371,12 @@ export class DeviceService {
               COALESCE(to_jsonb(d)->>'mode', 'KIOSK') AS "mode",
               ${includeInstallToken ? `COALESCE(to_jsonb(d)->>'installToken', to_jsonb(d)->>'install_token')` : 'NULL::varchar'} AS "installToken",
               COALESCE(to_jsonb(d)->>'androidId', to_jsonb(d)->>'android_id') AS "androidId",
+              COALESCE(to_jsonb(d)->>'deviceName', to_jsonb(d)->>'device_name') AS "deviceName",
               COALESCE(
-                to_jsonb(d)->>'deviceName',
-                to_jsonb(d)->>'device_name',
                 to_jsonb(d)->>'deviceLabel',
-                to_jsonb(d)->>'device_label'
-              ) AS "deviceName",
-              COALESCE(
+                to_jsonb(d)->>'device_label',
                 to_jsonb(d)->>'deviceName',
-                to_jsonb(d)->>'device_name',
-                to_jsonb(d)->>'deviceLabel',
-                to_jsonb(d)->>'device_label'
+                to_jsonb(d)->>'device_name'
               ) AS "deviceLabel",
               COALESCE(to_jsonb(d)->>'geofenceLat', to_jsonb(d)->>'geofence_lat') AS "geofenceLat",
               COALESCE(to_jsonb(d)->>'geofenceLng', to_jsonb(d)->>'geofence_lng') AS "geofenceLng",
