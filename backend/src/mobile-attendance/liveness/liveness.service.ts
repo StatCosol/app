@@ -18,6 +18,10 @@ const ALLOWED_CHALLENGE_TYPES = new Set([
 ]);
 
 function configuredChallengeTypes(): string[] {
+  if (process.env.FACE_ALLOW_ADVANCED_LIVENESS_CHALLENGES !== 'true') {
+    return [...DEFAULT_CHALLENGE_TYPES];
+  }
+
   const configured = (process.env.FACE_LIVENESS_CHALLENGE_TYPES ?? '')
     .split(',')
     .map((type) => type.trim().toUpperCase())

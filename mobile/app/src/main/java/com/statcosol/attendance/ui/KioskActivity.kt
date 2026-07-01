@@ -606,7 +606,10 @@ class KioskActivity : AppCompatActivity() {
             return
         }
 
-        if (enrollFrames.size >= ENROLL_REQUIRED_FRAMES) return
+        if (enrollFrames.size >= ENROLL_REQUIRED_FRAMES) {
+            if (!enrollLivenessInFlight) startEnrollLivenessChallenge(enrollState)
+            return
+        }
 
         // Only accept frontal frames for enrollment embedding (yaw gate).
         // Show a directional arrow so the employee knows which way to turn their head.
@@ -670,7 +673,9 @@ class KioskActivity : AppCompatActivity() {
         livenessTimeoutJob = null
         lifecycleScope.launch {
             try {
-                val challengeResp = apiClient.issueLivenessChallenge(enrollState.ticket.employeeId)
+                val challengeSubjectId =
+                    enrollState.ticket.employeeId ?: enrollState.ticket.contractorEmployeeId
+                val challengeResp = apiClient.issueLivenessChallenge(challengeSubjectId)
                 val challenge = LivenessChallenge.fromWire(challengeResp.challengeType) ?: LivenessChallenge.BLINK
                 pendingChallenge = challenge
                 pendingNonce = challengeResp.nonce
@@ -686,9 +691,10 @@ class KioskActivity : AppCompatActivity() {
                 speak(promptText)
                 showDirectionArrow(challenge)
 
-                // Enrollment liveness timeout — if user doesn't complete in 30 s, reset and try again
+                // Enrollment liveness timeout: force a fresh frame set for the retry so
+                // embeddings cannot be reused with a different person's liveness.
                 livenessTimeoutJob = lifecycleScope.launch {
-                    delay(30_000)
+                    delay(45_000)
                     if (pendingChallenge != null) {
                         Log.w(TAG, "Enroll liveness timed out — resetting frame capture")
                         pendingChallenge = null
@@ -696,6 +702,7 @@ class KioskActivity : AppCompatActivity() {
                         enrollLivenessInFlight = false
                         enrollFrames.clear()
                         enrollAvgEmbedding = null
+                        lastEnrollFrameMs = 0L
                         hideDirectionArrow()
                         runOnUiThread {
                             tvHint.text = getString(R.string.kiosk_enroll_prompt, enrollState.ticket.subjectName)
@@ -806,11 +813,11 @@ class KioskActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "KioskActivity"
 
-        private const val ENROLL_REQUIRED_FRAMES = 5        // more frames → more robust averaged embedding
-        private const val ENROLL_MIN_LIVENESS = 0.50
-        private const val ENROLL_MAX_YAW = 15f               // frontal gate for enrollment frames
+        private const val ENROLL_REQUIRED_FRAMES = 3
+        private const val ENROLL_MIN_LIVENESS = 0.25
+        private const val ENROLL_MAX_YAW = 25f               // frontal gate for enrollment frames
         private const val ENROLL_MIN_FRAME_INTERVAL_MS = 400L
-        private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.65 // raised from 0.60 for better consistency
+        private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.55
         private const val ENROLLMENT_POLL_INTERVAL_MS = 5_000L
         private const val ROSTER_REFRESH_INTERVAL_MS = 15 * 60 * 1000L  // refresh every 15 min
         private const val RESULT_DISPLAY_MS = 3_000L
