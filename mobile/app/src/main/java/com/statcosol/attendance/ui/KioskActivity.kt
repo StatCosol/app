@@ -68,6 +68,7 @@ class KioskActivity : AppCompatActivity() {
     // ── TTS ──────────────────────────────────────────────────────────────────
     private var tts: TextToSpeech? = null
     private var ttsReady = false
+    private var ttsInstallPrompted = false
 
     // ── Core dependencies ────────────────────────────────────────────────────
     private lateinit var config: DeviceConfig
@@ -124,17 +125,18 @@ class KioskActivity : AppCompatActivity() {
         previewView = findViewById(R.id.previewView)
         previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         tvHint = findViewById(R.id.statusText)
-        tvStatus = findViewById(R.id.statusText)
+        tvStatus = findViewById(R.id.statusDetail)
         tvDirectionArrow = findViewById(R.id.tvDirectionArrow)
 
         tts = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                ttsReady = true
-                tts?.language = java.util.Locale.ENGLISH
+                val langResult = tts?.setLanguage(java.util.Locale.ENGLISH)
+                ttsReady = langResult != TextToSpeech.LANG_MISSING_DATA &&
+                    langResult != TextToSpeech.LANG_NOT_SUPPORTED
+                if (!ttsReady) promptInstallTtsData()
             } else {
-                // TTS engine unavailable — voice prompts will be skipped silently.
-                // Install TTS data via device Settings before deploying the kiosk APK.
                 Log.w(TAG, "TTS init failed (status=$status) — voice prompts disabled")
+                promptInstallTtsData()
             }
         }
 
@@ -190,6 +192,37 @@ class KioskActivity : AppCompatActivity() {
             tts?.language = java.util.Locale.ENGLISH
             tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
         }
+    }
+
+    private fun showPrompt(main: String, detail: String? = null) {
+        runOnUiThread {
+            tvHint.text = main
+            tvStatus.text = detail ?: ""
+            tvStatus.visibility = if (detail.isNullOrBlank()) View.GONE else View.VISIBLE
+        }
+    }
+
+    private fun promptInstallTtsData() {
+        if (ttsInstallPrompted) return
+        ttsInstallPrompted = true
+        showPrompt(
+            tvHint.text?.toString() ?: getString(R.string.kiosk_look_at_camera),
+            getString(R.string.kiosk_tts_install_needed),
+        )
+        try {
+            startActivity(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA))
+        } catch (e: Exception) {
+            Log.w(TAG, "Unable to open TTS install screen: ${e.message}")
+        }
+    }
+
+    private fun formatApiError(e: Throwable): String {
+        val raw = e.message ?: return "unknown error"
+        return raw
+            .replace(Regex("\\{\"statusCode\"\\s*:\\s*\\d+,\\s*\"message\"\\s*:\\s*\""), "")
+            .replace(Regex("\",\\s*\"error\"\\s*:\\s*\"[^\"]+\"\\}"), "")
+            .replace("\\\"", "\"")
+            .take(220)
     }
 
     /** Speak the punch result: English name announcement then Telugu motivational message. */
@@ -392,9 +425,11 @@ class KioskActivity : AppCompatActivity() {
 
         runOnUiThread {
             val prompt = getString(R.string.kiosk_enroll_prompt, ticket.subjectName)
-            tvStatus.text = prompt
             tvHint.text = prompt
+            tvStatus.text = getString(R.string.kiosk_enroll_ticket_received, ticket.subjectName)
+            tvStatus.visibility = View.VISIBLE
         }
+        speak(getString(R.string.kiosk_enroll_prompt, ticket.subjectName))
     }
 
     // ── Frame handling ───────────────────────────────────────────────────────
@@ -586,9 +621,8 @@ class KioskActivity : AppCompatActivity() {
         hideDirectionArrow()
         runOnUiThread {
             tvHint.text = getString(R.string.kiosk_look_at_camera)
-            if (tvStatus !== tvHint) {
-                tvStatus.text = ""
-            }
+            tvStatus.text = getString(R.string.kiosk_ready_detail)
+            tvStatus.visibility = View.VISIBLE
         }
     }
 
@@ -687,7 +721,7 @@ class KioskActivity : AppCompatActivity() {
                     LivenessChallenge.HEAD_TURN_RIGHT -> R.string.liveness_prompt_head_right
                 }
                 val promptText = getString(promptRes)
-                runOnUiThread { tvHint.text = promptText }
+                showPrompt(promptText, getString(R.string.kiosk_enroll_liveness_detail))
                 speak(promptText)
                 showDirectionArrow(challenge)
 
@@ -704,29 +738,31 @@ class KioskActivity : AppCompatActivity() {
                         enrollAvgEmbedding = null
                         lastEnrollFrameMs = 0L
                         hideDirectionArrow()
-                        runOnUiThread {
-                            tvHint.text = getString(R.string.kiosk_enroll_prompt, enrollState.ticket.subjectName)
-                        }
+                        showPrompt(
+                            getString(R.string.kiosk_enroll_prompt, enrollState.ticket.subjectName),
+                            getString(R.string.kiosk_enroll_retry_detail),
+                        )
                     }
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Enroll liveness challenge failed (${e.javaClass.simpleName}): ${e.message}")
                 enrollFrames.clear()
                 enrollAvgEmbedding = null
-                val errMsg = "${e.javaClass.simpleName}: ${e.message ?: "unknown"}"
+                val errMsg = formatApiError(e)
                 // Show error prominently in center overlay so operator can read it clearly
                 runOnUiThread {
                     tvDirectionArrow.text = "!"
                     tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 96f)
                     tvDirectionArrow.visibility = View.VISIBLE
-                    tvHint.text = "Error: $errMsg"
                 }
+                showPrompt(getString(R.string.liveness_request_failed), errMsg)
                 delay(5_000)
                 runOnUiThread { tvDirectionArrow.visibility = View.GONE }
                 enrollLivenessInFlight = false
-                runOnUiThread {
-                    tvHint.text = getString(R.string.kiosk_enroll_prompt, enrollState.ticket.subjectName)
-                }
+                showPrompt(
+                    getString(R.string.kiosk_enroll_prompt, enrollState.ticket.subjectName),
+                    getString(R.string.kiosk_enroll_retry_detail),
+                )
             }
         }
     }
@@ -764,10 +800,13 @@ class KioskActivity : AppCompatActivity() {
         lastProbe: FloatArray,
     ) {
         try {
-            runOnUiThread { tvHint.text = getString(R.string.kiosk_enroll_uploading) }
+            showPrompt(getString(R.string.kiosk_enroll_uploading), getString(R.string.kiosk_enroll_upload_detail))
 
             val avgEmbedding = averageAndNormalize(enrollFrames)
-            val selfSim = cosineSim(lastProbe, avgEmbedding).toFloat()
+            val selfSim = cosineSim(lastProbe, avgEmbedding)
+            if (selfSim < ENROLL_MIN_PROBE_TO_AVG_COS) {
+                throw IllegalStateException(getString(R.string.kiosk_enroll_inconsistent))
+            }
 
             val req = SubmitKioskEnrollRequest(
                 ticketId = enrollState.ticket.id,
@@ -784,6 +823,8 @@ class KioskActivity : AppCompatActivity() {
                     val successMsg = getString(R.string.kiosk_enroll_success, enrollState.ticket.subjectName)
                     withContext(Dispatchers.Main) {
                         tvHint.text = successMsg
+                        tvStatus.text = ""
+                        tvStatus.visibility = View.GONE
                         tvDirectionArrow.text = "✓"
                         tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 96f)
                         tvDirectionArrow.visibility = View.VISIBLE
@@ -793,18 +834,29 @@ class KioskActivity : AppCompatActivity() {
                     withContext(Dispatchers.Main) { tvDirectionArrow.visibility = View.GONE }
                 },
                 onFailure = { e ->
-                    val failMsg = "Enrollment failed: ${e.message ?: "unknown"}"
+                    val failMsg = formatApiError(e)
                     Log.e(TAG, failMsg)
                     withContext(Dispatchers.Main) {
                         tvDirectionArrow.text = "!"
                         tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 96f)
                         tvDirectionArrow.visibility = View.VISIBLE
-                        tvHint.text = failMsg
                     }
+                    showPrompt(getString(R.string.kiosk_enroll_failed, failMsg), getString(R.string.kiosk_enroll_retry_detail))
                     delay(6_000)
                     withContext(Dispatchers.Main) { tvDirectionArrow.visibility = View.GONE }
                 }
             )
+        } catch (e: Exception) {
+            val failMsg = formatApiError(e)
+            Log.e(TAG, "Enrollment failed before submit completed: $failMsg")
+            withContext(Dispatchers.Main) {
+                tvDirectionArrow.text = "!"
+                tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 96f)
+                tvDirectionArrow.visibility = View.VISIBLE
+            }
+            showPrompt(getString(R.string.kiosk_enroll_failed, failMsg), getString(R.string.kiosk_enroll_retry_detail))
+            delay(6_000)
+            withContext(Dispatchers.Main) { tvDirectionArrow.visibility = View.GONE }
         } finally {
             resetToIdle()
         }

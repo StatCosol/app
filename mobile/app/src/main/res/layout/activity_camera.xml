@@ -99,17 +99,39 @@
         </LinearLayout>
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/statusText"
+    <LinearLayout
+        android:id="@+id/statusPanel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top"
-        android:padding="24dp"
-        android:textColor="#FFFFFF"
-        android:textSize="20sp"
+        android:orientation="vertical"
         android:gravity="center"
         android:background="#80000000"
-        android:text="@string/kiosk_look_at_camera" />
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="22dp"
+        android:paddingBottom="18dp">
+
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:gravity="center"
+            android:text="@string/kiosk_look_at_camera" />
+
+        <TextView
+            android:id="@+id/statusDetail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="#DDE8F0FF"
+            android:textSize="14sp"
+            android:gravity="center"
+            android:visibility="gone"
+            tools:text="Waiting for enrollment ticket..." />
+    </LinearLayout>
 
     <!-- Direction arrow shown during HEAD_TURN liveness challenges -->
     <TextView

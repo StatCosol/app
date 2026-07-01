@@ -20,6 +20,7 @@
     <string name="setup_error_with_token_hint">%1$s\n\nLength: %2$d / 64\nToken: %3$s</string>
 
     <string name="kiosk_look_at_camera">Look at the camera to mark attendance</string>
+    <string name="kiosk_ready_detail">Kiosk ready. Create an enrollment ticket from the web portal when needed.</string>
     <string name="kiosk_match_low">Face not recognised — please try again</string>
     <string name="kiosk_punch_recorded">Punch recorded for %1$s</string>
     <string name="kiosk_punch_in_title">Login recorded</string>
@@ -98,6 +99,11 @@
 
     <!-- Operator-supervised kiosk enrollment. -->
     <string name="kiosk_enroll_prompt">Enrolling %1$s — please show your face to the camera</string>
+    <string name="kiosk_enroll_ticket_received">Ticket received. Keep only %1$s in front of the camera.</string>
+    <string name="kiosk_enroll_liveness_detail">Face frames captured. Complete this live check to finish enrollment.</string>
+    <string name="kiosk_enroll_retry_detail">Retrying with a fresh capture. Keep the same person in view.</string>
+    <string name="kiosk_enroll_upload_detail">Please wait. Sending encrypted face template to server.</string>
+    <string name="kiosk_tts_install_needed">Voice prompt engine is missing. Install Android/Google Text-to-Speech for spoken prompts.</string>
     <string name="kiosk_enroll_capturing">Capturing face… %1$d / %2$d</string>
     <string name="kiosk_enroll_ready_title">Face captured</string>
     <string name="kiosk_enroll_ready_message">Ready to enroll %1$s. Tap Register to complete enrollment.</string>
