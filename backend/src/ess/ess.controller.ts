@@ -715,7 +715,9 @@ export class LeaveManagementController {
     return this.svc.listDiscrepancyNotes(clientId, undefined, status);
   }
 
-  @ApiOperation({ summary: 'Acknowledge / resolve a discrepancy note (HR action)' })
+  @ApiOperation({
+    summary: 'Acknowledge / resolve a discrepancy note (HR action)',
+  })
   @Post('discrepancy-notes/:id/action')
   actionDiscrepancyNote(
     @CurrentUser() user: ReqUser,
@@ -729,7 +731,9 @@ export class LeaveManagementController {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     if (!['ACKNOWLEDGED', 'RESOLVED', 'DISMISSED'].includes(body.action)) {
-      throw new BadRequestException('action must be ACKNOWLEDGED, RESOLVED, or DISMISSED');
+      throw new BadRequestException(
+        'action must be ACKNOWLEDGED, RESOLVED, or DISMISSED',
+      );
     }
     return this.svc.actionDiscrepancyNote(
       id,

@@ -22,6 +22,7 @@ const serviceMigrationFiles = new Set([
   '20260628h_client_service_audit_note_checks.sql',
   '20260628i_client_service_nonempty_module_checks.sql',
   '20260629_mobile_attendance_devices_created_at_compat.sql',
+  '20260703_mobile_attendance_device_soft_delete_compat.sql',
 ]);
 
 const config = {
@@ -106,6 +107,37 @@ async function verifyTables() {
   console.log(`Verified tables: ${found.join(', ')}`);
 }
 
+async function verifyMobileAttendanceDeviceCompat() {
+  const { rows: tableRows } = await client.query(`
+    SELECT to_regclass('public.mobile_attendance_devices') AS reg
+  `);
+  if (!tableRows[0]?.reg) {
+    console.log('mobile_attendance_devices not present; device compatibility verification skipped.');
+    return;
+  }
+
+  const { rows } = await client.query(`
+    SELECT column_name
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'mobile_attendance_devices'
+       AND column_name IN ('deleted_at', 'deletedAt', 'created_at', 'createdAt', 'registered_at', 'registeredAt')
+  `);
+  const columns = new Set(rows.map((row) => row.column_name));
+  if (!columns.has('deleted_at') && !columns.has('deletedAt')) {
+    throw new Error('mobile_attendance_devices missing deleted_at/deletedAt soft-delete column');
+  }
+  if (
+    !columns.has('created_at') &&
+    !columns.has('createdAt') &&
+    !columns.has('registered_at') &&
+    !columns.has('registeredAt')
+  ) {
+    throw new Error('mobile_attendance_devices missing created/registered timestamp column');
+  }
+  console.log('Verified mobile_attendance_devices soft-delete compatibility.');
+}
+
 try {
   console.log('=== Apply service entitlement migrations ===');
   console.log(`Database: ${config.database} @ ${config.host}:${config.port}`);
@@ -128,6 +160,7 @@ try {
   }
 
   await verifyTables();
+  await verifyMobileAttendanceDeviceCompat();
   console.log('Service entitlement migrations are up to date.');
 } catch (err) {
   console.error(err?.stack || err?.message || err);

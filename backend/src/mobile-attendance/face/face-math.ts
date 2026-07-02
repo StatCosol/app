@@ -5,7 +5,11 @@
 /** Decode a base64 or hex string into a Float32Array embedding. */
 export function decodeEmbedding(encoded: string): Float32Array {
   const buf = Buffer.from(encoded, 'base64');
-  const floats = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
+  const floats = new Float32Array(
+    buf.buffer,
+    buf.byteOffset,
+    buf.byteLength / 4,
+  );
   return floats;
 }
 

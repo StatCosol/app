@@ -45,7 +45,7 @@ export class AdminReportsController {
       const { clause, params } = this.buildDateFilter('u.created_at', from, to);
 
       const rows = await this.dataSource.query(
-        `SELECT 
+        `SELECT
            u.id,
            u.user_code as "userCode",
            u.name,
@@ -106,7 +106,7 @@ export class AdminReportsController {
       const endDate = to ? new Date(to) : new Date();
 
       const rows = await this.dataSource.query(
-        `SELECT 
+        `SELECT
            u.id,
            u.user_code as "userCode",
            u.name,
@@ -166,7 +166,7 @@ export class AdminReportsController {
       const endDate = to ? new Date(to) : new Date();
 
       const rows = await this.dataSource.query(
-        `SELECT 
+        `SELECT
            u.id,
            u.user_code as "userCode",
            u.name,
@@ -177,7 +177,7 @@ export class AdminReportsController {
            'Admin' as "deletedBy"
          FROM users u
          INNER JOIN roles r ON u.role_id = r.id
-         WHERE u.deleted_at IS NOT NULL 
+         WHERE u.deleted_at IS NOT NULL
            AND u.deleted_at BETWEEN $1 AND $2
          ORDER BY u.deleted_at DESC`,
         [startDate, endDate],
@@ -225,7 +225,7 @@ export class AdminReportsController {
 
       // Get login activity from users table
       const rows = await this.dataSource.query(
-        `SELECT 
+        `SELECT
            u.id,
            u.user_code as "userCode",
            u.name,

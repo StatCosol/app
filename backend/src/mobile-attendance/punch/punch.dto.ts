@@ -68,7 +68,9 @@ export class RecordPunchDto {
   @IsBoolean()
   isRooted?: boolean;
 
-  @ApiPropertyOptional({ description: 'True for punches captured offline and synced later' })
+  @ApiPropertyOptional({
+    description: 'True for punches captured offline and synced later',
+  })
   @IsOptional()
   @IsBoolean()
   offlineSync?: boolean;

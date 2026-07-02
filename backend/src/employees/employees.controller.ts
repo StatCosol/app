@@ -459,10 +459,12 @@ export class ClientEmployeesController {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     const emp = await this.svc.findById(clientId, id);
-    if (!emp.email) throw new BadRequestException('Employee has no email address');
+    if (!emp.email)
+      throw new BadRequestException('Employee has no email address');
 
     const essUser = await this.usersService.findByEmail(emp.email);
-    if (!essUser) throw new NotFoundException('No ESS login found for this employee');
+    if (!essUser)
+      throw new NotFoundException('No ESS login found for this employee');
 
     const result = await this.usersService.adminResetPassword(essUser.id);
     return {

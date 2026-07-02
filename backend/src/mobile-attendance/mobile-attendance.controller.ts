@@ -53,11 +53,14 @@ export class MobileAttendanceDevicesController {
     private readonly entitlements: ServiceEntitlementsService,
   ) {}
 
-  @ApiOperation({ summary: 'Admin — provision a new device and generate an install token' })
+  @ApiOperation({
+    summary: 'Admin — provision a new device and generate an install token',
+  })
   @Post()
   provision(
     @CurrentUser() user: ReqUser,
-    @Body() body: {
+    @Body()
+    body: {
       mode: 'KIOSK' | 'ESS';
       branchId?: string;
       deviceLabel?: string;
@@ -80,11 +83,17 @@ export class MobileAttendanceDevicesController {
     );
   }
 
-  @ApiOperation({ summary: 'Device — bind androidId to a pre-provisioned install token' })
+  @ApiOperation({
+    summary: 'Device — bind androidId to a pre-provisioned install token',
+  })
   @Public()
   @Post('register')
   async register(@Body() dto: RegisterDeviceDto) {
-    const device = await this.deviceService.registerDevice(dto.installToken, dto.androidId, dto.deviceName);
+    const device = await this.deviceService.registerDevice(
+      dto.installToken,
+      dto.androidId,
+      dto.deviceName,
+    );
     return {
       deviceToken: device.installToken,
       deviceId: device.id,
@@ -112,13 +121,15 @@ export class MobileAttendanceDevicesController {
 
   @ApiOperation({ summary: 'Revoke a device' })
   @Delete(':deviceId')
-  revoke(
-    @Param('deviceId') deviceId: string,
-    @CurrentUser() user: ReqUser,
-  ) {
+  revoke(@Param('deviceId') deviceId: string, @CurrentUser() user: ReqUser) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.deviceService.revokeDevice(clientId, deviceId, user.userId, user.branchIds ?? []);
+    return this.deviceService.revokeDevice(
+      clientId,
+      deviceId,
+      user.userId,
+      user.branchIds ?? [],
+    );
   }
 
   @ApiOperation({ summary: 'Permanently delete a revoked device' })
@@ -129,7 +140,11 @@ export class MobileAttendanceDevicesController {
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.deviceService.permanentlyDeleteDevice(clientId, deviceId, user.branchIds ?? []);
+    return this.deviceService.permanentlyDeleteDevice(
+      clientId,
+      deviceId,
+      user.branchIds ?? [],
+    );
   }
 
   @ApiOperation({ summary: 'Rename a device label' })
@@ -141,7 +156,12 @@ export class MobileAttendanceDevicesController {
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.deviceService.renameDevice(clientId, deviceId, body.deviceLabel, user.branchIds ?? []);
+    return this.deviceService.renameDevice(
+      clientId,
+      deviceId,
+      body.deviceLabel,
+      user.branchIds ?? [],
+    );
   }
 
   @ApiOperation({ summary: 'Configure or clear the geofence for a device' })
@@ -177,7 +197,8 @@ export class MobileAttendanceEnrollmentController {
   selfEnroll(@CurrentUser() user: ReqUser, @Body() dto: SelfEnrollDto) {
     const employeeId = user?.employeeId ?? user?.userId;
     const clientId = user?.clientId;
-    if (!employeeId || !clientId) throw new BadRequestException('Employee context required');
+    if (!employeeId || !clientId)
+      throw new BadRequestException('Employee context required');
     return this.enrollmentService.enrollSelf(
       employeeId,
       clientId,
@@ -190,7 +211,10 @@ export class MobileAttendanceEnrollmentController {
   @ApiOperation({ summary: 'Admin — create a kiosk enrollment ticket' })
   @Post('kiosk/ticket')
   @Roles('CLIENT', 'ADMIN')
-  createTicket(@CurrentUser() user: ReqUser, @Body() dto: CreateKioskTicketDto) {
+  createTicket(
+    @CurrentUser() user: ReqUser,
+    @Body() dto: CreateKioskTicketDto,
+  ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     return this.enrollmentService.createKioskTicket(
@@ -201,7 +225,9 @@ export class MobileAttendanceEnrollmentController {
     );
   }
 
-  @ApiOperation({ summary: 'Device — get the current PENDING ticket assigned to this device' })
+  @ApiOperation({
+    summary: 'Device — get the current PENDING ticket assigned to this device',
+  })
   @Public()
   @UseGuards(DeviceAuthGuard)
   @Get('kiosk/pending')
@@ -210,14 +236,13 @@ export class MobileAttendanceEnrollmentController {
     return this.enrollmentService.getPendingTicketForDevice(deviceId);
   }
 
-  @ApiOperation({ summary: 'Device — submit captured frames for a kiosk ticket' })
+  @ApiOperation({
+    summary: 'Device — submit captured frames for a kiosk ticket',
+  })
   @Public()
   @UseGuards(DeviceAuthGuard)
   @Post('kiosk/submit')
-  submitTicket(
-    @Req() req: Request,
-    @Body() dto: SubmitKioskTicketDto,
-  ) {
+  submitTicket(@Req() req: Request, @Body() dto: SubmitKioskTicketDto) {
     const deviceId = (req as any).deviceId as string;
     return this.enrollmentService.submitKioskTicket(deviceId, dto, deviceId);
   }
@@ -225,10 +250,7 @@ export class MobileAttendanceEnrollmentController {
   @ApiOperation({ summary: 'List enrollment tickets' })
   @Get('kiosk/tickets')
   @Roles('CLIENT', 'ADMIN')
-  listTickets(
-    @CurrentUser() user: ReqUser,
-    @Query('status') status?: string,
-  ) {
+  listTickets(@CurrentUser() user: ReqUser, @Query('status') status?: string) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     return this.enrollmentService.listTickets(clientId, status);
@@ -246,10 +268,17 @@ export class MobileAttendanceEnrollmentController {
   @ApiOperation({ summary: 'Deactivate a face enrollment (DPDP crypto-shred)' })
   @Post('deactivate')
   @Roles('CLIENT', 'ADMIN')
-  deactivate(@CurrentUser() user: ReqUser, @Body() dto: DeactivateEnrollmentDto) {
+  deactivate(
+    @CurrentUser() user: ReqUser,
+    @Body() dto: DeactivateEnrollmentDto,
+  ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.enrollmentService.deactivateEnrollment(clientId, dto, user.userId);
+    return this.enrollmentService.deactivateEnrollment(
+      clientId,
+      dto,
+      user.userId,
+    );
   }
 
   @ApiOperation({ summary: 'Admin — list all active employee enrollments' })
@@ -258,7 +287,10 @@ export class MobileAttendanceEnrollmentController {
   listEmployeeEnrollments(@CurrentUser() user: ReqUser) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.enrollmentService.listEmployeeEnrollments(clientId, user.branchIds ?? []);
+    return this.enrollmentService.listEmployeeEnrollments(
+      clientId,
+      user.branchIds ?? [],
+    );
   }
 
   @ApiOperation({ summary: 'Admin — list all contractor enrollments' })
@@ -267,7 +299,10 @@ export class MobileAttendanceEnrollmentController {
   listContractorEnrollments(@CurrentUser() user: ReqUser) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.enrollmentService.listContractorEnrollments(clientId, user.branchIds ?? []);
+    return this.enrollmentService.listContractorEnrollments(
+      clientId,
+      user.branchIds ?? [],
+    );
   }
 
   @ApiOperation({ summary: 'Admin — cancel a kiosk enrollment ticket' })
@@ -279,7 +314,11 @@ export class MobileAttendanceEnrollmentController {
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.enrollmentService.cancelKioskTicket(clientId, ticketId, user.userId);
+    return this.enrollmentService.cancelKioskTicket(
+      clientId,
+      ticketId,
+      user.userId,
+    );
   }
 }
 
@@ -299,7 +338,11 @@ export class MobileAttendanceLivenessController {
   @Post('challenge')
   issueChallenge(@Req() req: Request, @Body() dto: IssueChallengeDto) {
     const deviceId = (req as any).deviceId as string;
-    return this.livenessService.issueChallenge(deviceId, dto.employeeId, dto.offline ?? false);
+    return this.livenessService.issueChallenge(
+      deviceId,
+      dto.employeeId,
+      dto.offline ?? false,
+    );
   }
 }
 
@@ -316,14 +359,13 @@ export class MobileAttendancePunchesController {
     private readonly deviceService: DeviceService,
   ) {}
 
-  @ApiOperation({ summary: 'Record an attendance punch (face match + liveness)' })
+  @ApiOperation({
+    summary: 'Record an attendance punch (face match + liveness)',
+  })
   @Public()
   @UseGuards(DeviceAuthGuard)
   @Post()
-  async recordPunch(
-    @Req() req: Request,
-    @Body() dto: RecordPunchDto,
-  ) {
+  async recordPunch(@Req() req: Request, @Body() dto: RecordPunchDto) {
     const deviceId = (req as any).deviceId as string;
     const device = await this.deviceService.findById(deviceId);
     if (!device) throw new UnauthorizedException('Device not found');
@@ -405,7 +447,12 @@ export class MobileAttendancePunchesController {
   @Roles('CLIENT', 'ADMIN')
   createContractorPunch(
     @CurrentUser() user: ReqUser,
-    @Body() body: { contractorEmployeeId: string; punchTime: string; direction: 'IN' | 'OUT' | 'AUTO' },
+    @Body()
+    body: {
+      contractorEmployeeId: string;
+      punchTime: string;
+      direction: 'IN' | 'OUT' | 'AUTO';
+    },
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
@@ -428,10 +475,7 @@ export class MobileAttendancePunchesController {
   @ApiOperation({ summary: 'Admin — delete a contractor punch' })
   @Delete('contractor/:id')
   @Roles('CLIENT', 'ADMIN')
-  deleteContractorPunch(
-    @Param('id') id: string,
-    @CurrentUser() user: ReqUser,
-  ) {
+  deleteContractorPunch(@Param('id') id: string, @CurrentUser() user: ReqUser) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     return this.punchService.deleteContractorPunch(clientId, id);

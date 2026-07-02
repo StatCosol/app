@@ -43,4 +43,3 @@ describe('RolesGuard', () => {
     expect(() => guard.canActivate(mockContext())).toThrow(ForbiddenException);
   });
 });
-

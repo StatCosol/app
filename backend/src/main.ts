@@ -735,7 +735,9 @@ async function bootstrap() {
 
   // ── Contractor payroll tables ──────────────────────────────────
   try {
-    await ds.query(`ALTER TABLE contractor_employees ADD COLUMN IF NOT EXISTS basic_da_pct SMALLINT NOT NULL DEFAULT 50`);
+    await ds.query(
+      `ALTER TABLE contractor_employees ADD COLUMN IF NOT EXISTS basic_da_pct SMALLINT NOT NULL DEFAULT 50`,
+    );
     await ds.query(`CREATE TABLE IF NOT EXISTS contractor_attendance_uploads (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       client_id UUID NOT NULL, branch_id UUID, contractor_user_id UUID NOT NULL,
@@ -745,7 +747,9 @@ async function bootstrap() {
         CHECK (status IN ('PROCESSING','DONE','FAILED')),
       rows_processed INTEGER NOT NULL DEFAULT 0, error_summary TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
-    await ds.query(`CREATE INDEX IF NOT EXISTS IDX_CAU_CLIENT_MONTH ON contractor_attendance_uploads (client_id, year, month)`);
+    await ds.query(
+      `CREATE INDEX IF NOT EXISTS IDX_CAU_CLIENT_MONTH ON contractor_attendance_uploads (client_id, year, month)`,
+    );
     await ds.query(`CREATE TABLE IF NOT EXISTS contractor_attendance_records (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       upload_id UUID REFERENCES contractor_attendance_uploads(id) ON DELETE CASCADE,
@@ -755,8 +759,12 @@ async function bootstrap() {
       source VARCHAR(10) NOT NULL DEFAULT 'UPLOAD' CHECK (source IN ('UPLOAD','KIOSK')),
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       UNIQUE (contractor_employee_id, attendance_date, source))`);
-    await ds.query(`CREATE INDEX IF NOT EXISTS IDX_CAR_EMP_DATE ON contractor_attendance_records (contractor_employee_id, attendance_date)`);
-    await ds.query(`CREATE INDEX IF NOT EXISTS IDX_CAR_CLIENT_MONTH ON contractor_attendance_records (client_id, date_trunc('month', attendance_date))`);
+    await ds.query(
+      `CREATE INDEX IF NOT EXISTS IDX_CAR_EMP_DATE ON contractor_attendance_records (contractor_employee_id, attendance_date)`,
+    );
+    await ds.query(
+      `CREATE INDEX IF NOT EXISTS IDX_CAR_CLIENT_MONTH ON contractor_attendance_records (client_id, date_trunc('month', attendance_date))`,
+    );
     logger.log('Schema patch: contractor attendance tables OK');
   } catch (e: any) {
     logger.warn(`Schema patch contractor attendance skipped: ${e?.message}`);
@@ -773,8 +781,12 @@ async function bootstrap() {
       submitted_by UUID, submitted_at TIMESTAMPTZ,
       reviewed_by UUID, reviewed_at TIMESTAMPTZ, review_note TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
-    await ds.query(`CREATE UNIQUE INDEX IF NOT EXISTS UQ_CPS_CLIENT_BRANCH_MONTH ON contractor_payroll_sheets (client_id, COALESCE(branch_id, '00000000-0000-0000-0000-000000000000'::uuid), month, year)`);
-    await ds.query(`CREATE INDEX IF NOT EXISTS IDX_CPS_CLIENT_MONTH ON contractor_payroll_sheets (client_id, year, month)`);
+    await ds.query(
+      `CREATE UNIQUE INDEX IF NOT EXISTS UQ_CPS_CLIENT_BRANCH_MONTH ON contractor_payroll_sheets (client_id, COALESCE(branch_id, '00000000-0000-0000-0000-000000000000'::uuid), month, year)`,
+    );
+    await ds.query(
+      `CREATE INDEX IF NOT EXISTS IDX_CPS_CLIENT_MONTH ON contractor_payroll_sheets (client_id, year, month)`,
+    );
     await ds.query(`CREATE TABLE IF NOT EXISTS contractor_payroll_sheet_rows (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       sheet_id UUID NOT NULL REFERENCES contractor_payroll_sheets(id) ON DELETE CASCADE,
@@ -791,7 +803,9 @@ async function bootstrap() {
       UNIQUE (sheet_id, contractor_employee_id))`);
     logger.log('Schema patch: contractor payroll sheet tables OK');
   } catch (e: any) {
-    logger.warn(`Schema patch contractor payroll sheets skipped: ${e?.message}`);
+    logger.warn(
+      `Schema patch contractor payroll sheets skipped: ${e?.message}`,
+    );
   }
 
   // Separate block — wage breakup tables independent of payroll sheet failures
@@ -802,7 +816,9 @@ async function bootstrap() {
       month SMALLINT NOT NULL CHECK (month BETWEEN 1 AND 12),
       year SMALLINT NOT NULL CHECK (year BETWEEN 2020 AND 2100),
       rows_processed INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
-    await ds.query(`CREATE UNIQUE INDEX IF NOT EXISTS UQ_CWBU_CLIENT_BRANCH_MONTH ON contractor_wage_breakup_uploads (client_id, COALESCE(branch_id, '00000000-0000-0000-0000-000000000000'::uuid), month, year)`);
+    await ds.query(
+      `CREATE UNIQUE INDEX IF NOT EXISTS UQ_CWBU_CLIENT_BRANCH_MONTH ON contractor_wage_breakup_uploads (client_id, COALESCE(branch_id, '00000000-0000-0000-0000-000000000000'::uuid), month, year)`,
+    );
     await ds.query(`CREATE TABLE IF NOT EXISTS contractor_wage_breakup_rows (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       upload_id UUID NOT NULL REFERENCES contractor_wage_breakup_uploads(id) ON DELETE CASCADE,

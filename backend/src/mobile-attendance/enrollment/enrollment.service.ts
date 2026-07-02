@@ -27,11 +27,17 @@ import {
   SubmitKioskTicketDto,
 } from './enrollment.dto';
 
-const KIOSK_REQUIRED_FRAMES = Number(process.env.FACE_KIOSK_REQUIRED_FRAMES ?? 3);
+const KIOSK_REQUIRED_FRAMES = Number(
+  process.env.FACE_KIOSK_REQUIRED_FRAMES ?? 3,
+);
 const ESS_REQUIRED_FRAMES = Number(process.env.FACE_ESS_REQUIRED_FRAMES ?? 7);
-const DUPLICATE_THRESHOLD = Number(process.env.FACE_DUPLICATE_THRESHOLD ?? 0.88);
+const DUPLICATE_THRESHOLD = Number(
+  process.env.FACE_DUPLICATE_THRESHOLD ?? 0.88,
+);
 const MIN_QUALITY = Number(process.env.FACE_MIN_QUALITY_SCORE ?? 0.75);
-const KIOSK_TICKET_TTL_MS = Number(process.env.FACE_KIOSK_TICKET_TTL_MS ?? 30 * 60 * 1000);
+const KIOSK_TICKET_TTL_MS = Number(
+  process.env.FACE_KIOSK_TICKET_TTL_MS ?? 30 * 60 * 1000,
+);
 
 @Injectable()
 export class EnrollmentService {
@@ -66,12 +72,20 @@ export class EnrollmentService {
       );
     }
 
-    const averaged = averageEmbeddings(dto.embeddingFrames.map(decodeEmbedding));
-    await this.assertNotDuplicate(clientId, averaged, { excludeEmployeeId: employeeId });
+    const averaged = averageEmbeddings(
+      dto.embeddingFrames.map(decodeEmbedding),
+    );
+    await this.assertNotDuplicate(clientId, averaged, {
+      excludeEmployeeId: employeeId,
+    });
 
     let photoUrl: string | null = null;
     if (dto.photoB64) {
-      photoUrl = await this.photoStorage.uploadPhoto(dto.photoB64, clientId, employeeId);
+      photoUrl = await this.photoStorage.uploadPhoto(
+        dto.photoB64,
+        clientId,
+        employeeId,
+      );
     }
 
     if (this.faceClient.enabled && dto.photoB64) {
@@ -84,7 +98,9 @@ export class EnrollmentService {
     }
 
     return this.dataSource.transaction(async (em) => {
-      const existing = await em.findOne(FaceEnrollmentEntity, { where: { employeeId } });
+      const existing = await em.findOne(FaceEnrollmentEntity, {
+        where: { employeeId },
+      });
       const action = existing ? 'RE_ENROLL' : 'ENROLL';
 
       const record = em.create(FaceEnrollmentEntity, {
@@ -135,7 +151,9 @@ export class EnrollmentService {
       [dto.deviceId, clientId],
     );
     if (!device) {
-      throw new BadRequestException('Selected kiosk device is not active for this client');
+      throw new BadRequestException(
+        'Selected kiosk device is not active for this client',
+      );
     }
 
     // Cancel any existing PENDING ticket for the same device
@@ -168,10 +186,14 @@ export class EnrollmentService {
     dto: SubmitKioskTicketDto,
     actorUserId: string,
   ): Promise<KioskEnrollTicketEntity> {
-    const ticket = await this.ticketRepo.findOne({ where: { id: dto.ticketId } });
+    const ticket = await this.ticketRepo.findOne({
+      where: { id: dto.ticketId },
+    });
     if (!ticket) throw new NotFoundException('Ticket not found');
     if (ticket.status !== 'PENDING') {
-      throw new BadRequestException(`Ticket is not PENDING (current: ${ticket.status})`);
+      throw new BadRequestException(
+        `Ticket is not PENDING (current: ${ticket.status})`,
+      );
     }
     if (ticket.expiresAt < new Date()) {
       throw new BadRequestException('Ticket has expired');
@@ -188,17 +210,31 @@ export class EnrollmentService {
     }
 
     // Consume liveness nonce atomically before any write
-    await this.livenessService.consumeNonce(deviceId, dto.livenessNonce, dto.livenessChallengeType);
+    await this.livenessService.consumeNonce(
+      deviceId,
+      dto.livenessNonce,
+      dto.livenessChallengeType,
+    );
 
-    const averaged = averageEmbeddings(dto.embeddingFrames.map(decodeEmbedding));
+    const averaged = averageEmbeddings(
+      dto.embeddingFrames.map(decodeEmbedding),
+    );
     const embBuf = embeddingToBuffer(averaged);
-    const { clientId, branchId, subjectType, employeeId, contractorEmployeeId } = ticket;
+    const {
+      clientId,
+      branchId,
+      subjectType,
+      employeeId,
+      contractorEmployeeId,
+    } = ticket;
 
     // Quality gate via face-svc
     if (this.faceClient.enabled && dto.photoB64) {
       const res = await this.faceClient.extractEmbedding(dto.photoB64);
       if (res !== null && res.qualityScore < MIN_QUALITY) {
-        throw new BadRequestException(`Photo quality too low (${res.qualityScore.toFixed(2)})`);
+        throw new BadRequestException(
+          `Photo quality too low (${res.qualityScore.toFixed(2)})`,
+        );
       }
     }
 
@@ -211,13 +247,19 @@ export class EnrollmentService {
     let photoUrl: string | null = null;
     if (dto.photoB64 && (employeeId || contractorEmployeeId)) {
       const subId = (employeeId ?? contractorEmployeeId)!;
-      photoUrl = await this.photoStorage.uploadPhoto(dto.photoB64, clientId, subId);
+      photoUrl = await this.photoStorage.uploadPhoto(
+        dto.photoB64,
+        clientId,
+        subId,
+      );
     }
 
     return this.dataSource.transaction(async (em) => {
       // Upsert enrollment
       if (subjectType === 'EMPLOYEE' && employeeId) {
-        const existing = await em.findOne(FaceEnrollmentEntity, { where: { employeeId } });
+        const existing = await em.findOne(FaceEnrollmentEntity, {
+          where: { employeeId },
+        });
         const action = existing ? 'RE_ENROLL' : 'ENROLL';
         await em.save(FaceEnrollmentEntity, {
           employeeId,
@@ -235,7 +277,11 @@ export class EnrollmentService {
           deactivationReason: null,
         });
         await em.save(FaceEnrollmentHistoryEntity, {
-          employeeId, clientId, action, embeddingModel: dto.embeddingModel ?? null, actorUserId,
+          employeeId,
+          clientId,
+          action,
+          embeddingModel: dto.embeddingModel ?? null,
+          actorUserId,
         });
       } else if (subjectType === 'CONTRACTOR' && contractorEmployeeId) {
         const existing = await em.findOne(ContractorFaceEnrollmentEntity, {
@@ -258,7 +304,11 @@ export class EnrollmentService {
           deactivationReason: null,
         });
         await em.save(FaceEnrollmentHistoryEntity, {
-          contractorEmployeeId, clientId, action, embeddingModel: dto.embeddingModel ?? null, actorUserId,
+          contractorEmployeeId,
+          clientId,
+          action,
+          embeddingModel: dto.embeddingModel ?? null,
+          actorUserId,
         });
       }
 
@@ -275,15 +325,22 @@ export class EnrollmentService {
           embeddingModel: dto.embeddingModel ?? null,
           consentGiven: true,
         })
-        .where('id = :id AND status = :status', { id: dto.ticketId, status: 'PENDING' })
+        .where('id = :id AND status = :status', {
+          id: dto.ticketId,
+          status: 'PENDING',
+        })
         .returning('id')
         .execute();
 
       if (!updateResult.raw || updateResult.raw.length === 0) {
-        throw new ConflictException('Ticket was already processed by another request');
+        throw new ConflictException(
+          'Ticket was already processed by another request',
+        );
       }
 
-      const updated = await em.findOne(KioskEnrollTicketEntity, { where: { id: dto.ticketId } });
+      const updated = await em.findOne(KioskEnrollTicketEntity, {
+        where: { id: dto.ticketId },
+      });
       return updated!;
     });
   }
@@ -317,7 +374,8 @@ export class EnrollmentService {
         const rec = await em.findOne(ContractorFaceEnrollmentEntity, {
           where: { contractorEmployeeId: dto.contractorEmployeeId, clientId },
         });
-        if (!rec) throw new NotFoundException('Contractor enrollment not found');
+        if (!rec)
+          throw new NotFoundException('Contractor enrollment not found');
         rec.isActive = false;
         rec.deactivatedAt = new Date();
         rec.deactivationReason = dto.reason ?? null;
@@ -331,7 +389,9 @@ export class EnrollmentService {
           actorUserId,
         });
       } else {
-        throw new BadRequestException('Provide employeeId or contractorEmployeeId');
+        throw new BadRequestException(
+          'Provide employeeId or contractorEmployeeId',
+        );
       }
     });
   }
@@ -353,7 +413,8 @@ export class EnrollmentService {
     });
 
     for (const e of empEnrollments) {
-      if (opts.excludeEmployeeId && e.employeeId === opts.excludeEmployeeId) continue;
+      if (opts.excludeEmployeeId && e.employeeId === opts.excludeEmployeeId)
+        continue;
       if (!e.embedding || e.embedding.length === 0) continue;
       const existing = bufferToEmbedding(e.embedding);
       const sim = cosineSim(probe, existing);
@@ -365,7 +426,11 @@ export class EnrollmentService {
     }
 
     for (const c of conEnrollments) {
-      if (opts.excludeContractorId && c.contractorEmployeeId === opts.excludeContractorId) continue;
+      if (
+        opts.excludeContractorId &&
+        c.contractorEmployeeId === opts.excludeContractorId
+      )
+        continue;
       if (!c.embedding || c.embedding.length === 0) continue;
       const existing = bufferToEmbedding(c.embedding);
       const sim = cosineSim(probe, existing);
@@ -377,7 +442,10 @@ export class EnrollmentService {
     }
   }
 
-  async getEnrollment(clientId: string, employeeId: string): Promise<FaceEnrollmentEntity | null> {
+  async getEnrollment(
+    clientId: string,
+    employeeId: string,
+  ): Promise<FaceEnrollmentEntity | null> {
     return this.enrollRepo.findOne({ where: { employeeId, clientId } });
   }
 
@@ -385,10 +453,15 @@ export class EnrollmentService {
     clientId: string,
     contractorEmployeeId: string,
   ): Promise<ContractorFaceEnrollmentEntity | null> {
-    return this.contractorEnrollRepo.findOne({ where: { contractorEmployeeId, clientId } });
+    return this.contractorEnrollRepo.findOne({
+      where: { contractorEmployeeId, clientId },
+    });
   }
 
-  async getTicket(ticketId: string, clientId: string): Promise<KioskEnrollTicketEntity | null> {
+  async getTicket(
+    ticketId: string,
+    clientId: string,
+  ): Promise<KioskEnrollTicketEntity | null> {
     return this.ticketRepo.findOne({ where: { id: ticketId, clientId } });
   }
 
@@ -401,7 +474,9 @@ export class EnrollmentService {
     return this.ticketRepo.find({ where, order: { createdAt: 'DESC' } });
   }
 
-  async getPendingTicketForDevice(deviceId: string): Promise<KioskEnrollTicketEntity | null> {
+  async getPendingTicketForDevice(
+    deviceId: string,
+  ): Promise<KioskEnrollTicketEntity | null> {
     await this.ticketRepo
       .createQueryBuilder()
       .update(KioskEnrollTicketEntity)
@@ -422,7 +497,10 @@ export class EnrollmentService {
 
   // ─── Admin list endpoints ──────────────────────────────────────────────────
 
-  async listEmployeeEnrollments(clientId: string, branchIds: string[] = []): Promise<any[]> {
+  async listEmployeeEnrollments(
+    clientId: string,
+    branchIds: string[] = [],
+  ): Promise<any[]> {
     const params: unknown[] = [clientId];
     let employeeBranchFilter = '';
     let enrollmentBranchFilter = '';
@@ -469,7 +547,10 @@ export class EnrollmentService {
     );
   }
 
-  async listContractorEnrollments(clientId: string, branchIds: string[] = []): Promise<any[]> {
+  async listContractorEnrollments(
+    clientId: string,
+    branchIds: string[] = [],
+  ): Promise<any[]> {
     const params: unknown[] = [clientId];
     let contractorBranchFilter = '';
     let enrollmentBranchFilter = '';

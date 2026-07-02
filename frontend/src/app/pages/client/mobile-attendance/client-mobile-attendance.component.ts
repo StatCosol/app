@@ -70,7 +70,7 @@ interface BranchOption { id: string; name: string }
       <div class="tab-bar">
         <button *ngIf="hasContractorFaceAttendanceModule" class="tab-btn" [class.active]="tab === 'devices'" (click)="switchTab('devices')">Devices</button>
         <button *ngIf="hasEmployeeMobileAttendanceModule" class="tab-btn" [class.active]="tab === 'status'" (click)="switchTab('status')">Enrollment Status</button>
-        <button class="tab-btn" [class.active]="tab === 'reenroll'" (click)="switchTab('reenroll')">
+        <button *ngIf="hasReenrollWorkflow" class="tab-btn" [class.active]="tab === 'reenroll'" (click)="switchTab('reenroll')">
           Re-enrollment Requests
           <span *ngIf="totalPendingReenrollCount > 0"
                 class="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
@@ -634,9 +634,12 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   reviewingId: string | null = null;
 
   get totalPendingReenrollCount(): number {
+    if (!this.hasReenrollWorkflow) return 0;
     return (this.hasEmployeeMobileAttendanceModule ? this.pendingReenrollCount : 0)
       + (this.hasContractorFaceAttendanceModule ? this.pendingContractorReenrollCount : 0);
   }
+
+  readonly hasReenrollWorkflow = false;
 
   get hasEmployeeMobileAttendanceModule(): boolean {
     return this.auth.hasModule('MOBILE_ATTENDANCE');
@@ -690,11 +693,11 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     if (this.hasEmployeeMobileAttendanceModule) {
       if (this.hasContractorFaceAttendanceModule) this.loadEmployees();
       if (this.tab === 'status') this.loadEnrollments();
-      this.refreshPendingReenrollCount();
+      if (this.hasReenrollWorkflow) this.refreshPendingReenrollCount();
     }
     if (this.hasContractorFaceAttendanceModule) {
       this.reenrollScope = this.hasEmployeeMobileAttendanceModule ? this.reenrollScope : 'contractor';
-      this.refreshPendingContractorReenrollCount();
+      if (this.hasReenrollWorkflow) this.refreshPendingContractorReenrollCount();
     }
     this.startLiveRefresh();
   }
@@ -707,6 +710,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   switchTab(t: 'devices' | 'help' | 'status' | 'reenroll'): void {
     if (t === 'devices' && !this.hasContractorFaceAttendanceModule) return;
     if (t === 'status' && !this.hasEmployeeMobileAttendanceModule) return;
+    if (t === 'reenroll' && !this.hasReenrollWorkflow) return;
     this.tab = t;
     if (t === 'devices' && this.devices.length === 0) {
       this.loadDevices();
@@ -1112,6 +1116,10 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   }
 
   loadReenrollRequests(silent = false): void {
+    if (!this.hasReenrollWorkflow) {
+      this.reenrollRows = [];
+      return;
+    }
     if (this.loadingReenroll) return;
     if (this.reenrollScope === 'employee' && !this.hasEmployeeMobileAttendanceModule) {
       this.reenrollScope = this.hasContractorFaceAttendanceModule ? 'contractor' : 'employee';
@@ -1223,8 +1231,8 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
         if (!this.shouldLiveRefresh()) return;
-        if (this.hasEmployeeMobileAttendanceModule) this.refreshPendingReenrollCount();
-        if (this.hasContractorFaceAttendanceModule) this.refreshPendingContractorReenrollCount();
+        if (this.hasReenrollWorkflow && this.hasEmployeeMobileAttendanceModule) this.refreshPendingReenrollCount();
+        if (this.hasReenrollWorkflow && this.hasContractorFaceAttendanceModule) this.refreshPendingContractorReenrollCount();
         if (this.tab === 'devices' && this.hasContractorFaceAttendanceModule) this.loadDevices(true);
         if (this.tab === 'status' && this.hasEmployeeMobileAttendanceModule) this.loadEnrollments(true);
         if (this.tab === 'reenroll') this.loadReenrollRequests(true);

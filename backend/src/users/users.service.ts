@@ -1821,7 +1821,8 @@ export class UsersService implements OnModuleInit {
     }
 
     const servicePackage =
-      user.clientId && ['CLIENT', 'CONTRACTOR', 'EMPLOYEE'].includes(roleCode ?? '')
+      user.clientId &&
+      ['CLIENT', 'CONTRACTOR', 'EMPLOYEE'].includes(roleCode ?? '')
         ? await this.getClientServicePackage(user.clientId)
         : null;
 
