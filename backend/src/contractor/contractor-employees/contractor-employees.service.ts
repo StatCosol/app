@@ -623,20 +623,27 @@ export class ContractorEmployeesService {
           WHERE contractor_employee_id = $1::uuid`,
         [req.contractor_employee_id],
       );
-      await mgr.query(
-        `UPDATE contractor_face_reenrollment_requests
-            SET status = 'CANCELLED',
-                reviewed_by = $2,
-                reviewed_at = NOW(),
-                review_notes = COALESCE(review_notes, $3)
-          WHERE contractor_employee_id = $1::uuid
-            AND status = 'PENDING'`,
-        [
-          req.contractor_employee_id,
-          reviewerUserId,
-          'Cancelled after worker deletion',
-        ],
+      const [reenrollTable] = await mgr.query<
+        Array<{ exists: boolean }>
+      >(
+        `SELECT to_regclass('public.contractor_face_reenrollment_requests') IS NOT NULL AS "exists"`,
       );
+      if (reenrollTable?.exists) {
+        await mgr.query(
+          `UPDATE contractor_face_reenrollment_requests
+              SET status = 'CANCELLED',
+                  reviewed_by = $2,
+                  reviewed_at = NOW(),
+                  review_notes = COALESCE(review_notes, $3)
+            WHERE contractor_employee_id = $1::uuid
+              AND status = 'PENDING'`,
+          [
+            req.contractor_employee_id,
+            reviewerUserId,
+            'Cancelled after worker deletion',
+          ],
+        );
+      }
       await mgr.query(
         `UPDATE kiosk_enroll_tickets
             SET status = 'CANCELLED',
