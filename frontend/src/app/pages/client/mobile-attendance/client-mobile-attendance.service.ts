@@ -222,8 +222,7 @@ export class ClientMobileAttendanceService {
     );
   }
 
-  // Re-enrollment approval queue
-  // TODO: backend endpoint not yet implemented — wire up GET /mobile-attendance/enrollment/reenroll-requests?status=... when available
+  // Re-enrollment approval queue is currently hidden in the UI until backend endpoints exist.
   listReenrollRequests(_status: ReenrollRequestStatus = 'PENDING'): Observable<ReenrollRequest[]> {
     return of([]);
   }
@@ -232,7 +231,7 @@ export class ClientMobileAttendanceService {
     _id: string,
     _body: ReviewReenrollBody,
   ): Observable<{ ok: true; status: 'APPROVED' | 'REJECTED' }> {
-    return throwError(() => new Error('Not implemented'));
+    return throwError(() => new Error('Re-enrollment review is not available in this release'));
   }
 
   // ── Contractor face enrollment (Phase 4a) ──
@@ -268,8 +267,7 @@ export class ClientMobileAttendanceService {
     );
   }
 
-  // ── Contractor re-enrollment approval queue (Phase 4c) ──
-  // TODO: backend endpoint not yet implemented — wire up GET /mobile-attendance/enrollment/contractor-reenroll-requests?status=... when available
+  // ── Contractor re-enrollment approval queue (hidden until backend endpoints exist) ──
   listContractorReenrollRequests(
     _status: ReenrollRequestStatus = 'PENDING',
   ): Observable<ContractorReenrollRequest[]> {
@@ -280,7 +278,7 @@ export class ClientMobileAttendanceService {
     _id: string,
     _body: ReviewReenrollBody,
   ): Observable<{ ok: true; status: 'APPROVED' | 'REJECTED' }> {
-    return throwError(() => new Error('Not implemented'));
+    return throwError(() => new Error('Re-enrollment review is not available in this release'));
   }
 
   // ── Branch-portal contractor list — stubbed (no equivalent in new backend) ──
@@ -437,14 +435,6 @@ export class ClientMobileAttendanceService {
   listKioskEnrollTickets(status?: KioskEnrollTicketStatus): Observable<KioskEnrollTicket[]> {
     const qs = status ? `?status=${encodeURIComponent(status)}` : '';
     return this.http.get<KioskEnrollTicket[]>(`${this.base}/enrollment/kiosk/tickets${qs}`);
-  }
-
-  reviewKioskEnrollTicket(
-    _id: string,
-    _body: { decision: 'APPROVED' | 'REJECTED'; reason?: string },
-  ): Observable<{ ok: true; status: 'COMPLETED' | 'REJECTED' }> {
-    // Admin review removed — tickets auto-approve in new design
-    return throwError(() => new Error('Not implemented'));
   }
 }
 

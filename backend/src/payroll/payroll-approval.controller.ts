@@ -14,7 +14,10 @@ import { PayrollApprovalService } from './payroll-approval.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
-import { ApprovePayrollRunDto, RejectPayrollRunDto } from './dto/payroll-approval.dto';
+import {
+  ApprovePayrollRunDto,
+  RejectPayrollRunDto,
+} from './dto/payroll-approval.dto';
 
 @ApiTags('Payroll')
 @ApiBearerAuth('JWT')
@@ -42,7 +45,12 @@ export class PayrollApprovalController {
     @Body() body: ApprovePayrollRunDto,
     @CurrentUser() user: ReqUser,
   ) {
-    return this.approvalService.approveRun(runId, user.userId, body.comments, user);
+    return this.approvalService.approveRun(
+      runId,
+      user.userId,
+      body.comments,
+      user,
+    );
   }
 
   @ApiOperation({ summary: 'Reject' })
@@ -53,7 +61,12 @@ export class PayrollApprovalController {
     @Body() body: RejectPayrollRunDto,
     @CurrentUser() user: ReqUser,
   ) {
-    return this.approvalService.rejectRun(runId, user.userId, body.reason, user);
+    return this.approvalService.rejectRun(
+      runId,
+      user.userId,
+      body.reason,
+      user,
+    );
   }
 
   @ApiOperation({ summary: 'Revert' })

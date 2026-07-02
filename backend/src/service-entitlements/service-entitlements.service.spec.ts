@@ -15,7 +15,9 @@ describe('ServiceEntitlementsService', () => {
       query: jest.fn(),
       transaction: jest.fn(),
     };
-    service = new ServiceEntitlementsService(dataSource as unknown as DataSource);
+    service = new ServiceEntitlementsService(
+      dataSource as unknown as DataSource,
+    );
   });
 
   describe('normalizeModules', () => {
@@ -103,11 +105,10 @@ describe('ServiceEntitlementsService', () => {
       'requires a note for %s reviews',
       async (action) => {
         await expect(
-          service.reviewRequest(
-            requestId,
-            { action, note: '   ' },
-            { id: ccoUserId, userId: ccoUserId } as any,
-          ),
+          service.reviewRequest(requestId, { action, note: '   ' }, {
+            id: ccoUserId,
+            userId: ccoUserId,
+          } as any),
         ).rejects.toBeInstanceOf(BadRequestException);
 
         expect(dataSource.transaction).not.toHaveBeenCalled();
@@ -155,11 +156,10 @@ describe('ServiceEntitlementsService', () => {
         fn(manager as any),
       );
 
-      await service.reviewRequest(
-        requestId,
-        { action: 'APPROVED' },
-        { id: ccoUserId, userId: ccoUserId } as any,
-      );
+      await service.reviewRequest(requestId, { action: 'APPROVED' }, {
+        id: ccoUserId,
+        userId: ccoUserId,
+      } as any);
 
       expect(manager.query).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO client_module_entitlements'),
@@ -192,11 +192,10 @@ describe('ServiceEntitlementsService', () => {
       );
 
       await expect(
-        service.reviewRequest(
-          requestId,
-          { action: 'APPROVED' },
-          { id: ccoUserId, userId: ccoUserId } as any,
-        ),
+        service.reviewRequest(requestId, { action: 'APPROVED' }, {
+          id: ccoUserId,
+          userId: ccoUserId,
+        } as any),
       ).rejects.toBeInstanceOf(BadRequestException);
 
       expect(dataSource.transaction).not.toHaveBeenCalled();
@@ -233,7 +232,10 @@ describe('ServiceEntitlementsService', () => {
       await expect(
         service.reviewRequest(
           requestId,
-          { action: 'CHANGES_REQUESTED', note: 'Select supported services only' },
+          {
+            action: 'CHANGES_REQUESTED',
+            note: 'Select supported services only',
+          },
           { id: ccoUserId, userId: ccoUserId } as any,
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -260,11 +262,10 @@ describe('ServiceEntitlementsService', () => {
       ]);
 
       await expect(
-        service.reviewRequest(
-          requestId,
-          { action: 'APPROVED' },
-          { id: ccoUserId, userId: ccoUserId } as any,
-        ),
+        service.reviewRequest(requestId, { action: 'APPROVED' }, {
+          id: ccoUserId,
+          userId: ccoUserId,
+        } as any),
       ).rejects.toBeInstanceOf(BadRequestException);
 
       expect(dataSource.transaction).not.toHaveBeenCalled();
@@ -272,11 +273,10 @@ describe('ServiceEntitlementsService', () => {
 
     it('rejects malformed reviewer ids before reading or writing requests', async () => {
       await expect(
-        service.reviewRequest(
-          requestId,
-          { action: 'APPROVED' },
-          { id: 'not-a-uuid', userId: 'not-a-uuid' } as any,
-        ),
+        service.reviewRequest(requestId, { action: 'APPROVED' }, {
+          id: 'not-a-uuid',
+          userId: 'not-a-uuid',
+        } as any),
       ).rejects.toBeInstanceOf(BadRequestException);
 
       expect(dataSource.query).not.toHaveBeenCalled();
@@ -285,11 +285,10 @@ describe('ServiceEntitlementsService', () => {
 
     it('rejects malformed request ids before querying reviews', async () => {
       await expect(
-        service.reviewRequest(
-          'not-a-uuid',
-          { action: 'APPROVED' },
-          { id: ccoUserId, userId: ccoUserId } as any,
-        ),
+        service.reviewRequest('not-a-uuid', { action: 'APPROVED' }, {
+          id: ccoUserId,
+          userId: ccoUserId,
+        } as any),
       ).rejects.toBeInstanceOf(BadRequestException);
 
       expect(dataSource.query).not.toHaveBeenCalled();
@@ -464,9 +463,9 @@ describe('ServiceEntitlementsService', () => {
 
   describe('getCurrentForClient', () => {
     it('rejects malformed client ids before querying current entitlements', async () => {
-      await expect(service.getCurrentForClient('not-a-uuid')).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
+      await expect(
+        service.getCurrentForClient('not-a-uuid'),
+      ).rejects.toBeInstanceOf(BadRequestException);
 
       expect(dataSource.query).not.toHaveBeenCalled();
     });
@@ -526,9 +525,9 @@ describe('ServiceEntitlementsService', () => {
 
   describe('getClientStatus', () => {
     it('rejects malformed client ids before querying pending requests', async () => {
-      await expect(service.getClientStatus('not-a-uuid')).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
+      await expect(
+        service.getClientStatus('not-a-uuid'),
+      ).rejects.toBeInstanceOf(BadRequestException);
 
       expect(dataSource.query).not.toHaveBeenCalled();
     });

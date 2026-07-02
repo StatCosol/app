@@ -3,7 +3,9 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 
 export class RegisterDeviceDto {
-  @ApiProperty({ description: '64-character hex install token provisioned by admin' })
+  @ApiProperty({
+    description: '64-character hex install token provisioned by admin',
+  })
   @Transform(({ value }) =>
     typeof value === 'string'
       ? value.replace(/\s+/g, '').trim().toLowerCase()

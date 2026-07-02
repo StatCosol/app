@@ -68,7 +68,7 @@ export class BranchesCommonController {
 
     // For other roles, return all branches using raw SQL
     const sql = `
-      SELECT 
+      SELECT
         b.id,
         b.clientid,
         b.branchname,

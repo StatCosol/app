@@ -36,16 +36,35 @@ export class ContractorBiometricPunchEntity {
   @Column({ name: 'liveness_score', type: 'numeric', nullable: true })
   livenessScore: number | null;
 
-  @Column({ name: 'liveness_challenge_type', type: 'varchar', length: 30, nullable: true })
+  @Column({
+    name: 'liveness_challenge_type',
+    type: 'varchar',
+    length: 30,
+    nullable: true,
+  })
   livenessChallengeType: string | null;
 
-  @Column({ name: 'liveness_challenge_passed_at', type: 'timestamptz', nullable: true })
+  @Column({
+    name: 'liveness_challenge_passed_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
   livenessChallengePassedAt: Date | null;
 
-  @Column({ name: 'liveness_nonce', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'liveness_nonce',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   livenessNonce: string | null;
 
-  @Column({ name: 'embedding_model', type: 'varchar', length: 40, nullable: true })
+  @Column({
+    name: 'embedding_model',
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+  })
   embeddingModel: string | null;
 
   @Column({ name: 'photo_url', type: 'text', nullable: true })

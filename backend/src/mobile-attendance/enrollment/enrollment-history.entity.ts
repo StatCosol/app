@@ -29,7 +29,12 @@ export class FaceEnrollmentHistoryEntity {
   @Column({ name: 'reason', type: 'text', nullable: true })
   reason: string | null;
 
-  @Column({ name: 'embedding_model', type: 'varchar', length: 40, nullable: true })
+  @Column({
+    name: 'embedding_model',
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+  })
   embeddingModel: string | null;
 
   @Column({ name: 'actor_user_id', type: 'uuid', nullable: true })

@@ -3,6 +3,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { AttendanceService } from './attendance.service';
 import { AttendanceEntity } from './entities/attendance.entity';
+import { AttendanceAuditLogEntity } from './entities/attendance-audit-log.entity';
+import { AttendanceMismatchEntity } from './entities/attendance-mismatch.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { BiometricService } from '../biometric/biometric.service';
 
@@ -33,6 +35,14 @@ describe('AttendanceService', () => {
         AttendanceService,
         { provide: getRepositoryToken(AttendanceEntity), useValue: mockRepo() },
         { provide: getRepositoryToken(EmployeeEntity), useValue: mockRepo() },
+        {
+          provide: getRepositoryToken(AttendanceMismatchEntity),
+          useValue: mockRepo(),
+        },
+        {
+          provide: getRepositoryToken(AttendanceAuditLogEntity),
+          useValue: mockRepo(),
+        },
         { provide: DataSource, useValue: {} },
         { provide: BiometricService, useValue: biometricService },
       ],

@@ -62,7 +62,9 @@ export class ServiceEntitlementsController {
 
   @Post('requests')
   @Roles('ADMIN')
-  @ApiOperation({ summary: 'Admin creates a service package change request for CCO approval' })
+  @ApiOperation({
+    summary: 'Admin creates a service package change request for CCO approval',
+  })
   createRequest(
     @Body() dto: CreateModuleChangeRequestDto,
     @CurrentUser() user: ReqUser,
@@ -72,7 +74,9 @@ export class ServiceEntitlementsController {
 
   @Patch('requests/:id/review')
   @Roles('CCO')
-  @ApiOperation({ summary: 'CCO approves or rejects a service package change request' })
+  @ApiOperation({
+    summary: 'CCO approves or rejects a service package change request',
+  })
   reviewRequest(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReviewModuleChangeRequestDto,

@@ -661,7 +661,10 @@ export class AttendanceService {
           action: 'REJECT',
           actorUserId: userId,
           beforeSnapshot: before,
-          afterSnapshot: { approvalStatus: 'REJECTED', rejectionReason: reason ?? null },
+          afterSnapshot: {
+            approvalStatus: 'REJECTED',
+            rejectionReason: reason ?? null,
+          },
           note: reason ?? null,
         }),
       );
@@ -731,7 +734,9 @@ export class AttendanceService {
       }
     } catch {
       // Notifications table may not exist yet — log but don't fail the rejection
-      this.logger.warn('Could not insert rejection notifications (table may not exist yet)');
+      this.logger.warn(
+        'Could not insert rejection notifications (table may not exist yet)',
+      );
     }
   }
 
@@ -772,7 +777,11 @@ export class AttendanceService {
     let upserted = 0;
     for (const row of rows) {
       const status = String(row.status || '').toUpperCase();
-      const issues: Array<{ type: string; detail: string; severity: 'HIGH' | 'MEDIUM' }> = [];
+      const issues: Array<{
+        type: string;
+        detail: string;
+        severity: 'HIGH' | 'MEDIUM';
+      }> = [];
 
       if (
         (status === 'PRESENT' || status === 'HALF_DAY') &&
@@ -802,8 +811,16 @@ export class AttendanceService {
            ON CONFLICT (client_id, employee_id, date, issue_type)
            DO UPDATE SET detail = EXCLUDED.detail, severity = EXCLUDED.severity, updated_at = NOW()
            WHERE attendance_mismatches.resolved = false`,
-          [clientId, row.branchId, row.employeeId, row.employeeCode, row.date,
-           issue.type, issue.detail, issue.severity],
+          [
+            clientId,
+            row.branchId,
+            row.employeeId,
+            row.employeeCode,
+            row.date,
+            issue.type,
+            issue.detail,
+            issue.severity,
+          ],
         );
         upserted++;
       }
@@ -879,15 +896,17 @@ export class AttendanceService {
       const standardHours = Number(process.env.STANDARD_WORK_HOURS ?? 9);
 
       // Find PRESENT records where workedHours < standard and no short_work_reason, older than grace period
-      const rows = await this.ds.query<Array<{
-        id: string;
-        client_id: string;
-        employee_id: string;
-        employee_code: string;
-        branch_id: string | null;
-        date: string;
-        worked_hours: string;
-      }>>(
+      const rows = await this.ds.query<
+        Array<{
+          id: string;
+          client_id: string;
+          employee_id: string;
+          employee_code: string;
+          branch_id: string | null;
+          date: string;
+          worked_hours: string;
+        }>
+      >(
         `SELECT id, client_id, employee_id, employee_code, branch_id, date, worked_hours
          FROM attendance_records
          WHERE status = 'PRESENT'
@@ -908,8 +927,14 @@ export class AttendanceService {
            ON CONFLICT (client_id, employee_id, date, issue_type)
            DO UPDATE SET detail = EXCLUDED.detail, updated_at = NOW()
            WHERE attendance_mismatches.resolved = false`,
-          [row.client_id, row.branch_id, row.employee_id, row.employee_code, row.date,
-           `Worked ${Number(row.worked_hours).toFixed(1)}h < ${standardHours}h standard with no reason provided`],
+          [
+            row.client_id,
+            row.branch_id,
+            row.employee_id,
+            row.employee_code,
+            row.date,
+            `Worked ${Number(row.worked_hours).toFixed(1)}h < ${standardHours}h standard with no reason provided`,
+          ],
         );
       }
 
@@ -926,8 +951,15 @@ export class AttendanceService {
     year: number;
     month: number;
     allowedBranchIds?: string[] | null;
-  }): Promise<{ canProceed: boolean; unresolvedHigh: number; issues: AttendanceMismatchEntity[] }> {
-    const issues = await this.listPersistedMismatches({ ...params, resolved: false });
+  }): Promise<{
+    canProceed: boolean;
+    unresolvedHigh: number;
+    issues: AttendanceMismatchEntity[];
+  }> {
+    const issues = await this.listPersistedMismatches({
+      ...params,
+      resolved: false,
+    });
     const highSeverity = issues.filter((i) => i.severity === 'HIGH');
     return {
       canProceed: highSeverity.length === 0,

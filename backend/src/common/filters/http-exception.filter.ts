@@ -44,8 +44,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       }
     } else if (exception instanceof QueryFailedError) {
       const pg = exception.driverError as Record<string, unknown>;
-      const pgCode =
-        typeof pg?.code === 'string' ? pg.code : '';
+      const pgCode = typeof pg?.code === 'string' ? pg.code : '';
 
       // Only constraint violations map to 409; all other DB errors are 500.
       if (pgCode === '23505') {
@@ -55,7 +54,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         const fieldMatch = detail.match(/Key \(([^)]+)\)=/);
         const fieldName = fieldMatch ? fieldMatch[1] : null;
         if (fieldName === 'email') {
-          message = 'Email already in use. Please use a different email address.';
+          message =
+            'Email already in use. Please use a different email address.';
         } else if (fieldName === 'client_code' || fieldName === 'clientCode') {
           message = 'Client code already exists. Please use a unique code.';
         } else if (fieldName) {

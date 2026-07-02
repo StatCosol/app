@@ -55,7 +55,10 @@ export class ContractorEmployeesController {
 
   @ApiOperation({ summary: 'Create employee' })
   @Post()
-  async create(@CurrentUser() user: ReqUser, @Body() body: CreateContractorEmployeeDto) {
+  async create(
+    @CurrentUser() user: ReqUser,
+    @Body() body: CreateContractorEmployeeDto,
+  ) {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     const branchId = body.branchId || user.branchIds?.[0];

@@ -88,7 +88,9 @@ describe('EnrollmentService.listContractorEnrollments', () => {
     expect(sql).toContain('FROM contractor_employees ce');
     expect(sql).toContain('LEFT JOIN contractor_face_enrollments cfe');
     expect(sql).toContain('ce.contractor_user_id AS "contractorUserId"');
-    expect(sql).toContain('cfe.contractor_employee_id IS NOT NULL AS "isEnrolled"');
+    expect(sql).toContain(
+      'cfe.contractor_employee_id IS NOT NULL AS "isEnrolled"',
+    );
     expect(sql).not.toContain('ce.name                    AS "employeeName"');
   });
 
@@ -103,12 +105,18 @@ describe('EnrollmentService.listContractorEnrollments', () => {
     expect(sql).toContain('SELECT cfe.contractor_employee_id, cfe.branch_id');
     expect(sql).toContain('ce.branch_id = ANY($2::uuid[])');
     expect(sql).toContain('cfe.branch_id = ANY($2::uuid[])');
-    expect(query).toHaveBeenCalledWith(expect.any(String), ['client-1', ['branch-1']]);
+    expect(query).toHaveBeenCalledWith(expect.any(String), [
+      'client-1',
+      ['branch-1'],
+    ]);
   });
 });
 
 describe('EnrollmentService kiosk tickets', () => {
-  function makeService(ticketRepo: any, query = jest.fn().mockResolvedValue([{ id: 'device-1' }])) {
+  function makeService(
+    ticketRepo: any,
+    query = jest.fn().mockResolvedValue([{ id: 'device-1' }]),
+  ) {
     return new EnrollmentService(
       {} as any,
       {} as any,
@@ -126,7 +134,9 @@ describe('EnrollmentService kiosk tickets', () => {
   });
 
   it('creates kiosk tickets with an operator-friendly default expiry window', async () => {
-    jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-06-16T10:00:00.000Z').getTime());
+    jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(new Date('2026-06-16T10:00:00.000Z').getTime());
     const ticketRepo = {
       update: jest.fn().mockResolvedValue({ affected: 0 }),
       create: jest.fn((entity) => entity),
@@ -209,6 +219,8 @@ describe('EnrollmentService kiosk tickets', () => {
     expect(ticket).toEqual({ id: 'ticket-1' });
     expect(updateBuilder.set).toHaveBeenCalledWith({ status: 'EXPIRED' });
     expect(updateBuilder.andWhere).toHaveBeenCalledWith('expires_at <= now()');
-    expect(selectBuilder.andWhere).toHaveBeenCalledWith('ticket.expiresAt > now()');
+    expect(selectBuilder.andWhere).toHaveBeenCalledWith(
+      'ticket.expiresAt > now()',
+    );
   });
 });

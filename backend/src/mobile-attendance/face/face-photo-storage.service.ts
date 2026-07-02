@@ -16,7 +16,7 @@ export class FacePhotoStorageService {
     process.env.LOCAL_FACE_PHOTO_DIR ?? '/tmp/face-photos';
 
   private get useS3(): boolean {
-    return !!(process.env.AWS_S3_FACE_BUCKET);
+    return !!process.env.AWS_S3_FACE_BUCKET;
   }
 
   private buildS3Client(): S3Client {

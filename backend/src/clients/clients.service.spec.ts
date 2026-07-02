@@ -185,7 +185,7 @@ describe('ClientsService', () => {
         select: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([client]),
       } as any);
-      (mockRepo.manager.getRepository as jest.Mock).mockReturnValueOnce({
+      mockRepo.manager.getRepository.mockReturnValueOnce({
         createQueryBuilder: jest.fn().mockReturnValue({
           select: jest.fn().mockReturnThis(),
           addSelect: jest.fn().mockReturnThis(),
@@ -234,7 +234,7 @@ describe('ClientsService', () => {
         select: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([client]),
       } as any);
-      (mockRepo.manager.getRepository as jest.Mock).mockReturnValueOnce({
+      mockRepo.manager.getRepository.mockReturnValueOnce({
         createQueryBuilder: jest.fn().mockReturnValue({
           select: jest.fn().mockReturnThis(),
           addSelect: jest.fn().mockReturnThis(),

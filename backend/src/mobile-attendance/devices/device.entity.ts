@@ -37,10 +37,22 @@ export class MobileAttendanceDeviceEntity {
   lastSeenAt: Date | null;
 
   // ── Geofence config (Fix #13) ──────────────────────────────
-  @Column({ name: 'geofence_lat', type: 'numeric', precision: 10, scale: 7, nullable: true })
+  @Column({
+    name: 'geofence_lat',
+    type: 'numeric',
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
   geofenceLat: string | null;
 
-  @Column({ name: 'geofence_lng', type: 'numeric', precision: 10, scale: 7, nullable: true })
+  @Column({
+    name: 'geofence_lng',
+    type: 'numeric',
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
   geofenceLng: string | null;
 
   @Column({ name: 'geofence_radius_m', type: 'integer', nullable: true })
