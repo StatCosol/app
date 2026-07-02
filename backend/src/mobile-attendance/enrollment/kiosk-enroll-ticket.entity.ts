@@ -73,7 +73,12 @@ export class KioskEnrollTicketEntity {
   @Column({ name: 'rejection_reason', type: 'text', nullable: true })
   rejectionReason: string | null;
 
-  @Column({ name: 'embedding_model', type: 'varchar', length: 40, nullable: true })
+  @Column({
+    name: 'embedding_model',
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+  })
   embeddingModel: string | null;
 
   @Column({ name: 'pending_embedding', type: 'bytea', nullable: true })

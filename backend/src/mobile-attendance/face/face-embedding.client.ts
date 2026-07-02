@@ -51,7 +51,9 @@ export class FaceEmbeddingClient {
         const text = await resp.text().catch(() => '');
         this.logger.error(`face-svc error ${resp.status}: ${text}`);
         if (this.allowFallback) {
-          this.logger.warn('face-svc unavailable — skipping quality gate (fallback mode)');
+          this.logger.warn(
+            'face-svc unavailable — skipping quality gate (fallback mode)',
+          );
           return null;
         }
         throw new Error(`face-svc returned ${resp.status}`);
@@ -73,7 +75,9 @@ export class FaceEmbeddingClient {
         this.logger.error('face-svc request timed out');
       }
       if (this.allowFallback) {
-        this.logger.warn('face-svc unavailable — skipping quality gate (fallback mode)');
+        this.logger.warn(
+          'face-svc unavailable — skipping quality gate (fallback mode)',
+        );
         return null;
       }
       throw err;

@@ -45,15 +45,18 @@ describe('ServiceEntitlementsGuard', () => {
     '/api/v1/client/branches/branch-1/mcd/overview',
     '/api/v1/client/branches/branch-1/registrations',
     '/api/v1/client/branches/branch-1/registration-summary',
-  ])('requires employee compliance for branch compliance path %s', async (url) => {
-    await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
+  ])(
+    'requires employee compliance for branch compliance path %s',
+    async (url) => {
+      await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
 
-    expect(entitlements.assertModule).toHaveBeenCalledWith(
-      clientId,
-      'EMPLOYEE_COMPLIANCE',
-    );
-    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
-  });
+      expect(entitlements.assertModule).toHaveBeenCalledWith(
+        clientId,
+        'EMPLOYEE_COMPLIANCE',
+      );
+      expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
+    },
+  );
 
   it('requires contractor audit for branch audit observations', async () => {
     await expect(
@@ -101,15 +104,18 @@ describe('ServiceEntitlementsGuard', () => {
     '/api/v1/branch/reports/compliance-summary',
     '/api/v1/branch/reports/pf-esic-status',
     '/api/v1/branch/reports/headcount',
-  ])('requires employee compliance for client visibility path %s', async (url) => {
-    await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
+  ])(
+    'requires employee compliance for client visibility path %s',
+    async (url) => {
+      await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
 
-    expect(entitlements.assertModule).toHaveBeenCalledWith(
-      clientId,
-      'EMPLOYEE_COMPLIANCE',
-    );
-    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
-  });
+      expect(entitlements.assertModule).toHaveBeenCalledWith(
+        clientId,
+        'EMPLOYEE_COMPLIANCE',
+      );
+      expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     '/api/v1/client/attendance',
@@ -117,19 +123,24 @@ describe('ServiceEntitlementsGuard', () => {
     '/api/v1/client/biometric',
     '/api/v1/client/biometric/devices',
     '/api/v1/client/biometric/punches',
-  ])('requires employee attendance for client attendance path %s', async (url) => {
-    await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
+  ])(
+    'requires employee attendance for client attendance path %s',
+    async (url) => {
+      await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
 
-    expect(entitlements.assertModule).toHaveBeenCalledWith(
-      clientId,
-      'EMPLOYEE_ATTENDANCE',
-    );
-    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
-  });
+      expect(entitlements.assertModule).toHaveBeenCalledWith(
+        clientId,
+        'EMPLOYEE_ATTENDANCE',
+      );
+      expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
+    },
+  );
 
   it('requires contractor documents for branch contractor upload reports', async () => {
     await expect(
-      guard.canActivate(contextFor('/api/v1/branch/reports/contractor-uploads')),
+      guard.canActivate(
+        contextFor('/api/v1/branch/reports/contractor-uploads'),
+      ),
     ).resolves.toBe(true);
 
     expect(entitlements.assertModule).toHaveBeenCalledWith(
@@ -158,32 +169,42 @@ describe('ServiceEntitlementsGuard', () => {
   it.each([
     '/api/v1/mobile-attendance/devices',
     '/api/v1/mobile-attendance/devices?mode=KIOSK',
-  ])('allows either mobile attendance module to list kiosk devices %s', async (url) => {
-    await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
+  ])(
+    'allows either mobile attendance module to list kiosk devices %s',
+    async (url) => {
+      await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
 
-    expect(entitlements.assertAnyModule).toHaveBeenCalledWith(clientId, [
-      'MOBILE_ATTENDANCE',
-      'CONTRACTOR_FACE_ATTENDANCE',
-    ]);
-    expect(entitlements.assertModule).not.toHaveBeenCalled();
-  });
+      expect(entitlements.assertAnyModule).toHaveBeenCalledWith(clientId, [
+        'MOBILE_ATTENDANCE',
+        'CONTRACTOR_FACE_ATTENDANCE',
+      ]);
+      expect(entitlements.assertModule).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     '/api/v1/mobile-attendance/devices',
     '/api/v1/mobile-attendance/devices/device-1',
-  ])('requires contractor face attendance for device mutation path %s', async (url) => {
-    await expect(guard.canActivate(contextFor(url, 'CLIENT', {}, 'POST'))).resolves.toBe(true);
+  ])(
+    'requires contractor face attendance for device mutation path %s',
+    async (url) => {
+      await expect(
+        guard.canActivate(contextFor(url, 'CLIENT', {}, 'POST')),
+      ).resolves.toBe(true);
 
-    expect(entitlements.assertModule).toHaveBeenCalledWith(
-      clientId,
-      'CONTRACTOR_FACE_ATTENDANCE',
-    );
-    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
-  });
+      expect(entitlements.assertModule).toHaveBeenCalledWith(
+        clientId,
+        'CONTRACTOR_FACE_ATTENDANCE',
+      );
+      expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
+    },
+  );
 
   it('requires contractor face attendance for contractor enrollment status', async () => {
     await expect(
-      guard.canActivate(contextFor('/api/v1/mobile-attendance/enrollment/contractors')),
+      guard.canActivate(
+        contextFor('/api/v1/mobile-attendance/enrollment/contractors'),
+      ),
     ).resolves.toBe(true);
 
     expect(entitlements.assertModule).toHaveBeenCalledWith(
@@ -199,15 +220,18 @@ describe('ServiceEntitlementsGuard', () => {
     '/api/v1/mobile-attendance/enrollment/kiosk/tickets/ticket-1',
     '/api/v1/mobile-attendance/enrollment/kiosk/tickets/ticket-1/cancel',
     '/api/v1/mobile-attendance/enrollment/deactivate',
-  ])('allows either mobile attendance module for shared enrollment path %s', async (url) => {
-    await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
+  ])(
+    'allows either mobile attendance module for shared enrollment path %s',
+    async (url) => {
+      await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
 
-    expect(entitlements.assertAnyModule).toHaveBeenCalledWith(clientId, [
-      'MOBILE_ATTENDANCE',
-      'CONTRACTOR_FACE_ATTENDANCE',
-    ]);
-    expect(entitlements.assertModule).not.toHaveBeenCalled();
-  });
+      expect(entitlements.assertAnyModule).toHaveBeenCalledWith(clientId, [
+        'MOBILE_ATTENDANCE',
+        'CONTRACTOR_FACE_ATTENDANCE',
+      ]);
+      expect(entitlements.assertModule).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     '/api/v1/legitx/dashboard',
@@ -228,18 +252,21 @@ describe('ServiceEntitlementsGuard', () => {
     '/api/v1/client/branches',
     '/api/v1/client/branches/branch-1',
     '/api/v1/client/branches/branch-1/dashboard',
-  ])('allows shared branch workspace path %s with any branch module', async (url) => {
-    await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
+  ])(
+    'allows shared branch workspace path %s with any branch module',
+    async (url) => {
+      await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
 
-    expect(entitlements.assertAnyModule).toHaveBeenCalledWith(clientId, [
-      'EMPLOYEE_COMPLIANCE',
-      'CONTRACTOR_AUDIT',
-      'CONTRACTOR_DOCUMENTS',
-      'MOBILE_ATTENDANCE',
-      'CONTRACTOR_FACE_ATTENDANCE',
-    ]);
-    expect(entitlements.assertModule).not.toHaveBeenCalled();
-  });
+      expect(entitlements.assertAnyModule).toHaveBeenCalledWith(clientId, [
+        'EMPLOYEE_COMPLIANCE',
+        'CONTRACTOR_AUDIT',
+        'CONTRACTOR_DOCUMENTS',
+        'MOBILE_ATTENDANCE',
+        'CONTRACTOR_FACE_ATTENDANCE',
+      ]);
+      expect(entitlements.assertModule).not.toHaveBeenCalled();
+    },
+  );
 
   it('keeps branch profile access available to mobile attendance modules', async () => {
     await expect(

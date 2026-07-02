@@ -4,7 +4,10 @@ import { DeviceService } from './device.service';
 
 describe('DeviceService.provisionDevice', () => {
   function makeService(query: jest.Mock) {
-    return new DeviceService({ create: jest.fn(), save: jest.fn() } as any, { query } as any);
+    return new DeviceService(
+      { create: jest.fn(), save: jest.fn() } as any,
+      { query } as any,
+    );
   }
 
   it('provisions devices with schema-compatible raw SQL', async () => {
@@ -20,7 +23,9 @@ describe('DeviceService.provisionDevice', () => {
         { column_name: 'registered_at' },
         { column_name: 'registered_by' },
       ])
-      .mockResolvedValueOnce([{ id: 'device-1', isActive: true, mode: 'KIOSK' }]);
+      .mockResolvedValueOnce([
+        { id: 'device-1', isActive: true, mode: 'KIOSK' },
+      ]);
     const service = makeService(query);
 
     const result = await service.provisionDevice(
@@ -53,10 +58,21 @@ describe('DeviceService.provisionDevice', () => {
         { column_name: 'geofence_lng' },
         { column_name: 'geofence_radius_m' },
       ])
-      .mockResolvedValueOnce([{ id: 'device-1', isActive: true, mode: 'KIOSK' }]);
+      .mockResolvedValueOnce([
+        { id: 'device-1', isActive: true, mode: 'KIOSK' },
+      ]);
     const service = makeService(query);
 
-    await service.provisionDevice('client-1', 'KIOSK', 'branch-1', 'Gate', 'user-1', null, null, 100);
+    await service.provisionDevice(
+      'client-1',
+      'KIOSK',
+      'branch-1',
+      'Gate',
+      'user-1',
+      null,
+      null,
+      100,
+    );
 
     const insertColumns = String(query.mock.calls[1][0]).split('VALUES')[0];
     const params = query.mock.calls[1][1] as unknown[];
@@ -70,7 +86,16 @@ describe('DeviceService.provisionDevice', () => {
     const service = makeService(jest.fn());
 
     await expect(
-      service.provisionDevice('client-1', 'ESS', 'branch-1', 'ESS', 'user-1', 17.4, null, 100),
+      service.provisionDevice(
+        'client-1',
+        'ESS',
+        'branch-1',
+        'ESS',
+        'user-1',
+        17.4,
+        null,
+        100,
+      ),
     ).rejects.toThrow('Geofence requires lat, lng, and radiusM together');
   });
 });
@@ -84,20 +109,25 @@ describe('DeviceService.registerDevice', () => {
 
   it('registers devices without relying on TypeORM entity columns', async () => {
     // query mock: column introspection happens via this.dataSource.query (outside tx)
-    const query = jest.fn().mockResolvedValueOnce([
-      { column_name: 'id' },
-      { column_name: 'install_token' },
-      { column_name: 'android_id' },
-      { column_name: 'device_label' },
-      { column_name: 'last_seen_at' },
-      { column_name: 'is_active' },
-    ]);
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([
+        { column_name: 'id' },
+        { column_name: 'install_token' },
+        { column_name: 'android_id' },
+        { column_name: 'device_label' },
+        { column_name: 'last_seen_at' },
+        { column_name: 'is_active' },
+      ]);
     // txQuery calls inside the transaction:
     //   [0] FOR UPDATE select
     //   [1] conflict check (no conflict → empty)
     //   [2] UPDATE SET android_id, device_label, last_seen_at
-    const txQuery = jest.fn()
-      .mockResolvedValueOnce([{ id: 'device-1', installToken: 'token', isActive: true }])
+    const txQuery = jest
+      .fn()
+      .mockResolvedValueOnce([
+        { id: 'device-1', installToken: 'token', isActive: true },
+      ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
     const transaction = jest.fn(async (cb: any) => cb({ query: txQuery }));
@@ -125,7 +155,10 @@ describe('DeviceService.listByClient', () => {
   function findDeviceListQuery(query: jest.Mock): [string, unknown[]] {
     const call = query.mock.calls.find(([sql]) => {
       const text = String(sql);
-      return text.includes('FROM mobile_attendance_devices d') && !text.includes('information_schema.columns');
+      return (
+        text.includes('FROM mobile_attendance_devices d') &&
+        !text.includes('information_schema.columns')
+      );
     });
     if (!call) throw new Error('Device list SQL was not executed');
     return call as [string, unknown[]];
@@ -165,7 +198,9 @@ describe('DeviceService.listByClient', () => {
     await service.listByClient('client-1', ['branch-1']);
 
     const [sql, params] = findDeviceListQuery(query);
-    expect(sql).toContain("COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') = ANY($2::text[])");
+    expect(sql).toContain(
+      "COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') = ANY($2::text[])",
+    );
     expect(params).toEqual(['client-1', ['branch-1']]);
   });
 });
@@ -188,7 +223,11 @@ describe('DeviceService.revokeDevice', () => {
       .mockResolvedValueOnce([{ id: 'dev-1' }]);
     const service = makeService(query);
 
-    await service.revokeDevice('client-1', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002');
+    await service.revokeDevice(
+      'client-1',
+      '00000000-0000-4000-8000-000000000001',
+      '00000000-0000-4000-8000-000000000002',
+    );
 
     const updateSql = query.mock.calls[1][0] as string;
     expect(updateSql).toContain('UPDATE mobile_attendance_devices');
@@ -213,7 +252,11 @@ describe('DeviceService.revokeDevice', () => {
       .mockResolvedValueOnce([{ id: 'dev-1' }]);
     const service = makeService(query);
 
-    await service.revokeDevice('client-1', '00000000-0000-4000-8000-000000000001', 'system:kiosk');
+    await service.revokeDevice(
+      'client-1',
+      '00000000-0000-4000-8000-000000000001',
+      'system:kiosk',
+    );
 
     const updateSql = query.mock.calls[1][0] as string;
     expect(updateSql).not.toContain('"revoked_by"');
@@ -234,10 +277,17 @@ describe('DeviceService.revokeDevice', () => {
       .mockResolvedValueOnce([{ id: 'dev-1' }]);
     const service = makeService(query);
 
-    await service.revokeDevice('client-1', '00000000-0000-4000-8000-000000000001', 'system:kiosk', ['branch-1']);
+    await service.revokeDevice(
+      'client-1',
+      '00000000-0000-4000-8000-000000000001',
+      'system:kiosk',
+      ['branch-1'],
+    );
 
     const updateSql = query.mock.calls[1][0] as string;
-    expect(updateSql).toContain("to_jsonb(mobile_attendance_devices)->>'branch_id'");
+    expect(updateSql).toContain(
+      "to_jsonb(mobile_attendance_devices)->>'branch_id'",
+    );
     expect(updateSql).toContain('ANY($3::text[])');
     expect(query.mock.calls[1][1]).toEqual([
       '00000000-0000-4000-8000-000000000001',
@@ -266,29 +316,43 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
   it('deletes a revoked device and clears stale kiosk tickets first', async () => {
     const query = jest
       .fn()
-      // 1. device existence (is_active = false) → found
+      // 1. getTableColumns(mobile_attendance_devices)
+      .mockResolvedValueOnce([
+        { column_name: 'id' },
+        { column_name: 'client_id' },
+        { column_name: 'branch_id' },
+        { column_name: 'is_active' },
+        { column_name: 'deleted_at' },
+      ])
+      // 2. device existence (is_active = false) → found
       .mockResolvedValueOnce([{ id: deviceId }])
-      // 2. tableExists(kiosk_enroll_tickets)
+      // 3. tableExists(kiosk_enroll_tickets)
       .mockResolvedValueOnce([{ exists: true }])
-      // 3. getTableColumns(kiosk_enroll_tickets)
+      // 4. getTableColumns(kiosk_enroll_tickets)
       .mockResolvedValueOnce([
         { column_name: 'device_id' },
         { column_name: 'client_id' },
         { column_name: 'status' },
       ])
-      // 4. DELETE kiosk tickets
+      // 5. DELETE kiosk tickets
       .mockResolvedValueOnce([])
-      // 5. tableExists(mobile_attendance_punches)
+      // 6. tableExists(mobile_attendance_punches)
       .mockResolvedValueOnce([{ exists: true }])
-      // 6. getTableColumns(mobile_attendance_punches)
-      .mockResolvedValueOnce([{ column_name: 'device_id' }, { column_name: 'client_id' }])
-      // 7. hasHistory check (punches)
+      // 7. getTableColumns(mobile_attendance_punches)
+      .mockResolvedValueOnce([
+        { column_name: 'device_id' },
+        { column_name: 'client_id' },
+      ])
+      // 8. hasHistory check (punches)
       .mockResolvedValueOnce([{ hasHistory: false }])
-      // 8. tableExists(contractor_biometric_punches)
+      // 9. tableExists(contractor_biometric_punches)
       .mockResolvedValueOnce([{ exists: true }])
-      // 9. getTableColumns(contractor_biometric_punches)
-      .mockResolvedValueOnce([{ column_name: 'device_id' }, { column_name: 'client_id' }])
-      // 10. hasHistory check (contractor punches)
+      // 10. getTableColumns(contractor_biometric_punches)
+      .mockResolvedValueOnce([
+        { column_name: 'device_id' },
+        { column_name: 'client_id' },
+      ])
+      // 11. hasHistory check (contractor punches)
       .mockResolvedValueOnce([{ hasHistory: false }]);
     const txQuery = jest.fn().mockResolvedValueOnce([{ id: deviceId }]);
     const transaction = jest.fn(async (cb: any) => cb({ query: txQuery }));
@@ -299,16 +363,24 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
     ).resolves.toEqual({ ok: true, id: deviceId });
 
     // Device existence query uses is_active filter and branch scope
-    const [existenceSql, existenceParams] = query.mock.calls[0];
-    expect(existenceSql).toContain('AND d.is_active = false');
-    expect(existenceSql).toContain('AND d.branch_id = ANY($3::uuid[])');
+    const existenceCall = findSqlCall(
+      query,
+      'FROM mobile_attendance_devices d',
+    );
+    const [existenceSql, existenceParams] = existenceCall;
+    expect(existenceSql).toContain("to_jsonb(d)->>'is_active'");
+    expect(existenceSql).toContain("to_jsonb(d)->>'deleted_at'");
+    expect(existenceSql).toContain("to_jsonb(d)->>'branch_id'");
+    expect(existenceSql).toContain('ANY($3::text[])');
     expect(existenceParams).toEqual([deviceId, clientId, ['branch-1']]);
 
     // Kiosk ticket cleanup
     const ticketDelete = findSqlCall(query, 'DELETE FROM kiosk_enroll_tickets');
     expect(ticketDelete[0]).toContain('"device_id"::text = $1');
     expect(ticketDelete[0]).toContain('"client_id"::text = $2');
-    expect(ticketDelete[0]).toContain(`COALESCE(to_jsonb(k)->>'status', '') <> 'COMPLETED'`);
+    expect(ticketDelete[0]).toContain(
+      `COALESCE(to_jsonb(k)->>'status', '') <> 'COMPLETED'`,
+    );
     expect(ticketDelete[1]).toEqual([deviceId, clientId]);
 
     // Physical DELETE via transaction with branch scope
@@ -321,6 +393,12 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
   it('cleans stale kiosk tickets before soft-hiding history devices', async () => {
     const query = jest
       .fn()
+      .mockResolvedValueOnce([
+        { column_name: 'id' },
+        { column_name: 'client_id' },
+        { column_name: 'is_active' },
+        { column_name: 'deleted_at' },
+      ])
       .mockResolvedValueOnce([{ id: deviceId }])
       .mockResolvedValueOnce([{ exists: true }])
       .mockResolvedValueOnce([
@@ -330,31 +408,42 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
       ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ exists: true }])
-      .mockResolvedValueOnce([{ column_name: 'device_id' }, { column_name: 'client_id' }])
-      .mockResolvedValueOnce([{ hasHistory: true }])
-      // softDeleteDeviceRow: getTableColumns(devices) + UPDATE
       .mockResolvedValueOnce([
-        { column_name: 'id' },
+        { column_name: 'device_id' },
         { column_name: 'client_id' },
-        { column_name: 'is_active' },
-        { column_name: 'deleted_at' },
       ])
+      .mockResolvedValueOnce([{ hasHistory: true }])
+      // softDeleteDeviceRow UPDATE; device columns are served from cache.
       .mockResolvedValueOnce([{ id: deviceId }]);
     const transaction = jest.fn();
     const service = makeService(query, transaction);
 
-    await expect(service.permanentlyDeleteDevice(clientId, deviceId)).resolves.toEqual({
+    await expect(
+      service.permanentlyDeleteDevice(clientId, deviceId),
+    ).resolves.toEqual({
       ok: true,
       id: deviceId,
     });
-    expect(findSqlCall(query, 'DELETE FROM kiosk_enroll_tickets')[1]).toEqual([deviceId, clientId]);
-    expect(findSqlCall(query, 'UPDATE mobile_attendance_devices')[0]).toContain('"deleted_at" = now()');
+    expect(findSqlCall(query, 'DELETE FROM kiosk_enroll_tickets')[1]).toEqual([
+      deviceId,
+      clientId,
+    ]);
+    expect(findSqlCall(query, 'UPDATE mobile_attendance_devices')[0]).toContain(
+      '"deleted_at" = now()',
+    );
     expect(transaction).not.toHaveBeenCalled();
   });
 
   it('honors branch scope for permanent deletes', async () => {
     const query = jest
       .fn()
+      .mockResolvedValueOnce([
+        { column_name: 'id' },
+        { column_name: 'client_id' },
+        { column_name: 'branch_id' },
+        { column_name: 'is_active' },
+        { column_name: 'deleted_at' },
+      ])
       // Device not found with is_active=false under this branch → ConflictException
       .mockResolvedValueOnce([]);
     const transaction = jest.fn();
@@ -364,8 +453,13 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
       service.permanentlyDeleteDevice(clientId, deviceId, ['branch-1']),
     ).rejects.toThrow('Revoke the device before deleting it');
 
-    const [existenceSql, existenceParams] = query.mock.calls[0];
-    expect(existenceSql).toContain('AND d.branch_id = ANY($3::uuid[])');
+    const existenceCall = findSqlCall(
+      query,
+      'FROM mobile_attendance_devices d',
+    );
+    const [existenceSql, existenceParams] = existenceCall;
+    expect(existenceSql).toContain("to_jsonb(d)->>'branch_id'");
+    expect(existenceSql).toContain('ANY($3::text[])');
     expect(existenceParams).toEqual([deviceId, clientId, ['branch-1']]);
     expect(transaction).not.toHaveBeenCalled();
   });
@@ -373,19 +467,31 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
   it('requires the device to be revoked before permanent delete', async () => {
     const query = jest
       .fn()
+      .mockResolvedValueOnce([
+        { column_name: 'id' },
+        { column_name: 'client_id' },
+        { column_name: 'is_active' },
+        { column_name: 'deleted_at' },
+      ])
       .mockResolvedValueOnce([]);
     const transaction = jest.fn();
     const service = makeService(query, transaction);
 
-    await expect(service.permanentlyDeleteDevice(clientId, deviceId)).rejects.toThrow(
-      'Revoke the device before deleting it',
-    );
+    await expect(
+      service.permanentlyDeleteDevice(clientId, deviceId),
+    ).rejects.toThrow('Revoke the device before deleting it');
     expect(transaction).not.toHaveBeenCalled();
   });
 
   it('soft-hides revoked devices when attendance history prevents physical deletion', async () => {
     const query = jest
       .fn()
+      .mockResolvedValueOnce([
+        { column_name: 'id' },
+        { column_name: 'client_id' },
+        { column_name: 'is_active' },
+        { column_name: 'deleted_at' },
+      ])
       .mockResolvedValueOnce([{ id: deviceId }])
       .mockResolvedValueOnce([{ exists: true }])
       .mockResolvedValueOnce([
@@ -395,65 +501,89 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
       ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ exists: true }])
-      .mockResolvedValueOnce([{ column_name: 'device_id' }, { column_name: 'client_id' }])
-      .mockResolvedValueOnce([{ hasHistory: true }])
-      // softDeleteDeviceRow
       .mockResolvedValueOnce([
-        { column_name: 'id' },
+        { column_name: 'device_id' },
         { column_name: 'client_id' },
-        { column_name: 'is_active' },
-        { column_name: 'deleted_at' },
       ])
+      .mockResolvedValueOnce([{ hasHistory: true }])
+      // softDeleteDeviceRow UPDATE; device columns are served from cache.
       .mockResolvedValueOnce([{ id: deviceId }]);
     const transaction = jest.fn();
     const service = makeService(query, transaction);
 
-    await expect(service.permanentlyDeleteDevice(clientId, deviceId)).resolves.toEqual({
+    await expect(
+      service.permanentlyDeleteDevice(clientId, deviceId),
+    ).resolves.toEqual({
       ok: true,
       id: deviceId,
     });
-    const historySql = findSqlCall(query, 'FROM "mobile_attendance_punches"')[0] as string;
+    const historySql = findSqlCall(
+      query,
+      'FROM "mobile_attendance_punches"',
+    )[0] as string;
     expect(historySql).toContain('mobile_attendance_punches');
     expect(historySql).not.toContain('contractor_biometric_punches');
-    expect(findSqlCall(query, 'UPDATE mobile_attendance_devices')[0]).toContain('"deleted_at" = now()');
+    expect(findSqlCall(query, 'UPDATE mobile_attendance_devices')[0]).toContain(
+      '"deleted_at" = now()',
+    );
     expect(transaction).not.toHaveBeenCalled();
   });
 
   it('soft-hides revoked devices when physical delete hits a foreign key', async () => {
     const query = jest
       .fn()
-      .mockResolvedValueOnce([{ id: deviceId }])
-      .mockResolvedValueOnce([{ exists: true }])
-      .mockResolvedValueOnce([{ column_name: 'device_id' }, { column_name: 'client_id' }])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ exists: true }])
-      .mockResolvedValueOnce([{ column_name: 'device_id' }, { column_name: 'client_id' }])
-      .mockResolvedValueOnce([{ hasHistory: false }])
-      .mockResolvedValueOnce([{ exists: true }])
-      .mockResolvedValueOnce([{ column_name: 'device_id' }, { column_name: 'client_id' }])
-      .mockResolvedValueOnce([{ hasHistory: false }])
-      // softDeleteDeviceRow after FK error
       .mockResolvedValueOnce([
         { column_name: 'id' },
         { column_name: 'client_id' },
         { column_name: 'is_active' },
         { column_name: 'deleted_at' },
       ])
+      .mockResolvedValueOnce([{ id: deviceId }])
+      .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'device_id' },
+        { column_name: 'client_id' },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'device_id' },
+        { column_name: 'client_id' },
+      ])
+      .mockResolvedValueOnce([{ hasHistory: false }])
+      .mockResolvedValueOnce([{ exists: true }])
+      .mockResolvedValueOnce([
+        { column_name: 'device_id' },
+        { column_name: 'client_id' },
+      ])
+      .mockResolvedValueOnce([{ hasHistory: false }])
+      // softDeleteDeviceRow after FK error; device columns are served from cache.
       .mockResolvedValueOnce([{ id: deviceId }]);
     const txQuery = jest.fn().mockRejectedValueOnce({ code: '23503' });
     const transaction = jest.fn(async (cb: any) => cb({ query: txQuery }));
     const service = makeService(query, transaction);
 
-    await expect(service.permanentlyDeleteDevice(clientId, deviceId)).resolves.toEqual({
+    await expect(
+      service.permanentlyDeleteDevice(clientId, deviceId),
+    ).resolves.toEqual({
       ok: true,
       id: deviceId,
     });
-    expect(findSqlCall(query, 'UPDATE mobile_attendance_devices')[0]).toContain('"deleted_at" = now()');
+    expect(findSqlCall(query, 'UPDATE mobile_attendance_devices')[0]).toContain(
+      '"deleted_at" = now()',
+    );
   });
 
   it('supports camelCase legacy columns while hiding revoked devices', async () => {
     const query = jest
       .fn()
+      .mockResolvedValueOnce([
+        { column_name: 'id' },
+        { column_name: 'clientId' },
+        { column_name: 'branchId' },
+        { column_name: 'isActive' },
+        { column_name: 'deletedAt' },
+      ])
       .mockResolvedValueOnce([{ id: deviceId }])
       .mockResolvedValueOnce([{ exists: true }])
       .mockResolvedValueOnce([
@@ -463,27 +593,33 @@ describe('DeviceService.permanentlyDeleteDevice', () => {
       ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ exists: true }])
-      .mockResolvedValueOnce([{ column_name: 'deviceId' }, { column_name: 'clientId' }])
-      .mockResolvedValueOnce([{ hasHistory: true }])
-      // softDeleteDeviceRow with camelCase columns
       .mockResolvedValueOnce([
-        { column_name: 'id' },
+        { column_name: 'deviceId' },
         { column_name: 'clientId' },
-        { column_name: 'isActive' },
-        { column_name: 'deletedAt' },
       ])
+      .mockResolvedValueOnce([{ hasHistory: true }])
+      // softDeleteDeviceRow UPDATE; device columns are served from cache.
       .mockResolvedValueOnce([{ id: deviceId }]);
     const transaction = jest.fn();
     const service = makeService(query, transaction);
 
-    await expect(service.permanentlyDeleteDevice(clientId, deviceId)).resolves.toEqual({
+    await expect(
+      service.permanentlyDeleteDevice(clientId, deviceId),
+    ).resolves.toEqual({
       ok: true,
       id: deviceId,
     });
 
-    expect(findSqlCall(query, 'DELETE FROM kiosk_enroll_tickets')[0]).toContain('"deviceId"::text = $1');
-    expect(findSqlCall(query, 'FROM "mobile_attendance_punches"')[0]).toContain('"clientId"::text = $2');
-    const softDeleteSql = findSqlCall(query, 'UPDATE mobile_attendance_devices')[0] as string;
+    expect(findSqlCall(query, 'DELETE FROM kiosk_enroll_tickets')[0]).toContain(
+      '"deviceId"::text = $1',
+    );
+    expect(findSqlCall(query, 'FROM "mobile_attendance_punches"')[0]).toContain(
+      '"clientId"::text = $2',
+    );
+    const softDeleteSql = findSqlCall(
+      query,
+      'UPDATE mobile_attendance_devices',
+    )[0] as string;
     expect(softDeleteSql).toContain('"deletedAt" = now()');
     expect(softDeleteSql).toContain('"isActive" = false');
     expect(transaction).not.toHaveBeenCalled();

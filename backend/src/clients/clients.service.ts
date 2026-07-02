@@ -62,14 +62,15 @@ export class ClientsService {
 
     const packageCode = dto.servicePackageCode || CUSTOM_SERVICES_PACKAGE;
     if (!PACKAGE_MODULES[packageCode]) {
-      throw new BadRequestException(`Unsupported service package: ${packageCode}`);
+      throw new BadRequestException(
+        `Unsupported service package: ${packageCode}`,
+      );
     }
 
     const allowed = new Set<string>(SERVICE_MODULE_CODES);
-    const source =
-      dto.serviceModules?.length
-        ? dto.serviceModules
-        : PACKAGE_MODULES[packageCode];
+    const source = dto.serviceModules?.length
+      ? dto.serviceModules
+      : PACKAGE_MODULES[packageCode];
     const requested = Array.from(new Set(source));
     const unsupportedIndex = requested.findIndex(
       (moduleCode) => !allowed.has(moduleCode),
@@ -79,10 +80,12 @@ export class ClientsService {
         `Unsupported service module: ${requested[unsupportedIndex]}`,
       );
     }
-    const modules = requested as ServiceModuleCode[];
+    const modules = requested;
 
     if (!modules.length) {
-      throw new BadRequestException('At least one client service must be selected');
+      throw new BadRequestException(
+        'At least one client service must be selected',
+      );
     }
     if (packageCode !== CUSTOM_SERVICES_PACKAGE && dto.serviceModules?.length) {
       const fixedModules = PACKAGE_MODULES[packageCode];
@@ -100,11 +103,16 @@ export class ClientsService {
     return {
       packageCode,
       modules,
-      note: dto.servicePackageNote?.trim() || 'Initial service selection during client registration',
+      note:
+        dto.servicePackageNote?.trim() ||
+        'Initial service selection during client registration',
     };
   }
 
-  private assertValidOptionalUuid(value: string | undefined, field: string): void {
+  private assertValidOptionalUuid(
+    value: string | undefined,
+    field: string,
+  ): void {
     if (!value) return;
     if (!UUID_RE.test(value)) {
       throw new BadRequestException(`${field} must be a UUID`);
@@ -513,7 +521,8 @@ export class ClientsService {
         // that clients whose every row is filtered (unsupported module code) get
         // [] instead of falling through to the package-defaults below.
         for (const row of entitlementRows) {
-          if (!modulesByClient.has(row.clientId)) modulesByClient.set(row.clientId, []);
+          if (!modulesByClient.has(row.clientId))
+            modulesByClient.set(row.clientId, []);
         }
         for (const row of entitlementRows) {
           if (!allowedModules.has(row.moduleCode)) continue;
@@ -544,14 +553,12 @@ export class ClientsService {
 
         for (const clientId of clientIds) {
           const packageRow = packageByClient.get(clientId);
-          const packageCode =
-            packageRow?.packageCode || FULL_SERVICE_PACKAGE;
+          const packageCode = packageRow?.packageCode || FULL_SERVICE_PACKAGE;
           const packageApproved = !packageRow || Boolean(packageRow.approvedAt);
-          const modules =
-            packageApproved
-              ? modulesByClient.get(clientId) ||
-                (PACKAGE_MODULES[packageCode] ?? [...SERVICE_MODULE_CODES])
-              : [];
+          const modules = packageApproved
+            ? modulesByClient.get(clientId) ||
+              (PACKAGE_MODULES[packageCode] ?? [...SERVICE_MODULE_CODES])
+            : [];
           const latestRequest = latestRequestByClient.get(clientId);
           const pendingServiceRequestId =
             latestRequest?.status === 'PENDING_CCO'

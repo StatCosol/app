@@ -29,7 +29,8 @@ const ACTIVATION_DELAY_MS =
   Number(process.env.FACE_KIOSK_ACTIVATION_DELAY_MIN ?? 0) * 60 * 1000;
 const OFFLINE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // Minimum gap between punches for the same person — prevents double-punch from retries or rapid re-scan.
-const PUNCH_COOLDOWN_MS = Number(process.env.FACE_PUNCH_COOLDOWN_SEC ?? 30) * 1000;
+const PUNCH_COOLDOWN_MS =
+  Number(process.env.FACE_PUNCH_COOLDOWN_SEC ?? 30) * 1000;
 
 export interface RosterEntry {
   subjectType: 'EMPLOYEE' | 'CONTRACTOR';
@@ -65,21 +66,25 @@ export class PunchService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async getRoster(device: MobileAttendanceDeviceEntity): Promise<RosterEntry[]> {
+  async getRoster(
+    device: MobileAttendanceDeviceEntity,
+  ): Promise<RosterEntry[]> {
     // Raw SQL so we can JOIN to employees/contractor_employees for display names.
     const empParams: unknown[] = [device.clientId];
     const empBranch = device.branchId
       ? `AND fe.branch_id = $${empParams.push(device.branchId)}`
       : '';
 
-    const empRows = await this.dataSource.query<Array<{
-      employeeId: string;
-      name: string;
-      employeeCode: string;
-      embedding: Buffer;
-      embeddingModel: string | null;
-      enrolledAt: Date;
-    }>>(
+    const empRows = await this.dataSource.query<
+      Array<{
+        employeeId: string;
+        name: string;
+        employeeCode: string;
+        embedding: Buffer;
+        embeddingModel: string | null;
+        enrolledAt: Date;
+      }>
+    >(
       `SELECT fe.employee_id   AS "employeeId",
               e.name           AS "name",
               e.employee_code  AS "employeeCode",
@@ -101,13 +106,15 @@ export class PunchService {
       ? `AND cfe.branch_id = $${conParams.push(device.branchId)}`
       : '';
 
-    const conRows = await this.dataSource.query<Array<{
-      contractorEmployeeId: string;
-      name: string;
-      embedding: Buffer;
-      embeddingModel: string | null;
-      enrolledAt: Date;
-    }>>(
+    const conRows = await this.dataSource.query<
+      Array<{
+        contractorEmployeeId: string;
+        name: string;
+        embedding: Buffer;
+        embeddingModel: string | null;
+        enrolledAt: Date;
+      }>
+    >(
       `SELECT cfe.contractor_employee_id AS "contractorEmployeeId",
               ce.name                    AS "name",
               cfe.embedding,
@@ -170,7 +177,9 @@ export class PunchService {
         }
       } else {
         if (!dto.livenessNonce || !dto.livenessChallengeType) {
-          throw new BadRequestException('Liveness nonce and challenge type required');
+          throw new BadRequestException(
+            'Liveness nonce and challenge type required',
+          );
         }
         await this.livenessService.consumeNonce(
           device.id,
@@ -186,7 +195,9 @@ export class PunchService {
     // Activation delay: reject if enrolled too recently on kiosk
     const eligibleRoster =
       device.mode === 'KIOSK'
-        ? roster.filter((r) => Date.now() - r.enrolledAt.getTime() >= ACTIVATION_DELAY_MS)
+        ? roster.filter(
+            (r) => Date.now() - r.enrolledAt.getTime() >= ACTIVATION_DELAY_MS,
+          )
         : roster;
 
     if (eligibleRoster.length === 0) {
@@ -249,7 +260,11 @@ export class PunchService {
 
     let photoUrl: string | null = null;
     if (dto.photoB64) {
-      photoUrl = await this.photoStorage.uploadPhoto(dto.photoB64, device.clientId, best.subjectId);
+      photoUrl = await this.photoStorage.uploadPhoto(
+        dto.photoB64,
+        device.clientId,
+        best.subjectId,
+      );
     }
 
     const livenessPassedAt = dto.livenessNonce ? new Date() : null;
@@ -321,7 +336,13 @@ export class PunchService {
 
   async listPunches(
     clientId: string,
-    opts: { from?: string; to?: string; branchId?: string; employeeId?: string; limit?: number } = {},
+    opts: {
+      from?: string;
+      to?: string;
+      branchId?: string;
+      employeeId?: string;
+      limit?: number;
+    } = {},
   ): Promise<MobileAttendancePunchEntity[]> {
     const qb = this.punchRepo
       .createQueryBuilder('p')
@@ -330,8 +351,12 @@ export class PunchService {
 
     if (opts.from) qb.andWhere('p.punchTime >= :from', { from: opts.from });
     if (opts.to) qb.andWhere('p.punchTime <= :to', { to: opts.to });
-    if (opts.branchId) qb.andWhere('p.branchId = :branchId', { branchId: opts.branchId });
-    if (opts.employeeId) qb.andWhere('p.employeeId = :employeeId', { employeeId: opts.employeeId });
+    if (opts.branchId)
+      qb.andWhere('p.branchId = :branchId', { branchId: opts.branchId });
+    if (opts.employeeId)
+      qb.andWhere('p.employeeId = :employeeId', {
+        employeeId: opts.employeeId,
+      });
     if (opts.limit) qb.take(opts.limit);
 
     return qb.getMany();
@@ -339,7 +364,13 @@ export class PunchService {
 
   async listContractorPunches(
     clientId: string,
-    opts: { from?: string; to?: string; branchId?: string; contractorEmployeeId?: string; limit?: number } = {},
+    opts: {
+      from?: string;
+      to?: string;
+      branchId?: string;
+      contractorEmployeeId?: string;
+      limit?: number;
+    } = {},
   ): Promise<ContractorBiometricPunchEntity[]> {
     const qb = this.contractorPunchRepo
       .createQueryBuilder('p')
@@ -348,7 +379,8 @@ export class PunchService {
 
     if (opts.from) qb.andWhere('p.punchTime >= :from', { from: opts.from });
     if (opts.to) qb.andWhere('p.punchTime <= :to', { to: opts.to });
-    if (opts.branchId) qb.andWhere('p.branchId = :branchId', { branchId: opts.branchId });
+    if (opts.branchId)
+      qb.andWhere('p.branchId = :branchId', { branchId: opts.branchId });
     if (opts.contractorEmployeeId)
       qb.andWhere('p.contractorEmployeeId = :contractorEmployeeId', {
         contractorEmployeeId: opts.contractorEmployeeId,
@@ -360,7 +392,11 @@ export class PunchService {
 
   async createContractorPunch(
     clientId: string,
-    body: { contractorEmployeeId: string; punchTime: string; direction: 'IN' | 'OUT' | 'AUTO' },
+    body: {
+      contractorEmployeeId: string;
+      punchTime: string;
+      direction: 'IN' | 'OUT' | 'AUTO';
+    },
   ): Promise<{ ok: true; id: string }> {
     const punch = await this.contractorPunchRepo.save({
       clientId,
@@ -379,11 +415,14 @@ export class PunchService {
     id: string,
     body: { punchTime?: string; direction?: string },
   ): Promise<{ ok: true; id: string; punchTime: string; direction: string }> {
-    const punch = await this.contractorPunchRepo.findOne({ where: { id, clientId } });
+    const punch = await this.contractorPunchRepo.findOne({
+      where: { id, clientId },
+    });
     if (!punch) throw new NotFoundException('Contractor punch not found');
 
     if (body.punchTime) punch.punchTime = new Date(body.punchTime);
-    if (body.direction) punch.direction = body.direction as 'IN' | 'OUT' | 'AUTO';
+    if (body.direction)
+      punch.direction = body.direction as 'IN' | 'OUT' | 'AUTO';
 
     const saved = await this.contractorPunchRepo.save(punch);
     return {

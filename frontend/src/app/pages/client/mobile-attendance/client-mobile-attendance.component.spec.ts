@@ -77,7 +77,7 @@ describe('ClientMobileAttendanceComponent entitlement-aware device access', () =
     expect(component.tab).toBe('status');
     expect(branchSvc.list).toHaveBeenCalled();
     expect(svc.listEnrollments).toHaveBeenCalled();
-    expect(svc.listReenrollRequests).toHaveBeenCalledWith('PENDING');
+    expect(svc.listReenrollRequests).not.toHaveBeenCalled();
     expect(svc.listDevices).not.toHaveBeenCalled();
     expect(employeesSvc.list).not.toHaveBeenCalled();
 

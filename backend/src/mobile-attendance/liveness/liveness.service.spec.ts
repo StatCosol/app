@@ -2,7 +2,8 @@ import { LivenessService } from './liveness.service';
 
 describe('LivenessService', () => {
   const originalEnv = process.env.FACE_LIVENESS_CHALLENGE_TYPES;
-  const originalAdvancedEnv = process.env.FACE_ALLOW_ADVANCED_LIVENESS_CHALLENGES;
+  const originalAdvancedEnv =
+    process.env.FACE_ALLOW_ADVANCED_LIVENESS_CHALLENGES;
 
   const makeService = () => {
     const nonceRepo = {

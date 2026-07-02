@@ -322,15 +322,12 @@ export class AttendanceController {
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.svc.resolveMismatch(
-      clientId,
-      id,
-      user.userId ?? user.id,
-      note,
-    );
+    return this.svc.resolveMismatch(clientId, id, user.userId ?? user.id, note);
   }
 
-  @ApiOperation({ summary: 'Run mismatch detection for a specific date (manual trigger)' })
+  @ApiOperation({
+    summary: 'Run mismatch detection for a specific date (manual trigger)',
+  })
   @Post('mismatches/detect')
   runMismatchDetection(
     @CurrentUser() user: ReqUser,
@@ -344,7 +341,9 @@ export class AttendanceController {
 
   // ── Payroll Handoff Validation (Fix #7) ───────────────────
 
-  @ApiOperation({ summary: 'Validate payroll handoff — blocks if HIGH mismatches exist' })
+  @ApiOperation({
+    summary: 'Validate payroll handoff — blocks if HIGH mismatches exist',
+  })
   @Get('payroll-handoff/validate')
   validatePayrollHandoff(
     @CurrentUser() user: ReqUser,

@@ -493,34 +493,34 @@ LIMIT 200;
  */
 export const ADMIN_SYSTEM_HEALTH_SQL = `
 SELECT
-  (SELECT COUNT(*) 
-   FROM users 
-   WHERE is_active = TRUE 
+  (SELECT COUNT(*)
+   FROM users
+   WHERE is_active = TRUE
      AND updated_at < (now() - interval '15 days')
   ) AS inactive_users_15d,
-  
+
   (SELECT COUNT(*)
    FROM clients c
    WHERE c.is_active = TRUE
      AND NOT EXISTS (
        SELECT 1 FROM client_assignments ca
-       WHERE ca.client_id = c.id 
-         AND ca.status='ACTIVE' 
+       WHERE ca.client_id = c.id
+         AND ca.status='ACTIVE'
          AND ca.assignment_type='CRM'
      )
   ) AS unassigned_clients_crm,
-  
+
   (SELECT COUNT(*)
    FROM clients c
    WHERE c.is_active = TRUE
      AND NOT EXISTS (
        SELECT 1 FROM client_assignments ca
-       WHERE ca.client_id = c.id 
-         AND ca.status='ACTIVE' 
+       WHERE ca.client_id = c.id
+         AND ca.status='ACTIVE'
          AND ca.assignment_type='AUDITOR'
      )
   ) AS unassigned_clients_auditor,
-  
+
   (SELECT COUNT(*)
    FROM notifications n
    WHERE n.query_type = 'SYSTEM'

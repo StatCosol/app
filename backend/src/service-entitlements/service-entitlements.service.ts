@@ -73,7 +73,7 @@ export class ServiceEntitlementsService {
         `Unsupported service module: ${requested[unsupportedIndex]}`,
       );
     }
-    const normalized = requested as ServiceModuleCode[];
+    const normalized = requested;
     if (!normalized.length) {
       throw new BadRequestException('At least one module is required');
     }
@@ -142,7 +142,8 @@ export class ServiceEntitlementsService {
         return {
           packageCode,
           enabledModules:
-            PACKAGE_MODULES[packageCode] ?? PACKAGE_MODULES[FULL_SERVICE_PACKAGE],
+            PACKAGE_MODULES[packageCode] ??
+            PACKAGE_MODULES[FULL_SERVICE_PACKAGE],
           isRestricted: packageCode !== FULL_SERVICE_PACKAGE,
         };
       }
@@ -150,8 +151,10 @@ export class ServiceEntitlementsService {
     }
 
     const enabledModules = entitlementRows.length
-      ? this.normalizeStoredModuleArray(entitlementRows.map((r) => r.module_code))
-      : PACKAGE_MODULES[packageCode] ?? PACKAGE_MODULES[FULL_SERVICE_PACKAGE];
+      ? this.normalizeStoredModuleArray(
+          entitlementRows.map((r) => r.module_code),
+        )
+      : (PACKAGE_MODULES[packageCode] ?? PACKAGE_MODULES[FULL_SERVICE_PACKAGE]);
 
     return {
       packageCode,
@@ -160,7 +163,10 @@ export class ServiceEntitlementsService {
     };
   }
 
-  async hasModule(clientId: string | null | undefined, module: ServiceModuleCode) {
+  async hasModule(
+    clientId: string | null | undefined,
+    module: ServiceModuleCode,
+  ) {
     if (!clientId) return true;
     const current = await this.getCurrentForClient(clientId);
     if (!current.isRestricted) return true;
@@ -502,18 +508,26 @@ export class ServiceEntitlementsService {
   private assertValidRequestStatus(status?: string): void {
     if (!status) return;
     if (!SERVICE_REQUEST_STATUSES.includes(status as any)) {
-      throw new BadRequestException(`Unsupported service request status: ${status}`);
+      throw new BadRequestException(
+        `Unsupported service request status: ${status}`,
+      );
     }
   }
 
-  private assertValidOptionalUuid(value: string | undefined, field: string): void {
+  private assertValidOptionalUuid(
+    value: string | undefined,
+    field: string,
+  ): void {
     if (!value) return;
     if (!UUID_RE.test(value)) {
       throw new BadRequestException(`${field} must be a UUID`);
     }
   }
 
-  private assertValidRequiredUuid(value: string | undefined, field: string): void {
+  private assertValidRequiredUuid(
+    value: string | undefined,
+    field: string,
+  ): void {
     if (!value || !UUID_RE.test(value)) {
       throw new BadRequestException(`${field} must be a UUID`);
     }
@@ -533,7 +547,7 @@ export class ServiceEntitlementsService {
   }
 
   private normalizeRequestRow<T extends ServiceRequestRow>(row: T): T {
-    const normalized = { ...row } as T;
+    const normalized = { ...row };
     if (Object.prototype.hasOwnProperty.call(row, 'requestedModules')) {
       normalized.requestedModules = this.normalizeStoredModuleArray(
         row.requestedModules,
@@ -548,7 +562,7 @@ export class ServiceEntitlementsService {
   }
 
   private normalizeAuditRow<T extends ServiceAuditRow>(row: T): T {
-    const normalized = { ...row } as T;
+    const normalized = { ...row };
     if (Object.prototype.hasOwnProperty.call(row, 'modules')) {
       normalized.modules = this.normalizeStoredModuleArray(row.modules);
     }

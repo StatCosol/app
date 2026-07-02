@@ -33,7 +33,8 @@ export const SERVICE_PACKAGE_OPTIONS = [
   {
     code: FULL_SERVICE_PACKAGE,
     label: 'Full Service',
-    description: 'All employee, contractor, payroll, attendance, and appraisal services.',
+    description:
+      'All employee, contractor, payroll, attendance, and appraisal services.',
     modules: PACKAGE_MODULES[FULL_SERVICE_PACKAGE],
   },
   {
@@ -59,51 +60,61 @@ export const SERVICE_MODULE_OPTIONS: Array<{
   {
     code: 'EMPLOYEE_COMPLIANCE',
     label: 'Client Compliance',
-    description: 'Employee statutory compliance, branches, registrations, returns, notices, and approvals.',
+    description:
+      'Employee statutory compliance, branches, registrations, returns, notices, and approvals.',
   },
   {
     code: 'EMPLOYEE_ATTENDANCE',
     label: 'Employee Attendance',
-    description: 'Employee attendance review and biometric attendance features.',
+    description:
+      'Employee attendance review and biometric attendance features.',
   },
   {
     code: 'MOBILE_ATTENDANCE',
     label: 'Employee Mobile Face Attendance',
-    description: 'Employee mobile or kiosk face attendance and employee face enrollment.',
+    description:
+      'Employee mobile or kiosk face attendance and employee face enrollment.',
   },
   {
     code: 'CONTRACTOR_DOCUMENTS',
     label: 'Contractor Documents',
-    description: 'Contractor document upload, review, dashboards, and document reports.',
+    description:
+      'Contractor document upload, review, dashboards, and document reports.',
   },
   {
     code: 'CONTRACTOR_AUDIT',
     label: 'Contractor Audit',
-    description: 'Contractor audits, audit observations, audit KPIs, and non-compliance tracking.',
+    description:
+      'Contractor audits, audit observations, audit KPIs, and non-compliance tracking.',
   },
   {
     code: 'CONTRACTOR_PORTAL',
     label: 'Contractor Portal',
-    description: 'Contractor login workspace for assigned tasks, audits, documents, and employees.',
+    description:
+      'Contractor login workspace for assigned tasks, audits, documents, and employees.',
   },
   {
     code: 'CONTRACTOR_ATTENDANCE',
     label: 'Contractor Attendance',
-    description: 'Contractor attendance punches, review, and attendance reports.',
+    description:
+      'Contractor attendance punches, review, and attendance reports.',
   },
   {
     code: 'CONTRACTOR_FACE_ATTENDANCE',
     label: 'Contractor Face Attendance',
-    description: 'Contractor face attendance devices, kiosk enrollment, and face templates.',
+    description:
+      'Contractor face attendance devices, kiosk enrollment, and face templates.',
   },
   {
     code: 'PAYROLL',
     label: 'Payroll',
-    description: 'Payroll processing, salary structures, registers, and payslips.',
+    description:
+      'Payroll processing, salary structures, registers, and payslips.',
   },
   {
     code: 'APPRAISAL',
     label: 'Appraisal',
-    description: 'Performance appraisal cycles, templates, reviews, and approvals.',
+    description:
+      'Performance appraisal cycles, templates, reviews, and approvals.',
   },
 ];

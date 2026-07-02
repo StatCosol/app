@@ -16,6 +16,7 @@ import { PayrollRunEmployeeEntity } from '../payroll/entities/payroll-run-employ
 import { PayrollRunComponentValueEntity } from '../payroll/entities/payroll-run-component-value.entity';
 import { ClientEntity } from '../clients/entities/client.entity';
 import { AttendanceService } from '../attendance/attendance.service';
+import { EssDiscrepancyNoteEntity } from './entities/ess-discrepancy-note.entity';
 
 describe('EssService', () => {
   let service: EssService;
@@ -82,6 +83,10 @@ describe('EssService', () => {
         },
         {
           provide: getRepositoryToken(ClientEntity),
+          useValue: { ...mockRepo },
+        },
+        {
+          provide: getRepositoryToken(EssDiscrepancyNoteEntity),
           useValue: { ...mockRepo },
         },
         {

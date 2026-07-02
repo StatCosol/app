@@ -821,7 +821,12 @@ export class EssService {
          COUNT(*) FILTER (WHERE status IN ('HOLIDAY','WEEK_OFF') AND check_in IS NOT NULL) AS "workedOnOffDays"
        FROM attendance_records
        WHERE employee_id = $1 AND date >= $2::date AND date < $3::date`,
-      [empId, range.startDate, range.endDate, Number(process.env.STANDARD_WORK_HOURS ?? 9)],
+      [
+        empId,
+        range.startDate,
+        range.endDate,
+        Number(process.env.STANDARD_WORK_HOURS ?? 9),
+      ],
     );
     const salaryInfo = await this.getEmployeeMonthlyGross(empId);
     return {
@@ -2143,7 +2148,10 @@ export class EssService {
     const emp = await this.empRepo.findOne({ where: { id: empId } });
     if (!emp) throw new NotFoundException('Employee not found');
 
-    if (!body.attendanceDate || !/^\d{4}-\d{2}-\d{2}$/.test(body.attendanceDate)) {
+    if (
+      !body.attendanceDate ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(body.attendanceDate)
+    ) {
       throw new BadRequestException('attendanceDate is required (YYYY-MM-DD)');
     }
     if (!body.note || body.note.trim().length < 5) {
@@ -2151,7 +2159,7 @@ export class EssService {
     }
 
     const note = this.discrepancyRepo.create({
-      clientId: emp.clientId!,
+      clientId: emp.clientId,
       employeeId: empId,
       employeeCode: emp.employeeCode,
       attendanceDate: body.attendanceDate,
@@ -2161,7 +2169,9 @@ export class EssService {
     return this.discrepancyRepo.save(note);
   }
 
-  async listMyDiscrepancyNotes(user: EssUser): Promise<EssDiscrepancyNoteEntity[]> {
+  async listMyDiscrepancyNotes(
+    user: EssUser,
+  ): Promise<EssDiscrepancyNoteEntity[]> {
     const empId = this.ensureEmployee(user);
     return this.discrepancyRepo.find({
       where: { employeeId: empId },

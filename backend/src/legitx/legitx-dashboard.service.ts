@@ -352,7 +352,7 @@ export class LegitxDashboardService {
     const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
     const row = await this.safeOne(
-      `SELECT 
+      `SELECT
          COUNT(*)::int AS total,
          COUNT(CASE WHEN LOWER(ce.gender) IN ('m','male') THEN 1 END)::int AS male,
          COUNT(CASE WHEN LOWER(ce.gender) IN ('f','female') THEN 1 END)::int AS female

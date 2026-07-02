@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -62,7 +58,12 @@ export class LivenessService {
     const ttl = offline ? OFFLINE_LIVENESS_MAX_AGE_MS : LIVENESS_NONCE_TTL_MS;
     const expiresAt = new Date(Date.now() + ttl);
 
-    const entity = this.nonceRepo.create({ deviceId, nonce, challengeType, expiresAt });
+    const entity = this.nonceRepo.create({
+      deviceId,
+      nonce,
+      challengeType,
+      expiresAt,
+    });
     await this.nonceRepo.save(entity);
 
     return { nonce, challengeType, expiresAt };
@@ -77,7 +78,9 @@ export class LivenessService {
     nonce: string,
     suppliedType: string,
   ): Promise<true> {
-    const result = await this.dataSource.query<Array<{ challenge_type: string }>>(
+    const result = await this.dataSource.query<
+      Array<{ challenge_type: string }>
+    >(
       `UPDATE face_liveness_nonces
          SET consumed_at = now()
        WHERE nonce = $1
@@ -89,7 +92,9 @@ export class LivenessService {
     );
 
     if (!result || result.length === 0) {
-      throw new BadRequestException('Liveness nonce invalid, expired, or already used');
+      throw new BadRequestException(
+        'Liveness nonce invalid, expired, or already used',
+      );
     }
 
     const storedType: string = result[0].challenge_type;
@@ -111,7 +116,9 @@ export class LivenessService {
         .delete()
         .where(`created_at < now() - interval '24 hours'`)
         .execute();
-      this.logger.log(`Pruned ${result.affected ?? 0} expired liveness nonces.`);
+      this.logger.log(
+        `Pruned ${result.affected ?? 0} expired liveness nonces.`,
+      );
     } catch (err) {
       this.logger.error('Liveness nonce pruning failed', err);
     }

@@ -12,7 +12,9 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class SelfEnrollDto {
-  @ApiProperty({ description: 'List of base64-encoded embedding frames (min 7)' })
+  @ApiProperty({
+    description: 'List of base64-encoded embedding frames (min 7)',
+  })
   @IsArray()
   @IsString({ each: true })
   embeddingFrames: string[];

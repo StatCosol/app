@@ -13,7 +13,6 @@ import { fromEvent, interval, merge, Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import {
   ActionButtonComponent,
-  EmptyStateComponent,
   LoadingSpinnerComponent,
   PageHeaderComponent,
 } from '../../../shared/ui';
@@ -57,7 +56,6 @@ interface EnrollForm {
     PageHeaderComponent,
     ActionButtonComponent,
     LoadingSpinnerComponent,
-    EmptyStateComponent,
   ],
   template: `
     <ui-page-header
@@ -481,22 +479,12 @@ interface EnrollForm {
                   >
                 </td>
                 <td class="py-2 text-right whitespace-nowrap">
-                  <button
-                    type="button"
+                  <span
                     *ngIf="t.status === 'REVIEW_PENDING'"
-                    class="text-xs text-emerald-700 hover:underline mr-3"
-                    (click)="approveKioskTicket(t)"
+                    class="text-xs text-gray-500"
+                    title="This is an old manual-review ticket state. Create a fresh kiosk ticket to enroll."
+                    >Create fresh ticket</span
                   >
-                    Register
-                  </button>
-                  <button
-                    type="button"
-                    *ngIf="t.status === 'REVIEW_PENDING'"
-                    class="text-xs text-red-700 hover:underline mr-3"
-                    (click)="rejectKioskTicket(t)"
-                  >
-                    Reject
-                  </button>
                   <button
                     type="button"
                     *ngIf="t.status === 'PENDING'"
@@ -1764,68 +1752,6 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       return this.kioskTicketStatusLabel(s);
     }
     return `Ticket status: ${String(s).replace(/_/g, ' ')}`;
-  }
-
-  async approveKioskTicket(t: KioskEnrollTicket): Promise<void> {
-    if (t.status !== 'REVIEW_PENDING') return;
-    const scoreDisplay =
-      t.matchScoreSelf != null
-        ? `Match score: ${(t.matchScoreSelf * 100).toFixed(1)}%`
-        : null;
-    if (t.notes || t.photoUrl || scoreDisplay) {
-      const evidence = [
-        scoreDisplay,
-        t.notes ? `Review note:\n${t.notes}` : '',
-        t.photoUrl ? 'Captured photo is available from the Evidence column.' : '',
-      ]
-        .filter(Boolean)
-        .join('\n\n');
-      const ok = await this.dialog.confirm(
-        'Approve Kiosk Capture',
-        `${evidence}\n\nApprove this capture only after inspecting the evidence.`,
-        { confirmText: 'Approve', cancelText: 'Review First' },
-      );
-      if (!ok) return;
-    }
-    this.svc
-      .reviewKioskEnrollTicket(t.id, { decision: 'APPROVED' })
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.toast.success(`${t.subjectName} face enrollment registered`);
-          this.loadKioskTickets();
-          this.loadEnrollments();
-        },
-        error: (e) => this.toast.error(e?.error?.message || 'Approval failed'),
-      });
-  }
-
-  async rejectKioskTicket(t: KioskEnrollTicket): Promise<void> {
-    if (t.status !== 'REVIEW_PENDING') return;
-    const result = await this.dialog.prompt(
-      'Reject Kiosk Capture',
-      `Reject kiosk capture for ${t.subjectName}?`,
-      {
-        defaultValue: 'Recapture required',
-        placeholder: 'Reason',
-        confirmText: 'Reject',
-      },
-    );
-    const reason = result.value?.trim();
-    if (!result.confirmed || !reason) return;
-    this.svc
-      .reviewKioskEnrollTicket(t.id, {
-        decision: 'REJECTED',
-        reason,
-      })
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.toast.info('Kiosk capture rejected');
-          this.loadKioskTickets();
-        },
-        error: (e) => this.toast.error(e?.error?.message || 'Rejection failed'),
-      });
   }
 
   cancelKioskTicketFromList(t: KioskEnrollTicket): void {

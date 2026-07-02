@@ -24,17 +24,19 @@ export class DeviceAuthGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<Request>();
 
     const authHeader = req.headers['authorization'];
-    const installToken =
-      authHeader?.startsWith('Bearer ')
-        ? authHeader.slice(7).trim()
-        : req.headers['x-install-token'] as string | undefined;
+    const installToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice(7).trim()
+      : (req.headers['x-install-token'] as string | undefined);
 
     if (!installToken) {
       throw new UnauthorizedException('Device install token required');
     }
 
     const androidId = req.headers['x-android-id'] as string | undefined;
-    const device = await this.deviceService.authenticateDevice(installToken, androidId);
+    const device = await this.deviceService.authenticateDevice(
+      installToken,
+      androidId,
+    );
 
     (req as any).deviceId = device.id;
     (req as any).user = {

@@ -35,9 +35,12 @@ export class DeviceService {
     geofenceRadiusM: number | null = null,
   ): Promise<MobileAttendanceDeviceEntity> {
     const hasAnyCoordinate = geofenceLat !== null || geofenceLng !== null;
-    const hasCompleteGeo = geofenceLat !== null && geofenceLng !== null && geofenceRadiusM !== null;
+    const hasCompleteGeo =
+      geofenceLat !== null && geofenceLng !== null && geofenceRadiusM !== null;
     if (hasAnyCoordinate && !hasCompleteGeo) {
-      throw new ConflictException('Geofence requires lat, lng, and radiusM together');
+      throw new ConflictException(
+        'Geofence requires lat, lng, and radiusM together',
+      );
     }
     if (hasCompleteGeo) {
       this.validateGeofenceRange(geofenceLat, geofenceLng, geofenceRadiusM);
@@ -64,20 +67,62 @@ export class DeviceService {
       values.push(expression);
     };
 
-    addValue(this.requireColumn(columns, 'client_id', 'clientId'), clientId, '::uuid');
+    addValue(
+      this.requireColumn(columns, 'client_id', 'clientId'),
+      clientId,
+      '::uuid',
+    );
     addValue(this.requireColumn(columns, 'mode'), mode);
-    addValue(this.requireColumn(columns, 'install_token', 'installToken'), installToken);
-    addValue(this.pickColumn(columns, 'branch_id', 'branchId'), branchId, '::uuid');
-    addValue(this.pickColumn(columns, 'device_name', 'device_label', 'deviceName', 'deviceLabel'), deviceLabel);
+    addValue(
+      this.requireColumn(columns, 'install_token', 'installToken'),
+      installToken,
+    );
+    addValue(
+      this.pickColumn(columns, 'branch_id', 'branchId'),
+      branchId,
+      '::uuid',
+    );
+    addValue(
+      this.pickColumn(
+        columns,
+        'device_name',
+        'device_label',
+        'deviceName',
+        'deviceLabel',
+      ),
+      deviceLabel,
+    );
     addValue(this.pickColumn(columns, 'is_active', 'isActive'), true);
-    addExpression(this.pickColumn(columns, 'created_at', 'createdAt', 'registered_at', 'registeredAt'), 'now()');
+    addExpression(
+      this.pickColumn(
+        columns,
+        'created_at',
+        'createdAt',
+        'registered_at',
+        'registeredAt',
+      ),
+      'now()',
+    );
     if (this.isUuid(_createdBy)) {
-      addValue(this.pickColumn(columns, 'registered_by', 'registeredBy'), _createdBy, '::uuid');
+      addValue(
+        this.pickColumn(columns, 'registered_by', 'registeredBy'),
+        _createdBy,
+        '::uuid',
+      );
     }
     if (hasCompleteGeo) {
-      addValue(this.pickColumn(columns, 'geofence_lat', 'geofenceLat'), String(effectiveLat));
-      addValue(this.pickColumn(columns, 'geofence_lng', 'geofenceLng'), String(effectiveLng));
-      addValue(this.pickColumn(columns, 'geofence_radius_m', 'geofenceRadiusM'), effectiveRadiusM);
+      addValue(
+        this.pickColumn(columns, 'geofence_lat', 'geofenceLat'),
+        String(effectiveLat),
+      );
+      addValue(
+        this.pickColumn(columns, 'geofence_lng', 'geofenceLng'),
+        String(effectiveLng),
+      );
+      addValue(
+        this.pickColumn(columns, 'geofence_radius_m', 'geofenceRadiusM'),
+        effectiveRadiusM,
+      );
     }
 
     const rows = await this.dataSource.query<MobileAttendanceDeviceEntity[]>(
@@ -87,8 +132,10 @@ export class DeviceService {
       params,
     );
     const saved = rows[0];
-    this.logger.log(`provisionDevice: created device=${saved.id} isActive=${saved.isActive} mode=${saved.mode}`);
-    return saved as MobileAttendanceDeviceEntity;
+    this.logger.log(
+      `provisionDevice: created device=${saved.id} isActive=${saved.isActive} mode=${saved.mode}`,
+    );
+    return saved;
   }
 
   /**
@@ -102,7 +149,11 @@ export class DeviceService {
   ): Promise<MobileAttendanceDeviceEntity> {
     return this.dataSource.transaction(async (em) => {
       const columns = await this.getTableColumns('mobile_attendance_devices');
-      const tokenCol = this.requireColumn(columns, 'install_token', 'installToken');
+      const tokenCol = this.requireColumn(
+        columns,
+        'install_token',
+        'installToken',
+      );
 
       const rows = await em.query<any[]>(
         `SELECT ${this.deviceReturnProjection('d')}
@@ -115,22 +166,29 @@ export class DeviceService {
 
       if (!device) throw new NotFoundException('Install token not found');
       if (!device.isActive) {
-        this.logger.warn(`registerDevice: token revoked — isActive=${device.isActive} device=${device.id}`);
+        this.logger.warn(
+          `registerDevice: token revoked — isActive=${device.isActive} device=${device.id}`,
+        );
         throw new UnauthorizedException('Device token revoked');
       }
       if (device.androidId && androidId && device.androidId !== androidId) {
-        throw new ConflictException('Install token already bound to a different device');
+        throw new ConflictException(
+          'Install token already bound to a different device',
+        );
       }
 
       // Prevent the same physical device from holding multiple active tokens
       if (androidId && !device.androidId) {
-        const androidIdCol = this.pickColumn(columns, 'android_id', 'androidId');
-        const deletedAtCol = this.pickColumn(columns, 'deleted_at', 'deletedAt');
-        const notDeleted = deletedAtCol ? `AND d.${this.quoteIdentifier(deletedAtCol)} IS NULL` : '';
+        const androidIdCol = this.pickColumn(
+          columns,
+          'android_id',
+          'androidId',
+        );
+        const notDeleted = this.deviceNotDeletedFilter('d', columns);
         if (androidIdCol) {
           const conflict = await em.query<any[]>(
             `SELECT d.id FROM mobile_attendance_devices d
-              WHERE d.client_id = $1::uuid
+              WHERE ${this.deviceTextExpression('d', 'clientId', 'client_id')} = $1
                 AND d.${this.quoteIdentifier(androidIdCol)} = $2
                 AND d.id <> $3::uuid
                 AND ${this.deviceIsActiveExpression('d')} = true
@@ -139,7 +197,9 @@ export class DeviceService {
             [device.clientId, androidId, device.id],
           );
           if (conflict.length > 0) {
-            throw new ConflictException('This Android device is already registered under another install token');
+            throw new ConflictException(
+              'This Android device is already registered under another install token',
+            );
           }
         }
       }
@@ -147,19 +207,36 @@ export class DeviceService {
       const sets: string[] = [];
       const params: unknown[] = [device.id];
 
-      const lastSeenCol = this.pickColumn(columns, 'last_seen_at', 'lastSeenAt');
-      if (lastSeenCol) sets.push(`${this.quoteIdentifier(lastSeenCol)} = now()`);
+      const lastSeenCol = this.pickColumn(
+        columns,
+        'last_seen_at',
+        'lastSeenAt',
+      );
+      if (lastSeenCol)
+        sets.push(`${this.quoteIdentifier(lastSeenCol)} = now()`);
 
       if (androidId && !device.androidId) {
-        const androidIdCol = this.pickColumn(columns, 'android_id', 'androidId');
+        const androidIdCol = this.pickColumn(
+          columns,
+          'android_id',
+          'androidId',
+        );
         if (androidIdCol) {
           params.push(androidId);
-          sets.push(`${this.quoteIdentifier(androidIdCol)} = $${params.length}`);
+          sets.push(
+            `${this.quoteIdentifier(androidIdCol)} = $${params.length}`,
+          );
         }
       }
 
       if (deviceName) {
-        const nameCol = this.pickColumn(columns, 'device_name', 'device_label', 'deviceName', 'deviceLabel');
+        const nameCol = this.pickColumn(
+          columns,
+          'device_name',
+          'device_label',
+          'deviceName',
+          'deviceLabel',
+        );
         if (nameCol) {
           params.push(deviceName);
           sets.push(`${this.quoteIdentifier(nameCol)} = $${params.length}`);
@@ -187,7 +264,11 @@ export class DeviceService {
     androidId?: string,
   ): Promise<MobileAttendanceDeviceEntity> {
     const columns = await this.getTableColumns('mobile_attendance_devices');
-    const tokenCol = this.requireColumn(columns, 'install_token', 'installToken');
+    const tokenCol = this.requireColumn(
+      columns,
+      'install_token',
+      'installToken',
+    );
     const deletedAtCol = this.pickColumn(columns, 'deleted_at', 'deletedAt');
     const deletedFilter = deletedAtCol
       ? `AND d.${this.quoteIdentifier(deletedAtCol)} IS NULL`
@@ -203,7 +284,8 @@ export class DeviceService {
     );
     const device = rows[0];
 
-    if (!device || !device.isActive) throw new UnauthorizedException('Device not authorized');
+    if (!device || !device.isActive)
+      throw new UnauthorizedException('Device not authorized');
     if (device.androidId && androidId && device.androidId !== androidId) {
       throw new UnauthorizedException('Device ID mismatch');
     }
@@ -216,7 +298,10 @@ export class DeviceService {
       );
     }
 
-    return { ...device, lastSeenAt: new Date() } as MobileAttendanceDeviceEntity;
+    return {
+      ...device,
+      lastSeenAt: new Date(),
+    } as MobileAttendanceDeviceEntity;
   }
 
   async revokeDevice(
@@ -232,10 +317,13 @@ export class DeviceService {
 
     const params: unknown[] = [deviceId, clientId];
     const sets = [`${this.quoteIdentifier(isActiveCol)} = false`];
-    if (revokedAtCol) sets.push(`${this.quoteIdentifier(revokedAtCol)} = now()`);
+    if (revokedAtCol)
+      sets.push(`${this.quoteIdentifier(revokedAtCol)} = now()`);
     if (revokedByCol && this.isUuid(by)) {
       params.push(by);
-      sets.push(`${this.quoteIdentifier(revokedByCol)} = $${params.length}::uuid`);
+      sets.push(
+        `${this.quoteIdentifier(revokedByCol)} = $${params.length}::uuid`,
+      );
     }
 
     let branchFilter = '';
@@ -254,7 +342,8 @@ export class DeviceService {
       params,
     );
     const rows: Array<{ id: string }> = Array.isArray(raw[0]) ? raw[0] : raw;
-    if (!rows || rows.length === 0) throw new NotFoundException('Device not found');
+    if (!rows || rows.length === 0)
+      throw new NotFoundException('Device not found');
   }
 
   async renameDevice(
@@ -264,7 +353,13 @@ export class DeviceService {
     branchIds: string[] = [],
   ): Promise<{ ok: true; deviceLabel: string }> {
     const columns = await this.getTableColumns('mobile_attendance_devices');
-    const labelCol = this.pickColumn(columns, 'device_name', 'device_label', 'deviceName', 'deviceLabel');
+    const labelCol = this.pickColumn(
+      columns,
+      'device_name',
+      'device_label',
+      'deviceName',
+      'deviceLabel',
+    );
     if (!labelCol) throw new NotFoundException('device_label column not found');
 
     const params: unknown[] = [label, deviceId, clientId];
@@ -282,8 +377,11 @@ export class DeviceService {
         RETURNING id`,
       params,
     );
-    const rows: Array<{ id: string }> = Array.isArray(result[0]) ? result[0] : result;
-    if (!rows || rows.length === 0) throw new NotFoundException('Device not found');
+    const rows: Array<{ id: string }> = Array.isArray(result[0])
+      ? result[0]
+      : result;
+    if (!rows || rows.length === 0)
+      throw new NotFoundException('Device not found');
     return { ok: true, deviceLabel: label };
   }
 
@@ -293,19 +391,22 @@ export class DeviceService {
     branchIds: string[] = [],
   ): Promise<{ ok: true; id: string }> {
     const params: unknown[] = [deviceId, clientId];
+    const columns = await this.getTableColumns('mobile_attendance_devices');
     let branchFilter = '';
     if (branchIds.length > 0) {
       params.push(branchIds);
-      branchFilter = `AND d.branch_id = ANY($${params.length}::uuid[])`;
+      branchFilter = `AND ${this.deviceTextExpression('d', 'branchId', 'branch_id')} = ANY($${params.length}::text[])`;
     }
-    const activeFilter = `AND d.is_active = false`;
+    const activeFilter = `AND ${this.deviceIsActiveExpression('d')} = false`;
+    const deletedFilter = this.deviceNotDeletedFilter('d', columns);
 
     const existing = await this.dataSource.query<Array<{ id: string }>>(
       `SELECT d.id
          FROM mobile_attendance_devices d
         WHERE d.id = $1::uuid
-          AND d.client_id = $2::uuid
+          AND ${this.deviceTextExpression('d', 'clientId', 'client_id')} = $2
           ${activeFilter}
+          ${deletedFilter}
           ${branchFilter}
         LIMIT 1`,
       params,
@@ -327,17 +428,25 @@ export class DeviceService {
         const raw = await em.query(
           `DELETE FROM mobile_attendance_devices d
             WHERE d.id = $1::uuid
-              AND d.client_id = $2::uuid
+              AND ${this.deviceTextExpression('d', 'clientId', 'client_id')} = $2
               ${branchFilter}
             RETURNING d.id`,
           params,
         );
-        const rows: Array<{ id: string }> = Array.isArray(raw[0]) ? raw[0] : raw;
-        if (!rows || rows.length === 0) throw new NotFoundException('Device not found');
+        const rows: Array<{ id: string }> = Array.isArray(raw[0])
+          ? raw[0]
+          : raw;
+        if (!rows || rows.length === 0)
+          throw new NotFoundException('Device not found');
       });
     } catch (err: any) {
       if (err?.code === '23503') {
-        await this.softDeleteDeviceRow(deviceId, clientId, params, branchFilter);
+        await this.softDeleteDeviceRow(
+          deviceId,
+          clientId,
+          params,
+          branchFilter,
+        );
         return { ok: true, id: deviceId };
       }
       throw err;
@@ -346,7 +455,9 @@ export class DeviceService {
     return { ok: true, id: deviceId };
   }
 
-  async findById(deviceId: string): Promise<MobileAttendanceDeviceEntity | null> {
+  async findById(
+    deviceId: string,
+  ): Promise<MobileAttendanceDeviceEntity | null> {
     return this.deviceRepo.findOne({ where: { id: deviceId } });
   }
 
@@ -436,7 +547,10 @@ export class DeviceService {
     return rows?.[0]?.exists === true;
   }
 
-  private async deleteNonCompletedKioskTickets(deviceId: string, clientId: string): Promise<void> {
+  private async deleteNonCompletedKioskTickets(
+    deviceId: string,
+    clientId: string,
+  ): Promise<void> {
     if (!(await this.tableExists('kiosk_enroll_tickets'))) return;
     const columns = await this.getTableColumns('kiosk_enroll_tickets');
     const deviceCol = this.pickColumn(columns, 'device_id', 'deviceId');
@@ -462,23 +576,31 @@ export class DeviceService {
     const deletedAtCol = this.requireColumn(columns, 'deleted_at', 'deletedAt');
     const isActiveCol = this.pickColumn(columns, 'is_active', 'isActive');
     const assignments = [`${this.quoteIdentifier(deletedAtCol)} = now()`];
-    if (isActiveCol) assignments.push(`${this.quoteIdentifier(isActiveCol)} = false`);
+    if (isActiveCol)
+      assignments.push(`${this.quoteIdentifier(isActiveCol)} = false`);
 
     const raw = await this.dataSource.query(
       `UPDATE mobile_attendance_devices d
           SET ${assignments.join(', ')}
         WHERE d.id = $1::uuid
-          AND d.client_id = $2::uuid
+          AND ${this.deviceTextExpression('d', 'clientId', 'client_id')} = $2
           ${branchFilter}
         RETURNING d.id`,
       scopedParams,
     );
     const rows: Array<{ id: string }> = Array.isArray(raw[0]) ? raw[0] : raw;
-    if (!rows || rows.length === 0) throw new NotFoundException('Device not found');
+    if (!rows || rows.length === 0)
+      throw new NotFoundException('Device not found');
   }
 
-  private async deviceHasPunchHistory(deviceId: string, clientId: string): Promise<boolean> {
-    const tables = ['mobile_attendance_punches', 'contractor_biometric_punches'];
+  private async deviceHasPunchHistory(
+    deviceId: string,
+    clientId: string,
+  ): Promise<boolean> {
+    const tables = [
+      'mobile_attendance_punches',
+      'contractor_biometric_punches',
+    ];
     for (const table of tables) {
       if (!(await this.tableExists(table))) continue;
       const columns = await this.getTableColumns(table);
@@ -506,7 +628,10 @@ export class DeviceService {
 
   private requireColumn(columns: Set<string>, ...names: string[]): string {
     const column = this.pickColumn(columns, ...names);
-    if (!column) throw new NotFoundException(`Device column not found: ${names.join('/')}`);
+    if (!column)
+      throw new NotFoundException(
+        `Device column not found: ${names.join('/')}`,
+      );
     return column;
   }
 
@@ -537,6 +662,17 @@ export class DeviceService {
     return `COALESCE((to_jsonb(${alias})->>'isActive')::boolean, (to_jsonb(${alias})->>'is_active')::boolean, true)`;
   }
 
+  private deviceTextExpression(alias: string, ...names: string[]): string {
+    return `COALESCE(${names.map((name) => `to_jsonb(${alias})->>'${name}'`).join(', ')})`;
+  }
+
+  private deviceNotDeletedFilter(alias: string, columns: Set<string>): string {
+    const deletedAtCol = this.pickColumn(columns, 'deleted_at', 'deletedAt');
+    return deletedAtCol
+      ? `AND ${this.deviceTextExpression(alias, 'deletedAt', 'deleted_at')} IS NULL`
+      : '';
+  }
+
   private deviceCreatedAtOrderExpression(alias: string): string {
     return `COALESCE(
             NULLIF(to_jsonb(${alias})->>'createdAt', '')::timestamptz,
@@ -559,9 +695,15 @@ export class DeviceService {
   static readonly GEOFENCE_RADIUS_MIN_M = 50;
   static readonly GEOFENCE_RADIUS_MAX_M = 50_000;
 
-  private validateGeofenceRange(lat: number, lng: number, radiusM: number): void {
-    if (lat < -90 || lat > 90) throw new ConflictException('Latitude must be between -90 and 90');
-    if (lng < -180 || lng > 180) throw new ConflictException('Longitude must be between -180 and 180');
+  private validateGeofenceRange(
+    lat: number,
+    lng: number,
+    radiusM: number,
+  ): void {
+    if (lat < -90 || lat > 90)
+      throw new ConflictException('Latitude must be between -90 and 90');
+    if (lng < -180 || lng > 180)
+      throw new ConflictException('Longitude must be between -180 and 180');
     if (
       !Number.isInteger(radiusM) ||
       radiusM < DeviceService.GEOFENCE_RADIUS_MIN_M ||
@@ -578,7 +720,9 @@ export class DeviceService {
     clientId: string,
     params: { lat: number; lng: number; radiusM: number } | null,
   ): Promise<MobileAttendanceDeviceEntity> {
-    const device = await this.deviceRepo.findOne({ where: { id: deviceId, clientId } });
+    const device = await this.deviceRepo.findOne({
+      where: { id: deviceId, clientId },
+    });
     if (!device) throw new NotFoundException('Device not found');
 
     if (params === null) {
@@ -596,4 +740,3 @@ export class DeviceService {
     return this.deviceRepo.save(device);
   }
 }
-
