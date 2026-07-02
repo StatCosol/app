@@ -54,21 +54,23 @@ export class AiPayrollAnomalyService {
       });
     }
 
-    // 2. PF contribution mismatches (employer vs employee)
+    // 2. PF wage-base mismatch against statutory employee details
     const pfMismatches = await this.dataSource
       .query(
         `
       SELECT e.id as employee_id, e.name,
              e.basic_salary,
-             esd.pf_number, esd.employee_pf_contribution, esd.employer_pf_contribution,
+             esd.pf_uan, esd.pf_member_id, esd.pf_wages,
+             esd.pf_wages AS employee_pf_contribution,
+             e.basic_salary AS employer_pf_contribution,
              b.id as branch_id
       FROM employees e
-      LEFT JOIN employee_statutory_details esd ON esd.employee_id = e.id
+      LEFT JOIN employee_statutory esd ON esd.employee_id = e.id
       LEFT JOIN client_branches b ON b.id = e.branch_id
       WHERE e.client_id = $1 AND e.is_active = TRUE
-        AND esd.employee_pf_contribution IS NOT NULL
-        AND esd.employer_pf_contribution IS NOT NULL
-        AND ABS(esd.employee_pf_contribution - esd.employer_pf_contribution) > 100
+        AND esd.pf_wages IS NOT NULL
+        AND e.basic_salary IS NOT NULL
+        AND ABS(esd.pf_wages::numeric - e.basic_salary::numeric) > 100
     `,
         [clientId],
       )
@@ -137,14 +139,20 @@ export class AiPayrollAnomalyService {
       .query(
         `
       SELECT e.id as employee_id, e.name,
-             esd.pf_number, esd.esi_number,
+             COALESCE(esd.pf_uan, esd.pf_member_id) AS pf_number,
+             esd.esi_ip_number AS esi_number,
              e.date_of_joining, b.id as branch_id
       FROM employees e
-      LEFT JOIN employee_statutory_details esd ON esd.employee_id = e.id
+      LEFT JOIN employee_statutory esd ON esd.employee_id = e.id
       LEFT JOIN client_branches b ON b.id = e.branch_id
       WHERE e.client_id = $1 AND e.is_active = TRUE
         AND e.date_of_joining < NOW() - INTERVAL '30 days'
-        AND (esd.pf_number IS NULL OR esd.pf_number = '' OR esd.esi_number IS NULL OR esd.esi_number = '')
+        AND (
+          COALESCE(esd.pf_uan, esd.pf_member_id) IS NULL
+          OR COALESCE(esd.pf_uan, esd.pf_member_id) = ''
+          OR esd.esi_ip_number IS NULL
+          OR esd.esi_ip_number = ''
+        )
     `,
         [clientId],
       )

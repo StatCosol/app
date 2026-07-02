@@ -160,8 +160,8 @@ export class AiRiskEngineService {
     const pfResult = await this.dataSource
       .query(
         `SELECT
-         COUNT(*) FILTER (WHERE pf_number IS NULL OR pf_number = '') as pf_pending,
-         COUNT(*) FILTER (WHERE esi_number IS NULL OR esi_number = '') as esi_pending
+         COUNT(*) FILTER (WHERE uan IS NULL OR uan = '') as pf_pending,
+         COUNT(*) FILTER (WHERE esic IS NULL OR esic = '') as esi_pending
        FROM employees WHERE client_id = $1 AND is_active = TRUE`,
         [clientId],
       )
