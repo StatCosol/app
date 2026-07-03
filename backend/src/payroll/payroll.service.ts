@@ -3569,6 +3569,31 @@ export class PayrollService {
     return { success: true, status: toStatus };
   }
 
+  async saveFnfBreakup(
+    user: ReqUser,
+    fnfId: string,
+    body: { settlementBreakup: Record<string, number>; manualOverride?: boolean; remarks?: string },
+  ) {
+    const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
+    if (!fnf) throw new BadRequestException('F&F not found');
+    await this.assertPayrollAccessToClient(user, fnf.clientId);
+
+    const net =
+      Number(body.settlementBreakup?.pendingSalary || 0) +
+      Number(body.settlementBreakup?.leaveEncashment || 0) +
+      Number(body.settlementBreakup?.bonusArrears || 0) -
+      Number(body.settlementBreakup?.deductions || 0) -
+      Number(body.settlementBreakup?.recoveries || 0);
+
+    await this.fnfRepo.update(fnfId, {
+      settlementBreakup: body.settlementBreakup,
+      settlementAmount: net,
+      manualOverride: body.manualOverride ?? fnf.manualOverride,
+      remarks: body.remarks ?? fnf.remarks,
+    });
+    return { ok: true, settlementAmount: net };
+  }
+
   async getFnfDetail(user: ReqUser, fnfId: string) {
     const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
     if (!fnf) throw new BadRequestException('F&F not found');

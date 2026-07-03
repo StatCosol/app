@@ -47,6 +47,9 @@ export class PayrollFnfEntity {
   @Column({ type: 'text', nullable: true })
   remarks: string | null;
 
+  @Column({ name: 'manual_override', type: 'boolean', default: false })
+  manualOverride: boolean;
+
   @Column({ name: 'initiated_by', type: 'uuid', nullable: true })
   initiatedBy: string | null;
 

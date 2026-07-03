@@ -99,6 +99,8 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
   settlementAmountInput = 0;
   statusRemarks = '';
   documentChecklistDraft: ChecklistItem[] = [];
+  manualOverride = false;
+  breakupSaveBusy = false;
 
   createModel = {
     clientId: '',
@@ -432,6 +434,39 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
           this.reloadAfterAction(this.selectedCase!.id);
         },
         error: (err) => this.toast.error(err?.error?.message || 'Approval failed'),
+      });
+  }
+
+  saveBreakup(): void {
+    if (!this.selectedCase || this.breakupSaveBusy) return;
+    this.breakupSaveBusy = true;
+    this.payrollApi
+      .saveFnfBreakup(
+        this.selectedCase.id,
+        {
+          pendingSalary: Number(this.settlementInputs.pendingSalary || 0),
+          leaveEncashment: Number(this.settlementInputs.leaveEncashment || 0),
+          bonusArrears: Number(this.settlementInputs.bonusArrears || 0),
+          deductions: Number(this.settlementInputs.deductions || 0),
+          recoveries: Number(this.settlementInputs.recoveries || 0),
+        },
+        this.manualOverride,
+        this.statusRemarks || undefined,
+      )
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.breakupSaveBusy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          this.settlementAmountInput = res.settlementAmount;
+          this.toast.success('Breakup saved');
+          this.reloadAfterAction(this.selectedCase!.id);
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Save failed'),
       });
   }
 
@@ -795,6 +830,7 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
     this.settlementAmountInput =
       detail.settlementAmount || (hasSaved ? 0 : this.netSettlement);
     this.statusRemarks = detail.remarks || '';
+    this.manualOverride = !!(detail as any).manualOverride;
     this.documentChecklistDraft = this.buildChecklist(detail);
   }
 

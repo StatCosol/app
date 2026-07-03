@@ -610,6 +610,15 @@ export class PayrollController {
     return this.svc.updateFnfStatus(user, fnfId, dto);
   }
 
+  @Patch('fnf/:fnfId/breakup')
+  saveBreakup(
+    @CurrentUser() user: ReqUser,
+    @Param('fnfId') fnfId: string,
+    @Body() body: { settlementBreakup: Record<string, number>; manualOverride?: boolean; remarks?: string },
+  ) {
+    return this.svc.saveFnfBreakup(user, fnfId, body);
+  }
+
   // ── F&F Settlement Documents ──────────────────────
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   @ApiOperation({ summary: 'Upload FnF settlement document' })

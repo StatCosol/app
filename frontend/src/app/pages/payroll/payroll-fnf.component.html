@@ -194,7 +194,18 @@
           </label>
         </div>
 
+        <div class="manual-override-row">
+          <label class="toggle-label">
+            <input type="checkbox" [(ngModel)]="manualOverride" name="manualOverride" />
+            <span>Manual intervention required — values entered manually</span>
+          </label>
+          <span *ngIf="manualOverride" class="badge badge-warning">Manual Override</span>
+        </div>
+
         <div class="action-row">
+          <button type="button" class="btn btn-secondary" [disabled]="breakupSaveBusy || actionBusy" (click)="saveBreakup()">
+            {{ breakupSaveBusy ? 'Saving…' : 'Save Breakup' }}
+          </button>
           <button type="button" class="btn btn-success" [disabled]="actionBusy || !canSettle" (click)="settleCase()">Mark Settled</button>
           <span class="minor">Current saved: {{ inr(detail.settlementAmount) }}</span>
         </div>
