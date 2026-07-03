@@ -8,6 +8,9 @@ DECLARE
 BEGIN
   IF to_regclass('public.face_enrollment_history') IS NOT NULL THEN
     ALTER TABLE public.face_enrollment_history
+      ADD COLUMN IF NOT EXISTS actor_user_id UUID;
+
+    ALTER TABLE public.face_enrollment_history
       ALTER COLUMN actor_user_id DROP NOT NULL;
 
     FOR fk_name IN
