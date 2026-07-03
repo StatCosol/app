@@ -635,6 +635,23 @@ export class EmployeesService {
         .catch((e) =>
           this.logger.warn('riskCache invalidation failed', e?.message),
         );
+
+    // Auto-create FnF record so the employee appears in Full & Final for the exit month.
+    // Uses INSERT ... WHERE NOT EXISTS to avoid duplicates if called more than once.
+    const exitDateStr = deactivated.dateOfExit as unknown as string;
+    this.ds
+      .query(
+        `INSERT INTO payroll_fnf (client_id, employee_id, separation_date, last_working_day, reason, status, checklist)
+         SELECT $1::uuid, $2::uuid, $3::date, $3::date, $4, 'INITIATED', '[]'::jsonb
+         WHERE NOT EXISTS (
+           SELECT 1 FROM payroll_fnf WHERE employee_id = $2::uuid
+         )`,
+        [clientId, id, exitDateStr, exitReason || 'RESIGNATION'],
+      )
+      .catch((e) =>
+        this.logger.warn(`Auto-FnF creation failed for employee ${id}: ${e?.message}`),
+      );
+
     return deactivated;
   }
 
