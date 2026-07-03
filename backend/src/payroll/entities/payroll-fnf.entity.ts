@@ -23,7 +23,7 @@ export class PayrollFnfEntity {
   @Column({ name: 'last_working_day', type: 'date', nullable: true })
   lastWorkingDay: string | null;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Column({ type: 'varchar', length: 500, nullable: true })
   reason: string | null;
 
   @Column({ type: 'varchar', length: 30, default: 'INITIATED' })
@@ -46,6 +46,9 @@ export class PayrollFnfEntity {
 
   @Column({ type: 'text', nullable: true })
   remarks: string | null;
+
+  @Column({ name: 'manual_override', type: 'boolean', default: false })
+  manualOverride: boolean;
 
   @Column({ name: 'initiated_by', type: 'uuid', nullable: true })
   initiatedBy: string | null;

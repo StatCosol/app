@@ -648,6 +648,18 @@ export class PayrollApiService {
     });
   }
 
+  saveFnfBreakup(
+    fnfId: string,
+    breakup: Record<string, number>,
+    manualOverride: boolean,
+    remarks?: string,
+  ): Observable<{ ok: boolean; settlementAmount: number }> {
+    return this.http.patch<{ ok: boolean; settlementAmount: number }>(
+      `${this.base}/fnf/${fnfId}/breakup`,
+      { settlementBreakup: breakup, manualOverride, remarks },
+    );
+  }
+
   // ── F&F Settlement Documents ──
   uploadFnfDocument(fnfId: string, file: File, docType: string, docName: string, remarks?: string): Observable<any> {
     const fd = new FormData();

@@ -3569,6 +3569,31 @@ export class PayrollService {
     return { success: true, status: toStatus };
   }
 
+  async saveFnfBreakup(
+    user: ReqUser,
+    fnfId: string,
+    body: { settlementBreakup: Record<string, number>; manualOverride?: boolean; remarks?: string },
+  ) {
+    const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
+    if (!fnf) throw new BadRequestException('F&F not found');
+    await this.assertPayrollAccessToClient(user, fnf.clientId);
+
+    const net =
+      Number(body.settlementBreakup?.pendingSalary || 0) +
+      Number(body.settlementBreakup?.leaveEncashment || 0) +
+      Number(body.settlementBreakup?.bonusArrears || 0) -
+      Number(body.settlementBreakup?.deductions || 0) -
+      Number(body.settlementBreakup?.recoveries || 0);
+
+    await this.fnfRepo.update(fnfId, {
+      settlementBreakup: body.settlementBreakup,
+      settlementAmount: net,
+      manualOverride: body.manualOverride ?? fnf.manualOverride,
+      remarks: body.remarks ?? fnf.remarks,
+    });
+    return { ok: true, settlementAmount: net };
+  }
+
   async getFnfDetail(user: ReqUser, fnfId: string) {
     const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
     if (!fnf) throw new BadRequestException('F&F not found');
@@ -3660,18 +3685,27 @@ export class PayrollService {
       }
     }
 
-    // Leave encashment — Gross/26 × min(available EL, 20).
+    // Leave encashment — Gross/26 × min(total available EL, 20).
+    // Look up the employee's EL balance for the exit year first; if not found,
+    // sum all years (accumulated carry-forward) to avoid showing 0 for exited employees.
     let leaveEncashment = 0;
     if (emp?.id && monthlyGross > 0) {
       try {
-        const lb = await this.leaveBalanceRepo.findOne({
-          where: {
-            employeeId: emp.id,
-            year: new Date().getFullYear(),
-            leaveType: 'EL',
-          },
-        });
-        const avail = lb ? parseFloat(lb.available) || 0 : 0;
+        const exitYear = lwdStr
+          ? new Date(lwdStr).getUTCFullYear()
+          : new Date().getFullYear();
+
+        // Try exit year first, then fall back to summing all available EL across years
+        const balRows: Array<{ total: string }> = await this.leaveBalanceRepo.query(
+          `SELECT COALESCE(SUM(available::numeric), 0)::text AS total
+             FROM leave_balances
+            WHERE employee_id = $1
+              AND leave_type = 'EL'
+              AND available::numeric > 0
+              AND year <= $2`,
+          [emp.id, exitYear],
+        );
+        const avail = balRows.length ? parseFloat(balRows[0].total) || 0 : 0;
         const ENCASH_CAP = 20;
         const encashable = Math.min(avail, ENCASH_CAP);
         if (encashable > 0) {
@@ -3679,13 +3713,13 @@ export class PayrollService {
           leaveEncashment = Math.round(encashable * perDay);
           const capNote =
             avail > ENCASH_CAP
-              ? ` (capped at ${ENCASH_CAP} of ${avail} available)`
+              ? ` (capped at ${ENCASH_CAP} of ${avail.toFixed(2)} available)`
               : '';
           notes.push(
             `Leave encashment = ${encashable} EL${capNote} × ₹${perDay.toFixed(2)} per day (monthly_gross/26).`,
           );
-        } else if (avail <= 0) {
-          notes.push('Leave encashment = 0 (no EL balance available).');
+        } else {
+          notes.push('Leave encashment = 0 (no EL balance available up to exit year).');
         }
       } catch {
         /* ignore */
