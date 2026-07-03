@@ -23,7 +23,7 @@ export class PayrollFnfEntity {
   @Column({ name: 'last_working_day', type: 'date', nullable: true })
   lastWorkingDay: string | null;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Column({ type: 'varchar', length: 500, nullable: true })
   reason: string | null;
 
   @Column({ type: 'varchar', length: 30, default: 'INITIATED' })

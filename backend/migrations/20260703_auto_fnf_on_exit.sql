@@ -6,7 +6,7 @@ SELECT
   e.id,
   e.date_of_exit,
   e.date_of_exit,
-  COALESCE(NULLIF(e.exit_reason, ''), 'RESIGNATION'),
+  LEFT(COALESCE(NULLIF(e.exit_reason, ''), 'RESIGNATION'), 500),
   'INITIATED',
   '[]'::jsonb
 FROM employees e
