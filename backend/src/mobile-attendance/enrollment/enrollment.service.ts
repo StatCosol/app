@@ -209,11 +209,14 @@ export class EnrollmentService {
       );
     }
 
+    const livenessChallengeType =
+      dto.livenessChallengeType ?? dto.challengeType ?? null;
+
     // Consume liveness nonce atomically before any write
     await this.livenessService.consumeNonce(
       deviceId,
       dto.livenessNonce,
-      dto.livenessChallengeType,
+      livenessChallengeType,
     );
 
     const averaged = averageEmbeddings(

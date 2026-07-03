@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { LivenessService } from './liveness.service';
 
 describe('LivenessService', () => {
@@ -69,5 +70,28 @@ describe('LivenessService', () => {
     const challenge = await service.issueChallenge('device-1');
 
     expect(challenge.challengeType).toBe('BLINK');
+  });
+
+  it('rejects missing supplied challenge type without throwing a raw TypeError', async () => {
+    const { service } = makeService();
+
+    await expect(
+      service.consumeNonce('device-1', 'nonce-1', undefined),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('consumes a nonce using the aliased returned challenge type', async () => {
+    const dataSource = {
+      query: jest.fn().mockResolvedValue([{ challengeType: 'BLINK' }]),
+    };
+    const service = new LivenessService({} as any, dataSource as any);
+
+    await expect(
+      service.consumeNonce('device-1', 'nonce-1', 'blink'),
+    ).resolves.toBe(true);
+
+    expect(dataSource.query.mock.calls[0][0]).toContain(
+      'RETURNING challenge_type AS "challengeType"',
+    );
   });
 });

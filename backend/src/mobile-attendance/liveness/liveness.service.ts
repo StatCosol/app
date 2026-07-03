@@ -76,10 +76,15 @@ export class LivenessService {
   async consumeNonce(
     deviceId: string,
     nonce: string,
-    suppliedType: string,
+    suppliedType: string | null | undefined,
   ): Promise<true> {
+    const normalizedSupplied = suppliedType?.trim().toUpperCase();
+    if (!nonce || !normalizedSupplied) {
+      throw new BadRequestException('Liveness challenge type is required');
+    }
+
     const result = await this.dataSource.query<
-      Array<{ challenge_type: string }>
+      Array<{ challengeType?: string | null; challenge_type?: string | null }>
     >(
       `UPDATE face_liveness_nonces
          SET consumed_at = now()
@@ -87,7 +92,7 @@ export class LivenessService {
          AND device_id = $2
          AND consumed_at IS NULL
          AND expires_at > now()
-       RETURNING challenge_type`,
+       RETURNING challenge_type AS "challengeType"`,
       [nonce, deviceId],
     );
 
@@ -97,8 +102,13 @@ export class LivenessService {
       );
     }
 
-    const storedType: string = result[0].challenge_type;
-    if (storedType.toUpperCase() !== suppliedType.toUpperCase()) {
+    const storedType = result[0].challengeType ?? result[0].challenge_type;
+    const normalizedStored = storedType?.trim().toUpperCase();
+    if (!normalizedStored) {
+      throw new BadRequestException('Stored liveness challenge type is missing');
+    }
+
+    if (normalizedStored !== normalizedSupplied) {
       throw new BadRequestException(
         `Liveness challenge type mismatch: expected ${storedType}, got ${suppliedType}`,
       );
