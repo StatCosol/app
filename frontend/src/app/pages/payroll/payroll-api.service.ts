@@ -196,6 +196,7 @@ export interface PayrollFnfDetail extends PayrollFnfItem {
   remarks: string | null;
   checklist: PayrollFnfChecklistItem[];
   settlementBreakup?: Record<string, number> | null;
+  manualOverride?: boolean;
   computedBreakup?: {
     pendingSalary: number;
     leaveEncashment: number;
@@ -565,6 +566,8 @@ export class PayrollApiService {
             }))
           : [],
         settlementBreakup: r?.settlementBreakup ?? r?.settlement_breakup ?? null,
+        computedBreakup: r?.computedBreakup ?? null,
+        manualOverride: r?.manualOverride === true || r?.manual_override === true,
         history: Array.isArray(r?.history)
           ? r.history.map((event: any) => ({
               id: String(event?.id ?? ''),

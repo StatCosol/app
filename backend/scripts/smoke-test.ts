@@ -51,7 +51,8 @@ async function main() {
   assert(token, 'token missing from login response');
   console.log('OK: login');
 
-  const asList = (j: Json) => (Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : null);
+  const asList = (j: Json) =>
+    Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : Array.isArray(j?.items) ? j.items : null;
 
   // 3) Users listing (admin)
   const users = await http('GET', `${BASE}/api/v1/admin/users`, token);
