@@ -24,6 +24,7 @@ const serviceMigrationFiles = new Set([
   '20260629_mobile_attendance_devices_created_at_compat.sql',
   '20260703_mobile_attendance_device_soft_delete_compat.sql',
   '20260704_mobile_attendance_liveness_nonce_compat.sql',
+  '20260704_mobile_attendance_enrollment_history_compat.sql',
   // FnF (PR #382): reason widen must run before the exited-employee backfill,
   // so files are applied in declared order, not alphabetical.
   '20260703_fnf_manual_override.sql',
@@ -171,6 +172,42 @@ async function verifyMobileAttendanceLivenessNonceCompat() {
   console.log('Verified face_liveness_nonces liveness challenge compatibility.');
 }
 
+async function verifyMobileAttendanceEnrollmentHistoryCompat() {
+  const { rows: tableRows } = await client.query(`
+    SELECT to_regclass('public.face_enrollment_history') AS reg
+  `);
+  if (!tableRows[0]?.reg) {
+    console.log('face_enrollment_history not present; enrollment history compatibility verification skipped.');
+    return;
+  }
+
+  const requiredColumns = [
+    'contractor_employee_id',
+    'reason',
+    'embedding_model',
+    'actor_user_id',
+    'created_at',
+  ];
+  const { rows } = await client.query(
+    `
+    SELECT column_name
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'face_enrollment_history'
+       AND column_name = ANY($1::text[])
+    `,
+    [requiredColumns],
+  );
+  const found = new Set(rows.map((row) => row.column_name));
+  const missing = requiredColumns.filter((column) => !found.has(column));
+  if (missing.length > 0) {
+    throw new Error(
+      `face_enrollment_history missing current columns: ${missing.join(', ')}`,
+    );
+  }
+  console.log('Verified face_enrollment_history kiosk enrollment compatibility.');
+}
+
 try {
   console.log('=== Apply service entitlement migrations ===');
   console.log(`Database: ${config.database} @ ${config.host}:${config.port}`);
@@ -193,6 +230,7 @@ try {
   await verifyTables();
   await verifyMobileAttendanceDeviceCompat();
   await verifyMobileAttendanceLivenessNonceCompat();
+  await verifyMobileAttendanceEnrollmentHistoryCompat();
   console.log('Service entitlement migrations are up to date.');
 } catch (err) {
   console.error(err?.stack || err?.message || err);
