@@ -1,4 +1,6 @@
 import { EnrollmentService } from './enrollment.service';
+import { FaceEnrollmentHistoryEntity } from './enrollment-history.entity';
+import { KioskEnrollTicketEntity } from './kiosk-enroll-ticket.entity';
 
 describe('EnrollmentService.listEmployeeEnrollments', () => {
   function makeService(query: jest.Mock) {
@@ -221,6 +223,82 @@ describe('EnrollmentService kiosk tickets', () => {
     expect(updateBuilder.andWhere).toHaveBeenCalledWith('expires_at <= now()');
     expect(selectBuilder.andWhere).toHaveBeenCalledWith(
       'ticket.expiresAt > now()',
+    );
+  });
+
+  it('uses the ticket creator as the kiosk enrollment audit actor', async () => {
+    const frame = Buffer.from(new Float32Array([1, 0, 0, 0]).buffer).toString(
+      'base64',
+    );
+    const ticket = {
+      id: 'ticket-1',
+      clientId: 'client-1',
+      branchId: 'branch-1',
+      deviceId: 'device-1',
+      subjectType: 'EMPLOYEE',
+      employeeId: 'employee-1',
+      contractorEmployeeId: null,
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 60_000),
+      createdBy: 'user-created-ticket',
+    };
+    const savedEntities: Array<{ target: unknown; entity: any }> = [];
+    const execute = jest.fn().mockResolvedValue({ raw: [{ id: 'ticket-1' }] });
+    const updateBuilder = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      returning: jest.fn().mockReturnThis(),
+      execute,
+    };
+    const manager = {
+      findOne: jest.fn(async (target: unknown) =>
+        target === KioskEnrollTicketEntity ? ticket : null,
+      ),
+      save: jest.fn(async (target: unknown, entity: any) => {
+        savedEntities.push({ target, entity });
+        return entity;
+      }),
+      createQueryBuilder: jest.fn(() => updateBuilder),
+    };
+    const ticketRepo = {
+      findOne: jest.fn().mockResolvedValue(ticket),
+    };
+    const livenessService = {
+      consumeNonce: jest.fn().mockResolvedValue(undefined),
+    };
+    const dataSource = {
+      query: jest.fn().mockResolvedValue([]),
+      transaction: jest.fn(async (fn: any) => fn(manager)),
+    };
+    const service = new EnrollmentService(
+      { find: jest.fn().mockResolvedValue([]) } as any,
+      { find: jest.fn().mockResolvedValue([]) } as any,
+      ticketRepo as any,
+      {} as any,
+      livenessService as any,
+      {} as any,
+      { enabled: false } as any,
+      dataSource as any,
+    );
+
+    await service.submitKioskTicket('device-1', {
+      ticketId: 'ticket-1',
+      consentGiven: true,
+      embeddingFrames: [frame, frame, frame],
+      embeddingModel: 'mobilefacenet',
+      livenessNonce: 'nonce-1',
+      livenessChallengeType: 'BLINK',
+    } as any);
+
+    const historySave = savedEntities.find(
+      (entry) => entry.target === FaceEnrollmentHistoryEntity,
+    );
+    expect(historySave?.entity.actorUserId).toBe('user-created-ticket');
+    expect(savedEntities).not.toContainEqual(
+      expect.objectContaining({
+        entity: expect.objectContaining({ actorUserId: 'device-1' }),
+      }),
     );
   });
 });

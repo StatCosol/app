@@ -185,7 +185,6 @@ export class EnrollmentService {
   async submitKioskTicket(
     deviceId: string,
     dto: SubmitKioskTicketDto,
-    actorUserId: string,
   ): Promise<KioskEnrollTicketEntity> {
     const ticket = await this.ticketRepo.findOne({
       where: { id: dto.ticketId },
@@ -231,6 +230,7 @@ export class EnrollmentService {
       employeeId,
       contractorEmployeeId,
     } = ticket;
+    const actorUserId = ticket.createdBy ?? null;
 
     // Quality gate via face-svc
     if (this.faceClient.enabled && dto.photoB64) {
