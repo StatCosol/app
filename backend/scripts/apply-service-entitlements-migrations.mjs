@@ -25,6 +25,7 @@ const serviceMigrationFiles = new Set([
   '20260703_mobile_attendance_device_soft_delete_compat.sql',
   '20260704_mobile_attendance_liveness_nonce_compat.sql',
   '20260704_mobile_attendance_enrollment_history_compat.sql',
+  '20260704_mobile_attendance_enrollment_history_actor_fk_compat.sql',
   // FnF (PR #382): reason widen must run before the exited-employee backfill,
   // so files are applied in declared order, not alphabetical.
   '20260703_fnf_manual_override.sql',
@@ -203,6 +204,26 @@ async function verifyMobileAttendanceEnrollmentHistoryCompat() {
   if (missing.length > 0) {
     throw new Error(
       `face_enrollment_history missing current columns: ${missing.join(', ')}`,
+    );
+  }
+  const { rows: actorFkRows } = await client.query(`
+    SELECT con.conname
+      FROM pg_constraint con
+      JOIN pg_class rel ON rel.oid = con.conrelid
+      JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+      JOIN pg_attribute att
+        ON att.attrelid = rel.oid
+       AND att.attnum = ANY(con.conkey)
+     WHERE nsp.nspname = 'public'
+       AND rel.relname = 'face_enrollment_history'
+       AND con.contype = 'f'
+       AND att.attname = 'actor_user_id'
+  `);
+  if (actorFkRows.length > 0) {
+    throw new Error(
+      `face_enrollment_history actor_user_id still has foreign keys: ${actorFkRows
+        .map((row) => row.conname)
+        .join(', ')}`,
     );
   }
   console.log('Verified face_enrollment_history kiosk enrollment compatibility.');

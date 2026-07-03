@@ -244,7 +244,7 @@ export class MobileAttendanceEnrollmentController {
   @Post('kiosk/submit')
   submitTicket(@Req() req: Request, @Body() dto: SubmitKioskTicketDto) {
     const deviceId = (req as any).deviceId as string;
-    return this.enrollmentService.submitKioskTicket(deviceId, dto, deviceId);
+    return this.enrollmentService.submitKioskTicket(deviceId, dto);
   }
 
   @ApiOperation({ summary: 'List enrollment tickets' })
