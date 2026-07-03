@@ -109,6 +109,7 @@ export class UpdateEmployeeDto {
   @IsOptional() @IsBoolean() pfApplicable?: boolean;
   @IsOptional() @IsBoolean() esiApplicable?: boolean;
   @IsOptional() @IsBoolean() isActive?: boolean;
+  @IsOptional() @IsString() exitReason?: string;
 }
 
 // ── Employee Nomination ──────────────────────────────────

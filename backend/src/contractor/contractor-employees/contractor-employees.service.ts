@@ -623,9 +623,7 @@ export class ContractorEmployeesService {
           WHERE contractor_employee_id = $1::uuid`,
         [req.contractor_employee_id],
       );
-      const [reenrollTable] = await mgr.query<
-        Array<{ exists: boolean }>
-      >(
+      const [reenrollTable] = await mgr.query<Array<{ exists: boolean }>>(
         `SELECT to_regclass('public.contractor_face_reenrollment_requests') IS NOT NULL AS "exists"`,
       );
       if (reenrollTable?.exists) {
