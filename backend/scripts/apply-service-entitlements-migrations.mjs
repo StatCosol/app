@@ -23,6 +23,7 @@ const serviceMigrationFiles = new Set([
   '20260628i_client_service_nonempty_module_checks.sql',
   '20260629_mobile_attendance_devices_created_at_compat.sql',
   '20260703_mobile_attendance_device_soft_delete_compat.sql',
+  '20260704_mobile_attendance_liveness_nonce_compat.sql',
   // FnF (PR #382): reason widen must run before the exited-employee backfill,
   // so files are applied in declared order, not alphabetical.
   '20260703_fnf_manual_override.sql',
@@ -143,6 +144,33 @@ async function verifyMobileAttendanceDeviceCompat() {
   console.log('Verified mobile_attendance_devices soft-delete compatibility.');
 }
 
+async function verifyMobileAttendanceLivenessNonceCompat() {
+  const { rows: tableRows } = await client.query(`
+    SELECT to_regclass('public.face_liveness_nonces') AS reg
+  `);
+  if (!tableRows[0]?.reg) {
+    console.log('face_liveness_nonces not present; liveness nonce compatibility verification skipped.');
+    return;
+  }
+
+  const { rows } = await client.query(`
+    SELECT column_name
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'face_liveness_nonces'
+       AND column_name IN ('employee_id', 'contractor_employee_id', 'subject_id', 'client_id', 'branch_id')
+       AND is_nullable = 'NO'
+  `);
+  if (rows.length > 0) {
+    throw new Error(
+      `face_liveness_nonces legacy columns still NOT NULL: ${rows
+        .map((row) => row.column_name)
+        .join(', ')}`,
+    );
+  }
+  console.log('Verified face_liveness_nonces liveness challenge compatibility.');
+}
+
 try {
   console.log('=== Apply service entitlement migrations ===');
   console.log(`Database: ${config.database} @ ${config.host}:${config.port}`);
@@ -164,6 +192,7 @@ try {
 
   await verifyTables();
   await verifyMobileAttendanceDeviceCompat();
+  await verifyMobileAttendanceLivenessNonceCompat();
   console.log('Service entitlement migrations are up to date.');
 } catch (err) {
   console.error(err?.stack || err?.message || err);

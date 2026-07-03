@@ -4,8 +4,10 @@ import android.Manifest
 import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import android.view.View
 import android.widget.EditText
@@ -48,6 +50,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -69,6 +74,10 @@ class KioskActivity : AppCompatActivity() {
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     private var ttsInstallPrompted = false
+    private var pendingSpeechText: String? = null
+    private var pendingSpeechTag: String = "prompt"
+    private var utteranceSeq = 0
+    private var idlePromptSpoken = false
 
     // ── Core dependencies ────────────────────────────────────────────────────
     private lateinit var config: DeviceConfig
@@ -128,17 +137,7 @@ class KioskActivity : AppCompatActivity() {
         tvStatus = findViewById(R.id.statusDetail)
         tvDirectionArrow = findViewById(R.id.tvDirectionArrow)
 
-        tts = TextToSpeech(this) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                val langResult = tts?.setLanguage(java.util.Locale.ENGLISH)
-                ttsReady = langResult != TextToSpeech.LANG_MISSING_DATA &&
-                    langResult != TextToSpeech.LANG_NOT_SUPPORTED
-                if (!ttsReady) promptInstallTtsData()
-            } else {
-                Log.w(TAG, "TTS init failed (status=$status) — voice prompts disabled")
-                promptInstallTtsData()
-            }
-        }
+        initTextToSpeech()
 
         config = DeviceConfig(this)
         apiClient = ApiClient(config)
@@ -187,11 +186,148 @@ class KioskActivity : AppCompatActivity() {
         livenessTimeoutJob?.cancel()
     }
 
-    private fun speak(text: String) {
-        if (ttsReady && tts != null) {
-            tts?.language = java.util.Locale.ENGLISH
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+    private fun initTextToSpeech() {
+        val preferredEngine = GOOGLE_TTS_PACKAGE.takeIf { isPackageInstalled(it) }
+        tts = TextToSpeech(this, { status -> handleTtsInit(status) }, preferredEngine)
+    }
+
+    private fun handleTtsInit(status: Int) {
+        if (status != TextToSpeech.SUCCESS) {
+            ttsReady = false
+            Log.w(TAG, "TTS init failed (status=$status) - voice prompts disabled")
+            promptInstallTtsData()
+            return
         }
+
+        val engine = tts
+        if (engine == null) {
+            ttsReady = false
+            Log.w(TAG, "TTS init callback fired before engine assignment")
+            return
+        }
+
+        engine.setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build(),
+        )
+        engine.setSpeechRate(0.92f)
+        engine.setPitch(1.0f)
+        engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {
+                Log.i(TAG, "TTS started: $utteranceId")
+            }
+
+            override fun onDone(utteranceId: String?) {
+                Log.i(TAG, "TTS done: $utteranceId")
+            }
+
+            @Deprecated("Deprecated in Java")
+            override fun onError(utteranceId: String?) {
+                Log.w(TAG, "TTS error: $utteranceId")
+            }
+
+            override fun onError(utteranceId: String?, errorCode: Int) {
+                Log.w(TAG, "TTS error: $utteranceId code=$errorCode")
+            }
+        })
+
+        val langResult = setTtsLanguage(ENGLISH_INDIA)
+        ttsReady = langResult != TextToSpeech.LANG_MISSING_DATA &&
+            langResult != TextToSpeech.LANG_NOT_SUPPORTED &&
+            langResult != TextToSpeech.ERROR
+
+        if (!ttsReady) {
+            Log.w(TAG, "TTS English voice missing/unsupported (result=$langResult)")
+            promptInstallTtsData()
+            return
+        }
+
+        Log.i(TAG, "TTS ready using engine=${engine.defaultEngine}")
+        flushPendingSpeech()
+        speakIdlePromptOnce()
+    }
+
+    private fun isPackageInstalled(packageName: String): Boolean =
+        try {
+            packageManager.getPackageInfo(packageName, 0)
+            true
+        } catch (_: PackageManager.NameNotFoundException) {
+            false
+        }
+
+    private fun setTtsLanguage(locale: Locale): Int {
+        val result = tts?.setLanguage(locale) ?: TextToSpeech.ERROR
+        if (
+            result == TextToSpeech.LANG_MISSING_DATA ||
+            result == TextToSpeech.LANG_NOT_SUPPORTED ||
+            result == TextToSpeech.ERROR
+        ) {
+            return tts?.setLanguage(Locale.US) ?: TextToSpeech.ERROR
+        }
+        return result
+    }
+
+    private fun speak(text: String) {
+        speakText(text, TextToSpeech.QUEUE_FLUSH, ENGLISH_INDIA, "prompt", queueIfNotReady = true)
+    }
+
+    private fun speakText(
+        text: String,
+        queueMode: Int,
+        locale: Locale,
+        tag: String,
+        queueIfNotReady: Boolean,
+    ) {
+        val clean = text.trim()
+        if (clean.isBlank()) return
+
+        val engine = tts
+        if (!ttsReady || engine == null) {
+            if (queueIfNotReady) {
+                pendingSpeechText = clean
+                pendingSpeechTag = tag
+                Log.i(TAG, "TTS not ready; queued speech: $tag")
+            }
+            return
+        }
+
+        val langResult = setTtsLanguage(locale)
+        if (
+            langResult == TextToSpeech.LANG_MISSING_DATA ||
+            langResult == TextToSpeech.LANG_NOT_SUPPORTED ||
+            langResult == TextToSpeech.ERROR
+        ) {
+            Log.w(TAG, "TTS language unavailable for $tag (result=$langResult)")
+            return
+        }
+
+        val utteranceId = "$tag-${++utteranceSeq}"
+        val result = engine.speak(clean, queueMode, null, utteranceId)
+        if (result == TextToSpeech.ERROR) {
+            Log.w(TAG, "TTS speak failed: $utteranceId")
+            if (queueIfNotReady) {
+                pendingSpeechText = clean
+                pendingSpeechTag = tag
+            }
+        } else {
+            Log.i(TAG, "TTS speak queued: $utteranceId")
+        }
+    }
+
+    private fun flushPendingSpeech() {
+        val text = pendingSpeechText ?: return
+        val tag = pendingSpeechTag
+        pendingSpeechText = null
+        pendingSpeechTag = "prompt"
+        speakText(text, TextToSpeech.QUEUE_FLUSH, ENGLISH_INDIA, tag, queueIfNotReady = false)
+    }
+
+    private fun speakIdlePromptOnce() {
+        if (idlePromptSpoken || state !is KioskState.Idle) return
+        idlePromptSpoken = true
+        speak(getString(R.string.kiosk_look_at_camera))
     }
 
     private fun showPrompt(main: String, detail: String? = null) {
@@ -209,15 +345,27 @@ class KioskActivity : AppCompatActivity() {
             tvHint.text?.toString() ?: getString(R.string.kiosk_look_at_camera),
             getString(R.string.kiosk_tts_install_needed),
         )
-        try {
-            startActivity(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA))
-        } catch (e: Exception) {
-            Log.w(TAG, "Unable to open TTS install screen: ${e.message}")
+        runOnUiThread {
+            try {
+                startActivity(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA))
+            } catch (e: Exception) {
+                Log.w(TAG, "Unable to open TTS install screen: ${e.message}")
+            }
         }
     }
 
     private fun formatApiError(e: Throwable): String {
         val raw = e.message ?: return "unknown error"
+        val jsonStart = raw.indexOf('{')
+        if (jsonStart >= 0) {
+            try {
+                val parsed = json.parseToJsonElement(raw.substring(jsonStart)).jsonObject
+                val message = parsed["message"]?.jsonPrimitive?.contentOrNull
+                if (!message.isNullOrBlank()) return message.take(220)
+            } catch (_: Exception) {
+                // Fall through to the legacy text cleanup below.
+            }
+        }
         return raw
             .replace(Regex("\\{\"statusCode\"\\s*:\\s*\\d+,\\s*\"message\"\\s*:\\s*\""), "")
             .replace(Regex("\",\\s*\"error\"\\s*:\\s*\"[^\"]+\"\\}"), "")
@@ -227,25 +375,26 @@ class KioskActivity : AppCompatActivity() {
 
     /** Speak the punch result: English name announcement then Telugu motivational message. */
     private fun speakPunchResult(name: String, direction: String) {
-        if (!ttsReady || tts == null) return
         val isOut = direction == "OUT"
         val announcement = if (isOut)
             getString(R.string.kiosk_voice_logout_recorded, name)
         else
             getString(R.string.kiosk_voice_recorded, name)
-        tts?.language = java.util.Locale.ENGLISH
-        tts?.speak(announcement, TextToSpeech.QUEUE_FLUSH, null, "name")
+        speakText(announcement, TextToSpeech.QUEUE_FLUSH, ENGLISH_INDIA, "punch-name", queueIfNotReady = true)
 
         val motivation = if (isOut)
             getString(R.string.kiosk_voice_logout_motivation)
         else
             getString(R.string.kiosk_voice_login_motivation)
-        val teluguLocale = java.util.Locale("te", "IN")
-        val teResult = tts?.setLanguage(teluguLocale)
-        if (teResult != TextToSpeech.LANG_NOT_SUPPORTED && teResult != TextToSpeech.LANG_MISSING_DATA) {
-            tts?.speak(motivation, TextToSpeech.QUEUE_ADD, null, "motivation")
+        val teResult = tts?.setLanguage(TELUGU_INDIA)
+        if (
+            teResult != TextToSpeech.LANG_NOT_SUPPORTED &&
+            teResult != TextToSpeech.LANG_MISSING_DATA &&
+            teResult != TextToSpeech.ERROR
+        ) {
+            speakText(motivation, TextToSpeech.QUEUE_ADD, TELUGU_INDIA, "punch-motivation", queueIfNotReady = false)
         }
-        tts?.language = java.util.Locale.ENGLISH
+        setTtsLanguage(ENGLISH_INDIA)
     }
 
     private fun showDirectionArrow(challenge: LivenessChallenge) {
@@ -875,6 +1024,9 @@ class KioskActivity : AppCompatActivity() {
         private const val RESULT_DISPLAY_MS = 3_000L
         private const val LIVENESS_TIMEOUT_MS = 15_000L      // 15 s — head turns need more time
         private const val CAMERA_REQUEST_CODE = 1001
+        private const val GOOGLE_TTS_PACKAGE = "com.google.android.tts"
+        private val ENGLISH_INDIA = Locale("en", "IN")
+        private val TELUGU_INDIA = Locale("te", "IN")
 
         fun cosineSim(a: FloatArray, b: FloatArray): Double {
             var dot = 0.0
