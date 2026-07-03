@@ -830,7 +830,7 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
     this.settlementAmountInput =
       detail.settlementAmount || (hasSaved ? 0 : this.netSettlement);
     this.statusRemarks = detail.remarks || '';
-    this.manualOverride = !!(detail as any).manualOverride;
+    this.manualOverride = !!detail.manualOverride;
     this.documentChecklistDraft = this.buildChecklist(detail);
   }
 

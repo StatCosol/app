@@ -614,7 +614,12 @@ export class PayrollController {
   saveBreakup(
     @CurrentUser() user: ReqUser,
     @Param('fnfId') fnfId: string,
-    @Body() body: { settlementBreakup: Record<string, number>; manualOverride?: boolean; remarks?: string },
+    @Body()
+    body: {
+      settlementBreakup: Record<string, number>;
+      manualOverride?: boolean;
+      remarks?: string;
+    },
   ) {
     return this.svc.saveFnfBreakup(user, fnfId, body);
   }

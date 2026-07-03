@@ -36,13 +36,13 @@ async function main() {
   console.log(`SMOKE: base=${BASE}`);
 
   // 1) Health
-  const health = await http('GET', `${BASE}/api/health`);
+  const health = await http('GET', `${BASE}/api/v1/health`);
   assert(health.status === 200, `health status ${health.status}`);
   assert(health.json?.ok === true, 'health ok not true');
   console.log('OK: health');
 
   // 2) Login
-  const login = await http('POST', `${BASE}/api/auth/login`, undefined, {
+  const login = await http('POST', `${BASE}/api/v1/auth/login`, undefined, {
     email: EMAIL,
     password: PASS,
   });
@@ -51,23 +51,29 @@ async function main() {
   assert(token, 'token missing from login response');
   console.log('OK: login');
 
+  const asList = (j: Json) =>
+    Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : Array.isArray(j?.items) ? j.items : null;
+
   // 3) Users listing (admin)
-  const users = await http('GET', `${BASE}/api/admin/users`, token);
+  const users = await http('GET', `${BASE}/api/v1/admin/users`, token);
   assert(users.status === 200, `admin users status ${users.status}`);
-  assert(Array.isArray(users.json), 'admin users response not array');
-  console.log(`OK: admin users count=${users.json.length}`);
+  const userList = asList(users.json);
+  assert(userList, 'admin users response not a list');
+  console.log(`OK: admin users count=${userList.length}`);
 
   // 4) Branches listing (admin)
-  const branches = await http('GET', `${BASE}/api/admin/branches`, token);
+  const branches = await http('GET', `${BASE}/api/v1/branches`, token);
   assert(branches.status === 200, `branches status ${branches.status}`);
-  assert(Array.isArray(branches.json), 'branches response not array');
-  console.log(`OK: branches count=${branches.json.length}`);
+  const branchList = asList(branches.json);
+  assert(branchList, 'branches response not a list');
+  console.log(`OK: branches count=${branchList.length}`);
 
   // 5) Notifications inbox (admin)
-  const inbox = await http('GET', `${BASE}/api/notifications/admin/all`, token);
-  assert(inbox.status === 200, `notifications admin/all status ${inbox.status}`);
-  assert(Array.isArray(inbox.json), 'notifications response not array');
-  console.log(`OK: notifications threads=${inbox.json.length}`);
+  const inbox = await http('GET', `${BASE}/api/v1/admin/notifications`, token);
+  assert(inbox.status === 200, `admin notifications status ${inbox.status}`);
+  const inboxList = asList(inbox.json);
+  assert(inboxList, 'notifications response not a list');
+  console.log(`OK: notifications threads=${inboxList.length}`);
 
   console.log('✅ SMOKE PASS');
 }

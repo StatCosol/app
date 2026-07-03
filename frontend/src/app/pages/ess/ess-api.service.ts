@@ -276,6 +276,7 @@ export interface EssDocument {
 @Injectable({ providedIn: 'root' })
 export class EssApiService {
   private readonly base = `${environment.apiBaseUrl}/api/v1/ess`;
+  private readonly helpdeskMessagesBase = `${environment.apiBaseUrl}/api/v1/helpdesk`;
 
   constructor(private http: HttpClient) {}
 
@@ -460,13 +461,13 @@ export class EssApiService {
 
   helpdeskGetMessages(ticketId: string): Observable<any[]> {
     return this.http
-      .get<any>(`${this.base}/helpdesk/tickets/${ticketId}/messages`)
+      .get<any>(`${this.helpdeskMessagesBase}/tickets/${ticketId}/messages`)
       .pipe(map((res) => (Array.isArray(res) ? res : res?.data ?? [])));
   }
 
   helpdeskPostMessage(ticketId: string, message: string): Observable<any> {
     return this.http.post(
-      `${this.base}/helpdesk/tickets/${ticketId}/messages`,
+      `${this.helpdeskMessagesBase}/tickets/${ticketId}/messages`,
       { message },
     );
   }
