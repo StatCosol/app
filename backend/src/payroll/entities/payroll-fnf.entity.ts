@@ -42,7 +42,7 @@ export class PayrollFnfEntity {
   settlementAmount: number | null;
 
   @Column({ name: 'settlement_breakup', type: 'jsonb', nullable: true })
-  settlementBreakup: any;
+  settlementBreakup: object | null;
 
   @Column({ type: 'text', nullable: true })
   remarks: string | null;

@@ -23,6 +23,11 @@ const serviceMigrationFiles = new Set([
   '20260628i_client_service_nonempty_module_checks.sql',
   '20260629_mobile_attendance_devices_created_at_compat.sql',
   '20260703_mobile_attendance_device_soft_delete_compat.sql',
+  // FnF (PR #382): reason widen must run before the exited-employee backfill,
+  // so files are applied in declared order, not alphabetical.
+  '20260703_fnf_manual_override.sql',
+  '20260703_auto_fnf_on_exit.sql',
+  '20260703_button_endpoint_db_alignment.sql',
 ]);
 
 const config = {
@@ -144,18 +149,16 @@ try {
   await client.connect();
   await ensureMigrationTable();
 
-  const availableFiles = (await readdir(migrationsDir))
-    .filter((filename) => serviceMigrationFiles.has(filename))
-    .sort((a, b) => a.localeCompare(b));
-
-  if (availableFiles.length !== serviceMigrationFiles.size) {
-    const missing = [...serviceMigrationFiles].filter(
-      (filename) => !availableFiles.includes(filename),
-    );
+  const presentFiles = new Set(await readdir(migrationsDir));
+  const missing = [...serviceMigrationFiles].filter(
+    (filename) => !presentFiles.has(filename),
+  );
+  if (missing.length > 0) {
     throw new Error(`missing migration files: ${missing.join(', ')}`);
   }
 
-  for (const filename of availableFiles) {
+  // Apply in declared order (dependencies may not sort alphabetically).
+  for (const filename of serviceMigrationFiles) {
     await applyMigration(filename);
   }
 

@@ -646,10 +646,17 @@ export class EmployeesService {
          WHERE NOT EXISTS (
            SELECT 1 FROM payroll_fnf WHERE employee_id = $2::uuid
          )`,
-        [clientId, id, exitDateStr, (exitReason || 'RESIGNATION').slice(0, 500)],
+        [
+          clientId,
+          id,
+          exitDateStr,
+          (exitReason || 'RESIGNATION').slice(0, 500),
+        ],
       )
       .catch((e) =>
-        this.logger.warn(`Auto-FnF creation failed for employee ${id}: ${e?.message}`),
+        this.logger.warn(
+          `Auto-FnF creation failed for employee ${id}: ${e?.message}`,
+        ),
       );
 
     return deactivated;
