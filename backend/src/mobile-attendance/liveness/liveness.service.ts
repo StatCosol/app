@@ -28,6 +28,24 @@ function configuredChallengeTypes(): string[] {
 const LIVENESS_NONCE_TTL_MS = 2 * 60 * 1000;
 const OFFLINE_LIVENESS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
+function hasReturnedRow(result: unknown): boolean {
+  if (Array.isArray(result)) {
+    if (result.length === 0) return false;
+    if (Array.isArray(result[0])) return result[0].length > 0;
+    return true;
+  }
+
+  if (
+    result &&
+    typeof result === 'object' &&
+    Array.isArray((result as { rows?: unknown[] }).rows)
+  ) {
+    return ((result as { rows: unknown[] }).rows ?? []).length > 0;
+  }
+
+  return false;
+}
+
 @Injectable()
 export class LivenessService {
   private readonly logger = new Logger(LivenessService.name);
@@ -83,34 +101,21 @@ export class LivenessService {
       throw new BadRequestException('Liveness challenge type is required');
     }
 
-    const result = await this.dataSource.query<
-      Array<{ challengeType?: string | null; challenge_type?: string | null }>
-    >(
+    const result = await this.dataSource.query(
       `UPDATE face_liveness_nonces
          SET consumed_at = now()
        WHERE nonce = $1
          AND device_id = $2
          AND consumed_at IS NULL
          AND expires_at > now()
-       RETURNING challenge_type AS "challengeType"`,
-      [nonce, deviceId],
+         AND upper(challenge_type) = $3
+       RETURNING 1 AS ok`,
+      [nonce, deviceId, normalizedSupplied],
     );
 
-    if (!result || result.length === 0) {
+    if (!hasReturnedRow(result)) {
       throw new BadRequestException(
-        'Liveness nonce invalid, expired, or already used',
-      );
-    }
-
-    const storedType = result[0].challengeType ?? result[0].challenge_type;
-    const normalizedStored = storedType?.trim().toUpperCase();
-    if (!normalizedStored) {
-      throw new BadRequestException('Stored liveness challenge type is missing');
-    }
-
-    if (normalizedStored !== normalizedSupplied) {
-      throw new BadRequestException(
-        `Liveness challenge type mismatch: expected ${storedType}, got ${suppliedType}`,
+        'Liveness nonce invalid, expired, already used, or challenge type mismatch',
       );
     }
 

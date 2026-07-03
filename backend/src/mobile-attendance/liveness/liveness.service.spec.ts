@@ -80,9 +80,9 @@ describe('LivenessService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('consumes a nonce using the aliased returned challenge type', async () => {
+  it('consumes a nonce when the supplied challenge type matches in SQL', async () => {
     const dataSource = {
-      query: jest.fn().mockResolvedValue([{ challengeType: 'BLINK' }]),
+      query: jest.fn().mockResolvedValue([{ ok: 1 }]),
     };
     const service = new LivenessService({} as any, dataSource as any);
 
@@ -91,7 +91,36 @@ describe('LivenessService', () => {
     ).resolves.toBe(true);
 
     expect(dataSource.query.mock.calls[0][0]).toContain(
-      'RETURNING challenge_type AS "challengeType"',
+      'AND upper(challenge_type) = $3',
+    );
+    expect(dataSource.query.mock.calls[0][1]).toEqual([
+      'nonce-1',
+      'device-1',
+      'BLINK',
+    ]);
+  });
+
+  it('accepts nested row result shapes from query drivers', async () => {
+    const dataSource = {
+      query: jest.fn().mockResolvedValue([[{ ok: 1 }], 1]),
+    };
+    const service = new LivenessService({} as any, dataSource as any);
+
+    await expect(
+      service.consumeNonce('device-1', 'nonce-1', 'BLINK'),
+    ).resolves.toBe(true);
+  });
+
+  it('rejects empty consume results as an invalid nonce or mismatch', async () => {
+    const dataSource = {
+      query: jest.fn().mockResolvedValue([]),
+    };
+    const service = new LivenessService({} as any, dataSource as any);
+
+    await expect(
+      service.consumeNonce('device-1', 'nonce-1', 'BLINK'),
+    ).rejects.toThrow(
+      'Liveness nonce invalid, expired, already used, or challenge type mismatch',
     );
   });
 });
