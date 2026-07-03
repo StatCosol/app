@@ -133,7 +133,7 @@ describe('EnrollmentService kiosk tickets', () => {
     jest.restoreAllMocks();
   });
 
-  it('creates kiosk tickets with an operator-friendly default expiry window', async () => {
+  it('creates kiosk tickets with a short default expiry window', async () => {
     jest
       .spyOn(Date, 'now')
       .mockReturnValue(new Date('2026-06-16T10:00:00.000Z').getTime());
@@ -156,7 +156,7 @@ describe('EnrollmentService kiosk tickets', () => {
       'user-1',
     );
 
-    expect(saved.expiresAt.toISOString()).toBe('2026-06-16T10:30:00.000Z');
+    expect(saved.expiresAt.toISOString()).toBe('2026-06-16T10:05:00.000Z');
     expect(ticketRepo.update).toHaveBeenCalledWith(
       { deviceId: 'device-1', clientId: 'client-1', status: 'PENDING' },
       expect.objectContaining({ status: 'CANCELLED' }),

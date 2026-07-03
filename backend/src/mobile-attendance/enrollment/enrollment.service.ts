@@ -35,8 +35,9 @@ const DUPLICATE_THRESHOLD = Number(
   process.env.FACE_DUPLICATE_THRESHOLD ?? 0.88,
 );
 const MIN_QUALITY = Number(process.env.FACE_MIN_QUALITY_SCORE ?? 0.75);
+const DEFAULT_KIOSK_TICKET_TTL_MS = 5 * 60 * 1000;
 const KIOSK_TICKET_TTL_MS = Number(
-  process.env.FACE_KIOSK_TICKET_TTL_MS ?? 30 * 60 * 1000,
+  process.env.FACE_KIOSK_TICKET_TTL_MS ?? DEFAULT_KIOSK_TICKET_TTL_MS,
 );
 
 @Injectable()
