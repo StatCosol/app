@@ -22,36 +22,56 @@ type StoredReturn = ComplianceReturnEntity & {
   deleteReason: string | null;
 };
 
+function cloneReturn(row: StoredReturn): StoredReturn {
+  return {
+    ...row,
+    deletedAt: row.deletedAt ? new Date(row.deletedAt) : null,
+  };
+}
+
 function createReturnsRepo(store: StoredReturn[]) {
   const repo = {
     create: jest.fn((value: Partial<StoredReturn>) => value as StoredReturn),
     save: jest.fn(async (value: StoredReturn) => {
       const index = store.findIndex((row) => row.id === value.id);
+      const persisted = cloneReturn(value);
       if (index >= 0) {
-        store[index] = value;
+        store[index] = persisted;
       } else {
-        store.push(value);
+        store.push(persisted);
       }
-      return value;
+      return cloneReturn(persisted);
     }),
     findOne: jest.fn(async ({ where }: { where: Partial<StoredReturn> }) => {
-      return (
+      const row =
         store.find((row) =>
           Object.entries(where).every(
             ([key, value]) => row[key as keyof StoredReturn] === value,
           ),
-        ) ?? null
-      );
+        ) ?? null;
+      return row ? cloneReturn(row) : null;
     }),
     createQueryBuilder: jest.fn(() => {
+      const predicates: string[] = [];
       const qb = {
         leftJoinAndSelect: jest.fn(() => qb),
-        andWhere: jest.fn(() => qb),
+        andWhere: jest.fn((condition: string) => {
+          predicates.push(condition);
+          return qb;
+        }),
         orderBy: jest.fn(() => qb),
         addOrderBy: jest.fn(() => qb),
-        getMany: jest.fn(async () =>
-          store.filter((row) => !row.isDeleted && row.deletedAt === null),
-        ),
+        getMany: jest.fn(async () => {
+          let rows = store.map(cloneReturn);
+          if (predicates.includes('r.isDeleted = false')) {
+            rows = rows.filter((row) => !row.isDeleted);
+          }
+          if (predicates.includes('r.deletedAt IS NULL')) {
+            rows = rows.filter((row) => row.deletedAt === null);
+          }
+          return rows;
+        }),
+        predicates,
       };
       return qb;
     }),
@@ -110,6 +130,15 @@ describe('ReturnsService (integration) - soft delete / restore', () => {
 
     await service.softDeleteAsAdmin(rec.id, 'admin-1', 'cleanup');
 
+    expect(returnsRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: rec.id,
+        isDeleted: true,
+        deletedBy: 'admin-1',
+        deleteReason: 'cleanup',
+      }),
+    );
+
     const deleted = await returnsRepo.findOne({
       where: { id: rec.id, isDeleted: true },
     });
@@ -118,8 +147,22 @@ describe('ReturnsService (integration) - soft delete / restore', () => {
 
     const listAfterDelete = await service.listForAdmin({});
     expect(listAfterDelete).toHaveLength(0);
+    const listQuery = returnsRepo.createQueryBuilder.mock.results[0].value;
+    expect(listQuery.predicates).toEqual(
+      expect.arrayContaining(['r.isDeleted = false', 'r.deletedAt IS NULL']),
+    );
 
     await service.restoreAsAdmin(rec.id);
+
+    expect(returnsRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: rec.id,
+        isDeleted: false,
+        deletedAt: null,
+        deletedBy: null,
+        deleteReason: null,
+      }),
+    );
 
     const restored = await returnsRepo.findOne({
       where: { id: rec.id, isDeleted: false },
@@ -130,6 +173,11 @@ describe('ReturnsService (integration) - soft delete / restore', () => {
 
     const listAfterRestore = await service.listForAdmin({});
     expect(listAfterRestore).toHaveLength(1);
+    const restoreListQuery =
+      returnsRepo.createQueryBuilder.mock.results[1].value;
+    expect(restoreListQuery.predicates).toEqual(
+      expect.arrayContaining(['r.isDeleted = false', 'r.deletedAt IS NULL']),
+    );
     expect((listAfterRestore[0] as any).id).toBe(rec.id);
   });
 
