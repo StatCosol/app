@@ -92,9 +92,21 @@ export class SubmitKioskTicketDto {
   @IsString()
   livenessNonce: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({
+    description:
+      'Preferred liveness challenge type field. Legacy kiosks may send challengeType instead.',
+  })
+  @IsOptional()
   @IsString()
-  livenessChallengeType: string;
+  livenessChallengeType?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Legacy kiosk alias for livenessChallengeType; accepted for backwards compatibility.',
+  })
+  @IsOptional()
+  @IsString()
+  challengeType?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
