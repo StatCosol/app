@@ -1,6 +1,7 @@
 import '@angular/compiler';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ChangeDetectorRef } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { of, Subject, throwError } from 'rxjs';
 import { BranchFaceEnrollmentComponent } from './branch-face-enrollment.component';
 import type {
@@ -62,6 +63,7 @@ const makeComponent = (
 ): BranchFaceEnrollmentComponent => {
   const auth = overrides.auth ?? {
     getBranchIds: () => ['b-1'],
+    getAccessToken: () => 'access-token',
     hasModule: () => false,
     hasAnyModule: () => false,
   };
@@ -388,6 +390,56 @@ describe('BranchFaceEnrollmentComponent kiosk-enroll flow', () => {
       (cmp as any).pollKioskTicket();
       expect(stop).not.toHaveBeenCalled();
       expect(cmp.kioskActiveTicket?.status).toBe('PENDING');
+    });
+
+    it('stops polling before the API call when the login token is missing', () => {
+      const get = vi.fn();
+      const toast = { success: vi.fn(), info: vi.fn(), error: vi.fn() };
+      const cmp = makeComponent({
+        auth: {
+          getBranchIds: () => ['b-1'],
+          getAccessToken: () => '',
+          hasModule: () => false,
+          hasAnyModule: () => false,
+        },
+        svc: { getKioskEnrollTicket: get },
+        toast,
+      });
+      cmp.kioskActiveTicket = buildTicket();
+      const stop = vi.spyOn(cmp as any, 'stopKioskTimers');
+      (cmp as any).pollKioskTicket();
+      expect(get).not.toHaveBeenCalled();
+      expect(stop).toHaveBeenCalled();
+      expect(cmp.kioskError).toContain('login session expired');
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringContaining('login session expired'),
+      );
+    });
+
+    it('stops polling and shows a session message on 401 responses', () => {
+      const get = vi.fn().mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 401,
+              error: { message: 'Unauthorized' },
+            }),
+        ),
+      );
+      const toast = { success: vi.fn(), info: vi.fn(), error: vi.fn() };
+      const cmp = makeComponent({
+        svc: { getKioskEnrollTicket: get },
+        toast,
+      });
+      cmp.kioskActiveTicket = buildTicket();
+      const stop = vi.spyOn(cmp as any, 'stopKioskTimers');
+      (cmp as any).pollKioskTicket();
+      expect(get).toHaveBeenCalledWith('t-1');
+      expect(stop).toHaveBeenCalled();
+      expect(cmp.kioskError).toContain('login session expired');
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringContaining('login session expired'),
+      );
     });
   });
 
