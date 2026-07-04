@@ -31,8 +31,14 @@ const KIOSK_REQUIRED_FRAMES = Number(
   process.env.FACE_KIOSK_REQUIRED_FRAMES ?? 3,
 );
 const ESS_REQUIRED_FRAMES = Number(process.env.FACE_ESS_REQUIRED_FRAMES ?? 7);
+// Keep duplicate enrollment blocking at least as strict as punch matching.
+// MobileFaceNet same-person scores commonly land below 0.88, so a higher
+// duplicate threshold allows one face to be enrolled against multiple people.
+const DEFAULT_DUPLICATE_THRESHOLD = Number(
+  process.env.FACE_MIN_MATCH_SCORE ?? 0.72,
+);
 const DUPLICATE_THRESHOLD = Number(
-  process.env.FACE_DUPLICATE_THRESHOLD ?? 0.88,
+  process.env.FACE_DUPLICATE_THRESHOLD ?? DEFAULT_DUPLICATE_THRESHOLD,
 );
 const MIN_QUALITY = Number(process.env.FACE_MIN_QUALITY_SCORE ?? 0.75);
 const DEFAULT_KIOSK_TICKET_TTL_MS = 5 * 60 * 1000;

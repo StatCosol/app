@@ -34,6 +34,35 @@ export class MobileAttendancePunchEntity {
   @Column({ name: 'match_score', type: 'numeric', nullable: true })
   matchScore: number | null;
 
+  @Column({ name: 'match_cosine', type: 'numeric', nullable: true })
+  matchCosine: number | null;
+
+  @Column({ name: 'match_threshold', type: 'numeric', nullable: true })
+  matchThreshold: number | null;
+
+  @Column({ name: 'match_margin', type: 'numeric', nullable: true })
+  matchMargin: number | null;
+
+  @Column({ name: 'match_margin_threshold', type: 'numeric', nullable: true })
+  matchMarginThreshold: number | null;
+
+  @Column({
+    name: 'second_best_subject_type',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  secondBestSubjectType: string | null;
+
+  @Column({ name: 'second_best_subject_id', type: 'uuid', nullable: true })
+  secondBestSubjectId: string | null;
+
+  @Column({ name: 'second_best_cosine', type: 'numeric', nullable: true })
+  secondBestCosine: number | null;
+
+  @Column({ name: 'gallery_size', type: 'int', nullable: true })
+  gallerySize: number | null;
+
   @Column({ name: 'liveness_score', type: 'numeric', nullable: true })
   livenessScore: number | null;
 
