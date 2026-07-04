@@ -698,7 +698,7 @@ class KioskActivity : AppCompatActivity() {
                 livenessScore = liveness,
                 livenessChallengeType = challenge.name,
                 livenessNonce = nonce,
-                direction = "IN",
+                direction = "AUTO",
                 punchTime = isoNow(),
                 photoB64 = photo,
                 isMockLocation = false,
@@ -710,7 +710,10 @@ class KioskActivity : AppCompatActivity() {
                 val resp = apiClient.recordPunch(req)
                 resultDisplayMs = SUCCESS_HOLD_MS
                 state = KioskState.Result(ok = true, name = resp.employeeName, direction = resp.direction)
-                val msg = getString(R.string.kiosk_punch_recorded, resp.employeeName)
+                val msg = if (resp.direction == "OUT")
+                    getString(R.string.kiosk_punch_out_title)
+                else
+                    getString(R.string.kiosk_punch_in_title)
                 runOnUiThread {
                     tvHint.text = msg
                     tvStatus.text = getString(R.string.kiosk_next_scan_wait, SUCCESS_HOLD_SECONDS)

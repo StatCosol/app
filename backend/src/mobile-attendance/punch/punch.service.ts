@@ -32,6 +32,7 @@ const OFFLINE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // Minimum gap between punches for the same person — prevents double-punch from retries or rapid re-scan.
 const PUNCH_COOLDOWN_MS =
   Number(process.env.FACE_PUNCH_COOLDOWN_SEC ?? 30) * 1000;
+const BUSINESS_TZ_OFFSET_MIN = 330;
 
 export interface RosterEntry {
   subjectType: 'EMPLOYEE' | 'CONTRACTOR';
@@ -280,6 +281,13 @@ export class PunchService {
       }
     }
 
+    const resolvedDirection = await this.resolveNextPunchDirection(
+      device.clientId,
+      best.subjectType,
+      best.subjectId,
+      punchTime,
+    );
+
     let photoUrl: string | null = null;
     if (dto.photoB64) {
       photoUrl = await this.photoStorage.uploadPhoto(
@@ -300,7 +308,7 @@ export class PunchService {
             branchId: device.branchId,
             deviceId: device.id,
             employeeId: best.subjectId,
-            direction: dto.direction,
+            direction: resolvedDirection,
             punchTime,
             matchScore: toMatchScore(best.cosine),
             matchCosine: best.cosine,
@@ -331,7 +339,7 @@ export class PunchService {
             branchId: device.branchId,
             employeeCode: best.employeeCode ?? best.subjectId,
             punchTime,
-            direction: dto.direction,
+            direction: resolvedDirection,
             deviceId: device.id,
             source: device.mode === 'ESS' ? 'MOBILE_ESS' : 'MOBILE_KIOSK',
           },
@@ -343,7 +351,7 @@ export class PunchService {
         ok: true,
         employeeName: best.displayName,
         employeeCode: best.employeeCode ?? best.subjectId,
-        direction: dto.direction,
+        direction: resolvedDirection,
         punchTime: punchTime.toISOString(),
       };
     } else {
@@ -352,7 +360,7 @@ export class PunchService {
         branchId: device.branchId,
         deviceId: device.id,
         contractorEmployeeId: best.subjectId,
-        direction: dto.direction,
+        direction: resolvedDirection,
         punchTime,
         matchScore: toMatchScore(best.cosine),
         matchCosine: best.cosine,
@@ -381,10 +389,57 @@ export class PunchService {
         ok: true,
         employeeName: best.displayName,
         employeeCode: best.subjectId,
-        direction: dto.direction,
+        direction: resolvedDirection,
         punchTime: punchTime.toISOString(),
       };
     }
+  }
+
+  private async resolveNextPunchDirection(
+    clientId: string,
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR',
+    subjectId: string,
+    punchTime: Date,
+  ): Promise<'IN' | 'OUT'> {
+    const table =
+      subjectType === 'EMPLOYEE'
+        ? 'mobile_attendance_punches'
+        : 'contractor_biometric_punches';
+    const idColumn =
+      subjectType === 'EMPLOYEE' ? 'employee_id' : 'contractor_employee_id';
+    const { start, end } = this.businessDayBoundsUtc(punchTime);
+
+    const todayRows = await this.dataSource.query<
+      Array<{ punch_time: Date; direction: 'IN' | 'OUT' | 'AUTO' }>
+    >(
+      `SELECT punch_time, direction
+         FROM ${table}
+        WHERE client_id = $1
+          AND ${idColumn} = $2
+          AND punch_time >= $3
+          AND punch_time < $4
+        ORDER BY punch_time ASC`,
+      [clientId, subjectId, start, end],
+    );
+
+    if (todayRows.length >= 2) {
+      throw new BadRequestException('Attendance already completed for today');
+    }
+
+    return todayRows.length === 0 ? 'IN' : 'OUT';
+  }
+
+  private businessDayBoundsUtc(d: Date): { start: Date; end: Date } {
+    const offsetMs = BUSINESS_TZ_OFFSET_MIN * 60 * 1000;
+    const local = new Date(d.getTime() + offsetMs);
+    const startLocalUtcMs = Date.UTC(
+      local.getUTCFullYear(),
+      local.getUTCMonth(),
+      local.getUTCDate(),
+    );
+    const start = new Date(startLocalUtcMs - offsetMs);
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+    return { start, end };
   }
 
   private async mirrorEmployeePunchToDailyAttendance(
