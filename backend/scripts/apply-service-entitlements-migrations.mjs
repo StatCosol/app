@@ -26,6 +26,7 @@ const serviceMigrationFiles = new Set([
   '20260704_mobile_attendance_liveness_nonce_compat.sql',
   '20260704_mobile_attendance_enrollment_history_compat.sql',
   '20260704_mobile_attendance_enrollment_history_actor_fk_compat.sql',
+  '20260704_mobile_attendance_punch_match_audit_compat.sql',
   // FnF (PR #382): reason widen must run before the exited-employee backfill,
   // so files are applied in declared order, not alphabetical.
   '20260703_fnf_manual_override.sql',
@@ -229,6 +230,51 @@ async function verifyMobileAttendanceEnrollmentHistoryCompat() {
   console.log('Verified face_enrollment_history kiosk enrollment compatibility.');
 }
 
+async function verifyMobileAttendancePunchMatchAuditCompat() {
+  const requiredColumns = [
+    'match_cosine',
+    'match_threshold',
+    'match_margin',
+    'match_margin_threshold',
+    'second_best_subject_type',
+    'second_best_subject_id',
+    'second_best_cosine',
+    'gallery_size',
+  ];
+  for (const tableName of [
+    'mobile_attendance_punches',
+    'contractor_biometric_punches',
+  ]) {
+    const { rows: tableRows } = await client.query(
+      `SELECT to_regclass($1) AS reg`,
+      [`public.${tableName}`],
+    );
+    if (!tableRows[0]?.reg) {
+      console.log(`${tableName} not present; match audit verification skipped.`);
+      continue;
+    }
+
+    const { rows } = await client.query(
+      `
+      SELECT column_name
+        FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = $1
+         AND column_name = ANY($2::text[])
+      `,
+      [tableName, requiredColumns],
+    );
+    const found = new Set(rows.map((row) => row.column_name));
+    const missing = requiredColumns.filter((column) => !found.has(column));
+    if (missing.length > 0) {
+      throw new Error(
+        `${tableName} missing punch match audit columns: ${missing.join(', ')}`,
+      );
+    }
+  }
+  console.log('Verified mobile attendance punch match audit compatibility.');
+}
+
 try {
   console.log('=== Apply service entitlement migrations ===');
   console.log(`Database: ${config.database} @ ${config.host}:${config.port}`);
@@ -252,6 +298,7 @@ try {
   await verifyMobileAttendanceDeviceCompat();
   await verifyMobileAttendanceLivenessNonceCompat();
   await verifyMobileAttendanceEnrollmentHistoryCompat();
+  await verifyMobileAttendancePunchMatchAuditCompat();
   console.log('Service entitlement migrations are up to date.');
 } catch (err) {
   console.error(err?.stack || err?.message || err);
