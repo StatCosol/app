@@ -1592,6 +1592,14 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
 
   private pollKioskTicket(): void {
     if (!this.kioskActiveTicket) return;
+    if (!this.auth.getAccessToken()) {
+      this.stopKioskTimers();
+      this.kioskError =
+        'Your login session expired. Please log in again and restart kiosk enrollment.';
+      this.toast.error(this.kioskError);
+      this.cdr.markForCheck();
+      return;
+    }
     this.svc
       .getKioskEnrollTicket(this.kioskActiveTicket.id)
       .pipe(takeUntil(this.destroy$))
@@ -1690,7 +1698,12 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   }
 
   private startLiveRefresh(): void {
-    merge(interval(this.liveRefreshMs), fromEvent(window, 'focus'))
+    const refreshSources =
+      typeof window === 'undefined'
+        ? [interval(this.liveRefreshMs)]
+        : [interval(this.liveRefreshMs), fromEvent(window, 'focus')];
+
+    merge(...refreshSources)
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
         if (this.shouldLiveRefresh()) {
