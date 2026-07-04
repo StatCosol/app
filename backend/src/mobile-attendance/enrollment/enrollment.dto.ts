@@ -119,6 +119,18 @@ export class SubmitKioskTicketDto {
 }
 
 export class DeactivateEnrollmentDto {
+  @ApiPropertyOptional({ enum: ['EMPLOYEE', 'CONTRACTOR'] })
+  @IsOptional()
+  @IsEnum(['EMPLOYEE', 'CONTRACTOR'])
+  subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
+
+  @ApiPropertyOptional({
+    description: 'Frontend-compatible subject id alias. Use with subjectType.',
+  })
+  @IsOptional()
+  @IsUUID()
+  subjectId?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()
@@ -134,4 +146,12 @@ export class DeactivateEnrollmentDto {
   @IsString()
   @MaxLength(500)
   reason?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'When true, remove the active enrollment row after writing audit history.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  permanent?: boolean;
 }

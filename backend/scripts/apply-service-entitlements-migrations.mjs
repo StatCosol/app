@@ -27,6 +27,7 @@ const serviceMigrationFiles = new Set([
   '20260704_mobile_attendance_enrollment_history_compat.sql',
   '20260704_mobile_attendance_enrollment_history_actor_fk_compat.sql',
   '20260704_mobile_attendance_punch_match_audit_compat.sql',
+  '20260704_mobile_attendance_enrollment_branch_backfill.sql',
   // FnF (PR #382): reason widen must run before the exited-employee backfill,
   // so files are applied in declared order, not alphabetical.
   '20260703_fnf_manual_override.sql',
