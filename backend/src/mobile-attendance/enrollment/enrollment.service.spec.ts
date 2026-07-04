@@ -1,5 +1,7 @@
 import { EnrollmentService } from './enrollment.service';
+import { ContractorFaceEnrollmentEntity } from './contractor-face-enrollment.entity';
 import { FaceEnrollmentHistoryEntity } from './enrollment-history.entity';
+import { FaceEnrollmentEntity } from './face-enrollment.entity';
 import { KioskEnrollTicketEntity } from './kiosk-enroll-ticket.entity';
 
 describe('EnrollmentService.listEmployeeEnrollments', () => {
@@ -165,6 +167,64 @@ describe('EnrollmentService kiosk tickets', () => {
     );
   });
 
+  it('uses the selected kiosk device branch for the enrollment ticket', async () => {
+    const ticketRepo = {
+      update: jest.fn().mockResolvedValue({ affected: 0 }),
+      create: jest.fn((entity) => entity),
+      save: jest.fn(async (entity) => entity),
+    };
+    const service = makeService(
+      ticketRepo,
+      jest
+        .fn()
+        .mockResolvedValue([{ id: 'device-1', branchId: 'branch-kiosk' }]),
+    );
+
+    await service.createKioskTicket(
+      'client-1',
+      null,
+      {
+        deviceId: 'device-1',
+        subjectType: 'EMPLOYEE',
+        employeeId: 'employee-1',
+        subjectName: 'Alice',
+      } as any,
+      'user-1',
+    );
+
+    expect(ticketRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ branchId: 'branch-kiosk' }),
+    );
+  });
+
+  it('rejects kiosk tickets for devices outside the caller branch scope', async () => {
+    const ticketRepo = {
+      update: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+    };
+    const service = makeService(
+      ticketRepo,
+      jest.fn().mockResolvedValue([{ id: 'device-1', branchId: 'branch-2' }]),
+    );
+
+    await expect(
+      service.createKioskTicket(
+        'client-1',
+        'branch-1',
+        {
+          deviceId: 'device-1',
+          subjectType: 'EMPLOYEE',
+          employeeId: 'employee-1',
+          subjectName: 'Alice',
+        } as any,
+        'user-1',
+        ['branch-1'],
+      ),
+    ).rejects.toThrow('Selected kiosk device is not active for your branch');
+    expect(ticketRepo.create).not.toHaveBeenCalled();
+  });
+
   it('rejects ticket creation for a device that is not an active kiosk for the client', async () => {
     const ticketRepo = {
       update: jest.fn(),
@@ -311,12 +371,7 @@ describe('EnrollmentService duplicate detection', () => {
   it('rejects same-face duplicate enrollments at the live match threshold', async () => {
     const probe = new Float32Array([1, 0, 0, 0]);
     const cosine = 0.75;
-    const existing = [
-      cosine,
-      Math.sqrt(1 - cosine * cosine),
-      0,
-      0,
-    ];
+    const existing = [cosine, Math.sqrt(1 - cosine * cosine), 0, 0];
     const service = new EnrollmentService(
       {
         find: jest.fn().mockResolvedValue([
@@ -340,5 +395,147 @@ describe('EnrollmentService duplicate detection', () => {
         excludeEmployeeId: 'employee-new',
       }),
     ).rejects.toThrow('Face too similar to existing employee enrollment');
+  });
+});
+
+describe('EnrollmentService.deactivateEnrollment', () => {
+  function makeService(manager: any) {
+    return new EnrollmentService(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      { transaction: jest.fn(async (fn: any) => fn(manager)) } as any,
+    );
+  }
+
+  it('accepts the frontend subjectType/subjectId payload for employee deactivation', async () => {
+    const rec = {
+      isActive: true,
+      deactivatedAt: null,
+      deactivationReason: null,
+      embedding: Buffer.from([1, 2, 3]),
+    };
+    const manager = {
+      findOne: jest.fn().mockResolvedValue(rec),
+      save: jest.fn(async (_targetOrEntity: any, entity?: any) => entity),
+      delete: jest.fn(),
+    };
+    const service = makeService(manager);
+
+    const result = await service.deactivateEnrollment(
+      'client-1',
+      {
+        subjectType: 'EMPLOYEE',
+        subjectId: '11111111-1111-4111-8111-111111111111',
+        reason: 'Wrong enrollment',
+      } as any,
+      '22222222-2222-4222-8222-222222222222',
+    );
+
+    expect(manager.findOne).toHaveBeenCalledWith(FaceEnrollmentEntity, {
+      where: {
+        employeeId: '11111111-1111-4111-8111-111111111111',
+        clientId: 'client-1',
+      },
+    });
+    expect(manager.save).toHaveBeenCalledWith(
+      FaceEnrollmentHistoryEntity,
+      expect.objectContaining({
+        employeeId: '11111111-1111-4111-8111-111111111111',
+        action: 'DEACTIVATE',
+      }),
+    );
+    expect(rec.isActive).toBe(false);
+    expect(rec.embedding).toEqual(Buffer.alloc(0));
+    expect(result).toEqual({
+      ok: true,
+      deactivated: true,
+      employeeId: '11111111-1111-4111-8111-111111111111',
+    });
+  });
+
+  it('permanently deletes contractor enrollment rows after audit history is written', async () => {
+    const rec = {
+      contractorEmployeeId: 'contractor-1',
+      branchId: 'branch-1',
+    };
+    const manager = {
+      findOne: jest.fn().mockResolvedValue(rec),
+      save: jest.fn(async (_targetOrEntity: any, entity?: any) => entity),
+      delete: jest.fn(),
+    };
+    const service = makeService(manager);
+
+    const result = await service.deactivateEnrollment(
+      'client-1',
+      {
+        subjectType: 'CONTRACTOR',
+        subjectId: '33333333-3333-4333-8333-333333333333',
+        permanent: true,
+        reason: 'Wrong enrollment',
+      } as any,
+      '22222222-2222-4222-8222-222222222222',
+    );
+
+    expect(manager.findOne).toHaveBeenCalledWith(
+      ContractorFaceEnrollmentEntity,
+      {
+        where: {
+          contractorEmployeeId: '33333333-3333-4333-8333-333333333333',
+          clientId: 'client-1',
+        },
+      },
+    );
+    expect(manager.save).toHaveBeenCalledWith(
+      FaceEnrollmentHistoryEntity,
+      expect.objectContaining({
+        contractorEmployeeId: '33333333-3333-4333-8333-333333333333',
+        action: 'DELETE',
+      }),
+    );
+    expect(manager.delete).toHaveBeenCalledWith(
+      ContractorFaceEnrollmentEntity,
+      {
+        contractorEmployeeId: '33333333-3333-4333-8333-333333333333',
+        clientId: 'client-1',
+      },
+    );
+    expect(result).toEqual({
+      ok: true,
+      deleted: true,
+      contractorEmployeeId: '33333333-3333-4333-8333-333333333333',
+    });
+  });
+
+  it('does not permanently delete enrollments outside the caller branch scope', async () => {
+    const manager = {
+      findOne: jest.fn().mockResolvedValue({
+        employeeId: '11111111-1111-4111-8111-111111111111',
+        branchId: 'branch-2',
+      }),
+      save: jest.fn(),
+      delete: jest.fn(),
+    };
+    const service = makeService(manager);
+
+    await expect(
+      service.deactivateEnrollment(
+        'client-1',
+        {
+          subjectType: 'EMPLOYEE',
+          subjectId: '11111111-1111-4111-8111-111111111111',
+          permanent: true,
+          reason: 'Wrong enrollment',
+        } as any,
+        '22222222-2222-4222-8222-222222222222',
+        ['branch-1'],
+      ),
+    ).rejects.toThrow('Enrollment not found');
+    expect(manager.save).not.toHaveBeenCalled();
+    expect(manager.delete).not.toHaveBeenCalled();
   });
 });

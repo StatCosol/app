@@ -63,6 +63,16 @@ export class EnrollmentService {
     private readonly dataSource: DataSource,
   ) {}
 
+  private assertEnrollmentBranchAllowed(
+    branchId: string | null | undefined,
+    allowedBranchIds: string[] | null,
+  ): void {
+    if (!allowedBranchIds) return;
+    if (!branchId || !allowedBranchIds.includes(branchId)) {
+      throw new NotFoundException('Enrollment not found');
+    }
+  }
+
   // ─── ESS self-enroll ───────────────────────────────────────────────────────
 
   async enrollSelf(
@@ -146,9 +156,13 @@ export class EnrollmentService {
     branchId: string | null,
     dto: CreateKioskTicketDto,
     createdBy: string,
+    allowedBranchIds: string[] | null = null,
   ): Promise<KioskEnrollTicketEntity> {
-    const [device] = await this.dataSource.query<Array<{ id: string }>>(
-      `SELECT d.id
+    const [device] = await this.dataSource.query<
+      Array<{ id: string; branchId: string | null }>
+    >(
+      `SELECT d.id,
+              COALESCE(to_jsonb(d)->>'branchId', to_jsonb(d)->>'branch_id') AS "branchId"
          FROM mobile_attendance_devices d
         WHERE d.id = $1::uuid
           AND COALESCE(to_jsonb(d)->>'clientId', to_jsonb(d)->>'client_id') = $2
@@ -162,6 +176,15 @@ export class EnrollmentService {
         'Selected kiosk device is not active for this client',
       );
     }
+    if (
+      allowedBranchIds &&
+      (!device.branchId || !allowedBranchIds.includes(device.branchId))
+    ) {
+      throw new BadRequestException(
+        'Selected kiosk device is not active for your branch',
+      );
+    }
+    const ticketBranchId = device.branchId ?? branchId;
 
     // Cancel any existing PENDING ticket for the same device
     await this.ticketRepo.update(
@@ -172,7 +195,7 @@ export class EnrollmentService {
     const expiresAt = new Date(Date.now() + KIOSK_TICKET_TTL_MS);
     const ticket = this.ticketRepo.create({
       clientId,
-      branchId,
+      branchId: ticketBranchId,
       deviceId: dto.deviceId,
       subjectType: dto.subjectType,
       employeeId: dto.employeeId ?? null,
@@ -361,49 +384,98 @@ export class EnrollmentService {
     clientId: string,
     dto: DeactivateEnrollmentDto,
     actorUserId: string,
-  ): Promise<void> {
+    allowedBranchIds: string[] | null = null,
+  ): Promise<
+    | { ok: true; deactivated: true; employeeId: string }
+    | { ok: true; deactivated: true; contractorEmployeeId: string }
+    | { ok: true; deleted: true; employeeId: string }
+    | { ok: true; deleted: true; contractorEmployeeId: string }
+  > {
+    const employeeId =
+      dto.employeeId ??
+      (dto.subjectType === 'EMPLOYEE' ? dto.subjectId : undefined);
+    const contractorEmployeeId =
+      dto.contractorEmployeeId ??
+      (dto.subjectType === 'CONTRACTOR' ? dto.subjectId : undefined);
+
+    if (dto.subjectId && !dto.subjectType) {
+      throw new BadRequestException('subjectType is required with subjectId');
+    }
+    if (employeeId && contractorEmployeeId) {
+      throw new BadRequestException(
+        'Provide only one of employeeId or contractorEmployeeId',
+      );
+    }
+    if (!employeeId && !contractorEmployeeId) {
+      throw new BadRequestException(
+        'Provide employeeId or contractorEmployeeId',
+      );
+    }
+
     await this.dataSource.transaction(async (em) => {
-      if (dto.employeeId) {
+      if (employeeId) {
         const rec = await em.findOne(FaceEnrollmentEntity, {
-          where: { employeeId: dto.employeeId, clientId },
+          where: { employeeId, clientId },
         });
         if (!rec) throw new NotFoundException('Enrollment not found');
+        this.assertEnrollmentBranchAllowed(rec.branchId, allowedBranchIds);
+        await em.save(FaceEnrollmentHistoryEntity, {
+          employeeId,
+          clientId,
+          action: dto.permanent ? 'DELETE' : 'DEACTIVATE',
+          reason: dto.reason ?? null,
+          actorUserId,
+        });
+        if (dto.permanent) {
+          await em.delete(FaceEnrollmentEntity, { employeeId, clientId });
+          return;
+        }
         rec.isActive = false;
         rec.deactivatedAt = new Date();
         rec.deactivationReason = dto.reason ?? null;
         rec.embedding = Buffer.alloc(0); // DPDP crypto-shred
         await em.save(rec);
-        await em.save(FaceEnrollmentHistoryEntity, {
-          employeeId: dto.employeeId,
-          clientId,
-          action: 'DEACTIVATE',
-          reason: dto.reason ?? null,
-          actorUserId,
-        });
-      } else if (dto.contractorEmployeeId) {
+      } else if (contractorEmployeeId) {
         const rec = await em.findOne(ContractorFaceEnrollmentEntity, {
-          where: { contractorEmployeeId: dto.contractorEmployeeId, clientId },
+          where: { contractorEmployeeId, clientId },
         });
         if (!rec)
           throw new NotFoundException('Contractor enrollment not found');
+        this.assertEnrollmentBranchAllowed(rec.branchId, allowedBranchIds);
+        await em.save(FaceEnrollmentHistoryEntity, {
+          contractorEmployeeId,
+          clientId,
+          action: dto.permanent ? 'DELETE' : 'DEACTIVATE',
+          reason: dto.reason ?? null,
+          actorUserId,
+        });
+        if (dto.permanent) {
+          await em.delete(ContractorFaceEnrollmentEntity, {
+            contractorEmployeeId,
+            clientId,
+          });
+          return;
+        }
         rec.isActive = false;
         rec.deactivatedAt = new Date();
         rec.deactivationReason = dto.reason ?? null;
         rec.embedding = Buffer.alloc(0);
         await em.save(rec);
-        await em.save(FaceEnrollmentHistoryEntity, {
-          contractorEmployeeId: dto.contractorEmployeeId,
-          clientId,
-          action: 'DEACTIVATE',
-          reason: dto.reason ?? null,
-          actorUserId,
-        });
-      } else {
-        throw new BadRequestException(
-          'Provide employeeId or contractorEmployeeId',
-        );
       }
     });
+
+    if (employeeId) {
+      return dto.permanent
+        ? { ok: true, deleted: true, employeeId }
+        : { ok: true, deactivated: true, employeeId };
+    }
+    return dto.permanent
+      ? { ok: true, deleted: true, contractorEmployeeId: contractorEmployeeId! }
+      : {
+          ok: true,
+          deactivated: true,
+          contractorEmployeeId: contractorEmployeeId!,
+        };
   }
 
   // ─── Duplicate check ───────────────────────────────────────────────────────
