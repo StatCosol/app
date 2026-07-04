@@ -26,6 +26,7 @@ const serviceMigrationFiles = new Set([
   '20260704_mobile_attendance_liveness_nonce_compat.sql',
   '20260704_mobile_attendance_enrollment_history_compat.sql',
   '20260704_mobile_attendance_enrollment_history_actor_fk_compat.sql',
+  '20260704_mobile_attendance_punch_columns_compat.sql',
   '20260704_mobile_attendance_punch_core_tables_compat.sql',
   '20260704_mobile_attendance_punch_match_audit_compat.sql',
   '20260704_mobile_attendance_enrollment_branch_backfill.sql',
