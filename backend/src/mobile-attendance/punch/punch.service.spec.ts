@@ -116,7 +116,7 @@ describe('PunchService', () => {
     );
   });
 
-  it('scopes employee kiosk roster by current employee branch, not stale enrollment branch', async () => {
+  it('scopes employee kiosk roster by current or stored enrollment branch', async () => {
     const { service, dataSource } = makeService({
       employeeRows: [
         {
@@ -143,14 +143,11 @@ describe('PunchService', () => {
       }),
     );
     expect(dataSource.query.mock.calls[0][0]).toContain(
-      'AND e.branch_id = $2',
-    );
-    expect(dataSource.query.mock.calls[0][0]).not.toContain(
-      'AND fe.branch_id = $2',
+      'AND (e.branch_id = $2 OR fe.branch_id = $2)',
     );
   });
 
-  it('scopes contractor kiosk roster by current contractor branch, not stale enrollment branch', async () => {
+  it('scopes contractor kiosk roster by current or stored enrollment branch', async () => {
     const { service, dataSource } = makeService({
       employeeRows: [],
       contractorRows: [
@@ -175,10 +172,7 @@ describe('PunchService', () => {
       }),
     );
     expect(dataSource.query.mock.calls[1][0]).toContain(
-      'AND ce.branch_id = $2',
-    );
-    expect(dataSource.query.mock.calls[1][0]).not.toContain(
-      'AND cfe.branch_id = $2',
+      'AND (ce.branch_id = $2 OR cfe.branch_id = $2)',
     );
   });
 

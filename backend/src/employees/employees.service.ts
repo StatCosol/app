@@ -468,6 +468,8 @@ export class EmployeesService {
       dto.aadhaar = aadhaarNorm;
     }
 
+    const previousBranchId = emp.branchId ?? null;
+
     // Strip read-only fields the frontend may send
     const {
       id: _id,
@@ -521,6 +523,26 @@ export class EmployeesService {
     }
 
     const saved = await this.empRepo.save(emp);
+    if (
+      dto.branchId !== undefined &&
+      (saved.branchId ?? null) !== previousBranchId
+    ) {
+      await this.ds.query(
+        `UPDATE face_enrollments
+            SET branch_id = $1
+          WHERE client_id = $2
+            AND employee_id = $3
+            AND is_active IS TRUE`,
+        [saved.branchId ?? null, clientId, id],
+      );
+    }
+    if (previousBranchId && previousBranchId !== saved.branchId) {
+      this.riskCache
+        .invalidateBranch(previousBranchId)
+        .catch((e) =>
+          this.logger.warn('riskCache invalidation failed', e?.message),
+        );
+    }
     if (saved.branchId)
       this.riskCache
         .invalidateBranch(saved.branchId)
