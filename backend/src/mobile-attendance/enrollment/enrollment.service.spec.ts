@@ -302,3 +302,43 @@ describe('EnrollmentService kiosk tickets', () => {
     );
   });
 });
+
+describe('EnrollmentService duplicate detection', () => {
+  function makeEmbeddingBuffer(values: number[]) {
+    return Buffer.from(new Float32Array(values).buffer);
+  }
+
+  it('rejects same-face duplicate enrollments at the live match threshold', async () => {
+    const probe = new Float32Array([1, 0, 0, 0]);
+    const cosine = 0.75;
+    const existing = [
+      cosine,
+      Math.sqrt(1 - cosine * cosine),
+      0,
+      0,
+    ];
+    const service = new EnrollmentService(
+      {
+        find: jest.fn().mockResolvedValue([
+          {
+            employeeId: 'employee-existing',
+            embedding: makeEmbeddingBuffer(existing),
+          },
+        ]),
+      } as any,
+      { find: jest.fn().mockResolvedValue([]) } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+
+    await expect(
+      service.assertNotDuplicate('client-1', probe, {
+        excludeEmployeeId: 'employee-new',
+      }),
+    ).rejects.toThrow('Face too similar to existing employee enrollment');
+  });
+});
