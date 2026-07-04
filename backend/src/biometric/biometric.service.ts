@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, In, IsNull, Repository } from 'typeorm';
+import { Between, EntityManager, In, IsNull, Repository } from 'typeorm';
 import { BiometricPunchEntity } from './entities/biometric-punch.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { AttendanceEntity } from '../attendance/entities/attendance.entity';
@@ -42,7 +42,12 @@ export class BiometricService {
     clientId: string,
     items: IngestPunchItemDto[],
     autoProcess: boolean,
+    manager?: EntityManager,
   ): Promise<IngestResult> {
+    const punchRepo =
+      manager?.getRepository(BiometricPunchEntity) ?? this.punchRepo;
+    const empRepo = manager?.getRepository(EmployeeEntity) ?? this.empRepo;
+
     const result: IngestResult = {
       received: items.length,
       inserted: 0,
@@ -58,7 +63,7 @@ export class BiometricService {
     const codes = Array.from(
       new Set(items.map((i) => (i.employeeCode || '').trim()).filter(Boolean)),
     );
-    const emps = await this.empRepo.find({
+    const emps = await empRepo.find({
       where: { clientId, employeeCode: In(codes) },
     });
     const byCode = new Map<string, EmployeeEntity>();
@@ -104,7 +109,7 @@ export class BiometricService {
 
     // Insert with ON CONFLICT DO NOTHING for idempotency
     if (toInsert.length) {
-      const insert = await this.punchRepo
+      const insert = await punchRepo
         .createQueryBuilder()
         .insert()
         .into(BiometricPunchEntity)
@@ -125,6 +130,7 @@ export class BiometricService {
       const proc = await this.processAffectedDays(
         clientId,
         result.affectedDays,
+        manager,
       );
       result.attendanceUpserts = proc.attendanceUpserts;
     }
@@ -231,15 +237,21 @@ export class BiometricService {
   private async processAffectedDays(
     clientId: string,
     days: { employeeId: string; date: string }[],
+    manager?: EntityManager,
   ): Promise<{ attendanceUpserts: number }> {
     if (!days.length) return { attendanceUpserts: 0 };
+
+    const punchRepo =
+      manager?.getRepository(BiometricPunchEntity) ?? this.punchRepo;
+    const empRepo = manager?.getRepository(EmployeeEntity) ?? this.empRepo;
+    const attRepo = manager?.getRepository(AttendanceEntity) ?? this.attRepo;
 
     let upserts = 0;
     for (const { employeeId, date } of days) {
       const dayStart = this.businessDateStartUtc(date);
       const dayEnd = this.businessDateEndUtc(date);
 
-      const dayPunches = await this.punchRepo.find({
+      const dayPunches = await punchRepo.find({
         where: {
           clientId,
           employeeId,
@@ -264,12 +276,12 @@ export class BiometricService {
       }
       const overtimeHours = Math.max(0, workedHours - STANDARD_HOURS);
 
-      const emp = await this.empRepo.findOne({
+      const emp = await empRepo.findOne({
         where: { id: employeeId, clientId },
       });
       if (!emp) continue;
 
-      let existing = await this.attRepo.findOne({
+      let existing = await attRepo.findOne({
         where: { employeeId, date },
       });
 
@@ -307,10 +319,10 @@ export class BiometricService {
           existing.approvedAt = null;
           existing.rejectionReason = null;
         }
-        await this.attRepo.save(existing);
+        await attRepo.save(existing);
       } else {
-        existing = await this.attRepo.save(
-          this.attRepo.create({
+        existing = await attRepo.save(
+          attRepo.create({
             clientId,
             branchId: emp.branchId,
             employeeId,
@@ -330,7 +342,7 @@ export class BiometricService {
 
       // Mark punches as processed and link attendance row
       const ids = dayPunches.map((p) => p.id);
-      await this.punchRepo
+      await punchRepo
         .createQueryBuilder()
         .update(BiometricPunchEntity)
         .set({ processedAt: new Date(), attendanceId: existing.id })

@@ -17,8 +17,7 @@ BEGIN
     direction,
     device_id,
     source,
-    raw_payload,
-    created_at
+    raw_payload
   )
   SELECT
     mp.client_id,
@@ -32,8 +31,7 @@ BEGIN
     jsonb_build_object(
       'sourceTable', 'mobile_attendance_punches',
       'mobileAttendancePunchId', mp.id::text
-    ),
-    COALESCE(mp.created_at, now())
+    )
   FROM public.mobile_attendance_punches mp
   JOIN public.employees e
     ON e.id = mp.employee_id

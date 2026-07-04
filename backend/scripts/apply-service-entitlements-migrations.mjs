@@ -29,7 +29,7 @@ const serviceMigrationFiles = new Set([
   '20260704_mobile_attendance_punch_core_tables_compat.sql',
   '20260704_mobile_attendance_punch_columns_compat.sql',
   '20260704_mobile_attendance_punch_match_audit_compat.sql',
-  '20260704_mobile_attendance_punch_biometric_backfill.sql',
+  '20260704z_mobile_attendance_punch_biometric_backfill.sql',
   '20260704_mobile_attendance_enrollment_branch_backfill.sql',
   '20260704_mobile_attendance_enrollment_branch_sync.sql',
   // FnF (PR #382): reason widen must run before the exited-employee backfill,

@@ -19,12 +19,16 @@ describe('PunchService', () => {
     const biometricService = {
       ingest: jest.fn(async () => ({ attendanceUpserts: 1 })),
     };
+    const transactionManager = {
+      getRepository: jest.fn(() => punchRepo),
+    };
     const dataSource = {
       query: jest
         .fn()
         .mockResolvedValueOnce(rows.employeeRows ?? [])
         .mockResolvedValueOnce(rows.contractorRows ?? [])
         .mockResolvedValueOnce([]),
+      transaction: jest.fn(async (callback) => callback(transactionManager)),
     };
 
     const service = new PunchService(
@@ -38,7 +42,14 @@ describe('PunchService', () => {
       dataSource as any,
     );
 
-    return { service, punchRepo, contractorPunchRepo, biometricService };
+    return {
+      service,
+      punchRepo,
+      contractorPunchRepo,
+      biometricService,
+      dataSource,
+      transactionManager,
+    };
   };
 
   const device = {
@@ -59,21 +70,23 @@ describe('PunchService', () => {
   };
 
   it('mirrors accepted employee face punches into the daily attendance pipeline', async () => {
-    const { service, biometricService } = makeService({
-      employeeRows: [
-        {
-          employeeId: 'employee-1',
-          name: 'Employee One',
-          employeeCode: 'E001',
-          embedding: embeddingBuffer,
-          embeddingModel: 'mobilefacenet',
-          enrolledAt: new Date(Date.now() - 60_000),
-        },
-      ],
-    });
+    const { service, biometricService, dataSource, transactionManager } =
+      makeService({
+        employeeRows: [
+          {
+            employeeId: 'employee-1',
+            name: 'Employee One',
+            employeeCode: 'E001',
+            embedding: embeddingBuffer,
+            embeddingModel: 'mobilefacenet',
+            enrolledAt: new Date(Date.now() - 60_000),
+          },
+        ],
+      });
 
     await service.recordPunch(device, dto);
 
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
     expect(biometricService.ingest).toHaveBeenCalledWith(
       'client-1',
       [
@@ -87,6 +100,7 @@ describe('PunchService', () => {
         },
       ],
       true,
+      transactionManager,
     );
   });
 

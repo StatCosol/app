@@ -5,8 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { MobileAttendanceDeviceEntity } from '../devices/device.entity';
 import { FaceEnrollmentEntity } from '../enrollment/face-enrollment.entity';
 import { ContractorFaceEnrollmentEntity } from '../enrollment/contractor-face-enrollment.entity';
@@ -293,44 +292,52 @@ export class PunchService {
     const livenessPassedAt = dto.livenessNonce ? new Date() : null;
 
     if (best.subjectType === 'EMPLOYEE') {
-      const punch = await this.punchRepo.save({
-        clientId: device.clientId,
-        branchId: device.branchId,
-        deviceId: device.id,
-        employeeId: best.subjectId,
-        direction: dto.direction,
-        punchTime,
-        matchScore: toMatchScore(best.cosine),
-        matchCosine: best.cosine,
-        matchThreshold: MIN_MATCH_SCORE,
-        matchMargin: margin,
-        matchMarginThreshold: MIN_MATCH_MARGIN,
-        secondBestSubjectType: secondBest?.subjectType ?? null,
-        secondBestSubjectId: secondBest?.subjectId ?? null,
-        secondBestCosine: secondBest?.cosine ?? null,
-        gallerySize: eligibleRoster.length,
-        livenessScore: dto.livenessScore ?? null,
-        livenessChallengeType: dto.livenessChallengeType ?? null,
-        livenessChallengePassedAt: livenessPassedAt,
-        livenessNonce: dto.livenessNonce ?? null,
-        embeddingModel: dto.embeddingModel ?? null,
-        photoUrl,
-        captureLat: dto.captureLat ?? null,
-        captureLng: dto.captureLng ?? null,
-        ip: ip ?? null,
-        userAgent: userAgent ?? null,
-        isMockLocation: dto.isMockLocation ?? null,
-        isRooted: dto.isRooted ?? null,
-        offlineSync: dto.offlineSync ?? false,
-      });
-      await this.mirrorEmployeePunchToDailyAttendance({
-        clientId: device.clientId,
-        branchId: device.branchId,
-        employeeCode: best.employeeCode ?? best.subjectId,
-        punchTime,
-        direction: dto.direction,
-        deviceId: device.id,
-        source: device.mode === 'ESS' ? 'MOBILE_ESS' : 'MOBILE_KIOSK',
+      await this.dataSource.transaction(async (manager) => {
+        const savedPunch = await manager
+          .getRepository(MobileAttendancePunchEntity)
+          .save({
+            clientId: device.clientId,
+            branchId: device.branchId,
+            deviceId: device.id,
+            employeeId: best.subjectId,
+            direction: dto.direction,
+            punchTime,
+            matchScore: toMatchScore(best.cosine),
+            matchCosine: best.cosine,
+            matchThreshold: MIN_MATCH_SCORE,
+            matchMargin: margin,
+            matchMarginThreshold: MIN_MATCH_MARGIN,
+            secondBestSubjectType: secondBest?.subjectType ?? null,
+            secondBestSubjectId: secondBest?.subjectId ?? null,
+            secondBestCosine: secondBest?.cosine ?? null,
+            gallerySize: eligibleRoster.length,
+            livenessScore: dto.livenessScore ?? null,
+            livenessChallengeType: dto.livenessChallengeType ?? null,
+            livenessChallengePassedAt: livenessPassedAt,
+            livenessNonce: dto.livenessNonce ?? null,
+            embeddingModel: dto.embeddingModel ?? null,
+            photoUrl,
+            captureLat: dto.captureLat ?? null,
+            captureLng: dto.captureLng ?? null,
+            ip: ip ?? null,
+            userAgent: userAgent ?? null,
+            isMockLocation: dto.isMockLocation ?? null,
+            isRooted: dto.isRooted ?? null,
+            offlineSync: dto.offlineSync ?? false,
+          });
+        await this.mirrorEmployeePunchToDailyAttendance(
+          {
+            clientId: device.clientId,
+            branchId: device.branchId,
+            employeeCode: best.employeeCode ?? best.subjectId,
+            punchTime,
+            direction: dto.direction,
+            deviceId: device.id,
+            source: device.mode === 'ESS' ? 'MOBILE_ESS' : 'MOBILE_KIOSK',
+          },
+          manager,
+        );
+        return savedPunch;
       });
       return {
         ok: true,
@@ -340,7 +347,7 @@ export class PunchService {
         punchTime: punchTime.toISOString(),
       };
     } else {
-      const punch = await this.contractorPunchRepo.save({
+      await this.contractorPunchRepo.save({
         clientId: device.clientId,
         branchId: device.branchId,
         deviceId: device.id,
@@ -380,15 +387,18 @@ export class PunchService {
     }
   }
 
-  private async mirrorEmployeePunchToDailyAttendance(args: {
-    clientId: string;
-    branchId: string | null;
-    employeeCode: string;
-    punchTime: Date;
-    direction: 'IN' | 'OUT' | 'AUTO';
-    deviceId: string;
-    source: 'MOBILE_KIOSK' | 'MOBILE_ESS';
-  }): Promise<void> {
+  private async mirrorEmployeePunchToDailyAttendance(
+    args: {
+      clientId: string;
+      branchId: string | null;
+      employeeCode: string;
+      punchTime: Date;
+      direction: 'IN' | 'OUT' | 'AUTO';
+      deviceId: string;
+      source: 'MOBILE_KIOSK' | 'MOBILE_ESS';
+    },
+    manager?: EntityManager,
+  ): Promise<void> {
     try {
       await this.biometricService.ingest(
         args.clientId,
@@ -403,6 +413,7 @@ export class PunchService {
           },
         ],
         true,
+        manager,
       );
     } catch (err) {
       this.logger.error(
