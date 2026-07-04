@@ -1073,7 +1073,7 @@ class KioskActivity : AppCompatActivity() {
         private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.55
         private const val ENROLLMENT_POLL_INTERVAL_MS = 1_000L
         private const val ENROLLMENT_FRAME_CHECK_INTERVAL_MS = 750L
-        private const val ROSTER_REFRESH_INTERVAL_MS = 15 * 60 * 1000L  // refresh every 15 min
+        private const val ROSTER_REFRESH_INTERVAL_MS = 60 * 1000L       // refresh every 1 min
         private const val SUCCESS_HOLD_SECONDS = 10
         private const val SUCCESS_HOLD_MS = SUCCESS_HOLD_SECONDS * 1_000L
         private const val PUNCH_RETRY_DISPLAY_MS = 3_000L

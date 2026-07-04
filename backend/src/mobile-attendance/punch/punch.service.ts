@@ -80,9 +80,11 @@ export class PunchService {
   ): Promise<RosterEntry[]> {
     // Raw SQL so we can JOIN to employees/contractor_employees for display names.
     const empParams: unknown[] = [device.clientId];
-    const empBranch = device.branchId
-      ? `AND e.branch_id = $${empParams.push(device.branchId)}`
-      : '';
+    let empBranch = '';
+    if (device.branchId) {
+      const branchParam = empParams.push(device.branchId);
+      empBranch = `AND (e.branch_id = $${branchParam} OR fe.branch_id = $${branchParam})`;
+    }
 
     const empRows = await this.dataSource.query<
       Array<{
@@ -112,9 +114,11 @@ export class PunchService {
     );
 
     const conParams: unknown[] = [device.clientId];
-    const conBranch = device.branchId
-      ? `AND ce.branch_id = $${conParams.push(device.branchId)}`
-      : '';
+    let conBranch = '';
+    if (device.branchId) {
+      const branchParam = conParams.push(device.branchId);
+      conBranch = `AND (ce.branch_id = $${branchParam} OR cfe.branch_id = $${branchParam})`;
+    }
 
     const conRows = await this.dataSource.query<
       Array<{
