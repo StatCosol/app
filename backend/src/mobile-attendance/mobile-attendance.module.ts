@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ServiceEntitlementsModule } from '../service-entitlements/service-entitlements.module';
+import { BiometricModule } from '../biometric/biometric.module';
 
 // Entities
 import { MobileAttendanceDeviceEntity } from './devices/device.entity';
@@ -42,6 +43,7 @@ import {
       FaceLivenessNonceEntity,
     ]),
     ServiceEntitlementsModule,
+    BiometricModule,
   ],
   controllers: [
     MobileAttendanceDevicesController,
