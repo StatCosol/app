@@ -264,10 +264,21 @@ export class BiometricService {
 
       const earliest = dayPunches[0];
       const latest = dayPunches[dayPunches.length - 1];
+      const explicitIn = dayPunches.find((p) => p.direction === 'IN');
+      const explicitOut = [...dayPunches]
+        .reverse()
+        .find((p) => p.direction === 'OUT');
 
-      // If only one punch, treat it as check-in only (workedHours = 0)
-      const checkInTime = earliest.punchTime;
-      const checkOutTime = dayPunches.length > 1 ? latest.punchTime : null;
+      // Prefer explicit direction from face/ESS/fingerprint devices. Fall back
+      // to earliest/latest for legacy AUTO-only devices.
+      const checkInTime = explicitIn?.punchTime ?? earliest.punchTime;
+      const checkOutTime =
+        explicitOut && explicitOut.punchTime.getTime() > checkInTime.getTime()
+          ? explicitOut.punchTime
+          : dayPunches.length > 1 &&
+              latest.punchTime.getTime() > checkInTime.getTime()
+            ? latest.punchTime
+            : null;
 
       let workedHours = 0;
       if (checkOutTime) {
