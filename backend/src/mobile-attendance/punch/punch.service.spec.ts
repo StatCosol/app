@@ -116,6 +116,72 @@ describe('PunchService', () => {
     );
   });
 
+  it('scopes employee kiosk roster by current employee branch, not stale enrollment branch', async () => {
+    const { service, dataSource } = makeService({
+      employeeRows: [
+        {
+          employeeId: 'employee-1',
+          name: 'Employee One',
+          employeeCode: 'E001',
+          embedding: embeddingBuffer,
+          embeddingModel: 'mobilefacenet',
+          enrolledAt: new Date(Date.now() - 60_000),
+        },
+      ],
+      contractorRows: [],
+    });
+
+    const roster = await service.getRoster(device);
+
+    expect(roster).toHaveLength(1);
+    expect(roster[0]).toEqual(
+      expect.objectContaining({
+        subjectType: 'EMPLOYEE',
+        subjectId: 'employee-1',
+        displayName: 'Employee One',
+        employeeCode: 'E001',
+      }),
+    );
+    expect(dataSource.query.mock.calls[0][0]).toContain(
+      'AND e.branch_id = $2',
+    );
+    expect(dataSource.query.mock.calls[0][0]).not.toContain(
+      'AND fe.branch_id = $2',
+    );
+  });
+
+  it('scopes contractor kiosk roster by current contractor branch, not stale enrollment branch', async () => {
+    const { service, dataSource } = makeService({
+      employeeRows: [],
+      contractorRows: [
+        {
+          contractorEmployeeId: 'contractor-1',
+          name: 'Contractor One',
+          embedding: embeddingBuffer,
+          embeddingModel: 'mobilefacenet',
+          enrolledAt: new Date(Date.now() - 60_000),
+        },
+      ],
+    });
+
+    const roster = await service.getRoster(device);
+
+    expect(roster).toHaveLength(1);
+    expect(roster[0]).toEqual(
+      expect.objectContaining({
+        subjectType: 'CONTRACTOR',
+        subjectId: 'contractor-1',
+        displayName: 'Contractor One',
+      }),
+    );
+    expect(dataSource.query.mock.calls[1][0]).toContain(
+      'AND ce.branch_id = $2',
+    );
+    expect(dataSource.query.mock.calls[1][0]).not.toContain(
+      'AND cfe.branch_id = $2',
+    );
+  });
+
   it('rejects weak single-gallery employee matches before recording attendance', async () => {
     const { service, punchRepo, biometricService, dataSource } = makeService({
       employeeRows: [

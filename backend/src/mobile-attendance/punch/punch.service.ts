@@ -81,7 +81,7 @@ export class PunchService {
     // Raw SQL so we can JOIN to employees/contractor_employees for display names.
     const empParams: unknown[] = [device.clientId];
     const empBranch = device.branchId
-      ? `AND fe.branch_id = $${empParams.push(device.branchId)}`
+      ? `AND e.branch_id = $${empParams.push(device.branchId)}`
       : '';
 
     const empRows = await this.dataSource.query<
@@ -106,13 +106,14 @@ export class PunchService {
           AND e.client_id = fe.client_id
         WHERE fe.client_id = $1
           AND fe.is_active = true
+          AND e.is_active = true
           ${empBranch}`,
       empParams,
     );
 
     const conParams: unknown[] = [device.clientId];
     const conBranch = device.branchId
-      ? `AND cfe.branch_id = $${conParams.push(device.branchId)}`
+      ? `AND ce.branch_id = $${conParams.push(device.branchId)}`
       : '';
 
     const conRows = await this.dataSource.query<
@@ -135,6 +136,7 @@ export class PunchService {
           AND ce.client_id = cfe.client_id
         WHERE cfe.client_id = $1
           AND cfe.is_active = true
+          AND ce.is_active = true
           ${conBranch}`,
       conParams,
     );
