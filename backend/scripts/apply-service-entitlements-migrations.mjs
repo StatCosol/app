@@ -26,6 +26,7 @@ const serviceMigrationFiles = new Set([
   '20260704_mobile_attendance_liveness_nonce_compat.sql',
   '20260704_mobile_attendance_enrollment_history_compat.sql',
   '20260704_mobile_attendance_enrollment_history_actor_fk_compat.sql',
+  '20260704_mobile_attendance_punch_core_tables_compat.sql',
   '20260704_mobile_attendance_punch_match_audit_compat.sql',
   '20260704_mobile_attendance_enrollment_branch_backfill.sql',
   '20260704_mobile_attendance_enrollment_branch_sync.sql',
@@ -233,27 +234,80 @@ async function verifyMobileAttendanceEnrollmentHistoryCompat() {
 }
 
 async function verifyMobileAttendancePunchMatchAuditCompat() {
-  const requiredColumns = [
-    'match_cosine',
-    'match_threshold',
-    'match_margin',
-    'match_margin_threshold',
-    'second_best_subject_type',
-    'second_best_subject_id',
-    'second_best_cosine',
-    'gallery_size',
-  ];
-  for (const tableName of [
-    'mobile_attendance_punches',
-    'contractor_biometric_punches',
-  ]) {
+  const requiredByTable = {
+    mobile_attendance_punches: [
+      'id',
+      'client_id',
+      'branch_id',
+      'device_id',
+      'employee_id',
+      'direction',
+      'punch_time',
+      'match_score',
+      'match_cosine',
+      'match_threshold',
+      'match_margin',
+      'match_margin_threshold',
+      'second_best_subject_type',
+      'second_best_subject_id',
+      'second_best_cosine',
+      'gallery_size',
+      'liveness_score',
+      'liveness_challenge_type',
+      'liveness_challenge_passed_at',
+      'liveness_nonce',
+      'embedding_model',
+      'photo_url',
+      'capture_lat',
+      'capture_lng',
+      'ip',
+      'user_agent',
+      'is_mock_location',
+      'is_rooted',
+      'offline_sync',
+      'created_at',
+    ],
+    contractor_biometric_punches: [
+      'id',
+      'client_id',
+      'branch_id',
+      'device_id',
+      'contractor_employee_id',
+      'direction',
+      'punch_time',
+      'match_score',
+      'match_cosine',
+      'match_threshold',
+      'match_margin',
+      'match_margin_threshold',
+      'second_best_subject_type',
+      'second_best_subject_id',
+      'second_best_cosine',
+      'gallery_size',
+      'liveness_score',
+      'liveness_challenge_type',
+      'liveness_challenge_passed_at',
+      'liveness_nonce',
+      'embedding_model',
+      'photo_url',
+      'capture_lat',
+      'capture_lng',
+      'ip',
+      'user_agent',
+      'is_mock_location',
+      'is_rooted',
+      'offline_sync',
+      'created_at',
+    ],
+  };
+
+  for (const [tableName, requiredColumns] of Object.entries(requiredByTable)) {
     const { rows: tableRows } = await client.query(
       `SELECT to_regclass($1) AS reg`,
       [`public.${tableName}`],
     );
     if (!tableRows[0]?.reg) {
-      console.log(`${tableName} not present; match audit verification skipped.`);
-      continue;
+      throw new Error(`${tableName} table is missing`);
     }
 
     const { rows } = await client.query(
