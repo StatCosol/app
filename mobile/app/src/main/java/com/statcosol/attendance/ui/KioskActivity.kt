@@ -736,8 +736,14 @@ class KioskActivity : AppCompatActivity() {
                 } else {
                     // Permanent rejection (e.g. cooldown, no match) — do not queue for retry
                     state = KioskState.Result(ok = false, name = match.displayName, direction = "IN")
+                    val errorMessage = formatApiError(e)
+                    val rejectedText = if (errorMessage.contains("already completed", ignoreCase = true)) {
+                        getString(R.string.kiosk_already_done_title)
+                    } else {
+                        getString(R.string.kiosk_punch_rejected)
+                    }
                     runOnUiThread {
-                        tvHint.text = getString(R.string.kiosk_punch_rejected)
+                        tvHint.text = rejectedText
                     }
                 }
             } catch (e: Exception) {

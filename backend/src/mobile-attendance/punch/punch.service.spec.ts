@@ -5,6 +5,15 @@ describe('PunchService', () => {
   const embedding = new Float32Array([1, 0, 0, 0]);
   const embeddingB64 = Buffer.from(embedding.buffer).toString('base64');
   const embeddingBuffer = Buffer.from(embedding.buffer);
+  const makeEmbeddingBufferForCosine = (cosine: number) =>
+    Buffer.from(
+      new Float32Array([
+        cosine,
+        Math.sqrt(Math.max(0, 1 - cosine * cosine)),
+        0,
+        0,
+      ]).buffer,
+    );
 
   const makeService = (rows: {
     employeeRows?: any[];
@@ -105,6 +114,28 @@ describe('PunchService', () => {
       true,
       transactionManager,
     );
+  });
+
+  it('rejects weak single-gallery employee matches before recording attendance', async () => {
+    const { service, punchRepo, biometricService, dataSource } = makeService({
+      employeeRows: [
+        {
+          employeeId: 'employee-1',
+          name: 'Test',
+          employeeCode: 'E001',
+          embedding: makeEmbeddingBufferForCosine(0.8),
+          embeddingModel: 'mobilefacenet',
+          enrolledAt: new Date(Date.now() - 60_000),
+        },
+      ],
+    });
+
+    await expect(service.recordPunch(device, dto)).rejects.toThrow(
+      'No face match above threshold',
+    );
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(punchRepo.save).not.toHaveBeenCalled();
+    expect(biometricService.ingest).not.toHaveBeenCalled();
   });
 
   it('records the second employee face punch as OUT even when an old APK sends IN', async () => {

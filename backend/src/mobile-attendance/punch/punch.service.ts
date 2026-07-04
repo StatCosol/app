@@ -23,8 +23,12 @@ import {
 import { RecordPunchDto } from './punch.dto';
 
 // MobileFaceNet real-world same-person cosine similarity is ~0.70–0.87; 0.90 was unreachable.
-const MIN_MATCH_SCORE = Number(process.env.FACE_MIN_MATCH_SCORE ?? 0.72);
-const MIN_MATCH_MARGIN = Number(process.env.FACE_MIN_MATCH_MARGIN ?? 0.05);
+const MIN_MATCH_SCORE = Number(process.env.FACE_MIN_MATCH_SCORE ?? 0.78);
+const MIN_SINGLE_GALLERY_MATCH_SCORE = Number(
+  process.env.FACE_SINGLE_GALLERY_MIN_MATCH_SCORE ??
+    Math.max(MIN_MATCH_SCORE, 0.82),
+);
+const MIN_MATCH_MARGIN = Number(process.env.FACE_MIN_MATCH_MARGIN ?? 0.06);
 // Fresh enrollments become punch-eligible after the kiosk success screen clears.
 const ACTIVATION_DELAY_MS =
   Number(process.env.FACE_KIOSK_ACTIVATION_DELAY_SEC ?? 10) * 1000;
@@ -219,6 +223,10 @@ export class PunchService {
     const best = scored[0];
     const secondBest = scored[1];
     const margin = secondBest ? best.cosine - secondBest.cosine : 1;
+    const requiredMatchScore =
+      eligibleRoster.length <= 1
+        ? MIN_SINGLE_GALLERY_MATCH_SCORE
+        : MIN_MATCH_SCORE;
 
     this.logger.log(
       [
@@ -233,12 +241,12 @@ export class PunchService {
         `secondSubject=${secondBest ? `${secondBest.subjectType}:${secondBest.subjectId}` : 'none'}`,
         `secondCosine=${secondBest ? secondBest.cosine.toFixed(3) : 'n/a'}`,
         `margin=${margin.toFixed(3)}`,
-        `threshold=${MIN_MATCH_SCORE.toFixed(3)}`,
+        `threshold=${requiredMatchScore.toFixed(3)}`,
         `marginThreshold=${MIN_MATCH_MARGIN.toFixed(3)}`,
       ].join(' '),
     );
 
-    if (best.cosine < MIN_MATCH_SCORE) {
+    if (best.cosine < requiredMatchScore) {
       throw new BadRequestException(
         `No face match above threshold (best cosine: ${best.cosine.toFixed(3)})`,
       );
@@ -312,7 +320,7 @@ export class PunchService {
             punchTime,
             matchScore: toMatchScore(best.cosine),
             matchCosine: best.cosine,
-            matchThreshold: MIN_MATCH_SCORE,
+            matchThreshold: requiredMatchScore,
             matchMargin: margin,
             matchMarginThreshold: MIN_MATCH_MARGIN,
             secondBestSubjectType: secondBest?.subjectType ?? null,
@@ -364,7 +372,7 @@ export class PunchService {
         punchTime,
         matchScore: toMatchScore(best.cosine),
         matchCosine: best.cosine,
-        matchThreshold: MIN_MATCH_SCORE,
+        matchThreshold: requiredMatchScore,
         matchMargin: margin,
         matchMarginThreshold: MIN_MATCH_MARGIN,
         secondBestSubjectType: secondBest?.subjectType ?? null,
