@@ -67,11 +67,11 @@ class RosterMatcher {
 
     companion object {
         // MobileFaceNet real-world same-person cosine similarity is ~0.70-0.87.
-        // A one-person gallery needs a stricter threshold because there is no
-        // second-best candidate for margin separation.
-        private const val MATCH_THRESHOLD = 0.78
-        private const val SINGLE_ENTRY_MATCH_THRESHOLD = 0.82
-        private const val MARGIN_THRESHOLD = 0.06
+        // Keep the one-person gallery threshold inside that observed range; the
+        // kiosk checks pending enrollment tickets before attendance matching.
+        private const val MATCH_THRESHOLD = 0.84
+        private const val SINGLE_ENTRY_MATCH_THRESHOLD = 0.84
+        private const val MARGIN_THRESHOLD = 0.08
 
         fun cosineSim(a: FloatArray, b: FloatArray): Double {
             var dot = 0.0

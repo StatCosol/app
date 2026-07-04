@@ -138,6 +138,36 @@ describe('PunchService', () => {
     expect(biometricService.ingest).not.toHaveBeenCalled();
   });
 
+  it('rejects weak multi-gallery employee matches before recording attendance', async () => {
+    const { service, punchRepo, biometricService, dataSource } = makeService({
+      employeeRows: [
+        {
+          employeeId: 'employee-1',
+          name: 'Test',
+          employeeCode: 'E001',
+          embedding: makeEmbeddingBufferForCosine(0.83),
+          embeddingModel: 'mobilefacenet',
+          enrolledAt: new Date(Date.now() - 60_000),
+        },
+        {
+          employeeId: 'employee-2',
+          name: 'Second',
+          employeeCode: 'E002',
+          embedding: makeEmbeddingBufferForCosine(0.74),
+          embeddingModel: 'mobilefacenet',
+          enrolledAt: new Date(Date.now() - 60_000),
+        },
+      ],
+    });
+
+    await expect(service.recordPunch(device, dto)).rejects.toThrow(
+      'No face match above threshold',
+    );
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(punchRepo.save).not.toHaveBeenCalled();
+    expect(biometricService.ingest).not.toHaveBeenCalled();
+  });
+
   it('records the second employee face punch as OUT even when an old APK sends IN', async () => {
     const previousPunch = {
       punch_time: new Date('2026-07-04T02:00:00.000Z'),

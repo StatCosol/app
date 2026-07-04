@@ -23,12 +23,12 @@ import {
 import { RecordPunchDto } from './punch.dto';
 
 // MobileFaceNet real-world same-person cosine similarity is ~0.70–0.87; 0.90 was unreachable.
-const MIN_MATCH_SCORE = Number(process.env.FACE_MIN_MATCH_SCORE ?? 0.78);
+const MIN_MATCH_SCORE = Number(process.env.FACE_MIN_MATCH_SCORE ?? 0.84);
 const MIN_SINGLE_GALLERY_MATCH_SCORE = Number(
   process.env.FACE_SINGLE_GALLERY_MIN_MATCH_SCORE ??
-    Math.max(MIN_MATCH_SCORE, 0.82),
+    Math.max(MIN_MATCH_SCORE, 0.84),
 );
-const MIN_MATCH_MARGIN = Number(process.env.FACE_MIN_MATCH_MARGIN ?? 0.06);
+const MIN_MATCH_MARGIN = Number(process.env.FACE_MIN_MATCH_MARGIN ?? 0.08);
 // Fresh enrollments become punch-eligible after the kiosk success screen clears.
 const ACTIVATION_DELAY_MS =
   Number(process.env.FACE_KIOSK_ACTIVATION_DELAY_SEC ?? 10) * 1000;
