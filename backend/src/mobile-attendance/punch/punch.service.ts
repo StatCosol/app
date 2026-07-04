@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -23,7 +24,7 @@ import { RecordPunchDto } from './punch.dto';
 
 // MobileFaceNet real-world same-person cosine similarity is ~0.70–0.87; 0.90 was unreachable.
 const MIN_MATCH_SCORE = Number(process.env.FACE_MIN_MATCH_SCORE ?? 0.72);
-const MIN_MATCH_MARGIN = Number(process.env.FACE_MIN_MATCH_MARGIN ?? 0.02);
+const MIN_MATCH_MARGIN = Number(process.env.FACE_MIN_MATCH_MARGIN ?? 0.05);
 // 15-min delay blocked newly enrolled employees from punching — no activation delay by default.
 const ACTIVATION_DELAY_MS =
   Number(process.env.FACE_KIOSK_ACTIVATION_DELAY_MIN ?? 0) * 60 * 1000;
@@ -52,6 +53,8 @@ export interface PunchResult {
 
 @Injectable()
 export class PunchService {
+  private readonly logger = new Logger(PunchService.name);
+
   constructor(
     @InjectRepository(FaceEnrollmentEntity)
     private readonly enrollRepo: Repository<FaceEnrollmentEntity>,
@@ -213,6 +216,25 @@ export class PunchService {
 
     const best = scored[0];
     const secondBest = scored[1];
+    const margin = secondBest ? best.cosine - secondBest.cosine : 1;
+
+    this.logger.log(
+      [
+        'face punch match scores',
+        `client=${device.clientId}`,
+        `device=${device.id}`,
+        `mode=${device.mode}`,
+        `branch=${device.branchId ?? 'none'}`,
+        `gallery=${eligibleRoster.length}`,
+        `bestSubject=${best.subjectType}:${best.subjectId}`,
+        `bestCosine=${best.cosine.toFixed(3)}`,
+        `secondSubject=${secondBest ? `${secondBest.subjectType}:${secondBest.subjectId}` : 'none'}`,
+        `secondCosine=${secondBest ? secondBest.cosine.toFixed(3) : 'n/a'}`,
+        `margin=${margin.toFixed(3)}`,
+        `threshold=${MIN_MATCH_SCORE.toFixed(3)}`,
+        `marginThreshold=${MIN_MATCH_MARGIN.toFixed(3)}`,
+      ].join(' '),
+    );
 
     if (best.cosine < MIN_MATCH_SCORE) {
       throw new BadRequestException(
@@ -220,7 +242,6 @@ export class PunchService {
       );
     }
 
-    const margin = secondBest ? best.cosine - secondBest.cosine : 1;
     if (margin < MIN_MATCH_MARGIN) {
       throw new BadRequestException(
         `Ambiguous match: margin ${margin.toFixed(3)} below required ${MIN_MATCH_MARGIN}`,
