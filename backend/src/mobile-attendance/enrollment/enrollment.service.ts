@@ -63,6 +63,16 @@ export class EnrollmentService {
     private readonly dataSource: DataSource,
   ) {}
 
+  private assertEnrollmentBranchAllowed(
+    branchId: string | null | undefined,
+    allowedBranchIds: string[] | null,
+  ): void {
+    if (!allowedBranchIds) return;
+    if (!branchId || !allowedBranchIds.includes(branchId)) {
+      throw new NotFoundException('Enrollment not found');
+    }
+  }
+
   // ─── ESS self-enroll ───────────────────────────────────────────────────────
 
   async enrollSelf(
@@ -146,6 +156,7 @@ export class EnrollmentService {
     branchId: string | null,
     dto: CreateKioskTicketDto,
     createdBy: string,
+    allowedBranchIds: string[] | null = null,
   ): Promise<KioskEnrollTicketEntity> {
     const [device] = await this.dataSource.query<
       Array<{ id: string; branchId: string | null }>
@@ -163,6 +174,14 @@ export class EnrollmentService {
     if (!device) {
       throw new BadRequestException(
         'Selected kiosk device is not active for this client',
+      );
+    }
+    if (
+      allowedBranchIds &&
+      (!device.branchId || !allowedBranchIds.includes(device.branchId))
+    ) {
+      throw new BadRequestException(
+        'Selected kiosk device is not active for your branch',
       );
     }
     const ticketBranchId = device.branchId ?? branchId;
@@ -365,6 +384,7 @@ export class EnrollmentService {
     clientId: string,
     dto: DeactivateEnrollmentDto,
     actorUserId: string,
+    allowedBranchIds: string[] | null = null,
   ): Promise<
     | { ok: true; deactivated: true; employeeId: string }
     | { ok: true; deactivated: true; contractorEmployeeId: string }
@@ -398,6 +418,7 @@ export class EnrollmentService {
           where: { employeeId, clientId },
         });
         if (!rec) throw new NotFoundException('Enrollment not found');
+        this.assertEnrollmentBranchAllowed(rec.branchId, allowedBranchIds);
         await em.save(FaceEnrollmentHistoryEntity, {
           employeeId,
           clientId,
@@ -420,6 +441,7 @@ export class EnrollmentService {
         });
         if (!rec)
           throw new NotFoundException('Contractor enrollment not found');
+        this.assertEnrollmentBranchAllowed(rec.branchId, allowedBranchIds);
         await em.save(FaceEnrollmentHistoryEntity, {
           contractorEmployeeId,
           clientId,

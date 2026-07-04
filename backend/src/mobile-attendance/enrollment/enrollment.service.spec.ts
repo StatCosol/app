@@ -197,6 +197,34 @@ describe('EnrollmentService kiosk tickets', () => {
     );
   });
 
+  it('rejects kiosk tickets for devices outside the caller branch scope', async () => {
+    const ticketRepo = {
+      update: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+    };
+    const service = makeService(
+      ticketRepo,
+      jest.fn().mockResolvedValue([{ id: 'device-1', branchId: 'branch-2' }]),
+    );
+
+    await expect(
+      service.createKioskTicket(
+        'client-1',
+        'branch-1',
+        {
+          deviceId: 'device-1',
+          subjectType: 'EMPLOYEE',
+          employeeId: 'employee-1',
+          subjectName: 'Alice',
+        } as any,
+        'user-1',
+        ['branch-1'],
+      ),
+    ).rejects.toThrow('Selected kiosk device is not active for your branch');
+    expect(ticketRepo.create).not.toHaveBeenCalled();
+  });
+
   it('rejects ticket creation for a device that is not an active kiosk for the client', async () => {
     const ticketRepo = {
       update: jest.fn(),
@@ -431,7 +459,10 @@ describe('EnrollmentService.deactivateEnrollment', () => {
   });
 
   it('permanently deletes contractor enrollment rows after audit history is written', async () => {
-    const rec = { contractorEmployeeId: 'contractor-1' };
+    const rec = {
+      contractorEmployeeId: 'contractor-1',
+      branchId: 'branch-1',
+    };
     const manager = {
       findOne: jest.fn().mockResolvedValue(rec),
       save: jest.fn(async (_targetOrEntity: any, entity?: any) => entity),
@@ -478,5 +509,33 @@ describe('EnrollmentService.deactivateEnrollment', () => {
       deleted: true,
       contractorEmployeeId: '33333333-3333-4333-8333-333333333333',
     });
+  });
+
+  it('does not permanently delete enrollments outside the caller branch scope', async () => {
+    const manager = {
+      findOne: jest.fn().mockResolvedValue({
+        employeeId: '11111111-1111-4111-8111-111111111111',
+        branchId: 'branch-2',
+      }),
+      save: jest.fn(),
+      delete: jest.fn(),
+    };
+    const service = makeService(manager);
+
+    await expect(
+      service.deactivateEnrollment(
+        'client-1',
+        {
+          subjectType: 'EMPLOYEE',
+          subjectId: '11111111-1111-4111-8111-111111111111',
+          permanent: true,
+          reason: 'Wrong enrollment',
+        } as any,
+        '22222222-2222-4222-8222-222222222222',
+        ['branch-1'],
+      ),
+    ).rejects.toThrow('Enrollment not found');
+    expect(manager.save).not.toHaveBeenCalled();
+    expect(manager.delete).not.toHaveBeenCalled();
   });
 });

@@ -191,6 +191,12 @@ export class MobileAttendanceDevicesController {
 export class MobileAttendanceEnrollmentController {
   constructor(private readonly enrollmentService: EnrollmentService) {}
 
+  private branchScope(user: ReqUser): string[] | null {
+    return user?.roleCode === 'CLIENT' && user?.userType === 'BRANCH'
+      ? (user.branchIds ?? [])
+      : null;
+  }
+
   @ApiOperation({ summary: 'ESS — employee self-enroll from their phone' })
   @Post('self')
   @Roles('EMPLOYEE', 'CLIENT', 'ADMIN')
@@ -222,6 +228,7 @@ export class MobileAttendanceEnrollmentController {
       user?.branchIds?.[0] ?? null,
       dto,
       user.userId,
+      this.branchScope(user),
     );
   }
 
@@ -278,6 +285,7 @@ export class MobileAttendanceEnrollmentController {
       clientId,
       dto,
       user.userId,
+      this.branchScope(user),
     );
   }
 
