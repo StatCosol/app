@@ -513,7 +513,9 @@ class KioskActivity : AppCompatActivity() {
                     // Suppress quality hints while a liveness challenge is active so the
                     // challenge prompt is not overwritten by e.g. "No face detected"
                     onHint = { hint ->
-                        if (pendingChallenge == null) runOnUiThread { tvHint.text = hint }
+                        if (pendingChallenge == null && state !is KioskState.Result) {
+                            runOnUiThread { tvHint.text = hint }
+                        }
                     },
                 )
 
@@ -688,6 +690,7 @@ class KioskActivity : AppCompatActivity() {
         nonce: String,
         photo: String?,
     ) {
+        var resultDisplayMs = PUNCH_RETRY_DISPLAY_MS
         try {
             val req = MobilePunchRequest(
                 embeddingB64 = embedder.toBase64(probe),
@@ -705,11 +708,13 @@ class KioskActivity : AppCompatActivity() {
 
             try {
                 val resp = apiClient.recordPunch(req)
+                resultDisplayMs = SUCCESS_HOLD_MS
                 state = KioskState.Result(ok = true, name = resp.employeeName, direction = resp.direction)
                 val msg = getString(R.string.kiosk_punch_recorded, resp.employeeName)
                 runOnUiThread {
-                    tvStatus.text = msg
                     tvHint.text = msg
+                    tvStatus.text = getString(R.string.kiosk_next_scan_wait, SUCCESS_HOLD_SECONDS)
+                    tvStatus.visibility = View.VISIBLE
                 }
                 speakPunchResult(resp.employeeName, resp.direction)
             } catch (e: ApiException) {
@@ -718,9 +723,12 @@ class KioskActivity : AppCompatActivity() {
                 } else if (e.code in 500..599) {
                     // Server error — transient, safe to retry offline
                     queuePunch(req.copy(offlineSync = true))
+                    resultDisplayMs = SUCCESS_HOLD_MS
                     state = KioskState.Result(ok = true, name = match.displayName, direction = "IN")
                     runOnUiThread {
                         tvHint.text = getString(R.string.kiosk_punch_queued)
+                        tvStatus.text = getString(R.string.kiosk_next_scan_wait, SUCCESS_HOLD_SECONDS)
+                        tvStatus.visibility = View.VISIBLE
                     }
                 } else {
                     // Permanent rejection (e.g. cooldown, no match) — do not queue for retry
@@ -732,13 +740,16 @@ class KioskActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 // Network/unknown failure — transient, safe to retry offline
                 queuePunch(req.copy(offlineSync = true))
+                resultDisplayMs = SUCCESS_HOLD_MS
                 state = KioskState.Result(ok = true, name = match.displayName, direction = "IN")
                 runOnUiThread {
                     tvHint.text = getString(R.string.kiosk_punch_queued)
+                    tvStatus.text = getString(R.string.kiosk_next_scan_wait, SUCCESS_HOLD_SECONDS)
+                    tvStatus.visibility = View.VISIBLE
                 }
             }
         } finally {
-            delay(RESULT_DISPLAY_MS)
+            delay(resultDisplayMs)
             resetToIdle()
         }
     }
@@ -969,20 +980,22 @@ class KioskActivity : AppCompatActivity() {
             val result = apiClient.submitEnrollTicket(req)
             result.fold(
                 onSuccess = {
+                    state = KioskState.Result(ok = true, name = enrollState.ticket.subjectName, direction = "ENROLL")
                     val successMsg = getString(R.string.kiosk_enroll_success, enrollState.ticket.subjectName)
                     withContext(Dispatchers.Main) {
                         tvHint.text = successMsg
-                        tvStatus.text = ""
-                        tvStatus.visibility = View.GONE
+                        tvStatus.text = getString(R.string.kiosk_next_scan_wait, SUCCESS_HOLD_SECONDS)
+                        tvStatus.visibility = View.VISIBLE
                         tvDirectionArrow.text = "✓"
                         tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 96f)
                         tvDirectionArrow.visibility = View.VISIBLE
                     }
                     loadRoster()
-                    delay(3_000)
+                    delay(SUCCESS_HOLD_MS)
                     withContext(Dispatchers.Main) { tvDirectionArrow.visibility = View.GONE }
                 },
                 onFailure = { e ->
+                    state = KioskState.Result(ok = false, name = enrollState.ticket.subjectName, direction = "ENROLL")
                     val failMsg = formatApiError(e)
                     Log.e(TAG, failMsg)
                     withContext(Dispatchers.Main) {
@@ -991,11 +1004,12 @@ class KioskActivity : AppCompatActivity() {
                         tvDirectionArrow.visibility = View.VISIBLE
                     }
                     showPrompt(getString(R.string.kiosk_enroll_failed, failMsg), getString(R.string.kiosk_enroll_retry_detail))
-                    delay(6_000)
+                    delay(ENROLL_RETRY_DISPLAY_MS)
                     withContext(Dispatchers.Main) { tvDirectionArrow.visibility = View.GONE }
                 }
             )
         } catch (e: Exception) {
+            state = KioskState.Result(ok = false, name = enrollState.ticket.subjectName, direction = "ENROLL")
             val failMsg = formatApiError(e)
             Log.e(TAG, "Enrollment failed before submit completed: $failMsg")
             withContext(Dispatchers.Main) {
@@ -1004,7 +1018,7 @@ class KioskActivity : AppCompatActivity() {
                 tvDirectionArrow.visibility = View.VISIBLE
             }
             showPrompt(getString(R.string.kiosk_enroll_failed, failMsg), getString(R.string.kiosk_enroll_retry_detail))
-            delay(6_000)
+            delay(ENROLL_RETRY_DISPLAY_MS)
             withContext(Dispatchers.Main) { tvDirectionArrow.visibility = View.GONE }
         } finally {
             resetToIdle()
@@ -1021,7 +1035,10 @@ class KioskActivity : AppCompatActivity() {
         private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.55
         private const val ENROLLMENT_POLL_INTERVAL_MS = 5_000L
         private const val ROSTER_REFRESH_INTERVAL_MS = 15 * 60 * 1000L  // refresh every 15 min
-        private const val RESULT_DISPLAY_MS = 3_000L
+        private const val SUCCESS_HOLD_SECONDS = 10
+        private const val SUCCESS_HOLD_MS = SUCCESS_HOLD_SECONDS * 1_000L
+        private const val PUNCH_RETRY_DISPLAY_MS = 3_000L
+        private const val ENROLL_RETRY_DISPLAY_MS = 6_000L
         private const val LIVENESS_TIMEOUT_MS = 15_000L      // 15 s — head turns need more time
         private const val CAMERA_REQUEST_CODE = 1001
         private const val GOOGLE_TTS_PACKAGE = "com.google.android.tts"

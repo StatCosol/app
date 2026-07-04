@@ -21,6 +21,7 @@
 
     <string name="kiosk_look_at_camera">Look at the camera to mark attendance</string>
     <string name="kiosk_ready_detail">Kiosk ready. Create an enrollment ticket from the web portal when needed.</string>
+    <string name="kiosk_next_scan_wait">Next scan starts in %1$d seconds.</string>
     <string name="kiosk_match_low">Face not recognised — please try again</string>
     <string name="kiosk_punch_recorded">Punch recorded for %1$s</string>
     <string name="kiosk_punch_in_title">Login recorded</string>
