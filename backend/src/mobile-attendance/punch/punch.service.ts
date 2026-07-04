@@ -401,26 +401,38 @@ export class PunchService {
     subjectId: string,
     punchTime: Date,
   ): Promise<'IN' | 'OUT'> {
-    const table =
-      subjectType === 'EMPLOYEE'
-        ? 'mobile_attendance_punches'
-        : 'contractor_biometric_punches';
-    const idColumn =
-      subjectType === 'EMPLOYEE' ? 'employee_id' : 'contractor_employee_id';
     const { start, end } = this.businessDayBoundsUtc(punchTime);
+
+    const sql =
+      subjectType === 'EMPLOYEE'
+        ? `SELECT punch_time, direction
+             FROM (
+               SELECT punch_time, direction
+                 FROM mobile_attendance_punches
+                WHERE client_id = $1
+                  AND employee_id = $2
+                  AND punch_time >= $3
+                  AND punch_time < $4
+               UNION ALL
+               SELECT punch_time, direction
+                 FROM biometric_punches
+                WHERE client_id = $1
+                  AND employee_id = $2
+                  AND punch_time >= $3
+                  AND punch_time < $4
+             ) t
+            ORDER BY punch_time ASC`
+        : `SELECT punch_time, direction
+             FROM contractor_biometric_punches
+            WHERE client_id = $1
+              AND contractor_employee_id = $2
+              AND punch_time >= $3
+              AND punch_time < $4
+            ORDER BY punch_time ASC`;
 
     const todayRows = await this.dataSource.query<
       Array<{ punch_time: Date; direction: 'IN' | 'OUT' | 'AUTO' }>
-    >(
-      `SELECT punch_time, direction
-         FROM ${table}
-        WHERE client_id = $1
-          AND ${idColumn} = $2
-          AND punch_time >= $3
-          AND punch_time < $4
-        ORDER BY punch_time ASC`,
-      [clientId, subjectId, start, end],
-    );
+    >(sql, [clientId, subjectId, start, end]);
 
     if (todayRows.length >= 2) {
       throw new BadRequestException('Attendance already completed for today');

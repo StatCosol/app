@@ -146,6 +146,46 @@ describe('PunchService', () => {
     );
   });
 
+  it('records employee face punch as OUT after a biometric device IN on the same day', async () => {
+    const biometricIn = {
+      punch_time: new Date('2026-07-04T02:00:00.000Z'),
+      direction: 'IN',
+    };
+    const { service, punchRepo, biometricService, dataSource } = makeService({
+      employeeRows: [
+        {
+          employeeId: 'employee-1',
+          name: 'Employee One',
+          employeeCode: 'E001',
+          embedding: embeddingBuffer,
+          embeddingModel: 'mobilefacenet',
+          enrolledAt: new Date(Date.now() - 60_000),
+        },
+      ],
+      cooldownRows: [],
+      todayRows: [biometricIn],
+    });
+
+    const resp = await service.recordPunch(device, dto);
+
+    expect(dataSource.query.mock.calls[3][0]).toContain('biometric_punches');
+    expect(resp.direction).toBe('OUT');
+    expect(punchRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ direction: 'OUT' }),
+    );
+    expect(biometricService.ingest).toHaveBeenCalledWith(
+      'client-1',
+      [
+        expect.objectContaining({
+          direction: 'OUT',
+          employeeCode: 'E001',
+        }),
+      ],
+      true,
+      expect.anything(),
+    );
+  });
+
   it('rejects another employee face punch after IN and OUT are already recorded for the day', async () => {
     const { service, punchRepo, biometricService } = makeService({
       employeeRows: [
