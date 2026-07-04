@@ -112,6 +112,8 @@ class KioskActivity : AppCompatActivity() {
 
     // ── Poll job ─────────────────────────────────────────────────────────────
     private var enrollPollJob: Job? = null
+    @Volatile private var enrollmentPollInFlight = false
+    @Volatile private var lastEnrollmentPollMs = 0L
 
     // ── Liveness timeout job ─────────────────────────────────────────────────
     private var livenessTimeoutJob: Job? = null
@@ -541,24 +543,38 @@ class KioskActivity : AppCompatActivity() {
         enrollPollJob?.cancel()
         enrollPollJob = lifecycleScope.launch {
             while (isActive) {
-                delay(ENROLLMENT_POLL_INTERVAL_MS)
-                if (state !is KioskState.Idle) continue
-                try {
-                    val ticket = apiClient.getPendingEnrollTicket()
-                    if (ticket != null) {
-                        enterEnrollingState(ticket)
-                    }
-                } catch (e: ApiException) {
-                    if (e.code == 401 || e.code == 403) {
-                        handleUnauthorized()
-                        break
-                    }
-                    Log.w(TAG, "Enrollment poll failed: ${e.message}")
-                } catch (e: Exception) {
-                    Log.w(TAG, "Enrollment poll failed: ${e.message}")
+                if (state is KioskState.Idle) {
+                    launchPendingEnrollmentCheck()
                 }
+                delay(ENROLLMENT_POLL_INTERVAL_MS)
             }
         }
+    }
+
+    private fun launchPendingEnrollmentCheck(): Boolean {
+        if (enrollmentPollInFlight) return true
+        enrollmentPollInFlight = true
+        lifecycleScope.launch {
+            try {
+                if (state !is KioskState.Idle) return@launch
+                val ticket = apiClient.getPendingEnrollTicket()
+                if (ticket != null && state is KioskState.Idle) {
+                    enterEnrollingState(ticket)
+                }
+            } catch (e: ApiException) {
+                if (e.code == 401 || e.code == 403) {
+                    handleUnauthorized()
+                } else {
+                    Log.w(TAG, "Enrollment poll failed: ${e.message}")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Enrollment poll failed: ${e.message}")
+            } finally {
+                lastEnrollmentPollMs = System.currentTimeMillis()
+                enrollmentPollInFlight = false
+            }
+        }
+        return true
     }
 
     private fun enterEnrollingState(ticket: KioskEnrollTicketResponse) {
@@ -598,6 +614,11 @@ class KioskActivity : AppCompatActivity() {
 
     private fun handleIdleFrame(probe: FloatArray, metrics: FaceMetrics, photo: String?) {
         if (punchInFlight) return
+        if (enrollmentPollInFlight) return
+        if (System.currentTimeMillis() - lastEnrollmentPollMs >= ENROLLMENT_FRAME_CHECK_INTERVAL_MS) {
+            launchPendingEnrollmentCheck()
+            return
+        }
         val challenge = pendingChallenge
         if (challenge != null) {
             handleLivenessFrame(probe, metrics)
@@ -1050,7 +1071,8 @@ class KioskActivity : AppCompatActivity() {
         private const val ENROLL_MAX_YAW = 25f               // frontal gate for enrollment frames
         private const val ENROLL_MIN_FRAME_INTERVAL_MS = 400L
         private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.55
-        private const val ENROLLMENT_POLL_INTERVAL_MS = 5_000L
+        private const val ENROLLMENT_POLL_INTERVAL_MS = 1_000L
+        private const val ENROLLMENT_FRAME_CHECK_INTERVAL_MS = 750L
         private const val ROSTER_REFRESH_INTERVAL_MS = 15 * 60 * 1000L  // refresh every 15 min
         private const val SUCCESS_HOLD_SECONDS = 10
         private const val SUCCESS_HOLD_MS = SUCCESS_HOLD_SECONDS * 1_000L
