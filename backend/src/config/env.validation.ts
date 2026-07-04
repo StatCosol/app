@@ -79,6 +79,9 @@ export const envValidationSchema = Joi.object({
     .falsy('false')
     .optional()
     .default(true),
+  FACE_MIN_MATCH_SCORE: Joi.number().min(0).max(1).optional(),
+  FACE_SINGLE_GALLERY_MIN_MATCH_SCORE: Joi.number().min(0).max(1).optional(),
+  FACE_MIN_MATCH_MARGIN: Joi.number().min(0).max(1).optional(),
   FACE_PUNCH_PHOTO_RETENTION_DAYS: Joi.number().integer().min(1).optional(),
   FACE_ENROLL_PHOTO_RETENTION_DAYS: Joi.number().integer().min(1).optional(),
 

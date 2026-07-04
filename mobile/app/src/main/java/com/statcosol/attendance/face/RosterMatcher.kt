@@ -35,8 +35,13 @@ class RosterMatcher {
         val best = scores[0]
         val secondBest = scores.getOrNull(1)?.second ?: 0.0
         val margin = best.second - secondBest
+        val requiredThreshold = if (snapshot.size <= 1) {
+            SINGLE_ENTRY_MATCH_THRESHOLD
+        } else {
+            MATCH_THRESHOLD
+        }
 
-        if (best.second < MATCH_THRESHOLD) return null
+        if (best.second < requiredThreshold) return null
         if (margin < MARGIN_THRESHOLD) return null
 
         return MatchResult(
@@ -61,10 +66,12 @@ class RosterMatcher {
     }
 
     companion object {
-        // MobileFaceNet real-world same-person cosine similarity is ~0.70–0.87.
-        // 0.90 was unreachable in practice — no one ever matched.
-        private const val MATCH_THRESHOLD = 0.72
-        private const val MARGIN_THRESHOLD = 0.02
+        // MobileFaceNet real-world same-person cosine similarity is ~0.70-0.87.
+        // A one-person gallery needs a stricter threshold because there is no
+        // second-best candidate for margin separation.
+        private const val MATCH_THRESHOLD = 0.78
+        private const val SINGLE_ENTRY_MATCH_THRESHOLD = 0.82
+        private const val MARGIN_THRESHOLD = 0.06
 
         fun cosineSim(a: FloatArray, b: FloatArray): Double {
             var dot = 0.0
