@@ -14,6 +14,7 @@ import { MobileAttendancePunchEntity } from './punch.entity';
 import { ContractorBiometricPunchEntity } from './contractor-punch.entity';
 import { LivenessService } from '../liveness/liveness.service';
 import { FacePhotoStorageService } from '../face/face-photo-storage.service';
+import { BiometricService } from '../../biometric/biometric.service';
 import {
   bufferToEmbedding,
   cosineSim,
@@ -66,6 +67,7 @@ export class PunchService {
     private readonly contractorPunchRepo: Repository<ContractorBiometricPunchEntity>,
     private readonly livenessService: LivenessService,
     private readonly photoStorage: FacePhotoStorageService,
+    private readonly biometricService: BiometricService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -321,6 +323,15 @@ export class PunchService {
         isRooted: dto.isRooted ?? null,
         offlineSync: dto.offlineSync ?? false,
       });
+      await this.mirrorEmployeePunchToDailyAttendance({
+        clientId: device.clientId,
+        branchId: device.branchId,
+        employeeCode: best.employeeCode ?? best.subjectId,
+        punchTime,
+        direction: dto.direction,
+        deviceId: device.id,
+        source: device.mode === 'ESS' ? 'MOBILE_ESS' : 'MOBILE_KIOSK',
+      });
       return {
         ok: true,
         employeeName: best.displayName,
@@ -366,6 +377,46 @@ export class PunchService {
         direction: dto.direction,
         punchTime: punchTime.toISOString(),
       };
+    }
+  }
+
+  private async mirrorEmployeePunchToDailyAttendance(args: {
+    clientId: string;
+    branchId: string | null;
+    employeeCode: string;
+    punchTime: Date;
+    direction: 'IN' | 'OUT' | 'AUTO';
+    deviceId: string;
+    source: 'MOBILE_KIOSK' | 'MOBILE_ESS';
+  }): Promise<void> {
+    try {
+      await this.biometricService.ingest(
+        args.clientId,
+        [
+          {
+            employeeCode: args.employeeCode,
+            punchTime: args.punchTime.toISOString(),
+            direction: args.direction,
+            deviceId: args.deviceId,
+            branchId: args.branchId ?? undefined,
+            source: args.source,
+          },
+        ],
+        true,
+      );
+    } catch (err) {
+      this.logger.error(
+        [
+          'accepted mobile attendance punch could not be mirrored to daily attendance',
+          `client=${args.clientId}`,
+          `employeeCode=${args.employeeCode}`,
+          `device=${args.deviceId}`,
+          `source=${args.source}`,
+          `punchTime=${args.punchTime.toISOString()}`,
+        ].join(' '),
+        err instanceof Error ? err.stack : String(err),
+      );
+      throw err;
     }
   }
 

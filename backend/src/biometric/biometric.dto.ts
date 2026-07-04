@@ -37,6 +37,13 @@ export class IngestPunchItemDto {
   @IsOptional()
   @IsString()
   branchId?: string;
+
+  @ApiPropertyOptional({
+    enum: ['DEVICE', 'IMPORT', 'MANUAL', 'MOBILE_KIOSK', 'MOBILE_ESS'],
+  })
+  @IsOptional()
+  @IsIn(['DEVICE', 'IMPORT', 'MANUAL', 'MOBILE_KIOSK', 'MOBILE_ESS'])
+  source?: 'DEVICE' | 'IMPORT' | 'MANUAL' | 'MOBILE_KIOSK' | 'MOBILE_ESS';
 }
 
 export class IngestPunchesDto {
