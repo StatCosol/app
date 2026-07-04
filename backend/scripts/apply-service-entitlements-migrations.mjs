@@ -37,6 +37,10 @@ const serviceMigrationFiles = new Set([
   '20260703_fnf_manual_override.sql',
   '20260703_auto_fnf_on_exit.sql',
   '20260703_button_endpoint_db_alignment.sql',
+  // Face kiosk accuracy upgrade: multi-template gallery, punch review
+  // workflow columns, per-client threshold overrides. Must run before a
+  // backend image that writes the `decision` column deploys.
+  '20260704_face_kiosk_accuracy_upgrade.sql',
 ]);
 
 const config = {

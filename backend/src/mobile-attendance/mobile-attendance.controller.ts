@@ -406,6 +406,58 @@ export class MobileAttendancePunchesController {
     };
   }
 
+  @ApiOperation({
+    summary: 'Admin — list punches held for review (two-level decision)',
+  })
+  @Get('review')
+  @Roles('CLIENT', 'ADMIN')
+  listReviewPunches(
+    @CurrentUser() user: ReqUser,
+    @Query('status') status?: string,
+    @Query('branchId') branchId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.punchService.listReviewPunches(clientId, {
+      status,
+      branchIds: branchId ? [branchId] : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
+  @ApiOperation({
+    summary: 'Admin — approve or reject a punch held for review',
+  })
+  @Post('review/:subjectType/:punchId')
+  @Roles('CLIENT', 'ADMIN')
+  reviewPunch(
+    @CurrentUser() user: ReqUser,
+    @Param('subjectType') subjectType: string,
+    @Param('punchId') punchId: string,
+    @Body() body: { action: 'APPROVE' | 'REJECT'; note?: string },
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    const kind = String(subjectType || '').toUpperCase();
+    if (kind !== 'EMPLOYEE' && kind !== 'CONTRACTOR') {
+      throw new BadRequestException(
+        'subjectType must be employee or contractor',
+      );
+    }
+    if (body?.action !== 'APPROVE' && body?.action !== 'REJECT') {
+      throw new BadRequestException('action must be APPROVE or REJECT');
+    }
+    return this.punchService.reviewPunch(
+      clientId,
+      kind,
+      punchId,
+      body.action,
+      user.id,
+      body.note,
+    );
+  }
+
   @ApiOperation({ summary: 'Admin — list employee punches with filters' })
   @Get('employee')
   @Roles('CLIENT', 'ADMIN')

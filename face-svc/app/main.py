@@ -2,21 +2,38 @@
 Face embedding microservice.
 
 POST /embed
-    Request:  { "photoBase64": "<base64 JPEG/PNG>" }
-    Response: { "ok": true, "embeddingBase64": "<base64 little-endian float32[192]>",
-                "faceScore": 0.97, "embeddingModel": "mobilefacenet-v1" }
-              | { "ok": false, "error": "no_face" | "decode_failed" | "model_failed" }
+    Request:  { "photoBase64": "<base64 JPEG/PNG>" }   (alias: "image")
+    Response: { "ok": true,
+                "embeddingBase64": "<base64 little-endian float32[N]>",
+                "embedding": [..float..],              # same vector, JSON floats
+                "faceScore": 0.97,
+                "embeddingModel": "mobilefacenet-v1" | "arcface-buffalo_l-v1",
+                "quality": { "faceScore": 0.97, "facePx": 214, "brightness": 121.4,
+                             "sharpness": 182.0, "ok": true, "reasons": [] },
+                "livenessScore": 0.93 | null }
+              | { "ok": false, "error": "no_face" | "decode_failed" | "model_failed"
+                             | "low_quality", "quality": {...} }
 
-Implementation notes
---------------------
-* Face detection: mediapipe.solutions.face_detection (BlazeFace short-range model).
-  Same family as ML Kit's on-device detector used by the Android app, so the
-  bounding-box conventions line up well.
-* Embedding: TFLite Interpreter loads the SAME `mobilefacenet.tflite` we ship
-  in the Android APK (mobile/app/src/main/assets via secret-fetch in CI).
-  Input: 112x112 RGB. Output: 192-d L2-normalized vector.
-* Embeddings produced here are byte-compatible with embeddings produced by the
-  Android FaceEmbedder → cosine similarity of probe vs stored embedding works.
+Embedding backends (EMBEDDING_BACKEND env):
+  * mobilefacenet (default) — TFLite Interpreter loads the SAME
+    `mobilefacenet.tflite` we ship in the Android APK. 112x112 RGB in,
+    192-d L2-normalised out. Byte-compatible with the on-device
+    FaceEmbedder, so kiosk-side probe vs server-side gallery works.
+  * insightface — SCRFD detection + landmark alignment + ArcFace
+    recognition (buffalo_l by default, 512-d). Much higher 1:N accuracy;
+    requires `pip install -r requirements-arcface.txt` and re-enrollment
+    of all subjects (embeddings are NOT compatible across backends —
+    the backend matcher filters gallery entries by embedding_model).
+
+Passive liveness (optional): set LIVENESS_MODEL_PATH to a MiniFASNet-style
+ONNX anti-spoofing model. When present, /embed also returns livenessScore
+(probability the face is real, 0..1). Absent → livenessScore is null and
+the NestJS backend skips the passive-liveness gate.
+
+Quality gate: every /embed computes face box size (px), brightness (mean
+gray) and sharpness (variance of Laplacian) on the face crop. Thresholds
+are env-tunable; failures return ok=false error="low_quality" with the
+metrics so the kiosk can tell the operator WHY (too dark / too far / blurry).
 
 The embedding is returned as base64 of the little-endian float32 byte array,
 matching how the mobile client encodes/decodes embeddings (see
@@ -35,17 +52,38 @@ import numpy as np
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from PIL import Image
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("face-svc")
 
-MODEL_PATH = os.environ.get("MODEL_PATH", "/models/mobilefacenet.tflite")
-INPUT_SIZE = 112
-EMBED_DIM = 192
-EMBEDDING_MODEL_NAME = "mobilefacenet-v1"
+# ---------------------------------------------------------------- configuration
+EMBEDDING_BACKEND = os.environ.get("EMBEDDING_BACKEND", "mobilefacenet").strip().lower()
 
-app = FastAPI(title="statcompy face embedding service", version="1.0.0")
+# mobilefacenet backend
+MODEL_PATH = os.environ.get("MODEL_PATH", "/models/mobilefacenet.tflite")
+MFN_INPUT_SIZE = 112
+MFN_EMBED_DIM = 192
+MFN_MODEL_NAME = "mobilefacenet-v1"
+
+# insightface backend
+INSIGHTFACE_MODEL = os.environ.get("INSIGHTFACE_MODEL", "buffalo_l")
+INSIGHTFACE_HOME = os.environ.get("INSIGHTFACE_HOME", "/models/insightface")
+INSIGHTFACE_DET_SIZE = int(os.environ.get("INSIGHTFACE_DET_SIZE", "640"))
+ARC_MODEL_NAME = f"arcface-{INSIGHTFACE_MODEL}-v1"
+
+# passive liveness (optional MiniFASNet-style ONNX)
+LIVENESS_MODEL_PATH = os.environ.get("LIVENESS_MODEL_PATH", "").strip()
+LIVENESS_INPUT_SIZE = int(os.environ.get("LIVENESS_INPUT_SIZE", "80"))
+
+# quality thresholds (computed on the face crop)
+MIN_FACE_PX = int(os.environ.get("MIN_FACE_PX", "112"))
+MIN_BRIGHTNESS = float(os.environ.get("MIN_BRIGHTNESS", "40"))
+MAX_BRIGHTNESS = float(os.environ.get("MAX_BRIGHTNESS", "235"))
+MIN_SHARPNESS = float(os.environ.get("MIN_SHARPNESS", "40"))
+ENFORCE_QUALITY = os.environ.get("ENFORCE_QUALITY", "true").strip().lower() != "false"
+
+app = FastAPI(title="statcompy face embedding service", version="2.0.0")
 
 
 # Reject oversize bodies before FastAPI parses them. The backend caps JSON
@@ -108,58 +146,166 @@ def _load_face_detector():
     )
 
 
+def _load_insightface():
+    from insightface.app import FaceAnalysis  # type: ignore
+    fa = FaceAnalysis(
+        name=INSIGHTFACE_MODEL,
+        root=INSIGHTFACE_HOME,
+        allowed_modules=["detection", "recognition"],
+    )
+    fa.prepare(ctx_id=-1, det_size=(INSIGHTFACE_DET_SIZE, INSIGHTFACE_DET_SIZE))
+    return fa
+
+
+def _load_liveness():
+    import onnxruntime as ort  # type: ignore
+    sess = ort.InferenceSession(LIVENESS_MODEL_PATH, providers=["CPUExecutionProvider"])
+    return sess
+
+
 _interp = None
 _input_details = None
 _output_details = None
 _detector = None
+_insight = None
+_liveness = None
 
 
 @app.on_event("startup")
 def _startup() -> None:  # pragma: no cover
-    global _interp, _input_details, _output_details, _detector
-    log.info("loading TFLite model from %s", MODEL_PATH)
-    _interp = _load_tflite()
-    _input_details = _interp.get_input_details()
-    _output_details = _interp.get_output_details()
-    log.info("model input: %s output: %s", _input_details[0]["shape"], _output_details[0]["shape"])
-    _detector = _load_face_detector()
-    log.info("ready")
+    global _interp, _input_details, _output_details, _detector, _insight, _liveness
+    if EMBEDDING_BACKEND == "insightface":
+        log.info("loading insightface model pack %s from %s", INSIGHTFACE_MODEL, INSIGHTFACE_HOME)
+        _insight = _load_insightface()
+    else:
+        log.info("loading TFLite model from %s", MODEL_PATH)
+        _interp = _load_tflite()
+        _input_details = _interp.get_input_details()
+        _output_details = _interp.get_output_details()
+        log.info("model input: %s output: %s", _input_details[0]["shape"], _output_details[0]["shape"])
+        _detector = _load_face_detector()
+    if LIVENESS_MODEL_PATH:
+        log.info("loading passive liveness model from %s", LIVENESS_MODEL_PATH)
+        _liveness = _load_liveness()
+    log.info("ready (backend=%s liveness=%s)", EMBEDDING_BACKEND, bool(_liveness))
 
 
 # ---------------------------------------------------------------- API surface
 class EmbedRequest(BaseModel):
-    photoBase64: str
+    photoBase64: Optional[str] = None
+    image: Optional[str] = None  # legacy alias used by older backend clients
+
+    @model_validator(mode="after")
+    def _one_of(self):
+        if not self.photoBase64 and not self.image:
+            raise ValueError("photoBase64 is required")
+        return self
+
+    @property
+    def photo(self) -> str:
+        return self.photoBase64 or self.image or ""
+
+
+class QualityInfo(BaseModel):
+    faceScore: float
+    facePx: int
+    brightness: float
+    sharpness: float
+    ok: bool
+    reasons: list[str]
 
 
 class EmbedResponse(BaseModel):
     ok: bool
     embeddingBase64: Optional[str] = None
+    embedding: Optional[list[float]] = None
     faceScore: Optional[float] = None
     embeddingModel: Optional[str] = None
+    quality: Optional[QualityInfo] = None
+    livenessScore: Optional[float] = None
     error: Optional[str] = None
+
+
+def _model_name() -> str:
+    return ARC_MODEL_NAME if EMBEDDING_BACKEND == "insightface" else MFN_MODEL_NAME
 
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "model_loaded": _interp is not None, "model": EMBEDDING_MODEL_NAME}
+    loaded = _insight is not None if EMBEDDING_BACKEND == "insightface" else _interp is not None
+    return {
+        "ok": True,
+        "model_loaded": loaded,
+        "model": _model_name(),
+        "backend": EMBEDDING_BACKEND,
+        "liveness_enabled": _liveness is not None,
+    }
 
 
-@app.post("/embed", response_model=EmbedResponse)
-def embed(req: EmbedRequest) -> JSONResponse:
-    # 1. decode base64 → PIL RGB image
+# ---------------------------------------------------------------- quality maths
+def _quality_metrics(crop_rgb: np.ndarray, face_score: float) -> QualityInfo:
+    """Brightness + sharpness on the face crop. Pure numpy (no OpenCV)."""
+    gray = crop_rgb.astype(np.float32) @ np.asarray([0.299, 0.587, 0.114], dtype=np.float32)
+    brightness = float(gray.mean())
+    # variance of Laplacian (4-neighbour kernel) — classic blur metric
+    lap = (
+        -4.0 * gray[1:-1, 1:-1]
+        + gray[:-2, 1:-1]
+        + gray[2:, 1:-1]
+        + gray[1:-1, :-2]
+        + gray[1:-1, 2:]
+    )
+    sharpness = float(lap.var()) if lap.size else 0.0
+    face_px = int(min(crop_rgb.shape[0], crop_rgb.shape[1]))
+
+    reasons: list[str] = []
+    if face_px < MIN_FACE_PX:
+        reasons.append(f"face_too_small({face_px}px<{MIN_FACE_PX}px)")
+    if brightness < MIN_BRIGHTNESS:
+        reasons.append(f"too_dark({brightness:.0f}<{MIN_BRIGHTNESS:.0f})")
+    if brightness > MAX_BRIGHTNESS:
+        reasons.append(f"too_bright({brightness:.0f}>{MAX_BRIGHTNESS:.0f})")
+    if sharpness < MIN_SHARPNESS:
+        reasons.append(f"too_blurry({sharpness:.0f}<{MIN_SHARPNESS:.0f})")
+
+    return QualityInfo(
+        faceScore=face_score,
+        facePx=face_px,
+        brightness=round(brightness, 1),
+        sharpness=round(sharpness, 1),
+        ok=len(reasons) == 0,
+        reasons=reasons,
+    )
+
+
+def _liveness_score(crop_rgb: np.ndarray) -> Optional[float]:
+    """MiniFASNet-style passive anti-spoofing. Returns P(real) or None."""
+    if _liveness is None:
+        return None
     try:
-        raw = base64.b64decode(req.photoBase64, validate=False)
-        img = Image.open(io.BytesIO(raw)).convert("RGB")
+        img = Image.fromarray(crop_rgb).resize(
+            (LIVENESS_INPUT_SIZE, LIVENESS_INPUT_SIZE), Image.BILINEAR
+        )
+        x = np.asarray(img, dtype=np.float32) / 255.0
+        x = np.transpose(x, (2, 0, 1))[None, ...]  # 1,3,H,W
+        inp = _liveness.get_inputs()[0]
+        out = _liveness.run(None, {inp.name: x})[0].reshape(-1)
+        # MiniFASNet heads emit [spoof-2d, real, spoof-3d] logits; softmax → P(real)
+        e = np.exp(out - out.max())
+        probs = e / e.sum()
+        real_idx = 1 if probs.shape[0] >= 3 else int(np.argmax(probs))
+        return float(probs[real_idx])
     except Exception as exc:  # pylint: disable=broad-except
-        log.warning("decode failed: %s", exc)
-        return JSONResponse(EmbedResponse(ok=False, error="decode_failed").model_dump(), status_code=400)
+        log.warning("liveness scoring failed: %s", exc)
+        return None
 
-    arr = np.asarray(img, dtype=np.uint8)
 
-    # 2. detect largest face via mediapipe
+# ---------------------------------------------------------------- backends
+def _embed_mobilefacenet(arr: np.ndarray):
+    """Returns (emb, face_score, crop_rgb) or an error string."""
     res = _detector.process(arr)
     if not res.detections:
-        return JSONResponse(EmbedResponse(ok=False, error="no_face").model_dump(), status_code=422)
+        return "no_face"
 
     h, w = arr.shape[:2]
     best = max(
@@ -178,19 +324,16 @@ def embed(req: EmbedRequest) -> JSONResponse:
     y2 = min(h, y + bh)
     crop = arr[y:y2, x:x2]
     if crop.size == 0:
-        return JSONResponse(EmbedResponse(ok=False, error="bad_crop").model_dump(), status_code=422)
+        return "bad_crop"
 
-    # 3. resize to 112x112 RGB, then preprocess for the model.
-    #    The shipped mobilefacenet.tflite has a FLOAT32 input tensor. The
-    #    standard MobileFaceNet preprocessing is (pixel - 127.5) / 128.0,
-    #    mapping uint8 [0,255] to roughly [-1, 1]. Feeding raw [0,255]
-    #    floats saturates the network and collapses all faces onto the
-    #    same embedding (cos > 0.97 between strangers — see fix verified
-    #    in container 2026-03 with 3 distinct AI faces dropping from
-    #    cos 0.97/0.98/0.99 to cos 0.32/0.26/0.11 after normalization).
-    #    For a quantised UINT8 input the interpreter handles dequant
-    #    internally and we just pass the uint8 pixels through.
-    crop_pil = Image.fromarray(crop).resize((INPUT_SIZE, INPUT_SIZE), Image.BILINEAR)
+    # The shipped mobilefacenet.tflite has a FLOAT32 input tensor. The
+    # standard MobileFaceNet preprocessing is (pixel - 127.5) / 128.0,
+    # mapping uint8 [0,255] to roughly [-1, 1]. Feeding raw [0,255]
+    # floats saturates the network and collapses all faces onto the
+    # same embedding (cos > 0.97 between strangers — fix verified
+    # 2026-03). For a quantised UINT8 input the interpreter handles
+    # dequant internally and we just pass the uint8 pixels through.
+    crop_pil = Image.fromarray(crop).resize((MFN_INPUT_SIZE, MFN_INPUT_SIZE), Image.BILINEAR)
     crop_np = np.asarray(crop_pil)  # uint8 H,W,3
 
     in_dtype = _input_details[0]["dtype"]
@@ -207,28 +350,85 @@ def embed(req: EmbedRequest) -> JSONResponse:
         raw_emb = _interp.get_tensor(_output_details[0]["index"])  # 1,192
     except Exception as exc:  # pylint: disable=broad-except
         log.exception("invoke failed: %s", exc)
-        return JSONResponse(EmbedResponse(ok=False, error="model_failed").model_dump(), status_code=500)
+        return "model_failed"
 
     emb = np.asarray(raw_emb, dtype=np.float32).reshape(-1)
-    if emb.shape[0] != EMBED_DIM:
-        log.error("unexpected embedding shape %s, expected %d", emb.shape, EMBED_DIM)
-        return JSONResponse(EmbedResponse(ok=False, error="bad_embedding_dim").model_dump(), status_code=500)
+    if emb.shape[0] != MFN_EMBED_DIM:
+        log.error("unexpected embedding shape %s, expected %d", emb.shape, MFN_EMBED_DIM)
+        return "bad_embedding_dim"
+    return emb, score, crop
 
-    # L2 normalise (matches mobile FaceEmbedder.l2Normalize)
+
+def _embed_insightface(arr: np.ndarray):
+    """SCRFD detect + landmark-aligned ArcFace embedding (512-d, L2-normed)."""
+    # insightface expects BGR
+    faces = _insight.get(arr[:, :, ::-1])
+    if not faces:
+        return "no_face"
+    best = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+    x1, y1, x2, y2 = (int(max(0, v)) for v in best.bbox[:4])
+    h, w = arr.shape[:2]
+    crop = arr[min(y1, h):min(y2, h), min(x1, w):min(x2, w)]
+    if crop.size == 0:
+        return "bad_crop"
+    emb = np.asarray(best.normed_embedding, dtype=np.float32).reshape(-1)
+    score = float(best.det_score)
+    return emb, score, crop
+
+
+@app.post("/embed", response_model=EmbedResponse)
+def embed(req: EmbedRequest) -> JSONResponse:
+    # 1. decode base64 → PIL RGB image
+    try:
+        raw = base64.b64decode(req.photo, validate=False)
+        img = Image.open(io.BytesIO(raw)).convert("RGB")
+    except Exception as exc:  # pylint: disable=broad-except
+        log.warning("decode failed: %s", exc)
+        return JSONResponse(EmbedResponse(ok=False, error="decode_failed").model_dump(), status_code=400)
+
+    arr = np.asarray(img, dtype=np.uint8)
+
+    # 2. detect + embed via the configured backend
+    result = (
+        _embed_insightface(arr) if EMBEDDING_BACKEND == "insightface" else _embed_mobilefacenet(arr)
+    )
+    if isinstance(result, str):
+        status = 500 if result in ("model_failed", "bad_embedding_dim") else 422
+        return JSONResponse(EmbedResponse(ok=False, error=result).model_dump(), status_code=status)
+
+    emb, score, crop = result
+
+    # 3. quality gate on the face crop
+    quality = _quality_metrics(crop, score)
+    if ENFORCE_QUALITY and not quality.ok:
+        return JSONResponse(
+            EmbedResponse(ok=False, error="low_quality", quality=quality).model_dump(),
+            status_code=422,
+        )
+
+    # 4. L2 normalise (matches mobile FaceEmbedder.l2Normalize; insightface
+    #    embeddings arrive normed already — renorm is a harmless no-op)
     norm = float(np.linalg.norm(emb))
     if norm < 1e-9:
         return JSONResponse(EmbedResponse(ok=False, error="zero_embedding").model_dump(), status_code=500)
     emb = emb / norm
 
+    # 5. optional passive liveness
+    liveness = _liveness_score(crop)
+
     # encode as little-endian float32 byte array (mobile decodes with LITTLE_ENDIAN)
-    payload = struct.pack(f"<{EMBED_DIM}f", *emb.tolist())
+    dim = emb.shape[0]
+    payload = struct.pack(f"<{dim}f", *emb.tolist())
     b64 = base64.b64encode(payload).decode("ascii")
 
     return JSONResponse(
         EmbedResponse(
             ok=True,
             embeddingBase64=b64,
+            embedding=[round(float(v), 8) for v in emb.tolist()],
             faceScore=score,
-            embeddingModel=EMBEDDING_MODEL_NAME,
+            embeddingModel=_model_name(),
+            quality=quality,
+            livenessScore=liveness,
         ).model_dump()
     )

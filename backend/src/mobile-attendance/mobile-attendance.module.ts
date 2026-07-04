@@ -9,6 +9,7 @@ import { FaceEnrollmentEntity } from './enrollment/face-enrollment.entity';
 import { ContractorFaceEnrollmentEntity } from './enrollment/contractor-face-enrollment.entity';
 import { KioskEnrollTicketEntity } from './enrollment/kiosk-enroll-ticket.entity';
 import { FaceEnrollmentHistoryEntity } from './enrollment/enrollment-history.entity';
+import { FaceEnrollmentTemplateEntity } from './enrollment/face-enrollment-template.entity';
 import { MobileAttendancePunchEntity } from './punch/punch.entity';
 import { ContractorBiometricPunchEntity } from './punch/contractor-punch.entity';
 import { FaceLivenessNonceEntity } from './liveness/liveness-nonce.entity';
@@ -21,6 +22,8 @@ import { PunchService } from './punch/punch.service';
 import { LivenessService } from './liveness/liveness.service';
 import { FaceEmbeddingClient } from './face/face-embedding.client';
 import { FacePhotoStorageService } from './face/face-photo-storage.service';
+import { FaceTemplateService } from './face/face-template.service';
+import { FaceRetentionService } from './face/face-retention.service';
 
 // Controllers
 import {
@@ -38,6 +41,7 @@ import {
       ContractorFaceEnrollmentEntity,
       KioskEnrollTicketEntity,
       FaceEnrollmentHistoryEntity,
+      FaceEnrollmentTemplateEntity,
       MobileAttendancePunchEntity,
       ContractorBiometricPunchEntity,
       FaceLivenessNonceEntity,
@@ -59,6 +63,8 @@ import {
     LivenessService,
     FaceEmbeddingClient,
     FacePhotoStorageService,
+    FaceTemplateService,
+    FaceRetentionService,
   ],
   exports: [DeviceService, EnrollmentService, PunchService, LivenessService],
 })

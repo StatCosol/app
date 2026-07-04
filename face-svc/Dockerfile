@@ -29,8 +29,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /srv
 
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+COPY requirements.txt requirements-arcface.txt ./
+# WITH_ARCFACE=1 bakes in the InsightFace/ArcFace backend (EMBEDDING_BACKEND=insightface).
+# Default 0 keeps the image identical to the MobileFaceNet-only build.
+ARG WITH_ARCFACE=0
+RUN pip install --upgrade pip && pip install -r requirements.txt && \
+    if [ "$WITH_ARCFACE" = "1" ]; then pip install -r requirements-arcface.txt; fi
 
 # Model is bundled in the build context (face-svc/models/mobilefacenet.tflite).
 # This must be the SAME file the Android client embeds — fetched from the
