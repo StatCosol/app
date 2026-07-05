@@ -120,6 +120,19 @@ export class ContractorBiometricPunchEntity {
   @Column({ name: 'offline_sync', type: 'boolean', default: false })
   offlineSync: boolean;
 
+  /** See MobileAttendancePunchEntity.decision */
+  @Column({ name: 'decision', type: 'varchar', length: 20, default: 'AUTO' })
+  decision: string;
+
+  @Column({ name: 'reviewed_by', type: 'uuid', nullable: true })
+  reviewedBy: string | null;
+
+  @Column({ name: 'reviewed_at', type: 'timestamptz', nullable: true })
+  reviewedAt: Date | null;
+
+  @Column({ name: 'review_note', type: 'text', nullable: true })
+  reviewNote: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

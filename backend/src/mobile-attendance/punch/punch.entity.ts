@@ -121,6 +121,25 @@ export class MobileAttendancePunchEntity {
   @Column({ name: 'offline_sync', type: 'boolean', default: false })
   offlineSync: boolean;
 
+  /**
+   * Two-level decision outcome:
+   * AUTO — matched above auto-accept thresholds, mirrored to attendance.
+   * REVIEW_PENDING — borderline score/margin/liveness; held for admin review,
+   *   NOT mirrored to attendance until approved.
+   * REVIEW_APPROVED / REVIEW_REJECTED — admin outcome.
+   */
+  @Column({ name: 'decision', type: 'varchar', length: 20, default: 'AUTO' })
+  decision: string;
+
+  @Column({ name: 'reviewed_by', type: 'uuid', nullable: true })
+  reviewedBy: string | null;
+
+  @Column({ name: 'reviewed_at', type: 'timestamptz', nullable: true })
+  reviewedAt: Date | null;
+
+  @Column({ name: 'review_note', type: 'text', nullable: true })
+  reviewNote: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

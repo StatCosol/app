@@ -14,6 +14,10 @@ describe('EnrollmentService.listEmployeeEnrollments', () => {
       {} as any,
       {} as any,
       {} as any,
+      {
+        appendTemplate: jest.fn().mockResolvedValue(undefined),
+        purgeSubject: jest.fn().mockResolvedValue(undefined),
+      } as any,
       { query } as any,
     );
   }
@@ -74,6 +78,10 @@ describe('EnrollmentService.listContractorEnrollments', () => {
       {} as any,
       {} as any,
       {} as any,
+      {
+        appendTemplate: jest.fn().mockResolvedValue(undefined),
+        purgeSubject: jest.fn().mockResolvedValue(undefined),
+      } as any,
       { query } as any,
     );
   }
@@ -129,6 +137,10 @@ describe('EnrollmentService kiosk tickets', () => {
       {} as any,
       {} as any,
       {} as any,
+      {
+        appendTemplate: jest.fn().mockResolvedValue(undefined),
+        purgeSubject: jest.fn().mockResolvedValue(undefined),
+      } as any,
       { query } as any,
     );
   }
@@ -339,6 +351,10 @@ describe('EnrollmentService kiosk tickets', () => {
       livenessService as any,
       {} as any,
       { enabled: false } as any,
+      {
+        appendTemplate: jest.fn().mockResolvedValue(undefined),
+        purgeSubject: jest.fn().mockResolvedValue(undefined),
+      } as any,
       dataSource as any,
     );
 
@@ -387,7 +403,11 @@ describe('EnrollmentService duplicate detection', () => {
       {} as any,
       {} as any,
       {} as any,
-      {} as any,
+      {
+        appendTemplate: jest.fn().mockResolvedValue(undefined),
+        purgeSubject: jest.fn().mockResolvedValue(undefined),
+      } as any,
+      { query: jest.fn().mockResolvedValue([]) } as any,
     );
 
     await expect(
@@ -408,6 +428,10 @@ describe('EnrollmentService.deactivateEnrollment', () => {
       {} as any,
       {} as any,
       {} as any,
+      {
+        appendTemplate: jest.fn().mockResolvedValue(undefined),
+        purgeSubject: jest.fn().mockResolvedValue(undefined),
+      } as any,
       { transaction: jest.fn(async (fn: any) => fn(manager)) } as any,
     );
   }
@@ -423,6 +447,7 @@ describe('EnrollmentService.deactivateEnrollment', () => {
       findOne: jest.fn().mockResolvedValue(rec),
       save: jest.fn(async (_targetOrEntity: any, entity?: any) => entity),
       delete: jest.fn(),
+      query: jest.fn().mockResolvedValue([]),
     };
     const service = makeService(manager);
 
@@ -467,6 +492,7 @@ describe('EnrollmentService.deactivateEnrollment', () => {
       findOne: jest.fn().mockResolvedValue(rec),
       save: jest.fn(async (_targetOrEntity: any, entity?: any) => entity),
       delete: jest.fn(),
+      query: jest.fn().mockResolvedValue([]),
     };
     const service = makeService(manager);
 

@@ -23,6 +23,8 @@ const makeComponent = (modules: string[] = ['MOBILE_ATTENDANCE']) => {
     listEnrollments: vi.fn().mockReturnValue(of([])),
     listReenrollRequests: vi.fn().mockReturnValue(of([])),
     listContractorReenrollRequests: vi.fn().mockReturnValue(of([])),
+    listReviewPunches: vi.fn().mockReturnValue(of([])),
+    reviewPunch: vi.fn().mockReturnValue(of({ ok: true, decision: 'REVIEW_APPROVED' })),
     registerDevice: vi.fn().mockReturnValue(of({ installToken: 'token' })),
   };
   const branchSvc = {

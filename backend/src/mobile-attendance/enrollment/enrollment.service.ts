@@ -12,7 +12,11 @@ import { KioskEnrollTicketEntity } from './kiosk-enroll-ticket.entity';
 import { FaceEnrollmentHistoryEntity } from './enrollment-history.entity';
 import { LivenessService } from '../liveness/liveness.service';
 import { FacePhotoStorageService } from '../face/face-photo-storage.service';
-import { FaceEmbeddingClient } from '../face/face-embedding.client';
+import {
+  FaceEmbeddingClient,
+  FaceQualityError,
+} from '../face/face-embedding.client';
+import { FaceTemplateService } from '../face/face-template.service';
 import {
   averageEmbeddings,
   bufferToEmbedding,
@@ -41,6 +45,10 @@ const DUPLICATE_THRESHOLD = Number(
   process.env.FACE_DUPLICATE_THRESHOLD ?? DEFAULT_DUPLICATE_THRESHOLD,
 );
 const MIN_QUALITY = Number(process.env.FACE_MIN_QUALITY_SCORE ?? 0.75);
+// When true, face-svc is the authoritative embedder: enrollments store the
+// server-computed embedding + model (required for the ArcFace rollout —
+// kiosk frames stay 192-d MobileFaceNet and would never match ArcFace probes).
+const SERVER_EMBED = process.env.FACE_SERVER_EMBED === 'true';
 const DEFAULT_KIOSK_TICKET_TTL_MS = 5 * 60 * 1000;
 const KIOSK_TICKET_TTL_MS = Number(
   process.env.FACE_KIOSK_TICKET_TTL_MS ?? DEFAULT_KIOSK_TICKET_TTL_MS,
@@ -60,8 +68,31 @@ export class EnrollmentService {
     private readonly livenessService: LivenessService,
     private readonly photoStorage: FacePhotoStorageService,
     private readonly faceClient: FaceEmbeddingClient,
+    private readonly templateService: FaceTemplateService,
     private readonly dataSource: DataSource,
   ) {}
+
+  /**
+   * Quality gate via face-svc. Throws BadRequest with the concrete reasons
+   * (too dark / blurry / face too small) so the kiosk operator can fix the
+   * capture. Returns the face-svc result (or null in fallback mode).
+   */
+  private async assertPhotoQuality(photoB64: string) {
+    try {
+      const result = await this.faceClient.extractEmbedding(photoB64);
+      if (result !== null && result.qualityScore < MIN_QUALITY) {
+        throw new BadRequestException(
+          `Photo quality too low (${result.qualityScore.toFixed(2)} < ${MIN_QUALITY})`,
+        );
+      }
+      return result;
+    } catch (err) {
+      if (err instanceof FaceQualityError) {
+        throw new BadRequestException(err.message);
+      }
+      throw err;
+    }
+  }
 
   private assertEnrollmentBranchAllowed(
     branchId: string | null | undefined,
@@ -92,7 +123,22 @@ export class EnrollmentService {
     const averaged = averageEmbeddings(
       dto.embeddingFrames.map(decodeEmbedding),
     );
-    await this.assertNotDuplicate(clientId, averaged, {
+
+    // Quality gate + (when the server is the authoritative embedder) the
+    // stored embedding itself. With FACE_SERVER_EMBED=true, kiosk-frame
+    // embeddings are only a fallback — the face-svc model output is what
+    // punch probes will be compared against.
+    const server =
+      this.faceClient.enabled && dto.photoB64
+        ? await this.assertPhotoQuality(dto.photoB64)
+        : null;
+    const useServer = SERVER_EMBED && server !== null;
+    const storedEmbedding = useServer
+      ? new Float32Array(server.embedding)
+      : averaged;
+    const storedModel = useServer ? server.model : (dto.embeddingModel ?? null);
+
+    await this.assertNotDuplicate(clientId, storedEmbedding, {
       excludeEmployeeId: employeeId,
     });
 
@@ -105,16 +151,7 @@ export class EnrollmentService {
       );
     }
 
-    if (this.faceClient.enabled && dto.photoB64) {
-      const result = await this.faceClient.extractEmbedding(dto.photoB64);
-      if (result !== null && result.qualityScore < MIN_QUALITY) {
-        throw new BadRequestException(
-          `Photo quality too low (${result.qualityScore.toFixed(2)} < ${MIN_QUALITY})`,
-        );
-      }
-    }
-
-    return this.dataSource.transaction(async (em) => {
+    const saved = await this.dataSource.transaction(async (em) => {
       const existing = await em.findOne(FaceEnrollmentEntity, {
         where: { employeeId },
       });
@@ -124,8 +161,8 @@ export class EnrollmentService {
         employeeId,
         clientId,
         branchId,
-        embedding: embeddingToBuffer(averaged),
-        embeddingModel: dto.embeddingModel ?? null,
+        embedding: embeddingToBuffer(storedEmbedding),
+        embeddingModel: storedModel,
         photoUrl,
         consentGivenAt: new Date(),
         consentGivenBy: actorUserId,
@@ -135,18 +172,35 @@ export class EnrollmentService {
         deactivatedAt: null,
         deactivationReason: null,
       });
-      const saved = await em.save(FaceEnrollmentEntity, record);
+      const created = await em.save(FaceEnrollmentEntity, record);
 
       await em.save(FaceEnrollmentHistoryEntity, {
         employeeId,
         clientId,
         action,
-        embeddingModel: dto.embeddingModel ?? null,
+        embeddingModel: storedModel,
         actorUserId,
       });
 
-      return saved;
+      return created;
     });
+
+    // Multi-template gallery: keep this session's embedding as a template so
+    // re-enrollments accumulate poses instead of overwriting history.
+    await this.templateService
+      .appendTemplate(
+        clientId,
+        branchId,
+        'EMPLOYEE',
+        employeeId,
+        storedEmbedding,
+        storedModel,
+        'RE_ENROLL',
+        actorUserId,
+      )
+      .catch(() => undefined);
+
+    return saved;
   }
 
   // ─── Kiosk ticket create ───────────────────────────────────────────────────
@@ -251,7 +305,6 @@ export class EnrollmentService {
     const averaged = averageEmbeddings(
       dto.embeddingFrames.map(decodeEmbedding),
     );
-    const embBuf = embeddingToBuffer(averaged);
     const {
       clientId,
       branchId,
@@ -261,21 +314,25 @@ export class EnrollmentService {
     } = ticket;
     const actorUserId = ticket.createdBy ?? null;
 
-    // Quality gate via face-svc
-    if (this.faceClient.enabled && dto.photoB64) {
-      const res = await this.faceClient.extractEmbedding(dto.photoB64);
-      if (res !== null && res.qualityScore < MIN_QUALITY) {
-        throw new BadRequestException(
-          `Photo quality too low (${res.qualityScore.toFixed(2)})`,
-        );
-      }
-    }
+    // Quality gate via face-svc; with FACE_SERVER_EMBED=true the server's
+    // embedding + model are what gets stored (ArcFace rollout path — the
+    // kiosk frames stay MobileFaceNet and would never match ArcFace probes).
+    const server =
+      this.faceClient.enabled && dto.photoB64
+        ? await this.assertPhotoQuality(dto.photoB64)
+        : null;
+    const useServer = SERVER_EMBED && server !== null;
+    const storedEmbedding = useServer
+      ? new Float32Array(server.embedding)
+      : averaged;
+    const storedModel = useServer ? server.model : (dto.embeddingModel ?? null);
+    const embBuf = embeddingToBuffer(storedEmbedding);
 
     const excludeId =
       subjectType === 'EMPLOYEE'
         ? { excludeEmployeeId: employeeId ?? undefined }
         : { excludeContractorId: contractorEmployeeId ?? undefined };
-    await this.assertNotDuplicate(clientId, averaged, excludeId);
+    await this.assertNotDuplicate(clientId, storedEmbedding, excludeId);
 
     let photoUrl: string | null = null;
     if (dto.photoB64 && (employeeId || contractorEmployeeId)) {
@@ -287,95 +344,116 @@ export class EnrollmentService {
       );
     }
 
-    return this.dataSource.transaction(async (em) => {
-      // Upsert enrollment
-      if (subjectType === 'EMPLOYEE' && employeeId) {
-        const existing = await em.findOne(FaceEnrollmentEntity, {
-          where: { employeeId },
-        });
-        const action = existing ? 'RE_ENROLL' : 'ENROLL';
-        await em.save(FaceEnrollmentEntity, {
-          employeeId,
-          clientId,
-          branchId,
-          embedding: embBuf,
-          embeddingModel: dto.embeddingModel ?? null,
-          photoUrl,
-          consentGivenAt: new Date(),
-          consentGivenBy: actorUserId,
-          enrolledAt: new Date(),
-          enrolledBy: actorUserId,
-          isActive: true,
-          deactivatedAt: null,
-          deactivationReason: null,
-        });
-        await em.save(FaceEnrollmentHistoryEntity, {
-          employeeId,
-          clientId,
-          action,
-          embeddingModel: dto.embeddingModel ?? null,
-          actorUserId,
-        });
-      } else if (subjectType === 'CONTRACTOR' && contractorEmployeeId) {
-        const existing = await em.findOne(ContractorFaceEnrollmentEntity, {
-          where: { contractorEmployeeId },
-        });
-        const action = existing ? 'RE_ENROLL' : 'ENROLL';
-        await em.save(ContractorFaceEnrollmentEntity, {
-          contractorEmployeeId,
-          clientId,
-          branchId,
-          embedding: embBuf,
-          embeddingModel: dto.embeddingModel ?? null,
-          photoUrl,
-          consentGivenAt: new Date(),
-          consentGivenBy: actorUserId,
-          enrolledAt: new Date(),
-          enrolledBy: actorUserId,
-          isActive: true,
-          deactivatedAt: null,
-          deactivationReason: null,
-        });
-        await em.save(FaceEnrollmentHistoryEntity, {
-          contractorEmployeeId,
-          clientId,
-          action,
-          embeddingModel: dto.embeddingModel ?? null,
-          actorUserId,
-        });
-      }
+    return this.dataSource
+      .transaction(async (em) => {
+        // Upsert enrollment
+        if (subjectType === 'EMPLOYEE' && employeeId) {
+          const existing = await em.findOne(FaceEnrollmentEntity, {
+            where: { employeeId },
+          });
+          const action = existing ? 'RE_ENROLL' : 'ENROLL';
+          await em.save(FaceEnrollmentEntity, {
+            employeeId,
+            clientId,
+            branchId,
+            embedding: embBuf,
+            embeddingModel: storedModel,
+            photoUrl,
+            consentGivenAt: new Date(),
+            consentGivenBy: actorUserId,
+            enrolledAt: new Date(),
+            enrolledBy: actorUserId,
+            isActive: true,
+            deactivatedAt: null,
+            deactivationReason: null,
+          });
+          await em.save(FaceEnrollmentHistoryEntity, {
+            employeeId,
+            clientId,
+            action,
+            embeddingModel: storedModel,
+            actorUserId,
+          });
+        } else if (subjectType === 'CONTRACTOR' && contractorEmployeeId) {
+          const existing = await em.findOne(ContractorFaceEnrollmentEntity, {
+            where: { contractorEmployeeId },
+          });
+          const action = existing ? 'RE_ENROLL' : 'ENROLL';
+          await em.save(ContractorFaceEnrollmentEntity, {
+            contractorEmployeeId,
+            clientId,
+            branchId,
+            embedding: embBuf,
+            embeddingModel: storedModel,
+            photoUrl,
+            consentGivenAt: new Date(),
+            consentGivenBy: actorUserId,
+            enrolledAt: new Date(),
+            enrolledBy: actorUserId,
+            isActive: true,
+            deactivatedAt: null,
+            deactivationReason: null,
+          });
+          await em.save(FaceEnrollmentHistoryEntity, {
+            contractorEmployeeId,
+            clientId,
+            action,
+            embeddingModel: storedModel,
+            actorUserId,
+          });
+        }
 
-      // Complete ticket — optimistic concurrency: only update PENDING
-      const updateResult = await em
-        .createQueryBuilder()
-        .update(KioskEnrollTicketEntity)
-        .set({
-          status: 'COMPLETED',
-          completedAt: new Date(),
-          capturedAt: new Date(),
-          pendingEmbedding: embBuf,
-          photoUrl,
-          embeddingModel: dto.embeddingModel ?? null,
-          consentGiven: true,
-        })
-        .where('id = :id AND status = :status', {
-          id: dto.ticketId,
-          status: 'PENDING',
-        })
-        .returning('id')
-        .execute();
+        // Complete ticket — optimistic concurrency: only update PENDING
+        const updateResult = await em
+          .createQueryBuilder()
+          .update(KioskEnrollTicketEntity)
+          .set({
+            status: 'COMPLETED',
+            completedAt: new Date(),
+            capturedAt: new Date(),
+            pendingEmbedding: embBuf,
+            photoUrl,
+            embeddingModel: storedModel,
+            consentGiven: true,
+          })
+          .where('id = :id AND status = :status', {
+            id: dto.ticketId,
+            status: 'PENDING',
+          })
+          .returning('id')
+          .execute();
 
-      if (!updateResult.raw || updateResult.raw.length === 0) {
-        throw new ConflictException(
-          'Ticket was already processed by another request',
-        );
-      }
+        if (!updateResult.raw || updateResult.raw.length === 0) {
+          throw new ConflictException(
+            'Ticket was already processed by another request',
+          );
+        }
 
-      const updated = await em.findOne(KioskEnrollTicketEntity, {
-        where: { id: dto.ticketId },
+        const updated = await em.findOne(KioskEnrollTicketEntity, {
+          where: { id: dto.ticketId },
+        });
+        return updated!;
+      })
+      .then(async (updated) => {
+        // Multi-template gallery append (outside the ticket transaction —
+        // eviction failure must not roll back a completed enrollment).
+        const subjectId = employeeId ?? contractorEmployeeId;
+        if (subjectId) {
+          await this.templateService
+            .appendTemplate(
+              clientId,
+              branchId,
+              subjectType === 'EMPLOYEE' ? 'EMPLOYEE' : 'CONTRACTOR',
+              subjectId,
+              averaged,
+              dto.embeddingModel ?? null,
+              'RE_ENROLL',
+              actorUserId,
+            )
+            .catch(() => undefined);
+        }
+        return updated;
       });
-      return updated!;
-    });
   }
 
   // ─── Deactivate enrollment ─────────────────────────────────────────────────
@@ -435,6 +513,11 @@ export class EnrollmentService {
         rec.deactivationReason = dto.reason ?? null;
         rec.embedding = Buffer.alloc(0); // DPDP crypto-shred
         await em.save(rec);
+        await em.query(
+          `DELETE FROM face_enrollment_templates
+            WHERE subject_type = 'EMPLOYEE' AND subject_id = $1`,
+          [employeeId],
+        );
       } else if (contractorEmployeeId) {
         const rec = await em.findOne(ContractorFaceEnrollmentEntity, {
           where: { contractorEmployeeId, clientId },
@@ -461,6 +544,11 @@ export class EnrollmentService {
         rec.deactivationReason = dto.reason ?? null;
         rec.embedding = Buffer.alloc(0);
         await em.save(rec);
+        await em.query(
+          `DELETE FROM face_enrollment_templates
+            WHERE subject_type = 'CONTRACTOR' AND subject_id = $1`,
+          [contractorEmployeeId],
+        );
       }
     });
 
@@ -519,6 +607,38 @@ export class EnrollmentService {
       if (sim >= DUPLICATE_THRESHOLD) {
         throw new ConflictException(
           `Face too similar to existing contractor enrollment (score ${sim.toFixed(3)})`,
+        );
+      }
+    }
+
+    // Extra templates: one face registered under multiple identities must be
+    // caught even when the primary (averaged) embedding has drifted apart.
+    const templates = await this.dataSource.query<
+      Array<{
+        subject_type: 'EMPLOYEE' | 'CONTRACTOR';
+        subject_id: string;
+        embedding: Buffer;
+      }>
+    >(
+      `SELECT subject_type, subject_id, embedding
+         FROM face_enrollment_templates WHERE client_id = $1`,
+      [clientId],
+    );
+    for (const t of templates) {
+      if (
+        (opts.excludeEmployeeId &&
+          t.subject_type === 'EMPLOYEE' &&
+          t.subject_id === opts.excludeEmployeeId) ||
+        (opts.excludeContractorId &&
+          t.subject_type === 'CONTRACTOR' &&
+          t.subject_id === opts.excludeContractorId)
+      )
+        continue;
+      if (!t.embedding || t.embedding.length === 0) continue;
+      const sim = cosineSim(probe, bufferToEmbedding(t.embedding));
+      if (sim >= DUPLICATE_THRESHOLD) {
+        throw new ConflictException(
+          `Face too similar to an existing ${t.subject_type.toLowerCase()} enrollment (score ${sim.toFixed(3)})`,
         );
       }
     }

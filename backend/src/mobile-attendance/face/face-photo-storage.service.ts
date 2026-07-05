@@ -1,8 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createWriteStream, mkdirSync } from 'fs';
+import { unlink } from 'fs/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
 
 /**
  * Handles face photo persistence.
@@ -64,6 +69,37 @@ export class FacePhotoStorageService {
 
     this.logger.log(`Face photo uploaded to s3://${bucket}/${key}`);
     return `s3://${bucket}/${key}`;
+  }
+
+  /**
+   * Delete a stored face photo by the URL previously returned from
+   * uploadPhoto. Unknown schemes are ignored (logged) so retention sweeps
+   * never crash on legacy rows.
+   */
+  async deletePhoto(url: string): Promise<boolean> {
+    try {
+      if (url.startsWith('s3://')) {
+        const [, , bucket, ...keyParts] = url.split('/');
+        const client = this.buildS3Client();
+        await client.send(
+          new DeleteObjectCommand({ Bucket: bucket, Key: keyParts.join('/') }),
+        );
+        return true;
+      }
+      if (url.startsWith('local://')) {
+        await unlink(url.slice('local://'.length)).catch((err) => {
+          if (err?.code !== 'ENOENT') throw err;
+        });
+        return true;
+      }
+      this.logger.warn(`deletePhoto: unknown URL scheme, skipping: ${url}`);
+      return false;
+    } catch (err) {
+      this.logger.warn(
+        `deletePhoto failed for ${url}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return false;
+    }
   }
 
   private async saveLocally(

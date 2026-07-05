@@ -9,15 +9,22 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 import { MobileAttendanceDeviceEntity } from '../devices/device.entity';
 import { FaceEnrollmentEntity } from '../enrollment/face-enrollment.entity';
 import { ContractorFaceEnrollmentEntity } from '../enrollment/contractor-face-enrollment.entity';
+import { FaceEnrollmentTemplateEntity } from '../enrollment/face-enrollment-template.entity';
 import { MobileAttendancePunchEntity } from './punch.entity';
 import { ContractorBiometricPunchEntity } from './contractor-punch.entity';
 import { LivenessService } from '../liveness/liveness.service';
 import { FacePhotoStorageService } from '../face/face-photo-storage.service';
+import {
+  FaceEmbeddingClient,
+  FaceQualityError,
+} from '../face/face-embedding.client';
+import { FaceTemplateService } from '../face/face-template.service';
 import { BiometricService } from '../../biometric/biometric.service';
 import {
   bufferToEmbedding,
   cosineSim,
   decodeEmbedding,
+  normalizeEmbeddingModel,
   toMatchScore,
 } from '../face/face-math';
 import { RecordPunchDto } from './punch.dto';
@@ -29,6 +36,26 @@ const MIN_SINGLE_GALLERY_MATCH_SCORE = Number(
     Math.max(MIN_MATCH_SCORE, 0.84),
 );
 const MIN_MATCH_MARGIN = Number(process.env.FACE_MIN_MATCH_MARGIN ?? 0.08);
+// Two-level decision: borderline scores land in a review queue instead of a
+// hard reject. Review band = [REVIEW_MIN_SCORE, auto threshold).
+const REVIEW_ENABLED = process.env.FACE_REVIEW_ENABLED !== 'false';
+const REVIEW_MIN_SCORE = Number(
+  process.env.FACE_REVIEW_MIN_SCORE ?? Math.max(0, MIN_MATCH_SCORE - 0.06),
+);
+// Passive liveness gate — only enforced when face-svc (or the device) supplies
+// a liveness score AND this env/client override is configured.
+const MIN_LIVENESS_SCORE = process.env.FACE_MIN_LIVENESS_SCORE
+  ? Number(process.env.FACE_MIN_LIVENESS_SCORE)
+  : null;
+// Prefer server-side re-embedding of the punch photo via face-svc (enables
+// ArcFace rollout without a kiosk app update). Device embedding remains the
+// fallback when no photo is attached or face-svc is down (fallback mode).
+const SERVER_EMBED = process.env.FACE_SERVER_EMBED === 'true';
+// Auto-append a fresh template after a very confident match so the gallery
+// tracks appearance drift. Disabled unless explicitly configured.
+const AUTO_REFRESH_MIN_SCORE = process.env.FACE_AUTO_REFRESH_MIN_SCORE
+  ? Number(process.env.FACE_AUTO_REFRESH_MIN_SCORE)
+  : null;
 // Fresh enrollments become punch-eligible after the kiosk success screen clears.
 const ACTIVATION_DELAY_MS =
   Number(process.env.FACE_KIOSK_ACTIVATION_DELAY_SEC ?? 10) * 1000;
@@ -37,6 +64,9 @@ const OFFLINE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const PUNCH_COOLDOWN_MS =
   Number(process.env.FACE_PUNCH_COOLDOWN_SEC ?? 30) * 1000;
 const BUSINESS_TZ_OFFSET_MIN = 330;
+
+// Decisions that count as real attendance (cooldown, direction, day-complete).
+const COUNTED_DECISIONS = `('AUTO','REVIEW_APPROVED')`;
 
 export interface RosterEntry {
   subjectType: 'EMPLOYEE' | 'CONTRACTOR';
@@ -50,10 +80,19 @@ export interface RosterEntry {
 
 export interface PunchResult {
   ok: true;
-  employeeName: string;
-  employeeCode: string;
-  direction: string;
-  punchTime: string;
+  review?: boolean;
+  message?: string;
+  employeeName?: string;
+  employeeCode?: string;
+  direction?: string;
+  punchTime?: string;
+}
+
+interface ClientFaceThresholds {
+  autoAccept: number;
+  reviewMin: number;
+  minMargin: number;
+  minLiveness: number | null;
 }
 
 @Injectable()
@@ -65,12 +104,16 @@ export class PunchService {
     private readonly enrollRepo: Repository<FaceEnrollmentEntity>,
     @InjectRepository(ContractorFaceEnrollmentEntity)
     private readonly contractorEnrollRepo: Repository<ContractorFaceEnrollmentEntity>,
+    @InjectRepository(FaceEnrollmentTemplateEntity)
+    private readonly templateRepo: Repository<FaceEnrollmentTemplateEntity>,
     @InjectRepository(MobileAttendancePunchEntity)
     private readonly punchRepo: Repository<MobileAttendancePunchEntity>,
     @InjectRepository(ContractorBiometricPunchEntity)
     private readonly contractorPunchRepo: Repository<ContractorBiometricPunchEntity>,
     private readonly livenessService: LivenessService,
     private readonly photoStorage: FacePhotoStorageService,
+    private readonly faceClient: FaceEmbeddingClient,
+    private readonly templateService: FaceTemplateService,
     private readonly biometricService: BiometricService,
     private readonly dataSource: DataSource,
   ) {}
@@ -146,9 +189,18 @@ export class PunchService {
     );
 
     const entries: RosterEntry[] = [];
+    const nameBySubject = new Map<
+      string,
+      { name: string; code?: string; enrolledAt: Date }
+    >();
 
     for (const r of empRows) {
       if (!r.embedding || r.embedding.length === 0) continue;
+      nameBySubject.set(`EMPLOYEE:${r.employeeId}`, {
+        name: r.name,
+        code: r.employeeCode,
+        enrolledAt: r.enrolledAt,
+      });
       entries.push({
         subjectType: 'EMPLOYEE',
         subjectId: r.employeeId,
@@ -161,6 +213,10 @@ export class PunchService {
     }
     for (const c of conRows) {
       if (!c.embedding || c.embedding.length === 0) continue;
+      nameBySubject.set(`CONTRACTOR:${c.contractorEmployeeId}`, {
+        name: c.name,
+        enrolledAt: c.enrolledAt,
+      });
       entries.push({
         subjectType: 'CONTRACTOR',
         subjectId: c.contractorEmployeeId,
@@ -171,7 +227,69 @@ export class PunchService {
       });
     }
 
+    // Extra templates (multi-template matching): only for subjects already in
+    // the roster, so branch scoping / is_active filtering carries over.
+    if (nameBySubject.size > 0) {
+      const templates = await this.templateRepo.find({
+        where: { clientId: device.clientId },
+      });
+      for (const t of templates) {
+        const key = `${t.subjectType}:${t.subjectId}`;
+        const subject = nameBySubject.get(key);
+        if (!subject) continue;
+        if (!t.embedding || t.embedding.length === 0) continue;
+        entries.push({
+          subjectType: t.subjectType,
+          subjectId: t.subjectId,
+          displayName: subject.name,
+          employeeCode: subject.code,
+          embeddingModel: t.embeddingModel,
+          enrolledAt: subject.enrolledAt,
+          embedding: bufferToEmbedding(t.embedding),
+        });
+      }
+    }
+
     return entries;
+  }
+
+  /** Per-client threshold overrides; NULL columns fall back to env defaults. */
+  private async getClientThresholds(
+    clientId: string,
+  ): Promise<ClientFaceThresholds> {
+    const [row] = await this.dataSource
+      .query<
+        Array<{
+          autoAccept: string | null;
+          reviewMin: string | null;
+          minMargin: string | null;
+          minLiveness: string | null;
+        }>
+      >(
+        `SELECT face_auto_accept_score AS "autoAccept",
+                face_review_min_score  AS "reviewMin",
+                face_min_match_margin  AS "minMargin",
+                face_min_liveness_score AS "minLiveness"
+           FROM clients WHERE id = $1`,
+        [clientId],
+      )
+      .catch(() => [] as never[]);
+
+    const num = (v: string | null | undefined, fallback: number): number =>
+      v !== null && v !== undefined && v !== '' ? Number(v) : fallback;
+
+    const autoAccept = num(row?.autoAccept, MIN_MATCH_SCORE);
+    return {
+      autoAccept,
+      reviewMin: num(row?.reviewMin, Math.max(0, autoAccept - 0.06)),
+      minMargin: num(row?.minMargin, MIN_MATCH_MARGIN),
+      minLiveness:
+        row?.minLiveness !== null &&
+        row?.minLiveness !== undefined &&
+        row?.minLiveness !== ''
+          ? Number(row.minLiveness)
+          : MIN_LIVENESS_SCORE,
+    };
   }
 
   async recordPunch(
@@ -204,7 +322,31 @@ export class PunchService {
       }
     }
 
-    const probe = decodeEmbedding(dto.embeddingB64);
+    // Probe embedding: prefer server-side re-embed of the photo (model
+    // upgrades roll out server-side without kiosk app releases), fall back
+    // to the device-computed embedding.
+    let probe = decodeEmbedding(dto.embeddingB64);
+    let probeModel: string | null = dto.embeddingModel ?? null;
+    let passiveLiveness: number | null = dto.livenessScore ?? null;
+
+    if (SERVER_EMBED && this.faceClient.enabled && dto.photoB64) {
+      try {
+        const server = await this.faceClient.extractEmbedding(dto.photoB64);
+        if (server) {
+          probe = new Float32Array(server.embedding);
+          probeModel = server.model;
+          if (server.livenessScore !== null) {
+            passiveLiveness = server.livenessScore;
+          }
+        }
+      } catch (err) {
+        if (err instanceof FaceQualityError) {
+          throw new BadRequestException(err.message);
+        }
+        throw err;
+      }
+    }
+
     const roster = await this.getRoster(device);
 
     // Activation delay: reject if enrolled too recently on kiosk
@@ -215,24 +357,62 @@ export class PunchService {
           )
         : roster;
 
-    if (eligibleRoster.length === 0) {
+    // Model compatibility: never compare embeddings across models/dimensions.
+    // Names are normalized so aliases of the same family match (the kiosk
+    // stores "mobilefacenet", face-svc reports "mobilefacenet-v1").
+    const probeModelNorm = normalizeEmbeddingModel(probeModel);
+    const comparableRoster = eligibleRoster.filter((r) => {
+      if (r.embedding.length !== probe.length) return false;
+      const rosterModelNorm = normalizeEmbeddingModel(r.embeddingModel);
+      return (
+        !probeModelNorm ||
+        !rosterModelNorm ||
+        rosterModelNorm === probeModelNorm
+      );
+    });
+
+    if (comparableRoster.length === 0) {
+      if (eligibleRoster.length > 0) {
+        this.logger.warn(
+          `face punch: 0/${eligibleRoster.length} roster entries comparable ` +
+            `with probe model=${probeModel ?? 'unknown'} dim=${probe.length} — ` +
+            `subjects likely need re-enrollment after a model upgrade ` +
+            `(client=${device.clientId} device=${device.id})`,
+        );
+      }
       throw new BadRequestException('No eligible enrollments on this device');
     }
 
-    // Find best and second-best match.
-    // MIN_MATCH_SCORE is a raw cosine threshold (e.g. 0.90); toMatchScore is
-    // applied only to the value stored/returned for display.
-    const scored = eligibleRoster
-      .map((r) => ({ ...r, cosine: cosineSim(probe, r.embedding) }))
-      .sort((a, b) => b.cosine - a.cosine);
+    // Score every template, then keep the best template per subject.
+    // Margin is computed BETWEEN SUBJECTS (best vs best-other-person) —
+    // templates of the same person must not eat the margin.
+    const bySubject = new Map<string, RosterEntry & { cosine: number }>();
+    for (const r of comparableRoster) {
+      const cosine = cosineSim(probe, r.embedding);
+      const key = `${r.subjectType}:${r.subjectId}`;
+      const prev = bySubject.get(key);
+      if (!prev || cosine > prev.cosine) {
+        bySubject.set(key, { ...r, cosine });
+      }
+    }
+    const subjects = [...bySubject.values()].sort(
+      (a, b) => b.cosine - a.cosine,
+    );
 
-    const best = scored[0];
-    const secondBest = scored[1];
+    const best = subjects[0];
+    const secondBest = subjects[1];
     const margin = secondBest ? best.cosine - secondBest.cosine : 1;
+
+    const thresholds = await this.getClientThresholds(device.clientId);
     const requiredMatchScore =
-      eligibleRoster.length <= 1
-        ? MIN_SINGLE_GALLERY_MATCH_SCORE
-        : MIN_MATCH_SCORE;
+      subjects.length <= 1
+        ? Math.max(thresholds.autoAccept, MIN_SINGLE_GALLERY_MATCH_SCORE)
+        : thresholds.autoAccept;
+
+    const livenessOk =
+      thresholds.minLiveness === null ||
+      passiveLiveness === null ||
+      passiveLiveness >= thresholds.minLiveness;
 
     this.logger.log(
       [
@@ -241,41 +421,70 @@ export class PunchService {
         `device=${device.id}`,
         `mode=${device.mode}`,
         `branch=${device.branchId ?? 'none'}`,
-        `gallery=${eligibleRoster.length}`,
+        `gallery=${subjects.length}`,
+        `templates=${comparableRoster.length}`,
+        `probeModel=${probeModel ?? 'unknown'}`,
         `bestSubject=${best.subjectType}:${best.subjectId}`,
         `bestCosine=${best.cosine.toFixed(3)}`,
         `secondSubject=${secondBest ? `${secondBest.subjectType}:${secondBest.subjectId}` : 'none'}`,
         `secondCosine=${secondBest ? secondBest.cosine.toFixed(3) : 'n/a'}`,
         `margin=${margin.toFixed(3)}`,
         `threshold=${requiredMatchScore.toFixed(3)}`,
-        `marginThreshold=${MIN_MATCH_MARGIN.toFixed(3)}`,
+        `reviewMin=${thresholds.reviewMin.toFixed(3)}`,
+        `marginThreshold=${thresholds.minMargin.toFixed(3)}`,
+        `liveness=${passiveLiveness !== null ? passiveLiveness.toFixed(3) : 'n/a'}`,
+        `livenessOk=${livenessOk}`,
       ].join(' '),
     );
 
-    if (best.cosine < requiredMatchScore) {
+    // ── Two-level decision ──────────────────────────────────────────────
+    let decision: 'AUTO' | 'REVIEW_PENDING';
+    const reviewReasons: string[] = [];
+    if (
+      best.cosine >= requiredMatchScore &&
+      margin >= thresholds.minMargin &&
+      livenessOk
+    ) {
+      decision = 'AUTO';
+    } else if (REVIEW_ENABLED && best.cosine >= thresholds.reviewMin) {
+      decision = 'REVIEW_PENDING';
+      if (best.cosine < requiredMatchScore)
+        reviewReasons.push(
+          `score ${best.cosine.toFixed(3)} < ${requiredMatchScore.toFixed(3)}`,
+        );
+      if (margin < thresholds.minMargin)
+        reviewReasons.push(
+          `margin ${margin.toFixed(3)} < ${thresholds.minMargin.toFixed(3)}`,
+        );
+      if (!livenessOk)
+        reviewReasons.push(
+          `liveness ${passiveLiveness?.toFixed(3)} < ${thresholds.minLiveness?.toFixed(3)}`,
+        );
+    } else if (best.cosine < thresholds.reviewMin) {
       throw new BadRequestException(
         `No face match above threshold (best cosine: ${best.cosine.toFixed(3)})`,
       );
-    }
-
-    if (margin < MIN_MATCH_MARGIN) {
+    } else {
       throw new BadRequestException(
-        `Ambiguous match: margin ${margin.toFixed(3)} below required ${MIN_MATCH_MARGIN}`,
+        `Ambiguous match: margin ${margin.toFixed(3)} below required ${thresholds.minMargin}`,
       );
     }
 
     const punchTime = dto.punchTime ? new Date(dto.punchTime) : new Date();
 
     // Cooldown: reject if same person punched within PUNCH_COOLDOWN_MS (prevents retries/double-scan).
-    if (PUNCH_COOLDOWN_MS > 0) {
+    // Review-band punches don't count — a held punch must not block the retry.
+    if (decision === 'AUTO' && PUNCH_COOLDOWN_MS > 0) {
       const recent = await this.dataSource.query<Array<{ punch_time: Date }>>(
         `SELECT punch_time FROM (
            (SELECT punch_time FROM mobile_attendance_punches
              WHERE client_id = $1 AND employee_id = $2
+               AND decision IN ${COUNTED_DECISIONS}
              ORDER BY punch_time DESC LIMIT 1)
            UNION ALL
            (SELECT punch_time FROM contractor_biometric_punches
              WHERE client_id = $1 AND contractor_employee_id = $2
+               AND decision IN ${COUNTED_DECISIONS}
              ORDER BY punch_time DESC LIMIT 1)
          ) t ORDER BY punch_time DESC LIMIT 1`,
         [device.clientId, best.subjectId],
@@ -295,12 +504,15 @@ export class PunchService {
       }
     }
 
-    const resolvedDirection = await this.resolveNextPunchDirection(
-      device.clientId,
-      best.subjectType,
-      best.subjectId,
-      punchTime,
-    );
+    const resolvedDirection =
+      decision === 'AUTO'
+        ? await this.resolveNextPunchDirection(
+            device.clientId,
+            best.subjectType,
+            best.subjectId,
+            punchTime,
+          )
+        : 'AUTO';
 
     let photoUrl: string | null = null;
     if (dto.photoB64) {
@@ -313,6 +525,34 @@ export class PunchService {
 
     const livenessPassedAt = dto.livenessNonce ? new Date() : null;
 
+    const auditColumns = {
+      matchScore: toMatchScore(best.cosine),
+      matchCosine: best.cosine,
+      matchThreshold: requiredMatchScore,
+      matchMargin: margin,
+      matchMarginThreshold: thresholds.minMargin,
+      secondBestSubjectType: secondBest?.subjectType ?? null,
+      secondBestSubjectId: secondBest?.subjectId ?? null,
+      secondBestCosine: secondBest?.cosine ?? null,
+      gallerySize: subjects.length,
+      livenessScore: passiveLiveness,
+      livenessChallengeType: dto.livenessChallengeType ?? null,
+      livenessChallengePassedAt: livenessPassedAt,
+      livenessNonce: dto.livenessNonce ?? null,
+      embeddingModel: probeModel,
+      photoUrl,
+      captureLat: dto.captureLat ?? null,
+      captureLng: dto.captureLng ?? null,
+      ip: ip ?? null,
+      userAgent: userAgent ?? null,
+      isMockLocation: dto.isMockLocation ?? null,
+      isRooted: dto.isRooted ?? null,
+      offlineSync: dto.offlineSync ?? false,
+      decision,
+      reviewNote:
+        decision === 'REVIEW_PENDING' ? reviewReasons.join('; ') : null,
+    };
+
     if (best.subjectType === 'EMPLOYEE') {
       await this.dataSource.transaction(async (manager) => {
         const savedPunch = await manager
@@ -324,50 +564,24 @@ export class PunchService {
             employeeId: best.subjectId,
             direction: resolvedDirection,
             punchTime,
-            matchScore: toMatchScore(best.cosine),
-            matchCosine: best.cosine,
-            matchThreshold: requiredMatchScore,
-            matchMargin: margin,
-            matchMarginThreshold: MIN_MATCH_MARGIN,
-            secondBestSubjectType: secondBest?.subjectType ?? null,
-            secondBestSubjectId: secondBest?.subjectId ?? null,
-            secondBestCosine: secondBest?.cosine ?? null,
-            gallerySize: eligibleRoster.length,
-            livenessScore: dto.livenessScore ?? null,
-            livenessChallengeType: dto.livenessChallengeType ?? null,
-            livenessChallengePassedAt: livenessPassedAt,
-            livenessNonce: dto.livenessNonce ?? null,
-            embeddingModel: dto.embeddingModel ?? null,
-            photoUrl,
-            captureLat: dto.captureLat ?? null,
-            captureLng: dto.captureLng ?? null,
-            ip: ip ?? null,
-            userAgent: userAgent ?? null,
-            isMockLocation: dto.isMockLocation ?? null,
-            isRooted: dto.isRooted ?? null,
-            offlineSync: dto.offlineSync ?? false,
+            ...auditColumns,
           });
-        await this.mirrorEmployeePunchToDailyAttendance(
-          {
-            clientId: device.clientId,
-            branchId: device.branchId,
-            employeeCode: best.employeeCode ?? best.subjectId,
-            punchTime,
-            direction: resolvedDirection,
-            deviceId: device.id,
-            source: device.mode === 'ESS' ? 'MOBILE_ESS' : 'MOBILE_KIOSK',
-          },
-          manager,
-        );
+        if (decision === 'AUTO') {
+          await this.mirrorEmployeePunchToDailyAttendance(
+            {
+              clientId: device.clientId,
+              branchId: device.branchId,
+              employeeCode: best.employeeCode ?? best.subjectId,
+              punchTime,
+              direction: resolvedDirection,
+              deviceId: device.id,
+              source: device.mode === 'ESS' ? 'MOBILE_ESS' : 'MOBILE_KIOSK',
+            },
+            manager,
+          );
+        }
         return savedPunch;
       });
-      return {
-        ok: true,
-        employeeName: best.displayName,
-        employeeCode: best.employeeCode ?? best.subjectId,
-        direction: resolvedDirection,
-        punchTime: punchTime.toISOString(),
-      };
     } else {
       await this.contractorPunchRepo.save({
         clientId: device.clientId,
@@ -376,37 +590,52 @@ export class PunchService {
         contractorEmployeeId: best.subjectId,
         direction: resolvedDirection,
         punchTime,
-        matchScore: toMatchScore(best.cosine),
-        matchCosine: best.cosine,
-        matchThreshold: requiredMatchScore,
-        matchMargin: margin,
-        matchMarginThreshold: MIN_MATCH_MARGIN,
-        secondBestSubjectType: secondBest?.subjectType ?? null,
-        secondBestSubjectId: secondBest?.subjectId ?? null,
-        secondBestCosine: secondBest?.cosine ?? null,
-        gallerySize: eligibleRoster.length,
-        livenessScore: dto.livenessScore ?? null,
-        livenessChallengeType: dto.livenessChallengeType ?? null,
-        livenessChallengePassedAt: livenessPassedAt,
-        livenessNonce: dto.livenessNonce ?? null,
-        embeddingModel: dto.embeddingModel ?? null,
-        photoUrl,
-        captureLat: dto.captureLat ?? null,
-        captureLng: dto.captureLng ?? null,
-        ip: ip ?? null,
-        userAgent: userAgent ?? null,
-        isMockLocation: dto.isMockLocation ?? null,
-        isRooted: dto.isRooted ?? null,
-        offlineSync: dto.offlineSync ?? false,
+        ...auditColumns,
       });
+    }
+
+    if (decision === 'REVIEW_PENDING') {
+      this.logger.warn(
+        `face punch held for review: subject=${best.subjectType}:${best.subjectId} ` +
+          `reasons=[${reviewReasons.join('; ')}] client=${device.clientId} device=${device.id}`,
+      );
+      // Deliberately generic: don't confirm WHO matched on a borderline
+      // attempt — that would let someone probe the gallery.
       return {
         ok: true,
-        employeeName: best.displayName,
-        employeeCode: best.subjectId,
-        direction: resolvedDirection,
-        punchTime: punchTime.toISOString(),
+        review: true,
+        message:
+          'Attendance captured but held for supervisor review. Please contact your admin if this repeats.',
       };
     }
+
+    // Template auto-refresh: a very confident match keeps the gallery fresh.
+    if (
+      AUTO_REFRESH_MIN_SCORE !== null &&
+      best.cosine >= AUTO_REFRESH_MIN_SCORE
+    ) {
+      await this.templateService
+        .appendTemplate(
+          device.clientId,
+          device.branchId,
+          best.subjectType,
+          best.subjectId,
+          probe,
+          probeModel,
+          'AUTO_REFRESH',
+        )
+        .catch((err) =>
+          this.logger.warn(`template auto-refresh failed: ${err?.message}`),
+        );
+    }
+
+    return {
+      ok: true,
+      employeeName: best.displayName,
+      employeeCode: best.employeeCode ?? best.subjectId,
+      direction: resolvedDirection,
+      punchTime: punchTime.toISOString(),
+    };
   }
 
   private async resolveNextPunchDirection(
@@ -414,8 +643,17 @@ export class PunchService {
     subjectType: 'EMPLOYEE' | 'CONTRACTOR',
     subjectId: string,
     punchTime: Date,
+    opts: { endExclusive?: Date } = {},
   ): Promise<'IN' | 'OUT'> {
-    const { start, end } = this.businessDayBoundsUtc(punchTime);
+    const { start, end: dayEnd } = this.businessDayBoundsUtc(punchTime);
+    // Approving a held punch after later punches already landed must resolve
+    // direction against the state of the day AT the punch's own time, not
+    // against everything that came after — otherwise a 09:00 approval done
+    // after a 10:00 AUTO punch flips to OUT (or fails as "completed").
+    const end =
+      opts.endExclusive && opts.endExclusive < dayEnd
+        ? opts.endExclusive
+        : dayEnd;
 
     const sql =
       subjectType === 'EMPLOYEE'
@@ -427,6 +665,7 @@ export class PunchService {
                   AND employee_id = $2
                   AND punch_time >= $3
                   AND punch_time < $4
+                  AND decision IN ${COUNTED_DECISIONS}
                UNION ALL
                SELECT punch_time, direction
                  FROM biometric_punches
@@ -442,6 +681,7 @@ export class PunchService {
               AND contractor_employee_id = $2
               AND punch_time >= $3
               AND punch_time < $4
+              AND decision IN ${COUNTED_DECISIONS}
             ORDER BY punch_time ASC`;
 
     const todayRows = await this.dataSource.query<
@@ -510,6 +750,170 @@ export class PunchService {
       );
       throw err;
     }
+  }
+
+  // ─── Review queue ──────────────────────────────────────────────────────────
+
+  async listReviewPunches(
+    clientId: string,
+    opts: { branchIds?: string[]; status?: string; limit?: number } = {},
+  ): Promise<unknown[]> {
+    const status = opts.status ?? 'REVIEW_PENDING';
+    const params: unknown[] = [clientId, status];
+    let branchFilter = '';
+    if (opts.branchIds && opts.branchIds.length > 0) {
+      params.push(opts.branchIds);
+      branchFilter = `AND p.branch_id = ANY($${params.length}::uuid[])`;
+    }
+    params.push(Math.min(500, Math.max(1, opts.limit ?? 100)));
+
+    return this.dataSource.query(
+      `SELECT p.id,
+              'EMPLOYEE' AS "subjectType",
+              p.employee_id AS "subjectId",
+              e.name AS "subjectName",
+              e.employee_code AS "subjectCode",
+              p.branch_id AS "branchId",
+              p.device_id AS "deviceId",
+              p.punch_time AS "punchTime",
+              p.match_cosine AS "matchCosine",
+              p.match_threshold AS "matchThreshold",
+              p.match_margin AS "matchMargin",
+              p.liveness_score AS "livenessScore",
+              p.photo_url AS "photoUrl",
+              p.decision,
+              p.review_note AS "reviewNote",
+              p.reviewed_by AS "reviewedBy",
+              p.reviewed_at AS "reviewedAt",
+              p.created_at AS "createdAt"
+         FROM mobile_attendance_punches p
+         JOIN employees e ON e.id = p.employee_id
+        WHERE p.client_id = $1 AND p.decision = $2 ${branchFilter}
+        UNION ALL
+       SELECT p.id,
+              'CONTRACTOR' AS "subjectType",
+              p.contractor_employee_id AS "subjectId",
+              ce.name AS "subjectName",
+              NULL AS "subjectCode",
+              p.branch_id AS "branchId",
+              p.device_id AS "deviceId",
+              p.punch_time AS "punchTime",
+              p.match_cosine AS "matchCosine",
+              p.match_threshold AS "matchThreshold",
+              p.match_margin AS "matchMargin",
+              p.liveness_score AS "livenessScore",
+              p.photo_url AS "photoUrl",
+              p.decision,
+              p.review_note AS "reviewNote",
+              p.reviewed_by AS "reviewedBy",
+              p.reviewed_at AS "reviewedAt",
+              p.created_at AS "createdAt"
+         FROM contractor_biometric_punches p
+         JOIN contractor_employees ce ON ce.id = p.contractor_employee_id
+        WHERE p.client_id = $1 AND p.decision = $2 ${branchFilter}
+        ORDER BY "punchTime" DESC
+        LIMIT $${params.length}`,
+      params,
+    );
+  }
+
+  async reviewPunch(
+    clientId: string,
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR',
+    punchId: string,
+    action: 'APPROVE' | 'REJECT',
+    actorUserId: string,
+    note?: string,
+  ): Promise<{ ok: true; decision: string }> {
+    const newDecision =
+      action === 'APPROVE' ? 'REVIEW_APPROVED' : 'REVIEW_REJECTED';
+
+    if (subjectType === 'EMPLOYEE') {
+      const punch = await this.punchRepo.findOne({
+        where: { id: punchId, clientId },
+      });
+      if (!punch) throw new NotFoundException('Punch not found');
+      if (punch.decision !== 'REVIEW_PENDING') {
+        throw new BadRequestException(
+          `Punch is not pending review (decision: ${punch.decision})`,
+        );
+      }
+
+      await this.dataSource.transaction(async (manager) => {
+        // Approve resolves direction against counted punches that happened
+        // BEFORE this held punch — later AUTO punches must not flip it.
+        let direction: 'IN' | 'OUT' | 'AUTO' = 'AUTO';
+        if (action === 'APPROVE') {
+          direction = await this.resolveNextPunchDirection(
+            clientId,
+            'EMPLOYEE',
+            punch.employeeId,
+            punch.punchTime,
+            { endExclusive: punch.punchTime },
+          );
+        }
+        await manager.getRepository(MobileAttendancePunchEntity).update(
+          { id: punchId },
+          {
+            decision: newDecision,
+            direction,
+            reviewedBy: actorUserId,
+            reviewedAt: new Date(),
+            reviewNote: note ?? punch.reviewNote,
+          },
+        );
+        if (action === 'APPROVE') {
+          const [emp] = await manager.query<Array<{ employee_code: string }>>(
+            `SELECT employee_code FROM employees WHERE id = $1`,
+            [punch.employeeId],
+          );
+          await this.mirrorEmployeePunchToDailyAttendance(
+            {
+              clientId,
+              branchId: punch.branchId,
+              employeeCode: emp?.employee_code ?? punch.employeeId,
+              punchTime: punch.punchTime,
+              direction,
+              deviceId: punch.deviceId,
+              source: 'MOBILE_KIOSK',
+            },
+            manager,
+          );
+        }
+      });
+      return { ok: true, decision: newDecision };
+    }
+
+    const punch = await this.contractorPunchRepo.findOne({
+      where: { id: punchId, clientId },
+    });
+    if (!punch) throw new NotFoundException('Punch not found');
+    if (punch.decision !== 'REVIEW_PENDING') {
+      throw new BadRequestException(
+        `Punch is not pending review (decision: ${punch.decision})`,
+      );
+    }
+    let direction: 'IN' | 'OUT' | 'AUTO' = 'AUTO';
+    if (action === 'APPROVE') {
+      direction = await this.resolveNextPunchDirection(
+        clientId,
+        'CONTRACTOR',
+        punch.contractorEmployeeId,
+        punch.punchTime,
+        { endExclusive: punch.punchTime },
+      );
+    }
+    await this.contractorPunchRepo.update(
+      { id: punchId },
+      {
+        decision: newDecision,
+        direction,
+        reviewedBy: actorUserId,
+        reviewedAt: new Date(),
+        reviewNote: note ?? punch.reviewNote,
+      },
+    );
+    return { ok: true, decision: newDecision };
   }
 
   // ─── Admin list / CRUD endpoints ──────────────────────────────────────────

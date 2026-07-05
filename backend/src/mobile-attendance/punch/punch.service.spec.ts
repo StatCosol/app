@@ -18,6 +18,7 @@ describe('PunchService', () => {
   const makeService = (rows: {
     employeeRows?: any[];
     contractorRows?: any[];
+    thresholdRows?: any[];
     cooldownRows?: any[];
     todayRows?: any[];
   }) => {
@@ -38,6 +39,7 @@ describe('PunchService', () => {
         .fn()
         .mockResolvedValueOnce(rows.employeeRows ?? [])
         .mockResolvedValueOnce(rows.contractorRows ?? [])
+        .mockResolvedValueOnce(rows.thresholdRows ?? [])
         .mockResolvedValueOnce(rows.cooldownRows ?? [])
         .mockResolvedValueOnce(rows.todayRows ?? []),
       transaction: jest.fn(async (callback) => callback(transactionManager)),
@@ -46,10 +48,13 @@ describe('PunchService', () => {
     const service = new PunchService(
       {} as any,
       {} as any,
+      { find: jest.fn().mockResolvedValue([]) } as any,
       punchRepo as any,
       contractorPunchRepo as any,
       { livenessRequired: false } as any,
       { uploadPhoto: jest.fn() } as any,
+      { enabled: false } as any,
+      { appendTemplate: jest.fn().mockResolvedValue(undefined) } as any,
       biometricService as any,
       dataSource as any,
     );
@@ -176,8 +181,8 @@ describe('PunchService', () => {
     );
   });
 
-  it('rejects weak single-gallery employee matches before recording attendance', async () => {
-    const { service, punchRepo, biometricService, dataSource } = makeService({
+  it('holds borderline single-gallery matches for review instead of auto-accepting', async () => {
+    const { service, punchRepo, biometricService } = makeService({
       employeeRows: [
         {
           employeeId: 'employee-1',
@@ -190,16 +195,18 @@ describe('PunchService', () => {
       ],
     });
 
-    await expect(service.recordPunch(device, dto)).rejects.toThrow(
-      'No face match above threshold',
+    const result = await service.recordPunch(device, dto);
+
+    expect(result).toEqual(expect.objectContaining({ ok: true, review: true }));
+    // Punch is recorded for the audit trail but NOT mirrored to attendance.
+    expect(punchRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ decision: 'REVIEW_PENDING' }),
     );
-    expect(dataSource.transaction).not.toHaveBeenCalled();
-    expect(punchRepo.save).not.toHaveBeenCalled();
     expect(biometricService.ingest).not.toHaveBeenCalled();
   });
 
-  it('rejects weak multi-gallery employee matches before recording attendance', async () => {
-    const { service, punchRepo, biometricService, dataSource } = makeService({
+  it('holds borderline multi-gallery matches for review instead of auto-accepting', async () => {
+    const { service, punchRepo, biometricService } = makeService({
       employeeRows: [
         {
           employeeId: 'employee-1',
@@ -220,12 +227,118 @@ describe('PunchService', () => {
       ],
     });
 
+    const result = await service.recordPunch(device, dto);
+
+    expect(result).toEqual(expect.objectContaining({ ok: true, review: true }));
+    expect(punchRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ decision: 'REVIEW_PENDING' }),
+    );
+    expect(biometricService.ingest).not.toHaveBeenCalled();
+  });
+
+  it('hard-rejects matches below the review band without recording anything', async () => {
+    const { service, punchRepo, biometricService, dataSource } = makeService({
+      employeeRows: [
+        {
+          employeeId: 'employee-1',
+          name: 'Test',
+          employeeCode: 'E001',
+          embedding: makeEmbeddingBufferForCosine(0.7),
+          embeddingModel: 'mobilefacenet',
+          enrolledAt: new Date(Date.now() - 60_000),
+        },
+      ],
+    });
+
     await expect(service.recordPunch(device, dto)).rejects.toThrow(
       'No face match above threshold',
     );
     expect(dataSource.transaction).not.toHaveBeenCalled();
     expect(punchRepo.save).not.toHaveBeenCalled();
     expect(biometricService.ingest).not.toHaveBeenCalled();
+  });
+
+  it('groups multiple templates per subject so own templates never eat the margin', async () => {
+    const { service, biometricService } = makeService({
+      employeeRows: [
+        {
+          employeeId: 'employee-1',
+          name: 'Test',
+          employeeCode: 'E001',
+          embedding: makeEmbeddingBufferForCosine(0.95),
+          embeddingModel: 'mobilefacenet',
+          enrolledAt: new Date(Date.now() - 60_000),
+        },
+        {
+          // second template of the SAME employee, close behind — must not
+          // trigger the ambiguous-margin path
+          employeeId: 'employee-1',
+          name: 'Test',
+          employeeCode: 'E001',
+          embedding: makeEmbeddingBufferForCosine(0.93),
+          embeddingModel: 'mobilefacenet',
+          enrolledAt: new Date(Date.now() - 60_000),
+        },
+        {
+          employeeId: 'employee-2',
+          name: 'Other',
+          employeeCode: 'E002',
+          embedding: makeEmbeddingBufferForCosine(0.6),
+          embeddingModel: 'mobilefacenet',
+          enrolledAt: new Date(Date.now() - 60_000),
+        },
+      ],
+    });
+
+    const result = await service.recordPunch(device, dto);
+
+    expect(result).toEqual(
+      expect.objectContaining({ ok: true, employeeCode: 'E001' }),
+    );
+    expect(biometricService.ingest).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats model aliases as compatible (kiosk "mobilefacenet" vs face-svc "mobilefacenet-v1")', async () => {
+    const { service, biometricService } = makeService({
+      employeeRows: [
+        {
+          employeeId: 'employee-1',
+          name: 'Test',
+          employeeCode: 'E001',
+          embedding: makeEmbeddingBufferForCosine(0.95),
+          embeddingModel: 'mobilefacenet-v1',
+          enrolledAt: new Date(Date.now() - 60_000),
+        },
+      ],
+    });
+
+    const result = await service.recordPunch(device, dto);
+
+    expect(result).toEqual(
+      expect.objectContaining({ ok: true, employeeCode: 'E001' }),
+    );
+    expect(biometricService.ingest).toHaveBeenCalledTimes(1);
+  });
+
+  it('excludes roster entries from a different embedding model', async () => {
+    const { service } = makeService({
+      employeeRows: [
+        {
+          employeeId: 'employee-1',
+          name: 'Test',
+          employeeCode: 'E001',
+          embedding: makeEmbeddingBufferForCosine(0.99),
+          embeddingModel: 'arcface-buffalo_l-v1',
+          enrolledAt: new Date(Date.now() - 60_000),
+        },
+      ],
+    });
+
+    // Probe declares mobilefacenet; the only gallery entry is ArcFace →
+    // nothing comparable, and the punch must be refused, not mismatched.
+    await expect(service.recordPunch(device, dto)).rejects.toThrow(
+      'No eligible enrollments on this device',
+    );
   });
 
   it('records the second employee face punch as OUT even when an old APK sends IN', async () => {

@@ -339,6 +339,30 @@ export class ClientMobileAttendanceService {
     );
   }
 
+  // ── Punch review queue (two-level face decision) ──
+  listReviewPunches(
+    opts: { status?: string; branchId?: string; limit?: number } = {},
+  ): Observable<ReviewPunchRow[]> {
+    const parts: string[] = [];
+    if (opts.status) parts.push(`status=${encodeURIComponent(opts.status)}`);
+    if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
+    if (opts.limit) parts.push(`limit=${opts.limit}`);
+    const qs = parts.length ? `?${parts.join('&')}` : '';
+    return this.http.get<ReviewPunchRow[]>(`${this.base}/punches/review${qs}`);
+  }
+
+  reviewPunch(
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR',
+    punchId: string,
+    action: 'APPROVE' | 'REJECT',
+    note?: string,
+  ): Observable<{ ok: true; decision: string }> {
+    return this.http.post<{ ok: true; decision: string }>(
+      `${this.base}/punches/review/${subjectType.toLowerCase()}/${punchId}`,
+      { action, note },
+    );
+  }
+
   // ── Failed scans — stubbed (not in new backend) ──
   listFailedScans(
     _opts: {
@@ -506,6 +530,27 @@ export interface ContractorPunchRow {
   livenessScore: string | null;
   captureLat: string | null;
   captureLng: string | null;
+}
+
+export interface ReviewPunchRow {
+  id: string;
+  subjectType: 'EMPLOYEE' | 'CONTRACTOR';
+  subjectId: string;
+  subjectName: string | null;
+  subjectCode: string | null;
+  branchId: string | null;
+  deviceId: string | null;
+  punchTime: string;
+  matchCosine: string | null;
+  matchThreshold: string | null;
+  matchMargin: string | null;
+  livenessScore: string | null;
+  photoUrl: string | null;
+  decision: string;
+  reviewNote: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
 }
 
 export interface FailedScanRow {
