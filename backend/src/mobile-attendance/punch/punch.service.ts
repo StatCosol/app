@@ -679,6 +679,12 @@ export class PunchService {
                   AND employee_id = $2
                   AND punch_time >= $3
                   AND punch_time < $4
+                  -- Mobile punches are MIRRORED into biometric_punches by the
+                  -- daily-attendance ingest; counting them here double-counts
+                  -- every kiosk punch (1 punch looked "completed for today"
+                  -- and check-out could never be recorded). Only count punches
+                  -- from real fingerprint devices / imports here.
+                  AND COALESCE(source, 'DEVICE') NOT IN ('MOBILE_KIOSK','MOBILE_ESS')
              ) t
             ORDER BY punch_time ASC`
         : `SELECT punch_time, direction
