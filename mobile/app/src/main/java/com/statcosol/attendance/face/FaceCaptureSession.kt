@@ -15,29 +15,42 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.max
+import kotlin.math.min
 
 class FaceCaptureSession(
     private val embedder: FaceEmbedder,
     private val detector: FaceDetector,
-    private val minFaceSize: Float = 0.15f,
-    private val minLuminance: Float = 40f,
+    private val minFaceSize: Float = 0.10f,
+    private val minLuminance: Float = 25f,
     // maxYaw relaxed during liveness — HEAD_TURN challenges intentionally move the head.
     // Quality gate only applies to the embedding capture phase (frontal-only frames).
-    private val maxYaw: Float = 20f,
-    private val maxPitch: Float = 15f,
-    private val minSharpness: Float = 80f,
-    private val onFace: (probe: FloatArray, metrics: FaceMetrics, photoBase64: String?) -> Unit,
+    private val maxPitch: Float = 25f,
+    private val minSharpness: Float = 35f,
+    private val onFace: (
+        faceProbe: FloatArray,
+        fullFrameProbe: FloatArray,
+        metrics: FaceMetrics,
+        photoBase64: String?,
+    ) -> Unit,
     private val onHint: (String) -> Unit,
 ) : ImageAnalysis.Analyzer {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val processing = AtomicBoolean(false)
 
     @ExperimentalGetImage
     override fun analyze(imageProxy: ImageProxy) {
+        if (!processing.compareAndSet(false, true)) {
+            imageProxy.close()
+            return
+        }
         scope.launch {
             try {
                 processFrame(imageProxy)
             } finally {
+                processing.set(false)
                 imageProxy.close()
             }
         }
@@ -60,22 +73,28 @@ class FaceCaptureSession(
             return
         }
 
-        if (faces.size > 1) {
-            onHint("Multiple faces detected — only one person at a time")
-            return
+        val sortedFaces = faces.sortedByDescending { faceArea(it.boundingBox) }
+        val face = sortedFaces[0]
+        val secondFace = sortedFaces.getOrNull(1)
+        if (secondFace != null) {
+            val dominantArea = faceArea(face.boundingBox)
+            val secondArea = faceArea(secondFace.boundingBox)
+            if (secondArea >= dominantArea * 0.35f) {
+                onHint("Multiple faces detected — only one person at a time")
+                return
+            }
         }
 
-        val face = faces[0]
-        val faceWidth = face.boundingBox.width().toFloat() / imageProxy.width.toFloat()
+        val faceWidth = face.boundingBox.width().toFloat() / bitmap.width.toFloat()
 
         if (faceWidth < minFaceSize) {
             onHint("Please move closer to the camera")
             return
         }
 
-        val yaw = face.headEulerAngleY
         val pitch = face.headEulerAngleX
         val metrics = computeMetrics(face)
+        val faceBitmap = cropFaceBitmap(bitmap, face.boundingBox)
 
         // Quality gate: frontal-only for embedding frames; skip for liveness (head turns).
         // The activity decides which checks are relevant based on current challenge state.
@@ -84,16 +103,37 @@ class FaceCaptureSession(
             return
         }
 
-        val sharpness = computeSharpness(bitmap)
+        val sharpness = computeSharpness(faceBitmap)
         if (sharpness < minSharpness) {
             onHint("Image blurry — hold still and look at the camera")
             return
         }
 
-        val embedding = embedder.embed(bitmap)
-        val photoB64 = bitmapToBase64(bitmap)
+        val embedding = embedder.embed(faceBitmap)
+        val fullFrameEmbedding = embedder.embed(bitmap)
+        val photoB64 = bitmapToBase64(faceBitmap)
 
-        onFace(embedding, metrics, photoB64)
+        onFace(embedding, fullFrameEmbedding, metrics, photoB64)
+    }
+
+    private fun faceArea(box: Rect): Int {
+        return max(0, box.width()) * max(0, box.height())
+    }
+
+    private fun cropFaceBitmap(bitmap: Bitmap, box: Rect): Bitmap {
+        val padX = (box.width() * 0.35f).toInt()
+        val padY = (box.height() * 0.45f).toInt()
+        val left = max(0, box.left - padX)
+        val top = max(0, box.top - padY)
+        val right = min(bitmap.width, box.right + padX)
+        val bottom = min(bitmap.height, box.bottom + padY)
+        val width = right - left
+        val height = bottom - top
+        return if (width > 24 && height > 24) {
+            Bitmap.createBitmap(bitmap, left, top, width, height)
+        } else {
+            bitmap
+        }
     }
 
     private fun computeLuminance(bitmap: Bitmap): Float {

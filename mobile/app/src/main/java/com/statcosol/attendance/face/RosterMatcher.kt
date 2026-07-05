@@ -25,6 +25,21 @@ class RosterMatcher {
     }
 
     fun match(probe: FloatArray): MatchResult? {
+        val best = bestCandidate(probe) ?: return null
+        val snapshotSize = synchronized(this) { entries.size }
+        val requiredThreshold = if (snapshotSize <= 1) {
+            SINGLE_ENTRY_MATCH_THRESHOLD
+        } else {
+            MATCH_THRESHOLD
+        }
+
+        if (best.score < requiredThreshold) return null
+        if (best.margin < MARGIN_THRESHOLD) return null
+
+        return best
+    }
+
+    fun bestCandidate(probe: FloatArray): MatchResult? {
         val snapshot = synchronized(this) { entries.toList() }
         if (snapshot.isEmpty()) return null
 
@@ -35,14 +50,6 @@ class RosterMatcher {
         val best = scores[0]
         val secondBest = scores.getOrNull(1)?.second ?: 0.0
         val margin = best.second - secondBest
-        val requiredThreshold = if (snapshot.size <= 1) {
-            SINGLE_ENTRY_MATCH_THRESHOLD
-        } else {
-            MATCH_THRESHOLD
-        }
-
-        if (best.second < requiredThreshold) return null
-        if (margin < MARGIN_THRESHOLD) return null
 
         return MatchResult(
             employeeId = best.first.employeeId,
@@ -66,12 +73,13 @@ class RosterMatcher {
     }
 
     companion object {
-        // MobileFaceNet real-world same-person cosine similarity is ~0.70-0.87.
-        // Keep the one-person gallery threshold inside that observed range; the
-        // kiosk checks pending enrollment tickets before attendance matching.
-        private const val MATCH_THRESHOLD = 0.84
-        private const val SINGLE_ENTRY_MATCH_THRESHOLD = 0.84
-        private const val MARGIN_THRESHOLD = 0.08
+        // Local matching is only a pre-filter so the kiosk can ask for liveness
+        // before submitting to the server. The backend makes the final decision
+        // and can hold borderline matches for review, so this gate must be
+        // forgiving enough for real kiosk lighting and camera distance.
+        private const val MATCH_THRESHOLD = 0.72
+        private const val SINGLE_ENTRY_MATCH_THRESHOLD = 0.72
+        private const val MARGIN_THRESHOLD = 0.03
 
         fun cosineSim(a: FloatArray, b: FloatArray): Double {
             var dot = 0.0

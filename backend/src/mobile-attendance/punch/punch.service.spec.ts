@@ -246,7 +246,7 @@ describe('PunchService', () => {
           employeeId: 'employee-1',
           name: 'Test',
           employeeCode: 'E001',
-          embedding: makeEmbeddingBufferForCosine(0.7),
+          embedding: makeEmbeddingBufferForCosine(0.65),
           embeddingModel: 'mobilefacenet',
           enrolledAt: new Date(Date.now() - 60_000),
         },
@@ -411,9 +411,7 @@ describe('PunchService', () => {
     expect(directionSql).toContain('biometric_punches');
     // Mirrored mobile punches must NOT be double-counted as day punches —
     // that made one check-in look like a completed day and blocked check-out.
-    expect(directionSql).toContain(
-      `NOT IN ('MOBILE_KIOSK','MOBILE_ESS')`,
-    );
+    expect(directionSql).toContain(`NOT IN ('MOBILE_KIOSK','MOBILE_ESS')`);
     expect(resp.direction).toBe('OUT');
     expect(punchRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ direction: 'OUT' }),

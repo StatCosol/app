@@ -62,11 +62,13 @@ data class MobilePunchRequest(
 
 @Serializable
 data class MobilePunchResponse(
-    val ok: Boolean,
-    val employeeCode: String,
-    val employeeName: String,
-    val direction: String,
-    val punchTime: String,
+    val ok: Boolean = true,
+    val review: Boolean = false,
+    val message: String? = null,
+    val employeeCode: String = "",
+    val employeeName: String = "",
+    val direction: String = "",
+    val punchTime: String = "",
 )
 
 @Serializable
