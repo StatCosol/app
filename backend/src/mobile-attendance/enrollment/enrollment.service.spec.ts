@@ -377,6 +377,79 @@ describe('EnrollmentService kiosk tickets', () => {
       }),
     );
   });
+
+  it('continues kiosk enrollment when optional photo services fail', async () => {
+    const frame = Buffer.from(new Float32Array([1, 0, 0, 0]).buffer).toString(
+      'base64',
+    );
+    const ticket = {
+      id: 'ticket-1',
+      clientId: 'client-1',
+      branchId: 'branch-1',
+      deviceId: 'device-1',
+      subjectType: 'EMPLOYEE',
+      employeeId: 'employee-1',
+      contractorEmployeeId: null,
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 60_000),
+      createdBy: 'user-created-ticket',
+    };
+    const execute = jest.fn().mockResolvedValue({ raw: [{ id: 'ticket-1' }] });
+    const updateBuilder = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      returning: jest.fn().mockReturnThis(),
+      execute,
+    };
+    const manager = {
+      findOne: jest.fn(async (target: unknown) =>
+        target === KioskEnrollTicketEntity ? ticket : null,
+      ),
+      save: jest.fn(async (_target: unknown, entity: any) => entity),
+      createQueryBuilder: jest.fn(() => updateBuilder),
+    };
+    const service = new EnrollmentService(
+      { find: jest.fn().mockResolvedValue([]) } as any,
+      { find: jest.fn().mockResolvedValue([]) } as any,
+      { findOne: jest.fn().mockResolvedValue(ticket) } as any,
+      {} as any,
+      { consumeNonce: jest.fn().mockResolvedValue(undefined) } as any,
+      {
+        uploadPhoto: jest.fn().mockRejectedValue(new Error('disk full')),
+      } as any,
+      {
+        enabled: true,
+        extractEmbedding: jest
+          .fn()
+          .mockRejectedValue(new Error('face-svc down')),
+      } as any,
+      {
+        appendTemplate: jest.fn().mockResolvedValue(undefined),
+        purgeSubject: jest.fn().mockResolvedValue(undefined),
+      } as any,
+      {
+        query: jest.fn().mockResolvedValue([]),
+        transaction: jest.fn(async (fn: any) => fn(manager)),
+      } as any,
+    );
+
+    await expect(
+      service.submitKioskTicket('device-1', {
+        ticketId: 'ticket-1',
+        consentGiven: true,
+        embeddingFrames: [frame, frame, frame],
+        embeddingModel: 'mobilefacenet',
+        livenessNonce: 'nonce-1',
+        livenessChallengeType: 'BLINK',
+        photoB64: 'not-a-real-photo',
+      } as any),
+    ).resolves.toEqual(ticket);
+
+    expect(updateBuilder.set).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'COMPLETED', photoUrl: null }),
+    );
+  });
 });
 
 describe('EnrollmentService duplicate detection', () => {

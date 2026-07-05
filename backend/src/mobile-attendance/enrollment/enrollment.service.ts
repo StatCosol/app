@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -56,6 +57,8 @@ const KIOSK_TICKET_TTL_MS = Number(
 
 @Injectable()
 export class EnrollmentService {
+  private readonly logger = new Logger(EnrollmentService.name);
+
   constructor(
     @InjectRepository(FaceEnrollmentEntity)
     private readonly enrollRepo: Repository<FaceEnrollmentEntity>,
@@ -90,7 +93,30 @@ export class EnrollmentService {
       if (err instanceof FaceQualityError) {
         throw new BadRequestException(err.message);
       }
-      throw err;
+      this.logger.warn(
+        `Face quality service unavailable during enrollment; falling back to device embedding: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return null;
+    }
+  }
+
+  private async tryUploadPhoto(
+    photoB64: string | undefined,
+    clientId: string,
+    subjectId: string,
+  ): Promise<string | null> {
+    if (!photoB64) return null;
+    try {
+      return await this.photoStorage.uploadPhoto(photoB64, clientId, subjectId);
+    } catch (err) {
+      this.logger.warn(
+        `Face photo storage failed during enrollment; continuing without photo: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return null;
     }
   }
 
@@ -142,14 +168,11 @@ export class EnrollmentService {
       excludeEmployeeId: employeeId,
     });
 
-    let photoUrl: string | null = null;
-    if (dto.photoB64) {
-      photoUrl = await this.photoStorage.uploadPhoto(
-        dto.photoB64,
-        clientId,
-        employeeId,
-      );
-    }
+    const photoUrl = await this.tryUploadPhoto(
+      dto.photoB64,
+      clientId,
+      employeeId,
+    );
 
     const saved = await this.dataSource.transaction(async (em) => {
       const existing = await em.findOne(FaceEnrollmentEntity, {
@@ -334,15 +357,10 @@ export class EnrollmentService {
         : { excludeContractorId: contractorEmployeeId ?? undefined };
     await this.assertNotDuplicate(clientId, storedEmbedding, excludeId);
 
-    let photoUrl: string | null = null;
-    if (dto.photoB64 && (employeeId || contractorEmployeeId)) {
-      const subId = (employeeId ?? contractorEmployeeId)!;
-      photoUrl = await this.photoStorage.uploadPhoto(
-        dto.photoB64,
-        clientId,
-        subId,
-      );
-    }
+    const subId = employeeId ?? contractorEmployeeId;
+    const photoUrl = subId
+      ? await this.tryUploadPhoto(dto.photoB64, clientId, subId)
+      : null;
 
     return this.dataSource
       .transaction(async (em) => {

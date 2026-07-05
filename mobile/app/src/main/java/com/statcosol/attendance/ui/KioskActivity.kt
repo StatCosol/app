@@ -102,6 +102,7 @@ class KioskActivity : AppCompatActivity() {
     private val enrollFrames = java.util.concurrent.CopyOnWriteArrayList<FloatArray>()
     private var lastEnrollFrameMs = 0L
     private var enrollAvgEmbedding: FloatArray? = null
+    @Volatile private var enrollPhotoB64: String? = null
     @Volatile private var enrollLivenessInFlight = false  // prevents double liveness calls
 
     // ── Liveness tracking ────────────────────────────────────────────────────
@@ -476,20 +477,35 @@ class KioskActivity : AppCompatActivity() {
 
     private fun loadRoster() {
         lifecycleScope.launch {
-            try {
-                val roster = apiClient.getRoster()
-                matcher.load(roster.enrollments)
-                Log.i(TAG, "Roster loaded: ${roster.enrollments.size} entries")
-            } catch (e: ApiException) {
-                if (e.code == 401 || e.code == 403) {
-                    handleUnauthorized()
-                } else {
-                    Log.w(TAG, "Roster load failed: ${e.message}")
-                }
-            } catch (e: Exception) {
+            refreshRoster()
+        }
+    }
+
+    private suspend fun refreshRoster(): Boolean {
+        return try {
+            val roster = apiClient.getRoster()
+            matcher.load(roster.enrollments)
+            Log.i(TAG, "Roster loaded: ${roster.enrollments.size} entries")
+            true
+        } catch (e: ApiException) {
+            if (e.code == 401 || e.code == 403) {
+                handleUnauthorized()
+            } else {
                 Log.w(TAG, "Roster load failed: ${e.message}")
             }
+            false
+        } catch (e: Exception) {
+            Log.w(TAG, "Roster load failed: ${e.message}")
+            false
         }
+    }
+
+    private suspend fun refreshRosterWithRetry(attempts: Int = 3): Boolean {
+        repeat(attempts) { attempt ->
+            if (refreshRoster()) return true
+            if (attempt < attempts - 1) delay(750)
+        }
+        return false
     }
 
     // ── Camera ───────────────────────────────────────────────────────────────
@@ -511,7 +527,9 @@ class KioskActivity : AppCompatActivity() {
                 val captureSession = FaceCaptureSession(
                     embedder = embedder,
                     detector = faceDetector,
-                    onFace = { probe, metrics, photo -> handleFaceFrame(probe, metrics, photo) },
+                    onFace = { faceProbe, fullFrameProbe, metrics, photo ->
+                        handleFaceFrame(faceProbe, fullFrameProbe, metrics, photo)
+                    },
                     // Suppress quality hints while a liveness challenge is active so the
                     // challenge prompt is not overwritten by e.g. "No face detected"
                     onHint = { hint ->
@@ -584,6 +602,7 @@ class KioskActivity : AppCompatActivity() {
         state = KioskState.Enrolling(ticket)
         enrollFrames.clear()
         enrollAvgEmbedding = null
+        enrollPhotoB64 = null
         lastEnrollFrameMs = 0L
         enrollLivenessInFlight = false
         pendingChallenge = null
@@ -601,18 +620,28 @@ class KioskActivity : AppCompatActivity() {
 
     // ── Frame handling ───────────────────────────────────────────────────────
 
-    private fun handleFaceFrame(probe: FloatArray, metrics: FaceMetrics, photo: String?) {
+    private fun handleFaceFrame(
+        faceProbe: FloatArray,
+        fullFrameProbe: FloatArray,
+        metrics: FaceMetrics,
+        photo: String?,
+    ) {
         when (val s = state) {
-            is KioskState.Idle -> handleIdleFrame(probe, metrics, photo)
-            is KioskState.Enrolling -> handleEnrollFrame(s, probe, metrics, photo)
-            is KioskState.Punching -> handleLivenessFrame(probe, metrics)
+            is KioskState.Idle -> handleIdleFrame(faceProbe, fullFrameProbe, metrics, photo)
+            is KioskState.Enrolling -> handleEnrollFrame(s, faceProbe, metrics, photo)
+            is KioskState.Punching -> handleLivenessFrame(faceProbe, metrics)
             else -> Unit
         }
     }
 
     // ── Idle: match → liveness → punch ───────────────────────────────────────
 
-    private fun handleIdleFrame(probe: FloatArray, metrics: FaceMetrics, photo: String?) {
+    private fun handleIdleFrame(
+        faceProbe: FloatArray,
+        fullFrameProbe: FloatArray,
+        metrics: FaceMetrics,
+        photo: String?,
+    ) {
         if (punchInFlight) return
         if (enrollmentPollInFlight) return
         if (System.currentTimeMillis() - lastEnrollmentPollMs >= ENROLLMENT_FRAME_CHECK_INTERVAL_MS) {
@@ -621,23 +650,41 @@ class KioskActivity : AppCompatActivity() {
         }
         val challenge = pendingChallenge
         if (challenge != null) {
-            handleLivenessFrame(probe, metrics)
+            handleLivenessFrame(faceProbe, metrics)
             return
         }
 
-        val match = matcher.match(probe) ?: run {
-            runOnUiThread { tvHint.text = getString(R.string.kiosk_look_at_camera) }
-            return
-        }
+        val faceMatch = matcher.match(faceProbe)
+        val fullFrameMatch = matcher.match(fullFrameProbe)
+        val faceCandidate = matcher.bestCandidate(faceProbe)
+        val fullFrameCandidate = matcher.bestCandidate(fullFrameProbe)
+        val useFaceProbe =
+            (faceMatch != null && fullFrameMatch == null) ||
+                ((faceCandidate?.score ?: -1.0) >= (fullFrameCandidate?.score ?: -1.0))
+        val bestCandidate = if (useFaceProbe) faceCandidate else fullFrameCandidate
+        val strongMatch = faceMatch ?: fullFrameMatch
+        val match = strongMatch ?: MatchResult(
+            employeeId = "",
+            displayName = getString(R.string.kiosk_unknown_employee),
+            score = bestCandidate?.score ?: 0.0,
+            secondBestScore = bestCandidate?.secondBestScore ?: 0.0,
+            margin = bestCandidate?.margin ?: 0.0,
+        )
+        val matchedProbe = if (useFaceProbe) faceProbe else fullFrameProbe
 
         punchInFlight = true
         pendingMatch = match
-        pendingProbe = probe
+        pendingProbe = matchedProbe
         pendingPhoto = photo
 
         lifecycleScope.launch {
             try {
-                val challengeResp = apiClient.issueLivenessChallenge(match.employeeId)
+                val canShowLocalIdentity =
+                    strongMatch != null &&
+                        strongMatch.score >= LOCAL_IDENTITY_CONFIRM_THRESHOLD &&
+                        strongMatch.margin >= LOCAL_IDENTITY_CONFIRM_MARGIN
+                val challengeSubjectId = if (canShowLocalIdentity) match.employeeId else null
+                val challengeResp = apiClient.issueLivenessChallenge(challengeSubjectId)
                 val lvChallenge = LivenessChallenge.fromWire(challengeResp.challengeType)
                     ?: LivenessChallenge.BLINK
 
@@ -650,7 +697,12 @@ class KioskActivity : AppCompatActivity() {
                     LivenessChallenge.HEAD_TURN_LEFT -> R.string.liveness_prompt_head_left
                     LivenessChallenge.HEAD_TURN_RIGHT -> R.string.liveness_prompt_head_right
                 }
-                val prompt = getString(R.string.kiosk_liveness_prompt_with_name, match.displayName, getString(promptRes))
+                val promptName = if (canShowLocalIdentity) {
+                    match.displayName
+                } else {
+                    getString(R.string.kiosk_unknown_employee)
+                }
+                val prompt = getString(R.string.kiosk_liveness_prompt_with_name, promptName, getString(promptRes))
 
                 state = KioskState.Punching
                 runOnUiThread { tvHint.text = prompt }
@@ -730,17 +782,27 @@ class KioskActivity : AppCompatActivity() {
             try {
                 val resp = apiClient.recordPunch(req)
                 resultDisplayMs = SUCCESS_HOLD_MS
-                state = KioskState.Result(ok = true, name = resp.employeeName, direction = resp.direction)
-                val msg = if (resp.direction == "OUT")
+                val responseName = resp.employeeName.ifBlank { match.displayName }
+                val responseDirection = resp.direction.ifBlank { "AUTO" }
+                val reviewMessage = resp.message ?: getString(R.string.kiosk_punch_review_pending)
+                state = KioskState.Result(ok = true, name = responseName, direction = responseDirection)
+                val msg = if (resp.review) {
+                    reviewMessage
+                } else if (responseDirection == "OUT") {
                     getString(R.string.kiosk_punch_out_title)
-                else
+                } else {
                     getString(R.string.kiosk_punch_in_title)
+                }
                 runOnUiThread {
                     tvHint.text = msg
                     tvStatus.text = getString(R.string.kiosk_next_scan_wait, SUCCESS_HOLD_SECONDS)
                     tvStatus.visibility = View.VISIBLE
                 }
-                speakPunchResult(resp.employeeName, resp.direction)
+                if (resp.review) {
+                    speak(reviewMessage)
+                } else {
+                    speakPunchResult(responseName, responseDirection)
+                }
             } catch (e: ApiException) {
                 if (e.code == 401 || e.code == 403) {
                     handleUnauthorized()
@@ -816,6 +878,7 @@ class KioskActivity : AppCompatActivity() {
         enrollLivenessInFlight = false
         enrollFrames.clear()
         enrollAvgEmbedding = null
+        enrollPhotoB64 = null
         hideDirectionArrow()
         runOnUiThread {
             tvHint.text = getString(R.string.kiosk_look_at_camera)
@@ -834,7 +897,7 @@ class KioskActivity : AppCompatActivity() {
     ) {
         val challenge = pendingChallenge
         if (challenge != null) {
-            handleEnrollLivenessFrame(enrollState, probe, metrics, challenge)
+            handleEnrollLivenessFrame(enrollState, probe, metrics, challenge, photo)
             return
         }
 
@@ -878,6 +941,9 @@ class KioskActivity : AppCompatActivity() {
         }
 
         enrollFrames.add(probe)
+        if (!photo.isNullOrBlank()) {
+            enrollPhotoB64 = photo
+        }
         lastEnrollFrameMs = now
         enrollAvgEmbedding = averageAndNormalize(enrollFrames)
 
@@ -934,6 +1000,7 @@ class KioskActivity : AppCompatActivity() {
                         enrollLivenessInFlight = false
                         enrollFrames.clear()
                         enrollAvgEmbedding = null
+                        enrollPhotoB64 = null
                         lastEnrollFrameMs = 0L
                         hideDirectionArrow()
                         showPrompt(
@@ -946,6 +1013,7 @@ class KioskActivity : AppCompatActivity() {
                 Log.w(TAG, "Enroll liveness challenge failed (${e.javaClass.simpleName}): ${e.message}")
                 enrollFrames.clear()
                 enrollAvgEmbedding = null
+                enrollPhotoB64 = null
                 val errMsg = formatApiError(e)
                 // Show error prominently in center overlay so operator can read it clearly
                 runOnUiThread {
@@ -970,6 +1038,7 @@ class KioskActivity : AppCompatActivity() {
         probe: FloatArray,
         metrics: FaceMetrics,
         challenge: LivenessChallenge,
+        photo: String?,
     ) {
         val passed = when (challenge) {
             LivenessChallenge.BLINK          -> metrics.eyeOpenness < 0.3
@@ -986,7 +1055,7 @@ class KioskActivity : AppCompatActivity() {
         livenessTimeoutJob = null
 
         lifecycleScope.launch {
-            submitEnrollment(enrollState, nonce, challenge, passedAt, probe)
+            submitEnrollment(enrollState, nonce, challenge, passedAt, probe, photo)
         }
     }
 
@@ -996,6 +1065,7 @@ class KioskActivity : AppCompatActivity() {
         challenge: LivenessChallenge,
         passedAt: String,
         lastProbe: FloatArray,
+        photo: String?,
     ) {
         try {
             showPrompt(getString(R.string.kiosk_enroll_uploading), getString(R.string.kiosk_enroll_upload_detail))
@@ -1013,6 +1083,7 @@ class KioskActivity : AppCompatActivity() {
                 livenessNonce = nonce,
                 livenessChallengeType = challenge.name,
                 consentGiven = true,
+                photoB64 = enrollPhotoB64 ?: photo,
             )
 
             val result = apiClient.submitEnrollTicket(req)
@@ -1028,7 +1099,7 @@ class KioskActivity : AppCompatActivity() {
                         tvDirectionArrow.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 96f)
                         tvDirectionArrow.visibility = View.VISIBLE
                     }
-                    loadRoster()
+                    refreshRosterWithRetry()
                     delay(SUCCESS_HOLD_MS)
                     withContext(Dispatchers.Main) { tvDirectionArrow.visibility = View.GONE }
                 },
@@ -1074,6 +1145,8 @@ class KioskActivity : AppCompatActivity() {
         private const val ENROLLMENT_POLL_INTERVAL_MS = 1_000L
         private const val ENROLLMENT_FRAME_CHECK_INTERVAL_MS = 750L
         private const val ROSTER_REFRESH_INTERVAL_MS = 60 * 1000L       // refresh every 1 min
+        private const val LOCAL_IDENTITY_CONFIRM_THRESHOLD = 0.84
+        private const val LOCAL_IDENTITY_CONFIRM_MARGIN = 0.08
         private const val SUCCESS_HOLD_SECONDS = 10
         private const val SUCCESS_HOLD_MS = SUCCESS_HOLD_SECONDS * 1_000L
         private const val PUNCH_RETRY_DISPLAY_MS = 3_000L

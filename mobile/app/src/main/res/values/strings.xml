@@ -49,12 +49,14 @@
     <string name="hint_not_straight">Please look straight at the camera</string>
     <string name="hint_too_blurry">Image blurry — hold still and look at the camera</string>
     <string name="kiosk_branch_unknown">Branch not assigned</string>
+    <string name="kiosk_unknown_employee">Employee</string>
     <string name="kiosk_voice_recorded">Attendance recorded for %1$s</string>
     <string name="kiosk_voice_logout_recorded">Logout recorded for %1$s</string>
     <string name="kiosk_voice_login_motivation">స్వాగతం! మీ ప్రతి ప్రయత్నం విజయానికి ఒక అడుగు. ఈ రోజు అద్భుతంగా గడవాలని కోరుకుంటున్నాం.</string>
     <string name="kiosk_voice_logout_motivation">ఈ రోజు మీ విలువైన సహకారానికి ధన్యవాదాలు. విశ్రాంతి తీసుకోండి, రేపు మరింత ఉత్సాహంతో కలుద్దాం.</string>
     <string name="kiosk_voice_face_not_recognised">Face not recognised, please try again</string>
     <string name="kiosk_punch_queued">Network issue — attendance queued for sync</string>
+    <string name="kiosk_punch_review_pending">Attendance captured. Supervisor review required.</string>
     <string name="kiosk_punch_network_failed">Network issue — attendance not recorded, please try again</string>
     <string name="kiosk_punch_rejected">Attendance not recorded — roster refreshed, please try again</string>
     <string name="roster_empty">No employees enrolled yet — enroll faces from the admin portal.</string>

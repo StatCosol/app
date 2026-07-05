@@ -181,7 +181,7 @@ class EssActivity : AppCompatActivity() {
                 val captureSession = FaceCaptureSession(
                     embedder = embedder,
                     detector = faceDetector,
-                    onFace = { probe, metrics, photo ->
+                    onFace = { probe, _, metrics, photo ->
                         lastProbe = probe
                         lastMetrics = metrics
                         lastPhoto = photo

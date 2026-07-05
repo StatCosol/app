@@ -39,9 +39,7 @@ const MIN_MATCH_MARGIN = Number(process.env.FACE_MIN_MATCH_MARGIN ?? 0.08);
 // Two-level decision: borderline scores land in a review queue instead of a
 // hard reject. Review band = [REVIEW_MIN_SCORE, auto threshold).
 const REVIEW_ENABLED = process.env.FACE_REVIEW_ENABLED !== 'false';
-const REVIEW_MIN_SCORE = Number(
-  process.env.FACE_REVIEW_MIN_SCORE ?? Math.max(0, MIN_MATCH_SCORE - 0.06),
-);
+const REVIEW_MIN_SCORE = Number(process.env.FACE_REVIEW_MIN_SCORE ?? 0.7);
 // Passive liveness gate — only enforced when face-svc (or the device) supplies
 // a liveness score AND this env/client override is configured.
 const MIN_LIVENESS_SCORE = process.env.FACE_MIN_LIVENESS_SCORE
@@ -287,7 +285,7 @@ export class PunchService {
     const autoAccept = num(row?.autoAccept, MIN_MATCH_SCORE);
     return {
       autoAccept,
-      reviewMin: num(row?.reviewMin, Math.max(0, autoAccept - 0.06)),
+      reviewMin: num(row?.reviewMin, REVIEW_MIN_SCORE),
       minMargin: num(row?.minMargin, MIN_MATCH_MARGIN),
       minLiveness:
         row?.minLiveness !== null &&
