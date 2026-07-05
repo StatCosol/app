@@ -405,7 +405,15 @@ describe('PunchService', () => {
 
     const resp = await service.recordPunch(device, dto);
 
-    expect(dataSource.query.mock.calls[3][0]).toContain('biometric_punches');
+    // calls: 0=employee roster, 1=contractor roster, 2=client thresholds,
+    // 3=cooldown, 4=direction resolution
+    const directionSql = dataSource.query.mock.calls[4][0] as string;
+    expect(directionSql).toContain('biometric_punches');
+    // Mirrored mobile punches must NOT be double-counted as day punches —
+    // that made one check-in look like a completed day and blocked check-out.
+    expect(directionSql).toContain(
+      `NOT IN ('MOBILE_KIOSK','MOBILE_ESS')`,
+    );
     expect(resp.direction).toBe('OUT');
     expect(punchRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ direction: 'OUT' }),
