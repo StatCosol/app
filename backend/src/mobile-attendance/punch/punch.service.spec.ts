@@ -147,9 +147,12 @@ describe('PunchService', () => {
         employeeCode: 'E001',
       }),
     );
-    expect(dataSource.query.mock.calls[0][0]).toContain(
-      'AND (e.branch_id = $2 OR fe.branch_id = $2)',
-    );
+    const empSql = dataSource.query.mock.calls[0][0] as string;
+    expect(empSql).toContain('e.branch_id = $2 OR fe.branch_id = $2');
+    // Unassigned subjects (no branch on employee OR enrollment) must stay
+    // visible to branch kiosks — the branch backfill cannot help them and
+    // they otherwise become unrecognizable on every kiosk.
+    expect(empSql).toContain('e.branch_id IS NULL AND fe.branch_id IS NULL');
   });
 
   it('scopes contractor kiosk roster by current or stored enrollment branch', async () => {
@@ -176,9 +179,9 @@ describe('PunchService', () => {
         displayName: 'Contractor One',
       }),
     );
-    expect(dataSource.query.mock.calls[1][0]).toContain(
-      'AND (ce.branch_id = $2 OR cfe.branch_id = $2)',
-    );
+    const conSql = dataSource.query.mock.calls[1][0] as string;
+    expect(conSql).toContain('ce.branch_id = $2 OR cfe.branch_id = $2');
+    expect(conSql).toContain('ce.branch_id IS NULL AND cfe.branch_id IS NULL');
   });
 
   it('holds borderline single-gallery matches for review instead of auto-accepting', async () => {

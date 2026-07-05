@@ -126,7 +126,12 @@ export class PunchService {
     let empBranch = '';
     if (device.branchId) {
       const branchParam = empParams.push(device.branchId);
-      empBranch = `AND (e.branch_id = $${branchParam} OR fe.branch_id = $${branchParam})`;
+      // Include subjects with NO branch anywhere: the branch backfill can only
+      // align enrollments when the employee has a branch. Unassigned employees
+      // were invisible to every branch kiosk (nothing to match against) —
+      // exactly the "already enrolled but not recognized" regression.
+      empBranch = `AND (e.branch_id = $${branchParam} OR fe.branch_id = $${branchParam}
+          OR (e.branch_id IS NULL AND fe.branch_id IS NULL))`;
     }
 
     const empRows = await this.dataSource.query<
@@ -160,7 +165,8 @@ export class PunchService {
     let conBranch = '';
     if (device.branchId) {
       const branchParam = conParams.push(device.branchId);
-      conBranch = `AND (ce.branch_id = $${branchParam} OR cfe.branch_id = $${branchParam})`;
+      conBranch = `AND (ce.branch_id = $${branchParam} OR cfe.branch_id = $${branchParam}
+          OR (ce.branch_id IS NULL AND cfe.branch_id IS NULL))`;
     }
 
     const conRows = await this.dataSource.query<
