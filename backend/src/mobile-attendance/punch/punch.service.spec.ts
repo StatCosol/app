@@ -298,6 +298,28 @@ describe('PunchService', () => {
     expect(biometricService.ingest).toHaveBeenCalledTimes(1);
   });
 
+  it('treats model aliases as compatible (kiosk "mobilefacenet" vs face-svc "mobilefacenet-v1")', async () => {
+    const { service, biometricService } = makeService({
+      employeeRows: [
+        {
+          employeeId: 'employee-1',
+          name: 'Test',
+          employeeCode: 'E001',
+          embedding: makeEmbeddingBufferForCosine(0.95),
+          embeddingModel: 'mobilefacenet-v1',
+          enrolledAt: new Date(Date.now() - 60_000),
+        },
+      ],
+    });
+
+    const result = await service.recordPunch(device, dto);
+
+    expect(result).toEqual(
+      expect.objectContaining({ ok: true, employeeCode: 'E001' }),
+    );
+    expect(biometricService.ingest).toHaveBeenCalledTimes(1);
+  });
+
   it('excludes roster entries from a different embedding model', async () => {
     const { service } = makeService({
       employeeRows: [

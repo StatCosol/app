@@ -23,6 +23,25 @@ export function embeddingToBuffer(embedding: Float32Array): Buffer {
   return Buffer.from(embedding.buffer);
 }
 
+/**
+ * Normalize embedding-model identifiers for compatibility comparison.
+ * The Android kiosk stores "mobilefacenet" while face-svc reports
+ * "mobilefacenet-v1" — same weights, same 192-d vectors. Lowercase and
+ * strip a trailing -v<N> so aliases of one model family compare equal
+ * (arcface-buffalo_l-v1 → arcface-buffalo_l, mobilefacenet-v1 → mobilefacenet).
+ */
+export function normalizeEmbeddingModel(
+  model: string | null | undefined,
+): string | null {
+  if (!model) return null;
+  return (
+    model
+      .trim()
+      .toLowerCase()
+      .replace(/-v\d+$/, '') || null
+  );
+}
+
 /** Cosine similarity in [-1, 1]. */
 export function cosineSim(a: Float32Array, b: Float32Array): number {
   if (a.length !== b.length) return -1;

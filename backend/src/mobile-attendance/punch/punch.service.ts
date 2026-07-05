@@ -24,6 +24,7 @@ import {
   bufferToEmbedding,
   cosineSim,
   decodeEmbedding,
+  normalizeEmbeddingModel,
   toMatchScore,
 } from '../face/face-math';
 import { RecordPunchDto } from './punch.dto';
@@ -357,11 +358,18 @@ export class PunchService {
         : roster;
 
     // Model compatibility: never compare embeddings across models/dimensions.
-    const comparableRoster = eligibleRoster.filter(
-      (r) =>
-        r.embedding.length === probe.length &&
-        (!probeModel || !r.embeddingModel || r.embeddingModel === probeModel),
-    );
+    // Names are normalized so aliases of the same family match (the kiosk
+    // stores "mobilefacenet", face-svc reports "mobilefacenet-v1").
+    const probeModelNorm = normalizeEmbeddingModel(probeModel);
+    const comparableRoster = eligibleRoster.filter((r) => {
+      if (r.embedding.length !== probe.length) return false;
+      const rosterModelNorm = normalizeEmbeddingModel(r.embeddingModel);
+      return (
+        !probeModelNorm ||
+        !rosterModelNorm ||
+        rosterModelNorm === probeModelNorm
+      );
+    });
 
     if (comparableRoster.length === 0) {
       if (eligibleRoster.length > 0) {
@@ -635,8 +643,17 @@ export class PunchService {
     subjectType: 'EMPLOYEE' | 'CONTRACTOR',
     subjectId: string,
     punchTime: Date,
+    opts: { endExclusive?: Date } = {},
   ): Promise<'IN' | 'OUT'> {
-    const { start, end } = this.businessDayBoundsUtc(punchTime);
+    const { start, end: dayEnd } = this.businessDayBoundsUtc(punchTime);
+    // Approving a held punch after later punches already landed must resolve
+    // direction against the state of the day AT the punch's own time, not
+    // against everything that came after — otherwise a 09:00 approval done
+    // after a 10:00 AUTO punch flips to OUT (or fails as "completed").
+    const end =
+      opts.endExclusive && opts.endExclusive < dayEnd
+        ? opts.endExclusive
+        : dayEnd;
 
     const sql =
       subjectType === 'EMPLOYEE'
@@ -823,7 +840,8 @@ export class PunchService {
       }
 
       await this.dataSource.transaction(async (manager) => {
-        // Approve resolves direction against counted punches at approval time.
+        // Approve resolves direction against counted punches that happened
+        // BEFORE this held punch — later AUTO punches must not flip it.
         let direction: 'IN' | 'OUT' | 'AUTO' = 'AUTO';
         if (action === 'APPROVE') {
           direction = await this.resolveNextPunchDirection(
@@ -831,6 +849,7 @@ export class PunchService {
             'EMPLOYEE',
             punch.employeeId,
             punch.punchTime,
+            { endExclusive: punch.punchTime },
           );
         }
         await manager.getRepository(MobileAttendancePunchEntity).update(
@@ -881,6 +900,7 @@ export class PunchService {
         'CONTRACTOR',
         punch.contractorEmployeeId,
         punch.punchTime,
+        { endExclusive: punch.punchTime },
       );
     }
     await this.contractorPunchRepo.update(

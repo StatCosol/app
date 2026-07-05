@@ -24,6 +24,7 @@ import {
   RegisterMobileDeviceBody,
   ReenrollRequest,
   ReenrollRequestStatus,
+  ReviewPunchRow,
 } from './client-mobile-attendance.service';
 
 type ReenrollScope = 'employee' | 'contractor';
@@ -75,6 +76,13 @@ interface BranchOption { id: string; name: string }
           <span *ngIf="totalPendingReenrollCount > 0"
                 class="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
             {{ totalPendingReenrollCount }}
+          </span>
+        </button>
+        <button *ngIf="hasAnyFaceModule" class="tab-btn" [class.active]="tab === 'review'" (click)="switchTab('review')">
+          Punch Review
+          <span *ngIf="pendingReviewCount > 0"
+                class="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
+            {{ pendingReviewCount }}
           </span>
         </button>
         <button class="tab-btn" [class.active]="tab === 'help'" (click)="switchTab('help')">Setup Guide</button>
@@ -357,6 +365,89 @@ interface BranchOption { id: string; name: string }
         </div>
       </ng-container>
 
+      <!-- ────── PUNCH REVIEW TAB ────── -->
+      <ng-container *ngIf="tab === 'review'">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div class="text-sm text-gray-600">
+            Borderline face matches are held here instead of auto-counting. Approving mirrors the punch
+            into Daily Attendance; rejecting discards it (the audit record is preserved).
+          </div>
+          <div class="flex items-center gap-2">
+            <select [(ngModel)]="reviewStatusFilter" (ngModelChange)="loadReviewPunches()" class="ui-input" style="width: 180px;">
+              <option value="REVIEW_PENDING">Pending</option>
+              <option value="REVIEW_APPROVED">Approved</option>
+              <option value="REVIEW_REJECTED">Rejected</option>
+            </select>
+            <ui-button variant="secondary" (clicked)="loadReviewPunches()">Refresh</ui-button>
+          </div>
+        </div>
+
+        <ui-loading-spinner *ngIf="loadingReview" text="Loading review queue..." size="lg"></ui-loading-spinner>
+
+        <ui-empty-state
+          *ngIf="!loadingReview && reviewRows.length === 0"
+          title="Nothing to review"
+          description="No punches in this state. Borderline matches will appear here automatically.">
+        </ui-empty-state>
+
+        <div *ngIf="!loadingReview && reviewRows.length > 0"
+             class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-gray-50 border-b border-gray-200">
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Person</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Branch</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Punch Time</th>
+                <th class="text-center px-4 py-3 font-semibold text-gray-700">Score</th>
+                <th class="text-center px-4 py-3 font-semibold text-gray-700">Margin</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Held Because</th>
+                <th class="text-center px-4 py-3 font-semibold text-gray-700">Photo</th>
+                <th class="text-right px-4 py-3 font-semibold text-gray-700">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of reviewRows" class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="px-4 py-3">
+                  <div class="text-gray-900 font-medium">{{ r.subjectName || 'Unknown' }}</div>
+                  <div class="text-xs text-gray-500 font-mono">
+                    {{ r.subjectCode || (r.subjectType === 'CONTRACTOR' ? 'Contractor' : '') }}
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-gray-700">{{ branchName(r.branchId) }}</td>
+                <td class="px-4 py-3 text-gray-700">{{ r.punchTime | date: 'dd MMM yyyy, HH:mm:ss' }}</td>
+                <td class="px-4 py-3 text-center font-mono text-xs"
+                    [title]="'Threshold: ' + (r.matchThreshold || '—')">
+                  {{ formatScore(r.matchCosine) }}
+                </td>
+                <td class="px-4 py-3 text-center font-mono text-xs">{{ formatScore(r.matchMargin) }}</td>
+                <td class="px-4 py-3 text-xs text-gray-600 max-w-[220px]">{{ r.reviewNote || '—' }}</td>
+                <td class="px-4 py-3 text-center">
+                  <a *ngIf="r.photoUrl && !r.photoUrl.startsWith('local://')" [href]="r.photoUrl" target="_blank"
+                     class="text-xs text-indigo-600 hover:underline">View</a>
+                  <span *ngIf="!r.photoUrl || r.photoUrl.startsWith('local://')" class="text-xs text-gray-400">—</span>
+                </td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">
+                  <ng-container *ngIf="r.decision === 'REVIEW_PENDING'; else reviewedState">
+                    <button class="text-xs text-emerald-700 hover:underline font-semibold mr-3"
+                      [disabled]="reviewingPunchId === r.id"
+                      (click)="reviewPunchAction(r, 'APPROVE')">Approve</button>
+                    <button class="text-xs text-red-600 hover:underline font-semibold"
+                      [disabled]="reviewingPunchId === r.id"
+                      (click)="reviewPunchAction(r, 'REJECT')">Reject</button>
+                  </ng-container>
+                  <ng-template #reviewedState>
+                    <span class="text-xs text-gray-500 italic">
+                      {{ r.decision === 'REVIEW_APPROVED' ? 'Approved' : 'Rejected' }}
+                      {{ r.reviewedAt ? (r.reviewedAt | date: 'dd MMM, HH:mm') : '' }}
+                    </span>
+                  </ng-template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
+
       <!-- ────── HELP TAB ────── -->
       <ng-container *ngIf="tab === 'help'">
         <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-4 text-sm text-gray-700">
@@ -571,7 +662,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private readonly liveRefreshMs = 10000;
 
-  tab: 'devices' | 'help' | 'status' | 'reenroll' = 'devices';
+  tab: 'devices' | 'help' | 'status' | 'reenroll' | 'review' = 'devices';
 
   // Devices
   devices: MobileAttendanceDevice[] = [];
@@ -632,6 +723,21 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   reviewDecision: 'APPROVED' | 'REJECTED' = 'APPROVED';
   reviewNotes = '';
   reviewingId: string | null = null;
+
+  // Punch review tab (two-level face decision)
+  reviewRows: ReviewPunchRow[] = [];
+  loadingReview = false;
+  reviewStatusFilter: 'REVIEW_PENDING' | 'REVIEW_APPROVED' | 'REVIEW_REJECTED' =
+    'REVIEW_PENDING';
+  pendingReviewCount = 0;
+  reviewingPunchId: string | null = null;
+
+  get hasAnyFaceModule(): boolean {
+    return (
+      this.hasEmployeeMobileAttendanceModule ||
+      this.hasContractorFaceAttendanceModule
+    );
+  }
 
   get totalPendingReenrollCount(): number {
     if (!this.hasReenrollWorkflow) return 0;
@@ -699,6 +805,9 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       this.reenrollScope = this.hasEmployeeMobileAttendanceModule ? this.reenrollScope : 'contractor';
       if (this.hasReenrollWorkflow) this.refreshPendingContractorReenrollCount();
     }
+    if (this.hasAnyFaceModule) {
+      this.refreshPendingReviewCount();
+    }
     this.startLiveRefresh();
   }
 
@@ -707,10 +816,11 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  switchTab(t: 'devices' | 'help' | 'status' | 'reenroll'): void {
+  switchTab(t: 'devices' | 'help' | 'status' | 'reenroll' | 'review'): void {
     if (t === 'devices' && !this.hasContractorFaceAttendanceModule) return;
     if (t === 'status' && !this.hasEmployeeMobileAttendanceModule) return;
     if (t === 'reenroll' && !this.hasReenrollWorkflow) return;
+    if (t === 'review' && !this.hasAnyFaceModule) return;
     this.tab = t;
     if (t === 'devices' && this.devices.length === 0) {
       this.loadDevices();
@@ -721,6 +831,90 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     if (t === 'reenroll') {
       this.loadReenrollRequests();
     }
+    if (t === 'review') {
+      this.loadReviewPunches();
+    }
+  }
+
+  // ─── Punch review queue ────────────────────────────────────────────────
+
+  loadReviewPunches(): void {
+    this.loadingReview = true;
+    this.bump();
+    this.svc
+      .listReviewPunches({ status: this.reviewStatusFilter, limit: 200 })
+      .subscribe({
+        next: (rows) => {
+          this.reviewRows = rows ?? [];
+          if (this.reviewStatusFilter === 'REVIEW_PENDING') {
+            this.pendingReviewCount = this.reviewRows.length;
+          }
+          this.loadingReview = false;
+          this.bump();
+        },
+        error: () => {
+          this.loadingReview = false;
+          this.toast.error('Failed to load punch review queue');
+          this.bump();
+        },
+      });
+  }
+
+  refreshPendingReviewCount(): void {
+    this.svc
+      .listReviewPunches({ status: 'REVIEW_PENDING', limit: 200 })
+      .subscribe({
+        next: (rows) => {
+          this.pendingReviewCount = rows?.length ?? 0;
+          this.bump();
+        },
+        error: () => undefined,
+      });
+  }
+
+  formatScore(v: string | null): string {
+    if (v === null || v === undefined || v === '') return '—';
+    const n = Number(v);
+    return Number.isFinite(n) ? n.toFixed(3) : '—';
+  }
+
+  async reviewPunchAction(
+    row: ReviewPunchRow,
+    action: 'APPROVE' | 'REJECT',
+  ): Promise<void> {
+    const who = row.subjectName || 'this person';
+    const when = new Date(row.punchTime).toLocaleString();
+    const confirmed = await this.dialog.confirm(
+      action === 'APPROVE' ? 'Approve Punch' : 'Reject Punch',
+      action === 'APPROVE'
+        ? `Approve the held punch for ${who} at ${when}? It will be counted in Daily Attendance.`
+        : `Reject the held punch for ${who} at ${when}? It will NOT count towards attendance.`,
+      action === 'APPROVE'
+        ? { confirmText: 'Approve' }
+        : { variant: 'danger', confirmText: 'Reject' },
+    );
+    if (!confirmed) return;
+
+    this.reviewingPunchId = row.id;
+    this.bump();
+    this.svc.reviewPunch(row.subjectType, row.id, action).subscribe({
+      next: () => {
+        this.toast.success(
+          action === 'APPROVE'
+            ? 'Punch approved and mirrored to attendance'
+            : 'Punch rejected',
+        );
+        this.reviewingPunchId = null;
+        this.loadReviewPunches();
+      },
+      error: (err) => {
+        this.reviewingPunchId = null;
+        this.toast.error(
+          err?.error?.message || `Failed to ${action.toLowerCase()} punch`,
+        );
+        this.bump();
+      },
+    });
   }
 
   private selectInitialTab(): void {
@@ -1233,9 +1427,11 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
         if (!this.shouldLiveRefresh()) return;
         if (this.hasReenrollWorkflow && this.hasEmployeeMobileAttendanceModule) this.refreshPendingReenrollCount();
         if (this.hasReenrollWorkflow && this.hasContractorFaceAttendanceModule) this.refreshPendingContractorReenrollCount();
+        if (this.hasAnyFaceModule) this.refreshPendingReviewCount();
         if (this.tab === 'devices' && this.hasContractorFaceAttendanceModule) this.loadDevices(true);
         if (this.tab === 'status' && this.hasEmployeeMobileAttendanceModule) this.loadEnrollments(true);
         if (this.tab === 'reenroll') this.loadReenrollRequests(true);
+        if (this.tab === 'review') this.loadReviewPunches();
       });
   }
 

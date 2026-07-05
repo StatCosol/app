@@ -45,6 +45,10 @@ const DUPLICATE_THRESHOLD = Number(
   process.env.FACE_DUPLICATE_THRESHOLD ?? DEFAULT_DUPLICATE_THRESHOLD,
 );
 const MIN_QUALITY = Number(process.env.FACE_MIN_QUALITY_SCORE ?? 0.75);
+// When true, face-svc is the authoritative embedder: enrollments store the
+// server-computed embedding + model (required for the ArcFace rollout —
+// kiosk frames stay 192-d MobileFaceNet and would never match ArcFace probes).
+const SERVER_EMBED = process.env.FACE_SERVER_EMBED === 'true';
 const DEFAULT_KIOSK_TICKET_TTL_MS = 5 * 60 * 1000;
 const KIOSK_TICKET_TTL_MS = Number(
   process.env.FACE_KIOSK_TICKET_TTL_MS ?? DEFAULT_KIOSK_TICKET_TTL_MS,
@@ -119,7 +123,22 @@ export class EnrollmentService {
     const averaged = averageEmbeddings(
       dto.embeddingFrames.map(decodeEmbedding),
     );
-    await this.assertNotDuplicate(clientId, averaged, {
+
+    // Quality gate + (when the server is the authoritative embedder) the
+    // stored embedding itself. With FACE_SERVER_EMBED=true, kiosk-frame
+    // embeddings are only a fallback — the face-svc model output is what
+    // punch probes will be compared against.
+    const server =
+      this.faceClient.enabled && dto.photoB64
+        ? await this.assertPhotoQuality(dto.photoB64)
+        : null;
+    const useServer = SERVER_EMBED && server !== null;
+    const storedEmbedding = useServer
+      ? new Float32Array(server.embedding)
+      : averaged;
+    const storedModel = useServer ? server.model : (dto.embeddingModel ?? null);
+
+    await this.assertNotDuplicate(clientId, storedEmbedding, {
       excludeEmployeeId: employeeId,
     });
 
@@ -132,10 +151,6 @@ export class EnrollmentService {
       );
     }
 
-    if (this.faceClient.enabled && dto.photoB64) {
-      await this.assertPhotoQuality(dto.photoB64);
-    }
-
     const saved = await this.dataSource.transaction(async (em) => {
       const existing = await em.findOne(FaceEnrollmentEntity, {
         where: { employeeId },
@@ -146,8 +161,8 @@ export class EnrollmentService {
         employeeId,
         clientId,
         branchId,
-        embedding: embeddingToBuffer(averaged),
-        embeddingModel: dto.embeddingModel ?? null,
+        embedding: embeddingToBuffer(storedEmbedding),
+        embeddingModel: storedModel,
         photoUrl,
         consentGivenAt: new Date(),
         consentGivenBy: actorUserId,
@@ -163,7 +178,7 @@ export class EnrollmentService {
         employeeId,
         clientId,
         action,
-        embeddingModel: dto.embeddingModel ?? null,
+        embeddingModel: storedModel,
         actorUserId,
       });
 
@@ -178,8 +193,8 @@ export class EnrollmentService {
         branchId,
         'EMPLOYEE',
         employeeId,
-        averaged,
-        dto.embeddingModel ?? null,
+        storedEmbedding,
+        storedModel,
         'RE_ENROLL',
         actorUserId,
       )
@@ -290,7 +305,6 @@ export class EnrollmentService {
     const averaged = averageEmbeddings(
       dto.embeddingFrames.map(decodeEmbedding),
     );
-    const embBuf = embeddingToBuffer(averaged);
     const {
       clientId,
       branchId,
@@ -300,16 +314,25 @@ export class EnrollmentService {
     } = ticket;
     const actorUserId = ticket.createdBy ?? null;
 
-    // Quality gate via face-svc
-    if (this.faceClient.enabled && dto.photoB64) {
-      await this.assertPhotoQuality(dto.photoB64);
-    }
+    // Quality gate via face-svc; with FACE_SERVER_EMBED=true the server's
+    // embedding + model are what gets stored (ArcFace rollout path — the
+    // kiosk frames stay MobileFaceNet and would never match ArcFace probes).
+    const server =
+      this.faceClient.enabled && dto.photoB64
+        ? await this.assertPhotoQuality(dto.photoB64)
+        : null;
+    const useServer = SERVER_EMBED && server !== null;
+    const storedEmbedding = useServer
+      ? new Float32Array(server.embedding)
+      : averaged;
+    const storedModel = useServer ? server.model : (dto.embeddingModel ?? null);
+    const embBuf = embeddingToBuffer(storedEmbedding);
 
     const excludeId =
       subjectType === 'EMPLOYEE'
         ? { excludeEmployeeId: employeeId ?? undefined }
         : { excludeContractorId: contractorEmployeeId ?? undefined };
-    await this.assertNotDuplicate(clientId, averaged, excludeId);
+    await this.assertNotDuplicate(clientId, storedEmbedding, excludeId);
 
     let photoUrl: string | null = null;
     if (dto.photoB64 && (employeeId || contractorEmployeeId)) {
@@ -334,7 +357,7 @@ export class EnrollmentService {
             clientId,
             branchId,
             embedding: embBuf,
-            embeddingModel: dto.embeddingModel ?? null,
+            embeddingModel: storedModel,
             photoUrl,
             consentGivenAt: new Date(),
             consentGivenBy: actorUserId,
@@ -348,7 +371,7 @@ export class EnrollmentService {
             employeeId,
             clientId,
             action,
-            embeddingModel: dto.embeddingModel ?? null,
+            embeddingModel: storedModel,
             actorUserId,
           });
         } else if (subjectType === 'CONTRACTOR' && contractorEmployeeId) {
@@ -361,7 +384,7 @@ export class EnrollmentService {
             clientId,
             branchId,
             embedding: embBuf,
-            embeddingModel: dto.embeddingModel ?? null,
+            embeddingModel: storedModel,
             photoUrl,
             consentGivenAt: new Date(),
             consentGivenBy: actorUserId,
@@ -375,7 +398,7 @@ export class EnrollmentService {
             contractorEmployeeId,
             clientId,
             action,
-            embeddingModel: dto.embeddingModel ?? null,
+            embeddingModel: storedModel,
             actorUserId,
           });
         }
@@ -390,7 +413,7 @@ export class EnrollmentService {
             capturedAt: new Date(),
             pendingEmbedding: embBuf,
             photoUrl,
-            embeddingModel: dto.embeddingModel ?? null,
+            embeddingModel: storedModel,
             consentGiven: true,
           })
           .where('id = :id AND status = :status', {
