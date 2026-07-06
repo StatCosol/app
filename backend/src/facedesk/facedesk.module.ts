@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { FaceEmbeddingClient } from '../mobile-attendance/face/face-embedding.client';
+import { FacePhotoStorageService } from '../mobile-attendance/face/face-photo-storage.service';
 import {
   FaceDeskAttendanceEntity,
   FaceDeskAuditEntity,
@@ -13,13 +15,18 @@ import {
   FaceDeskSettingsEntity,
   FaceDeskSyncLogEntity,
 } from './entities/facedesk.entities';
+import { FaceDeskController } from './facedesk.controller';
+import { FaceDeskFaceService } from './facedesk-face.service';
 import { FaceDeskSettingsService } from './facedesk-settings.service';
+import { FaceDeskEnrollmentService } from './facedesk-enrollment.service';
+import { FaceDeskAttendanceService } from './facedesk-attendance.service';
+import { FaceDeskAdminService } from './facedesk-admin.service';
 
 /**
- * FaceDesk V2 — StatCo Smart Attendance Kiosk.
- * Net-new module, separate from V1 mobile-attendance. Phase 1: schema,
- * entities and calibrated settings. Enrollment/attendance/admin/report
- * controllers land in later phases.
+ * FaceDesk V2 — StatCo Smart Attendance Kiosk. Net-new module, separate from
+ * V1 mobile-attendance. Reuses the shared face-svc client, face-math and the
+ * scoped photo storage. Not for deploy until the module is feature-complete
+ * and validated (V1 stays live meanwhile).
  */
 @Module({
   imports: [
@@ -37,7 +44,16 @@ import { FaceDeskSettingsService } from './facedesk-settings.service';
       FaceDeskAuditEntity,
     ]),
   ],
-  providers: [FaceDeskSettingsService],
-  exports: [FaceDeskSettingsService, TypeOrmModule],
+  controllers: [FaceDeskController],
+  providers: [
+    FaceDeskSettingsService,
+    FaceDeskFaceService,
+    FaceDeskEnrollmentService,
+    FaceDeskAttendanceService,
+    FaceDeskAdminService,
+    FaceEmbeddingClient,
+    FacePhotoStorageService,
+  ],
+  exports: [FaceDeskSettingsService],
 })
 export class FaceDeskModule {}
