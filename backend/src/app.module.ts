@@ -69,6 +69,7 @@ import { AccountsBillingModule } from './accounts-billing/accounts-billing.modul
 import { ClientContactsModule } from './client-contacts/client-contacts.module';
 import { SalesModule } from './sales/sales.module';
 import { MobileAttendanceModule } from './mobile-attendance/mobile-attendance.module';
+import { FaceDeskModule } from './facedesk/facedesk.module';
 import { AccessModule } from './access/access.module';
 import { ListQueriesModule } from './list-queries/list-queries.module';
 import { ServiceEntitlementsModule } from './service-entitlements/service-entitlements.module';
@@ -216,6 +217,7 @@ import { ServiceEntitlementsGuard } from './service-entitlements/service-entitle
     ClientContactsModule,
     SalesModule,
     MobileAttendanceModule,
+    FaceDeskModule,
     AccessModule,
     ListQueriesModule,
     ServiceEntitlementsModule,
