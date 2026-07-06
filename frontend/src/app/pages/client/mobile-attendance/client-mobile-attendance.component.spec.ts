@@ -54,6 +54,7 @@ const makeComponent = (modules: string[] = ['MOBILE_ATTENDANCE']) => {
     zone,
     dialog as any,
     auth as any,
+    { open: vi.fn() } as any,
   );
 
   return { component, svc, branchSvc, employeesSvc, toast };

@@ -15,6 +15,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import { ClientEmployeesService, Employee } from '../employees/client-employees.service';
 import { AuthService } from '../../../core/auth.service';
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import {
   ClientMobileAttendanceService,
   ContractorReenrollRequest,
@@ -422,9 +423,10 @@ interface BranchOption { id: string; name: string }
                 <td class="px-4 py-3 text-center font-mono text-xs">{{ formatScore(r.matchMargin) }}</td>
                 <td class="px-4 py-3 text-xs text-gray-600 max-w-[220px]">{{ r.reviewNote || '—' }}</td>
                 <td class="px-4 py-3 text-center">
-                  <a *ngIf="r.photoUrl && !r.photoUrl.startsWith('local://')" [href]="r.photoUrl" target="_blank"
-                     class="text-xs text-indigo-600 hover:underline">View</a>
-                  <span *ngIf="!r.photoUrl || r.photoUrl.startsWith('local://')" class="text-xs text-gray-400">—</span>
+                  <button *ngIf="isPhotoOpenable(r.photoUrl)" type="button"
+                     class="text-xs text-indigo-600 hover:underline"
+                     (click)="openPunchPhoto(r.photoUrl!)">View</button>
+                  <span *ngIf="!isPhotoOpenable(r.photoUrl)" class="text-xs text-gray-400">—</span>
                 </td>
                 <td class="px-4 py-3 text-right whitespace-nowrap">
                   <ng-container *ngIf="r.decision === 'REVIEW_PENDING'; else reviewedState">
@@ -781,6 +783,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     private zone: NgZone,
     private dialog: ConfirmDialogService,
     private auth: AuthService,
+    private protectedFile: ProtectedFileService,
   ) {}
 
   private bump(): void {
@@ -876,6 +879,17 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     if (v === null || v === undefined || v === '') return '—';
     const n = Number(v);
     return Number.isFinite(n) ? n.toFixed(3) : '—';
+  }
+
+  /** /uploads paths need an authenticated fetch; legacy local:// files are gone. */
+  isPhotoOpenable(url: string | null | undefined): boolean {
+    return !!url && (url.startsWith('/uploads/') || url.startsWith('http'));
+  }
+
+  openPunchPhoto(url: string): void {
+    this.protectedFile.open(url, 'punch-photo.jpg').subscribe({
+      error: () => this.toast.error('Could not open the photo'),
+    });
   }
 
   async reviewPunchAction(

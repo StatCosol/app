@@ -19,6 +19,7 @@ import {
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { AuthService } from '../../../core/auth.service';
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import { ClientEmployeesService, Employee } from '../../client/employees/client-employees.service';
 import {
   ContractorEmployee,
@@ -424,20 +425,25 @@ interface EnrollForm {
                     <div class="font-semibold">Review note</div>
                     <div class="whitespace-pre-line">{{ t.notes }}</div>
                   </div>
-                  <a
-                    *ngIf="t.photoUrl"
-                    class="mt-1 inline-flex items-center gap-2 text-indigo-700 hover:underline"
-                    [href]="t.photoUrl"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    *ngIf="isPhotoOpenable(t.photoUrl)"
+                    type="button"
+                    class="mt-1 inline-flex items-center gap-1 text-indigo-700 hover:underline"
+                    (click)="inspectPhoto(t.photoUrl!)"
                   >
-                    <img
-                      [src]="t.photoUrl"
-                      alt="Captured face"
-                      class="h-10 w-10 rounded border border-gray-200 object-cover"
-                    />
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M2.5 12s3.5-7 9.5-7 9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
                     <span>Inspect photo</span>
-                  </a>
+                  </button>
+                  <span
+                    *ngIf="t.photoUrl && !isPhotoOpenable(t.photoUrl)"
+                    class="mt-1 inline-block text-xs text-gray-400"
+                    title="Photo captured by an older app version — file no longer available"
+                    >photo unavailable</span
+                  >
                   <div
                     *ngIf="t.matchScoreSelf"
                     class="mt-1 text-xs text-gray-500"
@@ -733,7 +739,19 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     private toast: ToastService,
     private cdr: ChangeDetectorRef,
     private dialog: ConfirmDialogService,
+    private protectedFile: ProtectedFileService,
   ) {}
+
+  /** /uploads paths need an authenticated fetch; legacy local:// files are gone. */
+  isPhotoOpenable(url: string | null | undefined): boolean {
+    return !!url && (url.startsWith('/uploads/') || url.startsWith('http'));
+  }
+
+  inspectPhoto(url: string): void {
+    this.protectedFile.open(url, 'face-capture.jpg').subscribe({
+      error: () => this.toast.error('Could not open the photo'),
+    });
+  }
 
   ngOnInit(): void {
     this.selectInitialSubjectType();

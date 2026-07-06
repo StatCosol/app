@@ -11,14 +11,21 @@ import {
 
 /**
  * Handles face photo persistence.
- * - If S3 env vars are set → upload to S3 (stub — extend with @aws-sdk/client-s3).
- * - Otherwise → save to LOCAL_FACE_PHOTO_DIR (defaults to /tmp/face-photos).
+ * - If S3 env vars are set → upload to S3.
+ * - Otherwise → save under the app uploads dir (UPLOADS_PATH, the persistent
+ *   AzureFile mount in production) and return a same-origin `/uploads/...`
+ *   URL. The /uploads route is Bearer-token protected, so the portal must
+ *   open these via ProtectedFileService, never a bare <a href>/<img src>.
+ *
+ * Legacy note: photos stored before this fix used LOCAL_FACE_PHOTO_DIR
+ * (default /tmp inside the container) with dead `local://` URLs — those
+ * files are gone with their containers and the links cannot be recovered.
  */
 @Injectable()
 export class FacePhotoStorageService {
   private readonly logger = new Logger(FacePhotoStorageService.name);
-  private readonly localDir: string =
-    process.env.LOCAL_FACE_PHOTO_DIR ?? '/tmp/face-photos';
+  private readonly uploadsDir: string =
+    process.env.UPLOADS_PATH ?? join(process.cwd(), 'uploads');
 
   private get useS3(): boolean {
     return !!process.env.AWS_S3_FACE_BUCKET;
@@ -86,6 +93,13 @@ export class FacePhotoStorageService {
         );
         return true;
       }
+      if (url.startsWith('/uploads/face-photos/')) {
+        const relative = url.slice('/uploads/'.length);
+        await unlink(join(this.uploadsDir, relative)).catch((err) => {
+          if (err?.code !== 'ENOENT') throw err;
+        });
+        return true;
+      }
       if (url.startsWith('local://')) {
         await unlink(url.slice('local://'.length)).catch((err) => {
           if (err?.code !== 'ENOENT') throw err;
@@ -107,7 +121,8 @@ export class FacePhotoStorageService {
     clientId: string,
     subjectId: string,
   ): Promise<string> {
-    const dir = join(this.localDir, clientId, subjectId);
+    const relativeDir = join('face-photos', clientId, subjectId);
+    const dir = join(this.uploadsDir, relativeDir);
     mkdirSync(dir, { recursive: true });
     const filename = `${randomUUID()}.jpg`;
     const fullPath = join(dir, filename);
@@ -121,6 +136,8 @@ export class FacePhotoStorageService {
       });
     });
 
-    return `local://${fullPath}`;
+    // Same-origin web path (served by the token-protected /uploads route);
+    // forward slashes regardless of host OS.
+    return `/uploads/face-photos/${clientId}/${subjectId}/${filename}`;
   }
 }
