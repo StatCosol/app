@@ -182,6 +182,23 @@ async function bootstrap() {
       return next();
     }
 
+    // Biometric face photos must NOT be served via the generic uploads route:
+    // that only checks token validity, not client/branch/subject authorization.
+    // They are served exclusively through the scoped mobile-attendance
+    // endpoints (…/kiosk/tickets/:id/photo, …/review/:type/:id/photo) which
+    // load the owning record and enforce access. Block the static path.
+    if (req.path.startsWith('/face-photos/')) {
+      return res.status(404).json({
+        success: false,
+        statusCode: 404,
+        message: 'Not found',
+        error: 'Not Found',
+        path: req.originalUrl,
+        method: req.method,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     // Extract token from Authorization header only.
     let token = '';
     const authHeader = req.headers?.authorization || '';

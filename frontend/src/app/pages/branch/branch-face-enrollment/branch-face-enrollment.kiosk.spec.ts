@@ -87,6 +87,7 @@ const makeComponent = (
     toast,
     noopCdr,
     dialog,
+    { open: vi.fn() } as any,
   );
 };
 

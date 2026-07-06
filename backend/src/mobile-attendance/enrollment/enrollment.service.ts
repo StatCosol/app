@@ -685,6 +685,25 @@ export class EnrollmentService {
     return this.ticketRepo.findOne({ where: { id: ticketId, clientId } });
   }
 
+  /**
+   * Scoped read of a kiosk-ticket face photo. Enforces client ownership and
+   * (for branch users) branch scope on the OWNING ticket before returning the
+   * image bytes — biometric photos must never be served via the raw static
+   * path. Returns null when the ticket/photo is absent.
+   */
+  async getTicketPhoto(
+    clientId: string,
+    ticketId: string,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{ buffer: Buffer; contentType: string } | null> {
+    const ticket = await this.ticketRepo.findOne({
+      where: { id: ticketId, clientId },
+    });
+    if (!ticket) throw new NotFoundException('Ticket not found');
+    this.assertEnrollmentBranchAllowed(ticket.branchId, allowedBranchIds);
+    return this.photoStorage.readPhoto(ticket.photoUrl);
+  }
+
   async listTickets(
     clientId: string,
     status?: string,

@@ -926,6 +926,33 @@ export class PunchService {
     return { ok: true, decision: newDecision };
   }
 
+  /**
+   * Scoped read of a punch face photo. Enforces client ownership and (for
+   * branch users) branch scope on the OWNING punch before returning bytes —
+   * biometric photos are never served via the raw static path.
+   */
+  async getPunchPhoto(
+    clientId: string,
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR',
+    punchId: string,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{ buffer: Buffer; contentType: string } | null> {
+    const punch =
+      subjectType === 'EMPLOYEE'
+        ? await this.punchRepo.findOne({ where: { id: punchId, clientId } })
+        : await this.contractorPunchRepo.findOne({
+            where: { id: punchId, clientId },
+          });
+    if (!punch) throw new NotFoundException('Punch not found');
+    if (
+      allowedBranchIds &&
+      (!punch.branchId || !allowedBranchIds.includes(punch.branchId))
+    ) {
+      throw new NotFoundException('Punch not found');
+    }
+    return this.photoStorage.readPhoto(punch.photoUrl);
+  }
+
   // ─── Admin list / CRUD endpoints ──────────────────────────────────────────
 
   async listPunches(
