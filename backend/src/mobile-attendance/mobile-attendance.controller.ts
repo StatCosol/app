@@ -4,16 +4,18 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   Patch,
   Post,
   Put,
   Query,
   Req,
+  Res,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { UseGuards } from '@nestjs/common';
 import { Roles } from '../auth/roles.decorator';
 import { Public } from '../auth/public.decorator';
@@ -272,6 +274,29 @@ export class MobileAttendanceEnrollmentController {
     return this.enrollmentService.getTicket(ticketId, clientId);
   }
 
+  @ApiOperation({
+    summary: 'Stream a kiosk-ticket face photo (client + branch scoped)',
+  })
+  @Get('kiosk/tickets/:ticketId/photo')
+  @Roles('CLIENT', 'ADMIN')
+  async getTicketPhoto(
+    @Param('ticketId') ticketId: string,
+    @CurrentUser() user: ReqUser,
+    @Res() res: Response,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    const photo = await this.enrollmentService.getTicketPhoto(
+      clientId,
+      ticketId,
+      this.branchScope(user),
+    );
+    if (!photo) throw new NotFoundException('Photo not available');
+    res.setHeader('Content-Type', photo.contentType);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(photo.buffer);
+  }
+
   @ApiOperation({ summary: 'Deactivate a face enrollment (DPDP crypto-shred)' })
   @Post('deactivate')
   @Roles('CLIENT', 'ADMIN')
@@ -456,6 +481,44 @@ export class MobileAttendancePunchesController {
       user.id,
       body.note,
     );
+  }
+
+  /** Branch-user scope: CLIENT+BRANCH sees only its branches; else unrestricted. */
+  private punchBranchScope(user: ReqUser): string[] | null {
+    return user?.roleCode === 'CLIENT' && user?.userType === 'BRANCH'
+      ? (user.branchIds ?? [])
+      : null;
+  }
+
+  @ApiOperation({
+    summary: 'Stream a punch face photo (client + branch scoped)',
+  })
+  @Get('review/:subjectType/:punchId/photo')
+  @Roles('CLIENT', 'ADMIN')
+  async getPunchPhoto(
+    @CurrentUser() user: ReqUser,
+    @Param('subjectType') subjectType: string,
+    @Param('punchId') punchId: string,
+    @Res() res: Response,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    const kind = String(subjectType || '').toUpperCase();
+    if (kind !== 'EMPLOYEE' && kind !== 'CONTRACTOR') {
+      throw new BadRequestException(
+        'subjectType must be employee or contractor',
+      );
+    }
+    const photo = await this.punchService.getPunchPhoto(
+      clientId,
+      kind,
+      punchId,
+      this.punchBranchScope(user),
+    );
+    if (!photo) throw new NotFoundException('Photo not available');
+    res.setHeader('Content-Type', photo.contentType);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(photo.buffer);
   }
 
   @ApiOperation({ summary: 'Admin — list employee punches with filters' })

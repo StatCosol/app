@@ -429,7 +429,7 @@ interface EnrollForm {
                     *ngIf="isPhotoOpenable(t.photoUrl)"
                     type="button"
                     class="mt-1 inline-flex items-center gap-1 text-indigo-700 hover:underline"
-                    (click)="inspectPhoto(t.photoUrl!)"
+                    (click)="inspectPhoto(t)"
                   >
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round"
@@ -742,12 +742,18 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     private protectedFile: ProtectedFileService,
   ) {}
 
-  /** /uploads paths need an authenticated fetch; legacy local:// files are gone. */
+  /** New captures store a /uploads path; legacy local:// files are gone. */
   isPhotoOpenable(url: string | null | undefined): boolean {
-    return !!url && (url.startsWith('/uploads/') || url.startsWith('http'));
+    return !!url && url.startsWith('/uploads/');
   }
 
-  inspectPhoto(url: string): void {
+  /**
+   * Open a ticket's face photo through the scoped, access-checked endpoint
+   * (never the raw storage path). ProtectedFileService attaches the bearer
+   * token; the backend verifies client + branch scope on the ticket.
+   */
+  inspectPhoto(t: KioskEnrollTicket): void {
+    const url = `/api/v1/mobile-attendance/kiosk/tickets/${t.id}/photo`;
     this.protectedFile.open(url, 'face-capture.jpg').subscribe({
       error: () => this.toast.error('Could not open the photo'),
     });

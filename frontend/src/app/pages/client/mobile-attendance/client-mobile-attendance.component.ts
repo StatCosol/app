@@ -425,7 +425,7 @@ interface BranchOption { id: string; name: string }
                 <td class="px-4 py-3 text-center">
                   <button *ngIf="isPhotoOpenable(r.photoUrl)" type="button"
                      class="text-xs text-indigo-600 hover:underline"
-                     (click)="openPunchPhoto(r.photoUrl!)">View</button>
+                     (click)="openPunchPhoto(r)">View</button>
                   <span *ngIf="!isPhotoOpenable(r.photoUrl)" class="text-xs text-gray-400">—</span>
                 </td>
                 <td class="px-4 py-3 text-right whitespace-nowrap">
@@ -881,12 +881,19 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     return Number.isFinite(n) ? n.toFixed(3) : '—';
   }
 
-  /** /uploads paths need an authenticated fetch; legacy local:// files are gone. */
+  /** New captures store a /uploads path; legacy local:// files are gone. */
   isPhotoOpenable(url: string | null | undefined): boolean {
-    return !!url && (url.startsWith('/uploads/') || url.startsWith('http'));
+    return !!url && url.startsWith('/uploads/');
   }
 
-  openPunchPhoto(url: string): void {
+  /**
+   * Open a review punch's photo through the scoped, access-checked endpoint
+   * (never the raw storage path). The backend verifies client + branch scope
+   * on the owning punch.
+   */
+  openPunchPhoto(r: ReviewPunchRow): void {
+    const kind = r.subjectType.toLowerCase();
+    const url = `/api/v1/mobile-attendance/punches/review/${kind}/${r.id}/photo`;
     this.protectedFile.open(url, 'punch-photo.jpg').subscribe({
       error: () => this.toast.error('Could not open the photo'),
     });

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createWriteStream, mkdirSync } from 'fs';
-import { unlink } from 'fs/promises';
-import { join } from 'path';
+import { readFile, unlink } from 'fs/promises';
+import { join, normalize, sep } from 'path';
 import { randomUUID } from 'crypto';
 import {
   S3Client,
@@ -113,6 +113,38 @@ export class FacePhotoStorageService {
         `deletePhoto failed for ${url}: ${err instanceof Error ? err.message : String(err)}`,
       );
       return false;
+    }
+  }
+
+  /**
+   * Read a stored face photo by the URL previously returned from uploadPhoto.
+   * Only the on-disk `/uploads/face-photos/...` scheme is supported (the prod
+   * storage path); legacy `local://` and s3:// return null. Path traversal is
+   * rejected. Callers MUST verify the requester is authorized for the owning
+   * record BEFORE calling this — this method does no access control.
+   */
+  async readPhoto(
+    url: string | null | undefined,
+  ): Promise<{ buffer: Buffer; contentType: string } | null> {
+    if (!url || !url.startsWith('/uploads/face-photos/')) return null;
+    const relative = url.slice('/uploads/'.length);
+    const fullPath = normalize(join(this.uploadsDir, relative));
+    // Containment guard: resolved path must stay under uploadsDir.
+    const root = normalize(this.uploadsDir + sep);
+    if (!fullPath.startsWith(root)) {
+      this.logger.warn(`readPhoto: path traversal blocked for ${url}`);
+      return null;
+    }
+    try {
+      const buffer = await readFile(fullPath);
+      return { buffer, contentType: 'image/jpeg' };
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+        this.logger.warn(
+          `readPhoto failed for ${url}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+      return null;
     }
   }
 
