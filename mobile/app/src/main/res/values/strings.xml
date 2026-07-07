@@ -126,4 +126,18 @@
     <string name="enroll_guide_turn_right">Turn your head to the right →</string>
     <string name="enroll_guide_move_closer">Step closer to the camera</string>
     <string name="enroll_guide_look_straight">Look straight at the camera</string>
+
+    <!-- FaceDesk V2 -->
+    <string name="facedesk_look_at_camera">Please look at the camera</string>
+    <string name="facedesk_offline_saved">Offline attendance saved</string>
+    <string name="facedesk_not_recognized">Face not recognized</string>
+    <string name="facedesk_camera_needed">Camera permission is required</string>
+    <string name="facedesk_camera_failed">Could not start the camera</string>
+    <string name="facedesk_enroll_prompt">Tap Capture and look at the camera</string>
+    <string name="facedesk_capture">Capture</string>
+    <string name="facedesk_hold_still">Hold still…</string>
+    <string name="facedesk_saving">Saving enrollment…</string>
+    <string name="facedesk_enrolled">Enrollment saved</string>
+    <string name="facedesk_enroll_failed">Enrollment failed — try again</string>
+    <string name="facedesk_enroll_offline">No connection — please try again</string>
 </resources>

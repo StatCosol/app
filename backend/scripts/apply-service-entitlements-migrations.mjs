@@ -41,6 +41,9 @@ const serviceMigrationFiles = new Set([
   // workflow columns, per-client threshold overrides. Must run before a
   // backend image that writes the `decision` column deploys.
   '20260704_face_kiosk_accuracy_upgrade.sql',
+  // FaceDesk V2 — new kiosk module schema (facedesk_* tables). Separate from
+  // V1; must exist before the FaceDesk module handles any request.
+  '20260707b_facedesk_v2_module.sql',
 ]);
 
 const config = {
