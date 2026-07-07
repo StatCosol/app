@@ -17,6 +17,9 @@ import {
   FaceDeskSyncLogEntity,
 } from './entities/facedesk.entities';
 import { FaceDeskController } from './facedesk.controller';
+import { FaceDeskDeviceController } from './facedesk-device.controller';
+import { FaceDeskDeviceService } from './facedesk-device.service';
+import { FaceDeskDeviceAuthGuard } from './facedesk-device-auth.guard';
 import { FaceDeskFaceService } from './facedesk-face.service';
 import { FaceDeskSettingsService } from './facedesk-settings.service';
 import { FaceDeskEnrollmentService } from './facedesk-enrollment.service';
@@ -48,7 +51,7 @@ import { FaceDeskReportsService } from './facedesk-reports.service';
     ]),
     BiometricModule,
   ],
-  controllers: [FaceDeskController],
+  controllers: [FaceDeskController, FaceDeskDeviceController],
   providers: [
     FaceDeskSettingsService,
     FaceDeskFaceService,
@@ -57,6 +60,8 @@ import { FaceDeskReportsService } from './facedesk-reports.service';
     FaceDeskAdminService,
     FaceDeskDashboardService,
     FaceDeskReportsService,
+    FaceDeskDeviceService,
+    FaceDeskDeviceAuthGuard,
     FaceEmbeddingClient,
     FacePhotoStorageService,
   ],

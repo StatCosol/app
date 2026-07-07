@@ -21,6 +21,7 @@ import {
   FaceDeskReportsService,
   ReportRange,
 } from './facedesk-reports.service';
+import { FaceDeskDeviceService } from './facedesk-device.service';
 import {
   CheckDuplicateDto,
   DuplicateActionDto,
@@ -50,6 +51,7 @@ export class FaceDeskController {
     private readonly settings: FaceDeskSettingsService,
     private readonly dashboard: FaceDeskDashboardService,
     private readonly reports: FaceDeskReportsService,
+    private readonly devices: FaceDeskDeviceService,
   ) {}
 
   private range(user: ReqUser, from?: string, to?: string): ReportRange {
@@ -237,6 +239,43 @@ export class FaceDeskController {
       user.id,
       body?.approve === true,
     );
+  }
+
+  // ── Device management (admin) ─────────────────────────────────────────────
+  @ApiOperation({ summary: 'Provision a kiosk device (returns install token)' })
+  @Post('devices')
+  @Roles('CLIENT', 'ADMIN')
+  provisionDevice(
+    @CurrentUser() user: ReqUser,
+    @Body()
+    body: {
+      deviceName: string;
+      branchId?: string;
+      location?: string;
+      mode?: 'ATTENDANCE' | 'ENROLLMENT';
+    },
+  ) {
+    return this.devices.provision(this.requireClient(user), {
+      ...body,
+      branchId: body?.branchId ?? user?.branchIds?.[0] ?? null,
+    });
+  }
+
+  @ApiOperation({ summary: 'List kiosk devices' })
+  @Get('devices')
+  @Roles('CLIENT', 'ADMIN')
+  listDevices(@CurrentUser() user: ReqUser) {
+    return this.devices.list(this.requireClient(user));
+  }
+
+  @ApiOperation({ summary: 'Revoke a kiosk device' })
+  @Post('devices/:deviceId/revoke')
+  @Roles('CLIENT', 'ADMIN')
+  revokeDevice(
+    @CurrentUser() user: ReqUser,
+    @Param('deviceId') deviceId: string,
+  ) {
+    return this.devices.revoke(this.requireClient(user), deviceId);
   }
 
   // ── Dashboard ─────────────────────────────────────────────────────────────

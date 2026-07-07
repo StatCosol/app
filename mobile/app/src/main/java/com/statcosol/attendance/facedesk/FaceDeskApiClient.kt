@@ -53,30 +53,30 @@ class FaceDeskApiClient(private val config: DeviceConfig) {
 
     suspend fun markAttendance(req: MarkAttendanceRequest): MarkAttendanceResponse {
         val body = json.encodeToString(req).toRequestBody(mediaType)
-        val request = builder("/api/v1/facedesk/attendance/mark").post(body).build()
+        val request = builder("/api/v1/facedesk/device/attendance/mark").post(body).build()
         return execute(request) { json.decodeFromString(it) }
     }
 
     suspend fun offlineSync(req: OfflineSyncRequest): OfflineSyncResponse {
         val body = json.encodeToString(req).toRequestBody(mediaType)
-        val request = builder("/api/v1/facedesk/attendance/offline-sync").post(body).build()
+        val request = builder("/api/v1/facedesk/device/attendance/offline-sync").post(body).build()
         return execute(request) { json.decodeFromString(it) }
     }
 
     suspend fun pendingEnrollment(): List<PendingEmployee> {
-        val request = builder("/api/v1/facedesk/enrollment/pending").get().build()
+        val request = builder("/api/v1/facedesk/device/enrollment/pending").get().build()
         return execute(request) { json.decodeFromString(it) }
     }
 
     suspend fun validateQuality(req: ValidateQualityRequest): ValidateQualityResponse {
         val body = json.encodeToString(req).toRequestBody(mediaType)
-        val request = builder("/api/v1/facedesk/enrollment/validate-quality").post(body).build()
+        val request = builder("/api/v1/facedesk/device/enrollment/validate-quality").post(body).build()
         return execute(request) { json.decodeFromString(it) }
     }
 
     suspend fun saveEnrollment(req: SaveEnrollmentRequest): SaveEnrollmentResponse {
         val body = json.encodeToString(req).toRequestBody(mediaType)
-        val request = builder("/api/v1/facedesk/enrollment/save").post(body).build()
+        val request = builder("/api/v1/facedesk/device/enrollment/save").post(body).build()
         return execute(request) { json.decodeFromString(it) }
     }
 }
