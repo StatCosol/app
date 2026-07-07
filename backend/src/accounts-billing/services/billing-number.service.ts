@@ -4,6 +4,11 @@ import { Repository } from 'typeorm';
 import { Invoice } from '../entities';
 import { InvoiceType } from '../enums';
 import { BillingSetting } from '../entities';
+import {
+  buildInvoiceNumber,
+  compactFinancialYear,
+  normalizeInvoicePrefix,
+} from '../utils/invoice-number.util';
 
 @Injectable()
 export class BillingNumberService {
@@ -43,8 +48,8 @@ export class BillingNumberService {
   ): Promise<string> {
     const date = new Date(invoiceDate);
     const fy = this.getFinancialYear(date);
-    const prefix = await this.getPrefix(invoiceType);
-    const fullPrefix = `${prefix}/${fy}/`;
+    const prefix = normalizeInvoicePrefix(await this.getPrefix(invoiceType));
+    const fullPrefix = `${prefix}/${compactFinancialYear(fy)}/`;
 
     const lastInvoice = await this.invoiceRepo
       .createQueryBuilder('inv')
@@ -59,6 +64,6 @@ export class BillingNumberService {
       if (!isNaN(lastNum)) nextSeq = lastNum + 1;
     }
 
-    return `${fullPrefix}${String(nextSeq).padStart(4, '0')}`;
+    return buildInvoiceNumber(prefix, fy, nextSeq);
   }
 }

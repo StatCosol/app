@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BillingSetting } from '../entities';
 import { UpdateBillingSettingsDto } from '../dto';
+import { normalizeInvoicePrefix } from '../utils/invoice-number.util';
 
 @Injectable()
 export class BillingSettingsService {
@@ -32,6 +33,8 @@ export class BillingSettingsService {
   }
 
   async updateSettings(dto: UpdateBillingSettingsDto) {
+    this.validateInvoicePrefixes(dto);
+
     let settings: BillingSetting | null = await this.repo.findOne({
       where: {},
     });
@@ -44,5 +47,17 @@ export class BillingSettingsService {
       Object.assign(settings, dto);
     }
     return this.repo.save(settings);
+  }
+
+  private validateInvoicePrefixes(dto: UpdateBillingSettingsDto): void {
+    if (dto.invoicePrefix !== undefined) {
+      normalizeInvoicePrefix(dto.invoicePrefix, 'Invoice prefix');
+    }
+    if (dto.proformaPrefix !== undefined) {
+      normalizeInvoicePrefix(dto.proformaPrefix, 'Proforma prefix');
+    }
+    if (dto.creditNotePrefix !== undefined) {
+      normalizeInvoicePrefix(dto.creditNotePrefix, 'Credit note prefix');
+    }
   }
 }
