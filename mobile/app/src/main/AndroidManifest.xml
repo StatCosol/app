@@ -68,6 +68,18 @@
             android:exported="false"
             android:label="@string/enroll_title" />
 
+        <!-- FaceDesk V2 — separate full-screen attendance + admin enrollment. -->
+        <activity
+            android:name=".facedesk.FaceDeskAttendanceActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:label="FaceDesk Attendance" />
+        <activity
+            android:name=".facedesk.FaceDeskEnrollmentActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:label="FaceDesk Enrollment" />
+
         <!-- Device admin receiver for lock-task / kiosk pinning.
              Activate as device owner via ADB: dpm set-device-owner .../.admin.KioskDeviceAdmin -->
         <receiver
