@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BiometricModule } from '../biometric/biometric.module';
 import { FaceEmbeddingClient } from '../mobile-attendance/face/face-embedding.client';
 import { FacePhotoStorageService } from '../mobile-attendance/face/face-photo-storage.service';
 import {
@@ -21,6 +22,8 @@ import { FaceDeskSettingsService } from './facedesk-settings.service';
 import { FaceDeskEnrollmentService } from './facedesk-enrollment.service';
 import { FaceDeskAttendanceService } from './facedesk-attendance.service';
 import { FaceDeskAdminService } from './facedesk-admin.service';
+import { FaceDeskDashboardService } from './facedesk-dashboard.service';
+import { FaceDeskReportsService } from './facedesk-reports.service';
 
 /**
  * FaceDesk V2 — StatCo Smart Attendance Kiosk. Net-new module, separate from
@@ -43,6 +46,7 @@ import { FaceDeskAdminService } from './facedesk-admin.service';
       FaceDeskSettingsEntity,
       FaceDeskAuditEntity,
     ]),
+    BiometricModule,
   ],
   controllers: [FaceDeskController],
   providers: [
@@ -51,6 +55,8 @@ import { FaceDeskAdminService } from './facedesk-admin.service';
     FaceDeskEnrollmentService,
     FaceDeskAttendanceService,
     FaceDeskAdminService,
+    FaceDeskDashboardService,
+    FaceDeskReportsService,
     FaceEmbeddingClient,
     FacePhotoStorageService,
   ],

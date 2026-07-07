@@ -16,6 +16,11 @@ import { FaceDeskEnrollmentService } from './facedesk-enrollment.service';
 import { FaceDeskAttendanceService } from './facedesk-attendance.service';
 import { FaceDeskAdminService } from './facedesk-admin.service';
 import { FaceDeskSettingsService } from './facedesk-settings.service';
+import { FaceDeskDashboardService } from './facedesk-dashboard.service';
+import {
+  FaceDeskReportsService,
+  ReportRange,
+} from './facedesk-reports.service';
 import {
   CheckDuplicateDto,
   DuplicateActionDto,
@@ -43,7 +48,13 @@ export class FaceDeskController {
     private readonly attendance: FaceDeskAttendanceService,
     private readonly admin: FaceDeskAdminService,
     private readonly settings: FaceDeskSettingsService,
+    private readonly dashboard: FaceDeskDashboardService,
+    private readonly reports: FaceDeskReportsService,
   ) {}
+
+  private range(user: ReqUser, from?: string, to?: string): ReportRange {
+    return { from, to, branchIds: this.branchScope(user) ?? undefined };
+  }
 
   private branchScope(user: ReqUser): string[] | null {
     return user?.roleCode === 'CLIENT' && user?.userType === 'BRANCH'
@@ -226,6 +237,167 @@ export class FaceDeskController {
       user.id,
       body?.approve === true,
     );
+  }
+
+  // ── Dashboard ─────────────────────────────────────────────────────────────
+  @ApiOperation({ summary: 'Dashboard cards' })
+  @Get('dashboard')
+  @Roles('CLIENT', 'ADMIN')
+  dashboardCards(@CurrentUser() user: ReqUser) {
+    return this.dashboard.cards(
+      this.requireClient(user),
+      this.branchScope(user) ?? [],
+    );
+  }
+
+  // ── Reports ───────────────────────────────────────────────────────────────
+  @ApiOperation({ summary: 'Daily attendance report' })
+  @Get('reports/daily')
+  @Roles('CLIENT', 'ADMIN')
+  reportDaily(
+    @CurrentUser() user: ReqUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reports.dailyAttendance(
+      this.requireClient(user),
+      this.range(user, from, to),
+    );
+  }
+
+  @ApiOperation({ summary: 'Employee-wise attendance report' })
+  @Get('reports/employee')
+  @Roles('CLIENT', 'ADMIN')
+  reportEmployee(
+    @CurrentUser() user: ReqUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reports.employeeSummary(
+      this.requireClient(user),
+      this.range(user, from, to),
+    );
+  }
+
+  @ApiOperation({ summary: 'Branch-wise attendance report' })
+  @Get('reports/branch')
+  @Roles('CLIENT', 'ADMIN')
+  reportBranch(
+    @CurrentUser() user: ReqUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reports.branchSummary(
+      this.requireClient(user),
+      this.range(user, from, to),
+    );
+  }
+
+  @ApiOperation({ summary: 'Late coming report' })
+  @Get('reports/late')
+  @Roles('CLIENT', 'ADMIN')
+  reportLate(
+    @CurrentUser() user: ReqUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reports.lateComing(
+      this.requireClient(user),
+      this.range(user, from, to),
+    );
+  }
+
+  @ApiOperation({ summary: 'Early going report' })
+  @Get('reports/early')
+  @Roles('CLIENT', 'ADMIN')
+  reportEarly(
+    @CurrentUser() user: ReqUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reports.earlyGoing(
+      this.requireClient(user),
+      this.range(user, from, to),
+    );
+  }
+
+  @ApiOperation({ summary: 'Absent report' })
+  @Get('reports/absent')
+  @Roles('CLIENT', 'ADMIN')
+  reportAbsent(
+    @CurrentUser() user: ReqUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reports.absent(
+      this.requireClient(user),
+      this.range(user, from, to),
+    );
+  }
+
+  @ApiOperation({ summary: 'Failed face attempts report' })
+  @Get('reports/failed')
+  @Roles('CLIENT', 'ADMIN')
+  reportFailed(
+    @CurrentUser() user: ReqUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reports.failedAttempts(
+      this.requireClient(user),
+      this.range(user, from, to),
+    );
+  }
+
+  @ApiOperation({ summary: 'Duplicate enrollment report' })
+  @Get('reports/duplicates')
+  @Roles('CLIENT', 'ADMIN')
+  reportDuplicates(@CurrentUser() user: ReqUser) {
+    return this.reports.duplicateReport(this.requireClient(user));
+  }
+
+  @ApiOperation({ summary: 'Pending enrollment report' })
+  @Get('reports/pending-enrollment')
+  @Roles('CLIENT', 'ADMIN')
+  reportPending(@CurrentUser() user: ReqUser) {
+    return this.reports.pendingEnrollment(
+      this.requireClient(user),
+      this.branchScope(user) ?? undefined,
+    );
+  }
+
+  @ApiOperation({ summary: 'Device sync report' })
+  @Get('reports/device-sync')
+  @Roles('CLIENT', 'ADMIN')
+  reportDeviceSync(@CurrentUser() user: ReqUser) {
+    return this.reports.deviceSyncReport(this.requireClient(user));
+  }
+
+  @ApiOperation({ summary: 'Payroll attendance export (approved only)' })
+  @Get('reports/payroll-export')
+  @Roles('CLIENT', 'ADMIN')
+  payrollExport(
+    @CurrentUser() user: ReqUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reports.payrollExport(
+      this.requireClient(user),
+      this.range(user, from, to),
+    );
+  }
+
+  @ApiOperation({ summary: 'Push approved attendance to payroll (PayDek)' })
+  @Post('payroll/sync')
+  @Roles('CLIENT', 'ADMIN')
+  payrollSync(
+    @CurrentUser() user: ReqUser,
+    @Body() body: { from?: string; to?: string },
+  ) {
+    return this.reports.pushToPayroll(this.requireClient(user), {
+      from: body?.from,
+      to: body?.to,
+    });
   }
 
   // ── Settings ──────────────────────────────────────────────────────────────
