@@ -102,6 +102,8 @@ const ClientFaceFailuresComponent = () =>
   import('./face-failures/client-face-failures.component').then(
     (m) => m.ClientFaceFailuresComponent,
   );
+const FaceDeskComponent = () =>
+  import('./facedesk/facedesk.component').then((m) => m.FaceDeskComponent);
 const NewsDetailComponent = () =>
   import('../../shared/news/news-detail.component').then((m) => m.NewsDetailComponent);
 const ClientAuditSummariesComponent = () =>
@@ -197,6 +199,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'biometric', loadComponent: ClientBiometricComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
       { path: 'mobile-attendance', loadComponent: ClientMobileAttendanceComponent, canActivate: [moduleAccessGuard(['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])] },
       { path: 'face-failures', loadComponent: ClientFaceFailuresComponent, canActivate: [moduleAccessGuard(['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])] },
+      { path: 'facedesk', loadComponent: FaceDeskComponent, canActivate: [moduleAccessGuard(['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])] },
       { path: 'news', loadComponent: NewsDetailComponent },
       { path: 'news/:newsId', loadComponent: NewsDetailComponent },
       { path: 'notices', loadComponent: ClientNoticesComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
