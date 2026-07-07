@@ -12,6 +12,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 import {
   DuplicateAlert,
   FaceDeskDashboard,
+  FaceDeskDevice,
   FaceDeskService,
   FaceDeskSettings,
   PendingEnrollmentRow,
@@ -20,6 +21,7 @@ import {
 
 type Tab =
   | 'dashboard'
+  | 'devices'
   | 'pending'
   | 'duplicates'
   | 'review'
@@ -50,6 +52,7 @@ type Tab =
 
       <div class="tab-bar">
         <button class="tab-btn" [class.active]="tab === 'dashboard'" (click)="switch('dashboard')">Dashboard</button>
+        <button class="tab-btn" [class.active]="tab === 'devices'" (click)="switch('devices')">Devices</button>
         <button class="tab-btn" [class.active]="tab === 'pending'" (click)="switch('pending')">Pending Enrollment</button>
         <button class="tab-btn" [class.active]="tab === 'duplicates'" (click)="switch('duplicates')">
           Duplicate Alerts
@@ -81,6 +84,49 @@ type Tab =
         <p *ngIf="!loading && cards" class="text-xs text-gray-500 mt-3">
           Last sync: {{ cards.lastSyncTime ? (cards.lastSyncTime | date: 'dd MMM yyyy, HH:mm') : '—' }}
         </p>
+      </ng-container>
+
+      <!-- DEVICES -->
+      <ng-container *ngIf="tab === 'devices'">
+        <div class="flex flex-wrap items-end gap-2 mb-4">
+          <label class="text-sm">Device name<input [(ngModel)]="newDevice.deviceName" class="inp" placeholder="e.g. Main Gate Tablet"></label>
+          <label class="text-sm">Location<input [(ngModel)]="newDevice.location" class="inp" placeholder="optional"></label>
+          <select [(ngModel)]="newDevice.mode" class="inp">
+            <option value="ATTENDANCE">Attendance</option>
+            <option value="ENROLLMENT">Enrollment</option>
+          </select>
+          <button class="btn primary" (click)="provision()">Provision device</button>
+          <button class="btn" (click)="switch('devices')">Refresh</button>
+        </div>
+
+        <div *ngIf="newInstallToken" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+          <div class="text-sm font-semibold text-emerald-900 mb-1">Install token — enter this once on the kiosk to register it:</div>
+          <div class="font-mono text-xs break-all bg-white border rounded p-2">{{ newInstallToken }}</div>
+          <div class="text-xs text-emerald-800 mt-1">Shown once. Copy it now.</div>
+        </div>
+
+        <ui-loading-spinner *ngIf="loading" text="Loading devices..." size="lg"></ui-loading-spinner>
+        <ui-empty-state *ngIf="!loading && deviceList.length === 0" title="No devices" description="Provision a kiosk device to get started."></ui-empty-state>
+        <table *ngIf="!loading && deviceList.length > 0" class="tbl">
+          <thead><tr><th>Name</th><th>Mode</th><th>Status</th><th>Last Sync</th><th>App</th><th class="right">Actions</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let d of deviceList">
+              <td>{{ d.deviceName }}<div class="text-xs text-gray-500">{{ d.location || '' }}</div></td>
+              <td><span class="pill amber">{{ d.mode }}</span></td>
+              <td>
+                <span class="pill" [class.amber]="d.deviceStatus !== 'ONLINE'"
+                  [style.background]="d.deviceStatus === 'ONLINE' ? '#dcfce7' : ''"
+                  [style.color]="d.deviceStatus === 'ONLINE' ? '#166534' : ''">{{ d.deviceStatus }}</span>
+              </td>
+              <td>{{ d.lastSyncTime ? (d.lastSyncTime | date: 'dd MMM, HH:mm') : '—' }}</td>
+              <td class="text-xs">{{ d.appVersion || '—' }}</td>
+              <td class="right nowrap">
+                <button *ngIf="d.deviceStatus !== 'REVOKED'" class="link red" (click)="revoke(d)">Revoke</button>
+                <span *ngIf="d.deviceStatus === 'REVOKED'" class="text-xs text-gray-400">revoked</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </ng-container>
 
       <!-- PENDING ENROLLMENT -->
@@ -245,6 +291,14 @@ export class FaceDeskComponent implements OnInit {
   reportRows: Record<string, unknown>[] = [];
   reportCols: string[] = [];
 
+  deviceList: FaceDeskDevice[] = [];
+  newDevice: { deviceName: string; location: string; mode: 'ATTENDANCE' | 'ENROLLMENT' } = {
+    deviceName: '',
+    location: '',
+    mode: 'ATTENDANCE',
+  };
+  newInstallToken: string | null = null;
+
   constructor(
     private svc: FaceDeskService,
     private toast: ToastService,
@@ -259,6 +313,7 @@ export class FaceDeskComponent implements OnInit {
   switch(t: Tab): void {
     this.tab = t;
     if (t === 'dashboard') this.loadDashboard();
+    if (t === 'devices') this.load(this.svc.devices(), (r) => (this.deviceList = r));
     if (t === 'pending') this.load(this.svc.pendingEnrollment(), (r) => (this.pending = r));
     if (t === 'duplicates') this.load(this.svc.duplicateAlerts(), (r) => (this.duplicates = r));
     if (t === 'review') this.load(this.svc.reviewQueue(), (r) => (this.review = r));
@@ -326,6 +381,39 @@ export class FaceDeskComponent implements OnInit {
     this.svc.pushToPayroll(this.from || undefined, this.to || undefined).subscribe({
       next: (r) => this.toast.success(`Pushed ${r.pushed} of ${r.received} punches to payroll`),
       error: (e) => this.toast.error(e?.error?.message || 'Payroll sync failed'),
+    });
+  }
+
+  provision(): void {
+    if (!this.newDevice.deviceName.trim()) {
+      this.toast.error('Enter a device name');
+      return;
+    }
+    this.svc.provisionDevice({
+      deviceName: this.newDevice.deviceName.trim(),
+      location: this.newDevice.location.trim() || undefined,
+      mode: this.newDevice.mode,
+    }).subscribe({
+      next: (d) => {
+        this.newInstallToken = d.installToken;
+        this.newDevice = { deviceName: '', location: '', mode: 'ATTENDANCE' };
+        this.toast.success('Device provisioned');
+        this.switch('devices');
+      },
+      error: (e) => this.toast.error(e?.error?.message || 'Provision failed'),
+    });
+  }
+
+  async revoke(d: FaceDeskDevice): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Revoke Device',
+      `Revoke "${d.deviceName}"? It will stop accepting attendance immediately.`,
+      { variant: 'danger', confirmText: 'Revoke' },
+    );
+    if (!ok) return;
+    this.svc.revokeDevice(d.deviceId).subscribe({
+      next: () => { this.toast.success('Device revoked'); this.switch('devices'); },
+      error: (e) => this.toast.error(e?.error?.message || 'Revoke failed'),
     });
   }
 

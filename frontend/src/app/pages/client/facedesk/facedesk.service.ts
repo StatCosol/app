@@ -60,6 +60,19 @@ export interface PendingEnrollmentRow {
   status?: string;
 }
 
+export interface FaceDeskDevice {
+  deviceId: string;
+  deviceName: string;
+  branchId: string | null;
+  location: string | null;
+  deviceStatus: string;
+  mode: string;
+  installToken: string | null;
+  lastSyncTime: string | null;
+  appVersion: string | null;
+  createdAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class FaceDeskService {
   private readonly base = `${environment.apiBaseUrl}/api/v1/facedesk`;
@@ -132,5 +145,21 @@ export class FaceDeskService {
       `${this.base}/payroll/sync`,
       { from, to },
     );
+  }
+
+  // Devices
+  devices(): Observable<FaceDeskDevice[]> {
+    return this.http.get<FaceDeskDevice[]>(`${this.base}/devices`);
+  }
+  provisionDevice(body: {
+    deviceName: string;
+    branchId?: string;
+    location?: string;
+    mode?: 'ATTENDANCE' | 'ENROLLMENT';
+  }): Observable<FaceDeskDevice> {
+    return this.http.post<FaceDeskDevice>(`${this.base}/devices`, body);
+  }
+  revokeDevice(deviceId: string): Observable<{ ok: true }> {
+    return this.http.post<{ ok: true }>(`${this.base}/devices/${deviceId}/revoke`, {});
   }
 }
