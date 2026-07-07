@@ -75,6 +75,11 @@ import { ToastService } from '../../../shared/toast/toast.service';
         </div>
       </div>
 
+      <div *ngIf="invoice.remarks" class="bg-white rounded-xl border p-5">
+        <h3 class="text-sm font-semibold text-slate-500 uppercase mb-2">Remarks</h3>
+        <p class="text-sm text-slate-700 whitespace-pre-line">{{ invoice.remarks }}</p>
+      </div>
+
       <!-- Line Items -->
       <div class="bg-white rounded-xl border shadow-sm overflow-x-auto">
         <table class="w-full text-sm">

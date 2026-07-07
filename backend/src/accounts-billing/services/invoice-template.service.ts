@@ -42,6 +42,13 @@ export class InvoiceTemplateService {
       : `<tr><td colspan="2" style="padding:6px 8px;border:1px solid #ddd">IGST @ ${invoice.igstRate}%</td>
          <td style="padding:6px 8px;border:1px solid #ddd;text-align:right">₹${this.fmt(invoice.igstAmount)}</td></tr>`;
 
+    const remarksHtml = invoice.remarks?.trim()
+      ? `<div style="padding:10px;background:#f8fafc;border:1px solid #eee;font-size:12px;margin-bottom:20px">
+      <strong>Remarks:</strong><br>
+      ${this.escapeHtml(invoice.remarks).replace(/\r?\n/g, '<br>')}
+    </div>`
+      : '';
+
     return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><style>
@@ -111,6 +118,7 @@ export class InvoiceTemplateService {
         <td colspan="2" style="padding:8px;border:1px solid #ddd">Grand Total</td>
         <td style="padding:8px;border:1px solid #ddd;text-align:right">₹${this.fmt(invoice.grandTotal)}</td></tr>
   </table>
+  ${remarksHtml}
   <div style="display:flex;gap:20px;margin-bottom:20px">
     <div style="flex:1;padding:10px;background:#f8fafc;border:1px solid #eee;font-size:12px">
       <strong>Bank Details:</strong><br>
@@ -142,5 +150,14 @@ export class InvoiceTemplateService {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
+  }
+
+  private escapeHtml(value: string): string {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }

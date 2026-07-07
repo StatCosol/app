@@ -336,8 +336,22 @@ export class InvoicePdfService {
     doc.x = left;
     doc.y = ty + 14;
 
+    const remarks = this.cleanText(invoice.remarks);
+    if (remarks) {
+      const remarksTextH = doc
+        .font('Helvetica')
+        .fontSize(8)
+        .heightOfString(remarks, { width: contentW - 16 });
+      const remarksH = Math.max(42, remarksTextH + 28);
+      this.ensureSpace(doc, remarksH + 10);
+      this.infoBox(doc, left, doc.y, contentW, remarksH, 'Remarks', [remarks]);
+      doc.x = left;
+      doc.y += remarksH + 10;
+    }
+
     // ── Bank + Declaration ──
     const footH = 90;
+    this.ensureSpace(doc, footH + 80);
     const footY = doc.y;
     const footColW = (contentW - 10) / 2;
     this.infoBox(doc, left, footY, footColW, footH, 'Bank Details', [
@@ -620,6 +634,22 @@ export class InvoicePdfService {
       ly = doc.y;
     }
     doc.x = x;
+  }
+
+  private cleanText(value: string | null | undefined): string {
+    return String(value || '')
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .trim();
+  }
+
+  private ensureSpace(doc: PDFKit.PDFDocument, neededHeight: number): void {
+    const bottomY = doc.page.height - doc.page.margins.bottom;
+    if (doc.y + neededHeight > bottomY) {
+      doc.addPage();
+      doc.x = doc.page.margins.left;
+      doc.y = doc.page.margins.top;
+    }
   }
 
   private inr(n: number | string | null | undefined): string {
