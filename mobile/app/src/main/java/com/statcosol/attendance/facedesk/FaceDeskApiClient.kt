@@ -51,6 +51,17 @@ class FaceDeskApiClient(private val config: DeviceConfig) {
             parse(body)
         }
 
+    /** Bind androidId to a FaceDesk install token (public endpoint). */
+    suspend fun register(req: FaceDeskRegisterRequest): FaceDeskRegisterResponse {
+        val body = json.encodeToString(req).toRequestBody(mediaType)
+        val request = Request.Builder()
+            .url("${config.apiBase.trimEnd('/')}/api/v1/facedesk/device/register")
+            .post(body)
+            .header("Content-Type", "application/json")
+            .build()
+        return execute(request) { json.decodeFromString(it) }
+    }
+
     suspend fun markAttendance(req: MarkAttendanceRequest): MarkAttendanceResponse {
         val body = json.encodeToString(req).toRequestBody(mediaType)
         val request = builder("/api/v1/facedesk/device/attendance/mark").post(body).build()
