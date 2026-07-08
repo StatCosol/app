@@ -77,6 +77,21 @@ data class ValidateQualityResponse(
 )
 
 @Serializable
+data class FaceDeskRegisterRequest(
+    val installToken: String,
+    val androidId: String,
+)
+
+@Serializable
+data class FaceDeskRegisterResponse(
+    val deviceToken: String,
+    val deviceId: String,
+    val mode: String,
+    val clientId: String,
+    val branchId: String? = null,
+)
+
+@Serializable
 data class PendingEmployee(
     val employeeId: String,
     val employeeCode: String,

@@ -79,6 +79,11 @@
             android:exported="false"
             android:screenOrientation="portrait"
             android:label="FaceDesk Enrollment" />
+        <activity
+            android:name=".facedesk.FaceDeskEnrollPickerActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:label="FaceDesk Enrollment" />
 
         <!-- Device admin receiver for lock-task / kiosk pinning.
              Activate as device owner via ADB: dpm set-device-owner .../.admin.KioskDeviceAdmin -->

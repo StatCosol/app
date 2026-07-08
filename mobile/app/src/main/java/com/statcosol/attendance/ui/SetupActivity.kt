@@ -93,6 +93,13 @@ class SetupActivity : AppCompatActivity() {
 
                 navigateToMain()
             } catch (e: ApiException) {
+                // Token not found as a V1 device → try FaceDesk V2 registration.
+                // FaceDesk devices are separate; a FaceDesk install token 401/404s
+                // against the V1 endpoint but registers here.
+                if (e.code == 404 || e.code == 401) {
+                    val fd = tryFaceDeskRegister(token, androidId)
+                    if (fd) return@launch
+                }
                 setLoading(false)
                 val msg = when (e.code) {
                     400 -> getString(R.string.setup_invalid_token, token.length)
@@ -141,12 +148,36 @@ class SetupActivity : AppCompatActivity() {
         return "${token.take(6)}...${token.takeLast(6)}"
     }
 
+    /** Register the token as a FaceDesk V2 device; returns true on success. */
+    private suspend fun tryFaceDeskRegister(token: String, androidId: String): Boolean {
+        return try {
+            val fdClient = com.statcosol.attendance.facedesk.FaceDeskApiClient(config)
+            val res = fdClient.register(
+                com.statcosol.attendance.facedesk.FaceDeskRegisterRequest(
+                    installToken = token,
+                    androidId = androidId,
+                )
+            )
+            config.deviceToken = res.deviceToken
+            config.deviceMode = "FACEDESK_${res.mode}" // FACEDESK_ATTENDANCE | FACEDESK_ENROLLMENT
+            config.androidId = androidId
+            navigateToMain()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     private fun navigateToMain() {
         val mode = config.deviceMode
-        val intent = if (mode.equals("ess", ignoreCase = true)) {
-            Intent(this, EssActivity::class.java)
-        } else {
-            Intent(this, KioskActivity::class.java)
+        val intent = when {
+            mode.equals("FACEDESK_ENROLLMENT", ignoreCase = true) ->
+                Intent(this, com.statcosol.attendance.facedesk.FaceDeskEnrollPickerActivity::class.java)
+            mode.startsWith("FACEDESK", ignoreCase = true) ->
+                Intent(this, com.statcosol.attendance.facedesk.FaceDeskAttendanceActivity::class.java)
+            mode.equals("ess", ignoreCase = true) ->
+                Intent(this, EssActivity::class.java)
+            else -> Intent(this, KioskActivity::class.java)
         }
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)
