@@ -1,87 +1,200 @@
 /**
  * FaceDesk V2 request DTOs.
  *
+ * The global ValidationPipe runs with whitelist + forbidNonWhitelisted, so
+ * every property MUST carry a class-validator decorator or the request is
+ * rejected. Frames are validated element-by-element via @ValidateNested.
+ *
  * Frame model: the kiosk captures 10-15 frames and sends them either as
  * device-computed embeddings (works offline) or as base64 photos (server
- * embeds via face-svc). Each frame may carry the device's own quality metrics
- * and a liveness result from the on-device blink/head-turn challenge.
+ * embeds via face-svc), plus optional device quality/liveness.
  */
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
 
-export interface FaceFrameDto {
-  /** base64 little-endian float32 embedding (device path). */
+export class FaceFrameDto {
+  @IsOptional()
+  @IsString()
   embeddingB64?: string;
-  /** base64 JPEG/PNG (server-embed path via face-svc). */
+
+  @IsOptional()
+  @IsString()
   photoB64?: string;
+
+  @IsOptional()
+  @IsString()
   embeddingModel?: string;
-  /** device-computed quality 0..1 (face score / sharpness proxy). */
+
+  @IsOptional()
+  @IsNumber()
   qualityScore?: number;
-  /** device liveness probability 0..1 for this frame, if any. */
+
+  @IsOptional()
+  @IsNumber()
   livenessScore?: number;
+
+  @IsOptional()
+  @IsIn(['FRONT', 'LEFT', 'RIGHT', 'EXPRESSION', 'LIVENESS'])
   sampleType?: 'FRONT' | 'LEFT' | 'RIGHT' | 'EXPRESSION' | 'LIVENESS';
 }
 
 export class SaveEnrollmentDto {
+  @IsString()
   employeeId: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => FaceFrameDto)
   frames: FaceFrameDto[];
-  /** primary photo to persist (scoped storage), optional. */
+
+  @IsOptional()
+  @IsString()
   photoB64?: string;
-  /** on-device blink/head-turn challenge passed. */
+
+  @IsOptional()
+  @IsBoolean()
   livenessPassed?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   consentGiven?: boolean;
 }
 
 export class ValidateQualityDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => FaceFrameDto)
   frames: FaceFrameDto[];
 }
 
 export class CheckDuplicateDto {
+  @IsString()
   employeeId: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => FaceFrameDto)
   frames: FaceFrameDto[];
 }
 
 export class MarkAttendanceDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => FaceFrameDto)
   frames: FaceFrameDto[];
+
+  @IsOptional()
+  @IsString()
   photoB64?: string;
+
+  @IsOptional()
+  @IsBoolean()
   livenessPassed?: boolean;
-  /** client-generated id for offline dedupe; unique per (client, ref). */
+
+  @IsOptional()
+  @IsString()
   offlineRef?: string;
-  /** ISO time of capture (offline punches carry their original time). */
+
+  @IsOptional()
+  @IsString()
   punchTime?: string;
+
+  @IsOptional()
+  @IsNumber()
   captureLat?: number;
+
+  @IsOptional()
+  @IsNumber()
   captureLng?: number;
 }
 
 export class OfflineSyncDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MarkAttendanceDto)
   punches: MarkAttendanceDto[];
 }
 
 export class ReviewActionDto {
+  @IsIn(['APPROVE', 'REJECT', 'REASSIGN', 'FALSE_ALERT'])
   action: 'APPROVE' | 'REJECT' | 'REASSIGN' | 'FALSE_ALERT';
+
+  @IsOptional()
+  @IsString()
   remarks?: string;
-  /** for REASSIGN: the correct employee. */
+
+  @IsOptional()
+  @IsString()
   reassignEmployeeId?: string;
 }
 
 export class DuplicateActionDto {
+  @IsIn(['APPROVE', 'REJECT', 'FALSE_ALERT'])
   action: 'APPROVE' | 'REJECT' | 'FALSE_ALERT';
+
+  @IsOptional()
+  @IsString()
   remarks?: string;
 }
 
 export class ManualCorrectionDto {
+  @IsString()
   employeeId: string;
+
+  @IsIn(['ADD', 'EDIT', 'DELETE'])
   correctionType: 'ADD' | 'EDIT' | 'DELETE';
+
+  @IsOptional()
+  @IsString()
   attendanceId?: string;
+
+  @IsOptional()
+  @IsString()
   newPunchTime?: string;
+
+  @IsOptional()
+  @IsIn(['IN', 'OUT'])
   newPunchType?: 'IN' | 'OUT';
+
+  @IsOptional()
+  @IsString()
   reason?: string;
 }
 
 export class UpdateSettingsDto {
+  @IsOptional()
+  @IsNumber()
   faceMatchConfidence?: number;
+
+  @IsOptional()
+  @IsNumber()
   faceRetryConfidence?: number;
+
+  @IsOptional()
+  @IsNumber()
   duplicateThreshold?: number;
+
+  @IsOptional()
+  @IsNumber()
   minFaceSamples?: number;
+
+  @IsOptional()
+  @IsNumber()
   frameCaptureCount?: number;
+
+  @IsOptional()
+  @IsBoolean()
   livenessRequired?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   offlineSyncEnabled?: boolean;
 }
