@@ -9,6 +9,7 @@ import {
 } from '../../../shared/ui';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
+import { ClientBranchesService } from '../../../core/client-branches.service';
 import {
   DuplicateAlert,
   FaceDeskDashboard,
@@ -90,6 +91,12 @@ type Tab =
       <ng-container *ngIf="tab === 'devices'">
         <div class="flex flex-wrap items-end gap-2 mb-4">
           <label class="text-sm">Device name<input [(ngModel)]="newDevice.deviceName" class="inp" placeholder="e.g. Main Gate Tablet"></label>
+          <label class="text-sm">Branch
+            <select [(ngModel)]="newDevice.branchId" class="inp">
+              <option value="">— select branch —</option>
+              <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+            </select>
+          </label>
           <label class="text-sm">Location<input [(ngModel)]="newDevice.location" class="inp" placeholder="optional"></label>
           <label class="text-sm">Admin PIN<input [(ngModel)]="newDevice.adminPin" class="inp" placeholder="4–12 digits" maxlength="12"></label>
           <select [(ngModel)]="newDevice.mode" class="inp">
@@ -109,10 +116,11 @@ type Tab =
         <ui-loading-spinner *ngIf="loading" text="Loading devices..." size="lg"></ui-loading-spinner>
         <ui-empty-state *ngIf="!loading && deviceList.length === 0" title="No devices" description="Provision a kiosk device to get started."></ui-empty-state>
         <table *ngIf="!loading && deviceList.length > 0" class="tbl">
-          <thead><tr><th>Name</th><th>Mode</th><th>Status</th><th>Last Sync</th><th>App</th><th class="right">Actions</th></tr></thead>
+          <thead><tr><th>Name</th><th>Branch</th><th>Mode</th><th>Status</th><th>Last Sync</th><th>App</th><th class="right">Actions</th></tr></thead>
           <tbody>
             <tr *ngFor="let d of deviceList">
               <td>{{ d.deviceName }}<div class="text-xs text-gray-500">{{ d.location || '' }}</div></td>
+              <td>{{ branchName(d.branchId) }}</td>
               <td><span class="pill amber">{{ d.mode }}</span></td>
               <td>
                 <span class="pill" [class.amber]="d.deviceStatus !== 'ONLINE'"
@@ -293,12 +301,14 @@ export class FaceDeskComponent implements OnInit {
   reportCols: string[] = [];
 
   deviceList: FaceDeskDevice[] = [];
+  branches: { id: string; name: string }[] = [];
   newDevice: {
     deviceName: string;
+    branchId: string;
     location: string;
     mode: 'ATTENDANCE' | 'ENROLLMENT';
     adminPin: string;
-  } = { deviceName: '', location: '', mode: 'ATTENDANCE', adminPin: '' };
+  } = { deviceName: '', branchId: '', location: '', mode: 'ATTENDANCE', adminPin: '' };
   newInstallToken: string | null = null;
 
   constructor(
@@ -306,10 +316,31 @@ export class FaceDeskComponent implements OnInit {
     private toast: ToastService,
     private dialog: ConfirmDialogService,
     private cdr: ChangeDetectorRef,
+    private branchSvc: ClientBranchesService,
   ) {}
 
   ngOnInit(): void {
+    this.loadBranches();
     this.loadDashboard();
+  }
+
+  loadBranches(): void {
+    this.branchSvc.list().subscribe({
+      next: (rows: any[]) => {
+        this.branches = (rows || []).map((b: any) => ({
+          id: b.id,
+          name: b.name || b.branchCode || b.code || b.id,
+        }));
+        this.cdr.detectChanges();
+      },
+      error: () => undefined,
+    });
+  }
+
+  /** Resolve a device/row branchId to its display name. */
+  branchName(id: string | null | undefined): string {
+    if (!id) return '—';
+    return this.branches.find((b) => b.id === id)?.name ?? id;
   }
 
   switch(t: Tab): void {
@@ -393,13 +424,14 @@ export class FaceDeskComponent implements OnInit {
     }
     this.svc.provisionDevice({
       deviceName: this.newDevice.deviceName.trim(),
+      branchId: this.newDevice.branchId || undefined,
       location: this.newDevice.location.trim() || undefined,
       mode: this.newDevice.mode,
       adminPin: this.newDevice.adminPin.trim() || undefined,
     }).subscribe({
       next: (d) => {
         this.newInstallToken = d.installToken;
-        this.newDevice = { deviceName: '', location: '', mode: 'ATTENDANCE', adminPin: '' };
+        this.newDevice = { deviceName: '', branchId: '', location: '', mode: 'ATTENDANCE', adminPin: '' };
         this.toast.success('Device provisioned');
         this.switch('devices');
       },
