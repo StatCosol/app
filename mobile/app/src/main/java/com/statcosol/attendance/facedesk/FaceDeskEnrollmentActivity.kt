@@ -126,15 +126,32 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         frames.clear(); minEyeOpenness = 1.0
         capturing.set(true)
         btnCapture.isEnabled = false
-        tvHint.text = getString(R.string.facedesk_hold_still)
+        tvHint.text = getString(R.string.facedesk_blink_now)
+        // Safety timeout: if no blink is captured, tell the operator rather
+        // than silently failing the backend liveness gate.
+        previewView.postDelayed({
+            if (capturing.getAndSet(false) && !saving.get()) {
+                runOnUiThread {
+                    tvHint.text = getString(R.string.facedesk_blink_timeout)
+                    btnCapture.isEnabled = true
+                }
+            }
+        }, CAPTURE_TIMEOUT_MS)
     }
 
     private fun onFrame(probe: FloatArray, eyeOpenness: Double) {
         if (!capturing.get()) return
         minEyeOpenness = minOf(minEyeOpenness, eyeOpenness)
         frames.add(FaceFrame(embeddingB64 = embedder.toBase64(probe), embeddingModel = MODEL))
-        runOnUiThread { tvHint.text = "Capturing… ${frames.size}/$CAPTURE_FRAMES" }
-        if (frames.size >= CAPTURE_FRAMES) {
+        val blinked = minEyeOpenness < BLINK_THRESHOLD
+        runOnUiThread {
+            tvHint.text = if (blinked)
+                getString(R.string.facedesk_capturing, frames.size, CAPTURE_FRAMES)
+            else
+                getString(R.string.facedesk_blink_now)
+        }
+        // Complete only once we have enough frames AND a detected blink.
+        if (frames.size >= CAPTURE_FRAMES && blinked) {
             capturing.set(false)
             save()
         }
@@ -181,6 +198,8 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "FaceDeskEnroll"
         private const val CAPTURE_FRAMES = 15
+        private const val BLINK_THRESHOLD = 0.35
+        private const val CAPTURE_TIMEOUT_MS = 12_000L
         private const val MODEL = "mobilefacenet"
         const val EXTRA_EMPLOYEE_ID = "employeeId"
         const val EXTRA_EMPLOYEE_NAME = "employeeName"

@@ -75,6 +75,11 @@ class DeviceConfig(context: Context) {
         get() = prefs.getString(KEY_ANDROID_ID, "") ?: ""
         set(value) = prefs.edit().putString(KEY_ANDROID_ID, value).apply()
 
+    /** FaceDesk admin PIN — gates switching this device into enrollment mode. */
+    var faceDeskAdminPin: String
+        get() = prefs.getString(KEY_FD_ADMIN_PIN, "0000") ?: "0000"
+        set(value) = prefs.edit().putString(KEY_FD_ADMIN_PIN, value).apply()
+
     fun isRegistered(): Boolean = deviceToken.isNotBlank()
 
     fun clear() = prefs.edit().clear().apply()
@@ -88,6 +93,7 @@ class DeviceConfig(context: Context) {
         private const val KEY_INSTALL_TOKEN = "install_token"
         private const val KEY_DEVICE_MODE = "device_mode"
         private const val KEY_ANDROID_ID = "android_id"
+        private const val KEY_FD_ADMIN_PIN = "fd_admin_pin"
         private const val DEFAULT_API_BASE = "https://app.statcosol.com"
     }
 }

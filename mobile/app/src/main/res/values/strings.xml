@@ -144,4 +144,11 @@
     <string name="facedesk_all_enrolled">All employees are enrolled</string>
     <string name="facedesk_loading_pending">Loading employees…</string>
     <string name="facedesk_pending_failed">Could not load employees</string>
+    <string name="facedesk_blink_now">Look at the camera and blink</string>
+    <string name="facedesk_blink_timeout">No blink detected — tap Capture and blink</string>
+    <string name="facedesk_capturing">Capturing… %1$d/%2$d</string>
+    <string name="facedesk_enroll_mode_title">Enrollment mode</string>
+    <string name="facedesk_admin_pin_message">Enter the admin PIN to enroll employees</string>
+    <string name="facedesk_admin_pin_hint">Admin PIN</string>
+    <string name="facedesk_wrong_pin">Incorrect PIN</string>
 </resources>

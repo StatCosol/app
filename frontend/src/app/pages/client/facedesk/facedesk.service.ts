@@ -156,6 +156,7 @@ export class FaceDeskService {
     branchId?: string;
     location?: string;
     mode?: 'ATTENDANCE' | 'ENROLLMENT';
+    adminPin?: string;
   }): Observable<FaceDeskDevice> {
     return this.http.post<FaceDeskDevice>(`${this.base}/devices`, body);
   }

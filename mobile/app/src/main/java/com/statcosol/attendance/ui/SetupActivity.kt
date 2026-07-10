@@ -160,6 +160,7 @@ class SetupActivity : AppCompatActivity() {
             )
             config.deviceToken = res.deviceToken
             config.deviceMode = "FACEDESK_${res.mode}" // FACEDESK_ATTENDANCE | FACEDESK_ENROLLMENT
+            config.faceDeskAdminPin = res.adminPin
             config.androidId = androidId
             navigateToMain()
             true
