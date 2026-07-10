@@ -46,6 +46,8 @@ const serviceMigrationFiles = new Set([
   '20260707b_facedesk_v2_module.sql',
   // FaceDesk V2 — per-device admin PIN (single-device mode toggle).
   '20260711_facedesk_device_admin_pin.sql',
+  // FaceDesk V2 — web-initiated enrollment tickets.
+  '20260711b_facedesk_enroll_tickets.sql',
 ]);
 
 const config = {
