@@ -93,6 +93,15 @@ data class FaceDeskRegisterResponse(
 )
 
 @Serializable
+data class EnrollTicket(
+    val ticketId: String,
+    val employeeId: String,
+    val employeeName: String? = null,
+    val employeeCode: String? = null,
+    val status: String,
+)
+
+@Serializable
 data class PendingEmployee(
     val employeeId: String,
     val employeeCode: String,

@@ -24,6 +24,9 @@ import com.statcosol.attendance.face.FaceCaptureSession
 import com.statcosol.attendance.face.FaceDetector
 import com.statcosol.attendance.face.FaceEmbedder
 import com.statcosol.attendance.prefs.DeviceConfig
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.UUID
 import java.util.concurrent.ExecutorService
@@ -53,6 +56,11 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     private var minEyeOpenness = 1.0
     private val submitting = AtomicBoolean(false)
     private var paused = false
+
+    // Web-initiated enrollment: while a ticket is open for this device,
+    // attendance is held and the enrollment screen is launched for it.
+    private var enrollmentHold = false
+    private var ticketPollJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -130,8 +138,53 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Returned from enrollment (or first shown) — release the hold and
+        // (re)start ticket polling.
+        enrollmentHold = false
+        runOnUiThread { if (tvResult.text.isNullOrBlank()) tvTitle.text = getString(R.string.facedesk_look_at_camera) }
+        startTicketPolling()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        ticketPollJob?.cancel()
+    }
+
+    /** Poll for a web-initiated enrollment ticket; hold attendance + open enroll. */
+    private fun startTicketPolling() {
+        ticketPollJob?.cancel()
+        ticketPollJob = lifecycleScope.launch {
+            while (isActive) {
+                try {
+                    if (!enrollmentHold) {
+                        val ticket = api.pendingTicket()
+                        if (ticket != null) {
+                            enrollmentHold = true
+                            runOnUiThread {
+                                tvTitle.text = getString(R.string.facedesk_enroll_in_progress)
+                                tvResult.text = ticket.employeeName ?: ""
+                            }
+                            startActivity(
+                                Intent(this@FaceDeskAttendanceActivity, FaceDeskEnrollmentActivity::class.java).apply {
+                                    putExtra(FaceDeskEnrollmentActivity.EXTRA_EMPLOYEE_ID, ticket.employeeId)
+                                    putExtra(FaceDeskEnrollmentActivity.EXTRA_EMPLOYEE_NAME, ticket.employeeName)
+                                    putExtra(FaceDeskEnrollmentActivity.EXTRA_TICKET_ID, ticket.ticketId)
+                                },
+                            )
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "ticket poll failed: ${e.message}")
+                }
+                delay(TICKET_POLL_MS)
+            }
+        }
+    }
+
     private fun onFrame(probe: FloatArray, eyeOpenness: Double) {
-        if (paused || submitting.get()) return
+        if (paused || submitting.get() || enrollmentHold) return
         minEyeOpenness = minOf(minEyeOpenness, eyeOpenness)
         frames.add(FaceFrame(embeddingB64 = embedder.toBase64(probe), embeddingModel = MODEL))
         if (frames.size >= REQUIRED_FRAMES) submit()
@@ -254,6 +307,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "FaceDeskAttendance"
         private const val REQUIRED_FRAMES = 10
+        private const val TICKET_POLL_MS = 4_000L
         private const val MODEL = "mobilefacenet"
     }
 }

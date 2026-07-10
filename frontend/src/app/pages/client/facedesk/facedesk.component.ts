@@ -140,16 +140,28 @@ type Tab =
 
       <!-- PENDING ENROLLMENT -->
       <ng-container *ngIf="tab === 'pending'">
-        <p class="text-sm text-gray-600 mb-3">Employees not yet enrolled. Enrollment is captured on the kiosk device in enrollment mode.</p>
+        <div class="flex flex-wrap items-end gap-2 mb-3">
+          <p class="text-sm text-gray-600 flex-1">Pick a kiosk, then click Enroll for an employee. The kiosk opens the enrollment screen and pauses attendance until it's done.</p>
+          <label class="text-sm">Kiosk device
+            <select [(ngModel)]="enrollDeviceId" class="inp">
+              <option value="">— select device —</option>
+              <option *ngFor="let d of deviceList" [value]="d.deviceId">{{ d.deviceName }} ({{ branchName(d.branchId) }})</option>
+            </select>
+          </label>
+        </div>
         <ui-loading-spinner *ngIf="loading" text="Loading..." size="lg"></ui-loading-spinner>
         <ui-empty-state *ngIf="!loading && pending.length === 0" title="All enrolled" description="No employees are pending enrollment."></ui-empty-state>
         <table *ngIf="!loading && pending.length > 0" class="tbl">
-          <thead><tr><th>Code</th><th>Employee</th><th>Status</th></tr></thead>
+          <thead><tr><th>Code</th><th>Employee</th><th>Status</th><th class="right">Action</th></tr></thead>
           <tbody>
             <tr *ngFor="let r of pending">
               <td class="mono">{{ r.employeeCode }}</td>
               <td>{{ r.employeeName || r.name }}</td>
               <td><span class="pill amber">{{ r.status || r.enrollmentStatus || 'PENDING' }}</span></td>
+              <td class="right">
+                <button class="link green" [disabled]="!enrollDeviceId || enrollingId === r.employeeId"
+                  (click)="enroll(r)">Enroll on kiosk</button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -310,6 +322,8 @@ export class FaceDeskComponent implements OnInit {
     adminPin: string;
   } = { deviceName: '', branchId: '', location: '', mode: 'ATTENDANCE', adminPin: '' };
   newInstallToken: string | null = null;
+  enrollDeviceId = '';
+  enrollingId: string | null = null;
 
   constructor(
     private svc: FaceDeskService,
@@ -347,7 +361,10 @@ export class FaceDeskComponent implements OnInit {
     this.tab = t;
     if (t === 'dashboard') this.loadDashboard();
     if (t === 'devices') this.load(this.svc.devices(), (r) => (this.deviceList = r));
-    if (t === 'pending') this.load(this.svc.pendingEnrollment(), (r) => (this.pending = r));
+    if (t === 'pending') {
+      this.load(this.svc.pendingEnrollment(), (r) => (this.pending = r));
+      if (this.deviceList.length === 0) this.svc.devices().subscribe((d) => (this.deviceList = d));
+    }
     if (t === 'duplicates') this.load(this.svc.duplicateAlerts(), (r) => (this.duplicates = r));
     if (t === 'review') this.load(this.svc.reviewQueue(), (r) => (this.review = r));
     if (t === 'settings') this.load(this.svc.getSettings(), (r) => (this.settings = r));
@@ -414,6 +431,30 @@ export class FaceDeskComponent implements OnInit {
     this.svc.pushToPayroll(this.from || undefined, this.to || undefined).subscribe({
       next: (r) => this.toast.success(`Pushed ${r.pushed} of ${r.received} punches to payroll`),
       error: (e) => this.toast.error(e?.error?.message || 'Payroll sync failed'),
+    });
+  }
+
+  async enroll(r: PendingEnrollmentRow): Promise<void> {
+    if (!this.enrollDeviceId) { this.toast.error('Select a kiosk device first'); return; }
+    const empId = r.employeeId;
+    if (!empId) return;
+    const dev = this.deviceList.find((d) => d.deviceId === this.enrollDeviceId);
+    const ok = await this.dialog.confirm(
+      'Enroll on Kiosk',
+      `Send ${r.employeeName || r.name} to "${dev?.deviceName}" for enrollment? The kiosk opens the enrollment screen and pauses attendance until done.`,
+      { confirmText: 'Send to kiosk' },
+    );
+    if (!ok) return;
+    this.enrollingId = empId;
+    this.svc.createEnrollTicket(empId, this.enrollDeviceId).subscribe({
+      next: () => {
+        this.enrollingId = null;
+        this.toast.success('Sent to kiosk — ask the employee to face the camera');
+      },
+      error: (e) => {
+        this.enrollingId = null;
+        this.toast.error(e?.error?.message || 'Could not create enrollment');
+      },
     });
   }
 
