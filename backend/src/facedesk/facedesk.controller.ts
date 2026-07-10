@@ -253,6 +253,7 @@ export class FaceDeskController {
       branchId?: string;
       location?: string;
       mode?: 'ATTENDANCE' | 'ENROLLMENT';
+      adminPin?: string;
     },
   ) {
     return this.devices.provision(this.requireClient(user), {

@@ -89,6 +89,7 @@ data class FaceDeskRegisterResponse(
     val mode: String,
     val clientId: String,
     val branchId: String? = null,
+    val adminPin: String = "0000",
 )
 
 @Serializable

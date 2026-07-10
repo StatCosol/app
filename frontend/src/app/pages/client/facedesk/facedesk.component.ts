@@ -91,6 +91,7 @@ type Tab =
         <div class="flex flex-wrap items-end gap-2 mb-4">
           <label class="text-sm">Device name<input [(ngModel)]="newDevice.deviceName" class="inp" placeholder="e.g. Main Gate Tablet"></label>
           <label class="text-sm">Location<input [(ngModel)]="newDevice.location" class="inp" placeholder="optional"></label>
+          <label class="text-sm">Admin PIN<input [(ngModel)]="newDevice.adminPin" class="inp" placeholder="4–12 digits" maxlength="12"></label>
           <select [(ngModel)]="newDevice.mode" class="inp">
             <option value="ATTENDANCE">Attendance</option>
             <option value="ENROLLMENT">Enrollment</option>
@@ -292,11 +293,12 @@ export class FaceDeskComponent implements OnInit {
   reportCols: string[] = [];
 
   deviceList: FaceDeskDevice[] = [];
-  newDevice: { deviceName: string; location: string; mode: 'ATTENDANCE' | 'ENROLLMENT' } = {
-    deviceName: '',
-    location: '',
-    mode: 'ATTENDANCE',
-  };
+  newDevice: {
+    deviceName: string;
+    location: string;
+    mode: 'ATTENDANCE' | 'ENROLLMENT';
+    adminPin: string;
+  } = { deviceName: '', location: '', mode: 'ATTENDANCE', adminPin: '' };
   newInstallToken: string | null = null;
 
   constructor(
@@ -393,10 +395,11 @@ export class FaceDeskComponent implements OnInit {
       deviceName: this.newDevice.deviceName.trim(),
       location: this.newDevice.location.trim() || undefined,
       mode: this.newDevice.mode,
+      adminPin: this.newDevice.adminPin.trim() || undefined,
     }).subscribe({
       next: (d) => {
         this.newInstallToken = d.installToken;
-        this.newDevice = { deviceName: '', location: '', mode: 'ATTENDANCE' };
+        this.newDevice = { deviceName: '', location: '', mode: 'ATTENDANCE', adminPin: '' };
         this.toast.success('Device provisioned');
         this.switch('devices');
       },

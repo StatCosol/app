@@ -44,6 +44,8 @@ const serviceMigrationFiles = new Set([
   // FaceDesk V2 — new kiosk module schema (facedesk_* tables). Separate from
   // V1; must exist before the FaceDesk module handles any request.
   '20260707b_facedesk_v2_module.sql',
+  // FaceDesk V2 — per-device admin PIN (single-device mode toggle).
+  '20260711_facedesk_device_admin_pin.sql',
 ]);
 
 const config = {

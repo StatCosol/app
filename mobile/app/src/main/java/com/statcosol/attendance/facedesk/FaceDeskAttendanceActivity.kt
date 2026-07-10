@@ -1,10 +1,14 @@
 package com.statcosol.attendance.facedesk
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.text.InputType
 import android.util.Log
+import android.widget.EditText
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
@@ -63,6 +67,10 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         embedder = FaceEmbedder(this)
         detector = FaceDetector()
         cameraExecutor = Executors.newSingleThreadExecutor()
+
+        // Admin-gated switch to enrollment: long-press the title, enter the PIN.
+        // Keeps one device usable for both without ever mixing the two screens.
+        tvTitle.setOnLongClickListener { promptEnrollmentUnlock(); true }
 
         flushOfflineQueue()
 
@@ -198,6 +206,29 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             submitting.set(false)
             runOnUiThread { tvResult.text = "" }
         }, delayMs)
+    }
+
+    /** PIN gate → open the enrollment picker (admin action). */
+    private fun promptEnrollmentUnlock() {
+        val config = DeviceConfig(this)
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            hint = getString(R.string.facedesk_admin_pin_hint)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.facedesk_enroll_mode_title)
+            .setMessage(R.string.facedesk_admin_pin_message)
+            .setView(input)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                if (input.text.toString() == config.faceDeskAdminPin) {
+                    startActivity(Intent(this, FaceDeskEnrollPickerActivity::class.java))
+                } else {
+                    runOnUiThread { tvResult.text = getString(R.string.facedesk_wrong_pin) }
+                    tvResult.postDelayed({ runOnUiThread { tvResult.text = "" } }, 1500)
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun flushOfflineQueue() {

@@ -31,10 +31,17 @@ export class FaceDeskDeviceService {
       branchId?: string | null;
       location?: string;
       mode?: 'ATTENDANCE' | 'ENROLLMENT';
+      adminPin?: string;
     },
   ): Promise<FaceDeskDeviceEntity> {
     if (!body?.deviceName)
       throw new BadRequestException('deviceName is required');
+    // Admin PIN gates switching a single device into enrollment mode from the
+    // attendance screen. Default to a simple PIN the admin can change later.
+    const adminPin = (body.adminPin ?? '').trim() || '0000';
+    if (!/^\d{4,12}$/.test(adminPin)) {
+      throw new BadRequestException('Admin PIN must be 4–12 digits');
+    }
     const installToken = randomBytes(32).toString('hex');
     return this.repo.save(
       this.repo.create({
@@ -43,6 +50,7 @@ export class FaceDeskDeviceService {
         deviceName: body.deviceName,
         location: body.location ?? null,
         mode: body.mode ?? 'ATTENDANCE',
+        adminPin,
         installToken,
         deviceStatus: 'PROVISIONED',
       }),
@@ -59,6 +67,7 @@ export class FaceDeskDeviceService {
     mode: string;
     clientId: string;
     branchId: string | null;
+    adminPin: string;
   }> {
     const device = await this.repo.findOne({ where: { installToken } });
     if (!device || device.deviceStatus === 'REVOKED') {
@@ -78,6 +87,7 @@ export class FaceDeskDeviceService {
       mode: device.mode,
       clientId: device.clientId,
       branchId: device.branchId,
+      adminPin: device.adminPin ?? '0000',
     };
   }
 
