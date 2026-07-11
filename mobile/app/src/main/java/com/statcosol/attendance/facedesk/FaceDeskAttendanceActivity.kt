@@ -15,6 +15,7 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -362,6 +363,10 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         // Prefer 720p analysis frames, falling back to the closest the camera
         // supports. Bigger frames = a larger, sharper face crop for the model.
         private val HD_ANALYSIS_RESOLUTION = ResolutionSelector.Builder()
+            // ResolutionSelector gives the aspect-ratio strategy precedence over
+            // resolution and defaults to 4:3, which would override the 16:9
+            // 1280x720 bound with a 4:3 output. Pin 16:9 so 720p is honored.
+            .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
             .setResolutionStrategy(
                 ResolutionStrategy(
                     Size(1280, 720),
