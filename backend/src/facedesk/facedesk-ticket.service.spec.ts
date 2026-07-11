@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { FaceDeskTicketService } from './facedesk-ticket.service';
 
 function makeService(
@@ -76,5 +76,43 @@ describe('FaceDeskTicketService.create', () => {
     await expect(
       service.create('c1', 'a', { employeeId: '', deviceId: '' } as any),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('FaceDeskTicketService.complete', () => {
+  it('only completes an open ticket (conflict otherwise)', async () => {
+    const qb = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 0 }), // already closed
+    };
+    const repo = { createQueryBuilder: jest.fn(() => qb) };
+    const service = new FaceDeskTicketService(
+      repo as any,
+      { query: jest.fn() } as any,
+    );
+    await expect(service.complete('t1', 'd1')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    // update WHERE must include the open-status guard
+    expect(qb.where).toHaveBeenCalledWith(
+      expect.stringContaining('status IN (:...open)'),
+      expect.objectContaining({ open: ['PENDING', 'CAPTURING'] }),
+    );
+  });
+});
+
+describe('FaceDeskTicketService.listByClient branch scope', () => {
+  it('filters by branch for branch users', async () => {
+    const repo = { find: jest.fn().mockResolvedValue([]) };
+    const service = new FaceDeskTicketService(
+      repo as any,
+      { query: jest.fn() } as any,
+    );
+    await service.listByClient('c1', 'PENDING', ['b1', 'b2']);
+    const where = repo.find.mock.calls[0][0].where;
+    expect(where.clientId).toBe('c1');
+    expect(where.branchId).toBeDefined(); // In(['b1','b2'])
   });
 });

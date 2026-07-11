@@ -305,7 +305,11 @@ export class FaceDeskController {
     @CurrentUser() user: ReqUser,
     @Query('status') status?: string,
   ) {
-    return this.tickets.listByClient(this.requireClient(user), status);
+    return this.tickets.listByClient(
+      this.requireClient(user),
+      status,
+      this.branchScope(user),
+    );
   }
 
   @ApiOperation({ summary: 'Cancel an enrollment ticket' })
@@ -315,7 +319,11 @@ export class FaceDeskController {
     @CurrentUser() user: ReqUser,
     @Param('ticketId') ticketId: string,
   ) {
-    return this.tickets.cancel(this.requireClient(user), ticketId);
+    return this.tickets.cancel(
+      this.requireClient(user),
+      ticketId,
+      this.branchScope(user),
+    );
   }
 
   // ── Dashboard ─────────────────────────────────────────────────────────────

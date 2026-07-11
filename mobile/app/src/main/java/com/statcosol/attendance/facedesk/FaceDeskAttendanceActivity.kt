@@ -140,10 +140,15 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Returned from enrollment (or first shown) — release the hold and
-        // (re)start ticket polling.
+        // Returned from enrollment (or first shown) — release the hold, discard
+        // any stale buffer, and (re)start ticket polling.
         enrollmentHold = false
-        runOnUiThread { if (tvResult.text.isNullOrBlank()) tvTitle.text = getString(R.string.facedesk_look_at_camera) }
+        frames.clear(); minEyeOpenness = 1.0
+        submitting.set(false); paused = false
+        runOnUiThread {
+            tvResult.text = ""
+            tvTitle.text = getString(R.string.facedesk_look_at_camera)
+        }
         startTicketPolling()
     }
 
@@ -162,6 +167,10 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                         val ticket = api.pendingTicket()
                         if (ticket != null) {
                             enrollmentHold = true
+                            // Drop any frames buffered before the hold so a
+                            // post-enrollment batch can't mix stale embeddings.
+                            frames.clear(); minEyeOpenness = 1.0
+                            submitting.set(false)
                             runOnUiThread {
                                 tvTitle.text = getString(R.string.facedesk_enroll_in_progress)
                                 tvResult.text = ticket.employeeName ?: ""

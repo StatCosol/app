@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { FaceDeskEnrollTicketEntity } from './entities/facedesk.entities';
 
 /**
@@ -136,33 +136,59 @@ export class FaceDeskTicketService {
   }
 
   async complete(ticketId: string, deviceId: string): Promise<{ ok: true }> {
-    const res = await this.repo.update(
-      { ticketId, deviceId },
-      { status: 'COMPLETED', completedAt: new Date() },
-    );
-    if (!res.affected) throw new NotFoundException('Ticket not found');
+    // Only an OPEN ticket for this device can be completed — never resurrect a
+    // cancelled/expired one back to COMPLETED.
+    const res = await this.repo
+      .createQueryBuilder()
+      .update(FaceDeskEnrollTicketEntity)
+      .set({ status: 'COMPLETED', completedAt: new Date() })
+      .where(
+        'ticket_id = :ticketId AND device_id = :deviceId AND status IN (:...open)',
+        { ticketId, deviceId, open: ['PENDING', 'CAPTURING'] },
+      )
+      .execute();
+    if (!res.affected) {
+      throw new ConflictException('Ticket is no longer open');
+    }
     return { ok: true };
   }
 
   listByClient(
     clientId: string,
     status?: string,
+    allowedBranchIds: string[] | null = null,
   ): Promise<FaceDeskEnrollTicketEntity[]> {
     const where: Record<string, unknown> = { clientId };
     if (status) where['status'] = status;
+    // Branch users only see their branches' tickets.
+    if (allowedBranchIds) {
+      where['branchId'] = allowedBranchIds.length
+        ? In(allowedBranchIds)
+        : In(['']);
+    }
     return this.repo.find({ where, order: { createdAt: 'DESC' }, take: 200 });
   }
 
-  async cancel(clientId: string, ticketId: string): Promise<{ ok: true }> {
-    const res = await this.repo
+  async cancel(
+    clientId: string,
+    ticketId: string,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{ ok: true }> {
+    const qb = this.repo
       .createQueryBuilder()
       .update(FaceDeskEnrollTicketEntity)
       .set({ status: 'CANCELLED' })
       .where(
         'ticket_id = :ticketId AND client_id = :clientId AND status IN (:...open)',
         { ticketId, clientId, open: ['PENDING', 'CAPTURING'] },
-      )
-      .execute();
+      );
+    // Branch users can only cancel tickets in their branches.
+    if (allowedBranchIds) {
+      qb.andWhere('branch_id IN (:...branches)', {
+        branches: allowedBranchIds.length ? allowedBranchIds : [''],
+      });
+    }
+    const res = await qb.execute();
     if (!res.affected) throw new NotFoundException('Ticket not cancellable');
     return { ok: true };
   }
