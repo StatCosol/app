@@ -141,7 +141,7 @@ type Tab =
           <label class="text-sm">Kiosk device
             <select [(ngModel)]="enrollDeviceId" class="inp">
               <option value="">— select device —</option>
-              <option *ngFor="let d of deviceList" [value]="d.deviceId">{{ d.deviceName }} ({{ branchName(d.branchId) }})</option>
+              <option *ngFor="let d of activeDevices" [value]="d.deviceId">{{ d.deviceName }} ({{ branchName(d.branchId) }})</option>
             </select>
           </label>
         </div>
@@ -427,6 +427,11 @@ export class FaceDeskComponent implements OnInit {
       next: (r) => this.toast.success(`Pushed ${r.pushed} of ${r.received} punches to payroll`),
       error: (e) => this.toast.error(e?.error?.message || 'Payroll sync failed'),
     });
+  }
+
+  /** Only non-revoked devices can receive an enrollment ticket. */
+  get activeDevices(): FaceDeskDevice[] {
+    return this.deviceList.filter((d) => d.deviceStatus !== 'REVOKED');
   }
 
   async enroll(r: PendingEnrollmentRow): Promise<void> {
