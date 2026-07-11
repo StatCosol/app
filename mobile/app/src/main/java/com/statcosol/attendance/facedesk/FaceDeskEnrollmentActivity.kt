@@ -114,7 +114,10 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
                 val session = FaceCaptureSession(
                     embedder = embedder,
                     detector = detector,
-                    onFace = { faceProbe, _, metrics, _ -> onFrame(faceProbe, metrics.eyeOpenness, metrics.headYaw) },
+                    computeFullFrameProbe = false,
+                    onFace = { faceProbe, _, metrics, photo ->
+                        onFrame(faceProbe, metrics.eyeOpenness, metrics.headYaw, photo)
+                    },
                     onHint = { hint -> if (!capturing.get()) runOnUiThread { tvHint.text = hint } },
                 )
                 analysis.setAnalyzer(cameraExecutor, session)
@@ -149,7 +152,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         }, CAPTURE_TIMEOUT_MS)
     }
 
-    private fun onFrame(probe: FloatArray, eyeOpenness: Double, headYaw: Float) {
+    private fun onFrame(probe: FloatArray, eyeOpenness: Double, headYaw: Float, photo: String?) {
         if (!capturing.get()) return
         minEyeOpenness = minOf(minEyeOpenness, eyeOpenness)
         if (eyeOpenness < BLINK_THRESHOLD) blinked = true
@@ -161,7 +164,14 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
             kotlin.math.abs(headYaw) < FRONT_YAW -> "FRONT".also { if (frontCount < FRONT_FRAMES) frontCount++ else return }
             else -> return
         }
-        frames.add(FaceFrame(embeddingB64 = embedder.toBase64(probe), embeddingModel = MODEL, sampleType = type))
+        frames.add(
+            FaceFrame(
+                embeddingB64 = embedder.toBase64(probe),
+                embeddingModel = MODEL,
+                photoB64 = photo,
+                sampleType = type,
+            ),
+        )
 
         val done = frontCount >= FRONT_FRAMES && leftCount >= PER_ANGLE &&
             rightCount >= PER_ANGLE && blinked
@@ -236,7 +246,9 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         private const val FRONT_YAW = 12f
         private const val TURN_YAW = 18f
         private const val BLINK_THRESHOLD = 0.35
-        private const val CAPTURE_TIMEOUT_MS = 20_000L
+        // Guided capture needs 14 quality-gated frames across three head
+        // angles plus a blink; 20s was routinely too tight on kiosk hardware.
+        private const val CAPTURE_TIMEOUT_MS = 45_000L
         private const val MODEL = "mobilefacenet"
         const val EXTRA_EMPLOYEE_ID = "employeeId"
         const val EXTRA_EMPLOYEE_NAME = "employeeName"
