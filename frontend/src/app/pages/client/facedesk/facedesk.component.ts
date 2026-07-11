@@ -155,7 +155,7 @@ type Tab =
               <td>{{ r.employeeName || r.name }}</td>
               <td><span class="pill amber">{{ r.status || r.enrollmentStatus || 'PENDING' }}</span></td>
               <td class="right">
-                <button class="link green" [disabled]="!enrollDeviceId || enrollingId === r.employeeId"
+                <button class="link green" [disabled]="!enrollDeviceReady || enrollingId === r.employeeId"
                   (click)="enroll(r)">Enroll on kiosk</button>
               </td>
             </tr>
@@ -434,11 +434,24 @@ export class FaceDeskComponent implements OnInit {
     return this.deviceList.filter((d) => d.deviceStatus !== 'REVOKED');
   }
 
+  /** True when a kiosk is selected and still active (not revoked/removed). */
+  get enrollDeviceReady(): boolean {
+    return this.activeDevices.some((d) => d.deviceId === this.enrollDeviceId);
+  }
+
   async enroll(r: PendingEnrollmentRow): Promise<void> {
     if (!this.enrollDeviceId) { this.toast.error('Select a kiosk device first'); return; }
     const empId = r.employeeId;
     if (!empId) return;
-    const dev = this.deviceList.find((d) => d.deviceId === this.enrollDeviceId);
+    // The selected kiosk may have been revoked since it was picked (it's then
+    // dropped from activeDevices but enrollDeviceId still holds its id). Bail
+    // out and clear the stale selection rather than post a doomed request.
+    const dev = this.activeDevices.find((d) => d.deviceId === this.enrollDeviceId);
+    if (!dev) {
+      this.enrollDeviceId = '';
+      this.toast.error('That kiosk is no longer available — pick another');
+      return;
+    }
     const ok = await this.dialog.confirm(
       'Enroll on Kiosk',
       `Send ${r.employeeName || r.name} to "${dev?.deviceName}" for enrollment? The kiosk opens the enrollment screen and pauses attendance until done.`,
