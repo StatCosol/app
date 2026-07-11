@@ -99,10 +99,6 @@ type Tab =
           </label>
           <label class="text-sm">Location<input [(ngModel)]="newDevice.location" class="inp" placeholder="optional"></label>
           <label class="text-sm">Admin PIN<input [(ngModel)]="newDevice.adminPin" class="inp" placeholder="4–12 digits" maxlength="12"></label>
-          <select [(ngModel)]="newDevice.mode" class="inp">
-            <option value="ATTENDANCE">Attendance</option>
-            <option value="ENROLLMENT">Enrollment</option>
-          </select>
           <button class="btn primary" (click)="provision()">Provision device</button>
           <button class="btn" (click)="switch('devices')">Refresh</button>
         </div>
@@ -318,9 +314,8 @@ export class FaceDeskComponent implements OnInit {
     deviceName: string;
     branchId: string;
     location: string;
-    mode: 'ATTENDANCE' | 'ENROLLMENT';
     adminPin: string;
-  } = { deviceName: '', branchId: '', location: '', mode: 'ATTENDANCE', adminPin: '' };
+  } = { deviceName: '', branchId: '', location: '', adminPin: '' };
   newInstallToken: string | null = null;
   enrollDeviceId = '';
   enrollingId: string | null = null;
@@ -467,12 +462,14 @@ export class FaceDeskComponent implements OnInit {
       deviceName: this.newDevice.deviceName.trim(),
       branchId: this.newDevice.branchId || undefined,
       location: this.newDevice.location.trim() || undefined,
-      mode: this.newDevice.mode,
+      // Every FaceDesk kiosk is an attendance device; enrollment is driven from
+      // the web ("Enroll on kiosk") or the on-device admin PIN, never a mode.
+      mode: 'ATTENDANCE',
       adminPin: this.newDevice.adminPin.trim() || undefined,
     }).subscribe({
       next: (d) => {
         this.newInstallToken = d.installToken;
-        this.newDevice = { deviceName: '', branchId: '', location: '', mode: 'ATTENDANCE', adminPin: '' };
+        this.newDevice = { deviceName: '', branchId: '', location: '', adminPin: '' };
         this.toast.success('Device provisioned');
         this.switch('devices');
       },
