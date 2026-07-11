@@ -96,6 +96,17 @@ export class FaceDeskService {
     return this.http.get<PendingEnrollmentRow[]>(`${this.base}/enrollment/pending`);
   }
 
+  createEnrollTicket(employeeId: string, deviceId: string): Observable<{ ticketId: string; status: string }> {
+    return this.http.post<{ ticketId: string; status: string }>(
+      `${this.base}/enroll-tickets`,
+      { employeeId, deviceId },
+    );
+  }
+
+  enrollTickets(status = 'PENDING'): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/enroll-tickets?status=${encodeURIComponent(status)}`);
+  }
+
   // Duplicate alerts
   duplicateAlerts(status = 'PENDING'): Observable<DuplicateAlert[]> {
     return this.http.get<DuplicateAlert[]>(

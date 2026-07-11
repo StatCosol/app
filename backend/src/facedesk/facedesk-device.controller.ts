@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { Public } from '../auth/public.decorator';
@@ -9,6 +17,7 @@ import {
 } from './facedesk-device.service';
 import { FaceDeskAttendanceService } from './facedesk-attendance.service';
 import { FaceDeskEnrollmentService } from './facedesk-enrollment.service';
+import { FaceDeskTicketService } from './facedesk-ticket.service';
 import {
   MarkAttendanceDto,
   OfflineSyncDto,
@@ -29,6 +38,7 @@ export class FaceDeskDeviceController {
     private readonly devices: FaceDeskDeviceService,
     private readonly attendance: FaceDeskAttendanceService,
     private readonly enrollment: FaceDeskEnrollmentService,
+    private readonly tickets: FaceDeskTicketService,
   ) {}
 
   private ctx(req: Request): FaceDeskDeviceContext {
@@ -97,5 +107,34 @@ export class FaceDeskDeviceController {
   save(@Req() req: Request, @Body() dto: SaveEnrollmentDto) {
     const d = this.ctx(req);
     return this.enrollment.saveProfile(d.clientId, d.branchId, d.deviceId, dto);
+  }
+
+  // ── Enrollment ticket polling (web-initiated enrollment) ───────────────────
+  @ApiOperation({
+    summary: 'Device — poll the pending enrollment ticket for this device',
+  })
+  @Public()
+  @UseGuards(FaceDeskDeviceAuthGuard)
+  @Get('enroll-ticket/pending')
+  pendingTicket(@Req() req: Request) {
+    const d = this.ctx(req);
+    return this.tickets.getPendingForDevice(d.deviceId);
+  }
+
+  @ApiOperation({ summary: 'Device — mark a ticket as capturing' })
+  @Public()
+  @UseGuards(FaceDeskDeviceAuthGuard)
+  @Post('enroll-ticket/:ticketId/capturing')
+  ticketCapturing(@Param('ticketId') ticketId: string) {
+    return this.tickets.markCapturing(ticketId);
+  }
+
+  @ApiOperation({ summary: 'Device — complete an enrollment ticket' })
+  @Public()
+  @UseGuards(FaceDeskDeviceAuthGuard)
+  @Post('enroll-ticket/:ticketId/complete')
+  completeTicket(@Req() req: Request, @Param('ticketId') ticketId: string) {
+    const d = this.ctx(req);
+    return this.tickets.complete(ticketId, d.deviceId);
   }
 }

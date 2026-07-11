@@ -22,8 +22,10 @@ import {
   ReportRange,
 } from './facedesk-reports.service';
 import { FaceDeskDeviceService } from './facedesk-device.service';
+import { FaceDeskTicketService } from './facedesk-ticket.service';
 import {
   CheckDuplicateDto,
+  CreateEnrollTicketDto,
   DuplicateActionDto,
   ManualCorrectionDto,
   MarkAttendanceDto,
@@ -52,6 +54,7 @@ export class FaceDeskController {
     private readonly dashboard: FaceDeskDashboardService,
     private readonly reports: FaceDeskReportsService,
     private readonly devices: FaceDeskDeviceService,
+    private readonly tickets: FaceDeskTicketService,
   ) {}
 
   private range(user: ReqUser, from?: string, to?: string): ReportRange {
@@ -277,6 +280,50 @@ export class FaceDeskController {
     @Param('deviceId') deviceId: string,
   ) {
     return this.devices.revoke(this.requireClient(user), deviceId);
+  }
+
+  // ── Enrollment tickets (web-initiated) ────────────────────────────────────
+  @ApiOperation({ summary: 'Create an enrollment ticket for a kiosk' })
+  @Post('enroll-tickets')
+  @Roles('CLIENT', 'ADMIN')
+  createEnrollTicket(
+    @CurrentUser() user: ReqUser,
+    @Body() dto: CreateEnrollTicketDto,
+  ) {
+    return this.tickets.create(
+      this.requireClient(user),
+      user.id,
+      dto,
+      this.branchScope(user),
+    );
+  }
+
+  @ApiOperation({ summary: 'List enrollment tickets' })
+  @Get('enroll-tickets')
+  @Roles('CLIENT', 'ADMIN')
+  listEnrollTickets(
+    @CurrentUser() user: ReqUser,
+    @Query('status') status?: string,
+  ) {
+    return this.tickets.listByClient(
+      this.requireClient(user),
+      status,
+      this.branchScope(user),
+    );
+  }
+
+  @ApiOperation({ summary: 'Cancel an enrollment ticket' })
+  @Post('enroll-tickets/:ticketId/cancel')
+  @Roles('CLIENT', 'ADMIN')
+  cancelEnrollTicket(
+    @CurrentUser() user: ReqUser,
+    @Param('ticketId') ticketId: string,
+  ) {
+    return this.tickets.cancel(
+      this.requireClient(user),
+      ticketId,
+      this.branchScope(user),
+    );
   }
 
   // ── Dashboard ─────────────────────────────────────────────────────────────

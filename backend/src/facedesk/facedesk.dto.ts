@@ -169,6 +169,14 @@ export class ManualCorrectionDto {
   reason?: string;
 }
 
+export class CreateEnrollTicketDto {
+  @IsString()
+  employeeId: string;
+
+  @IsString()
+  deviceId: string;
+}
+
 export class UpdateSettingsDto {
   @IsOptional()
   @IsNumber()

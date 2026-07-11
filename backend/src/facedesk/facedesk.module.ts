@@ -15,6 +15,7 @@ import {
   FaceDeskSampleEntity,
   FaceDeskSettingsEntity,
   FaceDeskSyncLogEntity,
+  FaceDeskEnrollTicketEntity,
 } from './entities/facedesk.entities';
 import { FaceDeskController } from './facedesk.controller';
 import { FaceDeskDeviceController } from './facedesk-device.controller';
@@ -27,6 +28,7 @@ import { FaceDeskAttendanceService } from './facedesk-attendance.service';
 import { FaceDeskAdminService } from './facedesk-admin.service';
 import { FaceDeskDashboardService } from './facedesk-dashboard.service';
 import { FaceDeskReportsService } from './facedesk-reports.service';
+import { FaceDeskTicketService } from './facedesk-ticket.service';
 
 /**
  * FaceDesk V2 — StatCo Smart Attendance Kiosk. Net-new module, separate from
@@ -48,6 +50,7 @@ import { FaceDeskReportsService } from './facedesk-reports.service';
       FaceDeskSyncLogEntity,
       FaceDeskSettingsEntity,
       FaceDeskAuditEntity,
+      FaceDeskEnrollTicketEntity,
     ]),
     BiometricModule,
   ],
@@ -61,6 +64,7 @@ import { FaceDeskReportsService } from './facedesk-reports.service';
     FaceDeskDashboardService,
     FaceDeskReportsService,
     FaceDeskDeviceService,
+    FaceDeskTicketService,
     FaceDeskDeviceAuthGuard,
     FaceEmbeddingClient,
     FacePhotoStorageService,

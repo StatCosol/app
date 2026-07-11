@@ -470,6 +470,57 @@ export class FaceDeskSettingsEntity {
   updatedAt: Date;
 }
 
+@Entity({ name: 'facedesk_enroll_tickets' })
+@Index(['deviceId', 'status'])
+@Index(['clientId', 'status'])
+export class FaceDeskEnrollTicketEntity {
+  @PrimaryGeneratedColumn('uuid', { name: 'ticket_id' })
+  ticketId: string;
+
+  @Column({ name: 'client_id', type: 'uuid' })
+  clientId: string;
+
+  @Column({ name: 'branch_id', type: 'uuid', nullable: true })
+  branchId: string | null;
+
+  @Column({ name: 'device_id', type: 'uuid' })
+  deviceId: string;
+
+  @Column({ name: 'employee_id', type: 'uuid' })
+  employeeId: string;
+
+  @Column({
+    name: 'employee_name',
+    type: 'varchar',
+    length: 160,
+    nullable: true,
+  })
+  employeeName: string | null;
+
+  @Column({
+    name: 'employee_code',
+    type: 'varchar',
+    length: 60,
+    nullable: true,
+  })
+  employeeCode: string | null;
+
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'PENDING' })
+  status: 'PENDING' | 'CAPTURING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
+
+  @Column({ name: 'created_by', type: 'uuid', nullable: true })
+  createdBy: string | null;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  createdAt: Date;
+
+  @Column({ name: 'expires_at', type: 'timestamptz' })
+  expiresAt: Date;
+
+  @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
+  completedAt: Date | null;
+}
+
 @Entity({ name: 'facedesk_audit_logs' })
 @Index(['clientId', 'createdAt'])
 export class FaceDeskAuditEntity {

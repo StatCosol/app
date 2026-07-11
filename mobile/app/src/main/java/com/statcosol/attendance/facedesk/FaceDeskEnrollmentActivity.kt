@@ -45,8 +45,15 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     private lateinit var cameraExecutor: ExecutorService
 
     private lateinit var employeeId: String
+    private var ticketId: String? = null
     private val frames = mutableListOf<FaceFrame>()
     private var minEyeOpenness = 1.0
+    // Guided multi-angle capture progress.
+    private var frontCount = 0
+    private var leftCount = 0
+    private var rightCount = 0
+    private var blinked = false
+    private var captureComplete = false
     private val capturing = AtomicBoolean(false)
     private val saving = AtomicBoolean(false)
 
@@ -59,6 +66,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         btnCapture = findViewById(R.id.fdeCapture)
 
         employeeId = intent.getStringExtra(EXTRA_EMPLOYEE_ID).orEmpty()
+        ticketId = intent.getStringExtra(EXTRA_TICKET_ID)
         val name = intent.getStringExtra(EXTRA_EMPLOYEE_NAME).orEmpty()
         if (employeeId.isBlank()) { finish(); return }
         tvName.text = name.ifBlank { employeeId }
@@ -69,7 +77,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         detector = FaceDetector()
         cameraExecutor = Executors.newSingleThreadExecutor()
 
-        btnCapture.setOnClickListener { startCapture() }
+        btnCapture.setOnClickListener { if (captureComplete) save() else startCapture() }
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             != PackageManager.PERMISSION_GRANTED
@@ -106,7 +114,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
                 val session = FaceCaptureSession(
                     embedder = embedder,
                     detector = detector,
-                    onFace = { faceProbe, _, metrics, _ -> onFrame(faceProbe, metrics.eyeOpenness) },
+                    onFace = { faceProbe, _, metrics, _ -> onFrame(faceProbe, metrics.eyeOpenness, metrics.headYaw) },
                     onHint = { hint -> if (!capturing.get()) runOnUiThread { tvHint.text = hint } },
                 )
                 analysis.setAnalyzer(cameraExecutor, session)
@@ -121,72 +129,98 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
+    /** Begin guided multi-angle capture. Auto-starts once the button is tapped. */
     private fun startCapture() {
-        if (saving.get()) return
+        if (saving.get() || captureComplete) return
         frames.clear(); minEyeOpenness = 1.0
+        frontCount = 0; leftCount = 0; rightCount = 0; blinked = false
         capturing.set(true)
         btnCapture.isEnabled = false
-        tvHint.text = getString(R.string.facedesk_blink_now)
-        // Safety timeout: if no blink is captured, tell the operator rather
-        // than silently failing the backend liveness gate.
+        // Signal the web that capture has started for this ticket.
+        ticketId?.let { tid -> lifecycleScope.launch { runCatching { api.markTicketCapturing(tid) } } }
+        // Safety timeout so a stuck capture tells the operator rather than hang.
         previewView.postDelayed({
-            if (capturing.getAndSet(false) && !saving.get()) {
+            if (capturing.getAndSet(false) && !captureComplete && !saving.get()) {
                 runOnUiThread {
-                    tvHint.text = getString(R.string.facedesk_blink_timeout)
+                    tvHint.text = getString(R.string.facedesk_capture_timeout)
                     btnCapture.isEnabled = true
                 }
             }
         }, CAPTURE_TIMEOUT_MS)
     }
 
-    private fun onFrame(probe: FloatArray, eyeOpenness: Double) {
+    private fun onFrame(probe: FloatArray, eyeOpenness: Double, headYaw: Float) {
         if (!capturing.get()) return
         minEyeOpenness = minOf(minEyeOpenness, eyeOpenness)
-        frames.add(FaceFrame(embeddingB64 = embedder.toBase64(probe), embeddingModel = MODEL))
-        val blinked = minEyeOpenness < BLINK_THRESHOLD
-        runOnUiThread {
-            tvHint.text = if (blinked)
-                getString(R.string.facedesk_capturing, frames.size, CAPTURE_FRAMES)
-            else
-                getString(R.string.facedesk_blink_now)
+        if (eyeOpenness < BLINK_THRESHOLD) blinked = true
+
+        // Bucket the frame by head angle and keep it as a sample.
+        val type = when {
+            headYaw <= -TURN_YAW -> "LEFT".also { if (leftCount < PER_ANGLE) leftCount++ else return }
+            headYaw >= TURN_YAW -> "RIGHT".also { if (rightCount < PER_ANGLE) rightCount++ else return }
+            kotlin.math.abs(headYaw) < FRONT_YAW -> "FRONT".also { if (frontCount < FRONT_FRAMES) frontCount++ else return }
+            else -> return
         }
-        // Complete only once we have enough frames AND a detected blink.
-        if (frames.size >= CAPTURE_FRAMES && blinked) {
+        frames.add(FaceFrame(embeddingB64 = embedder.toBase64(probe), embeddingModel = MODEL, sampleType = type))
+
+        val done = frontCount >= FRONT_FRAMES && leftCount >= PER_ANGLE &&
+            rightCount >= PER_ANGLE && blinked
+        runOnUiThread { tvHint.text = nextPrompt() }
+        if (done) {
             capturing.set(false)
-            save()
+            captureComplete = true
+            runOnUiThread {
+                tvHint.text = getString(R.string.facedesk_captured_complete)
+                btnCapture.text = getString(R.string.facedesk_complete)
+                btnCapture.isEnabled = true
+            }
         }
+    }
+
+    /** Guide the operator toward whichever angle/blink is still missing. */
+    private fun nextPrompt(): String = when {
+        frontCount < FRONT_FRAMES -> getString(R.string.facedesk_look_straight)
+        leftCount < PER_ANGLE -> getString(R.string.facedesk_turn_left)
+        rightCount < PER_ANGLE -> getString(R.string.facedesk_turn_right)
+        !blinked -> getString(R.string.facedesk_blink_now)
+        else -> getString(R.string.facedesk_captured_complete)
     }
 
     private fun save() {
         if (!saving.compareAndSet(false, true)) return
-        val livenessPassed = minEyeOpenness < 0.35
         val req = SaveEnrollmentRequest(
             employeeId = employeeId,
             frames = frames.toList(),
-            livenessPassed = livenessPassed,
+            livenessPassed = blinked,
             consentGiven = true,
         )
         runOnUiThread { tvHint.text = getString(R.string.facedesk_saving) }
         lifecycleScope.launch {
             try {
                 val res = api.saveEnrollment(req)
+                ticketId?.let { tid -> runCatching { api.completeTicket(tid) } }
                 runOnUiThread { tvHint.text = res.message ?: getString(R.string.facedesk_enrolled) }
                 previewView.postDelayed({ finish() }, 1500)
             } catch (e: FaceDeskApiException) {
-                // 409 = duplicate/blocked; other 4xx = quality/liveness message.
                 runOnUiThread {
                     tvHint.text = e.body.ifBlank { getString(R.string.facedesk_enroll_failed) }
-                    btnCapture.isEnabled = true
+                    resetForRetry()
                 }
                 saving.set(false)
             } catch (e: Exception) {
                 runOnUiThread {
                     tvHint.text = getString(R.string.facedesk_enroll_offline)
-                    btnCapture.isEnabled = true
+                    resetForRetry()
                 }
                 saving.set(false)
             }
         }
+    }
+
+    private fun resetForRetry() {
+        captureComplete = false
+        btnCapture.text = getString(R.string.facedesk_capture)
+        btnCapture.isEnabled = true
     }
 
     override fun onDestroy() {
@@ -197,11 +231,15 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "FaceDeskEnroll"
-        private const val CAPTURE_FRAMES = 15
+        private const val FRONT_FRAMES = 8
+        private const val PER_ANGLE = 3
+        private const val FRONT_YAW = 12f
+        private const val TURN_YAW = 18f
         private const val BLINK_THRESHOLD = 0.35
-        private const val CAPTURE_TIMEOUT_MS = 12_000L
+        private const val CAPTURE_TIMEOUT_MS = 20_000L
         private const val MODEL = "mobilefacenet"
         const val EXTRA_EMPLOYEE_ID = "employeeId"
         const val EXTRA_EMPLOYEE_NAME = "employeeName"
+        const val EXTRA_TICKET_ID = "ticketId"
     }
 }

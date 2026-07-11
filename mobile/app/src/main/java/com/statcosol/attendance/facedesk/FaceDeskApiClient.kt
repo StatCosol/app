@@ -90,4 +90,29 @@ class FaceDeskApiClient(private val config: DeviceConfig) {
         val request = builder("/api/v1/facedesk/device/enrollment/save").post(body).build()
         return execute(request) { json.decodeFromString(it) }
     }
+
+    /** Web-initiated enrollment: the pending ticket for this device, or null. */
+    suspend fun pendingTicket(): EnrollTicket? {
+        val request = builder("/api/v1/facedesk/device/enroll-ticket/pending").get().build()
+        return try {
+            execute(request) { body ->
+                if (body.isBlank() || body == "null") null
+                else json.decodeFromString<EnrollTicket>(body)
+            }
+        } catch (e: FaceDeskApiException) {
+            null
+        }
+    }
+
+    suspend fun markTicketCapturing(ticketId: String) {
+        val request = builder("/api/v1/facedesk/device/enroll-ticket/$ticketId/capturing")
+            .post("".toRequestBody(mediaType)).build()
+        execute(request) { }
+    }
+
+    suspend fun completeTicket(ticketId: String) {
+        val request = builder("/api/v1/facedesk/device/enroll-ticket/$ticketId/complete")
+            .post("".toRequestBody(mediaType)).build()
+        execute(request) { }
+    }
 }
