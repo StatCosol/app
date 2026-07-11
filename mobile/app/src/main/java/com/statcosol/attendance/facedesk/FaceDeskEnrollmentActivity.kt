@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
+import android.util.Size
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -11,6 +12,8 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
@@ -108,7 +111,10 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
                 val preview = Preview.Builder().build().apply {
                     setSurfaceProvider(previewView.surfaceProvider)
                 }
+                // 720p analysis frames so the enrolled templates are built from
+                // a large, sharp face crop (CameraX defaults to ~640x480).
                 val analysis = ImageAnalysis.Builder()
+                    .setResolutionSelector(HD_ANALYSIS_RESOLUTION)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
                 val session = FaceCaptureSession(
@@ -250,6 +256,18 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         // angles plus a blink; 20s was routinely too tight on kiosk hardware.
         private const val CAPTURE_TIMEOUT_MS = 45_000L
         private const val MODEL = "mobilefacenet"
+
+        // Prefer 720p analysis frames, falling back to the closest supported —
+        // enrolled templates are only as good as the crop they're built from.
+        private val HD_ANALYSIS_RESOLUTION = ResolutionSelector.Builder()
+            .setResolutionStrategy(
+                ResolutionStrategy(
+                    Size(1280, 720),
+                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
+                ),
+            )
+            .build()
+
         const val EXTRA_EMPLOYEE_ID = "employeeId"
         const val EXTRA_EMPLOYEE_NAME = "employeeName"
         const val EXTRA_TICKET_ID = "ticketId"

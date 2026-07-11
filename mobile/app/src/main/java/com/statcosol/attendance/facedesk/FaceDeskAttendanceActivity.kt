@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.InputType
 import android.util.Log
+import android.util.Size
 import android.widget.EditText
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
@@ -14,6 +15,8 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
@@ -114,7 +117,11 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                 val preview = Preview.Builder().build().apply {
                     setSurfaceProvider(previewView.surfaceProvider)
                 }
+                // Request 720p analysis frames (CameraX defaults to ~640x480,
+                // which yields a small, soft face crop and weak embeddings).
+                // Higher-res in gives ML Kit + the embedder a sharper face.
                 val analysis = ImageAnalysis.Builder()
+                    .setResolutionSelector(HD_ANALYSIS_RESOLUTION)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
                 val session = FaceCaptureSession(
@@ -351,5 +358,16 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         private const val STALE_GAP_MS = 2_500L
         private const val TICKET_POLL_MS = 4_000L
         private const val MODEL = "mobilefacenet"
+
+        // Prefer 720p analysis frames, falling back to the closest the camera
+        // supports. Bigger frames = a larger, sharper face crop for the model.
+        private val HD_ANALYSIS_RESOLUTION = ResolutionSelector.Builder()
+            .setResolutionStrategy(
+                ResolutionStrategy(
+                    Size(1280, 720),
+                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
+                ),
+            )
+            .build()
     }
 }
