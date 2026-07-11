@@ -7,17 +7,24 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.statcosol.attendance.R
-import com.statcosol.attendance.api.ApiClient
-import com.statcosol.attendance.api.ApiException
-import com.statcosol.attendance.api.RegisterDeviceRequest
+import com.statcosol.attendance.facedesk.FaceDeskApiClient
+import com.statcosol.attendance.facedesk.FaceDeskApiException
+import com.statcosol.attendance.facedesk.FaceDeskAttendanceActivity
+import com.statcosol.attendance.facedesk.FaceDeskEnrollPickerActivity
+import com.statcosol.attendance.facedesk.FaceDeskRegisterRequest
 import com.statcosol.attendance.prefs.DeviceConfig
 import kotlinx.coroutines.launch
 import java.util.Locale
 
+/**
+ * Token entry / device bootstrap. FaceDesk is the only attendance system now:
+ * a valid install token registers the device as a FaceDesk kiosk and routes
+ * straight into the full-screen attendance screen (or the enrollment picker for
+ * an enrollment-mode device).
+ */
 class SetupActivity : AppCompatActivity() {
 
     private lateinit var config: DeviceConfig
@@ -74,32 +81,19 @@ class SetupActivity : AppCompatActivity() {
             contentResolver,
             android.provider.Settings.Secure.ANDROID_ID,
         ) ?: "unknown"
-        val deviceName = android.os.Build.MODEL
 
         lifecycleScope.launch {
             try {
-                val client = ApiClient(config)
-                val response = client.registerDevice(
-                    RegisterDeviceRequest(
-                        installToken = token,
-                        androidId = androidId,
-                        deviceName = deviceName,
-                    )
+                val fdClient = FaceDeskApiClient(config)
+                val res = fdClient.register(
+                    FaceDeskRegisterRequest(installToken = token, androidId = androidId)
                 )
-
-                config.deviceToken = response.deviceToken
-                config.deviceMode = response.mode
+                config.deviceToken = res.deviceToken
+                config.deviceMode = "FACEDESK_${res.mode}" // FACEDESK_ATTENDANCE | FACEDESK_ENROLLMENT
+                config.faceDeskAdminPin = res.adminPin
                 config.androidId = androidId
-
                 navigateToMain()
-            } catch (e: ApiException) {
-                // Token not found as a V1 device → try FaceDesk V2 registration.
-                // FaceDesk devices are separate; a FaceDesk install token 401/404s
-                // against the V1 endpoint but registers here.
-                if (e.code == 404 || e.code == 401) {
-                    val fd = tryFaceDeskRegister(token, androidId)
-                    if (fd) return@launch
-                }
+            } catch (e: FaceDeskApiException) {
                 setLoading(false)
                 val msg = when (e.code) {
                     400 -> getString(R.string.setup_invalid_token, token.length)
@@ -148,37 +142,13 @@ class SetupActivity : AppCompatActivity() {
         return "${token.take(6)}...${token.takeLast(6)}"
     }
 
-    /** Register the token as a FaceDesk V2 device; returns true on success. */
-    private suspend fun tryFaceDeskRegister(token: String, androidId: String): Boolean {
-        return try {
-            val fdClient = com.statcosol.attendance.facedesk.FaceDeskApiClient(config)
-            val res = fdClient.register(
-                com.statcosol.attendance.facedesk.FaceDeskRegisterRequest(
-                    installToken = token,
-                    androidId = androidId,
-                )
-            )
-            config.deviceToken = res.deviceToken
-            config.deviceMode = "FACEDESK_${res.mode}" // FACEDESK_ATTENDANCE | FACEDESK_ENROLLMENT
-            config.faceDeskAdminPin = res.adminPin
-            config.androidId = androidId
-            navigateToMain()
-            true
-        } catch (e: Exception) {
-            false
-        }
-    }
-
     private fun navigateToMain() {
         val mode = config.deviceMode
-        val intent = when {
-            mode.equals("FACEDESK_ENROLLMENT", ignoreCase = true) ->
-                Intent(this, com.statcosol.attendance.facedesk.FaceDeskEnrollPickerActivity::class.java)
-            mode.startsWith("FACEDESK", ignoreCase = true) ->
-                Intent(this, com.statcosol.attendance.facedesk.FaceDeskAttendanceActivity::class.java)
-            mode.equals("ess", ignoreCase = true) ->
-                Intent(this, EssActivity::class.java)
-            else -> Intent(this, KioskActivity::class.java)
+        val intent = if (mode.equals("FACEDESK_ENROLLMENT", ignoreCase = true)) {
+            Intent(this, FaceDeskEnrollPickerActivity::class.java)
+        } else {
+            // Default: full-screen attendance (also the target for FACEDESK_ATTENDANCE).
+            Intent(this, FaceDeskAttendanceActivity::class.java)
         }
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)

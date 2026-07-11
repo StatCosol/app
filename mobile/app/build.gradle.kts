@@ -2,7 +2,6 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.24"
-    id("com.google.devtools.ksp")
 }
 
 import java.util.Properties
@@ -83,25 +82,13 @@ android {
 
     flavorDimensions += "mode"
     productFlavors {
+        // Single FaceDesk kiosk flavor. The .kiosk applicationId suffix is kept
+        // so existing installs/provisioning continue to match.
         create("kiosk") {
             dimension = "mode"
             applicationIdSuffix = ".kiosk"
             versionNameSuffix = "-kiosk"
             resValue("string", "app_name", "StatCo Kiosk")
-        }
-        create("ess") {
-            dimension = "mode"
-            applicationIdSuffix = ".ess"
-            versionNameSuffix = "-ess"
-            resValue("string", "app_name", "StatCo ESS")
-        }
-    }
-
-    // ess flavor superseded by the standalone essportal module — kept in source
-    // (other code/tooling may still reference it) but excluded from build tasks.
-    variantFilter {
-        if (flavors.any { it.name == "ess" }) {
-            ignore = true
         }
     }
 
@@ -116,7 +103,6 @@ android {
 
 dependencies {
     val cameraxVersion = "1.3.4"
-    val roomVersion = "2.6.1"
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
@@ -149,18 +135,8 @@ dependencies {
     implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
-    // Background sync
-    implementation("androidx.work:work-runtime-ktx:2.9.0")
-
-    // Local offline punch queue
-    implementation("androidx.room:room-runtime:$roomVersion")
-    implementation("androidx.room:room-ktx:$roomVersion")
-    ksp("androidx.room:room-compiler:$roomVersion")
-
-    // Location for ESS geofence
-    implementation("com.google.android.gms:play-services-location:21.3.0")
-
-    // Coroutines
+    // Coroutines. play-services variant supplies Task.await() used by the ML Kit
+    // face detector.
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 }
