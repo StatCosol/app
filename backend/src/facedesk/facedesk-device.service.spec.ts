@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { FaceDeskDeviceService } from './facedesk-device.service';
 
 function makeService(row: any = null) {
@@ -8,6 +8,7 @@ function makeService(row: any = null) {
     save: jest.fn(async (v: any) => ({ deviceId: 'dev-1', ...v })),
     find: jest.fn().mockResolvedValue([]),
     update: jest.fn().mockResolvedValue({ affected: 1 }),
+    delete: jest.fn().mockResolvedValue({ affected: 1 }),
   };
   return { service: new FaceDeskDeviceService(repo as any), repo };
 }
@@ -82,5 +83,30 @@ describe('FaceDeskDeviceService', () => {
     await expect(service.authenticate('tok')).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
+  });
+
+  it('deletes a revoked device', async () => {
+    const { service, repo } = makeService({
+      deviceId: 'dev-1',
+      clientId: 'c1',
+      deviceStatus: 'REVOKED',
+    });
+    await expect(service.remove('c1', 'dev-1')).resolves.toEqual({ ok: true });
+    expect(repo.delete).toHaveBeenCalledWith({
+      deviceId: 'dev-1',
+      clientId: 'c1',
+    });
+  });
+
+  it('refuses to delete a device that is not revoked', async () => {
+    const { service, repo } = makeService({
+      deviceId: 'dev-1',
+      clientId: 'c1',
+      deviceStatus: 'ONLINE',
+    });
+    await expect(service.remove('c1', 'dev-1')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(repo.delete).not.toHaveBeenCalled();
   });
 });

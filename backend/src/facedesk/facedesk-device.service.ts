@@ -126,4 +126,19 @@ export class FaceDeskDeviceService {
     if (!res.affected) throw new NotFoundException('Device not found');
     return { ok: true };
   }
+
+  /**
+   * Permanently remove a device. Only a REVOKED device can be deleted — an
+   * active device must be revoked first, so a live kiosk is never yanked out
+   * from under running attendance by a stray click.
+   */
+  async remove(clientId: string, deviceId: string): Promise<{ ok: true }> {
+    const device = await this.repo.findOne({ where: { deviceId, clientId } });
+    if (!device) throw new NotFoundException('Device not found');
+    if (device.deviceStatus !== 'REVOKED') {
+      throw new BadRequestException('Revoke the device before deleting it');
+    }
+    await this.repo.delete({ deviceId, clientId });
+    return { ok: true };
+  }
 }

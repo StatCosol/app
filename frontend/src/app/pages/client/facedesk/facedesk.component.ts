@@ -127,7 +127,7 @@ type Tab =
               <td class="text-xs">{{ d.appVersion || '—' }}</td>
               <td class="right nowrap">
                 <button *ngIf="d.deviceStatus !== 'REVOKED'" class="link red" (click)="revoke(d)">Revoke</button>
-                <span *ngIf="d.deviceStatus === 'REVOKED'" class="text-xs text-gray-400">revoked</span>
+                <button *ngIf="d.deviceStatus === 'REVOKED'" class="link red" (click)="deleteDevice(d)">Delete</button>
               </td>
             </tr>
           </tbody>
@@ -141,7 +141,7 @@ type Tab =
           <label class="text-sm">Kiosk device
             <select [(ngModel)]="enrollDeviceId" class="inp">
               <option value="">— select device —</option>
-              <option *ngFor="let d of deviceList" [value]="d.deviceId">{{ d.deviceName }} ({{ branchName(d.branchId) }})</option>
+              <option *ngFor="let d of activeDevices" [value]="d.deviceId">{{ d.deviceName }} ({{ branchName(d.branchId) }})</option>
             </select>
           </label>
         </div>
@@ -155,7 +155,7 @@ type Tab =
               <td>{{ r.employeeName || r.name }}</td>
               <td><span class="pill amber">{{ r.status || r.enrollmentStatus || 'PENDING' }}</span></td>
               <td class="right">
-                <button class="link green" [disabled]="!enrollDeviceId || enrollingId === r.employeeId"
+                <button class="link green" [disabled]="!enrollDeviceReady || enrollingId === r.employeeId"
                   (click)="enroll(r)">Enroll on kiosk</button>
               </td>
             </tr>
@@ -429,11 +429,29 @@ export class FaceDeskComponent implements OnInit {
     });
   }
 
+  /** Only non-revoked devices can receive an enrollment ticket. */
+  get activeDevices(): FaceDeskDevice[] {
+    return this.deviceList.filter((d) => d.deviceStatus !== 'REVOKED');
+  }
+
+  /** True when a kiosk is selected and still active (not revoked/removed). */
+  get enrollDeviceReady(): boolean {
+    return this.activeDevices.some((d) => d.deviceId === this.enrollDeviceId);
+  }
+
   async enroll(r: PendingEnrollmentRow): Promise<void> {
     if (!this.enrollDeviceId) { this.toast.error('Select a kiosk device first'); return; }
     const empId = r.employeeId;
     if (!empId) return;
-    const dev = this.deviceList.find((d) => d.deviceId === this.enrollDeviceId);
+    // The selected kiosk may have been revoked since it was picked (it's then
+    // dropped from activeDevices but enrollDeviceId still holds its id). Bail
+    // out and clear the stale selection rather than post a doomed request.
+    const dev = this.activeDevices.find((d) => d.deviceId === this.enrollDeviceId);
+    if (!dev) {
+      this.enrollDeviceId = '';
+      this.toast.error('That kiosk is no longer available — pick another');
+      return;
+    }
     const ok = await this.dialog.confirm(
       'Enroll on Kiosk',
       `Send ${r.employeeName || r.name} to "${dev?.deviceName}" for enrollment? The kiosk opens the enrollment screen and pauses attendance until done.`,
@@ -487,6 +505,19 @@ export class FaceDeskComponent implements OnInit {
     this.svc.revokeDevice(d.deviceId).subscribe({
       next: () => { this.toast.success('Device revoked'); this.switch('devices'); },
       error: (e) => this.toast.error(e?.error?.message || 'Revoke failed'),
+    });
+  }
+
+  async deleteDevice(d: FaceDeskDevice): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Delete Device',
+      `Permanently delete "${d.deviceName}"? This removes it from the list for good.`,
+      { variant: 'danger', confirmText: 'Delete' },
+    );
+    if (!ok) return;
+    this.svc.deleteDevice(d.deviceId).subscribe({
+      next: () => { this.toast.success('Device deleted'); this.switch('devices'); },
+      error: (e) => this.toast.error(e?.error?.message || 'Delete failed'),
     });
   }
 
