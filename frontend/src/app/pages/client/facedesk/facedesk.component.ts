@@ -127,7 +127,7 @@ type Tab =
               <td class="text-xs">{{ d.appVersion || '—' }}</td>
               <td class="right nowrap">
                 <button *ngIf="d.deviceStatus !== 'REVOKED'" class="link red" (click)="revoke(d)">Revoke</button>
-                <span *ngIf="d.deviceStatus === 'REVOKED'" class="text-xs text-gray-400">revoked</span>
+                <button *ngIf="d.deviceStatus === 'REVOKED'" class="link red" (click)="deleteDevice(d)">Delete</button>
               </td>
             </tr>
           </tbody>
@@ -492,6 +492,19 @@ export class FaceDeskComponent implements OnInit {
     this.svc.revokeDevice(d.deviceId).subscribe({
       next: () => { this.toast.success('Device revoked'); this.switch('devices'); },
       error: (e) => this.toast.error(e?.error?.message || 'Revoke failed'),
+    });
+  }
+
+  async deleteDevice(d: FaceDeskDevice): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Delete Device',
+      `Permanently delete "${d.deviceName}"? This removes it from the list for good.`,
+      { variant: 'danger', confirmText: 'Delete' },
+    );
+    if (!ok) return;
+    this.svc.deleteDevice(d.deviceId).subscribe({
+      next: () => { this.toast.success('Device deleted'); this.switch('devices'); },
+      error: (e) => this.toast.error(e?.error?.message || 'Delete failed'),
     });
   }
 

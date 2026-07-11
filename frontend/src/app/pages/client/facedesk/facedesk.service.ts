@@ -174,4 +174,8 @@ export class FaceDeskService {
   revokeDevice(deviceId: string): Observable<{ ok: true }> {
     return this.http.post<{ ok: true }>(`${this.base}/devices/${deviceId}/revoke`, {});
   }
+
+  deleteDevice(deviceId: string): Observable<{ ok: true }> {
+    return this.http.delete<{ ok: true }>(`${this.base}/devices/${deviceId}`);
+  }
 }

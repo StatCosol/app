@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -280,6 +281,16 @@ export class FaceDeskController {
     @Param('deviceId') deviceId: string,
   ) {
     return this.devices.revoke(this.requireClient(user), deviceId);
+  }
+
+  @ApiOperation({ summary: 'Delete a revoked kiosk device' })
+  @Delete('devices/:deviceId')
+  @Roles('CLIENT', 'ADMIN')
+  deleteDevice(
+    @CurrentUser() user: ReqUser,
+    @Param('deviceId') deviceId: string,
+  ) {
+    return this.devices.remove(this.requireClient(user), deviceId);
   }
 
   // ── Enrollment tickets (web-initiated) ────────────────────────────────────
