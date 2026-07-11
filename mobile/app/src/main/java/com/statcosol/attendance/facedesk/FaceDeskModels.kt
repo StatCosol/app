@@ -11,6 +11,11 @@ import kotlinx.serialization.Serializable
 data class FaceFrame(
     val embeddingB64: String,
     val embeddingModel: String? = null,
+    // Face crop JPEG. When face-svc is deployed the server re-embeds photos
+    // with ArcFace (alignment + 512-d) and ignores the device embedding, so
+    // sending this on every frame is what activates the upgraded model —
+    // the device embedding stays as the offline/degraded fallback.
+    val photoB64: String? = null,
     val qualityScore: Double? = null,
     val livenessScore: Double? = null,
     val sampleType: String? = null,

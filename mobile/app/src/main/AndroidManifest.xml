@@ -5,8 +5,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
-    <!-- ACCESS_FINE_LOCATION is declared in the ess flavor manifest only;
-         the kiosk flavor does not require it. -->
 
     <uses-feature android:name="android.hardware.camera" android:required="true" />
     <uses-feature android:name="android.hardware.camera.front" android:required="true" />
@@ -27,17 +25,7 @@
         android:theme="@style/Theme.StatcompyAttendance"
         android:usesCleartextTraffic="false">
 
-        <provider
-            android:name="androidx.startup.InitializationProvider"
-            android:authorities="${applicationId}.androidx-startup"
-            android:exported="false"
-            tools:node="merge">
-            <meta-data
-                android:name="androidx.work.WorkManagerInitializer"
-                tools:node="remove" />
-        </provider>
-
-        <!-- Token entry / mode bootstrap -->
+        <!-- Token entry / device bootstrap -->
         <activity
             android:name=".ui.SetupActivity"
             android:exported="true"
@@ -48,56 +36,26 @@
             </intent-filter>
         </activity>
 
-        <!-- Shared gate kiosk: 1:N face identification -->
-        <activity
-            android:name=".ui.KioskActivity"
-            android:exported="false"
-            android:screenOrientation="portrait"
-            android:keepScreenOn="true"
-            android:label="@string/kiosk_title" />
-
-        <!-- Employee personal phone: 1:1 face verification + geofence -->
-        <activity
-            android:name=".ui.EssActivity"
-            android:exported="false"
-            android:label="@string/ess_title" />
-
-        <!-- One-time face self-enrollment for ESS-bound personal phone -->
-        <activity
-            android:name=".ui.EnrollActivity"
-            android:exported="false"
-            android:label="@string/enroll_title" />
-
-        <!-- FaceDesk V2 — separate full-screen attendance + admin enrollment. -->
+        <!-- FaceDesk — the full-screen attendance kiosk + admin enrollment.
+             keepScreenOn so an unattended kiosk never sleeps mid-shift and
+             stops capturing. -->
         <activity
             android:name=".facedesk.FaceDeskAttendanceActivity"
             android:exported="false"
             android:screenOrientation="portrait"
+            android:keepScreenOn="true"
             android:label="FaceDesk Attendance" />
         <activity
             android:name=".facedesk.FaceDeskEnrollmentActivity"
             android:exported="false"
             android:screenOrientation="portrait"
+            android:keepScreenOn="true"
             android:label="FaceDesk Enrollment" />
         <activity
             android:name=".facedesk.FaceDeskEnrollPickerActivity"
             android:exported="false"
             android:screenOrientation="portrait"
             android:label="FaceDesk Enrollment" />
-
-        <!-- Device admin receiver for lock-task / kiosk pinning.
-             Activate as device owner via ADB: dpm set-device-owner .../.admin.KioskDeviceAdmin -->
-        <receiver
-            android:name=".admin.KioskDeviceAdmin"
-            android:exported="true"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
-            <meta-data
-                android:name="android.app.device_admin"
-                android:resource="@xml/device_admin" />
-            <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
-            </intent-filter>
-        </receiver>
 
     </application>
 

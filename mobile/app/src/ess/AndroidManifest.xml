@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <!-- ESS flavor needs geofence verification on every punch. The kiosk
-         flavor (shared gate tablet) doesn't, so its manifest doesn't
-         declare this permission. -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-
-</manifest>

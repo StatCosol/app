@@ -28,6 +28,11 @@ class FaceCaptureSession(
     // Quality gate only applies to the embedding capture phase (frontal-only frames).
     private val maxPitch: Float = 25f,
     private val minSharpness: Float = 35f,
+    // Both default on for the V1 kiosk/ESS screens. FaceDesk V2 discards the
+    // full-frame probe and the photo, and skipping them roughly triples frame
+    // throughput — which is what makes blink-based liveness catchable at all.
+    private val computeFullFrameProbe: Boolean = true,
+    private val capturePhoto: Boolean = true,
     private val onFace: (
         faceProbe: FloatArray,
         fullFrameProbe: FloatArray,
@@ -110,8 +115,9 @@ class FaceCaptureSession(
         }
 
         val embedding = embedder.embed(faceBitmap)
-        val fullFrameEmbedding = embedder.embed(bitmap)
-        val photoB64 = bitmapToBase64(faceBitmap)
+        val fullFrameEmbedding =
+            if (computeFullFrameProbe) embedder.embed(bitmap) else FloatArray(0)
+        val photoB64 = if (capturePhoto) bitmapToBase64(faceBitmap) else null
 
         onFace(embedding, fullFrameEmbedding, metrics, photoB64)
     }
@@ -137,9 +143,12 @@ class FaceCaptureSession(
     }
 
     private fun computeLuminance(bitmap: Bitmap): Float {
+        // Average brightness doesn't need full resolution — a 32x32 thumbnail
+        // gives the same reading without scanning ~300k pixels per frame.
+        val small = Bitmap.createScaledBitmap(bitmap, 32, 32, false)
         var sum = 0L
-        val pixels = IntArray(bitmap.width * bitmap.height)
-        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        val pixels = IntArray(small.width * small.height)
+        small.getPixels(pixels, 0, small.width, 0, 0, small.width, small.height)
         for (pixel in pixels) {
             val r = (pixel shr 16) and 0xFF
             val g = (pixel shr 8) and 0xFF

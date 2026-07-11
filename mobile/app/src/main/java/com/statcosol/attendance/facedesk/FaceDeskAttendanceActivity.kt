@@ -54,6 +54,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
 
     private val frames = mutableListOf<FaceFrame>()
     private var minEyeOpenness = 1.0
+    private var lastFrameAtMs = 0L
     private val submitting = AtomicBoolean(false)
     private var paused = false
 
@@ -119,8 +120,9 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                 val session = FaceCaptureSession(
                     embedder = embedder,
                     detector = detector,
-                    onFace = { faceProbe, _, metrics, _ ->
-                        onFrame(faceProbe, metrics.eyeOpenness)
+                    computeFullFrameProbe = false,
+                    onFace = { faceProbe, _, metrics, photo ->
+                        onFrame(faceProbe, metrics.eyeOpenness, photo)
                     },
                     onHint = { hint ->
                         if (!paused && frames.isEmpty()) runOnUiThread { tvTitle.text = hint }
@@ -192,11 +194,37 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         }
     }
 
-    private fun onFrame(probe: FloatArray, eyeOpenness: Double) {
+    private fun onFrame(probe: FloatArray, eyeOpenness: Double, photo: String?) {
         if (paused || submitting.get() || enrollmentHold) return
+
+        // A long gap between accepted frames means the previous person walked
+        // away mid-capture — drop their frames so batches never mix people.
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (frames.isNotEmpty() && now - lastFrameAtMs > STALE_GAP_MS) {
+            frames.clear()
+            minEyeOpenness = 1.0
+        }
+        lastFrameAtMs = now
+
         minEyeOpenness = minOf(minEyeOpenness, eyeOpenness)
-        frames.add(FaceFrame(embeddingB64 = embedder.toBase64(probe), embeddingModel = MODEL))
-        if (frames.size >= REQUIRED_FRAMES) submit()
+        frames.add(
+            FaceFrame(
+                embeddingB64 = embedder.toBase64(probe),
+                embeddingModel = MODEL,
+                photoB64 = photo,
+            ),
+        )
+
+        val blinked = minEyeOpenness < BLINK_THRESHOLD
+        when {
+            // Enough frames + a blink seen → submit with liveness proven.
+            frames.size >= REQUIRED_FRAMES && blinked -> submit()
+            // Enough frames but no blink yet — prompt and keep sampling
+            // instead of submitting a batch the server will reject.
+            frames.size >= MAX_FRAMES -> submit()
+            frames.size >= REQUIRED_FRAMES ->
+                runOnUiThread { tvTitle.text = getString(R.string.facedesk_blink_now) }
+        }
     }
 
     private fun submit() {
@@ -315,7 +343,12 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "FaceDeskAttendance"
-        private const val REQUIRED_FRAMES = 10
+        private const val REQUIRED_FRAMES = 8
+        // Hard cap: submit even without a blink and let the server decide —
+        // it can hold the punch for review rather than silently dropping it.
+        private const val MAX_FRAMES = 24
+        private const val BLINK_THRESHOLD = 0.35
+        private const val STALE_GAP_MS = 2_500L
         private const val TICKET_POLL_MS = 4_000L
         private const val MODEL = "mobilefacenet"
     }
