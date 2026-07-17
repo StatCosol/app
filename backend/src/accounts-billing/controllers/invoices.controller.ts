@@ -15,7 +15,7 @@ import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { InvoicesService } from '../services/invoices.service';
-import { CreateInvoiceDto } from '../dto';
+import { CreateInvoiceDto, UpdateInvoiceDto } from '../dto';
 
 @ApiTags('Accounts & Billing - Invoices')
 @ApiBearerAuth()
@@ -74,6 +74,16 @@ export class InvoicesController {
   @Get(':id')
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.invoicesService.findOne(id);
+  }
+
+  @ApiOperation({ summary: 'Edit an invoice (only before payments are recorded)' })
+  @Patch(':id')
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateInvoiceDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.invoicesService.update(id, dto, user?.userId ?? user?.id);
   }
 
   @ApiOperation({ summary: 'Approve a draft invoice' })

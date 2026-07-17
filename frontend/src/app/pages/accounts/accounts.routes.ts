@@ -38,6 +38,7 @@ export const ACCOUNTS_ROUTES: Routes = [
       { path: 'clients', loadComponent: BillingClientsComponent },
       { path: 'invoices', loadComponent: BillingInvoicesComponent },
       { path: 'invoices/new', loadComponent: BillingCreateInvoiceComponent },
+      { path: 'invoices/:id/edit', loadComponent: BillingCreateInvoiceComponent },
       { path: 'invoices/:id', loadComponent: BillingInvoiceViewComponent },
       { path: 'payments', loadComponent: BillingPaymentsComponent },
       { path: 'gst-summary', loadComponent: BillingGstReportComponent },

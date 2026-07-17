@@ -23,6 +23,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
         <div class="flex gap-2 flex-wrap">
           <button *ngIf="invoice.invoiceStatus === 'DRAFT'" (click)="approve()"
                   class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">Approve</button>
+          <a *ngIf="isEditable()" [routerLink]="['/accounts/invoices', invoice.id, 'edit']"
+                  class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50">Edit</a>
           <button (click)="generatePdf()" [disabled]="generatingPdf"
                   class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
             {{ generatingPdf ? 'Generating...' : 'Generate PDF' }}
@@ -392,5 +394,16 @@ export class BillingInvoiceViewComponent implements OnInit {
 
   fmt(n: any): string {
     return (+n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  // Mirrors the backend EDITABLE_STATUSES guard in invoices.service.ts —
+  // invoices with recorded payments or that are cancelled cannot be edited.
+  isEditable(): boolean {
+    if (!this.invoice) return false;
+    const editableStatuses = ['DRAFT', 'APPROVED', 'GENERATED', 'EMAILED', 'OVERDUE'];
+    return (
+      editableStatuses.includes(this.invoice.invoiceStatus) &&
+      this.invoice.paymentStatus === 'UNPAID'
+    );
   }
 }
