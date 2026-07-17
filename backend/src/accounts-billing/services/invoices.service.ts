@@ -10,11 +10,23 @@ import {
   InvoiceItem,
   BillingClient,
   BillingSetting,
+  InvoiceAuditLog,
 } from '../entities';
 import { InvoiceStatus, PaymentStatus, MailStatus } from '../enums';
-import { CreateInvoiceDto } from '../dto';
+import { CreateInvoiceDto, UpdateInvoiceDto } from '../dto';
 import { BillingCalculationService } from './billing-calculation.service';
 import { BillingNumberService } from './billing-number.service';
+
+// Invoices can only be edited while they're still moving through the
+// pre-payment workflow. Once money has been received or the invoice has
+// been cancelled, its figures must stay fixed for audit/reporting integrity.
+const EDITABLE_STATUSES = new Set<InvoiceStatus>([
+  InvoiceStatus.DRAFT,
+  InvoiceStatus.APPROVED,
+  InvoiceStatus.GENERATED,
+  InvoiceStatus.EMAILED,
+  InvoiceStatus.OVERDUE,
+]);
 
 @Injectable()
 export class InvoicesService {
@@ -27,6 +39,8 @@ export class InvoicesService {
     private readonly clientRepo: Repository<BillingClient>,
     @InjectRepository(BillingSetting)
     private readonly settingsRepo: Repository<BillingSetting>,
+    @InjectRepository(InvoiceAuditLog)
+    private readonly auditLogRepo: Repository<InvoiceAuditLog>,
     private readonly calcService: BillingCalculationService,
     private readonly numberService: BillingNumberService,
   ) {}
@@ -192,6 +206,145 @@ export class InvoicesService {
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
     return invoice;
+  }
+
+  async update(id: string, dto: UpdateInvoiceDto, userId: string) {
+    const invoice = await this.invoiceRepo.findOne({
+      where: { id },
+      relations: ['billingClient', 'items'],
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+
+    if (!EDITABLE_STATUSES.has(invoice.invoiceStatus)) {
+      throw new BadRequestException(
+        `Invoice cannot be edited once it is ${invoice.invoiceStatus}. ` +
+          'Invoices with recorded payments or that are cancelled are locked for editing.',
+      );
+    }
+    if (invoice.paymentStatus !== PaymentStatus.UNPAID) {
+      throw new BadRequestException(
+        'Invoice has recorded payments and cannot be edited. Reverse the payments first.',
+      );
+    }
+
+    const client = dto.billingClientId
+      ? await this.clientRepo.findOne({ where: { id: dto.billingClientId } })
+      : invoice.billingClient;
+    if (!client) throw new NotFoundException('Billing client not found');
+
+    const settings = await this.settingsRepo.findOne({ where: {} });
+    const supplierStateCode = settings?.stateCode || '36';
+    const clientStateCode = client.stateCode;
+    const gstRate = client.defaultGstRate || settings?.defaultGstRate || 18;
+
+    const intraState = this.calcService.isIntraState(
+      supplierStateCode,
+      clientStateCode,
+    );
+
+    const invoiceDate = dto.invoiceDate || invoice.invoiceDate;
+    const items = dto.items;
+
+    const oldStatus = invoice.invoiceStatus;
+    const before = {
+      invoiceNumber: invoice.invoiceNumber,
+      grandTotal: invoice.grandTotal,
+      itemCount: invoice.items?.length || 0,
+    };
+
+    invoice.billingClientId = client.id;
+    invoice.billingClient = client;
+    invoice.invoiceType = dto.invoiceType ?? invoice.invoiceType;
+    invoice.invoiceDate = invoiceDate;
+    invoice.dueDate = dto.dueDate !== undefined ? dto.dueDate : invoice.dueDate;
+    invoice.placeOfSupply =
+      dto.placeOfSupply ?? invoice.placeOfSupply ?? client.placeOfSupply;
+    invoice.stateCode = clientStateCode;
+    invoice.gstin = client.gstin;
+    invoice.remarks = dto.remarks !== undefined ? dto.remarks : invoice.remarks;
+    invoice.financialYear = this.numberService.getFinancialYear(
+      new Date(invoiceDate),
+    );
+
+    if (items && items.length) {
+      const itemResults = items.map((item) => {
+        // Reimbursement / pass-through line items (e.g. statutory / government
+        // fees) never attract GST — force the rate to 0.
+        const isReimbursement = item.isReimbursement || false;
+        const itemGstRate = isReimbursement ? 0 : (item.gstRate ?? gstRate);
+        return {
+          ...item,
+          isReimbursement,
+          gstRate: itemGstRate,
+          ...this.calcService.calculateItem({
+            quantity: item.quantity,
+            rate: item.rate,
+            discountAmount: item.discountAmount,
+            gstRate: itemGstRate,
+          }),
+        };
+      });
+
+      const totals = this.calcService.calculateInvoiceTotals(
+        itemResults.map((r) => ({
+          amount: r.amount,
+          discountAmount: r.discountAmount,
+          taxableAmount: r.taxableAmount,
+          gstAmount: r.gstAmount,
+          lineTotal: r.lineTotal,
+        })),
+        gstRate,
+        intraState,
+      );
+      Object.assign(invoice, totals);
+
+      // Replace the line items wholesale rather than trying to diff/merge —
+      // simpler and avoids stale rows lingering when items are removed.
+      if (invoice.items?.length) {
+        await this.itemRepo.remove(invoice.items);
+      }
+      invoice.items = itemResults.map((r, idx) =>
+        this.itemRepo.create({
+          serviceCode: r.serviceCode,
+          serviceDescription: r.serviceDescription,
+          sacCode: r.sacCode || settings?.defaultSacCode,
+          periodFrom: r.periodFrom,
+          periodTo: r.periodTo,
+          quantity: r.quantity,
+          rate: r.rate,
+          amount: r.amount,
+          discountAmount: r.discountAmount,
+          taxableAmount: r.taxableAmount,
+          gstRate: r.gstRate,
+          gstAmount: r.gstAmount,
+          lineTotal: r.lineTotal,
+          isReimbursement: r.isReimbursement || false,
+          sequence: r.sequence || idx + 1,
+        }),
+      );
+    }
+
+    const saved = await this.invoiceRepo.save(invoice);
+
+    await this.auditLogRepo.save(
+      this.auditLogRepo.create({
+        invoiceId: id,
+        action: 'EDIT',
+        oldStatus,
+        newStatus: saved.invoiceStatus,
+        changedBy: userId,
+        payload: {
+          before,
+          after: {
+            invoiceNumber: saved.invoiceNumber,
+            grandTotal: saved.grandTotal,
+            itemCount: saved.items?.length || 0,
+          },
+        },
+      }),
+    );
+
+    return this.findOne(id);
   }
 
   async approve(id: string, userId: string) {

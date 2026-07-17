@@ -93,3 +93,36 @@ export class CreateInvoiceDto {
   @Type(() => CreateInvoiceItemDto)
   items: CreateInvoiceItemDto[];
 }
+
+export class UpdateInvoiceDto {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  billingClientId?: string;
+
+  @IsOptional()
+  @IsEnum(InvoiceType)
+  invoiceType?: InvoiceType;
+
+  @IsOptional()
+  @IsDateString()
+  invoiceDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string;
+
+  @IsOptional()
+  @IsString()
+  placeOfSupply?: string;
+
+  @IsOptional()
+  @IsString()
+  remarks?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateInvoiceItemDto)
+  items?: CreateInvoiceItemDto[];
+}

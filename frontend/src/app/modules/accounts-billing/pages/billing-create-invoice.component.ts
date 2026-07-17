@@ -1,21 +1,38 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { AccountsBillingService } from '../services/accounts-billing.service';
 import { BillingClient, INVOICE_TYPES } from '../models/billing.models';
+
+// Mirrors the backend's EDITABLE_STATUSES guard (invoices.service.ts) —
+// once an invoice has a recorded payment or is cancelled its figures are
+// locked, so the edit form should not even try to submit changes.
+const EDITABLE_STATUSES = new Set([
+  'DRAFT', 'APPROVED', 'GENERATED', 'EMAILED', 'OVERDUE',
+]);
 
 @Component({
   selector: 'app-billing-create-invoice',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterModule],
   template: `
     <div class="p-6 space-y-6">
       <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold text-slate-800">Create Invoice</h1>
+        <h1 class="text-2xl font-bold text-slate-800">{{ isEditMode ? 'Edit Invoice' : 'Create Invoice' }}</h1>
       </div>
 
-      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-6">
+      <div *ngIf="loadingInvoice" class="bg-white rounded-xl border p-10 text-center text-slate-500">
+        Loading invoice…
+      </div>
+
+      <div *ngIf="isEditMode && !loadingInvoice && lockedStatus" class="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 text-sm">
+        This invoice is <strong>{{ lockedStatus }}</strong> and can no longer be edited
+        (payments have been recorded or it has been cancelled).
+        <a routerLink="/accounts/invoices/{{ invoiceId }}" class="underline font-medium">Back to invoice</a>
+      </div>
+
+      <form *ngIf="!loadingInvoice && !lockedStatus" [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-6">
         <!-- Header Section -->
         <div class="bg-white rounded-xl border p-6 space-y-4">
           <h2 class="text-lg font-semibold text-slate-700">Invoice Details</h2>
@@ -124,11 +141,11 @@ import { BillingClient, INVOICE_TYPES } from '../models/billing.models';
 
         <!-- Submit -->
         <div class="flex justify-end gap-3">
-          <button type="button" (click)="router.navigate(['/accounts/invoices'])"
+          <button type="button" (click)="onCancel()"
                   class="px-6 py-2.5 border rounded-lg text-sm">Cancel</button>
           <button type="submit" [disabled]="saving || form.invalid"
                   class="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
-            {{ saving ? 'Creating...' : 'Create Invoice' }}
+            {{ saving ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save Changes' : 'Create Invoice') }}
           </button>
         </div>
       </form>
@@ -142,9 +159,15 @@ export class BillingCreateInvoiceComponent implements OnInit {
   invoiceTypes = INVOICE_TYPES;
   saving = false;
 
+  invoiceId: string | null = null;
+  isEditMode = false;
+  loadingInvoice = false;
+  lockedStatus: string | null = null;
+
   constructor(
     private fb: FormBuilder,
     private svc: AccountsBillingService,
+    private route: ActivatedRoute,
     public router: Router,
   ) {}
 
@@ -163,6 +186,51 @@ export class BillingCreateInvoiceComponent implements OnInit {
       next: (c) => (this.clients = c || []),
       error: (e) => { console.error('[billing] active clients load failed', e); this.clients = []; },
     });
+
+    this.invoiceId = this.route.snapshot.paramMap.get('id');
+    if (this.invoiceId) {
+      this.isEditMode = true;
+      this.loadingInvoice = true;
+      this.svc.getInvoice(this.invoiceId).subscribe({
+        next: (inv) => {
+          this.loadingInvoice = false;
+          if (!EDITABLE_STATUSES.has(inv.invoiceStatus)) {
+            this.lockedStatus = inv.invoiceStatus;
+            return;
+          }
+          this.itemsArray.clear();
+          (inv.items || []).forEach((item) => {
+            this.itemsArray.push(
+              this.fb.group({
+                serviceDescription: [item.serviceDescription, Validators.required],
+                sacCode: [item.sacCode || ''],
+                quantity: [item.quantity, [Validators.required, Validators.min(1)]],
+                rate: [item.rate, [Validators.required, Validators.min(0)]],
+                discountAmount: [item.discountAmount || 0],
+                gstRate: [item.gstRate ?? 18],
+                isReimbursement: [item.isReimbursement || false],
+              }),
+            );
+          });
+          if (!this.itemsArray.length) this.itemsArray.push(this.newItem());
+
+          this.form.patchValue({
+            billingClientId: inv.billingClient?.id || '',
+            invoiceType: inv.invoiceType,
+            invoiceDate: inv.invoiceDate,
+            dueDate: inv.dueDate || '',
+            placeOfSupply: inv.placeOfSupply || '',
+            remarks: inv.remarks || '',
+          });
+          this.selectedClient = inv.billingClient || null;
+        },
+        error: (e) => {
+          this.loadingInvoice = false;
+          console.error('[billing] invoice load failed', e);
+          this.lockedStatus = 'unavailable';
+        },
+      });
+    }
   }
 
   get itemsArray(): FormArray {
@@ -228,12 +296,23 @@ export class BillingCreateInvoiceComponent implements OnInit {
   onSubmit(): void {
     if (this.form.invalid) return;
     this.saving = true;
-    this.svc.createInvoice(this.form.value).subscribe({
+    const request = this.isEditMode && this.invoiceId
+      ? this.svc.updateInvoice(this.invoiceId, this.form.value)
+      : this.svc.createInvoice(this.form.value);
+    request.subscribe({
       next: (inv) => {
         this.saving = false;
         this.router.navigate(['/accounts/invoices', inv.id]);
       },
       error: () => (this.saving = false),
     });
+  }
+
+  onCancel(): void {
+    if (this.isEditMode && this.invoiceId) {
+      this.router.navigate(['/accounts/invoices', this.invoiceId]);
+    } else {
+      this.router.navigate(['/accounts/invoices']);
+    }
   }
 }

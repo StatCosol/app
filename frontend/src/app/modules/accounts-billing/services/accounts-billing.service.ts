@@ -47,6 +47,10 @@ export class AccountsBillingService {
     return this.http.post<Invoice>(`${this.base}/invoices`, data);
   }
 
+  updateInvoice(id: string, data: any): Observable<Invoice> {
+    return this.http.patch<Invoice>(`${this.base}/invoices/${id}`, data);
+  }
+
   approveInvoice(id: string): Observable<Invoice> {
     return this.http.post<Invoice>(`${this.base}/invoices/${id}/approve`, {});
   }
