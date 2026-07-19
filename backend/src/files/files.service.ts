@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { IsNull } from 'typeorm';
+import * as path from 'path';
 import { PayrollInputFileEntity } from '../payroll/entities/payroll-input-file.entity';
 import { RegistersRecordEntity } from '../payroll/entities/registers-record.entity';
 import { HelpdeskMessageFileEntity } from '../helpdesk/entities/helpdesk-message-file.entity';
@@ -30,8 +31,12 @@ export class FilesService {
 
   // Determine if user can access a filePath (by checking known tables)
   async assertCanDownload(user: ReqUser, filePath: string) {
+    const filePathVariants = this.filePathVariants(filePath);
+
     // 1) contractor_documents
-    const cd = await this.cdRepo.findOne({ where: { filePath } });
+    const cd = await this.cdRepo.findOne({
+      where: filePathVariants.map((p) => ({ filePath: p })),
+    });
     if (cd) {
       if (user.roleCode === 'CONTRACTOR' && user.id !== cd.contractorUserId)
         throw new ForbiddenException();
@@ -41,7 +46,9 @@ export class FilesService {
     }
 
     // 2) payroll_input_files — verify user belongs to the same client via payroll_inputs
-    const pif = await this.pifRepo.findOne({ where: { filePath } });
+    const pif = await this.pifRepo.findOne({
+      where: filePathVariants.map((p) => ({ filePath: p })),
+    });
     if (pif) {
       if (user.roleCode === 'ADMIN') return;
       // Resolve the owning clientId through the parent payroll_input record
@@ -72,7 +79,9 @@ export class FilesService {
     }
 
     // 3) registers_records
-    const rr = await this.rrRepo.findOne({ where: { filePath } });
+    const rr = await this.rrRepo.findOne({
+      where: filePathVariants.map((p) => ({ filePath: p })),
+    });
     if (rr) {
       if (user.roleCode === 'CLIENT') {
         if (user.clientId !== rr.clientId) throw new ForbiddenException();
@@ -95,7 +104,9 @@ export class FilesService {
 
     // 4) helpdesk_message_files — join back to the ticket so we enforce
     // the same role-based scope as the ticket detail/messages endpoints.
-    const hmf = await this.hmfRepo.findOne({ where: { filePath } });
+    const hmf = await this.hmfRepo.findOne({
+      where: filePathVariants.map((p) => ({ filePath: p })),
+    });
     if (hmf) {
       const rows: Array<{
         clientId: string;
@@ -140,5 +151,22 @@ export class FilesService {
     }
 
     throw new BadRequestException('File not registered in DB');
+  }
+
+  private filePathVariants(filePath: string): string[] {
+    const normalized = String(filePath || '')
+      .replace(/\\/g, '/')
+      .replace(/^\/?uploads\//i, '')
+      .replace(/^\/+/, '');
+    const uploadsRoot = path.resolve(process.cwd(), 'uploads');
+    return Array.from(
+      new Set([
+        normalized,
+        path.join(uploadsRoot, normalized),
+        path.join(uploadsRoot, normalized).replace(/\\/g, '/'),
+        `uploads/${normalized}`,
+        `/uploads/${normalized}`,
+      ]),
+    ).filter(Boolean);
   }
 }

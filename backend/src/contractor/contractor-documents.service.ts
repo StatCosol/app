@@ -7,6 +7,7 @@ import { AuditEntity } from '../audits/entities/audit.entity';
 import { AuditObservationEntity } from '../audits/entities/audit-observation.entity';
 import { AiRiskCacheInvalidatorService } from '../ai/ai-risk-cache-invalidator.service';
 import { ReqUser } from '../access/access-scope.service';
+import * as path from 'path';
 
 export type ContractorDocumentCreateDto = {
   clientId?: string; // optional: will default to logged-in user's clientId
@@ -43,6 +44,16 @@ export class ContractorDocumentsService {
     private readonly observationRepo: Repository<AuditObservationEntity>,
     private readonly riskCache: AiRiskCacheInvalidatorService,
   ) {}
+
+  private toUploadsRelativePath(filePath: string): string {
+    const uploadsRoot = path.resolve(process.cwd(), 'uploads');
+    const resolved = path.resolve(filePath);
+    const relative = path.relative(uploadsRoot, resolved);
+    if (!relative.startsWith('..') && !path.isAbsolute(relative)) {
+      return relative.replace(/\\/g, '/');
+    }
+    return filePath.replace(/^\/?uploads[\\/]/i, '').replace(/\\/g, '/');
+  }
 
   /**
    * Validate that an audit (and optional observation) the contractor is
@@ -194,7 +205,7 @@ export class ContractorDocumentsService {
       observationId: dto.observationId ?? null,
       docMonth,
       fileName: file.originalname,
-      filePath: file.path,
+      filePath: this.toUploadsRelativePath(file.path),
       fileType: file.mimetype ?? null,
       fileSize: file.size != null ? String(file.size) : null,
       uploadedByUserId: user.id,
@@ -399,7 +410,7 @@ export class ContractorDocumentsService {
     });
 
     doc.fileName = file.originalname;
-    doc.filePath = file.path;
+    doc.filePath = this.toUploadsRelativePath(file.path);
     doc.fileType = file.mimetype ?? null;
     doc.fileSize = file.size != null ? String(file.size) : null;
     doc.title = dto?.title ?? doc.title;
