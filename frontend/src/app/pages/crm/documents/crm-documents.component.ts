@@ -105,7 +105,7 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
             <td><ui-status-badge [status]="doc.status || 'PENDING'"></ui-status-badge></td>
             <td class="text-right">
               <div class="action-btns">
-                <button *ngIf="doc.downloadUrl || doc.fileUrl"
+                <button *ngIf="doc.downloadUrl || doc.fileUrl || doc.filePath"
                         type="button"
                         (click)="openDocument(doc)"
                         class="btn-sm btn-outline">Download</button>
@@ -267,7 +267,9 @@ export class CrmDocumentsComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (data) => {
         this.loading = false;
-        this.documents = Array.isArray(data) ? data : (data as any)?.items || [];
+        this.documents = Array.isArray(data)
+          ? data
+          : (data as any)?.data || (data as any)?.items || [];
         this.applyFilters();
       },
       error: () => { this.loading = false; this.documents = []; this.filtered = []; },
@@ -320,7 +322,7 @@ export class CrmDocumentsComponent implements OnInit, OnDestroy {
   }
 
   openDocument(doc: any): void {
-    const url = doc?.downloadUrl || doc?.fileUrl;
+    const url = doc?.downloadUrl || doc?.fileUrl || this.downloadUrlForPath(doc?.filePath);
     if (!url) return;
     this.protectedFiles
       .open(url, doc?.fileName || doc?.name || doc?.title || null)
@@ -330,5 +332,17 @@ export class CrmDocumentsComponent implements OnInit, OnDestroy {
           this.toast.error(err?.error?.message || 'Unable to open document.');
         },
       });
+  }
+
+  private downloadUrlForPath(filePath: string | null | undefined): string | null {
+    if (!filePath) return null;
+    const normalizedInput = String(filePath).replace(/\\/g, '/');
+    const marker = '/uploads/';
+    const markerIndex = normalizedInput.toLowerCase().lastIndexOf(marker);
+    const relative =
+      markerIndex >= 0
+        ? normalizedInput.slice(markerIndex + marker.length)
+        : normalizedInput.replace(/^\/?uploads\//i, '').replace(/^\/+/, '');
+    return relative ? `/api/v1/files/download?p=${encodeURIComponent(relative)}` : null;
   }
 }
