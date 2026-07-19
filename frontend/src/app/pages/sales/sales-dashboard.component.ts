@@ -36,6 +36,12 @@ import {
       <ui-page-header
         title="My Pipeline"
         subtitle="Open leads, pipeline value and overdue follow-ups">
+        <ui-button variant="secondary" size="sm" [disabled]="loading()" (clicked)="reload()">
+          <span class="flex items-center gap-1.5">
+            <ui-icon name="refresh" [size]="14" />
+            Refresh
+          </span>
+        </ui-button>
         <ui-button variant="primary" (clicked)="goTo('/sales/leads/new')">
           <span class="flex items-center gap-2">
             <ui-icon name="plus" [size]="16" />
@@ -119,6 +125,7 @@ import {
           <ui-data-table
             [columns]="followupColumns"
             [data]="followups()"
+            exportFileName="overdue-followups"
             [clickable]="true"
             (rowClick)="openLead($event.row)"
             emptyMessage="No overdue follow-ups. You're all caught up.">

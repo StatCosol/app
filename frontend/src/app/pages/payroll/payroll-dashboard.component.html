@@ -2,6 +2,12 @@
   <ui-page-header
     title="PayDek Dashboard"
     subtitle="Payroll processing overview and workforce analytics">
+    <ui-button variant="secondary" size="sm" [disabled]="loading" (clicked)="reload()">
+      <span class="flex items-center gap-1.5">
+        <ui-icon name="refresh" [size]="14" />
+        Refresh
+      </span>
+    </ui-button>
   </ui-page-header>
 
   <!-- Loading State -->
@@ -139,6 +145,7 @@
         [columns]="runColumns"
         [data]="recentRuns"
         [loading]="false"
+        exportFileName="recent-payroll-runs"
         [clickable]="true"
         (rowClick)="openRun($event.row)"
         emptyMessage="No payroll runs yet. Create your first run from the Runs page.">

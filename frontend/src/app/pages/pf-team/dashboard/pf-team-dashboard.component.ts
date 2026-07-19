@@ -36,6 +36,12 @@ interface ClientStat {
       <ui-page-header
         title="PF & ESI Helpdesk Dashboard"
         subtitle="Manage employee PF, ESI, and Payslip queries">
+        <ui-button variant="secondary" size="sm" [disabled]="loading()" (clicked)="reload()">
+          <span class="flex items-center gap-1.5">
+            <ui-icon name="refresh" [size]="14" />
+            Refresh
+          </span>
+        </ui-button>
       </ui-page-header>
 
       @if (loading()) {

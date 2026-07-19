@@ -29,6 +29,12 @@ import {
       <ui-page-header
         title="Accounts & Billing"
         subtitle="Overview of invoices, payments and revenue">
+        <ui-button variant="secondary" size="sm" [disabled]="loading()" (clicked)="reload()">
+          <span class="flex items-center gap-1.5">
+            <ui-icon name="refresh" [size]="14" />
+            Refresh
+          </span>
+        </ui-button>
         <ui-button variant="primary" (clicked)="goTo('/accounts/invoices/new')">
           <span class="flex items-center gap-2">
             <ui-icon name="plus" [size]="16" />

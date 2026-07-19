@@ -15,6 +15,7 @@ import {
   ActionButtonComponent,
   ChartCardComponent,
   ChartCardDataset,
+  IconComponent,
 } from '../../shared/ui';
 
 @Component({
@@ -29,8 +30,9 @@ import {
     TableCellDirective,
     StatusBadgeComponent,
     ActionButtonComponent,
-    ChartCardComponent
-],
+    ChartCardComponent,
+    IconComponent,
+  ],
   templateUrl: './payroll-dashboard.component.html',
   styleUrls: ['./payroll-dashboard.component.scss'],
 })
@@ -106,7 +108,12 @@ export class PayrollDashboardComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.reload();
+  }
+
+  reload(): void {
     this.loading = true;
+    this.error = '';
     this.cdr.detectChanges();
 
     forkJoin({

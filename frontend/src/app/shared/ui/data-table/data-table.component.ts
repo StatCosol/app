@@ -35,6 +35,21 @@ export class TableCellDirective {
   imports: [CommonModule],
   template: `
     <div class="animate-fade-up">
+      <!-- Export toolbar -->
+      @if (exportFileName && !loading && data.length > 0) {
+        <div class="flex justify-end mb-2">
+          <button
+            type="button"
+            (click)="exportCsv()"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 hover:text-gray-800 transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+            </svg>
+            Export CSV
+          </button>
+        </div>
+      }
+
       <!-- Table -->
       <div class="overflow-x-auto">
         <table class="w-full table-fixed min-w-[600px]">
@@ -199,6 +214,8 @@ export class DataTableComponent {
   @Input() loading = false;
   @Input() emptyMessage = 'No data available';
   @Input() clickable = false;
+  /** When set, an "Export CSV" button is shown that downloads the current rows as <name>.csv */
+  @Input() exportFileName = '';
 
   // Sorting
   @Input() sortColumn: string | null = null;
@@ -278,6 +295,27 @@ export class DataTableComponent {
     if (!Number.isFinite(page)) return this.currentPage || 1;
     const rounded = Math.trunc(page);
     return Math.min(this.totalPages, Math.max(1, rounded));
+  }
+
+  exportCsv(): void {
+    // Columns without a header are action columns — skip them in the export.
+    const cols = this.columns.filter((c) => c.header);
+    const escape = (v: unknown): string => {
+      const s = v == null ? '' : String(v);
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const lines = [
+      cols.map((c) => escape(c.header)).join(','),
+      ...this.data.map((row) => cols.map((c) => escape(row[c.key])).join(',')),
+    ];
+    // BOM so Excel opens the file as UTF-8
+    const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${this.exportFileName}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   get startItem(): number {
