@@ -18,14 +18,18 @@ import { StatusChangeRowComponent } from './status-change-row.component';
             <span class="text-[11px] text-gray-500">{{ event.createdAt | date:'d MMM y, h:mm a' }}</span>
           </div>
         </div>
-        <span *ngIf="event.attachmentsCount" class="text-[11px] text-gray-500">Attachments: {{ event.attachmentsCount }}</span>
+        @if (event.attachmentsCount) {
+<span class="text-[11px] text-gray-500">Attachments: {{ event.attachmentsCount }}</span>
+}
       </div>
 
       <div class="mt-2">
         <ui-status-change-row [from]="event.statusFrom || null" [to]="event.statusTo || null"></ui-status-change-row>
       </div>
 
-      <div *ngIf="event.comment" class="mt-2 text-sm text-gray-700 whitespace-pre-wrap">{{ event.comment }}</div>
+      @if (event.comment) {
+<div class="mt-2 text-sm text-gray-700 whitespace-pre-wrap">{{ event.comment }}</div>
+}
     </div>
   `,
 })

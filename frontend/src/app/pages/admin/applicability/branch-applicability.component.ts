@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ToastService } from '../../../shared/toast/toast.service';
@@ -34,13 +34,12 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
   selector: 'app-branch-applicability',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     PageHeaderComponent,
     ActionButtonComponent,
     LoadingSpinnerComponent,
-    ModalComponent,
-  ],
+    ModalComponent
+],
   template: `
     <div class="p-6 max-w-7xl mx-auto space-y-6">
       <ui-page-header title="Compliance Applicability" subtitle="Configure branch facts and manage applicable compliances">
@@ -62,9 +61,12 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
         </div>
       </ui-page-header>
 
-      <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
 
-      <ng-container *ngIf="!loading">
+      @if (!loading) {
+
         <!-- Branch Facts Form -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -85,7 +87,9 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
               <label for="ba-state" class="block text-sm font-medium text-gray-700 mb-1.5">State</label>
               <select id="ba-state" name="stateCode" [(ngModel)]="factsForm.stateCode" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
                 <option value="">Select State</option>
-                <option *ngFor="let s of stateOptions" [value]="s.value">{{ s.label }}</option>
+                @for (s of stateOptions; track s) {
+<option [value]="s.value">{{ s.label }}</option>
+}
               </select>
             </div>
             <!-- Establishment Type -->
@@ -147,12 +151,14 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
         </div>
 
         <!-- Recompute Summary Banner -->
-        <div *ngIf="recomputeResult" class="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center justify-between">
+        @if (recomputeResult) {
+<div class="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center justify-between">
           <div>
             <span class="font-semibold text-green-800">Recomputed:</span>
             <span class="text-green-700 ml-2">{{ recomputeResult.applicable }} applicable out of {{ recomputeResult.computed }} compliances</span>
           </div>
         </div>
+}
 
         <!-- Special Acts Section -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -161,7 +167,8 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
             <p class="text-sm text-gray-500 mt-0.5">Select special acts applicable to this branch.</p>
           </div>
           <div class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div *ngFor="let act of specialActOptions"
+            @for (act of specialActOptions; track act) {
+<div
               class="flex items-center gap-3 p-3 rounded-lg border transition-colors"
               [class.border-blue-200]="isSpecialActSelected(act.code)"
               [class.bg-blue-50]="isSpecialActSelected(act.code)"
@@ -178,6 +185,7 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
                 <span class="text-xs text-gray-500">{{ act.code }}</span>
               </div>
             </div>
+}
           </div>
         </div>
 
@@ -200,9 +208,13 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
               </span>
             </div>
           </div>
-          <div *ngIf="loadingApplicable" class="p-8 text-center text-gray-400">Loading applicability...</div>
-          <div *ngIf="!loadingApplicable" class="max-h-[600px] overflow-y-auto">
-            <div *ngFor="let group of applicabilityGroups" class="border-b border-gray-100 last:border-b-0">
+          @if (loadingApplicable) {
+<div class="p-8 text-center text-gray-400">Loading applicability...</div>
+}
+          @if (!loadingApplicable) {
+<div class="max-h-[600px] overflow-y-auto">
+            @for (group of applicabilityGroups; track group) {
+<div class="border-b border-gray-100 last:border-b-0">
               <div class="px-6 py-3 bg-gray-50 flex items-center justify-between cursor-pointer" (click)="toggleGroupExpand(group.key)">
                 <div class="flex items-center gap-2">
                   <svg class="w-4 h-4 text-gray-400 transition-transform" [class.rotate-90]="expandedGroups[group.key]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -211,8 +223,10 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
                 </div>
                 <span class="text-xs text-gray-500">{{ countApplicable(group.items) }} applicable</span>
               </div>
-              <div *ngIf="expandedGroups[group.key]" class="divide-y divide-gray-50">
-                <div *ngFor="let item of group.items" class="px-6 py-3 flex items-center gap-4 hover:bg-gray-50/50 transition-colors">
+              @if (expandedGroups[group.key]) {
+<div class="divide-y divide-gray-50">
+                @for (item of group.items; track item) {
+<div class="px-6 py-3 flex items-center gap-4 hover:bg-gray-50/50 transition-colors">
                   <!-- Status indicator -->
                   <span class="w-2.5 h-2.5 rounded-full flex-shrink-0"
                     [class.bg-green-500]="item.isApplicable && item.source !== 'OVERRIDE'"
@@ -238,40 +252,58 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
                     [class.text-amber-700]="item.source === 'OVERRIDE'"
                   >{{ item.source }}</span>
                   <!-- Lock icon for AUTO items -->
-                  <svg *ngIf="item.source === 'AUTO'" class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  @if (item.source === 'AUTO') {
+<svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                   </svg>
+}
                   <!-- Override button -->
                   <button
                     (click)="openOverrideModal(item)"
                     class="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors"
                   >Override</button>
                 </div>
+}
               </div>
+}
             </div>
-            <div *ngIf="applicabilityGroups.length === 0" class="p-8 text-center text-gray-400">
+}
+            @if (applicabilityGroups.length === 0) {
+<div class="p-8 text-center text-gray-400">
               No applicability data. Click <strong>Recompute</strong> to evaluate rules.
             </div>
+}
           </div>
+}
         </div>
 
         <!-- Pending Overrides Summary -->
-        <div *ngIf="pendingOverrides.length > 0" class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        @if (pendingOverrides.length > 0) {
+<div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
           <h4 class="text-sm font-semibold text-amber-800 mb-2">Pending Overrides ({{ pendingOverrides.length }})</h4>
           <div class="space-y-1">
-            <div *ngFor="let ov of pendingOverrides" class="text-sm text-amber-700 flex items-center gap-2">
+            @for (ov of pendingOverrides; track ov) {
+<div class="text-sm text-amber-700 flex items-center gap-2">
               <span>{{ getComplianceName(ov.complianceId) }}</span>
               <span class="text-amber-500">&rarr;</span>
-              <span *ngIf="ov.isApplicable" class="text-green-700 font-medium">Force Enable</span>
-              <span *ngIf="!ov.isApplicable" class="text-red-700 font-medium">Force Disable</span>
+              @if (ov.isApplicable) {
+<span class="text-green-700 font-medium">Force Enable</span>
+}
+              @if (!ov.isApplicable) {
+<span class="text-red-700 font-medium">Force Disable</span>
+}
               <span class="text-amber-500 text-xs">({{ ov.reason }})</span>
             </div>
+}
           </div>
         </div>
-      </ng-container>
+}
+      
+}
 
       <!-- Override Modal -->
-      <ui-modal *ngIf="overrideModal" title="Override Compliance" (closed)="overrideModal = null">
+      @if (overrideModal) {
+<ui-modal title="Override Compliance" (closed)="overrideModal = null">
         <div class="space-y-4">
           <div>
             <span class="block text-sm font-medium text-gray-700 mb-1">Compliance</span>
@@ -299,6 +331,7 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
           </div>
         </div>
       </ui-modal>
+}
     </div>
   `,
 })

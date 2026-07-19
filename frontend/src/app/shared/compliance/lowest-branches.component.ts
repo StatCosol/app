@@ -1,12 +1,12 @@
 import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ClientBranchesService } from '../../core/client-branches.service';
 
 @Component({
   standalone: true,
   selector: 'app-lowest-branches',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="lb-card">
@@ -15,9 +15,12 @@ import { ClientBranchesService } from '../../core/client-branches.service';
         <input autocomplete="off" id="lb-month" name="month" type="month" [(ngModel)]="month" (change)="load()" class="lb-month" />
       </div>
 
-      <div *ngIf="loading" class="lb-muted" style="padding:12px 0;">Loading…</div>
+      @if (loading) {
+<div class="lb-muted" style="padding:12px 0;">Loading…</div>
+}
 
-      <table *ngIf="!loading && rows.length" class="lb-tbl">
+      @if (!loading && rows.length) {
+<table class="lb-tbl">
         <thead>
           <tr>
             <th>#</th>
@@ -28,7 +31,8 @@ import { ClientBranchesService } from '../../core/client-branches.service';
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let r of rows; let i = index">
+          @for (r of rows; track r; let i = $index) {
+<tr>
             <td>{{ i + 1 }}</td>
             <td style="font-weight:700;">{{ r.branchName }}</td>
             <td>{{ r.stateCode || '—' }}</td>
@@ -39,12 +43,16 @@ import { ClientBranchesService } from '../../core/client-branches.service';
             </td>
             <td class="lb-muted">{{ r.uploaded }}/{{ r.totalApplicable }}</td>
           </tr>
+}
         </tbody>
       </table>
+}
 
-      <div *ngIf="!loading && !rows.length" class="lb-muted" style="padding:16px 0;text-align:center;">
+      @if (!loading && !rows.length) {
+<div class="lb-muted" style="padding:16px 0;text-align:center;">
         No branch data available
       </div>
+}
     </div>
   `,
   styles: [`

@@ -1,12 +1,12 @@
 import { Component, Input, Output, EventEmitter, HostListener, ElementRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { TableColumn } from '../../models/table.model';
 
 @Component({
   selector: 'app-column-chooser',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './column-chooser.component.html',
 })
 export class ColumnChooserComponent<T = any> {

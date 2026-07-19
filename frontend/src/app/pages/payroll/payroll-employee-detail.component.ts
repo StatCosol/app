@@ -45,38 +45,52 @@ type Tab = 'profile' | 'compliance' | 'history';
         </ui-page-header>
       </div>
 
-      <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
-      <ui-empty-state *ngIf="error && !loading" title="Error" [description]="error"></ui-empty-state>
+      @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
+      @if (error && !loading) {
+<ui-empty-state title="Error" [description]="error"></ui-empty-state>
+}
 
-      <ng-container *ngIf="emp && !loading">
+      @if (emp && !loading) {
+
         <!-- Status bar -->
         <div class="flex items-center gap-3 mb-6">
           <ui-status-badge [status]="emp.isActive ? 'ACTIVE' : 'INACTIVE'"></ui-status-badge>
-          <span *ngIf="emp.designation" class="text-sm text-gray-500">{{ emp.designation }}</span>
-          <span *ngIf="emp.department" class="text-sm text-gray-400">· {{ emp.department }}</span>
+          @if (emp.designation) {
+<span class="text-sm text-gray-500">{{ emp.designation }}</span>
+}
+          @if (emp.department) {
+<span class="text-sm text-gray-400">· {{ emp.department }}</span>
+}
         </div>
 
         <!-- Tabs -->
         <div class="border-b border-gray-200 mb-6">
           <nav class="flex gap-6">
-            <button *ngFor="let t of tabs"
+            @for (t of tabs; track t) {
+<button
               (click)="activeTab = t.key"
               class="pb-3 px-1 text-sm font-medium border-b-2 transition-colors"
               [class]="activeTab === t.key ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'">
               {{ t.label }}
             </button>
+}
           </nav>
         </div>
 
         <!-- Profile Tab -->
-        <div *ngIf="activeTab === 'profile'" class="space-y-6">
+        @if (activeTab === 'profile') {
+<div class="space-y-6">
           <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
             <h3 class="text-sm font-semibold text-gray-800 uppercase tracking-wider mb-4">Personal Information</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div *ngFor="let field of personalFields">
+              @for (field of personalFields; track field) {
+<div>
                 <span class="text-xs text-gray-500 uppercase tracking-wide">{{ field.label }}</span>
                 <p class="text-sm font-medium text-gray-900 mt-0.5">{{ field.value || '-' }}</p>
               </div>
+}
             </div>
           </div>
 
@@ -116,9 +130,11 @@ type Tab = 'profile' | 'compliance' | 'history';
             </div>
           </div>
         </div>
+}
 
         <!-- Compliance Tab -->
-        <div *ngIf="activeTab === 'compliance'" class="space-y-6">
+        @if (activeTab === 'compliance') {
+<div class="space-y-6">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <!-- PF Card -->
             <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
@@ -138,18 +154,24 @@ type Tab = 'profile' | 'compliance' | 'history';
                   <span class="text-sm text-gray-500">UAN</span>
                   <span class="text-sm font-medium">{{ emp.uan || '-' }}</span>
                 </div>
-                <div *ngIf="emp.pfApplicableFrom" class="flex justify-between">
+                @if (emp.pfApplicableFrom) {
+<div class="flex justify-between">
                   <span class="text-sm text-gray-500">Applicable From</span>
                   <span class="text-sm font-medium">{{ emp.pfApplicableFrom | date:'dd/MM/yyyy' }}</span>
                 </div>
-                <div *ngIf="emp.pfServiceStartDate" class="flex justify-between">
+}
+                @if (emp.pfServiceStartDate) {
+<div class="flex justify-between">
                   <span class="text-sm text-gray-500">PF Service Start Date</span>
                   <span class="text-sm font-medium">{{ emp.pfServiceStartDate | date:'dd/MM/yyyy' }}</span>
                 </div>
-                <div *ngIf="emp.basicAtPfStart !== null && emp.basicAtPfStart !== undefined" class="flex justify-between">
+}
+                @if (emp.basicAtPfStart !== null && emp.basicAtPfStart !== undefined) {
+<div class="flex justify-between">
                   <span class="text-sm text-gray-500">Basic at PF Start</span>
                   <span class="text-sm font-medium">₹{{ emp.basicAtPfStart | number:'1.2-2' }}</span>
                 </div>
+}
               </div>
             </div>
 
@@ -171,30 +193,38 @@ type Tab = 'profile' | 'compliance' | 'history';
                   <span class="text-sm text-gray-500">IP Number</span>
                   <span class="text-sm font-medium">{{ emp.esic || '-' }}</span>
                 </div>
-                <div *ngIf="emp.esiApplicableFrom" class="flex justify-between">
+                @if (emp.esiApplicableFrom) {
+<div class="flex justify-between">
                   <span class="text-sm text-gray-500">Applicable From</span>
                   <span class="text-sm font-medium">{{ emp.esiApplicableFrom | date:'dd/MM/yyyy' }}</span>
                 </div>
+}
               </div>
             </div>
           </div>
 
           <!-- Missing Data Alerts -->
-          <div *ngIf="missingDataAlerts.length" class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          @if (missingDataAlerts.length) {
+<div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
             <h4 class="text-sm font-semibold text-amber-800 mb-2">Missing Data</h4>
             <ul class="space-y-1">
-              <li *ngFor="let alert of missingDataAlerts" class="flex items-center gap-2 text-sm text-amber-700">
+              @for (alert of missingDataAlerts; track alert) {
+<li class="flex items-center gap-2 text-sm text-amber-700">
                 <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                 </svg>
                 {{ alert }}
               </li>
+}
             </ul>
           </div>
+}
         </div>
+}
 
         <!-- Payroll History Tab -->
-        <div *ngIf="activeTab === 'history'">
+        @if (activeTab === 'history') {
+<div>
           <ui-data-table
             [columns]="historyColumns"
             [data]="emp.runHistory || []"
@@ -222,7 +252,9 @@ type Tab = 'profile' | 'compliance' | 'history';
             </ng-template>
           </ui-data-table>
         </div>
-      </ng-container>
+}
+      
+}
     </div>
   `,
 })

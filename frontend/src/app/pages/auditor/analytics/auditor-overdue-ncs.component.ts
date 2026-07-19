@@ -61,25 +61,34 @@ interface OverdueNc {
         >
           Refresh
         </button>
-        <span class="text-xs text-slate-500" *ngIf="asOf">
+        @if (asOf) {
+<span class="text-xs text-slate-500">
           As of {{ asOf | date: 'mediumDate' }} — {{ items.length }} item(s)
         </span>
+}
       </div>
 
-      <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
 
-      <div *ngIf="!loading && items.length === 0 && !error">
+      @if (!loading && items.length === 0 && !error) {
+<div>
         <ui-empty-state
           message="No overdue non-compliances. Your audits are on track."
           icon="check-circle"
         ></ui-empty-state>
       </div>
+}
 
-      <div *ngIf="error" class="bg-rose-50 border border-rose-200 text-rose-700 rounded-md p-3 text-sm">
+      @if (error) {
+<div class="bg-rose-50 border border-rose-200 text-rose-700 rounded-md p-3 text-sm">
         {{ error }}
       </div>
+}
 
-      <div *ngIf="!loading && items.length > 0"
+      @if (!loading && items.length > 0) {
+<div
            class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <table class="w-full text-sm">
           <thead class="bg-slate-50 text-slate-600 text-xs uppercase">
@@ -95,8 +104,9 @@ interface OverdueNc {
             </tr>
           </thead>
           <tbody>
-            <tr
-              *ngFor="let it of items"
+            @for (it of items; track it) {
+<tr
+             
               class="border-b border-slate-100 hover:bg-slate-50"
               [class.bg-rose-50]="it.daysOverdue >= 7"
             >
@@ -137,9 +147,11 @@ interface OverdueNc {
                 </a>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+}
     </div>
   `,
 })

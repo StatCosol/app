@@ -13,7 +13,8 @@
     </button>
   </div>
 
-  <section class="summary-grid" *ngIf="selectedClientId">
+  @if (selectedClientId) {
+<section class="summary-grid">
     <article class="summary-card">
       <span class="label">Rule Sets</span>
       <strong>{{ activeCount }}</strong>
@@ -35,14 +36,20 @@
       <span class="sub">Selected version</span>
     </article>
   </section>
+}
 
-  <div *ngIf="loading" class="loader">Loading rule sets...</div>
+  @if (loading) {
+<div class="loader">Loading rule sets...</div>
+}
 
-  <div *ngIf="!loading && !selectedClientId" class="empty-state">
+  @if (!loading && !selectedClientId) {
+<div class="empty-state">
     Select a client to manage payroll rule sets.
   </div>
+}
 
-  <section *ngIf="!loading && selectedClientId" class="workspace-grid">
+  @if (!loading && selectedClientId) {
+<section class="workspace-grid">
     <article class="card list-pane">
       <header class="section-head">
         <h2>Rule Set Versions</h2>
@@ -65,7 +72,8 @@
         </label>
       </div>
 
-      <div class="table-wrap" *ngIf="filteredRuleSets.length; else noRuleSets">
+      @if (filteredRuleSets.length) {
+<div class="table-wrap">
         <table>
           <thead>
             <tr>
@@ -77,8 +85,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              *ngFor="let row of filteredRuleSets; trackBy: trackRuleSet"
+            @for (row of filteredRuleSets; track trackRuleSet($index, row)) {
+<tr
+             
               [class.selected]="selectedRuleSet?.id === row.id"
               (click)="selectRuleSet(row)"
             >
@@ -105,17 +114,22 @@
                 <button type="button" class="link link-danger" (click)="deleteRuleSet(row); $event.stopPropagation()">Delete</button>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+} @else {
 
-      <ng-template #noRuleSets>
         <div class="empty-mini">No rule sets available for this client.</div>
-      </ng-template>
+      
+}
+
+      
     </article>
 
     <aside class="detail-stack">
-      <article class="card" *ngIf="selectedRuleSet as selected; else selectPrompt">
+      @if (selectedRuleSet; as selected) {
+<article class="card">
         <header class="section-head">
           <h2>{{ selected.name }}</h2>
           <span [class]="ruleSetStatusClass(selected.isActive)">{{ selected.isActive ? 'Active' : 'Inactive' }}</span>
@@ -142,21 +156,24 @@
 
         <div class="action-row">
           <button type="button" class="btn btn-secondary" (click)="openCreateParam()">+ Add Parameter</button>
-          <button
+          @if (!selected.isActive) {
+<button
             type="button"
             class="btn btn-primary"
-            *ngIf="!selected.isActive"
+           
             [disabled]="saving || !canActivateRuleSet(selected, true)"
             [title]="ruleSetActivationReason(selected, true) || ''"
             (click)="activateVersion(selected)"
           >
             Activate Version
           </button>
+}
           <button type="button" class="btn btn-ghost" (click)="openCompareModal()">Compare Versions</button>
         </div>
 
         <div class="guardrail-grid">
-          <article class="guardrail-item" *ngFor="let guard of selectedGuardrailChecks">
+          @for (guard of selectedGuardrailChecks; track guard) {
+<article class="guardrail-item">
             <div class="guardrail-head">
               <span>{{ guard.label }}</span>
               <span [class]="guard.passed ? 'badge badge--good' : 'badge badge--warn'">
@@ -165,21 +182,28 @@
             </div>
             <p>{{ guard.detail }}</p>
           </article>
+}
         </div>
       </article>
+} @else {
 
-      <ng-template #selectPrompt>
         <article class="card empty-mini">Select a rule set to manage parameters and compare versions.</article>
-      </ng-template>
+      
+}
 
-      <article class="card" *ngIf="selectedRuleSet">
+      
+
+      @if (selectedRuleSet) {
+<article class="card">
         <header class="section-head">
           <h2>Activation History</h2>
           <span>{{ versionHistory.length }} versions</span>
         </header>
 
-        <div class="timeline" *ngIf="versionHistory.length; else noHistory">
-          <div class="timeline-item" *ngFor="let version of versionHistory; trackBy: trackVersion">
+        @if (versionHistory.length) {
+<div class="timeline">
+          @for (version of versionHistory; track trackVersion($index, version)) {
+<div class="timeline-item">
             <i [class.dot-active]="version.isActive" [class.dot-inactive]="!version.isActive"></i>
             <div>
               <strong>{{ formatDate(version.effectiveFrom) }} to {{ formatDate(version.effectiveTo) }}</strong>
@@ -189,24 +213,34 @@
               </div>
             </div>
           </div>
+}
         </div>
+} @else {
 
-        <ng-template #noHistory>
           <div class="empty-mini">No historical versions found.</div>
-        </ng-template>
+        
+}
+
+        
       </article>
+}
     </aside>
   </section>
+}
 
-  <section class="card" *ngIf="selectedRuleSet">
+  @if (selectedRuleSet) {
+<section class="card">
     <header class="section-head">
       <h2>Parameter Matrix</h2>
       <span>{{ params.length }} parameters</span>
     </header>
 
-    <div *ngIf="loadingParams" class="loader mini">Loading parameters...</div>
+    @if (loadingParams) {
+<div class="loader mini">Loading parameters...</div>
+}
 
-    <div class="table-wrap" *ngIf="!loadingParams && params.length; else noParams">
+    @if (!loadingParams && params.length) {
+<div class="table-wrap">
       <table>
         <thead>
           <tr>
@@ -219,7 +253,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let p of params; trackBy: trackParam">
+          @for (p of params; track trackParam($index, p)) {
+<tr>
             <td class="mono strong">{{ p.key }}</td>
             <td>{{ p.valueNum !== null ? p.valueNum : '-' }}</td>
             <td>{{ p.valueText || '-' }}</td>
@@ -230,18 +265,26 @@
               <button type="button" class="link link-danger" (click)="deleteParam(p)">Delete</button>
             </td>
           </tr>
+}
         </tbody>
       </table>
     </div>
+} @else {
 
-    <ng-template #noParams>
-      <div class="empty-mini" *ngIf="!loadingParams">No parameters configured for selected version.</div>
-    </ng-template>
+      @if (!loadingParams) {
+<div class="empty-mini">No parameters configured for selected version.</div>
+}
+    
+}
+
+    
   </section>
+}
 </div>
 
 <!-- Rule set modal -->
-<div class="modal-backdrop" *ngIf="showRuleSetModal">
+@if (showRuleSetModal) {
+<div class="modal-backdrop">
   <div class="modal-card">
     <header>
       <h3>{{ editingRuleSet ? 'Edit Rule Set Version' : 'Create Rule Set Version' }}</h3>
@@ -278,9 +321,11 @@
     </footer>
   </div>
 </div>
+}
 
 <!-- Parameter modal -->
-<div class="modal-backdrop" *ngIf="showParamModal">
+@if (showParamModal) {
+<div class="modal-backdrop">
   <div class="modal-card">
     <header>
       <h3>{{ editingParam ? 'Edit Parameter' : 'Add Parameter' }}</h3>
@@ -289,7 +334,9 @@
 
     <div class="quick-keys">
       <span>Quick keys:</span>
-      <button type="button" *ngFor="let key of quickParamKeys" (click)="applyQuickParam(key)">{{ key }}</button>
+      @for (key of quickParamKeys; track key) {
+<button type="button" (click)="applyQuickParam(key)">{{ key }}</button>
+}
     </div>
 
     <div class="modal-grid">
@@ -327,16 +374,19 @@
     </footer>
   </div>
 </div>
+}
 
 <!-- Compare modal -->
-<div class="modal-backdrop" *ngIf="showCompareModal">
+@if (showCompareModal) {
+<div class="modal-backdrop">
   <div class="modal-card large">
     <header>
       <h3>Compare Rule Set Versions</h3>
       <button type="button" class="link" (click)="showCompareModal = false">Close</button>
     </header>
 
-    <div class="compare-head" *ngIf="selectedRuleSet as base">
+    @if (selectedRuleSet; as base) {
+<div class="compare-head">
       <label>
         Base Version
         <input type="text" [value]="base.name + ' (' + formatDate(base.effectiveFrom) + ')'" readonly />
@@ -346,9 +396,11 @@
         Compare With
         <select id="prs-compare-target-id" name="compareTargetId" [(ngModel)]="compareTargetId" (ngModelChange)="runComparison()">
           <option value="">Select version</option>
-          <option *ngFor="let c of compareCandidates" [value]="c.id">
+          @for (c of compareCandidates; track c) {
+<option [value]="c.id">
             {{ c.name }} · {{ formatDate(c.effectiveFrom) }} · {{ c.isActive ? 'Active' : 'Inactive' }}
           </option>
+}
         </select>
       </label>
       <label>
@@ -362,17 +414,23 @@
         </select>
       </label>
     </div>
+}
 
-    <div class="summary-strip" *ngIf="!compareLoading && compareRows.length">
+    @if (!compareLoading && compareRows.length) {
+<div class="summary-strip">
       <span class="badge badge--warn">Updated: {{ comparisonSummary.updated }}</span>
       <span class="badge badge--good">Added: {{ comparisonSummary.added }}</span>
       <span class="badge badge--bad">Removed: {{ comparisonSummary.removed }}</span>
       <span class="badge badge--muted">Unchanged: {{ unchangedCompareCount }}</span>
     </div>
+}
 
-    <div *ngIf="compareLoading" class="loader mini">Comparing versions...</div>
+    @if (compareLoading) {
+<div class="loader mini">Comparing versions...</div>
+}
 
-    <div class="table-wrap" *ngIf="!compareLoading && filteredCompareRows.length; else noCompare">
+    @if (!compareLoading && filteredCompareRows.length) {
+<div class="table-wrap">
       <table>
         <thead>
           <tr>
@@ -383,7 +441,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let row of filteredCompareRows; trackBy: trackCompare">
+          @for (row of filteredCompareRows; track trackCompare($index, row)) {
+<tr>
             <td class="mono strong">{{ row.key }}</td>
             <td>
               <div>Num: {{ row.baseNum !== null ? row.baseNum : '-' }}</div>
@@ -395,17 +454,26 @@
             </td>
             <td><span [class]="comparisonClass(row.state)">{{ row.state }}</span></td>
           </tr>
+}
         </tbody>
       </table>
     </div>
+} @else {
 
-    <ng-template #noCompare>
-      <div class="empty-mini" *ngIf="!compareLoading && compareRows.length">No rows match the selected filter.</div>
-      <div class="empty-mini" *ngIf="!compareLoading && !compareRows.length">No comparison data available.</div>
-    </ng-template>
+      @if (!compareLoading && compareRows.length) {
+<div class="empty-mini">No rows match the selected filter.</div>
+}
+      @if (!compareLoading && !compareRows.length) {
+<div class="empty-mini">No comparison data available.</div>
+}
+    
+}
+
+    
 
     <footer>
       <button type="button" class="btn btn-ghost" (click)="showCompareModal = false">Close</button>
     </footer>
   </div>
 </div>
+}

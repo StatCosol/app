@@ -1,11 +1,11 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { BulkAction } from '../../models/table.model';
 
 @Component({
   selector: 'app-bulk-actions',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './bulk-actions.component.html',
 })
 export class BulkActionsComponent {

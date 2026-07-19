@@ -159,14 +159,20 @@ const STANDARD_HOURS = 9;
         <div class="stat"><span class="k">Pending Save</span><span class="v">{{ dirtyCount }}</span></div>
       </section>
 
-      <div *ngIf="loading" class="muted center">Loading employees…</div>
+      @if (loading) {
+<div class="muted center">Loading employees…</div>
+}
 
-      <ng-container *ngIf="!loading">
-        <div *ngIf="!rows.length" class="empty">
+      @if (!loading) {
+
+        @if (!rows.length) {
+<div class="empty">
           No active employees found for this branch.
         </div>
+}
 
-        <section *ngIf="rows.length" class="card no-pad">
+        @if (rows.length) {
+<section class="card no-pad">
           <div class="table-wrap">
             <table>
               <thead>
@@ -182,8 +188,9 @@ const STANDARD_HOURS = 9;
                 </tr>
               </thead>
               <tbody>
-                <tr
-                  *ngFor="let r of filteredRows(); trackBy: trackById"
+                @for (r of filteredRows(); track trackById($index, r)) {
+<tr
+                 
                   [class.dirty]="r.dirty"
                   [class.absent]="r.status === 'ABSENT'"
                 >
@@ -191,7 +198,9 @@ const STANDARD_HOURS = 9;
                   <td>
                     <div class="emp">
                       <strong>{{ r.employeeName }}</strong>
-                      <small *ngIf="r.designation">{{ r.designation }}</small>
+                      @if (r.designation) {
+<small>{{ r.designation }}</small>
+}
                     </div>
                   </td>
                   <td>
@@ -242,11 +251,14 @@ const STANDARD_HOURS = 9;
                     />
                   </td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
         </section>
-      </ng-container>
+}
+      
+}
     </div>
   `,
   styles: [`

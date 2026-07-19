@@ -1,5 +1,5 @@
 import { Component , ChangeDetectionStrategy} from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterOutlet } from '@angular/router';
 import { CeoSidebarComponent } from './ceo-sidebar.component';
 import { AuthService } from '../../../core/auth.service';
@@ -9,7 +9,7 @@ import { NewsTickerComponent } from '../../../shared/news/news-ticker.component'
   selector: 'app-ceo-layout',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterOutlet, CeoSidebarComponent, NewsTickerComponent],
+  imports: [RouterOutlet, CeoSidebarComponent, NewsTickerComponent],
   template: `
     <div class="ceo-shell">
       <!-- Mobile menu toggle -->
@@ -64,13 +64,15 @@ import { NewsTickerComponent } from '../../../shared/news/news-ticker.component'
 
               <!-- User + Logout -->
               <div class="flex items-center gap-4">
-                <img
-                  *ngIf="clientLogoUrl"
+                @if (clientLogoUrl) {
+<img
+                 
                   [src]="clientLogoUrl"
                   alt="Client logo"
                   class="h-10 w-auto hidden sm:block"
                   (error)="onLogoError()"
                 />
+}
                 <div class="hidden sm:block text-sm font-semibold text-gray-900">{{ userName }}</div>
                 <button
                   (click)="logout()"

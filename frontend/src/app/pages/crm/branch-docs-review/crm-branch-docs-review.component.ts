@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -23,7 +23,7 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
 @Component({
   selector: 'app-crm-branch-docs-review',
   standalone: true,
-  imports: [CommonModule, FormsModule, ActionButtonComponent, StatusBadgeComponent, PageHeaderComponent, ModalComponent, DataTableComponent, TableCellDirective],
+  imports: [FormsModule, ActionButtonComponent, StatusBadgeComponent, PageHeaderComponent, ModalComponent, DataTableComponent, TableCellDirective],
   templateUrl: './crm-branch-docs-review.component.html',
   styles: [`
     .page-container { max-width: 1400px; margin: 0 auto; padding: 0 1rem; }

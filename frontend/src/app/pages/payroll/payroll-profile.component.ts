@@ -1,5 +1,5 @@
 import { Component, ChangeDetectionStrategy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { AuthService } from '../../core/auth.service';
 import { PageHeaderComponent } from '../../shared/ui';
 
@@ -7,7 +7,7 @@ import { PageHeaderComponent } from '../../shared/ui';
   selector: 'app-payroll-profile',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, PageHeaderComponent],
+  imports: [PageHeaderComponent],
   template: `
     <div class="page">
       <ui-page-header
@@ -16,11 +16,13 @@ import { PageHeaderComponent } from '../../shared/ui';
         icon="user">
       </ui-page-header>
       
-      <div class="card" *ngIf="user">
+      @if (user) {
+<div class="card">
         <div class="row"><span class="k">Name</span><span class="v">{{ user.name || user.fullName }}</span></div>
         <div class="row"><span class="k">Email</span><span class="v">{{ user.email }}</span></div>
         <div class="row"><span class="k">Role</span><span class="v">{{ user.roleCode }}</span></div>
       </div>
+}
     </div>
   `,
   styles: [

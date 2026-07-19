@@ -36,10 +36,14 @@ import { PageHeaderComponent, StatusBadgeComponent, ActionButtonComponent, Loadi
         </ui-button>
       </div>
 
-      <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
 
-      <div class="space-y-4" *ngIf="!loading">
-        <div class="bg-white rounded-lg border border-gray-200 p-4" *ngFor="let req of requests">
+      @if (!loading) {
+<div class="space-y-4">
+        @for (req of requests; track req) {
+<div class="bg-white rounded-lg border border-gray-200 p-4">
           <div class="flex justify-between items-start mb-3 pb-3 border-b border-gray-200">
             <span class="text-sm font-bold text-gray-900">{{ req.requestType }}</span>
             <ui-status-badge [variant]="getBadgeVariant(req.status)">{{ req.status }}</ui-status-badge>
@@ -47,24 +51,34 @@ import { PageHeaderComponent, StatusBadgeComponent, ActionButtonComponent, Loadi
           <div class="space-y-2 text-sm text-gray-700">
             <div><strong>Requester:</strong> {{ req.requesterName || 'Unknown' }}</div>
             <div><strong>Target:</strong> {{ req.targetEntityType }} ({{ req.targetEntityId }})</div>
-            <div *ngIf="req.reason"><strong>Reason:</strong> {{ req.reason }}</div>
+            @if (req.reason) {
+<div><strong>Reason:</strong> {{ req.reason }}</div>
+}
             <div><strong>Requested:</strong> {{ req.createdAt | date:'medium' }}</div>
           </div>
-          <div class="flex gap-2 mt-3 pt-3 border-t border-gray-200" *ngIf="req.status === 'PENDING'">
+          @if (req.status === 'PENDING') {
+<div class="flex gap-2 mt-3 pt-3 border-t border-gray-200">
             <ui-button variant="primary" size="sm" (click)="approve(req.id)" [disabled]="actionId === req.id">{{ actionId === req.id ? 'Processing...' : 'Approve' }}</ui-button>
             <ui-button variant="danger" size="sm" (click)="reject(req.id)" [disabled]="actionId === req.id">{{ actionId === req.id ? 'Processing...' : 'Reject' }}</ui-button>
           </div>
-          <div class="mt-3 p-3 bg-gray-50 rounded text-sm" *ngIf="req.approverNotes">
+}
+          @if (req.approverNotes) {
+<div class="mt-3 p-3 bg-gray-50 rounded text-sm">
             <strong>Notes:</strong> {{ req.approverNotes }}
           </div>
+}
         </div>
+}
         
-        <ui-empty-state 
-          *ngIf="requests.length === 0"
+        @if (requests.length === 0) {
+<ui-empty-state 
+         
           [title]="'No ' + filter.toLowerCase() + ' requests'"
           icon="clipboard-check">
         </ui-empty-state>
+}
       </div>
+}
     </div>
   `
 })

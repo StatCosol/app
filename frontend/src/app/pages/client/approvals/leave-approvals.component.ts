@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
@@ -9,19 +9,24 @@ import { ToastService } from '../../../shared/toast/toast.service';
 @Component({
   selector: 'app-leave-approvals',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="max-w-6xl mx-auto space-y-6">
       <h1 class="text-2xl font-bold text-gray-900">Leave Approvals</h1>
 
-      <div *ngIf="loading" class="text-gray-500 text-sm">Loading pending leave applications...</div>
+      @if (loading) {
+<div class="text-gray-500 text-sm">Loading pending leave applications...</div>
+}
 
-      <div *ngIf="!loading && !leaves.length"
+      @if (!loading && !leaves.length) {
+<div
            class="bg-white border rounded-xl p-8 text-center text-gray-500">
         No pending leave applications to review.
       </div>
+}
 
-      <div *ngIf="!loading && leaves.length" class="section-card">
+      @if (!loading && leaves.length) {
+<div class="section-card">
         <table class="data-table">
           <thead>
             <tr>
@@ -36,7 +41,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let lv of leaves">
+            @for (lv of leaves; track lv) {
+<tr>
               <td class="font-medium">{{ lv.employeeName || lv.employeeId }}</td>
               <td>{{ lv.leaveTypeCode }}</td>
               <td>{{ lv.fromDate }}</td>
@@ -55,8 +61,10 @@ import { ToastService } from '../../../shared/toast/toast.service';
                 </div>
               </td>
             </tr>
+}
             <!-- Inline reject row -->
-            <tr *ngIf="rejectId">
+            @if (rejectId) {
+<tr>
               <td colspan="8">
                 <div class="reject-inline">
                   <label class="text-xs font-medium text-gray-600" for="la-reject-reason">Reason for rejection:</label>
@@ -70,9 +78,11 @@ import { ToastService } from '../../../shared/toast/toast.service';
                 </div>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+}
     </div>
   `,
   styles: [`

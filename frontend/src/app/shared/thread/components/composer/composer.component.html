@@ -3,8 +3,10 @@
   [class.pointer-events-none]="disabled">
 
   <!-- File chips -->
-  <div *ngIf="files.length" class="flex flex-wrap gap-2 mb-3">
-    <span *ngFor="let f of files; let i = index"
+  @if (files.length) {
+<div class="flex flex-wrap gap-2 mb-3">
+    @for (f of files; track f; let i = $index) {
+<span
       class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-700">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -13,7 +15,9 @@
       {{ f.name }}
       <button type="button" class="ml-1 text-blue-400 hover:text-blue-700" (click)="removeFile(i)">×</button>
     </span>
+}
   </div>
+}
 
   <!-- Compose area -->
   <div class="flex gap-3 items-end">
@@ -45,10 +49,12 @@
                      flex items-center gap-2"
         [disabled]="disabled || sending || (!message.trim() && files.length === 0)"
         (click)="submit()">
-        <svg *ngIf="sending" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+        @if (sending) {
+<svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
+}
         Send
       </button>
     </div>

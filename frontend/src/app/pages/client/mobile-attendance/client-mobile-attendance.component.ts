@@ -70,41 +70,59 @@ interface BranchOption { id: string; name: string }
 
       <!-- Tabs -->
       <div class="tab-bar">
-        <button *ngIf="hasContractorFaceAttendanceModule" class="tab-btn" [class.active]="tab === 'devices'" (click)="switchTab('devices')">Devices</button>
-        <button *ngIf="hasEmployeeMobileAttendanceModule" class="tab-btn" [class.active]="tab === 'status'" (click)="switchTab('status')">Enrollment Status</button>
-        <button *ngIf="hasReenrollWorkflow" class="tab-btn" [class.active]="tab === 'reenroll'" (click)="switchTab('reenroll')">
+        @if (hasContractorFaceAttendanceModule) {
+<button class="tab-btn" [class.active]="tab === 'devices'" (click)="switchTab('devices')">Devices</button>
+}
+        @if (hasEmployeeMobileAttendanceModule) {
+<button class="tab-btn" [class.active]="tab === 'status'" (click)="switchTab('status')">Enrollment Status</button>
+}
+        @if (hasReenrollWorkflow) {
+<button class="tab-btn" [class.active]="tab === 'reenroll'" (click)="switchTab('reenroll')">
           Re-enrollment Requests
-          <span *ngIf="totalPendingReenrollCount > 0"
+          @if (totalPendingReenrollCount > 0) {
+<span
                 class="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
             {{ totalPendingReenrollCount }}
           </span>
+}
         </button>
-        <button *ngIf="hasAnyFaceModule" class="tab-btn" [class.active]="tab === 'review'" (click)="switchTab('review')">
+}
+        @if (hasAnyFaceModule) {
+<button class="tab-btn" [class.active]="tab === 'review'" (click)="switchTab('review')">
           Punch Review
-          <span *ngIf="pendingReviewCount > 0"
+          @if (pendingReviewCount > 0) {
+<span
                 class="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
             {{ pendingReviewCount }}
           </span>
+}
         </button>
+}
         <button class="tab-btn" [class.active]="tab === 'help'" (click)="switchTab('help')">Setup Guide</button>
       </div>
 
       <!-- ────── DEVICES TAB ────── -->
-      <ng-container *ngIf="tab === 'devices'">
+      @if (tab === 'devices') {
+
         <div class="flex items-center justify-between mb-4">
           <span class="text-sm text-gray-500">{{ devices.length }} device(s) registered</span>
           <ui-button variant="primary" (clicked)="openAdd()">+ Register Device</ui-button>
         </div>
 
-        <ui-loading-spinner *ngIf="loadingDevices" text="Loading devices..." size="lg"></ui-loading-spinner>
+        @if (loadingDevices) {
+<ui-loading-spinner text="Loading devices..." size="lg"></ui-loading-spinner>
+}
 
-        <ui-empty-state
-          *ngIf="!loadingDevices && devices.length === 0"
+        @if (!loadingDevices && devices.length === 0) {
+<ui-empty-state
+         
           title="No mobile devices registered"
           description="Register a tablet (KIOSK mode) at the gate or an employee's phone (ESS mode) to start collecting face-based attendance.">
         </ui-empty-state>
+}
 
-        <div *ngIf="!loadingDevices && devices.length > 0"
+        @if (!loadingDevices && devices.length > 0) {
+<div
              class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
           <table class="w-full text-sm">
             <thead>
@@ -120,7 +138,8 @@ interface BranchOption { id: string; name: string }
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let d of devices" class="border-b border-gray-100 hover:bg-gray-50">
+              @for (d of devices; track d) {
+<tr class="border-b border-gray-100 hover:bg-gray-50">
                 <td class="px-4 py-3 text-gray-900 font-medium">{{ d.deviceLabel || d.deviceName || '—' }}</td>
                 <td class="px-4 py-3">
                   <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
@@ -131,11 +150,15 @@ interface BranchOption { id: string; name: string }
                 </td>
                 <td class="px-4 py-3 text-gray-700">{{ branchName(d.branchId) }}</td>
                 <td class="px-4 py-3 text-gray-700">
-                  <span *ngIf="d.geofenceLat !== null && d.geofenceLng !== null">
+                  @if (d.geofenceLat !== null && d.geofenceLng !== null) {
+<span>
                     {{ d.geofenceLat | number:'1.4-4' }}, {{ d.geofenceLng | number:'1.4-4' }}
                     <span class="text-gray-400">· {{ d.geofenceRadiusM || 100 }}m</span>
                   </span>
-                  <span *ngIf="d.geofenceLat === null" class="text-gray-400">—</span>
+}
+                  @if (d.geofenceLat === null) {
+<span class="text-gray-400">—</span>
+}
                 </td>
                 <td class="px-4 py-3 text-gray-700">{{ d.lastSeenAt ? (d.lastSeenAt | date: 'dd MMM, HH:mm') : 'Never' }}</td>
                 <td class="px-4 py-3 text-gray-700">{{ d.lastPunchAt ? (d.lastPunchAt | date: 'dd MMM, HH:mm') : 'Never' }}</td>
@@ -147,20 +170,34 @@ interface BranchOption { id: string; name: string }
                   </span>
                 </td>
                 <td class="px-4 py-3 text-right whitespace-nowrap">
-                  <button *ngIf="d.isActive" class="text-xs text-blue-600 hover:underline mr-3" (click)="showToken(d)">Show Token</button>
-                  <button *ngIf="d.isActive" class="text-xs text-green-600 hover:underline mr-3" (click)="renameDevice(d)">Rename</button>
-                  <button *ngIf="d.isActive" class="text-xs text-indigo-600 hover:underline mr-3" (click)="openGeofence(d)">Geofence</button>
-                  <button *ngIf="d.isActive" class="text-xs text-red-600 hover:underline" (click)="revoke(d)">Revoke</button>
-                  <button *ngIf="!d.isActive" class="text-xs text-red-700 hover:underline" (click)="hardDelete(d)">Delete</button>
+                  @if (d.isActive) {
+<button class="text-xs text-blue-600 hover:underline mr-3" (click)="showToken(d)">Show Token</button>
+}
+                  @if (d.isActive) {
+<button class="text-xs text-green-600 hover:underline mr-3" (click)="renameDevice(d)">Rename</button>
+}
+                  @if (d.isActive) {
+<button class="text-xs text-indigo-600 hover:underline mr-3" (click)="openGeofence(d)">Geofence</button>
+}
+                  @if (d.isActive) {
+<button class="text-xs text-red-600 hover:underline" (click)="revoke(d)">Revoke</button>
+}
+                  @if (!d.isActive) {
+<button class="text-xs text-red-700 hover:underline" (click)="hardDelete(d)">Delete</button>
+}
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
-      </ng-container>
+}
+      
+}
 
       <!-- ────── ENROLLMENT STATUS TAB ────── -->
-      <ng-container *ngIf="tab === 'status'">
+      @if (tab === 'status') {
+
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div class="text-sm text-gray-700">
             <span class="font-semibold text-gray-900">{{ enrolledCount }}</span> enrolled ·
@@ -180,15 +217,20 @@ interface BranchOption { id: string; name: string }
           </div>
         </div>
 
-        <ui-loading-spinner *ngIf="loadingEnrollments" text="Loading enrollments..." size="lg"></ui-loading-spinner>
+        @if (loadingEnrollments) {
+<ui-loading-spinner text="Loading enrollments..." size="lg"></ui-loading-spinner>
+}
 
-        <ui-empty-state
-          *ngIf="!loadingEnrollments && enrollmentRows.length === 0"
+        @if (!loadingEnrollments && enrollmentRows.length === 0) {
+<ui-empty-state
+         
           title="No employees found"
           description="There are no active employees in the selected scope.">
         </ui-empty-state>
+}
 
-        <div *ngIf="!loadingEnrollments && filteredEnrollments.length > 0"
+        @if (!loadingEnrollments && filteredEnrollments.length > 0) {
+<div
              class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
           <table class="w-full text-sm">
             <thead>
@@ -203,46 +245,68 @@ interface BranchOption { id: string; name: string }
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let r of filteredEnrollments" class="border-b border-gray-100 hover:bg-gray-50">
+              @for (r of filteredEnrollments; track r) {
+<tr class="border-b border-gray-100 hover:bg-gray-50">
                 <td class="px-4 py-3 text-gray-700 font-mono text-xs">{{ r.employeeCode }}</td>
                 <td class="px-4 py-3 text-gray-900 font-medium">{{ r.employeeName }}</td>
                 <td class="px-4 py-3 text-gray-700">{{ branchName(r.branchId) }}</td>
                 <td class="px-4 py-3 text-center">
-                  <span *ngIf="r.isEnrolled && r.isActive"
+                  @if (r.isEnrolled && r.isActive) {
+<span
                     class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Enrolled</span>
-                  <span *ngIf="r.isEnrolled && !r.isActive"
+}
+                  @if (r.isEnrolled && !r.isActive) {
+<span
                     class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600"
                     [title]="r.deactivationReason || ''">Deactivated</span>
-                  <span *ngIf="!r.isEnrolled"
+}
+                  @if (!r.isEnrolled) {
+<span
                     class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pending</span>
+}
                 </td>
                 <td class="px-4 py-3 text-gray-700 text-xs">{{ r.embeddingModel || '—' }}</td>
                 <td class="px-4 py-3 text-gray-700">{{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}</td>
                 <td class="px-4 py-3 text-right whitespace-nowrap">
-                  <span *ngIf="!r.isEnrolled" class="text-xs text-gray-500 italic"
+                  @if (!r.isEnrolled) {
+<span class="text-xs text-gray-500 italic"
                     title="Face enrollment is done by the Branch user on a paired kiosk/ESS device. Client admins only review status here.">Pending kiosk enrollment</span>
-                  <button *ngIf="hasContractorFaceAttendanceModule && r.isEnrolled && r.isActive" class="text-xs text-emerald-700 hover:underline mr-3"
+}
+                  @if (hasContractorFaceAttendanceModule && r.isEnrolled && r.isActive) {
+<button class="text-xs text-emerald-700 hover:underline mr-3"
                     (click)="deputeAsEss(r)" title="Register a personal phone for this employee (ESS mode) — useful for project deputation">Depute (ESS)</button>
-                  <button *ngIf="r.isEnrolled && r.isActive" class="text-xs text-red-600 hover:underline mr-3"
+}
+                  @if (r.isEnrolled && r.isActive) {
+<button class="text-xs text-red-600 hover:underline mr-3"
                     (click)="deactivate(r)">Deactivate</button>
-                  <button *ngIf="r.isEnrolled" class="text-xs text-red-700 hover:underline font-semibold"
+}
+                  @if (r.isEnrolled) {
+<button class="text-xs text-red-700 hover:underline font-semibold"
                     (click)="hardDeleteEnrollment(r)" title="Permanently remove this enrollment row (audit history preserved)">Delete</button>
+}
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+}
 
-        <div *ngIf="!loadingEnrollments && enrollmentRows.length > 0 && filteredEnrollments.length === 0"
+        @if (!loadingEnrollments && enrollmentRows.length > 0 && filteredEnrollments.length === 0) {
+<div
              class="text-sm text-gray-500 mt-4">No employees match the current filter.</div>
-      </ng-container>
+}
+      
+}
 
       <!-- ────── RE-ENROLLMENT REQUESTS TAB ────── -->
-      <ng-container *ngIf="tab === 'reenroll'">
+      @if (tab === 'reenroll') {
+
         <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
           <div class="flex items-center gap-3 flex-wrap">
             <div class="inline-flex rounded-md border border-gray-200 overflow-hidden text-sm">
-              <button *ngIf="hasEmployeeMobileAttendanceModule" type="button"
+              @if (hasEmployeeMobileAttendanceModule) {
+<button type="button"
                       class="px-3 py-1.5"
                       [class.bg-indigo-600]="reenrollScope === 'employee'"
                       [class.text-white]="reenrollScope === 'employee'"
@@ -250,7 +314,8 @@ interface BranchOption { id: string; name: string }
                       [class.text-gray-700]="reenrollScope !== 'employee'"
                       (click)="switchReenrollScope('employee')">
                 Employees
-                <span *ngIf="pendingReenrollCount > 0"
+                @if (pendingReenrollCount > 0) {
+<span
                       class="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-semibold rounded-full"
                       [class.bg-white]="reenrollScope === 'employee'"
                       [class.text-indigo-700]="reenrollScope === 'employee'"
@@ -258,8 +323,11 @@ interface BranchOption { id: string; name: string }
                       [class.text-amber-800]="reenrollScope !== 'employee'">
                   {{ pendingReenrollCount }}
                 </span>
+}
               </button>
-              <button *ngIf="hasContractorFaceAttendanceModule" type="button"
+}
+              @if (hasContractorFaceAttendanceModule) {
+<button type="button"
                       class="px-3 py-1.5 border-l border-gray-200"
                       [class.bg-indigo-600]="reenrollScope === 'contractor'"
                       [class.text-white]="reenrollScope === 'contractor'"
@@ -267,7 +335,8 @@ interface BranchOption { id: string; name: string }
                       [class.text-gray-700]="reenrollScope !== 'contractor'"
                       (click)="switchReenrollScope('contractor')">
                 Contractors
-                <span *ngIf="pendingContractorReenrollCount > 0"
+                @if (pendingContractorReenrollCount > 0) {
+<span
                       class="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-semibold rounded-full"
                       [class.bg-white]="reenrollScope === 'contractor'"
                       [class.text-indigo-700]="reenrollScope === 'contractor'"
@@ -275,7 +344,9 @@ interface BranchOption { id: string; name: string }
                       [class.text-amber-800]="reenrollScope !== 'contractor'">
                   {{ pendingContractorReenrollCount }}
                 </span>
+}
               </button>
+}
             </div>
             <span class="text-sm text-gray-500">
               {{ reenrollRows.length }} {{ reenrollFilter | lowercase }} request(s)
@@ -292,17 +363,22 @@ interface BranchOption { id: string; name: string }
           </div>
         </div>
 
-        <ui-loading-spinner *ngIf="loadingReenroll" text="Loading requests..." size="lg"></ui-loading-spinner>
+        @if (loadingReenroll) {
+<ui-loading-spinner text="Loading requests..." size="lg"></ui-loading-spinner>
+}
 
-        <ui-empty-state
-          *ngIf="!loadingReenroll && reenrollRows.length === 0"
+        @if (!loadingReenroll && reenrollRows.length === 0) {
+<ui-empty-state
+         
           title="No {{ reenrollFilter | lowercase }} {{ reenrollScope === 'contractor' ? 'contractor' : 'employee' }} re-enrollment requests"
           [description]="reenrollScope === 'contractor'
             ? 'When a contractor employee re-enrolls their face from the ESS app or kiosk, the new embedding lands here for review before it overwrites the live one.'
             : 'When an employee re-enrolls their face from the ESS app or kiosk, the new embedding lands here for review before it overwrites the live one.'">
         </ui-empty-state>
+}
 
-        <div *ngIf="!loadingReenroll && reenrollRows.length > 0"
+        @if (!loadingReenroll && reenrollRows.length > 0) {
+<div
              class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
           <table class="w-full text-sm">
             <thead>
@@ -318,7 +394,8 @@ interface BranchOption { id: string; name: string }
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let r of reenrollRows" class="border-b border-gray-100 hover:bg-gray-50">
+              @for (r of reenrollRows; track r) {
+<tr class="border-b border-gray-100 hover:bg-gray-50">
                 <td class="px-4 py-3">
                   <div class="font-medium text-gray-900">{{ r.displayName || '—' }}</div>
                   <div class="text-xs text-gray-500">{{ r.displayCode || r.subjectId }}</div>
@@ -336,38 +413,52 @@ interface BranchOption { id: string; name: string }
                 </td>
                 <td class="px-4 py-3 text-gray-600 text-xs">{{ r.requestedAt | date:'medium' }}</td>
                 <td class="px-4 py-3 text-gray-600 text-xs">
-                  <ng-container *ngIf="r.reviewedAt; else notReviewed">
+                  @if (r.reviewedAt) {
+
                     <div>{{ r.reviewedAt | date:'medium' }}</div>
-                    <div *ngIf="r.reviewNotes" class="text-gray-500" [title]="r.reviewNotes">{{ r.reviewNotes }}</div>
-                  </ng-container>
-                  <ng-template #notReviewed><span class="text-gray-400">—</span></ng-template>
+                    @if (r.reviewNotes) {
+<div class="text-gray-500" [title]="r.reviewNotes">{{ r.reviewNotes }}</div>
+}
+                  
+} @else {
+<span class="text-gray-400">—</span>
+}
+                  
                 </td>
                 <td class="px-4 py-3 text-center">
-                  <ng-container *ngIf="r.status === 'PENDING'; else statusBadge">
+                  @if (r.status === 'PENDING') {
+
                     <button class="text-xs font-medium text-green-700 hover:text-green-900 mr-2"
                             [disabled]="reviewingId === r.id"
                             (click)="openReview(r, 'APPROVED')">Approve</button>
                     <button class="text-xs font-medium text-red-600 hover:text-red-800"
                             [disabled]="reviewingId === r.id"
                             (click)="openReview(r, 'REJECTED')">Reject</button>
-                  </ng-container>
-                  <ng-template #statusBadge>
+                  
+} @else {
+
                     <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded"
                           [class.bg-green-100]="r.status === 'APPROVED'" [class.text-green-800]="r.status === 'APPROVED'"
                           [class.bg-red-100]="r.status === 'REJECTED'" [class.text-red-800]="r.status === 'REJECTED'"
                           [class.bg-gray-100]="r.status === 'CANCELLED'" [class.text-gray-800]="r.status === 'CANCELLED'">
                       {{ r.status }}
                     </span>
-                  </ng-template>
+                  
+}
+                  
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
-      </ng-container>
+}
+      
+}
 
       <!-- ────── PUNCH REVIEW TAB ────── -->
-      <ng-container *ngIf="tab === 'review'">
+      @if (tab === 'review') {
+
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div class="text-sm text-gray-600">
             Borderline face matches are held here instead of auto-counting. Approving mirrors the punch
@@ -383,15 +474,20 @@ interface BranchOption { id: string; name: string }
           </div>
         </div>
 
-        <ui-loading-spinner *ngIf="loadingReview" text="Loading review queue..." size="lg"></ui-loading-spinner>
+        @if (loadingReview) {
+<ui-loading-spinner text="Loading review queue..." size="lg"></ui-loading-spinner>
+}
 
-        <ui-empty-state
-          *ngIf="!loadingReview && reviewRows.length === 0"
+        @if (!loadingReview && reviewRows.length === 0) {
+<ui-empty-state
+         
           title="Nothing to review"
           description="No punches in this state. Borderline matches will appear here automatically.">
         </ui-empty-state>
+}
 
-        <div *ngIf="!loadingReview && reviewRows.length > 0"
+        @if (!loadingReview && reviewRows.length > 0) {
+<div
              class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
           <table class="w-full text-sm">
             <thead>
@@ -407,7 +503,8 @@ interface BranchOption { id: string; name: string }
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let r of reviewRows" class="border-b border-gray-100 hover:bg-gray-50">
+              @for (r of reviewRows; track r) {
+<tr class="border-b border-gray-100 hover:bg-gray-50">
                 <td class="px-4 py-3">
                   <div class="text-gray-900 font-medium">{{ r.subjectName || 'Unknown' }}</div>
                   <div class="text-xs text-gray-500 font-mono">
@@ -423,35 +520,47 @@ interface BranchOption { id: string; name: string }
                 <td class="px-4 py-3 text-center font-mono text-xs">{{ formatScore(r.matchMargin) }}</td>
                 <td class="px-4 py-3 text-xs text-gray-600 max-w-[220px]">{{ r.reviewNote || '—' }}</td>
                 <td class="px-4 py-3 text-center">
-                  <button *ngIf="isPhotoOpenable(r.photoUrl)" type="button"
+                  @if (isPhotoOpenable(r.photoUrl)) {
+<button type="button"
                      class="text-xs text-indigo-600 hover:underline"
                      (click)="openPunchPhoto(r)">View</button>
-                  <span *ngIf="!isPhotoOpenable(r.photoUrl)" class="text-xs text-gray-400">—</span>
+}
+                  @if (!isPhotoOpenable(r.photoUrl)) {
+<span class="text-xs text-gray-400">—</span>
+}
                 </td>
                 <td class="px-4 py-3 text-right whitespace-nowrap">
-                  <ng-container *ngIf="r.decision === 'REVIEW_PENDING'; else reviewedState">
+                  @if (r.decision === 'REVIEW_PENDING') {
+
                     <button class="text-xs text-emerald-700 hover:underline font-semibold mr-3"
                       [disabled]="reviewingPunchId === r.id"
                       (click)="reviewPunchAction(r, 'APPROVE')">Approve</button>
                     <button class="text-xs text-red-600 hover:underline font-semibold"
                       [disabled]="reviewingPunchId === r.id"
                       (click)="reviewPunchAction(r, 'REJECT')">Reject</button>
-                  </ng-container>
-                  <ng-template #reviewedState>
+                  
+} @else {
+
                     <span class="text-xs text-gray-500 italic">
                       {{ r.decision === 'REVIEW_APPROVED' ? 'Approved' : 'Rejected' }}
                       {{ r.reviewedAt ? (r.reviewedAt | date: 'dd MMM, HH:mm') : '' }}
                     </span>
-                  </ng-template>
+                  
+}
+                  
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
-      </ng-container>
+}
+      
+}
 
       <!-- ────── HELP TAB ────── -->
-      <ng-container *ngIf="tab === 'help'">
+      @if (tab === 'help') {
+
         <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-4 text-sm text-gray-700">
           <div>
             <h3 class="font-semibold text-gray-900 mb-1">1. Choose a mode</h3>
@@ -477,11 +586,13 @@ interface BranchOption { id: string; name: string }
             <p>Mobile punches share the same pipeline as biometric punches — they appear under <em>Attendance Review</em>, <em>Daily Attendance</em>, and roll into payroll/registers without any extra work.</p>
           </div>
         </div>
-      </ng-container>
+      
+}
     </div>
 
     <!-- Geofence Modal -->
-    <ui-modal *ngIf="geofenceModal" [isOpen]="geofenceModal" [showFooter]="false" title="Configure Geofence" (closed)="geofenceModal = false">
+    @if (geofenceModal) {
+<ui-modal [isOpen]="geofenceModal" [showFooter]="false" title="Configure Geofence" (closed)="geofenceModal = false">
       <form (ngSubmit)="saveGeofence()" class="space-y-3">
         <p class="text-xs text-gray-500">Set the geofence centre and radius for this device. Leave blank and save to clear.</p>
         <div class="grid grid-cols-3 gap-2">
@@ -498,7 +609,9 @@ interface BranchOption { id: string; name: string }
             <input type="number" step="1" min="50" max="50000" class="ui-input" [(ngModel)]="geofenceForm.radiusM" name="gfRadius" placeholder="100">
           </div>
         </div>
-        <div *ngIf="geofenceError" class="text-sm text-red-600">{{ geofenceError }}</div>
+        @if (geofenceError) {
+<div class="text-sm text-red-600">{{ geofenceError }}</div>
+}
         <div class="flex justify-between gap-2 pt-2">
           <ui-button variant="secondary" type="button" (clicked)="clearGeofence()">Clear Geofence</ui-button>
           <div class="flex gap-2">
@@ -508,15 +621,19 @@ interface BranchOption { id: string; name: string }
         </div>
       </form>
     </ui-modal>
+}
 
     <!-- Add Device Modal -->
-    <ui-modal *ngIf="showModal" [isOpen]="showModal" [showFooter]="false" title="Register Mobile Device" (closed)="showModal = false">
+    @if (showModal) {
+<ui-modal [isOpen]="showModal" [showFooter]="false" title="Register Mobile Device" (closed)="showModal = false">
       <form (ngSubmit)="save()" class="space-y-3">
         <div>
           <label for="dev-mode" class="block text-xs font-medium text-gray-600 mb-1">Mode <span class="text-red-500">*</span></label>
           <select id="dev-mode" name="mode" [(ngModel)]="form.mode" (ngModelChange)="onModeChange()" class="ui-input">
             <option value="KIOSK">KIOSK — shared gate tablet (1:N identification)</option>
-            <option *ngIf="hasEmployeeMobileAttendanceModule" value="ESS">ESS — employee personal phone (1:1 + geofence)</option>
+            @if (hasEmployeeMobileAttendanceModule) {
+<option value="ESS">ESS — employee personal phone (1:1 + geofence)</option>
+}
           </select>
         </div>
         <div>
@@ -528,15 +645,20 @@ interface BranchOption { id: string; name: string }
           <label for="dev-branch" class="block text-xs font-medium text-gray-600 mb-1">Branch</label>
           <select id="dev-branch" name="branchId" [(ngModel)]="form.branchId" (ngModelChange)="onBranchChange()" class="ui-input">
             <option value="">— None —</option>
-            <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+            @for (b of branches; track b) {
+<option [value]="b.id">{{ b.name }}</option>
+}
           </select>
         </div>
-        <div *ngIf="form.mode === 'ESS'" class="space-y-3">
+        @if (form.mode === 'ESS') {
+<div class="space-y-3">
           <div>
             <label for="dev-ess-emp" class="block text-xs font-medium text-gray-600 mb-1">Bound Employee (ESS)</label>
             <select id="dev-ess-emp" name="essEmployeeId" [(ngModel)]="form.essEmployeeId" class="ui-input" [disabled]="!form.branchId">
               <option value="">{{ form.branchId ? '— Select employee —' : '— Pick a branch first —' }}</option>
-              <option *ngFor="let e of essEligibleEmployees" [value]="e.id">{{ e.name }} ({{ e.employeeCode }})</option>
+              @for (e of essEligibleEmployees; track e) {
+<option [value]="e.id">{{ e.name }} ({{ e.employeeCode }})</option>
+}
             </select>
             <p class="text-xs text-gray-500 mt-1">This personal phone will only be able to punch and self-enroll for this employee. Showing employees from the selected branch only.</p>
           </div>
@@ -558,26 +680,39 @@ interface BranchOption { id: string; name: string }
             <button type="button" (click)="captureLocation()" [disabled]="capturingLocation"
                     class="text-xs font-medium text-blue-600 hover:text-blue-800 disabled:text-gray-400 inline-flex items-center gap-1">
               <span>📍</span>
-              <span *ngIf="!capturingLocation">Use my current location</span>
-              <span *ngIf="capturingLocation">Detecting…</span>
+              @if (!capturingLocation) {
+<span>Use my current location</span>
+}
+              @if (capturingLocation) {
+<span>Detecting…</span>
+}
             </button>
-            <span *ngIf="locationAccuracy !== null && !locationError" class="text-xs text-gray-500">
+            @if (locationAccuracy !== null && !locationError) {
+<span class="text-xs text-gray-500">
               Accuracy ±{{ locationAccuracy | number:'1.0-0' }} m
             </span>
+}
           </div>
-          <p *ngIf="locationError" class="text-xs text-amber-600">{{ locationError }}</p>
+          @if (locationError) {
+<p class="text-xs text-amber-600">{{ locationError }}</p>
+}
           <p class="text-xs text-gray-500">Coordinates are auto-captured from your browser's location and cannot be edited — stand at the project site when registering. Adjust radius to match the project boundary; the ESS app will then verify each punch is inside this geofence.</p>
         </div>
-        <div *ngIf="formError" class="text-sm text-red-600">{{ formError }}</div>
+}
+        @if (formError) {
+<div class="text-sm text-red-600">{{ formError }}</div>
+}
         <div class="flex justify-end gap-2 pt-2">
           <ui-button variant="secondary" type="button" (clicked)="showModal = false">Cancel</ui-button>
           <ui-button variant="primary" type="submit" [loading]="saving">Register</ui-button>
         </div>
       </form>
     </ui-modal>
+}
 
     <!-- Re-enrollment review modal -->
-    <ui-modal *ngIf="reviewRequest" [isOpen]="!!reviewRequest" [showFooter]="false"
+    @if (reviewRequest) {
+<ui-modal [isOpen]="!!reviewRequest" [showFooter]="false"
               [title]="reviewDecision === 'APPROVED' ? 'Approve re-enrollment' : 'Reject re-enrollment'"
               (closed)="closeReview()">
       <div class="space-y-3 text-sm">
@@ -585,23 +720,33 @@ interface BranchOption { id: string; name: string }
           <div>
             <strong>{{ reviewRequest.scope === 'contractor' ? 'Contractor employee' : 'Employee' }}:</strong>
             {{ reviewRequest.displayName }}
-            <span *ngIf="reviewRequest.displayCode">({{ reviewRequest.displayCode }})</span>
+            @if (reviewRequest.displayCode) {
+<span>({{ reviewRequest.displayCode }})</span>
+}
           </div>
           <div><strong>Source:</strong> {{ reviewRequest.source }}</div>
           <div><strong>Requested:</strong> {{ reviewRequest.requestedAt | date:'medium' }}</div>
-          <div *ngIf="reviewRequest.reason"><strong>Reason:</strong> {{ reviewRequest.reason }}</div>
+          @if (reviewRequest.reason) {
+<div><strong>Reason:</strong> {{ reviewRequest.reason }}</div>
+}
         </div>
-        <div *ngIf="reviewRequest.photoUrl" class="border rounded overflow-hidden bg-gray-50">
+        @if (reviewRequest.photoUrl) {
+<div class="border rounded overflow-hidden bg-gray-50">
           <div class="px-2 py-1 text-xs font-medium text-gray-600 border-b bg-white">Submitted photo</div>
           <img [src]="reviewRequest.photoUrl" alt="Submitted re-enrollment photo"
                class="block w-full max-h-72 object-contain bg-black" referrerpolicy="no-referrer" />
         </div>
-        <p *ngIf="!reviewRequest.photoUrl" class="text-xs text-gray-500 italic">
+}
+        @if (!reviewRequest.photoUrl) {
+<p class="text-xs text-gray-500 italic">
           No photo available — review the request based on the source and reason only.
         </p>
-        <p *ngIf="reviewDecision === 'APPROVED'" class="text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+}
+        @if (reviewDecision === 'APPROVED') {
+<p class="text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 text-xs">
           Approving will overwrite this {{ reviewRequest.scope === 'contractor' ? 'contractor employee' : 'employee' }}'s live face embedding with the new one. The previous embedding cannot be recovered.
         </p>
+}
         <div>
           <label for="review-notes" class="block text-xs font-medium text-gray-600 mb-1">Notes (optional)</label>
           <textarea id="review-notes" name="reviewNotes" rows="3" class="ui-input" [(ngModel)]="reviewNotes"
@@ -617,15 +762,21 @@ interface BranchOption { id: string; name: string }
         </div>
       </div>
     </ui-modal>
+}
 
     <!-- Show install token after creation -->
-    <ui-modal *ngIf="tokenModal" [isOpen]="tokenModal" [showFooter]="false" title="Install Token" (closed)="tokenModal = false">
+    @if (tokenModal) {
+<ui-modal [isOpen]="tokenModal" [showFooter]="false" title="Install Token" (closed)="tokenModal = false">
       <div class="space-y-3 text-sm">
         <p class="text-gray-700">Paste this 64-character token into the Android app on the device. Copy the full token before closing this window.</p>
         <div class="flex items-center justify-between text-xs text-gray-500">
           <span>Token length: {{ tokenLength }}/64</span>
-          <span *ngIf="tokenLength === 64" class="text-green-700 font-medium">Ready to paste</span>
-          <span *ngIf="tokenLength !== 64" class="text-red-700 font-medium">Create a new device token</span>
+          @if (tokenLength === 64) {
+<span class="text-green-700 font-medium">Ready to paste</span>
+}
+          @if (tokenLength !== 64) {
+<span class="text-red-700 font-medium">Create a new device token</span>
+}
         </div>
         <div
           class="bg-gray-50 border border-gray-200 rounded p-3 font-mono text-sm leading-6 break-words select-all"
@@ -633,15 +784,18 @@ interface BranchOption { id: string; name: string }
           [class.bg-red-50]="tokenLength !== 64">
           {{ formattedTokenToShow }}
         </div>
-        <p *ngIf="tokenLength !== 64" class="text-xs text-red-700">
+        @if (tokenLength !== 64) {
+<p class="text-xs text-red-700">
           This token is not 64 characters, so the Android app will reject it. Delete this device and register a new KIOSK device.
         </p>
+}
         <div class="flex justify-end gap-2">
           <ui-button variant="secondary" (clicked)="copyToken()">Copy full token</ui-button>
           <ui-button variant="primary" (clicked)="tokenModal = false">Done</ui-button>
         </div>
       </div>
     </ui-modal>
+}
   `,
   styles: [`
     .page { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }

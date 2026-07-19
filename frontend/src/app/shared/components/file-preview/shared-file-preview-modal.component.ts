@@ -6,7 +6,7 @@ import {
   Output,
   SimpleChanges,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { SharedFilePreviewData, FileVersionItem } from './file-preview.model';
 import { FileMetadataHeaderComponent } from './file-metadata-header.component';
@@ -17,26 +17,36 @@ import { RejectionReasonBoxComponent } from './rejection-reason-box.component';
   selector: 'ui-file-preview-modal',
   standalone: true,
   imports: [
-    CommonModule,
     FileMetadataHeaderComponent,
     VersionHistoryPanelComponent,
-    RejectionReasonBoxComponent,
-  ],
+    RejectionReasonBoxComponent
+],
   template: `
-    <div *ngIf="open" class="fixed inset-0 z-[1200] bg-slate-900/60 flex items-center justify-center p-4" (click)="closed.emit()">
+    @if (open) {
+<div class="fixed inset-0 z-[1200] bg-slate-900/60 flex items-center justify-center p-4" (click)="closed.emit()">
       <div class="w-full max-w-5xl rounded-xl bg-white border border-gray-200 shadow-2xl overflow-hidden" (click)="$event.stopPropagation()">
         <ui-file-metadata-header [file]="file"></ui-file-metadata-header>
 
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 p-4">
           <div class="lg:col-span-3 border border-gray-200 rounded-lg bg-gray-50 min-h-[420px] flex items-center justify-center overflow-hidden">
-            <div *ngIf="loading" class="text-sm text-gray-500">Loading preview...</div>
-            <div *ngIf="!loading && error" class="text-sm text-red-600 px-4">{{ error }}</div>
+            @if (loading) {
+<div class="text-sm text-gray-500">Loading preview...</div>
+}
+            @if (!loading && error) {
+<div class="text-sm text-red-600 px-4">{{ error }}</div>
+}
 
-            <img *ngIf="!loading && !error && mode === 'image' && file?.url" [src]="file?.url || ''" alt="Preview" class="max-h-[70vh] max-w-full object-contain" />
-            <iframe *ngIf="!loading && !error && mode === 'pdf' && safeUrl" [src]="safeUrl" class="w-full h-[70vh]"></iframe>
-            <div *ngIf="!loading && !error && mode === 'none'" class="text-sm text-gray-500 p-6 text-center">
+            @if (!loading && !error && mode === 'image' && file?.url) {
+<img [src]="file?.url || ''" alt="Preview" class="max-h-[70vh] max-w-full object-contain" />
+}
+            @if (!loading && !error && mode === 'pdf' && safeUrl) {
+<iframe [src]="safeUrl" class="w-full h-[70vh]"></iframe>
+}
+            @if (!loading && !error && mode === 'none') {
+<div class="text-sm text-gray-500 p-6 text-center">
               Preview is not available for this file type.
             </div>
+}
           </div>
 
           <div class="space-y-3">
@@ -51,6 +61,7 @@ import { RejectionReasonBoxComponent } from './rejection-reason-box.component';
         </div>
       </div>
     </div>
+}
   `,
 })
 export class SharedFilePreviewModalComponent implements OnChanges {

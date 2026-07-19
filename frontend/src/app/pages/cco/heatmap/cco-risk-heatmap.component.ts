@@ -1,12 +1,12 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { PageHeaderComponent } from '../../../shared/ui';
 import { HeatmapComponent } from '../../../shared/risk/heatmap.component';
 
 @Component({
   selector: 'app-cco-risk-heatmap',
   standalone: true,
-  imports: [CommonModule, PageHeaderComponent, HeatmapComponent],
+  imports: [PageHeaderComponent, HeatmapComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header

@@ -1,6 +1,7 @@
 <div class="flex flex-wrap items-center gap-3 mb-4">
   <!-- Search -->
-  <div *ngIf="enableSearch" class="flex-1 min-w-[200px]">
+  @if (enableSearch) {
+<div class="flex-1 min-w-[200px]">
     <input name="tableToolbarSearch" type="text"
       class="w-full rounded-xl border-gray-300 shadow-sm text-sm placeholder-gray-400
              focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -8,6 +9,7 @@
       [value]="q"
       (input)="onQChange($any($event.target).value)" />
   </div>
+}
 
   <div class="flex items-center gap-2 ml-auto">
     <!-- Page size -->
@@ -20,10 +22,12 @@
     </select>
 
     <!-- Column chooser -->
-    <app-column-chooser
-      *ngIf="enableColumnChooser"
+    @if (enableColumnChooser) {
+<app-column-chooser
+     
       [columns]="columns"
       (changed)="onColumns($event)">
     </app-column-chooser>
+}
   </div>
 </div>

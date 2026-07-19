@@ -47,13 +47,17 @@
   </div>
 
   <!-- Loading & Error States -->
-  <div *ngIf="loading" class="flex items-center justify-center py-12">
+  @if (loading) {
+<div class="flex items-center justify-center py-12">
     <ui-loading-spinner text="Loading dashboard..."></ui-loading-spinner>
   </div>
-  <div *ngIf="!loading && errorMsg" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
+}
+  @if (!loading && errorMsg) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
     <span>{{ errorMsg }}</span>
     <ui-button variant="primary" size="sm" (clicked)="loadAll()">Retry</ui-button>
   </div>
+}
 
   <!-- Filters -->
   <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-6 shadow-sm">
@@ -96,7 +100,8 @@
     </div>
   </div>
 
-  <ng-container *ngIf="!loading && !errorMsg && summary && stats && taskStatus; else adminFallback">
+  @if (!loading && !errorMsg && summary && stats && taskStatus) {
+
 
     <!-- KPI Grid (Branch-style cards) -->
     <div class="kpi-cards-grid-6">
@@ -154,7 +159,8 @@
     </div>
 
     <!-- Assignment Visibility KPI Cards -->
-    <div *ngIf="assignmentSummary" class="mb-6">
+    @if (assignmentSummary) {
+<div class="mb-6">
       <h3 class="text-lg font-semibold text-gray-900 mb-3">Assignment Visibility</h3>
       <div class="kpi-cards-grid-5">
         <ui-kpi-tile label="Total Clients" [value]="assignmentSummary.totalClients" color="blue" detail="Active portfolio">
@@ -200,9 +206,11 @@
         </a>
       </div>
     </div>
+}
 
     <!-- Risk Alert Panel -->
-    <div *ngIf="riskAlerts" class="mb-6">
+    @if (riskAlerts) {
+<div class="mb-6">
       <h3 class="text-lg font-semibold text-gray-900 mb-3">Risk Alerts</h3>
       <div class="kpi-cards-grid-5">
         <ui-kpi-tile label="Audit Overdue" [value]="riskAlerts.auditOverdue"
@@ -257,6 +265,7 @@
         </ui-kpi-tile>
       </div>
     </div>
+}
 
     <!-- Data Tables -->
     <div class="space-y-6">
@@ -264,10 +273,12 @@
       <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div class="flex items-center justify-between p-6 pb-4">
           <h3 class="text-lg font-semibold text-gray-900">Escalations Queue</h3>
-          <span *ngIf="summary.escalations && summary.escalations.length > 0"
+          @if (summary.escalations && summary.escalations.length > 0) {
+<span
                 class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-red-50 text-red-700 border border-red-200">
             {{ summary.escalations.length }} items need intervention
           </span>
+}
         </div>
         <ui-data-table
           [columns]="escalationColumns"
@@ -339,7 +350,8 @@
       </div>
 
       <!-- Audit Status Summary -->
-      <div *ngIf="auditSummary.length > 0" class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      @if (auditSummary.length > 0) {
+<div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div class="flex items-center justify-between p-6 pb-4">
           <h3 class="text-lg font-semibold text-gray-900">Audit Status by Client</h3>
           <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-gray-50 text-gray-700 border border-gray-200">
@@ -374,6 +386,7 @@
           </ng-template>
         </ui-data-table>
       </div>
+}
 
       <!-- System Health -->
       <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
@@ -408,7 +421,19 @@
         </div>
       </div>
     </div>
-  </ng-container>
+  
+} @else {
+
+    @if (!loading) {
+<div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-10 text-center">
+      <ui-empty-state
+        title="Live dashboard data unavailable"
+        description="Refresh or check the API before retrying.">
+      </ui-empty-state>
+    </div>
+}
+  
+}
 
   <!-- Lowest Branch Compliance Widget -->
   <app-lowest-branches></app-lowest-branches>
@@ -416,12 +441,5 @@
   <!-- Risk Ranking Widget -->
   <app-risk-ranking></app-risk-ranking>
 
-  <ng-template #adminFallback>
-    <div *ngIf="!loading" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-10 text-center">
-      <ui-empty-state
-        title="Live dashboard data unavailable"
-        description="Refresh or check the API before retrying.">
-      </ui-empty-state>
-    </div>
-  </ng-template>
+  
 </div>

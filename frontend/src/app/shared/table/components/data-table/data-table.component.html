@@ -14,15 +14,18 @@
       <thead class="bg-gradient-to-b from-gray-50 to-gray-100/80">
         <tr>
           <!-- Checkbox header -->
-          <th *ngIf="enableSelection" class="px-4 py-3 w-10">
+          @if (enableSelection) {
+<th class="px-4 py-3 w-10">
             <input name="dataTableSelectAll" type="checkbox"
               class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               [checked]="isAllSelected()"
               (change)="toggleAll($any($event.target).checked)" />
           </th>
+}
 
           <!-- Column headers -->
-          <th *ngFor="let col of visibleColumns()"
+          @for (col of visibleColumns(); track col) {
+<th
             class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider"
             [style.width]="col.width"
             [class.cursor-pointer]="col.sortable"
@@ -31,28 +34,38 @@
             (click)="sortBy(col)">
             <div class="flex items-center gap-1">
               <span>{{ col.label }}</span>
-              <ng-container *ngIf="col.sortable">
-                <span *ngIf="query.sort === col.key"
+              @if (col.sortable) {
+
+                @if (query.sort === col.key) {
+<span
                   class="text-blue-600 text-[10px]">
                   {{ query.order === 'ASC' ? '▲' : '▼' }}
                 </span>
-                <span *ngIf="query.sort !== col.key"
+}
+                @if (query.sort !== col.key) {
+<span
                   class="text-gray-300 text-[10px]">⇅</span>
-              </ng-container>
+}
+              
+}
             </div>
           </th>
+}
 
           <!-- Actions header -->
-          <th *ngIf="rowActionsTpl"
+          @if (rowActionsTpl) {
+<th
             class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
             Actions
           </th>
+}
         </tr>
       </thead>
 
       <tbody class="bg-white divide-y divide-gray-100">
         <!-- Loading -->
-        <tr *ngIf="loading">
+        @if (loading) {
+<tr>
           <td [attr.colspan]="colSpan()" class="px-6 py-12 text-center">
             <div class="flex items-center justify-center gap-3">
               <svg class="animate-spin h-6 w-6 text-accent-400" fill="none" viewBox="0 0 24 24">
@@ -64,39 +77,55 @@
             </div>
           </td>
         </tr>
+}
 
         <!-- Data rows -->
-        <ng-container *ngIf="!loading">
-          <tr *ngFor="let row of rows" class="hover:bg-gray-50 transition-colors">
+        @if (!loading) {
+
+          @for (row of rows; track row) {
+<tr class="hover:bg-gray-50 transition-colors">
             <!-- Checkbox -->
-            <td *ngIf="enableSelection" class="px-4 py-3">
+            @if (enableSelection) {
+<td class="px-4 py-3">
               <input name="dataTableSelectRow" type="checkbox"
                 class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 [checked]="isSelected(row)"
                 (change)="toggleRow(row, $any($event.target).checked)" />
             </td>
+}
 
             <!-- Cells -->
-            <td *ngFor="let col of visibleColumns()" class="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
-              <ng-container *ngIf="!cellTpl">{{ displayCell(col, row) }}</ng-container>
-              <ng-container *ngIf="cellTpl"
+            @for (col of visibleColumns(); track col) {
+<td class="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
+              @if (!cellTpl) {
+{{ displayCell(col, row) }}
+}
+              @if (cellTpl) {
+<ng-container
                 [ngTemplateOutlet]="cellTpl"
                 [ngTemplateOutletContext]="{ $implicit: row, col: col, value: displayCell(col, row) }">
               </ng-container>
+}
             </td>
+}
 
             <!-- Row actions -->
-            <td *ngIf="rowActionsTpl" class="px-4 py-3 text-right">
+            @if (rowActionsTpl) {
+<td class="px-4 py-3 text-right">
               <ng-container
                 [ngTemplateOutlet]="rowActionsTpl"
                 [ngTemplateOutletContext]="{ $implicit: row }">
               </ng-container>
             </td>
+}
           </tr>
-        </ng-container>
+}
+        
+}
 
         <!-- Empty state -->
-        <tr *ngIf="!loading && (!rows || rows.length === 0)">
+        @if (!loading && (!rows || rows.length === 0)) {
+<tr>
           <td [attr.colspan]="colSpan()" class="px-6 py-12 text-center">
             <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-100 mb-3">
               <svg class="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -107,12 +136,14 @@
             <p class="text-sm text-gray-500">{{ emptyMessage }}</p>
           </td>
         </tr>
+}
       </tbody>
     </table>
   </div>
 
   <!-- Pagination footer -->
-  <div *ngIf="enablePagination && !loading && rows.length > 0"
+  @if (enablePagination && !loading && rows.length > 0) {
+<div
     class="px-4 py-3 border-t border-gray-100 bg-gray-50/60 flex items-center justify-between">
     <div class="text-sm text-gray-500">
       Showing {{ startItem }} to {{ endItem }} of {{ total }} results
@@ -156,4 +187,5 @@
       </button>
     </div>
   </div>
+}
 </div>

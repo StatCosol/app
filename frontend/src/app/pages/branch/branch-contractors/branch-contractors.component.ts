@@ -45,12 +45,15 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
         </div>
       </div>
 
-      <div *ngIf="loading" class="flex items-center justify-center py-16">
+      @if (loading) {
+<div class="flex items-center justify-center py-16">
         <div class="spinner"></div>
       </div>
+}
 
       <!-- Contractor Table -->
-      <div *ngIf="!loading" class="table-card">
+      @if (!loading) {
+<div class="table-card">
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
@@ -62,7 +65,8 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let c of contractors; let i = index" class="data-row">
+              @for (c of contractors; track c; let i = $index) {
+<tr class="data-row">
                 <td class="text-slate-400">{{ i + 1 }}</td>
                 <td class="font-medium text-slate-800">{{ c.name || c.contractorName || '-' }}</td>
                 <td>
@@ -82,13 +86,17 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                   </span>
                 </td>
               </tr>
-              <tr *ngIf="contractors.length === 0">
+}
+              @if (contractors.length === 0) {
+<tr>
                 <td colspan="4" class="text-center text-slate-400 py-12">No contractor data available</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
       </div>
+}
 
       <div class="approval-card">
         <div class="approval-header">
@@ -105,15 +113,20 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           </button>
         </div>
 
-        <div *ngIf="loadingDeleteRequests" class="flex items-center justify-center py-10">
+        @if (loadingDeleteRequests) {
+<div class="flex items-center justify-center py-10">
           <div class="spinner"></div>
         </div>
+}
 
-        <div *ngIf="!loadingDeleteRequests && deleteRequests.length === 0" class="empty-approvals">
+        @if (!loadingDeleteRequests && deleteRequests.length === 0) {
+<div class="empty-approvals">
           No contractor employee registration delete requests pending.
         </div>
+}
 
-        <div *ngIf="!loadingDeleteRequests && deleteRequests.length > 0" class="overflow-x-auto">
+        @if (!loadingDeleteRequests && deleteRequests.length > 0) {
+<div class="overflow-x-auto">
           <table class="data-table">
             <thead>
               <tr>
@@ -125,7 +138,8 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let req of deleteRequests" class="data-row">
+              @for (req of deleteRequests; track req) {
+<tr class="data-row">
                 <td class="font-medium text-slate-800">{{ req.contractorEmployeeName }}</td>
                 <td class="text-slate-600">{{ req.contractorName || '-' }}</td>
                 <td class="text-slate-600">{{ req.reason || '-' }}</td>
@@ -135,9 +149,11 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                   <button type="button" class="reject-btn" (click)="rejectDeleteRequest(req)">Reject</button>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+}
       </div>
     </div>
   `,

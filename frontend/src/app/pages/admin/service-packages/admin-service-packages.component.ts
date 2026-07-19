@@ -28,13 +28,17 @@ import {
           <span class="text-xs font-medium text-slate-600">Client</span>
           <select class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" name="clientId" [(ngModel)]="form.clientId" (ngModelChange)="onClientSelected($event)">
             <option value="">Select client</option>
-            <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+            @for (c of clients; track c) {
+<option [value]="c.id">{{ c.clientName }}</option>
+}
           </select>
         </label>
         <label class="block">
           <span class="text-xs font-medium text-slate-600">Package</span>
           <select class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" name="packageCode" [(ngModel)]="form.packageCode" (ngModelChange)="applyPackageModules()">
-            <option *ngFor="let p of packages" [value]="p.code">{{ p.label }}</option>
+            @for (p of packages; track p) {
+<option [value]="p.code">{{ p.label }}</option>
+}
           </select>
         </label>
         <label class="block xl:col-span-1">
@@ -52,32 +56,44 @@ import {
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 class="font-semibold text-slate-900">Services</h2>
-            <p class="text-xs text-slate-500 mt-1" *ngIf="selectedClientStatus">
+            @if (selectedClientStatus) {
+<p class="text-xs text-slate-500 mt-1">
               Current package: {{ selectedClientStatus.packageCode }}
-              <span *ngIf="selectedClientStatus.pendingRequests.length" class="ml-2 text-amber-700 font-medium">
+              @if (selectedClientStatus.pendingRequests.length) {
+<span class="ml-2 text-amber-700 font-medium">
                 Pending CCO review
               </span>
+}
             </p>
-            <div *ngIf="selectedClientStatus?.pendingRequests?.length" class="mt-3 space-y-2">
-              <div
-                *ngFor="let request of selectedClientStatus?.pendingRequests"
+}
+            @if (selectedClientStatus?.pendingRequests?.length) {
+<div class="mt-3 space-y-2">
+              @for (request of selectedClientStatus?.pendingRequests; track request) {
+<div
+               
                 class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                   <span class="text-sm font-medium text-amber-950">{{ request.packageCode }}</span>
                   <span class="text-xs text-amber-800">Requested {{ request.requestedAt | date:'dd MMM, HH:mm' }}</span>
                 </div>
                 <div class="mt-2 flex flex-wrap gap-1">
-                  <span
-                    *ngFor="let module of request.requestedModules"
+                  @for (module of request.requestedModules; track module) {
+<span
+                   
                     class="rounded-full bg-white px-2 py-0.5 text-xs text-slate-700 border border-amber-100">
                     {{ moduleLabel(module) }}
                   </span>
+}
                 </div>
-                <p *ngIf="request.requestNote" class="mt-2 text-xs text-amber-900">
+                @if (request.requestNote) {
+<p class="mt-2 text-xs text-amber-900">
                   {{ request.requestNote }}
                 </p>
+}
               </div>
+}
             </div>
+}
           </div>
           <button
             type="button"
@@ -88,8 +104,9 @@ import {
           </button>
         </div>
         <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <label
-            *ngFor="let service of moduleOptions"
+          @for (service of moduleOptions; track service) {
+<label
+           
             class="flex items-start gap-3 rounded-lg border border-slate-200 p-3 cursor-pointer hover:border-blue-300">
             <input
               type="checkbox"
@@ -102,12 +119,16 @@ import {
               <span class="block text-xs text-slate-500 mt-0.5">{{ service.description }}</span>
             </span>
           </label>
+}
         </div>
       </div>
 
-      <p *ngIf="message" class="text-sm" [class.text-green-700]="!error" [class.text-red-700]="error">{{ message }}</p>
+      @if (message) {
+<p class="text-sm" [class.text-green-700]="!error" [class.text-red-700]="error">{{ message }}</p>
+}
 
-      <div *ngIf="changeRequestedRequests.length" class="rounded-lg border border-amber-200 bg-amber-50 overflow-hidden">
+      @if (changeRequestedRequests.length) {
+<div class="rounded-lg border border-amber-200 bg-amber-50 overflow-hidden">
         <div class="px-4 py-3 border-b border-amber-200 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 class="font-semibold text-amber-950">CCO Change Requests</h2>
@@ -118,16 +139,19 @@ import {
           </span>
         </div>
         <div class="divide-y divide-amber-100">
-          <div *ngFor="let request of changeRequestedRequests" class="p-4 grid gap-3 lg:grid-cols-[1fr_auto]">
+          @for (request of changeRequestedRequests; track request) {
+<div class="p-4 grid gap-3 lg:grid-cols-[1fr_auto]">
             <div>
               <div class="font-medium text-slate-900">{{ request.clientName || request.clientId }}</div>
               <div class="mt-1 text-sm text-slate-700">{{ request.packageCode }}</div>
               <div class="mt-2 flex flex-wrap gap-1">
-                <span
-                  *ngFor="let module of request.requestedModules"
+                @for (module of request.requestedModules; track module) {
+<span
+                 
                   class="rounded-full bg-white px-2 py-0.5 text-xs text-slate-700 border border-amber-100">
                   {{ moduleLabel(module) }}
                 </span>
+}
               </div>
               <p class="mt-2 text-sm text-amber-900">
                 <span class="font-medium">CCO note:</span> {{ request.reviewNote || 'No note provided' }}
@@ -142,8 +166,10 @@ import {
               </button>
             </div>
           </div>
+}
         </div>
       </div>
+}
 
       <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
@@ -162,7 +188,9 @@ import {
                 [(ngModel)]="historyClientId"
                 (ngModelChange)="loadHistory()">
                 <option value="">All clients</option>
-                <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+                @for (c of clients; track c) {
+<option [value]="c.id">{{ c.clientName }}</option>
+}
               </select>
             </label>
             <label>
@@ -203,7 +231,8 @@ import {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let r of filteredRequests" class="border-t border-slate-100">
+            @for (r of filteredRequests; track r) {
+<tr class="border-t border-slate-100">
               <td class="px-4 py-3">{{ r.clientName || r.clientId }}</td>
               <td class="px-4 py-3">{{ r.packageCode }}</td>
               <td class="px-4 py-3">
@@ -212,31 +241,44 @@ import {
                 </span>
               </td>
               <td class="px-4 py-3 max-w-xs">
-                <div class="space-y-1" *ngIf="r.requestNote || r.reviewNote; else noRequestNotes">
-                  <p *ngIf="r.requestNote" class="text-xs text-slate-600">
+                @if (r.requestNote || r.reviewNote) {
+<div class="space-y-1">
+                  @if (r.requestNote) {
+<p class="text-xs text-slate-600">
                     <span class="font-medium text-slate-800">Admin:</span> {{ r.requestNote }}
                   </p>
-                  <p *ngIf="r.reviewNote" class="text-xs text-amber-800">
+}
+                  @if (r.reviewNote) {
+<p class="text-xs text-amber-800">
                     <span class="font-medium">CCO:</span> {{ r.reviewNote }}
                   </p>
+}
                 </div>
-                <ng-template #noRequestNotes>-</ng-template>
+} @else {
+-
+}
+                
               </td>
               <td class="px-4 py-3">{{ r.requestedAt | date:'dd MMM, HH:mm' }}</td>
               <td class="px-4 py-3">{{ r.reviewedAt ? (r.reviewedAt | date:'dd MMM, HH:mm') : '-' }}</td>
               <td class="px-4 py-3 text-right">
-                <button
-                  *ngIf="r.status === 'CHANGES_REQUESTED'"
+                @if (r.status === 'CHANGES_REQUESTED') {
+<button
+                 
                   type="button"
                   class="text-blue-700 font-medium"
                   (click)="reviseRequest(r)">
                   Revise
                 </button>
+}
               </td>
             </tr>
-            <tr *ngIf="!loading && filteredRequests.length === 0">
+}
+            @if (!loading && filteredRequests.length === 0) {
+<tr>
               <td class="px-4 py-8 text-center text-slate-500" colspan="7">No service package requests yet.</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
@@ -264,7 +306,8 @@ import {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let entry of filteredAuditLogs" class="border-t border-slate-100 align-top">
+            @for (entry of filteredAuditLogs; track entry) {
+<tr class="border-t border-slate-100 align-top">
               <td class="px-4 py-3">{{ entry.clientName || entry.clientId }}</td>
               <td class="px-4 py-3">
                 <span class="rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="auditActionBadgeClass(entry.action)">
@@ -273,22 +316,31 @@ import {
               </td>
               <td class="px-4 py-3">{{ entry.packageCode || '-' }}</td>
               <td class="px-4 py-3">
-                <div class="flex flex-wrap gap-1" *ngIf="entry.modules.length; else noModules">
-                  <span
-                    *ngFor="let module of entry.modules"
+                @if (entry.modules.length) {
+<div class="flex flex-wrap gap-1">
+                  @for (module of entry.modules; track module) {
+<span
+                   
                     class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
                     {{ moduleLabel(module) }}
                   </span>
+}
                 </div>
-                <ng-template #noModules>-</ng-template>
+} @else {
+-
+}
+                
               </td>
               <td class="px-4 py-3">{{ entry.actorName || entry.actorUserId || '-' }}</td>
               <td class="px-4 py-3">{{ entry.note || '-' }}</td>
               <td class="px-4 py-3">{{ entry.createdAt | date:'dd MMM, HH:mm' }}</td>
             </tr>
-            <tr *ngIf="!loading && filteredAuditLogs.length === 0">
+}
+            @if (!loading && filteredAuditLogs.length === 0) {
+<tr>
               <td class="px-4 py-8 text-center text-slate-500" colspan="7">No service package audit entries yet.</td>
             </tr>
+}
           </tbody>
         </table>
       </div>

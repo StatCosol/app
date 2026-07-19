@@ -1,6 +1,7 @@
 <div class="space-y-2">
   <!-- Dropzone -->
-  <div *ngIf="config.showDropzone !== false"
+  @if (config.showDropzone !== false) {
+<div
     class="relative border-2 border-dashed rounded-xl p-5 text-center transition-colors cursor-pointer"
     [class.border-gray-300]="!dragOver && !config.disabled"
     [class.border-blue-400]="dragOver"
@@ -22,7 +23,9 @@
 
     <p class="text-sm font-medium text-gray-700">{{ config.label || 'Upload' }}</p>
     <p class="text-xs text-gray-400 mt-0.5">Drag &amp; drop or click to choose a file</p>
-    <p *ngIf="config.maxSizeMB" class="text-xs text-gray-400 mt-0.5">Max {{ config.maxSizeMB }} MB &middot; {{ config.accept || 'Any' }}</p>
+    @if (config.maxSizeMB) {
+<p class="text-xs text-gray-400 mt-0.5">Max {{ config.maxSizeMB }} MB &middot; {{ config.accept || 'Any' }}</p>
+}
 
     <!-- Hidden input -->
     <input name="uploadWidgetDropzoneFile" type="file"
@@ -32,9 +35,11 @@
       [multiple]="config.multiple || false"
       (change)="onPick($any($event.target).files)" />
   </div>
+}
 
   <!-- Compact button (when dropzone hidden) -->
-  <div *ngIf="config.showDropzone === false" class="inline-block relative">
+  @if (config.showDropzone === false) {
+<div class="inline-block relative">
     <button type="button"
       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
       [disabled]="config.disabled || uploading">
@@ -51,13 +56,16 @@
       [multiple]="config.multiple || false"
       (change)="onPick($any($event.target).files)" />
   </div>
+}
 
   <!-- Progress bar -->
-  <div *ngIf="uploading" class="space-y-1">
+  @if (uploading) {
+<div class="space-y-1">
     <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
       <div class="h-full bg-blue-500 rounded-full transition-all duration-300"
         [style.width.%]="progress"></div>
     </div>
     <p class="text-xs text-gray-500 text-right">{{ progress }}%</p>
   </div>
+}
 </div>

@@ -1,14 +1,16 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 @Component({
   selector: 'ui-actor-badge',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   template: `
     <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
       <span>{{ actorName || 'System' }}</span>
-      <span *ngIf="actorRole" class="text-slate-500">({{ actorRole }})</span>
+      @if (actorRole) {
+<span class="text-slate-500">({{ actorRole }})</span>
+}
     </span>
   `,
 })

@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -20,14 +20,13 @@ import {
   selector: 'app-branch-employee-form',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     PageHeaderComponent,
     ActionButtonComponent,
     FormInputComponent,
     FormSelectComponent,
-    LoadingSpinnerComponent,
-  ],
+    LoadingSpinnerComponent
+],
   template: `
     <div class="page">
       <button (click)="goBack()"
@@ -44,9 +43,12 @@ import {
         [breadcrumbs]="breadcrumbs">
       </ui-page-header>
 
-      <ui-loading-spinner *ngIf="loadingEmployee" text="Loading Employee..." size="lg"></ui-loading-spinner>
+      @if (loadingEmployee) {
+<ui-loading-spinner text="Loading Employee..." size="lg"></ui-loading-spinner>
+}
 
-      <div *ngIf="loadError && !loadingEmployee"
+      @if (loadError && !loadingEmployee) {
+<div
            class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -57,8 +59,10 @@ import {
         </div>
         <button (click)="goBack()" class="text-red-800 font-semibold hover:underline ml-4">Go Back</button>
       </div>
+}
 
-      <form *ngIf="!loadingEmployee && !loadError" (ngSubmit)="save()" class="form-sections">
+      @if (!loadingEmployee && !loadError) {
+<form (ngSubmit)="save()" class="form-sections">
 
         <!-- Personal Information -->
         <div class="section-card">
@@ -77,10 +81,12 @@ import {
             <div class="form-field">
               <label class="form-label" for="emp-dob">DOB as per Aadhaar</label>
               <input autocomplete="off" id="emp-dob" type="date" class="form-date-input" [(ngModel)]="form.dateOfBirth" name="dateOfBirth" (change)="onDobChange()" />
-              <div *ngIf="dobWarning" class="mt-1 flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2 text-xs font-medium">
+              @if (dobWarning) {
+<div class="mt-1 flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2 text-xs font-medium">
                 <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 {{ dobWarning }}
               </div>
+}
             </div>
             <ui-form-input label="Father's / Husband's Name" [(ngModel)]="form.fatherName" name="fatherName"
                            placeholder="Enter father's name"></ui-form-input>
@@ -159,20 +165,28 @@ import {
           <div class="section-grid">
             <div class="form-field">
               <label class="form-label">Designation</label>
-              <ui-form-select *ngIf="!designationManualMode" [options]="designationOptions" [(ngModel)]="form.designation"
+              @if (!designationManualMode) {
+<ui-form-select [options]="designationOptions" [(ngModel)]="form.designation"
                               name="designation" placeholder="Select designation"></ui-form-select>
-              <input *ngIf="designationManualMode" type="text" class="form-input" [(ngModel)]="form.designation"
+}
+              @if (designationManualMode) {
+<input type="text" class="form-input" [(ngModel)]="form.designation"
                      name="designationManual" placeholder="Type designation" />
+}
               <button type="button" class="toggle-link" (click)="designationManualMode = !designationManualMode; form.designation = ''">
                 {{ designationManualMode ? 'Select from list' : 'Type manually' }}
               </button>
             </div>
             <div class="form-field">
               <label class="form-label">Department</label>
-              <ui-form-select *ngIf="!departmentManualMode" [options]="departmentOptions" [(ngModel)]="form.department"
+              @if (!departmentManualMode) {
+<ui-form-select [options]="departmentOptions" [(ngModel)]="form.department"
                               name="department" placeholder="Select department"></ui-form-select>
-              <input *ngIf="departmentManualMode" type="text" class="form-input" [(ngModel)]="form.department"
+}
+              @if (departmentManualMode) {
+<input type="text" class="form-input" [(ngModel)]="form.department"
                      name="departmentManual" placeholder="Type department" />
+}
               <button type="button" class="toggle-link" (click)="departmentManualMode = !departmentManualMode; form.department = ''">
                 {{ departmentManualMode ? 'Select from list' : 'Type manually' }}
               </button>
@@ -234,7 +248,8 @@ import {
           </div>
         </div>
 
-        <div *ngIf="formError"
+        @if (formError) {
+<div
              class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
           <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -242,28 +257,35 @@ import {
           </svg>
           <span>{{ formError }}</span>
         </div>
+}
 
-        <div *ngIf="isMinimumWageError"
+        @if (isMinimumWageError) {
+<div
              class="override-panel">
           <label class="override-check">
             <input autocomplete="off" type="checkbox" name="minimumWageOverride" [(ngModel)]="form.minimumWageOverride" />
             <span>Override minimum-wage validation for this employee</span>
           </label>
-          <label *ngIf="form.minimumWageOverride" class="form-field">
+          @if (form.minimumWageOverride) {
+<label class="form-field">
             <span class="form-label">Override Reason *</span>
             <textarea class="form-textarea" name="minimumWageOverrideReason" rows="3"
                       [(ngModel)]="form.minimumWageOverrideReason"
                       placeholder="Enter approval / business reason for below minimum wage"></textarea>
           </label>
+}
         </div>
+}
 
-        <div *ngIf="successMsg"
+        @if (successMsg) {
+<div
              class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center gap-2">
           <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
           </svg>
           <span>{{ successMsg }}</span>
         </div>
+}
 
         <div class="action-bar">
           <ui-button variant="secondary" (clicked)="goBack()">Cancel</ui-button>
@@ -272,6 +294,7 @@ import {
           </ui-button>
         </div>
       </form>
+}
     </div>
   `,
   styles: [

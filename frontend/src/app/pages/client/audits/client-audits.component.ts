@@ -1,5 +1,5 @@
 import { Component, ChangeDetectorRef, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil, timeout } from 'rxjs/operators';
@@ -10,7 +10,7 @@ import { PageHeaderComponent, DataTableComponent, TableColumn, FormSelectCompone
 @Component({
   standalone: true,
   selector: 'app-client-audits',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, DataTableComponent, FormSelectComponent, StatusBadgeComponent],
+  imports: [FormsModule, PageHeaderComponent, DataTableComponent, FormSelectComponent, StatusBadgeComponent],
   templateUrl: './client-audits.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-audits.component.scss'],
 })

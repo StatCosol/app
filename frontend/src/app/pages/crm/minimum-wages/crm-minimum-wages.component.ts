@@ -71,7 +71,9 @@ interface FormState extends UpsertWagePayload {
           <select name="fSkill" [(ngModel)]="filters.skillCategory"
             class="w-full rounded-lg border-gray-300">
             <option value="">All</option>
-            <option *ngFor="let s of skills" [value]="s">{{ s }}</option>
+            @for (s of skills; track s) {
+<option [value]="s">{{ s }}</option>
+}
           </select>
         </div>
         <div>
@@ -98,10 +100,13 @@ interface FormState extends UpsertWagePayload {
       <span class="text-xs text-gray-500 ml-auto">{{ rows.length }} row(s)</span>
     </div>
 
-    <ui-loading-spinner *ngIf="loading" size="md" color="primary"></ui-loading-spinner>
+    @if (loading) {
+<ui-loading-spinner size="md" color="primary"></ui-loading-spinner>
+}
 
-    <ui-data-table
-      *ngIf="!loading"
+    @if (!loading) {
+<ui-data-table
+     
       [columns]="cols"
       [data]="rows"
       emptyMessage="No minimum-wage rows found.">
@@ -116,9 +121,11 @@ interface FormState extends UpsertWagePayload {
         </div>
       </ng-template>
     </ui-data-table>
+}
 
     <!-- Add/Edit Modal -->
-    <div *ngIf="showForm"
+    @if (showForm) {
+<div
       class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4"
       (click)="cancelForm()">
       <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6"
@@ -133,7 +140,9 @@ interface FormState extends UpsertWagePayload {
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Skill Category *</label>
             <select [(ngModel)]="form.skillCategory" class="w-full rounded-lg border-gray-300">
-              <option *ngFor="let s of skills" [value]="s">{{ s }}</option>
+              @for (s of skills; track s) {
+<option [value]="s">{{ s }}</option>
+}
             </select>
           </div>
           <div class="md:col-span-2">
@@ -181,6 +190,7 @@ interface FormState extends UpsertWagePayload {
         </div>
       </div>
     </div>
+}
   `,
 })
 export class CrmMinimumWagesComponent implements OnInit, OnDestroy {

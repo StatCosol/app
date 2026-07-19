@@ -73,7 +73,9 @@ interface EssMessage {
                 class="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
           {{ submitting ? 'Submitting…' : 'Submit Query' }}
         </button>
-        <span *ngIf="submitSuccess" class="ml-3 text-sm text-green-600">✓ Ticket created</span>
+        @if (submitSuccess) {
+<span class="ml-3 text-sm text-green-600">✓ Ticket created</span>
+}
       </div>
 
       <!-- My Tickets -->
@@ -82,18 +84,23 @@ interface EssMessage {
 
         <!-- Filter -->
         <div class="flex flex-wrap gap-2 mb-4">
-          <button *ngFor="let f of filterOptions"
+          @for (f of filterOptions; track f) {
+<button
                   (click)="filterStatus = f.value; applyFilter()"
                   class="px-3 py-1 text-xs font-medium rounded-full border transition-colors"
                   [class]="filterStatus === f.value ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'">
             {{ f.label }}
           </button>
+}
         </div>
 
-        <div *ngIf="filtered.length === 0" class="text-sm text-gray-400 text-center py-8">No tickets found</div>
+        @if (filtered.length === 0) {
+<div class="text-sm text-gray-400 text-center py-8">No tickets found</div>
+}
 
         <div class="space-y-3">
-          <div *ngFor="let t of filtered"
+          @for (t of filtered; track t) {
+<div
                class="rounded-lg border transition-all"
                [class]="selectedTicket?.id === t.id ? 'border-indigo-300 bg-indigo-50/30' : 'border-gray-100 hover:border-gray-200'">
             <!-- Ticket row -->
@@ -101,7 +108,9 @@ interface EssMessage {
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                   <span class="text-sm font-semibold text-gray-900">{{ t.category }}</span>
-                  <span *ngIf="t.subCategory" class="text-xs text-gray-400">/ {{ t.subCategory }}</span>
+                  @if (t.subCategory) {
+<span class="text-xs text-gray-400">/ {{ t.subCategory }}</span>
+}
                 </div>
                 <div class="flex items-center gap-2">
                   <span class="text-xs px-2 py-0.5 rounded-full font-medium" [class]="priorityClass(t.priority)">{{ t.priority }}</span>
@@ -113,14 +122,19 @@ interface EssMessage {
             </div>
 
             <!-- Expanded: messages -->
-            <div *ngIf="selectedTicket?.id === t.id" class="border-t border-gray-100 p-4 bg-gray-50/50">
+            @if (selectedTicket?.id === t.id) {
+<div class="border-t border-gray-100 p-4 bg-gray-50/50">
               <h3 class="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">Messages</h3>
-              <div *ngIf="messages.length === 0" class="text-xs text-gray-400 mb-3">No messages yet</div>
+              @if (messages.length === 0) {
+<div class="text-xs text-gray-400 mb-3">No messages yet</div>
+}
               <div class="space-y-2 max-h-60 overflow-y-auto mb-3">
-                <div *ngFor="let m of messages" class="p-2.5 rounded-lg bg-white border border-gray-100">
+                @for (m of messages; track m) {
+<div class="p-2.5 rounded-lg bg-white border border-gray-100">
                   <p class="text-sm text-gray-800">{{ m.message }}</p>
                   <p class="text-xs text-gray-400 mt-1">{{ m.createdAt | date:'dd MMM, HH:mm' }}</p>
                 </div>
+}
               </div>
               <div class="flex gap-2">
                 <input autocomplete="off" id="eh-reply-message" name="replyMessage" [(ngModel)]="replyMessage" (keydown.enter)="sendReply()"
@@ -133,7 +147,9 @@ interface EssMessage {
                 </button>
               </div>
             </div>
+}
           </div>
+}
         </div>
       </div>
     </div>

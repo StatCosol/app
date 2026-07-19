@@ -38,7 +38,9 @@
         <select id="cb-state-filter" name="stateFilter" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
           [(ngModel)]="stateFilter" (ngModelChange)="applyLocalFilters()">
           <option value="ALL">All States</option>
-          <option *ngFor="let state of stateOptions" [value]="state">{{ state }}</option>
+          @for (state of stateOptions; track state) {
+<option [value]="state">{{ state }}</option>
+}
         </select>
       </div>
       <div>
@@ -46,7 +48,9 @@
         <select id="cb-client-filter" name="clientFilter" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
           [(ngModel)]="clientFilter" (ngModelChange)="applyLocalFilters()">
           <option value="ALL">All Clients</option>
-          <option *ngFor="let client of clientOptions" [value]="client">{{ client }}</option>
+          @for (client of clientOptions; track client) {
+<option [value]="client">{{ client }}</option>
+}
         </select>
       </div>
       <div>
@@ -63,38 +67,49 @@
     </div>
   </div>
 
-  <div *ngIf="!loading && branches.length > 0" class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+  @if (!loading && branches.length > 0) {
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
     <div class="card p-4">
       <h3 class="text-sm font-semibold text-gray-800 mb-3">Top 5 Risk Branches</h3>
-      <div *ngFor="let row of topRiskBranches" class="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-b-0">
+      @for (row of topRiskBranches; track row) {
+<div class="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-b-0">
         <div class="min-w-0">
           <div class="text-sm font-medium text-gray-900 truncate">{{ row.branchName }}</div>
           <div class="text-xs text-gray-500 truncate">{{ row.clientName }}</div>
         </div>
         <div class="text-xs font-semibold text-red-600">{{ row.riskExposureScore }}%</div>
       </div>
+}
     </div>
 
     <div class="card p-4">
       <h3 class="text-sm font-semibold text-gray-800 mb-3">Top 5 Compliant Branches</h3>
-      <div *ngFor="let row of topCompliantBranches" class="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-b-0">
+      @for (row of topCompliantBranches; track row) {
+<div class="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-b-0">
         <div class="min-w-0">
           <div class="text-sm font-medium text-gray-900 truncate">{{ row.branchName }}</div>
           <div class="text-xs text-gray-500 truncate">{{ row.clientName }}</div>
         </div>
         <div class="text-xs font-semibold text-green-600">{{ row.compliancePercent }}%</div>
       </div>
+}
     </div>
   </div>
+}
 
   <!-- Loading & Empty -->
-  <ui-loading-spinner *ngIf="loading" text="Loading branches..."></ui-loading-spinner>
-  <ui-empty-state *ngIf="!loading && branches.length === 0"
+  @if (loading) {
+<ui-loading-spinner text="Loading branches..."></ui-loading-spinner>
+}
+  @if (!loading && branches.length === 0) {
+<ui-empty-state
     title="No branches found" message="Adjust your filters or check back later.">
   </ui-empty-state>
+}
 
   <!-- Table -->
-  <ui-data-table *ngIf="!loading && branches.length"
+  @if (!loading && branches.length) {
+<ui-data-table
     [columns]="columns" [data]="branches" [loading]="loading"
     [showPagination]="true" [totalItems]="total" [pageSize]="50"
     emptyMessage="No branches found.">
@@ -128,4 +143,5 @@
       </a>
     </ng-template>
   </ui-data-table>
+}
 </div>

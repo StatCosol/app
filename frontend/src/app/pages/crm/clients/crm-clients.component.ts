@@ -33,10 +33,15 @@ import type { ClientDto } from '../../../core/api/cco-clients.api';
         </select>
       </div>
 
-      <div *ngIf="err" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{{ err }}</div>
-      <div *ngIf="isLoading" class="text-gray-500 text-sm">Loading clients...</div>
+      @if (err) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{{ err }}</div>
+}
+      @if (isLoading) {
+<div class="text-gray-500 text-sm">Loading clients...</div>
+}
 
-      <div *ngIf="!isLoading && filtered.length > 0" class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      @if (!isLoading && filtered.length > 0) {
+<div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
@@ -48,7 +53,8 @@ import type { ClientDto } from '../../../core/api/cco-clients.api';
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let c of filtered" class="hover:bg-gray-50">
+            @for (c of filtered; track c) {
+<tr class="hover:bg-gray-50">
               <td class="px-4 py-3 text-sm font-mono text-gray-600">{{ c.clientCode }}</td>
               <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ c.clientName }}</td>
               <td class="px-4 py-3 text-sm">
@@ -71,11 +77,15 @@ import type { ClientDto } from '../../../core/api/cco-clients.api';
                 </a>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+}
 
-      <p *ngIf="!isLoading && filtered.length === 0" class="text-gray-500 text-sm">No clients found.</p>
+      @if (!isLoading && filtered.length === 0) {
+<p class="text-gray-500 text-sm">No clients found.</p>
+}
     </main>
   `,
 })

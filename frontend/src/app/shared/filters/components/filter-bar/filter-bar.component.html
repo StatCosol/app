@@ -1,18 +1,23 @@
 <div class="flex flex-wrap items-end gap-3 mb-4">
   <!-- Client picker -->
-  <div *ngIf="showClient" class="flex flex-col gap-1 min-w-[180px]">
+  @if (showClient) {
+<div class="flex flex-col gap-1 min-w-[180px]">
     <label class="text-xs font-medium text-gray-500 uppercase tracking-wide" for="fb-client">Client</label>
     <select id="fb-client"
       class="w-full rounded-lg border-gray-300 text-sm py-2 px-3 bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
       [disabled]="lockClient || loadingClients"
       [ngModel]="state.clientId"
       (ngModelChange)="onClientChange($event)">
-      <option *ngFor="let c of clients" [ngValue]="c.id">{{ c.name }}</option>
+      @for (c of clients; track c) {
+<option [ngValue]="c.id">{{ c.name }}</option>
+}
     </select>
   </div>
+}
 
   <!-- Branch picker -->
-  <div *ngIf="showBranch" class="flex flex-col gap-1 min-w-[180px]">
+  @if (showBranch) {
+<div class="flex flex-col gap-1 min-w-[180px]">
     <label class="text-xs font-medium text-gray-500 uppercase tracking-wide" for="fb-branch">Branch</label>
     <select id="fb-branch"
       class="w-full rounded-lg border-gray-300 text-sm py-2 px-3 bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
@@ -20,34 +25,44 @@
       [ngModel]="state.branchId || ''"
       (ngModelChange)="onBranchChange($event)">
       <option value="">All Branches</option>
-      <option *ngFor="let b of branches" [ngValue]="b.id">
+      @for (b of branches; track b) {
+<option [ngValue]="b.id">
         {{ b.name }}{{ b.code ? ' (' + b.code + ')' : '' }}
       </option>
+}
     </select>
   </div>
+}
 
   <!-- Month picker -->
-  <div *ngIf="showMonth" class="flex flex-col gap-1 min-w-[150px]">
+  @if (showMonth) {
+<div class="flex flex-col gap-1 min-w-[150px]">
     <label class="text-xs font-medium text-gray-500 uppercase tracking-wide" for="fb-month">Month</label>
     <input id="fb-month" type="month"
       class="w-full rounded-lg border-gray-300 text-sm py-2 px-3 bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
       [ngModel]="state.month"
       (ngModelChange)="onMonthChange($event)" />
   </div>
+}
 
   <!-- FY picker -->
-  <div *ngIf="showFY" class="flex flex-col gap-1 min-w-[140px]">
+  @if (showFY) {
+<div class="flex flex-col gap-1 min-w-[140px]">
     <label class="text-xs font-medium text-gray-500 uppercase tracking-wide" for="fb-financial-year">Financial Year</label>
     <select id="fb-financial-year"
       class="w-full rounded-lg border-gray-300 text-sm py-2 px-3 bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
       [ngModel]="state.fy"
       (ngModelChange)="onFYChange($event)">
-      <option *ngFor="let fy of fyOptions" [ngValue]="fy">{{ fy }}</option>
+      @for (fy of fyOptions; track fy) {
+<option [ngValue]="fy">{{ fy }}</option>
+}
     </select>
   </div>
+}
 
   <!-- Search input -->
-  <div *ngIf="showSearch" class="flex flex-col gap-1 flex-1 min-w-[200px]">
+  @if (showSearch) {
+<div class="flex flex-col gap-1 flex-1 min-w-[200px]">
     <label class="text-xs font-medium text-gray-500 uppercase tracking-wide" for="fb-search">Search</label>
     <div class="relative">
       <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -60,4 +75,5 @@
         (ngModelChange)="onSearch($event)" />
     </div>
   </div>
+}
 </div>

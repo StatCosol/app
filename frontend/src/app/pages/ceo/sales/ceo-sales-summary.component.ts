@@ -23,9 +23,12 @@ import {
         </div>
       </div>
 
-      <div *ngIf="loading" class="text-center text-gray-500 py-8">Loading…</div>
+      @if (loading) {
+<div class="text-center text-gray-500 py-8">Loading…</div>
+}
 
-      <div *ngIf="!loading && summary" class="space-y-5">
+      @if (!loading && summary) {
+<div class="space-y-5">
         <!-- Headline KPIs -->
         <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div class="bg-white rounded-xl border border-gray-200 p-4">
@@ -63,11 +66,13 @@ import {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of summary.byStage" class="border-t border-gray-100">
+              @for (row of summary.byStage; track row) {
+<tr class="border-t border-gray-100">
                 <td class="px-4 py-2 font-medium">{{ row.stage }}</td>
                 <td class="px-4 py-2 text-right">{{ row.count }}</td>
                 <td class="px-4 py-2 text-right">₹ {{ row.value | number:'1.0-0' }}</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
@@ -86,20 +91,25 @@ import {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of summary.byOwner" class="border-t border-gray-100">
+              @for (row of summary.byOwner; track row) {
+<tr class="border-t border-gray-100">
                 <td class="px-4 py-2 font-medium">{{ row.ownerName || '—' }}</td>
                 <td class="px-4 py-2 text-right">{{ row.open }}</td>
                 <td class="px-4 py-2 text-right text-emerald-700">{{ row.won }}</td>
                 <td class="px-4 py-2 text-right text-rose-600">{{ row.lost }}</td>
                 <td class="px-4 py-2 text-right">₹ {{ row.openValue | number:'1.0-0' }}</td>
               </tr>
-              <tr *ngIf="summary.byOwner.length === 0">
+}
+              @if (summary.byOwner.length === 0) {
+<tr>
                 <td colspan="5" class="px-4 py-6 text-center text-gray-500">No sales executives have leads yet.</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
       </div>
+}
     </div>
   `,
 })

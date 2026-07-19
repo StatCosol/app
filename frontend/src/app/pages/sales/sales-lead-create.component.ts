@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import {
@@ -12,7 +12,7 @@ import {
 @Component({
   selector: 'app-sales-lead-create',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [FormsModule, RouterModule],
   template: `
     <div class="max-w-3xl mx-auto space-y-5">
       <div class="flex items-center justify-between">
@@ -60,7 +60,9 @@ import {
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Source</label>
           <select [(ngModel)]="model.source" name="source" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            <option *ngFor="let s of sources" [value]="s">{{ s }}</option>
+            @for (s of sources; track s) {
+<option [value]="s">{{ s }}</option>
+}
           </select>
         </div>
         <div>
@@ -70,7 +72,9 @@ import {
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Priority</label>
           <select [(ngModel)]="model.priority" name="priority" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            <option *ngFor="let p of priorities" [value]="p">{{ p }}</option>
+            @for (p of priorities; track p) {
+<option [value]="p">{{ p }}</option>
+}
           </select>
         </div>
         <div>
@@ -94,7 +98,9 @@ import {
           <textarea [(ngModel)]="model.description" name="description" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></textarea>
         </div>
 
-        <div *ngIf="error" class="md:col-span-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{{ error }}</div>
+        @if (error) {
+<div class="md:col-span-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{{ error }}</div>
+}
         <div class="md:col-span-2 flex justify-end gap-2 pt-2">
           <a routerLink="/sales/leads" class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</a>
           <button type="submit" [disabled]="saving" class="px-5 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-50">

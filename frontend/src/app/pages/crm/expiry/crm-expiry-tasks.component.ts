@@ -26,10 +26,13 @@ import {
     <ui-page-header title="Expiry & Renewals" subtitle="Track registration and license expiry tasks"></ui-page-header>
 
     <div class="p-6 space-y-6">
-      <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
 
       <!-- KPI Cards -->
-      <div *ngIf="!loading && kpi" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      @if (!loading && kpi) {
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 text-center">
           <span class="text-xs text-slate-500 uppercase">Total Tasks</span>
           <p class="text-2xl font-bold text-slate-800">{{ kpi.total }}</p>
@@ -47,9 +50,11 @@ import {
           <p class="text-2xl font-bold text-emerald-600">{{ kpi.completed }}</p>
         </div>
       </div>
+}
 
       <!-- Filters -->
-      <div *ngIf="!loading" class="flex flex-wrap gap-3">
+      @if (!loading) {
+<div class="flex flex-wrap gap-3">
         <select [(ngModel)]="statusFilter" (ngModelChange)="loadTasks()" class="rounded-lg border-slate-300 text-sm">
           <option value="">All Statuses</option>
           <option value="PENDING">Pending</option>
@@ -58,13 +63,17 @@ import {
           <option value="COMPLETED">Completed</option>
         </select>
       </div>
+}
 
       <!-- Task List -->
-      <div *ngIf="!loading && tasks.length === 0">
+      @if (!loading && tasks.length === 0) {
+<div>
         <ui-empty-state message="No expiry tasks found." icon="calendar"></ui-empty-state>
       </div>
+}
 
-      <div *ngIf="!loading && tasks.length > 0" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      @if (!loading && tasks.length > 0) {
+<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <table class="w-full text-sm">
           <thead class="bg-slate-50 text-slate-600 text-xs uppercase">
             <tr>
@@ -77,7 +86,8 @@ import {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let t of tasks" class="border-b border-slate-100 hover:bg-slate-50">
+            @for (t of tasks; track t) {
+<tr class="border-b border-slate-100 hover:bg-slate-50">
               <td class="px-6 py-3 font-medium text-slate-800">{{ t.registration_name }}</td>
               <td class="px-6 py-3">{{ t.client_name }}</td>
               <td class="px-6 py-3">{{ t.branch_name }}</td>
@@ -89,9 +99,11 @@ import {
               </td>
               <td class="px-6 py-3"><ui-status-badge [status]="t.status"></ui-status-badge></td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+}
     </div>
   `,
 })

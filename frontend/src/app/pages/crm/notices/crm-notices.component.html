@@ -8,7 +8,8 @@
   </ui-page-header>
 
   <!-- KPI Cards -->
-  <section class="kpi-grid" *ngIf="kpis">
+  @if (kpis) {
+<section class="kpi-grid">
     <div class="kpi-card">
       <span class="kpi-val">{{ kpis.total }}</span>
       <span class="kpi-lbl">Total</span>
@@ -38,22 +39,28 @@
       <span class="kpi-lbl">Escalated</span>
     </div>
   </section>
+}
 
   <!-- Create Form -->
-  <section class="create-form" *ngIf="showCreate">
+  @if (showCreate) {
+<section class="create-form">
     <h3 class="text-sm font-semibold text-gray-800 mb-3">New Notice</h3>
     <div class="form-grid">
       <div class="form-field">
         <label>Client *</label>
         <select [(ngModel)]="newNotice.clientId" class="field">
           <option value="">Select Client</option>
-          <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+          @for (c of clients; track c) {
+<option [value]="c.id">{{ c.clientName }}</option>
+}
         </select>
       </div>
       <div class="form-field">
         <label>Notice Type</label>
         <select [(ngModel)]="newNotice.noticeType" class="field">
-          <option *ngFor="let t of types" [value]="t">{{ t }}</option>
+          @for (t of types; track t) {
+<option [value]="t">{{ t }}</option>
+}
         </select>
       </div>
       <div class="form-field">
@@ -83,7 +90,9 @@
       <div class="form-field">
         <label>Severity</label>
         <select [(ngModel)]="newNotice.severity" class="field">
-          <option *ngFor="let s of severities" [value]="s">{{ s }}</option>
+          @for (s of severities; track s) {
+<option [value]="s">{{ s }}</option>
+}
         </select>
       </div>
       <div class="form-field col-span-full">
@@ -97,6 +106,7 @@
       </div>
     </div>
   </section>
+}
 
   <!-- Filters -->
   <section class="filters">
@@ -105,32 +115,45 @@
         [(ngModel)]="search" (input)="applyFilters()" />
       <select class="field" [(ngModel)]="clientFilter" (change)="applyFilters()">
         <option value="">All Clients</option>
-        <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+        @for (c of clients; track c) {
+<option [value]="c.id">{{ c.clientName }}</option>
+}
       </select>
       <select class="field field--sm" [(ngModel)]="statusFilter" (change)="applyFilters()">
         <option value="">All Statuses</option>
-        <option *ngFor="let s of statuses" [value]="s">{{ s.replace('_', ' ') }}</option>
+        @for (s of statuses; track s) {
+<option [value]="s">{{ s.replace('_', ' ') }}</option>
+}
       </select>
       <select class="field field--sm" [(ngModel)]="severityFilter" (change)="applyFilters()">
         <option value="">All Severity</option>
-        <option *ngFor="let s of severities" [value]="s">{{ s }}</option>
+        @for (s of severities; track s) {
+<option [value]="s">{{ s }}</option>
+}
       </select>
       <select class="field field--sm" [(ngModel)]="typeFilter" (change)="applyFilters()">
         <option value="">All Types</option>
-        <option *ngFor="let t of types" [value]="t">{{ t.replace('_', ' ') }}</option>
+        @for (t of types; track t) {
+<option [value]="t">{{ t.replace('_', ' ') }}</option>
+}
       </select>
     </div>
   </section>
 
-  <ui-loading-spinner *ngIf="loading" text="Loading notices..."></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner text="Loading notices..."></ui-loading-spinner>
+}
 
-  <ui-empty-state *ngIf="!loading && !filtered.length"
+  @if (!loading && !filtered.length) {
+<ui-empty-state
     title="No notices found"
     description="No notices match current filters. Create a new notice or adjust filters.">
   </ui-empty-state>
+}
 
   <!-- Notice List + Detail -->
-  <div class="workspace" *ngIf="!loading && filtered.length">
+  @if (!loading && filtered.length) {
+<div class="workspace">
     <!-- List Panel -->
     <div class="list-panel">
       <div class="table-wrap">
@@ -147,7 +170,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let n of filtered; trackBy: trackById"
+            @for (n of filtered; track trackById($index, n)) {
+<tr
                 [class.active]="selected?.id === n.id"
                 [class.overdue]="isOverdue(n)"
                 (click)="selectNotice(n)"
@@ -160,22 +184,28 @@
                 <span class="badge border" [ngClass]="severityColor(n.severity)">{{ n.severity }}</span>
               </td>
               <td>
-                <span *ngIf="n.responseDueDate" [class.text-red-600]="isOverdue(n)">
+                @if (n.responseDueDate) {
+<span [class.text-red-600]="isOverdue(n)">
                   {{ n.responseDueDate }}
                 </span>
-                <span *ngIf="!n.responseDueDate" class="text-gray-400">—</span>
+}
+                @if (!n.responseDueDate) {
+<span class="text-gray-400">—</span>
+}
               </td>
               <td>
                 <span class="badge" [ngClass]="statusColor(n.status)">{{ n.status.replace('_', ' ') }}</span>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
     </div>
 
     <!-- Detail Panel -->
-    <div class="detail-panel" *ngIf="selected">
+    @if (selected) {
+<div class="detail-panel">
       <header class="detail-head">
         <div>
           <h3>{{ selected.noticeCode }}</h3>
@@ -199,49 +229,69 @@
         </div>
 
         <!-- Description -->
-        <div *ngIf="selected.description" class="mt-3">
+        @if (selected.description) {
+<div class="mt-3">
           <span class="meta-lbl">Description</span>
           <p class="text-sm text-gray-700 mt-1">{{ selected.description }}</p>
         </div>
+}
 
         <!-- Status Actions -->
-        <div class="mt-4" *ngIf="selected.status !== 'CLOSED'">
+        @if (selected.status !== 'CLOSED') {
+<div class="mt-4">
           <span class="meta-lbl">Update Status</span>
           <div class="flex flex-wrap gap-2 mt-1">
-            <button *ngFor="let s of statuses"
+            @for (s of statuses; track s) {
+<button
               [disabled]="s === selected.status"
               (click)="updateStatus(selected, s)"
               class="mini-btn"
               [class.active]="s === selected.status">
               {{ s.replace('_', ' ') }}
             </button>
+}
           </div>
         </div>
+}
 
         <!-- Documents -->
-        <div class="mt-4" *ngIf="selected.documents?.length">
+        @if (selected.documents?.length) {
+<div class="mt-4">
           <span class="meta-lbl">Documents ({{ selected.documents?.length }})</span>
           <ul class="doc-list">
-            <li *ngFor="let d of selected.documents">
+            @for (d of selected.documents; track d) {
+<li>
               <a [href]="d.fileUrl" target="_blank" class="text-blue-600 text-xs hover:underline">{{ d.fileName }}</a>
               <span class="text-gray-400 text-xs ml-2">{{ d.documentType }} · {{ d.uploadedAt | date:'short' }}</span>
             </li>
+}
           </ul>
         </div>
+}
 
         <!-- Activity Log -->
-        <div class="mt-4" *ngIf="selected.activityLog?.length">
+        @if (selected.activityLog?.length) {
+<div class="mt-4">
           <span class="meta-lbl">Activity Log</span>
           <ul class="activity-list">
-            <li *ngFor="let a of selected.activityLog">
+            @for (a of selected.activityLog; track a) {
+<li>
               <span class="text-xs font-medium">{{ a.action }}</span>
-              <span *ngIf="a.fromStatus" class="text-xs text-gray-500"> {{ a.fromStatus }} → {{ a.toStatus }}</span>
+              @if (a.fromStatus) {
+<span class="text-xs text-gray-500"> {{ a.fromStatus }} → {{ a.toStatus }}</span>
+}
               <span class="text-xs text-gray-400 ml-1">by {{ a.actionBy?.name || a.actionRole }} · {{ a.createdAt | date:'short' }}</span>
-              <span *ngIf="a.remarks" class="text-xs text-gray-500 block">{{ a.remarks }}</span>
+              @if (a.remarks) {
+<span class="text-xs text-gray-500 block">{{ a.remarks }}</span>
+}
             </li>
+}
           </ul>
         </div>
+}
       </div>
     </div>
+}
   </div>
+}
 </div>

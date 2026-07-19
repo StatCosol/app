@@ -13,7 +13,9 @@ import { AiRiskApi, AiRiskBranchResponse } from '../../../core/api/ai-risk.api';
       <div class="flex items-center justify-between mb-3">
         <div>
           <div class="text-lg font-semibold text-gray-900">AI Risk Score</div>
-          <div class="text-xs text-gray-500" *ngIf="data">{{ data.period }}</div>
+          @if (data) {
+<div class="text-xs text-gray-500">{{ data.period }}</div>
+}
         </div>
         <button class="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
           (click)="load()" [disabled]="loading">
@@ -21,10 +23,15 @@ import { AiRiskApi, AiRiskBranchResponse } from '../../../core/api/ai-risk.api';
         </button>
       </div>
 
-      <div *ngIf="loading" class="text-sm text-gray-400 py-4 text-center">Calculating risk score…</div>
-      <div *ngIf="!loading && errorMsg" class="text-sm text-red-600 py-4 text-center">{{ errorMsg }}</div>
+      @if (loading) {
+<div class="text-sm text-gray-400 py-4 text-center">Calculating risk score…</div>
+}
+      @if (!loading && errorMsg) {
+<div class="text-sm text-red-600 py-4 text-center">{{ errorMsg }}</div>
+}
 
-      <ng-container *ngIf="!loading && !errorMsg && data">
+      @if (!loading && !errorMsg && data) {
+
         <!-- Score + Badge + Bar -->
         <div class="flex items-center gap-4 mb-4">
           <div class="text-4xl font-bold" [ngClass]="scoreColor">{{ data.riskScore }}</div>
@@ -42,34 +49,45 @@ import { AiRiskApi, AiRiskBranchResponse } from '../../../core/api/ai-risk.api';
 
         <!-- Inputs Grid -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-          <ng-container *ngFor="let card of inputCards">
+          @for (card of inputCards; track card) {
+
             <div class="rounded-xl border border-gray-200 p-3">
               <div class="text-xs text-gray-500">{{ card.label }}</div>
               <div class="text-lg font-semibold text-gray-900">{{ card.value }}</div>
             </div>
-          </ng-container>
+          
+}
         </div>
 
         <!-- Key Findings -->
-        <div *ngIf="data.keyFindings.length" class="mb-4">
+        @if (data.keyFindings.length) {
+<div class="mb-4">
           <div class="text-sm font-medium text-gray-700 mb-1">Key Findings</div>
           <ul class="space-y-1">
-            <li *ngFor="let f of data.keyFindings" class="flex items-start gap-2 text-sm text-gray-600">
+            @for (f of data.keyFindings; track f) {
+<li class="flex items-start gap-2 text-sm text-gray-600">
               <span class="mt-0.5 text-amber-500">&#9679;</span>{{ f }}
             </li>
+}
           </ul>
         </div>
+}
 
         <!-- Recommended Actions -->
-        <div *ngIf="data.recommendedActions.length">
+        @if (data.recommendedActions.length) {
+<div>
           <div class="text-sm font-medium text-gray-700 mb-1">Recommended Actions</div>
           <ul class="space-y-1">
-            <li *ngFor="let a of data.recommendedActions" class="flex items-start gap-2 text-sm text-gray-600">
+            @for (a of data.recommendedActions; track a) {
+<li class="flex items-start gap-2 text-sm text-gray-600">
               <span class="mt-0.5 text-green-500">&#10003;</span>{{ a }}
             </li>
+}
           </ul>
         </div>
-      </ng-container>
+}
+      
+}
     </div>
   `,
 })

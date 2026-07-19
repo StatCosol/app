@@ -13,23 +13,32 @@
           <option value="STRUCTURES">Salary Structures</option>
         </select>
       </label>
-      <label *ngIf="mode === 'RUNS'">
+      @if (mode === 'RUNS') {
+<label>
         Status
         <select [(ngModel)]="runStatusFilter" (change)="loadRuns()">
-          <option *ngFor="let s of runStatusOptions" [value]="s">{{ s }}</option>
+          @for (s of runStatusOptions; track s) {
+<option [value]="s">{{ s }}</option>
+}
         </select>
       </label>
-      <label *ngIf="mode === 'STRUCTURES'">
+}
+      @if (mode === 'STRUCTURES') {
+<label>
         Status
         <select [(ngModel)]="statusFilter" (change)="load()">
-          <option *ngFor="let s of statusOptions" [value]="s">{{ s }}</option>
+          @for (s of statusOptions; track s) {
+<option [value]="s">{{ s }}</option>
+}
         </select>
       </label>
+}
       <button type="button" class="btn btn-secondary" (click)="refresh()" [disabled]="runsLoading || loading">Refresh</button>
     </div>
   </header>
 
-  <div class="summary-strip" *ngIf="mode === 'RUNS'">
+  @if (mode === 'RUNS') {
+<div class="summary-strip">
     <div class="summary-card summary-card--pending">
       <span class="summary-value">{{ runs.length }}</span>
       <span class="summary-label">{{ runStatusFilter }} runs</span>
@@ -43,8 +52,10 @@
       <span class="summary-label">Employees</span>
     </div>
   </div>
+}
 
-  <div class="summary-strip" *ngIf="mode === 'STRUCTURES'">
+  @if (mode === 'STRUCTURES') {
+<div class="summary-strip">
     <div class="summary-card summary-card--pending">
       <span class="summary-value">{{ structures.length }}</span>
       <span class="summary-label">{{ statusFilter }} queue</span>
@@ -58,9 +69,13 @@
       <span class="summary-label">Components</span>
     </div>
   </div>
+}
 
-  <div *ngIf="mode === 'RUNS' && runsLoading" class="loader">Loading payroll runs...</div>
-  <section *ngIf="mode === 'RUNS' && !runsLoading" class="grid" [class.grid--with-detail]="selectedRun">
+  @if (mode === 'RUNS' && runsLoading) {
+<div class="loader">Loading payroll runs...</div>
+}
+  @if (mode === 'RUNS' && !runsLoading) {
+<section class="grid" [class.grid--with-detail]="selectedRun">
     <article class="card list-pane">
       <header class="section-head">
         <div>
@@ -70,13 +85,16 @@
         <span>{{ runs.length }} rows</span>
       </header>
 
-      <div *ngIf="!runs.length" class="empty-state">
+      @if (!runs.length) {
+<div class="empty-state">
         <div class="empty-icon">OK</div>
         <h3>No payroll runs match</h3>
         <p>Submitted runs from payroll will appear here for CCO approval.</p>
       </div>
+}
 
-      <div *ngIf="runs.length" class="table-wrap">
+      @if (runs.length) {
+<div class="table-wrap">
         <table>
           <thead>
             <tr>
@@ -89,8 +107,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              *ngFor="let row of runs; trackBy: trackRun"
+            @for (row of runs; track trackRun($index, row)) {
+<tr
+             
               [class.selected]="selectedRun?.id === row.id"
               (click)="selectRun(row)">
               <td>
@@ -105,19 +124,26 @@
               <td>{{ formatDateTime(row.submittedAt || row.createdAt) }}</td>
               <td><span [class]="runBadgeClass(row.status)">{{ row.status }}</span></td>
               <td class="text-right">
-                <ng-container *ngIf="row.status === 'SUBMITTED'">
+                @if (row.status === 'SUBMITTED') {
+
                   <button type="button" class="link" [disabled]="acting" (click)="approveRun(row); $event.stopPropagation()">Approve</button>
                   <button type="button" class="link link-danger" [disabled]="acting" (click)="rejectRun(row); $event.stopPropagation()">Reject</button>
-                </ng-container>
-                <span *ngIf="row.status !== 'SUBMITTED'" class="minor">-</span>
+                
+}
+                @if (row.status !== 'SUBMITTED') {
+<span class="minor">-</span>
+}
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+}
     </article>
 
-    <aside class="card detail-pane" *ngIf="selectedRun as r">
+    @if (selectedRun; as r) {
+<aside class="card detail-pane">
       <header class="section-head">
         <div>
           <h2>{{ periodLabel(r) }}</h2>
@@ -131,21 +157,44 @@
         <dt>Employees</dt><dd>{{ r.employeeCount }}</dd>
         <dt>Created</dt><dd>{{ formatDateTime(r.createdAt) }}</dd>
         <dt>Submitted</dt><dd>{{ formatDateTime(r.submittedAt) }}</dd>
-        <dt *ngIf="r.approvedAt">Approved</dt><dd *ngIf="r.approvedAt">{{ formatDateTime(r.approvedAt) }}</dd>
-        <dt *ngIf="r.rejectedAt">Rejected</dt><dd *ngIf="r.rejectedAt">{{ formatDateTime(r.rejectedAt) }}</dd>
-        <dt *ngIf="r.approvalComments">Comments</dt><dd *ngIf="r.approvalComments">{{ r.approvalComments }}</dd>
-        <dt *ngIf="r.rejectionReason">Reason</dt><dd *ngIf="r.rejectionReason">{{ r.rejectionReason }}</dd>
+        @if (r.approvedAt) {
+<dt>Approved</dt>
+}@if (r.approvedAt) {
+<dd>{{ formatDateTime(r.approvedAt) }}</dd>
+}
+        @if (r.rejectedAt) {
+<dt>Rejected</dt>
+}@if (r.rejectedAt) {
+<dd>{{ formatDateTime(r.rejectedAt) }}</dd>
+}
+        @if (r.approvalComments) {
+<dt>Comments</dt>
+}@if (r.approvalComments) {
+<dd>{{ r.approvalComments }}</dd>
+}
+        @if (r.rejectionReason) {
+<dt>Reason</dt>
+}@if (r.rejectionReason) {
+<dd>{{ r.rejectionReason }}</dd>
+}
       </dl>
 
-      <div class="action-row" *ngIf="r.status === 'SUBMITTED'">
+      @if (r.status === 'SUBMITTED') {
+<div class="action-row">
         <button type="button" class="btn btn-primary" [disabled]="acting" (click)="approveRun(r)">Approve Run</button>
         <button type="button" class="btn btn-danger" [disabled]="acting" (click)="rejectRun(r)">Reject Run</button>
       </div>
+}
     </aside>
+}
   </section>
+}
 
-  <div *ngIf="mode === 'STRUCTURES' && loading" class="loader">Loading structures...</div>
-  <section *ngIf="mode === 'STRUCTURES' && !loading" class="grid" [class.grid--with-detail]="selected">
+  @if (mode === 'STRUCTURES' && loading) {
+<div class="loader">Loading structures...</div>
+}
+  @if (mode === 'STRUCTURES' && !loading) {
+<section class="grid" [class.grid--with-detail]="selected">
     <article class="card list-pane">
       <header class="section-head">
         <div>
@@ -155,13 +204,16 @@
         <span>{{ structures.length }} rows</span>
       </header>
 
-      <div *ngIf="!structures.length" class="empty-state">
+      @if (!structures.length) {
+<div class="empty-state">
         <div class="empty-icon">OK</div>
         <h3>No structures match</h3>
         <p>There are no payroll structures for the selected approval status.</p>
       </div>
+}
 
-      <div *ngIf="structures.length" class="table-wrap">
+      @if (structures.length) {
+<div class="table-wrap">
         <table>
           <thead>
             <tr>
@@ -175,8 +227,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              *ngFor="let row of structures; trackBy: trackRow"
+            @for (row of structures; track trackRow($index, row)) {
+<tr
+             
               [class.selected]="selected?.id === row.id"
               (click)="selectRow(row)">
               <td>
@@ -197,19 +250,26 @@
               </td>
               <td><span [class]="badgeClass(row.approvalStatus)">{{ row.approvalStatus }}</span></td>
               <td class="text-right">
-                <ng-container *ngIf="row.approvalStatus === 'PENDING'">
+                @if (row.approvalStatus === 'PENDING') {
+
                   <button type="button" class="link" [disabled]="acting" (click)="approve(row); $event.stopPropagation()">Approve</button>
                   <button type="button" class="link link-danger" [disabled]="acting" (click)="reject(row); $event.stopPropagation()">Reject</button>
-                </ng-container>
-                <span *ngIf="row.approvalStatus !== 'PENDING'" class="minor">-</span>
+                
+}
+                @if (row.approvalStatus !== 'PENDING') {
+<span class="minor">-</span>
+}
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+}
     </article>
 
-    <aside class="card detail-pane" *ngIf="selected as s">
+    @if (selected; as s) {
+<aside class="card detail-pane">
       <header class="section-head">
         <div>
           <h2>{{ s.name }}</h2>
@@ -223,15 +283,32 @@
         <dt>Scope</dt><dd>{{ scopeText(s) }}</dd>
         <dt>Effective</dt><dd>{{ formatDate(s.effectiveFrom) }} to {{ formatDate(s.effectiveTo) }}</dd>
         <dt>Submitted</dt><dd>{{ formatDateTime(s.submittedAt) }}</dd>
-        <dt *ngIf="s.approvedAt">Approved</dt><dd *ngIf="s.approvedAt">{{ formatDateTime(s.approvedAt) }}</dd>
-        <dt *ngIf="s.rejectedAt">Rejected</dt><dd *ngIf="s.rejectedAt">{{ formatDateTime(s.rejectedAt) }}</dd>
-        <dt *ngIf="s.rejectionReason">Reason</dt><dd *ngIf="s.rejectionReason">{{ s.rejectionReason }}</dd>
+        @if (s.approvedAt) {
+<dt>Approved</dt>
+}@if (s.approvedAt) {
+<dd>{{ formatDateTime(s.approvedAt) }}</dd>
+}
+        @if (s.rejectedAt) {
+<dt>Rejected</dt>
+}@if (s.rejectedAt) {
+<dd>{{ formatDateTime(s.rejectedAt) }}</dd>
+}
+        @if (s.rejectionReason) {
+<dt>Reason</dt>
+}@if (s.rejectionReason) {
+<dd>{{ s.rejectionReason }}</dd>
+}
       </dl>
 
       <h3>Components</h3>
-      <div *ngIf="itemsLoading" class="muted">Loading items...</div>
-      <div *ngIf="!itemsLoading && !selectedItems.length" class="empty-mini">No mapped items.</div>
-      <div *ngIf="!itemsLoading && selectedItems.length" class="table-wrap small">
+      @if (itemsLoading) {
+<div class="muted">Loading items...</div>
+}
+      @if (!itemsLoading && !selectedItems.length) {
+<div class="empty-mini">No mapped items.</div>
+}
+      @if (!itemsLoading && selectedItems.length) {
+<div class="table-wrap small">
         <table>
           <thead>
             <tr>
@@ -242,28 +319,47 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let it of selectedItems">
+            @for (it of selectedItems; track it) {
+<tr>
               <td class="mono">{{ it.componentId.slice(0, 8) }}...</td>
               <td>{{ it.calcMethod }}</td>
               <td class="text-right mono">
-                <ng-container [ngSwitch]="it.calcMethod">
-                  <span *ngSwitchCase="'FIXED'">{{ it.fixedAmount }}</span>
-                  <span *ngSwitchCase="'PERCENT'">{{ it.percentage }}% of {{ it.percentageBase }}</span>
-                  <span *ngSwitchCase="'FORMULA'">formula</span>
-                  <span *ngSwitchCase="'SLAB'">slab</span>
-                  <span *ngSwitchDefault>-</span>
-                </ng-container>
+                
+@switch (it.calcMethod) {
+                  @case ('FIXED') {
+<span>{{ it.fixedAmount }}</span>
+}
+                  @case ('PERCENT') {
+<span>{{ it.percentage }}% of {{ it.percentageBase }}</span>
+}
+                  @case ('FORMULA') {
+<span>formula</span>
+}
+                  @case ('SLAB') {
+<span>slab</span>
+}
+                  @default {
+<span>-</span>
+}
+                }
+
               </td>
               <td>{{ it.enabled ? 'Yes' : 'No' }}</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+}
 
-      <div class="action-row" *ngIf="s.approvalStatus === 'PENDING'">
+      @if (s.approvalStatus === 'PENDING') {
+<div class="action-row">
         <button type="button" class="btn btn-primary" [disabled]="acting" (click)="approve(s)">Approve</button>
         <button type="button" class="btn btn-danger" [disabled]="acting" (click)="reject(s)">Reject</button>
       </div>
+}
     </aside>
+}
   </section>
+}
 </div>

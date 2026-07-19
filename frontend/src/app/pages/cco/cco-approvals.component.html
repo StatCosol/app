@@ -5,11 +5,16 @@
     icon="check-circle">
   </ui-page-header>
 
-  <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
 
-  <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">{{ error }}</div>
+  @if (error) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">{{ error }}</div>
+}
 
-  <ng-container *ngIf="!loading">
+  @if (!loading) {
+
     <!-- KPI Strip -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
       <div class="bg-white border border-gray-200 rounded-xl p-4">
@@ -66,15 +71,20 @@
           <ui-status-badge [status]="row.status"></ui-status-badge>
         </ng-template>
         <ng-template uiTableCell="actions" let-row>
-          <div class="flex justify-end gap-2" *ngIf="row.status === 'PENDING'">
+          @if (row.status === 'PENDING') {
+<div class="flex justify-end gap-2">
             <ui-button variant="primary" size="sm" [disabled]="actionId === row.id" (clicked)="approve(row.id)">
               {{ actionId === row.id ? 'Processing...' : 'Approve' }}
             </ui-button>
             <ui-button variant="secondary" size="sm" [disabled]="actionId === row.id" (clicked)="reject(row.id)">Reject</ui-button>
           </div>
-          <span *ngIf="row.status !== 'PENDING'" class="text-xs text-gray-400">—</span>
+}
+          @if (row.status !== 'PENDING') {
+<span class="text-xs text-gray-400">—</span>
+}
         </ng-template>
       </ui-data-table>
     </div>
-  </ng-container>
+  
+}
 </div>

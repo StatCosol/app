@@ -1,12 +1,12 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { BranchMcdComponent } from '../branch-mcd/branch-mcd.component';
 import { BranchReuploadInboxComponent } from './branch-reupload-inbox.component';
 
 @Component({
   standalone: true,
   selector: 'app-branch-monthly-compliance-page',
-  imports: [CommonModule, BranchMcdComponent, BranchReuploadInboxComponent],
+  imports: [BranchMcdComponent, BranchReuploadInboxComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 pt-4">
       <div class="flex gap-1 border-b border-gray-200 mb-4">
@@ -28,7 +28,9 @@ import { BranchReuploadInboxComponent } from './branch-reupload-inbox.component'
         </button>
       </div>
     </div>
-    <app-branch-mcd *ngIf="activeTab === 'uploads'"></app-branch-mcd>
+    @if (activeTab === 'uploads') {
+<app-branch-mcd></app-branch-mcd>
+}
     <app-branch-reupload-inbox [hidden]="activeTab !== 'reupload'"></app-branch-reupload-inbox>
   `,
 })

@@ -5,11 +5,16 @@
     icon="shield-check">
   </ui-page-header>
 
-  <ui-loading-spinner *ngIf="loading" text="Loading governance signals..."></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner text="Loading governance signals..."></ui-loading-spinner>
+}
 
-  <div *ngIf="error" class="alert alert-error mb-4">{{ error }}</div>
+  @if (error) {
+<div class="alert alert-error mb-4">{{ error }}</div>
+}
 
-  <div *ngIf="!loading" class="space-y-4">
+  @if (!loading) {
+<div class="space-y-4">
     <section class="cards-grid">
       <article class="summary-card">
         <h4>Total Clients</h4>
@@ -39,8 +44,9 @@
         <span class="panel-sub">Critical {{ criticalGuardrailsCount }} · High {{ highGuardrailsCount }}</span>
       </div>
       <div class="guardrail-grid">
-        <a
-          *ngFor="let item of governanceGuardrails"
+        @for (item of governanceGuardrails; track item) {
+<a
+         
           class="guardrail-card"
           [routerLink]="item.route">
           <div class="guardrail-head">
@@ -50,6 +56,7 @@
           <div class="guardrail-count">{{ item.count }}</div>
           <p>{{ item.detail }}</p>
         </a>
+}
       </div>
     </section>
 
@@ -59,7 +66,8 @@
           <h3>Unassigned Clients</h3>
           <a routerLink="/admin/governance/unassigned" class="panel-link">Open full report</a>
         </div>
-        <div *ngIf="unassignedClients.length; else noUnassigned" class="table-wrap max-h-[600px] overflow-y-auto">
+        @if (unassignedClients.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
           <table>
             <thead>
               <tr>
@@ -71,22 +79,27 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of unassignedClients | slice:0:10">
+              @for (row of unassignedClients | slice:0:10; track row) {
+<tr>
                 <td>{{ row.clientName }}</td>
                 <td>{{ row.branchCount }}</td>
                 <td>{{ row.hasCrm ? 'Yes' : 'No' }}</td>
                 <td>{{ row.hasPayrollUser ? 'Yes' : 'No' }}</td>
                 <td>{{ row.hasMasterUser ? 'Yes' : 'No' }}</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
-        <ng-template #noUnassigned>
+} @else {
+
           <ui-empty-state
             title="No assignment gaps"
             description="All clients currently have required assignment coverage.">
           </ui-empty-state>
-        </ng-template>
+        
+}
+        
       </article>
 
       <article class="workspace-card">
@@ -94,7 +107,8 @@
           <h3>Duplicate Mapping Alerts</h3>
           <a routerLink="/admin/assignments" class="panel-link">Open assignments</a>
         </div>
-        <div *ngIf="duplicateMappings.length; else noDuplicate" class="table-wrap max-h-[600px] overflow-y-auto">
+        @if (duplicateMappings.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
           <table>
             <thead>
               <tr>
@@ -105,21 +119,26 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of duplicateMappings | slice:0:10">
+              @for (row of duplicateMappings | slice:0:10; track row) {
+<tr>
                 <td>{{ row.clientName }}</td>
                 <td>{{ row.activeRows }}</td>
                 <td>{{ row.crmIds.length || '-' }}</td>
                 <td>{{ row.auditorIds.length || '-' }}</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
-        <ng-template #noDuplicate>
+} @else {
+
           <ui-empty-state
             title="No duplicate active mappings"
             description="No clients currently show duplicate ACTIVE assignment rows.">
           </ui-empty-state>
-        </ng-template>
+        
+}
+        
       </article>
 
       <article class="workspace-card">
@@ -127,7 +146,8 @@
           <h3>Stale Accounts</h3>
           <a routerLink="/admin/users" class="panel-link">Open users</a>
         </div>
-        <div *ngIf="staleUsers.length; else noStaleUsers" class="table-wrap max-h-[600px] overflow-y-auto">
+        @if (staleUsers.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
           <table>
             <thead>
               <tr>
@@ -138,21 +158,26 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of staleUsers">
+              @for (row of staleUsers; track row) {
+<tr>
                 <td>{{ row.name }}</td>
                 <td>{{ row.email }}</td>
                 <td>{{ row.roleCode }}</td>
                 <td>{{ row.status }}</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
-        <ng-template #noStaleUsers>
+} @else {
+
           <ui-empty-state
             title="No stale users returned"
             description="Inactive user list is currently empty for the selected data window.">
           </ui-empty-state>
-        </ng-template>
+        
+}
+        
       </article>
 
       <article class="workspace-card">
@@ -160,7 +185,8 @@
           <h3>Rotation Due</h3>
           <a routerLink="/admin/assignments" class="panel-link">Manage rotations</a>
         </div>
-        <div *ngIf="rotationDue.length; else noRotationDue" class="table-wrap max-h-[600px] overflow-y-auto">
+        @if (rotationDue.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
           <table>
             <thead>
               <tr>
@@ -171,21 +197,26 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of rotationDue | slice:0:10">
+              @for (row of rotationDue | slice:0:10; track row) {
+<tr>
                 <td>{{ row.clientName }}</td>
                 <td>{{ row.assignmentType }}</td>
                 <td>{{ row.assignedTo || '-' }}</td>
                 <td>{{ row.rotationDueOn | date: 'mediumDate' }}</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
-        <ng-template #noRotationDue>
+} @else {
+
           <ui-empty-state
             title="No overdue rotations"
             description="No assignment rotations are currently flagged as overdue.">
           </ui-empty-state>
-        </ng-template>
+        
+}
+        
       </article>
     </section>
 
@@ -213,4 +244,5 @@
       </div>
     </section>
   </div>
+}
 </div>

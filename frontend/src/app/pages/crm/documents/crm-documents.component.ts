@@ -39,7 +39,8 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
     </ui-page-header>
 
     <!-- KPI Cards -->
-    <div *ngIf="kpis" class="kpi-strip">
+    @if (kpis) {
+<div class="kpi-strip">
       <div class="kpi-card">
         <span class="kpi-value">{{ kpis.total || 0 }}</span>
         <span class="kpi-label">Total Documents</span>
@@ -57,6 +58,7 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
         <span class="kpi-label">Rejected</span>
       </div>
     </div>
+}
 
     <!-- Filters -->
     <div class="filter-bar">
@@ -71,17 +73,22 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
                       (ngModelChange)="applyFilters()"></ui-form-select>
     </div>
 
-    <ui-loading-spinner *ngIf="loading" text="Loading documents..."></ui-loading-spinner>
+    @if (loading) {
+<ui-loading-spinner text="Loading documents..."></ui-loading-spinner>
+}
 
-    <ui-empty-state
-      *ngIf="!loading && filtered.length === 0"
+    @if (!loading && filtered.length === 0) {
+<ui-empty-state
+     
       title="No documents found"
       [description]="searchTerm || filterStatus ? 'Try adjusting your filters.' : 'Contractor documents will appear here once uploaded.'"
       icon="document">
     </ui-empty-state>
+}
 
     <!-- Documents Table -->
-    <div *ngIf="!loading && filtered.length > 0" class="table-card">
+    @if (!loading && filtered.length > 0) {
+<div class="table-card">
       <table class="data-table">
         <thead>
           <tr>
@@ -94,44 +101,58 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let doc of filtered">
+          @for (doc of filtered; track doc) {
+<tr>
             <td class="font-medium">{{ doc.contractorName || doc.contractor || '-' }}</td>
             <td>
               <div class="doc-name">{{ doc.name || doc.fileName || doc.title || '-' }}</div>
-              <div *ngIf="doc.fileSize" class="text-xs text-gray-400">{{ formatSize(doc.fileSize) }}</div>
+              @if (doc.fileSize) {
+<div class="text-xs text-gray-400">{{ formatSize(doc.fileSize) }}</div>
+}
             </td>
             <td>{{ doc.category || doc.type || '-' }}</td>
             <td class="text-sm text-gray-500">{{ doc.createdAt || doc.uploadedAt | date:'mediumDate' }}</td>
             <td><ui-status-badge [status]="doc.status || 'PENDING'"></ui-status-badge></td>
             <td class="text-right">
               <div class="action-btns">
-                <button *ngIf="doc.downloadUrl || doc.fileUrl"
+                @if (doc.downloadUrl || doc.fileUrl) {
+<button
                         type="button"
                         (click)="openDocument(doc)"
                         class="btn-sm btn-outline">Download</button>
-                <button *ngIf="(doc.status || 'PENDING') === 'PENDING'"
+}
+                @if ((doc.status || 'PENDING') === 'PENDING') {
+<button
                         (click)="review(doc, 'APPROVED')" class="btn-sm btn-approve"
                         [disabled]="processing.has(doc.id)">Approve</button>
-                <button *ngIf="(doc.status || 'PENDING') === 'PENDING'"
+}
+                @if ((doc.status || 'PENDING') === 'PENDING') {
+<button
                         (click)="review(doc, 'REJECTED')" class="btn-sm btn-reject"
                         [disabled]="processing.has(doc.id)">Reject</button>
+}
               </div>
             </td>
           </tr>
+}
         </tbody>
       </table>
     </div>
+}
 
     <!-- Review Modal -->
-    <div *ngIf="reviewingDoc" class="modal-overlay" (click)="reviewingDoc = null">
+    @if (reviewingDoc) {
+<div class="modal-overlay" (click)="reviewingDoc = null">
       <div class="modal-card" (click)="$event.stopPropagation()">
         <h3 class="modal-title">{{ reviewAction === 'REJECTED' ? 'Reject' : 'Approve' }} Document</h3>
         <p class="text-sm text-gray-600 mb-3">{{ reviewingDoc.name || reviewingDoc.fileName }}</p>
-        <div *ngIf="reviewAction === 'REJECTED'" class="mb-3">
+        @if (reviewAction === 'REJECTED') {
+<div class="mb-3">
           <label class="text-sm font-medium text-gray-700" for="cd-review-notes">Reason for rejection</label>
           <textarea autocomplete="off" id="cd-review-notes" name="reviewNotes" [(ngModel)]="reviewNotes" rows="3" class="field-input mt-1"
                     placeholder="Provide feedback..."></textarea>
         </div>
+}
         <div class="modal-actions">
           <button (click)="reviewingDoc = null" class="btn-sm btn-outline">Cancel</button>
           <button (click)="confirmReview()" class="btn-sm"
@@ -143,6 +164,7 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
         </div>
       </div>
     </div>
+}
   `,
   styles: [`
     .kpi-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }

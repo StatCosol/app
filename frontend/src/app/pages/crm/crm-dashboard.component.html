@@ -5,13 +5,18 @@
     <ui-button variant="secondary" [disabled]="loading" (clicked)="loadAll()">Refresh</ui-button>
   </ui-page-header>
 
-  <ui-loading-spinner *ngIf="loading" text="Loading CRM dashboard..." size="lg"></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner text="Loading CRM dashboard..." size="lg"></ui-loading-spinner>
+}
 
-  <ng-container *ngIf="!loading">
-    <div *ngIf="errorMsg" class="error-card">
+  @if (!loading) {
+
+    @if (errorMsg) {
+<div class="error-card">
       <span>{{ errorMsg }}</span>
       <ui-button variant="secondary" size="sm" (clicked)="loadAll()">Retry</ui-button>
     </div>
+}
 
     <section class="shortcut-card mb-4">
       <div class="section-head">
@@ -19,12 +24,14 @@
         <span>Open the queue you need without navigation overhead</span>
       </div>
       <div class="shortcut-grid">
-        <button type="button"
+        @for (item of shortcuts; track item) {
+<button type="button"
           class="shortcut-btn"
-          *ngFor="let item of shortcuts"
+         
           (click)="openShortcut(item)">
           {{ item.label }}
         </button>
+}
       </div>
     </section>
 
@@ -65,11 +72,13 @@
         <p>Pending corrections</p>
       </article>
 
-      <article class="kpi-card" *ngIf="kpis.onBehalfTotal">
+      @if (kpis.onBehalfTotal) {
+<article class="kpi-card">
         <h4>On-Behalf Uploads</h4>
         <div>{{ kpis.onBehalfTotal }}</div>
         <p>{{ kpis.onBehalfApproved || 0 }} approved · {{ kpis.onBehalfPending || 0 }} pending</p>
       </article>
+}
     </section>
 
     <section class="grid-2 mb-4">
@@ -83,13 +92,18 @@
           <button type="button" [class.active]="dueTab==='DUE_SOON'" (click)="setDueTab('DUE_SOON')">Due Soon</button>
           <button type="button" [class.active]="dueTab==='THIS_MONTH'" (click)="setDueTab('THIS_MONTH')">This Month</button>
         </div>
-        <ui-loading-spinner *ngIf="detailLoading" text="Loading due compliances..." size="md"></ui-loading-spinner>
-        <ui-empty-state
-          *ngIf="!detailLoading && !dueItems.length"
+        @if (detailLoading) {
+<ui-loading-spinner text="Loading due compliances..." size="md"></ui-loading-spinner>
+}
+        @if (!detailLoading && !dueItems.length) {
+<ui-empty-state
+         
           title="No items in selected tab"
           description="No due compliance records for this view.">
         </ui-empty-state>
-        <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="!detailLoading && dueItems.length">
+}
+        @if (!detailLoading && dueItems.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
           <table>
             <thead>
               <tr>
@@ -101,7 +115,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of dueItems; trackBy: trackById">
+              @for (row of dueItems; track trackById($index, row)) {
+<tr>
                 <td>{{ row.clientName }}</td>
                 <td>{{ row.branchName }}</td>
                 <td>{{ row.complianceItem }}</td>
@@ -110,9 +125,11 @@
                   <span class="pill" [class.high]="row.daysOverdue > 7">{{ row.daysOverdue }}d</span>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+}
       </article>
 
       <article class="panel">
@@ -151,13 +168,17 @@
           <h3>Low Coverage Branches</h3>
           <span>Branch-level exceptions</span>
         </div>
-        <ui-empty-state
-          *ngIf="!lowCoverage.length"
+        @if (!lowCoverage.length) {
+<ui-empty-state
+         
           title="No low-coverage branches"
           description="Coverage exceptions will appear here.">
         </ui-empty-state>
-        <div class="list" *ngIf="lowCoverage.length">
-          <button type="button" class="list-row" *ngFor="let row of lowCoverage; trackBy: trackById" (click)="openClientWorkspace(row.clientId)">
+}
+        @if (lowCoverage.length) {
+<div class="list">
+          @for (row of lowCoverage; track trackById($index, row)) {
+<button type="button" class="list-row" (click)="openClientWorkspace(row.clientId)">
             <div>
               <strong>{{ row.clientName }}</strong>
               <span>{{ row.branchName }}</span>
@@ -167,7 +188,9 @@
               <small>{{ row.overdueCount }} overdue</small>
             </div>
           </button>
+}
         </div>
+}
       </article>
 
       <article class="panel">
@@ -175,13 +198,17 @@
           <h3>Pending Compliance Docs</h3>
           <span>Requires reviewer action</span>
         </div>
-        <ui-empty-state
-          *ngIf="!pendingDocs.length"
+        @if (!pendingDocs.length) {
+<ui-empty-state
+         
           title="No pending documents"
           description="Pending contractor docs will appear here.">
         </ui-empty-state>
-        <div class="list" *ngIf="pendingDocs.length">
-          <div class="list-row static" *ngFor="let row of pendingDocs; trackBy: trackById">
+}
+        @if (pendingDocs.length) {
+<div class="list">
+          @for (row of pendingDocs; track trackById($index, row)) {
+<div class="list-row static">
             <div>
               <strong>{{ row.clientName }}</strong>
               <span>{{ row.branchName || '-' }} · {{ row.documentType || '-' }}</span>
@@ -191,7 +218,9 @@
               <small>{{ row.requestedOn ? (row.requestedOn | date:'dd MMM') : '-' }} · {{ row.pendingDays }}d</small>
             </div>
           </div>
+}
         </div>
+}
       </article>
 
       <article class="panel">
@@ -199,13 +228,17 @@
           <h3>Open Queries</h3>
           <span>Unread inbox items</span>
         </div>
-        <ui-empty-state
-          *ngIf="!openQueries.length"
+        @if (!openQueries.length) {
+<ui-empty-state
+         
           title="No unread queries"
           description="Unread compliance queries will be shown here.">
         </ui-empty-state>
-        <div class="list" *ngIf="openQueries.length">
-          <div class="list-row static" *ngFor="let row of openQueries; trackBy: trackById">
+}
+        @if (openQueries.length) {
+<div class="list">
+          @for (row of openQueries; track trackById($index, row)) {
+<div class="list-row static">
             <div>
               <strong>{{ row.clientName }}</strong>
               <span>{{ row.subject }}</span>
@@ -215,7 +248,9 @@
               <small>{{ row.ageingDays }}d</small>
             </div>
           </div>
+}
         </div>
+}
       </article>
     </section>
 
@@ -225,13 +260,17 @@
           <h3>Month Trend Mini Charts</h3>
           <span>Last 4 months</span>
         </div>
-        <ui-empty-state
-          *ngIf="!trend.length"
+        @if (!trend.length) {
+<ui-empty-state
+         
           title="No trend available"
           description="Trend appears once due-item KPI data is available.">
         </ui-empty-state>
-        <div class="trend" *ngIf="trend.length">
-          <div class="trend-row" *ngFor="let row of trend; trackBy: trackById">
+}
+        @if (trend.length) {
+<div class="trend">
+          @for (row of trend; track trackById($index, row)) {
+<div class="trend-row">
             <div class="month">{{ row.month }}</div>
             <div class="bars">
               <div class="bar overdue" [style.width.%]="trendOverdueWidth(row)"></div>
@@ -242,7 +281,9 @@
               <span>Done {{ row.completed }}</span>
             </div>
           </div>
+}
         </div>
+}
       </article>
 
       <article class="panel">
@@ -250,48 +291,61 @@
           <h3>Overdue Ageing</h3>
           <span>From priority queue</span>
         </div>
-        <ui-empty-state
-          *ngIf="!ageing.length"
+        @if (!ageing.length) {
+<ui-empty-state
+         
           title="No ageing data"
           description="Ageing buckets populate from priority items.">
         </ui-empty-state>
-        <div class="ageing-list" *ngIf="ageing.length">
-          <div class="age-row" *ngFor="let row of ageing; trackBy: trackById">
+}
+        @if (ageing.length) {
+<div class="ageing-list">
+          @for (row of ageing; track trackById($index, row)) {
+<div class="age-row">
             <span>{{ row.label }}</span>
             <div class="age-track">
               <div class="age-fill" [style.width.%]="row.pct"></div>
             </div>
             <strong>{{ row.count }}</strong>
           </div>
+}
         </div>
+}
       </article>
     </section>
 
-    <section class="mb-4" *ngIf="returnTasksForDashboard.length">
+    @if (returnTasksForDashboard.length) {
+<section class="mb-4">
       <app-compliance-risk-tiles
         [returnTasks]="returnTasksForDashboard"
         [expiryTasks]="expiryTasksForDashboard">
       </app-compliance-risk-tiles>
     </section>
+}
 
-    <section class="mb-4" *ngIf="returnTasksForDashboard.length">
+    @if (returnTasksForDashboard.length) {
+<section class="mb-4">
       <app-compliance-charts
         [returnTasks]="returnTasksForDashboard"
         [expiryTasks]="expiryTasksForDashboard">
       </app-compliance-charts>
     </section>
+}
 
     <section class="panel mb-4">
       <div class="section-head">
         <h3>Top Risk Clients</h3>
         <span>High-priority client watchlist</span>
       </div>
-      <ui-empty-state
-        *ngIf="!riskClients.length"
+      @if (!riskClients.length) {
+<ui-empty-state
+       
         title="No risk clients found"
         description="Risk ranking data is unavailable right now.">
       </ui-empty-state>
-      <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="riskClients.length">
+}
+      @if (riskClients.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
         <table>
           <thead>
             <tr>
@@ -305,7 +359,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let row of riskClients; trackBy: trackById">
+            @for (row of riskClients; track trackById($index, row)) {
+<tr>
               <td>{{ row.clientName }}</td>
               <td>{{ row.compliancePct }}%</td>
               <td>{{ row.pendingCount }}</td>
@@ -316,9 +371,11 @@
                 <ui-button size="sm" variant="secondary" (clicked)="openClientWorkspace(row.clientId)">Open</ui-button>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+}
     </section>
 
     <section class="panel mb-4">
@@ -326,12 +383,15 @@
         <h3>Upcoming Audits</h3>
         <span>Next 15 days</span>
       </div>
-      <ui-empty-state
-        *ngIf="!upcomingAudits.length"
+      @if (!upcomingAudits.length) {
+<ui-empty-state
+       
         title="No upcoming audits"
         description="No audits scheduled in the next 15 days.">
       </ui-empty-state>
-      <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="upcomingAudits.length">
+}
+      @if (upcomingAudits.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
         <table>
           <thead>
             <tr>
@@ -344,7 +404,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let row of upcomingAudits; trackBy: trackById">
+            @for (row of upcomingAudits; track trackById($index, row)) {
+<tr>
               <td>{{ row.auditCode || row.auditType }}</td>
               <td>{{ row.clientName }}</td>
               <td>{{ row.branchName || '-' }}</td>
@@ -352,9 +413,12 @@
               <td>{{ row.daysUntil }}d</td>
               <td><ui-status-badge [status]="row.status"></ui-status-badge></td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+}
     </section>
-  </ng-container>
+  
+}
 </div>

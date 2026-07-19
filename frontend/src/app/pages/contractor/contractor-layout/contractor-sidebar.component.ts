@@ -1,6 +1,6 @@
 import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -22,14 +22,16 @@ interface SidebarItem {
 @Component({
   selector: 'app-contractor-sidebar',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [RouterModule, FormsModule],
   template: `
     <!-- Mobile overlay -->
-    <div
-      *ngIf="mobileOpen"
+    @if (mobileOpen) {
+<div
+     
       class="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
       (click)="mobileOpen = false; mobileOpenChange.emit(false)"
     ></div>
+}
 
     <!-- Sidebar -->
     <aside
@@ -37,7 +39,8 @@ interface SidebarItem {
       [class.mobile-open]="mobileOpen"
     >
       <!-- Brand area -->
-      <div *ngIf="!collapsed" class="px-4 pt-5 pb-3">
+      @if (!collapsed) {
+<div class="px-4 pt-5 pb-3">
         <div class="flex items-center gap-2.5">
           <div class="w-8 h-8 rounded-lg bg-rose-400/20 flex items-center justify-center flex-shrink-0">
             <svg class="w-4 h-4 text-rose-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -62,7 +65,9 @@ interface SidebarItem {
           />
         </div>
       </div>
-      <div *ngIf="collapsed" class="py-4 flex flex-col items-center gap-1">
+}
+      @if (collapsed) {
+<div class="py-4 flex flex-col items-center gap-1">
         <div class="w-8 h-8 rounded-lg bg-rose-400/20 flex items-center justify-center">
           <svg class="w-4 h-4 text-rose-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -70,6 +75,7 @@ interface SidebarItem {
         </div>
         <span class="text-white/60 text-[10px] font-bold tracking-widest">CT</span>
       </div>
+}
 
       <!-- Collapse toggle (desktop only) -->
       <button
@@ -96,10 +102,12 @@ interface SidebarItem {
 
       <!-- Navigation groups -->
       <nav class="sidebar-nav flex-1 py-4 px-3 space-y-3">
-        <ng-container *ngIf="collapsed; else expandedNav">
+        @if (collapsed) {
+
           <div class="collapsed-menu">
-            <a
-              *ngFor="let link of collapsedLinks"
+            @for (link of collapsedLinks; track link) {
+<a
+             
               [routerLink]="link.route"
               [queryParams]="link.queryParams"
               [class.collapsed-active]="isLinkActive(link)"
@@ -109,12 +117,14 @@ interface SidebarItem {
               <span class="sidebar-icon" [innerHTML]="link.icon"></span>
               <span class="collapsed-tooltip">{{ link.label }}</span>
             </a>
+}
           </div>
-        </ng-container>
+        
+} @else {
 
-        <ng-template #expandedNav>
-          <div
-            *ngFor="let group of filteredNavGroups"
+          @for (group of filteredNavGroups; track group) {
+<div
+           
           >
             <div
               class="sidebar-section"
@@ -127,8 +137,9 @@ interface SidebarItem {
               </svg>
             </div>
             <div class="space-y-0.5 sidebar-submenu" [style.display]="group.expanded ? 'block' : 'none'">
-              <a
-                *ngFor="let item of group.items"
+              @for (item of group.items; track item) {
+<a
+               
                 [routerLink]="item.route"
                 [queryParams]="item.queryParams"
                 [class.sidebar-active]="isLinkActive(item)"
@@ -138,17 +149,24 @@ interface SidebarItem {
                 <span class="sidebar-icon" [innerHTML]="item.icon"></span>
                 <span class="sidebar-label">{{ item.label }}</span>
               </a>
+}
             </div>
           </div>
-        </ng-template>
+}
+        
+}
+
+        
       </nav>
 
       <!-- Version footer -->
-      <div *ngIf="!collapsed" class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
+      @if (!collapsed) {
+<div class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
         <div class="text-[10px] text-white/35">ConTrack v1.0</div>
         <div class="text-[10px] text-white/55 font-medium">Designed &amp; Developed by StatCo Solutions</div>
         <a href="https://www.statcosol.com" target="_blank" rel="noopener noreferrer" class="text-[10px] text-emerald-300/80 hover:text-emerald-200">www.statcosol.com</a>
       </div>
+}
     </aside>
   `,
   styles: [`

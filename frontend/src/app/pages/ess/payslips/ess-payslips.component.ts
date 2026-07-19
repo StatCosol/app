@@ -20,27 +20,36 @@ import { ToastService } from '../../../shared/toast/toast.service';
           <label for="payslip-year" class="block text-xs text-gray-500 mb-1">Year</label>
           <select id="payslip-year" name="filterYear" [(ngModel)]="filterYear" (ngModelChange)="applyFilter()" class="input-sm">
             <option value="">All Years</option>
-            <option *ngFor="let y of yearOptions" [value]="y">{{ y }}</option>
+            @for (y of yearOptions; track y) {
+<option [value]="y">{{ y }}</option>
+}
           </select>
         </div>
         <div>
           <label for="payslip-month" class="block text-xs text-gray-500 mb-1">Month</label>
           <select id="payslip-month" name="filterMonth" [(ngModel)]="filterMonth" (ngModelChange)="applyFilter()" class="input-sm">
             <option value="">All Months</option>
-            <option *ngFor="let m of monthFilterOptions" [value]="m.value">{{ m.label }}</option>
+            @for (m of monthFilterOptions; track m) {
+<option [value]="m.value">{{ m.label }}</option>
+}
           </select>
         </div>
         <span class="text-sm text-gray-500 ml-auto">{{ filteredPayslips.length }} payslip{{ filteredPayslips.length !== 1 ? 's' : '' }}</span>
       </div>
 
-      <div *ngIf="loading" class="text-gray-500 text-sm">Loading...</div>
+      @if (loading) {
+<div class="text-gray-500 text-sm">Loading...</div>
+}
 
-      <div *ngIf="!loading && !filteredPayslips.length"
+      @if (!loading && !filteredPayslips.length) {
+<div
            class="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-500">
         No payslips found for the selected filter.
       </div>
+}
 
-      <div *ngIf="!loading && filteredPayslips.length" class="section-card">
+      @if (!loading && filteredPayslips.length) {
+<div class="section-card">
         <table class="data-table">
           <thead>
             <tr>
@@ -52,27 +61,36 @@ import { ToastService } from '../../../shared/toast/toast.service';
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let p of filteredPayslips">
+            @for (p of filteredPayslips; track p) {
+<tr>
               <td class="font-medium">{{ monthName(p.periodMonth) }} {{ p.periodYear }}</td>
               <td>
-                <span *ngIf="p.fileName" class="text-gray-700">{{ p.fileName }}</span>
-                <span *ngIf="!p.fileName" class="text-gray-400">-</span>
+                @if (p.fileName) {
+<span class="text-gray-700">{{ p.fileName }}</span>
+}
+                @if (!p.fileName) {
+<span class="text-gray-400">-</span>
+}
               </td>
               <td class="text-sm text-gray-500">{{ formatSize(p.fileSize) }}</td>
               <td class="text-right text-sm text-gray-500">{{ p.generatedAt | date:'mediumDate' }}</td>
               <td class="text-right">
                 <button (click)="download(p)" [disabled]="downloading.has(p.id)" class="download-btn">
-                  <svg *ngIf="!downloading.has(p.id)" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  @if (!downloading.has(p.id)) {
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                   </svg>
+}
                   <span>{{ downloading.has(p.id) ? 'Downloading...' : 'PDF' }}</span>
                 </button>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+}
     </div>
   `,
   styles: [`

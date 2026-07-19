@@ -44,26 +44,32 @@
   </section>
 
   <div class="tabs-row card">
-    <button
+    @for (tab of lifecycleTabs; track tab) {
+<button
       type="button"
-      *ngFor="let tab of lifecycleTabs"
+     
       (click)="setLifecycleFilter(tab.key)"
       [class]="lifecycleFilter === tab.key ? 'tab tab--active' : 'tab'"
     >
       {{ tab.label }}
     </button>
+}
   </div>
 
-  <div *ngIf="loading" class="loader">Loading F&amp;F cases...</div>
+  @if (loading) {
+<div class="loader">Loading F&amp;F cases...</div>
+}
 
-  <section *ngIf="!loading" class="workspace-grid">
+  @if (!loading) {
+<section class="workspace-grid">
     <article class="card list-pane">
       <header class="section-head">
         <h2>F&amp;F Queue</h2>
         <span>{{ filteredCases.length }} rows</span>
       </header>
 
-      <div class="table-wrap" *ngIf="filteredCases.length; else noCases">
+      @if (filteredCases.length) {
+<div class="table-wrap">
         <table>
           <thead>
             <tr>
@@ -76,8 +82,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              *ngFor="let row of filteredCases; trackBy: trackCase"
+            @for (row of filteredCases; track trackCase($index, row)) {
+<tr
+             
               [class.selected]="selectedCase?.id === row.id"
               (click)="selectCase(row)"
             >
@@ -96,17 +103,22 @@
                 <button type="button" class="link" (click)="selectCase(row); $event.stopPropagation()">Open</button>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+} @else {
 
-      <ng-template #noCases>
         <div class="empty-mini">No F&amp;F cases found for selected filters.</div>
-      </ng-template>
+      
+}
+
+      
     </article>
 
     <aside class="detail-stack">
-      <article class="card" *ngIf="selectedCase as detail; else selectPrompt">
+      @if (selectedCase; as detail) {
+<article class="card">
         <header class="section-head">
           <h2>Employee Separation Summary</h2>
           <span [class]="caseStatusClass(detail.status)">{{ detail.status }}</span>
@@ -149,19 +161,29 @@
         </div>
 
         <div class="guardrail-card">
-          <div class="guardrail-row" *ngFor="let guard of lifecycleGuardrails">
+          @for (guard of lifecycleGuardrails; track guard) {
+<div class="guardrail-row">
             <span class="guardrail-label">{{ guard.label }}</span>
-            <span class="guardrail-ok" *ngIf="guard.allowed">Ready</span>
-            <span class="guardrail-blocked" *ngIf="!guard.allowed">{{ guard.reason }}</span>
+            @if (guard.allowed) {
+<span class="guardrail-ok">Ready</span>
+}
+            @if (!guard.allowed) {
+<span class="guardrail-blocked">{{ guard.reason }}</span>
+}
           </div>
+}
         </div>
       </article>
+} @else {
 
-      <ng-template #selectPrompt>
         <article class="card empty-mini">Select a case from queue to view full lifecycle details.</article>
-      </ng-template>
+      
+}
 
-      <article class="card" *ngIf="selectedCase as detail">
+      
+
+      @if (selectedCase; as detail) {
+<article class="card">
         <header class="section-head">
           <h2>Settlement Breakup</h2>
           <span>Net {{ inr(netSettlement) }}</span>
@@ -199,7 +221,9 @@
             <input type="checkbox" [(ngModel)]="manualOverride" name="manualOverride" />
             <span>Manual intervention required — values entered manually</span>
           </label>
-          <span *ngIf="manualOverride" class="badge badge-warning">Manual Override</span>
+          @if (manualOverride) {
+<span class="badge badge-warning">Manual Override</span>
+}
         </div>
 
         <div class="action-row">
@@ -210,27 +234,37 @@
           <span class="minor">Current saved: {{ inr(detail.settlementAmount) }}</span>
         </div>
       </article>
+}
 
-      <article class="card" *ngIf="selectedCase as detail">
+      @if (selectedCase; as detail) {
+<article class="card">
         <header class="section-head">
           <h2>Document Issue Checklist</h2>
           <span>{{ checklistCompletion.done }}/{{ checklistCompletion.total }} complete ({{ checklistCompletion.percent }}%)</span>
         </header>
 
-        <div class="checklist" *ngIf="documentChecklistDraft.length; else noChecklist">
-          <label *ngFor="let item of documentChecklistDraft; index as idx">
+        @if (documentChecklistDraft.length) {
+<div class="checklist">
+          @for (item of documentChecklistDraft; track item; let idx = $index) {
+<label>
             <input type="checkbox" name="checklistItem" [checked]="item.done" (change)="onChecklistToggle(idx, $any($event.target).checked)" />
             <span>{{ item.label }}</span>
           </label>
+}
         </div>
+} @else {
 
-        <ng-template #noChecklist>
           <div class="empty-mini">No checklist available for this case.</div>
-        </ng-template>
+        
+}
+
+        
       </article>
+}
 
       <!-- Settlement Documents Repository -->
-      <article class="card" *ngIf="selectedCase as detail">
+      @if (selectedCase; as detail) {
+<article class="card">
         <header class="section-head">
           <h2>Settlement Documents</h2>
           <span>{{ fnfDocuments.length }} file(s)</span>
@@ -241,14 +275,16 @@
             Auto-generate &amp; download settlement documents (filled from employee &amp; settlement data). Use these to share with the employee, then optionally upload signed copies below.
           </div>
           <div class="fnf-doc-generate-row" style="display:flex;flex-wrap:wrap;gap:8px;">
-            <button
+            @for (g of generatableDocs; track g) {
+<button
               type="button"
               class="btn btn-primary btn-sm"
-              *ngFor="let g of generatableDocs"
+             
               (click)="generateSettlementDoc(g.value)"
             >
               Download {{ g.label }}
             </button>
+}
           </div>
         </div>
 
@@ -259,7 +295,9 @@
             <label>
               Type
               <select id="pf-fnf-doc-type" name="fnfDocType" [(ngModel)]="fnfDocType">
-                <option *ngFor="let opt of fnfDocTypeOptions" [value]="opt.value">{{ opt.label }}</option>
+                @for (opt of fnfDocTypeOptions; track opt) {
+<option [value]="opt.value">{{ opt.label }}</option>
+}
               </select>
             </label>
             <label>
@@ -279,36 +317,50 @@
           </label>
         </div>
 
-        <div *ngIf="fnfDocsLoading" class="empty-mini">Loading documents...</div>
+        @if (fnfDocsLoading) {
+<div class="empty-mini">Loading documents...</div>
+}
 
-        <div class="fnf-doc-list" *ngIf="!fnfDocsLoading && fnfDocuments.length">
-          <div class="fnf-doc-item" *ngFor="let doc of fnfDocuments">
+        @if (!fnfDocsLoading && fnfDocuments.length) {
+<div class="fnf-doc-list">
+          @for (doc of fnfDocuments; track doc) {
+<div class="fnf-doc-item">
             <div class="fnf-doc-info">
               <strong>{{ doc.docName || doc.fileName }}</strong>
               <span class="badge badge--muted">{{ doc.docType }}</span>
               <span class="minor">{{ formatFileSize(doc.fileSize) }} &middot; {{ formatDate(doc.createdAt) }}</span>
-              <span class="minor" *ngIf="doc.remarks">{{ doc.remarks }}</span>
+              @if (doc.remarks) {
+<span class="minor">{{ doc.remarks }}</span>
+}
             </div>
             <div class="fnf-doc-actions">
               <button type="button" class="link" (click)="downloadFnfDoc(doc)">Download</button>
               <button type="button" class="link link--danger" (click)="deleteFnfDoc(doc)">Remove</button>
             </div>
           </div>
+}
         </div>
+}
 
-        <div *ngIf="!fnfDocsLoading && !fnfDocuments.length" class="empty-mini">
+        @if (!fnfDocsLoading && !fnfDocuments.length) {
+<div class="empty-mini">
           No settlement documents uploaded yet. Use the form above to attach files.
         </div>
+}
       </article>
+}
 
-      <article class="card" *ngIf="selectedCase">
+      @if (selectedCase) {
+<article class="card">
         <header class="section-head">
           <h2>Settlement Timeline</h2>
           <span>{{ timeline.length }} events</span>
         </header>
 
-        <div class="timeline" *ngIf="timeline.length; else noTimeline">
-          <div class="timeline-item" *ngFor="let event of timeline; trackBy: trackTimeline">
+        @if (timeline.length) {
+<div class="timeline">
+          @for (event of timeline; track trackTimeline($index, event)) {
+<div class="timeline-item">
             <i></i>
             <div>
               <strong>{{ event.label }}</strong>
@@ -316,17 +368,24 @@
               <small>{{ formatDate(event.at) }}</small>
             </div>
           </div>
+}
         </div>
+} @else {
 
-        <ng-template #noTimeline>
           <div class="empty-mini">No timeline events available yet.</div>
-        </ng-template>
+        
+}
+
+        
       </article>
+}
     </aside>
   </section>
+}
 </div>
 
-<div class="modal-backdrop" *ngIf="showCreateModal">
+@if (showCreateModal) {
+<div class="modal-backdrop">
   <div class="modal-card">
     <header>
       <h3>Initiate Full &amp; Final</h3>
@@ -338,7 +397,9 @@
         Client
         <select id="pf-client-id" name="createClientId" [(ngModel)]="createModel.clientId" (ngModelChange)="onCreateClientChange()">
           <option value="">Select client</option>
-          <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
+          @for (c of clients; track c) {
+<option [value]="c.id">{{ c.name }}</option>
+}
         </select>
       </label>
 
@@ -346,7 +407,9 @@
         Employee
         <select id="pf-employee-id" name="createEmployeeId" [(ngModel)]="createModel.employeeId" (ngModelChange)="onCreateEmployeeChange()" [disabled]="!createModel.clientId || modalEmployeesLoading">
           <option value="">{{ modalEmployeesLoading ? 'Loading...' : (createModel.clientId ? 'Select exited employee' : 'Pick client first') }}</option>
-          <option *ngFor="let e of modalEmployees" [value]="e.id">{{ e.employeeCode }} - {{ e.name }}{{ e.dateOfExit ? ' (Exit: ' + formatDate(e.dateOfExit) + ')' : '' }}</option>
+          @for (e of modalEmployees; track e) {
+<option [value]="e.id">{{ e.employeeCode }} - {{ e.name }}{{ e.dateOfExit ? ' (Exit: ' + formatDate(e.dateOfExit) + ')' : '' }}</option>
+}
         </select>
       </label>
 
@@ -363,7 +426,9 @@
       <label>
         Reason
         <select id="pf-reason" name="createReason" [(ngModel)]="createModel.reason">
-          <option *ngFor="let opt of reasonOptions" [value]="opt.value">{{ opt.label }}</option>
+          @for (opt of reasonOptions; track opt) {
+<option [value]="opt.value">{{ opt.label }}</option>
+}
         </select>
       </label>
 
@@ -381,3 +446,4 @@
     </footer>
   </div>
 </div>
+}

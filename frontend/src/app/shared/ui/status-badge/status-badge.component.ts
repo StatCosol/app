@@ -142,8 +142,10 @@ const STATUS_LABEL_MAP: Record<string, string> = {
   imports: [CommonModule],
   template: `
     <span [ngClass]="badgeClasses" style="box-shadow: 0 1px 2px rgba(0,0,0,0.05)">
-      <span *ngIf="showDot" class="w-2 h-2 rounded-full mr-1.5" [ngClass]="dotClass"
+      @if (showDot) {
+<span class="w-2 h-2 rounded-full mr-1.5" [ngClass]="dotClass"
             [style.boxShadow]="'0 0 0 2px ' + dotGlowColor"></span>
+}
       {{ displayLabel }}
     </span>
   `

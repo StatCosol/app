@@ -11,11 +11,15 @@
     <div class="card">
       <h3 class="text-xl font-semibold text-gray-900 mb-6">Assign Client</h3>
 
-      <div *ngIf="isEditMode" class="alert alert-info mb-4">
+      @if (isEditMode) {
+<div class="alert alert-info mb-4">
         Editing client assignment. Update CRM/Auditor then click Update, or Cancel to exit.
       </div>
+}
 
-      <div *ngIf="error" class="alert alert-error mb-4">{{ error }}</div>
+      @if (error) {
+<div class="alert alert-error mb-4">{{ error }}</div>
+}
 
       <div class="space-y-4">
         <ui-form-select
@@ -47,13 +51,15 @@
             class="flex-grow">
             {{ loading ? 'Processing...' : (isEditMode ? 'Update' : 'Assign') }}
           </ui-button>
-          <ui-button
-            *ngIf="isEditMode"
+          @if (isEditMode) {
+<ui-button
+           
             variant="secondary"
             (clicked)="resetForm()"
             [disabled]="loading">
             Cancel
           </ui-button>
+}
         </div>
       </div>
     </div>
@@ -62,7 +68,9 @@
     <div class="card">
       <h3 class="text-xl font-semibold text-gray-900 mb-6">Current Assignments</h3>
 
-      <ui-loading-spinner *ngIf="loading && currentAssignments.length === 0" text="Loading assignments..."></ui-loading-spinner>
+      @if (loading && currentAssignments.length === 0) {
+<ui-loading-spinner text="Loading assignments..."></ui-loading-spinner>
+}
 
       <ui-data-table
         [columns]="currentAssignmentsColumns"
@@ -117,7 +125,8 @@
   </div>
 
   <!-- HISTORY SECTION -->
-  <div class="card mt-6" *ngIf="assignmentHistory.length > 0">
+  @if (assignmentHistory.length > 0) {
+<div class="card mt-6">
     <h3 class="text-xl font-semibold text-gray-900 mb-6">Assignment History</h3>
     
     <ui-data-table
@@ -151,4 +160,5 @@
       </ng-template>
     </ui-data-table>
   </div>
+}
 </div>

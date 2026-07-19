@@ -16,7 +16,8 @@
   </div>
 
   <!-- Upload form -->
-  <div *ngIf="showUploadForm" class="upload-card">
+  @if (showUploadForm) {
+<div class="upload-card">
     <h3 class="text-sm font-semibold text-gray-800 mb-3">Upload New Document</h3>
 
     <div class="form-grid">
@@ -24,17 +25,23 @@
         <label for="ccd-category">Category *</label>
         <select id="ccd-category" name="category" class="input-sm" [(ngModel)]="form.category" (ngModelChange)="onCategoryChange()">
           <option value="">Select category</option>
-          <option *ngFor="let c of categories" [value]="c.code">{{ c.label }}</option>
+          @for (c of categories; track c) {
+<option [value]="c.code">{{ c.label }}</option>
+}
         </select>
       </div>
 
-      <div class="form-group" *ngIf="subCategories.length > 0">
+      @if (subCategories.length > 0) {
+<div class="form-group">
         <label for="ccd-sub-category">Sub-Category</label>
         <select id="ccd-sub-category" name="subCategory" class="input-sm" [(ngModel)]="form.subCategory">
           <option value="">Select</option>
-          <option *ngFor="let sc of subCategories" [value]="sc.code">{{ sc.label }}</option>
+          @for (sc of subCategories; track sc) {
+<option [value]="sc.code">{{ sc.label }}</option>
+}
         </select>
       </div>
+}
 
       <div class="form-group">
         <label for="ccd-title">Title *</label>
@@ -45,21 +52,27 @@
         <label for="ccd-branch-id">Branch (optional)</label>
         <select id="ccd-branch-id" name="branchId" class="input-sm" [(ngModel)]="form.branchId">
           <option value="">All Branches</option>
-          <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
+          @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchName }}</option>
+}
         </select>
       </div>
 
       <div class="form-group">
         <label for="ccd-period-year">Year</label>
         <select id="ccd-period-year" name="periodYear" class="input-sm" [(ngModel)]="form.periodYear">
-          <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
+          @for (y of yearOptions; track y) {
+<option [ngValue]="y">{{ y }}</option>
+}
         </select>
       </div>
 
       <div class="form-group">
         <label for="ccd-period-month">Month</label>
         <select id="ccd-period-month" name="periodMonth" class="input-sm" [(ngModel)]="form.periodMonth">
-          <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
+          @for (m of monthOptions; track m) {
+<option [ngValue]="m.value">{{ m.label }}</option>
+}
         </select>
       </div>
 
@@ -77,25 +90,32 @@
     <div class="file-drop mb-3" [class.has-file]="!!selectedFile" (click)="fileInput.click()">
       <input #fileInput type="file" hidden (change)="onFileSelected($event)"
         accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.zip" />
-      <div *ngIf="!selectedFile" class="text-sm text-gray-500">
+      @if (!selectedFile) {
+<div class="text-sm text-gray-500">
         <svg class="w-8 h-8 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
         </svg>
         Click to select a file (PDF, PNG, JPG, XLSX, ZIP — max 10MB)
       </div>
-      <div *ngIf="selectedFile" class="text-sm text-green-700 font-medium">
+}
+      @if (selectedFile) {
+<div class="text-sm text-green-700 font-medium">
         {{ selectedFile.name }} ({{ formatFileSize(selectedFile.size) }})
       </div>
+}
     </div>
 
     <button type="button" class="btn-upload" [disabled]="uploading || !selectedFile || !form.category || !form.title" (click)="upload()">
-      <svg *ngIf="!uploading" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      @if (!uploading) {
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
       </svg>
+}
       {{ uploading ? 'Uploading...' : 'Upload Document' }}
     </button>
   </div>
+}
 
   <!-- Filters -->
   <div class="flex flex-wrap items-end gap-3 mb-4">
@@ -103,16 +123,22 @@
       <label class="block text-xs text-gray-500 mb-1" for="ccd-category-2">Category</label>
       <select id="ccd-category-2" name="category" class="input-sm" [(ngModel)]="filters.category" (ngModelChange)="loadDocuments()">
         <option value="">All</option>
-        <option *ngFor="let c of categories" [value]="c.code">{{ c.label }}</option>
+        @for (c of categories; track c) {
+<option [value]="c.code">{{ c.label }}</option>
+}
       </select>
     </div>
-    <div *ngIf="branches.length > 1">
+    @if (branches.length > 1) {
+<div>
       <label class="block text-xs text-gray-500 mb-1" for="ccd-branch-filter">Branch</label>
       <select id="ccd-branch-filter" name="branchFilter" class="input-sm" [(ngModel)]="filters.branchId" (ngModelChange)="loadDocuments()">
         <option value="">All Branches</option>
-        <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
+        @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchName }}</option>
+}
       </select>
     </div>
+}
     <div>
       <label class="block text-xs text-gray-500 mb-1" for="ccd-search">Search</label>
       <input autocomplete="off" id="ccd-search" name="search" class="input-sm" type="text" [(ngModel)]="filters.search" placeholder="Search titles..."
@@ -121,14 +147,19 @@
   </div>
 
   <!-- Loading & Empty -->
-  <ui-loading-spinner *ngIf="loading" text="Loading documents..."></ui-loading-spinner>
-  <ui-empty-state *ngIf="!loading && documents.length === 0"
+  @if (loading) {
+<ui-loading-spinner text="Loading documents..."></ui-loading-spinner>
+}
+  @if (!loading && documents.length === 0) {
+<ui-empty-state
     title="No documents yet"
     description="Upload client compliance library files using the button above.">
   </ui-empty-state>
+}
 
   <!-- Documents table -->
-  <ui-data-table *ngIf="!loading && documents.length > 0"
+  @if (!loading && documents.length > 0) {
+<ui-data-table
     [columns]="docColumns" [data]="documents" [loading]="loading"
     emptyMessage="No documents yet.">
     <ng-template uiTableCell="title" let-row>
@@ -139,7 +170,9 @@
     </ng-template>
     <ng-template uiTableCell="category" let-row>
       <span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">{{ getCategoryLabel(row.category) }}</span>
-      <span *ngIf="row.subCategory" class="ml-1 text-xs text-gray-500">{{ row.subCategory }}</span>
+      @if (row.subCategory) {
+<span class="ml-1 text-xs text-gray-500">{{ row.subCategory }}</span>
+}
     </ng-template>
     <ng-template uiTableCell="period" let-row>
       {{ row.periodLabel || (row.periodYear ? (row.periodMonth ? monthOptions[(row.periodMonth || 1) - 1]?.label + ' ' : '') + row.periodYear : '—') }}
@@ -156,4 +189,5 @@
       <span class="text-red-600 hover:text-red-800 text-sm font-medium cursor-pointer" (click)="deleteDoc(row)">Delete</span>
     </ng-template>
   </ui-data-table>
+}
 </div>

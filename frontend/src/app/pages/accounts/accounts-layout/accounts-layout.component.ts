@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterOutlet } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -9,7 +9,7 @@ import { AuthService } from '../../../core/auth.service';
 @Component({
   selector: 'app-accounts-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, AccountsSidebarComponent],
+  imports: [RouterOutlet, AccountsSidebarComponent],
   template: `
     <div class="accounts-shell">
       <!-- Mobile menu toggle -->

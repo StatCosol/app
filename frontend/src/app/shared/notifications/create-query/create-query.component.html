@@ -44,7 +44,9 @@
         Submit
       </ui-button>
 
-      <div class="alert alert-success" *ngIf="resultText">{{ resultText }}</div>
+      @if (resultText) {
+<div class="alert alert-success">{{ resultText }}</div>
+}
     </div>
   </div>
 </div>

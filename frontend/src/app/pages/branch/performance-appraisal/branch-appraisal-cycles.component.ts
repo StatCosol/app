@@ -35,9 +35,12 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
         <a routerLink="/branch/appraisal-dashboard" class="btn-secondary">Dashboard</a>
       </div>
 
-      <div *ngIf="loading" class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+      @if (loading) {
+<div class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+}
 
-      <div *ngIf="!loading" class="table-card">
+      @if (!loading) {
+<div class="table-card">
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
@@ -54,7 +57,8 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let c of cycles; trackBy: trackById" class="data-row">
+              @for (c of cycles; track trackById($index, c)) {
+<tr class="data-row">
                 <td class="text-xs font-mono text-gray-500">{{ c.cycleCode }}</td>
                 <td class="font-medium text-slate-800">{{ c.cycleName }}</td>
                 <td>{{ c.financialYear }}</td>
@@ -72,13 +76,17 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
                 <td class="text-center text-emerald-600 font-medium">{{ c.completedCount ?? 0 }}</td>
                 <td class="text-center text-amber-600 font-medium">{{ c.pendingCount ?? 0 }}</td>
               </tr>
-              <tr *ngIf="!cycles.length">
+}
+              @if (!cycles.length) {
+<tr>
                 <td colspan="9" class="text-center text-sm text-gray-400 py-10">No cycles found</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
       </div>
+}
     </div>
   `,
 })

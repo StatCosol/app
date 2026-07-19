@@ -51,7 +51,8 @@ interface BranchOption { id: string; name: string }
       </div>
 
       <!-- ────── DEVICES TAB ────── -->
-      <ng-container *ngIf="tab === 'devices'">
+      @if (tab === 'devices') {
+
         <div class="flex items-center justify-between mb-4">
           <span class="text-sm text-gray-500">{{ devices.length }} device(s) registered</span>
           <div class="flex gap-2">
@@ -60,15 +61,20 @@ interface BranchOption { id: string; name: string }
           </div>
         </div>
 
-        <ui-loading-spinner *ngIf="loadingDevices" text="Loading devices..." size="lg"></ui-loading-spinner>
+        @if (loadingDevices) {
+<ui-loading-spinner text="Loading devices..." size="lg"></ui-loading-spinner>
+}
 
-        <ui-empty-state
-          *ngIf="!loadingDevices && devices.length === 0"
+        @if (!loadingDevices && devices.length === 0) {
+<ui-empty-state
+         
           title="No devices yet"
           description="Click + Add Device to register your first eSSL / ZKTeco machine.">
         </ui-empty-state>
+}
 
-        <div *ngIf="!loadingDevices && devices.length > 0"
+        @if (!loadingDevices && devices.length > 0) {
+<div
              class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
           <table class="w-full text-sm">
             <thead>
@@ -84,7 +90,8 @@ interface BranchOption { id: string; name: string }
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let d of devices" class="border-b border-gray-100 hover:bg-gray-50">
+              @for (d of devices; track d) {
+<tr class="border-b border-gray-100 hover:bg-gray-50">
                 <td class="px-4 py-3 text-gray-900 font-medium">{{ d.label || '—' }}</td>
                 <td class="px-4 py-3 font-mono text-gray-700">{{ d.serialNumber }}</td>
                 <td class="px-4 py-3 text-gray-700">{{ d.vendor }}{{ d.model ? ' · ' + d.model : '' }}</td>
@@ -106,13 +113,17 @@ interface BranchOption { id: string; name: string }
                   <button class="text-xs text-red-600 hover:underline" (click)="remove(d)">Delete</button>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
-      </ng-container>
+}
+      
+}
 
       <!-- ────── PUNCH FEED TAB ────── -->
-      <ng-container *ngIf="tab === 'punches'">
+      @if (tab === 'punches') {
+
         <div class="flex flex-wrap items-end gap-3 mb-4">
           <div>
             <label for="cmd-from-date" class="block text-xs font-medium text-gray-600 mb-1">From</label>
@@ -126,22 +137,29 @@ interface BranchOption { id: string; name: string }
             <label for="cmd-punch-branch" class="block text-xs font-medium text-gray-600 mb-1">Branch</label>
             <select id="cmd-punch-branch" name="punchBranchId" class="ui-input" [(ngModel)]="punchBranchId">
               <option [ngValue]="''">All branches</option>
-              <option *ngFor="let b of branches" [ngValue]="b.id">{{ b.name }}</option>
+              @for (b of branches; track b) {
+<option [ngValue]="b.id">{{ b.name }}</option>
+}
             </select>
           </div>
           <ui-button variant="primary" (clicked)="loadPunches()" [loading]="loadingPunches">Refresh</ui-button>
           <ui-button variant="secondary" (clicked)="reprocess()" [loading]="reprocessing">Reprocess Range</ui-button>
         </div>
 
-        <ui-loading-spinner *ngIf="loadingPunches" text="Loading punches..." size="lg"></ui-loading-spinner>
+        @if (loadingPunches) {
+<ui-loading-spinner text="Loading punches..." size="lg"></ui-loading-spinner>
+}
 
-        <ui-empty-state
-          *ngIf="!loadingPunches && punches.length === 0"
+        @if (!loadingPunches && punches.length === 0) {
+<ui-empty-state
+         
           title="No punches in range"
           description="Try widening the date range or checking that the device is online and registered.">
         </ui-empty-state>
+}
 
-        <div *ngIf="!loadingPunches && punches.length > 0"
+        @if (!loadingPunches && punches.length > 0) {
+<div
              class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
           <table class="w-full text-sm">
             <thead>
@@ -155,7 +173,8 @@ interface BranchOption { id: string; name: string }
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let p of punches" class="border-b border-gray-100 hover:bg-gray-50">
+              @for (p of punches; track p) {
+<tr class="border-b border-gray-100 hover:bg-gray-50">
                 <td class="px-4 py-3 text-gray-900">{{ p.punchTime | date: 'dd MMM, HH:mm:ss' }}</td>
                 <td class="px-4 py-3 font-mono text-gray-700">{{ p.employeeCode }}</td>
                 <td class="px-4 py-3 font-mono text-gray-500 text-xs">{{ p.deviceId || '—' }}</td>
@@ -171,21 +190,33 @@ interface BranchOption { id: string; name: string }
                   </span>
                 </td>
                 <td class="px-4 py-3 text-center">
-                  <span *ngIf="p.employeeId" class="text-green-600">✓</span>
-                  <span *ngIf="!p.employeeId" class="text-red-600 text-xs">Unknown</span>
+                  @if (p.employeeId) {
+<span class="text-green-600">✓</span>
+}
+                  @if (!p.employeeId) {
+<span class="text-red-600 text-xs">Unknown</span>
+}
                 </td>
                 <td class="px-4 py-3 text-center">
-                  <span *ngIf="p.processedAt" class="text-green-600">✓</span>
-                  <span *ngIf="!p.processedAt" class="text-gray-400">—</span>
+                  @if (p.processedAt) {
+<span class="text-green-600">✓</span>
+}
+                  @if (!p.processedAt) {
+<span class="text-gray-400">—</span>
+}
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
-      </ng-container>
+}
+      
+}
 
       <!-- ────── SETUP GUIDE TAB ────── -->
-      <ng-container *ngIf="tab === 'setup'">
+      @if (tab === 'setup') {
+
         <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm space-y-6 text-sm leading-6 text-gray-700">
 
           <section>
@@ -232,10 +263,12 @@ interface BranchOption { id: string; name: string }
           </section>
 
         </div>
-      </ng-container>
+      
+}
 
       <!-- ───────── ADD / EDIT MODAL ───────── -->
-      <ui-modal *ngIf="showModal" [title]="editing ? 'Edit Device' : 'Register Biometric Device'" (closed)="showModal = false">
+      @if (showModal) {
+<ui-modal [title]="editing ? 'Edit Device' : 'Register Biometric Device'" (closed)="showModal = false">
         <div class="grid grid-cols-1 gap-4">
           <ui-form-input
             label="Serial Number *"
@@ -248,10 +281,13 @@ interface BranchOption { id: string; name: string }
             <label for="cmd-form-branch" class="block text-xs font-medium text-gray-600 mb-1">Branch</label>
             <select id="cmd-form-branch" name="formBranchId" class="ui-input w-full" [(ngModel)]="form.branchId">
               <option [ngValue]="''">— None —</option>
-              <option *ngFor="let b of branches" [ngValue]="b.id">{{ b.name }}</option>
+              @for (b of branches; track b) {
+<option [ngValue]="b.id">{{ b.name }}</option>
+}
             </select>
           </div>
-          <div *ngIf="!editing" class="grid grid-cols-2 gap-3">
+          @if (!editing) {
+<div class="grid grid-cols-2 gap-3">
             <div>
               <label for="cmd-form-vendor" class="block text-xs font-medium text-gray-600 mb-1">Vendor</label>
               <select id="cmd-form-vendor" name="formVendor" class="ui-input w-full" [(ngModel)]="form.vendor">
@@ -263,8 +299,11 @@ interface BranchOption { id: string; name: string }
             </div>
             <ui-form-input label="Model" [(ngModel)]="form.model" placeholder="e.g. K90, X990"></ui-form-input>
           </div>
+}
         </div>
-        <div *ngIf="formError" class="text-sm text-red-600 mt-2">{{ formError }}</div>
+        @if (formError) {
+<div class="text-sm text-red-600 mt-2">{{ formError }}</div>
+}
         <div class="flex justify-end gap-3 mt-4">
           <ui-button variant="secondary" (clicked)="showModal = false">Cancel</ui-button>
           <ui-button variant="primary" [disabled]="saving" [loading]="saving" (clicked)="save()">
@@ -272,9 +311,11 @@ interface BranchOption { id: string; name: string }
           </ui-button>
         </div>
       </ui-modal>
+}
 
       <!-- ───────── ROTATE TOKEN CONFIRM ───────── -->
-      <ui-modal *ngIf="rotateTarget" title="Rotate push token?" (closed)="rotateTarget = null">
+      @if (rotateTarget) {
+<ui-modal title="Rotate push token?" (closed)="rotateTarget = null">
         <p class="text-sm text-gray-700">
           A new push token will be generated for <b>{{ rotateTarget.label || rotateTarget.serialNumber }}</b>.
           The device will continue working (it authenticates by serial number),
@@ -285,6 +326,7 @@ interface BranchOption { id: string; name: string }
           <ui-button variant="primary" [loading]="rotating" (clicked)="confirmRotate()">Rotate Token</ui-button>
         </div>
       </ui-modal>
+}
 
     </div>
   `,

@@ -1,12 +1,12 @@
 import { Component, Input, Output, EventEmitter, ElementRef, ViewChild, AfterViewChecked } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ThreadDetail } from '../../models/thread.model';
 import { MessageBubbleComponent } from '../message-bubble/message-bubble.component';
 
 @Component({
   selector: 'app-thread-view',
   standalone: true,
-  imports: [CommonModule, MessageBubbleComponent],
+  imports: [MessageBubbleComponent],
   templateUrl: './thread-view.component.html',
 })
 export class ThreadViewComponent implements AfterViewChecked {

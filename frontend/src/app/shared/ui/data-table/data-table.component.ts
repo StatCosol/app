@@ -40,7 +40,8 @@ export class TableCellDirective {
         <table class="w-full table-fixed min-w-[600px]">
           <thead>
             <tr>
-              <th *ngFor="let col of columns"
+              @for (col of columns; track col) {
+<th
                   scope="col"
                   [style.width]="col.width"
                   [ngClass]="getHeaderClasses(col)"
@@ -48,23 +49,33 @@ export class TableCellDirective {
                   (click)="col.sortable && onSort(col.key)">
                 <div class="flex items-center gap-1.5" [ngClass]="{'justify-center': col.align === 'center', 'justify-end': col.align === 'right'}">
                   <span>{{ col.header }}</span>
-                  <ng-container *ngIf="col.sortable">
-                    <svg *ngIf="sortColumn !== col.key" class="w-3.5 h-3.5 text-gray-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  @if (col.sortable) {
+
+                    @if (sortColumn !== col.key) {
+<svg class="w-3.5 h-3.5 text-gray-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
                     </svg>
-                    <svg *ngIf="sortColumn === col.key && sortDirection === 'asc'" class="w-3.5 h-3.5 text-accent-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+}
+                    @if (sortColumn === col.key && sortDirection === 'asc') {
+<svg class="w-3.5 h-3.5 text-accent-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"></path>
                     </svg>
-                    <svg *ngIf="sortColumn === col.key && sortDirection === 'desc'" class="w-3.5 h-3.5 text-accent-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+}
+                    @if (sortColumn === col.key && sortDirection === 'desc') {
+<svg class="w-3.5 h-3.5 text-accent-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path>
                     </svg>
-                  </ng-container>
+}
+                  
+}
                 </div>
               </th>
+}
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
-            <ng-container *ngIf="loading">
+            @if (loading) {
+
               <tr>
                 <td [attr.colspan]="columns.length" class="px-6 py-16 text-center">
                   <div class="flex flex-col items-center justify-center gap-3">
@@ -76,8 +87,10 @@ export class TableCellDirective {
                   </div>
                 </td>
               </tr>
-            </ng-container>
-            <ng-container *ngIf="!loading && data.length === 0">
+            
+}
+            @if (!loading && data.length === 0) {
+
               <tr>
                 <td [attr.colspan]="columns.length" class="px-6 py-16 text-center">
                   <div class="flex flex-col items-center">
@@ -91,26 +104,38 @@ export class TableCellDirective {
                   </div>
                 </td>
               </tr>
-            </ng-container>
-            <ng-container *ngIf="!loading && data.length > 0">
-              <tr *ngFor="let row of data; let i = index"
+            
+}
+            @if (!loading && data.length > 0) {
+
+              @for (row of data; track row; let i = $index) {
+<tr
                   class="hover:bg-gray-50/80 transition-colors duration-150"
                   [class.cursor-pointer]="clickable"
                   (click)="onRowClick(row, i)">
-                <td *ngFor="let col of columns" [ngClass]="getCellClasses(col)">
-                  <ng-container *ngIf="getCellTemplate(col.key) as tmpl; else defaultCell">
+                @for (col of columns; track col) {
+<td [ngClass]="getCellClasses(col)">
+                  @if (getCellTemplate(col.key); as tmpl) {
+
                     <ng-container *ngTemplateOutlet="tmpl; context: { $implicit: row, row: row, value: row[col.key], index: i }"></ng-container>
-                  </ng-container>
-                  <ng-template #defaultCell>{{ row[col.key] }}</ng-template>
+                  
+} @else {
+{{ row[col.key] }}
+}
+                  
                 </td>
+}
               </tr>
-            </ng-container>
+}
+            
+}
           </tbody>
         </table>
       </div>
 
       <!-- Pagination -->
-      <div *ngIf="showPagination && !loading && data.length > 0"
+      @if (showPagination && !loading && data.length > 0) {
+<div
            class="px-6 py-4 border-t border-gray-100 bg-gray-50/60 flex items-center justify-between">
         <div class="text-sm text-gray-500 font-medium">
           Showing <span class="text-gray-800">{{ startItem }}</span> to <span class="text-gray-800">{{ endItem }}</span> of <span class="text-gray-800">{{ totalItems }}</span>
@@ -164,6 +189,7 @@ export class TableCellDirective {
             aria-label="Last page">&#187;</button>
         </div>
       </div>
+}
     </div>
   `
 })

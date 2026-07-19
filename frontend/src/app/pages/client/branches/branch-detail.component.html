@@ -3,21 +3,30 @@
     title="Branch Workspace"
     subtitle="Client-side branch operations workspace for compliance, uploads, returns, registrations, safety, audits, employees, and contractors">
     <ui-button variant="secondary" size="sm" (clicked)="goBack()">Back</ui-button>
-    <ui-button *ngIf="hasBranchWorkspaceModules" variant="secondary" size="sm" (clicked)="refreshActiveTab()">Refresh Tab</ui-button>
-    <ui-button *ngIf="hasBranchWorkspaceModules" variant="primary" size="sm" (clicked)="exportWorkspaceSummary()">Export Summary</ui-button>
+    @if (hasBranchWorkspaceModules) {
+<ui-button variant="secondary" size="sm" (clicked)="refreshActiveTab()">Refresh Tab</ui-button>
+}
+    @if (hasBranchWorkspaceModules) {
+<ui-button variant="primary" size="sm" (clicked)="exportWorkspaceSummary()">Export Summary</ui-button>
+}
   </ui-page-header>
 
-  <div *ngIf="loading" class="loading-wrap">
+  @if (loading) {
+<div class="loading-wrap">
     <ui-loading-spinner text="Loading branch workspace..."></ui-loading-spinner>
   </div>
+}
 
-  <ui-empty-state
-    *ngIf="!loading && !branch"
+  @if (!loading && !branch) {
+<ui-empty-state
+   
     title="Branch Not Found"
     description="Could not load branch details for this workspace.">
   </ui-empty-state>
+}
 
-  <ng-container *ngIf="!loading && branch">
+  @if (!loading && branch) {
+
     <section class="branch-header card">
       <div class="branch-title-wrap">
         <h2>{{ branch.branchName || 'Branch' }}</h2>
@@ -34,31 +43,44 @@
       </div>
     </section>
 
-    <section *ngIf="hasBranchWorkspaceModules" class="summary-grid">
-      <article *ngIf="hasEmployeeComplianceModule" class="summary-card">
+    @if (hasBranchWorkspaceModules) {
+<section class="summary-grid">
+      @if (hasEmployeeComplianceModule) {
+<article class="summary-card">
         <div class="summary-label">On-Role Employees</div>
         <div class="summary-value">{{ branch.employeeCount ?? totalEmployees ?? 0 }}</div>
       </article>
-      <article *ngIf="hasContractorModule" class="summary-card">
+}
+      @if (hasContractorModule) {
+<article class="summary-card">
         <div class="summary-label">Contract Employees</div>
         <div class="summary-value">{{ branch.contractorCount ?? contractors.length ?? 0 }}</div>
       </article>
-      <article *ngIf="hasEmployeeComplianceModule" class="summary-card">
+}
+      @if (hasEmployeeComplianceModule) {
+<article class="summary-card">
         <div class="summary-label">Compliance Items</div>
         <div class="summary-value">{{ branch.complianceCount ?? complianceCards.applicable ?? 0 }}</div>
       </article>
-      <article *ngIf="hasEmployeeComplianceModule" class="summary-card">
+}
+      @if (hasEmployeeComplianceModule) {
+<article class="summary-card">
         <div class="summary-label">Documents</div>
         <div class="summary-value">{{ branch.documentStats?.total ?? uploads.length ?? 0 }}</div>
       </article>
-      <article *ngIf="hasEmployeeComplianceModule" class="summary-card summary-card--risk">
+}
+      @if (hasEmployeeComplianceModule) {
+<article class="summary-card summary-card--risk">
         <div class="summary-label">Risk Score</div>
         <div class="summary-value">{{ riskScore }}%</div>
       </article>
-      <article *ngIf="hasEmployeeComplianceModule || hasContractorModule" class="summary-card summary-card--ok">
+}
+      @if (hasEmployeeComplianceModule || hasContractorModule) {
+<article class="summary-card summary-card--ok">
         <div class="summary-label">Completion</div>
         <div class="summary-value">{{ completionScore }}%</div>
       </article>
+}
       <article class="summary-card summary-card--warn">
         <div class="summary-label">Pending Items</div>
         <div class="summary-value">{{ totalPendingCount() }}</div>
@@ -68,27 +90,37 @@
         <div class="summary-value">{{ overdueHotspotsCount() }}</div>
       </article>
     </section>
+}
 
-    <section *ngIf="hasBranchWorkspaceModules; else branchProfileOnly" class="workspace-grid">
+    @if (hasBranchWorkspaceModules) {
+<section class="workspace-grid">
       <div class="main-panel">
         <nav class="tab-strip">
-          <button type="button"
-            *ngFor="let tab of visibleTabs"
+          @for (tab of visibleTabs; track tab) {
+<button type="button"
+           
             class="tab-btn"
             [class.active]="activeTab === tab.key"
             (click)="setTab(tab.key)">
             {{ tab.label }}
-            <span *ngIf="pendingCountFor(tab.key) > 0" class="tab-count">{{ pendingCountFor(tab.key) }}</span>
+            @if (pendingCountFor(tab.key) > 0) {
+<span class="tab-count">{{ pendingCountFor(tab.key) }}</span>
+}
           </button>
+}
         </nav>
 
         <div class="tab-content card">
-          <div *ngIf="tabLoading[activeTab]" class="loading-wrap inner">
+          @if (tabLoading[activeTab]) {
+<div class="loading-wrap inner">
             <ui-loading-spinner text="Loading tab data..."></ui-loading-spinner>
           </div>
+}
 
-          <ng-container *ngIf="!tabLoading[activeTab]">
-            <div *ngIf="activeTab === 'compliance'" class="tab-body">
+          @if (!tabLoading[activeTab]) {
+
+            @if (activeTab === 'compliance') {
+<div class="tab-body">
               <div class="mini-grid">
                 <article class="mini-card">
                   <div class="mini-label">Applicable</div>
@@ -110,7 +142,8 @@
               <div class="toolbar">
                 <ui-button variant="secondary" size="sm" (clicked)="openComplianceModule()">Open Full Compliance Module</ui-button>
               </div>
-              <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="complianceTasks.length; else noComplianceTasks">
+              @if (complianceTasks.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
                 <table class="data-table">
                   <thead>
                     <tr>
@@ -121,7 +154,8 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let row of complianceTasks; trackBy: trackById">
+                    @for (row of complianceTasks; track trackById($index, row)) {
+<tr>
                       <td>{{ row.title || row.taskName || row.name || '-' }}</td>
                       <td>{{ row.act || row.lawType || '-' }}</td>
                       <td><ui-status-badge [status]="row.status || row.windowStatus || 'PENDING'" size="sm"></ui-status-badge></td>
@@ -133,15 +167,21 @@
                         }}
                       </td>
                     </tr>
+}
                   </tbody>
                 </table>
               </div>
-              <ng-template #noComplianceTasks>
-                <div class="empty-inline">No compliance tasks found for {{ monthLabel(workspaceMonth) }}.</div>
-              </ng-template>
-            </div>
+} @else {
 
-            <div *ngIf="activeTab === 'uploads'" class="tab-body">
+                <div class="empty-inline">No compliance tasks found for {{ monthLabel(workspaceMonth) }}.</div>
+              
+}
+              
+            </div>
+}
+
+            @if (activeTab === 'uploads') {
+<div class="tab-body">
               <div class="upload-panel">
                 <div class="upload-grid">
                   <div>
@@ -156,13 +196,15 @@
                     <label for="bd-upload-doc-type">Document Type</label>
                     <input autocomplete="off" id="bd-upload-doc-type" name="uploadDocType" type="text" [(ngModel)]="uploadDocType" placeholder="Document type" />
                   </div>
-                  <div *ngIf="uploadCategory === 'COMPLIANCE_MONTHLY'">
+                  @if (uploadCategory === 'COMPLIANCE_MONTHLY') {
+<div>
                     <label for="bd-upload-year">Period</label>
                     <div class="period-inputs">
                       <input autocomplete="off" id="bd-upload-year" name="uploadYear" type="number" [(ngModel)]="uploadYear" min="2000" />
                       <input autocomplete="off" id="bd-upload-month" name="uploadMonth" type="number" [(ngModel)]="uploadMonth" min="1" max="12" />
                     </div>
                   </div>
+}
                   <div>
                     <label for="bd-file">File</label>
                     <input id="bd-file" type="file" (change)="onUploadFileSelect($event)" />
@@ -173,12 +215,15 @@
                     {{ uploadBusy ? 'Uploading...' : 'Upload' }}
                   </ui-button>
                 </div>
-                <div *ngIf="uploadError" class="error-line">{{ uploadError }}</div>
+                @if (uploadError) {
+<div class="error-line">{{ uploadError }}</div>
+}
               </div>
 
 
 
-              <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="uploads.length; else noUploads">
+              @if (uploads.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
                 <table class="data-table">
                   <thead>
                     <tr>
@@ -190,7 +235,8 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let row of uploads; trackBy: trackById">
+                    @for (row of uploads; track trackById($index, row)) {
+<tr>
                       <td>
                         <div>{{ row.docType || row.documentType || row.documentName || '-' }}</div>
                         <div class="muted">{{ row.fileName || '-' }}</div>
@@ -201,21 +247,30 @@
                       <td>
                         <div class="row-actions">
                           <ui-button variant="ghost" size="sm" (clicked)="openPath(documentPath(row))">Preview</ui-button>
-                          <ui-button
-                            *ngIf="(row.status || '').toUpperCase() === 'REJECTED'"
+                          @if ((row.status || '').toUpperCase() === 'REJECTED') {
+<ui-button
+                           
                             variant="secondary"
                             size="sm"
                             (clicked)="chooseReupload(row)">
                             Re-upload
                           </ui-button>
+}
                         </div>
                       </td>
                     </tr>
+}
                   </tbody>
                 </table>
               </div>
+} @else {
 
-              <div class="reupload-box" *ngIf="reuploadTarget">
+                <div class="empty-inline">No uploaded documents found for this branch.</div>
+              
+}
+
+              @if (reuploadTarget) {
+<div class="reupload-box">
                 <div class="reupload-title">Re-upload: {{ reuploadTarget.docType || reuploadTarget.documentType || reuploadTarget.fileName }}</div>
                 <input type="file" (change)="onReuploadFileSelect($event)" />
                 <div class="toolbar">
@@ -225,13 +280,14 @@
                   </ui-button>
                 </div>
               </div>
+}
 
-              <ng-template #noUploads>
-                <div class="empty-inline">No uploaded documents found for this branch.</div>
-              </ng-template>
+              
             </div>
+}
 
-            <div *ngIf="activeTab === 'returns'" class="tab-body">
+            @if (activeTab === 'returns') {
+<div class="tab-body">
               <div class="mini-grid">
                 <article class="mini-card"><div class="mini-label">Prepared</div><div class="mini-value">{{ returnsStatusCount(['PENDING']) }}</div></article>
                 <article class="mini-card"><div class="mini-label">Reviewed</div><div class="mini-value">{{ returnsStatusCount(['IN_PROGRESS']) }}</div></article>
@@ -241,7 +297,8 @@
               <div class="toolbar">
                 <ui-button variant="secondary" size="sm" (clicked)="openReturnsModule()">Open Full Returns Module</ui-button>
               </div>
-              <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="returns.length; else noReturns">
+              @if (returns.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
                 <table class="data-table">
                   <thead>
                     <tr>
@@ -253,20 +310,27 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let row of returns; trackBy: trackById">
+                    @for (row of returns; track trackById($index, row)) {
+<tr>
                       <td>{{ row.returnType || '-' }} <div class="muted">{{ row.periodLabel || (row.periodMonth + '/' + row.periodYear) }}</div></td>
                       <td>{{ row.lawType || '-' }}</td>
                       <td>{{ row.dueDate ? (row.dueDate | date: 'dd MMM yyyy') : '-' }}</td>
                       <td><ui-status-badge [status]="row.status || 'PENDING'" size="sm"></ui-status-badge></td>
                       <td>{{ row.ackNumber || '-' }}</td>
                     </tr>
+}
                   </tbody>
                 </table>
               </div>
-              <ng-template #noReturns><div class="empty-inline">No returns found for selected period.</div></ng-template>
+} @else {
+<div class="empty-inline">No returns found for selected period.</div>
+}
+              
             </div>
+}
 
-            <div *ngIf="activeTab === 'registrations'" class="tab-body">
+            @if (activeTab === 'registrations') {
+<div class="tab-body">
               <div class="mini-grid">
                 <article class="mini-card"><div class="mini-label">Total Registrations</div><div class="mini-value">{{ registrations.length }}</div></article>
                 <article class="mini-card"><div class="mini-label">Expiring (30d)</div><div class="mini-value">{{ registrationExpiringSoonCount() }}</div></article>
@@ -274,7 +338,8 @@
               <div class="toolbar">
                 <ui-button variant="secondary" size="sm" (clicked)="openRegistrationsModule()">Open Full Registrations Module</ui-button>
               </div>
-              <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="registrations.length; else noRegistrations">
+              @if (registrations.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
                 <table class="data-table">
                   <thead>
                     <tr>
@@ -286,20 +351,27 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let row of registrations; trackBy: trackById">
+                    @for (row of registrations; track trackById($index, row)) {
+<tr>
                       <td>{{ row.registrationType || row.licenseType || row.name || '-' }}</td>
                       <td>{{ row.authority || row.issuingAuthority || '-' }}</td>
                       <td>{{ row.licenseNumber || row.referenceNo || row.reference || '-' }}</td>
                       <td>{{ registrationExpiry(row) ? (registrationExpiry(row) | date: 'dd MMM yyyy') : '-' }}</td>
                       <td><ui-status-badge [status]="row.status || 'PENDING'" size="sm"></ui-status-badge></td>
                     </tr>
+}
                   </tbody>
                 </table>
               </div>
-              <ng-template #noRegistrations><div class="empty-inline">No branch registrations available.</div></ng-template>
+} @else {
+<div class="empty-inline">No branch registrations available.</div>
+}
+              
             </div>
+}
 
-            <div *ngIf="activeTab === 'safety'" class="tab-body">
+            @if (activeTab === 'safety') {
+<div class="tab-body">
               <div class="mini-grid">
                 <article class="mini-card"><div class="mini-label">Safety Docs</div><div class="mini-value">{{ safetyDocs.length }}</div></article>
                 <article class="mini-card"><div class="mini-label">Expiring Soon</div><div class="mini-value">{{ safetyExpiringSoonCount() }}</div></article>
@@ -308,7 +380,8 @@
               <div class="toolbar">
                 <ui-button variant="secondary" size="sm" (clicked)="openSafetyModule()">Open Full Safety Module</ui-button>
               </div>
-              <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="safetyDocs.length; else noSafety">
+              @if (safetyDocs.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
                 <table class="data-table">
                   <thead>
                     <tr>
@@ -321,7 +394,8 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let row of safetyDocs; trackBy: trackById">
+                    @for (row of safetyDocs; track trackById($index, row)) {
+<tr>
                       <td>{{ row.documentName || row.documentType || '-' }}</td>
                       <td>{{ row.category || '-' }}</td>
                       <td>{{ row.frequency || '-' }}</td>
@@ -329,13 +403,19 @@
                       <td><ui-status-badge [status]="row.status || 'ACTIVE'" size="sm"></ui-status-badge></td>
                       <td><ui-button variant="ghost" size="sm" (clicked)="openPath(documentPath(row))">Preview</ui-button></td>
                     </tr>
+}
                   </tbody>
                 </table>
               </div>
-              <ng-template #noSafety><div class="empty-inline">No safety records found for this branch.</div></ng-template>
+} @else {
+<div class="empty-inline">No safety records found for this branch.</div>
+}
+              
             </div>
+}
 
-            <div *ngIf="activeTab === 'audits'" class="tab-body">
+            @if (activeTab === 'audits') {
+<div class="tab-body">
               <div class="mini-grid">
                 <article class="mini-card"><div class="mini-label">Audits</div><div class="mini-value">{{ audits.length }}</div></article>
                 <article class="mini-card"><div class="mini-label">In Progress</div><div class="mini-value">{{ pendingCountFor('audits') }}</div></article>
@@ -343,7 +423,8 @@
               <div class="toolbar">
                 <ui-button variant="secondary" size="sm" (clicked)="openAuditsModule()">Open Full Audits Module</ui-button>
               </div>
-              <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="audits.length; else noAudits">
+              @if (audits.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
                 <table class="data-table">
                   <thead>
                     <tr>
@@ -355,20 +436,27 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let row of audits; trackBy: trackById">
+                    @for (row of audits; track trackById($index, row)) {
+<tr>
                       <td>{{ row.auditType || row.type || '-' }}</td>
                       <td>{{ row.frequency || '-' }}</td>
                       <td>{{ row.periodCode || row.period || '-' }} {{ row.periodYear || '' }}</td>
                       <td><ui-status-badge [status]="row.status || 'PLANNED'" size="sm"></ui-status-badge></td>
                       <td>{{ row.dueDate ? (row.dueDate | date: 'dd MMM yyyy') : '-' }}</td>
                     </tr>
+}
                   </tbody>
                 </table>
               </div>
-              <ng-template #noAudits><div class="empty-inline">No branch audits found for selected year.</div></ng-template>
+} @else {
+<div class="empty-inline">No branch audits found for selected year.</div>
+}
+              
             </div>
+}
 
-            <div *ngIf="activeTab === 'employees'" class="tab-body">
+            @if (activeTab === 'employees') {
+<div class="tab-body">
               <div class="mini-grid">
                 <article class="mini-card"><div class="mini-label">Total Employees</div><div class="mini-value">{{ totalEmployees }}</div></article>
                 <article class="mini-card"><div class="mini-label">Active</div><div class="mini-value">{{ employeesActiveCount() }}</div></article>
@@ -377,7 +465,8 @@
               <div class="toolbar">
                 <ui-button variant="secondary" size="sm" (clicked)="openEmployeesModule()">Open Full Employees Module</ui-button>
               </div>
-              <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="employees.length; else noEmployees">
+              @if (employees.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
                 <table class="data-table">
                   <thead>
                     <tr>
@@ -389,7 +478,8 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let row of employees; trackBy: trackById">
+                    @for (row of employees; track trackById($index, row)) {
+<tr>
                       <td>{{ row.name }}</td>
                       <td>{{ row.employeeCode }}</td>
                       <td>{{ row.designation || '-' }}</td>
@@ -397,13 +487,19 @@
                       <td><ui-status-badge [status]="$any(row).approvalStatus || 'PENDING'" size="sm"></ui-status-badge></td>
                       <td><ui-status-badge [status]="row.approvalStatus || 'PENDING'" size="sm"></ui-status-badge></td>
                     </tr>
+}
                   </tbody>
                 </table>
               </div>
-              <ng-template #noEmployees><div class="empty-inline">No employees mapped to this branch.</div></ng-template>
+} @else {
+<div class="empty-inline">No employees mapped to this branch.</div>
+}
+              
             </div>
+}
 
-            <div *ngIf="activeTab === 'contractors'" class="tab-body">
+            @if (activeTab === 'contractors') {
+<div class="tab-body">
               <div class="mini-grid">
                 <article class="mini-card"><div class="mini-label">Contractors</div><div class="mini-value">{{ contractors.length }}</div></article>
                 <article class="mini-card"><div class="mini-label">At Risk</div><div class="mini-value">{{ contractorAtRiskCount() }}</div></article>
@@ -412,7 +508,8 @@
               <div class="toolbar">
                 <ui-button variant="secondary" size="sm" (clicked)="openContractorsModule()">Open Full Contractors Module</ui-button>
               </div>
-              <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="contractors.length; else noContractors">
+              @if (contractors.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
                 <table class="data-table">
                   <thead>
                     <tr>
@@ -424,7 +521,8 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let row of contractors; trackBy: trackById">
+                    @for (row of contractors; track trackById($index, row)) {
+<tr>
                       <td>{{ row.contractorName || row.name || '-' }}</td>
                       <td>{{ contractorUploadPercent(row) }}%</td>
                       <td>{{ row.requiredCount || row.totalRequired || '-' }}</td>
@@ -437,12 +535,18 @@
                         </ui-status-badge>
                       </td>
                     </tr>
+}
                   </tbody>
                 </table>
               </div>
-              <ng-template #noContractors><div class="empty-inline">No contractors available for selected month.</div></ng-template>
+} @else {
+<div class="empty-inline">No contractors available for selected month.</div>
+}
+              
             </div>
-          </ng-container>
+}
+          
+}
         </div>
       </div>
 
@@ -461,22 +565,32 @@
 
         <section class="card side-card">
           <div class="side-title">Pending Items Panel</div>
-          <div class="pending-list" *ngIf="pendingPanel.length; else noPendingPanel">
-            <button type="button" class="pending-row" *ngFor="let item of pendingPanel" (click)="jumpToPending(item)">
+          @if (pendingPanel.length) {
+<div class="pending-list">
+            @for (item of pendingPanel; track item) {
+<button type="button" class="pending-row" (click)="jumpToPending(item)">
               <span>{{ item.label }}</span>
               <strong>{{ item.count }}</strong>
             </button>
+}
           </div>
-          <ng-template #noPendingPanel>
+} @else {
+
             <div class="empty-inline">Pending counts will appear as data loads.</div>
-          </ng-template>
+          
+}
+          
         </section>
 
         <section class="card side-card">
           <div class="side-title">Month Trend Panel</div>
-          <div *ngIf="sidePanelLoading" class="muted">Refreshing trend data...</div>
-          <div class="trend-list" *ngIf="!sidePanelLoading && trendRows.length">
-            <div class="trend-row" *ngFor="let row of trendRows">
+          @if (sidePanelLoading) {
+<div class="muted">Refreshing trend data...</div>
+}
+          @if (!sidePanelLoading && trendRows.length) {
+<div class="trend-list">
+            @for (row of trendRows; track row) {
+<div class="trend-row">
               <div class="trend-head">
                 <span>{{ monthLabel(row.month) }}</span>
                 <span>C {{ row.completion }}% / R {{ row.risk }}%</span>
@@ -486,16 +600,22 @@
                 <div class="bar bar--risk"><span [style.width.%]="row.risk"></span></div>
               </div>
             </div>
+}
           </div>
+}
         </section>
       </aside>
     </section>
+} @else {
 
-    <ng-template #branchProfileOnly>
       <ui-empty-state
         title="Branch Profile"
         description="This service package can view branch details here. Compliance and contractor workspace tabs are available when those services are enabled.">
       </ui-empty-state>
-    </ng-template>
-  </ng-container>
+    
+}
+
+    
+  
+}
 </div>

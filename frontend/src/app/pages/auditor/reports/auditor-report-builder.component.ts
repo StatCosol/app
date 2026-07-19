@@ -5,7 +5,7 @@ import {
   OnDestroy,
   OnInit,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { Subject, forkJoin } from 'rxjs';
@@ -23,7 +23,7 @@ import { ClientContextStripComponent } from '../../../shared/ui';
 @Component({
   standalone: true,
   selector: 'app-auditor-report-builder',
-  imports: [CommonModule, FormsModule, RouterModule, ClientContextStripComponent],
+  imports: [FormsModule, RouterModule, ClientContextStripComponent],
   templateUrl: './auditor-report-builder.component.html',
   styleUrls: ['./auditor-report-builder.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

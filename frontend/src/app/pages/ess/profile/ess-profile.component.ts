@@ -13,12 +13,16 @@ import { EssApiService, EssProfile } from '../ess-api.service';
     <div class="max-w-4xl mx-auto space-y-6">
       <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-gray-900">My Profile</h1>
-        <div class="flex gap-2" *ngIf="emp">
-          <button *ngIf="!editing" (click)="startEdit()"
+        @if (emp) {
+<div class="flex gap-2">
+          @if (!editing) {
+<button (click)="startEdit()"
             class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
             Edit Profile
           </button>
-          <ng-container *ngIf="editing">
+}
+          @if (editing) {
+
             <button (click)="cancelEdit()"
               class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
               Cancel
@@ -27,15 +31,24 @@ import { EssApiService, EssProfile } from '../ess-api.service';
               class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition disabled:opacity-50">
               {{ saving ? 'Saving...' : 'Save Changes' }}
             </button>
-          </ng-container>
+          
+}
         </div>
+}
       </div>
 
-      <div *ngIf="loading" class="text-gray-500 text-sm">Loading...</div>
-      <div *ngIf="error" class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{{ error }}</div>
-      <div *ngIf="saveSuccess" class="bg-green-50 text-green-700 p-3 rounded-lg text-sm">Profile updated successfully.</div>
+      @if (loading) {
+<div class="text-gray-500 text-sm">Loading...</div>
+}
+      @if (error) {
+<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{{ error }}</div>
+}
+      @if (saveSuccess) {
+<div class="bg-green-50 text-green-700 p-3 rounded-lg text-sm">Profile updated successfully.</div>
+}
 
-      <ng-container *ngIf="emp && !loading">
+      @if (emp && !loading) {
+
         <!-- Personal -->
         <div class="info-card">
           <h2 class="card-title">Personal Information</h2>
@@ -47,8 +60,11 @@ import { EssApiService, EssProfile } from '../ess-api.service';
             <div class="info-row"><span class="label">Father's Name</span><span class="value">{{ emp.fatherName || '-' }}</span></div>
             <div class="info-row">
               <span class="label">Marital Status</span>
-              <span class="value" *ngIf="!editing">{{ emp.maritalStatus || '-' }}</span>
-              <div *ngIf="editing" class="edit-field">
+              @if (!editing) {
+<span class="value">{{ emp.maritalStatus || '-' }}</span>
+}
+              @if (editing) {
+<div class="edit-field">
                 <select id="ess-marital" name="maritalStatus" [(ngModel)]="editForm.maritalStatus" class="edit-input">
                   <option value="">- Select -</option>
                   <option value="MARRIED">Married</option>
@@ -57,22 +73,35 @@ import { EssApiService, EssProfile } from '../ess-api.service';
                   <option value="WIDOWER">Widower</option>
                 </select>
               </div>
+}
             </div>
             <div class="info-row">
               <span class="label">Phone</span>
-              <span class="value" *ngIf="!editing">{{ emp.phone || '-' }}</span>
-              <div *ngIf="editing" class="edit-field">
+              @if (!editing) {
+<span class="value">{{ emp.phone || '-' }}</span>
+}
+              @if (editing) {
+<div class="edit-field">
                 <input id="ess-phone" name="phone" autocomplete="tel" [(ngModel)]="editForm.phone" class="edit-input" [class.border-red-500]="phoneError" placeholder="e.g. +919876543210" />
-                <p *ngIf="phoneError" class="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded mt-1">{{ phoneError }}</p>
+                @if (phoneError) {
+<p class="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded mt-1">{{ phoneError }}</p>
+}
               </div>
+}
             </div>
             <div class="info-row">
               <span class="label">Email</span>
-              <span class="value" *ngIf="!editing">{{ emp.email || '-' }}</span>
-              <div *ngIf="editing" class="edit-field">
+              @if (!editing) {
+<span class="value">{{ emp.email || '-' }}</span>
+}
+              @if (editing) {
+<div class="edit-field">
                 <input id="ess-email" name="email" autocomplete="email" [(ngModel)]="editForm.email" class="edit-input" [class.border-red-500]="editEmailError" placeholder="Email" />
-                <p *ngIf="editEmailError" class="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded mt-1">{{ editEmailError }}</p>
+                @if (editEmailError) {
+<p class="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded mt-1">{{ editEmailError }}</p>
+}
               </div>
+}
             </div>
           </div>
         </div>
@@ -84,7 +113,9 @@ import { EssApiService, EssProfile } from '../ess-api.service';
             <div class="info-row"><span class="label">Designation</span><span class="value">{{ emp.designation || '-' }}</span></div>
             <div class="info-row"><span class="label">Department</span><span class="value">{{ emp.department || '-' }}</span></div>
             <div class="info-row"><span class="label">Date of Joining</span><span class="value">{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '-' }}</span></div>
-            <div *ngIf="emp.dateOfExit" class="info-row"><span class="label">Date of Exit</span><span class="value text-red-600">{{ emp.dateOfExit }}</span></div>
+            @if (emp.dateOfExit) {
+<div class="info-row"><span class="label">Date of Exit</span><span class="value text-red-600">{{ emp.dateOfExit }}</span></div>
+}
             <div class="info-row"><span class="label">State</span><span class="value">{{ emp.stateCode || '-' }}</span></div>
             <div class="info-row"><span class="label">Status</span>
               <span class="value" [class.text-green-600]="emp.isActive" [class.text-red-600]="!emp.isActive">
@@ -104,8 +135,12 @@ import { EssApiService, EssProfile } from '../ess-api.service';
             <div class="info-row"><span class="label">ESIC Number</span><span class="value font-mono">{{ emp.esic || '-' }}</span></div>
             <div class="info-row"><span class="label">PF Applicable</span><span class="value">{{ emp.pfApplicable ? 'Yes' : 'No' }}</span></div>
             <div class="info-row"><span class="label">PF Registered</span><span class="value">{{ emp.pfRegistered ? 'Yes' : 'No' }}</span></div>
-            <div *ngIf="emp.pfServiceStartDate" class="info-row"><span class="label">PF Service Start Date</span><span class="value font-mono">{{ emp.pfServiceStartDate | date:'dd/MM/yyyy' }}</span></div>
-            <div *ngIf="emp.basicAtPfStart !== null && emp.basicAtPfStart !== undefined" class="info-row"><span class="label">Basic Salary at PF Start</span><span class="value">₹{{ emp.basicAtPfStart | number:'1.2-2' }}</span></div>
+            @if (emp.pfServiceStartDate) {
+<div class="info-row"><span class="label">PF Service Start Date</span><span class="value font-mono">{{ emp.pfServiceStartDate | date:'dd/MM/yyyy' }}</span></div>
+}
+            @if (emp.basicAtPfStart !== null && emp.basicAtPfStart !== undefined) {
+<div class="info-row"><span class="label">Basic Salary at PF Start</span><span class="value">₹{{ emp.basicAtPfStart | number:'1.2-2' }}</span></div>
+}
             <div class="info-row"><span class="label">ESI Applicable</span><span class="value">{{ emp.esiApplicable ? 'Yes' : 'No' }}</span></div>
             <div class="info-row"><span class="label">ESI Registered</span><span class="value">{{ emp.esiRegistered ? 'Yes' : 'No' }}</span></div>
           </div>
@@ -117,22 +152,35 @@ import { EssApiService, EssProfile } from '../ess-api.service';
           <div class="info-grid">
             <div class="info-row">
               <span class="label">Bank Name</span>
-              <span class="value" *ngIf="!editing">{{ emp.bankName || '-' }}</span>
-              <input autocomplete="off" *ngIf="editing" id="ess-bank-name" name="bankName" [(ngModel)]="editForm.bankName" class="edit-input" placeholder="Bank Name" />
+              @if (!editing) {
+<span class="value">{{ emp.bankName || '-' }}</span>
+}
+              @if (editing) {
+<input autocomplete="off" id="ess-bank-name" name="bankName" [(ngModel)]="editForm.bankName" class="edit-input" placeholder="Bank Name" />
+}
             </div>
             <div class="info-row">
               <span class="label">Account Number</span>
-              <span class="value font-mono" *ngIf="!editing">{{ emp.bankAccount || '-' }}</span>
-              <input autocomplete="off" *ngIf="editing" id="ess-bank-account" name="bankAccount" [(ngModel)]="editForm.bankAccount" class="edit-input" placeholder="Account Number" />
+              @if (!editing) {
+<span class="value font-mono">{{ emp.bankAccount || '-' }}</span>
+}
+              @if (editing) {
+<input autocomplete="off" id="ess-bank-account" name="bankAccount" [(ngModel)]="editForm.bankAccount" class="edit-input" placeholder="Account Number" />
+}
             </div>
             <div class="info-row">
               <span class="label">IFSC</span>
-              <span class="value font-mono" *ngIf="!editing">{{ emp.ifsc || '-' }}</span>
-              <input autocomplete="off" *ngIf="editing" id="ess-ifsc" name="ifsc" [(ngModel)]="editForm.ifsc" class="edit-input" placeholder="IFSC Code" />
+              @if (!editing) {
+<span class="value font-mono">{{ emp.ifsc || '-' }}</span>
+}
+              @if (editing) {
+<input autocomplete="off" id="ess-ifsc" name="ifsc" [(ngModel)]="editForm.ifsc" class="edit-input" placeholder="IFSC Code" />
+}
             </div>
           </div>
         </div>
-      </ng-container>
+      
+}
     </div>
   `,
   styles: [`

@@ -69,7 +69,9 @@ type ScopeFilter = '' | CrmDocumentScope;
             [disabled]="filters.scope === 'COMPANY'"
             class="form-select rounded-lg border-gray-300 text-sm disabled:bg-gray-100">
             <option value="">All Units</option>
-            <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
+            @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchName }}</option>
+}
           </select>
 
           <input autocomplete="off"
@@ -88,7 +90,9 @@ type ScopeFilter = '' | CrmDocumentScope;
             (ngModelChange)="loadDocuments()"
             class="form-select rounded-lg border-gray-300 text-sm">
             <option value="">All Laws</option>
-            <option *ngFor="let c of lawCategories" [value]="c">{{ c }}</option>
+            @for (c of lawCategories; track c) {
+<option [value]="c">{{ c }}</option>
+}
           </select>
 
           <select
@@ -98,21 +102,28 @@ type ScopeFilter = '' | CrmDocumentScope;
             (ngModelChange)="loadDocuments()"
             class="form-select rounded-lg border-gray-300 text-sm">
             <option value="">All Types</option>
-            <option *ngFor="let t of docTypes" [value]="t">{{ t }}</option>
+            @for (t of docTypes; track t) {
+<option [value]="t">{{ t }}</option>
+}
           </select>
         </div>
       </div>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading documents..."></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading documents..."></ui-loading-spinner>
+}
 
-      <ui-empty-state
-        *ngIf="!loading && documents.length === 0"
+      @if (!loading && documents.length === 0) {
+<ui-empty-state
+       
         icon="document"
         title="No Documents Found"
         description="No CRM shared files match the selected filters.">
       </ui-empty-state>
+}
 
-      <div *ngIf="!loading && documents.length > 0" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      @if (!loading && documents.length > 0) {
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
@@ -128,7 +139,8 @@ type ScopeFilter = '' | CrmDocumentScope;
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
-              <tr *ngFor="let doc of documents" class="hover:bg-gray-50">
+              @for (doc of documents; track doc) {
+<tr class="hover:bg-gray-50">
                 <td class="px-4 py-3 text-sm text-gray-900 max-w-[220px] truncate" [title]="doc.fileName">
                   {{ doc.fileName }}
                 </td>
@@ -156,6 +168,7 @@ type ScopeFilter = '' | CrmDocumentScope;
                   </button>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
@@ -163,6 +176,7 @@ type ScopeFilter = '' | CrmDocumentScope;
           {{ documents.length }} document{{ documents.length !== 1 ? 's' : '' }}
         </div>
       </div>
+}
     </main>
   `,
 })

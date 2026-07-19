@@ -22,7 +22,9 @@ import { PfTeamApiService, HdTicket } from '../pf-team-api.service';
         <select id="ptt-filter-client" name="filterClient" [(ngModel)]="filterClient" (ngModelChange)="applyFilter()"
                 class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
           <option value="">All Clients</option>
-          <option *ngFor="let c of clientOptions" [value]="c.id">{{ c.name }}</option>
+          @for (c of clientOptions; track c) {
+<option [value]="c.id">{{ c.name }}</option>
+}
         </select>
 
         <select id="ptt-filter-status" name="filterStatus" [(ngModel)]="filterStatus" (ngModelChange)="applyFilter()"
@@ -70,12 +72,15 @@ import { PfTeamApiService, HdTicket } from '../pf-team-api.service';
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-              <tr *ngFor="let t of filtered"
+              @for (t of filtered; track t) {
+<tr
                   [routerLink]="['/pf-team/tickets', t.id]"
                   class="hover:bg-indigo-50/40 cursor-pointer transition-colors">
                 <td class="px-4 py-3 font-medium text-indigo-700 whitespace-nowrap">{{ t.client?.clientName || '—' }}</td>
                 <td class="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">
-                  {{ t.category }}<span *ngIf="t.subCategory" class="text-gray-400"> / {{ t.subCategory }}</span>
+                  {{ t.category }}@if (t.subCategory) {
+<span class="text-gray-400"> / {{ t.subCategory }}</span>
+}
                 </td>
                 <td class="px-4 py-3 text-gray-700 max-w-xs truncate">{{ t.description }}</td>
                 <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ t.employeeRef || '—' }}</td>
@@ -90,9 +95,12 @@ import { PfTeamApiService, HdTicket } from '../pf-team-api.service';
                 </td>
                 <td class="px-4 py-3 text-gray-500 whitespace-nowrap">{{ t.createdAt | date:'dd MMM yyyy' }}</td>
               </tr>
-              <tr *ngIf="filtered.length === 0">
+}
+              @if (filtered.length === 0) {
+<tr>
                 <td colspan="8" class="px-4 py-12 text-center text-gray-400">No tickets found</td>
               </tr>
+}
             </tbody>
           </table>
         </div>

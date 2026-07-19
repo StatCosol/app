@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterOutlet } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -9,7 +9,7 @@ import { AuthService } from '../../../core/auth.service';
 @Component({
   selector: 'app-sales-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, SalesSidebarComponent],
+  imports: [RouterOutlet, SalesSidebarComponent],
   template: `
     <div class="flex min-h-screen">
       <button

@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -26,7 +26,6 @@ import {
   selector: 'app-users',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     RouterLink,
     PageHeaderComponent,
@@ -36,8 +35,8 @@ import {
     TableCellDirective,
     EmptyStateComponent,
     FormInputComponent,
-    FormSelectComponent,
-  ],
+    FormSelectComponent
+],
   templateUrl: './users.component.html',
   styleUrls: ['./users.component.scss'],
 })

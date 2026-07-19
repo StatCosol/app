@@ -31,7 +31,9 @@ import { FilterOptionsService } from '../../../shared/filters/services/filter-op
             [(ngModel)]="historyClientId"
             (ngModelChange)="load()">
             <option value="">All clients</option>
-            <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
+            @for (c of clients; track c) {
+<option [value]="c.id">{{ c.name }}</option>
+}
           </select>
         </label>
         <label>
@@ -55,7 +57,9 @@ import { FilterOptionsService } from '../../../shared/filters/services/filter-op
         <button class="rounded-md border border-slate-300 px-4 py-2 text-sm" (click)="load()">Refresh</button>
       </div>
 
-      <p *ngIf="message" class="text-sm" [class.text-green-700]="!error" [class.text-red-700]="error">{{ message }}</p>
+      @if (message) {
+<p class="text-sm" [class.text-green-700]="!error" [class.text-red-700]="error">{{ message }}</p>
+}
 
       <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-200">
@@ -77,19 +81,28 @@ import { FilterOptionsService } from '../../../shared/filters/services/filter-op
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let r of filteredRequests" class="border-t border-slate-100 align-top">
+            @for (r of filteredRequests; track r) {
+<tr class="border-t border-slate-100 align-top">
               <td class="px-4 py-3">{{ r.clientName || r.clientId }}</td>
               <td class="px-4 py-3">{{ r.packageCode }}</td>
               <td class="px-4 py-3">
-                <ng-container *ngIf="r.currentModules.length; else noCurrentModules">
-                  <span class="inline-block rounded bg-slate-100 px-2 py-1 mr-1 mb-1 text-xs" *ngFor="let m of r.currentModules">{{ moduleLabel(m) }}</span>
-                </ng-container>
-                <ng-template #noCurrentModules>
+                @if (r.currentModules.length) {
+
+                  @for (m of r.currentModules; track m) {
+<span class="inline-block rounded bg-slate-100 px-2 py-1 mr-1 mb-1 text-xs">{{ moduleLabel(m) }}</span>
+}
+                
+} @else {
+
                   <span class="text-xs text-slate-400">No approved services</span>
-                </ng-template>
+                
+}
+                
               </td>
               <td class="px-4 py-3">
-                <span class="inline-block rounded bg-blue-50 text-blue-700 px-2 py-1 mr-1 mb-1 text-xs" *ngFor="let m of r.requestedModules">{{ moduleLabel(m) }}</span>
+                @for (m of r.requestedModules; track m) {
+<span class="inline-block rounded bg-blue-50 text-blue-700 px-2 py-1 mr-1 mb-1 text-xs">{{ moduleLabel(m) }}</span>
+}
               </td>
               <td class="px-4 py-3">
                 <span class="rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="statusBadgeClass(r.status)">
@@ -97,33 +110,49 @@ import { FilterOptionsService } from '../../../shared/filters/services/filter-op
                 </span>
               </td>
               <td class="px-4 py-3 max-w-xs">
-                <div class="space-y-1" *ngIf="r.requestNote || r.reviewNote; else noRequestNotes">
-                  <p *ngIf="r.requestNote" class="text-xs text-slate-600">
+                @if (r.requestNote || r.reviewNote) {
+<div class="space-y-1">
+                  @if (r.requestNote) {
+<p class="text-xs text-slate-600">
                     <span class="font-medium text-slate-800">Admin:</span> {{ r.requestNote }}
                   </p>
-                  <p *ngIf="r.reviewNote" class="text-xs text-amber-800">
+}
+                  @if (r.reviewNote) {
+<p class="text-xs text-amber-800">
                     <span class="font-medium">CCO:</span> {{ r.reviewNote }}
                   </p>
+}
                 </div>
-                <ng-template #noRequestNotes>-</ng-template>
+} @else {
+-
+}
+                
               </td>
               <td class="px-4 py-3 text-right">
-                <ng-container *ngIf="r.status === 'PENDING_CCO'; else reviewed">
+                @if (r.status === 'PENDING_CCO') {
+
                   <button class="text-green-700 font-medium mr-3" [disabled]="actionId === r.id" (click)="submitReview(r, 'APPROVED')">Approve</button>
                   <button class="text-amber-700 font-medium mr-3" [disabled]="actionId === r.id" (click)="openReviewPanel(r, 'CHANGES_REQUESTED')">Request changes</button>
                   <button class="text-red-700 font-medium" [disabled]="actionId === r.id" (click)="openReviewPanel(r, 'REJECTED')">Reject</button>
-                </ng-container>
-                <ng-template #reviewed>{{ r.reviewedAt ? (r.reviewedAt | date:'dd MMM, HH:mm') : '-' }}</ng-template>
+                
+} @else {
+{{ r.reviewedAt ? (r.reviewedAt | date:'dd MMM, HH:mm') : '-' }}
+}
+                
               </td>
             </tr>
-            <tr *ngIf="!loading && filteredRequests.length === 0">
+}
+            @if (!loading && filteredRequests.length === 0) {
+<tr>
               <td class="px-4 py-8 text-center text-slate-500" colspan="7">No service package requests found.</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
 
-      <div *ngIf="reviewRow" class="rounded-lg border border-amber-200 bg-amber-50 p-4 shadow-sm">
+      @if (reviewRow) {
+<div class="rounded-lg border border-amber-200 bg-amber-50 p-4 shadow-sm">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 class="font-semibold text-slate-900">
@@ -145,7 +174,9 @@ import { FilterOptionsService } from '../../../shared/filters/services/filter-op
             placeholder="Explain what Admin must change before this can be approved.">
           </textarea>
         </label>
-        <p *ngIf="reviewNoteError" class="mt-2 text-sm text-red-700">{{ reviewNoteError }}</p>
+        @if (reviewNoteError) {
+<p class="mt-2 text-sm text-red-700">{{ reviewNoteError }}</p>
+}
         <div class="mt-3 flex justify-end gap-2">
           <button class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm" type="button" (click)="closeReviewPanel()">Cancel</button>
           <button
@@ -159,6 +190,7 @@ import { FilterOptionsService } from '../../../shared/filters/services/filter-op
           </button>
         </div>
       </div>
+}
 
       <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
@@ -183,7 +215,8 @@ import { FilterOptionsService } from '../../../shared/filters/services/filter-op
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let entry of filteredAuditLogs" class="border-t border-slate-100 align-top">
+            @for (entry of filteredAuditLogs; track entry) {
+<tr class="border-t border-slate-100 align-top">
               <td class="px-4 py-3">{{ entry.clientName || entry.clientId }}</td>
               <td class="px-4 py-3">
                 <span class="rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="auditActionBadgeClass(entry.action)">
@@ -192,22 +225,31 @@ import { FilterOptionsService } from '../../../shared/filters/services/filter-op
               </td>
               <td class="px-4 py-3">{{ entry.packageCode || '-' }}</td>
               <td class="px-4 py-3">
-                <div class="flex flex-wrap gap-1" *ngIf="entry.modules.length; else noAuditModules">
-                  <span
-                    *ngFor="let module of entry.modules"
+                @if (entry.modules.length) {
+<div class="flex flex-wrap gap-1">
+                  @for (module of entry.modules; track module) {
+<span
+                   
                     class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
                     {{ moduleLabel(module) }}
                   </span>
+}
                 </div>
-                <ng-template #noAuditModules>-</ng-template>
+} @else {
+-
+}
+                
               </td>
               <td class="px-4 py-3">{{ entry.actorName || entry.actorUserId || '-' }}</td>
               <td class="px-4 py-3">{{ entry.note || '-' }}</td>
               <td class="px-4 py-3">{{ entry.createdAt | date:'dd MMM, HH:mm' }}</td>
             </tr>
-            <tr *ngIf="!loading && filteredAuditLogs.length === 0">
+}
+            @if (!loading && filteredAuditLogs.length === 0) {
+<tr>
               <td class="px-4 py-8 text-center text-slate-500" colspan="7">No service package audit entries yet.</td>
             </tr>
+}
           </tbody>
         </table>
       </div>

@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { CommonModule } from '@angular/common';
+
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
 import { FormsModule } from '@angular/forms';
 import { Subject, of } from 'rxjs';
@@ -42,7 +42,6 @@ const STATE_NAMES: Record<string, string> = {
   selector: 'app-payroll-registers',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     PageHeaderComponent,
     DataTableComponent,
@@ -51,8 +50,8 @@ const STATE_NAMES: Record<string, string> = {
     EmptyStateComponent,
     LoadingSpinnerComponent,
     StatusBadgeComponent,
-    ClientContextStripComponent,
-  ],
+    ClientContextStripComponent
+],
   template: `
     <div class="page">
       <ui-page-header
@@ -83,9 +82,11 @@ const STATE_NAMES: Record<string, string> = {
             <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-indigo-500 focus:border-indigo-500"
               [(ngModel)]="genBranchId" (ngModelChange)="onBranchChange()">
               <option value="">-- Select Branch --</option>
-              <option *ngFor="let b of genBranches" [value]="b.id">
+              @for (b of genBranches; track b) {
+<option [value]="b.id">
                 {{ b.branchName }} ({{ b.branchType }}) — {{ stateName(b.stateCode) }}
               </option>
+}
             </select>
           </div>
           <!-- Month -->
@@ -94,7 +95,9 @@ const STATE_NAMES: Record<string, string> = {
             <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-indigo-500 focus:border-indigo-500"
               [(ngModel)]="selMonth" (ngModelChange)="onPeriodChange()">
               <option [ngValue]="null">-- Select Month --</option>
-              <option *ngFor="let m of months" [ngValue]="m.value">{{ m.label }}</option>
+              @for (m of months; track m) {
+<option [ngValue]="m.value">{{ m.label }}</option>
+}
             </select>
           </div>
           <!-- Year -->
@@ -103,7 +106,9 @@ const STATE_NAMES: Record<string, string> = {
             <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-indigo-500 focus:border-indigo-500"
               [(ngModel)]="selYear" (ngModelChange)="onPeriodChange()">
               <option [ngValue]="null">-- Select Year --</option>
-              <option *ngFor="let y of years" [ngValue]="y">{{ y }}</option>
+              @for (y of years; track y) {
+<option [ngValue]="y">{{ y }}</option>
+}
             </select>
           </div>
           <!-- Generate -->
@@ -112,28 +117,37 @@ const STATE_NAMES: Record<string, string> = {
               class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
               [disabled]="!canGenerate || generating"
               (click)="generateRegisters()">
-              <svg *ngIf="!generating" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              @if (!generating) {
+<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
               </svg>
-              <svg *ngIf="generating" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+}
+              @if (generating) {
+<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
                 <path fill="currentColor" class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
               </svg>
+}
               {{ generating ? 'Generating...' : 'Generate All' }}
             </button>
           </div>
         </div>
 
         <!-- Matched payroll run info -->
-        <div *ngIf="matchedRun" class="mt-3 text-xs text-gray-500">
+        @if (matchedRun) {
+<div class="mt-3 text-xs text-gray-500">
           Payroll Run: <span class="font-medium text-gray-700">{{ matchedRun.label }}</span>
         </div>
-        <div *ngIf="genBranchId && selMonth && selYear && !matchedRun && !generating" class="mt-3 text-xs text-amber-600">
+}
+        @if (genBranchId && selMonth && selYear && !matchedRun && !generating) {
+<div class="mt-3 text-xs text-amber-600">
           No payroll run found for {{ monthName(selMonth) }} {{ selYear }}. Please process payroll first.
         </div>
+}
 
         <!-- Applicable templates preview -->
-        <div *ngIf="branchTemplateInfo" class="mt-4 border border-gray-100 rounded-lg bg-gray-50 p-4">
+        @if (branchTemplateInfo) {
+<div class="mt-4 border border-gray-100 rounded-lg bg-gray-50 p-4">
           <p class="text-sm font-medium text-gray-700 mb-2">
             Applicable registers for <span class="font-semibold">{{ branchTemplateInfo.branchName }}</span>
             <span class="text-xs text-gray-500 ml-1">({{ branchTemplateInfo.branchType }} — {{ branchTemplateInfo.establishmentCategory }})</span>
@@ -142,21 +156,26 @@ const STATE_NAMES: Record<string, string> = {
             </span>
           </p>
           <div class="flex flex-wrap gap-2">
-            <span *ngFor="let t of branchTemplateInfo.templates"
+            @for (t of branchTemplateInfo.templates; track t) {
+<span
               class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium"
               [class]="t.establishmentType === 'COMMON' ? 'bg-blue-100 text-blue-800' :
                         t.establishmentType === 'FACTORY' ? 'bg-orange-100 text-orange-800' :
                         'bg-green-100 text-green-800'">
               {{ t.title }}
             </span>
+}
           </div>
         </div>
+}
 
         <!-- Result feedback -->
-        <div *ngIf="genResult" class="mt-4 p-3 rounded-lg text-sm"
+        @if (genResult) {
+<div class="mt-4 p-3 rounded-lg text-sm"
           [class]="genResultError ? 'bg-red-50 border border-red-200 text-red-800' : 'bg-green-50 border border-green-200 text-green-800'">
           {{ genResult }}
         </div>
+}
       </div>
 
       <!-- ═══════ Download & Filter Bar ═══════ -->
@@ -167,7 +186,9 @@ const STATE_NAMES: Record<string, string> = {
             <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-indigo-500 focus:border-indigo-500"
               [(ngModel)]="filterAct" (ngModelChange)="onActChange()">
               <option value="">All Acts</option>
-              <option *ngFor="let a of filteredActs" [value]="a.value">{{ a.label }}</option>
+              @for (a of filteredActs; track a) {
+<option [value]="a.value">{{ a.label }}</option>
+}
             </select>
           </div>
           <div class="flex-1 min-w-[180px]">
@@ -175,7 +196,9 @@ const STATE_NAMES: Record<string, string> = {
             <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-indigo-500 focus:border-indigo-500"
               [(ngModel)]="filterRegisterType" (ngModelChange)="reload()">
               <option value="">{{ filterAct ? 'All under this Act' : 'All Registers' }}</option>
-              <option *ngFor="let rt of filteredRegisterTypes" [value]="rt.value">{{ rt.label }}</option>
+              @for (rt of filteredRegisterTypes; track rt) {
+<option [value]="rt.value">{{ rt.label }}</option>
+}
             </select>
           </div>
           <div class="flex gap-2">
@@ -183,36 +206,47 @@ const STATE_NAMES: Record<string, string> = {
               class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
               [disabled]="downloading || rows.length === 0"
               (click)="downloadAll()">
-              <svg *ngIf="!downloading" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              @if (!downloading) {
+<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              <svg *ngIf="downloading" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+}
+              @if (downloading) {
+<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
                 <path fill="currentColor" class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
               </svg>
+}
               {{ downloading ? 'Preparing ZIP...' : 'Download All as ZIP' }}
             </button>
           </div>
         </div>
       </div>
 
-      <div *ngIf="error" class="mb-6">
+      @if (error) {
+<div class="mb-6">
         <ui-empty-state
           title="Error Loading Registers"
           [description]="error">
         </ui-empty-state>
       </div>
+}
 
-      <ui-loading-spinner *ngIf="loading" text="Loading registers..." size="lg"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading registers..." size="lg"></ui-loading-spinner>
+}
 
-      <ui-empty-state
-        *ngIf="!loading && !error && rows.length === 0"
+      @if (!loading && !error && rows.length === 0) {
+<ui-empty-state
+       
         title="No Registers Found"
         description="No statutory registers match the selected filters. Select a branch, month, and year above to generate registers.">
       </ui-empty-state>
+}
 
-      <ui-data-table
-        *ngIf="!loading && !error && rows.length > 0"
+      @if (!loading && !error && rows.length > 0) {
+<ui-data-table
+       
         [columns]="columns"
         [data]="rows"
         [loading]="loading"
@@ -220,24 +254,34 @@ const STATE_NAMES: Record<string, string> = {
 
         <ng-template uiTableCell="title" let-row>
           <div class="font-semibold text-gray-900">{{ row.title }}</div>
-          <div *ngIf="row.registerType" class="text-xs text-gray-500">{{ row.registerType }}</div>
+          @if (row.registerType) {
+<div class="text-xs text-gray-500">{{ row.registerType }}</div>
+}
         </ng-template>
 
         <ng-template uiTableCell="registerType" let-row>
-          <span *ngIf="row.registerType"
+          @if (row.registerType) {
+<span
             class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
             [class]="registerTypeBadge(row.registerType)">
             {{ registerTypeLabel(row.registerType) }}
           </span>
-          <span *ngIf="!row.registerType" class="text-xs text-gray-400">—</span>
+}
+          @if (!row.registerType) {
+<span class="text-xs text-gray-400">—</span>
+}
         </ng-template>
 
         <ng-template uiTableCell="state" let-row>
-          <span *ngIf="row.stateCode"
+          @if (row.stateCode) {
+<span
             class="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 px-2.5 py-0.5 text-xs font-medium">
             {{ stateName(row.stateCode) }}
           </span>
-          <span *ngIf="!row.stateCode" class="text-xs text-gray-400">—</span>
+}
+          @if (!row.stateCode) {
+<span class="text-xs text-gray-400">—</span>
+}
         </ng-template>
 
         <ng-template uiTableCell="period" let-row>
@@ -258,19 +302,24 @@ const STATE_NAMES: Record<string, string> = {
               </svg>
               Download
             </button>
-            <ui-button
-              *ngIf="row.approvalStatus !== 'APPROVED'"
+            @if (row.approvalStatus !== 'APPROVED') {
+<ui-button
+             
               size="sm" variant="primary" (clicked)="approve(row)">
               Approve
             </ui-button>
-            <ui-button
-              *ngIf="row.approvalStatus !== 'REJECTED'"
+}
+            @if (row.approvalStatus !== 'REJECTED') {
+<ui-button
+             
               size="sm" variant="danger" (clicked)="reject(row)">
               Reject
             </ui-button>
+}
           </div>
         </ng-template>
       </ui-data-table>
+}
     </div>
   `,
   styles: [

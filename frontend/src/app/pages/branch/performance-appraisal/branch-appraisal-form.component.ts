@@ -13,7 +13,8 @@ import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/a
   imports: [CommonModule, FormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="page-container" *ngIf="appraisal">
+    @if (appraisal) {
+<div class="page-container">
       <div class="page-header">
         <div>
           <h1 class="page-title">{{ appraisal.employee_name }} — Appraisal Review</h1>
@@ -57,32 +58,46 @@ import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/a
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let item of items; let i = index" class="data-row">
+              @for (item of items; track item; let i = $index) {
+<tr class="data-row">
                 <td class="text-xs text-gray-400">{{ i + 1 }}</td>
                 <td class="font-medium text-sm">{{ item.itemName }}</td>
                 <td class="text-center">{{ item.weightage }}</td>
                 <td class="text-center text-gray-500">{{ item.selfRating ?? '—' }}</td>
                 <td class="text-center">
-                  <input *ngIf="canManagerReview" type="number" min="0" max="5" step="0.25"
+                  @if (canManagerReview) {
+<input type="number" min="0" max="5" step="0.25"
                     [(ngModel)]="item.managerRating" [name]="'mr_' + item.id"
                     class="w-16 text-center border rounded px-1 py-0.5 text-sm" />
-                  <span *ngIf="!canManagerReview">{{ item.managerRating ?? '—' }}</span>
+}
+                  @if (!canManagerReview) {
+<span>{{ item.managerRating ?? '—' }}</span>
+}
                 </td>
                 <td class="text-center">
-                  <input *ngIf="canBranchReview" type="number" min="0" max="5" step="0.25"
+                  @if (canBranchReview) {
+<input type="number" min="0" max="5" step="0.25"
                     [(ngModel)]="item.branchRating" [name]="'br_' + item.id"
                     class="w-16 text-center border rounded px-1 py-0.5 text-sm" />
-                  <span *ngIf="!canBranchReview">{{ item.branchRating ?? '—' }}</span>
+}
+                  @if (!canBranchReview) {
+<span>{{ item.branchRating ?? '—' }}</span>
+}
                 </td>
                 <td class="text-center font-semibold">{{ item.finalRating ?? '—' }}</td>
                 <td class="text-center text-indigo-600 font-medium">{{ item.weightedScore ?? '—' }}</td>
                 <td>
-                  <input *ngIf="canManagerReview || canBranchReview" type="text"
+                  @if (canManagerReview || canBranchReview) {
+<input type="text"
                     [(ngModel)]="item.managerRemarks" [name]="'rmk_' + item.id"
                     placeholder="Remarks..." class="w-32 border rounded px-1 py-0.5 text-xs" />
-                  <span *ngIf="!canManagerReview && !canBranchReview" class="text-xs text-gray-500">{{ item.managerRemarks || '—' }}</span>
+}
+                  @if (!canManagerReview && !canBranchReview) {
+<span class="text-xs text-gray-500">{{ item.managerRemarks || '—' }}</span>
+}
                 </td>
               </tr>
+}
             </tbody>
             <tfoot>
               <tr class="bg-gray-50 font-semibold">
@@ -96,7 +111,8 @@ import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/a
       </div>
 
       <!-- Recommendation -->
-      <div class="table-card mb-6" *ngIf="canManagerReview || canBranchReview">
+      @if (canManagerReview || canBranchReview) {
+<div class="table-card mb-6">
         <h3 class="text-sm font-semibold text-gray-900 mb-3">Recommendation</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
@@ -125,31 +141,45 @@ import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/a
           <textarea id="remarks" name="remarks" [(ngModel)]="remarks" rows="3" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Final remarks..."></textarea>
         </div>
       </div>
+}
 
       <!-- Actions -->
-      <div class="flex items-center gap-3 mt-6" *ngIf="canManagerReview || canBranchReview">
+      @if (canManagerReview || canBranchReview) {
+<div class="flex items-center gap-3 mt-6">
         <button (click)="submitReview()" [disabled]="submitting" class="btn-primary">
           {{ submitting ? 'Submitting...' : (canManagerReview ? 'Submit Manager Review' : 'Submit Branch Review') }}
         </button>
         <button (click)="sendBack()" [disabled]="submitting" class="btn-secondary text-red-600">Send Back</button>
       </div>
+}
 
       <!-- Approval History -->
-      <div class="table-card mt-6" *ngIf="appraisal.approvals?.length">
+      @if (appraisal.approvals?.length) {
+<div class="table-card mt-6">
         <h3 class="text-sm font-semibold text-gray-900 mb-3">Approval History</h3>
         <div class="space-y-2">
-          <div *ngFor="let a of appraisal.approvals" class="flex items-center gap-3 text-sm border-b pb-2">
+          @for (a of appraisal.approvals; track a) {
+<div class="flex items-center gap-3 text-sm border-b pb-2">
             <span class="badge bg-gray-100 text-gray-700">{{ a.approvalLevel }}</span>
             <span class="font-medium">{{ a.action }}</span>
             <span class="text-xs text-gray-400">{{ a.actionAt | date:'dd/MM/yyyy HH:mm' }}</span>
-            <span class="text-xs text-gray-500" *ngIf="a.remarks">— {{ a.remarks }}</span>
+            @if (a.remarks) {
+<span class="text-xs text-gray-500">— {{ a.remarks }}</span>
+}
           </div>
+}
         </div>
       </div>
+}
     </div>
+}
 
-    <div *ngIf="!appraisal && !loading" class="flex items-center justify-center py-20 text-gray-400">Appraisal not found</div>
-    <div *ngIf="loading" class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+    @if (!appraisal && !loading) {
+<div class="flex items-center justify-center py-20 text-gray-400">Appraisal not found</div>
+}
+    @if (loading) {
+<div class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+}
   `,
 })
 export class BranchAppraisalFormComponent implements OnInit, OnDestroy {

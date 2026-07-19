@@ -34,17 +34,22 @@
         </ui-button>
       </div>
     </div>
-    <div *ngIf="error" class="alert alert-error">{{ error }}</div>
+    @if (error) {
+<div class="alert alert-error">{{ error }}</div>
+}
   </div>
 
   <!-- Current Assignments -->
   <div class="card">
     <h3 class="text-lg font-semibold text-gray-900 mb-4">Current Payroll Assignments</h3>
     
-    <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+    @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
 
-    <ui-data-table
-      *ngIf="!loading"
+    @if (!loading) {
+<ui-data-table
+     
       [columns]="assignmentsColumns"
       [data]="assignments"
       [loading]="loading">
@@ -74,11 +79,14 @@
         </ui-button>
       </ng-template>
     </ui-data-table>
+}
     
-    <ui-empty-state
-      *ngIf="!loading && assignments.length === 0"
+    @if (!loading && assignments.length === 0) {
+<ui-empty-state
+     
       [title]="'No payroll assignments found'"
       icon="currency-dollar">
     </ui-empty-state>
+}
   </div>
 </div>

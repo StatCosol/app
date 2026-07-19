@@ -16,12 +16,14 @@ type StatusTab = 'ALL' | 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'OV
       <h2 class="text-xl font-semibold text-gray-800 mb-4">Returns Status</h2>
 
       <div class="flex flex-wrap gap-2 mb-4">
-        <button *ngFor="let tab of tabs" (click)="activeTab = tab; applyFilter()"
+        @for (tab of tabs; track tab) {
+<button (click)="activeTab = tab; applyFilter()"
           [class]="activeTab === tab
             ? 'px-3 py-1 rounded-full text-sm font-medium bg-indigo-600 text-white'
             : 'px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200'">
           {{ tab }}
         </button>
+}
       </div>
 
       <div class="mb-4 flex gap-3 items-center flex-wrap">
@@ -32,13 +34,18 @@ type StatusTab = 'ALL' | 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'OV
           placeholder="Search returns..." class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-56" />
       </div>
 
-      <div *ngIf="loading" class="text-center py-10 text-gray-500">Loading returns...</div>
+      @if (loading) {
+<div class="text-center py-10 text-gray-500">Loading returns...</div>
+}
 
-      <div *ngIf="!loading && filtered.length === 0" class="text-center py-10 text-gray-400">
+      @if (!loading && filtered.length === 0) {
+<div class="text-center py-10 text-gray-400">
         No returns found.
       </div>
+}
 
-      <div *ngIf="!loading && filtered.length > 0" class="overflow-x-auto">
+      @if (!loading && filtered.length > 0) {
+<div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200 text-sm">
           <thead class="bg-gray-50">
             <tr>
@@ -52,7 +59,8 @@ type StatusTab = 'ALL' | 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'OV
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
-            <tr *ngFor="let r of filtered" class="hover:bg-gray-50">
+            @for (r of filtered; track r) {
+<tr class="hover:bg-gray-50">
               <td class="px-4 py-3">{{ r.branch_name || '—' }}</td>
               <td class="px-4 py-3">{{ r.law_type }}</td>
               <td class="px-4 py-3">{{ r.return_type }}</td>
@@ -65,9 +73,11 @@ type StatusTab = 'ALL' | 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'OV
                 </span>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+}
     </div>
   `,
 })

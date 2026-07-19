@@ -1,12 +1,12 @@
 import { Component, Input, OnChanges, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Subscription } from 'rxjs';
 import { AuditsKpiApi, BranchAuditKpiItem } from '../../../core/api/audits-kpi.api';
 
 @Component({
   selector: 'app-branch-audit-kpi',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="rounded-2xl border border-gray-200 bg-white p-4">
@@ -21,11 +21,16 @@ import { AuditsKpiApi, BranchAuditKpiItem } from '../../../core/api/audits-kpi.a
         </button>
       </div>
 
-      <div *ngIf="loading" class="text-sm text-gray-400 py-4 text-center">Loading audit KPIs…</div>
-      <div *ngIf="!loading && errorMsg" class="text-sm text-red-600 py-4 text-center">{{ errorMsg }}</div>
+      @if (loading) {
+<div class="text-sm text-gray-400 py-4 text-center">Loading audit KPIs…</div>
+}
+      @if (!loading && errorMsg) {
+<div class="text-sm text-red-600 py-4 text-center">{{ errorMsg }}</div>
+}
 
       <!-- Summary Cards -->
-      <ng-container *ngIf="!loading && !errorMsg">
+      @if (!loading && !errorMsg) {
+
         <div class="grid grid-cols-2 md:grid-cols-6 gap-2 mb-4">
           <div class="rounded-xl border border-gray-200 p-3">
             <div class="text-xs text-gray-500">Critical</div>
@@ -68,7 +73,8 @@ import { AuditsKpiApi, BranchAuditKpiItem } from '../../../core/api/audits-kpi.a
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let x of items" class="border-b border-gray-100">
+              @for (x of items; track x) {
+<tr class="border-b border-gray-100">
                 <td class="py-2 pr-3 font-medium text-gray-900">{{ x.periodCode }}</td>
                 <td class="py-2 pr-3 text-red-600">{{ x.critical }}</td>
                 <td class="py-2 pr-3 text-orange-600">{{ x.high }}</td>
@@ -77,13 +83,17 @@ import { AuditsKpiApi, BranchAuditKpiItem } from '../../../core/api/audits-kpi.a
                 <td class="py-2 pr-3">{{ x.open }}</td>
                 <td class="py-2 pr-3 text-green-600">{{ x.closed }}</td>
               </tr>
-              <tr *ngIf="items.length === 0">
+}
+              @if (items.length === 0) {
+<tr>
                 <td colspan="7" class="py-3 text-gray-400 text-center">No audit observations found for this period.</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
-      </ng-container>
+      
+}
     </div>
   `,
 })

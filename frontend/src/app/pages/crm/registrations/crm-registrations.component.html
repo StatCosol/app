@@ -10,7 +10,9 @@
 
   <div class="toolbar">
     <select id="cr-selected-branch-id" name="selectedBranchId" [(ngModel)]="selectedBranchId" (change)="load()">
-      <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+      @for (b of branches; track b) {
+<option [value]="b.id">{{ b.name }}</option>
+}
     </select>
 
     <input autocomplete="off" id="cr-q" name="q" type="text" placeholder="Search…" [(ngModel)]="q" (input)="applyFilters()" />
@@ -25,10 +27,13 @@
     <button type="button" class="btn" (click)="openCreate()" [disabled]="!selectedBranchId">+ Add</button>
   </div>
 
-  <div *ngIf="loading" class="muted py-3">Loading…</div>
+  @if (loading) {
+<div class="muted py-3">Loading…</div>
+}
 
   <!-- Summary cards -->
-  <div class="strip" *ngIf="!loading">
+  @if (!loading) {
+<div class="strip">
     <div class="card">
       <div class="value text-emerald-600">{{ active }}</div>
       <div class="label">Active</div>
@@ -46,9 +51,11 @@
       <div class="label">Total</div>
     </div>
   </div>
+}
 
   <!-- Table -->
-  <div class="tableWrap" *ngIf="!loading">
+  @if (!loading) {
+<div class="tableWrap">
     <table>
       <thead>
         <tr>
@@ -64,7 +71,8 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let r of filtered; trackBy: trackById">
+        @for (r of filtered; track trackById($index, r)) {
+<tr>
           <td>
             <div class="font-bold">{{ r.type || '—' }}</div>
           </td>
@@ -73,43 +81,67 @@
           <td>{{ r.authority || '—' }}</td>
 
           <td class="muted">
-            <span *ngIf="r.issuedDate">{{ r.issuedDate | date:'dd-MMM-yyyy' }}</span>
-            <span *ngIf="!r.issuedDate">—</span>
+            @if (r.issuedDate) {
+<span>{{ r.issuedDate | date:'dd-MMM-yyyy' }}</span>
+}
+            @if (!r.issuedDate) {
+<span>—</span>
+}
           </td>
 
           <td [style.color]="r.computedStatus === 'EXPIRED' ? '#dc2626' : (r.computedStatus === 'EXPIRING_SOON' ? '#d97706' : '#0f172a')">
-            <span *ngIf="r.expiryDate">{{ r.expiryDate | date:'dd-MMM-yyyy' }}</span>
-            <span *ngIf="!r.expiryDate">No Expiry</span>
+            @if (r.expiryDate) {
+<span>{{ r.expiryDate | date:'dd-MMM-yyyy' }}</span>
+}
+            @if (!r.expiryDate) {
+<span>No Expiry</span>
+}
           </td>
 
           <td>
-            <span *ngIf="r.daysRemaining !== null && r.daysRemaining !== undefined && r.daysRemaining !== 99999">
-              <span *ngIf="r.daysRemaining >= 0" class="muted">{{ r.daysRemaining }} days</span>
-              <span *ngIf="r.daysRemaining < 0" class="text-red-600 font-bold">{{ -r.daysRemaining }} days overdue</span>
+            @if (r.daysRemaining !== null && r.daysRemaining !== undefined && r.daysRemaining !== 99999) {
+<span>
+              @if (r.daysRemaining >= 0) {
+<span class="muted">{{ r.daysRemaining }} days</span>
+}
+              @if (r.daysRemaining < 0) {
+<span class="text-red-600 font-bold">{{ -r.daysRemaining }} days overdue</span>
+}
             </span>
-            <span *ngIf="r.daysRemaining === null || r.daysRemaining === undefined || r.daysRemaining === 99999">—</span>
+}
+            @if (r.daysRemaining === null || r.daysRemaining === undefined || r.daysRemaining === 99999) {
+<span>—</span>
+}
           </td>
 
           <td>
             <span [class]="badgeClass(r.computedStatus)">
               {{ statusLabel(r.computedStatus) }}
             </span>
-            <div *ngIf="r.renewedOn" class="muted mt-1">
+            @if (r.renewedOn) {
+<div class="muted mt-1">
               Renewed: {{ r.renewedOn | date:'dd-MMM-yyyy' }}
             </div>
+}
           </td>
 
           <!-- Documents column -->
           <td>
             <div class="flex flex-col gap-1">
-              <a *ngIf="r.documentUrl" [href]="r.documentUrl" target="_blank" class="btn secondary text-[11px] px-2 py-1">
+              @if (r.documentUrl) {
+<a [href]="r.documentUrl" target="_blank" class="btn secondary text-[11px] px-2 py-1">
                 📄 View
               </a>
-              <span *ngIf="!r.documentUrl" class="muted text-[11px]">No file</span>
+}
+              @if (!r.documentUrl) {
+<span class="muted text-[11px]">No file</span>
+}
 
-              <a *ngIf="r.renewalDocumentUrl" [href]="r.renewalDocumentUrl" target="_blank" class="btn secondary text-[11px] px-2 py-1">
+              @if (r.renewalDocumentUrl) {
+<a [href]="r.renewalDocumentUrl" target="_blank" class="btn secondary text-[11px] px-2 py-1">
                 🔄 Renewal
               </a>
+}
             </div>
           </td>
 
@@ -134,18 +166,23 @@
             </div>
           </td>
         </tr>
+}
 
-        <tr *ngIf="filtered.length === 0">
+        @if (filtered.length === 0) {
+<tr>
           <td colspan="9" class="muted text-center py-7">
             No registrations found
           </td>
         </tr>
+}
       </tbody>
     </table>
   </div>
+}
 
   <!-- Drawer / Form -->
-  <div class="drawer" *ngIf="showForm">
+  @if (showForm) {
+<div class="drawer">
     <div class="drawerHead">
       <div class="drawerTitle">
         {{ editingId ? 'Edit Registration / License' : 'Add Registration / License' }}
@@ -162,7 +199,9 @@
       <div>
         <label for="cr-branch-id">Branch *</label>
         <select id="cr-branch-id" name="branchId" [(ngModel)]="form.branchId">
-          <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+          @for (b of branches; track b) {
+<option [value]="b.id">{{ b.name }}</option>
+}
         </select>
       </div>
 
@@ -170,7 +209,9 @@
         <label for="cr-type">Registration / License Type *</label>
         <select id="cr-type" name="type" [(ngModel)]="form.type">
           <option value="">Select…</option>
-          <option *ngFor="let t of regTypes" [value]="t">{{ t }}</option>
+          @for (t of regTypes; track t) {
+<option [value]="t">{{ t }}</option>
+}
         </select>
       </div>
 
@@ -197,14 +238,18 @@
 
       <div>
         <span class="block font-medium">Document (PDF, PNG, JPG)</span>
-        <div *ngIf="existingDocumentUrl && !documentFile" class="flex items-center gap-2 mb-1.5">
+        @if (existingDocumentUrl && !documentFile) {
+<div class="flex items-center gap-2 mb-1.5">
           <a [href]="existingDocumentUrl" target="_blank" class="btn secondary text-xs px-2 py-1">📄 View current</a>
         </div>
+}
         <label class="btn secondary cursor-pointer inline-flex items-center gap-1.5 m-0">
           {{ documentFile ? '📎 ' + documentFile.name : 'Choose file…' }}
           <input type="file" accept=".pdf,.png,.jpg,.jpeg" hidden (change)="onFormFileSelected($event)" />
         </label>
-        <button *ngIf="documentFile" type="button" class="btn secondary ml-1.5 text-xs px-2 py-1" (click)="removeFormFile()">✕ Remove</button>
+        @if (documentFile) {
+<button type="button" class="btn secondary ml-1.5 text-xs px-2 py-1" (click)="removeFormFile()">✕ Remove</button>
+}
         <div class="muted mt-1.5">Optional. Upload a scanned copy of the registration certificate or license.</div>
       </div>
     </div>
@@ -214,5 +259,6 @@
       When you extend the expiry date, the system automatically marks it as renewed.
     </div>
   </div>
+}
 
 </div>

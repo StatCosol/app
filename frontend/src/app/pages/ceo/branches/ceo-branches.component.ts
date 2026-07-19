@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -19,11 +19,17 @@ type RiskBandFilter = 'ALL' | 'LOW' | 'MEDIUM' | 'HIGH';
   selector: 'app-ceo-branches',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, RouterModule,
-    PageHeaderComponent, StatCardComponent, StatusBadgeComponent,
-    LoadingSpinnerComponent, EmptyStateComponent, ActionButtonComponent,
-    DataTableComponent, TableCellDirective,
-  ],
+    FormsModule,
+    RouterModule,
+    PageHeaderComponent,
+    StatCardComponent,
+    StatusBadgeComponent,
+    LoadingSpinnerComponent,
+    EmptyStateComponent,
+    ActionButtonComponent,
+    DataTableComponent,
+    TableCellDirective
+],
   templateUrl: './ceo-branches.component.html',
 })
 export class CeoBranchesComponent implements OnInit, OnDestroy {

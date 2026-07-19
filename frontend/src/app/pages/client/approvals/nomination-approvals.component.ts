@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
@@ -9,41 +9,54 @@ import { ToastService } from '../../../shared/toast/toast.service';
 @Component({
   selector: 'app-nomination-approvals',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="max-w-6xl mx-auto space-y-6">
       <h1 class="text-2xl font-bold text-gray-900">Nomination Approvals</h1>
 
-      <div *ngIf="loading" class="text-gray-500 text-sm">Loading pending nominations...</div>
+      @if (loading) {
+<div class="text-gray-500 text-sm">Loading pending nominations...</div>
+}
 
-      <div *ngIf="!loading && !nominations.length"
+      @if (!loading && !nominations.length) {
+<div
            class="bg-white border rounded-xl p-8 text-center text-gray-500">
         No pending nominations to review.
       </div>
+}
 
-      <div *ngFor="let nom of nominations" class="approval-card">
+      @for (nom of nominations; track nom) {
+<div class="approval-card">
         <div class="flex items-start justify-between gap-4">
           <div class="flex-1">
             <div class="flex items-center gap-3 mb-2">
               <span class="type-badge">{{ nom.nominationType }}</span>
               <span class="text-sm font-medium text-gray-700">{{ nom.employeeName || nom.employeeId }}</span>
-              <span *ngIf="nom.submittedAt" class="text-xs text-gray-400">Submitted {{ nom.submittedAt }}</span>
+              @if (nom.submittedAt) {
+<span class="text-xs text-gray-400">Submitted {{ nom.submittedAt }}</span>
+}
             </div>
 
-            <div *ngIf="nom.members?.length" class="mb-2">
+            @if (nom.members?.length) {
+<div class="mb-2">
               <div class="member-grid header">
                 <span>Nominee</span><span>Relationship</span><span>Share %</span>
               </div>
-              <div *ngFor="let m of nom.members" class="member-grid">
+              @for (m of nom.members; track m) {
+<div class="member-grid">
                 <span>{{ m.memberName }}</span>
                 <span>{{ m.relationship || '-' }}</span>
                 <span>{{ m.sharePct }}%</span>
               </div>
+}
             </div>
+}
 
-            <div *ngIf="nom.witnessName" class="text-xs text-gray-500">
+            @if (nom.witnessName) {
+<div class="text-xs text-gray-500">
               Witness: {{ nom.witnessName }}
             </div>
+}
           </div>
 
           <div class="flex flex-col gap-2 min-w-[160px]">
@@ -57,7 +70,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
         </div>
 
         <!-- Reject reason input -->
-        <div *ngIf="rejectId === nom.id" class="reject-reason">
+        @if (rejectId === nom.id) {
+<div class="reject-reason">
           <label class="text-xs font-medium text-gray-600" for="na-reject-reason">Reason for rejection:</label>
           <textarea autocomplete="off" id="na-reject-reason" name="rejectReason" [(ngModel)]="rejectReason" rows="2" class="field-input mt-1"></textarea>
           <div class="flex gap-2 mt-2">
@@ -67,7 +81,9 @@ import { ToastService } from '../../../shared/toast/toast.service';
             <button (click)="rejectId = ''" class="btn-secondary">Cancel</button>
           </div>
         </div>
+}
       </div>
+}
     </div>
   `,
   styles: [`

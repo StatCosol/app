@@ -18,62 +18,97 @@ import { ToastService } from '../../../shared/toast/toast.service';
         <button (click)="openForm()" class="btn-primary">+ Add Nomination</button>
       </div>
 
-      <div *ngIf="loading" class="text-gray-500 text-sm">Loading...</div>
+      @if (loading) {
+<div class="text-gray-500 text-sm">Loading...</div>
+}
 
-      <div *ngIf="!loading && !nominations.length" class="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-500">
+      @if (!loading && !nominations.length) {
+<div class="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-500">
         No nominations yet. Add PF, ESI, Gratuity, Insurance, or Salary nominations.
       </div>
+}
 
-      <div *ngFor="let nom of nominations" class="nom-card">
+      @for (nom of nominations; track nom) {
+<div class="nom-card">
         <div class="flex items-center gap-3 mb-3">
           <span class="nom-type">{{ nom.nominationType }}</span>
           <span class="nom-status" [ngClass]="statusClass(nom.status)">{{ nom.status }}</span>
-          <span *ngIf="nom.declarationDate" class="text-xs text-gray-500">Declared: {{ nom.declarationDate }}</span>
+          @if (nom.declarationDate) {
+<span class="text-xs text-gray-500">Declared: {{ nom.declarationDate }}</span>
+}
         </div>
 
-        <div *ngIf="nom.members.length" class="mb-2">
+        @if (nom.members.length) {
+<div class="mb-2">
           <div class="member-header">
             <span>Name</span><span>Relationship</span><span>Share %</span><span>DOB</span><span>Minor</span>
           </div>
-          <div *ngFor="let m of nom.members" class="member-row">
+          @for (m of nom.members; track m) {
+<div class="member-row">
             <span>{{ m.memberName }}</span>
             <span>{{ m.relationship || '-' }}</span>
             <span>{{ m.sharePct }}%</span>
             <span>{{ m.dateOfBirth || '-' }}</span>
             <span>{{ m.isMinor ? 'Yes' : 'No' }}</span>
           </div>
-          <div *ngFor="let m of nom.members" class="member-address-row">
-            <ng-container *ngIf="m.address">
-              <span class="text-xs text-gray-500"><strong>{{ m.memberName }}</strong> address: {{ m.address }}</span>
-            </ng-container>
-            <ng-container *ngIf="m.isMinor && m.guardianName">
-              <span class="text-xs text-blue-700 ml-4">Guardian: {{ m.guardianName }}<ng-container *ngIf="m.guardianRelationship"> ({{ m.guardianRelationship }})</ng-container></span>
-            </ng-container>
-          </div>
-        </div>
+}
+          @for (m of nom.members; track m) {
+<div class="member-address-row">
+            @if (m.address) {
 
-        <div *ngIf="nom.witnessName" class="text-xs text-gray-500">
-          Witness: {{ nom.witnessName }} <span *ngIf="nom.witnessAddress">({{ nom.witnessAddress }})</span>
+              <span class="text-xs text-gray-500"><strong>{{ m.memberName }}</strong> address: {{ m.address }}</span>
+            
+}
+            @if (m.isMinor && m.guardianName) {
+
+              <span class="text-xs text-blue-700 ml-4">Guardian: {{ m.guardianName }}@if (m.guardianRelationship) {
+ ({{ m.guardianRelationship }})
+}</span>
+            
+}
+          </div>
+}
         </div>
-        <div *ngIf="nom.rejectionReason" class="text-xs text-red-600 mt-1">
+}
+
+        @if (nom.witnessName) {
+<div class="text-xs text-gray-500">
+          Witness: {{ nom.witnessName }} @if (nom.witnessAddress) {
+<span>({{ nom.witnessAddress }})</span>
+}
+        </div>
+}
+        @if (nom.rejectionReason) {
+<div class="text-xs text-red-600 mt-1">
           Rejection: {{ nom.rejectionReason }}
         </div>
+}
 
         <!-- Workflow action buttons -->
         <div class="flex gap-2 mt-3">
-          <button *ngIf="nom.status === 'DRAFT'" (click)="submitNomination(nom)" [disabled]="actionPending"
+          @if (nom.status === 'DRAFT') {
+<button (click)="submitNomination(nom)" [disabled]="actionPending"
                   class="action-btn submit-btn">Submit for Approval</button>
-          <button *ngIf="nom.status === 'DRAFT'" (click)="openEditForm(nom)" [disabled]="actionPending"
+}
+          @if (nom.status === 'DRAFT') {
+<button (click)="openEditForm(nom)" [disabled]="actionPending"
                   class="action-btn edit-btn">Edit</button>
-          <button *ngIf="nom.status === 'APPROVED'" (click)="openEditForm(nom)"
+}
+          @if (nom.status === 'APPROVED') {
+<button (click)="openEditForm(nom)"
                   class="action-btn edit-btn">Edit / Update</button>
-          <button *ngIf="nom.status === 'REJECTED'" (click)="openResubmitForm(nom)" class="action-btn resubmit-btn">
+}
+          @if (nom.status === 'REJECTED') {
+<button (click)="openResubmitForm(nom)" class="action-btn resubmit-btn">
             Edit &amp; Resubmit</button>
+}
         </div>
       </div>
+}
 
       <!-- Form modal -->
-      <div *ngIf="showForm" class="modal-overlay" (click)="closeForm()">
+      @if (showForm) {
+<div class="modal-overlay" (click)="closeForm()">
         <div class="modal-panel" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <h2 class="text-lg font-semibold">{{ editId ? 'Edit Nomination' : resubmitId ? 'Edit &amp; Resubmit' : 'Add Nomination' }}</h2>
@@ -111,11 +146,14 @@ import { ToastService } from '../../../shared/toast/toast.service';
                 <span class="field-label">Nominee Members</span>
                 <button class="text-xs text-blue-600 hover:underline" (click)="addMember()">+ Add Member</button>
               </div>
-              <div *ngFor="let m of form.members; let i = index" class="member-form-block">
+              @for (m of form.members; track m; let i = $index) {
+<div class="member-form-block">
                 <div class="member-form-block-header">
                   <span class="text-sm font-semibold text-gray-700">Nominee {{ i + 1 }}</span>
-                  <button *ngIf="form.members.length > 1" (click)="form.members.splice(i, 1)"
+                  @if (form.members.length > 1) {
+<button (click)="form.members.splice(i, 1)"
                           class="text-xs text-red-600 hover:underline">Remove</button>
+}
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                   <div>
@@ -151,7 +189,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
                   </div>
                 </div>
                 <!-- Guardian section: shown only when isMinor -->
-                <div *ngIf="m.isMinor" class="guardian-section mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                @if (m.isMinor) {
+<div class="guardian-section mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p class="text-xs font-semibold text-blue-700 mb-2">Guardian Details (required for Dependent nominee)</p>
                   <div class="grid grid-cols-2 gap-3">
                     <div>
@@ -168,31 +207,46 @@ import { ToastService } from '../../../shared/toast/toast.service';
                     </div>
                   </div>
                 </div>
+}
               </div>
+}
             </div>
 
-            <div *ngIf="formError" class="text-red-600 text-sm">{{ formError }}</div>
+            @if (formError) {
+<div class="text-red-600 text-sm">{{ formError }}</div>
+}
           </div>
           <div class="modal-footer">
             <button (click)="closeForm()" class="btn-secondary">Cancel</button>
-            <button *ngIf="!resubmitId && !editId" (click)="save(true)" [disabled]="saving" class="btn-secondary">
+            @if (!resubmitId && !editId) {
+<button (click)="save(true)" [disabled]="saving" class="btn-secondary">
               {{ saving ? 'Saving...' : 'Save as Draft' }}
             </button>
-            <button *ngIf="!resubmitId && !editId" (click)="save(false)" [disabled]="saving" class="btn-primary">
+}
+            @if (!resubmitId && !editId) {
+<button (click)="save(false)" [disabled]="saving" class="btn-primary">
               {{ saving ? 'Saving...' : 'Save & Submit' }}
             </button>
-            <button *ngIf="editId" (click)="saveEdit(true)" [disabled]="saving" class="btn-secondary">
+}
+            @if (editId) {
+<button (click)="saveEdit(true)" [disabled]="saving" class="btn-secondary">
               {{ saving ? 'Saving...' : 'Save as Draft' }}
             </button>
-            <button *ngIf="editId" (click)="saveEdit(false)" [disabled]="saving" class="btn-primary">
+}
+            @if (editId) {
+<button (click)="saveEdit(false)" [disabled]="saving" class="btn-primary">
               {{ saving ? 'Saving...' : 'Save & Submit' }}
             </button>
-            <button *ngIf="resubmitId" (click)="doResubmit()" [disabled]="saving" class="btn-primary">
+}
+            @if (resubmitId) {
+<button (click)="doResubmit()" [disabled]="saving" class="btn-primary">
               {{ saving ? 'Resubmitting...' : 'Resubmit' }}
             </button>
+}
           </div>
         </div>
       </div>
+}
     </div>
   `,
   styles: [`

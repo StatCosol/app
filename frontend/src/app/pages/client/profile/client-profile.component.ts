@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil, timeout } from 'rxjs/operators';
@@ -10,19 +10,24 @@ import { ChangePasswordComponent } from '../../../shared/components/change-passw
 @Component({
   standalone: true,
   selector: 'app-client-profile',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, ChangePasswordComponent],
+  imports: [FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, ChangePasswordComponent],
   template: `
     <div class="max-w-4xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header title="My Profile" description="Your account information" icon="user"></ui-page-header>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading profile..."></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading profile..."></ui-loading-spinner>
+}
 
-      <div *ngIf="!loading && error" class="card text-center py-8">
+      @if (!loading && error) {
+<div class="card text-center py-8">
         <p class="text-red-600">{{ error }}</p>
         <button class="btn-primary mt-4" (click)="loadProfile()">Retry</button>
       </div>
+}
 
-      <div *ngIf="!loading && !error && user" class="space-y-6">
+      @if (!loading && !error && user) {
+<div class="space-y-6">
         <!-- Profile Card -->
         <div class="card">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -61,12 +66,15 @@ import { ChangePasswordComponent } from '../../../shared/components/change-passw
           <ui-button variant="primary" size="md" (click)="saveProfile()" [disabled]="saving">
             {{ saving ? 'Saving...' : 'Save Changes' }}
           </ui-button>
-          <span *ngIf="saveMsg" class="ml-3 text-sm text-green-600">{{ saveMsg }}</span>
+          @if (saveMsg) {
+<span class="ml-3 text-sm text-green-600">{{ saveMsg }}</span>
+}
         </div>
 
         <!-- Change Password -->
         <ui-change-password></ui-change-password>
       </div>
+}
     </div>
   `,
   styleUrls: ['./client-profile.component.scss'],

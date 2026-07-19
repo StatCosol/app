@@ -1,5 +1,5 @@
 import { Component, OnDestroy, ViewEncapsulation } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -10,7 +10,7 @@ type Step = 'email' | 'sent';
 
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   encapsulation: ViewEncapsulation.ShadowDom,
   selector: 'app-ess-forgot-password',
   template: `
@@ -26,21 +26,32 @@ type Step = 'email' | 'sent';
             <div class="logo-row">
               <img class="logo-img" src="assets/images/statco-logo.svg" alt="StatCo Solutions" />
               <div class="logo-text">
-                <h1 class="heading" *ngIf="step === 'email'">Forgot Password</h1>
-                <h1 class="heading" *ngIf="step === 'sent'">Check Your Email</h1>
-                <p class="sub-heading" *ngIf="step === 'email'">Enter your email to receive a password reset link</p>
-                <p class="sub-heading" *ngIf="step === 'sent'">We've sent a reset link to your email</p>
+                @if (step === 'email') {
+<h1 class="heading">Forgot Password</h1>
+}
+                @if (step === 'sent') {
+<h1 class="heading">Check Your Email</h1>
+}
+                @if (step === 'email') {
+<p class="sub-heading">Enter your email to receive a password reset link</p>
+}
+                @if (step === 'sent') {
+<p class="sub-heading">We've sent a reset link to your email</p>
+}
               </div>
             </div>
 
             <!-- Error -->
-            <div class="err-banner" *ngIf="error">
+            @if (error) {
+<div class="err-banner">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
               {{ error }}
             </div>
+}
 
             <!-- Step 1: Email Form -->
-            <form *ngIf="step === 'email'" (ngSubmit)="submitEmail()" class="frm">
+            @if (step === 'email') {
+<form (ngSubmit)="submitEmail()" class="frm">
               <div class="field">
                 <label class="lbl" for="reset-email">Email Address</label>
                 <div class="input-wrap">
@@ -52,13 +63,19 @@ type Step = 'email' | 'sent';
               </div>
 
               <button class="btn-primary" type="submit" [disabled]="isLoading">
-                <ng-container *ngIf="!isLoading">Send Reset Link</ng-container>
-                <span *ngIf="isLoading" class="ld-row"><span class="spinner"></span> Sending&hellip;</span>
+                @if (!isLoading) {
+Send Reset Link
+}
+                @if (isLoading) {
+<span class="ld-row"><span class="spinner"></span> Sending&hellip;</span>
+}
               </button>
             </form>
+}
 
             <!-- Step 2: Email Sent -->
-            <div *ngIf="step === 'sent'" class="sent-section">
+            @if (step === 'sent') {
+<div class="sent-section">
               <div class="sent-icon">
                 <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
                   <circle cx="28" cy="28" r="26" stroke="#38bdf8" stroke-width="2.5"/>
@@ -81,14 +98,17 @@ type Step = 'email' | 'sent';
                 Back to Sign In
               </button>
             </div>
+}
 
             <!-- Back to login -->
-            <div class="back-row" *ngIf="step === 'email'">
+            @if (step === 'email') {
+<div class="back-row">
               <button type="button" class="back-link" (click)="goToLogin()">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 3L5 7l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 Back to Sign In
               </button>
             </div>
+}
 
             <!-- Footer -->
             <div class="card-footer">

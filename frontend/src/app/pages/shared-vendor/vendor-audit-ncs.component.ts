@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Subject, finalize, takeUntil } from 'rxjs';
@@ -20,7 +20,7 @@ interface VendorNcRow {
 @Component({
   selector: 'app-vendor-audit-ncs',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-wrap">
@@ -31,14 +31,20 @@ interface VendorNcRow {
         </div>
       </header>
 
-      <div *ngIf="loading" class="loader">Loading non-compliances...</div>
+      @if (loading) {
+<div class="loader">Loading non-compliances...</div>
+}
 
-      <section class="card" *ngIf="!loading">
-        <div *ngIf="!publishedAt" style="padding:14px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;color:#92400e;font-size:13px;">
+      @if (!loading) {
+<section class="card">
+        @if (!publishedAt) {
+<div style="padding:14px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;color:#92400e;font-size:13px;">
           Preliminary findings have not been published for this audit yet. There is nothing to act on at the moment.
         </div>
+}
 
-        <ng-container *ngIf="publishedAt">
+        @if (publishedAt) {
+
           <div class="kv-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px;">
             <div><span style="font-size:11px;color:#64748b;">Published</span><strong style="display:block;">{{ formatDate(publishedAt) }}</strong></div>
             <div><span style="font-size:11px;color:#64748b;">Closure Window</span><strong style="display:block;">{{ vendorWindowDays || '-' }} day(s)</strong></div>
@@ -47,9 +53,12 @@ interface VendorNcRow {
             <div><span style="font-size:11px;color:#64748b;color:#b91c1c;">Overdue</span><strong style="display:block;color:#b91c1c;">{{ counts.overdue || 0 }}</strong></div>
           </div>
 
-          <div *ngIf="!items.length" style="padding:18px;text-align:center;color:#64748b;">No non-compliances visible.</div>
+          @if (!items.length) {
+<div style="padding:18px;text-align:center;color:#64748b;">No non-compliances visible.</div>
+}
 
-          <div *ngFor="let nc of items; trackBy: trackById" class="nc-row" style="border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:10px;" [style.background]="nc.isOverdue ? '#fef2f2' : 'white'">
+          @for (nc of items; track trackById($index, nc)) {
+<div class="nc-row" style="border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:10px;" [style.background]="nc.isOverdue ? '#fef2f2' : 'white'">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
               <div style="flex:1;min-width:240px;">
                 <strong style="font-size:13px;">{{ nc.documentName || 'Document' }}</strong>
@@ -57,7 +66,9 @@ interface VendorNcRow {
                 <div style="margin-top:6px;font-size:11px;color:#64748b;">
                   Status: <strong>{{ nc.status }}</strong> &middot; Deadline:
                   <strong [style.color]="nc.isOverdue ? '#b91c1c' : '#0f172a'">{{ nc.vendorWindowUntil || '-' }}</strong>
-                  <span *ngIf="nc.isOverdue" style="margin-left:8px;color:#b91c1c;font-weight:600;">OVERDUE</span>
+                  @if (nc.isOverdue) {
+<span style="margin-left:8px;color:#b91c1c;font-weight:600;">OVERDUE</span>
+}
                 </div>
               </div>
               <div style="display:flex;flex-direction:column;gap:6px;">
@@ -68,8 +79,11 @@ interface VendorNcRow {
               </div>
             </div>
           </div>
-        </ng-container>
+}
+        
+}
       </section>
+}
     </div>
   `,
   styles: [`

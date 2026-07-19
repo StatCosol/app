@@ -7,16 +7,19 @@
   </ui-page-header>
 
   <div class="flex items-center justify-end mb-6">
-    <ui-button variant="primary" (clicked)="openRegistrationForm()" *ngIf="!showForm">
+    @if (!showForm) {
+<ui-button variant="primary" (clicked)="openRegistrationForm()">
       <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
       </svg>
       Register New Contractor
     </ui-button>
+}
   </div>
 
   <!-- Registration Form -->
-  <div class="card mb-6" *ngIf="showForm">
+  @if (showForm) {
+<div class="card mb-6">
     <h3 class="text-lg font-semibold text-gray-900 mb-6">Register New Contractor</h3>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div class="form-group">
@@ -26,22 +29,30 @@
       <div class="form-group">
         <label for="crm-contractor-email" class="block text-sm font-medium text-gray-700 mb-2">Email *</label>
         <input type="email" id="crm-contractor-email" name="email" autocomplete="email" [(ngModel)]="form.email" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [class.border-red-500]="emailError" placeholder="email@example.com" />
-        <p *ngIf="emailError" class="mt-1 text-sm text-red-600 bg-red-50 px-2 py-1 rounded">{{ emailError }}</p>
+        @if (emailError) {
+<p class="mt-1 text-sm text-red-600 bg-red-50 px-2 py-1 rounded">{{ emailError }}</p>
+}
       </div>
       <div class="form-group">
         <label for="crm-contractor-mobile" class="block text-sm font-medium text-gray-700 mb-2">Mobile</label>
         <input type="tel" id="crm-contractor-mobile" name="mobile" autocomplete="tel" [(ngModel)]="form.mobile" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [class.border-red-500]="mobileError" placeholder="e.g. +919876543210" />
-        <p *ngIf="mobileError" class="mt-1 text-sm text-red-600 bg-red-50 px-2 py-1 rounded">{{ mobileError }}</p>
+        @if (mobileError) {
+<p class="mt-1 text-sm text-red-600 bg-red-50 px-2 py-1 rounded">{{ mobileError }}</p>
+}
       </div>
-      <div class="form-group" *ngIf="!clientId">
+      @if (!clientId) {
+<div class="form-group">
         <label for="crm-contractor-client" class="block text-sm font-medium text-gray-700 mb-2">Client *</label>
         <select id="crm-contractor-client" name="clientId" [(ngModel)]="form.clientId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
           <option value="">Select Client</option>
-          <option *ngFor="let client of myClients" [value]="client.id">
+          @for (client of myClients; track client) {
+<option [value]="client.id">
             {{ client.clientName }}
           </option>
+}
         </select>
       </div>
+}
       <div class="form-group md:col-span-2">
         <label for="crm-contractor-sched" class="block text-sm font-medium text-gray-700 mb-2">Schedule of Employment</label>
         <input type="text" id="crm-contractor-sched" name="scheduledEmployment" [(ngModel)]="form.scheduledEmployment" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" placeholder="e.g. Shops &amp; Establishments, Security Services, Construction" />
@@ -70,9 +81,11 @@
       <ui-button variant="secondary" (clicked)="cancelForm()">Cancel</ui-button>
     </div>
   </div>
+}
 
   <!-- Registration Success Card -->
-  <div class="card mb-6" *ngIf="registrationResult">
+  @if (registrationResult) {
+<div class="card mb-6">
     <div class="alert alert-success mb-6">
       <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -106,16 +119,21 @@
     </div>
     <ui-button variant="primary" (clicked)="closeCredentials()">Close</ui-button>
   </div>
+}
 
   <!-- Contractors List -->
-  <div class="card" *ngIf="!showForm && !registrationResult">
+  @if (!showForm && !registrationResult) {
+<div class="card">
     <h3 class="text-lg font-semibold text-gray-900 mb-4">My Contractors ({{ contractors.length }})</h3>
     
     <!-- Loading State -->
-    <ui-loading-spinner *ngIf="loading" text="Loading contractors..."></ui-loading-spinner>
+    @if (loading) {
+<ui-loading-spinner text="Loading contractors..."></ui-loading-spinner>
+}
 
     <!-- Table -->
-    <ui-data-table *ngIf="!loading"
+    @if (!loading) {
+<ui-data-table
       [columns]="contractorColumns" [data]="contractors" [loading]="loading"
       emptyMessage="No contractors registered yet. Click &quot;Register New Contractor&quot; to add one.">
       <ng-template uiTableCell="mobile" let-row>{{ row.mobile || '—' }}</ng-template>
@@ -131,9 +149,12 @@
         </button>
       </ng-template>
     </ui-data-table>
+}
   </div>
+}
 
-  <div *ngIf="quoteUploadFor" class="modal-backdrop" (click)="closeQuoteUpload()">
+  @if (quoteUploadFor) {
+<div class="modal-backdrop" (click)="closeQuoteUpload()">
     <div class="quote-modal" (click)="$event.stopPropagation()">
       <div class="quote-modal__head">
         <div>
@@ -158,11 +179,13 @@
         Required columns: skill_category, daily_wage. Optional: monthly_wage, effective_from, effective_to, source, notes.
       </div>
 
-      <div *ngIf="quoteUploadResult" class="quote-result">
+      @if (quoteUploadResult) {
+<div class="quote-result">
         {{ quoteUploadResult.inserted || 0 }} inserted,
         {{ quoteUploadResult.updated || 0 }} updated,
         {{ quoteUploadResult.errors || 0 }} errors
       </div>
+}
 
       <div class="quote-actions">
         <ui-button variant="primary" [disabled]="quoteUploading || !quoteFile" (clicked)="uploadQuote()">
@@ -172,4 +195,5 @@
       </div>
     </div>
   </div>
+}
 </div>

@@ -1,23 +1,27 @@
 import { Component, Input, OnChanges, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ClientBranchesService } from '../../core/client-branches.service';
 
 @Component({
   standalone: true,
   selector: 'app-compliance-summary',
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
   <div class="card">
     <div class="k">AI Compliance Summary</div>
 
-    <div *ngIf="loading" class="muted">Generating summary...</div>
+    @if (loading) {
+<div class="muted">Generating summary...</div>
+}
 
-    <div *ngIf="!loading && summary">
+    @if (!loading && summary) {
+<div>
       <div style="margin-top:10px;font-size:13px;color:#0f172a;line-height:1.5;">
         {{ summary.summary }}
       </div>
     </div>
+}
   </div>
   `
 })

@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, NgZone, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { AdminApplicabilityConfigService } from '../../../core/admin-applicability-config.service';
@@ -19,10 +19,15 @@ import { ToastService } from '../../../shared/toast/toast.service';
   selector: 'app-engine-config',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, PageHeaderComponent, ActionButtonComponent,
-    FormInputComponent, FormSelectComponent, LoadingSpinnerComponent,
-    EmptyStateComponent, StatusBadgeComponent,
-  ],
+    FormsModule,
+    PageHeaderComponent,
+    ActionButtonComponent,
+    FormInputComponent,
+    FormSelectComponent,
+    LoadingSpinnerComponent,
+    EmptyStateComponent,
+    StatusBadgeComponent
+],
   template: `
     <div class="p-6 max-w-7xl mx-auto">
       <ui-page-header title="Applicability Engine Configuration"

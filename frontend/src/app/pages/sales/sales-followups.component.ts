@@ -13,9 +13,14 @@ import { Lead, SalesService } from '../../modules/sales/sales.service';
       <p class="text-sm text-gray-600">Open leads where the next follow-up time has passed.</p>
 
       <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div *ngIf="loading" class="p-6 text-center text-gray-500">Loading…</div>
-        <div *ngIf="!loading && items.length === 0" class="p-10 text-center text-gray-500">All caught up. 🎉</div>
-        <table *ngIf="!loading && items.length > 0" class="w-full text-sm">
+        @if (loading) {
+<div class="p-6 text-center text-gray-500">Loading…</div>
+}
+        @if (!loading && items.length === 0) {
+<div class="p-10 text-center text-gray-500">All caught up. 🎉</div>
+}
+        @if (!loading && items.length > 0) {
+<table class="w-full text-sm">
           <thead class="bg-gray-50 text-xs uppercase text-gray-500">
             <tr>
               <th class="text-left px-4 py-2.5">Company</th>
@@ -27,7 +32,8 @@ import { Lead, SalesService } from '../../modules/sales/sales.service';
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let l of items" class="border-t border-gray-100 hover:bg-emerald-50/30">
+            @for (l of items; track l) {
+<tr class="border-t border-gray-100 hover:bg-emerald-50/30">
               <td class="px-4 py-2.5 font-medium text-gray-900">{{ l.companyName }}</td>
               <td class="px-4 py-2.5"><span class="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{{ l.stage }}</span></td>
               <td class="px-4 py-2.5 text-red-600 text-xs">{{ l.nextFollowupAt | date:'medium' }}</td>
@@ -37,8 +43,10 @@ import { Lead, SalesService } from '../../modules/sales/sales.service';
                 <a [routerLink]="['/sales/leads', l.id]" class="text-emerald-600 hover:underline text-sm">Open →</a>
               </td>
             </tr>
+}
           </tbody>
         </table>
+}
       </div>
     </div>
   `,

@@ -53,7 +53,8 @@ import {
       </ui-page-header>
 
       <!-- Run Assessment Panel -->
-      <div *ngIf="showAssessPanel" class="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
+      @if (showAssessPanel) {
+<div class="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
         <h3 class="font-semibold text-blue-900 mb-3">Run Risk Assessment</h3>
         <div class="flex items-end gap-4">
           <div class="flex-1">
@@ -61,7 +62,9 @@ import {
             <select id="ar-assess-client-id" name="assessClientId" [(ngModel)]="assessClientId"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
               <option value="">Select client</option>
-              <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
+              @for (c of clients; track c) {
+<option [value]="c.id">{{ c.name }}</option>
+}
             </select>
           </div>
           <ui-button variant="primary" [disabled]="!assessClientId || assessing" (clicked)="runAssessment()">
@@ -70,9 +73,11 @@ import {
           <ui-button variant="ghost" (clicked)="showAssessPanel = false">Cancel</ui-button>
         </div>
       </div>
+}
 
       <!-- Latest Assessment Result -->
-      <div *ngIf="latestAssessment" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+      @if (latestAssessment) {
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-lg font-semibold text-gray-900">Latest Assessment Result</h2>
           <button (click)="latestAssessment = null" class="text-gray-400 hover:text-gray-600 text-sm">✕ Close</button>
@@ -111,10 +116,12 @@ import {
         </div>
 
         <!-- Risk Factors -->
-        <div *ngIf="latestAssessment.riskFactors.length" class="mb-6">
+        @if (latestAssessment.riskFactors.length) {
+<div class="mb-6">
           <h3 class="font-semibold text-gray-800 mb-3">Risk Factors</h3>
           <div class="space-y-2">
-            <div *ngFor="let f of latestAssessment.riskFactors"
+            @for (f of latestAssessment.riskFactors; track f) {
+<div
                  class="flex items-center gap-4 bg-gray-50 rounded-lg p-3">
               <div class="flex-1">
                 <p class="text-sm font-medium text-gray-900">{{ f.factor }}</p>
@@ -132,14 +139,18 @@ import {
                 </div>
               </div>
             </div>
+}
           </div>
         </div>
+}
 
         <!-- Recommendations -->
-        <div *ngIf="latestAssessment.recommendations.length">
+        @if (latestAssessment.recommendations.length) {
+<div>
           <h3 class="font-semibold text-gray-800 mb-3">Recommendations</h3>
           <div class="space-y-2">
-            <div *ngFor="let r of latestAssessment.recommendations; let i = index"
+            @for (r of latestAssessment.recommendations; track r; let i = $index) {
+<div
                  class="flex items-start gap-3 bg-blue-50 rounded-lg p-3">
               <span class="shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">
                 {{ r.priority }}
@@ -149,17 +160,24 @@ import {
                 <p class="text-xs text-gray-500">Impact: {{ r.impact }}</p>
               </div>
             </div>
+}
           </div>
         </div>
+}
       </div>
+}
 
-      <ui-loading-spinner *ngIf="loading" size="lg" class="py-16 block"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner size="lg" class="py-16 block"></ui-loading-spinner>
+}
 
       <!-- High Risk Clients Table -->
-      <div *ngIf="!loading" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      @if (!loading) {
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">All Assessed Clients (by Risk)</h2>
-        <ui-data-table
-          *ngIf="highRiskClients.length > 0"
+        @if (highRiskClients.length > 0) {
+<ui-data-table
+         
           [columns]="columns"
           [data]="highRiskClients"
           [pageSize]="20">
@@ -186,12 +204,16 @@ import {
             </div>
           </ng-template>
         </ui-data-table>
-        <ui-empty-state
-          *ngIf="highRiskClients.length === 0"
+}
+        @if (highRiskClients.length === 0) {
+<ui-empty-state
+         
           title="No Assessments Yet"
           message="Click 'Run Assessment' to score a client's compliance risk.">
         </ui-empty-state>
+}
       </div>
+}
     </div>
   `,
 })

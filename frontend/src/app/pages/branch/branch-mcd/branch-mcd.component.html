@@ -8,14 +8,18 @@
     <div class="toolbar-group">
       <label class="field-label" for="mcd-month">Month</label>
       <select id="mcd-month" name="selectedMonth" class="field-select" [(ngModel)]="selectedMonth" (change)="onPeriodChange()">
-        <option *ngFor="let month of months" [ngValue]="month.value">{{ month.label }}</option>
+        @for (month of months; track month) {
+<option [ngValue]="month.value">{{ month.label }}</option>
+}
       </select>
     </div>
 
     <div class="toolbar-group">
       <label class="field-label" for="mcd-year">Year</label>
       <select id="mcd-year" name="selectedYear" class="field-select" [(ngModel)]="selectedYear" (change)="onPeriodChange()">
-        <option *ngFor="let year of years" [ngValue]="year">{{ year }}</option>
+        @for (year of years; track year) {
+<option [ngValue]="year">{{ year }}</option>
+}
       </select>
     </div>
 
@@ -47,7 +51,9 @@
       <label class="field-label" for="mcd-law-area">Law Area</label>
       <select id="mcd-law-area" name="lawAreaFilter" class="field-select" [(ngModel)]="lawAreaFilter" (change)="applyFilters()">
         <option value="ALL">All law areas</option>
-        <option *ngFor="let law of lawAreas" [value]="law">{{ law }}</option>
+        @for (law of lawAreas; track law) {
+<option [value]="law">{{ law }}</option>
+}
       </select>
     </div>
 
@@ -55,7 +61,9 @@
       <label class="field-label" for="mcd-category">Category</label>
       <select id="mcd-category" name="categoryFilter" class="field-select" [(ngModel)]="categoryFilter" (change)="applyFilters()">
         <option value="ALL">All categories</option>
-        <option *ngFor="let category of categories" [value]="category">{{ category }}</option>
+        @for (category of categories; track category) {
+<option [value]="category">{{ category }}</option>
+}
       </select>
     </div>
 
@@ -98,16 +106,22 @@
       <span class="summary-value">{{ monthCloseStatus === 'NO_ITEMS' ? '-' : monthCloseStatus }}</span>
       <span class="summary-label">Month close status</span>
       <span class="summary-meta">{{ monthCloseLabel }}</span>
-      <div class="close-progress" *ngIf="monthCloseStatus !== 'NO_ITEMS'">
+      @if (monthCloseStatus !== 'NO_ITEMS') {
+<div class="close-progress">
         <span [style.width.%]="monthCloseProgressPct"></span>
       </div>
-      <span class="summary-meta" *ngIf="monthCloseStatus !== 'NO_ITEMS'">{{ monthCloseProgressPct }}% closure complete</span>
+}
+      @if (monthCloseStatus !== 'NO_ITEMS') {
+<span class="summary-meta">{{ monthCloseProgressPct }}% closure complete</span>
+}
     </div>
   </div>
 
-  <div *ngIf="errorMessage" class="error-banner">
+  @if (errorMessage) {
+<div class="error-banner">
     ⚠ {{ errorMessage }}
   </div>
+}
 
   <div class="workbench">
     <section class="panel">
@@ -116,17 +130,25 @@
         <span class="panel-meta">{{ filteredChecklist.length }} / {{ checklist.length }}</span>
       </header>
 
-      <div *ngIf="loading" class="loading-list">
-        <div class="skeleton-row" *ngFor="let row of [1,2,3,4,5,6]"></div>
+      @if (loading) {
+<div class="loading-list">
+        @for (row of [1,2,3,4,5,6]; track row) {
+<div class="skeleton-row"></div>
+}
       </div>
+}
 
-      <div *ngIf="!loading && !filteredChecklist.length" class="empty">
+      @if (!loading && !filteredChecklist.length) {
+<div class="empty">
         No applicable monthly compliance items match current filters.
       </div>
+}
 
-      <div *ngIf="!loading && filteredChecklist.length" class="list">
-        <button
-          *ngFor="let item of filteredChecklist; trackBy: trackByReturnCode"
+      @if (!loading && filteredChecklist.length) {
+<div class="list">
+        @for (item of filteredChecklist; track trackByReturnCode($index, item)) {
+<button
+         
           type="button"
           class="list-row"
           [class.list-row--active]="selectedItem?.returnCode === item.returnCode"
@@ -140,20 +162,31 @@
             <span class="row-code">{{ item.returnCode }}</span>
             <span class="row-separator">&middot;</span>
             <span>{{ item.lawArea }}</span>
-            <span *ngIf="item.category"> | {{ item.category }}</span>
+            @if (item.category) {
+<span> | {{ item.category }}</span>
+}
           </div>
           <div class="row-footer">
             <span class="row-due">{{ dueLabel(item) }}</span>
-            <span class="marker marker--due" *ngIf="isDueNow(item)">Due now</span>
-            <span class="marker marker--query" *ngIf="isQueryPending(item)">Pending query</span>
-            <span class="marker marker--overdue" *ngIf="isOverdue(item)">Overdue</span>
+            @if (isDueNow(item)) {
+<span class="marker marker--due">Due now</span>
+}
+            @if (isQueryPending(item)) {
+<span class="marker marker--query">Pending query</span>
+}
+            @if (isOverdue(item)) {
+<span class="marker marker--overdue">Overdue</span>
+}
           </div>
         </button>
+}
       </div>
+}
     </section>
 
     <section class="panel detail">
-      <ng-container *ngIf="selectedItem as item; else selectPrompt">
+      @if (selectedItem; as item) {
+
         <header class="panel-head panel-head--detail">
           <div>
             <h2 class="panel-title">{{ item.returnName }}</h2>
@@ -181,13 +214,17 @@
           </div>
         </div>
 
-        <div *ngIf="item.document?.remarks" class="note note--review">
+        @if (item.document?.remarks) {
+<div class="note note--review">
           <strong>Reviewer remarks:</strong> {{ item.document?.remarks }}
         </div>
+}
 
-        <div *ngIf="item.document?.uploaderRemarks" class="note note--uploader">
+        @if (item.document?.uploaderRemarks) {
+<div class="note note--uploader">
           <strong>Uploader remarks:</strong> {{ item.document?.uploaderRemarks }}
         </div>
+}
 
         <div class="attachment">
           <div class="attachment-meta">
@@ -204,20 +241,24 @@
         </div>
 
         <div class="actions">
-          <button
+          @if (canUpload(item)) {
+<button
             type="button"
             class="btn-primary"
-            *ngIf="canUpload(item)"
+           
             (click)="openUploadModal(item)">
             {{ statusOf(item) === 'REUPLOAD_REQUIRED' ? 'Reupload Document' : 'Upload Document' }}
           </button>
-          <button
+}
+          @if (canMarkNa(item)) {
+<button
             type="button"
             class="btn-na"
-            *ngIf="canMarkNa(item)"
+           
             (click)="openNaModal(item)">
             Mark Not Applicable
           </button>
+}
           <button
             type="button"
             class="btn-secondary"
@@ -229,30 +270,40 @@
 
         <div class="timeline">
           <h3 class="timeline-title">Activity Timeline</h3>
-          <div *ngIf="!selectedTimeline.length" class="timeline-empty">
+          @if (!selectedTimeline.length) {
+<div class="timeline-empty">
             No activity recorded yet for this item.
           </div>
-          <div *ngFor="let event of selectedTimeline" class="timeline-item">
+}
+          @for (event of selectedTimeline; track event) {
+<div class="timeline-item">
             <div class="timeline-dot"></div>
             <div class="timeline-body">
               <div class="timeline-head">
                 <span class="timeline-event">{{ event.title }}</span>
                 <span class="timeline-time">{{ event.timestamp | date:'dd MMM yyyy, HH:mm' }}</span>
               </div>
-              <div *ngIf="event.note" class="timeline-note">{{ event.note }}</div>
+              @if (event.note) {
+<div class="timeline-note">{{ event.note }}</div>
+}
             </div>
           </div>
+}
         </div>
-      </ng-container>
+      
+} @else {
 
-      <ng-template #selectPrompt>
         <div class="empty empty--detail">Select a checklist item to review details and upload actions.</div>
-      </ng-template>
+      
+}
+
+      
     </section>
   </div>
 
-  <ui-modal
-    *ngIf="showUploadModal"
+  @if (showUploadModal) {
+<ui-modal
+   
     [isOpen]="showUploadModal"
     [title]="'Upload: ' + (uploadTarget?.returnName || '')"
     size="md"
@@ -274,12 +325,16 @@
           type="file"
           accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls"
           (change)="onFileSelected($event)">
-        <div *ngIf="!selectedFile">
+        @if (!selectedFile) {
+<div>
           Drop file here or click to browse
         </div>
-        <div *ngIf="selectedFile">
+}
+        @if (selectedFile) {
+<div>
           {{ selectedFile.name }} ({{ (selectedFile.size / 1024).toFixed(0) }} KB)
         </div>
+}
       </div>
 
       <div class="upload-remarks">
@@ -300,9 +355,11 @@
     </div>
     <div slot="footer"></div>
   </ui-modal>
+}
 
-  <ui-modal
-    *ngIf="showNaModal"
+  @if (showNaModal) {
+<ui-modal
+   
     [isOpen]="showNaModal"
     [title]="'Mark Not Applicable: ' + (naTarget?.returnName || '')"
     size="md"
@@ -336,4 +393,5 @@
     </div>
     <div slot="footer"></div>
   </ui-modal>
+}
 </div>

@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize, timeout } from 'rxjs/operators';
@@ -10,17 +10,24 @@ import { ChangePasswordComponent } from '../../shared/components/change-password
 @Component({
   selector: 'app-ceo-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ChangePasswordComponent],
+  imports: [FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ChangePasswordComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header title="CEO Profile" description="Profile and security settings" icon="user-circle"></ui-page-header>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading profile..."></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading profile..."></ui-loading-spinner>
+}
 
-      <div *ngIf="error" class="alert alert-error mb-4">{{ error }}</div>
-      <div *ngIf="success" class="alert alert-success mb-4">{{ success }}</div>
+      @if (error) {
+<div class="alert alert-error mb-4">{{ error }}</div>
+}
+      @if (success) {
+<div class="alert alert-success mb-4">{{ success }}</div>
+}
 
-      <div *ngIf="!loading && profile" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      @if (!loading && profile) {
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Profile Info -->
         <div class="card">
           <h3 class="card-title mb-4">Personal Information</h3>
@@ -50,6 +57,7 @@ import { ChangePasswordComponent } from '../../shared/components/change-password
         <!-- Change Password -->
         <ui-change-password></ui-change-password>
       </div>
+}
     </div>
   `,
 })

@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { AccountsBillingService } from '../services/accounts-billing.service';
@@ -8,7 +8,7 @@ import { InvoiceEmailLog } from '../models/billing.models';
 @Component({
   selector: 'app-billing-email-logs',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [FormsModule, RouterModule],
   template: `
     <div class="p-6 space-y-6">
       <h1 class="text-2xl font-bold text-slate-800">Email Logs</h1>
@@ -26,16 +26,21 @@ import { InvoiceEmailLog } from '../models/billing.models';
             </tr>
           </thead>
           <tbody class="divide-y">
-            <tr *ngFor="let l of logs" class="hover:bg-slate-50">
+            @for (l of logs; track l) {
+<tr class="hover:bg-slate-50">
               <td class="px-4 py-3">
-                <a *ngIf="l.invoice" [routerLink]="['/accounts/invoices', l.invoice.id]"
+                @if (l.invoice) {
+<a [routerLink]="['/accounts/invoices', l.invoice.id]"
                    class="text-blue-600 hover:underline text-xs font-mono">{{ l.invoice.invoiceNumber }}</a>
-                <a *ngIf="!l.invoice && l.pendingPayment" [routerLink]="['/accounts/pending-payments']"
+}
+                @if (!l.invoice && l.pendingPayment) {
+<a [routerLink]="['/accounts/pending-payments']"
                    class="text-amber-600 hover:underline text-xs font-mono"
                    [title]="'Pending payment: ' + l.pendingPayment.clientName">
                   {{ l.pendingPayment.invoiceNumber }}
                   <span class="ml-1 text-[10px] text-slate-400">(pending)</span>
                 </a>
+}
               </td>
               <td class="px-4 py-3">{{ l.toEmail }}</td>
               <td class="px-4 py-3 max-w-xs truncate">{{ l.subject }}</td>
@@ -46,20 +51,25 @@ import { InvoiceEmailLog } from '../models/billing.models';
               <td class="px-4 py-3 text-xs">{{ l.sentAt || '—' }}</td>
               <td class="px-4 py-3 text-xs text-red-500 max-w-xs truncate">{{ l.failureReason || '' }}</td>
             </tr>
-            <tr *ngIf="!logs.length">
+}
+            @if (!logs.length) {
+<tr>
               <td colspan="6" class="px-4 py-8 text-center text-slate-400">No email logs</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
 
-      <div class="flex items-center justify-between text-sm text-slate-500" *ngIf="totalPages > 1">
+      @if (totalPages > 1) {
+<div class="flex items-center justify-between text-sm text-slate-500">
         <span>Page {{ page }} of {{ totalPages }}</span>
         <div class="flex gap-2">
           <button (click)="page = page - 1; load()" [disabled]="page <= 1" class="px-3 py-1 border rounded disabled:opacity-50">Prev</button>
           <button (click)="page = page + 1; load()" [disabled]="page >= totalPages" class="px-3 py-1 border rounded disabled:opacity-50">Next</button>
         </div>
       </div>
+}
     </div>
   `,
 })

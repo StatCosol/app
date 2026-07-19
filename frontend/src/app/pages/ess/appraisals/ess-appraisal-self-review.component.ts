@@ -12,7 +12,8 @@ import { EssApiService } from '../ess-api.service';
   imports: [CommonModule, FormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="page-container" *ngIf="appraisal">
+    @if (appraisal) {
+<div class="page-container">
       <div class="page-header">
         <div>
           <h1 class="page-title">Performance Appraisal</h1>
@@ -48,12 +49,14 @@ import { EssApiService } from '../ess-api.service';
       </div>
 
       <!-- Self-Review Pending Banner -->
-      <div *ngIf="canSelfReview" class="bg-indigo-50 border border-indigo-200 rounded-xl px-5 py-4 mb-6 flex items-center gap-3">
+      @if (canSelfReview) {
+<div class="bg-indigo-50 border border-indigo-200 rounded-xl px-5 py-4 mb-6 flex items-center gap-3">
         <svg class="text-indigo-500 shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
         </svg>
         <p class="text-sm text-indigo-800">Please rate yourself on each parameter below and submit your self-review.</p>
       </div>
+}
 
       <!-- Rating Items Table -->
       <div class="table-card mb-6">
@@ -74,82 +77,119 @@ import { EssApiService } from '../ess-api.service';
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let item of items; let i = index" class="data-row">
+              @for (item of items; track item; let i = $index) {
+<tr class="data-row">
                 <td class="text-xs text-gray-400">{{ i + 1 }}</td>
                 <td class="font-medium text-sm">{{ item.itemName || item.item_name }}</td>
                 <td class="text-center">{{ item.weightage }}</td>
                 <td class="text-center">
-                  <input *ngIf="canSelfReview" type="number" min="0" max="5" step="0.25"
+                  @if (canSelfReview) {
+<input type="number" min="0" max="5" step="0.25"
                     [(ngModel)]="item.selfRating" [name]="'sr_' + item.id"
                     class="w-16 text-center border rounded px-1 py-0.5 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400" />
-                  <span *ngIf="!canSelfReview" class="font-medium">{{ item.selfRating ?? item.self_rating ?? '—' }}</span>
+}
+                  @if (!canSelfReview) {
+<span class="font-medium">{{ item.selfRating ?? item.self_rating ?? '—' }}</span>
+}
                 </td>
                 <td>
-                  <input *ngIf="canSelfReview" type="text"
+                  @if (canSelfReview) {
+<input type="text"
                     [(ngModel)]="item.employeeRemarks" [name]="'er_' + item.id"
                     placeholder="Your remarks..." class="w-32 border rounded px-1 py-0.5 text-xs focus:ring-2 focus:ring-indigo-300" />
-                  <span *ngIf="!canSelfReview" class="text-xs text-gray-500">{{ item.employeeRemarks ?? item.employee_remarks ?? '—' }}</span>
+}
+                  @if (!canSelfReview) {
+<span class="text-xs text-gray-500">{{ item.employeeRemarks ?? item.employee_remarks ?? '—' }}</span>
+}
                 </td>
                 <td class="text-center text-gray-500">{{ item.managerRating ?? item.manager_rating ?? '—' }}</td>
                 <td class="text-center text-gray-500">{{ item.branchRating ?? item.branch_rating ?? '—' }}</td>
                 <td class="text-center font-semibold">{{ item.finalRating ?? item.final_rating ?? '—' }}</td>
                 <td class="text-center text-indigo-600 font-medium">{{ item.weightedScore ?? item.weighted_score ?? '—' }}</td>
               </tr>
+}
             </tbody>
             <tfoot>
-              <tr class="bg-gray-50 font-semibold" *ngIf="appraisal.total_score || appraisal.totalScore">
+              @if (appraisal.total_score || appraisal.totalScore) {
+<tr class="bg-gray-50 font-semibold">
                 <td colspan="8" class="text-right">Total Score:</td>
                 <td class="text-center text-indigo-700">{{ appraisal.total_score ?? appraisal.totalScore ?? '—' }}</td>
               </tr>
+}
             </tfoot>
           </table>
         </div>
       </div>
 
       <!-- Submit Button -->
-      <div *ngIf="canSelfReview" class="flex items-center gap-3 mt-6">
+      @if (canSelfReview) {
+<div class="flex items-center gap-3 mt-6">
         <button (click)="submitSelfReview()" [disabled]="submitting" class="btn-primary">
           {{ submitting ? 'Submitting...' : 'Submit Self-Review' }}
         </button>
-        <span *ngIf="successMsg" class="text-sm text-emerald-600 font-medium">{{ successMsg }}</span>
-        <span *ngIf="errorMsg" class="text-sm text-red-600 font-medium">{{ errorMsg }}</span>
+        @if (successMsg) {
+<span class="text-sm text-emerald-600 font-medium">{{ successMsg }}</span>
+}
+        @if (errorMsg) {
+<span class="text-sm text-red-600 font-medium">{{ errorMsg }}</span>
+}
       </div>
+}
 
       <!-- Submitted Confirmation -->
-      <div *ngIf="!canSelfReview && appraisal.self_status === 'SUBMITTED'" class="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4 mt-4 flex items-center gap-3">
+      @if (!canSelfReview && appraisal.self_status === 'SUBMITTED') {
+<div class="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4 mt-4 flex items-center gap-3">
         <svg class="text-emerald-500 shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <p class="text-sm text-emerald-800">Your self-review has been submitted. Pending manager/branch review.</p>
       </div>
+}
 
       <!-- Approval History -->
-      <div class="table-card mt-6" *ngIf="appraisal.approvals?.length">
+      @if (appraisal.approvals?.length) {
+<div class="table-card mt-6">
         <h3 class="text-sm font-semibold text-gray-900 mb-3">Approval History</h3>
         <div class="space-y-2">
-          <div *ngFor="let a of appraisal.approvals" class="flex items-center gap-3 text-sm border-b pb-2">
+          @for (a of appraisal.approvals; track a) {
+<div class="flex items-center gap-3 text-sm border-b pb-2">
             <span class="badge bg-gray-100 text-gray-700">{{ a.approvalLevel ?? a.approval_level }}</span>
             <span class="font-medium">{{ a.action }}</span>
             <span class="text-xs text-gray-400">{{ (a.actionAt ?? a.action_at) | date:'dd/MM/yyyy HH:mm' }}</span>
-            <span class="text-xs text-gray-500" *ngIf="a.remarks">— {{ a.remarks }}</span>
+            @if (a.remarks) {
+<span class="text-xs text-gray-500">— {{ a.remarks }}</span>
+}
           </div>
+}
         </div>
       </div>
+}
 
       <!-- Final Rating Section (shown after approval) -->
-      <div class="table-card mt-6" *ngIf="appraisal.final_rating_label || appraisal.finalRatingLabel">
+      @if (appraisal.final_rating_label || appraisal.finalRatingLabel) {
+<div class="table-card mt-6">
         <h3 class="text-sm font-semibold text-gray-900 mb-3">Final Rating</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div><span class="text-gray-500">Rating:</span> <span class="font-semibold text-indigo-700 ml-1">{{ appraisal.final_rating_label ?? appraisal.finalRatingLabel }}</span></div>
           <div><span class="text-gray-500">Total Score:</span> <span class="font-semibold ml-1">{{ appraisal.total_score ?? appraisal.totalScore ?? '—' }}</span></div>
-          <div *ngIf="appraisal.recommendation"><span class="text-gray-500">Recommendation:</span> <span class="font-medium ml-1">{{ appraisal.recommendation }}</span></div>
-          <div *ngIf="appraisal.final_remarks ?? appraisal.finalRemarks"><span class="text-gray-500">Remarks:</span> <span class="text-gray-600 ml-1">{{ appraisal.final_remarks ?? appraisal.finalRemarks }}</span></div>
+          @if (appraisal.recommendation) {
+<div><span class="text-gray-500">Recommendation:</span> <span class="font-medium ml-1">{{ appraisal.recommendation }}</span></div>
+}
+          @if (appraisal.final_remarks ?? appraisal.finalRemarks) {
+<div><span class="text-gray-500">Remarks:</span> <span class="text-gray-600 ml-1">{{ appraisal.final_remarks ?? appraisal.finalRemarks }}</span></div>
+}
         </div>
       </div>
+}
     </div>
+}
 
-    <div *ngIf="!appraisal && !loading" class="flex items-center justify-center py-20 text-gray-400">Appraisal not found</div>
-    <div *ngIf="loading" class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+    @if (!appraisal && !loading) {
+<div class="flex items-center justify-center py-20 text-gray-400">Appraisal not found</div>
+}
+    @if (loading) {
+<div class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+}
   `,
 })
 export class EssAppraisalSelfReviewComponent implements OnInit, OnDestroy {

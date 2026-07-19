@@ -15,20 +15,30 @@ export type StatCardColor = 'primary' | 'success' | 'warning' | 'error' | 'info'
         <div class="flex-1">
           <p class="text-xs font-semibold uppercase tracking-wider" [ngClass]="labelClass">{{ label }}</p>
           <p class="mt-2 text-3xl font-bold" [ngClass]="valueClass">{{ value }}</p>
-          <div *ngIf="trend !== undefined" class="mt-2 flex items-center text-sm font-medium" [ngClass]="trendColorClass">
-            <svg *ngIf="trend > 0" class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          @if (trend !== undefined) {
+<div class="mt-2 flex items-center text-sm font-medium" [ngClass]="trendColorClass">
+            @if (trend > 0) {
+<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
             </svg>
-            <svg *ngIf="trend < 0" class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+}
+            @if (trend < 0) {
+<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
             </svg>
+}
             <span>{{ trendText }}</span>
           </div>
-          <p *ngIf="description" class="mt-2 text-sm" [ngClass]="descClass">{{ description }}</p>
+}
+          @if (description) {
+<p class="mt-2 text-sm" [ngClass]="descClass">{{ description }}</p>
+}
         </div>
-        <div *ngIf="icon" class="ml-4 p-3 rounded-lg" [ngClass]="iconBgClass">
+        @if (icon) {
+<div class="ml-4 p-3 rounded-lg" [ngClass]="iconBgClass">
           <ng-content select="[slot=icon]"></ng-content>
         </div>
+}
       </div>
     </div>
   `

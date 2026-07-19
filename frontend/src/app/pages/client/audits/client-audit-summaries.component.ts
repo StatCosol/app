@@ -32,21 +32,27 @@ import {
     ></ui-page-header>
 
     <div class="p-6">
-      <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
 
-      <div *ngIf="!loading && summaries.length === 0">
+      @if (!loading && summaries.length === 0) {
+<div>
         <ui-empty-state
           message="No audit data available."
           icon="document"
         ></ui-empty-state>
       </div>
+}
 
-      <div
-        *ngIf="!loading && summaries.length > 0"
+      @if (!loading && summaries.length > 0) {
+<div
+       
         class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
       >
-        <div
-          *ngFor="let s of summaries"
+        @for (s of summaries; track s) {
+<div
+         
           class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-shadow"
         >
           <h3 class="text-base font-semibold text-slate-800 mb-3">
@@ -76,13 +82,17 @@ import {
               </p>
             </div>
           </div>
-          <div *ngIf="s.last_audit_date" class="mt-3 pt-3 border-t border-slate-100">
+          @if (s.last_audit_date) {
+<div class="mt-3 pt-3 border-t border-slate-100">
             <span class="text-xs text-slate-400">
               Last audit: {{ s.last_audit_date | date: 'mediumDate' }}
             </span>
           </div>
+}
         </div>
+}
       </div>
+}
     </div>
   `,
 })

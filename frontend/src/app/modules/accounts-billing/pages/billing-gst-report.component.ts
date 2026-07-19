@@ -1,12 +1,12 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { AccountsBillingService } from '../services/accounts-billing.service';
 
 @Component({
   selector: 'app-billing-gst-report',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="p-6 space-y-6">
       <h1 class="text-2xl font-bold text-slate-800">GST Summary Report</h1>
@@ -26,16 +26,19 @@ import { AccountsBillingService } from '../services/accounts-billing.service';
       </div>
 
       <!-- Empty state -->
-      <div *ngIf="loaded && !rows.length && !loading" class="bg-white rounded-xl border shadow-sm p-10 text-center">
+      @if (loaded && !rows.length && !loading) {
+<div class="bg-white rounded-xl border shadow-sm p-10 text-center">
         <svg class="mx-auto h-12 w-12 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
         </svg>
         <p class="mt-3 text-sm text-slate-500">No invoices found for the selected date range.</p>
         <p class="text-xs text-slate-400 mt-1">Try adjusting the dates or create invoices first.</p>
       </div>
+}
 
       <!-- Totals -->
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-4" *ngIf="rows.length">
+      @if (rows.length) {
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div class="bg-white rounded-xl border p-4">
           <p class="text-xs text-slate-400">Taxable Value</p>
           <p class="text-xl font-bold text-slate-800">₹{{ fmt(totals.taxable) }}</p>
@@ -57,8 +60,10 @@ import { AccountsBillingService } from '../services/accounts-billing.service';
           <p class="text-xl font-bold text-green-600">₹{{ fmt(totals.grand) }}</p>
         </div>
       </div>
+}
 
-      <div class="bg-white rounded-xl border shadow-sm overflow-x-auto" *ngIf="rows.length">
+      @if (rows.length) {
+<div class="bg-white rounded-xl border shadow-sm overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
             <tr>
@@ -74,7 +79,8 @@ import { AccountsBillingService } from '../services/accounts-billing.service';
             </tr>
           </thead>
           <tbody class="divide-y">
-            <tr *ngFor="let r of rows" class="hover:bg-slate-50">
+            @for (r of rows; track r) {
+<tr class="hover:bg-slate-50">
               <td class="px-4 py-2 font-mono text-xs">{{ r.invoiceNumber }}</td>
               <td class="px-4 py-2">{{ r.invoiceDate }}</td>
               <td class="px-4 py-2">{{ r.clientName }}</td>
@@ -85,9 +91,11 @@ import { AccountsBillingService } from '../services/accounts-billing.service';
               <td class="px-4 py-2 text-right">₹{{ fmt(r.igstAmount) }}</td>
               <td class="px-4 py-2 text-right font-medium">₹{{ fmt(r.grandTotal) }}</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+}
     </div>
   `,
 })

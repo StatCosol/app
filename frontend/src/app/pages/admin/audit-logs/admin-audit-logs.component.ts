@@ -47,7 +47,9 @@ import {
           <select id="aal-entity-type" name="entityType" [(ngModel)]="filters.entityType"
                   class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
             <option value="">All</option>
-            <option *ngFor="let t of entityTypes" [value]="t">{{ t }}</option>
+            @for (t of entityTypes; track t) {
+<option [value]="t">{{ t }}</option>
+}
           </select>
         </div>
         <div>
@@ -55,7 +57,9 @@ import {
           <select id="aal-action" name="action" [(ngModel)]="filters.action"
                   class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
             <option value="">All</option>
-            <option *ngFor="let a of actions" [value]="a">{{ a }}</option>
+            @for (a of actions; track a) {
+<option [value]="a">{{ a }}</option>
+}
           </select>
         </div>
         <div>
@@ -81,14 +85,19 @@ import {
         </div>
       </div>
 
-      <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
 
-      <div *ngIf="!loading && logs.length === 0">
+      @if (!loading && logs.length === 0) {
+<div>
         <ui-empty-state title="No audit logs found" description="Try adjusting filters or date range."></ui-empty-state>
       </div>
+}
 
       <!-- Results table -->
-      <div *ngIf="!loading && logs.length > 0"
+      @if (!loading && logs.length > 0) {
+<div
            class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -102,7 +111,8 @@ import {
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-              <tr *ngFor="let log of logs" class="hover:bg-gray-50 dark:hover:bg-gray-750">
+              @for (log of logs; track log) {
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-750">
                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                   {{ log.createdAt | date:'short' }}
                 </td>
@@ -117,11 +127,17 @@ import {
                   </span>
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                  <span *ngIf="log.performedBy" class="font-mono text-xs">{{ log.performedBy | slice:0:8 }}…</span>
-                  <span *ngIf="!log.performedBy" class="text-gray-400 italic">system</span>
-                  <span *ngIf="log.snapshot?.['performedRole']" class="ml-1 text-xs text-gray-400">
+                  @if (log.performedBy) {
+<span class="font-mono text-xs">{{ log.performedBy | slice:0:8 }}…</span>
+}
+                  @if (!log.performedBy) {
+<span class="text-gray-400 italic">system</span>
+}
+                  @if (log.snapshot?.['performedRole']) {
+<span class="ml-1 text-xs text-gray-400">
                     ({{ log.snapshot?.['performedRole'] }})
                   </span>
+}
                 </td>
                 <td class="px-4 py-3 text-sm">
                   <button (click)="expandedId = expandedId === log.id ? null : log.id"
@@ -130,15 +146,22 @@ import {
                   </button>
                 </td>
               </tr>
+}
               <!-- Expanded detail row -->
-              <tr *ngIf="expandedId !== null">
+              @if (expandedId !== null) {
+<tr>
                 <td colspan="5" class="px-4 py-3 bg-gray-50 dark:bg-gray-900">
-                  <ng-container *ngFor="let log of logs">
-                    <pre *ngIf="expandedId === log.id"
+                  @for (log of logs; track log) {
+
+                    @if (expandedId === log.id) {
+<pre
                          class="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap max-h-48 overflow-y-auto font-mono">{{ log.snapshot | json }}</pre>
-                  </ng-container>
+}
+                  
+}
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
@@ -160,6 +183,7 @@ import {
           </div>
         </div>
       </div>
+}
     </div>
   `,
 })

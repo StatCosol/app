@@ -4,43 +4,61 @@
     subtitle="View and download compliance files shared by CRM">
   </ui-page-header>
 
-  <div *ngIf="hasFocusContext()" class="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sky-900">
+  @if (hasFocusContext()) {
+<div class="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sky-900">
     <p class="text-sm font-semibold">Focused from Branch Compliance</p>
     <p class="text-sm">{{ focusSummary() }}</p>
   </div>
+}
 
   <!-- Tabs -->
   <div class="tabs">
-    <button type="button" *ngFor="let tab of tabs"
+    @for (tab of tabs; track tab) {
+<button type="button"
       class="tab-btn"
       [class.active]="activeTab === tab.code"
       (click)="switchTab(tab.code)">
       {{ tab.label }}
-      <span *ngIf="tabCounts[tab.code] !== undefined" class="ml-1 text-xs text-gray-400">({{ tabCounts[tab.code] }})</span>
+      @if (tabCounts[tab.code] !== undefined) {
+<span class="ml-1 text-xs text-gray-400">({{ tabCounts[tab.code] }})</span>
+}
     </button>
+}
   </div>
 
   <!-- Filters -->
   <div class="filters-row">
-    <select id="ccl-branch-id" name="branchId" class="filter-select" [(ngModel)]="filters.branchId" (ngModelChange)="loadDocuments()"
-      *ngIf="branches.length > 1">
+    @if (branches.length > 1) {
+<select id="ccl-branch-id" name="branchId" class="filter-select" [(ngModel)]="filters.branchId" (ngModelChange)="loadDocuments()"
+     >
       <option value="">All Branches</option>
-      <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
+      @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
+}
     </select>
+}
 
-    <select class="filter-select" *ngIf="subCategories.length > 0" [(ngModel)]="filters.subCategory" (ngModelChange)="loadDocuments()">
+    @if (subCategories.length > 0) {
+<select class="filter-select" [(ngModel)]="filters.subCategory" (ngModelChange)="loadDocuments()">
       <option value="">All Types</option>
-      <option *ngFor="let sc of subCategories" [value]="sc.code">{{ sc.label }}</option>
+      @for (sc of subCategories; track sc) {
+<option [value]="sc.code">{{ sc.label }}</option>
+}
     </select>
+}
 
     <select id="ccl-period-year" name="periodYear" class="filter-select" [(ngModel)]="filters.periodYear" (ngModelChange)="loadDocuments()">
       <option [ngValue]="null">All Years</option>
-      <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
+      @for (y of yearOptions; track y) {
+<option [ngValue]="y">{{ y }}</option>
+}
     </select>
 
     <select id="ccl-period-month" name="periodMonth" class="filter-select" [(ngModel)]="filters.periodMonth" (ngModelChange)="loadDocuments()">
       <option [ngValue]="null">All Months</option>
-      <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
+      @for (m of monthOptions; track m) {
+<option [ngValue]="m.value">{{ m.label }}</option>
+}
     </select>
 
     <input autocomplete="off" id="ccl-search" name="search" class="filter-input" type="text" placeholder="Search by title..."
@@ -48,18 +66,24 @@
   </div>
 
   <!-- Loading -->
-  <ui-loading-spinner *ngIf="loading" text="Loading documents..."></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner text="Loading documents..."></ui-loading-spinner>
+}
 
   <!-- Empty state -->
-  <ui-empty-state
-    *ngIf="!loading && filteredDocs.length === 0"
+  @if (!loading && filteredDocs.length === 0) {
+<ui-empty-state
+   
     title="No documents found"
     description="No compliance documents match the current filters. Files will appear here once CRM uploads them.">
   </ui-empty-state>
+}
 
   <!-- Document grid -->
-  <div class="doc-grid" *ngIf="!loading && filteredDocs.length > 0">
-    <div class="doc-card" *ngFor="let doc of filteredDocs">
+  @if (!loading && filteredDocs.length > 0) {
+<div class="doc-grid">
+    @for (doc of filteredDocs; track doc) {
+<div class="doc-card">
       <div class="doc-title">
         <svg class="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -69,16 +93,24 @@
       </div>
 
       <div class="doc-meta">
-        <span *ngIf="doc.subCategory" class="doc-badge">{{ getSubCategoryLabel(doc.subCategory) }}</span>
-        <span *ngIf="doc.periodLabel">{{ doc.periodLabel }}</span>
-        <span *ngIf="!doc.periodLabel && doc.periodYear">
+        @if (doc.subCategory) {
+<span class="doc-badge">{{ getSubCategoryLabel(doc.subCategory) }}</span>
+}
+        @if (doc.periodLabel) {
+<span>{{ doc.periodLabel }}</span>
+}
+        @if (!doc.periodLabel && doc.periodYear) {
+<span>
           {{ doc.periodMonth ? monthOptions[(doc.periodMonth || 1) - 1]?.label : '' }} {{ doc.periodYear }}
         </span>
+}
         <span>{{ formatFileSize(doc.fileSize) }}</span>
         <span>{{ doc.createdAt | date:'mediumDate' }}</span>
       </div>
 
-      <p *ngIf="doc.description" class="text-xs text-gray-500 line-clamp-2">{{ doc.description }}</p>
+      @if (doc.description) {
+<p class="text-xs text-gray-500 line-clamp-2">{{ doc.description }}</p>
+}
 
       <a class="download-btn" [href]="getDownloadUrl(doc.id)" target="_blank">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -88,5 +120,7 @@
         Download
       </a>
     </div>
+}
   </div>
+}
 </div>

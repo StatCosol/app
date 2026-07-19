@@ -1,12 +1,12 @@
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterModule } from '@angular/router';
 import { AdminClientsService, Client, Branch } from '../clients/admin-clients.service';
 
 @Component({
   selector: 'app-applicability-list',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [RouterModule],
   template: `
     <div class="p-6 max-w-6xl mx-auto">
       <h1 class="text-2xl font-bold text-slate-800 mb-1">Applicability Engine</h1>

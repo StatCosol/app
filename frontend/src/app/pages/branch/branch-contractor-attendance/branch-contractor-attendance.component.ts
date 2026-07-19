@@ -47,16 +47,20 @@ import {
             class="ui-input"
           >
             <option value="">-- Select a contractor --</option>
-            <option *ngFor="let c of contractors" [value]="c.contractorUserId">
+            @for (c of contractors; track c) {
+<option [value]="c.contractorUserId">
               {{ c.contractorName || c.contractorEmail || '(unnamed)' }} - {{ c.employeeCount }} emp
             </option>
+}
           </select>
-          <p
-            *ngIf="!loadingContractors && contractors.length === 0"
+          @if (!loadingContractors && contractors.length === 0) {
+<p
+           
             class="mt-1 text-xs text-gray-500"
           >
             No contractors with active employees in your branch.
           </p>
+}
         </div>
 
         <div>
@@ -87,9 +91,11 @@ import {
         <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <h3 class="font-semibold text-gray-900">
             Attendance
-            <span *ngIf="attendanceRows.length" class="ml-2 text-xs font-normal text-gray-500">
+            @if (attendanceRows.length) {
+<span class="ml-2 text-xs font-normal text-gray-500">
               ({{ attendanceRows.length }})
             </span>
+}
           </h3>
           <button
             type="button"
@@ -101,26 +107,34 @@ import {
           </button>
         </div>
 
-        <div *ngIf="loadingPunches" class="py-10 flex justify-center">
+        @if (loadingPunches) {
+<div class="py-10 flex justify-center">
           <ui-loading-spinner></ui-loading-spinner>
         </div>
+}
 
-        <ng-container *ngIf="!loadingPunches">
-          <div *ngIf="!contractorUserId">
+        @if (!loadingPunches) {
+
+          @if (!contractorUserId) {
+<div>
             <ui-empty-state
               title="Select a contractor"
               description="Choose a contractor above to view its employees' face-attendance punches in your branch."
             ></ui-empty-state>
           </div>
+}
 
-          <div *ngIf="contractorUserId && !attendanceRows.length">
+          @if (contractorUserId && !attendanceRows.length) {
+<div>
             <ui-empty-state
               title="No attendance found"
               description="No ConTrack punches for this contractor in the selected window."
             ></ui-empty-state>
           </div>
+}
 
-          <div *ngIf="contractorUserId && attendanceRows.length" class="overflow-x-auto">
+          @if (contractorUserId && attendanceRows.length) {
+<div class="overflow-x-auto">
             <table class="min-w-full text-sm">
               <thead class="bg-gray-50 text-left text-xs font-medium text-gray-600 uppercase">
                 <tr>
@@ -138,7 +152,8 @@ import {
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
-                <tr *ngFor="let r of attendanceRows" class="hover:bg-gray-50">
+                @for (r of attendanceRows; track r) {
+<tr class="hover:bg-gray-50">
                   <td class="px-4 py-2 whitespace-nowrap">{{ r.date | date: 'dd MMM yyyy' }}</td>
                   <td class="px-4 py-2">{{ r.contractorEmployeeName || '-' }}</td>
                   <td class="px-4 py-2 whitespace-nowrap">
@@ -163,15 +178,19 @@ import {
                   <td class="px-4 py-2 text-xs text-gray-600">{{ fmtScore(r.matchScore) }}</td>
                   <td class="px-4 py-2 text-xs text-gray-600">{{ fmtScore(r.livenessScore) }}</td>
                   <td class="px-4 py-2">
-                    <a
-                      *ngIf="r.photoUrl"
+                    @if (r.photoUrl) {
+<a
+                     
                       [href]="r.photoUrl"
                       target="_blank"
                       rel="noopener"
                       class="text-indigo-600 hover:text-indigo-700 text-xs"
                       >View</a
                     >
-                    <span *ngIf="!r.photoUrl" class="text-xs text-gray-400">-</span>
+}
+                    @if (!r.photoUrl) {
+<span class="text-xs text-gray-400">-</span>
+}
                   </td>
                   <td class="px-4 py-2 text-right whitespace-nowrap">
                     <button
@@ -192,10 +211,13 @@ import {
                     </button>
                   </td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
-        </ng-container>
+}
+        
+}
       </div>
     </div>
   `,

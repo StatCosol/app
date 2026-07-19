@@ -53,7 +53,8 @@
     </div>
   </div>
 
-  <section class="branch-board" *ngIf="branchPendingRows.length">
+  @if (branchPendingRows.length) {
+<section class="branch-board">
     <div class="panel-head">
       <h3>Branch-wise Pending View</h3>
       <span>Click branch row to filter queue</span>
@@ -70,38 +71,48 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let row of branchPendingRows; trackBy: trackById" (click)="focusBranchPending(row.branchId)">
+          @for (row of branchPendingRows; track trackById($index, row)) {
+<tr (click)="focusBranchPending(row.branchId)">
             <td>{{ branchLabel(row) }}</td>
             <td>{{ row.total }}</td>
             <td>{{ row.pending }}</td>
             <td>{{ row.completed }}</td>
             <td><span class="danger">{{ row.overdue }}</span></td>
           </tr>
+}
         </tbody>
       </table>
     </div>
   </section>
+}
 
   <div class="tab-strip">
-    <button
-      *ngFor="let t of tabs"
+    @for (t of tabs; track t) {
+<button
+     
       type="button"
       class="tab-btn"
       [class.active]="tab === t"
       (click)="setTab(t)">
       {{ t === 'DUE_SOON' ? 'Due Soon' : t === 'THIS_MONTH' ? 'This Month' : (t | titlecase) }}
     </button>
+}
   </div>
 
-  <ui-loading-spinner *ngIf="loading" text="Loading amendments workspace..."></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner text="Loading amendments workspace..."></ui-loading-spinner>
+}
 
-  <ui-empty-state
-    *ngIf="!loading && !viewItems.length"
+  @if (!loading && !viewItems.length) {
+<ui-empty-state
+   
     title="No amendments found"
     message="No amendment items match the current queue filters.">
   </ui-empty-state>
+}
 
-  <div class="workspace-grid" *ngIf="!loading && viewItems.length">
+  @if (!loading && viewItems.length) {
+<div class="workspace-grid">
     <section class="queue-panel">
       <div class="panel-head">
         <h3>Amendment Queue</h3>
@@ -120,8 +131,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              *ngFor="let item of viewItems; trackBy: trackById"
+            @for (item of viewItems; track trackById($index, item)) {
+<tr
+             
               [class.active]="selectedItem?.id === item.id"
               (click)="selectItem(item)">
               <td>
@@ -150,6 +162,7 @@
                 </div>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
@@ -161,14 +174,17 @@
       </div>
     </section>
 
-    <aside class="detail-panel" *ngIf="selectedItem as item">
+    @if (selectedItem; as item) {
+<aside class="detail-panel">
       <div class="panel-head">
         <h3>Amendment Detail</h3>
         <ui-status-badge [status]="item.status" size="sm"></ui-status-badge>
       </div>
 
       <div class="detail-body">
-        <div class="detail-loading" *ngIf="detailLoading">Refreshing amendment detail...</div>
+        @if (detailLoading) {
+<div class="detail-loading">Refreshing amendment detail...</div>
+}
         <h4>{{ item.title }}</h4>
 
         <div class="authority-panel">
@@ -193,27 +209,33 @@
         </div>
 
         <div class="steps">
-          <div
-            *ngFor="let stepItem of workflowSteps(item)"
+          @for (stepItem of workflowSteps(item); track stepItem) {
+<div
+           
             [class]="workflowStepClass(stepItem.state)">
             {{ stepItem.label }}
           </div>
+}
         </div>
 
         <div class="checklist">
-          <div class="check-item" *ngFor="let check of detailChecklist(item)">
+          @for (check of detailChecklist(item); track check) {
+<div class="check-item">
             <div>
               <span class="check-label">{{ check.label }}</span>
               <small class="check-note">{{ check.note }}</small>
             </div>
             <strong [class.check-pass]="check.done" [class.check-fail]="!check.done">{{ check.done ? 'Done' : 'Pending' }}</strong>
           </div>
+}
         </div>
 
-        <div class="remarks-box" *ngIf="item.remarks">
+        @if (item.remarks) {
+<div class="remarks-box">
           <div class="remarks-title">Latest Remarks</div>
           <p>{{ item.remarks }}</p>
         </div>
+}
 
         <div class="actions-block">
           <ui-button variant="secondary" size="sm" (clicked)="markInProgress(item)" [disabled]="actionBusy || !canMarkInProgress(item)">
@@ -237,21 +259,35 @@
           <ui-button variant="ghost" size="sm" (clicked)="sendReminder(item)" [disabled]="actionBusy">
             Send Reminder
           </ui-button>
-          <a *ngIf="item.evidenceUrl" [href]="item.evidenceUrl" target="_blank" class="evidence-link">Open Evidence</a>
-          <a *ngIf="selectedDetail?.ackFilePath" [href]="selectedDetail?.ackFilePath" target="_blank" class="evidence-link">Open Ack</a>
-          <a *ngIf="selectedDetail?.challanFilePath" [href]="selectedDetail?.challanFilePath" target="_blank" class="evidence-link">Open Challan</a>
+          @if (item.evidenceUrl) {
+<a [href]="item.evidenceUrl" target="_blank" class="evidence-link">Open Evidence</a>
+}
+          @if (selectedDetail?.ackFilePath) {
+<a [href]="selectedDetail?.ackFilePath" target="_blank" class="evidence-link">Open Ack</a>
+}
+          @if (selectedDetail?.challanFilePath) {
+<a [href]="selectedDetail?.challanFilePath" target="_blank" class="evidence-link">Open Challan</a>
+}
         </div>
 
         <div class="timeline">
           <h5>Timeline</h5>
-          <div class="timeline-empty" *ngIf="!selectedTimeline.length">No timeline events captured yet.</div>
-          <div *ngFor="let ev of selectedTimeline" class="timeline-event">
+          @if (!selectedTimeline.length) {
+<div class="timeline-empty">No timeline events captured yet.</div>
+}
+          @for (ev of selectedTimeline; track ev) {
+<div class="timeline-event">
             <div class="timeline-title">{{ ev.title }}</div>
             <div class="timeline-time">{{ ev.timestamp | date: 'dd MMM yyyy, HH:mm' }}</div>
-            <div class="timeline-note" *ngIf="ev.note">{{ ev.note }}</div>
+            @if (ev.note) {
+<div class="timeline-note">{{ ev.note }}</div>
+}
           </div>
+}
         </div>
       </div>
     </aside>
+}
   </div>
+}
 </div>

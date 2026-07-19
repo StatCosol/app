@@ -9,10 +9,14 @@
       <div class="new-run-period" title="Pay period for the new run. Defaults to the previous month (e.g. in May, run April's payroll).">
         <label for="new-run-month" class="sr-label">Pay period</label>
         <select id="new-run-month" name="newRunMonth" [(ngModel)]="newRunMonth" title="Pay-period month for new payroll run">
-          <option *ngFor="let month of monthOptions; index as idx" [ngValue]="idx + 1">{{ month }}</option>
+          @for (month of monthOptions; track month; let idx = $index) {
+<option [ngValue]="idx + 1">{{ month }}</option>
+}
         </select>
         <select id="new-run-year" name="newRunYear" [(ngModel)]="newRunYear" title="Pay-period year for new payroll run">
-          <option *ngFor="let year of yearOptions" [ngValue]="year">{{ year }}</option>
+          @for (year of yearOptions; track year) {
+<option [ngValue]="year">{{ year }}</option>
+}
         </select>
       </div>
       <ui-button variant="primary" size="sm" (clicked)="createRun()" [disabled]="creatingRun">
@@ -27,20 +31,26 @@
         <label for="run-month">Month</label>
         <select id="run-month" name="selectedMonth" [(ngModel)]="selectedMonth">
           <option [ngValue]="0">All Months</option>
-          <option *ngFor="let month of monthOptions; index as idx" [ngValue]="idx + 1">{{ month }}</option>
+          @for (month of monthOptions; track month; let idx = $index) {
+<option [ngValue]="idx + 1">{{ month }}</option>
+}
         </select>
       </div>
       <div class="field">
         <label for="run-year">Year</label>
         <select id="run-year" name="selectedYear" [(ngModel)]="selectedYear">
           <option [ngValue]="0">All Years</option>
-          <option *ngFor="let year of yearOptions" [ngValue]="year">{{ year }}</option>
+          @for (year of yearOptions; track year) {
+<option [ngValue]="year">{{ year }}</option>
+}
         </select>
       </div>
       <div class="field">
         <label for="run-status">Status</label>
         <select id="run-status" name="statusFilter" [(ngModel)]="statusFilter">
-          <option *ngFor="let status of statusOptions" [value]="status">{{ status || 'All Statuses' }}</option>
+          @for (status of statusOptions; track status) {
+<option [value]="status">{{ status || 'All Statuses' }}</option>
+}
         </select>
       </div>
       <div class="field field--wide">
@@ -62,14 +72,19 @@
     <article class="summary-card"><div class="label">Approved</div><div class="value">{{ approvedRuns() }}</div></article>
   </section>
 
-  <ui-loading-spinner *ngIf="loadingRuns" text="Loading payroll runs..."></ui-loading-spinner>
-  <ui-empty-state
-    *ngIf="!loadingRuns && !filteredRuns.length"
+  @if (loadingRuns) {
+<ui-loading-spinner text="Loading payroll runs..."></ui-loading-spinner>
+}
+  @if (!loadingRuns && !filteredRuns.length) {
+<ui-empty-state
+   
     title="No Payroll Runs"
     description="No runs found for the selected filters.">
   </ui-empty-state>
+}
 
-  <section class="console-grid" *ngIf="!loadingRuns && filteredRuns.length">
+  @if (!loadingRuns && filteredRuns.length) {
+<section class="console-grid">
     <div class="queue-panel card">
       <div class="panel-head">
         <h3>Run Queue</h3>
@@ -87,8 +102,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              *ngFor="let run of filteredRuns; trackBy: trackById"
+            @for (run of filteredRuns; track trackById($index, run)) {
+<tr
+             
               [class.row-active]="selectedRun?.id === run.id"
               (click)="selectRun(run)">
               <td>{{ run.clientName || '-' }}</td>
@@ -107,22 +123,26 @@
                 </ui-button>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
     </div>
 
-    <div class="detail-panel card" *ngIf="selectedRun as run">
+    @if (selectedRun; as run) {
+<div class="detail-panel card">
       <div class="panel-head">
         <h3>Run Workspace</h3>
         <span>{{ run.clientName }} | {{ monthLabel(run.periodMonth) }} {{ run.periodYear }}</span>
       </div>
 
       <div class="stepper">
-        <div *ngFor="let step of processSteps; index as idx" [class]="stepClass(idx + 1)">
+        @for (step of processSteps; track step; let idx = $index) {
+<div [class]="stepClass(idx + 1)">
           <span class="step-index">{{ idx + 1 }}</span>
           <span>{{ step.label }}</span>
         </div>
+}
       </div>
 
       <div class="status-cards">
@@ -154,7 +174,9 @@
           </ui-button>
           <ui-button variant="ghost" size="sm" (clicked)="downloadAttendanceTemplate()">Download Template</ui-button>
         </div>
-        <div class="guard-note" *ngIf="!actionAllowed(run,'IMPORT')">{{ actionGuardReason(run, 'IMPORT') }}</div>
+        @if (!actionAllowed(run,'IMPORT')) {
+<div class="guard-note">{{ actionGuardReason(run, 'IMPORT') }}</div>
+}
       </div>
 
       <div class="leave-validation-box">
@@ -168,17 +190,24 @@
           </ui-button>
         </div>
 
-        <div class="lv-error" *ngIf="leaveValidationError">{{ leaveValidationError }}</div>
+        @if (leaveValidationError) {
+<div class="lv-error">{{ leaveValidationError }}</div>
+}
 
-        <div class="lv-empty" *ngIf="leaveValidationLoaded && !leaveValidationError && leaveValidationRows.length === 0">
+        @if (leaveValidationLoaded && !leaveValidationError && leaveValidationRows.length === 0) {
+<div class="lv-empty">
           All employees match — attendance leave equals ESS-approved leave.
         </div>
+}
 
-        <div class="lv-search" *ngIf="leaveValidationRows.length > 0">
+        @if (leaveValidationRows.length > 0) {
+<div class="lv-search">
           <input type="text" class="lv-search-input" placeholder="Search employee by name or code..." [(ngModel)]="leaveValidationSearch" />
-          <span class="lv-search-meta" *ngIf="leaveValidationSearch">
+          @if (leaveValidationSearch) {
+<span class="lv-search-meta">
             Showing {{ filteredLeaveValidationRows.length }} of {{ leaveValidationRows.length }}
           </span>
+}
           <span class="lv-bulk-spacer"></span>
           <label class="lv-bulk-label">Bulk source:</label>
           <select [(ngModel)]="bulkLeaveSource" class="lv-select" [disabled]="bulkResolvingLeave">
@@ -194,8 +223,10 @@
             {{ bulkResolvingLeave ? ('Resolving ' + bulkResolveProgress.done + '/' + bulkResolveProgress.total + '...') : ('Resolve All (' + pendingLeaveCount + ')') }}
           </ui-button>
         </div>
+}
 
-        <table class="lv-table" *ngIf="leaveValidationRows.length > 0">
+        @if (leaveValidationRows.length > 0) {
+<table class="lv-table">
           <thead>
             <tr>
               <th>Code</th>
@@ -210,7 +241,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let row of filteredLeaveValidationRows" [class.lv-warn]="row.status !== 'OK' && !row.resolved" [class.lv-resolved]="row.resolved">
+            @for (row of filteredLeaveValidationRows; track row) {
+<tr [class.lv-warn]="row.status !== 'OK' && !row.resolved" [class.lv-resolved]="row.resolved">
               <td>{{ row.empCode }}</td>
               <td>{{ row.employeeName }}</td>
               <td class="num">{{ row.attendanceLeave | number: '1.0-2' }}</td>
@@ -220,12 +252,18 @@
               </td>
               <td>{{ leaveValidationStatusLabel(row.status) }}</td>
               <td>
-                <ng-container *ngIf="row.essApplications.length; else noApps">
-                  <div *ngFor="let a of row.essApplications" class="lv-app">
+                @if (row.essApplications.length) {
+
+                  @for (a of row.essApplications; track a) {
+<div class="lv-app">
                     {{ a.leaveType }} · {{ a.fromDate }} → {{ a.toDate }} ({{ a.days | number: '1.0-2' }}d)
                   </div>
-                </ng-container>
-                <ng-template #noApps><span class="lv-muted">—</span></ng-template>
+}
+                
+} @else {
+<span class="lv-muted">—</span>
+}
+                
               </td>
               <td>
                 <select [(ngModel)]="row.resolveSource" class="lv-select" [disabled]="!!row.resolving || !!row.resolved">
@@ -234,14 +272,20 @@
                 </select>
               </td>
               <td>
-                <span *ngIf="row.resolved" class="lv-resolved-badge" [title]="'Resolved using ' + row.resolvedSource">✓ Resolved ({{ row.resolvedSource }})</span>
-                <ui-button *ngIf="!row.resolved" variant="primary" size="sm" (clicked)="resolveLeaveValidationRow(row.empCode)" [disabled]="!!row.resolving">
+                @if (row.resolved) {
+<span class="lv-resolved-badge" [title]="'Resolved using ' + row.resolvedSource">✓ Resolved ({{ row.resolvedSource }})</span>
+}
+                @if (!row.resolved) {
+<ui-button variant="primary" size="sm" (clicked)="resolveLeaveValidationRow(row.empCode)" [disabled]="!!row.resolving">
                   {{ row.resolving ? 'Resolving...' : 'Resolve' }}
                 </ui-button>
+}
               </td>
             </tr>
+}
           </tbody>
         </table>
+}
       </div>
 
       <div class="leave-validation-box">
@@ -255,17 +299,24 @@
           </ui-button>
         </div>
 
-        <div class="lv-error" *ngIf="otValidationError">{{ otValidationError }}</div>
+        @if (otValidationError) {
+<div class="lv-error">{{ otValidationError }}</div>
+}
 
-        <div class="lv-empty" *ngIf="otValidationLoaded && !otValidationError && otValidationRows.length === 0">
+        @if (otValidationLoaded && !otValidationError && otValidationRows.length === 0) {
+<div class="lv-empty">
           All employees match — attendance OT equals branch and ESS daily OT.
         </div>
+}
 
-        <div class="lv-search" *ngIf="otValidationRows.length > 0">
+        @if (otValidationRows.length > 0) {
+<div class="lv-search">
           <input type="text" class="lv-search-input" placeholder="Search employee by name or code..." [(ngModel)]="otValidationSearch" />
-          <span class="lv-search-meta" *ngIf="otValidationSearch">
+          @if (otValidationSearch) {
+<span class="lv-search-meta">
             Showing {{ filteredOtValidationRows.length }} of {{ otValidationRows.length }}
           </span>
+}
           <span class="lv-bulk-spacer"></span>
           <label class="lv-bulk-label">Bulk source:</label>
           <select [(ngModel)]="bulkOtSource" class="lv-select" [disabled]="bulkResolvingOt">
@@ -282,8 +333,10 @@
             {{ bulkResolvingOt ? ('Resolving ' + bulkResolveProgress.done + '/' + bulkResolveProgress.total + '...') : ('Resolve All (' + pendingOtCount + ')') }}
           </ui-button>
         </div>
+}
 
-        <table class="lv-table" *ngIf="otValidationRows.length > 0">
+        @if (otValidationRows.length > 0) {
+<table class="lv-table">
           <thead>
             <tr>
               <th>Code</th>
@@ -297,7 +350,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let row of filteredOtValidationRows" [class.lv-warn]="!row.resolved" [class.lv-resolved]="row.resolved">
+            @for (row of filteredOtValidationRows; track row) {
+<tr [class.lv-warn]="!row.resolved" [class.lv-resolved]="row.resolved">
               <td>{{ row.empCode }}</td>
               <td>{{ row.employeeName }}</td>
               <td class="num">{{ row.attendanceSheetOt | number: '1.0-2' }}</td>
@@ -312,14 +366,20 @@
                 </select>
               </td>
               <td>
-                <span *ngIf="row.resolved" class="lv-resolved-badge" [title]="'Resolved using ' + row.resolvedSource + ' = ' + row.resolvedOtHours + ' hr'">✓ Resolved ({{ row.resolvedSource }})</span>
-                <ui-button *ngIf="!row.resolved" variant="primary" size="sm" (clicked)="resolveOtValidationRow(row.empCode)" [disabled]="!!row.resolving">
+                @if (row.resolved) {
+<span class="lv-resolved-badge" [title]="'Resolved using ' + row.resolvedSource + ' = ' + row.resolvedOtHours + ' hr'">✓ Resolved ({{ row.resolvedSource }})</span>
+}
+                @if (!row.resolved) {
+<ui-button variant="primary" size="sm" (clicked)="resolveOtValidationRow(row.empCode)" [disabled]="!!row.resolving">
                   {{ row.resolving ? 'Resolving...' : 'Resolve' }}
                 </ui-button>
+}
               </td>
             </tr>
+}
           </tbody>
         </table>
+}
       </div>
 
       <div class="preview-grid">
@@ -370,33 +430,46 @@
             Delete Draft
           </ui-button>
         </div>
-        <div class="guard-note" *ngIf="!canDeleteRun(run)">Delete is unavailable for Approved runs.</div>
+        @if (!canDeleteRun(run)) {
+<div class="guard-note">Delete is unavailable for Approved runs.</div>
+}
       </div>
 
       <div class="guardrail-card">
         <div class="actions-title">Step Guardrails</div>
-        <div class="guardrail-row" *ngFor="let g of runGuardrails(run); trackBy: trackById">
+        @for (g of runGuardrails(run); track trackById($index, g)) {
+<div class="guardrail-row">
           <span class="guardrail-label">{{ g.label }}</span>
-          <span class="guardrail-ok" *ngIf="g.allowed">Allowed</span>
-          <span class="guardrail-blocked" *ngIf="!g.allowed">{{ g.reason }}</span>
+          @if (g.allowed) {
+<span class="guardrail-ok">Allowed</span>
+}
+          @if (!g.allowed) {
+<span class="guardrail-blocked">{{ g.reason }}</span>
+}
         </div>
+}
       </div>
 
       <div class="exception-card">
         <div class="actions-title">Validation Exception Board</div>
         <div class="bucket-grid">
-          <article
-            *ngFor="let bucket of exceptionBuckets(); trackBy: trackById"
+          @for (bucket of exceptionBuckets(); track trackById($index, bucket)) {
+<article
+           
             [class]="bucketClass(bucket)"
             (click)="setExceptionBucket(bucket.key)">
             <div class="bucket-label">{{ bucket.label }}</div>
             <div class="bucket-value">{{ bucket.count }}</div>
           </article>
+}
         </div>
-        <div class="bucket-filter-hint" *ngIf="selectedExceptionBucketKey !== 'ALL'">
+        @if (selectedExceptionBucketKey !== 'ALL') {
+<div class="bucket-filter-hint">
           Filtered by: {{ selectedExceptionBucketKey }}
         </div>
-        <div class="table-wrap" *ngIf="filteredValidationExceptions().length; else noExceptions">
+}
+        @if (filteredValidationExceptions().length) {
+<div class="table-wrap">
           <table class="data-table compact">
             <thead>
               <tr>
@@ -407,54 +480,83 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of filteredValidationExceptions(); trackBy: trackById">
+              @for (row of filteredValidationExceptions(); track trackById($index, row)) {
+<tr>
                 <td>{{ row.employeeName }} <div class="muted">{{ row.empCode }}</div></td>
                 <td>{{ row.grossEarnings | number: '1.0-0' }}</td>
                 <td>{{ row.totalDeductions | number: '1.0-0' }}</td>
                 <td>{{ row.netPay | number: '1.0-0' }}</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
-        <ng-template #noExceptions>
+} @else {
+
           <div class="ok-line">No high-risk validation exceptions detected.</div>
-        </ng-template>
+        
+}
+        
       </div>
 
       <div class="history-card">
         <div class="actions-title">Publish History</div>
-        <div class="history-summary" *ngIf="publishHistory().length">
+        @if (publishHistory().length) {
+<div class="history-summary">
           <span class="history-chip">Total {{ publishHistorySummary().total }}</span>
           <span class="history-chip">Approvals {{ publishHistorySummary().approvals }}</span>
           <span class="history-chip">Rejects {{ publishHistorySummary().rejects }}</span>
           <span class="history-chip">Publishes {{ publishHistorySummary().publishes }}</span>
           <span class="history-chip">Rollbacks {{ publishHistorySummary().rollbacks }}</span>
         </div>
-        <div class="approval-meta" *ngIf="approvalStatusForSelectedRun() as a">
-          <span *ngIf="a.submittedAt">Submitted: {{ a.submittedAt | date: 'dd MMM yyyy, HH:mm' }}</span>
-          <span *ngIf="a.approvedAt">Approved: {{ a.approvedAt | date: 'dd MMM yyyy, HH:mm' }}</span>
-          <span class="approval-note" *ngIf="a.rejectedAt && a.rejectionReason">Rejected: {{ a.rejectionReason }}</span>
-          <span class="approval-note" *ngIf="a.approvalComments">Approval Notes: {{ a.approvalComments }}</span>
-          <span class="approval-loading" *ngIf="loadingApprovalStatus">Syncing approval timeline...</span>
+}
+        @if (approvalStatusForSelectedRun(); as a) {
+<div class="approval-meta">
+          @if (a.submittedAt) {
+<span>Submitted: {{ a.submittedAt | date: 'dd MMM yyyy, HH:mm' }}</span>
+}
+          @if (a.approvedAt) {
+<span>Approved: {{ a.approvedAt | date: 'dd MMM yyyy, HH:mm' }}</span>
+}
+          @if (a.rejectedAt && a.rejectionReason) {
+<span class="approval-note">Rejected: {{ a.rejectionReason }}</span>
+}
+          @if (a.approvalComments) {
+<span class="approval-note">Approval Notes: {{ a.approvalComments }}</span>
+}
+          @if (loadingApprovalStatus) {
+<span class="approval-loading">Syncing approval timeline...</span>
+}
         </div>
-        <div class="history-list" *ngIf="publishHistory().length; else noHistory">
-          <div class="history-item" *ngFor="let event of visiblePublishHistory(); trackBy: trackById">
+}
+        @if (publishHistory().length) {
+<div class="history-list">
+          @for (event of visiblePublishHistory(); track trackById($index, event)) {
+<div class="history-item">
             <div class="history-title">{{ event.title }}</div>
             <div class="history-time">{{ event.at | date: 'dd MMM yyyy, HH:mm' }}</div>
             <div class="history-kind">{{ event.kind }}</div>
-            <div class="history-note" *ngIf="event.note">{{ event.note }}</div>
+            @if (event.note) {
+<div class="history-note">{{ event.note }}</div>
+}
           </div>
-          <ui-button
-            *ngIf="publishHistory().length > 5"
+}
+          @if (publishHistory().length > 5) {
+<ui-button
+           
             variant="ghost"
             size="sm"
             (clicked)="toggleHistory()">
             {{ showFullHistory ? 'Show Less' : 'Show Full History' }}
           </ui-button>
+}
         </div>
-        <ng-template #noHistory>
+} @else {
+
           <div class="ok-line">No publish history events yet.</div>
-        </ng-template>
+        
+}
+        
       </div>
 
       <div class="employee-preview">
@@ -476,7 +578,8 @@
         </div>
 
         <!-- Add Employee Panel -->
-        <div class="add-emp-panel" *ngIf="showAddEmployeePanel">
+        @if (showAddEmployeePanel) {
+<div class="add-emp-panel">
           <!-- Register New Employee Section -->
           <div class="add-emp-register-section">
             <div class="add-emp-upload-label">Register a brand new employee</div>
@@ -500,9 +603,11 @@
                 {{ addEmpUploadBusy ? 'Adding...' : 'Upload & Add (' + addEmpParsedCodes.length + ')' }}
               </button>
             </div>
-            <div class="add-emp-parsed" *ngIf="addEmpParsedCodes.length">
+            @if (addEmpParsedCodes.length) {
+<div class="add-emp-parsed">
               Parsed {{ addEmpParsedCodes.length }} code(s): {{ addEmpParsedCodes.slice(0, 5).join(', ') }}{{ addEmpParsedCodes.length > 5 ? '...' : '' }}
             </div>
+}
           </div>
 
           <div class="add-emp-divider">OR pick existing registered employees</div>
@@ -515,12 +620,18 @@
             [(ngModel)]="addEmpSearch"
             (ngModelChange)="filterAddEmpList()"
           />
-          <ui-loading-spinner *ngIf="addEmpLoading" text="Loading employees..."></ui-loading-spinner>
-          <div class="add-emp-list" *ngIf="!addEmpLoading">
-            <div *ngIf="!addEmpFiltered.length" class="add-emp-empty">No employees available to add.</div>
-            <label
+          @if (addEmpLoading) {
+<ui-loading-spinner text="Loading employees..."></ui-loading-spinner>
+}
+          @if (!addEmpLoading) {
+<div class="add-emp-list">
+            @if (!addEmpFiltered.length) {
+<div class="add-emp-empty">No employees available to add.</div>
+}
+            @for (emp of addEmpFiltered; track emp) {
+<label
               class="add-emp-item"
-              *ngFor="let emp of addEmpFiltered"
+             
               [class.selected]="addEmpSelected.has(emp.employeeCode)"
             >
               <input
@@ -531,27 +642,39 @@
               <span class="add-emp-name">{{ emp.name }}</span>
               <span class="add-emp-code">{{ emp.employeeCode }}</span>
             </label>
+}
           </div>
-          <div class="add-emp-actions" *ngIf="addEmpSelected.size">
+}
+          @if (addEmpSelected.size) {
+<div class="add-emp-actions">
             <button class="btn-confirm-add" (click)="confirmAddEmployees()" [disabled]="addEmpBusy">
               {{ addEmpBusy ? 'Adding...' : 'Add ' + addEmpSelected.size + ' Employee(s) to Run' }}
             </button>
           </div>
+}
         </div>
+}
 
-        <ui-loading-spinner *ngIf="loadingRunDetail" text="Loading employee preview..."></ui-loading-spinner>
-        <div class="emp-preview-search" *ngIf="!loadingRunDetail && runEmployees.length">
+        @if (loadingRunDetail) {
+<ui-loading-spinner text="Loading employee preview..."></ui-loading-spinner>
+}
+        @if (!loadingRunDetail && runEmployees.length) {
+<div class="emp-preview-search">
           <input
             type="text"
             class="emp-preview-search-input"
             placeholder="Search employee by name or code..."
             [(ngModel)]="runEmployeeSearch"
           />
-          <span class="emp-preview-search-meta" *ngIf="runEmployeeSearch">
+          @if (runEmployeeSearch) {
+<span class="emp-preview-search-meta">
             Showing {{ filteredRunEmployees.length }} of {{ runEmployees.length }}
           </span>
+}
         </div>
-        <div class="table-wrap payheet-wrap" *ngIf="!loadingRunDetail && runEmployees.length">
+}
+        @if (!loadingRunDetail && runEmployees.length) {
+<div class="table-wrap payheet-wrap">
           <table class="data-table compact payheet-table">
             <thead>
               <tr class="group-row">
@@ -565,7 +688,9 @@
                 <th [attr.colspan]="earningComponents.length + 1" class="grp-earn">Earnings</th>
                 <th [attr.colspan]="deductionComponents.length + 1" class="grp-ded">Deductions</th>
                 <th rowspan="2" class="col-net">Net Pay</th>
-                <th *ngIf="employerComponents.length" [attr.colspan]="employerComponents.length" class="grp-er">Employer Cost</th>
+                @if (employerComponents.length) {
+<th [attr.colspan]="employerComponents.length" class="grp-er">Employer Cost</th>
+}
                 <th rowspan="2">Action</th>
               </tr>
               <tr>
@@ -574,15 +699,22 @@
                 <th>LOP</th>
                 <th>OT Hrs</th>
                 <th class="num">OT Amount</th>
-                <th *ngFor="let c of earningComponents" class="col-earn" [title]="c.name">{{ c.name }}</th>
+                @for (c of earningComponents; track c) {
+<th class="col-earn" [title]="c.name">{{ c.name }}</th>
+}
                 <th class="col-total-earn">Gross</th>
-                <th *ngFor="let c of deductionComponents" class="col-ded" [title]="c.name">{{ c.name }}</th>
+                @for (c of deductionComponents; track c) {
+<th class="col-ded" [title]="c.name">{{ c.name }}</th>
+}
                 <th class="col-total-ded">Total Ded.</th>
-                <th *ngFor="let c of employerComponents" class="col-er" [title]="c.name">{{ c.name }}</th>
+                @for (c of employerComponents; track c) {
+<th class="col-er" [title]="c.name">{{ c.name }}</th>
+}
               </tr>
             </thead>
             <tbody>
-              <ng-container *ngFor="let row of filteredRunEmployees; trackBy: trackById">
+              @for (row of filteredRunEmployees; track trackById($index, row)) {
+
                 <tr>
                   <td class="sticky-col">{{ row.employeeName }} <div class="muted">{{ row.empCode }}</div></td>
                   <td>{{ row.designation || '-' }}</td>
@@ -598,20 +730,28 @@
                   <td class="num">{{ row.lopDays | number: '1.0-1' }}</td>
                   <td class="num">{{ row.otHours | number: '1.0-1' }}</td>
                   <td class="num">{{ componentValue(row, 'OT_AMOUNT') | number: '1.0-0' }}</td>
-                  <td *ngFor="let c of earningComponents" class="num">{{ componentValue(row, c.code) | number: '1.0-0' }}</td>
+                  @for (c of earningComponents; track c) {
+<td class="num">{{ componentValue(row, c.code) | number: '1.0-0' }}</td>
+}
                   <td class="num strong">{{ row.grossEarnings | number: '1.0-0' }}</td>
-                  <td *ngFor="let c of deductionComponents" class="num">{{ componentValue(row, c.code) | number: '1.0-0' }}</td>
+                  @for (c of deductionComponents; track c) {
+<td class="num">{{ componentValue(row, c.code) | number: '1.0-0' }}</td>
+}
                   <td class="num strong">{{ row.totalDeductions | number: '1.0-0' }}</td>
                   <td class="num strong net">{{ row.netPay | number: '1.0-0' }}</td>
-                  <td *ngFor="let c of employerComponents" class="num">{{ componentValue(row, c.code) | number: '1.0-0' }}</td>
+                  @for (c of employerComponents; track c) {
+<td class="num">{{ componentValue(row, c.code) | number: '1.0-0' }}</td>
+}
                   <td>
-                    <button
+                    @if (editingEmpCode !== row.empCode) {
+<button
                       class="btn-row-edit"
-                      *ngIf="editingEmpCode !== row.empCode"
+                     
                       (click)="startEditEmployee(row)"
                       [disabled]="editEmpBusy || isPublished(selectedRun)"
                       title="Edit days / overrides for this employee"
                     >Edit</button>
+}
                     <button
                       class="btn-row-check"
                       (click)="toggleCheckEmployee(row)"
@@ -619,7 +759,8 @@
                     >{{ checkingEmpCode === row.empCode ? 'Hide' : 'Check' }}</button>
                   </td>
                 </tr>
-                <tr *ngIf="checkingEmpCode === row.empCode" class="check-row">
+                @if (checkingEmpCode === row.empCode) {
+<tr class="check-row">
                   <td [attr.colspan]="13 + earningComponents.length + deductionComponents.length + employerComponents.length + 3">
                     <div class="check-emp-panel">
                       <div class="check-emp-title">
@@ -676,12 +817,14 @@
                               <tr><th>Code</th><th>Name</th><th>Type</th><th class="num">Amount</th></tr>
                             </thead>
                             <tbody>
-                              <tr *ngFor="let c of allComponentRows(row)">
+                              @for (c of allComponentRows(row); track c) {
+<tr>
                                 <td><code>{{ c.code }}</code></td>
                                 <td>{{ c.name }}</td>
                                 <td>{{ c.type }}</td>
                                 <td class="num">{{ c.amount | number:'1.2-2' }}</td>
                               </tr>
+}
                             </tbody>
                           </table>
                         </div>
@@ -729,7 +872,9 @@
                     </div>
                   </td>
                 </tr>
-                <tr *ngIf="editingEmpCode === row.empCode" class="edit-row">
+}
+                @if (editingEmpCode === row.empCode) {
+<tr class="edit-row">
                   <td [attr.colspan]="13 + earningComponents.length + deductionComponents.length + employerComponents.length + 3">
                     <div class="edit-emp-form">
                       <div class="edit-emp-title">Edit inputs for {{ row.employeeName }} ({{ row.empCode }})</div>
@@ -777,11 +922,16 @@
                     </div>
                   </td>
                 </tr>
-              </ng-container>
+}
+              
+}
             </tbody>
           </table>
         </div>
+}
       </div>
     </div>
+}
   </section>
+}
 </div>

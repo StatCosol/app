@@ -56,3 +56,11 @@ export type { ContextBadge } from './client-context-strip/client-context-strip.c
 // KPI Tile
 export { KpiTileComponent } from './kpi-tile/kpi-tile.component';
 export type { KpiTileColor } from './kpi-tile/kpi-tile.component';
+
+// Icon
+export { IconComponent } from './icon/icon.component';
+export type { IconName } from './icon/icon.component';
+
+// Chart Card
+export { ChartCardComponent } from './chart-card/chart-card.component';
+export type { ChartCardDataset } from './chart-card/chart-card.component';

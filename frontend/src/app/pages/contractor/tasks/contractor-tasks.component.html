@@ -6,8 +6,9 @@
   </ui-page-header>
 
   <div class="summary-grid">
-    <div
-      *ngFor="let card of summaryCards"
+    @for (card of summaryCards; track card) {
+<div
+     
       class="summary-card"
       [ngClass]="{
         'summary-card--neutral': card.tone === 'neutral',
@@ -19,50 +20,65 @@
       <div class="summary-card__label">{{ card.label }}</div>
       <div class="summary-card__value">{{ card.value }}</div>
     </div>
+}
   </div>
 
   <!-- Monthly Compliance Upload — hidden on dedicated Audits page -->
-  <div *ngIf="typeFilter !== 'AUDIT'" class="task-center-card monthly-checklist">
+  @if (typeFilter !== 'AUDIT') {
+<div class="task-center-card monthly-checklist">
     <div class="panel-head">
       <div>
         <h3>Monthly Compliance Documents</h3>
         <p class="panel-head__sub">Upload statutory documents for the selected month &amp; branch</p>
       </div>
-      <span *ngIf="monthlyChecklist" class="checklist-progress-badge"
+      @if (monthlyChecklist) {
+<span class="checklist-progress-badge"
             [class.checklist-progress-badge--done]="monthlyChecklistUploadedCount === monthlyChecklist.items.length">
         {{ monthlyChecklistUploadedCount }}/{{ monthlyChecklist.items.length }} uploaded
       </span>
+}
     </div>
 
     <!-- Branch / Month / Year selectors -->
     <div class="checklist-context-bar">
-      <label class="filter-field" *ngIf="availableBranches.length > 0">
+      @if (availableBranches.length > 0) {
+<label class="filter-field">
         <span>Branch</span>
         <select name="chkBranchCtx" [(ngModel)]="checklistBranchId" (ngModelChange)="reloadChecklist()">
           <option value="">All branches</option>
-          <option *ngFor="let b of availableBranches" [value]="b.id">{{ b.name }}</option>
+          @for (b of availableBranches; track b) {
+<option [value]="b.id">{{ b.name }}</option>
+}
         </select>
       </label>
+}
       <label class="filter-field">
         <span>Month</span>
         <select name="chkMonthCtx" [(ngModel)]="checklistMonth" (ngModelChange)="reloadChecklist()">
-          <option *ngFor="let m of monthNames; let i = index" [value]="i + 1">{{ m }}</option>
+          @for (m of monthNames; track m; let i = $index) {
+<option [value]="i + 1">{{ m }}</option>
+}
         </select>
       </label>
       <label class="filter-field">
         <span>Year</span>
         <select name="chkYearCtx" [(ngModel)]="checklistYear" (ngModelChange)="reloadChecklist()">
-          <option *ngFor="let y of availableYears" [value]="y">{{ y }}</option>
+          @for (y of availableYears; track y) {
+<option [value]="y">{{ y }}</option>
+}
         </select>
       </label>
       <div class="checklist-context-bar__info">
         Showing: <strong>{{ monthNames[checklistMonth - 1] }} {{ checklistYear }}</strong>
-        <span *ngIf="checklistBranchId"> — {{ branchName(checklistBranchId) }}</span>
+        @if (checklistBranchId) {
+<span> — {{ branchName(checklistBranchId) }}</span>
+}
       </div>
     </div>
 
     <!-- Branch-selection prompt when multiple branches but none selected -->
-    <div *ngIf="availableBranches.length > 1 && !checklistBranchId"
+    @if (availableBranches.length > 1 && !checklistBranchId) {
+<div
          class="checklist-branch-prompt">
       <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -70,9 +86,11 @@
       </svg>
       <span>Select a <strong>branch</strong> above to see and upload documents for that branch.</span>
     </div>
+}
 
     <!-- Upload progress bar -->
-    <div class="checklist-progress-bar-wrap" *ngIf="monthlyChecklist && monthlyChecklist.items.length > 0">
+    @if (monthlyChecklist && monthlyChecklist.items.length > 0) {
+<div class="checklist-progress-bar-wrap">
       <div class="checklist-progress-bar">
         <div class="checklist-progress-bar__fill"
              [style.width.%]="(monthlyChecklistUploadedCount / monthlyChecklist.items.length) * 100">
@@ -82,6 +100,7 @@
         {{ ((monthlyChecklistUploadedCount / monthlyChecklist.items.length) * 100) | number:'1.0-0' }}% complete
       </span>
     </div>
+}
 
     <!-- MCD upload deadline -->
     <div class="checklist-deadline"
@@ -100,34 +119,48 @@
     </div>
 
     <!-- Rejected banner -->
-    <div *ngIf="rejectedChecklistItems.length" class="checklist-rejected-banner">
+    @if (rejectedChecklistItems.length) {
+<div class="checklist-rejected-banner">
       <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z"/>
       </svg>
       <strong>{{ rejectedChecklistItems.length }} document(s) rejected by CRM</strong> — scroll down to re-upload them.
     </div>
+}
 
-    <ui-loading-spinner *ngIf="checklistLoading" size="sm" text="Loading checklist..."></ui-loading-spinner>
+    @if (checklistLoading) {
+<ui-loading-spinner size="sm" text="Loading checklist..."></ui-loading-spinner>
+}
 
-    <div *ngIf="!checklistLoading" class="checklist-items">
-      <div
-        *ngFor="let item of monthlyChecklist?.items"
+    @if (!checklistLoading) {
+<div class="checklist-items">
+      @for (item of monthlyChecklist?.items; track item) {
+<div
+       
         class="checklist-row"
         [class.checklist-row--done]="item.uploaded && item.uploadedDocs[0]?.status === 'APPROVED'"
         [class.checklist-row--rejected]="item.uploadedDocs[0]?.status === 'REJECTED'">
         <div class="checklist-row__icon">
-          <svg *ngIf="item.uploaded && item.uploadedDocs[0]?.status === 'APPROVED'" xmlns="http://www.w3.org/2000/svg" class="icon icon--green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          @if (item.uploaded && item.uploadedDocs[0]?.status === 'APPROVED') {
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon--green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
           </svg>
-          <svg *ngIf="item.uploaded && item.uploadedDocs[0]?.status === 'REJECTED'" xmlns="http://www.w3.org/2000/svg" class="icon icon--red" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+}
+          @if (item.uploaded && item.uploadedDocs[0]?.status === 'REJECTED') {
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon--red" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
           </svg>
-          <svg *ngIf="item.uploaded && item.uploadedDocs[0]?.status === 'PENDING'" xmlns="http://www.w3.org/2000/svg" class="icon icon--amber" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+}
+          @if (item.uploaded && item.uploadedDocs[0]?.status === 'PENDING') {
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon--amber" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
-          <svg *ngIf="!item.uploaded" xmlns="http://www.w3.org/2000/svg" class="icon icon--muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+}
+          @if (!item.uploaded) {
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon--muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-3-3v6m9-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
+}
         </div>
         <div class="checklist-row__info">
           <span class="checklist-row__name">{{ monthlyDocLabel(item.docType) }}</span>
@@ -139,16 +172,20 @@
                 [class.checklist-badge--missing]="!item.uploaded">
             {{ item.uploaded ? (item.uploadedDocs[0]?.status | titlecase) : 'Pending upload' }}
           </span>
-          <span *ngIf="item.uploaded && item.uploadedDocs[0]" class="checklist-row__filename">
+          @if (item.uploaded && item.uploadedDocs[0]) {
+<span class="checklist-row__filename">
             {{ item.uploadedDocs[0].fileName }}
           </span>
+}
           <!-- Rejection reason from CRM -->
-          <div *ngIf="item.uploadedDocs[0]?.status === 'REJECTED'" class="checklist-row__rejection">
+          @if (item.uploadedDocs[0]?.status === 'REJECTED') {
+<div class="checklist-row__rejection">
             <svg xmlns="http://www.w3.org/2000/svg" class="icon icon--sm" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z"/>
             </svg>
             Rejected by CRM — please re-upload a corrected file.
           </div>
+}
         </div>
         <button class="btn-upload" type="button"
                 (click)="openChecklistUpload(item)"
@@ -157,15 +194,20 @@
           {{ item.uploadedDocs[0]?.status === 'REJECTED' ? 'Re-upload' : (item.uploaded ? 'Replace' : 'Upload') }}
         </button>
       </div>
+}
 
       <!-- Empty state if no checklist loaded -->
-      <div *ngIf="!monthlyChecklist" class="checklist-empty">
+      @if (!monthlyChecklist) {
+<div class="checklist-empty">
         Could not load monthly checklist. Please refresh.
       </div>
+}
     </div>
+}
 
     <!-- Inline upload form -->
-    <div *ngIf="checklistUploadItem" class="checklist-upload-form">
+    @if (checklistUploadItem) {
+<div class="checklist-upload-form">
       <h6>{{ checklistUploadItem.uploadedDocs[0]?.status === 'REJECTED' ? 'Re-upload' : 'Upload' }}: {{ monthlyDocLabel(checklistUploadItem.docType) }}</h6>
       <div class="checklist-upload-form__fields">
         <label class="filter-field">
@@ -173,13 +215,17 @@
           <input type="text" name="chkTitle" autocomplete="off"
                  [(ngModel)]="checklistUploadTitle" />
         </label>
-        <label class="filter-field" *ngIf="availableBranches.length > 0">
+        @if (availableBranches.length > 0) {
+<label class="filter-field">
           <span>Branch <span class="text-red-500">*</span></span>
           <select name="chkBranch" [(ngModel)]="checklistUploadBranchId">
             <option value="">Select branch…</option>
-            <option *ngFor="let b of availableBranches" [value]="b.id">{{ b.name }}</option>
+            @for (b of availableBranches; track b) {
+<option [value]="b.id">{{ b.name }}</option>
+}
           </select>
         </label>
+}
         <label class="filter-field">
           <span>File (PDF, PNG, JPG, XLSX)</span>
           <input type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx"
@@ -195,17 +241,23 @@
           class="btn-primary"
           [disabled]="checklistUploading || !checklistUploadFile || !checklistUploadBranchId.trim()"
           (click)="submitChecklistUpload()">
-          <span *ngIf="checklistUploading" class="spinner-xs"></span>
+          @if (checklistUploading) {
+<span class="spinner-xs"></span>
+}
           {{ checklistUploading ? 'Uploading…' : 'Submit' }}
         </button>
         <button type="button" class="btn-secondary" (click)="cancelChecklistUpload()">Cancel</button>
       </div>
     </div>
+}
 
-    <div *ngIf="!checklistLoading && monthlyChecklist && !monthlyChecklist.items.length" class="checklist-empty">
+    @if (!checklistLoading && monthlyChecklist && !monthlyChecklist.items.length) {
+<div class="checklist-empty">
       No documents found for {{ monthNames[checklistMonth - 1] }} {{ checklistYear }}.
     </div>
+}
   </div>
+}
 
   <div class="task-center-card filter-panel">
     <div class="filter-grid">
@@ -229,7 +281,8 @@
         </select>
       </label>
 
-      <label class="filter-field" *ngIf="typeFilter === 'AUDIT'">
+      @if (typeFilter === 'AUDIT') {
+<label class="filter-field">
         <span>Frequency</span>
         <select id="ct-freq" name="freqFilter" [(ngModel)]="freqFilter" (ngModelChange)="applyFilters()">
           <option value="ALL">All Frequencies</option>
@@ -241,13 +294,16 @@
           <option value="EVENT">Event-Based</option>
         </select>
       </label>
+}
 
       <label class="filter-field">
         <span>Current Stage</span>
         <select id="ct-status" name="statusFilter" [(ngModel)]="statusFilter" (ngModelChange)="applyFilters()">
-          <option *ngFor="let status of statusOptions" [value]="status">
+          @for (status of statusOptions; track status) {
+<option [value]="status">
             {{ statusLabel(status) }}
           </option>
+}
         </select>
       </label>
 
@@ -265,30 +321,37 @@
         <span>Location / Branch</span>
         <select id="ct-branch" name="branchFilter" [(ngModel)]="branchFilter" (ngModelChange)="applyFilters()">
           <option value="">All branches</option>
-          <option *ngFor="let branch of uniqueBranches" [value]="branch">
+          @for (branch of uniqueBranches; track branch) {
+<option [value]="branch">
             {{ branch }}
           </option>
+}
         </select>
       </label>
     </div>
   </div>
 
-  <ui-loading-spinner
-    *ngIf="loading"
+  @if (loading) {
+<ui-loading-spinner
+   
     size="lg"
     text="Loading your workboard...">
   </ui-loading-spinner>
+}
 
-  <div *ngIf="!loading" class="task-center-layout">
+  @if (!loading) {
+<div class="task-center-layout">
     <section class="task-center-card list-panel">
       <div class="panel-head">
         <h3>{{ typeFilter === 'AUDIT' ? 'Your Audits' : 'Your Pending Work' }}</h3>
         <span>{{ filteredRows.length }} item(s)</span>
       </div>
 
-      <div *ngIf="filteredRows.length; else noRows" class="list-scroll">
-        <button
-          *ngFor="let row of filteredRows"
+      @if (filteredRows.length) {
+<div class="list-scroll">
+        @for (row of filteredRows; track row) {
+<button
+         
           type="button"
           class="list-row"
           [class.list-row--active]="selectedRow?.id === row.id && selectedRow?.rowType === row.rowType"
@@ -317,25 +380,33 @@
 
           <div class="list-row__hint">{{ nextStepHint(row) }}</div>
         </button>
+}
       </div>
+} @else {
 
-      <ng-template #noRows>
         <ui-empty-state
           title="No items found"
           description="Try changing filters to see your pending work.">
         </ui-empty-state>
-      </ng-template>
+      
+}
+
+      
     </section>
 
-    <section class="task-center-card detail-panel" *ngIf="selectedRow; else chooseRow">
+    @if (selectedRow) {
+<section class="task-center-card detail-panel">
       <div class="panel-head">
         <h3>Step-by-Step Action Area</h3>
         <span>{{ rowTypeLabel(selectedRow.rowType) }}</span>
       </div>
 
-      <ui-loading-spinner *ngIf="detailLoading" size="md" text="Loading detail..."></ui-loading-spinner>
+      @if (detailLoading) {
+<ui-loading-spinner size="md" text="Loading detail..."></ui-loading-spinner>
+}
 
-      <div *ngIf="!detailLoading && selectedRow.rowType === 'TASK'" class="detail-content">
+      @if (!detailLoading && selectedRow.rowType === 'TASK') {
+<div class="detail-content">
         <div class="alert alert--neutral">
           <strong>What to do:</strong> Start task, upload file, then submit for review.
         </div>
@@ -350,9 +421,11 @@
           <span>Uploaded files: {{ selectedTaskDetail?.evidenceCount || selectedRow.evidenceCount || 0 }}</span>
         </div>
 
-        <div class="alert alert--danger" *ngIf="selectedRow.status === 'REJECTED' && (selectedTaskDetail?.remarks || selectedRow.remarks)">
+        @if (selectedRow.status === 'REJECTED' && (selectedTaskDetail?.remarks || selectedRow.remarks)) {
+<div class="alert alert--danger">
           <strong>Rejection reason:</strong> {{ selectedTaskDetail?.remarks || selectedRow.remarks }}
         </div>
+}
 
         <div class="action-row">
           <button
@@ -406,21 +479,27 @@
           </button>
         </div>
 
-        <div class="action-card" *ngIf="relatedReuploads.length">
+        @if (relatedReuploads.length) {
+<div class="action-card">
           <h5>Linked reupload requests</h5>
           <div class="linked-reupload-list">
-            <div class="linked-reupload-item" *ngFor="let req of relatedReuploads">
+            @for (req of relatedReuploads; track req) {
+<div class="linked-reupload-item">
               <div class="linked-reupload-item__title">Request #{{ req.id.slice(0, 8) }}</div>
               <div class="linked-reupload-item__meta">{{ req.reason || req.remarks || 'No reason' }}</div>
               <ui-status-badge [status]="req.status"></ui-status-badge>
             </div>
+}
           </div>
         </div>
+}
 
         <div class="timeline-block">
           <h5>Activity History</h5>
-          <div *ngIf="selectedTaskHistory.length; else noHistory" class="timeline">
-            <div class="timeline-item" *ngFor="let event of selectedTaskHistory">
+          @if (selectedTaskHistory.length) {
+<div class="timeline">
+            @for (event of selectedTaskHistory; track event) {
+<div class="timeline-item">
               <div class="timeline-item__dot"></div>
               <div class="timeline-item__body">
                 <div class="timeline-item__head">
@@ -430,14 +509,20 @@
                 <div class="timeline-item__desc">{{ event.description }}</div>
               </div>
             </div>
+}
           </div>
-          <ng-template #noHistory>
+} @else {
+
             <div class="timeline-empty">No events available yet.</div>
-          </ng-template>
+          
+}
+          
         </div>
       </div>
+}
 
-      <div *ngIf="!detailLoading && selectedRow.rowType === 'REUPLOAD'" class="detail-content">
+      @if (!detailLoading && selectedRow.rowType === 'REUPLOAD') {
+<div class="detail-content">
         <div class="alert alert--warning">
           <strong>What to do:</strong> Upload corrected file and submit it again.
         </div>
@@ -452,12 +537,16 @@
           <span>Submitted: {{ selectedRow.submittedAt ? (selectedRow.submittedAt | date: 'medium') : 'Not submitted' }}</span>
         </div>
 
-        <div class="alert alert--warning" *ngIf="selectedRow.reason">
+        @if (selectedRow.reason) {
+<div class="alert alert--warning">
           <strong>Reason:</strong> {{ selectedRow.reason }}
         </div>
-        <div class="alert alert--neutral" *ngIf="selectedRow.remarks">
+}
+        @if (selectedRow.remarks) {
+<div class="alert alert--neutral">
           <strong>Reviewer note:</strong> {{ selectedRow.remarks }}
         </div>
+}
 
         <div class="action-card">
           <h5>Upload Corrected File</h5>
@@ -482,8 +571,10 @@
 
         <div class="timeline-block">
           <h5>Correction History</h5>
-          <div *ngIf="selectedTaskHistory.length; else noReuploadHistory" class="timeline">
-            <div class="timeline-item" *ngFor="let event of selectedTaskHistory">
+          @if (selectedTaskHistory.length) {
+<div class="timeline">
+            @for (event of selectedTaskHistory; track event) {
+<div class="timeline-item">
               <div class="timeline-item__dot"></div>
               <div class="timeline-item__body">
                 <div class="timeline-item__head">
@@ -493,20 +584,27 @@
                 <div class="timeline-item__desc">{{ event.description }}</div>
               </div>
             </div>
+}
           </div>
-          <ng-template #noReuploadHistory>
+} @else {
+
             <div class="timeline-empty">No timeline events available.</div>
-          </ng-template>
+          
+}
+          
         </div>
       </div>
+}
 
-      <div *ngIf="!detailLoading && selectedRow.rowType === 'AUDIT'" class="detail-content">
+      @if (!detailLoading && selectedRow.rowType === 'AUDIT') {
+<div class="detail-content">
         <div class="alert alert--info">
           <strong>What to do:</strong> Upload all required compliance documents. If any document is rejected, upload corrected version below.
         </div>
 
         <!-- Upload lock banner -->
-        <div class="alert alert--warning flex items-center gap-2.5" *ngIf="isAuditUploadLocked">
+        @if (isAuditUploadLocked) {
+<div class="alert alert--warning flex items-center gap-2.5">
           <span class="text-base">&#128274;</span>
           <span>
             Document uploads are <strong>locked by the auditor</strong> until <strong>{{ auditUploadLockUntil }}</strong>.
@@ -515,13 +613,15 @@
             <em>Exception:</em> documents already marked <strong>REJECTED</strong> can still be re-uploaded so you can address auditor-flagged corrections.
           </span>
         </div>
+}
         <div class="entity-head">
           <h4>{{ selectedRow.title }}</h4>
           <ui-status-badge [status]="selectedRow.status"></ui-status-badge>
         </div>
 
         <!-- Audit score — only show after audit has been conducted (not while still Planned) -->
-        <div class="audit-score-block" *ngIf="selectedRow.score !== null && selectedRow.score !== undefined && selectedRow.status !== 'PLANNED'; else noScore">
+        @if (selectedRow.score !== null && selectedRow.score !== undefined && selectedRow.status !== 'PLANNED') {
+<div class="audit-score-block">
           <div class="audit-score-circle"
                [ngClass]="{
                  'audit-score-circle--green': selectedRow.score >= 80,
@@ -532,9 +632,14 @@
           </div>
           <div class="audit-score-label">Compliance Score</div>
         </div>
-        <ng-template #noScore>
-          <div class="alert alert--neutral" *ngIf="selectedRow.status !== 'PLANNED'">Score not yet calculated for this audit.</div>
-        </ng-template>
+} @else {
+
+          @if (selectedRow.status !== 'PLANNED') {
+<div class="alert alert--neutral">Score not yet calculated for this audit.</div>
+}
+        
+}
+        
 
         <!-- Schedule & metadata -->
         <div class="entity-meta">
@@ -545,16 +650,22 @@
           <span>Scheduled: {{ selectedRow.scheduledDate ? (selectedRow.scheduledDate | date: 'mediumDate') : '-' }}</span>
           <span>Due: {{ selectedRow.dueDate ? (selectedRow.dueDate | date: 'mediumDate') : '-' }}</span>
           <span>Auditor: {{ selectedRow.auditorName || '-' }}</span>
-          <span *ngIf="selectedRow.submittedAt">Submitted: {{ selectedRow.submittedAt | date: 'mediumDate' }}</span>
+          @if (selectedRow.submittedAt) {
+<span>Submitted: {{ selectedRow.submittedAt | date: 'mediumDate' }}</span>
+}
         </div>
 
-        <div class="alert alert--neutral" *ngIf="selectedRow.remarks">
+        @if (selectedRow.remarks) {
+<div class="alert alert--neutral">
           <strong>Notes from CRM:</strong> {{ selectedRow.remarks }}
         </div>
+}
 
-        <div class="alert alert--info" *ngIf="selectedRow.finalRemark">
+        @if (selectedRow.finalRemark) {
+<div class="alert alert--info">
           <strong>Auditor final remark:</strong> {{ selectedRow.finalRemark }}
         </div>
+}
 
         <!-- Upload audit compliance documents -->
         <div class="action-card action-card--wizard">
@@ -564,7 +675,8 @@
               <p class="wizard-header__sub">Pick a document type from the quick-list, fill in details, then upload.</p>
             </div>
             <!-- Progress summary -->
-            <div class="wizard-progress" *ngIf="!auditUploadedDocsLoading">
+            @if (!auditUploadedDocsLoading) {
+<div class="wizard-progress">
               <span class="wizard-progress__label">
                 <strong>{{ auditDocProgress.uploaded }}</strong> of <strong>{{ auditDocProgress.total }}</strong> uploaded
               </span>
@@ -573,52 +685,68 @@
                   [style.width.%]="auditDocProgress.total ? (auditDocProgress.uploaded / auditDocProgress.total) * 100 : 0">
                 </div>
               </div>
-              <span class="wizard-progress__rejected" *ngIf="auditDocProgress.rejected > 0">
+              @if (auditDocProgress.rejected > 0) {
+<span class="wizard-progress__rejected">
                 {{ auditDocProgress.rejected }} rejected
               </span>
-              <span class="wizard-progress__pending" *ngIf="auditDocProgress.total - auditDocProgress.uploaded > 0">
+}
+              @if (auditDocProgress.total - auditDocProgress.uploaded > 0) {
+<span class="wizard-progress__pending">
                 {{ auditDocProgress.total - auditDocProgress.uploaded }} pending
               </span>
-              <span class="wizard-progress__done" *ngIf="auditDocProgress.uploaded > 0 && auditDocProgress.uploaded === auditDocProgress.total && auditDocProgress.rejected === 0">
+}
+              @if (auditDocProgress.uploaded > 0 && auditDocProgress.uploaded === auditDocProgress.total && auditDocProgress.rejected === 0) {
+<span class="wizard-progress__done">
                 ✓ All done
               </span>
+}
             </div>
+}
           </div>
 
           <!-- Rejection alert -->
-          <div class="wizard-rejection-alert" *ngIf="auditRejectedDocs.length > 0">
+          @if (auditRejectedDocs.length > 0) {
+<div class="wizard-rejection-alert">
             <div class="wizard-rejection-alert__icon">⚠</div>
             <div class="wizard-rejection-alert__body">
               <strong>{{ auditRejectedDocs.length }} document{{ auditRejectedDocs.length > 1 ? 's' : '' }} rejected</strong> — please re-upload with corrections.
               <ul class="wizard-rejection-alert__list">
-                <li *ngFor="let doc of auditRejectedDocs">
+                @for (doc of auditRejectedDocs; track doc) {
+<li>
                   <span class="wizard-rejection-alert__doctype">{{ doc.docType }}</span>
-                  <span class="wizard-rejection-alert__title" *ngIf="doc.title"> — {{ doc.title }}</span>
+                  @if (doc.title) {
+<span class="wizard-rejection-alert__title"> — {{ doc.title }}</span>
+}
                 </li>
+}
               </ul>
             </div>
           </div>
+}
 
           <!-- Quick-pick panel -->
           <div class="wizard-picker">
             <!-- Section tab bar -->
             <div class="wizard-tabs" role="tablist">
-              <button
+              @for (section of visibleAuditDocSections; track section) {
+<button
                 type="button"
                 class="wizard-tab"
                 role="tab"
-                *ngFor="let section of visibleAuditDocSections"
+               
                 [class.wizard-tab--active]="(auditDocActiveSection || visibleAuditDocSections[0]) === section"
                 (click)="auditDocActiveSection = section">
                 {{ section.replace(/^[IVX]+\.\s*/, '') }}
               </button>
+}
             </div>
             <!-- Active section's doc chips -->
             <div class="wizard-chips">
-              <button
+              @for (item of visibleAuditDocTemplatesBySection(auditDocActiveSection || visibleAuditDocSections[0]); track item) {
+<button
                 type="button"
                 class="wizard-chip"
-                *ngFor="let item of visibleAuditDocTemplatesBySection(auditDocActiveSection || visibleAuditDocSections[0])"
+               
                 [class.wizard-chip--active]="auditDocType === item.docType"
                 [class.wizard-chip--uploaded]="auditDocIsUploaded(item.docType) && auditDocStatus(item.docType) !== 'REJECTED'"
                 [class.wizard-chip--rejected]="auditDocStatus(item.docType) === 'REJECTED'"
@@ -626,30 +754,45 @@
                 [title]="item.helpText"
                 (click)="useAuditDocTemplate(item)">
                 <span class="wizard-chip__label">{{ item.label }}</span>
-                <span class="wizard-chip__check" *ngIf="auditDocType === item.docType">✓</span>
-                <span class="wizard-chip__status" *ngIf="auditDocType !== item.docType && auditDocStatus(item.docType) === 'REJECTED'">✗</span>
-                <span class="wizard-chip__status" *ngIf="auditDocType !== item.docType && auditDocStatus(item.docType) === 'APPROVED'">✓</span>
-                <span class="wizard-chip__uploaded" *ngIf="auditDocType !== item.docType && auditDocStatus(item.docType) === 'PENDING_REVIEW'">↑</span>
+                @if (auditDocType === item.docType) {
+<span class="wizard-chip__check">✓</span>
+}
+                @if (auditDocType !== item.docType && auditDocStatus(item.docType) === 'REJECTED') {
+<span class="wizard-chip__status">✗</span>
+}
+                @if (auditDocType !== item.docType && auditDocStatus(item.docType) === 'APPROVED') {
+<span class="wizard-chip__status">✓</span>
+}
+                @if (auditDocType !== item.docType && auditDocStatus(item.docType) === 'PENDING_REVIEW') {
+<span class="wizard-chip__uploaded">↑</span>
+}
               </button>
+}
             </div>
           </div>
 
           <!-- Selected doc badge -->
-          <div class="wizard-selected" *ngIf="auditDocType">
+          @if (auditDocType) {
+<div class="wizard-selected">
             <span class="wizard-selected__label">Selected:</span>
             <span class="wizard-selected__badge">{{ auditDocType }}</span>
             <button type="button" class="wizard-selected__clear" (click)="auditDocType=''; auditDocTitle=''">✕</button>
           </div>
+}
 
           <!-- Details + upload row -->
           <div class="wizard-form">
-            <div class="form-group wizard-form__group" *ngIf="availableBranches.length > 1">
+            @if (availableBranches.length > 1) {
+<div class="form-group wizard-form__group">
               <label class="form-label">Branch <span class="required">*</span></label>
               <select class="form-control" [(ngModel)]="auditDocBranchId" name="auditDocBranch">
                 <option value="">Select branch…</option>
-                <option *ngFor="let b of availableBranches" [value]="b.id">{{ b.name }}</option>
+                @for (b of availableBranches; track b) {
+<option [value]="b.id">{{ b.name }}</option>
+}
               </select>
             </div>
+}
             <div class="form-group wizard-form__group">
               <label class="form-label">Document Type <span class="required">*</span></label>
               <input
@@ -675,8 +818,12 @@
                   class="btn btn--primary wizard-upload-btn"
                   [disabled]="auditDocUploading || !auditDocFile || !auditDocType.trim() || !auditDocTitle.trim() || (availableBranches.length > 1 && !auditDocBranchId)"
                   (click)="uploadAuditDocument()">
-                  <span *ngIf="!auditDocUploading">↑ Upload</span>
-                  <span *ngIf="auditDocUploading">Uploading…</span>
+                  @if (!auditDocUploading) {
+<span>↑ Upload</span>
+}
+                  @if (auditDocUploading) {
+<span>Uploading…</span>
+}
                 </button>
               </div>
               <div class="wizard-file-help">PDF, PNG, JPG, JPEG, XLSX</div>
@@ -685,18 +832,22 @@
         </div>
 
         <!-- NC correction uploads -->
-        <div class="action-card" *ngIf="auditNonCompliances.length; else noAuditNc">
+        @if (auditNonCompliances.length) {
+<div class="action-card">
           <h5>Documents requiring correction ({{ auditNonCompliances.length }})</h5>
           <div class="linked-reupload-list">
-            <div class="linked-reupload-item" *ngFor="let nc of auditNonCompliances">
+            @for (nc of auditNonCompliances; track nc) {
+<div class="linked-reupload-item">
               <div class="entity-head">
                 <h5>{{ nc.documentName }}</h5>
                 <ui-status-badge [status]="nc.status"></ui-status-badge>
               </div>
               <div class="linked-reupload-item__meta">Raised: {{ nc.raisedAt ? (nc.raisedAt | date: 'medium') : '—' }}</div>
-              <div class="alert alert--warning" *ngIf="nc.remark">
+              @if (nc.remark) {
+<div class="alert alert--warning">
                 <strong>Auditor remark:</strong> {{ nc.remark }}
               </div>
+}
               <div class="action-row">
                 <input type="file" (change)="onAuditNcFileSelected($event, nc.id)" />
                 <button
@@ -708,25 +859,34 @@
                 </button>
               </div>
             </div>
+}
           </div>
         </div>
+} @else {
 
-        <ng-template #noAuditNc>
           <div class="alert alert--neutral">
             <strong>No corrections pending.</strong>
             If the auditor marks any documents as non-compliant, they will appear here for you to upload corrected versions.
           </div>
-        </ng-template>
-      </div>
-    </section>
-  </div>
+        
+}
 
-  <ng-template #chooseRow>
+        
+      </div>
+}
+    </section>
+} @else {
+
     <section class="task-center-card detail-panel detail-panel--empty">
       <ui-empty-state
         title="Select an item from the left"
         description="Then follow the simple steps shown here.">
       </ui-empty-state>
     </section>
-  </ng-template>
+  
+}
+  </div>
+}
+
+  
 </div>

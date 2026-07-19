@@ -1,12 +1,12 @@
 import { Component, Input, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ClientBranchesService } from '../../core/client-branches.service';
 
 @Component({
   standalone: true,
   selector: 'app-risk-simulator',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
   <div class="card">
@@ -35,10 +35,12 @@ import { ClientBranchesService } from '../../core/client-branches.service';
 
     <button class="btn" style="margin-top:10px;" (click)="simulate()">Simulate</button>
 
-    <div *ngIf="result" style="margin-top:10px;">
+    @if (result) {
+<div style="margin-top:10px;">
       <div class="v">{{ result.inspectionProbability }}%</div>
       <div class="muted">New inspection probability</div>
     </div>
+}
   </div>
   `
 })

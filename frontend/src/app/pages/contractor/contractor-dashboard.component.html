@@ -6,18 +6,23 @@
   </ui-page-header>
 
   <!-- Skeleton Loading -->
-  <ng-container *ngIf="loading">
+  @if (loading) {
+
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-      <div *ngFor="let s of [1,2,3,4]" class="skeleton skeleton--card"></div>
+      @for (s of [1,2,3,4]; track s) {
+<div class="skeleton skeleton--card"></div>
+}
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
       <div class="skeleton skeleton--card lg:col-span-1" class="h-40"></div>
       <div class="skeleton skeleton--card lg:col-span-2" class="h-40"></div>
     </div>
-  </ng-container>
+  
+}
 
   <!-- Error Banner -->
-  <div *ngIf="!loading && errorMsg"
+  @if (!loading && errorMsg) {
+<div
        class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 flex items-center justify-between">
     <div class="flex items-center gap-2">
       <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -32,8 +37,10 @@
       Retry
     </button>
   </div>
+}
 
-  <ng-container *ngIf="!loading && data">
+  @if (!loading && data) {
+
     <!-- KPI Grid -->
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
       <div class="contractor-kpi contractor-kpi--slate cursor-pointer" (click)="goToTasks('')">
@@ -68,10 +75,12 @@
         <h3 class="text-base font-semibold text-gray-900">Operational Guardrails</h3>
         <span class="text-xs text-gray-500">{{ dashboardGuardrails.length }} active</span>
       </div>
-      <div *ngIf="dashboardGuardrails.length; else noGuardrails" class="grid grid-cols-1 lg:grid-cols-2 gap-2">
-        <button
+      @if (dashboardGuardrails.length) {
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
+        @for (g of dashboardGuardrails; track g) {
+<button
           type="button"
-          *ngFor="let g of dashboardGuardrails"
+         
           class="text-left rounded-lg border px-3 py-2"
           [ngClass]="{
             'border-red-200 bg-red-50': g.severity === 'CRITICAL',
@@ -92,12 +101,16 @@
             </div>
           </div>
         </button>
+}
       </div>
-      <ng-template #noGuardrails>
+} @else {
+
         <div class="text-sm text-gray-600 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
           No immediate operational guardrails breached.
         </div>
-      </ng-template>
+      
+}
+      
     </div>
 
     <!-- Dashboard Upgrade Widgets -->
@@ -132,44 +145,62 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
       <div class="contractor-card p-4">
         <h4 class="text-sm font-semibold text-gray-900 mb-2">Expiring Licenses</h4>
-        <div *ngIf="expiringLicensesPreview.length; else noExpiring" class="space-y-2">
-          <button type="button" class="w-full text-left p-2 rounded-lg bg-amber-50 hover:bg-amber-100 transition-colors"
-                  *ngFor="let item of expiringLicensesPreview" (click)="openTask(item)">
+        @if (expiringLicensesPreview.length) {
+<div class="space-y-2">
+          @for (item of expiringLicensesPreview; track item) {
+<button type="button" class="w-full text-left p-2 rounded-lg bg-amber-50 hover:bg-amber-100 transition-colors"
+                  (click)="openTask(item)">
             <div class="text-xs font-semibold text-gray-900 truncate">{{ item.title }}</div>
             <div class="text-xs text-gray-600">{{ item.branchName }} | {{ item.dueDate | date: 'mediumDate' }}</div>
           </button>
+}
         </div>
-        <ng-template #noExpiring>
+} @else {
+
           <div class="text-xs text-gray-500">No expiring license items found.</div>
-        </ng-template>
+        
+}
+        
       </div>
 
       <div class="contractor-card p-4">
         <h4 class="text-sm font-semibold text-gray-900 mb-2">Pending Uploads</h4>
-        <div *ngIf="pendingUploadsPreview.length; else noPendingUploads" class="space-y-2">
-          <button type="button" class="w-full text-left p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 transition-colors"
-                  *ngFor="let item of pendingUploadsPreview" (click)="openTask(item)">
+        @if (pendingUploadsPreview.length) {
+<div class="space-y-2">
+          @for (item of pendingUploadsPreview; track item) {
+<button type="button" class="w-full text-left p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                  (click)="openTask(item)">
             <div class="text-xs font-semibold text-gray-900 truncate">{{ item.title }}</div>
             <div class="text-xs text-gray-600">{{ item.branchName }} | {{ item.status }}</div>
           </button>
+}
         </div>
-        <ng-template #noPendingUploads>
+} @else {
+
           <div class="text-xs text-gray-500">No pending uploads.</div>
-        </ng-template>
+        
+}
+        
       </div>
 
       <div class="contractor-card p-4">
         <h4 class="text-sm font-semibold text-gray-900 mb-2">Rejected Docs</h4>
-        <div *ngIf="rejectedItemsPreview.length; else noRejectedDocs" class="space-y-2">
-          <button type="button" class="w-full text-left p-2 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
-                  *ngFor="let item of rejectedItemsPreview" (click)="openTask(item)">
+        @if (rejectedItemsPreview.length) {
+<div class="space-y-2">
+          @for (item of rejectedItemsPreview; track item) {
+<button type="button" class="w-full text-left p-2 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
+                  (click)="openTask(item)">
             <div class="text-xs font-semibold text-gray-900 truncate">{{ item.title }}</div>
             <div class="text-xs text-gray-600">{{ item.branchName }} | {{ item.status }}</div>
           </button>
+}
         </div>
-        <ng-template #noRejectedDocs>
+} @else {
+
           <div class="text-xs text-gray-500">No rejected docs right now.</div>
-        </ng-template>
+        
+}
+        
       </div>
 
       <div class="contractor-card p-4">
@@ -186,12 +217,16 @@
           <div class="pt-2 border-t border-gray-100">
             <div class="text-xs text-gray-500 mb-1">Branch list</div>
             <div class="flex flex-wrap gap-1">
-              <span
-                *ngFor="let branch of mappedBranches"
+              @for (branch of mappedBranches; track branch) {
+<span
+               
                 class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">
                 {{ branch }}
               </span>
-              <span *ngIf="!mappedBranches.length" class="text-xs text-gray-500">No mapped branches</span>
+}
+              @if (!mappedBranches.length) {
+<span class="text-xs text-gray-500">No mapped branches</span>
+}
             </div>
           </div>
         </div>
@@ -203,7 +238,8 @@
         <h3 class="text-base font-semibold text-gray-900">Branch-wise Status Board</h3>
         <p class="text-xs text-gray-500 mt-0.5">Open and risk load by branch</p>
       </div>
-      <div class="overflow-x-auto" *ngIf="branchStatusBoard.length; else noBranchBoard">
+      @if (branchStatusBoard.length) {
+<div class="overflow-x-auto">
         <table class="min-w-full text-xs">
           <thead>
             <tr class="border-b border-gray-200">
@@ -216,7 +252,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let row of branchStatusBoard" class="border-b border-gray-100 hover:bg-gray-50">
+            @for (row of branchStatusBoard; track row) {
+<tr class="border-b border-gray-100 hover:bg-gray-50">
               <td class="py-2 px-2 font-medium text-gray-900">{{ row.branchName }}</td>
               <td class="py-2 px-2 text-center">{{ row.total }}</td>
               <td class="py-2 px-2 text-center text-indigo-700">{{ row.pending }}</td>
@@ -224,15 +261,19 @@
               <td class="py-2 px-2 text-center text-amber-700">{{ row.overdue }}</td>
               <td class="py-2 px-2 text-center text-green-700">{{ row.approved }}</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
-      <ng-template #noBranchBoard>
+} @else {
+
         <ui-empty-state
           title="No branch status data"
           description="Branch board will appear once tasks are available.">
         </ui-empty-state>
-      </ng-template>
+      
+}
+      
     </div>
 
     <!-- Compliance Progress + Vendor Score + Upcoming Tasks -->
@@ -284,26 +325,34 @@
           </span>
         </div>
         <!-- Trend indicator -->
-        <div class="mt-3 flex items-center gap-1" *ngIf="scoreTrend.length > 0">
-          <ng-container *ngIf="vendorScoreTrend === 'up'">
+        @if (scoreTrend.length > 0) {
+<div class="mt-3 flex items-center gap-1">
+          @if (vendorScoreTrend === 'up') {
+
             <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7 7 7"/>
             </svg>
             <span class="text-xs text-green-700 font-medium">Improving</span>
-          </ng-container>
-          <ng-container *ngIf="vendorScoreTrend === 'down'">
+          
+}
+          @if (vendorScoreTrend === 'down') {
+
             <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7-7-7"/>
             </svg>
             <span class="text-xs text-red-600 font-medium">Declining</span>
-          </ng-container>
-          <ng-container *ngIf="vendorScoreTrend === 'flat'">
+          
+}
+          @if (vendorScoreTrend === 'flat') {
+
             <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14"/>
             </svg>
             <span class="text-xs text-gray-500 font-medium">Stable</span>
-          </ng-container>
+          
+}
         </div>
+}
         <!-- Labels -->
         <div class="mt-4 text-center">
           <div class="text-sm font-semibold text-gray-900">Vendor Score</div>
@@ -334,8 +383,10 @@
             View all &rarr;
           </button>
         </div>
-        <div class="space-y-2" *ngIf="upcomingTasks.length; else noUpcoming">
-          <div *ngFor="let t of upcomingTasks"
+        @if (upcomingTasks.length) {
+<div class="space-y-2">
+          @for (t of upcomingTasks; track t) {
+<div
                class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
                (click)="openTask(t)">
             <div class="flex-grow min-w-0">
@@ -356,18 +407,23 @@
               </svg>
             </div>
           </div>
+}
         </div>
-        <ng-template #noUpcoming>
+} @else {
+
           <ui-empty-state
             title="All caught up!"
             description="No upcoming tasks at the moment">
           </ui-empty-state>
-        </ng-template>
+        
+}
+        
       </div>
     </div>
 
     <!-- Overdue Tasks Table -->
-    <div class="contractor-card" *ngIf="overdueTableData.length > 0">
+    @if (overdueTableData.length > 0) {
+<div class="contractor-card">
       <div class="flex items-center justify-between mb-4">
         <div>
           <h3 class="text-base font-semibold text-red-700">Overdue Tasks</h3>
@@ -389,9 +445,11 @@
         </ng-template>
       </ui-data-table>
     </div>
+}
 
     <!-- Monthly Score Trend -->
-    <div class="contractor-card" *ngIf="scoreTrend.length > 0">
+    @if (scoreTrend.length > 0) {
+<div class="contractor-card">
       <div class="mb-4">
         <h3 class="text-base font-semibold text-gray-900">Monthly Score Trend</h3>
         <p class="text-xs text-gray-500 mt-0.5">Compliance document score over the last 6 months</p>
@@ -399,7 +457,8 @@
 
       <!-- Bar Chart -->
       <div class="flex items-end gap-2 h-40 mb-4">
-        <div *ngFor="let pt of scoreTrend" class="flex-1 flex flex-col items-center gap-1">
+        @for (pt of scoreTrend; track pt) {
+<div class="flex-1 flex flex-col items-center gap-1">
           <span class="text-xs font-bold" [ngClass]="getScoreTextColor(pt.score)">{{ pt.score }}</span>
           <div class="w-full rounded-t-md transition-all duration-300"
                [ngClass]="getScoreColor(pt.score)"
@@ -408,6 +467,7 @@
           </div>
           <span class="text-[10px] text-gray-500 mt-1">{{ formatMonth(pt.month) }}</span>
         </div>
+}
       </div>
 
       <!-- Trend Details Table -->
@@ -424,7 +484,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let pt of scoreTrend" class="border-b border-gray-100 hover:bg-gray-50">
+            @for (pt of scoreTrend; track pt) {
+<tr class="border-b border-gray-100 hover:bg-gray-50">
               <td class="py-2 px-2 font-medium text-gray-900">{{ formatMonth(pt.month) }}</td>
               <td class="py-2 px-2 text-center">
                 <span class="font-bold" [ngClass]="getScoreTextColor(pt.score)">{{ pt.score }}%</span>
@@ -434,10 +495,12 @@
               <td class="py-2 px-2 text-center" [class.text-amber-600]="pt.missingCount > 0">{{ pt.missingCount }}</td>
               <td class="py-2 px-2 text-center" [class.text-red-600]="pt.auditRiskPoints > 0">{{ pt.auditRiskPoints }}</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
     </div>
+}
 
     <!-- Task Center Section -->
     <div class="mt-6 bg-white rounded-2xl border border-gray-200 p-4">
@@ -460,7 +523,8 @@
           <p class="text-xs text-gray-500">Total</p>
         </div>
       </div>
-      <div *ngIf="systemTasks.length > 0" class="overflow-x-auto">
+      @if (systemTasks.length > 0) {
+<div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="bg-gray-50">
             <tr>
@@ -471,7 +535,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let t of systemTasks" class="border-t border-gray-100 hover:bg-gray-50">
+            @for (t of systemTasks; track t) {
+<tr class="border-t border-gray-100 hover:bg-gray-50">
               <td class="py-2 px-2 text-gray-800">{{ t.title }}</td>
               <td class="py-2 px-2 text-gray-500">{{ t.module }}</td>
               <td class="py-2 px-2">
@@ -484,11 +549,16 @@
               </td>
               <td class="py-2 px-2 text-gray-500">{{ t.due_date ? (t.due_date | date:'mediumDate') : '—' }}</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
-      <p *ngIf="systemTasks.length === 0" class="text-sm text-gray-400 text-center py-3">No pending system tasks</p>
+}
+      @if (systemTasks.length === 0) {
+<p class="text-sm text-gray-400 text-center py-3">No pending system tasks</p>
+}
     </div>
-  </ng-container>
+  
+}
 </div>
 

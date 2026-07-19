@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil, timeout } from 'rxjs/operators';
@@ -10,7 +10,7 @@ import { PageHeaderComponent, DataTableComponent, TableColumn, TableCellDirectiv
   selector: 'app-payroll-clients',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, PageHeaderComponent, DataTableComponent, TableCellDirective, LoadingSpinnerComponent, EmptyStateComponent, StatusBadgeComponent],
+  imports: [PageHeaderComponent, DataTableComponent, TableCellDirective, LoadingSpinnerComponent, EmptyStateComponent, StatusBadgeComponent],
   template: `
     <div class="page">
       <ui-page-header
@@ -19,22 +19,29 @@ import { PageHeaderComponent, DataTableComponent, TableColumn, TableCellDirectiv
         icon="users">
       </ui-page-header>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading clients..." size="lg"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading clients..." size="lg"></ui-loading-spinner>
+}
 
-      <ui-empty-state
-        *ngIf="error && !loading"
+      @if (error && !loading) {
+<ui-empty-state
+       
         title="Unable to Load Clients"
         [description]="error">
       </ui-empty-state>
+}
 
-      <ui-empty-state
-        *ngIf="!loading && !error && clients.length === 0"
+      @if (!loading && !error && clients.length === 0) {
+<ui-empty-state
+       
         title="No Assigned Clients"
         description="No clients have been assigned to you yet.">
       </ui-empty-state>
+}
 
-      <ui-data-table
-        *ngIf="!loading && !error && clients.length > 0"
+      @if (!loading && !error && clients.length > 0) {
+<ui-data-table
+       
         [columns]="columns"
         [data]="clients"
         [loading]="loading"
@@ -44,13 +51,16 @@ import { PageHeaderComponent, DataTableComponent, TableColumn, TableCellDirectiv
         
         <ng-template uiTableCell="name" let-row>
           <div class="font-semibold text-gray-900">{{ row.name }}</div>
-          <div *ngIf="row.clientCode" class="text-xs text-gray-500 mt-0.5">Code: {{ row.clientCode }}</div>
+          @if (row.clientCode) {
+<div class="text-xs text-gray-500 mt-0.5">Code: {{ row.clientCode }}</div>
+}
         </ng-template>
 
         <ng-template uiTableCell="status" let-row>
           <ui-status-badge [status]="row.status || 'ACTIVE'"></ui-status-badge>
         </ng-template>
       </ui-data-table>
+}
     </div>
   `,
   styles: [

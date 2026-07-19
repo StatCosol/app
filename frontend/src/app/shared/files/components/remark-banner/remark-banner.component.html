@@ -1,4 +1,5 @@
-<div *ngIf="show"
+@if (show) {
+<div
   class="flex items-start gap-2 p-3 rounded-xl border text-sm"
   [class]="bannerClass">
   <svg class="w-5 h-5 flex-shrink-0 mt-0.5" [class]="iconClass"
@@ -8,6 +9,9 @@
   </svg>
   <div>
     <span class="font-semibold">{{ label }}</span>
-    <span *ngIf="remark"> &mdash; {{ remark }}</span>
+    @if (remark) {
+<span> &mdash; {{ remark }}</span>
+}
   </div>
 </div>
+}

@@ -53,7 +53,8 @@ import {
       </ui-page-header>
 
       <!-- Bulk Import Dialog -->
-      <div *ngIf="showImportDialog" class="bg-white border border-gray-200 rounded-xl p-5 mb-4 shadow-sm">
+      @if (showImportDialog) {
+<div class="bg-white border border-gray-200 rounded-xl p-5 mb-4 shadow-sm">
         <h3 class="text-base font-semibold text-gray-900 mb-3">Bulk Import Employees</h3>
         <p class="text-sm text-gray-600 mb-3">Upload an Excel/CSV file with employee data. Download the template first to see the required format.</p>
         <div class="flex items-end gap-3 flex-wrap">
@@ -68,8 +69,11 @@ import {
           </ui-button>
           <ui-button variant="secondary" (clicked)="showImportDialog = false">Cancel</ui-button>
         </div>
-        <div *ngIf="importMsg" class="text-sm mt-2" [class.text-green-600]="!importError" [class.text-red-600]="importError">{{ importMsg }}</div>
-        <div *ngIf="lastImportBatchId && lastImportNewCount > 0" class="flex items-center gap-3 mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+        @if (importMsg) {
+<div class="text-sm mt-2" [class.text-green-600]="!importError" [class.text-red-600]="importError">{{ importMsg }}</div>
+}
+        @if (lastImportBatchId && lastImportNewCount > 0) {
+<div class="flex items-center gap-3 mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
           <div class="text-sm text-amber-800 flex-1">
             Wrong upload? You can revert and delete the {{ lastImportNewCount }} newly added
             employee(s) from this import. (Updated existing employees are not reverted.)
@@ -78,7 +82,9 @@ import {
             {{ reverting ? 'Reverting...' : 'Revert this Import' }}
           </ui-button>
         </div>
+}
       </div>
+}
 
       <!-- Filters -->
       <div class="filter-bar">
@@ -103,10 +109,13 @@ import {
       </div>
 
       <!-- Loading -->
-      <ui-loading-spinner *ngIf="loading" text="Loading employees..." size="lg"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading employees..." size="lg"></ui-loading-spinner>
+}
 
       <!-- Error -->
-      <div *ngIf="error && !loading"
+      @if (error && !loading) {
+<div
            class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -117,22 +126,28 @@ import {
         </div>
         <button (click)="load()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
       </div>
+}
 
       <!-- Empty State -->
-      <ui-empty-state
-        *ngIf="!loading && !error && employees.length === 0"
+      @if (!loading && !error && employees.length === 0) {
+<ui-empty-state
+       
         title="No Employees"
         description="No employees registered yet. Click '+ Register Employee' to start.">
       </ui-empty-state>
+}
 
       <!-- Total Badge -->
-      <div *ngIf="!loading && !error && employees.length > 0" class="total-badge">
+      @if (!loading && !error && employees.length > 0) {
+<div class="total-badge">
         {{ total }} {{ currentListLabel.toLowerCase() }}{{ total !== 1 ? 's' : '' }}
       </div>
+}
 
       <!-- Employee Table -->
-      <ui-data-table
-        *ngIf="!loading && !error && employees.length > 0"
+      @if (!loading && !error && employees.length > 0) {
+<ui-data-table
+       
         [columns]="columns"
         [data]="employees"
         [loading]="loading"
@@ -147,26 +162,42 @@ import {
 
         <ng-template uiTableCell="designation" let-row>
           {{ row.designation || '-' }}
-          <div *ngIf="row.department" class="text-xs text-gray-500">{{ row.department }}</div>
+          @if (row.department) {
+<div class="text-xs text-gray-500">{{ row.department }}</div>
+}
         </ng-template>
 
         <ng-template uiTableCell="state" let-row>
-          <span class="state-badge" *ngIf="row.stateCode">{{ row.stateCode }}</span>
-          <span *ngIf="!row.stateCode" class="text-gray-400">-</span>
+          @if (row.stateCode) {
+<span class="state-badge">{{ row.stateCode }}</span>
+}
+          @if (!row.stateCode) {
+<span class="text-gray-400">-</span>
+}
         </ng-template>
 
         <ng-template uiTableCell="ids" let-row>
-          <div *ngIf="row.uan" class="text-xs">UAN: {{ row.uan }}</div>
-          <div *ngIf="row.esic" class="text-xs">ESIC: {{ row.esic }}</div>
-          <div *ngIf="row.pan" class="text-xs">PAN: {{ row.pan }}</div>
-          <div *ngIf="!row.uan && !row.esic && !row.pan" class="text-xs text-gray-400">-</div>
+          @if (row.uan) {
+<div class="text-xs">UAN: {{ row.uan }}</div>
+}
+          @if (row.esic) {
+<div class="text-xs">ESIC: {{ row.esic }}</div>
+}
+          @if (row.pan) {
+<div class="text-xs">PAN: {{ row.pan }}</div>
+}
+          @if (!row.uan && !row.esic && !row.pan) {
+<div class="text-xs text-gray-400">-</div>
+}
         </ng-template>
 
         <ng-template uiTableCell="status" let-row>
           <ui-status-badge [status]="row.dateOfExit ? 'EXITED' : (row.isActive ? 'ACTIVE' : 'INACTIVE')"></ui-status-badge>
-          <div *ngIf="row.dateOfExit" class="text-[10px] text-gray-400 mt-1">
+          @if (row.dateOfExit) {
+<div class="text-[10px] text-gray-400 mt-1">
             {{ row.dateOfExit | date:'dd/MM/yyyy' }}
           </div>
+}
         </ng-template>
 
         <ng-template uiTableCell="approval" let-row>
@@ -179,30 +210,37 @@ import {
           <div class="employee-actions">
             <button class="employee-action text-blue-600 hover:underline" title="View employee" (click)="$event.stopPropagation(); viewEmployee(row)">View</button>
             <button class="employee-action text-blue-600 hover:underline" title="Edit employee" (click)="$event.stopPropagation(); editEmployee(row)">Edit</button>
-            <button
-              *ngIf="row.approvalStatus === 'PENDING'"
+            @if (row.approvalStatus === 'PENDING') {
+<button
+             
               class="employee-action text-green-600 hover:underline font-semibold"
               title="Approve employee"
               (click)="$event.stopPropagation(); approveEmployee(row)">
               Approve
             </button>
-            <button
-              *ngIf="row.approvalStatus === 'PENDING'"
+}
+            @if (row.approvalStatus === 'PENDING') {
+<button
+             
               class="employee-action text-red-600 hover:underline"
               title="Reject employee"
               (click)="$event.stopPropagation(); rejectEmployee(row)">
               Reject
             </button>
-            <button
-              *ngIf="row.isActive && !row.dateOfExit && row.approvalStatus !== 'PENDING'"
+}
+            @if (row.isActive && !row.dateOfExit && row.approvalStatus !== 'PENDING') {
+<button
+             
               class="employee-action text-red-600 hover:underline"
               title="Mark employee exit"
               (click)="$event.stopPropagation(); confirmDeactivate(row)">
               Mark Exit
             </button>
+}
           </div>
         </ng-template>
       </ui-data-table>
+}
     </div>
   `,
   styles: [

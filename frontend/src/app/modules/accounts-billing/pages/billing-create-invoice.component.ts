@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { AccountsBillingService } from '../services/accounts-billing.service';
@@ -15,24 +15,29 @@ const EDITABLE_STATUSES = new Set([
 @Component({
   selector: 'app-billing-create-invoice',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterModule],
+  imports: [FormsModule, ReactiveFormsModule, RouterModule],
   template: `
     <div class="p-6 space-y-6">
       <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-slate-800">{{ isEditMode ? 'Edit Invoice' : 'Create Invoice' }}</h1>
       </div>
 
-      <div *ngIf="loadingInvoice" class="bg-white rounded-xl border p-10 text-center text-slate-500">
+      @if (loadingInvoice) {
+<div class="bg-white rounded-xl border p-10 text-center text-slate-500">
         Loading invoice…
       </div>
+}
 
-      <div *ngIf="isEditMode && !loadingInvoice && lockedStatus" class="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 text-sm">
+      @if (isEditMode && !loadingInvoice && lockedStatus) {
+<div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 text-sm">
         This invoice is <strong>{{ lockedStatus }}</strong> and can no longer be edited
         (payments have been recorded or it has been cancelled).
         <a routerLink="/accounts/invoices/{{ invoiceId }}" class="underline font-medium">Back to invoice</a>
       </div>
+}
 
-      <form *ngIf="!loadingInvoice && !lockedStatus" [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-6">
+      @if (!loadingInvoice && !lockedStatus) {
+<form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-6">
         <!-- Header Section -->
         <div class="bg-white rounded-xl border p-6 space-y-4">
           <h2 class="text-lg font-semibold text-slate-700">Invoice Details</h2>
@@ -41,14 +46,18 @@ const EDITABLE_STATUSES = new Set([
               <label class="block text-xs font-medium text-slate-600 mb-1">Billing Client *</label>
               <select formControlName="billingClientId" (change)="onClientChange()" class="w-full px-3 py-2 border rounded-lg text-sm">
                 <option value="">Select Client</option>
-                <option *ngFor="let c of clients" [value]="c.id">{{ c.legalName }} ({{ c.billingCode }})</option>
+                @for (c of clients; track c) {
+<option [value]="c.id">{{ c.legalName }} ({{ c.billingCode }})</option>
+}
               </select>
             </div>
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Invoice Type *</label>
               <select formControlName="invoiceType" class="w-full px-3 py-2 border rounded-lg text-sm">
                 <option value="">Select Type</option>
-                <option *ngFor="let t of invoiceTypes" [value]="t.value">{{ t.label }}</option>
+                @for (t of invoiceTypes; track t) {
+<option [value]="t.value">{{ t.label }}</option>
+}
               </select>
             </div>
             <div>
@@ -70,7 +79,8 @@ const EDITABLE_STATUSES = new Set([
           </div>
 
           <!-- Selected Client Info -->
-          <div *ngIf="selectedClient" class="bg-blue-50 rounded-lg p-4 text-sm">
+          @if (selectedClient) {
+<div class="bg-blue-50 rounded-lg p-4 text-sm">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
               <div><span class="text-slate-500">GSTIN:</span> <strong>{{ selectedClient.gstin || 'N/A' }}</strong></div>
               <div><span class="text-slate-500">State:</span> <strong>{{ selectedClient.stateName }} ({{ selectedClient.stateCode }})</strong></div>
@@ -78,6 +88,7 @@ const EDITABLE_STATUSES = new Set([
               <div><span class="text-slate-500">Terms:</span> <strong>{{ selectedClient.paymentTermsDays }} days</strong></div>
             </div>
           </div>
+}
         </div>
 
         <!-- Line Items -->
@@ -105,7 +116,8 @@ const EDITABLE_STATUSES = new Set([
                 </tr>
               </thead>
               <tbody formArrayName="items">
-                <tr *ngFor="let item of itemsArray.controls; let i = index" [formGroupName]="i" class="border-t">
+                @for (item of itemsArray.controls; track item; let i = $index) {
+<tr [formGroupName]="i" class="border-t">
                   <td class="px-3 py-2">
                     <input formControlName="serviceDescription" class="w-full px-2 py-1.5 border rounded text-sm" placeholder="Service description">
                   </td>
@@ -131,9 +143,12 @@ const EDITABLE_STATUSES = new Set([
                     ₹{{ calcLineTotal(i) }}
                   </td>
                   <td class="px-3 py-2 text-center">
-                    <button type="button" (click)="removeItem(i)" class="text-red-500 hover:text-red-700" *ngIf="itemsArray.length > 1">&times;</button>
+                    @if (itemsArray.length > 1) {
+<button type="button" (click)="removeItem(i)" class="text-red-500 hover:text-red-700">&times;</button>
+}
                   </td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
@@ -149,6 +164,7 @@ const EDITABLE_STATUSES = new Set([
           </button>
         </div>
       </form>
+}
     </div>
   `,
 })

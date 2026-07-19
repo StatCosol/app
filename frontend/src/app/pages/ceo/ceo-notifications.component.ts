@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ThreadLayoutComponent } from '../../shared/thread';
 import { PageHeaderComponent } from '../../shared/ui';
 import { CeoThreadApiService } from '../../core/ceo-thread-api.service';
@@ -7,7 +7,7 @@ import { CeoThreadApiService } from '../../core/ceo-thread-api.service';
 @Component({
   selector: 'app-ceo-notifications',
   standalone: true,
-  imports: [CommonModule, ThreadLayoutComponent, PageHeaderComponent],
+  imports: [ThreadLayoutComponent, PageHeaderComponent],
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header

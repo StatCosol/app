@@ -1,12 +1,15 @@
 <!-- Branch Dashboard: Execution-focused layout -->
 <div class="branch-dashboard">
   <!-- Loading overlay -->
-  <div *ngIf="loading" class="loading-overlay">
+  @if (loading) {
+<div class="loading-overlay">
     <div class="spinner"></div>
     <p class="text-sm text-slate-500 mt-3">Loading dashboard...</p>
   </div>
+}
 
-  <ng-container *ngIf="!loading">
+  @if (!loading) {
+
     <!-- Header -->
     <div class="dash-header">
       <div>
@@ -31,7 +34,8 @@
     <!-- Row 1: KPI Cards -->
     <div class="kpi-grid">
       <!-- Employee Headcount -->
-      <div *ngIf="hasEmployeeComplianceModule" class="kpi-card kpi-blue">
+      @if (hasEmployeeComplianceModule) {
+<div class="kpi-card kpi-blue">
         <div class="kpi-icon-wrap bg-blue-100">
           <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
@@ -47,9 +51,11 @@
           </div>
         </div>
       </div>
+}
 
       <!-- Contractor Headcount -->
-      <div *ngIf="hasContractorModule" class="kpi-card kpi-purple">
+      @if (hasContractorModule) {
+<div class="kpi-card kpi-purple">
         <div class="kpi-icon-wrap bg-purple-100">
           <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -65,9 +71,11 @@
           </div>
         </div>
       </div>
+}
 
       <!-- PF Pending -->
-      <div *ngIf="hasPayrollModule" class="kpi-card kpi-amber">
+      @if (hasPayrollModule) {
+<div class="kpi-card kpi-amber">
         <div class="kpi-icon-wrap bg-amber-100">
           <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
@@ -83,9 +91,11 @@
           </div>
         </div>
       </div>
+}
 
       <!-- ESIC Pending -->
-      <div *ngIf="hasPayrollModule" class="kpi-card kpi-red">
+      @if (hasPayrollModule) {
+<div class="kpi-card kpi-red">
         <div class="kpi-icon-wrap bg-red-100">
           <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
@@ -101,12 +111,15 @@
           </div>
         </div>
       </div>
+}
     </div>
 
     <!-- Row 2: Compliance Status -->
-    <div class="status-grid" *ngIf="hasEmployeeComplianceModule || hasContractorModule">
+    @if (hasEmployeeComplianceModule || hasContractorModule) {
+<div class="status-grid">
       <!-- Branch Compliance % -->
-      <div *ngIf="hasEmployeeComplianceModule" class="status-card">
+      @if (hasEmployeeComplianceModule) {
+<div class="status-card">
         <div class="status-header">
           <h3 class="status-title">Branch Compliance</h3>
           <span class="status-badge" [style.background]="getComplianceColor() + '20'" [style.color]="getComplianceColor()">
@@ -118,9 +131,11 @@
         </div>
         <p class="status-note">Overall compliance score for this branch</p>
       </div>
+}
 
       <!-- Document Upload % -->
-      <div *ngIf="hasContractorModule" class="status-card">
+      @if (hasContractorModule) {
+<div class="status-card">
         <div class="status-header">
           <h3 class="status-title">Document Uploads</h3>
           <span class="status-badge" [style.background]="getUploadColor() + '20'" [style.color]="getUploadColor()">
@@ -132,9 +147,11 @@
         </div>
         <p class="status-note">Contractor document upload completion</p>
       </div>
+}
 
       <!-- Open Audit Observations -->
-      <div *ngIf="hasContractorModule" class="status-card">
+      @if (hasContractorModule) {
+<div class="status-card">
         <div class="status-header">
           <h3 class="status-title">Open Observations</h3>
           <span class="status-badge"
@@ -151,10 +168,13 @@
         </div>
         <p class="status-note">Pending audit observations to resolve</p>
       </div>
+}
     </div>
+}
 
     <!-- Vendor Score Overview -->
-    <div *ngIf="topVendors.length > 0 || bottomVendors.length > 0" class="section-card">
+    @if (topVendors.length > 0 || bottomVendors.length > 0) {
+<div class="section-card">
       <div class="section-header">
         <h2 class="section-title">
           <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -188,7 +208,8 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let v of topVendors">
+                @for (v of topVendors; track v) {
+<tr>
                   <td class="font-medium text-slate-800">{{ v.contractorName }}</td>
                   <td class="text-center">
                     <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full"
@@ -203,9 +224,12 @@
                     </span>
                   </td>
                 </tr>
-                <tr *ngIf="topVendors.length === 0">
+}
+                @if (topVendors.length === 0) {
+<tr>
                   <td colspan="4" class="text-center text-slate-400 py-4">No vendor data</td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
@@ -230,7 +254,8 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let v of bottomVendors">
+                @for (v of bottomVendors; track v) {
+<tr>
                   <td class="font-medium text-slate-800">{{ v.contractorName }}</td>
                   <td class="text-center">
                     <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full"
@@ -249,18 +274,23 @@
                     </span>
                   </td>
                 </tr>
-                <tr *ngIf="bottomVendors.length === 0">
+}
+                @if (bottomVendors.length === 0) {
+<tr>
                   <td colspan="4" class="text-center text-slate-400 py-4">No at-risk vendors</td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
         </div>
       </div>
     </div>
+}
 
     <!-- Row 3: Pending Actions -->
-    <div *ngIf="pendingActions.length > 0" class="section-card">
+    @if (pendingActions.length > 0) {
+<div class="section-card">
       <div class="section-header">
         <h2 class="section-title">
           <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -271,7 +301,8 @@
         <span class="text-xs text-slate-500">{{ pendingActions.length }} items need attention</span>
       </div>
       <div class="action-list">
-        <a *ngFor="let action of pendingActions"
+        @for (action of pendingActions; track action) {
+<a
            [routerLink]="action.route"
            class="action-item"
            [class.action-high]="action.severity === 'high'"
@@ -284,11 +315,14 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
           </svg>
         </a>
+}
       </div>
     </div>
+}
 
     <!-- Row 4: Expiry Tracker Table -->
-    <div *ngIf="hasPayrollModule || hasEmployeeComplianceModule" class="section-card">
+    @if (hasPayrollModule || hasEmployeeComplianceModule) {
+<div class="section-card">
       <div class="section-header">
         <h2 class="section-title">
           <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -309,7 +343,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let item of expiryItems" class="expiry-row">
+            @for (item of expiryItems; track item) {
+<tr class="expiry-row">
               <td class="font-medium text-slate-800">{{ item.type }}</td>
               <td class="text-slate-600">{{ item.detail }}</td>
               <td class="text-slate-600">{{ item.dueDate }}</td>
@@ -319,18 +354,24 @@
                 </span>
               </td>
             </tr>
-            <tr *ngIf="expiryItems.length === 0">
+}
+            @if (expiryItems.length === 0) {
+<tr>
               <td colspan="4" class="text-center text-slate-400 py-8">No expiry items to track</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
     </div>
+}
 
     <!-- Row 5: PF / ESIC Pending Employees (collapsible) -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5" *ngIf="pfPendingEmployees.length > 0 || esiPendingEmployees.length > 0">
+    @if (pfPendingEmployees.length > 0 || esiPendingEmployees.length > 0) {
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
       <!-- PF Pending Employees -->
-      <div class="section-card" *ngIf="pfPendingEmployees.length > 0">
+      @if (pfPendingEmployees.length > 0) {
+<div class="section-card">
         <div class="section-header">
           <h2 class="section-title">
             <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -350,21 +391,27 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let emp of pfPendingEmployees | slice:0:10">
+              @for (emp of pfPendingEmployees | slice:0:10; track emp) {
+<tr>
                 <td class="font-medium text-slate-800">{{ emp.name || emp.employeeName || '—' }}</td>
                 <td class="text-slate-600">{{ emp.uan || '—' }}</td>
                 <td class="text-slate-600">{{ emp.contractorName || emp.contractor || '—' }}</td>
               </tr>
+}
             </tbody>
           </table>
-          <p *ngIf="pfPendingEmployees.length > 10" class="text-xs text-slate-400 text-center mt-2">
+          @if (pfPendingEmployees.length > 10) {
+<p class="text-xs text-slate-400 text-center mt-2">
             + {{ pfPendingEmployees.length - 10 }} more — <a routerLink="/branch/employees" class="text-blue-600 hover:underline">View all</a>
           </p>
+}
         </div>
       </div>
+}
 
       <!-- ESI Pending Employees -->
-      <div class="section-card" *ngIf="esiPendingEmployees.length > 0">
+      @if (esiPendingEmployees.length > 0) {
+<div class="section-card">
         <div class="section-header">
           <h2 class="section-title">
             <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -384,24 +431,32 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let emp of esiPendingEmployees | slice:0:10">
+              @for (emp of esiPendingEmployees | slice:0:10; track emp) {
+<tr>
                 <td class="font-medium text-slate-800">{{ emp.name || emp.employeeName || '—' }}</td>
                 <td class="text-slate-600">{{ emp.esicNumber || '—' }}</td>
                 <td class="text-slate-600">{{ emp.contractorName || emp.contractor || '—' }}</td>
               </tr>
+}
             </tbody>
           </table>
-          <p *ngIf="esiPendingEmployees.length > 10" class="text-xs text-slate-400 text-center mt-2">
+          @if (esiPendingEmployees.length > 10) {
+<p class="text-xs text-slate-400 text-center mt-2">
             + {{ esiPendingEmployees.length - 10 }} more — <a routerLink="/branch/employees" class="text-blue-600 hover:underline">View all</a>
           </p>
+}
         </div>
       </div>
+}
     </div>
+}
 
     <!-- Face-scan failures widget -->
-    <div *ngIf="hasContractorFaceAttendanceModule" class="mt-6">
+    @if (hasContractorFaceAttendanceModule) {
+<div class="mt-6">
       <app-face-failures-widget route="/branch/face-failures"></app-face-failures-widget>
     </div>
+}
 
     <!-- Task Center Section -->
     <div class="mt-6">
@@ -425,7 +480,8 @@
         </div>
       </div>
 
-      <div *ngIf="pendingTasks.length > 0" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      @if (pendingTasks.length > 0) {
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="bg-gray-50">
@@ -437,7 +493,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let t of pendingTasks" class="border-t border-slate-100 hover:bg-gray-50">
+            @for (t of pendingTasks; track t) {
+<tr class="border-t border-slate-100 hover:bg-gray-50">
               <td class="px-3 py-2 text-slate-800">{{ t.title }}</td>
               <td class="px-3 py-2 text-slate-500">{{ t.module }}</td>
               <td class="px-3 py-2">
@@ -450,13 +507,18 @@
               </td>
               <td class="px-3 py-2 text-slate-500">{{ t.due_date ? (t.due_date | date:'mediumDate') : '—' }}</td>
             </tr>
+}
           </tbody>
         </table>
         </div>
       </div>
-      <div *ngIf="pendingTasks.length === 0" class="text-center text-sm text-slate-400 py-4">
+}
+      @if (pendingTasks.length === 0) {
+<div class="text-center text-sm text-slate-400 py-4">
         No pending tasks
       </div>
+}
     </div>
-  </ng-container>
+  
+}
 </div>

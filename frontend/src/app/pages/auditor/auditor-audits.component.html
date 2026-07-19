@@ -92,16 +92,21 @@
         <h3 class="text-lg font-semibold text-gray-900">Assigned Audits</h3>
         <div class="text-sm text-gray-500">{{ activeFilterSummary }}</div>
       </div>
-      <div class="text-sm text-gray-500" *ngIf="!loading">{{ filteredAudits.length }} audit(s)</div>
+      @if (!loading) {
+<div class="text-sm text-gray-500">{{ filteredAudits.length }} audit(s)</div>
+}
     </div>
 
-    <div *ngIf="loading" class="flex items-center justify-center gap-3 py-10 text-gray-500">
+    @if (loading) {
+<div class="flex items-center justify-center gap-3 py-10 text-gray-500">
       <span class="inline-block w-5 h-5 border-2 border-gray-300 border-t-amber-500 rounded-full animate-spin"></span>
       <span class="text-sm">Loading assigned audits...</span>
     </div>
+}
 
-    <ui-data-table
-      *ngIf="!loading && filteredAudits.length > 0"
+    @if (!loading && filteredAudits.length > 0) {
+<ui-data-table
+     
       [columns]="auditColumns"
       [data]="filteredAudits">
 
@@ -145,11 +150,14 @@
         </ui-button>
       </ng-template>
     </ui-data-table>
+}
 
-    <ui-empty-state
-      *ngIf="!loading && filteredAudits.length === 0"
+    @if (!loading && filteredAudits.length === 0) {
+<ui-empty-state
+     
       title="No audits match these filters"
       description="Try clearing the filters or wait for new assigned audits to arrive from the CRM schedule.">
     </ui-empty-state>
+}
   </div>
 </div>

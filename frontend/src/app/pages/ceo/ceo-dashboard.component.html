@@ -5,14 +5,19 @@
     icon="chart-bar">
   </ui-page-header>
 
-  <ui-loading-spinner *ngIf="loading()" text="Loading executive dashboard..."></ui-loading-spinner>
+  @if (loading()) {
+<ui-loading-spinner text="Loading executive dashboard..."></ui-loading-spinner>
+}
 
-  <div *ngIf="!loading() && errorMsg()" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
+  @if (!loading() && errorMsg()) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
     <span>{{ errorMsg() }}</span>
     <button type="button" (click)="loadAll()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
   </div>
+}
 
-  <ng-container *ngIf="!loading() && summary()">
+  @if (!loading() && summary()) {
+
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
       <div class="card">
         <div class="text-xs text-gray-500">Total Clients</div>
@@ -51,9 +56,11 @@
         <h3 class="card-title">Executive Guardrails</h3>
         <span class="text-xs text-gray-500">{{ executiveGuardrails().length }} active alerts</span>
       </div>
-      <div *ngIf="executiveGuardrails().length; else noExecutiveGuardrails" class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <article
-          *ngFor="let item of executiveGuardrails()"
+      @if (executiveGuardrails().length) {
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        @for (item of executiveGuardrails(); track item) {
+<article
+         
           class="rounded-xl border px-4 py-3"
           [class]="guardrailClass(item.severity)">
           <div class="flex items-center justify-between gap-2">
@@ -63,13 +70,17 @@
           <div class="text-sm font-semibold text-gray-900 mt-2">{{ item.title }}</div>
           <div class="text-xs text-gray-700 mt-1">{{ item.detail }}</div>
         </article>
+}
       </div>
-      <ng-template #noExecutiveGuardrails>
+} @else {
+
         <ui-empty-state
           title="No active executive alerts"
           description="No guardrail breaches are currently detected in approvals, escalations, or closures.">
         </ui-empty-state>
-      </ng-template>
+      
+}
+      
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -122,7 +133,8 @@
       </div>
     </div>
 
-    <div class="card mb-6" *ngIf="complianceTrend().length > 0">
+    @if (complianceTrend().length > 0) {
+<div class="card mb-6">
       <div class="flex items-center justify-between mb-3">
         <h3 class="card-title">Monthly Compliance Trend</h3>
         <span class="text-xs text-gray-500">Last {{ complianceTrend().length }} months</span>
@@ -142,6 +154,7 @@
         </ng-template>
       </ui-data-table>
     </div>
+}
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
       <div class="card">
@@ -149,8 +162,9 @@
           <h3 class="card-title">Top 10 Risk Clients</h3>
           <span class="text-xs text-gray-500">By overdue count</span>
         </div>
-        <ui-data-table
-          *ngIf="topOverdueClients().length > 0"
+        @if (topOverdueClients().length > 0) {
+<ui-data-table
+         
           [columns]="clientOverviewColumns"
           [data]="topOverdueClients()"
           emptyMessage="No clients with overdue items">
@@ -161,11 +175,14 @@
             {{ row.crmName || '-' }}
           </ng-template>
         </ui-data-table>
-        <ui-empty-state
-          *ngIf="topOverdueClients().length === 0"
+}
+        @if (topOverdueClients().length === 0) {
+<ui-empty-state
+         
           title="No overdue clients"
           description="All clients are within compliance thresholds">
         </ui-empty-state>
+}
       </div>
 
       <div class="card">
@@ -224,7 +241,8 @@
       </div>
     </div>
 
-    <div class="card mb-6" *ngIf="escalations().length > 0">
+    @if (escalations().length > 0) {
+<div class="card mb-6">
       <div class="flex items-center justify-between mb-4">
         <h3 class="card-title">Pending Escalations</h3>
         <ui-button variant="secondary" size="sm" (clicked)="goToEscalations()">View all</ui-button>
@@ -241,6 +259,7 @@
         </ng-template>
       </ui-data-table>
     </div>
+}
 
     <div class="card">
       <h3 class="card-title mb-4">Quick Actions</h3>
@@ -251,5 +270,6 @@
         <ui-button variant="secondary" (clicked)="exportCSV()">Export Summary CSV</ui-button>
       </div>
     </div>
-  </ng-container>
+  
+}
 </div>

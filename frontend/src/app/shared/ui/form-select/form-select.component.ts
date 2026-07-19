@@ -22,10 +22,14 @@ export interface SelectOption {
   ],
   template: `
     <div class="w-full">
-      <label *ngIf="label" [for]="selectId" class="block text-sm font-medium text-gray-700 mb-1.5">
+      @if (label) {
+<label [for]="selectId" class="block text-sm font-medium text-gray-700 mb-1.5">
         {{ label }}
-        <span *ngIf="required" class="text-error-500">*</span>
+        @if (required) {
+<span class="text-error-500">*</span>
+}
       </label>
+}
       <div class="relative">
         <select
           [id]="selectId"
@@ -38,10 +42,14 @@ export interface SelectOption {
           (ngModelChange)="onInternalChange($event)"
           (blur)="onTouched()"
         >
-          <option *ngIf="placeholder" [ngValue]="null" disabled>{{ placeholder }}</option>
-          <option *ngFor="let opt of options" [ngValue]="opt.value" [disabled]="opt.disabled">
+          @if (placeholder) {
+<option [ngValue]="null" disabled>{{ placeholder }}</option>
+}
+          @for (opt of options; track opt) {
+<option [ngValue]="opt.value" [disabled]="opt.disabled">
             {{ opt.label }}
           </option>
+}
         </select>
         <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
           <svg class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
@@ -49,8 +57,12 @@ export interface SelectOption {
           </svg>
         </div>
       </div>
-      <p *ngIf="hint && !error" [id]="selectId + '-hint'" class="mt-1.5 text-sm text-gray-500">{{ hint }}</p>
-      <p *ngIf="error" [id]="selectId + '-error'" role="alert" class="mt-1.5 text-sm text-error-600">{{ error }}</p>
+      @if (hint && !error) {
+<p [id]="selectId + '-hint'" class="mt-1.5 text-sm text-gray-500">{{ hint }}</p>
+}
+      @if (error) {
+<p [id]="selectId + '-error'" role="alert" class="mt-1.5 text-sm text-error-600">{{ error }}</p>
+}
     </div>
   `
 })

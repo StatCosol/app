@@ -22,9 +22,11 @@ import {
       <div class="page-header">
         <div>
           <h1 class="page-title">Branch Compliance Schedule</h1>
-          <p class="page-subtitle" *ngIf="data">
+          @if (data) {
+<p class="page-subtitle">
             {{ data.branchName }} &middot; {{ data.stateCode | uppercase }} &middot; {{ data.establishmentType }}
           </p>
+}
         </div>
 
         <!-- Month picker -->
@@ -49,36 +51,49 @@ import {
       </div>
 
       <!-- Branch selector (for client portal with multiple branches) -->
-      <div *ngIf="branchIds.length > 1 && !fixedBranchId" class="branch-selector">
+      @if (branchIds.length > 1 && !fixedBranchId) {
+<div class="branch-selector">
         <label class="text-sm font-medium text-gray-600" for="bci-selected-branch-id">Branch</label>
         <select id="bci-selected-branch-id" name="selectedBranchId" class="select-input" [(ngModel)]="selectedBranchId" (ngModelChange)="load()">
-          <option *ngFor="let id of branchIds" [value]="id">{{ id }}</option>
+          @for (id of branchIds; track id) {
+<option [value]="id">{{ id }}</option>
+}
         </select>
       </div>
+}
 
       <!-- Loading skeleton -->
-      <div *ngIf="loading" class="space-y-3 mt-6">
-        <div *ngFor="let i of [1,2,3,4,5]" class="skeleton-row"></div>
+      @if (loading) {
+<div class="space-y-3 mt-6">
+        @for (i of [1,2,3,4,5]; track i) {
+<div class="skeleton-row"></div>
+}
       </div>
+}
 
       <!-- Error -->
-      <div *ngIf="error && !loading" class="error-banner mt-6">
+      @if (error && !loading) {
+<div class="error-banner mt-6">
         <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
         </svg>
         <span>{{ error }}</span>
       </div>
+}
 
       <!-- Empty state -->
-      <div *ngIf="!loading && !error && data && data.items.length === 0" class="empty-state mt-6">
+      @if (!loading && !error && data && data.items.length === 0) {
+<div class="empty-state mt-6">
         <svg class="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
         <p class="text-gray-500">No compliance items applicable for this branch in {{ selectedMonth }}.</p>
       </div>
+}
 
       <!-- Results -->
-      <div *ngIf="!loading && !error && data && data.items.length > 0" class="mt-6 space-y-6">
+      @if (!loading && !error && data && data.items.length > 0) {
+<div class="mt-6 space-y-6">
         <!-- Summary cards -->
         <div class="summary-grid">
           <div class="summary-card summary-card--returns">
@@ -92,7 +107,8 @@ import {
         </div>
 
         <!-- Returns section -->
-        <div *ngIf="returnsItems.length" class="section-card">
+        @if (returnsItems.length) {
+<div class="section-card">
           <h2 class="section-title">
             <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z"/>
@@ -111,7 +127,8 @@ import {
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let item of returnsItems" class="table-row">
+                @for (item of returnsItems; track item) {
+<tr class="table-row">
                   <td class="font-medium">{{ item.name }}</td>
                   <td>{{ item.module }}</td>
                   <td>
@@ -126,13 +143,16 @@ import {
                     </span>
                   </td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
         </div>
+}
 
         <!-- MCD section -->
-        <div *ngIf="mcdItems.length" class="section-card">
+        @if (mcdItems.length) {
+<div class="section-card">
           <h2 class="section-title">
             <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
@@ -151,7 +171,8 @@ import {
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let item of mcdItems" class="table-row">
+                @for (item of mcdItems; track item) {
+<tr class="table-row">
                   <td class="font-medium">{{ item.name }}</td>
                   <td>{{ item.module }}</td>
                   <td class="font-mono text-sm">{{ item.windowOpen | date:'dd MMM yyyy' }}</td>
@@ -162,11 +183,14 @@ import {
                     </span>
                   </td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
         </div>
+}
       </div>
+}
     </div>
   `,
   styles: [`

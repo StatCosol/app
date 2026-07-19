@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { HttpClient } from '@angular/common/http';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -20,14 +20,13 @@ import {
   standalone: true,
   selector: 'app-crm-contractor-computation',
   imports: [
-    CommonModule,
     FormsModule,
     PageHeaderComponent,
     ClientContextStripComponent,
     LoadingSpinnerComponent,
     DataTableComponent,
-    TableCellDirective,
-  ],
+    TableCellDirective
+],
   template: `
     <div class="page">
       <ui-page-header
@@ -38,13 +37,17 @@ import {
       </ui-page-header>
 
       <div class="filters">
-        <label *ngIf="!lockedClientId">
+        @if (!lockedClientId) {
+<label>
           <span>Client</span>
           <select [(ngModel)]="clientId" (ngModelChange)="load()">
             <option value="">Select client</option>
-            <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+            @for (c of clients; track c) {
+<option [value]="c.id">{{ c.clientName }}</option>
+}
           </select>
         </label>
+}
         <label>
           <span>Period</span>
           <input type="month" [(ngModel)]="periodMonth" (ngModelChange)="load()" />
@@ -60,20 +63,27 @@ import {
         </label>
       </div>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading computation rows..."></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading computation rows..."></ui-loading-spinner>
+}
 
-      <div *ngIf="!loading && !clientId" class="empty">
+      @if (!loading && !clientId) {
+<div class="empty">
         Select a client to view contractor computation.
       </div>
+}
 
-      <div *ngIf="!loading && clientId" class="summary">
+      @if (!loading && clientId) {
+<div class="summary">
         <div><strong>{{ rows.length }}</strong><span>Rows</span></div>
         <div><strong>{{ mismatchCount }}</strong><span>Mismatches</span></div>
         <div><strong>{{ noQuoteCount }}</strong><span>No quotation</span></div>
       </div>
+}
 
-      <ui-data-table
-        *ngIf="!loading && clientId"
+      @if (!loading && clientId) {
+<ui-data-table
+       
         [columns]="columns"
         [data]="rows"
         [loading]="loading"
@@ -90,7 +100,9 @@ import {
           <span class="status" [class.ok]="row.matchStatus === 'MATCHED'" [class.bad]="row.matchStatus !== 'MATCHED'">
             {{ row.matchStatus }}
           </span>
-          <div *ngIf="row.mismatchReason" class="reason">{{ row.mismatchReason }}</div>
+          @if (row.mismatchReason) {
+<div class="reason">{{ row.mismatchReason }}</div>
+}
         </ng-template>
         <ng-template uiTableCell="wage" let-row>
           <div>Quote: {{ money(row.quotationDailyWage) }}</div>
@@ -109,6 +121,7 @@ import {
           <div>PT {{ money(row.ptDeduction) }}</div>
         </ng-template>
       </ui-data-table>
+}
     </div>
   `,
   styles: [

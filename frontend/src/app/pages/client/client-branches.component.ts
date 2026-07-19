@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { Subject } from 'rxjs';
@@ -30,14 +30,13 @@ interface Branch {
   selector: 'app-client-branches',
   standalone: true,
   imports: [
-    CommonModule,
     PageHeaderComponent,
     DataTableComponent,
     TableCellDirective,
     LoadingSpinnerComponent,
     EmptyStateComponent,
-    StatusBadgeComponent,
-  ],
+    StatusBadgeComponent
+],
   template: `
     <div class="page">
       <ui-page-header
@@ -46,10 +45,13 @@ interface Branch {
       </ui-page-header>
 
       <!-- Loading -->
-      <ui-loading-spinner *ngIf="loading" text="Loading branches..." size="lg"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading branches..." size="lg"></ui-loading-spinner>
+}
 
       <!-- Error -->
-      <div *ngIf="error && !loading"
+      @if (error && !loading) {
+<div
            class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -60,22 +62,28 @@ interface Branch {
         </div>
         <button (click)="load()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
       </div>
+}
 
       <!-- Empty State -->
-      <ui-empty-state
-        *ngIf="!loading && !error && branches.length === 0"
+      @if (!loading && !error && branches.length === 0) {
+<ui-empty-state
+       
         title="No Branches"
         description="No branches have been registered for your organisation yet.">
       </ui-empty-state>
+}
 
       <!-- Total Badge -->
-      <div *ngIf="!loading && !error && branches.length > 0" class="total-badge">
+      @if (!loading && !error && branches.length > 0) {
+<div class="total-badge">
         {{ branches.length }} branch{{ branches.length !== 1 ? 'es' : '' }}
       </div>
+}
 
       <!-- Branches Table -->
-      <ui-data-table
-        *ngIf="!loading && !error && branches.length > 0"
+      @if (!loading && !error && branches.length > 0) {
+<ui-data-table
+       
         [columns]="columns"
         [data]="branches"
         [loading]="loading"
@@ -103,6 +111,7 @@ interface Branch {
           <ui-status-badge [status]="row.status"></ui-status-badge>
         </ng-template>
       </ui-data-table>
+}
     </div>
   `,
   styles: [

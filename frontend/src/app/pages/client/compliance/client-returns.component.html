@@ -5,11 +5,17 @@
     icon="document-text"
   ></ui-page-header>
 
-  <div *ngIf="hasFocusTarget()" class="bg-sky-50 border border-sky-200 rounded-2xl shadow-sm px-5 py-4 text-sky-900">
+  @if (hasFocusTarget()) {
+<div class="bg-sky-50 border border-sky-200 rounded-2xl shadow-sm px-5 py-4 text-sky-900">
     <p class="text-sm font-semibold">Focused from Branch Compliance</p>
-    <p class="text-sm" *ngIf="hasFocusedFiling()">Highlighted filing: {{ focusLabel() }}</p>
-    <p class="text-sm" *ngIf="!hasFocusedFiling()">No filing exists yet for {{ focusLabel() }}. The create form is preselected below.</p>
+    @if (hasFocusedFiling()) {
+<p class="text-sm">Highlighted filing: {{ focusLabel() }}</p>
+}
+    @if (!hasFocusedFiling()) {
+<p class="text-sm">No filing exists yet for {{ focusLabel() }}. The create form is preselected below.</p>
+}
   </div>
+}
 
   <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
     <div class="flex flex-wrap gap-3 items-end">
@@ -17,7 +23,9 @@
         <label class="form-label" for="cr-branch-id">Branch</label>
         <select id="cr-branch-id" name="branchId" class="form-select" [(ngModel)]="filters.branchId" (ngModelChange)="loadFilings()" [disabled]="singleBranch">
           <option value="">All branches</option>
-          <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
+          @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
+}
         </select>
       </div>
       <div class="w-36">
@@ -35,13 +43,17 @@
         <label class="form-label" for="cr-period-month">Month</label>
         <select id="cr-period-month" name="periodMonth" class="form-select" [(ngModel)]="filters.periodMonth" (ngModelChange)="loadFilings()">
           <option value="">All</option>
-          <option *ngFor="let m of monthOptions" [value]="m.value">{{ m.label }}</option>
+          @for (m of monthOptions; track m) {
+<option [value]="m.value">{{ m.label }}</option>
+}
         </select>
       </div>
       <div class="w-28">
         <label class="form-label" for="cr-period-year">Year</label>
         <select id="cr-period-year" name="periodYear" class="form-select" [(ngModel)]="filters.periodYear" (ngModelChange)="loadFilings()">
-          <option *ngFor="let y of yearOptions" [value]="y">{{ y }}</option>
+          @for (y of yearOptions; track y) {
+<option [value]="y">{{ y }}</option>
+}
         </select>
       </div>
       <button type="button" class="btn btn-secondary ml-auto" (click)="loadFilings()" [disabled]="loading">Refresh</button>
@@ -54,26 +66,34 @@
         <label class="form-label" for="cr-branch-id-2">Branch (upload)</label>
         <select id="cr-branch-id-2" name="branchId" class="form-select" [(ngModel)]="newFiling.branchId" (ngModelChange)="onCreateBranchChange()">
           <option value="" disabled>Select branch</option>
-          <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
+          @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
+}
         </select>
       </div>
       <div class="w-full sm:w-48">
         <label class="form-label" for="cr-return-type">Return type</label>
         <select id="cr-return-type" name="returnType" class="form-select" [(ngModel)]="newFiling.returnType">
           <option value="" disabled>Select</option>
-          <option *ngFor="let t of types" [value]="t.code">{{ t.label }}</option>
+          @for (t of types; track t) {
+<option [value]="t.code">{{ t.label }}</option>
+}
         </select>
       </div>
       <div class="w-28">
         <label class="form-label" for="cr-period-month-2">Month</label>
         <select id="cr-period-month-2" name="periodMonth" class="form-select" [(ngModel)]="newFiling.periodMonth">
-          <option *ngFor="let m of monthOptions" [value]="m.value">{{ m.label }}</option>
+          @for (m of monthOptions; track m) {
+<option [value]="m.value">{{ m.label }}</option>
+}
         </select>
       </div>
       <div class="w-28">
         <label class="form-label" for="cr-period-year-2">Year</label>
         <select id="cr-period-year-2" name="periodYear" class="form-select" [(ngModel)]="newFiling.periodYear">
-          <option *ngFor="let y of yearOptions" [value]="y">{{ y }}</option>
+          @for (y of yearOptions; track y) {
+<option [value]="y">{{ y }}</option>
+}
         </select>
       </div>
       <button type="button" class="btn btn-primary" (click)="create()" [disabled]="creating">Create filing</button>
@@ -86,18 +106,23 @@
         <p class="text-sm font-semibold text-gray-800">Filings</p>
         <p class="text-xs text-gray-500">Branch-scoped returns with acknowledgements and challans</p>
       </div>
-      <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
     </div>
 
-    <div class="p-5" *ngIf="!filings.length && !loading">
+    @if (!filings.length && !loading) {
+<div class="p-5">
       <ui-empty-state
         icon="document-text"
         title="No returns yet"
         description="Create a filing above and upload acknowledgement / challan to submit."
       ></ui-empty-state>
     </div>
+}
 
-    <div class="overflow-x-auto max-h-[600px] overflow-y-auto" *ngIf="filings.length">
+    @if (filings.length) {
+<div class="overflow-x-auto max-h-[600px] overflow-y-auto">
       <table class="min-w-full">
         <thead>
           <tr class="text-left text-xs uppercase text-slate-500">
@@ -111,13 +136,16 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let f of filings"
+          @for (f of filings; track f) {
+<tr
             class="border-t border-gray-100 text-sm"
             [ngClass]="{ 'bg-sky-50': isFocusedFiling(f) }">
             <td class="px-5 py-3">{{ branchName(f) }}</td>
             <td class="px-5 py-3 space-y-0.5">
               <div class="font-semibold text-gray-800">{{ f.returnType }}</div>
-              <div *ngIf="isFocusedFiling(f)" class="text-xs font-semibold text-sky-700">Targeted filing</div>
+              @if (isFocusedFiling(f)) {
+<div class="text-xs font-semibold text-sky-700">Targeted filing</div>
+}
               <div class="text-xs text-gray-500">{{ f.lawType }}</div>
             </td>
             <td class="px-5 py-3">{{ periodText(f) }}</td>
@@ -129,31 +157,55 @@
               <div class="flex flex-col gap-2 text-xs text-slate-700">
                 <div class="flex items-center gap-2">
                   <span class="w-20 text-slate-500">Ack</span>
-                  <ng-container *ngIf="f.ackFilePath; else ackUpload">
+                  @if (f.ackFilePath) {
+
                     <a [href]="f.ackFilePath" target="_blank" class="link">View</a>
-                  </ng-container>
-                  <ng-template #ackUpload>
-                    <label class="btn btn-ghost btn-xs" *ngIf="canUpload()">
+                  
+} @else {
+
+                    @if (canUpload()) {
+<label class="btn btn-ghost btn-xs">
                       <input type="file" class="hidden" (change)="upload('ack', f, $event)" />
-                      <span *ngIf="!(uploading[f.id]?.ack)">Upload</span>
-                      <span *ngIf="uploading[f.id]?.ack">Uploading…</span>
+                      @if (!(uploading[f.id]?.ack)) {
+<span>Upload</span>
+}
+                      @if (uploading[f.id]?.ack) {
+<span>Uploading…</span>
+}
                     </label>
-                    <span *ngIf="!canUpload()" class="text-slate-400">Branch only</span>
-                  </ng-template>
+}
+                    @if (!canUpload()) {
+<span class="text-slate-400">Branch only</span>
+}
+                  
+}
+                  
                 </div>
                 <div class="flex items-center gap-2">
                   <span class="w-20 text-slate-500">Challan</span>
-                  <ng-container *ngIf="f.challanFilePath; else challanUpload">
+                  @if (f.challanFilePath) {
+
                     <a [href]="f.challanFilePath" target="_blank" class="link">View</a>
-                  </ng-container>
-                  <ng-template #challanUpload>
-                    <label class="btn btn-ghost btn-xs" *ngIf="canUpload()">
+                  
+} @else {
+
+                    @if (canUpload()) {
+<label class="btn btn-ghost btn-xs">
                       <input type="file" class="hidden" (change)="upload('challan', f, $event)" />
-                      <span *ngIf="!(uploading[f.id]?.challan)">Upload</span>
-                      <span *ngIf="uploading[f.id]?.challan">Uploading…</span>
+                      @if (!(uploading[f.id]?.challan)) {
+<span>Upload</span>
+}
+                      @if (uploading[f.id]?.challan) {
+<span>Uploading…</span>
+}
                     </label>
-                    <span *ngIf="!canUpload()" class="text-slate-400">Branch only</span>
-                  </ng-template>
+}
+                    @if (!canUpload()) {
+<span class="text-slate-400">Branch only</span>
+}
+                  
+}
+                  
                 </div>
               </div>
             </td>
@@ -163,13 +215,19 @@
                 (click)="submit(f)"
                 [disabled]="!canUpload() || submitting[f.id] || f.status === 'SUBMITTED' || f.status === 'APPROVED'"
               >
-                <span *ngIf="!submitting[f.id]">Submit</span>
-                <span *ngIf="submitting[f.id]">Submitting…</span>
+                @if (!submitting[f.id]) {
+<span>Submit</span>
+}
+                @if (submitting[f.id]) {
+<span>Submitting…</span>
+}
               </button>
             </td>
           </tr>
+}
         </tbody>
       </table>
     </div>
+}
   </div>
 </div>

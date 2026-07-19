@@ -157,25 +157,32 @@ interface UnifiedApprovalItem {
         </div>
       </section>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading approvals..." size="lg"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading approvals..." size="lg"></ui-loading-spinner>
+}
 
-      <section class="grid-layout" *ngIf="!loading">
+      @if (!loading) {
+<section class="grid-layout">
         <article class="workspace-card">
           <div class="section-head">
             <h3>Approval Queue</h3>
             <span class="muted">{{ filteredQueue.length }} item(s)</span>
           </div>
 
-          <ui-empty-state
-            *ngIf="!filteredQueue.length"
+          @if (!filteredQueue.length) {
+<ui-empty-state
+           
             title="No pending approvals"
             description="No leave or nomination approvals match the current filters.">
           </ui-empty-state>
+}
 
-          <div class="queue-list" *ngIf="filteredQueue.length">
-            <button
+          @if (filteredQueue.length) {
+<div class="queue-list">
+            @for (item of filteredQueue; track trackById($index, item)) {
+<button
               class="queue-row"
-              *ngFor="let item of filteredQueue; trackBy: trackById"
+             
               [class.selected]="selected?.id === item.id && selected?.type === item.type"
               (click)="select(item)">
               <div class="row-top">
@@ -185,14 +192,19 @@ interface UnifiedApprovalItem {
               </div>
               <div class="row-meta">
                 <span>{{ item.summary }}</span>
-                <span *ngIf="item.branchId">Branch: {{ item.branchId }}</span>
+                @if (item.branchId) {
+<span>Branch: {{ item.branchId }}</span>
+}
                 <span>{{ item.submittedAt | date:'dd MMM yyyy' }}</span>
               </div>
             </button>
+}
           </div>
+}
         </article>
 
-        <article class="workspace-card" *ngIf="selected; else noSelection">
+        @if (selected) {
+<article class="workspace-card">
           <div class="section-head">
             <h3>Approval Detail</h3>
             <ui-status-badge [status]="selected.status || 'PENDING'"></ui-status-badge>
@@ -225,11 +237,13 @@ interface UnifiedApprovalItem {
                 <span>Before</span>
                 <span>After</span>
               </div>
-              <div class="compare-table-row" *ngFor="let row of compareRows(selected); trackBy: trackByCompareField">
+              @for (row of compareRows(selected); track trackByCompareField($index, row)) {
+<div class="compare-table-row">
                 <span class="f">{{ row.field }}</span>
                 <span>{{ row.before }}</span>
                 <span [class.pending-after]="row.after === 'Pending decision'">{{ row.after }}</span>
               </div>
+}
             </section>
           </div>
 
@@ -243,7 +257,8 @@ interface UnifiedApprovalItem {
             </textarea>
           </label>
 
-          <label class="field" *ngIf="decisionType === 'REJECT'">
+          @if (decisionType === 'REJECT') {
+<label class="field">
             <span>Rejection Reason <em>*</em></span>
             <textarea autocomplete="off" id="cua-rejection-reason" name="rejectionReason"
               rows="2"
@@ -252,6 +267,7 @@ interface UnifiedApprovalItem {
               placeholder="Reason required for rejection">
             </textarea>
           </label>
+}
 
           <div class="inline-actions">
             <ui-button
@@ -272,45 +288,61 @@ interface UnifiedApprovalItem {
 
           <section class="timeline">
             <h4>Decision Timeline</h4>
-            <article class="timeline-row" *ngFor="let ev of timelineEvents; trackBy: trackByLabel">
+            @for (ev of timelineEvents; track trackByLabel($index, ev)) {
+<article class="timeline-row">
               <div class="dot"></div>
               <div>
                 <div class="event">{{ ev.label }}</div>
                 <div class="time">{{ ev.timeLabel }}</div>
-                <div class="note" *ngIf="ev.note">{{ ev.note }}</div>
+                @if (ev.note) {
+<div class="note">{{ ev.note }}</div>
+}
               </div>
             </article>
+}
           </section>
 
           <section class="timeline mt-2">
             <h4>Audit Trail (Current Session)</h4>
-            <article
+            @for (ev of selectedAuditTrail; track trackByAudit($index, ev)) {
+<article
               class="timeline-row"
-              *ngFor="let ev of selectedAuditTrail; trackBy: trackByAudit"
+             
               [class.audit-row]="true">
               <div class="dot" [class.reject-dot]="ev.action === 'REJECTED'"></div>
               <div>
                 <div class="event">{{ ev.action }} by {{ ev.actor }}</div>
                 <div class="time">{{ formatDate(ev.at) }}</div>
-                <div class="note" *ngIf="ev.reason">Reason: {{ ev.reason }}</div>
-                <div class="note" *ngIf="ev.note">Note: {{ ev.note }}</div>
+                @if (ev.reason) {
+<div class="note">Reason: {{ ev.reason }}</div>
+}
+                @if (ev.note) {
+<div class="note">Note: {{ ev.note }}</div>
+}
               </div>
             </article>
-            <div class="muted" *ngIf="!selectedAuditTrail.length">
+}
+            @if (!selectedAuditTrail.length) {
+<div class="muted">
               No session decisions recorded for this item yet.
             </div>
+}
           </section>
         </article>
-      </section>
+} @else {
 
-      <ng-template #noSelection>
         <article class="workspace-card">
           <ui-empty-state
             title="Select an approval item"
             description="Choose any queue item to review details and take action.">
           </ui-empty-state>
         </article>
-      </ng-template>
+      
+}
+      </section>
+}
+
+      
     </div>
   `,
   styles: [`

@@ -11,15 +11,18 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
   imports: [CommonModule, DatePipe],
   template: `
     <!-- ============== LOADING STATE ============== -->
-    <div *ngIf="loading" class="flex items-center justify-center min-h-[60vh]">
+    @if (loading) {
+<div class="flex items-center justify-center min-h-[60vh]">
       <div class="flex flex-col items-center gap-3">
         <div class="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
         <span class="text-sm text-gray-400 font-medium">Loading news&hellip;</span>
       </div>
     </div>
+}
 
     <!-- ============== MAIN CONTENT ============== -->
-    <div *ngIf="!loading" class="news-page">
+    @if (!loading) {
+<div class="news-page">
 
       <!-- ── Hero header ── -->
       <div class="hero-banner">
@@ -51,18 +54,25 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
       </div>
 
       <!-- ── Single article view (when opened from ticker with newsId) ── -->
-      <div *ngIf="selectedItem" class="max-w-4xl mx-auto px-4 sm:px-6 pb-10 -mt-4">
+      @if (selectedItem) {
+<div class="max-w-4xl mx-auto px-4 sm:px-6 pb-10 -mt-4">
         <article class="article-card article-card--featured animate-rise">
           <div class="article-accent"></div>
           <!-- Image banner -->
-          <img *ngIf="selectedItem.imageUrl && !isPdf(selectedItem.imageUrl)" [src]="selectedItem.imageUrl" alt="" class="w-full h-52 object-cover" (error)="onImgError($event)" />
-          <a *ngIf="selectedItem.imageUrl && isPdf(selectedItem.imageUrl)" [href]="selectedItem.imageUrl" target="_blank"
+          @if (selectedItem.imageUrl && !isPdf(selectedItem.imageUrl)) {
+<img [src]="selectedItem.imageUrl" alt="" class="w-full h-52 object-cover" (error)="onImgError($event)" />
+}
+          @if (selectedItem.imageUrl && isPdf(selectedItem.imageUrl)) {
+<a [href]="selectedItem.imageUrl" target="_blank"
              class="flex items-center gap-2 px-6 py-4 bg-red-50 text-red-700 font-semibold hover:bg-red-100 transition-colors">
             📄 View attached PDF
           </a>
+}
           <div class="p-6 sm:p-8">
             <div class="flex items-center gap-3 mb-4 flex-wrap">
-              <span *ngIf="selectedItem.pinned" class="pinned-badge">📌 Pinned</span>
+              @if (selectedItem.pinned) {
+<span class="pinned-badge">📌 Pinned</span>
+}
               <span class="category-chip" [attr.data-cat]="selectedItem.category">{{ selectedItem.category }}</span>
               <span class="date-chip">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -70,29 +80,36 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
                 </svg>
                 {{ selectedItem.createdAt | date:'MMMM d, yyyy' }}
               </span>
-              <span class="new-badge" *ngIf="isRecent(selectedItem)">NEW</span>
+              @if (isRecent(selectedItem)) {
+<span class="new-badge">NEW</span>
+}
             </div>
             <h2 class="text-2xl sm:text-3xl font-bold text-gray-900 leading-snug mb-1">
               {{ selectedItem.title }}
             </h2>
-            <p *ngIf="selectedItem.creator?.name" class="text-sm text-gray-400 mb-4">By {{ selectedItem.creator?.name }}</p>
+            @if (selectedItem.creator?.name) {
+<p class="text-sm text-gray-400 mb-4">By {{ selectedItem.creator?.name }}</p>
+}
             <div class="article-divider"></div>
             <div class="text-gray-700 leading-relaxed whitespace-pre-wrap text-base sm:text-lg">
               {{ selectedItem.body }}
             </div>
-            <button
-              *ngIf="selectedItem.imageUrl"
+            @if (selectedItem.imageUrl) {
+<button
+             
               type="button"
               class="download-btn"
               (click)="downloadAttachment(selectedItem, $event)"
             >
               Download attachment
             </button>
+}
           </div>
         </article>
 
         <!-- Other news below -->
-        <div *ngIf="otherItems.length" class="mt-10">
+        @if (otherItems.length) {
+<div class="mt-10">
           <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
@@ -100,23 +117,32 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
             More News
           </h3>
           <div class="news-grid">
-            <article
-              *ngFor="let n of otherItems; let i = index"
+            @for (n of otherItems; track n; let i = $index) {
+<article
+             
               class="article-card article-card--grid animate-rise cursor-pointer"
               [style.animation-delay]="(i * 80) + 'ms'"
               (click)="selectItem(n)"
             >
               <div class="article-accent" [style.background]="accentColors[i % accentColors.length]"></div>
-              <img *ngIf="n.imageUrl && !isPdf(n.imageUrl)" [src]="n.imageUrl" alt="" class="w-full h-36 object-cover" (error)="onImgError($event)" />
-              <div *ngIf="n.imageUrl && isPdf(n.imageUrl)" class="w-full h-36 bg-red-50 flex items-center justify-center text-red-600 font-bold">📄 PDF</div>
+              @if (n.imageUrl && !isPdf(n.imageUrl)) {
+<img [src]="n.imageUrl" alt="" class="w-full h-36 object-cover" (error)="onImgError($event)" />
+}
+              @if (n.imageUrl && isPdf(n.imageUrl)) {
+<div class="w-full h-36 bg-red-50 flex items-center justify-center text-red-600 font-bold">📄 PDF</div>
+}
               <div class="p-5">
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span *ngIf="n.pinned" class="text-amber-500 text-xs">📌</span>
+                  @if (n.pinned) {
+<span class="text-amber-500 text-xs">📌</span>
+}
                   <span class="category-chip category-chip--sm" [attr.data-cat]="n.category">{{ n.category }}</span>
                   <span class="date-chip date-chip--sm">
                     {{ n.createdAt | date:'MMM d, yyyy' }}
                   </span>
-                  <span class="new-badge ml-1" *ngIf="isRecent(n)">NEW</span>
+                  @if (isRecent(n)) {
+<span class="new-badge ml-1">NEW</span>
+}
                 </div>
                 <h4 class="text-base font-semibold text-gray-900 mt-2.5 leading-snug line-clamp-2">{{ n.title }}</h4>
                 <p class="text-sm text-gray-500 mt-2 line-clamp-3">{{ n.body }}</p>
@@ -126,37 +152,49 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                   </svg>
                 </span>
-                <button
-                  *ngIf="n.imageUrl"
+                @if (n.imageUrl) {
+<button
+                 
                   type="button"
                   class="download-btn download-btn--sm"
                   (click)="downloadAttachment(n, $event)"
                 >
                   Download
                 </button>
+}
               </div>
             </article>
+}
           </div>
         </div>
+}
       </div>
+}
 
       <!-- ── All-news listing (when no specific newsId) ── -->
-      <div *ngIf="!selectedItem && allItems.length" class="max-w-5xl mx-auto px-4 sm:px-6 pb-10 -mt-4">
+      @if (!selectedItem && allItems.length) {
+<div class="max-w-5xl mx-auto px-4 sm:px-6 pb-10 -mt-4">
         <!-- Featured (first item) -->
         <article
           class="article-card article-card--featured animate-rise cursor-pointer"
           (click)="selectItem(allItems[0])"
         >
           <div class="article-accent"></div>
-          <img *ngIf="allItems[0].imageUrl && !isPdf(allItems[0].imageUrl)" [src]="allItems[0].imageUrl" alt="" class="w-full h-56 object-cover" (error)="onImgError($event)" />
-            <a *ngIf="allItems[0].imageUrl && isPdf(allItems[0].imageUrl)" [href]="allItems[0].imageUrl" target="_blank"
+          @if (allItems[0].imageUrl && !isPdf(allItems[0].imageUrl)) {
+<img [src]="allItems[0].imageUrl" alt="" class="w-full h-56 object-cover" (error)="onImgError($event)" />
+}
+            @if (allItems[0].imageUrl && isPdf(allItems[0].imageUrl)) {
+<a [href]="allItems[0].imageUrl" target="_blank"
                class="flex items-center gap-2 px-5 py-3 bg-red-50 text-red-700 font-semibold hover:bg-red-100 transition-colors">
               📄 View attached PDF
             </a>
+}
           <div class="p-6 sm:p-8">
             <div class="flex items-center gap-3 mb-3 flex-wrap">
               <span class="featured-label">FEATURED</span>
-              <span *ngIf="allItems[0].pinned" class="pinned-badge">📌 Pinned</span>
+              @if (allItems[0].pinned) {
+<span class="pinned-badge">📌 Pinned</span>
+}
               <span class="category-chip" [attr.data-cat]="allItems[0].category">{{ allItems[0].category }}</span>
               <span class="date-chip">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -164,10 +202,14 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
                 </svg>
                 {{ allItems[0].createdAt | date:'MMMM d, yyyy' }}
               </span>
-              <span class="new-badge" *ngIf="isRecent(allItems[0])">NEW</span>
+              @if (isRecent(allItems[0])) {
+<span class="new-badge">NEW</span>
+}
             </div>
             <h2 class="text-xl sm:text-2xl font-bold text-gray-900 leading-snug mb-2">{{ allItems[0].title }}</h2>
-            <p *ngIf="allItems[0].creator?.name" class="text-sm text-gray-400 mb-1">By {{ allItems[0].creator?.name }}</p>
+            @if (allItems[0].creator?.name) {
+<p class="text-sm text-gray-400 mb-1">By {{ allItems[0].creator?.name }}</p>
+}
             <p class="text-gray-600 leading-relaxed line-clamp-4">{{ allItems[0].body }}</p>
             <span class="read-more read-more--lg">
               Read full article
@@ -175,36 +217,48 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
               </svg>
             </span>
-            <button
-              *ngIf="allItems[0].imageUrl"
+            @if (allItems[0].imageUrl) {
+<button
+             
               type="button"
               class="download-btn"
               (click)="downloadAttachment(allItems[0], $event)"
             >
               Download attachment
             </button>
+}
           </div>
         </article>
 
         <!-- Grid of remaining news -->
-        <div *ngIf="allItems.length > 1" class="news-grid mt-8">
-          <article
-            *ngFor="let n of allItems.slice(1); let i = index"
+        @if (allItems.length > 1) {
+<div class="news-grid mt-8">
+          @for (n of allItems.slice(1); track n; let i = $index) {
+<article
+           
             class="article-card article-card--grid animate-rise cursor-pointer"
             [style.animation-delay]="(i * 80) + 'ms'"
             (click)="selectItem(n)"
           >
             <div class="article-accent" [style.background]="accentColors[i % accentColors.length]"></div>
-            <img *ngIf="n.imageUrl && !isPdf(n.imageUrl)" [src]="n.imageUrl" alt="" class="w-full h-36 object-cover" (error)="onImgError($event)" />
-            <div *ngIf="n.imageUrl && isPdf(n.imageUrl)" class="w-full h-36 bg-red-50 flex items-center justify-center text-red-600 font-bold">📄 PDF</div>
+            @if (n.imageUrl && !isPdf(n.imageUrl)) {
+<img [src]="n.imageUrl" alt="" class="w-full h-36 object-cover" (error)="onImgError($event)" />
+}
+            @if (n.imageUrl && isPdf(n.imageUrl)) {
+<div class="w-full h-36 bg-red-50 flex items-center justify-center text-red-600 font-bold">📄 PDF</div>
+}
             <div class="p-5">
               <div class="flex items-center gap-2 flex-wrap">
-                <span *ngIf="n.pinned" class="text-amber-500 text-xs">📌</span>
+                @if (n.pinned) {
+<span class="text-amber-500 text-xs">📌</span>
+}
                 <span class="category-chip category-chip--sm" [attr.data-cat]="n.category">{{ n.category }}</span>
                 <span class="date-chip date-chip--sm">
                   {{ n.createdAt | date:'MMM d, yyyy' }}
                 </span>
-                <span class="new-badge ml-1" *ngIf="isRecent(n)">NEW</span>
+                @if (isRecent(n)) {
+<span class="new-badge ml-1">NEW</span>
+}
               </div>
               <h4 class="text-base font-semibold text-gray-900 mt-2.5 leading-snug line-clamp-2">{{ n.title }}</h4>
               <p class="text-sm text-gray-500 mt-2 line-clamp-3">{{ n.body }}</p>
@@ -214,21 +268,27 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>
               </span>
-              <button
-                *ngIf="n.imageUrl"
+              @if (n.imageUrl) {
+<button
+               
                 type="button"
                 class="download-btn download-btn--sm"
                 (click)="downloadAttachment(n, $event)"
               >
                 Download
               </button>
+}
             </div>
           </article>
+}
         </div>
+}
       </div>
+}
 
       <!-- ── Empty state ── -->
-      <div *ngIf="!selectedItem && !allItems.length" class="max-w-md mx-auto text-center py-20 px-4">
+      @if (!selectedItem && !allItems.length) {
+<div class="max-w-md mx-auto text-center py-20 px-4">
         <div class="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-5">
           <svg class="w-10 h-10 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
@@ -238,8 +298,10 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
         <h3 class="text-xl font-semibold text-gray-700">No News Yet</h3>
         <p class="text-gray-400 mt-2 text-sm">Check back later for the latest announcements.</p>
       </div>
+}
 
     </div>
+}
   `,
   styles: [`
     /* ── Page ── */

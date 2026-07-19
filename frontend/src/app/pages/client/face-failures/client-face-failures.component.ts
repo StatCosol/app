@@ -57,7 +57,8 @@ const REASONS: { value: string; label: string }[] = [
     ></ui-page-header>
 
     <div class="p-4 md:p-6 space-y-4">
-      <div *ngIf="visibleAlerts().length"
+      @if (visibleAlerts().length) {
+<div
            class="bg-rose-50 border border-rose-200 rounded-xl p-3 md:p-4 shadow-sm space-y-2">
         <div class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-2 text-rose-800">
@@ -69,11 +70,14 @@ const REASONS: { value: string; label: string }[] = [
                   (click)="dismissAllAlerts()">Dismiss all</button>
         </div>
         <ul class="space-y-1.5">
-          <li *ngFor="let a of visibleAlerts()"
+          @for (a of visibleAlerts(); track a) {
+<li
               class="flex items-start justify-between gap-3 bg-white border border-rose-100 rounded-lg px-3 py-2">
             <div class="min-w-0 flex-1">
               <div class="text-sm font-medium text-gray-900 truncate" [title]="a.title">{{ a.title }}</div>
-              <div *ngIf="a.message" class="text-xs text-gray-600 mt-0.5">{{ a.message }}</div>
+              @if (a.message) {
+<div class="text-xs text-gray-600 mt-0.5">{{ a.message }}</div>
+}
               <div class="text-[11px] text-gray-400 mt-0.5">{{ a.createdAt | date:'dd MMM yyyy, HH:mm' }}</div>
             </div>
             <div class="flex items-center gap-2 shrink-0">
@@ -85,9 +89,12 @@ const REASONS: { value: string; label: string }[] = [
                       title="Dismiss this alert" (click)="dismissAlert(a.id)">×</button>
             </div>
           </li>
+}
         </ul>
       </div>
-      <div *ngIf="stats" class="grid grid-cols-2 md:grid-cols-5 gap-3">
+}
+      @if (stats) {
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div class="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
           <div class="text-xs font-medium text-gray-500">Total</div>
           <div class="text-2xl font-semibold text-gray-900">{{ stats.total }}</div>
@@ -115,15 +122,18 @@ const REASONS: { value: string; label: string }[] = [
           <div class="text-xs text-gray-500">{{ topBranch()?.count || 0 }} hits</div>
         </div>
       </div>
+}
 
-      <div *ngIf="stats && (stats.byReason.length || stats.byBranch.length || topSubjects.length)"
+      @if (stats && (stats.byReason.length || stats.byBranch.length || topSubjects.length)) {
+<div
            class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
           <div class="px-4 py-2 border-b border-gray-100 text-xs font-semibold uppercase text-gray-500">
             Top reasons
           </div>
           <ul class="divide-y divide-gray-100">
-            <li *ngFor="let r of topReasons()" class="text-sm">
+            @for (r of topReasons(); track r) {
+<li class="text-sm">
               <button type="button"
                       class="w-full flex items-center justify-between px-4 py-2 hover:bg-gray-50 text-left"
                       [class.bg-rose-50]="reason === r.reason"
@@ -134,9 +144,12 @@ const REASONS: { value: string; label: string }[] = [
                 <span class="text-rose-700 font-medium text-xs">{{ r.count }}</span>
               </button>
             </li>
-            <li *ngIf="!stats.byReason.length" class="px-4 py-3 text-xs text-gray-400 text-center">
+}
+            @if (!stats.byReason.length) {
+<li class="px-4 py-3 text-xs text-gray-400 text-center">
               No data
             </li>
+}
           </ul>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
@@ -144,7 +157,8 @@ const REASONS: { value: string; label: string }[] = [
             Top branches
           </div>
           <ul class="divide-y divide-gray-100">
-            <li *ngFor="let b of topBranches()" class="text-sm">
+            @for (b of topBranches(); track b) {
+<li class="text-sm">
               <button type="button"
                       class="w-full flex items-center justify-between px-4 py-2 hover:bg-gray-50 text-left"
                       [class.bg-indigo-50]="focusBranchId === b.branchId"
@@ -156,9 +170,12 @@ const REASONS: { value: string; label: string }[] = [
                 <span class="text-indigo-700 font-medium text-xs">{{ b.count }}</span>
               </button>
             </li>
-            <li *ngIf="!stats.byBranch.length" class="px-4 py-3 text-xs text-gray-400 text-center">
+}
+            @if (!stats.byBranch.length) {
+<li class="px-4 py-3 text-xs text-gray-400 text-center">
               No data
             </li>
+}
           </ul>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
@@ -182,7 +199,8 @@ const REASONS: { value: string; label: string }[] = [
             </div>
           </div>
           <ul class="divide-y divide-gray-100">
-            <ng-container *ngFor="let s of topSubjects">
+            @for (s of topSubjects; track s) {
+
             <li class="flex items-center justify-between px-4 py-2 text-sm">
               <button type="button"
                       class="text-left truncate pr-2 text-gray-700 hover:text-blue-700"
@@ -197,19 +215,31 @@ const REASONS: { value: string; label: string }[] = [
                         [class.text-violet-700]="s.subjectType === 'CONTRACTOR'">
                     {{ s.subjectType }}
                   </span>
-                  <span *ngIf="s.subjectType === 'CONTRACTOR' && s.contractorName"
+                  @if (s.subjectType === 'CONTRACTOR' && s.contractorName) {
+<span
                         class="ml-1">· {{ s.contractorName }}</span>
-                  <span *ngIf="s.subjectType === 'EMPLOYEE' && s.employeeCode"
+}
+                  @if (s.subjectType === 'EMPLOYEE' && s.employeeCode) {
+<span
                         class="ml-1">· {{ s.employeeCode }}</span>
-                  <span *ngIf="s.topReason" class="ml-1 text-amber-700">· {{ s.topReason }}</span>
-                  <span *ngIf="s.avgMatchScore !== null" class="ml-1">· avg {{ fmtScore(s.avgMatchScore) }}</span>
-                  <span *ngIf="s.lastFailedAt" class="ml-1" [title]="s.lastFailedAt">· last {{ s.lastFailedAt | date:'MMM d, HH:mm' }}</span>
+}
+                  @if (s.topReason) {
+<span class="ml-1 text-amber-700">· {{ s.topReason }}</span>
+}
+                  @if (s.avgMatchScore !== null) {
+<span class="ml-1">· avg {{ fmtScore(s.avgMatchScore) }}</span>
+}
+                  @if (s.lastFailedAt) {
+<span class="ml-1" [title]="s.lastFailedAt">· last {{ s.lastFailedAt | date:'MMM d, HH:mm' }}</span>
+}
                 </div>
               </button>
               <div class="flex items-center gap-2">
-                <span *ngIf="isHighOffender(s)"
+                @if (isHighOffender(s)) {
+<span
                       class="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-rose-600 text-white"
                       title="High failure volume">HIGH</span>
+}
                 <button type="button"
                         class="text-gray-400 hover:text-gray-700 text-xs w-5 text-center"
                         [title]="expandedKey === subjectKey(s) ? 'Hide recent failures' : 'Show recent failures'"
@@ -219,28 +249,45 @@ const REASONS: { value: string; label: string }[] = [
                 <span class="text-rose-700 font-medium text-xs whitespace-nowrap">{{ s.count }}</span>
               </div>
             </li>
-            <li *ngIf="expandedKey === subjectKey(s)" class="px-4 py-2 bg-gray-50">
-              <div *ngIf="expandingKey === subjectKey(s)" class="text-xs text-gray-400">Loading…</div>
-              <ng-container *ngIf="expandingKey !== subjectKey(s)">
-                <div *ngIf="!expandedRows.length" class="text-xs text-gray-400">No recent failures</div>
-                <ul class="space-y-1" *ngIf="expandedRows.length">
-                  <li *ngFor="let r of expandedRows"
+            @if (expandedKey === subjectKey(s)) {
+<li class="px-4 py-2 bg-gray-50">
+              @if (expandingKey === subjectKey(s)) {
+<div class="text-xs text-gray-400">Loading…</div>
+}
+              @if (expandingKey !== subjectKey(s)) {
+
+                @if (!expandedRows.length) {
+<div class="text-xs text-gray-400">No recent failures</div>
+}
+                @if (expandedRows.length) {
+<ul class="space-y-1">
+                  @for (r of expandedRows; track r) {
+<li
                       class="text-[11px] text-gray-600 flex items-center justify-between gap-2">
                     <span class="truncate">{{ r.attemptedAt | date:'MMM d, HH:mm' }} · {{ r.reason }}</span>
                     <span class="text-gray-400 whitespace-nowrap">{{ fmtScore(r.matchScore) }}</span>
                   </li>
+}
                 </ul>
-              </ng-container>
+}
+              
+}
             </li>
-            </ng-container>
-            <li *ngIf="!topSubjects.length" class="px-4 py-3 text-xs text-gray-400 text-center">
+}
+            
+}
+            @if (!topSubjects.length) {
+<li class="px-4 py-3 text-xs text-gray-400 text-center">
               No data
             </li>
+}
           </ul>
         </div>
       </div>
+}
 
-      <div *ngIf="stats && hasDaily()" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+      @if (stats && hasDaily()) {
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
         <div class="flex items-center justify-between mb-2 gap-2 flex-wrap">
           <div class="text-xs font-semibold uppercase text-gray-500">Daily failure trend</div>
           <div class="text-xs text-gray-500 flex items-center gap-3">
@@ -251,80 +298,106 @@ const REASONS: { value: string; label: string }[] = [
           </div>
         </div>
         <div class="flex items-end gap-0.5 h-20">
-          <div *ngFor="let d of stats.byDay"
+          @for (d of stats.byDay; track d) {
+<div
                class="flex-1 bg-amber-500/70 hover:bg-amber-600 rounded-sm transition-colors"
                [style.height.%]="dayBarPct(d.count)"
                [title]="d.day + ': ' + d.count"></div>
+}
         </div>
-        <div *ngIf="stats.byDay.length" class="flex justify-between text-[10px] text-gray-400 mt-1">
+        @if (stats.byDay.length) {
+<div class="flex justify-between text-[10px] text-gray-400 mt-1">
           <span>{{ dayShort(stats.byDay[0].day) }}</span>
           <span>{{ dayShort(stats.byDay[stats.byDay.length - 1].day) }}</span>
         </div>
+}
       </div>
+}
 
-      <div *ngIf="stats && hasHourly()" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+      @if (stats && hasHourly()) {
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
         <div class="flex items-center justify-between mb-2">
           <div class="text-xs font-semibold uppercase text-gray-500">Failures by hour of day</div>
           <div class="text-xs text-gray-400">Peak: {{ peakHourLabel() }}</div>
         </div>
         <div class="flex items-end gap-0.5 h-20">
-          <div *ngFor="let h of stats.byHour"
+          @for (h of stats.byHour; track h) {
+<div
                class="flex-1 bg-rose-500/70 hover:bg-rose-600 rounded-sm transition-colors"
                [style.height.%]="barPct(h.count)"
                [title]="hourLabel(h.hour) + ': ' + h.count"></div>
+}
         </div>
         <div class="flex justify-between text-[10px] text-gray-400 mt-1">
           <span>00</span><span>06</span><span>12</span><span>18</span><span>23</span>
         </div>
       </div>
+}
 
-      <div *ngIf="stats && hasDow()" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+      @if (stats && hasDow()) {
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
         <div class="flex items-center justify-between mb-2">
           <div class="text-xs font-semibold uppercase text-gray-500">Failures by day of week</div>
           <div class="text-xs text-gray-400">Peak: {{ peakDowLabel() }}</div>
         </div>
         <div class="flex items-end gap-1 h-20">
-          <div *ngFor="let d of stats.byDayOfWeek"
+          @for (d of stats.byDayOfWeek; track d) {
+<div
                class="flex-1 bg-indigo-500/70 hover:bg-indigo-600 rounded-sm transition-colors"
                [style.height.%]="dowBarPct(d.count)"
                [title]="dowLabel(d.dow) + ': ' + d.count"></div>
+}
         </div>
         <div class="flex justify-between text-[10px] text-gray-400 mt-1">
           <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
         </div>
       </div>
+}
 
-      <div *ngIf="stats && topDevices().length"
+      @if (stats && topDevices().length) {
+<div
            class="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div class="px-4 py-2 border-b border-gray-100 flex items-center justify-between gap-2">
           <span class="text-xs font-semibold uppercase text-gray-500">Top devices by failure count</span>
-          <span *ngIf="modeBreakdown().length" class="flex items-center gap-1">
-            <span *ngFor="let m of modeBreakdown()"
+          @if (modeBreakdown().length) {
+<span class="flex items-center gap-1">
+            @for (m of modeBreakdown(); track m) {
+<span
                   class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-[10px] font-medium text-gray-700"
                   [title]="m.mode + ': ' + m.count + ' failures'">
               {{ m.mode }} <span class="text-rose-600">{{ m.count }}</span>
             </span>
+}
           </span>
+}
         </div>
         <ul class="divide-y divide-gray-100">
-          <li *ngFor="let d of topDevices()"
+          @for (d of topDevices(); track d) {
+<li
               class="flex items-center justify-between px-4 py-2 text-sm gap-2">
             <div class="min-w-0 flex-1">
               <div class="text-gray-700 truncate" [title]="deviceLabel(d)">{{ deviceLabel(d) }}</div>
               <div class="text-xs text-gray-500 mt-0.5">
-                <span *ngIf="d.mode" class="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">{{ d.mode }}</span>
-                <span *ngIf="d.lastFailedAt" class="ml-1" [title]="d.lastFailedAt">last {{ d.lastFailedAt | date:'MMM d, HH:mm' }}</span>
+                @if (d.mode) {
+<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">{{ d.mode }}</span>
+}
+                @if (d.lastFailedAt) {
+<span class="ml-1" [title]="d.lastFailedAt">last {{ d.lastFailedAt | date:'MMM d, HH:mm' }}</span>
+}
               </div>
             </div>
             <span class="text-rose-700 font-medium text-xs whitespace-nowrap">{{ d.count }}</span>
           </li>
+}
         </ul>
       </div>
+}
 
       <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-3">
         <div class="flex items-center gap-2 text-xs flex-wrap">
           <span class="text-gray-500 font-medium uppercase">Quick range:</span>
-          <button *ngFor="let p of rangePresets" type="button"
+          @for (p of rangePresets; track p) {
+<button type="button"
                   class="px-2.5 py-1 rounded-full border transition-colors"
                   [class.bg-blue-50]="activeRange === p.days"
                   [class.border-blue-300]="activeRange === p.days"
@@ -334,7 +407,10 @@ const REASONS: { value: string; label: string }[] = [
                   [class.text-gray-600]="activeRange !== p.days"
                   [class.hover:bg-gray-50]="activeRange !== p.days"
                   (click)="setRange(p.days)">{{ p.label }}</button>
-          <span *ngIf="activeRange === null" class="text-gray-400">(custom range)</span>
+}
+          @if (activeRange === null) {
+<span class="text-gray-400">(custom range)</span>
+}
         </div>
         <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
         <div>
@@ -351,7 +427,9 @@ const REASONS: { value: string; label: string }[] = [
           <label for="reason" class="block text-xs font-medium text-gray-600 mb-1">Reason</label>
           <select id="reason" name="reason" [(ngModel)]="reason"
                   (change)="load()" class="ui-input">
-            <option *ngFor="let r of reasons" [value]="r.value">{{ r.label }}</option>
+            @for (r of reasons; track r) {
+<option [value]="r.value">{{ r.label }}</option>
+}
           </select>
         </div>
 
@@ -376,42 +454,58 @@ const REASONS: { value: string; label: string }[] = [
       </div>
 
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div *ngIf="hasActiveFilters()" class="px-4 py-2 border-b border-blue-100 bg-blue-50 flex items-center justify-between gap-2 flex-wrap">
+        @if (hasActiveFilters()) {
+<div class="px-4 py-2 border-b border-blue-100 bg-blue-50 flex items-center justify-between gap-2 flex-wrap">
           <div class="flex items-center gap-1.5 flex-wrap">
             <span class="text-[10px] uppercase font-semibold text-blue-700">Active filters:</span>
-            <span *ngIf="subject !== 'ALL'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+            @if (subject !== 'ALL') {
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
               Subject: {{ subject === 'EMPLOYEE' ? 'Employees' : 'Contractors' }}
               <button type="button" class="text-blue-400 hover:text-blue-700" title="Clear subject" (click)="clearSubject()">×</button>
             </span>
-            <span *ngIf="reason" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+}
+            @if (reason) {
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
               Reason: {{ reason }}
               <button type="button" class="text-blue-400 hover:text-blue-700" title="Clear reason" (click)="clearReason()">×</button>
             </span>
-            <span *ngIf="focusBranchName" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+}
+            @if (focusBranchName) {
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
               Branch: {{ focusBranchName }}
               <button type="button" class="text-blue-400 hover:text-blue-700" title="Clear branch" (click)="clearBranchFocus()">×</button>
             </span>
-            <span *ngIf="focusLabel" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+}
+            @if (focusLabel) {
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
               Person: {{ focusLabel }}
               <button type="button" class="text-blue-400 hover:text-blue-700" title="Clear person" (click)="clearFocus()">×</button>
             </span>
-            <span *ngIf="activeRange === null && (from || to)" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+}
+            @if (activeRange === null && (from || to)) {
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
               Range: {{ from || '…' }} → {{ to || '…' }}
               <button type="button" class="text-blue-400 hover:text-blue-700" title="Reset to last 7 days" (click)="clearCustomRange()">×</button>
             </span>
-            <span *ngIf="minCount !== 5" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+}
+            @if (minCount !== 5) {
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
               Top offenders ≥ {{ minCount }}
               <button type="button" class="text-blue-400 hover:text-blue-700" title="Reset min hits" (click)="clearMinCount()">×</button>
             </span>
+}
           </div>
           <button type="button" class="text-xs font-medium text-blue-700 hover:text-blue-900" (click)="resetFilters()">Reset all</button>
         </div>
+}
         <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <h3 class="font-semibold text-gray-900">
             Failures
-            <span *ngIf="rows.length" class="ml-2 text-xs font-normal text-gray-500">
+            @if (rows.length) {
+<span class="ml-2 text-xs font-normal text-gray-500">
               ({{ rows.length }})
             </span>
+}
           </h3>
           <div class="flex items-center gap-2">
             <button type="button" class="ui-btn-secondary text-xs"
@@ -430,19 +524,25 @@ const REASONS: { value: string; label: string }[] = [
           </div>
         </div>
 
-        <div *ngIf="loading" class="py-10 flex justify-center">
+        @if (loading) {
+<div class="py-10 flex justify-center">
           <ui-loading-spinner></ui-loading-spinner>
         </div>
+}
 
-        <ng-container *ngIf="!loading">
-          <div *ngIf="!rows.length">
+        @if (!loading) {
+
+          @if (!rows.length) {
+<div>
             <ui-empty-state
               title="No failures found"
               description="No face-attendance rejections match the current filters."
             ></ui-empty-state>
           </div>
+}
 
-          <div *ngIf="rows.length" class="overflow-x-auto">
+          @if (rows.length) {
+<div class="overflow-x-auto">
             <table class="min-w-full text-sm">
               <thead class="bg-gray-50 text-left text-xs font-medium text-gray-600 uppercase">
                 <tr>
@@ -457,7 +557,8 @@ const REASONS: { value: string; label: string }[] = [
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
-                <tr *ngFor="let r of rows" class="hover:bg-gray-50">
+                @for (r of rows; track r) {
+<tr class="hover:bg-gray-50">
                   <td class="px-4 py-2 whitespace-nowrap">
                     {{ r.attemptedAt | date:'dd MMM yyyy, HH:mm' }}
                   </td>
@@ -479,9 +580,11 @@ const REASONS: { value: string; label: string }[] = [
                             (click)="focusOn(r)"
                             title="Filter to this person">
                       <div>{{ r.employeeName || r.contractorEmployeeName || '—' }}</div>
-                      <div *ngIf="r.employeeCode" class="text-xs text-gray-500">
+                      @if (r.employeeCode) {
+<div class="text-xs text-gray-500">
                         {{ r.employeeCode }}
                       </div>
+}
                     </button>
                   </td>
                   <td class="px-4 py-2 text-xs text-gray-600">
@@ -498,10 +601,13 @@ const REASONS: { value: string; label: string }[] = [
                   <td class="px-4 py-2 text-xs text-gray-600">{{ fmtScore(r.matchScore) }}</td>
                   <td class="px-4 py-2 text-xs text-gray-600">{{ fmtScore(r.livenessScore) }}</td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
-        </ng-container>
+}
+        
+}
       </div>
     </div>
   `,

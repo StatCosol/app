@@ -80,11 +80,17 @@ type ComplianceTab = 'ALL' | 'OVERDUE' | 'PENDING' | 'APPROVED';
         </button>
       </div>
 
-      <div *ngIf="loading" class="state-box">Loading compliance tasks...</div>
-      <div *ngIf="error" class="state-box error">{{ error }}</div>
+      @if (loading) {
+<div class="state-box">Loading compliance tasks...</div>
+}
+      @if (error) {
+<div class="state-box error">{{ error }}</div>
+}
 
-      <div class="table-wrap" *ngIf="!loading && !error">
-        <table class="data-table" *ngIf="filteredTasks().length; else noTasks">
+      @if (!loading && !error) {
+<div class="table-wrap">
+        @if (filteredTasks().length) {
+<table class="data-table">
           <thead>
             <tr>
               <th>Title</th>
@@ -96,7 +102,8 @@ type ComplianceTab = 'ALL' | 'OVERDUE' | 'PENDING' | 'APPROVED';
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let task of filteredTasks()">
+            @for (task of filteredTasks(); track task) {
+<tr>
               <td>{{ task.title }}</td>
               <td>{{ task.clientName || '-' }}</td>
               <td>{{ task.branchName || '-' }}</td>
@@ -108,13 +115,18 @@ type ComplianceTab = 'ALL' | 'OVERDUE' | 'PENDING' | 'APPROVED';
                 </span>
               </td>
             </tr>
+}
           </tbody>
         </table>
+} @else {
 
-        <ng-template #noTasks>
           <div class="state-box">No compliance tasks found for selected filter.</div>
-        </ng-template>
+        
+}
+
+        
       </div>
+}
     </section>
   `,
   styles: [

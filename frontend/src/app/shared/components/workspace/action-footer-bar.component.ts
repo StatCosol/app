@@ -1,10 +1,10 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 @Component({
   selector: 'ui-action-footer-bar',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   template: `
     <div class="flex justify-end gap-2">
       <button type="button" class="px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700" (click)="cancel.emit()">

@@ -5,7 +5,7 @@ import {
   OnInit,
   OnDestroy,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { AuthService } from '../../../core/auth.service';
@@ -17,24 +17,32 @@ import {
 @Component({
   selector: 'ui-compliance-notification-center',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="ntf-center">
       <div class="ntf-header">
         <h3 class="ntf-title">Notifications</h3>
-        <span *ngIf="unreadCount > 0" class="ntf-badge">{{ unreadCount }}</span>
+        @if (unreadCount > 0) {
+<span class="ntf-badge">{{ unreadCount }}</span>
+}
       </div>
 
-      <div *ngIf="loading" class="ntf-loading">Loading…</div>
+      @if (loading) {
+<div class="ntf-loading">Loading…</div>
+}
 
-      <div *ngIf="!loading && !notifications.length" class="ntf-empty">
+      @if (!loading && !notifications.length) {
+<div class="ntf-empty">
         No notifications
       </div>
+}
 
-      <div *ngIf="!loading && notifications.length" class="ntf-list">
-        <div
-          *ngFor="let n of notifications; trackBy: trackById"
+      @if (!loading && notifications.length) {
+<div class="ntf-list">
+        @for (n of notifications; track trackById($index, n)) {
+<div
+         
           class="ntf-item"
           [class.ntf-item--unread]="n.status === 'OPEN'"
           (click)="markRead(n)"
@@ -53,7 +61,9 @@ import {
           <p class="ntf-item-title">{{ n.title }}</p>
           <p class="ntf-item-msg">{{ n.message }}</p>
         </div>
+}
       </div>
+}
     </div>
   `,
   styles: [`

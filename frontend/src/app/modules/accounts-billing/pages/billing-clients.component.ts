@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { AccountsBillingService } from '../services/accounts-billing.service';
 import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/billing.models';
@@ -7,7 +7,7 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
 @Component({
   selector: 'app-billing-clients',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="p-6 space-y-6">
       <div class="flex items-center justify-between">
@@ -45,7 +45,8 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
             </tr>
           </thead>
           <tbody class="divide-y">
-            <tr *ngFor="let c of clients" class="hover:bg-slate-50">
+            @for (c of clients; track c) {
+<tr class="hover:bg-slate-50">
               <td class="px-4 py-3 font-mono text-xs">{{ c.billingCode }}</td>
               <td class="px-4 py-3 font-medium">{{ c.legalName }}</td>
               <td class="px-4 py-3">{{ c.billingEmail }}</td>
@@ -59,15 +60,19 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
                 <button (click)="onEdit(c)" class="text-blue-600 hover:underline text-xs mr-2">Edit</button>
               </td>
             </tr>
-            <tr *ngIf="!clients.length">
+}
+            @if (!clients.length) {
+<tr>
               <td colspan="7" class="px-4 py-8 text-center text-slate-400">No billing clients found</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
 
       <!-- Pagination -->
-      <div class="flex items-center justify-between text-sm text-slate-500" *ngIf="totalPages > 1">
+      @if (totalPages > 1) {
+<div class="flex items-center justify-between text-sm text-slate-500">
         <span>Page {{ page }} of {{ totalPages }} ({{ total }} records)</span>
         <div class="flex gap-2">
           <button (click)="page = page - 1; loadClients()" [disabled]="page <= 1"
@@ -76,18 +81,22 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
                   class="px-3 py-1 border rounded disabled:opacity-50">Next</button>
         </div>
       </div>
+}
 
       <!-- Add/Edit Modal -->
-      <div *ngIf="showForm" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      @if (showForm) {
+<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           <div class="p-6 border-b flex items-center justify-between">
             <h2 class="text-lg font-bold">{{ editClient ? 'Edit' : 'Add' }} Billing Client</h2>
             <button (click)="showForm = false" class="text-slate-400 hover:text-slate-600">&times;</button>
           </div>
           <div class="p-6 space-y-4">
-            <div *ngIf="saveError" class="bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded-lg">
+            @if (saveError) {
+<div class="bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded-lg">
               {{ saveError }}
             </div>
+}
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Legal Name *</label>
@@ -125,7 +134,9 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
                 <label class="block text-xs font-medium text-slate-600 mb-1">State *</label>
                 <select name="bc-state-code" [(ngModel)]="form.stateCode" (change)="onStateChange()" class="w-full px-3 py-2 border rounded-lg text-sm">
                   <option value="">Select State</option>
-                  <option *ngFor="let s of states" [value]="s.code">{{ s.name }} ({{ s.code }})</option>
+                  @for (s of states; track s) {
+<option [value]="s.code">{{ s.name }} ({{ s.code }})</option>
+}
                 </select>
               </div>
               <div>
@@ -139,7 +150,9 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Billing Frequency</label>
                 <select name="bc-billing-frequency" [(ngModel)]="form.billingFrequency" class="w-full px-3 py-2 border rounded-lg text-sm">
-                  <option *ngFor="let f of frequencies" [value]="f.value">{{ f.label }}</option>
+                  @for (f of frequencies; track f) {
+<option [value]="f.value">{{ f.label }}</option>
+}
                 </select>
               </div>
             </div>
@@ -155,6 +168,7 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
           </div>
         </div>
       </div>
+}
     </div>
   `,
 })

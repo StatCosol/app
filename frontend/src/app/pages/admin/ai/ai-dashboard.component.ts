@@ -50,16 +50,22 @@ import {
         </div>
       </ui-page-header>
 
-      <ui-loading-spinner *ngIf="loading" size="lg" class="py-16 block"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner size="lg" class="py-16 block"></ui-loading-spinner>
+}
 
-      <div *ngIf="errorMsg && !loading" class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+      @if (errorMsg && !loading) {
+<div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
         <p class="text-red-700 text-sm">{{ errorMsg }}</p>
         <button class="text-red-600 underline text-xs mt-1" (click)="reload()">Try again</button>
       </div>
+}
 
-      <div *ngIf="!loading && !errorMsg">
+      @if (!loading && !errorMsg) {
+<div>
         <!-- AI Status Banner -->
-        <div *ngIf="status" class="mb-6 rounded-lg p-4"
+        @if (status) {
+<div class="mb-6 rounded-lg p-4"
              [ngClass]="status.aiEnabled ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'">
           <div class="flex items-center gap-3">
             <span class="text-2xl">{{ status.aiEnabled ? '🤖' : '⚠️' }}</span>
@@ -73,6 +79,7 @@ import {
             </div>
           </div>
         </div>
+}
 
         <!-- Stat Cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -99,7 +106,8 @@ import {
         </div>
 
         <!-- Exposure Summary -->
-        <div *ngIf="summary" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+        @if (summary) {
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Platform Penalty Exposure</h2>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
@@ -129,6 +137,7 @@ import {
             </div>
           </div>
         </div>
+}
 
         <!-- Quick Actions -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -170,8 +179,9 @@ import {
             <h2 class="text-lg font-semibold text-gray-900">🚨 High Risk Clients</h2>
             <ui-button variant="ghost" size="sm" (clicked)="navigateTo('ai-risk')">View All →</ui-button>
           </div>
-          <ui-data-table
-            *ngIf="highRiskClients.length > 0"
+          @if (highRiskClients.length > 0) {
+<ui-data-table
+           
             [columns]="riskColumns"
             [data]="highRiskClients"
             [pageSize]="10">
@@ -193,21 +203,28 @@ import {
               <ui-button variant="ghost" size="sm" (clicked)="navigateTo('ai-risk', row.client_id)">Details →</ui-button>
             </ng-template>
           </ui-data-table>
-          <ui-empty-state
-            *ngIf="highRiskClients.length === 0"
+}
+          @if (highRiskClients.length === 0) {
+<ui-empty-state
+           
             title="No Risk Assessments Yet"
             message="Run risk assessments from the Risk Assessments page to see high-risk clients here.">
           </ui-empty-state>
+}
         </div>
 
         <!-- Active Insights -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 class="text-lg font-semibold text-gray-900 mb-4">💡 Active Insights</h2>
-          <div *ngIf="insights.length === 0">
+          @if (insights.length === 0) {
+<div>
             <ui-empty-state title="No Insights" message="AI insights will appear here after running risk assessments."></ui-empty-state>
           </div>
-          <div *ngIf="insights.length > 0" class="space-y-3">
-            <div *ngFor="let insight of insights; trackBy: trackInsight"
+}
+          @if (insights.length > 0) {
+<div class="space-y-3">
+            @for (insight of insights; track trackInsight($index, insight)) {
+<div
                  class="border rounded-lg p-4 flex items-start gap-4"
                  [ngClass]="{
                    'border-red-200 bg-red-50': insight.severity === 'CRITICAL',
@@ -233,9 +250,12 @@ import {
               </div>
               <button (click)="dismiss(insight)" class="text-gray-400 hover:text-gray-600 text-sm shrink-0">Dismiss</button>
             </div>
+}
           </div>
+}
         </div>
       </div>
+}
     </div>
   `,
 })

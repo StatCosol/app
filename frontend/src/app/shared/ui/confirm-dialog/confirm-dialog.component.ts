@@ -24,7 +24,8 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule],
   template: `
-    <div *ngIf="open" class="fixed inset-0 flex items-center justify-center" style="z-index: 9999;">
+    @if (open) {
+<div class="fixed inset-0 flex items-center justify-center" style="z-index: 9999;">
       <!-- Backdrop -->
       <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm" (click)="cancel()"></div>
 
@@ -45,7 +46,8 @@ import {
         <div class="px-6 pb-4">
           <p id="confirm-dialog-desc" class="text-sm text-gray-600 whitespace-pre-line">{{ config.message }}</p>
 
-          <div *ngIf="config.type === 'prompt'" class="mt-3">
+          @if (config.type === 'prompt') {
+<div class="mt-3">
             <label for="confirm-dialog-input" class="sr-only">{{ config.placeholder || 'Enter value' }}</label>
             <textarea autocomplete="off"
               #promptInput
@@ -58,6 +60,7 @@ import {
               (keydown.enter)="$any($event).ctrlKey && ok()">
             </textarea>
           </div>
+}
         </div>
 
         <!-- Footer -->
@@ -81,6 +84,7 @@ import {
         </div>
       </div>
     </div>
+}
   `,
 })
 export class ConfirmDialogComponent implements OnInit, OnDestroy {

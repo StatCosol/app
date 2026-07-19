@@ -57,25 +57,29 @@
     </article>
   </section>
 
-  <section class="alert-strip" *ngIf="expiringCount > 0 || expiredCount > 0">
+  @if (expiringCount > 0 || expiredCount > 0) {
+<section class="alert-strip">
     <div class="alert-strip__icon">!</div>
     <div class="alert-strip__text">
       <strong>Expiry Alert:</strong>
       {{ expiringCount }} expiring soon and {{ expiredCount }} expired registrations need follow-up.
     </div>
   </section>
+}
 
   <section class="filters card">
     <div class="status-tabs">
-      <button
+      @for (tab of statusTabs; track tab) {
+<button
         type="button"
-        *ngFor="let tab of statusTabs"
+       
         class="tab-btn"
         [class.active]="statusFilter === tab"
         (click)="setStatusFilter(tab)"
       >
         {{ tab === 'ALL' ? 'All' : statusLabel(tab) }}
       </button>
+}
     </div>
 
     <div class="filter-row">
@@ -83,7 +87,9 @@
         Type
         <select id="br-type-filter" name="typeFilter" [(ngModel)]="typeFilter" (ngModelChange)="applyFilters()">
           <option value="ALL">All Types</option>
-          <option *ngFor="let t of typeOptions" [value]="t">{{ t }}</option>
+          @for (t of typeOptions; track t) {
+<option [value]="t">{{ t }}</option>
+}
         </select>
       </label>
       <label class="search-box">
@@ -99,12 +105,17 @@
     </div>
   </section>
 
-  <div *ngIf="loading" class="loader">Loading registrations workspace...</div>
-  <div *ngIf="!loading && !filteredRegistrations.length" class="empty-state">
+  @if (loading) {
+<div class="loader">Loading registrations workspace...</div>
+}
+  @if (!loading && !filteredRegistrations.length) {
+<div class="empty-state">
     No registrations found for this branch.
   </div>
+}
 
-  <section *ngIf="!loading && filteredRegistrations.length" class="workspace-grid">
+  @if (!loading && filteredRegistrations.length) {
+<section class="workspace-grid">
     <article class="card list-pane">
       <div class="section-head">
         <h2>Registration List</h2>
@@ -124,8 +135,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              *ngFor="let row of filteredRegistrations; trackBy: trackRegistration"
+            @for (row of filteredRegistrations; track trackRegistration($index, row)) {
+<tr
+             
               [class.selected]="selectedRegistration?.id === row.id"
               (click)="selectRegistration(row)"
             >
@@ -142,12 +154,14 @@
                 </div>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
     </article>
 
-    <aside class="detail-stack" *ngIf="selectedRegistration as reg">
+    @if (selectedRegistration; as reg) {
+<aside class="detail-stack">
       <article class="card">
         <div class="section-head">
           <h2>Registration Detail</h2>
@@ -165,10 +179,12 @@
           <div><span>Linked Alerts</span><strong>{{ selectedAlerts.length }}</strong></div>
         </div>
 
-        <div class="remarks" *ngIf="reg.remarks">
+        @if (reg.remarks) {
+<div class="remarks">
           <strong>Latest remarks</strong>
           <p>{{ reg.remarks }}</p>
         </div>
+}
 
         <div class="action-row">
           <button type="button" class="btn btn-secondary" (click)="openRequestModal('RENEW')">Request Renewal</button>
@@ -205,37 +221,49 @@
         <div class="tracker-grid">
           <div>
             <strong class="tracker-title">Upcoming</strong>
-            <div class="tracker-list" *ngIf="expiringTrackerRows.length; else noUpcoming">
-              <button
+            @if (expiringTrackerRows.length) {
+<div class="tracker-list">
+              @for (item of expiringTrackerRows; track item) {
+<button
                 type="button"
                 class="tracker-item"
-                *ngFor="let item of expiringTrackerRows"
+               
                 (click)="selectRegistration(item)"
               >
                 <span>{{ item.type }}</span>
                 <small>{{ daysText(item) }}</small>
               </button>
+}
             </div>
-            <ng-template #noUpcoming>
+} @else {
+
               <div class="empty-mini">No upcoming expiries.</div>
-            </ng-template>
+            
+}
+            
           </div>
           <div>
             <strong class="tracker-title">Overdue</strong>
-            <div class="tracker-list" *ngIf="overdueTrackerRows.length; else noOverdue">
-              <button
+            @if (overdueTrackerRows.length) {
+<div class="tracker-list">
+              @for (item of overdueTrackerRows; track item) {
+<button
                 type="button"
                 class="tracker-item tracker-item--bad"
-                *ngFor="let item of overdueTrackerRows"
+               
                 (click)="selectRegistration(item)"
               >
                 <span>{{ item.type }}</span>
                 <small>{{ daysText(item) }}</small>
               </button>
+}
             </div>
-            <ng-template #noOverdue>
+} @else {
+
               <div class="empty-mini">No overdue registrations.</div>
-            </ng-template>
+            
+}
+            
           </div>
         </div>
       </article>
@@ -246,10 +274,12 @@
           <span>{{ documentCompletion(reg) }}% complete</span>
         </div>
         <ul class="checklist">
-          <li *ngFor="let item of documentChecklist(reg)">
+          @for (item of documentChecklist(reg); track item) {
+<li>
             <i [class.ok]="item.done">{{ item.done ? 'OK' : '--' }}</i>
             <span>{{ item.label }}</span>
           </li>
+}
         </ul>
       </article>
 
@@ -259,17 +289,21 @@
           <span>{{ visibleSelectedRequests.length }} linked requests</span>
         </div>
         <div class="status-tabs status-tabs--compact">
-          <button
+          @for (tab of requestActionTabs; track tab) {
+<button
             type="button"
-            *ngFor="let tab of requestActionTabs"
+           
             [class.active]="requestActionFilter === tab"
             (click)="setRequestActionFilter(tab)"
           >
             {{ tab === 'ALL' ? 'All Actions' : tab }}
           </button>
+}
         </div>
-        <div class="request-list" *ngIf="visibleSelectedRequests.length; else noRequests">
-          <div class="request-item" *ngFor="let req of visibleSelectedRequests; trackBy: trackRequest">
+        @if (visibleSelectedRequests.length) {
+<div class="request-list">
+          @for (req of visibleSelectedRequests; track trackRequest($index, req)) {
+<div class="request-item">
             <div>
               <strong>{{ req.action }} request</strong>
               <p>{{ req.ticketRef }} | {{ req.createdAt ? (req.createdAt | date:'dd MMM yyyy, hh:mm a') : '-' }}</p>
@@ -281,10 +315,14 @@
               <span [class]="requestSlaClass(req)">SLA {{ requestSlaText(req) }}</span>
             </div>
           </div>
+}
         </div>
-        <ng-template #noRequests>
+} @else {
+
           <div class="empty-mini">No requests linked to this registration.</div>
-        </ng-template>
+        
+}
+        
       </article>
 
       <article class="card">
@@ -292,8 +330,10 @@
           <h2>Amendment History</h2>
           <span>{{ selectedAmendmentRequests.length }} entries</span>
         </div>
-        <div class="request-list" *ngIf="selectedAmendmentRequests.length; else noAmendments">
-          <div class="request-item" *ngFor="let req of selectedAmendmentRequests; trackBy: trackRequest">
+        @if (selectedAmendmentRequests.length) {
+<div class="request-list">
+          @for (req of selectedAmendmentRequests; track trackRequest($index, req)) {
+<div class="request-item">
             <div>
               <strong>{{ req.ticketRef }}</strong>
               <p>{{ req.notes || 'No notes' }}</p>
@@ -304,10 +344,14 @@
               <span class="pill">Age {{ requestAgeLabel(req) }}</span>
             </div>
           </div>
+}
         </div>
-        <ng-template #noAmendments>
+} @else {
+
           <div class="empty-mini">No amendment history for this registration.</div>
-        </ng-template>
+        
+}
+        
       </article>
 
       <article class="card">
@@ -315,7 +359,8 @@
           <h2>Closure Tracking</h2>
           <span>{{ selectedClosureRequests.length }} requests</span>
         </div>
-        <div class="closure-summary" *ngIf="latestClosureRequest as latest">
+        @if (latestClosureRequest; as latest) {
+<div class="closure-summary">
           <div>
             <strong>Current Stage</strong>
             <p>{{ closureStageLabel }}</p>
@@ -329,8 +374,11 @@
             <p [class]="requestSlaClass(latest)">SLA {{ requestSlaText(latest) }}</p>
           </div>
         </div>
-        <div class="request-list" *ngIf="selectedClosureRequests.length; else noClosures">
-          <div class="request-item" *ngFor="let req of selectedClosureRequests; trackBy: trackRequest">
+}
+        @if (selectedClosureRequests.length) {
+<div class="request-list">
+          @for (req of selectedClosureRequests; track trackRequest($index, req)) {
+<div class="request-item">
             <div>
               <strong>{{ req.ticketRef }}</strong>
               <p>{{ req.createdAt ? (req.createdAt | date:'dd MMM yyyy, hh:mm a') : '-' }}</p>
@@ -342,10 +390,14 @@
               <span [class]="requestSlaClass(req)">SLA {{ requestSlaText(req) }}</span>
             </div>
           </div>
+}
         </div>
-        <ng-template #noClosures>
+} @else {
+
           <div class="empty-mini">No closure requests for this registration.</div>
-        </ng-template>
+        
+}
+        
       </article>
 
       <article class="card">
@@ -363,8 +415,10 @@
           <h2>Renewal Alerts</h2>
           <span>{{ selectedAlerts.length }} alerts</span>
         </div>
-        <div class="request-list" *ngIf="selectedAlerts.length; else noAlerts">
-          <div class="request-item" *ngFor="let alert of selectedAlerts; trackBy: trackAlert">
+        @if (selectedAlerts.length) {
+<div class="request-list">
+          @for (alert of selectedAlerts; track trackAlert($index, alert)) {
+<div class="request-item">
             <div>
               <strong>{{ alert.title }}</strong>
               <p>{{ alert.message }}</p>
@@ -376,17 +430,26 @@
               <button type="button" class="btn btn-ghost btn-sm" (click)="openRenewalFromAlert(alert)">Renew</button>
             </div>
           </div>
+}
         </div>
-        <ng-template #noAlerts>
+} @else {
+
           <div class="empty-mini">No alerts linked to this registration.</div>
-        </ng-template>
+        
+}
+        
       </article>
     </aside>
+}
   </section>
+}
 </div>
 
-<div class="modal-backdrop" *ngIf="requestModalOpen" (click)="closeRequestModal()"></div>
-<section class="modal-panel" *ngIf="requestModalOpen">
+@if (requestModalOpen) {
+<div class="modal-backdrop" (click)="closeRequestModal()"></div>
+}
+@if (requestModalOpen) {
+<section class="modal-panel">
   <header>
     <h3>Registration Request Wizard</h3>
     <button type="button" (click)="closeRequestModal()">X</button>
@@ -398,31 +461,42 @@
     <span [class.active]="wizardStep >= 3">3. Checklist</span>
   </div>
 
-  <div class="modal-body" *ngIf="wizardStep === 1">
+  @if (wizardStep === 1) {
+<div class="modal-body">
     <label>
       Action
       <select id="br-action" name="action" [(ngModel)]="requestModel.action">
-        <option *ngFor="let action of actions" [value]="action">{{ action }}</option>
+        @for (action of actions; track action) {
+<option [value]="action">{{ action }}</option>
+}
       </select>
     </label>
 
-    <label *ngIf="requestModel.action !== 'APPLY'">
+    @if (requestModel.action !== 'APPLY') {
+<label>
       Registration
       <select id="br-registration-id" name="registrationId" [(ngModel)]="requestModel.registrationId" (ngModelChange)="onRequestRegistrationChange($event)">
         <option value="">Select registration</option>
-        <option *ngFor="let reg of registrations" [value]="reg.id">
+        @for (reg of registrations; track reg) {
+<option [value]="reg.id">
           {{ reg.type }} - {{ reg.registrationNumber || 'No number' }}
         </option>
+}
       </select>
     </label>
+}
 
-    <label *ngIf="requestModel.action === 'APPLY'">
+    @if (requestModel.action === 'APPLY') {
+<label>
       Registration Type
       <input autocomplete="off" id="br-registration-type" name="registrationType" type="text" [(ngModel)]="requestModel.registrationType" placeholder="Example: Factory License" />
     </label>
+}
   </div>
+}
 
-  <div class="modal-body" *ngIf="wizardStep === 2">
+  @if (wizardStep === 2) {
+<div class="modal-body">
     <label>
       Authority
       <input autocomplete="off" id="br-authority" name="authority" type="text" [(ngModel)]="requestModel.authority" placeholder="Issuing authority" />
@@ -440,8 +514,10 @@
       <textarea autocomplete="off" id="br-notes" name="notes" [(ngModel)]="requestModel.notes" rows="4" placeholder="Details for CRM review"></textarea>
     </label>
   </div>
+}
 
-  <div class="modal-body" *ngIf="wizardStep === 3">
+  @if (wizardStep === 3) {
+<div class="modal-body">
     <div class="doc-check-grid">
       <label><input autocomplete="off" id="br-authority-form" name="authorityForm" type="checkbox" [(ngModel)]="requestModel.documents.authorityForm" /> Authority form ready</label>
       <label><input autocomplete="off" id="br-previous-license" name="previousLicense" type="checkbox" [(ngModel)]="requestModel.documents.previousLicense" /> Previous license available</label>
@@ -458,26 +534,32 @@
       <p>Target Expiry: {{ requestModel.targetExpiryDate || '-' }}</p>
     </div>
   </div>
+}
 
   <footer>
     <button type="button" class="btn btn-ghost" [disabled]="wizardStep === 1 || requestSaving" (click)="previousStep()">Back</button>
-    <button
+    @if (wizardStep < 3) {
+<button
       type="button"
       class="btn btn-secondary"
-      *ngIf="wizardStep < 3"
+     
       [disabled]="requestSaving"
       (click)="nextStep()"
     >
       Next
     </button>
-    <button
+}
+    @if (wizardStep === 3) {
+<button
       type="button"
       class="btn btn-primary"
-      *ngIf="wizardStep === 3"
+     
       [disabled]="requestSaving"
       (click)="submitRequest()"
     >
       {{ requestSaving ? 'Submitting...' : 'Submit Request' }}
     </button>
+}
   </footer>
 </section>
+}

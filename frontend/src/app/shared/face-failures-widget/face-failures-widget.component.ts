@@ -5,7 +5,7 @@ import {
   Input,
   OnInit,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterModule } from '@angular/router';
 import {
   ClientMobileAttendanceService,
@@ -15,7 +15,7 @@ import {
 @Component({
   selector: 'app-face-failures-widget',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [RouterModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
@@ -24,13 +24,15 @@ import {
           <h3 class="text-sm font-semibold text-slate-800">
             Face-scan failures (last 7 days)
           </h3>
-          <a *ngIf="alertsCount > 0"
+          @if (alertsCount > 0) {
+<a
              [routerLink]="route"
              [title]="alertsCount + ' open spike alert(s) in the last 7 days'"
              class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-semibold hover:bg-rose-200">
             <span class="inline-block w-1.5 h-1.5 rounded-full bg-rose-500"></span>
             {{ alertsCount }} alert{{ alertsCount === 1 ? '' : 's' }}
           </a>
+}
         </div>
         <a
           [routerLink]="route"
@@ -40,8 +42,10 @@ import {
         </a>
       </div>
 
-      <ng-container *ngIf="!loading; else loadingTpl">
-        <div *ngIf="stats; else emptyTpl" class="grid grid-cols-3 gap-3">
+      @if (!loading) {
+
+        @if (stats) {
+<div class="grid grid-cols-3 gap-3">
           <div class="rounded-lg bg-slate-50 p-3 text-center">
             <p class="text-2xl font-bold text-slate-800">{{ stats.total }}</p>
             <p class="text-[11px] text-slate-500 mt-0.5">Total failures</p>
@@ -59,9 +63,17 @@ import {
             <p class="text-[11px] text-slate-500 mt-0.5">Contractors</p>
           </div>
         </div>
+} @else {
 
-        <div
-          *ngIf="stats && topReason() as tr"
+          <p class="text-xs text-slate-400 py-3 text-center">
+            No failure data
+          </p>
+        
+}
+
+        @if (stats && topReason(); as tr) {
+<div
+         
           class="mt-3 text-xs text-slate-600"
         >
           Top reason:
@@ -70,21 +82,21 @@ import {
           </span>
           <span class="text-slate-500"> ({{ tr.count }})</span>
         </div>
+}
 
-        <ng-template #emptyTpl>
-          <p class="text-xs text-slate-400 py-3 text-center">
-            No failure data
-          </p>
-        </ng-template>
-      </ng-container>
+        
+      
+} @else {
 
-      <ng-template #loadingTpl>
         <div class="py-4 flex justify-center">
           <div
             class="h-5 w-5 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin"
           ></div>
         </div>
-      </ng-template>
+      
+}
+
+      
     </div>
   `,
 })

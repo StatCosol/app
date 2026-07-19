@@ -68,7 +68,9 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                 [(ngModel)]="form.category"
                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               >
-                <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+                @for (cat of categories; track cat) {
+<option [value]="cat">{{ cat }}</option>
+}
               </select>
             </div>
             <div>
@@ -84,12 +86,17 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">News Image</label>
               <!-- Current file preview -->
-              <div *ngIf="form.imageUrl" class="mb-2 relative inline-block">
-                <img *ngIf="!isPdf(form.imageUrl)" [src]="form.imageUrl" alt="Preview" class="h-20 rounded-lg border border-gray-200 object-cover" (error)="onImgError($event)" />
-                <a *ngIf="isPdf(form.imageUrl)" [href]="form.imageUrl" target="_blank"
+              @if (form.imageUrl) {
+<div class="mb-2 relative inline-block">
+                @if (!isPdf(form.imageUrl)) {
+<img [src]="form.imageUrl" alt="Preview" class="h-20 rounded-lg border border-gray-200 object-cover" (error)="onImgError($event)" />
+}
+                @if (isPdf(form.imageUrl)) {
+<a [href]="form.imageUrl" target="_blank"
                    class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-blue-700 hover:bg-blue-50">
                   📄 View PDF
                 </a>
+}
                 <button
                   type="button"
                   (click)="removeImage()"
@@ -97,6 +104,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                   title="Remove file"
                 >&times;</button>
               </div>
+}
               <!-- Upload input -->
               <div class="flex items-center gap-2">
                 <label
@@ -112,7 +120,9 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                     [disabled]="uploadingImage"
                   />
                 </label>
-                <span *ngIf="uploadingImage" class="text-xs text-gray-400">Please wait...</span>
+                @if (uploadingImage) {
+<span class="text-xs text-gray-400">Please wait...</span>
+}
               </div>
               <p class="text-xs text-gray-400 mt-1">PNG, JPEG, GIF, WEBP or PDF. Max 5 MB.</p>
             </div>
@@ -134,13 +144,15 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             >
               {{ editing ? 'Update' : 'Publish' }}
             </button>
-            <button
-              *ngIf="editing"
+            @if (editing) {
+<button
+             
               (click)="cancelEdit()"
               class="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
             >
               Cancel
             </button>
+}
           </div>
         </div>
       </div>
@@ -169,7 +181,9 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
           >
             <option value="">All Categories</option>
-            <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+            @for (cat of categories; track cat) {
+<option [value]="cat">{{ cat }}</option>
+}
           </select>
           <!-- Status filter -->
           <select
@@ -195,29 +209,43 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           <h2 class="text-lg font-semibold text-gray-900">All News Items</h2>
         </div>
 
-        <div *ngIf="loading" class="px-6 py-8 text-center text-gray-500">Loading...</div>
+        @if (loading) {
+<div class="px-6 py-8 text-center text-gray-500">Loading...</div>
+}
 
-        <div *ngIf="!loading && !newsItems.length" class="px-6 py-8 text-center text-gray-400">
+        @if (!loading && !newsItems.length) {
+<div class="px-6 py-8 text-center text-gray-400">
           No news items found.
         </div>
+}
 
-        <div *ngIf="!loading && newsItems.length" class="divide-y divide-gray-100">
-          <div
-            *ngFor="let item of newsItems"
+        @if (!loading && newsItems.length) {
+<div class="divide-y divide-gray-100">
+          @for (item of newsItems; track item) {
+<div
+           
             class="px-6 py-4 flex items-start justify-between gap-4 hover:bg-gray-50 transition-colors"
           >
             <!-- Thumbnail -->
-            <div *ngIf="item.imageUrl" class="flex-shrink-0 hidden sm:block">
-              <img *ngIf="!isPdf(item.imageUrl)" [src]="item.imageUrl" alt="" class="w-16 h-16 rounded-lg object-cover border border-gray-200" (error)="onImgError($event)" />
-              <a *ngIf="isPdf(item.imageUrl)" [href]="item.imageUrl" target="_blank"
+            @if (item.imageUrl) {
+<div class="flex-shrink-0 hidden sm:block">
+              @if (!isPdf(item.imageUrl)) {
+<img [src]="item.imageUrl" alt="" class="w-16 h-16 rounded-lg object-cover border border-gray-200" (error)="onImgError($event)" />
+}
+              @if (isPdf(item.imageUrl)) {
+<a [href]="item.imageUrl" target="_blank"
                  class="w-16 h-16 rounded-lg border border-gray-200 bg-red-50 flex items-center justify-center text-red-600 text-xs font-bold"
                  title="View PDF">PDF</a>
+}
             </div>
+}
 
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2 flex-wrap">
                 <!-- Pinned -->
-                <span *ngIf="item.pinned" class="text-amber-500 text-sm" title="Pinned">📌</span>
+                @if (item.pinned) {
+<span class="text-amber-500 text-sm" title="Pinned">📌</span>
+}
                 <!-- Title -->
                 <h3 class="text-sm font-semibold text-gray-900 truncate">{{ item.title }}</h3>
                 <!-- Category -->
@@ -234,17 +262,23 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                   {{ item.isActive ? 'Active' : 'Inactive' }}
                 </span>
                 <!-- Expired -->
-                <span
-                  *ngIf="isExpired(item)"
+                @if (isExpired(item)) {
+<span
+                 
                   class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700"
                 >
                   Expired
                 </span>
+}
               </div>
               <p class="text-xs text-gray-500 mt-0.5">
                 {{ item.createdAt | date:'medium' }}
-                <span *ngIf="item.creator?.name"> &middot; by {{ item.creator?.name }}</span>
-                <span *ngIf="item.expiresAt"> &middot; Expires {{ item.expiresAt | date:'MMM d, yyyy' }}</span>
+                @if (item.creator?.name) {
+<span> &middot; by {{ item.creator?.name }}</span>
+}
+                @if (item.expiresAt) {
+<span> &middot; Expires {{ item.expiresAt | date:'MMM d, yyyy' }}</span>
+}
               </p>
               <p class="text-sm text-gray-600 mt-1 line-clamp-2">{{ item.body }}</p>
             </div>
@@ -284,10 +318,13 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               </button>
             </div>
           </div>
+}
         </div>
+}
 
         <!-- Pagination -->
-        <div *ngIf="totalPages > 1" class="px-6 py-3 border-t border-gray-100 flex items-center justify-between">
+        @if (totalPages > 1) {
+<div class="px-6 py-3 border-t border-gray-100 flex items-center justify-between">
           <span class="text-xs text-gray-500">Page {{ page }} of {{ totalPages }}</span>
           <div class="flex items-center gap-2">
             <button
@@ -306,6 +343,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             </button>
           </div>
         </div>
+}
       </div>
     </div>
   `,

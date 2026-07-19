@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef , ChangeDetectionStrategy} from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Router, RouterModule } from '@angular/router';
 import { forkJoin, Subject } from 'rxjs';
 import { timeout, finalize, takeUntil } from 'rxjs/operators';
@@ -13,6 +13,8 @@ import {
   TableColumn,
   StatusBadgeComponent,
   ActionButtonComponent,
+  ChartCardComponent,
+  ChartCardDataset,
 } from '../../shared/ui';
 
 @Component({
@@ -20,7 +22,6 @@ import {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CommonModule,
     RouterModule,
     PageHeaderComponent,
     EmptyStateComponent,
@@ -28,7 +29,8 @@ import {
     TableCellDirective,
     StatusBadgeComponent,
     ActionButtonComponent,
-  ],
+    ChartCardComponent
+],
   templateUrl: './payroll-dashboard.component.html',
   styleUrls: ['./payroll-dashboard.component.scss'],
 })
@@ -69,6 +71,31 @@ export class PayrollDashboardComponent implements OnInit, OnDestroy {
 
   get activeRunsCount(): number {
     return this.recentRuns.filter(r => r.status === 'PROCESSING' || r.status === 'DRAFT').length;
+  }
+
+  // Chart data
+  readonly workforceLabels = ['Active', 'Exited', 'Joiners (month)', 'Leavers (month)'];
+  get workforceDatasets(): ChartCardDataset[] {
+    const s = this.summary;
+    return [{
+      label: 'Employees',
+      data: [s?.activeEmployees ?? 0, s?.exitedEmployees ?? 0, s?.joinersThisMonth ?? 0, s?.leaversThisMonth ?? 0],
+      backgroundColor: ['#10b981', '#64748b', '#3b82f6', '#ef4444'],
+    }];
+  }
+
+  get runStatusBuckets(): [string, number][] {
+    const counts = new Map<string, number>();
+    for (const r of this.recentRuns) {
+      counts.set(r.status, (counts.get(r.status) || 0) + 1);
+    }
+    return [...counts.entries()];
+  }
+  get runStatusLabels(): string[] {
+    return this.runStatusBuckets.map(([s]) => s.replace(/_/g, ' '));
+  }
+  get runStatusDatasets(): ChartCardDataset[] {
+    return [{ data: this.runStatusBuckets.map(([, n]) => n) }];
   }
 
   constructor(

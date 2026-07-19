@@ -15,7 +15,8 @@
         </ui-thread-inbox-list>
       </div>
 
-      <div *ngIf="page && page.total > (filters.limit || 20)"
+      @if (page && page.total > (filters.limit || 20)) {
+<div
         class="flex items-center justify-between px-4 py-3 border-t border-gray-200 text-sm">
         <span class="text-gray-500">
           Page {{ page.page }} - {{ page.total }} total
@@ -29,6 +30,7 @@
             (click)="goToPage((page.page || 1) + 1)">Next</button>
         </div>
       </div>
+}
     </div>
   </div>
 
@@ -42,7 +44,8 @@
         Back to list
       </button>
 
-      <div *ngIf="loadingThread" class="p-8">
+      @if (loadingThread) {
+<div class="p-8">
         <div class="animate-pulse space-y-4">
           <div class="h-4 bg-gray-200 rounded w-1/3"></div>
           <div class="h-3 bg-gray-100 rounded w-1/2"></div>
@@ -53,15 +56,19 @@
           </div>
         </div>
       </div>
+}
 
-      <div *ngIf="!loadingThread && !selected" class="p-12 text-center">
+      @if (!loadingThread && !selected) {
+<div class="p-12 text-center">
         <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
         </svg>
         <p class="text-gray-500 text-sm">Select a thread to view messages.</p>
       </div>
+}
 
-      <ng-container *ngIf="!loadingThread && selected">
+      @if (!loadingThread && selected) {
+
         <div class="px-4 py-3 border-b border-gray-200">
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
@@ -74,15 +81,21 @@
             </div>
 
             <div class="flex gap-2 flex-shrink-0">
-              <button *ngIf="canResolve && !!api.resolve && isOpen"
+              @if (canResolve && !!api.resolve && isOpen) {
+<button
                 class="px-3 py-1.5 text-sm font-medium rounded-lg border border-green-300 text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
                 (click)="resolveThread()">Resolve</button>
-              <button *ngIf="canClose && !!api.close && isOpen"
+}
+              @if (canClose && !!api.close && isOpen) {
+<button
                 class="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
                 (click)="closeThread()">Close</button>
-              <button *ngIf="canReopen && !!api.reopen && isClosed"
+}
+              @if (canReopen && !!api.reopen && isClosed) {
+<button
                 class="px-3 py-1.5 text-sm font-medium rounded-lg border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
                 (click)="reopenThread()">Reopen</button>
+}
             </div>
           </div>
         </div>
@@ -96,10 +109,13 @@
           </div>
         </div>
 
-        <div *ngIf="isClosed" class="px-4 py-3 bg-gray-50 border-t border-gray-200 text-center">
+        @if (isClosed) {
+<div class="px-4 py-3 bg-gray-50 border-t border-gray-200 text-center">
           <p class="text-sm text-gray-500 italic">This thread is {{ selected.status.toLowerCase() }}.</p>
         </div>
-      </ng-container>
+}
+      
+}
 
       <app-composer
         [disabled]="!selected || selected.status === 'CLOSED' || selected.status === 'RESOLVED'"

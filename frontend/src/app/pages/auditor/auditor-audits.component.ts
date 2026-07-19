@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -39,7 +39,6 @@ type AuditorScheduleAudit = {
   selector: 'app-auditor-audits',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     PageHeaderComponent,
     FormSelectComponent,
@@ -48,8 +47,8 @@ type AuditorScheduleAudit = {
     DataTableComponent,
     TableCellDirective,
     StatusBadgeComponent,
-    EmptyStateComponent,
-  ],
+    EmptyStateComponent
+],
   templateUrl: './auditor-audits.component.html',
 })
 export class AuditorAuditsComponent implements OnInit, OnDestroy {
