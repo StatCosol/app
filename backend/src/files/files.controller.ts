@@ -36,16 +36,17 @@ export class FilesController {
   ) {
     if (!p) throw new BadRequestException('p required');
     const user = await this.authenticateRequest(req);
+    const safePath = this.toUploadsRelativePath(p);
 
     // ownership check (DB-based)
-    await this.filesService.assertCanDownload(user, p);
+    await this.filesService.assertCanDownload(user, safePath);
 
     // prevent path traversal: reject any input containing parent-segment refs
-    if (/(^|[\\/])\.\.([\\/]|$)/.test(p) || path.isAbsolute(p)) {
+    if (/(^|[\\/])\.\.([\\/]|$)/.test(safePath) || path.isAbsolute(safePath)) {
       throw new ForbiddenException('Invalid path');
     }
     const uploadsRoot = path.resolve(path.join(process.cwd(), 'uploads'));
-    const candidate = path.normalize(p);
+    const candidate = path.normalize(safePath);
     const resolved = path.resolve(uploadsRoot, candidate);
 
     // belt-and-braces: ensure final path is still under uploadsRoot
@@ -59,6 +60,16 @@ export class FilesController {
     }
 
     return res.download(resolved);
+  }
+
+  private toUploadsRelativePath(filePath: string): string {
+    const normalizedInput = String(filePath || '').replace(/\\/g, '/');
+    const uploadsMarker = '/uploads/';
+    const markerIndex = normalizedInput.toLowerCase().lastIndexOf(uploadsMarker);
+    if (markerIndex >= 0) {
+      return normalizedInput.slice(markerIndex + uploadsMarker.length);
+    }
+    return normalizedInput.replace(/^\/?uploads\//i, '').replace(/^\/+/, '');
   }
 
   private async authenticateRequest(req: Request): Promise<ReqUser> {

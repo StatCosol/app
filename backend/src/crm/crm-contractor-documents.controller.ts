@@ -147,7 +147,29 @@ export class CrmContractorDocumentsController {
       ],
     );
 
-    return { data: rows };
+    return {
+      data: (rows as Array<Record<string, unknown>>).map((row) => {
+        const downloadUrl = this.fileDownloadUrl(row.filePath as string | null);
+        return {
+          ...row,
+          downloadUrl,
+          fileUrl: downloadUrl,
+        };
+      }),
+    };
+  }
+
+  private fileDownloadUrl(filePath: string | null | undefined): string | null {
+    if (!filePath) return null;
+    const normalizedInput = String(filePath).replace(/\\/g, '/');
+    const marker = '/uploads/';
+    const markerIndex = normalizedInput.toLowerCase().lastIndexOf(marker);
+    const relative =
+      markerIndex >= 0
+        ? normalizedInput.slice(markerIndex + marker.length)
+        : normalizedInput.replace(/^\/?uploads\//i, '').replace(/^\/+/, '');
+    if (!relative) return null;
+    return `/api/v1/files/download?p=${encodeURIComponent(relative)}`;
   }
 
   /**

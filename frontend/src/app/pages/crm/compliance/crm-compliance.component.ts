@@ -10,6 +10,7 @@ import { ComplianceApiService } from '../../../shared/services/compliance-api.se
 import { PageHeaderComponent, LoadingSpinnerComponent, ClientContextStripComponent } from '../../../shared/ui';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import { McdRowDto } from '../../../shared/models/compliance.models';
 
 type TrackerTab = 'DOCS' | 'MCD' | 'EXPIRY' | 'AUDIT_CLOSURES' | 'TASKS';
@@ -261,9 +262,23 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
     private router: Router,
     private dialog: ConfirmDialogService,
     private toast: ToastService,
+    private protectedFiles: ProtectedFileService,
   ) {
     const currentYear = new Date().getFullYear();
     for (let y = currentYear - 3; y <= currentYear + 1; y++) this.yearOptions.push(y);
+  }
+
+  openFile(filePath: string | null | undefined, fileName?: string | null, mode: 'open' | 'download' = 'open'): void {
+    if (!filePath) return;
+    const action$ =
+      mode === 'download'
+        ? this.protectedFiles.download(filePath, fileName || null)
+        : this.protectedFiles.open(filePath, fileName || null);
+    action$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        error: () => { this.toast.error('Unable to open file. Please try again.'); },
+      });
   }
 
   ngOnInit(): void {
