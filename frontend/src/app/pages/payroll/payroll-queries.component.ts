@@ -1,5 +1,5 @@
 import { Component, ChangeDetectionStrategy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ThreadLayoutComponent } from '../../shared/thread';
 import { PaydekThreadApiService } from '../../core/paydek-thread-api.service';
 import { PageHeaderComponent } from '../../shared/ui';
@@ -9,7 +9,7 @@ import { ClientContextStripComponent } from '../../shared/ui/client-context-stri
   selector: 'app-payroll-queries',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, ThreadLayoutComponent, PageHeaderComponent, ClientContextStripComponent],
+  imports: [ThreadLayoutComponent, PageHeaderComponent, ClientContextStripComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header

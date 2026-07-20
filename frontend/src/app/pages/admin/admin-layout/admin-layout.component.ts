@@ -1,5 +1,5 @@
 import { Component , ChangeDetectionStrategy} from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterOutlet } from '@angular/router';
 import { AdminSidebarComponent } from './admin-sidebar.component';
 import { AuthService } from '../../../core/auth.service';
@@ -9,7 +9,7 @@ import { NewsTickerComponent } from '../../../shared/news/news-ticker.component'
   selector: 'app-admin-layout',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterOutlet, AdminSidebarComponent, NewsTickerComponent],
+  imports: [RouterOutlet, AdminSidebarComponent, NewsTickerComponent],
   template: `
     <div class="admin-shell">
       <!-- Mobile menu toggle -->

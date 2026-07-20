@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ThreadLayoutComponent } from '../../shared/thread';
 import { ClientThreadApiService } from '../../core/client-thread-api.service';
 import { CreateQueryComponent } from '../../shared/notifications/create-query/create-query.component';
@@ -8,7 +8,7 @@ import { AuthService } from '../../core/auth.service';
 @Component({
   selector: 'app-client-support',
   standalone: true,
-  imports: [CommonModule, ThreadLayoutComponent, CreateQueryComponent],
+  imports: [ThreadLayoutComponent, CreateQueryComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <!-- Tabs -->
@@ -25,12 +25,15 @@ import { AuthService } from '../../core/auth.service';
         </button>
       </div>
 
-      <div *ngIf="tab === 'raise'" class="card p-6">
+      @if (tab === 'raise') {
+<div class="card p-6">
         <h3 class="text-lg font-semibold text-gray-900 mb-2">Submit a New Query</h3>
         <app-create-query [clientId]="clientId"></app-create-query>
       </div>
+}
 
-      <div *ngIf="tab === 'threads'">
+      @if (tab === 'threads') {
+<div>
         <app-thread-layout
           [api]="api"
           title="My Queries"
@@ -39,6 +42,7 @@ import { AuthService } from '../../core/auth.service';
           [canReopen]="false">
         </app-thread-layout>
       </div>
+}
     </div>
   `,
 })

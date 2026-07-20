@@ -1,5 +1,5 @@
 import { Component, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
@@ -23,12 +23,11 @@ interface GratuityResult {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CommonModule,
     FormsModule,
     PageHeaderComponent,
     ActionButtonComponent,
-    FormInputComponent,
-  ],
+    FormInputComponent
+],
   template: `
     <div class="page">
       <ui-page-header
@@ -58,12 +57,15 @@ interface GratuityResult {
               {{ calculating ? 'Calculating...' : 'Calculate Gratuity' }}
             </ui-button>
 
-            <div *ngIf="error" class="text-sm text-red-600">{{ error }}</div>
+            @if (error) {
+<div class="text-sm text-red-600">{{ error }}</div>
+}
           </div>
         </div>
 
         <!-- Result -->
-        <div *ngIf="result" class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+        @if (result) {
+<div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
           <h3 class="text-lg font-semibold text-gray-900 mb-4">Result</h3>
 
           <!-- Eligibility -->
@@ -78,10 +80,13 @@ interface GratuityResult {
                 {{ result.eligible ? '✓ Eligible' : '✗ Not Eligible' }}
               </span>
             </div>
-            <div *ngIf="result.reason" class="text-sm mt-1 text-red-600">{{ result.reason }}</div>
+            @if (result.reason) {
+<div class="text-sm mt-1 text-red-600">{{ result.reason }}</div>
+}
           </div>
 
-          <div *ngIf="result.eligible" class="space-y-3">
+          @if (result.eligible) {
+<div class="space-y-3">
             <div class="flex justify-between text-sm">
               <span class="text-gray-600">Years Considered</span>
               <span class="font-medium">{{ result.yearsConsidered }}</span>
@@ -94,16 +99,20 @@ interface GratuityResult {
               <span class="text-gray-600">Gross Gratuity</span>
               <span class="font-medium">₹{{ fmt(result.grossGratuity) }}</span>
             </div>
-            <div *ngIf="result.grossGratuity !== result.cappedGratuity" class="flex justify-between text-sm text-amber-600">
+            @if (result.grossGratuity !== result.cappedGratuity) {
+<div class="flex justify-between text-sm text-amber-600">
               <span>Maximum Cap Applied (₹25,00,000)</span>
               <span class="font-medium">₹{{ fmt(result.cappedGratuity) }}</span>
             </div>
+}
             <div class="border-t border-gray-200 pt-3 flex justify-between">
               <span class="text-lg font-semibold text-gray-900">Payable Gratuity</span>
               <span class="text-2xl font-bold text-indigo-700">₹{{ fmt(result.cappedGratuity) }}</span>
             </div>
           </div>
+}
         </div>
+}
       </div>
 
       <!-- Info Card -->

@@ -6,7 +6,7 @@ import {
   OnChanges,
   SimpleChanges,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ComplianceCalendarItem } from '../../../core/models/returns.models';
 
 interface CalendarDay {
@@ -20,7 +20,7 @@ interface CalendarDay {
 @Component({
   selector: 'ui-compliance-calendar-widget',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="cal-widget">
@@ -31,9 +31,12 @@ interface CalendarDay {
       </div>
 
       <div class="cal-grid">
-        <div class="cal-dow" *ngFor="let d of dows">{{ d }}</div>
-        <div
-          *ngFor="let day of days"
+        @for (d of dows; track d) {
+<div class="cal-dow">{{ d }}</div>
+}
+        @for (day of days; track day) {
+<div
+         
           class="cal-day"
           [class.cal-day--today]="day.isToday"
           [class.cal-day--dim]="!day.isCurrentMonth"
@@ -41,17 +44,22 @@ interface CalendarDay {
           (click)="selectDay(day)"
         >
           <span class="cal-day-num">{{ day.dayNum }}</span>
-          <span *ngIf="day.items.length" class="cal-dot"
+          @if (day.items.length) {
+<span class="cal-dot"
                 [class.cal-dot--red]="hasOverdue(day)"
                 [class.cal-dot--amber]="!hasOverdue(day) && hasProofPending(day)"
                 [class.cal-dot--green]="!hasOverdue(day) && !hasProofPending(day)">
           </span>
+}
         </div>
+}
       </div>
 
-      <div *ngIf="selectedDay && selectedDay.items.length" class="cal-detail">
+      @if (selectedDay && selectedDay.items.length) {
+<div class="cal-detail">
         <p class="cal-detail-date">{{ selectedDay.date }}</p>
-        <div *ngFor="let item of selectedDay.items" class="cal-item">
+        @for (item of selectedDay.items; track item) {
+<div class="cal-item">
           <span class="cal-item-badge"
                 [class.bg-red-100]="item.status === 'OVERDUE'"
                 [class.text-red-700]="item.status === 'OVERDUE'"
@@ -65,7 +73,9 @@ interface CalendarDay {
           <span class="cal-item-title">{{ item.title }}</span>
           <span class="cal-item-status text-xs ml-auto">{{ item.status }}</span>
         </div>
+}
       </div>
+}
     </div>
   `,
   styles: [`

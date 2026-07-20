@@ -5,23 +5,34 @@
       <p>Configure statutory settings, pay cycle, leave/pay policy, attendance, and deduction/recovery rules with section-wise save controls.</p>
     </div>
     <div class="head-actions" style="display:flex;align-items:center;gap:12px;">
-      <label *ngIf="!isClientScoped && clients.length" style="display:flex;align-items:center;gap:6px;font-size:0.9em;">
+      @if (!isClientScoped && clients.length) {
+<label style="display:flex;align-items:center;gap:6px;font-size:0.9em;">
         Client:
         <select [(ngModel)]="selectedClientId" (change)="onClientChange()" style="min-width:240px;padding:4px 8px;">
           <option value="" disabled>-- Select client --</option>
-          <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName || c.name }} <span *ngIf="c.clientCode">({{ c.clientCode }})</span></option>
+          @for (c of clients; track c) {
+<option [value]="c.id">{{ c.clientName || c.name }} @if (c.clientCode) {
+<span>({{ c.clientCode }})</span>
+}</option>
+}
         </select>
       </label>
+}
       <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
     </div>
   </header>
 
-  <div *ngIf="loading" class="loader">Loading payroll setup...</div>
-  <div *ngIf="!loading && !selectedClientId" class="card" style="padding:16px;color:#666;">
+  @if (loading) {
+<div class="loader">Loading payroll setup...</div>
+}
+  @if (!loading && !selectedClientId) {
+<div class="card" style="padding:16px;color:#666;">
     Select a client from the dropdown above to view and edit its payroll rules and configuration.
   </div>
+}
 
-  <ng-container *ngIf="!loading && selectedClientId">
+  @if (!loading && selectedClientId) {
+
     <section class="summary-grid">
       <article class="summary-card">
         <span class="label">Effective From</span>
@@ -42,22 +53,31 @@
 
     <section class="card tabs-card">
       <nav class="tabs">
-        <button
-          *ngFor="let t of tabs"
+        @for (t of tabs; track t) {
+<button
+         
           type="button"
           [class.active]="activeTab === t.key"
           (click)="activeTab = t.key"
         >
           {{ t.label }}
-          <span class="tab-chip warn" *ngIf="isSectionDirty(t.key) && !savingSection[t.key]">Unsaved</span>
-          <span class="tab-chip bad" *ngIf="sectionIssueCount(t.key)">{{ sectionIssueCount(t.key) }} issues</span>
-          <span class="tab-chip info" *ngIf="savingSection[t.key]">Saving</span>
+          @if (isSectionDirty(t.key) && !savingSection[t.key]) {
+<span class="tab-chip warn">Unsaved</span>
+}
+          @if (sectionIssueCount(t.key)) {
+<span class="tab-chip bad">{{ sectionIssueCount(t.key) }} issues</span>
+}
+          @if (savingSection[t.key]) {
+<span class="tab-chip info">Saving</span>
+}
         </button>
+}
       </nav>
     </section>
 
     <!-- Statutory Config -->
-    <section class="card" *ngIf="activeTab === 'statutory'">
+    @if (activeTab === 'statutory') {
+<section class="card">
       <header class="section-head">
         <h2>Statutory Configuration</h2>
         <span class="section-meta">{{ sectionContext('statutory') }}</span>
@@ -102,9 +122,13 @@
         </label>
       </div>
 
-      <ul class="validation-list" *ngIf="sectionValidation.statutory.length">
-        <li *ngFor="let issue of sectionValidation.statutory">{{ issue }}</li>
+      @if (sectionValidation.statutory.length) {
+<ul class="validation-list">
+        @for (issue of sectionValidation.statutory; track issue) {
+<li>{{ issue }}</li>
+}
       </ul>
+}
 
       <footer class="section-actions">
         <button class="btn btn-primary" type="button" [disabled]="savingSection.statutory" (click)="saveStatutory()">
@@ -112,13 +136,17 @@
         </button>
       </footer>
 
-      <div *ngIf="sectionMessages.statutory.text" class="msg" [class.error]="sectionMessages.statutory.error">
+      @if (sectionMessages.statutory.text) {
+<div class="msg" [class.error]="sectionMessages.statutory.error">
         {{ sectionMessages.statutory.text }}
       </div>
+}
     </section>
+}
 
     <!-- Pay Cycle -->
-    <section class="card" *ngIf="activeTab === 'pay-cycle'">
+    @if (activeTab === 'pay-cycle') {
+<section class="card">
       <header class="section-head">
         <h2>Pay Cycle Configuration</h2>
         <span class="section-meta">{{ sectionContext('pay-cycle') }}</span>
@@ -132,7 +160,9 @@
         <label>
           Cycle Type
           <select id="ps-pay-cycle" name="payCycle" [(ngModel)]="setup.payCycle">
-            <option *ngFor="let opt of payCycleOptions" [value]="opt">{{ opt }}</option>
+            @for (opt of payCycleOptions; track opt) {
+<option [value]="opt">{{ opt }}</option>
+}
           </select>
         </label>
         <label>
@@ -169,9 +199,13 @@
         </label>
       </div>
 
-      <ul class="validation-list" *ngIf="sectionValidation['pay-cycle'].length">
-        <li *ngFor="let issue of sectionValidation['pay-cycle']">{{ issue }}</li>
+      @if (sectionValidation['pay-cycle'].length) {
+<ul class="validation-list">
+        @for (issue of sectionValidation['pay-cycle']; track issue) {
+<li>{{ issue }}</li>
+}
       </ul>
+}
 
       <footer class="section-actions">
         <button class="btn btn-primary" type="button" [disabled]="savingSection['pay-cycle']" (click)="savePayCycle()">
@@ -179,13 +213,17 @@
         </button>
       </footer>
 
-      <div *ngIf="sectionMessages['pay-cycle'].text" class="msg" [class.error]="sectionMessages['pay-cycle'].error">
+      @if (sectionMessages['pay-cycle'].text) {
+<div class="msg" [class.error]="sectionMessages['pay-cycle'].error">
         {{ sectionMessages['pay-cycle'].text }}
       </div>
+}
     </section>
+}
 
     <!-- Leave Policy -->
-    <section class="card" *ngIf="activeTab === 'leave-policy'">
+    @if (activeTab === 'leave-policy') {
+<section class="card">
       <header class="section-head">
         <h2>Leave / Pay Policy</h2>
         <span class="section-meta">{{ sectionContext('leave-policy') }}</span>
@@ -203,7 +241,9 @@
         <label>
           LOP Mode
           <select id="ps-lop-mode" name="lopMode" [(ngModel)]="addon.lopMode">
-            <option *ngFor="let mode of lopModes" [value]="mode">{{ mode }}</option>
+            @for (mode of lopModes; track mode) {
+<option [value]="mode">{{ mode }}</option>
+}
           </select>
         </label>
         <label class="inline-toggle">
@@ -212,9 +252,13 @@
         </label>
       </div>
 
-      <ul class="validation-list" *ngIf="sectionValidation['leave-policy'].length">
-        <li *ngFor="let issue of sectionValidation['leave-policy']">{{ issue }}</li>
+      @if (sectionValidation['leave-policy'].length) {
+<ul class="validation-list">
+        @for (issue of sectionValidation['leave-policy']; track issue) {
+<li>{{ issue }}</li>
+}
       </ul>
+}
 
       <footer class="section-actions">
         <button class="btn btn-primary" type="button" [disabled]="savingSection['leave-policy']" (click)="saveLeavePolicy()">
@@ -222,9 +266,11 @@
         </button>
       </footer>
 
-      <div *ngIf="sectionMessages['leave-policy'].text" class="msg" [class.error]="sectionMessages['leave-policy'].error">
+      @if (sectionMessages['leave-policy'].text) {
+<div class="msg" [class.error]="sectionMessages['leave-policy'].error">
         {{ sectionMessages['leave-policy'].text }}
       </div>
+}
 
       <!-- EL Accrual -->
       <div class="el-accrual-section">
@@ -238,21 +284,27 @@
           <label class="text-sm">
             Month
             <select [(ngModel)]="elAccrualMonth" class="w-32">
-              <option *ngFor="let m of months" [ngValue]="m.value">{{ m.label }}</option>
+              @for (m of months; track m) {
+<option [ngValue]="m.value">{{ m.label }}</option>
+}
             </select>
           </label>
           <button class="btn btn-primary" type="button" [disabled]="elAccruing" (click)="accrueEL()">
             {{ elAccruing ? 'Processing...' : 'Run EL Accrual' }}
           </button>
         </div>
-        <div *ngIf="elAccrualResult" class="text-sm mt-2" [class.text-green-700]="!elAccrualError" [class.text-red-600]="elAccrualError">
+        @if (elAccrualResult) {
+<div class="text-sm mt-2" [class.text-green-700]="!elAccrualError" [class.text-red-600]="elAccrualError">
           {{ elAccrualResult }}
         </div>
+}
       </div>
     </section>
+}
 
     <!-- Attendance -->
-    <section class="card" *ngIf="activeTab === 'attendance'">
+    @if (activeTab === 'attendance') {
+<section class="card">
       <header class="section-head">
         <h2>Attendance Configuration</h2>
         <span class="section-meta">{{ sectionContext('attendance') }}</span>
@@ -262,7 +314,9 @@
         <label>
           Attendance Source
           <select id="ps-attendance-source" name="attendanceSource" [(ngModel)]="addon.attendanceSource">
-            <option *ngFor="let src of attendanceSources" [value]="src">{{ src }}</option>
+            @for (src of attendanceSources; track src) {
+<option [value]="src">{{ src }}</option>
+}
           </select>
         </label>
         <label>
@@ -283,9 +337,13 @@
         </label>
       </div>
 
-      <ul class="validation-list" *ngIf="sectionValidation.attendance.length">
-        <li *ngFor="let issue of sectionValidation.attendance">{{ issue }}</li>
+      @if (sectionValidation.attendance.length) {
+<ul class="validation-list">
+        @for (issue of sectionValidation.attendance; track issue) {
+<li>{{ issue }}</li>
+}
       </ul>
+}
 
       <footer class="section-actions">
         <button class="btn btn-primary" type="button" [disabled]="savingSection.attendance" (click)="saveAttendanceConfig()">
@@ -293,13 +351,17 @@
         </button>
       </footer>
 
-      <div *ngIf="sectionMessages.attendance.text" class="msg" [class.error]="sectionMessages.attendance.error">
+      @if (sectionMessages.attendance.text) {
+<div class="msg" [class.error]="sectionMessages.attendance.error">
         {{ sectionMessages.attendance.text }}
       </div>
+}
     </section>
+}
 
     <!-- Deductions -->
-    <section class="card" *ngIf="activeTab === 'deductions'">
+    @if (activeTab === 'deductions') {
+<section class="card">
       <header class="section-head">
         <h2>Deductions / Recovery Configuration</h2>
         <span class="section-meta">{{ sectionContext('deductions') }}</span>
@@ -324,9 +386,13 @@
         </label>
       </div>
 
-      <ul class="validation-list" *ngIf="sectionValidation.deductions.length">
-        <li *ngFor="let issue of sectionValidation.deductions">{{ issue }}</li>
+      @if (sectionValidation.deductions.length) {
+<ul class="validation-list">
+        @for (issue of sectionValidation.deductions; track issue) {
+<li>{{ issue }}</li>
+}
       </ul>
+}
 
       <footer class="section-actions">
         <button class="btn btn-primary" type="button" [disabled]="savingSection.deductions" (click)="saveDeductionsConfig()">
@@ -334,9 +400,11 @@
         </button>
       </footer>
 
-      <div *ngIf="sectionMessages.deductions.text" class="msg" [class.error]="sectionMessages.deductions.error">
+      @if (sectionMessages.deductions.text) {
+<div class="msg" [class.error]="sectionMessages.deductions.error">
         {{ sectionMessages.deductions.text }}
       </div>
+}
 
       <hr class="sep" />
 
@@ -352,9 +420,12 @@
         </label>
       </div>
 
-      <div *ngIf="loadingComponents" class="loader mini">Loading components...</div>
+      @if (loadingComponents) {
+<div class="loader mini">Loading components...</div>
+}
 
-      <div class="table-wrap" *ngIf="!loadingComponents && filteredComponents.length; else noComponents">
+      @if (!loadingComponents && filteredComponents.length) {
+<div class="table-wrap">
         <table>
           <thead>
             <tr>
@@ -366,21 +437,34 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let c of filteredComponents">
+            @for (c of filteredComponents; track c) {
+<tr>
               <td>
                 <div class="strong">{{ c.name }}</div>
                 <div class="minor mono">{{ c.code }}</div>
               </td>
               <td>{{ c.componentType }}</td>
               <td class="mono" style="max-width:340px;white-space:pre-wrap;">
-                <span *ngIf="componentFormulaMap[c.id]; else noFormula">{{ componentFormulaMap[c.id] }}</span>
-                <ng-template #noFormula><span class="minor">&mdash;</span></ng-template>
+                @if (componentFormulaMap[c.id]) {
+<span>{{ componentFormulaMap[c.id] }}</span>
+} @else {
+<span class="minor">&mdash;</span>
+}
+                
               </td>
               <td>
-                <span class="flag" *ngIf="c.affectsPfWage">PF</span>
-                <span class="flag" *ngIf="c.affectsEsiWage">ESI</span>
-                <span class="flag tax" *ngIf="c.isTaxable">TAX</span>
-                <span class="flag req" *ngIf="c.isRequired">REQ</span>
+                @if (c.affectsPfWage) {
+<span class="flag">PF</span>
+}
+                @if (c.affectsEsiWage) {
+<span class="flag">ESI</span>
+}
+                @if (c.isTaxable) {
+<span class="flag tax">TAX</span>
+}
+                @if (c.isRequired) {
+<span class="flag req">REQ</span>
+}
               </td>
               <td class="text-right">
                 <button class="link" type="button" (click)="openCompForm(c)">Edit</button>
@@ -389,15 +473,22 @@
                 <button class="link link-danger" type="button" (click)="deleteComp(c)">Delete</button>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+} @else {
 
-      <ng-template #noComponents>
-        <div class="empty-mini" *ngIf="!loadingComponents">No components configured for this client.</div>
-      </ng-template>
+        @if (!loadingComponents) {
+<div class="empty-mini">No components configured for this client.</div>
+}
+      
+}
 
-      <section class="rules-panel" *ngIf="selectedComponent">
+      
+
+      @if (selectedComponent) {
+<section class="rules-panel">
         <header class="section-head top-gap">
           <h2>Rules - {{ selectedComponent.name }} ({{ selectedComponent.code }})</h2>
           <button class="btn btn-secondary" type="button" (click)="openRuleForm()">+ Add Rule</button>
@@ -411,9 +502,12 @@
           overrides.
         </div>
 
-        <div *ngIf="loadingRules" class="loader mini">Loading rules...</div>
+        @if (loadingRules) {
+<div class="loader mini">Loading rules...</div>
+}
 
-        <div class="table-wrap" *ngIf="!loadingRules && rules.length; else noRules">
+        @if (!loadingRules && rules.length) {
+<div class="table-wrap">
           <table>
             <thead>
               <tr>
@@ -424,7 +518,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let r of rules">
+              @for (r of rules; track r) {
+<tr>
                 <td>{{ r.ruleType }}</td>
                 <td>{{ ruleSummary(r) }}</td>
                 <td>{{ r.priority }}</td>
@@ -432,18 +527,27 @@
                   <button class="link link-danger" type="button" (click)="deleteRule(r)">Delete</button>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+} @else {
 
-        <ng-template #noRules>
-          <div class="empty-mini" *ngIf="!loadingRules">No rules configured for selected component.</div>
-        </ng-template>
+          @if (!loadingRules) {
+<div class="empty-mini">No rules configured for selected component.</div>
+}
+        
+}
+
+        
       </section>
+}
     </section>
+}
 
     <!-- Salary Rules & Live Preview -->
-    <section class="card" *ngIf="activeTab === 'rules-preview'">
+    @if (activeTab === 'rules-preview') {
+<section class="card">
       <header class="section-head">
         <h2>Salary Rules &amp; Live Preview</h2>
         <span class="section-meta">Read-only view of every rule the payroll engine will execute for this client. Edits here flow into the next run automatically.</span>
@@ -455,23 +559,31 @@
         statutory config &mdash; saved changes apply to the next payroll run.
       </div>
 
-      <div *ngIf="loadingRulesPreview" class="loader mini">Loading rules...</div>
+      @if (loadingRulesPreview) {
+<div class="loader mini">Loading rules...</div>
+}
 
-      <ng-container *ngIf="!loadingRulesPreview">
+      @if (!loadingRulesPreview) {
+
         <header class="section-head top-gap">
           <h2 style="font-size:1.05em;">Active Salary Structures</h2>
           <button class="btn btn-secondary" type="button" (click)="goToStructureBuilder()">Edit in Builder</button>
         </header>
 
-        <div *ngIf="!clientStructures.length" class="empty-mini">
+        @if (!clientStructures.length) {
+<div class="empty-mini">
           No active salary structures. Click <em>Edit in Builder</em> to create one.
         </div>
+}
 
-        <div *ngFor="let st of clientStructures" class="card" style="margin:8px 0;padding:12px;background:#fafafa;">
+        @for (st of clientStructures; track st) {
+<div class="card" style="margin:8px 0;padding:12px;background:#fafafa;">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
             <div>
               <div class="strong">{{ st.name }} <span class="minor mono">v{{ st.version }} ({{ st.code }})</span></div>
-              <div class="minor">Effective {{ formatDate(st.effectiveFrom) }} &mdash; {{ st.effectiveTo ? formatDate(st.effectiveTo) : 'open' }} <span *ngIf="st.isDefault" class="flag">DEFAULT</span></div>
+              <div class="minor">Effective {{ formatDate(st.effectiveFrom) }} &mdash; {{ st.effectiveTo ? formatDate(st.effectiveTo) : 'open' }} @if (st.isDefault) {
+<span class="flag">DEFAULT</span>
+}</div>
             </div>
             <label style="display:flex;align-items:center;gap:6px;font-size:0.9em;">
               <input type="radio" name="structureSel" [value]="st.id" [(ngModel)]="selectedStructureId" (change)="onStructureSelect()" />
@@ -479,7 +591,8 @@
             </label>
           </div>
 
-          <div class="table-wrap" style="margin-top:8px;" *ngIf="st.components.length">
+          @if (st.components.length) {
+<div class="table-wrap" style="margin-top:8px;">
             <table>
               <thead>
                 <tr>
@@ -491,7 +604,8 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let c of st.components">
+                @for (c of st.components; track c) {
+<tr>
                   <td>{{ c.displayOrder }}</td>
                   <td>
                     <div class="strong">{{ c.label || c.name }}</div>
@@ -500,17 +614,28 @@
                   <td>{{ c.componentType }}</td>
                   <td class="mono" style="white-space:pre-wrap;">{{ componentValuePreview(c) }}</td>
                   <td>
-                    <span class="flag" *ngIf="c.statutory">STAT</span>
-                    <span class="flag tax" *ngIf="c.taxable">TAX</span>
-                    <span class="flag" *ngIf="c.isVisibleInPayslip">PAYSLIP</span>
-                    <span class="flag bg-red-50" *ngIf="!c.isActive">INACTIVE</span>
+                    @if (c.statutory) {
+<span class="flag">STAT</span>
+}
+                    @if (c.taxable) {
+<span class="flag tax">TAX</span>
+}
+                    @if (c.isVisibleInPayslip) {
+<span class="flag">PAYSLIP</span>
+}
+                    @if (!c.isActive) {
+<span class="flag bg-red-50">INACTIVE</span>
+}
                   </td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
+}
 
-          <div class="table-wrap" style="margin-top:8px;" *ngIf="st.statutoryConfigs.length">
+          @if (st.statutoryConfigs.length) {
+<div class="table-wrap" style="margin-top:8px;">
             <table>
               <thead>
                 <tr>
@@ -524,7 +649,8 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let sc of st.statutoryConfigs">
+                @for (sc of st.statutoryConfigs; track sc) {
+<tr>
                   <td class="strong">{{ sc.stateCode }}</td>
                   <td>{{ sc.enablePt ? 'On' : 'Off' }}</td>
                   <td>{{ sc.enablePf ? 'On' : 'Off' }}</td>
@@ -533,37 +659,50 @@
                   <td class="minor">Emp {{ sc.esiEmployeeRate }}% &middot; Er {{ sc.esiEmployerRate }}% &middot; Ceil {{ sc.esiGrossCeiling }}</td>
                   <td>{{ formatMoney(sc.minimumWage) }}</td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
+}
         </div>
+}
 
         <header class="section-head top-gap">
           <h2 style="font-size:1.05em;">State PT / LWF Slabs (effective)</h2>
         </header>
-        <div *ngIf="stateSlabsLoading" class="loader mini">Loading slabs...</div>
+        @if (stateSlabsLoading) {
+<div class="loader mini">Loading slabs...</div>
+}
 
-        <div *ngFor="let slab of stateSlabs" class="card" style="margin:8px 0;padding:10px;background:#fafafa;">
+        @for (slab of stateSlabs; track slab) {
+<div class="card" style="margin:8px 0;padding:10px;background:#fafafa;">
           <div class="strong">{{ slab.componentCode }} &mdash; {{ slab.stateCode }}
             <span class="flag" [class.tax]="slab.source === 'CLIENT' || slab.source === 'CLIENT_ALL'">
               {{ slab.source === 'CLIENT' || slab.source === 'CLIENT_ALL' ? 'Per-client override' : (slab.source === 'NONE' ? 'No slab' : 'Shared default') }}
             </span>
           </div>
-          <div *ngIf="!slab.slabs.length" class="minor">No slabs &mdash; engine returns ₹0 for this component in this state.</div>
-          <table *ngIf="slab.slabs.length" style="margin-top:6px;">
+          @if (!slab.slabs.length) {
+<div class="minor">No slabs &mdash; engine returns ₹0 for this component in this state.</div>
+}
+          @if (slab.slabs.length) {
+<table style="margin-top:6px;">
             <thead>
               <tr><th>From</th><th>To</th><th>Amount</th><th>Percent</th></tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of slab.slabs">
+              @for (row of slab.slabs; track row) {
+<tr>
                 <td>{{ formatMoney(row.fromAmount) }}</td>
                 <td>{{ row.toAmount === null || row.toAmount === undefined ? '∞' : formatMoney(row.toAmount) }}</td>
                 <td>{{ row.valueAmount === null || row.valueAmount === undefined ? '-' : formatMoney(row.valueAmount) }}</td>
                 <td>{{ row.valuePercent === null || row.valuePercent === undefined ? '-' : (row.valuePercent + '%') }}</td>
               </tr>
+}
             </tbody>
           </table>
+}
         </div>
+}
 
         <header class="section-head top-gap">
           <h2 style="font-size:1.05em;">Live Preview Calculator</h2>
@@ -574,13 +713,17 @@
             Salary Structure
             <select [(ngModel)]="selectedStructureId" (change)="onStructureSelect()" name="prevStructure" id="ps-prev-structure">
               <option value="" disabled>-- choose structure --</option>
-              <option *ngFor="let s of clientStructures" [value]="s.id">{{ s.name }} (v{{ s.version }})</option>
+              @for (s of clientStructures; track s) {
+<option [value]="s.id">{{ s.name }} (v{{ s.version }})</option>
+}
             </select>
           </label>
           <label>
             State
             <select [(ngModel)]="preview.stateCode" (change)="onStateChange()" name="prevState" id="ps-prev-state">
-              <option *ngFor="let s of indianStates" [value]="s.code">{{ s.code }} &mdash; {{ s.name }}</option>
+              @for (s of indianStates; track s) {
+<option [value]="s.code">{{ s.code }} &mdash; {{ s.name }}</option>
+}
             </select>
           </label>
           <label>
@@ -594,7 +737,9 @@
           <label>
             Month
             <select [(ngModel)]="preview.month" name="prevMonth" id="ps-prev-month">
-              <option *ngFor="let m of months" [value]="m.value">{{ m.label }}</option>
+              @for (m of months; track m) {
+<option [value]="m.value">{{ m.label }}</option>
+}
             </select>
           </label>
           <label>
@@ -609,37 +754,49 @@
           </button>
         </footer>
 
-        <div *ngIf="previewResult" class="card" style="margin-top:12px;padding:12px;background:#f8fff4;">
+        @if (previewResult) {
+<div class="card" style="margin-top:12px;padding:12px;background:#f8fff4;">
           <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:0.95em;">
             <div><span class="minor">Total Earnings:</span> <strong>{{ formatMoney(previewResult.totalEarnings) }}</strong></div>
             <div><span class="minor">Total Deductions:</span> <strong>{{ formatMoney(previewResult.totalDeductions) }}</strong></div>
             <div><span class="minor">Net Pay:</span> <strong class="text-green-700">{{ formatMoney(previewResult.netPay) }}</strong></div>
           </div>
-          <div *ngIf="previewResult.warnings.length" style="margin-top:8px;">
+          @if (previewResult.warnings.length) {
+<div style="margin-top:8px;">
             <div class="minor">Warnings:</div>
             <ul style="margin:4px 0;padding-left:20px;color:#b45309;">
-              <li *ngFor="let w of previewResult.warnings">{{ w }}</li>
+              @for (w of previewResult.warnings; track w) {
+<li>{{ w }}</li>
+}
             </ul>
           </div>
+}
           <div class="table-wrap" style="margin-top:8px;">
             <table>
               <thead><tr><th>Component</th><th class="text-right">Amount</th></tr></thead>
               <tbody>
-                <tr *ngFor="let r of previewValueRows()">
+                @for (r of previewValueRows(); track r) {
+<tr>
                   <td class="mono">{{ r.code }}</td>
                   <td class="text-right">{{ formatMoney(r.amount) }}</td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
         </div>
-      </ng-container>
+}
+      
+}
     </section>
-  </ng-container>
+}
+  
+}
 </div>
 
 <!-- Component modal -->
-<div class="modal-backdrop" *ngIf="showCompModal">
+@if (showCompModal) {
+<div class="modal-backdrop">
   <div class="modal-card">
     <header>
       <h3>{{ editingComp ? 'Edit Component' : 'Add Component' }}</h3>
@@ -658,7 +815,9 @@
       <label>
         Type *
         <select id="ps-component-type" name="componentType" [(ngModel)]="compForm.componentType">
-          <option *ngFor="let t of compTypeOptions" [value]="t">{{ t }}</option>
+          @for (t of compTypeOptions; track t) {
+<option [value]="t">{{ t }}</option>
+}
         </select>
       </label>
       <label>
@@ -671,7 +830,9 @@
       <label class="inline-toggle"><input autocomplete="off" id="ps-is-required" type="checkbox" name="isRequired" [(ngModel)]="compForm.isRequired" /> Required</label>
     </div>
 
-    <div *ngIf="compFormError" class="msg error">{{ compFormError }}</div>
+    @if (compFormError) {
+<div class="msg error">{{ compFormError }}</div>
+}
 
     <footer>
       <button class="btn btn-ghost" type="button" (click)="showCompModal = false">Cancel</button>
@@ -681,9 +842,11 @@
     </footer>
   </div>
 </div>
+}
 
 <!-- Rule modal -->
-<div class="modal-backdrop" *ngIf="showRuleModal">
+@if (showRuleModal) {
+<div class="modal-backdrop">
   <div class="modal-card">
     <header>
       <h3>Add Rule</h3>
@@ -694,7 +857,9 @@
       <label>
         Rule Type
         <select id="ps-rule-type" name="ruleType" [(ngModel)]="ruleForm.ruleType">
-          <option *ngFor="let t of ruleTypeOptions" [value]="t">{{ t }}</option>
+          @for (t of ruleTypeOptions; track t) {
+<option [value]="t">{{ t }}</option>
+}
         </select>
       </label>
       <label>
@@ -702,27 +867,37 @@
         <input autocomplete="off" id="ps-priority" type="number" name="rulePriority" [(ngModel)]="ruleForm.priority" />
       </label>
 
-      <label *ngIf="ruleForm.ruleType === 'FIXED'">
+      @if (ruleForm.ruleType === 'FIXED') {
+<label>
         Fixed Amount
         <input autocomplete="off" id="ps-fixed-amount" type="number" name="ruleFixedAmount" [(ngModel)]="ruleForm.fixedAmount" />
       </label>
+}
 
-      <label *ngIf="ruleForm.ruleType === 'PERCENTAGE'">
+      @if (ruleForm.ruleType === 'PERCENTAGE') {
+<label>
         Base Component Code
         <input autocomplete="off" id="ps-base-component" type="text" name="baseComponent" [(ngModel)]="ruleForm.baseComponent" />
       </label>
-      <label *ngIf="ruleForm.ruleType === 'PERCENTAGE'">
+}
+      @if (ruleForm.ruleType === 'PERCENTAGE') {
+<label>
         Percentage
         <input autocomplete="off" id="ps-percentage" type="number" name="rulePercentage" [(ngModel)]="ruleForm.percentage" />
       </label>
+}
 
-      <label class="span-2" *ngIf="ruleForm.ruleType === 'FORMULA'">
+      @if (ruleForm.ruleType === 'FORMULA') {
+<label class="span-2">
         Formula
         <textarea autocomplete="off" id="ps-formula" rows="3" name="ruleFormula" [(ngModel)]="ruleForm.formula"></textarea>
       </label>
+}
     </div>
 
-    <div *ngIf="ruleFormError" class="msg error">{{ ruleFormError }}</div>
+    @if (ruleFormError) {
+<div class="msg error">{{ ruleFormError }}</div>
+}
 
     <footer>
       <button class="btn btn-ghost" type="button" (click)="showRuleModal = false">Cancel</button>
@@ -732,9 +907,11 @@
     </footer>
   </div>
 </div>
+}
 
 <!-- Formula modal (writes to active salary structure item) -->
-<div class="modal-backdrop" *ngIf="showFormulaModal">
+@if (showFormulaModal) {
+<div class="modal-backdrop">
   <div class="modal-card">
     <header>
       <h3>Calculation &mdash; {{ formulaTargetComponent?.name }} ({{ formulaTargetComponent?.code }})</h3>
@@ -751,42 +928,57 @@
       <label>
         Calculation Method *
         <select id="ps-formula-method" name="formulaMethod" [(ngModel)]="formulaForm.calcMethod">
-          <option *ngFor="let m of formulaCalcMethods" [value]="m">{{ m }}</option>
+          @for (m of formulaCalcMethods; track m) {
+<option [value]="m">{{ m }}</option>
+}
         </select>
       </label>
       <label>
         Rounding
         <select id="ps-formula-round" name="formulaRound" [(ngModel)]="formulaForm.roundingMode">
-          <option *ngFor="let r of formulaRoundOptions" [value]="r">{{ r }}</option>
+          @for (r of formulaRoundOptions; track r) {
+<option [value]="r">{{ r }}</option>
+}
         </select>
       </label>
 
-      <label *ngIf="formulaForm.calcMethod === 'FIXED'">
+      @if (formulaForm.calcMethod === 'FIXED') {
+<label>
         Fixed Amount *
         <input autocomplete="off" id="ps-formula-fixed" type="number" name="formulaFixed" [(ngModel)]="formulaForm.fixedAmount" />
       </label>
+}
 
-      <label *ngIf="formulaForm.calcMethod === 'PERCENT'">
+      @if (formulaForm.calcMethod === 'PERCENT') {
+<label>
         Percentage *
         <input autocomplete="off" id="ps-formula-pct" type="number" step="0.01" name="formulaPct" [(ngModel)]="formulaForm.percentage" />
       </label>
-      <label *ngIf="formulaForm.calcMethod === 'PERCENT'">
+}
+      @if (formulaForm.calcMethod === 'PERCENT') {
+<label>
         Base *
         <select id="ps-formula-base" name="formulaBase" [(ngModel)]="formulaForm.percentageBase">
-          <option *ngFor="let b of formulaBaseOptions" [value]="b">{{ b }}</option>
+          @for (b of formulaBaseOptions; track b) {
+<option [value]="b">{{ b }}</option>
+}
         </select>
       </label>
+}
 
-      <div class="span-2" *ngIf="formulaForm.calcMethod === 'FORMULA'">
+      @if (formulaForm.calcMethod === 'FORMULA') {
+<div class="span-2">
         <div class="builder-label" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
           <span>Formula *</span>
           <span style="display:flex;gap:6px;align-items:center;">
             <select [(ngModel)]="selectedTemplateId" name="tplPick"
                     style="font-size:12px;padding:3px 6px;">
               <option value="">— Load template —</option>
-              <option *ngFor="let t of formulaTemplates" [value]="t.id">
+              @for (t of formulaTemplates; track t) {
+<option [value]="t.id">
                 {{ t.name }}{{ t.clientId ? '' : ' (global)' }}
               </option>
+}
             </select>
             <button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:12px;"
                     [disabled]="!selectedTemplateId" (click)="applySelectedTemplate()">
@@ -804,6 +996,7 @@
           (valueChange)="formulaForm.formulaJson = $event">
         </app-formula-builder>
       </div>
+}
 
       <label>
         Min Amount (optional)
@@ -820,15 +1013,20 @@
       </label>
     </div>
 
-    <div *ngIf="formulaError" class="msg error">{{ formulaError }}</div>
+    @if (formulaError) {
+<div class="msg error">{{ formulaError }}</div>
+}
 
     <details class="versions-panel" style="margin-top:8px;">
       <summary style="cursor:pointer;font-size:12px;color:#475569;font-weight:600;"
                (click)="toggleVersions()">
         Version History ({{ structureVersions.length }})
       </summary>
-      <div *ngIf="loadingVersions" style="padding:6px;font-size:12px;">Loading…</div>
-      <table *ngIf="!loadingVersions && structureVersions.length"
+      @if (loadingVersions) {
+<div style="padding:6px;font-size:12px;">Loading…</div>
+}
+      @if (!loadingVersions && structureVersions.length) {
+<table
              style="width:100%;font-size:12px;margin-top:6px;">
         <thead>
           <tr style="text-align:left;color:#64748b;">
@@ -836,18 +1034,23 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let v of structureVersions">
+          @for (v of structureVersions; track v) {
+<tr>
             <td>{{ v.versionNo }}</td>
             <td>{{ v.createdAt | date:'short' }}</td>
             <td>{{ v.reason || '—' }}</td>
             <td>{{ v.itemsSnapshot.length || 0 }}</td>
           </tr>
+}
         </tbody>
       </table>
-      <div *ngIf="!loadingVersions && !structureVersions.length"
+}
+      @if (!loadingVersions && !structureVersions.length) {
+<div
            style="padding:6px;font-size:12px;color:#94a3b8;">
         No prior versions yet — saving this formula will create v1.
       </div>
+}
     </details>
 
     <footer>
@@ -858,3 +1061,4 @@
     </footer>
   </div>
 </div>
+}

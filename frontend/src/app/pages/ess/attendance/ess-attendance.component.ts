@@ -56,7 +56,9 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
         </div>
       </div>
 
-      <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">{{ error }}</div>
+      @if (error) {
+<div class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">{{ error }}</div>
+}
 
       <!-- ── Check-In / Check-Out Panel ── -->
       <div class="checkin-panel">
@@ -82,10 +84,12 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
               <div class="time-label">Check-Out</div>
               <div class="time-val">{{ todayRecord?.checkOut || '--:--' }}</div>
             </div>
-            <div class="time-box worked" *ngIf="todayRecord?.checkIn && todayRecord?.checkOut">
+            @if (todayRecord?.checkIn && todayRecord?.checkOut) {
+<div class="time-box worked">
               <div class="time-label">Worked</div>
               <div class="time-val">{{ todayWorkedDisplay }}</div>
             </div>
+}
           </div>
         </div>
 
@@ -94,7 +98,8 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
           <div class="capture-method-section">
             <label class="text-xs text-gray-500 font-medium mb-1 block">Capture Method</label>
             <div class="capture-options">
-              <label *ngFor="let opt of captureOptions" class="capture-opt"
+              @for (opt of captureOptions; track opt) {
+<label class="capture-opt"
                      [class.active]="selectedCapture === opt.value"
                      [class.disabled]="opt.comingSoon">
                 <input type="radio" name="captureMethod" [value]="opt.value"
@@ -102,50 +107,79 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
                        [disabled]="opt.comingSoon" class="sr-only" />
                 <span class="capture-icon" [innerHTML]="opt.icon"></span>
                 <span class="capture-label">{{ opt.label }}</span>
-                <span class="capture-badge" *ngIf="opt.comingSoon">{{ opt.value === 'FACE' ? 'App only' : 'Soon' }}</span>
+                @if (opt.comingSoon) {
+<span class="capture-badge">{{ opt.value === 'FACE' ? 'App only' : 'Soon' }}</span>
+}
               </label>
+}
             </div>
           </div>
 
           <!-- Face ID selfie capture -->
-          <div class="selfie-block" *ngIf="selectedCapture === 'FACE'">
-            <div *ngIf="!selfieDataUrl" class="selfie-cam">
+          @if (selectedCapture === 'FACE') {
+<div class="selfie-block">
+            @if (!selfieDataUrl) {
+<div class="selfie-cam">
               <video #selfieVideo autoplay playsinline muted class="selfie-video"></video>
               <button type="button" class="btn-capture"
                       [disabled]="!cameraReady || capturingSelfie"
                       (click)="captureSelfie()">
-                <span *ngIf="cameraReady && !capturingSelfie">\ud83d\udcf8 Capture Selfie</span>
-                <span *ngIf="!cameraReady && !cameraError">Starting camera\u2026</span>
-                <span *ngIf="cameraError" class="text-red-300">{{ cameraError }}</span>
+                @if (cameraReady && !capturingSelfie) {
+<span>\ud83d\udcf8 Capture Selfie</span>
+}
+                @if (!cameraReady && !cameraError) {
+<span>Starting camera\u2026</span>
+}
+                @if (cameraError) {
+<span class="text-red-300">{{ cameraError }}</span>
+}
               </button>
             </div>
-            <div *ngIf="selfieDataUrl" class="selfie-preview">
+}
+            @if (selfieDataUrl) {
+<div class="selfie-preview">
               <img [src]="selfieDataUrl" alt="Selfie preview" />
               <button type="button" class="btn-retake" (click)="discardSelfie()">Retake</button>
             </div>
+}
           </div>
+}
 
           <div class="checkin-actions">
             <button class="btn-checkin"
                     [disabled]="checkingIn || !!todayRecord?.checkIn || !canSubmitCapture"
                     (click)="doCheckIn()">
-              <span *ngIf="checkingIn">Checking In...</span>
-              <span *ngIf="!checkingIn && !todayRecord?.checkIn">Check In</span>
-              <span *ngIf="!checkingIn && todayRecord?.checkIn">Checked In ✓</span>
+              @if (checkingIn) {
+<span>Checking In...</span>
+}
+              @if (!checkingIn && !todayRecord?.checkIn) {
+<span>Check In</span>
+}
+              @if (!checkingIn && todayRecord?.checkIn) {
+<span>Checked In ✓</span>
+}
             </button>
             <button class="btn-checkout"
                     [disabled]="checkingOut || !todayRecord?.checkIn || !!todayRecord?.checkOut || !canSubmitCapture"
                     (click)="doCheckOut()">
-              <span *ngIf="checkingOut">Checking Out...</span>
-              <span *ngIf="!checkingOut && !todayRecord?.checkOut">Check Out</span>
-              <span *ngIf="!checkingOut && todayRecord?.checkOut">Checked Out ✓</span>
+              @if (checkingOut) {
+<span>Checking Out...</span>
+}
+              @if (!checkingOut && !todayRecord?.checkOut) {
+<span>Check Out</span>
+}
+              @if (!checkingOut && todayRecord?.checkOut) {
+<span>Checked Out ✓</span>
+}
             </button>
           </div>
 
-          <div class="geo-info" *ngIf="geoStatus">
+          @if (geoStatus) {
+<div class="geo-info">
             <span class="geo-icon">📍</span>
             <span class="text-[11px] text-gray-500">{{ geoStatus }}</span>
           </div>
+}
         </div>
       </div>
 
@@ -178,7 +212,8 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
       </div>
 
       <!-- ── Overtime & Comp-Off Panel ── -->
-      <div *ngIf="otSummary || coffBalance" class="ot-panel">
+      @if (otSummary || coffBalance) {
+<div class="ot-panel">
         <div class="ot-header">
           <h2 class="text-base font-semibold text-gray-900">Overtime &amp; Comp-Off</h2>
           <span class="ot-eligibility-badge" [ngClass]="otSummary?.otEligibility === 'COMP_OFF' ? 'badge-coff' : 'badge-ot'">
@@ -190,14 +225,18 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
             <div class="ot-stat-label">Total OT Hours</div>
             <div class="ot-stat-value text-blue-600">{{ otSummary?.totalOtHours ?? '0.00' }}</div>
           </div>
-          <div class="ot-stat" *ngIf="otSummary?.otEligibility === 'COMP_OFF'">
+          @if (otSummary?.otEligibility === 'COMP_OFF') {
+<div class="ot-stat">
             <div class="ot-stat-label">C/Off Accrued (Month)</div>
             <div class="ot-stat-value text-green-600">{{ otSummary?.coffOtHours ?? '0.00' }}h</div>
           </div>
-          <div class="ot-stat" *ngIf="otSummary?.otEligibility === 'OT_PAY'">
+}
+          @if (otSummary?.otEligibility === 'OT_PAY') {
+<div class="ot-stat">
             <div class="ot-stat-label">Paid OT Hours</div>
             <div class="ot-stat-value text-green-600">{{ otSummary?.paidOtHours ?? '0.00' }}</div>
           </div>
+}
           <div class="ot-stat">
             <div class="ot-stat-label">Short Days</div>
             <div class="ot-stat-value text-amber-600">{{ otSummary?.shortDays ?? 0 }}</div>
@@ -208,7 +247,8 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
           </div>
         </div>
 
-        <div *ngIf="coffBalance" class="mt-3 flex flex-wrap items-center gap-4">
+        @if (coffBalance) {
+<div class="mt-3 flex flex-wrap items-center gap-4">
           <div class="coff-balance-row">
             <span class="coff-lbl">C/Off Balance:</span>
             <span class="coff-val text-green-700">{{ coffBalance.available }} day(s)</span>
@@ -218,8 +258,10 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
             {{ showCoffLedger ? 'Hide Ledger' : 'View Ledger' }}
           </button>
         </div>
+}
 
-        <div *ngIf="showCoffLedger && coffLedger.length" class="mt-3 overflow-x-auto">
+        @if (showCoffLedger && coffLedger.length) {
+<div class="mt-3 overflow-x-auto">
           <table class="coff-table">
             <thead>
               <tr>
@@ -231,7 +273,8 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let entry of coffLedger">
+              @for (entry of coffLedger; track entry) {
+<tr>
                 <td>{{ entry.entryDate | date:'d MMM y' }}</td>
                 <td>
                   <span class="tag" [ngClass]="entry.entryType === 'ACCRUAL' ? 'tag-accrual' : entry.entryType === 'USED' ? 'tag-used' : 'tag-lapsed'">
@@ -242,13 +285,17 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
                 <td class="text-xs text-gray-600">{{ entry.reason || '-' }}</td>
                 <td class="text-xs text-gray-500">{{ entry.remarks || '-' }}</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+}
       </div>
+}
 
       <!-- ── Short Work Reason Modal ── -->
-      <div *ngIf="showShortReasonModal" class="modal-overlay" (click)="showShortReasonModal = false">
+      @if (showShortReasonModal) {
+<div class="modal-overlay" (click)="showShortReasonModal = false">
         <div class="modal-box" (click)="$event.stopPropagation()">
           <h3 class="text-lg font-bold text-gray-900 mb-2">Short Work Day</h3>
           <p class="text-sm text-gray-600 mb-3">You worked less than 9 hours on <strong>{{ shortReasonDate | date:'d MMM y' }}</strong>. Please provide a reason.</p>
@@ -269,6 +316,7 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
           </div>
         </div>
       </div>
+}
 
       <!-- ── Calendar + Sidebar ── -->
       <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -279,19 +327,24 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
           </div>
 
           <div class="flex flex-wrap gap-2 mb-3">
-            <span
-              *ngFor="let item of legend"
+            @for (item of legend; track item) {
+<span
+             
               class="inline-flex items-center gap-1 text-[11px] rounded-full border px-2 py-0.5 text-gray-700">
               <span class="status-dot" [ngClass]="item.cssClass"></span>{{ item.code }} - {{ item.label }}
             </span>
+}
           </div>
 
           <div class="grid grid-cols-7 gap-2 mb-2 text-[11px] font-semibold uppercase text-gray-500 px-1">
-            <div *ngFor="let wd of weekdays">{{ wd }}</div>
+            @for (wd of weekdays; track wd) {
+<div>{{ wd }}</div>
+}
           </div>
 
           <div class="grid grid-cols-7 gap-2">
-            <div *ngFor="let day of calendarDays" class="day-cell"
+            @for (day of calendarDays; track day) {
+<div class="day-cell"
               [ngClass]="statusClass(day.status)"
               [class.short-pending]="isShortDayPending(day)"
               (click)="onDayCellClick(day)"
@@ -300,25 +353,34 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
                 <span class="text-xs font-semibold">{{ day.day }}</span>
                 <span class="text-[10px] status-pill">{{ statusShort(day.status) }}</span>
               </div>
-              <div class="text-[10px] mt-2 text-gray-600 truncate" *ngIf="day.checkIn || day.checkOut">
+              @if (day.checkIn || day.checkOut) {
+<div class="text-[10px] mt-2 text-gray-600 truncate">
                 {{ day.checkIn || '--' }} - {{ day.checkOut || '--' }}
               </div>
-              <div class="text-[10px] mt-1 text-gray-500 truncate" *ngIf="day.remarks">{{ day.remarks }}</div>
+}
+              @if (day.remarks) {
+<div class="text-[10px] mt-1 text-gray-500 truncate">{{ day.remarks }}</div>
+}
             </div>
+}
           </div>
         </div>
 
         <div class="space-y-4">
           <div class="card p-4">
             <h2 class="text-base font-semibold text-gray-900 mb-3">Holiday List</h2>
-            <div *ngIf="!holidays.length" class="text-sm text-gray-500">No holidays marked for this month.</div>
-            <div *ngFor="let h of holidays" class="holiday-row">
+            @if (!holidays.length) {
+<div class="text-sm text-gray-500">No holidays marked for this month.</div>
+}
+            @for (h of holidays; track h) {
+<div class="holiday-row">
               <div>
                 <div class="font-medium text-sm text-gray-900">{{ h.label || (h.status === 'WEEK_OFF' ? 'Weekly Off' : 'Holiday') }}</div>
                 <div class="text-xs text-gray-500">{{ h.date | date:'EEE, d MMM y' }}</div>
               </div>
               <span class="tag" [ngClass]="h.status === 'WEEK_OFF' ? 'tag-weekoff' : 'tag-holiday'">{{ h.status }}</span>
             </div>
+}
           </div>
 
           <div class="card p-4">
@@ -333,13 +395,17 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
               placeholder="Describe date(s) and correction needed..."
             ></textarea>
-            <div class="space-y-1 mt-2" *ngIf="discrepancyGuardrails.length">
-              <div
-                *ngFor="let issue of discrepancyGuardrails"
+            @if (discrepancyGuardrails.length) {
+<div class="space-y-1 mt-2">
+              @for (issue of discrepancyGuardrails; track issue) {
+<div
+               
                 class="text-xs rounded-md border border-amber-200 bg-amber-50 text-amber-700 px-2 py-1">
                 {{ issue }}
               </div>
+}
             </div>
+}
             <div class="flex justify-between items-center mt-2">
               <span class="text-xs text-gray-400">{{ discrepancyNote.length }}/500</span>
               <button class="btn-primary" [disabled]="!canRaiseDiscrepancy" (click)="raiseDiscrepancy()">Raise Note</button>

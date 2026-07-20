@@ -25,18 +25,25 @@ interface BucketView {
         <p class="text-sm text-gray-500">Leads that need attention from sales — overdue, stale, or untouched.</p>
       </div>
 
-      <div *ngIf="loading" class="text-center text-gray-500 py-8">Loading…</div>
+      @if (loading) {
+<div class="text-center text-gray-500 py-8">Loading…</div>
+}
 
-      <div *ngIf="!loading" class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div *ngFor="let b of buckets"
+      @if (!loading) {
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        @for (b of buckets; track b) {
+<div
              class="bg-white rounded-xl border border-gray-200 p-4">
           <div class="text-xs uppercase font-semibold" [class]="b.color">{{ b.label }}</div>
           <div class="text-2xl font-bold text-gray-900 mt-1">{{ b.items.length }}</div>
           <div class="text-xs text-gray-500 mt-0.5">{{ b.description }}</div>
         </div>
+}
       </div>
+}
 
-      <div *ngFor="let b of buckets" class="bg-white rounded-xl border border-gray-200">
+      @for (b of buckets; track b) {
+<div class="bg-white rounded-xl border border-gray-200">
         <div class="px-5 py-3 border-b flex items-center justify-between">
           <div>
             <div class="font-semibold text-gray-900">{{ b.label }}</div>
@@ -44,8 +51,11 @@ interface BucketView {
           </div>
           <span class="text-xs font-medium" [class]="b.color">{{ b.items.length }} leads</span>
         </div>
-        <div *ngIf="b.items.length === 0" class="p-6 text-center text-sm text-gray-500">No leads in this bucket.</div>
-        <table *ngIf="b.items.length > 0" class="w-full text-sm">
+        @if (b.items.length === 0) {
+<div class="p-6 text-center text-sm text-gray-500">No leads in this bucket.</div>
+}
+        @if (b.items.length > 0) {
+<table class="w-full text-sm">
           <thead class="bg-gray-50 text-xs uppercase text-gray-500">
             <tr>
               <th class="text-left px-4 py-2">Company</th>
@@ -57,7 +67,8 @@ interface BucketView {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let l of b.items" class="border-t border-gray-100">
+            @for (l of b.items; track l) {
+<tr class="border-t border-gray-100">
               <td class="px-4 py-2 font-medium text-gray-900">
                 {{ l.companyName }}
                 <div class="text-xs text-gray-500">{{ l.contactName || l.contactPhone || '' }}</div>
@@ -67,13 +78,18 @@ interface BucketView {
               <td class="px-4 py-2 text-xs text-red-600">{{ l.nextFollowupAt ? (l.nextFollowupAt | date:'short') : '—' }}</td>
               <td class="px-4 py-2 text-xs text-gray-600">
                 {{ l.lastActivityAt ? (l.lastActivityAt | date:'short') : '—' }}
-                <span *ngIf="l.daysSinceActivity !== null && l.daysSinceActivity !== undefined" class="ml-1 text-gray-400">({{ l.daysSinceActivity }}d)</span>
+                @if (l.daysSinceActivity !== null && l.daysSinceActivity !== undefined) {
+<span class="ml-1 text-gray-400">({{ l.daysSinceActivity }}d)</span>
+}
               </td>
               <td class="px-4 py-2 text-right text-gray-700">₹ {{ l.estimatedValue | number:'1.0-0' }}</td>
             </tr>
+}
           </tbody>
         </table>
+}
       </div>
+}
     </div>
   `,
 })

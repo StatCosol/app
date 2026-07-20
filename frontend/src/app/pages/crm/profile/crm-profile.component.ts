@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
@@ -10,16 +10,23 @@ import { ChangePasswordComponent } from '../../../shared/components/change-passw
 @Component({
   standalone: true,
   selector: 'app-crm-profile',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ChangePasswordComponent],
+  imports: [FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ChangePasswordComponent],
   template: `
     <ui-page-header title="Profile" description="Manage your CRM profile"></ui-page-header>
 
-    <ui-loading-spinner *ngIf="loading" text="Loading profile..."></ui-loading-spinner>
+    @if (loading) {
+<ui-loading-spinner text="Loading profile..."></ui-loading-spinner>
+}
 
-    <div *ngIf="error" class="alert alert-error mb-4">{{ error }}</div>
-    <div *ngIf="success" class="alert alert-success mb-4">{{ success }}</div>
+    @if (error) {
+<div class="alert alert-error mb-4">{{ error }}</div>
+}
+    @if (success) {
+<div class="alert alert-success mb-4">{{ success }}</div>
+}
 
-    <div *ngIf="!loading && profile" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    @if (!loading && profile) {
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div class="card">
         <h3 class="card-title mb-4">Personal Information</h3>
         <div class="space-y-4">
@@ -43,6 +50,7 @@ import { ChangePasswordComponent } from '../../../shared/components/change-passw
 
       <ui-change-password></ui-change-password>
     </div>
+}
   `,
 })
 export class CrmProfileComponent implements OnInit, OnDestroy {

@@ -8,19 +8,27 @@
   <!-- Filter Bar -->
   <div class="filter-bar">
     <select id="cbdr-selected-frequency" name="selectedFrequency" class="filter-select" [(ngModel)]="selectedFrequency" (change)="load()">
-      <option *ngFor="let f of frequencies" [ngValue]="f.value">{{ f.label }}</option>
+      @for (f of frequencies; track f) {
+<option [ngValue]="f.value">{{ f.label }}</option>
+}
     </select>
 
     <select id="cbdr-selected-month" name="selectedMonth" class="filter-select" [(ngModel)]="selectedMonth" (change)="load()">
-      <option *ngFor="let m of months" [ngValue]="m.value">{{ m.label }}</option>
+      @for (m of months; track m) {
+<option [ngValue]="m.value">{{ m.label }}</option>
+}
     </select>
 
     <select id="cbdr-selected-year" name="selectedYear" class="filter-select" [(ngModel)]="selectedYear" (change)="load()">
-      <option *ngFor="let y of years" [ngValue]="y">{{ y }}</option>
+      @for (y of years; track y) {
+<option [ngValue]="y">{{ y }}</option>
+}
     </select>
 
     <select id="cbdr-selected-status" name="selectedStatus" class="filter-select" [(ngModel)]="selectedStatus" (change)="load()">
-      <option *ngFor="let s of statuses" [ngValue]="s.value">{{ s.label }}</option>
+      @for (s of statuses; track s) {
+<option [ngValue]="s.value">{{ s.label }}</option>
+}
     </select>
 
     <span class="ml-auto text-sm font-semibold" [class.text-orange-500]="pendingCount > 0" [class.text-green-600]="pendingCount === 0">
@@ -29,7 +37,8 @@
   </div>
 
   <!-- KPI Cards -->
-  <div *ngIf="kpis" class="kpi-grid">
+  @if (kpis) {
+<div class="kpi-grid">
     <div class="kpi-card">
       <div class="kpi-value text-blue-600">{{ kpis.pending_review || 0 }}</div>
       <div class="kpi-label">Pending Review</div>
@@ -51,25 +60,36 @@
       <div class="kpi-label">Overdue</div>
     </div>
   </div>
+}
 
   <!-- Loading -->
-  <div *ngIf="loading" class="space-y-3">
+  @if (loading) {
+<div class="space-y-3">
     <div class="kpi-grid">
-      <div *ngFor="let s of [1,2,3,4,5]" class="skeleton skeleton--kpi"></div>
+      @for (s of [1,2,3,4,5]; track s) {
+<div class="skeleton skeleton--kpi"></div>
+}
     </div>
-    <div *ngFor="let s of [1,2,3,4,5,6,7,8]" class="skeleton skeleton--row"></div>
+    @for (s of [1,2,3,4,5,6,7,8]; track s) {
+<div class="skeleton skeleton--row"></div>
+}
   </div>
+}
 
   <!-- Documents Table -->
-  <ng-container *ngIf="!loading">
-    <div *ngIf="documents.length === 0" class="text-center py-12 text-gray-400">
+  @if (!loading) {
+
+    @if (documents.length === 0) {
+<div class="text-center py-12 text-gray-400">
       <svg class="mx-auto w-16 h-16 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
       </svg>
       <p class="text-sm font-medium">No documents to review for the selected filters.</p>
     </div>
+}
 
-    <div *ngIf="documents.length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    @if (documents.length > 0) {
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       <ui-data-table [columns]="docColumns" [data]="documents" [loading]="loading"
         emptyMessage="No documents to review.">
         <ng-template uiTableCell="branch" let-row>
@@ -80,9 +100,11 @@
         <ng-template uiTableCell="document" let-row>
           <div class="font-medium">{{ row.returnName }}</div>
           <div class="text-xs text-gray-400">{{ row.returnCode }}</div>
-          <div *ngIf="row.uploadedFileName" class="text-xs text-blue-500 mt-0.5 truncate max-w-[200px]">
+          @if (row.uploadedFileName) {
+<div class="text-xs text-blue-500 mt-0.5 truncate max-w-[200px]">
             {{ row.uploadedFileName }}
           </div>
+}
         </ng-template>
         <ng-template uiTableCell="period" let-row>
           <span class="text-sm">{{ getPeriodLabel(row) }}</span>
@@ -92,46 +114,59 @@
         </ng-template>
         <ng-template uiTableCell="status" let-row>
           <ui-status-badge [status]="row.status" size="sm"></ui-status-badge>
-          <div *ngIf="row.uploaderRemarks" class="text-xs text-blue-600 italic mt-1">
+          @if (row.uploaderRemarks) {
+<div class="text-xs text-blue-600 italic mt-1">
             <strong>Uploader:</strong> {{ row.uploaderRemarks }}
           </div>
-          <div *ngIf="row.remarks" class="text-xs text-orange-500 italic mt-1">
+}
+          @if (row.remarks) {
+<div class="text-xs text-orange-500 italic mt-1">
             <strong>Review:</strong> {{ row.remarks }}
           </div>
+}
         </ng-template>
         <ng-template uiTableCell="version" let-row>
           <span class="text-sm">v{{ row.version }}</span>
         </ng-template>
         <ng-template uiTableCell="actions" let-row>
           <div class="action-btn-group">
-            <button type="button" *ngIf="row.uploadedFileUrl" class="btn-outline action-btn" (click)="viewDoc(row)">
+            @if (row.uploadedFileUrl) {
+<button type="button" class="btn-outline action-btn" (click)="viewDoc(row)">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
               </svg>
               View
             </button>
-            <button type="button" *ngIf="canReview(row)" class="btn-approve action-btn" (click)="openReviewModal(row, 'APPROVED')">
+}
+            @if (canReview(row)) {
+<button type="button" class="btn-approve action-btn" (click)="openReviewModal(row, 'APPROVED')">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
               </svg>
               Approve
             </button>
-            <button type="button" *ngIf="canReview(row)" class="btn-reject action-btn" (click)="openReviewModal(row, 'REUPLOAD_REQUIRED')">
+}
+            @if (canReview(row)) {
+<button type="button" class="btn-reject action-btn" (click)="openReviewModal(row, 'REUPLOAD_REQUIRED')">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
               </svg>
               Reupload
             </button>
+}
           </div>
         </ng-template>
       </ui-data-table>
     </div>
-  </ng-container>
+}
+  
+}
 
   <!-- Review Modal -->
-  <ui-modal
-    *ngIf="showReviewModal"
+  @if (showReviewModal) {
+<ui-modal
+   
     [isOpen]="showReviewModal"
     [title]="reviewAction === 'APPROVED' ? 'Approve Document' : 'Request Reupload'"
     size="md"
@@ -144,19 +179,23 @@
         <strong>File:</strong> {{ reviewDoc?.uploadedFileName || '—' }}
       </div>
 
-      <div *ngIf="reviewAction === 'APPROVED'" class="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+      @if (reviewAction === 'APPROVED') {
+<div class="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
         <svg class="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
         <span class="text-sm text-green-700">This document will be approved and locked. It cannot be modified after approval.</span>
       </div>
+}
 
-      <div *ngIf="reviewAction === 'REUPLOAD_REQUIRED'" class="flex items-center gap-2 p-3 bg-orange-50 rounded-lg border border-orange-200">
+      @if (reviewAction === 'REUPLOAD_REQUIRED') {
+<div class="flex items-center gap-2 p-3 bg-orange-50 rounded-lg border border-orange-200">
         <svg class="w-5 h-5 text-orange-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
         </svg>
         <span class="text-sm text-orange-700">The branch user will be asked to reupload this document.</span>
       </div>
+}
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1" for="cbdr-review-remarks">
@@ -176,23 +215,28 @@
           (click)="closeReviewModal()">
           Cancel
         </button>
-        <button type="button"
-          *ngIf="reviewAction === 'APPROVED'"
+        @if (reviewAction === 'APPROVED') {
+<button type="button"
+         
           class="btn-approve px-4 py-2 text-sm"
           [disabled]="reviewing"
           (click)="submitReview()">
           {{ reviewing ? 'Processing...' : 'Approve' }}
         </button>
-        <button type="button"
-          *ngIf="reviewAction === 'REUPLOAD_REQUIRED'"
+}
+        @if (reviewAction === 'REUPLOAD_REQUIRED') {
+<button type="button"
+         
           class="btn-reject px-4 py-2 text-sm"
           [disabled]="reviewing || !reviewRemarks.trim()"
           (click)="submitReview()">
           {{ reviewing ? 'Processing...' : 'Request Reupload' }}
         </button>
+}
       </div>
     </div>
 
     <div slot="footer"></div>
   </ui-modal>
+}
 </div>

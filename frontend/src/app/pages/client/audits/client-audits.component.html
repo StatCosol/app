@@ -126,14 +126,19 @@
         <ui-status-badge [status]="row.status"></ui-status-badge>
       </ng-template>
       <ng-template uiTableCell="notes" let-row>
-        <button type="button" *ngIf="row.status === 'COMPLETED'" (click)="openAuditDetail(row)" class="text-xs text-blue-600 hover:text-blue-800 font-medium underline">View</button>
-        <span *ngIf="row.status !== 'COMPLETED'" class="text-gray-400">{{ row.notes }}</span>
+        @if (row.status === 'COMPLETED') {
+<button type="button" (click)="openAuditDetail(row)" class="text-xs text-blue-600 hover:text-blue-800 font-medium underline">View</button>
+}
+        @if (row.status !== 'COMPLETED') {
+<span class="text-gray-400">{{ row.notes }}</span>
+}
       </ng-template>
     </ui-data-table>
   </div>
 
   <!-- Audit Detail Drawer -->
-  <div *ngIf="selectedAudit" class="fixed inset-0 z-50 flex justify-end">
+  @if (selectedAudit) {
+<div class="fixed inset-0 z-50 flex justify-end">
     <div class="absolute inset-0 bg-black/20" (click)="selectedAudit = null"></div>
     <div class="relative w-full max-w-md bg-white shadow-xl overflow-y-auto" style="animation: slideInRight 0.25s ease-out">
       <div class="sticky top-0 bg-white border-b px-6 py-4 z-10 flex items-center justify-between">
@@ -171,14 +176,17 @@
             <p class="text-sm font-medium">{{ selectedAudit.dueDate }}</p>
           </div>
         </div>
-        <div *ngIf="selectedAudit.notes && selectedAudit.notes !== '—'">
+        @if (selectedAudit.notes && selectedAudit.notes !== '—') {
+<div>
           <span class="text-xs text-gray-500 uppercase">Notes</span>
           <p class="text-sm text-gray-600 mt-1">{{ selectedAudit.notes }}</p>
         </div>
+}
         <div class="pt-2 border-t text-xs text-gray-400">
           Export audit data using the Export button above.
         </div>
       </div>
     </div>
   </div>
+}
 </div>

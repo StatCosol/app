@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ThreadApi } from '../../services/thread-api.interface';
 import { ThreadFilters, ThreadListItem, ThreadDetail } from '../../models/thread.model';
 import { PageRes } from '../../../models/paging.model';
@@ -17,15 +17,14 @@ import { PriorityChipComponent } from '../../../components/status/priority-chip.
   selector: 'app-thread-layout',
   standalone: true,
   imports: [
-    CommonModule,
     ThreadFiltersComponent,
     ThreadInboxListComponent,
     ThreadMessagePanelComponent,
     SharedTimelineComponent,
     StatusChipComponent,
     PriorityChipComponent,
-    ComposerComponent,
-  ],
+    ComposerComponent
+],
   templateUrl: './thread-layout.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

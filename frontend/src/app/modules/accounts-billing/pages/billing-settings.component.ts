@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { AccountsBillingService } from '../services/accounts-billing.service';
 import { INDIAN_STATES } from '../models/billing.models';
@@ -7,7 +7,7 @@ import { INDIAN_STATES } from '../models/billing.models';
 @Component({
   selector: 'app-billing-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="p-6 space-y-6">
       <div class="flex items-center justify-between">
@@ -19,7 +19,8 @@ import { INDIAN_STATES } from '../models/billing.models';
         </div>
       </div>
 
-      <div class="bg-white rounded-xl border p-6 space-y-6" *ngIf="settings">
+      @if (settings) {
+<div class="bg-white rounded-xl border p-6 space-y-6">
         <!-- Company Info -->
         <div>
           <h2 class="text-lg font-semibold text-slate-700 mb-4">Company Information</h2>
@@ -61,9 +62,11 @@ import { INDIAN_STATES } from '../models/billing.models';
                 (change)="onStateChange()"
                 class="w-full px-3 py-2 border rounded-lg text-sm"
               >
-                <option *ngFor="let s of states" [value]="s.code">
+                @for (s of states; track s) {
+<option [value]="s.code">
                   {{ s.name }} ({{ s.code }})
                 </option>
+}
               </select>
             </div>
             <div>
@@ -237,9 +240,11 @@ import { INDIAN_STATES } from '../models/billing.models';
         </div>
 
         <div class="flex justify-end">
-          <p *ngIf="errorMessage" class="mr-4 self-center text-sm text-red-600">
+          @if (errorMessage) {
+<p class="mr-4 self-center text-sm text-red-600">
             {{ errorMessage }}
           </p>
+}
           <button
             (click)="save()"
             [disabled]="saving"
@@ -249,6 +254,7 @@ import { INDIAN_STATES } from '../models/billing.models';
           </button>
         </div>
       </div>
+}
     </div>
   `,
 })

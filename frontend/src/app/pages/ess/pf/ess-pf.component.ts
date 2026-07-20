@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { forkJoin, Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { EssApiService, StatutoryDetails, ContributionRow } from '../ess-api.service';
@@ -7,15 +7,18 @@ import { EssApiService, StatutoryDetails, ContributionRow } from '../ess-api.ser
 @Component({
   selector: 'app-ess-pf',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   template: `
     <div class="max-w-5xl mx-auto space-y-6">
       <h1 class="text-2xl font-bold text-gray-900">My PF Details</h1>
 
-      <div *ngIf="loading" class="text-gray-500 text-sm">Loading...</div>
+      @if (loading) {
+<div class="text-gray-500 text-sm">Loading...</div>
+}
 
       <!-- PF Identity Card -->
-      <div *ngIf="!loading && statutory" class="info-card">
+      @if (!loading && statutory) {
+<div class="info-card">
         <h2 class="card-title">Provident Fund Information</h2>
         <div class="info-grid">
           <div class="info-item">
@@ -50,22 +53,29 @@ import { EssApiService, StatutoryDetails, ContributionRow } from '../ess-api.ser
               </span>
             </span>
           </div>
-          <div *ngIf="statutory.pf.wages" class="info-item">
+          @if (statutory.pf.wages) {
+<div class="info-item">
             <span class="info-label">PF Wages</span>
             <span class="info-value">₹{{ statutory.pf.wages }}</span>
           </div>
+}
         </div>
       </div>
+}
 
       <!-- Monthly PF Contributions -->
-      <div *ngIf="!loading" class="info-card">
+      @if (!loading) {
+<div class="info-card">
         <h2 class="card-title">Monthly PF Contributions</h2>
 
-        <div *ngIf="!pfContributions.length" class="text-gray-500 text-sm py-4">
+        @if (!pfContributions.length) {
+<div class="text-gray-500 text-sm py-4">
           No contribution data found for the selected period.
         </div>
+}
 
-        <div *ngIf="pfContributions.length" class="overflow-x-auto">
+        @if (pfContributions.length) {
+<div class="overflow-x-auto">
           <table class="data-table">
             <thead>
               <tr>
@@ -78,7 +88,8 @@ import { EssApiService, StatutoryDetails, ContributionRow } from '../ess-api.ser
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let c of pfContributions">
+              @for (c of pfContributions; track c) {
+<tr>
                 <td class="font-medium">{{ monthName(c.periodMonth) }} {{ c.periodYear }}</td>
                 <td class="text-right">₹{{ c.grossEarnings }}</td>
                 <td class="text-right">₹{{ c.pfEmployee }}</td>
@@ -86,6 +97,7 @@ import { EssApiService, StatutoryDetails, ContributionRow } from '../ess-api.ser
                 <td class="text-right">₹{{ c.epsEmployer }}</td>
                 <td class="text-right font-semibold">₹{{ pfTotal(c) }}</td>
               </tr>
+}
             </tbody>
             <tfoot>
               <tr class="font-bold border-t-2 border-gray-300">
@@ -99,7 +111,9 @@ import { EssApiService, StatutoryDetails, ContributionRow } from '../ess-api.ser
             </tfoot>
           </table>
         </div>
+}
       </div>
+}
     </div>
   `,
   styles: [`

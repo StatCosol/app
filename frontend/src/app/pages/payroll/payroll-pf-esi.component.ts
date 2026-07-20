@@ -5,7 +5,7 @@ import {
   OnDestroy,
   OnInit,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subject, forkJoin, of } from 'rxjs';
 import { catchError, finalize, takeUntil } from 'rxjs/operators';
@@ -32,7 +32,7 @@ type UploadRegisterType = 'PF_CHALLAN_REGISTER' | 'ESI_CHALLAN_REGISTER' | 'ECR'
 @Component({
   selector: 'app-payroll-pf-esi',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClientContextStripComponent],
+  imports: [FormsModule, ClientContextStripComponent],
   templateUrl: './payroll-pf-esi.component.html',
   styleUrls: ['./payroll-pf-esi.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

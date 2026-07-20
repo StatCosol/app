@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ThreadLayoutComponent } from '../../shared/thread';
 import { ContractorThreadApiService } from '../../core/contractor-thread-api.service';
 import { CreateQueryComponent } from '../../shared/notifications/create-query/create-query.component';
@@ -9,7 +9,7 @@ import { PageHeaderComponent } from '../../shared/ui';
 @Component({
   selector: 'app-contractor-support',
   standalone: true,
-  imports: [CommonModule, ThreadLayoutComponent, CreateQueryComponent, PageHeaderComponent],
+  imports: [ThreadLayoutComponent, CreateQueryComponent, PageHeaderComponent],
   template: `
     <div class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
@@ -32,7 +32,8 @@ import { PageHeaderComponent } from '../../shared/ui';
       </div>
 
       <!-- Raise Query Tab -->
-      <div *ngIf="tab === 'raise'" class="card p-6">
+      @if (tab === 'raise') {
+<div class="card p-6">
         <div class="flex items-center gap-3 mb-6">
           <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
             <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -52,9 +53,11 @@ import { PageHeaderComponent } from '../../shared/ui';
           <span>Query routing: <b>Technical</b> &rarr; Admin &middot; <b>Compliance</b> &rarr; CRM &middot; <b>Audit</b> &rarr; Auditor. Unresolved queries auto-escalate.</span>
         </div>
       </div>
+}
 
       <!-- Threads Tab -->
-      <div *ngIf="tab === 'threads'">
+      @if (tab === 'threads') {
+<div>
         <app-thread-layout
           [api]="api"
           title="My Threads"
@@ -63,6 +66,7 @@ import { PageHeaderComponent } from '../../shared/ui';
           [canReopen]="false">
         </app-thread-layout>
       </div>
+}
     </div>
   `,
 })

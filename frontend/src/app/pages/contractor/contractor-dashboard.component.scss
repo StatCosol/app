@@ -3,3 +3,306 @@
 :host ::ng-deep .contractor-kpi--slate {
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #ffffff 100%);
 }
+
+// ─── Hero banner ─────────────────────────────────────────────
+.ctr-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  padding: 2rem;
+  background: linear-gradient(120deg, #312e81 0%, #4338ca 45%, #4f46e5 75%, #6d28d9 100%);
+  color: #fff;
+  box-shadow:
+    0 10px 30px rgba(67, 56, 202, 0.35),
+    0 2px 8px rgba(67, 56, 202, 0.25);
+
+  &__glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.5;
+    pointer-events: none;
+
+    &--one {
+      width: 340px;
+      height: 340px;
+      top: -160px;
+      right: -80px;
+      background: radial-gradient(circle, #818cf8, transparent 70%);
+    }
+    &--two {
+      width: 260px;
+      height: 260px;
+      bottom: -140px;
+      left: 20%;
+      background: radial-gradient(circle, #2dd4bf, transparent 70%);
+      opacity: 0.28;
+    }
+  }
+
+  &__content {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+  }
+
+  &__left { min-width: 0; flex: 1 1 320px; }
+
+  &__eyebrow {
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #c7d2fe;
+    margin-bottom: 0.25rem;
+  }
+
+  &__title {
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+
+  &__subtitle {
+    margin-top: 0.35rem;
+    font-size: 0.9rem;
+    color: #e0e7ff;
+
+    strong { color: #fff; font-weight: 700; }
+  }
+
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.85rem;
+  }
+
+  &__chip {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(4px);
+    white-space: nowrap;
+
+    &--more { background: rgba(255, 255, 255, 0.06); color: #c7d2fe; }
+  }
+
+  &__quickstats {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+    flex-wrap: wrap;
+  }
+
+  &__stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.55rem 1rem;
+    border-radius: 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+
+    &:hover { background: rgba(255, 255, 255, 0.18); transform: translateY(-1px); }
+  }
+
+  &__stat-value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    line-height: 1.1;
+
+    &--alert { color: #fca5a5; }
+  }
+
+  &__stat-label {
+    font-size: 0.7rem;
+    color: #c7d2fe;
+    font-weight: 500;
+  }
+
+  &__right {
+    display: flex;
+    align-items: center;
+    gap: 1.75rem;
+    flex-shrink: 0;
+  }
+
+  &__ring { position: relative; }
+
+  &__ring-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__ring-value { font-size: 1.5rem; font-weight: 800; }
+  &__ring-label { font-size: 0.7rem; color: #c7d2fe; }
+
+  &__score { text-align: center; }
+
+  &__score-value {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1.1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+  }
+
+  &__trend {
+    font-size: 0.9rem;
+    color: #c7d2fe;
+
+    &--up { color: #34d399; }
+    &--down { color: #f87171; }
+  }
+
+  &__score-label { font-size: 0.75rem; color: #c7d2fe; margin-top: 0.15rem; }
+
+  &__score-badge {
+    display: inline-block;
+    margin-top: 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #e0e7ff;
+
+    &--good { background: rgba(52, 211, 153, 0.2); color: #6ee7b7; }
+    &--warn { background: rgba(251, 191, 36, 0.2); color: #fcd34d; }
+    &--risk { background: rgba(248, 113, 113, 0.22); color: #fca5a5; }
+  }
+}
+
+// ─── KPI card internals ──────────────────────────────────────
+.ctr-kpi {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 0.7rem;
+    flex-shrink: 0;
+
+    &--slate { background: #e2e8f0; color: #475569; }
+    &--amber { background: #fde68a; color: #92400e; }
+    &--red { background: #fecaca; color: #b91c1c; }
+    &--indigo { background: #c7d2fe; color: #4338ca; }
+    &--teal { background: #99f6e4; color: #0f766e; }
+  }
+
+  &__body { min-width: 0; flex: 1; }
+
+  &__label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  &__value {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #111827;
+    line-height: 1.2;
+  }
+
+  &__hint { font-size: 0.7rem; color: #6b7280; margin-top: 0.1rem; }
+
+  &__arrow {
+    color: #9ca3af;
+    align-self: center;
+    flex-shrink: 0;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  &:hover .ctr-kpi__arrow { opacity: 1; transform: translateX(0); }
+}
+
+// ─── Section header icon ─────────────────────────────────────
+.ctr-section-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6rem;
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  color: #4f46e5;
+  flex-shrink: 0;
+
+  &--red {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    color: #dc2626;
+  }
+}
+
+// ─── Count badges on action cards ────────────────────────────
+.ctr-count-badge {
+  font-size: 0.75rem;
+  font-weight: 800;
+  min-width: 1.5rem;
+  text-align: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+
+  &--amber { background: #fef3c7; color: #b45309; }
+  &--indigo { background: #e0e7ff; color: #4338ca; }
+  &--red { background: #fee2e2; color: #b91c1c; }
+  &--teal { background: #ccfbf1; color: #0f766e; }
+}
+
+// ─── Action cards accent ─────────────────────────────────────
+.ctr-action {
+  border-top: 3px solid transparent;
+
+  &--amber { border-top-color: #f59e0b; }
+  &--indigo { border-top-color: #6366f1; }
+  &--red { border-top-color: #ef4444; }
+  &--teal { border-top-color: #14b8a6; }
+}
+
+// ─── Branch completion progress bar ──────────────────────────
+.ctr-progress {
+  flex: 1;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  overflow: hidden;
+  min-width: 4rem;
+
+  &__fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &--ok { background: linear-gradient(90deg, #10b981, #34d399); }
+    &--warn { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    &--low { background: linear-gradient(90deg, #ef4444, #f87171); }
+  }
+}

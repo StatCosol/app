@@ -5,7 +5,7 @@ import {
   OnDestroy,
   OnInit,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subject, forkJoin, fromEvent, interval, merge, of } from 'rxjs';
 import { catchError, finalize, takeUntil } from 'rxjs/operators';
@@ -44,13 +44,12 @@ const ATTENDANCE_STATUSES = [
   selector: 'app-client-daily-attendance',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     PageHeaderComponent,
     ActionButtonComponent,
     LoadingSpinnerComponent,
-    EmptyStateComponent,
-  ],
+    EmptyStateComponent
+],
   template: `
     <div class="page">
       <ui-page-header
@@ -70,7 +69,9 @@ const ATTENDANCE_STATUSES = [
           <label>
             <span>Branch</span>
             <select id="da-branch" name="branchId" [(ngModel)]="branchId" (ngModelChange)="load()">
-              <option *ngFor="let b of branchOptions" [value]="b.value">{{ b.label }}</option>
+              @for (b of branchOptions; track b) {
+<option [value]="b.value">{{ b.label }}</option>
+}
             </select>
           </label>
           <label>
@@ -108,11 +109,15 @@ const ATTENDANCE_STATUSES = [
         </article>
       </section>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading attendance..." size="lg"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading attendance..." size="lg"></ui-loading-spinner>
+}
 
-      <ng-container *ngIf="!loading">
+      @if (!loading) {
+
         <!-- Bulk actions -->
-        <section class="card mb" *ngIf="selectedIds.size > 0">
+        @if (selectedIds.size > 0) {
+<section class="card mb">
           <div class="bulk-bar">
             <span>{{ selectedIds.size }} record(s) selected</span>
             <ui-button size="sm" variant="primary" [disabled]="actionBusy" [loading]="actionBusy && actionType==='approve'" (clicked)="bulkApprove()">
@@ -129,9 +134,11 @@ const ATTENDANCE_STATUSES = [
             </ui-button>
           </div>
         </section>
+}
 
         <!-- Select-all pending shortcut -->
-        <section class="card mb" *ngIf="pendingRecords.length > 0 && selectedIds.size === 0">
+        @if (pendingRecords.length > 0 && selectedIds.size === 0) {
+<section class="card mb">
           <div class="bulk-bar">
             <span>{{ pendingRecords.length }} pending record(s)</span>
             <ui-button size="sm" variant="secondary" (clicked)="selectAllPending()">
@@ -145,6 +152,7 @@ const ATTENDANCE_STATUSES = [
             </ui-button>
           </div>
         </section>
+}
 
         <!-- Data table -->
         <section class="card">
@@ -153,13 +161,16 @@ const ATTENDANCE_STATUSES = [
             <span class="muted">{{ filteredRecords.length }} of {{ records.length }} records</span>
           </div>
 
-          <ui-empty-state
-            *ngIf="!filteredRecords.length"
+          @if (!filteredRecords.length) {
+<ui-empty-state
+           
             title="No attendance records"
             description="No employee attendance found for the selected date and filters.">
           </ui-empty-state>
+}
 
-          <div class="table-wrap" *ngIf="filteredRecords.length">
+          @if (filteredRecords.length) {
+<div class="table-wrap">
             <table>
               <thead>
                 <tr>
@@ -181,7 +192,8 @@ const ATTENDANCE_STATUSES = [
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let row of filteredRecords; trackBy: trackById"
+                @for (row of filteredRecords; track trackById($index, row)) {
+<tr
                     [class.row-pending]="row.approvalStatus === 'PENDING'"
                     [class.row-rejected]="row.approvalStatus === 'REJECTED'">
                   <td class="col-check">
@@ -203,13 +215,17 @@ const ATTENDANCE_STATUSES = [
                     </span>
                   </td>
                   <td class="location-cell">
-                    <a *ngIf="hasLocation(row)"
+                    @if (hasLocation(row)) {
+<a
                       [href]="locationMapUrl(row)"
                       target="_blank"
                       rel="noopener">
                       {{ displayLocation(row) }}
                     </a>
-                    <span *ngIf="!hasLocation(row)">-</span>
+}
+                    @if (!hasLocation(row)) {
+<span>-</span>
+}
                   </td>
                   <td>
                     <span class="approval-chip" [attr.data-approval]="row.approvalStatus">
@@ -219,18 +235,22 @@ const ATTENDANCE_STATUSES = [
                   <td>
                     <div class="actions-cell">
                       <ui-button size="sm" variant="ghost" (clicked)="openEdit(row)">Edit</ui-button>
-                    <ui-button size="sm" variant="primary"
-                      *ngIf="row.approvalStatus !== 'APPROVED'"
+                    @if (row.approvalStatus !== 'APPROVED') {
+<ui-button size="sm" variant="primary"
+                     
                       [disabled]="actionBusy"
                       (clicked)="approveSingle(row.id)">
                       Approve
                     </ui-button>
-                    <ui-button size="sm" variant="danger"
-                      *ngIf="row.approvalStatus !== 'REJECTED'"
+}
+                    @if (row.approvalStatus !== 'REJECTED') {
+<ui-button size="sm" variant="danger"
+                     
                       [disabled]="actionBusy"
                       (clicked)="rejectSingle(row.id)">
                       Reject
                     </ui-button>
+}
                     <ui-button size="sm" variant="danger"
                       [disabled]="actionBusy"
                       (clicked)="deleteSingle(row.id)">
@@ -239,13 +259,16 @@ const ATTENDANCE_STATUSES = [
                     </div>
                   </td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
+}
         </section>
 
         <!-- Edit modal -->
-        <div class="modal-overlay" *ngIf="editRow" (click)="closeEdit()">
+        @if (editRow) {
+<div class="modal-overlay" (click)="closeEdit()">
           <div class="modal-card" (click)="$event.stopPropagation()">
             <h3>Edit Attendance</h3>
             <p class="muted">{{ editRow.employeeName }} ({{ editRow.employeeCode }}) — {{ editRow.date }}</p>
@@ -253,7 +276,9 @@ const ATTENDANCE_STATUSES = [
             <label>
               <span>Status</span>
               <select id="da-edit-status" name="editStatus" [(ngModel)]="editForm.status">
-                <option *ngFor="let s of attendanceStatuses" [value]="s">{{ s }}</option>
+                @for (s of attendanceStatuses; track s) {
+<option [value]="s">{{ s }}</option>
+}
               </select>
             </label>
 
@@ -290,7 +315,9 @@ const ATTENDANCE_STATUSES = [
             </div>
           </div>
         </div>
-      </ng-container>
+}
+      
+}
     </div>
   `,
   styles: [

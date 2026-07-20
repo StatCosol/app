@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterModule } from '@angular/router';
 
 interface NavItem {
@@ -11,11 +11,13 @@ interface NavItem {
 @Component({
   selector: 'app-sales-sidebar',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [RouterModule],
   template: `
-    <div *ngIf="mobileOpen"
+    @if (mobileOpen) {
+<div
          class="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm"
          (click)="closeMobile()"></div>
+}
 
     <aside [class]="asideClasses">
       <div class="px-5 pt-5 pb-3 flex items-center gap-2">
@@ -24,10 +26,12 @@ interface NavItem {
             <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
           </svg>
         </div>
-        <div *ngIf="!collapsed">
+        @if (!collapsed) {
+<div>
           <div class="text-white font-bold tracking-tight">Sales</div>
           <div class="text-white/40 text-[11px]">Business Development</div>
         </div>
+}
       </div>
 
       <button
@@ -41,7 +45,8 @@ interface NavItem {
       </button>
 
       <nav class="flex-1 overflow-y-auto px-2 py-3 space-y-1">
-        <a *ngFor="let item of items"
+        @for (item of items; track item) {
+<a
            [routerLink]="item.route"
            routerLinkActive="bg-white/15 text-white"
            [routerLinkActiveOptions]="{ exact: item.route.endsWith('dashboard') }"
@@ -51,14 +56,19 @@ interface NavItem {
           <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
             <path [attr.d]="item.iconPath" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <span *ngIf="!collapsed" class="text-sm font-medium">{{ item.label }}</span>
+          @if (!collapsed) {
+<span class="text-sm font-medium">{{ item.label }}</span>
+}
         </a>
+}
       </nav>
 
-      <div *ngIf="!collapsed" class="px-4 py-3 border-t border-white/10 text-center">
+      @if (!collapsed) {
+<div class="px-4 py-3 border-t border-white/10 text-center">
         <div class="text-[10px] text-white/40">Sales v1.0</div>
         <div class="text-[10px] text-white/55">StatCo Solutions</div>
       </div>
+}
     </aside>
   `,
   styles: [`

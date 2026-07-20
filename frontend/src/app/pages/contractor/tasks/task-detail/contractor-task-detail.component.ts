@@ -1,5 +1,5 @@
 import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { finalize, timeout, takeUntil } from 'rxjs/operators';
@@ -16,14 +16,13 @@ import {
   standalone: true,
   selector: 'app-contractor-task-detail',
   imports: [
-    CommonModule,
     RouterModule,
     FormsModule,
     FileDropzoneComponent,
     StatusBadgeComponent,
     LoadingSpinnerComponent,
-    EmptyStateComponent,
-  ],
+    EmptyStateComponent
+],
   templateUrl: './contractor-task-detail.component.html',
   styleUrls: ['../../shared/contractor-theme.scss', './contractor-task-detail.component.scss'],
 })

@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -10,7 +10,7 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
 @Component({
   selector: 'app-client-appraisal-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
@@ -33,17 +33,23 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
             <label class="text-xs font-medium text-gray-600 block mb-1" for="r-cycle">Cycle</label>
             <select id="r-cycle" name="cycleId" [(ngModel)]="cycleId" (ngModelChange)="loadAll()" class="filter-select">
               <option value="">All Cycles</option>
-              <option *ngFor="let c of cycles" [value]="c.id">{{ c.cycleName }} ({{ c.financialYear }})</option>
+              @for (c of cycles; track c) {
+<option [value]="c.id">{{ c.cycleName }} ({{ c.financialYear }})</option>
+}
             </select>
           </div>
         </div>
       </div>
 
-      <div *ngIf="loading" class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+      @if (loading) {
+<div class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+}
 
-      <ng-container *ngIf="!loading">
+      @if (!loading) {
+
         <!-- Branch Summary -->
-        <div class="table-card mb-6" *ngIf="branchData.length">
+        @if (branchData.length) {
+<div class="table-card mb-6">
           <h3 class="text-sm font-semibold text-gray-900 mb-4">Branch-wise Summary</h3>
           <div class="overflow-x-auto">
             <table class="data-table">
@@ -60,7 +66,8 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let b of branchData" class="data-row">
+                @for (b of branchData; track b) {
+<tr class="data-row">
                   <td class="font-medium">{{ b.branch_name || 'Unassigned' }}</td>
                   <td class="text-center">{{ b.total }}</td>
                   <td class="text-center text-emerald-600">{{ b.completed }}</td>
@@ -70,13 +77,16 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
                   <td class="text-center">{{ b.promotion_count }}</td>
                   <td class="text-center text-red-600">{{ b.pip_count }}</td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
         </div>
+}
 
         <!-- Department Summary -->
-        <div class="table-card mb-6" *ngIf="deptData.length">
+        @if (deptData.length) {
+<div class="table-card mb-6">
           <h3 class="text-sm font-semibold text-gray-900 mb-4">Department-wise Summary</h3>
           <div class="overflow-x-auto">
             <table class="data-table">
@@ -92,7 +102,8 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let d of deptData" class="data-row">
+                @for (d of deptData; track d) {
+<tr class="data-row">
                   <td class="font-medium">{{ d.department || 'Unassigned' }}</td>
                   <td class="text-center">{{ d.total }}</td>
                   <td class="text-center text-emerald-600">{{ d.completed }}</td>
@@ -101,25 +112,32 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
                   <td class="text-center">{{ d.promotion_count }}</td>
                   <td class="text-center text-red-600">{{ d.pip_count }}</td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
         </div>
+}
 
         <!-- Recommendations Distribution -->
-        <div class="table-card mb-6" *ngIf="recData.length">
+        @if (recData.length) {
+<div class="table-card mb-6">
           <h3 class="text-sm font-semibold text-gray-900 mb-4">Recommendation Distribution</h3>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div *ngFor="let r of recData" class="border rounded-lg p-4 text-center">
+            @for (r of recData; track r) {
+<div class="border rounded-lg p-4 text-center">
               <div class="text-2xl font-bold" [class.text-emerald-600]="r.recommendation === 'INCREMENT' || r.recommendation === 'PROMOTION'" [class.text-red-600]="r.recommendation === 'PIP'" [class.text-gray-600]="r.recommendation === 'NO_CHANGE'">
                 {{ r.count }}
               </div>
               <div class="text-xs text-gray-500 mt-1">{{ r.recommendation?.replace(/_/g, ' ') }}</div>
               <div class="text-xs text-gray-400">Avg Score: {{ r.avg_score || '—' }}</div>
             </div>
+}
           </div>
         </div>
-      </ng-container>
+}
+      
+}
     </div>
   `,
 })

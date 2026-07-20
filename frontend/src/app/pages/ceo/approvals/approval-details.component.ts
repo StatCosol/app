@@ -17,13 +17,18 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
         ← Back to Approvals
       </a>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading approval details..."></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading approval details..."></ui-loading-spinner>
+}
 
-      <div *ngIf="errorMsg" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+      @if (errorMsg) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
         {{ errorMsg }}
       </div>
+}
 
-      <div *ngIf="!loading && approval" class="space-y-6">
+      @if (!loading && approval) {
+<div class="space-y-6">
         <ui-page-header title="Approval Request" [subtitle]="'#' + approval.id"></ui-page-header>
 
         <!-- Details card -->
@@ -57,23 +62,30 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
                 {{ approval.createdAt ? (approval.createdAt | date:'medium') : '—' }}
               </p>
             </div>
-            <div *ngIf="approval.remarks" class="sm:col-span-2">
+            @if (approval.remarks) {
+<div class="sm:col-span-2">
               <p class="text-xs text-gray-500 uppercase font-medium">Remarks</p>
               <p class="text-sm text-gray-700 mt-0.5">{{ approval.remarks }}</p>
             </div>
+}
           </div>
         </div>
 
         <!-- Actions (only if PENDING) -->
-        <div *ngIf="approval.status === 'PENDING'" class="bg-white rounded-lg border border-gray-200 p-6">
+        @if (approval.status === 'PENDING') {
+<div class="bg-white rounded-lg border border-gray-200 p-6">
           <h3 class="text-base font-semibold text-gray-900 mb-4">Take Action</h3>
 
-          <div *ngIf="actionMsg" class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
+          @if (actionMsg) {
+<div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
             {{ actionMsg }}
           </div>
-          <div *ngIf="actionErr" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+}
+          @if (actionErr) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
             {{ actionErr }}
           </div>
+}
 
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1" for="ad-remarks">Remarks (required for rejection)</label>
@@ -94,7 +106,9 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
             </button>
           </div>
         </div>
+}
       </div>
+}
     </main>
   `,
 })

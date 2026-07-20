@@ -284,9 +284,10 @@ export class ContractorRequiredDocumentsService {
       status: string;
       created_at: Date;
       branch_id: string | null;
+      review_notes: string | null;
     }> = hasDocMonthCol
       ? await this.repo.manager.query(
-          `SELECT doc_type, id, file_name, status, created_at, branch_id
+          `SELECT doc_type, id, file_name, status, created_at, branch_id, review_notes
            FROM contractor_documents
            WHERE contractor_user_id = $1 AND client_id = $2
              AND (
@@ -313,7 +314,7 @@ export class ContractorRequiredDocumentsService {
               ],
         )
       : await this.repo.manager.query(
-          `SELECT doc_type, id, file_name, status, created_at, branch_id
+          `SELECT doc_type, id, file_name, status, created_at, branch_id, review_notes
            FROM contractor_documents
            WHERE contractor_user_id = $1 AND client_id = $2
              AND created_at >= $3 AND created_at < $4
@@ -348,6 +349,7 @@ export class ContractorRequiredDocumentsService {
           status: d.status,
           uploadedAt: d.created_at,
           branchId: d.branch_id,
+          reviewNotes: d.review_notes,
         })),
       };
     });

@@ -125,10 +125,12 @@
           </div>
         </div>
 
-      <div *ngIf="error" class="form-error">
+      @if (error) {
+<div class="form-error">
         <svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="7" /><path d="M9 5.5V10M9 12.5h.01" /></svg>
         {{ error }}
       </div>
+}
 
       <form class="login-form" (ngSubmit)="submit()" autocomplete="on">
         <div class="field">
@@ -179,13 +181,17 @@
               [disabled]="isLoading"
               [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
             >
-              <svg *ngIf="!showPassword" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              @if (!showPassword) {
+<svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
                 <path d="M2.5 10s3-5 7.5-5 7.5 5 7.5 5-3 5-7.5 5-7.5-5-7.5-5Z" />
                 <circle cx="10" cy="10" r="2.5" />
               </svg>
-              <svg *ngIf="showPassword" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+}
+              @if (showPassword) {
+<svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
                 <path d="m3 3 14 14M8.4 8.4A2.5 2.5 0 0 0 11.6 11.6M6.7 5.9A8.9 8.9 0 0 1 10 5c4.5 0 7.5 5 7.5 5a12.6 12.6 0 0 1-2.2 2.7M4.7 7.2A12.6 12.6 0 0 0 2.5 10s3 5 7.5 5c1.2 0 2.3-.35 3.3-.9" />
               </svg>
+}
             </button>
           </div>
         </div>
@@ -200,8 +206,12 @@
         </div>
 
         <button class="submit-btn" type="submit" [disabled]="isLoading">
-          <span *ngIf="!isLoading">Sign In</span>
-          <span *ngIf="isLoading" class="loading-state"><span></span>Signing in...</span>
+          @if (!isLoading) {
+<span>Sign In</span>
+}
+          @if (isLoading) {
+<span class="loading-state"><span></span>Signing in...</span>
+}
         </button>
       </form>
 

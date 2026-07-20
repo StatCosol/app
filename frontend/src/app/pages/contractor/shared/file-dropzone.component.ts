@@ -19,13 +19,17 @@ import { CommonModule } from '@angular/common';
     </div>
   </div>
 
-  <div class="files" *ngIf="files.length">
-    <div class="file" *ngFor="let f of files; let i=index">
+  @if (files.length) {
+<div class="files">
+    @for (f of files; track f; let i = $index) {
+<div class="file">
       <div class="name">{{f.name}}</div>
       <div class="meta">{{(f.size/1024/1024) | number:'1.1-1'}} MB</div>
       <button class="link" type="button" (click)="remove(i)">Remove</button>
     </div>
+}
   </div>
+}
   `,
   styles: [`
     .dz{border:2px dashed #cbd5e1;border-radius:14px;padding:14px;background:#fff}

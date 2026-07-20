@@ -30,10 +30,13 @@
   </div>
 
   <!-- Loading State -->
-  <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
 
   <!-- COMPLIANCE MASTERS TAB -->
-  <div *ngIf="activeTab === 'compliance' && !loading">
+  @if (activeTab === 'compliance' && !loading) {
+<div>
     <div class="card mb-6">
       <h3 class="text-xl font-semibold text-gray-900 mb-6">{{ editingComplianceId ? 'Edit' : 'Add New' }} Compliance Master</h3>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
@@ -84,7 +87,9 @@
         <ui-button variant="primary" (clicked)="saveCompliance()" [disabled]="saving">
           {{ saving ? 'Saving...' : (editingComplianceId ? 'Update' : 'Create') }}
         </ui-button>
-        <ui-button variant="secondary" *ngIf="editingComplianceId" (clicked)="cancelComplianceEdit()">Cancel</ui-button>
+        @if (editingComplianceId) {
+<ui-button variant="secondary" (clicked)="cancelComplianceEdit()">Cancel</ui-button>
+}
       </div>
     </div>
 
@@ -111,7 +116,8 @@
       </div>
 
       <!-- Upload Results -->
-      <div *ngIf="bulkResult" class="mt-4">
+      @if (bulkResult) {
+<div class="mt-4">
         <div class="flex flex-wrap gap-4 mb-3">
           <span class="inline-flex items-center gap-1 text-sm font-medium">
             <span class="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span>
@@ -121,20 +127,29 @@
             <span class="w-2.5 h-2.5 rounded-full bg-yellow-500 inline-block"></span>
             Skipped (duplicates): {{ bulkResult.skipped }}
           </span>
-          <span *ngIf="bulkResult.errors.length > 0" class="inline-flex items-center gap-1 text-sm font-medium text-red-600">
+          @if (bulkResult.errors.length > 0) {
+<span class="inline-flex items-center gap-1 text-sm font-medium text-red-600">
             <span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span>
             Errors: {{ bulkResult.errors.length }}
           </span>
+}
         </div>
-        <div *ngIf="bulkResult.errors.length > 0" class="bg-red-50 border border-red-200 rounded-lg p-3 max-h-40 overflow-y-auto">
+        @if (bulkResult.errors.length > 0) {
+<div class="bg-red-50 border border-red-200 rounded-lg p-3 max-h-40 overflow-y-auto">
           <p class="text-sm font-medium text-red-800 mb-2">Row-level errors:</p>
           <ul class="text-sm text-red-700 list-disc list-inside space-y-1">
-            <li *ngFor="let err of bulkResult.errors">
-              <span *ngIf="err.row > 0">Row {{ err.row }}: </span>{{ err.reason }}
+            @for (err of bulkResult.errors; track err) {
+<li>
+              @if (err.row > 0) {
+<span>Row {{ err.row }}: </span>
+}{{ err.reason }}
             </li>
+}
           </ul>
         </div>
+}
       </div>
+}
     </div>
 
     <div class="card">
@@ -197,16 +212,20 @@
         </ui-data-table>
       </div>
       
-      <ui-empty-state
-        *ngIf="complianceMasters.length === 0"
+      @if (complianceMasters.length === 0) {
+<ui-empty-state
+       
         [title]="'No compliance masters found. Add one above.'"
         icon="database">
       </ui-empty-state>
+}
     </div>
   </div>
+}
 
   <!-- AUDIT CATEGORIES TAB -->
-  <div *ngIf="activeTab === 'audit' && !loading">
+  @if (activeTab === 'audit' && !loading) {
+<div>
     <!-- Add/Edit Form -->
     <div class="card mb-6">
       <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ editingAuditCategoryId ? 'Edit' : 'Add New' }} Audit Observation Category</h3>
@@ -227,7 +246,9 @@
           </svg>
           {{ saving ? 'Saving...' : (editingAuditCategoryId ? 'Update' : 'Create') }}
         </ui-button>
-        <ui-button variant="secondary" *ngIf="editingAuditCategoryId" (clicked)="cancelAuditCategoryEdit()">Cancel</ui-button>
+        @if (editingAuditCategoryId) {
+<ui-button variant="secondary" (clicked)="cancelAuditCategoryEdit()">Cancel</ui-button>
+}
       </div>
     </div>
 
@@ -260,11 +281,14 @@
         </ng-template>
       </ui-data-table>
       
-      <ui-empty-state
-        *ngIf="auditCategories.length === 0"
+      @if (auditCategories.length === 0) {
+<ui-empty-state
+       
         [title]="'No audit categories found. Add one above.'"
         icon="clipboard-list">
       </ui-empty-state>
+}
     </div>
   </div>
+}
 </div>

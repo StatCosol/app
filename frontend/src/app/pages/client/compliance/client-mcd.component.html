@@ -29,29 +29,38 @@
   <app-client-reupload-inbox [hidden]="activeTab !== 'reupload'"></app-client-reupload-inbox>
 
   <!-- Monthly uploads content (existing) -->
-  <div *ngIf="activeTab === 'uploads'">
-  <div *ngIf="hasFocusTarget()" class="card border border-sky-200 bg-sky-50 text-sky-900">
+  @if (activeTab === 'uploads') {
+<div>
+  @if (hasFocusTarget()) {
+<div class="card border border-sky-200 bg-sky-50 text-sky-900">
     <div class="text-sm font-semibold">Focused from Branch Compliance</div>
     <div class="text-sm">{{ focusSummaryText() }}</div>
   </div>
+}
   <div class="card space-y-4">
     <div class="flex flex-wrap gap-3 items-center">
       <label class="flex items-center gap-2 text-sm text-gray-600">
         <span class="text-gray-700 font-semibold">Branch</span>
         <select id="cm-branch-id" name="branchId" class="form-select" [(ngModel)]="filters.branchId" (change)="loadTasks()">
-          <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name }}</option>
+          @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchName || b.name }}</option>
+}
         </select>
       </label>
       <label class="flex items-center gap-2 text-sm text-gray-600">
         <span class="text-gray-700 font-semibold">Month</span>
         <select id="cm-month" name="month" class="form-select" [(ngModel)]="filters.month" (change)="loadTasks()">
-          <option *ngFor="let m of monthOptions" [value]="m.value">{{ m.label }}</option>
+          @for (m of monthOptions; track m) {
+<option [value]="m.value">{{ m.label }}</option>
+}
         </select>
       </label>
       <label class="flex items-center gap-2 text-sm text-gray-600">
         <span class="text-gray-700 font-semibold">Year</span>
         <select id="cm-year" name="year" class="form-select" [(ngModel)]="filters.year" (change)="loadTasks()">
-          <option *ngFor="let y of yearOptions" [value]="y">{{ y }}</option>
+          @for (y of yearOptions; track y) {
+<option [value]="y">{{ y }}</option>
+}
         </select>
       </label>
     </div>
@@ -63,15 +72,20 @@
       <div class="text-sm text-gray-600">Evidence types allowed: PDF, JPG/PNG, XLSX (max 10MB)</div>
     </div>
 
-    <div *ngIf="loading" class="py-8">
+    @if (loading) {
+<div class="py-8">
       <ui-loading-spinner text="Loading tasks..." size="md"></ui-loading-spinner>
     </div>
+}
 
-    <div *ngIf="!loading && tasks.length === 0" class="py-8">
+    @if (!loading && tasks.length === 0) {
+<div class="py-8">
       <ui-empty-state title="No tasks found" description="No monthly compliance tasks for the selected period."></ui-empty-state>
     </div>
+}
 
-    <div *ngIf="!loading && tasks.length" class="overflow-x-auto max-h-[600px] overflow-y-auto -mx-2">
+    @if (!loading && tasks.length) {
+<div class="overflow-x-auto max-h-[600px] overflow-y-auto -mx-2">
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
@@ -86,29 +100,40 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100 bg-white">
-          <ng-container *ngFor="let t of tasks">
+          @for (t of tasks; track t) {
+
             <tr [ngClass]="{ 'bg-sky-50 ring-1 ring-inset ring-sky-200': isFocusedTask(t) }">
               <td class="px-4 py-3">
                 <div class="text-sm font-semibold text-gray-900">{{ t.complianceTitle || t.title }}</div>
-                <div *ngIf="isFocusedTask(t)" class="mt-1 text-xs font-semibold text-sky-700">Targeted item</div>
-                <div class="text-xs text-gray-500" *ngIf="t.description">{{ t.description }}</div>
+                @if (isFocusedTask(t)) {
+<div class="mt-1 text-xs font-semibold text-sky-700">Targeted item</div>
+}
+                @if (t.description) {
+<div class="text-xs text-gray-500">{{ t.description }}</div>
+}
               </td>
               <td class="px-4 py-3 text-sm text-gray-800">{{ t.branchName }}</td>
               <td class="px-4 py-3 text-sm text-gray-800">{{ periodLabel(t) }}</td>
               <td class="px-4 py-3 text-sm text-gray-700">{{ dueLabel(t) }}</td>
               <td class="px-4 py-3 text-sm text-gray-700">
-                <div *ngIf="windowDates(t) as win" class="space-y-1">
+                @if (windowDates(t); as win) {
+<div class="space-y-1">
                   <div>{{ win.start }} → {{ win.end }}</div>
                   <div class="text-xs font-semibold" [ngClass]="{
                     'text-emerald-700': isWindowOpen(t),
                     'text-amber-700': !isWindowOpen(t)
                   }">{{ windowStatusText(t) }}</div>
                 </div>
-                <div *ngIf="!windowDates(t)" class="text-xs text-gray-500">Not applicable</div>
+}
+                @if (!windowDates(t)) {
+<div class="text-xs text-gray-500">Not applicable</div>
+}
               </td>
               <td class="px-4 py-3 text-center">
                 <ui-status-badge [status]="t.status"></ui-status-badge>
-                <div *ngIf="t.status === 'REJECTED' && t.remarks" class="text-xs text-amber-700 bg-amber-50 rounded mt-2 px-2 py-1">{{ t.remarks }}</div>
+                @if (t.status === 'REJECTED' && t.remarks) {
+<div class="text-xs text-amber-700 bg-amber-50 rounded mt-2 px-2 py-1">{{ t.remarks }}</div>
+}
               </td>
               <td class="px-4 py-3 text-center text-sm text-gray-800">
                 <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full" [ngClass]="{'bg-green-50 text-green-700': t.evidenceCount>0, 'bg-slate-50 text-slate-700': t.evidenceCount===0}">
@@ -147,26 +172,46 @@
             <tr>
               <td colspan="7" class="bg-slate-50 px-4 pb-4 pt-0">
               <div class="text-xs text-gray-600 mb-2">Checklist items</div>
-              <div *ngIf="itemsLoading[t.id]" class="py-3">
+              @if (itemsLoading[t.id]) {
+<div class="py-3">
                 <ui-loading-spinner text="Loading items..." size="sm"></ui-loading-spinner>
               </div>
-              <div *ngIf="!itemsLoading[t.id] && !(items[t.id]?.length)" class="text-xs text-gray-500">
+}
+              @if (!itemsLoading[t.id] && !(items[t.id]?.length)) {
+<div class="text-xs text-gray-500">
                 No checklist items found for this task.
               </div>
-              <div *ngIf="!itemsLoading[t.id] && (items[t.id]?.length)" class="space-y-2">
-                <div *ngFor="let item of items[t.id]" class="bg-white border border-slate-200 rounded-lg p-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+}
+              @if (!itemsLoading[t.id] && (items[t.id]?.length)) {
+<div class="space-y-2">
+                @for (item of items[t.id]; track item) {
+<div class="bg-white border border-slate-200 rounded-lg p-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                   <div class="flex-1">
                     <div class="text-sm font-semibold text-gray-900">{{ item.itemLabel || item.item_key }}</div>
                     <div class="text-xs text-gray-500 flex flex-wrap gap-2 mt-1">
-                      <span *ngIf="item.unitType" class="px-2 py-0.5 rounded bg-slate-100 text-slate-700">{{ item.unitType }}</span>
-                      <span *ngIf="item.stateCode" class="px-2 py-0.5 rounded bg-slate-100 text-slate-700">State: {{ item.stateCode }}</span>
-                      <span *ngIf="item.required === false" class="px-2 py-0.5 rounded bg-amber-50 text-amber-700">Optional</span>
-                      <span *ngIf="item.uploadedByRole === 'CRM'" class="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium">Uploaded by CRM</span>
-                      <span *ngIf="item.uploadedByRole === 'CLIENT'" class="px-2 py-0.5 rounded bg-cyan-100 text-cyan-700">Uploaded by Client</span>
+                      @if (item.unitType) {
+<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700">{{ item.unitType }}</span>
+}
+                      @if (item.stateCode) {
+<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700">State: {{ item.stateCode }}</span>
+}
+                      @if (item.required === false) {
+<span class="px-2 py-0.5 rounded bg-amber-50 text-amber-700">Optional</span>
+}
+                      @if (item.uploadedByRole === 'CRM') {
+<span class="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium">Uploaded by CRM</span>
+}
+                      @if (item.uploadedByRole === 'CLIENT') {
+<span class="px-2 py-0.5 rounded bg-cyan-100 text-cyan-700">Uploaded by Client</span>
+}
                     </div>
-                    <div *ngIf="item.remarks" class="text-xs text-amber-700 bg-amber-50 rounded mt-2 px-2 py-1">
-                      <strong *ngIf="(item.status||'').toUpperCase()==='REJECTED'">Rejection Reason: </strong>{{ item.remarks }}
+                    @if (item.remarks) {
+<div class="text-xs text-amber-700 bg-amber-50 rounded mt-2 px-2 py-1">
+                      @if ((item.status||'').toUpperCase()==='REJECTED') {
+<strong>Rejection Reason: </strong>
+}{{ item.remarks }}
                     </div>
+}
                   </div>
                   <div class="flex items-center gap-3 flex-wrap">
                     <span class="text-xs font-semibold px-2 py-1 rounded" [ngClass]="{
@@ -178,22 +223,31 @@
                     <span class="text-xs text-gray-600">{{ item.evidenceCount || 0 }} file(s)</span>
                   </div>
                   <!-- Evidence files list -->
-                  <div *ngIf="item.evidenceFiles?.length" class="w-full mt-2 space-y-1">
-                    <div *ngFor="let ev of item.evidenceFiles" class="flex items-center gap-2 text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1">
+                  @if (item.evidenceFiles?.length) {
+<div class="w-full mt-2 space-y-1">
+                    @for (ev of item.evidenceFiles; track ev) {
+<div class="flex items-center gap-2 text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1">
                       <svg class="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                       </svg>
                       <a [href]="ev.filePath" target="_blank" class="text-blue-600 hover:underline truncate flex-1" [title]="ev.fileName">{{ ev.fileName }}</a>
                       <span class="text-gray-400 flex-shrink-0">{{ ev.createdAt | date:'shortDate' }}</span>
-                      <span *ngIf="ev.notes" class="text-gray-500 italic truncate max-w-[120px]" [title]="ev.notes">{{ ev.notes }}</span>
+                      @if (ev.notes) {
+<span class="text-gray-500 italic truncate max-w-[120px]" [title]="ev.notes">{{ ev.notes }}</span>
+}
                     </div>
+}
                   </div>
+}
                   <div class="flex items-center gap-2 flex-wrap">
                     <!-- Block upload if CRM uploaded this item -->
-                    <ng-container *ngIf="item.uploadedByRole === 'CRM'">
+                    @if (item.uploadedByRole === 'CRM') {
+
                       <span class="text-xs text-indigo-600 font-medium">View only — Uploaded by CRM</span>
-                    </ng-container>
-                    <ng-container *ngIf="item.uploadedByRole !== 'CRM'">
+                    
+}
+                    @if (item.uploadedByRole !== 'CRM') {
+
                       <input type="file" class="hidden" #itemFile accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onItemFileSelected(t, item, $event)" />
                       <ui-button
                         variant="secondary"
@@ -208,16 +262,22 @@
                         [(ngModel)]="itemNotes[t.id + '-' + item.id]"
                         [disabled]="statusBlocked(t)"
                       />
-                    </ng-container>
+                    
+}
                   </div>
                 </div>
+}
               </div>
+}
             </td>
             </tr>
-          </ng-container>
+          
+}
         </tbody>
       </table>
     </div>
+}
   </div>
   </div>
+}
 </div>

@@ -1,19 +1,22 @@
 import { Component, Input, OnChanges, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ClientBranchesService } from '../../core/client-branches.service';
 
 @Component({
   standalone: true,
   selector: 'app-risk-forecast',
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
   <div class="card">
     <div class="k">Next Month Forecast</div>
 
-    <div *ngIf="loading" class="muted">Calculating forecast...</div>
+    @if (loading) {
+<div class="muted">Calculating forecast...</div>
+}
 
-    <div *ngIf="!loading && forecast">
+    @if (!loading && forecast) {
+<div>
       <div class="v">{{ forecast.forecastInspectionProbability }}%</div>
       <div class="muted">
         Expected inspection probability for {{ forecast.nextMonth }}
@@ -25,6 +28,7 @@ import { ClientBranchesService } from '../../core/client-branches.service';
         Expiring Reg: {{ forecast.drivers.expiringRegistrations ? 'Yes' : 'No' }}
       </div>
     </div>
+}
   </div>
   `
 })

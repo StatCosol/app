@@ -96,7 +96,9 @@ type RegisterRow = {
             <span>Branch</span>
             <select id="reg-branch" name="branchId" [(ngModel)]="q.branchId">
               <option value="">All Branches</option>
-              <option *ngFor="let b of branches" [value]="b.id">{{ b.branchCode ? b.branchCode + ' – ' : '' }}{{ b.name || b.branchName }}</option>
+              @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchCode ? b.branchCode + ' – ' : '' }}{{ b.name || b.branchName }}</option>
+}
             </select>
           </label>
           <label>
@@ -122,24 +124,33 @@ type RegisterRow = {
             <ui-button variant="ghost" [disabled]="loading" (clicked)="reset()">Reset</ui-button>
           </div>
         </div>
-        <div class="quick-meta" *ngIf="!loading && rows.length">
+        @if (!loading && rows.length) {
+<div class="quick-meta">
           <span>Total: {{ filteredRows.length }}</span>
           <span>Generated: {{ generatedCount }}</span>
           <span>Manual: {{ manualCount }}</span>
         </div>
+}
       </section>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading registers..." size="lg"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading registers..." size="lg"></ui-loading-spinner>
+}
 
-      <ui-empty-state *ngIf="!loading && error" title="Error" [description]="error"></ui-empty-state>
+      @if (!loading && error) {
+<ui-empty-state title="Error" [description]="error"></ui-empty-state>
+}
 
-      <ui-empty-state
-        *ngIf="!loading && !error && !filteredRows.length"
+      @if (!loading && !error && !filteredRows.length) {
+<ui-empty-state
+       
         title="No Registers Found"
         [description]="isBranch ? 'No approved registers available for your branch and filters.' : 'No registers match the current filters.'">
       </ui-empty-state>
+}
 
-      <section class="card" *ngIf="!loading && !error && filteredRows.length">
+      @if (!loading && !error && filteredRows.length) {
+<section class="card">
         <div class="table-wrap">
           <table>
             <thead>
@@ -154,7 +165,8 @@ type RegisterRow = {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of pagedRows(); trackBy: trackById">
+              @for (row of pagedRows(); track trackById($index, row)) {
+<tr>
                 <td>
                   <div class="title">{{ row.title }}</div>
                   <div class="meta">{{ row.registerType || '-' }} | {{ row.fileName || '-' }}</div>
@@ -176,6 +188,7 @@ type RegisterRow = {
                   </div>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
@@ -190,6 +203,7 @@ type RegisterRow = {
           </div>
         </div>
       </section>
+}
     </div>
 
     <ui-modal
@@ -199,30 +213,40 @@ type RegisterRow = {
       [title]="previewTitle"
       (closed)="closePreview()">
       <div class="preview-wrap">
-        <div class="preview-meta" *ngIf="previewRow">
+        @if (previewRow) {
+<div class="preview-meta">
           <span>Source: {{ previewRow.sourceType }}</span>
           <span>Period: {{ periodLabel(previewRow) }}</span>
           <span>Status: {{ previewRow.approvalStatus || 'PENDING' }}</span>
           <span>Size: {{ formatFileSize(previewRow.fileSize) }}</span>
           <span>Generated: {{ previewRow.createdAt | date:'dd MMM yyyy, hh:mm a' }}</span>
         </div>
-        <ng-container [ngSwitch]="previewMode">
-          <iframe
-            *ngSwitchCase="'pdf'"
+}
+        
+@switch (previewMode) {
+          @case ('pdf') {
+<iframe
+           
             [src]="previewUrl"
             class="preview-frame"
             title="Register Preview">
           </iframe>
-          <img
-            *ngSwitchCase="'image'"
+}
+          @case ('image') {
+<img
+           
             [src]="previewUrl"
             class="preview-image"
             alt="Register preview" />
-          <div *ngSwitchDefault class="unsupported">
+}
+          @default {
+<div class="unsupported">
             <p>Inline preview is not available for this file type.</p>
             <ui-button variant="primary" (clicked)="previewRow && download(previewRow)">Download File</ui-button>
           </div>
-        </ng-container>
+}
+        }
+
       </div>
     </ui-modal>
   `,

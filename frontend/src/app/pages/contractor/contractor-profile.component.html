@@ -5,11 +5,16 @@
     icon="user">
   </ui-page-header>
 
-  <ui-loading-spinner *ngIf="loading" text="Loading contractor profile..."></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner text="Loading contractor profile..."></ui-loading-spinner>
+}
 
-  <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{{ error }}</div>
+  @if (error) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{{ error }}</div>
+}
 
-  <ng-container *ngIf="!loading">
+  @if (!loading) {
+
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       <article class="workspace-card stat-card">
         <div class="stat-label">Profile Completeness</div>
@@ -31,14 +36,20 @@
 
     <section class="workspace-card mb-6">
       <h3 class="workspace-title">Profile Guardrails</h3>
-      <div *ngIf="profileGuardrails.length; else clearGuardrails" class="space-y-2 mt-4">
-        <div *ngFor="let issue of profileGuardrails" class="guardrail-row">
+      @if (profileGuardrails.length) {
+<div class="space-y-2 mt-4">
+        @for (issue of profileGuardrails; track issue) {
+<div class="guardrail-row">
           {{ issue }}
         </div>
+}
       </div>
-      <ng-template #clearGuardrails>
+} @else {
+
         <div class="guardrail-clear mt-4">No active profile guardrails.</div>
-      </ng-template>
+      
+}
+      
     </section>
 
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
@@ -52,7 +63,9 @@
           <label class="field">
             <span>Contact Mobile</span>
             <input type="text" id="contractor-mobile" name="mobile" autocomplete="tel" [(ngModel)]="form.mobile" [class.field-invalid]="!isMobileValid" placeholder="e.g. +919876543210" />
-            <p *ngIf="mobileFieldError" class="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded mt-1">{{ mobileFieldError }}</p>
+            @if (mobileFieldError) {
+<p class="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded mt-1">{{ mobileFieldError }}</p>
+}
           </label>
           <div class="field">
             <span>Email</span>
@@ -85,12 +98,16 @@
       <section class="workspace-card">
         <h3 class="workspace-title">Served Branches</h3>
         <div class="branch-list mt-4 mb-4">
-          <div *ngFor="let b of branches" class="branch-pill">
+          @for (b of branches; track b) {
+<div class="branch-pill">
             {{ b?.branchName || b?.name || 'Branch' }}
           </div>
-          <div class="text-sm text-gray-500" *ngIf="!branches.length">
+}
+          @if (!branches.length) {
+<div class="text-sm text-gray-500">
             No branch mappings found.
           </div>
+}
         </div>
         <ui-data-table [columns]="servedBranchColumns" [data]="servedBranchRows" emptyMessage="No branch status rows">
           <ng-template uiTableCell="riskBand" let-row>
@@ -108,7 +125,8 @@
         <span class="identity-chip identity-chip--missing">Missing: {{ statutoryMissingCount }}</span>
       </div>
       <div class="stat-grid mt-4">
-        <div class="stat-item" *ngFor="let row of statutoryRows">
+        @for (row of statutoryRows; track row) {
+<div class="stat-item">
           <div class="stat-item__head">
             <h4>{{ row.label }}</h4>
             <ui-status-badge [status]="row.status"></ui-status-badge>
@@ -119,6 +137,7 @@
             <span>Updated: {{ row.updatedAt ? (row.updatedAt | date: 'mediumDate') : '-' }}</span>
           </div>
         </div>
+}
       </div>
     </div>
 
@@ -154,11 +173,14 @@
       </ui-data-table>
     </div>
 
-    <ui-empty-state
-      *ngIf="!profile"
+    @if (!profile) {
+<ui-empty-state
+     
       title="No profile data"
       description="Contractor profile is not available right now."
       icon="user">
     </ui-empty-state>
-  </ng-container>
+}
+  
+}
 </div>

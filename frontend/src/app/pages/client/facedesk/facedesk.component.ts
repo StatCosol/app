@@ -57,20 +57,28 @@ type Tab =
         <button class="tab-btn" [class.active]="tab === 'pending'" (click)="switch('pending')">Pending Enrollment</button>
         <button class="tab-btn" [class.active]="tab === 'duplicates'" (click)="switch('duplicates')">
           Duplicate Alerts
-          <span *ngIf="cards && cards.duplicateAlertsPending > 0" class="badge">{{ cards.duplicateAlertsPending }}</span>
+          @if (cards && cards.duplicateAlertsPending > 0) {
+<span class="badge">{{ cards.duplicateAlertsPending }}</span>
+}
         </button>
         <button class="tab-btn" [class.active]="tab === 'review'" (click)="switch('review')">
           Review Queue
-          <span *ngIf="cards && cards.reviewQueuePending > 0" class="badge">{{ cards.reviewQueuePending }}</span>
+          @if (cards && cards.reviewQueuePending > 0) {
+<span class="badge">{{ cards.reviewQueuePending }}</span>
+}
         </button>
         <button class="tab-btn" [class.active]="tab === 'reports'" (click)="switch('reports')">Reports</button>
         <button class="tab-btn" [class.active]="tab === 'settings'" (click)="switch('settings')">Settings</button>
       </div>
 
       <!-- DASHBOARD -->
-      <ng-container *ngIf="tab === 'dashboard'">
-        <ui-loading-spinner *ngIf="loading" text="Loading dashboard..." size="lg"></ui-loading-spinner>
-        <div *ngIf="!loading && cards" class="cards">
+      @if (tab === 'dashboard') {
+
+        @if (loading) {
+<ui-loading-spinner text="Loading dashboard..." size="lg"></ui-loading-spinner>
+}
+        @if (!loading && cards) {
+<div class="cards">
           <div class="card"><div class="num">{{ cards.totalEmployees }}</div><div class="lbl">Total Employees</div></div>
           <div class="card"><div class="num text-green-700">{{ cards.enrolledEmployees }}</div><div class="lbl">Enrolled</div></div>
           <div class="card"><div class="num text-amber-700">{{ cards.pendingEnrollment }}</div><div class="lbl">Pending Enrollment</div></div>
@@ -82,19 +90,26 @@ type Tab =
           <div class="card"><div class="num text-green-700">{{ cards.devicesOnline }}</div><div class="lbl">Devices Online</div></div>
           <div class="card"><div class="num text-gray-500">{{ cards.devicesOffline }}</div><div class="lbl">Devices Offline</div></div>
         </div>
-        <p *ngIf="!loading && cards" class="text-xs text-gray-500 mt-3">
+}
+        @if (!loading && cards) {
+<p class="text-xs text-gray-500 mt-3">
           Last sync: {{ cards.lastSyncTime ? (cards.lastSyncTime | date: 'dd MMM yyyy, HH:mm') : '—' }}
         </p>
-      </ng-container>
+}
+      
+}
 
       <!-- DEVICES -->
-      <ng-container *ngIf="tab === 'devices'">
+      @if (tab === 'devices') {
+
         <div class="flex flex-wrap items-end gap-2 mb-4">
           <label class="text-sm">Device name<input [(ngModel)]="newDevice.deviceName" class="inp" placeholder="e.g. Main Gate Tablet"></label>
           <label class="text-sm">Branch
             <select [(ngModel)]="newDevice.branchId" class="inp">
               <option value="">— select branch —</option>
-              <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+              @for (b of branches; track b) {
+<option [value]="b.id">{{ b.name }}</option>
+}
             </select>
           </label>
           <label class="text-sm">Location<input [(ngModel)]="newDevice.location" class="inp" placeholder="optional"></label>
@@ -103,18 +118,26 @@ type Tab =
           <button class="btn" (click)="switch('devices')">Refresh</button>
         </div>
 
-        <div *ngIf="newInstallToken" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+        @if (newInstallToken) {
+<div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
           <div class="text-sm font-semibold text-emerald-900 mb-1">Install token — enter this once on the kiosk to register it:</div>
           <div class="font-mono text-xs break-all bg-white border rounded p-2">{{ newInstallToken }}</div>
           <div class="text-xs text-emerald-800 mt-1">Shown once. Copy it now.</div>
         </div>
+}
 
-        <ui-loading-spinner *ngIf="loading" text="Loading devices..." size="lg"></ui-loading-spinner>
-        <ui-empty-state *ngIf="!loading && deviceList.length === 0" title="No devices" description="Provision a kiosk device to get started."></ui-empty-state>
-        <table *ngIf="!loading && deviceList.length > 0" class="tbl">
+        @if (loading) {
+<ui-loading-spinner text="Loading devices..." size="lg"></ui-loading-spinner>
+}
+        @if (!loading && deviceList.length === 0) {
+<ui-empty-state title="No devices" description="Provision a kiosk device to get started."></ui-empty-state>
+}
+        @if (!loading && deviceList.length > 0) {
+<table class="tbl">
           <thead><tr><th>Name</th><th>Branch</th><th>Mode</th><th>Status</th><th>Last Sync</th><th>App</th><th class="right">Actions</th></tr></thead>
           <tbody>
-            <tr *ngFor="let d of deviceList">
+            @for (d of deviceList; track d) {
+<tr>
               <td>{{ d.deviceName }}<div class="text-xs text-gray-500">{{ d.location || '' }}</div></td>
               <td>{{ branchName(d.branchId) }}</td>
               <td><span class="pill amber">{{ d.mode }}</span></td>
@@ -126,31 +149,47 @@ type Tab =
               <td>{{ d.lastSyncTime ? (d.lastSyncTime | date: 'dd MMM, HH:mm') : '—' }}</td>
               <td class="text-xs">{{ d.appVersion || '—' }}</td>
               <td class="right nowrap">
-                <button *ngIf="d.deviceStatus !== 'REVOKED'" class="link red" (click)="revoke(d)">Revoke</button>
-                <button *ngIf="d.deviceStatus === 'REVOKED'" class="link red" (click)="deleteDevice(d)">Delete</button>
+                @if (d.deviceStatus !== 'REVOKED') {
+<button class="link red" (click)="revoke(d)">Revoke</button>
+}
+                @if (d.deviceStatus === 'REVOKED') {
+<button class="link red" (click)="deleteDevice(d)">Delete</button>
+}
               </td>
             </tr>
+}
           </tbody>
         </table>
-      </ng-container>
+}
+      
+}
 
       <!-- PENDING ENROLLMENT -->
-      <ng-container *ngIf="tab === 'pending'">
+      @if (tab === 'pending') {
+
         <div class="flex flex-wrap items-end gap-2 mb-3">
           <p class="text-sm text-gray-600 flex-1">Pick a kiosk, then click Enroll for an employee. The kiosk opens the enrollment screen and pauses attendance until it's done.</p>
           <label class="text-sm">Kiosk device
             <select [(ngModel)]="enrollDeviceId" class="inp">
               <option value="">— select device —</option>
-              <option *ngFor="let d of activeDevices" [value]="d.deviceId">{{ d.deviceName }} ({{ branchName(d.branchId) }})</option>
+              @for (d of activeDevices; track d) {
+<option [value]="d.deviceId">{{ d.deviceName }} ({{ branchName(d.branchId) }})</option>
+}
             </select>
           </label>
         </div>
-        <ui-loading-spinner *ngIf="loading" text="Loading..." size="lg"></ui-loading-spinner>
-        <ui-empty-state *ngIf="!loading && pending.length === 0" title="All enrolled" description="No employees are pending enrollment."></ui-empty-state>
-        <table *ngIf="!loading && pending.length > 0" class="tbl">
+        @if (loading) {
+<ui-loading-spinner text="Loading..." size="lg"></ui-loading-spinner>
+}
+        @if (!loading && pending.length === 0) {
+<ui-empty-state title="All enrolled" description="No employees are pending enrollment."></ui-empty-state>
+}
+        @if (!loading && pending.length > 0) {
+<table class="tbl">
           <thead><tr><th>Code</th><th>Employee</th><th>Status</th><th class="right">Action</th></tr></thead>
           <tbody>
-            <tr *ngFor="let r of pending">
+            @for (r of pending; track r) {
+<tr>
               <td class="mono">{{ r.employeeCode }}</td>
               <td>{{ r.employeeName || r.name }}</td>
               <td><span class="pill amber">{{ r.status || r.enrollmentStatus || 'PENDING' }}</span></td>
@@ -159,18 +198,28 @@ type Tab =
                   (click)="enroll(r)">Enroll on kiosk</button>
               </td>
             </tr>
+}
           </tbody>
         </table>
-      </ng-container>
+}
+      
+}
 
       <!-- DUPLICATE ALERTS -->
-      <ng-container *ngIf="tab === 'duplicates'">
-        <ui-loading-spinner *ngIf="loading" text="Loading..." size="lg"></ui-loading-spinner>
-        <ui-empty-state *ngIf="!loading && duplicates.length === 0" title="No duplicate alerts" description="No pending duplicate-face alerts."></ui-empty-state>
-        <table *ngIf="!loading && duplicates.length > 0" class="tbl">
+      @if (tab === 'duplicates') {
+
+        @if (loading) {
+<ui-loading-spinner text="Loading..." size="lg"></ui-loading-spinner>
+}
+        @if (!loading && duplicates.length === 0) {
+<ui-empty-state title="No duplicate alerts" description="No pending duplicate-face alerts."></ui-empty-state>
+}
+        @if (!loading && duplicates.length > 0) {
+<table class="tbl">
           <thead><tr><th>New Employee</th><th>Matched</th><th>Similarity</th><th>When</th><th class="right">Actions</th></tr></thead>
           <tbody>
-            <tr *ngFor="let a of duplicates">
+            @for (a of duplicates; track a) {
+<tr>
               <td class="mono">{{ a.newEmployeeId }}</td>
               <td class="mono">{{ a.matchedEmployeeId }}</td>
               <td>{{ (+a.similarityScore).toFixed(3) }}</td>
@@ -181,18 +230,28 @@ type Tab =
                 <button class="link gray" (click)="dupeAction(a, 'FALSE_ALERT')">False</button>
               </td>
             </tr>
+}
           </tbody>
         </table>
-      </ng-container>
+}
+      
+}
 
       <!-- REVIEW QUEUE -->
-      <ng-container *ngIf="tab === 'review'">
-        <ui-loading-spinner *ngIf="loading" text="Loading..." size="lg"></ui-loading-spinner>
-        <ui-empty-state *ngIf="!loading && review.length === 0" title="Nothing to review" description="No pending review items."></ui-empty-state>
-        <table *ngIf="!loading && review.length > 0" class="tbl">
+      @if (tab === 'review') {
+
+        @if (loading) {
+<ui-loading-spinner text="Loading..." size="lg"></ui-loading-spinner>
+}
+        @if (!loading && review.length === 0) {
+<ui-empty-state title="Nothing to review" description="No pending review items."></ui-empty-state>
+}
+        @if (!loading && review.length > 0) {
+<table class="tbl">
           <thead><tr><th>Issue</th><th>Employee</th><th>Confidence</th><th>Note</th><th>When</th><th class="right">Actions</th></tr></thead>
           <tbody>
-            <tr *ngFor="let r of review">
+            @for (r of review; track r) {
+<tr>
               <td><span class="pill amber">{{ r.issueType }}</span></td>
               <td class="mono">{{ r.employeeId || '—' }}</td>
               <td>{{ r.confidenceScore ? (+r.confidenceScore).toFixed(3) : '—' }}</td>
@@ -203,12 +262,16 @@ type Tab =
                 <button class="link red" (click)="reviewAction(r, 'REJECT')">Reject</button>
               </td>
             </tr>
+}
           </tbody>
         </table>
-      </ng-container>
+}
+      
+}
 
       <!-- REPORTS -->
-      <ng-container *ngIf="tab === 'reports'">
+      @if (tab === 'reports') {
+
         <div class="flex flex-wrap items-end gap-2 mb-3">
           <label class="text-sm">From <input type="date" [(ngModel)]="from" class="inp"></label>
           <label class="text-sm">To <input type="date" [(ngModel)]="to" class="inp"></label>
@@ -228,25 +291,42 @@ type Tab =
           <button class="btn" (click)="runReport()">Run</button>
           <button class="btn primary" (click)="syncPayroll()">Sync to Payroll</button>
         </div>
-        <ui-loading-spinner *ngIf="loading" text="Running report..." size="lg"></ui-loading-spinner>
-        <ui-empty-state *ngIf="!loading && reportRows.length === 0" title="No data" description="Run a report to see results."></ui-empty-state>
-        <div *ngIf="!loading && reportRows.length > 0" class="overflow-auto">
+        @if (loading) {
+<ui-loading-spinner text="Running report..." size="lg"></ui-loading-spinner>
+}
+        @if (!loading && reportRows.length === 0) {
+<ui-empty-state title="No data" description="Run a report to see results."></ui-empty-state>
+}
+        @if (!loading && reportRows.length > 0) {
+<div class="overflow-auto">
           <table class="tbl">
-            <thead><tr><th *ngFor="let c of reportCols">{{ c }}</th></tr></thead>
+            <thead><tr>@for (c of reportCols; track c) {
+<th>{{ c }}</th>
+}</tr></thead>
             <tbody>
-              <tr *ngFor="let row of reportRows">
-                <td *ngFor="let c of reportCols" class="text-xs">{{ fmt(row[c]) }}</td>
+              @for (row of reportRows; track row) {
+<tr>
+                @for (c of reportCols; track c) {
+<td class="text-xs">{{ fmt(row[c]) }}</td>
+}
               </tr>
+}
             </tbody>
           </table>
           <p class="text-xs text-gray-500 mt-2">{{ reportRows.length }} rows</p>
         </div>
-      </ng-container>
+}
+      
+}
 
       <!-- SETTINGS -->
-      <ng-container *ngIf="tab === 'settings'">
-        <ui-loading-spinner *ngIf="loading" text="Loading settings..." size="lg"></ui-loading-spinner>
-        <div *ngIf="!loading && settings" class="settings">
+      @if (tab === 'settings') {
+
+        @if (loading) {
+<ui-loading-spinner text="Loading settings..." size="lg"></ui-loading-spinner>
+}
+        @if (!loading && settings) {
+<div class="settings">
           <label>Match confidence (%)<input type="number" [(ngModel)]="settings.matchConfidencePct" class="inp"></label>
           <label>Retry confidence (%)<input type="number" [(ngModel)]="settings.retryConfidencePct" class="inp"></label>
           <label>Duplicate threshold (%)<input type="number" [(ngModel)]="settings.duplicatePct" class="inp"></label>
@@ -260,7 +340,9 @@ type Tab =
           </p>
           <div class="col-span-2"><button class="btn primary" (click)="saveSettings()">Save settings</button></div>
         </div>
-      </ng-container>
+}
+      
+}
     </div>
   `,
   styles: [`

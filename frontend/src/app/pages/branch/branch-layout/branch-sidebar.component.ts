@@ -1,6 +1,6 @@
 import { Component, Input, Output, EventEmitter, OnDestroy, OnInit } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { Subject, of } from 'rxjs';
@@ -22,14 +22,16 @@ interface SidebarItem {
 @Component({
   selector: 'app-branch-sidebar',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [RouterModule, FormsModule],
   template: `
     <!-- Mobile overlay -->
-    <div
-      *ngIf="mobileOpen"
+    @if (mobileOpen) {
+<div
+     
       class="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
       (click)="closeMobile()"
     ></div>
+}
 
     <!-- Sidebar -->
     <aside
@@ -37,7 +39,8 @@ interface SidebarItem {
       [class.mobile-open]="mobileOpen"
     >
       <!-- Brand area -->
-      <div *ngIf="!collapsed" class="px-4 pt-5 pb-3">
+      @if (!collapsed) {
+<div class="px-4 pt-5 pb-3">
         <div class="flex items-center gap-2.5">
           <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
             <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -62,7 +65,9 @@ interface SidebarItem {
           />
         </div>
       </div>
-      <div *ngIf="collapsed" class="py-4 flex flex-col items-center gap-1">
+}
+      @if (collapsed) {
+<div class="py-4 flex flex-col items-center gap-1">
         <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
           <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
@@ -70,6 +75,7 @@ interface SidebarItem {
         </div>
         <span class="text-white/60 text-[10px] font-bold tracking-widest">BD</span>
       </div>
+}
 
       <!-- Collapse toggle (desktop only) -->
       <button
@@ -93,11 +99,14 @@ interface SidebarItem {
 
       <!-- Navigation -->
       <nav class="sidebar-nav flex-1 py-4 px-3 space-y-1">
-        <ng-container *ngIf="collapsed; else expandedNav">
+        @if (collapsed) {
+
           <div class="collapsed-menu">
-            <ng-container *ngFor="let link of navItems">
-              <a
-                *ngIf="!link.children"
+            @for (link of navItems; track link) {
+
+              @if (!link.children) {
+<a
+               
                 [routerLink]="link.route"
                 routerLinkActive="collapsed-active"
                 [routerLinkActiveOptions]="{ exact: link.route.endsWith('dashboard') }"
@@ -105,31 +114,43 @@ interface SidebarItem {
                 class="collapsed-icon"
               >
                 <span class="sidebar-icon" [innerHTML]="link.icon"></span>
-                <span *ngIf="link.badge" class="badge-dot">{{ link.badge }}</span>
+                @if (link.badge) {
+<span class="badge-dot">{{ link.badge }}</span>
+}
                 <span class="collapsed-tooltip">{{ link.label }}</span>
               </a>
-              <ng-container *ngIf="link.children">
-                <a
-                  *ngFor="let child of link.children"
+}
+              @if (link.children) {
+
+                @for (child of link.children; track child) {
+<a
+                 
                   [routerLink]="child.route"
                   routerLinkActive="collapsed-active"
                   (click)="onNavClick()"
                   class="collapsed-icon"
                 >
                   <span class="sidebar-icon" [innerHTML]="child.icon"></span>
-                  <span *ngIf="child.badge" class="badge-dot">{{ child.badge }}</span>
+                  @if (child.badge) {
+<span class="badge-dot">{{ child.badge }}</span>
+}
                   <span class="collapsed-tooltip">{{ child.label }}</span>
                 </a>
-              </ng-container>
-            </ng-container>
+}
+              
+}
+            
+}
           </div>
-        </ng-container>
+        
+} @else {
 
-        <ng-template #expandedNav>
-          <ng-container *ngFor="let item of filteredNavItems">
+          @for (item of filteredNavItems; track item) {
+
             <!-- Regular nav item (no children) -->
-            <a
-              *ngIf="!item.children"
+            @if (!item.children) {
+<a
+             
               [routerLink]="item.route"
               routerLinkActive="sidebar-active"
               [routerLinkActiveOptions]="{ exact: item.route.endsWith('dashboard') }"
@@ -138,22 +159,29 @@ interface SidebarItem {
             >
               <span class="sidebar-icon" [innerHTML]="item.icon"></span>
               <span class="sidebar-label">{{ item.label }}</span>
-              <span *ngIf="item.badge" class="badge-pill">{{ item.badge }}</span>
+              @if (item.badge) {
+<span class="badge-pill">{{ item.badge }}</span>
+}
             </a>
+}
 
             <!-- Collapsible group (has children) -->
-            <div *ngIf="item.children" class="sidebar-group">
+            @if (item.children) {
+<div class="sidebar-group">
               <button class="sidebar-item sidebar-group-toggle" (click)="toggleGroup(item)">
                 <span class="sidebar-icon" [innerHTML]="item.icon"></span>
                 <span class="sidebar-label">{{ item.label }}</span>
-                <span *ngIf="totalBadge(item)" class="badge-pill badge-pill--red">{{ totalBadge(item) }}</span>
+                @if (totalBadge(item)) {
+<span class="badge-pill badge-pill--red">{{ totalBadge(item) }}</span>
+}
                 <svg class="w-4 h-4 ml-auto transition-transform" [class.rotate-90]="item.expanded" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>
               </button>
               <div class="sidebar-children" [class.sidebar-children--open]="item.expanded">
-                <a
-                  *ngFor="let child of item.children"
+                @for (child of item.children; track child) {
+<a
+                 
                   [routerLink]="child.route"
                   routerLinkActive="sidebar-active"
                   [routerLinkActiveOptions]="{ exact: child.route === '/branch/compliance' || child.route === '/branch/attendance' }"
@@ -162,20 +190,30 @@ interface SidebarItem {
                 >
                   <span class="sidebar-icon" [innerHTML]="child.icon"></span>
                   <span class="sidebar-label">{{ child.label }}</span>
-                  <span *ngIf="child.badge" class="badge-pill badge-pill--red">{{ child.badge }}</span>
+                  @if (child.badge) {
+<span class="badge-pill badge-pill--red">{{ child.badge }}</span>
+}
                 </a>
+}
               </div>
             </div>
-          </ng-container>
-        </ng-template>
+}
+          
+}
+        
+}
+
+        
       </nav>
 
       <!-- Version footer -->
-      <div *ngIf="!collapsed" class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
+      @if (!collapsed) {
+<div class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
         <div class="text-[10px] text-white/35">BranchDesk v1.0</div>
         <div class="text-[10px] text-white/55 font-medium">Designed &amp; Developed by StatCo Solutions</div>
         <a href="https://www.statcosol.com" target="_blank" rel="noopener noreferrer" class="text-[10px] text-emerald-300/80 hover:text-emerald-200">www.statcosol.com</a>
       </div>
+}
     </aside>
   `,
   styles: [`

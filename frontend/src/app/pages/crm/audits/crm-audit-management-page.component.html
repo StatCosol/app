@@ -78,14 +78,18 @@
       <div>
         <label class="filter-label" for="camp-status-filter">Status</label>
         <select id="camp-status-filter" name="statusFilter" [(ngModel)]="statusFilter" (ngModelChange)="applyFilters()" class="filter-input">
-          <option *ngFor="let opt of statusOptions" [value]="opt.value">{{ opt.label }}</option>
+          @for (opt of statusOptions; track opt) {
+<option [value]="opt.value">{{ opt.label }}</option>
+}
         </select>
       </div>
       <div>
         <label class="filter-label" for="camp-client-filter">Client</label>
         <select id="camp-client-filter" name="clientFilter" [(ngModel)]="clientFilter" (ngModelChange)="applyFilters()" class="filter-input">
           <option value="">All clients</option>
-          <option *ngFor="let client of clients" [value]="client.id">{{ client.clientName }}</option>
+          @for (client of clients; track client) {
+<option [value]="client.id">{{ client.clientName }}</option>
+}
         </select>
       </div>
       <div>
@@ -102,7 +106,9 @@
         <label class="filter-label" for="camp-type-filter">Type</label>
         <select id="camp-type-filter" name="typeFilter" [(ngModel)]="typeFilter" (ngModelChange)="applyFilters()" class="filter-input">
           <option value="">All types</option>
-          <option *ngFor="let type of auditTypes" [value]="type.value">{{ type.label }}</option>
+          @for (type of auditTypes; track type) {
+<option [value]="type.value">{{ type.label }}</option>
+}
         </select>
       </div>
     </div>
@@ -111,16 +117,21 @@
     </div>
   </div>
 
-  <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
 
-  <ui-empty-state
-    *ngIf="!loading && !filteredAudits.length"
+  @if (!loading && !filteredAudits.length) {
+<ui-empty-state
+   
     icon="clipboard-check"
     title="No audits found"
     description="Adjust filters or schedule a new audit."
   ></ui-empty-state>
+}
 
-  <div *ngIf="!loading && filteredAudits.length" class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+  @if (!loading && filteredAudits.length) {
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
     <div class="xl:col-span-2 space-y-5">
       <div class="card p-0 overflow-hidden">
         <div class="table-header">
@@ -144,8 +155,9 @@
               </tr>
             </thead>
             <tbody>
-              <tr
-                *ngFor="let row of filteredAudits; trackBy: trackAudit"
+              @for (row of filteredAudits; track trackAudit($index, row)) {
+<tr
+               
                 (click)="selectAudit(row)"
                 [class.row-selected]="selectedAudit?.id === row.id"
               >
@@ -167,8 +179,9 @@
                 <td class="td"><ui-status-badge [status]="row.status"></ui-status-badge></td>
                 <td class="td td-actions text-right">
                   <div class="inline-flex gap-1" (click)="$event.stopPropagation()">
-                    <button type="button"
-                      *ngFor="let action of getNextStatuses(row.status)"
+                    @for (action of getNextStatuses(row.status); track action) {
+<button type="button"
+                     
                       class="status-action-btn"
                       [ngClass]="{
                         'status-action-btn--primary': action.variant === 'primary',
@@ -179,14 +192,18 @@
                     >
                       {{ action.label }}
                     </button>
+}
                     <button type="button" class="status-action-btn" (click)="openScheduleModal(row)">Reassign</button>
                   </div>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
-        <div *ngIf="listBusy" class="table-overlay">Refreshing data...</div>
+        @if (listBusy) {
+<div class="table-overlay">Refreshing data...</div>
+}
       </div>
 
       <div class="card">
@@ -203,8 +220,10 @@
           />
         </div>
 
-        <div *ngIf="calendarRows.length; else noCalendarRows" class="space-y-2">
-          <div *ngFor="let day of calendarRows; trackBy: trackCalendar" class="calendar-row">
+        @if (calendarRows.length) {
+<div class="space-y-2">
+          @for (day of calendarRows; track trackCalendar($index, day)) {
+<div class="calendar-row">
             <div class="calendar-date">{{ day.dateLabel }}</div>
             <div class="calendar-badges">
               <span class="mini-chip">{{ day.total }} total</span>
@@ -213,21 +232,28 @@
               <span class="mini-chip mini-chip--done">{{ day.completed }} done</span>
             </div>
           </div>
+}
         </div>
-        <ng-template #noCalendarRows>
+} @else {
+
           <div class="text-sm text-gray-500">No due dates in selected month.</div>
-        </ng-template>
+        
+}
+        
       </div>
     </div>
 
     <div class="space-y-5">
-      <div class="card" *ngIf="currentAudit as audit">
+      @if (currentAudit; as audit) {
+<div class="card">
         <div class="flex items-center justify-between gap-2 mb-3">
           <h3 class="text-base font-semibold text-gray-900">Audit Detail</h3>
           <ui-status-badge [status]="audit.status"></ui-status-badge>
         </div>
 
-        <div *ngIf="detailBusy" class="text-xs text-gray-500 mb-3">Loading latest detail...</div>
+        @if (detailBusy) {
+<div class="text-xs text-gray-500 mb-3">Loading latest detail...</div>
+}
 
         <div class="detail-grid">
           <div>
@@ -264,10 +290,14 @@
           </div>
         </div>
 
-        <div *ngIf="audit.notes" class="note-box mt-3">{{ audit.notes }}</div>
+        @if (audit.notes) {
+<div class="note-box mt-3">{{ audit.notes }}</div>
+}
       </div>
+}
 
-      <div class="card" *ngIf="currentAudit as audit">
+      @if (currentAudit; as audit) {
+<div class="card">
         <h3 class="text-base font-semibold text-gray-900 mb-3">Readiness Checklist</h3>
         <div class="mb-3">
           <div class="flex items-center justify-between text-xs text-gray-600 mb-1">
@@ -279,7 +309,8 @@
           </div>
         </div>
         <div class="space-y-2">
-          <div *ngFor="let item of readinessChecklist" class="check-row">
+          @for (item of readinessChecklist; track item) {
+<div class="check-row">
             <div class="check-icon" [ngClass]="item.ok ? 'check-icon--ok' : 'check-icon--pending'">
               {{ item.ok ? 'OK' : '--' }}
             </div>
@@ -288,24 +319,33 @@
               <div class="text-xs text-gray-500">{{ item.hint }}</div>
             </div>
           </div>
+}
         </div>
       </div>
+}
 
-      <div class="card" *ngIf="currentAudit as audit">
+      @if (currentAudit; as audit) {
+<div class="card">
         <h3 class="text-base font-semibold text-gray-900 mb-3">Report Status</h3>
         <div class="flex items-center justify-between gap-2 mb-2">
           <span [class]="reportPhaseClass">{{ reportPhase }}</span>
           <span class="text-sm text-gray-600">Score: {{ audit.score ?? '-' }}</span>
         </div>
-        <div class="text-xs text-gray-500 mb-1" *ngIf="latestReportStatus?.stage">
+        @if (latestReportStatus?.stage) {
+<div class="text-xs text-gray-500 mb-1">
           Stage: {{ latestReportStatus?.stage }}
         </div>
-        <div class="text-xs text-gray-500 mb-1" *ngIf="latestReportStatus?.status">
+}
+        @if (latestReportStatus?.status) {
+<div class="text-xs text-gray-500 mb-1">
           Status: {{ latestReportStatus?.status }}
         </div>
-        <div class="text-xs text-gray-500 mb-2" *ngIf="latestReportStatus?.updatedAt">
+}
+        @if (latestReportStatus?.updatedAt) {
+<div class="text-xs text-gray-500 mb-2">
           Updated: {{ latestReportStatus?.updatedAt | date:'dd MMM yyyy, HH:mm' }}
         </div>
+}
         <div class="text-xs text-gray-500">
           Submitted audits in current filter: {{ reportSubmittedCount }}
         </div>
@@ -313,39 +353,51 @@
           Report tracking is synced from audit report status API.
         </div>
 
-        <div class="flex flex-wrap gap-2 mt-3" *ngIf="latestReportStatus?.status">
-          <button type="button"
+        @if (latestReportStatus?.status) {
+<div class="flex flex-wrap gap-2 mt-3">
+          @if (latestReportStatus?.status === 'SUBMITTED') {
+<button type="button"
             class="status-action-btn status-action-btn--primary"
-            *ngIf="latestReportStatus?.status === 'SUBMITTED'"
+           
             [disabled]="governanceBusy"
             (click)="approveReport()">
             ✓ Approve
           </button>
-          <button type="button"
+}
+          @if (latestReportStatus?.status === 'APPROVED') {
+<button type="button"
             class="status-action-btn status-action-btn--primary"
-            *ngIf="latestReportStatus?.status === 'APPROVED'"
+           
             [disabled]="governanceBusy"
             (click)="publishReport()">
             ↑ Publish
           </button>
-          <button type="button"
+}
+          @if (latestReportStatus?.status === 'SUBMITTED' || latestReportStatus?.status === 'APPROVED') {
+<button type="button"
             class="status-action-btn"
-            *ngIf="latestReportStatus?.status === 'SUBMITTED' || latestReportStatus?.status === 'APPROVED'"
+           
             [disabled]="governanceBusy"
             (click)="sendBackReport()">
             ← Send Back
           </button>
-          <button type="button"
+}
+          @if (latestReportStatus?.status !== 'PUBLISHED') {
+<button type="button"
             class="status-action-btn status-action-btn--danger"
-            *ngIf="latestReportStatus?.status !== 'PUBLISHED'"
+           
             [disabled]="governanceBusy"
             (click)="holdReport()">
             ⏸ Hold
           </button>
+}
         </div>
+}
       </div>
+}
 
-      <div class="card" *ngIf="currentClosure as closure">
+      @if (currentClosure; as closure) {
+<div class="card">
         <h3 class="text-base font-semibold text-gray-900 mb-3">CAPA Summary</h3>
         <div class="grid grid-cols-2 gap-2 mb-3">
           <div class="small-stat">
@@ -370,20 +422,27 @@
         </div>
         <div class="text-xs text-gray-500">Closure {{ closure.closurePct }}%</div>
       </div>
+}
     </div>
   </div>
+}
 </div>
 
-<div class="modal-backdrop" *ngIf="showScheduleModal" (click)="closeScheduleModal()"></div>
-<section class="modal-panel" *ngIf="showScheduleModal">
+@if (showScheduleModal) {
+<div class="modal-backdrop" (click)="closeScheduleModal()"></div>
+}
+@if (showScheduleModal) {
+<section class="modal-panel">
   <div class="modal-head">
     <h3>{{ scheduleMode === 'ASSIGN' ? 'Assign Auditor / Reschedule' : 'Schedule Audit' }}</h3>
     <button type="button" class="close-btn" (click)="closeScheduleModal()">X</button>
   </div>
   <div class="modal-body">
-    <div *ngIf="isAssignMode" class="assign-mode-note">
+    @if (isAssignMode) {
+<div class="assign-mode-note">
       Assignment mode: only auditor, due date, and notes can be updated.
     </div>
+}
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
       <div>
         <label class="filter-label" for="camp-client-id">Client *</label>
@@ -394,40 +453,52 @@
           [disabled]="isAssignMode"
         >
           <option value="">Select client</option>
-          <option *ngFor="let client of clients" [value]="client.id">{{ client.clientName }}</option>
+          @for (client of clients; track client) {
+<option [value]="client.id">{{ client.clientName }}</option>
+}
         </select>
       </div>
       <div>
         <label class="filter-label" for="camp-branch-id">Branch</label>
         <select id="camp-branch-id" name="branchId" [(ngModel)]="scheduleModel.branchId" class="filter-input" [disabled]="isAssignMode">
           <option value="">All branches</option>
-          <option *ngFor="let branch of modalBranches" [value]="branch.id">{{ branch.branchName }}</option>
+          @for (branch of modalBranches; track branch) {
+<option [value]="branch.id">{{ branch.branchName }}</option>
+}
         </select>
       </div>
       <div>
         <label class="filter-label" for="camp-contractor-user-id">Contractor (Optional)</label>
         <select id="camp-contractor-user-id" name="contractorUserId" [(ngModel)]="scheduleModel.contractorUserId" class="filter-input" [disabled]="isAssignMode">
           <option value="">All contractors under client</option>
-          <option *ngFor="let ct of modalContractors" [value]="ct.id">{{ ct.name }}</option>
+          @for (ct of modalContractors; track ct) {
+<option [value]="ct.id">{{ ct.name }}</option>
+}
         </select>
       </div>
       <div>
         <label class="filter-label" for="camp-assigned-auditor-id">Auditor *</label>
         <select id="camp-assigned-auditor-id" name="assignedAuditorId" [(ngModel)]="scheduleModel.assignedAuditorId" class="filter-input">
           <option value="">Select auditor</option>
-          <option *ngFor="let auditor of auditors" [value]="auditor.id">{{ auditor.name }}</option>
+          @for (auditor of auditors; track auditor) {
+<option [value]="auditor.id">{{ auditor.name }}</option>
+}
         </select>
       </div>
       <div>
         <label class="filter-label" for="camp-frequency">Frequency</label>
         <select id="camp-frequency" name="frequency" [(ngModel)]="scheduleModel.frequency" class="filter-input" [disabled]="isAssignMode">
-          <option *ngFor="let item of frequencyOptions" [value]="item.value">{{ item.label }}</option>
+          @for (item of frequencyOptions; track item) {
+<option [value]="item.value">{{ item.label }}</option>
+}
         </select>
       </div>
       <div>
         <label class="filter-label" for="camp-audit-type">Audit Type</label>
         <select id="camp-audit-type" name="auditType" [(ngModel)]="scheduleModel.auditType" class="filter-input" [disabled]="isAssignMode">
-          <option *ngFor="let type of auditTypes" [value]="type.value">{{ type.label }}</option>
+          @for (type of auditTypes; track type) {
+<option [value]="type.value">{{ type.label }}</option>
+}
         </select>
       </div>
       <div>
@@ -461,3 +532,4 @@
     </ui-button>
   </div>
 </section>
+}

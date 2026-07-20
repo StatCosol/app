@@ -54,9 +54,11 @@ interface RepeatNcItem {
             class="border border-slate-300 rounded-md px-3 py-2 text-sm min-w-[280px]"
           >
             <option value="">— Select a client —</option>
-            <option *ngFor="let c of clients" [value]="c.client_id">
+            @for (c of clients; track c) {
+<option [value]="c.client_id">
               {{ c.client_name }} ({{ c.total_audits || 0 }} audits)
             </option>
+}
           </select>
           <button
             type="button"
@@ -69,27 +71,36 @@ interface RepeatNcItem {
         </div>
       </div>
 
-      <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
 
-      <div *ngIf="!loading && !clientId">
+      @if (!loading && !clientId) {
+<div>
         <ui-empty-state
           message="Pick a client above to view recurring findings."
           icon="search"
         ></ui-empty-state>
       </div>
+}
 
-      <div *ngIf="!loading && clientId && items.length === 0 && !error">
+      @if (!loading && clientId && items.length === 0 && !error) {
+<div>
         <ui-empty-state
           message="No recurring findings detected for this client."
           icon="check-circle"
         ></ui-empty-state>
       </div>
+}
 
-      <div *ngIf="error" class="bg-rose-50 border border-rose-200 text-rose-700 rounded-md p-3 text-sm">
+      @if (error) {
+<div class="bg-rose-50 border border-rose-200 text-rose-700 rounded-md p-3 text-sm">
         {{ error }}
       </div>
+}
 
-      <div *ngIf="!loading && items.length > 0" class="space-y-4">
+      @if (!loading && items.length > 0) {
+<div class="space-y-4">
         <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 text-center">
             <span class="text-xs text-slate-500 uppercase">Repeat groups</span>
@@ -118,8 +129,9 @@ interface RepeatNcItem {
               </tr>
             </thead>
             <tbody>
-              <tr
-                *ngFor="let it of items"
+              @for (it of items; track it) {
+<tr
+               
                 class="border-b border-slate-100 hover:bg-slate-50"
               >
                 <td class="px-4 py-3 font-medium text-slate-800">
@@ -139,10 +151,12 @@ interface RepeatNcItem {
                   {{ it.lastSeenAt ? (it.lastSeenAt | date: 'mediumDate') : '—' }}
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
       </div>
+}
     </div>
   `,
 })

@@ -5,7 +5,7 @@
   OnDestroy,
   ViewChild,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
@@ -17,7 +17,7 @@ import { BranchThreadApiService } from '../../../core/branch-thread-api.service'
 @Component({
   selector: 'app-branch-helpdesk',
   standalone: true,
-  imports: [CommonModule, FormsModule, ThreadLayoutComponent, PageHeaderComponent],
+  imports: [FormsModule, ThreadLayoutComponent, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-4">
@@ -40,7 +40,8 @@ import { BranchThreadApiService } from '../../../core/branch-thread-api.service'
           </button>
         </div>
 
-        <form *ngIf="showNewTicketForm" class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4" (ngSubmit)="submitTicket()">
+        @if (showNewTicketForm) {
+<form class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4" (ngSubmit)="submitTicket()">
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1" for="bh-query-type">Query Type</label>
             <select id="bh-query-type"
@@ -90,6 +91,7 @@ import { BranchThreadApiService } from '../../../core/branch-thread-api.service'
             </button>
           </div>
         </form>
+}
       </section>
 
       <app-thread-layout

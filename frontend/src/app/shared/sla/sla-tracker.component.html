@@ -8,7 +8,9 @@
 
     <div class="controls">
       <select id="st-branch-id" name="slaBranchId" [(ngModel)]="branchId" (change)="load()" [disabled]="branches.length <= 1" class="ctrl-select">
-        <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+        @for (b of branches; track b) {
+<option [value]="b.id">{{ b.name }}</option>
+}
       </select>
 
       <select id="st-module" name="slaModule" [(ngModel)]="module" (change)="load()" class="ctrl-select">
@@ -29,13 +31,16 @@
   </div>
 
   <!-- Loading -->
-  <div *ngIf="loading" class="loading">
+  @if (loading) {
+<div class="loading">
     <div class="spinner"></div>
     Loading…
   </div>
+}
 
   <!-- Table -->
-  <div class="table-wrap" *ngIf="!loading">
+  @if (!loading) {
+<div class="table-wrap">
     <table>
       <thead>
         <tr>
@@ -48,7 +53,8 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let it of items">
+        @for (it of items; track it) {
+<tr>
           <td class="date-cell">{{ it.dueDate }}</td>
           <td><span class="module-tag" [ngClass]="it.module">{{ it.module }}</span></td>
           <td class="title-cell">{{ it.title }}</td>
@@ -69,10 +75,14 @@
             </div>
           </td>
         </tr>
-        <tr *ngIf="items.length === 0">
+}
+        @if (items.length === 0) {
+<tr>
           <td colspan="6" class="empty-cell">No tasks found</td>
         </tr>
+}
       </tbody>
     </table>
   </div>
+}
 </div>

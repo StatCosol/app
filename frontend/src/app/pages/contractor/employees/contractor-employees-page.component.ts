@@ -127,15 +127,19 @@ interface BulkPreviewRow {
       <div class="flex flex-wrap gap-3 items-center justify-between">
         <div class="flex gap-2 flex-wrap items-center">
           <!-- Branch filter -->
-          <select
-            *ngIf="availableBranches.length > 1"
+          @if (availableBranches.length > 1) {
+<select
+           
             [(ngModel)]="selectedBranchId"
             (change)="onBranchChange()"
             class="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-rose-400 focus:border-rose-400"
           >
             <option value="">All Branches</option>
-            <option *ngFor="let b of availableBranches" [value]="b.id">{{ b.name || b.branchName }}</option>
+            @for (b of availableBranches; track b) {
+<option [value]="b.id">{{ b.name || b.branchName }}</option>
+}
           </select>
+}
           <!-- Search -->
           <div class="relative">
             <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -183,31 +187,40 @@ interface BulkPreviewRow {
       </div>
 
       <!-- Loading -->
-      <ui-loading-spinner *ngIf="loading" text="Loading employees…"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading employees…"></ui-loading-spinner>
+}
 
       <!-- Error -->
-      <div *ngIf="!loading && errorMsg" class="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm flex items-center gap-2">
+      @if (!loading && errorMsg) {
+<div class="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm flex items-center gap-2">
         <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
         {{ errorMsg }}
       </div>
+}
 
       <!-- Empty -->
-      <ui-empty-state
-        *ngIf="!loading && !errorMsg && filteredRows.length === 0"
+      @if (!loading && !errorMsg && filteredRows.length === 0) {
+<ui-empty-state
+       
         title="No employees found"
         description="Add contractor workers to build your workforce roster."
       ></ui-empty-state>
+}
 
       <!-- Table -->
-      <div *ngIf="!loading && filteredRows.length > 0" class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      @if (!loading && filteredRows.length > 0) {
+<div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-gray-100">
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
-                <th *ngIf="availableBranches.length >= 1" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Branch</th>
+                @if (availableBranches.length >= 1) {
+<th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Branch</th>
+}
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Gender</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Designation</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Skill</th>
@@ -221,28 +234,45 @@ interface BulkPreviewRow {
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
-              <tr *ngFor="let emp of filteredRows" class="hover:bg-gray-50 transition-colors">
+              @for (emp of filteredRows; track emp) {
+<tr class="hover:bg-gray-50 transition-colors">
                 <td class="px-4 py-3">
                   <div class="font-medium text-sm text-gray-900">{{ emp.name }}</div>
-                  <div *ngIf="emp.phone" class="text-xs text-gray-400 mt-0.5">{{ emp.phone }}</div>
+                  @if (emp.phone) {
+<div class="text-xs text-gray-400 mt-0.5">{{ emp.phone }}</div>
+}
                 </td>
-                <td *ngIf="availableBranches.length >= 1" class="px-4 py-3 text-sm text-gray-500">{{ branchName(emp.branchId) || '—' }}</td>
+                @if (availableBranches.length >= 1) {
+<td class="px-4 py-3 text-sm text-gray-500">{{ branchName(emp.branchId) || '—' }}</td>
+}
                 <td class="px-4 py-3 text-sm text-gray-600">
-                  <span *ngIf="emp.gender" [class]="genderClass(emp.gender)" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium">
+                  @if (emp.gender) {
+<span [class]="genderClass(emp.gender)" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium">
                     {{ emp.gender | uppercase }}
                   </span>
-                  <span *ngIf="!emp.gender" class="text-gray-300 text-xs">—</span>
+}
+                  @if (!emp.gender) {
+<span class="text-gray-300 text-xs">—</span>
+}
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ emp.designation || '—' }}</td>
                 <td class="px-4 py-3 text-sm">
-                  <span *ngIf="emp.skillCategory" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                  @if (emp.skillCategory) {
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
                     {{ skillLabel(emp.skillCategory) }}
                   </span>
-                  <span *ngIf="!emp.skillCategory" class="text-gray-300 text-xs">—</span>
+}
+                  @if (!emp.skillCategory) {
+<span class="text-gray-300 text-xs">—</span>
+}
                 </td>
                 <td class="px-4 py-3 text-sm text-right tabular-nums text-gray-700">
-                  <span *ngIf="emp.monthlySalary !== null && emp.monthlySalary !== undefined">₹ {{ emp.monthlySalary | number:'1.0-0' }}</span>
-                  <span *ngIf="emp.monthlySalary === null || emp.monthlySalary === undefined" class="text-gray-300">—</span>
+                  @if (emp.monthlySalary !== null && emp.monthlySalary !== undefined) {
+<span>₹ {{ emp.monthlySalary | number:'1.0-0' }}</span>
+}
+                  @if (emp.monthlySalary === null || emp.monthlySalary === undefined) {
+<span class="text-gray-300">—</span>
+}
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ emp.department || '—' }}</td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd MMM yy') : '—' }}</td>
@@ -261,16 +291,21 @@ interface BulkPreviewRow {
                         class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border">
                     {{ statusLabel(emp) }}
                   </span>
-                  <div *ngIf="!emp.isActive && emp.dateOfExit" class="text-[10px] text-gray-400 mt-0.5">
+                  @if (!emp.isActive && emp.dateOfExit) {
+<div class="text-[10px] text-gray-400 mt-0.5">
                     Exited {{ emp.dateOfExit | date:'dd MMM yy' }}
                   </div>
-                  <div *ngIf="!emp.isActive && emp.exitReason" class="text-[10px] text-gray-400 italic" [title]="emp.exitReason">
+}
+                  @if (!emp.isActive && emp.exitReason) {
+<div class="text-[10px] text-gray-400 italic" [title]="emp.exitReason">
                     {{ emp.exitReason | slice:0:24 }}{{ (emp.exitReason.length > 24) ? '…' : '' }}
                   </div>
+}
                 </td>
                 <td class="px-4 py-3 text-right min-w-[130px] align-middle">
                   <div class="flex flex-wrap items-center justify-end gap-1.5">
-                    <ng-container *ngIf="emp.status === 'PENDING_DELETE'; else availableActions">
+                    @if (emp.status === 'PENDING_DELETE') {
+
                       <span class="inline-flex min-w-[96px] items-center justify-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 border border-amber-200">
                         Pending approval
                       </span>
@@ -278,37 +313,45 @@ interface BulkPreviewRow {
                         (click)="openEdit(emp)"
                         class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
                       >Edit</button>
-                    </ng-container>
+                    
+} @else {
 
-                    <ng-template #availableActions>
-                      <button
-                        *ngIf="!emp.isActive"
+                      @if (!emp.isActive) {
+<button
+                       
                         (click)="doReactivate(emp)"
                         [disabled]="saving"
                         class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50"
                       >Reactivate</button>
+}
 
                     <button
                       (click)="openEdit(emp)"
                         class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
                     >Edit</button>
 
-                    <button
-                      *ngIf="emp.isActive"
+                    @if (emp.isActive) {
+<button
+                     
                       (click)="confirmDeactivate(emp)"
                         [disabled]="saving"
                         class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100 disabled:opacity-50"
                     >Deactivate</button>
+}
 
                     <button
                       (click)="requestDelete(emp)"
                         [disabled]="saving"
                         class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-50"
                       >Delete</button>
-                    </ng-template>
+                    
+}
+
+                    
                   </div>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
@@ -316,10 +359,12 @@ interface BulkPreviewRow {
           Showing {{ filteredRows.length }} of {{ allRows.length }} records
         </div>
       </div>
+}
     </div>
 
     <!-- ── Add / Edit Drawer ────────────────────────────────────────────── -->
-    <div *ngIf="drawerOpen" class="fixed inset-0 z-50 flex justify-end" (click)="closeDrawer()">
+    @if (drawerOpen) {
+<div class="fixed inset-0 z-50 flex justify-end" (click)="closeDrawer()">
       <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
       <div
         class="relative w-full max-w-lg bg-white h-full shadow-2xl overflow-y-auto flex flex-col"
@@ -339,7 +384,8 @@ interface BulkPreviewRow {
         <form (ngSubmit)="saveEmployee()" #empForm="ngForm" class="flex-1 px-6 py-5 space-y-5" novalidate>
 
           <!-- Branch (shown whenever branches are loaded) -->
-          <div *ngIf="availableBranches.length >= 1">
+          @if (availableBranches.length >= 1) {
+<div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Branch <span class="text-red-500">*</span></label>
             <select
               [(ngModel)]="form.branchId"
@@ -348,9 +394,12 @@ interface BulkPreviewRow {
               class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
             >
               <option value="">Select branch…</option>
-              <option *ngFor="let b of availableBranches" [value]="b.id">{{ b.name || b.branchName }}</option>
+              @for (b of availableBranches; track b) {
+<option [value]="b.id">{{ b.name || b.branchName }}</option>
+}
             </select>
           </div>
+}
 
           <!-- Section: Basic Info -->
           <div>
@@ -482,7 +531,9 @@ interface BulkPreviewRow {
                     class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
                   >
                     <option value="">Select skill…</option>
-                    <option *ngFor="let s of skillOptions" [value]="s.value">{{ s.label }}</option>
+                    @for (s of skillOptions; track s) {
+<option [value]="s.value">{{ s.label }}</option>
+}
                   </select>
                 </div>
                 <div>
@@ -575,9 +626,11 @@ interface BulkPreviewRow {
           </div>
 
           <!-- Error -->
-          <div *ngIf="formError" class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          @if (formError) {
+<div class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
             {{ formError }}
           </div>
+}
 
           <!-- Actions -->
           <div class="flex gap-3 pt-2 pb-4">
@@ -586,7 +639,9 @@ interface BulkPreviewRow {
               [disabled]="saving || !form.name.trim()"
               class="flex-1 inline-flex justify-center items-center gap-2 py-2.5 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
             >
-              <span *ngIf="saving" class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+              @if (saving) {
+<span class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+}
               {{ saving ? 'Saving…' : editingId ? 'Update Employee' : 'Add Employee' }}
             </button>
             <button
@@ -600,9 +655,11 @@ interface BulkPreviewRow {
         </form>
       </div>
     </div>
+}
 
     <!-- ── Bulk Upload Modal ───────────────────────────────────────── -->
-    <div *ngIf="bulkOpen" class="fixed inset-0 z-50 flex items-center justify-center px-4" (click)="closeBulk()">
+    @if (bulkOpen) {
+<div class="fixed inset-0 z-50 flex items-center justify-center px-4" (click)="closeBulk()">
       <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
       <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6" (click)="$event.stopPropagation()">
         <div class="flex items-center justify-between mb-4">
@@ -629,13 +686,16 @@ interface BulkPreviewRow {
             Default Branch:
             <select [(ngModel)]="bulkBranchId" class="ml-2 text-xs border border-gray-200 rounded px-2 py-1">
               <option value="">(use row branchId)</option>
-              <option *ngFor="let b of availableBranches" [value]="b.id">{{ b.name || b.branchName }}</option>
+              @for (b of availableBranches; track b) {
+<option [value]="b.id">{{ b.name || b.branchName }}</option>
+}
             </select>
           </label>
           <input #bulkFile type="file" accept=".xlsx,.xls,.csv" (change)="onBulkFile($event)" class="text-xs" />
         </div>
 
-        <div *ngIf="bulkPreview.length > 0" class="border border-gray-100 rounded-lg overflow-hidden mb-4">
+        @if (bulkPreview.length > 0) {
+<div class="border border-gray-100 rounded-lg overflow-hidden mb-4">
           <div class="px-4 py-2 bg-gray-50 text-xs font-medium text-gray-600 flex justify-between">
             <span>Preview — {{ bulkPreview.length }} row(s)</span>
             <span [class]="bulkErrorCount > 0 ? 'text-red-600' : 'text-green-600'">
@@ -655,7 +715,8 @@ interface BulkPreviewRow {
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let r of bulkPreview" [class.bg-red-50]="r.errors.length > 0" class="border-t border-gray-100">
+                @for (r of bulkPreview; track r) {
+<tr [class.bg-red-50]="r.errors.length > 0" class="border-t border-gray-100">
                   <td class="px-2 py-1.5 text-gray-400">{{ r.index + 1 }}</td>
                   <td class="px-2 py-1.5">{{ r.dto.name || '—' }}</td>
                   <td class="px-2 py-1.5">{{ r.dto.skillCategory || '—' }}</td>
@@ -663,22 +724,32 @@ interface BulkPreviewRow {
                   <td class="px-2 py-1.5">{{ branchName(r.dto.branchId || bulkBranchId) || '(default)' }}</td>
                   <td class="px-2 py-1.5 text-red-600">{{ r.errors.join('; ') || '—' }}</td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
         </div>
+}
 
-        <div *ngIf="bulkResult" class="text-sm rounded-lg p-3 mb-4"
+        @if (bulkResult) {
+<div class="text-sm rounded-lg p-3 mb-4"
              [class.bg-green-50]="bulkResult.failed === 0"
              [class.bg-amber-50]="bulkResult.failed > 0">
           <strong>Created:</strong> {{ bulkResult.created }} ·
           <strong>Failed:</strong> {{ bulkResult.failed }}
-          <ul *ngIf="bulkResult.failed > 0" class="mt-2 list-disc pl-5 text-xs text-red-700">
-            <li *ngFor="let r of bulkResult.results">
-              <span *ngIf="!r.ok">Row {{ r.index + 1 }}: {{ r.error }}</span>
+          @if (bulkResult.failed > 0) {
+<ul class="mt-2 list-disc pl-5 text-xs text-red-700">
+            @for (r of bulkResult.results; track r) {
+<li>
+              @if (!r.ok) {
+<span>Row {{ r.index + 1 }}: {{ r.error }}</span>
+}
             </li>
+}
           </ul>
+}
         </div>
+}
 
         <div class="flex gap-3">
           <button
@@ -687,7 +758,9 @@ interface BulkPreviewRow {
             [disabled]="bulkPreview.length === 0 || bulkUploading || bulkValidCount === 0"
             class="flex-1 inline-flex justify-center items-center gap-2 py-2.5 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 rounded-lg"
           >
-            <span *ngIf="bulkUploading" class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+            @if (bulkUploading) {
+<span class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+}
             {{ bulkUploading ? 'Uploading…' : 'Upload ' + bulkValidCount + ' valid row(s)' }}
           </button>
           <button type="button" (click)="closeBulk()" class="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">
@@ -696,9 +769,11 @@ interface BulkPreviewRow {
         </div>
       </div>
     </div>
+}
 
     <!-- ── Deactivate Confirm Modal ──────────────────────────────────────── -->
-    <div *ngIf="deactivateTarget" class="fixed inset-0 z-50 flex items-center justify-center px-4" (click)="deactivateTarget = null">
+    @if (deactivateTarget) {
+<div class="fixed inset-0 z-50 flex items-center justify-center px-4" (click)="deactivateTarget = null">
       <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
       <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
         <h2 class="text-base font-semibold text-gray-900 mb-2">Deactivate Employee</h2>
@@ -720,7 +795,9 @@ interface BulkPreviewRow {
             [disabled]="saving"
             class="flex-1 inline-flex justify-center items-center gap-2 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-lg transition-colors"
           >
-            <span *ngIf="saving" class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+            @if (saving) {
+<span class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+}
             {{ saving ? 'Deactivating…' : 'Confirm Deactivate' }}
           </button>
           <button
@@ -731,6 +808,7 @@ interface BulkPreviewRow {
         </div>
       </div>
     </div>
+}
   `,
 })
 export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {

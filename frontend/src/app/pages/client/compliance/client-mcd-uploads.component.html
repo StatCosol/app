@@ -1,29 +1,41 @@
 <ui-page-header title="MCD Uploads" subtitle="Upload monthly compliance documents for CRM review"></ui-page-header>
 
 <div class="filters">
-  <label *ngIf="!singleBranch">
+  @if (!singleBranch) {
+<label>
     Branch
     <select id="cmu-branch-id" name="branchId" [(ngModel)]="filters.branchId" (change)="loadTasks()">
-      <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name }}</option>
+      @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchName || b.name }}</option>
+}
     </select>
   </label>
-  <span *ngIf="singleBranch" class="text-sm text-gray-600">Branch: {{ branches[0]?.branchName || branches[0]?.name || '' }}</span>
+}
+  @if (singleBranch) {
+<span class="text-sm text-gray-600">Branch: {{ branches[0]?.branchName || branches[0]?.name || '' }}</span>
+}
   <label>
     Month
     <select id="cmu-month" name="month" [(ngModel)]="filters.month" (change)="loadTasks()">
-      <option *ngFor="let m of monthOptions" [value]="m.value">{{ m.label }}</option>
+      @for (m of monthOptions; track m) {
+<option [value]="m.value">{{ m.label }}</option>
+}
     </select>
   </label>
   <label>
     Year
     <select id="cmu-year" name="year" [(ngModel)]="filters.year" (change)="loadTasks()">
-      <option *ngFor="let y of yearOptions" [value]="y">{{ y }}</option>
+      @for (y of yearOptions; track y) {
+<option [value]="y">{{ y }}</option>
+}
     </select>
   </label>
 </div>
 
-<section class="content" *ngIf="!loading && tasks.length; else emptyOrLoading">
-  <div class="task-card" *ngFor="let task of tasks">
+@if (!loading && tasks.length) {
+<section class="content">
+  @for (task of tasks; track task) {
+<div class="task-card">
     <div class="task-head">
       <div>
         <div class="title">{{ task.complianceTitle }}</div>
@@ -33,24 +45,40 @@
     </div>
     <div class="body">
       <div>Due: {{ task.dueDate || '-' }}</div>
-      <div *ngIf="task.window">Window: {{ task.window.start }} → {{ task.window.end }}</div>
-      <div *ngIf="task.lastUploadedAt">Last uploaded: {{ task.lastUploadedAt | date:'short' }}</div>
+      @if (task.window) {
+<div>Window: {{ task.window.start }} → {{ task.window.end }}</div>
+}
+      @if (task.lastUploadedAt) {
+<div>Last uploaded: {{ task.lastUploadedAt | date:'short' }}</div>
+}
     </div>
     <div class="badge-row">
       <ui-status-badge [status]="task.status"></ui-status-badge>
       <span class="files">Evidence: {{ task.evidenceCount || 0 }} file(s)</span>
     </div>
-    <div class="actions" *ngIf="task.canUpload; else locked">
+    @if (task.canUpload) {
+<div class="actions">
       <input #fileInput type="file" hidden accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onFileSelected(task, $event)" />
       <button type="button" (click)="fileInput.click()" [disabled]="uploading[task.id]">{{ uploading[task.id] ? 'Uploading...' : 'Upload file' }}</button>
     </div>
-    <ng-template #locked>
-      <div class="locked">Uploads allowed from 20th to 27th of the following month.</div>
-    </ng-template>
-  </div>
-</section>
+} @else {
 
-<ng-template #emptyOrLoading>
-  <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
-  <ui-empty-state *ngIf="!loading" message="No compliance tasks found for the selected period." icon="folder-open"></ui-empty-state>
-</ng-template>
+      <div class="locked">Uploads allowed from 20th to 27th of the following month.</div>
+    
+}
+    
+  </div>
+}
+</section>
+} @else {
+
+  @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
+  @if (!loading) {
+<ui-empty-state message="No compliance tasks found for the selected period." icon="folder-open"></ui-empty-state>
+}
+
+}
+
+

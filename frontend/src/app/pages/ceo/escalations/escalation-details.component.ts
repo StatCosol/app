@@ -17,13 +17,18 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
         ← Back to Escalations
       </a>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading escalation details..."></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading escalation details..."></ui-loading-spinner>
+}
 
-      <div *ngIf="errorMsg" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+      @if (errorMsg) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
         {{ errorMsg }}
       </div>
+}
 
-      <div *ngIf="!loading && escalation" class="space-y-6">
+      @if (!loading && escalation) {
+<div class="space-y-6">
         <ui-page-header title="Escalation" [subtitle]="escalation.subject || ('#' + escalation.id)"></ui-page-header>
 
         <!-- Details card -->
@@ -58,11 +63,15 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
         <div class="bg-white rounded-lg border border-gray-200 p-6">
           <h3 class="text-base font-semibold text-gray-900 mb-4">Comments</h3>
 
-          <div *ngIf="!escalation.comments || escalation.comments.length === 0"
+          @if (!escalation.comments || escalation.comments.length === 0) {
+<div
                class="text-sm text-gray-500">No comments yet.</div>
+}
 
-          <div *ngIf="escalation.comments && escalation.comments.length > 0" class="space-y-3 mb-4">
-            <div *ngFor="let c of escalation.comments"
+          @if (escalation.comments && escalation.comments.length > 0) {
+<div class="space-y-3 mb-4">
+            @for (c of escalation.comments; track c) {
+<div
                  class="bg-gray-50 rounded-lg p-3 border border-gray-100">
               <div class="flex items-center justify-between mb-1">
                 <span class="text-xs font-medium text-gray-700">{{ c.userName || c.userEmail || 'User' }}</span>
@@ -70,16 +79,23 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
               </div>
               <p class="text-sm text-gray-800">{{ c.message }}</p>
             </div>
+}
           </div>
+}
 
           <!-- Add Comment -->
-          <div *ngIf="escalation.status !== 'CLOSED' && escalation.status !== 'RESOLVED'">
-            <div *ngIf="actionMsg" class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-3 text-sm">
+          @if (escalation.status !== 'CLOSED' && escalation.status !== 'RESOLVED') {
+<div>
+            @if (actionMsg) {
+<div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-3 text-sm">
               {{ actionMsg }}
             </div>
-            <div *ngIf="actionErr" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-3 text-sm">
+}
+            @if (actionErr) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-3 text-sm">
               {{ actionErr }}
             </div>
+}
 
             <div class="mb-3">
               <textarea autocomplete="off" id="ed-new-comment" name="newComment" [(ngModel)]="newComment" rows="2" placeholder="Add a comment..."
@@ -99,8 +115,10 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
               </button>
             </div>
           </div>
+}
         </div>
       </div>
+}
     </main>
   `,
 })

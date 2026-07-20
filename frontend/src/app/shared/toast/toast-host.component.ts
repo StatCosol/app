@@ -8,8 +8,9 @@ import { ToastService } from './toast.service';
   imports: [CommonModule],
   template: `
     <div class="toast-host">
-      <div
-        *ngFor="let toast of toastService.toasts$ | async"
+      @for (toast of toastService.toasts$ | async; track toast) {
+<div
+       
         class="toast"
         [class.toast-success]="toast.type === 'success'"
         [class.toast-error]="toast.type === 'error'"
@@ -24,6 +25,7 @@ import { ToastService } from './toast.service';
         </div>
         <div class="toast-body">{{ toast.message }}</div>
       </div>
+}
     </div>
   `,
   styles: [

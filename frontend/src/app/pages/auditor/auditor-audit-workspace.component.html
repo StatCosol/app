@@ -4,16 +4,19 @@
       <h1>Audit Review Workspace</h1>
       <p>Work from left to right: review uploads, recheck corrections if needed, capture findings, and submit only when the audit is fully cleared.</p>
     </div>
-    <ui-client-context-strip
-      *ngIf="hasAuditContext"
+    @if (hasAuditContext) {
+<ui-client-context-strip
+     
       [inline]="true"
       [clientName]="audit?.client?.clientName || ''"
       [clientCode]="audit?.client?.clientCode || ''"
       [badges]="[{ label: 'Audit', value: audit?.auditCode || '' }, { label: 'Branch', value: audit?.branch?.branchName || '' }]">
     </ui-client-context-strip>
+}
   </header>
 
-  <div class="head-controls flex items-center gap-3 flex-wrap mb-3.5" *ngIf="hasAuditContext">
+  @if (hasAuditContext) {
+<div class="head-controls flex items-center gap-3 flex-wrap mb-3.5">
     <button type="button" class="btn btn-ghost" [disabled]="busy || loadingAudit" (click)="goBack()" title="Back to audits list">
       Back to audits
     </button>
@@ -30,9 +33,11 @@
       Refresh
     </button>
   </div>
+}
 
   <!-- Phase 4: Publish preliminary findings dialog -->
-  <div class="modal-backdrop fixed inset-0 bg-slate-900/45 flex items-center justify-center z-[1000]" *ngIf="showPreliminaryDialog" (click)="closePreliminaryDialog()">
+  @if (showPreliminaryDialog) {
+<div class="modal-backdrop fixed inset-0 bg-slate-900/45 flex items-center justify-center z-[1000]" (click)="closePreliminaryDialog()">
     <div class="modal-card card max-w-[480px] w-[92%] p-5" (click)="$event.stopPropagation()">
       <h3 class="mb-2 text-base font-semibold">Publish Preliminary Findings</h3>
       <p class="mb-3 text-xs text-slate-500">All open non-compliances on this audit will be sent to the vendor (contractor / branch) with a closure window. The audit moves to <strong>Correction Pending</strong>.</p>
@@ -50,16 +55,21 @@
       </div>
     </div>
   </div>
+}
 
-  <div *ngIf="loading" class="loader">Loading audit cockpit...</div>
+  @if (loading) {
+<div class="loader">Loading audit cockpit...</div>
+}
 
-  <section class="card" *ngIf="!loading && !hasAuditContext">
+  @if (!loading && !hasAuditContext) {
+<section class="card">
     <header class="section-head">
       <h2>Select Assigned Audit</h2>
       <span>{{ assignedAudits.length }} audits</span>
     </header>
 
-    <div class="table-wrap" *ngIf="assignedAudits.length; else noAssignedAudits">
+    @if (assignedAudits.length) {
+<div class="table-wrap">
       <table>
         <thead>
           <tr>
@@ -71,7 +81,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let row of assignedAudits; trackBy: trackAudit">
+          @for (row of assignedAudits; track trackAudit($index, row)) {
+<tr>
             <td>
               <div class="strong">{{ row.auditCode || 'Audit' }}</div>
               <div class="minor">{{ row.auditType }} | {{ row.frequency }}</div>
@@ -83,16 +94,22 @@
               <button type="button" class="link" (click)="openAuditWorkspace(row)">Open workspace</button>
             </td>
           </tr>
+}
         </tbody>
       </table>
     </div>
+} @else {
 
-    <ng-template #noAssignedAudits>
       <div class="empty-mini">No assigned audits found.</div>
-    </ng-template>
-  </section>
+    
+}
 
-  <ng-container *ngIf="!loading && hasAuditContext && audit as auditDetail">
+    
+  </section>
+}
+
+  @if (!loading && hasAuditContext && audit; as auditDetail) {
+
     <section class="summary-grid">
       <article class="summary-card summary-card--info">
         <span class="label">Audit Status</span>
@@ -138,8 +155,9 @@
     </section>
 
     <nav class="tab-bar card">
-      <button
-        *ngFor="let tab of workspaceTabs"
+      @for (tab of workspaceTabs; track tab) {
+<button
+       
         type="button"
         class="tab-btn"
         [class.tab-btn--active]="activeTab === tab.key"
@@ -148,13 +166,18 @@
         <span class="tab-btn__title">{{ tab.label }}</span>
         <span class="tab-btn__meta">{{ tab.meta }}</span>
       </button>
+}
     </nav>
 
-    <ng-container *ngIf="activeTab === 'info'">
+    @if (activeTab === 'info') {
+
       <section class="card mb-5">
         <header class="section-head"><h2>Audit Overview</h2></header>
-        <div *ngIf="loadingInfo" class="loader">Loading audit info...</div>
-        <div *ngIf="!loadingInfo && auditInfo" class="kv-grid gap-4">
+        @if (loadingInfo) {
+<div class="loader">Loading audit info...</div>
+}
+        @if (!loadingInfo && auditInfo) {
+<div class="kv-grid gap-4">
           <div><span>Audit Code</span><strong>{{ auditInfo.auditCode || auditDetail.auditCode || '-' }}</strong></div>
           <div><span>Status</span><strong><span [class]="statusClass(auditInfo.status || auditDetail.status)">{{ formatLabel(auditInfo.status || auditDetail.status) }}</span></strong></div>
           <div><span>Client</span><strong>{{ auditInfo.clientName || '-' }}</strong></div>
@@ -169,11 +192,20 @@
           <div><span>Scheduled By</span><strong>{{ auditInfo.scheduledByName || '-' }}</strong></div>
           <div><span>Score</span><strong>{{ auditInfo.score ?? '-' }}</strong></div>
           <div><span>Created</span><strong>{{ formatDate(auditInfo.createdAt) }}</strong></div>
-          <div *ngIf="auditInfo.submittedAt"><span>Submitted At</span><strong>{{ formatDate(auditInfo.submittedAt) }}</strong></div>
-          <div *ngIf="auditInfo.finalRemark"><span>Final Remark</span><strong>{{ auditInfo.finalRemark }}</strong></div>
-          <div *ngIf="auditInfo.notes"><span>Notes</span><strong>{{ auditInfo.notes }}</strong></div>
+          @if (auditInfo.submittedAt) {
+<div><span>Submitted At</span><strong>{{ formatDate(auditInfo.submittedAt) }}</strong></div>
+}
+          @if (auditInfo.finalRemark) {
+<div><span>Final Remark</span><strong>{{ auditInfo.finalRemark }}</strong></div>
+}
+          @if (auditInfo.notes) {
+<div><span>Notes</span><strong>{{ auditInfo.notes }}</strong></div>
+}
         </div>
-        <div *ngIf="!loadingInfo && !auditInfo" class="empty-mini">No audit info available.</div>
+}
+        @if (!loadingInfo && !auditInfo) {
+<div class="empty-mini">No audit info available.</div>
+}
       </section>
 
       <section class="workspace-grid mb-5">
@@ -183,15 +215,17 @@
             <span [class]="statusClass(auditDetail.status)">{{ formatLabel(auditDetail.status) }}</span>
           </header>
           <div class="action-row">
-            <button
+            @for (action of nextStatusActions; track action) {
+<button
               type="button"
               class="btn btn-secondary"
-              *ngFor="let action of nextStatusActions"
+             
               [disabled]="busy || !!action.disabled"
               (click)="updateAuditStatus(action.status)"
               [title]="action.reason || ''">
               {{ action.label }}
             </button>
+}
             <button type="button" class="btn btn-primary" [disabled]="busy" (click)="calculateScore()">
               Calculate Severity Score
             </button>
@@ -201,11 +235,17 @@
             <textarea autocomplete="off" id="aaw-status-note" rows="2" name="statusNote" [(ngModel)]="statusNote" placeholder="Optional status note for next transition"></textarea>
           </label>
           <div class="guardrail-card">
-            <div class="guardrail-row" *ngFor="let guard of statusGuardrails">
+            @for (guard of statusGuardrails; track guard) {
+<div class="guardrail-row">
               <span class="guardrail-label">{{ guard.label }}</span>
-              <span class="guardrail-ok" *ngIf="guard.passed">Ready</span>
-              <span class="guardrail-blocked" *ngIf="!guard.passed">{{ guard.detail }}</span>
+              @if (guard.passed) {
+<span class="guardrail-ok">Ready</span>
+}
+              @if (!guard.passed) {
+<span class="guardrail-blocked">{{ guard.detail }}</span>
+}
             </div>
+}
           </div>
         </article>
 
@@ -215,26 +255,32 @@
             <span>{{ checklist.length }} items</span>
           </header>
           <div class="checklist">
-            <label *ngFor="let item of checklist">
+            @for (item of checklist; track item) {
+<label>
               <input type="checkbox" [checked]="item.done" disabled />
               <span [class.done]="item.done">{{ item.label }}</span>
             </label>
+}
           </div>
           <header class="section-head mt">
             <h2>Report Progress</h2>
             <span>{{ completedProgressStepCount }}/{{ progressSteps.length }}</span>
           </header>
           <div class="stepper">
-            <div class="step" *ngFor="let step of progressSteps">
+            @for (step of progressSteps; track step) {
+<div class="step">
               <i [class.done]="step.done" [class.active]="step.active"></i>
               <span [class.done]="step.done">{{ step.label }}</span>
             </div>
+}
           </div>
         </article>
       </section>
-    </ng-container>
+    
+}
 
-    <ng-container *ngIf="activeTab === 'checklist'">
+    @if (activeTab === 'checklist') {
+
       <section class="card mb-5">
         <header class="section-head">
           <h2>Audit Checklist</h2>
@@ -249,16 +295,21 @@
           </div>
         </div>
 
-        <div *ngIf="loadingChecklist" class="loader">Loading checklist...</div>
+        @if (loadingChecklist) {
+<div class="loader">Loading checklist...</div>
+}
 
-        <div *ngIf="!loadingChecklist && checklistItems.length === 0" class="py-3">
+        @if (!loadingChecklist && checklistItems.length === 0) {
+<div class="py-3">
           <p class="text-sm text-gray-500 mb-2.5">No checklist items yet. Auto-generate based on audit type or add manually.</p>
           <button type="button" class="btn btn-primary text-xs" (click)="generateChecklist()">
             Auto-Generate Checklist
           </button>
         </div>
+}
 
-        <div *ngIf="!loadingChecklist && checklistItems.length > 0">
+        @if (!loadingChecklist && checklistItems.length > 0) {
+<div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -271,12 +322,17 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let item of checklistItems; let i = index">
+                @for (item of checklistItems; track item; let i = $index) {
+<tr>
                   <td>{{ i + 1 }}</td>
                   <td>
                     <span class="strong">{{ item.itemLabel }}</span>
-                    <span *ngIf="item.isRequired" class="text-red-600 text-[10px] ml-1">*</span>
-                    <span *ngIf="item.linkedDocId" class="block text-[10px] text-indigo-500 mt-0.5">📄 Auto-verified from document review</span>
+                    @if (item.isRequired) {
+<span class="text-red-600 text-[10px] ml-1">*</span>
+}
+                    @if (item.linkedDocId) {
+<span class="block text-[10px] text-indigo-500 mt-0.5">📄 Auto-verified from document review</span>
+}
                   </td>
                   <td>
                     <span [ngClass]="{
@@ -291,51 +347,67 @@
                   <td class="text-xs text-gray-500">{{ item.remarks || '' }}</td>
                   <td class="text-right whitespace-nowrap">
                     <!-- Auto-verified items: show subtle override buttons only -->
-                    <ng-container *ngIf="item.linkedDocId; else manualActions">
+                    @if (item.linkedDocId) {
+
                       <span class="text-[10px] text-indigo-500 mr-1.5">Auto-marked</span>
-                      <button
-                        *ngIf="item.status !== 'COMPLIED'"
+                      @if (item.status !== 'COMPLIED') {
+<button
+                       
                         type="button"
                         class="btn btn-primary text-[10px] px-2 py-0.5 mr-0.5"
                         (click)="updateChecklistStatus(item, 'COMPLIED')">OK</button>
-                      <button
-                        *ngIf="item.status !== 'NON_COMPLIED'"
+}
+                      @if (item.status !== 'NON_COMPLIED') {
+<button
+                       
                         type="button"
                         class="text-[10px] px-2 py-0.5 mr-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer"
                         (click)="updateChecklistStatus(item, 'NON_COMPLIED')">Not OK</button>
+}
                       <button
                         type="button"
                         class="text-[10px] px-2 py-0.5 bg-transparent text-red-600 border border-red-600 rounded cursor-pointer"
                         (click)="deleteChecklistItem(item)">Delete</button>
-                    </ng-container>
-                    <!-- Manual items: full action buttons -->
-                    <ng-template #manualActions>
-                      <button
-                        *ngIf="item.status !== 'COMPLIED'"
+                    
+} @else {
+
+                      @if (item.status !== 'COMPLIED') {
+<button
+                       
                         type="button"
                         class="btn btn-primary text-[10px] px-2 py-0.5 mr-0.5"
                         (click)="updateChecklistStatus(item, 'COMPLIED')">OK</button>
-                      <button
-                        *ngIf="item.status !== 'NON_COMPLIED'"
+}
+                      @if (item.status !== 'NON_COMPLIED') {
+<button
+                       
                         type="button"
                         class="text-[10px] px-2 py-0.5 mr-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer"
                         (click)="updateChecklistStatus(item, 'NON_COMPLIED')">Not OK</button>
-                      <button
-                        *ngIf="item.status !== 'NOT_APPLICABLE'"
+}
+                      @if (item.status !== 'NOT_APPLICABLE') {
+<button
+                       
                         type="button"
                         class="text-[10px] px-2 py-0.5 mr-0.5 bg-gray-400 text-white border border-gray-400 rounded cursor-pointer"
                         (click)="updateChecklistStatus(item, 'NOT_APPLICABLE')">N/A</button>
+}
                       <button
                         type="button"
                         class="text-[10px] px-2 py-0.5 bg-transparent text-red-600 border border-red-600 rounded cursor-pointer"
                         (click)="deleteChecklistItem(item)">Delete</button>
-                    </ng-template>
+                    
+}
+                    <!-- Manual items: full action buttons -->
+                    
                   </td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
         </div>
+}
 
         <div class="flex gap-2 items-center mt-2.5 pt-2.5 border-t border-gray-200">
           <input
@@ -351,19 +423,24 @@
             (click)="addChecklistItem()">
             Add
           </button>
-          <button
-            *ngIf="checklistSummary.pending > 0"
+          @if (checklistSummary.pending > 0) {
+<button
+           
             type="button"
             class="text-[11px] px-3 py-1 bg-gray-400 text-white border border-gray-400 rounded cursor-pointer"
             (click)="markAllPendingNA()">
             Mark all Pending as N/A
           </button>
+}
         </div>
       </section>
-    </ng-container>
+    
+}
 
-    <ng-container *ngIf="activeTab === 'documents'">
-      <section class="card mb-5" *ngIf="branchDocuments.length > 0">
+    @if (activeTab === 'documents') {
+
+      @if (branchDocuments.length > 0) {
+<section class="card mb-5">
         <header class="section-head">
           <h2>Branch / Unit Documents</h2>
           <span>{{ branchDocuments.length }} documents uploaded by branch for this schedule</span>
@@ -385,7 +462,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let doc of branchDocuments">
+              @for (doc of branchDocuments; track doc) {
+<tr>
                 <td>
                   <div class="strong">{{ doc.fileName }}</div>
                   <div class="minor">by {{ doc.uploadedByName || 'Branch User' }}</div>
@@ -410,26 +488,36 @@
                 </td>
                 <td class="text-right whitespace-nowrap">
                   <button type="button" class="link" (click)="openEvidenceFile(getDocDownloadUrl(doc), doc.fileName || doc.title)">View</button>
-                  <button
-                    *ngIf="doc.status !== 'APPROVED' && doc.status !== 'REJECTED'"
+                  @if (doc.status !== 'APPROVED' && doc.status !== 'REJECTED') {
+<button
+                   
                     type="button"
                     class="btn btn-primary text-[11px] px-2 py-0.5 mr-0.5"
                     [disabled]="reviewingDocId === doc.id"
                     (click)="reviewDocument(doc, 'COMPLIED')">Approve</button>
-                  <button
-                    *ngIf="doc.status !== 'APPROVED' && doc.status !== 'REJECTED'"
+}
+                  @if (doc.status !== 'APPROVED' && doc.status !== 'REJECTED') {
+<button
+                   
                     type="button"
                     class="text-[11px] px-2 py-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer"
                     [disabled]="reviewingDocId === doc.id"
                     (click)="reviewDocument(doc, 'NON_COMPLIED')">Reject</button>
-                  <span *ngIf="doc.status === 'APPROVED'" class="text-emerald-600 font-semibold text-xs">Approved</span>
-                  <span *ngIf="doc.status === 'REJECTED'" class="text-red-600 font-semibold text-xs">Rejected</span>
+}
+                  @if (doc.status === 'APPROVED') {
+<span class="text-emerald-600 font-semibold text-xs">Approved</span>
+}
+                  @if (doc.status === 'REJECTED') {
+<span class="text-red-600 font-semibold text-xs">Rejected</span>
+}
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
       </section>
+}
 
       <section class="card mb-5">
         <header class="section-head">
@@ -439,19 +527,26 @@
         <p class="section-intro">This is the main review queue. Every uploaded file needs an auditor decision before the audit can move forward.</p>
 
         <!-- Branch filter: show docs branch-wise so multi-branch contractor uploads aren't all dumped together -->
-        <div *ngIf="contractorDocBranchOptions.length > 1" class="flex items-center gap-2.5 mb-2.5 flex-wrap">
+        @if (contractorDocBranchOptions.length > 1) {
+<div class="flex items-center gap-2.5 mb-2.5 flex-wrap">
           <label class="text-xs font-semibold text-gray-700">Filter by branch:</label>
           <select [(ngModel)]="contractorDocBranchFilter"
                   class="text-xs px-2.5 py-1 border border-gray-300 rounded-md min-w-[200px]">
             <option value="ALL">All branches ({{ contractorDocuments.length }})</option>
-            <option *ngFor="let b of contractorDocBranchOptions" [value]="b.id">{{ b.name }} ({{ b.count }})</option>
+            @for (b of contractorDocBranchOptions; track b) {
+<option [value]="b.id">{{ b.name }} ({{ b.count }})</option>
+}
           </select>
-          <span *ngIf="contractorDocBranchFilter !== 'ALL'" class="text-xs text-gray-500">
+          @if (contractorDocBranchFilter !== 'ALL') {
+<span class="text-xs text-gray-500">
             Showing {{ filteredContractorDocuments.length }} of {{ contractorDocuments.length }}
           </span>
+}
         </div>
+}
 
-        <div *ngIf="auditDocuments.length" class="mb-3">
+        @if (auditDocuments.length) {
+<div class="mb-3">
           <div class="flex items-center gap-2 mb-1.5">
             <span class="text-sm font-semibold text-emerald-700">Compliance: {{ docCompliancePercent }}%</span>
           </div>
@@ -463,10 +558,14 @@
             </div>
           </div>
         </div>
+}
 
-        <div *ngIf="loadingDocs" class="loader">Loading documents...</div>
+        @if (loadingDocs) {
+<div class="loader">Loading documents...</div>
+}
 
-        <div class="table-wrap" *ngIf="!loadingDocs && contractorDocuments.length; else noDocs">
+        @if (!loadingDocs && contractorDocuments.length) {
+<div class="table-wrap">
           <table>
             <thead>
               <tr>
@@ -480,7 +579,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let doc of filteredContractorDocuments">
+              @for (doc of filteredContractorDocuments; track doc) {
+<tr>
                 <td>
                   <div class="strong">{{ doc.title || doc.fileName }}</div>
                   <div class="minor">{{ doc.fileName }}</div>
@@ -504,33 +604,47 @@
                 </td>
                 <td class="text-right whitespace-nowrap">
                   <button type="button" class="link" (click)="openEvidenceFile(getDocDownloadUrl(doc), doc.fileName || doc.title)">View</button>
-                  <button
-                    *ngIf="doc.status !== 'APPROVED' && doc.status !== 'REJECTED'"
+                  @if (doc.status !== 'APPROVED' && doc.status !== 'REJECTED') {
+<button
+                   
                     type="button"
                     class="btn btn-primary text-[11px] px-2.5 py-0.5 mr-1"
                     [disabled]="reviewingDocId === doc.id"
                     (click)="reviewDocument(doc, 'COMPLIED')">
                     Approve
                   </button>
-                  <button
-                    *ngIf="doc.status !== 'APPROVED' && doc.status !== 'REJECTED'"
+}
+                  @if (doc.status !== 'APPROVED' && doc.status !== 'REJECTED') {
+<button
+                   
                     type="button"
                     class="text-[11px] px-2.5 py-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer"
                     [disabled]="reviewingDocId === doc.id"
                     (click)="reviewDocument(doc, 'NON_COMPLIED')">
                     Reject
                   </button>
-                  <span *ngIf="doc.status === 'APPROVED'" class="text-emerald-600 font-semibold text-xs">Approved</span>
-                  <span *ngIf="doc.status === 'REJECTED'" class="text-red-600 font-semibold text-xs">Rejected</span>
+}
+                  @if (doc.status === 'APPROVED') {
+<span class="text-emerald-600 font-semibold text-xs">Approved</span>
+}
+                  @if (doc.status === 'REJECTED') {
+<span class="text-red-600 font-semibold text-xs">Rejected</span>
+}
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+} @else {
 
-        <ng-template #noDocs>
-          <div *ngIf="!loadingDocs" class="empty-mini">No contractor documents found for this audit scope.</div>
-        </ng-template>
+          @if (!loadingDocs) {
+<div class="empty-mini">No contractor documents found for this audit scope.</div>
+}
+        
+}
+
+        
       </section>
 
       <!-- Checklist panel inline in Documents tab -->
@@ -547,16 +661,21 @@
           </div>
         </div>
 
-        <div *ngIf="loadingChecklist" class="loader">Loading checklist...</div>
+        @if (loadingChecklist) {
+<div class="loader">Loading checklist...</div>
+}
 
-        <div *ngIf="!loadingChecklist && checklistItems.length === 0" class="py-2">
+        @if (!loadingChecklist && checklistItems.length === 0) {
+<div class="py-2">
           <p class="text-[13px] text-gray-500 mb-2">No checklist items yet.</p>
           <button type="button" class="btn btn-primary text-xs" (click)="generateChecklist()">
             Auto-Generate Checklist
           </button>
         </div>
+}
 
-        <div *ngIf="!loadingChecklist && checklistItems.length > 0">
+        @if (!loadingChecklist && checklistItems.length > 0) {
+<div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -569,12 +688,17 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let item of checklistItems; let i = index">
+                @for (item of checklistItems; track item; let i = $index) {
+<tr>
                   <td>{{ i + 1 }}</td>
                   <td>
                     <span class="strong">{{ item.itemLabel }}</span>
-                    <span *ngIf="item.isRequired" class="text-red-600 text-[10px] ml-1">*</span>
-                    <span *ngIf="item.linkedDocId" class="block text-[10px] text-indigo-500 mt-0.5">📄 Auto-verified from document review</span>
+                    @if (item.isRequired) {
+<span class="text-red-600 text-[10px] ml-1">*</span>
+}
+                    @if (item.linkedDocId) {
+<span class="block text-[10px] text-indigo-500 mt-0.5">📄 Auto-verified from document review</span>
+}
                   </td>
                   <td>
                     <span
@@ -590,22 +714,38 @@
                   </td>
                   <td class="text-xs text-gray-500">{{ item.remarks || '' }}</td>
                   <td class="text-right whitespace-nowrap">
-                    <ng-container *ngIf="item.linkedDocId; else docTabManualActions">
+                    @if (item.linkedDocId) {
+
                       <span class="text-[10px] text-indigo-500 mr-1.5">Auto-marked</span>
-                      <button *ngIf="item.status !== 'COMPLIED'" type="button" class="btn btn-primary text-[10px] px-2 py-0.5 mr-0.5" (click)="updateChecklistStatus(item, 'COMPLIED')">OK</button>
-                      <button *ngIf="item.status !== 'NON_COMPLIED'" type="button" class="text-[10px] px-2 py-0.5 mr-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer" (click)="updateChecklistStatus(item, 'NON_COMPLIED')">Not OK</button>
-                    </ng-container>
-                    <ng-template #docTabManualActions>
-                      <button *ngIf="item.status !== 'COMPLIED'" type="button" class="btn btn-primary text-[10px] px-2 py-0.5 mr-0.5" (click)="updateChecklistStatus(item, 'COMPLIED')">OK</button>
-                      <button *ngIf="item.status !== 'NON_COMPLIED'" type="button" class="text-[10px] px-2 py-0.5 mr-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer" (click)="updateChecklistStatus(item, 'NON_COMPLIED')">Not OK</button>
-                      <button *ngIf="item.status !== 'NOT_APPLICABLE'" type="button" class="text-[10px] px-2 py-0.5 bg-gray-400 text-white border border-gray-400 rounded cursor-pointer" (click)="updateChecklistStatus(item, 'NOT_APPLICABLE')">N/A</button>
-                    </ng-template>
+                      @if (item.status !== 'COMPLIED') {
+<button type="button" class="btn btn-primary text-[10px] px-2 py-0.5 mr-0.5" (click)="updateChecklistStatus(item, 'COMPLIED')">OK</button>
+}
+                      @if (item.status !== 'NON_COMPLIED') {
+<button type="button" class="text-[10px] px-2 py-0.5 mr-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer" (click)="updateChecklistStatus(item, 'NON_COMPLIED')">Not OK</button>
+}
+                    
+} @else {
+
+                      @if (item.status !== 'COMPLIED') {
+<button type="button" class="btn btn-primary text-[10px] px-2 py-0.5 mr-0.5" (click)="updateChecklistStatus(item, 'COMPLIED')">OK</button>
+}
+                      @if (item.status !== 'NON_COMPLIED') {
+<button type="button" class="text-[10px] px-2 py-0.5 mr-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer" (click)="updateChecklistStatus(item, 'NON_COMPLIED')">Not OK</button>
+}
+                      @if (item.status !== 'NOT_APPLICABLE') {
+<button type="button" class="text-[10px] px-2 py-0.5 bg-gray-400 text-white border border-gray-400 rounded cursor-pointer" (click)="updateChecklistStatus(item, 'NOT_APPLICABLE')">N/A</button>
+}
+                    
+}
+                    
                   </td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
-          <div *ngIf="checklistSummary.pending > 0" class="mt-2.5 pt-2.5 border-t border-gray-200">
+          @if (checklistSummary.pending > 0) {
+<div class="mt-2.5 pt-2.5 border-t border-gray-200">
             <button
               type="button"
               class="text-[11px] px-3 py-1 bg-gray-400 text-white border border-gray-400 rounded cursor-pointer"
@@ -613,10 +753,13 @@
               Mark all Pending as N/A
             </button>
           </div>
+}
         </div>
+}
       </section>
 
-      <section class="card mb-5" *ngIf="filteredEvidenceRows.length > 0">
+      @if (filteredEvidenceRows.length > 0) {
+<section class="card mb-5">
         <header class="section-head">
           <h2>Supporting Evidence</h2>
           <span>{{ filteredEvidenceRows.length }} rows</span>
@@ -640,7 +783,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of filteredEvidenceRows; trackBy: trackEvidence">
+              @for (row of filteredEvidenceRows; track trackEvidence($index, row)) {
+<tr>
                 <td>
                   <div class="strong">{{ row.fileName }}</div>
                   <div class="minor">{{ row.task?.compliance?.title || '-' }}</div>
@@ -652,49 +796,62 @@
                   <button type="button" class="link" (click)="openEvidenceFile(getDownloadUrl(row), row.fileName, 'download')">Download</button>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
       </section>
-    </ng-container>
+}
+    
+}
 
-    <ng-container *ngIf="activeTab === 'submit'">
+    @if (activeTab === 'submit') {
+
       <section class="card mb-5">
         <header class="section-head">
           <h2>Final Review And Submission</h2>
         </header>
         <p class="section-intro">Use this area only after document decisions and correction loops are complete.</p>
 
-        <div *ngIf="statusKey(auditDetail.status) === 'COMPLETED'" class="py-3">
+        @if (statusKey(auditDetail.status) === 'COMPLETED') {
+<div class="py-3">
           <div class="flex items-center gap-2.5 mb-3">
             <span class="text-sm font-semibold text-emerald-800">Audit Completed</span>
-            <span
-              *ngIf="auditDetail.score !== null"
+            @if (auditDetail.score !== null) {
+<span
+             
               class="text-sm font-bold"
               [style.color]="auditDetail.score >= 80 ? '#059669' : auditDetail.score >= 50 ? '#d97706' : '#dc2626'">
               Score: {{ auditDetail.score }}/100
             </span>
+}
           </div>
           <button type="button" class="btn btn-secondary" [disabled]="busy" (click)="reopenForReaudit()">
             Re-open for Re-Audit
           </button>
           <p class="text-xs text-gray-500 mt-1.5">Re-open allows the contractor to upload corrected documents for re-review.</p>
         </div>
+}
 
-        <div *ngIf="statusKey(auditDetail.status) === 'SUBMITTED'" class="py-3">
+        @if (statusKey(auditDetail.status) === 'SUBMITTED') {
+<div class="py-3">
           <div class="flex items-center gap-2.5 mb-2">
             <span class="text-sm font-semibold text-blue-700">Audit Submitted</span>
-            <span
-              *ngIf="auditDetail.score !== null"
+            @if (auditDetail.score !== null) {
+<span
+             
               class="text-sm font-bold"
               [style.color]="auditDetail.score >= 80 ? '#059669' : auditDetail.score >= 50 ? '#d97706' : '#dc2626'">
               Score: {{ auditDetail.score }}/100
             </span>
+}
           </div>
           <p class="text-[13px] text-gray-600">Awaiting CRM review. No further action required unless corrections are requested.</p>
         </div>
+}
 
-        <div *ngIf="statusKey(auditDetail.status) === 'CORRECTION_PENDING'" class="py-3">
+        @if (statusKey(auditDetail.status) === 'CORRECTION_PENDING') {
+<div class="py-3">
           <div class="flex items-center gap-2.5 mb-2">
             <span class="text-sm font-semibold text-amber-600">Corrections Pending</span>
           </div>
@@ -702,8 +859,10 @@
             Rejection notices have been sent. Go to the <strong>Review Corrections</strong> tab to check corrected uploads once the stakeholder responds.
           </p>
         </div>
+}
 
-        <div *ngIf="statusKey(auditDetail.status) === 'REVERIFICATION_PENDING'" class="py-3">
+        @if (statusKey(auditDetail.status) === 'REVERIFICATION_PENDING') {
+<div class="py-3">
           <div class="flex items-center gap-2.5 mb-2">
             <span class="text-sm font-semibold text-violet-700">Reverification Pending</span>
           </div>
@@ -719,13 +878,17 @@
             <button type="button" class="btn btn-primary" [disabled]="busy || !canSubmitReviewRound" (click)="submitAuditWithRemark()">
               {{ busy ? 'Submitting...' : 'Re-Submit Audit' }}
             </button>
-            <span *ngIf="submitReviewGuardMessage" class="text-xs text-amber-600">
+            @if (submitReviewGuardMessage) {
+<span class="text-xs text-amber-600">
               {{ submitReviewGuardMessage }}
             </span>
+}
           </div>
         </div>
+}
 
-        <div *ngIf="!['COMPLETED','SUBMITTED','CORRECTION_PENDING','REVERIFICATION_PENDING'].includes(statusKey(auditDetail.status))" class="py-3">
+        @if (!['COMPLETED','SUBMITTED','CORRECTION_PENDING','REVERIFICATION_PENDING'].includes(statusKey(auditDetail.status))) {
+<div class="py-3">
           <p class="text-[13px] text-gray-700 mb-2.5">
             Submit only after every uploaded document has an auditor decision and every rejected item has come back through the correction loop and been cleared.
           </p>
@@ -738,9 +901,11 @@
             <button type="button" class="btn btn-primary" [disabled]="busy || !canSubmitReviewRound" (click)="submitAuditWithRemark()">
               {{ busy ? 'Submitting...' : 'Submit Audit' }}
             </button>
-            <span *ngIf="submitReviewGuardMessage" class="text-xs text-amber-600">
+            @if (submitReviewGuardMessage) {
+<span class="text-xs text-amber-600">
               {{ submitReviewGuardMessage }}
             </span>
+}
           </div>
           <!-- Force Finalize: bypass pending docs/NCs -->
           <div class="mt-5 pt-3.5 border-t border-gray-200">
@@ -754,6 +919,7 @@
             </button>
           </div>
         </div>
+}
       </section>
 
       <!-- Upload Lock Window -->
@@ -782,16 +948,20 @@
             (click)="saveUploadLock()">
             {{ uploadLockSaving ? 'Saving...' : 'Set Lock Window' }}
           </button>
-          <button type="button" class="btn btn-secondary"
-            *ngIf="uploadLockFrom || uploadLockUntil"
+          @if (uploadLockFrom || uploadLockUntil) {
+<button type="button" class="btn btn-secondary"
+           
             [disabled]="uploadLockSaving" (click)="clearUploadLock()">
             Clear Lock
           </button>
+}
         </div>
-        <p *ngIf="uploadLockFrom && uploadLockUntil"
+        @if (uploadLockFrom && uploadLockUntil) {
+<p
           class="mt-2.5 text-xs px-2.5 py-2 rounded-md bg-yellow-50 border border-yellow-300 text-yellow-900">
           Active lock: <strong>{{ uploadLockFrom }}</strong> to <strong>{{ uploadLockUntil }}</strong> — vendor cannot upload documents during this window.
         </p>
+}
       </section>
 
       <section class="card mb-5">
@@ -806,13 +976,17 @@
             Category
             <select id="aaw-category-id" name="categoryId" [(ngModel)]="observationForm.categoryId">
               <option value="">Select category</option>
-              <option *ngFor="let c of categories" [value]="c.id">{{ c.name }}</option>
+              @for (c of categories; track c) {
+<option [value]="c.id">{{ c.name }}</option>
+}
             </select>
           </label>
           <label>
             Severity / Risk
             <select id="aaw-risk" name="risk" [(ngModel)]="observationForm.risk">
-              <option *ngFor="let risk of riskOptions" [value]="risk">{{ risk }}</option>
+              @for (risk of riskOptions; track risk) {
+<option [value]="risk">{{ risk }}</option>
+}
             </select>
           </label>
           <label class="span-2">
@@ -841,7 +1015,8 @@
           </label>
         </div>
 
-        <div class="guardrail-card" *ngIf="aiDraft">
+        @if (aiDraft) {
+<div class="guardrail-card">
           <div class="guardrail-row">
             <span class="guardrail-label">AI Draft</span>
             <span class="guardrail-ok">{{ aiDraft.aiModel || 'Rule-based' }}</span>
@@ -850,15 +1025,20 @@
             <span class="guardrail-label">Suggested Risk</span>
             <span [class]="riskClass(aiDraft.riskRating)">{{ aiDraft.riskRating || 'MEDIUM' }}</span>
           </div>
-          <div class="guardrail-row" *ngIf="aiDraft.timelineDays">
+          @if (aiDraft.timelineDays) {
+<div class="guardrail-row">
             <span class="guardrail-label">Suggested Timeline</span>
             <span>{{ aiDraft.timelineDays }} days</span>
           </div>
-          <div class="guardrail-row" *ngIf="aiDraftConfidence !== null">
+}
+          @if (aiDraftConfidence !== null) {
+<div class="guardrail-row">
             <span class="guardrail-label">Confidence</span>
             <span>{{ aiDraftConfidence }}%</span>
           </div>
+}
         </div>
+}
 
         <div class="action-row">
           <button type="button" class="btn btn-secondary" [disabled]="busy || aiDrafting || !canGenerateAiDraft" (click)="generateAiDraft()">
@@ -876,7 +1056,8 @@
           <span class="badge badge--muted">Low: {{ riskBreakdown.LOW }}</span>
         </div>
 
-        <div class="table-wrap small" *ngIf="observations.length; else noObservations">
+        @if (observations.length) {
+<div class="table-wrap small">
           <table>
             <thead>
               <tr>
@@ -886,7 +1067,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let obs of observations; trackBy: trackObservation">
+              @for (obs of observations; track trackObservation($index, obs)) {
+<tr>
                 <td>
                   <div class="strong">{{ obs.observation || '-' }}</div>
                   <div class="minor">{{ obs.clause || '-' }}</div>
@@ -894,23 +1076,34 @@
                 <td><span [class]="riskClass(obs.risk)">{{ obs.risk || 'LOW' }}</span></td>
                 <td><span [class]="statusClass(obs.status)">{{ formatLabel(obs.status || 'OPEN') }}</span></td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+} @else {
 
-        <ng-template #noObservations>
           <div class="empty-mini">No observations added for this audit yet.</div>
-        </ng-template>
-      </section>
-    </ng-container>
+        
+}
 
-    <ng-container *ngIf="activeTab === 'history'">
+        
+      </section>
+    
+}
+
+    @if (activeTab === 'history') {
+
       <section class="card mb-5">
         <header class="section-head"><h2>Submission History</h2></header>
         <p class="section-intro">Each row shows one review round for this audit.</p>
-        <div *ngIf="loadingHistory" class="loader">Loading history...</div>
-        <div *ngIf="!loadingHistory && submissionHistory.length === 0" class="empty-mini">No submissions yet.</div>
-        <div *ngIf="!loadingHistory && submissionHistory.length > 0" class="table-wrap">
+        @if (loadingHistory) {
+<div class="loader">Loading history...</div>
+}
+        @if (!loadingHistory && submissionHistory.length === 0) {
+<div class="empty-mini">No submissions yet.</div>
+}
+        @if (!loadingHistory && submissionHistory.length > 0) {
+<div class="table-wrap">
           <table>
             <thead>
               <tr>
@@ -922,21 +1115,27 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let v of submissionHistory">
+              @for (v of submissionHistory; track v) {
+<tr>
                 <td>v{{ v.version }}</td>
                 <td class="text-emerald-600 font-semibold">{{ v.complied }}</td>
                 <td class="text-red-600 font-semibold">{{ v.nonComplied }}</td>
                 <td>{{ v.reviewCount }}</td>
                 <td>{{ formatDate(v.latestReviewAt) }}</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+}
       </section>
-    </ng-container>
+    
+}
 
-    <ng-container *ngIf="activeTab === 'corrected'">
-      <section *ngIf="ncOverview" class="card mb-3.5 bg-yellow-50 border border-yellow-200">
+    @if (activeTab === 'corrected') {
+
+      @if (ncOverview) {
+<section class="card mb-3.5 bg-yellow-50 border border-yellow-200">
         <header class="section-head">
           <h2 class="text-sm">NC Overview</h2>
         </header>
@@ -945,27 +1144,37 @@
           <span><strong>Awaiting reupload:</strong> {{ ncOverview.awaitingReuploadCount ?? 0 }}</span>
           <span><strong>Reverification pending:</strong> {{ ncOverview.reverificationPendingCount ?? 0 }}</span>
           <span><strong>Closed:</strong> {{ ncOverview.closedCount ?? 0 }}</span>
-          <span *ngIf="ncOverview.recurringCount as rc" class="text-rose-800 font-semibold">
+          @if (ncOverview.recurringCount; as rc) {
+<span class="text-rose-800 font-semibold">
             ⚠ Recurring NCs: {{ rc }}
           </span>
+}
         </div>
       </section>
+}
 
       <section class="card mb-5">
         <header class="section-head">
           <h2>Corrections Awaiting Reverification</h2>
-          <span *ngIf="ncSummary">
+          @if (ncSummary) {
+<span>
             {{ ncSummary.total || 0 }} total
             &middot; {{ unresolvedCorrectionCount }} unresolved
             &middot; {{ correctedPendingReviewCount }} ready for review
           </span>
+}
         </header>
         <p class="section-intro">
           Rejected documents stay here until the stakeholder uploads a corrected file. Review the corrected upload, add remarks if needed, and approve it before final submission.
         </p>
-        <div *ngIf="loadingNc" class="loader">Loading non-compliances...</div>
-        <div *ngIf="!loadingNc && nonCompliances.length === 0" class="empty-mini">No non-compliances found.</div>
-        <div *ngIf="!loadingNc && nonCompliances.length > 0" class="table-wrap">
+        @if (loadingNc) {
+<div class="loader">Loading non-compliances...</div>
+}
+        @if (!loadingNc && nonCompliances.length === 0) {
+<div class="empty-mini">No non-compliances found.</div>
+}
+        @if (!loadingNc && nonCompliances.length > 0) {
+<div class="table-wrap">
           <table>
             <thead>
               <tr>
@@ -978,7 +1187,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let nc of nonCompliances">
+              @for (nc of nonCompliances; track nc) {
+<tr>
                 <td>
                   <div class="strong">{{ nc.documentName || nc.document_name || '-' }}</div>
                   <div class="minor">Raised {{ formatDate(nc.raisedAt || nc.raised_at) }}</div>
@@ -986,17 +1196,21 @@
                 <td><span [class]="statusClass(nc.status)">{{ formatLabel(nc.status) }}</span></td>
                 <td class="text-xs">{{ nc.remark || '-' }}</td>
                 <td>
-                  <ng-container *ngIf="getCorrectedFileUrl(nc) as correctedUrl; else awaitingCorrection">
+                  @if (getCorrectedFileUrl(nc); as correctedUrl) {
+
                     <button type="button" class="link" (click)="openEvidenceFile(correctedUrl, nc.correctedFileName || 'corrected-file')">
                       {{ nc.correctedFileName || 'Open corrected file' }}
                     </button>
                     <div class="minor">
                       {{ nc.resubmittedByName || 'Stakeholder' }} on {{ formatDate(nc.resubmittedAt) }}
                     </div>
-                  </ng-container>
-                  <ng-template #awaitingCorrection>
+                  
+} @else {
+
                     <span class="minor">Waiting for stakeholder upload</span>
-                  </ng-template>
+                  
+}
+                  
                 </td>
                 <td>
                   <input
@@ -1008,31 +1222,41 @@
                     [disabled]="!getCorrectedFileUrl(nc) || statusKey(nc.status) === 'ACCEPTED' || statusKey(nc.status) === 'CLOSED'" />
                 </td>
                 <td class="text-right whitespace-nowrap">
-                  <button
-                    *ngIf="getCorrectedFileUrl(nc) && statusKey(nc.status) !== 'ACCEPTED' && statusKey(nc.status) !== 'CLOSED'"
+                  @if (getCorrectedFileUrl(nc) && statusKey(nc.status) !== 'ACCEPTED' && statusKey(nc.status) !== 'CLOSED') {
+<button
+                   
                     type="button"
                     class="btn btn-primary text-[11px] px-2.5 py-0.5 mr-1"
                     [disabled]="busy"
                     (click)="reviewCorrectedDocument(nc, 'COMPLIED')">
                     Approve
                   </button>
-                  <button
-                    *ngIf="getCorrectedFileUrl(nc) && statusKey(nc.status) !== 'ACCEPTED' && statusKey(nc.status) !== 'CLOSED'"
+}
+                  @if (getCorrectedFileUrl(nc) && statusKey(nc.status) !== 'ACCEPTED' && statusKey(nc.status) !== 'CLOSED') {
+<button
+                   
                     type="button"
                     class="text-[11px] px-2.5 py-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer"
                     [disabled]="busy"
                     (click)="reviewCorrectedDocument(nc, 'NON_COMPLIED')">
                     Reject Again
                   </button>
-                  <span *ngIf="statusKey(nc.status) === 'ACCEPTED' || statusKey(nc.status) === 'CLOSED'" class="minor font-semibold text-emerald-600">
+}
+                  @if (statusKey(nc.status) === 'ACCEPTED' || statusKey(nc.status) === 'CLOSED') {
+<span class="minor font-semibold text-emerald-600">
                     Cleared
                   </span>
+}
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+}
       </section>
-    </ng-container>
-  </ng-container>
+    
+}
+  
+}
 </div>

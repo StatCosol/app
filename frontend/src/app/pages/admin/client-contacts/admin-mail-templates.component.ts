@@ -49,15 +49,22 @@ const TYPE_LABELS: Record<ClientCommType, string> = {
         Body supports HTML.
       </p>
 
-      <div *ngIf="loading()" class="text-slate-500">Loading templates…</div>
+      @if (loading()) {
+<div class="text-slate-500">Loading templates…</div>
+}
 
-      <div *ngFor="let t of templates()" class="bg-white rounded-lg shadow border border-slate-200 p-5 space-y-4">
+      @for (t of templates(); track t) {
+<div class="bg-white rounded-lg shadow border border-slate-200 p-5 space-y-4">
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-lg font-semibold text-slate-800">{{ labelFor(t.commType) }}</h3>
             <p class="text-xs text-slate-500">
-              <span *ngIf="t.isCustom" class="text-emerald-700">Custom (saved {{ t.updatedAt | date: 'medium' }})</span>
-              <span *ngIf="!t.isCustom" class="text-slate-500">Using built-in default</span>
+              @if (t.isCustom) {
+<span class="text-emerald-700">Custom (saved {{ t.updatedAt | date: 'medium' }})</span>
+}
+              @if (!t.isCustom) {
+<span class="text-slate-500">Using built-in default</span>
+}
             </p>
           </div>
           <div class="space-x-2">
@@ -85,14 +92,17 @@ const TYPE_LABELS: Record<ClientCommType, string> = {
                     [(ngModel)]="state[t.commType].bodyTemplate"></textarea>
         </label>
 
-        <div *ngIf="state[t.commType].showPreview" class="border-t pt-4 space-y-2">
+        @if (state[t.commType].showPreview) {
+<div class="border-t pt-4 space-y-2">
           <div class="text-xs uppercase tracking-wide text-slate-500">
             Preview (using sample values — source: {{ state[t.commType].source }})
           </div>
           <div class="text-sm font-semibold">Subject: {{ state[t.commType].previewSubject }}</div>
           <div class="border rounded p-4 bg-slate-50 text-sm" [innerHTML]="state[t.commType].previewBody"></div>
         </div>
+}
       </div>
+}
     </div>
   `,
 })

@@ -50,16 +50,21 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
         Back to Employees
       </button>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading employee..." size="lg"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading employee..." size="lg"></ui-loading-spinner>
+}
 
       <!-- Error -->
-      <div *ngIf="error && !loading"
+      @if (error && !loading) {
+<div
            class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 flex items-center justify-between">
         <span>{{ error }}</span>
         <button (click)="goBack()" class="text-red-800 font-semibold hover:underline ml-4">Go Back</button>
       </div>
+}
 
-      <ng-container *ngIf="emp && !loading">
+      @if (emp && !loading) {
+
         <!-- Header Card -->
         <div class="header-card">
           <div class="header-top">
@@ -67,17 +72,29 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
               <div class="header-name">
                 {{ emp.name }}
                 <ui-status-badge [status]="emp.isActive ? 'ACTIVE' : 'INACTIVE'" class="ml-2"></ui-status-badge>
-                <span *ngIf="emp.approvalStatus === 'PENDING'" class="ml-2 inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Pending Approval</span>
-                <span *ngIf="emp.approvalStatus === 'REJECTED'" class="ml-2 inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejected</span>
+                @if (emp.approvalStatus === 'PENDING') {
+<span class="ml-2 inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Pending Approval</span>
+}
+                @if (emp.approvalStatus === 'REJECTED') {
+<span class="ml-2 inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejected</span>
+}
               </div>
               <div class="header-meta">{{ emp.employeeCode }}</div>
-              <div *ngIf="emp.designation || emp.department" class="header-meta">
-                {{ emp.designation || '' }}<span *ngIf="emp.designation && emp.department"> &middot; </span>{{ emp.department || '' }}
+              @if (emp.designation || emp.department) {
+<div class="header-meta">
+                {{ emp.designation || '' }}@if (emp.designation && emp.department) {
+<span> &middot; </span>
+}{{ emp.department || '' }}
               </div>
+}
             </div>
             <div class="header-actions">
-              <ui-button *ngIf="emp.approvalStatus === 'PENDING'" variant="primary" (clicked)="approveEmployee()">Approve</ui-button>
-              <ui-button *ngIf="emp.approvalStatus === 'PENDING'" variant="danger" (clicked)="rejectEmployee()">Reject</ui-button>
+              @if (emp.approvalStatus === 'PENDING') {
+<ui-button variant="primary" (clicked)="approveEmployee()">Approve</ui-button>
+}
+              @if (emp.approvalStatus === 'PENDING') {
+<ui-button variant="danger" (clicked)="rejectEmployee()">Reject</ui-button>
+}
               <ui-button variant="primary" (clicked)="editEmployee()">Edit</ui-button>
               <ui-button variant="outline" [disabled]="downloadingLetter" (clicked)="downloadAppointmentLetter()">
                 {{ downloadingLetter ? 'Downloading...' : 'Appointment Letter (PDF)' }}
@@ -85,21 +102,28 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
               <ui-button variant="outline" [disabled]="downloadingDocx" (clicked)="downloadAppointmentLetterDocx()">
                 {{ downloadingDocx ? 'Downloading...' : 'Appointment Letter (Word)' }}
               </ui-button>
-              <ui-button *ngIf="emp.isActive && emp.approvalStatus !== 'PENDING'" variant="secondary" [disabled]="provisioningEss || !hasValidEmail()" (clicked)="provisionEssLogin()"
+              @if (emp.isActive && emp.approvalStatus !== 'PENDING') {
+<ui-button variant="secondary" [disabled]="provisioningEss || !hasValidEmail()" (clicked)="provisionEssLogin()"
                 [title]="hasValidEmail() ? 'Create ESS login for this employee' : 'Add a valid employee email first to create ESS login'">
                 {{ provisioningEss ? 'Creating...' : 'Create ESS Login' }}
               </ui-button>
-              <ui-button *ngIf="emp.isActive && emp.approvalStatus !== 'PENDING'" variant="outline" [disabled]="resettingEssPassword || !hasValidEmail()" (clicked)="resetEssPassword()"
+}
+              @if (emp.isActive && emp.approvalStatus !== 'PENDING') {
+<ui-button variant="outline" [disabled]="resettingEssPassword || !hasValidEmail()" (clicked)="resetEssPassword()"
                 [title]="hasValidEmail() ? 'Reset ESS password for this employee' : 'Add a valid employee email first'">
                 {{ resettingEssPassword ? 'Resetting...' : 'Reset ESS Password' }}
               </ui-button>
-              <ui-button *ngIf="emp.isActive && emp.approvalStatus !== 'PENDING'" variant="danger" (clicked)="confirmDeactivate()">Mark Exit</ui-button>
+}
+              @if (emp.isActive && emp.approvalStatus !== 'PENDING') {
+<ui-button variant="danger" (clicked)="confirmDeactivate()">Mark Exit</ui-button>
+}
             </div>
           </div>
         </div>
 
         <!-- ESS Credentials Card (persistent after provisioning) -->
-        <div *ngIf="essResult?.generatedPassword" class="ess-credentials-card">
+        @if (essResult?.generatedPassword) {
+<div class="ess-credentials-card">
           <div class="ess-cred-header">
             <div class="flex items-center gap-2">
               <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -140,19 +164,23 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
             </div>
           </div>
         </div>
+}
 
         <!-- Tabs -->
         <div class="tab-bar">
-          <button *ngFor="let t of tabs"
+          @for (t of tabs; track t) {
+<button
             class="tab-btn"
             [class.active]="activeTab === t.key"
             (click)="switchTab(t.key)">
             {{ t.label }}
           </button>
+}
         </div>
 
         <!-- Profile Tab -->
-        <div *ngIf="activeTab === 'profile'" class="tab-content">
+        @if (activeTab === 'profile') {
+<div class="tab-content">
           <div class="info-grid">
             <div class="info-section">
               <h4 class="info-section-title">Personal Information</h4>
@@ -189,8 +217,12 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
                 <div class="info-row"><span class="info-label">Designation</span><span class="info-value">{{ emp.designation || '-' }}</span></div>
                 <div class="info-row"><span class="info-label">Department</span><span class="info-value">{{ emp.department || '-' }}</span></div>
                 <div class="info-row"><span class="info-label">Date of Joining</span><span class="info-value">{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '-' }}</span></div>
-                <div *ngIf="emp.dateOfExit" class="info-row"><span class="info-label">Date of Exit</span><span class="info-value text-red-600">{{ emp.dateOfExit }}</span></div>
-                <div *ngIf="emp.exitReason" class="info-row"><span class="info-label">Exit Reason</span><span class="info-value text-red-600">{{ emp.exitReason }}</span></div>
+                @if (emp.dateOfExit) {
+<div class="info-row"><span class="info-label">Date of Exit</span><span class="info-value text-red-600">{{ emp.dateOfExit }}</span></div>
+}
+                @if (emp.exitReason) {
+<div class="info-row"><span class="info-label">Exit Reason</span><span class="info-value text-red-600">{{ emp.exitReason }}</span></div>
+}
                 <div class="info-row"><span class="info-label">State</span><span class="info-value">{{ emp.stateCode || '-' }}</span></div>
                 <div class="info-row"><span class="info-label">CTC (Annual)</span><span class="info-value">{{ emp.ctc ? '₹' + (emp.ctc | number:'1.0-0') : '-' }}</span></div>
               </div>
@@ -206,37 +238,48 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
             </div>
           </div>
         </div>
+}
 
         <!-- Nominations Tab -->
-        <div *ngIf="activeTab === 'nominations'" class="tab-content">
+        @if (activeTab === 'nominations') {
+<div class="tab-content">
           <div class="flex justify-between items-center mb-4">
             <h3 class="text-base font-semibold text-gray-900">Nominations</h3>
             <ui-button variant="primary" (clicked)="openNomForm()">+ Add Nomination</ui-button>
           </div>
 
-          <ui-loading-spinner *ngIf="loadingNoms" text="Loading nominations..."></ui-loading-spinner>
+          @if (loadingNoms) {
+<ui-loading-spinner text="Loading nominations..."></ui-loading-spinner>
+}
 
-          <ui-empty-state
-            *ngIf="!loadingNoms && nominations.length === 0"
+          @if (!loadingNoms && nominations.length === 0) {
+<ui-empty-state
+           
             title="No Nominations"
             description="Add PF, ESI, Gratuity, Insurance, or Salary nominations for this employee.">
           </ui-empty-state>
+}
 
-          <div *ngFor="let nom of nominations" class="nom-card">
+          @for (nom of nominations; track nom) {
+<div class="nom-card">
             <div class="nom-header">
               <ui-status-badge [status]="nom.nominationType"></ui-status-badge>
-              <span *ngIf="nom.declarationDate" class="text-xs text-gray-500 ml-2">Declared: {{ nom.declarationDate }}</span>
+              @if (nom.declarationDate) {
+<span class="text-xs text-gray-500 ml-2">Declared: {{ nom.declarationDate }}</span>
+}
               <ui-button variant="outline" size="sm" class="ml-auto"
                          [disabled]="printingNomination === nom.nominationType"
                          (clicked)="printNomination(nom.nominationType)">
                 {{ printingNomination === nom.nominationType ? 'Preparing...' : 'Print / Download PDF' }}
               </ui-button>
             </div>
-            <div *ngIf="nom.members && nom.members.length" class="nom-members">
+            @if (nom.members && nom.members.length) {
+<div class="nom-members">
               <div class="nom-member-row header">
                 <span>Name</span><span>Relationship</span><span>DOB</span><span>Share %</span><span>Address</span><span>Minor / Guardian</span>
               </div>
-              <div *ngFor="let m of nom.members" class="nom-member-row">
+              @for (m of nom.members; track m) {
+<div class="nom-member-row">
                 <span>{{ m.memberName }}</span>
                 <span>{{ m.relationship || '-' }}</span>
                 <span>{{ m.dateOfBirth || '-' }}</span>
@@ -244,14 +287,22 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
                 <span>{{ m.address || '-' }}</span>
                 <span>{{ m.isMinor ? 'Yes — ' + (m.guardianName || '-') + (m.guardianRelationship ? ' (' + m.guardianRelationship + ')' : '') : 'No' }}</span>
               </div>
+}
             </div>
-            <div *ngIf="nom.witnessName" class="text-xs text-gray-500 mt-2">
-              Witness: {{ nom.witnessName }} <span *ngIf="nom.witnessAddress">({{ nom.witnessAddress }})</span>
+}
+            @if (nom.witnessName) {
+<div class="text-xs text-gray-500 mt-2">
+              Witness: {{ nom.witnessName }} @if (nom.witnessAddress) {
+<span>({{ nom.witnessAddress }})</span>
+}
             </div>
+}
           </div>
+}
 
           <!-- Nomination Form Modal -->
-          <ui-modal *ngIf="showNomModal" title="Add Nomination" size="full" (closed)="showNomModal = false">
+          @if (showNomModal) {
+<ui-modal title="Add Nomination" size="full" (closed)="showNomModal = false">
             <div class="nom-form-grid">
               <ui-form-select label="Nomination Type *" [options]="nomTypeOptions"
                               [(ngModel)]="nomForm.nominationType"></ui-form-select>
@@ -269,7 +320,8 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
                 <h4 class="text-sm font-semibold text-gray-700">Nominee Members</h4>
                 <button class="text-xs text-blue-600 hover:underline" (click)="addNomMember()">+ Add Member</button>
               </div>
-              <div *ngFor="let m of nomForm.members; let i = index" class="member-row">
+              @for (m of nomForm.members; track m; let i = $index) {
+<div class="member-row">
                 <ui-form-input label="Name *" [(ngModel)]="m.memberName"></ui-form-input>
                 <ui-form-input label="Relationship" [(ngModel)]="m.relationship"></ui-form-input>
                 <div class="form-field">
@@ -282,18 +334,25 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
                   <label class="flex items-center gap-1 text-xs">
                     <input autocomplete="off" [id]="'ced-is-minor-' + i" [name]="'isMinor' + i" type="checkbox" [(ngModel)]="m.isMinor"> Minor (under 18)
                   </label>
-                  <button *ngIf="nomForm.members.length > 1"
+                  @if (nomForm.members.length > 1) {
+<button
                     class="text-xs text-red-600 hover:underline ml-auto" (click)="removeNomMember(i)">Remove</button>
+}
                 </div>
-                <div *ngIf="m.isMinor" class="guardian-block">
+                @if (m.isMinor) {
+<div class="guardian-block">
                   <ui-form-input label="Guardian Name" [(ngModel)]="m.guardianName"></ui-form-input>
                   <ui-form-input label="Guardian Relationship" [(ngModel)]="m.guardianRelationship"></ui-form-input>
                   <ui-form-input class="full" label="Guardian Address" [(ngModel)]="m.guardianAddress"></ui-form-input>
                 </div>
+}
               </div>
+}
             </div>
 
-            <div *ngIf="nomFormError" class="form-error mt-2">{{ nomFormError }}</div>
+            @if (nomFormError) {
+<div class="form-error mt-2">{{ nomFormError }}</div>
+}
 
             <div class="form-actions">
               <ui-button variant="secondary" (clicked)="showNomModal = false">Cancel</ui-button>
@@ -301,30 +360,40 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
                          (clicked)="saveNomination()">Save Nomination</ui-button>
             </div>
           </ui-modal>
+}
         </div>
+}
 
         <!-- Forms Tab -->
-        <div *ngIf="activeTab === 'forms'" class="tab-content">
+        @if (activeTab === 'forms') {
+<div class="tab-content">
           <div class="flex justify-between items-center mb-4">
             <h3 class="text-base font-semibold text-gray-900">Generated Forms</h3>
             <div class="flex gap-2">
-              <ui-button *ngFor="let ft of formTypes" variant="outline" size="sm"
+              @for (ft of formTypes; track ft) {
+<ui-button variant="outline" size="sm"
                          [loading]="generatingForm === ft.value"
                          (clicked)="generateForm(ft.value)">
                 {{ ft.label }}
               </ui-button>
+}
             </div>
           </div>
 
-          <ui-loading-spinner *ngIf="loadingForms" text="Loading forms..."></ui-loading-spinner>
+          @if (loadingForms) {
+<ui-loading-spinner text="Loading forms..."></ui-loading-spinner>
+}
 
-          <ui-empty-state
-            *ngIf="!loadingForms && forms.length === 0"
+          @if (!loadingForms && forms.length === 0) {
+<ui-empty-state
+           
             title="No Forms Generated"
             description="Use the buttons above to generate statutory forms for this employee.">
           </ui-empty-state>
+}
 
-          <div *ngFor="let f of forms" class="form-card">
+          @for (f of forms; track f) {
+<div class="form-card">
             <div class="flex items-center justify-between">
               <div>
                 <div class="font-semibold text-sm text-gray-900">{{ f.formType || f.form_type }}</div>
@@ -333,14 +402,19 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
               <div class="text-xs text-gray-400">{{ f.createdAt || f.created_at | date:'medium' }}</div>
             </div>
           </div>
+}
 
-          <div *ngIf="formGenMsg" class="mt-3 text-sm" [class.text-green-600]="!formGenError" [class.text-red-600]="formGenError">
+          @if (formGenMsg) {
+<div class="mt-3 text-sm" [class.text-green-600]="!formGenError" [class.text-red-600]="formGenError">
             {{ formGenMsg }}
           </div>
+}
         </div>
+}
 
         <!-- Documents Tab -->
-        <div *ngIf="activeTab === 'documents'" class="tab-content">
+        @if (activeTab === 'documents') {
+<div class="tab-content">
           <div class="flex justify-between items-center mb-4">
             <h3 class="text-base font-semibold text-gray-900">Employee Documents</h3>
           </div>
@@ -364,15 +438,22 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
               <ui-button variant="primary" [disabled]="!docUpload.file || uploadingDoc" [loading]="uploadingDoc" (clicked)="uploadDocument()">
                 {{ uploadingDoc ? 'Uploading...' : 'Upload' }}
               </ui-button>
-              <span *ngIf="docUploadMsg" class="text-sm" [class.text-green-600]="!docUploadError" [class.text-red-600]="docUploadError">{{ docUploadMsg }}</span>
+              @if (docUploadMsg) {
+<span class="text-sm" [class.text-green-600]="!docUploadError" [class.text-red-600]="docUploadError">{{ docUploadMsg }}</span>
+}
             </div>
           </div>
 
-          <ui-loading-spinner *ngIf="loadingDocs" text="Loading documents..."></ui-loading-spinner>
+          @if (loadingDocs) {
+<ui-loading-spinner text="Loading documents..."></ui-loading-spinner>
+}
 
-          <ui-empty-state *ngIf="!loadingDocs && documents.length === 0" title="No Documents" description="Upload employee documents using the form above."></ui-empty-state>
+          @if (!loadingDocs && documents.length === 0) {
+<ui-empty-state title="No Documents" description="Upload employee documents using the form above."></ui-empty-state>
+}
 
-          <div *ngIf="!loadingDocs && documents.length > 0" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          @if (!loadingDocs && documents.length > 0) {
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <table class="w-full text-sm">
               <thead>
                 <tr class="bg-gray-50 border-b border-gray-200">
@@ -384,7 +465,8 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let d of documents" class="border-b border-gray-100 hover:bg-gray-50">
+                @for (d of documents; track d) {
+<tr class="border-b border-gray-100 hover:bg-gray-50">
                   <td class="px-4 py-3 text-gray-900">{{ d.docName }}</td>
                   <td class="px-4 py-3 text-gray-600">{{ d.docType }}</td>
                   <td class="px-4 py-3 text-center">
@@ -394,28 +476,39 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
                   <td class="px-4 py-3 text-right">
                     <div class="flex justify-end gap-2">
                       <button class="text-xs text-blue-600 hover:underline" (click)="downloadDoc(d)">Download</button>
-                      <button *ngIf="!d.isVerified" class="text-xs text-green-600 hover:underline" (click)="verifyDoc(d)">Verify</button>
+                      @if (!d.isVerified) {
+<button class="text-xs text-green-600 hover:underline" (click)="verifyDoc(d)">Verify</button>
+}
                       <button class="text-xs text-red-600 hover:underline" (click)="deleteDoc(d)">Delete</button>
                     </div>
                   </td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
+}
         </div>
+}
 
         <!-- Salary Revisions Tab -->
-        <div *ngIf="activeTab === 'salary'" class="tab-content">
+        @if (activeTab === 'salary') {
+<div class="tab-content">
           <div class="flex justify-between items-center mb-4">
             <h3 class="text-base font-semibold text-gray-900">Salary Revisions</h3>
             <ui-button variant="primary" (clicked)="showRevisionModal = true">+ New Revision</ui-button>
           </div>
 
-          <ui-loading-spinner *ngIf="loadingRevisions" text="Loading revisions..."></ui-loading-spinner>
+          @if (loadingRevisions) {
+<ui-loading-spinner text="Loading revisions..."></ui-loading-spinner>
+}
 
-          <ui-empty-state *ngIf="!loadingRevisions && revisions.length === 0" title="No Revisions" description="Add a salary revision using the button above."></ui-empty-state>
+          @if (!loadingRevisions && revisions.length === 0) {
+<ui-empty-state title="No Revisions" description="Add a salary revision using the button above."></ui-empty-state>
+}
 
-          <div *ngFor="let rev of revisions" class="bg-white border border-gray-200 rounded-lg p-4 mb-3">
+          @for (rev of revisions; track rev) {
+<div class="bg-white border border-gray-200 rounded-lg p-4 mb-3">
             <div class="flex justify-between items-start">
               <div>
                 <div class="text-sm font-semibold text-gray-900">Effective: {{ rev.effectiveDate }}</div>
@@ -423,13 +516,17 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
               </div>
               <div class="text-right">
                 <div class="text-sm">₹{{ rev.previousCtc }} → ₹{{ rev.newCtc }}</div>
-                <div *ngIf="rev.incrementPct" class="text-xs text-green-600 mt-0.5">+{{ rev.incrementPct }}%</div>
+                @if (rev.incrementPct) {
+<div class="text-xs text-green-600 mt-0.5">+{{ rev.incrementPct }}%</div>
+}
               </div>
             </div>
           </div>
+}
 
           <!-- Revision Modal -->
-          <ui-modal *ngIf="showRevisionModal" title="New Salary Revision" (closed)="showRevisionModal = false">
+          @if (showRevisionModal) {
+<ui-modal title="New Salary Revision" (closed)="showRevisionModal = false">
             <div class="grid grid-cols-2 gap-3">
               <div class="form-field">
                 <label class="form-label" for="ced-effective-date">Effective Date *</label>
@@ -439,14 +536,19 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
               <ui-form-input label="New CTC (₹) *" type="number" [(ngModel)]="revisionForm.newCtc"></ui-form-input>
               <ui-form-input label="Reason" [(ngModel)]="revisionForm.reason" placeholder="e.g. Annual appraisal"></ui-form-input>
             </div>
-            <div *ngIf="revisionError" class="form-error mt-2">{{ revisionError }}</div>
+            @if (revisionError) {
+<div class="form-error mt-2">{{ revisionError }}</div>
+}
             <div class="form-actions">
               <ui-button variant="secondary" (clicked)="showRevisionModal = false">Cancel</ui-button>
               <ui-button variant="primary" [disabled]="savingRevision" [loading]="savingRevision" (clicked)="saveRevision()">Save</ui-button>
             </div>
           </ui-modal>
+}
         </div>
-      </ng-container>
+}
+      
+}
     </div>
   `,
   styles: [

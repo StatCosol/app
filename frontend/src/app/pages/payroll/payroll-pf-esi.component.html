@@ -11,14 +11,18 @@
     <label>
       Year
       <select id="ppe-selected-year" name="selectedYear" [(ngModel)]="selectedYear" (ngModelChange)="onClientOrPeriodChange()">
-        <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
+        @for (y of yearOptions; track y) {
+<option [ngValue]="y">{{ y }}</option>
+}
       </select>
     </label>
 
     <label>
       Month
       <select id="ppe-selected-month" name="selectedMonth" [(ngModel)]="selectedMonth" (ngModelChange)="onClientOrPeriodChange()">
-        <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
+        @for (m of monthOptions; track m) {
+<option [ngValue]="m.value">{{ m.label }}</option>
+}
       </select>
     </label>
 
@@ -27,43 +31,58 @@
     </button>
   </div>
 
-  <div *ngIf="loading" class="loader">Loading PF/ESI dashboard...</div>
+  @if (loading) {
+<div class="loader">Loading PF/ESI dashboard...</div>
+}
 
-  <div *ngIf="!loading && error" class="error-box">
+  @if (!loading && error) {
+<div class="error-box">
     <span>{{ error }}</span>
     <button type="button" class="btn btn-ghost" (click)="loadBase()">Retry</button>
   </div>
+}
 
-  <ng-container *ngIf="!loading && !error">
+  @if (!loading && !error) {
+
     <section class="upload-card card">
       <header class="section-head">
         <h2>Upload Challan / ECR / Return</h2>
         <span class="minor">Target: <strong>{{ selectedClientName }}</strong></span>
       </header>
       <div class="upload-grid">
-        <label *ngIf="!selectedClientId">
+        @if (!selectedClientId) {
+<label>
           Client
           <select id="ppe-upload-client" name="uploadClientId" [(ngModel)]="uploadClientId">
             <option value="">Select client...</option>
-            <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
+            @for (c of clients; track c) {
+<option [value]="c.id">{{ c.name }}</option>
+}
           </select>
         </label>
+}
         <label>
           Type
           <select id="ppe-upload-type" name="uploadRegisterType" [(ngModel)]="uploadRegisterType">
-            <option *ngFor="let opt of uploadTypeOptions" [ngValue]="opt.value">{{ opt.label }}</option>
+            @for (opt of uploadTypeOptions; track opt) {
+<option [ngValue]="opt.value">{{ opt.label }}</option>
+}
           </select>
         </label>
         <label>
           Year
           <select id="ppe-upload-year" name="uploadYear" [(ngModel)]="uploadYear">
-            <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
+            @for (y of yearOptions; track y) {
+<option [ngValue]="y">{{ y }}</option>
+}
           </select>
         </label>
         <label>
           Month
           <select id="ppe-upload-month" name="uploadMonth" [(ngModel)]="uploadMonth">
-            <option *ngFor="let m of monthOptions.slice(1)" [ngValue]="m.value">{{ m.label }}</option>
+            @for (m of monthOptions.slice(1); track m) {
+<option [ngValue]="m.value">{{ m.label }}</option>
+}
           </select>
         </label>
         <label class="grow">
@@ -165,7 +184,8 @@
           </label>
         </div>
 
-        <div class="table-wrap" *ngIf="filteredGapRows.length; else noGapRows">
+        @if (filteredGapRows.length) {
+<div class="table-wrap">
           <table>
             <thead>
               <tr>
@@ -178,7 +198,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of filteredGapRows; trackBy: trackGap">
+              @for (row of filteredGapRows; track trackGap($index, row)) {
+<tr>
                 <td>
                   <div class="strong">{{ row.name || '-' }}</div>
                   <div class="minor">{{ row.empCode || '-' }} | DOJ {{ formatDate(row.dateOfJoining) }}</div>
@@ -193,13 +214,17 @@
                   <button type="button" class="link" (click)="openException(row)">View</button>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+} @else {
 
-        <ng-template #noGapRows>
           <div class="empty-mini">No PF/ESI applicability gaps for current filters.</div>
-        </ng-template>
+        
+}
+
+        
       </article>
 
       <aside class="detail-stack">
@@ -225,7 +250,8 @@
             </label>
           </div>
 
-          <div class="table-wrap small" *ngIf="filteredRemittanceRows.length; else noRemittance">
+          @if (filteredRemittanceRows.length) {
+<div class="table-wrap small">
             <table>
               <thead>
                 <tr>
@@ -237,7 +263,8 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let row of filteredRemittanceRows; trackBy: trackRemittance">
+                @for (row of filteredRemittanceRows; track trackRemittance($index, row)) {
+<tr>
                   <td>{{ monthYearLabel(row.periodYear, row.periodMonth) }}</td>
                   <td>{{ row.clientName || '-' }}</td>
                   <td>
@@ -263,13 +290,17 @@
                     >{{ generateBusyFor(row, 'ESI') ? 'ESI...' : 'ESI' }}</button>
                   </td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
+} @else {
 
-          <ng-template #noRemittance>
             <div class="empty-mini">No payroll runs found for selected period filters.</div>
-          </ng-template>
+          
+}
+
+          
         </article>
 
         <article class="card">
@@ -278,7 +309,8 @@
             <span>{{ challanRows.length }} records</span>
           </header>
 
-          <div class="table-wrap small" *ngIf="challanRows.length; else noChallan">
+          @if (challanRows.length) {
+<div class="table-wrap small">
             <table>
               <thead>
                 <tr>
@@ -290,7 +322,8 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let row of challanRows; trackBy: trackChallan">
+                @for (row of challanRows; track trackChallan($index, row)) {
+<tr>
                   <td>
                     <div class="strong">{{ row.title || row.registerType || '-' }}</div>
                     <div class="minor">{{ monthYearLabel(row.periodYear, row.periodMonth) }} | {{ row.clientName || '-' }}</div>
@@ -299,8 +332,9 @@
                   <td><span [class]="approvalClass(row.approvalStatus)">{{ row.approvalStatus }}</span></td>
                   <td>{{ formatDate(row.createdAt) }}</td>
                   <td class="text-right">
-                    <button
-                      *ngIf="row.id; else noFile"
+                    @if (row.id) {
+<button
+                     
                       type="button"
                       class="link"
                       [disabled]="downloadBusyId === row.id"
@@ -308,24 +342,35 @@
                     >
                       {{ downloadLabel(row) }}
                     </button>
-                    <ng-template #noFile><span class="minor">N/A</span></ng-template>
+} @else {
+<span class="minor">N/A</span>
+}
+                    
                   </td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
+} @else {
 
-          <ng-template #noChallan>
             <div class="empty-mini">No PF/ESI challan or return records found for selected filters.</div>
-          </ng-template>
+          
+}
+
+          
         </article>
       </aside>
     </section>
-  </ng-container>
+  
+}
 </div>
 
-<div class="drawer-backdrop" *ngIf="showExceptionDrawer" (click)="closeExceptionDrawer()"></div>
-<aside class="drawer" *ngIf="showExceptionDrawer && selectedException as exception">
+@if (showExceptionDrawer) {
+<div class="drawer-backdrop" (click)="closeExceptionDrawer()"></div>
+}
+@if (showExceptionDrawer && selectedException; as exception) {
+<aside class="drawer">
   <header>
     <h3>Employee Exception Detail</h3>
     <button type="button" class="link" (click)="closeExceptionDrawer()">Close</button>
@@ -362,3 +407,4 @@
     </div>
   </div>
 </aside>
+}

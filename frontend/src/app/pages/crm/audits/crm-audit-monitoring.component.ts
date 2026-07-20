@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -19,11 +19,10 @@ import {
   selector: 'app-crm-audit-monitoring',
   standalone: true,
   imports: [
-    CommonModule,
     LoadingSpinnerComponent,
     PageHeaderComponent,
-    EmptyStateComponent,
-  ],
+    EmptyStateComponent
+],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <ui-page-header
@@ -32,16 +31,21 @@ import {
     ></ui-page-header>
 
     <div class="p-6">
-      <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
 
-      <div *ngIf="!loading && summaries.length === 0">
+      @if (!loading && summaries.length === 0) {
+<div>
         <ui-empty-state
           message="No audit data available."
           icon="clipboard"
         ></ui-empty-state>
       </div>
+}
 
-      <div *ngIf="!loading && summaries.length > 0" class="space-y-6">
+      @if (!loading && summaries.length > 0) {
+<div class="space-y-6">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 text-center">
             <span class="text-xs text-slate-500 uppercase">Clients</span>
@@ -74,8 +78,9 @@ import {
               </tr>
             </thead>
             <tbody>
-              <tr
-                *ngFor="let s of summaries"
+              @for (s of summaries; track s) {
+<tr
+               
                 class="border-b border-slate-100 hover:bg-slate-50"
               >
                 <td class="px-6 py-3 font-medium text-slate-800">
@@ -99,10 +104,12 @@ import {
                   }}
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
       </div>
+}
     </div>
   `,
 })

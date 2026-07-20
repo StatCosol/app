@@ -5,27 +5,35 @@
       <label class="filter-group">
         <span class="filter-label">Month</span>
         <select id="cd-month" name="month" class="filter-select" [(ngModel)]="filters.month" (change)="load()">
-          <option *ngFor="let m of months" [ngValue]="m.value">{{ m.label }}</option>
+          @for (m of months; track m) {
+<option [ngValue]="m.value">{{ m.label }}</option>
+}
         </select>
       </label>
       <label class="filter-group">
         <span class="filter-label">Year</span>
         <select id="cd-year" name="year" class="filter-select" [(ngModel)]="filters.year" (change)="load()">
-          <option *ngFor="let y of years" [ngValue]="y">{{ y }}</option>
+          @for (y of years; track y) {
+<option [ngValue]="y">{{ y }}</option>
+}
         </select>
       </label>
       <label class="filter-group">
         <span class="filter-label">Branch</span>
         <select id="cd-branch-id" name="branchId" class="filter-select" [(ngModel)]="filters.branchId" (change)="onBranchChange()">
           <option value="ALL">All branches</option>
-          <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
+          @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
+}
         </select>
       </label>
       <label class="filter-group">
         <span class="filter-label">Contractor</span>
         <select id="cd-contractor-id" name="contractorId" class="filter-select" [(ngModel)]="filters.contractorId" (change)="onContractorChange()">
           <option value="ALL">All contractors</option>
-          <option *ngFor="let c of filteredContractors()" [value]="c.id">{{ c.name }}</option>
+          @for (c of filteredContractors(); track c) {
+<option [value]="c.id">{{ c.name }}</option>
+}
         </select>
       </label>
     </div>
@@ -38,9 +46,12 @@
   </div>
 
   <!-- Skeleton Loading -->
-  <div *ngIf="loading" class="space-y-6">
+  @if (loading) {
+<div class="space-y-6">
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-      <div *ngFor="let s of [1,2,3,4,5,6,7,8]" class="skeleton skeleton--kpi"></div>
+      @for (s of [1,2,3,4,5,6,7,8]; track s) {
+<div class="skeleton skeleton--kpi"></div>
+}
     </div>
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
       <div class="skeleton skeleton--chart xl:col-span-2"></div>
@@ -51,15 +62,21 @@
       <div class="skeleton skeleton--chart"></div>
     </div>
   </div>
+}
 
-  <ng-container *ngIf="!loading">
-    <div *ngIf="errorMsg" class="alert-error">{{ errorMsg }}</div>
+  @if (!loading) {
 
-    <ng-container *ngIf="!errorMsg && data as d; else clientFallback">
+    @if (errorMsg) {
+<div class="alert-error">{{ errorMsg }}</div>
+}
+
+    @if (!errorMsg && data; as d) {
+
       <!-- KPI strip -->
       <!-- KPI strip (Branch-style cards) -->
       <div class="kpi-cards-grid">
-        <ui-kpi-tile *ngIf="hasEmployeeComplianceModule" label="Employees" [value]="d.kpis.employees.active || 0" color="blue" (tileClick)="openDetail('EMPLOYEES')">
+        @if (hasEmployeeComplianceModule) {
+<ui-kpi-tile label="Employees" [value]="d.kpis.employees.active || 0" color="blue" (tileClick)="openDetail('EMPLOYEES')">
           <svg slot="icon" width="24" height="24" fill="none" stroke="#3b82f6" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
           </svg>
@@ -71,8 +88,10 @@
             <span>Total: {{ d.kpis.employees.total || 0 }}</span>
           </span>
         </ui-kpi-tile>
+}
 
-        <ui-kpi-tile *ngIf="hasContractorModule" label="Contractors" [value]="d.kpis.contractors.total || 0" color="violet" (tileClick)="openDetail('CONTRACTORS')">
+        @if (hasContractorModule) {
+<ui-kpi-tile label="Contractors" [value]="d.kpis.contractors.total || 0" color="violet" (tileClick)="openDetail('CONTRACTORS')">
           <svg slot="icon" width="24" height="24" fill="none" stroke="#8b5cf6" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
           </svg>
@@ -82,8 +101,10 @@
             <span class="text-pink-500">F: {{ d.kpis.contractors.female || 0 }}</span>
           </span>
         </ui-kpi-tile>
+}
 
-        <ui-kpi-tile *ngIf="hasPayrollModule" label="Payroll Pending"
+        @if (hasPayrollModule) {
+<ui-kpi-tile label="Payroll Pending"
           [value]="d.kpis.payroll.pendingQueries + d.kpis.payroll.pendingEmployees + d.kpis.payroll.pfPendingEmployees + d.kpis.payroll.esiPendingEmployees"
           color="amber"
           [valueColor]="(d.kpis.payroll.pendingQueries + d.kpis.payroll.pendingEmployees + d.kpis.payroll.pfPendingEmployees + d.kpis.payroll.esiPendingEmployees) > 0 ? 'red' : ''"
@@ -93,8 +114,10 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
           </svg>
         </ui-kpi-tile>
+}
 
-        <ui-kpi-tile *ngIf="hasEmployeeComplianceModule" label="Branches Live" [value]="d.kpis.branches.live || 0" color="emerald"
+        @if (hasEmployeeComplianceModule) {
+<ui-kpi-tile label="Branches Live" [value]="d.kpis.branches.live || 0" color="emerald"
           [detail]="'of ' + (d.kpis.branches.total || 0) + ' total'"
           (tileClick)="openDetail('BRANCHES')">
           <svg slot="icon" width="24" height="24" fill="none" stroke="#10b981" stroke-width="2" viewBox="0 0 24 24">
@@ -102,16 +125,20 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
           </svg>
         </ui-kpi-tile>
+}
       </div>
 
-      <div class="kpi-cards-grid" *ngIf="hasEmployeeComplianceModule || hasContractorModule">
-        <ui-kpi-tile *ngIf="hasEmployeeComplianceModule" label="Compliance %" [value]="(d.kpis.compliance.overallPercent || 0) + '%'" color="blue"
+      @if (hasEmployeeComplianceModule || hasContractorModule) {
+<div class="kpi-cards-grid">
+        @if (hasEmployeeComplianceModule) {
+<ui-kpi-tile label="Compliance %" [value]="(d.kpis.compliance.overallPercent || 0) + '%'" color="blue"
           [detail]="'Branch avg ' + (d.kpis.compliance.branchAvgPercent || 0) + '%'"
           (tileClick)="openDetail('COMPLIANCE')">
           <svg slot="icon" width="24" height="24" fill="none" stroke="#3b82f6" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
           </svg>
         </ui-kpi-tile>
+}
 
         <ui-kpi-tile label="Audit Score" [value]="(d.kpis.audits.overallAuditScore || 0) + '%'" color="blue"
           [detail]="'Completed ' + (d.kpis.audits.completed || 0)"
@@ -121,24 +148,30 @@
           </svg>
         </ui-kpi-tile>
 
-        <ui-kpi-tile *ngIf="hasEmployeeComplianceModule" label="Critical" [value]="d.queues.critical.length || 0" color="red"
+        @if (hasEmployeeComplianceModule) {
+<ui-kpi-tile label="Critical" [value]="d.queues.critical.length || 0" color="red"
           [valueColor]="(d.queues.critical.length || 0) > 0 ? 'red' : ''" detail="Risk items"
           (tileClick)="openDetail('RISK')">
           <svg slot="icon" width="24" height="24" fill="none" stroke="#ef4444" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
           </svg>
         </ui-kpi-tile>
+}
 
-        <ui-kpi-tile *ngIf="hasEmployeeComplianceModule" label="Pending" [value]="d.queues.pending.length || 0" color="amber" detail="Operational"
+        @if (hasEmployeeComplianceModule) {
+<ui-kpi-tile label="Pending" [value]="d.queues.pending.length || 0" color="amber" detail="Operational"
           (tileClick)="openDetail('RISK')">
           <svg slot="icon" width="24" height="24" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
         </ui-kpi-tile>
+}
       </div>
+}
 
       <!-- Registration Compliance KPI -->
-      <div *ngIf="regSummary" class="kpi-cards-grid" style="grid-template-columns: repeat(1, minmax(0, 320px));">
+      @if (regSummary) {
+<div class="kpi-cards-grid" style="grid-template-columns: repeat(1, minmax(0, 320px));">
         <ui-kpi-tile label="Registrations" [value]="regSummary.scoreImpact + '%'"
           [color]="regSummary.scoreImpact >= 90 ? 'emerald' : regSummary.scoreImpact >= 70 ? 'amber' : 'red'"
           [detail]="(regSummary.expired || 0) + ' expired • ' + (regSummary.expiringSoon || 0) + ' expiring'"
@@ -150,9 +183,11 @@
           </svg>
         </ui-kpi-tile>
       </div>
+}
 
       <!-- ═══════ Company Compliance Intelligence Banner ═══════ -->
-      <div *ngIf="companySummary && !selectedBranchId" class="panel border-l-4 border-blue-600">
+      @if (companySummary && !selectedBranchId) {
+<div class="panel border-l-4 border-blue-600">
         <div class="panel-header">
           <div class="flex items-center gap-2">
             <span class="text-xl">🤖</span>
@@ -186,14 +221,20 @@
               <p class="mini-kpi-value text-red-600">{{ companySummary.criticalBranches }}</p>
             </div>
           </div>
-          <div *ngIf="companySummary.highlights?.length" class="space-y-1">
-            <p *ngFor="let h of companySummary.highlights" class="text-sm text-gray-600">• {{ h }}</p>
+          @if (companySummary.highlights?.length) {
+<div class="space-y-1">
+            @for (h of companySummary.highlights; track h) {
+<p class="text-sm text-gray-600">• {{ h }}</p>
+}
           </div>
+}
         </div>
       </div>
+}
 
       <!-- ═══════ Registration Compliance Detail ═══════ -->
-      <div *ngIf="activeDetail === 'REGISTRATIONS' && regSummary" class="panel panel--highlight">
+      @if (activeDetail === 'REGISTRATIONS' && regSummary) {
+<div class="panel panel--highlight">
         <div class="panel-header">
           <div>
             <p class="panel-eyebrow">Registrations &amp; Licenses</p>
@@ -220,10 +261,12 @@
               <p class="mini-kpi-value text-red-600">{{ regSummary.expired }}</p>
             </div>
           </div>
-          <div *ngIf="regAlerts.length" class="mt-4">
+          @if (regAlerts.length) {
+<div class="mt-4">
             <h4 class="text-sm font-semibold text-gray-600 mb-2">Recent Alerts</h4>
             <div class="space-y-2 max-h-48 overflow-y-auto">
-              <div *ngFor="let a of regAlerts" class="flex items-start gap-2 text-sm p-2 rounded-lg"
+              @for (a of regAlerts; track a) {
+<div class="flex items-start gap-2 text-sm p-2 rounded-lg"
                    [ngClass]="{'bg-red-50': a.priority === 'CRITICAL', 'bg-amber-50': a.priority === 'HIGH', 'bg-yellow-50': a.priority === 'MEDIUM', 'bg-gray-50': a.priority === 'LOW'}">
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
                       [ngClass]="{'bg-red-200 text-red-800': a.priority === 'CRITICAL', 'bg-amber-200 text-amber-800': a.priority === 'HIGH', 'bg-yellow-200 text-yellow-800': a.priority === 'MEDIUM', 'bg-gray-200 text-gray-700': a.priority === 'LOW'}">
@@ -234,12 +277,16 @@
                   <p class="text-gray-500 text-xs">{{ a.message }}</p>
                 </div>
               </div>
+}
             </div>
           </div>
+}
         </div>
       </div>
+}
 
-      <div *ngIf="hasPayrollModule && activeDetail === 'PAYROLL' && d" #payrollDetails class="panel panel--highlight">
+      @if (hasPayrollModule && activeDetail === 'PAYROLL' && d) {
+<div #payrollDetails class="panel panel--highlight">
         <div class="panel-header">
           <div>
             <p class="panel-eyebrow">Payroll</p>
@@ -277,9 +324,11 @@
           <p class="mini-kpi-sub mt-3">PF/ESI employee-level details are listed below.</p>
         </div>
       </div>
+}
 
       <!-- ═══════ AI Risk Assessment Section ═══════ -->
-      <div *ngIf="hasEmployeeComplianceModule" class="ai-risk-section" #aiRiskPanel>
+      @if (hasEmployeeComplianceModule) {
+<div class="ai-risk-section" #aiRiskPanel>
         <div class="ai-risk-section__header">
           <div class="flex items-center gap-3">
             <div class="ai-risk-icon">
@@ -298,7 +347,8 @@
         </div>
 
         <!-- When a specific branch is selected -->
-        <ng-container *ngIf="selectedBranchId">
+        @if (selectedBranchId) {
+
           <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 mt-4">
             <app-ai-risk-score
               [branchId]="selectedBranchId"
@@ -311,17 +361,24 @@
               [to]="auditKpiTo">
             </app-branch-audit-kpi>
           </div>
-        </ng-container>
+        
+}
 
         <!-- When ALL branches — show overview heatmap -->
-        <ng-container *ngIf="!selectedBranchId">
-          <div *ngIf="branchRiskLoading" class="text-sm text-gray-400 py-6 text-center">
+        @if (!selectedBranchId) {
+
+          @if (branchRiskLoading) {
+<div class="text-sm text-gray-400 py-6 text-center">
             Calculating risk scores for all branches…
           </div>
-          <div *ngIf="!branchRiskLoading && branchRiskError" class="text-sm text-red-600 py-4 text-center">
+}
+          @if (!branchRiskLoading && branchRiskError) {
+<div class="text-sm text-red-600 py-4 text-center">
             {{ branchRiskError }}
           </div>
-          <div *ngIf="!branchRiskLoading && !branchRiskError && branchRiskOverview.length" class="mt-4">
+}
+          @if (!branchRiskLoading && !branchRiskError && branchRiskOverview.length) {
+<div class="mt-4">
             <div class="overflow-x-auto">
               <table class="risk-overview-table">
                 <thead>
@@ -336,7 +393,8 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let b of branchRiskOverview" class="risk-overview-row">
+                  @for (b of branchRiskOverview; track b) {
+<tr class="risk-overview-row">
                     <td class="font-medium text-gray-900">{{ b.branchName }}</td>
                     <td class="text-center">
                       <span class="risk-score-pill" [ngClass]="riskBadgeClass(b.riskLevel)">{{ b.riskScore }}</span>
@@ -361,26 +419,36 @@
                       </span>
                     </td>
                   </tr>
+}
                 </tbody>
               </table>
             </div>
           </div>
-          <div *ngIf="!branchRiskLoading && !branchRiskError && !branchRiskOverview.length" class="text-sm text-gray-400 py-6 text-center">
+}
+          @if (!branchRiskLoading && !branchRiskError && !branchRiskOverview.length) {
+<div class="text-sm text-gray-400 py-6 text-center">
             No branches available for risk assessment.
           </div>
-        </ng-container>
+}
+        
+}
       </div>
+}
       <!-- ═══════ End AI Risk Assessment ═══════ -->
 
       <!-- PF/ESI & Contractor upload summary cards -->
-      <div *ngIf="hasPayrollModule || hasContractorModule" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div *ngIf="hasPayrollModule" class="panel" #pfPanel>
+      @if (hasPayrollModule || hasContractorModule) {
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        @if (hasPayrollModule) {
+<div class="panel" #pfPanel>
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">PF</p>
               <h3 class="panel-title">Registration status</h3>
             </div>
-            <button type="button" class="ghost-btn ghost-btn--sm" *ngIf="pfSummary.pendingEmployees.length" (click)="togglePfModal()">View Pending</button>
+            @if (pfSummary.pendingEmployees.length) {
+<button type="button" class="ghost-btn ghost-btn--sm" (click)="togglePfModal()">View Pending</button>
+}
           </div>
           <div class="panel-body">
             <div class="kpi-grid">
@@ -393,18 +461,26 @@
                 <p class="mini-kpi-value text-amber-600">{{ pfSummary.notRegisteredApplicable }}</p>
               </div>
             </div>
-            <p class="mini-kpi-sub" *ngIf="pfSummary.pendingEmployees.length">Top pending: {{ pfSummary.pendingEmployees[0]?.empCode }} ({{ pfSummary.pendingEmployees[0]?.pendingDays }} days)</p>
-            <p class="mini-kpi-sub" *ngIf="!pfSummary.pendingEmployees.length">All PF applicable employees are registered.</p>
+            @if (pfSummary.pendingEmployees.length) {
+<p class="mini-kpi-sub">Top pending: {{ pfSummary.pendingEmployees[0]?.empCode }} ({{ pfSummary.pendingEmployees[0]?.pendingDays }} days)</p>
+}
+            @if (!pfSummary.pendingEmployees.length) {
+<p class="mini-kpi-sub">All PF applicable employees are registered.</p>
+}
           </div>
         </div>
+}
 
-        <div *ngIf="hasPayrollModule" class="panel">
+        @if (hasPayrollModule) {
+<div class="panel">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">ESI</p>
               <h3 class="panel-title">Registration status</h3>
             </div>
-            <button type="button" class="ghost-btn ghost-btn--sm" *ngIf="esiSummary.pendingEmployees.length" (click)="toggleEsiModal()">View Pending</button>
+            @if (esiSummary.pendingEmployees.length) {
+<button type="button" class="ghost-btn ghost-btn--sm" (click)="toggleEsiModal()">View Pending</button>
+}
           </div>
           <div class="panel-body">
             <div class="kpi-grid">
@@ -417,12 +493,18 @@
                 <p class="mini-kpi-value text-amber-600">{{ esiSummary.notRegisteredApplicable }}</p>
               </div>
             </div>
-            <p class="mini-kpi-sub" *ngIf="esiSummary.pendingEmployees.length">Top pending: {{ esiSummary.pendingEmployees[0]?.empCode }} ({{ esiSummary.pendingEmployees[0]?.pendingDays }} days)</p>
-            <p class="mini-kpi-sub" *ngIf="!esiSummary.pendingEmployees.length">All ESI applicable employees are registered.</p>
+            @if (esiSummary.pendingEmployees.length) {
+<p class="mini-kpi-sub">Top pending: {{ esiSummary.pendingEmployees[0]?.empCode }} ({{ esiSummary.pendingEmployees[0]?.pendingDays }} days)</p>
+}
+            @if (!esiSummary.pendingEmployees.length) {
+<p class="mini-kpi-sub">All ESI applicable employees are registered.</p>
+}
           </div>
         </div>
+}
 
-        <div *ngIf="hasContractorModule" class="panel" #contractorPanel [class.panel--highlight]="activeDetail === 'CONTRACTORS'">
+        @if (hasContractorModule) {
+<div class="panel" #contractorPanel [class.panel--highlight]="activeDetail === 'CONTRACTORS'">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Contractors</p>
@@ -431,17 +513,24 @@
             <div class="score-chip">{{ contractorSummary?.overallPercent ?? 0 }}%</div>
           </div>
           <div class="panel-body space-y-2">
-            <div class="flex justify-between text-sm" *ngFor="let c of contractorSummary?.top10?.slice(0,3)">
+            @for (c of contractorSummary?.top10?.slice(0,3); track c) {
+<div class="flex justify-between text-sm">
               <span class="truncate mr-2">{{ c.name }}</span>
               <span class="font-semibold">{{ c.percent }}%</span>
             </div>
-            <p class="mini-kpi-sub" *ngIf="(contractorSummary?.contractors?.length || 0) === 0">No contractor data for this month.</p>
+}
+            @if ((contractorSummary?.contractors?.length || 0) === 0) {
+<p class="mini-kpi-sub">No contractor data for this month.</p>
+}
           </div>
         </div>
+}
       </div>
+}
 
       <!-- PF Pending Modal Overlay -->
-      <div class="modal-overlay" *ngIf="showPfModal" (click)="togglePfModal()">
+      @if (showPfModal) {
+<div class="modal-overlay" (click)="togglePfModal()">
         <div class="modal-content" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <h3 class="modal-title">PF &mdash; Pending Registration</h3>
@@ -460,7 +549,8 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let emp of pfSummary.pendingEmployees">
+                @for (emp of pfSummary.pendingEmployees; track emp) {
+<tr>
                   <td>{{ emp.empCode }}</td>
                   <td>{{ emp.name }}</td>
                   <td>{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '-' }}</td>
@@ -468,14 +558,17 @@
                   <td><span [class]="emp.uanAvailable ? 'badge-yes' : 'badge-no'">{{ emp.uanAvailable ? 'Y' : 'N' }}</span></td>
                   <td class="text-right font-semibold text-red-600">{{ emp.pendingDays }}</td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
         </div>
       </div>
+}
 
       <!-- ESI Pending Modal Overlay -->
-      <div class="modal-overlay" *ngIf="showEsiModal" (click)="toggleEsiModal()">
+      @if (showEsiModal) {
+<div class="modal-overlay" (click)="toggleEsiModal()">
         <div class="modal-content" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <h3 class="modal-title">ESI &mdash; Pending Registration</h3>
@@ -494,7 +587,8 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let emp of esiSummary.pendingEmployees">
+                @for (emp of esiSummary.pendingEmployees; track emp) {
+<tr>
                   <td>{{ emp.empCode }}</td>
                   <td>{{ emp.name }}</td>
                   <td>{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '-' }}</td>
@@ -502,14 +596,17 @@
                   <td><span [class]="emp.ipNumberAvailable ? 'badge-yes' : 'badge-no'">{{ emp.ipNumberAvailable ? 'Y' : 'N' }}</span></td>
                   <td class="text-right font-semibold text-red-600">{{ emp.pendingDays }}</td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
         </div>
       </div>
+}
 
       <!-- PF/ESI pending details inline tables -->
-      <div *ngIf="hasPayrollModule" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      @if (hasPayrollModule) {
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div class="panel">
           <div class="panel-header">
             <div>
@@ -518,7 +615,8 @@
             </div>
           </div>
           <div class="panel-body overflow-x-auto">
-            <table class="mini-table" *ngIf="pfSummary.pendingEmployees.length; else pfOk">
+            @if (pfSummary.pendingEmployees.length) {
+<table class="mini-table">
               <thead>
                 <tr>
                   <th>Code</th>
@@ -529,18 +627,23 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let emp of pfSummary.pendingEmployees">
+                @for (emp of pfSummary.pendingEmployees; track emp) {
+<tr>
                   <td>{{ emp.empCode }}</td>
                   <td>{{ emp.name }}</td>
                   <td>{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '-' }}</td>
                   <td><span [class]="emp.uanAvailable ? 'badge-yes' : 'badge-no'">{{ emp.uanAvailable ? 'Y' : 'N' }}</span></td>
                   <td class="text-right font-semibold">{{ emp.pendingDays }}</td>
                 </tr>
+}
               </tbody>
             </table>
-            <ng-template #pfOk>
+} @else {
+
               <p class="mini-kpi-sub">All PF applicable employees are registered.</p>
-            </ng-template>
+            
+}
+            
           </div>
         </div>
 
@@ -552,7 +655,8 @@
             </div>
           </div>
           <div class="panel-body overflow-x-auto">
-            <table class="mini-table" *ngIf="esiSummary.pendingEmployees.length; else esiOk">
+            @if (esiSummary.pendingEmployees.length) {
+<table class="mini-table">
               <thead>
                 <tr>
                   <th>Code</th>
@@ -563,23 +667,30 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let emp of esiSummary.pendingEmployees">
+                @for (emp of esiSummary.pendingEmployees; track emp) {
+<tr>
                   <td>{{ emp.empCode }}</td>
                   <td>{{ emp.name }}</td>
                   <td>{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '-' }}</td>
                   <td><span [class]="emp.ipNumberAvailable ? 'badge-yes' : 'badge-no'">{{ emp.ipNumberAvailable ? 'Y' : 'N' }}</span></td>
                   <td class="text-right font-semibold">{{ emp.pendingDays }}</td>
                 </tr>
+}
               </tbody>
             </table>
-            <ng-template #esiOk>
+} @else {
+
               <p class="mini-kpi-sub">All ESI applicable employees are registered.</p>
-            </ng-template>
+            
+}
+            
           </div>
         </div>
       </div>
+}
 
-      <div *ngIf="hasContractorModule" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      @if (hasContractorModule) {
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div class="panel">
           <div class="panel-header">
             <div>
@@ -588,7 +699,8 @@
             </div>
           </div>
           <div class="panel-body overflow-x-auto">
-            <table class="mini-table" *ngIf="contractorSummary?.top10?.length; else topEmpty">
+            @if (contractorSummary?.top10?.length) {
+<table class="mini-table">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -598,17 +710,22 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let c of contractorSummary?.top10">
+                @for (c of contractorSummary?.top10; track c) {
+<tr>
                   <td>{{ c.name }}</td>
                   <td class="text-right">{{ c.uploaded }}</td>
                   <td class="text-right">{{ c.expected }}</td>
                   <td class="text-right font-semibold">{{ c.percent }}%</td>
                 </tr>
+}
               </tbody>
             </table>
-            <ng-template #topEmpty>
+} @else {
+
               <p class="mini-kpi-sub">No contractor data for this month.</p>
-            </ng-template>
+            
+}
+            
           </div>
         </div>
 
@@ -620,7 +737,8 @@
             </div>
           </div>
           <div class="panel-body overflow-x-auto">
-            <table class="mini-table" *ngIf="contractorSummary?.bottom10?.length; else bottomEmpty">
+            @if (contractorSummary?.bottom10?.length) {
+<table class="mini-table">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -630,24 +748,31 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let c of contractorSummary?.bottom10">
+                @for (c of contractorSummary?.bottom10; track c) {
+<tr>
                   <td>{{ c.name }}</td>
                   <td class="text-right">{{ c.uploaded }}</td>
                   <td class="text-right">{{ c.expected }}</td>
                   <td class="text-right font-semibold">{{ c.percent }}%</td>
                 </tr>
+}
               </tbody>
             </table>
-            <ng-template #bottomEmpty>
+} @else {
+
               <p class="mini-kpi-sub">No contractor data for this month.</p>
-            </ng-template>
+            
+}
+            
           </div>
         </div>
       </div>
+}
 
       <!-- Charts Row 1 -->
       <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <div *ngIf="hasEmployeeComplianceModule" class="panel xl:col-span-2" #compliancePanel [class.panel--highlight]="activeDetail === 'COMPLIANCE'">
+        @if (hasEmployeeComplianceModule) {
+<div class="panel xl:col-span-2" #compliancePanel [class.panel--highlight]="activeDetail === 'COMPLIANCE'">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Compliance</p>
@@ -658,7 +783,9 @@
             <canvas #complianceTrendChart></canvas>
           </div>
         </div>
-        <div *ngIf="hasContractorModule || hasEmployeeComplianceModule" class="panel" #auditPanel [class.panel--highlight]="activeDetail === 'AUDIT'">
+}
+        @if (hasContractorModule || hasEmployeeComplianceModule) {
+<div class="panel" #auditPanel [class.panel--highlight]="activeDetail === 'AUDIT'">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Audits</p>
@@ -670,11 +797,13 @@
             <canvas #auditDonutChart class="w-full h-full"></canvas>
           </div>
         </div>
+}
       </div>
 
       <!-- Charts Row 2 -->
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <div *ngIf="hasEmployeeComplianceModule" class="panel">
+        @if (hasEmployeeComplianceModule) {
+<div class="panel">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Compliance Ops</p>
@@ -685,7 +814,9 @@
             <canvas #complianceOpsChart></canvas>
           </div>
         </div>
-        <div *ngIf="hasPayrollModule" class="panel" #payrollPanel>
+}
+        @if (hasPayrollModule) {
+<div class="panel" #payrollPanel>
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Payroll</p>
@@ -696,11 +827,13 @@
             <canvas #payrollDonutChart class="w-full h-full"></canvas>
           </div>
         </div>
+}
       </div>
 
       <!-- Charts Row 3 -->
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <div *ngIf="hasEmployeeComplianceModule" class="panel" #branchPanel [class.panel--highlight]="activeDetail === 'BRANCHES'">
+        @if (hasEmployeeComplianceModule) {
+<div class="panel" #branchPanel [class.panel--highlight]="activeDetail === 'BRANCHES'">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Branches</p>
@@ -711,7 +844,9 @@
             <canvas #branchRankChart></canvas>
           </div>
         </div>
-        <div *ngIf="hasContractorModule" class="panel" #docsPanel>
+}
+        @if (hasContractorModule) {
+<div class="panel" #docsPanel>
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Contractors</p>
@@ -722,11 +857,13 @@
             <canvas #docsBucketChart></canvas>
           </div>
         </div>
+}
       </div>
 
       <!-- Charts Row 4 -->
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <div *ngIf="hasEmployeeComplianceModule" class="panel" #employeePanel [class.panel--highlight]="activeDetail === 'EMPLOYEES'">
+        @if (hasEmployeeComplianceModule) {
+<div class="panel" #employeePanel [class.panel--highlight]="activeDetail === 'EMPLOYEES'">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Employees</p>
@@ -737,7 +874,9 @@
             <canvas #employeeStatusChart></canvas>
           </div>
         </div>
-        <div *ngIf="hasEmployeeComplianceModule" class="panel xl:col-span-1" #riskPanel [class.panel--highlight]="activeDetail === 'RISK'">
+}
+        @if (hasEmployeeComplianceModule) {
+<div class="panel xl:col-span-1" #riskPanel [class.panel--highlight]="activeDetail === 'RISK'">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Critical & Pending</p>
@@ -747,38 +886,56 @@
           <div class="panel-body space-y-4">
             <div class="queue-tabs">
               <div class="queue-tab">Critical ({{ d.queues.critical.length || 0 }})</div>
-              <div class="queue-list" *ngIf="d.queues.critical.length; else noCritical">
-                <div *ngFor="let item of d.queues.critical" class="queue-row">
+              @if (d.queues.critical.length) {
+<div class="queue-list">
+                @for (item of d.queues.critical; track item) {
+<div class="queue-row">
                   <div>
                     <div class="queue-title">{{ item.label }}</div>
-                    <div class="queue-meta">{{ item.branchName || 'Branch' }} <span *ngIf="item.contractorName">• {{ item.contractorName }}</span></div>
+                    <div class="queue-meta">{{ item.branchName || 'Branch' }} @if (item.contractorName) {
+<span>• {{ item.contractorName }}</span>
+}</div>
                   </div>
                   <div class="queue-meta">Age {{ item.ageDays }}d</div>
                   <span class="queue-badge" [ngClass]="queueBadgeClass(item)">{{ item.owner }}</span>
                 </div>
+}
               </div>
-              <ng-template #noCritical><p class="queue-empty">No critical items</p></ng-template>
+} @else {
+<p class="queue-empty">No critical items</p>
+}
+              
             </div>
             <div class="queue-tabs">
               <div class="queue-tab queue-tab--pending">Pending ({{ d.queues.pending.length || 0 }})</div>
-              <div class="queue-list" *ngIf="d.queues.pending.length; else noPending">
-                <div *ngFor="let item of d.queues.pending" class="queue-row">
+              @if (d.queues.pending.length) {
+<div class="queue-list">
+                @for (item of d.queues.pending; track item) {
+<div class="queue-row">
                   <div>
                     <div class="queue-title">{{ item.label }}</div>
-                    <div class="queue-meta">{{ item.branchName || 'Branch' }} <span *ngIf="item.contractorName">• {{ item.contractorName }}</span></div>
+                    <div class="queue-meta">{{ item.branchName || 'Branch' }} @if (item.contractorName) {
+<span>• {{ item.contractorName }}</span>
+}</div>
                   </div>
                   <div class="queue-meta">Age {{ item.ageDays }}d</div>
                   <span class="queue-badge" [ngClass]="queueBadgeClass(item)">{{ item.owner }}</span>
                 </div>
+}
               </div>
-              <ng-template #noPending><p class="queue-empty">No pending items</p></ng-template>
+} @else {
+<p class="queue-empty">No pending items</p>
+}
+              
             </div>
           </div>
         </div>
+}
       </div>
 
       <!-- ═══════ Compliance Intelligence: Lowest Branches ═══════ -->
-      <div class="panel" *ngIf="lowestBranches.length">
+      @if (lowestBranches.length) {
+<div class="panel">
         <div class="panel-header">
           <div>
             <p class="panel-eyebrow">Compliance Intelligence</p>
@@ -798,7 +955,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let b of lowestBranches">
+              @for (b of lowestBranches; track b) {
+<tr>
                 <td>{{ b.branchName }}</td>
                 <td class="text-right">{{ b.total }}</td>
                 <td class="text-right text-green-600">{{ b.approved }}</td>
@@ -813,13 +971,16 @@
                   </span>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
       </div>
+}
 
       <!-- ═══════ Company-wide compliance trend ═══════ -->
-      <div class="panel" *ngIf="companyTrend.length">
+      @if (companyTrend.length) {
+<div class="panel">
         <div class="panel-header">
           <div>
             <p class="panel-eyebrow">Compliance Intelligence</p>
@@ -828,7 +989,8 @@
         </div>
         <div class="panel-body">
           <div class="grid grid-cols-6 sm:grid-cols-12 gap-2 text-center">
-            <div *ngFor="let t of companyTrend" class="flex flex-col items-center">
+            @for (t of companyTrend; track t) {
+<div class="flex flex-col items-center">
               <div class="text-lg font-bold" [ngClass]="{'text-green-600': t.percent >= 80, 'text-amber-600': t.percent >= 50 && t.percent < 80, 'text-red-600': t.percent < 50}">
                 {{ t.percent }}%
               </div>
@@ -840,24 +1002,31 @@
                 </div>
               </div>
             </div>
+}
           </div>
         </div>
       </div>
+}
 
       <!-- ═══════ Compliance Calendar + Notification Center ═══════ -->
-      <div *ngIf="hasEmployeeComplianceModule" class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+      @if (hasEmployeeComplianceModule) {
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
         <ui-compliance-calendar-widget [items]="calendarItems"></ui-compliance-calendar-widget>
         <ui-compliance-notification-center></ui-compliance-notification-center>
       </div>
+}
 
       <!-- ═══════ Face-scan failures (last 7 days) ═══════ -->
-      <div *ngIf="hasEmployeeComplianceModule" class="mt-5">
+      @if (hasEmployeeComplianceModule) {
+<div class="mt-5">
         <app-face-failures-widget route="/client/face-failures"></app-face-failures-widget>
       </div>
-    </ng-container>
+}
+    
+} @else {
 
-    <ng-template #clientFallback>
-      <div *ngIf="!errorMsg" class="panel text-center text-gray-600 py-10">
+      @if (!errorMsg) {
+<div class="panel text-center text-gray-600 py-10">
         <div class="flex items-center justify-center mb-3 text-red-500">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -866,6 +1035,11 @@
         </div>
         <p class="text-sm">Refresh or check the API before retrying.</p>
       </div>
-    </ng-template>
-  </ng-container>
+}
+    
+}
+
+    
+  
+}
 </div>

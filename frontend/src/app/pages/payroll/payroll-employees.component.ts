@@ -63,32 +63,41 @@ interface PayrollEmployee {
       </div>
 
       <!-- Loading -->
-      <ui-loading-spinner *ngIf="loading" text="Loading employees..." size="lg"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading employees..." size="lg"></ui-loading-spinner>
+}
 
       <!-- Error -->
-      <ui-empty-state
-        *ngIf="error && !loading"
+      @if (error && !loading) {
+<ui-empty-state
+       
         title="Unable to Load Employees"
         [description]="error">
       </ui-empty-state>
+}
 
       <!-- Empty -->
-      <ui-empty-state
-        *ngIf="!loading && !error && filteredEmployees.length === 0 && employees.length === 0"
+      @if (!loading && !error && filteredEmployees.length === 0 && employees.length === 0) {
+<ui-empty-state
+       
         title="No Employees Found"
         description="No employees have been added to payroll yet.">
       </ui-empty-state>
+}
 
       <!-- No search results -->
-      <ui-empty-state
-        *ngIf="!loading && !error && employees.length > 0 && filteredEmployees.length === 0"
+      @if (!loading && !error && employees.length > 0 && filteredEmployees.length === 0) {
+<ui-empty-state
+       
         title="No Matching Employees"
         description="Try adjusting your search term.">
       </ui-empty-state>
+}
 
       <!-- Table -->
-      <ui-data-table
-        *ngIf="!loading && !error && filteredEmployees.length > 0"
+      @if (!loading && !error && filteredEmployees.length > 0) {
+<ui-data-table
+       
         [columns]="columns"
         [data]="filteredEmployees"
         [loading]="loading"
@@ -98,14 +107,20 @@ interface PayrollEmployee {
 
         <ng-template uiTableCell="name" let-row>
           <div class="font-semibold text-gray-900">{{ row.name }}</div>
-          <div *ngIf="row.employeeCode" class="text-xs text-gray-500 mt-0.5">{{ row.employeeCode }}</div>
+          @if (row.employeeCode) {
+<div class="text-xs text-gray-500 mt-0.5">{{ row.employeeCode }}</div>
+}
         </ng-template>
 
         <ng-template uiTableCell="netPay" let-row>
-          <span *ngIf="row.netPay !== null && row.netPay !== undefined" class="font-medium tabular-nums">
+          @if (row.netPay !== null && row.netPay !== undefined) {
+<span class="font-medium tabular-nums">
             {{ row.netPay | number:'1.0-0' }}
           </span>
-          <span *ngIf="row.netPay === null || row.netPay === undefined" class="text-gray-400">&mdash;</span>
+}
+          @if (row.netPay === null || row.netPay === undefined) {
+<span class="text-gray-400">&mdash;</span>
+}
         </ng-template>
 
         <ng-template uiTableCell="status" let-row>
@@ -118,6 +133,7 @@ interface PayrollEmployee {
           </span>
         </ng-template>
       </ui-data-table>
+}
     </div>
   `,
   styles: [`

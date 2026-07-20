@@ -39,14 +39,18 @@ import {
           <label class="block text-xs font-medium text-gray-600 mb-1">Stage</label>
           <select [(ngModel)]="stage" (change)="reload()" class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
             <option [ngValue]="null">All stages</option>
-            <option *ngFor="let s of stages" [value]="s">{{ s }}</option>
+            @for (s of stages; track s) {
+<option [value]="s">{{ s }}</option>
+}
           </select>
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Priority</label>
           <select [(ngModel)]="priority" (change)="reload()" class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
             <option [ngValue]="null">All</option>
-            <option *ngFor="let p of priorities" [value]="p">{{ p }}</option>
+            @for (p of priorities; track p) {
+<option [value]="p">{{ p }}</option>
+}
           </select>
         </div>
         <div class="flex-1 min-w-[12rem]">
@@ -58,9 +62,14 @@ import {
       </div>
 
       <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div *ngIf="loading" class="p-6 text-center text-gray-500">Loading…</div>
-        <div *ngIf="!loading && items.length === 0" class="p-10 text-center text-gray-500">No leads found.</div>
-        <table *ngIf="!loading && items.length > 0" class="w-full text-sm">
+        @if (loading) {
+<div class="p-6 text-center text-gray-500">Loading…</div>
+}
+        @if (!loading && items.length === 0) {
+<div class="p-10 text-center text-gray-500">No leads found.</div>
+}
+        @if (!loading && items.length > 0) {
+<table class="w-full text-sm">
           <thead class="bg-gray-50 text-xs uppercase text-gray-500">
             <tr>
               <th class="text-left px-4 py-2.5">Lead #</th>
@@ -74,7 +83,8 @@ import {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let l of items"
+            @for (l of items; track l) {
+<tr
                 [routerLink]="['/sales/leads', l.id]"
                 class="border-t border-gray-100 hover:bg-emerald-50/40 cursor-pointer">
               <td class="px-4 py-2.5 text-gray-700">{{ l.leadNo }}</td>
@@ -96,11 +106,15 @@ import {
               </td>
               <td class="px-4 py-2.5 text-xs text-gray-600">{{ l.lastActivityAt ? (l.lastActivityAt | date:'short') : '—' }}</td>
             </tr>
+}
           </tbody>
         </table>
-        <div *ngIf="total > items.length" class="px-4 py-2 text-xs text-gray-500 border-t">
+}
+        @if (total > items.length) {
+<div class="px-4 py-2 text-xs text-gray-500 border-t">
           Showing {{ items.length }} of {{ total }}.
         </div>
+}
       </div>
     </div>
   `,

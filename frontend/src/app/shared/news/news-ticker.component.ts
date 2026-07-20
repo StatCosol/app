@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Router } from '@angular/router';
 import { NewsService, NewsItem } from '../../shared/services/news.service';
 import { Subject, takeUntil } from 'rxjs';
@@ -7,7 +7,7 @@ import { Subject, takeUntil } from 'rxjs';
 @Component({
   selector: 'app-news-ticker',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   template: `
     <div class="news-ticker-bar">
       <div class="ticker-label" (click)="openAllNews()" style="cursor:pointer">
@@ -21,8 +21,10 @@ import { Subject, takeUntil } from 'rxjs';
         </svg>
       </div>
       <div class="ticker-track">
-        <div *ngIf="newsItems.length; else tickerPlaceholder" class="ticker-scroll" [style.animation-duration]="scrollDuration">
-          <ng-container *ngFor="let item of doubledItems; let i = index">
+        @if (newsItems.length) {
+<div class="ticker-scroll" [style.animation-duration]="scrollDuration">
+          @for (item of doubledItems; track item; let i = $index) {
+
             <span
               class="ticker-item"
               (click)="openNews(newsItems[i % newsItems.length])"
@@ -31,13 +33,17 @@ import { Subject, takeUntil } from 'rxjs';
               {{ item.title }}
             </span>
             <span class="ticker-separator">&bull;</span>
-          </ng-container>
+          
+}
         </div>
-        <ng-template #tickerPlaceholder>
+} @else {
+
           <span class="ticker-placeholder">
             {{ loading ? 'Loading latest news...' : loadFailed ? 'Latest news temporarily unavailable' : 'No active news' }}
           </span>
-        </ng-template>
+        
+}
+        
       </div>
     </div>
   `,

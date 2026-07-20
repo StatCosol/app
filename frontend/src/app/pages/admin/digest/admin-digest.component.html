@@ -14,13 +14,18 @@
     </ui-button>
   </div>
 
-  <ui-loading-spinner *ngIf="loading" text="Loading digest center..."></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner text="Loading digest center..."></ui-loading-spinner>
+}
 
-  <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4">
+  @if (error) {
+<div class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4">
     {{ error }}
   </div>
+}
 
-  <ng-container *ngIf="!loading && !error">
+  @if (!loading && !error) {
+
     <section class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-5">
       <article class="card stat">
         <span class="label">Recipients</span>
@@ -47,8 +52,10 @@
     <section class="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
       <article class="card">
         <h3 class="title">Schedules</h3>
-        <div class="space-y-2" *ngIf="config?.schedules?.length; else noSchedules">
-          <div class="row" *ngFor="let s of config.schedules">
+        @if (config?.schedules?.length) {
+<div class="space-y-2">
+          @for (s of config.schedules; track s) {
+<div class="row">
             <div>
               <div class="row-title">{{ s.label }}</div>
               <div class="row-sub">{{ s.description }}</div>
@@ -58,23 +65,33 @@
               <div class="row-sub">{{ s.timezone }}</div>
             </div>
           </div>
+}
         </div>
-        <ng-template #noSchedules>
+} @else {
+
           <ui-empty-state title="No schedule config" description="Digest schedules are not available."></ui-empty-state>
-        </ng-template>
+        
+}
+        
       </article>
 
       <article class="card">
         <h3 class="title">Recipients</h3>
-        <div class="space-y-2 recipient-list" *ngIf="config?.recipients?.length; else noRecipients">
-          <div class="row" *ngFor="let r of config.recipients">
+        @if (config?.recipients?.length) {
+<div class="space-y-2 recipient-list">
+          @for (r of config.recipients; track r) {
+<div class="row">
             <div class="row-title">{{ r.email }}</div>
             <ui-status-badge [status]="r.roleCode"></ui-status-badge>
           </div>
+}
         </div>
-        <ng-template #noRecipients>
+} @else {
+
           <ui-empty-state title="No recipients" description="No ADMIN/CCO recipients found."></ui-empty-state>
-        </ng-template>
+        
+}
+        
       </article>
     </section>
 
@@ -95,7 +112,8 @@
         </div>
       </div>
 
-      <div *ngIf="history.length; else noHistory" class="table-wrap max-h-[600px] overflow-y-auto">
+      @if (history.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
         <table>
           <thead>
             <tr>
@@ -108,7 +126,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let row of history; trackBy: trackHistory">
+            @for (row of history; track trackHistory($index, row)) {
+<tr>
               <td>{{ row.digestType }}</td>
               <td><span [class]="statusTone(row.status)">{{ row.status }}</span></td>
               <td>{{ row.source }}</td>
@@ -116,12 +135,17 @@
               <td class="error-cell">{{ row.errorMessage || '-' }}</td>
               <td>{{ row.createdAt | date:'medium' }}</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
-      <ng-template #noHistory>
+} @else {
+
         <ui-empty-state title="No digest runs yet" description="Run digest actions to populate history."></ui-empty-state>
-      </ng-template>
+      
+}
+      
     </section>
-  </ng-container>
+  
+}
 </div>

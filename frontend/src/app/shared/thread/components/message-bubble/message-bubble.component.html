@@ -21,8 +21,10 @@
     <div class="text-sm text-gray-900 whitespace-pre-wrap break-words">{{ msg.message }}</div>
 
     <!-- Attachments -->
-    <div *ngIf="msg.attachments?.length" class="mt-2 pt-2 border-t border-gray-200 space-y-1">
-      <button *ngFor="let a of msg.attachments"
+    @if (msg.attachments?.length) {
+<div class="mt-2 pt-2 border-t border-gray-200 space-y-1">
+      @for (a of msg.attachments; track a) {
+<button
         type="button"
         (click)="downloadAttachment(a)"
         class="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 hover:underline">
@@ -32,6 +34,8 @@
         </svg>
         {{ a.name }}
       </button>
+}
     </div>
+}
   </div>
 </div>

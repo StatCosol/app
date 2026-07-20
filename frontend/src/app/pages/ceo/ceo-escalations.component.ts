@@ -29,14 +29,19 @@ import { CeoApiService, CeoEscalation } from '../../core/api/ceo.api';
         icon="exclamation">
       </ui-page-header>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading escalations..."></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading escalations..."></ui-loading-spinner>
+}
 
-      <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-center justify-between">
+      @if (error) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-center justify-between">
         <span>{{ error }}</span>
         <button (click)="ngOnInit()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
       </div>
+}
 
-      <ng-container *ngIf="!loading && !error">
+      @if (!loading && !error) {
+
         <!-- KPI Strip -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           <div class="bg-white border border-gray-200 rounded-xl p-4">
@@ -75,7 +80,8 @@ import { CeoApiService, CeoEscalation } from '../../core/api/ceo.api';
           <span class="text-sm text-gray-500">{{ filteredItems.length }} escalation{{ filteredItems.length !== 1 ? 's' : '' }}</span>
         </div>
 
-        <div *ngIf="filteredItems.length > 0" class="card">
+        @if (filteredItems.length > 0) {
+<div class="card">
           <ui-data-table [columns]="columns" [data]="filteredItems">
             <ng-template uiTableCell="status" let-row>
               <ui-status-badge [status]="row.status"></ui-status-badge>
@@ -100,14 +106,18 @@ import { CeoApiService, CeoEscalation } from '../../core/api/ceo.api';
             </ng-template>
           </ui-data-table>
         </div>
+}
 
-        <ui-empty-state
-          *ngIf="filteredItems.length === 0"
+        @if (filteredItems.length === 0) {
+<ui-empty-state
+         
           title="No escalations"
           description="Escalated issues requiring CEO attention will appear here."
           icon="exclamation-circle">
         </ui-empty-state>
-      </ng-container>
+}
+      
+}
     </div>
   `,
 })

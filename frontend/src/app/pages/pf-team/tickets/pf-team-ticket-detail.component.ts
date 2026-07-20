@@ -9,7 +9,8 @@ import { PfTeamApiService, HdTicket, HdMessage } from '../pf-team-api.service';
   standalone: true,
   imports: [CommonModule, RouterModule, FormsModule],
   template: `
-    <div class="space-y-6" *ngIf="ticket">
+    @if (ticket) {
+<div class="space-y-6">
       <!-- Back + Header -->
       <div class="flex items-center gap-3">
         <a routerLink="/pf-team/tickets" class="text-gray-400 hover:text-gray-600 transition-colors">
@@ -27,7 +28,9 @@ import { PfTeamApiService, HdTicket, HdMessage } from '../pf-team-api.service';
           </div>
           <div>
             <span class="text-xs text-gray-500 uppercase tracking-wider">Category</span>
-            <p class="text-sm font-semibold text-gray-900 mt-0.5">{{ ticket.category }}<span *ngIf="ticket.subCategory"> / {{ ticket.subCategory }}</span></p>
+            <p class="text-sm font-semibold text-gray-900 mt-0.5">{{ ticket.category }}@if (ticket.subCategory) {
+<span> / {{ ticket.subCategory }}</span>
+}</p>
           </div>
           <div>
             <span class="text-xs text-gray-500 uppercase tracking-wider">Priority</span>
@@ -64,13 +67,15 @@ import { PfTeamApiService, HdTicket, HdMessage } from '../pf-team-api.service';
       <div class="bg-white rounded-xl border border-gray-200 p-6">
         <h2 class="text-sm font-semibold text-gray-900 mb-3">Update Status</h2>
         <div class="flex flex-wrap items-center gap-2">
-          <button *ngFor="let s of statuses"
+          @for (s of statuses; track s) {
+<button
                   (click)="changeStatus(s)"
                   [disabled]="ticket.status === s || updatingStatus"
                   class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   [class]="ticket.status === s ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-300 text-gray-700 hover:bg-gray-50'">
             {{ s.replace('_', ' ') }}
           </button>
+}
         </div>
       </div>
 
@@ -78,13 +83,17 @@ import { PfTeamApiService, HdTicket, HdMessage } from '../pf-team-api.service';
       <div class="bg-white rounded-xl border border-gray-200 p-6">
         <h2 class="text-sm font-semibold text-gray-900 mb-4">Messages ({{ messages.length }})</h2>
 
-        <div *ngIf="messages.length === 0" class="text-sm text-gray-400 text-center py-4">No messages yet</div>
+        @if (messages.length === 0) {
+<div class="text-sm text-gray-400 text-center py-4">No messages yet</div>
+}
 
         <div class="space-y-3 max-h-96 overflow-y-auto mb-4">
-          <div *ngFor="let m of messages" class="p-3 rounded-lg bg-gray-50 border border-gray-100">
+          @for (m of messages; track m) {
+<div class="p-3 rounded-lg bg-gray-50 border border-gray-100">
             <p class="text-sm text-gray-800 whitespace-pre-wrap">{{ m.message }}</p>
             <p class="text-xs text-gray-400 mt-1">{{ m.createdAt | date:'dd MMM yyyy, HH:mm' }}</p>
           </div>
+}
         </div>
 
         <!-- Post Message -->
@@ -104,17 +113,22 @@ import { PfTeamApiService, HdTicket, HdMessage } from '../pf-team-api.service';
         </div>
       </div>
     </div>
+}
 
     <!-- Loading -->
-    <div *ngIf="!ticket && !error" class="flex items-center justify-center py-20">
+    @if (!ticket && !error) {
+<div class="flex items-center justify-center py-20">
       <div class="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
     </div>
+}
 
     <!-- Error -->
-    <div *ngIf="error" class="text-center py-20">
+    @if (error) {
+<div class="text-center py-20">
       <p class="text-red-500 text-sm">{{ error }}</p>
       <a routerLink="/pf-team/tickets" class="text-sm text-indigo-600 hover:underline mt-2 inline-block">← Back to tickets</a>
     </div>
+}
   `,
 })
 export class PfTeamTicketDetailComponent implements OnInit {

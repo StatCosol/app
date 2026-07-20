@@ -9,7 +9,8 @@ export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule],
   template: `
-    <div *ngIf="isOpen" class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" [attr.aria-labelledby]="title ? 'modal-title-' + modalUid : null">
+    @if (isOpen) {
+<div class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" [attr.aria-labelledby]="title ? 'modal-title-' + modalUid : null">
       <!-- Backdrop -->
       <div
         class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity"
@@ -24,10 +25,14 @@ export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
           (click)="$event.stopPropagation()">
 
           <!-- Header -->
-          <div *ngIf="title || showCloseButton" class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-            <h3 *ngIf="title" [id]="'modal-title-' + modalUid" class="text-lg font-semibold text-gray-900">{{ title }}</h3>
-            <button
-              *ngIf="showCloseButton"
+          @if (title || showCloseButton) {
+<div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+            @if (title) {
+<h3 [id]="'modal-title-' + modalUid" class="text-lg font-semibold text-gray-900">{{ title }}</h3>
+}
+            @if (showCloseButton) {
+<button
+             
               type="button"
               class="rounded-lg p-1.5 text-gray-400 hover:text-gray-500 hover:bg-gray-100 transition-colors"
               aria-label="Close dialog"
@@ -36,7 +41,9 @@ export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
               </svg>
             </button>
+}
           </div>
+}
 
           <!-- Body -->
           <div class="px-6 py-4">
@@ -44,12 +51,15 @@ export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
           </div>
 
           <!-- Footer -->
-          <div *ngIf="showFooter" class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-3">
+          @if (showFooter) {
+<div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-3">
             <ng-content select="[slot=footer]"></ng-content>
           </div>
+}
         </div>
       </div>
     </div>
+}
   `
 })
 export class ModalComponent {

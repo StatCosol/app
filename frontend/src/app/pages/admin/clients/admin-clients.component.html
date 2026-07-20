@@ -6,18 +6,25 @@
   </ui-page-header>
 
   <!-- Alert Messages -->
-  <div *ngIf="error" class="alert error mb-4">{{ error }}</div>
-  <div *ngIf="success" class="alert success mb-4">{{ success }}</div>
+  @if (error) {
+<div class="alert error mb-4">{{ error }}</div>
+}
+  @if (success) {
+<div class="alert success mb-4">{{ success }}</div>
+}
 
   <!-- Back Button -->
-  <div *ngIf="selectedClient" class="mb-4">
+  @if (selectedClient) {
+<div class="mb-4">
     <ui-button variant="secondary" (clicked)="goBack()">
       &larr; Back to Clients List
     </ui-button>
   </div>
+}
 
   <!-- Tab Navigation -->
-  <div *ngIf="selectedClient" class="border-b border-gray-200 mb-6">
+  @if (selectedClient) {
+<div class="border-b border-gray-200 mb-6">
     <nav class="-mb-px flex space-x-8">
       <a
         [class]="activeTab === 'company' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
@@ -29,7 +36,9 @@
         [class]="activeTab === 'branches' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
         class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors cursor-pointer"
         [routerLink]="['/admin/clients', selectedClient.id, 'branches']">
-        Branches <ui-status-badge *ngIf="branches.length" variant="info" size="sm">{{ branches.length }}</ui-status-badge>
+        Branches @if (branches.length) {
+<ui-status-badge variant="info" size="sm">{{ branches.length }}</ui-status-badge>
+}
       </a>
       <a
         [class]="activeTab === 'compliances' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
@@ -39,9 +48,11 @@
       </a>
     </nav>
   </div>
+}
 
   <!-- MASTER CLIENT USER (visible on all tabs) -->
-  <div class="card mb-6" *ngIf="selectedClient">
+  @if (selectedClient) {
+<div class="card mb-6">
     <h3 class="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
       <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
@@ -50,7 +61,8 @@
     </h3>
 
     <!-- Password Reset Banner -->
-    <div *ngIf="masterUserResetResult" class="mb-4 bg-green-50 border border-green-200 rounded-lg p-4">
+    @if (masterUserResetResult) {
+<div class="mb-4 bg-green-50 border border-green-200 rounded-lg p-4">
       <div class="flex items-start justify-between">
         <div>
           <h4 class="text-sm font-semibold text-green-800 mb-1">Password Reset Successful</h4>
@@ -62,16 +74,22 @@
         <button type="button" (click)="masterUserResetResult = null" class="text-green-600 hover:text-green-800 text-lg font-bold">&times;</button>
       </div>
     </div>
+}
 
-    <div *ngIf="clientUsers.length > 0">
+    @if (clientUsers.length > 0) {
+<div>
       <!-- View Mode -->
-      <ng-container *ngIf="!editingMasterUser">
-        <div *ngFor="let u of clientUsers"
+      @if (!editingMasterUser) {
+
+        @for (u of clientUsers; track u) {
+<div
              class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 mb-2">
           <div>
             <div class="font-medium text-gray-900">{{ u.name }}</div>
             <div class="text-sm text-gray-500">{{ u.email }}</div>
-            <div class="text-sm text-gray-500" *ngIf="u.mobile">{{ u.mobile }}</div>
+            @if (u.mobile) {
+<div class="text-sm text-gray-500">{{ u.mobile }}</div>
+}
           </div>
           <div class="flex items-center gap-2">
             <ui-button variant="secondary" size="sm" (clicked)="startEditMasterUser(u)">
@@ -89,10 +107,13 @@
             <ui-status-badge variant="success" size="sm">MASTER</ui-status-badge>
           </div>
         </div>
-      </ng-container>
+}
+      
+}
 
       <!-- Edit Mode -->
-      <div *ngIf="editingMasterUser" class="bg-white border border-indigo-200 rounded-lg p-5">
+      @if (editingMasterUser) {
+<div class="bg-white border border-indigo-200 rounded-lg p-5">
         <h4 class="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">Edit Master User Details</h4>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <ui-form-input
@@ -128,22 +149,29 @@
           </ui-button>
         </div>
       </div>
+}
     </div>
+}
 
-    <div *ngIf="clientUsers.length === 0" class="text-sm text-gray-500 italic">
+    @if (clientUsers.length === 0) {
+<div class="text-sm text-gray-500 italic">
       No master user linked to this client.
     </div>
+}
   </div>
+}
 
   <!-- TAB 1: COMPANY DETAILS -->
-  <div *ngIf="activeTab === 'company'">
+  @if (activeTab === 'company') {
+<div>
     <div class="card">
       <h3 class="text-xl font-semibold text-gray-900 mb-6">
         {{ selectedClient ? 'Edit' : 'Create' }} Client Company
       </h3>
 
       <!-- Create Client Form -->
-      <form (ngSubmit)="createClient()" *ngIf="!selectedClient" class="space-y-6">
+      @if (!selectedClient) {
+<form (ngSubmit)="createClient()" class="space-y-6">
         <!-- Section 1: Company Info -->
         <div>
           <h4 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Company Information</h4>
@@ -208,8 +236,9 @@
             Selected services are sent to CCO for approval before portal access is enabled.
           </p>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <label
-              *ngFor="let service of serviceModuleOptions"
+            @for (service of serviceModuleOptions; track service) {
+<label
+             
               class="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 cursor-pointer hover:border-indigo-300">
               <input
                 type="checkbox"
@@ -222,6 +251,7 @@
                 <span class="block text-xs text-gray-500 mt-0.5">{{ service.description }}</span>
               </span>
             </label>
+}
           </div>
           <label class="block mt-3">
             <span class="text-xs font-medium text-gray-600">Approval note</span>
@@ -248,16 +278,23 @@
               Choose Logo
               <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" class="hidden" (change)="onRegLogoFileSelected($event)" />
             </label>
-            <span *ngIf="regLogoFile" class="text-sm text-gray-600">{{ regLogoFile.name }}</span>
-            <button *ngIf="regLogoFile" type="button" (click)="removeRegLogo()" class="text-xs text-red-500 hover:text-red-700">Remove</button>
+            @if (regLogoFile) {
+<span class="text-sm text-gray-600">{{ regLogoFile.name }}</span>
+}
+            @if (regLogoFile) {
+<button type="button" (click)="removeRegLogo()" class="text-xs text-red-500 hover:text-red-700">Remove</button>
+}
           </div>
-          <div *ngIf="regLogoPreviewUrl" class="mt-3">
+          @if (regLogoPreviewUrl) {
+<div class="mt-3">
             <img [src]="regLogoPreviewUrl" alt="Logo preview" class="h-16 w-auto rounded border border-gray-200 bg-white p-1" />
           </div>
+}
         </div>
 
         <!-- Created Master User Credentials Banner -->
-        <div *ngIf="createdMasterUser" class="bg-green-50 border border-green-200 rounded-lg p-4">
+        @if (createdMasterUser) {
+<div class="bg-green-50 border border-green-200 rounded-lg p-4">
           <div class="flex items-start justify-between">
             <div>
               <h4 class="text-sm font-semibold text-green-800 mb-1">Master User Created</h4>
@@ -271,15 +308,18 @@
             <button type="button" (click)="createdMasterUser = null" class="text-green-600 hover:text-green-800 text-lg font-bold">&times;</button>
           </div>
         </div>
+}
 
         <ui-button variant="primary" type="submit"
           [disabled]="!clientForm.clientName || !clientForm.masterUserName || !clientForm.masterUserEmail || !clientForm.masterUserPassword || !clientForm.serviceModules.length || loading">
           {{ loading ? 'Registering...' : 'Register Client' }}
         </ui-button>
       </form>
+}
 
       <!-- Client Info Display / Edit -->
-      <div *ngIf="selectedClient">
+      @if (selectedClient) {
+<div>
         <form (ngSubmit)="saveClientDetails()" class="space-y-6">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
             <div>
@@ -357,7 +397,8 @@
         </form>
 
         <!-- ── CRM On-Behalf Toggle ─────────────────── -->
-        <div *ngIf="selectedClient" class="mt-6 border-t border-gray-200 pt-6">
+        @if (selectedClient) {
+<div class="mt-6 border-t border-gray-200 pt-6">
           <h4 class="text-lg font-semibold text-gray-900 mb-3">CRM Managed Compliance</h4>
           <div class="flex items-center gap-3">
             <label class="relative inline-flex items-center cursor-pointer">
@@ -375,40 +416,52 @@
             When enabled, CRM users assigned to this client can upload compliance documents, return proofs, and other files on behalf of client branches. All on-behalf uploads are tracked with audit trails.
           </p>
         </div>
+}
 
         <!-- ── Client Logo Upload ────────────────────── -->
         <div class="mt-8 border-t border-gray-200 pt-6">
           <h4 class="text-lg font-semibold text-gray-900 mb-4">Client Logo</h4>
 
           <!-- Current logo preview -->
-          <div *ngIf="selectedClient.logoUrl" class="mb-4 flex items-center gap-4">
+          @if (selectedClient.logoUrl) {
+<div class="mb-4 flex items-center gap-4">
             <img [src]="getAuthenticatedLogoUrl(selectedClient.logoUrl)" alt="Current logo"
                  class="h-16 w-auto rounded border border-gray-200 bg-white p-1" />
             <span class="text-sm text-gray-500">Current logo</span>
           </div>
+}
 
           <!-- File upload -->
           <div class="space-y-3">
             <input type="file" accept="image/png,image/jpeg,image/webp"
               (change)="onLogoFileSelected($event)"
               class="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-            <img *ngIf="logoPreviewUrl" [src]="logoPreviewUrl" alt="Preview" class="h-16 w-auto rounded border border-gray-200 bg-white p-1" />
+            @if (logoPreviewUrl) {
+<img [src]="logoPreviewUrl" alt="Preview" class="h-16 w-auto rounded border border-gray-200 bg-white p-1" />
+}
           </div>
 
           <!-- Upload button + messages -->
           <div class="mt-4 flex items-center gap-3">
             <button type="button" (click)="uploadLogo()" [disabled]="uploadingLogo"
               class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors">
-              <svg *ngIf="uploadingLogo" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              @if (uploadingLogo) {
+<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+}
               {{ uploadingLogo ? 'Uploading...' : 'Upload Logo' }}
             </button>
-            <span *ngIf="logoUploadMessage" class="text-sm text-green-600">{{ logoUploadMessage }}</span>
-            <span *ngIf="logoUploadError" class="text-sm text-red-600">{{ logoUploadError }}</span>
+            @if (logoUploadMessage) {
+<span class="text-sm text-green-600">{{ logoUploadMessage }}</span>
+}
+            @if (logoUploadError) {
+<span class="text-sm text-red-600">{{ logoUploadError }}</span>
+}
           </div>
         </div>
 
         <!-- Readiness Checklist -->
-        <div *ngIf="readinessResult" class="mt-6 bg-white dark:bg-gray-800 border rounded-lg p-5">
+        @if (readinessResult) {
+<div class="mt-6 bg-white dark:bg-gray-800 border rounded-lg p-5">
           <h4 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2 text-lg">
             <span [class]="readinessResult.ready ? 'text-green-600' : 'text-amber-600'">
               {{ readinessResult.ready ? '✅' : '⚠️' }}
@@ -431,9 +484,11 @@
                   <div class="text-xs text-gray-500">Count: {{ readinessResult.checks?.masterUser?.count || 0 }}</div>
                 </div>
               </div>
-              <a *ngIf="!readinessResult.checks?.masterUser?.ok"
+              @if (!readinessResult.checks?.masterUser?.ok) {
+<a
                  [routerLink]="['/admin/users']" [queryParams]="{action:'create',role:'CLIENT',clientId:selectedClient.id}"
                  class="text-xs text-indigo-600 hover:text-indigo-800 underline">Create Master User</a>
+}
             </div>
 
             <!-- Branches -->
@@ -450,9 +505,11 @@
                   <div class="text-xs text-gray-500">Count: {{ readinessResult.checks?.branches?.count || 0 }}</div>
                 </div>
               </div>
-              <a *ngIf="!readinessResult.checks?.branches?.ok && selectedClient"
+              @if (!readinessResult.checks?.branches?.ok && selectedClient) {
+<a
                  [routerLink]="['/admin/clients', selectedClient.id, 'branches']"
                  class="text-xs text-indigo-600 hover:text-indigo-800 underline">Create Branch</a>
+}
             </div>
 
             <!-- Branch Users -->
@@ -468,15 +525,19 @@
                   </div>
                   <div class="text-xs text-gray-500">
                     Mapped: {{ readinessResult.checks?.branchUsers?.count || 0 }}
-                    <span *ngIf="readinessResult.checks?.branchUsers?.unmappedUsers > 0" class="text-amber-600 ml-1">
+                    @if (readinessResult.checks?.branchUsers?.unmappedUsers > 0) {
+<span class="text-amber-600 ml-1">
                       ({{ readinessResult.checks?.branchUsers?.unmappedUsers }} unmapped)
                     </span>
+}
                   </div>
                 </div>
               </div>
-              <a *ngIf="!readinessResult.checks?.branchUsers?.ok && selectedClient"
+              @if (!readinessResult.checks?.branchUsers?.ok && selectedClient) {
+<a
                  [routerLink]="['/admin/clients', selectedClient.id, 'branches']"
                  class="text-xs text-indigo-600 hover:text-indigo-800 underline">Map Branch Users</a>
+}
             </div>
 
             <!-- Payroll User -->
@@ -493,9 +554,11 @@
                   <div class="text-xs text-gray-500">Count: {{ readinessResult.checks?.payrollUser?.count || 0 }}</div>
                 </div>
               </div>
-              <a *ngIf="!readinessResult.checks?.payrollUser?.ok"
+              @if (!readinessResult.checks?.payrollUser?.ok) {
+<a
                  [routerLink]="['/admin/users']" [queryParams]="{action:'create',role:'PAYROLL',clientId:selectedClient.id}"
                  class="text-xs text-indigo-600 hover:text-indigo-800 underline">Create Payroll User</a>
+}
             </div>
 
             <!-- CRM Assigned -->
@@ -511,9 +574,11 @@
                   </div>
                 </div>
               </div>
-              <a *ngIf="!readinessResult.checks?.crmAssigned?.ok"
+              @if (!readinessResult.checks?.crmAssigned?.ok) {
+<a
                  [routerLink]="['/admin/assignments']"
                  class="text-xs text-indigo-600 hover:text-indigo-800 underline">Assign CRM</a>
+}
             </div>
 
             <!-- Compliances Configured -->
@@ -552,11 +617,14 @@
             </div>
           </div>
         </div>
+}
       </div>
+}
     </div>
 
     <!-- ALL CLIENTS LIST -->
-    <div class="card" *ngIf="!selectedClient">
+    @if (!selectedClient) {
+<div class="card">
       <h3 class="text-lg font-semibold text-gray-900 mb-4">All Client Companies</h3>
 
       <ui-data-table
@@ -588,10 +656,13 @@
         </ng-template>
       </ui-data-table>
     </div>
+}
   </div>
+}
 
   <!-- TAB 2: BRANCHES -->
-  <div *ngIf="activeTab === 'branches' && selectedClient" class="tab-content">
+  @if (activeTab === 'branches' && selectedClient) {
+<div class="tab-content">
     <div class="card">
       <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ editingBranchId ? 'Edit' : 'Add' }} Branch</h3>
 
@@ -705,20 +776,29 @@
           <ui-button variant="primary" type="submit" [disabled]="isSavingBranch" [loading]="isSavingBranch">
             {{ editingBranchId ? 'Update' : 'Add' }} Branch
           </ui-button>
-          <ui-button variant="secondary" *ngIf="editingBranchId" (clicked)="resetBranchForm()">
+          @if (editingBranchId) {
+<ui-button variant="secondary" (clicked)="resetBranchForm()">
             Cancel
           </ui-button>
+}
         </div>
 
-        <div class="mt-2 text-green-600" *ngIf="branchSaveMessage">{{ branchSaveMessage }}</div>
-        <div class="mt-2 text-red-600" *ngIf="branchSaveError">{{ branchSaveError }}</div>
-        <div class="mt-2 text-amber-600" *ngIf="branchUserErrorMessage">
+        @if (branchSaveMessage) {
+<div class="mt-2 text-green-600">{{ branchSaveMessage }}</div>
+}
+        @if (branchSaveError) {
+<div class="mt-2 text-red-600">{{ branchSaveError }}</div>
+}
+        @if (branchUserErrorMessage) {
+<div class="mt-2 text-amber-600">
           Branch user was not auto-created: {{ branchUserErrorMessage }}
         </div>
+}
       </form>
     </div>
 
-    <div *ngIf="createdBranchUser" class="card mt-4 bg-green-50 border border-green-200">
+    @if (createdBranchUser) {
+<div class="card mt-4 bg-green-50 border border-green-200">
       <div class="flex items-start justify-between">
         <div>
           <h4 class="text-sm font-semibold text-green-800 mb-1">Branch User Created</h4>
@@ -732,6 +812,7 @@
         <button type="button" (click)="createdBranchUser = null" class="text-green-600 hover:text-green-800 text-lg font-bold">&times;</button>
       </div>
     </div>
+}
 
     <div class="card mt-6">
       <h3 class="text-lg font-semibold text-gray-900 mb-4">Branches List</h3>
@@ -753,9 +834,11 @@
       </ui-data-table>
     </div>
   </div>
+}
 
   <!-- BRANCH CONTRACTORS SECTION -->
-  <div id="branchContractorsCard" class="card mt-6" *ngIf="activeTab === 'branches' && branchForContractors">
+  @if (activeTab === 'branches' && branchForContractors) {
+<div id="branchContractorsCard" class="card mt-6">
     <h3 class="text-lg font-semibold text-gray-900 mb-4">Contractors for {{ branchForContractors.branchName }}</h3>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -767,9 +850,11 @@
           placeholder="Select contractor"
           [disabled]="loading || availableContractors.length === 0">
         </ui-form-select>
-        <p *ngIf="availableContractors.length === 0 && !loading" class="text-xs text-amber-600 mt-1">
+        @if (availableContractors.length === 0 && !loading) {
+<p class="text-xs text-amber-600 mt-1">
           No contractor users found for this client. Create users with the Contractor role first.
         </p>
+}
       </div>
 
       <div class="flex items-end">
@@ -779,8 +864,9 @@
       </div>
     </div>
 
-    <ui-data-table
-      *ngIf="branchContractors.length > 0"
+    @if (branchContractors.length > 0) {
+<ui-data-table
+     
       [columns]="contractorColumns"
       [data]="branchContractors">
 
@@ -788,19 +874,25 @@
         <ui-button variant="danger" size="sm" (clicked)="unlinkContractorFromBranch(row)">Unlink</ui-button>
       </ng-template>
     </ui-data-table>
+}
 
-    <ui-empty-state
-      *ngIf="branchContractors.length === 0"
+    @if (branchContractors.length === 0) {
+<ui-empty-state
+     
       title="No contractors linked"
       description="No contractors linked to this branch yet.">
     </ui-empty-state>
+}
   </div>
+}
 
   <!-- BRANCH USERS (LOGIN ACCOUNTS) SECTION -->
-  <div id="branchUsersCard" class="card mt-6" *ngIf="activeTab === 'branches' && branchForUsers">
+  @if (activeTab === 'branches' && branchForUsers) {
+<div id="branchUsersCard" class="card mt-6">
     <h3 class="text-lg font-semibold text-gray-900 mb-4">Login Users for {{ branchForUsers.branchName }}</h3>
 
-    <div *ngIf="branchUserResetResult" class="mb-4 flex items-start gap-3 rounded-lg bg-green-50 border border-green-200 px-4 py-3">
+    @if (branchUserResetResult) {
+<div class="mb-4 flex items-start gap-3 rounded-lg bg-green-50 border border-green-200 px-4 py-3">
       <svg class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
       </svg>
@@ -811,9 +903,11 @@
       </div>
       <button type="button" (click)="branchUserResetResult = null" class="text-green-600 hover:text-green-800 text-lg font-bold">&times;</button>
     </div>
+}
 
-    <ui-data-table
-      *ngIf="branchUsers.length > 0"
+    @if (branchUsers.length > 0) {
+<ui-data-table
+     
       [columns]="branchUserColumns"
       [data]="branchUsers">
 
@@ -833,34 +927,47 @@
         </ui-button>
       </ng-template>
     </ui-data-table>
+}
 
-    <ui-empty-state
-      *ngIf="branchUsers.length === 0"
+    @if (branchUsers.length === 0) {
+<ui-empty-state
+     
       title="No login users"
       description="No desk users assigned to this branch yet.">
     </ui-empty-state>
+}
   </div>
+}
 
   <!-- TAB 3: COMPLIANCE APPLICABILITY -->
   <!-- Branch picker when no branch selected -->
-  <div *ngIf="activeTab === 'compliances' && !branchForCompliance" class="tab-content">
+  @if (activeTab === 'compliances' && !branchForCompliance) {
+<div class="tab-content">
     <div class="card">
       <h3 class="text-lg font-semibold text-gray-900 mb-2">Select a Branch</h3>
       <p class="text-sm text-gray-500 mb-4">Choose a branch to view and manage compliance applicability.</p>
-      <div *ngIf="branches.length === 0 && !loading" class="text-sm text-gray-400">No branches found for this client. Add a branch first.</div>
-      <div *ngIf="loading" class="text-sm text-gray-400">Loading branches…</div>
+      @if (branches.length === 0 && !loading) {
+<div class="text-sm text-gray-400">No branches found for this client. Add a branch first.</div>
+}
+      @if (loading) {
+<div class="text-sm text-gray-400">Loading branches…</div>
+}
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <button *ngFor="let b of branches" type="button"
+        @for (b of branches; track b) {
+<button type="button"
           class="text-left p-4 rounded-lg border border-gray-200 hover:border-statco-blue-light hover:bg-blue-50 transition-colors"
           (click)="selectBranchForCompliance(b)">
           <div class="font-medium text-gray-900">{{ b.branchName }}</div>
           <div class="text-xs text-gray-500 mt-1">{{ b.stateCode || 'No state' }} · {{ b.branchType || 'Branch' }}</div>
         </button>
+}
       </div>
     </div>
   </div>
+}
 
-  <div *ngIf="activeTab === 'compliances' && branchForCompliance" class="tab-content">
+  @if (activeTab === 'compliances' && branchForCompliance) {
+<div class="tab-content">
     <div class="card">
       <div class="flex items-center justify-between mb-4">
         <div>
@@ -877,7 +984,8 @@
       </p>
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-        <label *ngFor="let c of compliances; trackBy: trackById"
+        @for (c of compliances; track trackById($index, c)) {
+<label
           class="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer"
           [class.bg-primary-50]="selectedComplianceIds.has(c.complianceId)"
           [class.border-primary-200]="selectedComplianceIds.has(c.complianceId)">
@@ -890,13 +998,18 @@
           />
           <div class="min-w-0">
             <div class="text-sm font-medium text-gray-900">
-              <ui-status-badge *ngIf="c.autoApplicable" variant="info" size="sm">AUTO</ui-status-badge>
+              @if (c.autoApplicable) {
+<ui-status-badge variant="info" size="sm">AUTO</ui-status-badge>
+}
               {{ c.complianceName }}
             </div>
             <div class="text-xs text-gray-500">{{ c.lawName }} ({{ c.frequency }})</div>
-            <div *ngIf="!c.applicable" class="text-xs text-red-500">({{ c.reason }})</div>
+            @if (!c.applicable) {
+<div class="text-xs text-red-500">({{ c.reason }})</div>
+}
           </div>
         </label>
+}
       </div>
 
       <div class="flex items-center gap-4">
@@ -909,8 +1022,13 @@
         <span class="text-sm text-gray-600">Selected: {{ selectedCount }} compliance(s)</span>
       </div>
 
-      <div class="mt-3 text-green-600 text-sm" *ngIf="complianceSaveMessage">{{ complianceSaveMessage }}</div>
-      <div class="mt-3 text-red-600 text-sm" *ngIf="complianceSaveError">{{ complianceSaveError }}</div>
+      @if (complianceSaveMessage) {
+<div class="mt-3 text-green-600 text-sm">{{ complianceSaveMessage }}</div>
+}
+      @if (complianceSaveError) {
+<div class="mt-3 text-red-600 text-sm">{{ complianceSaveError }}</div>
+}
     </div>
   </div>
+}
 </div>

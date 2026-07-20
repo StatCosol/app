@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -17,10 +17,17 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
   selector: 'app-ceo-approvals',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, RouterModule, PageHeaderComponent, EmptyStateComponent,
-    LoadingSpinnerComponent, DataTableComponent, TableCellDirective,
-    StatusBadgeComponent, ActionButtonComponent, FormSelectComponent,
-  ],
+    FormsModule,
+    RouterModule,
+    PageHeaderComponent,
+    EmptyStateComponent,
+    LoadingSpinnerComponent,
+    DataTableComponent,
+    TableCellDirective,
+    StatusBadgeComponent,
+    ActionButtonComponent,
+    FormSelectComponent
+],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
@@ -29,11 +36,16 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
         icon="check-circle">
       </ui-page-header>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading approvals..."></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading approvals..."></ui-loading-spinner>
+}
 
-      <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{{ error }}</div>
+      @if (error) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{{ error }}</div>
+}
 
-      <ng-container *ngIf="!loading">
+      @if (!loading) {
+
         <!-- KPI Strip -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           <div class="bg-white border border-gray-200 rounded-xl p-4">
@@ -69,7 +81,8 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
         </div>
 
         <!-- DataTable -->
-        <div *ngIf="filteredApprovals.length > 0" class="card">
+        @if (filteredApprovals.length > 0) {
+<div class="card">
           <ui-data-table [columns]="columns" [data]="filteredApprovals">
             <ng-template uiTableCell="entity" let-row>
               {{ row.entityLabel || (row.entityType + ' #' + row.entityId) }}
@@ -81,7 +94,8 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
               <ui-status-badge [status]="row.status"></ui-status-badge>
             </ng-template>
             <ng-template uiTableCell="actions" let-row>
-              <div class="flex gap-2 justify-end" *ngIf="row.status === 'PENDING'; else noActions">
+              @if (row.status === 'PENDING') {
+<div class="flex gap-2 justify-end">
                 <ui-button variant="primary" size="sm" [disabled]="actionId === row.id" (clicked)="approve(row.id)">
                   {{ actionId === row.id ? '...' : 'Approve' }}
                 </ui-button>
@@ -89,20 +103,27 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
                   Reject
                 </ui-button>
               </div>
-              <ng-template #noActions>
+} @else {
+
                 <span class="text-gray-400">—</span>
-              </ng-template>
+              
+}
+              
             </ng-template>
           </ui-data-table>
         </div>
+}
 
-        <ui-empty-state
-          *ngIf="filteredApprovals.length === 0"
+        @if (filteredApprovals.length === 0) {
+<ui-empty-state
+         
           title="No pending approvals"
           description="Pending approval requests will appear here."
           icon="clipboard-check">
         </ui-empty-state>
-      </ng-container>
+}
+      
+}
     </div>
   `,
 })

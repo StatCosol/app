@@ -14,7 +14,8 @@ import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/a
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
-    <div class="page-container" *ngIf="appraisal">
+    @if (appraisal) {
+<div class="page-container">
       <div class="page-header">
         <div>
           <h1 class="page-title">{{ appraisal.employee_name }} — Approval</h1>
@@ -55,7 +56,8 @@ import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/a
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let item of items; let i = index" class="data-row">
+              @for (item of items; track item; let i = $index) {
+<tr class="data-row">
                 <td class="text-xs text-gray-400">{{ i + 1 }}</td>
                 <td class="font-medium text-sm">{{ item.itemName }}</td>
                 <td class="text-center">{{ item.weightage }}%</td>
@@ -65,6 +67,7 @@ import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/a
                 <td class="text-center font-semibold">{{ item.finalRating ?? '—' }}</td>
                 <td class="text-center text-indigo-600 font-medium">{{ item.weightedScore ?? '—' }}</td>
               </tr>
+}
             </tbody>
             <tfoot>
               <tr class="bg-gray-50 font-semibold">
@@ -85,11 +88,14 @@ import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/a
           <div><span class="text-gray-500">New CTC:</span> <span class="font-medium ml-1">{{ appraisal.recommendedNewCtc ? (appraisal.recommendedNewCtc | number:'1.0-0') : '—' }}</span></div>
           <div><span class="text-gray-500">PIP Required:</span> <span class="font-medium ml-1" [class.text-red-600]="appraisal.pipRequired">{{ appraisal.pipRequired ? 'Yes' : 'No' }}</span></div>
         </div>
-        <div class="mt-2 text-sm" *ngIf="appraisal.finalRemarks"><span class="text-gray-500">Remarks:</span> <span class="ml-1">{{ appraisal.finalRemarks }}</span></div>
+        @if (appraisal.finalRemarks) {
+<div class="mt-2 text-sm"><span class="text-gray-500">Remarks:</span> <span class="ml-1">{{ appraisal.finalRemarks }}</span></div>
+}
       </div>
 
       <!-- Client Action -->
-      <div class="table-card mb-6" *ngIf="canApprove">
+      @if (canApprove) {
+<div class="table-card mb-6">
         <h3 class="text-sm font-semibold text-gray-900 mb-3">Your Decision</h3>
         <div class="mb-4">
           <label class="text-xs font-medium text-gray-600 block mb-1" for="client-remarks">Remarks</label>
@@ -99,25 +105,37 @@ import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/a
           <button (click)="approve()" [disabled]="submitting" class="appraisal-action appraisal-action--primary">Approve</button>
           <button (click)="sendBack()" [disabled]="submitting" class="appraisal-action text-amber-600">Send Back</button>
           <button (click)="reject()" [disabled]="submitting" class="appraisal-action text-red-600">Reject</button>
-          <button *ngIf="appraisal.status === 'CLIENT_APPROVED'" (click)="lock()" [disabled]="submitting" class="appraisal-action">Lock</button>
+          @if (appraisal.status === 'CLIENT_APPROVED') {
+<button (click)="lock()" [disabled]="submitting" class="appraisal-action">Lock</button>
+}
         </div>
       </div>
+}
 
       <!-- Approval History -->
-      <div class="table-card mt-6" *ngIf="appraisal.approvals?.length">
+      @if (appraisal.approvals?.length) {
+<div class="table-card mt-6">
         <h3 class="text-sm font-semibold text-gray-900 mb-3">Approval History</h3>
         <div class="space-y-2">
-          <div *ngFor="let a of appraisal.approvals" class="flex items-center gap-3 text-sm border-b pb-2">
+          @for (a of appraisal.approvals; track a) {
+<div class="flex items-center gap-3 text-sm border-b pb-2">
             <span class="badge bg-gray-100 text-gray-700">{{ a.approvalLevel }}</span>
             <span class="font-medium">{{ a.action }}</span>
             <span class="text-xs text-gray-400">{{ a.actionAt | date:'dd/MM/yyyy HH:mm' }}</span>
-            <span class="text-xs text-gray-500" *ngIf="a.remarks">— {{ a.remarks }}</span>
+            @if (a.remarks) {
+<span class="text-xs text-gray-500">— {{ a.remarks }}</span>
+}
           </div>
+}
         </div>
       </div>
+}
     </div>
+}
 
-    <div *ngIf="loading" class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+    @if (loading) {
+<div class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+}
   `,
 })
 export class ClientAppraisalApproveComponent implements OnInit, OnDestroy {

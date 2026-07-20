@@ -104,13 +104,16 @@ interface AttendanceIssue {
         </div>
       </section>
 
-      <ui-loading-spinner
-        *ngIf="loading"
+      @if (loading) {
+<ui-loading-spinner
+       
         text="Loading attendance workspace..."
         size="lg"
       ></ui-loading-spinner>
+}
 
-      <ng-container *ngIf="!loading">
+      @if (!loading) {
+
         <section class="summary-grid mb-4">
           <article class="summary-card">
             <h4>Import Summary</h4>
@@ -166,14 +169,17 @@ interface AttendanceIssue {
               </div>
             </div>
 
-            <ui-empty-state
-              *ngIf="!visibleMismatches.length"
+            @if (!visibleMismatches.length) {
+<ui-empty-state
+             
               title="No mismatches"
               description="No attendance mismatches found for the selected filter."
             >
             </ui-empty-state>
+}
 
-            <div class="table-wrap" *ngIf="visibleMismatches.length">
+            @if (visibleMismatches.length) {
+<div class="table-wrap">
               <table>
                 <thead>
                   <tr>
@@ -187,7 +193,8 @@ interface AttendanceIssue {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let row of visibleMismatches; trackBy: trackByKey">
+                  @for (row of visibleMismatches; track trackByKey($index, row)) {
+<tr>
                     <td>{{ row.employeeCode || row.employeeId }}</td>
                     <td>{{ row.date }}</td>
                     <td>
@@ -212,9 +219,11 @@ interface AttendanceIssue {
                       </ui-button>
                     </td>
                   </tr>
+}
                 </tbody>
               </table>
             </div>
+}
           </article>
 
           <article class="card">
@@ -222,13 +231,16 @@ interface AttendanceIssue {
               <h3>LOP Preview</h3>
               <span>{{ lopRows.length }} employee(s)</span>
             </div>
-            <ui-empty-state
-              *ngIf="!lopRows.length"
+            @if (!lopRows.length) {
+<ui-empty-state
+             
               title="No LOP impact"
               description="No LOP days for the selected month."
             >
             </ui-empty-state>
-            <div class="table-wrap" *ngIf="lopRows.length">
+}
+            @if (lopRows.length) {
+<div class="table-wrap">
               <table>
                 <thead>
                   <tr>
@@ -241,7 +253,8 @@ interface AttendanceIssue {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let row of lopRows; trackBy: trackBySummary">
+                  @for (row of lopRows; track trackBySummary($index, row)) {
+<tr>
                     <td>{{ row.employeeCode || row.employeeId }}</td>
                     <td>{{ row.daysPresent + row.halfDays * 0.5 }}</td>
                     <td>{{ row.daysOnLeave }}</td>
@@ -249,9 +262,11 @@ interface AttendanceIssue {
                     <td>{{ row.holidays }}</td>
                     <td class="lop">{{ row.lopDays }}</td>
                   </tr>
+}
                 </tbody>
               </table>
             </div>
+}
           </article>
         </section>
 
@@ -259,17 +274,23 @@ interface AttendanceIssue {
           <div>
             <h3>Payroll Handoff</h3>
             <p>Approve attendance review and push monthly input to payroll workflow.</p>
-            <small *ngIf="unresolvedMismatchCount > 0" class="error">
+            @if (unresolvedMismatchCount > 0) {
+<small class="error">
               Resolve {{ unresolvedMismatchCount }} open mismatch(es) before approval.
             </small>
-            <small
-              *ngIf="records.length > 0 && !allRowsApproved && unresolvedMismatchCount === 0"
+}
+            @if (records.length > 0 && !allRowsApproved && unresolvedMismatchCount === 0) {
+<small
+             
               class="error"
             >
               {{ records.length - approvedRecordCount }} attendance row(s) still need backend
               approval.
             </small>
-            <small *ngIf="handoffMessage" [class.error]="handoffError">{{ handoffMessage }}</small>
+}
+            @if (handoffMessage) {
+<small [class.error]="handoffError">{{ handoffMessage }}</small>
+}
           </div>
           <div class="actions">
             <ui-button
@@ -296,13 +317,16 @@ interface AttendanceIssue {
             <h3>Handoff History (Selected Month)</h3>
             <span>{{ handoffHistory.length }} item(s)</span>
           </div>
-          <ui-empty-state
-            *ngIf="!handoffHistory.length"
+          @if (!handoffHistory.length) {
+<ui-empty-state
+           
             title="No handoff history"
             description="No attendance payroll handoffs found for this month."
           >
           </ui-empty-state>
-          <div class="table-wrap" *ngIf="handoffHistory.length">
+}
+          @if (handoffHistory.length) {
+<div class="table-wrap">
             <table>
               <thead>
                 <tr>
@@ -314,7 +338,8 @@ interface AttendanceIssue {
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let item of handoffHistory; trackBy: trackByHandoff">
+                @for (item of handoffHistory; track trackByHandoff($index, item)) {
+<tr>
                   <td>{{ item.id }}</td>
                   <td>{{ item.title }}</td>
                   <td>
@@ -328,11 +353,14 @@ interface AttendanceIssue {
                   <td>{{ item.filesCount }}</td>
                   <td>{{ item.createdAt | date: 'dd MMM yyyy, hh:mm a' }}</td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
+}
         </section>
-      </ng-container>
+      
+}
     </div>
   `,
   styles: [

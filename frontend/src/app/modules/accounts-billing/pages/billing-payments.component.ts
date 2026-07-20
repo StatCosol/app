@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { AccountsBillingService } from '../services/accounts-billing.service';
@@ -8,7 +8,7 @@ import { InvoicePayment } from '../models/billing.models';
 @Component({
   selector: 'app-billing-payments',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [FormsModule, RouterModule],
   template: `
     <div class="p-6 space-y-6">
       <h1 class="text-2xl font-bold text-slate-800">Payment Receipts</h1>
@@ -28,11 +28,14 @@ import { InvoicePayment } from '../models/billing.models';
             </tr>
           </thead>
           <tbody class="divide-y">
-            <tr *ngFor="let p of payments" class="hover:bg-slate-50">
+            @for (p of payments; track p) {
+<tr class="hover:bg-slate-50">
               <td class="px-4 py-3 font-mono text-xs">{{ p.receiptNumber }}</td>
               <td class="px-4 py-3">
-                <a *ngIf="p.invoice" [routerLink]="['/accounts/invoices', p.invoice.id]"
+                @if (p.invoice) {
+<a [routerLink]="['/accounts/invoices', p.invoice.id]"
                    class="text-blue-600 hover:underline text-xs font-mono">{{ p.invoice.invoiceNumber }}</a>
+}
               </td>
               <td class="px-4 py-3">{{ p.paymentDate }}</td>
               <td class="px-4 py-3 text-right">₹{{ fmt(p.amountReceived) }}</td>
@@ -41,20 +44,25 @@ import { InvoicePayment } from '../models/billing.models';
               <td class="px-4 py-3 text-xs">{{ p.paymentMode }}</td>
               <td class="px-4 py-3 text-xs">{{ p.referenceNumber || '—' }}</td>
             </tr>
-            <tr *ngIf="!payments.length">
+}
+            @if (!payments.length) {
+<tr>
               <td colspan="8" class="px-4 py-8 text-center text-slate-400">No payments found</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
 
-      <div class="flex items-center justify-between text-sm text-slate-500" *ngIf="totalPages > 1">
+      @if (totalPages > 1) {
+<div class="flex items-center justify-between text-sm text-slate-500">
         <span>Page {{ page }} of {{ totalPages }}</span>
         <div class="flex gap-2">
           <button (click)="page = page - 1; load()" [disabled]="page <= 1" class="px-3 py-1 border rounded disabled:opacity-50">Prev</button>
           <button (click)="page = page + 1; load()" [disabled]="page >= totalPages" class="px-3 py-1 border rounded disabled:opacity-50">Next</button>
         </div>
       </div>
+}
     </div>
   `,
 })

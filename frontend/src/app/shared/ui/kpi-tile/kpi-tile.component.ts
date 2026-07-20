@@ -32,7 +32,9 @@ export type KpiTileColor = 'amber' | 'blue' | 'red' | 'violet' | 'green' | 'gray
         <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">{{ label }}</div>
         <div class="text-3xl font-extrabold text-slate-800 leading-tight my-1"
              [ngClass]="valueColorClass">{{ value }}</div>
-        <div *ngIf="detail" class="text-sm text-slate-500">{{ detail }}</div>
+        @if (detail) {
+<div class="text-sm text-slate-500">{{ detail }}</div>
+}
         <div class="text-sm text-slate-500"><ng-content select="[slot=detail]"></ng-content></div>
       </div>
     </div>

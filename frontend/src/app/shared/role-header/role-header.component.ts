@@ -1,6 +1,6 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { RouterModule } from '@angular/router';
-import { CommonModule } from '@angular/common';
+
 import { MenuService } from '../../core/menu/menu.service';
 import { MenuItem, RoleCode } from '../../core/menu/menu.model';
 import { AuthService } from '../../core/auth.service';
@@ -8,7 +8,7 @@ import { AuthService } from '../../core/auth.service';
 @Component({
   selector: 'app-role-header',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [RouterModule],
   template: `
     <!-- Top Brand Bar -->
     <div class="bg-white border-b border-gray-200">
@@ -60,24 +60,32 @@ import { AuthService } from '../../core/auth.service';
             (click)="mobileMenuOpen = !mobileMenuOpen"
             [attr.aria-expanded]="mobileMenuOpen"
             aria-label="Toggle navigation menu">
-            <svg *ngIf="!mobileMenuOpen" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            @if (!mobileMenuOpen) {
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
             </svg>
-            <svg *ngIf="mobileMenuOpen" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+}
+            @if (mobileMenuOpen) {
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
+}
           </button>
 
           <!-- Desktop Navigation (hidden on mobile) -->
-          <nav class="hidden md:flex items-center gap-0.5 lg:gap-1 flex-1 overflow-x-auto" *ngIf="menus.length">
-            <a *ngFor="let m of menus"
+          @if (menus.length) {
+<nav class="hidden md:flex items-center gap-0.5 lg:gap-1 flex-1 overflow-x-auto">
+            @for (m of menus; track m) {
+<a
                [routerLink]="m.route"
                routerLinkActive="nav-active"
                [routerLinkActiveOptions]="{ exact: m.route.endsWith('dashboard') }"
                class="nav-item">
               {{ m.label }}
             </a>
+}
           </nav>
+}
 
           <!-- User Info & Logout -->
           <div class="flex items-center gap-2 sm:gap-4 flex-shrink-0">
@@ -98,10 +106,12 @@ import { AuthService } from '../../core/auth.service';
       </div>
 
       <!-- Mobile Navigation Dropdown -->
-      <div class="md:hidden border-t border-gray-100 bg-white shadow-inner" *ngIf="mobileMenuOpen && menus.length">
+      @if (mobileMenuOpen && menus.length) {
+<div class="md:hidden border-t border-gray-100 bg-white shadow-inner">
         <div class="max-w-7xl mx-auto px-3 py-2">
           <nav class="flex flex-col gap-0.5">
-            <a *ngFor="let m of menus"
+            @for (m of menus; track m) {
+<a
                [routerLink]="m.route"
                routerLinkActive="nav-active"
                [routerLinkActiveOptions]="{ exact: m.route.endsWith('dashboard') }"
@@ -109,9 +119,11 @@ import { AuthService } from '../../core/auth.service';
                 (click)="closeMobileMenuAfterNavigation()">
               {{ m.label }}
             </a>
+}
           </nav>
         </div>
       </div>
+}
     </header>
   `,
   styles: [`

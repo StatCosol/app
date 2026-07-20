@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { TableColumn, TableQuery } from '../../models/table.model';
 import { ColumnChooserComponent } from '../column-chooser/column-chooser.component';
@@ -7,7 +7,7 @@ import { ColumnChooserComponent } from '../column-chooser/column-chooser.compone
 @Component({
   selector: 'app-table-toolbar',
   standalone: true,
-  imports: [CommonModule, FormsModule, ColumnChooserComponent],
+  imports: [FormsModule, ColumnChooserComponent],
   templateUrl: './table-toolbar.component.html',
 })
 export class TableToolbarComponent<T = any> implements OnChanges {

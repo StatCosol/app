@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Subject } from 'rxjs';
 import { takeUntil, finalize, timeout } from 'rxjs/operators';
 import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent } from '../../../shared/ui';
@@ -8,7 +8,7 @@ import { CeoApiService } from '../../../core/api/ceo.api';
 @Component({
   selector: 'app-ceo-cco-oversight',
   standalone: true,
-  imports: [CommonModule, PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent],
+  imports: [PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
@@ -17,18 +17,25 @@ import { CeoApiService } from '../../../core/api/ceo.api';
         icon="chart-bar">
       </ui-page-header>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading oversight data..."></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading oversight data..."></ui-loading-spinner>
+}
 
-      <div *ngIf="error" class="alert alert-error mb-4">{{ error }}</div>
+      @if (error) {
+<div class="alert alert-error mb-4">{{ error }}</div>
+}
 
-      <ui-empty-state
-        *ngIf="!loading && !error && summary.length === 0"
+      @if (!loading && !error && summary.length === 0) {
+<ui-empty-state
+       
         title="No oversight data"
         description="CCO workload and performance metrics will appear here."
         icon="users">
       </ui-empty-state>
+}
 
-      <div *ngIf="!loading && summary.length > 0" class="card">
+      @if (!loading && summary.length > 0) {
+<div class="card">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
@@ -39,10 +46,13 @@ import { CeoApiService } from '../../../core/api/ceo.api';
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let cco of summary" class="hover:bg-gray-50">
+            @for (cco of summary; track cco) {
+<tr class="hover:bg-gray-50">
               <td class="px-4 py-3 text-sm font-medium">
                 <div>{{ cco.ccoName || cco.name || '—' }}</div>
-                <div *ngIf="cco.ccoEmail" class="text-xs text-gray-500">{{ cco.ccoEmail }}</div>
+                @if (cco.ccoEmail) {
+<div class="text-xs text-gray-500">{{ cco.ccoEmail }}</div>
+}
               </td>
               <td class="px-4 py-3 text-sm">{{ cco.totalClients ?? cco.clientCount ?? 0 }}</td>
               <td class="px-4 py-3 text-sm">{{ cco.pendingCount ?? 0 }}</td>
@@ -50,9 +60,11 @@ import { CeoApiService } from '../../../core/api/ceo.api';
                 <span [class.text-red-600]="(cco.overdueCount ?? 0) > 0">{{ cco.overdueCount ?? 0 }}</span>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+}
     </div>
   `,
 })

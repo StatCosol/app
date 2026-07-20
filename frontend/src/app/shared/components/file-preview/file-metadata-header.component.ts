@@ -12,17 +12,31 @@ import { SharedFilePreviewData } from './file-preview.model';
         <div>
           <h3 class="text-base font-semibold text-gray-900">{{ file?.name || file?.fileName || 'File Preview' }}</h3>
           <div class="mt-1 text-xs text-gray-500 flex flex-wrap gap-x-3 gap-y-1">
-            <span *ngIf="file?.queryType">Type: {{ file?.queryType }}</span>
-            <span *ngIf="file?.status">Status: {{ file?.status }}</span>
-            <span *ngIf="file?.uploadedAt">Uploaded: {{ file?.uploadedAt | date:'d MMM y, h:mm a' }}</span>
-            <span *ngIf="file?.uploaderName">By: {{ file?.uploaderName }}</span>
-            <span *ngIf="file?.fileSize !== null && file?.fileSize !== undefined">Size: {{ formatSize(file?.fileSize) }}</span>
-            <span *ngIf="file?.dueDate">Due: {{ file?.dueDate | date:'d MMM y' }}</span>
+            @if (file?.queryType) {
+<span>Type: {{ file?.queryType }}</span>
+}
+            @if (file?.status) {
+<span>Status: {{ file?.status }}</span>
+}
+            @if (file?.uploadedAt) {
+<span>Uploaded: {{ file?.uploadedAt | date:'d MMM y, h:mm a' }}</span>
+}
+            @if (file?.uploaderName) {
+<span>By: {{ file?.uploaderName }}</span>
+}
+            @if (file?.fileSize !== null && file?.fileSize !== undefined) {
+<span>Size: {{ formatSize(file?.fileSize) }}</span>
+}
+            @if (file?.dueDate) {
+<span>Due: {{ file?.dueDate | date:'d MMM y' }}</span>
+}
           </div>
         </div>
-        <span *ngIf="file?.mimeType" class="rounded-full bg-gray-100 text-gray-700 text-[10px] font-semibold px-2 py-1 uppercase">
+        @if (file?.mimeType) {
+<span class="rounded-full bg-gray-100 text-gray-700 text-[10px] font-semibold px-2 py-1 uppercase">
           {{ file?.mimeType }}
         </span>
+}
       </div>
     </div>
   `,

@@ -7,13 +7,14 @@
   <!-- ══════════════ Tabs ══════════════ -->
   <div class="border-b border-gray-200 mb-6">
     <nav class="flex gap-1 -mb-px overflow-x-auto">
-      <button type="button" *ngFor="let tab of [
+      @for (tab of [
         {id:'DOCS',  label:'Documents (Work Queue)'},
         {id:'MCD',   label:'MCD Tracker'},
         {id:'EXPIRY',label:'Expiry / Renewals'},
         {id:'AUDIT_CLOSURES', label:'Audit Closures'},
         {id:'TASKS', label:'Tasks'}
-      ]"
+      ]; track tab) {
+<button type="button"
         (click)="switchTab(tab.id)"
         class="whitespace-nowrap px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
         [class.border-statco-blue]="activeTab===tab.id"
@@ -23,13 +24,16 @@
         [class.hover:text-gray-700]="activeTab!==tab.id">
         {{ tab.label }}
       </button>
+}
     </nav>
   </div>
 
   <!-- ══════════════ Tab 1: Documents (Work Queue) ══════════════ -->
-  <div *ngIf="activeTab==='DOCS'">
+  @if (activeTab==='DOCS') {
+<div>
     <!-- Reupload Backlog KPIs -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4" *ngIf="reuploadBacklog">
+    @if (reuploadBacklog) {
+<div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
       <a routerLink="/crm/reupload-backlog" [queryParams]="{ status: 'OPEN' }"
         class="border rounded-lg p-3 bg-blue-50 border-blue-200 hover:shadow-md transition-shadow cursor-pointer block">
         <div class="text-xs text-gray-500">Reupload Requests &mdash; OPEN</div>
@@ -46,6 +50,7 @@
         <div class="text-2xl font-semibold text-red-700">{{ reuploadBacklog.rejected || 0 }}</div>
       </a>
     </div>
+}
 
     <!-- KPI Chips -->
     <div class="flex flex-wrap gap-3 mb-6">
@@ -79,28 +84,36 @@
         (click)="filterDocsByKpi('EXPIRED')">
         Expired <span class="font-bold">{{ docKpis.expired || 0 }}</span>
       </button>
-      <button type="button" *ngIf="docFilters.status"
+      @if (docFilters.status) {
+<button type="button"
         class="inline-flex items-center gap-1 px-3 py-2 rounded-full text-xs font-medium bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200"
         (click)="docFilters.status=''; loadDocs()">
         Clear Filter &times;
       </button>
+}
     </div>
 
     <!-- Doc Filters -->
     <div class="card mb-6">
       <div class="flex flex-wrap gap-3 items-end">
-        <div class="w-48" *ngIf="!routeClientId">
+        @if (!routeClientId) {
+<div class="w-48">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-client-id">Client</label>
           <select id="cc-client-id" name="clientId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="docFilters.clientId" (change)="onClientChange('doc')">
             <option value="">All Clients</option>
-            <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+            @for (c of clients; track c) {
+<option [value]="c.id">{{ c.clientName }}</option>
+}
           </select>
         </div>
+}
         <div class="w-48">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-branch-id">Branch</label>
           <select id="cc-branch-id" name="branchId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="docFilters.branchId">
             <option value="">All Branches</option>
-            <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
+            @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchName }}</option>
+}
           </select>
         </div>
         <div class="w-48">
@@ -128,15 +141,20 @@
     </div>
 
     <!-- Loading -->
-    <ui-loading-spinner *ngIf="docLoading" text="Loading documents..."></ui-loading-spinner>
+    @if (docLoading) {
+<ui-loading-spinner text="Loading documents..."></ui-loading-spinner>
+}
 
     <!-- Error -->
-    <div *ngIf="docErrorMsg && !docLoading" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+    @if (docErrorMsg && !docLoading) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
       {{ docErrorMsg }}
     </div>
+}
 
     <!-- Docs Table -->
-    <div class="card" *ngIf="!docLoading">
+    @if (!docLoading) {
+<div class="card">
       <h3 class="text-lg font-semibold text-gray-900 mb-4">
         Document Work Queue
         <span class="text-sm font-normal text-gray-500 ml-2">({{ docs.length }} records)</span>
@@ -155,14 +173,19 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let d of docs" class="hover:bg-gray-50">
+            @for (d of docs; track d) {
+<tr class="hover:bg-gray-50">
               <td class="px-3 py-3 text-xs text-gray-900">{{ d.title || d.fileName || '-' }}</td>
               <td class="px-3 py-3 text-xs text-gray-600">{{ d.clientName || '-' }}</td>
               <td class="px-3 py-3 text-xs text-gray-600">{{ d.branchName || '-' }}</td>
               <td class="px-3 py-3 text-xs text-gray-600">{{ d.contractorName || '-' }}</td>
               <td class="px-3 py-3 text-xs">
-                <span *ngIf="d.expiryDate" class="text-red-600 font-medium">{{ d.expiryDate | date:'mediumDate' }}</span>
-                <span *ngIf="!d.expiryDate" class="text-gray-400">—</span>
+                @if (d.expiryDate) {
+<span class="text-red-600 font-medium">{{ d.expiryDate | date:'mediumDate' }}</span>
+}
+                @if (!d.expiryDate) {
+<span class="text-gray-400">—</span>
+}
               </td>
               <td class="px-3 py-3 text-xs">
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
@@ -174,79 +197,101 @@
                   [class.text-red-800]="d.status==='REJECTED' || d.status==='EXPIRED'">
                   {{ d.status }}
                 </span>
-                <span *ngIf="d.actingOnBehalf || d.acting_on_behalf"
+                @if (d.actingOnBehalf || d.acting_on_behalf) {
+<span
                   class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 ml-1"
                   title="Uploaded by CRM on behalf of branch">
                   CRM
                 </span>
+}
               </td>
               <td class="px-3 py-3 text-right text-xs">
                 <div class="flex items-center justify-end gap-1.5">
-                  <button *ngIf="d.filePath" type="button" (click)="openFile(d.filePath, d.fileName)"
+                  @if (d.filePath) {
+<button type="button" (click)="openFile(d.filePath, d.fileName)"
                      class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
                     View
                   </button>
-                  <button *ngIf="d.filePath" type="button" (click)="openFile(d.filePath, d.fileName, 'download')"
+<button type="button" (click)="openFile(d.filePath, d.fileName, 'download')"
                      class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
                     Download
                   </button>
-                  <button *ngIf="d.status==='UPLOADED' || d.status==='PENDING_REVIEW'"
+}
+                  @if (d.status==='UPLOADED' || d.status==='PENDING_REVIEW') {
+<button
                     type="button"
                     class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
                     [disabled]="reviewingDocId === d.id"
                     (click)="reviewDoc(d,'APPROVED')">
                     {{ reviewingDocId === d.id ? '...' : 'Approve' }}
                   </button>
-                  <button *ngIf="d.status==='UPLOADED' || d.status==='PENDING_REVIEW'"
+}
+                  @if (d.status==='UPLOADED' || d.status==='PENDING_REVIEW') {
+<button
                     type="button"
                     class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
                     [disabled]="reviewingDocId === d.id"
                     (click)="reviewDoc(d,'REJECTED')">
                     Reject
                   </button>
+}
                 </div>
               </td>
             </tr>
-            <tr *ngIf="docs.length === 0 && !docLoading">
+}
+            @if (docs.length === 0 && !docLoading) {
+<tr>
               <td colspan="7" class="px-4 py-8 text-center text-gray-500 text-sm">No contractor documents found</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
     </div>
+}
 
     <!-- Compliance Documents Table -->
-    <ui-loading-spinner *ngIf="complianceDocsLoading" text="Loading compliance documents..."></ui-loading-spinner>
+    @if (complianceDocsLoading) {
+<ui-loading-spinner text="Loading compliance documents..."></ui-loading-spinner>
+}
 
-    <div class="card" *ngIf="!complianceDocsLoading">
+    @if (!complianceDocsLoading) {
+<div class="card">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-semibold text-gray-900">
           Compliance Documents
           <span class="text-sm font-normal text-gray-500 ml-2">({{ complianceDocs.length }} records)</span>
         </h3>
-        <button *ngIf="routeClientId" type="button"
+        @if (routeClientId) {
+<button type="button"
           class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700"
           (click)="showComplianceUpload = !showComplianceUpload; loadReturnMaster()">
           {{ showComplianceUpload ? 'Cancel' : '⬆ Upload on Behalf' }}
         </button>
+}
       </div>
 
       <!-- Upload on Behalf Form -->
-      <div *ngIf="showComplianceUpload" class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+      @if (showComplianceUpload) {
+<div class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
         <h4 class="text-sm font-semibold text-purple-800 mb-3">Upload Compliance Return on Behalf of Branch</h4>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Branch *</label>
             <select class="w-full text-sm rounded-md border-gray-300" [(ngModel)]="compUploadForm.branchId" name="compBranch">
               <option value="">Select Branch</option>
-              <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name }}</option>
+              @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchName || b.name }}</option>
+}
             </select>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Return *</label>
             <select class="w-full text-sm rounded-md border-gray-300" [(ngModel)]="compUploadForm.returnCode" name="compReturn">
               <option value="">Select Return</option>
-              <option *ngFor="let r of complianceReturnMaster" [value]="r.returnCode">{{ r.returnName || r.returnCode }}</option>
+              @for (r of complianceReturnMaster; track r) {
+<option [value]="r.returnCode">{{ r.returnName || r.returnCode }}</option>
+}
             </select>
           </div>
           <div>
@@ -262,24 +307,32 @@
             <label class="block text-xs font-medium text-gray-700 mb-1">Period Year *</label>
             <input type="number" class="w-full text-sm rounded-md border-gray-300" [(ngModel)]="compUploadForm.periodYear" name="compYear" min="2020" max="2050">
           </div>
-          <div *ngIf="compUploadForm.frequency === 'MONTHLY'">
+          @if (compUploadForm.frequency === 'MONTHLY') {
+<div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Month</label>
             <select class="w-full text-sm rounded-md border-gray-300" [(ngModel)]="compUploadForm.periodMonth" name="compMonth">
-              <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
+              @for (m of monthOptions; track m) {
+<option [ngValue]="m.value">{{ m.label }}</option>
+}
             </select>
           </div>
-          <div *ngIf="compUploadForm.frequency === 'QUARTERLY'">
+}
+          @if (compUploadForm.frequency === 'QUARTERLY') {
+<div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Quarter</label>
             <select class="w-full text-sm rounded-md border-gray-300" [(ngModel)]="compUploadForm.periodQuarter" name="compQuarter">
               <option [ngValue]="1">Q1</option><option [ngValue]="2">Q2</option><option [ngValue]="3">Q3</option><option [ngValue]="4">Q4</option>
             </select>
           </div>
-          <div *ngIf="compUploadForm.frequency === 'HALF_YEARLY'">
+}
+          @if (compUploadForm.frequency === 'HALF_YEARLY') {
+<div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Half</label>
             <select class="w-full text-sm rounded-md border-gray-300" [(ngModel)]="compUploadForm.periodHalf" name="compHalf">
               <option [ngValue]="1">H1</option><option [ngValue]="2">H2</option>
             </select>
           </div>
+}
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Remarks</label>
             <input type="text" class="w-full text-sm rounded-md border-gray-300" [(ngModel)]="compUploadForm.remarks" name="compRemarks" placeholder="Optional remarks">
@@ -296,6 +349,7 @@
           {{ complianceUploading ? 'Uploading...' : 'Upload on Behalf' }}
         </button>
       </div>
+}
       <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
@@ -310,16 +364,25 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let cd of complianceDocs" class="hover:bg-gray-50">
+            @for (cd of complianceDocs; track cd) {
+<tr class="hover:bg-gray-50">
               <td class="px-3 py-3 text-xs text-gray-900">{{ cd.returnName || cd.returnCode || '-' }}</td>
               <td class="px-3 py-3 text-xs text-gray-600">{{ cd.lawArea || '-' }}</td>
               <td class="px-3 py-3 text-xs text-gray-600">
-                {{ cd.periodYear }}<span *ngIf="cd.periodMonth">-{{ cd.periodMonth | number:'2.0-0' }}</span>
-                <span *ngIf="cd.periodQuarter"> Q{{ cd.periodQuarter }}</span>
+                {{ cd.periodYear }}@if (cd.periodMonth) {
+<span>-{{ cd.periodMonth | number:'2.0-0' }}</span>
+}
+                @if (cd.periodQuarter) {
+<span> Q{{ cd.periodQuarter }}</span>
+}
               </td>
               <td class="px-3 py-3 text-xs">
-                <span *ngIf="cd.dueDate" class="text-red-600 font-medium">{{ cd.dueDate | date:'mediumDate' }}</span>
-                <span *ngIf="!cd.dueDate" class="text-gray-400">—</span>
+                @if (cd.dueDate) {
+<span class="text-red-600 font-medium">{{ cd.dueDate | date:'mediumDate' }}</span>
+}
+                @if (!cd.dueDate) {
+<span class="text-gray-400">—</span>
+}
               </td>
               <td class="px-3 py-3 text-xs">
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
@@ -333,71 +396,95 @@
                   [class.text-gray-600]="cd.status==='NOT_UPLOADED'">
                   {{ cd.status?.replace('_', ' ') }}
                 </span>
-                <span *ngIf="cd.actingOnBehalf"
+                @if (cd.actingOnBehalf) {
+<span
                   class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 ml-1"
                   title="Uploaded by CRM on behalf of branch">
                   CRM
                 </span>
+}
               </td>
               <td class="px-3 py-3 text-xs">
-                <a *ngIf="cd.uploadedFileUrl" [href]="'/' + cd.uploadedFileUrl" target="_blank"
+                @if (cd.uploadedFileUrl) {
+<a [href]="'/' + cd.uploadedFileUrl" target="_blank"
                    class="text-blue-600 hover:underline truncate block max-w-[150px]" [title]="cd.uploadedFileName">
                   {{ cd.uploadedFileName || 'View' }}
                 </a>
-                <span *ngIf="!cd.uploadedFileUrl" class="text-gray-400">—</span>
+}
+                @if (!cd.uploadedFileUrl) {
+<span class="text-gray-400">—</span>
+}
               </td>
               <td class="px-3 py-3 text-right text-xs">
                 <div class="flex items-center justify-end gap-1.5">
-                  <button *ngIf="cd.status==='SUBMITTED' || cd.status==='RESUBMITTED'"
+                  @if (cd.status==='SUBMITTED' || cd.status==='RESUBMITTED') {
+<button
                     type="button"
                     class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
                     [disabled]="reviewingCompDocId === cd.id"
                     (click)="reviewComplianceDoc(cd,'APPROVED')">
                     {{ reviewingCompDocId === cd.id ? '...' : 'Approve' }}
                   </button>
-                  <button *ngIf="cd.status==='SUBMITTED' || cd.status==='RESUBMITTED'"
+}
+                  @if (cd.status==='SUBMITTED' || cd.status==='RESUBMITTED') {
+<button
                     type="button"
                     class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
                     [disabled]="reviewingCompDocId === cd.id"
                     (click)="reviewComplianceDoc(cd,'REUPLOAD_REQUIRED')">
                     Reupload
                   </button>
+}
                 </div>
               </td>
             </tr>
-            <tr *ngIf="complianceDocs.length === 0 && !complianceDocsLoading">
+}
+            @if (complianceDocs.length === 0 && !complianceDocsLoading) {
+<tr>
               <td colspan="7" class="px-4 py-8 text-center text-gray-500 text-sm">No compliance documents found</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
     </div>
+}
   </div>
+}
 
   <!-- ══════════════ Tab 2: MCD Tracker ══════════════ -->
-  <div *ngIf="activeTab==='MCD'">
+  @if (activeTab==='MCD') {
+<div>
     <!-- MCD Filters -->
     <div class="card mb-6">
       <div class="flex flex-wrap gap-3 items-end">
         <div class="w-48">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-mcd-year">Year</label>
           <select id="cc-mcd-year" name="mcdYear" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="mcdYear" (ngModelChange)="onMcdFilterChange()">
-            <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
+            @for (y of yearOptions; track y) {
+<option [ngValue]="y">{{ y }}</option>
+}
           </select>
         </div>
         <div class="w-48">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-mcd-month">Month</label>
           <select id="cc-mcd-month" name="mcdMonth" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="mcdMonth" (ngModelChange)="onMcdFilterChange()">
-            <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
+            @for (m of monthOptions; track m) {
+<option [ngValue]="m.value">{{ m.label }}</option>
+}
           </select>
         </div>
-        <div class="w-56" *ngIf="!routeClientId">
+        @if (!routeClientId) {
+<div class="w-56">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-mcd-client-id">Client</label>
           <select id="cc-mcd-client-id" name="mcdClientId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="mcdClientId" (ngModelChange)="onClientChange('mcd'); onMcdFilterChange()">
             <option value="">All Clients</option>
-            <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+            @for (c of clients; track c) {
+<option [value]="c.id">{{ c.clientName }}</option>
+}
           </select>
         </div>
+}
         <button type="button"
           class="rounded-lg bg-statco-blue text-white font-semibold text-sm px-5 py-2 hover:bg-statco-blue-dark focus:ring-2 focus:ring-statco-blue focus:ring-offset-2 transition-all h-[38px]"
           (click)="loadMcd()">Refresh</button>
@@ -411,13 +498,17 @@
     </div>
 
     <!-- Loading -->
-    <div *ngIf="mcdLoading" class="text-sm text-gray-500 mb-2">Loading MCD…</div>
+    @if (mcdLoading) {
+<div class="text-sm text-gray-500 mb-2">Loading MCD…</div>
+}
 
     <!-- Top 5 Lowest Coverage Branches -->
-    <div class="mb-4" *ngIf="!mcdLoading && mcdRows.length > 0">
+    @if (!mcdLoading && mcdRows.length > 0) {
+<div class="mb-4">
       <div class="font-semibold mb-2">Top 5 Lowest Coverage Branches ({{ mcdMonthKey }})</div>
       <div class="grid grid-cols-1 md:grid-cols-5 gap-2">
-        <div *ngFor="let x of getTopLowestMcdBranches(5)"
+        @for (x of getTopLowestMcdBranches(5); track x) {
+<div
              class="border rounded p-3 cursor-pointer hover:shadow-sm transition-shadow"
              [ngClass]="rowHighlightClass(x.pct)"
              (click)="jumpToDocsFromMcdCard(x)">
@@ -434,15 +525,20 @@
           </div>
           <div class="mt-1 text-[11px] text-gray-500">
             Applicable: {{ x.totalApplicable }}
-            <span *ngIf="x.finalized" class="ml-1 px-2 py-0.5 rounded bg-green-100 text-green-800">Finalized</span>
+            @if (x.finalized) {
+<span class="ml-1 px-2 py-0.5 rounded bg-green-100 text-green-800">Finalized</span>
+}
           </div>
           <div class="mt-2 text-[11px] text-blue-600 underline">View documents</div>
         </div>
+}
       </div>
     </div>
+}
 
     <!-- MCD Grid -->
-    <div class="overflow-auto border rounded" *ngIf="!mcdLoading">
+    @if (!mcdLoading) {
+<div class="overflow-auto border rounded">
       <table class="min-w-full text-sm">
         <thead class="bg-gray-50">
           <tr>
@@ -459,7 +555,8 @@
           </tr>
         </thead>
         <tbody>
-          <ng-container *ngFor="let row of mcdRows">
+          @for (row of mcdRows; track row) {
+
           <tr class="border-t" [ngClass]="rowHighlightClass(getPct(row, 'pct', 'pct'))">
             <td class="p-2">{{ getClientName(row) }}</td>
             <td class="p-2">{{ getBranchName(row) }}</td>
@@ -477,9 +574,11 @@
                   <div class="h-2" [ngClass]="barClass(getPct(row, 'pct', 'pct'))" [style.width.%]="clampPct(getPct(row, 'pct', 'pct'))"></div>
                 </div>
               </div>
-              <div class="text-[11px] text-gray-500 mt-1" *ngIf="clampPct(getPct(row, 'pct', 'pct')) < mcdWarnPct">
+              @if (clampPct(getPct(row, 'pct', 'pct')) < mcdWarnPct) {
+<div class="text-[11px] text-gray-500 mt-1">
                 SLA risk: coverage below {{ mcdWarnPct }}%
               </div>
+}
             </td>
             <td class="p-2">
               <span class="px-2 py-1 text-xs rounded"
@@ -496,19 +595,29 @@
                 <button type="button" class="px-2 py-1 text-xs border rounded"
                   [disabled]="row.finalized || finalizingBranchId === getBranchId(row)"
                   (click)="finalizeMcd(getBranchId(row))">
-                  <span *ngIf="finalizingBranchId === getBranchId(row)">Finalizing...</span>
-                  <span *ngIf="finalizingBranchId !== getBranchId(row)">Finalize</span>
+                  @if (finalizingBranchId === getBranchId(row)) {
+<span>Finalizing...</span>
+}
+                  @if (finalizingBranchId !== getBranchId(row)) {
+<span>Finalize</span>
+}
                 </button>
               </div>
             </td>
           </tr>
           <!-- MCD Items Detail Row -->
-          <tr *ngIf="expandedMcdBranchId === getBranchId(row)">
+          @if (expandedMcdBranchId === getBranchId(row)) {
+<tr>
             <td colspan="10" class="p-0">
               <div class="bg-blue-50 p-4">
-                <div *ngIf="mcdItemsLoading" class="text-sm text-gray-500">Loading MCD items...</div>
-                <div *ngIf="!mcdItemsLoading && mcdItems.length === 0" class="text-sm text-gray-500">No MCD items found for this branch/period.</div>
-                <table *ngIf="!mcdItemsLoading && mcdItems.length > 0" class="min-w-full text-xs bg-white rounded border">
+                @if (mcdItemsLoading) {
+<div class="text-sm text-gray-500">Loading MCD items...</div>
+}
+                @if (!mcdItemsLoading && mcdItems.length === 0) {
+<div class="text-sm text-gray-500">No MCD items found for this branch/period.</div>
+}
+                @if (!mcdItemsLoading && mcdItems.length > 0) {
+<table class="min-w-full text-xs bg-white rounded border">
                   <thead class="bg-gray-100">
                     <tr>
                       <th class="px-3 py-2 text-left font-medium text-gray-700">Compliance</th>
@@ -521,7 +630,8 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <ng-container *ngFor="let item of mcdItems">
+                    @for (item of mcdItems; track item) {
+
                     <tr class="border-t hover:bg-gray-50">
                       <td class="px-3 py-2 text-gray-900 font-medium">{{ item.complianceName || item.complianceCode }}</td>
                       <td class="px-3 py-2 text-gray-800">{{ item.itemLabel }}</td>
@@ -544,19 +654,26 @@
                       <td class="px-3 py-2">
                         <div class="flex flex-col gap-1">
                           <!-- Upload button for PENDING or RETURNED items -->
-                          <ng-container *ngIf="item.status === 'PENDING' || item.status === 'RETURNED' || item.status === 'REJECTED'">
+                          @if (item.status === 'PENDING' || item.status === 'RETURNED' || item.status === 'REJECTED') {
+
                             <label class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium border rounded cursor-pointer text-purple-700 border-purple-300 bg-purple-50 hover:bg-purple-100"
                               [class.opacity-50]="mcdUploadingItemId === item.id"
                               [class.pointer-events-none]="mcdUploadingItemId === item.id">
-                              <span *ngIf="mcdUploadingItemId !== item.id">&#8593; Upload</span>
-                              <span *ngIf="mcdUploadingItemId === item.id">Uploading...</span>
+                              @if (mcdUploadingItemId !== item.id) {
+<span>&#8593; Upload</span>
+}
+                              @if (mcdUploadingItemId === item.id) {
+<span>Uploading...</span>
+}
                               <input type="file" class="hidden" accept=".pdf,.png,.jpg,.jpeg,.xls,.xlsx"
                                 (change)="onMcdItemFileSelected($event, item)"
                                 [disabled]="mcdUploadingItemId === item.id">
                             </label>
-                          </ng-container>
+                          
+}
                           <!-- Approve/Reject buttons for SUBMITTED items -->
-                          <ng-container *ngIf="item.status === 'SUBMITTED' && rejectingItemId !== item.id">
+                          @if (item.status === 'SUBMITTED' && rejectingItemId !== item.id) {
+
                             <div class="flex gap-1">
                               <button type="button"
                                 class="px-2 py-1 text-xs font-medium border rounded text-green-700 border-green-300 bg-green-50 hover:bg-green-100"
@@ -570,9 +687,11 @@
                                 ✗ Reject
                               </button>
                             </div>
-                          </ng-container>
+                          
+}
                           <!-- Reject remarks input -->
-                          <ng-container *ngIf="rejectingItemId === item.id">
+                          @if (rejectingItemId === item.id) {
+
                             <div class="flex flex-col gap-1">
                               <input type="text" class="border rounded px-2 py-1 text-xs w-full"
                                 placeholder="Remarks (required)"
@@ -591,52 +710,74 @@
                                 </button>
                               </div>
                             </div>
-                          </ng-container>
-                          <span *ngIf="item.status === 'APPROVED' || item.status === 'VERIFIED'" class="text-xs text-green-600">Done</span>
+                          
+}
+                          @if (item.status === 'APPROVED' || item.status === 'VERIFIED') {
+<span class="text-xs text-green-600">Done</span>
+}
                           <!-- Uploaded by badge -->
-                          <span *ngIf="item.uploadedByRole" class="text-xs px-1.5 py-0.5 rounded"
+                          @if (item.uploadedByRole) {
+<span class="text-xs px-1.5 py-0.5 rounded"
                             [class.bg-indigo-100]="item.uploadedByRole === 'CRM'"
                             [class.text-indigo-700]="item.uploadedByRole === 'CRM'"
                             [class.bg-cyan-100]="item.uploadedByRole !== 'CRM'"
                             [class.text-cyan-700]="item.uploadedByRole !== 'CRM'">
                             By {{ item.uploadedByRole }}
                           </span>
-                          <span *ngIf="item.evidenceFiles?.length" class="text-xs text-gray-500">{{ item.evidenceFiles.length }} file(s)</span>
+}
+                          @if (item.evidenceFiles?.length) {
+<span class="text-xs text-gray-500">{{ item.evidenceFiles.length }} file(s)</span>
+}
                         </div>
                       </td>
                     </tr>
                     <!-- Evidence files for item -->
-                    <tr *ngIf="item.evidenceFiles?.length" class="bg-slate-50">
+                    @if (item.evidenceFiles?.length) {
+<tr class="bg-slate-50">
                       <td colspan="7" class="px-4 py-2">
                         <div class="space-y-1">
-                          <div *ngFor="let ev of item.evidenceFiles" class="flex items-center gap-2 text-xs">
+                          @for (ev of item.evidenceFiles; track ev) {
+<div class="flex items-center gap-2 text-xs">
                             <svg class="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                             </svg>
                             <button type="button" (click)="openFile(ev.filePath, ev.fileName)" class="text-blue-600 hover:underline truncate">{{ ev.fileName }}</button>
                             <span class="text-gray-400">{{ ev.createdAt | date:'short' }}</span>
-                            <span *ngIf="ev.notes" class="text-gray-500 italic">{{ ev.notes }}</span>
+                            @if (ev.notes) {
+<span class="text-gray-500 italic">{{ ev.notes }}</span>
+}
                           </div>
+}
                         </div>
                       </td>
                     </tr>
-                    </ng-container>
+}
+                    
+}
                   </tbody>
                 </table>
+}
               </div>
             </td>
           </tr>
-          </ng-container>
-          <tr *ngIf="!mcdRows.length">
+}
+          
+}
+          @if (!mcdRows.length) {
+<tr>
             <td colspan="10" class="p-4 text-center text-gray-500">No MCD records found.</td>
           </tr>
+}
         </tbody>
       </table>
     </div>
+}
   </div>
+}
 
   <!-- ══════════════ Tab 3: Expiry / Renewals ══════════════ -->
-  <div *ngIf="activeTab==='EXPIRY'">
+  @if (activeTab==='EXPIRY') {
+<div>
     <!-- Info banner -->
     <div class="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
       <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -663,10 +804,13 @@
     </div>
 
     <!-- Loading -->
-    <ui-loading-spinner *ngIf="expiryLoading" text="Loading expiring documents..."></ui-loading-spinner>
+    @if (expiryLoading) {
+<ui-loading-spinner text="Loading expiring documents..."></ui-loading-spinner>
+}
 
     <!-- Expiry Docs Table -->
-    <div class="card" *ngIf="!expiryLoading">
+    @if (!expiryLoading) {
+<div class="card">
       <h3 class="text-lg font-semibold text-gray-900 mb-4">
         Expiring / Renewal Documents
         <span class="text-sm font-normal text-gray-500 ml-2">({{ expiryDocs.length }} records)</span>
@@ -685,7 +829,8 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let d of expiryDocs" class="hover:bg-gray-50">
+            @for (d of expiryDocs; track d) {
+<tr class="hover:bg-gray-50">
               <td class="px-3 py-3 text-xs text-gray-900">{{ d.title || d.fileName || '-' }}</td>
               <td class="px-3 py-3 text-xs text-gray-600">{{ d.clientName || '-' }}</td>
               <td class="px-3 py-3 text-xs text-gray-600">{{ d.branchName || '-' }}</td>
@@ -706,52 +851,68 @@
               </td>
               <td class="px-3 py-3 text-right text-xs">
                 <div class="flex items-center justify-end gap-1.5">
-                  <button *ngIf="d.filePath" type="button" (click)="openFile(d.filePath, d.fileName)"
+                  @if (d.filePath) {
+<button type="button" (click)="openFile(d.filePath, d.fileName)"
                      class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
                     View
                   </button>
-                  <button *ngIf="d.filePath" type="button" (click)="openFile(d.filePath, d.fileName, 'download')"
+<button type="button" (click)="openFile(d.filePath, d.fileName, 'download')"
                      class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
                     Download
                   </button>
-                  <button *ngIf="d.status==='UPLOADED' || d.status==='PENDING_REVIEW'"
+}
+                  @if (d.status==='UPLOADED' || d.status==='PENDING_REVIEW') {
+<button
                     type="button"
                     class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
                     [disabled]="reviewingDocId === d.id"
                     (click)="reviewDoc(d,'APPROVED')">
                     Approve
                   </button>
-                  <button *ngIf="d.status==='UPLOADED' || d.status==='PENDING_REVIEW'"
+}
+                  @if (d.status==='UPLOADED' || d.status==='PENDING_REVIEW') {
+<button
                     type="button"
                     class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
                     [disabled]="reviewingDocId === d.id"
                     (click)="reviewDoc(d,'REJECTED')">
                     Reject
                   </button>
+}
                 </div>
               </td>
             </tr>
-            <tr *ngIf="expiryDocs.length === 0 && !expiryLoading">
+}
+            @if (expiryDocs.length === 0 && !expiryLoading) {
+<tr>
               <td colspan="7" class="px-4 py-8 text-center text-gray-500 text-sm">No expiring documents</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
     </div>
+}
   </div>
+}
 
   <!-- ══════════════ Tab 4: Audit Closures ══════════════ -->
-  <div *ngIf="activeTab==='AUDIT_CLOSURES'">
+  @if (activeTab==='AUDIT_CLOSURES') {
+<div>
     <!-- Audit Closures Filter -->
     <div class="card mb-6">
       <div class="flex flex-wrap gap-3 items-end">
-        <div class="w-56" *ngIf="!routeClientId">
+        @if (!routeClientId) {
+<div class="w-56">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-audit-closures-client-id">Client</label>
           <select id="cc-audit-closures-client-id" name="auditClosuresClientId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="auditClosuresClientId" (ngModelChange)="onClientChange('audit'); onAuditFilterChange()">
             <option value="">All Clients</option>
-            <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+            @for (c of clients; track c) {
+<option [value]="c.id">{{ c.clientName }}</option>
+}
           </select>
         </div>
+}
         <button type="button"
           class="rounded-lg bg-statco-blue text-white font-semibold text-sm px-5 py-2 hover:bg-statco-blue-dark focus:ring-2 focus:ring-statco-blue focus:ring-offset-2 transition-all h-[38px]"
           (click)="loadAuditClosures()">Refresh</button>
@@ -759,10 +920,13 @@
     </div>
 
     <!-- Loading -->
-    <div *ngIf="auditClosuresLoading" class="text-sm text-gray-500 mb-2">Loading audit closures…</div>
+    @if (auditClosuresLoading) {
+<div class="text-sm text-gray-500 mb-2">Loading audit closures…</div>
+}
 
     <!-- Audit Closures Table -->
-    <div class="overflow-auto border rounded" *ngIf="!auditClosuresLoading">
+    @if (!auditClosuresLoading) {
+<div class="overflow-auto border rounded">
       <table class="min-w-full text-sm">
         <thead class="bg-gray-50">
           <tr>
@@ -779,7 +943,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let row of auditClosures" class="border-t" [ngClass]="rowHighlightClass(getPct(row, 'closurePct', 'closure_pct'))">
+          @for (row of auditClosures; track row) {
+<tr class="border-t" [ngClass]="rowHighlightClass(getPct(row, 'closurePct', 'closure_pct'))">
             <td class="p-2">{{ getAuditCode(row) }}</td>
             <td class="p-2">{{ getClientName(row) }}</td>
             <td class="p-2">{{ getBranchName(row) }}</td>
@@ -797,29 +962,41 @@
                   <div class="h-2" [ngClass]="barClass(getPct(row, 'closurePct', 'closure_pct'))" [style.width.%]="clampPct(getPct(row, 'closurePct', 'closure_pct'))"></div>
                 </div>
               </div>
-              <div class="text-[11px] text-gray-500 mt-1" *ngIf="clampPct(getPct(row, 'closurePct', 'closure_pct')) < auditWarnPct">
+              @if (clampPct(getPct(row, 'closurePct', 'closure_pct')) < auditWarnPct) {
+<div class="text-[11px] text-gray-500 mt-1">
                 SLA risk: closure below {{ auditWarnPct }}%
               </div>
+}
             </td>
             <td class="p-2">
               <button type="button" class="px-2 py-1 text-xs border rounded"
                 [disabled]="closingObsId === getAuditId(row)"
                 (click)="closeObservation(getAuditId(row))">
-                <span *ngIf="closingObsId === getAuditId(row)">Closing...</span>
-                <span *ngIf="closingObsId !== getAuditId(row)">Close</span>
+                @if (closingObsId === getAuditId(row)) {
+<span>Closing...</span>
+}
+                @if (closingObsId !== getAuditId(row)) {
+<span>Close</span>
+}
               </button>
             </td>
           </tr>
-          <tr *ngIf="!auditClosures.length">
+}
+          @if (!auditClosures.length) {
+<tr>
             <td colspan="10" class="p-4 text-center text-gray-500">No audit closures found.</td>
           </tr>
+}
         </tbody>
       </table>
     </div>
+}
   </div>
+}
 
   <!-- ══════════════ Tab 5: Tasks — Dedicated Page ══════════════ -->
-  <div *ngIf="activeTab==='TASKS'">
+  @if (activeTab==='TASKS') {
+<div>
     <div class="bg-white rounded-lg border border-gray-200 p-8 text-center">
       <svg class="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
@@ -835,4 +1012,5 @@
       </a>
     </div>
   </div>
+}
 </div>

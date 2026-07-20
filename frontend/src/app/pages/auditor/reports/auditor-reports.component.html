@@ -6,9 +6,12 @@
   </ui-page-header>
 
   <!-- Loading -->
-  <ui-loading-spinner *ngIf="loading" text="Loading reports..."></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner text="Loading reports..."></ui-loading-spinner>
+}
 
-  <ng-container *ngIf="!loading">
+  @if (!loading) {
+
     <!-- Filter bar -->
     <div class="flex items-center gap-4 mb-6">
       <div class="relative w-56">
@@ -60,7 +63,8 @@
     </div>
 
     <!-- Reports Table -->
-    <div class="card" *ngIf="filteredReports.length > 0">
+    @if (filteredReports.length > 0) {
+<div class="card">
       <ui-data-table [columns]="columns" [data]="filteredReports">
         <ng-template uiTableCell="auditName" let-row>
           <div class="font-medium text-gray-900">{{ row.auditName || 'Audit' }}</div>
@@ -112,12 +116,16 @@
         </ng-template>
       </ui-data-table>
     </div>
+}
 
-    <ui-empty-state
-      *ngIf="filteredReports.length === 0"
+    @if (filteredReports.length === 0) {
+<ui-empty-state
+     
       title="No reports found"
       [description]="statusFilter ? 'No reports match this filter. Try changing the status filter.' : 'Completed audits and their reports will appear here.'"
       icon="document">
     </ui-empty-state>
-  </ng-container>
+}
+  
+}
 </div>

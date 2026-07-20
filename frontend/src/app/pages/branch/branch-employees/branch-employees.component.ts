@@ -63,7 +63,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
       </div>
 
       <!-- Bulk Import Dialog -->
-      <div *ngIf="showImportDialog" class="import-dialog">
+      @if (showImportDialog) {
+<div class="import-dialog">
         <div class="flex items-center justify-between mb-3">
           <h3 class="text-sm font-semibold text-gray-900">Bulk Import Employees from Excel</h3>
           <button (click)="showImportDialog = false" class="text-gray-400 hover:text-gray-600">&times;</button>
@@ -85,13 +86,20 @@ import { ToastService } from '../../../shared/toast/toast.service';
             {{ importing ? 'Importing...' : 'Upload & Import' }}
           </button>
         </div>
-        <div *ngIf="importResult" class="mt-3 text-xs rounded-lg p-3" [class.bg-green-50]="!importHasError" [class.text-green-700]="!importHasError" [class.bg-red-50]="importHasError" [class.text-red-700]="importHasError">
+        @if (importResult) {
+<div class="mt-3 text-xs rounded-lg p-3" [class.bg-green-50]="!importHasError" [class.text-green-700]="!importHasError" [class.bg-red-50]="importHasError" [class.text-red-700]="importHasError">
           {{ importResult }}
         </div>
-        <div *ngIf="importErrors.length" class="mt-2 text-xs text-red-600 max-h-32 overflow-y-auto">
-          <div *ngFor="let e of importErrors" class="py-0.5">• {{ e }}</div>
+}
+        @if (importErrors.length) {
+<div class="mt-2 text-xs text-red-600 max-h-32 overflow-y-auto">
+          @for (e of importErrors; track e) {
+<div class="py-0.5">• {{ e }}</div>
+}
         </div>
-        <div *ngIf="lastImportBatchId && lastImportNewCount > 0" class="flex items-center gap-3 mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+}
+        @if (lastImportBatchId && lastImportNewCount > 0) {
+<div class="flex items-center gap-3 mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
           <div class="text-xs text-amber-800 flex-1">
             Wrong upload? Revert to delete the {{ lastImportNewCount }} newly added employee(s) from this import. Updated existing employees will not be reverted.
           </div>
@@ -99,7 +107,9 @@ import { ToastService } from '../../../shared/toast/toast.service';
             {{ reverting ? 'Reverting...' : 'Revert this Import' }}
           </button>
         </div>
+}
       </div>
+}
 
       <!-- Summary cards -->
       <div class="summary-strip">
@@ -118,12 +128,15 @@ import { ToastService } from '../../../shared/toast/toast.service';
       </div>
 
       <!-- Loading -->
-      <div *ngIf="loading" class="flex items-center justify-center py-20">
+      @if (loading) {
+<div class="flex items-center justify-center py-20">
         <div class="spinner"></div>
       </div>
+}
 
       <!-- Employee table -->
-      <div *ngIf="!loading" class="table-card">
+      @if (!loading) {
+<div class="table-card">
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
@@ -140,7 +153,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let emp of employees; trackBy: trackById" class="data-row">
+              @for (emp of employees; track trackById($index, emp)) {
+<tr class="data-row">
                 <td class="text-slate-500 font-mono text-xs">{{ emp.employeeCode || '—' }}</td>
                 <td class="font-medium text-slate-800">
                   <a [routerLink]="['/branch/employees', emp.id]" class="hover:text-indigo-600 cursor-pointer">
@@ -162,9 +176,11 @@ import { ToastService } from '../../../shared/toast/toast.service';
                         [class.bg-red-100]="!emp.isActive" [class.text-red-700]="!emp.isActive">
                     {{ emp.dateOfExit ? 'Exited' : (emp.isActive ? 'Active' : 'Inactive') }}
                   </span>
-                  <div *ngIf="emp.dateOfExit" class="text-[10px] text-slate-400 mt-1">
+                  @if (emp.dateOfExit) {
+<div class="text-[10px] text-slate-400 mt-1">
                     {{ emp.dateOfExit | date:'dd/MM/yyyy' }}
                   </div>
+}
                 </td>
                 <td>
                   <span class="badge"
@@ -177,16 +193,20 @@ import { ToastService } from '../../../shared/toast/toast.service';
                 <td>
                   <div class="row-actions">
                     <button (click)="editEmployee(emp.id)" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Edit</button>
-                    <button
-                      *ngIf="emp.isActive && !emp.dateOfExit && emp.approvalStatus !== 'PENDING'"
+                    @if (emp.isActive && !emp.dateOfExit && emp.approvalStatus !== 'PENDING') {
+<button
+                     
                       (click)="markExit(emp)"
                       class="text-red-600 hover:text-red-800 text-xs font-medium">
                       Mark Exit
                     </button>
+}
                   </div>
                 </td>
               </tr>
-              <tr *ngIf="employees.length === 0">
+}
+              @if (employees.length === 0) {
+<tr>
                 <td colspan="9" class="text-center text-slate-400 py-12">
                   <svg class="w-10 h-10 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
@@ -194,12 +214,16 @@ import { ToastService } from '../../../shared/toast/toast.service';
                   No employees found. Click "Register Employee" to add one.
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
       </div>
+}
 
-      <div *ngIf="err" class="mt-3 text-sm text-red-600">{{ err }}</div>
+      @if (err) {
+<div class="mt-3 text-sm text-red-600">{{ err }}</div>
+}
     </div>
   `,
   styles: [`

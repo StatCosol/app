@@ -1,12 +1,12 @@
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FileUploadService } from '../../services/file-upload.service';
 import { UploadConfig, UploadResult } from '../../models/file.model';
 
 @Component({
   selector: 'app-upload-widget',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './upload-widget.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

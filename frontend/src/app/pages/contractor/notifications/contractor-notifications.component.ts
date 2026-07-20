@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ThreadLayoutComponent } from '../../../shared/thread';
 import { ContractorThreadApiService } from '../../../core/contractor-thread-api.service';
 import { PageHeaderComponent } from '../../../shared/ui';
@@ -7,7 +7,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 @Component({
   selector: 'app-contractor-notifications',
   standalone: true,
-  imports: [CommonModule, ThreadLayoutComponent, PageHeaderComponent],
+  imports: [ThreadLayoutComponent, PageHeaderComponent],
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header

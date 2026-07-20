@@ -6,10 +6,22 @@
         Branch-level operating view for schedule health, compliance completion, and workflow routing.
       </div>
       <div class="flex flex-wrap gap-2.5 mt-2.5 text-xs text-slate-600">
-        <span *ngIf="clientName"><strong>{{ clientName }}</strong><span *ngIf="clientCode"> | {{ clientCode }}</span></span>
-        <span *ngIf="selectedBranch">Branch: <strong>{{ selectedBranch?.name }}</strong><span *ngIf="selectedBranch?.branchCode"> | {{ selectedBranch?.branchCode }}</span></span>
-        <span *ngIf="stateCode">State: <strong>{{ stateCode }}</strong></span>
-        <span *ngIf="establishmentType">Type: <strong>{{ establishmentType }}</strong></span>
+        @if (clientName) {
+<span><strong>{{ clientName }}</strong>@if (clientCode) {
+<span> | {{ clientCode }}</span>
+}</span>
+}
+        @if (selectedBranch) {
+<span>Branch: <strong>{{ selectedBranch?.name }}</strong>@if (selectedBranch?.branchCode) {
+<span> | {{ selectedBranch?.branchCode }}</span>
+}</span>
+}
+        @if (stateCode) {
+<span>State: <strong>{{ stateCode }}</strong></span>
+}
+        @if (establishmentType) {
+<span>Type: <strong>{{ establishmentType }}</strong></span>
+}
         <span>Compliance Month: <strong>{{ monthLabel }}</strong></span>
       </div>
     </div>
@@ -18,7 +30,9 @@
       <input autocomplete="off" id="bc-month" type="month" name="compMonth" [(ngModel)]="month" (change)="load()" />
 
       <select id="bc-branch-id" name="compBranchId" [(ngModel)]="branchId" (change)="load()">
-        <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+        @for (b of branches; track b) {
+<option [value]="b.id">{{ b.name }}</option>
+}
       </select>
 
       <select id="bc-module" name="compModule" [(ngModel)]="module" (change)="load()">
@@ -31,13 +45,18 @@
     </div>
   </div>
 
-  <div *ngIf="loading" class="muted py-2">Loading...</div>
+  @if (loading) {
+<div class="muted py-2">Loading...</div>
+}
 
-  <div *ngIf="errorMessage" class="error-banner">
+  @if (errorMessage) {
+<div class="error-banner">
     Warning: {{ errorMessage }}
   </div>
+}
 
-  <div class="cards" *ngIf="!loading">
+  @if (!loading) {
+<div class="cards">
     <div class="card">
       <div class="k">Total Applicable Items</div>
       <div class="v">{{ total }}</div>
@@ -72,17 +91,24 @@
       </div>
     </div>
   </div>
+}
 
-  <app-compliance-trend *ngIf="!loading && branchId" [branchId]="branchId" [months]="6"></app-compliance-trend>
+  @if (!loading && branchId) {
+<app-compliance-trend [branchId]="branchId" [months]="6"></app-compliance-trend>
+}
 
-  <div *ngIf="!loading && branchId && actionPlan.length > 0"
+  @if (!loading && branchId && actionPlan.length > 0) {
+<div
        class="bg-white border border-slate-100 rounded-2xl px-5 py-[18px] my-3 shadow-sm">
     <div class="flex items-center gap-2 mb-3">
       <span class="text-sm font-extrabold text-slate-900">What To Fix</span>
-      <span *ngIf="actionPlanLoading" class="muted ml-2">Loading...</span>
+      @if (actionPlanLoading) {
+<span class="muted ml-2">Loading...</span>
+}
     </div>
 
-    <div *ngFor="let a of actionPlan; let i = index"
+    @for (a of actionPlan; track a; let i = $index) {
+<div
          class="flex gap-3 py-3"
          [style.border-top]="i > 0 ? '1px solid #f1f5f9' : 'none'">
       <div class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-black text-xs text-white"
@@ -100,16 +126,23 @@
         </div>
       </div>
     </div>
+}
   </div>
+}
 
-  <div *ngIf="!loading && branchId" class="cards grid-cols-2">
+  @if (!loading && branchId) {
+<div class="cards grid-cols-2">
     <app-risk-forecast [branchId]="branchId"></app-risk-forecast>
     <app-compliance-summary [branchId]="branchId" [month]="month"></app-compliance-summary>
   </div>
+}
 
-  <app-risk-simulator *ngIf="!loading && branchId" [branchId]="branchId" [month]="month"></app-risk-simulator>
+  @if (!loading && branchId) {
+<app-risk-simulator [branchId]="branchId" [month]="month"></app-risk-simulator>
+}
 
-  <div class="tbl" *ngIf="!loading">
+  @if (!loading) {
+<div class="tbl">
     <table>
       <thead>
         <tr>
@@ -123,7 +156,8 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let it of items"
+        @for (it of items; track it) {
+<tr
             class="table-row"
             [class.table-row--selected]="isSelected(it)"
             (click)="selectOverviewItem(it)">
@@ -139,11 +173,14 @@
           <td>{{ it.frequency }}</td>
 
           <td>
-            <div *ngIf="it.dueDate" class="leading-relaxed">
+            @if (it.dueDate) {
+<div class="leading-relaxed">
               <div class="font-bold text-slate-900">{{ formatDate(it.dueDate) }}</div>
               <div class="muted text-xs">{{ daysLabel(it) }}</div>
             </div>
-            <div *ngIf="it.windowOpen && it.windowClose" class="leading-normal">
+}
+            @if (it.windowOpen && it.windowClose) {
+<div class="leading-normal">
               <div class="flex items-center gap-1.5">
                 <span class="font-bold text-slate-900 text-sm">{{ formatDate(it.windowOpen) }}</span>
                 <span class="text-slate-400 text-xs">to</span>
@@ -154,6 +191,7 @@
               </div>
               <div class="muted text-xs mt-0.5">{{ windowDaysLabel(it) }}</div>
             </div>
+}
           </td>
 
           <td>
@@ -168,15 +206,20 @@
             <button class="btn" type="button" (click)="openUploadWorkspace(it); $event.stopPropagation()">{{ workspaceLabel(it) }}</button>
           </td>
         </tr>
+}
 
-        <tr *ngIf="items.length===0">
+        @if (items.length===0) {
+<tr>
           <td colspan="7" class="muted text-center p-5">No applicable items for this selection</td>
         </tr>
+}
       </tbody>
     </table>
   </div>
+}
 
-  <div class="detail-panel" *ngIf="!loading && selectedOverviewItem as item">
+  @if (!loading && selectedOverviewItem; as item) {
+<div class="detail-panel">
     <div class="detail-head">
       <div>
         <div class="detail-title">{{ item.name }}</div>
@@ -208,8 +251,11 @@
 
     <div class="detail-actions">
       <button class="btn" type="button" (click)="openUploadWorkspace(item)">{{ detailCtaLabel(item) }}</button>
-      <button *ngIf="canOpenDocumentLibrary(item)" class="btn2" type="button" (click)="openDocumentLibrary(item)">{{ documentLibraryLabel(item) }}</button>
+      @if (canOpenDocumentLibrary(item)) {
+<button class="btn2" type="button" (click)="openDocumentLibrary(item)">{{ documentLibraryLabel(item) }}</button>
+}
       <button class="btn2" type="button" (click)="load()">Refresh Schedule</button>
     </div>
   </div>
+}
 </div>

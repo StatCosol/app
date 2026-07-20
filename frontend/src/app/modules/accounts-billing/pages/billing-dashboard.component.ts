@@ -1,112 +1,167 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Component, OnInit, ChangeDetectionStrategy, signal, computed } from '@angular/core';
+
+import { Router, RouterModule } from '@angular/router';
 import { AccountsBillingService } from '../services/accounts-billing.service';
 import { DashboardStats } from '../models/billing.models';
+import {
+  PageHeaderComponent,
+  KpiTileComponent,
+  ActionButtonComponent,
+  IconComponent,
+  ChartCardComponent,
+  ChartCardDataset,
+} from '../../../shared/ui';
 
 @Component({
   selector: 'app-billing-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    RouterModule,
+    PageHeaderComponent,
+    KpiTileComponent,
+    ActionButtonComponent,
+    IconComponent,
+    ChartCardComponent
+],
   template: `
     <div class="p-6 space-y-6">
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-2xl font-bold text-slate-800">Accounts & Billing</h1>
-          <p class="text-sm text-slate-500 mt-1">Overview of invoices, payments and revenue</p>
-        </div>
-        <a routerLink="/accounts/invoices/new"
-           class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
-          + New Invoice
-        </a>
-      </div>
+      <ui-page-header
+        title="Accounts & Billing"
+        subtitle="Overview of invoices, payments and revenue">
+        <ui-button variant="secondary" size="sm" [disabled]="loading()" (clicked)="reload()">
+          <span class="flex items-center gap-1.5">
+            <ui-icon name="refresh" [size]="14" />
+            Refresh
+          </span>
+        </ui-button>
+        <ui-button variant="primary" (clicked)="goTo('/accounts/invoices/new')">
+          <span class="flex items-center gap-2">
+            <ui-icon name="plus" [size]="16" />
+            New Invoice
+          </span>
+        </ui-button>
+      </ui-page-header>
 
-      <!-- Stats Cards -->
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4" *ngIf="stats">
-        <div class="bg-white rounded-xl border p-4 shadow-sm">
-          <p class="text-xs text-slate-400 font-medium uppercase">Total Invoices</p>
-          <p class="text-2xl font-bold text-slate-800 mt-1">{{ stats.totalInvoices }}</p>
+      @if (loading()) {
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          @for (i of [1, 2, 3, 4, 5]; track i) {
+            <div class="skeleton-card"></div>
+          }
         </div>
-        <div class="bg-white rounded-xl border p-4 shadow-sm">
-          <p class="text-xs text-amber-500 font-medium uppercase">Draft</p>
-          <p class="text-2xl font-bold text-amber-600 mt-1">{{ stats.draftCount }}</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          @for (i of [1, 2, 3]; track i) {
+            <div class="skeleton-card"></div>
+          }
         </div>
-        <div class="bg-white rounded-xl border p-4 shadow-sm">
-          <p class="text-xs text-orange-500 font-medium uppercase">Pending Payment</p>
-          <p class="text-2xl font-bold text-orange-600 mt-1">{{ stats.pendingPaymentCount }}</p>
-        </div>
-        <div class="bg-white rounded-xl border p-4 shadow-sm">
-          <p class="text-xs text-green-500 font-medium uppercase">Paid</p>
-          <p class="text-2xl font-bold text-green-600 mt-1">{{ stats.paidCount }}</p>
-        </div>
-        <div class="bg-white rounded-xl border p-4 shadow-sm">
-          <p class="text-xs text-red-500 font-medium uppercase">Overdue</p>
-          <p class="text-2xl font-bold text-red-600 mt-1">{{ stats.overdueCount }}</p>
-        </div>
-      </div>
+      } @else {
+        @if (error()) {
+          <div class="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            <p class="text-sm text-red-700">{{ error() }}</p>
+            <ui-button size="sm" variant="secondary" (clicked)="reload()">Retry</ui-button>
+          </div>
+        }
 
-      <!-- Revenue Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4" *ngIf="stats">
-        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-5 text-white shadow">
-          <p class="text-sm opacity-80">Total Billed</p>
-          <p class="text-3xl font-bold mt-1">₹{{ formatNum(stats.totalBilled) }}</p>
+        <!-- Invoice status KPIs -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <ui-kpi-tile
+            label="Total Invoices"
+            [value]="stats().totalInvoices"
+            color="gray"
+            (tileClick)="goTo('/accounts/invoices')">
+            <ui-icon slot="icon" name="document" class="text-slate-500" />
+          </ui-kpi-tile>
+          <ui-kpi-tile
+            label="Draft"
+            [value]="stats().draftCount"
+            color="amber"
+            valueColor="amber"
+            (tileClick)="goTo('/accounts/invoices')">
+            <ui-icon slot="icon" name="clipboard" class="text-amber-600" />
+          </ui-kpi-tile>
+          <ui-kpi-tile
+            label="Pending Payment"
+            [value]="stats().pendingPaymentCount"
+            color="amber"
+            (tileClick)="goTo('/accounts/pending-payments')">
+            <ui-icon slot="icon" name="clock" class="text-orange-600" />
+          </ui-kpi-tile>
+          <ui-kpi-tile
+            label="Paid"
+            [value]="stats().paidCount"
+            color="green"
+            valueColor="green"
+            (tileClick)="goTo('/accounts/payments')">
+            <ui-icon slot="icon" name="check-circle" class="text-green-600" />
+          </ui-kpi-tile>
+          <ui-kpi-tile
+            label="Overdue"
+            [value]="stats().overdueCount"
+            color="red"
+            valueColor="red"
+            (tileClick)="goTo('/accounts/pending-payments')">
+            <ui-icon slot="icon" name="exclamation-triangle" class="text-red-600" />
+          </ui-kpi-tile>
         </div>
-        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-5 text-white shadow">
-          <p class="text-sm opacity-80">Total Received</p>
-          <p class="text-3xl font-bold mt-1">₹{{ formatNum(stats.totalReceived) }}</p>
-        </div>
-        <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-5 text-white shadow">
-          <p class="text-sm opacity-80">Outstanding</p>
-          <p class="text-3xl font-bold mt-1">₹{{ formatNum(stats.totalOutstanding) }}</p>
-        </div>
-      </div>
 
-      <!-- Quick Links -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <a routerLink="/accounts/clients" class="bg-white rounded-xl border p-4 hover:shadow-md transition flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-            <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <!-- Revenue Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-5 text-white shadow">
+            <p class="text-sm opacity-80">Total Billed</p>
+            <p class="text-3xl font-bold mt-1">₹{{ formatNum(stats().totalBilled) }}</p>
           </div>
-          <div>
-            <p class="text-sm font-semibold text-slate-700">Billing Clients</p>
-            <p class="text-xs text-slate-400">Manage clients</p>
+          <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-5 text-white shadow">
+            <p class="text-sm opacity-80">Total Received</p>
+            <p class="text-3xl font-bold mt-1">₹{{ formatNum(stats().totalReceived) }}</p>
           </div>
-        </a>
-        <a routerLink="/accounts/invoices" class="bg-white rounded-xl border p-4 hover:shadow-md transition flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-5 text-white shadow">
+            <p class="text-sm opacity-80">Outstanding</p>
+            <p class="text-3xl font-bold mt-1">₹{{ formatNum(stats().totalOutstanding) }}</p>
           </div>
-          <div>
-            <p class="text-sm font-semibold text-slate-700">All Invoices</p>
-            <p class="text-xs text-slate-400">View & manage</p>
-          </div>
-        </a>
-        <a routerLink="/accounts/payments" class="bg-white rounded-xl border p-4 hover:shadow-md transition flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          </div>
-          <div>
-            <p class="text-sm font-semibold text-slate-700">Payments</p>
-            <p class="text-xs text-slate-400">Track receipts</p>
-          </div>
-        </a>
-        <a routerLink="/accounts/settings" class="bg-white rounded-xl border p-4 hover:shadow-md transition flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
-            <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-          </div>
-          <div>
-            <p class="text-sm font-semibold text-slate-700">Settings</p>
-            <p class="text-xs text-slate-400">Company profile</p>
-          </div>
-        </a>
-      </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ui-chart-card
+            title="Invoices by Status"
+            type="doughnut"
+            [labels]="['Draft', 'Pending Payment', 'Paid', 'Overdue']"
+            [datasets]="statusDatasets()"
+            emptyMessage="No invoices yet" />
+          <ui-chart-card
+            title="Revenue Overview"
+            subtitle="Billed vs received vs outstanding (₹)"
+            type="bar"
+            [showLegend]="false"
+            [labels]="['Billed', 'Received', 'Outstanding']"
+            [datasets]="revenueDatasets()"
+            emptyMessage="No revenue recorded yet" />
+        </div>
+
+        <!-- Quick Links -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          @for (link of quickLinks; track link.route) {
+            <a
+              [routerLink]="link.route"
+              class="bg-white rounded-xl border p-4 hover:shadow-md transition flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg flex items-center justify-center" [class]="link.bg">
+                <ui-icon [name]="link.icon" [class]="link.fg" />
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-slate-700">{{ link.title }}</p>
+                <p class="text-xs text-slate-400">{{ link.sub }}</p>
+              </div>
+            </a>
+          }
+        </div>
+      }
     </div>
   `,
 })
 export class BillingDashboardComponent implements OnInit {
-  // Pre-populate with zeros so the cards render immediately even before/if the
-  // API call fails. Real numbers replace these on subscribe.
-  stats: DashboardStats = {
+  loading = signal(true);
+  error = signal<string | null>(null);
+  stats = signal<DashboardStats>({
     totalInvoices: 0,
     draftCount: 0,
     approvedCount: 0,
@@ -116,18 +171,68 @@ export class BillingDashboardComponent implements OnInit {
     totalBilled: 0,
     totalReceived: 0,
     totalOutstanding: 0,
-  } as DashboardStats;
+  } as DashboardStats);
 
-  constructor(private svc: AccountsBillingService) {}
+  statusDatasets = computed<ChartCardDataset[]>(() => {
+    const s = this.stats();
+    return [
+      {
+        data: [s.draftCount, s.pendingPaymentCount, s.paidCount, s.overdueCount],
+        backgroundColor: ['#f59e0b', '#f97316', '#10b981', '#ef4444'],
+      },
+    ];
+  });
+
+  revenueDatasets = computed<ChartCardDataset[]>(() => {
+    const s = this.stats();
+    return [
+      {
+        label: '₹',
+        data: [+s.totalBilled || 0, +s.totalReceived || 0, +s.totalOutstanding || 0],
+        backgroundColor: ['#3b82f6', '#10b981', '#f97316'],
+      },
+    ];
+  });
+
+  quickLinks = [
+    { route: '/accounts/clients', icon: 'users', bg: 'bg-purple-100', fg: 'text-purple-600', title: 'Billing Clients', sub: 'Manage clients' },
+    { route: '/accounts/invoices', icon: 'document', bg: 'bg-blue-100', fg: 'text-blue-600', title: 'All Invoices', sub: 'View & manage' },
+    { route: '/accounts/payments', icon: 'banknotes', bg: 'bg-green-100', fg: 'text-green-600', title: 'Payments', sub: 'Track receipts' },
+    { route: '/accounts/settings', icon: 'cog', bg: 'bg-slate-100', fg: 'text-slate-600', title: 'Settings', sub: 'Company profile' },
+  ] as const;
+
+  constructor(
+    private svc: AccountsBillingService,
+    private router: Router,
+  ) {}
 
   ngOnInit(): void {
+    this.reload();
+  }
+
+  reload(): void {
+    this.loading.set(true);
+    this.error.set(null);
     this.svc.getDashboardStats().subscribe({
-      next: (s) => { if (s) this.stats = s; },
-      error: () => { /* keep zero defaults */ },
+      next: (s) => {
+        if (s) this.stats.set(s);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.error.set('Could not load billing stats — showing zeros. Check your connection and retry.');
+        this.loading.set(false);
+      },
     });
   }
 
+  goTo(route: string): void {
+    this.router.navigate([route]);
+  }
+
   formatNum(n: number | string | null | undefined): string {
-    return (+(n as any) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (+(n as any) || 0).toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   }
 }

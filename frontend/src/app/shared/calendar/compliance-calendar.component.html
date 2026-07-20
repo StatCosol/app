@@ -8,27 +8,41 @@
       </p>
     </div>
 
-    <div class="cal-stats" *ngIf="!loading && allItems.length">
+    @if (!loading && allItems.length) {
+<div class="cal-stats">
       <span class="stat">{{ totalItems }} events</span>
-      <span class="stat stat--critical" *ngIf="criticalCount">{{ criticalCount }} critical</span>
-      <span class="stat stat--high" *ngIf="highCount">{{ highCount }} high</span>
+      @if (criticalCount) {
+<span class="stat stat--critical">{{ criticalCount }} critical</span>
+}
+      @if (highCount) {
+<span class="stat stat--high">{{ highCount }} high</span>
+}
     </div>
+}
   </div>
 
   <!-- ═══ Controls ═══ -->
   <div class="cal-controls">
     <!-- CRM: Client selector -->
-    <select id="cc-selected-client-id" *ngIf="isCrm && clients.length" name="calClientId" [(ngModel)]="selectedClientId"
+    @if (isCrm && clients.length) {
+<select id="cc-selected-client-id" name="calClientId" [(ngModel)]="selectedClientId"
             (ngModelChange)="onClientChange()" class="cal-select">
-      <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
+      @for (c of clients; track c) {
+<option [value]="c.id">{{ c.name }}</option>
+}
     </select>
+}
 
     <!-- Branch selector -->
-    <select *ngIf="branches.length > 1" name="calBranchId" [(ngModel)]="selectedBranchId"
+    @if (branches.length > 1) {
+<select name="calBranchId" [(ngModel)]="selectedBranchId"
             (ngModelChange)="reload()" class="cal-select">
       <option value="">All Branches</option>
-      <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+      @for (b of branches; track b) {
+<option [value]="b.id">{{ b.name }}</option>
+}
     </select>
+}
 
     <!-- Module filter -->
     <select id="cc-module" name="calModule" [(ngModel)]="module" (ngModelChange)="reload()" class="cal-select">
@@ -72,43 +86,58 @@
   </div>
 
   <!-- ═══ Loading ═══ -->
-  <div class="cal-loading" *ngIf="loading">
+  @if (loading) {
+<div class="cal-loading">
     <div class="cal-spinner"></div>
     <span>Loading calendar&hellip;</span>
   </div>
+}
 
   <!-- ═══ Calendar Grid ═══ -->
-  <div *ngIf="!loading && viewMode === 'grid'" class="cal-grid-wrapper">
+  @if (!loading && viewMode === 'grid') {
+<div class="cal-grid-wrapper">
     <!-- Day-of-week headers -->
     <div class="cal-dow-row">
-      <div class="cal-dow" *ngFor="let dow of dayOfWeekHeaders">{{ dow }}</div>
+      @for (dow of dayOfWeekHeaders; track dow) {
+<div class="cal-dow">{{ dow }}</div>
+}
     </div>
 
     <div class="cal-grid">
       <!-- Leading blanks -->
-      <div class="cal-cell cal-cell--blank" *ngFor="let _ of leadingBlanks"></div>
+      @for (_ of leadingBlanks; track _) {
+<div class="cal-cell cal-cell--blank"></div>
+}
 
       <!-- Day cells -->
-      <div class="cal-cell" *ngFor="let d of days"
+      @for (d of days; track d) {
+<div class="cal-cell"
            [class.cal-cell--today]="d.isToday"
            [class.cal-cell--has-items]="d.items.length > 0">
         <div class="cal-day-header">
           <span class="cal-day-num" [class.cal-day-num--today]="d.isToday">{{ d.dayNum }}</span>
-          <span class="cal-item-count" *ngIf="d.items.length">{{ d.items.length }}</span>
+          @if (d.items.length) {
+<span class="cal-item-count">{{ d.items.length }}</span>
+}
         </div>
         <div class="cal-items">
-          <div *ngFor="let it of d.items; let i = index" [class]="chipClass(it)"
+          @for (it of d.items; track it; let i = $index) {
+<div [class]="chipClass(it)"
                [title]="it.title + (it.branchName ? ' — ' + it.branchName : '')">
             <span class="chip-module">{{ it.module }}</span>
             <span class="chip-title">{{ it.title }}</span>
           </div>
+}
         </div>
       </div>
+}
     </div>
   </div>
+}
 
   <!-- ═══ List View ═══ -->
-  <div *ngIf="!loading && viewMode === 'list'" class="cal-list">
+  @if (!loading && viewMode === 'list') {
+<div class="cal-list">
     <table>
       <thead>
         <tr>
@@ -120,7 +149,8 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let it of allItems">
+        @for (it of allItems; track it) {
+<tr>
           <td class="cal-list-date">{{ it.date }}</td>
           <td>
             <span class="module-tag"
@@ -134,19 +164,25 @@
           <td>{{ it.branchName || '—' }}</td>
           <td><span [class]="badgeClass(it.priority)">{{ it.priority }}</span></td>
         </tr>
-        <tr *ngIf="allItems.length === 0">
+}
+        @if (allItems.length === 0) {
+<tr>
           <td colspan="5" class="cal-empty">No calendar items for this period</td>
         </tr>
+}
       </tbody>
     </table>
   </div>
+}
 
   <!-- ═══ Empty state (grid) ═══ -->
-  <div *ngIf="!loading && viewMode === 'grid' && allItems.length === 0" class="cal-empty-state">
+  @if (!loading && viewMode === 'grid' && allItems.length === 0) {
+<div class="cal-empty-state">
     <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
             d="M8 7V3m8 4V3M4 11h16M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
     </svg>
     <p class="text-gray-400 text-sm">No compliance events this month</p>
   </div>
+}
 </div>

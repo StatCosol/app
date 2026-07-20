@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Subject } from 'rxjs';
@@ -39,7 +39,6 @@ type PayrollClient = { id: string; clientName: string; clientCode: string };
   selector: 'app-cco-registers',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     PageHeaderComponent,
     DataTableComponent,
@@ -49,8 +48,8 @@ type PayrollClient = { id: string; clientName: string; clientCode: string };
     ActionButtonComponent,
     EmptyStateComponent,
     LoadingSpinnerComponent,
-    StatusBadgeComponent,
-  ],
+    StatusBadgeComponent
+],
   template: `
     <div class="page">
       <ui-page-header
@@ -97,20 +96,27 @@ type PayrollClient = { id: string; clientName: string; clientCode: string };
         </div>
       </div>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading registers..." size="lg"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading registers..." size="lg"></ui-loading-spinner>
+}
 
-      <div *ngIf="error" class="mb-6">
+      @if (error) {
+<div class="mb-6">
         <ui-empty-state title="Error" [description]="error"></ui-empty-state>
       </div>
+}
 
-      <ui-empty-state
-        *ngIf="!loading && !error && rows.length === 0"
+      @if (!loading && !error && rows.length === 0) {
+<ui-empty-state
+       
         title="No Registers Found"
         description="No payroll registers match the selected filters.">
       </ui-empty-state>
+}
 
-      <ui-data-table
-        *ngIf="!loading && !error && rows.length > 0"
+      @if (!loading && !error && rows.length > 0) {
+<ui-data-table
+       
         [columns]="columns"
         [data]="rows"
         [loading]="loading"
@@ -118,7 +124,9 @@ type PayrollClient = { id: string; clientName: string; clientCode: string };
 
         <ng-template uiTableCell="title" let-row>
           <div class="font-semibold text-gray-900">{{ row.title }}</div>
-          <div *ngIf="row.registerType" class="text-xs text-gray-500">{{ row.registerType }}</div>
+          @if (row.registerType) {
+<div class="text-xs text-gray-500">{{ row.registerType }}</div>
+}
         </ng-template>
 
         <ng-template uiTableCell="period" let-row>
@@ -139,6 +147,7 @@ type PayrollClient = { id: string; clientName: string; clientCode: string };
           </ui-button>
         </ng-template>
       </ui-data-table>
+}
     </div>
   `,
   styles: [`

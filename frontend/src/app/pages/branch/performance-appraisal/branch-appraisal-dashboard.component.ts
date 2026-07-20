@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -10,7 +10,7 @@ import { AppraisalDashboard } from '../../../core/models/appraisal.models';
 @Component({
   selector: 'app-branch-appraisal-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-container">
@@ -25,11 +25,14 @@ import { AppraisalDashboard } from '../../../core/models/appraisal.models';
         </div>
       </div>
 
-      <div *ngIf="loading" class="flex items-center justify-center py-20">
+      @if (loading) {
+<div class="flex items-center justify-center py-20">
         <div class="spinner"></div>
       </div>
+}
 
-      <ng-container *ngIf="!loading && dashboard">
+      @if (!loading && dashboard) {
+
         <!-- Summary Cards -->
         <div class="summary-strip">
           <div class="summary-card">
@@ -83,7 +86,8 @@ import { AppraisalDashboard } from '../../../core/models/appraisal.models';
         </div>
 
         <!-- Top Performers -->
-        <div class="table-card mt-6" *ngIf="dashboard.topPerformers.length">
+        @if (dashboard.topPerformers.length) {
+<div class="table-card mt-6">
           <h3 class="text-sm font-semibold text-gray-900 mb-4">Top Performers</h3>
           <div class="overflow-x-auto">
             <table class="data-table">
@@ -96,19 +100,23 @@ import { AppraisalDashboard } from '../../../core/models/appraisal.models';
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let p of dashboard.topPerformers" class="data-row">
+                @for (p of dashboard.topPerformers; track p) {
+<tr class="data-row">
                   <td class="font-medium">{{ p.name }}</td>
                   <td class="text-xs text-gray-500 font-mono">{{ p.employee_code }}</td>
                   <td class="font-semibold text-emerald-600">{{ p.total_score }}</td>
                   <td><span class="badge bg-emerald-100 text-emerald-700">{{ p.final_rating_label || '—' }}</span></td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
         </div>
+}
 
         <!-- Low Performers -->
-        <div class="table-card mt-6" *ngIf="dashboard.lowPerformers.length">
+        @if (dashboard.lowPerformers.length) {
+<div class="table-card mt-6">
           <h3 class="text-sm font-semibold text-gray-900 mb-4">Low Performers / PIP Watch</h3>
           <div class="overflow-x-auto">
             <table class="data-table">
@@ -121,17 +129,21 @@ import { AppraisalDashboard } from '../../../core/models/appraisal.models';
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let p of dashboard.lowPerformers" class="data-row">
+                @for (p of dashboard.lowPerformers; track p) {
+<tr class="data-row">
                   <td class="font-medium">{{ p.name }}</td>
                   <td class="text-xs text-gray-500 font-mono">{{ p.employee_code }}</td>
                   <td class="font-semibold text-red-600">{{ p.total_score }}</td>
                   <td><span class="badge bg-red-100 text-red-700">{{ p.final_rating_label || '—' }}</span></td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
         </div>
-      </ng-container>
+}
+      
+}
     </div>
   `,
   styles: [`

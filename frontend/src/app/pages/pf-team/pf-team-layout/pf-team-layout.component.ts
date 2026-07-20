@@ -1,5 +1,5 @@
 import { Component, HostListener , ChangeDetectionStrategy} from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterOutlet, RouterModule } from '@angular/router';
 import { AuthService } from '../../../core/auth.service';
 
@@ -13,7 +13,7 @@ interface NavItem {
   selector: 'app-pf-team-layout',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterOutlet, RouterModule],
+  imports: [RouterOutlet, RouterModule],
   template: `
     <div class="shell" [class.sb-collapsed]="sidebarCollapsed" [class.sb-mobile-open]="mobileOpen">
       <!-- ==== SIDEBAR ==== -->
@@ -35,7 +35,8 @@ interface NavItem {
         </button>
 
         <nav class="sb-nav">
-           <a *ngFor="let item of navItems"
+           @for (item of navItems; track item) {
+<a
               [routerLink]="item.route"
               routerLinkActive="active"
               [routerLinkActiveOptions]="{ exact: item.route.endsWith('dashboard') }"
@@ -45,6 +46,7 @@ interface NavItem {
             <span class="sb-icon" [innerHTML]="item.icon"></span>
             <span class="sb-label">{{ item.label }}</span>
           </a>
+}
         </nav>
 
         <div class="sb-foot">
@@ -59,7 +61,9 @@ interface NavItem {
         </div>
       </aside>
 
-      <div class="overlay" *ngIf="mobileOpen" (click)="mobileOpen=false"></div>
+      @if (mobileOpen) {
+<div class="overlay" (click)="mobileOpen=false"></div>
+}
 
       <div class="main-wrap">
         <header class="topbar">
@@ -72,7 +76,8 @@ interface NavItem {
           <div class="tb-avatar-wrap" (click)="avatarOpen=!avatarOpen">
             <div class="tb-avatar">{{ initials }}</div>
             <svg class="tb-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
-            <div class="dropdown" *ngIf="avatarOpen">
+            @if (avatarOpen) {
+<div class="dropdown">
               <div class="dd-header">
                 <strong>{{ userName }}</strong>
                 <small>PF &amp; ESI Team</small>
@@ -83,6 +88,7 @@ interface NavItem {
                 Sign Out
               </button>
             </div>
+}
           </div>
         </header>
 

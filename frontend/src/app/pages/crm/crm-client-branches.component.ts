@@ -19,8 +19,12 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
         <ui-client-context-strip [inline]="true"></ui-client-context-strip>
       </ui-page-header>
 
-      <div *ngIf="err" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{{ err }}</div>
-      <ui-loading-spinner *ngIf="isLoading" text="Loading branches..."></ui-loading-spinner>
+      @if (err) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{{ err }}</div>
+}
+      @if (isLoading) {
+<ui-loading-spinner text="Loading branches..."></ui-loading-spinner>
+}
 
       <!-- Add Branch Card -->
       <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
@@ -54,14 +58,18 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-state-code">State *</label>
               <select id="ccb-state-code" name="stateCode" [(ngModel)]="newBranch.stateCode" required
                       class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                <option *ngFor="let s of states" [value]="s.code">{{ s.label }} ({{ s.code }})</option>
+                @for (s of states; track s) {
+<option [value]="s.code">{{ s.label }} ({{ s.code }})</option>
+}
               </select>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-establishment-type">Establishment Type *</label>
               <select id="ccb-establishment-type" name="establishmentType" [(ngModel)]="newBranch.establishmentType" required
                       class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                <option *ngFor="let t of establishmentTypes" [value]="t.code">{{ t.label }}</option>
+                @for (t of establishmentTypes; track t) {
+<option [value]="t.code">{{ t.label }}</option>
+}
               </select>
             </div>
             <div>
@@ -149,7 +157,8 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
       </div>
 
       <!-- Branch User Credentials Banner -->
-      <div *ngIf="createdBranchUser" class="bg-green-50 border border-green-300 rounded-lg p-4 mb-6">
+      @if (createdBranchUser) {
+<div class="bg-green-50 border border-green-300 rounded-lg p-4 mb-6">
         <div class="flex items-start justify-between">
           <div>
             <h4 class="text-sm font-semibold text-green-800 mb-1">Branch User Created Successfully</h4>
@@ -163,9 +172,11 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
           <button (click)="createdBranchUser = null" class="text-green-600 hover:text-green-800 text-lg font-bold ml-4">&times;</button>
         </div>
       </div>
+}
 
       <!-- Branches Table -->
-      <div *ngIf="!isLoading && branches.length > 0" class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
+      @if (!isLoading && branches.length > 0) {
+<div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
         <!-- Month selector for compliance % -->
         <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
           <label class="text-xs font-medium text-gray-500 uppercase" for="ccb-selected-month">Compliance Month:</label>
@@ -187,7 +198,8 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let b of branches" class="hover:bg-gray-50">
+            @for (b of branches; track b) {
+<tr class="hover:bg-gray-50">
               <td class="px-3 py-3 text-sm font-medium text-gray-900 whitespace-nowrap" [title]="b.address || ''">{{ b.branchName }}</td>
               <td class="px-3 py-3 text-sm whitespace-nowrap">
                 <span class="px-2 py-0.5 text-xs font-medium rounded-full"
@@ -221,15 +233,20 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
                 </div>
               </td>
             </tr>
+}
           </tbody>
         </table>
         </div>
       </div>
+}
 
-      <p *ngIf="!isLoading && branches.length === 0" class="text-gray-500 text-sm">No branches found for this client.</p>
+      @if (!isLoading && branches.length === 0) {
+<p class="text-gray-500 text-sm">No branches found for this client.</p>
+}
 
       <!-- Edit Branch Panel -->
-      <div *ngIf="editingBranch" class="bg-white rounded-lg border border-indigo-200 p-5 mb-6">
+      @if (editingBranch) {
+<div class="bg-white rounded-lg border border-indigo-200 p-5 mb-6">
         <h3 class="text-base font-semibold text-gray-900 mb-4">Edit Branch — {{ editingBranch.branchName }}</h3>
         <form (ngSubmit)="onUpdateBranch()" #editForm="ngForm">
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
@@ -260,14 +277,18 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-state-code-2">State *</label>
               <select id="ccb-state-code-2" name="editStateCode" [(ngModel)]="editingBranch.stateCode" required
                       class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                <option *ngFor="let s of states" [value]="s.code">{{ s.label }} ({{ s.code }})</option>
+                @for (s of states; track s) {
+<option [value]="s.code">{{ s.label }} ({{ s.code }})</option>
+}
               </select>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-establishment-type-2">Establishment Type *</label>
               <select id="ccb-establishment-type-2" name="editEstablishmentType" [(ngModel)]="editingBranch.establishmentType" required
                       class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                <option *ngFor="let t of establishmentTypes" [value]="t.code">{{ t.label }}</option>
+                @for (t of establishmentTypes; track t) {
+<option [value]="t.code">{{ t.label }}</option>
+}
               </select>
             </div>
             <div></div>
@@ -311,20 +332,27 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
           </div>
         </form>
       </div>
+}
 
       <!-- Contractors Panel -->
-      <div *ngIf="contractorsBranch" class="bg-white rounded-lg border border-teal-200 p-5 mb-6">
+      @if (contractorsBranch) {
+<div class="bg-white rounded-lg border border-teal-200 p-5 mb-6">
         <h3 class="text-base font-semibold text-gray-900 mb-4">
           Contractors for — {{ contractorsBranch.branchName }}
         </h3>
 
-        <div *ngIf="contractorsError" class="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm mb-3">
+        @if (contractorsError) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm mb-3">
           {{ contractorsError }}
         </div>
+}
 
-        <ui-loading-spinner *ngIf="contractorsLoading" text="Loading contractors..."></ui-loading-spinner>
+        @if (contractorsLoading) {
+<ui-loading-spinner text="Loading contractors..."></ui-loading-spinner>
+}
 
-        <div *ngIf="!contractorsLoading && contractors.length > 0" class="overflow-hidden rounded-lg border border-gray-200 mb-4">
+        @if (!contractorsLoading && contractors.length > 0) {
+<div class="overflow-hidden rounded-lg border border-gray-200 mb-4">
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
@@ -335,7 +363,8 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <tr *ngFor="let c of contractors" class="hover:bg-gray-50">
+              @for (c of contractors; track c) {
+<tr class="hover:bg-gray-50">
                 <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ c.name || '—' }}</td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ c.email || '—' }}</td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ c.mobile || '—' }}</td>
@@ -348,13 +377,17 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
                   </div>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+}
 
-        <p *ngIf="!contractorsLoading && contractors.length === 0" class="text-gray-500 text-sm mb-4">
+        @if (!contractorsLoading && contractors.length === 0) {
+<p class="text-gray-500 text-sm mb-4">
           No contractors linked to this branch.
         </p>
+}
 
         <!-- Add Contractor -->
         <form (ngSubmit)="addContractor()" #contractorForm="ngForm" class="flex items-end gap-3">
@@ -370,31 +403,44 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
           </button>
         </form>
       </div>
+}
 
       <!-- Edit Contractor Branches Panel -->
-      <div *ngIf="editContractorBranchesUserId" class="bg-white rounded-lg border border-indigo-200 p-5 mb-6">
+      @if (editContractorBranchesUserId) {
+<div class="bg-white rounded-lg border border-indigo-200 p-5 mb-6">
         <h3 class="text-base font-semibold text-gray-900 mb-4">
           Edit Branches for {{ editContractorBranchesUserLabel || 'Contractor' }}
         </h3>
 
-        <div *ngIf="editContractorBranchesError" class="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm mb-3">
+        @if (editContractorBranchesError) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm mb-3">
           {{ editContractorBranchesError }}
         </div>
+}
 
-        <ui-loading-spinner *ngIf="editContractorBranchesLoading" text="Loading contractor branches..."></ui-loading-spinner>
+        @if (editContractorBranchesLoading) {
+<ui-loading-spinner text="Loading contractor branches..."></ui-loading-spinner>
+}
 
-        <div *ngIf="!editContractorBranchesLoading">
-          <p *ngIf="branches.length === 0" class="text-gray-500 text-sm">No branches available.</p>
+        @if (!editContractorBranchesLoading) {
+<div>
+          @if (branches.length === 0) {
+<p class="text-gray-500 text-sm">No branches available.</p>
+}
 
-          <div *ngIf="branches.length > 0" class="flex flex-wrap gap-3 mb-4">
-            <label *ngFor="let b of branches"
+          @if (branches.length > 0) {
+<div class="flex flex-wrap gap-3 mb-4">
+            @for (b of branches; track b) {
+<label
                    class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200 text-sm cursor-pointer
                           hover:bg-indigo-50 hover:border-indigo-200 transition-colors">
               <input autocomplete="off" id="ccb-edit-contractor-branches-selected" type="checkbox" name="contractorBranches" [value]="b.id" [(ngModel)]="editContractorBranchesSelected"
                      class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
               {{ b.branchName }}
             </label>
+}
           </div>
+}
 
           <div class="flex gap-2">
             <button type="button" (click)="saveEditContractorBranches()" [disabled]="saveEditContractorBranchesLoading"
@@ -408,10 +454,13 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             </button>
           </div>
         </div>
+}
       </div>
+}
 
       <!-- Compliances Panel -->
-      <div *ngIf="compliancesBranch" class="bg-white rounded-lg border border-amber-200 p-5 mb-6">
+      @if (compliancesBranch) {
+<div class="bg-white rounded-lg border border-amber-200 p-5 mb-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-base font-semibold text-gray-900">
             Compliances for — {{ compliancesBranch.branchName }}
@@ -420,16 +469,23 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
                   class="text-gray-400 hover:text-gray-600 text-sm">Close</button>
         </div>
 
-        <div *ngIf="compliancesError" class="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm mb-3">
+        @if (compliancesError) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm mb-3">
           {{ compliancesError }}
         </div>
-        <div *ngIf="compliancesSuccess" class="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded-lg text-sm mb-3">
+}
+        @if (compliancesSuccess) {
+<div class="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded-lg text-sm mb-3">
           {{ compliancesSuccess }}
         </div>
+}
 
-        <ui-loading-spinner *ngIf="compliancesLoading" text="Loading compliances..."></ui-loading-spinner>
+        @if (compliancesLoading) {
+<ui-loading-spinner text="Loading compliances..."></ui-loading-spinner>
+}
 
-        <div *ngIf="!compliancesLoading && compliances.length > 0">
+        @if (!compliancesLoading && compliances.length > 0) {
+<div>
           <!-- Summary -->
           <p class="text-xs text-gray-500 mb-3">
             Showing all {{ compliances.length }} compliance items.
@@ -453,7 +509,8 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200">
-                <tr *ngFor="let c of compliances" class="hover:bg-gray-50"
+                @for (c of compliances; track c) {
+<tr class="hover:bg-gray-50"
                     [ngClass]="{ 'bg-indigo-50/40': selected.has(c.complianceId) }">
                   <td class="px-3 py-3">
                     <input type="checkbox" [checked]="selected.has(c.complianceId)"
@@ -464,17 +521,26 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
                   <td class="px-4 py-3 text-sm text-gray-600">{{ c.lawName || '—' }}</td>
                   <td class="px-4 py-3 text-sm text-gray-600">{{ c.frequency || '—' }}</td>
                   <td class="px-4 py-3 text-sm">
-                    <span *ngIf="c.applicable" class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Yes</span>
-                    <span *ngIf="!c.applicable" class="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500"
+                    @if (c.applicable) {
+<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Yes</span>
+}
+                    @if (!c.applicable) {
+<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500"
                           [title]="c.reason || ''">No</span>
+}
                   </td>
                   <td class="px-4 py-3 text-sm">
-                    <span *ngIf="selected.has(c.complianceId)"
+                    @if (selected.has(c.complianceId)) {
+<span
                           class="px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">PENDING</span>
-                    <span *ngIf="!selected.has(c.complianceId)"
+}
+                    @if (!selected.has(c.complianceId)) {
+<span
                           class="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-400">Not Assigned</span>
+}
                   </td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
@@ -489,11 +555,15 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             <span class="text-xs text-gray-400">CRM can add/remove compliance mappings for this branch</span>
           </div>
         </div>
+}
 
-        <p *ngIf="!compliancesLoading && compliances.length === 0" class="text-gray-500 text-sm">
+        @if (!compliancesLoading && compliances.length === 0) {
+<p class="text-gray-500 text-sm">
           No compliance master records found. Ask Admin to seed the compliance master list.
         </p>
+}
       </div>
+}
     </main>
   `,
 })

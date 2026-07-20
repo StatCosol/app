@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
@@ -20,15 +20,14 @@ type MasterTab = 'departments' | 'grades' | 'designations';
   selector: 'app-client-master-data',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     PageHeaderComponent,
     ActionButtonComponent,
     LoadingSpinnerComponent,
     EmptyStateComponent,
     FormInputComponent,
-    ModalComponent,
-  ],
+    ModalComponent
+],
   template: `
     <div class="page">
       <ui-page-header
@@ -50,16 +49,21 @@ type MasterTab = 'departments' | 'grades' | 'designations';
         <ui-button variant="primary" (clicked)="openForm()">+ Add {{ tabLabel }}</ui-button>
       </div>
 
-      <ui-loading-spinner *ngIf="loading" [text]="'Loading ' + activeTab + '...'" size="lg"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner [text]="'Loading ' + activeTab + '...'" size="lg"></ui-loading-spinner>
+}
 
-      <ui-empty-state
-        *ngIf="!loading && items.length === 0"
+      @if (!loading && items.length === 0) {
+<ui-empty-state
+       
         [title]="'No ' + tabLabel + 's'"
         [description]="'Click + Add ' + tabLabel + ' to create one.'">
       </ui-empty-state>
+}
 
       <!-- Table -->
-      <div *ngIf="!loading && items.length > 0" class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+      @if (!loading && items.length > 0) {
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
         <table class="w-full text-sm">
           <thead>
             <tr class="bg-gray-50 border-b border-gray-200">
@@ -70,7 +74,8 @@ type MasterTab = 'departments' | 'grades' | 'designations';
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let item of items" class="border-b border-gray-100 hover:bg-gray-50">
+            @for (item of items; track item) {
+<tr class="border-b border-gray-100 hover:bg-gray-50">
               <td class="px-4 py-3 font-mono text-gray-900">{{ item.code }}</td>
               <td class="px-4 py-3 text-gray-900">{{ item.name }}</td>
               <td class="px-4 py-3 text-center">
@@ -84,20 +89,27 @@ type MasterTab = 'departments' | 'grades' | 'designations';
                 <button class="text-xs text-blue-600 hover:underline" (click)="editItem(item)">Edit</button>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+}
 
       <!-- Add/Edit Modal -->
-      <ui-modal *ngIf="showModal" [title]="editingItem ? 'Edit ' + tabLabel : 'Add ' + tabLabel" (closed)="showModal = false">
+      @if (showModal) {
+<ui-modal [title]="editingItem ? 'Edit ' + tabLabel : 'Add ' + tabLabel" (closed)="showModal = false">
         <div class="grid grid-cols-1 gap-4">
           <ui-form-input label="Code *" [(ngModel)]="form.code" placeholder="e.g. HR, IT, FIN"></ui-form-input>
           <ui-form-input label="Name *" [(ngModel)]="form.name" placeholder="e.g. Human Resources"></ui-form-input>
-          <label *ngIf="editingItem" class="flex items-center gap-2 text-sm">
+          @if (editingItem) {
+<label class="flex items-center gap-2 text-sm">
             <input autocomplete="off" id="cmd-is-active" name="isActive" type="checkbox" [(ngModel)]="form.isActive"> Active
           </label>
+}
         </div>
-        <div *ngIf="formError" class="text-sm text-red-600 mt-2">{{ formError }}</div>
+        @if (formError) {
+<div class="text-sm text-red-600 mt-2">{{ formError }}</div>
+}
         <div class="flex justify-end gap-3 mt-4">
           <ui-button variant="secondary" (clicked)="showModal = false">Cancel</ui-button>
           <ui-button variant="primary" [disabled]="saving" [loading]="saving" (clicked)="save()">
@@ -105,6 +117,7 @@ type MasterTab = 'departments' | 'grades' | 'designations';
           </ui-button>
         </div>
       </ui-modal>
+}
     </div>
   `,
   styles: [`

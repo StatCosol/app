@@ -5,7 +5,7 @@ import {
   OnDestroy,
   OnInit,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -26,7 +26,7 @@ interface ClientOption {
 @Component({
   selector: 'app-crm-registrations-landing',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page">
@@ -37,13 +37,18 @@ interface ClientOption {
         </div>
       </header>
 
-      <div *ngIf="loading" class="muted">Loading clients…</div>
+      @if (loading) {
+<div class="muted">Loading clients…</div>
+}
 
-      <div *ngIf="!loading && !clients.length" class="empty">
+      @if (!loading && !clients.length) {
+<div class="empty">
         No clients are currently assigned to you.
       </div>
+}
 
-      <section *ngIf="!loading && clients.length" class="card">
+      @if (!loading && clients.length) {
+<section class="card">
         <label for="reg-client-picker">Client</label>
         <div class="row">
           <select
@@ -52,9 +57,13 @@ interface ClientOption {
             [(ngModel)]="selectedClientId"
           >
             <option value="">Select a client…</option>
-            <option *ngFor="let c of clients" [value]="c.id">
-              {{ c.name }}<span *ngIf="c.code"> ({{ c.code }})</span>
+            @for (c of clients; track c) {
+<option [value]="c.id">
+              {{ c.name }}@if (c.code) {
+<span> ({{ c.code }})</span>
+}
             </option>
+}
           </select>
           <button
             type="button"
@@ -66,19 +75,24 @@ interface ClientOption {
           </button>
         </div>
 
-        <div *ngIf="clients.length" class="quick">
+        @if (clients.length) {
+<div class="quick">
           <span class="quick-label">Quick open:</span>
-          <button
+          @for (c of clients.slice(0, 12); track c) {
+<button
             type="button"
             class="chip"
-            *ngFor="let c of clients.slice(0, 12)"
+           
             (click)="goTo(c.id)"
             [title]="c.name"
           >
             {{ c.name }}
           </button>
+}
         </div>
+}
       </section>
+}
     </div>
   `,
   styles: [`

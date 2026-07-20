@@ -1,5 +1,5 @@
 import { Component, Input, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil, switchMap } from 'rxjs/operators';
@@ -13,26 +13,36 @@ export interface ContextBadge {
 @Component({
   selector: 'ui-client-context-strip',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [RouterModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div *ngIf="clientName" class="client-context-strip" [class.strip-inline]="inline">
+    @if (clientName) {
+<div class="client-context-strip" [class.strip-inline]="inline">
       <div class="strip-left">
-        <a *ngIf="backRoute" [routerLink]="backRoute" class="strip-back" title="Back">
+        @if (backRoute) {
+<a [routerLink]="backRoute" class="strip-back" title="Back">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
+}
         <span class="strip-avatar">{{ clientName.charAt(0) }}</span>
         <div class="strip-info">
           <span class="strip-name">{{ clientName }}</span>
-          <span *ngIf="clientCode" class="strip-code">{{ clientCode }}</span>
+          @if (clientCode) {
+<span class="strip-code">{{ clientCode }}</span>
+}
         </div>
       </div>
-      <div *ngIf="badges.length" class="strip-badges">
-        <span *ngFor="let b of badges" class="strip-badge">
+      @if (badges.length) {
+<div class="strip-badges">
+        @for (b of badges; track b) {
+<span class="strip-badge">
           <span class="badge-label">{{ b.label }}:</span> {{ b.value }}
         </span>
+}
       </div>
+}
     </div>
+}
   `,
   styles: [`
     .client-context-strip {

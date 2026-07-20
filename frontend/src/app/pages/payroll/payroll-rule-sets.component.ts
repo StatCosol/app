@@ -5,7 +5,7 @@
   OnDestroy,
   OnInit,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subject, forkJoin, of } from 'rxjs';
 import { catchError, finalize, takeUntil } from 'rxjs/operators';
@@ -58,7 +58,7 @@ interface GuardrailCheck {
 @Component({
   selector: 'app-payroll-rule-sets',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClientContextStripComponent],
+  imports: [FormsModule, ClientContextStripComponent],
   templateUrl: './payroll-rule-sets.component.html',
   styleUrls: ['./payroll-rule-sets.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -50,7 +50,8 @@ import {
       </ui-page-header>
 
       <!-- Detect Panel -->
-      <div *ngIf="showDetectPanel" class="bg-orange-50 border border-orange-200 rounded-xl p-6 mb-6">
+      @if (showDetectPanel) {
+<div class="bg-orange-50 border border-orange-200 rounded-xl p-6 mb-6">
         <h3 class="font-semibold text-orange-900 mb-3">Run Anomaly Detection</h3>
         <div class="flex items-end gap-4">
           <div class="flex-1">
@@ -58,7 +59,9 @@ import {
             <select id="ap-detect-client-id" name="detectClientId" [(ngModel)]="detectClientId"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
               <option value="">Select client</option>
-              <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
+              @for (c of clients; track c) {
+<option [value]="c.id">{{ c.name }}</option>
+}
             </select>
           </div>
           <div class="flex-1">
@@ -72,9 +75,11 @@ import {
           <ui-button variant="ghost" (clicked)="showDetectPanel = false">Cancel</ui-button>
         </div>
       </div>
+}
 
       <!-- Summary Cards -->
-      <div *ngIf="anomalySummary" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      @if (anomalySummary) {
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <ui-stat-card
           label="Total Anomalies"
           [value]="anomalySummary.total"
@@ -96,14 +101,19 @@ import {
           color="primary">
         </ui-stat-card>
       </div>
+}
 
-      <ui-loading-spinner *ngIf="loading" size="lg" class="py-16 block"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner size="lg" class="py-16 block"></ui-loading-spinner>
+}
 
       <!-- Detection Results (just detected) -->
-      <div *ngIf="detectedAnomalies.length > 0 && !loading" class="bg-white rounded-xl shadow-sm border border-orange-200 p-6 mb-6">
+      @if (detectedAnomalies.length > 0 && !loading) {
+<div class="bg-white rounded-xl shadow-sm border border-orange-200 p-6 mb-6">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">🔍 Latest Detection Results ({{ detectedAnomalies.length }} found)</h2>
         <div class="space-y-3">
-          <div *ngFor="let a of detectedAnomalies; trackBy: trackAnomaly"
+          @for (a of detectedAnomalies; track trackAnomaly($index, a)) {
+<div
                class="border rounded-lg p-4"
                [ngClass]="{
                  'border-red-200 bg-red-50': a.severity === 'CRITICAL' || a.severity === 'HIGH',
@@ -118,27 +128,36 @@ import {
                   <ui-status-badge [status]="a.status"></ui-status-badge>
                 </div>
                 <p class="text-sm text-gray-600">{{ a.description }}</p>
-                <p *ngIf="a.recommendation" class="text-xs text-blue-600 mt-1">💡 {{ a.recommendation }}</p>
+                @if (a.recommendation) {
+<p class="text-xs text-blue-600 mt-1">💡 {{ a.recommendation }}</p>
+}
               </div>
-              <div *ngIf="a.status === 'OPEN'" class="flex gap-2 shrink-0">
+              @if (a.status === 'OPEN') {
+<div class="flex gap-2 shrink-0">
                 <ui-button variant="primary" size="sm" (clicked)="resolve(a, 'RESOLVED')">Resolve</ui-button>
                 <ui-button variant="ghost" size="sm" (clicked)="resolve(a, 'FALSE_POSITIVE')">False +</ui-button>
               </div>
+}
             </div>
           </div>
+}
         </div>
       </div>
+}
 
       <!-- All Anomalies Table -->
-      <div *ngIf="!loading && anomalies.length > 0" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      @if (!loading && anomalies.length > 0) {
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">All Anomalies</h2>
         <div class="flex gap-2 mb-4">
-          <button *ngFor="let f of statusFilters"
+          @for (f of statusFilters; track f) {
+<button
                   (click)="activeFilter = f; filterAnomalies()"
                   class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
                   [ngClass]="activeFilter === f ? 'bg-orange-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'">
             {{ f }}
           </button>
+}
         </div>
         <ui-data-table
           [columns]="anomalyColumns"
@@ -157,21 +176,28 @@ import {
             <span class="text-xs text-gray-500">{{ row.detectedAt | date:'short' }}</span>
           </ng-template>
           <ng-template uiTableCell="actions" let-row>
-            <div *ngIf="row.status === 'OPEN'" class="flex gap-1 justify-end">
+            @if (row.status === 'OPEN') {
+<div class="flex gap-1 justify-end">
               <ui-button variant="ghost" size="sm" (clicked)="resolve(row, 'RESOLVED')">Resolve</ui-button>
               <ui-button variant="ghost" size="sm" (clicked)="resolve(row, 'FALSE_POSITIVE')">FP</ui-button>
             </div>
-            <span *ngIf="row.status !== 'OPEN'" class="text-xs text-gray-400">{{ row.status }}</span>
+}
+            @if (row.status !== 'OPEN') {
+<span class="text-xs text-gray-400">{{ row.status }}</span>
+}
           </ng-template>
         </ui-data-table>
       </div>
+}
 
-      <div *ngIf="!loading && anomalies.length === 0 && detectedAnomalies.length === 0">
+      @if (!loading && anomalies.length === 0 && detectedAnomalies.length === 0) {
+<div>
         <ui-empty-state
           title="No Anomalies"
           message="Click 'Detect Anomalies' to scan a client's payroll data for irregularities.">
         </ui-empty-state>
       </div>
+}
     </div>
   `,
 })

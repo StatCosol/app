@@ -1,5 +1,5 @@
 import { Component, ChangeDetectorRef, HostListener, ViewEncapsulation, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { finalize, timeout } from 'rxjs/operators';
@@ -7,7 +7,7 @@ import { AuthService } from '../../../core/auth.service';
 
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   encapsulation: ViewEncapsulation.ShadowDom,
   selector: 'app-ess-login',
   template: `
@@ -75,7 +75,8 @@ import { AuthService } from '../../../core/auth.service';
             <form (ngSubmit)="submit()" autocomplete="on" class="frm">
 
               <!-- Company code (only when not locked via /:companyCode/login) -->
-              <div class="field" *ngIf="!companyCodeLocked">
+              @if (!companyCodeLocked) {
+<div class="field">
                 <div class="input" [class.input-err]="submitted && !companyCode.trim()">
                   <span>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M12 6h.01M8 10h.01M16 10h.01M12 10h.01"/></svg>
@@ -83,13 +84,18 @@ import { AuthService } from '../../../core/auth.service';
                   <input id="ess-company-code" type="text" [(ngModel)]="companyCode" name="companyCode"
                          placeholder="Company Code" autocomplete="organization" />
                 </div>
-                <span class="field-err" *ngIf="submitted && !companyCode.trim()">Company code is required.</span>
+                @if (submitted && !companyCode.trim()) {
+<span class="field-err">Company code is required.</span>
+}
               </div>
+}
 
-              <div class="locked-chip" *ngIf="companyCodeLocked">
+              @if (companyCodeLocked) {
+<div class="locked-chip">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/></svg>
                 {{ companyCode }}
               </div>
+}
 
               <!-- Username / Email -->
               <div class="field">
@@ -100,7 +106,9 @@ import { AuthService } from '../../../core/auth.service';
                   <input id="ess-email" type="email" [(ngModel)]="email" name="email"
                          placeholder="Username / Employee ID" autocomplete="username" />
                 </div>
-                <span class="field-err" *ngIf="submitted && !email.trim()">Enter your username or employee ID.</span>
+                @if (submitted && !email.trim()) {
+<span class="field-err">Enter your username or employee ID.</span>
+}
               </div>
 
               <!-- Password -->
@@ -114,15 +122,23 @@ import { AuthService } from '../../../core/auth.service';
                          placeholder="Password" autocomplete="current-password"
                          (keydown)="checkCapsLock($event)" />
                   <button type="button" class="pw-toggle" (click)="showPassword=!showPassword" tabindex="-1" aria-label="Show or hide password">
-                    <svg *ngIf="!showPassword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                    <svg *ngIf="showPassword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    @if (!showPassword) {
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+}
+                    @if (showPassword) {
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+}
                   </button>
                 </div>
-                <span class="field-err" *ngIf="submitted && !password">Password is required.</span>
-                <span class="caps-note" *ngIf="capsLockOn">
+                @if (submitted && !password) {
+<span class="field-err">Password is required.</span>
+}
+                @if (capsLockOn) {
+<span class="caps-note">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                   Caps Lock is on
                 </span>
+}
               </div>
 
               <!-- Remember + Forgot -->
@@ -135,18 +151,26 @@ import { AuthService } from '../../../core/auth.service';
               </div>
 
               <!-- Error banner -->
-              <div class="err-banner" *ngIf="errorMsg">
+              @if (errorMsg) {
+<div class="err-banner">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                 {{ errorMsg }}
               </div>
+}
 
               <!-- Login button -->
               <button class="login" type="submit" [disabled]="isLoading">
-                <span class="btn-text" *ngIf="!isLoading">Login</span>
-                <span class="btn-text" *ngIf="isLoading"><span class="spinner"></span> Signing in&hellip;</span>
-                <span class="arrow" *ngIf="!isLoading" aria-hidden="true">
+                @if (!isLoading) {
+<span class="btn-text">Login</span>
+}
+                @if (isLoading) {
+<span class="btn-text"><span class="spinner"></span> Signing in&hellip;</span>
+}
+                @if (!isLoading) {
+<span class="arrow" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg>
                 </span>
+}
               </button>
 
             <div class="or">

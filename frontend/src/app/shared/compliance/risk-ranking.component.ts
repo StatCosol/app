@@ -15,9 +15,12 @@ import { ClientBranchesService } from '../../core/client-branches.service';
         <input autocomplete="off" id="rr-month" name="month" type="month" [(ngModel)]="month" (change)="load()" class="rr-month" />
       </div>
 
-      <div *ngIf="loading" class="rr-muted" style="padding:12px 0;">Loading…</div>
+      @if (loading) {
+<div class="rr-muted" style="padding:12px 0;">Loading…</div>
+}
 
-      <table *ngIf="!loading && rows.length" class="rr-tbl">
+      @if (!loading && rows.length) {
+<table class="rr-tbl">
         <thead>
           <tr>
             <th>#</th>
@@ -29,7 +32,8 @@ import { ClientBranchesService } from '../../core/client-branches.service';
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let r of rows; let i = index">
+          @for (r of rows; track r; let i = $index) {
+<tr>
             <td>{{ i + 1 }}</td>
             <td style="font-weight:700;">{{ r.branchName }}</td>
             <td>{{ r.stateCode || '—' }}</td>
@@ -43,12 +47,16 @@ import { ClientBranchesService } from '../../core/client-branches.service';
             </td>
             <td class="rr-muted">{{ r.reasons?.[0] || '—' }}</td>
           </tr>
+}
         </tbody>
       </table>
+}
 
-      <div *ngIf="!loading && !rows.length" class="rr-muted" style="padding:16px 0;text-align:center;">
+      @if (!loading && !rows.length) {
+<div class="rr-muted" style="padding:16px 0;text-align:center;">
         No branch risk data available
       </div>
+}
     </div>
   `,
   styles: [`

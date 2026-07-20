@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy} from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterOutlet } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -10,7 +10,7 @@ import { AuthService } from '../../../core/auth.service';
   selector: 'app-payroll-layout',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterOutlet, PayrollSidebarComponent],
+  imports: [RouterOutlet, PayrollSidebarComponent],
   template: `
     <div class="payroll-shell">
       <!-- Mobile menu toggle -->
@@ -65,13 +65,15 @@ import { AuthService } from '../../../core/auth.service';
 
               <!-- User + Logout -->
               <div class="flex items-center gap-4">
-                <img
-                  *ngIf="clientLogoUrl"
+                @if (clientLogoUrl) {
+<img
+                 
                   [src]="clientLogoUrl"
                   alt="Client logo"
                   class="h-10 w-auto hidden sm:block"
                   (error)="onLogoError()"
                 />
+}
                 <div class="hidden sm:block text-sm font-semibold text-gray-900">{{ userName }}</div>
                 <button
                   (click)="logout()"

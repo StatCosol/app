@@ -7,8 +7,9 @@
     </div>
 
     <div class="controls">
-      <select
-        *ngIf="showClientPicker"
+      @if (showClientPicker) {
+<select
+       
         id="rt-client-id"
         name="trendClientId"
         [(ngModel)]="clientId"
@@ -18,8 +19,11 @@
         aria-label="Client"
       >
         <option value="" disabled>{{ clients.length ? 'Select client' : 'No clients' }}</option>
-        <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
+        @for (c of clients; track c) {
+<option [value]="c.id">{{ c.name }}</option>
+}
       </select>
+}
 
       <select
         id="rt-branch-id"
@@ -31,7 +35,9 @@
         aria-label="Branch"
       >
         <option value="" disabled>{{ branches.length ? 'Select branch' : 'No branches' }}</option>
-        <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+        @for (b of branches; track b) {
+<option [value]="b.id">{{ b.name }}</option>
+}
       </select>
 
       <input autocomplete="off" id="rt-from" type="date" name="trendFrom" [(ngModel)]="from" (change)="load()" class="ctrl-input" />
@@ -40,25 +46,32 @@
   </div>
 
   <!-- Loading -->
-  <div *ngIf="loading" class="loading">
+  @if (loading) {
+<div class="loading">
     <div class="spinner"></div>
     Loading…
   </div>
+}
 
   <!-- Mini bar chart -->
-  <div *ngIf="!loading && points.length > 0" class="chart-card">
+  @if (!loading && points.length > 0) {
+<div class="chart-card">
     <div class="chart-container">
-      <div *ngFor="let p of points" class="chart-bar-wrap">
+      @for (p of points; track p) {
+<div class="chart-bar-wrap">
         <div class="chart-bar" [ngClass]="barClass(p.riskScore)" [style.height.%]="barHeight(p.riskScore)">
           <span class="bar-label">{{ p.riskScore }}%</span>
         </div>
         <span class="bar-date">{{ p.date.substring(5) }}</span>
       </div>
+}
     </div>
   </div>
+}
 
   <!-- Table view -->
-  <div *ngIf="!loading && points.length > 0" class="table-wrap">
+  @if (!loading && points.length > 0) {
+<div class="table-wrap">
     <table>
       <thead>
         <tr>
@@ -68,7 +81,8 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let p of points">
+        @for (p of points; track p) {
+<tr>
           <td class="date-cell">{{ p.date }}</td>
           <td class="score-cell">{{ p.riskScore }}%</td>
           <td>
@@ -77,16 +91,20 @@
             </span>
           </td>
         </tr>
+}
       </tbody>
     </table>
   </div>
+}
 
   <!-- Empty state -->
-  <div *ngIf="!loading && points.length === 0" class="empty">
+  @if (!loading && points.length === 0) {
+<div class="empty">
     <svg class="empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
             d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
     </svg>
     <p>No data — snapshots will be generated daily at 1 AM.</p>
   </div>
+}
 </div>

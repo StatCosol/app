@@ -1,11 +1,11 @@
 import { Component, ChangeDetectionStrategy, ChangeDetectorRef, Input, OnChanges } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ClientBranchesService } from '../../core/client-branches.service';
 
 @Component({
   standalone: true,
   selector: 'app-compliance-trend',
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
   <div style="background:#fff;border:1px solid #f1f5f9;border-radius:16px;padding:14px;margin-top:14px;">
@@ -16,15 +16,20 @@ import { ClientBranchesService } from '../../core/client-branches.service';
       </div>
     </div>
 
-    <div *ngIf="loading" style="color:#94a3b8;font-size:12px;padding:10px 0;">Loading…</div>
+    @if (loading) {
+<div style="color:#94a3b8;font-size:12px;padding:10px 0;">Loading…</div>
+}
 
-    <div *ngIf="!loading">
-      <svg *ngIf="rows.length>0" [attr.width]="width" [attr.height]="height" style="margin-top:12px;">
+    @if (!loading) {
+<div>
+      @if (rows.length>0) {
+<svg [attr.width]="width" [attr.height]="height" style="margin-top:12px;">
         <!-- axes baseline -->
         <line x1="20" [attr.y1]="height-30" [attr.x2]="width-10" [attr.y2]="height-30" stroke="#e2e8f0" stroke-width="2"></line>
 
         <!-- bars -->
-        <ng-container *ngFor="let r of rows; let i = index">
+        @for (r of rows; track r; let i = $index) {
+<ng-container>
           <rect
             [attr.x]="barX(i)"
             [attr.y]="barY(r.completionPercent)"
@@ -47,10 +52,15 @@ import { ClientBranchesService } from '../../core/client-branches.service';
             font-size="10"
             fill="#0f172a">{{ r.completionPercent }}%</text>
         </ng-container>
+}
       </svg>
+}
 
-      <div *ngIf="rows.length===0" style="color:#94a3b8;font-size:12px;padding:14px;text-align:center;">No trend data</div>
+      @if (rows.length===0) {
+<div style="color:#94a3b8;font-size:12px;padding:14px;text-align:center;">No trend data</div>
+}
     </div>
+}
   </div>
   `
 })

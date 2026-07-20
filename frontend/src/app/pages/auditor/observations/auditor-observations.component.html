@@ -33,23 +33,29 @@
         Audit
         <select id="ao-filter-audit-id" name="filterAuditId" [(ngModel)]="filterAuditId" (ngModelChange)="loadObservations()">
           <option value="">All assigned audits</option>
-          <option *ngFor="let audit of audits" [value]="audit.id">
+          @for (audit of audits; track audit) {
+<option [value]="audit.id">
             {{ audit.auditCode || 'Audit' }} | {{ audit.periodCode || '-' }}
           </option>
+}
         </select>
       </label>
 
       <label>
         Status
         <select id="ao-filter-status" name="filterStatus" [(ngModel)]="filterStatus" (ngModelChange)="applyFilters()">
-          <option *ngFor="let status of statusOptions" [value]="status">{{ status || 'All' }}</option>
+          @for (status of statusOptions; track status) {
+<option [value]="status">{{ status || 'All' }}</option>
+}
         </select>
       </label>
 
       <label>
         Risk
         <select id="ao-filter-risk" name="filterRisk" [(ngModel)]="filterRisk" (ngModelChange)="applyFilters()">
-          <option *ngFor="let risk of riskOptions" [value]="risk">{{ risk || 'All' }}</option>
+          @for (risk of riskOptions; track risk) {
+<option [value]="risk">{{ risk || 'All' }}</option>
+}
         </select>
       </label>
 
@@ -62,16 +68,20 @@
     </div>
   </section>
 
-  <div *ngIf="loading" class="loader">Loading observations...</div>
+  @if (loading) {
+<div class="loader">Loading observations...</div>
+}
 
-  <section class="workspace-grid" *ngIf="!loading">
+  @if (!loading) {
+<section class="workspace-grid">
     <article class="card list-pane">
       <header class="section-head">
         <h2>Observation Status List</h2>
         <span>{{ filteredRows.length }} rows</span>
       </header>
 
-      <div class="table-wrap" *ngIf="filteredRows.length; else noRows">
+      @if (filteredRows.length) {
+<div class="table-wrap">
         <table>
           <thead>
             <tr>
@@ -82,8 +92,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              *ngFor="let row of filteredRows; trackBy: trackObs"
+            @for (row of filteredRows; track trackObs($index, row)) {
+<tr
+             
               (click)="selectObservation(row)"
               [class.selected]="selected?.id === row.id"
             >
@@ -95,17 +106,22 @@
               <td><span [class]="statusClass(row.status)">{{ row.status || 'OPEN' }}</span></td>
               <td><span [class]="ageClass(row)">{{ ageDaysFor(row) }}d</span></td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+} @else {
 
-      <ng-template #noRows>
         <div class="empty-mini">No observations match current filters.</div>
-      </ng-template>
+      
+}
+
+      
     </article>
 
     <aside class="detail-stack">
-      <article class="card" *ngIf="selected as item; else selectPrompt">
+      @if (selected; as item) {
+<article class="card">
         <header class="section-head">
           <h2>Branch Response Panel</h2>
           <span [class]="statusClass(item.status)">{{ item.status || 'OPEN' }}</span>
@@ -174,19 +190,29 @@
         </div>
 
         <div class="guardrail-card">
-          <div class="guardrail-row" *ngFor="let guard of actionGuardrails">
+          @for (guard of actionGuardrails; track guard) {
+<div class="guardrail-row">
             <span class="guardrail-label">{{ guard.label }}</span>
-            <span class="guardrail-ok" *ngIf="guard.passed">Ready</span>
-            <span class="guardrail-blocked" *ngIf="!guard.passed">{{ guard.detail }}</span>
+            @if (guard.passed) {
+<span class="guardrail-ok">Ready</span>
+}
+            @if (!guard.passed) {
+<span class="guardrail-blocked">{{ guard.detail }}</span>
+}
           </div>
+}
         </div>
       </article>
+} @else {
 
-      <ng-template #selectPrompt>
         <article class="card empty-mini">Select an observation to review CAPA and verification details.</article>
-      </ng-template>
+      
+}
 
-      <article class="card" *ngIf="selected as item">
+      
+
+      @if (selected; as item) {
+<article class="card">
         <header class="section-head">
           <h2>CAPA Detail Card</h2>
           <span>{{ item.observationTitle || item.title || 'Observation' }}</span>
@@ -210,23 +236,33 @@
           <p>{{ item.complianceRequirements || '-' }}</p>
         </div>
       </article>
+}
 
-      <article class="card" *ngIf="selected as item">
+      @if (selected; as item) {
+<article class="card">
         <header class="section-head">
           <h2>Evidence Preview Panel</h2>
           <span>{{ evidencePaths(item).length }} files</span>
         </header>
 
-        <div class="evidence-list" *ngIf="evidencePaths(item).length; else noEvidence">
-          <a *ngFor="let path of evidencePaths(item)" [href]="evidenceUrl(path)" target="_blank" class="evidence-link">
+        @if (evidencePaths(item).length) {
+<div class="evidence-list">
+          @for (path of evidencePaths(item); track path) {
+<a [href]="evidenceUrl(path)" target="_blank" class="evidence-link">
             {{ path }}
           </a>
+}
         </div>
+} @else {
 
-        <ng-template #noEvidence>
           <div class="empty-mini">No evidence paths attached to this observation.</div>
-        </ng-template>
+        
+}
+
+        
       </article>
+}
     </aside>
   </section>
+}
 </div>

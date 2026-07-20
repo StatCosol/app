@@ -6,15 +6,20 @@
   </ui-page-header>
 
   <!-- Loading State -->
-  <ui-loading-spinner *ngIf="loading" text="Loading dashboard..."></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner text="Loading dashboard..."></ui-loading-spinner>
+}
 
   <!-- Error State -->
-  <div *ngIf="errorMsg" class="rounded-lg bg-red-50 border border-red-200 p-4 mb-6">
+  @if (errorMsg) {
+<div class="rounded-lg bg-red-50 border border-red-200 p-4 mb-6">
     <p class="text-sm text-red-800">{{ errorMsg }}</p>
     <button type="button" class="mt-2 text-sm font-medium text-red-600 hover:text-red-500 underline" (click)="reload()">Try Again</button>
   </div>
+}
 
-  <ng-container *ngIf="!loading && data">
+  @if (!loading && data) {
+
 
   <!-- Filter / Export bar -->
   <div class="flex flex-wrap items-center gap-3 mb-6">
@@ -62,7 +67,8 @@
   </div>
 
   <!-- Row 2: CRM Team Performance -->
-  <div class="card mb-6" *ngIf="filteredCrms.length > 0">
+  @if (filteredCrms.length > 0) {
+<div class="card mb-6">
     <div class="flex items-center justify-between mb-4">
       <h3 class="card-title">CRM Team Performance</h3>
       <ui-button variant="secondary" size="sm" (clicked)="goToCrms()">View All CRMs</ui-button>
@@ -89,6 +95,7 @@
       </ng-template>
     </ui-data-table>
   </div>
+}
 
   <!-- Row 3: Overdue Tables -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -104,11 +111,13 @@
           </span>
         </ng-template>
       </ui-data-table>
-      <ui-empty-state
-        *ngIf="data.topOverdue.length === 0"
+      @if (data.topOverdue.length === 0) {
+<ui-empty-state
+       
         title="No overdue items"
         description="All clients are up to date">
       </ui-empty-state>
+}
     </div>
 
     <div class="card">
@@ -123,16 +132,19 @@
           </span>
         </ng-template>
       </ui-data-table>
-      <ui-empty-state
-        *ngIf="data.crmsMostOverdue.length === 0"
+      @if (data.crmsMostOverdue.length === 0) {
+<ui-empty-state
+       
         title="No overdue CRMs"
         description="All CRMs are current on tasks">
       </ui-empty-state>
+}
     </div>
   </div>
 
   <!-- Row 4: Escalated Compliance Tasks -->
-  <div class="card mb-6" *ngIf="filteredOversight.length > 0">
+  @if (filteredOversight.length > 0) {
+<div class="card mb-6">
     <div class="flex items-center justify-between mb-4">
       <h3 class="card-title">Escalated Compliance Tasks</h3>
       <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">
@@ -150,6 +162,7 @@
       </ng-template>
     </ui-data-table>
   </div>
+}
 
   <!-- Actions -->
   <div class="card">
@@ -166,5 +179,6 @@
       </ui-button>
     </div>
   </div>
-  </ng-container>
+  
+}
 </div>

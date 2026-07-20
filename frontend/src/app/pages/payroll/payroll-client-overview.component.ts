@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
@@ -17,13 +17,16 @@ interface WorkspaceTab {
 @Component({
   selector: 'app-payroll-client-overview',
   standalone: true,
-  imports: [CommonModule, RouterModule, ClientContextStripComponent],
+  imports: [RouterModule, ClientContextStripComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page">
-      <div *ngIf="loading" class="loader">Loading client workspace...</div>
+      @if (loading) {
+<div class="loader">Loading client workspace...</div>
+}
 
-      <div *ngIf="!loading && client" class="workspace">
+      @if (!loading && client) {
+<div class="workspace">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
           <div>
             <h2 class="workspace-title" style="margin-bottom:0;">Client Workspace</h2>
@@ -33,8 +36,9 @@ interface WorkspaceTab {
         </div>
 
         <div class="tab-grid">
-          <a
-            *ngFor="let tab of tabs"
+          @for (tab of tabs; track tab) {
+<a
+           
             [routerLink]="tab.route"
             class="tab-card"
           >
@@ -45,13 +49,17 @@ interface WorkspaceTab {
             </div>
             <svg class="tab-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
           </a>
+}
         </div>
       </div>
+}
 
-      <div *ngIf="!loading && error" class="error-card">
+      @if (!loading && error) {
+<div class="error-card">
         <p>{{ error }}</p>
         <a routerLink="/payroll/clients" class="btn btn-ghost">Back to Clients</a>
       </div>
+}
     </div>
   `,
   styles: [`

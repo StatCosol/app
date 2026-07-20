@@ -16,14 +16,20 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from '@angular/f
   ],
   template: `
     <div class="w-full">
-      <label *ngIf="label" [for]="inputId" class="block text-sm font-medium text-gray-700 mb-1.5">
+      @if (label) {
+<label [for]="inputId" class="block text-sm font-medium text-gray-700 mb-1.5">
         {{ label }}
-        <span *ngIf="required" class="text-error-500">*</span>
+        @if (required) {
+<span class="text-error-500">*</span>
+}
       </label>
+}
       <div class="relative">
-        <div *ngIf="prefixIcon" class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        @if (prefixIcon) {
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <ng-content select="[slot=prefix]"></ng-content>
         </div>
+}
         <input
           [id]="inputId"
           [name]="name || inputId"
@@ -39,12 +45,18 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from '@angular/f
           (input)="onInput($event)"
           (blur)="onTouched()"
         />
-        <div *ngIf="suffixIcon" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+        @if (suffixIcon) {
+<div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
           <ng-content select="[slot=suffix]"></ng-content>
         </div>
+}
       </div>
-      <p *ngIf="hint && !error" [id]="inputId + '-hint'" class="mt-1.5 text-sm text-gray-500">{{ hint }}</p>
-      <p *ngIf="error" [id]="inputId + '-error'" role="alert" class="mt-1.5 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">{{ error }}</p>
+      @if (hint && !error) {
+<p [id]="inputId + '-hint'" class="mt-1.5 text-sm text-gray-500">{{ hint }}</p>
+}
+      @if (error) {
+<p [id]="inputId + '-error'" role="alert" class="mt-1.5 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">{{ error }}</p>
+}
     </div>
   `
 })

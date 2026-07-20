@@ -25,10 +25,13 @@ import {
     <ui-page-header title="Renewals & Expiry" subtitle="Upcoming registration and license renewals"></ui-page-header>
 
     <div class="p-6 space-y-6">
-      <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
 
       <!-- KPI Row -->
-      <div *ngIf="!loading && kpi" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      @if (!loading && kpi) {
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 text-center">
           <span class="text-xs text-slate-500 uppercase">Total Expiry Tasks</span>
           <p class="text-2xl font-bold text-slate-800">{{ kpi.total }}</p>
@@ -46,13 +49,17 @@ import {
           <p class="text-2xl font-bold text-emerald-600">{{ kpi.completed }}</p>
         </div>
       </div>
+}
 
       <!-- Renewals List -->
-      <div *ngIf="!loading && renewals.length === 0">
+      @if (!loading && renewals.length === 0) {
+<div>
         <ui-empty-state message="No upcoming renewals in the next 90 days." icon="calendar"></ui-empty-state>
       </div>
+}
 
-      <div *ngIf="!loading && renewals.length > 0" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      @if (!loading && renewals.length > 0) {
+<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-200">
           <h3 class="text-base font-semibold text-slate-800">Upcoming Renewals (90 days)</h3>
         </div>
@@ -66,7 +73,8 @@ import {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let r of renewals" class="border-b border-slate-100 hover:bg-slate-50">
+            @for (r of renewals; track r) {
+<tr class="border-b border-slate-100 hover:bg-slate-50">
               <td class="px-6 py-3 font-medium text-slate-800">{{ r.registration_name }}</td>
               <td class="px-6 py-3">{{ r.branch_name }}</td>
               <td class="px-6 py-3">{{ r.expiry_date | date:'mediumDate' }}</td>
@@ -76,9 +84,11 @@ import {
                 </span>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+}
     </div>
   `,
 })

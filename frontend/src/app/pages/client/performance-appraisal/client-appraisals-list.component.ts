@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -10,7 +10,7 @@ import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisa
 @Component({
   selector: 'app-client-appraisals-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
@@ -33,7 +33,9 @@ import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisa
             <label class="text-xs font-medium text-gray-600 block mb-1" for="c-cycle">Cycle</label>
             <select id="c-cycle" name="cycleId" [(ngModel)]="cycleId" (ngModelChange)="load()" class="filter-select">
               <option value="">All Cycles</option>
-              <option *ngFor="let c of cycles" [value]="c.id">{{ c.cycleName }} ({{ c.financialYear }})</option>
+              @for (c of cycles; track c) {
+<option [value]="c.id">{{ c.cycleName }} ({{ c.financialYear }})</option>
+}
             </select>
           </div>
           <div>
@@ -67,9 +69,12 @@ import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisa
         </div>
       </div>
 
-      <div *ngIf="loading" class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+      @if (loading) {
+<div class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+}
 
-      <div *ngIf="!loading" class="table-card">
+      @if (!loading) {
+<div class="table-card">
         <div class="flex items-center justify-between mb-3">
           <span class="text-xs text-gray-500">{{ total }} records</span>
           <div class="flex gap-2">
@@ -95,7 +100,8 @@ import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisa
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let a of appraisals; trackBy: trackById" class="data-row">
+              @for (a of appraisals; track trackById($index, a)) {
+<tr class="data-row">
                 <td class="text-xs font-mono text-gray-500">{{ a.employee_code }}</td>
                 <td class="font-medium text-slate-800">{{ a.employee_name }}</td>
                 <td class="text-sm text-gray-600">{{ a.branch_name || '—' }}</td>
@@ -105,7 +111,8 @@ import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisa
                 </td>
                 <td><span class="badge bg-indigo-100 text-indigo-700">{{ a.finalRatingLabel || '—' }}</span></td>
                 <td>
-                  <span *ngIf="a.recommendation" class="badge"
+                  @if (a.recommendation) {
+<span class="badge"
                     [class.bg-emerald-100]="a.recommendation === 'INCREMENT' || a.recommendation === 'PROMOTION'"
                     [class.text-emerald-700]="a.recommendation === 'INCREMENT' || a.recommendation === 'PROMOTION'"
                     [class.bg-red-100]="a.recommendation === 'PIP'"
@@ -114,7 +121,10 @@ import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisa
                     [class.text-gray-600]="a.recommendation === 'NO_CHANGE'">
                     {{ a.recommendation.replace(/_/g, ' ') }}
                   </span>
-                  <span *ngIf="!a.recommendation" class="text-gray-400">—</span>
+}
+                  @if (!a.recommendation) {
+<span class="text-gray-400">—</span>
+}
                 </td>
                 <td>
                   <span class="badge"
@@ -135,13 +145,17 @@ import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisa
                   </a>
                 </td>
               </tr>
-              <tr *ngIf="!appraisals.length">
+}
+              @if (!appraisals.length) {
+<tr>
                 <td colspan="9" class="text-center text-sm text-gray-400 py-10">No appraisals found</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
       </div>
+}
     </div>
   `,
 })

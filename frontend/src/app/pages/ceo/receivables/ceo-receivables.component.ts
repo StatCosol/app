@@ -13,9 +13,12 @@ import { CeoReceivables, SalesService } from '../../../modules/sales/sales.servi
         <p class="text-sm text-gray-500">Outstanding invoices and aging across all billing clients.</p>
       </div>
 
-      <div *ngIf="loading" class="text-center text-gray-500 py-8">Loading…</div>
+      @if (loading) {
+<div class="text-center text-gray-500 py-8">Loading…</div>
+}
 
-      <div *ngIf="!loading && data" class="space-y-5">
+      @if (!loading && data) {
+<div class="space-y-5">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div class="bg-white rounded-xl border border-gray-200 p-4">
             <div class="text-xs uppercase text-gray-500">Open Invoices</div>
@@ -42,11 +45,13 @@ import { CeoReceivables, SalesService } from '../../../modules/sales/sales.servi
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let b of data.buckets" class="border-t border-gray-100">
+              @for (b of data.buckets; track b) {
+<tr class="border-t border-gray-100">
                 <td class="px-4 py-2 font-medium" [class]="bucketColor(b.bucket)">{{ bucketLabel(b.bucket) }}</td>
                 <td class="px-4 py-2 text-right">{{ b.invoiceCount }}</td>
                 <td class="px-4 py-2 text-right">₹ {{ b.balance | number:'1.0-0' }}</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
@@ -63,19 +68,24 @@ import { CeoReceivables, SalesService } from '../../../modules/sales/sales.servi
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let c of data.topClients" class="border-t border-gray-100">
+              @for (c of data.topClients; track c) {
+<tr class="border-t border-gray-100">
                 <td class="px-4 py-2 font-medium text-gray-900">{{ c.clientName || '—' }}</td>
                 <td class="px-4 py-2 text-right">{{ c.invoiceCount }}</td>
                 <td class="px-4 py-2 text-right text-emerald-700">₹ {{ c.outstanding | number:'1.0-0' }}</td>
                 <td class="px-4 py-2 text-right text-red-600">₹ {{ c.overdue | number:'1.0-0' }}</td>
               </tr>
-              <tr *ngIf="data.topClients.length === 0">
+}
+              @if (data.topClients.length === 0) {
+<tr>
                 <td colspan="4" class="px-4 py-6 text-center text-gray-500">No outstanding receivables.</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
       </div>
+}
     </div>
   `,
 })

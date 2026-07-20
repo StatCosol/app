@@ -59,24 +59,32 @@ interface ReportHistoryRow {
           <ui-button variant="secondary" size="sm" [loading]="loadingSummary" (clicked)="loadSummary()">
             Refresh Packs
           </ui-button>
-          <div class="text-xs text-gray-500 ml-auto" *ngIf="summary">
+          @if (summary) {
+<div class="text-xs text-gray-500 ml-auto">
             Generated: {{ summary.generatedAt | date:'medium' }}
           </div>
+}
         </div>
       </div>
 
-      <div *ngIf="loadingSummary" class="py-16">
+      @if (loadingSummary) {
+<div class="py-16">
         <ui-loading-spinner text="Loading report packs..."></ui-loading-spinner>
       </div>
+}
 
-      <div *ngIf="!loadingSummary && error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+      @if (!loadingSummary && error) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
         {{ error }}
       </div>
+}
 
-      <ng-container *ngIf="!loadingSummary && !error">
+      @if (!loadingSummary && !error) {
+
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          <button
-            *ngFor="let pack of packs"
+          @for (pack of packs; track pack) {
+<button
+           
             type="button"
             class="text-left bg-white rounded-2xl border p-4 transition-all"
             [ngClass]="selectedType === pack.id ? 'border-blue-500 ring-1 ring-blue-100' : 'border-gray-200 hover:border-gray-300'"
@@ -85,6 +93,7 @@ interface ReportHistoryRow {
             <div class="text-2xl font-semibold text-gray-900 mt-1">{{ getPrimaryMetric(pack) }}</div>
             <div class="text-xs text-gray-500 mt-1">{{ getSecondaryMetric(pack) }}</div>
           </button>
+}
         </div>
 
         <div class="bg-white rounded-2xl border border-gray-100 shadow-card p-6">
@@ -107,39 +116,53 @@ interface ReportHistoryRow {
           </div>
 
           <div class="mb-4">
-            <div *ngIf="exportGuardrails.length; else exportReady" class="space-y-1">
-              <div
-                *ngFor="let issue of exportGuardrails"
+            @if (exportGuardrails.length) {
+<div class="space-y-1">
+              @for (issue of exportGuardrails; track issue) {
+<div
+               
                 class="text-xs rounded-md border border-amber-200 bg-amber-50 text-amber-700 px-2 py-1">
                 {{ issue }}
               </div>
+}
             </div>
-            <ng-template #exportReady>
+} @else {
+
               <div class="text-xs rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 px-2 py-1">
                 Export guardrails passed. CSV/PDF packs are ready.
               </div>
-            </ng-template>
+            
+}
+            
           </div>
 
-          <div *ngIf="loadingPreview" class="py-12">
+          @if (loadingPreview) {
+<div class="py-12">
             <ui-loading-spinner text="Loading preview..."></ui-loading-spinner>
           </div>
+}
 
-          <ng-container *ngIf="!loadingPreview">
-            <ui-data-table
-              *ngIf="previewRows.length > 0"
+          @if (!loadingPreview) {
+
+            @if (previewRows.length > 0) {
+<ui-data-table
+             
               [columns]="previewColumns"
               [data]="previewRows"
               [loading]="false"
               emptyMessage="No rows in selected report"
             ></ui-data-table>
+}
 
-            <ui-empty-state
-              *ngIf="previewRows.length === 0"
+            @if (previewRows.length === 0) {
+<ui-empty-state
+             
               title="No preview rows"
               description="Select another pack or period to view data."
             ></ui-empty-state>
-          </ng-container>
+}
+          
+}
         </div>
 
         <div class="bg-white rounded-2xl border border-gray-100 shadow-card p-6">
@@ -148,21 +171,26 @@ interface ReportHistoryRow {
             <ui-button variant="outline" size="sm" (clicked)="clearHistory()">Clear History</ui-button>
           </div>
 
-          <ui-data-table
-            *ngIf="history.length > 0"
+          @if (history.length > 0) {
+<ui-data-table
+           
             [columns]="historyColumns"
             [data]="history"
             [loading]="false"
             emptyMessage="No report history"
           ></ui-data-table>
+}
 
-          <ui-empty-state
-            *ngIf="history.length === 0"
+          @if (history.length === 0) {
+<ui-empty-state
+           
             title="No report exports yet"
             description="Your export actions will appear here."
           ></ui-empty-state>
+}
         </div>
-      </ng-container>
+      
+}
     </div>
   `,
 })

@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { AdminUsersApi } from '../../core/api/admin-users.api';
@@ -18,10 +18,15 @@ import {
   selector: 'app-admin-reports',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, PageHeaderComponent, ActionButtonComponent,
-    LoadingSpinnerComponent, DataTableComponent,
-    TableCellDirective, StatusBadgeComponent, KpiTileComponent,
-  ],
+    FormsModule,
+    PageHeaderComponent,
+    ActionButtonComponent,
+    LoadingSpinnerComponent,
+    DataTableComponent,
+    TableCellDirective,
+    StatusBadgeComponent,
+    KpiTileComponent
+],
   templateUrl: './admin-reports.component.html',
   styleUrls: ['./admin-reports.component.scss'],
 })

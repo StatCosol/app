@@ -1,4 +1,5 @@
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6" *ngIf="!loading && task; else loadingTpl">
+@if (!loading && task) {
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <!-- Page Header Card -->
   <div class="contractor-card mb-6">
     <div class="flex items-start justify-between">
@@ -18,8 +19,12 @@
             </svg>
             Due: {{ task.dueDate }}
           </span>
-          <span *ngIf="task.client?.clientName" class="text-gray-300">|</span>
-          <span *ngIf="task.client?.clientName">{{ task.client.clientName }}</span>
+          @if (task.client?.clientName) {
+<span class="text-gray-300">|</span>
+}
+          @if (task.client?.clientName) {
+<span>{{ task.client.clientName }}</span>
+}
         </div>
       </div>
       <ui-status-badge [status]="task.status"></ui-status-badge>
@@ -30,12 +35,16 @@
   <div class="contractor-stepper mb-6">
     <div class="contractor-stepper__step">
       <div [class]="(evidence.length||0) > 0 ? 'contractor-stepper__circle contractor-stepper__circle--done' : 'contractor-stepper__circle contractor-stepper__circle--inactive'">
-        <ng-container *ngIf="(evidence.length||0) > 0; else step1Num">
+        @if ((evidence.length||0) > 0) {
+
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
           </svg>
-        </ng-container>
-        <ng-template #step1Num>1</ng-template>
+        
+} @else {
+1
+}
+        
       </div>
       <span class="contractor-stepper__label text-gray-900">Upload Evidence</span>
     </div>
@@ -51,12 +60,16 @@
 
     <div class="contractor-stepper__step">
       <div [class]="(task.status==='SUBMITTED' || task.status==='APPROVED') ? 'contractor-stepper__circle contractor-stepper__circle--done' : 'contractor-stepper__circle contractor-stepper__circle--inactive'">
-        <ng-container *ngIf="task.status==='SUBMITTED' || task.status==='APPROVED'; else step3Num">
+        @if (task.status==='SUBMITTED' || task.status==='APPROVED') {
+
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
           </svg>
-        </ng-container>
-        <ng-template #step3Num>3</ng-template>
+        
+} @else {
+3
+}
+        
       </div>
       <span class="contractor-stepper__label" [class]="(task.status==='SUBMITTED' || task.status==='APPROVED') ? 'text-gray-900' : 'text-gray-400'">CRM Review</span>
     </div>
@@ -93,20 +106,26 @@
                  enabled:hover:bg-indigo-700
                  disabled:opacity-50 disabled:cursor-not-allowed
                  flex items-center justify-center gap-2">
-          <svg *ngIf="!uploading" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          @if (!uploading) {
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
           </svg>
-          <ui-loading-spinner *ngIf="uploading" size="sm"></ui-loading-spinner>
+}
+          @if (uploading) {
+<ui-loading-spinner size="sm"></ui-loading-spinner>
+}
           {{ uploading ? 'Uploading...' : 'Upload Evidence' }}
         </button>
       </div>
 
-      <div class="mt-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800 flex items-start gap-2" *ngIf="!canEdit()">
+      @if (!canEdit()) {
+<div class="mt-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800 flex items-start gap-2">
         <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
         </svg>
         Upload is disabled because this task is already submitted/approved.
       </div>
+}
     </div>
 
     <!-- Evidence List & Submit Card -->
@@ -115,7 +134,8 @@
       <p class="text-sm text-gray-500 mb-4">{{ evidence.length || 0 }} file(s) uploaded</p>
 
       <div class="space-y-2 mb-6">
-        <div *ngFor="let e of evidence" class="evidence-card">
+        @for (e of evidence; track e) {
+<div class="evidence-card">
           <div class="evidence-card__icon">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -131,12 +151,15 @@
             </svg>
           </div>
         </div>
+}
 
-        <ui-empty-state
-          *ngIf="(evidence.length||0)===0"
+        @if ((evidence.length||0)===0) {
+<ui-empty-state
+         
           title="No evidence uploaded yet"
           description="Upload documents to continue">
         </ui-empty-state>
+}
       </div>
 
       <hr class="my-6 border-gray-200"/>
@@ -151,22 +174,29 @@
                enabled:hover:bg-indigo-700
                disabled:opacity-50 disabled:cursor-not-allowed
                flex items-center justify-center gap-2">
-        <ui-loading-spinner *ngIf="submitting" size="sm"></ui-loading-spinner>
-        <svg *ngIf="!submitting" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        @if (submitting) {
+<ui-loading-spinner size="sm"></ui-loading-spinner>
+}
+        @if (!submitting) {
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
+}
         {{ submitting ? 'Submitting...' : 'Submit to CRM' }}
       </button>
 
-      <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800 flex items-start gap-2" *ngIf="(evidence.length||0)<1">
+      @if ((evidence.length||0)<1) {
+<div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800 flex items-start gap-2">
         <svg class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
         Upload at least 1 file to enable Submit.
       </div>
+}
 
       <!-- Rejection Remarks -->
-      <div class="mt-4 bg-red-50 border border-red-200 rounded-xl px-4 py-4" *ngIf="task.status==='REJECTED'">
+      @if (task.status==='REJECTED') {
+<div class="mt-4 bg-red-50 border border-red-200 rounded-xl px-4 py-4">
         <div class="flex items-center gap-2 mb-3">
           <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -180,11 +210,12 @@
           </div>
         </div>
       </div>
+}
     </div>
   </div>
 </div>
+} @else {
 
-<ng-template #loadingTpl>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
     <div class="skeleton skeleton--card mb-6 h-24"></div>
     <div class="flex justify-center gap-4 mb-6">
@@ -199,4 +230,7 @@
       <div class="skeleton skeleton--chart"></div>
     </div>
   </div>
-</ng-template>
+
+}
+
+

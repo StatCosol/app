@@ -70,8 +70,9 @@ interface EnrollForm {
         class="bg-white rounded-xl border border-gray-200 p-2 shadow-sm flex gap-1"
         role="tablist"
       >
-        <button
-          *ngIf="canViewEmployeeFaceEnrollment"
+        @if (canViewEmployeeFaceEnrollment) {
+<button
+         
           type="button"
           role="tab"
           class="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition"
@@ -84,8 +85,10 @@ interface EnrollForm {
         >
           Employees
         </button>
-        <button
-          *ngIf="canViewContractorFaceEnrollment"
+}
+        @if (canViewContractorFaceEnrollment) {
+<button
+         
           type="button"
           role="tab"
           class="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition"
@@ -98,11 +101,13 @@ interface EnrollForm {
         >
           Contractor Employees
         </button>
+}
       </div>
 
       <!-- Notice: employees self-enroll from their paired ESS device. -->
-      <div
-        *ngIf="subjectType === 'employee'"
+      @if (subjectType === 'employee') {
+<div
+       
         class="bg-indigo-50 border border-indigo-200 rounded-xl p-5 shadow-sm"
       >
         <h3 class="font-semibold text-indigo-900 mb-1">
@@ -119,9 +124,11 @@ interface EnrollForm {
           exceptional re-enrollments, use the re-enrollment request workflow.
         </p>
       </div>
+}
 
-      <div
-        *ngIf="subjectType === 'contractor'"
+      @if (subjectType === 'contractor') {
+<div
+       
         class="bg-indigo-50 border border-indigo-200 rounded-xl p-5 shadow-sm"
       >
         <h3 class="font-semibold text-indigo-900 mb-1">
@@ -132,6 +139,7 @@ interface EnrollForm {
           captures only; the registration becomes active only after web approval.
         </p>
       </div>
+}
 
       <!-- Enrollment status table -->
       <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
@@ -172,15 +180,18 @@ interface EnrollForm {
           </div>
         </div>
 
-        <div *ngIf="loadingEnrollments" class="py-6 flex justify-center">
+        @if (loadingEnrollments) {
+<div class="py-6 flex justify-center">
           <ui-loading-spinner></ui-loading-spinner>
         </div>
+}
 
         <!-- Employee status table -->
-        <div
-          *ngIf="
+        @if (
             !loadingEnrollments && subjectType === 'employee' && filteredEnrollments.length > 0
-          "
+          ) {
+<div
+         
           class="overflow-x-auto"
         >
           <table class="w-full text-sm">
@@ -194,69 +205,85 @@ interface EnrollForm {
               </tr>
             </thead>
             <tbody>
-              <tr
-                *ngFor="let r of filteredEnrollments"
+              @for (r of filteredEnrollments; track r) {
+<tr
+               
                 class="border-b border-gray-100 hover:bg-gray-50"
               >
                 <td class="px-3 py-2 text-gray-700 font-mono text-xs">{{ r.employeeCode }}</td>
                 <td class="px-3 py-2 text-gray-900 font-medium">{{ r.employeeName }}</td>
                 <td class="px-3 py-2 text-center">
-                  <span
-                    *ngIf="r.isEnrolled && r.isActive"
+                  @if (r.isEnrolled && r.isActive) {
+<span
+                   
                     class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700"
                     >Enrolled</span
                   >
-                  <span
-                    *ngIf="r.isEnrolled && !r.isActive"
+}
+                  @if (r.isEnrolled && !r.isActive) {
+<span
+                   
                     class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600"
                     >Deactivated</span
                   >
-                  <span
-                    *ngIf="!r.isEnrolled"
+}
+                  @if (!r.isEnrolled) {
+<span
+                   
                     class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800"
                     >Pending</span
                   >
+}
                 </td>
                 <td class="px-3 py-2 text-gray-700">
                   {{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}
                 </td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <button
-                    *ngIf="r.isEnrolled && r.isActive"
+                  @if (r.isEnrolled && r.isActive) {
+<button
+                   
                     class="text-xs text-red-600 hover:underline mr-3"
                     (click)="deactivate(r)"
                   >
                     Deactivate
                   </button>
-                  <button
-                    *ngIf="r.isEnrolled"
+}
+                  @if (r.isEnrolled) {
+<button
+                   
                     class="text-xs text-red-700 hover:underline font-semibold"
                     (click)="hardDelete(r)"
                     title="Permanently remove this enrollment row (audit history preserved)"
                   >
                     Delete
                   </button>
-                  <button
-                    *ngIf="!r.isEnrolled && canUseKioskEnrollment"
+}
+                  @if (!r.isEnrolled && canUseKioskEnrollment) {
+<button
+                   
                     class="text-xs text-indigo-600 hover:underline font-semibold"
                     (click)="openKioskEnrollForEmployee(r)"
                     title="Send a one-time capture instruction to a KIOSK device"
                   >
                     Enroll on Kiosk
                   </button>
+}
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+}
 
         <!-- Contractor status table -->
-        <div
-          *ngIf="
+        @if (
             !loadingEnrollments &&
             subjectType === 'contractor' &&
             filteredContractorEnrollments.length > 0
-          "
+          ) {
+<div
+         
           class="overflow-x-auto"
         >
           <table class="w-full text-sm">
@@ -269,79 +296,100 @@ interface EnrollForm {
               </tr>
             </thead>
             <tbody>
-              <tr
-                *ngFor="let r of filteredContractorEnrollments"
+              @for (r of filteredContractorEnrollments; track r) {
+<tr
+               
                 class="border-b border-gray-100 hover:bg-gray-50"
               >
                 <td class="px-3 py-2 text-gray-900 font-medium">{{ r.name }}</td>
                 <td class="px-3 py-2 text-center">
-                  <span
-                    *ngIf="r.isEnrolled && r.isActive"
+                  @if (r.isEnrolled && r.isActive) {
+<span
+                   
                     class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700"
                     >Enrolled</span
                   >
-                  <span
-                    *ngIf="r.isEnrolled && !r.isActive"
+}
+                  @if (r.isEnrolled && !r.isActive) {
+<span
+                   
                     class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600"
                     >Deactivated</span
                   >
-                  <span
-                    *ngIf="!r.isEnrolled"
+}
+                  @if (!r.isEnrolled) {
+<span
+                   
                     class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800"
                     >Pending</span
                   >
+}
                 </td>
                 <td class="px-3 py-2 text-gray-700">
                   {{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}
                 </td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <button
-                    *ngIf="!r.isEnrolled && canUseManualContractorEnrollment"
+                  @if (!r.isEnrolled && canUseManualContractorEnrollment) {
+<button
+                   
                     class="text-xs text-indigo-600 hover:underline mr-3"
                     (click)="selectContractorForEnroll(r)"
                   >
                     Enroll
                   </button>
-                  <button
-                    *ngIf="!r.isEnrolled && canUseKioskEnrollment"
+}
+                  @if (!r.isEnrolled && canUseKioskEnrollment) {
+<button
+                   
                     class="text-xs text-indigo-600 hover:underline mr-3 font-semibold"
                     (click)="openKioskEnrollForContractor(r)"
                     title="Send a one-time capture instruction to a KIOSK device"
                   >
                     Enroll on Kiosk
                   </button>
-                  <button
-                    *ngIf="r.isEnrolled && r.isActive"
+}
+                  @if (r.isEnrolled && r.isActive) {
+<button
+                   
                     class="text-xs text-red-600 hover:underline mr-3"
                     (click)="deactivateContractor(r)"
                   >
                     Deactivate
                   </button>
-                  <button
-                    *ngIf="r.isEnrolled"
+}
+                  @if (r.isEnrolled) {
+<button
+                   
                     class="text-xs text-red-700 hover:underline font-semibold"
                     (click)="hardDeleteContractor(r)"
                     title="Permanently remove this enrollment row (audit history preserved)"
                   >
                     Delete
                   </button>
+}
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+}
 
-        <div
-          *ngIf="!loadingEnrollments && activeRows.length > 0 && activeFilteredRows.length === 0"
+        @if (!loadingEnrollments && activeRows.length > 0 && activeFilteredRows.length === 0) {
+<div
+         
           class="text-sm text-gray-500"
         >
           No {{ subjectType === 'contractor' ? 'contractor employees' : 'employees' }} match the
           current filter.
         </div>
-        <div *ngIf="!loadingEnrollments && activeRows.length === 0" class="text-sm text-gray-500">
+}
+        @if (!loadingEnrollments && activeRows.length === 0) {
+<div class="text-sm text-gray-500">
           No {{ subjectType === 'contractor' ? 'contractor employees' : 'employees' }} found in your
           branch.
         </div>
+}
       </div>
 
       <!-- Kiosk-enroll ticket history -->
@@ -354,9 +402,10 @@ interface EnrollForm {
             </p>
           </div>
           <div class="flex items-center gap-2">
-            <button
+            @for (s of kioskTicketStatusFilters; track s) {
+<button
               type="button"
-              *ngFor="let s of kioskTicketStatusFilters"
+             
               class="px-3 py-1 rounded-full text-xs font-medium border transition"
               [class.bg-indigo-600]="kioskTicketStatusFilter === s.value"
               [class.text-white]="kioskTicketStatusFilter === s.value"
@@ -368,6 +417,7 @@ interface EnrollForm {
             >
               {{ s.label }}
             </button>
+}
             <button
               type="button"
               class="px-3 py-1 rounded-lg text-xs font-medium border border-gray-300 text-gray-700 hover:bg-gray-50"
@@ -379,16 +429,21 @@ interface EnrollForm {
           </div>
         </div>
 
-        <ui-loading-spinner *ngIf="loadingKioskTickets"></ui-loading-spinner>
+        @if (loadingKioskTickets) {
+<ui-loading-spinner></ui-loading-spinner>
+}
 
-        <div
-          *ngIf="!loadingKioskTickets && visibleKioskTickets.length === 0"
+        @if (!loadingKioskTickets && visibleKioskTickets.length === 0) {
+<div
+         
           class="text-sm text-gray-500"
         >
           No tickets in this view yet.
         </div>
+}
 
-        <div *ngIf="!loadingKioskTickets && visibleKioskTickets.length > 0" class="overflow-x-auto">
+        @if (!loadingKioskTickets && visibleKioskTickets.length > 0) {
+<div class="overflow-x-auto">
           <table class="min-w-full text-sm">
             <thead class="text-xs uppercase text-gray-500 border-b border-gray-200">
               <tr>
@@ -402,10 +457,13 @@ interface EnrollForm {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let t of visibleKioskTickets" class="border-b border-gray-100 last:border-0">
+              @for (t of visibleKioskTickets; track t) {
+<tr class="border-b border-gray-100 last:border-0">
                 <td class="py-2 pr-3">
                   <div class="font-medium text-gray-900">{{ t.subjectName }}</div>
-                  <div class="text-xs text-gray-500" *ngIf="t.subjectCode">{{ t.subjectCode }}</div>
+                  @if (t.subjectCode) {
+<div class="text-xs text-gray-500">{{ t.subjectCode }}</div>
+}
                 </td>
                 <td class="py-2 pr-3 text-gray-700">
                   {{ t.subjectType === 'EMPLOYEE' ? 'Employee' : 'Contractor' }}
@@ -418,15 +476,18 @@ interface EnrollForm {
                   >
                 </td>
                 <td class="py-2 pr-3 text-xs">
-                  <div
-                    *ngIf="t.notes"
+                  @if (t.notes) {
+<div
+                   
                     class="max-w-xs rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-amber-900"
                   >
                     <div class="font-semibold">Review note</div>
                     <div class="whitespace-pre-line">{{ t.notes }}</div>
                   </div>
-                  <button
-                    *ngIf="isPhotoOpenable(t.photoUrl)"
+}
+                  @if (isPhotoOpenable(t.photoUrl)) {
+<button
+                   
                     type="button"
                     class="mt-1 inline-flex items-center gap-1 text-indigo-700 hover:underline"
                     (click)="inspectPhoto(t)"
@@ -438,77 +499,105 @@ interface EnrollForm {
                     </svg>
                     <span>Inspect photo</span>
                   </button>
-                  <span
-                    *ngIf="t.photoUrl && !isPhotoOpenable(t.photoUrl)"
+}
+                  @if (t.photoUrl && !isPhotoOpenable(t.photoUrl)) {
+<span
+                   
                     class="mt-1 inline-block text-xs text-gray-400"
                     title="Photo captured by an older app version — file no longer available"
                     >photo unavailable</span
                   >
-                  <div
-                    *ngIf="t.matchScoreSelf"
+}
+                  @if (t.matchScoreSelf) {
+<div
+                   
                     class="mt-1 text-xs text-gray-500"
                   >
                     Score: {{ (t.matchScoreSelf! * 100).toFixed(1) }}%
                   </div>
-                  <div
-                    *ngIf="t.rejectionReason"
+}
+                  @if (t.rejectionReason) {
+<div
+                   
                     class="mt-1 max-w-xs rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-red-900"
                   >
                     <div class="font-semibold">Rejection reason</div>
                     <div class="whitespace-pre-line">{{ t.rejectionReason }}</div>
                   </div>
-                  <span *ngIf="!t.notes && !t.photoUrl && !t.rejectionReason && !t.matchScoreSelf" class="text-gray-400"
+}
+                  @if (!t.notes && !t.photoUrl && !t.rejectionReason && !t.matchScoreSelf) {
+<span class="text-gray-400"
                     >-</span
                   >
+}
                 </td>
                 <td class="py-2 pr-3 text-xs text-gray-700">{{ t.createdAt | date: 'medium' }}</td>
                 <td class="py-2 pr-3 text-xs text-gray-700">
-                  <span *ngIf="t.completedAt">{{ t.completedAt | date: 'medium' }}</span>
-                  <span *ngIf="!t.completedAt && t.reviewedAt">{{
+                  @if (t.completedAt) {
+<span>{{ t.completedAt | date: 'medium' }}</span>
+}
+                  @if (!t.completedAt && t.reviewedAt) {
+<span>{{
                     t.reviewedAt | date: 'medium'
                   }}</span>
-                  <span *ngIf="!t.completedAt && !t.reviewedAt && t.capturedAt">{{
+}
+                  @if (!t.completedAt && !t.reviewedAt && t.capturedAt) {
+<span>{{
                     t.capturedAt | date: 'medium'
                   }}</span>
-                  <span *ngIf="!t.completedAt && t.cancelledAt">{{
+}
+                  @if (!t.completedAt && t.cancelledAt) {
+<span>{{
                     t.cancelledAt | date: 'medium'
                   }}</span>
-                  <span
-                    *ngIf="!t.completedAt && !t.cancelledAt && t.status === 'PENDING'"
+}
+                  @if (!t.completedAt && !t.cancelledAt && t.status === 'PENDING') {
+<span
+                   
                     class="text-gray-400"
                     >expires {{ t.expiresAt | date: 'shortTime' }}</span
                   >
-                  <span
-                    *ngIf="!t.completedAt && !t.cancelledAt && t.status === 'EXPIRED'"
+}
+                  @if (!t.completedAt && !t.cancelledAt && t.status === 'EXPIRED') {
+<span
+                   
                     class="text-gray-400"
                     >expired {{ t.expiresAt | date: 'medium' }}</span
                   >
+}
                 </td>
                 <td class="py-2 text-right whitespace-nowrap">
-                  <span
-                    *ngIf="t.status === 'REVIEW_PENDING'"
+                  @if (t.status === 'REVIEW_PENDING') {
+<span
+                   
                     class="text-xs text-gray-500"
                     title="This is an old manual-review ticket state. Create a fresh kiosk ticket to enroll."
                     >Create fresh ticket</span
                   >
-                  <button
+}
+                  @if (t.status === 'PENDING') {
+<button
                     type="button"
-                    *ngIf="t.status === 'PENDING'"
+                   
                     class="text-xs text-red-700 hover:underline"
                     (click)="cancelKioskTicketFromList(t)"
                   >
                     Cancel
                   </button>
+}
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+}
       </div>
 
       <!-- Kiosk-supervised enrollment modal -->
-      <div
-        *ngIf="kioskModalOpen"
+      @if (kioskModalOpen) {
+<div
+       
         class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
         (click)="closeKioskModal()"
       >
@@ -519,10 +608,13 @@ interface EnrollForm {
           <h3 class="text-lg font-semibold text-gray-900 mb-1">Enroll on Kiosk</h3>
           <p class="text-xs text-gray-500 mb-3">
             Capturing for <strong class="text-gray-800">{{ kioskSubjectName }}</strong>
-            <span *ngIf="kioskSubjectCode" class="font-mono">({{ kioskSubjectCode }})</span>
+            @if (kioskSubjectCode) {
+<span class="font-mono">({{ kioskSubjectCode }})</span>
+}
           </p>
 
-          <ng-container *ngIf="!kioskActiveTicket">
+          @if (!kioskActiveTicket) {
+
             <div class="mb-3">
               <label class="block text-xs font-medium text-gray-600 mb-1" for="kiosk-device-sel"
                 >Kiosk device</label
@@ -534,19 +626,25 @@ interface EnrollForm {
                 class="ui-input"
               >
                 <option value="">— Select a kiosk —</option>
-                <option *ngFor="let d of kioskDevicesForSubject" [value]="d.id">
+                @for (d of kioskDevicesForSubject; track d) {
+<option [value]="d.id">
                   {{ d.deviceLabel || 'Device ' + d.id.slice(0, 8) }}
                 </option>
+}
               </select>
-              <p
-                *ngIf="!loadingKioskDevices && kioskDevicesForSubject.length === 0"
+              @if (!loadingKioskDevices && kioskDevicesForSubject.length === 0) {
+<p
+               
                 class="text-xs text-amber-700 mt-1"
               >
                 No active KIOSK device is registered in this subject's branch.
               </p>
-              <div *ngIf="loadingKioskDevices" class="py-2">
+}
+              @if (loadingKioskDevices) {
+<div class="py-2">
                 <ui-loading-spinner></ui-loading-spinner>
               </div>
+}
             </div>
             <div class="flex items-start gap-2 mb-4">
               <input
@@ -561,7 +659,9 @@ interface EnrollForm {
                 kiosk (DPDP Act 2023).
               </label>
             </div>
-            <div *ngIf="kioskError" class="text-sm text-red-600 mb-3">{{ kioskError }}</div>
+            @if (kioskError) {
+<div class="text-sm text-red-600 mb-3">{{ kioskError }}</div>
+}
             <div class="flex justify-end gap-2">
               <ui-button variant="secondary" (clicked)="closeKioskModal()">Cancel</ui-button>
               <ui-button
@@ -572,9 +672,11 @@ interface EnrollForm {
                 >Send to Kiosk</ui-button
               >
             </div>
-          </ng-container>
+          
+}
 
-          <ng-container *ngIf="kioskActiveTicket">
+          @if (kioskActiveTicket) {
+
             <div
               class="rounded-lg border p-3 mb-3"
               [class.bg-amber-50]="kioskActiveTicket.status === 'PENDING'"
@@ -595,52 +697,74 @@ interface EnrollForm {
                   kioskActiveTicket.status === 'CANCELLED' || kioskActiveTicket.status === 'EXPIRED'
                 "
               >
-                <span *ngIf="!isKnownKioskTicketStatus(kioskActiveTicket.status)">{{
+                @if (!isKnownKioskTicketStatus(kioskActiveTicket.status)) {
+<span>{{
                   kioskActiveTicketMessage(kioskActiveTicket.status)
                 }}</span>
-                <span *ngIf="kioskActiveTicket.status === 'PENDING'"
+}
+                @if (kioskActiveTicket.status === 'PENDING') {
+<span
                   >Waiting for kiosk capture…</span
                 >
-                <span *ngIf="kioskActiveTicket.status === 'REVIEW_PENDING'"
+}
+                @if (kioskActiveTicket.status === 'REVIEW_PENDING') {
+<span
                   >Captured — approve from web to activate</span
                 >
-                <span *ngIf="kioskActiveTicket.status === 'COMPLETED'"
+}
+                @if (kioskActiveTicket.status === 'COMPLETED') {
+<span
                   >✓ Face enrolled successfully</span
                 >
-                <span *ngIf="kioskActiveTicket.status === 'REJECTED'">Rejected</span>
-                <span *ngIf="kioskActiveTicket.status === 'CANCELLED'">Cancelled</span>
-                <span *ngIf="kioskActiveTicket.status === 'EXPIRED'"
+}
+                @if (kioskActiveTicket.status === 'REJECTED') {
+<span>Rejected</span>
+}
+                @if (kioskActiveTicket.status === 'CANCELLED') {
+<span>Cancelled</span>
+}
+                @if (kioskActiveTicket.status === 'EXPIRED') {
+<span
                   >Ticket expired — try again</span
                 >
+}
               </div>
-              <div
-                *ngIf="kioskActiveTicket.status === 'PENDING'"
+              @if (kioskActiveTicket.status === 'PENDING') {
+<div
+               
                 class="text-xs text-amber-700 mt-1"
               >
                 Expires in {{ kioskCountdownLabel }}. Tell the subject to stand in front of the
                 selected kiosk.
               </div>
-              <div
-                *ngIf="!isKnownKioskTicketStatus(kioskActiveTicket.status)"
+}
+              @if (!isKnownKioskTicketStatus(kioskActiveTicket.status)) {
+<div
+               
                 class="text-xs text-gray-600 mt-1"
               >
                 Refreshing ticket status. Close this dialog and check the ticket list if it does not
                 update.
               </div>
+}
             </div>
             <div class="flex justify-end gap-2">
-              <ui-button
-                *ngIf="kioskActiveTicket.status === 'PENDING'"
+              @if (kioskActiveTicket.status === 'PENDING') {
+<ui-button
+               
                 variant="secondary"
                 (clicked)="cancelKioskEnrollment()"
                 [loading]="kioskCancelling"
                 >Cancel Ticket</ui-button
               >
+}
               <ui-button variant="primary" (clicked)="closeKioskModal()">Close</ui-button>
             </div>
-          </ng-container>
+          
+}
         </div>
       </div>
+}
     </div>
   `,
   styles: [

@@ -30,15 +30,19 @@ interface ReportItem {
         </div>
       </div>
 
-      <div *ngIf="categories.length === 0" class="empty-state">
+      @if (categories.length === 0) {
+<div class="empty-state">
         No report services are enabled for this branch user.
       </div>
+}
 
       <!-- Report categories -->
-      <div *ngFor="let category of categories" class="report-category">
+      @for (category of categories; track category) {
+<div class="report-category">
         <h2 class="category-title">{{ category }}</h2>
         <div class="report-grid">
-          <div *ngFor="let report of getReportsForCategory(category)"
+          @for (report of getReportsForCategory(category); track report) {
+<div
                class="report-card"
                [class.cursor-pointer]="report.available"
                (click)="report.available ? openReport(report) : null">
@@ -51,15 +55,20 @@ interface ReportItem {
               <h3 class="report-name">{{ report.name }}</h3>
               <p class="report-desc">{{ report.description }}</p>
             </div>
-            <svg *ngIf="report.available" class="w-5 h-5 text-slate-400 ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            @if (report.available) {
+<svg class="w-5 h-5 text-slate-400 ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
             </svg>
+}
           </div>
+}
         </div>
       </div>
+}
 
       <!-- ══════════ Report Data Drawer ══════════ -->
-      <div *ngIf="activeReport" class="report-drawer">
+      @if (activeReport) {
+<div class="report-drawer">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-lg font-semibold text-gray-900">{{ activeReport.name }}</h2>
           <button (click)="closeReport()" class="text-gray-400 hover:text-gray-600">
@@ -69,18 +78,25 @@ interface ReportItem {
           </button>
         </div>
 
-        <div *ngIf="reportLoading" class="text-center py-8 text-gray-500">Loading...</div>
+        @if (reportLoading) {
+<div class="text-center py-8 text-gray-500">Loading...</div>
+}
 
         <!-- Summary cards -->
-        <div *ngIf="!reportLoading && reportSummary" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          <div *ngFor="let s of summaryPairs" class="bg-gray-50 rounded-lg p-3 text-center">
+        @if (!reportLoading && reportSummary) {
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          @for (s of summaryPairs; track s) {
+<div class="bg-gray-50 rounded-lg p-3 text-center">
             <p class="text-xl font-bold text-gray-900">{{ s.value }}</p>
             <p class="text-xs text-gray-500">{{ s.label }}</p>
           </div>
+}
         </div>
+}
 
         <!-- Registration Expiry Table -->
-        <div *ngIf="!reportLoading && activeReport.key === 'registration-expiry' && reportData.length > 0" class="overflow-x-auto">
+        @if (!reportLoading && activeReport.key === 'registration-expiry' && reportData.length > 0) {
+<div class="overflow-x-auto">
           <table class="min-w-full text-sm divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
@@ -93,7 +109,8 @@ interface ReportItem {
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-              <tr *ngFor="let r of reportData" class="hover:bg-gray-50">
+              @for (r of reportData; track r) {
+<tr class="hover:bg-gray-50">
                 <td class="px-3 py-2">{{ r.branchName }}</td>
                 <td class="px-3 py-2 font-medium">{{ r.type }}</td>
                 <td class="px-3 py-2 font-mono text-xs">{{ r.registrationNumber || '—' }}</td>
@@ -118,12 +135,15 @@ interface ReportItem {
                   </span>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+}
 
         <!-- Audit Observations Table -->
-        <div *ngIf="!reportLoading && activeReport.key === 'audit-observations' && reportData.length > 0" class="overflow-x-auto">
+        @if (!reportLoading && activeReport.key === 'audit-observations' && reportData.length > 0) {
+<div class="overflow-x-auto">
           <table class="min-w-full text-sm divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
@@ -136,7 +156,8 @@ interface ReportItem {
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-              <tr *ngFor="let o of reportData" class="hover:bg-gray-50">
+              @for (o of reportData; track o) {
+<tr class="hover:bg-gray-50">
                 <td class="px-3 py-2 font-mono text-xs">{{ o.auditCode || '—' }}</td>
                 <td class="px-3 py-2">{{ o.branchName || '—' }}</td>
                 <td class="px-3 py-2 max-w-xs truncate" [title]="o.observation">{{ o.observation }}</td>
@@ -171,12 +192,15 @@ interface ReportItem {
                   {{ o.ageDays }}
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+}
 
         <!-- Compliance Summary Table -->
-        <div *ngIf="!reportLoading && activeReport.key === 'compliance-summary' && reportData.length > 0" class="overflow-x-auto">
+        @if (!reportLoading && activeReport.key === 'compliance-summary' && reportData.length > 0) {
+<div class="overflow-x-auto">
           <table class="min-w-full text-sm divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
@@ -189,7 +213,8 @@ interface ReportItem {
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-              <tr *ngFor="let r of reportData" class="hover:bg-gray-50">
+              @for (r of reportData; track r) {
+<tr class="hover:bg-gray-50">
                 <td class="px-3 py-2">{{ r.branchName || '—' }}</td>
                 <td class="px-3 py-2 font-medium">{{ r.lawName }}</td>
                 <td class="px-3 py-2">{{ r.taskTitle }}</td>
@@ -207,12 +232,15 @@ interface ReportItem {
                   </span>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+}
 
         <!-- PF/ESIC Registration Status Table -->
-        <div *ngIf="!reportLoading && activeReport.key === 'pf-esic-status' && reportData.length > 0" class="overflow-x-auto">
+        @if (!reportLoading && activeReport.key === 'pf-esic-status' && reportData.length > 0) {
+<div class="overflow-x-auto">
           <table class="min-w-full text-sm divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
@@ -226,7 +254,8 @@ interface ReportItem {
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-              <tr *ngFor="let r of reportData" class="hover:bg-gray-50">
+              @for (r of reportData; track r) {
+<tr class="hover:bg-gray-50">
                 <td class="px-3 py-2 font-medium">{{ r.name }}</td>
                 <td class="px-3 py-2 font-mono text-xs">{{ r.employeeCode }}</td>
                 <td class="px-3 py-2">{{ r.branchName || '—' }}</td>
@@ -245,12 +274,15 @@ interface ReportItem {
                   </span>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+}
 
         <!-- Headcount Report Table -->
-        <div *ngIf="!reportLoading && activeReport.key === 'headcount' && reportData.length > 0" class="overflow-x-auto">
+        @if (!reportLoading && activeReport.key === 'headcount' && reportData.length > 0) {
+<div class="overflow-x-auto">
           <table class="min-w-full text-sm divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
@@ -263,7 +295,8 @@ interface ReportItem {
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-              <tr *ngFor="let r of reportData" class="hover:bg-gray-50">
+              @for (r of reportData; track r) {
+<tr class="hover:bg-gray-50">
                 <td class="px-3 py-2 font-medium">{{ r.branchName || 'Unassigned' }}</td>
                 <td class="px-3 py-2 text-right font-semibold text-green-700">{{ r.totalActive }}</td>
                 <td class="px-3 py-2 text-right text-gray-500">{{ r.totalInactive }}</td>
@@ -271,12 +304,15 @@ interface ReportItem {
                 <td class="px-3 py-2 text-right">{{ r.female }}</td>
                 <td class="px-3 py-2 text-right">{{ r.other }}</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+}
 
         <!-- Contractor Upload Summary Table -->
-        <div *ngIf="!reportLoading && activeReport.key === 'contractor-uploads' && reportData.length > 0" class="overflow-x-auto">
+        @if (!reportLoading && activeReport.key === 'contractor-uploads' && reportData.length > 0) {
+<div class="overflow-x-auto">
           <table class="min-w-full text-sm divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
@@ -290,7 +326,8 @@ interface ReportItem {
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-              <tr *ngFor="let r of reportData" class="hover:bg-gray-50">
+              @for (r of reportData; track r) {
+<tr class="hover:bg-gray-50">
                 <td class="px-3 py-2">
                   <div class="font-medium">{{ r.contractorName }}</div>
                   <div class="text-xs text-gray-500">{{ r.contractorEmail }}</div>
@@ -311,14 +348,19 @@ interface ReportItem {
                   </span>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+}
 
-        <div *ngIf="!reportLoading && reportData.length === 0" class="text-center text-gray-500 py-8">
+        @if (!reportLoading && reportData.length === 0) {
+<div class="text-center text-gray-500 py-8">
           No data found for this report.
         </div>
+}
       </div>
+}
     </div>
   `,
   styles: [`

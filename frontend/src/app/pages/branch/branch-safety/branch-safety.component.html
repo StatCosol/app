@@ -33,21 +33,25 @@
     </article>
     <article class="summary-card summary-card--info">
       <span class="label">Safety Score</span>
-      <strong>{{ safetyScore?.overallScore ?? '-' }}<ng-container *ngIf="safetyScore">%</ng-container></strong>
+      <strong>{{ safetyScore?.overallScore ?? '-' }}@if (safetyScore) {
+%
+}</strong>
       <span class="sub">Branch score snapshot</span>
     </article>
   </section>
 
   <section class="card filters">
     <div class="chip-row">
-      <button
-        *ngFor="let tab of periodicityTabs"
+      @for (tab of periodicityTabs; track tab) {
+<button
+       
         type="button"
         [class.active]="activePeriodicity === tab.value"
         (click)="setPeriodicity(tab.value)"
       >
         {{ tab.label }}
       </button>
+}
     </div>
 
     <div class="filter-row">
@@ -55,7 +59,9 @@
         Category
         <select id="bs-category-filter" name="categoryFilter" [(ngModel)]="categoryFilter" (ngModelChange)="applyFilters()">
           <option value="ALL">All</option>
-          <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+          @for (c of categories; track c) {
+<option [value]="c">{{ c }}</option>
+}
         </select>
       </label>
 
@@ -83,13 +89,18 @@
     </div>
   </section>
 
-  <div *ngIf="loading" class="loader">Loading safety workspace...</div>
+  @if (loading) {
+<div class="loader">Loading safety workspace...</div>
+}
 
-  <div *ngIf="!loading && !filteredRequirements.length" class="empty-state">
+  @if (!loading && !filteredRequirements.length) {
+<div class="empty-state">
     No safety requirements found for current filters.
   </div>
+}
 
-  <section *ngIf="!loading && filteredRequirements.length" class="workspace-grid">
+  @if (!loading && filteredRequirements.length) {
+<section class="workspace-grid">
     <article class="card list-pane">
       <header class="section-head">
         <h2>Required Safety Records</h2>
@@ -108,14 +119,17 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              *ngFor="let row of filteredRequirements; trackBy: trackRequirement"
+            @for (row of filteredRequirements; track trackRequirement($index, row)) {
+<tr
+             
               [class.selected]="selectedRequirement?.docMasterId === row.docMasterId"
               (click)="selectRequirement(row)"
             >
               <td>
                 <div class="strong">{{ row.documentName }}</div>
-                <div class="minor" *ngIf="row.isMandatory">Mandatory</div>
+                @if (row.isMandatory) {
+<div class="minor">Mandatory</div>
+}
               </td>
               <td>{{ row.category || '-' }}</td>
               <td>{{ periodicityLabel(row.frequency) }}</td>
@@ -126,13 +140,15 @@
                 <span [class]="dueClass(row.daysToExpiry)">{{ dueText(row.daysToExpiry) }}</span>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
     </article>
 
     <aside class="detail-stack">
-      <article class="card" *ngIf="selectedRequirement as selected; else noSelection">
+      @if (selectedRequirement; as selected) {
+<article class="card">
         <header class="section-head">
           <h2>{{ selected.documentName }}</h2>
           <span [class]="statusClass(selected.status)">{{ selected.status }}</span>
@@ -165,9 +181,11 @@
           </div>
         </div>
 
-        <div class="action-row" *ngIf="selected.latestDocument">
+        @if (selected.latestDocument) {
+<div class="action-row">
           <button class="btn btn-secondary" type="button" (click)="downloadLatest()">Download latest file</button>
         </div>
+}
 
         <hr />
 
@@ -176,7 +194,9 @@
           <label class="span-2 upload-row">
             <span>File</span>
             <input type="file" (change)="onFileSelect($event)" />
-            <small class="hint" *ngIf="selectedFile">Selected: {{ selectedFile.name }}</small>
+            @if (selectedFile) {
+<small class="hint">Selected: {{ selectedFile.name }}</small>
+}
           </label>
 
           <label class="span-2">
@@ -195,25 +215,34 @@
           </button>
         </div>
       </article>
+} @else {
 
-      <ng-template #noSelection>
         <article class="card empty-mini">Select a required item to view details and upload evidence.</article>
-      </ng-template>
+      
+}
+
+      
 
       <article class="card">
         <header class="section-head">
           <h2>Missing Documents</h2>
           <span>{{ missingItems.length }} in current view</span>
         </header>
-        <ul class="alert-list" *ngIf="missingItems.length; else noMissing">
-          <li *ngFor="let item of missingItems">
+        @if (missingItems.length) {
+<ul class="alert-list">
+          @for (item of missingItems; track item) {
+<li>
             <span class="strong">{{ item.documentName }}</span>
             <small>{{ item.category }} · {{ periodicityLabel(item.frequency) }}</small>
           </li>
+}
         </ul>
-        <ng-template #noMissing>
+} @else {
+
           <div class="empty-mini">No missing documents in the selected filter.</div>
-        </ng-template>
+        
+}
+        
       </article>
 
       <article class="card">
@@ -221,29 +250,38 @@
           <h2>Expiry Reminders</h2>
           <span>{{ expiryAlerts.length }} alerts</span>
         </header>
-        <ul class="alert-list" *ngIf="expiryAlerts.length; else noExpiry">
-          <li *ngFor="let alert of expiryAlerts">
+        @if (expiryAlerts.length) {
+<ul class="alert-list">
+          @for (alert of expiryAlerts; track alert) {
+<li>
             <span class="strong">{{ alert.documentName }}</span>
             <small>
               {{ alert.category || alert.documentType }} ·
               {{ alert.daysRemaining <= 0 ? 'Expired' : (alert.daysRemaining + 'd left') }}
             </small>
           </li>
+}
         </ul>
-        <ng-template #noExpiry>
+} @else {
+
           <div class="empty-mini">No expiring records in this view.</div>
-        </ng-template>
+        
+}
+        
       </article>
     </aside>
   </section>
+}
 
-  <section class="tracker-grid" *ngIf="!loading">
+  @if (!loading) {
+<section class="tracker-grid">
     <article class="card">
       <header class="section-head">
         <h2>Incident Log</h2>
         <span>{{ incidentLogs.length }} records</span>
       </header>
-      <div class="mini-table" *ngIf="incidentLogs.length; else noIncident">
+      @if (incidentLogs.length) {
+<div class="mini-table">
         <table>
           <thead>
             <tr>
@@ -253,17 +291,22 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let doc of incidentLogs; trackBy: trackDocument">
+            @for (doc of incidentLogs; track trackDocument($index, doc)) {
+<tr>
               <td>{{ doc.documentName }}</td>
               <td>{{ formatDate(doc.createdAt) }}</td>
               <td>{{ doc.status }}</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
-      <ng-template #noIncident>
+} @else {
+
         <div class="empty-mini">No incident records available yet.</div>
-      </ng-template>
+      
+}
+      
     </article>
 
     <article class="card">
@@ -271,7 +314,8 @@
         <h2>Training Tracker</h2>
         <span>{{ trainingLogs.length }} records</span>
       </header>
-      <div class="mini-table" *ngIf="trainingLogs.length; else noTraining">
+      @if (trainingLogs.length) {
+<div class="mini-table">
         <table>
           <thead>
             <tr>
@@ -281,17 +325,22 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let doc of trainingLogs; trackBy: trackDocument">
+            @for (doc of trainingLogs; track trackDocument($index, doc)) {
+<tr>
               <td>{{ doc.documentName }}</td>
               <td>{{ formatDate(doc.createdAt) }}</td>
               <td>{{ doc.status }}</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
-      <ng-template #noTraining>
+} @else {
+
         <div class="empty-mini">No training records available yet.</div>
-      </ng-template>
+      
+}
+      
     </article>
 
     <article class="card">
@@ -299,7 +348,8 @@
         <h2>Safety Committee Records</h2>
         <span>{{ committeeRecords.length }} records</span>
       </header>
-      <div class="mini-table" *ngIf="committeeRecords.length; else noCommittee">
+      @if (committeeRecords.length) {
+<div class="mini-table">
         <table>
           <thead>
             <tr>
@@ -309,18 +359,24 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let doc of committeeRecords; trackBy: trackDocument">
+            @for (doc of committeeRecords; track trackDocument($index, doc)) {
+<tr>
               <td>{{ doc.documentName }}</td>
               <td>{{ formatDate(doc.createdAt) }}</td>
               <td>{{ doc.status }}</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
-      <ng-template #noCommittee>
+} @else {
+
         <div class="empty-mini">No committee records available yet.</div>
-      </ng-template>
+      
+}
+      
     </article>
   </section>
+}
 </div>
 

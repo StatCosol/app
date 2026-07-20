@@ -1,5 +1,5 @@
 import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterOutlet, Router } from '@angular/router';
 import { ClientSidebarComponent } from './client-sidebar.component';
 import { AuthService } from '../../../core/auth.service';
@@ -9,7 +9,7 @@ import { NewsTickerComponent } from '../../../shared/news/news-ticker.component'
   selector: 'app-client-layout',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterOutlet, ClientSidebarComponent, NewsTickerComponent],
+  imports: [RouterOutlet, ClientSidebarComponent, NewsTickerComponent],
   template: `
     <div class="client-shell">
       <!-- Mobile menu toggle FAB -->
@@ -85,13 +85,15 @@ import { NewsTickerComponent } from '../../../shared/news/news-ticker.component'
               <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
 
                 <!-- Client logo -->
-                <img
-                  *ngIf="clientLogoUrl"
+                @if (clientLogoUrl) {
+<img
+                 
                   [src]="clientLogoUrl"
                   alt="Client logo"
                   class="h-8 w-auto hidden sm:block mr-1"
                   (error)="onLogoError()"
                 />
+}
 
                 <!-- Notification bell -->
                 <button

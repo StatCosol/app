@@ -1,37 +1,49 @@
 import { Component, Input, OnChanges } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 @Component({
   standalone: true,
   selector: 'app-compliance-risk-tiles',
-  imports: [CommonModule],
+  imports: [],
   template: `
     <div class="risk-grid">
       <div class="risk-card">
         <h3>Top Overdue Returns</h3>
-        <div *ngFor="let item of overdueReturns" class="risk-item">
+        @for (item of overdueReturns; track item) {
+<div class="risk-item">
           <div>{{ item.returnType || item.lawType || '-' }}</div>
           <div>{{ item.dueDate || '-' }}</div>
         </div>
-        <div *ngIf="overdueReturns.length === 0" class="empty">No overdue returns</div>
+}
+        @if (overdueReturns.length === 0) {
+<div class="empty">No overdue returns</div>
+}
       </div>
 
       <div class="risk-card">
         <h3>Filed Pending Proof</h3>
-        <div *ngFor="let item of proofPendingReturns" class="risk-item">
+        @for (item of proofPendingReturns; track item) {
+<div class="risk-item">
           <div>{{ item.returnType || item.lawType || '-' }}</div>
           <div>{{ item.dueDate || '-' }}</div>
         </div>
-        <div *ngIf="proofPendingReturns.length === 0" class="empty">No proof-pending returns</div>
+}
+        @if (proofPendingReturns.length === 0) {
+<div class="empty">No proof-pending returns</div>
+}
       </div>
 
       <div class="risk-card">
         <h3>Top Overdue Renewals</h3>
-        <div *ngFor="let item of overdueRenewals" class="risk-item">
+        @for (item of overdueRenewals; track item) {
+<div class="risk-item">
           <div>{{ item.registrationName || item.name || '-' }}</div>
           <div>{{ item.dueDate || '-' }}</div>
         </div>
-        <div *ngIf="overdueRenewals.length === 0" class="empty">No overdue renewals</div>
+}
+        @if (overdueRenewals.length === 0) {
+<div class="empty">No overdue renewals</div>
+}
       </div>
     </div>
   `,

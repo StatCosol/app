@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { NotificationsService, QueryType } from '../../../core/notifications.service';
 import { ActionButtonComponent } from '../../ui';
@@ -7,7 +7,7 @@ import { ActionButtonComponent } from '../../ui';
 @Component({
   selector: 'app-create-query',
   standalone: true,
-  imports: [CommonModule, FormsModule, ActionButtonComponent],
+  imports: [FormsModule, ActionButtonComponent],
   templateUrl: './create-query.component.html',
   styleUrls: ['./create-query.component.scss'],
 })

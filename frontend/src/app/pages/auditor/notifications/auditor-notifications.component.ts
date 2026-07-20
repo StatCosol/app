@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { PageHeaderComponent } from '../../../shared/ui';
 import { ThreadLayoutComponent } from '../../../shared/thread';
 import { AuditorThreadApiService } from '../../../core/auditor-thread-api.service';
@@ -7,7 +7,7 @@ import { AuditorThreadApiService } from '../../../core/auditor-thread-api.servic
 @Component({
   selector: 'app-auditor-notifications',
   standalone: true,
-  imports: [CommonModule, PageHeaderComponent, ThreadLayoutComponent],
+  imports: [PageHeaderComponent, ThreadLayoutComponent],
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header

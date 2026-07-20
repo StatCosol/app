@@ -1,11 +1,11 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-evidence-upload',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="p-4 border border-gray-200 rounded-lg bg-white">
       <div class="text-sm font-semibold text-gray-800 mb-3">{{ title }}</div>
@@ -30,9 +30,11 @@ import { FormsModule } from '@angular/forms';
       </label>
 
       <!-- File info -->
-      <div *ngIf="selectedFile" class="mt-2 text-xs text-gray-600">
+      @if (selectedFile) {
+<div class="mt-2 text-xs text-gray-600">
         {{ selectedFile.name }} ({{ formatFileSize(selectedFile.size) }})
       </div>
+}
 
       <!-- Note textarea -->
       <textarea autocomplete="off"
@@ -51,21 +53,29 @@ import { FormsModule } from '@angular/forms';
           [disabled]="!selectedFile || uploading"
           (click)="onUpload()"
         >
-          <span *ngIf="!uploading">{{ uploadLabel }}</span>
-          <span *ngIf="uploading">Uploading…</span>
+          @if (!uploading) {
+<span>{{ uploadLabel }}</span>
+}
+          @if (uploading) {
+<span>Uploading…</span>
+}
         </button>
 
-        <button
-          *ngIf="selectedFile && !uploading"
+        @if (selectedFile && !uploading) {
+<button
+         
           class="px-3 py-2 rounded-md text-sm text-gray-600 hover:text-gray-800"
           (click)="clear()"
         >
           Clear
         </button>
+}
       </div>
 
       <!-- Error -->
-      <div *ngIf="error" class="mt-2 text-xs text-red-600">{{ error }}</div>
+      @if (error) {
+<div class="mt-2 text-xs text-red-600">{{ error }}</div>
+}
     </div>
   `,
 })

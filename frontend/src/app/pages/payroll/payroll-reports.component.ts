@@ -36,20 +36,26 @@ interface ReportCard {
             <label class="block text-xs text-gray-600 mb-1" for="pr-selected-client-id">Client</label>
             <select id="pr-selected-client-id" name="selectedClientId" [(ngModel)]="selectedClientId" class="input-sm w-full">
               <option value="">All Assigned Clients</option>
-              <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
+              @for (c of clients; track c) {
+<option [value]="c.id">{{ c.name }}</option>
+}
             </select>
           </div>
           <div>
             <label class="block text-xs text-gray-600 mb-1" for="pr-selected-year">Year</label>
             <select id="pr-selected-year" name="selectedYear" [(ngModel)]="selectedYear" class="input-sm w-full">
-              <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
+              @for (y of yearOptions; track y) {
+<option [ngValue]="y">{{ y }}</option>
+}
             </select>
           </div>
           <div>
             <label class="block text-xs text-gray-600 mb-1" for="pr-selected-month">Month</label>
             <select id="pr-selected-month" name="selectedMonth" [(ngModel)]="selectedMonth" class="input-sm w-full">
               <option [ngValue]="0">All months</option>
-              <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
+              @for (m of monthOptions; track m) {
+<option [ngValue]="m.value">{{ m.label }}</option>
+}
             </select>
           </div>
           <div>
@@ -63,7 +69,8 @@ interface ReportCard {
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div *ngFor="let report of reports"
+        @for (report of reports; track report) {
+<div
              class="bg-white rounded-2xl border border-gray-100 shadow-card p-6 flex flex-col gap-4"
              style="animation: fadeUp 0.4s ease-out both">
 
@@ -77,14 +84,22 @@ interface ReportCard {
                    'bg-purple-50 text-purple-600': report.key === 'form16'
                  }">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path *ngIf="report.icon === 'table'" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                @if (report.icon === 'table') {
+<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M3 10h18M3 14h18M9 4v16M15 4v16M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z"/>
-                <path *ngIf="report.icon === 'shield'" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+}
+                @if (report.icon === 'shield') {
+<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                <path *ngIf="report.icon === 'calculator'" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+}
+                @if (report.icon === 'calculator') {
+<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                <path *ngIf="report.icon === 'document'" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+}
+                @if (report.icon === 'document') {
+<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+}
               </svg>
             </div>
             <div class="flex-1 min-w-0">
@@ -102,13 +117,16 @@ interface ReportCard {
             </ui-button>
           </div>
         </div>
+}
       </div>
 
-      <ui-empty-state
-        *ngIf="reports.length === 0"
+      @if (reports.length === 0) {
+<ui-empty-state
+       
         title="No Reports Available"
         description="Report types will appear here once configured.">
       </ui-empty-state>
+}
     </div>
   `,
   styles: [`

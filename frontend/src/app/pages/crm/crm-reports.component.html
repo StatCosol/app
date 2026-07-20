@@ -13,14 +13,18 @@
         <label class="block text-sm font-medium text-gray-700 mb-2" for="cr-client-id">Client</label>
         <select id="cr-client-id" name="clientId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.clientId" (change)="onClientChange()">
           <option value="">All Clients</option>
-          <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+          @for (c of clients; track c) {
+<option [value]="c.id">{{ c.clientName }}</option>
+}
         </select>
       </div>
       <div class="form-group">
         <label class="block text-sm font-medium text-gray-700 mb-2" for="cr-branch-id">Branch</label>
         <select id="cr-branch-id" name="branchId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.branchId">
           <option value="">All Branches</option>
-          <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
+          @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchName }}</option>
+}
         </select>
       </div>
       <div class="form-group">
@@ -35,7 +39,9 @@
         <label class="block text-sm font-medium text-gray-700 mb-2" for="cr-status">Status</label>
         <select id="cr-status" name="status" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.status">
           <option value="">All</option>
-          <option *ngFor="let s of statusOptions" [value]="s">{{ s }}</option>
+          @for (s of statusOptions; track s) {
+<option [value]="s">{{ s }}</option>
+}
         </select>
       </div>
     </div>
@@ -57,13 +63,18 @@
   </div>
 
   <!-- Loading State -->
-  <ui-loading-spinner *ngIf="loading" text="Loading summary..."></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner text="Loading summary..."></ui-loading-spinner>
+}
 
   <!-- Error State -->
-  <div *ngIf="error" class="alert alert-error mb-6">{{ error }}</div>
+  @if (error) {
+<div class="alert alert-error mb-6">{{ error }}</div>
+}
 
   <!-- Summary Section -->
-  <div *ngIf="summary && !loading" class="mb-6">
+  @if (summary && !loading) {
+<div class="mb-6">
     <div class="card mb-6">
       <h3 class="text-lg font-semibold text-gray-900 mb-4">Compliance Summary</h3>
 
@@ -110,13 +121,17 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let entry of summaryEntries" class="hover:bg-gray-50">
+            @for (entry of summaryEntries; track entry) {
+<tr class="hover:bg-gray-50">
               <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ entry.key }}</td>
               <td class="px-6 py-4 text-sm text-gray-600">{{ entry.value }}</td>
             </tr>
-            <tr *ngIf="summaryEntries.length === 0">
+}
+            @if (summaryEntries.length === 0) {
+<tr>
               <td colspan="2" class="px-6 py-8 text-center text-gray-500">No data</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
@@ -137,16 +152,20 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let t of overdue" class="hover:bg-gray-50">
+            @for (t of overdue; track t) {
+<tr class="hover:bg-gray-50">
               <td class="px-6 py-4 text-sm text-gray-900">{{ t.clientName || '-' }}</td>
               <td class="px-6 py-4 text-sm text-gray-600">{{ t.branchName || '-' }}</td>
               <td class="px-6 py-4 text-sm text-gray-600">{{ t.complianceName || '-' }}</td>
               <td class="px-6 py-4 text-sm text-gray-600">{{ t.dueDate }}</td>
               <td class="px-6 py-4 text-sm"><ui-status-badge [status]="t.status"></ui-status-badge></td>
             </tr>
-            <tr *ngIf="!overdue || overdue.length === 0">
+}
+            @if (!overdue || overdue.length === 0) {
+<tr>
               <td colspan="5" class="px-6 py-8 text-center text-gray-500">No overdue tasks</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
@@ -166,18 +185,23 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let c of contractorPerf" class="hover:bg-gray-50">
+            @for (c of contractorPerf; track c) {
+<tr class="hover:bg-gray-50">
               <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ c.contractorName }}</td>
               <td class="px-6 py-4 text-sm text-gray-600">{{ c.submitted }}</td>
               <td class="px-6 py-4 text-sm"><ui-status-badge variant="success" [label]="'' + c.approved"></ui-status-badge></td>
               <td class="px-6 py-4 text-sm"><ui-status-badge variant="error" [label]="'' + c.overdue"></ui-status-badge></td>
             </tr>
-            <tr *ngIf="!contractorPerf || contractorPerf.length === 0">
+}
+            @if (!contractorPerf || contractorPerf.length === 0) {
+<tr>
               <td colspan="4" class="px-6 py-8 text-center text-gray-500">No contractor data</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
     </div>
   </div>
+}
 </div>

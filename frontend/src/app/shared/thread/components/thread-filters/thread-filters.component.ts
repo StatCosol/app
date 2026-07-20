@@ -1,12 +1,12 @@
 import { Component, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ThreadFilters } from '../../models/thread.model';
 
 @Component({
   selector: 'app-thread-filters',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './thread-filters.component.html',
 })
 export class ThreadFiltersComponent {

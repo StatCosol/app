@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { finalize, timeout, takeUntil } from 'rxjs/operators';
@@ -15,7 +15,7 @@ import {
 @Component({
   selector: 'app-cco-approvals',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent, StatusBadgeComponent, ActionButtonComponent, DataTableComponent, TableCellDirective, LoadingSpinnerComponent, FormSelectComponent],
+  imports: [FormsModule, PageHeaderComponent, StatusBadgeComponent, ActionButtonComponent, DataTableComponent, TableCellDirective, LoadingSpinnerComponent, FormSelectComponent],
   templateUrl: './cco-approvals.component.html',
 })
 export class CcoApprovalsComponent implements OnInit, OnDestroy {

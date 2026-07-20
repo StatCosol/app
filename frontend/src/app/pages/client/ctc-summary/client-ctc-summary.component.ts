@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subject, forkJoin, takeUntil, finalize } from 'rxjs';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
@@ -15,7 +15,7 @@ import {
 @Component({
   standalone: true,
   selector: 'app-client-ctc-summary',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent],
+  imports: [FormsModule, PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent],
   template: `
     <div class="p-6 space-y-5">
       <ui-page-header title="CTC Summary"
@@ -25,17 +25,24 @@ import {
       <!-- Filters -->
       <div class="flex items-center gap-3 flex-wrap">
         <select [(ngModel)]="selectedYear" (change)="load()" class="h-9 rounded border border-gray-300 px-3 text-sm">
-          <option *ngFor="let y of years" [value]="y">{{ y }}</option>
+          @for (y of years; track y) {
+<option [value]="y">{{ y }}</option>
+}
         </select>
         <select [(ngModel)]="selectedMonth" (change)="load()" class="h-9 rounded border border-gray-300 px-3 text-sm">
           <option [value]="0">Full Year</option>
-          <option *ngFor="let m of monthNames; let i = index" [value]="i + 1">{{ m }}</option>
+          @for (m of monthNames; track m; let i = $index) {
+<option [value]="i + 1">{{ m }}</option>
+}
         </select>
       </div>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading CTC data..."></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading CTC data..."></ui-loading-spinner>
+}
 
-      <ng-container *ngIf="!loading && consolidated && consolidated.totalEmployees > 0">
+      @if (!loading && consolidated && consolidated.totalEmployees > 0) {
+
         <!-- Top KPI Cards -->
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
           <div class="bg-white rounded-lg border p-4 text-center">
@@ -115,7 +122,8 @@ import {
         </div>
 
         <!-- Branch-wise Table -->
-        <div class="bg-white rounded-lg border" *ngIf="branches.length">
+        @if (branches.length) {
+<div class="bg-white rounded-lg border">
           <h3 class="text-sm font-semibold text-gray-800 p-4 pb-2">Branch-wise CTC</h3>
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -132,7 +140,8 @@ import {
                 </tr>
               </thead>
               <tbody class="divide-y">
-                <tr *ngFor="let b of branches">
+                @for (b of branches; track b) {
+<tr>
                   <td class="px-3 py-2 font-medium">{{ b.branch_name }}</td>
                   <td class="px-3 py-2 text-right">{{ b.total_employees }}</td>
                   <td class="px-3 py-2 text-right font-mono">{{ fmt(b.gross_total) }}</td>
@@ -142,6 +151,7 @@ import {
                   <td class="px-3 py-2 text-right font-mono">{{ fmt(b.other_employer_cost) }}</td>
                   <td class="px-3 py-2 text-right font-mono font-bold bg-green-50">{{ fmt(b.monthly_ctc) }}</td>
                 </tr>
+}
               </tbody>
               <tfoot class="bg-gray-100 font-semibold border-t-2">
                 <tr>
@@ -158,9 +168,11 @@ import {
             </table>
           </div>
         </div>
+}
 
         <!-- Monthly Trend -->
-        <div class="bg-white rounded-lg border" *ngIf="trend.length">
+        @if (trend.length) {
+<div class="bg-white rounded-lg border">
           <h3 class="text-sm font-semibold text-gray-800 p-4 pb-2">Month-wise CTC Trend ({{ selectedYear }})</h3>
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -175,7 +187,8 @@ import {
                 </tr>
               </thead>
               <tbody class="divide-y">
-                <tr *ngFor="let t of trend">
+                @for (t of trend; track t) {
+<tr>
                   <td class="px-4 py-2">{{ monthNames[+t.month - 1] }}</td>
                   <td class="px-4 py-2 text-right">{{ t.total_employees }}</td>
                   <td class="px-4 py-2 text-right font-mono">{{ fmt(t.gross_total) }}</td>
@@ -183,16 +196,21 @@ import {
                   <td class="px-4 py-2 text-right font-mono">{{ fmt(t.net_pay_total) }}</td>
                   <td class="px-4 py-2 text-right font-mono font-semibold">{{ fmt(t.monthly_ctc) }}</td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
         </div>
-      </ng-container>
+}
+      
+}
 
-      <ui-empty-state *ngIf="!loading && (!consolidated || consolidated.totalEmployees === 0)"
+      @if (!loading && (!consolidated || consolidated.totalEmployees === 0)) {
+<ui-empty-state
         title="No payroll data"
         description="No finalized payroll runs found for this period.">
       </ui-empty-state>
+}
     </div>
   `,
 })

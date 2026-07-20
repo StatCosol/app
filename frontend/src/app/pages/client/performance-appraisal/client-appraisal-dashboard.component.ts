@@ -26,9 +26,12 @@ import { AppraisalDashboard } from '../../../core/models/appraisal.models';
         </div>
       </div>
 
-      <div *ngIf="loading" class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+      @if (loading) {
+<div class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+}
 
-      <ng-container *ngIf="!loading && dashboard">
+      @if (!loading && dashboard) {
+
         <!-- Summary Cards -->
         <div class="summary-strip">
           <div class="summary-card">
@@ -66,7 +69,8 @@ import { AppraisalDashboard } from '../../../core/models/appraisal.models';
         </div>
 
         <!-- Branch Comparison -->
-        <div class="table-card mt-6" *ngIf="dashboard.branchSummary.length">
+        @if (dashboard.branchSummary.length) {
+<div class="table-card mt-6">
           <h3 class="text-sm font-semibold text-gray-900 mb-4">Branch-wise Performance</h3>
           <div class="overflow-x-auto">
             <table class="data-table">
@@ -80,7 +84,8 @@ import { AppraisalDashboard } from '../../../core/models/appraisal.models';
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let b of dashboard.branchSummary" class="data-row">
+                @for (b of dashboard.branchSummary; track b) {
+<tr class="data-row">
                   <td class="font-medium">{{ b.branch_name || 'Unassigned' }}</td>
                   <td class="text-center">{{ b.total }}</td>
                   <td class="text-center text-emerald-600 font-medium">{{ b.completed }}</td>
@@ -94,17 +99,21 @@ import { AppraisalDashboard } from '../../../core/models/appraisal.models';
                     <span class="text-xs text-gray-400">{{ b.total ? (b.completed / b.total * 100 | number:'1.0-0') : 0 }}%</span>
                   </td>
                 </tr>
+}
               </tbody>
             </table>
           </div>
         </div>
+}
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
           <!-- Top Performers -->
-          <div class="table-card" *ngIf="dashboard.topPerformers.length">
+          @if (dashboard.topPerformers.length) {
+<div class="table-card">
             <h3 class="text-sm font-semibold text-gray-900 mb-4">Top Performers</h3>
             <div class="space-y-2">
-              <div *ngFor="let p of dashboard.topPerformers; let i = index" class="flex items-center justify-between text-sm border-b pb-2">
+              @for (p of dashboard.topPerformers; track p; let i = $index) {
+<div class="flex items-center justify-between text-sm border-b pb-2">
                 <div>
                   <span class="text-gray-400 mr-2">#{{ i + 1 }}</span>
                   <span class="font-medium">{{ p.name }}</span>
@@ -113,14 +122,18 @@ import { AppraisalDashboard } from '../../../core/models/appraisal.models';
                 </div>
                 <span class="font-semibold text-emerald-600">{{ p.total_score }}</span>
               </div>
+}
             </div>
           </div>
+}
 
           <!-- Low Performers -->
-          <div class="table-card" *ngIf="dashboard.lowPerformers.length">
+          @if (dashboard.lowPerformers.length) {
+<div class="table-card">
             <h3 class="text-sm font-semibold text-gray-900 mb-4">Low Performers / PIP Watch</h3>
             <div class="space-y-2">
-              <div *ngFor="let p of dashboard.lowPerformers; let i = index" class="flex items-center justify-between text-sm border-b pb-2">
+              @for (p of dashboard.lowPerformers; track p; let i = $index) {
+<div class="flex items-center justify-between text-sm border-b pb-2">
                 <div>
                   <span class="text-gray-400 mr-2">#{{ i + 1 }}</span>
                   <span class="font-medium">{{ p.name }}</span>
@@ -129,10 +142,13 @@ import { AppraisalDashboard } from '../../../core/models/appraisal.models';
                 </div>
                 <span class="font-semibold text-red-600">{{ p.total_score }}</span>
               </div>
+}
             </div>
           </div>
+}
         </div>
-      </ng-container>
+      
+}
     </div>
   `,
   styles: [`

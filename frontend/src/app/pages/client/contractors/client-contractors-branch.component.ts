@@ -1,5 +1,5 @@
 import { Component, ChangeDetectorRef, OnDestroy, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, combineLatest } from 'rxjs';
@@ -11,7 +11,7 @@ import { StatusBadgeComponent, LoadingSpinnerComponent } from '../../../shared/u
 @Component({
   standalone: true,
   selector: 'app-client-contractors-branch',
-  imports: [CommonModule, FormsModule, StatusBadgeComponent, LoadingSpinnerComponent],
+  imports: [FormsModule, StatusBadgeComponent, LoadingSpinnerComponent],
   templateUrl: './client-contractors-branch.component.html',
   styleUrls: ['./client-contractors.component.scss'],
 })

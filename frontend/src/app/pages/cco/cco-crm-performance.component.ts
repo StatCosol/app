@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -16,10 +16,16 @@ import { ReportsService } from '../../core/reports.service';
   selector: 'app-cco-crm-performance',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, PageHeaderComponent, EmptyStateComponent,
-    LoadingSpinnerComponent, StatusBadgeComponent, DataTableComponent,
-    TableCellDirective, FormSelectComponent, ActionButtonComponent,
-  ],
+    FormsModule,
+    PageHeaderComponent,
+    EmptyStateComponent,
+    LoadingSpinnerComponent,
+    StatusBadgeComponent,
+    DataTableComponent,
+    TableCellDirective,
+    FormSelectComponent,
+    ActionButtonComponent
+],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
@@ -28,11 +34,16 @@ import { ReportsService } from '../../core/reports.service';
         icon="chart-bar">
       </ui-page-header>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading performance data..."></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading performance data..."></ui-loading-spinner>
+}
 
-      <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{{ error }}</div>
+      @if (error) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{{ error }}</div>
+}
 
-      <ng-container *ngIf="!loading">
+      @if (!loading) {
+
         <!-- KPI Strip -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           <div class="bg-white border border-gray-200 rounded-xl p-4">
@@ -72,7 +83,8 @@ import { ReportsService } from '../../core/reports.service';
         </div>
 
         <!-- DataTable -->
-        <div class="card" *ngIf="filteredCrms.length > 0">
+        @if (filteredCrms.length > 0) {
+<div class="card">
           <ui-data-table [columns]="columns" [data]="filteredCrms">
             <ng-template uiTableCell="name" let-row>
               <span class="font-medium text-gray-900">{{ row.name }}</span>
@@ -99,14 +111,18 @@ import { ReportsService } from '../../core/reports.service';
             </ng-template>
           </ui-data-table>
         </div>
+}
 
-        <ui-empty-state
-          *ngIf="filteredCrms.length === 0"
+        @if (filteredCrms.length === 0) {
+<ui-empty-state
+         
           title="No performance data"
           description="CRM performance metrics will appear here."
           icon="chart-bar">
         </ui-empty-state>
-      </ng-container>
+}
+      
+}
     </div>
   `,
 })

@@ -11,7 +11,8 @@ import { AdminUsersApi, UserDto } from '../../../core/api/admin-users.api';
   standalone: true,
   imports: [CommonModule, RouterModule, FormsModule],
   template: `
-    <div class="space-y-6" *ngIf="ticket">
+    @if (ticket) {
+<div class="space-y-6">
       <!-- Back + Header -->
       <div class="flex items-center gap-3">
         <a routerLink="/admin/helpdesk" class="text-gray-400 hover:text-gray-600 transition-colors">
@@ -30,7 +31,9 @@ import { AdminUsersApi, UserDto } from '../../../core/api/admin-users.api';
           </div>
           <div>
             <span class="text-xs text-gray-500 uppercase tracking-wider">Category</span>
-            <p class="text-sm font-semibold text-gray-900 mt-0.5">{{ ticket.category }}<span *ngIf="ticket.subCategory"> / {{ ticket.subCategory }}</span></p>
+            <p class="text-sm font-semibold text-gray-900 mt-0.5">{{ ticket.category }}@if (ticket.subCategory) {
+<span> / {{ ticket.subCategory }}</span>
+}</p>
           </div>
           <div>
             <span class="text-xs text-gray-500 uppercase tracking-wider">Priority</span>
@@ -61,13 +64,15 @@ import { AdminUsersApi, UserDto } from '../../../core/api/admin-users.api';
       <div class="bg-white rounded-xl border border-gray-200 p-6">
         <h2 class="text-sm font-semibold text-gray-900 mb-3">Update Status</h2>
         <div class="flex flex-wrap items-center gap-2">
-          <button *ngFor="let s of statuses"
+          @for (s of statuses; track s) {
+<button
                   (click)="changeStatus(s)"
                   [disabled]="ticket.status === s || updatingStatus"
                   class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   [class]="ticket.status === s ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-300 text-gray-700 hover:bg-gray-50'">
             {{ s.replace('_', ' ') }}
           </button>
+}
         </div>
       </div>
 
@@ -87,18 +92,22 @@ import { AdminUsersApi, UserDto } from '../../../core/api/admin-users.api';
             <select id="ahd-assign-user-id" name="assignUserId" [(ngModel)]="assignUserId"
                    class="text-sm border border-gray-300 rounded-lg px-3 py-2 w-72 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
               <option value="">Select a user…</option>
-              <option *ngFor="let u of assignableUsers" [value]="u.id">{{ u.name }} ({{ u.roleCode }}{{ u.email ? ' – ' + u.email : '' }})</option>
+              @for (u of assignableUsers; track u) {
+<option [value]="u.id">{{ u.name }} ({{ u.roleCode }}{{ u.email ? ' – ' + u.email : '' }})</option>
+}
             </select>
             <button (click)="assignTicket()"
                     [disabled]="!assignUserId.trim() || assigning"
                     class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               Assign
             </button>
-            <button *ngIf="ticket.assignedToUserId" (click)="unassignTicket()"
+            @if (ticket.assignedToUserId) {
+<button (click)="unassignTicket()"
                     [disabled]="assigning"
                     class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               Unassign
             </button>
+}
           </div>
         </div>
       </div>
@@ -107,16 +116,20 @@ import { AdminUsersApi, UserDto } from '../../../core/api/admin-users.api';
       <div class="bg-white rounded-xl border border-gray-200 p-6">
         <h2 class="text-sm font-semibold text-gray-900 mb-4">Messages ({{ messages.length }})</h2>
 
-        <div *ngIf="messages.length === 0" class="text-sm text-gray-400 text-center py-4">No messages yet</div>
+        @if (messages.length === 0) {
+<div class="text-sm text-gray-400 text-center py-4">No messages yet</div>
+}
 
         <div class="space-y-3 max-h-[500px] overflow-y-auto mb-4">
-          <div *ngFor="let m of messages" class="p-3 rounded-lg bg-gray-50 border border-gray-100">
+          @for (m of messages; track m) {
+<div class="p-3 rounded-lg bg-gray-50 border border-gray-100">
             <div class="flex items-center justify-between mb-1">
               <span class="text-xs font-semibold text-indigo-700">{{ m.senderName || 'Unknown' }}</span>
               <span class="text-xs text-gray-400">{{ m.createdAt | date:'dd MMM yyyy, HH:mm' }}</span>
             </div>
             <p class="text-sm text-gray-800 whitespace-pre-wrap">{{ m.message }}</p>
           </div>
+}
         </div>
 
         <!-- Post Message -->
@@ -136,17 +149,22 @@ import { AdminUsersApi, UserDto } from '../../../core/api/admin-users.api';
         </div>
       </div>
     </div>
+}
 
     <!-- Loading -->
-    <div *ngIf="!ticket && !error" class="flex items-center justify-center py-20">
+    @if (!ticket && !error) {
+<div class="flex items-center justify-center py-20">
       <div class="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
     </div>
+}
 
     <!-- Error -->
-    <div *ngIf="error" class="text-center py-20">
+    @if (error) {
+<div class="text-center py-20">
       <p class="text-red-500 text-sm">{{ error }}</p>
       <a routerLink="/admin/helpdesk" class="text-sm text-indigo-600 hover:underline mt-2 inline-block">← Back to tickets</a>
     </div>
+}
   `,
 })
 export class AdminHelpdeskDetailComponent implements OnInit, OnDestroy {

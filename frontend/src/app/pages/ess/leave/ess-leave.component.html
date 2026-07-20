@@ -8,17 +8,22 @@
     <ui-button variant="primary" (clicked)="openApplyForm()">+ Apply for Leave</ui-button>
   </div>
 
-  <ui-loading-spinner *ngIf="loading" text="Loading leave data..." size="md"></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner text="Loading leave data..." size="md"></ui-loading-spinner>
+}
 
-  <ng-container *ngIf="!loading">
+  @if (!loading) {
+
     <!-- Leave Balances -->
-    <div *ngIf="balances.length" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    @if (balances.length) {
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       <div class="px-6 py-4 border-b border-gray-100">
         <h2 class="text-base font-semibold text-gray-900">Leave Balances</h2>
       </div>
       <div class="px-6 py-4">
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div *ngFor="let b of balances"
+          @for (b of balances; track b) {
+<div
                class="rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-shadow">
             <div class="text-sm font-semibold text-gray-900 mb-2">{{ b.leaveType }}</div>
             <div class="flex items-baseline gap-1">
@@ -42,9 +47,11 @@
               </div>
             </div>
           </div>
+}
         </div>
       </div>
     </div>
+}
 
     <!-- Leave Applications -->
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -52,8 +59,9 @@
         <h2 class="text-base font-semibold text-gray-900">My Applications</h2>
       </div>
       <div class="px-6 py-4">
-        <ui-data-table
-          *ngIf="applications.length"
+        @if (applications.length) {
+<ui-data-table
+         
           [columns]="applicationColumns"
           [data]="applications">
 
@@ -82,23 +90,29 @@
           </ng-template>
 
           <ng-template uiTableCell="actions" let-row>
-            <ui-button
-              *ngIf="row.status === 'DRAFT' || row.status === 'SUBMITTED'"
+            @if (row.status === 'DRAFT' || row.status === 'SUBMITTED') {
+<ui-button
+             
               variant="danger" size="sm"
               (clicked)="cancelApplication(row)">
               Cancel
             </ui-button>
+}
           </ng-template>
         </ui-data-table>
+}
 
-        <ui-empty-state
-          *ngIf="!applications.length"
+        @if (!applications.length) {
+<ui-empty-state
+         
           title="No leave applications"
           description="Click 'Apply for Leave' to submit your first application">
         </ui-empty-state>
+}
       </div>
     </div>
-  </ng-container>
+  
+}
 </div>
 
 <!-- Apply Leave Modal -->
@@ -109,12 +123,14 @@
   (closed)="showApplyForm = false">
 
   <div class="space-y-4">
-    <div *ngIf="!leaveTypeOptions.length" class="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+    @if (!leaveTypeOptions.length) {
+<div class="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
       <svg class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
       </svg>
       <span class="text-sm text-amber-800">No leave types are configured for your organisation. Please contact your HR administrator to set up leave policies.</span>
     </div>
+}
     <ui-form-select
       label="Leave Type"
       [required]="true"
@@ -147,12 +163,14 @@
         placeholder="Briefly describe your reason..."></textarea>
     </div>
 
-    <div *ngIf="applyError" class="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+    @if (applyError) {
+<div class="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
       <svg class="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
       </svg>
       <span class="text-sm text-red-700">{{ applyError }}</span>
     </div>
+}
   </div>
 
   <div slot="footer">

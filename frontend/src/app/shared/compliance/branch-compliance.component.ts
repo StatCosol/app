@@ -1,5 +1,5 @@
 import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ClientBranchesService } from '../../core/client-branches.service';
@@ -15,7 +15,7 @@ type ScheduleSignal = 'UPCOMING' | 'OPEN_WINDOW' | 'DUE_SOON' | 'OVERDUE' | 'SCH
 @Component({
   standalone: true,
   selector: 'app-branch-compliance',
-  imports: [CommonModule, FormsModule, ComplianceTrendComponent, RiskForecastComponent, ComplianceSummaryComponent, RiskSimulatorComponent],
+  imports: [FormsModule, ComplianceTrendComponent, RiskForecastComponent, ComplianceSummaryComponent, RiskSimulatorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './branch-compliance.component.html',
   styles: [`

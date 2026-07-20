@@ -18,17 +18,23 @@
 
       <select id="rf-law" name="lawTypeFilter" class="field" [(ngModel)]="lawTypeFilter" (change)="applyFilters()">
         <option value="">All Acts</option>
-        <option *ngFor="let law of lawTypes" [value]="law">{{ law }}</option>
+        @for (law of lawTypes; track law) {
+<option [value]="law">{{ law }}</option>
+}
       </select>
 
       <select id="rf-client" name="clientFilter" class="field field--client" [(ngModel)]="clientFilter" (change)="onFilterClientChange()">
         <option value="">All Clients</option>
-        <option *ngFor="let c of filterClientOptions" [value]="c.id">{{ c.name }}</option>
+        @for (c of filterClientOptions; track c) {
+<option [value]="c.id">{{ c.name }}</option>
+}
       </select>
 
       <select id="rf-branch" name="branchFilter" class="field" [(ngModel)]="branchFilter" (change)="loadFilings()">
         <option value="">All Branches</option>
-        <option *ngFor="let b of filterBranchOptions" [value]="b.id">{{ b.name }}</option>
+        @for (b of filterBranchOptions; track b) {
+<option [value]="b.id">{{ b.name }}</option>
+}
       </select>
 
       <select id="rf-status" name="statusFilter" class="field" [(ngModel)]="statusFilter" (change)="loadFilings()">
@@ -43,12 +49,16 @@
 
       <select id="rf-year" name="periodYearFilter" class="field field--sm" [(ngModel)]="periodYearFilter" (change)="loadFilings()">
         <option value="">All Years</option>
-        <option *ngFor="let year of yearOptions" [value]="year">{{ year }}</option>
+        @for (year of yearOptions; track year) {
+<option [value]="year">{{ year }}</option>
+}
       </select>
 
       <select id="rf-month" name="periodMonthFilter" class="field field--sm" [(ngModel)]="periodMonthFilter" (change)="loadFilings()">
         <option value="">All Months</option>
-        <option *ngFor="let month of monthOptions" [value]="month.value">{{ month.label }}</option>
+        @for (month of monthOptions; track month) {
+<option [value]="month.value">{{ month.label }}</option>
+}
       </select>
     </div>
 
@@ -68,7 +78,8 @@
   </section>
 
   <!-- Automation Panel -->
-  <section class="auto-panel" *ngIf="showAutomationPanel">
+  @if (showAutomationPanel) {
+<section class="auto-panel">
     <div class="panel-head">
       <h3>Filing Automation</h3>
       <span>Auto-generate filings, renewal tasks, and overdue alerts</span>
@@ -80,11 +91,13 @@
         <ui-button variant="primary" size="sm" [disabled]="autoGenerating" (clicked)="runAutoGenerate()">
           {{ autoGenerating ? 'Generating...' : 'Generate Filings' }}
         </ui-button>
-        <div class="auto-result" *ngIf="lastAutoResult">
+        @if (lastAutoResult) {
+<div class="auto-result">
           <span class="ok">{{ lastAutoResult.filingsCreated }} created</span>
           <span>{{ lastAutoResult.tasksCreated }} tasks</span>
           <span class="muted">{{ lastAutoResult.skipped }} skipped</span>
         </div>
+}
       </div>
       <div class="auto-card">
         <h4>Generate Renewal Filings</h4>
@@ -92,11 +105,13 @@
         <ui-button variant="secondary" size="sm" [disabled]="autoRenewing" (clicked)="runAutoRenewals()">
           {{ autoRenewing ? 'Scanning...' : 'Generate Renewals' }}
         </ui-button>
-        <div class="auto-result" *ngIf="lastRenewalResult">
+        @if (lastRenewalResult) {
+<div class="auto-result">
           <span class="ok">{{ lastRenewalResult.filingsCreated }} created</span>
           <span>{{ lastRenewalResult.tasksCreated }} tasks</span>
           <span class="muted">{{ lastRenewalResult.skipped }} skipped</span>
         </div>
+}
       </div>
       <div class="auto-card">
         <h4>Send Overdue Alerts</h4>
@@ -104,15 +119,19 @@
         <ui-button variant="danger" size="sm" [disabled]="autoAlerting" (clicked)="runOverdueAlerts()">
           {{ autoAlerting ? 'Sending...' : 'Send Alerts' }}
         </ui-button>
-        <div class="auto-result" *ngIf="lastAlertResult">
+        @if (lastAlertResult) {
+<div class="auto-result">
           <span class="ok">{{ lastAlertResult.alertsSent }} alerts sent</span>
         </div>
+}
       </div>
     </div>
   </section>
+}
 
   <!-- Create Return Form -->
-  <section class="create-form" *ngIf="showCreateForm">
+  @if (showCreateForm) {
+<section class="create-form">
     <div class="panel-head">
       <h3>Add New Return Filing</h3>
     </div>
@@ -121,14 +140,18 @@
         <label for="nf-client">Client *</label>
         <select id="nf-client" class="field" [(ngModel)]="newFiling.clientId" name="nfClient" (ngModelChange)="onClientChange()">
           <option value="">-- Select Client --</option>
-          <option *ngFor="let c of clientOptions" [value]="c.id">{{ c.name }}</option>
+          @for (c of clientOptions; track c) {
+<option [value]="c.id">{{ c.name }}</option>
+}
         </select>
       </div>
       <div class="form-field">
         <label for="nf-branch">Branch</label>
         <select id="nf-branch" class="field" [(ngModel)]="newFiling.branchId" name="nfBranch">
           <option value="">-- Select Branch --</option>
-          <option *ngFor="let b of branchOptions" [value]="b.id">{{ b.name }}</option>
+          @for (b of branchOptions; track b) {
+<option [value]="b.id">{{ b.name }}</option>
+}
         </select>
       </div>
       <div class="form-field">
@@ -136,53 +159,85 @@
         <select id="nf-type" class="field" [(ngModel)]="newFiling.returnType" name="nfReturnType" (change)="onReturnTypeChange()">
           <option value="">-- Select Return --</option>
           <optgroup label="📅 Monthly">
-            <ng-container *ngFor="let t of returnTypes">
-              <option *ngIf="t.frequency === 'MONTHLY'" [value]="t.code">{{ t.label }} ({{ t.lawType }})</option>
-            </ng-container>
+            @for (t of returnTypes; track t) {
+
+              @if (t.frequency === 'MONTHLY') {
+<option [value]="t.code">{{ t.label }} ({{ t.lawType }})</option>
+}
+            
+}
           </optgroup>
           <optgroup label="📅 Quarterly">
-            <ng-container *ngFor="let t of returnTypes">
-              <option *ngIf="t.frequency === 'QUARTERLY'" [value]="t.code">{{ t.label }} ({{ t.lawType }})</option>
-            </ng-container>
+            @for (t of returnTypes; track t) {
+
+              @if (t.frequency === 'QUARTERLY') {
+<option [value]="t.code">{{ t.label }} ({{ t.lawType }})</option>
+}
+            
+}
           </optgroup>
           <optgroup label="📅 Half-Yearly">
-            <ng-container *ngFor="let t of returnTypes">
-              <option *ngIf="t.frequency === 'HALF_YEARLY'" [value]="t.code">{{ t.label }} ({{ t.lawType }})</option>
-            </ng-container>
+            @for (t of returnTypes; track t) {
+
+              @if (t.frequency === 'HALF_YEARLY') {
+<option [value]="t.code">{{ t.label }} ({{ t.lawType }})</option>
+}
+            
+}
           </optgroup>
           <optgroup label="📅 Annual">
-            <ng-container *ngFor="let t of returnTypes">
-              <option *ngIf="t.frequency === 'YEARLY' && t.category !== 'COMBINED_RETURN'" [value]="t.code">{{ t.label }} ({{ t.lawType }})</option>
-            </ng-container>
+            @for (t of returnTypes; track t) {
+
+              @if (t.frequency === 'YEARLY' && t.category !== 'COMBINED_RETURN') {
+<option [value]="t.code">{{ t.label }} ({{ t.lawType }})</option>
+}
+            
+}
           </optgroup>
           <optgroup label="🗺️ State Combined Annual">
-            <ng-container *ngFor="let t of returnTypes">
-              <option *ngIf="t.category === 'COMBINED_RETURN'" [value]="t.code">{{ t.label }}</option>
-            </ng-container>
+            @for (t of returnTypes; track t) {
+
+              @if (t.category === 'COMBINED_RETURN') {
+<option [value]="t.code">{{ t.label }}</option>
+}
+            
+}
           </optgroup>
           <optgroup label="⚡ Event-Based">
-            <ng-container *ngFor="let t of returnTypes">
-              <option *ngIf="t.frequency === 'EVENT_BASED'" [value]="t.code">{{ t.label }}</option>
-            </ng-container>
+            @for (t of returnTypes; track t) {
+
+              @if (t.frequency === 'EVENT_BASED') {
+<option [value]="t.code">{{ t.label }}</option>
+}
+            
+}
           </optgroup>
           <optgroup label="📅 Other">
-            <ng-container *ngFor="let t of returnTypes">
-              <option *ngIf="t.frequency !== 'MONTHLY' && t.frequency !== 'QUARTERLY' && t.frequency !== 'HALF_YEARLY' && t.frequency !== 'YEARLY' && t.frequency !== 'EVENT_BASED' && t.category !== 'COMBINED_RETURN'" [value]="t.code">{{ t.label }} ({{ t.frequency }})</option>
-            </ng-container>
+            @for (t of returnTypes; track t) {
+
+              @if (t.frequency !== 'MONTHLY' && t.frequency !== 'QUARTERLY' && t.frequency !== 'HALF_YEARLY' && t.frequency !== 'YEARLY' && t.frequency !== 'EVENT_BASED' && t.category !== 'COMBINED_RETURN') {
+<option [value]="t.code">{{ t.label }} ({{ t.frequency }})</option>
+}
+            
+}
           </optgroup>
         </select>
       </div>
       <div class="form-field">
         <label for="nf-year">Period Year *</label>
         <select id="nf-year" class="field" [(ngModel)]="newFiling.periodYear" name="nfYear">
-          <option *ngFor="let year of yearOptions" [value]="year">{{ year }}</option>
+          @for (year of yearOptions; track year) {
+<option [value]="year">{{ year }}</option>
+}
         </select>
       </div>
       <div class="form-field">
         <label for="nf-month">Period Month</label>
         <select id="nf-month" class="field" [(ngModel)]="newFiling.periodMonth" name="nfMonth">
           <option [ngValue]="0">-- No Month (Half-yearly/Yearly) --</option>
-          <option *ngFor="let m of monthOptions" [value]="m.value">{{ m.label }}</option>
+          @for (m of monthOptions; track m) {
+<option [value]="m.value">{{ m.label }}</option>
+}
         </select>
       </div>
       <div class="form-field">
@@ -200,6 +255,7 @@
       </div>
     </div>
   </section>
+}
 
   <section class="summary-grid">
     <article class="summary-card">
@@ -228,7 +284,8 @@
     </article>
   </section>
 
-  <section class="branch-board" *ngIf="branchPendingRows.length">
+  @if (branchPendingRows.length) {
+<section class="branch-board">
     <div class="panel-head">
       <h3>Branch-wise Pending View</h3>
       <span>Click a branch row to drill into its queue</span>
@@ -248,7 +305,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let row of branchPendingRows; trackBy: trackById"
+          @for (row of branchPendingRows; track trackById($index, row)) {
+<tr
               [class.unmapped]="row.branchId === 'UNMAPPED'"
               (click)="focusBranchPending(row.branchId)"
               [style.cursor]="row.branchId === 'UNMAPPED' ? 'default' : 'pointer'">
@@ -261,26 +319,34 @@
             <td>{{ row.rejected }}</td>
             <td><span class="danger">{{ row.overdue }}</span></td>
           </tr>
+}
         </tbody>
       </table>
     </div>
   </section>
+}
 
-  <ui-loading-spinner *ngIf="loading" text="Loading returns workspace..."></ui-loading-spinner>
-  <ui-empty-state
-    *ngIf="!loading && !filteredFilings.length"
+  @if (loading) {
+<ui-loading-spinner text="Loading returns workspace..."></ui-loading-spinner>
+}
+  @if (!loading && !filteredFilings.length) {
+<ui-empty-state
+   
     title="No filings found"
     description="Adjust filters or refresh to load filing items.">
   </ui-empty-state>
+}
 
-  <section *ngIf="!loading && filteredFilings.length" class="workspace">
+  @if (!loading && filteredFilings.length) {
+<section class="workspace">
     <article class="list-panel">
       <header class="panel-head">
         <h3>Returns Queue</h3>
         <span>{{ filteredFilings.length }} item(s)</span>
       </header>
 
-      <div class="bulk-bar" *ngIf="selectedTaskIds.length > 0">
+      @if (selectedTaskIds.length > 0) {
+<div class="bulk-bar">
         <div>{{ selectedTaskIds.length }} selected</div>
         <div class="bulk-actions">
           <button type="button" class="mini" (click)="bulkReadyForFiling()">Bulk Ready For Filing</button>
@@ -290,6 +356,7 @@
           <button type="button" class="mini" (click)="bulkSendReminder()">Send Reminder</button>
         </div>
       </div>
+}
 
       <div class="table-wrap max-h-[600px] overflow-y-auto">
         <table class="table">
@@ -312,8 +379,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              *ngFor="let row of filteredFilings; trackBy: trackById"
+            @for (row of filteredFilings; track trackById($index, row)) {
+<tr
+             
               [class.active]="selected?.id === row.id"
               (click)="selectFiling(row)">
               <td (click)="$event.stopPropagation()">
@@ -330,19 +398,23 @@
               <td>{{ periodText(row) }}</td>
               <td>
                 <div>{{ row.dueDate ? (row.dueDate | date:'dd MMM yyyy') : '-' }}</div>
-                <div class="due-note" [class.due-note--bad]="isOverdue(row)" *ngIf="row.dueDate">{{ dueHint(row) }}</div>
+                @if (row.dueDate) {
+<div class="due-note" [class.due-note--bad]="isOverdue(row)">{{ dueHint(row) }}</div>
+}
               </td>
               <td><span class="reference-chip">{{ referenceCode(row) }}</span></td>
               <td><span [class]="sourceBadgeClass(row.createdByRole)">{{ sourceLabel(row.createdByRole) }}</span></td>
               <td><span [class]="workflowClass(row.status)">{{ mapWorkflow(row.status) }}</span></td>
               <td><ui-status-badge [status]="row.status" size="sm"></ui-status-badge></td>
             </tr>
+}
           </tbody>
         </table>
       </div>
     </article>
 
-    <aside class="detail-panel" *ngIf="selected as row">
+    @if (selected; as row) {
+<aside class="detail-panel">
       <header class="panel-head">
         <h3>Filing Detail</h3>
         <span>{{ row.returnType || '-' }}</span>
@@ -406,13 +478,15 @@
         </div>
 
         <div class="actions">
-          <ui-button
-            *ngFor="let action of statusActions"
+          @for (action of statusActions; track action) {
+<ui-button
+           
             [variant]="action.variant"
             [disabled]="statusBusy || !canMoveTo(action.value, row)"
             (clicked)="moveStatus(action.value)">
             {{ action.label }}
           </ui-button>
+}
           <ui-button
             variant="danger"
             [disabled]="statusBusy || row.status === 'APPROVED'"
@@ -423,13 +497,19 @@
 
         <div class="guardrails">
           <div class="guardrail-head">Transition Guardrails</div>
-          <div class="guardrail-row" *ngFor="let action of statusActions">
+          @for (action of statusActions; track action) {
+<div class="guardrail-row">
             <span class="guardrail-action">{{ action.label }}</span>
-            <span class="guardrail-ok" *ngIf="canMoveTo(action.value, row)">Allowed</span>
-            <span class="guardrail-blocked" *ngIf="!canMoveTo(action.value, row)">
+            @if (canMoveTo(action.value, row)) {
+<span class="guardrail-ok">Allowed</span>
+}
+            @if (!canMoveTo(action.value, row)) {
+<span class="guardrail-blocked">
               {{ transitionGuardReason(row, action.value) }}
             </span>
+}
           </div>
+}
         </div>
 
         <div class="proofs">
@@ -464,32 +544,42 @@
         </div>
 
         <div class="checklist">
-          <div class="check-item" *ngFor="let check of detailChecklist(row)">
+          @for (check of detailChecklist(row); track check) {
+<div class="check-item">
             <div>
               <span class="check-label">{{ check.label }}</span>
               <small class="check-note">{{ check.note }}</small>
             </div>
             <strong [class.check-pass]="check.done" [class.check-fail]="!check.done">{{ check.done ? 'Done' : 'Pending' }}</strong>
           </div>
+}
         </div>
 
         <div class="timeline">
           <h4>Audit Timeline</h4>
-          <div class="timeline-empty" *ngIf="!selectedTimeline.length">No timeline events available.</div>
-          <div class="timeline-item" *ngFor="let event of selectedTimeline">
+          @if (!selectedTimeline.length) {
+<div class="timeline-empty">No timeline events available.</div>
+}
+          @for (event of selectedTimeline; track event) {
+<div class="timeline-item">
             <div class="dot"></div>
             <div class="card">
               <div class="top">
                 <span>{{ event.title }}</span>
                 <span>{{ event.timestamp | date:'dd MMM yyyy, HH:mm' }}</span>
               </div>
-              <div class="note" *ngIf="event.note">{{ event.note }}</div>
+              @if (event.note) {
+<div class="note">{{ event.note }}</div>
+}
             </div>
           </div>
+}
         </div>
       </div>
     </aside>
+}
   </section>
+}
 
   <input #ackInput type="file" hidden (change)="onAckFileSelected($event)" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls">
   <input #challanInput type="file" hidden (change)="onChallanFileSelected($event)" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls">

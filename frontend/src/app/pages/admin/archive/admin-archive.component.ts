@@ -31,22 +31,32 @@ import { ToastService } from '../../../shared/toast/toast.service';
 
       <!-- Tab Bar -->
       <div class="flex border-b border-gray-200 mb-6">
-        <button *ngFor="let tab of tabs" (click)="activeTab = tab.key; loadTab()"
+        @for (tab of tabs; track tab) {
+<button (click)="activeTab = tab.key; loadTab()"
           [class]="activeTab === tab.key
             ? 'px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600'
             : 'px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700'">
           {{ tab.label }}
         </button>
+}
       </div>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading archive..."></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading archive..."></ui-loading-spinner>
+}
 
-      <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{{ error }}</div>
-      <div *ngIf="success" class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">{{ success }}</div>
+      @if (error) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{{ error }}</div>
+}
+      @if (success) {
+<div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">{{ success }}</div>
+}
 
       <!-- ═══ Deleted Clients Tab ═══ -->
-      <ng-container *ngIf="!loading && activeTab === 'clients'">
-        <div *ngIf="deletedClients.length > 0" class="card">
+      @if (!loading && activeTab === 'clients') {
+
+        @if (deletedClients.length > 0) {
+<div class="card">
           <ui-data-table [columns]="clientColumns" [data]="deletedClients">
             <ng-template uiTableCell="clientName" let-row>
               <button class="text-blue-600 hover:underline font-medium" (click)="openClientDetail(row)">
@@ -74,12 +84,18 @@ import { ToastService } from '../../../shared/toast/toast.service';
             </ng-template>
           </ui-data-table>
         </div>
-        <ui-empty-state *ngIf="deletedClients.length === 0" title="No deleted clients" description="Deleted clients will appear here for up to 3 years." icon="archive"></ui-empty-state>
-      </ng-container>
+}
+        @if (deletedClients.length === 0) {
+<ui-empty-state title="No deleted clients" description="Deleted clients will appear here for up to 3 years." icon="archive"></ui-empty-state>
+}
+      
+}
 
       <!-- ═══ Deleted Branches Tab ═══ -->
-      <ng-container *ngIf="!loading && activeTab === 'branches'">
-        <div *ngIf="deletedBranches.length > 0" class="card">
+      @if (!loading && activeTab === 'branches') {
+
+        @if (deletedBranches.length > 0) {
+<div class="card">
           <ui-data-table [columns]="branchColumns" [data]="deletedBranches">
             <ng-template uiTableCell="branchName" let-row>
               <span class="font-medium">{{ row.branchName }}</span>
@@ -92,12 +108,18 @@ import { ToastService } from '../../../shared/toast/toast.service';
             </ng-template>
           </ui-data-table>
         </div>
-        <ui-empty-state *ngIf="deletedBranches.length === 0" title="No deleted branches" description="Deleted branches will appear here for up to 3 years." icon="archive"></ui-empty-state>
-      </ng-container>
+}
+        @if (deletedBranches.length === 0) {
+<ui-empty-state title="No deleted branches" description="Deleted branches will appear here for up to 3 years." icon="archive"></ui-empty-state>
+}
+      
+}
 
       <!-- ═══ Retention Snapshots Tab (18-month JSONB archive) ═══ -->
-      <ng-container *ngIf="!loading && activeTab === 'retention'">
-        <div *ngIf="retentionSnapshots.length > 0" class="card">
+      @if (!loading && activeTab === 'retention') {
+
+        @if (retentionSnapshots.length > 0) {
+<div class="card">
           <ui-data-table [columns]="retentionColumns" [data]="retentionSnapshots">
             <ng-template uiTableCell="clientName" let-row>
               <button class="text-blue-600 hover:underline font-medium" (click)="openRetentionDetail(row)">
@@ -127,14 +149,20 @@ import { ToastService } from '../../../shared/toast/toast.service';
             </ng-template>
           </ui-data-table>
         </div>
-        <ui-empty-state *ngIf="retentionSnapshots.length === 0" title="No retention snapshots"
+}
+        @if (retentionSnapshots.length === 0) {
+<ui-empty-state title="No retention snapshots"
           description="JSONB snapshots of deleted clients (registers, payroll, audit reports, contractors) appear here. Retained for 18 months from deletion date."
           icon="archive"></ui-empty-state>
-      </ng-container>
+}
+      
+}
 
       <!-- ═══ Deleted Users Tab ═══ -->
-      <ng-container *ngIf="!loading && activeTab === 'users'">
-        <div *ngIf="deletedUsers.length > 0" class="card">
+      @if (!loading && activeTab === 'users') {
+
+        @if (deletedUsers.length > 0) {
+<div class="card">
           <ui-data-table [columns]="userColumns" [data]="deletedUsers">
             <ng-template uiTableCell="name" let-row>
               <span class="font-medium">{{ row.name }}</span>
@@ -153,11 +181,16 @@ import { ToastService } from '../../../shared/toast/toast.service';
             </ng-template>
           </ui-data-table>
         </div>
-        <ui-empty-state *ngIf="deletedUsers.length === 0" title="No deleted users" description="Deleted users will appear here for up to 3 years." icon="archive"></ui-empty-state>
-      </ng-container>
+}
+        @if (deletedUsers.length === 0) {
+<ui-empty-state title="No deleted users" description="Deleted users will appear here for up to 3 years." icon="archive"></ui-empty-state>
+}
+      
+}
 
       <!-- ═══ Retention Snapshot Detail Drawer ═══ -->
-      <div *ngIf="selectedSnapshot" class="fixed inset-0 z-50 flex justify-end">
+      @if (selectedSnapshot) {
+<div class="fixed inset-0 z-50 flex justify-end">
         <div class="absolute inset-0 bg-black/30" (click)="closeRetentionDetail()"></div>
         <div class="relative w-full max-w-4xl bg-white shadow-xl overflow-y-auto">
           <div class="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
@@ -177,70 +210,100 @@ import { ToastService } from '../../../shared/toast/toast.service';
 
           <div class="px-6 py-4">
             <div class="flex border-b border-gray-200 mb-4">
-              <button *ngFor="let st of snapshotTabs" (click)="snapshotTab = st.key"
+              @for (st of snapshotTabs; track st) {
+<button (click)="snapshotTab = st.key"
                 [class]="snapshotTab === st.key
                   ? 'px-3 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600'
                   : 'px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700'">
                 {{ st.label }}
               </button>
+}
             </div>
 
-            <ui-loading-spinner *ngIf="snapshotLoading" text="Loading snapshot..."></ui-loading-spinner>
+            @if (snapshotLoading) {
+<ui-loading-spinner text="Loading snapshot..."></ui-loading-spinner>
+}
 
-            <div *ngIf="!snapshotLoading && snapshotDetail">
-              <ng-container [ngSwitch]="snapshotTab">
-                <ng-container *ngSwitchCase="'registers'">
+            @if (!snapshotLoading && snapshotDetail) {
+<div>
+              
+@switch (snapshotTab) {
+                @case ('registers') {
+
                   <ng-container *ngTemplateOutlet="jsonTable; context: { $implicit: snapshotDetail.registersSnapshot, empty: 'No registers archived.' }"></ng-container>
-                </ng-container>
-                <ng-container *ngSwitchCase="'payroll'">
+                
+}
+                @case ('payroll') {
+
                   <h3 class="text-sm font-semibold text-gray-700 mb-2">Payroll Runs</h3>
                   <ng-container *ngTemplateOutlet="jsonTable; context: { $implicit: snapshotDetail.payrollSnapshot?.runs, empty: 'No payroll runs archived.' }"></ng-container>
                   <h3 class="text-sm font-semibold text-gray-700 mt-6 mb-2">Run Employees ({{ snapshotDetail.payrollSnapshot?.runEmployees?.length || 0 }})</h3>
                   <ng-container *ngTemplateOutlet="jsonTable; context: { $implicit: snapshotDetail.payrollSnapshot?.runEmployees, empty: 'No payroll employees archived.' }"></ng-container>
-                </ng-container>
-                <ng-container *ngSwitchCase="'audits'">
+                
+}
+                @case ('audits') {
+
                   <h3 class="text-sm font-semibold text-gray-700 mb-2">Audit Reports</h3>
                   <ng-container *ngTemplateOutlet="jsonTable; context: { $implicit: snapshotDetail.auditReportsSnapshot?.reports, empty: 'No audit reports archived.' }"></ng-container>
                   <h3 class="text-sm font-semibold text-gray-700 mt-6 mb-2">Non-Compliance Points</h3>
                   <ng-container *ngTemplateOutlet="jsonTable; context: { $implicit: snapshotDetail.auditReportsSnapshot?.nonCompliances, empty: 'No non-compliance points archived.' }"></ng-container>
-                </ng-container>
-                <ng-container *ngSwitchCase="'contractors'">
+                
+}
+                @case ('contractors') {
+
                   <h3 class="text-sm font-semibold text-gray-700 mb-2">Contractor Accounts</h3>
                   <ng-container *ngTemplateOutlet="jsonTable; context: { $implicit: snapshotDetail.contractorsSnapshot?.accounts, empty: 'No contractor accounts archived.' }"></ng-container>
                   <h3 class="text-sm font-semibold text-gray-700 mt-6 mb-2">Contractor Employees (with deployment / termination dates)</h3>
                   <ng-container *ngTemplateOutlet="jsonTable; context: { $implicit: snapshotDetail.contractorsSnapshot?.employees, empty: 'No contractor employees archived.' }"></ng-container>
                   <h3 class="text-sm font-semibold text-gray-700 mt-6 mb-2">Per-Contractor NC Summary</h3>
                   <ng-container *ngTemplateOutlet="jsonTable; context: { $implicit: snapshotDetail.contractorsSnapshot?.ncSummary, empty: 'No NC summary archived.' }"></ng-container>
-                </ng-container>
-                <ng-container *ngSwitchCase="'meta'">
+                
+}
+                @case ('meta') {
+
                   <pre class="text-xs bg-gray-50 border rounded p-3 overflow-x-auto">{{ snapshotDetail.meta | json }}</pre>
-                </ng-container>
-              </ng-container>
+                
+}
+              }
+
             </div>
+}
 
             <ng-template #jsonTable let-rows let-empty="empty">
-              <div *ngIf="!rows || rows.length === 0" class="text-sm text-gray-500 italic py-4">{{ empty }}</div>
-              <div *ngIf="rows && rows.length > 0" class="overflow-x-auto">
+              @if (!rows || rows.length === 0) {
+<div class="text-sm text-gray-500 italic py-4">{{ empty }}</div>
+}
+              @if (rows && rows.length > 0) {
+<div class="overflow-x-auto">
                 <table class="min-w-full text-xs border">
                   <thead class="bg-gray-50">
                     <tr>
-                      <th *ngFor="let k of keysOf(rows[0])" class="text-left py-2 px-3 font-medium text-gray-600 uppercase border-b">{{ humanizeKey(k) }}</th>
+                      @for (k of keysOf(rows[0]); track k) {
+<th class="text-left py-2 px-3 font-medium text-gray-600 uppercase border-b">{{ humanizeKey(k) }}</th>
+}
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let r of rows" class="border-b border-gray-100 hover:bg-gray-50">
-                      <td *ngFor="let k of keysOf(rows[0])" class="py-1.5 px-3 text-gray-700 align-top">{{ formatCell(r[k]) }}</td>
+                    @for (r of rows; track r) {
+<tr class="border-b border-gray-100 hover:bg-gray-50">
+                      @for (k of keysOf(rows[0]); track k) {
+<td class="py-1.5 px-3 text-gray-700 align-top">{{ formatCell(r[k]) }}</td>
+}
                     </tr>
+}
                   </tbody>
                 </table>
               </div>
+}
             </ng-template>
           </div>
         </div>
       </div>
+}
 
       <!-- ═══ Client Detail Drawer ═══ -->
-      <div *ngIf="selectedClient" class="fixed inset-0 z-50 flex justify-end">
+      @if (selectedClient) {
+<div class="fixed inset-0 z-50 flex justify-end">
         <div class="absolute inset-0 bg-black/30" (click)="closeDetail()"></div>
         <div class="relative w-full max-w-3xl bg-white shadow-xl overflow-y-auto">
           <div class="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
@@ -257,44 +320,63 @@ import { ToastService } from '../../../shared/toast/toast.service';
 
           <div class="px-6 py-4">
             <!-- Summary Cards -->
-            <div *ngIf="clientSummary" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-              <div class="bg-gray-50 rounded-lg p-3 text-center" *ngFor="let s of summaryCards">
+            @if (clientSummary) {
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+              @for (s of summaryCards; track s) {
+<div class="bg-gray-50 rounded-lg p-3 text-center">
                 <div class="text-2xl font-bold text-gray-900">{{ s.count }}</div>
                 <div class="text-xs text-gray-500 uppercase">{{ s.label }}</div>
               </div>
+}
             </div>
+}
 
             <!-- Detail Tabs -->
             <div class="flex border-b border-gray-200 mb-4">
-              <button *ngFor="let dt of detailTabs" (click)="detailTab = dt.key; loadDetailData()"
+              @for (dt of detailTabs; track dt) {
+<button (click)="detailTab = dt.key; loadDetailData()"
                 [class]="detailTab === dt.key
                   ? 'px-3 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600'
                   : 'px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700'">
                 {{ dt.label }}
               </button>
+}
             </div>
 
-            <ui-loading-spinner *ngIf="detailLoading" text="Loading..."></ui-loading-spinner>
+            @if (detailLoading) {
+<ui-loading-spinner text="Loading..."></ui-loading-spinner>
+}
 
             <!-- Detail Data Table -->
-            <div *ngIf="!detailLoading && detailData.length > 0" class="overflow-x-auto">
+            @if (!detailLoading && detailData.length > 0) {
+<div class="overflow-x-auto">
               <table class="min-w-full text-sm">
                 <thead>
                   <tr class="border-b border-gray-200">
-                    <th *ngFor="let col of detailDataColumns" class="text-left py-2 px-3 text-xs font-medium text-gray-500 uppercase">{{ col }}</th>
+                    @for (col of detailDataColumns; track col) {
+<th class="text-left py-2 px-3 text-xs font-medium text-gray-500 uppercase">{{ col }}</th>
+}
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let row of detailData" class="border-b border-gray-100 hover:bg-gray-50">
-                    <td *ngFor="let col of detailDataKeys" class="py-2 px-3 text-gray-700">{{ formatCell(row[col]) }}</td>
+                  @for (row of detailData; track row) {
+<tr class="border-b border-gray-100 hover:bg-gray-50">
+                    @for (col of detailDataKeys; track col) {
+<td class="py-2 px-3 text-gray-700">{{ formatCell(row[col]) }}</td>
+}
                   </tr>
+}
                 </tbody>
               </table>
             </div>
-            <ui-empty-state *ngIf="!detailLoading && detailData.length === 0" title="No data" [description]="'No ' + detailTab + ' found for this client.'" icon="folder-open"></ui-empty-state>
+}
+            @if (!detailLoading && detailData.length === 0) {
+<ui-empty-state title="No data" [description]="'No ' + detailTab + ' found for this client.'" icon="folder-open"></ui-empty-state>
+}
           </div>
         </div>
       </div>
+}
     </div>
   `,
 })

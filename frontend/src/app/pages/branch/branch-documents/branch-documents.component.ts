@@ -1,7 +1,7 @@
 import {
   Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { forkJoin, of, Subject } from 'rxjs';
 import { catchError, takeUntil } from 'rxjs/operators';
@@ -23,7 +23,7 @@ interface DocumentItem {
 @Component({
   selector: 'app-branch-documents',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-container">
@@ -33,13 +33,19 @@ interface DocumentItem {
           <p class="page-subtitle">Branch files kept for reference and review</p>
         </div>
         <div class="flex items-center gap-3">
-          <select *ngIf="branches.length > 1" id="bd-branch-filter" name="branchFilter" [(ngModel)]="branchFilter" (change)="applyFilter()" class="filter-select">
+          @if (branches.length > 1) {
+<select id="bd-branch-filter" name="branchFilter" [(ngModel)]="branchFilter" (change)="applyFilter()" class="filter-select">
             <option value="all">All Branches</option>
-            <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+            @for (b of branches; track b) {
+<option [value]="b.id">{{ b.name }}</option>
+}
           </select>
+}
           <select id="bd-category-filter" name="categoryFilter" [(ngModel)]="categoryFilter" (change)="applyFilter()" class="filter-select">
             <option value="all">All Categories</option>
-            <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+            @for (cat of categories; track cat) {
+<option [value]="cat">{{ cat }}</option>
+}
           </select>
           <select id="bd-status-filter" name="statusFilter" [(ngModel)]="statusFilter" (change)="applyFilter()" class="filter-select">
             <option value="all">All Status</option>
@@ -73,7 +79,9 @@ interface DocumentItem {
             <thead>
               <tr>
                 <th>Document Name</th>
-                <th *ngIf="branches.length > 1">Branch</th>
+                @if (branches.length > 1) {
+<th>Branch</th>
+}
                 <th>Category</th>
                 <th>File Type</th>
                 <th>Uploaded Date</th>
@@ -82,14 +90,17 @@ interface DocumentItem {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let doc of filteredDocs; trackBy: trackById" class="data-row">
+              @for (doc of filteredDocs; track trackById($index, doc)) {
+<tr class="data-row">
                 <td class="font-medium text-slate-800 flex items-center gap-2">
                   <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                   </svg>
                   {{ doc.name }}
                 </td>
-                <td *ngIf="branches.length > 1" class="text-slate-600">{{ doc.branchName }}</td>
+                @if (branches.length > 1) {
+<td class="text-slate-600">{{ doc.branchName }}</td>
+}
                 <td class="text-slate-600">{{ doc.category }}</td>
                 <td class="text-slate-500 text-xs uppercase font-mono">{{ doc.fileType }}</td>
                 <td class="text-slate-500 text-xs">{{ doc.uploadedDate }}</td>
@@ -103,9 +114,12 @@ interface DocumentItem {
                   </span>
                 </td>
               </tr>
-              <tr *ngIf="filteredDocs.length === 0">
+}
+              @if (filteredDocs.length === 0) {
+<tr>
                 <td [attr.colspan]="branches.length > 1 ? 7 : 6" class="text-center text-slate-400 py-12">No documents found</td>
               </tr>
+}
             </tbody>
           </table>
         </div>

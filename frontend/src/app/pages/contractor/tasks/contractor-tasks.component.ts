@@ -85,7 +85,7 @@ interface ChecklistItem {
   branchId: string | null;
   isRequired: boolean;
   uploaded: boolean;
-  uploadedDocs: { id: string; fileName: string; status: string; uploadedAt: string; branchId: string | null }[];
+  uploadedDocs: { id: string; fileName: string; status: string; uploadedAt: string; branchId: string | null; reviewNotes?: string | null }[];
 }
 
 interface MonthlyChecklist {

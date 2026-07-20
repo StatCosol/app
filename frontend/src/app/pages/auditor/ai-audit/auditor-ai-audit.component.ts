@@ -44,7 +44,8 @@ import {
       </ui-page-header>
 
       <!-- Generate Observation Form -->
-      <div *ngIf="showGenerate" class="bg-amber-50 border border-amber-200 rounded-xl p-6 mb-6 shadow-sm">
+      @if (showGenerate) {
+<div class="bg-amber-50 border border-amber-200 rounded-xl p-6 mb-6 shadow-sm">
         <h3 class="text-lg font-semibold text-amber-900 mb-4">Generate AI Observation</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
@@ -52,7 +53,9 @@ import {
             <select [(ngModel)]="genForm.clientId"
                     class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-amber-500 focus:border-amber-500 text-sm">
               <option value="">Select client...</option>
-              <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
+              @for (c of clients; track c) {
+<option [value]="c.id">{{ c.name }}</option>
+}
             </select>
           </div>
           <div>
@@ -93,19 +96,26 @@ import {
           </ui-button>
         </div>
       </div>
+}
 
-      <ui-loading-spinner *ngIf="loading" size="lg" class="py-16 block"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner size="lg" class="py-16 block"></ui-loading-spinner>
+}
 
       <!-- Observations List -->
-      <div *ngIf="!loading" class="space-y-4">
-        <div *ngIf="observations.length === 0">
+      @if (!loading) {
+<div class="space-y-4">
+        @if (observations.length === 0) {
+<div>
           <ui-empty-state
             title="No Observations Yet"
             message="Use the Generate button to create AI-powered audit observations from your findings.">
           </ui-empty-state>
         </div>
+}
 
-        <div *ngFor="let obs of observations; trackBy: trackObs"
+        @for (obs of observations; track trackObs($index, obs)) {
+<div
              class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div class="p-6">
             <div class="flex items-start justify-between mb-3">
@@ -122,7 +132,9 @@ import {
                 </div>
                 <p class="text-sm text-gray-500">
                   {{ obs.findingType }} · {{ obs.createdAt | date:'mediumDate' }}
-                  <span *ngIf="obs.applicableState"> · {{ obs.applicableState }}</span>
+                  @if (obs.applicableState) {
+<span> · {{ obs.applicableState }}</span>
+}
                 </p>
               </div>
               <div class="flex gap-2 shrink-0">
@@ -137,43 +149,58 @@ import {
             </div>
 
             <!-- AI Generated Observation -->
-            <div *ngIf="obs.observationText" class="bg-amber-50 rounded-lg p-3 mb-3">
+            @if (obs.observationText) {
+<div class="bg-amber-50 rounded-lg p-3 mb-3">
               <p class="text-xs font-semibold text-amber-600 mb-1">AI OBSERVATION</p>
               <p class="text-sm text-gray-800 whitespace-pre-line">{{ obs.observationText }}</p>
             </div>
+}
 
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-              <div *ngIf="obs.sectionReference">
+              @if (obs.sectionReference) {
+<div>
                 <p class="text-xs text-gray-500 font-medium">Legal Reference</p>
                 <p class="text-gray-800 font-medium">{{ obs.sectionReference }}</p>
               </div>
-              <div *ngIf="obs.consequence">
+}
+              @if (obs.consequence) {
+<div>
                 <p class="text-xs text-gray-500 font-medium">Consequence</p>
                 <p class="text-gray-800">{{ obs.consequence }}</p>
               </div>
-              <div *ngIf="obs.fineEstimationMin !== null && obs.fineEstimationMin !== undefined">
+}
+              @if (obs.fineEstimationMin !== null && obs.fineEstimationMin !== undefined) {
+<div>
                 <p class="text-xs text-gray-500 font-medium">Fine Estimate</p>
                 <p class="text-red-600 font-medium">₹{{ obs.fineEstimationMin | number:'1.0-0' }} – ₹{{ obs.fineEstimationMax | number:'1.0-0' }}</p>
               </div>
-              <div *ngIf="obs.correctiveAction">
+}
+              @if (obs.correctiveAction) {
+<div>
                 <p class="text-xs text-gray-500 font-medium">Corrective Action</p>
                 <p class="text-gray-800">{{ obs.correctiveAction }}</p>
               </div>
+}
             </div>
 
-            <div *ngIf="obs.confidenceScore" class="mt-3 flex items-center gap-2">
+            @if (obs.confidenceScore) {
+<div class="mt-3 flex items-center gap-2">
               <span class="text-xs text-gray-500">AI Confidence:</span>
               <div class="w-24 h-2 bg-gray-200 rounded-full">
                 <div class="h-2 rounded-full bg-amber-500" [style.width.%]="obs.confidenceScore * 100"></div>
               </div>
               <span class="text-xs text-gray-600">{{ (obs.confidenceScore * 100) | number:'1.0-0' }}%</span>
             </div>
+}
           </div>
         </div>
+}
       </div>
+}
 
       <!-- Detail Modal -->
-      <ui-modal *ngIf="selectedObs" [isOpen]="!!selectedObs" size="lg" (closed)="selectedObs = null">
+      @if (selectedObs) {
+<ui-modal [isOpen]="!!selectedObs" size="lg" (closed)="selectedObs = null">
         <div header>
           <h2 class="text-lg font-semibold">{{ selectedObs.observationTitle || 'Observation Details' }}</h2>
         </div>
@@ -187,29 +214,40 @@ import {
               <div><span class="text-gray-500">Timeline:</span> <span>{{ selectedObs.timelineDays || 'N/A' }} days</span></div>
               <div><span class="text-gray-500">Model:</span> <span>{{ selectedObs.aiModel || 'Rule-based' }}</span></div>
             </div>
-            <div *ngIf="selectedObs.findingDescription">
+            @if (selectedObs.findingDescription) {
+<div>
               <h4 class="font-semibold text-sm mb-1">Finding Description</h4>
               <p class="text-sm text-gray-700 bg-gray-50 rounded p-3">{{ selectedObs.findingDescription }}</p>
             </div>
-            <div *ngIf="selectedObs.observationText">
+}
+            @if (selectedObs.observationText) {
+<div>
               <h4 class="font-semibold text-sm mb-1">AI Observation</h4>
               <p class="text-sm text-gray-700 bg-amber-50 rounded p-3 whitespace-pre-line">{{ selectedObs.observationText }}</p>
             </div>
-            <div *ngIf="selectedObs.correctiveAction">
+}
+            @if (selectedObs.correctiveAction) {
+<div>
               <h4 class="font-semibold text-sm mb-1">Corrective Action</h4>
               <p class="text-sm text-gray-700 bg-green-50 rounded p-3">{{ selectedObs.correctiveAction }}</p>
             </div>
-            <div *ngIf="selectedObs.stateSpecificRules">
+}
+            @if (selectedObs.stateSpecificRules) {
+<div>
               <h4 class="font-semibold text-sm mb-1">State-Specific Rules</h4>
               <p class="text-sm text-gray-700 bg-yellow-50 rounded p-3">{{ selectedObs.stateSpecificRules }}</p>
             </div>
-            <div *ngIf="selectedObs.auditorNotes">
+}
+            @if (selectedObs.auditorNotes) {
+<div>
               <h4 class="font-semibold text-sm mb-1">Review Notes</h4>
               <p class="text-sm text-gray-700 bg-blue-50 rounded p-3">{{ selectedObs.auditorNotes }}</p>
             </div>
+}
           </div>
         </div>
       </ui-modal>
+}
     </div>
   `,
 })

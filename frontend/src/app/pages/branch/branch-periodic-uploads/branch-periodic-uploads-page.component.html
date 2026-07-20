@@ -4,31 +4,47 @@
     subtitle="Quarterly, half-yearly, and yearly statutory filing uploads with reviewer notes and resubmission flow">
   </ui-page-header>
 
-  <div *ngIf="submissionNotice" class="submission-notice">
+  @if (submissionNotice) {
+<div class="submission-notice">
     {{ submissionNotice }}
   </div>
+}
 
   <div class="filter-bar">
-    <div class="frequency-tabs" *ngIf="showFrequencyTabs">
-      <button type="button"
-        *ngFor="let f of frequencies"
+    @if (showFrequencyTabs) {
+<div class="frequency-tabs">
+      @for (f of frequencies; track f) {
+<button type="button"
+       
         class="freq-tab"
         [class.active]="selectedFrequency === f.value"
         (click)="setFrequency(f.value)">
         {{ f.label }}
       </button>
+}
     </div>
+}
 
-    <select id="bpup-selected-quarter" name="selectedQuarter" *ngIf="selectedFrequency === 'QUARTERLY'" class="filter-select" [(ngModel)]="selectedQuarter" (change)="load()">
-      <option *ngFor="let q of quarters" [ngValue]="q.value">{{ q.label }}</option>
+    @if (selectedFrequency === 'QUARTERLY') {
+<select id="bpup-selected-quarter" name="selectedQuarter" class="filter-select" [(ngModel)]="selectedQuarter" (change)="load()">
+      @for (q of quarters; track q) {
+<option [ngValue]="q.value">{{ q.label }}</option>
+}
     </select>
+}
 
-    <select id="bpup-selected-half" name="selectedHalf" *ngIf="selectedFrequency === 'HALF_YEARLY'" class="filter-select" [(ngModel)]="selectedHalf" (change)="load()">
-      <option *ngFor="let h of halves" [ngValue]="h.value">{{ h.label }}</option>
+    @if (selectedFrequency === 'HALF_YEARLY') {
+<select id="bpup-selected-half" name="selectedHalf" class="filter-select" [(ngModel)]="selectedHalf" (change)="load()">
+      @for (h of halves; track h) {
+<option [ngValue]="h.value">{{ h.label }}</option>
+}
     </select>
+}
 
     <select id="bpup-selected-year" name="selectedYear" class="filter-select" [(ngModel)]="selectedYear" (change)="load()">
-      <option *ngFor="let y of years" [ngValue]="y">{{ y }}</option>
+      @for (y of years; track y) {
+<option [ngValue]="y">{{ y }}</option>
+}
     </select>
 
     <select id="bpup-selected-status" name="selectedStatus" class="filter-select" [(ngModel)]="selectedStatus" (change)="onFiltersChanged()">
@@ -43,12 +59,16 @@
 
     <select id="bpup-selected-law-area" name="selectedLawArea" class="filter-select" [(ngModel)]="selectedLawArea" (change)="onFiltersChanged()">
       <option value="ALL">All law areas</option>
-      <option *ngFor="let law of lawAreas" [value]="law">{{ law }}</option>
+      @for (law of lawAreas; track law) {
+<option [value]="law">{{ law }}</option>
+}
     </select>
 
     <select id="bpup-selected-category" name="selectedCategory" class="filter-select" [(ngModel)]="selectedCategory" (change)="onFiltersChanged()">
       <option value="ALL">All categories</option>
-      <option *ngFor="let category of categories" [value]="category">{{ category }}</option>
+      @for (category of categories; track category) {
+<option [value]="category">{{ category }}</option>
+}
     </select>
 
     <input autocomplete="off" id="bpup-search-term" name="searchTerm"
@@ -90,22 +110,30 @@
     </div>
   </div>
 
-  <div *ngIf="loading" class="loading-block">
-    <div *ngFor="let s of [1,2,3,4,5,6]" class="skeleton skeleton--row"></div>
+  @if (loading) {
+<div class="loading-block">
+    @for (s of [1,2,3,4,5,6]; track s) {
+<div class="skeleton skeleton--row"></div>
+}
   </div>
+}
 
-  <div *ngIf="!loading && !filteredChecklist.length" class="empty-state">
+  @if (!loading && !filteredChecklist.length) {
+<div class="empty-state">
     No returns found for {{ selectedFrequency | lowercase }} filings in {{ selectedYear }}.
   </div>
+}
 
-  <div *ngIf="!loading && filteredChecklist.length" class="workbench-grid">
+  @if (!loading && filteredChecklist.length) {
+<div class="workbench-grid">
     <section class="table-panel">
       <div class="panel-head">
         <h3>Upload Checklist</h3>
         <span>{{ filteredChecklist.length }} item(s)</span>
       </div>
       <div class="list-wrap">
-        <button *ngFor="let item of filteredChecklist; trackBy: trackByReturnCode"
+        @for (item of filteredChecklist; track trackByReturnCode($index, item)) {
+<button
           type="button" class="list-row"
           [class.list-row--active]="selectedItem?.returnCode === item.returnCode"
           [class.list-row--returned]="isReturned(item)"
@@ -120,39 +148,54 @@
             <span class="row-code">{{ item.returnCode }}</span>
             <span class="row-sep">&middot;</span>
             <span>{{ item.lawArea }}</span>
-            <ng-container *ngIf="item.category">
+            @if (item.category) {
+
               <span class="row-sep">|</span>
               <span>{{ item.category }}</span>
-            </ng-container>
+            
+}
           </div>
 
           <div class="row-footer">
             <span class="row-due">{{ dueInLabel(item) }}</span>
-            <span *ngIf="hasPendingQuery(item)" class="pending-query">Pending query</span>
-            <span class="signal-tag" [ngClass]="signalClass(item)" *ngIf="signalLabel(item)">{{ signalLabel(item) }}</span>
+            @if (hasPendingQuery(item)) {
+<span class="pending-query">Pending query</span>
+}
+            @if (signalLabel(item)) {
+<span class="signal-tag" [ngClass]="signalClass(item)">{{ signalLabel(item) }}</span>
+}
           </div>
 
-          <div class="row-actions" *ngIf="canUpload(item) || item.document?.uploadedFileName">
-            <button type="button"
-              *ngIf="canUpload(item)"
+          @if (canUpload(item) || item.document?.uploadedFileName) {
+<div class="row-actions">
+            @if (canUpload(item)) {
+<button type="button"
+             
               class="btn-outline"
               (click)="openUploadModal(item); $event.stopPropagation()">
               {{ statusOf(item) === 'REUPLOAD_REQUIRED' ? 'Resubmit' : 'Upload' }}
             </button>
-            <button type="button"
-              *ngIf="item.document?.uploadedFileName"
+}
+            @if (item.document?.uploadedFileName) {
+<button type="button"
+             
               class="btn-outline"
               (click)="previewFile(item); $event.stopPropagation()">
               Preview
             </button>
-            <button type="button"
-              *ngIf="item.document?.uploadedFileName"
+}
+            @if (item.document?.uploadedFileName) {
+<button type="button"
+             
               class="btn-outline"
               (click)="downloadFile(item); $event.stopPropagation()">
               Download
             </button>
+}
           </div>
+}
         </button>
+}
       </div>
     </section>
 
@@ -162,7 +205,8 @@
         <span>{{ selectedItem?.returnCode || 'No selection' }}</span>
       </div>
 
-      <ng-container *ngIf="selectedItem as item; else noSelection">
+      @if (selectedItem; as item) {
+
         <div class="detail-body">
           <div class="detail-title">{{ item.returnName }}</div>
           <div class="detail-grid">
@@ -200,12 +244,16 @@
             </div>
           </div>
 
-          <div class="note-card" *ngIf="item.document?.remarks">
+          @if (item.document?.remarks) {
+<div class="note-card">
             <strong>Reviewer note:</strong> {{ item.document?.remarks }}
           </div>
-          <div class="note-card note-card--uploader" *ngIf="item.document?.uploaderRemarks">
+}
+          @if (item.document?.uploaderRemarks) {
+<div class="note-card note-card--uploader">
             <strong>Uploader note:</strong> {{ item.document?.uploaderRemarks }}
           </div>
+}
 
           <div class="timeline">
             <div class="timeline-title">Notes History</div>
@@ -216,30 +264,41 @@
 
           <div class="review-notes">
             <div class="timeline-title">Reviewer Notes History</div>
-            <ng-container *ngIf="reviewerNotes(item).length; else noReviewerNotes">
-              <div *ngFor="let row of reviewerNotes(item)" class="review-note-row">
+            @if (reviewerNotes(item).length) {
+
+              @for (row of reviewerNotes(item); track row) {
+<div class="review-note-row">
                 <div class="review-note-head">
                   <span>{{ row.title }}</span>
                   <span>{{ row.createdAt | date:'dd/MM/yyyy, HH:mm' }}</span>
                 </div>
                 <div class="review-note-text">{{ row.comment }}</div>
               </div>
-            </ng-container>
-            <ng-template #noReviewerNotes>
+}
+            
+} @else {
+
               <div class="timeline-empty">No explicit reviewer notes yet.</div>
-            </ng-template>
+            
+}
+            
           </div>
         </div>
-      </ng-container>
+      
+} @else {
 
-      <ng-template #noSelection>
         <div class="no-selection">Select an item to view filing details and reviewer notes.</div>
-      </ng-template>
+      
+}
+
+      
     </aside>
   </div>
+}
 
-  <ui-modal
-    *ngIf="showUploadModal"
+  @if (showUploadModal) {
+<ui-modal
+   
     [isOpen]="showUploadModal"
     [title]="'Upload: ' + (uploadTarget?.returnName || '')"
     size="md"
@@ -250,8 +309,12 @@
         <strong>Return Code:</strong> {{ uploadTarget?.returnCode }}<br>
         <strong>Frequency:</strong> {{ selectedFrequency }}<br>
         <strong>Period:</strong>
-        <span *ngIf="selectedFrequency === 'QUARTERLY'">Q{{ selectedQuarter }} </span>
-        <span *ngIf="selectedFrequency === 'HALF_YEARLY'">H{{ selectedHalf }} </span>
+        @if (selectedFrequency === 'QUARTERLY') {
+<span>Q{{ selectedQuarter }} </span>
+}
+        @if (selectedFrequency === 'HALF_YEARLY') {
+<span>H{{ selectedHalf }} </span>
+}
         {{ selectedYear }}<br>
         <strong>Submission State:</strong> Submitted to CRM
       </div>
@@ -268,21 +331,25 @@
           accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls"
           (change)="onFileSelected($event)">
 
-        <div *ngIf="!selectedFile">
+        @if (!selectedFile) {
+<div>
           <svg class="mx-auto w-10 h-10 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
           </svg>
           <p class="text-sm text-gray-500">Drag and drop file here, or <span class="text-blue-600 font-medium">browse</span></p>
           <p class="text-xs text-gray-400 mt-1">PDF, PNG, JPEG, XLS/XLSX (max 10 MB)</p>
         </div>
+}
 
-        <div *ngIf="selectedFile" class="flex items-center justify-center gap-2">
+        @if (selectedFile) {
+<div class="flex items-center justify-center gap-2">
           <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
           <span class="text-sm font-medium text-gray-700">{{ selectedFile.name }}</span>
           <span class="text-xs text-gray-400">({{ (selectedFile.size / 1024).toFixed(0) }} KB)</span>
         </div>
+}
       </div>
 
       <div>
@@ -320,6 +387,7 @@
 
     <div slot="footer"></div>
   </ui-modal>
+}
 
   <ui-file-preview-modal
     [open]="showPreviewModal"

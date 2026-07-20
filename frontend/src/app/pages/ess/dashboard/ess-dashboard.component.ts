@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef , ChangeDetectionStrategy} from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterModule } from '@angular/router';
 import { finalize, takeUntil, catchError } from 'rxjs/operators';
 import { forkJoin, Subject, of } from 'rxjs';
@@ -25,7 +25,7 @@ interface TimelineEntry {
   selector: 'app-ess-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterModule],
+  imports: [RouterModule],
   template: `
     <div class="dash">
       <!-- ===== GREETING ===== -->
@@ -37,22 +37,29 @@ interface TimelineEntry {
       </div>
 
       <!-- ===== SKELETON ===== -->
-      <div *ngIf="loading" class="kpi-row">
-        <div class="kpi skeleton" *ngFor="let _ of [1,2,3,4]">
+      @if (loading) {
+<div class="kpi-row">
+        @for (_ of [1,2,3,4]; track _) {
+<div class="kpi skeleton">
           <div class="sk-pill"></div>
           <div class="sk-val"></div>
           <div class="sk-sub"></div>
         </div>
+}
       </div>
+}
 
       <!-- ===== ERROR STATE ===== -->
-      <div *ngIf="errorMsg" class="err-banner">
+      @if (errorMsg) {
+<div class="err-banner">
         <p>{{ errorMsg }}</p>
         <button (click)="reload()">Retry</button>
       </div>
+}
 
       <!-- ===== KPI CARDS ===== -->
-      <div *ngIf="!loading" class="kpi-row">
+      @if (!loading) {
+<div class="kpi-row">
         <!-- Latest Payslip -->
         <a routerLink="/ess/payslips" class="kpi kpi-indigo">
           <div class="kpi-head">
@@ -93,9 +100,11 @@ interface TimelineEntry {
           <div class="kpi-sub">{{ leaveSummary }}</div>
         </a>
       </div>
+}
 
       <!-- ===== QUICK ACTIONS ===== -->
-      <div *ngIf="!loading" class="section">
+      @if (!loading) {
+<div class="section">
         <h2 class="sec-title">Quick Actions</h2>
         <div class="qa-row">
           <a routerLink="/ess/payslips" class="qa">
@@ -116,24 +125,32 @@ interface TimelineEntry {
           </a>
         </div>
       </div>
+}
 
       <!-- ===== RECENT ACTIVITY ===== -->
-      <div *ngIf="!loading && timeline.length" class="section">
+      @if (!loading && timeline.length) {
+<div class="section">
         <h2 class="sec-title">Recent Activity</h2>
         <div class="timeline-card">
-          <div class="tl-entry" *ngFor="let e of timeline; let last = last" [class.tl-last]="last">
+          @for (e of timeline; track e; let last = $last) {
+<div class="tl-entry" [class.tl-last]="last">
             <div class="tl-dot" [style.background]="e.color"></div>
             <div class="tl-body">
               <span class="tl-label" [innerHTML]="e.icon + ' ' + e.label"></span>
               <span class="tl-meta">{{ e.meta }}</span>
             </div>
           </div>
-          <div *ngIf="!timeline.length" class="tl-empty">No recent activity to show.</div>
+}
+          @if (!timeline.length) {
+<div class="tl-empty">No recent activity to show.</div>
+}
         </div>
       </div>
+}
 
       <!-- ===== LEAVE TABLE ===== -->
-      <div *ngIf="!loading && leaveBalances.length" class="section">
+      @if (!loading && leaveBalances.length) {
+<div class="section">
         <h2 class="sec-title">Leave Balances ({{ currentYear }})</h2>
         <div class="table-card">
           <table>
@@ -147,17 +164,20 @@ interface TimelineEntry {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let b of leaveBalances">
+              @for (b of leaveBalances; track b) {
+<tr>
                 <td class="txt-l fw-500">{{ b.leaveType }}</td>
                 <td>{{ b.opening }}</td>
                 <td>{{ b.accrued }}</td>
                 <td>{{ b.used }}</td>
                 <td [class.clr-green]="+(b.available) > 0" [class.clr-red]="+(b.available) <= 0" class="fw-600">{{ b.available }}</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
       </div>
+}
     </div>
   `,
   styles: [`

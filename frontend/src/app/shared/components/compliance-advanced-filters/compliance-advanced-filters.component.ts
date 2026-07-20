@@ -5,7 +5,7 @@ import {
   Input,
   Output,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ComplianceTaskFilters } from '../../../core/models/returns.models';
 
@@ -17,41 +17,53 @@ export interface FilterDropdownOption {
 @Component({
   standalone: true,
   selector: 'app-compliance-advanced-filters',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="adv-filters">
       <!-- Year -->
       <select class="field" [(ngModel)]="filters.periodYear" (ngModelChange)="emit()">
         <option [ngValue]="null">All Years</option>
-        <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
+        @for (y of yearOptions; track y) {
+<option [ngValue]="y">{{ y }}</option>
+}
       </select>
 
       <!-- Month -->
       <select class="field" [(ngModel)]="filters.periodMonth" (ngModelChange)="emit()">
         <option [ngValue]="null">All Months</option>
-        <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
+        @for (m of monthOptions; track m) {
+<option [ngValue]="m.value">{{ m.label }}</option>
+}
       </select>
 
       <!-- Status -->
       <select class="field" [(ngModel)]="filters.status" (ngModelChange)="emit()">
         <option [ngValue]="null">All Statuses</option>
-        <option *ngFor="let s of statusOptions" [value]="s.value">{{ s.label }}</option>
+        @for (s of statusOptions; track s) {
+<option [value]="s.value">{{ s.label }}</option>
+}
       </select>
 
       <!-- Law type -->
-      <select *ngIf="lawTypeOptions.length" class="field" [(ngModel)]="filters.lawType" (ngModelChange)="emit()">
+      @if (lawTypeOptions.length) {
+<select class="field" [(ngModel)]="filters.lawType" (ngModelChange)="emit()">
         <option [ngValue]="null">All Acts</option>
-        <option *ngFor="let l of lawTypeOptions" [value]="l.value">{{ l.label }}</option>
+        @for (l of lawTypeOptions; track l) {
+<option [value]="l.value">{{ l.label }}</option>
+}
       </select>
+}
 
       <!-- Frequency -->
-      <select *ngIf="showFrequency" class="field" [(ngModel)]="filters.frequency" (ngModelChange)="emit()">
+      @if (showFrequency) {
+<select class="field" [(ngModel)]="filters.frequency" (ngModelChange)="emit()">
         <option [ngValue]="null">All Frequencies</option>
         <option value="MONTHLY">Monthly</option>
         <option value="QUARTERLY">Quarterly</option>
         <option value="HALF_YEARLY">Half-Yearly</option>
         <option value="YEARLY">Yearly</option>
       </select>
+}
 
       <!-- Pending only -->
       <label class="pending-only">

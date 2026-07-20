@@ -32,18 +32,26 @@ import {
         <select [(ngModel)]="selectedBranchId" (ngModelChange)="loadReminders()"
                 class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
           <option value="">All Branches</option>
-          <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
+          @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
+}
         </select>
       </div>
 
-      <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
 
-      <div *ngIf="!loading && reminders.length === 0">
+      @if (!loading && reminders.length === 0) {
+<div>
         <ui-empty-state message="No upcoming compliance reminders." icon="bell"></ui-empty-state>
       </div>
+}
 
-      <div *ngIf="!loading && reminders.length > 0" class="space-y-3">
-        <div *ngFor="let r of reminders"
+      @if (!loading && reminders.length > 0) {
+<div class="space-y-3">
+        @for (r of reminders; track r) {
+<div
              class="bg-white rounded-xl shadow-sm border p-4 flex items-center gap-4"
              [class.border-red-200]="r.days_left <= 7"
              [class.border-amber-200]="r.days_left > 7 && r.days_left <= 15"
@@ -54,8 +62,12 @@ import {
                [class.bg-amber-100]="r.days_left > 7 && r.days_left <= 15"
                [class.bg-slate-100]="r.days_left > 15">
             <svg class="w-5 h-5" [class.text-red-600]="r.days_left <= 7" [class.text-amber-600]="r.days_left > 7 && r.days_left <= 15" [class.text-slate-600]="r.days_left > 15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path *ngIf="r.reminder_type === 'RETURN_DUE'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z"/>
-              <path *ngIf="r.reminder_type === 'REGISTRATION_EXPIRY'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              @if (r.reminder_type === 'RETURN_DUE') {
+<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z"/>
+}
+              @if (r.reminder_type === 'REGISTRATION_EXPIRY') {
+<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+}
             </svg>
           </div>
 
@@ -66,9 +78,11 @@ import {
                     [class]="r.reminder_type === 'RETURN_DUE' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'">
                 {{ r.reminder_type === 'RETURN_DUE' ? 'Return' : 'Registration' }}
               </span>
-              <span *ngIf="r.status" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+              @if (r.status) {
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                 {{ r.status }}
               </span>
+}
             </div>
             <p class="text-sm font-semibold text-slate-800 truncate">{{ r.title }}</p>
             <p class="text-xs text-slate-500">{{ r.branch_name }} · Due {{ r.due_date | date:'mediumDate' }}</p>
@@ -84,7 +98,9 @@ import {
             </span>
           </div>
         </div>
+}
       </div>
+}
     </div>
   `,
 })

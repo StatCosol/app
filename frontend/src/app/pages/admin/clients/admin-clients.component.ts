@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, OnInit, OnDestroy, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize, timeout, catchError } from 'rxjs/operators';
@@ -27,11 +27,17 @@ import {
   selector: 'app-admin-clients',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, RouterLink,
-    PageHeaderComponent, StatusBadgeComponent, ActionButtonComponent,
-    DataTableComponent, TableCellDirective, FormInputComponent,
-    FormSelectComponent, EmptyStateComponent,
-  ],
+    FormsModule,
+    RouterLink,
+    PageHeaderComponent,
+    StatusBadgeComponent,
+    ActionButtonComponent,
+    DataTableComponent,
+    TableCellDirective,
+    FormInputComponent,
+    FormSelectComponent,
+    EmptyStateComponent
+],
   templateUrl: './admin-clients.component.html',
   styleUrls: ['./admin-clients.component.scss']
 })

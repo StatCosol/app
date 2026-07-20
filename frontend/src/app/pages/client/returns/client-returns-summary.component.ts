@@ -24,14 +24,20 @@ import {
     <ui-page-header title="Returns Summary" subtitle="Filing status overview by law type"></ui-page-header>
 
     <div class="p-6">
-      <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
 
-      <div *ngIf="!loading && summary.length === 0">
+      @if (!loading && summary.length === 0) {
+<div>
         <ui-empty-state message="No return filings data available." icon="document"></ui-empty-state>
       </div>
+}
 
-      <div *ngIf="!loading && summary.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div *ngFor="let s of summary"
+      @if (!loading && summary.length > 0) {
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        @for (s of summary; track s) {
+<div
              class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <h3 class="text-base font-semibold text-slate-800 mb-3">{{ s.law_type || 'Other' }}</h3>
           <div class="grid grid-cols-3 gap-2 text-center">
@@ -72,7 +78,9 @@ import {
             <p class="text-xs text-slate-500 mt-1">{{ s.total > 0 ? ((s.filed / s.total * 100) | number:'1.0-0') : 0 }}% filed</p>
           </div>
         </div>
+}
       </div>
+}
     </div>
   `,
 })

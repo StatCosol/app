@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subject, forkJoin } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
@@ -19,11 +19,16 @@ type EscType = 'OVERDUE_COMPLIANCE' | 'REPEAT_DEFAULTS' | 'CRITICAL_AUDITS' | 'S
   selector: 'app-cco-escalations',
   standalone: true,
   imports: [
-    CommonModule, FormsModule,
-    PageHeaderComponent, StatCardComponent, StatusBadgeComponent,
-    LoadingSpinnerComponent, EmptyStateComponent, ActionButtonComponent,
-    DataTableComponent, TableCellDirective,
-  ],
+    FormsModule,
+    PageHeaderComponent,
+    StatCardComponent,
+    StatusBadgeComponent,
+    LoadingSpinnerComponent,
+    EmptyStateComponent,
+    ActionButtonComponent,
+    DataTableComponent,
+    TableCellDirective
+],
   templateUrl: './cco-escalations.component.html',
 })
 export class CcoEscalationsComponent implements OnInit, OnDestroy {

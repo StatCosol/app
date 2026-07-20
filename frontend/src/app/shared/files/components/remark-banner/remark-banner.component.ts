@@ -1,11 +1,11 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FileDecisionStatus } from '../../models/file.model';
 
 @Component({
   selector: 'app-remark-banner',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './remark-banner.component.html',
 })
 export class RemarkBannerComponent {

@@ -13,7 +13,8 @@
     </div>
   </div>
 
-  <div class="bg-white border border-gray-200 rounded-2xl shadow-sm" *ngIf="branchView">
+  @if (branchView) {
+<div class="bg-white border border-gray-200 rounded-2xl shadow-sm">
     <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3 justify-between">
       <div>
         <p class="text-sm font-semibold text-gray-900">Branch Overview</p>
@@ -38,31 +39,40 @@
       <div class="border border-gray-100 rounded-xl">
         <div class="px-4 py-2 border-b border-gray-100 text-sm font-semibold text-gray-900">Top 10 (Branch)</div>
         <div class="divide-y divide-gray-100">
-          <div *ngFor="let c of branchView?.top10HighestInBranch" class="px-4 py-3 flex items-center justify-between">
+          @for (c of branchView?.top10HighestInBranch; track c) {
+<div class="px-4 py-3 flex items-center justify-between">
             <div>
               <p class="text-sm font-medium text-gray-900">{{ c.name }}</p>
               <p class="text-xs text-gray-500">Score {{ c.score }} · Upload {{ uploadPercentDisplay(c.uploadPercent) }}</p>
             </div>
             <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700">{{ c.score }}</span>
           </div>
-          <div *ngIf="!branchView?.top10HighestInBranch?.length" class="px-4 py-6 text-sm text-gray-500 text-center">No data</div>
+}
+          @if (!branchView?.top10HighestInBranch?.length) {
+<div class="px-4 py-6 text-sm text-gray-500 text-center">No data</div>
+}
         </div>
       </div>
       <div class="border border-gray-100 rounded-xl">
         <div class="px-4 py-2 border-b border-gray-100 text-sm font-semibold text-gray-900">Bottom 10 (Branch)</div>
         <div class="divide-y divide-gray-100">
-          <div *ngFor="let c of branchView?.top10LowestInBranch" class="px-4 py-3 flex items-center justify-between">
+          @for (c of branchView?.top10LowestInBranch; track c) {
+<div class="px-4 py-3 flex items-center justify-between">
             <div>
               <p class="text-sm font-medium text-gray-900">{{ c.name }}</p>
               <p class="text-xs text-gray-500">Score {{ c.score }} · Upload {{ uploadPercentDisplay(c.uploadPercent) }}</p>
             </div>
             <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">{{ c.score }}</span>
           </div>
-          <div *ngIf="!branchView?.top10LowestInBranch?.length" class="px-4 py-6 text-sm text-gray-500 text-center">No data</div>
+}
+          @if (!branchView?.top10LowestInBranch?.length) {
+<div class="px-4 py-6 text-sm text-gray-500 text-center">No data</div>
+}
         </div>
       </div>
     </div>
   </div>
+}
 
   <div class="bg-white border border-gray-200 rounded-2xl shadow-sm">
     <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
@@ -71,10 +81,14 @@
         <p class="text-xs text-gray-500">Month: {{ month }}</p>
       </div>
     </div>
-    <ui-loading-spinner *ngIf="loadingContractors"></ui-loading-spinner>
-    <div *ngIf="!loadingContractors" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-      <div
-        *ngFor="let c of contractors"
+    @if (loadingContractors) {
+<ui-loading-spinner></ui-loading-spinner>
+}
+    @if (!loadingContractors) {
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+      @for (c of contractors; track c) {
+<div
+       
         (click)="selectContractor(c)"
         class="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md hover:border-statco-blue/20 transition-all duration-200 cursor-pointer group"
       >
@@ -92,22 +106,35 @@
         <div class="flex items-center justify-between pt-3 border-t border-gray-100">
           <div class="flex flex-wrap items-center gap-2 text-xs text-gray-700">
             <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 text-blue-700">{{ docCount(c) }} docs</span>
-            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-50 text-green-700" *ngIf="approvedCount(c) > 0">✔ {{ approvedCount(c) }} approved</span>
-            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700" *ngIf="pendingCount(c) > 0">⏳ {{ pendingCount(c) }} pending</span>
-            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-rose-50 text-rose-700" *ngIf="rejectedCount(c) > 0">✖ {{ rejectedCount(c) }} rejected</span>
+            @if (approvedCount(c) > 0) {
+<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-50 text-green-700">✔ {{ approvedCount(c) }} approved</span>
+}
+            @if (pendingCount(c) > 0) {
+<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700">⏳ {{ pendingCount(c) }} pending</span>
+}
+            @if (rejectedCount(c) > 0) {
+<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-rose-50 text-rose-700">✖ {{ rejectedCount(c) }} rejected</span>
+}
             <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 text-slate-700">NC: {{ ncPoints(c) }}</span>
-            <span *ngIf="hasContractorAuditModule" class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 text-slate-700">Audit risk: {{ auditRiskPoints(c) }}</span>
+            @if (hasContractorAuditModule) {
+<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 text-slate-700">Audit risk: {{ auditRiskPoints(c) }}</span>
+}
           </div>
           <svg class="w-4 h-4 text-gray-300 group-hover:text-statco-blue group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
           </svg>
         </div>
       </div>
+}
     </div>
-    <div *ngIf="!loadingContractors && contractors.length === 0" class="text-center py-10 text-sm text-gray-500">No contractors for this branch.</div>
+}
+    @if (!loadingContractors && contractors.length === 0) {
+<div class="text-center py-10 text-sm text-gray-500">No contractors for this branch.</div>
+}
   </div>
 
-  <div *ngIf="hasContractorAuditModule" class="bg-white border border-gray-200 rounded-2xl shadow-sm">
+  @if (hasContractorAuditModule) {
+<div class="bg-white border border-gray-200 rounded-2xl shadow-sm">
     <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3 justify-between">
       <div>
         <p class="text-sm font-semibold text-gray-900">Contractor Trend</p>
@@ -118,7 +145,9 @@
           <span class="font-medium text-gray-700">Contractor</span>
           <select id="ccb-contractor-id" name="contractorId" class="form-select" [(ngModel)]="contractorId" (change)="loadTrend()" [disabled]="loadingContractors">
             <option value="" disabled [selected]="true">Select</option>
-            <option *ngFor="let c of contractors" [value]="c.id">{{ c.name }}</option>
+            @for (c of contractors; track c) {
+<option [value]="c.id">{{ c.name }}</option>
+}
           </select>
         </label>
         <label class="text-sm text-gray-600 flex items-center gap-2">
@@ -131,7 +160,8 @@
         </label>
       </div>
     </div>
-    <div *ngIf="trend.length" class="overflow-x-auto">
+    @if (trend.length) {
+<div class="overflow-x-auto">
       <table class="min-w-full text-sm">
         <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
           <tr>
@@ -145,7 +175,8 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
-          <tr *ngFor="let row of trend">
+          @for (row of trend; track row) {
+<tr>
             <td class="px-4 py-3 text-gray-900">{{ row.month }}</td>
             <td class="px-4 py-3 text-gray-900 font-semibold">{{ row.score }}</td>
             <td class="px-4 py-3 text-gray-700">{{ uploadPercentDisplay(row.uploadedPercent) }}</td>
@@ -154,9 +185,14 @@
             <td class="px-4 py-3 text-gray-700">{{ row.auditRiskPoints || 0 }}</td>
             <td class="px-4 py-3 text-gray-700">{{ row.ncPoints }}</td>
           </tr>
+}
         </tbody>
       </table>
     </div>
-    <div *ngIf="!trend.length" class="p-6 text-sm text-gray-500">Select a contractor to see the monthly trend.</div>
+}
+    @if (!trend.length) {
+<div class="p-6 text-sm text-gray-500">Select a contractor to see the monthly trend.</div>
+}
   </div>
+}
 </div>

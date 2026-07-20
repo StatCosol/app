@@ -5,7 +5,7 @@ import {
   OnDestroy,
   OnInit,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Subject, combineLatest } from 'rxjs';
@@ -20,7 +20,7 @@ type ObservationAction = 'ACKNOWLEDGE' | 'RESOLVE' | 'VERIFY' | 'REOPEN';
 @Component({
   standalone: true,
   selector: 'app-auditor-observations',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './auditor-observations.component.html',
   styleUrls: ['./auditor-observations.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

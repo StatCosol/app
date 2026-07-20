@@ -15,9 +15,12 @@
     <ui-button variant="secondary" size="sm" (clicked)="load()">Refresh</ui-button>
   </div>
 
-  <ui-loading-spinner *ngIf="loading" text="Loading branch details..."></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner text="Loading branch details..."></ui-loading-spinner>
+}
 
-  <div *ngIf="!loading && detail">
+  @if (!loading && detail) {
+<div>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
       <div class="bg-white border border-gray-200 rounded-xl px-4 py-3">
         <div class="text-xs text-gray-500 uppercase">Client</div>
@@ -97,8 +100,10 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
       <div class="bg-white border border-gray-200 rounded-xl p-4 lg:col-span-2">
         <h3 class="text-sm font-semibold text-gray-800 mb-3">Top Issues Identified</h3>
-        <div *ngIf="detail.topIssues.length; else noIssues" class="divide-y divide-gray-200">
-          <div *ngFor="let issue of detail.topIssues" class="flex items-center justify-between py-3">
+        @if (detail.topIssues.length) {
+<div class="divide-y divide-gray-200">
+          @for (issue of detail.topIssues; track issue) {
+<div class="flex items-center justify-between py-3">
             <div class="flex items-center gap-3">
               <span [class]="severityColor(issue.severity)"
                 class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium">
@@ -108,7 +113,15 @@
             </div>
             <span class="text-sm font-semibold text-gray-600">{{ issue.count }}</span>
           </div>
+}
         </div>
+} @else {
+
+    <div class="text-center text-gray-500 text-sm py-8">
+      No major issues identified for this period.
+    </div>
+  
+}
       </div>
 
       <div class="bg-white border border-gray-200 rounded-xl p-4">
@@ -121,14 +134,13 @@
       </div>
     </div>
   </div>
+}
 
-  <ng-template #noIssues>
-    <div class="text-center text-gray-500 text-sm py-8">
-      No major issues identified for this period.
-    </div>
-  </ng-template>
+  
 
-  <ui-empty-state *ngIf="!loading && !detail"
+  @if (!loading && !detail) {
+<ui-empty-state
     title="Branch not found" message="Could not load details for this branch.">
   </ui-empty-state>
+}
 </div>

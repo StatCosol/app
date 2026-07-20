@@ -11,26 +11,34 @@
       <label>
         <span>Year</span>
         <select id="cp-period-year" name="periodYear" [(ngModel)]="filters.periodYear" (ngModelChange)="onFiltersChanged()">
-          <option *ngFor="let y of yearOptions" [ngValue]="y.value">{{ y.label }}</option>
+          @for (y of yearOptions; track y) {
+<option [ngValue]="y.value">{{ y.label }}</option>
+}
         </select>
       </label>
       <label>
         <span>Month</span>
         <select id="cp-period-month" name="periodMonth" [(ngModel)]="filters.periodMonth" (ngModelChange)="onFiltersChanged()">
-          <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
+          @for (m of monthOptions; track m) {
+<option [ngValue]="m.value">{{ m.label }}</option>
+}
         </select>
       </label>
       <label>
         <span>Status</span>
         <select id="cp-status" name="statusFilter" [(ngModel)]="filters.status" (ngModelChange)="onFiltersChanged()">
-          <option *ngFor="let s of statusOptions" [ngValue]="s.value">{{ s.label }}</option>
+          @for (s of statusOptions; track s) {
+<option [ngValue]="s.value">{{ s.label }}</option>
+}
         </select>
       </label>
       <label>
         <span>Branch</span>
         <select id="cp-branch-id" name="filterBranchId" [(ngModel)]="filters.branchId" (ngModelChange)="onFiltersChanged()">
           <option value="">All Branches</option>
-          <option *ngFor="let b of branchOptions" [ngValue]="b.value">{{ b.label }}</option>
+          @for (b of branchOptions; track b) {
+<option [ngValue]="b.value">{{ b.label }}</option>
+}
         </select>
       </label>
       <label class="wide">
@@ -75,16 +83,20 @@
     </article>
   </div>
 
-  <ui-loading-spinner *ngIf="loading" text="Loading payroll monitoring data..." size="lg"></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner text="Loading payroll monitoring data..." size="lg"></ui-loading-spinner>
+}
 
-  <ng-container *ngIf="!loading">
+  @if (!loading) {
+
     <section class="workspace-grid mb-6">
       <article class="workspace-card">
         <div class="section-head">
           <h3>Branch Payroll Status</h3>
           <span class="muted">Branch comparison view</span>
         </div>
-        <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="branchStatusRows.length; else noBranchRows">
+        @if (branchStatusRows.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
           <table>
             <thead>
               <tr>
@@ -99,7 +111,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of branchStatusRows; trackBy: trackById">
+              @for (row of branchStatusRows; track trackById($index, row)) {
+<tr>
                 <td>{{ row.branchName || 'Branch' }}</td>
                 <td>{{ row.totalInputs }}</td>
                 <td>{{ row.pendingInputs }}</td>
@@ -119,9 +132,15 @@
                   </ui-button>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+} @else {
+
+    <ui-empty-state title="No branch data" description="No branch payroll status found for current filters."></ui-empty-state>
+  
+}
       </article>
 
       <article class="workspace-card">
@@ -129,7 +148,8 @@
           <h3>Processed Month History</h3>
           <span class="muted">Last 12 cycles</span>
         </div>
-        <div class="table-wrap max-h-[600px] overflow-y-auto compact" *ngIf="cycleHistoryRows.length; else noCycleRows">
+        @if (cycleHistoryRows.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto compact">
             <table class="history-table min-w-full">
             <thead>
               <tr>
@@ -142,7 +162,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of cycleHistoryRows; trackBy: trackById">
+              @for (row of cycleHistoryRows; track trackById($index, row)) {
+<tr>
                 <td class="period">{{ row.periodLabel }}</td>
                   <td class="metric">{{ row.total }}</td>
                   <td class="metric">{{ row.pending }}</td>
@@ -150,9 +171,15 @@
                   <td class="metric">{{ row.exceptions }}</td>
                   <td class="metric">{{ row.completed }}</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+} @else {
+
+    <ui-empty-state title="No cycle history" description="Processed month history will appear once inputs are created."></ui-empty-state>
+  
+}
       </article>
     </section>
 
@@ -162,7 +189,8 @@
           <h3>Pending Inputs</h3>
           <span class="muted">Requires client action</span>
         </div>
-        <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="pendingInputs.length; else noPendingRows">
+        @if (pendingInputs.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
           <table>
             <thead>
               <tr>
@@ -175,7 +203,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of pendingInputs; trackBy: trackById">
+              @for (row of pendingInputs; track trackById($index, row)) {
+<tr>
                 <td>{{ row.title }}</td>
                 <td>{{ toBranchLabel(row.branchId) }}</td>
                 <td>{{ periodLabel(row) }}</td>
@@ -185,9 +214,15 @@
                   <ui-button size="sm" variant="secondary" (clicked)="selectInput(row)">Open</ui-button>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+} @else {
+
+    <ui-empty-state title="No pending inputs" description="No inputs require client action for this selection."></ui-empty-state>
+  
+}
       </article>
 
       <article class="workspace-card">
@@ -195,7 +230,8 @@
           <h3>Approval Queue</h3>
           <span class="muted">Awaiting payroll processing</span>
         </div>
-        <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="approvalQueue.length; else noApprovalRows">
+        @if (approvalQueue.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
           <table>
             <thead>
               <tr>
@@ -208,7 +244,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of approvalQueue; trackBy: trackById">
+              @for (row of approvalQueue; track trackById($index, row)) {
+<tr>
                 <td>{{ row.title }}</td>
                 <td>{{ toBranchLabel(row.branchId) }}</td>
                 <td>{{ periodLabel(row) }}</td>
@@ -218,9 +255,15 @@
                   <ui-button size="sm" variant="secondary" (clicked)="selectInput(row)">Open</ui-button>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
+} @else {
+
+    <ui-empty-state title="Approval queue is clear" description="No submitted inputs are waiting in queue."></ui-empty-state>
+  
+}
       </article>
     </section>
 
@@ -229,7 +272,8 @@
         <h3>Exception List</h3>
         <span class="muted">Needs clarification or rejected</span>
       </div>
-      <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="exceptionList.length; else noExceptions">
+      @if (exceptionList.length) {
+<div class="table-wrap max-h-[600px] overflow-y-auto">
         <table>
           <thead>
             <tr>
@@ -242,7 +286,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let row of exceptionList; trackBy: trackById">
+            @for (row of exceptionList; track trackById($index, row)) {
+<tr>
               <td>{{ row.title }}</td>
               <td>{{ toBranchLabel(row.branchId) }}</td>
               <td>{{ periodLabel(row) }}</td>
@@ -252,9 +297,15 @@
                 <ui-button size="sm" variant="secondary" (clicked)="selectInput(row)">Drilldown</ui-button>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+} @else {
+
+    <ui-empty-state title="No exceptions" description="No needs-clarification or rejected inputs in current selection."></ui-empty-state>
+  
+}
     </section>
 
     <section class="workspace-grid mb-6">
@@ -275,16 +326,20 @@
           <label>
             <span>Month</span>
             <select id="cp-period-month-2" name="newInputMonth" [(ngModel)]="newInput.periodMonth">
-              <option *ngFor="let m of monthOptions" [ngValue]="m.value" [disabled]="m.value === 0">
+              @for (m of monthOptions; track m) {
+<option [ngValue]="m.value" [disabled]="m.value === 0">
                 {{ m.label }}
               </option>
+}
             </select>
           </label>
           <label>
             <span>Branch</span>
             <select id="cp-branch-id-2" name="newInputBranchId" [(ngModel)]="newInput.branchId">
               <option value="">-- No branch --</option>
-              <option *ngFor="let b of branchOptions" [ngValue]="b.value">{{ b.label }}</option>
+              @for (b of branchOptions; track b) {
+<option [ngValue]="b.value">{{ b.label }}</option>
+}
             </select>
           </label>
           <label class="wide">
@@ -300,11 +355,14 @@
           <ui-button variant="primary" (clicked)="createInput()" [disabled]="creatingInput" [loading]="creatingInput">
             Create Input
           </ui-button>
-          <span class="error" *ngIf="inputError">{{ inputError }}</span>
+          @if (inputError) {
+<span class="error">{{ inputError }}</span>
+}
         </div>
       </article>
 
-      <article class="workspace-card" *ngIf="selectedInput; else noSelection">
+      @if (selectedInput) {
+<article class="workspace-card">
         <div class="section-head">
           <h3>Input Detail: {{ selectedInput.title }}</h3>
           <span class="muted">{{ selectedInput ? periodLabel(selectedInput) : '' }}</span>
@@ -367,65 +425,77 @@
           </div>
         </div>
 
-        <ui-loading-spinner *ngIf="detailLoading" text="Loading details..." size="md"></ui-loading-spinner>
+        @if (detailLoading) {
+<ui-loading-spinner text="Loading details..." size="md"></ui-loading-spinner>
+}
 
-        <div *ngIf="!detailLoading" class="detail-grid">
+        @if (!detailLoading) {
+<div class="detail-grid">
           <div>
             <h4>Status Timeline</h4>
-            <div class="timeline" *ngIf="statusHistory.length; else noHistory">
-              <article class="timeline-item" *ngFor="let item of statusHistory; trackBy: trackById">
+            @if (statusHistory.length) {
+<div class="timeline">
+              @for (item of statusHistory; track trackById($index, item)) {
+<article class="timeline-item">
                 <div class="dot"></div>
                 <div class="content">
                   <div class="event">
                     {{ item.fromStatus || 'START' }} -> {{ item.toStatus }}
                   </div>
                   <div class="time">{{ item.changedAt | date:'dd MMM yyyy, hh:mm a' }}</div>
-                  <div class="remarks" *ngIf="item.remarks">{{ item.remarks }}</div>
+                  @if (item.remarks) {
+<div class="remarks">{{ item.remarks }}</div>
+}
                 </div>
               </article>
+}
             </div>
+} @else {
+
+    <ui-empty-state title="No timeline" description="Status history will appear after transitions."></ui-empty-state>
+  
+}
           </div>
           <div>
             <h4>Attachments</h4>
-            <div class="files" *ngIf="inputFiles.length; else noFiles">
-              <article class="file-row" *ngFor="let file of inputFiles; trackBy: trackById">
+            @if (inputFiles.length) {
+<div class="files">
+              @for (file of inputFiles; track trackById($index, file)) {
+<article class="file-row">
                 <div>
                   <div class="name">{{ file.fileName }}</div>
                   <div class="meta">{{ file.createdAt | date:'dd MMM yyyy, hh:mm a' }}</div>
                 </div>
                 <ui-button size="sm" variant="secondary" (clicked)="downloadInputFile(file)">Download</ui-button>
               </article>
+}
             </div>
+} @else {
+
+    <ui-empty-state title="No attachments" description="Upload input files for payroll processing."></ui-empty-state>
+  
+}
           </div>
         </div>
+}
       </article>
-    </section>
-  </ng-container>
+} @else {
 
-  <ng-template #noBranchRows>
-    <ui-empty-state title="No branch data" description="No branch payroll status found for current filters."></ui-empty-state>
-  </ng-template>
-  <ng-template #noCycleRows>
-    <ui-empty-state title="No cycle history" description="Processed month history will appear once inputs are created."></ui-empty-state>
-  </ng-template>
-  <ng-template #noPendingRows>
-    <ui-empty-state title="No pending inputs" description="No inputs require client action for this selection."></ui-empty-state>
-  </ng-template>
-  <ng-template #noApprovalRows>
-    <ui-empty-state title="Approval queue is clear" description="No submitted inputs are waiting in queue."></ui-empty-state>
-  </ng-template>
-  <ng-template #noExceptions>
-    <ui-empty-state title="No exceptions" description="No needs-clarification or rejected inputs in current selection."></ui-empty-state>
-  </ng-template>
-  <ng-template #noSelection>
     <article class="workspace-card">
       <ui-empty-state title="Select an input" description="Open any item from pending, approval, or exception lists to see detail."></ui-empty-state>
     </article>
-  </ng-template>
-  <ng-template #noHistory>
-    <ui-empty-state title="No timeline" description="Status history will appear after transitions."></ui-empty-state>
-  </ng-template>
-  <ng-template #noFiles>
-    <ui-empty-state title="No attachments" description="Upload input files for payroll processing."></ui-empty-state>
-  </ng-template>
+  
+}
+    </section>
+  
+}
+
+  
+  
+  
+  
+  
+  
+  
+  
 </div>

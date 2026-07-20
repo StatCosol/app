@@ -32,16 +32,21 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
         Back to Employees
       </button>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading employee..." size="lg"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading employee..." size="lg"></ui-loading-spinner>
+}
 
       <!-- Error -->
-      <div *ngIf="error && !loading"
+      @if (error && !loading) {
+<div
            class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 flex items-center justify-between">
         <span>{{ error }}</span>
         <button (click)="goBack()" class="text-red-800 font-semibold hover:underline ml-4">Go Back</button>
       </div>
+}
 
-      <ng-container *ngIf="emp && !loading">
+      @if (emp && !loading) {
+
         <!-- Header Card -->
         <div class="header-card">
           <div class="header-top">
@@ -49,13 +54,21 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               <div class="header-name">
                 {{ emp.name }}
                 <ui-status-badge [status]="emp.isActive ? 'ACTIVE' : 'INACTIVE'" class="ml-2"></ui-status-badge>
-                <span *ngIf="emp.approvalStatus === 'PENDING'" class="ml-2 inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Pending Approval</span>
-                <span *ngIf="emp.approvalStatus === 'REJECTED'" class="ml-2 inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejected</span>
+                @if (emp.approvalStatus === 'PENDING') {
+<span class="ml-2 inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Pending Approval</span>
+}
+                @if (emp.approvalStatus === 'REJECTED') {
+<span class="ml-2 inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejected</span>
+}
               </div>
               <div class="header-meta">{{ emp.employeeCode }}</div>
-              <div *ngIf="emp.designation || emp.department" class="header-meta">
-                {{ emp.designation || '' }}<span *ngIf="emp.designation && emp.department"> &middot; </span>{{ emp.department || '' }}
+              @if (emp.designation || emp.department) {
+<div class="header-meta">
+                {{ emp.designation || '' }}@if (emp.designation && emp.department) {
+<span> &middot; </span>
+}{{ emp.department || '' }}
               </div>
+}
             </div>
             <div class="header-actions">
               <ui-button variant="primary" (clicked)="editEmployee()">Edit</ui-button>
@@ -65,17 +78,22 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               <ui-button variant="outline" [disabled]="downloadingDocx" (clicked)="downloadAppointmentLetterDocx()">
                 {{ downloadingDocx ? 'Downloading...' : 'Appointment Letter (Word)' }}
               </ui-button>
-              <ui-button *ngIf="emp.isActive && emp.approvalStatus !== 'PENDING'" variant="secondary" [disabled]="provisioningEss || !hasValidEmail()" (clicked)="provisionEssLogin()"
+              @if (emp.isActive && emp.approvalStatus !== 'PENDING') {
+<ui-button variant="secondary" [disabled]="provisioningEss || !hasValidEmail()" (clicked)="provisionEssLogin()"
                 [title]="hasValidEmail() ? 'Create ESS login for this employee' : 'Add a valid employee email first to create ESS login'">
                 {{ provisioningEss ? 'Creating...' : 'Create ESS Login' }}
               </ui-button>
-              <ui-button *ngIf="emp.isActive" variant="danger" (clicked)="confirmDeactivate()">Mark Exit</ui-button>
+}
+              @if (emp.isActive) {
+<ui-button variant="danger" (clicked)="confirmDeactivate()">Mark Exit</ui-button>
+}
             </div>
           </div>
         </div>
 
         <!-- ESS Credentials Card -->
-        <div *ngIf="essResult?.generatedPassword" class="ess-credentials-card">
+        @if (essResult?.generatedPassword) {
+<div class="ess-credentials-card">
           <div class="ess-cred-header">
             <div class="flex items-center gap-2">
               <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -116,6 +134,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             </div>
           </div>
         </div>
+}
 
         <!-- Profile -->
         <div class="info-grid">
@@ -154,8 +173,12 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               <div class="info-row"><span class="info-label">Designation</span><span class="info-value">{{ emp.designation || '-' }}</span></div>
               <div class="info-row"><span class="info-label">Department</span><span class="info-value">{{ emp.department || '-' }}</span></div>
               <div class="info-row"><span class="info-label">Date of Joining</span><span class="info-value">{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '-' }}</span></div>
-              <div *ngIf="emp.dateOfExit" class="info-row"><span class="info-label">Date of Exit</span><span class="info-value text-red-600">{{ emp.dateOfExit }}</span></div>
-              <div *ngIf="emp.exitReason" class="info-row"><span class="info-label">Exit Reason</span><span class="info-value text-red-600">{{ emp.exitReason }}</span></div>
+              @if (emp.dateOfExit) {
+<div class="info-row"><span class="info-label">Date of Exit</span><span class="info-value text-red-600">{{ emp.dateOfExit }}</span></div>
+}
+              @if (emp.exitReason) {
+<div class="info-row"><span class="info-label">Exit Reason</span><span class="info-value text-red-600">{{ emp.exitReason }}</span></div>
+}
               <div class="info-row"><span class="info-label">State</span><span class="info-value">{{ emp.stateCode || '-' }}</span></div>
             </div>
           </div>
@@ -174,17 +197,27 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
         <div class="nom-section">
           <div class="nom-section-header">
             <h4 class="info-section-title" style="margin:0">Nominations</h4>
-            <span class="text-xs text-gray-500" *ngIf="!loadingNoms && nominations.length">{{ nominations.length }} record(s)</span>
+            @if (!loadingNoms && nominations.length) {
+<span class="text-xs text-gray-500">{{ nominations.length }} record(s)</span>
+}
           </div>
-          <ui-loading-spinner *ngIf="loadingNoms" text="Loading nominations..."></ui-loading-spinner>
-          <div *ngIf="!loadingNoms && nominations.length === 0" class="text-sm text-gray-500">
+          @if (loadingNoms) {
+<ui-loading-spinner text="Loading nominations..."></ui-loading-spinner>
+}
+          @if (!loadingNoms && nominations.length === 0) {
+<div class="text-sm text-gray-500">
             No nominations recorded for this employee yet.
           </div>
-          <div *ngIf="!loadingNoms && nominations.length" class="nom-list">
-            <div *ngFor="let nom of nominations" class="nom-row">
+}
+          @if (!loadingNoms && nominations.length) {
+<div class="nom-list">
+            @for (nom of nominations; track nom) {
+<div class="nom-row">
               <div class="nom-row-info">
                 <ui-status-badge [status]="nom.nominationType"></ui-status-badge>
-                <span class="text-xs text-gray-500" *ngIf="nom.declarationDate">Declared: {{ nom.declarationDate }}</span>
+                @if (nom.declarationDate) {
+<span class="text-xs text-gray-500">Declared: {{ nom.declarationDate }}</span>
+}
                 <span class="text-xs text-gray-500">{{ nom.members.length || 0 }} nominee(s)</span>
               </div>
               <ui-button variant="outline" size="sm"
@@ -193,9 +226,12 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                 {{ printingNomination === nom.nominationType ? 'Preparing...' : 'Print / Download PDF' }}
               </ui-button>
             </div>
+}
           </div>
+}
         </div>
-      </ng-container>
+      
+}
     </div>
   `,
   styles: [`

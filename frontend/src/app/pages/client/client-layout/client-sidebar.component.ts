@@ -1,6 +1,6 @@
 import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, OnInit, SimpleChanges } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { Subject, of } from 'rxjs';
@@ -29,14 +29,16 @@ interface SidebarItem {
 @Component({
   selector: 'app-client-sidebar',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [RouterModule, FormsModule],
   template: `
     <!-- Mobile overlay -->
-    <div
-      *ngIf="mobileOpen"
+    @if (mobileOpen) {
+<div
+     
       class="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
       (click)="mobileOpen = false; mobileOpenChange.emit(false)"
     ></div>
+}
 
     <!-- Sidebar -->
     <aside
@@ -44,7 +46,8 @@ interface SidebarItem {
       [class.mobile-open]="mobileOpen"
     >
       <!-- Brand area -->
-      <div *ngIf="!collapsed" class="px-4 pt-5 pb-3">
+      @if (!collapsed) {
+<div class="px-4 pt-5 pb-3">
         <div class="flex items-center gap-2.5">
           <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
             <svg class="w-4.5 h-4.5 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,7 +72,9 @@ interface SidebarItem {
           />
         </div>
       </div>
-      <div *ngIf="collapsed" class="py-4 flex flex-col items-center gap-1">
+}
+      @if (collapsed) {
+<div class="py-4 flex flex-col items-center gap-1">
         <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
           <svg class="w-4 h-4 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
@@ -77,6 +82,7 @@ interface SidebarItem {
         </div>
         <span class="text-white/60 text-[10px] font-bold tracking-widest">LX</span>
       </div>
+}
 
       <!-- Collapse toggle (desktop only) -->
       <button
@@ -103,10 +109,12 @@ interface SidebarItem {
 
       <!-- Navigation groups -->
       <nav class="sidebar-nav flex-1 py-4 px-3 space-y-3">
-        <ng-container *ngIf="collapsed; else expandedNav">
+        @if (collapsed) {
+
           <div class="collapsed-menu">
-            <a
-              *ngFor="let link of collapsedLinks"
+            @for (link of collapsedLinks; track link) {
+<a
+             
               [attr.href]="link.route"
               [class.collapsed-active]="isActiveRoute(link, true)"
               (click)="navigateTo(link.route, $event)"
@@ -115,28 +123,35 @@ interface SidebarItem {
               <span class="sidebar-icon" [innerHTML]="link.icon"></span>
               <span class="collapsed-tooltip">{{ link.label }}</span>
             </a>
+}
           </div>
-        </ng-container>
+        
+} @else {
 
-        <ng-template #expandedNav>
-          <div
-            *ngFor="let group of filteredNavGroups"
+          @for (group of filteredNavGroups; track group) {
+<div
+           
           >
             <div
               class="sidebar-section"
               [class.active]="group.expanded"
               (click)="toggleGroup(group)"
             >
-              <span class="sidebar-section-icon" *ngIf="group.icon" [innerHTML]="group.icon"></span>
+              @if (group.icon) {
+<span class="sidebar-section-icon" [innerHTML]="group.icon"></span>
+}
               <span class="section-label">{{ group.label }}</span>
-              <span *ngIf="group.badge" class="section-badge">{{ group.badge }}</span>
+              @if (group.badge) {
+<span class="section-badge">{{ group.badge }}</span>
+}
               <svg class="chevron" [class.open]="group.expanded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
               </svg>
             </div>
             <div class="space-y-0.5 sidebar-submenu" [style.display]="group.expanded ? 'block' : 'none'">
-              <a
-                *ngFor="let item of group.items"
+              @for (item of group.items; track item) {
+<a
+               
                 [attr.href]="item.route"
                 [class.sidebar-active]="isActiveRoute(item)"
                 (click)="navigateTo(item.route, $event)"
@@ -144,26 +159,37 @@ interface SidebarItem {
               >
                 <span class="sidebar-icon" [innerHTML]="item.icon"></span>
                 <span class="sidebar-label">{{ item.label }}</span>
-                <span *ngIf="item.tag" class="item-tag">{{ item.tag }}</span>
-                <span
-                  *ngIf="item.badge"
+                @if (item.tag) {
+<span class="item-tag">{{ item.tag }}</span>
+}
+                @if (item.badge) {
+<span
+                 
                   class="item-badge"
                   [class.item-badge--red]="item.badgeColor === 'red'"
                   [class.item-badge--amber]="item.badgeColor === 'amber'"
                   [class.item-badge--blue]="item.badgeColor === 'blue' || !item.badgeColor"
                 >{{ item.badge }}</span>
+}
               </a>
+}
             </div>
           </div>
-        </ng-template>
+}
+        
+}
+
+        
       </nav>
 
       <!-- Version footer -->
-      <div *ngIf="!collapsed" class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
+      @if (!collapsed) {
+<div class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
         <div class="text-[10px] text-white/35">LegitX v1.0</div>
         <div class="text-[10px] text-white/55 font-medium">Designed &amp; Developed by StatCo Solutions</div>
         <a href="https://www.statcosol.com" target="_blank" rel="noopener noreferrer" class="text-[10px] text-emerald-300/80 hover:text-emerald-200">www.statcosol.com</a>
       </div>
+}
     </aside>
   `,
   styles: [`

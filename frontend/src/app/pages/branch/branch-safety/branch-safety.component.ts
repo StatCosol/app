@@ -5,7 +5,7 @@
   OnDestroy,
   OnInit,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subject, forkJoin, of } from 'rxjs';
 import { catchError, finalize, takeUntil } from 'rxjs/operators';
@@ -58,7 +58,7 @@ interface SafetyRequirementRow {
 @Component({
   selector: 'app-branch-safety',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './branch-safety.component.html',
   styleUrls: ['./branch-safety.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

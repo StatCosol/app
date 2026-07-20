@@ -28,11 +28,15 @@ import {
       <ui-page-header title="AI Configuration" subtitle="Manage OpenAI integration, model settings, and API key">
       </ui-page-header>
 
-      <ui-loading-spinner *ngIf="loading" size="lg" class="py-16 block"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner size="lg" class="py-16 block"></ui-loading-spinner>
+}
 
-      <div *ngIf="!loading" class="space-y-6">
+      @if (!loading) {
+<div class="space-y-6">
         <!-- Status Banner -->
-        <div *ngIf="status" class="rounded-lg p-4"
+        @if (status) {
+<div class="rounded-lg p-4"
              [ngClass]="status.aiEnabled ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'">
           <div class="flex items-center gap-3">
             <span class="text-2xl">{{ status.aiEnabled ? '✅' : '⚠️' }}</span>
@@ -46,6 +50,7 @@ import {
             </div>
           </div>
         </div>
+}
 
         <!-- Config Form -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -126,6 +131,7 @@ import {
           </ul>
         </div>
       </div>
+}
     </div>
   `,
 })

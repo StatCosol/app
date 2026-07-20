@@ -10,14 +10,17 @@
              [(ngModel)]="year" (ngModelChange)="onPeriodChange()" />
       <select id="bcd-month" name="month" class="border rounded p-2 text-sm"
               [(ngModel)]="month" (ngModelChange)="onPeriodChange()">
-        <option *ngFor="let m of [1,2,3,4,5,6,7,8,9,10,11,12]" [value]="m">{{ m }}</option>
+        @for (m of [1,2,3,4,5,6,7,8,9,10,11,12]; track m) {
+<option [value]="m">{{ m }}</option>
+}
       </select>
       <button type="button" class="px-3 py-2 text-sm border rounded" (click)="loadAll()">Refresh</button>
     </div>
   </div>
 
   <!-- KPI Cards -->
-  <div class="grid grid-cols-1 md:grid-cols-4 gap-2 mb-4" *ngIf="kpis">
+  @if (kpis) {
+<div class="grid grid-cols-1 md:grid-cols-4 gap-2 mb-4">
     <div class="border rounded p-3">
       <div class="text-xs text-gray-500">Upload %</div>
       <div class="flex items-center gap-2 mt-1">
@@ -48,6 +51,7 @@
       <div class="text-xl font-semibold">{{ kpis.reviewed ?? 0 }}</div>
     </div>
   </div>
+}
 
   <!-- Upload Box -->
   <div class="border rounded p-4 mb-4">
@@ -60,10 +64,12 @@
              [(ngModel)]="uploadSubCategory" />
       <select id="bcd-upload-return-code" class="border rounded p-2 text-sm" name="uploadReturnCode" [(ngModel)]="uploadReturnCode">
         <option value="">Return Code (optional)</option>
-        <option *ngFor="let r of returnMaster"
+        @for (r of returnMaster; track r) {
+<option
                 [value]="(r.returnCode ?? r.return_code ?? r.code ?? '')">
           {{ (r.returnName ?? r.return_name ?? r.name ?? (r.returnCode ?? r.return_code ?? '')) }}
         </option>
+}
       </select>
       <input type="file" name="complianceFile" class="border rounded p-2 text-sm" (change)="onFileChange($event)" />
     </div>
@@ -79,9 +85,12 @@
   </div>
 
   <!-- Checklist -->
-  <div *ngIf="loading" class="text-sm text-gray-500">Loading…</div>
+  @if (loading) {
+<div class="text-sm text-gray-500">Loading…</div>
+}
 
-  <div *ngIf="!loading">
+  @if (!loading) {
+<div>
     <ui-data-table
       [columns]="checklistColumns" [data]="checklistRows" [loading]="loading"
       emptyMessage="No checklist items found.">
@@ -112,4 +121,5 @@
       </ng-template>
     </ui-data-table>
   </div>
+}
 </div>

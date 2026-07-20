@@ -29,7 +29,8 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
       </div>
 
       <!-- Create Form -->
-      <div *ngIf="showCreateForm" class="table-card mb-6">
+      @if (showCreateForm) {
+<div class="table-card mb-6">
         <h3 class="text-sm font-semibold text-gray-900 mb-4">New Appraisal Cycle</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
@@ -69,10 +70,14 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
           </button>
         </div>
       </div>
+}
 
-      <div *ngIf="loading" class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+      @if (loading) {
+<div class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+}
 
-      <div *ngIf="!loading" class="table-card">
+      @if (!loading) {
+<div class="table-card">
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
@@ -90,7 +95,8 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let c of cycles; trackBy: trackById" class="data-row">
+              @for (c of cycles; track trackById($index, c)) {
+<tr class="data-row">
                 <td class="text-xs font-mono text-gray-500">{{ c.cycleCode }}</td>
                 <td class="font-medium text-slate-800">{{ c.cycleName }}</td>
                 <td>{{ c.financialYear }}</td>
@@ -109,24 +115,36 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
                 <td class="text-center text-amber-600 font-medium">{{ c.pendingCount ?? 0 }}</td>
                 <td>
                   <div class="flex items-center gap-2">
-                    <button *ngIf="c.status === 'DRAFT'" (click)="activateCycle(c.id)" class="text-emerald-600 hover:text-emerald-800 text-xs font-medium">Activate</button>
-                    <button *ngIf="c.status === 'ACTIVE'" (click)="generateEmployees(c.id)" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Generate</button>
-                    <button *ngIf="c.status === 'ACTIVE'" (click)="closeCycle(c.id)" class="text-red-600 hover:text-red-800 text-xs font-medium">Close</button>
+                    @if (c.status === 'DRAFT') {
+<button (click)="activateCycle(c.id)" class="text-emerald-600 hover:text-emerald-800 text-xs font-medium">Activate</button>
+}
+                    @if (c.status === 'ACTIVE') {
+<button (click)="generateEmployees(c.id)" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Generate</button>
+}
+                    @if (c.status === 'ACTIVE') {
+<button (click)="closeCycle(c.id)" class="text-red-600 hover:text-red-800 text-xs font-medium">Close</button>
+}
                   </div>
                 </td>
               </tr>
-              <tr *ngIf="!cycles.length">
+}
+              @if (!cycles.length) {
+<tr>
                 <td colspan="10" class="text-center text-sm text-gray-400 py-10">No cycles created yet</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
       </div>
+}
 
       <!-- Generation result -->
-      <div *ngIf="genResult" class="table-card mt-4 bg-blue-50 border-blue-200">
+      @if (genResult) {
+<div class="table-card mt-4 bg-blue-50 border-blue-200">
         <p class="text-sm text-blue-800">Generated {{ genResult.generated }} appraisals ({{ genResult.alreadyExisted }} already existed, {{ genResult.total }} eligible)</p>
       </div>
+}
     </div>
   `,
 })

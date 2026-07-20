@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import {
@@ -52,7 +52,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
 @Component({
   selector: 'app-admin-client-contacts',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent],
+  imports: [FormsModule, PageHeaderComponent],
   template: `
     <ui-page-header
       title="Client Department Contacts"
@@ -76,15 +76,19 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               />
             </div>
-            <div *ngIf="loadingClients()" class="p-4 text-sm text-gray-500">
+            @if (loadingClients()) {
+<div class="p-4 text-sm text-gray-500">
               Loading clients…
             </div>
-            <ul
-              *ngIf="!loadingClients()"
+}
+            @if (!loadingClients()) {
+<ul
+             
               class="max-h-[70vh] overflow-y-auto divide-y divide-gray-100"
             >
-              <li
-                *ngFor="let c of filteredClients()"
+              @for (c of filteredClients(); track c) {
+<li
+               
                 class="cursor-pointer px-3 py-2.5 hover:bg-blue-50 transition-colors"
                 [class.bg-blue-50]="selectedClient()?.id === c.id"
                 [class.border-l-4]="selectedClient()?.id === c.id"
@@ -94,33 +98,42 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                 <div class="text-sm font-medium text-gray-900 truncate">
                   {{ c.clientName }}
                 </div>
-                <div
+                @if (c.clientCode) {
+<div
                   class="text-xs text-gray-500 truncate"
-                  *ngIf="c.clientCode"
+                 
                 >
                   {{ c.clientCode }}
                 </div>
+}
               </li>
-              <li
-                *ngIf="filteredClients().length === 0"
+}
+              @if (filteredClients().length === 0) {
+<li
+               
                 class="p-4 text-sm text-gray-400 text-center"
               >
                 No clients match your search.
               </li>
+}
             </ul>
+}
           </div>
         </div>
 
         <!-- ────── RIGHT: Contacts for selected client ────── -->
         <div class="lg:col-span-8 space-y-4">
-          <div
-            *ngIf="!selectedClient()"
+          @if (!selectedClient()) {
+<div
+           
             class="bg-white border border-dashed border-gray-300 rounded-xl p-12 text-center text-gray-500"
           >
             Select a client from the list to manage their department contacts.
           </div>
+}
 
-          <ng-container *ngIf="selectedClient() as client">
+          @if (selectedClient(); as client) {
+
             <!-- Header bar with actions -->
             <div
               class="bg-white border border-gray-200 rounded-xl shadow-sm p-4 flex items-start justify-between gap-3 flex-wrap"
@@ -129,9 +142,11 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                 <div class="text-lg font-semibold text-gray-900">
                   {{ client.clientName }}
                 </div>
-                <div class="text-xs text-gray-500" *ngIf="client.clientCode">
+                @if (client.clientCode) {
+<div class="text-xs text-gray-500">
                   {{ client.clientCode }}
                 </div>
+}
               </div>
               <div class="flex flex-wrap gap-2">
                 <button
@@ -161,13 +176,17 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
             </div>
 
             <!-- Contacts grouped by department -->
-            <div *ngIf="loadingContacts()" class="text-sm text-gray-500 p-4">
+            @if (loadingContacts()) {
+<div class="text-sm text-gray-500 p-4">
               Loading contacts…
             </div>
+}
 
-            <div *ngIf="!loadingContacts()" class="space-y-3">
-              <div
-                *ngFor="let dept of departments"
+            @if (!loadingContacts()) {
+<div class="space-y-3">
+              @for (dept of departments; track dept) {
+<div
+               
                 class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden"
               >
                 <div
@@ -191,11 +210,14 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                     + Add to {{ deptLabel(dept) }}
                   </button>
                 </div>
-                <div *ngIf="contactsByDept(dept).length === 0" class="p-4 text-sm text-gray-400">
+                @if (contactsByDept(dept).length === 0) {
+<div class="p-4 text-sm text-gray-400">
                   No contacts configured.
                 </div>
-                <table
-                  *ngIf="contactsByDept(dept).length > 0"
+}
+                @if (contactsByDept(dept).length > 0) {
+<table
+                 
                   class="w-full text-sm"
                 >
                   <thead class="bg-gray-50 text-gray-600">
@@ -209,7 +231,8 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-gray-100">
-                    <tr *ngFor="let c of contactsByDept(dept)">
+                    @for (c of contactsByDept(dept); track c) {
+<tr>
                       <td class="px-4 py-2 text-gray-900">{{ c.name }}</td>
                       <td class="px-4 py-2 text-gray-700">
                         <a
@@ -244,18 +267,24 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                         </button>
                       </td>
                     </tr>
+}
                   </tbody>
                 </table>
+}
               </div>
+}
             </div>
-          </ng-container>
+}
+          
+}
         </div>
       </div>
     </div>
 
     <!-- ────── Modal: Create/Edit ────── -->
-    <div
-      *ngIf="formOpen()"
+    @if (formOpen()) {
+<div
+     
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       (click)="closeForm()"
     >
@@ -284,9 +313,11 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
               [(ngModel)]="form.department"
               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             >
-              <option *ngFor="let d of departments" [value]="d">
+              @for (d of departments; track d) {
+<option [value]="d">
                 {{ deptLabel(d) }}
               </option>
+}
             </select>
           </div>
           <div class="grid grid-cols-2 gap-3">
@@ -353,9 +384,11 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
           </label>
         </div>
 
-        <div *ngIf="formError()" class="mt-3 text-sm text-red-600">
+        @if (formError()) {
+<div class="mt-3 text-sm text-red-600">
           {{ formError() }}
         </div>
+}
 
         <div class="mt-5 flex justify-end gap-2">
           <button
@@ -376,16 +409,19 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
         </div>
       </div>
     </div>
+}
 
     <!-- Toast -->
-    <div
-      *ngIf="toast() as t"
+    @if (toast(); as t) {
+<div
+     
       class="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg shadow-lg text-sm text-white"
       [class.bg-emerald-600]="t.kind === 'ok'"
       [class.bg-red-600]="t.kind === 'err'"
     >
       {{ t.text }}
     </div>
+}
   `,
 })
 export class AdminClientContactsComponent implements OnInit {

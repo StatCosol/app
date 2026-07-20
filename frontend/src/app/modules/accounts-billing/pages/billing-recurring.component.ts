@@ -47,11 +47,13 @@ interface RecurringConfig {
         </div>
       </div>
 
-      <div *ngIf="message" class="p-3 rounded-lg text-sm"
+      @if (message) {
+<div class="p-3 rounded-lg text-sm"
            [class.bg-green-50]="!error" [class.text-green-700]="!error"
            [class.bg-red-50]="error" [class.text-red-700]="error">
         {{ message }}
       </div>
+}
 
       <div class="bg-white rounded-xl border shadow-sm overflow-x-auto">
         <table class="w-full text-sm">
@@ -68,7 +70,8 @@ interface RecurringConfig {
             </tr>
           </thead>
           <tbody class="divide-y">
-            <tr *ngFor="let r of configs" class="hover:bg-slate-50">
+            @for (r of configs; track r) {
+<tr class="hover:bg-slate-50">
               <td class="px-4 py-3 font-medium">{{ r.billingClient?.legalName || '—' }}</td>
               <td class="px-4 py-3">{{ r.invoiceName }}</td>
               <td class="px-4 py-3">{{ r.frequency }}</td>
@@ -88,31 +91,39 @@ interface RecurringConfig {
                 <button (click)="onDelete(r)" class="text-red-600 hover:underline text-xs">Delete</button>
               </td>
             </tr>
-            <tr *ngIf="!configs.length">
+}
+            @if (!configs.length) {
+<tr>
               <td colspan="8" class="px-4 py-8 text-center text-slate-400">
                 No recurring invoice configurations yet. Click "Add Recurring" to set one up.
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
 
       <!-- Modal -->
-      <div *ngIf="showForm" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      @if (showForm) {
+<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <div class="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           <div class="px-6 py-4 border-b flex justify-between items-center">
             <h2 class="text-lg font-bold">{{ editing ? 'Edit' : 'Add' }} Recurring Invoice</h2>
             <button (click)="closeForm()" class="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
           </div>
           <div class="p-6 space-y-4">
-            <div *ngIf="saveError" class="p-3 bg-red-50 text-red-700 text-sm rounded-lg">{{ saveError }}</div>
+            @if (saveError) {
+<div class="p-3 bg-red-50 text-red-700 text-sm rounded-lg">{{ saveError }}</div>
+}
 
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">Billing Client *</label>
               <select [(ngModel)]="form.billingClientId" [disabled]="!!editing"
                       class="w-full px-3 py-2 border rounded-lg text-sm">
                 <option value="">-- Select Client --</option>
-                <option *ngFor="let c of clients" [value]="c.id">{{ c.legalName }}</option>
+                @for (c of clients; track c) {
+<option [value]="c.id">{{ c.legalName }}</option>
+}
               </select>
             </div>
 
@@ -125,7 +136,9 @@ interface RecurringConfig {
               <div>
                 <label class="block text-sm font-medium text-slate-700 mb-1">Frequency *</label>
                 <select [(ngModel)]="form.frequency" class="w-full px-3 py-2 border rounded-lg text-sm">
-                  <option *ngFor="let f of frequencies" [value]="f.value">{{ f.label }}</option>
+                  @for (f of frequencies; track f) {
+<option [value]="f.value">{{ f.label }}</option>
+}
                 </select>
               </div>
             </div>
@@ -182,6 +195,7 @@ interface RecurringConfig {
           </div>
         </div>
       </div>
+}
     </div>
   `,
 })

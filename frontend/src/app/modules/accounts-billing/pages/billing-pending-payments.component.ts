@@ -51,18 +51,26 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             {{ uploading ? 'Uploading…' : 'Upload' }}
           </button>
         </div>
-        <div *ngIf="uploadResult" class="text-sm bg-slate-50 border rounded p-3 space-y-1">
+        @if (uploadResult) {
+<div class="text-sm bg-slate-50 border rounded p-3 space-y-1">
           <div><strong>Created:</strong> {{ uploadResult.created }}</div>
           <div><strong>Reminders sent:</strong> {{ uploadResult.sent }}
                &nbsp; <strong>Failed:</strong> {{ uploadResult.failed }}</div>
-          <div *ngIf="uploadResult.parseErrors?.length" class="text-red-600">
+          @if (uploadResult.parseErrors?.length) {
+<div class="text-red-600">
             <strong>Skipped rows:</strong>
             <ul class="list-disc ml-5">
-              <li *ngFor="let e of uploadResult.parseErrors">Line {{ e.line }}: {{ e.reason }}</li>
+              @for (e of uploadResult.parseErrors; track e) {
+<li>Line {{ e.line }}: {{ e.reason }}</li>
+}
             </ul>
           </div>
+}
         </div>
-        <div *ngIf="error" class="text-sm text-red-600">{{ error }}</div>
+}
+        @if (error) {
+<div class="text-sm text-red-600">{{ error }}</div>
+}
       </div>
 
       <!-- Filter -->
@@ -75,11 +83,13 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           <option value="PAID">Paid</option>
           <option value="CANCELLED">Cancelled</option>
         </select>
-        <button *ngIf="selectedIds.size > 0"
+        @if (selectedIds.size > 0) {
+<button
                 (click)="sendBulk()"
                 class="ml-auto px-3 py-1.5 bg-amber-600 text-white text-sm rounded hover:bg-amber-700">
           Send reminder to {{ selectedIds.size }} selected
         </button>
+}
       </div>
 
       <!-- Table -->
@@ -100,7 +110,8 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             </tr>
           </thead>
           <tbody class="divide-y">
-            <tr *ngFor="let p of rows" class="hover:bg-slate-50">
+            @for (p of rows; track p) {
+<tr class="hover:bg-slate-50">
               <td class="px-3 py-2 text-center">
                 <input type="checkbox"
                        [checked]="selectedIds.has(p.id)"
@@ -110,55 +121,75 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               <td class="px-3 py-2">{{ p.clientName }}</td>
               <td class="px-3 py-2 text-xs">
                 {{ p.clientEmail }}
-                <div *ngIf="p.ccEmail" class="text-slate-400">cc: {{ p.ccEmail }}</div>
+                @if (p.ccEmail) {
+<div class="text-slate-400">cc: {{ p.ccEmail }}</div>
+}
               </td>
               <td class="px-3 py-2 text-right">₹ {{ p.amount | number:'1.2-2' }}</td>
               <td class="px-3 py-2 text-xs">{{ p.dueDate || '—' }}</td>
               <td class="px-3 py-2 text-center">{{ p.reminderCount }}</td>
               <td class="px-3 py-2 text-xs">
-                <span *ngIf="p.lastReminderSentAt">
+                @if (p.lastReminderSentAt) {
+<span>
                   {{ p.lastReminderSentAt | date:'short' }}
                   <span [class]="p.lastReminderStatus === 'SENT' ? 'text-green-600' : 'text-red-600'">
                     ({{ p.lastReminderStatus }})
                   </span>
                 </span>
-                <span *ngIf="!p.lastReminderSentAt" class="text-slate-400">never</span>
+}
+                @if (!p.lastReminderSentAt) {
+<span class="text-slate-400">never</span>
+}
               </td>
               <td class="px-3 py-2 text-center">
                 <span [class]="statusClass(p.status)"
                       class="px-2 py-0.5 rounded-full text-xs font-medium">{{ p.status }}</span>
-                <div *ngIf="p.status === 'PENDING' && p.remindersPaused"
+                @if (p.status === 'PENDING' && p.remindersPaused) {
+<div
                      class="mt-1 inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-200 text-slate-700">
                   ⏸ Paused
                 </div>
+}
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
-                <button *ngIf="p.status === 'PENDING'"
+                @if (p.status === 'PENDING') {
+<button
                         (click)="sendOne(p)"
                         class="text-blue-600 hover:underline text-xs mr-2">Remind</button>
-                <button *ngIf="p.status === 'PENDING' && !p.remindersPaused"
+}
+                @if (p.status === 'PENDING' && !p.remindersPaused) {
+<button
                         (click)="togglePause(p, true)"
                         class="text-amber-600 hover:underline text-xs mr-2">Pause</button>
-                <button *ngIf="p.status === 'PENDING' && p.remindersPaused"
+}
+                @if (p.status === 'PENDING' && p.remindersPaused) {
+<button
                         (click)="togglePause(p, false)"
                         class="text-emerald-600 hover:underline text-xs mr-2">Resume</button>
-                <button *ngIf="p.status === 'PENDING'"
+}
+                @if (p.status === 'PENDING') {
+<button
                         (click)="markPaid(p)"
                         class="text-green-600 hover:underline text-xs mr-2">Mark Paid</button>
+}
                 <button (click)="onDelete(p)"
                         class="text-red-600 hover:underline text-xs">Delete</button>
               </td>
             </tr>
-            <tr *ngIf="!rows.length">
+}
+            @if (!rows.length) {
+<tr>
               <td colspan="10" class="px-4 py-10 text-center text-slate-400">
                 No pending payments. Upload a CSV to get started.
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
 
-      <div *ngIf="totalPages > 1" class="flex items-center justify-between text-sm text-slate-500">
+      @if (totalPages > 1) {
+<div class="flex items-center justify-between text-sm text-slate-500">
         <span>Page {{ page }} of {{ totalPages }}</span>
         <div class="flex gap-2">
           <button (click)="page = page - 1; load()" [disabled]="page <= 1"
@@ -167,12 +198,15 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                   class="px-3 py-1 border rounded disabled:opacity-50">Next</button>
         </div>
       </div>
+}
 
-      <div *ngIf="message"
+      @if (message) {
+<div
            [class]="messageError ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'"
            class="border px-4 py-2 rounded text-sm">
         {{ message }}
       </div>
+}
     </div>
   `,
 })

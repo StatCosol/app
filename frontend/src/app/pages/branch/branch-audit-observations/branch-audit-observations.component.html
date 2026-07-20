@@ -70,10 +70,15 @@
     </div>
   </section>
 
-  <div *ngIf="loading" class="loader">Loading audit observations...</div>
-  <div *ngIf="!loading && !filteredObservations.length" class="empty-state">No observations available for this branch.</div>
+  @if (loading) {
+<div class="loader">Loading audit observations...</div>
+}
+  @if (!loading && !filteredObservations.length) {
+<div class="empty-state">No observations available for this branch.</div>
+}
 
-  <section *ngIf="!loading && filteredObservations.length" class="workspace-grid">
+  @if (!loading && filteredObservations.length) {
+<section class="workspace-grid">
     <article class="card list-pane">
       <div class="section-head">
         <h2>Observation Queue</h2>
@@ -93,8 +98,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              *ngFor="let obs of filteredObservations; trackBy: trackObservation"
+            @for (obs of filteredObservations; track trackObservation($index, obs)) {
+<tr
+             
               [class.selected]="selectedObservation?.id === obs.id"
               (click)="selectObservation(obs)"
             >
@@ -108,12 +114,14 @@
               <td><ui-status-chip [status]="obs.severity"></ui-status-chip></td>
               <td><ui-status-chip [status]="obs.status"></ui-status-chip></td>
             </tr>
+}
           </tbody>
         </table>
       </div>
     </article>
 
-    <aside class="detail-stack" *ngIf="selectedObservation as obs">
+    @if (selectedObservation; as obs) {
+<aside class="detail-stack">
       <article class="card">
         <div class="section-head">
           <h2>Observation Detail</h2>
@@ -132,14 +140,18 @@
           <strong>Description</strong>
           <p>{{ obs.description }}</p>
         </div>
-        <div class="description-box" *ngIf="obs.complianceRequirements">
+        @if (obs.complianceRequirements) {
+<div class="description-box">
           <strong>Compliance Requirement</strong>
           <p>{{ obs.complianceRequirements }}</p>
         </div>
-        <div class="description-box" *ngIf="obs.consequences">
+}
+        @if (obs.consequences) {
+<div class="description-box">
           <strong>Consequence</strong>
           <p>{{ obs.consequences }}</p>
         </div>
+}
       </article>
 
       <article class="card">
@@ -160,12 +172,16 @@
             Action Owner
             <input autocomplete="off" id="bao-action-owner" type="text" name="actionOwner" [(ngModel)]="draft.actionOwner" placeholder="Responsible person" />
           </label>
-          <div class="owner-suggestions" *ngIf="ownerSuggestions.length">
+          @if (ownerSuggestions.length) {
+<div class="owner-suggestions">
             <span>Quick Assign</span>
             <div class="owner-chip-row">
-              <button type="button" *ngFor="let owner of ownerSuggestions" (click)="applyOwner(owner)">{{ owner }}</button>
+              @for (owner of ownerSuggestions; track owner) {
+<button type="button" (click)="applyOwner(owner)">{{ owner }}</button>
+}
             </div>
           </div>
+}
           <label>
             Target Due Date
             <input autocomplete="off" id="bao-target-due-date" type="date" name="targetDueDate" [(ngModel)]="draft.targetDueDate" />
@@ -216,15 +232,19 @@
           <input type="file" name="evidenceFiles" multiple (change)="onEvidenceSelected($event)" />
           <span class="hint">Attach up to 5 files. Files are posted to the closure case thread.</span>
         </div>
-        <div class="file-list" *ngIf="selectedEvidenceFiles.length">
-          <div class="file-item" *ngFor="let file of selectedEvidenceFiles; let i = index">
+        @if (selectedEvidenceFiles.length) {
+<div class="file-list">
+          @for (file of selectedEvidenceFiles; track file; let i = $index) {
+<div class="file-item">
             <span>{{ file.name }}</span>
             <div class="file-actions">
               <button type="button" (click)="previewSelectedEvidence(file)">Preview</button>
               <button type="button" (click)="removeEvidence(i)">Remove</button>
             </div>
           </div>
+}
         </div>
+}
       </article>
 
       <article class="card">
@@ -232,28 +252,40 @@
           <h2>Case History</h2>
           <span>{{ selectedCases.length }} cases</span>
         </div>
-        <div class="case-list" *ngIf="selectedCases.length; else noCase">
-          <div class="case-item" *ngFor="let c of selectedCases; trackBy: trackCase">
+        @if (selectedCases.length) {
+<div class="case-list">
+          @for (c of selectedCases; track trackCase($index, c)) {
+<div class="case-item">
             <div>
               <strong>{{ c.ticketRef }}</strong>
               <p>{{ c.createdAt ? (c.createdAt | date:'dd MMM yyyy, hh:mm a') : '-' }}</p>
-              <div class="case-meta-row" *ngIf="dueForCase(c)">
+              @if (dueForCase(c)) {
+<div class="case-meta-row">
                 <ui-due-date-badge [dueDate]="dueForCase(c)"></ui-due-date-badge>
                 <span [class]="caseDueClass(c)">{{ caseDueText(c) }}</span>
               </div>
-              <div class="case-evidence" *ngIf="c.evidenceFiles.length">
-                <button type="button" *ngFor="let f of c.evidenceFiles" (click)="previewCaseEvidence(f, c)">
+}
+              @if (c.evidenceFiles.length) {
+<div class="case-evidence">
+                @for (f of c.evidenceFiles; track f) {
+<button type="button" (click)="previewCaseEvidence(f, c)">
                   {{ f }}
                 </button>
+}
               </div>
+}
             </div>
             <div class="case-badges">
               <ui-status-chip [status]="c.capaStatus"></ui-status-chip>
               <ui-status-chip [status]="c.status"></ui-status-chip>
             </div>
           </div>
+}
         </div>
-        <ng-template #noCase><div class="empty-mini">No closure cases yet for this observation.</div></ng-template>
+} @else {
+<div class="empty-mini">No closure cases yet for this observation.</div>
+}
+        
       </article>
 
       <article class="card">
@@ -264,7 +296,9 @@
         <ui-shared-timeline [events]="selectedTimeline" emptyMessage="No timeline events available."></ui-shared-timeline>
       </article>
     </aside>
+}
   </section>
+}
 </div>
 
 <ui-file-preview-modal

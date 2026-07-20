@@ -1,34 +1,42 @@
 import { Component, Input, OnChanges } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 @Component({
   standalone: true,
   selector: 'app-compliance-charts',
-  imports: [CommonModule],
+  imports: [],
   template: `
     <div class="charts-grid">
       <div class="chart-card">
         <h3>Returns by Status</h3>
-        <div class="bar-row" *ngFor="let row of returnStatusRows">
+        @for (row of returnStatusRows; track row) {
+<div class="bar-row">
           <div class="label">{{ row.label }}</div>
           <div class="bar-wrap">
             <div class="bar" [style.width.%]="(row.count / getMax(returnStatusRows)) * 100"></div>
           </div>
           <div class="count">{{ row.count }}</div>
         </div>
-        <div *ngIf="!returnStatusRows.length" class="empty">No returns data</div>
+}
+        @if (!returnStatusRows.length) {
+<div class="empty">No returns data</div>
+}
       </div>
 
       <div class="chart-card">
         <h3>Renewals by Status</h3>
-        <div class="bar-row" *ngFor="let row of expiryStatusRows">
+        @for (row of expiryStatusRows; track row) {
+<div class="bar-row">
           <div class="label">{{ row.label }}</div>
           <div class="bar-wrap">
             <div class="bar" [style.width.%]="(row.count / getMax(expiryStatusRows)) * 100"></div>
           </div>
           <div class="count">{{ row.count }}</div>
         </div>
-        <div *ngIf="!expiryStatusRows.length" class="empty">No renewals data</div>
+}
+        @if (!expiryStatusRows.length) {
+<div class="empty">No renewals data</div>
+}
       </div>
     </div>
   `,

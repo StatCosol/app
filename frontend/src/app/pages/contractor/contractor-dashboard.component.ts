@@ -7,12 +7,14 @@ import { DashboardService } from '../../core/dashboard.service';
 import { ComplianceService } from '../../core/compliance.service';
 import { TaskCenterService, TaskSummary, SystemTask } from '../../core/task-center.service';
 import {
-  PageHeaderComponent,
   DataTableComponent,
   TableCellDirective,
   TableColumn,
   StatusBadgeComponent,
   EmptyStateComponent,
+  IconComponent,
+  ChartCardComponent,
+  ChartCardDataset,
 } from '../../shared/ui';
 
 interface UpcomingTask {
@@ -65,11 +67,12 @@ interface BranchStatusRow {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    PageHeaderComponent,
     DataTableComponent,
     TableCellDirective,
     StatusBadgeComponent,
     EmptyStateComponent,
+    IconComponent,
+    ChartCardComponent,
   ],
   templateUrl: './contractor-dashboard.component.html',
   styleUrls: ['./shared/contractor-theme.scss', './contractor-dashboard.component.scss'],
@@ -108,6 +111,42 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
 
   get strokeOffset(): number {
     return this.circumference - (this.compliancePct / 100) * this.circumference;
+  }
+
+  get greeting(): string {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  get trendChartLabels(): string[] {
+    return this.scoreTrend.map((p) => this.formatMonth(p.month));
+  }
+
+  get trendChartDatasets(): ChartCardDataset[] {
+    return [
+      {
+        label: 'Compliance score',
+        data: this.scoreTrend.map((p) => p.score),
+        borderColor: '#4f46e5',
+        backgroundColor: 'rgba(79, 70, 229, 0.12)',
+        fill: true,
+        tension: 0.35,
+      },
+      {
+        label: 'Upload %',
+        data: this.scoreTrend.map((p) => p.uploadedPercent),
+        borderColor: '#0d9488',
+        backgroundColor: 'rgba(13, 148, 136, 0.08)',
+        fill: false,
+        tension: 0.35,
+      },
+    ];
+  }
+
+  branchApprovedPct(row: BranchStatusRow): number {
+    return row.total ? Math.round((row.approved / row.total) * 100) : 0;
   }
 
   get dueTodayCount(): number {

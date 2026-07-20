@@ -12,13 +12,17 @@
 
     <!-- ── Controls ── -->
     <div class="controls">
-      <select id="e-selected-branch" name="selectedBranch" *ngIf="!isBranchUser && branches.length"
+      @if (!isBranchUser && branches.length) {
+<select id="e-selected-branch" name="selectedBranch"
               [(ngModel)]="selectedBranch"
               (ngModelChange)="load()"
               class="select">
         <option value="">All Branches</option>
-        <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
+        @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
+}
       </select>
+}
 
       <select id="e-selected-status" name="selectedStatus" [(ngModel)]="selectedStatus"
               (ngModelChange)="load()"
@@ -32,10 +36,13 @@
   </div>
 
   <!-- ── Loading ── -->
-  <div *ngIf="loading" class="loading">Loading escalations…</div>
+  @if (loading) {
+<div class="loading">Loading escalations…</div>
+}
 
   <!-- ── Table ── -->
-  <div class="table-wrap" *ngIf="!loading && filtered.length > 0">
+  @if (!loading && filtered.length > 0) {
+<div class="table-wrap">
     <table>
       <thead>
         <tr>
@@ -49,7 +56,8 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let it of filtered" [class]="'row-' + severityClass(it.riskScore)">
+        @for (it of filtered; track it) {
+<tr [class]="'row-' + severityClass(it.riskScore)">
           <td class="date-cell">{{ it.createdAt | date:'dd-MMM-yyyy' }}</td>
           <td>{{ it.branchName || it.branch || 'Branch' }}</td>
           <td>
@@ -60,8 +68,12 @@
           </td>
           <td class="reason-cell">{{ it.reason }}</td>
           <td class="overdue-cell">
-            <span *ngIf="it.slaOverdueCount > 0" class="overdue-badge">{{ it.slaOverdueCount }}</span>
-            <span *ngIf="!it.slaOverdueCount" class="no-overdue">—</span>
+            @if (it.slaOverdueCount > 0) {
+<span class="overdue-badge">{{ it.slaOverdueCount }}</span>
+}
+            @if (!it.slaOverdueCount) {
+<span class="no-overdue">—</span>
+}
           </td>
           <td>
             <span class="badge" [ngClass]="it.status">{{ it.status }}</span>
@@ -81,12 +93,15 @@
             </div>
           </td>
         </tr>
+}
       </tbody>
     </table>
   </div>
+}
 
   <!-- ── Empty ── -->
-  <div *ngIf="!loading && filtered.length === 0" class="empty">
+  @if (!loading && filtered.length === 0) {
+<div class="empty">
     <svg class="empty-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round"
             d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -94,4 +109,5 @@
     <p>No escalations found</p>
     <p class="empty-sub">All clear — no open escalations matching your filters.</p>
   </div>
+}
 </div>

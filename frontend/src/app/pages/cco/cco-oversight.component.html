@@ -5,11 +5,16 @@
     icon="shield-exclamation">
   </ui-page-header>
 
-  <ui-loading-spinner *ngIf="loading" text="Loading oversight exception center..."></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner text="Loading oversight exception center..."></ui-loading-spinner>
+}
 
-  <div *ngIf="error" class="alert alert-error mb-4">{{ error }}</div>
+  @if (error) {
+<div class="alert alert-error mb-4">{{ error }}</div>
+}
 
-  <div *ngIf="!loading" class="space-y-4">
+  @if (!loading) {
+<div class="space-y-4">
     <section class="cards-grid">
       <article class="summary-card summary-card--danger">
         <h4>Risk Signals</h4>
@@ -38,9 +43,11 @@
         <h3>Governance Guardrails</h3>
         <a routerLink="/cco/escalations" class="panel-link">Open escalations</a>
       </div>
-      <div class="p-4 space-y-2" *ngIf="oversightGuardrails.length; else noGuardrails">
-        <a
-          *ngFor="let alert of oversightGuardrails"
+      @if (oversightGuardrails.length) {
+<div class="p-4 space-y-2">
+        @for (alert of oversightGuardrails; track alert) {
+<a
+         
           [routerLink]="alert.route"
           class="block rounded-lg border px-3 py-2 transition hover:shadow-sm"
           [class]="guardrailClass(alert.severity)">
@@ -51,15 +58,19 @@
           <div class="text-sm font-semibold text-slate-900 mt-1">{{ alert.title }}</div>
           <div class="text-xs text-slate-700 mt-1">{{ alert.detail }}</div>
         </a>
+}
       </div>
-      <ng-template #noGuardrails>
+} @else {
+
         <div class="p-4">
           <ui-empty-state
             title="No active guardrails"
             description="No high-risk governance blockers are currently detected.">
           </ui-empty-state>
         </div>
-      </ng-template>
+      
+}
+      
     </section>
 
     <section class="workspace-grid">
@@ -75,7 +86,8 @@
             </select>
           </div>
         </div>
-        <div *ngIf="trendRows.length; else noTrends" class="table-wrap">
+        @if (trendRows.length) {
+<div class="table-wrap">
           <table>
             <thead>
               <tr>
@@ -87,29 +99,35 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of trendRows">
+              @for (row of trendRows; track row) {
+<tr>
                 <td>{{ row.month }}</td>
                 <td>{{ row.totalTouched }}</td>
                 <td>{{ row.escalatedCount }}</td>
                 <td>{{ row.overdueCount }}</td>
                 <td>{{ row.closedCount }}</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
-        <ng-template #noTrends>
+} @else {
+
           <ui-empty-state
             title="No trend data"
             description="Monthly oversight trend data is currently unavailable.">
           </ui-empty-state>
-        </ng-template>
+        
+}
+        
       </article>
 
       <article class="workspace-card">
         <div class="panel-head">
           <h3>Repeated Delay Patterns</h3>
         </div>
-        <div *ngIf="delayPatterns.length; else noPatterns" class="table-wrap">
+        @if (delayPatterns.length) {
+<div class="table-wrap">
           <table>
             <thead>
               <tr>
@@ -123,7 +141,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of delayPatterns | slice:0:10">
+              @for (row of delayPatterns | slice:0:10; track row) {
+<tr>
                 <td>{{ row.client }}</td>
                 <td>{{ row.branch }}</td>
                 <td>{{ row.crmName }}</td>
@@ -132,22 +151,27 @@
                 <td>{{ row.avgDelayDays }}</td>
                 <td>{{ row.latestEscalation | date: 'medium' }}</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
-        <ng-template #noPatterns>
+} @else {
+
           <ui-empty-state
             title="No repeated patterns"
             description="No client-branch pair currently has repeated escalations.">
           </ui-empty-state>
-        </ng-template>
+        
+}
+        
       </article>
 
       <article class="workspace-card">
         <div class="panel-head">
           <h3>Top Overdue Clients</h3>
         </div>
-        <div *ngIf="topOverdueRows.length; else noTopOverdue" class="table-wrap">
+        @if (topOverdueRows.length) {
+<div class="table-wrap">
           <table>
             <thead>
               <tr>
@@ -157,20 +181,25 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of topOverdueRows | slice:0:10">
+              @for (row of topOverdueRows | slice:0:10; track row) {
+<tr>
                 <td>{{ row.client }}</td>
                 <td>{{ row.branch }}</td>
                 <td>{{ row.count }}</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
-        <ng-template #noTopOverdue>
+} @else {
+
           <ui-empty-state
             title="No overdue stack"
             description="No top-overdue records are currently returned by the dashboard feed.">
           </ui-empty-state>
-        </ng-template>
+        
+}
+        
       </article>
 
       <article class="workspace-card">
@@ -178,7 +207,8 @@
           <h3>CRM Performance Snapshot</h3>
           <a routerLink="/cco/crm-performance" class="panel-link">Open full page</a>
         </div>
-        <div *ngIf="crmSnapshot.length; else noCrmSnapshot" class="table-wrap">
+        @if (crmSnapshot.length) {
+<div class="table-wrap">
           <table>
             <thead>
               <tr>
@@ -189,7 +219,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of crmSnapshot | slice:0:10">
+              @for (row of crmSnapshot | slice:0:10; track row) {
+<tr>
                 <td>
                   <div class="crm-name">{{ row.name }}</div>
                   <div class="crm-email">{{ row.email }}</div>
@@ -200,15 +231,19 @@
                   <ui-status-badge [status]="row.status"></ui-status-badge>
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
-        <ng-template #noCrmSnapshot>
+} @else {
+
           <ui-empty-state
             title="No CRM snapshot"
             description="CRM performance data is not available in the current response.">
           </ui-empty-state>
-        </ng-template>
+        
+}
+        
       </article>
 
       <article class="workspace-card">
@@ -238,9 +273,12 @@
           </select>
         </div>
 
-        <div *ngIf="queueLoading" class="queue-loading">Refreshing queue...</div>
+        @if (queueLoading) {
+<div class="queue-loading">Refreshing queue...</div>
+}
 
-        <div *ngIf="filteredQueue.length; else noQueue" class="table-wrap">
+        @if (filteredQueue.length) {
+<div class="table-wrap">
           <table>
             <thead>
               <tr>
@@ -255,7 +293,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of filteredQueue | slice:0:20">
+              @for (row of filteredQueue | slice:0:20; track row) {
+<tr>
                 <td>{{ row.client }}</td>
                 <td>{{ row.branch }}</td>
                 <td>{{ row.crmName }}</td>
@@ -265,16 +304,21 @@
                 <td>{{ row.dueDate | date: 'mediumDate' }}</td>
                 <td>{{ row.escalatedAt | date: 'medium' }}</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
-        <ng-template #noQueue>
+} @else {
+
           <ui-empty-state
             title="No matching escalations"
             description="No rows match the current queue filters.">
           </ui-empty-state>
-        </ng-template>
+        
+}
+        
       </article>
     </section>
   </div>
+}
 </div>

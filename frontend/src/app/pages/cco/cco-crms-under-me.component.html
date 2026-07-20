@@ -5,15 +5,20 @@
     icon="user-group">
   </ui-page-header>
 
-  <ui-loading-spinner *ngIf="loading" text="Loading CRMs..."></ui-loading-spinner>
+  @if (loading) {
+<ui-loading-spinner text="Loading CRMs..."></ui-loading-spinner>
+}
 
   <!-- Error Banner -->
-  <div *ngIf="!loading && error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-center justify-between">
+  @if (!loading && error) {
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-center justify-between">
     <span>{{ error }}</span>
     <button type="button" (click)="retry()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
   </div>
+}
 
-  <ng-container *ngIf="!loading">
+  @if (!loading) {
+
     <!-- KPI Strip -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
       <div class="bg-white border border-gray-200 rounded-xl p-4">
@@ -53,7 +58,8 @@
     </div>
 
     <!-- DataTable -->
-    <div class="card" *ngIf="filteredCrms.length > 0">
+    @if (filteredCrms.length > 0) {
+<div class="card">
       <ui-data-table [columns]="columns" [data]="filteredCrms">
         <ng-template uiTableCell="name" let-row>
           <span class="font-medium text-gray-900">{{ row.name }}</span>
@@ -74,12 +80,16 @@
         </ng-template>
       </ui-data-table>
     </div>
+}
 
-    <ui-empty-state
-      *ngIf="filteredCrms.length === 0"
+    @if (filteredCrms.length === 0) {
+<ui-empty-state
+     
       title="No CRMs found"
       description="CRMs assigned to you will appear here."
       icon="user-group">
     </ui-empty-state>
-  </ng-container>
+}
+  
+}
 </div>

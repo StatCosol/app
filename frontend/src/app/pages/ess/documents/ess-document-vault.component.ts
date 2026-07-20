@@ -26,13 +26,15 @@ import {
 
       <div class="card p-4">
         <div class="flex flex-wrap gap-2 mb-3">
-          <button
-            *ngFor="let cat of categories"
+          @for (cat of categories; track cat) {
+<button
+           
             class="tab-btn"
             [ngClass]="selectedCategory === cat.value ? 'active' : ''"
             (click)="selectCategory(cat.value)">
             {{ cat.label }}
           </button>
+}
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
@@ -40,7 +42,9 @@ import {
             <label for="dv-year" class="block text-xs text-gray-500 mb-1">Year</label>
             <select id="dv-year" name="selectedYear" class="input-sm w-full" [(ngModel)]="selectedYear" (ngModelChange)="loadDocuments()">
               <option [ngValue]="null">All Years</option>
-              <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
+              @for (y of yearOptions; track y) {
+<option [ngValue]="y">{{ y }}</option>
+}
             </select>
           </div>
           <div>
@@ -96,18 +100,24 @@ import {
         </div>
       </div>
 
-      <div class="card p-3" *ngIf="vaultGuardrails.length">
+      @if (vaultGuardrails.length) {
+<div class="card p-3">
         <div class="text-xs font-semibold text-gray-600 uppercase mb-2">Vault Guardrails</div>
         <div class="space-y-1">
-          <div
-            *ngFor="let issue of vaultGuardrails"
+          @for (issue of vaultGuardrails; track issue) {
+<div
+           
             class="text-xs rounded-md border border-amber-200 bg-amber-50 text-amber-700 px-2 py-1">
             {{ issue }}
           </div>
+}
         </div>
       </div>
+}
 
-      <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">{{ error }}</div>
+      @if (error) {
+<div class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">{{ error }}</div>
+}
 
       <!-- Self-Upload Section -->
       <div class="card p-4">
@@ -145,14 +155,19 @@ import {
           <button class="btn-primary" [disabled]="!uploadForm.file || uploadingDoc || !uploadForm.docType" (click)="uploadDocument()">
             {{ uploadingDoc ? 'Uploading...' : 'Upload' }}
           </button>
-          <span *ngIf="uploadMsg" class="text-sm" [class.text-green-600]="!uploadError" [class.text-red-600]="uploadError">{{ uploadMsg }}</span>
+          @if (uploadMsg) {
+<span class="text-sm" [class.text-green-600]="!uploadError" [class.text-red-600]="uploadError">{{ uploadMsg }}</span>
+}
         </div>
       </div>
 
       <div class="card overflow-hidden">
-        <div *ngIf="loading" class="p-6 text-sm text-gray-500">Loading documents...</div>
+        @if (loading) {
+<div class="p-6 text-sm text-gray-500">Loading documents...</div>
+}
 
-        <table *ngIf="!loading && displayDocuments.length" class="doc-table">
+        @if (!loading && displayDocuments.length) {
+<table class="doc-table">
           <thead>
             <tr>
               <th>Document</th>
@@ -165,7 +180,8 @@ import {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let d of displayDocuments">
+            @for (d of displayDocuments; track d) {
+<tr>
               <td>
                 <div class="font-medium text-gray-900">{{ d.docName || d.fileName }}</div>
                 <div class="text-xs text-gray-500">{{ d.fileName }}</div>
@@ -174,8 +190,12 @@ import {
               <td>{{ d.docType }}</td>
               <td>
                 <span class="validity-chip" [ngClass]="validityClass(d)">{{ validityLabel(d) }}</span>
-                <div class="text-xs text-gray-500 mt-1" *ngIf="d.expiryDate; else noExp">{{ d.expiryDate | date:'d MMM y' }}</div>
-                <ng-template #noExp>-</ng-template>
+                @if (d.expiryDate) {
+<div class="text-xs text-gray-500 mt-1">{{ d.expiryDate | date:'d MMM y' }}</div>
+} @else {
+-
+}
+                
               </td>
               <td>
                 <span class="verify-chip" [ngClass]="verificationClass(d)">{{ d.isVerified ? 'Verified' : 'Pending' }}</span>
@@ -192,12 +212,16 @@ import {
                 </div>
               </td>
             </tr>
+}
           </tbody>
         </table>
+}
 
-        <div *ngIf="!loading && !displayDocuments.length" class="p-8 text-center text-sm text-gray-500">
+        @if (!loading && !displayDocuments.length) {
+<div class="p-8 text-center text-sm text-gray-500">
           No documents found for selected filters.
         </div>
+}
       </div>
     </div>
 

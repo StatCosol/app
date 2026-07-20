@@ -15,7 +15,8 @@ import { NoticesService, Notice, NoticeKpis } from '../../../core/notices.servic
     <div class="max-w-[1400px] mx-auto p-4">
       <ui-page-header title="Notices & Inspections" subtitle="View department notices, show-cause orders, and response status"></ui-page-header>
 
-      <section class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-4" *ngIf="kpis">
+      @if (kpis) {
+<section class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-4">
         <div class="border rounded-lg p-3 bg-white"><span class="block text-xl font-bold">{{ kpis.total }}</span><span class="text-xs text-gray-500">Total</span></div>
         <div class="border border-orange-200 rounded-lg p-3 bg-orange-50"><span class="block text-xl font-bold">{{ kpis.actionRequired }}</span><span class="text-xs text-gray-500">Action Required</span></div>
         <div class="border border-red-200 rounded-lg p-3 bg-red-50"><span class="block text-xl font-bold">{{ kpis.overdue }}</span><span class="text-xs text-gray-500">Overdue</span></div>
@@ -24,24 +25,35 @@ import { NoticesService, Notice, NoticeKpis } from '../../../core/notices.servic
         <div class="border border-red-200 rounded-lg p-3 bg-red-50"><span class="block text-xl font-bold">{{ kpis.critical }}</span><span class="text-xs text-gray-500">Critical</span></div>
         <div class="border border-red-200 rounded-lg p-3 bg-red-50"><span class="block text-xl font-bold">{{ kpis.escalated }}</span><span class="text-xs text-gray-500">Escalated</span></div>
       </section>
+}
 
       <div class="flex flex-wrap gap-2 mb-4">
         <input type="text" class="border rounded-lg px-3 py-2 text-sm flex-1 min-w-[200px]" placeholder="Search..." [(ngModel)]="search" (input)="load()" />
         <select class="border rounded-lg px-3 py-2 text-sm" [(ngModel)]="statusFilter" (change)="load()">
           <option value="">All Statuses</option>
-          <option *ngFor="let s of statuses" [value]="s">{{ s }}</option>
+          @for (s of statuses; track s) {
+<option [value]="s">{{ s }}</option>
+}
         </select>
         <select class="border rounded-lg px-3 py-2 text-sm" [(ngModel)]="severityFilter" (change)="load()">
           <option value="">All Severity</option>
-          <option *ngFor="let s of severities" [value]="s">{{ s }}</option>
+          @for (s of severities; track s) {
+<option [value]="s">{{ s }}</option>
+}
         </select>
       </div>
 
-      <ui-loading-spinner *ngIf="loading" text="Loading notices..."></ui-loading-spinner>
-      <ui-empty-state *ngIf="!loading && !notices.length" title="No notices" description="No notices found for your account."></ui-empty-state>
+      @if (loading) {
+<ui-loading-spinner text="Loading notices..."></ui-loading-spinner>
+}
+      @if (!loading && !notices.length) {
+<ui-empty-state title="No notices" description="No notices found for your account."></ui-empty-state>
+}
 
-      <div class="grid gap-3" *ngIf="!loading && notices.length">
-        <div *ngFor="let n of notices; trackBy: trackById"
+      @if (!loading && notices.length) {
+<div class="grid gap-3">
+        @for (n of notices; track trackById($index, n)) {
+<div
              class="border rounded-lg p-4 bg-white hover:shadow-sm cursor-pointer"
              [class.border-red-300]="isOverdue(n)"
              (click)="selected = selected?.id === n.id ? null : n; selected && loadDetail(n.id)">
@@ -53,28 +65,40 @@ import { NoticesService, Notice, NoticeKpis } from '../../../core/notices.servic
           <div class="flex flex-wrap gap-3 text-xs text-gray-500">
             <span>{{ n.departmentName }}</span>
             <span>{{ n.noticeType }}</span>
-            <span *ngIf="n.responseDueDate" [class.text-red-600]="isOverdue(n)">Due: {{ n.responseDueDate }}</span>
+            @if (n.responseDueDate) {
+<span [class.text-red-600]="isOverdue(n)">Due: {{ n.responseDueDate }}</span>
+}
             <span class="px-1.5 py-0.5 rounded border text-xs" [ngClass]="severityColor(n.severity)">{{ n.severity }}</span>
           </div>
 
           <!-- Expanded detail -->
-          <div *ngIf="selected?.id === n.id && detail" class="mt-3 pt-3 border-t">
+          @if (selected?.id === n.id && detail) {
+<div class="mt-3 pt-3 border-t">
             <div class="grid grid-cols-2 gap-2 text-xs">
               <div><span class="text-gray-400">Branch</span><br/>{{ detail.branch?.branchName || 'N/A' }}</div>
               <div><span class="text-gray-400">Reference</span><br/>{{ detail.referenceNo || '—' }}</div>
               <div><span class="text-gray-400">Notice Date</span><br/>{{ detail.noticeDate }}</div>
               <div><span class="text-gray-400">Received</span><br/>{{ detail.receivedDate }}</div>
             </div>
-            <p *ngIf="detail.description" class="text-xs text-gray-600 mt-2">{{ detail.description }}</p>
-            <div *ngIf="detail.documents?.length" class="mt-2">
+            @if (detail.description) {
+<p class="text-xs text-gray-600 mt-2">{{ detail.description }}</p>
+}
+            @if (detail.documents?.length) {
+<div class="mt-2">
               <span class="text-xs font-semibold text-gray-500">Documents</span>
-              <div *ngFor="let d of detail.documents" class="text-xs text-blue-600 hover:underline mt-0.5">
+              @for (d of detail.documents; track d) {
+<div class="text-xs text-blue-600 hover:underline mt-0.5">
                 <a [href]="d.fileUrl" target="_blank">{{ d.fileName }}</a>
               </div>
+}
             </div>
+}
           </div>
+}
         </div>
+}
       </div>
+}
     </div>
   `,
 })

@@ -1,5 +1,5 @@
 import { Component, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
@@ -40,12 +40,11 @@ interface CompareResult {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CommonModule,
     FormsModule,
     PageHeaderComponent,
     ActionButtonComponent,
-    FormInputComponent,
-  ],
+    FormInputComponent
+],
   template: `
     <div class="page">
       <ui-page-header
@@ -85,12 +84,15 @@ interface CompareResult {
               </ui-button>
             </div>
 
-            <div *ngIf="error" class="text-sm text-red-600">{{ error }}</div>
+            @if (error) {
+<div class="text-sm text-red-600">{{ error }}</div>
+}
           </div>
         </div>
 
         <!-- Results -->
-        <div *ngIf="result" class="space-y-4">
+        @if (result) {
+<div class="space-y-4">
           <!-- Recommendation Banner -->
           <div class="rounded-xl p-4 border-2"
                [class.border-green-400]="result.recommended === 'NEW'"
@@ -107,43 +109,56 @@ interface CompareResult {
 
           <!-- Side-by-side comparison -->
           <div class="grid grid-cols-2 gap-4">
-            <div *ngFor="let r of [result.new, result.old]"
+            @for (r of [result.new, result.old]; track r) {
+<div
                  class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm"
                  [class.ring-2]="r.regime === result.recommended"
                  [class.ring-indigo-400]="r.regime === result.recommended">
               <h4 class="text-base font-semibold mb-3" [class.text-indigo-700]="r.regime === 'NEW'" [class.text-amber-700]="r.regime === 'OLD'">
                 {{ r.regime }} Regime
-                <span *ngIf="r.regime === result.recommended" class="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full ml-1">Best</span>
+                @if (r.regime === result.recommended) {
+<span class="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full ml-1">Best</span>
+}
               </h4>
               <div class="space-y-2 text-sm">
                 <div class="flex justify-between"><span class="text-gray-600">Gross Salary</span><span class="font-medium">₹{{ fmt(r.annualGross) }}</span></div>
                 <div class="flex justify-between"><span class="text-gray-600">Std. Deduction</span><span>₹{{ fmt(r.standardDeduction) }}</span></div>
-                <div *ngIf="r.totalExemptions > 0" class="flex justify-between"><span class="text-gray-600">Exemptions</span><span>₹{{ fmt(r.totalExemptions) }}</span></div>
+                @if (r.totalExemptions > 0) {
+<div class="flex justify-between"><span class="text-gray-600">Exemptions</span><span>₹{{ fmt(r.totalExemptions) }}</span></div>
+}
                 <div class="flex justify-between border-t pt-1"><span class="text-gray-700 font-medium">Taxable Income</span><span class="font-semibold">₹{{ fmt(r.taxableIncome) }}</span></div>
 
                 <!-- Slab breakdown -->
                 <div class="mt-2">
-                  <div *ngFor="let s of r.slabBreakdown" class="flex justify-between text-xs text-gray-500 py-0.5">
+                  @for (s of r.slabBreakdown; track s) {
+<div class="flex justify-between text-xs text-gray-500 py-0.5">
                     <span>{{ s.slab }} &#64; {{ s.rate }}%</span><span>₹{{ fmt(s.tax) }}</span>
                   </div>
+}
                 </div>
 
                 <div class="flex justify-between"><span class="text-gray-600">Tax Before Cess</span><span>₹{{ fmt(r.taxBeforeCess) }}</span></div>
-                <div *ngIf="r.rebate87A > 0" class="flex justify-between text-green-600"><span>Rebate 87A</span><span>-₹{{ fmt(r.rebate87A) }}</span></div>
+                @if (r.rebate87A > 0) {
+<div class="flex justify-between text-green-600"><span>Rebate 87A</span><span>-₹{{ fmt(r.rebate87A) }}</span></div>
+}
                 <div class="flex justify-between"><span class="text-gray-600">Cess (4%)</span><span>₹{{ fmt(r.cess) }}</span></div>
                 <div class="flex justify-between border-t pt-1 border-gray-200">
                   <span class="font-semibold text-gray-900">Total Tax</span>
                   <span class="font-bold text-gray-900">₹{{ fmt(r.totalTaxLiability) }}</span>
                 </div>
-                <div *ngIf="r.tdsAlreadyPaid > 0" class="flex justify-between"><span class="text-gray-600">Already Paid</span><span>₹{{ fmt(r.tdsAlreadyPaid) }}</span></div>
+                @if (r.tdsAlreadyPaid > 0) {
+<div class="flex justify-between"><span class="text-gray-600">Already Paid</span><span>₹{{ fmt(r.tdsAlreadyPaid) }}</span></div>
+}
                 <div class="flex justify-between bg-indigo-50 rounded px-2 py-1 -mx-2">
                   <span class="font-semibold text-indigo-800">Monthly TDS</span>
                   <span class="font-bold text-indigo-900">₹{{ fmt(r.monthlyTds) }}</span>
                 </div>
               </div>
             </div>
+}
           </div>
         </div>
+}
       </div>
     </div>
   `,

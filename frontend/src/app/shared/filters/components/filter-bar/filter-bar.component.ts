@@ -2,7 +2,7 @@ import {
   Component, Input, Output, EventEmitter,
   OnInit, ChangeDetectionStrategy, ChangeDetectorRef,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { of } from 'rxjs';
 import { FilterState, ClientOption, BranchOption } from '../../models/filter.model';
@@ -14,7 +14,7 @@ export type OptionsMode = 'ADMIN' | 'CRM' | 'CLIENT' | 'BRANCH' | 'PAYDEK' | 'AU
 @Component({
   selector: 'app-filter-bar',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './filter-bar.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

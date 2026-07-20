@@ -80,7 +80,9 @@ type ScopeFilter = '' | CrmDocumentScope;
           [disabled]="filters.scope === 'COMPANY'"
           class="form-select rounded-lg border-gray-300 text-sm disabled:bg-gray-100">
           <option value="">All Units</option>
-          <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
+          @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchName }}</option>
+}
         </select>
 
         <input autocomplete="off"
@@ -99,7 +101,9 @@ type ScopeFilter = '' | CrmDocumentScope;
           (ngModelChange)="loadDocuments()"
           class="form-select rounded-lg border-gray-300 text-sm">
           <option value="">All Laws</option>
-          <option *ngFor="let c of lawCategories" [value]="c">{{ c }}</option>
+          @for (c of lawCategories; track c) {
+<option [value]="c">{{ c }}</option>
+}
         </select>
 
         <select
@@ -109,7 +113,9 @@ type ScopeFilter = '' | CrmDocumentScope;
           (ngModelChange)="loadDocuments()"
           class="form-select rounded-lg border-gray-300 text-sm">
           <option value="">All Types</option>
-          <option *ngFor="let t of docTypes" [value]="t">{{ t }}</option>
+          @for (t of docTypes; track t) {
+<option [value]="t">{{ t }}</option>
+}
         </select>
 
         <button
@@ -128,7 +134,8 @@ type ScopeFilter = '' | CrmDocumentScope;
       </div>
     </div>
 
-    <div *ngIf="showUploadForm" class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
+    @if (showUploadForm) {
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
       <h3 class="text-base font-semibold text-gray-800 mb-4">Upload New Document</h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div>
@@ -146,7 +153,9 @@ type ScopeFilter = '' | CrmDocumentScope;
 
         <div>
           <label for="crm-ud-form-branch" class="block text-xs font-medium text-gray-600 mb-1">
-            Unit <span *ngIf="form.scope === 'BRANCH'">*</span>
+            Unit @if (form.scope === 'BRANCH') {
+<span>*</span>
+}
           </label>
           <select
             id="crm-ud-form-branch"
@@ -155,7 +164,9 @@ type ScopeFilter = '' | CrmDocumentScope;
             [disabled]="form.scope === 'COMPANY'"
             class="form-select w-full rounded-lg border-gray-300 text-sm disabled:bg-gray-100">
             <option value="">{{ form.scope === 'COMPANY' ? 'Not applicable' : 'Select Unit' }}</option>
-            <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
+            @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchName }}</option>
+}
           </select>
         </div>
 
@@ -177,7 +188,9 @@ type ScopeFilter = '' | CrmDocumentScope;
             [(ngModel)]="form.lawCategory"
             class="form-select w-full rounded-lg border-gray-300 text-sm">
             <option value="">Select Law</option>
-            <option *ngFor="let c of lawCategories" [value]="c">{{ c }}</option>
+            @for (c of lawCategories; track c) {
+<option [value]="c">{{ c }}</option>
+}
           </select>
         </div>
 
@@ -189,7 +202,9 @@ type ScopeFilter = '' | CrmDocumentScope;
             [(ngModel)]="form.documentType"
             class="form-select w-full rounded-lg border-gray-300 text-sm">
             <option value="">Select Type</option>
-            <option *ngFor="let t of docTypes" [value]="t">{{ t }}</option>
+            @for (t of docTypes; track t) {
+<option [value]="t">{{ t }}</option>
+}
           </select>
         </div>
 
@@ -215,9 +230,11 @@ type ScopeFilter = '' | CrmDocumentScope;
             (change)="onFileSelected($event)"
             accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png,.zip"
             class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-          <div *ngIf="selectedFiles.length" class="mt-1 text-xs text-gray-500">
+          @if (selectedFiles.length) {
+<div class="mt-1 text-xs text-gray-500">
             {{ selectedFiles.length }} file{{ selectedFiles.length !== 1 ? 's' : '' }} selected
           </div>
+}
         </div>
       </div>
 
@@ -227,25 +244,33 @@ type ScopeFilter = '' | CrmDocumentScope;
           [disabled]="uploading || !canUpload()"
           class="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50"
           style="background: #0a2656;">
-          <svg *ngIf="uploading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+          @if (uploading) {
+<svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
           </svg>
+}
           {{ uploading ? 'Uploading...' : 'Upload' }}
         </button>
       </div>
     </div>
+}
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner></ui-loading-spinner>
+}
 
-      <ui-empty-state
-        *ngIf="!loading && !documents.length"
+      @if (!loading && !documents.length) {
+<ui-empty-state
+       
         title="No documents found"
         message="Upload shared files for company or branch scope using the button above.">
       </ui-empty-state>
+}
 
-      <div *ngIf="!loading && documents.length" class="overflow-x-auto">
+      @if (!loading && documents.length) {
+<div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
@@ -261,7 +286,8 @@ type ScopeFilter = '' | CrmDocumentScope;
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-100">
-            <tr *ngFor="let doc of documents" class="hover:bg-gray-50 transition-colors">
+            @for (doc of documents; track doc) {
+<tr class="hover:bg-gray-50 transition-colors">
               <td class="px-4 py-3">
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
                   [ngClass]="doc.scope === 'COMPANY' ? 'bg-slate-100 text-slate-700' : 'bg-emerald-100 text-emerald-700'">
@@ -308,9 +334,11 @@ type ScopeFilter = '' | CrmDocumentScope;
                 </div>
               </td>
             </tr>
+}
           </tbody>
         </table>
       </div>
+}
     </div>
   `,
   styles: [`

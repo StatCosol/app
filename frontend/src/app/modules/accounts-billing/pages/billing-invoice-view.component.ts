@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { AccountsBillingService } from '../services/accounts-billing.service';
@@ -10,9 +10,10 @@ import { ToastService } from '../../../shared/toast/toast.service';
 @Component({
   selector: 'app-billing-invoice-view',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [FormsModule, RouterModule],
   template: `
-    <div class="p-6 space-y-6" *ngIf="invoice; else placeholderTpl">
+    @if (invoice) {
+<div class="p-6 space-y-6">
       <!-- Header -->
       <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -21,18 +22,24 @@ import { ToastService } from '../../../shared/toast/toast.service';
           <p class="text-sm text-slate-500">{{ invoice.invoiceType.replace('_',' ') }} &middot; {{ invoice.invoiceDate }}</p>
         </div>
         <div class="flex gap-2 flex-wrap">
-          <button *ngIf="invoice.invoiceStatus === 'DRAFT'" (click)="approve()"
+          @if (invoice.invoiceStatus === 'DRAFT') {
+<button (click)="approve()"
                   class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">Approve</button>
-          <a *ngIf="isEditable()" [routerLink]="['/accounts/invoices', invoice.id, 'edit']"
+}
+          @if (isEditable()) {
+<a [routerLink]="['/accounts/invoices', invoice.id, 'edit']"
                   class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50">Edit</a>
+}
           <button (click)="generatePdf()" [disabled]="generatingPdf"
                   class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
             {{ generatingPdf ? 'Generating...' : 'Generate PDF' }}
           </button>
           <button (click)="showEmailModal = true"
                   class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700">Send Email</button>
-          <button *ngIf="invoice.invoiceStatus !== 'CANCELLED' && invoice.invoiceStatus !== 'PAID'" (click)="cancel()"
+          @if (invoice.invoiceStatus !== 'CANCELLED' && invoice.invoiceStatus !== 'PAID') {
+<button (click)="cancel()"
                   class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700">Cancel</button>
+}
         </div>
       </div>
 
@@ -43,8 +50,10 @@ import { ToastService } from '../../../shared/toast/toast.service';
           {{ invoice.paymentStatus }}
         </span>
         <span class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">Mail: {{ invoice.mailStatus }}</span>
-        <button *ngIf="invoice.pdfPath" (click)="generatePdf()" type="button"
+        @if (invoice.pdfPath) {
+<button (click)="generatePdf()" type="button"
            class="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 hover:underline">View PDF</button>
+}
       </div>
 
       <!-- Client & Amount Cards -->
@@ -62,12 +71,24 @@ import { ToastService } from '../../../shared/toast/toast.service';
             <div>Sub Total:</div><div class="text-right font-medium">₹{{ fmt(invoice.subTotal) }}</div>
             <div>Discount:</div><div class="text-right">₹{{ fmt(invoice.discountTotal) }}</div>
             <div>Taxable Value:</div><div class="text-right">₹{{ fmt(invoice.taxableValue) }}</div>
-            <div *ngIf="+invoice.cgstAmount > 0">CGST ({{ invoice.cgstRate }}%):</div>
-            <div *ngIf="+invoice.cgstAmount > 0" class="text-right">₹{{ fmt(invoice.cgstAmount) }}</div>
-            <div *ngIf="+invoice.sgstAmount > 0">SGST ({{ invoice.sgstRate }}%):</div>
-            <div *ngIf="+invoice.sgstAmount > 0" class="text-right">₹{{ fmt(invoice.sgstAmount) }}</div>
-            <div *ngIf="+invoice.igstAmount > 0">IGST ({{ invoice.igstRate }}%):</div>
-            <div *ngIf="+invoice.igstAmount > 0" class="text-right">₹{{ fmt(invoice.igstAmount) }}</div>
+            @if (+invoice.cgstAmount > 0) {
+<div>CGST ({{ invoice.cgstRate }}%):</div>
+}
+            @if (+invoice.cgstAmount > 0) {
+<div class="text-right">₹{{ fmt(invoice.cgstAmount) }}</div>
+}
+            @if (+invoice.sgstAmount > 0) {
+<div>SGST ({{ invoice.sgstRate }}%):</div>
+}
+            @if (+invoice.sgstAmount > 0) {
+<div class="text-right">₹{{ fmt(invoice.sgstAmount) }}</div>
+}
+            @if (+invoice.igstAmount > 0) {
+<div>IGST ({{ invoice.igstRate }}%):</div>
+}
+            @if (+invoice.igstAmount > 0) {
+<div class="text-right">₹{{ fmt(invoice.igstAmount) }}</div>
+}
             <div>Round Off:</div><div class="text-right">₹{{ fmt(invoice.roundOff) }}</div>
             <div class="font-bold text-lg border-t pt-2">Grand Total:</div>
             <div class="text-right font-bold text-lg border-t pt-2 text-blue-700">₹{{ fmt(invoice.grandTotal) }}</div>
@@ -77,10 +98,12 @@ import { ToastService } from '../../../shared/toast/toast.service';
         </div>
       </div>
 
-      <div *ngIf="invoice.remarks" class="bg-white rounded-xl border p-5">
+      @if (invoice.remarks) {
+<div class="bg-white rounded-xl border p-5">
         <h3 class="text-sm font-semibold text-slate-500 uppercase mb-2">Remarks</h3>
         <p class="text-sm text-slate-700 whitespace-pre-line">{{ invoice.remarks }}</p>
       </div>
+}
 
       <!-- Line Items -->
       <div class="bg-white rounded-xl border shadow-sm overflow-x-auto">
@@ -100,12 +123,19 @@ import { ToastService } from '../../../shared/toast/toast.service';
             </tr>
           </thead>
           <tbody class="divide-y">
-            <tr *ngFor="let item of invoice.items; let i = index">
+            @for (item of invoice.items; track item; let i = $index) {
+<tr>
               <td class="px-4 py-2">{{ i + 1 }}</td>
               <td class="px-4 py-2">
                 {{ item.serviceDescription }}
-                <span *ngIf="item.isReimbursement" class="ml-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] uppercase tracking-wide">Govt Fee &middot; Non-GST</span>
-                <br *ngIf="item.sacCode"><small *ngIf="item.sacCode" class="text-slate-400">SAC: {{ item.sacCode }}</small>
+                @if (item.isReimbursement) {
+<span class="ml-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] uppercase tracking-wide">Govt Fee &middot; Non-GST</span>
+}
+                @if (item.sacCode) {
+<br>
+}@if (item.sacCode) {
+<small class="text-slate-400">SAC: {{ item.sacCode }}</small>
+}
               </td>
               <td class="px-4 py-2 text-right">{{ item.quantity }}</td>
               <td class="px-4 py-2 text-right">₹{{ fmt(item.rate) }}</td>
@@ -116,6 +146,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
               <td class="px-4 py-2 text-right">₹{{ fmt(item.gstAmount) }}</td>
               <td class="px-4 py-2 text-right font-medium">₹{{ fmt(item.lineTotal) }}</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
@@ -124,11 +155,14 @@ import { ToastService } from '../../../shared/toast/toast.service';
       <div class="bg-white rounded-xl border p-6 space-y-4">
         <div class="flex items-center justify-between">
           <h3 class="text-lg font-semibold text-slate-700">Payments</h3>
-          <button *ngIf="invoice.paymentStatus !== 'PAID' && invoice.invoiceStatus !== 'CANCELLED'"
+          @if (invoice.paymentStatus !== 'PAID' && invoice.invoiceStatus !== 'CANCELLED') {
+<button
                   (click)="showPaymentModal = true"
                   class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700">+ Record Payment</button>
+}
         </div>
-        <table class="w-full text-sm" *ngIf="payments.length">
+        @if (payments.length) {
+<table class="w-full text-sm">
           <thead class="bg-slate-50 text-xs text-slate-500 uppercase">
             <tr>
               <th class="px-4 py-2 text-left">Receipt #</th>
@@ -141,7 +175,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
             </tr>
           </thead>
           <tbody class="divide-y">
-            <tr *ngFor="let p of payments">
+            @for (p of payments; track p) {
+<tr>
               <td class="px-4 py-2 font-mono text-xs">{{ p.receiptNumber }}</td>
               <td class="px-4 py-2">{{ p.paymentDate }}</td>
               <td class="px-4 py-2 text-right">₹{{ fmt(p.amountReceived) }}</td>
@@ -150,13 +185,18 @@ import { ToastService } from '../../../shared/toast/toast.service';
               <td class="px-4 py-2">{{ p.paymentMode }}</td>
               <td class="px-4 py-2 text-xs">{{ p.referenceNumber || '—' }}</td>
             </tr>
+}
           </tbody>
         </table>
-        <p *ngIf="!payments.length" class="text-slate-400 text-sm">No payments recorded yet.</p>
+}
+        @if (!payments.length) {
+<p class="text-slate-400 text-sm">No payments recorded yet.</p>
+}
       </div>
 
       <!-- Payment Modal -->
-      <div *ngIf="showPaymentModal" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      @if (showPaymentModal) {
+<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
           <div class="p-6 border-b flex items-center justify-between">
             <h2 class="text-lg font-bold">Record Payment</h2>
@@ -184,7 +224,9 @@ import { ToastService } from '../../../shared/toast/toast.service';
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Payment Mode *</label>
               <select [(ngModel)]="payForm.paymentMode" class="w-full px-3 py-2 border rounded-lg text-sm">
-                <option *ngFor="let m of paymentModes" [value]="m">{{ m }}</option>
+                @for (m of paymentModes; track m) {
+<option [value]="m">{{ m }}</option>
+}
               </select>
             </div>
             <div>
@@ -205,9 +247,11 @@ import { ToastService } from '../../../shared/toast/toast.service';
           </div>
         </div>
       </div>
+}
 
       <!-- Email Modal -->
-      <div *ngIf="showEmailModal" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      @if (showEmailModal) {
+<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
           <div class="p-6 border-b flex items-center justify-between">
             <h2 class="text-lg font-bold">Send Invoice Email</h2>
@@ -240,18 +284,26 @@ import { ToastService } from '../../../shared/toast/toast.service';
           </div>
         </div>
       </div>
+}
     </div>
+} @else {
 
-    <ng-template #placeholderTpl>
       <div class="p-6 space-y-4">
         <a routerLink="/accounts/invoices" class="text-blue-600 text-sm hover:underline">&larr; Back to Invoices</a>
         <h1 class="text-2xl font-bold text-slate-800">Invoice</h1>
         <div class="bg-white rounded-xl border p-10 text-center text-slate-500">
-          <p *ngIf="!loadError">Loading invoice…</p>
-          <p *ngIf="loadError" class="text-red-500">Could not load this invoice. It may have been deleted or you may not have access.</p>
+          @if (!loadError) {
+<p>Loading invoice…</p>
+}
+          @if (loadError) {
+<p class="text-red-500">Could not load this invoice. It may have been deleted or you may not have access.</p>
+}
         </div>
       </div>
-    </ng-template>
+    
+}
+
+    
   `,
 })
 export class BillingInvoiceViewComponent implements OnInit {

@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -10,7 +10,7 @@ import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisa
 @Component({
   selector: 'app-branch-appraisals-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
     .page-container { max-width: 1280px; margin: 0 auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
@@ -70,7 +70,9 @@ import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisa
             <label class="text-xs font-medium text-gray-600 block mb-1" for="cycle-filter">Cycle</label>
             <select id="cycle-filter" name="cycleFilter" [(ngModel)]="cycleId" (ngModelChange)="load()" class="filter-select">
               <option value="">All Cycles</option>
-              <option *ngFor="let c of cycles" [value]="c.id">{{ c.cycleName }} ({{ c.financialYear }})</option>
+              @for (c of cycles; track c) {
+<option [value]="c.id">{{ c.cycleName }} ({{ c.financialYear }})</option>
+}
             </select>
           </div>
           <div>
@@ -92,9 +94,12 @@ import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisa
         </div>
       </div>
 
-      <div *ngIf="loading" class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+      @if (loading) {
+<div class="flex items-center justify-center py-20"><div class="spinner"></div></div>
+}
 
-      <div *ngIf="!loading" class="table-card">
+      @if (!loading) {
+<div class="table-card">
         <div class="flex items-center justify-between mb-3">
           <span class="text-xs text-gray-500">{{ total }} records</span>
           <div class="flex gap-2">
@@ -120,7 +125,8 @@ import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisa
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let a of appraisals; trackBy: trackById" class="data-row">
+              @for (a of appraisals; track trackById($index, a)) {
+<tr class="data-row">
                 <td class="text-xs font-mono text-gray-500">{{ a.employee_code }}</td>
                 <td class="font-medium text-slate-800">{{ a.employee_name }}</td>
                 <td class="text-sm text-gray-600">{{ a.department || '—' }}</td>
@@ -147,13 +153,17 @@ import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisa
                   <a [routerLink]="['/branch/appraisals', a.id]" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Review</a>
                 </td>
               </tr>
-              <tr *ngIf="!appraisals.length">
+}
+              @if (!appraisals.length) {
+<tr>
                 <td colspan="9" class="text-center text-sm text-gray-400 py-10">No appraisals found</td>
               </tr>
+}
             </tbody>
           </table>
         </div>
       </div>
+}
     </div>
   `,
 })

@@ -7,6 +7,8 @@ export interface TableColumn {
   sortable?: boolean;
   width?: string;
   align?: 'left' | 'center' | 'right';
+  /** Custom value accessor for CSV export — use when the cell is rendered from computed data. */
+  exportValue?: (row: any) => unknown;
 }
 
 export interface SortEvent {
@@ -35,12 +37,28 @@ export class TableCellDirective {
   imports: [CommonModule],
   template: `
     <div class="animate-fade-up">
+      <!-- Export toolbar -->
+      @if (exportFileName && !loading && data.length > 0) {
+        <div class="flex justify-end mb-2">
+          <button
+            type="button"
+            (click)="exportCsv()"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 hover:text-gray-800 transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+            </svg>
+            Export CSV
+          </button>
+        </div>
+      }
+
       <!-- Table -->
       <div class="overflow-x-auto">
         <table class="w-full table-fixed min-w-[600px]">
           <thead>
             <tr>
-              <th *ngFor="let col of columns"
+              @for (col of columns; track col) {
+<th
                   scope="col"
                   [style.width]="col.width"
                   [ngClass]="getHeaderClasses(col)"
@@ -48,23 +66,33 @@ export class TableCellDirective {
                   (click)="col.sortable && onSort(col.key)">
                 <div class="flex items-center gap-1.5" [ngClass]="{'justify-center': col.align === 'center', 'justify-end': col.align === 'right'}">
                   <span>{{ col.header }}</span>
-                  <ng-container *ngIf="col.sortable">
-                    <svg *ngIf="sortColumn !== col.key" class="w-3.5 h-3.5 text-gray-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  @if (col.sortable) {
+
+                    @if (sortColumn !== col.key) {
+<svg class="w-3.5 h-3.5 text-gray-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
                     </svg>
-                    <svg *ngIf="sortColumn === col.key && sortDirection === 'asc'" class="w-3.5 h-3.5 text-accent-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+}
+                    @if (sortColumn === col.key && sortDirection === 'asc') {
+<svg class="w-3.5 h-3.5 text-accent-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"></path>
                     </svg>
-                    <svg *ngIf="sortColumn === col.key && sortDirection === 'desc'" class="w-3.5 h-3.5 text-accent-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+}
+                    @if (sortColumn === col.key && sortDirection === 'desc') {
+<svg class="w-3.5 h-3.5 text-accent-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path>
                     </svg>
-                  </ng-container>
+}
+                  
+}
                 </div>
               </th>
+}
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
-            <ng-container *ngIf="loading">
+            @if (loading) {
+
               <tr>
                 <td [attr.colspan]="columns.length" class="px-6 py-16 text-center">
                   <div class="flex flex-col items-center justify-center gap-3">
@@ -76,8 +104,10 @@ export class TableCellDirective {
                   </div>
                 </td>
               </tr>
-            </ng-container>
-            <ng-container *ngIf="!loading && data.length === 0">
+            
+}
+            @if (!loading && data.length === 0) {
+
               <tr>
                 <td [attr.colspan]="columns.length" class="px-6 py-16 text-center">
                   <div class="flex flex-col items-center">
@@ -91,26 +121,38 @@ export class TableCellDirective {
                   </div>
                 </td>
               </tr>
-            </ng-container>
-            <ng-container *ngIf="!loading && data.length > 0">
-              <tr *ngFor="let row of data; let i = index"
+            
+}
+            @if (!loading && data.length > 0) {
+
+              @for (row of data; track row; let i = $index) {
+<tr
                   class="hover:bg-gray-50/80 transition-colors duration-150"
                   [class.cursor-pointer]="clickable"
                   (click)="onRowClick(row, i)">
-                <td *ngFor="let col of columns" [ngClass]="getCellClasses(col)">
-                  <ng-container *ngIf="getCellTemplate(col.key) as tmpl; else defaultCell">
+                @for (col of columns; track col) {
+<td [ngClass]="getCellClasses(col)">
+                  @if (getCellTemplate(col.key); as tmpl) {
+
                     <ng-container *ngTemplateOutlet="tmpl; context: { $implicit: row, row: row, value: row[col.key], index: i }"></ng-container>
-                  </ng-container>
-                  <ng-template #defaultCell>{{ row[col.key] }}</ng-template>
+                  
+} @else {
+{{ row[col.key] }}
+}
+                  
                 </td>
+}
               </tr>
-            </ng-container>
+}
+            
+}
           </tbody>
         </table>
       </div>
 
       <!-- Pagination -->
-      <div *ngIf="showPagination && !loading && data.length > 0"
+      @if (showPagination && !loading && data.length > 0) {
+<div
            class="px-6 py-4 border-t border-gray-100 bg-gray-50/60 flex items-center justify-between">
         <div class="text-sm text-gray-500 font-medium">
           Showing <span class="text-gray-800">{{ startItem }}</span> to <span class="text-gray-800">{{ endItem }}</span> of <span class="text-gray-800">{{ totalItems }}</span>
@@ -164,6 +206,7 @@ export class TableCellDirective {
             aria-label="Last page">&#187;</button>
         </div>
       </div>
+}
     </div>
   `
 })
@@ -173,6 +216,8 @@ export class DataTableComponent {
   @Input() loading = false;
   @Input() emptyMessage = 'No data available';
   @Input() clickable = false;
+  /** When set, an "Export CSV" button is shown that downloads the current rows as <name>.csv */
+  @Input() exportFileName = '';
 
   // Sorting
   @Input() sortColumn: string | null = null;
@@ -252,6 +297,29 @@ export class DataTableComponent {
     if (!Number.isFinite(page)) return this.currentPage || 1;
     const rounded = Math.trunc(page);
     return Math.min(this.totalPages, Math.max(1, rounded));
+  }
+
+  exportCsv(): void {
+    // Columns without a header are action columns — skip them in the export.
+    const cols = this.columns.filter((c) => c.header);
+    const escape = (v: unknown): string => {
+      const s = v == null ? '' : String(v);
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const lines = [
+      cols.map((c) => escape(c.header)).join(','),
+      ...this.data.map((row) =>
+        cols.map((c) => escape(c.exportValue ? c.exportValue(row) : row[c.key])).join(','),
+      ),
+    ];
+    // BOM so Excel opens the file as UTF-8
+    const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${this.exportFileName}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   get startItem(): number {

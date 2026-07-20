@@ -1,17 +1,25 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 @Component({
   selector: 'ui-status-change-row',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   template: `
-    <div *ngIf="from || to" class="text-[11px] text-gray-600 flex items-center gap-1">
+    @if (from || to) {
+<div class="text-[11px] text-gray-600 flex items-center gap-1">
       <span class="font-medium">Status:</span>
-      <span *ngIf="from" class="px-1.5 py-0.5 rounded bg-gray-100">{{ from }}</span>
-      <span *ngIf="from && to">?</span>
-      <span *ngIf="to" class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">{{ to }}</span>
+      @if (from) {
+<span class="px-1.5 py-0.5 rounded bg-gray-100">{{ from }}</span>
+}
+      @if (from && to) {
+<span>?</span>
+}
+      @if (to) {
+<span class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">{{ to }}</span>
+}
     </div>
+}
   `,
 })
 export class StatusChangeRowComponent {

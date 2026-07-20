@@ -29,7 +29,8 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
       </ui-page-header>
 
       <!-- Safety Risk Score Card -->
-      <div *ngIf="safetyScore" class="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      @if (safetyScore) {
+<div class="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-gray-900">Client Safety Score</h3>
           <div class="text-3xl font-bold" [class.text-green-600]="safetyScore.overallScore >= 70"
@@ -39,18 +40,22 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           </div>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <div *ngFor="let cs of safetyScore.categoryScores" class="text-center p-2 rounded-lg bg-gray-50">
+          @for (cs of safetyScore.categoryScores; track cs) {
+<div class="text-center p-2 rounded-lg bg-gray-50">
             <div class="text-xs text-gray-500 mb-1 truncate" [title]="cs.category">{{ cs.category }}</div>
             <div class="text-sm font-bold" [class.text-green-600]="cs.score >= 70"
               [class.text-amber-600]="cs.score >= 40 && cs.score < 70"
               [class.text-red-600]="cs.score < 40">{{ cs.score }}%</div>
             <div class="text-xs text-gray-400">{{ cs.uploaded }}/{{ cs.required }} · {{ cs.weight }}%</div>
           </div>
+}
         </div>
       </div>
+}
 
       <!-- Expiry Alerts Banner -->
-      <div *ngIf="expiringDocs.length > 0" class="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-4">
+      @if (expiringDocs.length > 0) {
+<div class="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-4">
         <div class="flex items-start gap-3">
           <svg class="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
@@ -58,24 +63,30 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           <div>
             <h3 class="text-sm font-semibold text-amber-800">Expiring Documents ({{ expiringDocs.length }})</h3>
             <ul class="mt-1 space-y-1">
-              <li *ngFor="let ed of expiringDocs" class="text-sm text-amber-700">
+              @for (ed of expiringDocs; track ed) {
+<li class="text-sm text-amber-700">
                 <span class="font-medium">{{ ed.documentName }}</span>
                 <span class="text-amber-600"> ({{ ed.category || ed.documentType }})</span> —
                 <span [class]="ed.daysRemaining <= 7 ? 'text-red-600 font-bold' : 'text-amber-700'">
                   {{ ed.daysRemaining <= 0 ? 'EXPIRED' : ed.daysRemaining === 1 ? 'Expires TOMORROW' : 'Expires in ' + ed.daysRemaining + ' days' }}
                 </span>
-                <span *ngIf="ed.branchName" class="text-amber-500"> · {{ ed.branchName }}</span>
+                @if (ed.branchName) {
+<span class="text-amber-500"> · {{ ed.branchName }}</span>
+}
               </li>
+}
             </ul>
           </div>
         </div>
       </div>
+}
 
       <!-- Frequency Tabs + Filters -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
         <div class="border-b border-gray-200">
           <nav class="flex -mb-px overflow-x-auto">
-            <button *ngFor="let tab of frequencyTabs" (click)="filterFrequency = tab.value; loadDocuments()"
+            @for (tab of frequencyTabs; track tab) {
+<button (click)="filterFrequency = tab.value; loadDocuments()"
               class="whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-colors"
               [class.border-indigo-500]="filterFrequency === tab.value"
               [class.text-indigo-600]="filterFrequency === tab.value"
@@ -83,13 +94,16 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               [class.text-gray-500]="filterFrequency !== tab.value">
               {{ tab.label }}
             </button>
+}
           </nav>
         </div>
         <div class="p-4 flex flex-wrap gap-3">
           <select id="cs-filter-category" name="filterCategory" [(ngModel)]="filterCategory" (ngModelChange)="loadDocuments()"
             class="form-select rounded-lg border-gray-300 text-sm">
             <option value="">All Categories</option>
-            <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+            @for (c of categories; track c) {
+<option [value]="c">{{ c }}</option>
+}
           </select>
           <button (click)="showUploadForm = !showUploadForm" type="button"
             class="ml-auto inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
@@ -99,7 +113,8 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
       </div>
 
       <!-- Upload On Behalf Form -->
-      <div *ngIf="showUploadForm" class="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      @if (showUploadForm) {
+<div class="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 class="text-base font-semibold text-gray-900 mb-4">Upload Safety Document on Behalf of Branch</h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
@@ -107,7 +122,9 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             <select [(ngModel)]="uploadForm.branchId" name="uf-branch"
               class="form-select w-full rounded-lg border-gray-300 text-sm">
               <option value="">Select Branch</option>
-              <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name }}</option>
+              @for (b of branches; track b) {
+<option [value]="b.id">{{ b.branchName || b.name }}</option>
+}
             </select>
           </div>
           <div>
@@ -115,7 +132,9 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             <select [(ngModel)]="uploadForm.documentType" name="uf-doctype"
               class="form-select w-full rounded-lg border-gray-300 text-sm">
               <option value="">Select Type</option>
-              <option *ngFor="let dt of documentTypes" [value]="dt">{{ dt }}</option>
+              @for (dt of documentTypes; track dt) {
+<option [value]="dt">{{ dt }}</option>
+}
             </select>
           </div>
           <div>
@@ -128,7 +147,9 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             <select [(ngModel)]="uploadForm.category" name="uf-cat"
               class="form-select w-full rounded-lg border-gray-300 text-sm">
               <option value="">Select Category</option>
-              <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+              @for (c of categories; track c) {
+<option [value]="c">{{ c }}</option>
+}
             </select>
           </div>
           <div>
@@ -136,7 +157,9 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             <select [(ngModel)]="uploadForm.frequency" name="uf-freq"
               class="form-select w-full rounded-lg border-gray-300 text-sm">
               <option value="">Select Frequency</option>
-              <option *ngFor="let f of frequencyTabs.slice(1)" [value]="f.value">{{ f.label }}</option>
+              @for (f of frequencyTabs.slice(1); track f) {
+<option [value]="f.value">{{ f.label }}</option>
+}
             </select>
           </div>
           <div>
@@ -162,16 +185,22 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           </div>
         </div>
       </div>
+}
 
-      <ui-loading-spinner *ngIf="loading" text="Loading safety documents..."></ui-loading-spinner>
+      @if (loading) {
+<ui-loading-spinner text="Loading safety documents..."></ui-loading-spinner>
+}
 
-      <ui-empty-state *ngIf="!loading && documents.length === 0"
+      @if (!loading && documents.length === 0) {
+<ui-empty-state
         icon="document" title="No Safety Documents"
         message="No safety documents have been uploaded for this client yet.">
       </ui-empty-state>
+}
 
       <!-- Documents Table -->
-      <div *ngIf="!loading && documents.length > 0"
+      @if (!loading && documents.length > 0) {
+<div
         class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-gray-200">
@@ -189,7 +218,8 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
-              <tr *ngFor="let doc of documents" class="hover:bg-gray-50"
+              @for (doc of documents; track doc) {
+<tr class="hover:bg-gray-50"
                 [class.bg-red-50]="isExpired(doc)" [class.bg-amber-50]="isExpiringSoon(doc)">
                 <td class="px-3 py-3 text-sm">
                   <div class="font-medium text-gray-900 truncate max-w-[180px]" [title]="doc.documentName">{{ doc.documentName }}</div>
@@ -203,7 +233,9 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                 <td class="px-3 py-3 text-xs text-gray-600">{{ formatPeriod(doc) }}</td>
                 <td class="px-3 py-3 text-sm" [class.text-red-600]="isExpired(doc)" [class.font-bold]="isExpired(doc)">
                   {{ doc.validTo ? (doc.validTo | date:'mediumDate') : '—' }}
-                  <span *ngIf="isExpired(doc)" class="ml-1 text-xs text-red-600">(Expired)</span>
+                  @if (isExpired(doc)) {
+<span class="ml-1 text-xs text-red-600">(Expired)</span>
+}
                 </td>
                 <td class="px-3 py-3 text-sm">
                   <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
@@ -218,13 +250,18 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                 </td>
                 <td class="px-3 py-3 text-sm space-x-1">
                   <button (click)="download(doc)" class="text-indigo-600 hover:text-indigo-800 font-medium text-xs">Download</button>
-                  <button *ngIf="!doc.verifiedByCrm" (click)="verify(doc)" [disabled]="doc.verifying"
+                  @if (!doc.verifiedByCrm) {
+<button (click)="verify(doc)" [disabled]="doc.verifying"
                     class="text-green-600 hover:text-green-800 font-medium text-xs disabled:opacity-50">
                     {{ doc.verifying ? 'Verifying...' : 'Verify' }}
                   </button>
-                  <span *ngIf="doc.verifiedByCrm" class="text-green-600 text-xs font-medium">✓ Verified</span>
+}
+                  @if (doc.verifiedByCrm) {
+<span class="text-green-600 text-xs font-medium">✓ Verified</span>
+}
                 </td>
               </tr>
+}
             </tbody>
           </table>
         </div>
@@ -232,6 +269,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           {{ documents.length }} document{{ documents.length !== 1 ? 's' : '' }}
         </div>
       </div>
+}
     </main>
   `,
 })

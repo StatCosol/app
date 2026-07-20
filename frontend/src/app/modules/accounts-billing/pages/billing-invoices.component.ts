@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { AccountsBillingService } from '../services/accounts-billing.service';
@@ -8,7 +8,7 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
 @Component({
   selector: 'app-billing-invoices',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [FormsModule, RouterModule],
   template: `
     <div class="p-6 space-y-6">
       <div class="flex items-center justify-between">
@@ -25,7 +25,9 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
                class="px-3 py-2 border rounded-lg text-sm w-64 focus:ring-2 focus:ring-blue-500 outline-none">
         <select [(ngModel)]="statusFilter" (change)="load()" class="px-3 py-2 border rounded-lg text-sm">
           <option value="">All Status</option>
-          <option *ngFor="let s of statuses" [value]="s">{{ s }}</option>
+          @for (s of statuses; track s) {
+<option [value]="s">{{ s }}</option>
+}
         </select>
         <select [(ngModel)]="paymentFilter" (change)="load()" class="px-3 py-2 border rounded-lg text-sm">
           <option value="">All Payments</option>
@@ -54,7 +56,8 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
             </tr>
           </thead>
           <tbody class="divide-y">
-            <tr *ngFor="let inv of invoices" class="hover:bg-slate-50">
+            @for (inv of invoices; track inv) {
+<tr class="hover:bg-slate-50">
               <td class="px-4 py-3 font-mono text-xs font-medium">
                 <a [routerLink]="['/accounts/invoices', inv.id]" class="text-blue-600 hover:underline">{{ inv.invoiceNumber }}</a>
               </td>
@@ -77,14 +80,18 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
                 <a [routerLink]="['/accounts/invoices', inv.id]" class="text-blue-600 hover:underline text-xs">View</a>
               </td>
             </tr>
-            <tr *ngIf="!invoices.length">
+}
+            @if (!invoices.length) {
+<tr>
               <td colspan="9" class="px-4 py-8 text-center text-slate-400">No invoices found</td>
             </tr>
+}
           </tbody>
         </table>
       </div>
 
-      <div class="flex items-center justify-between text-sm text-slate-500" *ngIf="totalPages > 1">
+      @if (totalPages > 1) {
+<div class="flex items-center justify-between text-sm text-slate-500">
         <span>Page {{ page }} of {{ totalPages }} ({{ total }} records)</span>
         <div class="flex gap-2">
           <button (click)="page = page - 1; load()" [disabled]="page <= 1"
@@ -93,6 +100,7 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
                   class="px-3 py-1 border rounded disabled:opacity-50">Next</button>
         </div>
       </div>
+}
     </div>
   `,
 })

@@ -1,6 +1,6 @@
 import { Component, Input, Output, EventEmitter, OnDestroy } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { CommonModule } from '@angular/common';
+
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { Subject } from 'rxjs';
 import { filter, takeUntil } from 'rxjs/operators';
@@ -23,14 +23,16 @@ interface SidebarItem {
 @Component({
   selector: 'app-admin-sidebar',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [RouterModule],
   template: `
     <!-- Mobile overlay -->
-    <div
-      *ngIf="mobileOpen"
+    @if (mobileOpen) {
+<div
+     
       class="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
       (click)="mobileOpen = false; mobileOpenChange.emit(false)"
     ></div>
+}
 
     <!-- Sidebar -->
     <aside
@@ -38,15 +40,19 @@ interface SidebarItem {
       [class.mobile-open]="mobileOpen"
     >
       <!-- Brand area -->
-      <div *ngIf="!collapsed" class="px-5 pt-6 pb-4 flex items-center gap-3">
+      @if (!collapsed) {
+<div class="px-5 pt-6 pb-4 flex items-center gap-3">
         <div>
           <span class="text-white font-bold text-xl tracking-tight">StatCo Admin</span>
           <span class="block text-white/40 text-[13px] font-medium">Administration Console</span>
         </div>
       </div>
-      <div *ngIf="collapsed" class="py-5 flex justify-center">
+}
+      @if (collapsed) {
+<div class="py-5 flex justify-center">
         <span class="text-white/80 text-xs font-semibold tracking-wide">SA</span>
       </div>
+}
 
       <!-- Collapse toggle (desktop only) -->
       <button
@@ -73,10 +79,12 @@ interface SidebarItem {
 
       <!-- Navigation groups -->
       <nav class="sidebar-nav flex-1 py-4 px-3 space-y-3">
-        <ng-container *ngIf="collapsed; else expandedNav">
+        @if (collapsed) {
+
           <div class="collapsed-menu">
-            <a
-              *ngFor="let link of collapsedLinks"
+            @for (link of collapsedLinks; track link) {
+<a
+             
               [routerLink]="link.route"
               routerLinkActive="collapsed-active"
               [routerLinkActiveOptions]="{ exact: link.exact || link.route.endsWith('dashboard') }"
@@ -86,25 +94,31 @@ interface SidebarItem {
               <span class="sidebar-icon" [innerHTML]="link.icon"></span>
               <span class="collapsed-tooltip">{{ link.label }}</span>
             </a>
+}
           </div>
-        </ng-container>
+        
+} @else {
 
-        <ng-template #expandedNav>
-          <div
-            *ngFor="let group of navGroups"
+          @for (group of navGroups; track group) {
+<div
+           
           >
-            <a
-              *ngIf="group.route; else expandableGroup"
+            @if (group.route) {
+<a
+             
               [routerLink]="group.route"
               routerLinkActive="sidebar-section-active"
               [routerLinkActiveOptions]="{ exact: true }"
               (click)="onNavClick()"
               class="sidebar-section sidebar-section-link"
             >
-              <span *ngIf="group.icon" class="sidebar-icon" [innerHTML]="group.icon"></span>
+              @if (group.icon) {
+<span class="sidebar-icon" [innerHTML]="group.icon"></span>
+}
               <span class="section-label">{{ group.label }}</span>
             </a>
-            <ng-template #expandableGroup>
+} @else {
+
               <div
                 class="sidebar-section"
                 [class.active]="group.expanded"
@@ -115,10 +129,14 @@ interface SidebarItem {
                   <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
               </div>
-            </ng-template>
-            <div *ngIf="!group.route" class="space-y-0.5 sidebar-submenu" [style.display]="group.expanded ? 'block' : 'none'">
-              <a
-                *ngFor="let item of group.items"
+            
+}
+            
+            @if (!group.route) {
+<div class="space-y-0.5 sidebar-submenu" [style.display]="group.expanded ? 'block' : 'none'">
+              @for (item of group.items; track item) {
+<a
+               
                 [routerLink]="item.route"
                 routerLinkActive="sidebar-active"
                 [routerLinkActiveOptions]="{ exact: item.exact || item.route.endsWith('dashboard') }"
@@ -128,17 +146,25 @@ interface SidebarItem {
                 <span class="sidebar-icon" [innerHTML]="item.icon"></span>
                 <span class="sidebar-label">{{ item.label }}</span>
               </a>
+}
             </div>
+}
           </div>
-        </ng-template>
+}
+        
+}
+
+        
       </nav>
 
       <!-- Version footer -->
-      <div *ngIf="!collapsed" class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
+      @if (!collapsed) {
+<div class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
         <div class="text-[10px] text-white/35">Admin Console v1.0</div>
         <div class="text-[10px] text-white/55 font-medium">Designed &amp; Developed by StatCo Solutions</div>
         <a href="https://www.statcosol.com" target="_blank" rel="noopener noreferrer" class="text-[10px] text-emerald-300/80 hover:text-emerald-200">www.statcosol.com</a>
       </div>
+}
     </aside>
   `,
   styles: [`

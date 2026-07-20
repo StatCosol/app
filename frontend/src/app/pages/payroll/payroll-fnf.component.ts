@@ -5,7 +5,7 @@ import {
   OnDestroy,
   OnInit,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
@@ -47,7 +47,7 @@ interface ChecklistItem {
 @Component({
   selector: 'app-payroll-fnf',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClientContextStripComponent],
+  imports: [FormsModule, ClientContextStripComponent],
   templateUrl: './payroll-fnf.component.html',
   styleUrls: ['./payroll-fnf.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

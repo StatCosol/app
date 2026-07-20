@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, HostListener , ChangeDetectionStrategy} from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterOutlet, RouterModule, Router, NavigationEnd } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Subject } from 'rxjs';
@@ -17,21 +17,25 @@ interface NavItem {
   selector: 'app-ess-layout',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterOutlet, RouterModule],
+  imports: [RouterOutlet, RouterModule],
   template: `
     <div class="shell" [class.sb-collapsed]="sidebarCollapsed" [class.sb-mobile-open]="mobileOpen">
       <!-- ==== SIDEBAR ==== -->
       <aside class="sidebar">
         <!-- brand -->
-        <div *ngIf="!sidebarCollapsed" class="px-5 pt-6 pb-4 flex items-center gap-3" style="border-bottom: 1px solid rgba(255,255,255,.07)">
+        @if (!sidebarCollapsed) {
+<div class="px-5 pt-6 pb-4 flex items-center gap-3" style="border-bottom: 1px solid rgba(255,255,255,.07)">
           <div>
             <span class="text-white font-bold text-xl tracking-tight">{{ companyName }}</span>
             <span class="block text-white/40 text-[13px] font-medium">Employee Portal</span>
           </div>
         </div>
-        <div *ngIf="sidebarCollapsed" class="py-5 flex justify-center" style="border-bottom: 1px solid rgba(255,255,255,.07)">
+}
+        @if (sidebarCollapsed) {
+<div class="py-5 flex justify-center" style="border-bottom: 1px solid rgba(255,255,255,.07)">
           <span class="text-white/80 text-xs font-semibold tracking-wide">EP</span>
         </div>
+}
 
         <!-- toggle -->
         <button class="sb-toggle desktop-only" (click)="toggleSidebar()" title="Toggle sidebar">
@@ -40,7 +44,8 @@ interface NavItem {
 
         <!-- nav -->
         <nav class="sb-nav">
-           <a *ngFor="let item of navItems"
+           @for (item of navItems; track item) {
+<a
               [routerLink]="item.route"
               routerLinkActive="active"
               [routerLinkActiveOptions]="{ exact: item.route.endsWith('dashboard') }"
@@ -50,6 +55,7 @@ interface NavItem {
             <span class="sb-icon" [innerHTML]="item.icon"></span>
             <span class="sb-label">{{ item.label }}</span>
           </a>
+}
         </nav>
 
         <!-- sidebar branding -->
@@ -61,7 +67,9 @@ interface NavItem {
       </aside>
 
       <!-- MOBILE OVERLAY -->
-      <div class="overlay" *ngIf="mobileOpen" (click)="mobileOpen=false"></div>
+      @if (mobileOpen) {
+<div class="overlay" (click)="mobileOpen=false"></div>
+}
 
       <!-- ==== MAIN AREA ==== -->
       <div class="main-wrap">
@@ -76,7 +84,9 @@ interface NavItem {
           <span class="tb-title mobile-only" [title]="companyName">{{ companyName }}</span>
 
           <!-- company logo -->
-          <img *ngIf="companyLogoUrl" [src]="companyLogoUrl" alt="" class="tb-logo" />
+          @if (companyLogoUrl) {
+<img [src]="companyLogoUrl" alt="" class="tb-logo" />
+}
 
           <div class="tb-spacer"></div>
 
@@ -103,7 +113,8 @@ interface NavItem {
             <div class="tb-avatar">{{ initials }}</div>
             <svg class="tb-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
 
-            <div class="dropdown" *ngIf="avatarOpen">
+            @if (avatarOpen) {
+<div class="dropdown">
               <div class="dd-header">
                 <strong>{{ userName }}</strong>
                 <small>{{ userCode }}</small>
@@ -118,6 +129,7 @@ interface NavItem {
                 Sign Out
               </button>
             </div>
+}
           </div>
         </header>
 
