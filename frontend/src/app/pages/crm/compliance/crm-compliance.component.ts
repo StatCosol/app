@@ -119,6 +119,19 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
     return Number(this.pick(row, keyCamel, keySnake) || 0);
   }
 
+  openFile(filePath: string | null | undefined, fileName?: string | null, mode: 'open' | 'download' = 'open'): void {
+    if (!filePath) return;
+    const action$ =
+      mode === 'download'
+        ? this.protectedFiles.download(filePath, fileName || null)
+        : this.protectedFiles.open(filePath, fileName || null);
+    action$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        error: () => { this.toast.error('Unable to open file. Please try again.'); },
+      });
+  }
+
   getAuditId(row: any): string {
     return this.pick<string>(row, 'auditId', 'audit_id') || '';
   }
@@ -266,19 +279,6 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
   ) {
     const currentYear = new Date().getFullYear();
     for (let y = currentYear - 3; y <= currentYear + 1; y++) this.yearOptions.push(y);
-  }
-
-  openFile(filePath: string | null | undefined, fileName?: string | null, mode: 'open' | 'download' = 'open'): void {
-    if (!filePath) return;
-    const action$ =
-      mode === 'download'
-        ? this.protectedFiles.download(filePath, fileName || null)
-        : this.protectedFiles.open(filePath, fileName || null);
-    action$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        error: () => { this.toast.error('Unable to open file. Please try again.'); },
-      });
   }
 
   ngOnInit(): void {
