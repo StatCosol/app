@@ -1,210 +1,282 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-  <ui-page-header
-    title="Contractor Dashboard"
-    description="Your task overview and compliance status"
-    icon="briefcase">
-  </ui-page-header>
 
   <!-- Skeleton Loading -->
   @if (loading) {
-
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-      @for (s of [1,2,3,4]; track s) {
-<div class="skeleton skeleton--card"></div>
-}
+    <div class="skeleton skeleton--card h-44 mb-6"></div>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      @for (s of [1,2,3,4,5]; track s) {
+        <div class="skeleton skeleton--card"></div>
+      }
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-      <div class="skeleton skeleton--card lg:col-span-1" class="h-40"></div>
-      <div class="skeleton skeleton--card lg:col-span-2" class="h-40"></div>
+      <div class="skeleton skeleton--chart lg:col-span-1"></div>
+      <div class="skeleton skeleton--chart lg:col-span-2"></div>
     </div>
-  
-}
+  }
 
   <!-- Error Banner -->
   @if (!loading && errorMsg) {
-<div
-       class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 flex items-center justify-between">
-    <div class="flex items-center gap-2">
-      <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-      </svg>
-      <span>{{ errorMsg }}</span>
+    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <ui-icon name="exclamation-triangle" [size]="20" class="text-red-500 flex-shrink-0"></ui-icon>
+        <span>{{ errorMsg }}</span>
+      </div>
+      <button type="button" (click)="retry()" class="text-red-800 font-semibold hover:underline ml-4">
+        Retry
+      </button>
     </div>
-    <button type="button" (click)="retry()" class="text-red-800 font-semibold hover:underline ml-4 flex items-center gap-1">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-      </svg>
-      Retry
-    </button>
-  </div>
-}
+  }
 
   @if (!loading && data) {
 
-    <!-- KPI Grid -->
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-      <div class="contractor-kpi contractor-kpi--slate cursor-pointer" (click)="goToTasks('')">
-        <div class="text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Required Docs</div>
-        <div class="text-3xl font-bold text-gray-900">{{ totalRequiredDocs }}</div>
-        <div class="text-xs text-gray-500 mt-1">total compliance tasks</div>
-      </div>
-      <div class="contractor-kpi contractor-kpi--amber cursor-pointer" (click)="goToTasks('DUE_TODAY')">
-        <div class="text-xs font-semibold uppercase tracking-wider text-amber-600 mb-1">Due Today</div>
-        <div class="text-3xl font-bold text-gray-900">{{ dueTodayCount }}</div>
-        <div class="text-xs text-gray-500 mt-1">tasks due today</div>
-      </div>
-      <div class="contractor-kpi contractor-kpi--red cursor-pointer" (click)="goToTasks('OVERDUE')">
-        <div class="text-xs font-semibold uppercase tracking-wider text-red-600 mb-1">Overdue</div>
-        <div class="text-3xl font-bold text-gray-900">{{ overdueCount }}</div>
-        <div class="text-xs text-gray-500 mt-1">require attention</div>
-      </div>
-      <div class="contractor-kpi contractor-kpi--indigo cursor-pointer" (click)="goToTasks('IN_PROGRESS')">
-        <div class="text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-1">In Progress</div>
-        <div class="text-3xl font-bold text-gray-900">{{ inProgressCount }}</div>
-        <div class="text-xs text-gray-500 mt-1">being worked on</div>
-      </div>
-      <div class="contractor-kpi contractor-kpi--teal cursor-pointer" (click)="goToTasks('SUBMITTED')">
-        <div class="text-xs font-semibold uppercase tracking-wider text-teal-600 mb-1">Awaiting Approval</div>
-        <div class="text-3xl font-bold text-gray-900">{{ awaitingApprovalCount }}</div>
-        <div class="text-xs text-gray-500 mt-1">under CRM review</div>
+    <!-- ═══════ Hero Banner ═══════ -->
+    <div class="ctr-hero mb-6">
+      <div class="ctr-hero__glow ctr-hero__glow--one"></div>
+      <div class="ctr-hero__glow ctr-hero__glow--two"></div>
+      <div class="ctr-hero__content">
+        <div class="ctr-hero__left">
+          <div class="ctr-hero__eyebrow">{{ greeting }}</div>
+          <h1 class="ctr-hero__title">Contractor Compliance Hub</h1>
+          <p class="ctr-hero__subtitle">
+            Working with <strong>{{ mappedClient }}</strong>
+            @if (mappedBranches.length) {
+              <span> across {{ mappedBranches.length }} {{ mappedBranches.length === 1 ? 'branch' : 'branches' }}</span>
+            }
+          </p>
+          <div class="ctr-hero__chips">
+            @for (branch of mappedBranches.slice(0, 4); track branch) {
+              <span class="ctr-hero__chip">{{ branch }}</span>
+            }
+            @if (mappedBranches.length > 4) {
+              <span class="ctr-hero__chip ctr-hero__chip--more">+{{ mappedBranches.length - 4 }} more</span>
+            }
+          </div>
+          <div class="ctr-hero__quickstats">
+            <button type="button" class="ctr-hero__stat" (click)="goToTasks('')">
+              <span class="ctr-hero__stat-value">{{ totalRequiredDocs }}</span>
+              <span class="ctr-hero__stat-label">Total tasks</span>
+            </button>
+            <button type="button" class="ctr-hero__stat" (click)="goToTasks('OVERDUE')">
+              <span class="ctr-hero__stat-value" [class.ctr-hero__stat-value--alert]="overdueCount > 0">{{ overdueCount }}</span>
+              <span class="ctr-hero__stat-label">Overdue</span>
+            </button>
+            <button type="button" class="ctr-hero__stat" (click)="goToTasks('SUBMITTED')">
+              <span class="ctr-hero__stat-value">{{ awaitingApprovalCount }}</span>
+              <span class="ctr-hero__stat-label">In review</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="ctr-hero__right">
+          <!-- Compliance ring -->
+          <div class="ctr-hero__ring">
+            <svg class="progress-ring" width="132" height="132" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="10"/>
+              <circle class="progress-ring__circle" cx="60" cy="60" r="52" fill="none"
+                      [attr.stroke]="compliancePct >= 85 ? '#34d399' : (compliancePct >= 70 ? '#fbbf24' : '#f87171')"
+                      stroke-width="10"
+                      [attr.stroke-dasharray]="circumference"
+                      [attr.stroke-dashoffset]="strokeOffset"/>
+            </svg>
+            <div class="ctr-hero__ring-center">
+              <span class="ctr-hero__ring-value">{{ compliancePct }}%</span>
+              <span class="ctr-hero__ring-label">Compliant</span>
+            </div>
+          </div>
+          <!-- Vendor score -->
+          <div class="ctr-hero__score">
+            <div class="ctr-hero__score-value">
+              {{ scoreTrend.length ? latestVendorScore : '—' }}
+              @if (scoreTrend.length > 0) {
+                @if (vendorScoreTrend === 'up') { <span class="ctr-hero__trend ctr-hero__trend--up">▲</span> }
+                @if (vendorScoreTrend === 'down') { <span class="ctr-hero__trend ctr-hero__trend--down">▼</span> }
+                @if (vendorScoreTrend === 'flat') { <span class="ctr-hero__trend">—</span> }
+              }
+            </div>
+            <div class="ctr-hero__score-label">Vendor Score</div>
+            <span class="ctr-hero__score-badge"
+                  [class.ctr-hero__score-badge--good]="latestVendorScore >= 85 && scoreTrend.length > 0"
+                  [class.ctr-hero__score-badge--warn]="latestVendorScore >= 70 && latestVendorScore < 85 && scoreTrend.length > 0"
+                  [class.ctr-hero__score-badge--risk]="latestVendorScore < 70 && scoreTrend.length > 0">
+              {{ vendorScoreLabel }}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
 
+    <!-- ═══════ KPI Grid ═══════ -->
+    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
+      <button type="button" class="contractor-kpi contractor-kpi--slate ctr-kpi" (click)="goToTasks('')">
+        <span class="ctr-kpi__icon ctr-kpi__icon--slate"><ui-icon name="clipboard-check" [size]="20"></ui-icon></span>
+        <div class="ctr-kpi__body">
+          <div class="ctr-kpi__label text-slate-600">Required Docs</div>
+          <div class="ctr-kpi__value">{{ totalRequiredDocs }}</div>
+          <div class="ctr-kpi__hint">total compliance tasks</div>
+        </div>
+        <ui-icon name="chevron-right" [size]="16" class="ctr-kpi__arrow"></ui-icon>
+      </button>
+      <button type="button" class="contractor-kpi contractor-kpi--amber ctr-kpi" (click)="goToTasks('DUE_TODAY')">
+        <span class="ctr-kpi__icon ctr-kpi__icon--amber"><ui-icon name="exclamation-triangle" [size]="20"></ui-icon></span>
+        <div class="ctr-kpi__body">
+          <div class="ctr-kpi__label text-amber-600">Due Today</div>
+          <div class="ctr-kpi__value">{{ dueTodayCount }}</div>
+          <div class="ctr-kpi__hint">tasks due today</div>
+        </div>
+        <ui-icon name="chevron-right" [size]="16" class="ctr-kpi__arrow"></ui-icon>
+      </button>
+      <button type="button" class="contractor-kpi contractor-kpi--red ctr-kpi" (click)="goToTasks('OVERDUE')">
+        <span class="ctr-kpi__icon ctr-kpi__icon--red"><ui-icon name="x-circle" [size]="20"></ui-icon></span>
+        <div class="ctr-kpi__body">
+          <div class="ctr-kpi__label text-red-600">Overdue</div>
+          <div class="ctr-kpi__value">{{ overdueCount }}</div>
+          <div class="ctr-kpi__hint">require attention</div>
+        </div>
+        <ui-icon name="chevron-right" [size]="16" class="ctr-kpi__arrow"></ui-icon>
+      </button>
+      <button type="button" class="contractor-kpi contractor-kpi--indigo ctr-kpi" (click)="goToTasks('IN_PROGRESS')">
+        <span class="ctr-kpi__icon ctr-kpi__icon--indigo"><ui-icon name="chart-bar" [size]="20"></ui-icon></span>
+        <div class="ctr-kpi__body">
+          <div class="ctr-kpi__label text-indigo-600">In Progress</div>
+          <div class="ctr-kpi__value">{{ inProgressCount }}</div>
+          <div class="ctr-kpi__hint">being worked on</div>
+        </div>
+        <ui-icon name="chevron-right" [size]="16" class="ctr-kpi__arrow"></ui-icon>
+      </button>
+      <button type="button" class="contractor-kpi contractor-kpi--teal ctr-kpi" (click)="goToTasks('SUBMITTED')">
+        <span class="ctr-kpi__icon ctr-kpi__icon--teal"><ui-icon name="shield-check" [size]="20"></ui-icon></span>
+        <div class="ctr-kpi__body">
+          <div class="ctr-kpi__label text-teal-600">Awaiting Approval</div>
+          <div class="ctr-kpi__value">{{ awaitingApprovalCount }}</div>
+          <div class="ctr-kpi__hint">under CRM review</div>
+        </div>
+        <ui-icon name="chevron-right" [size]="16" class="ctr-kpi__arrow"></ui-icon>
+      </button>
+    </div>
+
+    <!-- ═══════ Operational Guardrails ═══════ -->
     <div class="contractor-card p-4 mb-6">
       <div class="flex items-center justify-between mb-3">
-        <h3 class="text-base font-semibold text-gray-900">Operational Guardrails</h3>
+        <div class="flex items-center gap-2">
+          <span class="ctr-section-icon"><ui-icon name="shield-check" [size]="18"></ui-icon></span>
+          <h3 class="text-base font-semibold text-gray-900">Operational Guardrails</h3>
+        </div>
         <span class="text-xs text-gray-500">{{ dashboardGuardrails.length }} active</span>
       </div>
       @if (dashboardGuardrails.length) {
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
-        @for (g of dashboardGuardrails; track g) {
-<button
-          type="button"
-         
-          class="text-left rounded-lg border px-3 py-2"
-          [ngClass]="{
-            'border-red-200 bg-red-50': g.severity === 'CRITICAL',
-            'border-amber-200 bg-amber-50': g.severity === 'HIGH',
-            'border-orange-200 bg-orange-50': g.severity === 'MEDIUM'
-          }"
-          (click)="goToTasks(g.statusFilter)">
-          <div class="flex items-start gap-2">
-            <span class="shrink-0 inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide"
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
+          @for (g of dashboardGuardrails; track g) {
+            <button
+              type="button"
+              class="text-left rounded-lg border px-3 py-2 transition-all hover:shadow-md"
               [ngClass]="{
-                'bg-red-100 text-red-700': g.severity === 'CRITICAL',
-                'bg-amber-100 text-amber-700': g.severity === 'HIGH',
-                'bg-orange-100 text-orange-700': g.severity === 'MEDIUM'
-              }">{{ g.severity }}</span>
-            <div class="min-w-0">
-              <div class="text-sm font-semibold text-gray-900 leading-snug">{{ g.title }}</div>
-              <div class="text-xs text-gray-600 mt-0.5">{{ g.detail }}</div>
-            </div>
-          </div>
-        </button>
-}
-      </div>
-} @else {
-
-        <div class="text-sm text-gray-600 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
-          No immediate operational guardrails breached.
+                'border-red-200 bg-red-50': g.severity === 'CRITICAL',
+                'border-amber-200 bg-amber-50': g.severity === 'HIGH',
+                'border-orange-200 bg-orange-50': g.severity === 'MEDIUM'
+              }"
+              (click)="goToTasks(g.statusFilter)">
+              <div class="flex items-start gap-2">
+                <span class="shrink-0 inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide"
+                  [ngClass]="{
+                    'bg-red-100 text-red-700': g.severity === 'CRITICAL',
+                    'bg-amber-100 text-amber-700': g.severity === 'HIGH',
+                    'bg-orange-100 text-orange-700': g.severity === 'MEDIUM'
+                  }">{{ g.severity }}</span>
+                <div class="min-w-0">
+                  <div class="text-sm font-semibold text-gray-900 leading-snug">{{ g.title }}</div>
+                  <div class="text-xs text-gray-600 mt-0.5">{{ g.detail }}</div>
+                </div>
+              </div>
+            </button>
+          }
         </div>
-      
-}
-      
+      } @else {
+        <div class="flex items-center gap-2 text-sm text-emerald-800 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+          <ui-icon name="check-circle" [size]="18" class="text-emerald-600"></ui-icon>
+          All clear — no operational guardrails breached.
+        </div>
+      }
     </div>
 
-    <!-- Dashboard Upgrade Widgets -->
-    <div class="grid grid-cols-1 xl:grid-cols-5 gap-4 mb-6">
-      <div class="contractor-kpi contractor-kpi--amber">
-        <div class="text-xs font-semibold uppercase tracking-wider text-amber-600 mb-1">Expiring Licenses</div>
-        <div class="text-3xl font-bold text-gray-900">{{ expiringLicenseCount }}</div>
-        <div class="text-xs text-gray-500 mt-1">within 45 days</div>
-      </div>
-      <div class="contractor-kpi contractor-kpi--indigo">
-        <div class="text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-1">Pending Uploads</div>
-        <div class="text-3xl font-bold text-gray-900">{{ pendingUploadsCount }}</div>
-        <div class="text-xs text-gray-500 mt-1">open upload actions</div>
-      </div>
-      <div class="contractor-kpi contractor-kpi--red">
-        <div class="text-xs font-semibold uppercase tracking-wider text-red-600 mb-1">Rejected Docs</div>
-        <div class="text-3xl font-bold text-gray-900">{{ rejectedDocsCount }}</div>
-        <div class="text-xs text-gray-500 mt-1">need rework</div>
-      </div>
-      <div class="contractor-kpi contractor-kpi--teal">
-        <div class="text-xs font-semibold uppercase tracking-wider text-teal-600 mb-1">Onboarding Pending</div>
-        <div class="text-3xl font-bold text-gray-900">{{ workerOnboardingPendingCount }}</div>
-        <div class="text-xs text-gray-500 mt-1">worker onboarding tasks</div>
-      </div>
-      <div class="contractor-kpi contractor-kpi--slate">
-        <div class="text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Mapping Summary</div>
-        <div class="text-3xl font-bold text-gray-900">{{ mappedBranches.length }}</div>
-        <div class="text-xs text-gray-500 mt-1">active branch mappings</div>
-      </div>
-    </div>
-
+    <!-- ═══════ Action Center ═══════ -->
     <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-      <div class="contractor-card p-4">
-        <h4 class="text-sm font-semibold text-gray-900 mb-2">Expiring Licenses</h4>
+      <div class="contractor-card p-4 ctr-action ctr-action--amber">
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+            <ui-icon name="exclamation-triangle" [size]="16" class="text-amber-600"></ui-icon>
+            Expiring Licenses
+          </h4>
+          <span class="ctr-count-badge ctr-count-badge--amber">{{ expiringLicenseCount }}</span>
+        </div>
         @if (expiringLicensesPreview.length) {
-<div class="space-y-2">
-          @for (item of expiringLicensesPreview; track item) {
-<button type="button" class="w-full text-left p-2 rounded-lg bg-amber-50 hover:bg-amber-100 transition-colors"
-                  (click)="openTask(item)">
-            <div class="text-xs font-semibold text-gray-900 truncate">{{ item.title }}</div>
-            <div class="text-xs text-gray-600">{{ item.branchName }} | {{ item.dueDate | date: 'mediumDate' }}</div>
-          </button>
-}
-        </div>
-} @else {
-
-          <div class="text-xs text-gray-500">No expiring license items found.</div>
-        
-}
-        
+          <div class="space-y-2">
+            @for (item of expiringLicensesPreview; track item) {
+              <button type="button" class="w-full text-left p-2 rounded-lg bg-amber-50 hover:bg-amber-100 transition-colors"
+                      (click)="openTask(item)">
+                <div class="text-xs font-semibold text-gray-900 truncate">{{ item.title }}</div>
+                <div class="text-xs text-gray-600">{{ item.branchName }} | {{ item.dueDate | date: 'mediumDate' }}</div>
+              </button>
+            }
+          </div>
+        } @else {
+          <div class="text-xs text-gray-500">No expiring license items within 45 days.</div>
+        }
       </div>
 
-      <div class="contractor-card p-4">
-        <h4 class="text-sm font-semibold text-gray-900 mb-2">Pending Uploads</h4>
+      <div class="contractor-card p-4 ctr-action ctr-action--indigo">
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+            <ui-icon name="clipboard-check" [size]="16" class="text-indigo-600"></ui-icon>
+            Pending Uploads
+          </h4>
+          <span class="ctr-count-badge ctr-count-badge--indigo">{{ pendingUploadsCount }}</span>
+        </div>
         @if (pendingUploadsPreview.length) {
-<div class="space-y-2">
-          @for (item of pendingUploadsPreview; track item) {
-<button type="button" class="w-full text-left p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 transition-colors"
-                  (click)="openTask(item)">
-            <div class="text-xs font-semibold text-gray-900 truncate">{{ item.title }}</div>
-            <div class="text-xs text-gray-600">{{ item.branchName }} | {{ item.status }}</div>
-          </button>
-}
-        </div>
-} @else {
-
+          <div class="space-y-2">
+            @for (item of pendingUploadsPreview; track item) {
+              <button type="button" class="w-full text-left p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                      (click)="openTask(item)">
+                <div class="text-xs font-semibold text-gray-900 truncate">{{ item.title }}</div>
+                <div class="text-xs text-gray-600">{{ item.branchName }} | {{ item.status }}</div>
+              </button>
+            }
+          </div>
+        } @else {
           <div class="text-xs text-gray-500">No pending uploads.</div>
-        
-}
-        
+        }
       </div>
 
-      <div class="contractor-card p-4">
-        <h4 class="text-sm font-semibold text-gray-900 mb-2">Rejected Docs</h4>
-        @if (rejectedItemsPreview.length) {
-<div class="space-y-2">
-          @for (item of rejectedItemsPreview; track item) {
-<button type="button" class="w-full text-left p-2 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
-                  (click)="openTask(item)">
-            <div class="text-xs font-semibold text-gray-900 truncate">{{ item.title }}</div>
-            <div class="text-xs text-gray-600">{{ item.branchName }} | {{ item.status }}</div>
-          </button>
-}
+      <div class="contractor-card p-4 ctr-action ctr-action--red">
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+            <ui-icon name="x-circle" [size]="16" class="text-red-600"></ui-icon>
+            Rejected Docs
+          </h4>
+          <span class="ctr-count-badge ctr-count-badge--red">{{ rejectedDocsCount }}</span>
         </div>
-} @else {
-
+        @if (rejectedItemsPreview.length) {
+          <div class="space-y-2">
+            @for (item of rejectedItemsPreview; track item) {
+              <button type="button" class="w-full text-left p-2 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
+                      (click)="openTask(item)">
+                <div class="text-xs font-semibold text-gray-900 truncate">{{ item.title }}</div>
+                <div class="text-xs text-gray-600">{{ item.branchName }} | {{ item.status }}</div>
+              </button>
+            }
+          </div>
+        } @else {
           <div class="text-xs text-gray-500">No rejected docs right now.</div>
-        
-}
-        
+        }
       </div>
 
-      <div class="contractor-card p-4">
-        <h4 class="text-sm font-semibold text-gray-900 mb-2">Branch / Client Mapping</h4>
+      <div class="contractor-card p-4 ctr-action ctr-action--teal">
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+            <ui-icon name="user-group" [size]="16" class="text-teal-600"></ui-icon>
+            Branch / Client Mapping
+          </h4>
+          <span class="ctr-count-badge ctr-count-badge--teal">{{ mappedBranches.length }}</span>
+        </div>
         <div class="space-y-2 text-xs text-gray-700">
           <div class="grid grid-cols-[auto_1fr] gap-x-4 items-start">
             <span class="text-gray-500 whitespace-nowrap">Client</span>
@@ -215,350 +287,259 @@
             <strong class="text-gray-900 text-right">{{ mappedBranches.length }}</strong>
           </div>
           <div class="pt-2 border-t border-gray-100">
-            <div class="text-xs text-gray-500 mb-1">Branch list</div>
             <div class="flex flex-wrap gap-1">
               @for (branch of mappedBranches; track branch) {
-<span
-               
-                class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">
-                {{ branch }}
-              </span>
-}
+                <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">{{ branch }}</span>
+              }
               @if (!mappedBranches.length) {
-<span class="text-xs text-gray-500">No mapped branches</span>
-}
+                <span class="text-xs text-gray-500">No mapped branches</span>
+              }
             </div>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- ═══════ Branch-wise Status Board ═══════ -->
     <div class="contractor-card mb-6">
-      <div class="mb-4">
-        <h3 class="text-base font-semibold text-gray-900">Branch-wise Status Board</h3>
-        <p class="text-xs text-gray-500 mt-0.5">Open and risk load by branch</p>
+      <div class="flex items-center gap-2 mb-4">
+        <span class="ctr-section-icon"><ui-icon name="chart-bar" [size]="18"></ui-icon></span>
+        <div>
+          <h3 class="text-base font-semibold text-gray-900">Branch-wise Status Board</h3>
+          <p class="text-xs text-gray-500 mt-0.5">Open and risk load by branch</p>
+        </div>
       </div>
       @if (branchStatusBoard.length) {
-<div class="overflow-x-auto">
-        <table class="min-w-full text-xs">
-          <thead>
-            <tr class="border-b border-gray-200">
-              <th class="py-2 px-2 text-left font-semibold text-gray-600">Branch</th>
-              <th class="py-2 px-2 text-center font-semibold text-gray-600">Total</th>
-              <th class="py-2 px-2 text-center font-semibold text-gray-600">Pending</th>
-              <th class="py-2 px-2 text-center font-semibold text-gray-600">Rejected</th>
-              <th class="py-2 px-2 text-center font-semibold text-gray-600">Overdue</th>
-              <th class="py-2 px-2 text-center font-semibold text-gray-600">Approved</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of branchStatusBoard; track row) {
-<tr class="border-b border-gray-100 hover:bg-gray-50">
-              <td class="py-2 px-2 font-medium text-gray-900">{{ row.branchName }}</td>
-              <td class="py-2 px-2 text-center">{{ row.total }}</td>
-              <td class="py-2 px-2 text-center text-indigo-700">{{ row.pending }}</td>
-              <td class="py-2 px-2 text-center text-red-700">{{ row.rejected }}</td>
-              <td class="py-2 px-2 text-center text-amber-700">{{ row.overdue }}</td>
-              <td class="py-2 px-2 text-center text-green-700">{{ row.approved }}</td>
-            </tr>
-}
-          </tbody>
-        </table>
-      </div>
-} @else {
-
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-xs">
+            <thead>
+              <tr class="border-b border-gray-200">
+                <th class="py-2 px-2 text-left font-semibold text-gray-600">Branch</th>
+                <th class="py-2 px-2 text-left font-semibold text-gray-600 w-40">Completion</th>
+                <th class="py-2 px-2 text-center font-semibold text-gray-600">Total</th>
+                <th class="py-2 px-2 text-center font-semibold text-gray-600">Pending</th>
+                <th class="py-2 px-2 text-center font-semibold text-gray-600">Rejected</th>
+                <th class="py-2 px-2 text-center font-semibold text-gray-600">Overdue</th>
+                <th class="py-2 px-2 text-center font-semibold text-gray-600">Approved</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of branchStatusBoard; track row) {
+                <tr class="border-b border-gray-100 hover:bg-indigo-50/40 transition-colors">
+                  <td class="py-2.5 px-2 font-medium text-gray-900">{{ row.branchName }}</td>
+                  <td class="py-2.5 px-2">
+                    <div class="flex items-center gap-2">
+                      <div class="ctr-progress">
+                        <div class="ctr-progress__fill"
+                             [class.ctr-progress__fill--ok]="branchApprovedPct(row) >= 85"
+                             [class.ctr-progress__fill--warn]="branchApprovedPct(row) >= 60 && branchApprovedPct(row) < 85"
+                             [class.ctr-progress__fill--low]="branchApprovedPct(row) < 60"
+                             [style.width.%]="branchApprovedPct(row)"></div>
+                      </div>
+                      <span class="text-gray-600 font-semibold w-9 text-right">{{ branchApprovedPct(row) }}%</span>
+                    </div>
+                  </td>
+                  <td class="py-2.5 px-2 text-center">{{ row.total }}</td>
+                  <td class="py-2.5 px-2 text-center text-indigo-700 font-medium">{{ row.pending }}</td>
+                  <td class="py-2.5 px-2 text-center font-medium" [class.text-red-700]="row.rejected > 0" [class.text-gray-400]="row.rejected === 0">{{ row.rejected }}</td>
+                  <td class="py-2.5 px-2 text-center font-medium" [class.text-amber-700]="row.overdue > 0" [class.text-gray-400]="row.overdue === 0">{{ row.overdue }}</td>
+                  <td class="py-2.5 px-2 text-center text-green-700 font-medium">{{ row.approved }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
         <ui-empty-state
           title="No branch status data"
           description="Branch board will appear once tasks are available.">
         </ui-empty-state>
-      
-}
-      
+      }
     </div>
 
-    <!-- Compliance Progress + Vendor Score + Upcoming Tasks -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-      <!-- Compliance Progress Ring -->
-      <div class="contractor-card flex flex-col items-center justify-center py-6">
-        <div class="relative">
-          <svg class="progress-ring" width="120" height="120" viewBox="0 0 120 120">
-            <circle cx="60" cy="60" r="52" fill="none" stroke="#f3f4f6" stroke-width="10"/>
-            <circle class="progress-ring__circle" cx="60" cy="60" r="52" fill="none"
-                    [attr.stroke]="compliancePct >= 85 ? '#059669' : (compliancePct >= 70 ? '#f59e0b' : '#ef4444')"
-                    stroke-width="10"
-                    [attr.stroke-dasharray]="circumference"
-                    [attr.stroke-dashoffset]="strokeOffset"/>
-          </svg>
-          <div class="absolute inset-0 flex flex-col items-center justify-center">
-            <span class="text-2xl font-bold" [ngClass]="{
-              'text-green-700': compliancePct >= 85,
-              'text-yellow-700': compliancePct >= 70 && compliancePct < 85,
-              'text-red-700': compliancePct < 70
-            }">{{ compliancePct }}%</span>
-            <span class="text-xs text-gray-500">Compliant</span>
-          </div>
-        </div>
-        <div class="mt-4 text-center">
-          <div class="text-sm font-semibold text-gray-900">Overall Compliance</div>
-          <div class="text-xs text-gray-500 mt-0.5">Based on document submissions</div>
-        </div>
-      </div>
+    <!-- ═══════ Score Trend + Upcoming Tasks ═══════ -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <ui-chart-card
+        title="Monthly Score Trend"
+        subtitle="Compliance score & upload rate — last 6 months"
+        type="line"
+        [labels]="trendChartLabels"
+        [datasets]="trendChartDatasets"
+        [height]="260"
+        emptyMessage="Trend will appear after your first scored month.">
+      </ui-chart-card>
 
-      <!-- Vendor Score -->
-      <div class="contractor-card flex flex-col items-center justify-center py-6">
-        <!-- Score circle -->
-        <div class="flex items-center justify-center w-24 h-24 rounded-full border-4"
-             [ngClass]="{
-               'bg-green-50 border-green-400': latestVendorScore >= 85,
-               'bg-amber-50 border-amber-400': latestVendorScore >= 70 && latestVendorScore < 85,
-               'bg-red-50 border-red-400': latestVendorScore < 70 && scoreTrend.length > 0,
-               'bg-gray-50 border-gray-200': !scoreTrend.length
-             }">
-          <span class="text-2xl font-bold"
-                [ngClass]="{
-                  'text-green-700': latestVendorScore >= 85,
-                  'text-amber-700': latestVendorScore >= 70 && latestVendorScore < 85,
-                  'text-red-700': latestVendorScore < 70 && scoreTrend.length > 0,
-                  'text-gray-400': !scoreTrend.length
-                }">
-            {{ scoreTrend.length ? latestVendorScore : '—' }}
-          </span>
-        </div>
-        <!-- Trend indicator -->
-        @if (scoreTrend.length > 0) {
-<div class="mt-3 flex items-center gap-1">
-          @if (vendorScoreTrend === 'up') {
-
-            <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7 7 7"/>
-            </svg>
-            <span class="text-xs text-green-700 font-medium">Improving</span>
-          
-}
-          @if (vendorScoreTrend === 'down') {
-
-            <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7-7-7"/>
-            </svg>
-            <span class="text-xs text-red-600 font-medium">Declining</span>
-          
-}
-          @if (vendorScoreTrend === 'flat') {
-
-            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14"/>
-            </svg>
-            <span class="text-xs text-gray-500 font-medium">Stable</span>
-          
-}
-        </div>
-}
-        <!-- Labels -->
-        <div class="mt-4 text-center">
-          <div class="text-sm font-semibold text-gray-900">Vendor Score</div>
-          <div class="text-xs text-gray-500 mt-0.5">{{ scoreTrend.length ? 'Current month' : 'No trend data yet' }}</div>
-        </div>
-        <div class="mt-2">
-          <span class="text-xs px-2.5 py-0.5 rounded-full font-semibold"
-                [ngClass]="{
-                  'bg-green-100 text-green-800': latestVendorScore >= 85 && scoreTrend.length > 0,
-                  'bg-amber-100 text-amber-800': latestVendorScore >= 70 && latestVendorScore < 85 && scoreTrend.length > 0,
-                  'bg-red-100 text-red-800': latestVendorScore < 70 && scoreTrend.length > 0,
-                  'bg-gray-100 text-gray-500': !scoreTrend.length
-                }">
-            {{ vendorScoreLabel }}
-          </span>
-        </div>
-      </div>
-
-      <!-- Upcoming Tasks -->
-      <div class="contractor-card sm:col-span-2 lg:col-span-2">
+      <div class="contractor-card">
         <div class="flex items-center justify-between mb-4">
-          <div>
-            <h3 class="text-base font-semibold text-gray-900">Upcoming Tasks</h3>
-            <p class="text-xs text-gray-500 mt-0.5">Next tasks requiring your attention</p>
+          <div class="flex items-center gap-2">
+            <span class="ctr-section-icon"><ui-icon name="clipboard-check" [size]="18"></ui-icon></span>
+            <div>
+              <h3 class="text-base font-semibold text-gray-900">Upcoming Tasks</h3>
+              <p class="text-xs text-gray-500 mt-0.5">Next tasks requiring your attention</p>
+            </div>
           </div>
           <button type="button" (click)="goToTasks('')"
-                  class="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors">
-            View all &rarr;
+                  class="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1">
+            View all <ui-icon name="arrow-right" [size]="14"></ui-icon>
           </button>
         </div>
         @if (upcomingTasks.length) {
-<div class="space-y-2">
-          @for (t of upcomingTasks; track t) {
-<div
-               class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-               (click)="openTask(t)">
-            <div class="flex-grow min-w-0">
-              <div class="text-sm font-medium text-gray-900 truncate">{{ t.complianceName }}</div>
-              <div class="text-xs text-gray-500">{{ t.branchName }}</div>
-            </div>
-            <div class="flex items-center gap-3 flex-shrink-0 ml-3">
-              <span class="text-xs px-2 py-1 rounded-full font-medium"
-                    [ngClass]="{
-                      'bg-red-100 text-red-700': t.daysUntilDue < 0,
-                      'bg-amber-100 text-amber-700': t.daysUntilDue >= 0 && t.daysUntilDue <= 3,
-                      'bg-blue-100 text-blue-700': t.daysUntilDue > 3
-                    }">
-                {{ t.dueLabel }}
-              </span>
-              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-              </svg>
-            </div>
+          <div class="space-y-2">
+            @for (t of upcomingTasks; track t) {
+              <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-indigo-50 transition-colors cursor-pointer"
+                   (click)="openTask(t)">
+                <div class="flex-grow min-w-0">
+                  <div class="text-sm font-medium text-gray-900 truncate">{{ t.complianceName }}</div>
+                  <div class="text-xs text-gray-500">{{ t.branchName }}</div>
+                </div>
+                <div class="flex items-center gap-3 flex-shrink-0 ml-3">
+                  <span class="text-xs px-2 py-1 rounded-full font-medium"
+                        [ngClass]="{
+                          'bg-red-100 text-red-700': t.daysUntilDue < 0,
+                          'bg-amber-100 text-amber-700': t.daysUntilDue >= 0 && t.daysUntilDue <= 3,
+                          'bg-blue-100 text-blue-700': t.daysUntilDue > 3
+                        }">
+                    {{ t.dueLabel }}
+                  </span>
+                  <ui-icon name="chevron-right" [size]="16" class="text-gray-400"></ui-icon>
+                </div>
+              </div>
+            }
           </div>
-}
-        </div>
-} @else {
-
+        } @else {
           <ui-empty-state
             title="All caught up!"
             description="No upcoming tasks at the moment">
           </ui-empty-state>
-        
-}
-        
+        }
       </div>
     </div>
 
-    <!-- Overdue Tasks Table -->
-    @if (overdueTableData.length > 0) {
-<div class="contractor-card">
-      <div class="flex items-center justify-between mb-4">
-        <div>
-          <h3 class="text-base font-semibold text-red-700">Overdue Tasks</h3>
-          <p class="text-xs text-gray-500 mt-0.5">Tasks past their due date</p>
-        </div>
-        <span class="text-xs font-bold text-red-700 bg-red-100 px-2.5 py-1 rounded-full">
-          {{ overdueTableData.length }} items
-        </span>
-      </div>
-      <ui-data-table
-        [columns]="overdueColumns"
-        [data]="overdueTableData"
-        emptyMessage="No overdue tasks">
-        <ng-template uiTableCell="dueDate" let-value>
-          <span class="text-red-600 font-semibold text-sm">{{ value }}</span>
-        </ng-template>
-        <ng-template uiTableCell="status" let-row>
-          <ui-status-badge [status]="row.status || 'OVERDUE'"></ui-status-badge>
-        </ng-template>
-      </ui-data-table>
-    </div>
-}
-
-    <!-- Monthly Score Trend -->
+    <!-- ═══════ Score Trend Details ═══════ -->
     @if (scoreTrend.length > 0) {
-<div class="contractor-card">
-      <div class="mb-4">
-        <h3 class="text-base font-semibold text-gray-900">Monthly Score Trend</h3>
-        <p class="text-xs text-gray-500 mt-0.5">Compliance document score over the last 6 months</p>
-      </div>
-
-      <!-- Bar Chart -->
-      <div class="flex items-end gap-2 h-40 mb-4">
-        @for (pt of scoreTrend; track pt) {
-<div class="flex-1 flex flex-col items-center gap-1">
-          <span class="text-xs font-bold" [ngClass]="getScoreTextColor(pt.score)">{{ pt.score }}</span>
-          <div class="w-full rounded-t-md transition-all duration-300"
-               [ngClass]="getScoreColor(pt.score)"
-               [style.height.%]="pt.score"
-               [title]="'Score: ' + pt.score + '% | NC: ' + pt.ncPoints + ' | Risk: ' + pt.auditRiskPoints">
-          </div>
-          <span class="text-[10px] text-gray-500 mt-1">{{ formatMonth(pt.month) }}</span>
+      <div class="contractor-card mb-6">
+        <div class="mb-4">
+          <h3 class="text-base font-semibold text-gray-900">Score Breakdown</h3>
+          <p class="text-xs text-gray-500 mt-0.5">Month-by-month scoring details</p>
         </div>
-}
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-xs">
+            <thead>
+              <tr class="border-b border-gray-200">
+                <th class="py-2 px-2 text-left font-semibold text-gray-600">Month</th>
+                <th class="py-2 px-2 text-center font-semibold text-gray-600">Score</th>
+                <th class="py-2 px-2 text-center font-semibold text-gray-600">Upload %</th>
+                <th class="py-2 px-2 text-center font-semibold text-gray-600">NC Points</th>
+                <th class="py-2 px-2 text-center font-semibold text-gray-600">Missing</th>
+                <th class="py-2 px-2 text-center font-semibold text-gray-600">Audit Risk</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (pt of scoreTrend; track pt) {
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                  <td class="py-2 px-2 font-medium text-gray-900">{{ formatMonth(pt.month) }}</td>
+                  <td class="py-2 px-2 text-center">
+                    <span class="font-bold" [ngClass]="getScoreTextColor(pt.score)">{{ pt.score }}%</span>
+                  </td>
+                  <td class="py-2 px-2 text-center text-blue-700">{{ pt.uploadedPercent }}%</td>
+                  <td class="py-2 px-2 text-center" [class.text-red-600]="pt.ncPoints > 0">{{ pt.ncPoints }}</td>
+                  <td class="py-2 px-2 text-center" [class.text-amber-600]="pt.missingCount > 0">{{ pt.missingCount }}</td>
+                  <td class="py-2 px-2 text-center" [class.text-red-600]="pt.auditRiskPoints > 0">{{ pt.auditRiskPoints }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
       </div>
+    }
 
-      <!-- Trend Details Table -->
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-xs">
-          <thead>
-            <tr class="border-b border-gray-200">
-              <th class="py-2 px-2 text-left font-semibold text-gray-600">Month</th>
-              <th class="py-2 px-2 text-center font-semibold text-gray-600">Score</th>
-              <th class="py-2 px-2 text-center font-semibold text-gray-600">Upload %</th>
-              <th class="py-2 px-2 text-center font-semibold text-gray-600">NC Points</th>
-              <th class="py-2 px-2 text-center font-semibold text-gray-600">Missing</th>
-              <th class="py-2 px-2 text-center font-semibold text-gray-600">Audit Risk</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (pt of scoreTrend; track pt) {
-<tr class="border-b border-gray-100 hover:bg-gray-50">
-              <td class="py-2 px-2 font-medium text-gray-900">{{ formatMonth(pt.month) }}</td>
-              <td class="py-2 px-2 text-center">
-                <span class="font-bold" [ngClass]="getScoreTextColor(pt.score)">{{ pt.score }}%</span>
-              </td>
-              <td class="py-2 px-2 text-center text-blue-700">{{ pt.uploadedPercent }}%</td>
-              <td class="py-2 px-2 text-center" [class.text-red-600]="pt.ncPoints > 0">{{ pt.ncPoints }}</td>
-              <td class="py-2 px-2 text-center" [class.text-amber-600]="pt.missingCount > 0">{{ pt.missingCount }}</td>
-              <td class="py-2 px-2 text-center" [class.text-red-600]="pt.auditRiskPoints > 0">{{ pt.auditRiskPoints }}</td>
-            </tr>
-}
-          </tbody>
-        </table>
+    <!-- ═══════ Overdue Tasks Table ═══════ -->
+    @if (overdueTableData.length > 0) {
+      <div class="contractor-card mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="ctr-section-icon ctr-section-icon--red"><ui-icon name="x-circle" [size]="18"></ui-icon></span>
+            <div>
+              <h3 class="text-base font-semibold text-red-700">Overdue Tasks</h3>
+              <p class="text-xs text-gray-500 mt-0.5">Tasks past their due date</p>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-red-700 bg-red-100 px-2.5 py-1 rounded-full">
+            {{ overdueTableData.length }} items
+          </span>
+        </div>
+        <ui-data-table
+          [columns]="overdueColumns"
+          [data]="overdueTableData"
+          emptyMessage="No overdue tasks">
+          <ng-template uiTableCell="dueDate" let-value>
+            <span class="text-red-600 font-semibold text-sm">{{ value }}</span>
+          </ng-template>
+          <ng-template uiTableCell="status" let-row>
+            <ui-status-badge [status]="row.status || 'OVERDUE'"></ui-status-badge>
+          </ng-template>
+        </ui-data-table>
       </div>
-    </div>
-}
+    }
 
-    <!-- Task Center Section -->
-    <div class="mt-6 bg-white rounded-2xl border border-gray-200 p-4">
-      <h3 class="text-base font-semibold text-gray-800 mb-3">System Tasks</h3>
+    <!-- ═══════ System Tasks ═══════ -->
+    <div class="contractor-card">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="ctr-section-icon"><ui-icon name="check-circle" [size]="18"></ui-icon></span>
+        <h3 class="text-base font-semibold text-gray-900">System Tasks</h3>
+      </div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <div class="rounded bg-blue-50 p-2 text-center">
+        <div class="rounded-lg bg-blue-50 p-2.5 text-center">
           <p class="text-xl font-bold text-blue-700">{{ taskSummary.open }}</p>
           <p class="text-xs text-gray-500">Open</p>
         </div>
-        <div class="rounded bg-red-50 p-2 text-center">
+        <div class="rounded-lg bg-red-50 p-2.5 text-center">
           <p class="text-xl font-bold text-red-600">{{ taskSummary.overdue }}</p>
           <p class="text-xs text-gray-500">Overdue</p>
         </div>
-        <div class="rounded bg-amber-50 p-2 text-center">
+        <div class="rounded-lg bg-amber-50 p-2.5 text-center">
           <p class="text-xl font-bold text-amber-600">{{ taskSummary.dueSoon }}</p>
           <p class="text-xs text-gray-500">Due Soon</p>
         </div>
-        <div class="rounded bg-gray-50 p-2 text-center">
+        <div class="rounded-lg bg-gray-50 p-2.5 text-center">
           <p class="text-xl font-bold text-gray-600">{{ taskSummary.total }}</p>
           <p class="text-xs text-gray-500">Total</p>
         </div>
       </div>
       @if (systemTasks.length > 0) {
-<div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="py-2 px-2 text-left text-xs font-medium text-gray-500">Task</th>
-              <th class="py-2 px-2 text-left text-xs font-medium text-gray-500">Module</th>
-              <th class="py-2 px-2 text-left text-xs font-medium text-gray-500">Priority</th>
-              <th class="py-2 px-2 text-left text-xs font-medium text-gray-500">Due</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (t of systemTasks; track t) {
-<tr class="border-t border-gray-100 hover:bg-gray-50">
-              <td class="py-2 px-2 text-gray-800">{{ t.title }}</td>
-              <td class="py-2 px-2 text-gray-500">{{ t.module }}</td>
-              <td class="py-2 px-2">
-                <span class="text-xs font-medium px-1.5 py-0.5 rounded"
-                  [ngClass]="{
-                    'bg-red-100 text-red-700': t.priority === 'CRITICAL' || t.priority === 'HIGH',
-                    'bg-amber-100 text-amber-700': t.priority === 'MEDIUM',
-                    'bg-gray-100 text-gray-600': t.priority === 'LOW'
-                  }">{{ t.priority }}</span>
-              </td>
-              <td class="py-2 px-2 text-gray-500">{{ t.due_date ? (t.due_date | date:'mediumDate') : '—' }}</td>
-            </tr>
-}
-          </tbody>
-        </table>
-      </div>
-}
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="py-2 px-2 text-left text-xs font-medium text-gray-500">Task</th>
+                <th class="py-2 px-2 text-left text-xs font-medium text-gray-500">Module</th>
+                <th class="py-2 px-2 text-left text-xs font-medium text-gray-500">Priority</th>
+                <th class="py-2 px-2 text-left text-xs font-medium text-gray-500">Due</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (t of systemTasks; track t) {
+                <tr class="border-t border-gray-100 hover:bg-gray-50">
+                  <td class="py-2 px-2 text-gray-800">{{ t.title }}</td>
+                  <td class="py-2 px-2 text-gray-500">{{ t.module }}</td>
+                  <td class="py-2 px-2">
+                    <span class="text-xs font-medium px-1.5 py-0.5 rounded"
+                      [ngClass]="{
+                        'bg-red-100 text-red-700': t.priority === 'CRITICAL' || t.priority === 'HIGH',
+                        'bg-amber-100 text-amber-700': t.priority === 'MEDIUM',
+                        'bg-gray-100 text-gray-600': t.priority === 'LOW'
+                      }">{{ t.priority }}</span>
+                  </td>
+                  <td class="py-2 px-2 text-gray-500">{{ t.due_date ? (t.due_date | date:'mediumDate') : '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
       @if (systemTasks.length === 0) {
-<p class="text-sm text-gray-400 text-center py-3">No pending system tasks</p>
-}
+        <p class="text-sm text-gray-400 text-center py-3">No pending system tasks</p>
+      }
     </div>
-  
-}
+  }
 </div>
-
