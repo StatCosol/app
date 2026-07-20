@@ -11,6 +11,7 @@ import { UsersService } from '../users/users.service';
 import { ClientEntity } from '../clients/entities/client.entity';
 import { UserEntity } from '../users/entities/user.entity';
 import { AssignmentsService } from '../assignments/assignments.service';
+import * as path from 'path';
 
 type ComplianceItem = {
   complianceId: string | null;
@@ -42,6 +43,28 @@ export class ContractorService {
     private readonly usersService: UsersService,
     private readonly assignmentsService: AssignmentsService,
   ) {}
+
+  private toUploadsRelativePath(filePath: string): string {
+    const normalizedInput = String(filePath || '').replace(/\\/g, '/');
+    const marker = '/uploads/';
+    const markerIndex = normalizedInput.toLowerCase().lastIndexOf(marker);
+    if (markerIndex >= 0) {
+      return normalizedInput.slice(markerIndex + marker.length);
+    }
+    const uploadsRoot = path.resolve(process.cwd(), 'uploads');
+    const resolved = path.resolve(filePath);
+    const relative = path.relative(uploadsRoot, resolved);
+    if (!relative.startsWith('..') && !path.isAbsolute(relative)) {
+      return relative.replace(/\\/g, '/');
+    }
+    return normalizedInput.replace(/^\/?uploads\//i, '').replace(/^\/+/, '');
+  }
+
+  private fileDownloadUrl(filePath: string | null | undefined): string | null {
+    if (!filePath) return null;
+    const relative = this.toUploadsRelativePath(filePath);
+    return relative ? `/api/v1/files/download?p=${encodeURIComponent(relative)}` : null;
+  }
 
   private async assertContractorForClient(
     crmUserId: string,
@@ -298,17 +321,22 @@ export class ContractorService {
       order: { createdAt: 'DESC' },
     });
 
-    return docs.map((d) => ({
-      id: d.id,
-      docType: d.docType,
-      branchId: d.branchId,
-      auditId: d.auditId,
-      fileName: d.fileName,
-      fileType: d.fileType,
-      fileSize: d.fileSize,
-      filePath: d.filePath,
-      createdAt: d.createdAt,
-    }));
+    return docs.map((d) => {
+      const downloadUrl = this.fileDownloadUrl(d.filePath);
+      return {
+        id: d.id,
+        docType: d.docType,
+        branchId: d.branchId,
+        auditId: d.auditId,
+        fileName: d.fileName,
+        fileType: d.fileType,
+        fileSize: d.fileSize,
+        filePath: d.filePath,
+        downloadUrl,
+        fileUrl: downloadUrl,
+        createdAt: d.createdAt,
+      };
+    });
   }
 
   async uploadContractorDocument(
@@ -367,7 +395,7 @@ export class ContractorService {
       docType: dto.docType,
       title: file.originalname,
       fileName: file.originalname,
-      filePath: file.path,
+      filePath: this.toUploadsRelativePath(file.path),
       fileType: file.mimetype,
       fileSize: String(file.size ?? 0),
       uploadedByUserId: userId,

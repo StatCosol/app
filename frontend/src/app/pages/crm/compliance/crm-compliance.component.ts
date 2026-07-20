@@ -118,6 +118,21 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
     return Number(this.pick(row, keyCamel, keySnake) || 0);
   }
 
+  fileDownloadUrl(filePath: string | null | undefined): string {
+    if (!filePath) return '';
+    const normalizedInput = String(filePath).replace(/\\/g, '/');
+    if (/^\/?api\/v\d+\/files\/download\b/i.test(normalizedInput)) {
+      return normalizedInput.startsWith('/') ? normalizedInput : `/${normalizedInput}`;
+    }
+    const marker = '/uploads/';
+    const markerIndex = normalizedInput.toLowerCase().lastIndexOf(marker);
+    const relative =
+      markerIndex >= 0
+        ? normalizedInput.slice(markerIndex + marker.length)
+        : normalizedInput.replace(/^\/?uploads\//i, '').replace(/^\/+/, '');
+    return relative ? `/api/v1/files/download?p=${encodeURIComponent(relative)}` : '';
+  }
+
   getAuditId(row: any): string {
     return this.pick<string>(row, 'auditId', 'audit_id') || '';
   }

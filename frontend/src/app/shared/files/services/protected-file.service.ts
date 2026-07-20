@@ -71,8 +71,31 @@ export class ProtectedFileService {
 
   private resolveUrl(url: string): string {
     if (/^https?:\/\//i.test(url)) return url;
+    const downloadUrl = this.downloadUrlForStorageKey(url);
+    if (downloadUrl) return `${this.baseUrl}${downloadUrl}`;
     const normalized = url.startsWith('/') ? url : `/${url}`;
     return `${this.baseUrl}${normalized}`;
+  }
+
+  private downloadUrlForStorageKey(url: string): string | null {
+    if (!url) return null;
+    if (/^\/?api\/v\d+\/files\/download\b/i.test(url)) {
+      return url.startsWith('/') ? url : `/${url}`;
+    }
+
+    const normalizedInput = String(url).replace(/\\/g, '/');
+    const marker = '/uploads/';
+    const markerIndex = normalizedInput.toLowerCase().lastIndexOf(marker);
+    const relative =
+      markerIndex >= 0
+        ? normalizedInput.slice(markerIndex + marker.length)
+        : normalizedInput.replace(/^\/?uploads\//i, '').replace(/^\/+/, '');
+
+    if (!relative || relative.startsWith('api/')) return null;
+    if (!/^(contractor-documents|payroll-|registers|helpdesk|compliance|monthly-compliance)\//i.test(relative)) {
+      return null;
+    }
+    return `/api/v1/files/download?p=${encodeURIComponent(relative)}`;
   }
 
   private extractFileName(header: string | null): string | null {
