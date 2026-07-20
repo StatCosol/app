@@ -182,10 +182,14 @@
               </td>
               <td class="px-3 py-3 text-right text-xs">
                 <div class="flex items-center justify-end gap-1.5">
-                  <a *ngIf="d.filePath" [href]="fileDownloadUrl(d.filePath)" target="_blank"
+                  <button *ngIf="d.filePath" type="button" (click)="openFile(d.filePath, d.fileName)"
                      class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
                     View
-                  </a>
+                  </button>
+                  <button *ngIf="d.filePath" type="button" (click)="openFile(d.filePath, d.fileName, 'download')"
+                     class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                    Download
+                  </button>
                   <button *ngIf="d.status==='UPLOADED' || d.status==='PENDING_REVIEW'"
                     type="button"
                     class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
@@ -609,7 +613,7 @@
                             <svg class="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                             </svg>
-                            <a [href]="fileDownloadUrl(ev.filePath)" target="_blank" class="text-blue-600 hover:underline truncate">{{ ev.fileName }}</a>
+                            <button type="button" (click)="openFile(ev.filePath, ev.fileName)" class="text-blue-600 hover:underline truncate">{{ ev.fileName }}</button>
                             <span class="text-gray-400">{{ ev.createdAt | date:'short' }}</span>
                             <span *ngIf="ev.notes" class="text-gray-500 italic">{{ ev.notes }}</span>
                           </div>
@@ -702,10 +706,14 @@
               </td>
               <td class="px-3 py-3 text-right text-xs">
                 <div class="flex items-center justify-end gap-1.5">
-                  <a *ngIf="d.filePath" [href]="fileDownloadUrl(d.filePath)" target="_blank"
+                  <button *ngIf="d.filePath" type="button" (click)="openFile(d.filePath, d.fileName)"
                      class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
                     View
-                  </a>
+                  </button>
+                  <button *ngIf="d.filePath" type="button" (click)="openFile(d.filePath, d.fileName, 'download')"
+                     class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                    Download
+                  </button>
                   <button *ngIf="d.status==='UPLOADED' || d.status==='PENDING_REVIEW'"
                     type="button"
                     class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
