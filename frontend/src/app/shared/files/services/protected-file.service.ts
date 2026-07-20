@@ -92,7 +92,9 @@ export class ProtectedFileService {
         : normalizedInput.replace(/^\/?uploads\//i, '').replace(/^\/+/, '');
 
     if (!relative || relative.startsWith('api/')) return null;
-    if (!/^(contractor-documents|payroll-|registers|helpdesk|compliance|monthly-compliance)\//i.test(relative)) {
+    // Only prefixes that FilesService.assertCanDownload can authorize; other
+    // uploads (e.g. compliance evidence) stay on the JWT-protected /uploads route.
+    if (!/^(contractor-documents|payroll-|registers|helpdesk)\//i.test(relative)) {
       return null;
     }
     return `/api/v1/files/download?p=${encodeURIComponent(relative)}`;
