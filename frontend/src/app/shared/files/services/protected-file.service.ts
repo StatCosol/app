@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { map, Observable } from 'rxjs';
+import { map, Observable, tap } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 
 export interface ProtectedFileHandle {
@@ -40,13 +40,26 @@ export class ProtectedFileService {
   }
 
   open(url: string, preferredFileName?: string | null): Observable<void> {
+    // Open the tab synchronously while the click's user activation is still
+    // valid; navigating it after the authenticated fetch avoids the popup
+    // blocker turning every View into a download.
+    const viewer = window.open('', '_blank');
     return this.fetch(url, preferredFileName).pipe(
       map((file) => {
-        const opened = window.open(file.objectUrl, '_blank', 'noopener,noreferrer');
-        if (!opened) {
-          this.triggerDownload(file.objectUrl, file.fileName);
+        if (viewer && !viewer.closed) {
+          viewer.location.href = file.objectUrl;
+        } else {
+          const opened = window.open(file.objectUrl, '_blank', 'noopener,noreferrer');
+          if (!opened) {
+            this.triggerDownload(file.objectUrl, file.fileName);
+          }
         }
         window.setTimeout(() => file.revoke(), 5 * 60 * 1000);
+      }),
+      tap({
+        error: () => {
+          if (viewer && !viewer.closed) viewer.close();
+        },
       }),
     );
   }
@@ -73,8 +86,25 @@ export class ProtectedFileService {
     if (/^https?:\/\//i.test(url)) return url;
     const downloadUrl = this.downloadUrlForStorageKey(url);
     if (downloadUrl) return `${this.baseUrl}${downloadUrl}`;
-    const normalized = url.startsWith('/') ? url : `/${url}`;
-    return `${this.baseUrl}${normalized}`;
+    return `${this.baseUrl}${this.toAppUrl(url)}`;
+  }
+
+  /**
+   * Non-API relative values are protected storage keys (e.g.
+   * `mcd-evidence/...`, `/app/uploads/compliance/...`); the backend only
+   * serves those below the JWT-protected /uploads/ route.
+   */
+  private toAppUrl(url: string): string {
+    const normalizedInput = String(url).replace(/\\/g, '/');
+    const withSlash = normalizedInput.startsWith('/') ? normalizedInput : `/${normalizedInput}`;
+    if (/^\/(api|assets)\//i.test(withSlash)) return withSlash;
+    const marker = '/uploads/';
+    const markerIndex = normalizedInput.toLowerCase().lastIndexOf(marker);
+    const relative =
+      markerIndex >= 0
+        ? normalizedInput.slice(markerIndex + marker.length)
+        : normalizedInput.replace(/^\/?uploads\//i, '').replace(/^\/+/, '');
+    return `/uploads/${relative}`;
   }
 
   private downloadUrlForStorageKey(url: string): string | null {
