@@ -7,6 +7,8 @@ export interface TableColumn {
   sortable?: boolean;
   width?: string;
   align?: 'left' | 'center' | 'right';
+  /** Custom value accessor for CSV export — use when the cell is rendered from computed data. */
+  exportValue?: (row: any) => unknown;
 }
 
 export interface SortEvent {
@@ -306,7 +308,9 @@ export class DataTableComponent {
     };
     const lines = [
       cols.map((c) => escape(c.header)).join(','),
-      ...this.data.map((row) => cols.map((c) => escape(row[c.key])).join(',')),
+      ...this.data.map((row) =>
+        cols.map((c) => escape(c.exportValue ? c.exportValue(row) : row[c.key])).join(','),
+      ),
     ];
     // BOM so Excel opens the file as UTF-8
     const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });

@@ -2,7 +2,9 @@ import { BiometricService } from './biometric.service';
 
 describe('BiometricService', () => {
   const makeService = (opts: { dayPunches: any[]; existing?: any }) => {
-    const updateExecute = jest.fn(async () => ({ affected: opts.dayPunches.length }));
+    const updateExecute = jest.fn(async () => ({
+      affected: opts.dayPunches.length,
+    }));
     const punchRepo = {
       find: jest.fn(async () => opts.dayPunches),
       createQueryBuilder: jest.fn(() => ({

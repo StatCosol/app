@@ -78,6 +78,7 @@ export class ChartCardComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   private chart?: Chart;
   private viewReady = false;
+  private renderSeq = 0;
 
   get isEmpty(): boolean {
     return !this.datasets.some((d) => d.data.some((v) => v !== 0));
@@ -97,12 +98,16 @@ export class ChartCardComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   private async render(): Promise<void> {
+    // chart.js is loaded lazily so portals without charts don't pay for it.
+    // renderSeq guards against overlapping async renders racing on one canvas.
+    const seq = ++this.renderSeq;
+    const { default: ChartJs } = await import('chart.js/auto');
+    if (seq !== this.renderSeq) return;
+
     this.chart?.destroy();
     this.chart = undefined;
     if (this.isEmpty) return;
 
-    // chart.js is loaded lazily so portals without charts don't pay for it
-    const { default: ChartJs } = await import('chart.js/auto');
     const canvas = this.canvasRef?.nativeElement;
     if (!canvas) return;
 

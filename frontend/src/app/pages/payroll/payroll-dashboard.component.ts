@@ -46,7 +46,7 @@ export class PayrollDashboardComponent implements OnInit, OnDestroy {
 
   runColumns: TableColumn[] = [
     { key: 'clientName', header: 'Client', sortable: true },
-    { key: 'period', header: 'Period', sortable: true, width: '120px' },
+    { key: 'period', header: 'Period', sortable: true, width: '120px', exportValue: (r) => this.formatPeriod(r) },
     { key: 'employeeCount', header: 'Employees', sortable: true, width: '110px', align: 'center' },
     { key: 'status', header: 'Status', sortable: true, width: '130px', align: 'center' },
     { key: 'actions', header: '', sortable: false, width: '100px', align: 'center' },
@@ -75,29 +75,28 @@ export class PayrollDashboardComponent implements OnInit, OnDestroy {
     return this.recentRuns.filter(r => r.status === 'PROCESSING' || r.status === 'DRAFT').length;
   }
 
-  // Chart data
+  // Chart data — precomputed when data loads so bindings keep stable references
+  // (a getter returning a fresh array would re-trigger chart rendering on every CD cycle)
   readonly workforceLabels = ['Active', 'Exited', 'Joiners (month)', 'Leavers (month)'];
-  get workforceDatasets(): ChartCardDataset[] {
+  workforceDatasets: ChartCardDataset[] = [{ label: 'Employees', data: [0, 0, 0, 0] }];
+  runStatusLabels: string[] = [];
+  runStatusDatasets: ChartCardDataset[] = [{ data: [] }];
+
+  private recomputeChartData(): void {
     const s = this.summary;
-    return [{
+    this.workforceDatasets = [{
       label: 'Employees',
       data: [s?.activeEmployees ?? 0, s?.exitedEmployees ?? 0, s?.joinersThisMonth ?? 0, s?.leaversThisMonth ?? 0],
       backgroundColor: ['#10b981', '#64748b', '#3b82f6', '#ef4444'],
     }];
-  }
 
-  get runStatusBuckets(): [string, number][] {
     const counts = new Map<string, number>();
     for (const r of this.recentRuns) {
       counts.set(r.status, (counts.get(r.status) || 0) + 1);
     }
-    return [...counts.entries()];
-  }
-  get runStatusLabels(): string[] {
-    return this.runStatusBuckets.map(([s]) => s.replace(/_/g, ' '));
-  }
-  get runStatusDatasets(): ChartCardDataset[] {
-    return [{ data: this.runStatusBuckets.map(([, n]) => n) }];
+    const buckets = [...counts.entries()];
+    this.runStatusLabels = buckets.map(([status]) => status.replace(/_/g, ' '));
+    this.runStatusDatasets = [{ data: buckets.map(([, n]) => n) }];
   }
 
   constructor(
@@ -129,6 +128,7 @@ export class PayrollDashboardComponent implements OnInit, OnDestroy {
         this.summary = res.summary;
         this.clients = res.clients;
         this.recentRuns = (res.runs || []).slice(0, 10);
+        this.recomputeChartData();
         this.cdr.detectChanges();
       },
       error: (e) => {
