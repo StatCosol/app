@@ -56,7 +56,7 @@
         <span>Month</span>
         <select name="chkMonthCtx" [(ngModel)]="checklistMonth" (ngModelChange)="reloadChecklist()">
           @for (m of monthNames; track m; let i = $index) {
-<option [value]="i + 1">{{ m }}</option>
+<option [ngValue]="i + 1">{{ m }}</option>
 }
         </select>
       </label>
@@ -64,7 +64,7 @@
         <span>Year</span>
         <select name="chkYearCtx" [(ngModel)]="checklistYear" (ngModelChange)="reloadChecklist()">
           @for (y of availableYears; track y) {
-<option [value]="y">{{ y }}</option>
+<option [ngValue]="y">{{ y }}</option>
 }
         </select>
       </label>
@@ -183,7 +183,11 @@
             <svg xmlns="http://www.w3.org/2000/svg" class="icon icon--sm" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z"/>
             </svg>
-            Rejected by CRM — please re-upload a corrected file.
+            @if (item.uploadedDocs[0]?.reviewNotes) {
+              <span>Rejected by CRM: "{{ item.uploadedDocs[0]?.reviewNotes }}" — please re-upload a corrected file.</span>
+            } @else {
+              <span>Rejected by CRM — please re-upload a corrected file.</span>
+            }
           </div>
 }
         </div>
