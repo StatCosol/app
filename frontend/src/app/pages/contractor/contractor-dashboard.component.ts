@@ -182,10 +182,17 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
     );
   }
 
-  /** Uploaded checklist docs sitting with CRM for review. */
+  /** Uploaded checklist docs sitting with CRM for review. Uploads persist as
+   *  PENDING_REVIEW (older rows may be UPLOADED); PENDING is kept for safety. */
+  private static readonly AWAITING_REVIEW_STATUSES = ['PENDING_REVIEW', 'UPLOADED', 'PENDING'];
+
   private get checklistAwaitingReviewCount(): number {
     return this.checklistItems.filter(
-      (i) => i.uploaded && i.uploadedDocs?.[0]?.status === 'PENDING',
+      (i) =>
+        i.uploaded &&
+        ContractorDashboardComponent.AWAITING_REVIEW_STATUSES.includes(
+          i.uploadedDocs?.[0]?.status,
+        ),
     ).length;
   }
 
@@ -272,6 +279,13 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
     const from = `${fromMonth.getFullYear()}-${String(fromMonth.getMonth() + 1).padStart(2, '0')}`;
     const to = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
+    // Monthly-doc checklist to measure: documents for month M are due on the
+    // 20th of M+1, so the deadline currently in play belongs to the PREVIOUS
+    // calendar month. Loading the current month would always yield a future
+    // deadline, hiding real Due Today / Overdue backlog.
+    const checklistMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const checklistMonth = `${checklistMonthDate.getFullYear()}-${String(checklistMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
     // Load task center data
     this.taskCenterService.getMySummary({ role: 'CONTRACTOR' })
       .pipe(takeUntil(this.destroy$), catchError(() => of({ open: 0, overdue: 0, dueSoon: 0, total: 0 })))
@@ -292,8 +306,8 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
       reuploads: this.compliance.contractorGetReuploadRequests({}).pipe(
         catchError(() => of({ data: [] as any[] })),
       ),
-      checklist: this.contractorProfile.getMonthlyDocChecklist().pipe(
-        catchError(() => of({ month: '', items: [] as any[] })),
+      checklist: this.contractorProfile.getMonthlyDocChecklist(checklistMonth).pipe(
+        catchError(() => of({ month: checklistMonth, items: [] as any[] })),
       ),
     })
       .pipe(
@@ -313,7 +327,7 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
           );
           this.reuploads = this.toArray(res.reuploads);
           this.checklistItems = Array.isArray(res.checklist?.items) ? res.checklist.items : [];
-          this.checklistMonthKey = res.checklist?.month || '';
+          this.checklistMonthKey = res.checklist?.month || checklistMonth;
           this.computeOperationalWidgets();
           this.buildUpcomingTasks();
           this.computeCompliancePct();
