@@ -1,4 +1,7 @@
 @use '../../../shared/dashboard.scss' as dashboard;
+@use '../../../shared/dashboard-hero.scss';
+
+.dash-hero { margin-bottom: 1.5rem; }
 
 :host { display: block; }
 

@@ -183,6 +183,45 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
     return this.auth.hasModule('CONTRACTOR_AUDIT') || this.auth.hasModule('CONTRACTOR_DOCUMENTS');
   }
 
+  // ─── Hero banner ───────────────────────────────────────────
+  readonly ringCircumference = 2 * Math.PI * 52;
+
+  get greeting(): string {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  get companyName(): string {
+    const u = this.auth.getUser();
+    return u?.clientName || u?.client?.name || 'Your Company';
+  }
+
+  get compliancePct(): number {
+    return Number(this.data?.kpis?.compliance?.overallPercent || 0);
+  }
+
+  get complianceRingOffset(): number {
+    return this.ringCircumference - (this.compliancePct / 100) * this.ringCircumference;
+  }
+
+  get complianceRingStroke(): string {
+    if (this.compliancePct >= 80) return '#34d399';
+    if (this.compliancePct >= 60) return '#fbbf24';
+    return '#f87171';
+  }
+
+  /** Human-readable module chips for the hero. */
+  get moduleChips(): string[] {
+    const chips: string[] = [];
+    if (this.hasEmployeeComplianceModule) chips.push('Employee Compliance');
+    if (this.hasContractorModule) chips.push('Contractor');
+    if (this.hasPayrollModule) chips.push('Payroll');
+    if (this.auth.hasAnyModule(['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])) chips.push('Attendance');
+    return chips;
+  }
+
   constructor(
     private legitx: LegitxDashboardService,
     private dashboard: DashboardService,

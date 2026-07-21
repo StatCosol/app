@@ -1,0 +1,197 @@
+// ─── Shared dashboard hero banner ────────────────────────────
+// Gradient hero used across role dashboards (contractor, branch, client)
+// for a consistent modern landing header.
+
+.dash-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  padding: 1.75rem 2rem;
+  background: linear-gradient(120deg, #312e81 0%, #4338ca 45%, #4f46e5 75%, #6d28d9 100%);
+  color: #fff;
+  box-shadow:
+    0 10px 30px rgba(67, 56, 202, 0.35),
+    0 2px 8px rgba(67, 56, 202, 0.25);
+
+  &__glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.5;
+    pointer-events: none;
+
+    &--one {
+      width: 340px;
+      height: 340px;
+      top: -160px;
+      right: -80px;
+      background: radial-gradient(circle, #818cf8, transparent 70%);
+    }
+    &--two {
+      width: 260px;
+      height: 260px;
+      bottom: -140px;
+      left: 20%;
+      background: radial-gradient(circle, #2dd4bf, transparent 70%);
+      opacity: 0.28;
+    }
+  }
+
+  &__content {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.75rem;
+  }
+
+  &__left { min-width: 0; flex: 1 1 320px; }
+
+  &__eyebrow {
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #c7d2fe;
+    margin-bottom: 0.25rem;
+  }
+
+  &__title {
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+
+  &__subtitle {
+    margin-top: 0.35rem;
+    font-size: 0.9rem;
+    color: #e0e7ff;
+
+    strong { color: #fff; font-weight: 700; }
+  }
+
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.85rem;
+  }
+
+  &__chip {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    white-space: nowrap;
+
+    &--more { background: rgba(255, 255, 255, 0.06); color: #c7d2fe; }
+  }
+
+  &__quickstats {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+    flex-wrap: wrap;
+  }
+
+  &__stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.55rem 1rem;
+    border-radius: 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+
+    &:hover { background: rgba(255, 255, 255, 0.18); transform: translateY(-1px); }
+  }
+
+  &__stat-value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    line-height: 1.1;
+
+    &--alert { color: #fca5a5; }
+  }
+
+  &__stat-label {
+    font-size: 0.7rem;
+    color: #c7d2fe;
+    font-weight: 500;
+  }
+
+  &__right {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex-shrink: 0;
+  }
+
+  // Controls that sit inside the hero (month picker, refresh)
+  &__controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  &__month {
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    border-radius: 0.6rem;
+    padding: 0.4rem 0.65rem;
+    font-size: 0.8rem;
+    color-scheme: dark;
+
+    &::-webkit-calendar-picker-indicator { filter: invert(1); }
+  }
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 0.6rem;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.2s ease;
+
+    &:hover { background: rgba(255, 255, 255, 0.24); }
+  }
+
+  // Compliance ring
+  &__ring { position: relative; }
+
+  &__ring-svg {
+    transform: rotate(-90deg);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+  }
+
+  &__ring-track { stroke: rgba(255, 255, 255, 0.16); }
+
+  &__ring-fill {
+    transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    stroke-linecap: round;
+  }
+
+  &__ring-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__ring-value { font-size: 1.4rem; font-weight: 800; }
+  &__ring-label { font-size: 0.68rem; color: #c7d2fe; }
+}
