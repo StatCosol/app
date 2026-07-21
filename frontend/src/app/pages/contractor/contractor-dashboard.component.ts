@@ -5,6 +5,7 @@ import { timeout, finalize, takeUntil, catchError } from 'rxjs/operators';
 import { Subject, forkJoin, of } from 'rxjs';
 import { DashboardService } from '../../core/dashboard.service';
 import { ComplianceService } from '../../core/compliance.service';
+import { ContractorProfileApiService } from '../../core/contractor-profile-api.service';
 import { TaskCenterService, TaskSummary, SystemTask } from '../../core/task-center.service';
 import {
   DataTableComponent,
@@ -86,6 +87,10 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
   tasks: ContractorTaskListItem[] = [];
   reuploads: any[] = [];
 
+  // Monthly document checklist (the contractor's primary workload)
+  checklistItems: any[] = [];
+  checklistMonthKey = '';
+
   upcomingTasks: UpcomingTask[] = [];
   scoreTrend: ScoreTrendPoint[] = [];
   pendingUploadsPreview: ContractorTaskListItem[] = [];
@@ -150,11 +155,15 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
   }
 
   get dueTodayCount(): number {
-    return this.tasks.filter((t) => this.daysToDue(t.dueDate) === 0).length;
+    const base = this.tasks.filter((t) => this.daysToDue(t.dueDate) === 0).length;
+    const days = this.checklistDeadlineDays();
+    return base + (days === 0 ? this.checklistPendingItems.length : 0);
   }
 
   get overdueCount(): number {
-    return this.tasks.filter((t) => this.isOverdueTask(t)).length;
+    const base = this.tasks.filter((t) => this.isOverdueTask(t)).length;
+    const days = this.checklistDeadlineDays();
+    return base + (days !== null && days < 0 ? this.checklistPendingItems.length : 0);
   }
 
   get inProgressCount(): number {
@@ -162,7 +171,41 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
   }
 
   get awaitingApprovalCount(): number {
-    return this.tasks.filter((t) => t.status === 'SUBMITTED').length;
+    const base = this.tasks.filter((t) => t.status === 'SUBMITTED').length;
+    return base + this.checklistAwaitingReviewCount;
+  }
+
+  /** Checklist items still needing contractor action (not uploaded, or latest upload rejected). */
+  private get checklistPendingItems(): any[] {
+    return this.checklistItems.filter(
+      (i) => !i.uploaded || i.uploadedDocs?.[0]?.status === 'REJECTED',
+    );
+  }
+
+  /** Uploaded checklist docs sitting with CRM for review. Uploads persist as
+   *  PENDING_REVIEW (older rows may be UPLOADED); PENDING is kept for safety. */
+  private static readonly AWAITING_REVIEW_STATUSES = ['PENDING_REVIEW', 'UPLOADED', 'PENDING'];
+
+  private get checklistAwaitingReviewCount(): number {
+    return this.checklistItems.filter(
+      (i) =>
+        i.uploaded &&
+        ContractorDashboardComponent.AWAITING_REVIEW_STATUSES.includes(
+          i.uploadedDocs?.[0]?.status,
+        ),
+    ).length;
+  }
+
+  /** Days until the MCD deadline (20th of the month after the checklist month); negative = past. */
+  private checklistDeadlineDays(): number | null {
+    if (!this.checklistMonthKey) return null;
+    const [y, m] = this.checklistMonthKey.split('-').map(Number);
+    if (!y || !m) return null;
+    const deadline = new Date(y, m, 20); // month is 1-12, so index m = following month
+    const today = new Date();
+    deadline.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    return Math.ceil((deadline.getTime() - today.getTime()) / 86400000);
   }
 
   get dashboardGuardrails(): DashboardGuardrail[] {
@@ -220,6 +263,7 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
   constructor(
     private dash: DashboardService,
     private compliance: ComplianceService,
+    private contractorProfile: ContractorProfileApiService,
     private taskCenterService: TaskCenterService,
     private router: Router,
     private cdr: ChangeDetectorRef,
@@ -234,6 +278,13 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
     const fromMonth = new Date(now.getFullYear(), now.getMonth() - 5, 1);
     const from = `${fromMonth.getFullYear()}-${String(fromMonth.getMonth() + 1).padStart(2, '0')}`;
     const to = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    // Monthly-doc checklist to measure: documents for month M are due on the
+    // 20th of M+1, so the deadline currently in play belongs to the PREVIOUS
+    // calendar month. Loading the current month would always yield a future
+    // deadline, hiding real Due Today / Overdue backlog.
+    const checklistMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const checklistMonth = `${checklistMonthDate.getFullYear()}-${String(checklistMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
     // Load task center data
     this.taskCenterService.getMySummary({ role: 'CONTRACTOR' })
@@ -255,6 +306,9 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
       reuploads: this.compliance.contractorGetReuploadRequests({}).pipe(
         catchError(() => of({ data: [] as any[] })),
       ),
+      checklist: this.contractorProfile.getMonthlyDocChecklist(checklistMonth).pipe(
+        catchError(() => of({ month: checklistMonth, items: [] as any[] })),
+      ),
     })
       .pipe(
         takeUntil(this.destroy$),
@@ -272,6 +326,8 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
             this.normalizeTask(row),
           );
           this.reuploads = this.toArray(res.reuploads);
+          this.checklistItems = Array.isArray(res.checklist?.items) ? res.checklist.items : [];
+          this.checklistMonthKey = res.checklist?.month || checklistMonth;
           this.computeOperationalWidgets();
           this.buildUpcomingTasks();
           this.computeCompliancePct();
@@ -316,6 +372,11 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
   }
 
   openTask(t: any): void {
+    if (t?.checklist) {
+      // Checklist pseudo-items live on the tasks page's monthly checklist, not a task detail
+      this.router.navigate(['/contractor/tasks']);
+      return;
+    }
     this.router.navigate(['/contractor/tasks', t.id]);
   }
 
@@ -363,12 +424,14 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
   }
 
   private computeCompliancePct(): void {
-    if (!this.tasks.length) {
+    const totalUnits = this.tasks.length + this.checklistItems.length;
+    if (!totalUnits) {
       this.compliancePct = 0;
       return;
     }
-    const approved = this.tasks.filter((t) => t.status === 'APPROVED').length;
-    this.compliancePct = Math.round((approved / this.tasks.length) * 100);
+    const approvedTasks = this.tasks.filter((t) => t.status === 'APPROVED').length;
+    const submittedChecklist = this.checklistItems.filter((i) => i.uploaded).length;
+    this.compliancePct = Math.round(((approvedTasks + submittedChecklist) / totalUnits) * 100);
   }
 
   getScoreColor(score: number): string {
@@ -419,7 +482,7 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
     this.mappedBranches = dashBranches.length
       ? dashBranches
       : Array.from(new Set(this.tasks.map((t) => t.branchName).filter((b) => !!b && b !== '-')));
-    this.totalRequiredDocs = this.tasks.length;
+    this.totalRequiredDocs = this.tasks.length + this.checklistItems.length;
 
     const pendingUploads = this.tasks.filter((t) =>
       ['PENDING', 'IN_PROGRESS', 'REJECTED', 'OVERDUE'].includes(t.status),
@@ -437,16 +500,31 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
         dueDate: r.deadlineDate || r.deadline_date || null,
         status: 'PENDING',
       }));
+    // Monthly checklist items still needing upload (or re-upload after rejection)
+    const checklistPending: ContractorTaskListItem[] = this.checklistPendingItems.map(
+      (i: any): ContractorTaskListItem & { checklist: boolean } => ({
+        id: i.id,
+        title: `Monthly doc: ${String(i.docType || '').replace(/_/g, ' ')}`,
+        branchName: '-',
+        clientName: '-',
+        dueDate: null,
+        status: i.uploadedDocs?.[0]?.status === 'REJECTED' ? 'REJECTED' : 'PENDING',
+        checklist: true,
+      }),
+    );
     // Add pending contractor_documents (awaiting auditor review) from dashboard API
     const pendingReviewDocs: number = Number(this.data?.pendingReviewDocs ?? 0);
-    this.pendingUploadsCount = pendingUploads.length + openReuploads.length + pendingReviewDocs;
-    this.pendingUploadsPreview = [...pendingUploads, ...openReuploads].slice(0, 6);
+    this.pendingUploadsCount =
+      pendingUploads.length + openReuploads.length + pendingReviewDocs + checklistPending.length;
+    this.pendingUploadsPreview = [...checklistPending, ...pendingUploads, ...openReuploads].slice(0, 6);
 
     const rejectedItems = this.tasks.filter((t) => t.status === 'REJECTED');
     // Add contractor_documents rejected by auditor (AuditXpert) from dashboard API
+    // (count only — checklist rejects are already inside rejectedDocs)
     const apiRejectedDocs: number = Number(this.data?.rejectedDocs ?? 0);
     this.rejectedDocsCount = rejectedItems.length + apiRejectedDocs;
-    this.rejectedItemsPreview = rejectedItems.slice(0, 6);
+    const checklistRejected = checklistPending.filter((i) => i.status === 'REJECTED');
+    this.rejectedItemsPreview = [...checklistRejected, ...rejectedItems].slice(0, 6);
 
     const expiringLicenses = this.tasks
       .filter((t) => this.looksLikeLicenseTask(t.title))
