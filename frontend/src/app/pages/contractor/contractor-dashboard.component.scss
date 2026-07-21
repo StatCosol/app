@@ -61,6 +61,9 @@
   }
 
   &__title {
+    // Explicit white — the global `h1` color otherwise wins over the
+    // inherited hero color and renders dark on the gradient.
+    color: #fff;
     font-size: 1.6rem;
     font-weight: 800;
     letter-spacing: -0.02em;
