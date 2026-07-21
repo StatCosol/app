@@ -150,12 +150,20 @@ export class ContractorComputationService {
         matchStatus: q.matchStatus,
       });
 
+    const limit = Math.min(Math.max(Number(q.limit ?? 200), 1), 500);
+    const offset = Math.max(Number(q.offset ?? 0), 0);
+    const totalRow = await qb
+      .clone()
+      .select('COUNT(*)', 'total')
+      .getRawOne<{ total: string }>();
+    const total = Number(totalRow?.total ?? 0);
     const data = await qb
       .orderBy('c.created_at', 'DESC')
       .addOrderBy('c.row_number', 'ASC')
-      .limit(Math.min(Math.max(Number(q.limit ?? 200), 1), 500))
+      .limit(limit)
+      .offset(offset)
       .getRawMany();
-    return { data, total: data.length };
+    return { data, total, limit, offset };
   }
 
   async uploadAttendanceExcel(

@@ -551,9 +551,13 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
       catchError(() => of(null)),
     ).subscribe(settings => {
       if (!settings?.allowBranchPayrollAccess) {
-        this.navItems = this.navItems.filter(i =>
-          !(i.label === 'Payroll' && i.children),
-        );
+        this.navItems = this.navItems
+          .map(item => {
+            if (!item.children) return item;
+            const children = item.children.filter(child => child.route !== '/branch/contractor-payroll');
+            return { ...item, children };
+          })
+          .filter(item => item.children ? item.children.length > 0 && item.label !== 'Payroll' : item.route !== '/branch/contractor-payroll');
       }
     });
   }
@@ -578,6 +582,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
   private moduleForRoute(route: string): string[] | null {
     if (route === '/branch/dashboard' || route.startsWith('/branch/notifications') || route.startsWith('/branch/helpdesk')) return null;
     if (route.startsWith('/branch/reports')) return ['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'];
+    if (route.startsWith('/branch/contractor-payroll')) return ['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS', 'PAYROLL'];
     if (route.startsWith('/branch/contractors')) return ['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'];
     if (route.startsWith('/branch/audits/observations') || route.startsWith('/branch/audit-non-compliances')) return ['CONTRACTOR_AUDIT'];
     if (route.startsWith('/branch/attendance/contractor')) return ['CONTRACTOR_ATTENDANCE'];
@@ -723,6 +728,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
           { label: 'Face Enrollment',   route: '/branch/face-enrollment',   icon: this.svg('M9 12a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H2zm15-3l2 2 4-4') },
           { label: 'Face Failures',     route: '/branch/face-failures',     icon: this.svg('M12 9v2m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3z') },
           { label: 'Contractors',       route: '/branch/contractors',        icon: this.svg('M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z') },
+          { label: 'Contractor Payroll', route: '/branch/contractor-payroll', icon: this.svg('M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2m0-6h2a2 2 0 012 2v4a2 2 0 01-2 2h-2') },
         ],
       },
       {

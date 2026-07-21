@@ -39,6 +39,10 @@ const AuditorOverdueNcsComponent = () =>
   import('./analytics/auditor-overdue-ncs.component').then(
     (m) => m.AuditorOverdueNcsComponent,
   );
+const ContractorPayrollComputationPageComponent = () =>
+  import('../../shared/contractor-payroll/contractor-payroll-computation-page.component').then(
+    (m) => m.ContractorPayrollComputationPageComponent,
+  );
 const NewsDetailComponent = () =>
   import('../../shared/news/news-detail.component').then((m) => m.NewsDetailComponent);
 export const AUDITOR_ROUTES: Routes = [
@@ -52,6 +56,7 @@ export const AUDITOR_ROUTES: Routes = [
       { path: 'audits', loadComponent: AuditorAuditsComponent },
       { path: 'audit-workspace', redirectTo: 'audits', pathMatch: 'full' },
       { path: 'observations', loadComponent: AuditorObservationsVerificationPageComponent },
+      { path: 'contractor-payroll', loadComponent: ContractorPayrollComputationPageComponent, data: { portal: 'auditor' } },
       { path: 'reverification', redirectTo: 'observations', pathMatch: 'full' },
       { path: 'compliance', redirectTo: 'observations', pathMatch: 'full' },
       { path: 'registers', redirectTo: 'audits', pathMatch: 'full' },

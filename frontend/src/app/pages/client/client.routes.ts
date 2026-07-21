@@ -132,6 +132,10 @@ const ClientAppraisalCyclesComponent = () =>
   import('./performance-appraisal/client-appraisal-cycles.component').then((m) => m.ClientAppraisalCyclesComponent);
 const ClientAppraisalReportsComponent = () =>
   import('./performance-appraisal/client-appraisal-reports.component').then((m) => m.ClientAppraisalReportsComponent);
+const ContractorPayrollComputationPageComponent = () =>
+  import('../../shared/contractor-payroll/contractor-payroll-computation-page.component').then(
+    (m) => m.ContractorPayrollComputationPageComponent,
+  );
 
 export const CLIENT_ROUTES: Routes = [
   {
@@ -147,6 +151,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'branches', loadComponent: ClientBranchesComponent, canActivate: [moduleAccessGuard(['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS', 'MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])] },
       { path: 'branches/:branchId', loadComponent: ClientBranchDetailWorkspacePageComponent, canActivate: [moduleAccessGuard(['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS', 'MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])] },
       { path: 'contractors', loadComponent: ClientContractorsComponent, canActivate: [moduleAccessGuard(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'])] },
+      { path: 'contractor-payroll', loadComponent: ContractorPayrollComputationPageComponent, data: { portal: 'client' }, canActivate: [moduleAccessGuard(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS', 'PAYROLL'])] },
       { path: 'contractors/branch/:branchId', loadComponent: ClientContractorsBranchComponent, canActivate: [moduleAccessGuard(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'])] },
       { path: 'compliance/status', loadComponent: ClientComplianceStatusComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')], runGuardsAndResolvers: 'always' },
       { path: 'compliance/mcd', loadComponent: ClientMcdComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')], runGuardsAndResolvers: 'always' },
