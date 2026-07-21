@@ -107,6 +107,10 @@ const BranchFaceFailuresComponent = () =>
   import('./branch-face-failures/branch-face-failures.component').then(
     (m) => m.BranchFaceFailuresComponent,
   );
+const ContractorPayrollComputationPageComponent = () =>
+  import('../../shared/contractor-payroll/contractor-payroll-computation-page.component').then(
+    (m) => m.ContractorPayrollComputationPageComponent,
+  );
 
 export const BRANCH_ROUTES: Routes = [
   {
@@ -120,6 +124,7 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'employees/:id', loadComponent: BranchEmployeeDetailComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'employees', loadComponent: BranchEmployeesComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'contractors', loadComponent: BranchContractorsComponent, canActivate: [moduleAccessGuard(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'])] },
+      { path: 'contractor-payroll', loadComponent: ContractorPayrollComputationPageComponent, data: { portal: 'branch' }, canActivate: [moduleAccessGuard(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS', 'PAYROLL']), branchPayrollAccessGuard] },
 
       // Monthly compliance workbench
       { path: 'monthly-compliance', redirectTo: 'compliance/monthly', pathMatch: 'full' },
