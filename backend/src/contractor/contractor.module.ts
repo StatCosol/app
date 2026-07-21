@@ -61,12 +61,15 @@ import { ClraRegisterRun } from './entities/clra-register-run.entity';
 import { ContractorQuotationWageEntity } from './entities/contractor-quotation-wage.entity';
 import { ContractorMcdComputationEntity } from './entities/contractor-mcd-computation.entity';
 import {
+  ClientContractorComputationController,
   ContractorComputationController,
   CrmContractorComputationController,
 } from './contractor-computation.controller';
 import { ContractorComputationService } from './contractor-computation.service';
 import { AccessModule } from '../access/access.module';
 import { ServiceEntitlementsModule } from '../service-entitlements/service-entitlements.module';
+import { PayrollClientSetupEntity } from '../payroll/entities/payroll-client-setup.entity';
+import { PayrollStatutorySlabEntity } from '../payroll/entities/payroll-statutory-slab.entity';
 
 @Module({
   imports: [
@@ -95,6 +98,8 @@ import { ServiceEntitlementsModule } from '../service-entitlements/service-entit
       ClraRegisterRun,
       ContractorQuotationWageEntity,
       ContractorMcdComputationEntity,
+      PayrollClientSetupEntity,
+      PayrollStatutorySlabEntity,
     ]),
     AuthModule, // ✅ required (ClientContractorsController uses BranchAccessService)
     UsersModule,
@@ -124,6 +129,7 @@ import { ServiceEntitlementsModule } from '../service-entitlements/service-entit
     ClraAssignmentsController,
     ContractorComputationController,
     CrmContractorComputationController,
+    ClientContractorComputationController,
   ],
   providers: [
     ContractorService,

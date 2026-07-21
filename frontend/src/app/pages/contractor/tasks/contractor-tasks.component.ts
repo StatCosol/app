@@ -1474,8 +1474,36 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
         }),
       )
       .subscribe({
-        next: () => {
-          this.toast.success('Uploaded', 'Document uploaded successfully.');
+        next: (res: any) => {
+          const shouldGeneratePayroll = this.shouldGeneratePayrollFromUpload(
+            this.checklistUploadItem?.docType,
+            this.checklistUploadFile,
+          );
+          if (shouldGeneratePayroll) {
+            this.contractorProfileApi
+              .uploadAttendanceForPayroll({
+                branchId: this.checklistUploadBranchId,
+                periodMonth: this.checklistMonthParam,
+                file: this.checklistUploadFile!,
+                uploadId: res?.id ?? res?.data?.id ?? null,
+              })
+              .pipe(takeUntil(this.destroy$))
+              .subscribe({
+                next: (calc: any) =>
+                  this.toast.success(
+                    'Payroll generated',
+                    `${calc?.total ?? 0} attendance rows computed for branch/client review.`,
+                  ),
+                error: (err: any) =>
+                  this.toast.error(
+                    'Payroll generation failed',
+                    err?.error?.message ||
+                      'Document uploaded, but payroll could not be generated.',
+                  ),
+              });
+          } else {
+            this.toast.success('Uploaded', 'Document uploaded successfully.');
+          }
           this.checklistUploadItem = null;
           this.checklistUploadFile = null;
           this.load();
@@ -1486,6 +1514,20 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
             err?.error?.message || 'Could not upload document.',
           ),
       });
+  }
+
+  private shouldGeneratePayrollFromUpload(
+    docType: string | undefined,
+    file: File | null,
+  ): boolean {
+    if (!docType || !file) return false;
+    const type = docType.toUpperCase();
+    const isAttendance =
+      type.includes('MUSTER') ||
+      type.includes('ATTENDANCE') ||
+      type.includes('WAGE_CUM_MUSTER');
+    const isExcel = /\.(xlsx|xls)$/i.test(file.name);
+    return isAttendance && isExcel;
   }
 
   cancelChecklistUpload(): void {

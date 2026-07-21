@@ -11,6 +11,7 @@ import {
 @Index('IDX_CE_CLIENT_BRANCH', ['clientId', 'branchId'])
 @Index('IDX_CE_CONTRACTOR', ['contractorUserId'])
 @Index('IDX_CE_ACTIVE', ['isActive'])
+@Index('IDX_CE_EMPLOYEE_CODE', ['clientId', 'contractorUserId', 'employeeCode'])
 export class ContractorEmployeeEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -23,6 +24,9 @@ export class ContractorEmployeeEntity {
 
   @Column({ name: 'contractor_user_id', type: 'uuid' })
   contractorUserId: string;
+
+  @Column({ name: 'employee_code', type: 'varchar', length: 80, nullable: true })
+  employeeCode: string | null;
 
   @Column({ name: 'name', type: 'varchar', length: 250 })
   name: string;

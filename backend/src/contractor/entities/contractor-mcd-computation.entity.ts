@@ -81,6 +81,36 @@ export class ContractorMcdComputationEntity {
   mcdDailyWage: number | null;
 
   @Column({
+    name: 'minimum_daily_wage',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+    transformer: numericTransformer,
+  })
+  minimumDailyWage: number | null;
+
+  @Column({
+    name: 'employee_daily_wage',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+    transformer: numericTransformer,
+  })
+  employeeDailyWage: number | null;
+
+  @Column({
+    name: 'payable_daily_wage',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
+  payableDailyWage: number;
+
+  @Column({
     name: 'basic_wage',
     type: 'numeric',
     precision: 12,
@@ -146,6 +176,16 @@ export class ContractorMcdComputationEntity {
   esiDeduction: number;
 
   @Column({
+    name: 'esi_employer_contribution',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
+  esiEmployerContribution: number;
+
+  @Column({
     name: 'pt_deduction',
     type: 'numeric',
     precision: 12,
@@ -153,6 +193,36 @@ export class ContractorMcdComputationEntity {
     transformer: numericTransformer,
   })
   ptDeduction: number;
+
+  @Column({
+    name: 'lwf_employee_deduction',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
+  lwfEmployeeDeduction: number;
+
+  @Column({
+    name: 'lwf_employer_contribution',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
+  lwfEmployerContribution: number;
+
+  @Column({
+    name: 'total_employer_contribution',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
+  totalEmployerContribution: number;
 
   @Column({
     name: 'net_salary',
