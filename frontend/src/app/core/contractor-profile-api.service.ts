@@ -91,5 +91,18 @@ export class ContractorProfileApiService {
     if (params.month) form.append('month', params.month);
     return this.http.post('/api/v1/contractor/documents/upload', form);
   }
-}
 
+  uploadAttendanceForPayroll(params: {
+    branchId: string;
+    periodMonth: string;
+    file: File;
+    uploadId?: string | null;
+  }): Observable<any> {
+    const form = new FormData();
+    form.append('file', params.file);
+    form.append('branchId', params.branchId);
+    form.append('periodMonth', params.periodMonth);
+    if (params.uploadId) form.append('uploadId', params.uploadId);
+    return this.http.post('/api/v1/contractor/computation/attendance/upload', form);
+  }
+}

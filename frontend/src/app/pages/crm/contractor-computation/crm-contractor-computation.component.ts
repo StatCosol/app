@@ -107,6 +107,8 @@ import {
         <ng-template uiTableCell="wage" let-row>
           <div>Quote: {{ money(row.quotationDailyWage) }}</div>
           <div>MCD: {{ money(row.mcdDailyWage) }}</div>
+          <div>Min: {{ money(row.minimumDailyWage) }}</div>
+          <div>Payable: {{ money(row.payableDailyWage) }}</div>
         </ng-template>
         <ng-template uiTableCell="computed" let-row>
           <div>Basic {{ money(row.basicWage) }}</div>
@@ -117,8 +119,11 @@ import {
           <div>PF Wage {{ money(row.pfWage) }}</div>
           <div>PF Employee {{ money(row.pfDeduction) }}</div>
           <div>PF Employer {{ money(row.pfEmployerContribution) }}</div>
-          <div>ESI {{ money(row.esiDeduction) }}</div>
+          <div>ESI Employee {{ money(row.esiDeduction) }}</div>
+          <div>ESI Employer {{ money(row.esiEmployerContribution) }}</div>
           <div>PT {{ money(row.ptDeduction) }}</div>
+          <div>LWF Employee {{ money(row.lwfEmployeeDeduction) }}</div>
+          <div>LWF Employer {{ money(row.lwfEmployerContribution) }}</div>
         </ng-template>
       </ui-data-table>
 }
@@ -161,9 +166,9 @@ export class CrmContractorComputationComponent implements OnInit, OnDestroy {
     { key: 'employeeName', header: 'Employee', width: '180px' },
     { key: 'skillCategory', header: 'Skill', width: '120px' },
     { key: 'daysWorked', header: 'Days', width: '70px', align: 'center' },
-    { key: 'wage', header: 'Daily Wage', width: '130px' },
+    { key: 'wage', header: 'Daily Wage', width: '150px' },
     { key: 'computed', header: 'Computed Salary', width: '150px' },
-    { key: 'deductions', header: 'Deductions', width: '160px' },
+    { key: 'deductions', header: 'Statutory', width: '180px' },
     { key: 'status', header: 'Status', width: '220px' },
   ];
 

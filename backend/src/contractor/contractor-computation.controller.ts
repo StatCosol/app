@@ -76,8 +76,50 @@ export class CrmContractorComputationController {
 export class ContractorComputationController {
   constructor(private readonly svc: ContractorComputationService) {}
 
+  @Get('mcd-computations')
+  listComputations(
+    @CurrentUser() user: ReqUser,
+    @Query() q: Record<string, string>,
+  ) {
+    return this.svc.listComputationsForScope(user, q);
+  }
+
   @Post('mcd/compute')
   computeMcd(@CurrentUser() user: ReqUser, @Body() body: any) {
     return this.svc.computeMcdRows(user, body);
+  }
+
+  @Post('attendance/upload')
+  @UseInterceptors(FileInterceptor('file', excelUploadOptions))
+  uploadAttendance(
+    @CurrentUser() user: ReqUser,
+    @Body()
+    dto: {
+      clientId?: string;
+      contractorUserId?: string;
+      branchId?: string;
+      periodMonth?: string;
+      uploadId?: string;
+    },
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.svc.uploadAttendanceExcel(user, dto, file);
+  }
+}
+
+@ApiTags('Contractor Computation')
+@ApiBearerAuth('JWT')
+@Controller({ path: 'client/contractor-computation', version: '1' })
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('CLIENT', 'BRANCH', 'BRANCH_DESK', 'AUDITOR', 'ADMIN', 'CRM', 'CEO', 'CCO')
+export class ClientContractorComputationController {
+  constructor(private readonly svc: ContractorComputationService) {}
+
+  @Get('mcd-computations')
+  listComputations(
+    @CurrentUser() user: ReqUser,
+    @Query() q: Record<string, string>,
+  ) {
+    return this.svc.listComputationsForScope(user, q);
   }
 }
