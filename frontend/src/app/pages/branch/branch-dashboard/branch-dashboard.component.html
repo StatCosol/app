@@ -10,24 +10,67 @@
 
   @if (!loading) {
 
-    <!-- Header -->
-    <div class="dash-header">
-      <div>
-        <h1 class="text-xl font-bold text-slate-800">{{ branchName }} — Dashboard</h1>
-        <p class="text-sm text-slate-500 mt-0.5">Compliance execution overview &amp; action tracker</p>
-      </div>
-      <div class="flex items-center gap-3">
-        <input autocomplete="off" id="bd-current-month" name="currentMonth"
-          type="month"
-          [(ngModel)]="currentMonth"
-          (change)="onMonthChange()"
-          class="month-picker"
-        />
-        <button type="button" (click)="loadDashboard()" class="refresh-btn" title="Refresh" aria-label="Refresh dashboard">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-          </svg>
-        </button>
+    <!-- Hero banner -->
+    <div class="dash-hero">
+      <div class="dash-hero__glow dash-hero__glow--one"></div>
+      <div class="dash-hero__glow dash-hero__glow--two"></div>
+      <div class="dash-hero__content">
+        <div class="dash-hero__left">
+          <div class="dash-hero__eyebrow">{{ greeting }}</div>
+          <h1 class="dash-hero__title">{{ branchName }} Dashboard</h1>
+          <p class="dash-hero__subtitle">Compliance execution overview &amp; action tracker</p>
+          <div class="dash-hero__quickstats">
+            @if (hasEmployeeComplianceModule) {
+              <div class="dash-hero__stat">
+                <span class="dash-hero__stat-value">{{ employeeTotal }}</span>
+                <span class="dash-hero__stat-label">Employees</span>
+              </div>
+            }
+            @if (hasContractorModule) {
+              <div class="dash-hero__stat">
+                <span class="dash-hero__stat-value">{{ contractorTotal }}</span>
+                <span class="dash-hero__stat-label">Contractors</span>
+              </div>
+            }
+            @if (hasPayrollModule) {
+              <div class="dash-hero__stat">
+                <span class="dash-hero__stat-value" [class.dash-hero__stat-value--alert]="(pfPending + esicPending) > 0">{{ pfPending + esicPending }}</span>
+                <span class="dash-hero__stat-label">PF/ESI pending</span>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="dash-hero__right">
+          @if (hasEmployeeComplianceModule) {
+            <div class="dash-hero__ring">
+              <svg class="dash-hero__ring-svg" width="118" height="118" viewBox="0 0 120 120">
+                <circle class="dash-hero__ring-track" cx="60" cy="60" r="52" fill="none" stroke-width="10"/>
+                <circle class="dash-hero__ring-fill" cx="60" cy="60" r="52" fill="none"
+                        [attr.stroke]="complianceRingStroke" stroke-width="10"
+                        [attr.stroke-dasharray]="ringCircumference"
+                        [attr.stroke-dashoffset]="complianceRingOffset"/>
+              </svg>
+              <div class="dash-hero__ring-center">
+                <span class="dash-hero__ring-value">{{ compliancePercent | number:'1.0-0' }}%</span>
+                <span class="dash-hero__ring-label">Compliant</span>
+              </div>
+            </div>
+          }
+          <div class="dash-hero__controls">
+            <input autocomplete="off" id="bd-current-month" name="currentMonth"
+              type="month"
+              [(ngModel)]="currentMonth"
+              (change)="onMonthChange()"
+              class="dash-hero__month"
+            />
+            <button type="button" (click)="loadDashboard()" class="dash-hero__btn" title="Refresh" aria-label="Refresh dashboard">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 

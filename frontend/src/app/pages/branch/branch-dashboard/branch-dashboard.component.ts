@@ -66,7 +66,27 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
   taskSummary: TaskSummary = { open: 0, overdue: 0, dueSoon: 0, total: 0 };
   pendingTasks: SystemTask[] = [];
 
+  // Hero compliance ring
+  readonly ringCircumference = 2 * Math.PI * 52;
+
   private readonly destroy$ = new Subject<void>();
+
+  get greeting(): string {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  get complianceRingOffset(): number {
+    return this.ringCircumference - (this.compliancePercent / 100) * this.ringCircumference;
+  }
+
+  get complianceRingStroke(): string {
+    if (this.compliancePercent >= 80) return '#34d399';
+    if (this.compliancePercent >= 60) return '#fbbf24';
+    return '#f87171';
+  }
 
   get hasPayrollModule(): boolean {
     return this.authService.hasModule('PAYROLL');

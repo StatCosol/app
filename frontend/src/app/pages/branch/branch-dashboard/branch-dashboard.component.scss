@@ -1,8 +1,12 @@
+@use '../../../shared/dashboard-hero.scss';
+
 .branch-dashboard {
   max-width: 1280px;
   margin: 0 auto;
   position: relative;
 }
+
+.dash-hero { margin-bottom: 1.25rem; }
 
 /* Loading */
 .loading-overlay {
