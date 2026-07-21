@@ -209,7 +209,7 @@
           <span class="ctr-count-badge ctr-count-badge--amber">{{ expiringLicenseCount }}</span>
         </div>
         @if (expiringLicensesPreview.length) {
-          <div class="space-y-2">
+          <div class="space-y-2 ctr-action__list">
             @for (item of expiringLicensesPreview; track item) {
               <button type="button" class="w-full text-left p-2 rounded-lg bg-amber-50 hover:bg-amber-100 transition-colors"
                       (click)="openTask(item)">
@@ -232,7 +232,7 @@
           <span class="ctr-count-badge ctr-count-badge--indigo">{{ pendingUploadsCount }}</span>
         </div>
         @if (pendingUploadsPreview.length) {
-          <div class="space-y-2">
+          <div class="space-y-2 ctr-action__list">
             @for (item of pendingUploadsPreview; track item) {
               <button type="button" class="w-full text-left p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 transition-colors"
                       (click)="openTask(item)">
@@ -255,7 +255,7 @@
           <span class="ctr-count-badge ctr-count-badge--red">{{ rejectedDocsCount }}</span>
         </div>
         @if (rejectedItemsPreview.length) {
-          <div class="space-y-2">
+          <div class="space-y-2 ctr-action__list">
             @for (item of rejectedItemsPreview; track item) {
               <button type="button" class="w-full text-left p-2 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
                       (click)="openTask(item)">
