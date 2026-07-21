@@ -58,6 +58,10 @@
   }
 
   &__title {
+    // Explicit white — global `h1 { color: var(--text-primary) }` (dark)
+    // otherwise wins over the inherited hero color and makes the title
+    // unreadable on the gradient.
+    color: #fff;
     font-size: 1.6rem;
     font-weight: 800;
     letter-spacing: -0.02em;
