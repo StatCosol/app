@@ -285,6 +285,25 @@
   &--indigo { border-top-color: #6366f1; }
   &--red { border-top-color: #ef4444; }
   &--teal { border-top-color: #14b8a6; }
+
+  // Cap the preview list height so the card doesn't grow unbounded as
+  // items pile up; overflow scrolls internally.
+  &__list {
+    max-height: 16rem;
+    overflow-y: auto;
+    // room so the scrollbar doesn't overlap row content
+    padding-right: 0.25rem;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+
+    &::-webkit-scrollbar { width: 6px; }
+    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 999px;
+    }
+    &::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  }
 }
 
 // ─── Branch completion progress bar ──────────────────────────

@@ -516,7 +516,8 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
     const pendingReviewDocs: number = Number(this.data?.pendingReviewDocs ?? 0);
     this.pendingUploadsCount =
       pendingUploads.length + openReuploads.length + pendingReviewDocs + checklistPending.length;
-    this.pendingUploadsPreview = [...checklistPending, ...pendingUploads, ...openReuploads].slice(0, 6);
+    // List capped generously; the card scrolls internally past a few rows.
+    this.pendingUploadsPreview = [...checklistPending, ...pendingUploads, ...openReuploads].slice(0, 25);
 
     const rejectedItems = this.tasks.filter((t) => t.status === 'REJECTED');
     // Add contractor_documents rejected by auditor (AuditXpert) from dashboard API
@@ -524,13 +525,13 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
     const apiRejectedDocs: number = Number(this.data?.rejectedDocs ?? 0);
     this.rejectedDocsCount = rejectedItems.length + apiRejectedDocs;
     const checklistRejected = checklistPending.filter((i) => i.status === 'REJECTED');
-    this.rejectedItemsPreview = [...checklistRejected, ...rejectedItems].slice(0, 6);
+    this.rejectedItemsPreview = [...checklistRejected, ...rejectedItems].slice(0, 25);
 
     const expiringLicenses = this.tasks
       .filter((t) => this.looksLikeLicenseTask(t.title))
       .filter((t) => this.daysToDue(t.dueDate) >= 0 && this.daysToDue(t.dueDate) <= 45);
     this.expiringLicenseCount = expiringLicenses.length;
-    this.expiringLicensesPreview = expiringLicenses.slice(0, 6);
+    this.expiringLicensesPreview = expiringLicenses.slice(0, 25);
 
     const workerOnboardingPending = this.tasks
       .filter((t) => this.looksLikeOnboardingTask(t.title))
