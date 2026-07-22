@@ -64,7 +64,6 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
 
     // PIN_THEN_FACE: the employee declares identity (code + PIN) before the
     // camera captures, so the face is verified 1:1 against just that person.
-    private var pinMode = false
     private var enteredCode: String? = null
     private var enteredPin: String? = null
     private var pinDialog: AlertDialog? = null
@@ -163,46 +162,12 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         frames.clear(); minEyeOpenness = 1.0
         submitting.set(false); paused = false
         enteredCode = null; enteredPin = null
-        pinMode = config.identificationMode == "PIN_THEN_FACE"
         runOnUiThread {
             tvResult.text = ""
             tvTitle.text = getString(R.string.facedesk_look_at_camera)
         }
         startTicketPolling()
-        if (pinMode) promptPinEntry()
-    }
-
-    /**
-     * Pull the identification mode and reconcile the UI. Runs on every poll
-     * tick — not just onResume — because a kiosk stays resumed all day, so an
-     * admin flipping the mode must take effect on a live screen.
-     */
-    private suspend fun fetchAndApplyConfig() {
-        try {
-            val cfg = api.config()
-            config.identificationMode = cfg.identificationMode
-            val nowPin = cfg.identificationMode == "PIN_THEN_FACE"
-            if (nowPin != pinMode) {
-                pinMode = nowPin
-                runOnUiThread { reconcilePinMode() }
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "config refresh failed: ${e.message}")
-        }
-    }
-
-    /** Align the capture gate + open dialog with the current pinMode. */
-    private fun reconcilePinMode() {
-        if (pinMode) {
-            if (enteredCode == null || enteredPin == null) promptPinEntry()
-        } else {
-            // Switched to FACE_ONLY mid-session: drop the PIN gate and resume.
-            pinDialog?.dismiss(); pinDialog = null
-            enteredCode = null; enteredPin = null
-            paused = false
-            tvResult.text = ""
-            tvTitle.text = getString(R.string.facedesk_look_at_camera)
-        }
+        promptPinEntry()
     }
 
     /**
@@ -211,7 +176,6 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
      * before the camera is used.
      */
     private fun promptPinEntry() {
-        if (!pinMode) return
         if (pinDialog?.isShowing == true) return
         paused = true
         frames.clear(); minEyeOpenness = 1.0
@@ -237,8 +201,6 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             .setCancelable(false)
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 pinDialog = null
-                // Mode may have flipped to FACE_ONLY while the dialog was open.
-                if (!pinMode) { paused = false; return@setPositiveButton }
                 val code = codeInput.text.toString().trim()
                 val pin = pinInput.text.toString().trim()
                 if (code.isEmpty() || pin.isEmpty()) {
@@ -266,7 +228,6 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         ticketPollJob?.cancel()
         ticketPollJob = lifecycleScope.launch {
             while (isActive) {
-                fetchAndApplyConfig()
                 try {
                     if (!enrollmentHold) {
                         val ticket = api.pendingTicket()
@@ -299,8 +260,8 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
 
     private fun onFrame(probe: FloatArray, eyeOpenness: Double, photo: String?) {
         if (paused || submitting.get() || enrollmentHold) return
-        // In PIN mode, don't capture until the employee has entered code + PIN.
-        if (pinMode && (enteredCode == null || enteredPin == null)) return
+        // Never capture until the employee has entered code + PIN.
+        if (enteredCode == null || enteredPin == null) return
 
         // A long gap between accepted frames means the previous person walked
         // away mid-capture — drop their frames so batches never mix people.
@@ -396,7 +357,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             // employee to enter their own code + PIN.
             enteredCode = null; enteredPin = null
             runOnUiThread { tvResult.text = ""; tvTitle.text = getString(R.string.facedesk_look_at_camera) }
-            if (pinMode) runOnUiThread { promptPinEntry() }
+            runOnUiThread { promptPinEntry() }
         }, delayMs)
     }
 
@@ -404,13 +365,12 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     private fun softReset(delayMs: Long) {
         // A wrong PIN or face-mismatch means this attempt is done — re-ask for
         // credentials rather than silently re-capturing against stale ones.
-        val reprompt = pinMode
-        if (reprompt) { enteredCode = null; enteredPin = null }
+        enteredCode = null; enteredPin = null
         previewView.postDelayed({
             frames.clear(); minEyeOpenness = 1.0
             submitting.set(false)
             runOnUiThread { tvResult.text = "" }
-            if (reprompt) runOnUiThread { promptPinEntry() }
+            runOnUiThread { promptPinEntry() }
         }, delayMs)
     }
 

@@ -25,7 +25,6 @@ export interface FaceDeskSettings {
   frameCaptureCount: number;
   livenessRequired: boolean;
   offlineSyncEnabled: boolean;
-  identificationMode: 'FACE_ONLY' | 'PIN_THEN_FACE';
   acceptCosine: number;
   retryCosine: number;
   duplicateCosine: number;

@@ -16,8 +16,8 @@ export interface EffectiveFaceSettings {
   frameCaptureCount: number;
   livenessRequired: boolean;
   offlineSyncEnabled: boolean;
-  /** FACE_ONLY = 1:N identification; PIN_THEN_FACE = code + PIN, 1:1 verify. */
-  identificationMode: 'FACE_ONLY' | 'PIN_THEN_FACE';
+  /** FaceDesk kiosks always use code + PIN followed by 1:1 face verification. */
+  identificationMode: 'PIN_THEN_FACE';
   // Calibrated cosine thresholds the matcher uses.
   acceptCosine: number;
   retryCosine: number;
@@ -89,7 +89,7 @@ export class FaceDeskSettingsService {
       frameCaptureCount: Number(row?.frameCaptureCount ?? 15),
       livenessRequired: row?.livenessRequired ?? true,
       offlineSyncEnabled: row?.offlineSyncEnabled ?? true,
-      identificationMode: row?.identificationMode ?? 'FACE_ONLY',
+      identificationMode: 'PIN_THEN_FACE',
       acceptCosine: this.percentToCosine(matchPct),
       retryCosine: this.percentToCosine(retryPct),
       duplicateCosine: this.percentToCosine(dupPct),

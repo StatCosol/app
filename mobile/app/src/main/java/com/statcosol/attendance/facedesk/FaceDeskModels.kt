@@ -98,17 +98,6 @@ data class FaceDeskRegisterResponse(
     val clientId: String,
     val branchId: String? = null,
     val adminPin: String = "0000",
-    // FACE_ONLY (default) or PIN_THEN_FACE — which capture flow to run.
-    val identificationMode: String = "FACE_ONLY",
-)
-
-@Serializable
-data class FaceDeskConfigResponse(
-    val mode: String,
-    val identificationMode: String = "FACE_ONLY",
-    val frameCaptureCount: Int = 15,
-    val livenessRequired: Boolean = true,
-    val offlineSyncEnabled: Boolean = true,
 )
 
 @Serializable

@@ -215,10 +215,6 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsBoolean()
   offlineSyncEnabled?: boolean;
-
-  @IsOptional()
-  @IsIn(['FACE_ONLY', 'PIN_THEN_FACE'])
-  identificationMode?: 'FACE_ONLY' | 'PIN_THEN_FACE';
 }
 
 export class SetAttendancePinDto {

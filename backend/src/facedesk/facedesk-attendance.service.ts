@@ -180,14 +180,9 @@ export class FaceDeskAttendanceService {
     const probe = averageEmbeddings(best3.map((f) => f.embedding));
     const probeModel = normalizeEmbeddingModel(best3[0]?.model ?? null);
 
-    // PIN_THEN_FACE: the employee declared who they are (code + PIN), so verify
-    // 1:1 against just their template — no roster-wide scan, no MULTIPLE_MATCH.
-    // Live punches enforce the client's current mode; queued offline punches
-    // are processed the way they were captured (credentials present or not) so
-    // a later mode switch can't reject already-captured attendance.
-    const usePin = opts.offline
-      ? Boolean(dto.employeeCode && dto.pin)
-      : eff.identificationMode === 'PIN_THEN_FACE';
+    // Every live FaceDesk punch requires code + PIN followed by a 1:1 face
+    // check. Legacy offline punches retain their original capture behavior.
+    const usePin = !opts.offline || Boolean(dto.employeeCode && dto.pin);
     if (usePin) {
       return this.markByPin(
         clientId,

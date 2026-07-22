@@ -119,12 +119,18 @@ const roster = (
   })),
 ];
 
-describe('FaceDeskAttendanceService.markAttendance', () => {
+describe('FaceDeskAttendanceService legacy offline face-only punches', () => {
   it('MARKS a confident match and resolves IN on the first punch', async () => {
     const { service, attRepo } = makeService(roster(0.95), 0);
-    const res = await service.markAttendance('c1', 'b1', 'd1', {
-      frames: [probeFrame()],
-    } as any);
+    const res = await service.markAttendance(
+      'c1',
+      'b1',
+      'd1',
+      {
+        frames: [probeFrame()],
+      } as any,
+      { offline: true },
+    );
     expect(res.status).toBe('MARKED');
     expect(res.punchType).toBe('IN');
     expect(attRepo.save).toHaveBeenCalledWith(
@@ -134,26 +140,44 @@ describe('FaceDeskAttendanceService.markAttendance', () => {
 
   it('resolves OUT when one counted punch already exists today', async () => {
     const { service } = makeService(roster(0.95), 1);
-    const res = await service.markAttendance('c1', 'b1', 'd1', {
-      frames: [probeFrame()],
-    } as any);
+    const res = await service.markAttendance(
+      'c1',
+      'b1',
+      'd1',
+      {
+        frames: [probeFrame()],
+      } as any,
+      { offline: true },
+    );
     expect(res.punchType).toBe('OUT');
   });
 
   it('asks to RETRY in the 90–95% band', async () => {
     const { service, attRepo } = makeService(roster(0.8), 0); // between retry 0.78 and accept 0.84
-    const res = await service.markAttendance('c1', 'b1', 'd1', {
-      frames: [probeFrame()],
-    } as any);
+    const res = await service.markAttendance(
+      'c1',
+      'b1',
+      'd1',
+      {
+        frames: [probeFrame()],
+      } as any,
+      { offline: true },
+    );
     expect(res.status).toBe('RETRY');
     expect(attRepo.save).not.toHaveBeenCalled();
   });
 
   it('REJECTS and logs a failed attempt below the retry band', async () => {
     const { service, failRepo } = makeService(roster(0.6), 0);
-    const res = await service.markAttendance('c1', 'b1', 'd1', {
-      frames: [probeFrame()],
-    } as any);
+    const res = await service.markAttendance(
+      'c1',
+      'b1',
+      'd1',
+      {
+        frames: [probeFrame()],
+      } as any,
+      { offline: true },
+    );
     expect(res.status).toBe('REJECTED');
     expect(failRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ reason: 'NO_MATCH' }),
@@ -165,9 +189,15 @@ describe('FaceDeskAttendanceService.markAttendance', () => {
       roster(0.9, [{ id: 'e2', code: 'E002', cos: 0.88 }]), // margin 0.02 < 0.05
       0,
     );
-    const res = await service.markAttendance('c1', 'b1', 'd1', {
-      frames: [probeFrame()],
-    } as any);
+    const res = await service.markAttendance(
+      'c1',
+      'b1',
+      'd1',
+      {
+        frames: [probeFrame()],
+      } as any,
+      { offline: true },
+    );
     expect(res.status).toBe('REVIEW');
     expect(reviewRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ issueType: 'MULTIPLE_MATCH' }),
@@ -190,12 +220,7 @@ describe('FaceDeskAttendanceService.markAttendance — PIN_THEN_FACE', () => {
 
   const makePinService = (claimedRows: any[] | null, todayCount = 0) => {
     const base = makeService([], todayCount);
-    // Override settings to PIN mode and re-wire dataSource: 1st query =
-    // loadClaimedProfile, 2nd = nextPunchType count.
-    (base.service as any).settings.getEffective = jest.fn(async () => ({
-      ...effective,
-      identificationMode: 'PIN_THEN_FACE',
-    }));
+    // Re-wire dataSource: 1st query = loadClaimedProfile, 2nd = nextPunchType.
     (base.service as any).dataSource.query = jest
       .fn()
       .mockResolvedValueOnce(claimedRows ?? [])
@@ -274,7 +299,7 @@ describe('FaceDeskAttendanceService.markAttendance — PIN_THEN_FACE', () => {
   });
 
   it('processes a queued FACE-only punch via 1:N even when the client is now in PIN mode', async () => {
-    // Client flipped to PIN mode after a FACE_ONLY punch was queued offline.
+    // The punch was queued before the PIN + face-only rollout.
     const { service, attRepo } = makeService(roster(0.95), 0);
     (service as any).settings.getEffective = jest.fn(async () => ({
       ...effective,

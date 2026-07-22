@@ -207,7 +207,7 @@ type Tab =
         </table>
 }
 
-        @if (branchMode && settings?.identificationMode === 'PIN_THEN_FACE') {
+        @if (branchMode) {
           <div class="pin-box" style="margin-top:1rem;">
             <h4>Set employee attendance PIN</h4>
             <p class="text-xs text-gray-500">After an employee is enrolled, enter their code and generate a PIN. Shown once — note it and hand it to the employee.</p>
@@ -351,20 +351,12 @@ type Tab =
 }
         @if (!loading && settings) {
 <div class="settings">
-          <label class="col-span-2">Attendance mode
-            <select [(ngModel)]="settings.identificationMode" class="inp">
-              <option value="FACE_ONLY">Face only (camera recognises the employee)</option>
-              <option value="PIN_THEN_FACE">PIN + Face (employee enters code &amp; PIN, then face verifies)</option>
-            </select>
-          </label>
-          @if (settings.identificationMode === 'PIN_THEN_FACE') {
             <p class="text-xs text-gray-500 col-span-2">
               In PIN + Face mode the kiosk asks for the employee code and a 6-digit PIN,
               then verifies the face 1:1 against that one person — no roster-wide scan,
               so look-alike / duplicate mismatches can't happen. Set each enrolled
               employee's PIN below.
             </p>
-          }
           <label>Match confidence (%)<input type="number" [(ngModel)]="settings.matchConfidencePct" class="inp"></label>
           <label>Retry confidence (%)<input type="number" [(ngModel)]="settings.retryConfidencePct" class="inp"></label>
           <label>Duplicate threshold (%)<input type="number" [(ngModel)]="settings.duplicatePct" class="inp"></label>
@@ -378,7 +370,6 @@ type Tab =
           </p>
           <div class="col-span-2"><button class="btn primary" (click)="saveSettings()">Save settings</button></div>
 
-          @if (settings.identificationMode === 'PIN_THEN_FACE') {
             <div class="col-span-2 pin-box">
               <h4>Set employee attendance PIN</h4>
               <p class="text-xs text-gray-500">Enter an enrolled employee's code and generate a PIN. The PIN is shown once — note it and hand it to the employee.</p>
@@ -396,7 +387,6 @@ type Tab =
                 </div>
               }
             </div>
-          }
         </div>
 }
       
@@ -490,14 +480,9 @@ export class FaceDeskComponent implements OnInit {
   ngOnInit(): void {
     this.loadBranches();
     if (this.branchMode) {
-      // Branch users land on enrollment; load settings too so the PIN
-      // generator appears when the client runs PIN_THEN_FACE.
+      // Branch users land on enrollment and can assign employee PINs there.
       this.tab = 'pending';
       this.switch('pending');
-      this.svc.getSettings().subscribe({
-        next: (s) => { this.settings = s; this.cdr.detectChanges(); },
-        error: () => undefined,
-      });
     } else {
       this.loadDashboard();
     }
@@ -724,7 +709,6 @@ export class FaceDeskComponent implements OnInit {
       frameCaptureCount: this.settings.frameCaptureCount,
       livenessRequired: this.settings.livenessRequired,
       offlineSyncEnabled: this.settings.offlineSyncEnabled,
-      identificationMode: this.settings.identificationMode,
     };
     this.svc.updateSettings(patch).subscribe({
       next: (r) => { this.settings = r; this.toast.success('Settings saved'); },
