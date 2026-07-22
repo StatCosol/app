@@ -46,12 +46,16 @@ describe('FaceDeskController branch access', () => {
     expect(admin.listDuplicateAlerts).not.toHaveBeenCalled();
   });
 
-  it('rejects branch users from the client-wide review queue', () => {
+  it('lets branch users verify their own branch review items (scoped)', () => {
     const { controller, admin } = makeController();
 
-    expect(() => controller.reviewQueue(branchUser)).toThrow(
-      ForbiddenException,
+    void controller.reviewQueue(branchUser, 'PENDING');
+
+    // Allowed, but scoped to the caller's branch — not a client-wide read.
+    expect(admin.listReviewQueue).toHaveBeenCalledWith(
+      'client-1',
+      'PENDING',
+      ['branch-1'],
     );
-    expect(admin.listReviewQueue).not.toHaveBeenCalled();
   });
 });

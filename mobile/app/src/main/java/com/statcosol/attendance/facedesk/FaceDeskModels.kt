@@ -27,6 +27,9 @@ data class MarkAttendanceRequest(
     // PIN_THEN_FACE: the code + PIN the employee entered before capture.
     val employeeCode: String? = null,
     val pin: String? = null,
+    // A representative capture photo stored on the punch so the branch can
+    // verify a PIN-correct/face-mismatch punch.
+    val photoB64: String? = null,
     val livenessPassed: Boolean? = null,
     val offlineRef: String? = null,
     val punchTime: String? = null,

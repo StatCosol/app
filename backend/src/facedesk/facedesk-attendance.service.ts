@@ -301,6 +301,7 @@ export class FaceDeskAttendanceService {
     margin: number,
     best3: ResolvedFrame[],
     confidencePercent: number,
+    flagForReview = false,
   ): Promise<MarkResult> {
     const punchTime = dto.punchTime ? new Date(dto.punchTime) : new Date();
     const punchType = await this.nextPunchType(
@@ -326,14 +327,32 @@ export class FaceDeskAttendanceService {
       livenessScore:
         best3.find((f) => f.livenessScore != null)?.livenessScore ?? null,
       photoUrl,
+      // Counts immediately; a flagged punch is reversible on branch rejection.
       attendanceStatus: 'MARKED',
       syncStatus: 'SYNCED',
       offlineRef: dto.offlineRef ?? null,
     });
 
+    // PIN correct but face didn't match → mark, but queue for the branch to
+    // verify the captured photo and approve or reverse it.
+    if (flagForReview) {
+      await this.reviewRepo.save({
+        clientId,
+        branchId: saved.branchId,
+        employeeId: employee.employeeId,
+        attendanceId: saved.attendanceId,
+        issueType: 'FACE_MISMATCH',
+        confidenceScore: cosine,
+        status: 'PENDING',
+        adminRemarks: `PIN correct but face did not match (${confidencePercent}%). Verify the captured photo.`,
+      });
+    }
+
     return {
       status: 'MARKED',
-      message: 'Attendance Marked Successfully',
+      message: flagForReview
+        ? 'Marked — pending branch verification'
+        : 'Attendance Marked Successfully',
       employeeName: employee.name,
       employeeCode: employee.employeeCode,
       punchType: saved.punchType,
@@ -437,21 +456,28 @@ export class FaceDeskAttendanceService {
     );
     const confidencePercent = this.settings.cosineToPercent(cosine);
 
-    // Correct PIN but the face doesn't match → likely someone punching for
-    // another employee. Never mark; log the mismatch.
+    // Correct PIN but the face doesn't match. Per policy, mark the punch
+    // (it counts immediately) but flag it so the branch verifies the photo
+    // and can reverse it — this catches buddy-punching without blocking a
+    // genuine employee the model failed to match.
     if (cosine < eff.retryCosine) {
-      await this.recordFailed(
+      return this.acceptPunch(
         clientId,
         branchId,
         deviceId,
-        claimed.employeeId,
+        dto,
+        {
+          employeeId: claimed.employeeId,
+          employeeCode: claimed.employeeCode,
+          name: claimed.name,
+          branchId: claimed.branchId,
+        },
         cosine,
-        'FACE_MISMATCH',
+        1,
+        best3,
+        confidencePercent,
+        true, // flag for branch verification
       );
-      return {
-        status: 'REJECTED',
-        message: 'Face does not match this PIN — please try again',
-      };
     }
     if (cosine < eff.acceptCosine) {
       return {

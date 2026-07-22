@@ -42,7 +42,13 @@ export interface DuplicateAlert {
 export interface ReviewItem {
   reviewId: string;
   employeeId: string | null;
+  employeeName?: string | null;
+  employeeCode?: string | null;
   attendanceId: string | null;
+  photoUrl?: string | null;
+  punchType?: string | null;
+  punchTime?: string | null;
+  branchId?: string | null;
   issueType: string;
   confidenceScore: string | null;
   status: string;

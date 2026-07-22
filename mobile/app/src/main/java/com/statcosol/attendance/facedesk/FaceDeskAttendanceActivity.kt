@@ -302,6 +302,8 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             frames = batch,
             employeeCode = enteredCode,
             pin = enteredPin,
+            // Attach one capture photo so the branch can verify a mismatch punch.
+            photoB64 = batch.firstNotNullOfOrNull { it.photoB64 },
             livenessPassed = livenessPassed,
             offlineRef = UUID.randomUUID().toString(),
         )

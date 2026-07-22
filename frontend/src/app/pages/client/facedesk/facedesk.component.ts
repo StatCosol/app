@@ -10,6 +10,7 @@ import {
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import {
   DuplicateAlert,
   FaceDeskDashboard,
@@ -64,12 +65,17 @@ type Tab =
 <span class="badge">{{ cards.duplicateAlertsPending }}</span>
 }
           </button>
-          <button class="tab-btn" [class.active]="tab === 'review'" (click)="switch('review')">
-            Review Queue
-            @if (cards && cards.reviewQueuePending > 0) {
+        }
+        <button class="tab-btn" [class.active]="tab === 'review'" (click)="switch('review')">
+          {{ branchMode ? 'Verifications' : 'Review Queue' }}
+          @if (branchMode && review.length > 0) {
+<span class="badge">{{ review.length }}</span>
+}
+          @if (!branchMode && cards && cards.reviewQueuePending > 0) {
 <span class="badge">{{ cards.reviewQueuePending }}</span>
 }
-          </button>
+        </button>
+        @if (!branchMode) {
           <button class="tab-btn" [class.active]="tab === 'reports'" (click)="switch('reports')">Reports</button>
           <button class="tab-btn" [class.active]="tab === 'settings'" (click)="switch('settings')">Settings</button>
         }
@@ -267,19 +273,29 @@ type Tab =
         @if (loading) {
 <ui-loading-spinner text="Loading..." size="lg"></ui-loading-spinner>
 }
+        @if (branchMode) {
+          <p class="text-sm text-gray-600 mb-3">Punches where the PIN was correct but the face didn't match are marked and listed here. Check the photo against the employee, then <strong>Approve</strong> to keep it or <strong>Reject</strong> to reverse it.</p>
+        }
         @if (!loading && review.length === 0) {
-<ui-empty-state title="Nothing to review" description="No pending review items."></ui-empty-state>
+<ui-empty-state title="Nothing to verify" description="No pending items."></ui-empty-state>
 }
         @if (!loading && review.length > 0) {
 <table class="tbl">
-          <thead><tr><th>Issue</th><th>Employee</th><th>Confidence</th><th>Note</th><th>When</th><th class="right">Actions</th></tr></thead>
+          <thead><tr><th>Issue</th><th>Employee</th><th>Photo</th><th>Confidence</th><th>Punch</th><th>When</th><th class="right">Actions</th></tr></thead>
           <tbody>
             @for (r of review; track r) {
 <tr>
               <td><span class="pill amber">{{ r.issueType }}</span></td>
-              <td class="mono">{{ r.employeeId || '—' }}</td>
-              <td>{{ r.confidenceScore ? (+r.confidenceScore).toFixed(3) : '—' }}</td>
-              <td class="text-xs text-gray-600">{{ r.adminRemarks || '—' }}</td>
+              <td>{{ r.employeeName || r.employeeId || '—' }}<br><span class="mono text-xs text-gray-500">{{ r.employeeCode || '' }}</span></td>
+              <td>
+                @if (r.photoUrl) {
+<button class="link" (click)="viewPhoto(r)">View photo</button>
+} @else {
+<span class="text-xs text-gray-400">—</span>
+}
+              </td>
+              <td>{{ r.confidenceScore ? (+r.confidenceScore * 100 | number:'1.0-0') + '%' : '—' }}</td>
+              <td class="text-xs">{{ r.punchType || '' }} {{ r.punchTime ? (r.punchTime | date: 'HH:mm') : '' }}</td>
               <td>{{ r.createdAt | date: 'dd MMM, HH:mm' }}</td>
               <td class="right nowrap">
                 <button class="link green" (click)="reviewAction(r, 'APPROVE')">Approve</button>
@@ -475,6 +491,7 @@ export class FaceDeskComponent implements OnInit {
     private dialog: ConfirmDialogService,
     private cdr: ChangeDetectorRef,
     private branchSvc: ClientBranchesService,
+    private protectedFiles: ProtectedFileService,
   ) {}
 
   ngOnInit(): void {
@@ -483,9 +500,22 @@ export class FaceDeskComponent implements OnInit {
       // Branch users land on enrollment and can assign employee PINs there.
       this.tab = 'pending';
       this.switch('pending');
+      // Preload the verification count so the Verifications tab shows a badge.
+      this.svc.reviewQueue().subscribe({
+        next: (r) => { this.review = r; this.cdr.detectChanges(); },
+        error: () => undefined,
+      });
     } else {
       this.loadDashboard();
     }
+  }
+
+  /** Open the captured attendance photo (Bearer-protected) for verification. */
+  viewPhoto(r: ReviewItem): void {
+    if (!r.photoUrl) return;
+    this.protectedFiles.open(r.photoUrl, `verify-${r.employeeCode || r.employeeId || ''}`).subscribe({
+      error: () => this.toast.error('Unable to open photo'),
+    });
   }
 
   loadBranches(): void {

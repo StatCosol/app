@@ -224,7 +224,13 @@ export class FaceDeskController {
   @Get('admin/review-queue')
   @Roles('CLIENT', 'ADMIN')
   reviewQueue(@CurrentUser() user: ReqUser, @Query('status') status?: string) {
-    return this.admin.listReviewQueue(this.requireClientAdmin(user), status);
+    // Branch users may verify their own branch's items; master client users
+    // (branchScope null) see all. Scope is enforced in the service.
+    return this.admin.listReviewQueue(
+      this.requireClient(user),
+      status,
+      this.branchScope(user),
+    );
   }
 
   @ApiOperation({ summary: 'Act on a review item' })
@@ -236,10 +242,11 @@ export class FaceDeskController {
     @Body() dto: ReviewActionDto,
   ) {
     return this.admin.actOnReview(
-      this.requireClientAdmin(user),
+      this.requireClient(user),
       reviewId,
       user.id,
       dto,
+      this.branchScope(user),
     );
   }
 

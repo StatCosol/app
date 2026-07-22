@@ -259,8 +259,8 @@ describe('FaceDeskAttendanceService.markAttendance — PIN_THEN_FACE', () => {
     expect(attRepo.save).not.toHaveBeenCalled();
   });
 
-  it('REJECTS when the PIN is right but the face does not match (buddy punch)', async () => {
-    const { service, attRepo, failRepo } = makePinService(
+  it('MARKS but flags for branch verification when PIN is right and face mismatches', async () => {
+    const { service, attRepo, reviewRepo } = makePinService(
       await claimedProfile(0.6),
     );
     const res = await service.markAttendance('c1', 'b1', 'd1', {
@@ -268,12 +268,20 @@ describe('FaceDeskAttendanceService.markAttendance — PIN_THEN_FACE', () => {
       employeeCode: 'E001',
       pin: '1234',
     } as any);
-    expect(res.status).toBe('REJECTED');
-    expect(res.message).toMatch(/does not match/i);
-    expect(failRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ reason: 'FACE_MISMATCH' }),
+    // Counts immediately (reversible) …
+    expect(res.status).toBe('MARKED');
+    expect(res.message).toMatch(/verification/i);
+    expect(attRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ attendanceStatus: 'MARKED', employeeId: 'e1' }),
     );
-    expect(attRepo.save).not.toHaveBeenCalled();
+    // … but a FACE_MISMATCH review item is queued for the branch.
+    expect(reviewRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issueType: 'FACE_MISMATCH',
+        status: 'PENDING',
+        attendanceId: 'att-1',
+      }),
+    );
   });
 
   it('REJECTS when code or PIN is missing', async () => {

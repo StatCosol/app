@@ -331,6 +331,7 @@ export class FaceDeskReviewQueueEntity {
     | 'DUPLICATE_ENROLLMENT'
     | 'LOW_CONFIDENCE'
     | 'MULTIPLE_MATCH'
+    | 'FACE_MISMATCH'
     | 'REPEATED_FAILURE'
     | 'MANUAL_CORRECTION';
 
