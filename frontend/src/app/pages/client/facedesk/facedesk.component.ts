@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
@@ -52,8 +52,10 @@ type Tab =
       </ui-page-header>
 
       <div class="tab-bar">
-        <button class="tab-btn" [class.active]="tab === 'dashboard'" (click)="switch('dashboard')">Dashboard</button>
-        <button class="tab-btn" [class.active]="tab === 'devices'" (click)="switch('devices')">Devices</button>
+        @if (!branchMode) {
+          <button class="tab-btn" [class.active]="tab === 'dashboard'" (click)="switch('dashboard')">Dashboard</button>
+          <button class="tab-btn" [class.active]="tab === 'devices'" (click)="switch('devices')">Devices</button>
+        }
         <button class="tab-btn" [class.active]="tab === 'pending'" (click)="switch('pending')">Pending Enrollment</button>
         <button class="tab-btn" [class.active]="tab === 'duplicates'" (click)="switch('duplicates')">
           Duplicate Alerts
@@ -67,8 +69,10 @@ type Tab =
 <span class="badge">{{ cards.reviewQueuePending }}</span>
 }
         </button>
-        <button class="tab-btn" [class.active]="tab === 'reports'" (click)="switch('reports')">Reports</button>
-        <button class="tab-btn" [class.active]="tab === 'settings'" (click)="switch('settings')">Settings</button>
+        @if (!branchMode) {
+          <button class="tab-btn" [class.active]="tab === 'reports'" (click)="switch('reports')">Reports</button>
+          <button class="tab-btn" [class.active]="tab === 'settings'" (click)="switch('settings')">Settings</button>
+        }
       </div>
 
       <!-- DASHBOARD -->
@@ -202,7 +206,27 @@ type Tab =
           </tbody>
         </table>
 }
-      
+
+        @if (branchMode && settings?.identificationMode === 'PIN_THEN_FACE') {
+          <div class="pin-box" style="margin-top:1rem;">
+            <h4>Set employee attendance PIN</h4>
+            <p class="text-xs text-gray-500">After an employee is enrolled, enter their code and generate a PIN. Shown once — note it and hand it to the employee.</p>
+            <div class="pin-row">
+              <input class="inp" placeholder="Employee code" [(ngModel)]="pinCode">
+              <button class="btn primary" [disabled]="!pinCode || pinBusy" (click)="generatePin()">
+                {{ pinBusy ? 'Generating…' : 'Generate PIN' }}
+              </button>
+            </div>
+            @if (lastPin) {
+              <div class="pin-result">
+                PIN for <strong>{{ lastPin.employeeCode }}</strong>:
+                <span class="pin-value">{{ lastPin.pin }}</span>
+                <span class="text-xs text-gray-500">(shown once)</span>
+              </div>
+            }
+          </div>
+        }
+
 }
 
       <!-- DUPLICATE ALERTS -->
@@ -415,6 +439,14 @@ type Tab =
   `],
 })
 export class FaceDeskComponent implements OnInit {
+  /**
+   * Branch mode: rendered inside the branch portal for a branch user. Hides
+   * the client-wide admin tabs (devices, reports, settings/thresholds) and
+   * opens straight to enrollment. Backend already scopes every FaceDesk
+   * endpoint to the caller's branch, so the data is branch-limited regardless.
+   */
+  @Input() branchMode = false;
+
   tab: Tab = 'dashboard';
   loading = false;
 
@@ -457,7 +489,18 @@ export class FaceDeskComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadBranches();
-    this.loadDashboard();
+    if (this.branchMode) {
+      // Branch users land on enrollment; load settings too so the PIN
+      // generator appears when the client runs PIN_THEN_FACE.
+      this.tab = 'pending';
+      this.switch('pending');
+      this.svc.getSettings().subscribe({
+        next: (s) => { this.settings = s; this.cdr.detectChanges(); },
+        error: () => undefined,
+      });
+    } else {
+      this.loadDashboard();
+    }
   }
 
   loadBranches(): void {

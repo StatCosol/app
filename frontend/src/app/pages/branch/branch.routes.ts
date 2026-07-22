@@ -99,6 +99,10 @@ const BranchFaceEnrollmentComponent = () =>
   import('./branch-face-enrollment/branch-face-enrollment.component').then(
     (m) => m.BranchFaceEnrollmentComponent,
   );
+const BranchFaceDeskEnrollmentComponent = () =>
+  import('./branch-facedesk/branch-facedesk-enrollment.component').then(
+    (m) => m.BranchFaceDeskEnrollmentComponent,
+  );
 const BranchContractorAttendanceComponent = () =>
   import('./branch-contractor-attendance/branch-contractor-attendance.component').then(
     (m) => m.BranchContractorAttendanceComponent,
@@ -157,6 +161,7 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'attendance/daily', loadComponent: BranchDailyAttendanceComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
       { path: 'attendance/contractor', loadComponent: BranchContractorAttendanceComponent, canActivate: [moduleAccessGuard('CONTRACTOR_ATTENDANCE')] },
       { path: 'face-enrollment', loadComponent: BranchFaceEnrollmentComponent, canActivate: [moduleAccessGuard(['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])] },
+      { path: 'facedesk-enrollment', loadComponent: BranchFaceDeskEnrollmentComponent, canActivate: [moduleAccessGuard(['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])] },
       { path: 'face-failures', loadComponent: BranchFaceFailuresComponent, canActivate: [moduleAccessGuard(['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])] },
       { path: 'notifications', loadComponent: BranchNotificationsComponent },
       { path: 'helpdesk', loadComponent: BranchHelpdeskComponent },
