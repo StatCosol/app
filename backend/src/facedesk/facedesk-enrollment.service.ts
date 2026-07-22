@@ -352,19 +352,34 @@ export class FaceDeskEnrollmentService {
     actorId: string,
     target: { employeeId?: string; employeeCode?: string },
     explicitPin?: string,
+    branchIds?: string[],
   ): Promise<{ employeeId: string; employeeCode: string; pin: string }> {
-    let employeeId = (target.employeeId ?? '').trim();
-    if (!employeeId && target.employeeCode) {
-      const [emp] = await this.dataSource.query(
-        `SELECT id FROM employees WHERE client_id = $1 AND employee_code = $2 LIMIT 1`,
-        [clientId, target.employeeCode.trim()],
-      );
-      if (!emp) throw new NotFoundException('Employee code not found');
-      employeeId = emp.id;
-    }
-    if (!employeeId) {
+    // Resolve the employee by id or code, scoped to the client and — for a
+    // branch-scoped caller — to their permitted branches, so a branch user
+    // can't reset another branch's employee credential.
+    const params: unknown[] = [clientId];
+    const conds: string[] = ['client_id = $1'];
+    if (target.employeeId?.trim()) {
+      params.push(target.employeeId.trim());
+      conds.push(`id = $${params.length}`);
+    } else if (target.employeeCode?.trim()) {
+      params.push(target.employeeCode.trim());
+      conds.push(`employee_code = $${params.length}`);
+    } else {
       throw new BadRequestException('employeeId or employeeCode is required');
     }
+    if (branchIds && branchIds.length > 0) {
+      params.push(branchIds);
+      conds.push(`branch_id = ANY($${params.length}::uuid[])`);
+    }
+    const [emp] = await this.dataSource.query(
+      `SELECT id, employee_code AS "employeeCode"
+         FROM employees WHERE ${conds.join(' AND ')} LIMIT 1`,
+      params,
+    );
+    if (!emp) throw new NotFoundException('Employee not found in your scope');
+    const employeeId: string = emp.id;
+
     const profile = await this.profileRepo.findOne({
       where: { employeeId, clientId },
     });
@@ -373,10 +388,6 @@ export class FaceDeskEnrollmentService {
         'Employee must be face-enrolled before a PIN can be set',
       );
     }
-    const [emp] = await this.dataSource.query(
-      `SELECT employee_code AS "employeeCode" FROM employees WHERE id = $1 AND client_id = $2 LIMIT 1`,
-      [employeeId, clientId],
-    );
     let pin = (explicitPin ?? '').trim();
     if (pin) {
       if (!/^\d{4,6}$/.test(pin)) {

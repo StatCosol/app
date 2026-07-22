@@ -272,4 +272,22 @@ describe('FaceDeskAttendanceService.markAttendance — PIN_THEN_FACE', () => {
     expect(res.status).toBe('REJECTED');
     expect(res.message).toMatch(/not recognized/i);
   });
+
+  it('processes a queued FACE-only punch via 1:N even when the client is now in PIN mode', async () => {
+    // Client flipped to PIN mode after a FACE_ONLY punch was queued offline.
+    const { service, attRepo } = makeService(roster(0.95), 0);
+    (service as any).settings.getEffective = jest.fn(async () => ({
+      ...effective,
+      identificationMode: 'PIN_THEN_FACE',
+    }));
+    const res = await service.markAttendance(
+      'c1',
+      'b1',
+      'd1',
+      { frames: [probeFrame()] } as any, // no code/pin (captured under FACE_ONLY)
+      { offline: true } as any,
+    );
+    expect(res.status).toBe('MARKED'); // not rejected as PIN_MISSING
+    expect(attRepo.save).toHaveBeenCalled();
+  });
 });

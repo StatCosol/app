@@ -142,6 +142,7 @@ export class FaceDeskController {
       user.id,
       { employeeId: dto?.employeeId, employeeCode: dto?.employeeCode },
       dto?.pin,
+      this.branchScope(user) ?? undefined,
     );
   }
 

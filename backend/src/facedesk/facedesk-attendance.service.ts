@@ -120,6 +120,7 @@ export class FaceDeskAttendanceService {
     branchId: string | null,
     deviceId: string | null,
     dto: MarkAttendanceDto,
+    opts: { offline?: boolean } = {},
   ): Promise<MarkResult> {
     const eff = await this.settings.getEffective(clientId);
 
@@ -181,7 +182,13 @@ export class FaceDeskAttendanceService {
 
     // PIN_THEN_FACE: the employee declared who they are (code + PIN), so verify
     // 1:1 against just their template — no roster-wide scan, no MULTIPLE_MATCH.
-    if (eff.identificationMode === 'PIN_THEN_FACE') {
+    // Live punches enforce the client's current mode; queued offline punches
+    // are processed the way they were captured (credentials present or not) so
+    // a later mode switch can't reject already-captured attendance.
+    const usePin = opts.offline
+      ? Boolean(dto.employeeCode && dto.pin)
+      : eff.identificationMode === 'PIN_THEN_FACE';
+    if (usePin) {
       return this.markByPin(
         clientId,
         branchId,
@@ -508,9 +515,13 @@ export class FaceDeskAttendanceService {
     for (const p of punches ?? []) {
       try {
         const before = dedupeKeyPresent(p);
-        const res = await this.markAttendance(clientId, branchId, deviceId, {
-          ...p,
-        });
+        const res = await this.markAttendance(
+          clientId,
+          branchId,
+          deviceId,
+          { ...p },
+          { offline: true },
+        );
         if (res.status === 'MARKED') {
           if (before && res.message === 'Attendance already recorded')
             duplicateSkipped++;

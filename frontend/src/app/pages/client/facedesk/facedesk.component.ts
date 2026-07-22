@@ -671,7 +671,19 @@ export class FaceDeskComponent implements OnInit {
 
   saveSettings(): void {
     if (!this.settings) return;
-    this.svc.updateSettings(this.settings).subscribe({
+    // Send only the editable fields — getEffective() also returns computed
+    // cosine values which UpdateSettingsDto rejects (forbidNonWhitelisted).
+    const patch: Partial<FaceDeskSettings> = {
+      matchConfidencePct: this.settings.matchConfidencePct,
+      retryConfidencePct: this.settings.retryConfidencePct,
+      duplicatePct: this.settings.duplicatePct,
+      minFaceSamples: this.settings.minFaceSamples,
+      frameCaptureCount: this.settings.frameCaptureCount,
+      livenessRequired: this.settings.livenessRequired,
+      offlineSyncEnabled: this.settings.offlineSyncEnabled,
+      identificationMode: this.settings.identificationMode,
+    };
+    this.svc.updateSettings(patch).subscribe({
       next: (r) => { this.settings = r; this.toast.success('Settings saved'); },
       error: (e) => this.toast.error(e?.error?.message || 'Save failed'),
     });
