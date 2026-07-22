@@ -25,7 +25,6 @@ export interface FaceDeskSettings {
   frameCaptureCount: number;
   livenessRequired: boolean;
   offlineSyncEnabled: boolean;
-  identificationMode: 'FACE_ONLY' | 'PIN_THEN_FACE';
   acceptCosine: number;
   retryCosine: number;
   duplicateCosine: number;
@@ -43,7 +42,13 @@ export interface DuplicateAlert {
 export interface ReviewItem {
   reviewId: string;
   employeeId: string | null;
+  employeeName?: string | null;
+  employeeCode?: string | null;
   attendanceId: string | null;
+  photoUrl?: string | null;
+  punchType?: string | null;
+  punchTime?: string | null;
+  branchId?: string | null;
   issueType: string;
   confidenceScore: string | null;
   status: string;

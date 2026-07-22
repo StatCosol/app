@@ -10,6 +10,7 @@ import {
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import {
   DuplicateAlert,
   FaceDeskDashboard,
@@ -64,12 +65,17 @@ type Tab =
 <span class="badge">{{ cards.duplicateAlertsPending }}</span>
 }
           </button>
-          <button class="tab-btn" [class.active]="tab === 'review'" (click)="switch('review')">
-            Review Queue
-            @if (cards && cards.reviewQueuePending > 0) {
+        }
+        <button class="tab-btn" [class.active]="tab === 'review'" (click)="switch('review')">
+          {{ branchMode ? 'Verifications' : 'Review Queue' }}
+          @if (branchMode && review.length > 0) {
+<span class="badge">{{ review.length }}</span>
+}
+          @if (!branchMode && cards && cards.reviewQueuePending > 0) {
 <span class="badge">{{ cards.reviewQueuePending }}</span>
 }
-          </button>
+        </button>
+        @if (!branchMode) {
           <button class="tab-btn" [class.active]="tab === 'reports'" (click)="switch('reports')">Reports</button>
           <button class="tab-btn" [class.active]="tab === 'settings'" (click)="switch('settings')">Settings</button>
         }
@@ -207,7 +213,7 @@ type Tab =
         </table>
 }
 
-        @if (branchMode && settings?.identificationMode === 'PIN_THEN_FACE') {
+        @if (branchMode) {
           <div class="pin-box" style="margin-top:1rem;">
             <h4>Set employee attendance PIN</h4>
             <p class="text-xs text-gray-500">After an employee is enrolled, enter their code and generate a PIN. Shown once — note it and hand it to the employee.</p>
@@ -267,19 +273,29 @@ type Tab =
         @if (loading) {
 <ui-loading-spinner text="Loading..." size="lg"></ui-loading-spinner>
 }
+        @if (branchMode) {
+          <p class="text-sm text-gray-600 mb-3">Punches where the PIN was correct but the face didn't match are marked and listed here. Check the photo against the employee, then <strong>Approve</strong> to keep it or <strong>Reject</strong> to reverse it.</p>
+        }
         @if (!loading && review.length === 0) {
-<ui-empty-state title="Nothing to review" description="No pending review items."></ui-empty-state>
+<ui-empty-state title="Nothing to verify" description="No pending items."></ui-empty-state>
 }
         @if (!loading && review.length > 0) {
 <table class="tbl">
-          <thead><tr><th>Issue</th><th>Employee</th><th>Confidence</th><th>Note</th><th>When</th><th class="right">Actions</th></tr></thead>
+          <thead><tr><th>Issue</th><th>Employee</th><th>Photo</th><th>Confidence</th><th>Punch</th><th>When</th><th class="right">Actions</th></tr></thead>
           <tbody>
             @for (r of review; track r) {
 <tr>
               <td><span class="pill amber">{{ r.issueType }}</span></td>
-              <td class="mono">{{ r.employeeId || '—' }}</td>
-              <td>{{ r.confidenceScore ? (+r.confidenceScore).toFixed(3) : '—' }}</td>
-              <td class="text-xs text-gray-600">{{ r.adminRemarks || '—' }}</td>
+              <td>{{ r.employeeName || r.employeeId || '—' }}<br><span class="mono text-xs text-gray-500">{{ r.employeeCode || '' }}</span></td>
+              <td>
+                @if (r.photoUrl) {
+<button class="link" (click)="viewPhoto(r)">View photo</button>
+} @else {
+<span class="text-xs text-gray-400">—</span>
+}
+              </td>
+              <td>{{ r.confidenceScore ? (+r.confidenceScore * 100 | number:'1.0-0') + '%' : '—' }}</td>
+              <td class="text-xs">{{ r.punchType || '' }} {{ r.punchTime ? (r.punchTime | date: 'HH:mm') : '' }}</td>
               <td>{{ r.createdAt | date: 'dd MMM, HH:mm' }}</td>
               <td class="right nowrap">
                 <button class="link green" (click)="reviewAction(r, 'APPROVE')">Approve</button>
@@ -351,20 +367,12 @@ type Tab =
 }
         @if (!loading && settings) {
 <div class="settings">
-          <label class="col-span-2">Attendance mode
-            <select [(ngModel)]="settings.identificationMode" class="inp">
-              <option value="FACE_ONLY">Face only (camera recognises the employee)</option>
-              <option value="PIN_THEN_FACE">PIN + Face (employee enters code &amp; PIN, then face verifies)</option>
-            </select>
-          </label>
-          @if (settings.identificationMode === 'PIN_THEN_FACE') {
             <p class="text-xs text-gray-500 col-span-2">
               In PIN + Face mode the kiosk asks for the employee code and a 6-digit PIN,
               then verifies the face 1:1 against that one person — no roster-wide scan,
               so look-alike / duplicate mismatches can't happen. Set each enrolled
               employee's PIN below.
             </p>
-          }
           <label>Match confidence (%)<input type="number" [(ngModel)]="settings.matchConfidencePct" class="inp"></label>
           <label>Retry confidence (%)<input type="number" [(ngModel)]="settings.retryConfidencePct" class="inp"></label>
           <label>Duplicate threshold (%)<input type="number" [(ngModel)]="settings.duplicatePct" class="inp"></label>
@@ -378,7 +386,6 @@ type Tab =
           </p>
           <div class="col-span-2"><button class="btn primary" (click)="saveSettings()">Save settings</button></div>
 
-          @if (settings.identificationMode === 'PIN_THEN_FACE') {
             <div class="col-span-2 pin-box">
               <h4>Set employee attendance PIN</h4>
               <p class="text-xs text-gray-500">Enter an enrolled employee's code and generate a PIN. The PIN is shown once — note it and hand it to the employee.</p>
@@ -396,7 +403,6 @@ type Tab =
                 </div>
               }
             </div>
-          }
         </div>
 }
       
@@ -485,22 +491,31 @@ export class FaceDeskComponent implements OnInit {
     private dialog: ConfirmDialogService,
     private cdr: ChangeDetectorRef,
     private branchSvc: ClientBranchesService,
+    private protectedFiles: ProtectedFileService,
   ) {}
 
   ngOnInit(): void {
     this.loadBranches();
     if (this.branchMode) {
-      // Branch users land on enrollment; load settings too so the PIN
-      // generator appears when the client runs PIN_THEN_FACE.
+      // Branch users land on enrollment and can assign employee PINs there.
       this.tab = 'pending';
       this.switch('pending');
-      this.svc.getSettings().subscribe({
-        next: (s) => { this.settings = s; this.cdr.detectChanges(); },
+      // Preload the verification count so the Verifications tab shows a badge.
+      this.svc.reviewQueue().subscribe({
+        next: (r) => { this.review = r; this.cdr.detectChanges(); },
         error: () => undefined,
       });
     } else {
       this.loadDashboard();
     }
+  }
+
+  /** Open the captured attendance photo (Bearer-protected) for verification. */
+  viewPhoto(r: ReviewItem): void {
+    if (!r.photoUrl) return;
+    this.protectedFiles.open(r.photoUrl, `verify-${r.employeeCode || r.employeeId || ''}`).subscribe({
+      error: () => this.toast.error('Unable to open photo'),
+    });
   }
 
   loadBranches(): void {
@@ -724,7 +739,6 @@ export class FaceDeskComponent implements OnInit {
       frameCaptureCount: this.settings.frameCaptureCount,
       livenessRequired: this.settings.livenessRequired,
       offlineSyncEnabled: this.settings.offlineSyncEnabled,
-      identificationMode: this.settings.identificationMode,
     };
     this.svc.updateSettings(patch).subscribe({
       next: (r) => { this.settings = r; this.toast.success('Settings saved'); },

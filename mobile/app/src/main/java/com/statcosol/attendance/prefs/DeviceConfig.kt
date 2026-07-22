@@ -80,11 +80,6 @@ class DeviceConfig(context: Context) {
         get() = prefs.getString(KEY_FD_ADMIN_PIN, "0000") ?: "0000"
         set(value) = prefs.edit().putString(KEY_FD_ADMIN_PIN, value).apply()
 
-    /** FACE_ONLY (default) or PIN_THEN_FACE — refreshed from the device config. */
-    var identificationMode: String
-        get() = prefs.getString(KEY_FD_IDENT_MODE, "FACE_ONLY") ?: "FACE_ONLY"
-        set(value) = prefs.edit().putString(KEY_FD_IDENT_MODE, value).apply()
-
     fun isRegistered(): Boolean = deviceToken.isNotBlank()
 
     fun clear() = prefs.edit().clear().apply()
@@ -99,7 +94,6 @@ class DeviceConfig(context: Context) {
         private const val KEY_DEVICE_MODE = "device_mode"
         private const val KEY_ANDROID_ID = "android_id"
         private const val KEY_FD_ADMIN_PIN = "fd_admin_pin"
-        private const val KEY_FD_IDENT_MODE = "fd_ident_mode"
         private const val DEFAULT_API_BASE = "https://app.statcosol.com"
     }
 }

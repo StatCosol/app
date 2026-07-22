@@ -115,15 +115,39 @@ export class FaceDeskAdminService {
   }
 
   // ── Review queue ──────────────────────────────────────────────────────────
-  listReviewQueue(clientId: string, status = 'PENDING') {
-    return this.reviewRepo.find({
-      where: {
-        clientId,
-        status: status as FaceDeskReviewQueueEntity['status'],
-      },
-      order: { createdAt: 'DESC' },
-      take: 200,
-    });
+  /**
+   * Enriched with the employee's name/code and the linked attendance photo so
+   * the reviewer can verify the face against the claimed identity. Optionally
+   * branch-scoped: a branch user only sees their own branch's items.
+   */
+  listReviewQueue(
+    clientId: string,
+    status = 'PENDING',
+    allowedBranchIds: string[] | null = null,
+  ) {
+    if (allowedBranchIds?.length === 0) return Promise.resolve([]);
+    const params: unknown[] = [clientId, status];
+    let branchFilter = '';
+    if (allowedBranchIds && allowedBranchIds.length > 0) {
+      params.push(allowedBranchIds);
+      branchFilter = `AND rq.branch_id = ANY($${params.length}::uuid[])`;
+    }
+    return this.reviewRepo.manager.query(
+      `SELECT rq.review_id AS "reviewId", rq.employee_id AS "employeeId",
+              e.name AS "employeeName", e.employee_code AS "employeeCode",
+              rq.attendance_id AS "attendanceId", a.photo_url AS "photoUrl",
+              a.punch_time AS "punchTime", a.punch_type AS "punchType",
+              rq.branch_id AS "branchId", rq.issue_type AS "issueType",
+              rq.confidence_score AS "confidenceScore", rq.status AS "status",
+              rq.admin_remarks AS "adminRemarks", rq.created_at AS "createdAt"
+         FROM facedesk_attendance_review_queue rq
+         LEFT JOIN employees e ON e.id = rq.employee_id
+         LEFT JOIN facedesk_attendance_logs a ON a.attendance_id = rq.attendance_id
+        WHERE rq.client_id = $1 AND rq.status = $2 ${branchFilter}
+        ORDER BY rq.created_at DESC
+        LIMIT 200`,
+      params,
+    );
   }
 
   async actOnReview(
@@ -131,11 +155,19 @@ export class FaceDeskAdminService {
     reviewId: string,
     actorId: string,
     dto: ReviewActionDto,
+    allowedBranchIds: string[] | null = null,
   ) {
     const review = await this.reviewRepo.findOne({
       where: { reviewId, clientId },
     });
     if (!review) throw new NotFoundException('Review item not found');
+    // Branch user may only act on items in their own branch.
+    if (
+      allowedBranchIds !== null &&
+      (review.branchId === null || !allowedBranchIds.includes(review.branchId))
+    ) {
+      throw new NotFoundException('Review item not found');
+    }
     if (review.status !== 'PENDING') {
       throw new BadRequestException(`Review already ${review.status}`);
     }

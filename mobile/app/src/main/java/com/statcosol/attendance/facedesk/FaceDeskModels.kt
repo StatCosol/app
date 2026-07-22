@@ -27,6 +27,9 @@ data class MarkAttendanceRequest(
     // PIN_THEN_FACE: the code + PIN the employee entered before capture.
     val employeeCode: String? = null,
     val pin: String? = null,
+    // A representative capture photo stored on the punch so the branch can
+    // verify a PIN-correct/face-mismatch punch.
+    val photoB64: String? = null,
     val livenessPassed: Boolean? = null,
     val offlineRef: String? = null,
     val punchTime: String? = null,
@@ -98,17 +101,6 @@ data class FaceDeskRegisterResponse(
     val clientId: String,
     val branchId: String? = null,
     val adminPin: String = "0000",
-    // FACE_ONLY (default) or PIN_THEN_FACE — which capture flow to run.
-    val identificationMode: String = "FACE_ONLY",
-)
-
-@Serializable
-data class FaceDeskConfigResponse(
-    val mode: String,
-    val identificationMode: String = "FACE_ONLY",
-    val frameCaptureCount: Int = 15,
-    val livenessRequired: Boolean = true,
-    val offlineSyncEnabled: Boolean = true,
 )
 
 @Serializable

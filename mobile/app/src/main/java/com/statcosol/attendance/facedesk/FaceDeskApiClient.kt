@@ -62,12 +62,6 @@ class FaceDeskApiClient(private val config: DeviceConfig) {
         return execute(request) { json.decodeFromString(it) }
     }
 
-    /** Current kiosk config (identification mode / thresholds) for this device. */
-    suspend fun config(): FaceDeskConfigResponse {
-        val request = builder("/api/v1/facedesk/device/config").get().build()
-        return execute(request) { json.decodeFromString(it) }
-    }
-
     suspend fun markAttendance(req: MarkAttendanceRequest): MarkAttendanceResponse {
         val body = json.encodeToString(req).toRequestBody(mediaType)
         val request = builder("/api/v1/facedesk/device/attendance/mark").post(body).build()

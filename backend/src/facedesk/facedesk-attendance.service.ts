@@ -19,14 +19,6 @@ import { MarkAttendanceDto } from './facedesk.dto';
 
 const BUSINESS_TZ_OFFSET_MIN = 330;
 
-interface Candidate {
-  employeeId: string;
-  employeeCode: string;
-  name: string;
-  branchId: string | null;
-  cosine: number;
-}
-
 export interface MarkResult {
   status: 'MARKED' | 'RETRY' | 'REJECTED' | 'REVIEW';
   message: string;
@@ -54,38 +46,6 @@ export class FaceDeskAttendanceService {
     private readonly photoStorage: FacePhotoStorageService,
     private readonly dataSource: DataSource,
   ) {}
-
-  private async loadRoster(
-    clientId: string,
-    branchId: string | null,
-  ): Promise<
-    Array<{
-      employeeId: string;
-      employeeCode: string;
-      name: string;
-      branchId: string | null;
-      template: Buffer;
-      model: string | null;
-    }>
-  > {
-    const params: unknown[] = [clientId];
-    let branchFilter = '';
-    if (branchId) {
-      params.push(branchId);
-      branchFilter = `AND (p.branch_id = $2 OR p.branch_id IS NULL)`;
-    }
-    return this.dataSource.query(
-      `SELECT p.employee_id AS "employeeId", e.employee_code AS "employeeCode",
-              e.name AS "name", p.branch_id AS "branchId",
-              p.face_template AS "template", p.embedding_model AS "model"
-         FROM facedesk_employee_face_profiles p
-         JOIN employees e ON e.id = p.employee_id AND e.client_id = p.client_id
-        WHERE p.client_id = $1 AND p.enrollment_status = 'ENROLLED'
-          AND p.face_template IS NOT NULL AND e.is_active = true
-          ${branchFilter}`,
-      params,
-    );
-  }
 
   private businessDayBoundsUtc(d: Date): { start: Date; end: Date } {
     const offsetMs = BUSINESS_TZ_OFFSET_MIN * 60 * 1000;
@@ -120,7 +80,6 @@ export class FaceDeskAttendanceService {
     branchId: string | null,
     deviceId: string | null,
     dto: MarkAttendanceDto,
-    opts: { offline?: boolean } = {},
   ): Promise<MarkResult> {
     const eff = await this.settings.getEffective(clientId);
 
@@ -180,117 +139,25 @@ export class FaceDeskAttendanceService {
     const probe = averageEmbeddings(best3.map((f) => f.embedding));
     const probeModel = normalizeEmbeddingModel(best3[0]?.model ?? null);
 
-    // PIN_THEN_FACE: the employee declared who they are (code + PIN), so verify
-    // 1:1 against just their template — no roster-wide scan, no MULTIPLE_MATCH.
-    // Live punches enforce the client's current mode; queued offline punches
-    // are processed the way they were captured (credentials present or not) so
-    // a later mode switch can't reject already-captured attendance.
-    const usePin = opts.offline
-      ? Boolean(dto.employeeCode && dto.pin)
-      : eff.identificationMode === 'PIN_THEN_FACE';
-    if (usePin) {
-      return this.markByPin(
-        clientId,
-        branchId,
-        deviceId,
-        dto,
-        eff,
-        probe,
-        probeModel,
-        best3,
-      );
-    }
-
-    const roster = await this.loadRoster(clientId, branchId);
-    const scored: Candidate[] = [];
-    for (const r of roster) {
-      if (!r.template || r.template.length === 0) continue;
-      const rosterModel = normalizeEmbeddingModel(r.model);
-      const rEmb = bufferToEmbedding(r.template);
-      if (rEmb.length !== probe.length) continue;
-      if (probeModel && rosterModel && probeModel !== rosterModel) continue;
-      scored.push({
-        employeeId: r.employeeId,
-        employeeCode: r.employeeCode,
-        name: r.name,
-        branchId: r.branchId,
-        cosine: this.faceService.cosine(probe, rEmb),
-      });
-    }
-    scored.sort((a, b) => b.cosine - a.cosine);
-
-    const best = scored[0];
-    const second = scored[1];
-    if (!best || best.cosine < eff.retryCosine) {
-      await this.recordFailed(
-        clientId,
-        branchId,
-        deviceId,
-        best?.employeeId ?? null,
-        best?.cosine ?? null,
-        'NO_MATCH',
-      );
-      return { status: 'REJECTED', message: 'Face not recognized' };
-    }
-
-    const margin = second ? best.cosine - second.cosine : 1;
-    const confidencePercent = this.settings.cosineToPercent(best.cosine);
-
-    // Multiple close matches → human review.
-    if (
-      second &&
-      second.cosine >= eff.retryCosine &&
-      margin < eff.minMarginCosine
-    ) {
-      const failed = await this.recordFailed(
-        clientId,
-        branchId,
-        deviceId,
-        best.employeeId,
-        best.cosine,
-        'MULTIPLE_MATCH',
-      );
-      await this.reviewRepo.save({
-        clientId,
-        branchId,
-        employeeId: best.employeeId,
-        issueType: 'MULTIPLE_MATCH',
-        confidenceScore: best.cosine,
-        status: 'PENDING',
-        adminRemarks: `best=${best.employeeCode} second=${second.employeeCode} margin=${margin.toFixed(3)} failedAttempt=${failed.attemptId}`,
-      });
-      return { status: 'REVIEW', message: 'Attendance held for review' };
-    }
-
-    // Retry band: recognizable but below the accept bar.
-    if (best.cosine < eff.acceptCosine) {
-      return {
-        status: 'RETRY',
-        message: 'Please look at the camera again',
-        confidencePercent,
-      };
-    }
-
-    // Accept.
-    return this.acceptPunch(
+    // PIN + 1:1 face verification is mandatory for EVERY FaceDesk punch —
+    // live and offline sync alike. A punch without code + PIN can't be
+    // trusted: an old face-only APK, or a direct submission to the
+    // offline-sync endpoint, could otherwise omit credentials and bypass the
+    // PIN requirement indefinitely. markByPin rejects a credential-less punch
+    // (PIN_MISSING), so the legacy 1:N face-only path is gone entirely.
+    return this.markByPin(
       clientId,
       branchId,
       deviceId,
       dto,
-      {
-        employeeId: best.employeeId,
-        employeeCode: best.employeeCode,
-        name: best.name,
-        branchId: best.branchId,
-      },
-      best.cosine,
-      margin,
+      eff,
+      probe,
+      probeModel,
       best3,
-      confidencePercent,
     );
   }
 
-  /** Persist an accepted punch (shared by 1:N and PIN 1:1 paths). */
+  /** Persist an accepted punch (shared by the PIN accept + mismatch-flag paths). */
   private async acceptPunch(
     clientId: string,
     branchId: string | null,
@@ -306,6 +173,7 @@ export class FaceDeskAttendanceService {
     margin: number,
     best3: ResolvedFrame[],
     confidencePercent: number,
+    flagForReview = false,
   ): Promise<MarkResult> {
     const punchTime = dto.punchTime ? new Date(dto.punchTime) : new Date();
     const punchType = await this.nextPunchType(
@@ -331,14 +199,32 @@ export class FaceDeskAttendanceService {
       livenessScore:
         best3.find((f) => f.livenessScore != null)?.livenessScore ?? null,
       photoUrl,
+      // Counts immediately; a flagged punch is reversible on branch rejection.
       attendanceStatus: 'MARKED',
       syncStatus: 'SYNCED',
       offlineRef: dto.offlineRef ?? null,
     });
 
+    // PIN correct but face didn't match → mark, but queue for the branch to
+    // verify the captured photo and approve or reverse it.
+    if (flagForReview) {
+      await this.reviewRepo.save({
+        clientId,
+        branchId: saved.branchId,
+        employeeId: employee.employeeId,
+        attendanceId: saved.attendanceId,
+        issueType: 'FACE_MISMATCH',
+        confidenceScore: cosine,
+        status: 'PENDING',
+        adminRemarks: `PIN correct but face did not match (${confidencePercent}%). Verify the captured photo.`,
+      });
+    }
+
     return {
       status: 'MARKED',
-      message: 'Attendance Marked Successfully',
+      message: flagForReview
+        ? 'Marked — pending branch verification'
+        : 'Attendance Marked Successfully',
       employeeName: employee.name,
       employeeCode: employee.employeeCode,
       punchType: saved.punchType,
@@ -442,21 +328,28 @@ export class FaceDeskAttendanceService {
     );
     const confidencePercent = this.settings.cosineToPercent(cosine);
 
-    // Correct PIN but the face doesn't match → likely someone punching for
-    // another employee. Never mark; log the mismatch.
+    // Correct PIN but the face doesn't match. Per policy, mark the punch
+    // (it counts immediately) but flag it so the branch verifies the photo
+    // and can reverse it — this catches buddy-punching without blocking a
+    // genuine employee the model failed to match.
     if (cosine < eff.retryCosine) {
-      await this.recordFailed(
+      return this.acceptPunch(
         clientId,
         branchId,
         deviceId,
-        claimed.employeeId,
+        dto,
+        {
+          employeeId: claimed.employeeId,
+          employeeCode: claimed.employeeCode,
+          name: claimed.name,
+          branchId: claimed.branchId,
+        },
         cosine,
-        'FACE_MISMATCH',
+        1,
+        best3,
+        confidencePercent,
+        true, // flag for branch verification
       );
-      return {
-        status: 'REJECTED',
-        message: 'Face does not match this PIN — please try again',
-      };
     }
     if (cosine < eff.acceptCosine) {
       return {
@@ -515,13 +408,9 @@ export class FaceDeskAttendanceService {
     for (const p of punches ?? []) {
       try {
         const before = dedupeKeyPresent(p);
-        const res = await this.markAttendance(
-          clientId,
-          branchId,
-          deviceId,
-          { ...p },
-          { offline: true },
-        );
+        const res = await this.markAttendance(clientId, branchId, deviceId, {
+          ...p,
+        });
         if (res.status === 'MARKED') {
           if (before && res.message === 'Attendance already recorded')
             duplicateSkipped++;

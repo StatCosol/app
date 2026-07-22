@@ -46,6 +46,7 @@ describe('FaceDeskSettingsService', () => {
     expect(eff.acceptCosine).toBeCloseTo(0.84, 3);
     expect(eff.duplicateCosine).toBeCloseTo(0.78, 3); // 90% → 0.78
     expect(eff.livenessRequired).toBe(true);
+    expect(eff.identificationMode).toBe('PIN_THEN_FACE');
   });
 
   it('honors per-client overrides', async () => {
@@ -58,11 +59,13 @@ describe('FaceDeskSettingsService', () => {
       frameCaptureCount: 20,
       livenessRequired: false,
       offlineSyncEnabled: false,
+      identificationMode: 'FACE_ONLY',
     });
     const eff = await service.getEffective('client-1');
     expect(eff.acceptCosine).toBeCloseTo(0.95, 3);
     expect(eff.duplicateCosine).toBeCloseTo(0.84, 3); // 95% → 0.84
     expect(eff.minFaceSamples).toBe(7);
     expect(eff.livenessRequired).toBe(false);
+    expect(eff.identificationMode).toBe('PIN_THEN_FACE');
   });
 });

@@ -294,7 +294,14 @@ async function bootstrap() {
       `);
       await ds.query(`
         ALTER TABLE facedesk_face_settings
-          ADD COLUMN IF NOT EXISTS identification_mode varchar(20) NOT NULL DEFAULT 'FACE_ONLY'
+          ADD COLUMN IF NOT EXISTS identification_mode varchar(20) NOT NULL DEFAULT 'PIN_THEN_FACE'
+      `);
+      await ds.query(`
+        ALTER TABLE facedesk_face_settings
+          ALTER COLUMN identification_mode SET DEFAULT 'PIN_THEN_FACE';
+        UPDATE facedesk_face_settings
+          SET identification_mode = 'PIN_THEN_FACE'
+          WHERE identification_mode IS DISTINCT FROM 'PIN_THEN_FACE'
       `);
       logger.log('Schema patch: facedesk PIN verification columns OK');
     } catch (e: any) {
