@@ -19,14 +19,6 @@ import { MarkAttendanceDto } from './facedesk.dto';
 
 const BUSINESS_TZ_OFFSET_MIN = 330;
 
-interface Candidate {
-  employeeId: string;
-  employeeCode: string;
-  name: string;
-  branchId: string | null;
-  cosine: number;
-}
-
 export interface MarkResult {
   status: 'MARKED' | 'RETRY' | 'REJECTED' | 'REVIEW';
   message: string;
@@ -54,38 +46,6 @@ export class FaceDeskAttendanceService {
     private readonly photoStorage: FacePhotoStorageService,
     private readonly dataSource: DataSource,
   ) {}
-
-  private async loadRoster(
-    clientId: string,
-    branchId: string | null,
-  ): Promise<
-    Array<{
-      employeeId: string;
-      employeeCode: string;
-      name: string;
-      branchId: string | null;
-      template: Buffer;
-      model: string | null;
-    }>
-  > {
-    const params: unknown[] = [clientId];
-    let branchFilter = '';
-    if (branchId) {
-      params.push(branchId);
-      branchFilter = `AND (p.branch_id = $2 OR p.branch_id IS NULL)`;
-    }
-    return this.dataSource.query(
-      `SELECT p.employee_id AS "employeeId", e.employee_code AS "employeeCode",
-              e.name AS "name", p.branch_id AS "branchId",
-              p.face_template AS "template", p.embedding_model AS "model"
-         FROM facedesk_employee_face_profiles p
-         JOIN employees e ON e.id = p.employee_id AND e.client_id = p.client_id
-        WHERE p.client_id = $1 AND p.enrollment_status = 'ENROLLED'
-          AND p.face_template IS NOT NULL AND e.is_active = true
-          ${branchFilter}`,
-      params,
-    );
-  }
 
   private businessDayBoundsUtc(d: Date): { start: Date; end: Date } {
     const offsetMs = BUSINESS_TZ_OFFSET_MIN * 60 * 1000;
@@ -120,7 +80,6 @@ export class FaceDeskAttendanceService {
     branchId: string | null,
     deviceId: string | null,
     dto: MarkAttendanceDto,
-    opts: { offline?: boolean } = {},
   ): Promise<MarkResult> {
     const eff = await this.settings.getEffective(clientId);
 
@@ -180,112 +139,25 @@ export class FaceDeskAttendanceService {
     const probe = averageEmbeddings(best3.map((f) => f.embedding));
     const probeModel = normalizeEmbeddingModel(best3[0]?.model ?? null);
 
-    // Every live FaceDesk punch requires code + PIN followed by a 1:1 face
-    // check. Legacy offline punches retain their original capture behavior.
-    const usePin = !opts.offline || Boolean(dto.employeeCode && dto.pin);
-    if (usePin) {
-      return this.markByPin(
-        clientId,
-        branchId,
-        deviceId,
-        dto,
-        eff,
-        probe,
-        probeModel,
-        best3,
-      );
-    }
-
-    const roster = await this.loadRoster(clientId, branchId);
-    const scored: Candidate[] = [];
-    for (const r of roster) {
-      if (!r.template || r.template.length === 0) continue;
-      const rosterModel = normalizeEmbeddingModel(r.model);
-      const rEmb = bufferToEmbedding(r.template);
-      if (rEmb.length !== probe.length) continue;
-      if (probeModel && rosterModel && probeModel !== rosterModel) continue;
-      scored.push({
-        employeeId: r.employeeId,
-        employeeCode: r.employeeCode,
-        name: r.name,
-        branchId: r.branchId,
-        cosine: this.faceService.cosine(probe, rEmb),
-      });
-    }
-    scored.sort((a, b) => b.cosine - a.cosine);
-
-    const best = scored[0];
-    const second = scored[1];
-    if (!best || best.cosine < eff.retryCosine) {
-      await this.recordFailed(
-        clientId,
-        branchId,
-        deviceId,
-        best?.employeeId ?? null,
-        best?.cosine ?? null,
-        'NO_MATCH',
-      );
-      return { status: 'REJECTED', message: 'Face not recognized' };
-    }
-
-    const margin = second ? best.cosine - second.cosine : 1;
-    const confidencePercent = this.settings.cosineToPercent(best.cosine);
-
-    // Multiple close matches → human review.
-    if (
-      second &&
-      second.cosine >= eff.retryCosine &&
-      margin < eff.minMarginCosine
-    ) {
-      const failed = await this.recordFailed(
-        clientId,
-        branchId,
-        deviceId,
-        best.employeeId,
-        best.cosine,
-        'MULTIPLE_MATCH',
-      );
-      await this.reviewRepo.save({
-        clientId,
-        branchId,
-        employeeId: best.employeeId,
-        issueType: 'MULTIPLE_MATCH',
-        confidenceScore: best.cosine,
-        status: 'PENDING',
-        adminRemarks: `best=${best.employeeCode} second=${second.employeeCode} margin=${margin.toFixed(3)} failedAttempt=${failed.attemptId}`,
-      });
-      return { status: 'REVIEW', message: 'Attendance held for review' };
-    }
-
-    // Retry band: recognizable but below the accept bar.
-    if (best.cosine < eff.acceptCosine) {
-      return {
-        status: 'RETRY',
-        message: 'Please look at the camera again',
-        confidencePercent,
-      };
-    }
-
-    // Accept.
-    return this.acceptPunch(
+    // PIN + 1:1 face verification is mandatory for EVERY FaceDesk punch —
+    // live and offline sync alike. A punch without code + PIN can't be
+    // trusted: an old face-only APK, or a direct submission to the
+    // offline-sync endpoint, could otherwise omit credentials and bypass the
+    // PIN requirement indefinitely. markByPin rejects a credential-less punch
+    // (PIN_MISSING), so the legacy 1:N face-only path is gone entirely.
+    return this.markByPin(
       clientId,
       branchId,
       deviceId,
       dto,
-      {
-        employeeId: best.employeeId,
-        employeeCode: best.employeeCode,
-        name: best.name,
-        branchId: best.branchId,
-      },
-      best.cosine,
-      margin,
+      eff,
+      probe,
+      probeModel,
       best3,
-      confidencePercent,
     );
   }
 
-  /** Persist an accepted punch (shared by 1:N and PIN 1:1 paths). */
+  /** Persist an accepted punch (shared by the PIN accept + mismatch-flag paths). */
   private async acceptPunch(
     clientId: string,
     branchId: string | null,
@@ -536,13 +408,9 @@ export class FaceDeskAttendanceService {
     for (const p of punches ?? []) {
       try {
         const before = dedupeKeyPresent(p);
-        const res = await this.markAttendance(
-          clientId,
-          branchId,
-          deviceId,
-          { ...p },
-          { offline: true },
-        );
+        const res = await this.markAttendance(clientId, branchId, deviceId, {
+          ...p,
+        });
         if (res.status === 'MARKED') {
           if (before && res.message === 'Attendance already recorded')
             duplicateSkipped++;

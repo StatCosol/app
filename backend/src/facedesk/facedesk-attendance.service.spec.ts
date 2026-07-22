@@ -119,89 +119,20 @@ const roster = (
   })),
 ];
 
-describe('FaceDeskAttendanceService legacy offline face-only punches', () => {
-  it('MARKS a confident match and resolves IN on the first punch', async () => {
-    const { service, attRepo } = makeService(roster(0.95), 0);
+describe('FaceDeskAttendanceService offline sync — no face-only bypass', () => {
+  it('REJECTS a credential-less offline punch (PIN mandatory, legacy 1:N path removed)', async () => {
+    const { service, attRepo, failRepo } = makeService(roster(0.95), 0);
     const res = await service.markAttendance(
       'c1',
       'b1',
       'd1',
-      {
-        frames: [probeFrame()],
-      } as any,
-      { offline: true },
-    );
-    expect(res.status).toBe('MARKED');
-    expect(res.punchType).toBe('IN');
-    expect(attRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ attendanceStatus: 'MARKED', employeeId: 'e1' }),
-    );
-  });
-
-  it('resolves OUT when one counted punch already exists today', async () => {
-    const { service } = makeService(roster(0.95), 1);
-    const res = await service.markAttendance(
-      'c1',
-      'b1',
-      'd1',
-      {
-        frames: [probeFrame()],
-      } as any,
-      { offline: true },
-    );
-    expect(res.punchType).toBe('OUT');
-  });
-
-  it('asks to RETRY in the 90–95% band', async () => {
-    const { service, attRepo } = makeService(roster(0.8), 0); // between retry 0.78 and accept 0.84
-    const res = await service.markAttendance(
-      'c1',
-      'b1',
-      'd1',
-      {
-        frames: [probeFrame()],
-      } as any,
-      { offline: true },
-    );
-    expect(res.status).toBe('RETRY');
-    expect(attRepo.save).not.toHaveBeenCalled();
-  });
-
-  it('REJECTS and logs a failed attempt below the retry band', async () => {
-    const { service, failRepo } = makeService(roster(0.6), 0);
-    const res = await service.markAttendance(
-      'c1',
-      'b1',
-      'd1',
-      {
-        frames: [probeFrame()],
-      } as any,
-      { offline: true },
+      { frames: [probeFrame()] } as any, // no employeeCode / pin
     );
     expect(res.status).toBe('REJECTED');
     expect(failRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ reason: 'NO_MATCH' }),
+      expect.objectContaining({ reason: 'PIN_MISSING' }),
     );
-  });
-
-  it('sends ambiguous multi-matches to REVIEW', async () => {
-    const { service, reviewRepo } = makeService(
-      roster(0.9, [{ id: 'e2', code: 'E002', cos: 0.88 }]), // margin 0.02 < 0.05
-      0,
-    );
-    const res = await service.markAttendance(
-      'c1',
-      'b1',
-      'd1',
-      {
-        frames: [probeFrame()],
-      } as any,
-      { offline: true },
-    );
-    expect(res.status).toBe('REVIEW');
-    expect(reviewRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ issueType: 'MULTIPLE_MATCH' }),
-    );
+    expect(attRepo.save).not.toHaveBeenCalled();
   });
 });
 
@@ -306,21 +237,20 @@ describe('FaceDeskAttendanceService.markAttendance — PIN_THEN_FACE', () => {
     expect(res.message).toMatch(/not recognized/i);
   });
 
-  it('processes a queued FACE-only punch via 1:N even when the client is now in PIN mode', async () => {
-    // The punch was queued before the PIN + face-only rollout.
-    const { service, attRepo } = makeService(roster(0.95), 0);
-    (service as any).settings.getEffective = jest.fn(async () => ({
-      ...effective,
-      identificationMode: 'PIN_THEN_FACE',
-    }));
+  it('REJECTS a credential-less offline punch — no face-only bypass via offline sync', async () => {
+    // A face-only APK (or a direct offline-sync submission) can no longer omit
+    // the PIN to fall through to a 1:N match; PIN is required for every punch.
+    const { service, attRepo, failRepo } = makeService(roster(0.95), 0);
     const res = await service.markAttendance(
       'c1',
       'b1',
       'd1',
-      { frames: [probeFrame()] } as any, // no code/pin (captured under FACE_ONLY)
-      { offline: true } as any,
+      { frames: [probeFrame()] } as any, // no code/pin
     );
-    expect(res.status).toBe('MARKED'); // not rejected as PIN_MISSING
-    expect(attRepo.save).toHaveBeenCalled();
+    expect(res.status).toBe('REJECTED');
+    expect(failRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'PIN_MISSING' }),
+    );
+    expect(attRepo.save).not.toHaveBeenCalled();
   });
 });
