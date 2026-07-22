@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import * as bcrypt from 'bcryptjs';
 import {
   averageEmbeddings,
   bufferToEmbedding,
@@ -12,7 +13,7 @@ import {
   FaceDeskFailedAttemptEntity,
   FaceDeskReviewQueueEntity,
 } from './entities/facedesk.entities';
-import { FaceDeskFaceService } from './facedesk-face.service';
+import { FaceDeskFaceService, ResolvedFrame } from './facedesk-face.service';
 import { FaceDeskSettingsService } from './facedesk-settings.service';
 import { MarkAttendanceDto } from './facedesk.dto';
 
@@ -178,6 +179,21 @@ export class FaceDeskAttendanceService {
     const probe = averageEmbeddings(best3.map((f) => f.embedding));
     const probeModel = normalizeEmbeddingModel(best3[0]?.model ?? null);
 
+    // PIN_THEN_FACE: the employee declared who they are (code + PIN), so verify
+    // 1:1 against just their template — no roster-wide scan, no MULTIPLE_MATCH.
+    if (eff.identificationMode === 'PIN_THEN_FACE') {
+      return this.markByPin(
+        clientId,
+        branchId,
+        deviceId,
+        dto,
+        eff,
+        probe,
+        probeModel,
+        best3,
+      );
+    }
+
     const roster = await this.loadRoster(clientId, branchId);
     const scored: Candidate[] = [];
     for (const r of roster) {
@@ -249,45 +265,216 @@ export class FaceDeskAttendanceService {
     }
 
     // Accept.
+    return this.acceptPunch(
+      clientId,
+      branchId,
+      deviceId,
+      dto,
+      {
+        employeeId: best.employeeId,
+        employeeCode: best.employeeCode,
+        name: best.name,
+        branchId: best.branchId,
+      },
+      best.cosine,
+      margin,
+      best3,
+      confidencePercent,
+    );
+  }
+
+  /** Persist an accepted punch (shared by 1:N and PIN 1:1 paths). */
+  private async acceptPunch(
+    clientId: string,
+    branchId: string | null,
+    deviceId: string | null,
+    dto: MarkAttendanceDto,
+    employee: {
+      employeeId: string;
+      employeeCode: string;
+      name: string;
+      branchId: string | null;
+    },
+    cosine: number,
+    margin: number,
+    best3: ResolvedFrame[],
+    confidencePercent: number,
+  ): Promise<MarkResult> {
     const punchTime = dto.punchTime ? new Date(dto.punchTime) : new Date();
     const punchType = await this.nextPunchType(
       clientId,
-      best.employeeId,
+      employee.employeeId,
       punchTime,
     );
     let photoUrl: string | null = null;
     if (dto.photoB64) {
       photoUrl = await this.photoStorage
-        .uploadPhoto(dto.photoB64, clientId, best.employeeId)
+        .uploadPhoto(dto.photoB64, clientId, employee.employeeId)
         .catch(() => null);
     }
     const saved = await this.attRepo.save({
-      employeeId: best.employeeId,
+      employeeId: employee.employeeId,
       clientId,
-      branchId: best.branchId ?? branchId,
+      branchId: employee.branchId ?? branchId,
       deviceId,
       punchType,
       punchTime,
-      confidenceScore: best.cosine,
+      confidenceScore: cosine,
       matchMargin: margin,
       livenessScore:
         best3.find((f) => f.livenessScore != null)?.livenessScore ?? null,
       photoUrl,
       attendanceStatus: 'MARKED',
-      syncStatus: dto.offlineRef ? 'SYNCED' : 'SYNCED',
+      syncStatus: 'SYNCED',
       offlineRef: dto.offlineRef ?? null,
     });
 
     return {
       status: 'MARKED',
       message: 'Attendance Marked Successfully',
-      employeeName: best.name,
-      employeeCode: best.employeeCode,
+      employeeName: employee.name,
+      employeeCode: employee.employeeCode,
       punchType: saved.punchType,
       punchTime: saved.punchTime.toISOString(),
       branchId: saved.branchId,
       confidencePercent,
     };
+  }
+
+  /** Load the single claimed employee's profile for PIN 1:1 verification. */
+  private async loadClaimedProfile(
+    clientId: string,
+    branchId: string | null,
+    employeeCode: string,
+  ): Promise<{
+    employeeId: string;
+    employeeCode: string;
+    name: string;
+    branchId: string | null;
+    template: Buffer | null;
+    model: string | null;
+    pinHash: string | null;
+  } | null> {
+    const params: unknown[] = [clientId, employeeCode];
+    let branchFilter = '';
+    if (branchId) {
+      params.push(branchId);
+      branchFilter = `AND (p.branch_id = $3 OR p.branch_id IS NULL)`;
+    }
+    const [row] = await this.dataSource.query(
+      `SELECT p.employee_id AS "employeeId", e.employee_code AS "employeeCode",
+              e.name AS "name", p.branch_id AS "branchId",
+              p.face_template AS "template", p.embedding_model AS "model",
+              p.attendance_pin_hash AS "pinHash"
+         FROM facedesk_employee_face_profiles p
+         JOIN employees e ON e.id = p.employee_id AND e.client_id = p.client_id
+        WHERE p.client_id = $1 AND e.employee_code = $2
+          AND p.enrollment_status = 'ENROLLED'
+          AND e.is_active = true
+          ${branchFilter}
+        LIMIT 1`,
+      params,
+    );
+    return row ?? null;
+  }
+
+  /** PIN_THEN_FACE 1:1: verify the entered PIN, then match the face to that one template. */
+  private async markByPin(
+    clientId: string,
+    branchId: string | null,
+    deviceId: string | null,
+    dto: MarkAttendanceDto,
+    eff: { acceptCosine: number; retryCosine: number },
+    probe: Float32Array,
+    probeModel: string | null,
+    best3: ResolvedFrame[],
+  ): Promise<MarkResult> {
+    const code = (dto.employeeCode ?? '').trim();
+    const pin = (dto.pin ?? '').trim();
+    if (!code || !pin) {
+      await this.recordFailed(clientId, branchId, deviceId, null, null, 'PIN_MISSING');
+      return { status: 'REJECTED', message: 'Enter your employee code and PIN' };
+    }
+
+    const claimed = await this.loadClaimedProfile(clientId, branchId, code);
+    if (!claimed || !claimed.template || claimed.template.length === 0) {
+      await this.recordFailed(clientId, branchId, deviceId, null, null, 'UNKNOWN_CODE');
+      return { status: 'REJECTED', message: 'Employee code not recognized' };
+    }
+    if (!claimed.pinHash) {
+      return {
+        status: 'REJECTED',
+        message: 'No PIN set for this employee — contact your admin',
+      };
+    }
+
+    const pinOk = await bcrypt.compare(pin, claimed.pinHash);
+    if (!pinOk) {
+      await this.recordFailed(
+        clientId,
+        branchId,
+        deviceId,
+        claimed.employeeId,
+        null,
+        'WRONG_PIN',
+      );
+      return { status: 'REJECTED', message: 'Incorrect PIN' };
+    }
+
+    const claimedModel = normalizeEmbeddingModel(claimed.model);
+    if (probeModel && claimedModel && probeModel !== claimedModel) {
+      return {
+        status: 'REJECTED',
+        message: 'Face model mismatch — please re-enroll',
+      };
+    }
+
+    const cosine = this.faceService.cosine(
+      probe,
+      bufferToEmbedding(claimed.template),
+    );
+    const confidencePercent = this.settings.cosineToPercent(cosine);
+
+    // Correct PIN but the face doesn't match → likely someone punching for
+    // another employee. Never mark; log the mismatch.
+    if (cosine < eff.retryCosine) {
+      await this.recordFailed(
+        clientId,
+        branchId,
+        deviceId,
+        claimed.employeeId,
+        cosine,
+        'FACE_MISMATCH',
+      );
+      return {
+        status: 'REJECTED',
+        message: 'Face does not match this PIN — please try again',
+      };
+    }
+    if (cosine < eff.acceptCosine) {
+      return {
+        status: 'RETRY',
+        message: 'Please look at the camera again',
+        confidencePercent,
+      };
+    }
+
+    return this.acceptPunch(
+      clientId,
+      branchId,
+      deviceId,
+      dto,
+      {
+        employeeId: claimed.employeeId,
+        employeeCode: claimed.employeeCode,
+        name: claimed.name,
+        branchId: claimed.branchId,
+      },
+      cosine,
+      1,
+      best3,
+      confidencePercent,
+    );
   }
 
   private async recordFailed(

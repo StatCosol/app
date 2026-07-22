@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { randomInt } from 'crypto';
+import * as bcrypt from 'bcryptjs';
 import {
   averageEmbeddings,
   bufferToEmbedding,
@@ -337,5 +339,56 @@ export class FaceDeskEnrollmentService {
     return (
       frames.reduce((s, f) => s + (f.qualityScore || 0), 0) / frames.length
     );
+  }
+
+  /**
+   * Set (or reset) an employee's attendance PIN for PIN_THEN_FACE mode.
+   * The plaintext is returned exactly once so the admin can hand it to the
+   * employee; only the bcrypt hash is stored. Requires an enrolled face
+   * profile — a PIN is useless without a template to verify against.
+   */
+  async setAttendancePin(
+    clientId: string,
+    actorId: string,
+    target: { employeeId?: string; employeeCode?: string },
+    explicitPin?: string,
+  ): Promise<{ employeeId: string; employeeCode: string; pin: string }> {
+    let employeeId = (target.employeeId ?? '').trim();
+    if (!employeeId && target.employeeCode) {
+      const [emp] = await this.dataSource.query(
+        `SELECT id FROM employees WHERE client_id = $1 AND employee_code = $2 LIMIT 1`,
+        [clientId, target.employeeCode.trim()],
+      );
+      if (!emp) throw new NotFoundException('Employee code not found');
+      employeeId = emp.id;
+    }
+    if (!employeeId) {
+      throw new BadRequestException('employeeId or employeeCode is required');
+    }
+    const profile = await this.profileRepo.findOne({
+      where: { employeeId, clientId },
+    });
+    if (!profile || profile.enrollmentStatus !== 'ENROLLED') {
+      throw new BadRequestException(
+        'Employee must be face-enrolled before a PIN can be set',
+      );
+    }
+    const [emp] = await this.dataSource.query(
+      `SELECT employee_code AS "employeeCode" FROM employees WHERE id = $1 AND client_id = $2 LIMIT 1`,
+      [employeeId, clientId],
+    );
+    let pin = (explicitPin ?? '').trim();
+    if (pin) {
+      if (!/^\d{4,6}$/.test(pin)) {
+        throw new BadRequestException('PIN must be 4–6 digits');
+      }
+    } else {
+      pin = String(randomInt(0, 1_000_000)).padStart(6, '0');
+    }
+    profile.attendancePinHash = await bcrypt.hash(pin, 10);
+    profile.attendancePinSetAt = new Date();
+    await this.profileRepo.save(profile);
+    await this.audit(clientId, actorId, 'SET_ATTENDANCE_PIN', employeeId, {});
+    return { employeeId, employeeCode: emp?.employeeCode ?? '', pin };
   }
 }

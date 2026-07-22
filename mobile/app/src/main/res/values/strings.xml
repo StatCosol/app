@@ -151,6 +151,9 @@
     <string name="facedesk_admin_pin_message">Enter the admin PIN to enroll employees</string>
     <string name="facedesk_admin_pin_hint">Admin PIN</string>
     <string name="facedesk_wrong_pin">Incorrect PIN</string>
+    <string name="facedesk_pin_entry_title">Enter your code and PIN</string>
+    <string name="facedesk_pin_code_hint">Employee code</string>
+    <string name="facedesk_pin_hint">PIN</string>
     <string name="facedesk_look_straight">Look straight at the camera</string>
     <string name="facedesk_turn_left">Slowly turn your head left</string>
     <string name="facedesk_turn_right">Slowly turn your head right</string>

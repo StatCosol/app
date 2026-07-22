@@ -25,6 +25,7 @@ export interface FaceDeskSettings {
   frameCaptureCount: number;
   livenessRequired: boolean;
   offlineSyncEnabled: boolean;
+  identificationMode: 'FACE_ONLY' | 'PIN_THEN_FACE';
   acceptCosine: number;
   retryCosine: number;
   duplicateCosine: number;
@@ -92,6 +93,14 @@ export class FaceDeskService {
   }
 
   // Enrollment
+  /** Set/reset an employee's attendance PIN by code; returns the plaintext once. */
+  setAttendancePin(employeeCode: string): Observable<{ employeeId: string; employeeCode: string; pin: string }> {
+    return this.http.post<{ employeeId: string; employeeCode: string; pin: string }>(
+      `${this.base}/enrollment/set-pin`,
+      { employeeCode },
+    );
+  }
+
   pendingEnrollment(): Observable<PendingEnrollmentRow[]> {
     return this.http.get<PendingEnrollmentRow[]>(`${this.base}/enrollment/pending`);
   }

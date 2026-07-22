@@ -120,6 +120,13 @@ export class FaceDeskProfileEntity {
   })
   duplicateStatus: 'CLEAR' | 'FLAGGED' | 'APPROVED' | 'REJECTED';
 
+  /** bcrypt hash of the employee's attendance PIN (PIN_THEN_FACE mode). */
+  @Column({ name: 'attendance_pin_hash', type: 'text', nullable: true })
+  attendancePinHash: string | null;
+
+  @Column({ name: 'attendance_pin_set_at', type: 'timestamptz', nullable: true })
+  attendancePinSetAt: Date | null;
+
   @Column({ name: 'consent_given_at', type: 'timestamptz', nullable: true })
   consentGivenAt: Date | null;
 
@@ -465,6 +472,18 @@ export class FaceDeskSettingsEntity {
 
   @Column({ name: 'offline_sync_enabled', type: 'boolean', default: true })
   offlineSyncEnabled: boolean;
+
+  /**
+   * FACE_ONLY = camera-only 1:N identification (default).
+   * PIN_THEN_FACE = employee enters code + PIN, face is verified 1:1.
+   */
+  @Column({
+    name: 'identification_mode',
+    type: 'varchar',
+    length: 20,
+    default: 'FACE_ONLY',
+  })
+  identificationMode: 'FACE_ONLY' | 'PIN_THEN_FACE';
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;

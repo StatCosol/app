@@ -62,6 +62,12 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     private val submitting = AtomicBoolean(false)
     private var paused = false
 
+    // PIN_THEN_FACE: the employee declares identity (code + PIN) before the
+    // camera captures, so the face is verified 1:1 against just that person.
+    private var pinMode = false
+    private var enteredCode: String? = null
+    private var enteredPin: String? = null
+
     // Web-initiated enrollment: while a ticket is open for this device,
     // attendance is held and the enrollment screen is launched for it.
     private var enrollmentHold = false
@@ -155,11 +161,76 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         enrollmentHold = false
         frames.clear(); minEyeOpenness = 1.0
         submitting.set(false); paused = false
+        enteredCode = null; enteredPin = null
+        pinMode = config.identificationMode == "PIN_THEN_FACE"
         runOnUiThread {
             tvResult.text = ""
             tvTitle.text = getString(R.string.facedesk_look_at_camera)
         }
+        refreshConfig()
         startTicketPolling()
+        if (pinMode) promptPinEntry()
+    }
+
+    /** Refresh the identification mode so an admin can flip it without re-provisioning. */
+    private fun refreshConfig() {
+        lifecycleScope.launch {
+            try {
+                val cfg = api.config()
+                val was = pinMode
+                config.identificationMode = cfg.identificationMode
+                pinMode = cfg.identificationMode == "PIN_THEN_FACE"
+                if (pinMode && !was && enteredCode == null) runOnUiThread { promptPinEntry() }
+            } catch (e: Exception) {
+                Log.w(TAG, "config refresh failed: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * PIN_THEN_FACE: block face capture until the employee enters code + PIN.
+     * The dialog is non-cancelable so the kiosk always has a claimed identity
+     * before the camera is used.
+     */
+    private fun promptPinEntry() {
+        if (!pinMode) return
+        paused = true
+        frames.clear(); minEyeOpenness = 1.0
+        val codeInput = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT
+            hint = getString(R.string.facedesk_pin_code_hint)
+        }
+        val pinInput = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            hint = getString(R.string.facedesk_pin_hint)
+        }
+        val layout = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            val pad = (16 * resources.displayMetrics.density).toInt()
+            setPadding(pad, pad, pad, 0)
+            addView(codeInput)
+            addView(pinInput)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.facedesk_pin_entry_title)
+            .setView(layout)
+            .setCancelable(false)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val code = codeInput.text.toString().trim()
+                val pin = pinInput.text.toString().trim()
+                if (code.isEmpty() || pin.isEmpty()) {
+                    promptPinEntry()
+                } else {
+                    enteredCode = code
+                    enteredPin = pin
+                    paused = false
+                    runOnUiThread {
+                        tvResult.text = ""
+                        tvTitle.text = getString(R.string.facedesk_look_at_camera)
+                    }
+                }
+            }
+            .show()
     }
 
     override fun onPause() {
@@ -204,6 +275,8 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
 
     private fun onFrame(probe: FloatArray, eyeOpenness: Double, photo: String?) {
         if (paused || submitting.get() || enrollmentHold) return
+        // In PIN mode, don't capture until the employee has entered code + PIN.
+        if (pinMode && (enteredCode == null || enteredPin == null)) return
 
         // A long gap between accepted frames means the previous person walked
         // away mid-capture — drop their frames so batches never mix people.
@@ -242,6 +315,8 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         val livenessPassed = minEyeOpenness < 0.35
         val req = MarkAttendanceRequest(
             frames = batch,
+            employeeCode = enteredCode,
+            pin = enteredPin,
             livenessPassed = livenessPassed,
             offlineRef = UUID.randomUUID().toString(),
         )
@@ -293,16 +368,25 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         previewView.postDelayed({
             frames.clear(); minEyeOpenness = 1.0
             submitting.set(false); paused = false
+            // A completed punch ends this person's session — require the next
+            // employee to enter their own code + PIN.
+            enteredCode = null; enteredPin = null
             runOnUiThread { tvResult.text = ""; tvTitle.text = getString(R.string.facedesk_look_at_camera) }
+            if (pinMode) runOnUiThread { promptPinEntry() }
         }, delayMs)
     }
 
     /** Soft reset (retry/reject): keep scanning, just clear the buffer. */
     private fun softReset(delayMs: Long) {
+        // A wrong PIN or face-mismatch means this attempt is done — re-ask for
+        // credentials rather than silently re-capturing against stale ones.
+        val reprompt = pinMode
+        if (reprompt) { enteredCode = null; enteredPin = null }
         previewView.postDelayed({
             frames.clear(); minEyeOpenness = 1.0
             submitting.set(false)
             runOnUiThread { tvResult.text = "" }
+            if (reprompt) runOnUiThread { promptPinEntry() }
         }, delayMs)
     }
 

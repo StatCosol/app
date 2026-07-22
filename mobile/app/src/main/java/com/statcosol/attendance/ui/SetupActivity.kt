@@ -91,6 +91,7 @@ class SetupActivity : AppCompatActivity() {
                 config.deviceToken = res.deviceToken
                 config.deviceMode = "FACEDESK_${res.mode}" // FACEDESK_ATTENDANCE | FACEDESK_ENROLLMENT
                 config.faceDeskAdminPin = res.adminPin
+                config.identificationMode = res.identificationMode
                 config.androidId = androidId
                 navigateToMain()
             } catch (e: FaceDeskApiException) {

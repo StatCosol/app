@@ -327,6 +327,20 @@ type Tab =
 }
         @if (!loading && settings) {
 <div class="settings">
+          <label class="col-span-2">Attendance mode
+            <select [(ngModel)]="settings.identificationMode" class="inp">
+              <option value="FACE_ONLY">Face only (camera recognises the employee)</option>
+              <option value="PIN_THEN_FACE">PIN + Face (employee enters code &amp; PIN, then face verifies)</option>
+            </select>
+          </label>
+          @if (settings.identificationMode === 'PIN_THEN_FACE') {
+            <p class="text-xs text-gray-500 col-span-2">
+              In PIN + Face mode the kiosk asks for the employee code and a 6-digit PIN,
+              then verifies the face 1:1 against that one person — no roster-wide scan,
+              so look-alike / duplicate mismatches can't happen. Set each enrolled
+              employee's PIN below.
+            </p>
+          }
           <label>Match confidence (%)<input type="number" [(ngModel)]="settings.matchConfidencePct" class="inp"></label>
           <label>Retry confidence (%)<input type="number" [(ngModel)]="settings.retryConfidencePct" class="inp"></label>
           <label>Duplicate threshold (%)<input type="number" [(ngModel)]="settings.duplicatePct" class="inp"></label>
@@ -339,6 +353,26 @@ type Tab =
             retry ≈ {{ settings.retryCosine }}). Tune per site.
           </p>
           <div class="col-span-2"><button class="btn primary" (click)="saveSettings()">Save settings</button></div>
+
+          @if (settings.identificationMode === 'PIN_THEN_FACE') {
+            <div class="col-span-2 pin-box">
+              <h4>Set employee attendance PIN</h4>
+              <p class="text-xs text-gray-500">Enter an enrolled employee's code and generate a PIN. The PIN is shown once — note it and hand it to the employee.</p>
+              <div class="pin-row">
+                <input class="inp" placeholder="Employee code" [(ngModel)]="pinCode">
+                <button class="btn primary" [disabled]="!pinCode || pinBusy" (click)="generatePin()">
+                  {{ pinBusy ? 'Generating…' : 'Generate PIN' }}
+                </button>
+              </div>
+              @if (lastPin) {
+                <div class="pin-result">
+                  PIN for <strong>{{ lastPin.employeeCode }}</strong>:
+                  <span class="pin-value">{{ lastPin.pin }}</span>
+                  <span class="text-xs text-gray-500">(shown once)</span>
+                </div>
+              }
+            </div>
+          }
         </div>
 }
       
@@ -371,6 +405,12 @@ type Tab =
     .settings { display: grid; grid-template-columns: repeat(2, minmax(200px, 320px)); gap: 1rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1.25rem; }
     .settings label { font-size: 0.8125rem; color: #374151; }
     .settings label.chk { display: flex; align-items: center; gap: 0.5rem; }
+    .pin-box { border-top: 1px solid #e5e7eb; padding-top: 1rem; margin-top: 0.5rem; }
+    .pin-box h4 { font-size: 0.875rem; font-weight: 600; color: #111827; margin: 0 0 0.25rem; }
+    .pin-row { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem; max-width: 420px; }
+    .pin-row .inp { flex: 1; margin: 0; }
+    .pin-result { margin-top: 0.75rem; font-size: 0.875rem; color: #374151; }
+    .pin-value { font-family: monospace; font-size: 1.1rem; font-weight: 700; color: #4f46e5; background: #eef2ff; padding: 0.1rem 0.5rem; border-radius: 0.4rem; margin: 0 0.4rem; letter-spacing: 0.1em; }
     .col-span-2 { grid-column: span 2; }
   `],
 })
@@ -401,6 +441,11 @@ export class FaceDeskComponent implements OnInit {
   newInstallToken: string | null = null;
   enrollDeviceId = '';
   enrollingId: string | null = null;
+
+  // PIN_THEN_FACE: per-employee PIN generation
+  pinCode = '';
+  pinBusy = false;
+  lastPin: { employeeCode: string; pin: string } | null = null;
 
   constructor(
     private svc: FaceDeskService,
@@ -495,6 +540,27 @@ export class FaceDeskComponent implements OnInit {
         this.cdr.detectChanges();
       },
       error: () => { this.loading = false; this.toast.error('Report failed'); this.cdr.detectChanges(); },
+    });
+  }
+
+  generatePin(): void {
+    const code = this.pinCode.trim();
+    if (!code) return;
+    this.pinBusy = true;
+    this.lastPin = null;
+    this.svc.setAttendancePin(code).subscribe({
+      next: (r) => {
+        this.lastPin = { employeeCode: r.employeeCode || code, pin: r.pin };
+        this.pinCode = '';
+        this.pinBusy = false;
+        this.toast.success('PIN generated — note it now, it is shown once');
+        this.cdr.detectChanges();
+      },
+      error: (e) => {
+        this.pinBusy = false;
+        this.toast.error(e?.error?.message || 'Could not set PIN');
+        this.cdr.detectChanges();
+      },
     });
   }
 
