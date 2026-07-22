@@ -283,6 +283,24 @@ async function bootstrap() {
       logger.warn(`Schema patch payroll_run_employees skipped: ${e?.message}`);
     }
 
+    // FaceDesk PIN-then-face verification (migration 20260722b). The deploy
+    // migration job runs only the service-entitlement script, so these columns
+    // must be patched here or the settings/profile entities 500 on a SELECT.
+    try {
+      await ds.query(`
+        ALTER TABLE facedesk_employee_face_profiles
+          ADD COLUMN IF NOT EXISTS attendance_pin_hash text,
+          ADD COLUMN IF NOT EXISTS attendance_pin_set_at timestamptz
+      `);
+      await ds.query(`
+        ALTER TABLE facedesk_face_settings
+          ADD COLUMN IF NOT EXISTS identification_mode varchar(20) NOT NULL DEFAULT 'FACE_ONLY'
+      `);
+      logger.log('Schema patch: facedesk PIN verification columns OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch facedesk PIN columns skipped: ${e?.message}`);
+    }
+
     try {
       await ds.query(`
         ALTER TABLE clients
