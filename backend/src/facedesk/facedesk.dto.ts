@@ -91,6 +91,16 @@ export class MarkAttendanceDto {
   @Type(() => FaceFrameDto)
   frames: FaceFrameDto[];
 
+  /** PIN_THEN_FACE: the employee code the person entered on the kiosk. */
+  @IsOptional()
+  @IsString()
+  employeeCode?: string;
+
+  /** PIN_THEN_FACE: the attendance PIN the person entered on the kiosk. */
+  @IsOptional()
+  @IsString()
+  pin?: string;
+
   @IsOptional()
   @IsString()
   photoB64?: string;
@@ -205,4 +215,25 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsBoolean()
   offlineSyncEnabled?: boolean;
+
+  @IsOptional()
+  @IsIn(['FACE_ONLY', 'PIN_THEN_FACE'])
+  identificationMode?: 'FACE_ONLY' | 'PIN_THEN_FACE';
+}
+
+export class SetAttendancePinDto {
+  /** Target employee by id… */
+  @IsOptional()
+  @IsString()
+  employeeId?: string;
+
+  /** …or by employee code (either identifies the employee). */
+  @IsOptional()
+  @IsString()
+  employeeCode?: string;
+
+  /** Optional explicit 4–6 digit PIN; omitted → server generates one. */
+  @IsOptional()
+  @IsString()
+  pin?: string;
 }

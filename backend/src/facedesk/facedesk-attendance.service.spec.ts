@@ -1,3 +1,4 @@
+import * as bcrypt from 'bcryptjs';
 import { FaceDeskAttendanceService } from './facedesk-attendance.service';
 
 // Cosine helpers: build unit vectors whose pairwise cosine == target.
@@ -171,5 +172,122 @@ describe('FaceDeskAttendanceService.markAttendance', () => {
     expect(reviewRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ issueType: 'MULTIPLE_MATCH' }),
     );
+  });
+});
+
+describe('FaceDeskAttendanceService.markAttendance — PIN_THEN_FACE', () => {
+  const claimedProfile = async (faceCos: number, pin = '1234') => [
+    {
+      employeeId: 'e1',
+      employeeCode: 'E001',
+      name: 'One',
+      branchId: 'b1',
+      template: toBuf(vecForCosine(faceCos)),
+      model: 'mobilefacenet',
+      pinHash: await bcrypt.hash(pin, 4),
+    },
+  ];
+
+  const makePinService = (claimedRows: any[] | null, todayCount = 0) => {
+    const base = makeService([], todayCount);
+    // Override settings to PIN mode and re-wire dataSource: 1st query =
+    // loadClaimedProfile, 2nd = nextPunchType count.
+    (base.service as any).settings.getEffective = jest.fn(async () => ({
+      ...effective,
+      identificationMode: 'PIN_THEN_FACE',
+    }));
+    (base.service as any).dataSource.query = jest
+      .fn()
+      .mockResolvedValueOnce(claimedRows ?? [])
+      .mockResolvedValueOnce([{ n: String(todayCount) }]);
+    return base;
+  };
+
+  it('MARKS when code + PIN + face all match (1:1)', async () => {
+    const { service, attRepo } = makePinService(await claimedProfile(0.95));
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      employeeCode: 'E001',
+      pin: '1234',
+    } as any);
+    expect(res.status).toBe('MARKED');
+    expect(res.employeeCode).toBe('E001');
+    expect(attRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ employeeId: 'e1', attendanceStatus: 'MARKED' }),
+    );
+  });
+
+  it('REJECTS a wrong PIN and never marks', async () => {
+    const { service, attRepo, failRepo } = makePinService(
+      await claimedProfile(0.95),
+    );
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      employeeCode: 'E001',
+      pin: '9999',
+    } as any);
+    expect(res.status).toBe('REJECTED');
+    expect(res.message).toMatch(/Incorrect PIN/i);
+    expect(failRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'WRONG_PIN' }),
+    );
+    expect(attRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('REJECTS when the PIN is right but the face does not match (buddy punch)', async () => {
+    const { service, attRepo, failRepo } = makePinService(
+      await claimedProfile(0.6),
+    );
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      employeeCode: 'E001',
+      pin: '1234',
+    } as any);
+    expect(res.status).toBe('REJECTED');
+    expect(res.message).toMatch(/does not match/i);
+    expect(failRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'FACE_MISMATCH' }),
+    );
+    expect(attRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('REJECTS when code or PIN is missing', async () => {
+    const { service, failRepo } = makePinService(await claimedProfile(0.95));
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+    } as any);
+    expect(res.status).toBe('REJECTED');
+    expect(failRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'PIN_MISSING' }),
+    );
+  });
+
+  it('REJECTS an unknown employee code', async () => {
+    const { service } = makePinService([]);
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      employeeCode: 'NOPE',
+      pin: '1234',
+    } as any);
+    expect(res.status).toBe('REJECTED');
+    expect(res.message).toMatch(/not recognized/i);
+  });
+
+  it('processes a queued FACE-only punch via 1:N even when the client is now in PIN mode', async () => {
+    // Client flipped to PIN mode after a FACE_ONLY punch was queued offline.
+    const { service, attRepo } = makeService(roster(0.95), 0);
+    (service as any).settings.getEffective = jest.fn(async () => ({
+      ...effective,
+      identificationMode: 'PIN_THEN_FACE',
+    }));
+    const res = await service.markAttendance(
+      'c1',
+      'b1',
+      'd1',
+      { frames: [probeFrame()] } as any, // no code/pin (captured under FACE_ONLY)
+      { offline: true } as any,
+    );
+    expect(res.status).toBe('MARKED'); // not rejected as PIN_MISSING
+    expect(attRepo.save).toHaveBeenCalled();
   });
 });

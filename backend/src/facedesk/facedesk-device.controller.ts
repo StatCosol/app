@@ -17,6 +17,7 @@ import {
 } from './facedesk-device.service';
 import { FaceDeskAttendanceService } from './facedesk-attendance.service';
 import { FaceDeskEnrollmentService } from './facedesk-enrollment.service';
+import { FaceDeskSettingsService } from './facedesk-settings.service';
 import { FaceDeskTicketService } from './facedesk-ticket.service';
 import {
   MarkAttendanceDto,
@@ -39,6 +40,7 @@ export class FaceDeskDeviceController {
     private readonly attendance: FaceDeskAttendanceService,
     private readonly enrollment: FaceDeskEnrollmentService,
     private readonly tickets: FaceDeskTicketService,
+    private readonly settings: FaceDeskSettingsService,
   ) {}
 
   private ctx(req: Request): FaceDeskDeviceContext {
@@ -48,8 +50,34 @@ export class FaceDeskDeviceController {
   @ApiOperation({ summary: 'Device — bind androidId to an install token' })
   @Public()
   @Post('register')
-  register(@Body() body: { installToken: string; androidId: string }) {
-    return this.devices.register(body?.installToken, body?.androidId);
+  async register(@Body() body: { installToken: string; androidId: string }) {
+    const res = await this.devices.register(body?.installToken, body?.androidId);
+    const eff = await this.settings.getEffective(res.clientId);
+    // Tell the kiosk which capture flow to run.
+    return {
+      ...res,
+      identificationMode: eff.identificationMode,
+      frameCaptureCount: eff.frameCaptureCount,
+      livenessRequired: eff.livenessRequired,
+    };
+  }
+
+  @ApiOperation({
+    summary: 'Device — current kiosk config (mode/thresholds) for this device',
+  })
+  @Public()
+  @UseGuards(FaceDeskDeviceAuthGuard)
+  @Get('config')
+  async config(@Req() req: Request) {
+    const d = this.ctx(req);
+    const eff = await this.settings.getEffective(d.clientId);
+    return {
+      mode: d.mode,
+      identificationMode: eff.identificationMode,
+      frameCaptureCount: eff.frameCaptureCount,
+      livenessRequired: eff.livenessRequired,
+      offlineSyncEnabled: eff.offlineSyncEnabled,
+    };
   }
 
   @ApiOperation({ summary: 'Device — mark attendance' })

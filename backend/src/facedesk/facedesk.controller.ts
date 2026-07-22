@@ -33,6 +33,7 @@ import {
   OfflineSyncDto,
   ReviewActionDto,
   SaveEnrollmentDto,
+  SetAttendancePinDto,
   UpdateSettingsDto,
   ValidateQualityDto,
 } from './facedesk.dto';
@@ -124,6 +125,24 @@ export class FaceDeskController {
       user?.branchIds?.[0] ?? null,
       user.id,
       dto,
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Set/reset an employee attendance PIN (PIN_THEN_FACE mode)',
+  })
+  @Post('enrollment/set-pin')
+  @Roles('CLIENT', 'ADMIN')
+  setAttendancePin(
+    @CurrentUser() user: ReqUser,
+    @Body() dto: SetAttendancePinDto,
+  ) {
+    return this.enrollment.setAttendancePin(
+      this.requireClient(user),
+      user.id,
+      { employeeId: dto?.employeeId, employeeCode: dto?.employeeCode },
+      dto?.pin,
+      this.branchScope(user) ?? undefined,
     );
   }
 

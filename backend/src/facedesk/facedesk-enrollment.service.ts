@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { randomInt } from 'crypto';
+import * as bcrypt from 'bcryptjs';
 import {
   averageEmbeddings,
   bufferToEmbedding,
@@ -337,5 +339,67 @@ export class FaceDeskEnrollmentService {
     return (
       frames.reduce((s, f) => s + (f.qualityScore || 0), 0) / frames.length
     );
+  }
+
+  /**
+   * Set (or reset) an employee's attendance PIN for PIN_THEN_FACE mode.
+   * The plaintext is returned exactly once so the admin can hand it to the
+   * employee; only the bcrypt hash is stored. Requires an enrolled face
+   * profile — a PIN is useless without a template to verify against.
+   */
+  async setAttendancePin(
+    clientId: string,
+    actorId: string,
+    target: { employeeId?: string; employeeCode?: string },
+    explicitPin?: string,
+    branchIds?: string[],
+  ): Promise<{ employeeId: string; employeeCode: string; pin: string }> {
+    // Resolve the employee by id or code, scoped to the client and — for a
+    // branch-scoped caller — to their permitted branches, so a branch user
+    // can't reset another branch's employee credential.
+    const params: unknown[] = [clientId];
+    const conds: string[] = ['client_id = $1'];
+    if (target.employeeId?.trim()) {
+      params.push(target.employeeId.trim());
+      conds.push(`id = $${params.length}`);
+    } else if (target.employeeCode?.trim()) {
+      params.push(target.employeeCode.trim());
+      conds.push(`employee_code = $${params.length}`);
+    } else {
+      throw new BadRequestException('employeeId or employeeCode is required');
+    }
+    if (branchIds && branchIds.length > 0) {
+      params.push(branchIds);
+      conds.push(`branch_id = ANY($${params.length}::uuid[])`);
+    }
+    const [emp] = await this.dataSource.query(
+      `SELECT id, employee_code AS "employeeCode"
+         FROM employees WHERE ${conds.join(' AND ')} LIMIT 1`,
+      params,
+    );
+    if (!emp) throw new NotFoundException('Employee not found in your scope');
+    const employeeId: string = emp.id;
+
+    const profile = await this.profileRepo.findOne({
+      where: { employeeId, clientId },
+    });
+    if (!profile || profile.enrollmentStatus !== 'ENROLLED') {
+      throw new BadRequestException(
+        'Employee must be face-enrolled before a PIN can be set',
+      );
+    }
+    let pin = (explicitPin ?? '').trim();
+    if (pin) {
+      if (!/^\d{4,6}$/.test(pin)) {
+        throw new BadRequestException('PIN must be 4–6 digits');
+      }
+    } else {
+      pin = String(randomInt(0, 1_000_000)).padStart(6, '0');
+    }
+    profile.attendancePinHash = await bcrypt.hash(pin, 10);
+    profile.attendancePinSetAt = new Date();
+    await this.profileRepo.save(profile);
+    await this.audit(clientId, actorId, 'SET_ATTENDANCE_PIN', employeeId, {});
+    return { employeeId, employeeCode: emp?.employeeCode ?? '', pin };
   }
 }
