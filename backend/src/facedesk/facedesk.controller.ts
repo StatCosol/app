@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Post,
@@ -73,6 +74,13 @@ export class FaceDeskController {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     return clientId;
+  }
+
+  private requireClientAdmin(user: ReqUser): string {
+    if (this.branchScope(user) !== null) {
+      throw new ForbiddenException('Client administrator access required');
+    }
+    return this.requireClient(user);
   }
 
   // ── Enrollment ────────────────────────────────────────────────────────────
@@ -189,7 +197,10 @@ export class FaceDeskController {
     @CurrentUser() user: ReqUser,
     @Query('status') status?: string,
   ) {
-    return this.admin.listDuplicateAlerts(this.requireClient(user), status);
+    return this.admin.listDuplicateAlerts(
+      this.requireClientAdmin(user),
+      status,
+    );
   }
 
   @ApiOperation({ summary: 'Approve/reject a duplicate alert' })
@@ -201,7 +212,7 @@ export class FaceDeskController {
     @Body() dto: DuplicateActionDto,
   ) {
     return this.admin.actOnDuplicate(
-      this.requireClient(user),
+      this.requireClientAdmin(user),
       alertId,
       user.id,
       dto,
@@ -213,7 +224,7 @@ export class FaceDeskController {
   @Get('admin/review-queue')
   @Roles('CLIENT', 'ADMIN')
   reviewQueue(@CurrentUser() user: ReqUser, @Query('status') status?: string) {
-    return this.admin.listReviewQueue(this.requireClient(user), status);
+    return this.admin.listReviewQueue(this.requireClientAdmin(user), status);
   }
 
   @ApiOperation({ summary: 'Act on a review item' })
@@ -225,7 +236,7 @@ export class FaceDeskController {
     @Body() dto: ReviewActionDto,
   ) {
     return this.admin.actOnReview(
-      this.requireClient(user),
+      this.requireClientAdmin(user),
       reviewId,
       user.id,
       dto,
@@ -279,7 +290,7 @@ export class FaceDeskController {
       adminPin?: string;
     },
   ) {
-    return this.devices.provision(this.requireClient(user), {
+    return this.devices.provision(this.requireClientAdmin(user), {
       ...body,
       branchId: body?.branchId ?? user?.branchIds?.[0] ?? null,
     });
@@ -289,7 +300,7 @@ export class FaceDeskController {
   @Get('devices')
   @Roles('CLIENT', 'ADMIN')
   listDevices(@CurrentUser() user: ReqUser) {
-    return this.devices.list(this.requireClient(user));
+    return this.devices.list(this.requireClient(user), this.branchScope(user));
   }
 
   @ApiOperation({ summary: 'Revoke a kiosk device' })
@@ -299,7 +310,7 @@ export class FaceDeskController {
     @CurrentUser() user: ReqUser,
     @Param('deviceId') deviceId: string,
   ) {
-    return this.devices.revoke(this.requireClient(user), deviceId);
+    return this.devices.revoke(this.requireClientAdmin(user), deviceId);
   }
 
   @ApiOperation({ summary: 'Delete a revoked kiosk device' })
@@ -309,7 +320,7 @@ export class FaceDeskController {
     @CurrentUser() user: ReqUser,
     @Param('deviceId') deviceId: string,
   ) {
-    return this.devices.remove(this.requireClient(user), deviceId);
+    return this.devices.remove(this.requireClientAdmin(user), deviceId);
   }
 
   // ── Enrollment tickets (web-initiated) ────────────────────────────────────

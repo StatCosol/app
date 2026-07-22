@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
 import { FaceDeskDeviceEntity } from './entities/facedesk.entities';
 
@@ -14,6 +14,19 @@ export interface FaceDeskDeviceContext {
   clientId: string;
   branchId: string | null;
   mode: 'ATTENDANCE' | 'ENROLLMENT';
+}
+
+/** Credential-free device shape safe to return from the portal list API. */
+export interface FaceDeskDeviceListDto {
+  deviceId: string;
+  deviceName: string;
+  branchId: string | null;
+  location: string | null;
+  deviceStatus: string;
+  mode: 'ATTENDANCE' | 'ENROLLMENT';
+  lastSyncTime: Date | null;
+  appVersion: string | null;
+  createdAt: Date;
 }
 
 @Injectable()
@@ -111,9 +124,30 @@ export class FaceDeskDeviceService {
     };
   }
 
-  list(clientId: string): Promise<FaceDeskDeviceEntity[]> {
+  list(
+    clientId: string,
+    allowedBranchIds: string[] | null,
+  ): Promise<FaceDeskDeviceListDto[]> {
+    if (allowedBranchIds?.length === 0) return Promise.resolve([]);
+
     return this.repo.find({
-      where: { clientId },
+      select: {
+        deviceId: true,
+        deviceName: true,
+        branchId: true,
+        location: true,
+        deviceStatus: true,
+        mode: true,
+        lastSyncTime: true,
+        appVersion: true,
+        createdAt: true,
+      },
+      where: {
+        clientId,
+        ...(allowedBranchIds === null
+          ? {}
+          : { branchId: In(allowedBranchIds) }),
+      },
       order: { createdAt: 'DESC' },
     });
   }

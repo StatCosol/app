@@ -85,6 +85,42 @@ describe('FaceDeskDeviceService', () => {
     );
   });
 
+  it('lists only credential-free device fields for allowed branches', async () => {
+    const { service, repo } = makeService();
+
+    await service.list('c1', ['b1', 'b2']);
+
+    expect(repo.find).toHaveBeenCalledWith({
+      select: {
+        deviceId: true,
+        deviceName: true,
+        branchId: true,
+        location: true,
+        deviceStatus: true,
+        mode: true,
+        lastSyncTime: true,
+        appVersion: true,
+        createdAt: true,
+      },
+      where: {
+        clientId: 'c1',
+        branchId: expect.anything(),
+      },
+      order: { createdAt: 'DESC' },
+    });
+    const query = repo.find.mock.calls[0][0];
+    expect(query.select).not.toHaveProperty('installToken');
+    expect(query.select).not.toHaveProperty('adminPin');
+    expect(query.select).not.toHaveProperty('androidId');
+  });
+
+  it('does not query devices when a branch user has no allowed branches', async () => {
+    const { service, repo } = makeService();
+
+    await expect(service.list('c1', [])).resolves.toEqual([]);
+    expect(repo.find).not.toHaveBeenCalled();
+  });
+
   it('deletes a revoked device', async () => {
     const { service, repo } = makeService({
       deviceId: 'dev-1',

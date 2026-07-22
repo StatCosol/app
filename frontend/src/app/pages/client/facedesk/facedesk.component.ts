@@ -57,19 +57,19 @@ type Tab =
           <button class="tab-btn" [class.active]="tab === 'devices'" (click)="switch('devices')">Devices</button>
         }
         <button class="tab-btn" [class.active]="tab === 'pending'" (click)="switch('pending')">Pending Enrollment</button>
-        <button class="tab-btn" [class.active]="tab === 'duplicates'" (click)="switch('duplicates')">
-          Duplicate Alerts
-          @if (cards && cards.duplicateAlertsPending > 0) {
+        @if (!branchMode) {
+          <button class="tab-btn" [class.active]="tab === 'duplicates'" (click)="switch('duplicates')">
+            Duplicate Alerts
+            @if (cards && cards.duplicateAlertsPending > 0) {
 <span class="badge">{{ cards.duplicateAlertsPending }}</span>
 }
-        </button>
-        <button class="tab-btn" [class.active]="tab === 'review'" (click)="switch('review')">
-          Review Queue
-          @if (cards && cards.reviewQueuePending > 0) {
+          </button>
+          <button class="tab-btn" [class.active]="tab === 'review'" (click)="switch('review')">
+            Review Queue
+            @if (cards && cards.reviewQueuePending > 0) {
 <span class="badge">{{ cards.reviewQueuePending }}</span>
 }
-        </button>
-        @if (!branchMode) {
+          </button>
           <button class="tab-btn" [class.active]="tab === 'reports'" (click)="switch('reports')">Reports</button>
           <button class="tab-btn" [class.active]="tab === 'settings'" (click)="switch('settings')">Settings</button>
         }
