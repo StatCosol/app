@@ -68,7 +68,6 @@ export interface FaceDeskDevice {
   location: string | null;
   deviceStatus: string;
   mode: string;
-  installToken: string | null;
   lastSyncTime: string | null;
   appVersion: string | null;
   createdAt: string;
@@ -177,8 +176,8 @@ export class FaceDeskService {
     location?: string;
     mode?: 'ATTENDANCE' | 'ENROLLMENT';
     adminPin?: string;
-  }): Observable<FaceDeskDevice> {
-    return this.http.post<FaceDeskDevice>(`${this.base}/devices`, body);
+  }): Observable<FaceDeskDevice & { installToken: string }> {
+    return this.http.post<FaceDeskDevice & { installToken: string }>(`${this.base}/devices`, body);
   }
   revokeDevice(deviceId: string): Observable<{ ok: true }> {
     return this.http.post<{ ok: true }>(`${this.base}/devices/${deviceId}/revoke`, {});
