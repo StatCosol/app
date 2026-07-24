@@ -21,6 +21,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.statcosol.attendance.R
+import com.statcosol.attendance.face.BlinkDetector
 import com.statcosol.attendance.face.FaceCaptureSession
 import com.statcosol.attendance.face.FaceDetector
 import com.statcosol.attendance.face.FaceEmbedder
@@ -51,12 +52,12 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     private lateinit var employeeId: String
     private var ticketId: String? = null
     private val frames = mutableListOf<FaceFrame>()
-    private var minEyeOpenness = 1.0
     // Guided multi-angle capture progress.
     private var frontCount = 0
     private var leftCount = 0
     private var rightCount = 0
-    private var blinked = false
+    private val blinkDetector = BlinkDetector()
+    private val blinked: Boolean get() = blinkDetector.blinked
     private var captureComplete = false
     private val capturing = AtomicBoolean(false)
     private val saving = AtomicBoolean(false)
@@ -142,8 +143,8 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     /** Begin guided multi-angle capture. Auto-starts once the button is tapped. */
     private fun startCapture() {
         if (saving.get() || captureComplete) return
-        frames.clear(); minEyeOpenness = 1.0
-        frontCount = 0; leftCount = 0; rightCount = 0; blinked = false
+        frames.clear()
+        frontCount = 0; leftCount = 0; rightCount = 0; blinkDetector.reset()
         capturing.set(true)
         btnCapture.isEnabled = false
         // Signal the web that capture has started for this ticket.
@@ -161,8 +162,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
 
     private fun onFrame(probe: FloatArray, eyeOpenness: Double, headYaw: Float, photo: String?) {
         if (!capturing.get()) return
-        minEyeOpenness = minOf(minEyeOpenness, eyeOpenness)
-        if (eyeOpenness < BLINK_THRESHOLD) blinked = true
+        blinkDetector.onOpenness(eyeOpenness)
 
         // Bucket the frame by head angle and keep it as a sample.
         val type = when {
@@ -252,7 +252,6 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         private const val PER_ANGLE = 3
         private const val FRONT_YAW = 12f
         private const val TURN_YAW = 18f
-        private const val BLINK_THRESHOLD = 0.35
         // Guided capture needs 14 quality-gated frames across three head
         // angles plus a blink; 20s was routinely too tight on kiosk hardware.
         private const val CAPTURE_TIMEOUT_MS = 45_000L

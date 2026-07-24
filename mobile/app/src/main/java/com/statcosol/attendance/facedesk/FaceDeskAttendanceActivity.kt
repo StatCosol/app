@@ -24,6 +24,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.statcosol.attendance.R
+import com.statcosol.attendance.face.BlinkDetector
 import com.statcosol.attendance.face.FaceCaptureSession
 import com.statcosol.attendance.face.FaceDetector
 import com.statcosol.attendance.face.FaceEmbedder
@@ -57,7 +58,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     private lateinit var cameraExecutor: ExecutorService
 
     private val frames = mutableListOf<FaceFrame>()
-    private var minEyeOpenness = 1.0
+    private val blinkDetector = BlinkDetector()
     private var lastFrameAtMs = 0L
     private val submitting = AtomicBoolean(false)
     private var paused = false
@@ -161,7 +162,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         // Returned from enrollment (or first shown) — release the hold, discard
         // any stale buffer, and (re)start ticket polling.
         enrollmentHold = false
-        frames.clear(); minEyeOpenness = 1.0
+        frames.clear(); blinkDetector.reset()
         submitting.set(false); paused = false
         enteredCode = null; enteredPin = null
         runOnUiThread {
@@ -182,7 +183,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     private fun promptPinEntry() {
         if (pinDialog?.isShowing == true) return
         paused = true
-        frames.clear(); minEyeOpenness = 1.0
+        frames.clear(); blinkDetector.reset()
         val pinInput = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
             hint = getString(R.string.facedesk_pin_hint)
@@ -234,7 +235,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                             enrollmentHold = true
                             // Drop any frames buffered before the hold so a
                             // post-enrollment batch can't mix stale embeddings.
-                            frames.clear(); minEyeOpenness = 1.0
+                            frames.clear(); blinkDetector.reset()
                             submitting.set(false)
                             runOnUiThread {
                                 tvTitle.text = getString(R.string.facedesk_enroll_in_progress)
@@ -267,11 +268,11 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         val now = android.os.SystemClock.elapsedRealtime()
         if (frames.isNotEmpty() && now - lastFrameAtMs > STALE_GAP_MS) {
             frames.clear()
-            minEyeOpenness = 1.0
+            blinkDetector.reset()
         }
         lastFrameAtMs = now
 
-        minEyeOpenness = minOf(minEyeOpenness, eyeOpenness)
+        blinkDetector.onOpenness(eyeOpenness)
         frames.add(
             FaceFrame(
                 embeddingB64 = embedder.toBase64(probe),
@@ -280,7 +281,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             ),
         )
 
-        val blinked = minEyeOpenness < BLINK_THRESHOLD
+        val blinked = blinkDetector.blinked
         when {
             // Enough frames + a blink seen → submit with liveness proven.
             frames.size >= REQUIRED_FRAMES && blinked -> submit()
@@ -295,8 +296,8 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     private fun submit() {
         if (!submitting.compareAndSet(false, true)) return
         val batch = frames.toList()
-        // Blink detected if eye-openness dipped low across the captured frames.
-        val livenessPassed = minEyeOpenness < 0.35
+        // Blink detected via absolute-floor or a sharp drop from the open baseline.
+        val livenessPassed = blinkDetector.blinked
         val req = MarkAttendanceRequest(
             frames = batch,
             employeeCode = enteredCode,
@@ -352,7 +353,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     private fun autoReset(delayMs: Long) {
         paused = true
         previewView.postDelayed({
-            frames.clear(); minEyeOpenness = 1.0
+            frames.clear(); blinkDetector.reset()
             submitting.set(false); paused = false
             // A completed punch ends this person's session — require the next
             // worker to enter their own PIN.
@@ -368,7 +369,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         // credentials rather than silently re-capturing against stale ones.
         enteredCode = null; enteredPin = null
         previewView.postDelayed({
-            frames.clear(); minEyeOpenness = 1.0
+            frames.clear(); blinkDetector.reset()
             submitting.set(false)
             runOnUiThread { tvResult.text = "" }
             runOnUiThread { promptPinEntry() }
@@ -432,7 +433,6 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         // Hard cap: submit even without a blink and let the server decide —
         // it can hold the punch for review rather than silently dropping it.
         private const val MAX_FRAMES = 24
-        private const val BLINK_THRESHOLD = 0.35
         private const val STALE_GAP_MS = 2_500L
         private const val TICKET_POLL_MS = 4_000L
         private const val MODEL = "mobilefacenet"
