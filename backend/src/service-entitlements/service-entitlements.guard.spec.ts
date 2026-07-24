@@ -214,6 +214,18 @@ describe('ServiceEntitlementsGuard', () => {
     expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
   });
 
+  it('requires the kiosk attendance module for FaceDesk administration', async () => {
+    await expect(
+      guard.canActivate(contextFor('/api/v1/facedesk/devices')),
+    ).resolves.toBe(true);
+
+    expect(entitlements.assertModule).toHaveBeenCalledWith(
+      clientId,
+      'CONTRACTOR_FACE_ATTENDANCE',
+    );
+    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
+  });
+
   it.each([
     '/api/v1/mobile-attendance/enrollment/kiosk/ticket',
     '/api/v1/mobile-attendance/enrollment/kiosk/tickets',

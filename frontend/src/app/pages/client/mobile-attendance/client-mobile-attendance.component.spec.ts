@@ -108,4 +108,49 @@ describe('ClientMobileAttendanceComponent entitlement-aware device access', () =
     );
     expect(svc.registerDevice).not.toHaveBeenCalled();
   });
+
+  it('keeps legacy shared kiosks out of ESS device administration', () => {
+    const { component, svc } = makeComponent([
+      'MOBILE_ATTENDANCE',
+      'CONTRACTOR_FACE_ATTENDANCE',
+    ]);
+    svc.listDevices.mockReturnValue(of([
+      { id: 'legacy-kiosk', mode: 'KIOSK' },
+      { id: 'employee-phone', mode: 'ESS' },
+    ]));
+
+    component.ngOnInit();
+
+    expect(component.tab).toBe('devices');
+    expect(component.devices).toEqual([
+      expect.objectContaining({ id: 'employee-phone', mode: 'ESS' }),
+    ]);
+
+    component.openAdd();
+    expect(component.showModal).toBe(true);
+    expect(component.form.mode).toBe('ESS');
+
+    component.ngOnDestroy();
+  });
+
+  it('keeps contractor and shared-kiosk punches out of ESS review', () => {
+    const { component, svc } = makeComponent([
+      'MOBILE_ATTENDANCE',
+      'CONTRACTOR_FACE_ATTENDANCE',
+    ]);
+    svc.listReviewPunches.mockReturnValue(of([
+      { id: 'employee-punch', subjectType: 'EMPLOYEE' },
+      { id: 'contractor-punch', subjectType: 'CONTRACTOR' },
+    ]));
+
+    component.loadReviewPunches();
+
+    expect(component.reviewRows).toEqual([
+      expect.objectContaining({
+        id: 'employee-punch',
+        subjectType: 'EMPLOYEE',
+      }),
+    ]);
+    expect(component.pendingReviewCount).toBe(1);
+  });
 });

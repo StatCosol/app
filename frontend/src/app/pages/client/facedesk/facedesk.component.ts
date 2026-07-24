@@ -48,8 +48,8 @@ type Tab =
   template: `
     <div class="page">
       <ui-page-header
-        title="FaceDesk — Smart Attendance"
-        description="Admin console for the FaceDesk kiosk: monitor attendance, resolve exceptions, run reports and sync payroll. Face capture happens on the kiosk device.">
+        title="Kiosk Attendance — PIN + Face"
+        description="Manage the latest shared kiosk: employees enter their code and PIN, then complete face verification.">
       </ui-page-header>
 
       <div class="tab-bar">
@@ -368,8 +368,8 @@ type Tab =
         @if (!loading && settings) {
 <div class="settings">
             <p class="text-xs text-gray-500 col-span-2">
-              In PIN + Face mode the kiosk asks for the employee code and a 6-digit PIN,
-              then verifies the face 1:1 against that one person — no roster-wide scan,
+              The kiosk always asks for the employee code and a 6-digit PIN,
+              then verifies the face 1:1 against that employee — no roster-wide scan,
               so look-alike / duplicate mismatches can't happen. Set each enrolled
               employee's PIN below.
             </p>

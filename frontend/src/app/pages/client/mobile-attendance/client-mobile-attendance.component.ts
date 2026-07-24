@@ -21,7 +21,6 @@ import {
   ContractorReenrollRequest,
   EnrollmentStatusRow,
   MobileAttendanceDevice,
-  MobileDeviceMode,
   RegisterMobileDeviceBody,
   ReenrollRequest,
   ReenrollRequestStatus,
@@ -63,15 +62,15 @@ interface BranchOption { id: string; name: string }
   template: `
     <div class="page">
       <ui-page-header
-        title="Mobile Attendance"
-        description="Replace fingerprint readers with phone- or tablet-based face attendance. Register a kiosk for a shared gate device, or ESS for an employee's personal phone."
+        title="ESS Mobile Attendance"
+        description="Manage face attendance from employees' personal phones. Shared PIN + face kiosks are managed separately under Kiosk Attendance."
         icon="device">
       </ui-page-header>
 
       <!-- Tabs -->
       <div class="tab-bar">
         @if (hasContractorFaceAttendanceModule) {
-<button class="tab-btn" [class.active]="tab === 'devices'" (click)="switchTab('devices')">Devices</button>
+<button class="tab-btn" [class.active]="tab === 'devices'" (click)="switchTab('devices')">ESS Devices</button>
 }
         @if (hasEmployeeMobileAttendanceModule) {
 <button class="tab-btn" [class.active]="tab === 'status'" (click)="switchTab('status')">Enrollment Status</button>
@@ -115,9 +114,9 @@ interface BranchOption { id: string; name: string }
 
         @if (!loadingDevices && devices.length === 0) {
 <ui-empty-state
-         
-          title="No mobile devices registered"
-          description="Register a tablet (KIOSK mode) at the gate or an employee's phone (ESS mode) to start collecting face-based attendance.">
+
+          title="No ESS devices registered"
+          description="Register an employee's personal phone for ESS face attendance. Shared kiosks are registered under Kiosk Attendance.">
         </ui-empty-state>
 }
 
@@ -128,7 +127,6 @@ interface BranchOption { id: string; name: string }
             <thead>
               <tr class="bg-gray-50 border-b border-gray-200">
                 <th class="text-left px-4 py-3 font-semibold text-gray-700">Label</th>
-                <th class="text-left px-4 py-3 font-semibold text-gray-700">Mode</th>
                 <th class="text-left px-4 py-3 font-semibold text-gray-700">Branch</th>
                 <th class="text-left px-4 py-3 font-semibold text-gray-700">Geofence</th>
                 <th class="text-left px-4 py-3 font-semibold text-gray-700">Last Seen</th>
@@ -141,13 +139,6 @@ interface BranchOption { id: string; name: string }
               @for (d of devices; track d) {
 <tr class="border-b border-gray-100 hover:bg-gray-50">
                 <td class="px-4 py-3 text-gray-900 font-medium">{{ d.deviceLabel || d.deviceName || '—' }}</td>
-                <td class="px-4 py-3">
-                  <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
-                    [class.bg-blue-100]="d.mode === 'KIOSK'" [class.text-blue-700]="d.mode === 'KIOSK'"
-                    [class.bg-purple-100]="d.mode === 'ESS'" [class.text-purple-700]="d.mode === 'ESS'">
-                    {{ d.mode }}
-                  </span>
-                </td>
                 <td class="px-4 py-3 text-gray-700">{{ branchName(d.branchId) }}</td>
                 <td class="px-4 py-3 text-gray-700">
                   @if (d.geofenceLat !== null && d.geofenceLng !== null) {
@@ -270,7 +261,7 @@ interface BranchOption { id: string; name: string }
                 <td class="px-4 py-3 text-right whitespace-nowrap">
                   @if (!r.isEnrolled) {
 <span class="text-xs text-gray-500 italic"
-                    title="Face enrollment is done by the Branch user on a paired kiosk/ESS device. Client admins only review status here.">Pending kiosk enrollment</span>
+                    title="Face enrollment is completed through the supervised branch enrollment workflow. Client admins review status here.">Awaiting face enrollment</span>
 }
                   @if (hasContractorFaceAttendanceModule && r.isEnrolled && r.isActive) {
 <button class="text-xs text-emerald-700 hover:underline mr-3"
@@ -372,8 +363,8 @@ interface BranchOption { id: string; name: string }
          
           title="No {{ reenrollFilter | lowercase }} {{ reenrollScope === 'contractor' ? 'contractor' : 'employee' }} re-enrollment requests"
           [description]="reenrollScope === 'contractor'
-            ? 'When a contractor employee re-enrolls their face from the ESS app or kiosk, the new embedding lands here for review before it overwrites the live one.'
-            : 'When an employee re-enrolls their face from the ESS app or kiosk, the new embedding lands here for review before it overwrites the live one.'">
+            ? 'When a contractor employee re-enrolls their face, the new embedding lands here for review before it overwrites the live one.'
+            : 'When an employee re-enrolls through ESS, the new embedding lands here for review before it overwrites the live one.'">
         </ui-empty-state>
 }
 
@@ -563,15 +554,12 @@ interface BranchOption { id: string; name: string }
 
         <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-4 text-sm text-gray-700">
           <div>
-            <h3 class="font-semibold text-gray-900 mb-1">1. Choose a mode</h3>
-            <ul class="list-disc pl-5 space-y-1">
-              <li><strong>KIOSK</strong> — a shared tablet placed at the gate. Any employee walks up, looks at the camera, and is identified (1:N face match). Best replacement for the eSSL fingerprint reader.</li>
-              <li><strong>ESS</strong> — an employee's personal phone running self-service punch (1:1 verification). Geofence is enforced so the punch only counts inside the workplace.</li>
-            </ul>
+            <h3 class="font-semibold text-gray-900 mb-1">1. ESS attendance</h3>
+            <p>ESS attendance runs on an employee's personal phone using 1:1 face verification. The workplace geofence is enforced before the punch is accepted.</p>
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900 mb-1">2. Register the device</h3>
-            <p>Click <em>+ Register Device</em>, choose mode + branch, and (for ESS) enter the geofence coordinates. The system generates an <code>install token</code>.</p>
+            <h3 class="font-semibold text-gray-900 mb-1">2. Register an ESS phone</h3>
+            <p>From <em>ESS Devices</em>, select the employee and branch, then enter the workplace geofence. The system generates an <code>install token</code>.</p>
           </div>
           <div>
             <h3 class="font-semibold text-gray-900 mb-1">3. Install the Android app</h3>
@@ -579,11 +567,11 @@ interface BranchOption { id: string; name: string }
           </div>
           <div>
             <h3 class="font-semibold text-gray-900 mb-1">4. Enroll employee faces (Branch user)</h3>
-            <p>Face enrollment is performed by the <strong>Branch user</strong>, not from this page. The Branch user opens <em>Branch portal → Face Enrollment</em>, picks the employee, and runs an operator-supervised live capture on the paired KIOSK / ESS device. Client admins approve the joiner-registration flow and review enrollment status here.</p>
+            <p>Face enrollment is performed by the <strong>Branch user</strong>, not from this page. The Branch user opens <em>Branch portal → Face Enrollment</em>, picks the employee, and completes an operator-supervised live capture. Client admins review enrollment status here.</p>
           </div>
           <div>
             <h3 class="font-semibold text-gray-900 mb-1">5. Punches flow into payroll automatically</h3>
-            <p>Mobile punches share the same pipeline as biometric punches — they appear under <em>Attendance Review</em>, <em>Daily Attendance</em>, and roll into payroll/registers without any extra work.</p>
+            <p>ESS punches appear under <em>Attendance Review</em> and <em>Daily Attendance</em>, then roll into payroll and registers automatically.</p>
           </div>
         </div>
       
@@ -625,21 +613,16 @@ interface BranchOption { id: string; name: string }
 
     <!-- Add Device Modal -->
     @if (showModal) {
-<ui-modal [isOpen]="showModal" [showFooter]="false" title="Register Mobile Device" (closed)="showModal = false">
+<ui-modal [isOpen]="showModal" [showFooter]="false" title="Register ESS Device" (closed)="showModal = false">
       <form (ngSubmit)="save()" class="space-y-3">
-        <div>
-          <label for="dev-mode" class="block text-xs font-medium text-gray-600 mb-1">Mode <span class="text-red-500">*</span></label>
-          <select id="dev-mode" name="mode" [(ngModel)]="form.mode" (ngModelChange)="onModeChange()" class="ui-input">
-            <option value="KIOSK">KIOSK — shared gate tablet (1:N identification)</option>
-            @if (hasEmployeeMobileAttendanceModule) {
-<option value="ESS">ESS — employee personal phone (1:1 + geofence)</option>
-}
-          </select>
-        </div>
+        <p class="text-xs text-gray-500">
+          ESS devices are employee personal phones using 1:1 face verification and a workplace geofence.
+          Register shared devices under <strong>Kiosk Attendance (PIN + Face)</strong>.
+        </p>
         <div>
           <label for="dev-label" class="block text-xs font-medium text-gray-600 mb-1">Device Label</label>
           <input autocomplete="off" id="dev-label" name="label" type="text" class="ui-input"
-                 [(ngModel)]="form.deviceLabel" placeholder="Main Gate Tablet">
+                 [(ngModel)]="form.deviceLabel" placeholder="Employee ESS Phone">
         </div>
         <div>
           <label for="dev-branch" class="block text-xs font-medium text-gray-600 mb-1">Branch</label>
@@ -786,7 +769,7 @@ interface BranchOption { id: string; name: string }
         </div>
         @if (tokenLength !== 64) {
 <p class="text-xs text-red-700">
-          This token is not 64 characters, so the Android app will reject it. Delete this device and register a new KIOSK device.
+          This token is not 64 characters, so the ESS app will reject it. Delete this device and register a new ESS device.
         </p>
 }
         <div class="flex justify-end gap-2">
@@ -830,14 +813,14 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   locationError = '';
   locationAccuracy: number | null = null;
   form: {
-    mode: MobileDeviceMode;
+    mode: 'ESS';
     deviceLabel: string;
     branchId: string;
     geofenceLat: number | null;
     geofenceLng: number | null;
     geofenceRadiusM: number | null;
     essEmployeeId: string;
-  } = { mode: 'KIOSK', deviceLabel: '', branchId: '', geofenceLat: null, geofenceLng: null, geofenceRadiusM: 100, essEmployeeId: '' };
+  } = { mode: 'ESS', deviceLabel: '', branchId: '', geofenceLat: null, geofenceLng: null, geofenceRadiusM: 100, essEmployeeId: '' };
 
   // Token reveal
   tokenModal = false;
@@ -1002,7 +985,11 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       .listReviewPunches({ status: this.reviewStatusFilter, limit: 200 })
       .subscribe({
         next: (rows) => {
-          this.reviewRows = rows ?? [];
+          // ESS administration shows employee-phone punches only. Contractor
+          // and shared-kiosk review belongs in Kiosk Attendance.
+          this.reviewRows = (rows ?? []).filter(
+            (row) => row.subjectType === 'EMPLOYEE',
+          );
           if (this.reviewStatusFilter === 'REVIEW_PENDING') {
             this.pendingReviewCount = this.reviewRows.length;
           }
@@ -1022,7 +1009,9 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       .listReviewPunches({ status: 'REVIEW_PENDING', limit: 200 })
       .subscribe({
         next: (rows) => {
-          this.pendingReviewCount = rows?.length ?? 0;
+          this.pendingReviewCount = (rows ?? []).filter(
+            (row) => row.subjectType === 'EMPLOYEE',
+          ).length;
           this.bump();
         },
         error: () => undefined,
@@ -1146,7 +1135,12 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     this.svc.listDevices()
       .pipe(takeUntil(this.destroy$), finalize(() => { if (!silent) this.loadingDevices = false; this.bump(); }))
       .subscribe({
-        next: (rows) => { this.devices = rows || []; this.bump(); },
+        // The legacy shared KIOSK mode is intentionally not exposed here.
+        // Shared devices are provisioned exclusively through FaceDesk.
+        next: (rows) => {
+          this.devices = (rows || []).filter((device) => device.mode === 'ESS');
+          this.bump();
+        },
         error: (e) => { if (!silent) this.toast.error(e?.error?.message || 'Failed to load devices'); this.bump(); },
       });
   }
@@ -1156,7 +1150,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     this.formError = '';
     this.locationError = '';
     this.locationAccuracy = null;
-    this.form = { mode: 'KIOSK', deviceLabel: '', branchId: '', geofenceLat: null, geofenceLng: null, geofenceRadiusM: 100, essEmployeeId: '' };
+    this.form = { mode: 'ESS', deviceLabel: '', branchId: '', geofenceLat: null, geofenceLng: null, geofenceRadiusM: 100, essEmployeeId: '' };
     this.showModal = true;
   }
 
@@ -1252,6 +1246,9 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       this.formError = 'Device registration is not enabled for this service package';
       return;
     }
+    // This page provisions ESS phones only. Keeping the assignment here also
+    // prevents a stale form value from recreating the retired shared-kiosk mode.
+    this.form.mode = 'ESS';
     if (this.form.mode === 'ESS' && !this.form.essEmployeeId) {
       this.formError = 'ESS mode requires a bound employee';
       return;

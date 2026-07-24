@@ -224,6 +224,22 @@ describe('AuthService', () => {
       expect(service.getClientModuleHomePath()).toBe('/client/mobile-attendance');
     });
 
+    it('routes kiosk attendance only clients to the PIN and face kiosk console', () => {
+      sessionStorage.setItem(
+        'user',
+        JSON.stringify({
+          roleCode: 'CLIENT',
+          userType: 'MASTER',
+          branchIds: [],
+          servicePackage: 'CUSTOM_SERVICES',
+          enabledModules: ['CONTRACTOR_FACE_ATTENDANCE'],
+        }),
+      );
+
+      expect(service.getClientModuleHomePath()).toBe('/client/facedesk');
+      expect(service.getRoleRedirectPath('CLIENT')).toBe('/client/facedesk');
+    });
+
     it('routes appraisal only clients to appraisal dashboard', () => {
       sessionStorage.setItem(
         'user',

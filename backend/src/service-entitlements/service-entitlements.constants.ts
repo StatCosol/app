@@ -71,9 +71,9 @@ export const SERVICE_MODULE_OPTIONS: Array<{
   },
   {
     code: 'MOBILE_ATTENDANCE',
-    label: 'Employee Mobile Face Attendance',
+    label: 'ESS Mobile Attendance',
     description:
-      'Employee mobile or kiosk face attendance and employee face enrollment.',
+      'Employee face attendance from personal phones, including ESS enrollment and review.',
   },
   {
     code: 'CONTRACTOR_DOCUMENTS',
@@ -101,9 +101,9 @@ export const SERVICE_MODULE_OPTIONS: Array<{
   },
   {
     code: 'CONTRACTOR_FACE_ATTENDANCE',
-    label: 'Contractor Face Attendance',
+    label: 'Kiosk Attendance (PIN + Face)',
     description:
-      'Contractor face attendance devices, kiosk enrollment, and face templates.',
+      'Shared FaceDesk kiosks using employee code and PIN followed by face verification.',
   },
   {
     code: 'PAYROLL',
