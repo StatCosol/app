@@ -254,3 +254,83 @@ describe('FaceDeskAttendanceService.markAttendance — PIN_THEN_FACE', () => {
     expect(attRepo.save).not.toHaveBeenCalled();
   });
 });
+
+describe('FaceDeskAttendanceService.markAttendance — PIN-only (no employee code)', () => {
+  const pinRoster = (
+    rows: Array<{ id: string; code: string; cos: number; pin?: string }>,
+  ) =>
+    Promise.all(
+      rows.map(async (r) => ({
+        employeeId: r.id,
+        employeeCode: r.code,
+        name: r.code,
+        branchId: 'b1',
+        template: toBuf(vecForCosine(r.cos)),
+        model: 'mobilefacenet',
+        pinHash: await bcrypt.hash(r.pin ?? '1234', 4),
+      })),
+    );
+
+  it('MARKS on PIN + face alone — worker never types a code', async () => {
+    const { service, attRepo } = makeService(
+      await pinRoster([{ id: 'e1', code: 'E001', cos: 0.95, pin: '1234' }]),
+    );
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      pin: '1234',
+    } as any);
+    expect(res.status).toBe('MARKED');
+    expect(res.employeeCode).toBe('E001');
+    expect(attRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ employeeId: 'e1', attendanceStatus: 'MARKED' }),
+    );
+  });
+
+  it('REJECTS a wrong PIN with no code and never marks', async () => {
+    const { service, attRepo, failRepo } = makeService(
+      await pinRoster([{ id: 'e1', code: 'E001', cos: 0.95, pin: '1234' }]),
+    );
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      pin: '9999',
+    } as any);
+    expect(res.status).toBe('REJECTED');
+    expect(res.message).toMatch(/Incorrect PIN/i);
+    expect(failRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'WRONG_PIN' }),
+    );
+    expect(attRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('lets the face break a PIN collision (two employees share a PIN)', async () => {
+    const { service, attRepo } = makeService(
+      await pinRoster([
+        { id: 'e1', code: 'E001', cos: 0.95, pin: '1234' },
+        { id: 'e2', code: 'E002', cos: 0.5, pin: '1234' },
+      ]),
+    );
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      pin: '1234',
+    } as any);
+    expect(res.status).toBe('MARKED');
+    expect(res.employeeCode).toBe('E001');
+    expect(attRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ employeeId: 'e1' }),
+    );
+  });
+
+  it('REJECTS PIN-only when the branch has no enrolled employees', async () => {
+    const { service, attRepo, failRepo } = makeService([]);
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      pin: '1234',
+    } as any);
+    expect(res.status).toBe('REJECTED');
+    expect(res.message).toMatch(/no enrolled employees/i);
+    expect(failRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'NO_ENROLLED' }),
+    );
+    expect(attRepo.save).not.toHaveBeenCalled();
+  });
+});

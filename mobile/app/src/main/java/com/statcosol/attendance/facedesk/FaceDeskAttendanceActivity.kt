@@ -62,8 +62,10 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     private val submitting = AtomicBoolean(false)
     private var paused = false
 
-    // PIN_THEN_FACE: the employee declares identity (code + PIN) before the
-    // camera captures, so the face is verified 1:1 against just that person.
+    // PIN_THEN_FACE: the worker enters their PIN before the camera captures.
+    // The server resolves the PIN against the branch roster and verifies the
+    // face 1:1, so no employee code is entered (enteredCode stays null; kept
+    // only so an older server that still expects a code degrades cleanly).
     private var enteredCode: String? = null
     private var enteredPin: String? = null
     private var pinDialog: AlertDialog? = null
@@ -171,27 +173,25 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     }
 
     /**
-     * PIN_THEN_FACE: block face capture until the employee enters code + PIN.
-     * The dialog is non-cancelable so the kiosk always has a claimed identity
-     * before the camera is used.
+     * PIN_THEN_FACE: block face capture until the worker enters their 4-digit
+     * PIN. The PIN alone identifies them (the server resolves it against the
+     * branch roster and the face verifies) — no employee code to type, so
+     * unskilled staff enter a single short code. The dialog is non-cancelable
+     * so the kiosk always has a claimed PIN before the camera is used.
      */
     private fun promptPinEntry() {
         if (pinDialog?.isShowing == true) return
         paused = true
         frames.clear(); minEyeOpenness = 1.0
-        val codeInput = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_TEXT
-            hint = getString(R.string.facedesk_pin_code_hint)
-        }
         val pinInput = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
             hint = getString(R.string.facedesk_pin_hint)
+            filters = arrayOf(android.text.InputFilter.LengthFilter(4))
         }
         val layout = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.VERTICAL
             val pad = (16 * resources.displayMetrics.density).toInt()
             setPadding(pad, pad, pad, 0)
-            addView(codeInput)
             addView(pinInput)
         }
         pinDialog?.dismiss()
@@ -201,12 +201,11 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             .setCancelable(false)
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 pinDialog = null
-                val code = codeInput.text.toString().trim()
                 val pin = pinInput.text.toString().trim()
-                if (code.isEmpty() || pin.isEmpty()) {
+                if (pin.isEmpty()) {
                     promptPinEntry()
                 } else {
-                    enteredCode = code
+                    enteredCode = null
                     enteredPin = pin
                     paused = false
                     runOnUiThread {
@@ -260,8 +259,8 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
 
     private fun onFrame(probe: FloatArray, eyeOpenness: Double, photo: String?) {
         if (paused || submitting.get() || enrollmentHold) return
-        // Never capture until the employee has entered code + PIN.
-        if (enteredCode == null || enteredPin == null) return
+        // Never capture until the worker has entered their PIN.
+        if (enteredPin == null) return
 
         // A long gap between accepted frames means the previous person walked
         // away mid-capture — drop their frames so batches never mix people.
@@ -356,7 +355,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             frames.clear(); minEyeOpenness = 1.0
             submitting.set(false); paused = false
             // A completed punch ends this person's session — require the next
-            // employee to enter their own code + PIN.
+            // worker to enter their own PIN.
             enteredCode = null; enteredPin = null
             runOnUiThread { tvResult.text = ""; tvTitle.text = getString(R.string.facedesk_look_at_camera) }
             runOnUiThread { promptPinEntry() }
