@@ -390,11 +390,14 @@ export class FaceDeskEnrollmentService {
     }
     let pin = (explicitPin ?? '').trim();
     if (pin) {
+      // Kiosk workers enter a 4-digit PIN. Accept 4–6 for admins who set one
+      // explicitly, but the auto-generated default is 4 digits to match the
+      // kiosk keypad and keep entry to a single short code.
       if (!/^\d{4,6}$/.test(pin)) {
         throw new BadRequestException('PIN must be 4–6 digits');
       }
     } else {
-      pin = String(randomInt(0, 1_000_000)).padStart(6, '0');
+      pin = String(randomInt(0, 10_000)).padStart(4, '0');
     }
     profile.attendancePinHash = await bcrypt.hash(pin, 10);
     profile.attendancePinSetAt = new Date();

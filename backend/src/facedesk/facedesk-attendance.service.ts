@@ -271,6 +271,49 @@ export class FaceDeskAttendanceService {
     return row ?? null;
   }
 
+  /**
+   * PIN-only path: load every enrolled, active employee at the kiosk's branch
+   * who has an attendance PIN set. The caller bcrypt-checks the typed PIN
+   * against this roster and face-matches the survivors, so identity is settled
+   * without the employee typing a code. Scoped to the device's branch to keep
+   * the candidate set (and the PIN namespace) small.
+   */
+  private async loadBranchPinRoster(
+    clientId: string,
+    branchId: string | null,
+  ): Promise<
+    Array<{
+      employeeId: string;
+      employeeCode: string;
+      name: string;
+      branchId: string | null;
+      template: Buffer | null;
+      model: string | null;
+      pinHash: string | null;
+    }>
+  > {
+    const params: unknown[] = [clientId];
+    let branchFilter = '';
+    if (branchId) {
+      params.push(branchId);
+      branchFilter = `AND (p.branch_id = $2 OR p.branch_id IS NULL)`;
+    }
+    return this.dataSource.query(
+      `SELECT p.employee_id AS "employeeId", e.employee_code AS "employeeCode",
+              e.name AS "name", p.branch_id AS "branchId",
+              p.face_template AS "template", p.embedding_model AS "model",
+              p.attendance_pin_hash AS "pinHash"
+         FROM facedesk_employee_face_profiles p
+         JOIN employees e ON e.id = p.employee_id AND e.client_id = p.client_id
+        WHERE p.client_id = $1
+          AND p.enrollment_status = 'ENROLLED'
+          AND e.is_active = true
+          AND p.attendance_pin_hash IS NOT NULL
+          ${branchFilter}`,
+      params,
+    );
+  }
+
   /** PIN_THEN_FACE 1:1: verify the entered PIN, then match the face to that one template. */
   private async markByPin(
     clientId: string,
@@ -284,48 +327,72 @@ export class FaceDeskAttendanceService {
   ): Promise<MarkResult> {
     const code = (dto.employeeCode ?? '').trim();
     const pin = (dto.pin ?? '').trim();
-    if (!code || !pin) {
+    if (!pin) {
       await this.recordFailed(clientId, branchId, deviceId, null, null, 'PIN_MISSING');
-      return { status: 'REJECTED', message: 'Enter your employee code and PIN' };
+      return { status: 'REJECTED', message: 'Enter your PIN' };
     }
 
-    const claimed = await this.loadClaimedProfile(clientId, branchId, code);
-    if (!claimed || !claimed.template || claimed.template.length === 0) {
-      await this.recordFailed(clientId, branchId, deviceId, null, null, 'UNKNOWN_CODE');
-      return { status: 'REJECTED', message: 'Employee code not recognized' };
-    }
-    if (!claimed.pinHash) {
-      return {
-        status: 'REJECTED',
-        message: 'No PIN set for this employee — contact your admin',
-      };
-    }
-
-    const pinOk = await bcrypt.compare(pin, claimed.pinHash);
-    if (!pinOk) {
+    // Resolve who is punching. Two supported paths:
+    //  - PIN-only (no code): the worker types just their PIN. We load the
+    //    branch's enrolled roster, keep those whose PIN matches, and let the
+    //    1:1 face match pick the right person — so a rare PIN collision is
+    //    broken by the face rather than by forcing globally-unique PINs. This
+    //    is the default: unskilled staff enter a single 4-digit PIN.
+    //  - Legacy code + PIN: an older APK still sends the employee code as the
+    //    identity claim; we verify that single profile 1:1.
+    const roster = code
+      ? await this.loadClaimedProfile(clientId, branchId, code).then((r) =>
+          r ? [r] : [],
+        )
+      : await this.loadBranchPinRoster(clientId, branchId);
+    if (roster.length === 0) {
       await this.recordFailed(
         clientId,
         branchId,
         deviceId,
-        claimed.employeeId,
         null,
-        'WRONG_PIN',
+        null,
+        code ? 'UNKNOWN_CODE' : 'NO_ENROLLED',
       );
+      return {
+        status: 'REJECTED',
+        message: code
+          ? 'Employee code not recognized'
+          : 'No enrolled employees on this device',
+      };
+    }
+
+    // Keep only profiles whose PIN matches what was typed (bcrypt over the
+    // candidate set — one for the code path, the branch roster for PIN-only).
+    const pinMatched: typeof roster = [];
+    for (const p of roster) {
+      if (p.pinHash && (await bcrypt.compare(pin, p.pinHash))) pinMatched.push(p);
+    }
+    if (pinMatched.length === 0) {
+      await this.recordFailed(clientId, branchId, deviceId, null, null, 'WRONG_PIN');
       return { status: 'REJECTED', message: 'Incorrect PIN' };
     }
 
-    const claimedModel = normalizeEmbeddingModel(claimed.model);
-    if (probeModel && claimedModel && probeModel !== claimedModel) {
+    // Among the PIN-matched profiles (usually exactly one), choose the best
+    // face match. When two employees happen to share a PIN, the face decides.
+    let claimed: (typeof pinMatched)[number] | null = null;
+    let cosine = -1;
+    for (const p of pinMatched) {
+      if (!p.template || p.template.length === 0) continue;
+      const pm = normalizeEmbeddingModel(p.model);
+      if (probeModel && pm && probeModel !== pm) continue;
+      const c = this.faceService.cosine(probe, bufferToEmbedding(p.template));
+      if (c > cosine) {
+        cosine = c;
+        claimed = p;
+      }
+    }
+    if (!claimed) {
       return {
         status: 'REJECTED',
         message: 'Face model mismatch — please re-enroll',
       };
     }
-
-    const cosine = this.faceService.cosine(
-      probe,
-      bufferToEmbedding(claimed.template),
-    );
     const confidencePercent = this.settings.cosineToPercent(cosine);
 
     // Correct PIN but the face doesn't match. Per policy, mark the punch
