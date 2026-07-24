@@ -35,43 +35,65 @@ export class FaceDeskFaceService {
   async resolveFrames(frames: FaceFrameDto[]): Promise<ResolvedFrame[]> {
     const out: ResolvedFrame[] = [];
     for (const f of frames ?? []) {
-      try {
-        if (f.photoB64 && this.faceClient.enabled) {
+      // The on-device embedding (mobilefacenet) is the primary, offline-capable
+      // signal and is what matching uses. face-svc (server-side re-embedding of
+      // the photo) is an optional upgrade — never a hard gate. When it fails or
+      // rejects a frame that carries a valid device embedding, fall back to that
+      // embedding instead of dropping the frame; otherwise a face-svc hiccup
+      // (e.g. photo-orientation "no_face" 422s) silently discards every frame
+      // and enrollment/punch fails with "got 0 clear frames".
+      const deviceFrame = (): ResolvedFrame | null =>
+        f.embeddingB64
+          ? {
+              embedding: decodeEmbedding(f.embeddingB64),
+              model: f.embeddingModel ?? null,
+              qualityScore: f.qualityScore ?? 1,
+              livenessScore: f.livenessScore ?? null,
+              sampleType: f.sampleType ?? 'FRONT',
+              reasons: [],
+            }
+          : null;
+
+      let resolved: ResolvedFrame | null = null;
+      if (f.photoB64 && this.faceClient.enabled) {
+        try {
           const r = await this.faceClient.extractEmbedding(f.photoB64);
           if (r) {
-            out.push({
+            resolved = {
               embedding: new Float32Array(r.embedding),
               model: r.model,
               qualityScore: r.quality?.faceScore ?? r.qualityScore ?? 0,
               livenessScore: r.livenessScore,
               sampleType: f.sampleType ?? 'FRONT',
               reasons: r.quality?.reasons ?? [],
-            });
+            };
           }
-        } else if (f.embeddingB64) {
-          out.push({
-            embedding: decodeEmbedding(f.embeddingB64),
-            model: f.embeddingModel ?? null,
-            qualityScore: f.qualityScore ?? 1,
-            livenessScore: f.livenessScore ?? null,
-            sampleType: f.sampleType ?? 'FRONT',
-            reasons: [],
-          });
-        }
-      } catch (err) {
-        if (err instanceof FaceQualityError) {
-          out.push({
-            embedding: new Float32Array(),
-            model: null,
-            qualityScore: 0,
-            livenessScore: null,
-            sampleType: f.sampleType ?? 'FRONT',
-            reasons: err.quality?.reasons ?? ['low_quality'],
-          });
-        } else {
-          this.logger.warn(`frame resolve failed: ${(err as Error)?.message}`);
+        } catch (err) {
+          const fallback = deviceFrame();
+          if (fallback) {
+            this.logger.warn(
+              `face-svc resolve failed, using device embedding: ${(err as Error)?.message}`,
+            );
+            resolved = fallback;
+          } else if (err instanceof FaceQualityError) {
+            resolved = {
+              embedding: new Float32Array(),
+              model: null,
+              qualityScore: 0,
+              livenessScore: null,
+              sampleType: f.sampleType ?? 'FRONT',
+              reasons: err.quality?.reasons ?? ['low_quality'],
+            };
+          } else {
+            this.logger.warn(`frame resolve failed: ${(err as Error)?.message}`);
+          }
         }
       }
+
+      // No usable face-svc result (disabled, returned null, or errored without a
+      // device fallback above) → use the device embedding when present.
+      resolved = resolved ?? deviceFrame();
+      if (resolved) out.push(resolved);
     }
     return out;
   }
