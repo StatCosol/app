@@ -72,8 +72,8 @@ jobs:
       - name: Open temporary PG firewall rule
         run: |
           az postgres flexible-server firewall-rule create \
-            -g "$RG" -n statcompy-db \
-            -r "ghdump-${{ github.run_id }}" \
+            -g "$RG" -s statcompy-db \
+            -n "ghdump-${{ github.run_id }}" \
             --start-ip-address "${{ steps.ip.outputs.ip }}" \
             --end-ip-address   "${{ steps.ip.outputs.ip }}" \
             --output none
@@ -130,8 +130,8 @@ jobs:
         if: always()
         run: |
           az postgres flexible-server firewall-rule delete \
-            -g "$RG" -n statcompy-db \
-            -r "ghdump-${{ github.run_id }}" \
+            -g "$RG" -s statcompy-db \
+            -n "ghdump-${{ github.run_id }}" \
             --yes --output none || true
 
       - name: Always — wipe local dump

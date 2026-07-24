@@ -94,14 +94,14 @@ jobs:
         run: |
           set -euo pipefail
           az postgres flexible-server firewall-rule create \
-            -g "$RG" -n "${{ steps.vars.outputs.sandbox }}" \
-            -r "drill-${{ github.run_id }}" \
+            -g "$RG" -s "${{ steps.vars.outputs.sandbox }}" \
+            -n "drill-${{ github.run_id }}" \
             --start-ip-address "${{ steps.ip.outputs.ip }}" \
             --end-ip-address   "${{ steps.ip.outputs.ip }}" \
             --output none
           az postgres flexible-server firewall-rule create \
-            -g "$RG" -n "$SOURCE_DB" \
-            -r "drill-${{ github.run_id }}" \
+            -g "$RG" -s "$SOURCE_DB" \
+            -n "drill-${{ github.run_id }}" \
             --start-ip-address "${{ steps.ip.outputs.ip }}" \
             --end-ip-address   "${{ steps.ip.outputs.ip }}" \
             --output none
@@ -184,9 +184,9 @@ jobs:
         run: |
           set +e
           az postgres flexible-server firewall-rule delete \
-            -g "$RG" -n "$SOURCE_DB" -r "drill-${{ github.run_id }}" --yes --output none
+            -g "$RG" -s "$SOURCE_DB" -n "drill-${{ github.run_id }}" --yes --output none
           az postgres flexible-server firewall-rule delete \
-            -g "$RG" -n "${{ steps.vars.outputs.sandbox }}" -r "drill-${{ github.run_id }}" --yes --output none
+            -g "$RG" -s "${{ steps.vars.outputs.sandbox }}" -n "drill-${{ github.run_id }}" --yes --output none
           az postgres flexible-server delete \
             -g "$RG" -n "${{ steps.vars.outputs.sandbox }}" --yes --output none
           echo "Teardown attempted."
