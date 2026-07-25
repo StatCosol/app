@@ -499,9 +499,13 @@ export class AdminServicePackagesComponent implements OnInit {
         this.selectedClientStatus = status;
         if (applyCurrentToForm) {
           this.form.packageCode = status.packageCode || 'CUSTOM_SERVICES';
-          this.form.modules = status.enabledModules?.length
+          const currentModules = status.enabledModules?.length
             ? [...status.enabledModules]
             : ['EMPLOYEE_COMPLIANCE'];
+          this.form.modules = this.preferPinFaceForLegacyClients(currentModules);
+          if (this.form.modules.length !== currentModules.length) {
+            this.form.packageCode = 'CUSTOM_SERVICES';
+          }
         }
         this.loadingClientStatus = false;
       },
@@ -543,6 +547,23 @@ export class AdminServicePackagesComponent implements OnInit {
     system.modules.forEach((module) => modules.add(module));
     this.form.modules = Array.from(modules);
     this.form.packageCode = 'CUSTOM_SERVICES';
+  }
+
+  /**
+   * Existing clients may still carry the old ESS face module together with
+   * FaceDesk (and sometimes employee biometric attendance via FULL_SERVICE).
+   * Treat that ambiguous legacy combination as PIN + Face in the change form.
+   */
+  private preferPinFaceForLegacyClients(modules: string[]): string[] {
+    const selected = new Set(modules);
+    const hasLegacyDualFace =
+      selected.has('CONTRACTOR_FACE_ATTENDANCE') &&
+      selected.has('MOBILE_ATTENDANCE');
+    if (!hasLegacyDualFace) return modules;
+
+    this.attendanceModuleCodes.forEach((module) => selected.delete(module));
+    selected.add('CONTRACTOR_FACE_ATTENDANCE');
+    return Array.from(selected);
   }
 
   moduleLabel(code: string): string {
@@ -685,9 +706,13 @@ export class AdminServicePackagesComponent implements OnInit {
   reviseRequest(request: ServiceChangeRequest): void {
     this.form.clientId = request.clientId;
     this.form.packageCode = request.packageCode || 'CUSTOM_SERVICES';
-    this.form.modules = request.requestedModules?.length
+    const requestedModules = request.requestedModules?.length
       ? [...request.requestedModules]
       : ['EMPLOYEE_COMPLIANCE'];
+    this.form.modules = this.preferPinFaceForLegacyClients(requestedModules);
+    if (this.form.modules.length !== requestedModules.length) {
+      this.form.packageCode = 'CUSTOM_SERVICES';
+    }
     this.form.note = request.reviewNote
       ? `Revision after CCO note: ${request.reviewNote}`
       : request.requestNote || '';
