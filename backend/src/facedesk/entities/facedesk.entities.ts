@@ -124,6 +124,15 @@ export class FaceDeskProfileEntity {
   @Column({ name: 'attendance_pin_hash', type: 'text', nullable: true })
   attendancePinHash: string | null;
 
+  /**
+   * Keyed (HMAC) lookup hash of the PIN, unique per client. bcrypt hashes are
+   * unsearchable, so this deterministic hash is what enforces "no duplicate
+   * PINs" (unique index) and lets the kiosk resolve a punch by PIN with an
+   * indexed lookup instead of scanning + bcrypt-comparing the whole roster.
+   */
+  @Column({ name: 'attendance_pin_lookup', type: 'text', nullable: true })
+  attendancePinLookup: string | null;
+
   @Column({ name: 'attendance_pin_set_at', type: 'timestamptz', nullable: true })
   attendancePinSetAt: Date | null;
 
