@@ -178,7 +178,13 @@ type Tab =
       @if (tab === 'pending') {
 
         <div class="flex flex-wrap items-end gap-2 mb-3">
-          <p class="text-sm text-gray-600 flex-1">Pick a kiosk, then click Enroll for an employee. The kiosk opens the enrollment screen and pauses attendance until it's done.</p>
+          <p class="text-sm text-gray-600 flex-1">Pick a kiosk, then click Enroll for a person. The kiosk opens the enrollment screen and pauses attendance until it's done.</p>
+          <label class="text-sm">Enroll
+            <select [(ngModel)]="enrollSubjectType" (ngModelChange)="onSubjectTypeChange()" class="inp">
+              <option value="EMPLOYEE">Employees</option>
+              <option value="CONTRACTOR">Contractors</option>
+            </select>
+          </label>
           <label class="text-sm">Kiosk device
             <select [(ngModel)]="enrollDeviceId" class="inp">
               <option value="">— select device —</option>
@@ -192,7 +198,7 @@ type Tab =
 <ui-loading-spinner text="Loading..." size="lg"></ui-loading-spinner>
 }
         @if (!loading && pending.length === 0) {
-<ui-empty-state title="All enrolled" description="No employees are pending enrollment."></ui-empty-state>
+<ui-empty-state title="All enrolled" description="No {{ enrollSubjectType === 'CONTRACTOR' ? 'contractors' : 'employees' }} are pending enrollment."></ui-empty-state>
 }
         @if (!loading && pending.length > 0) {
 <table class="tbl">
@@ -479,6 +485,15 @@ export class FaceDeskComponent implements OnInit {
   newInstallToken: string | null = null;
   enrollDeviceId = '';
   enrollingId: string | null = null;
+  enrollSubjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE';
+
+  /** Reload the pending list when the operator switches Employees/Contractors. */
+  onSubjectTypeChange(): void {
+    this.load(
+      this.svc.pendingEnrollment(this.enrollSubjectType),
+      (r) => (this.pending = r),
+    );
+  }
 
   // PIN_THEN_FACE: per-employee PIN generation
   pinCode = '';
@@ -542,7 +557,7 @@ export class FaceDeskComponent implements OnInit {
     if (t === 'dashboard') this.loadDashboard();
     if (t === 'devices') this.load(this.svc.devices(), (r) => (this.deviceList = r));
     if (t === 'pending') {
-      this.load(this.svc.pendingEnrollment(), (r) => (this.pending = r));
+      this.load(this.svc.pendingEnrollment(this.enrollSubjectType), (r) => (this.pending = r));
       if (this.deviceList.length === 0) this.svc.devices().subscribe((d) => (this.deviceList = d));
     }
     if (t === 'duplicates') this.load(this.svc.duplicateAlerts(), (r) => (this.duplicates = r));
@@ -665,7 +680,7 @@ export class FaceDeskComponent implements OnInit {
     );
     if (!ok) return;
     this.enrollingId = empId;
-    this.svc.createEnrollTicket(empId, this.enrollDeviceId).subscribe({
+    this.svc.createEnrollTicket(empId, this.enrollDeviceId, this.enrollSubjectType).subscribe({
       next: () => {
         this.enrollingId = null;
         this.toast.success('Sent to kiosk — ask the employee to face the camera');

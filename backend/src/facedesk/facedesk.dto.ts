@@ -50,6 +50,11 @@ export class SaveEnrollmentDto {
   @IsString()
   employeeId: string;
 
+  /** EMPLOYEE (default) or CONTRACTOR — which roster employeeId belongs to. */
+  @IsOptional()
+  @IsIn(['EMPLOYEE', 'CONTRACTOR'])
+  subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => FaceFrameDto)
@@ -185,6 +190,11 @@ export class CreateEnrollTicketDto {
 
   @IsString()
   deviceId: string;
+
+  /** EMPLOYEE (default) or CONTRACTOR — which roster employeeId belongs to. */
+  @IsOptional()
+  @IsIn(['EMPLOYEE', 'CONTRACTOR'])
+  subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
 }
 
 export class UpdateSettingsDto {

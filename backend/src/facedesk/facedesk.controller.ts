@@ -87,10 +87,14 @@ export class FaceDeskController {
   @ApiOperation({ summary: 'Pending employees for enrollment' })
   @Get('enrollment/pending')
   @Roles('CLIENT', 'ADMIN')
-  pending(@CurrentUser() user: ReqUser) {
+  pending(
+    @CurrentUser() user: ReqUser,
+    @Query('subjectType') subjectType?: string,
+  ) {
     return this.enrollment.getPendingEmployees(
       this.requireClient(user),
       this.branchScope(user) ?? [],
+      subjectType === 'CONTRACTOR' ? 'CONTRACTOR' : 'EMPLOYEE',
     );
   }
 

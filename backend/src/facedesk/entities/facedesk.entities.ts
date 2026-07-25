@@ -73,8 +73,22 @@ export class FaceDeskProfileEntity {
   @PrimaryGeneratedColumn('uuid', { name: 'profile_id' })
   profileId: string;
 
+  /**
+   * The enrolled subject's id — an employees.id when subjectType is EMPLOYEE,
+   * or a contractor_employees.id when CONTRACTOR. Named employee_id for
+   * backwards compatibility (no FK, so it safely holds either).
+   */
   @Column({ name: 'employee_id', type: 'uuid' })
   employeeId: string;
+
+  /** Whether employee_id points at an employee or a contractor worker. */
+  @Column({
+    name: 'subject_type',
+    type: 'varchar',
+    length: 20,
+    default: 'EMPLOYEE',
+  })
+  subjectType: 'EMPLOYEE' | 'CONTRACTOR';
 
   @Column({ name: 'client_id', type: 'uuid' })
   clientId: string;
@@ -514,6 +528,15 @@ export class FaceDeskEnrollTicketEntity {
 
   @Column({ name: 'employee_id', type: 'uuid' })
   employeeId: string;
+
+  /** EMPLOYEE (default) or CONTRACTOR — which roster employee_id belongs to. */
+  @Column({
+    name: 'subject_type',
+    type: 'varchar',
+    length: 20,
+    default: 'EMPLOYEE',
+  })
+  subjectType: 'EMPLOYEE' | 'CONTRACTOR';
 
   @Column({
     name: 'employee_name',

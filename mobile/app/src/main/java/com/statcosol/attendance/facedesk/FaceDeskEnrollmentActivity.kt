@@ -51,6 +51,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
 
     private lateinit var employeeId: String
     private var ticketId: String? = null
+    private var subjectType: String? = null
     private val frames = mutableListOf<FaceFrame>()
     // Guided multi-angle capture progress.
     private var frontCount = 0
@@ -72,6 +73,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
 
         employeeId = intent.getStringExtra(EXTRA_EMPLOYEE_ID).orEmpty()
         ticketId = intent.getStringExtra(EXTRA_TICKET_ID)
+        subjectType = intent.getStringExtra(EXTRA_SUBJECT_TYPE)
         val name = intent.getStringExtra(EXTRA_EMPLOYEE_NAME).orEmpty()
         if (employeeId.isBlank()) { finish(); return }
         tvName.text = name.ifBlank { employeeId }
@@ -207,6 +209,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         if (!saving.compareAndSet(false, true)) return
         val req = SaveEnrollmentRequest(
             employeeId = employeeId,
+            subjectType = subjectType,
             frames = frames.toList(),
             livenessPassed = blinked,
             consentGiven = true,
@@ -275,5 +278,6 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         const val EXTRA_EMPLOYEE_ID = "employeeId"
         const val EXTRA_EMPLOYEE_NAME = "employeeName"
         const val EXTRA_TICKET_ID = "ticketId"
+        const val EXTRA_SUBJECT_TYPE = "subjectType"
     }
 }
