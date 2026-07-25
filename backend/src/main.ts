@@ -291,7 +291,8 @@ async function bootstrap() {
         ALTER TABLE facedesk_employee_face_profiles
           ADD COLUMN IF NOT EXISTS attendance_pin_hash text,
           ADD COLUMN IF NOT EXISTS attendance_pin_lookup text,
-          ADD COLUMN IF NOT EXISTS attendance_pin_set_at timestamptz
+          ADD COLUMN IF NOT EXISTS attendance_pin_set_at timestamptz,
+          ADD COLUMN IF NOT EXISTS subject_type varchar(20) NOT NULL DEFAULT 'EMPLOYEE'
       `);
       // Guarantees no two employees in a client share a PIN (the lookup hash is
       // deterministic per client+PIN). Partial index so un-PINned profiles don't
