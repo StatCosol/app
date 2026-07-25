@@ -25,12 +25,18 @@ export class FaceDeskTicketService {
   async create(
     clientId: string,
     createdBy: string,
-    body: { employeeId: string; deviceId: string },
+    body: {
+      employeeId: string;
+      deviceId: string;
+      subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
+    },
     allowedBranchIds: string[] | null = null,
   ): Promise<FaceDeskEnrollTicketEntity> {
     if (!body?.employeeId || !body?.deviceId) {
       throw new BadRequestException('employeeId and deviceId are required');
     }
+    const subjectType =
+      body.subjectType === 'CONTRACTOR' ? 'CONTRACTOR' : 'EMPLOYEE';
     // Device must belong to the client (and branch scope for branch users).
     const [device] = await this.dataSource.query<
       Array<{ device_id: string; branch_id: string | null; status: string }>
@@ -52,7 +58,10 @@ export class FaceDeskTicketService {
       throw new BadRequestException('Device is not in your branch');
     }
 
-    // Employee must belong to the client (+ branch scope) and be active.
+    // Subject must belong to the client (+ branch scope) and be active. The
+    // roster table depends on subjectType — employees or contractor_employees.
+    const subjectTable =
+      subjectType === 'CONTRACTOR' ? 'contractor_employees' : 'employees';
     const [emp] = await this.dataSource.query<
       Array<{
         id: string;
@@ -62,10 +71,14 @@ export class FaceDeskTicketService {
       }>
     >(
       `SELECT id, name, employee_code, branch_id
-         FROM employees WHERE id = $1 AND client_id = $2 AND is_active = true LIMIT 1`,
+         FROM ${subjectTable}
+        WHERE id = $1 AND client_id = $2 AND is_active = true LIMIT 1`,
       [body.employeeId, clientId],
     );
-    if (!emp) throw new BadRequestException('Employee not found');
+    if (!emp)
+      throw new BadRequestException(
+        subjectType === 'CONTRACTOR' ? 'Contractor not found' : 'Employee not found',
+      );
     if (
       allowedBranchIds &&
       (!emp.branch_id || !allowedBranchIds.includes(emp.branch_id))
@@ -91,6 +104,7 @@ export class FaceDeskTicketService {
           branchId: device.branch_id ?? emp.branch_id ?? null,
           deviceId: body.deviceId,
           employeeId: body.employeeId,
+          subjectType,
           employeeName: emp.name,
           employeeCode: emp.employee_code,
           status: 'PENDING',

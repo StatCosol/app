@@ -5,3 +5,8 @@
 
 ALTER TABLE facedesk_employee_face_profiles
   ADD COLUMN IF NOT EXISTS subject_type varchar(20) NOT NULL DEFAULT 'EMPLOYEE';
+
+-- The enroll ticket carries the subject type to the kiosk so it enrols the
+-- captured face under the right roster (employee vs contractor).
+ALTER TABLE facedesk_enroll_tickets
+  ADD COLUMN IF NOT EXISTS subject_type varchar(20) NOT NULL DEFAULT 'EMPLOYEE';

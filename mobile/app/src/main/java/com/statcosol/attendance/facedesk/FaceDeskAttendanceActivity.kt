@@ -246,6 +246,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                                     putExtra(FaceDeskEnrollmentActivity.EXTRA_EMPLOYEE_ID, ticket.employeeId)
                                     putExtra(FaceDeskEnrollmentActivity.EXTRA_EMPLOYEE_NAME, ticket.employeeName)
                                     putExtra(FaceDeskEnrollmentActivity.EXTRA_TICKET_ID, ticket.ticketId)
+                                    putExtra(FaceDeskEnrollmentActivity.EXTRA_SUBJECT_TYPE, ticket.subjectType)
                                 },
                             )
                         }

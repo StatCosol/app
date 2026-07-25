@@ -529,6 +529,15 @@ export class FaceDeskEnrollTicketEntity {
   @Column({ name: 'employee_id', type: 'uuid' })
   employeeId: string;
 
+  /** EMPLOYEE (default) or CONTRACTOR — which roster employee_id belongs to. */
+  @Column({
+    name: 'subject_type',
+    type: 'varchar',
+    length: 20,
+    default: 'EMPLOYEE',
+  })
+  subjectType: 'EMPLOYEE' | 'CONTRACTOR';
+
   @Column({
     name: 'employee_name',
     type: 'varchar',

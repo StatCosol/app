@@ -67,25 +67,37 @@ export class FaceDeskEnrollmentService {
     });
   }
 
-  /** Employees in scope with no active FaceDesk enrollment. */
+  /**
+   * Subjects in scope with no active FaceDesk enrollment. subjectType selects
+   * the roster: EMPLOYEE (default) reads `employees`, CONTRACTOR reads
+   * `contractor_employees`. The profile join matches on subject_type so an
+   * employee and a contractor that happen to share a uuid never cross-match.
+   */
   async getPendingEmployees(
     clientId: string,
     branchIds: string[] = [],
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE',
   ): Promise<unknown[]> {
     const params: unknown[] = [clientId];
+    const table =
+      subjectType === 'CONTRACTOR' ? 'contractor_employees' : 'employees';
     let branchFilter = '';
     if (branchIds.length > 0) {
       params.push(branchIds);
       branchFilter = `AND e.branch_id = ANY($${params.length}::uuid[])`;
     }
+    params.push(subjectType);
+    const subjectParam = `$${params.length}`;
     return this.dataSource.query(
       `SELECT e.id AS "employeeId", e.employee_code AS "employeeCode",
               e.name AS "name", e.branch_id AS "branchId",
               e.department AS "department", e.designation AS "designation",
+              '${subjectType}' AS "subjectType",
               COALESCE(p.enrollment_status, 'PENDING') AS "enrollmentStatus"
-         FROM employees e
+         FROM ${table} e
          LEFT JOIN facedesk_employee_face_profiles p
            ON p.employee_id = e.id AND p.client_id = e.client_id
+          AND p.subject_type = ${subjectParam}
         WHERE e.client_id = $1
           AND e.is_active = true
           AND (p.enrollment_status IS NULL OR p.enrollment_status <> 'ENROLLED')
@@ -233,6 +245,7 @@ export class FaceDeskEnrollmentService {
           {
             clientId,
             branchId,
+            subjectType: dto.subjectType ?? 'EMPLOYEE',
             enrollmentStatus: 'BLOCKED',
             duplicateStatus: 'FLAGGED',
           },
@@ -276,6 +289,7 @@ export class FaceDeskEnrollmentService {
           {
             clientId,
             branchId,
+            subjectType: dto.subjectType ?? 'EMPLOYEE',
             enrollmentStatus: 'ENROLLED',
             faceTemplate: embeddingToBuffer(template),
             embeddingModel: model,

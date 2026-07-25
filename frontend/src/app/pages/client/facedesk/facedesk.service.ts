@@ -105,14 +105,22 @@ export class FaceDeskService {
     );
   }
 
-  pendingEnrollment(): Observable<PendingEnrollmentRow[]> {
-    return this.http.get<PendingEnrollmentRow[]>(`${this.base}/enrollment/pending`);
+  pendingEnrollment(
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE',
+  ): Observable<PendingEnrollmentRow[]> {
+    return this.http.get<PendingEnrollmentRow[]>(
+      `${this.base}/enrollment/pending?subjectType=${subjectType}`,
+    );
   }
 
-  createEnrollTicket(employeeId: string, deviceId: string): Observable<{ ticketId: string; status: string }> {
+  createEnrollTicket(
+    employeeId: string,
+    deviceId: string,
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE',
+  ): Observable<{ ticketId: string; status: string }> {
     return this.http.post<{ ticketId: string; status: string }>(
       `${this.base}/enroll-tickets`,
-      { employeeId, deviceId },
+      { employeeId, deviceId, subjectType },
     );
   }
 

@@ -66,6 +66,8 @@ data class SaveEnrollmentRequest(
     val frames: List<FaceFrame>,
     val livenessPassed: Boolean? = null,
     val consentGiven: Boolean? = null,
+    // EMPLOYEE (default) or CONTRACTOR — which roster employeeId belongs to.
+    val subjectType: String? = null,
 )
 
 @Serializable
@@ -109,6 +111,7 @@ data class EnrollTicket(
     val employeeId: String,
     val employeeName: String? = null,
     val employeeCode: String? = null,
+    val subjectType: String? = null,
     val status: String,
 )
 

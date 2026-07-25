@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -112,11 +113,15 @@ export class FaceDeskDeviceController {
   @Public()
   @UseGuards(FaceDeskDeviceAuthGuard)
   @Get('enrollment/pending')
-  pending(@Req() req: Request) {
+  pending(
+    @Req() req: Request,
+    @Query('subjectType') subjectType?: string,
+  ) {
     const d = this.ctx(req);
     return this.enrollment.getPendingEmployees(
       d.clientId,
       d.branchId ? [d.branchId] : [],
+      subjectType === 'CONTRACTOR' ? 'CONTRACTOR' : 'EMPLOYEE',
     );
   }
 

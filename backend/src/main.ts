@@ -302,6 +302,12 @@ async function bootstrap() {
           ON facedesk_employee_face_profiles (client_id, attendance_pin_lookup)
           WHERE attendance_pin_lookup IS NOT NULL
       `);
+      // Contractor enrollment: the enroll ticket records which roster the
+      // subject came from so the kiosk enrols them under the right subject_type.
+      await ds.query(`
+        ALTER TABLE facedesk_enroll_tickets
+          ADD COLUMN IF NOT EXISTS subject_type varchar(20) NOT NULL DEFAULT 'EMPLOYEE'
+      `);
       await ds.query(`
         ALTER TABLE facedesk_face_settings
           ADD COLUMN IF NOT EXISTS identification_mode varchar(20) NOT NULL DEFAULT 'PIN_THEN_FACE'
