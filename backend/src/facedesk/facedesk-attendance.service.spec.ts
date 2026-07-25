@@ -322,6 +322,9 @@ describe('FaceDeskAttendanceService.markAttendance — PIN-only (no employee cod
 
   it('REJECTS PIN-only when the branch has no enrolled employees', async () => {
     const { service, attRepo, failRepo } = makeService([]);
+    // PIN-only resolution first tries the indexed lookup, then falls back to a
+    // roster scan — both empty here, so force both queries to return [].
+    (service as any).dataSource.query = jest.fn().mockResolvedValue([]);
     const res = await service.markAttendance('c1', 'b1', 'd1', {
       frames: [probeFrame()],
       pin: '1234',

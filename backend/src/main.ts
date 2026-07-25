@@ -290,7 +290,16 @@ async function bootstrap() {
       await ds.query(`
         ALTER TABLE facedesk_employee_face_profiles
           ADD COLUMN IF NOT EXISTS attendance_pin_hash text,
+          ADD COLUMN IF NOT EXISTS attendance_pin_lookup text,
           ADD COLUMN IF NOT EXISTS attendance_pin_set_at timestamptz
+      `);
+      // Guarantees no two employees in a client share a PIN (the lookup hash is
+      // deterministic per client+PIN). Partial index so un-PINned profiles don't
+      // collide on NULL.
+      await ds.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_facedesk_pin_lookup
+          ON facedesk_employee_face_profiles (client_id, attendance_pin_lookup)
+          WHERE attendance_pin_lookup IS NOT NULL
       `);
       await ds.query(`
         ALTER TABLE facedesk_face_settings

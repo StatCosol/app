@@ -15,6 +15,7 @@ import {
 } from './entities/facedesk.entities';
 import { FaceDeskFaceService, ResolvedFrame } from './facedesk-face.service';
 import { FaceDeskSettingsService } from './facedesk-settings.service';
+import { pinLookupHash } from './facedesk-pin.util';
 import { MarkAttendanceDto } from './facedesk.dto';
 
 const BUSINESS_TZ_OFFSET_MIN = 330;
@@ -314,6 +315,39 @@ export class FaceDeskAttendanceService {
     );
   }
 
+  /**
+   * PIN-only fast path: resolve the (unique-per-client) employee for a PIN by
+   * its indexed lookup hash — an index seek instead of scanning + bcrypt-
+   * comparing the whole branch roster. Scoped to the device's branch.
+   */
+  private async loadByPinLookup(
+    clientId: string,
+    branchId: string | null,
+    lookup: string,
+  ): Promise<Awaited<ReturnType<typeof this.loadBranchPinRoster>>> {
+    const params: unknown[] = [clientId, lookup];
+    let branchFilter = '';
+    if (branchId) {
+      params.push(branchId);
+      branchFilter = `AND (p.branch_id = $3 OR p.branch_id IS NULL)`;
+    }
+    return this.dataSource.query(
+      `SELECT p.employee_id AS "employeeId", e.employee_code AS "employeeCode",
+              e.name AS "name", p.branch_id AS "branchId",
+              p.face_template AS "template", p.embedding_model AS "model",
+              p.attendance_pin_hash AS "pinHash"
+         FROM facedesk_employee_face_profiles p
+         JOIN employees e ON e.id = p.employee_id AND e.client_id = p.client_id
+        WHERE p.client_id = $1
+          AND p.attendance_pin_lookup = $2
+          AND p.enrollment_status = 'ENROLLED'
+          AND e.is_active = true
+          AND p.attendance_pin_hash IS NOT NULL
+          ${branchFilter}`,
+      params,
+    );
+  }
+
   /** PIN_THEN_FACE 1:1: verify the entered PIN, then match the face to that one template. */
   private async markByPin(
     clientId: string,
@@ -340,11 +374,23 @@ export class FaceDeskAttendanceService {
     //    is the default: unskilled staff enter a single 4-digit PIN.
     //  - Legacy code + PIN: an older APK still sends the employee code as the
     //    identity claim; we verify that single profile 1:1.
-    const roster = code
-      ? await this.loadClaimedProfile(clientId, branchId, code).then((r) =>
-          r ? [r] : [],
-        )
-      : await this.loadBranchPinRoster(clientId, branchId);
+    let roster: Awaited<ReturnType<typeof this.loadBranchPinRoster>>;
+    if (code) {
+      const claimed = await this.loadClaimedProfile(clientId, branchId, code);
+      roster = claimed ? [claimed] : [];
+    } else {
+      // PIN-only: resolve the single employee by the indexed lookup hash
+      // (unique per client). Fall back to a roster scan for any PIN enrolled
+      // before the lookup column existed.
+      roster = await this.loadByPinLookup(
+        clientId,
+        branchId,
+        pinLookupHash(clientId, pin),
+      );
+      if (roster.length === 0) {
+        roster = await this.loadBranchPinRoster(clientId, branchId);
+      }
+    }
     if (roster.length === 0) {
       await this.recordFailed(
         clientId,

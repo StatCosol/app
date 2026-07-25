@@ -23,6 +23,7 @@ import {
 } from './entities/facedesk.entities';
 import { FaceDeskFaceService, ResolvedFrame } from './facedesk-face.service';
 import { FaceDeskSettingsService } from './facedesk-settings.service';
+import { pinLookupHash } from './facedesk-pin.util';
 import { CheckDuplicateDto, SaveEnrollmentDto } from './facedesk.dto';
 
 export interface DuplicateHit {
@@ -311,11 +312,30 @@ export class FaceDeskEnrollmentService {
       { samples: bestSamples.length, model },
     );
 
+    // Auto-issue a unique 4-digit PIN the first time an employee is enrolled, so
+    // every enrolled employee can punch immediately without a separate admin
+    // step. A re-enrollment keeps the existing PIN.
+    let issuedPin: string | null = null;
+    if (!saved.attendancePinHash) {
+      const { pin, lookup } = await this.generateUniquePin(clientId);
+      saved.attendancePinHash = await bcrypt.hash(pin, 10);
+      saved.attendancePinLookup = lookup;
+      saved.attendancePinSetAt = new Date();
+      await this.profileRepo.save(saved);
+      await this.audit(clientId, actorId, 'SET_ATTENDANCE_PIN', dto.employeeId, {
+        auto: true,
+      });
+      issuedPin = pin;
+    }
+
     return {
       ok: true,
       profileId: saved.profileId,
       samples: bestSamples.length,
-      message: 'Enrollment saved',
+      pin: issuedPin,
+      message: issuedPin
+        ? `Enrolled. Attendance PIN: ${issuedPin}`
+        : 'Enrollment saved',
     };
   }
 
@@ -388,21 +408,67 @@ export class FaceDeskEnrollmentService {
         'Employee must be face-enrolled before a PIN can be set',
       );
     }
-    let pin = (explicitPin ?? '').trim();
-    if (pin) {
+    const explicit = (explicitPin ?? '').trim();
+    let pin: string;
+    let lookup: string;
+    if (explicit) {
       // Kiosk workers enter a 4-digit PIN. Accept 4–6 for admins who set one
       // explicitly, but the auto-generated default is 4 digits to match the
       // kiosk keypad and keep entry to a single short code.
-      if (!/^\d{4,6}$/.test(pin)) {
+      if (!/^\d{4,6}$/.test(explicit)) {
         throw new BadRequestException('PIN must be 4–6 digits');
       }
+      pin = explicit;
+      lookup = pinLookupHash(clientId, pin);
+      if (await this.pinTakenByOther(clientId, lookup, employeeId)) {
+        throw new ConflictException(
+          'That PIN is already in use — choose a different one',
+        );
+      }
     } else {
-      pin = String(randomInt(0, 10_000)).padStart(4, '0');
+      ({ pin, lookup } = await this.generateUniquePin(clientId));
     }
     profile.attendancePinHash = await bcrypt.hash(pin, 10);
+    profile.attendancePinLookup = lookup;
     profile.attendancePinSetAt = new Date();
     await this.profileRepo.save(profile);
     await this.audit(clientId, actorId, 'SET_ATTENDANCE_PIN', employeeId, {});
     return { employeeId, employeeCode: emp?.employeeCode ?? '', pin };
+  }
+
+  /** True if another employee in the client already holds this PIN lookup. */
+  private async pinTakenByOther(
+    clientId: string,
+    lookup: string,
+    employeeId: string,
+  ): Promise<boolean> {
+    const existing = await this.profileRepo.findOne({
+      where: { clientId, attendancePinLookup: lookup },
+      select: ['employeeId'],
+    });
+    return !!existing && existing.employeeId !== employeeId;
+  }
+
+  /**
+   * Generate a random 4-digit PIN that no other employee in the client holds.
+   * The unique index is the real guarantee; this just avoids a save that would
+   * hit it. Retries a bounded number of times before giving up (only realistic
+   * once a client approaches ~10k enrolled employees).
+   */
+  private async generateUniquePin(
+    clientId: string,
+  ): Promise<{ pin: string; lookup: string }> {
+    for (let i = 0; i < 40; i++) {
+      const pin = String(randomInt(0, 10_000)).padStart(4, '0');
+      const lookup = pinLookupHash(clientId, pin);
+      const clash = await this.profileRepo.findOne({
+        where: { clientId, attendancePinLookup: lookup },
+        select: ['employeeId'],
+      });
+      if (!clash) return { pin, lookup };
+    }
+    throw new ConflictException(
+      'Could not allocate a unique PIN — the 4-digit space for this client is exhausted',
+    );
   }
 }
