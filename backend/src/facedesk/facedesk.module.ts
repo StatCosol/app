@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BiometricModule } from '../biometric/biometric.module';
 import { FaceEmbeddingClient } from '../mobile-attendance/face/face-embedding.client';
 import { FacePhotoStorageService } from '../mobile-attendance/face/face-photo-storage.service';
+import { ContractorBiometricPunchEntity } from '../mobile-attendance/punch/contractor-punch.entity';
 import {
   FaceDeskAttendanceEntity,
   FaceDeskAuditEntity,
@@ -51,6 +52,7 @@ import { FaceDeskTicketService } from './facedesk-ticket.service';
       FaceDeskSettingsEntity,
       FaceDeskAuditEntity,
       FaceDeskEnrollTicketEntity,
+      ContractorBiometricPunchEntity,
     ]),
     BiometricModule,
   ],

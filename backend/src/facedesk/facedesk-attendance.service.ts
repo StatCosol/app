@@ -8,6 +8,7 @@ import {
   normalizeEmbeddingModel,
 } from '../mobile-attendance/face/face-math';
 import { FacePhotoStorageService } from '../mobile-attendance/face/face-photo-storage.service';
+import { ContractorBiometricPunchEntity } from '../mobile-attendance/punch/contractor-punch.entity';
 import {
   FaceDeskAttendanceEntity,
   FaceDeskFailedAttemptEntity,
@@ -19,6 +20,40 @@ import { pinLookupHash } from './facedesk-pin.util';
 import { MarkAttendanceDto } from './facedesk.dto';
 
 const BUSINESS_TZ_OFFSET_MIN = 330;
+
+/** A resolved FaceDesk profile with the subject's identity from either roster. */
+interface SubjectProfileRow {
+  employeeId: string;
+  employeeCode: string;
+  name: string;
+  branchId: string | null;
+  subjectType: 'EMPLOYEE' | 'CONTRACTOR';
+  template: Buffer | null;
+  model: string | null;
+  pinHash: string | null;
+}
+
+/**
+ * Shared SELECT + FROM for resolving a FaceDesk profile to its subject.
+ * A profile's employee_id is an employees.id or a contractor_employees.id
+ * depending on subject_type; join both rosters and COALESCE the identity so
+ * employees and contractors resolve through one path.
+ */
+const SUBJECT_PROFILE_SELECT = `
+  SELECT p.employee_id AS "employeeId",
+         COALESCE(emp.employee_code, con.employee_code) AS "employeeCode",
+         COALESCE(emp.name, con.name) AS "name",
+         p.branch_id AS "branchId",
+         p.subject_type AS "subjectType",
+         p.face_template AS "template",
+         p.embedding_model AS "model",
+         p.attendance_pin_hash AS "pinHash"
+    FROM facedesk_employee_face_profiles p
+    LEFT JOIN employees emp
+      ON p.subject_type = 'EMPLOYEE' AND emp.id = p.employee_id AND emp.client_id = p.client_id
+    LEFT JOIN contractor_employees con
+      ON p.subject_type = 'CONTRACTOR' AND con.id = p.employee_id AND con.client_id = p.client_id
+`;
 
 export interface MarkResult {
   status: 'MARKED' | 'RETRY' | 'REJECTED' | 'REVIEW';
@@ -42,6 +77,8 @@ export class FaceDeskAttendanceService {
     private readonly failRepo: Repository<FaceDeskFailedAttemptEntity>,
     @InjectRepository(FaceDeskReviewQueueEntity)
     private readonly reviewRepo: Repository<FaceDeskReviewQueueEntity>,
+    @InjectRepository(ContractorBiometricPunchEntity)
+    private readonly contractorPunchRepo: Repository<ContractorBiometricPunchEntity>,
     private readonly faceService: FaceDeskFaceService,
     private readonly settings: FaceDeskSettingsService,
     private readonly photoStorage: FacePhotoStorageService,
@@ -72,6 +109,23 @@ export class FaceDeskAttendanceService {
           AND punch_time >= $3 AND punch_time < $4
           AND attendance_status IN ('MARKED','APPROVED')`,
       [clientId, employeeId, start, end],
+    );
+    return Number(row?.n ?? 0) % 2 === 0 ? 'IN' : 'OUT';
+  }
+
+  /** IN/OUT for a contractor, alternating over the business day like employees. */
+  private async nextContractorDirection(
+    clientId: string,
+    contractorEmployeeId: string,
+    at: Date,
+  ): Promise<'IN' | 'OUT'> {
+    const { start, end } = this.businessDayBoundsUtc(at);
+    const [row] = await this.dataSource.query<Array<{ n: string }>>(
+      `SELECT count(*)::int AS n FROM contractor_biometric_punches
+        WHERE client_id = $1 AND contractor_employee_id = $2
+          AND punch_time >= $3 AND punch_time < $4
+          AND decision IN ('AUTO','APPROVED')`,
+      [clientId, contractorEmployeeId, start, end],
     );
     return Number(row?.n ?? 0) % 2 === 0 ? 'IN' : 'OUT';
   }
@@ -169,6 +223,7 @@ export class FaceDeskAttendanceService {
       employeeCode: string;
       name: string;
       branchId: string | null;
+      subjectType: 'EMPLOYEE' | 'CONTRACTOR';
     },
     cosine: number,
     margin: number,
@@ -177,28 +232,70 @@ export class FaceDeskAttendanceService {
     flagForReview = false,
   ): Promise<MarkResult> {
     const punchTime = dto.punchTime ? new Date(dto.punchTime) : new Date();
-    const punchType = await this.nextPunchType(
-      clientId,
-      employee.employeeId,
-      punchTime,
-    );
+    const resolvedBranchId = employee.branchId ?? branchId;
+    const livenessScore =
+      best3.find((f) => f.livenessScore != null)?.livenessScore ?? null;
     let photoUrl: string | null = null;
     if (dto.photoB64) {
       photoUrl = await this.photoStorage
         .uploadPhoto(dto.photoB64, clientId, employee.employeeId)
         .catch(() => null);
     }
+
+    // Contractors punch into the contractor attendance pipeline
+    // (contractor_biometric_punches → contractor payroll), NOT the employee
+    // facedesk logs — otherwise their time would land in employee payroll.
+    if (employee.subjectType === 'CONTRACTOR') {
+      const direction = await this.nextContractorDirection(
+        clientId,
+        employee.employeeId,
+        punchTime,
+      );
+      await this.contractorPunchRepo.save({
+        clientId,
+        branchId: resolvedBranchId,
+        deviceId: deviceId ?? undefined,
+        contractorEmployeeId: employee.employeeId,
+        direction,
+        punchTime,
+        matchCosine: cosine,
+        matchMargin: margin,
+        livenessScore,
+        photoUrl,
+        embeddingModel: best3[0]?.model ?? null,
+        // A face-mismatch (PIN-verified) punch counts but is flagged for review.
+        decision: flagForReview ? 'REVIEW_PENDING' : 'AUTO',
+        offlineSync: !!dto.offlineRef,
+      });
+      return {
+        status: 'MARKED',
+        message: flagForReview
+          ? 'Marked — pending branch verification'
+          : 'Attendance Marked Successfully',
+        employeeName: employee.name,
+        employeeCode: employee.employeeCode,
+        punchType: direction === 'OUT' ? 'OUT' : 'IN',
+        punchTime: punchTime.toISOString(),
+        branchId: resolvedBranchId,
+        confidencePercent,
+      };
+    }
+
+    const punchType = await this.nextPunchType(
+      clientId,
+      employee.employeeId,
+      punchTime,
+    );
     const saved = await this.attRepo.save({
       employeeId: employee.employeeId,
       clientId,
-      branchId: employee.branchId ?? branchId,
+      branchId: resolvedBranchId,
       deviceId,
       punchType,
       punchTime,
       confidenceScore: cosine,
       matchMargin: margin,
-      livenessScore:
-        best3.find((f) => f.livenessScore != null)?.livenessScore ?? null,
+      livenessScore,
       photoUrl,
       // Counts immediately; a flagged punch is reversible on branch rejection.
       attendanceStatus: 'MARKED',
@@ -240,15 +337,7 @@ export class FaceDeskAttendanceService {
     clientId: string,
     branchId: string | null,
     employeeCode: string,
-  ): Promise<{
-    employeeId: string;
-    employeeCode: string;
-    name: string;
-    branchId: string | null;
-    template: Buffer | null;
-    model: string | null;
-    pinHash: string | null;
-  } | null> {
+  ): Promise<SubjectProfileRow | null> {
     const params: unknown[] = [clientId, employeeCode];
     let branchFilter = '';
     if (branchId) {
@@ -256,15 +345,11 @@ export class FaceDeskAttendanceService {
       branchFilter = `AND (p.branch_id = $3 OR p.branch_id IS NULL)`;
     }
     const [row] = await this.dataSource.query(
-      `SELECT p.employee_id AS "employeeId", e.employee_code AS "employeeCode",
-              e.name AS "name", p.branch_id AS "branchId",
-              p.face_template AS "template", p.embedding_model AS "model",
-              p.attendance_pin_hash AS "pinHash"
-         FROM facedesk_employee_face_profiles p
-         JOIN employees e ON e.id = p.employee_id AND e.client_id = p.client_id
-        WHERE p.client_id = $1 AND e.employee_code = $2
+      `${SUBJECT_PROFILE_SELECT}
+        WHERE p.client_id = $1
+          AND COALESCE(emp.employee_code, con.employee_code) = $2
           AND p.enrollment_status = 'ENROLLED'
-          AND e.is_active = true
+          AND COALESCE(emp.is_active, con.is_active) = true
           ${branchFilter}
         LIMIT 1`,
       params,
@@ -282,17 +367,7 @@ export class FaceDeskAttendanceService {
   private async loadBranchPinRoster(
     clientId: string,
     branchId: string | null,
-  ): Promise<
-    Array<{
-      employeeId: string;
-      employeeCode: string;
-      name: string;
-      branchId: string | null;
-      template: Buffer | null;
-      model: string | null;
-      pinHash: string | null;
-    }>
-  > {
+  ): Promise<SubjectProfileRow[]> {
     const params: unknown[] = [clientId];
     let branchFilter = '';
     if (branchId) {
@@ -300,15 +375,10 @@ export class FaceDeskAttendanceService {
       branchFilter = `AND (p.branch_id = $2 OR p.branch_id IS NULL)`;
     }
     return this.dataSource.query(
-      `SELECT p.employee_id AS "employeeId", e.employee_code AS "employeeCode",
-              e.name AS "name", p.branch_id AS "branchId",
-              p.face_template AS "template", p.embedding_model AS "model",
-              p.attendance_pin_hash AS "pinHash"
-         FROM facedesk_employee_face_profiles p
-         JOIN employees e ON e.id = p.employee_id AND e.client_id = p.client_id
+      `${SUBJECT_PROFILE_SELECT}
         WHERE p.client_id = $1
           AND p.enrollment_status = 'ENROLLED'
-          AND e.is_active = true
+          AND COALESCE(emp.is_active, con.is_active) = true
           AND p.attendance_pin_hash IS NOT NULL
           ${branchFilter}`,
       params,
@@ -324,7 +394,7 @@ export class FaceDeskAttendanceService {
     clientId: string,
     branchId: string | null,
     lookup: string,
-  ): Promise<Awaited<ReturnType<typeof this.loadBranchPinRoster>>> {
+  ): Promise<SubjectProfileRow[]> {
     const params: unknown[] = [clientId, lookup];
     let branchFilter = '';
     if (branchId) {
@@ -332,16 +402,11 @@ export class FaceDeskAttendanceService {
       branchFilter = `AND (p.branch_id = $3 OR p.branch_id IS NULL)`;
     }
     return this.dataSource.query(
-      `SELECT p.employee_id AS "employeeId", e.employee_code AS "employeeCode",
-              e.name AS "name", p.branch_id AS "branchId",
-              p.face_template AS "template", p.embedding_model AS "model",
-              p.attendance_pin_hash AS "pinHash"
-         FROM facedesk_employee_face_profiles p
-         JOIN employees e ON e.id = p.employee_id AND e.client_id = p.client_id
+      `${SUBJECT_PROFILE_SELECT}
         WHERE p.client_id = $1
           AND p.attendance_pin_lookup = $2
           AND p.enrollment_status = 'ENROLLED'
-          AND e.is_active = true
+          AND COALESCE(emp.is_active, con.is_active) = true
           AND p.attendance_pin_hash IS NOT NULL
           ${branchFilter}`,
       params,
@@ -456,6 +521,7 @@ export class FaceDeskAttendanceService {
           employeeCode: claimed.employeeCode,
           name: claimed.name,
           branchId: claimed.branchId,
+          subjectType: claimed.subjectType,
         },
         cosine,
         1,
@@ -482,6 +548,7 @@ export class FaceDeskAttendanceService {
         employeeCode: claimed.employeeCode,
         name: claimed.name,
         branchId: claimed.branchId,
+        subjectType: claimed.subjectType,
       },
       cosine,
       1,
