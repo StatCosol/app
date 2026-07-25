@@ -323,14 +323,12 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     modules: string[];
   }> = [
     { key: 'PIN_FACE', label: 'PIN + Face', modules: ['CONTRACTOR_FACE_ATTENDANCE'] },
-    { key: 'FACE', label: 'Face', modules: ['CONTRACTOR_FACE_ATTENDANCE'] },
     {
       key: 'FACE_BIOMETRIC',
       label: 'Face + Biometric',
       modules: ['CONTRACTOR_FACE_ATTENDANCE', 'EMPLOYEE_ATTENDANCE'],
     },
     { key: 'ESSL', label: 'eSSL', modules: ['EMPLOYEE_ATTENDANCE'] },
-    { key: 'BIOMETRIC', label: 'Biometric', modules: ['EMPLOYEE_ATTENDANCE'] },
   ];
 
   /** All attendance-gating modules the selector manages (mutually exclusive). */
@@ -481,6 +479,10 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     }
     if (!this.clientForm.serviceModules.length) {
       this.error = 'Select at least one client service';
+      return;
+    }
+    if (!this.selectedAttendanceSystem) {
+      this.error = 'Select an attendance system';
       return;
     }
 
