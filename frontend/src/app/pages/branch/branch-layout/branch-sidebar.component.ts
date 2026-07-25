@@ -563,8 +563,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
   }
 
   private applyModuleAccess(): void {
-    if (!this.auth.getServicePackage()) return;
-
+    const hasServicePackage = !!this.auth.getServicePackage();
     const preferFaceDeskEnrollment = this.auth.hasModule('CONTRACTOR_FACE_ATTENDANCE');
     const isAllowed = (route: string) => {
       // Legacy/full-service clients can still carry both face modules. Keep one
@@ -572,6 +571,9 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
       if (route.startsWith('/branch/face-enrollment') && preferFaceDeskEnrollment) {
         return false;
       }
+      // Legacy cached sessions without package metadata retain unrestricted
+      // access to every other navigation item.
+      if (!hasServicePackage) return true;
       const module = this.moduleForRoute(route);
       return !module || this.auth.hasAnyModule(module);
     };
