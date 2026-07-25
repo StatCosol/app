@@ -81,13 +81,9 @@ class FaceCaptureSession(
         val sortedFaces = faces.sortedByDescending { faceArea(it.boundingBox) }
         val face = sortedFaces[0]
         val secondFace = sortedFaces.getOrNull(1)
-        if (secondFace != null) {
-            val dominantArea = faceArea(face.boundingBox)
-            val secondArea = faceArea(secondFace.boundingBox)
-            if (secondArea >= dominantArea * 0.35f) {
-                onHint("Multiple faces detected — only one person at a time")
-                return
-            }
+        if (secondFace != null && isRealSecondPerson(face, secondFace, bitmap.width)) {
+            onHint("Multiple faces detected — only one person at a time")
+            return
         }
 
         val faceWidth = face.boundingBox.width().toFloat() / bitmap.width.toFloat()
@@ -124,6 +120,28 @@ class FaceCaptureSession(
 
     private fun faceArea(box: Rect): Int {
         return max(0, box.width()) * max(0, box.height())
+    }
+
+    /**
+     * Whether a second detected face is really another person, not a background
+     * false positive. Busy backgrounds (patterned curtains, wall art) make ML
+     * Kit report phantom faces that blocked capture with "multiple faces".
+     * A real second person is: comparable in size to the main face, above the
+     * absolute minimum face size, AND carries genuine face classification
+     * (eye/smile probabilities) — which texture false-positives lack.
+     */
+    private fun isRealSecondPerson(
+        main: Face,
+        second: Face,
+        frameWidth: Int,
+    ): Boolean {
+        val relative = faceArea(second.boundingBox).toFloat() /
+            max(1, faceArea(main.boundingBox)).toFloat()
+        val secondWidth = second.boundingBox.width().toFloat() / frameWidth.toFloat()
+        val hasFaceClassification = second.leftEyeOpenProbability != null ||
+            second.rightEyeOpenProbability != null ||
+            second.smilingProbability != null
+        return relative >= 0.5f && secondWidth >= minFaceSize && hasFaceClassification
     }
 
     private fun cropFaceBitmap(bitmap: Bitmap, box: Rect): Bitmap {
