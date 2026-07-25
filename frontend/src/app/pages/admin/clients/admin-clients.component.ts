@@ -311,6 +311,55 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.clientForm.serviceModules = Array.from(current);
   }
 
+  /**
+   * Attendance system is chosen once per client from a friendly menu; each
+   * choice maps to the underlying attendance modules that gate what client and
+   * branch users see. Selecting one replaces any other attendance module,
+   * leaving non-attendance services (compliance, payroll, …) untouched.
+   */
+  readonly attendanceSystems: Array<{
+    key: string;
+    label: string;
+    modules: string[];
+  }> = [
+    { key: 'PIN_FACE', label: 'PIN + Face', modules: ['CONTRACTOR_FACE_ATTENDANCE'] },
+    { key: 'FACE', label: 'Face', modules: ['CONTRACTOR_FACE_ATTENDANCE'] },
+    {
+      key: 'FACE_BIOMETRIC',
+      label: 'Face + Biometric',
+      modules: ['CONTRACTOR_FACE_ATTENDANCE', 'EMPLOYEE_ATTENDANCE'],
+    },
+    { key: 'ESSL', label: 'eSSL', modules: ['EMPLOYEE_ATTENDANCE'] },
+    { key: 'BIOMETRIC', label: 'Biometric', modules: ['EMPLOYEE_ATTENDANCE'] },
+  ];
+
+  /** All attendance-gating modules the selector manages (mutually exclusive). */
+  private readonly attendanceModuleCodes = [
+    'CONTRACTOR_FACE_ATTENDANCE',
+    'MOBILE_ATTENDANCE',
+    'EMPLOYEE_ATTENDANCE',
+  ];
+
+  get selectedAttendanceSystem(): string {
+    const set = new Set(this.clientForm.serviceModules);
+    const match = this.attendanceSystems.find(
+      (s) =>
+        s.modules.every((m) => set.has(m)) &&
+        this.attendanceModuleCodes
+          .filter((m) => !s.modules.includes(m))
+          .every((m) => !set.has(m)),
+    );
+    return match?.key ?? '';
+  }
+
+  setAttendanceSystem(sys: { key: string; modules: string[] }): void {
+    const current = new Set(this.clientForm.serviceModules);
+    // Clear every attendance module, then apply this system's set.
+    this.attendanceModuleCodes.forEach((m) => current.delete(m));
+    sys.modules.forEach((m) => current.add(m));
+    this.clientForm.serviceModules = Array.from(current);
+  }
+
   serviceSummary(client: Client): string {
     const count = client.enabledModules?.length || 0;
     if (client.servicePackage === 'FULL_SERVICE') return 'Full Service';
