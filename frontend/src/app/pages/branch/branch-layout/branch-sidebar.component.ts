@@ -565,7 +565,13 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
   private applyModuleAccess(): void {
     if (!this.auth.getServicePackage()) return;
 
+    const preferFaceDeskEnrollment = this.auth.hasModule('CONTRACTOR_FACE_ATTENDANCE');
     const isAllowed = (route: string) => {
+      // Legacy/full-service clients can still carry both face modules. Keep one
+      // branch enrollment system visible while their service package is cleaned up.
+      if (route.startsWith('/branch/face-enrollment') && preferFaceDeskEnrollment) {
+        return false;
+      }
       const module = this.moduleForRoute(route);
       return !module || this.auth.hasAnyModule(module);
     };

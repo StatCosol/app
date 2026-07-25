@@ -46,7 +46,7 @@ import {
           <input class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" name="note" [(ngModel)]="form.note" placeholder="Reason for change">
         </label>
         <div class="flex items-end">
-          <button class="rounded-md bg-blue-700 px-4 py-2 text-white disabled:opacity-50" [disabled]="saving || loadingClientStatus || hasPendingRequest || !form.clientId || !form.modules.length" (click)="submit()">
+          <button class="rounded-md bg-blue-700 px-4 py-2 text-white disabled:opacity-50" [disabled]="saving || loadingClientStatus || hasPendingRequest || !form.clientId || !form.modules.length || !selectedAttendanceSystem" (click)="submit()">
             Submit for CCO
           </button>
         </div>
@@ -103,7 +103,35 @@ import {
             {{ loadingClientStatus ? 'Loading...' : 'Reload current services' }}
           </button>
         </div>
-        <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div class="mt-4 border-b border-slate-200 pb-4">
+          <h3 class="text-sm font-semibold text-slate-800">Attendance System</h3>
+          <p class="mt-1 text-xs text-slate-500">
+            Choose one system for this client. This replaces legacy attendance selections and preserves all non-attendance services.
+          </p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            @for (system of attendanceSystems; track system.key) {
+<button
+              type="button"
+              class="rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors"
+              [class.border-blue-700]="selectedAttendanceSystem === system.key"
+              [class.bg-blue-700]="selectedAttendanceSystem === system.key"
+              [class.text-white]="selectedAttendanceSystem === system.key"
+              [class.border-slate-300]="selectedAttendanceSystem !== system.key"
+              [class.bg-white]="selectedAttendanceSystem !== system.key"
+              [class.text-slate-700]="selectedAttendanceSystem !== system.key"
+              (click)="setAttendanceSystem(system)">
+              {{ system.label }}
+            </button>
+}
+          </div>
+          @if (form.clientId && !selectedAttendanceSystem) {
+<p class="mt-2 text-xs font-medium text-red-600">
+            Select one attendance system before submitting this service change.
+          </p>
+}
+        </div>
+
+        <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           @for (service of moduleOptions; track service) {
 <label
            
@@ -369,6 +397,24 @@ export class AdminServicePackagesComponent implements OnInit {
     modules: ['EMPLOYEE_COMPLIANCE'],
     note: '',
   };
+  readonly attendanceSystems: Array<{
+    key: string;
+    label: string;
+    modules: string[];
+  }> = [
+    { key: 'PIN_FACE', label: 'PIN + Face', modules: ['CONTRACTOR_FACE_ATTENDANCE'] },
+    {
+      key: 'FACE_BIOMETRIC',
+      label: 'Face + Biometric',
+      modules: ['CONTRACTOR_FACE_ATTENDANCE', 'EMPLOYEE_ATTENDANCE'],
+    },
+    { key: 'ESSL', label: 'eSSL', modules: ['EMPLOYEE_ATTENDANCE'] },
+  ];
+  private readonly attendanceModuleCodes = [
+    'CONTRACTOR_FACE_ATTENDANCE',
+    'MOBILE_ATTENDANCE',
+    'EMPLOYEE_ATTENDANCE',
+  ];
 
   constructor(
     private readonly clientsApi: AdminClientsService,
@@ -477,6 +523,26 @@ export class AdminServicePackagesComponent implements OnInit {
 
   isModuleSelected(code: string): boolean {
     return this.form.modules.includes(code);
+  }
+
+  get selectedAttendanceSystem(): string {
+    const modules = new Set(this.form.modules);
+    const match = this.attendanceSystems.find(
+      (system) =>
+        system.modules.every((module) => modules.has(module)) &&
+        this.attendanceModuleCodes
+          .filter((module) => !system.modules.includes(module))
+          .every((module) => !modules.has(module)),
+    );
+    return match?.key ?? '';
+  }
+
+  setAttendanceSystem(system: { key: string; modules: string[] }): void {
+    const modules = new Set(this.form.modules);
+    this.attendanceModuleCodes.forEach((module) => modules.delete(module));
+    system.modules.forEach((module) => modules.add(module));
+    this.form.modules = Array.from(modules);
+    this.form.packageCode = 'CUSTOM_SERVICES';
   }
 
   moduleLabel(code: string): string {
@@ -636,6 +702,11 @@ export class AdminServicePackagesComponent implements OnInit {
   submit(): void {
     if (!this.form.modules.length) {
       this.message = 'Select at least one service.';
+      this.error = true;
+      return;
+    }
+    if (!this.selectedAttendanceSystem) {
+      this.message = 'Select one attendance system.';
       this.error = true;
       return;
     }
