@@ -287,12 +287,12 @@ type Tab =
 }
         @if (!loading && review.length > 0) {
 <table class="tbl">
-          <thead><tr><th>Issue</th><th>Employee</th><th>Photo</th><th>Confidence</th><th>Punch</th><th>When</th><th class="right">Actions</th></tr></thead>
+          <thead><tr><th>Issue</th><th>Worker</th><th>Photo</th><th>Confidence</th><th>Punch</th><th>When</th><th class="right">Actions</th></tr></thead>
           <tbody>
             @for (r of review; track r) {
 <tr>
               <td><span class="pill amber">{{ r.issueType }}</span></td>
-              <td>{{ r.employeeName || r.employeeId || '—' }}<br><span class="mono text-xs text-gray-500">{{ r.employeeCode || '' }}</span></td>
+              <td>{{ r.employeeName || r.employeeId || '—' }}<br><span class="mono text-xs text-gray-500">{{ r.employeeCode || '' }}{{ r.subjectType === 'CONTRACTOR' ? ' · Contractor' : '' }}</span></td>
               <td>
                 @if (r.photoUrl) {
 <button class="link" (click)="viewPhoto(r)">View photo</button>

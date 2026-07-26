@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ContractorBiometricPunchEntity } from '../mobile-attendance/punch/contractor-punch.entity';
 import {
   FaceDeskAttendanceEntity,
   FaceDeskAuditEntity,
@@ -28,6 +29,8 @@ export class FaceDeskAdminService {
     private readonly reviewRepo: Repository<FaceDeskReviewQueueEntity>,
     @InjectRepository(FaceDeskAttendanceEntity)
     private readonly attRepo: Repository<FaceDeskAttendanceEntity>,
+    @InjectRepository(ContractorBiometricPunchEntity)
+    private readonly contractorPunchRepo: Repository<ContractorBiometricPunchEntity>,
     @InjectRepository(FaceDeskProfileEntity)
     private readonly profileRepo: Repository<FaceDeskProfileEntity>,
     @InjectRepository(FaceDeskCorrectionEntity)
@@ -134,15 +137,23 @@ export class FaceDeskAdminService {
     }
     return this.reviewRepo.manager.query(
       `SELECT rq.review_id AS "reviewId", rq.employee_id AS "employeeId",
-              e.name AS "employeeName", e.employee_code AS "employeeCode",
-              rq.attendance_id AS "attendanceId", a.photo_url AS "photoUrl",
-              a.punch_time AS "punchTime", a.punch_type AS "punchType",
+              CASE WHEN rq.contractor_punch_id IS NULL THEN 'EMPLOYEE' ELSE 'CONTRACTOR' END
+                AS "subjectType",
+              COALESCE(e.name, ce.name) AS "employeeName",
+              COALESCE(e.employee_code, ce.employee_code) AS "employeeCode",
+              rq.attendance_id AS "attendanceId",
+              rq.contractor_punch_id AS "contractorPunchId",
+              COALESCE(a.photo_url, cp.photo_url) AS "photoUrl",
+              COALESCE(a.punch_time, cp.punch_time) AS "punchTime",
+              COALESCE(a.punch_type, cp.direction) AS "punchType",
               rq.branch_id AS "branchId", rq.issue_type AS "issueType",
               rq.confidence_score AS "confidenceScore", rq.status AS "status",
               rq.admin_remarks AS "adminRemarks", rq.created_at AS "createdAt"
          FROM facedesk_attendance_review_queue rq
          LEFT JOIN employees e ON e.id = rq.employee_id
          LEFT JOIN facedesk_attendance_logs a ON a.attendance_id = rq.attendance_id
+         LEFT JOIN contractor_biometric_punches cp ON cp.id = rq.contractor_punch_id
+         LEFT JOIN contractor_employees ce ON ce.id = cp.contractor_employee_id
         WHERE rq.client_id = $1 AND rq.status = $2 ${branchFilter}
         ORDER BY rq.created_at DESC
         LIMIT 200`,
@@ -196,6 +207,33 @@ export class FaceDeskAdminService {
         await this.attRepo.update(
           { attendanceId: review.attendanceId },
           { employeeId: dto.reassignEmployeeId, attendanceStatus: 'APPROVED' },
+        );
+      }
+    }
+    if (review.contractorPunchId) {
+      if (dto.action === 'APPROVE') {
+        await this.contractorPunchRepo.update(
+          { id: review.contractorPunchId, clientId },
+          {
+            decision: 'REVIEW_APPROVED',
+            reviewedBy: actorId,
+            reviewedAt: new Date(),
+            reviewNote: dto.remarks ?? null,
+          },
+        );
+      } else if (dto.action === 'REJECT') {
+        await this.contractorPunchRepo.update(
+          { id: review.contractorPunchId, clientId },
+          {
+            decision: 'REVIEW_REJECTED',
+            reviewedBy: actorId,
+            reviewedAt: new Date(),
+            reviewNote: dto.remarks ?? null,
+          },
+        );
+      } else {
+        throw new BadRequestException(
+          'Contractor FaceDesk reviews support only approve or reject',
         );
       }
     }

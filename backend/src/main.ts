@@ -309,6 +309,42 @@ async function bootstrap() {
           ADD COLUMN IF NOT EXISTS subject_type varchar(20) NOT NULL DEFAULT 'EMPLOYEE'
       `);
       await ds.query(`
+        ALTER TABLE contractor_biometric_punches
+          ADD COLUMN IF NOT EXISTS offline_ref varchar(80)
+      `);
+      await ds.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_contractor_punch_offline_ref
+          ON contractor_biometric_punches (client_id, offline_ref)
+          WHERE offline_ref IS NOT NULL
+      `);
+      await ds.query(`
+        ALTER TABLE facedesk_attendance_review_queue
+          ADD COLUMN IF NOT EXISTS contractor_punch_id uuid
+      `);
+      await ds.query(`
+        CREATE INDEX IF NOT EXISTS idx_fd_review_contractor_punch
+          ON facedesk_attendance_review_queue (contractor_punch_id)
+          WHERE contractor_punch_id IS NOT NULL
+      `);
+      await ds.query(`
+        ALTER TABLE facedesk_attendance_review_queue
+          DROP CONSTRAINT IF EXISTS facedesk_attendance_review_queue_issue_type_check;
+        ALTER TABLE facedesk_attendance_review_queue
+          DROP CONSTRAINT IF EXISTS chk_facedesk_review_issue_type;
+        ALTER TABLE facedesk_attendance_review_queue
+          ADD CONSTRAINT chk_facedesk_review_issue_type
+          CHECK (
+            issue_type IN (
+              'DUPLICATE_ENROLLMENT',
+              'LOW_CONFIDENCE',
+              'MULTIPLE_MATCH',
+              'FACE_MISMATCH',
+              'REPEATED_FAILURE',
+              'MANUAL_CORRECTION'
+            )
+          )
+      `);
+      await ds.query(`
         ALTER TABLE facedesk_face_settings
           ADD COLUMN IF NOT EXISTS identification_mode varchar(20) NOT NULL DEFAULT 'PIN_THEN_FACE'
       `);

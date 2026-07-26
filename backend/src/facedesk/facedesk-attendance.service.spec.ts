@@ -44,6 +44,10 @@ function makeService(rosterRows: any[], todayCount = 0) {
   const reviewRepo = {
     save: jest.fn(async (r: any) => ({ ...r, reviewId: 'rev-1' })),
   };
+  const contractorPunchRepo = {
+    findOne: jest.fn().mockResolvedValue(null),
+    save: jest.fn(async (r: any) => ({ ...r, id: 'cpunch-1' })),
+  };
   const faceService = {
     resolveFrames: jest.fn(async (frames: any[]) =>
       frames.map(() => ({
@@ -89,12 +93,13 @@ function makeService(rosterRows: any[], todayCount = 0) {
     attRepo as any,
     failRepo as any,
     reviewRepo as any,
+    contractorPunchRepo as any,
     faceService as any,
     settings as any,
     photo as any,
     dataSource as any,
   );
-  return { service, attRepo, failRepo, reviewRepo };
+  return { service, attRepo, failRepo, reviewRepo, contractorPunchRepo };
 }
 
 const roster = (
@@ -257,7 +262,13 @@ describe('FaceDeskAttendanceService.markAttendance — PIN_THEN_FACE', () => {
 
 describe('FaceDeskAttendanceService.markAttendance — PIN-only (no employee code)', () => {
   const pinRoster = (
-    rows: Array<{ id: string; code: string; cos: number; pin?: string }>,
+    rows: Array<{
+      id: string;
+      code: string;
+      cos: number;
+      pin?: string;
+      subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
+    }>,
   ) =>
     Promise.all(
       rows.map(async (r) => ({
@@ -265,6 +276,7 @@ describe('FaceDeskAttendanceService.markAttendance — PIN-only (no employee cod
         employeeCode: r.code,
         name: r.code,
         branchId: 'b1',
+        subjectType: r.subjectType ?? 'EMPLOYEE',
         template: toBuf(vecForCosine(r.cos)),
         model: 'mobilefacenet',
         pinHash: await bcrypt.hash(r.pin ?? '1234', 4),
@@ -335,5 +347,193 @@ describe('FaceDeskAttendanceService.markAttendance — PIN-only (no employee cod
       expect.objectContaining({ reason: 'NO_ENROLLED' }),
     );
     expect(attRepo.save).not.toHaveBeenCalled();
+  });
+});
+
+describe('FaceDeskAttendanceService.markAttendance — contractor punch routing', () => {
+  const pinRoster = (
+    rows: Array<{
+      id: string;
+      code: string;
+      cos: number;
+      pin?: string;
+      subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
+    }>,
+  ) =>
+    Promise.all(
+      rows.map(async (r) => ({
+        employeeId: r.id,
+        employeeCode: r.code,
+        name: r.code,
+        branchId: 'b1',
+        subjectType: r.subjectType ?? 'EMPLOYEE',
+        template: toBuf(vecForCosine(r.cos)),
+        model: 'mobilefacenet',
+        pinHash: await bcrypt.hash(r.pin ?? '1234', 4),
+      })),
+    );
+
+  it('routes a CONTRACTOR punch to the contractor pipeline, not employee logs', async () => {
+    const { service, attRepo, contractorPunchRepo } = makeService(
+      await pinRoster([
+        {
+          id: 'c1e',
+          code: 'C001',
+          cos: 0.95,
+          pin: '1234',
+          subjectType: 'CONTRACTOR',
+        },
+      ]),
+    );
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      pin: '1234',
+    } as any);
+    expect(res.status).toBe('MARKED');
+    // Contractor time goes to contractor_biometric_punches …
+    expect(contractorPunchRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractorEmployeeId: 'c1e',
+        clientId: 'c1',
+        deviceId: 'd1',
+        decision: 'AUTO',
+      }),
+    );
+    // … and NEVER to the employee facedesk logs.
+    expect(attRepo.save).not.toHaveBeenCalled();
+    const directionSql = (service as any).dataSource.query.mock.calls[1][0];
+    expect(directionSql).toContain("'AUTO','REVIEW_APPROVED'");
+    expect(directionSql).not.toContain("'AUTO','APPROVED'");
+  });
+
+  it('uses a stable device ID for authenticated non-device contractor punches', async () => {
+    const { service, contractorPunchRepo } = makeService(
+      await pinRoster([
+        {
+          id: 'c1e',
+          code: 'C001',
+          cos: 0.95,
+          pin: '1234',
+          subjectType: 'CONTRACTOR',
+        },
+      ]),
+    );
+
+    await service.markAttendance('c1', 'b1', null, {
+      frames: [probeFrame()],
+      pin: '1234',
+    } as any);
+
+    expect(contractorPunchRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceId: '00000000-0000-0000-0000-000000000000',
+      }),
+    );
+  });
+
+  it('deduplicates a retried contractor offline punch by client and offlineRef', async () => {
+    const { service, contractorPunchRepo } = makeService([]);
+    contractorPunchRepo.findOne.mockResolvedValueOnce({
+      id: 'existing-punch',
+      clientId: 'c1',
+      branchId: 'b1',
+      contractorEmployeeId: 'c1e',
+      direction: 'IN',
+      punchTime: new Date('2026-07-25T03:30:00.000Z'),
+      offlineRef: 'offline-1',
+    });
+
+    const result = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      pin: '1234',
+      offlineRef: 'offline-1',
+    } as any);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'MARKED',
+        message: 'Attendance already recorded',
+        punchType: 'IN',
+      }),
+    );
+    expect(contractorPunchRepo.findOne).toHaveBeenCalledWith({
+      where: { clientId: 'c1', offlineRef: 'offline-1' },
+    });
+    expect(contractorPunchRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('persists the contractor offlineRef with the punch', async () => {
+    const { service, contractorPunchRepo } = makeService(
+      await pinRoster([
+        {
+          id: 'c1e',
+          code: 'C001',
+          cos: 0.95,
+          pin: '1234',
+          subjectType: 'CONTRACTOR',
+        },
+      ]),
+    );
+
+    await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      pin: '1234',
+      offlineRef: 'offline-2',
+    } as any);
+
+    expect(contractorPunchRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        offlineSync: true,
+        offlineRef: 'offline-2',
+      }),
+    );
+  });
+
+  it('still routes an EMPLOYEE punch to the employee logs, not contractor', async () => {
+    const { service, attRepo, contractorPunchRepo } = makeService(
+      await pinRoster([{ id: 'e1', code: 'E001', cos: 0.95, pin: '1234' }]),
+    );
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      pin: '1234',
+    } as any);
+    expect(res.status).toBe('MARKED');
+    expect(attRepo.save).toHaveBeenCalled();
+    expect(contractorPunchRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('queues a contractor face mismatch for FaceDesk review', async () => {
+    const { service, contractorPunchRepo, reviewRepo } = makeService(
+      await pinRoster([
+        {
+          id: 'c1e',
+          code: 'C001',
+          cos: 0.6,
+          pin: '1234',
+          subjectType: 'CONTRACTOR',
+        },
+      ]),
+    );
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      pin: '1234',
+    } as any);
+    expect(res.status).toBe('MARKED');
+    expect(res.message).toMatch(/verification/i);
+    expect(contractorPunchRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractorEmployeeId: 'c1e',
+        decision: 'REVIEW_PENDING',
+      }),
+    );
+    expect(reviewRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        employeeId: 'c1e',
+        contractorPunchId: 'cpunch-1',
+        attendanceId: null,
+        issueType: 'FACE_MISMATCH',
+        status: 'PENDING',
+      }),
+    );
   });
 });

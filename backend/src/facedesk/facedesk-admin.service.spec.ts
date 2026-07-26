@@ -1,0 +1,110 @@
+import { FaceDeskAdminService } from './facedesk-admin.service';
+
+function makeService() {
+  const dupeRepo = {};
+  const reviewRepo = {
+    manager: { query: jest.fn().mockResolvedValue([]) },
+    findOne: jest.fn(),
+    update: jest.fn().mockResolvedValue({ affected: 1 }),
+  };
+  const attRepo = { update: jest.fn() };
+  const contractorPunchRepo = { update: jest.fn() };
+  const profileRepo = {};
+  const correctionRepo = {};
+  const auditRepo = { save: jest.fn().mockResolvedValue({}) };
+  const service = new FaceDeskAdminService(
+    dupeRepo as any,
+    reviewRepo as any,
+    attRepo as any,
+    contractorPunchRepo as any,
+    profileRepo as any,
+    correctionRepo as any,
+    auditRepo as any,
+  );
+  return {
+    service,
+    reviewRepo,
+    attRepo,
+    contractorPunchRepo,
+    auditRepo,
+  };
+}
+
+describe('FaceDeskAdminService contractor review flow', () => {
+  it('lists contractor mismatches through the FaceDesk review query', async () => {
+    const { service, reviewRepo } = makeService();
+
+    await service.listReviewQueue('client-1');
+
+    const sql = reviewRepo.manager.query.mock.calls[0][0];
+    expect(sql).toContain('rq.contractor_punch_id AS "contractorPunchId"');
+    expect(sql).toContain(
+      'LEFT JOIN contractor_biometric_punches cp ON cp.id = rq.contractor_punch_id',
+    );
+    expect(sql).toContain(
+      'LEFT JOIN contractor_employees ce ON ce.id = cp.contractor_employee_id',
+    );
+  });
+
+  it('approves a contractor mismatch as REVIEW_APPROVED', async () => {
+    const { service, reviewRepo, contractorPunchRepo, attRepo } = makeService();
+    reviewRepo.findOne.mockResolvedValue({
+      reviewId: 'review-1',
+      clientId: 'client-1',
+      branchId: 'branch-1',
+      employeeId: 'contractor-employee-1',
+      attendanceId: null,
+      contractorPunchId: 'contractor-punch-1',
+      issueType: 'FACE_MISMATCH',
+      status: 'PENDING',
+    });
+
+    const result = await service.actOnReview(
+      'client-1',
+      'review-1',
+      'reviewer-1',
+      { action: 'APPROVE', remarks: 'Face confirmed' },
+      ['branch-1'],
+    );
+
+    expect(result).toEqual({ ok: true, status: 'APPROVED' });
+    expect(contractorPunchRepo.update).toHaveBeenCalledWith(
+      { id: 'contractor-punch-1', clientId: 'client-1' },
+      expect.objectContaining({
+        decision: 'REVIEW_APPROVED',
+        reviewedBy: 'reviewer-1',
+        reviewNote: 'Face confirmed',
+      }),
+    );
+    expect(attRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects a contractor mismatch as REVIEW_REJECTED', async () => {
+    const { service, reviewRepo, contractorPunchRepo } = makeService();
+    reviewRepo.findOne.mockResolvedValue({
+      reviewId: 'review-1',
+      clientId: 'client-1',
+      branchId: 'branch-1',
+      attendanceId: null,
+      contractorPunchId: 'contractor-punch-1',
+      issueType: 'FACE_MISMATCH',
+      status: 'PENDING',
+    });
+
+    await service.actOnReview(
+      'client-1',
+      'review-1',
+      'reviewer-1',
+      { action: 'REJECT' },
+      ['branch-1'],
+    );
+
+    expect(contractorPunchRepo.update).toHaveBeenCalledWith(
+      { id: 'contractor-punch-1', clientId: 'client-1' },
+      expect.objectContaining({
+        decision: 'REVIEW_REJECTED',
+        reviewedBy: 'reviewer-1',
+      }),
+    );
+  });
+});
