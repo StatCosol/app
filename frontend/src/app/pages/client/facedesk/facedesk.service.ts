@@ -41,10 +41,12 @@ export interface DuplicateAlert {
 
 export interface ReviewItem {
   reviewId: string;
+  subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
   employeeId: string | null;
   employeeName?: string | null;
   employeeCode?: string | null;
   attendanceId: string | null;
+  contractorPunchId?: string | null;
   photoUrl?: string | null;
   punchType?: string | null;
   punchTime?: string | null;

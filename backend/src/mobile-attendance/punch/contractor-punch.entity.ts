@@ -120,6 +120,14 @@ export class ContractorBiometricPunchEntity {
   @Column({ name: 'offline_sync', type: 'boolean', default: false })
   offlineSync: boolean;
 
+  @Column({
+    name: 'offline_ref',
+    type: 'varchar',
+    length: 80,
+    nullable: true,
+  })
+  offlineRef: string | null;
+
   /** See MobileAttendancePunchEntity.decision */
   @Column({ name: 'decision', type: 'varchar', length: 20, default: 'AUTO' })
   decision: string;

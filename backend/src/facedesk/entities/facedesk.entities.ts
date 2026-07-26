@@ -349,6 +349,9 @@ export class FaceDeskReviewQueueEntity {
   @Column({ name: 'attendance_id', type: 'uuid', nullable: true })
   attendanceId: string | null;
 
+  @Column({ name: 'contractor_punch_id', type: 'uuid', nullable: true })
+  contractorPunchId: string | null;
+
   @Column({ name: 'issue_type', type: 'varchar', length: 30 })
   issueType:
     | 'DUPLICATE_ENROLLMENT'

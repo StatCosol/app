@@ -48,6 +48,8 @@ const serviceMigrationFiles = new Set([
   '20260711_facedesk_device_admin_pin.sql',
   // FaceDesk V2 — web-initiated enrollment tickets.
   '20260711b_facedesk_enroll_tickets.sql',
+  // FaceDesk contractor punches: offline idempotency + shared review queue.
+  '20260726_facedesk_contractor_punch_review.sql',
 ]);
 
 const config = {

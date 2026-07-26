@@ -20,6 +20,7 @@ import { pinLookupHash } from './facedesk-pin.util';
 import { MarkAttendanceDto } from './facedesk.dto';
 
 const BUSINESS_TZ_OFFSET_MIN = 330;
+const FACE_DESK_WEB_DEVICE_ID = '00000000-0000-0000-0000-000000000000';
 
 /** A resolved FaceDesk profile with the subject's identity from either roster. */
 interface SubjectProfileRow {
@@ -124,7 +125,7 @@ export class FaceDeskAttendanceService {
       `SELECT count(*)::int AS n FROM contractor_biometric_punches
         WHERE client_id = $1 AND contractor_employee_id = $2
           AND punch_time >= $3 AND punch_time < $4
-          AND decision IN ('AUTO','APPROVED')`,
+          AND decision IN ('AUTO','REVIEW_APPROVED')`,
       [clientId, contractorEmployeeId, start, end],
     );
     return Number(row?.n ?? 0) % 2 === 0 ? 'IN' : 'OUT';
@@ -150,6 +151,15 @@ export class FaceDeskAttendanceService {
           punchType: existing.punchType as 'IN' | 'OUT',
           punchTime: existing.punchTime.toISOString(),
         };
+      }
+      const existingContractorPunch = await this.contractorPunchRepo.findOne({
+        where: { clientId, offlineRef: dto.offlineRef },
+      });
+      if (existingContractorPunch) {
+        return this.contractorPunchResult(
+          existingContractorPunch,
+          'Attendance already recorded',
+        );
       }
     }
 
@@ -251,22 +261,54 @@ export class FaceDeskAttendanceService {
         employee.employeeId,
         punchTime,
       );
-      await this.contractorPunchRepo.save({
-        clientId,
-        branchId: resolvedBranchId,
-        deviceId: deviceId ?? undefined,
-        contractorEmployeeId: employee.employeeId,
-        direction,
-        punchTime,
-        matchCosine: cosine,
-        matchMargin: margin,
-        livenessScore,
-        photoUrl,
-        embeddingModel: best3[0]?.model ?? null,
-        // A face-mismatch (PIN-verified) punch counts but is flagged for review.
-        decision: flagForReview ? 'REVIEW_PENDING' : 'AUTO',
-        offlineSync: !!dto.offlineRef,
-      });
+      let savedContractorPunch: ContractorBiometricPunchEntity;
+      try {
+        savedContractorPunch = await this.contractorPunchRepo.save({
+          clientId,
+          branchId: resolvedBranchId,
+          deviceId: deviceId ?? FACE_DESK_WEB_DEVICE_ID,
+          contractorEmployeeId: employee.employeeId,
+          direction,
+          punchTime,
+          matchCosine: cosine,
+          matchMargin: margin,
+          livenessScore,
+          photoUrl,
+          embeddingModel: best3[0]?.model ?? null,
+          decision: flagForReview ? 'REVIEW_PENDING' : 'AUTO',
+          offlineSync: !!dto.offlineRef,
+          offlineRef: dto.offlineRef ?? null,
+        });
+      } catch (error: unknown) {
+        // The unique (client_id, offline_ref) index closes the race between two
+        // simultaneous retries. Return the winning row as an idempotent success.
+        if (dto.offlineRef && (error as { code?: string })?.code === '23505') {
+          const existing = await this.contractorPunchRepo.findOne({
+            where: { clientId, offlineRef: dto.offlineRef },
+          });
+          if (existing) {
+            return this.contractorPunchResult(
+              existing,
+              'Attendance already recorded',
+            );
+          }
+        }
+        throw error;
+      }
+
+      if (flagForReview) {
+        await this.reviewRepo.save({
+          clientId,
+          branchId: resolvedBranchId,
+          employeeId: employee.employeeId,
+          attendanceId: null,
+          contractorPunchId: savedContractorPunch.id,
+          issueType: 'FACE_MISMATCH',
+          confidenceScore: cosine,
+          status: 'PENDING',
+          adminRemarks: `PIN correct but face did not match (${confidencePercent}%). Verify the captured photo.`,
+        });
+      }
       return {
         status: 'MARKED',
         message: flagForReview
@@ -329,6 +371,19 @@ export class FaceDeskAttendanceService {
       punchTime: saved.punchTime.toISOString(),
       branchId: saved.branchId,
       confidencePercent,
+    };
+  }
+
+  private contractorPunchResult(
+    punch: ContractorBiometricPunchEntity,
+    message: string,
+  ): MarkResult {
+    return {
+      status: 'MARKED',
+      message,
+      punchType: punch.direction === 'OUT' ? 'OUT' : 'IN',
+      punchTime: punch.punchTime.toISOString(),
+      branchId: punch.branchId,
     };
   }
 
