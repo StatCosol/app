@@ -2,13 +2,16 @@ import { ForbiddenException } from '@nestjs/common';
 import { FaceDeskController } from './facedesk.controller';
 
 function makeController() {
+  const enrollment = {
+    getEnrolledEmployees: jest.fn(),
+  };
   const admin = {
     listDuplicateAlerts: jest.fn(),
     listReviewQueue: jest.fn(),
   };
   const devices = { list: jest.fn().mockResolvedValue([]) };
   const controller = new FaceDeskController(
-    {} as any,
+    enrollment as any,
     {} as any,
     admin as any,
     {} as any,
@@ -17,7 +20,7 @@ function makeController() {
     devices as any,
     {} as any,
   );
-  return { controller, admin, devices };
+  return { controller, admin, devices, enrollment };
 }
 
 const branchUser = {
@@ -35,6 +38,18 @@ describe('FaceDeskController branch access', () => {
     void controller.listDevices(branchUser);
 
     expect(devices.list).toHaveBeenCalledWith('client-1', ['branch-1']);
+  });
+
+  it('scopes enrolled worker details to a branch user', () => {
+    const { controller, enrollment } = makeController();
+
+    void controller.enrolled(branchUser, 'CONTRACTOR');
+
+    expect(enrollment.getEnrolledEmployees).toHaveBeenCalledWith(
+      'client-1',
+      ['branch-1'],
+      'CONTRACTOR',
+    );
   });
 
   it('rejects branch users from client-wide duplicate alerts', () => {
