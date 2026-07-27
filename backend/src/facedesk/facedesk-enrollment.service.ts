@@ -88,8 +88,14 @@ export class FaceDeskEnrollmentService {
     }
     params.push(subjectType);
     const subjectParam = `$${params.length}`;
+    // contractor_employees has no employee_code column in production, so only
+    // reference it for the employees roster; contractors are listed/ordered by
+    // name (they punch by PIN, not code).
+    const isContractor = subjectType === 'CONTRACTOR';
+    const codeExpr = isContractor ? 'NULL::text' : 'e.employee_code';
+    const orderExpr = isContractor ? 'e.name' : 'e.employee_code';
     return this.dataSource.query(
-      `SELECT e.id AS "employeeId", e.employee_code AS "employeeCode",
+      `SELECT e.id AS "employeeId", ${codeExpr} AS "employeeCode",
               e.name AS "name", e.branch_id AS "branchId",
               e.department AS "department", e.designation AS "designation",
               '${subjectType}' AS "subjectType",
@@ -102,7 +108,7 @@ export class FaceDeskEnrollmentService {
           AND e.is_active = true
           AND (p.enrollment_status IS NULL OR p.enrollment_status <> 'ENROLLED')
           ${branchFilter}
-        ORDER BY e.employee_code ASC`,
+        ORDER BY ${orderExpr} ASC`,
       params,
     );
   }

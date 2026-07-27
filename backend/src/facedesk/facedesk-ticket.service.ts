@@ -62,15 +62,18 @@ export class FaceDeskTicketService {
     // roster table depends on subjectType — employees or contractor_employees.
     const subjectTable =
       subjectType === 'CONTRACTOR' ? 'contractor_employees' : 'employees';
+    // contractor_employees has no employee_code column in production.
+    const codeCol =
+      subjectType === 'CONTRACTOR' ? 'NULL::text AS employee_code' : 'employee_code';
     const [emp] = await this.dataSource.query<
       Array<{
         id: string;
         name: string;
-        employee_code: string;
+        employee_code: string | null;
         branch_id: string | null;
       }>
     >(
-      `SELECT id, name, employee_code, branch_id
+      `SELECT id, name, ${codeCol}, branch_id
          FROM ${subjectTable}
         WHERE id = $1 AND client_id = $2 AND is_active = true LIMIT 1`,
       [body.employeeId, clientId],
