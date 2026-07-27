@@ -5,6 +5,7 @@ import * as bcrypt from 'bcryptjs';
 import {
   averageEmbeddings,
   bufferToEmbedding,
+  embeddingToBuffer,
   normalizeEmbeddingModel,
 } from '../mobile-attendance/face/face-math';
 import { FacePhotoStorageService } from '../mobile-attendance/face/face-photo-storage.service';
@@ -24,6 +25,7 @@ const FACE_DESK_WEB_DEVICE_ID = '00000000-0000-0000-0000-000000000000';
 
 /** A resolved FaceDesk profile with the subject's identity from either roster. */
 interface SubjectProfileRow {
+  profileId: string;
   employeeId: string;
   employeeCode: string;
   name: string;
@@ -41,7 +43,8 @@ interface SubjectProfileRow {
  * employees and contractors resolve through one path.
  */
 const SUBJECT_PROFILE_SELECT = `
-  SELECT p.employee_id AS "employeeId",
+  SELECT p.profile_id AS "profileId",
+         p.employee_id AS "employeeId",
          emp.employee_code AS "employeeCode",
          COALESCE(emp.name, con.name) AS "name",
          p.branch_id AS "branchId",
@@ -245,6 +248,11 @@ export class FaceDeskAttendanceService {
     const resolvedBranchId = employee.branchId ?? branchId;
     const livenessScore =
       best3.find((f) => f.livenessScore != null)?.livenessScore ?? null;
+    // Keep the captured face on a flagged (mismatch) punch so HR approval can
+    // fold it into the subject's gallery (point 4). Only needed when flagging.
+    const probeEmbedding = flagForReview
+      ? embeddingToBuffer(averageEmbeddings(best3.map((f) => f.embedding)))
+      : null;
     let photoUrl: string | null = null;
     if (dto.photoB64) {
       photoUrl = await this.photoStorage
@@ -306,6 +314,7 @@ export class FaceDeskAttendanceService {
           issueType: 'FACE_MISMATCH',
           confidenceScore: cosine,
           status: 'PENDING',
+          probeEmbedding,
           adminRemarks: `PIN correct but face did not match (${confidencePercent}%). Verify the captured photo.`,
         });
       }
@@ -356,6 +365,7 @@ export class FaceDeskAttendanceService {
         issueType: 'FACE_MISMATCH',
         confidenceScore: cosine,
         status: 'PENDING',
+        probeEmbedding,
         adminRemarks: `PIN correct but face did not match (${confidencePercent}%). Verify the captured photo.`,
       });
     }
@@ -468,6 +478,30 @@ export class FaceDeskAttendanceService {
     );
   }
 
+  /**
+   * The subject's full face gallery for matching: the averaged enrollment
+   * template plus every stored sample (enrollment angles + HR-approved faces).
+   * Deduped into Float32Array probes; a punch matches on the best of these.
+   */
+  private async loadGalleryEmbeddings(
+    profileId: string,
+    template: Buffer | null,
+  ): Promise<Float32Array[]> {
+    const out: Float32Array[] = [];
+    if (template && template.length > 0) out.push(bufferToEmbedding(template));
+    const rows = await this.dataSource.query<Array<{ embedding: Buffer }>>(
+      `SELECT embedding FROM facedesk_employee_face_samples
+        WHERE profile_id = $1 AND embedding IS NOT NULL`,
+      [profileId],
+    );
+    for (const r of rows) {
+      if (r.embedding && r.embedding.length > 0) {
+        out.push(bufferToEmbedding(r.embedding));
+      }
+    }
+    return out;
+  }
+
   /** PIN_THEN_FACE 1:1: verify the entered PIN, then match the face to that one template. */
   private async markByPin(
     clientId: string,
@@ -541,15 +575,23 @@ export class FaceDeskAttendanceService {
 
     // Among the PIN-matched profiles (usually exactly one), choose the best
     // face match. When two employees happen to share a PIN, the face decides.
+    // Match against the subject's whole gallery (the averaged enrollment
+    // template PLUS every stored sample — enrollment angles and any HR-approved
+    // faces) and take the best cosine, so a previously-approved angle now
+    // passes on its own.
     let claimed: (typeof pinMatched)[number] | null = null;
     let cosine = -1;
     for (const p of pinMatched) {
-      if (!p.template || p.template.length === 0) continue;
       const pm = normalizeEmbeddingModel(p.model);
       if (probeModel && pm && probeModel !== pm) continue;
-      const c = this.faceService.cosine(probe, bufferToEmbedding(p.template));
-      if (c > cosine) {
-        cosine = c;
+      const gallery = await this.loadGalleryEmbeddings(p.profileId, p.template);
+      if (gallery.length === 0) continue;
+      let best = -1;
+      for (const emb of gallery) {
+        best = Math.max(best, this.faceService.cosine(probe, emb));
+      }
+      if (best > cosine) {
+        cosine = best;
         claimed = p;
       }
     }

@@ -9,7 +9,14 @@ function makeService() {
   };
   const attRepo = { update: jest.fn() };
   const contractorPunchRepo = { update: jest.fn() };
-  const profileRepo = {};
+  const profileRepo = {
+    findOne: jest.fn().mockResolvedValue({ profileId: 'p1', embeddingModel: 'mobilefacenet' }),
+  };
+  const sampleRepo = {
+    save: jest.fn().mockResolvedValue({}),
+    find: jest.fn().mockResolvedValue([]),
+    delete: jest.fn().mockResolvedValue({}),
+  };
   const correctionRepo = {};
   const auditRepo = { save: jest.fn().mockResolvedValue({}) };
   const service = new FaceDeskAdminService(
@@ -18,6 +25,7 @@ function makeService() {
     attRepo as any,
     contractorPunchRepo as any,
     profileRepo as any,
+    sampleRepo as any,
     correctionRepo as any,
     auditRepo as any,
   );
@@ -26,6 +34,8 @@ function makeService() {
     reviewRepo,
     attRepo,
     contractorPunchRepo,
+    sampleRepo,
+    profileRepo,
     auditRepo,
   };
 }
@@ -77,6 +87,63 @@ describe('FaceDeskAdminService contractor review flow', () => {
       }),
     );
     expect(attRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('folds the approved face into the gallery (point 4)', async () => {
+    const { service, reviewRepo, sampleRepo } = makeService();
+    reviewRepo.findOne.mockResolvedValue({
+      reviewId: 'review-1',
+      clientId: 'client-1',
+      branchId: 'branch-1',
+      employeeId: 'emp-1',
+      attendanceId: 'att-1',
+      contractorPunchId: null,
+      issueType: 'FACE_MISMATCH',
+      status: 'PENDING',
+      probeEmbedding: Buffer.from(new Float32Array([1, 0, 0, 0]).buffer),
+    });
+
+    await service.actOnReview(
+      'client-1',
+      'review-1',
+      'reviewer-1',
+      { action: 'APPROVE' },
+      ['branch-1'],
+    );
+
+    // The captured face is added to the subject's gallery as an EXPRESSION sample.
+    expect(sampleRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        employeeId: 'emp-1',
+        profileId: 'p1',
+        sampleType: 'EXPRESSION',
+      }),
+    );
+  });
+
+  it('does NOT add to the gallery on reject', async () => {
+    const { service, reviewRepo, sampleRepo } = makeService();
+    reviewRepo.findOne.mockResolvedValue({
+      reviewId: 'review-1',
+      clientId: 'client-1',
+      branchId: 'branch-1',
+      employeeId: 'emp-1',
+      attendanceId: 'att-1',
+      contractorPunchId: null,
+      issueType: 'FACE_MISMATCH',
+      status: 'PENDING',
+      probeEmbedding: Buffer.from(new Float32Array([1, 0, 0, 0]).buffer),
+    });
+
+    await service.actOnReview(
+      'client-1',
+      'review-1',
+      'reviewer-1',
+      { action: 'REJECT' },
+      ['branch-1'],
+    );
+
+    expect(sampleRepo.save).not.toHaveBeenCalled();
   });
 
   it('rejects a contractor mismatch as REVIEW_REJECTED', async () => {

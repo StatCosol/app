@@ -13,6 +13,7 @@ import {
   FaceDeskDuplicateAlertEntity,
   FaceDeskProfileEntity,
   FaceDeskReviewQueueEntity,
+  FaceDeskSampleEntity,
 } from './entities/facedesk.entities';
 import {
   DuplicateActionDto,
@@ -33,6 +34,8 @@ export class FaceDeskAdminService {
     private readonly contractorPunchRepo: Repository<ContractorBiometricPunchEntity>,
     @InjectRepository(FaceDeskProfileEntity)
     private readonly profileRepo: Repository<FaceDeskProfileEntity>,
+    @InjectRepository(FaceDeskSampleEntity)
+    private readonly sampleRepo: Repository<FaceDeskSampleEntity>,
     @InjectRepository(FaceDeskCorrectionEntity)
     private readonly correctionRepo: Repository<FaceDeskCorrectionEntity>,
     @InjectRepository(FaceDeskAuditEntity)
@@ -238,6 +241,24 @@ export class FaceDeskAdminService {
       }
     }
 
+    // Point 4 — adaptive gallery: approving a face-mismatch means "this really
+    // is them at a new angle". Fold the captured face into the subject's gallery
+    // so the next punch at that angle matches on its own. Capped so an employee's
+    // gallery can't grow without bound.
+    if (
+      dto.action === 'APPROVE' &&
+      review.issueType === 'FACE_MISMATCH' &&
+      review.employeeId &&
+      review.probeEmbedding &&
+      review.probeEmbedding.length > 0
+    ) {
+      await this.addApprovedFaceToGallery(
+        clientId,
+        review.employeeId,
+        review.probeEmbedding,
+      );
+    }
+
     await this.reviewRepo.update(
       { reviewId },
       {
@@ -259,6 +280,38 @@ export class FaceDeskAdminService {
       },
     );
     return { ok: true, status: newStatus };
+  }
+
+  /**
+   * Add an HR-approved face to the subject's gallery so a later punch at that
+   * angle matches on its own. Tagged EXPRESSION and capped to the newest 15 so
+   * the gallery stays healthy without unbounded growth. The core enrollment
+   * angles (FRONT/LEFT/RIGHT) are never touched.
+   */
+  private async addApprovedFaceToGallery(
+    clientId: string,
+    subjectId: string,
+    embedding: Buffer,
+  ): Promise<void> {
+    const profile = await this.profileRepo.findOne({
+      where: { employeeId: subjectId, clientId },
+    });
+    if (!profile) return;
+    await this.sampleRepo.save({
+      employeeId: subjectId,
+      profileId: profile.profileId,
+      sampleType: 'EXPRESSION',
+      embedding,
+      embeddingModel: profile.embeddingModel,
+    });
+    const expr = await this.sampleRepo.find({
+      where: { profileId: profile.profileId, sampleType: 'EXPRESSION' },
+      order: { createdAt: 'DESC' },
+      select: ['sampleId'],
+    });
+    if (expr.length > 15) {
+      await this.sampleRepo.delete(expr.slice(15).map((s) => s.sampleId));
+    }
   }
 
   // ── Manual corrections ────────────────────────────────────────────────────

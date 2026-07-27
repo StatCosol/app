@@ -308,6 +308,12 @@ async function bootstrap() {
         ALTER TABLE facedesk_enroll_tickets
           ADD COLUMN IF NOT EXISTS subject_type varchar(20) NOT NULL DEFAULT 'EMPLOYEE'
       `);
+      // Adaptive gallery: the flagged punch's embedding is kept so an HR
+      // approval can add that face to the subject's gallery.
+      await ds.query(`
+        ALTER TABLE facedesk_attendance_review_queue
+          ADD COLUMN IF NOT EXISTS probe_embedding bytea
+      `);
       await ds.query(`
         ALTER TABLE contractor_biometric_punches
           ADD COLUMN IF NOT EXISTS offline_ref varchar(80)
