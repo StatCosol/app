@@ -526,10 +526,12 @@ describe('FaceDeskAttendanceService.markAttendance — contractor punch routing'
     } as any);
     expect(res.status).toBe('MARKED');
     expect(res.message).toMatch(/verification/i);
+    // Counts immediately (decision AUTO, symmetric with the employee MARKED
+    // path) while the FaceDesk review queue holds the flag; HR reject retracts.
     expect(contractorPunchRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
         contractorEmployeeId: 'c1e',
-        decision: 'REVIEW_PENDING',
+        decision: 'AUTO',
       }),
     );
     expect(reviewRepo.save).toHaveBeenCalledWith(
