@@ -81,13 +81,15 @@ function makeService(rosterRows: any[], todayCount = 0) {
   const photo = {
     uploadPhoto: jest.fn(async () => '/uploads/face-photos/x.jpg'),
   };
+  // SQL-aware so the number of gallery lookups (one per PIN-matched candidate)
+  // doesn't have to be counted: samples → [], punch-count → n, else → roster.
   const dataSource = {
-    query: jest
-      .fn()
-      // loadRoster
-      .mockResolvedValueOnce(rosterRows)
-      // nextPunchType count
-      .mockResolvedValueOnce([{ n: String(todayCount) }]),
+    query: jest.fn((sql: string) => {
+      if (/facedesk_employee_face_samples/i.test(sql)) return Promise.resolve([]);
+      if (/count\(\*\)/i.test(sql))
+        return Promise.resolve([{ n: String(todayCount) }]);
+      return Promise.resolve(rosterRows);
+    }),
   };
   const service = new FaceDeskAttendanceService(
     attRepo as any,
@@ -156,11 +158,13 @@ describe('FaceDeskAttendanceService.markAttendance — PIN_THEN_FACE', () => {
 
   const makePinService = (claimedRows: any[] | null, todayCount = 0) => {
     const base = makeService([], todayCount);
-    // Re-wire dataSource: 1st query = loadClaimedProfile, 2nd = nextPunchType.
-    (base.service as any).dataSource.query = jest
-      .fn()
-      .mockResolvedValueOnce(claimedRows ?? [])
-      .mockResolvedValueOnce([{ n: String(todayCount) }]);
+    // SQL-aware: gallery samples → [], punch-count → n, else → claimed profile.
+    (base.service as any).dataSource.query = jest.fn((sql: string) => {
+      if (/facedesk_employee_face_samples/i.test(sql)) return Promise.resolve([]);
+      if (/count\(\*\)/i.test(sql))
+        return Promise.resolve([{ n: String(todayCount) }]);
+      return Promise.resolve(claimedRows ?? []);
+    });
     return base;
   };
 
@@ -401,7 +405,9 @@ describe('FaceDeskAttendanceService.markAttendance — contractor punch routing'
     );
     // … and NEVER to the employee facedesk logs.
     expect(attRepo.save).not.toHaveBeenCalled();
-    const directionSql = (service as any).dataSource.query.mock.calls[1][0];
+    const directionSql = (service as any).dataSource.query.mock.calls
+      .map((c: any[]) => c[0] as string)
+      .find((s: string) => /contractor_biometric_punches/i.test(s));
     expect(directionSql).toContain("'AUTO','REVIEW_APPROVED'");
     expect(directionSql).not.toContain("'AUTO','APPROVED'");
   });
@@ -534,6 +540,48 @@ describe('FaceDeskAttendanceService.markAttendance — contractor punch routing'
         issueType: 'FACE_MISMATCH',
         status: 'PENDING',
       }),
+    );
+  });
+});
+
+describe('FaceDeskAttendanceService.markAttendance — adaptive gallery (point 4)', () => {
+  const pinRow = async (cos: number, pin = '1234') => [
+    {
+      profileId: 'p1',
+      employeeId: 'e1',
+      employeeCode: 'E001',
+      name: 'One',
+      branchId: 'b1',
+      subjectType: 'EMPLOYEE',
+      template: toBuf(vecForCosine(cos)),
+      model: 'mobilefacenet',
+      pinHash: await bcrypt.hash(pin, 4),
+    },
+  ];
+
+  it('MARKS cleanly on a gallery sample the enrollment template alone would flag', async () => {
+    const rosterRows = await pinRow(0.5); // enrollment template is a weak match
+    const { service, attRepo, reviewRepo } = makeService(rosterRows);
+    // A previously HR-approved gallery sample is a strong match for this angle.
+    (service as any).dataSource.query = jest.fn((sql: string) => {
+      if (/facedesk_employee_face_samples/i.test(sql))
+        return Promise.resolve([{ embedding: toBuf(vecForCosine(0.95)) }]);
+      if (/count\(\*\)/i.test(sql)) return Promise.resolve([{ n: '0' }]);
+      return Promise.resolve(rosterRows);
+    });
+
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      pin: '1234',
+    } as any);
+
+    // Template alone (0.5) would be held for review; the gallery sample (0.95)
+    // clears it as a clean mark with no FACE_MISMATCH review raised.
+    expect(res.status).toBe('MARKED');
+    expect(res.message).not.toMatch(/verification/i);
+    expect(reviewRepo.save).not.toHaveBeenCalled();
+    expect(attRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ employeeId: 'e1', attendanceStatus: 'MARKED' }),
     );
   });
 });

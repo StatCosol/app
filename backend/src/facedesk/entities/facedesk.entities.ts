@@ -352,6 +352,14 @@ export class FaceDeskReviewQueueEntity {
   @Column({ name: 'contractor_punch_id', type: 'uuid', nullable: true })
   contractorPunchId: string | null;
 
+  /**
+   * The face embedding captured on the flagged punch. Kept so that when HR
+   * approves a face-mismatch, this exact face is added to the subject's gallery
+   * — a later punch at the same angle then matches automatically.
+   */
+  @Column({ name: 'probe_embedding', type: 'bytea', nullable: true })
+  probeEmbedding: Buffer | null;
+
   @Column({ name: 'issue_type', type: 'varchar', length: 30 })
   issueType:
     | 'DUPLICATE_ENROLLMENT'
