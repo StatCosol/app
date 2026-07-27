@@ -366,6 +366,45 @@ async function bootstrap() {
       logger.warn(`Schema patch facedesk PIN columns skipped: ${e?.message}`);
     }
 
+    // Contractor attendance/payroll schema (migration 20260722). The deploy
+    // migration job runs only a subset, so this never reached production —
+    // leaving contractor_employees.employee_code and the contractor payroll
+    // computation columns missing (which 500'd FaceDesk punches and blocks the
+    // contractor portal/payroll). Patch here so contractor data flows through.
+    try {
+      await ds.query(`
+        ALTER TABLE contractor_employees
+          ADD COLUMN IF NOT EXISTS employee_code varchar(80) NULL
+      `);
+      await ds.query(`
+        CREATE INDEX IF NOT EXISTS idx_ce_employee_code
+          ON contractor_employees(client_id, contractor_user_id, employee_code)
+          WHERE employee_code IS NOT NULL
+      `);
+      await ds.query(`
+        ALTER TABLE contractor_mcd_computations
+          ADD COLUMN IF NOT EXISTS minimum_daily_wage numeric(12,2) NULL,
+          ADD COLUMN IF NOT EXISTS employee_daily_wage numeric(12,2) NULL,
+          ADD COLUMN IF NOT EXISTS payable_daily_wage numeric(12,2) NOT NULL DEFAULT 0,
+          ADD COLUMN IF NOT EXISTS esi_employer_contribution numeric(12,2) NOT NULL DEFAULT 0,
+          ADD COLUMN IF NOT EXISTS lwf_employee_deduction numeric(12,2) NOT NULL DEFAULT 0,
+          ADD COLUMN IF NOT EXISTS lwf_employer_contribution numeric(12,2) NOT NULL DEFAULT 0,
+          ADD COLUMN IF NOT EXISTS total_employer_contribution numeric(12,2) NOT NULL DEFAULT 0
+      `);
+      await ds.query(`
+        UPDATE contractor_mcd_computations
+           SET payable_daily_wage = COALESCE(quotation_daily_wage, mcd_daily_wage, 0)
+         WHERE payable_daily_wage = 0
+      `);
+      await ds.query(`
+        CREATE INDEX IF NOT EXISTS idx_cmcd_branch_period
+          ON contractor_mcd_computations(branch_id, period_month)
+      `);
+      logger.log('Schema patch: contractor attendance/payroll columns OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch contractor payroll columns skipped: ${e?.message}`);
+    }
+
     try {
       await ds.query(`
         ALTER TABLE clients
