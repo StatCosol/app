@@ -140,7 +140,7 @@ export class FaceDeskAdminService {
               CASE WHEN rq.contractor_punch_id IS NULL THEN 'EMPLOYEE' ELSE 'CONTRACTOR' END
                 AS "subjectType",
               COALESCE(e.name, ce.name) AS "employeeName",
-              COALESCE(e.employee_code, ce.employee_code) AS "employeeCode",
+              e.employee_code AS "employeeCode",
               rq.attendance_id AS "attendanceId",
               rq.contractor_punch_id AS "contractorPunchId",
               COALESCE(a.photo_url, cp.photo_url) AS "photoUrl",

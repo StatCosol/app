@@ -42,7 +42,7 @@ interface SubjectProfileRow {
  */
 const SUBJECT_PROFILE_SELECT = `
   SELECT p.employee_id AS "employeeId",
-         COALESCE(emp.employee_code, con.employee_code) AS "employeeCode",
+         emp.employee_code AS "employeeCode",
          COALESCE(emp.name, con.name) AS "name",
          p.branch_id AS "branchId",
          p.subject_type AS "subjectType",
@@ -402,7 +402,7 @@ export class FaceDeskAttendanceService {
     const [row] = await this.dataSource.query(
       `${SUBJECT_PROFILE_SELECT}
         WHERE p.client_id = $1
-          AND COALESCE(emp.employee_code, con.employee_code) = $2
+          AND emp.employee_code = $2
           AND p.enrollment_status = 'ENROLLED'
           AND COALESCE(emp.is_active, con.is_active) = true
           ${branchFilter}
