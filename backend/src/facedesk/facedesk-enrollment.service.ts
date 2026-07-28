@@ -113,6 +113,55 @@ export class FaceDeskEnrollmentService {
     );
   }
 
+  /**
+   * Active subjects with a completed FaceDesk enrollment. Kept separate from
+   * the pending query so the admin UI can inspect enrollment health without
+   * changing the kiosk ticket workflow.
+   */
+  async getEnrolledEmployees(
+    clientId: string,
+    branchIds: string[] | null = null,
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE',
+  ): Promise<unknown[]> {
+    if (branchIds?.length === 0) return [];
+    const params: unknown[] = [clientId];
+    const table =
+      subjectType === 'CONTRACTOR' ? 'contractor_employees' : 'employees';
+    let branchFilter = '';
+    if (branchIds && branchIds.length > 0) {
+      params.push(branchIds);
+      branchFilter = `AND e.branch_id = ANY($${params.length}::uuid[])`;
+    }
+    params.push(subjectType);
+    const subjectParam = `$${params.length}`;
+    const isContractor = subjectType === 'CONTRACTOR';
+    const codeExpr = isContractor ? 'NULL::text' : 'e.employee_code';
+    const orderExpr = isContractor ? 'e.name' : 'e.employee_code';
+
+    return this.dataSource.query(
+      `SELECT e.id AS "employeeId", ${codeExpr} AS "employeeCode",
+              e.name AS "name", e.branch_id AS "branchId",
+              e.department AS "department", e.designation AS "designation",
+              p.subject_type AS "subjectType",
+              p.enrollment_status AS "enrollmentStatus",
+              p.quality_score AS "qualityScore",
+              p.liveness_status AS "livenessStatus",
+              p.duplicate_status AS "duplicateStatus",
+              (p.attendance_pin_hash IS NOT NULL) AS "pinConfigured",
+              p.consent_given_at AS "enrolledAt"
+         FROM ${table} e
+         JOIN facedesk_employee_face_profiles p
+           ON p.employee_id = e.id AND p.client_id = e.client_id
+          AND p.subject_type = ${subjectParam}
+        WHERE e.client_id = $1
+          AND e.is_active = true
+          AND p.enrollment_status = 'ENROLLED'
+          ${branchFilter}
+        ORDER BY ${orderExpr} ASC`,
+      params,
+    );
+  }
+
   async validateQuality(dto: { frames: SaveEnrollmentDto['frames'] }) {
     const resolved = await this.faceService.resolveFrames(dto.frames);
     const good = this.faceService.goodFrames(resolved);

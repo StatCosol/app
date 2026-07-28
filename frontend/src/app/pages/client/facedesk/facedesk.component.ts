@@ -57,7 +57,7 @@ type Tab =
           <button class="tab-btn" [class.active]="tab === 'dashboard'" (click)="switch('dashboard')">Dashboard</button>
           <button class="tab-btn" [class.active]="tab === 'devices'" (click)="switch('devices')">Devices</button>
         }
-        <button class="tab-btn" [class.active]="tab === 'pending'" (click)="switch('pending')">Pending Enrollment</button>
+        <button class="tab-btn" [class.active]="tab === 'pending'" (click)="switch('pending')">Enrollment</button>
         @if (!branchMode) {
           <button class="tab-btn" [class.active]="tab === 'duplicates'" (click)="switch('duplicates')">
             Duplicate Alerts
@@ -178,29 +178,41 @@ type Tab =
       @if (tab === 'pending') {
 
         <div class="flex flex-wrap items-end gap-2 mb-3">
-          <p class="text-sm text-gray-600 flex-1">Pick a kiosk, then click Enroll for a person. The kiosk opens the enrollment screen and pauses attendance until it's done.</p>
+          <p class="text-sm text-gray-600 flex-1">
+            {{ enrollmentView === 'PENDING'
+              ? 'Pick a kiosk, then click Enroll for a person. The kiosk opens enrollment and pauses attendance until it is done.'
+              : 'Review completed face enrollments, profile health, PIN status, and the last enrollment time.' }}
+          </p>
+          <label class="text-sm">Show
+            <select [(ngModel)]="enrollmentView" (ngModelChange)="onEnrollmentViewChange()" class="inp">
+              <option value="PENDING">Pending</option>
+              <option value="ENROLLED">Enrolled</option>
+            </select>
+          </label>
           <label class="text-sm">Enroll
             <select [(ngModel)]="enrollSubjectType" (ngModelChange)="onSubjectTypeChange()" class="inp">
               <option value="EMPLOYEE">Employees</option>
               <option value="CONTRACTOR">Contractors</option>
             </select>
           </label>
-          <label class="text-sm">Kiosk device
-            <select [(ngModel)]="enrollDeviceId" class="inp">
-              <option value="">— select device —</option>
-              @for (d of activeDevices; track d) {
+          @if (enrollmentView === 'PENDING') {
+            <label class="text-sm">Kiosk device
+              <select [(ngModel)]="enrollDeviceId" class="inp">
+                <option value="">— select device —</option>
+                @for (d of activeDevices; track d) {
 <option [value]="d.deviceId">{{ d.deviceName }} ({{ branchName(d.branchId) }})</option>
 }
-            </select>
-          </label>
+              </select>
+            </label>
+          }
         </div>
         @if (loading) {
 <ui-loading-spinner text="Loading..." size="lg"></ui-loading-spinner>
 }
-        @if (!loading && pending.length === 0) {
+        @if (!loading && enrollmentView === 'PENDING' && pending.length === 0) {
 <ui-empty-state title="All enrolled" description="No {{ enrollSubjectType === 'CONTRACTOR' ? 'contractors' : 'employees' }} are pending enrollment."></ui-empty-state>
 }
-        @if (!loading && pending.length > 0) {
+        @if (!loading && enrollmentView === 'PENDING' && pending.length > 0) {
 <table class="tbl">
           <thead><tr><th>Code</th><th>Employee</th><th>Status</th><th class="right">Action</th></tr></thead>
           <tbody>
@@ -213,6 +225,27 @@ type Tab =
                 <button class="link green" [disabled]="!enrollDeviceReady || enrollingId === r.employeeId"
                   (click)="enroll(r)">Enroll on kiosk</button>
               </td>
+            </tr>
+}
+          </tbody>
+        </table>
+}
+
+        @if (!loading && enrollmentView === 'ENROLLED' && enrolled.length === 0) {
+<ui-empty-state title="No enrolled people" description="No active {{ enrollSubjectType === 'CONTRACTOR' ? 'contractors' : 'employees' }} have completed FaceDesk enrollment."></ui-empty-state>
+}
+        @if (!loading && enrollmentView === 'ENROLLED' && enrolled.length > 0) {
+<table class="tbl">
+          <thead><tr><th>Code / Type</th><th>Worker</th><th>Branch</th><th>Profile</th><th>PIN</th><th>Enrolled</th></tr></thead>
+          <tbody>
+            @for (r of enrolled; track r.employeeId) {
+<tr>
+              <td><span class="mono">{{ r.employeeCode || '—' }}</span><br><span class="text-xs text-gray-500">{{ r.subjectType || enrollSubjectType }}</span></td>
+              <td>{{ r.employeeName || r.name }}<br><span class="text-xs text-gray-500">{{ r.department || '' }}{{ r.department && r.designation ? ' · ' : '' }}{{ r.designation || '' }}</span></td>
+              <td>{{ branchName(r.branchId) }}</td>
+              <td><span class="pill">{{ r.enrollmentStatus }}</span><br><span class="text-xs text-gray-500">Quality: {{ r.qualityScore == null ? '—' : (+r.qualityScore).toFixed(3) }} · Liveness: {{ r.livenessStatus || '—' }} · Duplicate: {{ r.duplicateStatus || '—' }}</span></td>
+              <td><span class="pill" [class.amber]="!r.pinConfigured">{{ r.pinConfigured ? 'Configured' : 'Not set' }}</span></td>
+              <td>{{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}</td>
             </tr>
 }
           </tbody>
@@ -256,8 +289,8 @@ type Tab =
           <tbody>
             @for (a of duplicates; track a) {
 <tr>
-              <td class="mono">{{ a.newEmployeeId }}</td>
-              <td class="mono">{{ a.matchedEmployeeId }}</td>
+              <td>{{ a.newEmployeeName || a.newEmployeeId }}<br><span class="mono text-xs text-gray-500">{{ a.newEmployeeCode || '' }}{{ a.newSubjectType ? ' · ' + a.newSubjectType : '' }} · {{ branchName(a.newBranchId) }}</span></td>
+              <td>{{ a.matchedEmployeeName || a.matchedEmployeeId }}<br><span class="mono text-xs text-gray-500">{{ a.matchedEmployeeCode || '' }}{{ a.matchedSubjectType ? ' · ' + a.matchedSubjectType : '' }} · {{ branchName(a.matchedBranchId) }}</span></td>
               <td>{{ (+a.similarityScore).toFixed(3) }}</td>
               <td>{{ a.createdAt | date: 'dd MMM, HH:mm' }}</td>
               <td class="right nowrap">
@@ -464,6 +497,7 @@ export class FaceDeskComponent implements OnInit {
 
   cards: FaceDeskDashboard | null = null;
   pending: PendingEnrollmentRow[] = [];
+  enrolled: PendingEnrollmentRow[] = [];
   duplicates: DuplicateAlert[] = [];
   review: ReviewItem[] = [];
   settings: FaceDeskSettings | null = null;
@@ -486,9 +520,25 @@ export class FaceDeskComponent implements OnInit {
   enrollDeviceId = '';
   enrollingId: string | null = null;
   enrollSubjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE';
+  enrollmentView: 'PENDING' | 'ENROLLED' = 'PENDING';
 
   /** Reload the pending list when the operator switches Employees/Contractors. */
   onSubjectTypeChange(): void {
+    this.loadEnrollmentRows();
+  }
+
+  onEnrollmentViewChange(): void {
+    this.loadEnrollmentRows();
+  }
+
+  private loadEnrollmentRows(): void {
+    if (this.enrollmentView === 'ENROLLED') {
+      this.load(
+        this.svc.enrolledEmployees(this.enrollSubjectType),
+        (r) => (this.enrolled = r),
+      );
+      return;
+    }
     this.load(
       this.svc.pendingEnrollment(this.enrollSubjectType),
       (r) => (this.pending = r),
@@ -557,7 +607,7 @@ export class FaceDeskComponent implements OnInit {
     if (t === 'dashboard') this.loadDashboard();
     if (t === 'devices') this.load(this.svc.devices(), (r) => (this.deviceList = r));
     if (t === 'pending') {
-      this.load(this.svc.pendingEnrollment(this.enrollSubjectType), (r) => (this.pending = r));
+      this.loadEnrollmentRows();
       if (this.deviceList.length === 0) this.svc.devices().subscribe((d) => (this.deviceList = d));
     }
     if (t === 'duplicates') this.load(this.svc.duplicateAlerts(), (r) => (this.duplicates = r));

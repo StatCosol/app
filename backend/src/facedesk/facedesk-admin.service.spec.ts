@@ -1,7 +1,9 @@
 import { FaceDeskAdminService } from './facedesk-admin.service';
 
 function makeService() {
-  const dupeRepo = {};
+  const dupeRepo = {
+    manager: { query: jest.fn().mockResolvedValue([]) },
+  };
   const reviewRepo = {
     manager: { query: jest.fn().mockResolvedValue([]) },
     findOne: jest.fn(),
@@ -31,6 +33,7 @@ function makeService() {
   );
   return {
     service,
+    dupeRepo,
     reviewRepo,
     attRepo,
     contractorPunchRepo,
@@ -41,6 +44,22 @@ function makeService() {
 }
 
 describe('FaceDeskAdminService contractor review flow', () => {
+  it('enriches duplicate alerts with both workers and subject types', async () => {
+    const { service, dupeRepo } = makeService();
+
+    await service.listDuplicateAlerts('client-1');
+
+    const [sql, params] = dupeRepo.manager.query.mock.calls[0];
+    expect(sql).toContain('COALESCE(ne.name, nc.name) AS "newEmployeeName"');
+    expect(sql).toContain(
+      'COALESCE(me.name, mc.name) AS "matchedEmployeeName"',
+    );
+    expect(sql).toContain(
+      `np.subject_type = 'CONTRACTOR' AND nc.id = da.new_employee_id`,
+    );
+    expect(params).toEqual(['client-1', 'PENDING']);
+  });
+
   it('lists contractor mismatches through the FaceDesk review query', async () => {
     const { service, reviewRepo } = makeService();
 
