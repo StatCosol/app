@@ -148,7 +148,7 @@ export class FaceDeskEnrollmentService {
               p.liveness_status AS "livenessStatus",
               p.duplicate_status AS "duplicateStatus",
               (p.attendance_pin_hash IS NOT NULL) AS "pinConfigured",
-              p.updated_at AS "enrolledAt"
+              p.consent_given_at AS "enrolledAt"
          FROM ${table} e
          JOIN facedesk_employee_face_profiles p
            ON p.employee_id = e.id AND p.client_id = e.client_id

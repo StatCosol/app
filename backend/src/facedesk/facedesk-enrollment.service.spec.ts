@@ -43,6 +43,8 @@ describe('FaceDeskEnrollmentService enrolled roster', () => {
     expect(sql).toContain(
       '(p.attendance_pin_hash IS NOT NULL) AS "pinConfigured"',
     );
+    expect(sql).toContain('p.consent_given_at AS "enrolledAt"');
+    expect(sql).not.toContain('p.updated_at AS "enrolledAt"');
     expect(sql).toContain('e.branch_id = ANY($2::uuid[])');
     expect(params).toEqual(['client-1', ['branch-1'], 'EMPLOYEE']);
   });
