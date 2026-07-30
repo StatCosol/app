@@ -33,7 +33,15 @@ export interface FaceDeskSettings {
 export interface DuplicateAlert {
   alertId: string;
   newEmployeeId: string;
+  newEmployeeName?: string | null;
+  newEmployeeCode?: string | null;
+  newSubjectType?: 'EMPLOYEE' | 'CONTRACTOR' | null;
+  newBranchId?: string | null;
   matchedEmployeeId: string;
+  matchedEmployeeName?: string | null;
+  matchedEmployeeCode?: string | null;
+  matchedSubjectType?: 'EMPLOYEE' | 'CONTRACTOR' | null;
+  matchedBranchId?: string | null;
   similarityScore: string;
   status: string;
   createdAt: string;
@@ -66,6 +74,14 @@ export interface PendingEnrollmentRow {
   branchId: string | null;
   enrollmentStatus?: string;
   status?: string;
+  subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
+  department?: string | null;
+  designation?: string | null;
+  qualityScore?: string | number | null;
+  livenessStatus?: string | null;
+  duplicateStatus?: string | null;
+  pinConfigured?: boolean;
+  enrolledAt?: string | null;
 }
 
 export interface FaceDeskDevice {
@@ -112,6 +128,14 @@ export class FaceDeskService {
   ): Observable<PendingEnrollmentRow[]> {
     return this.http.get<PendingEnrollmentRow[]>(
       `${this.base}/enrollment/pending?subjectType=${subjectType}`,
+    );
+  }
+
+  enrolledEmployees(
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE',
+  ): Observable<PendingEnrollmentRow[]> {
+    return this.http.get<PendingEnrollmentRow[]>(
+      `${this.base}/enrollment/enrolled?subjectType=${subjectType}`,
     );
   }
 

@@ -98,6 +98,20 @@ export class FaceDeskController {
     );
   }
 
+  @ApiOperation({ summary: 'Enrolled FaceDesk subjects and profile details' })
+  @Get('enrollment/enrolled')
+  @Roles('CLIENT', 'ADMIN')
+  enrolled(
+    @CurrentUser() user: ReqUser,
+    @Query('subjectType') subjectType?: string,
+  ) {
+    return this.enrollment.getEnrolledEmployees(
+      this.requireClient(user),
+      this.branchScope(user),
+      subjectType === 'CONTRACTOR' ? 'CONTRACTOR' : 'EMPLOYEE',
+    );
+  }
+
   @ApiOperation({ summary: 'Validate captured face quality' })
   @Post('enrollment/validate-quality')
   @Roles('CLIENT', 'ADMIN')

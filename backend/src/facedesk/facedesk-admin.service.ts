@@ -62,14 +62,45 @@ export class FaceDeskAdminService {
 
   // ── Duplicate alerts ──────────────────────────────────────────────────────
   listDuplicateAlerts(clientId: string, status = 'PENDING') {
-    return this.dupeRepo.find({
-      where: {
-        clientId,
-        status: status as FaceDeskDuplicateAlertEntity['status'],
-      },
-      order: { createdAt: 'DESC' },
-      take: 200,
-    });
+    return this.dupeRepo.manager.query(
+      `SELECT da.alert_id AS "alertId",
+              da.new_employee_id AS "newEmployeeId",
+              da.matched_employee_id AS "matchedEmployeeId",
+              da.similarity_score AS "similarityScore",
+              da.status AS "status", da.reviewed_by AS "reviewedBy",
+              da.reviewed_at AS "reviewedAt",
+              da.admin_remarks AS "adminRemarks",
+              da.created_at AS "createdAt",
+              np.subject_type AS "newSubjectType",
+              COALESCE(ne.name, nc.name) AS "newEmployeeName",
+              ne.employee_code AS "newEmployeeCode",
+              COALESCE(ne.branch_id, nc.branch_id, np.branch_id) AS "newBranchId",
+              mp.subject_type AS "matchedSubjectType",
+              COALESCE(me.name, mc.name) AS "matchedEmployeeName",
+              me.employee_code AS "matchedEmployeeCode",
+              COALESCE(me.branch_id, mc.branch_id, mp.branch_id) AS "matchedBranchId"
+         FROM facedesk_face_duplicate_alerts da
+         LEFT JOIN facedesk_employee_face_profiles np
+           ON np.client_id = da.client_id AND np.employee_id = da.new_employee_id
+         LEFT JOIN employees ne
+           ON np.subject_type = 'EMPLOYEE' AND ne.id = da.new_employee_id
+          AND ne.client_id = da.client_id
+         LEFT JOIN contractor_employees nc
+           ON np.subject_type = 'CONTRACTOR' AND nc.id = da.new_employee_id
+          AND nc.client_id = da.client_id
+         LEFT JOIN facedesk_employee_face_profiles mp
+           ON mp.client_id = da.client_id AND mp.employee_id = da.matched_employee_id
+         LEFT JOIN employees me
+           ON mp.subject_type = 'EMPLOYEE' AND me.id = da.matched_employee_id
+          AND me.client_id = da.client_id
+         LEFT JOIN contractor_employees mc
+           ON mp.subject_type = 'CONTRACTOR' AND mc.id = da.matched_employee_id
+          AND mc.client_id = da.client_id
+        WHERE da.client_id = $1 AND da.status = $2
+        ORDER BY da.created_at DESC
+        LIMIT 200`,
+      [clientId, status],
+    );
   }
 
   async actOnDuplicate(
