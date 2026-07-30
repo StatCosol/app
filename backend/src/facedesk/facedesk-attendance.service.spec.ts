@@ -352,6 +352,64 @@ describe('FaceDeskAttendanceService.markAttendance — PIN-only (no employee cod
     );
     expect(attRepo.save).not.toHaveBeenCalled();
   });
+
+  it('REJECTS once the device has burned through the PIN attempt limit', async () => {
+    // todayCount feeds the WRONG_PIN count(*) — 6 recent failures ≥ the default
+    // limit of 5, so the device is throttled before any roster/bcrypt work.
+    const { service, attRepo, failRepo } = makeService([], 6);
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      pin: '1234',
+    } as any);
+    expect(res.status).toBe('REJECTED');
+    expect(res.message).toMatch(/too many/i);
+    // Lockout doesn't record a fresh failure (can't extend its own window) …
+    expect(failRepo.save).not.toHaveBeenCalled();
+    // … and never marks.
+    expect(attRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('flags a shared-PIN punch when two faces are near-tied (margin below floor)', async () => {
+    const { service, attRepo, reviewRepo } = makeService(
+      await pinRoster([
+        { id: 'e1', code: 'E001', cos: 0.9, pin: '1234' },
+        { id: 'e2', code: 'E002', cos: 0.88, pin: '1234' },
+      ]),
+    );
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      pin: '1234',
+    } as any);
+    // Both faces clear the accept bar but sit within the 0.05 margin, so the
+    // punch is marked yet flagged for the branch to confirm identity.
+    expect(res.status).toBe('MARKED');
+    expect(res.message).toMatch(/verification/i);
+    expect(attRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ attendanceStatus: 'MARKED' }),
+    );
+    expect(reviewRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ issueType: 'FACE_MISMATCH', status: 'PENDING' }),
+    );
+  });
+
+  it('notes the missing evidence photo on a flagged punch when upload fails', async () => {
+    const { service, reviewRepo } = makeService(
+      await pinRoster([{ id: 'e1', code: 'E001', cos: 0.6, pin: '1234' }]),
+    );
+    (service as any).photoStorage.uploadPhoto = jest.fn(async () => null);
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      pin: '1234',
+      photoB64: 'x',
+    } as any);
+    expect(res.status).toBe('MARKED');
+    expect(reviewRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issueType: 'FACE_MISMATCH',
+        adminRemarks: expect.stringMatching(/photo unavailable/i),
+      }),
+    );
+  });
 });
 
 describe('FaceDeskAttendanceService.markAttendance — contractor punch routing', () => {

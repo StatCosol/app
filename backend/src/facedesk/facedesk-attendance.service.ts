@@ -20,8 +20,25 @@ import { FaceDeskSettingsService } from './facedesk-settings.service';
 import { pinLookupHash } from './facedesk-pin.util';
 import { MarkAttendanceDto } from './facedesk.dto';
 
-const BUSINESS_TZ_OFFSET_MIN = 330;
+// Business-day boundary offset in minutes (default +330 = IST). Env-tunable so
+// a non-India deployment can set its own day boundary without a code change.
+const BUSINESS_TZ_OFFSET_MIN = Number(
+  process.env.FD_BUSINESS_TZ_OFFSET_MIN ?? 330,
+);
 const FACE_DESK_WEB_DEVICE_ID = '00000000-0000-0000-0000-000000000000';
+
+// PIN brute-force throttle: after this many WRONG_PIN failures on a device
+// within the window, further PIN attempts are refused until it elapses.
+// FD_PIN_MAX_ATTEMPTS=0 disables the throttle.
+const PIN_MAX_ATTEMPTS = Number(process.env.FD_PIN_MAX_ATTEMPTS ?? 5);
+const PIN_LOCKOUT_MIN = Number(process.env.FD_PIN_LOCKOUT_MIN ?? 5);
+
+// When true, the client-asserted `livenessPassed` flag is NOT trusted — a punch
+// must carry a server-scored liveness frame at or above the floor. Off by
+// default (the on-device blink detector remains the primary signal).
+const REQUIRE_SERVER_LIVENESS =
+  (process.env.FD_REQUIRE_SERVER_LIVENESS ?? 'false').toLowerCase() === 'true';
+const SERVER_LIVENESS_MIN = Number(process.env.FD_SERVER_LIVENESS_MIN ?? 0.5);
 
 /** A resolved FaceDesk profile with the subject's identity from either roster. */
 interface SubjectProfileRow {
@@ -107,31 +124,37 @@ export class FaceDeskAttendanceService {
     at: Date,
   ): Promise<'IN' | 'OUT'> {
     const { start, end } = this.businessDayBoundsUtc(at);
-    const [row] = await this.dataSource.query<Array<{ n: string }>>(
-      `SELECT count(*)::int AS n FROM facedesk_attendance_logs
+    // Toggle off the most recent counted punch of the day rather than parity of
+    // the count. When a mid-day punch is later rejected, count-parity would flip
+    // every subsequent punch's IN/OUT; keying off the last surviving punch keeps
+    // direction stable and intuitive ("opposite of what they last did").
+    const [row] = await this.dataSource.query<Array<{ punch_type: string }>>(
+      `SELECT punch_type FROM facedesk_attendance_logs
         WHERE client_id = $1 AND employee_id = $2
           AND punch_time >= $3 AND punch_time < $4
-          AND attendance_status IN ('MARKED','APPROVED')`,
+          AND attendance_status IN ('MARKED','APPROVED')
+        ORDER BY punch_time DESC LIMIT 1`,
       [clientId, employeeId, start, end],
     );
-    return Number(row?.n ?? 0) % 2 === 0 ? 'IN' : 'OUT';
+    return row?.punch_type === 'IN' ? 'OUT' : 'IN';
   }
 
-  /** IN/OUT for a contractor, alternating over the business day like employees. */
+  /** IN/OUT for a contractor, toggling off the last counted punch of the day. */
   private async nextContractorDirection(
     clientId: string,
     contractorEmployeeId: string,
     at: Date,
   ): Promise<'IN' | 'OUT'> {
     const { start, end } = this.businessDayBoundsUtc(at);
-    const [row] = await this.dataSource.query<Array<{ n: string }>>(
-      `SELECT count(*)::int AS n FROM contractor_biometric_punches
+    const [row] = await this.dataSource.query<Array<{ direction: string }>>(
+      `SELECT direction FROM contractor_biometric_punches
         WHERE client_id = $1 AND contractor_employee_id = $2
           AND punch_time >= $3 AND punch_time < $4
-          AND decision IN ('AUTO','REVIEW_APPROVED')`,
+          AND decision IN ('AUTO','REVIEW_APPROVED')
+        ORDER BY punch_time DESC LIMIT 1`,
       [clientId, contractorEmployeeId, start, end],
     );
-    return Number(row?.n ?? 0) % 2 === 0 ? 'IN' : 'OUT';
+    return row?.direction === 'IN' ? 'OUT' : 'IN';
   }
 
   async markAttendance(
@@ -184,9 +207,15 @@ export class FaceDeskAttendanceService {
     }
 
     if (eff.livenessRequired) {
-      const livenessOk =
-        dto.livenessPassed === true ||
-        good.some((f) => (f.livenessScore ?? 0) >= 0.5);
+      const serverLive = good.some(
+        (f) => (f.livenessScore ?? 0) >= SERVER_LIVENESS_MIN,
+      );
+      // Default: trust the on-device blink flag OR a server-scored frame. When
+      // FD_REQUIRE_SERVER_LIVENESS is set, ignore the client flag entirely so a
+      // modified/old APK can't assert liveness it never checked.
+      const livenessOk = REQUIRE_SERVER_LIVENESS
+        ? serverLive
+        : dto.livenessPassed === true || serverLive;
       if (!livenessOk) {
         await this.recordFailed(
           clientId,
@@ -243,6 +272,7 @@ export class FaceDeskAttendanceService {
     best3: ResolvedFrame[],
     confidencePercent: number,
     flagForReview = false,
+    reviewReason?: string,
   ): Promise<MarkResult> {
     const punchTime = dto.punchTime ? new Date(dto.punchTime) : new Date();
     const resolvedBranchId = employee.branchId ?? branchId;
@@ -253,12 +283,26 @@ export class FaceDeskAttendanceService {
     const probeEmbedding = flagForReview
       ? embeddingToBuffer(averageEmbeddings(best3.map((f) => f.embedding)))
       : null;
+    // On a flagged punch the photo IS the reviewer's evidence, so upload with a
+    // retry; a single transient blob hiccup shouldn't leave the branch with a
+    // "verify the photo" task and no photo.
     let photoUrl: string | null = null;
     if (dto.photoB64) {
-      photoUrl = await this.photoStorage
-        .uploadPhoto(dto.photoB64, clientId, employee.employeeId)
-        .catch(() => null);
+      photoUrl = await this.uploadPhotoWithRetry(
+        dto.photoB64,
+        clientId,
+        employee.employeeId,
+        flagForReview,
+      );
     }
+    // Review note is photo-aware: if the evidence photo is missing, say so
+    // rather than telling the reviewer to check a photo that isn't there.
+    const reviewBase =
+      reviewReason ??
+      `PIN correct but face did not match (${confidencePercent}%).`;
+    const reviewRemark = photoUrl
+      ? `${reviewBase} Verify the captured photo.`
+      : `${reviewBase} ⚠ Captured photo unavailable — verify by other means.`;
 
     // Contractors punch into the contractor attendance pipeline
     // (contractor_biometric_punches → contractor payroll), NOT the employee
@@ -320,7 +364,7 @@ export class FaceDeskAttendanceService {
           confidenceScore: cosine,
           status: 'PENDING',
           probeEmbedding,
-          adminRemarks: `PIN correct but face did not match (${confidencePercent}%). Verify the captured photo.`,
+          adminRemarks: reviewRemark,
         });
       }
       return {
@@ -371,7 +415,7 @@ export class FaceDeskAttendanceService {
         confidenceScore: cosine,
         status: 'PENDING',
         probeEmbedding,
-        adminRemarks: `PIN correct but face did not match (${confidencePercent}%). Verify the captured photo.`,
+        adminRemarks: reviewRemark,
       });
     }
 
@@ -513,7 +557,7 @@ export class FaceDeskAttendanceService {
     branchId: string | null,
     deviceId: string | null,
     dto: MarkAttendanceDto,
-    eff: { acceptCosine: number; retryCosine: number },
+    eff: { acceptCosine: number; retryCosine: number; minMarginCosine: number },
     probe: Float32Array,
     probeModel: string | null,
     best3: ResolvedFrame[],
@@ -523,6 +567,20 @@ export class FaceDeskAttendanceService {
     if (!pin) {
       await this.recordFailed(clientId, branchId, deviceId, null, null, 'PIN_MISSING');
       return { status: 'REJECTED', message: 'Enter your PIN' };
+    }
+
+    // Brute-force guard: refuse further PIN attempts once a device has burned
+    // through the allowed WRONG_PIN failures in the window. Checked before any
+    // bcrypt work so a locked device is cheap to turn away.
+    if (
+      PIN_MAX_ATTEMPTS > 0 &&
+      (await this.recentWrongPinCount(clientId, deviceId, branchId)) >=
+        PIN_MAX_ATTEMPTS
+    ) {
+      return {
+        status: 'REJECTED',
+        message: 'Too many incorrect PINs — please wait a few minutes.',
+      };
     }
 
     // Resolve who is punching. Two supported paths:
@@ -586,6 +644,10 @@ export class FaceDeskAttendanceService {
     // passes on its own.
     let claimed: (typeof pinMatched)[number] | null = null;
     let cosine = -1;
+    // Best cosine of any OTHER distinct identity — the runner-up. Only meaningful
+    // when a PIN is shared by two people; used to enforce a separation margin so
+    // we don't confidently pick between two near-tied faces.
+    let runnerUpCosine = -1;
     for (const p of pinMatched) {
       const pm = normalizeEmbeddingModel(p.model);
       if (probeModel && pm && probeModel !== pm) continue;
@@ -596,8 +658,14 @@ export class FaceDeskAttendanceService {
         best = Math.max(best, this.faceService.cosine(probe, emb));
       }
       if (best > cosine) {
+        // Previous leader (if a different person) becomes the runner-up.
+        if (claimed && claimed.employeeId !== p.employeeId) {
+          runnerUpCosine = Math.max(runnerUpCosine, cosine);
+        }
         cosine = best;
         claimed = p;
+      } else if (claimed && p.employeeId !== claimed.employeeId) {
+        runnerUpCosine = Math.max(runnerUpCosine, best);
       }
     }
     if (!claimed) {
@@ -606,27 +674,32 @@ export class FaceDeskAttendanceService {
         message: 'Face model mismatch — please re-enroll',
       };
     }
+    // Margin over the next-best identity; a lone candidate has no competition.
+    const margin = runnerUpCosine >= 0 ? cosine - runnerUpCosine : 1;
+    const ambiguous = margin < eff.minMarginCosine;
     const confidencePercent = this.settings.cosineToPercent(cosine);
 
     // Correct PIN but the face doesn't match. Per policy, mark the punch
     // (it counts immediately) but flag it so the branch verifies the photo
     // and can reverse it — this catches buddy-punching without blocking a
     // genuine employee the model failed to match.
+    const subject = {
+      employeeId: claimed.employeeId,
+      employeeCode: claimed.employeeCode,
+      name: claimed.name,
+      branchId: claimed.branchId,
+      subjectType: claimed.subjectType,
+    };
+
     if (cosine < eff.retryCosine) {
       return this.acceptPunch(
         clientId,
         branchId,
         deviceId,
         dto,
-        {
-          employeeId: claimed.employeeId,
-          employeeCode: claimed.employeeCode,
-          name: claimed.name,
-          branchId: claimed.branchId,
-          subjectType: claimed.subjectType,
-        },
+        subject,
         cosine,
-        1,
+        margin,
         best3,
         confidencePercent,
         true, // flag for branch verification
@@ -640,22 +713,25 @@ export class FaceDeskAttendanceService {
       };
     }
 
+    // Clean face match. If a shared PIN left two near-tied identities (margin
+    // below the floor), mark but flag it — the branch decides which person it
+    // was rather than the system guessing on a hair's-width difference.
     return this.acceptPunch(
       clientId,
       branchId,
       deviceId,
       dto,
-      {
-        employeeId: claimed.employeeId,
-        employeeCode: claimed.employeeCode,
-        name: claimed.name,
-        branchId: claimed.branchId,
-        subjectType: claimed.subjectType,
-      },
+      subject,
       cosine,
-      1,
+      margin,
       best3,
       confidencePercent,
+      ambiguous,
+      ambiguous
+        ? `PIN matched two similar faces (${confidencePercent}% vs ${this.settings.cosineToPercent(
+            runnerUpCosine,
+          )}%) — confirm identity.`
+        : undefined,
     );
   }
 
@@ -675,6 +751,58 @@ export class FaceDeskAttendanceService {
       bestConfidence,
       reason,
     });
+  }
+
+  /**
+   * WRONG_PIN failures in the lockout window, scoped to the device (or the
+   * branch for the web kiosk that has no device id). Drives the brute-force
+   * throttle; the lockout attempt itself is not recorded, so it can't extend
+   * its own window.
+   */
+  private async recentWrongPinCount(
+    clientId: string,
+    deviceId: string | null,
+    branchId: string | null,
+  ): Promise<number> {
+    const since = new Date(Date.now() - PIN_LOCKOUT_MIN * 60 * 1000);
+    const params: unknown[] = [clientId, since];
+    let scope = '';
+    if (deviceId) {
+      params.push(deviceId);
+      scope = `AND device_id = $3`;
+    } else if (branchId) {
+      params.push(branchId);
+      scope = `AND branch_id = $3`;
+    }
+    const [row] = await this.dataSource.query<Array<{ n: string }>>(
+      `SELECT count(*)::int AS n FROM facedesk_attendance_failed_attempts
+        WHERE client_id = $1 AND reason = 'WRONG_PIN'
+          AND attempted_at >= $2 ${scope}`,
+      params,
+    );
+    return Number(row?.n ?? 0);
+  }
+
+  /** Upload a punch photo, retrying once when it's the evidence for a flag. */
+  private async uploadPhotoWithRetry(
+    photoB64: string,
+    clientId: string,
+    employeeId: string,
+    critical: boolean,
+  ): Promise<string | null> {
+    const attempts = critical ? 2 : 1;
+    for (let i = 0; i < attempts; i++) {
+      const url = await this.photoStorage
+        .uploadPhoto(photoB64, clientId, employeeId)
+        .catch(() => null);
+      if (url) return url;
+    }
+    if (critical) {
+      this.logger.warn(
+        `flagged-punch photo upload failed for employee ${employeeId} (client ${clientId})`,
+      );
+    }
+    return null;
   }
 
   /** Offline batch sync: mark each punch, dedupe by offlineRef, log the sync. */
