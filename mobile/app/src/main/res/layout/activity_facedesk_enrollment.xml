@@ -12,17 +12,27 @@
         app:implementationMode="compatible"
         app:scaleType="fillCenter" />
 
+    <!-- Alignment guide: keeps the subject centered while turning through the
+         guided front/left/right angles. -->
+    <View
+        android:layout_width="260dp"
+        android:layout_height="330dp"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_face_oval"
+        android:importantForAccessibility="no" />
+
     <TextView
         android:id="@+id/fdeName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top"
-        android:padding="20dp"
+        android:paddingHorizontal="20dp"
+        android:paddingVertical="22dp"
         android:gravity="center"
         android:textColor="#FFFFFF"
-        android:textSize="20sp"
+        android:textSize="22sp"
         android:textStyle="bold"
-        android:background="#66000000"
+        android:background="@drawable/bg_kiosk_top_strip"
         android:text="" />
 
     <LinearLayout
@@ -30,8 +40,8 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:orientation="vertical"
-        android:padding="20dp"
-        android:background="#88000000">
+        android:padding="24dp"
+        android:background="@drawable/bg_kiosk_scrim">
 
         <TextView
             android:id="@+id/fdeHint"
@@ -39,14 +49,19 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            android:paddingBottom="12dp"
+            android:textSize="20sp"
+            android:paddingBottom="16dp"
             android:text="@string/facedesk_enroll_prompt" />
 
         <Button
             android:id="@+id/fdeCapture"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:minHeight="60dp"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:backgroundTint="@color/brand_primary"
+            android:textColor="#FFFFFF"
             android:text="@string/facedesk_capture" />
     </LinearLayout>
 </FrameLayout>

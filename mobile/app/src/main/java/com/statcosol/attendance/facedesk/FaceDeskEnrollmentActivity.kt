@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import android.util.Size
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -66,6 +67,8 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_facedesk_enrollment)
+        // Keep the screen awake through the guided multi-angle capture.
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         previewView = findViewById(R.id.fdePreview)
         tvName = findViewById(R.id.fdeName)
         tvHint = findViewById(R.id.fdeHint)

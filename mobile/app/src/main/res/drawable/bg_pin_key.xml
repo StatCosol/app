@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Large tappable key for the kiosk PIN keypad. Pressed state gives a clear
+     brand-tinted highlight so unskilled users get obvious touch feedback. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#DBEAFE" />
+            <corners android:radius="18dp" />
+            <stroke android:width="1dp" android:color="#93C5FD" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#F1F5F9" />
+            <corners android:radius="18dp" />
+            <stroke android:width="1dp" android:color="#E2E8F0" />
+        </shape>
+    </item>
+</selector>
