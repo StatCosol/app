@@ -283,7 +283,12 @@ export class FaceDeskAttendanceService {
           livenessScore,
           photoUrl,
           embeddingModel: best3[0]?.model ?? null,
-          decision: flagForReview ? 'REVIEW_PENDING' : 'AUTO',
+          // Count the punch immediately even on a face mismatch (symmetric with
+          // the employee 'MARKED' path): 'AUTO' is counted by the contractor
+          // rollup, while the FaceDesk review queue below holds the flag. HR
+          // reject then flips it to REVIEW_REJECTED, which retracts it — the
+          // rollup is live-computed, so the reversal is exact.
+          decision: 'AUTO',
           offlineSync: !!dto.offlineRef,
           offlineRef: dto.offlineRef ?? null,
         });
