@@ -96,6 +96,14 @@ object PinKeypadDialog {
             onSubmit(pin)
         }
 
+        // Fixed-length auto-submit is deferred ~120ms so the last dot is seen
+        // filling. Revalidate the length when it fires — a backspace inside that
+        // window must not submit a now-too-short PIN — and cancel it outright on
+        // backspace so a stale runnable can never race the edit.
+        val autoSubmit = Runnable {
+            if (fixedLength != null && entered.length == fixedLength) submit()
+        }
+
         val keySize = dp(74)
         val keyMargin = dp(6)
 
@@ -131,13 +139,15 @@ object PinKeypadDialog {
             entered.append(d)
             renderDots()
             if (fixedLength != null && entered.length == fixedLength) {
-                // Brief pause so the final dot is seen filling before we submit.
-                dots.postDelayed({ submit() }, 120)
+                dots.removeCallbacks(autoSubmit)
+                dots.postDelayed(autoSubmit, 120)
             }
         }
 
         fun backspace() {
             if (entered.isNotEmpty()) {
+                // Cancel any queued auto-submit — the PIN is being edited.
+                dots.removeCallbacks(autoSubmit)
                 entered.deleteCharAt(entered.length - 1)
                 renderDots()
             }
