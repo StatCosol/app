@@ -12,17 +12,26 @@
         app:implementationMode="compatible"
         app:scaleType="fillCenter" />
 
+    <!-- Alignment guide: keeps the worker centered for a clean face crop. -->
+    <View
+        android:layout_width="260dp"
+        android:layout_height="330dp"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_face_oval"
+        android:importantForAccessibility="no" />
+
     <TextView
         android:id="@+id/fdTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top"
-        android:padding="24dp"
+        android:paddingHorizontal="24dp"
+        android:paddingVertical="28dp"
         android:gravity="center"
         android:textColor="#FFFFFF"
-        android:textSize="22sp"
+        android:textSize="24sp"
         android:textStyle="bold"
-        android:background="#66000000"
+        android:background="@drawable/bg_kiosk_top_strip"
         android:text="@string/facedesk_look_at_camera" />
 
     <TextView
@@ -30,11 +39,12 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:padding="28dp"
+        android:paddingHorizontal="28dp"
+        android:paddingVertical="32dp"
         android:gravity="center"
         android:textColor="#FFFFFF"
-        android:textSize="26sp"
+        android:textSize="27sp"
         android:textStyle="bold"
-        android:background="#88000000"
+        android:background="@drawable/bg_kiosk_scrim"
         android:text="" />
 </FrameLayout>
