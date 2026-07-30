@@ -4,10 +4,9 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.text.InputType
 import android.util.Log
 import android.util.Size
-import android.widget.EditText
+import android.view.WindowManager
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -79,6 +78,8 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_facedesk_attendance)
+        // Kiosk: never let the screen doze off mid-shift while attendance is up.
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         previewView = findViewById(R.id.fdPreview)
         tvTitle = findViewById(R.id.fdTitle)
         tvResult = findViewById(R.id.fdResult)
@@ -184,38 +185,26 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         if (pinDialog?.isShowing == true) return
         paused = true
         frames.clear(); blinkDetector.reset()
-        val pinInput = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
-            hint = getString(R.string.facedesk_pin_hint)
-            filters = arrayOf(android.text.InputFilter.LengthFilter(4))
-        }
-        val layout = android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            val pad = (16 * resources.displayMetrics.density).toInt()
-            setPadding(pad, pad, pad, 0)
-            addView(pinInput)
-        }
         pinDialog?.dismiss()
-        pinDialog = AlertDialog.Builder(this)
-            .setTitle(R.string.facedesk_pin_entry_title)
-            .setView(layout)
-            .setCancelable(false)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
+        // Big on-screen numeric keypad — no soft keyboard. Auto-submits the
+        // instant a full 4-digit PIN is tapped; non-cancelable so the kiosk
+        // always has a claimed PIN before the camera is used.
+        pinDialog = PinKeypadDialog.show(
+            activity = this,
+            title = getString(R.string.facedesk_pin_entry_title),
+            fixedLength = 4,
+            cancelable = false,
+            onSubmit = { pin ->
                 pinDialog = null
-                val pin = pinInput.text.toString().trim()
-                if (pin.isEmpty()) {
-                    promptPinEntry()
-                } else {
-                    enteredCode = null
-                    enteredPin = pin
-                    paused = false
-                    runOnUiThread {
-                        tvResult.text = ""
-                        tvTitle.text = getString(R.string.facedesk_look_at_camera)
-                    }
+                enteredCode = null
+                enteredPin = pin
+                paused = false
+                runOnUiThread {
+                    tvResult.text = ""
+                    tvTitle.text = getString(R.string.facedesk_look_at_camera)
                 }
-            }
-            .show()
+            },
+        )
     }
 
     override fun onPause() {
@@ -380,24 +369,23 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     /** PIN gate → open the enrollment picker (admin action). */
     private fun promptEnrollmentUnlock() {
         val config = DeviceConfig(this)
-        val input = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
-            hint = getString(R.string.facedesk_admin_pin_hint)
-        }
-        AlertDialog.Builder(this)
-            .setTitle(R.string.facedesk_enroll_mode_title)
-            .setMessage(R.string.facedesk_admin_pin_message)
-            .setView(input)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                if (input.text.toString() == config.faceDeskAdminPin) {
+        // Same big keypad, variable length (admin PINs are 4–12 digits) with an
+        // OK key, and cancelable since this is an optional admin action.
+        PinKeypadDialog.show(
+            activity = this,
+            title = getString(R.string.facedesk_enroll_mode_title),
+            message = getString(R.string.facedesk_admin_pin_message),
+            fixedLength = null,
+            cancelable = true,
+            onSubmit = { pin ->
+                if (pin == config.faceDeskAdminPin) {
                     startActivity(Intent(this, FaceDeskEnrollPickerActivity::class.java))
                 } else {
                     runOnUiThread { tvResult.text = getString(R.string.facedesk_wrong_pin) }
                     tvResult.postDelayed({ runOnUiThread { tvResult.text = "" } }, 1500)
                 }
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+            },
+        )
     }
 
     private fun flushOfflineQueue() {
