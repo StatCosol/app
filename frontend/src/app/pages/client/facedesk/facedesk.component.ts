@@ -236,7 +236,7 @@ type Tab =
 }
         @if (!loading && enrollmentView === 'ENROLLED' && enrolled.length > 0) {
 <table class="tbl">
-          <thead><tr><th>Code / Type</th><th>Worker</th><th>Branch</th><th>Profile</th><th>PIN</th><th>Enrolled</th></tr></thead>
+          <thead><tr><th>Code / Type</th><th>Worker</th><th>Branch</th><th>Profile</th><th>PIN</th><th>Enrolled</th><th class="right">Actions</th></tr></thead>
           <tbody>
             @for (r of enrolled; track r.employeeId) {
 <tr>
@@ -246,6 +246,10 @@ type Tab =
               <td><span class="pill">{{ r.enrollmentStatus }}</span><br><span class="text-xs text-gray-500">Quality: {{ r.qualityScore == null ? '—' : (+r.qualityScore).toFixed(3) }} · Liveness: {{ r.livenessStatus || '—' }} · Duplicate: {{ r.duplicateStatus || '—' }}</span></td>
               <td><span class="pill" [class.amber]="!r.pinConfigured">{{ r.pinConfigured ? 'Configured' : 'Not set' }}</span></td>
               <td>{{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}</td>
+              <td class="right nowrap">
+                <button class="link red" [disabled]="deletingId === r.employeeId"
+                  (click)="deleteEnrollment(r)">Delete</button>
+              </td>
             </tr>
 }
           </tbody>
@@ -519,6 +523,7 @@ export class FaceDeskComponent implements OnInit {
   newInstallToken: string | null = null;
   enrollDeviceId = '';
   enrollingId: string | null = null;
+  deletingId: string | null = null;
   enrollSubjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE';
   enrollmentView: 'PENDING' | 'ENROLLED' = 'PENDING';
 
@@ -740,6 +745,32 @@ export class FaceDeskComponent implements OnInit {
         this.toast.error(e?.error?.message || 'Could not create enrollment');
       },
     });
+  }
+
+  /** Delete an enrolled subject's face profile + PIN (history is preserved). */
+  async deleteEnrollment(r: PendingEnrollmentRow): Promise<void> {
+    const empId = r.employeeId;
+    if (!empId) return;
+    const ok = await this.dialog.confirm(
+      'Delete enrollment',
+      `Remove ${r.employeeName || r.name || 'this worker'}'s face enrollment and PIN? Their attendance history is kept, but they must be re-enrolled to punch again.`,
+      { confirmText: 'Delete', variant: 'danger' },
+    );
+    if (!ok) return;
+    this.deletingId = empId;
+    this.svc
+      .deleteEnrollment(empId, r.subjectType || this.enrollSubjectType)
+      .subscribe({
+        next: () => {
+          this.deletingId = null;
+          this.toast.success('Enrollment deleted');
+          this.loadEnrollmentRows();
+        },
+        error: (e) => {
+          this.deletingId = null;
+          this.toast.error(e?.error?.message || 'Could not delete enrollment');
+        },
+      });
   }
 
   provision(): void {
