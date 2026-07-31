@@ -91,6 +91,22 @@ function makeService(rosterRows: any[], todayCount = 0) {
       return Promise.resolve(rosterRows);
     }),
   };
+  // Default liveness provider mirrors DeviceLivenessProvider: trust the client
+  // blink flag OR a server-scored frame ≥ 0.5.
+  const liveness = {
+    name: 'device',
+    evaluate: jest.fn(async (input: any) => {
+      const best = Math.max(
+        -1,
+        ...input.serverScores.map((s: number | null) => s ?? -1),
+      );
+      return {
+        passed: input.clientAsserted || best >= 0.5,
+        score: best >= 0 ? best : null,
+        provider: 'device',
+      };
+    }),
+  };
   const service = new FaceDeskAttendanceService(
     attRepo as any,
     failRepo as any,
@@ -100,6 +116,7 @@ function makeService(rosterRows: any[], todayCount = 0) {
     settings as any,
     photo as any,
     dataSource as any,
+    liveness as any,
   );
   return { service, attRepo, failRepo, reviewRepo, contractorPunchRepo };
 }

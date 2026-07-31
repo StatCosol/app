@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -17,6 +17,10 @@ import {
 } from './entities/facedesk.entities';
 import { FaceDeskFaceService, ResolvedFrame } from './facedesk-face.service';
 import { FaceDeskSettingsService } from './facedesk-settings.service';
+import {
+  FACEDESK_LIVENESS_PROVIDER,
+  FaceDeskLivenessProvider,
+} from './facedesk-liveness.provider';
 import { pinLookupHash } from './facedesk-pin.util';
 import { MarkAttendanceDto } from './facedesk.dto';
 
@@ -32,13 +36,6 @@ const FACE_DESK_WEB_DEVICE_ID = '00000000-0000-0000-0000-000000000000';
 // FD_PIN_MAX_ATTEMPTS=0 disables the throttle.
 const PIN_MAX_ATTEMPTS = Number(process.env.FD_PIN_MAX_ATTEMPTS ?? 5);
 const PIN_LOCKOUT_MIN = Number(process.env.FD_PIN_LOCKOUT_MIN ?? 5);
-
-// When true, the client-asserted `livenessPassed` flag is NOT trusted — a punch
-// must carry a server-scored liveness frame at or above the floor. Off by
-// default (the on-device blink detector remains the primary signal).
-const REQUIRE_SERVER_LIVENESS =
-  (process.env.FD_REQUIRE_SERVER_LIVENESS ?? 'false').toLowerCase() === 'true';
-const SERVER_LIVENESS_MIN = Number(process.env.FD_SERVER_LIVENESS_MIN ?? 0.5);
 
 /** A resolved FaceDesk profile with the subject's identity from either roster. */
 interface SubjectProfileRow {
@@ -104,6 +101,8 @@ export class FaceDeskAttendanceService {
     private readonly settings: FaceDeskSettingsService,
     private readonly photoStorage: FacePhotoStorageService,
     private readonly dataSource: DataSource,
+    @Inject(FACEDESK_LIVENESS_PROVIDER)
+    private readonly liveness: FaceDeskLivenessProvider,
   ) {}
 
   private businessDayBoundsUtc(d: Date): { start: Date; end: Date } {
@@ -207,16 +206,14 @@ export class FaceDeskAttendanceService {
     }
 
     if (eff.livenessRequired) {
-      const serverLive = good.some(
-        (f) => (f.livenessScore ?? 0) >= SERVER_LIVENESS_MIN,
-      );
-      // Default: trust the on-device blink flag OR a server-scored frame. When
-      // FD_REQUIRE_SERVER_LIVENESS is set, ignore the client flag entirely so a
-      // modified/old APK can't assert liveness it never checked.
-      const livenessOk = REQUIRE_SERVER_LIVENESS
-        ? serverLive
-        : dto.livenessPassed === true || serverLive;
-      if (!livenessOk) {
+      // Liveness verdict comes from the configured provider (device blink by
+      // default; a stronger provider such as Azure Face Liveness can be bound in
+      // later without touching this path).
+      const liveness = await this.liveness.evaluate({
+        clientAsserted: dto.livenessPassed === true,
+        serverScores: good.map((f) => f.livenessScore ?? null),
+      });
+      if (!liveness.passed) {
         await this.recordFailed(
           clientId,
           branchId,
