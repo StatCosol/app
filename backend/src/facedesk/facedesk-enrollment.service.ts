@@ -423,6 +423,44 @@ export class FaceDeskEnrollmentService {
     return this.saveProfile(clientId, branchId, actorId, dto);
   }
 
+  /**
+   * Delete a subject's FaceDesk enrollment: removes the face profile (template +
+   * PIN) and every stored sample so the subject returns to "pending" and can be
+   * re-enrolled cleanly. Attendance history (logs / contractor punches) is keyed
+   * by employee id, not the profile, so it is preserved. Branch-scoped callers
+   * may only delete enrollments within their own branches.
+   */
+  async deleteEnrollment(
+    clientId: string,
+    actorId: string,
+    employeeId: string,
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE',
+    branchIds?: string[] | null,
+  ): Promise<{ ok: true }> {
+    const profile = await this.profileRepo.findOne({
+      where: { employeeId, clientId, subjectType },
+    });
+    if (!profile) {
+      throw new NotFoundException('No enrollment found for this subject');
+    }
+    if (
+      branchIds &&
+      branchIds.length > 0 &&
+      profile.branchId &&
+      !branchIds.includes(profile.branchId)
+    ) {
+      throw new NotFoundException('Enrollment is not in your branch scope');
+    }
+    // Samples reference the profile, so remove them first, then the profile.
+    await this.sampleRepo.delete({ profileId: profile.profileId });
+    await this.profileRepo.delete({ profileId: profile.profileId });
+    await this.audit(clientId, actorId, 'ENROLLMENT_DELETED', employeeId, {
+      subjectType,
+      profileId: profile.profileId,
+    });
+    return { ok: true };
+  }
+
   private avgQuality(frames: ResolvedFrame[]): number {
     if (!frames.length) return 0;
     return (

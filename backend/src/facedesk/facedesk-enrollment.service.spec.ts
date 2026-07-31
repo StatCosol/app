@@ -61,3 +61,64 @@ describe('FaceDeskEnrollmentService enrolled roster', () => {
     expect(params).toEqual(['client-1', 'CONTRACTOR']);
   });
 });
+
+describe('FaceDeskEnrollmentService deleteEnrollment', () => {
+  const build = (profile: any) => {
+    const profileRepo = {
+      findOne: jest.fn().mockResolvedValue(profile),
+      delete: jest.fn().mockResolvedValue({}),
+    };
+    const sampleRepo = { delete: jest.fn().mockResolvedValue({}) };
+    const auditRepo = { save: jest.fn().mockResolvedValue({}) };
+    const service = new FaceDeskEnrollmentService(
+      profileRepo as any,
+      sampleRepo as any,
+      {} as any,
+      {} as any,
+      auditRepo as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      { query: jest.fn() } as any,
+    );
+    return { service, profileRepo, sampleRepo, auditRepo };
+  };
+
+  it('deletes the samples then the profile and writes an audit', async () => {
+    const { service, profileRepo, sampleRepo, auditRepo } = build({
+      profileId: 'p1',
+      employeeId: 'e1',
+      clientId: 'c1',
+      subjectType: 'EMPLOYEE',
+      branchId: 'b1',
+    });
+    const res = await service.deleteEnrollment('c1', 'actor', 'e1', 'EMPLOYEE', [
+      'b1',
+    ]);
+    expect(res).toEqual({ ok: true });
+    expect(sampleRepo.delete).toHaveBeenCalledWith({ profileId: 'p1' });
+    expect(profileRepo.delete).toHaveBeenCalledWith({ profileId: 'p1' });
+    expect(auditRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'ENROLLMENT_DELETED', entityId: 'e1' }),
+    );
+  });
+
+  it('refuses to delete an enrollment outside the branch scope', async () => {
+    const { service, profileRepo, sampleRepo } = build({
+      profileId: 'p1',
+      branchId: 'b1',
+    });
+    await expect(
+      service.deleteEnrollment('c1', 'actor', 'e1', 'EMPLOYEE', ['b2']),
+    ).rejects.toThrow(/scope/i);
+    expect(sampleRepo.delete).not.toHaveBeenCalled();
+    expect(profileRepo.delete).not.toHaveBeenCalled();
+  });
+
+  it('throws when there is no enrollment to delete', async () => {
+    const { service } = build(null);
+    await expect(
+      service.deleteEnrollment('c1', 'actor', 'missing'),
+    ).rejects.toThrow(/no enrollment/i);
+  });
+});
