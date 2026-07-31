@@ -72,6 +72,12 @@ const EDITABLE_STATUSES = new Set([
               <label class="block text-xs font-medium text-slate-600 mb-1">Place of Supply</label>
               <input formControlName="placeOfSupply" class="w-full px-3 py-2 border rounded-lg text-sm">
             </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Client PO Number</label>
+              <input formControlName="purchaseOrderNumber" maxlength="100"
+                     class="w-full px-3 py-2 border rounded-lg text-sm"
+                     placeholder="PO number provided by client">
+            </div>
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Remarks</label>
@@ -194,6 +200,7 @@ export class BillingCreateInvoiceComponent implements OnInit {
       invoiceDate: [new Date().toISOString().split('T')[0], Validators.required],
       dueDate: [''],
       placeOfSupply: [''],
+      purchaseOrderNumber: [''],
       remarks: [''],
       items: this.fb.array([this.newItem()]),
     });
@@ -236,6 +243,7 @@ export class BillingCreateInvoiceComponent implements OnInit {
             invoiceDate: inv.invoiceDate,
             dueDate: inv.dueDate || '',
             placeOfSupply: inv.placeOfSupply || '',
+            purchaseOrderNumber: inv.purchaseOrderNumber || '',
             remarks: inv.remarks || '',
           });
           this.selectedClient = inv.billingClient || null;

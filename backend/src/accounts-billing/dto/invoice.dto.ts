@@ -11,6 +11,7 @@ import {
   Min,
   Max,
   IsPositive,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { InvoiceType } from '../enums';
@@ -88,6 +89,11 @@ export class CreateInvoiceDto {
   @IsString()
   remarks?: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  purchaseOrderNumber?: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateInvoiceItemDto)
@@ -121,8 +127,28 @@ export class UpdateInvoiceDto {
   remarks?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  purchaseOrderNumber?: string;
+
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateInvoiceItemDto)
   items?: CreateInvoiceItemDto[];
+}
+
+export class ConvertProformaDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  purchaseOrderNumber: string;
+
+  @IsOptional()
+  @IsDateString()
+  invoiceDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string;
 }

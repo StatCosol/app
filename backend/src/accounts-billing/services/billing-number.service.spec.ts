@@ -63,6 +63,23 @@ describe('BillingNumberService', () => {
     ).resolves.toBe('STSINV/2627/0010');
   });
 
+  it('uses separate number series for Proforma and Tax Invoices', async () => {
+    const { service } = makeService();
+
+    const proformaNumber = await service.generateInvoiceNumber(
+      InvoiceType.PROFORMA,
+      '2026-07-31',
+    );
+    const taxInvoiceNumber = await service.generateInvoiceNumber(
+      InvoiceType.TAX_INVOICE,
+      '2026-07-31',
+    );
+
+    expect(proformaNumber).toBe('STSPI/2627/0001');
+    expect(taxInvoiceNumber).toBe('STSINV/2627/0001');
+    expect(taxInvoiceNumber).not.toBe(proformaNumber);
+  });
+
   it('rejects prefixes that cannot fit the 16 character invoice limit', async () => {
     const { service } = makeService({ prefix: 'STATCO/INV' });
 

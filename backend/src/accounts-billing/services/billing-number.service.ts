@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { Invoice } from '../entities';
 import { InvoiceType } from '../enums';
 import { BillingSetting } from '../entities';
@@ -28,8 +28,14 @@ export class BillingNumberService {
     return `${year - 1}-${String(year).slice(2)}`;
   }
 
-  async getPrefix(invoiceType: InvoiceType): Promise<string> {
-    const settings = await this.settingsRepo.findOne({ where: {} });
+  async getPrefix(
+    invoiceType: InvoiceType,
+    manager?: EntityManager,
+  ): Promise<string> {
+    const settingsRepo = manager
+      ? manager.getRepository(BillingSetting)
+      : this.settingsRepo;
+    const settings = await settingsRepo.findOne({ where: {} });
     switch (invoiceType) {
       case InvoiceType.TAX_INVOICE:
         return settings?.invoicePrefix || 'STS/INV';
@@ -45,13 +51,19 @@ export class BillingNumberService {
   async generateInvoiceNumber(
     invoiceType: InvoiceType,
     invoiceDate: string,
+    manager?: EntityManager,
   ): Promise<string> {
     const date = new Date(invoiceDate);
     const fy = this.getFinancialYear(date);
-    const prefix = normalizeInvoicePrefix(await this.getPrefix(invoiceType));
+    const prefix = normalizeInvoicePrefix(
+      await this.getPrefix(invoiceType, manager),
+    );
     const fullPrefix = `${prefix}/${compactFinancialYear(fy)}/`;
 
-    const lastInvoice = await this.invoiceRepo
+    const invoiceRepo = manager
+      ? manager.getRepository(Invoice)
+      : this.invoiceRepo;
+    const lastInvoice = await invoiceRepo
       .createQueryBuilder('inv')
       .where('inv.invoice_number LIKE :prefix', { prefix: `${fullPrefix}%` })
       .orderBy('inv.invoiceNumber', 'DESC')
