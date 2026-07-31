@@ -50,6 +50,10 @@ const serviceMigrationFiles = new Set([
   '20260711b_facedesk_enroll_tickets.sql',
   // FaceDesk contractor punches: offline idempotency + shared review queue.
   '20260726_facedesk_contractor_punch_review.sql',
+  // Accounts billing: linked Proforma -> Tax Invoice conversion columns.
+  '20260731_proforma_tax_invoice_conversion.sql',
+  // One-off, approved conversion of legacy Proforma STSINV/2627/0006.
+  '20260731b_convert_legacy_proforma_0006.sql',
 ]);
 
 const config = {
