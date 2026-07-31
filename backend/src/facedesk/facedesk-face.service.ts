@@ -13,7 +13,19 @@ export interface ResolvedFrame {
   embedding: Float32Array;
   model: string | null;
   qualityScore: number;
+  /**
+   * Liveness score carried on the frame, whatever its source (client-supplied
+   * on a device frame, or server-scored). Informational only — do NOT gate a
+   * server-liveness requirement on this; use {@link serverLivenessScore}.
+   */
   livenessScore: number | null;
+  /**
+   * Liveness score produced by the server embedding client (face-svc). null on
+   * device/fallback frames whose only liveness signal came from the untrusted
+   * request body. This is the field a "server liveness required" gate must use
+   * so a modified client can't self-assert a passing score.
+   */
+  serverLivenessScore: number | null;
   sampleType: 'FRONT' | 'LEFT' | 'RIGHT' | 'EXPRESSION' | 'LIVENESS';
   reasons: string[];
 }
@@ -49,6 +61,9 @@ export class FaceDeskFaceService {
               model: f.embeddingModel ?? null,
               qualityScore: f.qualityScore ?? 1,
               livenessScore: f.livenessScore ?? null,
+              // Device frame: the liveness score came from the request body and
+              // is NOT server-verified.
+              serverLivenessScore: null,
               sampleType: f.sampleType ?? 'FRONT',
               reasons: [],
             }
@@ -64,6 +79,8 @@ export class FaceDeskFaceService {
               model: r.model,
               qualityScore: r.quality?.faceScore ?? r.qualityScore ?? 0,
               livenessScore: r.livenessScore,
+              // Server-scored by face-svc — the only trusted liveness signal.
+              serverLivenessScore: r.livenessScore ?? null,
               sampleType: f.sampleType ?? 'FRONT',
               reasons: r.quality?.reasons ?? [],
             };
@@ -81,6 +98,7 @@ export class FaceDeskFaceService {
               model: null,
               qualityScore: 0,
               livenessScore: null,
+              serverLivenessScore: null,
               sampleType: f.sampleType ?? 'FRONT',
               reasons: err.quality?.reasons ?? ['low_quality'],
             };

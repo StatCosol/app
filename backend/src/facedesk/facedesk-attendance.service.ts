@@ -211,7 +211,10 @@ export class FaceDeskAttendanceService {
       // later without touching this path).
       const liveness = await this.liveness.evaluate({
         clientAsserted: dto.livenessPassed === true,
-        serverScores: good.map((f) => f.livenessScore ?? null),
+        // Only genuinely server-scored frames — never the request-supplied
+        // livenessScore — so a strict "server liveness required" gate can't be
+        // satisfied by a client asserting its own score.
+        serverScores: good.map((f) => f.serverLivenessScore ?? null),
       });
       if (!liveness.passed) {
         await this.recordFailed(
@@ -269,7 +272,6 @@ export class FaceDeskAttendanceService {
     best3: ResolvedFrame[],
     confidencePercent: number,
     flagForReview = false,
-    reviewReason?: string,
   ): Promise<MarkResult> {
     const punchTime = dto.punchTime ? new Date(dto.punchTime) : new Date();
     const resolvedBranchId = employee.branchId ?? branchId;
@@ -294,9 +296,7 @@ export class FaceDeskAttendanceService {
     }
     // Review note is photo-aware: if the evidence photo is missing, say so
     // rather than telling the reviewer to check a photo that isn't there.
-    const reviewBase =
-      reviewReason ??
-      `PIN correct but face did not match (${confidencePercent}%).`;
+    const reviewBase = `PIN correct but face did not match (${confidencePercent}%).`;
     const reviewRemark = photoUrl
       ? `${reviewBase} Verify the captured photo.`
       : `${reviewBase} ⚠ Captured photo unavailable — verify by other means.`;
@@ -566,6 +566,45 @@ export class FaceDeskAttendanceService {
       return { status: 'REJECTED', message: 'Enter your PIN' };
     }
 
+    // Serialize PIN attempts per device so the throttle's count-then-record
+    // can't be raced by a parallel burst (each attempt runs bcrypt). A kiosk
+    // only serves one person at a time, so this adds no real contention.
+    const release = await this.acquireDevicePinLock(clientId, deviceId, branchId);
+    try {
+      return await this.resolvePinAttempt(
+        clientId,
+        branchId,
+        deviceId,
+        dto,
+        eff,
+        probe,
+        probeModel,
+        best3,
+        code,
+        pin,
+      );
+    } finally {
+      await release();
+    }
+  }
+
+  /**
+   * The throttle + PIN/face resolution, run under the per-device lock held by
+   * markByPin so the WRONG_PIN count and the later WRONG_PIN record can't be
+   * raced by a parallel burst.
+   */
+  private async resolvePinAttempt(
+    clientId: string,
+    branchId: string | null,
+    deviceId: string | null,
+    dto: MarkAttendanceDto,
+    eff: { acceptCosine: number; retryCosine: number; minMarginCosine: number },
+    probe: Float32Array,
+    probeModel: string | null,
+    best3: ResolvedFrame[],
+    code: string,
+    pin: string,
+  ): Promise<MarkResult> {
     // Brute-force guard: refuse further PIN attempts once a device has burned
     // through the allowed WRONG_PIN failures in the window. Checked before any
     // bcrypt work so a locked device is cheap to turn away.
@@ -710,9 +749,29 @@ export class FaceDeskAttendanceService {
       };
     }
 
-    // Clean face match. If a shared PIN left two near-tied identities (margin
-    // below the floor), mark but flag it — the branch decides which person it
-    // was rather than the system guessing on a hair's-width difference.
+    // Ambiguous: a (legacy) shared PIN left two near-tied identities within the
+    // separation margin. Do NOT write a punch against a guessed subject — for a
+    // contractor the review queue has no reassignment action, so a wrong guess
+    // could only be approved or discarded. Ask for another capture instead; a
+    // better angle usually separates the two, and persistent ambiguity routes
+    // the worker to an admin rather than mis-recording attendance.
+    if (ambiguous) {
+      await this.recordFailed(
+        clientId,
+        branchId,
+        deviceId,
+        claimed.employeeId,
+        cosine,
+        'AMBIGUOUS_MATCH',
+      );
+      return {
+        status: 'RETRY',
+        message: 'Multiple close matches — please try again or contact your administrator.',
+        confidencePercent,
+      };
+    }
+
+    // Clean, unambiguous face match.
     return this.acceptPunch(
       clientId,
       branchId,
@@ -723,12 +782,6 @@ export class FaceDeskAttendanceService {
       margin,
       best3,
       confidencePercent,
-      ambiguous,
-      ambiguous
-        ? `PIN matched two similar faces (${confidencePercent}% vs ${this.settings.cosineToPercent(
-            runnerUpCosine,
-          )}%) — confirm identity.`
-        : undefined,
     );
   }
 
@@ -778,6 +831,40 @@ export class FaceDeskAttendanceService {
       params,
     );
     return Number(row?.n ?? 0);
+  }
+
+  /**
+   * Per-(client, device) advisory lock so concurrent PIN attempts on one device
+   * serialize; returns a release fn. Uses a dedicated connection because the
+   * lock is session-scoped and must be released on the same connection. A
+   * datasource without a query-runner factory (unit tests) runs unlocked.
+   */
+  private async acquireDevicePinLock(
+    clientId: string,
+    deviceId: string | null,
+    branchId: string | null,
+  ): Promise<() => Promise<void>> {
+    const ds = this.dataSource as unknown as {
+      createQueryRunner?: () => {
+        connect: () => Promise<void>;
+        query: (q: string, p?: unknown[]) => Promise<unknown>;
+        release: () => Promise<void>;
+      };
+    };
+    if (typeof ds.createQueryRunner !== 'function') {
+      return async () => undefined;
+    }
+    const key = `fdpin:${clientId}:${deviceId ?? branchId ?? 'web'}`;
+    const runner = ds.createQueryRunner();
+    await runner.connect();
+    await runner.query('SELECT pg_advisory_lock(hashtext($1))', [key]);
+    return async () => {
+      try {
+        await runner.query('SELECT pg_advisory_unlock(hashtext($1))', [key]);
+      } finally {
+        await runner.release();
+      }
+    };
   }
 
   /** Upload a punch photo, retrying once when it's the evidence for a flag. */

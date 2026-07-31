@@ -21,9 +21,13 @@ import { Injectable } from '@nestjs/common';
  *     device provider as the offline-capable default.
  */
 export interface LivenessInput {
-  /** The on-device blink detector's verdict (dto.livenessPassed). */
+  /** The on-device blink detector's verdict (dto.livenessPassed). Untrusted. */
   clientAsserted: boolean;
-  /** Per-frame server liveness scores for the punch (nulls = not scored). */
+  /**
+   * Per-frame liveness scores produced by the SERVER (nulls = not scored). Must
+   * never include request-supplied scores — the strict gate relies on these
+   * being server-originated. See ResolvedFrame.serverLivenessScore.
+   */
   serverScores: Array<number | null>;
 }
 
