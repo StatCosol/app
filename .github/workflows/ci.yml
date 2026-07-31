@@ -18,22 +18,95 @@ jobs:
 
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: statcompy_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
     steps:
-      - name: Backend check
-        run: echo "backend ok"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Unit tests
+        run: npm test
+      - name: Boot check (entity metadata + DB connect)
+        # Boots a TypeORM DataSource with every entity against Postgres, so a bad
+        # column type (e.g. an untyped `string | null` reflecting as Object) is
+        # caught here instead of crashing the backend on deploy. Unit tests mock
+        # the DB and never build metadata, which is how such bugs reached prod.
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASS: postgres
+          DB_NAME: statcompy_ci
+        run: npx jest ci-boot-check --runInBand
 
   frontend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
     steps:
-      - name: Frontend check
-        run: echo "frontend ok"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        # A production `ng build` compiles every component/template, so a broken
+        # binding or type error is caught here instead of shipping a broken UI.
+        # (Unit tests run in Vitest browser mode, which needs Playwright; kept
+        # out of CI for now — the build is the deploy-blocking check.)
+        run: npm run build
 
   docker:
     runs-on: ubuntu-latest
     needs: [backend, frontend]
     steps:
-      - name: Docker check
-        run: echo "docker ok"
+      - uses: actions/checkout@v4
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build backend image
+        # Validates backend/Dockerfile (multi-stage build + nest build in the
+        # container) so a broken Dockerfile fails here, not at deploy.
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: false
+          load: false
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: false
+          load: false
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
 
   payroll-transition-smoke:
     runs-on: ubuntu-latest
