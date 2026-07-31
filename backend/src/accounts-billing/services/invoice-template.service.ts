@@ -48,6 +48,22 @@ export class InvoiceTemplateService {
       ${this.escapeHtml(invoice.remarks).replace(/\r?\n/g, '<br>')}
     </div>`
       : '';
+    const referenceHtml =
+      invoice.proformaReferenceNumber || invoice.purchaseOrderNumber
+        ? `<div style="padding:10px;background:#f8fafc;border:1px solid #eee;font-size:12px;margin-bottom:15px">
+      <strong>Reference:</strong><br>
+      ${
+        invoice.proformaReferenceNumber
+          ? `Proforma Invoice: ${this.escapeHtml(invoice.proformaReferenceNumber)}<br>`
+          : ''
+      }
+      ${
+        invoice.purchaseOrderNumber
+          ? `Client PO Number: ${this.escapeHtml(invoice.purchaseOrderNumber)}`
+          : ''
+      }
+    </div>`
+        : '';
 
     return `<!DOCTYPE html>
 <html>
@@ -80,6 +96,7 @@ export class InvoiceTemplateService {
       </td>
     </tr>
   </table>
+  ${referenceHtml}
   <table style="margin-bottom:15px">
     <tr>
       <td><strong>Invoice Date:</strong> ${invoice.invoiceDate}</td>

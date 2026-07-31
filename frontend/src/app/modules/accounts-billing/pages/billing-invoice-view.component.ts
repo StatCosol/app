@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { AccountsBillingService } from '../services/accounts-billing.service';
 import { Invoice, InvoicePayment, PAYMENT_MODES } from '../models/billing.models';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
@@ -29,6 +29,13 @@ import { ToastService } from '../../../shared/toast/toast.service';
           @if (isEditable()) {
 <a [routerLink]="['/accounts/invoices', invoice.id, 'edit']"
                   class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50">Edit</a>
+}
+          @if (invoice.invoiceType === 'PROFORMA' && invoice.invoiceStatus !== 'CANCELLED') {
+<button (click)="openTaxInvoiceConversion()"
+                  [disabled]="convertingProforma"
+                  class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50">
+            {{ invoice.convertedInvoice ? 'View Tax Invoice' : 'Generate Tax Invoice' }}
+          </button>
 }
           <button (click)="generatePdf()" [disabled]="generatingPdf"
                   class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
@@ -64,6 +71,12 @@ import { ToastService } from '../../../shared/toast/toast.service';
           <p class="text-sm text-slate-500 mt-1">{{ invoice.billingClient?.billingAddress }}</p>
           <p class="text-sm mt-1">GSTIN: {{ invoice.billingClient?.gstin || 'N/A' }}</p>
           <p class="text-sm">State: {{ invoice.billingClient?.stateName }} ({{ invoice.billingClient?.stateCode }})</p>
+          @if (invoice.proformaReferenceNumber) {
+<p class="text-sm mt-2"><span class="text-slate-500">Proforma Reference:</span> <strong>{{ invoice.proformaReferenceNumber }}</strong></p>
+}
+          @if (invoice.purchaseOrderNumber) {
+<p class="text-sm"><span class="text-slate-500">Client PO Number:</span> <strong>{{ invoice.purchaseOrderNumber }}</strong></p>
+}
         </div>
         <div class="bg-white rounded-xl border p-5">
           <h3 class="text-sm font-semibold text-slate-500 uppercase mb-3">Amount Summary</h3>
@@ -195,6 +208,57 @@ import { ToastService } from '../../../shared/toast/toast.service';
       </div>
 
       <!-- Payment Modal -->
+      @if (showConversionModal) {
+<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+          <div class="p-6 border-b flex items-center justify-between">
+            <div>
+              <h2 class="text-lg font-bold">Generate Tax Invoice</h2>
+              <p class="text-xs text-slate-500 mt-1">From Proforma {{ invoice.invoiceNumber }}</p>
+            </div>
+            <button (click)="showConversionModal = false" class="text-slate-400 hover:text-slate-600">&times;</button>
+          </div>
+          <div class="p-6 space-y-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Proforma Invoice Reference</label>
+              <input [value]="invoice.invoiceNumber" readonly
+                     class="w-full px-3 py-2 border rounded-lg text-sm bg-slate-50">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Client PO Number *</label>
+              <input [(ngModel)]="conversionForm.purchaseOrderNumber" maxlength="100"
+                     class="w-full px-3 py-2 border rounded-lg text-sm"
+                     placeholder="Enter PO number provided by client">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Invoice Date *</label>
+                <input [(ngModel)]="conversionForm.invoiceDate" type="date"
+                       class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Due Date</label>
+                <input [(ngModel)]="conversionForm.dueDate" type="date"
+                       class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+            </div>
+            <p class="text-xs text-slate-500">
+              The Proforma remains unchanged. A separately numbered Tax Invoice will be created.
+            </p>
+          </div>
+          <div class="p-6 border-t flex justify-end gap-3">
+            <button (click)="showConversionModal = false" class="px-4 py-2 border rounded-lg text-sm">Cancel</button>
+            <button (click)="submitTaxInvoiceConversion()"
+                    [disabled]="convertingProforma || !conversionForm.purchaseOrderNumber.trim() || !conversionForm.invoiceDate"
+                    class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50">
+              {{ convertingProforma ? 'Generating...' : 'Generate Tax Invoice' }}
+            </button>
+          </div>
+        </div>
+      </div>
+}
+
+      <!-- Payment Modal -->
       @if (showPaymentModal) {
 <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
@@ -321,9 +385,17 @@ export class BillingInvoiceViewComponent implements OnInit {
   emailForm: any = {};
 
   generatingPdf = false;
+  showConversionModal = false;
+  convertingProforma = false;
+  conversionForm = {
+    purchaseOrderNumber: '',
+    invoiceDate: '',
+    dueDate: '',
+  };
 
   constructor(
     private route: ActivatedRoute,
+    private router: Router,
     private svc: AccountsBillingService,
     private dialog: ConfirmDialogService,
     private toast: ToastService,
@@ -400,6 +472,66 @@ export class BillingInvoiceViewComponent implements OnInit {
     });
   }
 
+  openTaxInvoiceConversion(): void {
+    if (!this.invoice) return;
+    if (this.invoice.convertedInvoice) {
+      this.router.navigate([
+        '/accounts/invoices',
+        this.invoice.convertedInvoice.id,
+      ]);
+      return;
+    }
+
+    const invoiceDate = this.localDate(new Date());
+    const dueDate = new Date(`${invoiceDate}T00:00:00`);
+    dueDate.setDate(
+      dueDate.getDate() + (this.invoice.billingClient?.paymentTermsDays ?? 30),
+    );
+    this.conversionForm = {
+      purchaseOrderNumber: '',
+      invoiceDate,
+      dueDate: this.localDate(dueDate),
+    };
+    this.showConversionModal = true;
+  }
+
+  submitTaxInvoiceConversion(): void {
+    if (
+      !this.invoice ||
+      !this.conversionForm.purchaseOrderNumber.trim() ||
+      !this.conversionForm.invoiceDate
+    ) {
+      return;
+    }
+
+    this.convertingProforma = true;
+    this.svc
+      .convertProformaToTaxInvoice(this.invoice.id, {
+        purchaseOrderNumber:
+          this.conversionForm.purchaseOrderNumber.trim(),
+        invoiceDate: this.conversionForm.invoiceDate,
+        dueDate: this.conversionForm.dueDate || undefined,
+      })
+      .subscribe({
+        next: (taxInvoice) => {
+          this.convertingProforma = false;
+          this.showConversionModal = false;
+          this.toast.success(
+            `Tax Invoice ${taxInvoice.invoiceNumber} generated`,
+          );
+          this.router.navigate(['/accounts/invoices', taxInvoice.id]);
+        },
+        error: (e) => {
+          this.convertingProforma = false;
+          this.toast.error(
+            e?.error?.message ||
+              e?.message ||
+              'Failed to generate Tax Invoice',
+          );
+        },
+      });
+  }
+
   resetPayForm(): void {
     this.payForm = {
       paymentDate: new Date().toISOString().split('T')[0],
@@ -423,10 +555,22 @@ export class BillingInvoiceViewComponent implements OnInit {
   }
 
   resetEmailForm(): void {
+    const references = [
+      this.invoice?.proformaReferenceNumber
+        ? `Proforma ${this.invoice.proformaReferenceNumber}`
+        : '',
+      this.invoice?.purchaseOrderNumber
+        ? `PO ${this.invoice.purchaseOrderNumber}`
+        : '',
+    ].filter(Boolean);
     this.emailForm = {
       toEmail: this.invoice?.billingClient?.billingEmail || '',
       ccEmail: this.invoice?.billingClient?.ccEmail || '',
-      subject: this.invoice ? `Invoice ${this.invoice.invoiceNumber} from StatCo Solutions` : '',
+      subject: this.invoice
+        ? `Invoice ${this.invoice.invoiceNumber}${
+            references.length ? ` | ${references.join(' | ')}` : ''
+          } from StatCo Solutions`
+        : '',
       body: '',
     };
   }
@@ -457,5 +601,12 @@ export class BillingInvoiceViewComponent implements OnInit {
       editableStatuses.includes(this.invoice.invoiceStatus) &&
       this.invoice.paymentStatus === 'UNPAID'
     );
+  }
+
+  private localDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 }

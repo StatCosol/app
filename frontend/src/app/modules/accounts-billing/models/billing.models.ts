@@ -68,6 +68,10 @@ export interface Invoice {
   paymentStatus: string;
   mailStatus: string;
   remarks?: string;
+  proformaReferenceNumber?: string;
+  purchaseOrderNumber?: string;
+  convertedFromProformaId?: string;
+  convertedInvoice?: Invoice;
   pdfPath?: string;
   createdBy: string;
   approvedBy?: string;

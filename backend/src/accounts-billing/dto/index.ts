@@ -5,6 +5,7 @@ export {
 export {
   CreateInvoiceDto,
   CreateInvoiceItemDto,
+  ConvertProformaDto,
   UpdateInvoiceDto,
 } from './invoice.dto';
 export { RecordPaymentDto } from './payment.dto';

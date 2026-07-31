@@ -59,6 +59,20 @@ export class AccountsBillingService {
     return this.http.post<Invoice>(`${this.base}/invoices/${id}/cancel`, {});
   }
 
+  convertProformaToTaxInvoice(
+    id: string,
+    data: {
+      purchaseOrderNumber: string;
+      invoiceDate?: string;
+      dueDate?: string;
+    },
+  ): Observable<Invoice> {
+    return this.http.post<Invoice>(
+      `${this.base}/invoices/${id}/convert-to-tax-invoice`,
+      data,
+    );
+  }
+
   getDashboardStats(): Observable<DashboardStats> {
     return this.http.get<DashboardStats>(`${this.base}/invoices/stats/dashboard`);
   }

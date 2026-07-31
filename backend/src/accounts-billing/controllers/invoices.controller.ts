@@ -15,7 +15,11 @@ import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { InvoicesService } from '../services/invoices.service';
-import { CreateInvoiceDto, UpdateInvoiceDto } from '../dto';
+import {
+  ConvertProformaDto,
+  CreateInvoiceDto,
+  UpdateInvoiceDto,
+} from '../dto';
 
 @ApiTags('Accounts & Billing - Invoices')
 @ApiBearerAuth()
@@ -93,6 +97,23 @@ export class InvoicesController {
     @CurrentUser() user: any,
   ) {
     return this.invoicesService.approve(id, user?.userId ?? user?.id);
+  }
+
+  @ApiOperation({
+    summary:
+      'Create (or return) a Tax Invoice from an existing Proforma Invoice',
+  })
+  @Post(':id/convert-to-tax-invoice')
+  async convertToTaxInvoice(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ConvertProformaDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.invoicesService.convertProformaToTaxInvoice(
+      id,
+      dto,
+      user?.userId ?? user?.id,
+    );
   }
 
   @ApiOperation({ summary: 'Cancel an invoice' })

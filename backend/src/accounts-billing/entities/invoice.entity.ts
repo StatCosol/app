@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  OneToOne,
   OneToMany,
   JoinColumn,
 } from 'typeorm';
@@ -222,8 +223,41 @@ export class Invoice {
   @Column({ type: 'text', nullable: true })
   remarks: string;
 
+  @Column({
+    name: 'proforma_reference_number',
+    length: 16,
+    nullable: true,
+  })
+  proformaReferenceNumber: string | null;
+
+  @Column({
+    name: 'purchase_order_number',
+    length: 100,
+    nullable: true,
+  })
+  purchaseOrderNumber: string | null;
+
   @Column({ name: 'pdf_path', type: 'text', nullable: true })
   pdfPath: string;
+
+  @Column({
+    name: 'converted_from_proforma_id',
+    type: 'uuid',
+    nullable: true,
+    unique: true,
+  })
+  convertedFromProformaId: string | null;
+
+  @OneToOne(() => Invoice, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'converted_from_proforma_id' })
+  convertedFromProforma: Invoice | null;
+
+  @OneToOne(
+    () => Invoice,
+    (invoice) => invoice.convertedFromProforma,
+    { nullable: true },
+  )
+  convertedInvoice: Invoice | null;
 
   @Column({ name: 'created_by', type: 'uuid' })
   createdBy: string;
