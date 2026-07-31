@@ -225,6 +225,7 @@ export class Invoice {
 
   @Column({
     name: 'proforma_reference_number',
+    type: 'varchar',
     length: 16,
     nullable: true,
   })
@@ -232,6 +233,7 @@ export class Invoice {
 
   @Column({
     name: 'purchase_order_number',
+    type: 'varchar',
     length: 100,
     nullable: true,
   })
