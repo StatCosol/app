@@ -23,6 +23,10 @@ import { FaceDeskDeviceController } from './facedesk-device.controller';
 import { FaceDeskDeviceService } from './facedesk-device.service';
 import { FaceDeskDeviceAuthGuard } from './facedesk-device-auth.guard';
 import { FaceDeskFaceService } from './facedesk-face.service';
+import {
+  DeviceLivenessProvider,
+  FACEDESK_LIVENESS_PROVIDER,
+} from './facedesk-liveness.provider';
 import { FaceDeskSettingsService } from './facedesk-settings.service';
 import { FaceDeskEnrollmentService } from './facedesk-enrollment.service';
 import { FaceDeskAttendanceService } from './facedesk-attendance.service';
@@ -70,6 +74,9 @@ import { FaceDeskTicketService } from './facedesk-ticket.service';
     FaceDeskDeviceAuthGuard,
     FaceEmbeddingClient,
     FacePhotoStorageService,
+    // Liveness-provider seam: device blink today; swap the binding (e.g. to an
+    // Azure Face Liveness provider) without touching the attendance service.
+    { provide: FACEDESK_LIVENESS_PROVIDER, useClass: DeviceLivenessProvider },
   ],
   exports: [FaceDeskSettingsService],
 })
