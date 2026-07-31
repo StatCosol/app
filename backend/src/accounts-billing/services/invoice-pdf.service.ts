@@ -246,6 +246,30 @@ export class InvoicePdfService {
     doc.x = left;
     doc.y = metaY + 22;
 
+    const references = [
+      invoice.proformaReferenceNumber
+        ? `Proforma Invoice: ${invoice.proformaReferenceNumber}`
+        : '',
+      invoice.purchaseOrderNumber
+        ? `Client PO Number: ${invoice.purchaseOrderNumber}`
+        : '',
+    ].filter(Boolean);
+    if (references.length) {
+      const referenceH = 30 + references.length * 12;
+      this.ensureSpace(doc, referenceH + 10);
+      this.infoBox(
+        doc,
+        left,
+        doc.y,
+        contentW,
+        referenceH,
+        'Reference',
+        references,
+      );
+      doc.x = left;
+      doc.y += referenceH + 10;
+    }
+
     // ── Items table ──
     const headers: Array<{
       label: string;

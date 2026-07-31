@@ -137,6 +137,9 @@ CREATE TABLE IF NOT EXISTS invoices (
   payment_status        payment_status DEFAULT 'UNPAID',
   mail_status           mail_status DEFAULT 'NOT_SENT',
   remarks               TEXT,
+  proforma_reference_number VARCHAR(16),
+  purchase_order_number VARCHAR(100),
+  converted_from_proforma_id UUID REFERENCES invoices(id) ON DELETE RESTRICT,
   pdf_path              TEXT,
   created_by            UUID NOT NULL,
   approved_by           UUID,
@@ -151,6 +154,9 @@ CREATE INDEX IF NOT EXISTS idx_invoices_status      ON invoices(invoice_status);
 CREATE INDEX IF NOT EXISTS idx_invoices_payment     ON invoices(payment_status);
 CREATE INDEX IF NOT EXISTS idx_invoices_date        ON invoices(invoice_date);
 CREATE INDEX IF NOT EXISTS idx_invoices_fy          ON invoices(financial_year);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_invoices_converted_from_proforma
+  ON invoices(converted_from_proforma_id)
+  WHERE converted_from_proforma_id IS NOT NULL;
 
 -------------------------------------------------------
 -- 4. invoice_items

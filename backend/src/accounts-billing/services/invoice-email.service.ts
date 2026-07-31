@@ -40,8 +40,17 @@ export class InvoiceEmailService {
       }
     }
 
+    const references = [
+      invoice.proformaReferenceNumber
+        ? `Proforma ${invoice.proformaReferenceNumber}`
+        : '',
+      invoice.purchaseOrderNumber ? `PO ${invoice.purchaseOrderNumber}` : '',
+    ].filter(Boolean);
     const subject =
-      dto.subject || `Invoice ${invoice.invoiceNumber} from StatCo Solutions`;
+      dto.subject ||
+      `Invoice ${invoice.invoiceNumber}${
+        references.length ? ` | ${references.join(' | ')}` : ''
+      } from StatCo Solutions`;
     const body =
       dto.body ||
       `Dear ${invoice.billingClient?.contactPerson || 'Sir/Madam'},\n\nPlease find attached invoice ${invoice.invoiceNumber} dated ${invoice.invoiceDate}.\n\nAmount: ₹${invoice.grandTotal}${invoice.dueDate ? `\nDue Date: ${invoice.dueDate}` : ''}\n\nRegards,\nStatCo Solutions`;

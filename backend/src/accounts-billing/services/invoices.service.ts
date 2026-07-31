@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import {
   Invoice,
   InvoiceItem,
@@ -12,8 +12,17 @@ import {
   BillingSetting,
   InvoiceAuditLog,
 } from '../entities';
-import { InvoiceStatus, PaymentStatus, MailStatus } from '../enums';
-import { CreateInvoiceDto, UpdateInvoiceDto } from '../dto';
+import {
+  InvoiceStatus,
+  InvoiceType,
+  PaymentStatus,
+  MailStatus,
+} from '../enums';
+import {
+  ConvertProformaDto,
+  CreateInvoiceDto,
+  UpdateInvoiceDto,
+} from '../dto';
 import { BillingCalculationService } from './billing-calculation.service';
 import { BillingNumberService } from './billing-number.service';
 
@@ -43,6 +52,7 @@ export class InvoicesService {
     private readonly auditLogRepo: Repository<InvoiceAuditLog>,
     private readonly calcService: BillingCalculationService,
     private readonly numberService: BillingNumberService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async create(dto: CreateInvoiceDto, userId: string) {
@@ -119,6 +129,7 @@ export class InvoicesService {
       paymentStatus: PaymentStatus.UNPAID,
       mailStatus: MailStatus.NOT_SENT,
       remarks: dto.remarks,
+      purchaseOrderNumber: dto.purchaseOrderNumber?.trim() || null,
       createdBy: userId,
       items: itemResults.map((r, idx) =>
         this.itemRepo.create({
@@ -202,10 +213,175 @@ export class InvoicesService {
   async findOne(id: string) {
     const invoice = await this.invoiceRepo.findOne({
       where: { id },
-      relations: ['billingClient', 'items', 'payments'],
+      relations: ['billingClient', 'items', 'payments', 'convertedInvoice'],
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
     return invoice;
+  }
+
+  async convertProformaToTaxInvoice(
+    id: string,
+    dto: ConvertProformaDto,
+    userId: string,
+  ) {
+    const purchaseOrderNumber = dto.purchaseOrderNumber?.trim();
+    if (!purchaseOrderNumber) {
+      throw new BadRequestException('Client PO number is required');
+    }
+
+    const taxInvoiceId = await this.dataSource.transaction(async (manager) => {
+      const invoiceRepo = manager.getRepository(Invoice);
+
+      // Lock only the Proforma row first. Loading eager one-to-many relations
+      // in the locking query produces an outer join that PostgreSQL cannot
+      // safely lock.
+      const lockedProforma = await invoiceRepo.findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+        loadEagerRelations: false,
+      });
+      if (!lockedProforma) {
+        throw new NotFoundException('Proforma invoice not found');
+      }
+      if (lockedProforma.invoiceType !== InvoiceType.PROFORMA) {
+        throw new BadRequestException(
+          'Only a Proforma Invoice can be converted to a Tax Invoice',
+        );
+      }
+
+      // A unique database constraint backs this lookup. Repeated requests,
+      // including a retry after a lost response, return the original result
+      // instead of issuing a second Tax Invoice.
+      const existing = await invoiceRepo.findOne({
+        where: { convertedFromProformaId: id },
+        loadEagerRelations: false,
+      });
+      if (existing) return existing.id;
+
+      if (lockedProforma.invoiceStatus === InvoiceStatus.CANCELLED) {
+        throw new BadRequestException(
+          'A cancelled Proforma Invoice cannot be converted',
+        );
+      }
+      if (lockedProforma.paymentStatus !== PaymentStatus.UNPAID) {
+        throw new BadRequestException(
+          'A Proforma Invoice with recorded payments cannot be converted',
+        );
+      }
+
+      const proforma = await invoiceRepo.findOne({
+        where: { id },
+        relations: ['billingClient', 'items'],
+      });
+      if (!proforma) {
+        throw new NotFoundException('Proforma invoice not found');
+      }
+
+      const invoiceDate =
+        dto.invoiceDate || new Date().toISOString().slice(0, 10);
+      const paymentTermsDays = proforma.billingClient?.paymentTermsDays ?? 30;
+      const dueDate =
+        dto.dueDate ||
+        this.calculateDueDate(invoiceDate, paymentTermsDays);
+      if (dueDate < invoiceDate) {
+        throw new BadRequestException(
+          'Due date cannot be earlier than the Tax Invoice date',
+        );
+      }
+      const invoiceNumber =
+        await this.numberService.generateInvoiceNumber(
+          InvoiceType.TAX_INVOICE,
+          invoiceDate,
+          manager,
+        );
+
+      const taxInvoice = invoiceRepo.create({
+        tenantId: proforma.tenantId,
+        billingClientId: proforma.billingClientId,
+        invoiceType: InvoiceType.TAX_INVOICE,
+        invoiceNumber,
+        invoiceDate,
+        dueDate,
+        financialYear: this.numberService.getFinancialYear(
+          new Date(invoiceDate),
+        ),
+        placeOfSupply: proforma.placeOfSupply,
+        stateCode: proforma.stateCode,
+        gstin: proforma.gstin,
+        subTotal: proforma.subTotal,
+        discountTotal: proforma.discountTotal,
+        taxableValue: proforma.taxableValue,
+        cgstRate: proforma.cgstRate,
+        cgstAmount: proforma.cgstAmount,
+        sgstRate: proforma.sgstRate,
+        sgstAmount: proforma.sgstAmount,
+        igstRate: proforma.igstRate,
+        igstAmount: proforma.igstAmount,
+        totalGst: proforma.totalGst,
+        roundOff: proforma.roundOff,
+        grandTotal: proforma.grandTotal,
+        amountReceived: 0,
+        balanceOutstanding: proforma.grandTotal,
+        invoiceStatus: InvoiceStatus.DRAFT,
+        paymentStatus: PaymentStatus.UNPAID,
+        mailStatus: MailStatus.NOT_SENT,
+        remarks: proforma.remarks,
+        proformaReferenceNumber: proforma.invoiceNumber,
+        purchaseOrderNumber,
+        convertedFromProformaId: proforma.id,
+        createdBy: userId,
+        items: (proforma.items || []).map((item) =>
+          manager.getRepository(InvoiceItem).create({
+            serviceCode: item.serviceCode,
+            serviceDescription: item.serviceDescription,
+            sacCode: item.sacCode,
+            periodFrom: item.periodFrom,
+            periodTo: item.periodTo,
+            quantity: item.quantity,
+            rate: item.rate,
+            amount: item.amount,
+            discountAmount: item.discountAmount,
+            taxableAmount: item.taxableAmount,
+            gstRate: item.gstRate,
+            gstAmount: item.gstAmount,
+            lineTotal: item.lineTotal,
+            isReimbursement: item.isReimbursement,
+            sequence: item.sequence,
+          }),
+        ),
+      });
+      const saved = await invoiceRepo.save(taxInvoice);
+
+      const auditRepo = manager.getRepository(InvoiceAuditLog);
+      await auditRepo.save([
+        auditRepo.create({
+          invoiceId: proforma.id,
+          action: 'CONVERT_TO_TAX_INVOICE',
+          oldStatus: proforma.invoiceStatus,
+          newStatus: proforma.invoiceStatus,
+          changedBy: userId,
+          payload: {
+            taxInvoiceId: saved.id,
+            taxInvoiceNumber: saved.invoiceNumber,
+          },
+        }),
+        auditRepo.create({
+          invoiceId: saved.id,
+          action: 'CREATED_FROM_PROFORMA',
+          oldStatus: null,
+          newStatus: saved.invoiceStatus,
+          changedBy: userId,
+          payload: {
+            proformaId: proforma.id,
+            proformaNumber: proforma.invoiceNumber,
+          },
+        }),
+      ]);
+
+      return saved.id;
+    });
+
+    return this.findOne(taxInvoiceId);
   }
 
   async update(id: string, dto: UpdateInvoiceDto, userId: string) {
@@ -262,6 +438,10 @@ export class InvoicesService {
     invoice.stateCode = clientStateCode;
     invoice.gstin = client.gstin;
     invoice.remarks = dto.remarks !== undefined ? dto.remarks : invoice.remarks;
+    invoice.purchaseOrderNumber =
+      dto.purchaseOrderNumber !== undefined
+        ? dto.purchaseOrderNumber.trim() || null
+        : invoice.purchaseOrderNumber;
     invoice.financialYear = this.numberService.getFinancialYear(
       new Date(invoiceDate),
     );
