@@ -139,6 +139,16 @@ export class FaceDeskService {
     );
   }
 
+  /** Delete a subject's enrollment (face profile + samples); they return to pending. */
+  deleteEnrollment(
+    employeeId: string,
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE',
+  ): Observable<{ ok: true }> {
+    return this.http.delete<{ ok: true }>(
+      `${this.base}/enrollment/${employeeId}?subjectType=${subjectType}`,
+    );
+  }
+
   createEnrollTicket(
     employeeId: string,
     deviceId: string,
