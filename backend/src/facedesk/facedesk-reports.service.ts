@@ -38,7 +38,8 @@ export class FaceDeskReportsService {
     branchIds: string[] | undefined,
     col: string,
   ): string {
-    if (!branchIds || branchIds.length === 0) return '';
+    if (branchIds === undefined) return '';
+    if (branchIds.length === 0) return 'AND FALSE';
     params.push(branchIds);
     return `AND ${col} = ANY($${params.length}::uuid[])`;
   }
@@ -167,14 +168,32 @@ export class FaceDeskReportsService {
   async failedAttempts(clientId: string, opts: ReportRange) {
     const { from, to } = this.range(opts);
     const params: unknown[] = [clientId, from, to];
-    const branch = this.branchClause(params, opts.branchIds, 'branch_id');
+    const branch = this.branchClause(params, opts.branchIds, 'f.branch_id');
     return this.dataSource.query(
-      `SELECT attempt_id AS "attemptId", reason, best_employee_id AS "bestEmployeeId",
-              best_confidence AS "bestConfidence", device_id AS "deviceId",
-              branch_id AS "branchId", attempted_at AS "attemptedAt"
-         FROM facedesk_attendance_failed_attempts
-        WHERE client_id = $1 AND attempted_at >= $2 AND attempted_at < $3 ${branch}
-        ORDER BY attempted_at DESC LIMIT 2000`,
+      `SELECT f.attempt_id AS id, f.attempted_at AS "attemptedAt",
+              f.branch_id AS "branchId", b.name AS "branchName",
+              f.device_id AS "deviceId", d.device_name AS "deviceLabel",
+              'KIOSK'::text AS mode,
+              e.id AS "employeeId", e.employee_code AS "employeeCode",
+              e.name AS "employeeName",
+              ce.id AS "contractorEmployeeId",
+              ce.name AS "contractorEmployeeName",
+              ce.contractor_user_id AS "contractorUserId",
+              cu.name AS "contractorName",
+              f.reason, NULL::text AS "reasonDetail",
+              f.best_confidence AS "matchScore",
+              NULL::numeric AS "livenessScore",
+              NULL::numeric AS "captureLat", NULL::numeric AS "captureLng"
+         FROM facedesk_attendance_failed_attempts f
+         LEFT JOIN employees e
+           ON e.id = f.best_employee_id AND e.client_id = f.client_id
+         LEFT JOIN contractor_employees ce
+           ON ce.id = f.best_employee_id AND ce.client_id = f.client_id
+         LEFT JOIN users cu ON cu.id = ce.contractor_user_id
+         LEFT JOIN branches b ON b.id = f.branch_id
+         LEFT JOIN facedesk_kiosk_devices d ON d.device_id = f.device_id
+        WHERE f.client_id = $1 AND f.attempted_at >= $2 AND f.attempted_at < $3 ${branch}
+        ORDER BY f.attempted_at DESC LIMIT 2000`,
       params,
     );
   }

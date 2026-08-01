@@ -157,7 +157,9 @@ export class FaceDeskController {
     );
   }
 
-  @ApiOperation({ summary: 'Delete a FaceDesk enrollment (face profile + samples)' })
+  @ApiOperation({
+    summary: 'Delete a FaceDesk enrollment (face profile + samples)',
+  })
   @Delete('enrollment/:employeeId')
   @Roles('CLIENT', 'ADMIN')
   deleteEnrollment(
@@ -302,6 +304,27 @@ export class FaceDeskController {
       this.branchScope(user),
     );
     if (!photo) throw new NotFoundException('Photo not available');
+    res.setHeader('Content-Type', photo.contentType);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(photo.buffer);
+  }
+
+  @ApiOperation({
+    summary: 'Scoped enrolled reference photo for a review item',
+  })
+  @Get('admin/review-queue/:reviewId/enrollment-photo')
+  @Roles('CLIENT', 'ADMIN')
+  async reviewEnrollmentPhoto(
+    @CurrentUser() user: ReqUser,
+    @Param('reviewId') reviewId: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const photo = await this.admin.getReviewEnrollmentPhoto(
+      this.requireClient(user),
+      reviewId,
+      this.branchScope(user),
+    );
+    if (!photo) throw new NotFoundException('Enrollment photo not available');
     res.setHeader('Content-Type', photo.contentType);
     res.setHeader('Cache-Control', 'private, no-store');
     res.send(photo.buffer);

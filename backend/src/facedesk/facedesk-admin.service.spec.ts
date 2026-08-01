@@ -9,10 +9,15 @@ function makeService() {
     findOne: jest.fn(),
     update: jest.fn().mockResolvedValue({ affected: 1 }),
   };
-  const attRepo = { update: jest.fn() };
+  const attRepo = {
+    update: jest.fn(),
+    manager: { query: jest.fn().mockResolvedValue([]) },
+  };
   const contractorPunchRepo = { update: jest.fn() };
   const profileRepo = {
-    findOne: jest.fn().mockResolvedValue({ profileId: 'p1', embeddingModel: 'mobilefacenet' }),
+    findOne: jest
+      .fn()
+      .mockResolvedValue({ profileId: 'p1', embeddingModel: 'mobilefacenet' }),
   };
   const sampleRepo = {
     save: jest.fn().mockResolvedValue({}),
@@ -24,7 +29,13 @@ function makeService() {
   const photoStorage = {
     readPhoto: jest
       .fn()
-      .mockResolvedValue({ buffer: Buffer.from('img'), contentType: 'image/jpeg' }),
+      .mockResolvedValue({
+        buffer: Buffer.from('img'),
+        contentType: 'image/jpeg',
+      }),
+  };
+  const biometric = {
+    ingest: jest.fn().mockResolvedValue({ received: 1, inserted: 1 }),
   };
   const service = new FaceDeskAdminService(
     dupeRepo as any,
@@ -36,6 +47,7 @@ function makeService() {
     correctionRepo as any,
     auditRepo as any,
     photoStorage as any,
+    biometric as any,
   );
   return {
     service,
@@ -47,6 +59,7 @@ function makeService() {
     profileRepo,
     auditRepo,
     photoStorage,
+    biometric,
   };
 }
 
@@ -172,6 +185,50 @@ describe('FaceDeskAdminService contractor review flow', () => {
     expect(sampleRepo.save).not.toHaveBeenCalled();
   });
 
+  it('ingests an approved employee punch into daily attendance', async () => {
+    const { service, reviewRepo, attRepo, biometric } = makeService();
+    reviewRepo.findOne.mockResolvedValue({
+      reviewId: 'review-1',
+      clientId: 'client-1',
+      branchId: 'branch-1',
+      employeeId: 'emp-1',
+      attendanceId: 'att-1',
+      contractorPunchId: null,
+      issueType: 'FACE_MISMATCH',
+      status: 'PENDING',
+      probeEmbedding: null,
+    });
+    attRepo.manager.query.mockResolvedValueOnce([
+      {
+        employeeCode: 'E001',
+        punchTime: new Date('2026-08-01T03:30:00.000Z'),
+        punchType: 'IN',
+        deviceId: 'device-1',
+        branchId: 'branch-1',
+      },
+    ]);
+
+    await service.actOnReview(
+      'client-1',
+      'review-1',
+      'reviewer-1',
+      { action: 'APPROVE' },
+      ['branch-1'],
+    );
+
+    expect(biometric.ingest).toHaveBeenCalledWith(
+      'client-1',
+      [
+        expect.objectContaining({
+          employeeCode: 'E001',
+          direction: 'IN',
+          source: 'MOBILE_KIOSK',
+        }),
+      ],
+      true,
+    );
+  });
+
   it('rejects a contractor mismatch as REVIEW_REJECTED', async () => {
     const { service, reviewRepo, contractorPunchRepo } = makeService();
     reviewRepo.findOne.mockResolvedValue({
@@ -212,9 +269,7 @@ describe('FaceDeskAdminService.getReviewPhoto', () => {
     expect(photoStorage.readPhoto).toHaveBeenCalledWith(
       '/uploads/face-photos/x.jpg',
     );
-    expect(res).toEqual(
-      expect.objectContaining({ contentType: 'image/jpeg' }),
-    );
+    expect(res).toEqual(expect.objectContaining({ contentType: 'image/jpeg' }));
   });
 
   it('denies a review item outside the branch scope', async () => {
@@ -266,5 +321,42 @@ describe('FaceDeskAdminService.getReviewPhoto', () => {
       service.getReviewPhoto('client-1', 'review-1', ['b1']),
     ).rejects.toThrow(/not found/i);
     expect(photoStorage.readPhoto).not.toHaveBeenCalled();
+  });
+});
+
+describe('FaceDeskAdminService.getReviewEnrollmentPhoto', () => {
+  it('streams the enrolled sample for an in-scope review item', async () => {
+    const { service, reviewRepo, photoStorage } = makeService();
+    reviewRepo.manager.query.mockResolvedValueOnce([
+      { branchId: 'b1', photoUrl: '/uploads/face-photos/enrolled.jpg' },
+    ]);
+    const res = await service.getReviewEnrollmentPhoto('client-1', 'review-1', [
+      'b1',
+    ]);
+    expect(photoStorage.readPhoto).toHaveBeenCalledWith(
+      '/uploads/face-photos/enrolled.jpg',
+    );
+    expect(res).toEqual(expect.objectContaining({ contentType: 'image/jpeg' }));
+  });
+
+  it('denies an enrolled sample outside the caller branch scope', async () => {
+    const { service, reviewRepo, photoStorage } = makeService();
+    reviewRepo.manager.query.mockResolvedValueOnce([
+      { branchId: 'b1', photoUrl: '/uploads/face-photos/enrolled.jpg' },
+    ]);
+    await expect(
+      service.getReviewEnrollmentPhoto('client-1', 'review-1', ['b2']),
+    ).rejects.toThrow(/not found/i);
+    expect(photoStorage.readPhoto).not.toHaveBeenCalled();
+  });
+
+  it('returns null if the enrollment has no retained image', async () => {
+    const { service, reviewRepo } = makeService();
+    reviewRepo.manager.query.mockResolvedValueOnce([
+      { branchId: 'b1', photoUrl: null },
+    ]);
+    await expect(
+      service.getReviewEnrollmentPhoto('client-1', 'review-1', null),
+    ).resolves.toBeNull();
   });
 });

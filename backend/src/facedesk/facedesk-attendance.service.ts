@@ -10,6 +10,7 @@ import {
 } from '../mobile-attendance/face/face-math';
 import { FacePhotoStorageService } from '../mobile-attendance/face/face-photo-storage.service';
 import { ContractorBiometricPunchEntity } from '../mobile-attendance/punch/contractor-punch.entity';
+import { BiometricService } from '../biometric/biometric.service';
 import {
   FaceDeskAttendanceEntity,
   FaceDeskFailedAttemptEntity,
@@ -103,7 +104,49 @@ export class FaceDeskAttendanceService {
     private readonly dataSource: DataSource,
     @Inject(FACEDESK_LIVENESS_PROVIDER)
     private readonly liveness: FaceDeskLivenessProvider,
+    private readonly biometric: BiometricService,
   ) {}
+
+  /**
+   * Reflect an EMPLOYEE FaceDesk punch into the biometric/attendance pipeline so
+   * it appears on the daily attendance page (and payroll) in real time. Best
+   * effort — the punch is already recorded in facedesk_attendance_logs, so an
+   * ingest hiccup must not fail the punch (the Reports "Sync to Payroll" remains
+   * a fallback). Idempotent on (client, code, time, device). Contractors are
+   * excluded — they flow through the separate contractor pipeline.
+   */
+  private async ingestEmployeePunch(
+    clientId: string,
+    p: {
+      employeeCode: string;
+      punchTime: Date;
+      direction: 'IN' | 'OUT';
+      deviceId: string | null;
+      branchId: string | null;
+    },
+  ): Promise<void> {
+    if (!p.employeeCode) return;
+    try {
+      await this.biometric.ingest(
+        clientId,
+        [
+          {
+            employeeCode: p.employeeCode,
+            punchTime: new Date(p.punchTime).toISOString(),
+            direction: p.direction,
+            deviceId: p.deviceId ?? 'facedesk',
+            branchId: p.branchId ?? undefined,
+            source: 'MOBILE_KIOSK',
+          },
+        ],
+        true,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `biometric ingest failed for ${p.employeeCode}: ${(err as Error)?.message}`,
+      );
+    }
+  }
 
   private businessDayBoundsUtc(d: Date): { start: Date; end: Date } {
     const offsetMs = BUSINESS_TZ_OFFSET_MIN * 60 * 1000;
@@ -363,6 +406,15 @@ export class FaceDeskAttendanceService {
           probeEmbedding,
           adminRemarks: reviewRemark,
         });
+        await this.recordFailed(
+          clientId,
+          resolvedBranchId,
+          deviceId,
+          employee.employeeId,
+          cosine,
+          'FACE_MISMATCH',
+          photoUrl,
+        );
       }
       return {
         status: 'MARKED',
@@ -413,6 +465,26 @@ export class FaceDeskAttendanceService {
         status: 'PENDING',
         probeEmbedding,
         adminRemarks: reviewRemark,
+      });
+      await this.recordFailed(
+        clientId,
+        saved.branchId,
+        deviceId,
+        employee.employeeId,
+        cosine,
+        'FACE_MISMATCH',
+        photoUrl,
+      );
+    } else {
+      // Clean match → reflect into the daily attendance / payroll pipeline now.
+      // Flagged punches wait for HR approval (ingested there), so nothing here
+      // ever needs retracting.
+      await this.ingestEmployeePunch(clientId, {
+        employeeCode: employee.employeeCode,
+        punchTime: saved.punchTime,
+        direction: saved.punchType,
+        deviceId,
+        branchId: saved.branchId,
       });
     }
 
@@ -562,14 +634,25 @@ export class FaceDeskAttendanceService {
     const code = (dto.employeeCode ?? '').trim();
     const pin = (dto.pin ?? '').trim();
     if (!pin) {
-      await this.recordFailed(clientId, branchId, deviceId, null, null, 'PIN_MISSING');
+      await this.recordFailed(
+        clientId,
+        branchId,
+        deviceId,
+        null,
+        null,
+        'PIN_MISSING',
+      );
       return { status: 'REJECTED', message: 'Enter your PIN' };
     }
 
     // Serialize PIN attempts per device so the throttle's count-then-record
     // can't be raced by a parallel burst (each attempt runs bcrypt). A kiosk
     // only serves one person at a time, so this adds no real contention.
-    const release = await this.acquireDevicePinLock(clientId, deviceId, branchId);
+    const release = await this.acquireDevicePinLock(
+      clientId,
+      deviceId,
+      branchId,
+    );
     try {
       return await this.resolvePinAttempt(
         clientId,
@@ -665,10 +748,18 @@ export class FaceDeskAttendanceService {
     // candidate set — one for the code path, the branch roster for PIN-only).
     const pinMatched: typeof roster = [];
     for (const p of roster) {
-      if (p.pinHash && (await bcrypt.compare(pin, p.pinHash))) pinMatched.push(p);
+      if (p.pinHash && (await bcrypt.compare(pin, p.pinHash)))
+        pinMatched.push(p);
     }
     if (pinMatched.length === 0) {
-      await this.recordFailed(clientId, branchId, deviceId, null, null, 'WRONG_PIN');
+      await this.recordFailed(
+        clientId,
+        branchId,
+        deviceId,
+        null,
+        null,
+        'WRONG_PIN',
+      );
       return { status: 'REJECTED', message: 'Incorrect PIN' };
     }
 
@@ -766,7 +857,8 @@ export class FaceDeskAttendanceService {
       );
       return {
         status: 'RETRY',
-        message: 'Multiple close matches — please try again or contact your administrator.',
+        message:
+          'Multiple close matches — please try again or contact your administrator.',
         confidencePercent,
       };
     }
@@ -792,6 +884,7 @@ export class FaceDeskAttendanceService {
     bestEmployeeId: string | null,
     bestConfidence: number | null,
     reason: string,
+    photoUrl: string | null = null,
   ): Promise<FaceDeskFailedAttemptEntity> {
     return this.failRepo.save({
       clientId,
@@ -800,6 +893,7 @@ export class FaceDeskAttendanceService {
       bestEmployeeId,
       bestConfidence,
       reason,
+      photoUrl,
     });
   }
 

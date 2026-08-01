@@ -324,7 +324,7 @@ type Tab =
 }
         @if (!loading && review.length > 0) {
 <table class="tbl">
-          <thead><tr><th>Issue</th><th>Worker</th><th>Photo</th><th>Confidence</th><th>Punch</th><th>When</th><th class="right">Actions</th></tr></thead>
+          <thead><tr><th>Issue</th><th>Worker</th><th>Face comparison</th><th>Confidence</th><th>Punch</th><th>When</th><th class="right">Actions</th></tr></thead>
           <tbody>
             @for (r of review; track r) {
 <tr>
@@ -332,9 +332,12 @@ type Tab =
               <td>{{ r.employeeName || r.employeeId || '—' }}<br><span class="mono text-xs text-gray-500">{{ r.employeeCode || '' }}{{ r.subjectType === 'CONTRACTOR' ? ' · Contractor' : '' }}</span></td>
               <td>
                 @if (r.photoUrl) {
-<button class="link" (click)="viewPhoto(r)">View photo</button>
+<button class="link compare-link" (click)="viewPhoto(r)">Captured</button>
 } @else {
 <span class="text-xs text-gray-400">—</span>
+}
+                @if (r.hasEnrolledPhoto) {
+<button class="link compare-link" (click)="viewEnrollmentPhoto(r)">Enrolled reference</button>
 }
               </td>
               <td>{{ r.confidenceScore ? (+r.confidenceScore * 100 | number:'1.0-0') + '%' : '—' }}</td>
@@ -471,6 +474,7 @@ type Tab =
     .pill { display: inline-flex; padding: 0.1rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; }
     .pill.amber { background: #fef3c7; color: #92400e; }
     .link { font-size: 0.75rem; margin-left: 0.6rem; background: none; border: none; cursor: pointer; }
+    .compare-link { margin-left: 0; margin-right: 0.6rem; color: #4f46e5; font-weight: 600; }
     .link.green { color: #047857; } .link.red { color: #dc2626; } .link.gray { color: #6b7280; }
     .btn { padding: 0.4rem 0.9rem; border: 1px solid #d1d5db; border-radius: 0.5rem; background: #fff; font-size: 0.875rem; cursor: pointer; }
     .btn.primary { background: #4f46e5; color: #fff; border-color: #4f46e5; }
@@ -589,6 +593,19 @@ export class FaceDeskComponent implements OnInit {
       .open(this.svc.reviewPhotoUrl(r.reviewId), `verify-${r.employeeCode || r.employeeId || ''}`)
       .subscribe({
         error: () => this.toast.error('Unable to open photo'),
+      });
+  }
+
+  /** Open the enrolled reference face through the same scoped photo boundary. */
+  viewEnrollmentPhoto(r: ReviewItem): void {
+    if (!r.hasEnrolledPhoto) return;
+    this.protectedFiles
+      .open(
+        this.svc.reviewEnrollmentPhotoUrl(r.reviewId),
+        `enrolled-${r.employeeCode || r.employeeId || ''}`,
+      )
+      .subscribe({
+        error: () => this.toast.error('Unable to open enrolled reference photo'),
       });
   }
 
