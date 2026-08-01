@@ -7,6 +7,7 @@ import {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
 } from '@aws-sdk/client-s3';
 
 /**
@@ -117,16 +118,18 @@ export class FacePhotoStorageService {
   }
 
   /**
-   * Read a stored face photo by the URL previously returned from uploadPhoto.
-   * Only the on-disk `/uploads/face-photos/...` scheme is supported (the prod
-   * storage path); legacy `local://` and s3:// return null. Path traversal is
-   * rejected. Callers MUST verify the requester is authorized for the owning
-   * record BEFORE calling this — this method does no access control.
+   * Read a stored face photo by the URL previously returned from uploadPhoto —
+   * either the on-disk `/uploads/face-photos/...` scheme or an `s3://...` object
+   * (whichever uploadPhoto produced). Legacy `local://` returns null. Path
+   * traversal is rejected. Callers MUST verify the requester is authorized for
+   * the owning record BEFORE calling this — this method does no access control.
    */
   async readPhoto(
     url: string | null | undefined,
   ): Promise<{ buffer: Buffer; contentType: string } | null> {
-    if (!url || !url.startsWith('/uploads/face-photos/')) return null;
+    if (!url) return null;
+    if (url.startsWith('s3://')) return this.readFromS3(url);
+    if (!url.startsWith('/uploads/face-photos/')) return null;
     const relative = url.slice('/uploads/'.length);
     const fullPath = normalize(join(this.uploadsDir, relative));
     // Containment guard: resolved path must stay under uploadsDir.
@@ -144,6 +147,32 @@ export class FacePhotoStorageService {
           `readPhoto failed for ${url}: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
+      return null;
+    }
+  }
+
+  /** Fetch an `s3://bucket/key` object as a buffer (used when S3 is the store). */
+  private async readFromS3(
+    url: string,
+  ): Promise<{ buffer: Buffer; contentType: string } | null> {
+    try {
+      const [, , bucket, ...keyParts] = url.split('/');
+      const key = keyParts.join('/');
+      if (!bucket || !key) return null;
+      const client = this.buildS3Client();
+      const res = await client.send(
+        new GetObjectCommand({ Bucket: bucket, Key: key }),
+      );
+      const bytes = await res.Body?.transformToByteArray();
+      if (!bytes) return null;
+      return {
+        buffer: Buffer.from(bytes),
+        contentType: res.ContentType || 'image/jpeg',
+      };
+    } catch (err) {
+      this.logger.warn(
+        `readPhoto S3 failed for ${url}: ${err instanceof Error ? err.message : String(err)}`,
+      );
       return null;
     }
   }

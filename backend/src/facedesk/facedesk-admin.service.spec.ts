@@ -245,4 +245,26 @@ describe('FaceDeskAdminService.getReviewPhoto', () => {
       service.getReviewPhoto('client-1', 'review-1', null),
     ).resolves.toBeNull();
   });
+
+  it('denies a branch user with no assigned branches (empty scope)', async () => {
+    const { service, reviewRepo, photoStorage } = makeService();
+    reviewRepo.manager.query.mockResolvedValueOnce([
+      { branchId: 'b1', photoUrl: '/uploads/face-photos/x.jpg' },
+    ]);
+    await expect(
+      service.getReviewPhoto('client-1', 'review-1', []),
+    ).rejects.toThrow(/not found/i);
+    expect(photoStorage.readPhoto).not.toHaveBeenCalled();
+  });
+
+  it('denies a null-branch item for a branch-scoped caller', async () => {
+    const { service, reviewRepo, photoStorage } = makeService();
+    reviewRepo.manager.query.mockResolvedValueOnce([
+      { branchId: null, photoUrl: '/uploads/face-photos/x.jpg' },
+    ]);
+    await expect(
+      service.getReviewPhoto('client-1', 'review-1', ['b1']),
+    ).rejects.toThrow(/not found/i);
+    expect(photoStorage.readPhoto).not.toHaveBeenCalled();
+  });
 });

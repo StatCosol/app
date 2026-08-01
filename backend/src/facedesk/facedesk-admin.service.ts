@@ -66,13 +66,14 @@ export class FaceDeskAdminService {
       [reviewId, clientId],
     );
     if (!row) throw new NotFoundException('Review item not found');
-    if (
-      branchIds &&
-      branchIds.length > 0 &&
-      row.branchId &&
-      !branchIds.includes(row.branchId)
-    ) {
-      throw new NotFoundException('Review item not found');
+    // A non-null branchIds means a branch-scoped caller (an empty array = no
+    // branches). Require the item to carry a branch that is one of theirs —
+    // and reject a null-branch item too — matching actOnReview()'s scoping so
+    // biometric photos never leak outside the caller's branches.
+    if (branchIds != null) {
+      if (!row.branchId || !branchIds.includes(row.branchId)) {
+        throw new NotFoundException('Review item not found');
+      }
     }
     if (!row.photoUrl) return null;
     return this.photoStorage.readPhoto(row.photoUrl);
