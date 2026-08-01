@@ -177,6 +177,15 @@ export class FaceDeskService {
       `${this.base}/admin/review-queue?status=${encodeURIComponent(status)}`,
     );
   }
+
+  /**
+   * Scoped, authorization-checked URL for a review item's captured photo.
+   * The raw /uploads/face-photos path is blocked for biometric photos, so the
+   * portal must load them through this endpoint.
+   */
+  reviewPhotoUrl(reviewId: string): string {
+    return `${this.base}/admin/review-queue/${reviewId}/photo`;
+  }
   actOnReview(
     reviewId: string,
     action: 'APPROVE' | 'REJECT' | 'REASSIGN' | 'FALSE_ALERT',

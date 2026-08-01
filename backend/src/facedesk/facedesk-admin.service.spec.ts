@@ -21,6 +21,11 @@ function makeService() {
   };
   const correctionRepo = {};
   const auditRepo = { save: jest.fn().mockResolvedValue({}) };
+  const photoStorage = {
+    readPhoto: jest
+      .fn()
+      .mockResolvedValue({ buffer: Buffer.from('img'), contentType: 'image/jpeg' }),
+  };
   const service = new FaceDeskAdminService(
     dupeRepo as any,
     reviewRepo as any,
@@ -30,6 +35,7 @@ function makeService() {
     sampleRepo as any,
     correctionRepo as any,
     auditRepo as any,
+    photoStorage as any,
   );
   return {
     service,
@@ -40,6 +46,7 @@ function makeService() {
     sampleRepo,
     profileRepo,
     auditRepo,
+    photoStorage,
   };
 }
 
@@ -192,5 +199,50 @@ describe('FaceDeskAdminService contractor review flow', () => {
         reviewedBy: 'reviewer-1',
       }),
     );
+  });
+});
+
+describe('FaceDeskAdminService.getReviewPhoto', () => {
+  it('streams the review photo for an in-scope item', async () => {
+    const { service, reviewRepo, photoStorage } = makeService();
+    reviewRepo.manager.query.mockResolvedValueOnce([
+      { branchId: 'b1', photoUrl: '/uploads/face-photos/x.jpg' },
+    ]);
+    const res = await service.getReviewPhoto('client-1', 'review-1', ['b1']);
+    expect(photoStorage.readPhoto).toHaveBeenCalledWith(
+      '/uploads/face-photos/x.jpg',
+    );
+    expect(res).toEqual(
+      expect.objectContaining({ contentType: 'image/jpeg' }),
+    );
+  });
+
+  it('denies a review item outside the branch scope', async () => {
+    const { service, reviewRepo, photoStorage } = makeService();
+    reviewRepo.manager.query.mockResolvedValueOnce([
+      { branchId: 'b1', photoUrl: '/uploads/face-photos/x.jpg' },
+    ]);
+    await expect(
+      service.getReviewPhoto('client-1', 'review-1', ['b2']),
+    ).rejects.toThrow(/not found/i);
+    expect(photoStorage.readPhoto).not.toHaveBeenCalled();
+  });
+
+  it('throws when the review item does not exist', async () => {
+    const { service, reviewRepo } = makeService();
+    reviewRepo.manager.query.mockResolvedValueOnce([]);
+    await expect(
+      service.getReviewPhoto('client-1', 'missing', null),
+    ).rejects.toThrow(/not found/i);
+  });
+
+  it('returns null when the item has no photo', async () => {
+    const { service, reviewRepo } = makeService();
+    reviewRepo.manager.query.mockResolvedValueOnce([
+      { branchId: 'b1', photoUrl: null },
+    ]);
+    await expect(
+      service.getReviewPhoto('client-1', 'review-1', null),
+    ).resolves.toBeNull();
   });
 });
