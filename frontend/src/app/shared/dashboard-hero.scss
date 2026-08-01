@@ -166,6 +166,10 @@
     background: rgba(255, 255, 255, 0.14);
     border: 1px solid rgba(255, 255, 255, 0.2);
     color: #fff;
+    // The refresh symbol is a text glyph (↻), not an SVG — it renders like any
+    // character, so it can't come out blank the way the inline SVG did.
+    font-size: 1.3rem;
+    line-height: 1;
     cursor: pointer;
     transition: background 0.2s ease;
 

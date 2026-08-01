@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ContractorBiometricPunchEntity } from '../mobile-attendance/punch/contractor-punch.entity';
+import { FacePhotoStorageService } from '../mobile-attendance/face/face-photo-storage.service';
 import {
   FaceDeskAttendanceEntity,
   FaceDeskAuditEntity,
@@ -40,7 +41,43 @@ export class FaceDeskAdminService {
     private readonly correctionRepo: Repository<FaceDeskCorrectionEntity>,
     @InjectRepository(FaceDeskAuditEntity)
     private readonly auditRepo: Repository<FaceDeskAuditEntity>,
+    private readonly photoStorage: FacePhotoStorageService,
   ) {}
+
+  /**
+   * Serve a review item's captured face photo, scoped to the caller. Biometric
+   * photos are blocked on the raw /uploads path (main.ts) for authorization, so
+   * the portal must fetch them through here — we load the review row, enforce
+   * client + branch scope, and stream the file from storage.
+   */
+  async getReviewPhoto(
+    clientId: string,
+    reviewId: string,
+    branchIds: string[] | null,
+  ): Promise<{ buffer: Buffer; contentType: string } | null> {
+    const [row] = await this.reviewRepo.manager.query(
+      `SELECT rq.branch_id AS "branchId",
+              COALESCE(a.photo_url, cp.photo_url) AS "photoUrl"
+         FROM facedesk_attendance_review_queue rq
+         LEFT JOIN facedesk_attendance_logs a ON a.attendance_id = rq.attendance_id
+         LEFT JOIN contractor_biometric_punches cp ON cp.id = rq.contractor_punch_id
+        WHERE rq.review_id = $1 AND rq.client_id = $2
+        LIMIT 1`,
+      [reviewId, clientId],
+    );
+    if (!row) throw new NotFoundException('Review item not found');
+    // A non-null branchIds means a branch-scoped caller (an empty array = no
+    // branches). Require the item to carry a branch that is one of theirs —
+    // and reject a null-branch item too — matching actOnReview()'s scoping so
+    // biometric photos never leak outside the caller's branches.
+    if (branchIds != null) {
+      if (!row.branchId || !branchIds.includes(row.branchId)) {
+        throw new NotFoundException('Review item not found');
+      }
+    }
+    if (!row.photoUrl) return null;
+    return this.photoStorage.readPhoto(row.photoUrl);
+  }
 
   private audit(
     clientId: string,

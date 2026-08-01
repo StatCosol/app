@@ -139,6 +139,16 @@ export class FaceDeskService {
     );
   }
 
+  /** Delete a subject's enrollment (face profile + samples); they return to pending. */
+  deleteEnrollment(
+    employeeId: string,
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE',
+  ): Observable<{ ok: true }> {
+    return this.http.delete<{ ok: true }>(
+      `${this.base}/enrollment/${employeeId}?subjectType=${subjectType}`,
+    );
+  }
+
   createEnrollTicket(
     employeeId: string,
     deviceId: string,
@@ -176,6 +186,15 @@ export class FaceDeskService {
     return this.http.get<ReviewItem[]>(
       `${this.base}/admin/review-queue?status=${encodeURIComponent(status)}`,
     );
+  }
+
+  /**
+   * Scoped, authorization-checked URL for a review item's captured photo.
+   * The raw /uploads/face-photos path is blocked for biometric photos, so the
+   * portal must load them through this endpoint.
+   */
+  reviewPhotoUrl(reviewId: string): string {
+    return `${this.base}/admin/review-queue/${reviewId}/photo`;
   }
   actOnReview(
     reviewId: string,

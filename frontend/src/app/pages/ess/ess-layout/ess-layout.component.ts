@@ -335,7 +335,10 @@ interface NavItem {
       .topbar {
         padding: 0 10px;
         gap: 8px;
-        overflow: hidden;
+        /* No overflow clip here — it would cut off the avatar/logout dropdown,
+           which is absolutely positioned inside the topbar and hangs below it.
+           The title truncates itself via .tb-title (max-width + ellipsis). */
+        overflow: visible;
       }
       .tb-hamburger {
         display: inline-flex !important;
