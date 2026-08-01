@@ -20,6 +20,8 @@ interface CalendarDay {
   date: string;
   day: number;
   weekday: string;
+  /** 0 = Sun … 6 = Sat; used to align day 1 under its real weekday column. */
+  weekdayIndex: number;
   status: string;
   checkIn: string | null;
   checkOut: string | null;
@@ -345,6 +347,7 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
           <div class="grid grid-cols-7 gap-2">
             @for (day of calendarDays; track day) {
 <div class="day-cell"
+              [style.grid-column-start]="day.day === 1 ? day.weekdayIndex + 1 : null"
               [ngClass]="statusClass(day.status)"
               [class.short-pending]="isShortDayPending(day)"
               (click)="onDayCellClick(day)"
@@ -1119,6 +1122,7 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
         date,
         day,
         weekday: this.weekdays[d.getUTCDay()],
+        weekdayIndex: d.getUTCDay(),
         status: rec?.status || 'UNMARKED',
         checkIn: rec?.checkIn || null,
         checkOut: rec?.checkOut || null,
