@@ -61,3 +61,113 @@ describe('FaceDeskEnrollmentService enrolled roster', () => {
     expect(params).toEqual(['client-1', 'CONTRACTOR']);
   });
 });
+
+describe('FaceDeskEnrollmentService deleteEnrollment', () => {
+  const build = (
+    profile: any,
+    opts: { currentBranch?: string | null; samples?: any[] } = {},
+  ) => {
+    const profileRepo = { findOne: jest.fn().mockResolvedValue(profile) };
+    const sampleRepo = {
+      find: jest.fn().mockResolvedValue(opts.samples ?? []),
+    };
+    const auditInTx = { save: jest.fn().mockResolvedValue({}) };
+    const em = {
+      delete: jest.fn().mockResolvedValue({}),
+      getRepository: jest.fn().mockReturnValue(auditInTx),
+    };
+    const dataSource = {
+      // Roster-branch lookup for a branch-scoped caller.
+      query: jest
+        .fn()
+        .mockResolvedValue(
+          'currentBranch' in opts ? [{ branchId: opts.currentBranch }] : [],
+        ),
+      transaction: jest.fn(async (cb: any) => cb(em)),
+    };
+    const photoStorage = { deletePhoto: jest.fn().mockResolvedValue(true) };
+    const service = new FaceDeskEnrollmentService(
+      profileRepo as any,
+      sampleRepo as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      photoStorage as any,
+      dataSource as any,
+    );
+    return { service, profileRepo, sampleRepo, em, auditInTx, dataSource, photoStorage };
+  };
+
+  const profile = {
+    profileId: 'p1',
+    employeeId: 'e1',
+    clientId: 'c1',
+    subjectType: 'EMPLOYEE',
+    branchId: 'b1',
+  };
+
+  it('deletes samples + profile + audit atomically and cleans up photos', async () => {
+    const { service, em, auditInTx, dataSource, photoStorage } = build(profile, {
+      currentBranch: 'b1',
+      samples: [{ imagePath: 's3://face/a.jpg' }, { imagePath: null }],
+    });
+    const res = await service.deleteEnrollment('c1', 'actor', 'e1', 'EMPLOYEE', [
+      'b1',
+    ]);
+    expect(res).toEqual({ ok: true });
+    // All three writes run inside one transaction.
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(em.delete).toHaveBeenCalledWith(expect.anything(), { profileId: 'p1' });
+    expect(em.delete).toHaveBeenCalledTimes(2);
+    expect(auditInTx.save).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'ENROLLMENT_DELETED', entityId: 'e1' }),
+    );
+    // The one non-null photo URL is deleted from storage.
+    expect(photoStorage.deletePhoto).toHaveBeenCalledTimes(1);
+    expect(photoStorage.deletePhoto).toHaveBeenCalledWith('s3://face/a.jpg');
+  });
+
+  it('authorizes on the CURRENT roster branch, not the stale profile branch', async () => {
+    // Profile branch is stale ('old') but the worker now sits in 'b1' — a branch
+    // user scoped to 'b1' must be allowed (transfer case).
+    const { service, dataSource } = build(
+      { ...profile, branchId: 'old' },
+      { currentBranch: 'b1' },
+    );
+    await expect(
+      service.deleteEnrollment('c1', 'actor', 'e1', 'EMPLOYEE', ['b1']),
+    ).resolves.toEqual({ ok: true });
+    expect(dataSource.transaction).toHaveBeenCalled();
+  });
+
+  it('denies a null-branch (admin-enrolled) profile when the roster branch is out of scope', async () => {
+    // The P1: profile.branchId is null, so the old guard was skipped and a branch
+    // user could delete it. Now the subject's live branch ('bX') decides.
+    const { service, dataSource, photoStorage } = build(
+      { ...profile, branchId: null },
+      { currentBranch: 'bX' },
+    );
+    await expect(
+      service.deleteEnrollment('c1', 'actor', 'e1', 'EMPLOYEE', ['b1']),
+    ).rejects.toThrow(/scope/i);
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(photoStorage.deletePhoto).not.toHaveBeenCalled();
+  });
+
+  it('denies when the subject is not found in the caller\'s roster scope', async () => {
+    const { service, dataSource } = build(profile, { currentBranch: null });
+    await expect(
+      service.deleteEnrollment('c1', 'actor', 'e1', 'EMPLOYEE', ['b1']),
+    ).rejects.toThrow(/scope/i);
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('throws when there is no enrollment to delete', async () => {
+    const { service } = build(null);
+    await expect(
+      service.deleteEnrollment('c1', 'actor', 'missing'),
+    ).rejects.toThrow(/no enrollment/i);
+  });
+});

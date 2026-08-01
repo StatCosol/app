@@ -423,6 +423,81 @@ export class FaceDeskEnrollmentService {
     return this.saveProfile(clientId, branchId, actorId, dto);
   }
 
+  /**
+   * Delete a subject's FaceDesk enrollment: removes the face profile (template +
+   * PIN) and every stored sample so the subject returns to "pending" and can be
+   * re-enrolled cleanly. Attendance history (logs / contractor punches) is keyed
+   * by employee id, not the profile, so it is preserved. Branch-scoped callers
+   * may only delete enrollments within their own branches.
+   */
+  async deleteEnrollment(
+    clientId: string,
+    actorId: string,
+    employeeId: string,
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE',
+    branchIds?: string[] | null,
+  ): Promise<{ ok: true }> {
+    const profile = await this.profileRepo.findOne({
+      where: { employeeId, clientId, subjectType },
+    });
+    if (!profile) {
+      throw new NotFoundException('No enrollment found for this subject');
+    }
+
+    // Branch scope: authorize against the subject's CURRENT roster branch, not
+    // the profile's stored branch. A profile enrolled by a client-wide admin has
+    // a null branch, and a transferred worker's profile branch goes stale — both
+    // would otherwise let a branch user delete outside their scope (or be denied
+    // in their own). A non-null branchIds means a branch-scoped caller, so the
+    // subject's live branch must be one of theirs.
+    if (branchIds != null) {
+      const table =
+        subjectType === 'CONTRACTOR' ? 'contractor_employees' : 'employees';
+      const [row] = await this.dataSource.query<
+        Array<{ branchId: string | null }>
+      >(
+        `SELECT branch_id AS "branchId" FROM ${table}
+          WHERE id = $1 AND client_id = $2 LIMIT 1`,
+        [employeeId, clientId],
+      );
+      const currentBranch = row?.branchId ?? null;
+      if (!currentBranch || !branchIds.includes(currentBranch)) {
+        throw new NotFoundException('Enrollment is not in your branch scope');
+      }
+    }
+
+    // Capture stored photo URLs before the sample rows (which hold them) go.
+    const samples = await this.sampleRepo.find({
+      where: { profileId: profile.profileId },
+    });
+    const photoUrls = samples
+      .map((s) => s.imagePath)
+      .filter((p): p is string => !!p);
+
+    // Atomic: samples, profile and the audit row commit together or not at all,
+    // so a partial failure can't leave a profile with its samples gone, or an
+    // irreversible delete with no audit trail.
+    await this.dataSource.transaction(async (em) => {
+      await em.delete(FaceDeskSampleEntity, { profileId: profile.profileId });
+      await em.delete(FaceDeskProfileEntity, { profileId: profile.profileId });
+      await em.getRepository(FaceDeskAuditEntity).save({
+        clientId,
+        actorId,
+        action: 'ENROLLMENT_DELETED',
+        entityType: 'ENROLLMENT',
+        entityId: employeeId,
+        detail: { subjectType, profileId: profile.profileId },
+      });
+    });
+
+    // Best-effort orphan cleanup once the DB state is committed — a storage
+    // hiccup must not fail an already-completed deletion.
+    for (const url of photoUrls) {
+      await this.photoStorage.deletePhoto(url).catch(() => undefined);
+    }
+    return { ok: true };
+  }
+
   private avgQuality(frames: ResolvedFrame[]): number {
     if (!frames.length) return 0;
     return (

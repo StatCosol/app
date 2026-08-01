@@ -154,6 +154,23 @@ export class FaceDeskController {
     );
   }
 
+  @ApiOperation({ summary: 'Delete a FaceDesk enrollment (face profile + samples)' })
+  @Delete('enrollment/:employeeId')
+  @Roles('CLIENT', 'ADMIN')
+  deleteEnrollment(
+    @CurrentUser() user: ReqUser,
+    @Param('employeeId') employeeId: string,
+    @Query('subjectType') subjectType?: string,
+  ) {
+    return this.enrollment.deleteEnrollment(
+      this.requireClient(user),
+      user.id,
+      employeeId,
+      subjectType === 'CONTRACTOR' ? 'CONTRACTOR' : 'EMPLOYEE',
+      this.branchScope(user),
+    );
+  }
+
   @ApiOperation({
     summary: 'Set/reset an employee attendance PIN (PIN_THEN_FACE mode)',
   })
