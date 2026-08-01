@@ -131,6 +131,7 @@ describe('BiometricService', () => {
     const [sql, params] = query.mock.calls[0];
     expect(sql).toContain("rq.status = 'PENDING'");
     expect(sql).toContain('NOT EXISTS');
+    expect(sql).toContain("COALESCE(a.device_id::text, 'facedesk')");
     expect(params).toEqual([
       'client-1',
       new Date('2026-08-01T18:30:00.000Z'),

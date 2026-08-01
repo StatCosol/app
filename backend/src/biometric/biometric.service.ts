@@ -176,7 +176,8 @@ export class BiometricService {
              WHERE bp.client_id = a.client_id
                AND bp.employee_code = e.employee_code
                AND bp.punch_time = a.punch_time
-               AND COALESCE(bp.device_id, '') = COALESCE(a.device_id, 'facedesk')
+               AND COALESCE(bp.device_id, '') =
+                   COALESCE(a.device_id::text, 'facedesk')
           )
         ORDER BY a.punch_time ASC
         LIMIT 10000`,
