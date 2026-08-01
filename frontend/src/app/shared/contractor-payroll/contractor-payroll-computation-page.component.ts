@@ -4,7 +4,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { EMPTY, Observable, of, Subject } from 'rxjs';
-import { catchError, expand, finalize, map, reduce, switchMap, takeUntil } from 'rxjs/operators';
+import { catchError, expand, finalize, map, reduce, retry, switchMap, takeUntil, timeout } from 'rxjs/operators';
 
 type Portal = 'contractor' | 'client' | 'branch' | 'auditor';
 interface ComputationPage {
@@ -244,6 +244,12 @@ export class ContractorPayrollComputationPageComponent implements OnInit, OnDest
     this.loading = true;
     this.error = '';
     return this.fetchAllRows(params).pipe(
+      // The first fetch after landing on the page can stall (e.g. a token
+      // refresh round-trip), leaving an endless "Loading…" until the user hits
+      // Refresh. Cap it and auto-retry once so that second attempt happens on
+      // its own instead of the user having to click again.
+      timeout(20000),
+      retry(1),
       map((rows) => ({ rows })),
       catchError((err) =>
         of({
