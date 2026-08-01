@@ -244,12 +244,6 @@ export class ContractorPayrollComputationPageComponent implements OnInit, OnDest
     this.loading = true;
     this.error = '';
     return this.fetchAllRows(params).pipe(
-      // The first fetch after landing on the page can stall (e.g. a token
-      // refresh round-trip), leaving an endless "Loading…" until the user hits
-      // Refresh. Cap it and auto-retry once so that second attempt happens on
-      // its own instead of the user having to click again.
-      timeout(20000),
-      retry(1),
       map((rows) => ({ rows })),
       catchError((err) =>
         of({
@@ -282,6 +276,10 @@ export class ContractorPayrollComputationPageComponent implements OnInit, OnDest
         },
       })
       .pipe(
+        // Bound each page independently. Completed 500-row pages remain useful
+        // progress and do not consume the timeout budget of later pages.
+        timeout(20000),
+        retry(1),
         map((res) => {
           const data = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
           return {
