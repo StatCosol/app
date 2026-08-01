@@ -166,21 +166,14 @@
     background: rgba(255, 255, 255, 0.14);
     border: 1px solid rgba(255, 255, 255, 0.2);
     color: #fff;
+    // The refresh symbol is a text glyph (↻), not an SVG — it renders like any
+    // character, so it can't come out blank the way the inline SVG did.
+    font-size: 1.3rem;
+    line-height: 1;
     cursor: pointer;
     transition: background 0.2s ease;
 
     &:hover { background: rgba(255, 255, 255, 0.24); }
-
-    // Size and colour the icon here rather than relying on Tailwind utilities
-    // + the `stroke="currentColor"` attribute in the template. A CSS `stroke`
-    // beats the low-priority presentation attribute, so the refresh icon is
-    // reliably a crisp white glyph instead of rendering blank/low-contrast.
-    svg {
-      width: 1.1rem;
-      height: 1.1rem;
-      stroke: #fff;
-      stroke-width: 2;
-    }
   }
 
   // Compliance ring
