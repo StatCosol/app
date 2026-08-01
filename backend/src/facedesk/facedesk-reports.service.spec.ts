@@ -78,6 +78,7 @@ describe('FaceDeskReportsService.failedAttempts', () => {
 
     const [sql, params] = dataSource.query.mock.calls[0];
     expect(sql).toContain('LEFT JOIN contractor_employees ce');
+    expect(sql).toContain('b.branch_name AS "branchName"');
     expect(sql).toContain('f.best_confidence AS "matchScore"');
     expect(sql).toContain('f.branch_id = ANY($4::uuid[])');
     expect(params).toEqual([
