@@ -583,9 +583,13 @@ export class FaceDeskComponent implements OnInit {
   /** Open the captured attendance photo (Bearer-protected) for verification. */
   viewPhoto(r: ReviewItem): void {
     if (!r.photoUrl) return;
-    this.protectedFiles.open(r.photoUrl, `verify-${r.employeeCode || r.employeeId || ''}`).subscribe({
-      error: () => this.toast.error('Unable to open photo'),
-    });
+    // Fetch through the scoped, authorized endpoint — the raw /uploads path is
+    // intentionally 404'd for biometric photos.
+    this.protectedFiles
+      .open(this.svc.reviewPhotoUrl(r.reviewId), `verify-${r.employeeCode || r.employeeId || ''}`)
+      .subscribe({
+        error: () => this.toast.error('Unable to open photo'),
+      });
   }
 
   loadBranches(): void {
