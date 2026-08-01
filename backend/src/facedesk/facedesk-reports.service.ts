@@ -171,7 +171,7 @@ export class FaceDeskReportsService {
     const branch = this.branchClause(params, opts.branchIds, 'f.branch_id');
     return this.dataSource.query(
       `SELECT f.attempt_id AS id, f.attempted_at AS "attemptedAt",
-              f.branch_id AS "branchId", b.name AS "branchName",
+              f.branch_id AS "branchId", b.branch_name AS "branchName",
               f.device_id AS "deviceId", d.device_name AS "deviceLabel",
               'KIOSK'::text AS mode,
               e.id AS "employeeId", e.employee_code AS "employeeCode",
