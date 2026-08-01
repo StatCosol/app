@@ -11,8 +11,10 @@ import {
   Observable,
   catchError,
   filter,
+  shareReplay,
   switchMap,
   take,
+  tap,
   throwError,
 } from 'rxjs';
 import { AuthService } from '../auth.service';
@@ -87,7 +89,11 @@ export function authInterceptor(
         isRefreshing = true;
         refreshTokenSubject.next(null);
 
-        return authService.refreshAccessToken().pipe(
+        // Keep the refresh request alive even if the request that triggered it
+        // is unsubscribed (for example by a page-level timeout). With
+        // refCount:false, a retry can queue on refreshTokenSubject and receive
+        // the eventual token instead of leaving isRefreshing stuck forever.
+        const refresh$ = authService.refreshAccessToken().pipe(
           // Logout ONLY on refresh failure — not on retry failure
           catchError((refreshError) => {
             refreshTokenSubject.next('REFRESH_FAILED');
@@ -95,9 +101,17 @@ export function authInterceptor(
             authService.logoutOnce('refresh failed', isEssPath);
             return throwError(() => refreshError);
           }),
-          switchMap((newToken) => {
+          tap((newToken) => {
+            // This side effect must live upstream of shareReplay so it still
+            // runs when the original request has timed out and unsubscribed.
             refreshTokenSubject.next(newToken);
             isRefreshing = false;
+          }),
+          shareReplay({ bufferSize: 1, refCount: false }),
+        );
+
+        return refresh$.pipe(
+          switchMap((newToken) => {
             if (!isIdempotent) {
               return throwError(() => error);
             }
