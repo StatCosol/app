@@ -138,6 +138,65 @@ export class BiometricService {
     return result;
   }
 
+  /**
+   * Backfill eligible FaceDesk punches that have not reached the shared
+   * biometric pipeline yet. This closes the gap for punches captured before
+   * real-time FaceDesk ingest was enabled, while leaving mismatches in the
+   * review queue until a branch user approves or reassigns them.
+   */
+  async syncFaceDeskRange(
+    clientId: string,
+    from: string,
+    to: string,
+  ): Promise<IngestResult> {
+    const rows = await this.punchRepo.manager.query<
+      Array<{
+        employeeCode: string;
+        punchTime: Date;
+        punchType: 'IN' | 'OUT' | 'AUTO';
+        deviceId: string | null;
+        branchId: string | null;
+      }>
+    >(
+      `SELECT e.employee_code AS "employeeCode", a.punch_time AS "punchTime",
+              a.punch_type AS "punchType", a.device_id AS "deviceId",
+              a.branch_id AS "branchId"
+         FROM facedesk_attendance_logs a
+         JOIN employees e ON e.id = a.employee_id AND e.client_id = a.client_id
+        WHERE a.client_id = $1 AND a.punch_time >= $2 AND a.punch_time <= $3
+          AND a.attendance_status IN ('MARKED','APPROVED')
+          AND NOT EXISTS (
+            SELECT 1 FROM facedesk_attendance_review_queue rq
+             WHERE rq.client_id = a.client_id
+               AND rq.attendance_id = a.attendance_id
+               AND rq.status = 'PENDING'
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM biometric_punches bp
+             WHERE bp.client_id = a.client_id
+               AND bp.employee_code = e.employee_code
+               AND bp.punch_time = a.punch_time
+               AND COALESCE(bp.device_id, '') = COALESCE(a.device_id, 'facedesk')
+          )
+        ORDER BY a.punch_time ASC
+        LIMIT 10000`,
+      [clientId, this.businessDateStartUtc(from), this.businessDateEndUtc(to)],
+    );
+
+    return this.ingest(
+      clientId,
+      rows.map((row) => ({
+        employeeCode: row.employeeCode,
+        punchTime: new Date(row.punchTime).toISOString(),
+        direction: row.punchType,
+        deviceId: row.deviceId ?? 'facedesk',
+        branchId: row.branchId ?? undefined,
+        source: 'MOBILE_KIOSK',
+      })),
+      false,
+    );
+  }
+
   /** List raw punches for a window. */
   async list(params: {
     clientId: string;

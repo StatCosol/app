@@ -264,6 +264,12 @@ export class FaceDeskReportsService {
          JOIN employees e ON e.id = a.employee_id
         WHERE a.client_id = $1 AND a.punch_time >= $2 AND a.punch_time < $3
           AND a.attendance_status IN ('MARKED','APPROVED')
+          AND NOT EXISTS (
+            SELECT 1 FROM facedesk_attendance_review_queue rq
+             WHERE rq.client_id = a.client_id
+               AND rq.attendance_id = a.attendance_id
+               AND rq.status = 'PENDING'
+          )
         ORDER BY a.punch_time ASC LIMIT 10000`,
       [clientId, from, to],
     );

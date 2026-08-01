@@ -1148,6 +1148,15 @@ export class UsersService implements OnModuleInit {
       .getOne();
   }
 
+  /** Resolve current branch mappings instead of trusting a potentially stale JWT. */
+  async getUserBranchIds(userId: string): Promise<string[]> {
+    const rows: Array<{ branch_id: string }> = await this.dataSource.query(
+      `SELECT branch_id FROM user_branches WHERE user_id = $1`,
+      [userId],
+    );
+    return rows.map((row) => row.branch_id);
+  }
+
   async validateLogin(email: string, plainPassword: string) {
     if (!email || !plainPassword) {
       throw new UnauthorizedException('Email and password are required');

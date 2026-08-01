@@ -451,6 +451,13 @@ export class AttendanceService {
     approvalStatus?: string;
     allowedBranchIds?: string[] | null;
   }) {
+    // Reconcile accepted FaceDesk punches first. The ingest is idempotent and
+    // also backfills punches captured before real-time FaceDesk ingest existed.
+    await this.biometricService.syncFaceDeskRange(
+      params.clientId,
+      params.date,
+      params.date,
+    );
     // reprocess=true: always reconcile corrected punches before showing the review grid
     await this.biometricService.processRange(
       params.clientId,
@@ -986,6 +993,7 @@ export class AttendanceService {
     branchId?: string,
     allowedBranchIds: string[] | null = null,
   ) {
+    await this.biometricService.syncFaceDeskRange(clientId, date, date);
     await this.biometricService.processRange(clientId, date, date, true);
 
     const qb = this.repo

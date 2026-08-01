@@ -38,6 +38,9 @@ describe('FaceDeskReportsService.pushToPayroll', () => {
     const autoProcess = call[2];
     expect(clientId).toBe('c1');
     expect(autoProcess).toBe(true);
+    expect(dataSource.query.mock.calls[0][0]).toContain(
+      "rq.status = 'PENDING'",
+    );
     expect(items[0]).toEqual(
       expect.objectContaining({
         employeeCode: 'E001',
