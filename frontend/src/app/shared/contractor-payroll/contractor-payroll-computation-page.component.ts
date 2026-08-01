@@ -4,7 +4,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { EMPTY, Observable, of, Subject } from 'rxjs';
-import { catchError, expand, finalize, map, reduce, switchMap, takeUntil } from 'rxjs/operators';
+import { catchError, expand, finalize, map, reduce, retry, switchMap, takeUntil, timeout } from 'rxjs/operators';
 
 type Portal = 'contractor' | 'client' | 'branch' | 'auditor';
 interface ComputationPage {
@@ -276,6 +276,10 @@ export class ContractorPayrollComputationPageComponent implements OnInit, OnDest
         },
       })
       .pipe(
+        // Bound each page independently. Completed 500-row pages remain useful
+        // progress and do not consume the timeout budget of later pages.
+        timeout(20000),
+        retry(1),
         map((res) => {
           const data = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
           return {
