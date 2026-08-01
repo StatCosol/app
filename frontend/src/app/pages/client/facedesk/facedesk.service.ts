@@ -56,6 +56,7 @@ export interface ReviewItem {
   attendanceId: string | null;
   contractorPunchId?: string | null;
   photoUrl?: string | null;
+  hasEnrolledPhoto?: boolean;
   punchType?: string | null;
   punchTime?: string | null;
   branchId?: string | null;
@@ -195,6 +196,9 @@ export class FaceDeskService {
    */
   reviewPhotoUrl(reviewId: string): string {
     return `${this.base}/admin/review-queue/${reviewId}/photo`;
+  }
+  reviewEnrollmentPhotoUrl(reviewId: string): string {
+    return `${this.base}/admin/review-queue/${reviewId}/enrollment-photo`;
   }
   actOnReview(
     reviewId: string,

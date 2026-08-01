@@ -1,12 +1,14 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ContractorBiometricPunchEntity } from '../mobile-attendance/punch/contractor-punch.entity';
 import { FacePhotoStorageService } from '../mobile-attendance/face/face-photo-storage.service';
+import { BiometricService } from '../biometric/biometric.service';
 import {
   FaceDeskAttendanceEntity,
   FaceDeskAuditEntity,
@@ -42,7 +44,51 @@ export class FaceDeskAdminService {
     @InjectRepository(FaceDeskAuditEntity)
     private readonly auditRepo: Repository<FaceDeskAuditEntity>,
     private readonly photoStorage: FacePhotoStorageService,
+    private readonly biometric: BiometricService,
   ) {}
+
+  private readonly logger = new Logger(FaceDeskAdminService.name);
+
+  /**
+   * On HR approval of a flagged EMPLOYEE punch, reflect it into the biometric /
+   * daily-attendance pipeline (clean punches are ingested at capture; flagged
+   * ones wait until here). Best-effort; idempotent on (client, code, time).
+   */
+  private async ingestApprovedPunch(
+    clientId: string,
+    attendanceId: string,
+  ): Promise<void> {
+    const [row] = await this.attRepo.manager.query(
+      `SELECT e.employee_code AS "employeeCode", a.punch_time AS "punchTime",
+              a.punch_type AS "punchType", a.device_id AS "deviceId",
+              a.branch_id AS "branchId"
+         FROM facedesk_attendance_logs a
+         JOIN employees e ON e.id = a.employee_id
+        WHERE a.attendance_id = $1 AND a.client_id = $2 LIMIT 1`,
+      [attendanceId, clientId],
+    );
+    if (!row?.employeeCode) return;
+    try {
+      await this.biometric.ingest(
+        clientId,
+        [
+          {
+            employeeCode: row.employeeCode,
+            punchTime: new Date(row.punchTime).toISOString(),
+            direction: row.punchType,
+            deviceId: row.deviceId ?? 'facedesk',
+            branchId: row.branchId ?? undefined,
+            source: 'MOBILE_KIOSK',
+          },
+        ],
+        true,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `biometric ingest on approve failed for ${row.employeeCode}: ${(err as Error)?.message}`,
+      );
+    }
+  }
 
   /**
    * Serve a review item's captured face photo, scoped to the caller. Biometric
@@ -70,6 +116,40 @@ export class FaceDeskAdminService {
     // branches). Require the item to carry a branch that is one of theirs —
     // and reject a null-branch item too — matching actOnReview()'s scoping so
     // biometric photos never leak outside the caller's branches.
+    if (branchIds != null) {
+      if (!row.branchId || !branchIds.includes(row.branchId)) {
+        throw new NotFoundException('Review item not found');
+      }
+    }
+    if (!row.photoUrl) return null;
+    return this.photoStorage.readPhoto(row.photoUrl);
+  }
+
+  /** Serve the enrolled reference image for the subject on a review item. */
+  async getReviewEnrollmentPhoto(
+    clientId: string,
+    reviewId: string,
+    branchIds: string[] | null,
+  ): Promise<{ buffer: Buffer; contentType: string } | null> {
+    const [row] = await this.reviewRepo.manager.query(
+      `SELECT rq.branch_id AS "branchId",
+              (SELECT s.image_path
+                 FROM facedesk_employee_face_profiles p
+                 JOIN facedesk_employee_face_samples s
+                   ON s.profile_id = p.profile_id
+                WHERE p.client_id = rq.client_id
+                  AND p.employee_id = rq.employee_id
+                  AND s.image_path IS NOT NULL
+                ORDER BY (s.sample_type = 'FRONT') DESC,
+                         s.quality_score DESC NULLS LAST,
+                         s.created_at DESC
+                LIMIT 1) AS "photoUrl"
+         FROM facedesk_attendance_review_queue rq
+        WHERE rq.review_id = $1 AND rq.client_id = $2
+        LIMIT 1`,
+      [reviewId, clientId],
+    );
+    if (!row) throw new NotFoundException('Review item not found');
     if (branchIds != null) {
       if (!row.branchId || !branchIds.includes(row.branchId)) {
         throw new NotFoundException('Review item not found');
@@ -215,6 +295,15 @@ export class FaceDeskAdminService {
               rq.attendance_id AS "attendanceId",
               rq.contractor_punch_id AS "contractorPunchId",
               COALESCE(a.photo_url, cp.photo_url) AS "photoUrl",
+              EXISTS (
+                SELECT 1
+                  FROM facedesk_employee_face_profiles fp
+                  JOIN facedesk_employee_face_samples fs
+                    ON fs.profile_id = fp.profile_id
+                 WHERE fp.client_id = rq.client_id
+                   AND fp.employee_id = rq.employee_id
+                   AND fs.image_path IS NOT NULL
+              ) AS "hasEnrolledPhoto",
               COALESCE(a.punch_time, cp.punch_time) AS "punchTime",
               COALESCE(a.punch_type, cp.direction) AS "punchType",
               rq.branch_id AS "branchId", rq.issue_type AS "issueType",
@@ -279,6 +368,14 @@ export class FaceDeskAdminService {
           { attendanceId: review.attendanceId },
           { employeeId: dto.reassignEmployeeId, attendanceStatus: 'APPROVED' },
         );
+      }
+      // Approved/reassigned → now reflect into daily attendance + payroll
+      // (queried after the update so a reassign uses the new employee's code).
+      if (
+        dto.action === 'APPROVE' ||
+        (dto.action === 'REASSIGN' && dto.reassignEmployeeId)
+      ) {
+        await this.ingestApprovedPunch(clientId, review.attendanceId);
       }
     }
     if (review.contractorPunchId) {

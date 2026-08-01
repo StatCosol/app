@@ -64,3 +64,36 @@ describe('FaceDeskReportsService.pushToPayroll', () => {
     expect(biometric.ingest).not.toHaveBeenCalled();
   });
 });
+
+describe('FaceDeskReportsService.failedAttempts', () => {
+  it('returns enriched FaceDesk failures for the attendance-failures screen', async () => {
+    const dataSource = { query: jest.fn().mockResolvedValue([]) };
+    const service = new FaceDeskReportsService(dataSource as any, {} as any);
+
+    await service.failedAttempts('c1', {
+      from: '2026-08-01T00:00:00.000Z',
+      to: '2026-08-02T00:00:00.000Z',
+      branchIds: ['b1'],
+    });
+
+    const [sql, params] = dataSource.query.mock.calls[0];
+    expect(sql).toContain('LEFT JOIN contractor_employees ce');
+    expect(sql).toContain('f.best_confidence AS "matchScore"');
+    expect(sql).toContain('f.branch_id = ANY($4::uuid[])');
+    expect(params).toEqual([
+      'c1',
+      '2026-08-01T00:00:00.000Z',
+      '2026-08-02T00:00:00.000Z',
+      ['b1'],
+    ]);
+  });
+
+  it('returns no rows for a branch user with no assigned branches', async () => {
+    const dataSource = { query: jest.fn().mockResolvedValue([]) };
+    const service = new FaceDeskReportsService(dataSource as any, {} as any);
+
+    await service.failedAttempts('c1', { branchIds: [] });
+
+    expect(dataSource.query.mock.calls[0][0]).toContain('AND FALSE');
+  });
+});

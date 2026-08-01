@@ -85,7 +85,8 @@ function makeService(rosterRows: any[], todayCount = 0) {
   // doesn't have to be counted: samples → [], punch-count → n, else → roster.
   const dataSource = {
     query: jest.fn((sql: string) => {
-      if (/facedesk_employee_face_samples/i.test(sql)) return Promise.resolve([]);
+      if (/facedesk_employee_face_samples/i.test(sql))
+        return Promise.resolve([]);
       if (/count\(\*\)/i.test(sql))
         return Promise.resolve([{ n: String(todayCount) }]);
       return Promise.resolve(rosterRows);
@@ -107,6 +108,9 @@ function makeService(rosterRows: any[], todayCount = 0) {
       };
     }),
   };
+  const biometric = {
+    ingest: jest.fn().mockResolvedValue({ received: 1, inserted: 1 }),
+  };
   const service = new FaceDeskAttendanceService(
     attRepo as any,
     failRepo as any,
@@ -117,8 +121,16 @@ function makeService(rosterRows: any[], todayCount = 0) {
     photo as any,
     dataSource as any,
     liveness as any,
+    biometric as any,
   );
-  return { service, attRepo, failRepo, reviewRepo, contractorPunchRepo };
+  return {
+    service,
+    attRepo,
+    failRepo,
+    reviewRepo,
+    contractorPunchRepo,
+    biometric,
+  };
 }
 
 const roster = (
@@ -177,7 +189,8 @@ describe('FaceDeskAttendanceService.markAttendance — PIN_THEN_FACE', () => {
     const base = makeService([], todayCount);
     // SQL-aware: gallery samples → [], punch-count → n, else → claimed profile.
     (base.service as any).dataSource.query = jest.fn((sql: string) => {
-      if (/facedesk_employee_face_samples/i.test(sql)) return Promise.resolve([]);
+      if (/facedesk_employee_face_samples/i.test(sql))
+        return Promise.resolve([]);
       if (/count\(\*\)/i.test(sql))
         return Promise.resolve([{ n: String(todayCount) }]);
       return Promise.resolve(claimedRows ?? []);
@@ -624,8 +637,47 @@ describe('FaceDeskAttendanceService.markAttendance — contractor punch routing'
     expect(contractorPunchRepo.save).not.toHaveBeenCalled();
   });
 
+  it('ingests a clean employee punch into the biometric pipeline (real-time daily attendance)', async () => {
+    const { service, biometric } = makeService(
+      await pinRoster([{ id: 'e1', code: 'E001', cos: 0.95, pin: '1234' }]),
+    );
+    await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      pin: '1234',
+    } as any);
+    expect(biometric.ingest).toHaveBeenCalledWith(
+      'c1',
+      [
+        expect.objectContaining({
+          employeeCode: 'E001',
+          source: 'MOBILE_KIOSK',
+        }),
+      ],
+      true,
+    );
+  });
+
+  it('does NOT ingest a flagged employee mismatch (waits for HR approval)', async () => {
+    const { service, biometric, reviewRepo, failRepo } = makeService(
+      await pinRoster([{ id: 'e1', code: 'E001', cos: 0.6, pin: '1234' }]),
+    );
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      pin: '1234',
+    } as any);
+    expect(res.message).toMatch(/verification/i);
+    expect(reviewRepo.save).toHaveBeenCalled();
+    expect(failRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bestEmployeeId: 'e1',
+        reason: 'FACE_MISMATCH',
+      }),
+    );
+    expect(biometric.ingest).not.toHaveBeenCalled();
+  });
+
   it('queues a contractor face mismatch for FaceDesk review', async () => {
-    const { service, contractorPunchRepo, reviewRepo } = makeService(
+    const { service, contractorPunchRepo, reviewRepo, failRepo } = makeService(
       await pinRoster([
         {
           id: 'c1e',
@@ -657,6 +709,12 @@ describe('FaceDeskAttendanceService.markAttendance — contractor punch routing'
         attendanceId: null,
         issueType: 'FACE_MISMATCH',
         status: 'PENDING',
+      }),
+    );
+    expect(failRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bestEmployeeId: 'c1e',
+        reason: 'FACE_MISMATCH',
       }),
     );
   });

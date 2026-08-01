@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, map, of, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 
 export type MobileDeviceMode = 'KIOSK' | 'ESS';
@@ -164,6 +164,7 @@ export interface ContractorReenrollRequest {
 @Injectable({ providedIn: 'root' })
 export class ClientMobileAttendanceService {
   private base = `${environment.apiBaseUrl}/api/v1/mobile-attendance`;
+  private faceDeskBase = `${environment.apiBaseUrl}/api/v1/facedesk`;
 
   constructor(private http: HttpClient) {}
 
@@ -363,9 +364,9 @@ export class ClientMobileAttendanceService {
     );
   }
 
-  // ── Failed scans — stubbed (not in new backend) ──
+  // ── Failed scans — backed by the active FaceDesk failure pipeline ──
   listFailedScans(
-    _opts: {
+    opts: {
       from?: string;
       to?: string;
       branchId?: string;
@@ -376,32 +377,24 @@ export class ClientMobileAttendanceService {
       limit?: number;
     } = {},
   ): Observable<FailedScanRow[]> {
-    return of([]);
+    return this.fetchFaceDeskFailures(opts).pipe(
+      map((rows) => rows.slice(0, Math.max(1, Math.min(opts.limit ?? 500, 2000)))),
+    );
   }
 
   failedScanStats(
-    _opts: {
+    opts: {
       from?: string;
       to?: string;
       branchId?: string;
       subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
     } = {},
   ): Observable<FailedScanStats> {
-    return of({
-      total: 0,
-      bySubject: { employee: 0, contractor: 0, unknown: 0 },
-      byReason: [],
-      byBranch: [],
-      byDay: [],
-      byHour: [],
-      byDevice: [],
-      byMode: [],
-      byDayOfWeek: [],
-    });
+    return this.fetchFaceDeskFailures(opts).pipe(map((rows) => this.buildFailureStats(rows)));
   }
 
   exportFailedScansCsv(
-    _opts: {
+    opts: {
       from?: string;
       to?: string;
       branchId?: string;
@@ -411,11 +404,38 @@ export class ClientMobileAttendanceService {
       contractorEmployeeId?: string;
     } = {},
   ): Observable<Blob> {
-    return of(new Blob());
+    return this.fetchFaceDeskFailures(opts).pipe(
+      map((rows) =>
+        this.csvBlob(
+          [
+            'Attempted At',
+            'Subject Type',
+            'Employee Code',
+            'Employee Name',
+            'Contractor',
+            'Reason',
+            'Match Score',
+            'Branch',
+            'Device',
+          ],
+          rows.map((r) => [
+            r.attemptedAt,
+            this.failureSubject(r),
+            r.employeeCode ?? '',
+            r.employeeName ?? r.contractorEmployeeName ?? '',
+            r.contractorName ?? '',
+            r.reason,
+            r.matchScore ?? '',
+            r.branchName ?? r.branchId ?? '',
+            r.deviceLabel ?? r.deviceId ?? '',
+          ]),
+        ),
+      ),
+    );
   }
 
   exportFailedScanStatsCsv(
-    _opts: {
+    opts: {
       from?: string;
       to?: string;
       branchId?: string;
@@ -423,11 +443,28 @@ export class ClientMobileAttendanceService {
       topSubjectsLimit?: number;
     } = {},
   ): Observable<Blob> {
-    return of(new Blob());
+    return this.failedScanStats(opts).pipe(
+      map((stats) =>
+        this.csvBlob(
+          ['Metric', 'Value'],
+          [
+            ['Total failures', stats.total],
+            ['Employees', stats.bySubject.employee],
+            ['Contractors', stats.bySubject.contractor],
+            ['Unknown', stats.bySubject.unknown],
+            ...stats.byReason.map((r) => [`Reason: ${r.reason}`, r.count]),
+            ...stats.byBranch.map((r) => [
+              `Branch: ${r.branchName ?? r.branchId ?? 'Unknown'}`,
+              r.count,
+            ]),
+          ],
+        ),
+      ),
+    );
   }
 
   topFailedScanSubjects(
-    _opts: {
+    opts: {
       from?: string;
       to?: string;
       branchId?: string;
@@ -436,11 +473,164 @@ export class ClientMobileAttendanceService {
       minCount?: number;
     } = {},
   ): Observable<TopFailedScanSubjectRow[]> {
-    return of([]);
+    return this.fetchFaceDeskFailures(opts).pipe(
+      map((rows) =>
+        this.buildTopFailureSubjects(rows)
+          .filter((r) => r.count >= Math.max(0, opts.minCount ?? 0))
+          .slice(0, Math.max(1, Math.min(opts.limit ?? 10, 100))),
+      ),
+    );
   }
 
   listFaceFailureAlerts(_limit = 20): Observable<FaceFailureAlertRow[]> {
     return of([]);
+  }
+
+  private fetchFaceDeskFailures(opts: {
+    from?: string;
+    to?: string;
+    branchId?: string;
+    reason?: string;
+    subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
+    employeeId?: string;
+    contractorEmployeeId?: string;
+  }): Observable<FaceDeskFailedScanRow[]> {
+    const parts: string[] = [];
+    if (opts.from) parts.push(`from=${encodeURIComponent(opts.from)}`);
+    if (opts.to) parts.push(`to=${encodeURIComponent(opts.to)}`);
+    const qs = parts.length ? `?${parts.join('&')}` : '';
+    return this.http
+      .get<FaceDeskFailedScanRow[]>(`${this.faceDeskBase}/reports/failed${qs}`)
+      .pipe(
+        map((rows) =>
+          (rows ?? []).filter((row) => {
+            if (opts.branchId && row.branchId !== opts.branchId) return false;
+            if (opts.reason && row.reason !== opts.reason) return false;
+            if (opts.subjectType && this.failureSubject(row) !== opts.subjectType) return false;
+            if (opts.employeeId && row.employeeId !== opts.employeeId) return false;
+            if (
+              opts.contractorEmployeeId &&
+              row.contractorEmployeeId !== opts.contractorEmployeeId
+            )
+              return false;
+            return true;
+          }),
+        ),
+      );
+  }
+
+  private failureSubject(row: FailedScanRow): 'EMPLOYEE' | 'CONTRACTOR' | 'UNKNOWN' {
+    if (row.employeeId) return 'EMPLOYEE';
+    if (row.contractorEmployeeId) return 'CONTRACTOR';
+    return 'UNKNOWN';
+  }
+
+  private buildFailureStats(rows: FaceDeskFailedScanRow[]): FailedScanStats {
+    const countBy = <K>(values: K[]): Map<K, number> => {
+      const result = new Map<K, number>();
+      values.forEach((value) => result.set(value, (result.get(value) ?? 0) + 1));
+      return result;
+    };
+    const subjects = rows.map((row) => this.failureSubject(row));
+    const reasons = countBy(rows.map((row) => row.reason));
+    const days = countBy(rows.map((row) => row.attemptedAt.slice(0, 10)));
+    const hours = countBy(rows.map((row) => new Date(row.attemptedAt).getHours()));
+    const dows = countBy(rows.map((row) => new Date(row.attemptedAt).getDay()));
+    const modes = countBy(rows.map((row) => row.mode ?? 'KIOSK'));
+
+    const branchGroups = new Map<string, { branchId: string | null; branchName: string | null; count: number }>();
+    const deviceGroups = new Map<string, FailedScanStats['byDevice'][number]>();
+    rows.forEach((row) => {
+      const branchKey = row.branchId ?? '';
+      const branch = branchGroups.get(branchKey) ?? {
+        branchId: row.branchId,
+        branchName: row.branchName ?? null,
+        count: 0,
+      };
+      branch.count += 1;
+      branchGroups.set(branchKey, branch);
+
+      const deviceKey = row.deviceId ?? '';
+      const device = deviceGroups.get(deviceKey) ?? {
+        deviceId: row.deviceId,
+        deviceLabel: row.deviceLabel ?? null,
+        mode: row.mode ?? 'KIOSK',
+        lastFailedAt: row.attemptedAt,
+        count: 0,
+      };
+      device.count += 1;
+      if (!device.lastFailedAt || row.attemptedAt > device.lastFailedAt) {
+        device.lastFailedAt = row.attemptedAt;
+      }
+      deviceGroups.set(deviceKey, device);
+    });
+    const descending = <T extends { count: number }>(items: T[]) =>
+      items.sort((a, b) => b.count - a.count);
+    return {
+      total: rows.length,
+      bySubject: {
+        employee: subjects.filter((s) => s === 'EMPLOYEE').length,
+        contractor: subjects.filter((s) => s === 'CONTRACTOR').length,
+        unknown: subjects.filter((s) => s === 'UNKNOWN').length,
+      },
+      byReason: descending([...reasons].map(([reason, count]) => ({ reason, count }))),
+      byBranch: descending([...branchGroups.values()]),
+      byDay: [...days].map(([day, count]) => ({ day, count })).sort((a, b) => a.day.localeCompare(b.day)),
+      byHour: Array.from({ length: 24 }, (_, hour) => ({ hour, count: hours.get(hour) ?? 0 })),
+      byDevice: descending([...deviceGroups.values()]),
+      byMode: descending([...modes].map(([mode, count]) => ({ mode, count }))),
+      byDayOfWeek: Array.from({ length: 7 }, (_, dow) => ({ dow, count: dows.get(dow) ?? 0 })),
+    };
+  }
+
+  private buildTopFailureSubjects(rows: FaceDeskFailedScanRow[]): TopFailedScanSubjectRow[] {
+    const groups = new Map<string, FailureSubjectAccumulator>();
+    rows.forEach((row) => {
+      const subjectType = this.failureSubject(row);
+      if (subjectType === 'UNKNOWN') return;
+      const id = subjectType === 'EMPLOYEE' ? row.employeeId : row.contractorEmployeeId;
+      if (!id) return;
+      const key = `${subjectType}:${id}`;
+      const group = groups.get(key) ?? {
+        subjectType,
+        row,
+        count: 0,
+        scoreTotal: 0,
+        scoreCount: 0,
+        reasons: new Map<string, number>(),
+        lastFailedAt: row.attemptedAt,
+      };
+      group.count += 1;
+      const score = Number(row.matchScore);
+      if (row.matchScore != null && Number.isFinite(score)) {
+        group.scoreTotal += score;
+        group.scoreCount += 1;
+      }
+      group.reasons.set(row.reason, (group.reasons.get(row.reason) ?? 0) + 1);
+      if (row.attemptedAt > group.lastFailedAt) group.lastFailedAt = row.attemptedAt;
+      groups.set(key, group);
+    });
+    return [...groups.values()]
+      .map((group) => ({
+        subjectType: group.subjectType,
+        employeeId: group.row.employeeId,
+        employeeCode: group.row.employeeCode,
+        employeeName: group.row.employeeName,
+        contractorEmployeeId: group.row.contractorEmployeeId,
+        contractorEmployeeName: group.row.contractorEmployeeName,
+        contractorName: group.row.contractorName,
+        count: group.count,
+        avgMatchScore: group.scoreCount ? group.scoreTotal / group.scoreCount : null,
+        lastFailedAt: group.lastFailedAt,
+        topReason: [...group.reasons].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null,
+      }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  private csvBlob(headers: string[], rows: Array<Array<string | number>>): Blob {
+    const quote = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+    const text = [headers, ...rows].map((row) => row.map(quote).join(',')).join('\r\n');
+    return new Blob([`\uFEFF${text}`], { type: 'text/csv;charset=utf-8' });
   }
 
   // ── Operator-supervised kiosk enrollment tickets ──
@@ -571,6 +761,22 @@ export interface FailedScanRow {
   livenessScore: string | null;
   captureLat: string | null;
   captureLng: string | null;
+}
+
+interface FaceDeskFailedScanRow extends FailedScanRow {
+  branchName?: string | null;
+  deviceLabel?: string | null;
+  mode?: string | null;
+}
+
+interface FailureSubjectAccumulator {
+  subjectType: 'EMPLOYEE' | 'CONTRACTOR';
+  row: FaceDeskFailedScanRow;
+  count: number;
+  scoreTotal: number;
+  scoreCount: number;
+  reasons: Map<string, number>;
+  lastFailedAt: string;
 }
 
 export interface FailedScanStats {
