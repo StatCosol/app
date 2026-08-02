@@ -63,7 +63,18 @@ export class ClientBranchesController {
 
     // Branch access: filter to only user's allowed branches (skip for admin roles)
     if (user.roleCode === 'CLIENT') {
-      branches = await this.branchAccess.filterBranches(user.userId, branches);
+      const assignedBranchIds = await this.branchAccess.getUserBranchIds(
+        user.userId,
+      );
+      if (user.userType === 'BRANCH') {
+        // An explicitly branch-scoped user with no mappings must see nothing,
+        // not fall through to the legacy "zero mappings means master" rule.
+        const allowed = new Set(assignedBranchIds);
+        branches = branches.filter((branch) => allowed.has(branch.id));
+      } else if (assignedBranchIds.length) {
+        const allowed = new Set(assignedBranchIds);
+        branches = branches.filter((branch) => allowed.has(branch.id));
+      }
     }
 
     if (state) {
