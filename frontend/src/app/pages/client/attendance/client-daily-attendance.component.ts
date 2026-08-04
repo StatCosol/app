@@ -327,7 +327,6 @@ const ATTENDANCE_STATUSES = [
       .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1rem; box-shadow: 0 6px 20px rgba(15, 23, 42, .04); }
       .mb { margin-bottom: .85rem; }
       .toolbar { display: grid; grid-template-columns: 200px 220px 160px auto; gap: .65rem; align-items: end; }
-      .toolbar > label { margin-bottom: 0; }
       .toolbar-actions { display: flex; align-items: end; }
       /* Pin every control on this row — inputs, selects AND the action button —
          to the SAME explicit height so the Load button can't render taller or

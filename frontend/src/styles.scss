@@ -495,6 +495,31 @@ canvas {
     @apply block mb-2 text-sm font-semibold text-gray-700;
   }
 
+  /* Field-wrapping labels include the global mb-2 in their outer box. In
+     bottom-aligned action rows, that makes the visible control sit above a
+     sibling button even when both controls have the same height. Reset only
+     direct field labels in shared toolbar/filter layouts that contain an
+     action; stacked and modal form spacing remains unchanged. */
+  :where(
+    .toolbar,
+    .filters,
+    .filter-row,
+    .filter-bar,
+    .head-controls,
+    .form-grid,
+    .form-grid-4,
+    .inline-filters,
+    .control-row,
+    .controls,
+    .lp-body,
+    .items-end
+  ):has(
+    > :is(button, ui-button, .btn, [role='button']),
+    > * > :is(button, ui-button, .btn, [role='button'])
+  ) > label {
+    margin-bottom: 0 !important;
+  }
+
   .input-lg {
     @apply px-4 py-3 text-base rounded-xl;
   }
