@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { EMPTY, Observable, of, Subject } from 'rxjs';
@@ -176,6 +176,7 @@ export class ContractorPayrollComputationPageComponent implements OnInit, OnDest
   private readonly destroy$ = new Subject<void>();
   private readonly loadRequests$ = new Subject<void>();
   private readonly pageSize = 500;
+  private destroyed = false;
 
   portal: Portal = 'client';
   rows: any[] = [];
@@ -188,6 +189,8 @@ export class ContractorPayrollComputationPageComponent implements OnInit, OnDest
   constructor(
     private readonly http: HttpClient,
     private readonly route: ActivatedRoute,
+    private readonly zone: NgZone,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -199,13 +202,16 @@ export class ContractorPayrollComputationPageComponent implements OnInit, OnDest
         takeUntil(this.destroy$),
       )
       .subscribe(({ rows, error }) => {
-        this.rows = rows;
-        this.error = error || '';
+        this.updateView(() => {
+          this.rows = rows;
+          this.error = error || '';
+        });
       });
     this.load();
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -251,7 +257,11 @@ export class ContractorPayrollComputationPageComponent implements OnInit, OnDest
           error: err?.error?.message || 'Could not load contractor payroll computation rows.',
         }),
       ),
-      finalize(() => (this.loading = false)),
+      finalize(() =>
+        this.updateView(() => {
+          this.loading = false;
+        }),
+      ),
     );
   }
 
@@ -314,5 +324,13 @@ export class ContractorPayrollComputationPageComponent implements OnInit, OnDest
   private toNumber(value: unknown): number {
     const amount = Number(value ?? 0);
     return Number.isFinite(amount) ? amount : 0;
+  }
+
+  private updateView(update: () => void): void {
+    if (this.destroyed) return;
+    this.zone.run(() => {
+      update();
+      this.cdr.markForCheck();
+    });
   }
 }
