@@ -23,6 +23,7 @@ import {
   ApprovalStats,
 } from './client-attendance.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
+import { AuthService } from '../../../core/auth.service';
 
 interface BranchOption {
   value: string;
@@ -415,13 +416,13 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
   constructor(
     private readonly svc: ClientAttendanceService,
     private readonly branchSvc: ClientBranchesService,
+    private readonly auth: AuthService,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
     this.loadBranches();
-    this.load();
     this.startLiveRefresh();
   }
 
@@ -437,16 +438,24 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res: any) => {
           const branches = Array.isArray(res) ? res : res?.data || [];
-          this.branchOptions = [
-            { value: '', label: 'All Branches' },
-            ...branches.map((b: any) => ({
-              value: b.id,
-              label: b.branchName || b.branchname || b.name || b.id,
-            })),
-          ];
+          const permittedOptions = branches.map((b: any) => ({
+            value: b.id,
+            label: b.branchName || b.branchname || b.name || b.id,
+          }));
+          if (this.auth.isBranchUser()) {
+            // The API already scopes this list from live branch assignments.
+            this.branchOptions = permittedOptions;
+            this.branchId = permittedOptions[0]?.value ?? '';
+          } else {
+            this.branchOptions = [
+              { value: '', label: 'All Branches' },
+              ...permittedOptions,
+            ];
+          }
           this.cdr.markForCheck();
+          this.load();
         },
-        error: () => {},
+        error: () => this.load(),
       });
   }
 

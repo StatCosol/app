@@ -100,4 +100,54 @@ describe('BiometricService', () => {
       }),
     );
   });
+
+  it('backfills eligible FaceDesk punches while excluding pending reviews', async () => {
+    const query = jest.fn().mockResolvedValue([
+      {
+        employeeCode: 'E001',
+        punchTime: new Date('2026-08-02T03:30:00.000Z'),
+        punchType: 'IN',
+        deviceId: null,
+        branchId: 'branch-1',
+      },
+    ]);
+    const punchRepo = { manager: { query } };
+    const service = new BiometricService(
+      punchRepo as any,
+      {} as any,
+      {} as any,
+    );
+    const ingest = jest.spyOn(service, 'ingest').mockResolvedValue({
+      received: 1,
+      inserted: 1,
+      duplicates: 0,
+      unknownEmployees: [],
+      attendanceUpserts: 0,
+      affectedDays: [],
+    });
+
+    await service.syncFaceDeskRange('client-1', '2026-08-02', '2026-08-02');
+
+    const [sql, params] = query.mock.calls[0];
+    expect(sql).toContain("rq.status = 'PENDING'");
+    expect(sql).toContain('NOT EXISTS');
+    expect(sql).toContain("COALESCE(a.device_id::text, 'facedesk')");
+    expect(params).toEqual([
+      'client-1',
+      new Date('2026-08-01T18:30:00.000Z'),
+      new Date('2026-08-02T18:29:59.999Z'),
+    ]);
+    expect(ingest).toHaveBeenCalledWith(
+      'client-1',
+      [
+        expect.objectContaining({
+          employeeCode: 'E001',
+          direction: 'IN',
+          deviceId: 'facedesk',
+          source: 'MOBILE_KIOSK',
+        }),
+      ],
+      false,
+    );
+  });
 });

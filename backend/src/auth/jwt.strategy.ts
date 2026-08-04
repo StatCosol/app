@@ -65,15 +65,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     const roleCode = await this.usersService.getUserRoleCode(user.id);
+    const branchIds = ['CLIENT', 'BRANCH_DESK'].includes(roleCode)
+      ? await this.usersService.getUserBranchIds(user.id)
+      : (payload.branchIds ?? []);
+    const userType =
+      roleCode === 'CLIENT'
+        ? (user.userType ?? (branchIds.length ? 'BRANCH' : 'MASTER'))
+        : (user.userType ?? null);
 
     const normalized = {
       id: payload.sub,
       email: payload.email ?? user.email,
       roleCode,
       clientId: payload.clientId ?? user.clientId ?? null,
-      userType: user.userType ?? null,
+      userType,
       employeeId: user.employeeId ?? null,
-      branchIds: payload.branchIds ?? [],
+      branchIds,
       assignedClientIds: [] as string[],
     };
 

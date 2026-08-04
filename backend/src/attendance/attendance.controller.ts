@@ -32,10 +32,8 @@ export class AttendanceController {
 
   private branchScope(user: ReqUser): string[] | null {
     if (user?.userType === 'BRANCH' || user?.roleCode === 'BRANCH_DESK') {
-      // Only restrict when branchIds is a real populated array.
-      // null/undefined means the user's branch list was never set — treat as
-      // unrestricted rather than silently returning no data.
-      return Array.isArray(user.branchIds) ? user.branchIds : null;
+      // Fail closed: missing assignments must never expand branch access.
+      return Array.isArray(user.branchIds) ? user.branchIds : [];
     }
     return null;
   }

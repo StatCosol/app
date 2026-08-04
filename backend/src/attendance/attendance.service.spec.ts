@@ -10,7 +10,10 @@ import { BiometricService } from '../biometric/biometric.service';
 
 describe('AttendanceService', () => {
   let service: AttendanceService;
-  let biometricService: { processRange: jest.Mock };
+  let biometricService: {
+    processRange: jest.Mock;
+    syncFaceDeskRange: jest.Mock;
+  };
 
   const mockRepo = () => ({
     find: jest.fn().mockResolvedValue([]),
@@ -29,6 +32,7 @@ describe('AttendanceService', () => {
   beforeEach(async () => {
     biometricService = {
       processRange: jest.fn().mockResolvedValue({ attendanceUpserts: 0 }),
+      syncFaceDeskRange: jest.fn().mockResolvedValue({ inserted: 0 }),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -70,6 +74,11 @@ describe('AttendanceService', () => {
 
     await service.listDaily({ clientId: 'client-1', date: '2026-05-28' });
 
+    expect(biometricService.syncFaceDeskRange).toHaveBeenCalledWith(
+      'client-1',
+      '2026-05-28',
+      '2026-05-28',
+    );
     expect(biometricService.processRange).toHaveBeenCalledWith(
       'client-1',
       '2026-05-28',
@@ -107,6 +116,11 @@ describe('AttendanceService', () => {
 
     await service.getApprovalStats('client-1', '2026-05-28');
 
+    expect(biometricService.syncFaceDeskRange).toHaveBeenCalledWith(
+      'client-1',
+      '2026-05-28',
+      '2026-05-28',
+    );
     expect(biometricService.processRange).toHaveBeenCalledWith(
       'client-1',
       '2026-05-28',
