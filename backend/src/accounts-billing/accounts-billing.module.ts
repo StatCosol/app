@@ -27,6 +27,7 @@ import {
   BillingSettingsService,
   RecurringInvoicesService,
   PendingPaymentFollowupsService,
+  BillingReportsService,
 } from './services';
 
 import { InvoicesController } from './controllers/invoices.controller';
@@ -75,6 +76,7 @@ import { RecurringInvoiceCron } from './jobs/recurring-invoice.cron';
     BillingSettingsService,
     RecurringInvoicesService,
     PendingPaymentFollowupsService,
+    BillingReportsService,
     RecurringInvoiceCron,
   ],
   exports: [InvoicesService, BillingClientsService],
