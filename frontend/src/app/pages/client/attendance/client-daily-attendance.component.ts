@@ -327,6 +327,9 @@ const ATTENDANCE_STATUSES = [
       .mb { margin-bottom: .85rem; }
       .toolbar { display: grid; grid-template-columns: 200px 220px 160px auto; gap: .65rem; align-items: end; }
       .toolbar-actions { display: flex; align-items: end; }
+      /* Match the sibling input height so the action button lines up with the
+         Date/Branch/Status fields instead of sitting high. */
+      .toolbar-actions ::ng-deep button { min-height: 2.375rem; }
       label { display: flex; flex-direction: column; gap: .35rem; }
       label > span { color: #4b5563; font-size: .78rem; font-weight: 600; }
       input, select, textarea { width: 100%; border: 1px solid #d1d5db; border-radius: 10px; padding: .5rem .65rem; font-size: .84rem; }
