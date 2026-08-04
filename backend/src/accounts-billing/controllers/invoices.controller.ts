@@ -8,13 +8,19 @@ import {
   Query,
   ParseUUIDPipe,
   UseGuards,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { InvoicesService } from '../services/invoices.service';
+import {
+  BillingReportQuery,
+  BillingReportsService,
+} from '../services/billing-reports.service';
 import {
   ConvertProformaDto,
   CreateInvoiceDto,
@@ -27,7 +33,10 @@ import {
 @Roles('ADMIN', 'ACCOUNTS')
 @Controller({ path: 'billing/invoices', version: '1' })
 export class InvoicesController {
-  constructor(private readonly invoicesService: InvoicesService) {}
+  constructor(
+    private readonly invoicesService: InvoicesService,
+    private readonly billingReportsService: BillingReportsService,
+  ) {}
 
   @ApiOperation({ summary: 'Create a new invoice' })
   @Post()
@@ -72,6 +81,30 @@ export class InvoicesController {
     @Query('toDate') toDate: string,
   ) {
     return this.invoicesService.getGstSummary(fromDate, toDate);
+  }
+
+  @ApiOperation({ summary: 'Advanced billing report data' })
+  @Get('reports/advanced')
+  async advancedReport(@Query() query: BillingReportQuery) {
+    return this.billingReportsService.getReport(query);
+  }
+
+  @ApiOperation({ summary: 'Export an advanced billing report to Excel' })
+  @Get('reports/advanced/export')
+  async exportAdvancedReport(
+    @Query() query: BillingReportQuery,
+    @Res() res: Response,
+  ) {
+    const result = await this.billingReportsService.exportReport(query);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${result.fileName}"`,
+    );
+    res.send(result.buffer);
   }
 
   @ApiOperation({ summary: 'Get invoice by ID' })

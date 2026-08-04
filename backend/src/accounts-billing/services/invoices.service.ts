@@ -598,11 +598,14 @@ export class InvoicesService {
     return this.invoiceRepo
       .createQueryBuilder('inv')
       .leftJoin('inv.billingClient', 'client')
+      .leftJoin('inv.items', 'item')
       .select([
         'inv.invoice_number as "invoiceNumber"',
         'inv.invoice_date as "invoiceDate"',
         'client.legal_name as "clientName"',
         'client.gstin as "clientGstin"',
+        `STRING_AGG(DISTINCT item.service_description, '; ') as "invoiceDescription"`,
+        `STRING_AGG(DISTINCT COALESCE(item.sac_code, client.default_sac_code), ', ') as "sacHsn"`,
         'inv.taxable_value as "taxableValue"',
         'inv.cgst_amount as "cgstAmount"',
         'inv.sgst_amount as "sgstAmount"',
@@ -611,9 +614,18 @@ export class InvoicesService {
       ])
       .where('inv.invoice_date >= :fromDate', { fromDate })
       .andWhere('inv.invoice_date <= :toDate', { toDate })
+      .andWhere('inv.invoice_type = :taxInvoice', {
+        taxInvoice: InvoiceType.TAX_INVOICE,
+      })
       .andWhere('inv.invoice_status != :cancelled', {
         cancelled: InvoiceStatus.CANCELLED,
       })
+      .andWhere('inv.invoice_status != :draft', {
+        draft: InvoiceStatus.DRAFT,
+      })
+      .groupBy('inv.id')
+      .addGroupBy('client.legal_name')
+      .addGroupBy('client.gstin')
       .orderBy('inv.invoice_date', 'ASC')
       .getRawMany();
   }

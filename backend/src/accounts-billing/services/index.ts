@@ -9,3 +9,4 @@ export { BillingClientsService } from './billing-clients.service';
 export { BillingSettingsService } from './billing-settings.service';
 export { RecurringInvoicesService } from './recurring-invoices.service';
 export { PendingPaymentFollowupsService } from './pending-payment-followups.service';
+export { BillingReportsService } from './billing-reports.service';
