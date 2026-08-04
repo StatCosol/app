@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter , ChangeDetectionStrategy} from '@angular/core';
+import { Component, HostBinding, Input, Output, EventEmitter , ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 
@@ -51,9 +51,16 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
        flex/grid toolbars. inline-flex makes it a tight box that aligns cleanly
        everywhere the button is used. */
     ':host { display: inline-flex; vertical-align: middle; }',
+    /* fullWidth must still span the parent — an inline-flex host would shrink
+       to content and defeat the inner w-full. */
+    ':host(.ui-button--full) { display: flex; width: 100%; }',
   ],
 })
 export class ActionButtonComponent {
+  @HostBinding('class.ui-button--full') get hostFullWidth(): boolean {
+    return this.fullWidth;
+  }
+
   @Input() variant: ButtonVariant = 'primary';
   @Input() size: ButtonSize = 'md';
   @Input() type: 'button' | 'submit' | 'reset' = 'button';
