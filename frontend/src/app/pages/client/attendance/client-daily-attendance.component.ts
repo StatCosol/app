@@ -252,10 +252,9 @@ const ATTENDANCE_STATUSES = [
                   </td>
                   <td>
                     <div class="actions-cell">
-                      <ui-button size="sm" variant="ghost" (clicked)="openEdit(row)">Edit</ui-button>
                     @if (row.approvalStatus !== 'APPROVED') {
 <ui-button size="sm" variant="primary"
-                     
+
                       [disabled]="actionBusy"
                       (clicked)="approveSingle(row.id)">
                       Approve
@@ -263,12 +262,13 @@ const ATTENDANCE_STATUSES = [
 }
                     @if (row.approvalStatus !== 'REJECTED') {
 <ui-button size="sm" variant="danger"
-                     
+
                       [disabled]="actionBusy"
                       (clicked)="rejectSingle(row.id)">
                       Reject
                     </ui-button>
 }
+                    <ui-button size="sm" variant="ghost" (clicked)="openEdit(row)">Edit</ui-button>
                     <ui-button size="sm" variant="danger"
                       [disabled]="actionBusy"
                       (clicked)="deleteSingle(row.id)">
