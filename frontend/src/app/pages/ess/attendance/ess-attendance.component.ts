@@ -1140,18 +1140,17 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
   }
 
   private resolveLocation(): Promise<boolean> {
+    // Location is captured automatically for every punch, regardless of the
+    // chosen method — field staff visit multiple sites and each visit must be
+    // located. A punch cannot proceed without coordinates.
     if (!navigator.geolocation) {
-      this.geoStatus = this.selectedCapture === 'GEOLOCATION' || this.selectedCapture === 'FACE'
-        ? 'Geolocation not supported'
-        : 'Location unavailable — punch recorded without coordinates';
+      this.geoStatus = 'Geolocation not supported on this device';
       this.currentLat = null;
       this.currentLng = null;
       this.currentAccuracy = null;
-      // GEOLOCATION/FACE require location; MANUAL continues without it
-      return Promise.resolve(this.selectedCapture !== 'GEOLOCATION' && this.selectedCapture !== 'FACE');
+      return Promise.resolve(false);
     }
 
-    const required = this.selectedCapture === 'GEOLOCATION' || this.selectedCapture === 'FACE';
     this.geoStatus = 'Acquiring location...';
 
     return new Promise((resolve) => {
@@ -1167,14 +1166,8 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
           this.currentLat = null;
           this.currentLng = null;
           this.currentAccuracy = null;
-          if (required) {
-            this.geoStatus = 'Location access denied';
-            resolve(false);
-          } else {
-            // MANUAL: location is optional — punch proceeds without coordinates, but warn user
-            this.geoStatus = 'Location unavailable — punch recorded without coordinates';
-            resolve(true);
-          }
+          this.geoStatus = 'Location access denied — enable location to punch';
+          resolve(false);
         },
         { enableHighAccuracy: true, timeout: 8000 },
       );

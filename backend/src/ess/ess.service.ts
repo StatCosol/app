@@ -596,12 +596,11 @@ export class EssService {
         'Face ID attendance is available only in the StatCo ESS app.',
       );
     }
-    if (
-      (method === 'GEOLOCATION' || method === 'FACE') &&
-      (body.latitude == null || body.longitude == null)
-    ) {
+    // Location is captured on every punch, regardless of method, so each
+    // check-in/out of a multi-site day carries its own coordinates.
+    if (body.latitude == null || body.longitude == null) {
       throw new BadRequestException(
-        'Location coordinates are required for this attendance method.',
+        'Location coordinates are required to record attendance. Please enable location access and try again.',
       );
     }
     return method;

@@ -19,6 +19,7 @@ import { AttendanceAuditLogEntity } from './entities/attendance-audit-log.entity
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { BiometricPunchEntity } from '../biometric/entities/biometric-punch.entity';
 import { BiometricService } from '../biometric/biometric.service';
+import { Workbook } from 'exceljs';
 
 @Injectable()
 export class AttendanceService {
@@ -517,7 +518,162 @@ export class AttendanceService {
       });
     }
 
-    return qb.getRawMany();
+    const rows = await qb.getRawMany();
+    // Attach every ESS check-in/out punch for the day so field/sales staff who
+    // visited multiple sites show all their punches (each with its location).
+    return this.attachDayPunches(rows, params.clientId, params.date);
+  }
+
+  /**
+   * Group the day's ess_attendance_punches by employee and attach them to the
+   * matching daily rows as a `punches` array (each with a Google Maps link).
+   */
+  private async attachDayPunches(
+    rows: any[],
+    clientId: string,
+    date: string,
+  ): Promise<any[]> {
+    if (!rows.length) return rows;
+    let punchRows: any[] = [];
+    try {
+      punchRows = await this.ds.query(
+        `SELECT employee_id AS "employeeId", punch_type AS "punchType",
+                extract(epoch FROM punch_time) AS epoch,
+                latitude, longitude, accuracy, capture_method AS "captureMethod"
+         FROM ess_attendance_punches
+         WHERE client_id = $1 AND date = $2::date
+         ORDER BY punch_time ASC, created_at ASC`,
+        [clientId, date],
+      );
+    } catch {
+      // Table may not exist yet on a brand-new deploy — degrade gracefully.
+      return rows.map((r) => ({ ...r, punches: [] }));
+    }
+
+    const byEmp = new Map<string, any[]>();
+    for (const p of punchRows) {
+      const lat = p.latitude != null ? Number(p.latitude) : null;
+      const lng = p.longitude != null ? Number(p.longitude) : null;
+      const local = new Date((Number(p.epoch) + 330 * 60) * 1000); // IST
+      const time = `${String(local.getUTCHours()).padStart(2, '0')}:${String(
+        local.getUTCMinutes(),
+      ).padStart(2, '0')}:${String(local.getUTCSeconds()).padStart(2, '0')}`;
+      const entry = {
+        punchType: p.punchType,
+        time,
+        latitude: lat,
+        longitude: lng,
+        accuracy: p.accuracy != null ? Number(p.accuracy) : null,
+        captureMethod: p.captureMethod,
+        mapUrl:
+          lat != null && lng != null
+            ? `https://www.google.com/maps?q=${lat},${lng}`
+            : null,
+      };
+      const list = byEmp.get(p.employeeId) || [];
+      list.push(entry);
+      byEmp.set(p.employeeId, list);
+    }
+
+    return rows.map((r) => ({ ...r, punches: byEmp.get(r.employeeId) || [] }));
+  }
+
+  /**
+   * Build a downloadable Excel report of the day's attendance. Produces two
+   * sheets: a per-employee daily summary and a punch-level log where each
+   * location is a clickable Google Maps hyperlink (field/sales staff visits).
+   */
+  async buildDailyReport(params: {
+    clientId: string;
+    date: string;
+    branchId?: string;
+    allowedBranchIds?: string[] | null;
+  }): Promise<{ buffer: Buffer; filename: string }> {
+    const rows = await this.listDaily({
+      clientId: params.clientId,
+      date: params.date,
+      branchId: params.branchId,
+      allowedBranchIds: params.allowedBranchIds,
+    });
+
+    const wb = new Workbook();
+    wb.creator = 'StatCo';
+    wb.created = new Date();
+
+    // ── Sheet 1: Daily summary (one row per employee) ──
+    const summary = wb.addWorksheet('Daily Summary');
+    summary.columns = [
+      { header: 'Employee', key: 'employeeName', width: 26 },
+      { header: 'Code', key: 'employeeCode', width: 14 },
+      { header: 'Branch', key: 'branchName', width: 22 },
+      { header: 'Status', key: 'status', width: 12 },
+      { header: 'First In', key: 'checkIn', width: 12 },
+      { header: 'Last Out', key: 'checkOut', width: 12 },
+      { header: 'Worked Hours', key: 'workedHours', width: 14 },
+      { header: 'OT Hours', key: 'overtimeHours', width: 12 },
+      { header: 'Punches', key: 'punchCount', width: 10 },
+    ];
+    for (const r of rows) {
+      summary.addRow({
+        employeeName: r.employeeName || '',
+        employeeCode: r.employeeCode || '',
+        branchName: r.branchName || '',
+        status: r.status || '',
+        checkIn: r.checkIn || '',
+        checkOut: r.checkOut || '',
+        workedHours: r.workedHours || '',
+        overtimeHours: r.overtimeHours || '',
+        punchCount: (r.punches || []).length,
+      });
+    }
+    summary.getRow(1).font = { bold: true };
+
+    // ── Sheet 2: Punch log (one row per check-in/out, location hyperlinked) ──
+    const log = wb.addWorksheet('Punch Log');
+    log.columns = [
+      { header: 'Employee', key: 'employeeName', width: 26 },
+      { header: 'Code', key: 'employeeCode', width: 14 },
+      { header: 'Branch', key: 'branchName', width: 22 },
+      { header: 'Type', key: 'punchType', width: 8 },
+      { header: 'Time', key: 'time', width: 12 },
+      { header: 'Method', key: 'captureMethod', width: 14 },
+      { header: 'Location', key: 'location', width: 34 },
+      { header: 'Accuracy (m)', key: 'accuracy', width: 13 },
+    ];
+    log.getRow(1).font = { bold: true };
+
+    for (const r of rows) {
+      for (const p of r.punches || []) {
+        const row = log.addRow({
+          employeeName: r.employeeName || '',
+          employeeCode: r.employeeCode || '',
+          branchName: r.branchName || '',
+          punchType: p.punchType,
+          time: p.time,
+          captureMethod: p.captureMethod || '',
+          location:
+            p.latitude != null && p.longitude != null
+              ? `${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)}`
+              : 'No location',
+          accuracy: p.accuracy != null ? Math.round(p.accuracy) : '',
+        });
+        // Make the location cell a clickable Google Maps hyperlink.
+        if (p.mapUrl) {
+          const cell = row.getCell('location');
+          cell.value = {
+            text: `${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)}`,
+            hyperlink: p.mapUrl,
+          };
+          cell.font = { color: { argb: 'FF1D4ED8' }, underline: true };
+        }
+      }
+    }
+
+    const arrayBuffer = await wb.xlsx.writeBuffer();
+    return {
+      buffer: Buffer.from(arrayBuffer),
+      filename: `attendance-${params.date}.xlsx`,
+    };
   }
 
   /** Edit an attendance record (status, check-in/out, hours, remarks) */
