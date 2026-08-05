@@ -499,11 +499,18 @@ export class EssService {
   }
 
   // -- Self Check-In / Check-Out -----------------------------------------------
+  // Field/sales staff punch in and out multiple times a day (one per site
+  // visit). Each punch is a row in ess_attendance_punches carrying its own GPS
+  // location; attendance_records holds the daily summary (first in / last out /
+  // total worked hours summed across every in→out pair).
+
   async getTodayAttendance(user: EssUser) {
     const empId = this.ensureEmployee(user);
     const today = this.businessNow().date;
     const rows = await this.ds.query(
       `SELECT id, date::text AS date, status, check_in AS "checkIn", check_out AS "checkOut",
+              worked_hours AS "workedHours", overtime_hours AS "overtimeHours",
+              overtime_type AS "overtimeType",
               capture_method AS "captureMethod", self_marked AS "selfMarked",
               check_in_lat AS "checkInLat", check_in_lng AS "checkInLng",
               check_out_lat AS "checkOutLat", check_out_lng AS "checkOutLng"
@@ -511,40 +518,71 @@ export class EssService {
        WHERE employee_id = $1 AND date = $2::date`,
       [empId, today],
     );
-    return (
-      rows[0] || { date: today, status: null, checkIn: null, checkOut: null }
-    );
+    const punches = await this.getDayPunches(empId, today);
+    const base = rows[0] || {
+      date: today,
+      status: null,
+      checkIn: null,
+      checkOut: null,
+    };
+    const lastPunch = punches[punches.length - 1];
+    return {
+      ...base,
+      punches,
+      // Session is "open" (awaiting a check-out) when the most recent punch is IN.
+      onSite: lastPunch ? lastPunch.punchType === 'IN' : false,
+      nextAction: lastPunch && lastPunch.punchType === 'IN' ? 'OUT' : 'IN',
+    };
   }
 
-  async selfCheckIn(
-    user: EssUser,
-    body: {
-      captureMethod?: string;
-      latitude?: number;
-      longitude?: number;
-      deviceInfo?: string;
-    },
-  ) {
-    const empId = this.ensureEmployee(user);
-    const emp = await this.empRepo.findOne({ where: { id: empId } });
-    if (!emp) throw new NotFoundException('Employee not found');
-
-    const businessNow = this.businessNow();
-    const today = businessNow.date;
-    const timeStr = businessNow.time;
-
-    // Check if record already exists
-    const existing = await this.ds.query(
-      `SELECT id, check_in AS "checkIn", status FROM attendance_records WHERE employee_id = $1 AND date = $2::date`,
-      [empId, today],
+  /** All of a day's punches, oldest first, with business-local display times. */
+  private async getDayPunches(empId: string, date: string) {
+    const rows = await this.ds.query(
+      `SELECT id, punch_type AS "punchType",
+              extract(epoch FROM punch_time) AS epoch,
+              latitude, longitude, accuracy,
+              capture_method AS "captureMethod"
+       FROM ess_attendance_punches
+       WHERE employee_id = $1 AND date = $2::date
+       ORDER BY punch_time ASC, created_at ASC`,
+      [empId, date],
     );
+    return rows.map((r: any) => {
+      const lat = r.latitude != null ? Number(r.latitude) : null;
+      const lng = r.longitude != null ? Number(r.longitude) : null;
+      return {
+        id: r.id,
+        punchType: r.punchType,
+        time: this.businessTimeFromEpoch(Number(r.epoch)),
+        latitude: lat,
+        longitude: lng,
+        accuracy: r.accuracy != null ? Number(r.accuracy) : null,
+        captureMethod: r.captureMethod,
+        // Ready-to-use Google Maps link for admins/employees reviewing visits.
+        mapUrl:
+          lat != null && lng != null
+            ? `https://www.google.com/maps?q=${lat},${lng}`
+            : null,
+      };
+    });
+  }
 
-    if (existing.length && existing[0].checkIn) {
-      throw new BadRequestException(
-        'Already checked in today at ' + existing[0].checkIn,
-      );
-    }
+  /** Business-local HH:MM:SS from a unix epoch (seconds). */
+  private businessTimeFromEpoch(epochSec: number): string {
+    const local = new Date((epochSec + BUSINESS_TZ_OFFSET_MIN * 60) * 1000);
+    const h = String(local.getUTCHours()).padStart(2, '0');
+    const m = String(local.getUTCMinutes()).padStart(2, '0');
+    const s = String(local.getUTCSeconds()).padStart(2, '0');
+    return `${h}:${m}:${s}`;
+  }
 
+  /** Validate + normalise the capture method / location on a punch request. */
+  private resolveCaptureMethod(body: {
+    captureMethod?: string;
+    latitude?: number;
+    longitude?: number;
+    deviceInfo?: string;
+  }): string {
     const method = ['MANUAL', 'BIOMETRIC', 'FACE', 'GEOLOCATION'].includes(
       String(body.captureMethod || '').toUpperCase(),
     )
@@ -558,25 +596,143 @@ export class EssService {
         'Face ID attendance is available only in the StatCo ESS app.',
       );
     }
+    // Location is captured on every punch, regardless of method, so each
+    // check-in/out of a multi-site day carries its own coordinates.
+    if (body.latitude == null || body.longitude == null) {
+      throw new BadRequestException(
+        'Location coordinates are required to record attendance. Please enable location access and try again.',
+      );
+    }
+    return method;
+  }
+
+  /** Append a punch row to the log. */
+  private async recordPunch(
+    emp: EmployeeEntity,
+    date: string,
+    punchType: 'IN' | 'OUT',
+    method: string,
+    body: {
+      latitude?: number;
+      longitude?: number;
+      accuracy?: number;
+      deviceInfo?: string;
+    },
+  ) {
+    await this.ds.query(
+      `INSERT INTO ess_attendance_punches
+         (client_id, employee_id, employee_code, date, punch_type,
+          latitude, longitude, accuracy, capture_method, device_info)
+       VALUES ($1, $2, $3, $4::date, $5, $6, $7, $8, $9, $10)`,
+      [
+        emp.clientId,
+        emp.id,
+        emp.employeeCode,
+        date,
+        punchType,
+        body.latitude ?? null,
+        body.longitude ?? null,
+        body.accuracy ?? null,
+        method,
+        body.deviceInfo ?? null,
+      ],
+    );
+  }
+
+  /**
+   * Recompute the daily summary from every punch: first IN, last OUT, and
+   * worked hours = sum of all IN→OUT pair durations (so multiple site visits
+   * add up). A trailing unpaired IN leaves the day "open".
+   */
+  private async summariseDay(empId: string, date: string) {
+    const rows = await this.ds.query(
+      `SELECT punch_type AS "punchType",
+              extract(epoch FROM punch_time) AS epoch,
+              latitude, longitude
+       FROM ess_attendance_punches
+       WHERE employee_id = $1 AND date = $2::date
+       ORDER BY punch_time ASC, created_at ASC`,
+      [empId, date],
+    );
+
+    let firstIn: any = null;
+    let lastOut: any = null;
+    let openIn: any = null;
+    let workedSec = 0;
+    for (const p of rows) {
+      const epoch = Number(p.epoch);
+      if (p.punchType === 'IN') {
+        if (!firstIn) firstIn = p;
+        if (!openIn) openIn = { epoch };
+      } else if (p.punchType === 'OUT') {
+        lastOut = p;
+        if (openIn) {
+          workedSec += Math.max(0, epoch - openIn.epoch);
+          openIn = null;
+        }
+      }
+    }
+
+    return {
+      firstIn,
+      lastOut,
+      openSession: openIn != null,
+      workedDecimal: workedSec / 3600,
+      punchCount: rows.length,
+      firstInTime: firstIn
+        ? this.businessTimeFromEpoch(Number(firstIn.epoch))
+        : null,
+      lastOutTime: lastOut
+        ? this.businessTimeFromEpoch(Number(lastOut.epoch))
+        : null,
+    };
+  }
+
+  async selfCheckIn(
+    user: EssUser,
+    body: {
+      captureMethod?: string;
+      latitude?: number;
+      longitude?: number;
+      accuracy?: number;
+      deviceInfo?: string;
+    },
+  ) {
+    const empId = this.ensureEmployee(user);
+    const emp = await this.empRepo.findOne({ where: { id: empId } });
+    if (!emp) throw new NotFoundException('Employee not found');
+
+    const today = this.businessNow().date;
+    const method = this.resolveCaptureMethod(body);
+
+    const existing = await this.ds.query(
+      `SELECT id, status FROM attendance_records WHERE employee_id = $1 AND date = $2::date`,
+      [empId, today],
+    );
     if (
-      (method === 'GEOLOCATION' || method === 'FACE') &&
-      (body.latitude == null || body.longitude == null)
+      existing.length &&
+      ['WEEK_OFF', 'HOLIDAY'].includes(
+        String(existing[0].status || '').toUpperCase(),
+      )
     ) {
       throw new BadRequestException(
-        'Location coordinates are required for this attendance method.',
+        'Self check-in is not allowed on a holiday or week off',
       );
     }
 
+    // Can't check in twice in a row — the previous punch must be a check-out.
+    const priorPunches = await this.summariseDay(empId, today);
+    if (priorPunches.openSession) {
+      throw new BadRequestException(
+        'You are already checked in. Please check out before checking in again.',
+      );
+    }
+
+    await this.recordPunch(emp, today, 'IN', method, body);
+    const summary = await this.summariseDay(empId, today);
+
+    // Refresh the daily summary: first IN of the day drives check_in/location.
     if (existing.length) {
-      // Update existing record (e.g. admin-seeded WEEK_OFF or HOLIDAY shouldn't be overwritten)
-      const rec = existing[0];
-      if (
-        ['WEEK_OFF', 'HOLIDAY'].includes(String(rec.status || '').toUpperCase())
-      ) {
-        throw new BadRequestException(
-          'Self check-in is not allowed on a holiday or week off',
-        );
-      }
       await this.ds.query(
         `UPDATE attendance_records
          SET check_in = $1, status = 'PRESENT', capture_method = $2,
@@ -584,16 +740,15 @@ export class EssService {
              self_marked = true, source = 'MANUAL', updated_at = NOW()
          WHERE id = $6`,
         [
-          timeStr,
+          summary.firstInTime,
           method,
-          body.latitude ?? null,
-          body.longitude ?? null,
+          summary.firstIn?.latitude ?? null,
+          summary.firstIn?.longitude ?? null,
           body.deviceInfo ?? null,
-          rec.id,
+          existing[0].id,
         ],
       );
     } else {
-      // Create new attendance record
       await this.ds.query(
         `INSERT INTO attendance_records
            (id, client_id, branch_id, employee_id, employee_code, date,
@@ -607,10 +762,10 @@ export class EssService {
           emp.id,
           emp.employeeCode,
           today,
-          timeStr,
+          summary.firstInTime,
           method,
-          body.latitude ?? null,
-          body.longitude ?? null,
+          summary.firstIn?.latitude ?? null,
+          summary.firstIn?.longitude ?? null,
           body.deviceInfo ?? null,
         ],
       );
@@ -619,8 +774,10 @@ export class EssService {
     return {
       success: true,
       date: today,
-      checkIn: timeStr,
+      checkIn: this.businessNow().time,
       captureMethod: method,
+      punchCount: summary.punchCount,
+      onSite: true,
     };
   }
 
@@ -630,6 +787,7 @@ export class EssService {
       captureMethod?: string;
       latitude?: number;
       longitude?: number;
+      accuracy?: number;
       deviceInfo?: string;
     },
   ) {
@@ -637,72 +795,39 @@ export class EssService {
     const emp = await this.empRepo.findOne({ where: { id: empId } });
     if (!emp) throw new NotFoundException('Employee not found');
 
-    const businessNow = this.businessNow();
-    const today = businessNow.date;
-    const timeStr = businessNow.time;
+    const today = this.businessNow().date;
+    const method = this.resolveCaptureMethod(body);
 
     const existing = await this.ds.query(
-      `SELECT id, status, check_in AS "checkIn", check_out AS "checkOut"
-       FROM attendance_records WHERE employee_id = $1 AND date = $2::date`,
+      `SELECT id, status FROM attendance_records WHERE employee_id = $1 AND date = $2::date`,
       [empId, today],
     );
 
-    if (!existing.length || !existing[0].checkIn) {
+    // Must have an open session (last punch was an IN) to check out.
+    const before = await this.summariseDay(empId, today);
+    if (!before.openSession || !existing.length) {
       throw new BadRequestException('Must check in before checking out');
     }
-    if (existing[0].checkOut) {
-      throw new BadRequestException(
-        'Already checked out today at ' + existing[0].checkOut,
-      );
-    }
 
-    // Calculate worked hours
-    const checkInParts = String(existing[0].checkIn).split(':').map(Number);
-    const checkInMinutes = checkInParts[0] * 60 + checkInParts[1];
-    const checkOutParts = timeStr.split(':').map(Number);
-    const checkOutMinutes = checkOutParts[0] * 60 + checkOutParts[1];
-    const workedDecimal = Math.max(0, (checkOutMinutes - checkInMinutes) / 60);
+    await this.recordPunch(emp, today, 'OUT', method, body);
+    const summary = await this.summariseDay(empId, today);
+
+    const workedDecimal = Math.max(0, summary.workedDecimal);
     const workedHrs = workedDecimal.toFixed(2);
-    // Standard hours from env (set by HR/payroll config) or 9h default
     const STANDARD_HOURS = Number(process.env.STANDARD_WORK_HOURS ?? 9);
 
-    // Determine overtime / short-work
     const excessHrs = Math.max(0, workedDecimal - STANDARD_HOURS);
     const otHours = excessHrs > 0 ? excessHrs.toFixed(2) : '0.00';
     const isShort = workedDecimal < STANDARD_HOURS;
-    const dayStatus = existing[0].status; // PRESENT, HOLIDAY, WEEK_OFF, etc.
+    const dayStatus = existing.length ? existing[0].status : 'PRESENT';
 
-    // Get employee monthly gross to determine OT vs C/Off
     const salaryInfo = await this.getEmployeeMonthlyGross(empId);
     const monthlyGross = salaryInfo?.monthlyGross ?? 0;
     const OT_THRESHOLD = 21000; // ₹21,000/month
 
-    // Determine overtime_type
     let overtimeType: string | null = null;
     if (excessHrs > 0 || dayStatus === 'HOLIDAY' || dayStatus === 'WEEK_OFF') {
       overtimeType = monthlyGross > OT_THRESHOLD ? 'COFF' : 'OT';
-    }
-
-    const method = ['MANUAL', 'BIOMETRIC', 'FACE', 'GEOLOCATION'].includes(
-      String(body.captureMethod || '').toUpperCase(),
-    )
-      ? String(body.captureMethod).toUpperCase()
-      : 'MANUAL';
-    if (
-      method === 'FACE' &&
-      !ESS_NATIVE_APP_UA.test(String(body.deviceInfo || ''))
-    ) {
-      throw new BadRequestException(
-        'Face ID attendance is available only in the StatCo ESS app.',
-      );
-    }
-    if (
-      (method === 'GEOLOCATION' || method === 'FACE') &&
-      (body.latitude == null || body.longitude == null)
-    ) {
-      throw new BadRequestException(
-        'Location coordinates are required for this attendance method.',
-      );
     }
 
     await this.ds.query(
@@ -713,12 +838,12 @@ export class EssService {
            updated_at = NOW()
        WHERE id = $7`,
       [
-        timeStr,
+        summary.lastOutTime,
         workedHrs,
         otHours,
         overtimeType,
-        body.latitude ?? null,
-        body.longitude ?? null,
+        summary.lastOut?.latitude ?? null,
+        summary.lastOut?.longitude ?? null,
         existing[0].id,
       ],
     );
@@ -738,7 +863,7 @@ export class EssService {
     return {
       success: true,
       date: today,
-      checkOut: timeStr,
+      checkOut: this.businessNow().time,
       workedHours: workedHrs,
       overtimeHours: otHours,
       overtimeType,
@@ -746,6 +871,8 @@ export class EssService {
       shortWorkReasonRequired: isShort,
       coffAccrued,
       captureMethod: method,
+      punchCount: summary.punchCount,
+      onSite: false,
     };
   }
 

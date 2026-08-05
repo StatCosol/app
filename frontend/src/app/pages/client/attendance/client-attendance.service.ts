@@ -133,6 +133,16 @@ export class ClientAttendanceService {
     return this.http.get<ApprovalStats>(`${this.base}/daily/stats`, { params: p });
   }
 
+  /** Download the day's attendance as an Excel file (location hyperlinks). */
+  downloadDailyReport(date: string, branchId?: string): Observable<Blob> {
+    let p = new HttpParams().set('date', date);
+    if (branchId) p = p.set('branchId', branchId);
+    return this.http.get(`${this.base}/daily/report`, {
+      params: p,
+      responseType: 'blob',
+    });
+  }
+
   editRecord(
     id: string,
     body: {
@@ -188,6 +198,19 @@ export interface DailyAttendanceRecord {
   approvedByUserId: string | null;
   approvedAt: string | null;
   rejectionReason: string | null;
+  /** Every ESS check-in/out for the day, each with its captured location. */
+  punches?: DailyPunch[];
+}
+
+export interface DailyPunch {
+  punchType: 'IN' | 'OUT';
+  time: string;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  captureMethod: string | null;
+  /** Ready-to-open Google Maps link for the captured coordinates. */
+  mapUrl: string | null;
 }
 
 export interface ApprovalStats {

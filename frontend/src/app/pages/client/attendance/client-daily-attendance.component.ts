@@ -86,6 +86,10 @@ const ATTENDANCE_STATUSES = [
           </label>
           <div class="toolbar-actions">
             <ui-button size="sm" variant="primary" [disabled]="loading" (clicked)="load()">Load</ui-button>
+            <ui-button size="sm" variant="secondary" [disabled]="loading || downloadingReport || !records.length"
+              [loading]="downloadingReport" (clicked)="downloadReport()">
+              ⬇ Download Report
+            </ui-button>
           </div>
         </div>
       </section>
@@ -216,15 +220,28 @@ const ATTENDANCE_STATUSES = [
                     </span>
                   </td>
                   <td class="location-cell">
-                    @if (hasLocation(row)) {
+                    @if (row.punches?.length) {
+<div class="punch-list">
+                      @for (p of row.punches; track $index) {
+<div class="punch-item" [class.punch-in]="p.punchType === 'IN'" [class.punch-out]="p.punchType === 'OUT'">
+                        <span class="punch-tag">{{ p.punchType }}</span>
+                        <span class="punch-time">{{ p.time }}</span>
+                        @if (p.mapUrl) {
+<a [href]="p.mapUrl" target="_blank" rel="noopener" class="punch-map">📍 map</a>
+} @else {
+<span class="punch-nomap">no loc</span>
+}
+                      </div>
+}
+                    </div>
+} @else if (hasLocation(row)) {
 <a
                       [href]="locationMapUrl(row)"
                       target="_blank"
                       rel="noopener">
                       {{ displayLocation(row) }}
                     </a>
-}
-                    @if (!hasLocation(row)) {
+} @else {
 <span>-</span>
 }
                   </td>
@@ -327,7 +344,7 @@ const ATTENDANCE_STATUSES = [
       .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1rem; box-shadow: 0 6px 20px rgba(15, 23, 42, .04); }
       .mb { margin-bottom: .85rem; }
       .toolbar { display: grid; grid-template-columns: 200px 220px 160px auto; gap: .65rem; align-items: end; }
-      .toolbar-actions { display: flex; align-items: end; }
+      .toolbar-actions { display: flex; align-items: end; gap: .4rem; flex-wrap: wrap; }
       /* Pin every control on this row — inputs, selects AND the action button —
          to the SAME explicit height so the Load button can't render taller or
          shorter than the fields. border-box makes the height include padding. */
@@ -370,6 +387,14 @@ const ATTENDANCE_STATUSES = [
       .location-cell { font-size: .72rem; white-space: nowrap; }
       .location-cell a { color: #0369a1; font-weight: 600; text-decoration: none; }
       .location-cell a:hover { text-decoration: underline; }
+      .punch-list { display: flex; flex-direction: column; gap: .15rem; }
+      .punch-item { display: flex; align-items: center; gap: .35rem; }
+      .punch-tag { font-size: .6rem; font-weight: 800; border-radius: 4px; padding: 0 .3rem; min-width: 1.9rem; text-align: center; }
+      .punch-in .punch-tag { background: #dcfce7; color: #15803d; }
+      .punch-out .punch-tag { background: #fee2e2; color: #b91c1c; }
+      .punch-time { font-variant-numeric: tabular-nums; color: #374151; }
+      .punch-map { color: #0369a1; font-weight: 600; }
+      .punch-nomap { color: #9ca3af; }
       .approval-chip { border: 1px solid #d1d5db; background: #f9fafb; color: #374151; border-radius: 999px; font-size: .68rem; font-weight: 700; padding: .1rem .5rem; white-space: nowrap; }
       .approval-chip[data-approval=PENDING] { border-color: #fcd34d; color: #92400e; background: #fffbeb; }
       .approval-chip[data-approval=APPROVED] { border-color: #86efac; color: #166534; background: #f0fdf4; }
@@ -404,6 +429,7 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
   actionBusy = false;
   actionType = '';
   editBusy = false;
+  downloadingReport = false;
 
   branchOptions: BranchOption[] = [{ value: '', label: 'All Branches' }];
   records: DailyAttendanceRecord[] = [];
@@ -431,6 +457,33 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  /** Download the day's attendance as an Excel file with location hyperlinks. */
+  downloadReport(): void {
+    if (this.downloadingReport) return;
+    this.downloadingReport = true;
+    this.svc
+      .downloadDailyReport(this.selectedDate, this.branchId || undefined)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.downloadingReport = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `attendance-${this.selectedDate}.xlsx`;
+          a.click();
+          URL.revokeObjectURL(url);
+          this.toast.success('Attendance report downloaded');
+        },
+        error: () => this.toast.error('Failed to download report'),
+      });
   }
 
   loadBranches(): void {

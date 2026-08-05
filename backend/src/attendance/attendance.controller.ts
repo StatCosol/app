@@ -6,8 +6,10 @@ import {
   Param,
   Body,
   Query,
+  Res,
   BadRequestException,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { Roles } from '../auth/roles.decorator';
 import { AttendanceService } from './attendance.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -203,6 +205,36 @@ export class AttendanceController {
       approvalStatus,
       allowedBranchIds: this.branchScope(user),
     });
+  }
+
+  @ApiOperation({
+    summary: 'Download daily attendance report (Excel, location hyperlinks)',
+  })
+  @Get('daily/report')
+  async downloadDailyReport(
+    @CurrentUser() user: ReqUser,
+    @Query('date') date: string,
+    @Res({ passthrough: true }) res: Response,
+    @Query('branchId') branchId?: string,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    if (!date) throw new BadRequestException('date query param required');
+    const { buffer, filename } = await this.svc.buildDailyReport({
+      clientId,
+      date,
+      branchId,
+      allowedBranchIds: this.branchScope(user),
+    });
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=${filename}`,
+    );
+    res.send(buffer);
   }
 
   @ApiOperation({ summary: 'Get approval stats for a date' })
