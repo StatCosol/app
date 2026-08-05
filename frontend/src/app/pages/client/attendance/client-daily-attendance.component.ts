@@ -345,6 +345,11 @@ const ATTENDANCE_STATUSES = [
       .mb { margin-bottom: .85rem; }
       .toolbar { display: grid; grid-template-columns: 200px 220px 160px auto; gap: .65rem; align-items: end; }
       .toolbar-actions { display: flex; align-items: end; gap: .4rem; flex-wrap: wrap; }
+      /* Pin every control on this row — inputs, selects AND the action button —
+         to the SAME explicit height so the Load button can't render taller or
+         shorter than the fields. border-box makes the height include padding. */
+      .toolbar input, .toolbar select { height: 2.5rem; box-sizing: border-box; }
+      .toolbar-actions ::ng-deep button { height: 2.5rem; min-height: 2.5rem; box-sizing: border-box; }
       label { display: flex; flex-direction: column; gap: .35rem; }
       label > span { color: #4b5563; font-size: .78rem; font-weight: 600; }
       input, select, textarea { width: 100%; border: 1px solid #d1d5db; border-radius: 10px; padding: .5rem .65rem; font-size: .84rem; }

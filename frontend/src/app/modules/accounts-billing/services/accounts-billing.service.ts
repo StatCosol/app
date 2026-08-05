@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import {
   BillingClient, Invoice, InvoicePayment, InvoiceEmailLog,
   BillingSetting, DashboardStats, PagedResult,
+  BillingReportResult,
 } from '../models/billing.models';
 
 @Injectable({ providedIn: 'root' })
@@ -80,6 +81,23 @@ export class AccountsBillingService {
   getGstSummary(fromDate: string, toDate: string): Observable<any[]> {
     return this.http.get<any[]>(`${this.base}/invoices/reports/gst-summary`, {
       params: { fromDate, toDate },
+    });
+  }
+
+  getBillingReport(params: Record<string, string>): Observable<BillingReportResult> {
+    return this.http.get<BillingReportResult>(
+      `${this.base}/invoices/reports/advanced`,
+      { params },
+    );
+  }
+
+  downloadBillingReport(
+    params: Record<string, string>,
+  ): Observable<HttpResponse<Blob>> {
+    return this.http.get(`${this.base}/invoices/reports/advanced/export`, {
+      params,
+      responseType: 'blob',
+      observe: 'response',
     });
   }
 

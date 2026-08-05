@@ -161,6 +161,30 @@ export interface PagedResult<T> {
   totalPages: number;
 }
 
+export type BillingReportType =
+  | 'GST_DETAIL'
+  | 'CLIENT_SUMMARY'
+  | 'INVOICE_REGISTER'
+  | 'OUTSTANDING'
+  | 'PAID';
+
+export interface BillingReportColumn {
+  key: string;
+  label: string;
+  type?: 'text' | 'date' | 'number' | 'currency' | 'percent';
+  width?: number;
+}
+
+export interface BillingReportResult {
+  reportType: BillingReportType;
+  title: string;
+  generatedAt: string;
+  filters: Record<string, string>;
+  columns: BillingReportColumn[];
+  rows: Record<string, unknown>[];
+  summary: Record<string, number>;
+}
+
 export interface PendingPaymentFollowup {
   id: string;
   invoiceNumber: string;
