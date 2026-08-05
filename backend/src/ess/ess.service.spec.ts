@@ -114,4 +114,59 @@ describe('EssService', () => {
       time: '04:15:12',
     });
   });
+
+  describe('multi-punch summariseDay', () => {
+    const base = Date.parse('2026-08-06T03:30:00.000Z') / 1000; // 09:00 IST
+
+    const punch = (type: 'IN' | 'OUT', offsetHrs: number, lat = 12.9, lng = 77.5) => ({
+      punchType: type,
+      epoch: base + offsetHrs * 3600,
+      latitude: lat,
+      longitude: lng,
+    });
+
+    it('sums worked hours across every in→out pair (multiple site visits)', async () => {
+      // IN 09:00 → OUT 12:00 (3h), IN 14:00 → OUT 18:00 (4h) = 7h total
+      (service as any).ds.query.mockResolvedValueOnce([
+        punch('IN', 0),
+        punch('OUT', 3),
+        punch('IN', 5),
+        punch('OUT', 9),
+      ]);
+
+      const summary = await (service as any).summariseDay('emp-1', '2026-08-06');
+
+      expect(summary.workedDecimal).toBeCloseTo(7, 5);
+      expect(summary.openSession).toBe(false);
+      expect(summary.punchCount).toBe(4);
+      expect(summary.firstInTime).toBe('09:00:00');
+      expect(summary.lastOutTime).toBe('18:00:00');
+    });
+
+    it('flags an open session when the last punch is an unpaired check-in', async () => {
+      // IN 09:00 → OUT 12:00 (3h), IN 14:00 (still on site)
+      (service as any).ds.query.mockResolvedValueOnce([
+        punch('IN', 0),
+        punch('OUT', 3),
+        punch('IN', 5),
+      ]);
+
+      const summary = await (service as any).summariseDay('emp-1', '2026-08-06');
+
+      expect(summary.workedDecimal).toBeCloseTo(3, 5);
+      expect(summary.openSession).toBe(true);
+      expect(summary.punchCount).toBe(3);
+    });
+
+    it('reports zero worked time and no open session for an empty day', async () => {
+      (service as any).ds.query.mockResolvedValueOnce([]);
+
+      const summary = await (service as any).summariseDay('emp-1', '2026-08-06');
+
+      expect(summary.workedDecimal).toBe(0);
+      expect(summary.openSession).toBe(false);
+      expect(summary.firstInTime).toBeNull();
+      expect(summary.lastOutTime).toBeNull();
+    });
+  });
 });

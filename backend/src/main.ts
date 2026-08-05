@@ -283,6 +283,34 @@ async function bootstrap() {
       logger.warn(`Schema patch payroll_run_employees skipped: ${e?.message}`);
     }
 
+    // ESS multi check-in/out with per-punch location (field/sales staff visiting
+    // multiple sites). Each check-in/out is a row here; attendance_records keeps
+    // the daily summary (first in / last out / summed worked hours).
+    try {
+      await ds.query(`
+        CREATE TABLE IF NOT EXISTS ess_attendance_punches (
+          id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          client_id      uuid,
+          employee_id    uuid NOT NULL,
+          employee_code  varchar(50),
+          date           date NOT NULL,
+          punch_type     varchar(3) NOT NULL,
+          punch_time     timestamptz NOT NULL DEFAULT now(),
+          latitude       double precision,
+          longitude      double precision,
+          accuracy       double precision,
+          capture_method varchar(20),
+          device_info    text,
+          created_at     timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_ess_punches_emp_date
+          ON ess_attendance_punches (employee_id, date);
+      `);
+      logger.log('Schema patch: ess_attendance_punches OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch ess_attendance_punches skipped: ${e?.message}`);
+    }
+
     // FaceDesk PIN-then-face verification (migration 20260722b). The deploy
     // migration job runs only the service-entitlement script, so these columns
     // must be patched here or the settings/profile entities 500 on a SELECT.

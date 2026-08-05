@@ -24,6 +24,7 @@ export class EssCheckInDto {
   @IsOptional() @IsString() captureMethod?: string;
   @IsOptional() @IsNumber() latitude?: number;
   @IsOptional() @IsNumber() longitude?: number;
+  @IsOptional() @IsNumber() accuracy?: number;
   @IsOptional() @IsString() deviceInfo?: string;
   // Optional base64-encoded selfie (without the data: URL prefix) when
   // captureMethod === 'FACE'. Captured client-side via getUserMedia. Not
@@ -36,6 +37,7 @@ export class EssCheckOutDto {
   @IsOptional() @IsString() captureMethod?: string;
   @IsOptional() @IsNumber() latitude?: number;
   @IsOptional() @IsNumber() longitude?: number;
+  @IsOptional() @IsNumber() accuracy?: number;
   @IsOptional() @IsString() deviceInfo?: string;
   @IsOptional() @IsString() selfieB64?: string;
 }

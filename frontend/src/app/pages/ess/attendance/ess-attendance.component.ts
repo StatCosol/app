@@ -9,6 +9,7 @@ import {
   EssAttendanceSummary,
   EssHoliday,
   TodayAttendance,
+  AttendancePunch,
   CheckInOutPayload,
   OvertimeSummary,
   CompOffBalance,
@@ -78,21 +79,45 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
 
           <div class="checkin-times">
             <div class="time-box" [class.done]="todayRecord?.checkIn">
-              <div class="time-label">Check-In</div>
+              <div class="time-label">First In</div>
               <div class="time-val">{{ todayRecord?.checkIn || '--:--' }}</div>
             </div>
             <div class="time-arrow">&rarr;</div>
             <div class="time-box" [class.done]="todayRecord?.checkOut">
-              <div class="time-label">Check-Out</div>
+              <div class="time-label">Last Out</div>
               <div class="time-val">{{ todayRecord?.checkOut || '--:--' }}</div>
             </div>
-            @if (todayRecord?.checkIn && todayRecord?.checkOut) {
+            @if (todayRecord?.checkIn) {
 <div class="time-box worked">
               <div class="time-label">Worked</div>
               <div class="time-val">{{ todayWorkedDisplay }}</div>
             </div>
 }
           </div>
+
+          @if (onSite) {
+<div class="onsite-pill"><span class="onsite-dot"></span> On site — remember to check out before leaving</div>
+}
+
+          <!-- Today's visit timeline: every check-in/out with its captured location -->
+          @if (todayPunches.length) {
+<div class="visit-timeline">
+            <div class="visit-timeline-head">Today's Visits ({{ pairedVisitCount }})</div>
+            @for (p of todayPunches; track p.id) {
+<div class="visit-row" [class.visit-in]="p.punchType === 'IN'" [class.visit-out]="p.punchType === 'OUT'">
+              <span class="visit-badge">{{ p.punchType === 'IN' ? 'IN' : 'OUT' }}</span>
+              <span class="visit-time">{{ p.time }}</span>
+              @if (p.mapUrl) {
+<a class="visit-loc" [href]="p.mapUrl" target="_blank" rel="noopener">
+                📍 {{ p.latitude | number:'1.4-4' }}, {{ p.longitude | number:'1.4-4' }}
+              </a>
+} @else {
+<span class="visit-loc-none">No location</span>
+}
+            </div>
+}
+          </div>
+}
         </div>
 
         <div class="checkin-right">
@@ -149,29 +174,26 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
 
           <div class="checkin-actions">
             <button class="btn-checkin"
-                    [disabled]="checkingIn || !!todayRecord?.checkIn || !canSubmitCapture"
+                    [disabled]="checkingIn || onSite || !canSubmitCapture"
                     (click)="doCheckIn()">
               @if (checkingIn) {
 <span>Checking In...</span>
 }
-              @if (!checkingIn && !todayRecord?.checkIn) {
-<span>Check In</span>
+              @if (!checkingIn && onSite) {
+<span>On Site ✓</span>
 }
-              @if (!checkingIn && todayRecord?.checkIn) {
-<span>Checked In ✓</span>
+              @if (!checkingIn && !onSite) {
+<span>{{ todayPunches.length ? 'Check In Again' : 'Check In' }}</span>
 }
             </button>
             <button class="btn-checkout"
-                    [disabled]="checkingOut || !todayRecord?.checkIn || !!todayRecord?.checkOut || !canSubmitCapture"
+                    [disabled]="checkingOut || !onSite || !canSubmitCapture"
                     (click)="doCheckOut()">
               @if (checkingOut) {
 <span>Checking Out...</span>
 }
-              @if (!checkingOut && !todayRecord?.checkOut) {
+              @if (!checkingOut) {
 <span>Check Out</span>
-}
-              @if (!checkingOut && todayRecord?.checkOut) {
-<span>Checked Out ✓</span>
 }
             </button>
           </div>
@@ -545,6 +567,28 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
       .geo-info { display: flex; align-items: center; gap: 4px; }
       .geo-icon { font-size: 14px; }
 
+      /* ── On-site + Visit timeline ── */
+      .onsite-pill {
+        margin-top: 14px; display: inline-flex; align-items: center; gap: 6px;
+        font-size: 11px; font-weight: 600; color: #bbf7d0;
+        background: rgba(34,197,94,0.14); border: 1px solid rgba(34,197,94,0.3);
+        border-radius: 9999px; padding: 4px 10px;
+      }
+      .onsite-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; animation: pulse 2s infinite; }
+      .visit-timeline { margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; }
+      .visit-timeline-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 8px; }
+      .visit-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; font-size: 13px; }
+      .visit-badge {
+        font-size: 10px; font-weight: 800; border-radius: 6px; padding: 2px 7px;
+        min-width: 34px; text-align: center; letter-spacing: 0.03em;
+      }
+      .visit-in .visit-badge { background: rgba(34,197,94,0.2); color: #86efac; }
+      .visit-out .visit-badge { background: rgba(239,68,68,0.2); color: #fca5a5; }
+      .visit-time { font-variant-numeric: tabular-nums; color: #e2e8f0; font-weight: 600; min-width: 74px; }
+      .visit-loc { color: #93c5fd; text-decoration: none; font-size: 12px; }
+      .visit-loc:hover { text-decoration: underline; color: #bfdbfe; }
+      .visit-loc-none { color: #64748b; font-size: 12px; }
+
       /* ── OT / Comp-Off Panel ── */
       .ot-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 20px; }
       .ot-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
@@ -610,6 +654,7 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
   selectedCapture: CaptureMethod = 'MANUAL';
   currentLat: number | null = null;
   currentLng: number | null = null;
+  currentAccuracy: number | null = null;
   private readonly isEssNativeApp = /\bStatcoEssPortal\//i.test(navigator.userAgent || '');
 
   // Face ID selfie capture
@@ -773,7 +818,33 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
     return idx >= 0 ? this.selfieDataUrl.slice(idx + 1) : this.selfieDataUrl;
   }
 
+  /** Today's punches (check-ins/outs), oldest first. */
+  get todayPunches(): AttendancePunch[] {
+    return this.todayRecord?.punches ?? [];
+  }
+
+  /** True when the last punch was a check-in still awaiting a check-out. */
+  get onSite(): boolean {
+    return this.todayRecord?.onSite === true;
+  }
+
+  /** Number of completed IN→OUT visit pairs today. */
+  get pairedVisitCount(): number {
+    return this.todayPunches.filter((p) => p.punchType === 'OUT').length;
+  }
+
   get todayWorkedDisplay(): string {
+    // Prefer the server-summed total (covers every in→out pair). Fall back to a
+    // simple first-in/last-out diff only if the server hasn't computed it yet.
+    const worked = this.todayRecord?.workedHours;
+    if (worked != null && worked !== '') {
+      const dec = parseFloat(String(worked));
+      if (!isNaN(dec) && dec > 0) {
+        const h = Math.floor(dec);
+        const m = Math.round((dec - h) * 60);
+        return `${h}h ${m}m`;
+      }
+    }
     if (!this.todayRecord?.checkIn || !this.todayRecord?.checkOut) return '--';
     const inParts = String(this.todayRecord.checkIn).split(':').map(Number);
     const outParts = String(this.todayRecord.checkOut).split(':').map(Number);
@@ -855,6 +926,7 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
         captureMethod: this.selectedCapture,
         latitude: this.currentLat ?? undefined,
         longitude: this.currentLng ?? undefined,
+        accuracy: this.currentAccuracy ?? undefined,
         deviceInfo: navigator.userAgent,
         selfieB64: this.extractSelfieB64() ?? undefined,
       };
@@ -864,8 +936,8 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
       ).subscribe({
         next: (res) => {
           this.toast.success('Checked in at ' + res.checkIn);
-          this.selfieDataUrl = null;
-          this.stopCamera();
+          // Clear the selfie (and restart the camera for the next punch if FACE).
+          this.discardSelfie();
           this.loadTodayStatus();
           this.load();
         },
@@ -897,6 +969,7 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
         captureMethod: this.selectedCapture,
         latitude: this.currentLat ?? undefined,
         longitude: this.currentLng ?? undefined,
+        accuracy: this.currentAccuracy ?? undefined,
         deviceInfo: navigator.userAgent,
         selfieB64: this.extractSelfieB64() ?? undefined,
       };
@@ -913,8 +986,8 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
             }
           }
           this.toast.success(msg);
-          this.selfieDataUrl = null;
-          this.stopCamera();
+          // Clear the selfie (and restart the camera for the next punch if FACE).
+          this.discardSelfie();
           if (res.isShortDay) {
             this.shortReasonDate = res.date;
             this.showShortReasonModal = true;
@@ -1073,6 +1146,7 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
         : 'Location unavailable — punch recorded without coordinates';
       this.currentLat = null;
       this.currentLng = null;
+      this.currentAccuracy = null;
       // GEOLOCATION/FACE require location; MANUAL continues without it
       return Promise.resolve(this.selectedCapture !== 'GEOLOCATION' && this.selectedCapture !== 'FACE');
     }
@@ -1085,12 +1159,14 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
         (pos) => {
           this.currentLat = pos.coords.latitude;
           this.currentLng = pos.coords.longitude;
+          this.currentAccuracy = pos.coords.accuracy ?? null;
           this.geoStatus = `📍 ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
           resolve(true);
         },
         () => {
           this.currentLat = null;
           this.currentLng = null;
+          this.currentAccuracy = null;
           if (required) {
             this.geoStatus = 'Location access denied';
             resolve(false);

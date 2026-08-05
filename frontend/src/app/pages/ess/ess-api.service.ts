@@ -168,23 +168,46 @@ export interface EssAttendanceRecord {
   checkOutLng?: string | null;
 }
 
+/** A single check-in or check-out event with its own captured location. */
+export interface AttendancePunch {
+  id: string;
+  punchType: 'IN' | 'OUT';
+  time: string;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  captureMethod: string | null;
+  /** Ready-to-open Google Maps link for the captured coordinates. */
+  mapUrl: string | null;
+}
+
 export interface TodayAttendance {
   date: string;
   status: string | null;
   checkIn: string | null;
   checkOut: string | null;
+  workedHours?: string | null;
+  overtimeHours?: string | null;
+  overtimeType?: string | null;
   captureMethod?: string;
   selfMarked?: boolean;
   checkInLat?: string | null;
   checkInLng?: string | null;
   checkOutLat?: string | null;
   checkOutLng?: string | null;
+  /** All of today's punches, oldest first. */
+  punches?: AttendancePunch[];
+  /** True when the latest punch is a check-in awaiting a check-out. */
+  onSite?: boolean;
+  /** 'IN' when the next expected action is a check-in, 'OUT' otherwise. */
+  nextAction?: 'IN' | 'OUT';
 }
 
 export interface CheckInOutPayload {
   captureMethod?: 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
   latitude?: number;
   longitude?: number;
+  accuracy?: number;
   deviceInfo?: string;
   /** Base64 selfie payload (no data: prefix) when captureMethod === 'FACE'. */
   selfieB64?: string;
