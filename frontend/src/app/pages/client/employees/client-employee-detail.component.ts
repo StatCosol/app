@@ -95,7 +95,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
               @if (emp.approvalStatus === 'PENDING') {
 <ui-button variant="danger" (clicked)="rejectEmployee()">Reject</ui-button>
 }
-              <ui-button variant="primary" (clicked)="editEmployee()">Edit</ui-button>
+              <ui-button variant="secondary" (clicked)="editEmployee()">Edit</ui-button>
               <ui-button variant="outline" [disabled]="downloadingLetter" (clicked)="downloadAppointmentLetter()">
                 {{ downloadingLetter ? 'Downloading...' : 'Appointment Letter (PDF)' }}
               </ui-button>
