@@ -251,25 +251,20 @@ const ATTENDANCE_STATUSES = [
                     </span>
                   </td>
                   <td>
+                    <!-- Even 2-per-row grid so all four buttons are the same size -->
                     <div class="actions-cell">
-                      <!-- Primary decision: Approve emphasized, Reject secondary -->
-                      <div class="act-decide">
-                        @if (row.approvalStatus !== 'APPROVED') {
+                      @if (row.approvalStatus !== 'APPROVED') {
 <button type="button" class="act-btn act-approve"
-                          [disabled]="actionBusy" (click)="approveSingle(row.id)">Approve</button>
+                        [disabled]="actionBusy" (click)="approveSingle(row.id)">Approve</button>
 }
-                        @if (row.approvalStatus !== 'REJECTED') {
+                      @if (row.approvalStatus !== 'REJECTED') {
 <button type="button" class="act-btn act-reject"
-                          [disabled]="actionBusy" (click)="rejectSingle(row.id)">Reject</button>
+                        [disabled]="actionBusy" (click)="rejectSingle(row.id)">Reject</button>
 }
-                      </div>
-                      <!-- Utilities: quiet outlined buttons, secondary to the decision -->
-                      <div class="act-tools">
-                        <button type="button" class="act-btn act-edit"
-                          title="Edit record" (click)="openEdit(row)">Edit</button>
-                        <button type="button" class="act-btn act-delete"
-                          title="Delete record" [disabled]="actionBusy" (click)="deleteSingle(row.id)">Delete</button>
-                      </div>
+                      <button type="button" class="act-btn act-edit"
+                        title="Edit record" (click)="openEdit(row)">Edit</button>
+                      <button type="button" class="act-btn act-delete"
+                        title="Delete record" [disabled]="actionBusy" (click)="deleteSingle(row.id)">Delete</button>
                     </div>
                   </td>
                 </tr>
@@ -397,11 +392,10 @@ const ATTENDANCE_STATUSES = [
       .approval-chip[data-approval=REJECTED] { border-color: #fca5a5; color: #991b1b; background: #fef2f2; }
       .row-pending { background: #fffbeb; }
       .row-rejected { background: #fef2f2; }
-      /* Action column: one emphasized primary (Approve), then quieter outlined
-         buttons (Reject / Edit / Delete) so risk and importance stay legible. */
-      .actions-cell { display: flex; flex-direction: column; align-items: flex-start; gap: .3rem; }
-      .act-decide, .act-tools { display: inline-flex; gap: .3rem; }
-      .act-btn { font-size: .72rem; font-weight: 600; line-height: 1; border: 1px solid transparent; border-radius: 7px; padding: .32rem .62rem; cursor: pointer; transition: background .15s ease, border-color .15s ease; }
+      /* Action column: even 2-column grid so all four buttons are the same
+         size and aligned; Approve stays emphasized, the rest are outlined. */
+      .actions-cell { display: grid; grid-template-columns: repeat(2, 1fr); gap: .3rem; width: 9.5rem; }
+      .act-btn { width: 100%; text-align: center; font-size: .72rem; font-weight: 600; line-height: 1; border: 1px solid transparent; border-radius: 7px; padding: .4rem .5rem; cursor: pointer; transition: background .15s ease, border-color .15s ease; }
       .act-btn:disabled { opacity: .5; cursor: not-allowed; }
       .act-approve { background: #16a34a; color: #fff; }
       .act-approve:hover:not(:disabled) { background: #15803d; }
