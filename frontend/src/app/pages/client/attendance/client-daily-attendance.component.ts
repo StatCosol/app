@@ -14,7 +14,6 @@ import { ToastService } from '../../../shared/toast/toast.service';
 import {
   ActionButtonComponent,
   EmptyStateComponent,
-  IconComponent,
   LoadingSpinnerComponent,
   PageHeaderComponent,
 } from '../../../shared/ui';
@@ -50,8 +49,7 @@ const ATTENDANCE_STATUSES = [
     PageHeaderComponent,
     ActionButtonComponent,
     LoadingSpinnerComponent,
-    EmptyStateComponent,
-    IconComponent
+    EmptyStateComponent
 ],
   template: `
     <div class="page">
@@ -265,16 +263,12 @@ const ATTENDANCE_STATUSES = [
                           [disabled]="actionBusy" (click)="rejectSingle(row.id)">Reject</button>
 }
                       </div>
-                      <!-- Utilities: quiet icon buttons; Delete only turns red on hover -->
+                      <!-- Utilities: quiet outlined buttons, secondary to the decision -->
                       <div class="act-tools">
-                        <button type="button" class="icon-btn" title="Edit record"
-                          aria-label="Edit attendance" (click)="openEdit(row)">
-                          <ui-icon name="pencil" [size]="15"></ui-icon>
-                        </button>
-                        <button type="button" class="icon-btn icon-danger" title="Delete record"
-                          aria-label="Delete attendance" [disabled]="actionBusy" (click)="deleteSingle(row.id)">
-                          <ui-icon name="trash" [size]="15"></ui-icon>
-                        </button>
+                        <button type="button" class="act-btn act-edit"
+                          title="Edit record" (click)="openEdit(row)">Edit</button>
+                        <button type="button" class="act-btn act-delete"
+                          title="Delete record" [disabled]="actionBusy" (click)="deleteSingle(row.id)">Delete</button>
                       </div>
                     </div>
                   </td>
@@ -403,21 +397,20 @@ const ATTENDANCE_STATUSES = [
       .approval-chip[data-approval=REJECTED] { border-color: #fca5a5; color: #991b1b; background: #fef2f2; }
       .row-pending { background: #fffbeb; }
       .row-rejected { background: #fef2f2; }
-      /* Action column: one emphasized primary (Approve), a secondary (Reject),
-         and quiet icon utilities (Edit / Delete) so risk/importance is legible. */
+      /* Action column: one emphasized primary (Approve), then quieter outlined
+         buttons (Reject / Edit / Delete) so risk and importance stay legible. */
       .actions-cell { display: flex; flex-direction: column; align-items: flex-start; gap: .3rem; }
-      .act-decide { display: inline-flex; gap: .3rem; }
+      .act-decide, .act-tools { display: inline-flex; gap: .3rem; }
       .act-btn { font-size: .72rem; font-weight: 600; line-height: 1; border: 1px solid transparent; border-radius: 7px; padding: .32rem .62rem; cursor: pointer; transition: background .15s ease, border-color .15s ease; }
       .act-btn:disabled { opacity: .5; cursor: not-allowed; }
       .act-approve { background: #16a34a; color: #fff; }
       .act-approve:hover:not(:disabled) { background: #15803d; }
       .act-reject { background: #fff; color: #b45309; border-color: #fde68a; }
       .act-reject:hover:not(:disabled) { background: #fffbeb; border-color: #fcd34d; }
-      .act-tools { display: inline-flex; gap: .1rem; }
-      .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 1.65rem; height: 1.65rem; border-radius: 6px; border: 1px solid transparent; background: transparent; color: #9ca3af; cursor: pointer; transition: background .15s ease, color .15s ease; }
-      .icon-btn:hover:not(:disabled) { background: #f3f4f6; color: #4b5563; }
-      .icon-btn:disabled { opacity: .5; cursor: not-allowed; }
-      .icon-danger:hover:not(:disabled) { background: #fef2f2; color: #dc2626; }
+      .act-edit { background: #fff; color: #4b5563; border-color: #e5e7eb; }
+      .act-edit:hover:not(:disabled) { background: #f9fafb; border-color: #d1d5db; }
+      .act-delete { background: #fff; color: #b91c1c; border-color: #fecaca; }
+      .act-delete:hover:not(:disabled) { background: #fef2f2; border-color: #fca5a5; }
       .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
       .modal-card { background: #fff; border-radius: 16px; padding: 1.2rem; width: 480px; max-width: 95vw; max-height: 90vh; overflow: auto; box-shadow: 0 12px 40px rgba(0,0,0,.15); }
       .modal-card h3 { margin: 0 0 .3rem; font-size: 1rem; color: #111827; }
