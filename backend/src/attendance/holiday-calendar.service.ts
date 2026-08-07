@@ -221,6 +221,99 @@ export class HolidayCalendarService {
     };
   }
 
+  /**
+   * List holiday-work: employees who were PRESENT/HALF_DAY on a day that is a
+   * holiday in the calendar (for their scope). Surfaced at attendance→payroll
+   * submission so HR can approve double wage.
+   */
+  async listHolidayWork(
+    clientId: string,
+    year: number,
+    month: number,
+    branchId?: string,
+  ) {
+    const from = `${year}-${String(month).padStart(2, '0')}-01`;
+    const to = `${year}-${String(month).padStart(2, '0')}-${String(
+      new Date(year, month, 0).getDate(),
+    ).padStart(2, '0')}`;
+    const params: any[] = [clientId, from, to];
+    const branchFilter = branchId ? 'AND a.branch_id = $4' : '';
+    if (branchId) params.push(branchId);
+
+    return this.ds.query(
+      `SELECT a.id,
+              a.employee_id   AS "employeeId",
+              a.employee_code AS "employeeCode",
+              e.name          AS "employeeName",
+              b.branchname    AS "branchName",
+              a.date::text    AS date,
+              a.check_in      AS "checkIn",
+              a.check_out     AS "checkOut",
+              a.worked_hours  AS "workedHours",
+              a.holiday_double_wage AS "doubleWage",
+              h.name          AS "holidayName"
+       FROM attendance_records a
+       JOIN employees e ON e.id = a.employee_id
+       LEFT JOIN client_branches b ON b.id = a.branch_id
+       JOIN holiday_calendar h
+         ON h.client_id = a.client_id AND h.holiday_date = a.date
+        AND (
+          (h.branch_id IS NOT NULL AND h.branch_id = a.branch_id)
+          OR (h.branch_id IS NULL AND h.state_code IS NOT NULL
+              AND UPPER(b.statecode) = h.state_code)
+          OR (h.branch_id IS NULL AND h.state_code IS NULL)
+        )
+       WHERE a.client_id = $1
+         AND a.date BETWEEN $2::date AND $3::date
+         AND a.status IN ('PRESENT', 'HALF_DAY') ${branchFilter}
+       ORDER BY a.date ASC, e.name ASC`,
+      params,
+    );
+  }
+
+  /** Approve or decline double wage for the given attendance rows. */
+  async setDoubleWageApproval(
+    clientId: string,
+    ids: string[],
+    status: 'APPROVED' | 'DECLINED',
+  ) {
+    if (!ids?.length) throw new BadRequestException('No rows selected');
+    if (!['APPROVED', 'DECLINED'].includes(status)) {
+      throw new BadRequestException('Invalid status');
+    }
+    const res = await this.ds.query(
+      `UPDATE attendance_records
+       SET holiday_double_wage = $1, updated_at = NOW()
+       WHERE client_id = $2 AND id = ANY($3::uuid[])`,
+      [status, clientId, ids],
+    );
+    return { success: true, updated: res?.[1] ?? ids.length, status };
+  }
+
+  /** Per-employee count of APPROVED holiday-work days in a month (for payroll). */
+  async getApprovedHolidayWorkDays(
+    clientId: string,
+    year: number,
+    month: number,
+  ): Promise<Record<string, number>> {
+    const from = `${year}-${String(month).padStart(2, '0')}-01`;
+    const to = `${year}-${String(month).padStart(2, '0')}-${String(
+      new Date(year, month, 0).getDate(),
+    ).padStart(2, '0')}`;
+    const rows = await this.ds.query(
+      `SELECT employee_id AS "employeeId", COUNT(*)::int AS days
+       FROM attendance_records
+       WHERE client_id = $1 AND date BETWEEN $2::date AND $3::date
+         AND status IN ('PRESENT', 'HALF_DAY')
+         AND holiday_double_wage = 'APPROVED'
+       GROUP BY employee_id`,
+      [clientId, from, to],
+    );
+    const map: Record<string, number> = {};
+    for (const r of rows) map[r.employeeId] = Number(r.days) || 0;
+    return map;
+  }
+
   /** Accept ISO (YYYY-MM-DD) or common DD/MM/YYYY & DD-MM-YYYY; return ISO. */
   private normalizeDate(raw: string): string | null {
     const s = String(raw || '').trim();

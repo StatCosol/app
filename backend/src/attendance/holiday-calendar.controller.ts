@@ -75,6 +75,40 @@ export class HolidayCalendarController {
     );
   }
 
+  @ApiOperation({
+    summary: 'List holiday-work (employees who worked on a holiday) for a month',
+  })
+  @Get('holiday-work')
+  holidayWork(
+    @CurrentUser() user: ReqUser,
+    @Query('year') year: string,
+    @Query('month') month: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    if (!year || !month) {
+      throw new BadRequestException('year and month are required');
+    }
+    return this.svc.listHolidayWork(
+      clientId,
+      Number(year),
+      Number(month),
+      branchId,
+    );
+  }
+
+  @ApiOperation({ summary: 'Approve/decline double wage for holiday-work rows' })
+  @Post('holiday-work/approve')
+  approveHolidayWork(
+    @CurrentUser() user: ReqUser,
+    @Body() body: { ids: string[]; status: 'APPROVED' | 'DECLINED' },
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.svc.setDoubleWageApproval(clientId, body?.ids, body?.status);
+  }
+
   @ApiOperation({ summary: 'Delete a holiday' })
   @Delete(':id')
   remove(@CurrentUser() user: ReqUser, @Param('id') id: string) {

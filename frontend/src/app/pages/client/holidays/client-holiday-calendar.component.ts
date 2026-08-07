@@ -12,7 +12,7 @@ import { catchError, finalize, takeUntil } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
-import { Holiday, HolidayCalendarService } from './holiday-calendar.service';
+import { Holiday, HolidayCalendarService, HolidayWork } from './holiday-calendar.service';
 
 interface BranchOpt { value: string; label: string; state: string | null; }
 
@@ -61,6 +61,61 @@ interface BranchOpt { value: string; label: string; state: string | null; }
             <span class="hint">Marks those days HOLIDAY for employees in scope. Days already worked are left as-is.</span>
           </div>
         </div>
+      </section>
+
+      <!-- Holiday work — double wage approval (at attendance→payroll submission) -->
+      <section class="card">
+        <div class="listHead">
+          <div>
+            <h2>Holiday Work — Double Wage Approval</h2>
+            <span class="hint">Employees who worked on a holiday. Approve to pay 2× that day's wage in payroll; decline for normal pay.</span>
+          </div>
+          <div class="inline">
+            <input type="month" [(ngModel)]="hwMonth" class="ctrl" />
+            <select [(ngModel)]="hwBranchId" class="ctrl">
+              <option value="">All branches</option>
+              @for (b of branches; track b.value) { <option [value]="b.value">{{ b.label }}</option> }
+            </select>
+            <button class="btn ghost" [disabled]="hwLoading" (click)="loadHolidayWork()">{{ hwLoading ? 'Loading…' : 'Load' }}</button>
+          </div>
+        </div>
+        @if (!hwLoading && !holidayWork.length) { <div class="muted">No holiday-work found for this month. (Upload &amp; apply holidays first, then mark attendance.)</div> }
+        @if (holidayWork.length) {
+          <div class="inline" style="margin-bottom:8px;">
+            <span class="hint">{{ hwSelected.size }} selected</span>
+            <button class="btn" [disabled]="!hwSelected.size || hwBusy" (click)="approve('APPROVED')">Approve double wage</button>
+            <button class="btn ghost" [disabled]="!hwSelected.size || hwBusy" (click)="approve('DECLINED')">Decline</button>
+          </div>
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th><input type="checkbox" [checked]="allHwSelected" (change)="toggleAllHw($event)" /></th>
+                  <th>Date</th><th>Employee</th><th>Branch</th><th>Holiday</th><th>In</th><th>Out</th><th>Hours</th><th>Double Wage</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (w of holidayWork; track w.id) {
+                  <tr>
+                    <td><input type="checkbox" [checked]="hwSelected.has(w.id)" (change)="toggleHw(w.id)" /></td>
+                    <td>{{ w.date | date:'d MMM' }}</td>
+                    <td class="strong">{{ w.employeeName || w.employeeCode }}</td>
+                    <td class="muted">{{ w.branchName || '-' }}</td>
+                    <td>{{ w.holidayName }}</td>
+                    <td>{{ w.checkIn || '-' }}</td>
+                    <td>{{ w.checkOut || '-' }}</td>
+                    <td>{{ w.workedHours || '-' }}</td>
+                    <td>
+                      <span class="pill" [class.ok]="w.doubleWage === 'APPROVED'" [class.no]="w.doubleWage === 'DECLINED'">
+                        {{ w.doubleWage === 'APPROVED' ? 'Approved (2×)' : w.doubleWage === 'DECLINED' ? 'Declined' : 'Pending' }}
+                      </span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
       </section>
 
       <!-- Add single holiday -->
@@ -163,6 +218,9 @@ interface BranchOpt { value: string; label: string; state: string | null; }
     .muted { color: #94a3b8; font-size: 13px; padding: 8px 2px; }
     .link-danger { background: none; border: none; color: #b91c1c; font-weight: 600; font-size: 12px; cursor: pointer; padding: 0; }
     .link-danger:hover { text-decoration: underline; }
+    .pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #f1f5f9; color: #475569; }
+    .pill.ok { background: #dcfce7; color: #15803d; }
+    .pill.no { background: #fee2e2; color: #b91c1c; }
   `],
 })
 export class ClientHolidayCalendarComponent implements OnInit, OnDestroy {
@@ -184,6 +242,14 @@ export class ClientHolidayCalendarComponent implements OnInit, OnDestroy {
   form: { holidayDate: string; name: string; scope: 'CLIENT' | 'STATE' | 'BRANCH'; stateCode: string; branchId: string; isPaid: boolean } = {
     holidayDate: '', name: '', scope: 'CLIENT', stateCode: '', branchId: '', isPaid: true,
   };
+
+  // Holiday-work double-wage approval
+  hwMonth = new Date().toISOString().slice(0, 7);
+  hwBranchId = '';
+  holidayWork: HolidayWork[] = [];
+  hwSelected = new Set<string>();
+  hwLoading = false;
+  hwBusy = false;
 
   constructor(
     private readonly svc: HolidayCalendarService,
@@ -295,6 +361,52 @@ export class ClientHolidayCalendarComponent implements OnInit, OnDestroy {
     this.svc.remove(h.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.toast.success('Holiday deleted'); this.load(); },
       error: () => this.toast.error('Failed to delete holiday'),
+    });
+  }
+
+  get allHwSelected(): boolean {
+    return this.holidayWork.length > 0 && this.hwSelected.size === this.holidayWork.length;
+  }
+
+  loadHolidayWork(): void {
+    const m = /^(\d{4})-(\d{2})$/.exec(this.hwMonth);
+    if (!m) { this.toast.error('Pick a valid month'); return; }
+    this.hwLoading = true;
+    this.hwSelected.clear();
+    this.cdr.markForCheck();
+    this.svc.listHolidayWork(Number(m[1]), Number(m[2]), this.hwBranchId || undefined).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.hwLoading = false; this.cdr.markForCheck(); }),
+    ).subscribe({
+      next: (rows) => { this.holidayWork = rows || []; },
+      error: () => { this.toast.error('Failed to load holiday work'); this.holidayWork = []; },
+    });
+  }
+
+  toggleHw(id: string): void {
+    if (this.hwSelected.has(id)) this.hwSelected.delete(id);
+    else this.hwSelected.add(id);
+  }
+
+  toggleAllHw(ev: Event): void {
+    const checked = (ev.target as HTMLInputElement).checked;
+    this.hwSelected = checked ? new Set(this.holidayWork.map((w) => w.id)) : new Set();
+  }
+
+  approve(status: 'APPROVED' | 'DECLINED'): void {
+    const ids = Array.from(this.hwSelected);
+    if (!ids.length) return;
+    this.hwBusy = true;
+    this.cdr.markForCheck();
+    this.svc.approveHolidayWork(ids, status).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.hwBusy = false; this.cdr.markForCheck(); }),
+    ).subscribe({
+      next: () => {
+        this.toast.success(status === 'APPROVED' ? 'Double wage approved' : 'Declined');
+        this.loadHolidayWork();
+      },
+      error: (e) => this.toast.error(e?.error?.message || 'Failed to update'),
     });
   }
 

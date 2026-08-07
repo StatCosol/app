@@ -26,6 +26,20 @@ export interface ApplyResult {
   updated: number;
 }
 
+export interface HolidayWork {
+  id: string;
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  branchName: string | null;
+  date: string;
+  checkIn: string | null;
+  checkOut: string | null;
+  workedHours: string | null;
+  holidayName: string;
+  doubleWage: 'APPROVED' | 'DECLINED' | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class HolidayCalendarService {
   private base = `${environment.apiBaseUrl}/api/v1/client/holidays`;
@@ -64,5 +78,15 @@ export class HolidayCalendarService {
 
   remove(id: string): Observable<{ success: boolean }> {
     return this.http.delete<{ success: boolean }>(`${this.base}/${id}`);
+  }
+
+  listHolidayWork(year: number, month: number, branchId?: string): Observable<HolidayWork[]> {
+    let p = new HttpParams().set('year', String(year)).set('month', String(month));
+    if (branchId) p = p.set('branchId', branchId);
+    return this.http.get<HolidayWork[]>(`${this.base}/holiday-work`, { params: p });
+  }
+
+  approveHolidayWork(ids: string[], status: 'APPROVED' | 'DECLINED'): Observable<{ success: boolean; updated: number }> {
+    return this.http.post<{ success: boolean; updated: number }>(`${this.base}/holiday-work/approve`, { ids, status });
   }
 }

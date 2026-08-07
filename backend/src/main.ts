@@ -334,6 +334,18 @@ async function bootstrap() {
       logger.warn(`Schema patch holiday_calendar skipped: ${e?.message}`);
     }
 
+    // Holiday-work double-wage approval flag on attendance (NULL = not a holiday
+    // work day / not reviewed; 'APPROVED' = pay double; 'DECLINED' = normal pay).
+    try {
+      await ds.query(`
+        ALTER TABLE attendance_records
+          ADD COLUMN IF NOT EXISTS holiday_double_wage varchar(10);
+      `);
+      logger.log('Schema patch: attendance_records.holiday_double_wage OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch holiday_double_wage skipped: ${e?.message}`);
+    }
+
     // FaceDesk PIN-then-face verification (migration 20260722b). The deploy
     // migration job runs only the service-entitlement script, so these columns
     // must be patched here or the settings/profile entities 500 on a SELECT.

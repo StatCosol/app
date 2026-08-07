@@ -61,6 +61,7 @@ import { LeaveLedgerEntity } from '../ess/entities/leave-ledger.entity';
 import { LeaveBalanceEntity } from '../ess/entities/leave-balance.entity';
 import { LeavePolicyEntity } from '../ess/entities/leave-policy.entity';
 import { AttendanceService } from '../attendance/attendance.service';
+import { HolidayCalendarService } from '../attendance/holiday-calendar.service';
 import { ReqUser } from '../access/access-scope.service';
 import { evaluateFormula } from './engine/expression';
 
@@ -123,6 +124,7 @@ export class PayrollService {
     private readonly leavePolicyRepo: Repository<LeavePolicyEntity>,
     private readonly notificationsSvc: NotificationsService,
     private readonly attendanceService: AttendanceService,
+    private readonly holidayService: HolidayCalendarService,
   ) {}
 
   ymLabel(year: number, month: number) {
@@ -267,6 +269,22 @@ export class PayrollService {
       }
     } catch {
       if (cv['HOLIDAYS'] === undefined) cv['HOLIDAYS'] = 0;
+    }
+
+    // ── Holiday-work double wage: HR-approved days that were worked on a
+    // holiday get an extra day's wage (making that day 2x). Additive only —
+    // stays 0 unless HR approved holiday-work for this employee/month.
+    try {
+      if (employeeId) {
+        const dbl = await this.holidayService.getApprovedHolidayWorkDays(
+          clientId,
+          year,
+          month,
+        );
+        cv['HOLIDAY_DBL_DAYS'] = dbl[employeeId] ?? 0;
+      }
+    } catch {
+      if (cv['HOLIDAY_DBL_DAYS'] === undefined) cv['HOLIDAY_DBL_DAYS'] = 0;
     }
   }
 
