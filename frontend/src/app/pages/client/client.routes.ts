@@ -90,6 +90,10 @@ const ClientDailyAttendancePage = () =>
   import('./attendance/client-daily-attendance-page.component').then(
     (m) => m.ClientDailyAttendancePage,
   );
+const ClientHolidayCalendarComponent = () =>
+  import('./holidays/client-holiday-calendar.component').then(
+    (m) => m.ClientHolidayCalendarComponent,
+  );
 const ClientBiometricComponent = () =>
   import('./biometric/client-biometric.component').then(
     (m) => m.ClientBiometricComponent,
@@ -197,6 +201,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'master-data', loadComponent: ClientMasterDataComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'attendance', loadComponent: ClientAttendanceReviewPageComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
       { path: 'attendance/daily', loadComponent: ClientDailyAttendancePage, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
+      { path: 'holidays', loadComponent: ClientHolidayCalendarComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
       { path: 'biometric', loadComponent: ClientBiometricComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
       { path: 'mobile-attendance', loadComponent: ClientMobileAttendanceComponent, canActivate: [moduleAccessGuard('MOBILE_ATTENDANCE')] },
       { path: 'facedesk', loadComponent: FaceDeskComponent, canActivate: [moduleAccessGuard('CONTRACTOR_FACE_ATTENDANCE')] },
