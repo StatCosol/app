@@ -1,7 +1,8 @@
+// @vitest-environment jsdom
 import '@angular/compiler';
 import { ChangeDetectorRef, NgZone } from '@angular/core';
 import { describe, expect, it, vi } from 'vitest';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { ClientMobileAttendanceComponent } from './client-mobile-attendance.component';
 import type { EnrollmentStatusRow } from './client-mobile-attendance.service';
 
@@ -44,6 +45,10 @@ const makeComponent = (modules: string[] = ['MOBILE_ATTENDANCE']) => {
   const auth = {
     hasModule: (module: string) => modules.includes(module),
   };
+  const protectedFile = {
+    open: vi.fn(),
+    fetch: vi.fn(),
+  };
 
   const component = new ClientMobileAttendanceComponent(
     svc as any,
@@ -54,10 +59,10 @@ const makeComponent = (modules: string[] = ['MOBILE_ATTENDANCE']) => {
     zone,
     dialog as any,
     auth as any,
-    { open: vi.fn() } as any,
+    protectedFile as any,
   );
 
-  return { component, svc, branchSvc, employeesSvc, toast };
+  return { component, svc, branchSvc, employeesSvc, toast, protectedFile };
 };
 
 const enrolledEmployee = {
@@ -80,7 +85,7 @@ describe('ClientMobileAttendanceComponent entitlement-aware device access', () =
     expect(component.tab).toBe('status');
     expect(branchSvc.list).toHaveBeenCalled();
     expect(svc.listEnrollments).toHaveBeenCalled();
-    expect(svc.listReenrollRequests).not.toHaveBeenCalled();
+    expect(svc.listReenrollRequests).toHaveBeenCalledWith('PENDING');
     expect(svc.listDevices).not.toHaveBeenCalled();
     expect(employeesSvc.list).not.toHaveBeenCalled();
 
@@ -152,5 +157,40 @@ describe('ClientMobileAttendanceComponent entitlement-aware device access', () =
       }),
     ]);
     expect(component.pendingReviewCount).toBe(1);
+  });
+});
+
+describe('ClientMobileAttendanceComponent review photos', () => {
+  it('ignores a stale photo response after another review is opened', () => {
+    const { component, protectedFile } = makeComponent();
+    const firstPhoto = new Subject<{ objectUrl: string }>();
+    const secondPhoto = new Subject<{ objectUrl: string }>();
+    protectedFile.fetch
+      .mockReturnValueOnce(firstPhoto)
+      .mockReturnValueOnce(secondPhoto);
+    const request = (id: string, photoUrl: string) => ({
+      id,
+      scope: 'employee',
+      subjectId: id,
+      displayName: id,
+      displayCode: null,
+      branchId: 'branch-1',
+      source: 'ESS',
+      status: 'PENDING',
+      reason: null,
+      requestedAt: '2026-08-09T00:00:00.000Z',
+      reviewedAt: null,
+      reviewNotes: null,
+      photoUrl,
+    });
+
+    component.openReview(request('first', '/first.jpg') as any, 'APPROVED');
+    component.openReview(request('second', '/second.jpg') as any, 'APPROVED');
+    firstPhoto.next({ objectUrl: 'blob:first' });
+
+    expect(component.reviewPhotoBlobUrl).toBeNull();
+
+    secondPhoto.next({ objectUrl: 'blob:second' });
+    expect(component.reviewPhotoBlobUrl).toBe('blob:second');
   });
 });
