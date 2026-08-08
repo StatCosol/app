@@ -84,5 +84,32 @@ class FaceEmbedder(context: Context) {
         private const val MODEL_FILENAME = "mobilefacenet.tflite"
         private const val INPUT_SIZE = 112
         private const val EMBEDDING_SIZE = 192
+
+        fun warmup(context: Context) {
+            FaceEmbedder(context).close()
+        }
+
+        fun cosineSimilarity(a: FloatArray, b: FloatArray): Float {
+            require(a.size == b.size) { "embedding dim mismatch" }
+            var d = 0f
+            for (i in a.indices) d += a[i] * b[i]
+            return d
+        }
+
+        fun toMatchScore(cos: Float): Double = ((cos + 1f) / 2f).toDouble()
+
+        fun decodeEmbeddingB64(b64: String): FloatArray {
+            val bytes = Base64.decode(b64, Base64.NO_WRAP)
+            val floats = FloatArray(bytes.size / 4)
+            val bb = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            for (i in floats.indices) floats[i] = bb.float
+            return floats
+        }
+
+        fun encodeEmbeddingB64(emb: FloatArray): String {
+            val bb = java.nio.ByteBuffer.allocate(emb.size * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            for (v in emb) bb.putFloat(v)
+            return Base64.encodeToString(bb.array(), Base64.NO_WRAP)
+        }
     }
 }

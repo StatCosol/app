@@ -7,7 +7,7 @@ Companion native Android app for the statcompy mobile-attendance / FaceDesk back
 - **FaceDesk Kiosk** (`:app` kiosk flavor) — shared tablet at the gate. Registers via `POST /api/v1/facedesk/device/register`, then runs attendance (`FACEDESK_ATTENDANCE`) or enrollment (`FACEDESK_ENROLLMENT`) flows. Frames carry on-device embeddings (and optional JPEG crops for server-side ArcFace re-embed).
 - **ESS Portal** (`:essportal` module) — full Angular ESS portal in a hardened WebView (`https://app.statcosol.com/ess/login` by default).
 
-Legacy **V1 KIOSK** (1:N offline roster match against `GET /api/v1/mobile-attendance/punches/roster`) lives only in a maintenance worktree today; main ships FaceDesk V2 only.
+Legacy **V1 KIOSK** (1:N offline roster match) is available again: check **Offline roster kiosk** on the setup screen when provisioning a `mobile-attendance` KIOSK device.
 
 ### Architecture (FaceDesk V2)
 
@@ -33,8 +33,8 @@ Legacy **V1 KIOSK** (1:N offline roster match against `GET /api/v1/mobile-attend
 When the offline 1:N kiosk path is used, roster embeddings are AES-256-GCM ciphertexts:
 
 - **Register:** `POST /api/v1/mobile-attendance/devices/register` → returns `deviceId` (`mobile_attendance_devices.id`)
-- **Roster:** `GET /api/v1/mobile-attendance/punches/roster` with `Authorization: Bearer <installToken>` (and `X-Android-Id`) — response `deviceId` must match register
-- **Key:** `SHA-256("statcompy-roster-v1:{rosterDeviceId}:{installToken}")` — no server secret on device
+- **Roster:** `GET /api/v1/mobile-attendance/punches/roster` with `Authorization: Bearer <deviceToken>` (and `X-Android-Id`) — response `deviceId` must match register
+- **Key:** `SHA-256("statcompy-roster-v1:{rosterDeviceId}:{deviceToken}")` — uses the rotated bearer token returned at register
 - **Wire:** base64(`iv[12] + authTag[16] + ciphertext`)
 - **Client:** `RosterCrypto` + `DeviceConfig.rosterDeviceId` (from V1 register or roster response — **not** the FaceDesk kiosk UUID)
 

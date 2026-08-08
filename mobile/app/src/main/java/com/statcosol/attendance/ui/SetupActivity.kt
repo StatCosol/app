@@ -4,26 +4,30 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.statcosol.attendance.AttendanceApp
 import com.statcosol.attendance.R
 import com.statcosol.attendance.facedesk.FaceDeskApiClient
 import com.statcosol.attendance.facedesk.FaceDeskApiException
 import com.statcosol.attendance.facedesk.FaceDeskAttendanceActivity
 import com.statcosol.attendance.facedesk.FaceDeskEnrollPickerActivity
 import com.statcosol.attendance.facedesk.FaceDeskRegisterRequest
+import com.statcosol.attendance.kiosk.KioskActivity
 import com.statcosol.attendance.prefs.DeviceConfig
+import com.statcosol.attendance.roster.applyMobileAttendanceRegister
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 
 /**
- * Token entry / device bootstrap. FaceDesk is the only attendance system now:
- * a valid install token registers the device as a FaceDesk kiosk and routes
- * straight into the full-screen attendance screen (or the enrollment picker for
- * an enrollment-mode device).
+ * Token entry / device bootstrap. Supports FaceDesk V2 (default) and the legacy
+ * V1 offline-roster kiosk provisioned via mobile-attendance.
  */
 class SetupActivity : AppCompatActivity() {
 
@@ -33,6 +37,7 @@ class SetupActivity : AppCompatActivity() {
     private lateinit var btnRegister: Button
     private lateinit var progressBar: ProgressBar
     private lateinit var tvError: TextView
+    private lateinit var offlineRosterCheckbox: CheckBox
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,6 +56,7 @@ class SetupActivity : AppCompatActivity() {
         btnRegister = findViewById(R.id.registerBtn)
         progressBar = findViewById(R.id.progress)
         tvError = findViewById(R.id.statusText)
+        offlineRosterCheckbox = findViewById(R.id.offlineRosterCheckbox)
 
         btnRegister.setOnClickListener { attemptRegistration() }
     }
@@ -81,18 +87,44 @@ class SetupActivity : AppCompatActivity() {
             contentResolver,
             android.provider.Settings.Secure.ANDROID_ID,
         ) ?: "unknown"
+        config.androidId = androidId
 
+        if (offlineRosterCheckbox.isChecked) {
+            registerV1Kiosk(token, androidId)
+        } else {
+            registerFaceDesk(token, androidId)
+        }
+    }
+
+    private fun registerV1Kiosk(token: String, androidId: String) {
+        val app = application as AttendanceApp
+        lifecycleScope.launch {
+            try {
+                val res = withContext(Dispatchers.IO) {
+                    app.mobileApi.register(token, androidId)
+                }
+                config.applyMobileAttendanceRegister(res)
+                config.deviceMode = res.mode
+                navigateToMain()
+            } catch (e: Exception) {
+                setLoading(false)
+                tvError.text = e.message ?: getString(R.string.setup_registration_failed)
+                tvError.visibility = View.VISIBLE
+            }
+        }
+    }
+
+    private fun registerFaceDesk(token: String, androidId: String) {
         lifecycleScope.launch {
             try {
                 val fdClient = FaceDeskApiClient(config)
                 val res = fdClient.register(
-                    FaceDeskRegisterRequest(installToken = token, androidId = androidId)
+                    FaceDeskRegisterRequest(installToken = token, androidId = androidId),
                 )
                 config.deviceToken = res.deviceToken
-                config.deviceMode = "FACEDESK_${res.mode}" // FACEDESK_ATTENDANCE | FACEDESK_ENROLLMENT
+                config.deviceMode = "FACEDESK_${res.mode}"
                 val enteredPin = findViewById<EditText>(R.id.adminPinInput).text.toString().trim()
                 config.faceDeskAdminPin = enteredPin.ifBlank { res.adminPin }
-                config.androidId = androidId
                 navigateToMain()
             } catch (e: FaceDeskApiException) {
                 setLoading(false)
@@ -145,11 +177,13 @@ class SetupActivity : AppCompatActivity() {
 
     private fun navigateToMain() {
         val mode = config.deviceMode
-        val intent = if (mode.equals("FACEDESK_ENROLLMENT", ignoreCase = true)) {
-            Intent(this, FaceDeskEnrollPickerActivity::class.java)
-        } else {
-            // Default: full-screen attendance (also the target for FACEDESK_ATTENDANCE).
-            Intent(this, FaceDeskAttendanceActivity::class.java)
+        val intent = when {
+            mode.equals("KIOSK", ignoreCase = true) ->
+                Intent(this, KioskActivity::class.java)
+            mode.equals("FACEDESK_ENROLLMENT", ignoreCase = true) ->
+                Intent(this, FaceDeskEnrollPickerActivity::class.java)
+            else ->
+                Intent(this, FaceDeskAttendanceActivity::class.java)
         }
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)
@@ -161,5 +195,6 @@ class SetupActivity : AppCompatActivity() {
         btnRegister.isEnabled = !loading
         etToken.isEnabled = !loading
         etApiBase.isEnabled = !loading
+        offlineRosterCheckbox.isEnabled = !loading
     }
 }
