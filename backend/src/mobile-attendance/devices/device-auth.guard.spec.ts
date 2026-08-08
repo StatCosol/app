@@ -34,6 +34,7 @@ describe('DeviceAuthGuard', () => {
 
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
     expect(req.deviceId).toBe('device-1');
+    expect(req.deviceInstallToken).toBe('install-token');
     expect(req.user).toEqual(
       expect.objectContaining({
         role: 'DEVICE',
@@ -57,5 +58,6 @@ describe('DeviceAuthGuard', () => {
       'tok',
       'android-1',
     );
+    expect(req.deviceInstallToken).toBe('tok');
   });
 });
