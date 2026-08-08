@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import '@angular/compiler';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { ChangeDetectorRef, NgZone } from '@angular/core';
 import { describe, expect, it, vi } from 'vitest';
 import { of, Subject } from 'rxjs';
@@ -18,7 +19,10 @@ const zone = {
   run: (fn: () => void) => fn(),
 } as unknown as NgZone;
 
-const makeComponent = (modules: string[] = ['MOBILE_ATTENDANCE']) => {
+const makeComponent = (
+  modules: string[] = ['MOBILE_ATTENDANCE'],
+  queryParams: Record<string, string> = {},
+) => {
   const svc = {
     listDevices: vi.fn().mockReturnValue(of([])),
     listEnrollments: vi.fn().mockReturnValue(of([])),
@@ -49,6 +53,11 @@ const makeComponent = (modules: string[] = ['MOBILE_ATTENDANCE']) => {
     open: vi.fn(),
     fetch: vi.fn(),
   };
+  const route = {
+    snapshot: {
+      queryParamMap: convertToParamMap(queryParams),
+    },
+  } as unknown as ActivatedRoute;
 
   const component = new ClientMobileAttendanceComponent(
     svc as any,
@@ -60,9 +69,10 @@ const makeComponent = (modules: string[] = ['MOBILE_ATTENDANCE']) => {
     dialog as any,
     auth as any,
     protectedFile as any,
+    route,
   );
 
-  return { component, svc, branchSvc, employeesSvc, toast, protectedFile };
+  return { component, svc, branchSvc, employeesSvc, toast, protectedFile, route };
 };
 
 const enrolledEmployee = {
@@ -88,6 +98,17 @@ describe('ClientMobileAttendanceComponent entitlement-aware device access', () =
     expect(svc.listReenrollRequests).toHaveBeenCalledWith('PENDING');
     expect(svc.listDevices).not.toHaveBeenCalled();
     expect(employeesSvc.list).not.toHaveBeenCalled();
+
+    component.ngOnDestroy();
+  });
+
+  it('opens the review tab when ?tab=review is present', () => {
+    const { component, svc } = makeComponent(['MOBILE_ATTENDANCE'], { tab: 'review' });
+
+    component.ngOnInit();
+
+    expect(component.tab).toBe('review');
+    expect(svc.listReviewPunches).toHaveBeenCalled();
 
     component.ngOnDestroy();
   });
