@@ -130,4 +130,59 @@ describe('Face attendance pipeline (ingest → attendance_records)', () => {
     expect(result.attendanceUpserts).toBe(0);
     expect(attRepo.save).not.toHaveBeenCalled();
   });
+
+  it('upserts OUT punch and closes the daily attendance window', async () => {
+    const existing = {
+      id: 'attendance-1',
+      employeeId: 'employee-1',
+      clientId: 'client-1',
+      branchId: 'branch-1',
+      attendanceDate: '2026-08-09',
+      checkInTime: new Date('2026-08-09T03:30:00.000Z'),
+      checkOutTime: null,
+      captureMethod: 'FACE',
+      approvalStatus: 'PENDING',
+    };
+    const { service, attRepo } = makeService({
+      dayPunches: [
+        {
+          id: 'punch-in',
+          punchTime: new Date('2026-08-09T03:30:00.000Z'),
+          direction: 'IN',
+          source: 'MOBILE_KIOSK',
+        },
+        {
+          id: 'punch-out',
+          punchTime: new Date('2026-08-09T12:30:00.000Z'),
+          direction: 'OUT',
+          source: 'MOBILE_KIOSK',
+        },
+      ],
+      existing,
+    });
+
+    const result = await service.ingest(
+      'client-1',
+      [
+        {
+          employeeCode: 'E001',
+          punchTime: '2026-08-09T12:30:00.000Z',
+          direction: 'OUT',
+          deviceId: 'device-1',
+          branchId: 'branch-1',
+          source: 'MOBILE_KIOSK',
+        },
+      ],
+      true,
+    );
+
+    expect(result.inserted).toBe(1);
+    expect(result.attendanceUpserts).toBeGreaterThan(0);
+    expect(attRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        employeeId: 'employee-1',
+        checkOut: '18:00:00',
+      }),
+    );
+  });
 });
