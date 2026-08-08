@@ -19,6 +19,7 @@ describe('EnrollmentService.listEmployeeEnrollments', () => {
         purgeSubject: jest.fn().mockResolvedValue(undefined),
       } as any,
       { query } as any,
+      {} as any,
     );
   }
 
@@ -83,6 +84,7 @@ describe('EnrollmentService.listContractorEnrollments', () => {
         purgeSubject: jest.fn().mockResolvedValue(undefined),
       } as any,
       { query } as any,
+      {} as any,
     );
   }
 
@@ -142,6 +144,7 @@ describe('EnrollmentService kiosk tickets', () => {
         purgeSubject: jest.fn().mockResolvedValue(undefined),
       } as any,
       { query } as any,
+      {} as any,
     );
   }
 
@@ -356,6 +359,7 @@ describe('EnrollmentService kiosk tickets', () => {
         purgeSubject: jest.fn().mockResolvedValue(undefined),
       } as any,
       dataSource as any,
+      {} as any,
     );
 
     await service.submitKioskTicket('device-1', {
@@ -432,6 +436,7 @@ describe('EnrollmentService kiosk tickets', () => {
         query: jest.fn().mockResolvedValue([]),
         transaction: jest.fn(async (fn: any) => fn(manager)),
       } as any,
+      {} as any,
     );
 
     await expect(
@@ -481,6 +486,7 @@ describe('EnrollmentService duplicate detection', () => {
         purgeSubject: jest.fn().mockResolvedValue(undefined),
       } as any,
       { query: jest.fn().mockResolvedValue([]) } as any,
+      {} as any,
     );
 
     await expect(
@@ -506,6 +512,7 @@ describe('EnrollmentService.deactivateEnrollment', () => {
         purgeSubject: jest.fn().mockResolvedValue(undefined),
       } as any,
       { transaction: jest.fn(async (fn: any) => fn(manager)) } as any,
+      {} as any,
     );
   }
 
