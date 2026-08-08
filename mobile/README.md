@@ -1,14 +1,15 @@
 ## statcompy-attendance — Android Face Attendance App
 
-Companion native Android app for the statcompy mobile-attendance backend module.
+Companion native Android app for the statcompy mobile-attendance / FaceDesk backend modules.
 
-### Operating modes
+### Operating modes (main branch)
 
-- **KIOSK** (`:app` kiosk flavor) — a shared tablet placed at the gate. Any employee walks up, looks at the camera, and is identified using 1:N face matching against the local roster (offline-capable). Replacement for the eSSL MB20 fingerprint reader.
-- **ESS (Employee Self-Service)** (`:app` ess flavor) — installed on an employee's personal phone. Performs 1:1 face verification for that employee only, plus a geofence check against the workplace coordinates. Native attendance-only.
-- **ESS Portal** (`:essportal` module) — full Angular ESS portal (login, dashboard, attendance with Face ID, leave, payslips, helpdesk, etc.) wrapped in a hardened WebView. Loads `https://app.statcosol.com/ess/login` by default. Lets employees install the entire ESS web app as a single icon on their phone — the web app at the same URL stays available unchanged. Long-press the offline banner to point it at staging.
+- **FaceDesk Kiosk** (`:app` kiosk flavor) — shared tablet at the gate. Registers via `POST /api/v1/facedesk/devices/register`, then runs attendance (`FACEDESK_ATTENDANCE`) or enrollment (`FACEDESK_ENROLLMENT`) flows. Frames carry on-device embeddings (and optional JPEG crops for server-side ArcFace re-embed).
+- **ESS Portal** (`:essportal` module) — full Angular ESS portal in a hardened WebView (`https://app.statcosol.com/ess/login` by default).
 
-### Architecture
+Legacy **V1 KIOSK** (1:N offline roster match against `GET /api/v1/mobile-attendance/punches/roster`) lives only in a maintenance worktree today; main ships FaceDesk V2 only.
+
+### Architecture (FaceDesk V2)
 
 ```
 [ Camera (CameraX) ]
@@ -20,26 +21,35 @@ Companion native Android app for the statcompy mobile-attendance backend module.
 [ MobileFaceNet TFLite ] → 192-D embedding
         |
         v
-[ Local match against /roster cache (KIOSK) ]
-[ Local match against this user's embedding (ESS) ]
+[ FaceDesk mark-attendance / enroll APIs ]
         |
         v
-[ Room offline queue ] → [ WorkManager sync ] → POST /api/v1/mobile-attendance/punch
-                                                Header: X-Device-Token: <install token>
+[ Offline queue ] → sync → POST /api/v1/facedesk/...
+                           Header: X-Device-Token: <device token>
 ```
+
+### V1 roster encryption (`encrypted-v1`)
+
+When the offline 1:N kiosk path is used, roster embeddings are AES-256-GCM ciphertexts:
+
+- **Endpoint:** `GET /api/v1/mobile-attendance/punches/roster` (KIOSK device auth)
+- **Key:** `SHA-256("statcompy-roster-v1:{deviceId}:{installToken}")` — no server secret on device
+- **Wire:** base64(`iv[12] + authTag[16] + ciphertext`)
+- **Client:** `com.statcosol.attendance.roster.RosterCrypto` — `deviceId` is persisted at FaceDesk register time
+
+Set `MOBILE_ROSTER_PLAIN_EMBEDDINGS=true` on the server for legacy `plain-v1` responses during migration.
 
 ### Configuration
 
-The app stores per-install:
+Per install (encrypted prefs):
 
-- `installToken` (64 hex chars) — issued by the admin web UI when the device is registered.
-- `mode` (KIOSK | ESS) — read from the `/roster` response.
-- `apiBase` — defaults to `https://app.statcosol.com`. Configurable in Settings.
+- `installToken` — issued when the device is registered in the admin UI
+- `deviceToken` + `deviceId` — returned by FaceDesk register; used for API auth and roster decrypt
+- `apiBase` — defaults to `https://app.statcosol.com` (Settings override)
 
 ### Permissions
 
-- `android.permission.CAMERA` (always)
-- `android.permission.ACCESS_FINE_LOCATION` (ESS mode only — for geofence)
+- `android.permission.CAMERA`
 - `android.permission.INTERNET`
 - `android.permission.ACCESS_NETWORK_STATE`
 
@@ -47,19 +57,9 @@ The app stores per-install:
 
 ```
 cd mobile
-./gradlew :app:assembleKioskDebug :app:assembleEssDebug :essportal:assembleDebug
+./gradlew :app:assembleKioskDebug :essportal:assembleDebug
 ```
 
-Min SDK 26 (Android 8.0), Target SDK 34 (Android 14), Kotlin 1.9, AGP 8.4.
+Min SDK 26, Target SDK 34, Kotlin 1.9.
 
-### Status
-
-This is the **initial scaffold**. The following pieces are stubbed and need
-implementation in a follow-up:
-
-- TFLite MobileFaceNet integration (model file `app/src/main/assets/mobilefacenet.tflite` not yet checked in — download from https://github.com/sirius-ai/MobileFaceNet_TF or equivalent).
-- Real liveness detector (currently always returns 0.9 — Phase 2 will use Google ML Kit Face Detection eye-blink + head-pose deltas, or an Azure Face liveness client when Limited Access is approved).
-- Azure Face server-side path (waiting on Limited Access approval).
-- WorkManager retry policy tuning.
-
-See the parent repo memory `/memories/repo/mobile-attendance.md` for backend details.
+See the parent repo `docs/GOD_SERVICE_REFACTOR.md` and backend `mobile-attendance` module for API details.

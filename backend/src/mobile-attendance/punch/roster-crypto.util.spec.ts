@@ -34,5 +34,9 @@ describe('roster-crypto.util', () => {
     const b = deriveRosterAesKey(deviceId, installToken);
     expect(a.equals(b)).toBe(true);
     expect(a.length).toBe(32);
+    // Cross-platform vector for Android RosterCrypto.kt (SHA-256 hex)
+    expect(a.toString('hex')).toBe(
+      'aaddce422deade191b890996803d917d482ed1ca7537a4950c328b10c3e80c73',
+    );
   });
 });
