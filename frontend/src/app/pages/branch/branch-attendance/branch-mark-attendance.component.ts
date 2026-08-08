@@ -643,9 +643,13 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
               totWorked += wh;
               totOt += oh;
 
-              const inRaw = this.normalizeTime(rec.checkIn);
-              const outRaw = this.normalizeTime(rec.checkOut);
-              // Only working days carry punch times; off/absent days stay blank.
+              // Only working statuses carry punch times. A record corrected to
+              // ABSENT/ON_LEAVE/WEEK_OFF/HOLIDAY may still hold stale check-in/
+              // out values (markAttendance keeps them when the fields are
+              // omitted), so blank them for non-working days.
+              const worksDay = st === 'PRESENT' || st === 'HALF_DAY';
+              const inRaw = worksDay ? this.normalizeTime(rec.checkIn) : '';
+              const outRaw = worksDay ? this.normalizeTime(rec.checkOut) : '';
               inT.push(this.format12h(inRaw));
               outT.push(this.format12h(outRaw));
 
