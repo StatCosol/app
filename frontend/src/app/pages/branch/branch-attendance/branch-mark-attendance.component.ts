@@ -574,29 +574,7 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
             }))
             .sort((a, b) => a.displayName.localeCompare(b.displayName));
 
-          const dayCols: string[] = [];
-          for (let d = 1; d <= daysInMonth; d++) {
-            dayCols.push(String(d));
-          }
-
-          // Sheet 1: Status grid (one cell per day with status code)
-          const statusHeader = [
-            'Code',
-            'Employee',
-            'Designation',
-            ...dayCols,
-            'Present',
-            'Absent',
-            'Half Day',
-            'Leave',
-            'Week Off',
-            'Holiday',
-            'Worked Hrs',
-            'OT Hrs',
-          ];
-          const statusRows: (string | number)[][] = [statusHeader];
-
-          // Sheet 2: Detailed rows (one row per attendance record)
+          // Sheet 2 (detail): one row per attendance record.
           const detailHeader = [
             'Date',
             'Code',
@@ -615,30 +593,43 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
             switch (s) {
               case 'PRESENT': return 'P';
               case 'ABSENT': return 'A';
-              case 'HALF_DAY': return 'H';
+              case 'HALF_DAY': return 'HD';
               case 'ON_LEAVE': return 'L';
-              case 'WEEK_OFF': return 'WO';
-              case 'HOLIDAY': return 'HO';
+              case 'WEEK_OFF': return 'W';
+              case 'HOLIDAY': return 'H';
               default: return '';
             }
           };
+
+          // Per-employee muster data: status code + in/out time for each day.
+          interface MusterEmp {
+            code: string; name: string; desig: string;
+            status: string[]; inT: string[]; outT: string[];
+            cP: number; cA: number; cHD: number; cL: number; cWO: number; cHO: number;
+            worked: number; ot: number;
+          }
+          const muster: MusterEmp[] = [];
 
           for (const emp of sortedEmps) {
             const empAtt = byEmp.get(emp.id) || new Map();
             let cP = 0, cA = 0, cHD = 0, cL = 0, cWO = 0, cHO = 0;
             let totWorked = 0;
             let totOt = 0;
-            const dayCells: string[] = [];
+            const status: string[] = [];
+            const inT: string[] = [];
+            const outT: string[] = [];
 
             for (let d = 1; d <= daysInMonth; d++) {
               const dateStr = `${monthStr}-${String(d).padStart(2, '0')}`;
               const rec = empAtt.get(dateStr);
               if (!rec) {
-                dayCells.push('');
+                status.push('');
+                inT.push('');
+                outT.push('');
                 continue;
               }
               const st = String(rec.status || '');
-              dayCells.push(codeFor(st));
+              status.push(codeFor(st));
               switch (st) {
                 case 'PRESENT': cP++; break;
                 case 'ABSENT': cA++; break;
@@ -652,52 +643,110 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
               totWorked += wh;
               totOt += oh;
 
+              // Only working statuses carry punch times. A record corrected to
+              // ABSENT/ON_LEAVE/WEEK_OFF/HOLIDAY may still hold stale check-in/
+              // out values (markAttendance keeps them when the fields are
+              // omitted), so blank them for non-working days.
+              const worksDay = st === 'PRESENT' || st === 'HALF_DAY';
+              const inRaw = worksDay ? this.normalizeTime(rec.checkIn) : '';
+              const outRaw = worksDay ? this.normalizeTime(rec.checkOut) : '';
+              inT.push(this.format12h(inRaw));
+              outT.push(this.format12h(outRaw));
+
               detailRows.push([
                 dateStr,
                 emp.employeeCode || '',
                 emp.displayName,
                 emp.designation || '',
                 st,
-                this.normalizeTime(rec.checkIn) || '',
-                this.normalizeTime(rec.checkOut) || '',
+                inRaw || '',
+                outRaw || '',
                 Number(wh.toFixed(2)),
                 Number(oh.toFixed(2)),
                 rec.remarks || '',
               ]);
             }
 
-            statusRows.push([
-              emp.employeeCode || '',
-              emp.displayName,
-              emp.designation || '',
-              ...dayCells,
-              cP,
-              cA,
-              cHD,
-              cL,
-              cWO,
-              cHO,
-              Number(totWorked.toFixed(2)),
-              Number(totOt.toFixed(2)),
-            ]);
+            muster.push({
+              code: emp.employeeCode || '',
+              name: emp.displayName,
+              desig: emp.designation || '',
+              status, inT, outT,
+              cP, cA, cHD, cL, cWO, cHO,
+              worked: Number(totWorked.toFixed(2)),
+              ot: Number(totOt.toFixed(2)),
+            });
           }
 
-          // Legend rows on Sheet 1
-          statusRows.push([]);
-          statusRows.push(['Legend:', 'P = Present', 'A = Absent', 'H = Half Day', 'L = On Leave', 'WO = Week Off', 'HO = Holiday']);
+          // Sheet 1 (muster): each day spans two columns (In | Out). Per
+          // employee there are two rows — a status row (P / A / W / H …) and
+          // an in/out time row directly beneath it, so status and times line up.
+          const FIXED = 3; // Code, Employee, Designation
+          const dayColCount = daysInMonth * 2;
+          const summaryHeaders = ['Present', 'Absent', 'Half Day', 'Leave', 'Week Off', 'Holiday', 'Worked Hrs', 'OT Hrs'];
+          const summaryStart = FIXED + dayColCount;
+
+          const h0: (string | number)[] = ['Code', 'Employee', 'Designation'];
+          for (let d = 1; d <= daysInMonth; d++) h0.push(d, '');
+          summaryHeaders.forEach((s) => h0.push(s));
+          const h1: (string | number)[] = ['', '', ''];
+          for (let d = 1; d <= daysInMonth; d++) h1.push('In', 'Out');
+          summaryHeaders.forEach(() => h1.push(''));
+
+          const aoa: (string | number)[][] = [h0, h1];
+          const merges: { s: { r: number; c: number }; e: { r: number; c: number } }[] = [];
+          // Fixed headers span the two header rows.
+          for (let c = 0; c < FIXED; c++) merges.push({ s: { r: 0, c }, e: { r: 1, c } });
+          // Each day number is merged across its two (In/Out) columns.
+          for (let d = 0; d < daysInMonth; d++) {
+            const c = FIXED + d * 2;
+            merges.push({ s: { r: 0, c }, e: { r: 0, c: c + 1 } });
+          }
+          // Summary headers span the two header rows.
+          for (let i = 0; i < summaryHeaders.length; i++) {
+            const c = summaryStart + i;
+            merges.push({ s: { r: 0, c }, e: { r: 1, c } });
+          }
+
+          let r = 2;
+          for (const m of muster) {
+            const statusRow: (string | number)[] = [m.code, m.name, m.desig];
+            for (let d = 0; d < daysInMonth; d++) statusRow.push(m.status[d] || '', '');
+            statusRow.push(m.cP, m.cA, m.cHD, m.cL, m.cWO, m.cHO, m.worked, m.ot);
+
+            const timeRow: (string | number)[] = ['', '', ''];
+            for (let d = 0; d < daysInMonth; d++) timeRow.push(m.inT[d] || '', m.outT[d] || '');
+            summaryHeaders.forEach(() => timeRow.push(''));
+
+            aoa.push(statusRow, timeRow);
+            // Code/Employee/Designation span the employee's two rows.
+            for (let c = 0; c < FIXED; c++) merges.push({ s: { r, c }, e: { r: r + 1, c } });
+            // Status letter is centred over its day's two columns.
+            for (let d = 0; d < daysInMonth; d++) {
+              const c = FIXED + d * 2;
+              merges.push({ s: { r, c }, e: { r, c: c + 1 } });
+            }
+            // Summary values span the two rows.
+            for (let i = 0; i < summaryHeaders.length; i++) {
+              const c = summaryStart + i;
+              merges.push({ s: { r, c }, e: { r: r + 1, c } });
+            }
+            r += 2;
+          }
+
+          aoa.push([]);
+          aoa.push(['Legend:', 'P = Present', 'A = Absent', 'HD = Half Day', 'L = On Leave', 'W = Week Off', 'H = Holiday']);
 
           const wb = XLSX.utils.book_new();
-          const ws1 = XLSX.utils.aoa_to_sheet(statusRows);
-          // Column widths
-          const widths = [
-            { wch: 12 }, { wch: 28 }, { wch: 18 },
-            ...dayCols.map(() => ({ wch: 4 })),
-            { wch: 8 }, { wch: 8 }, { wch: 9 }, { wch: 8 }, { wch: 9 }, { wch: 9 },
-            { wch: 11 }, { wch: 9 },
+          const ws1 = XLSX.utils.aoa_to_sheet(aoa);
+          (ws1 as any)['!merges'] = merges;
+          (ws1 as any)['!cols'] = [
+            { wch: 12 }, { wch: 26 }, { wch: 16 },
+            ...Array.from({ length: dayColCount }, () => ({ wch: 8 })),
+            { wch: 8 }, { wch: 7 }, { wch: 9 }, { wch: 7 }, { wch: 9 }, { wch: 8 }, { wch: 10 }, { wch: 8 },
           ];
-          (ws1 as any)['!cols'] = widths;
-          (ws1 as any)['!freeze'] = { xSplit: 3, ySplit: 1 };
-          XLSX.utils.book_append_sheet(wb, ws1, 'Monthly Grid');
+          (ws1 as any)['!freeze'] = { xSplit: 3, ySplit: 2 };
+          XLSX.utils.book_append_sheet(wb, ws1, 'Muster');
 
           const ws2 = XLSX.utils.aoa_to_sheet(detailRows);
           (ws2 as any)['!cols'] = [
@@ -742,6 +791,19 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
     // Accept "HH:mm" or "HH:mm:ss"
     const m = /^(\d{2}):(\d{2})/.exec(t);
     return m ? `${m[1]}:${m[2]}` : '';
+  }
+
+  /** "HH:mm" (24h) -> "h:mm AM/PM" for the muster export; blank stays blank. */
+  private format12h(t: string): string {
+    if (!t) return '';
+    const m = /^(\d{1,2}):(\d{2})/.exec(t);
+    if (!m) return '';
+    let h = Number(m[1]);
+    const min = m[2];
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    if (h === 0) h = 12;
+    return `${h}:${min} ${ampm}`;
   }
 
   private employeeDisplayName(e: ApiEmployee): string {
