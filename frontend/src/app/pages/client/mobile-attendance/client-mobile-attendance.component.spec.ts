@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import '@angular/compiler';
 import { ChangeDetectorRef, NgZone } from '@angular/core';
 import { describe, expect, it, vi } from 'vitest';

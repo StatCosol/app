@@ -32,12 +32,10 @@ import { FaceTemplateService } from './face/face-template.service';
 import { FaceRetentionService } from './face/face-retention.service';
 
 // Controllers
-import {
-  MobileAttendanceDevicesController,
-  MobileAttendanceEnrollmentController,
-  MobileAttendanceLivenessController,
-  MobileAttendancePunchesController,
-} from './mobile-attendance.controller';
+import { MobileAttendanceDevicesController } from './mobile-attendance-devices.controller';
+import { MobileAttendanceEnrollmentController } from './mobile-attendance-enrollment.controller';
+import { MobileAttendanceLivenessController } from './mobile-attendance-liveness.controller';
+import { MobileAttendancePunchesController } from './mobile-attendance-punches.controller';
 
 @Module({
   imports: [

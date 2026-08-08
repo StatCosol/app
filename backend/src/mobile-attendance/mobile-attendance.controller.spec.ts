@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { MobileAttendanceEnrollmentController } from './mobile-attendance.controller';
+import { MobileAttendanceEnrollmentController } from './mobile-attendance-enrollment.controller';
 
 describe('MobileAttendanceEnrollmentController.selfEnroll', () => {
   it('blocks employee callers from enrolling a contractor employee', () => {
