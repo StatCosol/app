@@ -31,6 +31,8 @@ Large services are being split into focused injectables. **Controllers unchanged
 | `facedesk-attendance.service.ts` | `facedesk-punch-accept.service.ts` | Accept punch, contractor/employee persist, review queue |
 | `facedesk-attendance.service.ts` | `facedesk-punch-direction.service.ts` | IN/OUT direction + business-day bounds |
 | `facedesk-attendance.service.ts` | `facedesk-failed-attempt.service.ts` | Failed attempt logging + PIN lockout counts |
+| `facedesk.controller.ts` | `facedesk-enrollment.controller.ts`, `facedesk-attendance-portal.controller.ts`, `facedesk-admin.controller.ts`, `facedesk-devices-admin.controller.ts`, `facedesk-reports.controller.ts` | Split ~640-line god controller; routes unchanged |
+| `mobile-attendance.controller.ts` | `mobile-attendance-devices.controller.ts`, `mobile-attendance-enrollment.controller.ts`, `mobile-attendance-liveness.controller.ts`, `mobile-attendance-punches.controller.ts` | Split ~770-line monolith; routes unchanged |
 | `payroll/` (prior work) | `payroll-setup.service.ts`, `payroll-processing.service.ts`, `payroll-reports.service.ts`, `payroll-approval.service.ts`, engine/* | Setup, processing, reports, approval |
 
 ## Pattern
