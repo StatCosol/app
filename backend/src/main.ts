@@ -346,6 +346,37 @@ async function bootstrap() {
       logger.warn(`Schema patch holiday_double_wage skipped: ${e?.message}`);
     }
 
+    // ACCOUNTS / Billing role (migration 20260808_accounts_role). The deploy
+    // migration job runs only the service-entitlement script, so seed it here
+    // too, otherwise ACCOUNTS users can't be created.
+    try {
+      await ds.query(`
+        INSERT INTO roles (code, name, is_system)
+        VALUES ('ACCOUNTS', 'Accounts / Billing', true)
+        ON CONFLICT (code) DO NOTHING;
+      `);
+      logger.log('Schema patch: ACCOUNTS role OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch ACCOUNTS role skipped: ${e?.message}`);
+    }
+
+    // CLRA contractor → portal user link (migration
+    // 20260808_clra_contractor_user_link). Needed by the CLRA contractor portal.
+    try {
+      await ds.query(`
+        ALTER TABLE clra_contractors
+          ADD COLUMN IF NOT EXISTS contractor_user_id uuid;
+        CREATE INDEX IF NOT EXISTS idx_clra_contractors_user
+          ON clra_contractors (contractor_user_id)
+          WHERE contractor_user_id IS NOT NULL;
+      `);
+      logger.log('Schema patch: clra_contractors.contractor_user_id OK');
+    } catch (e: any) {
+      logger.warn(
+        `Schema patch clra_contractors.contractor_user_id skipped: ${e?.message}`,
+      );
+    }
+
     // FaceDesk PIN-then-face verification (migration 20260722b). The deploy
     // migration job runs only the service-entitlement script, so these columns
     // must be patched here or the settings/profile entities 500 on a SELECT.
