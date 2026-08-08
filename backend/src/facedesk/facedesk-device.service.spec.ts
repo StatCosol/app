@@ -19,14 +19,22 @@ describe('FaceDeskDeviceService', () => {
     const d = await service.provision('c1', {
       deviceName: 'Gate 1',
       branchId: 'b1',
+      adminPin: '1234',
     });
     expect(d.installToken).toMatch(/^[0-9a-f]{64}$/);
     expect(d.deviceStatus).toBe('PROVISIONED');
     expect(d.clientId).toBe('c1');
   });
 
-  it('registers a device and returns its token + context', async () => {
-    const { service } = makeService({
+  it('requires an admin PIN at provision time', async () => {
+    const { service } = makeService();
+    await expect(
+      service.provision('c1', { deviceName: 'Gate 1' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('registers a device and returns a rotated device token', async () => {
+    const { service, repo } = makeService({
       deviceId: 'dev-1',
       installToken: 'tok',
       deviceStatus: 'PROVISIONED',
@@ -38,11 +46,13 @@ describe('FaceDeskDeviceService', () => {
     const res = await service.register('tok', 'android-xyz');
     expect(res).toEqual(
       expect.objectContaining({
-        deviceToken: 'tok',
         clientId: 'c1',
         branchId: 'b1',
       }),
     );
+    expect(res.deviceToken).toMatch(/^[0-9a-f]{64}$/);
+    expect(res.deviceToken).not.toBe('tok');
+    expect(repo.save).toHaveBeenCalled();
   });
 
   it('rejects registration when bound to a different android id', async () => {

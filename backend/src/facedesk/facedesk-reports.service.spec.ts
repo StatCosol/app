@@ -24,6 +24,7 @@ describe('FaceDeskReportsService.pushToPayroll', () => {
     const service = new FaceDeskReportsService(
       dataSource as any,
       biometric as any,
+      { getEffective: jest.fn().mockResolvedValue({ shiftStartTime: null, shiftEndTime: null }) } as any,
     );
 
     const res = await service.pushToPayroll('c1', {
@@ -61,6 +62,7 @@ describe('FaceDeskReportsService.pushToPayroll', () => {
     const service = new FaceDeskReportsService(
       dataSource as any,
       biometric as any,
+      { getEffective: jest.fn().mockResolvedValue({ shiftStartTime: null, shiftEndTime: null }) } as any,
     );
     const res = await service.pushToPayroll('c1', {});
     expect(res).toEqual({ pushed: 0, received: 0 });
@@ -71,7 +73,9 @@ describe('FaceDeskReportsService.pushToPayroll', () => {
 describe('FaceDeskReportsService.failedAttempts', () => {
   it('returns enriched FaceDesk failures for the attendance-failures screen', async () => {
     const dataSource = { query: jest.fn().mockResolvedValue([]) };
-    const service = new FaceDeskReportsService(dataSource as any, {} as any);
+    const service = new FaceDeskReportsService(dataSource as any, {} as any, {
+      getEffective: jest.fn().mockResolvedValue({ shiftStartTime: null, shiftEndTime: null }),
+    } as any);
 
     await service.failedAttempts('c1', {
       from: '2026-08-01T00:00:00.000Z',
@@ -94,7 +98,9 @@ describe('FaceDeskReportsService.failedAttempts', () => {
 
   it('returns no rows for a branch user with no assigned branches', async () => {
     const dataSource = { query: jest.fn().mockResolvedValue([]) };
-    const service = new FaceDeskReportsService(dataSource as any, {} as any);
+    const service = new FaceDeskReportsService(dataSource as any, {} as any, {
+      getEffective: jest.fn().mockResolvedValue({ shiftStartTime: null, shiftEndTime: null }),
+    } as any);
 
     await service.failedAttempts('c1', { branchIds: [] });
 

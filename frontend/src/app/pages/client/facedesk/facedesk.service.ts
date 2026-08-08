@@ -25,6 +25,8 @@ export interface FaceDeskSettings {
   frameCaptureCount: number;
   livenessRequired: boolean;
   offlineSyncEnabled: boolean;
+  shiftStartTime?: string | null;
+  shiftEndTime?: string | null;
   acceptCosine: number;
   retryCosine: number;
   duplicateCosine: number;
@@ -247,5 +249,19 @@ export class FaceDeskService {
 
   deleteDevice(deviceId: string): Observable<{ ok: true }> {
     return this.http.delete<{ ok: true }>(`${this.base}/devices/${deviceId}`);
+  }
+
+  createCorrection(body: {
+    employeeId: string;
+    correctionType: 'ADD' | 'EDIT' | 'DELETE';
+    attendanceId?: string;
+    newPunchTime?: string;
+    newPunchType?: 'IN' | 'OUT';
+    reason?: string;
+  }): Observable<{ ok: true; correctionId: string }> {
+    return this.http.post<{ ok: true; correctionId: string }>(
+      `${this.base}/admin/corrections`,
+      body,
+    );
   }
 }

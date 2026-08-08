@@ -9,12 +9,25 @@ import { createHmac } from 'crypto';
  * HMAC (not a bare hash) so a DB reader can't enumerate the tiny 4-digit space
  * by precomputing hashes; resolution/uniqueness only need it to be stable.
  */
-export function pinLookupHash(clientId: string, pin: string): string {
+function pinSecret(): string {
   const secret =
-    process.env.FACEDESK_PIN_SECRET ??
-    process.env.JWT_SECRET ??
-    'facedesk-pin';
-  return createHmac('sha256', secret)
+    process.env.FACEDESK_PIN_SECRET?.trim() ||
+    process.env.JWT_SECRET?.trim() ||
+    '';
+  if (!secret) {
+    const env = (process.env.NODE_ENV ?? '').toLowerCase();
+    if (env === 'production' || env === 'prod') {
+      throw new Error(
+        'FACEDESK_PIN_SECRET (or JWT_SECRET) must be set in production',
+      );
+    }
+    return 'facedesk-pin-dev-only';
+  }
+  return secret;
+}
+
+export function pinLookupHash(clientId: string, pin: string): string {
+  return createHmac('sha256', pinSecret())
     .update(`${clientId}:${pin}`)
     .digest('hex');
 }

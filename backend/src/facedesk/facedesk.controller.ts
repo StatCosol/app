@@ -28,6 +28,7 @@ import {
 } from './facedesk-reports.service';
 import { FaceDeskDeviceService } from './facedesk-device.service';
 import { FaceDeskTicketService } from './facedesk-ticket.service';
+import { assertFaceDeskJwtPunchAllowed } from './facedesk-jwt-punch.util';
 import {
   CheckDuplicateDto,
   CreateEnrollTicketDto,
@@ -199,6 +200,7 @@ export class FaceDeskController {
   @Post('attendance/mark')
   @Roles('CLIENT', 'ADMIN', 'EMPLOYEE')
   mark(@CurrentUser() user: ReqUser, @Body() dto: MarkAttendanceDto) {
+    assertFaceDeskJwtPunchAllowed();
     return this.attendance.markAttendance(
       this.requireClient(user),
       user?.branchIds?.[0] ?? null,
@@ -221,6 +223,7 @@ export class FaceDeskController {
   @Post('attendance/offline-sync')
   @Roles('CLIENT', 'ADMIN')
   offlineSync(@CurrentUser() user: ReqUser, @Body() dto: OfflineSyncDto) {
+    assertFaceDeskJwtPunchAllowed();
     return this.attendance.offlineSync(
       this.requireClient(user),
       user?.branchIds?.[0] ?? null,

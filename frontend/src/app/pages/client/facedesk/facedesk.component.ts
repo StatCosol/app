@@ -377,6 +377,22 @@ type Tab =
           <button class="btn" (click)="runReport()">Run</button>
           <button class="btn primary" (click)="syncPayroll()">Sync to Payroll</button>
         </div>
+        <div class="correction-box mb-4">
+          <h4 class="text-sm font-semibold text-gray-800 mb-2">Manual attendance correction</h4>
+          <p class="text-xs text-gray-500 mb-2">Submit an ADD correction for a missed punch. HR must approve it on the backend workflow.</p>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+            <input class="inp" placeholder="Employee UUID" [(ngModel)]="correctionEmployeeId">
+            <input class="inp" type="datetime-local" [(ngModel)]="correctionPunchTime">
+            <select class="inp" [(ngModel)]="correctionPunchType">
+              <option value="IN">IN</option>
+              <option value="OUT">OUT</option>
+            </select>
+            <input class="inp" placeholder="Reason (optional)" [(ngModel)]="correctionReason">
+          </div>
+          <button class="btn primary mt-2" [disabled]="correctionBusy" (click)="submitCorrection()">
+            {{ correctionBusy ? 'Submitting…' : 'Submit correction' }}
+          </button>
+        </div>
         @if (loading) {
 <ui-loading-spinner text="Running report..." size="lg"></ui-loading-spinner>
 }
@@ -426,6 +442,8 @@ type Tab =
           <label>Frames per capture<input type="number" [(ngModel)]="settings.frameCaptureCount" class="inp"></label>
           <label class="chk"><input type="checkbox" [(ngModel)]="settings.livenessRequired"> Liveness required</label>
           <label class="chk"><input type="checkbox" [(ngModel)]="settings.offlineSyncEnabled"> Offline sync enabled</label>
+          <label>Shift start (HH:MM)<input type="text" [(ngModel)]="settings.shiftStartTime" class="inp" placeholder="09:30"></label>
+          <label>Shift end (HH:MM)<input type="text" [(ngModel)]="settings.shiftEndTime" class="inp" placeholder="18:00"></label>
           <p class="text-xs text-gray-500 col-span-2">
             Percentages map to the model's calibrated cosine thresholds (accept ≈ {{ settings.acceptCosine }},
             retry ≈ {{ settings.retryCosine }}). Tune per site.
@@ -515,6 +533,12 @@ export class FaceDeskComponent implements OnInit {
   to = '';
   reportRows: Record<string, unknown>[] = [];
   reportCols: string[] = [];
+
+  correctionEmployeeId = '';
+  correctionPunchTime = '';
+  correctionPunchType: 'IN' | 'OUT' = 'IN';
+  correctionReason = '';
+  correctionBusy = false;
 
   deviceList: FaceDeskDevice[] = [];
   branches: { id: string; name: string }[] = [];
@@ -726,6 +750,39 @@ export class FaceDeskComponent implements OnInit {
     });
   }
 
+  submitCorrection(): void {
+    if (!this.correctionEmployeeId.trim()) {
+      this.toast.error('Employee ID is required');
+      return;
+    }
+    if (!this.correctionPunchTime) {
+      this.toast.error('Punch time is required');
+      return;
+    }
+    this.correctionBusy = true;
+    this.svc
+      .createCorrection({
+        employeeId: this.correctionEmployeeId.trim(),
+        correctionType: 'ADD',
+        newPunchTime: new Date(this.correctionPunchTime).toISOString(),
+        newPunchType: this.correctionPunchType,
+        reason: this.correctionReason.trim() || undefined,
+      })
+      .subscribe({
+        next: () => {
+          this.correctionBusy = false;
+          this.correctionEmployeeId = '';
+          this.correctionPunchTime = '';
+          this.correctionReason = '';
+          this.toast.success('Correction submitted for approval');
+        },
+        error: (e) => {
+          this.correctionBusy = false;
+          this.toast.error(e?.error?.message || 'Correction failed');
+        },
+      });
+  }
+
   /** Only non-revoked devices can receive an enrollment ticket. */
   get activeDevices(): FaceDeskDevice[] {
     return this.deviceList.filter((d) => d.deviceStatus !== 'REVOKED');
@@ -799,14 +856,17 @@ export class FaceDeskComponent implements OnInit {
       this.toast.error('Enter a device name');
       return;
     }
+    const adminPin = this.newDevice.adminPin.trim();
+    if (!/^\d{4,12}$/.test(adminPin)) {
+      this.toast.error('Enter a 4–12 digit admin PIN for the kiosk');
+      return;
+    }
     this.svc.provisionDevice({
       deviceName: this.newDevice.deviceName.trim(),
       branchId: this.newDevice.branchId || undefined,
       location: this.newDevice.location.trim() || undefined,
-      // Every FaceDesk kiosk is an attendance device; enrollment is driven from
-      // the web ("Enroll on kiosk") or the on-device admin PIN, never a mode.
       mode: 'ATTENDANCE',
-      adminPin: this.newDevice.adminPin.trim() || undefined,
+      adminPin,
     }).subscribe({
       next: (d) => {
         this.newInstallToken = d.installToken;

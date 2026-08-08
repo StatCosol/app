@@ -129,11 +129,12 @@ describe('DeviceService.registerDevice', () => {
         { id: 'device-1', installToken: 'token', isActive: true },
       ])
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
     const transaction = jest.fn(async (cb: any) => cb({ query: txQuery }));
     const service = makeService(query, transaction);
 
-    await service.registerDevice('token', 'android-1', 'Tablet');
+    const device = await service.registerDevice('token', 'android-1', 'Tablet');
 
     expect(txQuery.mock.calls[0][0]).toContain('FOR UPDATE');
     expect(txQuery.mock.calls[1][0]).toContain("to_jsonb(d)->>'is_active'");
@@ -142,6 +143,10 @@ describe('DeviceService.registerDevice', () => {
     expect(updateSql).toContain('"android_id" = $2');
     expect(updateSql).toContain('"device_label" = $3');
     expect(updateSql).toContain('"last_seen_at" = now()');
+    const rotateSql = txQuery.mock.calls[3][0] as string;
+    expect(rotateSql).toContain('install_token');
+    expect(device.installToken).not.toBe('token');
+    expect(device.installToken).toMatch(/^[0-9a-f]{64}$/);
   });
 });
 

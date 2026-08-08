@@ -2,9 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { BiometricService } from '../biometric/biometric.service';
+import { FaceDeskSettingsService } from './facedesk-settings.service';
 
-const SHIFT_START = process.env.FD_SHIFT_START ?? '09:30';
-const SHIFT_END = process.env.FD_SHIFT_END ?? '18:00';
+const DEFAULT_SHIFT_START = process.env.FD_SHIFT_START ?? '09:30';
+const DEFAULT_SHIFT_END = process.env.FD_SHIFT_END ?? '18:00';
 
 export interface ReportRange {
   from?: string;
@@ -24,6 +25,7 @@ export class FaceDeskReportsService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly biometric: BiometricService,
+    private readonly settings: FaceDeskSettingsService,
   ) {}
 
   private range(opts: ReportRange): { from: string; to: string } {
@@ -100,7 +102,18 @@ export class FaceDeskReportsService {
     );
   }
 
-  /** Late = first-in after SHIFT_START; early-going = last-out before SHIFT_END. */
+  private async shiftBounds(clientId: string): Promise<{
+    shiftStart: string;
+    shiftEnd: string;
+  }> {
+    const eff = await this.settings.getEffective(clientId);
+    return {
+      shiftStart: eff.shiftStartTime?.trim() || DEFAULT_SHIFT_START,
+      shiftEnd: eff.shiftEndTime?.trim() || DEFAULT_SHIFT_END,
+    };
+  }
+
+  /** Late = first-in after shift start; early-going = last-out before shift end. */
   async lateComing(clientId: string, opts: ReportRange) {
     return this.shiftDeviations(clientId, opts, 'LATE');
   }
@@ -134,11 +147,12 @@ export class FaceDeskReportsService {
         GROUP BY e.employee_code, e.name, date_trunc('day', a.punch_time)`,
       params,
     );
+    const { shiftStart, shiftEnd } = await this.shiftBounds(clientId);
     const hhmm = (d: Date) => d.toISOString().slice(11, 16);
     return rows.filter((r) =>
       kind === 'LATE'
-        ? hhmm(new Date(r.firstIn)) > SHIFT_START
-        : hhmm(new Date(r.lastOut)) < SHIFT_END,
+        ? hhmm(new Date(r.firstIn)) > shiftStart
+        : hhmm(new Date(r.lastOut)) < shiftEnd,
     );
   }
 

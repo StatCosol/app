@@ -102,6 +102,10 @@ const ClientMobileAttendanceComponent = () =>
   import('./mobile-attendance/client-mobile-attendance.component').then(
     (m) => m.ClientMobileAttendanceComponent,
   );
+const BranchFaceFailuresComponent = () =>
+  import('../branch/branch-face-failures/branch-face-failures.component').then(
+    (m) => m.BranchFaceFailuresComponent,
+  );
 const FaceDeskComponent = () =>
   import('./facedesk/facedesk.component').then((m) => m.FaceDeskComponent);
 const NewsDetailComponent = () =>
@@ -206,6 +210,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'holidays', loadComponent: ClientHolidayCalendarComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
       { path: 'biometric', loadComponent: ClientBiometricComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
       { path: 'mobile-attendance', loadComponent: ClientMobileAttendanceComponent, canActivate: [moduleAccessGuard('MOBILE_ATTENDANCE')] },
+      { path: 'face-failures', loadComponent: BranchFaceFailuresComponent, canActivate: [moduleAccessGuard(['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])] },
       { path: 'facedesk', loadComponent: FaceDeskComponent, canActivate: [moduleAccessGuard('CONTRACTOR_FACE_ATTENDANCE')] },
       { path: 'news', loadComponent: NewsDetailComponent },
       { path: 'news/:newsId', loadComponent: NewsDetailComponent },

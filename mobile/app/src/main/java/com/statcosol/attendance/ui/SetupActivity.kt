@@ -90,7 +90,8 @@ class SetupActivity : AppCompatActivity() {
                 )
                 config.deviceToken = res.deviceToken
                 config.deviceMode = "FACEDESK_${res.mode}" // FACEDESK_ATTENDANCE | FACEDESK_ENROLLMENT
-                config.faceDeskAdminPin = res.adminPin
+                val enteredPin = findViewById<EditText>(R.id.adminPinInput).text.toString().trim()
+                config.faceDeskAdminPin = enteredPin.ifBlank { res.adminPin }
                 config.androidId = androidId
                 navigateToMain()
             } catch (e: FaceDeskApiException) {

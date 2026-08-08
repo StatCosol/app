@@ -517,6 +517,12 @@ export class FaceDeskSettingsEntity {
   })
   identificationMode: 'PIN_THEN_FACE';
 
+  @Column({ name: 'shift_start_time', type: 'varchar', length: 5, nullable: true })
+  shiftStartTime: string | null;
+
+  @Column({ name: 'shift_end_time', type: 'varchar', length: 5, nullable: true })
+  shiftEndTime: string | null;
+
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 }

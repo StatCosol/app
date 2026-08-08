@@ -18,6 +18,9 @@ export interface EffectiveFaceSettings {
   offlineSyncEnabled: boolean;
   /** FaceDesk kiosks always use code + PIN followed by 1:1 face verification. */
   identificationMode: 'PIN_THEN_FACE';
+  /** HH:MM (24h) for late/early reports; null → env default. */
+  shiftStartTime: string | null;
+  shiftEndTime: string | null;
   // Calibrated cosine thresholds the matcher uses.
   acceptCosine: number;
   retryCosine: number;
@@ -90,6 +93,8 @@ export class FaceDeskSettingsService {
       livenessRequired: row?.livenessRequired ?? true,
       offlineSyncEnabled: row?.offlineSyncEnabled ?? true,
       identificationMode: 'PIN_THEN_FACE',
+      shiftStartTime: row?.shiftStartTime ?? null,
+      shiftEndTime: row?.shiftEndTime ?? null,
       acceptCosine: this.percentToCosine(matchPct),
       retryCosine: this.percentToCosine(retryPct),
       duplicateCosine: this.percentToCosine(dupPct),
