@@ -55,4 +55,16 @@ describe('FaceDeskDeviceAuthGuard', () => {
       'android-1',
     );
   });
+
+  it('rejects invalid bearer tokens from authenticate failures', async () => {
+    deviceService.authenticate.mockRejectedValue(
+      new UnauthorizedException('Invalid device token'),
+    );
+
+    await expect(
+      guard.canActivate(
+        ctx({ authorization: 'Bearer revoked-token' }),
+      ),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
 });

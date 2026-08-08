@@ -42,4 +42,20 @@ describe('DeviceAuthGuard', () => {
       }),
     );
   });
+
+  it('accepts x-install-token and forwards android id', async () => {
+    const req: any = {
+      headers: { 'x-install-token': 'tok', 'x-android-id': 'android-1' },
+    };
+    const ctx = {
+      switchToHttp: () => ({ getRequest: () => req }),
+    } as ExecutionContext;
+
+    await guard.canActivate(ctx);
+
+    expect(deviceService.authenticateDevice).toHaveBeenCalledWith(
+      'tok',
+      'android-1',
+    );
+  });
 });
