@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { DeviceService } from './device.service';
+import { readDeviceInstallToken } from './device-install-token.util';
 
 /**
  * Guard for device-facing endpoints.
@@ -23,10 +24,7 @@ export class DeviceAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
 
-    const authHeader = req.headers['authorization'];
-    const installToken = authHeader?.startsWith('Bearer ')
-      ? authHeader.slice(7).trim()
-      : (req.headers['x-install-token'] as string | undefined);
+    const installToken = readDeviceInstallToken(req);
 
     if (!installToken) {
       throw new UnauthorizedException('Device install token required');
@@ -39,6 +37,7 @@ export class DeviceAuthGuard implements CanActivate {
     );
 
     (req as any).deviceId = device.id;
+    (req as any).deviceInstallToken = installToken;
     (req as any).user = {
       role: 'DEVICE',
       roles: ['DEVICE'],

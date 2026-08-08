@@ -26,6 +26,11 @@ import { DeviceAuthGuard } from './devices/device-auth.guard';
 import { PunchService } from './punch/punch.service';
 import { RecordPunchDto } from './punch/punch.dto';
 import {
+  encryptRosterEmbedding,
+  ROSTER_EMBEDDING_TTL_MS,
+  rosterPlainEmbeddingsAllowed,
+} from './punch/roster-crypto.util';
+import {
   mobileAttendanceBranchScope,
   requireMobileAttendanceClient,
 } from './mobile-attendance-controller.helpers';
@@ -68,17 +73,45 @@ export class MobileAttendancePunchesController {
       );
     }
     const roster = await this.punchService.getRoster(device);
+    const installToken = (req as any).deviceInstallToken as string | undefined;
+    if (!installToken) {
+      throw new UnauthorizedException('Device install token required');
+    }
+    const issuedAt = new Date();
+    const expiresAt = new Date(issuedAt.getTime() + ROSTER_EMBEDDING_TTL_MS);
+    const plainAllowed = rosterPlainEmbeddingsAllowed();
+
     return {
-      enrollments: roster.map((r) => ({
-        employeeId: r.subjectId,
-        displayName: r.displayName,
-        embeddingModel: r.embeddingModel ?? '',
-        embeddingB64: Buffer.from(
+      format: plainAllowed ? 'plain-v1' : 'encrypted-v1',
+      issuedAt: issuedAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      deviceId: device.id,
+      enrollments: roster.map((r) => {
+        const embeddingBytes = Buffer.from(
           r.embedding.buffer,
           r.embedding.byteOffset,
           r.embedding.byteLength,
-        ).toString('base64'),
-      })),
+        );
+        const base = {
+          employeeId: r.subjectId,
+          displayName: r.displayName,
+          embeddingModel: r.embeddingModel ?? '',
+        };
+        if (plainAllowed) {
+          return {
+            ...base,
+            embeddingB64: embeddingBytes.toString('base64'),
+          };
+        }
+        return {
+          ...base,
+          embeddingCipherB64: encryptRosterEmbedding(
+            device.id,
+            installToken,
+            embeddingBytes,
+          ),
+        };
+      }),
     };
   }
 

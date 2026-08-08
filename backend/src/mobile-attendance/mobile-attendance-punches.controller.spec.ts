@@ -1,4 +1,8 @@
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import {
+  decryptRosterEmbedding,
+  ROSTER_EMBEDDING_TTL_MS,
+} from './punch/roster-crypto.util';
 import { MobileAttendancePunchesController } from './mobile-attendance-punches.controller';
 
 function makeController() {
@@ -18,7 +22,20 @@ function makeController() {
 }
 
 describe('MobileAttendancePunchesController', () => {
-  beforeEach(() => jest.resetAllMocks());
+  const plainEnv = process.env.MOBILE_ROSTER_PLAIN_EMBEDDINGS;
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    delete process.env.MOBILE_ROSTER_PLAIN_EMBEDDINGS;
+  });
+
+  afterAll(() => {
+    if (plainEnv === undefined) {
+      delete process.env.MOBILE_ROSTER_PLAIN_EMBEDDINGS;
+    } else {
+      process.env.MOBILE_ROSTER_PLAIN_EMBEDDINGS = plainEnv;
+    }
+  });
 
   it('recordPunch delegates to punch service with resolved device', async () => {
     const { controller, punchService, deviceService } = makeController();
@@ -68,7 +85,64 @@ describe('MobileAttendancePunchesController', () => {
     expect(punchService.getRoster).not.toHaveBeenCalled();
   });
 
-  it('getRoster returns base64 embeddings for kiosk devices', async () => {
+  it('getRoster returns device-bound encrypted embeddings by default', async () => {
+    const { controller, deviceService, punchService } = makeController();
+    deviceService.findById.mockResolvedValue({
+      id: 'device-1',
+      mode: 'KIOSK',
+    });
+    const embedding = new Float32Array([1, 0, 0, 0]);
+    const embeddingBytes = Buffer.from(
+      embedding.buffer,
+      embedding.byteOffset,
+      embedding.byteLength,
+    );
+    punchService.getRoster.mockResolvedValue([
+      {
+        subjectId: 'emp-1',
+        displayName: 'Alice',
+        embeddingModel: 'mobilefacenet',
+        embedding,
+      },
+    ]);
+
+    const before = Date.now();
+    const res = await controller.getRoster({
+      deviceId: 'device-1',
+      deviceInstallToken: 'install-token',
+    } as any);
+    const after = Date.now();
+
+    expect(res.format).toBe('encrypted-v1');
+    expect(res.deviceId).toBe('device-1');
+    expect(new Date(res.expiresAt).getTime()).toBeGreaterThanOrEqual(
+      before + ROSTER_EMBEDDING_TTL_MS - 1000,
+    );
+    expect(new Date(res.expiresAt).getTime()).toBeLessThanOrEqual(
+      after + ROSTER_EMBEDDING_TTL_MS + 1000,
+    );
+    expect(res.enrollments[0]).toEqual(
+      expect.objectContaining({
+        employeeId: 'emp-1',
+        displayName: 'Alice',
+        embeddingModel: 'mobilefacenet',
+        embeddingCipherB64: expect.any(String),
+      }),
+    );
+    expect(res.enrollments[0]).not.toHaveProperty('embeddingB64');
+    const entry = res.enrollments[0] as {
+      embeddingCipherB64: string;
+    };
+    const decoded = decryptRosterEmbedding(
+      'device-1',
+      'install-token',
+      entry.embeddingCipherB64,
+    );
+    expect(Buffer.compare(decoded, embeddingBytes)).toBe(0);
+  });
+
+  it('getRoster can return plain embeddings when legacy flag is enabled', async () => {
+    process.env.MOBILE_ROSTER_PLAIN_EMBEDDINGS = 'true';
     const { controller, deviceService, punchService } = makeController();
     deviceService.findById.mockResolvedValue({
       id: 'device-1',
@@ -84,17 +158,15 @@ describe('MobileAttendancePunchesController', () => {
       },
     ]);
 
-    await expect(
-      controller.getRoster({ deviceId: 'device-1' } as any),
-    ).resolves.toEqual({
-      enrollments: [
-        expect.objectContaining({
-          employeeId: 'emp-1',
-          displayName: 'Alice',
-          embeddingModel: 'mobilefacenet',
-          embeddingB64: Buffer.from(embedding.buffer).toString('base64'),
-        }),
-      ],
-    });
+    const res = await controller.getRoster({
+      deviceId: 'device-1',
+      deviceInstallToken: 'install-token',
+    } as any);
+
+    expect(res.format).toBe('plain-v1');
+    const entry = res.enrollments[0] as { embeddingB64: string };
+    expect(entry.embeddingB64).toBe(
+      Buffer.from(embedding.buffer).toString('base64'),
+    );
   });
 });
