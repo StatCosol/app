@@ -11,6 +11,7 @@ import {
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
+import { AuthService } from '../../../core/auth.service';
 import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import {
   DuplicateAlert,
@@ -320,11 +321,13 @@ type Tab =
 }
         @if (!branchMode) {
           <p class="text-sm text-gray-600 mb-3">
-            PIN-correct / face-mismatch items appear here. For borderline 1:N gallery matches from ESS phones or
-            offline kiosk devices, use
-            <a routerLink="/client/mobile-attendance" [queryParams]="{ tab: 'review' }" class="text-blue-600 hover:underline">
-              ESS Mobile Attendance → Punch Review
-            </a>.
+            PIN-correct / face-mismatch items appear here.
+            @if (hasMobileAttendanceModule) {
+              For borderline 1:N gallery matches from ESS phones or offline kiosk devices, use
+              <a routerLink="/client/mobile-attendance" [queryParams]="{ tab: 'review' }" class="text-blue-600 hover:underline">
+                ESS Mobile Attendance → Punch Review
+              </a>.
+            }
           </p>
         }
         @if (branchMode) {
@@ -529,6 +532,10 @@ export class FaceDeskComponent implements OnInit {
    */
   @Input() branchMode = false;
 
+  get hasMobileAttendanceModule(): boolean {
+    return this.auth.hasModule('MOBILE_ATTENDANCE');
+  }
+
   tab: Tab = 'dashboard';
   loading = false;
 
@@ -602,6 +609,7 @@ export class FaceDeskComponent implements OnInit {
     private branchSvc: ClientBranchesService,
     private protectedFiles: ProtectedFileService,
     private route: ActivatedRoute,
+    private auth: AuthService,
   ) {}
 
   ngOnInit(): void {

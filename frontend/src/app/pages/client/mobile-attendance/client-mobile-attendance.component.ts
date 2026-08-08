@@ -461,10 +461,12 @@ interface BranchOption { id: string; name: string }
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div class="text-sm text-gray-600">
             Borderline 1:N face matches (ESS phones and offline kiosk) are held here instead of auto-counting.
-            PIN-correct / face-mismatch items are reviewed under
-            <a routerLink="/client/facedesk" [queryParams]="{ tab: 'review' }" class="text-blue-600 hover:underline">
-              Kiosk Attendance → Review Queue
-            </a>.
+            @if (hasContractorFaceAttendanceModule) {
+              PIN-correct / face-mismatch items are reviewed under
+              <a routerLink="/client/facedesk" [queryParams]="{ tab: 'review' }" class="text-blue-600 hover:underline">
+                Kiosk Attendance → Review Queue
+              </a>.
+            }
             Approving mirrors the punch into Daily Attendance; rejecting discards it (the audit record is preserved).
           </div>
           <div class="flex items-center gap-2">

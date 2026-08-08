@@ -48,7 +48,7 @@ StatComPy currently runs **two parallel face stacks**. Do not merge storage with
 ### Operator review UX (R3)
 - **Borderline 1:N cosine matches** (held automatically): Client portal → **ESS Mobile Attendance → Punch Review**.
 - **PIN correct / face mismatch** (FaceDesk): Client or branch portal → **Kiosk Attendance → Review Queue / Verifications**.
-- Cross-links exist in both UIs; queues remain separate because issue types and APIs differ.
+- Cross-links exist in both UIs when the destination module is enabled; queues remain separate because issue types and APIs differ.
 
 ### Consolidation blockers (product decision required)
 1. **Enrollment tables** — `face_enrollments` vs `facedesk_employee_face_profiles` (different embedding models, consent audit, contractor paths).
