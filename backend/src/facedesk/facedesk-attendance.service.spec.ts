@@ -1,5 +1,9 @@
 import * as bcrypt from 'bcryptjs';
 import { FaceDeskAttendanceService } from './facedesk-attendance.service';
+import { FaceDeskFailedAttemptService } from './facedesk-failed-attempt.service';
+import { FaceDeskPinAttendanceService } from './facedesk-pin-attendance.service';
+import { FaceDeskPunchAcceptService } from './facedesk-punch-accept.service';
+import { FaceDeskPunchDirectionService } from './facedesk-punch-direction.service';
 
 // Cosine helpers: build unit vectors whose pairwise cosine == target.
 const vecForCosine = (cos: number) =>
@@ -111,18 +115,38 @@ function makeService(rosterRows: any[], todayCount = 0) {
   const biometric = {
     ingest: jest.fn().mockResolvedValue({ received: 1, inserted: 1 }),
   };
+  const failedAttemptService = new FaceDeskFailedAttemptService(
+    failRepo as any,
+    dataSource as any,
+  );
+  const directionService = new FaceDeskPunchDirectionService(dataSource as any);
+  const punchAcceptService = new FaceDeskPunchAcceptService(
+    attRepo as any,
+    reviewRepo as any,
+    contractorPunchRepo as any,
+    photo as any,
+    biometric as any,
+    directionService,
+    failedAttemptService,
+  );
+  const pinAttendanceService = new FaceDeskPinAttendanceService(
+    dataSource as any,
+    faceService as any,
+    settings as any,
+    failedAttemptService,
+    punchAcceptService,
+  );
   const service = new FaceDeskAttendanceService(
     attRepo as any,
-    failRepo as any,
-    reviewRepo as any,
     contractorPunchRepo as any,
     faceService as any,
     settings as any,
-    photo as any,
-    dataSource as any,
     liveness as any,
-    biometric as any,
     { offlineSync: jest.fn() } as any,
+    failedAttemptService,
+    pinAttendanceService,
+    punchAcceptService,
+    directionService,
   );
   return {
     service,
@@ -131,6 +155,8 @@ function makeService(rosterRows: any[], todayCount = 0) {
     reviewRepo,
     contractorPunchRepo,
     biometric,
+    dataSource,
+    photo,
   };
 }
 
@@ -188,8 +214,7 @@ describe('FaceDeskAttendanceService.markAttendance — PIN_THEN_FACE', () => {
 
   const makePinService = (claimedRows: any[] | null, todayCount = 0) => {
     const base = makeService([], todayCount);
-    // SQL-aware: gallery samples → [], punch-count → n, else → claimed profile.
-    (base.service as any).dataSource.query = jest.fn((sql: string) => {
+    base.dataSource.query = jest.fn((sql: string) => {
       if (/facedesk_employee_face_samples/i.test(sql))
         return Promise.resolve([]);
       if (/count\(\*\)/i.test(sql))
@@ -368,20 +393,18 @@ describe('FaceDeskAttendanceService.markAttendance — PIN-only (no employee cod
   });
 
   it('REJECTS PIN-only when the branch has no enrolled employees', async () => {
-    const { service, attRepo, failRepo } = makeService([]);
-    // PIN-only resolution first tries the indexed lookup, then falls back to a
-    // roster scan — both empty here, so force both queries to return [].
-    (service as any).dataSource.query = jest.fn().mockResolvedValue([]);
-    const res = await service.markAttendance('c1', 'b1', 'd1', {
+    const base = makeService([]);
+    base.dataSource.query = jest.fn().mockResolvedValue([]);
+    const res = await base.service.markAttendance('c1', 'b1', 'd1', {
       frames: [probeFrame()],
       pin: '1234',
     } as any);
     expect(res.status).toBe('REJECTED');
     expect(res.message).toMatch(/no enrolled employees/i);
-    expect(failRepo.save).toHaveBeenCalledWith(
+    expect(base.failRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ reason: 'NO_ENROLLED' }),
     );
-    expect(attRepo.save).not.toHaveBeenCalled();
+    expect(base.attRepo.save).not.toHaveBeenCalled();
   });
 
   it('REJECTS once the device has burned through the PIN attempt limit', async () => {
@@ -465,17 +488,17 @@ describe('FaceDeskAttendanceService.markAttendance — PIN-only (no employee cod
   });
 
   it('notes the missing evidence photo on a flagged punch when upload fails', async () => {
-    const { service, reviewRepo } = makeService(
+    const base = makeService(
       await pinRoster([{ id: 'e1', code: 'E001', cos: 0.6, pin: '1234' }]),
     );
-    (service as any).photoStorage.uploadPhoto = jest.fn(async () => null);
-    const res = await service.markAttendance('c1', 'b1', 'd1', {
+    (base.photo.uploadPhoto as jest.Mock) = jest.fn(async () => null);
+    const res = await base.service.markAttendance('c1', 'b1', 'd1', {
       frames: [probeFrame()],
       pin: '1234',
       photoB64: 'x',
     } as any);
     expect(res.status).toBe('MARKED');
-    expect(reviewRepo.save).toHaveBeenCalledWith(
+    expect(base.reviewRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
         issueType: 'FACE_MISMATCH',
         adminRemarks: expect.stringMatching(/photo unavailable/i),
@@ -508,7 +531,7 @@ describe('FaceDeskAttendanceService.markAttendance — contractor punch routing'
     );
 
   it('routes a CONTRACTOR punch to the contractor pipeline, not employee logs', async () => {
-    const { service, attRepo, contractorPunchRepo } = makeService(
+    const base = makeService(
       await pinRoster([
         {
           id: 'c1e',
@@ -519,6 +542,7 @@ describe('FaceDeskAttendanceService.markAttendance — contractor punch routing'
         },
       ]),
     );
+    const { service, attRepo, contractorPunchRepo, dataSource } = base;
     const res = await service.markAttendance('c1', 'b1', 'd1', {
       frames: [probeFrame()],
       pin: '1234',
@@ -535,7 +559,7 @@ describe('FaceDeskAttendanceService.markAttendance — contractor punch routing'
     );
     // … and NEVER to the employee facedesk logs.
     expect(attRepo.save).not.toHaveBeenCalled();
-    const directionSql = (service as any).dataSource.query.mock.calls
+    const directionSql = dataSource.query.mock.calls
       .map((c: any[]) => c[0] as string)
       .find((s: string) => /contractor_biometric_punches/i.test(s));
     expect(directionSql).toContain("'AUTO','REVIEW_APPROVED'");
@@ -737,14 +761,14 @@ describe('FaceDeskAttendanceService.markAttendance — adaptive gallery (point 4
 
   it('MARKS cleanly on a gallery sample the enrollment template alone would flag', async () => {
     const rosterRows = await pinRow(0.5); // enrollment template is a weak match
-    const { service, attRepo, reviewRepo } = makeService(rosterRows);
-    // A previously HR-approved gallery sample is a strong match for this angle.
-    (service as any).dataSource.query = jest.fn((sql: string) => {
+    const base = makeService(rosterRows);
+    base.dataSource.query = jest.fn((sql: string) => {
       if (/facedesk_employee_face_samples/i.test(sql))
         return Promise.resolve([{ embedding: toBuf(vecForCosine(0.95)) }]);
       if (/count\(\*\)/i.test(sql)) return Promise.resolve([{ n: '0' }]);
       return Promise.resolve(rosterRows);
     });
+    const { service, attRepo, reviewRepo } = base;
 
     const res = await service.markAttendance('c1', 'b1', 'd1', {
       frames: [probeFrame()],

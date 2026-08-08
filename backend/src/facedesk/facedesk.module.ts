@@ -31,6 +31,10 @@ import { FaceDeskSettingsService } from './facedesk-settings.service';
 import { FaceDeskEnrollmentService } from './facedesk-enrollment.service';
 import { FaceDeskAttendanceService } from './facedesk-attendance.service';
 import { FaceDeskOfflineSyncService } from './facedesk-offline-sync.service';
+import { FaceDeskFailedAttemptService } from './facedesk-failed-attempt.service';
+import { FaceDeskPinAttendanceService } from './facedesk-pin-attendance.service';
+import { FaceDeskPunchAcceptService } from './facedesk-punch-accept.service';
+import { FaceDeskPunchDirectionService } from './facedesk-punch-direction.service';
 import { FaceDeskAdminService } from './facedesk-admin.service';
 import { FaceDeskDashboardService } from './facedesk-dashboard.service';
 import { FaceDeskReportsService } from './facedesk-reports.service';
@@ -68,6 +72,10 @@ import { FaceDeskTicketService } from './facedesk-ticket.service';
     FaceDeskEnrollmentService,
     FaceDeskAttendanceService,
     FaceDeskOfflineSyncService,
+    FaceDeskPunchDirectionService,
+    FaceDeskFailedAttemptService,
+    FaceDeskPunchAcceptService,
+    FaceDeskPinAttendanceService,
     FaceDeskAdminService,
     FaceDeskDashboardService,
     FaceDeskReportsService,

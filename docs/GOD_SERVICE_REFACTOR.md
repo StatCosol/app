@@ -27,6 +27,10 @@ Large services are being split into focused injectables. **Controllers unchanged
 | `punch.service.ts` | `punch-review.service.ts` | Review queue list/approve/reject + punch photo |
 | `punch.service.ts` | `punch-contractor-admin.service.ts` | Contractor punch list/CRUD |
 | `facedesk-attendance.service.ts` | `facedesk-offline-sync.service.ts` | Offline batch sync + device sync logs |
+| `facedesk-attendance.service.ts` | `facedesk-pin-attendance.service.ts` | PIN lookup, lockout, 1:1 face match |
+| `facedesk-attendance.service.ts` | `facedesk-punch-accept.service.ts` | Accept punch, contractor/employee persist, review queue |
+| `facedesk-attendance.service.ts` | `facedesk-punch-direction.service.ts` | IN/OUT direction + business-day bounds |
+| `facedesk-attendance.service.ts` | `facedesk-failed-attempt.service.ts` | Failed attempt logging + PIN lockout counts |
 | `payroll/` (prior work) | `payroll-setup.service.ts`, `payroll-processing.service.ts`, `payroll-reports.service.ts`, `payroll-approval.service.ts`, engine/* | Setup, processing, reports, approval |
 
 ## Pattern
