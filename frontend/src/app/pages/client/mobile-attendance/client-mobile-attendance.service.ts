@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, map, of, throwError } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 
 export type MobileDeviceMode = 'KIOSK' | 'ESS';
@@ -223,16 +223,21 @@ export class ClientMobileAttendanceService {
     );
   }
 
-  // Re-enrollment approval queue is currently hidden in the UI until backend endpoints exist.
-  listReenrollRequests(_status: ReenrollRequestStatus = 'PENDING'): Observable<ReenrollRequest[]> {
-    return of([]);
+  // Re-enrollment approval queue
+  listReenrollRequests(status: ReenrollRequestStatus = 'PENDING'): Observable<ReenrollRequest[]> {
+    return this.http.get<ReenrollRequest[]>(`${this.base}/enrollment/reenroll-requests`, {
+      params: { status },
+    });
   }
 
   reviewReenrollRequest(
-    _id: string,
-    _body: ReviewReenrollBody,
+    id: string,
+    body: ReviewReenrollBody,
   ): Observable<{ ok: true; status: 'APPROVED' | 'REJECTED' }> {
-    return throwError(() => new Error('Re-enrollment review is not available in this release'));
+    return this.http.post<{ ok: true; status: 'APPROVED' | 'REJECTED' }>(
+      `${this.base}/enrollment/reenroll-requests/${id}/review`,
+      body,
+    );
   }
 
   // ── Contractor face enrollment (Phase 4a) ──
@@ -268,18 +273,24 @@ export class ClientMobileAttendanceService {
     );
   }
 
-  // ── Contractor re-enrollment approval queue (hidden until backend endpoints exist) ──
+  // ── Contractor re-enrollment approval queue ──
   listContractorReenrollRequests(
-    _status: ReenrollRequestStatus = 'PENDING',
+    status: ReenrollRequestStatus = 'PENDING',
   ): Observable<ContractorReenrollRequest[]> {
-    return of([]);
+    return this.http.get<ContractorReenrollRequest[]>(
+      `${this.base}/enrollment/contractor-reenroll-requests`,
+      { params: { status } },
+    );
   }
 
   reviewContractorReenrollRequest(
-    _id: string,
-    _body: ReviewReenrollBody,
+    id: string,
+    body: ReviewReenrollBody,
   ): Observable<{ ok: true; status: 'APPROVED' | 'REJECTED' }> {
-    return throwError(() => new Error('Re-enrollment review is not available in this release'));
+    return this.http.post<{ ok: true; status: 'APPROVED' | 'REJECTED' }>(
+      `${this.base}/enrollment/contractor-reenroll-requests/${id}/review`,
+      body,
+    );
   }
 
   // ── Branch-portal contractor list (aggregated from client contractor-employees API) ──

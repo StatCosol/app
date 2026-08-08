@@ -2,7 +2,7 @@ import { RouterModule } from '@angular/router';
 import { ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { fromEvent, interval, merge, Subject } from 'rxjs';
+import { fromEvent, interval, merge, Subject, Subscription } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import {
   ActionButtonComponent,
@@ -721,14 +721,17 @@ interface BranchOption { id: string; name: string }
 <div><strong>Reason:</strong> {{ reviewRequest.reason }}</div>
 }
         </div>
-        @if (reviewRequest.photoUrl) {
+        @if (reviewPhotoBlobUrl) {
 <div class="border rounded overflow-hidden bg-gray-50">
           <div class="px-2 py-1 text-xs font-medium text-gray-600 border-b bg-white">Submitted photo</div>
-          <img [src]="reviewRequest.photoUrl" alt="Submitted re-enrollment photo"
+          <img [src]="reviewPhotoBlobUrl" alt="Submitted re-enrollment photo"
                class="block w-full max-h-72 object-contain bg-black" referrerpolicy="no-referrer" />
         </div>
 }
-        @if (!reviewRequest.photoUrl) {
+        @if (!reviewPhotoBlobUrl && reviewRequest.photoUrl) {
+<p class="text-xs text-gray-500 italic">Loading photo…</p>
+}
+        @if (!reviewPhotoBlobUrl && !reviewRequest.photoUrl) {
 <p class="text-xs text-gray-500 italic">
           No photo available — review the request based on the source and reason only.
         </p>
@@ -867,6 +870,8 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   pendingReenrollCount = 0;
   pendingContractorReenrollCount = 0;
   reviewRequest: ReenrollViewRow | null = null;
+  reviewPhotoBlobUrl: string | null = null;
+  private reviewPhotoSub: Subscription | null = null;
   reviewDecision: 'APPROVED' | 'REJECTED' = 'APPROVED';
   reviewNotes = '';
   reviewingId: string | null = null;
@@ -892,7 +897,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       + (this.hasContractorFaceAttendanceModule ? this.pendingContractorReenrollCount : 0);
   }
 
-  readonly hasReenrollWorkflow = false;
+  readonly hasReenrollWorkflow = true;
 
   get hasEmployeeMobileAttendanceModule(): boolean {
     return this.auth.hasModule('MOBILE_ATTENDANCE');
@@ -1620,12 +1625,45 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   }
 
   openReview(r: ReenrollViewRow, decision: 'APPROVED' | 'REJECTED'): void {
+    this.cancelReviewPhotoFetch();
     this.reviewRequest = r;
     this.reviewDecision = decision;
     this.reviewNotes = '';
+    if (this.reviewPhotoBlobUrl) {
+      URL.revokeObjectURL(this.reviewPhotoBlobUrl);
+      this.reviewPhotoBlobUrl = null;
+    }
+    if (r.photoUrl) {
+      const requestId = r.id;
+      this.reviewPhotoSub = this.protectedFile.fetch(r.photoUrl, 'reenroll-photo.jpg')
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (handle) => {
+            if (this.reviewRequest?.id !== requestId) {
+              URL.revokeObjectURL(handle.objectUrl);
+              return;
+            }
+            this.reviewPhotoBlobUrl = handle.objectUrl;
+            this.bump();
+          },
+          error: () => { /* photo optional */ },
+        });
+    }
+  }
+
+  private cancelReviewPhotoFetch(): void {
+    if (this.reviewPhotoSub) {
+      this.reviewPhotoSub.unsubscribe();
+      this.reviewPhotoSub = null;
+    }
   }
 
   closeReview(): void {
+    this.cancelReviewPhotoFetch();
+    if (this.reviewPhotoBlobUrl) {
+      URL.revokeObjectURL(this.reviewPhotoBlobUrl);
+      this.reviewPhotoBlobUrl = null;
+    }
     this.reviewRequest = null;
     this.reviewNotes = '';
   }
