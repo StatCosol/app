@@ -459,6 +459,11 @@ async function bootstrap() {
           SET identification_mode = 'PIN_THEN_FACE'
           WHERE identification_mode IS DISTINCT FROM 'PIN_THEN_FACE'
       `);
+      await ds.query(`
+        ALTER TABLE facedesk_face_settings
+          ADD COLUMN IF NOT EXISTS shift_start_time varchar(5),
+          ADD COLUMN IF NOT EXISTS shift_end_time varchar(5)
+      `);
       logger.log('Schema patch: facedesk PIN verification columns OK');
     } catch (e: any) {
       logger.warn(`Schema patch facedesk PIN columns skipped: ${e?.message}`);

@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   NotFoundException,
   Param,
@@ -415,6 +416,11 @@ export class MobileAttendancePunchesController {
     const deviceId = (req as any).deviceId as string;
     const device = await this.deviceService.findById(deviceId);
     if (!device) throw new UnauthorizedException('Device not found');
+    if (device.mode !== 'KIOSK') {
+      throw new ForbiddenException(
+        'Face roster download is only available on kiosk devices',
+      );
+    }
     const roster = await this.punchService.getRoster(device);
     return {
       enrollments: roster.map((r) => ({
@@ -552,6 +558,7 @@ export class MobileAttendancePunchesController {
     @Query('to') to?: string,
     @Query('branchId') branchId?: string,
     @Query('contractorEmployeeId') contractorEmployeeId?: string,
+    @Query('contractorUserId') contractorUserId?: string,
     @Query('limit') limit?: string,
   ) {
     const clientId = user?.clientId;
@@ -561,6 +568,7 @@ export class MobileAttendancePunchesController {
       to,
       branchId,
       contractorEmployeeId,
+      contractorUserId,
       limit: limit ? Number(limit) : undefined,
     });
   }

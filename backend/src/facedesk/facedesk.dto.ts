@@ -225,6 +225,16 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsBoolean()
   offlineSyncEnabled?: boolean;
+
+  /** HH:MM (24h) late-coming threshold for reports. */
+  @IsOptional()
+  @IsString()
+  shiftStartTime?: string | null;
+
+  /** HH:MM (24h) early-going threshold for reports. */
+  @IsOptional()
+  @IsString()
+  shiftEndTime?: string | null;
 }
 
 export class SetAttendancePinDto {

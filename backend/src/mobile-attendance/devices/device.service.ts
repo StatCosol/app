@@ -250,8 +250,17 @@ export class DeviceService {
         );
       }
 
+      const deviceToken = randomBytes(32).toString('hex');
+      params.length = 0;
+      params.push(device.id, deviceToken);
+      await em.query(
+        `UPDATE mobile_attendance_devices SET ${this.quoteIdentifier(tokenCol)} = $2 WHERE id = $1::uuid`,
+        params,
+      );
+
       return {
         ...device,
+        installToken: deviceToken,
         androidId: androidId ?? device.androidId,
         deviceName: deviceName ?? device.deviceName,
         lastSeenAt: new Date(),

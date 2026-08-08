@@ -1,3 +1,4 @@
+import { RouterModule } from '@angular/router';
 import { ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -53,6 +54,7 @@ interface BranchOption { id: string; name: string }
   imports: [
     CommonModule,
     FormsModule,
+    RouterModule,
     PageHeaderComponent,
     ActionButtonComponent,
     LoadingSpinnerComponent,
@@ -88,7 +90,7 @@ interface BranchOption { id: string; name: string }
 }
         @if (hasAnyFaceModule) {
 <button class="tab-btn" [class.active]="tab === 'review'" (click)="switchTab('review')">
-          Punch Review
+          Punch Review (employees)
           @if (pendingReviewCount > 0) {
 <span
                 class="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
@@ -96,6 +98,12 @@ interface BranchOption { id: string; name: string }
           </span>
 }
         </button>
+        @if (hasContractorFaceAttendanceModule) {
+<p class="text-xs text-gray-500 w-full mt-1">
+          Contractor face mismatches are reviewed under
+          <a routerLink="/client/facedesk" class="text-blue-600 hover:underline">Kiosk Attendance → Review Queue</a>.
+        </p>
+}
 }
         <button class="tab-btn" [class.active]="tab === 'help'" (click)="switchTab('help')">Setup Guide</button>
       </div>

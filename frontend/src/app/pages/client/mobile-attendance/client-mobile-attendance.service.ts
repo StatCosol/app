@@ -282,9 +282,41 @@ export class ClientMobileAttendanceService {
     return throwError(() => new Error('Re-enrollment review is not available in this release'));
   }
 
-  // ── Branch-portal contractor list — stubbed (no equivalent in new backend) ──
-  listContractorsForBranch(_branchId?: string): Observable<ContractorForBranchRow[]> {
-    return of([]);
+  // ── Branch-portal contractor list (aggregated from client contractor-employees API) ──
+  listContractorsForBranch(branchId?: string): Observable<ContractorForBranchRow[]> {
+    const params: Record<string, string> = { isActive: 'true' };
+    if (branchId) params['branchId'] = branchId;
+    return this.http
+      .get<{ data: Array<{ contractorUserId: string; name: string }>; total: number }>(
+        '/api/v1/client/contractor-employees',
+        { params },
+      )
+      .pipe(
+        map((res) => {
+          const counts = new Map<string, { name: string | null; count: number }>();
+          for (const row of res.data ?? []) {
+            if (!row.contractorUserId) continue;
+            const cur = counts.get(row.contractorUserId);
+            if (cur) {
+              cur.count += 1;
+            } else {
+              counts.set(row.contractorUserId, { name: row.name ?? null, count: 1 });
+            }
+          }
+          return [...counts.entries()]
+            .map(([contractorUserId, v]) => ({
+              contractorUserId,
+              contractorName: v.name,
+              contractorEmail: null,
+              employeeCount: String(v.count),
+            }))
+            .sort((a, b) =>
+              (a.contractorName ?? a.contractorUserId).localeCompare(
+                b.contractorName ?? b.contractorUserId,
+              ),
+            );
+        }),
+      );
   }
 
   listContractorPunches(
@@ -303,6 +335,8 @@ export class ClientMobileAttendanceService {
     if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
     if (opts.contractorEmployeeId)
       parts.push(`contractorEmployeeId=${encodeURIComponent(opts.contractorEmployeeId)}`);
+    if (opts.contractorUserId)
+      parts.push(`contractorUserId=${encodeURIComponent(opts.contractorUserId)}`);
     if (opts.limit) parts.push(`limit=${opts.limit}`);
     const qs = parts.length ? `?${parts.join('&')}` : '';
     return this.http.get<ContractorPunchRow[]>(`${this.base}/punches/contractor${qs}`);
@@ -482,8 +516,49 @@ export class ClientMobileAttendanceService {
     );
   }
 
-  listFaceFailureAlerts(_limit = 20): Observable<FaceFailureAlertRow[]> {
-    return of([]);
+  listFaceFailureAlerts(limit = 20): Observable<FaceFailureAlertRow[]> {
+    const to = new Date();
+    const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const SPIKE_THRESHOLD = 8;
+    return this.fetchFaceDeskFailures({
+      from: from.toISOString(),
+      to: to.toISOString(),
+    }).pipe(
+      map((rows) => {
+        const buckets = new Map<
+          string,
+          { count: number; branchId: string | null; reason: string; hour: string }
+        >();
+        for (const row of rows) {
+          const hour = (row.attemptedAt ?? '').slice(0, 13);
+          const key = `${row.branchId ?? 'all'}:${row.reason}:${hour}`;
+          const bucket = buckets.get(key) ?? {
+            count: 0,
+            branchId: row.branchId,
+            reason: row.reason,
+            hour,
+          };
+          bucket.count += 1;
+          buckets.set(key, bucket);
+        }
+        const alerts: FaceFailureAlertRow[] = [];
+        for (const [, bucket] of buckets) {
+          if (bucket.count < SPIKE_THRESHOLD) continue;
+          const reasonLabel = bucket.reason.replace(/_/g, ' ').toLowerCase();
+          alerts.push({
+            id: `${bucket.branchId ?? 'all'}:${bucket.reason}:${bucket.hour}`,
+            branchId: bucket.branchId,
+            title: `${bucket.count} ${reasonLabel} failures in one hour`,
+            message: `Spike at ${bucket.hour}:00 UTC — review the failures dashboard.`,
+            priority: 'HIGH',
+            createdAt: `${bucket.hour}:00:00.000Z`,
+          });
+        }
+        return alerts
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+          .slice(0, Math.max(1, Math.min(limit, 50)));
+      }),
+    );
   }
 
   private fetchFaceDeskFailures(opts: {

@@ -990,6 +990,7 @@ export class PunchService {
       to?: string;
       branchId?: string;
       contractorEmployeeId?: string;
+      contractorUserId?: string;
       limit?: number;
     } = {},
   ): Promise<ContractorBiometricPunchEntity[]> {
@@ -1006,6 +1007,16 @@ export class PunchService {
       qb.andWhere('p.contractorEmployeeId = :contractorEmployeeId', {
         contractorEmployeeId: opts.contractorEmployeeId,
       });
+    if (opts.contractorUserId) {
+      qb.andWhere(
+        `p.contractorEmployeeId IN (
+          SELECT ce.id FROM contractor_employees ce
+           WHERE ce.client_id = :clientId
+             AND ce.contractor_user_id = :contractorUserId
+        )`,
+        { clientId, contractorUserId: opts.contractorUserId },
+      );
+    }
     if (opts.limit) qb.take(opts.limit);
 
     return qb.getMany();
