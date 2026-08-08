@@ -1,3 +1,4 @@
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -41,6 +42,7 @@ type Tab =
   imports: [
     CommonModule,
     FormsModule,
+    RouterModule,
     PageHeaderComponent,
     LoadingSpinnerComponent,
     EmptyStateComponent,
@@ -316,6 +318,15 @@ type Tab =
         @if (loading) {
 <ui-loading-spinner text="Loading..." size="lg"></ui-loading-spinner>
 }
+        @if (!branchMode) {
+          <p class="text-sm text-gray-600 mb-3">
+            PIN-correct / face-mismatch items appear here. For borderline 1:N gallery matches from ESS phones or
+            offline kiosk devices, use
+            <a routerLink="/client/mobile-attendance" [queryParams]="{ tab: 'review' }" class="text-blue-600 hover:underline">
+              ESS Mobile Attendance → Punch Review
+            </a>.
+          </p>
+        }
         @if (branchMode) {
           <p class="text-sm text-gray-600 mb-3">Punches where the PIN was correct but the face didn't match are marked and listed here. Check the photo against the employee, then <strong>Approve</strong> to keep it or <strong>Reject</strong> to reverse it.</p>
         }
@@ -590,10 +601,17 @@ export class FaceDeskComponent implements OnInit {
     private cdr: ChangeDetectorRef,
     private branchSvc: ClientBranchesService,
     private protectedFiles: ProtectedFileService,
+    private route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
     this.loadBranches();
+    const requestedTab = this.route.snapshot.queryParamMap.get('tab');
+    if (requestedTab === 'review') {
+      this.tab = 'review';
+      this.switch('review');
+      return;
+    }
     if (this.branchMode) {
       // Branch users land on enrollment and can assign employee PINs there.
       this.tab = 'pending';

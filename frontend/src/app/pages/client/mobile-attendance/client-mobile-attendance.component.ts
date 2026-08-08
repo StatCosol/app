@@ -1,4 +1,4 @@
-import { RouterModule } from '@angular/router';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -460,8 +460,12 @@ interface BranchOption { id: string; name: string }
 
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div class="text-sm text-gray-600">
-            Borderline face matches are held here instead of auto-counting. Approving mirrors the punch
-            into Daily Attendance; rejecting discards it (the audit record is preserved).
+            Borderline 1:N face matches (ESS phones and offline kiosk) are held here instead of auto-counting.
+            PIN-correct / face-mismatch items are reviewed under
+            <a routerLink="/client/facedesk" [queryParams]="{ tab: 'review' }" class="text-blue-600 hover:underline">
+              Kiosk Attendance → Review Queue
+            </a>.
+            Approving mirrors the punch into Daily Attendance; rejecting discards it (the audit record is preserved).
           </div>
           <div class="flex items-center gap-2">
             <select [(ngModel)]="reviewStatusFilter" (ngModelChange)="loadReviewPunches()" class="ui-input" style="width: 180px;">
@@ -934,6 +938,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     private dialog: ConfirmDialogService,
     private auth: AuthService,
     private protectedFile: ProtectedFileService,
+    private route: ActivatedRoute,
   ) {}
 
   private bump(): void {
@@ -960,6 +965,9 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     }
     if (this.hasAnyFaceModule) {
       this.refreshPendingReviewCount();
+    }
+    if (this.tab === 'review') {
+      this.loadReviewPunches();
     }
     this.startLiveRefresh();
   }
@@ -1095,6 +1103,11 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   }
 
   private selectInitialTab(): void {
+    const requested = this.route.snapshot.queryParamMap.get('tab');
+    if (requested === 'review' && this.hasAnyFaceModule) {
+      this.tab = 'review';
+      return;
+    }
     if (this.hasContractorFaceAttendanceModule) {
       this.tab = 'devices';
       return;

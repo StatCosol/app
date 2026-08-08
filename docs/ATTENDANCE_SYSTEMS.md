@@ -35,3 +35,22 @@ StatComPy currently has **four attendance subsystems**. They serve different por
 ## Shared concepts
 - Month/period scoping uses `YYYY-MM` or wage-period dates depending on subsystem.
 - Payroll run processing reads core attendance + leave ledger; CLRA wages use CLRA attendance only.
+
+## Face attendance capture tracks (mobile + FaceDesk)
+
+StatComPy currently runs **two parallel face stacks**. Do not merge storage without an explicit migration plan.
+
+| Track | Enrollment storage | Punch review queue | Primary clients |
+|-------|-------------------|--------------------|-----------------|
+| **Mobile attendance V1/V2** | `face_enrollments`, `contractor_face_enrollments` | `mobile_attendance_punches` / `contractor_biometric_punches` with `REVIEW_PENDING` | ESS phones, offline 1:N kiosk (`KioskActivity`) |
+| **FaceDesk V2** | `facedesk_employee_face_profiles`, contractor FaceDesk tables | `facedesk_attendance_review_queue` (PIN correct / face mismatch) | PIN+face shared kiosk |
+
+### Operator review UX (R3)
+- **Borderline 1:N cosine matches** (held automatically): Client portal → **ESS Mobile Attendance → Punch Review**.
+- **PIN correct / face mismatch** (FaceDesk): Client or branch portal → **Kiosk Attendance → Review Queue / Verifications**.
+- Cross-links exist in both UIs; queues remain separate because issue types and APIs differ.
+
+### Consolidation blockers (product decision required)
+1. **Enrollment tables** — `face_enrollments` vs `facedesk_employee_face_profiles` (different embedding models, consent audit, contractor paths).
+2. **Review queues** — merging would require a unified `attendance_review_items` view or federated API; not started.
+3. **Offline kiosk** — V1 roster path restored on Android (`#496`); FaceDesk remains the default provision flow for new shared tablets.

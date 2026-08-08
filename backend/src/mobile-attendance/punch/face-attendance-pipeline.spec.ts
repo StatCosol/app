@@ -185,4 +185,41 @@ describe('Face attendance pipeline (ingest → attendance_records)', () => {
       }),
     );
   });
+
+  it('ingests supervisor-approved review punches into attendance_records', async () => {
+    const { service, attRepo } = makeService({
+      dayPunches: [
+        {
+          id: 'punch-review',
+          punchTime: new Date('2026-08-09T08:00:00.000Z'),
+          direction: 'OUT',
+          source: 'MOBILE_KIOSK',
+        },
+      ],
+    });
+
+    const result = await service.ingest(
+      'client-1',
+      [
+        {
+          employeeCode: 'E001',
+          punchTime: '2026-08-09T08:00:00.000Z',
+          direction: 'OUT',
+          deviceId: 'device-1',
+          branchId: 'branch-1',
+          source: 'MOBILE_KIOSK',
+        },
+      ],
+      true,
+    );
+
+    expect(result.inserted).toBe(1);
+    expect(result.attendanceUpserts).toBeGreaterThan(0);
+    expect(attRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        employeeId: 'employee-1',
+        captureMethod: 'FACE',
+      }),
+    );
+  });
 });
