@@ -469,6 +469,80 @@ async function bootstrap() {
       logger.warn(`Schema patch facedesk PIN columns skipped: ${e?.message}`);
     }
 
+    // Face re-enrollment approval queues (migration 20260810). Deploy jobs may
+    // not run the SQL file; without these tables ESS re-enroll queues 500.
+    try {
+      await ds.query(`
+        CREATE TABLE IF NOT EXISTS face_reenrollment_requests (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          client_id UUID NOT NULL,
+          branch_id UUID,
+          employee_id UUID NOT NULL,
+          requested_by UUID,
+          requested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          reason TEXT,
+          photo_url TEXT,
+          pending_embedding BYTEA NOT NULL,
+          embedding_model VARCHAR(40),
+          source VARCHAR(10) NOT NULL DEFAULT 'ESS',
+          status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+          reviewed_by UUID,
+          reviewed_at TIMESTAMPTZ,
+          review_notes TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          CONSTRAINT face_reenroll_status_chk CHECK (status IN ('PENDING','APPROVED','REJECTED','CANCELLED')),
+          CONSTRAINT face_reenroll_source_chk CHECK (source IN ('ADMIN','ESS','KIOSK'))
+        )
+      `);
+      await ds.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS face_reenroll_one_pending_per_employee
+          ON face_reenrollment_requests (employee_id)
+          WHERE status = 'PENDING'
+      `);
+      await ds.query(`
+        CREATE INDEX IF NOT EXISTS face_reenroll_client_status_idx
+          ON face_reenrollment_requests (client_id, status, requested_at DESC)
+      `);
+      await ds.query(`
+        CREATE TABLE IF NOT EXISTS contractor_face_reenrollment_requests (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          client_id UUID NOT NULL,
+          branch_id UUID,
+          contractor_employee_id UUID NOT NULL,
+          requested_by UUID,
+          requested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          reason TEXT,
+          photo_url TEXT,
+          pending_embedding BYTEA NOT NULL,
+          embedding_model VARCHAR(40),
+          source VARCHAR(10) NOT NULL DEFAULT 'ESS',
+          status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+          reviewed_by UUID,
+          reviewed_at TIMESTAMPTZ,
+          review_notes TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          CONSTRAINT contractor_face_reenroll_status_chk CHECK (status IN ('PENDING','APPROVED','REJECTED','CANCELLED')),
+          CONSTRAINT contractor_face_reenroll_source_chk CHECK (source IN ('ADMIN','ESS','KIOSK'))
+        )
+      `);
+      await ds.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS contractor_face_reenroll_one_pending
+          ON contractor_face_reenrollment_requests (contractor_employee_id)
+          WHERE status = 'PENDING'
+      `);
+      await ds.query(`
+        CREATE INDEX IF NOT EXISTS contractor_face_reenroll_client_status_idx
+          ON contractor_face_reenrollment_requests (client_id, status, requested_at DESC)
+      `);
+      logger.log('Schema patch: face re-enrollment request tables OK');
+    } catch (e: any) {
+      logger.warn(
+        `Schema patch face re-enrollment tables skipped: ${e?.message}`,
+      );
+    }
+
     // Contractor attendance/payroll schema (migration 20260722). The deploy
     // migration job runs only a subset, so this never reached production —
     // leaving contractor_employees.employee_code and the contractor payroll
