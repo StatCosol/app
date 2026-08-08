@@ -1,6 +1,7 @@
 import {
   decryptRosterEmbedding,
   encryptRosterEmbedding,
+  deriveRosterAesKey,
 } from './roster-crypto.util';
 
 describe('roster-crypto.util', () => {
@@ -19,5 +20,19 @@ describe('roster-crypto.util', () => {
     expect(() =>
       decryptRosterEmbedding(deviceId, 'other-token', cipherB64),
     ).toThrow();
+  });
+
+  it('rejects ciphertext decrypted with a different device id', () => {
+    const cipherB64 = encryptRosterEmbedding(deviceId, installToken, plain);
+    expect(() =>
+      decryptRosterEmbedding('other-device', installToken, cipherB64),
+    ).toThrow();
+  });
+
+  it('deriveRosterAesKey uses only device id and install token', () => {
+    const a = deriveRosterAesKey(deviceId, installToken);
+    const b = deriveRosterAesKey(deviceId, installToken);
+    expect(a.equals(b)).toBe(true);
+    expect(a.length).toBe(32);
   });
 });
