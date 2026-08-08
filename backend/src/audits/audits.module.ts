@@ -8,6 +8,12 @@ import { AuditDocumentReviewEntity } from './entities/audit-document-review.enti
 import { AuditNonComplianceEntity } from './entities/audit-non-compliance.entity';
 import { AuditResubmissionEntity } from './entities/audit-resubmission.entity';
 import { AuditsService } from './audits.service';
+import { AuditNcService } from './audit-nc.service';
+import { AuditChecklistService } from './audit-checklist.service';
+import { AuditAuditorDashboardService } from './audit-auditor-dashboard.service';
+import { AuditReportService } from './audit-report.service';
+import { AuditListingService } from './audit-listing.service';
+import { AuditDocumentReviewService } from './audit-document-review.service';
 import { AuditNcEscalationJob } from './jobs/audit-nc-escalation.job';
 import {
   AuditorAuditsController,
@@ -66,7 +72,17 @@ import { AccessModule } from '../access/access.module';
     BranchAuditNcController,
     AuditorObservationsController,
   ],
-  providers: [AuditsService, AuditorObservationsService, AuditNcEscalationJob],
+  providers: [
+    AuditsService,
+    AuditorObservationsService,
+    AuditNcService,
+    AuditChecklistService,
+    AuditAuditorDashboardService,
+    AuditReportService,
+    AuditListingService,
+    AuditDocumentReviewService,
+    AuditNcEscalationJob,
+  ],
   exports: [TypeOrmModule, AuditsService],
 })
 export class AuditsModule {}

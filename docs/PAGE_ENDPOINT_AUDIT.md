@@ -90,7 +90,7 @@ Net **real** unmatched FE → backend gap: **4 endpoints** (all in `AzureBlobSer
 
 | Backend module | "Orphan" count | Spot-check verdict |
 |---|---|---|
-| `contractor` (incl. `clra-*` controllers) | 53 | Mostly **CLRA module backend-only / partial UI** — `clra/*` routes (PE establishments, contractors, assignments, workers, deployments) have backend CRUD; FE uses different routes through CRM. Worth full review. |
+| `contractor` (incl. `clra-*` controllers) | 53 | **CLRA wired (2026-08)** — CRM workspace `/crm/clients/:clientId/clra`, contractor portal `/contractor/clra`, portal API `/clra/me/*`. Register runs + full assignment drill-down on FE. |
 | `payroll` | 47 | Mix: `paydek/*`, `payroll/runs/seed-config/reprocess-employees/fix-employee-gross/debug` are admin-only debug/maintenance endpoints with no UI (intentional). `payroll/setup/.../slabs` and `client/payroll/setup/components` likely **missing UI**. |
 | `branches` | 23 | Likely false positives (services use cross-file imports). |
 | `crm` | 21 | Mix of false positives + a few admin-only endpoints. |
@@ -110,7 +110,7 @@ Net **real** unmatched FE → backend gap: **4 endpoints** (all in `AzureBlobSer
 
 After accounting for the extractor limits, the **realistic** count of backend handlers that have zero UI surface is roughly **60–80 routes** (≈ 5–6% of backend), heavily concentrated in:
 1. **Accounts / Billing** (37 routes) — confirmed UI-less
-2. **CLRA contractor module** (~25 routes) — partial; investigate
+2. **CLRA contractor module** — **resolved**: CRM + contractor portals cover PE, contractors, workers, assignments, deployments, wage periods, attendance, wages, register runs.
 3. **Payroll admin debug endpoints** (~10–15 routes) — intentional, no UI needed
 4. **AzureBlobService gap** (4 routes) — actually FE→BE missing, not BE→FE
 
@@ -127,19 +127,19 @@ After accounting for the extractor limits, the **realistic** count of backend ha
 | Auditor | 10 | Good | Dashboard + audits + non-compliances wired. |
 | Client | 30+ | Good | Notices, biometric, master-data, payroll-inputs, dashboards all wired. Verify gratuity/TDS pages depth. |
 | Branch | 10 | Good | Mark-attendance, notices, audit-non-compliances, reports all wired. |
-| Contractor | 8 | Mostly good | CLRA backend ahead of FE (see §4). |
+| Contractor | 9 | Good | CLRA at `/contractor/clra` (assignments, workers, registers). |
 | ESS | 15+ | Good | Attendance/leaves/holidays/contributions/documents/helpdesk all wired. |
 | Payroll | 20 | Mostly good | Engine, setup, runs, registers wired. Some admin-debug endpoints intentionally UI-less. |
 | PF-Team | 5 | Good | Helpdesk + tickets wired. |
-| **Accounts** | **0 pages** | **None** | **Backend has 37 handlers; no menu, route, or page exists.** |
+| **Accounts** | **~12 pages** | **Good** | Portal at `/accounts/*` (invoices, payments, clients, settings). |
 
 ---
 
 ## 6. Recommendations
 
 1. **Decide the fate of `AzureBlobService`** — either implement the 4 missing `files/*` endpoints or delete the service. (~30 min triage.)
-2. **Confirm Accounts / Billing UI status** — if planned, schedule the FE module; if cancelled, archive `backend/src/accounts-billing/`. Currently it's exposed in production with admin/accounts roles but no consumer.
-3. **CLRA contractor flow** — review whether `clra/pe-establishments`, `clra/contractors`, `clra/assignments`, `clra/workers`, `clra/deployments` need their own UI or are reachable through existing CRM contractor pages.
+2. **Accounts / Billing UI** — portal exists at `/accounts/*`; verify PDF invoice endpoint (`GET /billing/invoices/:id/pdf`) is wired if needed.
+3. ~~**CLRA contractor flow**~~ — **Done**: `/crm/clients/:clientId/clra` (CRM) and `/contractor/clra` (contractor self-service).
 4. **Payroll debug endpoints** — endpoints like `/payroll/runs/seed-config`, `/fix-employee-gross`, `/patch-attendance/:runId`, `/debug/:runId/:empCode` are admin-only maintenance hooks. Confirm they're either wired to an admin tools page or guarded behind a feature flag.
 5. **No menu wiring issues** were found — all 78 menu items in `menu.config.ts` resolve to mounted Angular routes (separate report: [docs/MENU_WIRING_AUDIT.md](docs/MENU_WIRING_AUDIT.md)).
 

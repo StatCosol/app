@@ -296,24 +296,31 @@ Generated: 2026-03-03
 
 ---
 
-## MODULE: checklists/ ⚠️ STUB
-**FILES:** checklists.controller.spec.ts, checklists.controller.ts, checklists.module.ts, checklists.service.spec.ts, checklists.service.ts, entities/
+## MODULE: checklists/
+**FILES:** checklists.controller.ts, checklists.module.ts, checklists.service.ts, entities/
+**STATUS:** Implemented (4 HTTP endpoints). FE uses branch-compliance paths; `ChecklistsApiService` available for direct API access.
 
-**CONTROLLERS:**
-| Controller | Endpoints |
-|---|---|
-| ChecklistsController | **NONE — empty class** |
-
-**SERVICES:**
-| Service | Status | Methods | Lines |
-|---|---|---|---|
-| ChecklistsService | **STUB — empty class, 0 methods** | 0 | 5 |
-
-**ENTITIES:** BranchCompliance → `branch_compliances`
-
-> **⚠️ FLAG: Fully stub module. Controller has no routes, service has no methods.**
+> **Note (2026-08):** Previously flagged as stub — now has full service implementation.
 
 ---
+
+## Fully Stub Modules (no implementation)
+| Module | Issue |
+|---|---|
+| _(none)_ | All registered modules have implementation |
+
+---
+
+## Previously flagged — resolved
+| Item | Resolution |
+|---|---|
+| **checklists/** stub | Implemented with 4 endpoints |
+| **accounts-billing** no UI | Full `/accounts/*` portal exists |
+| **ceo/registers** 404 | Route wired to `CeoRegistersComponent` |
+| **NotificationThread** orphan | Unused entity removed |
+| **payroll-options** unwired | Filter bar + `FilterOptionsService` use `/payroll/options` |
+| **CLRA** no FE | CRM client workspace at `/crm/clients/:id/clra` |
+| **appraisal templates** no UI | Client page at `/client/appraisal-templates` |
 
 ## MODULE: client-dashboard/
 **FILES:** client-dashboard.controller.ts, client-dashboard.module.ts, client-dashboard.service.spec.ts, client-dashboard.service.ts, dto/
@@ -984,7 +991,18 @@ Generated: 2026-03-03
 ## Fully Stub Modules (no implementation)
 | Module | Issue |
 |---|---|
-| **checklists/** | Controller + Service both empty classes. Entity exists but unused. |
+| _(none)_ | All registered modules have implementation |
+
+## Resolved audit items (2026-08)
+| Item | Resolution |
+|---|---|
+| checklists stub | Implemented (4 endpoints); `ChecklistsApiService` on FE |
+| accounts-billing UI | `/accounts/*` portal complete |
+| ceo/registers 404 | Route added |
+| NotificationThread orphan | Entity removed |
+| payroll-options | Wired via `/payroll/options` |
+| CLRA backend-only | CRM page `/crm/clients/:id/clra` |
+| appraisal templates | `/client/appraisal-templates` |
 
 ## Modules With No Service Layer (raw SQL in controller)
 | Module | Issue |

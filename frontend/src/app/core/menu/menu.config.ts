@@ -36,6 +36,9 @@ export const APP_MENUS: MenuItem[] = [
   { label: 'Escalations', route: '/ceo/escalations', roles: ['CEO'] },
   { label: 'Oversight', route: '/ceo/oversight', roles: ['CEO'] },
   { label: 'Registers', route: '/ceo/registers', roles: ['CEO'] },
+  { label: 'Sales Pipeline', route: '/ceo/sales', roles: ['CEO'] },
+  { label: 'Sales Follow-ups', route: '/ceo/followups', roles: ['CEO'] },
+  { label: 'Receivables', route: '/ceo/receivables', roles: ['CEO'] },
   { label: 'Notifications', route: '/ceo/notifications', roles: ['CEO'] },
   { label: 'Reports', route: '/ceo/reports', roles: ['CEO'] },
 
@@ -79,4 +82,17 @@ export const APP_MENUS: MenuItem[] = [
   { label: 'Runs (select client)', route: '/payroll/clients', roles: ['PAYROLL'] },
   { label: 'Setup (select client)', route: '/payroll/clients', roles: ['PAYROLL'] },
   { label: 'Registers (select client)', route: '/payroll/clients', roles: ['PAYROLL'] },
+
+  // ACCOUNTS
+  { label: 'Dashboard', route: '/accounts/dashboard', roles: ['ACCOUNTS', 'ADMIN'] },
+  { label: 'Clients', route: '/accounts/clients', roles: ['ACCOUNTS', 'ADMIN'] },
+  { label: 'Invoices', route: '/accounts/invoices', roles: ['ACCOUNTS', 'ADMIN'] },
+  { label: 'Payments', route: '/accounts/payments', roles: ['ACCOUNTS', 'ADMIN'] },
+  { label: 'Reports', route: '/accounts/reports', roles: ['ACCOUNTS', 'ADMIN'] },
+  { label: 'Settings', route: '/accounts/settings', roles: ['ACCOUNTS', 'ADMIN'] },
+
+  // SALES
+  { label: 'Dashboard', route: '/sales/dashboard', roles: ['SALES', 'ADMIN'] },
+  { label: 'Leads', route: '/sales/leads', roles: ['SALES', 'ADMIN'] },
+  { label: 'Follow-ups', route: '/sales/followups', roles: ['SALES', 'ADMIN'] },
 ];

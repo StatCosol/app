@@ -47,6 +47,8 @@ jobs:
         run: npm ci
       - name: Typecheck
         run: npx tsc --noEmit
+      - name: Deep module check
+        run: npm run deep-module-check
       - name: Unit tests
         run: npm test
       - name: Boot check (entity metadata + DB connect)
@@ -77,11 +79,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Build
-        # A production `ng build` compiles every component/template, so a broken
-        # binding or type error is caught here instead of shipping a broken UI.
-        # (Unit tests run in Vitest browser mode, which needs Playwright; kept
-        # out of CI for now — the build is the deploy-blocking check.)
         run: npm run build
+      - name: Unit tests (Vitest service specs)
+        run: npm run test:unit
 
   docker:
     runs-on: ubuntu-latest

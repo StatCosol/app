@@ -132,6 +132,8 @@ const ClientAppraisalCyclesComponent = () =>
   import('./performance-appraisal/client-appraisal-cycles.component').then((m) => m.ClientAppraisalCyclesComponent);
 const ClientAppraisalReportsComponent = () =>
   import('./performance-appraisal/client-appraisal-reports.component').then((m) => m.ClientAppraisalReportsComponent);
+const ClientAppraisalTemplatesComponent = () =>
+  import('./performance-appraisal/client-appraisal-templates.component').then((m) => m.ClientAppraisalTemplatesComponent);
 const ContractorPayrollComputationPageComponent = () =>
   import('../../shared/contractor-payroll/contractor-payroll-computation-page.component').then(
     (m) => m.ContractorPayrollComputationPageComponent,
@@ -212,6 +214,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'appraisals', loadComponent: ClientAppraisalsListComponent, canActivate: [moduleAccessGuard('APPRAISAL')] },
       { path: 'appraisals/:id', loadComponent: ClientAppraisalApproveComponent, canActivate: [moduleAccessGuard('APPRAISAL')] },
       { path: 'appraisal-cycles', loadComponent: ClientAppraisalCyclesComponent, canActivate: [moduleAccessGuard('APPRAISAL')] },
+      { path: 'appraisal-templates', loadComponent: ClientAppraisalTemplatesComponent, canActivate: [moduleAccessGuard('APPRAISAL')] },
       { path: 'appraisal-reports', loadComponent: ClientAppraisalReportsComponent, canActivate: [moduleAccessGuard('APPRAISAL')] },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],

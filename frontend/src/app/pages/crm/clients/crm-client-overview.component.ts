@@ -93,6 +93,7 @@ export class CrmClientOverviewComponent implements OnInit, OnDestroy {
   tabs: (ClientTab & { description: string })[] = [
     { label: 'Branches', route: 'branches', icon: '🏢', description: 'Manage branch offices and locations' },
     { label: 'Contractors', route: 'contractors', icon: '👷', description: 'View and manage linked contractors' },
+    { label: 'CLRA', route: 'clra', icon: '⚖️', description: 'PE establishments, CLRA contractors and assignments' },
     { label: 'Compliance', route: 'compliance-tracker', icon: '✅', description: 'Track compliance tasks and deadlines' },
     { label: 'Registrations', route: 'registrations', icon: '📋', description: 'Manage branch registrations & licenses' },
     { label: 'Contractor Documents', route: 'documents', icon: '📄', description: 'Review contractor document submissions' },

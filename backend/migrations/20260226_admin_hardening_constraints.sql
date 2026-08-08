@@ -23,7 +23,9 @@ INSERT INTO roles (id, code, name) VALUES
   (gen_random_uuid(), 'EMPLOYEE',   'Employee (ESS)'),
   (gen_random_uuid(), 'AUDITOR',    'Auditor'),
   (gen_random_uuid(), 'CONTRACTOR', 'Contractor'),
-  (gen_random_uuid(), 'PF_TEAM',    'PF Team')
+  (gen_random_uuid(), 'PF_TEAM',    'PF Team'),
+  (gen_random_uuid(), 'SALES',      'Sales / Business Development'),
+  (gen_random_uuid(), 'ACCOUNTS',   'Accounts / Billing')
 ON CONFLICT DO NOTHING;
 
 -- ── 2. Client-CRM / Client-Auditor assignment uniqueness ────────────────────

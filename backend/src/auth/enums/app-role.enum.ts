@@ -16,4 +16,5 @@ export enum AppRole {
   PF_TEAM = 'PF_TEAM',
   EMPLOYEE = 'EMPLOYEE',
   SALES = 'SALES',
+  ACCOUNTS = 'ACCOUNTS',
 }

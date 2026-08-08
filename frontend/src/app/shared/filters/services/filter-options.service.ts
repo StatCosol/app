@@ -47,12 +47,20 @@ export class FilterOptionsService {
     );
   }
 
-  // ── PayDek ──
+  // ── PayDek / Payroll ──
   paydekClients(): Observable<ClientOption[]> {
-    return this.mapClients(this.http.get<any[]>('/api/v1/paydek/options/clients'));
+    return this.payrollClients();
   }
   paydekBranches(clientId: string): Observable<BranchOption[]> {
-    return this.mapBranches(this.http.get<any[]>('/api/v1/paydek/options/branches', { params: { clientId } }));
+    return this.payrollBranches(clientId);
+  }
+  payrollClients(): Observable<ClientOption[]> {
+    return this.mapClients(this.http.get<any[]>('/api/v1/payroll/options/clients'));
+  }
+  payrollBranches(clientId: string): Observable<BranchOption[]> {
+    return this.mapBranches(
+      this.http.get<any[]>('/api/v1/payroll/options/branches', { params: { clientId } }),
+    );
   }
 
   // ── Auditor ──

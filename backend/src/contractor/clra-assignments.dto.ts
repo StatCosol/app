@@ -136,6 +136,10 @@ export class CreateClraContractorDto {
   @IsString()
   @MaxLength(20)
   pincode?: string;
+
+  @IsOptional()
+  @IsUUID()
+  contractorUserId?: string;
 }
 
 export class CreateClraAssignmentDto {
@@ -367,4 +371,26 @@ export class UpsertClraWageDto {
   ptDeduction?: number;
   otherDeductions?: number;
   netWages: number;
+}
+
+export class CreateClraRegisterRunDto {
+  @IsUUID()
+  assignmentId: string;
+
+  @IsString()
+  @MaxLength(30)
+  registerCode: string;
+
+  @IsOptional()
+  @IsUUID()
+  wagePeriodId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  fileName?: string;
+
+  @IsOptional()
+  @IsString()
+  fileUrl?: string;
 }

@@ -46,6 +46,13 @@ import { AuditsModule } from '../audits/audits.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 
 import { PayrollService } from './payroll.service';
+import { PayrollClientScopeService } from './payroll-client-scope.service';
+import { PayrollFnfService } from './payroll-fnf.service';
+import { PayrollRegistersService } from './payroll-registers.service';
+import { PayrollInputService } from './payroll-input.service';
+import { PayrollRunsService } from './payroll-runs.service';
+import { PayrollPayslipsService } from './payroll-payslips.service';
+import { PayrollQueryService } from './payroll-query.service';
 import { PayrollSetupService } from './payroll-setup.service';
 import { PayrollProcessingService } from './payroll-processing.service';
 import { StatutoryCalculatorService } from './services/statutory-calculator.service';
@@ -217,6 +224,13 @@ import { AccessModule } from '../access/access.module';
   ],
   providers: [
     PayrollService,
+    PayrollClientScopeService,
+    PayrollQueryService,
+    PayrollFnfService,
+    PayrollRegistersService,
+    PayrollInputService,
+    PayrollRunsService,
+    PayrollPayslipsService,
     ClientPayrollToggleGuard,
     PayrollSetupService,
     PayrollProcessingService,

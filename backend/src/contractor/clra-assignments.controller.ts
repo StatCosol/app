@@ -9,11 +9,24 @@ import {
   Put,
   Query,
   Request,
+  Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
+import * as fs from 'fs';
+import * as path from 'path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
+import {
+  assertSafeFileOnDisk,
+  makeSafeUploadOptions,
+} from '../common/safe-upload';
 import { ClraAssignmentsService } from './clra-assignments.service';
 import {
   CreateClraPeEstablishmentDto,
@@ -24,6 +37,7 @@ import {
   CreateClraWagePeriodDto,
   UpsertClraAttendanceDto,
   UpsertClraWageDto,
+  CreateClraRegisterRunDto,
 } from './clra-assignments.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -239,5 +253,47 @@ export class ClraAssignmentsController {
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
   listRegisterRuns(@Param('assignmentId', ParseUUIDPipe) assignmentId: string) {
     return this.svc.listRegisterRuns(assignmentId);
+  }
+
+  @Post('register-runs')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CRM')
+  createRegisterRun(
+    @Body() dto: CreateClraRegisterRunDto,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.svc.createRegisterRun(
+      dto.assignmentId,
+      dto.registerCode,
+      dto.wagePeriodId ?? null,
+      user.userId,
+      dto.fileName ?? '',
+      dto.fileUrl ?? '',
+    );
+  }
+
+  @Post('register-runs/upload')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CRM')
+  @UseInterceptors(
+    FileInterceptor('file', makeSafeUploadOptions({ folder: 'clra-registers', maxMb: 10 })),
+  )
+  uploadRegisterRun(
+    @Body() dto: CreateClraRegisterRunDto,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: ReqUser,
+  ) {
+    assertSafeFileOnDisk(file);
+    return this.svc.createRegisterRunFromUpload(dto, file, user.userId);
+  }
+
+  @Get('register-runs/:id/download')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT', 'CONTRACTOR')
+  async downloadRegisterRun(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
+    const out = await this.svc.downloadRegisterRun(id);
+    res.setHeader('Content-Type', out.mimeType);
+    res.setHeader('Content-Disposition', `attachment; filename="${out.fileName}"`);
+    res.end(out.buffer);
   }
 }

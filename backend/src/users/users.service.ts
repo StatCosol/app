@@ -526,6 +526,7 @@ export class UsersService implements OnModuleInit {
       CLIENT: 'CL',
       CONTRACTOR: 'CO',
       ACCOUNTS: 'AC',
+      SALES: 'SA',
     };
     return map[roleCode] ?? roleCode.substring(0, 2).toUpperCase();
   }

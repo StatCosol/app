@@ -28,28 +28,19 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NonComplianceEngineService } from '../automation/services/non-compliance-engine.service';
 import { AuditOutputEngineService } from '../automation/services/audit-output-engine.service';
 import { ReqUser } from '../access/access-scope.service';
-import { RejectionMailService } from '../email/rejection-mail.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AuditNcService } from './audit-nc.service';
+import { AuditChecklistService } from './audit-checklist.service';
+import { AuditAuditorDashboardService } from './audit-auditor-dashboard.service';
+import { AuditReportService } from './audit-report.service';
+import { AuditListingService } from './audit-listing.service';
+import { AuditDocumentReviewService } from './audit-document-review.service';
 
-export interface BranchAuditKpiItem {
-  periodCode: string;
-  critical: number;
-  high: number;
-  medium: number;
-  low: number;
-  open: number;
-  closed: number;
-}
+export type { BranchAuditKpiItem } from './audit-listing.service';
 
 @Injectable()
 export class AuditsService implements OnModuleInit {
   private readonly logger = new Logger(AuditsService.name);
-  private auditReportColumnsCache: {
-    scope: boolean;
-    methodology: boolean;
-    selectedObservationIds: boolean;
-    finalizedAt: boolean;
-  } | null = null;
 
   constructor(
     @InjectRepository(AuditEntity)
@@ -71,7 +62,12 @@ export class AuditsService implements OnModuleInit {
     private readonly notificationsService: NotificationsService,
     private readonly ncEngine: NonComplianceEngineService,
     private readonly auditOutputEngine: AuditOutputEngineService,
-    private readonly rejectionMail: RejectionMailService,
+    private readonly ncService: AuditNcService,
+    private readonly checklistService: AuditChecklistService,
+    private readonly auditorDashboardService: AuditAuditorDashboardService,
+    private readonly reportService: AuditReportService,
+    private readonly listingService: AuditListingService,
+    private readonly documentReviewService: AuditDocumentReviewService,
     @Optional() private readonly auditLogs?: AuditLogsService,
   ) {}
 
@@ -382,7 +378,8 @@ export class AuditsService implements OnModuleInit {
     );
   }
 
-  // ─── CRM: list audits for assigned clients ──────────────────────
+  // ─── Listing / KPI — delegated to AuditListingService ───
+
   async listForCrm(
     user: ReqUser,
     q: {
@@ -394,71 +391,11 @@ export class AuditsService implements OnModuleInit {
       auditType?: string;
     },
   ) {
-    this.assertCrm(user);
-
-    // Get all clients assigned to this CRM
-    const assignedClientIds =
-      await this.assignmentsService.getAssignedClientsForCrm(user.userId);
-
-    if (!assignedClientIds || assignedClientIds.length === 0) {
-      return { data: [], total: 0 };
-    }
-
-    const clientIds = assignedClientIds.map((c) => c.id);
-
-    const page = Math.max(1, Number(q?.page) || 1);
-    const pageSize = Math.min(250, Math.max(1, Number(q?.pageSize) || 25));
-
-    const qb = this.repo
-      .createQueryBuilder('a')
-      .leftJoinAndSelect('a.client', 'client')
-      .leftJoinAndSelect('a.contractorUser', 'contractor')
-      .leftJoinAndSelect('a.assignedAuditor', 'auditor')
-      .where('a.clientId IN (:...clientIds)', { clientIds });
-
-    if (q.status) {
-      qb.andWhere('a.status = :st', { st: q.status });
-    }
-    if (q.year) {
-      qb.andWhere('a.periodYear = :yy', { yy: Number(q.year) });
-    }
-    if (q.clientId) {
-      qb.andWhere('a.clientId = :cid', { cid: q.clientId });
-    }
-    if (q.auditType) {
-      qb.andWhere('a.auditType = :at', { at: q.auditType });
-    }
-
-    qb.addSelect(
-      "CASE WHEN a.status IN ('PLANNED','IN_PROGRESS') THEN 0 ELSE 1 END",
-      'status_rank',
-    )
-      .orderBy('status_rank', 'ASC')
-      .addOrderBy('a.createdAt', 'DESC');
-
-    const [rows, total] = await qb
-      .skip((page - 1) * pageSize)
-      .take(pageSize)
-      .getManyAndCount();
-
-    return { data: rows, page, pageSize, total };
+    return this.listingService.listForCrm(user, q);
   }
 
   async getForCrm(user: ReqUser, id: string) {
-    this.assertCrm(user);
-    const audit = await this.repo.findOne({
-      where: { id },
-      relations: ['client', 'contractorUser', 'assignedAuditor'],
-    });
-    if (!audit) throw new NotFoundException('Audit not found');
-
-    // Verify CRM is assigned to this client
-    const ok = await this.assignmentsService.isClientAssignedToCrm(
-      audit.clientId,
-      user.userId,
-    );
-    if (!ok) throw new ForbiddenException('Client not assigned to this CRM');
-    return audit;
+    return this.listingService.getForCrm(user, id);
   }
 
   async assignAuditorForCrm(
@@ -470,135 +407,92 @@ export class AuditsService implements OnModuleInit {
       notes?: string | null;
     },
   ) {
-    this.assertCrm(user);
-    const audit = await this.repo.findOne({ where: { id: auditId } });
-    if (!audit) throw new NotFoundException('Audit not found');
-
-    const ok = await this.assignmentsService.isClientAssignedToCrm(
-      audit.clientId,
-      user.userId,
-    );
-    if (!ok) {
-      throw new ForbiddenException('Client not assigned to this CRM');
-    }
-
-    if (dto.assignedAuditorId) {
-      const auditorRole = await this.usersService.getUserRoleCode(
-        dto.assignedAuditorId,
-      );
-      if (auditorRole !== 'AUDITOR') {
-        throw new BadRequestException(
-          'assignedAuditorId must be an AUDITOR user',
-        );
-      }
-      audit.assignedAuditorId = dto.assignedAuditorId;
-    }
-
-    if (dto.dueDate !== undefined) {
-      audit.dueDate = dto.dueDate || null;
-    }
-    if (dto.notes !== undefined) {
-      audit.notes = dto.notes?.trim() || null;
-    }
-
-    const saved = await this.repo.save(audit);
-    return {
-      id: saved.id,
-      assignedAuditorId: saved.assignedAuditorId,
-      dueDate: saved.dueDate,
-      notes: saved.notes,
-      updatedAt: saved.updatedAt,
-    };
+    return this.listingService.assignAuditorForCrm(user, auditId, dto);
   }
 
   async getReadinessForCrm(user: ReqUser, id: string) {
-    const audit = await this.getForCrm(user, id);
-    const [totalObservations, openObservations] = await Promise.all([
-      this.observationRepo
-        .createQueryBuilder('obs')
-        .where('obs.auditId = :auditId', { auditId: id })
-        .getCount(),
-      this.observationRepo
-        .createQueryBuilder('obs')
-        .where('obs.auditId = :auditId', { auditId: id })
-        .andWhere(
-          `UPPER(COALESCE(obs.status, 'OPEN')) NOT IN ('RESOLVED','CLOSED')`,
-        )
-        .getCount(),
-    ]);
-
-    const executionStarted = ['IN_PROGRESS', 'COMPLETED'].includes(
-      String(audit.status || '').toUpperCase(),
-    );
-    const checklist = [
-      {
-        key: 'client_scope_linked',
-        label: 'Client scope linked',
-        ok: !!audit.clientId,
-        hint: audit.clientId
-          ? 'Client mapping available'
-          : 'Client scope missing',
-      },
-      {
-        key: 'period_configured',
-        label: 'Period configured',
-        ok: !!audit.periodYear && !!audit.periodCode,
-        hint:
-          audit.periodYear && audit.periodCode
-            ? String(audit.periodCode)
-            : 'Period year/code missing',
-      },
-      {
-        key: 'auditor_assigned',
-        label: 'Auditor assigned',
-        ok: !!audit.assignedAuditorId,
-        hint: audit.assignedAuditorId || 'Assignment required',
-      },
-      {
-        key: 'schedule_locked',
-        label: 'Schedule locked',
-        ok: !!audit.dueDate,
-        hint: audit.dueDate ? String(audit.dueDate) : 'Due date not set',
-      },
-      {
-        key: 'execution_started',
-        label: 'Execution started',
-        ok: executionStarted,
-        hint: executionStarted
-          ? `Current status: ${String(audit.status || '').replace('_', ' ')}`
-          : 'Audit not started',
-      },
-      {
-        key: 'capa_tracking_present',
-        label: 'CAPA tracking present',
-        ok: totalObservations > 0,
-        hint:
-          totalObservations > 0
-            ? `${totalObservations} observations`
-            : 'No observations linked yet',
-      },
-    ];
-
-    return {
-      auditId: audit.id,
-      checklist,
-      metrics: {
-        totalObservations,
-        openObservations,
-      },
-    };
+    return this.listingService.getReadinessForCrm(user, id);
   }
 
+  async listForAuditor(
+    user: ReqUser,
+    q: {
+      page?: number | string;
+      pageSize?: number | string;
+      frequency?: string;
+      status?: string;
+      year?: number | string;
+      clientId?: string;
+      contractorUserId?: string;
+      branchId?: string;
+    },
+  ) {
+    return this.listingService.listForAuditor(user, q);
+  }
+
+  async listForContractor(
+    user: ReqUser,
+    q: {
+      page?: number | string;
+      pageSize?: number | string;
+      status?: string;
+      year?: number | string;
+    },
+  ) {
+    return this.listingService.listForContractor(user, q);
+  }
+
+  async getForAuditor(user: ReqUser, id: string) {
+    return this.listingService.getForAuditor(user, id);
+  }
+
+  async listForClient(
+    user: ReqUser,
+    q: { frequency?: string; status?: string; year?: number | string },
+  ) {
+    return this.listingService.listForClient(user, q);
+  }
+
+  async getSummaryForClient(user: ReqUser) {
+    return this.listingService.getSummaryForClient(user);
+  }
+
+  async getBranchAuditKpi(branchId: string, from: string, to: string) {
+    return this.listingService.getBranchAuditKpi(branchId, from, to);
+  }
+
+  async getBranchAuditKpiSingle(branchId: string, periodCode: string) {
+    return this.listingService.getBranchAuditKpiSingle(branchId, periodCode);
+  }
+
+  async listContractorsForAuditor(user: ReqUser, clientId: string) {
+    return this.listingService.listContractorsForAuditor(user, clientId);
+  }
+
+  async getUploadLockForContractor(user: ReqUser, auditId: string) {
+    return this.listingService.getUploadLockForContractor(user, auditId);
+  }
+
+  async getDashboardAudits(
+    user: ReqUser,
+    tab: string,
+    filters: {
+      clientId?: string;
+      auditType?: string;
+      fromDate?: string;
+      toDate?: string;
+    },
+  ) {
+    return this.listingService.getDashboardAudits(user, tab, filters);
+  }
   async getReadinessForAuditor(user: ReqUser, id: string) {
     const audit = await this.getForAuditor(user, id);
     return this.buildReadinessSnapshot(audit);
   }
 
   async getReportStatusForAuditor(user: ReqUser, id: string) {
-    const audit = await this.getForAuditor(user, id);
-    return this.buildReportStatus(audit);
+    return this.reportService.getReportStatusForAuditor(user, id);
   }
-
   private async buildReadinessSnapshot(audit: AuditEntity) {
     const id = audit.id;
     const [totalObservations, openObservations] = await Promise.all([
@@ -672,227 +566,25 @@ export class AuditsService implements OnModuleInit {
     };
   }
 
-  private async buildReportStatus(audit: AuditEntity) {
-    const latestReport = await this.getLatestReportRow(audit.id);
-    if (!latestReport) {
-      return {
-        auditId: audit.id,
-        stage: 'NOT_STARTED',
-        status: null,
-        updatedAt: null,
-        finalizedAt: null,
-      };
-    }
-    const status = String(latestReport.status || '').toUpperCase();
-    const stage =
-      status === 'DRAFT'
-        ? 'DRAFT'
-        : ['SUBMITTED', 'APPROVED', 'PUBLISHED'].includes(status)
-          ? 'FINAL'
-          : 'NOT_STARTED';
-    return {
-      auditId: audit.id,
-      stage,
-      status,
-      updatedAt: latestReport.updated_at || null,
-      finalizedAt: latestReport.finalized_at || null,
-    };
-  }
-
   async getReportStatusForCrm(user: ReqUser, id: string) {
-    const audit = await this.getForCrm(user, id);
-    const latestReport = await this.getLatestReportRow(id);
-    if (!latestReport) {
-      return {
-        auditId: audit.id,
-        stage: 'NOT_STARTED',
-        status: null,
-        updatedAt: null,
-        finalizedAt: null,
-      };
-    }
-
-    const status = String(latestReport.status || '').toUpperCase();
-    const stage =
-      status === 'DRAFT'
-        ? 'DRAFT'
-        : ['SUBMITTED', 'APPROVED', 'PUBLISHED'].includes(status)
-          ? 'FINAL'
-          : 'NOT_STARTED';
-
-    return {
-      auditId: audit.id,
-      stage,
-      status,
-      updatedAt: latestReport.updated_at || null,
-      finalizedAt: latestReport.finalized_at || null,
-    };
+    return this.reportService.getReportStatusForCrm(user, id);
   }
 
   async approveReportForCrm(user: ReqUser, auditId: string, remarks?: string) {
-    const audit = await this.getForCrm(user, auditId);
-    const rows = await this.dataSource.query(
-      `SELECT id, status
-       FROM audit_reports
-       WHERE audit_id = $1
-       ORDER BY updated_at DESC, created_at DESC
-       LIMIT 1`,
-      [auditId],
-    );
-    const current = rows[0];
-    if (!current) {
-      throw new BadRequestException('No report draft found for this audit');
-    }
-
-    const status = String(current.status || '').toUpperCase();
-    if (status !== 'SUBMITTED') {
-      throw new BadRequestException(
-        `Only SUBMITTED reports can be approved. Current status: ${status}`,
-      );
-    }
-
-    await this.dataSource.query(
-      `UPDATE audit_reports
-       SET status = 'APPROVED',
-           approved_by_user_id = $2,
-           approved_date = CURRENT_DATE,
-           updated_at = NOW()
-       WHERE id = $1`,
-      [current.id, user.userId],
-    );
-
-    return {
-      auditId: audit.id,
-      reportId: current.id,
-      status: 'APPROVED',
-      remarks: remarks || null,
-    };
+    return this.reportService.approveReportForCrm(user, auditId, remarks);
   }
 
   async publishReportForCrm(user: ReqUser, auditId: string, remarks?: string) {
-    const audit = await this.getForCrm(user, auditId);
-    const rows = await this.dataSource.query(
-      `SELECT id, status
-       FROM audit_reports
-       WHERE audit_id = $1
-       ORDER BY updated_at DESC, created_at DESC
-       LIMIT 1`,
-      [auditId],
-    );
-    const current = rows[0];
-    if (!current) {
-      throw new BadRequestException('No report draft found for this audit');
-    }
-
-    const status = String(current.status || '').toUpperCase();
-    if (!['SUBMITTED', 'APPROVED'].includes(status)) {
-      throw new BadRequestException(
-        `Only SUBMITTED/APPROVED reports can be published. Current status: ${status}`,
-      );
-    }
-
-    await this.dataSource.query(
-      `UPDATE audit_reports
-       SET status = 'PUBLISHED',
-           approved_by_user_id = COALESCE(approved_by_user_id, $2),
-           approved_date = COALESCE(approved_date, CURRENT_DATE),
-           published_date = CURRENT_DATE,
-           updated_at = NOW()
-       WHERE id = $1`,
-      [current.id, user.userId],
-    );
-
-    return {
-      auditId: audit.id,
-      reportId: current.id,
-      status: 'PUBLISHED',
-      remarks: remarks || null,
-    };
+    return this.reportService.publishReportForCrm(user, auditId, remarks);
   }
 
   async sendBackReportForCrm(user: ReqUser, auditId: string, remarks?: string) {
-    const audit = await this.getForCrm(user, auditId);
-    if (!remarks?.trim()) {
-      throw new BadRequestException('remarks are required to send back report');
-    }
-
-    const rows = await this.dataSource.query(
-      `SELECT id, status
-       FROM audit_reports
-       WHERE audit_id = $1
-       ORDER BY updated_at DESC, created_at DESC
-       LIMIT 1`,
-      [auditId],
-    );
-    const current = rows[0];
-    if (!current) {
-      throw new BadRequestException('No report draft found for this audit');
-    }
-
-    const status = String(current.status || '').toUpperCase();
-    if (!['SUBMITTED', 'APPROVED'].includes(status)) {
-      throw new BadRequestException(
-        `Only SUBMITTED/APPROVED reports can be sent back. Current status: ${status}`,
-      );
-    }
-
-    const availableCols = await this.getAuditReportColumnsAvailability();
-    const draftSet = availableCols.finalizedAt
-      ? "status = 'DRAFT', finalized_at = NULL, updated_at = NOW()"
-      : "status = 'DRAFT', updated_at = NOW()";
-
-    await this.dataSource.query(
-      `UPDATE audit_reports
-       SET ${draftSet}
-       WHERE id = $1`,
-      [current.id],
-    );
-
-    return {
-      auditId: audit.id,
-      reportId: current.id,
-      status: 'DRAFT',
-      remarks: remarks.trim(),
-      action: 'SENT_BACK',
-    };
+    return this.reportService.sendBackReportForCrm(user, auditId, remarks);
   }
 
   async holdReportForCrm(user: ReqUser, auditId: string, remarks?: string) {
-    const audit = await this.getForCrm(user, auditId);
-    const rows = await this.dataSource.query(
-      `SELECT id, status
-       FROM audit_reports
-       WHERE audit_id = $1
-       ORDER BY updated_at DESC, created_at DESC
-       LIMIT 1`,
-      [auditId],
-    );
-    const current = rows[0];
-    if (!current) {
-      throw new BadRequestException('No report draft found for this audit');
-    }
-
-    const status = String(current.status || '').toUpperCase();
-    if (!['SUBMITTED', 'APPROVED'].includes(status)) {
-      throw new BadRequestException(
-        `Only SUBMITTED/APPROVED reports can be held. Current status: ${status}`,
-      );
-    }
-
-    await this.dataSource.query(
-      `UPDATE audit_reports SET updated_at = NOW() WHERE id = $1`,
-      [current.id],
-    );
-
-    return {
-      auditId: audit.id,
-      reportId: current.id,
-      status,
-      held: true,
-      remarks: remarks || null,
-    };
+    return this.reportService.holdReportForCrm(user, auditId, remarks);
   }
-
   // ─── Audit Status Transitions ──────────────────────────────────
   private static readonly ALLOWED_TRANSITIONS: Record<string, string[]> = {
     PLANNED: ['IN_PROGRESS', 'CANCELLED'],
@@ -950,7 +642,7 @@ export class AuditsService implements OnModuleInit {
     }
 
     if (targetStatus === 'COMPLETED') {
-      const latestReport = await this.getLatestReportRow(auditId);
+      const latestReport = await this.reportService.getLatestReportRow(auditId);
       const reportStatus = String(latestReport?.status || '').toUpperCase();
       const reportFinalized = ['SUBMITTED', 'APPROVED', 'PUBLISHED'].includes(
         reportStatus,
@@ -1021,199 +713,8 @@ export class AuditsService implements OnModuleInit {
     };
   }
 
-  async listForAuditor(
-    user: ReqUser,
-    q: {
-      page?: number | string;
-      pageSize?: number | string;
-      frequency?: string;
-      status?: string;
-      year?: number | string;
-      clientId?: string;
-      contractorUserId?: string;
-      branchId?: string;
-    },
-  ) {
-    this.assertAuditor(user);
-
-    const page = Math.max(1, Number(q?.page) || 1);
-    const pageSize = Math.min(250, Math.max(1, Number(q?.pageSize) || 25));
-
-    const qb = this.repo
-      .createQueryBuilder('a')
-      .leftJoinAndSelect('a.client', 'client')
-      .leftJoinAndSelect('a.branch', 'branch')
-      .leftJoinAndSelect('a.contractorUser', 'contractor')
-      .where('a.assignedAuditorId = :uid', { uid: user.userId })
-      .andWhere('COALESCE(client.is_deleted, false) = false');
-
-    if (q.frequency) {
-      qb.andWhere('a.frequency = :freq', { freq: q.frequency });
-    }
-    if (q.status) {
-      qb.andWhere('a.status = :st', { st: q.status });
-    }
-    if (q.year) {
-      qb.andWhere('a.periodYear = :yy', { yy: Number(q.year) });
-    }
-    if (q.clientId) {
-      qb.andWhere('a.clientId = :cid', { cid: q.clientId });
-    }
-    if (q.contractorUserId) {
-      qb.andWhere('a.contractorUserId = :kid', { kid: q.contractorUserId });
-    }
-    if (q.branchId) {
-      qb.andWhere('a.branchId = :bid', { bid: q.branchId });
-    }
-
-    qb.addSelect(
-      "CASE WHEN a.status IN ('PLANNED','IN_PROGRESS') THEN 0 ELSE 1 END",
-      'status_rank',
-    )
-      .orderBy('status_rank', 'ASC')
-      .addOrderBy('a.createdAt', 'DESC');
-
-    const [rows, total] = await qb
-      .skip((page - 1) * pageSize)
-      .take(pageSize)
-      .getManyAndCount();
-
-    return { data: rows, page, pageSize, total };
-  }
-
-  async listForContractor(
-    user: ReqUser,
-    q: {
-      page?: number | string;
-      pageSize?: number | string;
-      status?: string;
-      year?: number | string;
-      clientId?: string;
-      branchId?: string;
-    },
-  ) {
-    this.assertContractor(user);
-
-    const page = Math.max(1, Number(q?.page) || 1);
-    const pageSize = Math.min(250, Math.max(1, Number(q?.pageSize) || 25));
-
-    const qb = this.repo
-      .createQueryBuilder('a')
-      .leftJoinAndSelect('a.client', 'client')
-      .leftJoinAndSelect('a.branch', 'branch')
-      .leftJoinAndSelect('a.assignedAuditor', 'assignedAuditor')
-      .where(
-        `(a.contractorUserId = :uid OR (
-          a.contractorUserId IS NULL
-          AND a.clientId = :clientId
-          AND a.auditType = :contractorAuditType
-          AND (
-            a.branchId IS NULL
-            OR a.branchId IN (
-              SELECT bc.branch_id FROM branch_contractor bc
-              WHERE bc.contractor_user_id = :uid
-                AND bc.client_id = :clientId
-            )
-          )
-        ))`,
-        {
-          uid: user.userId,
-          clientId: user.clientId,
-          contractorAuditType: 'CONTRACTOR',
-        },
-      )
-      .andWhere('COALESCE(client.is_deleted, false) = false');
-
-    if (q.status) {
-      qb.andWhere('a.status = :st', { st: q.status });
-    } else {
-      qb.andWhere(
-        "a.status IN ('PLANNED','IN_PROGRESS','CORRECTION_PENDING','REVERIFICATION_PENDING')",
-      );
-    }
-
-    if (q.year) {
-      qb.andWhere('a.periodYear = :yy', { yy: Number(q.year) });
-    }
-    if (q.clientId) {
-      qb.andWhere('a.clientId = :cid', { cid: q.clientId });
-    }
-    if (q.branchId) {
-      qb.andWhere('a.branchId = :bid', { bid: q.branchId });
-    }
-
-    qb.addSelect(
-      "CASE WHEN a.status IN ('PLANNED','IN_PROGRESS','CORRECTION_PENDING','REVERIFICATION_PENDING') THEN 0 ELSE 1 END",
-      'status_rank',
-    )
-      .orderBy('status_rank', 'ASC')
-      .addOrderBy('a.scheduledDate', 'ASC', 'NULLS LAST')
-      .addOrderBy('a.createdAt', 'DESC');
-
-    const [rows, total] = await qb
-      .skip((page - 1) * pageSize)
-      .take(pageSize)
-      .getManyAndCount();
-
-    return { data: rows, page, pageSize, total };
-  }
-
-  async getForAuditor(user: ReqUser, id: string) {
-    this.assertAuditor(user);
-    const audit = await this.repo.findOne({
-      where: { id },
-      relations: ['client', 'branch', 'contractorUser', 'assignedAuditor'],
-    });
-    if (!audit) throw new NotFoundException('Audit not found');
-    if (audit.assignedAuditorId !== user.userId) {
-      throw new ForbiddenException('Not your audit');
-    }
-    return audit;
-  }
-
   async getReportForAuditor(user: ReqUser, auditId: string) {
-    const audit = await this.ensureAuditorAuditAccess(user, auditId);
-    const availableCols = await this.getAuditReportColumnsAvailability();
-
-    const scopeSelect = availableCols.scope
-      ? 'ar.scope AS "scope",'
-      : 'NULL::text AS "scope",';
-    const methodologySelect = availableCols.methodology
-      ? 'ar.methodology AS "methodology",'
-      : 'NULL::text AS "methodology",';
-    const selectedObsSelect = availableCols.selectedObservationIds
-      ? 'ar.selected_observation_ids AS "selectedObservationIds",'
-      : 'NULL::jsonb AS "selectedObservationIds",';
-    const finalizedAtSelect = availableCols.finalizedAt
-      ? 'ar.finalized_at AS "finalizedAt",'
-      : 'NULL::timestamp AS "finalizedAt",';
-
-    const rows = await this.dataSource.query(
-      `SELECT
-         ar.id AS "reportId",
-         ar.audit_id AS "auditId",
-         ar.report_type AS "reportType",
-         ar.status AS "status",
-         ar.executive_summary AS "executiveSummary",
-         ${scopeSelect}
-         ${methodologySelect}
-         ar.findings AS "findings",
-         ar.recommendations AS "recommendations",
-         ${selectedObsSelect}
-         ${finalizedAtSelect}
-         ar.updated_at AS "updatedAt"
-       FROM audit_reports ar
-       WHERE ar.audit_id = $1
-       ORDER BY ar.updated_at DESC, ar.created_at DESC
-       LIMIT 1`,
-      [auditId],
-    );
-
-    return this.mapReportRow(
-      audit.id,
-      rows[0] ?? null,
-      audit.updatedAt || null,
-    );
+    return this.reportService.getReportForAuditor(user, auditId);
   }
 
   async saveReportDraftForAuditor(
@@ -1229,569 +730,21 @@ export class AuditsService implements OnModuleInit {
       selectedObservationIds?: string[];
     },
   ) {
-    const audit = await this.ensureAuditorAuditAccess(user, auditId);
-    if (String(audit.status || '').toUpperCase() === 'COMPLETED') {
-      throw new BadRequestException(
-        'Cannot edit report after audit completion',
-      );
-    }
-
-    const selectedObservationIds = Array.isArray(dto.selectedObservationIds)
-      ? [
-          ...new Set(
-            dto.selectedObservationIds
-              .map((x) => String(x).trim())
-              .filter(Boolean),
-          ),
-        ]
-      : [];
-    const version = dto.version === 'CLIENT' ? 'CLIENT' : 'INTERNAL';
-    const availableCols = await this.getAuditReportColumnsAvailability();
-
-    const existingRows = await this.dataSource.query(
-      `SELECT id, status
-       FROM audit_reports
-       WHERE audit_id = $1
-       ORDER BY updated_at DESC, created_at DESC
-       LIMIT 1`,
-      [auditId],
-    );
-    const existing = existingRows[0] || null;
-    const userId = user.userId || user.id;
-
-    if (!existing) {
-      const insertColumns = [
-        'audit_id',
-        'report_type',
-        'executive_summary',
-        'findings',
-        'recommendations',
-      ];
-      const insertValues: unknown[] = [
-        auditId,
-        version,
-        dto.executiveSummary || null,
-        dto.findings || null,
-        dto.recommendations || null,
-      ];
-
-      if (availableCols.scope) {
-        insertColumns.splice(3, 0, 'scope');
-        insertValues.splice(3, 0, dto.scope || null);
-      }
-
-      if (availableCols.methodology) {
-        const idx = 4 + Number(availableCols.scope);
-        insertColumns.splice(idx, 0, 'methodology');
-        insertValues.splice(idx, 0, dto.methodology || null);
-      }
-
-      if (availableCols.selectedObservationIds) {
-        const idx =
-          5 + Number(availableCols.scope) + Number(availableCols.methodology);
-        insertColumns.splice(idx, 0, 'selected_observation_ids');
-        insertValues.splice(idx, 0, JSON.stringify(selectedObservationIds));
-      }
-
-      insertColumns.push(
-        'status',
-        'prepared_by_user_id',
-        'prepared_date',
-        'updated_at',
-      );
-      insertValues.push('DRAFT', userId || null);
-
-      const placeholders = insertColumns.map((col, i) => {
-        if (col === 'prepared_date') return 'CURRENT_DATE';
-        if (col === 'updated_at') return 'NOW()';
-        if (col === 'selected_observation_ids') return `$${i + 1}::jsonb`;
-        return `$${i + 1}`;
-      });
-
-      await this.dataSource.query(
-        `INSERT INTO audit_reports
-          (${insertColumns.join(', ')})
-         VALUES
-          (${placeholders.join(', ')})`,
-        insertValues,
-      );
-    } else {
-      const status = String(existing.status || '').toUpperCase();
-      if (['APPROVED', 'PUBLISHED'].includes(status)) {
-        throw new BadRequestException(
-          'Cannot edit approved or published report',
-        );
-      }
-      if (status !== 'DRAFT') {
-        throw new BadRequestException('Reopen the report before editing');
-      }
-
-      const updates: string[] = ['report_type = $1', 'executive_summary = $2'];
-      const params: unknown[] = [version, dto.executiveSummary || null];
-
-      if (availableCols.scope) {
-        params.push(dto.scope || null);
-        updates.push(`scope = $${params.length}`);
-      }
-
-      if (availableCols.methodology) {
-        params.push(dto.methodology || null);
-        updates.push(`methodology = $${params.length}`);
-      }
-
-      params.push(dto.findings || null);
-      updates.push(`findings = $${params.length}`);
-
-      params.push(dto.recommendations || null);
-      updates.push(`recommendations = $${params.length}`);
-
-      if (availableCols.selectedObservationIds) {
-        params.push(JSON.stringify(selectedObservationIds));
-        updates.push(`selected_observation_ids = $${params.length}::jsonb`);
-      }
-
-      params.push(existing.id);
-
-      await this.dataSource.query(
-        `UPDATE audit_reports
-         SET
-           ${updates.join(',\n           ')},
-           updated_at = NOW()
-         WHERE id = $${params.length}`,
-        params,
-      );
-    }
-
-    return this.getReportForAuditor(user, auditId);
+    return this.reportService.saveReportDraftForAuditor(user, auditId, dto);
   }
 
   async finalizeReportForAuditor(user: ReqUser, auditId: string) {
-    const audit = await this.ensureAuditorAuditAccess(user, auditId);
-    const availableCols = await this.getAuditReportColumnsAvailability();
-    if (String(audit.status || '').toUpperCase() === 'COMPLETED') {
-      throw new BadRequestException('Audit is already completed');
-    }
-
-    const existingRows = await this.dataSource.query(
-      `SELECT id, status
-       FROM audit_reports
-       WHERE audit_id = $1
-       ORDER BY updated_at DESC, created_at DESC
-       LIMIT 1`,
-      [auditId],
-    );
-    let existing = existingRows[0] || null;
-    const userId = user.userId || user.id;
-
-    if (!existing) {
-      await this.dataSource.query(
-        `INSERT INTO audit_reports
-          (audit_id, report_type, status, prepared_by_user_id, prepared_date, updated_at)
-         VALUES
-          ($1, 'INTERNAL', 'DRAFT', $2, CURRENT_DATE, NOW())`,
-        [auditId, userId || null],
-      );
-      const postInsert = await this.dataSource.query(
-        `SELECT id, status
-         FROM audit_reports
-         WHERE audit_id = $1
-         ORDER BY updated_at DESC, created_at DESC
-         LIMIT 1`,
-        [auditId],
-      );
-      existing = postInsert[0] || null;
-    }
-
-    const status = String(existing?.status || '').toUpperCase();
-    if (['APPROVED', 'PUBLISHED'].includes(status)) {
-      throw new BadRequestException(
-        'Cannot finalize approved or published report',
-      );
-    }
-    if (status !== 'DRAFT') {
-      return this.getReportForAuditor(user, auditId);
-    }
-
-    const finalizeSet = availableCols.finalizedAt
-      ? "status = 'SUBMITTED', finalized_at = NOW(), updated_at = NOW()"
-      : "status = 'SUBMITTED', updated_at = NOW()";
-
-    await this.dataSource.query(
-      `UPDATE audit_reports
-       SET ${finalizeSet}
-       WHERE id = $1`,
-      [existing.id],
-    );
-
-    return this.getReportForAuditor(user, auditId);
+    return this.reportService.finalizeReportForAuditor(user, auditId);
   }
 
   async reopenReportForAuditor(user: ReqUser, auditId: string) {
-    const audit = await this.ensureAuditorAuditAccess(user, auditId);
-    const availableCols = await this.getAuditReportColumnsAvailability();
-    if (String(audit.status || '').toUpperCase() === 'COMPLETED') {
-      throw new BadRequestException(
-        'Cannot reopen report after audit completion',
-      );
-    }
-
-    const existingRows = await this.dataSource.query(
-      `SELECT id, status
-       FROM audit_reports
-       WHERE audit_id = $1
-       ORDER BY updated_at DESC, created_at DESC
-       LIMIT 1`,
-      [auditId],
-    );
-    const existing = existingRows[0] || null;
-    if (!existing) {
-      throw new NotFoundException('Audit report draft not found');
-    }
-
-    const status = String(existing.status || '').toUpperCase();
-    if (status === 'DRAFT') {
-      return this.getReportForAuditor(user, auditId);
-    }
-    if (['APPROVED', 'PUBLISHED'].includes(status)) {
-      throw new BadRequestException(
-        'Cannot reopen approved or published report',
-      );
-    }
-    if (status !== 'SUBMITTED') {
-      throw new BadRequestException(`Cannot reopen report in ${status} status`);
-    }
-
-    const reopenSet = availableCols.finalizedAt
-      ? "status = 'DRAFT', finalized_at = NULL, updated_at = NOW()"
-      : "status = 'DRAFT', updated_at = NOW()";
-
-    await this.dataSource.query(
-      `UPDATE audit_reports
-       SET ${reopenSet}
-       WHERE id = $1`,
-      [existing.id],
-    );
-
-    return this.getReportForAuditor(user, auditId);
+    return this.reportService.reopenReportForAuditor(user, auditId);
   }
 
-  async exportReportPdfForAuditor(
-    user: ReqUser,
-    auditId: string,
-  ): Promise<Buffer> {
-    const audit = await this.ensureAuditorAuditAccess(user, auditId);
-    const report = await this.getReportForAuditor(user, auditId);
-    if (report.stage !== 'FINAL') {
-      throw new BadRequestException('Only finalized reports can be exported');
-    }
-
-    const selectedIds = Array.isArray(report.selectedObservationIds)
-      ? report.selectedObservationIds
-      : [];
-
-    const obsQb = this.observationRepo
-      .createQueryBuilder('obs')
-      .leftJoinAndSelect('obs.category', 'category')
-      .where('obs.auditId = :auditId', { auditId })
-      .orderBy('obs.sequenceNumber', 'ASC')
-      .addOrderBy('obs.createdAt', 'ASC');
-
-    if (selectedIds.length) {
-      obsQb.andWhere('obs.id IN (:...selectedIds)', { selectedIds });
-    }
-
-    const observations = await obsQb.getMany();
-    const version = report.version === 'CLIENT' ? 'CLIENT' : 'INTERNAL';
-
-    return generateAuditReportPdfBuffer({
-      auditId: report.auditId,
-      auditCode: audit.auditCode || audit.id,
-      clientName: audit.client?.clientName || null,
-      branchName: audit.branch?.branchName || null,
-      periodCode: audit.periodCode || null,
-      version,
-      stage: 'FINAL',
-      updatedAt: report.updatedAt,
-      finalizedAt: report.finalizedAt,
-      executiveSummary: report.executiveSummary || '',
-      scope: report.scope || '',
-      methodology: report.methodology || '',
-      findings: report.findings || '',
-      recommendations: report.recommendations || '',
-      observations: observations.map((o) => ({
-        sequenceNumber: o.sequenceNumber ?? null,
-        observation: o.observation || '',
-        clause: o.clause || null,
-        risk: o.risk || null,
-        status: o.status || 'OPEN',
-        recommendation: o.recommendation || null,
-      })),
-    });
+  async exportReportPdfForAuditor(user: ReqUser, auditId: string): Promise<Buffer> {
+    return this.reportService.exportReportPdfForAuditor(user, auditId);
   }
-
-  async listForClient(
-    user: ReqUser,
-    q: { frequency?: string; status?: string; year?: number | string },
-  ) {
-    if (!user || user.roleCode !== 'CLIENT') {
-      throw new ForbiddenException('CLIENT access only');
-    }
-    if (!user.clientId) {
-      throw new ForbiddenException('Client missing clientId');
-    }
-
-    const qb = this.repo
-      .createQueryBuilder('a')
-      .leftJoinAndSelect('a.contractorUser', 'contractor')
-      .leftJoinAndSelect('a.assignedAuditor', 'auditor')
-      .where('a.clientId = :clientId', { clientId: user.clientId });
-
-    if (q.frequency) {
-      qb.andWhere('a.frequency = :freq', { freq: q.frequency });
-    }
-    if (q.status) {
-      qb.andWhere('a.status = :st', { st: q.status });
-    }
-    if (q.year) {
-      qb.andWhere('a.periodYear = :yy', { yy: Number(q.year) });
-    }
-
-    qb.orderBy('a.periodYear', 'DESC').addOrderBy('a.createdAt', 'DESC');
-
-    const rows = await qb.getMany();
-    return rows;
-  }
-
-  async getSummaryForClient(user: ReqUser) {
-    if (!user || user.roleCode !== 'CLIENT') {
-      throw new ForbiddenException('CLIENT access only');
-    }
-    if (!user.clientId) {
-      throw new ForbiddenException('Client missing clientId');
-    }
-
-    const rows = await this.repo
-      .createQueryBuilder('a')
-      .select('a.status', 'status')
-      .addSelect('COUNT(*)', 'count')
-      .where('a.clientId = :clientId', { clientId: user.clientId })
-      .groupBy('a.status')
-      .getRawMany();
-
-    let total = 0;
-    let completed = 0;
-    let inProgress = 0;
-    let planned = 0;
-
-    for (const r of rows) {
-      const status = String(r.status);
-      const count = Number(r.count);
-      total += count;
-      if (status === 'COMPLETED') completed += count;
-      if (status === 'IN_PROGRESS') inProgress += count;
-      if (status === 'PLANNED') planned += count;
-    }
-
-    return { total, completed, inProgress, planned };
-  }
-
-  private async ensureAuditorAuditAccess(
-    user: ReqUser,
-    auditId: string,
-  ): Promise<AuditEntity> {
-    this.assertAuditor(user);
-    const audit = await this.repo.findOne({
-      where: { id: auditId },
-      relations: ['client', 'branch'],
-    });
-    if (!audit) throw new NotFoundException('Audit not found');
-    const callerId = user?.userId || user?.id;
-    if (audit.assignedAuditorId !== callerId) {
-      throw new ForbiddenException('Not your audit');
-    }
-    return audit;
-  }
-
-  private mapReportRow(
-    auditId: string,
-    row: {
-      reportId?: string;
-      auditId?: string;
-      reportType?: string;
-      status?: string;
-      executiveSummary?: string;
-      scope?: string;
-      methodology?: string;
-      findings?: string;
-      recommendations?: string;
-      selectedObservationIds?: unknown;
-      updatedAt?: Date | string | null;
-      finalizedAt?: Date | string | null;
-    } | null,
-    fallbackUpdatedAt: Date | null,
-  ) {
-    if (!row) {
-      return {
-        reportId: null,
-        auditId,
-        stage: 'DRAFT',
-        version: 'INTERNAL',
-        executiveSummary: '',
-        scope: '',
-        methodology: '',
-        findings: '',
-        recommendations: '',
-        selectedObservationIds: [] as string[],
-        updatedAt: fallbackUpdatedAt,
-        finalizedAt: null,
-      };
-    }
-
-    const status = String(row.status || '').toUpperCase();
-    const stage = ['SUBMITTED', 'APPROVED', 'PUBLISHED'].includes(status)
-      ? 'FINAL'
-      : 'DRAFT';
-    const version =
-      String(row.reportType || '').toUpperCase() === 'CLIENT'
-        ? 'CLIENT'
-        : 'INTERNAL';
-
-    let selectedObservationIds: string[] = [];
-    const rawSelected = row.selectedObservationIds;
-    if (Array.isArray(rawSelected)) {
-      selectedObservationIds = rawSelected.map((x: unknown) => String(x));
-    } else if (typeof rawSelected === 'string') {
-      try {
-        const parsed = JSON.parse(rawSelected);
-        if (Array.isArray(parsed)) {
-          selectedObservationIds = parsed.map((x: unknown) => String(x));
-        }
-      } catch {
-        selectedObservationIds = [];
-      }
-    }
-
-    return {
-      reportId: row.reportId || null,
-      auditId: row.auditId || auditId,
-      stage,
-      version,
-      executiveSummary: row.executiveSummary || '',
-      scope: row.scope || '',
-      methodology: row.methodology || '',
-      findings: row.findings || '',
-      recommendations: row.recommendations || '',
-      selectedObservationIds,
-      updatedAt: row.updatedAt || fallbackUpdatedAt,
-      finalizedAt: row.finalizedAt || null,
-    };
-  }
-
-  private async getLatestReportRow(auditId: string): Promise<{
-    status?: string;
-    updated_at?: string | null;
-    finalized_at?: string | null;
-  } | null> {
-    const rows = await this.dataSource.query(
-      `SELECT *
-       FROM audit_reports
-       WHERE audit_id = $1
-       ORDER BY updated_at DESC, created_at DESC
-       LIMIT 1`,
-      [auditId],
-    );
-    return rows[0] || null;
-  }
-
-  private async getAuditReportColumnsAvailability(): Promise<{
-    scope: boolean;
-    methodology: boolean;
-    selectedObservationIds: boolean;
-    finalizedAt: boolean;
-  }> {
-    if (this.auditReportColumnsCache) {
-      return this.auditReportColumnsCache;
-    }
-
-    const rows: Array<{ column_name?: string }> = await this.dataSource.query(
-      `SELECT column_name
-       FROM information_schema.columns
-       WHERE table_schema = 'public'
-         AND table_name = 'audit_reports'
-         AND column_name IN ('scope', 'methodology', 'selected_observation_ids', 'finalized_at')`,
-    );
-
-    const names = new Set(rows.map((r) => String(r.column_name || '')));
-    this.auditReportColumnsCache = {
-      scope: names.has('scope'),
-      methodology: names.has('methodology'),
-      selectedObservationIds: names.has('selected_observation_ids'),
-      finalizedAt: names.has('finalized_at'),
-    };
-
-    return this.auditReportColumnsCache;
-  }
-
   // ─── Branch Audit KPI ─────────────────────────────
-
-  private ensurePeriod(p?: string): string {
-    if (!p || !/^\d{4}-(0[1-9]|1[0-2])$/.test(p)) {
-      throw new BadRequestException(
-        'Invalid period format. Use YYYY-MM (month 01-12)',
-      );
-    }
-    return p;
-  }
-
-  async getBranchAuditKpi(branchId: string, from: string, to: string) {
-    const fromP = this.ensurePeriod(from);
-    const toP = this.ensurePeriod(to);
-
-    const rows: BranchAuditKpiItem[] = await this.dataSource.query(
-      `SELECT
-        a.period_code                                                          AS "periodCode",
-        COALESCE(SUM(CASE WHEN ao.risk = 'CRITICAL' THEN 1 ELSE 0 END), 0)::int AS critical,
-        COALESCE(SUM(CASE WHEN ao.risk = 'HIGH'     THEN 1 ELSE 0 END), 0)::int AS high,
-        COALESCE(SUM(CASE WHEN ao.risk = 'MEDIUM'   THEN 1 ELSE 0 END), 0)::int AS medium,
-        COALESCE(SUM(CASE WHEN ao.risk = 'LOW'      THEN 1 ELSE 0 END), 0)::int AS low,
-        COALESCE(SUM(CASE WHEN ao.status NOT IN ('CLOSED','RESOLVED') THEN 1 ELSE 0 END), 0)::int AS open,
-        COALESCE(SUM(CASE WHEN ao.status IN ('CLOSED','RESOLVED')     THEN 1 ELSE 0 END), 0)::int AS closed
-      FROM audit_observations ao
-      JOIN audits a ON a.id = ao.audit_id
-      WHERE a.branch_id = $1
-        AND a.period_code >= $2
-        AND a.period_code <= $3
-      GROUP BY a.period_code
-      ORDER BY a.period_code`,
-      [branchId, fromP, toP],
-    );
-
-    return { branchId, from: fromP, to: toP, items: rows || [] };
-  }
-
-  async getBranchAuditKpiSingle(branchId: string, periodCode: string) {
-    const p = this.ensurePeriod(periodCode);
-
-    const rows: BranchAuditKpiItem[] = await this.dataSource.query(
-      `SELECT
-        a.period_code                                                          AS "periodCode",
-        COALESCE(SUM(CASE WHEN ao.risk = 'CRITICAL' THEN 1 ELSE 0 END), 0)::int AS critical,
-        COALESCE(SUM(CASE WHEN ao.risk = 'HIGH'     THEN 1 ELSE 0 END), 0)::int AS high,
-        COALESCE(SUM(CASE WHEN ao.risk = 'MEDIUM'   THEN 1 ELSE 0 END), 0)::int AS medium,
-        COALESCE(SUM(CASE WHEN ao.risk = 'LOW'      THEN 1 ELSE 0 END), 0)::int AS low,
-        COALESCE(SUM(CASE WHEN ao.status NOT IN ('CLOSED','RESOLVED') THEN 1 ELSE 0 END), 0)::int AS open,
-        COALESCE(SUM(CASE WHEN ao.status IN ('CLOSED','RESOLVED')     THEN 1 ELSE 0 END), 0)::int AS closed
-      FROM audit_observations ao
-      JOIN audits a ON a.id = ao.audit_id
-      WHERE a.branch_id = $1
-        AND a.period_code = $2
-      GROUP BY a.period_code
-      ORDER BY a.period_code`,
-      [branchId, p],
-    );
-
-    return { branchId, period: p, items: rows || [] };
-  }
 
   // ─── Audit Scoring ──────────────────────────────────────────────
   // Risk weights: CRITICAL=10, HIGH=6, MEDIUM=3, LOW=1
@@ -1855,145 +808,12 @@ export class AuditsService implements OnModuleInit {
   }
 
   // ─── Auditor: List Contractors for Client ──────────────────────
-  async listContractorsForAuditor(user: ReqUser, clientId: string) {
-    this.assertAuditor(user);
-    if (!clientId) throw new BadRequestException('clientId required');
+  // ─── Document review — delegated to AuditDocumentReviewService ───
 
-    const isAssigned = await this.assignmentsService.isClientAssignedToAuditor(
-      clientId,
-      user.userId,
-    );
-    if (!isAssigned) {
-      throw new ForbiddenException('Client not assigned to this auditor');
-    }
-
-    const rows = await this.dataSource.query(
-      `SELECT u.id, u.name, u.email
-       FROM users u
-       JOIN roles r ON r.id = u.role_id
-       WHERE u.client_id = $1
-         AND r.code = 'CONTRACTOR'
-         AND u.is_active = TRUE
-         AND u.deleted_at IS NULL
-       ORDER BY u.name`,
-      [clientId],
-    );
-    return rows;
-  }
-
-  // ─── Auditor: List Documents for Audit ─────────────────────────
   async listDocumentsForAudit(user: ReqUser, auditId: string) {
-    const audit = await this.getForAuditor(user, auditId);
-
-    // Parse period from period_code (e.g. "2026-03" → year=2026, month=3)
-    const periodParts = (audit.periodCode || '').split('-');
-    const pYear = Number(periodParts[0]) || audit.periodYear;
-    const pMonth = periodParts.length >= 2 ? Number(periodParts[1]) : null;
-
-    // ── Branch documents (for branch-scoped audits like FACTORY, S&E, etc.) ──
-    let branchDocs: Array<Record<string, unknown>> = [];
-    if (audit.branchId) {
-      const bp: unknown[] = [audit.clientId, audit.branchId];
-      let bWhere = `WHERE bd.client_id = $1 AND bd.branch_id = $2`;
-
-      // Filter by period if available
-      if (pYear) {
-        bp.push(pYear);
-        bWhere += ` AND bd.period_year = $${bp.length}`;
-      }
-      if (pMonth) {
-        bp.push(pMonth);
-        bWhere += ` AND bd.period_month = $${bp.length}`;
-      }
-
-      branchDocs = await this.dataSource.query(
-        `SELECT bd.id, 'branch_documents' AS "sourceTable",
-                bd.branch_id AS "branchId",
-                bd.doc_type AS "docType", bd.category,
-                bd.file_name AS "fileName",
-                bd.file_path AS "filePath", bd.mime_type AS "fileType",
-                bd.file_size AS "fileSize", bd.status,
-                bd.remarks AS "reviewNotes",
-                bd.reviewed_by AS "reviewedByUserId",
-                bd.reviewed_at AS "reviewedAt",
-                bd.period_year AS "periodYear", bd.period_month AS "periodMonth",
-                bd.created_at AS "createdAt",
-                u.name AS "uploadedByName", u.email AS "uploadedByEmail",
-                cb.branchname AS "branchName"
-         FROM branch_documents bd
-         LEFT JOIN users u ON u.id = bd.uploaded_by
-         LEFT JOIN client_branches cb ON cb.id = bd.branch_id
-         ${bWhere}
-         ORDER BY bd.created_at DESC`,
-        bp,
-      );
-    }
-
-    // ── Contractor documents (for contractor-scoped or linked docs) ──
-    let contractorDocs: Array<Record<string, unknown>> = [];
-    {
-      const cp: unknown[] = [audit.clientId];
-      let cWhere = `WHERE cd.client_id = $1`;
-
-      if (audit.contractorUserId) {
-        cp.push(audit.contractorUserId);
-        cWhere += ` AND cd.contractor_user_id = $${cp.length}`;
-      }
-      if (audit.branchId) {
-        cp.push(audit.branchId);
-        cWhere += ` AND cd.branch_id = $${cp.length}`;
-      }
-      // Include docs explicitly linked to this audit OR matching the period
-      cp.push(auditId);
-      const auditFilter = `cd.audit_id = $${cp.length}`;
-      let periodFilter = '';
-      if (pYear && pMonth) {
-        const monthKey = `${pYear}-${String(pMonth).padStart(2, '0')}`;
-        cp.push(monthKey);
-        periodFilter = `cd.doc_month = $${cp.length}`;
-      }
-      if (periodFilter) {
-        cWhere += ` AND (${auditFilter} OR ${periodFilter})`;
-      } else {
-        cWhere += ` AND ${auditFilter}`;
-      }
-
-      contractorDocs = await this.dataSource.query(
-        `SELECT cd.id, 'contractor_documents' AS "sourceTable",
-                cd.contractor_user_id AS "contractorUserId",
-                cd.branch_id AS "branchId",
-                cd.doc_type AS "docType", cd.title,
-                cd.file_name AS "fileName",
-                cd.file_path AS "filePath", cd.file_type AS "fileType",
-                cd.file_size AS "fileSize", cd.status,
-                cd.review_notes AS "reviewNotes",
-                cd.reviewed_by_user_id AS "reviewedByUserId",
-                cd.reviewed_at AS "reviewedAt",
-                cd.doc_month AS "docMonth", cd.expiry_date AS "expiryDate",
-                cd.created_at AS "createdAt",
-                u.name AS "contractorName", u.email AS "contractorEmail",
-                cb.branchname AS "branchName"
-         FROM contractor_documents cd
-         LEFT JOIN users u ON u.id = cd.contractor_user_id
-         LEFT JOIN client_branches cb ON cb.id = cd.branch_id
-         ${cWhere}
-         ORDER BY cb.branchname NULLS LAST, cd.created_at DESC`,
-        cp,
-      );
-    }
-
-    return {
-      auditId,
-      auditType: audit.auditType,
-      branchId: audit.branchId,
-      contractorUserId: audit.contractorUserId,
-      periodCode: audit.periodCode,
-      branchDocuments: branchDocs,
-      contractorDocuments: contractorDocs,
-    };
+    return this.documentReviewService.listDocumentsForAudit(user, auditId);
   }
 
-  // ─── Auditor: Review Document (COMPLIED / NON_COMPLIED) ───────
   async reviewDocumentForAudit(
     user: ReqUser,
     auditId: string,
@@ -2002,382 +822,15 @@ export class AuditsService implements OnModuleInit {
     remarks?: string,
     sourceTable?: string,
   ) {
-    this.assertAuditor(user);
-    const audit = await this.repo.findOne({ where: { id: auditId } });
-    if (!audit) throw new NotFoundException('Audit not found');
-    if (audit.assignedAuditorId !== user.userId) {
-      throw new ForbiddenException('Not your audit');
-    }
-
-    const statusMap: Record<string, string> = {
-      COMPLIED: 'APPROVED',
-      NON_COMPLIED: 'REJECTED',
-    };
-
-    const newStatus = statusMap[decision];
-    if (!newStatus) throw new BadRequestException('Invalid decision');
-    if (
-      decision === 'NON_COMPLIED' &&
-      (!remarks || remarks.trim().length < 5)
-    ) {
-      throw new BadRequestException(
-        'Remarks of at least 5 characters are required when rejecting a document',
-      );
-    }
-
-    if (sourceTable === 'branch_documents') {
-      // AX-H2: ensure the branch document is actually scoped to this audit
-      // (either explicitly via audit_id, or via matching client/branch).
-      const docRows = await this.dataSource.query(
-        `SELECT audit_id, client_id, branch_id
-         FROM branch_documents WHERE id = $1`,
-        [docId],
-      );
-      if (!docRows.length) {
-        throw new NotFoundException('Document not found');
-      }
-      const d = docRows[0] as {
-        audit_id?: string | null;
-        client_id?: string | null;
-        branch_id?: string | null;
-      };
-      const matchesAudit =
-        (d.audit_id && d.audit_id === auditId) ||
-        (d.client_id === audit.clientId &&
-          (audit.branchId ? d.branch_id === audit.branchId : true));
-      if (!matchesAudit) {
-        throw new ForbiddenException('Document does not belong to this audit');
-      }
-      await this.dataSource.query(
-        `UPDATE branch_documents
-         SET status = $1,
-             remarks = $2,
-             reviewed_by = $3,
-             reviewed_at = NOW(),
-             reviewer_role = 'AUDITOR'
-         WHERE id = $4`,
-        [newStatus, remarks || null, user.userId, docId],
-      );
-    } else {
-      // AX-H2: ensure the contractor document is in scope of this audit.
-      const docRows = await this.dataSource.query(
-        `SELECT audit_id, client_id, branch_id, contractor_user_id
-         FROM contractor_documents WHERE id = $1`,
-        [docId],
-      );
-      if (!docRows.length) {
-        throw new NotFoundException('Document not found');
-      }
-      const d = docRows[0] as {
-        audit_id?: string | null;
-        client_id?: string | null;
-        branch_id?: string | null;
-        contractor_user_id?: string | null;
-      };
-      const matchesAudit =
-        (d.audit_id && d.audit_id === auditId) ||
-        (d.client_id === audit.clientId &&
-          (audit.branchId ? d.branch_id === audit.branchId : true) &&
-          (audit.contractorUserId
-            ? d.contractor_user_id === audit.contractorUserId
-            : true));
-      if (!matchesAudit) {
-        throw new ForbiddenException('Document does not belong to this audit');
-      }
-      await this.dataSource.query(
-        `UPDATE contractor_documents
-         SET status = $1,
-             review_notes = $2,
-             reviewed_by_user_id = $3,
-             reviewed_at = NOW(),
-             audit_id = $4
-         WHERE id = $5`,
-        [newStatus, remarks || null, user.userId, auditId, docId],
-      );
-    }
-
-    // Create formal review record
-    const tbl = sourceTable || 'contractor_documents';
-    const existingReview = await this.docReviewRepo.findOne({
-      where: { auditId, documentId: docId, sourceTable: tbl },
-      order: { version: 'DESC' },
-    });
-    const version = existingReview ? existingReview.version + 1 : 1;
-    const reviewRecord = this.docReviewRepo.create({
+    return this.documentReviewService.reviewDocumentForAudit(
+      user,
       auditId,
-      documentId: docId,
-      sourceTable: tbl,
-      complianceMark: decision,
-      auditorRemark: remarks || null,
-      version,
-      reviewedBy: user.userId,
-      reviewedAt: new Date(),
-    });
-    await this.docReviewRepo.save(reviewRecord);
-
-    // Auto-create NC entry if NON_COMPLIED
-    if (decision === 'NON_COMPLIED') {
-      // Get document name for display
-      const docNameQuery =
-        tbl === 'branch_documents'
-          ? `SELECT file_name AS name FROM branch_documents WHERE id = $1`
-          : `SELECT COALESCE(title, file_name) AS name FROM contractor_documents WHERE id = $1`;
-      const docNameRows = await this.dataSource.query(docNameQuery, [docId]);
-      const docName = docNameRows[0]?.name || 'Unknown document';
-
-      // Determine who to request correction from
-      let requestedToRole: string | null = null;
-      let requestedToUserId: string | null = null;
-      if (tbl === 'contractor_documents' && audit.contractorUserId) {
-        requestedToRole = 'CONTRACTOR';
-        requestedToUserId = audit.contractorUserId;
-      } else if (tbl === 'branch_documents' && audit.branchId) {
-        requestedToRole = 'CLIENT';
-        // Find branch user
-        const branchUsers = await this.dataSource.query(
-          `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id
-           WHERE u.client_id = $1 AND r.code = 'CLIENT' AND u.deleted_at IS NULL LIMIT 1`,
-          [audit.clientId],
-        );
-        requestedToUserId = branchUsers[0]?.id || null;
-      }
-
-      const nc = this.ncRepo.create({
-        auditId,
-        documentId: docId,
-        sourceTable: tbl,
-        documentReviewId: reviewRecord.id,
-        documentName: docName,
-        requestedToRole,
-        requestedToUserId,
-        remark: remarks || null,
-        status: 'NC_RAISED',
-      });
-      await this.ncRepo.save(nc);
-
-      // Create a system task for the NC so it shows in the task center
-      try {
-        await this.ncEngine.createTaskForNc(nc.id);
-      } catch {
-        // non-critical: task creation failure should not break the review
-      }
-
-      // Item #7: notify the contractor with NC + Solution mail (best-effort).
-      this.notifyAuditRejection(audit, docName, remarks).catch(() => undefined);
-    }
-
-    // If previously NON_COMPLIED and now COMPLIED, close the NC + task
-    if (decision === 'COMPLIED') {
-      const openNcs = await this.ncRepo.find({
-        where: {
-          auditId,
-          documentId: docId,
-          sourceTable: tbl,
-          status: 'NC_RAISED',
-        },
-      });
-      for (const openNc of openNcs) {
-        try {
-          await this.ncEngine.closeNc(openNc.id);
-        } catch (e: unknown) {
-          this.logger.warn(
-            `Best-effort NC close failed for ${openNc.id}`,
-            (e as Error)?.message,
-          );
-        }
-      }
-      // Fallback: also do the direct update for any missed rows
-      await this.ncRepo.update(
-        {
-          auditId,
-          documentId: docId,
-          sourceTable: tbl,
-          status: 'NC_RAISED',
-        },
-        { status: 'CLOSED', closedAt: new Date() },
-      );
-    }
-
-    // ── Auto-link checklist item ──────────────────────────────────
-    try {
-      await this.autoLinkChecklistItem(
-        auditId,
-        docId,
-        tbl,
-        decision,
-        remarks,
-        user.userId,
-      );
-    } catch {
-      // Non-critical: don't fail the review if checklist sync fails
-    }
-
-    // ── Auto-create observation when rejecting a document ─────────
-    if (decision === 'NON_COMPLIED') {
-      try {
-        await this.autoCreateObservationFromRejection(
-          auditId,
-          docId,
-          tbl,
-          remarks || '',
-          user.userId,
-          audit,
-        );
-      } catch {
-        // Non-critical
-      }
-    }
-
-    return {
       docId,
-      status: newStatus,
       decision,
-      sourceTable: tbl,
-      reviewId: reviewRecord.id,
-    };
-  }
-
-  /**
-   * When a document is reviewed, find a matching checklist item by docType or
-   * label similarity and auto-update its status to COMPLIED or NON_COMPLIED.
-   */
-  private async autoLinkChecklistItem(
-    auditId: string,
-    docId: string,
-    sourceTable: string,
-    decision: 'COMPLIED' | 'NON_COMPLIED',
-    remarks: string | undefined,
-    reviewerUserId: string,
-  ): Promise<void> {
-    // Fetch the document's docType / fileName for matching
-    const docQuery =
-      sourceTable === 'branch_documents'
-        ? `SELECT doc_type AS "docType", file_name AS "fileName", category FROM branch_documents WHERE id = $1`
-        : `SELECT doc_type AS "docType", COALESCE(title, file_name) AS "fileName", NULL AS category FROM contractor_documents WHERE id = $1`;
-    const docRows = await this.dataSource.query(docQuery, [docId]);
-    if (!docRows.length) return;
-    const { docType, fileName } = docRows[0];
-
-    // Find checklist items not yet reviewed (PENDING = no doc uploaded yet, UPLOADED = doc uploaded but not reviewed)
-    const pendingItems = await this.checklistRepo.find({
-      where: { auditId, status: In(['PENDING', 'UPLOADED']) },
-    });
-    if (!pendingItems.length) return;
-
-    const normalize = (s: string) =>
-      String(s || '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, ' ')
-        .trim();
-    const wordsOf = (s: string) => s.split(/\s+/).filter((w) => w.length > 1);
-    const stem = (w: string) =>
-      w.endsWith('s') && w.length > 3 ? w.slice(0, -1) : w;
-    const docTypeNorm = normalize(docType);
-    const fileNameNorm = normalize(fileName);
-
-    // Match: exact docType, word-by-word overlap (handles "PF_CHALLAN" → "pf monthly challan"), or filename
-    const matched = pendingItems.find((item) => {
-      const labelNorm = normalize(item.itemLabel);
-      const itemDocTypeNorm = normalize(item.docType ?? '');
-      // 1. Exact docType match (works when checklist item has docType set)
-      if (itemDocTypeNorm && docTypeNorm && itemDocTypeNorm === docTypeNorm)
-        return true;
-      // 2. All words of docType found individually in label words (e.g. "pf challan" ⊆ words of "pf monthly challan")
-      const dtWords = wordsOf(docTypeNorm).map(stem);
-      const lblWordSet = new Set(wordsOf(labelNorm).map(stem));
-      if (dtWords.length > 0 && dtWords.every((w) => lblWordSet.has(w)))
-        return true;
-      // 3. All words of label found in docType words (handles short labels that are subsets of docType)
-      const lblWords = wordsOf(labelNorm).map(stem);
-      const dtWordSet = new Set(wordsOf(docTypeNorm).map(stem));
-      if (lblWords.length > 0 && lblWords.every((w) => dtWordSet.has(w)))
-        return true;
-      // 4. All significant label words appear in the uploaded filename
-      if (
-        fileNameNorm &&
-        wordsOf(labelNorm)
-          .filter((w) => w.length > 3)
-          .every((w) => fileNameNorm.includes(w))
-      )
-        return true;
-      return false;
-    });
-
-    if (!matched) return;
-
-    const checklistStatus =
-      decision === 'COMPLIED' ? 'COMPLIED' : 'NON_COMPLIED';
-    matched.status = checklistStatus;
-    matched.remarks = remarks
-      ? remarks.slice(0, 500)
-      : decision === 'COMPLIED'
-        ? 'Document approved by auditor'
-        : matched.remarks;
-    matched.reviewedBy = reviewerUserId;
-    matched.reviewedAt = new Date();
-    matched.linkedDocId = docId;
-    matched.linkedDocTable = sourceTable;
-    await this.checklistRepo.save(matched);
-  }
-
-  /**
-   * When a document is rejected, auto-create a structured observation so the
-   * auditor doesn't have to re-enter the same finding in the Observation Builder.
-   * Skips creation if an identical observation already exists for this audit+document.
-   */
-  private async autoCreateObservationFromRejection(
-    auditId: string,
-    docId: string,
-    sourceTable: string,
-    remarks: string,
-    auditorUserId: string,
-    audit: AuditEntity,
-  ): Promise<void> {
-    // Fetch doc name and docType for the observation text
-    const docQuery =
-      sourceTable === 'branch_documents'
-        ? `SELECT doc_type AS "docType", file_name AS "fileName", category FROM branch_documents WHERE id = $1`
-        : `SELECT doc_type AS "docType", COALESCE(title, file_name) AS "fileName", NULL AS category FROM contractor_documents WHERE id = $1`;
-    const docRows = await this.dataSource.query(docQuery, [docId]);
-    if (!docRows.length) return;
-    const { docType, fileName } = docRows[0];
-
-    // Avoid duplicate observation for the same document in this audit
-    const existing = await this.dataSource.query(
-      `SELECT id FROM audit_observations WHERE audit_id = $1 AND observation ILIKE $2 LIMIT 1`,
-      [auditId, `%${docType || fileName}%`],
+      remarks,
+      sourceTable,
     );
-    if (existing.length) return;
-
-    // Derive a brief, meaningful observation text
-    const docLabel = docType || fileName || 'Document';
-    const observationText =
-      `${docLabel} found Non-Compliant. ${remarks}`.trim();
-
-    // Map audit type → likely act reference for context
-    const actMap: Record<string, string> = {
-      CONTRACTOR: 'CLRA Act, 1970',
-      FACTORY: 'Factories Act, 1948',
-      SHOPS_ESTABLISHMENT: 'Shops & Establishments Act',
-      LABOUR_EMPLOYMENT: 'Labour Laws',
-      PAYROLL: 'PF Act / ESI Act',
-      FSSAI: 'Food Safety and Standards Act, 2006',
-      HR: 'Industrial Employment (Standing Orders) Act',
-    };
-    const actRef = actMap[audit.auditType] || 'Applicable Labour Laws';
-
-    const obs = this.observationRepo.create({
-      auditId,
-      observation: observationText,
-      complianceRequirements: actRef,
-      recommendation: `Ensure ${docLabel} is obtained, renewed, and maintained as required.`,
-      risk: 'LOW',
-      status: 'OPEN',
-      recordedByUserId: auditorUserId,
-    });
-    await this.observationRepo.save(obs);
   }
-
   // ─── Auditor: Submit Audit ─────────────────────────────────────
   // ─── Auditor: Set / Clear Upload Lock Window ──────────────────
   async setUploadLock(
@@ -2424,27 +877,6 @@ export class AuditsService implements OnModuleInit {
       auditId: audit.id,
       uploadLockFrom: audit.uploadLockFrom ?? null,
       uploadLockUntil: audit.uploadLockUntil ?? null,
-    };
-  }
-
-  async getUploadLockForContractor(user: ReqUser, auditId: string) {
-    this.assertContractor(user);
-    const audit = await this.repo.findOne({ where: { id: auditId } });
-    if (!audit) throw new NotFoundException('Audit not found');
-    // allow if this contractor is assigned OR if they share the same client
-    if (
-      audit.contractorUserId !== user.userId &&
-      audit.clientId !== user.clientId
-    ) {
-      throw new ForbiddenException('Access denied');
-    }
-    return {
-      auditId: audit.id,
-      uploadLockFrom: audit.uploadLockFrom ?? null,
-      uploadLockUntil: audit.uploadLockUntil ?? null,
-      // Item #10: even while locked, REJECTED docs can be re-uploaded so
-      // the frontend can surface a helpful banner instead of a hard block.
-      allowRejectedReupload: true,
     };
   }
 
@@ -2619,170 +1051,16 @@ export class AuditsService implements OnModuleInit {
 
   /** List NCs for an audit (auditor view). */
   async listNcsForAudit(user: ReqUser, auditId: string) {
-    this.assertAuditor(user);
-    const audit = await this.repo.findOne({ where: { id: auditId } });
-    if (!audit) throw new NotFoundException('Audit not found');
-    if (audit.assignedAuditorId !== user.userId) {
-      throw new ForbiddenException('Audit not assigned to you');
-    }
-    const ncs = await this.ncRepo.find({
-      where: { auditId },
-      order: { createdAt: 'DESC' },
-    });
-    const todayStr = new Date().toISOString().slice(0, 10);
-    return {
-      auditId,
-      preliminaryPublishedAt: audit.preliminaryPublishedAt,
-      vendorWindowDays: audit.vendorWindowDays,
-      counts: {
-        total: ncs.length,
-        open: ncs.filter(
-          (n) => n.status === 'NC_RAISED' || n.status === 'AWAITING_REUPLOAD',
-        ).length,
-        reuploaded: ncs.filter(
-          (n) =>
-            n.status === 'REUPLOADED' || n.status === 'REVERIFICATION_PENDING',
-        ).length,
-        accepted: ncs.filter(
-          (n) => n.status === 'ACCEPTED' || n.status === 'CLOSED',
-        ).length,
-        recurring: ncs.filter((n) => n.isRecurring).length,
-        overdue: ncs.filter(
-          (n) =>
-            (n.status === 'NC_RAISED' || n.status === 'AWAITING_REUPLOAD') &&
-            n.vendorWindowUntil &&
-            n.vendorWindowUntil < todayStr,
-        ).length,
-      },
-      items: ncs.map((n) => ({
-        id: n.id,
-        documentName: n.documentName,
-        remark: n.remark,
-        status: n.status,
-        requestedToRole: n.requestedToRole,
-        publishedAt: n.publishedAt,
-        vendorWindowUntil: n.vendorWindowUntil,
-        dueDate: n.dueDate,
-        isRecurring: n.isRecurring,
-        recurrenceCount: n.recurrenceCount,
-        originalNcId: n.originalNcId,
-        raisedAt: n.raisedAt,
-        closedAt: n.closedAt,
-      })),
-    };
+    return this.ncService.listNcsForAudit(user, auditId);
   }
-
   /** Phase 4: Export preliminary findings PDF (auditor + post-publish only). */
-  async exportPreliminaryReportPdf(
-    user: ReqUser,
-    auditId: string,
-  ): Promise<Buffer> {
-    this.assertAuditor(user);
-    const audit = await this.repo.findOne({
-      where: { id: auditId },
-      relations: ['client', 'branch'],
-    });
-    if (!audit) throw new NotFoundException('Audit not found');
-    if (!audit.preliminaryPublishedAt) {
-      throw new BadRequestException(
-        'Preliminary findings have not been published yet',
-      );
-    }
-    const ncs = await this.ncRepo.find({
-      where: { auditId },
-      order: { createdAt: 'ASC' },
-    });
-    const visible = ncs.filter((n) => !!n.publishedAt);
-    const earliestDeadline =
-      visible
-        .map((n) => n.vendorWindowUntil)
-        .filter((d): d is string => !!d)
-        .sort()[0] || null;
-    return generatePreliminaryReportPdfBuffer({
-      auditId: audit.id,
-      auditCode: audit.auditCode || audit.id,
-      clientName: audit.client?.clientName || null,
-      branchName: audit.branch?.branchName || null,
-      periodCode: audit.periodCode || null,
-      publishedAt: audit.preliminaryPublishedAt,
-      vendorWindowDays: audit.vendorWindowDays || 6,
-      vendorWindowUntil: earliestDeadline,
-      ncs: visible.map((n) => ({
-        documentName: n.documentName,
-        remark: n.remark,
-        status: n.status,
-        vendorWindowUntil: n.vendorWindowUntil,
-        isRecurring: !!n.isRecurring,
-        recurrenceCount: n.recurrenceCount ?? null,
-      })),
-    });
+  async exportPreliminaryReportPdf(user: ReqUser, auditId: string): Promise<Buffer> {
+    return this.auditorDashboardService.exportPreliminaryReportPdf(user, auditId);
   }
-
   /** List NCs assigned to the calling vendor/contractor. */
   async listNcsForVendor(user: ReqUser, auditId: string) {
-    if (!user) throw new ForbiddenException('Auth required');
-    const audit = await this.repo.findOne({ where: { id: auditId } });
-    if (!audit) throw new NotFoundException('Audit not found');
-    // Vendor must either be the contractor on this audit, or a CLIENT user for the same client
-    const isContractor = audit.contractorUserId === user.userId;
-    let isClientUser = false;
-    if (!isContractor && user.roleCode === 'CLIENT') {
-      const rows = await this.dataSource.query(
-        `SELECT 1 FROM users WHERE id = $1 AND client_id = $2 AND deleted_at IS NULL LIMIT 1`,
-        [user.userId, audit.clientId],
-      );
-      isClientUser = rows.length > 0;
-    }
-    if (!isContractor && !isClientUser) {
-      throw new ForbiddenException('You do not have access to this audit');
-    }
-
-    if (!audit.preliminaryPublishedAt) {
-      return {
-        auditId,
-        publishedAt: null,
-        message: 'Preliminary findings have not been published yet.',
-        items: [],
-      };
-    }
-
-    const ncs = await this.ncRepo.find({
-      where: { auditId },
-      order: { createdAt: 'DESC' },
-    });
-    const visible = ncs.filter((n) => !!n.publishedAt);
-    const todayStr = new Date().toISOString().slice(0, 10);
-    return {
-      auditId,
-      publishedAt: audit.preliminaryPublishedAt,
-      vendorWindowDays: audit.vendorWindowDays,
-      counts: {
-        total: visible.length,
-        open: visible.filter(
-          (n) => n.status === 'NC_RAISED' || n.status === 'AWAITING_REUPLOAD',
-        ).length,
-        overdue: visible.filter(
-          (n) =>
-            (n.status === 'NC_RAISED' || n.status === 'AWAITING_REUPLOAD') &&
-            n.vendorWindowUntil &&
-            n.vendorWindowUntil < todayStr,
-        ).length,
-      },
-      items: visible.map((n) => ({
-        id: n.id,
-        documentName: n.documentName,
-        remark: n.remark,
-        status: n.status,
-        vendorWindowUntil: n.vendorWindowUntil,
-        isOverdue:
-          (n.status === 'NC_RAISED' || n.status === 'AWAITING_REUPLOAD') &&
-          !!n.vendorWindowUntil &&
-          n.vendorWindowUntil < todayStr,
-        publishedAt: n.publishedAt,
-      })),
-    };
+    return this.ncService.listNcsForVendor(user, auditId);
   }
-
   async submitAudit(user: ReqUser, auditId: string, finalRemark?: string) {
     this.assertAuditor(user);
     const audit = await this.repo.findOne({ where: { id: auditId } });
@@ -3053,755 +1331,60 @@ export class AuditsService implements OnModuleInit {
   }
 
   async generateChecklistFromCompliance(user: ReqUser, auditId: string) {
-    this.assertAuditor(user);
-    const audit = await this.repo.findOne({ where: { id: auditId } });
-    if (!audit) throw new NotFoundException('Audit not found');
-    if (audit.assignedAuditorId !== user.userId) {
-      throw new ForbiddenException('Not your audit');
-    }
-
-    // Auto-generate checklist items based on audit type
-    // Each entry: [label, docType?] — docType enables exact matching in autoLinkChecklistItem
-    const typeChecklistMap: Record<string, Array<[string, string?]>> = {
-      FACTORY: [
-        ['Factory License', 'FACTORY_LICENSE'],
-        ['Building Stability Certificate', 'BUILDING_STABILITY_CERT'],
-        ['Fire Safety Certificate', 'FIRE_SAFETY_CERT'],
-        ['Pollution Control Board Consent', 'PCB_CONSENT'],
-        ['Hazardous Waste Authorization', 'HAZARDOUS_WASTE_AUTH'],
-        ['Boiler Certificate', 'BOILER_CERTIFICATE'],
-        ['Factory Plan Approval', 'FACTORY_PLAN_APPROVAL'],
-        ['Annual Return (Form 21)', 'ANNUAL_RETURN_F21'],
-        ['Half-Yearly Return (Form 22)', 'HALF_YEARLY_RETURN_F22'],
-        ['Register of Workers', 'WORKERS_REGISTER'],
-        ['Leave Register', 'LEAVE_REGISTER'],
-        ['Overtime Register', 'OT_REGISTER'],
-        ['Health & Safety Policy', 'HEALTH_SAFETY_POLICY'],
-        ['First Aid Box', 'FIRST_AID_BOX'],
-        ['Canteen License', 'CANTEEN_LICENSE'],
-        ['Creche Facility (if applicable)', 'CRECHE_FACILITY'],
-      ],
-      SHOPS_ESTABLISHMENT: [
-        ['Shops & Establishment Registration', 'SHOPS_EST_REGISTRATION'],
-        ['Trade License', 'TRADE_LICENSE'],
-        ['Professional Tax Registration', 'PT_REGISTRATION'],
-        ['Employment Exchange Returns', 'EMPLOYMENT_EXCHANGE_RETURNS'],
-        ['Register of Employees', 'EMPLOYMENT_REGISTER_F13'],
-        ['Attendance Register', 'MUSTER_ROLL_REGISTER'],
-        ['Wage Register', 'WAGE_REGISTER'],
-        ['Leave Register', 'LEAVE_REGISTER'],
-        ['Annual Return', 'ANNUAL_RETURN'],
-      ],
-      CONTRACTOR: [
-        ['CLRA License', 'CLRA_LICENSE'],
-        ['PF Registration', 'PF_REGISTRATION'],
-        ['ESI Registration', 'ESI_REGISTRATION'],
-        ['PF Monthly Challan', 'PF_CHALLAN'],
-        ['ESI Monthly Challan', 'ESI_CHALLAN'],
-        ['Professional Tax Challan', 'PT_CHALLAN'],
-        ['Wage Register', 'WAGE_REGISTER'],
-        ['Muster Roll / Attendance Register', 'MUSTER_ROLL_REGISTER'],
-        ['Register of Fines', 'REGISTER_OF_FINES'],
-        ['Register of Deductions', 'REGISTER_OF_DEDUCTIONS'],
-        ['Service Certificates', 'SERVICE_CERTIFICATE'],
-        ['Employment Cards', 'EMPLOYMENT_CARDS'],
-        ['Wage Slips', 'WAGE_SLIPS'],
-        ['Register of Employment (Form-13)', 'EMPLOYMENT_REGISTER_F13'],
-        ['Bonus Register (Form C)', 'BONUS_FORM_C'],
-        ['CLRA Annual Return', 'HALF_YEARLY_RETURNS_F14'],
-      ],
-      LABOUR_EMPLOYMENT: [
-        ['Labour License', 'LABOUR_LICENSE'],
-        ['Standing Orders', 'STANDING_ORDERS'],
-        [
-          'Employment Exchange Quarterly Returns',
-          'EMPLOYMENT_EXCHANGE_RETURNS',
-        ],
-        ['Minimum Wages Register', 'MINIMUM_WAGES_RETURNS'],
-        ['Equal Remuneration Register', 'EQUAL_REMUNERATION_REGISTER'],
-        ['Maternity Benefit Records', 'MATERNITY_BENEFIT_RECORDS'],
-        ['Gratuity Records', 'GRATUITY_RECORDS'],
-        ['Industrial Disputes Records', 'INDUSTRIAL_DISPUTES_RECORDS'],
-      ],
-      FSSAI: [
-        ['FSSAI License', 'FSSAI_LICENSE'],
-        ['Food Handler Medical Certificate', 'FOOD_HANDLER_CERT'],
-        ['Water Testing Report', 'WATER_TESTING_REPORT'],
-        ['Pest Control Records', 'PEST_CONTROL_RECORDS'],
-        ['Temperature Log (Cold Storage)', 'TEMPERATURE_LOG'],
-        ['Hygiene & Sanitation Records', 'HYGIENE_SANITATION_RECORDS'],
-        ['Raw Material Inspection Records', 'RAW_MATERIAL_INSPECTION'],
-        ['FSSAI Annual Return', 'FSSAI_ANNUAL_RETURN'],
-      ],
-      PAYROLL: [
-        ['PF Challan', 'PF_CHALLAN'],
-        ['ESI Challan', 'ESI_CHALLAN'],
-        ['Professional Tax Challan', 'PT_CHALLAN'],
-        ['TDS Challan', 'TDS_CHALLAN'],
-        ['Payroll Register', 'PAYROLL_REGISTER'],
-        ['Salary Slips', 'WAGE_SLIPS'],
-        ['Bank Statement (Salary A/c)', 'BANK_STATEMENT_SALARY'],
-        ['Bonus Computation Sheet', 'BONUS_FORM_C'],
-        ['Leave Encashment Records', 'LEAVE_ENCASHMENT_RECORDS'],
-        ['Full & Final Settlement Records', 'FULL_FINAL_SETTLEMENT'],
-      ],
-      HR: [
-        ['Appointment Letters', 'APPOINTMENT_LETTERS'],
-        ['ID Cards Issued', 'ID_CARDS'],
-        ['Employee Handbook Acknowledgement', 'EMPLOYEE_HANDBOOK'],
-        ['Background Verification Records', 'BACKGROUND_VERIFICATION'],
-        ['Training Records', 'TRAINING_RECORDS'],
-        ['Performance Appraisal Records', 'APPRAISAL_RECORDS'],
-        ['Employee Grievance Register', 'GRIEVANCE_REGISTER'],
-        ['Sexual Harassment Committee (ICC) Records', 'ICC_RECORDS'],
-        ['Exit Interview Records', 'EXIT_INTERVIEW_RECORDS'],
-        ['Succession Planning Documents', 'SUCCESSION_PLANNING'],
-      ],
-      GAP: [
-        ['Process Documentation', 'PROCESS_DOCUMENTATION'],
-        ['SOP Compliance Check', 'SOP_COMPLIANCE'],
-        ['Internal Audit Reports', 'INTERNAL_AUDIT_REPORT'],
-        ['Gap Analysis Report', 'GAP_ANALYSIS_REPORT'],
-        ['Corrective Action Plan', 'CORRECTIVE_ACTION_PLAN'],
-        ['Risk Assessment Records', 'RISK_ASSESSMENT'],
-        ['Management Review Minutes', 'MANAGEMENT_REVIEW'],
-      ],
-    };
-
-    // For CONTRACTOR audits with a linked contractor, derive checklist from their
-    // actual required document types so docType codes match uploaded documents
-    // and auto-linking fires correctly.
-    let entries: Array<[string, string?]> =
-      typeChecklistMap[audit.auditType] || [];
-
-    if (
-      (audit.auditType as string) === 'CONTRACTOR' &&
-      audit.contractorUserId
-    ) {
-      const CONTRACTOR_DOC_LABELS: Record<string, string> = {
-        WAGE_REGISTER: 'Wage Register',
-        MUSTER_ROLL: 'Muster Roll',
-        OT_REGISTER: 'Overtime (OT) Register',
-        PF_CHALLAN: 'PF Challan',
-        ESI_CHALLAN: 'ESI Challan',
-        PT_CHALLAN: 'Professional Tax (PT) Challan',
-        CLRA_LICENSE: 'CLRA License',
-        PF_REGISTRATION: 'PF Registration',
-        ESI_REGISTRATION: 'ESI Registration',
-        WORK_ORDER: 'Work Order / Contract Agreement',
-        REGISTER_OF_FINES: 'Register of Fines',
-        REGISTER_OF_DEDUCTIONS: 'Register of Deductions',
-        REGISTER_OF_ADVANCES: 'Register of Advances',
-        EMPLOYMENT_REGISTER_F13: 'Register of Employment (Form-13)',
-        HALF_YEARLY_RETURNS_F14: 'Half Yearly Returns (Form XIV)',
-        SERVICE_CERTIFICATE: 'Service Certificates',
-        EMPLOYMENT_CARDS: 'Employment Cards',
-        WAGE_SLIPS: 'Wage Slips',
-        BONUS_FORM_C: 'Bonus Register (Form C)',
-        MUSTER_ROLL_REGISTER: 'Muster Roll Register',
-      };
-      const toLabel = (dt: string) =>
-        CONTRACTOR_DOC_LABELS[dt] ??
-        dt.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-
-      // Standard monthly types always required
-      const standardTypes = [
-        'WAGE_REGISTER',
-        'MUSTER_ROLL',
-        'OT_REGISTER',
-        'PF_CHALLAN',
-        'ESI_CHALLAN',
-        'PT_CHALLAN',
-      ];
-
-      // CRM-configured extras for this contractor
-      const dbRows = await this.dataSource.query(
-        `SELECT DISTINCT doc_type FROM contractor_required_documents
-         WHERE contractor_user_id = $1 AND client_id = $2 AND is_required = true`,
-        [audit.contractorUserId, audit.clientId],
-      );
-      const extraTypes: string[] = (dbRows as { doc_type: string }[]).map(
-        (r) => r.doc_type,
-      );
-
-      const allTypes = [...standardTypes];
-      for (const dt of extraTypes) {
-        if (!allTypes.includes(dt)) allTypes.push(dt);
-      }
-
-      entries = allTypes.map((dt) => [toLabel(dt), dt] as [string, string]);
-    }
-
-    if (entries.length === 0) {
-      throw new BadRequestException(
-        `No default checklist defined for audit type: ${audit.auditType}`,
-      );
-    }
-
-    // Check if checklist already has items
-    const existing = await this.checklistRepo.count({ where: { auditId } });
-    if (existing > 0) {
-      throw new BadRequestException(
-        'Checklist already has items. Delete existing items first or add manually.',
-      );
-    }
-
-    const items = entries.map(([label, docType], idx) =>
-      this.checklistRepo.create({
-        auditId,
-        itemLabel: label,
-        docType: docType ?? null,
-        isRequired: true,
-        sortOrder: idx + 1,
-        status: 'PENDING',
-      }),
-    );
-    await this.checklistRepo.save(items);
-    return { created: items.length, items };
+    return this.checklistService.generateChecklistFromCompliance(user, auditId);
   }
-
-  // ═══════════════════════════════════════════════════════════════
-  //  NON-COMPLIANCE TRACKING
+  //  NON-COMPLIANCE TRACKING — delegated to AuditNcService
   // ═══════════════════════════════════════════════════════════════
 
   async getNonCompliancesForAudit(user: ReqUser, auditId: string) {
-    this.assertAuditor(user);
-    const audit = await this.repo.findOne({ where: { id: auditId } });
-    if (!audit) throw new NotFoundException('Audit not found');
-    if (audit.assignedAuditorId !== user.userId)
-      throw new ForbiddenException('Not your audit');
-
-    const ncs = await this.dataSource.query(
-      `SELECT nc.id,
-              nc.audit_id AS "auditId",
-              nc.document_id AS "documentId",
-              nc.source_table AS "sourceTable",
-              nc.document_name AS "documentName",
-              nc.requested_to_role AS "requestedToRole",
-              nc.requested_to_user_id AS "requestedToUserId",
-              nc.remark,
-              nc.status,
-              nc.raised_at AS "raisedAt",
-              nc.closed_at AS "closedAt",
-              nc.updated_at AS "updatedAt",
-              rs.id AS "resubmissionId",
-              rs.file_path AS "correctedFilePath",
-              rs.file_name AS "correctedFileName",
-              rs.mime_type AS "correctedMimeType",
-              rs.file_size AS "correctedFileSize",
-              rs.resubmitted_at AS "resubmittedAt",
-              rs.final_mark AS "finalMark",
-              rs.auditor_remark AS "auditorRemark",
-              rs.reviewed_at AS "reviewedAt",
-              u.name AS "resubmittedByName"
-       FROM audit_non_compliances nc
-       LEFT JOIN audit_resubmissions rs
-         ON rs.non_compliance_id = nc.id
-        AND rs.id = (
-          SELECT r2.id
-          FROM audit_resubmissions r2
-          WHERE r2.non_compliance_id = nc.id
-          ORDER BY r2.resubmitted_at DESC
-          LIMIT 1
-        )
-       LEFT JOIN users u ON u.id = rs.resubmitted_by
-       WHERE nc.audit_id = $1
-       ORDER BY COALESCE(rs.resubmitted_at, nc.raised_at) DESC, nc.raised_at DESC`,
-      [auditId],
-    );
-    const summary = {
-      total: ncs.length,
-      ncRaised: ncs.filter((n) => n.status === 'NC_RAISED').length,
-      awaitingReupload: ncs.filter((n) => n.status === 'AWAITING_REUPLOAD')
-        .length,
-      reuploaded: ncs.filter((n) => n.status === 'REUPLOADED').length,
-      reverificationPending: ncs.filter(
-        (n) => n.status === 'REVERIFICATION_PENDING',
-      ).length,
-      accepted: ncs.filter((n) => n.status === 'ACCEPTED').length,
-      closed: ncs.filter((n) => n.status === 'CLOSED').length,
-    };
-    return { items: ncs, summary };
+    return this.ncService.getNonCompliancesForAudit(user, auditId);
   }
 
-  // ─── Reverification List (all audits for this auditor with reuploaded NC) ──
   async getReverificationList(user: ReqUser) {
-    this.assertAuditor(user);
-    const rows = await this.dataSource.query(
-      `SELECT nc.id AS "ncId", nc.audit_id AS "auditId", nc.document_id AS "documentId",
-              nc.source_table AS "sourceTable", nc.document_name AS "documentName",
-              nc.remark AS "previousRemark", nc.status,
-              nc.raised_at AS "raisedAt", nc.requested_to_role AS "requestedToRole",
-              a.audit_code AS "auditCode", a.audit_type AS "auditType",
-              a.period_code AS "periodCode",
-              c.client_name AS "clientName",
-              cb.branchname AS "branchName",
-              cu.name AS "contractorName",
-              rs.id AS "resubmissionId", rs.file_path AS "correctedFilePath",
-              rs.file_name AS "correctedFileName", rs.resubmitted_at AS "resubmittedAt",
-              rsu.name AS "resubmittedByName"
-       FROM audit_non_compliances nc
-       JOIN audits a ON a.id = nc.audit_id
-       JOIN clients c ON c.id = a.client_id
-       LEFT JOIN client_branches cb ON cb.id = a.branch_id
-       LEFT JOIN users cu ON cu.id = a.contractor_user_id
-       LEFT JOIN audit_resubmissions rs ON rs.non_compliance_id = nc.id
-         AND rs.id = (SELECT r2.id FROM audit_resubmissions r2
-                      WHERE r2.non_compliance_id = nc.id ORDER BY r2.resubmitted_at DESC LIMIT 1)
-       LEFT JOIN users rsu ON rsu.id = rs.resubmitted_by
-       WHERE a.assigned_auditor_id = $1
-         AND nc.status IN ('REUPLOADED','REVERIFICATION_PENDING')
-       ORDER BY rs.resubmitted_at DESC NULLS LAST, nc.raised_at DESC`,
-      [user.userId],
-    );
-    return rows;
+    return this.ncService.getReverificationList(user);
   }
 
-  // ─── Review corrected document (reverification) ────────────────
   async reviewCorrectedDocument(
     user: ReqUser,
     ncId: string,
     decision: 'COMPLIED' | 'NON_COMPLIED',
     remark?: string,
   ) {
-    this.assertAuditor(user);
-    const nc = await this.ncRepo.findOne({ where: { id: ncId } });
-    if (!nc) throw new NotFoundException('Non-compliance not found');
-
-    const audit = await this.repo.findOne({ where: { id: nc.auditId } });
-    if (!audit || audit.assignedAuditorId !== user.userId) {
-      throw new ForbiddenException('Not your audit');
-    }
-    if (decision === 'NON_COMPLIED' && (!remark || remark.trim().length < 5)) {
-      throw new BadRequestException(
-        'Remarks of at least 5 characters are required when rejecting a corrected document',
-      );
-    }
-
-    if (decision === 'COMPLIED') {
-      nc.status = 'ACCEPTED';
-      nc.closedAt = new Date();
-    } else {
-      nc.status = 'NC_RAISED'; // re-raise
-      audit.status = 'CORRECTION_PENDING';
-    }
-    nc.remark = remark || nc.remark;
-    await this.ncRepo.save(nc);
-
-    // Update the latest resubmission record
-    const latestResub = await this.resubRepo.findOne({
-      where: { nonComplianceId: ncId },
-      order: { resubmittedAt: 'DESC' },
-    });
-    if (latestResub) {
-      latestResub.finalMark = decision;
-      latestResub.auditorRemark = remark || null;
-      latestResub.reviewedBy = user.userId;
-      latestResub.reviewedAt = new Date();
-      await this.resubRepo.save(latestResub);
-    }
-
-    // Also update the original document status
-    if (nc.documentId && nc.sourceTable) {
-      const statusMap: Record<string, string> = {
-        COMPLIED: 'APPROVED',
-        NON_COMPLIED: 'REJECTED',
-      };
-      if (nc.sourceTable === 'branch_documents') {
-        await this.dataSource.query(
-          `UPDATE branch_documents SET status = $1, remarks = $2, reviewed_by = $3, reviewed_at = NOW() WHERE id = $4`,
-          [statusMap[decision], remark || null, user.userId, nc.documentId],
-        );
-      } else {
-        await this.dataSource.query(
-          `UPDATE contractor_documents SET status = $1, review_notes = $2, reviewed_by_user_id = $3, reviewed_at = NOW() WHERE id = $4`,
-          [statusMap[decision], remark || null, user.userId, nc.documentId],
-        );
-      }
-    }
-
-    // Create a new review record for the corrected version
-    if (nc.documentId) {
-      const tbl = nc.sourceTable || 'contractor_documents';
-      const prevReview = await this.docReviewRepo.findOne({
-        where: {
-          auditId: nc.auditId,
-          documentId: nc.documentId,
-          sourceTable: tbl,
-        },
-        order: { version: 'DESC' },
-      });
-      const reviewRecord = this.docReviewRepo.create({
-        auditId: nc.auditId,
-        documentId: nc.documentId,
-        sourceTable: tbl,
-        complianceMark: decision,
-        auditorRemark: remark || null,
-        version: prevReview ? prevReview.version + 1 : 1,
-        reviewedBy: user.userId,
-        reviewedAt: new Date(),
-      });
-      await this.docReviewRepo.save(reviewRecord);
-    }
-
-    // Check if all NCs for this audit are resolved — auto-transition to CLOSED
-    const openNcs = await this.ncRepo.count({
-      where: { auditId: nc.auditId },
-    });
-    const closedNcs = await this.ncRepo.count({
-      where: [
-        { auditId: nc.auditId, status: 'ACCEPTED' },
-        { auditId: nc.auditId, status: 'CLOSED' },
-      ],
-    });
-    if (openNcs > 0 && openNcs === closedNcs) {
-      audit.status = 'CLOSED';
-      await this.repo.save(audit);
-    }
-
-    // ── Automation hooks ──
-    try {
-      if (decision === 'COMPLIED') {
-        await this.ncEngine.closeNc(ncId);
-        // Recalculate score + report after this NC acceptance
-        await this.auditOutputEngine.refreshAuditOutputs(nc.auditId);
-      } else {
-        // Re-raised NC → create a new system task
-        await this.ncEngine.createTaskForNc(ncId);
-      }
-    } catch {
-      // Non-critical automation hooks
-    }
-
-    // Phase 5: emit NC review log
-    try {
-      await this.auditLogs?.log({
-        entityType: 'AUDIT_NC',
-        entityId: ncId,
-        action: decision === 'COMPLIED' ? 'NC_ACCEPTED' : 'NC_REJECTED',
-        performedBy: user.userId,
-        performedRole: user.roleCode || null,
-        reason: remark || null,
-        meta: { auditId: nc.auditId },
-      });
-    } catch {
-      /* non-critical */
-    }
-
-    return { ncId, status: nc.status, decision };
+    return this.ncService.reviewCorrectedDocument(user, ncId, decision, remark);
   }
 
-  /** Phase 5 — Repeat-NC analytics for a client across all audits. */
   async getRepeatNcAnalytics(user: ReqUser, clientId: string) {
-    if (!user) throw new ForbiddenException('Auth required');
-    if (
-      !['AUDITOR', 'ADMIN', 'CRM', 'CCO', 'CEO'].includes(user.roleCode || '')
-    ) {
-      throw new ForbiddenException('Insufficient role for analytics');
-    }
-    if (user.roleCode === 'CCO') {
-      const rows = await this.dataSource.query(
-        `SELECT 1
-           FROM clients c
-           INNER JOIN users crm ON crm.id = c.assigned_crm_id
-          WHERE c.id = $1
-            AND crm.owner_cco_id = $2
-            AND crm.deleted_at IS NULL
-          LIMIT 1`,
-        [clientId, user.userId ?? user.id],
-      );
-      if (!rows.length) throw new ForbiddenException('Client not in CCO scope');
-    }
-    const rows = await this.dataSource.query(
-      `SELECT nc.finding_signature        AS "signature",
-              MAX(nc.document_name)       AS "documentName",
-              COUNT(*)::int               AS "occurrences",
-              COUNT(DISTINCT nc.audit_id)::int AS "audits",
-              MAX(nc.created_at)          AS "lastSeenAt",
-              MAX(nc.recurrence_count)::int AS "maxRecurrenceCount"
-         FROM audit_non_compliances nc
-         JOIN audits a ON a.id = nc.audit_id
-        WHERE a.client_id = $1
-          AND nc.finding_signature IS NOT NULL
-        GROUP BY nc.finding_signature
-       HAVING COUNT(DISTINCT nc.audit_id) > 1
-        ORDER BY COUNT(*) DESC, MAX(nc.created_at) DESC
-        LIMIT 100`,
-      [clientId],
-    );
-    return {
-      clientId,
-      totalRepeatGroups: rows.length,
-      items: rows,
-    };
+    return this.ncService.getRepeatNcAnalytics(user, clientId);
   }
 
-  /** Phase 5 — list overdue NCs across the calling auditor's audits. */
   async listOverdueNcsForAuditor(user: ReqUser) {
-    this.assertAuditor(user);
-    const today = new Date().toISOString().slice(0, 10);
-    const rows = await this.dataSource.query(
-      `SELECT nc.id                       AS "ncId",
-              nc.audit_id                 AS "auditId",
-              a.audit_code                AS "auditCode",
-              a.client_id                 AS "clientId",
-              c.client_name               AS "clientName",
-              a.branch_id                 AS "branchId",
-              b.branchname                AS "branchName",
-              nc.document_name            AS "documentName",
-              nc.remark                   AS "remark",
-              nc.status                   AS "status",
-              nc.vendor_window_until      AS "vendorWindowUntil",
-              nc.requested_to_role        AS "requestedToRole",
-              nc.requested_to_user_id     AS "requestedToUserId",
-              nc.recurrence_count         AS "recurrenceCount",
-              nc.created_at               AS "createdAt",
-              ($1::date - nc.vendor_window_until)::int AS "daysOverdue"
-         FROM audit_non_compliances nc
-         JOIN audits a ON a.id = nc.audit_id
-         LEFT JOIN clients  c ON c.id = a.client_id
-         LEFT JOIN client_branches b ON b.id = a.branch_id
-        WHERE a.assigned_auditor_id = $2
-          AND nc.status IN ('NC_RAISED','AWAITING_REUPLOAD')
-          AND nc.vendor_window_until IS NOT NULL
-          AND nc.vendor_window_until < $1::date
-          AND nc.closed_at IS NULL
-        ORDER BY nc.vendor_window_until ASC
-        LIMIT 500`,
-      [today, user.userId],
-    );
-    return { total: rows.length, asOf: today, items: rows };
+    return this.ncService.listOverdueNcsForAuditor(user);
   }
-
-  // ─── Submission History ────────────────────────────────────────
   async getSubmissionHistory(user: ReqUser, auditId: string) {
-    this.assertAuditor(user);
-    const audit = await this.repo.findOne({ where: { id: auditId } });
-    if (!audit) throw new NotFoundException('Audit not found');
-    if (audit.assignedAuditorId !== user.userId)
-      throw new ForbiddenException('Not your audit');
-
-    const reviews = await this.docReviewRepo.find({
-      where: { auditId },
-      order: { reviewedAt: 'DESC' },
-    });
-
-    // Group by version rounds
-    const versions = new Map<number, any[]>();
-    for (const r of reviews) {
-      if (!versions.has(r.version)) versions.set(r.version, []);
-      versions.get(r.version)!.push(r);
-    }
-
-    const history = Array.from(versions.entries()).map(([ver, items]) => ({
-      version: ver,
-      reviewCount: items.length,
-      complied: items.filter((i) => i.complianceMark === 'COMPLIED').length,
-      nonComplied: items.filter((i) => i.complianceMark === 'NON_COMPLIED')
-        .length,
-      latestReviewAt: items.reduce(
-        (max, i) => (i.reviewedAt > max ? i.reviewedAt : max),
-        items[0].reviewedAt,
-      ),
-    }));
-
-    return {
-      auditId,
-      submissions: history.sort((a, b) => a.version - b.version),
-    };
+    return this.auditorDashboardService.getSubmissionHistory(user, auditId);
   }
 
-  // ─── Document Reviews History ──────────────────────────────────
   async getDocumentReviews(user: ReqUser, auditId: string) {
-    this.assertAuditor(user);
-    const audit = await this.repo.findOne({ where: { id: auditId } });
-    if (!audit) throw new NotFoundException('Audit not found');
-    if (audit.assignedAuditorId !== user.userId)
-      throw new ForbiddenException('Not your audit');
-
-    return this.docReviewRepo.find({
-      where: { auditId },
-      order: { reviewedAt: 'DESC' },
-    });
+    return this.auditorDashboardService.getDocumentReviews(user, auditId);
   }
-
-  // ═══════════════════════════════════════════════════════════════
-  //  AUDITOR DASHBOARD SUMMARY
-  // ═══════════════════════════════════════════════════════════════
 
   async getAuditorDashboardSummary(user: ReqUser) {
-    this.assertAuditor(user);
-    const rows = await this.dataSource.query(
-      `SELECT
-         COUNT(*)::int AS "totalAssigned",
-         COUNT(*) FILTER (WHERE status = 'PLANNED')::int AS "pending",
-         COUNT(*) FILTER (WHERE status = 'IN_PROGRESS')::int AS "inProgress",
-         COUNT(*) FILTER (WHERE status IN ('SUBMITTED','COMPLETED'))::int AS "submitted",
-         COUNT(*) FILTER (WHERE status IN ('CORRECTION_PENDING','REVERIFICATION_PENDING'))::int AS "reverificationPending",
-         COUNT(*) FILTER (WHERE status = 'CLOSED')::int AS "closed"
-       FROM audits
-       WHERE assigned_auditor_id = $1 AND status != 'CANCELLED'`,
-      [user.userId],
-    );
-    return (
-      rows[0] || {
-        totalAssigned: 0,
-        pending: 0,
-        inProgress: 0,
-        submitted: 0,
-        reverificationPending: 0,
-        closed: 0,
-      }
-    );
+    return this.auditorDashboardService.getAuditorDashboardSummary(user);
   }
 
   async getAuditorUpcomingAudits(user: ReqUser) {
-    this.assertAuditor(user);
-    return this.dataSource.query(
-      `SELECT a.id, a.audit_code AS "auditCode", a.audit_type AS "auditType",
-              a.period_code AS "periodCode", a.due_date AS "dueDate",
-              a.scheduled_date AS "scheduledDate", a.status,
-              c.client_name AS "clientName",
-              cb.branchname AS "branchName",
-              cu.name AS "contractorName"
-       FROM audits a
-       JOIN clients c ON c.id = a.client_id
-       LEFT JOIN client_branches cb ON cb.id = a.branch_id
-       LEFT JOIN users cu ON cu.id = a.contractor_user_id
-       WHERE a.assigned_auditor_id = $1
-         AND a.status IN ('PLANNED','IN_PROGRESS','CORRECTION_PENDING','REVERIFICATION_PENDING')
-       ORDER BY a.due_date ASC NULLS LAST, a.created_at DESC`,
-      [user.userId],
-    );
+    return this.auditorDashboardService.getAuditorUpcomingAudits(user);
   }
 
   async getAuditorRecentSubmitted(user: ReqUser) {
-    this.assertAuditor(user);
-    return this.dataSource.query(
-      `SELECT a.id, a.audit_code AS "auditCode", a.audit_type AS "auditType",
-              a.score, a.submitted_at AS "submittedAt", a.status,
-              c.client_name AS "clientName",
-              COALESCE(cb.branchname, cu.name) AS "entityName"
-       FROM audits a
-       JOIN clients c ON c.id = a.client_id
-       LEFT JOIN client_branches cb ON cb.id = a.branch_id
-       LEFT JOIN users cu ON cu.id = a.contractor_user_id
-       WHERE a.assigned_auditor_id = $1
-         AND a.status IN ('SUBMITTED','COMPLETED','CLOSED')
-       ORDER BY a.submitted_at DESC NULLS LAST
-       LIMIT 20`,
-      [user.userId],
-    );
+    return this.auditorDashboardService.getAuditorRecentSubmitted(user);
   }
-
   /** Dashboard "Today / Upcoming Scheduled Audits" table — paginated */
-  async getDashboardAudits(
-    user: ReqUser,
-    tab: string,
-    filters: {
-      clientId?: string;
-      auditType?: string;
-      fromDate?: string;
-      toDate?: string;
-    },
-  ): Promise<{ items: any[] }> {
-    this.assertAuditor(user);
-
-    const clauses: string[] = [
-      'a.assigned_auditor_id = $1',
-      "a.status != 'CANCELLED'",
-    ];
-    const params: any[] = [user.userId];
-
-    const p = () => `$${params.length + 1}`;
-
-    const today = new Date().toISOString().slice(0, 10);
-
-    if (tab === 'OVERDUE') {
-      clauses.push(`a.due_date < '${today}'`);
-      clauses.push("a.status NOT IN ('COMPLETED','SUBMITTED','CLOSED')");
-    } else if (tab === 'DUE_SOON') {
-      clauses.push(`a.due_date >= '${today}'`);
-      clauses.push(
-        `a.due_date <= '${new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)}'`,
-      );
-      clauses.push("a.status NOT IN ('COMPLETED','SUBMITTED','CLOSED')");
-    } else if (tab === 'COMPLETED') {
-      clauses.push("a.status IN ('COMPLETED','SUBMITTED','CLOSED')");
-    } else {
-      // ACTIVE (default)
-      clauses.push(
-        "a.status IN ('PLANNED','IN_PROGRESS','CORRECTION_PENDING','REVERIFICATION_PENDING')",
-      );
-    }
-
-    if (filters.clientId) {
-      params.push(filters.clientId);
-      clauses.push(`a.client_id = ${p()}`);
-    }
-    if (filters.auditType) {
-      params.push(filters.auditType);
-      clauses.push(`a.audit_type = ${p()}`);
-    }
-    if (filters.fromDate) {
-      params.push(filters.fromDate);
-      clauses.push(`a.due_date >= ${p()}`);
-    }
-    if (filters.toDate) {
-      params.push(filters.toDate);
-      clauses.push(`a.due_date <= ${p()}`);
-    }
-
-    const where = clauses.map((c) => `(${c})`).join(' AND ');
-
-    const rows = await this.dataSource.query(
-      `SELECT a.id AS "auditId",
-              a.client_id AS "clientId",
-              c.client_name AS "clientName",
-              a.branch_id AS "branchId",
-              COALESCE(cb.branchname, '') AS "branchName",
-              CONCAT(a.audit_type, ' – ', a.period_code) AS "auditName",
-              a.due_date AS "dueDate",
-              a.status AS "status",
-              CASE
-                WHEN (SELECT COUNT(*) FROM audit_checklist_items ci WHERE ci.audit_id = a.id) = 0 THEN 0
-                ELSE ROUND(
-                  100.0 * (SELECT COUNT(*) FROM audit_checklist_items ci WHERE ci.audit_id = a.id AND ci.status IN ('REVIEWED','APPROVED'))
-                  / (SELECT COUNT(*) FROM audit_checklist_items ci WHERE ci.audit_id = a.id)
-                )
-              END::int AS "progressPct"
-       FROM audits a
-       JOIN clients c ON c.id = a.client_id
-       LEFT JOIN client_branches cb ON cb.id = a.branch_id
-       WHERE ${where}
-       ORDER BY
-         CASE WHEN a.status = 'IN_PROGRESS' THEN 0 ELSE 1 END,
-         a.due_date ASC NULLS LAST
-       LIMIT 50`,
-      params,
-    );
-
-    return { items: rows };
-  }
-
-  // ═══════════════════════════════════════════════════════════════
-  //  CONTRACTOR / BRANCH NC VISIBILITY
+  //  CONTRACTOR / BRANCH NC VISIBILITY — delegated to AuditNcService
   // ═══════════════════════════════════════════════════════════════
 
   async getNonCompliancesForContractor(user: ReqUser) {
-    return this.dataSource.query(
-      `SELECT nc.id, nc.audit_id AS "auditId", nc.document_name AS "documentName",
-              nc.remark, nc.status, nc.raised_at AS "raisedAt",
-              a.audit_code AS "auditCode", a.audit_type AS "auditType",
-              cb.branchname AS "branchName"
-       FROM audit_non_compliances nc
-       JOIN audits a ON a.id = nc.audit_id
-       LEFT JOIN client_branches cb ON cb.id = a.branch_id
-       WHERE nc.requested_to_user_id = $1
-         AND nc.status NOT IN ('CLOSED','ACCEPTED')
-       ORDER BY nc.raised_at DESC`,
-      [user.userId],
-    );
+    return this.ncService.getNonCompliancesForContractor(user);
   }
 
   async uploadCorrectedFile(
@@ -3814,83 +1397,11 @@ export class AuditsService implements OnModuleInit {
       size: number;
     },
   ) {
-    const nc = await this.ncRepo.findOne({ where: { id: ncId } });
-    if (!nc) throw new NotFoundException('Non-compliance not found');
-    if (nc.requestedToUserId !== user.userId)
-      throw new ForbiddenException('Not your NC');
-
-    const resub = this.resubRepo.create({
-      auditId: nc.auditId,
-      nonComplianceId: ncId,
-      documentId: nc.documentId,
-      sourceTable: nc.sourceTable,
-      filePath: file.path,
-      fileName: file.originalname,
-      mimeType: file.mimetype,
-      fileSize: file.size,
-      resubmittedBy: user.userId,
-    });
-    await this.resubRepo.save(resub);
-
-    nc.status = 'REUPLOADED';
-    await this.ncRepo.save(nc);
-
-    // Phase 5: emit log
-    try {
-      await this.auditLogs?.log({
-        entityType: 'AUDIT_NC',
-        entityId: nc.id,
-        action: 'NC_REUPLOADED',
-        performedBy: user.userId,
-        performedRole: user.roleCode || null,
-        meta: { auditId: nc.auditId, fileName: file.originalname },
-      });
-    } catch {
-      /* non-critical */
-    }
-
-    // Update audit status to REVERIFICATION_PENDING if it was CORRECTION_PENDING
-    const audit = await this.repo.findOne({ where: { id: nc.auditId } });
-    if (
-      audit &&
-      (audit.status === 'CORRECTION_PENDING' || audit.status === 'SUBMITTED')
-    ) {
-      audit.status = 'REVERIFICATION_PENDING';
-      await this.repo.save(audit);
-    }
-
-    return { resubmissionId: resub.id, status: nc.status };
+    return this.ncService.uploadCorrectedFile(user, ncId, file);
   }
-
-  // ─── Audit Info ────────────────────────────────────────────────
   async getAuditInfo(user: ReqUser, auditId: string) {
-    this.assertAuditor(user);
-    const rows = await this.dataSource.query(
-      `SELECT a.id, a.audit_code AS "auditCode", a.audit_type AS "auditType",
-              a.frequency, a.period_year AS "periodYear", a.period_code AS "periodCode",
-              a.status, a.score, a.due_date AS "dueDate",
-              a.scheduled_date AS "scheduledDate", a.submitted_at AS "submittedAt",
-              a.final_remark AS "finalRemark", a.notes,
-              a.created_at AS "createdAt",
-              c.client_name AS "clientName", c.id AS "clientId",
-              cb.branchname AS "branchName", cb.id AS "branchId",
-              cu.name AS "contractorName", cu.id AS "contractorUserId",
-              au.name AS "auditorName",
-              sby.name AS "scheduledByName"
-       FROM audits a
-       JOIN clients c ON c.id = a.client_id
-       LEFT JOIN client_branches cb ON cb.id = a.branch_id
-       LEFT JOIN users cu ON cu.id = a.contractor_user_id
-       LEFT JOIN users au ON au.id = a.assigned_auditor_id
-       LEFT JOIN users sby ON sby.id = a.scheduled_by_user_id
-       WHERE a.id = $1 AND a.assigned_auditor_id = $2`,
-      [auditId, user.userId],
-    );
-    if (!rows.length) throw new NotFoundException('Audit not found');
-    return rows[0];
+    return this.auditorDashboardService.getAuditInfo(user, auditId);
   }
-
-  // ═══════════════════════════════════════════════════════════════
   //  OPEN WORKSPACE FROM SCHEDULE
   // ═══════════════════════════════════════════════════════════════
 
@@ -4015,63 +1526,6 @@ export class AuditsService implements OnModuleInit {
       );
     } catch {
       // Non-critical
-    }
-  }
-
-  /**
-   * Item #7: notify the contractor when an audit doc is marked NON_COMPLIED.
-   * Best-effort; never throws.
-   */
-  private async notifyAuditRejection(
-    audit: AuditEntity,
-    docName: string,
-    remarks: string | null | undefined,
-  ): Promise<void> {
-    try {
-      if (!audit?.contractorUserId) return;
-      const rows = await this.dataSource.query(
-        `SELECT u.email AS email,
-                b.branchname AS branch_name
-           FROM users u
-           LEFT JOIN branches b ON b.id = $2::uuid
-          WHERE u.id = $1::uuid AND u.deleted_at IS NULL
-          LIMIT 1`,
-        [audit.contractorUserId, audit.branchId || null],
-      );
-      const email = rows?.[0]?.email as string | undefined;
-      if (!email) return;
-
-      // Cc the assigned auditor so they have a live record of every NC raised.
-      let auditorCc: string[] = [];
-      if (audit.assignedAuditorId) {
-        try {
-          const aRows = await this.dataSource.query(
-            `SELECT email FROM users WHERE id = $1::uuid AND deleted_at IS NULL LIMIT 1`,
-            [audit.assignedAuditorId],
-          );
-          const aEmail = aRows?.[0]?.email as string | undefined;
-          if (aEmail && aEmail.toLowerCase() !== email.toLowerCase()) {
-            auditorCc = [aEmail];
-          }
-        } catch {
-          // swallow; cc is best-effort
-        }
-      }
-
-      const period = audit.periodCode || null;
-      await this.rejectionMail.sendAuditRejection({
-        to: email,
-        cc: auditorCc.length ? auditorCc : undefined,
-        docName,
-        branchName: rows?.[0]?.branch_name ?? null,
-        auditPeriod: period,
-        nonCompliance: remarks ?? null,
-        applicableLaw: null,
-        impact: null,
-        solution: remarks ?? null,
-      });
-    } catch {
-      // swallow
     }
   }
 }
