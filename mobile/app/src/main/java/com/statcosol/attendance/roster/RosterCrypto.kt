@@ -1,6 +1,6 @@
 package com.statcosol.attendance.roster
 
-import android.util.Base64
+import java.util.Base64
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.MessageDigest
@@ -33,7 +33,7 @@ object RosterCrypto {
         installToken: String,
         embeddingCipherB64: String,
     ): ByteArray {
-        val packed = Base64.decode(embeddingCipherB64, Base64.DEFAULT)
+        val packed = Base64.getDecoder().decode(embeddingCipherB64)
         require(packed.size >= IV_LEN + TAG_LEN + 1) { "Invalid roster ciphertext" }
         val iv = packed.copyOfRange(0, IV_LEN)
         val tag = packed.copyOfRange(IV_LEN, IV_LEN + TAG_LEN)
