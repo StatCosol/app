@@ -31,6 +31,7 @@ import {
   SelfEnrollDto,
   SubmitKioskTicketDto,
 } from './enrollment.dto';
+import { ReenrollmentService } from './reenrollment.service';
 
 const KIOSK_REQUIRED_FRAMES = Number(
   process.env.FACE_KIOSK_REQUIRED_FRAMES ?? 3,
@@ -73,6 +74,7 @@ export class EnrollmentService {
     private readonly faceClient: FaceEmbeddingClient,
     private readonly templateService: FaceTemplateService,
     private readonly dataSource: DataSource,
+    private readonly reenrollmentService: ReenrollmentService,
   ) {}
 
   /**
@@ -132,28 +134,14 @@ export class EnrollmentService {
 
   // ─── ESS self-enroll ───────────────────────────────────────────────────────
 
-  async enrollSelf(
-    employeeId: string,
-    clientId: string,
-    branchId: string | null,
-    dto: SelfEnrollDto,
-    actorUserId: string,
-  ): Promise<FaceEnrollmentEntity> {
-    if (!dto.consentGiven) throw new BadRequestException('Consent required');
-    if (dto.embeddingFrames.length < ESS_REQUIRED_FRAMES) {
-      throw new BadRequestException(
-        `ESS enrolment requires at least ${ESS_REQUIRED_FRAMES} frames`,
-      );
-    }
-
+  private async buildSelfEnrollEmbedding(dto: SelfEnrollDto): Promise<{
+    embedding: Buffer;
+    embeddingModel: string | null;
+    averaged: Float32Array;
+  }> {
     const averaged = averageEmbeddings(
       dto.embeddingFrames.map(decodeEmbedding),
     );
-
-    // Quality gate + (when the server is the authoritative embedder) the
-    // stored embedding itself. With FACE_SERVER_EMBED=true, kiosk-frame
-    // embeddings are only a fallback — the face-svc model output is what
-    // punch probes will be compared against.
     const server =
       this.faceClient.enabled && dto.photoB64
         ? await this.assertPhotoQuality(dto.photoB64)
@@ -163,8 +151,61 @@ export class EnrollmentService {
       ? new Float32Array(server.embedding)
       : averaged;
     const storedModel = useServer ? server.model : (dto.embeddingModel ?? null);
+    return {
+      embedding: embeddingToBuffer(storedEmbedding),
+      embeddingModel: storedModel,
+      averaged,
+    };
+  }
 
-    await this.assertNotDuplicate(clientId, storedEmbedding, {
+  async enrollSelf(
+    employeeId: string,
+    clientId: string,
+    branchId: string | null,
+    dto: SelfEnrollDto,
+    actorUserId: string,
+  ): Promise<
+    | FaceEnrollmentEntity
+    | { status: 'PENDING_REVIEW'; requestId: string; message: string }
+  > {
+    if (!dto.consentGiven) throw new BadRequestException('Consent required');
+    if (dto.embeddingFrames.length < ESS_REQUIRED_FRAMES) {
+      throw new BadRequestException(
+        `ESS enrolment requires at least ${ESS_REQUIRED_FRAMES} frames`,
+      );
+    }
+
+    const { embedding, embeddingModel, averaged } =
+      await this.buildSelfEnrollEmbedding(dto);
+
+    const existing = await this.enrollRepo.findOne({ where: { employeeId } });
+    if (
+      existing?.isActive &&
+      existing.embedding &&
+      existing.embedding.length > 0
+    ) {
+      await this.assertNotDuplicate(clientId, bufferToEmbedding(embedding), {
+        excludeEmployeeId: employeeId,
+      });
+      const photoUrl = await this.tryUploadPhoto(
+        dto.photoB64,
+        clientId,
+        employeeId,
+      );
+      return this.reenrollmentService.createEmployeeRequest({
+        clientId,
+        branchId,
+        employeeId,
+        actorUserId,
+        source: 'ESS',
+        embedding,
+        embeddingModel,
+        photoUrl,
+        reason: dto.reason,
+      });
+    }
+
+    await this.assertNotDuplicate(clientId, averaged, {
       excludeEmployeeId: employeeId,
     });
 
@@ -175,17 +216,14 @@ export class EnrollmentService {
     );
 
     const saved = await this.dataSource.transaction(async (em) => {
-      const existing = await em.findOne(FaceEnrollmentEntity, {
-        where: { employeeId },
-      });
       const action = existing ? 'RE_ENROLL' : 'ENROLL';
 
       const record = em.create(FaceEnrollmentEntity, {
         employeeId,
         clientId,
         branchId,
-        embedding: embeddingToBuffer(storedEmbedding),
-        embeddingModel: storedModel,
+        embedding,
+        embeddingModel,
         photoUrl,
         consentGivenAt: new Date(),
         consentGivenBy: actorUserId,
@@ -201,24 +239,135 @@ export class EnrollmentService {
         employeeId,
         clientId,
         action,
-        embeddingModel: storedModel,
+        embeddingModel,
         actorUserId,
       });
 
       return created;
     });
 
-    // Multi-template gallery: keep this session's embedding as a template so
-    // re-enrollments accumulate poses instead of overwriting history.
     await this.templateService
       .appendTemplate(
         clientId,
         branchId,
         'EMPLOYEE',
         employeeId,
-        storedEmbedding,
-        storedModel,
-        'RE_ENROLL',
+        averaged,
+        embeddingModel,
+        existing ? 'RE_ENROLL' : 'ENROLL',
+        actorUserId,
+      )
+      .catch(() => undefined);
+
+    return saved;
+  }
+
+  async enrollContractorSelf(
+    contractorEmployeeId: string,
+    clientId: string,
+    branchId: string | null,
+    dto: SelfEnrollDto,
+    actorUserId: string,
+  ): Promise<
+    | ContractorFaceEnrollmentEntity
+    | { status: 'PENDING_REVIEW'; requestId: string; message: string }
+  > {
+    if (!dto.consentGiven) throw new BadRequestException('Consent required');
+    if (dto.embeddingFrames.length < ESS_REQUIRED_FRAMES) {
+      throw new BadRequestException(
+        `ESS enrolment requires at least ${ESS_REQUIRED_FRAMES} frames`,
+      );
+    }
+
+    const [worker] = await this.dataSource.query<
+      Array<{ id: string; branch_id: string | null }>
+    >(
+      `SELECT id, branch_id FROM contractor_employees
+        WHERE id = $1 AND client_id = $2 AND is_active = true`,
+      [contractorEmployeeId, clientId],
+    );
+    if (!worker) throw new NotFoundException('Contractor employee not found');
+
+    const effectiveBranch = branchId ?? worker.branch_id;
+    const { embedding, embeddingModel, averaged } =
+      await this.buildSelfEnrollEmbedding(dto);
+
+    const existing = await this.contractorEnrollRepo.findOne({
+      where: { contractorEmployeeId },
+    });
+    if (
+      existing?.isActive &&
+      existing.embedding &&
+      existing.embedding.length > 0
+    ) {
+      await this.assertNotDuplicate(clientId, bufferToEmbedding(embedding), {
+        excludeContractorId: contractorEmployeeId,
+      });
+      const photoUrl = await this.tryUploadPhoto(
+        dto.photoB64,
+        clientId,
+        contractorEmployeeId,
+      );
+      return this.reenrollmentService.createContractorRequest({
+        clientId,
+        branchId: effectiveBranch,
+        contractorEmployeeId,
+        actorUserId,
+        source: 'ESS',
+        embedding,
+        embeddingModel,
+        photoUrl,
+        reason: dto.reason,
+      });
+    }
+
+    await this.assertNotDuplicate(clientId, averaged, {
+      excludeContractorId: contractorEmployeeId,
+    });
+    const photoUrl = await this.tryUploadPhoto(
+      dto.photoB64,
+      clientId,
+      contractorEmployeeId,
+    );
+
+    const saved = await this.dataSource.transaction(async (em) => {
+      const action = existing ? 'RE_ENROLL' : 'ENROLL';
+      const record = em.create(ContractorFaceEnrollmentEntity, {
+        contractorEmployeeId,
+        clientId,
+        branchId: effectiveBranch,
+        contractorUserId: existing?.contractorUserId ?? null,
+        embedding,
+        embeddingModel,
+        photoUrl,
+        consentGivenAt: new Date(),
+        consentGivenBy: actorUserId,
+        enrolledAt: new Date(),
+        enrolledBy: actorUserId,
+        isActive: true,
+        deactivatedAt: null,
+        deactivationReason: null,
+      });
+      const created = await em.save(ContractorFaceEnrollmentEntity, record);
+      await em.save(FaceEnrollmentHistoryEntity, {
+        contractorEmployeeId,
+        clientId,
+        action,
+        embeddingModel,
+        actorUserId,
+      });
+      return created;
+    });
+
+    await this.templateService
+      .appendTemplate(
+        clientId,
+        effectiveBranch,
+        'CONTRACTOR',
+        contractorEmployeeId,
+        averaged,
+        embeddingModel,
+        existing ? 'RE_ENROLL' : 'ENROLL',
         actorUserId,
       )
       .catch(() => undefined);

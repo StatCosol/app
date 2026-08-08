@@ -10,6 +10,8 @@ import { ContractorFaceEnrollmentEntity } from './enrollment/contractor-face-enr
 import { KioskEnrollTicketEntity } from './enrollment/kiosk-enroll-ticket.entity';
 import { FaceEnrollmentHistoryEntity } from './enrollment/enrollment-history.entity';
 import { FaceEnrollmentTemplateEntity } from './enrollment/face-enrollment-template.entity';
+import { FaceReenrollmentRequestEntity } from './enrollment/face-reenrollment-request.entity';
+import { ContractorFaceReenrollmentRequestEntity } from './enrollment/contractor-face-reenrollment-request.entity';
 import { MobileAttendancePunchEntity } from './punch/punch.entity';
 import { ContractorBiometricPunchEntity } from './punch/contractor-punch.entity';
 import { FaceLivenessNonceEntity } from './liveness/liveness-nonce.entity';
@@ -18,6 +20,7 @@ import { FaceLivenessNonceEntity } from './liveness/liveness-nonce.entity';
 import { DeviceAuthGuard } from './devices/device-auth.guard';
 import { DeviceService } from './devices/device.service';
 import { EnrollmentService } from './enrollment/enrollment.service';
+import { ReenrollmentService } from './enrollment/reenrollment.service';
 import { PunchService } from './punch/punch.service';
 import { PunchDirectionService } from './punch/punch-direction.service';
 import { PunchContractorAdminService } from './punch/punch-contractor-admin.service';
@@ -45,6 +48,8 @@ import {
       KioskEnrollTicketEntity,
       FaceEnrollmentHistoryEntity,
       FaceEnrollmentTemplateEntity,
+      FaceReenrollmentRequestEntity,
+      ContractorFaceReenrollmentRequestEntity,
       MobileAttendancePunchEntity,
       ContractorBiometricPunchEntity,
       FaceLivenessNonceEntity,
@@ -62,6 +67,7 @@ import {
     DeviceAuthGuard,
     DeviceService,
     EnrollmentService,
+    ReenrollmentService,
     PunchDirectionService,
     PunchContractorAdminService,
     PunchReviewService,

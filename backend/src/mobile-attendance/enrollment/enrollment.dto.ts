@@ -33,6 +33,36 @@ export class SelfEnrollDto {
   @ApiProperty()
   @IsBoolean()
   consentGiven: boolean;
+
+  @ApiPropertyOptional({ enum: ['EMPLOYEE', 'CONTRACTOR'] })
+  @IsOptional()
+  @IsEnum(['EMPLOYEE', 'CONTRACTOR'])
+  subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
+
+  @ApiPropertyOptional({
+    description: 'Required when subjectType is CONTRACTOR (client-portal enroll).',
+  })
+  @IsOptional()
+  @IsUUID()
+  contractorEmployeeId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
+}
+
+export class ReviewReenrollDto {
+  @ApiProperty({ enum: ['APPROVED', 'REJECTED'] })
+  @IsEnum(['APPROVED', 'REJECTED'])
+  decision: 'APPROVED' | 'REJECTED';
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
 }
 
 export class CreateKioskTicketDto {

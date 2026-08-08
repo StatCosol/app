@@ -32,9 +32,11 @@ import { EnrollmentService } from './enrollment/enrollment.service';
 import {
   CreateKioskTicketDto,
   DeactivateEnrollmentDto,
+  ReviewReenrollDto,
   SelfEnrollDto,
   SubmitKioskTicketDto,
 } from './enrollment/enrollment.dto';
+import { ReenrollmentService } from './enrollment/reenrollment.service';
 
 import { PunchService } from './punch/punch.service';
 import { RecordPunchDto } from './punch/punch.dto';
@@ -192,7 +194,10 @@ export class MobileAttendanceDevicesController {
 @ApiBearerAuth('JWT')
 @Controller({ path: 'mobile-attendance/enrollment', version: '1' })
 export class MobileAttendanceEnrollmentController {
-  constructor(private readonly enrollmentService: EnrollmentService) {}
+  constructor(
+    private readonly enrollmentService: EnrollmentService,
+    private readonly reenrollmentService: ReenrollmentService,
+  ) {}
 
   private branchScope(user: ReqUser): string[] | null {
     return user?.roleCode === 'CLIENT' && user?.userType === 'BRANCH'
@@ -204,9 +209,22 @@ export class MobileAttendanceEnrollmentController {
   @Post('self')
   @Roles('EMPLOYEE', 'CLIENT', 'ADMIN')
   selfEnroll(@CurrentUser() user: ReqUser, @Body() dto: SelfEnrollDto) {
-    const employeeId = user?.employeeId ?? user?.userId;
     const clientId = user?.clientId;
-    if (!employeeId || !clientId)
+    if (!clientId) throw new BadRequestException('Client context required');
+    if (dto.subjectType === 'CONTRACTOR') {
+      if (!dto.contractorEmployeeId) {
+        throw new BadRequestException('contractorEmployeeId required');
+      }
+      return this.enrollmentService.enrollContractorSelf(
+        dto.contractorEmployeeId,
+        clientId,
+        user?.branchIds?.[0] ?? null,
+        dto,
+        user.userId,
+      );
+    }
+    const employeeId = user?.employeeId ?? user?.userId;
+    if (!employeeId)
       throw new BadRequestException('Employee context required');
     return this.enrollmentService.enrollSelf(
       employeeId,
@@ -353,6 +371,139 @@ export class MobileAttendanceEnrollmentController {
       ticketId,
       user.userId,
     );
+  }
+
+  @ApiOperation({ summary: 'Admin — list employee re-enrollment requests' })
+  @Get('reenroll-requests')
+  @Roles('CLIENT', 'ADMIN')
+  listReenrollRequests(
+    @CurrentUser() user: ReqUser,
+    @Query('status') status?: string,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    const normalized = (status ?? 'PENDING').toUpperCase() as
+      | 'PENDING'
+      | 'APPROVED'
+      | 'REJECTED'
+      | 'CANCELLED';
+    return this.reenrollmentService.listEmployeeRequests(
+      clientId,
+      normalized,
+      this.branchScope(user),
+    );
+  }
+
+  @ApiOperation({ summary: 'Admin — review an employee re-enrollment request' })
+  @Post('reenroll-requests/:id/review')
+  @Roles('CLIENT', 'ADMIN')
+  reviewReenrollRequest(
+    @Param('id') id: string,
+    @CurrentUser() user: ReqUser,
+    @Body() dto: ReviewReenrollDto,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.reenrollmentService.reviewEmployeeRequest(
+      clientId,
+      id,
+      dto.decision,
+      user.userId,
+      dto.notes,
+      this.branchScope(user),
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Stream a re-enrollment request photo (client + branch scoped)',
+  })
+  @Get('reenroll-requests/:id/photo')
+  @Roles('CLIENT', 'ADMIN')
+  async getReenrollRequestPhoto(
+    @Param('id') id: string,
+    @CurrentUser() user: ReqUser,
+    @Res() res: Response,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    const photo = await this.reenrollmentService.getEmployeeRequestPhoto(
+      clientId,
+      id,
+      this.branchScope(user),
+    );
+    if (!photo?.buffer?.length) {
+      throw new NotFoundException('Photo not found');
+    }
+    res.setHeader('Content-Type', photo.contentType);
+    res.send(photo.buffer);
+  }
+
+  @ApiOperation({ summary: 'Admin — list contractor re-enrollment requests' })
+  @Get('contractor-reenroll-requests')
+  @Roles('CLIENT', 'ADMIN')
+  listContractorReenrollRequests(
+    @CurrentUser() user: ReqUser,
+    @Query('status') status?: string,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    const normalized = (status ?? 'PENDING').toUpperCase() as
+      | 'PENDING'
+      | 'APPROVED'
+      | 'REJECTED'
+      | 'CANCELLED';
+    return this.reenrollmentService.listContractorRequests(
+      clientId,
+      normalized,
+      this.branchScope(user),
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Admin — review a contractor re-enrollment request',
+  })
+  @Post('contractor-reenroll-requests/:id/review')
+  @Roles('CLIENT', 'ADMIN')
+  reviewContractorReenrollRequest(
+    @Param('id') id: string,
+    @CurrentUser() user: ReqUser,
+    @Body() dto: ReviewReenrollDto,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.reenrollmentService.reviewContractorRequest(
+      clientId,
+      id,
+      dto.decision,
+      user.userId,
+      dto.notes,
+      this.branchScope(user),
+    );
+  }
+
+  @ApiOperation({
+    summary:
+      'Stream a contractor re-enrollment request photo (client + branch scoped)',
+  })
+  @Get('contractor-reenroll-requests/:id/photo')
+  @Roles('CLIENT', 'ADMIN')
+  async getContractorReenrollRequestPhoto(
+    @Param('id') id: string,
+    @CurrentUser() user: ReqUser,
+    @Res() res: Response,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    const photo = await this.reenrollmentService.getContractorRequestPhoto(
+      clientId,
+      id,
+      this.branchScope(user),
+    );
+    if (!photo?.buffer?.length) {
+      throw new NotFoundException('Photo not found');
+    }
+    res.setHeader('Content-Type', photo.contentType);
+    res.send(photo.buffer);
   }
 }
 
