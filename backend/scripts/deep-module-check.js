@@ -164,6 +164,8 @@ function verifyDelegates() {
     ['mobile-attendance/punch/punch.service.ts', 'mobile-attendance/punch/punch-review.service.ts', 'reviewService'],
     ['mobile-attendance/punch/punch.service.ts', 'mobile-attendance/punch/punch-contractor-admin.service.ts', 'contractorAdminService'],
     ['facedesk/facedesk-attendance.service.ts', 'facedesk/facedesk-offline-sync.service.ts', 'offlineSyncService'],
+    ['facedesk/facedesk-attendance.service.ts', 'facedesk/facedesk-pin-attendance.service.ts', 'pinAttendanceService'],
+    ['facedesk/facedesk-attendance.service.ts', 'facedesk/facedesk-punch-accept.service.ts', 'punchAcceptService'],
   ];
   console.log('\n=== DELEGATE TARGET VERIFICATION ===');
   let ok = true;
