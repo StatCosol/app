@@ -95,6 +95,8 @@ const gods = [
   'payroll/payroll.service.ts',
   'compliance/compliance.service.ts',
   'audits/audits.service.ts',
+  'mobile-attendance/punch/punch.service.ts',
+  'facedesk/facedesk-attendance.service.ts',
 ];
 
 console.log('=== SUMMARY ===');
@@ -159,6 +161,9 @@ function verifyDelegates() {
     ['audits/audits.service.ts', 'audits/audit-document-review.service.ts', 'documentReviewService'],
     ['payroll/payroll.service.ts', 'payroll/payroll-runs.service.ts', 'runsService'],
     ['payroll/payroll.service.ts', 'payroll/payroll-payslips.service.ts', 'payslipsService'],
+    ['mobile-attendance/punch/punch.service.ts', 'mobile-attendance/punch/punch-review.service.ts', 'reviewService'],
+    ['mobile-attendance/punch/punch.service.ts', 'mobile-attendance/punch/punch-contractor-admin.service.ts', 'contractorAdminService'],
+    ['facedesk/facedesk-attendance.service.ts', 'facedesk/facedesk-offline-sync.service.ts', 'offlineSyncService'],
   ];
   console.log('\n=== DELEGATE TARGET VERIFICATION ===');
   let ok = true;

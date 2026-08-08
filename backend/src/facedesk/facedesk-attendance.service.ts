@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -24,6 +24,7 @@ import {
 } from './facedesk-liveness.provider';
 import { pinLookupHash } from './facedesk-pin.util';
 import { MarkAttendanceDto } from './facedesk.dto';
+import { FaceDeskOfflineSyncService } from './facedesk-offline-sync.service';
 
 // Business-day boundary offset in minutes (default +330 = IST). Env-tunable so
 // a non-India deployment can set its own day boundary without a code change.
@@ -105,6 +106,8 @@ export class FaceDeskAttendanceService {
     @Inject(FACEDESK_LIVENESS_PROVIDER)
     private readonly liveness: FaceDeskLivenessProvider,
     private readonly biometric: BiometricService,
+    @Inject(forwardRef(() => FaceDeskOfflineSyncService))
+    private readonly offlineSyncService: FaceDeskOfflineSyncService,
   ) {}
 
   /**
@@ -986,47 +989,12 @@ export class FaceDeskAttendanceService {
     deviceId: string | null,
     punches: MarkAttendanceDto[],
   ): Promise<{ synced: number; duplicateSkipped: number; failed: number }> {
-    let synced = 0;
-    let duplicateSkipped = 0;
-    let failed = 0;
-    for (const p of punches ?? []) {
-      try {
-        const before = dedupeKeyPresent(p);
-        const res = await this.markAttendance(clientId, branchId, deviceId, {
-          ...p,
-        });
-        if (res.status === 'MARKED') {
-          if (before && res.message === 'Attendance already recorded')
-            duplicateSkipped++;
-          else synced++;
-        } else {
-          failed++;
-        }
-      } catch (err) {
-        this.logger.warn(`offline punch failed: ${(err as Error)?.message}`);
-        failed++;
-      }
-    }
-    if (deviceId) {
-      await this.dataSource.query(
-        `INSERT INTO facedesk_device_sync_logs
-           (device_id, client_id, synced_count, duplicate_skipped, failed_count, sync_status)
-         VALUES ($1,$2,$3,$4,$5,$6)`,
-        [
-          deviceId,
-          clientId,
-          synced,
-          duplicateSkipped,
-          failed,
-          failed === 0 ? 'OK' : synced > 0 ? 'PARTIAL' : 'FAILED',
-        ],
-      );
-      await this.dataSource.query(
-        `UPDATE facedesk_kiosk_devices SET last_sync_time = now(), device_status = 'ONLINE' WHERE device_id = $1`,
-        [deviceId],
-      );
-    }
-    return { synced, duplicateSkipped, failed };
+    return this.offlineSyncService.offlineSync(
+      clientId,
+      branchId,
+      deviceId,
+      punches,
+    );
   }
 
   async getStatus(clientId: string, employeeId: string) {
@@ -1040,8 +1008,4 @@ export class FaceDeskAttendanceService {
       .getMany();
     return { employeeId, punches: rows.length, log: rows };
   }
-}
-
-function dedupeKeyPresent(p: MarkAttendanceDto): boolean {
-  return !!p.offlineRef;
 }

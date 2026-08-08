@@ -30,6 +30,7 @@ import {
 import { FaceDeskSettingsService } from './facedesk-settings.service';
 import { FaceDeskEnrollmentService } from './facedesk-enrollment.service';
 import { FaceDeskAttendanceService } from './facedesk-attendance.service';
+import { FaceDeskOfflineSyncService } from './facedesk-offline-sync.service';
 import { FaceDeskAdminService } from './facedesk-admin.service';
 import { FaceDeskDashboardService } from './facedesk-dashboard.service';
 import { FaceDeskReportsService } from './facedesk-reports.service';
@@ -66,6 +67,7 @@ import { FaceDeskTicketService } from './facedesk-ticket.service';
     FaceDeskFaceService,
     FaceDeskEnrollmentService,
     FaceDeskAttendanceService,
+    FaceDeskOfflineSyncService,
     FaceDeskAdminService,
     FaceDeskDashboardService,
     FaceDeskReportsService,

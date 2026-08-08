@@ -23,6 +23,10 @@ Large services are being split into focused injectables. **Controllers unchanged
 | `audits.service.ts` | `audit-report.service.ts` | `exportReportPdfForAuditor`, `getReportForAuditor` chain |
 | `payroll.service.ts` | `payroll-runs.service.ts` | Run lifecycle: create, list, process, seed utilities |
 | `payroll.service.ts` | `payroll-payslips.service.ts` | Payslip PDF/archive/zip/listing + leave/attendance enrichment |
+| `punch.service.ts` | `punch-direction.service.ts` | Direction resolution + daily-attendance mirror |
+| `punch.service.ts` | `punch-review.service.ts` | Review queue list/approve/reject + punch photo |
+| `punch.service.ts` | `punch-contractor-admin.service.ts` | Contractor punch list/CRUD |
+| `facedesk-attendance.service.ts` | `facedesk-offline-sync.service.ts` | Offline batch sync + device sync logs |
 | `payroll/` (prior work) | `payroll-setup.service.ts`, `payroll-processing.service.ts`, `payroll-reports.service.ts`, `payroll-approval.service.ts`, engine/* | Setup, processing, reports, approval |
 
 ## Pattern

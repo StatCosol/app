@@ -122,6 +122,7 @@ function makeService(rosterRows: any[], todayCount = 0) {
     dataSource as any,
     liveness as any,
     biometric as any,
+    { offlineSync: jest.fn() } as any,
   );
   return {
     service,
