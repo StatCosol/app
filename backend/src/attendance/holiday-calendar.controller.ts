@@ -104,11 +104,23 @@ export class HolidayCalendarController {
   @Post('holiday-work/approve')
   approveHolidayWork(
     @CurrentUser() user: ReqUser,
-    @Body() body: { ids: string[]; comp: 'DOUBLE' | 'COFF' | 'SINGLE' },
+    @Body()
+    body: {
+      ids: string[];
+      comp?: 'DOUBLE' | 'COFF' | 'SINGLE';
+      // Legacy field from the pre-rollout frontend bundle.
+      status?: 'APPROVED' | 'DECLINED';
+    },
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.svc.setHolidayWorkComp(clientId, body?.ids, body?.comp);
+    // Map the legacy binary field so requests from the old bundle (still served
+    // during the backend→frontend deploy window) keep working.
+    let comp = body?.comp;
+    if (!comp && body?.status) {
+      comp = body.status === 'APPROVED' ? 'DOUBLE' : 'SINGLE';
+    }
+    return this.svc.setHolidayWorkComp(clientId, body?.ids, comp as any);
   }
 
   @ApiOperation({ summary: 'Delete a holiday' })

@@ -322,6 +322,16 @@ export class HolidayCalendarService {
     attendanceId: string,
     date: string,
   ) {
+    // Idempotency guard: never grant more than one holiday-work comp-off per
+    // attendance row, even on retries/concurrent submits (the ledger has no
+    // unique constraint on ref_attendance_id, and the same row can also be
+    // accrued by the ESS self-checkout path).
+    const already = await this.ds.query(
+      `SELECT 1 FROM comp_off_ledger
+       WHERE ref_attendance_id = $1 AND reason = 'HOLIDAY_WORK' LIMIT 1`,
+      [attendanceId],
+    );
+    if (already.length) return;
     await this.ds.query(
       `INSERT INTO comp_off_ledger
          (id, client_id, employee_id, entry_date, entry_type, days, reason, ref_attendance_id, remarks, created_at)
@@ -385,7 +395,7 @@ export class HolidayCalendarService {
        FROM attendance_records
        WHERE client_id = $1 AND date BETWEEN $2::date AND $3::date
          AND status IN ('PRESENT', 'HALF_DAY')
-         AND holiday_double_wage = 'DOUBLE'
+         AND holiday_double_wage IN ('DOUBLE', 'APPROVED')
        GROUP BY employee_id`,
       [clientId, from, to],
     );
