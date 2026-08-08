@@ -90,6 +90,10 @@ const ClientDailyAttendancePage = () =>
   import('./attendance/client-daily-attendance-page.component').then(
     (m) => m.ClientDailyAttendancePage,
   );
+const ClientHolidayCalendarComponent = () =>
+  import('./holidays/client-holiday-calendar.component').then(
+    (m) => m.ClientHolidayCalendarComponent,
+  );
 const ClientBiometricComponent = () =>
   import('./biometric/client-biometric.component').then(
     (m) => m.ClientBiometricComponent,
@@ -128,6 +132,8 @@ const ClientAppraisalCyclesComponent = () =>
   import('./performance-appraisal/client-appraisal-cycles.component').then((m) => m.ClientAppraisalCyclesComponent);
 const ClientAppraisalReportsComponent = () =>
   import('./performance-appraisal/client-appraisal-reports.component').then((m) => m.ClientAppraisalReportsComponent);
+const ClientAppraisalTemplatesComponent = () =>
+  import('./performance-appraisal/client-appraisal-templates.component').then((m) => m.ClientAppraisalTemplatesComponent);
 const ContractorPayrollComputationPageComponent = () =>
   import('../../shared/contractor-payroll/contractor-payroll-computation-page.component').then(
     (m) => m.ContractorPayrollComputationPageComponent,
@@ -197,6 +203,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'master-data', loadComponent: ClientMasterDataComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'attendance', loadComponent: ClientAttendanceReviewPageComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
       { path: 'attendance/daily', loadComponent: ClientDailyAttendancePage, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
+      { path: 'holidays', loadComponent: ClientHolidayCalendarComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
       { path: 'biometric', loadComponent: ClientBiometricComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
       { path: 'mobile-attendance', loadComponent: ClientMobileAttendanceComponent, canActivate: [moduleAccessGuard('MOBILE_ATTENDANCE')] },
       { path: 'facedesk', loadComponent: FaceDeskComponent, canActivate: [moduleAccessGuard('CONTRACTOR_FACE_ATTENDANCE')] },
@@ -207,6 +214,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'appraisals', loadComponent: ClientAppraisalsListComponent, canActivate: [moduleAccessGuard('APPRAISAL')] },
       { path: 'appraisals/:id', loadComponent: ClientAppraisalApproveComponent, canActivate: [moduleAccessGuard('APPRAISAL')] },
       { path: 'appraisal-cycles', loadComponent: ClientAppraisalCyclesComponent, canActivate: [moduleAccessGuard('APPRAISAL')] },
+      { path: 'appraisal-templates', loadComponent: ClientAppraisalTemplatesComponent, canActivate: [moduleAccessGuard('APPRAISAL')] },
       { path: 'appraisal-reports', loadComponent: ClientAppraisalReportsComponent, canActivate: [moduleAccessGuard('APPRAISAL')] },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],

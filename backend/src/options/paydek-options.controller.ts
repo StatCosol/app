@@ -16,7 +16,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 @ApiTags('Options')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'paydek/options', version: '1' })
-@Roles('PAYDEK')
+@Roles('PAYROLL', 'PAYDEK')
 export class PaydekOptionsController {
   constructor(private readonly scope: AccessScopeService) {}
 

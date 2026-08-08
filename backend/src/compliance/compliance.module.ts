@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ComplianceService } from './compliance.service';
+import { ComplianceReuploadService } from './compliance-reupload.service';
+import { ComplianceDashboardService } from './compliance-dashboard.service';
+import { ComplianceCrmTasksService } from './compliance-crm-tasks.service';
+import { CompliancePortalTasksService } from './compliance-portal-tasks.service';
 import { ComplianceTask } from './entities/compliance-task.entity';
 import { ComplianceEvidence } from './entities/compliance-evidence.entity';
 import { ComplianceComment } from './entities/compliance-comment.entity';
@@ -75,6 +79,10 @@ import { ComplianceTasksPortalController } from './controllers/compliance-tasks.
   ],
   providers: [
     ComplianceService,
+    ComplianceReuploadService,
+    ComplianceDashboardService,
+    ComplianceCrmTasksService,
+    CompliancePortalTasksService,
     ComplianceCronService,
     ClientVisibilityService,
   ],

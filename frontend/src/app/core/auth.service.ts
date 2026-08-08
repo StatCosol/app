@@ -7,7 +7,7 @@ import { environment } from '../../environments/environment';
 import { CryptoService } from './crypto.service';
 
 /** Valid role codes returned by the backend */
-const VALID_ROLES = ['ADMIN', 'CEO', 'CCO', 'CRM', 'AUDITOR', 'CLIENT', 'CONTRACTOR', 'PAYROLL', 'PF_TEAM', 'EMPLOYEE', 'ACCOUNTS'] as const;
+const VALID_ROLES = ['ADMIN', 'CEO', 'CCO', 'CRM', 'AUDITOR', 'CLIENT', 'CONTRACTOR', 'PAYROLL', 'PF_TEAM', 'EMPLOYEE', 'ACCOUNTS', 'SALES'] as const;
 type RoleCode = (typeof VALID_ROLES)[number];
 
 @Injectable({ providedIn: 'root' })

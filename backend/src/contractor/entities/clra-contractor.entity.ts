@@ -71,6 +71,9 @@ export class ClraContractor {
   @Column({ type: 'varchar', length: 20, nullable: true })
   pincode: string | null;
 
+  @Column({ name: 'contractor_user_id', type: 'uuid', nullable: true })
+  contractorUserId: string | null;
+
   @Column({ default: true })
   active: boolean;
 

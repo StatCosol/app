@@ -2,9 +2,11 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, ILike } from 'typeorm';
 import { ClraPeEstablishment } from './entities/clra-pe-establishment.entity';
 import { ClraContractor } from './entities/clra-contractor.entity';
 import { ClraContractorAssignment } from './entities/clra-contractor-assignment.entity';
@@ -23,7 +25,10 @@ import {
   CreateClraWagePeriodDto,
   UpsertClraAttendanceDto,
   UpsertClraWageDto,
+  CreateClraRegisterRunDto,
 } from './clra-assignments.dto';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class ClraAssignmentsService {
@@ -352,10 +357,127 @@ export class ClraAssignmentsService {
     return this.registerRunRepo.save(entity);
   }
 
+  createRegisterRunFromUpload(
+    dto: CreateClraRegisterRunDto,
+    file: Express.Multer.File,
+    userId: string,
+  ): Promise<ClraRegisterRun> {
+    if (!file?.path) throw new BadRequestException('File upload failed');
+    const fileUrl = file.path.replace(/\\/g, '/');
+    return this.createRegisterRun(
+      dto.assignmentId,
+      dto.registerCode,
+      dto.wagePeriodId ?? null,
+      userId,
+      file.originalname,
+      fileUrl,
+    );
+  }
+
+  async downloadRegisterRun(id: string): Promise<{
+    buffer: Buffer;
+    fileName: string;
+    mimeType: string;
+  }> {
+    const row = await this.registerRunRepo.findOne({ where: { id } });
+    if (!row?.fileUrl) throw new NotFoundException('Register run or file not found');
+    const resolved = path.isAbsolute(row.fileUrl)
+      ? row.fileUrl
+      : path.resolve(process.cwd(), row.fileUrl);
+    if (!fs.existsSync(resolved)) {
+      throw new NotFoundException('Register file missing on disk');
+    }
+    const buffer = fs.readFileSync(resolved);
+    const fileName = row.fileName || path.basename(resolved);
+    const ext = path.extname(fileName).toLowerCase();
+    const mimeType =
+      ext === '.pdf'
+        ? 'application/pdf'
+        : ext === '.xlsx'
+          ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          : 'application/octet-stream';
+    return { buffer, fileName, mimeType };
+  }
+
   async listRegisterRuns(assignmentId: string): Promise<ClraRegisterRun[]> {
     return this.registerRunRepo.find({
       where: { assignmentId },
       order: { generatedAt: 'DESC' },
     });
+  }
+
+  async getRegisterRun(id: string): Promise<ClraRegisterRun> {
+    const row = await this.registerRunRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Register run not found');
+    return row;
+  }
+
+  // ─────────────── Contractor portal (scoped) ───────────────
+
+  async findContractorForUser(
+    userId: string,
+    email?: string | null,
+  ): Promise<ClraContractor> {
+    let entity = await this.contractorRepo.findOne({
+      where: { contractorUserId: userId, active: true },
+    });
+    if (!entity && email) {
+      entity = await this.contractorRepo.findOne({
+        where: { email: ILike(email.trim()), active: true },
+      });
+      if (entity && !entity.contractorUserId) {
+        await this.contractorRepo.update(entity.id, { contractorUserId: userId });
+        entity.contractorUserId = userId;
+      }
+    }
+    if (!entity) {
+      throw new NotFoundException(
+        'CLRA contractor profile is not linked to your account. Contact your CRM team.',
+      );
+    }
+    return entity;
+  }
+
+  async assertAssignmentBelongsToContractor(
+    assignmentId: string,
+    contractorId: string,
+  ): Promise<ClraContractorAssignment> {
+    const assignment = await this.getAssignment(assignmentId);
+    if (assignment.contractorId !== contractorId) {
+      throw new ForbiddenException('Assignment does not belong to this contractor');
+    }
+    return assignment;
+  }
+
+  async assertWorkerBelongsToContractor(
+    workerId: string,
+    contractorId: string,
+  ): Promise<ClraContractorWorker> {
+    const worker = await this.getWorker(workerId);
+    if (worker.contractorId !== contractorId) {
+      throw new ForbiddenException('Worker does not belong to this contractor');
+    }
+    return worker;
+  }
+
+  async assertDeploymentBelongsToContractor(
+    deploymentId: string,
+    contractorId: string,
+  ): Promise<ClraWorkerDeployment> {
+    const deployment = await this.getDeployment(deploymentId);
+    const assignment = await this.getAssignment(deployment.assignmentId);
+    if (assignment.contractorId !== contractorId) {
+      throw new ForbiddenException('Deployment does not belong to this contractor');
+    }
+    return deployment;
+  }
+
+  async assertWagePeriodBelongsToContractor(
+    wagePeriodId: string,
+    contractorId: string,
+  ): Promise<ClraWagePeriod> {
+    const period = await this.getWagePeriod(wagePeriodId);
+    await this.assertAssignmentBelongsToContractor(period.assignmentId, contractorId);
+    return period;
   }
 }

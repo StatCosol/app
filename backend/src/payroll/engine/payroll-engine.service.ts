@@ -666,6 +666,18 @@ export class PayrollEngineService {
     values['GROSS'] = gross + otAmountPv;
     values['ESI_WAGE'] = esiWage + otAmountPv;
 
+    // ── Holiday-work double wage: one extra day's wage per HR-approved day
+    // (the day is already paid via days-present, so the extra makes it 2x).
+    // Additive; 0 unless HOLIDAY_DBL_DAYS was set from approvals.
+    const holidayDblDaysPv = Number(values['HOLIDAY_DBL_DAYS'] ?? 0);
+    const holidayDblAmountPv =
+      holidayDblDaysPv > 0 && otBaseGrossPv > 0
+        ? Math.round(holidayDblDaysPv * (otBaseGrossPv / otDaysInMonthPv))
+        : 0;
+    values['HOLIDAY_DBL_AMOUNT'] = holidayDblAmountPv;
+    values['GROSS'] = (values['GROSS'] ?? gross) + holidayDblAmountPv;
+    values['ESI_WAGE'] = (values['ESI_WAGE'] ?? esiWage) + holidayDblAmountPv;
+
     // Statutory deductions
     const statResult = this.statutory.compute({
       values,
@@ -1343,6 +1355,18 @@ export class PayrollEngineService {
       values['GROSS'] = gross + otAmountEarly;
       // ESI wage base includes OT earnings; PF wage base does not.
       values['ESI_WAGE'] = esiWage + otAmountEarly;
+
+      // ── Holiday-work double wage: one extra day's wage per HR-approved day
+      // (day already paid via days-present → the extra makes it 2x). Additive;
+      // 0 unless HOLIDAY_DBL_DAYS was set from approvals.
+      const holidayDblDaysEarly = Number(values['HOLIDAY_DBL_DAYS'] ?? 0);
+      const holidayDblAmountEarly =
+        holidayDblDaysEarly > 0 && otBaseGross > 0
+          ? Math.round(holidayDblDaysEarly * (otBaseGross / otDaysInMonth))
+          : 0;
+      values['HOLIDAY_DBL_AMOUNT'] = holidayDblAmountEarly;
+      values['GROSS'] = values['GROSS'] + holidayDblAmountEarly;
+      values['ESI_WAGE'] = values['ESI_WAGE'] + holidayDblAmountEarly;
 
       // Statutory deductions (PF/ESI)
       const statResult = this.statutory.compute({

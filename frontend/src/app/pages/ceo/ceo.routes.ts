@@ -29,6 +29,8 @@ const CeoBranchDetailComponent = () =>
   import('./branches/ceo-branch-detail.component').then((m) => m.CeoBranchDetailComponent);
 const NewsDetailComponent = () =>
   import('../../shared/news/news-detail.component').then((m) => m.NewsDetailComponent);
+const CeoRegistersComponent = () =>
+  import('./registers/ceo-registers.component').then((m) => m.CeoRegistersComponent);
 
 export const CEO_ROUTES: Routes = [
   {
@@ -45,6 +47,7 @@ export const CEO_ROUTES: Routes = [
       { path: 'sales', loadComponent: () => import('./sales/ceo-sales-summary.component').then(m => m.CeoSalesSummaryComponent) },
       { path: 'followups', loadComponent: () => import('./sales/ceo-sales-followups.component').then(m => m.CeoSalesFollowupsComponent) },
       { path: 'receivables', loadComponent: () => import('./receivables/ceo-receivables.component').then(m => m.CeoReceivablesComponent) },
+      { path: 'registers', loadComponent: CeoRegistersComponent },
       { path: 'reports', loadComponent: CeoExecutiveReportsPageComponent },
       { path: 'notifications', loadComponent: CeoNotificationsComponent },
       { path: 'news', loadComponent: NewsDetailComponent },

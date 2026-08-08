@@ -9,7 +9,7 @@ import { FilterState, ClientOption, BranchOption } from '../../models/filter.mod
 import { FilterContextService } from '../../services/filter-context.service';
 import { FilterOptionsService } from '../../services/filter-options.service';
 
-export type OptionsMode = 'ADMIN' | 'CRM' | 'CLIENT' | 'BRANCH' | 'PAYDEK' | 'AUDITOR' | 'CEO' | 'CCO';
+export type OptionsMode = 'ADMIN' | 'CRM' | 'CLIENT' | 'BRANCH' | 'PAYDEK' | 'PAYROLL' | 'AUDITOR' | 'CEO' | 'CCO';
 
 @Component({
   selector: 'app-filter-bar',
@@ -117,7 +117,8 @@ export class FilterBarComponent implements OnInit {
     switch (this.optionsMode) {
       case 'ADMIN': obs$ = this.opts.adminClients(); break;
       case 'CRM': obs$ = this.opts.crmClients(); break;
-      case 'PAYDEK': obs$ = this.opts.paydekClients(); break;
+      case 'PAYDEK':
+      case 'PAYROLL': obs$ = this.opts.payrollClients(); break;
       case 'AUDITOR': obs$ = this.opts.auditorClients(); break;
       case 'CEO':
       case 'CCO': obs$ = this.opts.ceoClients(); break;
@@ -198,7 +199,8 @@ export class FilterBarComponent implements OnInit {
       switch (this.optionsMode) {
         case 'ADMIN': obs$ = this.opts.adminBranches(this.state.clientId!); break;
         case 'CRM': obs$ = this.opts.crmBranches(this.state.clientId!); break;
-        case 'PAYDEK': obs$ = this.opts.paydekBranches(this.state.clientId!); break;
+        case 'PAYDEK':
+        case 'PAYROLL': obs$ = this.opts.payrollBranches(this.state.clientId!); break;
         case 'AUDITOR': obs$ = this.opts.auditorBranches(this.state.clientId!); break;
         case 'CEO':
         case 'CCO': obs$ = this.opts.ceoBranches(this.state.clientId!); break;

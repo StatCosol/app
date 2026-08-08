@@ -2,8 +2,11 @@ import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit } from '@
 
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { ClientBranchesService } from '../../core/client-branches.service';
 import { AuthService } from '../../core/auth.service';
+import { ChecklistsApiService } from '../../core/checklists-api.service';
 import { ComplianceTrendComponent } from './compliance-trend.component';
 import { RiskForecastComponent } from './risk-forecast.component';
 import { ComplianceSummaryComponent } from './compliance-summary.component';
@@ -109,6 +112,7 @@ export class BranchComplianceComponent implements OnInit {
 
   constructor(
     private api: ClientBranchesService,
+    private checklistsApi: ChecklistsApiService,
     private auth: AuthService,
     private router: Router,
     private cdr: ChangeDetectorRef
@@ -324,31 +328,38 @@ export class BranchComplianceComponent implements OnInit {
   }
 
   private loadCompletion() {
-    this.api.getComplianceCompletion(this.month, this.branchId).subscribe({
-      next: (res: any) => {
-        const row = res?.items?.[0];
-        if (row) {
-          this.completionPercent = row.completionPercent ?? 0;
-          this.uploaded = row.uploaded ?? 0;
-          this.totalApplicableCodes = row.totalApplicable ?? row.totalApplicableCodes ?? 0;
-        } else {
-          this.completionPercent = 0;
-          this.uploaded = 0;
-          this.totalApplicableCodes = 0;
-        }
-        this.completedCount = this.uploaded;
-        this.pendingCount = Math.max(this.totalApplicableCodes - this.uploaded, 0);
-        this.cdr.markForCheck();
-        this.loadRiskScore();
-      },
-      error: () => {
+    forkJoin({
+      completion: this.api.getComplianceCompletion(this.month, this.branchId).pipe(
+        catchError(() => of(null)),
+      ),
+      checklist: this.checklistsApi.getBranchSummary(this.branchId).pipe(
+        catchError(() => of(null)),
+      ),
+    }).subscribe(({ completion, checklist }) => {
+      const row = completion?.items?.[0];
+      if (row) {
+        this.completionPercent = row.completionPercent ?? 0;
+        this.uploaded = row.uploaded ?? 0;
+        this.totalApplicableCodes = row.totalApplicable ?? row.totalApplicableCodes ?? 0;
+      } else {
         this.completionPercent = 0;
         this.uploaded = 0;
         this.totalApplicableCodes = 0;
-        this.completedCount = 0;
-        this.pendingCount = 0;
-        this.cdr.markForCheck();
       }
+      this.completedCount = this.uploaded;
+      this.pendingCount = Math.max(this.totalApplicableCodes - this.uploaded, 0);
+
+      if (checklist && Object.keys(checklist).length > 0) {
+        const completed = checklist['COMPLETED'] ?? checklist['UPLOADED'];
+        const pending = checklist['PENDING'];
+        const overdue = checklist['OVERDUE'];
+        if (completed != null) this.completedCount = completed;
+        if (pending != null) this.pendingCount = pending;
+        if (overdue != null) this.overdueCount = overdue;
+      }
+
+      this.cdr.markForCheck();
+      this.loadRiskScore();
     });
   }
 

@@ -92,6 +92,8 @@ const CrmContractorComputationComponent = () =>
   import('./contractor-computation/crm-contractor-computation.component').then(
     (m) => m.CrmContractorComputationComponent,
   );
+const CrmClraWorkspaceComponent = () =>
+  import('./clra/crm-clra-workspace.component').then((m) => m.CrmClraWorkspaceComponent);
 const NewsDetailComponent = () =>
   import('../../shared/news/news-detail.component').then((m) => m.NewsDetailComponent);
 
@@ -115,6 +117,7 @@ export const CRM_ROUTES: Routes = [
               { path: 'branches', loadComponent: CrmClientBranchesComponent },
               { path: 'contractors', loadComponent: CrmContractorsComponent },
               { path: 'contractor-computation', loadComponent: CrmContractorComputationComponent },
+              { path: 'clra', loadComponent: CrmClraWorkspaceComponent },
               { path: 'compliance-tracker', loadComponent: CrmComplianceComponent },
               { path: 'documents', loadComponent: CrmDocumentsComponent },
               { path: 'compliance-docs', loadComponent: CrmComplianceDocsComponent },

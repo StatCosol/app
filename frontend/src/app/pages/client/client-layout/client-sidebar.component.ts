@@ -690,7 +690,7 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
     if (route.startsWith('/client/facedesk')) return ['CONTRACTOR_FACE_ATTENDANCE'];
     if (route.startsWith('/client/payroll') || route.startsWith('/client/ctc-summary') || route.startsWith('/client/registers')) return ['PAYROLL'];
     if (route.startsWith('/client/employees') || route.startsWith('/client/master-data')) return ['EMPLOYEE_COMPLIANCE'];
-    if (route.startsWith('/client/attendance') || route.startsWith('/client/biometric')) return ['EMPLOYEE_ATTENDANCE'];
+    if (route.startsWith('/client/attendance') || route.startsWith('/client/biometric') || route.startsWith('/client/holidays')) return ['EMPLOYEE_ATTENDANCE'];
     if (route.startsWith('/client/appraisal') || route.startsWith('/client/appraisals')) return ['APPRAISAL'];
     if (route.startsWith('/client/compliance') || route.startsWith('/client/branch-compliance') || route.startsWith('/client/safety') || route.startsWith('/client/returns') || route.startsWith('/client/renewals') || route.startsWith('/client/calendar') || route.startsWith('/client/reminders') || route.startsWith('/client/heatmap') || route.startsWith('/client/sla') || route.startsWith('/client/risk-trend') || route.startsWith('/client/escalations') || route.startsWith('/client/notices')) return ['EMPLOYEE_COMPLIANCE'];
     if (route.startsWith('/client/approvals') || route.startsWith('/client/settings')) return ['EMPLOYEE_COMPLIANCE'];
@@ -769,6 +769,7 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
           { label: 'Registers', route: '/client/registers', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
           { label: 'Attendance Review', route: '/client/attendance', exact: true, icon: this.svg('M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Daily Attendance', route: '/client/attendance/daily', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
+          { label: 'Holiday Calendar', route: '/client/holidays', icon: this.svg('M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'ESS Mobile Attendance', route: '/client/mobile-attendance', icon: this.svg('M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z') },
           { label: 'Kiosk Attendance (PIN + Face)', route: '/client/facedesk', icon: this.svg('M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM12 3a9 9 0 100 18 9 9 0 000-18z') },
           { label: 'Master Data', route: '/client/master-data', icon: this.svg('M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4') },
@@ -792,6 +793,7 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
           { label: 'Appraisal Dashboard',  route: '/client/appraisal-dashboard', icon: this.svg('M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6z') },
           { label: 'Appraisals', route: '/client/appraisals',          icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2') },
           { label: 'Cycles',     route: '/client/appraisal-cycles',    icon: this.svg('M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15') },
+          { label: 'Templates',  route: '/client/appraisal-templates', icon: this.svg('M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6z') },
           { label: 'Reports',    route: '/client/appraisal-reports',   icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
         ],
       },

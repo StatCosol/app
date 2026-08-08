@@ -311,6 +311,41 @@ async function bootstrap() {
       logger.warn(`Schema patch ess_attendance_punches skipped: ${e?.message}`);
     }
 
+    // Holiday calendar: uploadable per-branch / per-state holiday list applied
+    // onto attendance_records and used for holiday-work double-wage approval.
+    try {
+      await ds.query(`
+        CREATE TABLE IF NOT EXISTS holiday_calendar (
+          id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          client_id    uuid NOT NULL,
+          branch_id    uuid,
+          state_code   varchar(10),
+          holiday_date date NOT NULL,
+          name         varchar(120) NOT NULL,
+          is_paid      boolean NOT NULL DEFAULT true,
+          created_at   timestamptz NOT NULL DEFAULT now(),
+          updated_at   timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_holiday_calendar_client_date
+          ON holiday_calendar (client_id, holiday_date);
+      `);
+      logger.log('Schema patch: holiday_calendar OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch holiday_calendar skipped: ${e?.message}`);
+    }
+
+    // Holiday-work double-wage approval flag on attendance (NULL = not a holiday
+    // work day / not reviewed; 'APPROVED' = pay double; 'DECLINED' = normal pay).
+    try {
+      await ds.query(`
+        ALTER TABLE attendance_records
+          ADD COLUMN IF NOT EXISTS holiday_double_wage varchar(10);
+      `);
+      logger.log('Schema patch: attendance_records.holiday_double_wage OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch holiday_double_wage skipped: ${e?.message}`);
+    }
+
     // FaceDesk PIN-then-face verification (migration 20260722b). The deploy
     // migration job runs only the service-entitlement script, so these columns
     // must be patched here or the settings/profile entities 500 on a SELECT.
