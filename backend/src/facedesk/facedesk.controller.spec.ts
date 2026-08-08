@@ -1,26 +1,32 @@
 import { ForbiddenException } from '@nestjs/common';
-import { FaceDeskController } from './facedesk.controller';
+import { FaceDeskEnrollmentController } from './facedesk-enrollment.controller';
+import { FaceDeskAdminController } from './facedesk-admin.controller';
+import { FaceDeskDevicesAdminController } from './facedesk-devices-admin.controller';
 
-function makeController() {
+function makeEnrollmentController() {
   const enrollment = {
     getEnrolledEmployees: jest.fn(),
   };
+  const controller = new FaceDeskEnrollmentController(
+    enrollment as any,
+    {} as any,
+  );
+  return { controller, enrollment };
+}
+
+function makeAdminController() {
   const admin = {
     listDuplicateAlerts: jest.fn(),
     listReviewQueue: jest.fn(),
   };
+  const controller = new FaceDeskAdminController(admin as any);
+  return { controller, admin };
+}
+
+function makeDevicesController() {
   const devices = { list: jest.fn().mockResolvedValue([]) };
-  const controller = new FaceDeskController(
-    enrollment as any,
-    {} as any,
-    admin as any,
-    {} as any,
-    {} as any,
-    {} as any,
-    devices as any,
-    {} as any,
-  );
-  return { controller, admin, devices, enrollment };
+  const controller = new FaceDeskDevicesAdminController(devices as any);
+  return { controller, devices };
 }
 
 const branchUser = {
@@ -31,9 +37,9 @@ const branchUser = {
   branchIds: ['branch-1'],
 } as any;
 
-describe('FaceDeskController branch access', () => {
+describe('FaceDesk portal controllers branch access', () => {
   it('passes the caller branch scope to the credential-free device list', () => {
-    const { controller, devices } = makeController();
+    const { controller, devices } = makeDevicesController();
 
     void controller.listDevices(branchUser);
 
@@ -41,7 +47,7 @@ describe('FaceDeskController branch access', () => {
   });
 
   it('scopes enrolled worker details to a branch user', () => {
-    const { controller, enrollment } = makeController();
+    const { controller, enrollment } = makeEnrollmentController();
 
     void controller.enrolled(branchUser, 'CONTRACTOR');
 
@@ -53,7 +59,7 @@ describe('FaceDeskController branch access', () => {
   });
 
   it('rejects branch users from client-wide duplicate alerts', () => {
-    const { controller, admin } = makeController();
+    const { controller, admin } = makeAdminController();
 
     expect(() => controller.duplicateAlerts(branchUser)).toThrow(
       ForbiddenException,
@@ -62,11 +68,10 @@ describe('FaceDeskController branch access', () => {
   });
 
   it('lets branch users verify their own branch review items (scoped)', () => {
-    const { controller, admin } = makeController();
+    const { controller, admin } = makeAdminController();
 
     void controller.reviewQueue(branchUser, 'PENDING');
 
-    // Allowed, but scoped to the caller's branch — not a client-wide read.
     expect(admin.listReviewQueue).toHaveBeenCalledWith(
       'client-1',
       'PENDING',
