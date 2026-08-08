@@ -24,6 +24,6 @@ jobs:
           java-version: '17'
       - name: Roster crypto JVM tests
         working-directory: mobile
-        run: ./gradlew :app:testKioskDebugUnitTest --no-daemon
+        run: bash gradlew :app:testKioskDebugUnitTest --no-daemon
       - name: Android APK check
         run: echo "android apk reporting disabled for required-check stability"
