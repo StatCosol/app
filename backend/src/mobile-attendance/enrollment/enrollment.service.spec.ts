@@ -497,6 +497,110 @@ describe('EnrollmentService duplicate detection', () => {
   });
 });
 
+describe('EnrollmentService self-enrollment embeddings', () => {
+  const deviceEmbedding = new Float32Array([1, 0, 0, 0]);
+  const authoritativeEmbedding = new Float32Array([0, 1, 0, 0]);
+
+  function makeService(subject: 'EMPLOYEE' | 'CONTRACTOR') {
+    const appendTemplate = jest.fn().mockResolvedValue(undefined);
+    const manager = {
+      create: jest.fn((_target: unknown, entity: any) => entity),
+      save: jest.fn(async (_target: unknown, entity: any) => entity),
+    };
+    const dataSource = {
+      query: jest.fn().mockResolvedValue(
+        subject === 'CONTRACTOR'
+          ? [{ id: 'contractor-1', branch_id: 'branch-1' }]
+          : [],
+      ),
+      transaction: jest.fn(async (fn: any) => fn(manager)),
+    };
+    const service = new EnrollmentService(
+      { findOne: jest.fn().mockResolvedValue(null) } as any,
+      { findOne: jest.fn().mockResolvedValue(null) } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      { appendTemplate, purgeSubject: jest.fn() } as any,
+      dataSource as any,
+      {} as any,
+    );
+    jest.spyOn(service as any, 'buildSelfEnrollEmbedding').mockResolvedValue({
+      embedding: Buffer.from(authoritativeEmbedding.buffer),
+      embeddingModel: 'server-model',
+      averaged: deviceEmbedding,
+    });
+    const duplicateCheck = jest
+      .spyOn(service, 'assertNotDuplicate')
+      .mockResolvedValue(undefined);
+    return { service, appendTemplate, duplicateCheck };
+  }
+
+  const dto = {
+    consentGiven: true,
+    embeddingFrames: Array(7).fill('frame'),
+  } as any;
+
+  it('uses the authoritative employee embedding for duplicate checks and gallery storage', async () => {
+    const { service, appendTemplate, duplicateCheck } = makeService('EMPLOYEE');
+
+    await service.enrollSelf(
+      'employee-1',
+      'client-1',
+      'branch-1',
+      dto,
+      'user-1',
+    );
+
+    expect(duplicateCheck).toHaveBeenCalledWith(
+      'client-1',
+      authoritativeEmbedding,
+      { excludeEmployeeId: 'employee-1' },
+    );
+    expect(appendTemplate).toHaveBeenCalledWith(
+      'client-1',
+      'branch-1',
+      'EMPLOYEE',
+      'employee-1',
+      authoritativeEmbedding,
+      'server-model',
+      'ENROLL',
+      'user-1',
+    );
+  });
+
+  it('uses the authoritative contractor embedding for duplicate checks and gallery storage', async () => {
+    const { service, appendTemplate, duplicateCheck } =
+      makeService('CONTRACTOR');
+
+    await service.enrollContractorSelf(
+      'contractor-1',
+      'client-1',
+      null,
+      dto,
+      'user-1',
+    );
+
+    expect(duplicateCheck).toHaveBeenCalledWith(
+      'client-1',
+      authoritativeEmbedding,
+      { excludeContractorId: 'contractor-1' },
+    );
+    expect(appendTemplate).toHaveBeenCalledWith(
+      'client-1',
+      'branch-1',
+      'CONTRACTOR',
+      'contractor-1',
+      authoritativeEmbedding,
+      'server-model',
+      'ENROLL',
+      'user-1',
+    );
+  });
+});
+
 describe('EnrollmentService.deactivateEnrollment', () => {
   function makeService(manager: any) {
     return new EnrollmentService(
