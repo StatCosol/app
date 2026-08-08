@@ -13,7 +13,8 @@ import javax.crypto.spec.SecretKeySpec
  * `GET /api/v1/mobile-attendance/punches/roster`.
  *
  * Key derivation matches backend `deriveRosterAesKey()` — only kiosk-held
- * material (device id + bearer install token), no server secret on device.
+ * material (`mobile_attendance_devices.id` + bearer install token), no server
+ * secret on device. Do not pass a FaceDesk kiosk device id here.
  */
 object RosterCrypto {
     const val KEY_DOMAIN = "statcompy-roster-v1"

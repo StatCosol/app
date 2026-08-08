@@ -89,7 +89,6 @@ class SetupActivity : AppCompatActivity() {
                     FaceDeskRegisterRequest(installToken = token, androidId = androidId)
                 )
                 config.deviceToken = res.deviceToken
-                config.deviceId = res.deviceId
                 config.deviceMode = "FACEDESK_${res.mode}" // FACEDESK_ATTENDANCE | FACEDESK_ENROLLMENT
                 val enteredPin = findViewById<EditText>(R.id.adminPinInput).text.toString().trim()
                 config.faceDeskAdminPin = enteredPin.ifBlank { res.adminPin }
