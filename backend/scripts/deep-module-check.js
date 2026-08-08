@@ -140,7 +140,11 @@ function nonDelegateMethods(file) {
 
 function methodsOf(file) {
   const c = fs.readFileSync(path.join(SRC, file), 'utf8');
-  return new Set([...c.matchAll(/^\s+async\s+(\w+)\s*\(/gm)].map((m) => m[1]));
+  return new Set(
+    [...c.matchAll(/^\s+(?:async\s+)?([a-z]\w*)\s*\(/gm)]
+      .map((m) => m[1])
+      .filter((name) => name !== 'constructor'),
+  );
 }
 
 function verifyDelegates() {
