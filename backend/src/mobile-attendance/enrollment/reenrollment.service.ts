@@ -161,7 +161,7 @@ export class ReenrollmentService {
   ): Promise<ReenrollRequestRow[]> {
     const params: unknown[] = [clientId, status];
     let branchFilter = '';
-    if (allowedBranchIds && allowedBranchIds.length > 0) {
+    if (allowedBranchIds !== null) {
       params.push(allowedBranchIds);
       branchFilter = `AND r.branch_id = ANY($${params.length}::uuid[])`;
     }
@@ -203,7 +203,7 @@ export class ReenrollmentService {
   ): Promise<ContractorReenrollRequestRow[]> {
     const params: unknown[] = [clientId, status];
     let branchFilter = '';
-    if (allowedBranchIds && allowedBranchIds.length > 0) {
+    if (allowedBranchIds !== null) {
       params.push(allowedBranchIds);
       branchFilter = `AND r.branch_id = ANY($${params.length}::uuid[])`;
     }

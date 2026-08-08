@@ -205,7 +205,7 @@ export class EnrollmentService {
       });
     }
 
-    await this.assertNotDuplicate(clientId, averaged, {
+    await this.assertNotDuplicate(clientId, bufferToEmbedding(embedding), {
       excludeEmployeeId: employeeId,
     });
 
@@ -252,7 +252,7 @@ export class EnrollmentService {
         branchId,
         'EMPLOYEE',
         employeeId,
-        averaged,
+        bufferToEmbedding(embedding),
         embeddingModel,
         existing ? 'RE_ENROLL' : 'ENROLL',
         actorUserId,
@@ -321,7 +321,7 @@ export class EnrollmentService {
       });
     }
 
-    await this.assertNotDuplicate(clientId, averaged, {
+    await this.assertNotDuplicate(clientId, bufferToEmbedding(embedding), {
       excludeContractorId: contractorEmployeeId,
     });
     const photoUrl = await this.tryUploadPhoto(
@@ -365,7 +365,7 @@ export class EnrollmentService {
         effectiveBranch,
         'CONTRACTOR',
         contractorEmployeeId,
-        averaged,
+        bufferToEmbedding(embedding),
         embeddingModel,
         existing ? 'RE_ENROLL' : 'ENROLL',
         actorUserId,

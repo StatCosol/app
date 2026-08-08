@@ -2,7 +2,7 @@ import { RouterModule } from '@angular/router';
 import { ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { fromEvent, interval, merge, Subject } from 'rxjs';
+import { fromEvent, interval, merge, Subject, Subscription } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import {
   ActionButtonComponent,
@@ -871,6 +871,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   pendingContractorReenrollCount = 0;
   reviewRequest: ReenrollViewRow | null = null;
   reviewPhotoBlobUrl: string | null = null;
+  private reviewPhotoSub: Subscription | null = null;
   reviewDecision: 'APPROVED' | 'REJECTED' = 'APPROVED';
   reviewNotes = '';
   reviewingId: string | null = null;
@@ -1624,6 +1625,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   }
 
   openReview(r: ReenrollViewRow, decision: 'APPROVED' | 'REJECTED'): void {
+    this.cancelReviewPhotoFetch();
     this.reviewRequest = r;
     this.reviewDecision = decision;
     this.reviewNotes = '';
@@ -1632,10 +1634,15 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       this.reviewPhotoBlobUrl = null;
     }
     if (r.photoUrl) {
-      this.protectedFile.fetch(r.photoUrl, 'reenroll-photo.jpg')
+      const requestId = r.id;
+      this.reviewPhotoSub = this.protectedFile.fetch(r.photoUrl, 'reenroll-photo.jpg')
         .pipe(takeUntil(this.destroy$))
         .subscribe({
           next: (handle) => {
+            if (this.reviewRequest?.id !== requestId) {
+              URL.revokeObjectURL(handle.objectUrl);
+              return;
+            }
             this.reviewPhotoBlobUrl = handle.objectUrl;
             this.bump();
           },
@@ -1644,7 +1651,15 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     }
   }
 
+  private cancelReviewPhotoFetch(): void {
+    if (this.reviewPhotoSub) {
+      this.reviewPhotoSub.unsubscribe();
+      this.reviewPhotoSub = null;
+    }
+  }
+
   closeReview(): void {
+    this.cancelReviewPhotoFetch();
     if (this.reviewPhotoBlobUrl) {
       URL.revokeObjectURL(this.reviewPhotoBlobUrl);
       this.reviewPhotoBlobUrl = null;

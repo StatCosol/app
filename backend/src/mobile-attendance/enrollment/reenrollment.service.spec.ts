@@ -79,4 +79,22 @@ describe('ReenrollmentService', () => {
       ),
     ).rejects.toThrow('not pending');
   });
+
+  it('applies branch filter when allowedBranchIds is empty', async () => {
+    const { service, dataSource } = makeService();
+    await service.listEmployeeRequests('client-1', 'PENDING', []);
+    expect(dataSource.query).toHaveBeenCalledWith(
+      expect.stringContaining('r.branch_id = ANY'),
+      ['client-1', 'PENDING', []],
+    );
+  });
+
+  it('omits branch filter when allowedBranchIds is null', async () => {
+    const { service, dataSource } = makeService();
+    await service.listEmployeeRequests('client-1', 'PENDING', null);
+    expect(dataSource.query).toHaveBeenCalledWith(
+      expect.not.stringContaining('r.branch_id = ANY'),
+      ['client-1', 'PENDING'],
+    );
+  });
 });

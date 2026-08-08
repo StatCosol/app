@@ -212,6 +212,11 @@ export class MobileAttendanceEnrollmentController {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     if (dto.subjectType === 'CONTRACTOR') {
+      if (user?.roleCode === 'EMPLOYEE') {
+        throw new ForbiddenException(
+          'Contractor face enrollment must be performed by a client operator',
+        );
+      }
       if (!dto.contractorEmployeeId) {
         throw new BadRequestException('contractorEmployeeId required');
       }
