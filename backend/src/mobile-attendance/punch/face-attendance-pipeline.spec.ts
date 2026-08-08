@@ -222,4 +222,34 @@ describe('Face attendance pipeline (ingest → attendance_records)', () => {
       }),
     );
   });
+
+  it('treats duplicate kiosk ingest as idempotent without extra attendance writes', async () => {
+    const punchTime = new Date('2026-08-09T03:30:00.000Z');
+    const { service, attRepo, insertExecute } = makeService({
+      dayPunches: [
+        {
+          id: 'punch-in',
+          punchTime,
+          direction: 'IN',
+          source: 'MOBILE_KIOSK',
+        },
+      ],
+      insertIdentifiers: [],
+    });
+    insertExecute.mockResolvedValueOnce({ identifiers: [] });
+
+    const payload = {
+      employeeCode: 'E001',
+      punchTime: punchTime.toISOString(),
+      direction: 'IN' as const,
+      deviceId: 'device-1',
+      branchId: 'branch-1',
+      source: 'MOBILE_KIOSK' as const,
+    };
+
+    const result = await service.ingest('client-1', [payload], false);
+
+    expect(result.inserted).toBe(0);
+    expect(attRepo.save).not.toHaveBeenCalled();
+  });
 });

@@ -25,6 +25,7 @@ import { PunchService } from './punch/punch.service';
 import { PunchDirectionService } from './punch/punch-direction.service';
 import { PunchContractorAdminService } from './punch/punch-contractor-admin.service';
 import { PunchReviewService } from './punch/punch-review.service';
+import { AttendanceReviewFederationService } from './punch/attendance-review-federation.service';
 import { LivenessService } from './liveness/liveness.service';
 import { FaceEmbeddingClient } from './face/face-embedding.client';
 import { FacePhotoStorageService } from './face/face-photo-storage.service';
@@ -36,6 +37,7 @@ import { MobileAttendanceDevicesController } from './mobile-attendance-devices.c
 import { MobileAttendanceEnrollmentController } from './mobile-attendance-enrollment.controller';
 import { MobileAttendanceLivenessController } from './mobile-attendance-liveness.controller';
 import { MobileAttendancePunchesController } from './mobile-attendance-punches.controller';
+import { MobileAttendanceReviewController } from './mobile-attendance-review.controller';
 
 @Module({
   imports: [
@@ -60,6 +62,7 @@ import { MobileAttendancePunchesController } from './mobile-attendance-punches.c
     MobileAttendanceEnrollmentController,
     MobileAttendanceLivenessController,
     MobileAttendancePunchesController,
+    MobileAttendanceReviewController,
   ],
   providers: [
     DeviceAuthGuard,
@@ -69,6 +72,7 @@ import { MobileAttendancePunchesController } from './mobile-attendance-punches.c
     PunchDirectionService,
     PunchContractorAdminService,
     PunchReviewService,
+    AttendanceReviewFederationService,
     PunchService,
     LivenessService,
     FaceEmbeddingClient,
