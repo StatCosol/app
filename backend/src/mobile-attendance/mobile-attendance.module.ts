@@ -19,6 +19,9 @@ import { DeviceAuthGuard } from './devices/device-auth.guard';
 import { DeviceService } from './devices/device.service';
 import { EnrollmentService } from './enrollment/enrollment.service';
 import { PunchService } from './punch/punch.service';
+import { PunchDirectionService } from './punch/punch-direction.service';
+import { PunchContractorAdminService } from './punch/punch-contractor-admin.service';
+import { PunchReviewService } from './punch/punch-review.service';
 import { LivenessService } from './liveness/liveness.service';
 import { FaceEmbeddingClient } from './face/face-embedding.client';
 import { FacePhotoStorageService } from './face/face-photo-storage.service';
@@ -59,6 +62,9 @@ import {
     DeviceAuthGuard,
     DeviceService,
     EnrollmentService,
+    PunchDirectionService,
+    PunchContractorAdminService,
+    PunchReviewService,
     PunchService,
     LivenessService,
     FaceEmbeddingClient,

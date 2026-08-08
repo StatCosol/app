@@ -2,10 +2,9 @@ import {
   BadRequestException,
   Injectable,
   Logger,
-  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { MobileAttendanceDeviceEntity } from '../devices/device.entity';
 import { FaceEnrollmentEntity } from '../enrollment/face-enrollment.entity';
 import { ContractorFaceEnrollmentEntity } from '../enrollment/contractor-face-enrollment.entity';
@@ -28,6 +27,12 @@ import {
   toMatchScore,
 } from '../face/face-math';
 import { RecordPunchDto } from './punch.dto';
+import {
+  COUNTED_DECISIONS,
+  PunchDirectionService,
+} from './punch-direction.service';
+import { PunchContractorAdminService } from './punch-contractor-admin.service';
+import { PunchReviewService } from './punch-review.service';
 
 // MobileFaceNet real-world same-person cosine similarity is ~0.70–0.87; 0.90 was unreachable.
 const MIN_MATCH_SCORE = Number(process.env.FACE_MIN_MATCH_SCORE ?? 0.84);
@@ -61,11 +66,6 @@ const OFFLINE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // Minimum gap between punches for the same person — prevents double-punch from retries or rapid re-scan.
 const PUNCH_COOLDOWN_MS =
   Number(process.env.FACE_PUNCH_COOLDOWN_SEC ?? 30) * 1000;
-const BUSINESS_TZ_OFFSET_MIN = 330;
-
-// Decisions that count as real attendance (cooldown, direction, day-complete).
-const COUNTED_DECISIONS = `('AUTO','REVIEW_APPROVED')`;
-
 export interface RosterEntry {
   subjectType: 'EMPLOYEE' | 'CONTRACTOR';
   subjectId: string;
@@ -114,6 +114,9 @@ export class PunchService {
     private readonly templateService: FaceTemplateService,
     private readonly biometricService: BiometricService,
     private readonly dataSource: DataSource,
+    private readonly directionService: PunchDirectionService,
+    private readonly contractorAdminService: PunchContractorAdminService,
+    private readonly reviewService: PunchReviewService,
   ) {}
 
   async getRoster(
@@ -510,7 +513,7 @@ export class PunchService {
 
     const resolvedDirection =
       decision === 'AUTO'
-        ? await this.resolveNextPunchDirection(
+        ? await this.directionService.resolveNextPunchDirection(
             device.clientId,
             best.subjectType,
             best.subjectId,
@@ -571,7 +574,7 @@ export class PunchService {
             ...auditColumns,
           });
         if (decision === 'AUTO') {
-          await this.mirrorEmployeePunchToDailyAttendance(
+          await this.directionService.mirrorEmployeePunchToDailyAttendance(
             {
               clientId: device.clientId,
               branchId: device.branchId,
@@ -642,189 +645,13 @@ export class PunchService {
     };
   }
 
-  private async resolveNextPunchDirection(
-    clientId: string,
-    subjectType: 'EMPLOYEE' | 'CONTRACTOR',
-    subjectId: string,
-    punchTime: Date,
-    opts: { endExclusive?: Date } = {},
-  ): Promise<'IN' | 'OUT'> {
-    const { start, end: dayEnd } = this.businessDayBoundsUtc(punchTime);
-    // Approving a held punch after later punches already landed must resolve
-    // direction against the state of the day AT the punch's own time, not
-    // against everything that came after — otherwise a 09:00 approval done
-    // after a 10:00 AUTO punch flips to OUT (or fails as "completed").
-    const end =
-      opts.endExclusive && opts.endExclusive < dayEnd
-        ? opts.endExclusive
-        : dayEnd;
-
-    const sql =
-      subjectType === 'EMPLOYEE'
-        ? `SELECT punch_time, direction
-             FROM (
-               SELECT punch_time, direction
-                 FROM mobile_attendance_punches
-                WHERE client_id = $1
-                  AND employee_id = $2
-                  AND punch_time >= $3
-                  AND punch_time < $4
-                  AND decision IN ${COUNTED_DECISIONS}
-               UNION ALL
-               SELECT punch_time, direction
-                 FROM biometric_punches
-                WHERE client_id = $1
-                  AND employee_id = $2
-                  AND punch_time >= $3
-                  AND punch_time < $4
-                  -- Mobile punches are MIRRORED into biometric_punches by the
-                  -- daily-attendance ingest; counting them here double-counts
-                  -- every kiosk punch (1 punch looked "completed for today"
-                  -- and check-out could never be recorded). Only count punches
-                  -- from real fingerprint devices / imports here.
-                  AND COALESCE(source, 'DEVICE') NOT IN ('MOBILE_KIOSK','MOBILE_ESS')
-             ) t
-            ORDER BY punch_time ASC`
-        : `SELECT punch_time, direction
-             FROM contractor_biometric_punches
-            WHERE client_id = $1
-              AND contractor_employee_id = $2
-              AND punch_time >= $3
-              AND punch_time < $4
-              AND decision IN ${COUNTED_DECISIONS}
-            ORDER BY punch_time ASC`;
-
-    const todayRows = await this.dataSource.query<
-      Array<{ punch_time: Date; direction: 'IN' | 'OUT' | 'AUTO' }>
-    >(sql, [clientId, subjectId, start, end]);
-
-    if (todayRows.length >= 2) {
-      throw new BadRequestException('Attendance already completed for today');
-    }
-
-    return todayRows.length === 0 ? 'IN' : 'OUT';
-  }
-
-  private businessDayBoundsUtc(d: Date): { start: Date; end: Date } {
-    const offsetMs = BUSINESS_TZ_OFFSET_MIN * 60 * 1000;
-    const local = new Date(d.getTime() + offsetMs);
-    const startLocalUtcMs = Date.UTC(
-      local.getUTCFullYear(),
-      local.getUTCMonth(),
-      local.getUTCDate(),
-    );
-    const start = new Date(startLocalUtcMs - offsetMs);
-    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-    return { start, end };
-  }
-
-  private async mirrorEmployeePunchToDailyAttendance(
-    args: {
-      clientId: string;
-      branchId: string | null;
-      employeeCode: string;
-      punchTime: Date;
-      direction: 'IN' | 'OUT' | 'AUTO';
-      deviceId: string;
-      source: 'MOBILE_KIOSK' | 'MOBILE_ESS';
-    },
-    manager?: EntityManager,
-  ): Promise<void> {
-    try {
-      await this.biometricService.ingest(
-        args.clientId,
-        [
-          {
-            employeeCode: args.employeeCode,
-            punchTime: args.punchTime.toISOString(),
-            direction: args.direction,
-            deviceId: args.deviceId,
-            branchId: args.branchId ?? undefined,
-            source: args.source,
-          },
-        ],
-        true,
-        manager,
-      );
-    } catch (err) {
-      this.logger.error(
-        [
-          'accepted mobile attendance punch could not be mirrored to daily attendance',
-          `client=${args.clientId}`,
-          `employeeCode=${args.employeeCode}`,
-          `device=${args.deviceId}`,
-          `source=${args.source}`,
-          `punchTime=${args.punchTime.toISOString()}`,
-        ].join(' '),
-        err instanceof Error ? err.stack : String(err),
-      );
-      throw err;
-    }
-  }
-
   // ─── Review queue ──────────────────────────────────────────────────────────
 
   async listReviewPunches(
     clientId: string,
     opts: { branchIds?: string[]; status?: string; limit?: number } = {},
   ): Promise<unknown[]> {
-    const status = opts.status ?? 'REVIEW_PENDING';
-    const params: unknown[] = [clientId, status];
-    let branchFilter = '';
-    if (opts.branchIds && opts.branchIds.length > 0) {
-      params.push(opts.branchIds);
-      branchFilter = `AND p.branch_id = ANY($${params.length}::uuid[])`;
-    }
-    params.push(Math.min(500, Math.max(1, opts.limit ?? 100)));
-
-    return this.dataSource.query(
-      `SELECT p.id,
-              'EMPLOYEE' AS "subjectType",
-              p.employee_id AS "subjectId",
-              e.name AS "subjectName",
-              e.employee_code AS "subjectCode",
-              p.branch_id AS "branchId",
-              p.device_id AS "deviceId",
-              p.punch_time AS "punchTime",
-              p.match_cosine AS "matchCosine",
-              p.match_threshold AS "matchThreshold",
-              p.match_margin AS "matchMargin",
-              p.liveness_score AS "livenessScore",
-              p.photo_url AS "photoUrl",
-              p.decision,
-              p.review_note AS "reviewNote",
-              p.reviewed_by AS "reviewedBy",
-              p.reviewed_at AS "reviewedAt",
-              p.created_at AS "createdAt"
-         FROM mobile_attendance_punches p
-         JOIN employees e ON e.id = p.employee_id
-        WHERE p.client_id = $1 AND p.decision = $2 ${branchFilter}
-        UNION ALL
-       SELECT p.id,
-              'CONTRACTOR' AS "subjectType",
-              p.contractor_employee_id AS "subjectId",
-              ce.name AS "subjectName",
-              NULL AS "subjectCode",
-              p.branch_id AS "branchId",
-              p.device_id AS "deviceId",
-              p.punch_time AS "punchTime",
-              p.match_cosine AS "matchCosine",
-              p.match_threshold AS "matchThreshold",
-              p.match_margin AS "matchMargin",
-              p.liveness_score AS "livenessScore",
-              p.photo_url AS "photoUrl",
-              p.decision,
-              p.review_note AS "reviewNote",
-              p.reviewed_by AS "reviewedBy",
-              p.reviewed_at AS "reviewedAt",
-              p.created_at AS "createdAt"
-         FROM contractor_biometric_punches p
-         JOIN contractor_employees ce ON ce.id = p.contractor_employee_id
-        WHERE p.client_id = $1 AND p.decision = $2 ${branchFilter}
-        ORDER BY "punchTime" DESC
-        LIMIT $${params.length}`,
-      params,
-    );
+    return this.reviewService.listReviewPunches(clientId, opts);
   }
 
   async reviewPunch(
@@ -835,122 +662,28 @@ export class PunchService {
     actorUserId: string,
     note?: string,
   ): Promise<{ ok: true; decision: string }> {
-    const newDecision =
-      action === 'APPROVE' ? 'REVIEW_APPROVED' : 'REVIEW_REJECTED';
-
-    if (subjectType === 'EMPLOYEE') {
-      const punch = await this.punchRepo.findOne({
-        where: { id: punchId, clientId },
-      });
-      if (!punch) throw new NotFoundException('Punch not found');
-      if (punch.decision !== 'REVIEW_PENDING') {
-        throw new BadRequestException(
-          `Punch is not pending review (decision: ${punch.decision})`,
-        );
-      }
-
-      await this.dataSource.transaction(async (manager) => {
-        // Approve resolves direction against counted punches that happened
-        // BEFORE this held punch — later AUTO punches must not flip it.
-        let direction: 'IN' | 'OUT' | 'AUTO' = 'AUTO';
-        if (action === 'APPROVE') {
-          direction = await this.resolveNextPunchDirection(
-            clientId,
-            'EMPLOYEE',
-            punch.employeeId,
-            punch.punchTime,
-            { endExclusive: punch.punchTime },
-          );
-        }
-        await manager.getRepository(MobileAttendancePunchEntity).update(
-          { id: punchId },
-          {
-            decision: newDecision,
-            direction,
-            reviewedBy: actorUserId,
-            reviewedAt: new Date(),
-            reviewNote: note ?? punch.reviewNote,
-          },
-        );
-        if (action === 'APPROVE') {
-          const [emp] = await manager.query<Array<{ employee_code: string }>>(
-            `SELECT employee_code FROM employees WHERE id = $1`,
-            [punch.employeeId],
-          );
-          await this.mirrorEmployeePunchToDailyAttendance(
-            {
-              clientId,
-              branchId: punch.branchId,
-              employeeCode: emp?.employee_code ?? punch.employeeId,
-              punchTime: punch.punchTime,
-              direction,
-              deviceId: punch.deviceId,
-              source: 'MOBILE_KIOSK',
-            },
-            manager,
-          );
-        }
-      });
-      return { ok: true, decision: newDecision };
-    }
-
-    const punch = await this.contractorPunchRepo.findOne({
-      where: { id: punchId, clientId },
-    });
-    if (!punch) throw new NotFoundException('Punch not found');
-    if (punch.decision !== 'REVIEW_PENDING') {
-      throw new BadRequestException(
-        `Punch is not pending review (decision: ${punch.decision})`,
-      );
-    }
-    let direction: 'IN' | 'OUT' | 'AUTO' = 'AUTO';
-    if (action === 'APPROVE') {
-      direction = await this.resolveNextPunchDirection(
-        clientId,
-        'CONTRACTOR',
-        punch.contractorEmployeeId,
-        punch.punchTime,
-        { endExclusive: punch.punchTime },
-      );
-    }
-    await this.contractorPunchRepo.update(
-      { id: punchId },
-      {
-        decision: newDecision,
-        direction,
-        reviewedBy: actorUserId,
-        reviewedAt: new Date(),
-        reviewNote: note ?? punch.reviewNote,
-      },
+    return this.reviewService.reviewPunch(
+      clientId,
+      subjectType,
+      punchId,
+      action,
+      actorUserId,
+      note,
     );
-    return { ok: true, decision: newDecision };
   }
 
-  /**
-   * Scoped read of a punch face photo. Enforces client ownership and (for
-   * branch users) branch scope on the OWNING punch before returning bytes —
-   * biometric photos are never served via the raw static path.
-   */
   async getPunchPhoto(
     clientId: string,
     subjectType: 'EMPLOYEE' | 'CONTRACTOR',
     punchId: string,
     allowedBranchIds: string[] | null = null,
   ): Promise<{ buffer: Buffer; contentType: string } | null> {
-    const punch =
-      subjectType === 'EMPLOYEE'
-        ? await this.punchRepo.findOne({ where: { id: punchId, clientId } })
-        : await this.contractorPunchRepo.findOne({
-            where: { id: punchId, clientId },
-          });
-    if (!punch) throw new NotFoundException('Punch not found');
-    if (
-      allowedBranchIds &&
-      (!punch.branchId || !allowedBranchIds.includes(punch.branchId))
-    ) {
-      throw new NotFoundException('Punch not found');
-    }
-    return this.photoStorage.readPhoto(punch.photoUrl);
+    return this.reviewService.getPunchPhoto(
+      clientId,
+      subjectType,
+      punchId,
+      allowedBranchIds,
+    );
   }
 
   // ─── Admin list / CRUD endpoints ──────────────────────────────────────────
@@ -994,32 +727,7 @@ export class PunchService {
       limit?: number;
     } = {},
   ): Promise<ContractorBiometricPunchEntity[]> {
-    const qb = this.contractorPunchRepo
-      .createQueryBuilder('p')
-      .where('p.clientId = :clientId', { clientId })
-      .orderBy('p.punchTime', 'DESC');
-
-    if (opts.from) qb.andWhere('p.punchTime >= :from', { from: opts.from });
-    if (opts.to) qb.andWhere('p.punchTime <= :to', { to: opts.to });
-    if (opts.branchId)
-      qb.andWhere('p.branchId = :branchId', { branchId: opts.branchId });
-    if (opts.contractorEmployeeId)
-      qb.andWhere('p.contractorEmployeeId = :contractorEmployeeId', {
-        contractorEmployeeId: opts.contractorEmployeeId,
-      });
-    if (opts.contractorUserId) {
-      qb.andWhere(
-        `p.contractorEmployeeId IN (
-          SELECT ce.id FROM contractor_employees ce
-           WHERE ce.client_id = :clientId
-             AND ce.contractor_user_id = :contractorUserId
-        )`,
-        { clientId, contractorUserId: opts.contractorUserId },
-      );
-    }
-    if (opts.limit) qb.take(opts.limit);
-
-    return qb.getMany();
+    return this.contractorAdminService.listContractorPunches(clientId, opts);
   }
 
   async createContractorPunch(
@@ -1030,16 +738,7 @@ export class PunchService {
       direction: 'IN' | 'OUT' | 'AUTO';
     },
   ): Promise<{ ok: true; id: string }> {
-    const punch = await this.contractorPunchRepo.save({
-      clientId,
-      branchId: null,
-      deviceId: '00000000-0000-0000-0000-000000000000',
-      contractorEmployeeId: body.contractorEmployeeId,
-      direction: body.direction,
-      punchTime: new Date(body.punchTime),
-      offlineSync: false,
-    });
-    return { ok: true, id: punch.id };
+    return this.contractorAdminService.createContractorPunch(clientId, body);
   }
 
   async updateContractorPunch(
@@ -1047,32 +746,13 @@ export class PunchService {
     id: string,
     body: { punchTime?: string; direction?: string },
   ): Promise<{ ok: true; id: string; punchTime: string; direction: string }> {
-    const punch = await this.contractorPunchRepo.findOne({
-      where: { id, clientId },
-    });
-    if (!punch) throw new NotFoundException('Contractor punch not found');
-
-    if (body.punchTime) punch.punchTime = new Date(body.punchTime);
-    if (body.direction)
-      punch.direction = body.direction as 'IN' | 'OUT' | 'AUTO';
-
-    const saved = await this.contractorPunchRepo.save(punch);
-    return {
-      ok: true,
-      id: saved.id,
-      punchTime: saved.punchTime.toISOString(),
-      direction: saved.direction,
-    };
+    return this.contractorAdminService.updateContractorPunch(clientId, id, body);
   }
 
   async deleteContractorPunch(
     clientId: string,
     id: string,
   ): Promise<{ ok: true; deleted: number }> {
-    const result = await this.contractorPunchRepo.delete({ id, clientId });
-    if (!result.affected || result.affected === 0) {
-      throw new NotFoundException('Contractor punch not found');
-    }
-    return { ok: true, deleted: result.affected };
+    return this.contractorAdminService.deleteContractorPunch(clientId, id);
   }
 }

@@ -1,4 +1,5 @@
 import { PunchService } from './punch.service';
+import { PunchDirectionService } from './punch-direction.service';
 import { MobileAttendanceDeviceEntity } from '../devices/device.entity';
 
 describe('PunchService', () => {
@@ -45,6 +46,11 @@ describe('PunchService', () => {
       transaction: jest.fn(async (callback) => callback(transactionManager)),
     };
 
+    const directionService = new PunchDirectionService(
+      dataSource as any,
+      biometricService as any,
+    );
+
     const service = new PunchService(
       {} as any,
       {} as any,
@@ -57,6 +63,18 @@ describe('PunchService', () => {
       { appendTemplate: jest.fn().mockResolvedValue(undefined) } as any,
       biometricService as any,
       dataSource as any,
+      directionService,
+      {
+        listContractorPunches: jest.fn(),
+        createContractorPunch: jest.fn(),
+        updateContractorPunch: jest.fn(),
+        deleteContractorPunch: jest.fn(),
+      } as any,
+      {
+        listReviewPunches: jest.fn(),
+        reviewPunch: jest.fn(),
+        getPunchPhoto: jest.fn(),
+      } as any,
     );
 
     return {
