@@ -93,6 +93,12 @@ class DeviceConfig(context: Context) {
 
     fun isRegistered(): Boolean = deviceToken.isNotBlank()
 
+    /**
+     * Bearer token for mobile-attendance device APIs. After V1 register the
+     * server rotates the provisioning token; [deviceToken] is the active value.
+     */
+    fun mobileAttendanceAuthToken(): String = deviceToken.ifBlank { installToken }
+
     fun clear() = prefs.edit().clear().apply()
 
     companion object {

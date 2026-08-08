@@ -25,7 +25,7 @@ class MobileAttendanceApiClient(private val config: DeviceConfig) {
         .build()
 
     private fun bearerBuilder(path: String): Request.Builder {
-        val token = config.installToken.ifBlank {
+        val token = config.mobileAttendanceAuthToken().ifBlank {
             throw IllegalStateException("device not registered")
         }
         return Request.Builder()
@@ -82,13 +82,13 @@ class MobileAttendanceApiClient(private val config: DeviceConfig) {
         return@withContext json.decodeFromString<KioskEnrollTicket>(body)
     }
 
-    suspend fun submitKioskTicket(body: SubmitKioskTicketRequest): SubmitKioskTicketResponse =
+    suspend fun submitKioskTicket(body: SubmitKioskTicketRequest): KioskEnrollTicket =
         withContext(Dispatchers.IO) {
             val jsonBody = json.encodeToString(body)
             val request = bearerBuilder("/api/v1/mobile-attendance/enrollment/kiosk/submit")
                 .post(jsonBody.toRequestBody(mediaType))
                 .build()
-            execute(request) { json.decodeFromString<SubmitKioskTicketResponse>(it) }
+            execute(request) { json.decodeFromString<KioskEnrollTicket>(it) }
         }
 
     private inline fun <T> execute(request: Request, parse: (String) -> T): T {

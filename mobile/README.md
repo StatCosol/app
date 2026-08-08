@@ -33,8 +33,8 @@ Legacy **V1 KIOSK** (1:N offline roster match) is available again: check **Offli
 When the offline 1:N kiosk path is used, roster embeddings are AES-256-GCM ciphertexts:
 
 - **Register:** `POST /api/v1/mobile-attendance/devices/register` → returns `deviceId` (`mobile_attendance_devices.id`)
-- **Roster:** `GET /api/v1/mobile-attendance/punches/roster` with `Authorization: Bearer <installToken>` (and `X-Android-Id`) — response `deviceId` must match register
-- **Key:** `SHA-256("statcompy-roster-v1:{rosterDeviceId}:{installToken}")` — no server secret on device
+- **Roster:** `GET /api/v1/mobile-attendance/punches/roster` with `Authorization: Bearer <deviceToken>` (and `X-Android-Id`) — response `deviceId` must match register
+- **Key:** `SHA-256("statcompy-roster-v1:{rosterDeviceId}:{deviceToken}")` — uses the rotated bearer token returned at register
 - **Wire:** base64(`iv[12] + authTag[16] + ciphertext`)
 - **Client:** `RosterCrypto` + `DeviceConfig.rosterDeviceId` (from V1 register or roster response — **not** the FaceDesk kiosk UUID)
 

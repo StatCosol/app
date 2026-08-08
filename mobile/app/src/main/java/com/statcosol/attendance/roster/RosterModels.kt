@@ -37,6 +37,7 @@ data class MobileAttendanceRegisterResponse(
 /** Persist the roster-bound device id from V1 mobile-attendance registration. */
 fun DeviceConfig.applyMobileAttendanceRegister(response: MobileAttendanceRegisterResponse) {
     rosterDeviceId = response.deviceId
+    deviceToken = response.deviceToken
 }
 
 /** Persist the roster-bound device id returned by the V1 roster endpoint. */

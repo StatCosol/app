@@ -104,7 +104,6 @@ class SetupActivity : AppCompatActivity() {
                     app.mobileApi.register(token, androidId)
                 }
                 config.applyMobileAttendanceRegister(res)
-                config.deviceToken = res.deviceToken
                 config.deviceMode = res.mode
                 navigateToMain()
             } catch (e: Exception) {

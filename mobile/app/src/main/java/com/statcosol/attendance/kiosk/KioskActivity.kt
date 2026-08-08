@@ -32,6 +32,7 @@ import com.statcosol.attendance.face.FaceSignal
 import com.statcosol.attendance.face.LivenessChallenge
 import com.statcosol.attendance.face.LivenessChallengeTracker
 import com.statcosol.attendance.face.RosterMatcher
+import com.statcosol.attendance.roster.RosterCache
 import com.statcosol.attendance.roster.RosterLoader
 import com.statcosol.attendance.sync.PunchSyncWorker
 import kotlinx.coroutines.Dispatchers
@@ -336,11 +337,17 @@ class KioskActivity : AppCompatActivity() {
 
     private fun loadRoster() {
         lifecycleScope.launch {
+            val cached = withContext(Dispatchers.IO) {
+                RosterCache.loadValid(app.deviceConfig, this@KioskActivity)
+            }
+            if (cached != null && matcher == null) {
+                matcher = runCatching {
+                    RosterLoader.buildMatcher(app.deviceConfig, cached)
+                }.getOrNull()
+            }
             try {
-                refreshRosterNow(showEmptyMessage = true)
+                refreshRosterNow(showEmptyMessage = matcher == null)
             } catch (e: Exception) {
-                // Soft-fail on refresh: keep the cached matcher in use rather
-                // than dropping all employees if the API blips.
                 if (matcher == null) {
                     binding.statusText.text = "Roster load failed: ${e.message}"
                 }
@@ -350,6 +357,7 @@ class KioskActivity : AppCompatActivity() {
 
     private suspend fun refreshRosterNow(showEmptyMessage: Boolean): Int {
         val roster = withContext(Dispatchers.IO) { app.mobileApi.fetchRoster() }
+        RosterCache.save(app.deviceConfig, roster, this@KioskActivity)
         matcher = RosterLoader.buildMatcher(app.deviceConfig, roster)
         binding.headerBranch.text = getString(R.string.kiosk_branch_unknown)
         if (showEmptyMessage && roster.enrollments.isEmpty()) {
@@ -621,12 +629,11 @@ class KioskActivity : AppCompatActivity() {
                         isRooted = if (app.isDeviceRooted) true else null,
                     ),
                 )
-                if (resp.review) {
-                    runOnUiThread {
-                        binding.statusText.text = getString(R.string.kiosk_punch_review_pending)
-                    }
+                when {
+                    resp.review -> PunchOutcome.ReviewPending(resp.message)
+                    resp.ok -> PunchOutcome.Accepted(resp.direction ?: direction)
+                    else -> PunchOutcome.Rejected(resp.message)
                 }
-                resp.ok
             }
         } catch (e: Exception) {
             val msg = e.message.orEmpty()
@@ -640,12 +647,32 @@ class KioskActivity : AppCompatActivity() {
             runOnUiThread {
                 binding.statusText.text = getString(R.string.kiosk_punch_queued)
             }
-            false
+            return
         }
-        if (punchAccepted) {
-            todayPunches[match.entry.subjectId] = PunchState(direction, now)
-            runOnUiThread { showPunchSuccess(match.entry.displayName, direction) }
+        when (punchAccepted) {
+            is PunchOutcome.ReviewPending -> {
+                runOnUiThread {
+                    binding.statusText.text = punchAccepted.message
+                        ?: getString(R.string.kiosk_punch_review_pending)
+                    speak(getString(R.string.kiosk_punch_review_pending))
+                }
+            }
+            is PunchOutcome.Accepted -> {
+                todayPunches[match.entry.subjectId] = PunchState(punchAccepted.direction, now)
+                runOnUiThread {
+                    showPunchSuccess(match.entry.displayName, punchAccepted.direction)
+                }
+            }
+            is PunchOutcome.Rejected -> {
+                handleRejectedPunch(match, punchAccepted.message ?: "punch rejected")
+            }
         }
+    }
+
+    private sealed class PunchOutcome {
+        data class Accepted(val direction: String) : PunchOutcome()
+        data class ReviewPending(val message: String?) : PunchOutcome()
+        data class Rejected(val message: String?) : PunchOutcome()
     }
 
     private fun handleRejectedPunch(match: RosterMatcher.Match, message: String) {
@@ -747,15 +774,19 @@ class KioskActivity : AppCompatActivity() {
         enrollLastAcceptedAt = 0L
         enrollChallengePassed = false
         enrollChallengeNonce = null
-        val challenge = LivenessChallenge.BLINK
-        enrollChallenge = LivenessChallengeTracker(challenge)
+        enrollChallenge = null
         mainHandler.removeCallbacks(enrollChallengeTimeout)
         mainHandler.postDelayed(enrollChallengeTimeout, ENROLL_CHALLENGE_TIMEOUT_MS)
         lifecycleScope.launch {
             val subjectId = t.employeeId ?: t.contractorEmployeeId
-            enrollChallengeNonce = runCatching {
-                app.mobileApi.requestLivenessChallenge(subjectId).nonce
+            val livenessResp = runCatching {
+                app.mobileApi.requestLivenessChallenge(subjectId)
             }.getOrNull()
+            enrollChallengeNonce = livenessResp?.nonce
+            val challenge = livenessResp?.challengeType
+                ?.let { LivenessChallenge.fromWire(it) }
+                ?: LivenessChallenge.BLINK
+            enrollChallenge = LivenessChallengeTracker(challenge)
             runOnUiThread {
                 binding.statusText.text = getString(
                     R.string.kiosk_liveness_prompt_with_name,
@@ -826,7 +857,7 @@ class KioskActivity : AppCompatActivity() {
                 val resp = withContext(Dispatchers.IO) {
                     app.mobileApi.submitKioskTicket(body)
                 }
-                if (resp.ok) {
+                if (resp.status.equals("COMPLETED", ignoreCase = true)) {
                     val rosterSize = runCatching {
                         refreshRosterNow(showEmptyMessage = false)
                     }.getOrNull()
@@ -848,7 +879,7 @@ class KioskActivity : AppCompatActivity() {
                         mainHandler.postDelayed(rosterRefreshRunnable, 1_000L)
                     }
                 } else {
-                    abortKioskEnrollment(resp.message ?: "server rejected")
+                    abortKioskEnrollment("server rejected (${resp.status ?: "unknown"})")
                 }
             } catch (e: Exception) {
                 abortKioskEnrollment(e.message ?: "unknown error")

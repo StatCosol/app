@@ -8,17 +8,17 @@ object RosterLoader {
 
     fun buildMatcher(config: DeviceConfig, response: RosterResponse): RosterMatcher {
         config.applyRosterResponse(response)
-        val installToken = config.installToken
+        val authToken = config.mobileAttendanceAuthToken()
         val rosterDeviceId = config.rosterDeviceId
         require(rosterDeviceId.isNotBlank()) { "roster device id missing — re-fetch roster" }
-        require(installToken.isNotBlank()) { "install token missing" }
+        require(authToken.isNotBlank()) { "device token missing" }
 
         val entries = response.enrollments.map { enrollment ->
             val floats = when (response.format) {
                 "encrypted-v1" -> {
                     val cipher = enrollment.embeddingCipherB64
                         ?: throw IllegalStateException("missing embeddingCipherB64")
-                    RosterCrypto.decryptEmbeddingFloats(rosterDeviceId, installToken, cipher)
+                    RosterCrypto.decryptEmbeddingFloats(rosterDeviceId, authToken, cipher)
                 }
                 "plain-v1" -> {
                     val plain = enrollment.embeddingB64
