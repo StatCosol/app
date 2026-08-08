@@ -271,26 +271,106 @@ export class HolidayCalendarService {
     );
   }
 
-  /** Approve or decline double wage for the given attendance rows. */
-  async setDoubleWageApproval(
+  /**
+   * Set the holiday-work compensation HR approved for the given attendance
+   * rows, one of:
+   *   DOUBLE — pay 2x that day's wage (extra day's wage added in payroll)
+   *   COFF   — grant a compensatory-off day (accrued to the comp-off ledger)
+   *   SINGLE — normal single wage, no extra
+   * Switching a row's choice reverses any comp-off it previously granted, so the
+   * decision is always consistent no matter how many times HR changes it.
+   */
+  async setHolidayWorkComp(
     clientId: string,
     ids: string[],
-    status: 'APPROVED' | 'DECLINED',
+    comp: 'DOUBLE' | 'COFF' | 'SINGLE',
   ) {
     if (!ids?.length) throw new BadRequestException('No rows selected');
-    if (!['APPROVED', 'DECLINED'].includes(status)) {
-      throw new BadRequestException('Invalid status');
+    if (!['DOUBLE', 'COFF', 'SINGLE'].includes(comp)) {
+      throw new BadRequestException('Invalid compensation type');
     }
-    const res = await this.ds.query(
-      `UPDATE attendance_records
-       SET holiday_double_wage = $1, updated_at = NOW()
-       WHERE client_id = $2 AND id = ANY($3::uuid[])`,
-      [status, clientId, ids],
+
+    const rows = await this.ds.query(
+      `SELECT id, client_id AS "clientId", employee_id AS "employeeId",
+              date::text AS date, holiday_double_wage AS "prev"
+       FROM attendance_records
+       WHERE client_id = $1 AND id = ANY($2::uuid[])`,
+      [clientId, ids],
     );
-    return { success: true, updated: res?.[1] ?? ids.length, status };
+
+    for (const r of rows) {
+      // Reverse a previously-granted comp-off before applying the new choice.
+      if (r.prev === 'COFF') {
+        await this.reverseHolidayCompOff(r.id, r.employeeId, r.date);
+      }
+      await this.ds.query(
+        `UPDATE attendance_records SET holiday_double_wage = $1, updated_at = NOW() WHERE id = $2`,
+        [comp, r.id],
+      );
+      if (comp === 'COFF') {
+        await this.accrueHolidayCompOff(r.clientId, r.employeeId, r.id, r.date);
+      }
+    }
+
+    return { success: true, updated: rows.length, comp };
   }
 
-  /** Per-employee count of APPROVED holiday-work days in a month (for payroll). */
+  /** Grant 1 comp-off day for a holiday worked (ledger + leave balance). */
+  private async accrueHolidayCompOff(
+    clientId: string,
+    employeeId: string,
+    attendanceId: string,
+    date: string,
+  ) {
+    await this.ds.query(
+      `INSERT INTO comp_off_ledger
+         (id, client_id, employee_id, entry_date, entry_type, days, reason, ref_attendance_id, remarks, created_at)
+       VALUES (gen_random_uuid(), $1, $2, $3::date, 'ACCRUAL', 1, 'HOLIDAY_WORK', $4, 'Worked on holiday (HR approved comp-off)', NOW())`,
+      [clientId, employeeId, date, attendanceId],
+    );
+    await this.ds.query(
+      `INSERT INTO leave_balances
+         (id, employee_id, client_id, year, leave_type, opening, accrued, used, lapsed, available, created_at)
+       VALUES (gen_random_uuid(), $1, $2, EXTRACT(YEAR FROM $3::date)::int, 'COMP_OFF', 0, 1, 0, 0, 1, NOW())
+       ON CONFLICT (employee_id, year, leave_type)
+       DO UPDATE SET accrued = leave_balances.accrued + 1,
+                     available = leave_balances.available + 1,
+                     last_updated_at = NOW()`,
+      [employeeId, clientId, date],
+    );
+  }
+
+  /** Undo a holiday-work comp-off previously granted for an attendance row. */
+  private async reverseHolidayCompOff(
+    attendanceId: string,
+    employeeId: string,
+    date: string,
+  ) {
+    const del = await this.ds.query(
+      `DELETE FROM comp_off_ledger
+       WHERE ref_attendance_id = $1 AND reason = 'HOLIDAY_WORK'
+       RETURNING days`,
+      [attendanceId],
+    );
+    const removed = (del || []).reduce(
+      (s: number, r: any) => s + Number(r.days || 0),
+      0,
+    );
+    if (removed > 0) {
+      await this.ds.query(
+        `UPDATE leave_balances
+         SET accrued = GREATEST(0, accrued - $1),
+             available = GREATEST(0, available - $1),
+             last_updated_at = NOW()
+         WHERE employee_id = $2
+           AND year = EXTRACT(YEAR FROM $3::date)::int
+           AND leave_type = 'COMP_OFF'`,
+        [removed, employeeId, date],
+      );
+    }
+  }
+
+  /** Per-employee count of DOUBLE-wage holiday-work days in a month (payroll). */
   async getApprovedHolidayWorkDays(
     clientId: string,
     year: number,
@@ -305,7 +385,7 @@ export class HolidayCalendarService {
        FROM attendance_records
        WHERE client_id = $1 AND date BETWEEN $2::date AND $3::date
          AND status IN ('PRESENT', 'HALF_DAY')
-         AND holiday_double_wage = 'APPROVED'
+         AND holiday_double_wage = 'DOUBLE'
        GROUP BY employee_id`,
       [clientId, from, to],
     );

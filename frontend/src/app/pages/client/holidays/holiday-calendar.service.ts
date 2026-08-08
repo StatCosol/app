@@ -37,8 +37,10 @@ export interface HolidayWork {
   checkOut: string | null;
   workedHours: string | null;
   holidayName: string;
-  doubleWage: 'APPROVED' | 'DECLINED' | null;
+  doubleWage: HolidayComp | null;
 }
+
+export type HolidayComp = 'DOUBLE' | 'COFF' | 'SINGLE';
 
 @Injectable({ providedIn: 'root' })
 export class HolidayCalendarService {
@@ -86,7 +88,7 @@ export class HolidayCalendarService {
     return this.http.get<HolidayWork[]>(`${this.base}/holiday-work`, { params: p });
   }
 
-  approveHolidayWork(ids: string[], status: 'APPROVED' | 'DECLINED'): Observable<{ success: boolean; updated: number }> {
-    return this.http.post<{ success: boolean; updated: number }>(`${this.base}/holiday-work/approve`, { ids, status });
+  approveHolidayWork(ids: string[], comp: HolidayComp): Observable<{ success: boolean; updated: number }> {
+    return this.http.post<{ success: boolean; updated: number }>(`${this.base}/holiday-work/approve`, { ids, comp });
   }
 }

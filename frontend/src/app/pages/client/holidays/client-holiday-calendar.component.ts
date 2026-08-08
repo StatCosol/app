@@ -12,7 +12,7 @@ import { catchError, finalize, takeUntil } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
-import { Holiday, HolidayCalendarService, HolidayWork } from './holiday-calendar.service';
+import { Holiday, HolidayCalendarService, HolidayComp, HolidayWork } from './holiday-calendar.service';
 
 interface BranchOpt { value: string; label: string; state: string | null; }
 
@@ -82,16 +82,17 @@ interface BranchOpt { value: string; label: string; state: string | null; }
         @if (!hwLoading && !holidayWork.length) { <div class="muted">No holiday-work found for this month. (Upload &amp; apply holidays first, then mark attendance.)</div> }
         @if (holidayWork.length) {
           <div class="inline" style="margin-bottom:8px;">
-            <span class="hint">{{ hwSelected.size }} selected</span>
-            <button class="btn" [disabled]="!hwSelected.size || hwBusy" (click)="approve('APPROVED')">Approve double wage</button>
-            <button class="btn ghost" [disabled]="!hwSelected.size || hwBusy" (click)="approve('DECLINED')">Decline</button>
+            <span class="hint">{{ hwSelected.size }} selected — set compensation:</span>
+            <button class="btn" [disabled]="!hwSelected.size || hwBusy" (click)="approve('DOUBLE')">Double wage (2×)</button>
+            <button class="btn ghost" [disabled]="!hwSelected.size || hwBusy" (click)="approve('COFF')">Comp-off</button>
+            <button class="btn ghost" [disabled]="!hwSelected.size || hwBusy" (click)="approve('SINGLE')">Single wage</button>
           </div>
           <div class="tableWrap">
             <table>
               <thead>
                 <tr>
                   <th><input type="checkbox" [checked]="allHwSelected" (change)="toggleAllHw($event)" /></th>
-                  <th>Date</th><th>Employee</th><th>Branch</th><th>Holiday</th><th>In</th><th>Out</th><th>Hours</th><th>Double Wage</th>
+                  <th>Date</th><th>Employee</th><th>Branch</th><th>Holiday</th><th>In</th><th>Out</th><th>Hours</th><th>Compensation</th>
                 </tr>
               </thead>
               <tbody>
@@ -106,8 +107,8 @@ interface BranchOpt { value: string; label: string; state: string | null; }
                     <td>{{ w.checkOut || '-' }}</td>
                     <td>{{ w.workedHours || '-' }}</td>
                     <td>
-                      <span class="pill" [class.ok]="w.doubleWage === 'APPROVED'" [class.no]="w.doubleWage === 'DECLINED'">
-                        {{ w.doubleWage === 'APPROVED' ? 'Approved (2×)' : w.doubleWage === 'DECLINED' ? 'Declined' : 'Pending' }}
+                      <span class="pill" [class.ok]="w.doubleWage === 'DOUBLE'" [class.coff]="w.doubleWage === 'COFF'" [class.no]="w.doubleWage === 'SINGLE'">
+                        {{ compLabel(w.doubleWage) }}
                       </span>
                     </td>
                   </tr>
@@ -220,7 +221,8 @@ interface BranchOpt { value: string; label: string; state: string | null; }
     .link-danger:hover { text-decoration: underline; }
     .pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #f1f5f9; color: #475569; }
     .pill.ok { background: #dcfce7; color: #15803d; }
-    .pill.no { background: #fee2e2; color: #b91c1c; }
+    .pill.coff { background: #dbeafe; color: #1e40af; }
+    .pill.no { background: #f1f5f9; color: #475569; }
   `],
 })
 export class ClientHolidayCalendarComponent implements OnInit, OnDestroy {
@@ -393,21 +395,30 @@ export class ClientHolidayCalendarComponent implements OnInit, OnDestroy {
     this.hwSelected = checked ? new Set(this.holidayWork.map((w) => w.id)) : new Set();
   }
 
-  approve(status: 'APPROVED' | 'DECLINED'): void {
+  approve(comp: HolidayComp): void {
     const ids = Array.from(this.hwSelected);
     if (!ids.length) return;
     this.hwBusy = true;
     this.cdr.markForCheck();
-    this.svc.approveHolidayWork(ids, status).pipe(
+    this.svc.approveHolidayWork(ids, comp).pipe(
       takeUntil(this.destroy$),
       finalize(() => { this.hwBusy = false; this.cdr.markForCheck(); }),
     ).subscribe({
       next: () => {
-        this.toast.success(status === 'APPROVED' ? 'Double wage approved' : 'Declined');
+        this.toast.success(`Set to ${this.compLabel(comp)}`);
         this.loadHolidayWork();
       },
       error: (e) => this.toast.error(e?.error?.message || 'Failed to update'),
     });
+  }
+
+  compLabel(comp: HolidayComp | null): string {
+    switch (comp) {
+      case 'DOUBLE': return 'Double wage (2×)';
+      case 'COFF': return 'Comp-off';
+      case 'SINGLE': return 'Single wage';
+      default: return 'Pending';
+    }
   }
 
   scopeLabel(h: Holiday): string {

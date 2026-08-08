@@ -340,6 +340,10 @@ async function bootstrap() {
       await ds.query(`
         ALTER TABLE attendance_records
           ADD COLUMN IF NOT EXISTS holiday_double_wage varchar(10);
+        UPDATE attendance_records SET holiday_double_wage = 'DOUBLE'
+          WHERE holiday_double_wage = 'APPROVED';
+        UPDATE attendance_records SET holiday_double_wage = 'SINGLE'
+          WHERE holiday_double_wage = 'DECLINED';
       `);
       logger.log('Schema patch: attendance_records.holiday_double_wage OK');
     } catch (e: any) {
