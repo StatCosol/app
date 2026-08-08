@@ -59,13 +59,16 @@ describe('AttendanceReviewFederationService', () => {
     expect(result.items[0]).toMatchObject({
       queue: 'FACEDESK_VERIFICATION',
       itemId: 'fd-1',
-      portalPath: '/client/facedesk',
+      portalPath: '/client/facedesk?tab=review',
     });
     expect(result.items[1]).toMatchObject({
       queue: 'MOBILE_BORDERLINE',
       itemId: 'mobile-1',
-      portalPath: '/client/mobile-attendance',
+      portalPath: '/client/mobile-attendance?tab=review',
     });
+    expect(String(dataSource.query.mock.calls[0][0])).toContain(
+      "issue_type = 'FACE_MISMATCH'",
+    );
   });
 
   it('returns only mobile items when FaceDesk is not entitled', async () => {
@@ -81,6 +84,21 @@ describe('AttendanceReviewFederationService', () => {
     expect(result.summary.facedeskVerificationPending).toBe(0);
     expect(dataSource.query).toHaveBeenCalledTimes(1);
     expect(punchReview.listReviewPunches).toHaveBeenCalled();
+  });
+
+  it('skips mobile queue when includeMobile is false', async () => {
+    const { service, punchReview, dataSource } = makeService();
+    dataSource.query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ n: '0' }])
+      .mockResolvedValueOnce([{ n: '0' }]);
+
+    await service.listFederated('client-1', {
+      includeMobile: false,
+      includeFacedesk: true,
+    });
+
+    expect(punchReview.listReviewPunches).not.toHaveBeenCalled();
   });
 
   it('returns empty lists for branch users with no assigned branches', async () => {

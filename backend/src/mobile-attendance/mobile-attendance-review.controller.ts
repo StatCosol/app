@@ -42,7 +42,7 @@ export class MobileAttendanceReviewController {
     ]);
     const branchIds = mobileAttendanceBranchScope(user);
     return this.federation.listFederated(clientId, {
-      includeMobile: includeMobile || includeFacedesk,
+      includeMobile,
       includeFacedesk,
       branchIds,
       mobileStatus,

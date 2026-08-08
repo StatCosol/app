@@ -841,7 +841,9 @@ export interface FederatedReviewItem {
   punchTime: string;
   status: string;
   issueLabel: string;
-  portalPath: '/client/mobile-attendance' | '/client/facedesk';
+  portalPath:
+    | '/client/mobile-attendance?tab=review'
+    | '/client/facedesk?tab=review';
 }
 
 export interface FederatedReviewResponse {

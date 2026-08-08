@@ -16,7 +16,9 @@ export interface FederatedReviewItem {
   punchTime: string;
   status: string;
   issueLabel: string;
-  portalPath: '/client/mobile-attendance' | '/client/facedesk';
+  portalPath:
+    | '/client/mobile-attendance?tab=review'
+    | '/client/facedesk?tab=review';
 }
 
 export interface FederatedReviewSummary {
@@ -32,6 +34,9 @@ export interface FederatedReviewResult {
 
 @Injectable()
 export class AttendanceReviewFederationService {
+  /** FaceDesk review-queue rows that represent attendance verification only. */
+  private static readonly FACEDESK_ATTENDANCE_ISSUE = 'FACE_MISMATCH';
+
   constructor(
     private readonly punchReview: PunchReviewService,
     private readonly dataSource: DataSource,
@@ -126,7 +131,7 @@ export class AttendanceReviewFederationService {
       punchTime: new Date(row.punchTime as string | Date).toISOString(),
       status: String(row.decision ?? 'REVIEW_PENDING'),
       issueLabel: 'Borderline 1:N face match',
-      portalPath: '/client/mobile-attendance' as const,
+      portalPath: '/client/mobile-attendance?tab=review' as const,
     }));
   }
 
@@ -146,7 +151,7 @@ export class AttendanceReviewFederationService {
       punchTime: new Date(row.punchTime as string | Date).toISOString(),
       status: String(row.status ?? 'PENDING'),
       issueLabel: String(row.issueType ?? 'PIN / face mismatch'),
-      portalPath: '/client/facedesk' as const,
+      portalPath: '/client/facedesk?tab=review' as const,
     }));
   }
 
@@ -179,7 +184,9 @@ export class AttendanceReviewFederationService {
          LEFT JOIN facedesk_attendance_logs a ON a.attendance_id = rq.attendance_id
          LEFT JOIN contractor_biometric_punches cp ON cp.id = rq.contractor_punch_id
          LEFT JOIN contractor_employees ce ON ce.id = cp.contractor_employee_id
-        WHERE rq.client_id = $1 AND rq.status = $2 ${branchFilter}
+        WHERE rq.client_id = $1 AND rq.status = $2
+          AND rq.issue_type = '${AttendanceReviewFederationService.FACEDESK_ATTENDANCE_ISSUE}'
+          ${branchFilter}
         ORDER BY COALESCE(a.punch_time, cp.punch_time) DESC NULLS LAST
         LIMIT $${params.length}`,
       params,
@@ -225,7 +232,9 @@ export class AttendanceReviewFederationService {
     const [row] = await this.dataSource.query<Array<{ n: string }>>(
       `SELECT COUNT(*)::text AS n
          FROM facedesk_attendance_review_queue
-        WHERE client_id = $1 AND status = $2 ${branchFilter}`,
+        WHERE client_id = $1 AND status = $2
+          AND issue_type = '${AttendanceReviewFederationService.FACEDESK_ATTENDANCE_ISSUE}'
+          ${branchFilter}`,
       params,
     );
     return Number(row?.n ?? 0);

@@ -42,4 +42,39 @@ describe('MobileAttendanceReviewController', () => {
       }),
     );
   });
+
+  it('omits mobile queue for FaceDesk-only clients', async () => {
+    const federation = {
+      listFederated: jest.fn().mockResolvedValue({
+        summary: {
+          mobileBorderlinePending: 0,
+          facedeskVerificationPending: 2,
+          totalPending: 2,
+        },
+        items: [],
+      }),
+    };
+    const entitlements = {
+      assertAnyModule: jest.fn().mockResolvedValue(undefined),
+      hasModule: jest
+        .fn()
+        .mockImplementation(async (_clientId: string, module: string) =>
+          module === 'CONTRACTOR_FACE_ATTENDANCE',
+        ),
+    };
+    const controller = new MobileAttendanceReviewController(
+      federation as any,
+      entitlements as any,
+    );
+
+    await controller.listFederated(clientUser as any);
+
+    expect(federation.listFederated).toHaveBeenCalledWith(
+      'client-1',
+      expect.objectContaining({
+        includeMobile: false,
+        includeFacedesk: true,
+      }),
+    );
+  });
 });
