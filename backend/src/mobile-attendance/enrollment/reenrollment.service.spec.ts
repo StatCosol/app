@@ -97,4 +97,13 @@ describe('ReenrollmentService', () => {
       ['client-1', 'PENDING'],
     );
   });
+
+  it('applies contractor branch filter when allowedBranchIds is empty', async () => {
+    const { service, dataSource } = makeService();
+    await service.listContractorRequests('client-1', 'PENDING', []);
+    expect(dataSource.query).toHaveBeenCalledWith(
+      expect.stringContaining('r.branch_id = ANY'),
+      ['client-1', 'PENDING', []],
+    );
+  });
 });
