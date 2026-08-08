@@ -60,6 +60,7 @@ Per install (encrypted prefs):
 ```
 cd mobile
 ./gradlew :app:assembleKioskDebug :essportal:assembleDebug
+./gradlew :app:testKioskDebugUnitTest
 ```
 
 Min SDK 26, Target SDK 34, Kotlin 1.9.

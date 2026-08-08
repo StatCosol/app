@@ -17,5 +17,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Roster crypto JVM tests
+        working-directory: mobile
+        run: ./gradlew :app:testKioskDebugUnitTest --no-daemon
       - name: Android APK check
         run: echo "android apk reporting disabled for required-check stability"
