@@ -44,6 +44,7 @@ class DeviceConfig(context: Context) {
                 legacy.getString(KEY_API_BASE, "")?.takeIf { it.isNotBlank() }?.let { editor.putString(KEY_API_BASE, it) }
                 legacy.getString(KEY_DEVICE_MODE, "")?.takeIf { it.isNotBlank() }?.let { editor.putString(KEY_DEVICE_MODE, it) }
                 legacy.getString(KEY_ANDROID_ID, "")?.takeIf { it.isNotBlank() }?.let { editor.putString(KEY_ANDROID_ID, it) }
+                // Do not migrate legacy device_id — it may be a FaceDesk kiosk id, not mobile_attendance_devices.id.
                 editor.apply()
                 Log.i(TAG, "Migrated legacy prefs to encrypted store")
             }
@@ -75,6 +76,16 @@ class DeviceConfig(context: Context) {
         get() = prefs.getString(KEY_ANDROID_ID, "") ?: ""
         set(value) = prefs.edit().putString(KEY_ANDROID_ID, value).apply()
 
+    /**
+     * `mobile_attendance_devices.id` used for roster AES key derivation.
+     * Set from V1 `POST /api/v1/mobile-attendance/devices/register` or from the
+     * top-level `deviceId` field in `GET .../punches/roster` — not the FaceDesk
+     * kiosk device UUID returned by `/api/v1/facedesk/device/register`.
+     */
+    var rosterDeviceId: String
+        get() = prefs.getString(KEY_ROSTER_DEVICE_ID, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_ROSTER_DEVICE_ID, value).apply()
+
     /** FaceDesk admin PIN — gates switching this device into enrollment mode. */
     var faceDeskAdminPin: String
         get() = prefs.getString(KEY_FD_ADMIN_PIN, "0000") ?: "0000"
@@ -93,6 +104,7 @@ class DeviceConfig(context: Context) {
         private const val KEY_INSTALL_TOKEN = "install_token"
         private const val KEY_DEVICE_MODE = "device_mode"
         private const val KEY_ANDROID_ID = "android_id"
+        private const val KEY_ROSTER_DEVICE_ID = "roster_device_id"
         private const val KEY_FD_ADMIN_PIN = "fd_admin_pin"
         private const val DEFAULT_API_BASE = "https://app.statcosol.com"
     }
