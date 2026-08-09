@@ -849,6 +849,8 @@ export interface FederatedReviewItem {
 export interface FederatedReviewResponse {
   summary: FederatedReviewSummary;
   items: FederatedReviewItem[];
+  mobileItems: FederatedReviewItem[];
+  facedeskItems: FederatedReviewItem[];
 }
 
 export interface ReviewPunchRow {

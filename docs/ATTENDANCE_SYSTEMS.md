@@ -49,9 +49,10 @@ StatComPy currently runs **two parallel face stacks**. Do not merge storage with
 - **Borderline 1:N cosine matches** (held automatically): Client portal → **ESS Mobile Attendance → Punch Review**.
 - **PIN correct / face mismatch** (FaceDesk): Client or branch portal → **Kiosk Attendance → Review Queue / Verifications**.
 - Cross-links exist in both UIs when the destination module is enabled; queues remain separate because issue types and APIs differ.
-- **Federated read API:** `GET /api/v1/mobile-attendance/review-federation` returns a merged, entitlement-aware summary + item list with `portalPath` deep links (including `?tab=review`). Approve/reject still uses the source queue APIs. FaceDesk rows are limited to `FACE_MISMATCH` attendance verifications.
+- **Federated read API:** `GET /api/v1/mobile-attendance/review-federation` returns a merged, entitlement-aware summary + item list with `portalPath` deep links (including `?tab=review`). FaceDesk rows are limited to `FACE_MISMATCH` attendance verifications; mobile rows are ESS employee punches only.
+- **Unified review inbox (dual-module clients):** ESS Mobile Attendance → Punch Review shows a federated summary badge plus a read-only FaceDesk verification table with deep links. Approve/reject still uses each queue's native APIs.
 
 ### Consolidation blockers (product decision required)
 1. **Enrollment tables** — `face_enrollments` vs `facedesk_employee_face_profiles` (different embedding models, consent audit, contractor paths).
-2. **Review queues** — unified federated **read** API shipped; a single approve/reject surface and shared UI component remain future work.
+2. **Review queues** — federated read API and dual-module inbox shipped; single approve/reject handler across both queues remains future work.
 3. **Offline kiosk** — V1 roster path restored on Android (`#496`); FaceDesk remains the default provision flow for new shared tablets.
