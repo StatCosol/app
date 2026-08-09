@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { PunchReviewService } from './punch-review.service';
 
 export type FederatedReviewQueue =
   | 'MOBILE_BORDERLINE'
@@ -29,7 +28,12 @@ export interface FederatedReviewSummary {
 
 export interface FederatedReviewResult {
   summary: FederatedReviewSummary;
+  /** Merged timeline preview (up to limit across both queues). */
   items: FederatedReviewItem[];
+  /** Employee mobile borderline rows (independent per-queue limit). */
+  mobileItems: FederatedReviewItem[];
+  /** FaceDesk attendance verification rows (independent per-queue limit). */
+  facedeskItems: FederatedReviewItem[];
 }
 
 @Injectable()
@@ -37,10 +41,7 @@ export class AttendanceReviewFederationService {
   /** FaceDesk review-queue rows that represent attendance verification only. */
   private static readonly FACEDESK_ATTENDANCE_ISSUE = 'FACE_MISMATCH';
 
-  constructor(
-    private readonly punchReview: PunchReviewService,
-    private readonly dataSource: DataSource,
-  ) {}
+  constructor(private readonly dataSource: DataSource) {}
 
   async listFederated(
     clientId: string,
@@ -54,14 +55,7 @@ export class AttendanceReviewFederationService {
     },
   ): Promise<FederatedReviewResult> {
     if (opts.branchIds?.length === 0) {
-      return {
-        summary: {
-          mobileBorderlinePending: 0,
-          facedeskVerificationPending: 0,
-          totalPending: 0,
-        },
-        items: [],
-      };
+      return this.emptyResult();
     }
 
     const limit = Math.min(500, Math.max(1, opts.limit ?? 100));
@@ -71,11 +65,12 @@ export class AttendanceReviewFederationService {
     const [mobileRows, facedeskRows, mobileCount, facedeskCount] =
       await Promise.all([
         opts.includeMobile
-          ? this.punchReview.listReviewPunches(clientId, {
-              status: mobileStatus,
-              branchIds: opts.branchIds ?? undefined,
+          ? this.listEmployeeMobileReviewRows(
+              clientId,
+              mobileStatus,
+              opts.branchIds ?? null,
               limit,
-            })
+            )
           : Promise.resolve([]),
         opts.includeFacedesk
           ? this.listFacedeskReviewRows(
@@ -97,13 +92,14 @@ export class AttendanceReviewFederationService {
           : Promise.resolve(0),
       ]);
 
-    const items: FederatedReviewItem[] = [
-      ...this.mapMobileRows(mobileRows as Record<string, unknown>[]),
-      ...this.mapFacedeskRows(facedeskRows),
-    ].sort(
-      (a, b) =>
-        new Date(b.punchTime).getTime() - new Date(a.punchTime).getTime(),
-    );
+    const mobileItems = this.mapMobileRows(mobileRows);
+    const facedeskItems = this.mapFacedeskRows(facedeskRows);
+    const items = [...mobileItems, ...facedeskItems]
+      .sort(
+        (a, b) =>
+          new Date(b.punchTime).getTime() - new Date(a.punchTime).getTime(),
+      )
+      .slice(0, limit);
 
     return {
       summary: {
@@ -111,25 +107,32 @@ export class AttendanceReviewFederationService {
         facedeskVerificationPending: facedeskCount,
         totalPending: mobileCount + facedeskCount,
       },
-      items: items.slice(0, limit),
+      items,
+      mobileItems,
+      facedeskItems,
+    };
+  }
+
+  private emptyResult(): FederatedReviewResult {
+    return {
+      summary: {
+        mobileBorderlinePending: 0,
+        facedeskVerificationPending: 0,
+        totalPending: 0,
+      },
+      items: [],
+      mobileItems: [],
+      facedeskItems: [],
     };
   }
 
   private mapMobileRows(
     rows: Record<string, unknown>[],
   ): FederatedReviewItem[] {
-    return rows
-      .filter(
-        (row) =>
-          String(row.subjectType || 'EMPLOYEE').toUpperCase() !== 'CONTRACTOR',
-      )
-      .map((row) => ({
+    return rows.map((row) => ({
       queue: 'MOBILE_BORDERLINE' as const,
       itemId: String(row.id),
-      subjectType:
-        String(row.subjectType || 'EMPLOYEE').toUpperCase() === 'CONTRACTOR'
-          ? 'CONTRACTOR'
-          : 'EMPLOYEE',
+      subjectType: 'EMPLOYEE' as const,
       displayName: (row.subjectName as string | null) ?? null,
       displayCode: (row.subjectCode as string | null) ?? null,
       branchId: (row.branchId as string | null) ?? null,
@@ -158,6 +161,37 @@ export class AttendanceReviewFederationService {
       issueLabel: String(row.issueType ?? 'PIN / face mismatch'),
       portalPath: '/client/facedesk?tab=review' as const,
     }));
+  }
+
+  private async listEmployeeMobileReviewRows(
+    clientId: string,
+    status: string,
+    branchIds: string[] | null,
+    limit: number,
+  ): Promise<Record<string, unknown>[]> {
+    if (branchIds?.length === 0) return [];
+    const params: unknown[] = [clientId, status];
+    let branchFilter = '';
+    if (branchIds && branchIds.length > 0) {
+      params.push(branchIds);
+      branchFilter = `AND p.branch_id = ANY($${params.length}::uuid[])`;
+    }
+    params.push(limit);
+    return this.dataSource.query(
+      `SELECT p.id,
+              'EMPLOYEE' AS "subjectType",
+              e.name AS "subjectName",
+              e.employee_code AS "subjectCode",
+              p.branch_id AS "branchId",
+              p.punch_time AS "punchTime",
+              p.decision
+         FROM mobile_attendance_punches p
+         JOIN employees e ON e.id = p.employee_id
+        WHERE p.client_id = $1 AND p.decision = $2 ${branchFilter}
+        ORDER BY p.punch_time DESC
+        LIMIT $${params.length}`,
+      params,
+    );
   }
 
   private async listFacedeskReviewRows(

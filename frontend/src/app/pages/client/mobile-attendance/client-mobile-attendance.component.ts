@@ -534,11 +534,11 @@ interface BranchOption { id: string; name: string }
 <ui-loading-spinner text="Loading review queue..." size="lg"></ui-loading-spinner>
 }
 
-        @if (!loadingReview && reviewRows.length === 0) {
+        @if (!loadingReview && showReviewEmptyState) {
 <ui-empty-state
          
           title="Nothing to review"
-          description="No punches in this state. Borderline matches will appear here automatically.">
+          description="No employee mobile punches in this state. Borderline ESS/kiosk matches will appear here automatically.">
         </ui-empty-state>
 }
 
@@ -973,6 +973,16 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     );
   }
 
+  get showReviewEmptyState(): boolean {
+    if (this.loadingReview) return false;
+    const hasMobileRows = this.reviewRows.length > 0;
+    const hasFaceDeskRows =
+      this.hasFederatedReview &&
+      this.reviewStatusFilter === 'REVIEW_PENDING' &&
+      this.federatedFaceDeskItems.length > 0;
+    return !hasMobileRows && !hasFaceDeskRows;
+  }
+
   /** Employees selectable for ESS device binding — filtered to the branch
    *  picked in the Register Device modal. Prevents binding an ESS phone to
    *  an employee in a different branch (which would break geofencing and
@@ -1115,9 +1125,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
         next: (response) => {
           this.federatedSummary = response.summary;
           this.federatedFaceDeskItems = includeFaceDeskList
-            ? (response.items ?? []).filter(
-                (item) => item.queue === 'FACEDESK_VERIFICATION',
-              )
+            ? (response.facedeskItems ?? [])
             : this.federatedFaceDeskItems;
           this.pendingReviewCount = response.summary.totalPending;
           this.bump();

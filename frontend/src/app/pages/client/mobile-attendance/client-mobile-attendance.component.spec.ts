@@ -36,6 +36,8 @@ const makeComponent = (
         totalPending: 0,
       },
       items: [],
+      mobileItems: [],
+      facedeskItems: [],
     })),
     reviewPunch: vi.fn().mockReturnValue(of({ ok: true, decision: 'REVIEW_APPROVED' })),
     registerDevice: vi.fn().mockReturnValue(of({ installToken: 'token' })),
@@ -183,6 +185,8 @@ describe('ClientMobileAttendanceComponent entitlement-aware device access', () =
         totalPending: 1,
       },
       items: [],
+      mobileItems: [],
+      facedeskItems: [],
     }));
 
     component.loadReviewPunches();
