@@ -26,6 +26,9 @@ import { PunchDirectionService } from './punch/punch-direction.service';
 import { PunchContractorAdminService } from './punch/punch-contractor-admin.service';
 import { PunchReviewService } from './punch/punch-review.service';
 import { AttendanceReviewFederationService } from './punch/attendance-review-federation.service';
+import { AttendanceReviewActionService } from './punch/attendance-review-action.service';
+import { FaceEnrollmentFederationService } from './enrollment/face-enrollment-federation.service';
+import { FaceDeskModule } from '../facedesk/facedesk.module';
 import { LivenessService } from './liveness/liveness.service';
 import { FaceEmbeddingClient } from './face/face-embedding.client';
 import { FacePhotoStorageService } from './face/face-photo-storage.service';
@@ -38,6 +41,7 @@ import { MobileAttendanceEnrollmentController } from './mobile-attendance-enroll
 import { MobileAttendanceLivenessController } from './mobile-attendance-liveness.controller';
 import { MobileAttendancePunchesController } from './mobile-attendance-punches.controller';
 import { MobileAttendanceReviewController } from './mobile-attendance-review.controller';
+import { MobileAttendanceEnrollmentFederationController } from './mobile-attendance-enrollment-federation.controller';
 
 @Module({
   imports: [
@@ -56,6 +60,7 @@ import { MobileAttendanceReviewController } from './mobile-attendance-review.con
     ]),
     ServiceEntitlementsModule,
     BiometricModule,
+    FaceDeskModule,
   ],
   controllers: [
     MobileAttendanceDevicesController,
@@ -63,6 +68,7 @@ import { MobileAttendanceReviewController } from './mobile-attendance-review.con
     MobileAttendanceLivenessController,
     MobileAttendancePunchesController,
     MobileAttendanceReviewController,
+    MobileAttendanceEnrollmentFederationController,
   ],
   providers: [
     DeviceAuthGuard,
@@ -73,6 +79,8 @@ import { MobileAttendanceReviewController } from './mobile-attendance-review.con
     PunchContractorAdminService,
     PunchReviewService,
     AttendanceReviewFederationService,
+    AttendanceReviewActionService,
+    FaceEnrollmentFederationService,
     PunchService,
     LivenessService,
     FaceEmbeddingClient,

@@ -661,6 +661,7 @@ export class PunchService {
     action: 'APPROVE' | 'REJECT',
     actorUserId: string,
     note?: string,
+    allowedBranchIds: string[] | null = null,
   ): Promise<{ ok: true; decision: string }> {
     return this.reviewService.reviewPunch(
       clientId,
@@ -669,6 +670,7 @@ export class PunchService {
       action,
       actorUserId,
       note,
+      allowedBranchIds,
     );
   }
 

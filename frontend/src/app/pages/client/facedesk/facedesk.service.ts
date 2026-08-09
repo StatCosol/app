@@ -1,7 +1,8 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
+import type { FederatedReviewResponse } from '../mobile-attendance/client-mobile-attendance.service';
 
 export interface FaceDeskDashboard {
   totalEmployees: number;
@@ -102,6 +103,7 @@ export interface FaceDeskDevice {
 @Injectable({ providedIn: 'root' })
 export class FaceDeskService {
   private readonly base = `${environment.apiBaseUrl}/api/v1/facedesk`;
+  private readonly mobileAttendanceBase = `${environment.apiBaseUrl}/api/v1/mobile-attendance`;
 
   constructor(private http: HttpClient) {}
 
@@ -188,6 +190,23 @@ export class FaceDeskService {
   reviewQueue(status = 'PENDING'): Observable<ReviewItem[]> {
     return this.http.get<ReviewItem[]>(
       `${this.base}/admin/review-queue?status=${encodeURIComponent(status)}`,
+    );
+  }
+
+  listFederatedReview(
+    opts: { mobileStatus?: string; facedeskStatus?: string; limit?: number } = {},
+  ): Observable<FederatedReviewResponse> {
+    const parts: string[] = [];
+    if (opts.mobileStatus) {
+      parts.push(`mobileStatus=${encodeURIComponent(opts.mobileStatus)}`);
+    }
+    if (opts.facedeskStatus) {
+      parts.push(`facedeskStatus=${encodeURIComponent(opts.facedeskStatus)}`);
+    }
+    if (opts.limit) parts.push(`limit=${opts.limit}`);
+    const qs = parts.length ? `?${parts.join('&')}` : '';
+    return this.http.get<FederatedReviewResponse>(
+      `${this.mobileAttendanceBase}/review-federation${qs}`,
     );
   }
 

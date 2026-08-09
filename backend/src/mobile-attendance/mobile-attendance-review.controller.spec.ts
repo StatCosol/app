@@ -14,8 +14,10 @@ describe('MobileAttendanceReviewController', () => {
         items: [],
       }),
     };
+    const reviewAction = { actOnFederatedItem: jest.fn() };
     const entitlements = {
       assertAnyModule: jest.fn().mockResolvedValue(undefined),
+      assertModule: jest.fn().mockResolvedValue(undefined),
       hasModule: jest
         .fn()
         .mockImplementation(async (_clientId: string, module: string) =>
@@ -24,6 +26,7 @@ describe('MobileAttendanceReviewController', () => {
     };
     const controller = new MobileAttendanceReviewController(
       federation as any,
+      reviewAction as any,
       entitlements as any,
     );
 
@@ -54,8 +57,10 @@ describe('MobileAttendanceReviewController', () => {
         items: [],
       }),
     };
+    const reviewAction = { actOnFederatedItem: jest.fn() };
     const entitlements = {
       assertAnyModule: jest.fn().mockResolvedValue(undefined),
+      assertModule: jest.fn().mockResolvedValue(undefined),
       hasModule: jest
         .fn()
         .mockImplementation(async (_clientId: string, module: string) =>
@@ -64,6 +69,7 @@ describe('MobileAttendanceReviewController', () => {
     };
     const controller = new MobileAttendanceReviewController(
       federation as any,
+      reviewAction as any,
       entitlements as any,
     );
 
@@ -75,6 +81,45 @@ describe('MobileAttendanceReviewController', () => {
         includeMobile: false,
         includeFacedesk: true,
       }),
+    );
+  });
+
+  it('routes federated review actions through the action service', async () => {
+    const federation = { listFederated: jest.fn() };
+    const reviewAction = {
+      actOnFederatedItem: jest
+        .fn()
+        .mockResolvedValue({ ok: true, decision: 'REVIEW_APPROVED' }),
+    };
+    const entitlements = {
+      assertAnyModule: jest.fn().mockResolvedValue(undefined),
+      assertModule: jest.fn().mockResolvedValue(undefined),
+      hasModule: jest.fn().mockResolvedValue(true),
+    };
+    const controller = new MobileAttendanceReviewController(
+      federation as any,
+      reviewAction as any,
+      entitlements as any,
+    );
+
+    await controller.actOnFederatedItem(
+      clientUser as any,
+      'MOBILE_BORDERLINE',
+      'punch-1',
+      { action: 'APPROVE', note: 'ok' },
+    );
+
+    expect(entitlements.assertModule).toHaveBeenCalledWith(
+      'client-1',
+      'MOBILE_ATTENDANCE',
+    );
+    expect(reviewAction.actOnFederatedItem).toHaveBeenCalledWith(
+      'client-1',
+      'MOBILE_BORDERLINE',
+      'punch-1',
+      'user-1',
+      { action: 'APPROVE', note: 'ok' },
+      null,
     );
   });
 });

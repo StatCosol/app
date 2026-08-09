@@ -22,6 +22,10 @@ import {
   PendingEnrollmentRow,
   ReviewItem,
 } from './facedesk.service';
+import type {
+  FederatedReviewItem,
+  FederatedReviewSummary,
+} from '../mobile-attendance/client-mobile-attendance.service';
 
 type Tab =
   | 'dashboard'
@@ -330,10 +334,56 @@ type Tab =
             }
           </p>
         }
+        @if (hasFederatedReview && federatedSummary) {
+          <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <strong>{{ federatedSummary.totalPending }}</strong> pending face review item(s):
+            {{ federatedSummary.facedeskVerificationPending }} kiosk verification(s) on this page,
+            {{ federatedSummary.mobileBorderlinePending }} borderline ESS/kiosk match(es) in
+            <a routerLink="/client/mobile-attendance" [queryParams]="{ tab: 'review' }" class="text-blue-700 hover:underline">
+              ESS Mobile Attendance
+            </a>.
+          </div>
+        }
+        @if (hasFederatedReview && federatedMobileItems.length > 0) {
+          <div class="mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+            <div class="px-4 py-3 border-b border-gray-200 bg-gray-50 text-sm font-semibold text-gray-800">
+              Mobile borderline queue (review in ESS Mobile Attendance)
+            </div>
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>Person</th>
+                  <th>Branch</th>
+                  <th>Punch Time</th>
+                  <th>Issue</th>
+                  <th class="right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of federatedMobileItems; track item.itemId) {
+                  <tr>
+                    <td>
+                      <div>{{ item.displayName || 'Unknown' }}</div>
+                      <span class="mono text-xs text-gray-500">{{ item.displayCode || item.subjectType }}</span>
+                    </td>
+                    <td>{{ branchName(item.branchId) }}</td>
+                    <td>{{ item.punchTime | date: 'dd MMM yyyy, HH:mm:ss' }}</td>
+                    <td>{{ item.issueLabel }}</td>
+                    <td class="right">
+                      <a routerLink="/client/mobile-attendance" [queryParams]="{ tab: 'review' }" class="link">
+                        Open in ESS Mobile Attendance
+                      </a>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
         @if (branchMode) {
           <p class="text-sm text-gray-600 mb-3">Punches where the PIN was correct but the face didn't match are marked and listed here. Check the photo against the employee, then <strong>Approve</strong> to keep it or <strong>Reject</strong> to reverse it.</p>
         }
-        @if (!loading && review.length === 0) {
+        @if (!loading && review.length === 0 && (!hasFederatedReview || federatedMobileItems.length === 0)) {
 <ui-empty-state title="Nothing to verify" description="No pending items."></ui-empty-state>
 }
         @if (!loading && review.length > 0) {
@@ -536,6 +586,10 @@ export class FaceDeskComponent implements OnInit {
     return this.auth.hasModule('MOBILE_ATTENDANCE');
   }
 
+  get hasFederatedReview(): boolean {
+    return this.hasMobileAttendanceModule && this.auth.hasModule('CONTRACTOR_FACE_ATTENDANCE');
+  }
+
   tab: Tab = 'dashboard';
   loading = false;
 
@@ -544,6 +598,8 @@ export class FaceDeskComponent implements OnInit {
   enrolled: PendingEnrollmentRow[] = [];
   duplicates: DuplicateAlert[] = [];
   review: ReviewItem[] = [];
+  federatedSummary: FederatedReviewSummary | null = null;
+  federatedMobileItems: FederatedReviewItem[] = [];
   settings: FaceDeskSettings | null = null;
 
   reportKind = 'daily';
@@ -687,8 +743,47 @@ export class FaceDeskComponent implements OnInit {
       if (this.deviceList.length === 0) this.svc.devices().subscribe((d) => (this.deviceList = d));
     }
     if (t === 'duplicates') this.load(this.svc.duplicateAlerts(), (r) => (this.duplicates = r));
-    if (t === 'review') this.load(this.svc.reviewQueue(), (r) => (this.review = r));
+    if (t === 'review') {
+      this.loadReviewTab();
+    }
     if (t === 'settings') this.load(this.svc.getSettings(), (r) => (this.settings = r));
+  }
+
+  private loadReviewTab(): void {
+    this.loading = true;
+    this.svc.reviewQueue().subscribe({
+      next: (rows) => {
+        this.review = rows;
+        if (this.hasFederatedReview) {
+          this.svc
+            .listFederatedReview({ mobileStatus: 'REVIEW_PENDING', limit: 50 })
+            .subscribe({
+              next: (response) => {
+                this.federatedSummary = response.summary;
+                this.federatedMobileItems = response.mobileItems || [];
+                this.loading = false;
+                this.cdr.detectChanges();
+              },
+              error: () => {
+                this.federatedSummary = null;
+                this.federatedMobileItems = [];
+                this.loading = false;
+                this.cdr.detectChanges();
+              },
+            });
+          return;
+        }
+        this.federatedSummary = null;
+        this.federatedMobileItems = [];
+        this.loading = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.loading = false;
+        this.toast.error('Failed to load');
+        this.cdr.detectChanges();
+      },
+    });
   }
 
   private load<T>(obs: Observable<T>, assign: (r: T) => void): void {

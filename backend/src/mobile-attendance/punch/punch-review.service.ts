@@ -92,6 +92,7 @@ export class PunchReviewService {
     action: 'APPROVE' | 'REJECT',
     actorUserId: string,
     note?: string,
+    allowedBranchIds: string[] | null = null,
   ): Promise<{ ok: true; decision: string }> {
     const newDecision =
       action === 'APPROVE' ? 'REVIEW_APPROVED' : 'REVIEW_REJECTED';
@@ -101,6 +102,7 @@ export class PunchReviewService {
         where: { id: punchId, clientId },
       });
       if (!punch) throw new NotFoundException('Punch not found');
+      this.assertBranchScope(punch, allowedBranchIds);
       if (punch.decision !== 'REVIEW_PENDING') {
         throw new BadRequestException(
           `Punch is not pending review (decision: ${punch.decision})`,
@@ -154,6 +156,7 @@ export class PunchReviewService {
       where: { id: punchId, clientId },
     });
     if (!punch) throw new NotFoundException('Punch not found');
+    this.assertBranchScope(punch, allowedBranchIds);
     if (punch.decision !== 'REVIEW_PENDING') {
       throw new BadRequestException(
         `Punch is not pending review (decision: ${punch.decision})`,
@@ -202,5 +205,17 @@ export class PunchReviewService {
       throw new NotFoundException('Punch not found');
     }
     return this.photoStorage.readPhoto(punch.photoUrl);
+  }
+
+  private assertBranchScope(
+    punch: { branchId: string | null },
+    allowedBranchIds: string[] | null,
+  ): void {
+    if (
+      allowedBranchIds &&
+      (!punch.branchId || !allowedBranchIds.includes(punch.branchId))
+    ) {
+      throw new NotFoundException('Punch not found');
+    }
   }
 }

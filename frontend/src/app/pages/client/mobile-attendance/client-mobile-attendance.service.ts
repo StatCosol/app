@@ -205,6 +205,30 @@ export class ClientMobileAttendanceService {
     return this.http.get<EnrollmentStatusRow[]>(`${this.base}/enrollment/employees`);
   }
 
+  listFederatedEnrollment(
+    limit?: number,
+  ): Observable<FederatedEnrollmentResponse> {
+    const qs = limit ? `?limit=${limit}` : '';
+    return this.http.get<FederatedEnrollmentResponse>(
+      `${this.base}/enrollment-federation${qs}`,
+    );
+  }
+
+  actOnFederatedReview(
+    queue: 'MOBILE_BORDERLINE' | 'FACEDESK_VERIFICATION',
+    itemId: string,
+    body: {
+      action: 'APPROVE' | 'REJECT';
+      note?: string;
+      subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
+    },
+  ): Observable<{ ok: true; decision?: string; status?: string }> {
+    return this.http.post<{ ok: true; decision?: string; status?: string }>(
+      `${this.base}/review-federation/${queue}/${itemId}/action`,
+      body,
+    );
+  }
+
   deactivateEnrollment(employeeId: string, reason?: string): Observable<void> {
     return this.http.post<void>(`${this.base}/enrollment/deactivate`, {
       subjectType: 'EMPLOYEE',
@@ -851,6 +875,49 @@ export interface FederatedReviewResponse {
   items: FederatedReviewItem[];
   mobileItems: FederatedReviewItem[];
   facedeskItems: FederatedReviewItem[];
+}
+
+export type FederatedEnrollmentOverallStatus =
+  | 'FULLY_ENROLLED'
+  | 'PARTIAL'
+  | 'PENDING'
+  | 'DEACTIVATED';
+
+export interface FederatedEnrollmentMobileState {
+  isEnrolled: boolean;
+  isActive: boolean;
+  embeddingModel: string | null;
+  enrolledAt: string | null;
+  portalPath: '/client/mobile-attendance?tab=status';
+}
+
+export interface FederatedEnrollmentFaceDeskState {
+  enrollmentStatus: 'PENDING' | 'ENROLLED' | 'BLOCKED' | 'DEACTIVATED';
+  enrolledAt: string | null;
+  portalPath: '/client/facedesk?tab=pending';
+}
+
+export interface FederatedEnrollmentItem {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  branchId: string | null;
+  mobile: FederatedEnrollmentMobileState | null;
+  facedesk: FederatedEnrollmentFaceDeskState | null;
+  overallStatus: FederatedEnrollmentOverallStatus;
+}
+
+export interface FederatedEnrollmentSummary {
+  totalEmployees: number;
+  mobileEnrolledActive: number;
+  facedeskEnrolled: number;
+  bothEnrolled: number;
+  pendingEither: number;
+}
+
+export interface FederatedEnrollmentResponse {
+  summary: FederatedEnrollmentSummary;
+  items: FederatedEnrollmentItem[];
 }
 
 export interface ReviewPunchRow {

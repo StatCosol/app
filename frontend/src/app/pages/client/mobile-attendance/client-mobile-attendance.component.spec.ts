@@ -26,6 +26,16 @@ const makeComponent = (
   const svc = {
     listDevices: vi.fn().mockReturnValue(of([])),
     listEnrollments: vi.fn().mockReturnValue(of([])),
+    listFederatedEnrollment: vi.fn().mockReturnValue(of({
+      summary: {
+        totalEmployees: 0,
+        mobileEnrolledActive: 0,
+        facedeskEnrolled: 0,
+        bothEnrolled: 0,
+        pendingEither: 0,
+      },
+      items: [],
+    })),
     listReenrollRequests: vi.fn().mockReturnValue(of([])),
     listContractorReenrollRequests: vi.fn().mockReturnValue(of([])),
     listReviewPunches: vi.fn().mockReturnValue(of([])),
