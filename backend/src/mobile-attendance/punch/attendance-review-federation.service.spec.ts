@@ -71,6 +71,40 @@ describe('AttendanceReviewFederationService', () => {
     );
   });
 
+  it('omits contractor mobile punches from the federated mobile queue', async () => {
+    const { service, punchReview, dataSource } = makeService();
+    punchReview.listReviewPunches.mockResolvedValue([
+      {
+        id: 'mobile-emp',
+        subjectType: 'EMPLOYEE',
+        subjectName: 'Alice',
+        subjectCode: 'E001',
+        branchId: 'branch-1',
+        punchTime: new Date('2026-08-09T10:00:00.000Z'),
+        decision: 'REVIEW_PENDING',
+      },
+      {
+        id: 'mobile-contractor',
+        subjectType: 'CONTRACTOR',
+        subjectName: 'Bob',
+        branchId: 'branch-1',
+        punchTime: new Date('2026-08-09T11:00:00.000Z'),
+        decision: 'REVIEW_PENDING',
+      },
+    ]);
+    dataSource.query.mockResolvedValueOnce([{ n: '1' }]);
+
+    const result = await service.listFederated('client-1', {
+      includeMobile: true,
+      includeFacedesk: false,
+      limit: 50,
+    });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.itemId).toBe('mobile-emp');
+    expect(result.summary.mobileBorderlinePending).toBe(1);
+  });
+
   it('returns only mobile items when FaceDesk is not entitled', async () => {
     const { service, punchReview, dataSource } = makeService();
     punchReview.listReviewPunches.mockResolvedValue([]);

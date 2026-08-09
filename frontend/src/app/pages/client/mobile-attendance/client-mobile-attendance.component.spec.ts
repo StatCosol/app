@@ -29,6 +29,14 @@ const makeComponent = (
     listReenrollRequests: vi.fn().mockReturnValue(of([])),
     listContractorReenrollRequests: vi.fn().mockReturnValue(of([])),
     listReviewPunches: vi.fn().mockReturnValue(of([])),
+    listFederatedReview: vi.fn().mockReturnValue(of({
+      summary: {
+        mobileBorderlinePending: 0,
+        facedeskVerificationPending: 0,
+        totalPending: 0,
+      },
+      items: [],
+    })),
     reviewPunch: vi.fn().mockReturnValue(of({ ok: true, decision: 'REVIEW_APPROVED' })),
     registerDevice: vi.fn().mockReturnValue(of({ installToken: 'token' })),
   };
@@ -168,6 +176,14 @@ describe('ClientMobileAttendanceComponent entitlement-aware device access', () =
       { id: 'employee-punch', subjectType: 'EMPLOYEE' },
       { id: 'contractor-punch', subjectType: 'CONTRACTOR' },
     ]));
+    svc.listFederatedReview.mockReturnValue(of({
+      summary: {
+        mobileBorderlinePending: 1,
+        facedeskVerificationPending: 0,
+        totalPending: 1,
+      },
+      items: [],
+    }));
 
     component.loadReviewPunches();
 

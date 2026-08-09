@@ -25,6 +25,8 @@ import {
   RegisterMobileDeviceBody,
   ReenrollRequest,
   ReenrollRequestStatus,
+  FederatedReviewItem,
+  FederatedReviewSummary,
   ReviewPunchRow,
 } from './client-mobile-attendance.service';
 
@@ -479,6 +481,55 @@ interface BranchOption { id: string; name: string }
           </div>
         </div>
 
+        @if (hasFederatedReview && federatedSummary && reviewStatusFilter === 'REVIEW_PENDING') {
+          <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <strong>{{ federatedSummary.totalPending }}</strong> pending face review item(s):
+            {{ federatedSummary.mobileBorderlinePending }} borderline ESS/kiosk match(es) on this page,
+            {{ federatedSummary.facedeskVerificationPending }} kiosk PIN/face verification(s) in
+            <a routerLink="/client/facedesk" [queryParams]="{ tab: 'review' }" class="text-blue-700 hover:underline">
+              Kiosk Attendance
+            </a>.
+          </div>
+        }
+
+        @if (hasFederatedReview && federatedFaceDeskItems.length > 0 && reviewStatusFilter === 'REVIEW_PENDING') {
+          <div class="mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+            <div class="px-4 py-3 border-b border-gray-200 bg-gray-50 text-sm font-semibold text-gray-800">
+              Kiosk verification queue (review in FaceDesk)
+            </div>
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-gray-200">
+                  <th class="text-left px-4 py-3 font-semibold text-gray-700">Person</th>
+                  <th class="text-left px-4 py-3 font-semibold text-gray-700">Branch</th>
+                  <th class="text-left px-4 py-3 font-semibold text-gray-700">Punch Time</th>
+                  <th class="text-left px-4 py-3 font-semibold text-gray-700">Issue</th>
+                  <th class="text-right px-4 py-3 font-semibold text-gray-700">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of federatedFaceDeskItems; track item.itemId) {
+                  <tr class="border-b border-gray-100 hover:bg-gray-50">
+                    <td class="px-4 py-3">
+                      <div class="text-gray-900 font-medium">{{ item.displayName || 'Unknown' }}</div>
+                      <div class="text-xs text-gray-500 font-mono">{{ item.displayCode || item.subjectType }}</div>
+                    </td>
+                    <td class="px-4 py-3 text-gray-700">{{ branchName(item.branchId) }}</td>
+                    <td class="px-4 py-3 text-gray-700">{{ item.punchTime | date: 'dd MMM yyyy, HH:mm:ss' }}</td>
+                    <td class="px-4 py-3 text-gray-700">{{ item.issueLabel }}</td>
+                    <td class="px-4 py-3 text-right">
+                      <a routerLink="/client/facedesk" [queryParams]="{ tab: 'review' }"
+                         class="text-xs text-indigo-600 hover:underline">
+                        Open in Kiosk Attendance
+                      </a>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
         @if (loadingReview) {
 <ui-loading-spinner text="Loading review queue..." size="lg"></ui-loading-spinner>
 }
@@ -889,6 +940,8 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     'REVIEW_PENDING';
   pendingReviewCount = 0;
   reviewingPunchId: string | null = null;
+  federatedSummary: FederatedReviewSummary | null = null;
+  federatedFaceDeskItems: FederatedReviewItem[] = [];
 
   get hasAnyFaceModule(): boolean {
     return (
@@ -911,6 +964,13 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
 
   get hasContractorFaceAttendanceModule(): boolean {
     return this.auth.hasModule('CONTRACTOR_FACE_ATTENDANCE');
+  }
+
+  get hasFederatedReview(): boolean {
+    return (
+      this.hasEmployeeMobileAttendanceModule &&
+      this.hasContractorFaceAttendanceModule
+    );
   }
 
   /** Employees selectable for ESS device binding — filtered to the branch
@@ -1004,6 +1064,9 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   loadReviewPunches(): void {
     this.loadingReview = true;
     this.bump();
+    if (this.hasFederatedReview) {
+      this.loadFederatedReview(true);
+    }
     this.svc
       .listReviewPunches({ status: this.reviewStatusFilter, limit: 200 })
       .subscribe({
@@ -1013,7 +1076,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
           this.reviewRows = (rows ?? []).filter(
             (row) => row.subjectType === 'EMPLOYEE',
           );
-          if (this.reviewStatusFilter === 'REVIEW_PENDING') {
+          if (this.reviewStatusFilter === 'REVIEW_PENDING' && !this.hasFederatedReview) {
             this.pendingReviewCount = this.reviewRows.length;
           }
           this.loadingReview = false;
@@ -1028,6 +1091,10 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   }
 
   refreshPendingReviewCount(): void {
+    if (this.hasFederatedReview) {
+      this.loadFederatedReview(false);
+      return;
+    }
     this.svc
       .listReviewPunches({ status: 'REVIEW_PENDING', limit: 200 })
       .subscribe({
@@ -1038,6 +1105,29 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
           this.bump();
         },
         error: () => undefined,
+      });
+  }
+
+  private loadFederatedReview(includeFaceDeskList: boolean): void {
+    this.svc
+      .listFederatedReview({ mobileStatus: 'REVIEW_PENDING', limit: 50 })
+      .subscribe({
+        next: (response) => {
+          this.federatedSummary = response.summary;
+          this.federatedFaceDeskItems = includeFaceDeskList
+            ? (response.items ?? []).filter(
+                (item) => item.queue === 'FACEDESK_VERIFICATION',
+              )
+            : this.federatedFaceDeskItems;
+          this.pendingReviewCount = response.summary.totalPending;
+          this.bump();
+        },
+        error: () => {
+          if (includeFaceDeskList) {
+            this.federatedSummary = null;
+            this.federatedFaceDeskItems = [];
+          }
+        },
       });
   }
 

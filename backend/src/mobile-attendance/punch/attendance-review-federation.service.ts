@@ -118,7 +118,12 @@ export class AttendanceReviewFederationService {
   private mapMobileRows(
     rows: Record<string, unknown>[],
   ): FederatedReviewItem[] {
-    return rows.map((row) => ({
+    return rows
+      .filter(
+        (row) =>
+          String(row.subjectType || 'EMPLOYEE').toUpperCase() !== 'CONTRACTOR',
+      )
+      .map((row) => ({
       queue: 'MOBILE_BORDERLINE' as const,
       itemId: String(row.id),
       subjectType:
@@ -206,12 +211,9 @@ export class AttendanceReviewFederationService {
       branchFilter = `AND branch_id = ANY($${params.length}::uuid[])`;
     }
     const [row] = await this.dataSource.query<Array<{ n: string }>>(
-      `SELECT (
-         (SELECT COUNT(*)::int FROM mobile_attendance_punches
-           WHERE client_id = $1 AND decision = $2 ${branchFilter})
-       + (SELECT COUNT(*)::int FROM contractor_biometric_punches
-           WHERE client_id = $1 AND decision = $2 ${branchFilter})
-       )::text AS n`,
+      `SELECT COUNT(*)::text AS n
+         FROM mobile_attendance_punches
+        WHERE client_id = $1 AND decision = $2 ${branchFilter}`,
       params,
     );
     return Number(row?.n ?? 0);
