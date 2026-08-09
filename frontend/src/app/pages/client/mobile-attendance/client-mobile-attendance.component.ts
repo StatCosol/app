@@ -2,8 +2,8 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { fromEvent, interval, merge, Subject, Subscription } from 'rxjs';
-import { finalize, takeUntil } from 'rxjs/operators';
+import { fromEvent, interval, merge, of, Subject, Subscription } from 'rxjs';
+import { finalize, takeUntil, catchError, map } from 'rxjs/operators';
 import {
   ActionButtonComponent,
   EmptyStateComponent,
@@ -1015,6 +1015,8 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   federatedEnrollmentRows: FederatedEnrollmentItem[] = [];
   federatedEnrollmentSummary: FederatedEnrollmentSummary | null = null;
   loadingEnrollments = false;
+  private enrollmentLoadSeq = 0;
+  private reviewLoadSeq = 0;
   statusFilter: 'all' | 'pending' | 'enrolled' | 'deactivated' = 'all';
   statusSearch = '';
 
@@ -1175,27 +1177,46 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   // ─── Punch review queue ────────────────────────────────────────────────
 
   loadReviewPunches(): void {
+    const seq = ++this.reviewLoadSeq;
+    const statusFilter = this.reviewStatusFilter;
     this.loadingReview = true;
     this.bump();
-    if (this.hasFederatedReview) {
-      this.loadFederatedReview(true);
+    if (this.hasFederatedReview && statusFilter === 'REVIEW_PENDING') {
+      this.svc
+        .listFederatedReview({ mobileStatus: 'REVIEW_PENDING', limit: 50 })
+        .pipe(catchError(() => of(null)))
+        .subscribe({
+          next: (response) => {
+            if (seq !== this.reviewLoadSeq) return;
+            if (response) {
+              this.federatedSummary = response.summary;
+              this.federatedFaceDeskItems = response.facedeskItems ?? [];
+              this.pendingReviewCount = response.summary.totalPending;
+            } else {
+              this.federatedSummary = null;
+              this.federatedFaceDeskItems = [];
+            }
+            this.bump();
+          },
+        });
     }
     this.svc
-      .listReviewPunches({ status: this.reviewStatusFilter, limit: 200 })
+      .listReviewPunches({ status: statusFilter, limit: 200 })
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (rows) => {
-          // ESS administration shows employee-phone punches only. Contractor
-          // and shared-kiosk review belongs in Kiosk Attendance.
+          if (seq !== this.reviewLoadSeq) return;
           this.reviewRows = (rows ?? []).filter(
             (row) => row.subjectType === 'EMPLOYEE',
           );
-          if (this.reviewStatusFilter === 'REVIEW_PENDING' && !this.hasFederatedReview) {
+          if (statusFilter === 'REVIEW_PENDING' && !this.hasFederatedReview) {
             this.pendingReviewCount = this.reviewRows.length;
           }
           this.loadingReview = false;
           this.bump();
         },
         error: () => {
+          if (seq !== this.reviewLoadSeq) return;
           this.loadingReview = false;
           this.toast.error('Failed to load punch review queue');
           this.bump();
@@ -1205,7 +1226,16 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
 
   refreshPendingReviewCount(): void {
     if (this.hasFederatedReview) {
-      this.loadFederatedReview(false);
+      this.svc
+        .listFederatedReview({ mobileStatus: 'REVIEW_PENDING', limit: 50 })
+        .pipe(catchError(() => of(null)))
+        .subscribe({
+          next: (response) => {
+            this.pendingReviewCount = response?.summary.totalPending ?? 0;
+            this.bump();
+          },
+          error: () => undefined,
+        });
       return;
     }
     this.svc
@@ -1218,27 +1248,6 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
           this.bump();
         },
         error: () => undefined,
-      });
-  }
-
-  private loadFederatedReview(includeFaceDeskList: boolean): void {
-    this.svc
-      .listFederatedReview({ mobileStatus: 'REVIEW_PENDING', limit: 50 })
-      .subscribe({
-        next: (response) => {
-          this.federatedSummary = response.summary;
-          this.federatedFaceDeskItems = includeFaceDeskList
-            ? (response.facedeskItems ?? [])
-            : this.federatedFaceDeskItems;
-          this.pendingReviewCount = response.summary.totalPending;
-          this.bump();
-        },
-        error: () => {
-          if (includeFaceDeskList) {
-            this.federatedSummary = null;
-            this.federatedFaceDeskItems = [];
-          }
-        },
       });
   }
 
@@ -1640,27 +1649,54 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       this.federatedEnrollmentSummary = null;
       return;
     }
-    if (this.loadingEnrollments) return;
+    const seq = ++this.enrollmentLoadSeq;
+    const useFederation = this.hasFederatedEnrollment;
     if (!silent) this.loadingEnrollments = true;
     const finalizeLoad = () => {
-      if (!silent) this.loadingEnrollments = false;
+      if (seq === this.enrollmentLoadSeq && !silent) {
+        this.loadingEnrollments = false;
+      }
       this.bump();
     };
     const handleError = (e: { error?: { message?: string } }) => {
+      if (seq !== this.enrollmentLoadSeq) return;
       if (!silent) this.toast.error(e?.error?.message || 'Failed to load enrollments');
       this.bump();
     };
+    const applyMobileOnlyRows = (rows: EnrollmentStatusRow[]) => {
+      this.federatedEnrollmentSummary = null;
+      this.federatedEnrollmentRows = [];
+      this.enrollmentRows = rows || [];
+    };
 
-    if (this.hasFederatedEnrollment) {
-      this.svc.listFederatedEnrollment()
-        .pipe(takeUntil(this.destroy$), finalize(finalizeLoad))
+    if (useFederation) {
+      this.svc
+        .listFederatedEnrollment()
+        .pipe(
+          takeUntil(this.destroy$),
+          map(
+            (response) =>
+              ({ mode: 'federated', response }) as const,
+          ),
+          catchError(() =>
+            this.svc.listEnrollments().pipe(
+              map((rows) => ({ mode: 'mobile', rows }) as const),
+            ),
+          ),
+          finalize(finalizeLoad),
+        )
         .subscribe({
-          next: (response) => {
-            this.federatedEnrollmentSummary = response.summary;
-            this.federatedEnrollmentRows = response.items || [];
-            this.enrollmentRows = this.federatedEnrollmentRows.map((item) =>
-              this.federatedAsEnrollmentRow(item),
-            );
+          next: (result) => {
+            if (seq !== this.enrollmentLoadSeq) return;
+            if (result.mode === 'federated') {
+              this.federatedEnrollmentSummary = result.response.summary;
+              this.federatedEnrollmentRows = result.response.items || [];
+              this.enrollmentRows = this.federatedEnrollmentRows.map((item) =>
+                this.federatedAsEnrollmentRow(item),
+              );
+            } else {
+              applyMobileOnlyRows(result.rows);
+            }
             this.bump();
           },
           error: handleError,
@@ -1668,13 +1704,13 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.svc.listEnrollments()
+    this.svc
+      .listEnrollments()
       .pipe(takeUntil(this.destroy$), finalize(finalizeLoad))
       .subscribe({
         next: (rows) => {
-          this.federatedEnrollmentSummary = null;
-          this.federatedEnrollmentRows = [];
-          this.enrollmentRows = rows || [];
+          if (seq !== this.enrollmentLoadSeq) return;
+          applyMobileOnlyRows(rows);
           this.bump();
         },
         error: handleError,

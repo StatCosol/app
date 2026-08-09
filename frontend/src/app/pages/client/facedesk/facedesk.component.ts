@@ -656,6 +656,7 @@ export class FaceDeskComponent implements OnInit {
   enrollSubjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE';
   enrollmentView: 'PENDING' | 'ENROLLED' = 'PENDING';
   private enrollmentLoadSeq = 0;
+  private reviewTabLoadSeq = 0;
 
   /** Reload the pending list when the operator switches Employees/Contractors. */
   onSubjectTypeChange(): void {
@@ -823,23 +824,26 @@ export class FaceDeskComponent implements OnInit {
   }
 
   private loadReviewTab(): void {
+    const seq = ++this.reviewTabLoadSeq;
     this.loading = true;
     this.svc.reviewQueue().subscribe({
       next: (rows) => {
+        if (seq !== this.reviewTabLoadSeq) return;
         this.review = rows;
         if (this.hasFederatedReview) {
           this.svc
             .listFederatedReview({ mobileStatus: 'REVIEW_PENDING', limit: 50 })
+            .pipe(catchError(() => of(null)))
             .subscribe({
               next: (response) => {
-                this.federatedSummary = response.summary;
-                this.federatedMobileItems = response.mobileItems || [];
-                this.loading = false;
-                this.cdr.detectChanges();
-              },
-              error: () => {
-                this.federatedSummary = null;
-                this.federatedMobileItems = [];
+                if (seq !== this.reviewTabLoadSeq) return;
+                if (response) {
+                  this.federatedSummary = response.summary;
+                  this.federatedMobileItems = response.mobileItems || [];
+                } else {
+                  this.federatedSummary = null;
+                  this.federatedMobileItems = [];
+                }
                 this.loading = false;
                 this.cdr.detectChanges();
               },
@@ -852,6 +856,7 @@ export class FaceDeskComponent implements OnInit {
         this.cdr.detectChanges();
       },
       error: () => {
+        if (seq !== this.reviewTabLoadSeq) return;
         this.loading = false;
         this.toast.error('Failed to load');
         this.cdr.detectChanges();

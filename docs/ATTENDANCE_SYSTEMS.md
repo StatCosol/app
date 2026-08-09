@@ -54,9 +54,9 @@ StatComPy currently runs **two parallel face stacks**. Do not merge storage with
 - **Federated review action:** `POST /api/v1/mobile-attendance/review-federation/:queue/:itemId/action` routes `MOBILE_BORDERLINE` → punch review and `FACEDESK_VERIFICATION` → FaceDesk admin review (entitlement-gated per queue).
 - **Federated enrollment read (Phase 1):** `GET /api/v1/mobile-attendance/enrollment-federation` merges mobile `face_enrollments` + FaceDesk `facedesk_employee_face_profiles` per employee without moving storage. ESS Mobile Attendance → Enrollment Status and Kiosk Attendance → Enrollment both show dual-module columns for employee rosters.
 
-### Engineering status (face-attendance track #485–#502)
-- **Shipped:** review federation, dual-module review inboxes, cross-queue approve/reject API, enrollment federation read API, Android roster crypto tests, V1 offline kiosk restore, punch-review and pipeline guard specs.
-- **Blocked on product:** Phase 2+ enrollment schema merge / dual-write (see ADR).
+### Engineering status (face-attendance track #485–#503) — **complete**
+- **Shipped:** review federation, dual-module review/enrollment inboxes on both portals, cross-queue approve/reject API, enrollment federation read API, Android roster crypto tests, V1 offline kiosk restore, punch-review and pipeline guard specs, portal load race guards.
+- **Blocked on product (no further engineering):** Phase 2+ enrollment schema merge / dual-write (see ADR).
 
 ### Consolidation blockers (product decision required)
 1. **Enrollment tables** — `face_enrollments` vs `facedesk_employee_face_profiles` (different embedding models, consent audit, contractor paths). See **[FACE_ENROLLMENT_CONSOLIDATION.md](./FACE_ENROLLMENT_CONSOLIDATION.md)** for options and phased rollout (ADR — no merge until product sign-off).
