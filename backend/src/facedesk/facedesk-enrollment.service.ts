@@ -374,10 +374,16 @@ export class FaceDeskEnrollmentService {
       });
     }
 
+    const representativePhotoB64 =
+      dto.photoB64 ??
+      dto.frames?.find((f) => f.sampleType === 'FRONT' && f.photoB64)
+        ?.photoB64 ??
+      dto.frames?.find((f) => f.photoB64)?.photoB64 ??
+      null;
     let photoUrl: string | null = null;
-    if (dto.photoB64) {
+    if (representativePhotoB64) {
       photoUrl = await this.photoStorage
-        .uploadPhoto(dto.photoB64, clientId, dto.employeeId)
+        .uploadPhoto(representativePhotoB64, clientId, dto.employeeId)
         .catch(() => null);
     }
 

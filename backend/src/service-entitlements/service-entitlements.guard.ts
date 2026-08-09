@@ -1,8 +1,20 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { ServiceEntitlementsService } from './service-entitlements.service';
 import { ServiceModuleCode } from './service-entitlements.constants';
 
 type ServiceModuleRequirement = ServiceModuleCode | ServiceModuleCode[];
+
+/** Legacy ESS personal-phone routes — always rejected after module retirement. */
+const RETIRED_MOBILE_ESS_ROUTE_PATTERNS: RegExp[] = [
+  /^\/?(api\/v1\/)?mobile-attendance\/enrollment\/self\b/i,
+  /^\/?(api\/v1\/)?mobile-attendance\/enrollment\/employees\b/i,
+  /^\/?(api\/v1\/)?mobile-attendance\/enrollment\/reenroll-requests\b/i,
+];
 
 const BLOCKED_ROUTE_MODULES: Array<[RegExp, ServiceModuleRequirement]> = [
   [/^\/?(api\/v1\/)?client\/contractors\/dashboard\b/i, 'CONTRACTOR_AUDIT'],
@@ -138,6 +150,12 @@ export class ServiceEntitlementsGuard implements CanActivate {
       .replace(/\?.*$/, '')
       .replace(/^\/+/, '');
     const method = String(req.method || '').toUpperCase();
+
+    if (RETIRED_MOBILE_ESS_ROUTE_PATTERNS.some((pattern) => pattern.test(path))) {
+      throw new ForbiddenException(
+        'ESS Mobile Attendance has been retired for this organization',
+      );
+    }
 
     if (method === 'GET' && MOBILE_ATTENDANCE_DEVICE_LIST_PATTERN.test(path)) {
       await this.entitlements.assertAnyModule(

@@ -1,4 +1,4 @@
-import { ExecutionContext } from '@nestjs/common';
+import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { ServiceEntitlementsGuard } from './service-entitlements.guard';
 import { ServiceEntitlementsService } from './service-entitlements.service';
 
@@ -34,6 +34,20 @@ describe('ServiceEntitlementsGuard', () => {
   it('allows unscoped routes without module checks', async () => {
     await expect(guard.canActivate(contextFor('/api/v1/health'))).resolves.toBe(
       true,
+    );
+    expect(entitlements.assertModule).not.toHaveBeenCalled();
+    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    '/api/v1/mobile-attendance/enrollment/self',
+    '/api/v1/mobile-attendance/enrollment/employees',
+    '/api/v1/mobile-attendance/enrollment/employees?status=pending',
+    '/api/v1/mobile-attendance/enrollment/reenroll-requests',
+    '/api/v1/mobile-attendance/enrollment/reenroll-requests/req-1/review',
+  ])('rejects retired ESS mobile enrollment path %s', async (url) => {
+    await expect(guard.canActivate(contextFor(url, 'EMPLOYEE'))).rejects.toBeInstanceOf(
+      ForbiddenException,
     );
     expect(entitlements.assertModule).not.toHaveBeenCalled();
     expect(entitlements.assertAnyModule).not.toHaveBeenCalled();

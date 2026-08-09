@@ -110,6 +110,11 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         chrome.startClock()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
+            startCamera()
+        }
     }
 
     override fun onPause() {

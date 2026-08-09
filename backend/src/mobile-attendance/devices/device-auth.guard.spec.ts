@@ -13,6 +13,7 @@ describe('DeviceAuthGuard', () => {
       id: 'device-1',
       clientId: 'c1',
       branchId: 'b1',
+      mode: 'KIOSK',
     });
   });
 
@@ -59,5 +60,22 @@ describe('DeviceAuthGuard', () => {
       'android-1',
     );
     expect(req.deviceInstallToken).toBe('tok');
+  });
+
+  it('rejects retired ESS personal-phone devices', async () => {
+    deviceService.authenticateDevice.mockResolvedValue({
+      id: 'device-ess',
+      clientId: 'c1',
+      branchId: 'b1',
+      mode: 'ESS',
+    });
+    const req: any = { headers: { authorization: 'Bearer ess-token' } };
+    const ctx = {
+      switchToHttp: () => ({ getRequest: () => req }),
+    } as ExecutionContext;
+
+    await expect(guard.canActivate(ctx)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 });
