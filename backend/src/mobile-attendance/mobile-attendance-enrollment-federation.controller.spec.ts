@@ -7,16 +7,15 @@ describe('MobileAttendanceEnrollmentFederationController', () => {
     roleCode: 'CLIENT',
   };
 
-  it('lists federated enrollment status for dual-module clients', async () => {
+  it('lists federated enrollment status for FaceDesk clients', async () => {
     const federation = {
       listFederated: jest.fn().mockResolvedValue({
-        summary: { totalEmployees: 2, mobileEnrolledActive: 1, facedeskEnrolled: 1, bothEnrolled: 0, pendingEither: 1 },
+        summary: { totalEmployees: 2, mobileEnrolledActive: 0, facedeskEnrolled: 1, bothEnrolled: 0, pendingEither: 1 },
         items: [],
       }),
     };
     const entitlements = {
-      assertAnyModule: jest.fn().mockResolvedValue(undefined),
-      hasModule: jest.fn().mockResolvedValue(true),
+      assertModule: jest.fn().mockResolvedValue(undefined),
     };
     const controller = new MobileAttendanceEnrollmentFederationController(
       federation as any,
@@ -25,10 +24,14 @@ describe('MobileAttendanceEnrollmentFederationController', () => {
 
     await controller.listFederated(clientUser as any);
 
+    expect(entitlements.assertModule).toHaveBeenCalledWith(
+      'client-1',
+      'CONTRACTOR_FACE_ATTENDANCE',
+    );
     expect(federation.listFederated).toHaveBeenCalledWith(
       'client-1',
       expect.objectContaining({
-        includeMobile: true,
+        includeMobile: false,
         includeFacedesk: true,
         branchIds: null,
       }),

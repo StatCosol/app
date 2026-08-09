@@ -76,6 +76,8 @@ const serviceMigrationFiles = new Set([
   '20260809_facedesk_shift_settings.sql',
   // ESS/kiosk face re-enrollment approval workflow.
   '20260810_face_reenrollment_requests.sql',
+  // Retire ESS Mobile Attendance client module entitlements.
+  '20260809_retire_mobile_attendance_module.sql',
 ]);
 
 const config = {

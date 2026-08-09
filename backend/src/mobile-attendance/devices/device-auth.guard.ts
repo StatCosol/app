@@ -36,6 +36,12 @@ export class DeviceAuthGuard implements CanActivate {
       androidId,
     );
 
+    if (device.mode === 'ESS') {
+      throw new UnauthorizedException(
+        'ESS Mobile Attendance device access has been retired',
+      );
+    }
+
     (req as any).deviceId = device.id;
     (req as any).deviceInstallToken = installToken;
     (req as any).user = {

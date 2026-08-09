@@ -45,18 +45,14 @@ export class MobileAttendanceReviewController {
     @Query('limit') limit?: string,
   ) {
     const clientId = requireMobileAttendanceClient(user);
-    await this.entitlements.assertAnyModule(clientId, [
-      'MOBILE_ATTENDANCE',
+    await this.entitlements.assertModule(
+      clientId,
       'CONTRACTOR_FACE_ATTENDANCE',
-    ]);
-    const [includeMobile, includeFacedesk] = await Promise.all([
-      this.entitlements.hasModule(clientId, 'MOBILE_ATTENDANCE'),
-      this.entitlements.hasModule(clientId, 'CONTRACTOR_FACE_ATTENDANCE'),
-    ]);
+    );
     const branchIds = mobileAttendanceBranchScope(user);
     return this.federation.listFederated(clientId, {
-      includeMobile,
-      includeFacedesk,
+      includeMobile: false,
+      includeFacedesk: true,
       branchIds,
       mobileStatus,
       facedeskStatus,
@@ -82,10 +78,10 @@ export class MobileAttendanceReviewController {
     },
   ) {
     const clientId = requireMobileAttendanceClient(user);
-    await this.entitlements.assertAnyModule(clientId, [
-      'MOBILE_ATTENDANCE',
+    await this.entitlements.assertModule(
+      clientId,
       'CONTRACTOR_FACE_ATTENDANCE',
-    ]);
+    );
     const normalizedQueue = String(queue || '').toUpperCase();
     if (
       normalizedQueue !== 'MOBILE_BORDERLINE' &&
@@ -96,12 +92,8 @@ export class MobileAttendanceReviewController {
       );
     }
     if (normalizedQueue === 'MOBILE_BORDERLINE') {
-      await this.entitlements.assertModule(clientId, 'MOBILE_ATTENDANCE');
-    }
-    if (normalizedQueue === 'FACEDESK_VERIFICATION') {
-      await this.entitlements.assertModule(
-        clientId,
-        'CONTRACTOR_FACE_ATTENDANCE',
+      throw new BadRequestException(
+        'ESS Mobile Attendance review has been retired; use FaceDesk verification',
       );
     }
     const branchIds = mobileAttendanceBranchScope(user);

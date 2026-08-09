@@ -209,7 +209,7 @@ describe('AuthService', () => {
   });
 
   describe('getClientModuleHomePath', () => {
-    it('routes mobile attendance only clients to mobile attendance', () => {
+    it('routes employee attendance clients to attendance review', () => {
       sessionStorage.setItem(
         'user',
         JSON.stringify({
@@ -217,11 +217,11 @@ describe('AuthService', () => {
           userType: 'MASTER',
           branchIds: [],
           servicePackage: 'CUSTOM_SERVICES',
-          enabledModules: ['MOBILE_ATTENDANCE'],
+          enabledModules: ['EMPLOYEE_ATTENDANCE'],
         }),
       );
 
-      expect(service.getClientModuleHomePath()).toBe('/client/mobile-attendance');
+      expect(service.getClientModuleHomePath()).toBe('/client/attendance');
     });
 
     it('routes kiosk attendance only clients to the PIN and face kiosk console', () => {

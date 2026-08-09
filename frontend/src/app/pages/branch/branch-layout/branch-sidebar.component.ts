@@ -564,15 +564,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
 
   private applyModuleAccess(): void {
     const hasServicePackage = !!this.auth.getServicePackage();
-    const preferFaceDeskEnrollment = this.auth.hasModule('CONTRACTOR_FACE_ATTENDANCE');
     const isAllowed = (route: string) => {
-      // Legacy/full-service clients can still carry both face modules. Keep one
-      // branch enrollment system visible while their service package is cleaned up.
-      if (route.startsWith('/branch/face-enrollment') && preferFaceDeskEnrollment) {
-        return false;
-      }
-      // Legacy cached sessions without package metadata retain unrestricted
-      // access to every other navigation item.
       if (!hasServicePackage) return true;
       const module = this.moduleForRoute(route);
       return !module || this.auth.hasAnyModule(module);
@@ -595,8 +587,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
     if (route.startsWith('/branch/audits/observations') || route.startsWith('/branch/audit-non-compliances')) return ['CONTRACTOR_AUDIT'];
     if (route.startsWith('/branch/attendance/contractor')) return ['CONTRACTOR_ATTENDANCE'];
     if (route.startsWith('/branch/facedesk-enrollment')) return ['CONTRACTOR_FACE_ATTENDANCE'];
-    if (route.startsWith('/branch/face-enrollment')) return ['MOBILE_ATTENDANCE'];
-    if (route.startsWith('/branch/face-failures')) return ['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'];
+    if (route.startsWith('/branch/face-failures')) return ['CONTRACTOR_FACE_ATTENDANCE'];
     if (route.startsWith('/branch/payroll') || route.startsWith('/branch/branch-ctc')) return ['PAYROLL'];
     if (route.startsWith('/branch/employees')) return ['EMPLOYEE_COMPLIANCE'];
     if (route.startsWith('/branch/attendance')) return ['EMPLOYEE_ATTENDANCE'];
@@ -735,7 +726,6 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
           { label: 'Mark Attendance',   route: '/branch/attendance/mark',  icon: this.svg('M12 4v16m8-8H4') },
           { label: 'Daily Attendance',  route: '/branch/attendance/daily', icon: this.svg('M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Contractor Attendance', route: '/branch/attendance/contractor', icon: this.svg('M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z') },
-          { label: 'Face Enrollment',   route: '/branch/face-enrollment',   icon: this.svg('M9 12a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H2zm15-3l2 2 4-4') },
           { label: 'FaceDesk Enrollment', route: '/branch/facedesk-enrollment', icon: this.svg('M9 12a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H2zm15-3l2 2 4-4') },
           { label: 'Face Failures',     route: '/branch/face-failures',     icon: this.svg('M12 9v2m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3z') },
           { label: 'Contractors',       route: '/branch/contractors',        icon: this.svg('M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z') },

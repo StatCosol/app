@@ -37,7 +37,7 @@ describe('BranchDashboardComponent', () => {
         roleCode: 'CLIENT',
         userType: 'BRANCH',
         servicePackage: 'CUSTOM_SERVICES',
-        enabledModules: ['MOBILE_ATTENDANCE'],
+        enabledModules: ['CONTRACTOR_FACE_ATTENDANCE'],
       }),
     );
 

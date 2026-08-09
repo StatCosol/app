@@ -3,10 +3,13 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   Post,
   Query,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -23,6 +26,8 @@ import {
 import {
   facedeskBranchScope,
   facedeskSubjectType,
+  facedeskVerificationPhotosAllowed,
+  requireFaceDeskBranchVerifier,
   requireFaceDeskClient,
 } from './facedesk-controller.helpers';
 
@@ -52,15 +57,45 @@ export class FaceDeskEnrollmentController {
   @ApiOperation({ summary: 'Enrolled FaceDesk subjects and profile details' })
   @Get('enrollment/enrolled')
   @Roles('CLIENT', 'ADMIN')
-  enrolled(
+  async enrolled(
     @CurrentUser() user: ReqUser,
     @Query('subjectType') subjectType?: string,
   ) {
-    return this.enrollment.getEnrolledEmployees(
+    const rows = await this.enrollment.getEnrolledEmployees(
       requireFaceDeskClient(user),
       facedeskBranchScope(user),
       facedeskSubjectType(subjectType),
     );
+    if (!facedeskVerificationPhotosAllowed(user)) {
+      return (rows as Record<string, unknown>[]).map((row) => ({
+        ...row,
+        hasEnrolledPhoto: false,
+      }));
+    }
+    return rows;
+  }
+
+  @ApiOperation({
+    summary: 'Scoped enrolled reference photo (branch verification only)',
+  })
+  @Get('enrollment/enrolled/:employeeId/photo')
+  @Roles('CLIENT', 'ADMIN')
+  async enrolledPhoto(
+    @CurrentUser() user: ReqUser,
+    @Param('employeeId') employeeId: string,
+    @Res() res: Response,
+    @Query('subjectType') subjectType?: string,
+  ): Promise<void> {
+    const photo = await this.enrollment.getEnrolledReferencePhoto(
+      requireFaceDeskClient(user),
+      employeeId,
+      requireFaceDeskBranchVerifier(user),
+      facedeskSubjectType(subjectType),
+    );
+    if (!photo) throw new NotFoundException('Enrollment photo not available');
+    res.setHeader('Content-Type', photo.contentType);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(photo.buffer);
   }
 
   @ApiOperation({ summary: 'Validate captured face quality' })

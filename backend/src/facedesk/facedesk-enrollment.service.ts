@@ -148,7 +148,13 @@ export class FaceDeskEnrollmentService {
               p.liveness_status AS "livenessStatus",
               p.duplicate_status AS "duplicateStatus",
               (p.attendance_pin_hash IS NOT NULL) AS "pinConfigured",
-              p.consent_given_at AS "enrolledAt"
+              p.consent_given_at AS "enrolledAt",
+              EXISTS (
+                SELECT 1
+                  FROM facedesk_employee_face_samples s
+                 WHERE s.profile_id = p.profile_id
+                   AND s.image_path IS NOT NULL
+              ) AS "hasEnrolledPhoto"
          FROM ${table} e
          JOIN facedesk_employee_face_profiles p
            ON p.employee_id = e.id AND p.client_id = e.client_id
@@ -160,6 +166,49 @@ export class FaceDeskEnrollmentService {
         ORDER BY ${orderExpr} ASC`,
       params,
     );
+  }
+
+  /** Branch-verifier only: stream the best enrolled reference sample for a subject. */
+  async getEnrolledReferencePhoto(
+    clientId: string,
+    employeeId: string,
+    branchIds: string[],
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE',
+  ): Promise<{ buffer: Buffer; contentType: string } | null> {
+    if (!branchIds.length) {
+      throw new NotFoundException('Enrollment not found');
+    }
+    const table =
+      subjectType === 'CONTRACTOR' ? 'contractor_employees' : 'employees';
+    const [row] = await this.dataSource.query(
+      `SELECT e.branch_id AS "branchId",
+              (SELECT s.image_path
+                 FROM facedesk_employee_face_profiles p
+                 JOIN facedesk_employee_face_samples s
+                   ON s.profile_id = p.profile_id
+                WHERE p.client_id = e.client_id
+                  AND p.employee_id = e.id
+                  AND p.subject_type = $3
+                  AND s.image_path IS NOT NULL
+                ORDER BY (s.sample_type = 'FRONT') DESC,
+                         s.quality_score DESC NULLS LAST,
+                         s.created_at DESC
+                LIMIT 1) AS "photoUrl"
+         FROM ${table} e
+         JOIN facedesk_employee_face_profiles p
+           ON p.employee_id = e.id AND p.client_id = e.client_id
+          AND p.subject_type = $3
+        WHERE e.client_id = $1
+          AND e.id = $2
+          AND p.enrollment_status = 'ENROLLED'
+        LIMIT 1`,
+      [clientId, employeeId, subjectType],
+    );
+    if (!row?.photoUrl) return null;
+    if (!row.branchId || !branchIds.includes(row.branchId)) {
+      throw new NotFoundException('Enrollment not found');
+    }
+    return this.photoStorage.readPhoto(row.photoUrl);
   }
 
   async validateQuality(dto: { frames: SaveEnrollmentDto['frames'] }) {
@@ -325,10 +374,16 @@ export class FaceDeskEnrollmentService {
       });
     }
 
+    const representativePhotoB64 =
+      dto.photoB64 ??
+      dto.frames?.find((f) => f.sampleType === 'FRONT' && f.photoB64)
+        ?.photoB64 ??
+      dto.frames?.find((f) => f.photoB64)?.photoB64 ??
+      null;
     let photoUrl: string | null = null;
-    if (dto.photoB64) {
+    if (representativePhotoB64) {
       photoUrl = await this.photoStorage
-        .uploadPhoto(dto.photoB64, clientId, dto.employeeId)
+        .uploadPhoto(representativePhotoB64, clientId, dto.employeeId)
         .catch(() => null);
     }
 

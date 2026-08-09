@@ -10,6 +10,7 @@ import {
 } from '../../../shared/ui';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import {
   ClientMobileAttendanceService,
   ContractorForBranchRow,
@@ -179,18 +180,15 @@ import {
                   <td class="px-4 py-2 text-xs text-gray-600">{{ fmtScore(r.livenessScore) }}</td>
                   <td class="px-4 py-2">
                     @if (r.photoUrl) {
-<a
-                     
-                      [href]="r.photoUrl"
-                      target="_blank"
-                      rel="noopener"
-                      class="text-indigo-600 hover:text-indigo-700 text-xs"
-                      >View</a
-                    >
-}
+                      <button
+                        type="button"
+                        class="text-indigo-600 hover:text-indigo-700 text-xs"
+                        (click)="viewPunchPhoto(r)"
+                      >View</button>
+                    }
                     @if (!r.photoUrl) {
-<span class="text-xs text-gray-400">-</span>
-}
+                      <span class="text-xs text-gray-400">-</span>
+                    }
                   </td>
                   <td class="px-4 py-2 text-right whitespace-nowrap">
                     <button
@@ -238,6 +236,7 @@ export class BranchContractorAttendanceComponent implements OnInit {
     private toast: ToastService,
     private dialog: ConfirmDialogService,
     private cdr: ChangeDetectorRef,
+    private protectedFile: ProtectedFileService,
   ) {}
 
   ngOnInit(): void {
@@ -309,6 +308,13 @@ export class BranchContractorAttendanceComponent implements OnInit {
     const n = Number(v);
     if (Number.isNaN(n)) return v;
     return `${(n * 100).toFixed(0)}%`;
+  }
+
+  viewPunchPhoto(row: ContractorAttendanceRow): void {
+    if (!row.photoUrl) return;
+    this.protectedFile.open(row.photoUrl, 'contractor-punch.jpg').subscribe({
+      error: () => this.toast.error('Could not open photo'),
+    });
   }
 
   async editRow(row: ContractorAttendanceRow): Promise<void> {

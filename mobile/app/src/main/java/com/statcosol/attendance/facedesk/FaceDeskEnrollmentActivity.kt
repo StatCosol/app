@@ -110,11 +110,25 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         chrome.startClock()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
+            startCamera()
+        }
     }
 
     override fun onPause() {
         super.onPause()
         chrome.stopClock()
+        releaseCamera()
+    }
+
+    private fun releaseCamera() {
+        try {
+            ProcessCameraProvider.getInstance(this).get().unbindAll()
+        } catch (e: Exception) {
+            Log.w(TAG, "camera release failed: ${e.message}")
+        }
     }
 
     private fun loadBranding() {
@@ -285,10 +299,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
                 }
                 previewView.postDelayed({ finish() }, 1500)
             } catch (e: FaceDeskApiException) {
-                runOnUiThread {
-                    tvHint.text = e.body.ifBlank { getString(R.string.facedesk_enroll_failed) }
-                    resetForRetry()
-                }
+                runOnUiThread { showEnrollmentError(e) }
                 saving.set(false)
             } catch (e: Exception) {
                 runOnUiThread {
@@ -300,10 +311,26 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         }
     }
 
+    private fun showEnrollmentError(e: FaceDeskApiException) {
+        val msg = e.userMessage(this)
+        tvHint.text = msg
+        if (e.code == 409) {
+            // Duplicate — admin must review; don't loop another capture.
+            btnCapture.text = getString(R.string.facedesk_done)
+            btnCapture.isEnabled = true
+            btnCapture.setOnClickListener { finish() }
+            voice.speakRes(R.string.facedesk_voice_enroll_duplicate, minIntervalMs = 0)
+        } else {
+            voice.speak(msg, key = "enroll-error", minIntervalMs = 0)
+            resetForRetry()
+        }
+    }
+
     private fun resetForRetry() {
         captureComplete = false
         btnCapture.text = getString(R.string.facedesk_capture)
         btnCapture.isEnabled = true
+        btnCapture.setOnClickListener { if (captureComplete) save() else startCapture() }
     }
 
     override fun onDestroy() {

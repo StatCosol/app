@@ -334,7 +334,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   /** All attendance-gating modules the selector manages (mutually exclusive). */
   private readonly attendanceModuleCodes = [
     'CONTRACTOR_FACE_ATTENDANCE',
-    'MOBILE_ATTENDANCE',
     'EMPLOYEE_ATTENDANCE',
   ];
 

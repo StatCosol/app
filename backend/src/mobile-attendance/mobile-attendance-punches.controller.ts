@@ -32,6 +32,9 @@ import {
 } from './punch/roster-crypto.util';
 import {
   mobileAttendanceBranchScope,
+  mobileAttendanceVerificationPhotosAllowed,
+  redactMobileAttendancePhotoFields,
+  requireMobileAttendanceBranchVerifier,
   requireMobileAttendanceClient,
 } from './mobile-attendance-controller.helpers';
 
@@ -120,18 +123,22 @@ export class MobileAttendancePunchesController {
   })
   @Get('review')
   @Roles('CLIENT', 'ADMIN')
-  listReviewPunches(
+  async listReviewPunches(
     @CurrentUser() user: ReqUser,
     @Query('status') status?: string,
     @Query('branchId') branchId?: string,
     @Query('limit') limit?: string,
   ) {
     const clientId = requireMobileAttendanceClient(user);
-    return this.punchService.listReviewPunches(clientId, {
+    const rows = await this.punchService.listReviewPunches(clientId, {
       status,
       branchIds: branchId ? [branchId] : undefined,
       limit: limit ? Number(limit) : undefined,
     });
+    return redactMobileAttendancePhotoFields(
+      rows as { photoUrl?: string | null }[],
+      mobileAttendanceVerificationPhotosAllowed(user),
+    );
   }
 
   @ApiOperation({
@@ -188,7 +195,7 @@ export class MobileAttendancePunchesController {
       clientId,
       kind,
       punchId,
-      mobileAttendanceBranchScope(user),
+      requireMobileAttendanceBranchVerifier(user),
     );
     if (!photo) throw new NotFoundException('Photo not available');
     res.setHeader('Content-Type', photo.contentType);
@@ -220,7 +227,7 @@ export class MobileAttendancePunchesController {
   @ApiOperation({ summary: 'Admin — list contractor punches with filters' })
   @Get('contractor')
   @Roles('CLIENT', 'ADMIN')
-  listContractorPunches(
+  async listContractorPunches(
     @CurrentUser() user: ReqUser,
     @Query('from') from?: string,
     @Query('to') to?: string,
@@ -230,7 +237,7 @@ export class MobileAttendancePunchesController {
     @Query('limit') limit?: string,
   ) {
     const clientId = requireMobileAttendanceClient(user);
-    return this.punchService.listContractorPunches(clientId, {
+    const rows = await this.punchService.listContractorPunches(clientId, {
       from,
       to,
       branchId,
@@ -238,6 +245,19 @@ export class MobileAttendancePunchesController {
       contractorUserId,
       limit: limit ? Number(limit) : undefined,
     });
+    const photosAllowed = mobileAttendanceVerificationPhotosAllowed(user);
+    if (!photosAllowed) {
+      return redactMobileAttendancePhotoFields(
+        rows.map((r) => ({ ...r, photoUrl: r.photoUrl })),
+        false,
+      );
+    }
+    return rows.map((r) => ({
+      ...r,
+      photoUrl: r.photoUrl
+        ? `/api/v1/mobile-attendance/punches/review/contractor/${r.id}/photo`
+        : null,
+    }));
   }
 
   @ApiOperation({ summary: 'Admin — create a manual contractor punch' })

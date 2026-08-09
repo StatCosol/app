@@ -98,10 +98,6 @@ const ClientBiometricComponent = () =>
   import('./biometric/client-biometric.component').then(
     (m) => m.ClientBiometricComponent,
   );
-const ClientMobileAttendanceComponent = () =>
-  import('./mobile-attendance/client-mobile-attendance.component').then(
-    (m) => m.ClientMobileAttendanceComponent,
-  );
 const BranchFaceFailuresComponent = () =>
   import('../branch/branch-face-failures/branch-face-failures.component').then(
     (m) => m.BranchFaceFailuresComponent,
@@ -154,8 +150,8 @@ export const CLIENT_ROUTES: Routes = [
         loadComponent: ClientDashboardComponent,
         canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')],
       },
-      { path: 'branches', loadComponent: ClientBranchesComponent, canActivate: [moduleAccessGuard(['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS', 'MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])] },
-      { path: 'branches/:branchId', loadComponent: ClientBranchDetailWorkspacePageComponent, canActivate: [moduleAccessGuard(['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS', 'MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])] },
+      { path: 'branches', loadComponent: ClientBranchesComponent, canActivate: [moduleAccessGuard(['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS', 'CONTRACTOR_FACE_ATTENDANCE'])] },
+      { path: 'branches/:branchId', loadComponent: ClientBranchDetailWorkspacePageComponent, canActivate: [moduleAccessGuard(['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS', 'CONTRACTOR_FACE_ATTENDANCE'])] },
       { path: 'contractors', loadComponent: ClientContractorsComponent, canActivate: [moduleAccessGuard(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'])] },
       { path: 'contractor-payroll', loadComponent: ContractorPayrollComputationPageComponent, data: { portal: 'client' }, canActivate: [moduleAccessGuard(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS', 'PAYROLL'])] },
       { path: 'contractors/branch/:branchId', loadComponent: ClientContractorsBranchComponent, canActivate: [moduleAccessGuard(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'])] },
@@ -209,8 +205,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'attendance/daily', loadComponent: ClientDailyAttendancePage, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
       { path: 'holidays', loadComponent: ClientHolidayCalendarComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
       { path: 'biometric', loadComponent: ClientBiometricComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
-      { path: 'mobile-attendance', loadComponent: ClientMobileAttendanceComponent, canActivate: [moduleAccessGuard('MOBILE_ATTENDANCE')] },
-      { path: 'face-failures', loadComponent: BranchFaceFailuresComponent, canActivate: [moduleAccessGuard(['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])] },
+      { path: 'face-failures', loadComponent: BranchFaceFailuresComponent, canActivate: [moduleAccessGuard('CONTRACTOR_FACE_ATTENDANCE')] },
       { path: 'facedesk', loadComponent: FaceDeskComponent, canActivate: [moduleAccessGuard('CONTRACTOR_FACE_ATTENDANCE')] },
       { path: 'news', loadComponent: NewsDetailComponent },
       { path: 'news/:newsId', loadComponent: NewsDetailComponent },

@@ -412,7 +412,6 @@ export class AdminServicePackagesComponent implements OnInit {
   ];
   private readonly attendanceModuleCodes = [
     'CONTRACTOR_FACE_ATTENDANCE',
-    'MOBILE_ATTENDANCE',
     'EMPLOYEE_ATTENDANCE',
   ];
 
@@ -555,11 +554,13 @@ export class AdminServicePackagesComponent implements OnInit {
    * Treat that ambiguous legacy combination as PIN + Face in the change form.
    */
   private preferPinFaceForLegacyClients(modules: string[]): string[] {
-    const selected = new Set(modules);
+    const selected = new Set(
+      modules.filter((module) => module !== 'MOBILE_ATTENDANCE'),
+    );
     const hasLegacyDualFace =
       selected.has('CONTRACTOR_FACE_ATTENDANCE') &&
-      selected.has('MOBILE_ATTENDANCE');
-    if (!hasLegacyDualFace) return modules;
+      modules.includes('MOBILE_ATTENDANCE');
+    if (!hasLegacyDualFace) return Array.from(selected);
 
     this.attendanceModuleCodes.forEach((module) => selected.delete(module));
     selected.add('CONTRACTOR_FACE_ATTENDANCE');
