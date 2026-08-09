@@ -3,6 +3,7 @@ import { ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable, forkJoin, of } from 'rxjs';
+import { catchError, finalize } from 'rxjs/operators';
 import {
   EmptyStateComponent,
   LoadingSpinnerComponent,
@@ -654,6 +655,7 @@ export class FaceDeskComponent implements OnInit {
   deletingId: string | null = null;
   enrollSubjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE';
   enrollmentView: 'PENDING' | 'ENROLLED' = 'PENDING';
+  private enrollmentLoadSeq = 0;
 
   /** Reload the pending list when the operator switches Employees/Contractors. */
   onSubjectTypeChange(): void {
@@ -665,40 +667,53 @@ export class FaceDeskComponent implements OnInit {
   }
 
   private loadEnrollmentRows(): void {
+    const seq = ++this.enrollmentLoadSeq;
+    const view = this.enrollmentView;
+    const subjectType = this.enrollSubjectType;
+    const loadFederation = subjectType === 'EMPLOYEE' && this.hasFederatedReview;
+
     const rows$ =
-      this.enrollmentView === 'ENROLLED'
-        ? this.svc.enrolledEmployees(this.enrollSubjectType)
-        : this.svc.pendingEnrollment(this.enrollSubjectType);
-    const federation$ = this.hasFederatedEnrollment
-      ? this.svc.listFederatedEnrollment()
+      view === 'ENROLLED'
+        ? this.svc.enrolledEmployees(subjectType)
+        : this.svc.pendingEnrollment(subjectType);
+    const federation$ = loadFederation
+      ? this.svc.listFederatedEnrollment().pipe(catchError(() => of(null)))
       : of(null);
 
     this.loading = true;
-    forkJoin([rows$, federation$]).subscribe({
-      next: ([rows, federation]) => {
-        if (this.enrollmentView === 'ENROLLED') {
-          this.enrolled = rows;
-        } else {
-          this.pending = rows;
-        }
-        if (federation) {
-          this.federatedEnrollmentSummary = federation.summary;
-          this.federatedEnrollmentByEmployeeId = new Map(
-            federation.items.map((item) => [item.employeeId, item]),
-          );
-        } else {
-          this.federatedEnrollmentSummary = null;
-          this.federatedEnrollmentByEmployeeId.clear();
-        }
-        this.loading = false;
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.loading = false;
-        this.toast.error('Failed to load');
-        this.cdr.detectChanges();
-      },
-    });
+    forkJoin({ rows: rows$, federation: federation$ })
+      .pipe(
+        finalize(() => {
+          if (seq === this.enrollmentLoadSeq) {
+            this.loading = false;
+            this.cdr.detectChanges();
+          }
+        }),
+      )
+      .subscribe({
+        next: ({ rows, federation }) => {
+          if (seq !== this.enrollmentLoadSeq) return;
+          if (view === 'ENROLLED') {
+            this.enrolled = rows;
+          } else {
+            this.pending = rows;
+          }
+          if (federation) {
+            this.federatedEnrollmentSummary = federation.summary;
+            this.federatedEnrollmentByEmployeeId = new Map(
+              federation.items.map((item) => [item.employeeId, item]),
+            );
+          } else {
+            this.federatedEnrollmentSummary = null;
+            this.federatedEnrollmentByEmployeeId.clear();
+          }
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          if (seq !== this.enrollmentLoadSeq) return;
+          this.toast.error('Failed to load');
+        },
+      });
   }
 
   mobileEssStatus(employeeId: string | undefined): string {
