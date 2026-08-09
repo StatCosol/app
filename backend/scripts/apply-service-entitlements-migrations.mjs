@@ -50,10 +50,32 @@ const serviceMigrationFiles = new Set([
   '20260711b_facedesk_enroll_tickets.sql',
   // FaceDesk contractor punches: offline idempotency + shared review queue.
   '20260726_facedesk_contractor_punch_review.sql',
+  // Accounts billing: invoice number width alignment.
+  '20260708_accounts_billing_invoice_number_16.sql',
+  // Contractor attendance payroll generation tables.
+  '20260722_contractor_attendance_payroll_generation.sql',
+  // FaceDesk PIN-then-face 1:1 verification.
+  '20260722b_facedesk_pin_verification.sql',
+  // FaceDesk per-branch PIN uniqueness.
+  '20260725_facedesk_pin_lookup_unique.sql',
+  // FaceDesk contractor subject type on profiles/punches.
+  '20260725b_facedesk_contractor_subject.sql',
+  // FaceDesk review queue probe embedding column.
+  '20260728_facedesk_review_probe_embedding.sql',
   // Accounts billing: linked Proforma -> Tax Invoice conversion columns.
   '20260731_proforma_tax_invoice_conversion.sql',
   // One-off, approved conversion of legacy Proforma STSINV/2627/0006.
   '20260731b_convert_legacy_proforma_0006.sql',
+  // ACCOUNTS role for billing module.
+  '20260808_accounts_role.sql',
+  // CLRA contractor portal user link.
+  '20260808_clra_contractor_user_link.sql',
+  // FaceDesk kiosk offline queue depth telemetry.
+  '20260809_facedesk_offline_queue_depth.sql',
+  // FaceDesk per-client shift bounds for late/early reports.
+  '20260809_facedesk_shift_settings.sql',
+  // ESS/kiosk face re-enrollment approval workflow.
+  '20260810_face_reenrollment_requests.sql',
 ]);
 
 const config = {
