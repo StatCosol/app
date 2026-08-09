@@ -85,3 +85,4 @@ Operators with **both** `MOBILE_ATTENDANCE` and `CONTRACTOR_FACE_ATTENDANCE` see
 |------|----------|
 | 2026-08-09 | ADR drafted; **no schema merge** until product answers open questions |
 | 2026-08-09 | Phase 1 federated enrollment read API + dual-module Enrollment Status UI shipped |
+| 2026-08-09 | Kiosk Attendance Enrollment tab shows Mobile ESS column for dual-module employee rosters |

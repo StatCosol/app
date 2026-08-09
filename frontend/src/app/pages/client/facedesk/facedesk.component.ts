@@ -2,7 +2,8 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Observable } from 'rxjs';
+import { Observable, forkJoin, of } from 'rxjs';
+import { catchError, finalize } from 'rxjs/operators';
 import {
   EmptyStateComponent,
   LoadingSpinnerComponent,
@@ -23,6 +24,8 @@ import {
   ReviewItem,
 } from './facedesk.service';
 import type {
+  FederatedEnrollmentItem,
+  FederatedEnrollmentSummary,
   FederatedReviewItem,
   FederatedReviewSummary,
 } from '../mobile-attendance/client-mobile-attendance.service';
@@ -213,6 +216,18 @@ type Tab =
             </label>
           }
         </div>
+        @if (hasFederatedEnrollment && federatedEnrollmentSummary) {
+          <div class="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+            <strong>{{ federatedEnrollmentSummary.facedeskEnrolled }}</strong> kiosk enrolled ·
+            <strong>{{ federatedEnrollmentSummary.mobileEnrolledActive }}</strong> mobile ESS ·
+            <strong>{{ federatedEnrollmentSummary.bothEnrolled }}</strong> both ·
+            <strong>{{ federatedEnrollmentSummary.pendingEither }}</strong> pending/partial.
+            Mobile ESS status is managed in
+            <a routerLink="/client/mobile-attendance" [queryParams]="{ tab: 'status' }" class="text-blue-700 hover:underline">
+              ESS Mobile Attendance
+            </a>.
+          </div>
+        }
         @if (loading) {
 <ui-loading-spinner text="Loading..." size="lg"></ui-loading-spinner>
 }
@@ -221,12 +236,15 @@ type Tab =
 }
         @if (!loading && enrollmentView === 'PENDING' && pending.length > 0) {
 <table class="tbl">
-          <thead><tr><th>Code</th><th>Employee</th><th>Status</th><th class="right">Action</th></tr></thead>
+          <thead><tr><th>Code</th><th>Employee</th>@if (hasFederatedEnrollment) {<th>Mobile ESS</th>}<th>Status</th><th class="right">Action</th></tr></thead>
           <tbody>
             @for (r of pending; track r) {
 <tr>
               <td class="mono">{{ r.employeeCode }}</td>
               <td>{{ r.employeeName || r.name }}</td>
+              @if (hasFederatedEnrollment) {
+                <td><span class="pill" [class.amber]="mobileEssStatus(r.employeeId) === 'Pending'">{{ mobileEssStatus(r.employeeId) }}</span></td>
+              }
               <td><span class="pill amber">{{ r.status || r.enrollmentStatus || 'PENDING' }}</span></td>
               <td class="right">
                 <button class="link green" [disabled]="!enrollDeviceReady || enrollingId === r.employeeId"
@@ -243,13 +261,16 @@ type Tab =
 }
         @if (!loading && enrollmentView === 'ENROLLED' && enrolled.length > 0) {
 <table class="tbl">
-          <thead><tr><th>Code / Type</th><th>Worker</th><th>Branch</th><th>Profile</th><th>PIN</th><th>Enrolled</th><th class="right">Actions</th></tr></thead>
+          <thead><tr><th>Code / Type</th><th>Worker</th><th>Branch</th>@if (hasFederatedEnrollment) {<th>Mobile ESS</th>}<th>Profile</th><th>PIN</th><th>Enrolled</th><th class="right">Actions</th></tr></thead>
           <tbody>
             @for (r of enrolled; track r.employeeId) {
 <tr>
               <td><span class="mono">{{ r.employeeCode || '—' }}</span><br><span class="text-xs text-gray-500">{{ r.subjectType || enrollSubjectType }}</span></td>
               <td>{{ r.employeeName || r.name }}<br><span class="text-xs text-gray-500">{{ r.department || '' }}{{ r.department && r.designation ? ' · ' : '' }}{{ r.designation || '' }}</span></td>
               <td>{{ branchName(r.branchId) }}</td>
+              @if (hasFederatedEnrollment) {
+                <td><span class="pill" [class.amber]="mobileEssStatus(r.employeeId) === 'Pending'">{{ mobileEssStatus(r.employeeId) }}</span></td>
+              }
               <td><span class="pill">{{ r.enrollmentStatus }}</span><br><span class="text-xs text-gray-500">Quality: {{ r.qualityScore == null ? '—' : (+r.qualityScore).toFixed(3) }} · Liveness: {{ r.livenessStatus || '—' }} · Duplicate: {{ r.duplicateStatus || '—' }}</span></td>
               <td><span class="pill" [class.amber]="!r.pinConfigured">{{ r.pinConfigured ? 'Configured' : 'Not set' }}</span></td>
               <td>{{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}</td>
@@ -590,6 +611,10 @@ export class FaceDeskComponent implements OnInit {
     return this.hasMobileAttendanceModule && this.auth.hasModule('CONTRACTOR_FACE_ATTENDANCE');
   }
 
+  get hasFederatedEnrollment(): boolean {
+    return this.hasFederatedReview && this.enrollSubjectType === 'EMPLOYEE';
+  }
+
   tab: Tab = 'dashboard';
   loading = false;
 
@@ -600,6 +625,8 @@ export class FaceDeskComponent implements OnInit {
   review: ReviewItem[] = [];
   federatedSummary: FederatedReviewSummary | null = null;
   federatedMobileItems: FederatedReviewItem[] = [];
+  federatedEnrollmentSummary: FederatedEnrollmentSummary | null = null;
+  federatedEnrollmentByEmployeeId = new Map<string, FederatedEnrollmentItem>();
   settings: FaceDeskSettings | null = null;
 
   reportKind = 'daily';
@@ -628,6 +655,7 @@ export class FaceDeskComponent implements OnInit {
   deletingId: string | null = null;
   enrollSubjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE';
   enrollmentView: 'PENDING' | 'ENROLLED' = 'PENDING';
+  private enrollmentLoadSeq = 0;
 
   /** Reload the pending list when the operator switches Employees/Contractors. */
   onSubjectTypeChange(): void {
@@ -639,17 +667,62 @@ export class FaceDeskComponent implements OnInit {
   }
 
   private loadEnrollmentRows(): void {
-    if (this.enrollmentView === 'ENROLLED') {
-      this.load(
-        this.svc.enrolledEmployees(this.enrollSubjectType),
-        (r) => (this.enrolled = r),
-      );
-      return;
-    }
-    this.load(
-      this.svc.pendingEnrollment(this.enrollSubjectType),
-      (r) => (this.pending = r),
-    );
+    const seq = ++this.enrollmentLoadSeq;
+    const view = this.enrollmentView;
+    const subjectType = this.enrollSubjectType;
+    const loadFederation = subjectType === 'EMPLOYEE' && this.hasFederatedReview;
+
+    const rows$ =
+      view === 'ENROLLED'
+        ? this.svc.enrolledEmployees(subjectType)
+        : this.svc.pendingEnrollment(subjectType);
+    const federation$ = loadFederation
+      ? this.svc.listFederatedEnrollment().pipe(catchError(() => of(null)))
+      : of(null);
+
+    this.loading = true;
+    forkJoin({ rows: rows$, federation: federation$ })
+      .pipe(
+        finalize(() => {
+          if (seq === this.enrollmentLoadSeq) {
+            this.loading = false;
+            this.cdr.detectChanges();
+          }
+        }),
+      )
+      .subscribe({
+        next: ({ rows, federation }) => {
+          if (seq !== this.enrollmentLoadSeq) return;
+          if (view === 'ENROLLED') {
+            this.enrolled = rows;
+          } else {
+            this.pending = rows;
+          }
+          if (federation) {
+            this.federatedEnrollmentSummary = federation.summary;
+            this.federatedEnrollmentByEmployeeId = new Map(
+              federation.items.map((item) => [item.employeeId, item]),
+            );
+          } else {
+            this.federatedEnrollmentSummary = null;
+            this.federatedEnrollmentByEmployeeId.clear();
+          }
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          if (seq !== this.enrollmentLoadSeq) return;
+          this.toast.error('Failed to load');
+        },
+      });
+  }
+
+  mobileEssStatus(employeeId: string | undefined): string {
+    if (!employeeId) return '—';
+    const row = this.federatedEnrollmentByEmployeeId.get(employeeId);
+    if (!row?.mobile) return '—';
+    if (row.mobile.isEnrolled && row.mobile.isActive) return 'Enrolled';
+    if (row.mobile.isEnrolled && !row.mobile.isActive) return 'Deactivated';
+    return 'Pending';
   }
 
   // PIN_THEN_FACE: per-employee PIN generation
