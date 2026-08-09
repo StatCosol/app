@@ -67,3 +67,12 @@ properties:
             value: http://statcompy-face-svc
           - name: FACE_SVC_API_KEY
             secretRef: face-svc-api-key
+          # Re-embed punch/enroll photos with ArcFace when face-svc is deployed.
+          - name: FACE_SERVER_EMBED
+            value: 'true'
+          # Require server-side liveness scores; do not trust client blink alone.
+          - name: FD_REQUIRE_SERVER_LIVENESS
+            value: 'false'
+          # Optional: passive anti-spoof model path on face-svc (see face-svc README).
+          # - name: FD_LIVENESS_PROVIDER
+          #   value: azure

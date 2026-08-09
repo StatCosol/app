@@ -67,6 +67,8 @@ export class FaceDeskPunchAcceptService {
     best3: ResolvedFrame[],
     confidencePercent: number,
     flagForReview = false,
+    reviewIssue: 'FACE_MISMATCH' | 'LOW_CONFIDENCE' = 'FACE_MISMATCH',
+    reviewRemarkOverride?: string,
   ): Promise<MarkResult> {
     const punchTime = dto.punchTime ? new Date(dto.punchTime) : new Date();
     const resolvedBranchId = employee.branchId ?? branchId;
@@ -85,9 +87,11 @@ export class FaceDeskPunchAcceptService {
       );
     }
     const reviewBase = `PIN correct but face did not match (${confidencePercent}%).`;
-    const reviewRemark = photoUrl
-      ? `${reviewBase} Verify the captured photo.`
-      : `${reviewBase} ⚠ Captured photo unavailable — verify by other means.`;
+    const reviewRemark =
+      reviewRemarkOverride ??
+      (photoUrl
+        ? `${reviewBase} Verify the captured photo.`
+        : `${reviewBase} ⚠ Captured photo unavailable — verify by other means.`);
 
     if (employee.subjectType === 'CONTRACTOR') {
       const direction = await this.directionService.nextContractorDirection(
@@ -135,7 +139,7 @@ export class FaceDeskPunchAcceptService {
           employeeId: employee.employeeId,
           attendanceId: null,
           contractorPunchId: savedContractorPunch.id,
-          issueType: 'FACE_MISMATCH',
+          issueType: reviewIssue,
           confidenceScore: cosine,
           status: 'PENDING',
           probeEmbedding,
@@ -147,7 +151,7 @@ export class FaceDeskPunchAcceptService {
           deviceId,
           employee.employeeId,
           cosine,
-          'FACE_MISMATCH',
+          reviewIssue,
           photoUrl,
         );
       }
@@ -192,7 +196,7 @@ export class FaceDeskPunchAcceptService {
         branchId: saved.branchId,
         employeeId: employee.employeeId,
         attendanceId: saved.attendanceId,
-        issueType: 'FACE_MISMATCH',
+        issueType: reviewIssue,
         confidenceScore: cosine,
         status: 'PENDING',
         probeEmbedding,
@@ -204,7 +208,7 @@ export class FaceDeskPunchAcceptService {
         deviceId,
         employee.employeeId,
         cosine,
-        'FACE_MISMATCH',
+        reviewIssue,
         photoUrl,
       );
     } else {

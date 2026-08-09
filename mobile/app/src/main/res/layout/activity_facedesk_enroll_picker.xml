@@ -12,7 +12,7 @@
         android:padding="16dp"
         android:textSize="16sp"
         android:textStyle="bold"
-        android:background="#4F46E5"
+        android:background="@color/brand_primary"
         android:textColor="#FFFFFF"
         android:text="@string/facedesk_pick_employee" />
 

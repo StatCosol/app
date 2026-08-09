@@ -12,7 +12,6 @@
         app:implementationMode="compatible"
         app:scaleType="fillCenter" />
 
-    <!-- Alignment guide: keeps the worker centered for a clean face crop. -->
     <View
         android:layout_width="260dp"
         android:layout_height="330dp"
@@ -20,31 +19,39 @@
         android:background="@drawable/bg_face_oval"
         android:importantForAccessibility="no" />
 
+    <include layout="@layout/include_kiosk_header" />
+
     <TextView
         android:id="@+id/fdTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top"
-        android:paddingHorizontal="24dp"
-        android:paddingVertical="28dp"
-        android:gravity="center"
-        android:textColor="#FFFFFF"
-        android:textSize="24sp"
-        android:textStyle="bold"
+        android:layout_marginTop="72dp"
         android:background="@drawable/bg_kiosk_top_strip"
-        android:text="@string/facedesk_look_at_camera" />
+        android:gravity="center"
+        android:paddingHorizontal="24dp"
+        android:paddingVertical="16dp"
+        android:text="@string/facedesk_look_at_camera"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold" />
 
     <TextView
         android:id="@+id/fdResult"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:paddingHorizontal="28dp"
-        android:paddingVertical="32dp"
-        android:gravity="center"
-        android:textColor="#FFFFFF"
-        android:textSize="27sp"
-        android:textStyle="bold"
+        android:layout_marginBottom="40dp"
         android:background="@drawable/bg_kiosk_scrim"
-        android:text="" />
+        android:gravity="center"
+        android:paddingHorizontal="28dp"
+        android:paddingVertical="24dp"
+        android:text=""
+        android:textColor="#FFFFFF"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <include layout="@layout/include_kiosk_footer" />
+
+    <include layout="@layout/include_kiosk_success_overlay" />
 </FrameLayout>

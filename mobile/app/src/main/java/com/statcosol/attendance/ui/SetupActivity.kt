@@ -10,6 +10,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.statcosol.attendance.BuildConfig
 import com.statcosol.attendance.AttendanceApp
 import com.statcosol.attendance.R
 import com.statcosol.attendance.facedesk.FaceDeskApiClient
@@ -119,7 +120,11 @@ class SetupActivity : AppCompatActivity() {
             try {
                 val fdClient = FaceDeskApiClient(config)
                 val res = fdClient.register(
-                    FaceDeskRegisterRequest(installToken = token, androidId = androidId),
+                    FaceDeskRegisterRequest(
+                        installToken = token,
+                        androidId = androidId,
+                        appVersion = BuildConfig.VERSION_NAME,
+                    ),
                 )
                 config.deviceToken = res.deviceToken
                 config.deviceMode = "FACEDESK_${res.mode}"

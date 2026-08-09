@@ -36,4 +36,14 @@
     <string name="liveness_failed_retry">जीवंतता जाँच विफल — कृपया फिर से कोशिश करें</string>
     <string name="liveness_timeout">जीवंतता जाँच समय समाप्त — कृपया फिर से कोशिश करें</string>
     <string name="kiosk_liveness_prompt_with_name">नमस्ते %1$s — %2$s</string>
+
+    <string name="facedesk_voice_pin_entry">कृपया अपना गुप्त पिन दर्ज करें</string>
+    <string name="facedesk_voice_look_at_camera">कृपया कैमरे की ओर देखें</string>
+    <string name="facedesk_voice_blink">कृपया अपनी आँखें झपकाएँ</string>
+    <string name="facedesk_voice_turn_left">धीरे-धीरे अपना सिर बाईं ओर घुमाएँ</string>
+    <string name="facedesk_voice_turn_right">धीरे-धीरे अपना सिर दाईं ओर घुमाएँ</string>
+    <string name="facedesk_voice_look_straight">सीधे कैमरे की ओर देखें</string>
+    <string name="facedesk_voice_success">%1$s की हाज़िरी दर्ज हो गई</string>
+    <string name="facedesk_voice_not_recognized">चेहरा पहचाना नहीं गया, फिर से कोशिश करें</string>
+    <string name="facedesk_voice_wrong_pin">गलत पिन। कृपया फिर से कोशिश करें</string>
 </resources>

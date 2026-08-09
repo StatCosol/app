@@ -16,9 +16,7 @@ class FaceDeskApiException(val code: Int, val body: String) :
     Exception("FaceDesk API $code: $body")
 
 /**
- * HTTP client for the FaceDesk V2 endpoints. Sends the device Bearer token,
- * matching the existing ApiClient. (Backend follow-up: the facedesk endpoints
- * still need device-token auth wired — today they expect a user JWT.)
+ * HTTP client for the FaceDesk V2 endpoints. Sends the device Bearer token.
  */
 class FaceDeskApiClient(private val config: DeviceConfig) {
 
@@ -59,6 +57,11 @@ class FaceDeskApiClient(private val config: DeviceConfig) {
             .post(body)
             .header("Content-Type", "application/json")
             .build()
+        return execute(request) { json.decodeFromString(it) }
+    }
+
+    suspend fun fetchConfig(): FaceDeskDeviceConfig {
+        val request = builder("/api/v1/facedesk/device/config").get().build()
         return execute(request) { json.decodeFromString(it) }
     }
 

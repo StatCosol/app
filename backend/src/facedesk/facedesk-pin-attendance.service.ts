@@ -230,11 +230,20 @@ export class FaceDeskPinAttendanceService {
       );
     }
     if (cosine < eff.acceptCosine) {
-      return {
-        status: 'RETRY',
-        message: 'Please look at the camera again',
+      return this.punchAcceptService.acceptPunch(
+        clientId,
+        branchId,
+        deviceId,
+        dto,
+        subject,
+        cosine,
+        margin,
+        best3,
         confidencePercent,
-      };
+        true,
+        'LOW_CONFIDENCE',
+        `Low confidence match (${confidencePercent}%) — verify the captured photo.`,
+      );
     }
 
     if (ambiguous) {

@@ -51,15 +51,24 @@ export class FaceDeskDeviceController {
   @ApiOperation({ summary: 'Device — bind androidId to an install token' })
   @Public()
   @Post('register')
-  async register(@Body() body: { installToken: string; androidId: string }) {
-    const res = await this.devices.register(body?.installToken, body?.androidId);
+  async register(
+    @Body()
+    body: { installToken: string; androidId: string; appVersion?: string },
+  ) {
+    const res = await this.devices.register(
+      body?.installToken,
+      body?.androidId,
+      body?.appVersion,
+    );
     const eff = await this.settings.getEffective(res.clientId);
+    const branding = await this.devices.getKioskBranding(res.deviceId);
     // Tell the kiosk which capture flow to run.
     return {
       ...res,
       identificationMode: eff.identificationMode,
       frameCaptureCount: eff.frameCaptureCount,
       livenessRequired: eff.livenessRequired,
+      branding,
     };
   }
 
@@ -72,12 +81,14 @@ export class FaceDeskDeviceController {
   async config(@Req() req: Request) {
     const d = this.ctx(req);
     const eff = await this.settings.getEffective(d.clientId);
+    const branding = await this.devices.getKioskBranding(d.deviceId);
     return {
       mode: d.mode,
       identificationMode: eff.identificationMode,
       frameCaptureCount: eff.frameCaptureCount,
       livenessRequired: eff.livenessRequired,
       offlineSyncEnabled: eff.offlineSyncEnabled,
+      branding,
     };
   }
 
@@ -85,8 +96,14 @@ export class FaceDeskDeviceController {
   @Public()
   @UseGuards(FaceDeskDeviceAuthGuard)
   @Post('attendance/mark')
-  mark(@Req() req: Request, @Body() dto: MarkAttendanceDto) {
+  async mark(@Req() req: Request, @Body() dto: MarkAttendanceDto) {
     const d = this.ctx(req);
+    if (dto.appVersion || dto.offlineQueueDepth != null) {
+      await this.devices.recordTelemetry(d.deviceId, {
+        appVersion: dto.appVersion,
+        offlineQueueDepth: dto.offlineQueueDepth,
+      });
+    }
     return this.attendance.markAttendance(
       d.clientId,
       d.branchId,
@@ -99,8 +116,14 @@ export class FaceDeskDeviceController {
   @Public()
   @UseGuards(FaceDeskDeviceAuthGuard)
   @Post('attendance/offline-sync')
-  offlineSync(@Req() req: Request, @Body() dto: OfflineSyncDto) {
+  async offlineSync(@Req() req: Request, @Body() dto: OfflineSyncDto) {
     const d = this.ctx(req);
+    if (dto.appVersion) {
+      await this.devices.recordTelemetry(d.deviceId, {
+        appVersion: dto.appVersion,
+        offlineQueueDepth: dto.offlineQueueDepth,
+      });
+    }
     return this.attendance.offlineSync(
       d.clientId,
       d.branchId,
