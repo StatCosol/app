@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
 import { FaceDeskDeviceEntity } from './entities/facedesk.entities';
 
@@ -29,11 +29,20 @@ export interface FaceDeskDeviceListDto {
   createdAt: Date;
 }
 
+export interface FaceDeskKioskBranding {
+  deviceName: string;
+  location: string | null;
+  branchName: string | null;
+  clientName: string | null;
+  clientLogoUrl: string | null;
+}
+
 @Injectable()
 export class FaceDeskDeviceService {
   constructor(
     @InjectRepository(FaceDeskDeviceEntity)
     private readonly repo: Repository<FaceDeskDeviceEntity>,
+    private readonly dataSource: DataSource,
   ) {}
 
   /** Admin provisions a device and gets a one-shot install token. */
@@ -77,6 +86,7 @@ export class FaceDeskDeviceService {
   async register(
     installToken: string,
     androidId: string,
+    appVersion?: string,
   ): Promise<{
     deviceToken: string;
     deviceId: string;
@@ -99,6 +109,9 @@ export class FaceDeskDeviceService {
     // provision QR/token cannot be reused after first registration.
     const deviceToken = randomBytes(32).toString('hex');
     device.installToken = deviceToken;
+    if (appVersion?.trim()) {
+      device.appVersion = appVersion.trim().slice(0, 40);
+    }
     await this.repo.save(device);
     return {
       deviceToken,
@@ -107,6 +120,21 @@ export class FaceDeskDeviceService {
       clientId: device.clientId,
       branchId: device.branchId,
     };
+  }
+
+  /** Update device heartbeat fields after register, punch, or offline sync. */
+  async recordTelemetry(
+    deviceId: string,
+    meta?: { appVersion?: string; offlineQueueDepth?: number },
+  ): Promise<void> {
+    const patch: Partial<FaceDeskDeviceEntity> = {
+      deviceStatus: 'ONLINE',
+      lastSyncTime: new Date(),
+    };
+    if (meta?.appVersion?.trim()) {
+      patch.appVersion = meta.appVersion.trim().slice(0, 40);
+    }
+    await this.repo.update({ deviceId }, patch);
   }
 
   /** Validate a device Bearer token → context for kiosk-facing endpoints. */
@@ -179,5 +207,37 @@ export class FaceDeskDeviceService {
     }
     await this.repo.delete({ deviceId, clientId });
     return { ok: true };
+  }
+
+  /** Gate/branch labels and optional client logo for the kiosk header. */
+  async getKioskBranding(deviceId: string): Promise<FaceDeskKioskBranding> {
+    const [row] = await this.dataSource.query<
+      Array<{
+        deviceName: string;
+        location: string | null;
+        branchName: string | null;
+        clientName: string | null;
+        clientLogoUrl: string | null;
+      }>
+    >(
+      `SELECT d.device_name AS "deviceName",
+              d.location AS "location",
+              b.branch_name AS "branchName",
+              c.client_name AS "clientName",
+              c.logo_url AS "clientLogoUrl"
+         FROM facedesk_kiosk_devices d
+         LEFT JOIN branches b ON b.id = d.branch_id
+         LEFT JOIN clients c ON c.id = d.client_id
+        WHERE d.device_id = $1
+        LIMIT 1`,
+      [deviceId],
+    );
+    return {
+      deviceName: row?.deviceName ?? 'Kiosk',
+      location: row?.location ?? null,
+      branchName: row?.branchName ?? null,
+      clientName: row?.clientName ?? null,
+      clientLogoUrl: row?.clientLogoUrl ?? null,
+    };
   }
 }

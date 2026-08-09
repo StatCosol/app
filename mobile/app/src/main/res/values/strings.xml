@@ -162,4 +162,22 @@
     <string name="facedesk_complete">Complete</string>
     <string name="facedesk_capture_timeout">Couldn\'t capture all angles — tap Capture to retry</string>
     <string name="facedesk_enroll_in_progress">Enrollment in progress — attendance paused</string>
+
+    <!-- FaceDesk spoken guidance (TTS) -->
+    <string name="facedesk_voice_pin_entry">Please enter your secret PIN</string>
+    <string name="facedesk_voice_look_at_camera">Please look at the camera</string>
+    <string name="facedesk_voice_hold_still">Hold still while we capture your face</string>
+    <string name="facedesk_voice_blink">Please blink your eyes</string>
+    <string name="facedesk_voice_turn_left">Slowly turn your head to the left</string>
+    <string name="facedesk_voice_turn_right">Slowly turn your head to the right</string>
+    <string name="facedesk_voice_look_straight">Look straight at the camera</string>
+    <string name="facedesk_voice_success">Attendance recorded for %1$s</string>
+    <string name="facedesk_voice_success_generic">Attendance recorded successfully</string>
+    <string name="facedesk_voice_offline">Attendance saved offline. It will sync when the network is back.</string>
+    <string name="facedesk_voice_not_recognized">Face not recognized. Please try again.</string>
+    <string name="facedesk_voice_wrong_pin">Incorrect PIN. Please try again.</string>
+    <string name="facedesk_voice_enroll_start">Tap capture, then follow the voice instructions</string>
+    <string name="facedesk_voice_enroll_complete">Capture complete. Tap complete to save.</string>
+    <string name="facedesk_voice_enroll_saved">Enrollment saved successfully</string>
+    <string name="facedesk_voice_processing">Please wait while attendance is recorded</string>
 </resources>

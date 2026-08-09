@@ -129,6 +129,15 @@ export class MarkAttendanceDto {
   @IsOptional()
   @IsNumber()
   captureLng?: number;
+
+  /** Kiosk telemetry — reported on each punch for ops monitoring. */
+  @IsOptional()
+  @IsString()
+  appVersion?: string;
+
+  @IsOptional()
+  @IsNumber()
+  offlineQueueDepth?: number;
 }
 
 export class OfflineSyncDto {
@@ -136,6 +145,14 @@ export class OfflineSyncDto {
   @ValidateNested({ each: true })
   @Type(() => MarkAttendanceDto)
   punches: MarkAttendanceDto[];
+
+  @IsOptional()
+  @IsString()
+  appVersion?: string;
+
+  @IsOptional()
+  @IsNumber()
+  offlineQueueDepth?: number;
 }
 
 export class ReviewActionDto {

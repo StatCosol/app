@@ -280,6 +280,26 @@ describe('FaceDeskAttendanceService.markAttendance — PIN_THEN_FACE', () => {
     );
   });
 
+  it('flags borderline confidence for branch review instead of asking retry', async () => {
+    const { service, attRepo, reviewRepo } = makePinService(
+      await claimedProfile(0.8),
+    );
+    const res = await service.markAttendance('c1', 'b1', 'd1', {
+      frames: [probeFrame()],
+      employeeCode: 'E001',
+      pin: '1234',
+    } as any);
+    expect(res.status).toBe('MARKED');
+    expect(res.message).toMatch(/verification/i);
+    expect(attRepo.save).toHaveBeenCalled();
+    expect(reviewRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issueType: 'LOW_CONFIDENCE',
+        status: 'PENDING',
+      }),
+    );
+  });
+
   it('REJECTS when code or PIN is missing', async () => {
     const { service, failRepo } = makePinService(await claimedProfile(0.95));
     const res = await service.markAttendance('c1', 'b1', 'd1', {

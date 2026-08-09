@@ -12,8 +12,6 @@
         app:implementationMode="compatible"
         app:scaleType="fillCenter" />
 
-    <!-- Alignment guide: keeps the subject centered while turning through the
-         guided front/left/right angles. -->
     <View
         android:layout_width="260dp"
         android:layout_height="330dp"
@@ -21,47 +19,50 @@
         android:background="@drawable/bg_face_oval"
         android:importantForAccessibility="no" />
 
+    <include layout="@layout/include_kiosk_header" />
+
     <TextView
         android:id="@+id/fdeName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top"
-        android:paddingHorizontal="20dp"
-        android:paddingVertical="22dp"
-        android:gravity="center"
-        android:textColor="#FFFFFF"
-        android:textSize="22sp"
-        android:textStyle="bold"
+        android:layout_marginTop="72dp"
         android:background="@drawable/bg_kiosk_top_strip"
+        android:gravity="center"
+        android:paddingHorizontal="20dp"
+        android:paddingVertical="14dp"
+        android:textColor="#FFFFFF"
+        android:textSize="20sp"
+        android:textStyle="bold"
         android:text="" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
+        android:background="@drawable/bg_kiosk_scrim"
         android:orientation="vertical"
-        android:padding="24dp"
-        android:background="@drawable/bg_kiosk_scrim">
+        android:padding="24dp">
 
         <TextView
             android:id="@+id/fdeHint"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp"
             android:paddingBottom="16dp"
-            android:text="@string/facedesk_enroll_prompt" />
+            android:text="@string/facedesk_enroll_prompt"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp" />
 
         <Button
             android:id="@+id/fdeCapture"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:minHeight="60dp"
-            android:textSize="18sp"
-            android:textStyle="bold"
             android:backgroundTint="@color/brand_primary"
+            android:minHeight="60dp"
+            android:text="@string/facedesk_capture"
             android:textColor="#FFFFFF"
-            android:text="@string/facedesk_capture" />
+            android:textSize="18sp"
+            android:textStyle="bold" />
     </LinearLayout>
 </FrameLayout>

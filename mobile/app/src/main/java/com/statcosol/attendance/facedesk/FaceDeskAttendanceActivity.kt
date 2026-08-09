@@ -23,11 +23,15 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.statcosol.attendance.R
+import com.statcosol.attendance.BuildConfig
 import com.statcosol.attendance.face.BlinkDetector
 import com.statcosol.attendance.face.FaceCaptureSession
 import com.statcosol.attendance.face.FaceDetector
 import com.statcosol.attendance.face.FaceEmbedder
 import com.statcosol.attendance.prefs.DeviceConfig
+import com.statcosol.attendance.sync.FaceDeskOfflineSyncWorker
+import com.statcosol.attendance.ui.KioskChrome
+import com.statcosol.attendance.voice.KioskVoiceGuide
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -55,6 +59,8 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     private lateinit var embedder: FaceEmbedder
     private lateinit var detector: FaceDetector
     private lateinit var cameraExecutor: ExecutorService
+    private lateinit var voice: KioskVoiceGuide
+    private lateinit var chrome: KioskChrome
 
     private val frames = mutableListOf<FaceFrame>()
     private val blinkDetector = BlinkDetector()
@@ -90,6 +96,9 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         embedder = FaceEmbedder(this)
         detector = FaceDetector()
         cameraExecutor = Executors.newSingleThreadExecutor()
+        voice = KioskVoiceGuide(this)
+        chrome = KioskChrome(this, config.apiBase)
+        loadBranding()
 
         // Admin-gated switch to enrollment: long-press the title, enter the PIN.
         // Keeps one device usable for both without ever mixing the two screens.
@@ -160,6 +169,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        chrome.startClock()
         // Returned from enrollment (or first shown) — release the hold, discard
         // any stale buffer, and (re)start ticket polling.
         enrollmentHold = false
@@ -201,14 +211,16 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                 paused = false
                 runOnUiThread {
                     tvResult.text = ""
-                    tvTitle.text = getString(R.string.facedesk_look_at_camera)
+                    setTitleWithVoice(R.string.facedesk_look_at_camera, R.string.facedesk_voice_look_at_camera)
                 }
             },
         )
+        voice.speakRes(R.string.facedesk_voice_pin_entry)
     }
 
     override fun onPause() {
         super.onPause()
+        chrome.stopClock()
         ticketPollJob?.cancel()
     }
 
@@ -279,7 +291,10 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             // instead of submitting a batch the server will reject.
             frames.size >= MAX_FRAMES -> submit()
             frames.size >= REQUIRED_FRAMES ->
-                runOnUiThread { tvTitle.text = getString(R.string.facedesk_blink_now) }
+                runOnUiThread {
+                    tvTitle.text = getString(R.string.facedesk_blink_now)
+                    voice.speakRes(R.string.facedesk_voice_blink, key = "blink")
+                }
         }
     }
 
@@ -296,8 +311,11 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             photoB64 = batch.firstNotNullOfOrNull { it.photoB64 },
             livenessPassed = livenessPassed,
             offlineRef = UUID.randomUUID().toString(),
+            appVersion = BuildConfig.VERSION_NAME,
+            offlineQueueDepth = offline.size(),
         )
         lifecycleScope.launch {
+            voice.speakRes(R.string.facedesk_voice_processing, minIntervalMs = 0)
             try {
                 val res = api.markAttendance(req)
                 showResult(res)
@@ -307,6 +325,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 // Network/offline — queue and confirm.
                 offline.enqueue(req)
+                FaceDeskOfflineSyncWorker.enqueue(this@FaceDeskAttendanceActivity)
                 showOfflineSaved()
             }
         }
@@ -315,28 +334,51 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     private fun showResult(res: MarkAttendanceResponse) {
         when (res.status) {
             "MARKED" -> {
-                tvResult.text = buildString {
-                    append("✓ ${res.message}\n")
-                    res.employeeName?.let { append("$it (${res.employeeCode})\n") }
-                    res.punchType?.let { append("$it  ") }
-                    res.punchTime?.let { append(it.substring(11, 16)) }
+                val name = res.employeeName?.takeIf { it.isNotBlank() }
+                    ?: res.employeeCode?.takeIf { it.isNotBlank() }
+                    ?: ""
+                runOnUiThread {
+                    tvResult.text = ""
+                    if (name.isNotBlank()) {
+                        chrome.showSuccess(name, res.punchType) { }
+                    }
+                }
+                if (name.isNotBlank()) {
+                    voice.speak(getString(R.string.facedesk_voice_success, name), minIntervalMs = 0)
+                } else {
+                    voice.speakRes(R.string.facedesk_voice_success_generic, minIntervalMs = 0)
                 }
                 autoReset(3000)
             }
-            "RETRY" -> { tvResult.text = res.message; softReset(1500) }
-            "REVIEW" -> { tvResult.text = res.message; autoReset(3000) }
+            "RETRY" -> {
+                tvResult.text = res.message
+                voice.speakRes(R.string.facedesk_voice_not_recognized, minIntervalMs = 0)
+                softReset(1500)
+            }
+            "REVIEW" -> {
+                tvResult.text = res.message
+                voice.speakRes(R.string.facedesk_voice_success_generic, minIntervalMs = 0)
+                autoReset(3000)
+            }
             else -> showRejection(res.message)
         }
     }
 
     private fun showRejection(msg: String) {
         runOnUiThread { tvResult.text = msg }
+        voice.speakRes(R.string.facedesk_voice_not_recognized, minIntervalMs = 0)
         softReset(2000)
     }
 
     private fun showOfflineSaved() {
         runOnUiThread { tvResult.text = getString(R.string.facedesk_offline_saved) }
+        voice.speakRes(R.string.facedesk_voice_offline, minIntervalMs = 0)
         autoReset(2500)
+    }
+
+    private fun setTitleWithVoice(titleRes: Int, voiceRes: Int) {
+        tvTitle.text = getString(titleRes)
+        voice.speakRes(voiceRes)
     }
 
     /** Full reset after a completed punch: clear result and resume scanning. */
@@ -382,6 +424,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                     startActivity(Intent(this, FaceDeskEnrollPickerActivity::class.java))
                 } else {
                     runOnUiThread { tvResult.text = getString(R.string.facedesk_wrong_pin) }
+                    voice.speakRes(R.string.facedesk_voice_wrong_pin, minIntervalMs = 0)
                     tvResult.postDelayed({ runOnUiThread { tvResult.text = "" } }, 1500)
                 }
             },
@@ -389,22 +432,26 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     }
 
     private fun flushOfflineQueue() {
-        val pending = offline.peekAll()
-        if (pending.isEmpty()) return
+        if (offline.size() == 0) return
+        lifecycleScope.launch {
+            FaceDeskOfflineSync.flush(
+                api = api,
+                store = offline,
+                appVersion = BuildConfig.VERSION_NAME,
+            )
+            if (offline.size() > 0) {
+                FaceDeskOfflineSyncWorker.enqueue(this@FaceDeskAttendanceActivity)
+            }
+        }
+    }
+
+    private fun loadBranding() {
         lifecycleScope.launch {
             try {
-                val res = api.offlineSync(OfflineSyncRequest(pending))
-                // Only drop the queue when every punch was accepted. On partial
-                // failure keep it and retry — already-synced punches dedupe on
-                // (client, offlineRef), so no double-counting.
-                if (res.failed == 0) {
-                    offline.clear()
-                    Log.i(TAG, "flushed ${pending.size} offline punches")
-                } else {
-                    Log.w(TAG, "offline sync partial: synced=${res.synced} failed=${res.failed}; keeping queue")
-                }
+                val cfg = api.fetchConfig()
+                runOnUiThread { chrome.bindBranding(cfg.branding) }
             } catch (e: Exception) {
-                Log.w(TAG, "offline flush deferred: ${e.message}")
+                Log.w(TAG, "branding fetch failed: ${e.message}")
             }
         }
     }
@@ -412,6 +459,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         pinDialog?.dismiss(); pinDialog = null
+        voice.shutdown()
         cameraExecutor.shutdown()
         detector.close()
     }

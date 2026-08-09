@@ -35,6 +35,8 @@ data class MarkAttendanceRequest(
     val punchTime: String? = null,
     val captureLat: Double? = null,
     val captureLng: Double? = null,
+    val appVersion: String? = null,
+    val offlineQueueDepth: Int? = null,
 )
 
 @Serializable
@@ -51,6 +53,15 @@ data class MarkAttendanceResponse(
 @Serializable
 data class OfflineSyncRequest(
     val punches: List<MarkAttendanceRequest>,
+    val appVersion: String? = null,
+    val offlineQueueDepth: Int? = null,
+)
+
+@Serializable
+data class OfflineSyncPunchResult(
+    val offlineRef: String? = null,
+    val status: String,
+    val message: String? = null,
 )
 
 @Serializable
@@ -58,6 +69,7 @@ data class OfflineSyncResponse(
     val synced: Int = 0,
     val duplicateSkipped: Int = 0,
     val failed: Int = 0,
+    val results: List<OfflineSyncPunchResult> = emptyList(),
 )
 
 @Serializable
@@ -93,6 +105,26 @@ data class ValidateQualityResponse(
 data class FaceDeskRegisterRequest(
     val installToken: String,
     val androidId: String,
+    val appVersion: String? = null,
+)
+
+@Serializable
+data class FaceDeskKioskBranding(
+    val deviceName: String = "",
+    val location: String? = null,
+    val branchName: String? = null,
+    val clientName: String? = null,
+    val clientLogoUrl: String? = null,
+)
+
+@Serializable
+data class FaceDeskDeviceConfig(
+    val mode: String? = null,
+    val identificationMode: String? = null,
+    val frameCaptureCount: Int? = null,
+    val livenessRequired: Boolean? = null,
+    val offlineSyncEnabled: Boolean? = null,
+    val branding: FaceDeskKioskBranding? = null,
 )
 
 @Serializable
@@ -103,6 +135,7 @@ data class FaceDeskRegisterResponse(
     val clientId: String,
     val branchId: String? = null,
     val adminPin: String = "",
+    val branding: FaceDeskKioskBranding? = null,
 )
 
 @Serializable

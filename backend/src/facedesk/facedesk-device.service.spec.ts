@@ -10,7 +10,18 @@ function makeService(row: any = null) {
     update: jest.fn().mockResolvedValue({ affected: 1 }),
     delete: jest.fn().mockResolvedValue({ affected: 1 }),
   };
-  return { service: new FaceDeskDeviceService(repo as any), repo };
+  const dataSource = {
+    query: jest.fn().mockResolvedValue([
+      {
+        deviceName: 'Gate 1',
+        location: 'Main',
+        branchName: 'Unit 1',
+        clientName: 'Acme',
+        clientLogoUrl: null,
+      },
+    ]),
+  };
+  return { service: new FaceDeskDeviceService(repo as any, dataSource as any), repo, dataSource };
 }
 
 describe('FaceDeskDeviceService', () => {

@@ -27,6 +27,8 @@ import com.statcosol.attendance.face.FaceCaptureSession
 import com.statcosol.attendance.face.FaceDetector
 import com.statcosol.attendance.face.FaceEmbedder
 import com.statcosol.attendance.prefs.DeviceConfig
+import com.statcosol.attendance.ui.KioskChrome
+import com.statcosol.attendance.voice.KioskVoiceGuide
 import kotlinx.coroutines.launch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -49,6 +51,8 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     private lateinit var embedder: FaceEmbedder
     private lateinit var detector: FaceDetector
     private lateinit var cameraExecutor: ExecutorService
+    private lateinit var voice: KioskVoiceGuide
+    private lateinit var chrome: KioskChrome
 
     private lateinit var employeeId: String
     private var ticketId: String? = null
@@ -63,6 +67,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     private var captureComplete = false
     private val capturing = AtomicBoolean(false)
     private val saving = AtomicBoolean(false)
+    private var guidanceStep = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -86,6 +91,9 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         embedder = FaceEmbedder(this)
         detector = FaceDetector()
         cameraExecutor = Executors.newSingleThreadExecutor()
+        voice = KioskVoiceGuide(this)
+        chrome = KioskChrome(this, config.apiBase)
+        loadBranding()
 
         btnCapture.setOnClickListener { if (captureComplete) save() else startCapture() }
 
@@ -95,6 +103,28 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), 1002)
         } else {
             startCamera()
+        }
+        voice.speakRes(R.string.facedesk_voice_enroll_start)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        chrome.startClock()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        chrome.stopClock()
+    }
+
+    private fun loadBranding() {
+        lifecycleScope.launch {
+            try {
+                val cfg = api.fetchConfig()
+                runOnUiThread { chrome.bindBranding(cfg.branding) }
+            } catch (e: Exception) {
+                Log.w(TAG, "branding fetch failed: ${e.message}")
+            }
         }
     }
 
@@ -152,6 +182,9 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         frontCount = 0; leftCount = 0; rightCount = 0; blinkDetector.reset()
         capturing.set(true)
         btnCapture.isEnabled = false
+        guidanceStep = ""
+        voice.speakRes(R.string.facedesk_voice_look_straight, key = "enroll-start")
+        updateGuidance()
         // Signal the web that capture has started for this ticket.
         ticketId?.let { tid -> lifecycleScope.launch { runCatching { api.markTicketCapturing(tid) } } }
         // Safety timeout so a stuck capture tells the operator rather than hang.
@@ -187,7 +220,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
 
         val done = frontCount >= FRONT_FRAMES && leftCount >= PER_ANGLE &&
             rightCount >= PER_ANGLE && blinked
-        runOnUiThread { tvHint.text = nextPrompt() }
+        runOnUiThread { updateGuidance() }
         if (done) {
             capturing.set(false)
             captureComplete = true
@@ -195,6 +228,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
                 tvHint.text = getString(R.string.facedesk_captured_complete)
                 btnCapture.text = getString(R.string.facedesk_complete)
                 btnCapture.isEnabled = true
+                voice.speakRes(R.string.facedesk_voice_enroll_complete, key = "enroll-done", minIntervalMs = 0)
             }
         }
     }
@@ -206,6 +240,29 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         rightCount < PER_ANGLE -> getString(R.string.facedesk_turn_right)
         !blinked -> getString(R.string.facedesk_blink_now)
         else -> getString(R.string.facedesk_captured_complete)
+    }
+
+    private fun nextVoiceRes(): Int = when {
+        frontCount < FRONT_FRAMES -> R.string.facedesk_voice_look_straight
+        leftCount < PER_ANGLE -> R.string.facedesk_voice_turn_left
+        rightCount < PER_ANGLE -> R.string.facedesk_voice_turn_right
+        !blinked -> R.string.facedesk_voice_blink
+        else -> R.string.facedesk_voice_enroll_complete
+    }
+
+    private fun updateGuidance() {
+        val step = when {
+            frontCount < FRONT_FRAMES -> "front"
+            leftCount < PER_ANGLE -> "left"
+            rightCount < PER_ANGLE -> "right"
+            !blinked -> "blink"
+            else -> "done"
+        }
+        tvHint.text = nextPrompt()
+        if (step != guidanceStep) {
+            guidanceStep = step
+            voice.speakRes(nextVoiceRes(), key = "enroll-$step")
+        }
     }
 
     private fun save() {
@@ -222,7 +279,10 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
             try {
                 val res = api.saveEnrollment(req)
                 ticketId?.let { tid -> runCatching { api.completeTicket(tid) } }
-                runOnUiThread { tvHint.text = res.message ?: getString(R.string.facedesk_enrolled) }
+                runOnUiThread {
+                    tvHint.text = res.message ?: getString(R.string.facedesk_enrolled)
+                    voice.speakRes(R.string.facedesk_voice_enroll_saved, minIntervalMs = 0)
+                }
                 previewView.postDelayed({ finish() }, 1500)
             } catch (e: FaceDeskApiException) {
                 runOnUiThread {
@@ -248,6 +308,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        voice.shutdown()
         cameraExecutor.shutdown()
         detector.close()
     }

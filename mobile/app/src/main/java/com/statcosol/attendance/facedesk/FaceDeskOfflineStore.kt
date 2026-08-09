@@ -101,6 +101,20 @@ class FaceDeskOfflineStore(private val context: Context) {
         runCatching { if (encFile.exists()) encFile.delete() }
     }
 
+    /** Replace the queue with only the punches that still need retry. */
+    @Synchronized
+    fun replaceAll(keep: List<MarkAttendanceRequest>) {
+        if (keep.isEmpty()) {
+            clear()
+            return
+        }
+        writeLinesEncrypted(
+            keep.mapNotNull { req ->
+                runCatching { json.encodeToString(req) }.getOrNull()
+            },
+        )
+    }
+
     companion object {
         private const val TAG = "FaceDeskOffline"
     }

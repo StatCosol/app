@@ -3,6 +3,14 @@ import { FaceDeskDeviceController } from './facedesk-device.controller';
 function makeController() {
   const devices = {
     register: jest.fn(),
+    recordTelemetry: jest.fn().mockResolvedValue(undefined),
+    getKioskBranding: jest.fn().mockResolvedValue({
+      deviceName: 'Gate 1',
+      location: 'Main',
+      branchName: 'Unit 1',
+      clientName: 'Acme',
+      clientLogoUrl: null,
+    }),
   };
   const attendance = {
     markAttendance: jest.fn().mockResolvedValue({ status: 'MARKED' }),
@@ -130,6 +138,13 @@ describe('FaceDeskDeviceController', () => {
       frameCaptureCount: 3,
       livenessRequired: true,
       offlineSyncEnabled: true,
+      branding: {
+        deviceName: 'Gate 1',
+        location: 'Main',
+        branchName: 'Unit 1',
+        clientName: 'Acme',
+        clientLogoUrl: null,
+      },
     });
     expect(settings.getEffective).toHaveBeenCalledWith('client-1');
   });

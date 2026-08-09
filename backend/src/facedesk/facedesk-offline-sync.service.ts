@@ -2,9 +2,46 @@ import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { MarkAttendanceDto } from './facedesk.dto';
 import { FaceDeskAttendanceService } from './facedesk-attendance.service';
+import { MarkResult } from './facedesk-attendance.service';
 
 function dedupeKeyPresent(p: MarkAttendanceDto): boolean {
   return !!p.offlineRef;
+}
+
+export type OfflinePunchSyncStatus =
+  | 'SYNCED'
+  | 'DUPLICATE'
+  | 'REVIEW'
+  | 'DROPPED'
+  | 'RETRY';
+
+export interface OfflinePunchSyncResult {
+  offlineRef: string | null;
+  status: OfflinePunchSyncStatus;
+  message?: string;
+}
+
+export interface OfflineSyncResponse {
+  synced: number;
+  duplicateSkipped: number;
+  failed: number;
+  results: OfflinePunchSyncResult[];
+}
+
+function classifyOfflineResult(
+  res: MarkResult,
+  hadOfflineRef: boolean,
+): OfflinePunchSyncStatus {
+  if (res.status === 'MARKED') {
+    if (hadOfflineRef && res.message === 'Attendance already recorded') {
+      return 'DUPLICATE';
+    }
+    if (/verification/i.test(res.message ?? '')) return 'REVIEW';
+    return 'SYNCED';
+  }
+  if (res.status === 'RETRY') return 'RETRY';
+  if (res.status === 'REVIEW') return 'REVIEW';
+  return 'DROPPED';
 }
 
 @Injectable()
@@ -23,25 +60,45 @@ export class FaceDeskOfflineSyncService {
     branchId: string | null,
     deviceId: string | null,
     punches: MarkAttendanceDto[],
-  ): Promise<{ synced: number; duplicateSkipped: number; failed: number }> {
+  ): Promise<OfflineSyncResponse> {
     let synced = 0;
     let duplicateSkipped = 0;
     let failed = 0;
+    const results: OfflinePunchSyncResult[] = [];
     for (const p of punches ?? []) {
+      const ref = p.offlineRef ?? null;
       try {
         const before = dedupeKeyPresent(p);
-        const res = await this.attendance.markAttendance(clientId, branchId, deviceId, {
-          ...p,
-        });
-        if (res.status === 'MARKED') {
-          if (before && res.message === 'Attendance already recorded')
+        const res = await this.attendance.markAttendance(
+          clientId,
+          branchId,
+          deviceId,
+          { ...p },
+        );
+        const status = classifyOfflineResult(res, before);
+        results.push({ offlineRef: ref, status, message: res.message });
+        switch (status) {
+          case 'SYNCED':
+            synced++;
+            break;
+          case 'DUPLICATE':
             duplicateSkipped++;
-          else synced++;
-        } else {
-          failed++;
+            break;
+          case 'REVIEW':
+            synced++;
+            break;
+          case 'RETRY':
+            break;
+          default:
+            failed++;
         }
       } catch (err) {
         this.logger.warn(`offline punch failed: ${(err as Error)?.message}`);
+        results.push({
+          offlineRef: ref,
+          status: 'DROPPED',
+          message: (err as Error)?.message,
+        });
         failed++;
       }
     }
@@ -64,6 +121,6 @@ export class FaceDeskOfflineSyncService {
         [deviceId],
       );
     }
-    return { synced, duplicateSkipped, failed };
+    return { synced, duplicateSkipped, failed, results };
   }
 }
