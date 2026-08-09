@@ -628,7 +628,84 @@ export class AttendanceService {
     }
     summary.getRow(1).font = { bold: true };
 
-    // ── Sheet 2: Punch log (one row per check-in/out, location hyperlinked) ──
+    // Helpers shared by the visit/punch sheets.
+    const setLocationCell = (row: any, key: string, p: any) => {
+      if (!p) return;
+      const cell = row.getCell(key);
+      if (p.latitude != null && p.longitude != null) {
+        const text = `${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)}`;
+        if (p.mapUrl) {
+          cell.value = { text, hyperlink: p.mapUrl };
+          cell.font = { color: { argb: 'FF1D4ED8' }, underline: true };
+        } else {
+          cell.value = text;
+        }
+      } else {
+        cell.value = 'No location';
+      }
+    };
+    const durationStr = (a?: string | null, b?: string | null): string => {
+      if (!a || !b) return '';
+      const pa = String(a).split(':').map(Number);
+      const pb = String(b).split(':').map(Number);
+      if (pa.length < 2 || pb.length < 2) return '';
+      let secs =
+        (pb[0] * 3600 + pb[1] * 60 + (pb[2] || 0)) -
+        (pa[0] * 3600 + pa[1] * 60 + (pa[2] || 0));
+      if (secs < 0) secs += 24 * 3600; // overnight
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    };
+
+    // ── Sheet 2: Visits — each IN→OUT pair as one location-wise row ──
+    const visits = wb.addWorksheet('Visits (In-Out)');
+    visits.columns = [
+      { header: 'Employee', key: 'employeeName', width: 26 },
+      { header: 'Code', key: 'employeeCode', width: 14 },
+      { header: 'Branch', key: 'branchName', width: 20 },
+      { header: 'Visit', key: 'visit', width: 7 },
+      { header: 'In Time', key: 'inTime', width: 11 },
+      { header: 'In Location', key: 'inLoc', width: 28 },
+      { header: 'Out Time', key: 'outTime', width: 11 },
+      { header: 'Out Location', key: 'outLoc', width: 28 },
+      { header: 'Duration', key: 'duration', width: 11 },
+    ];
+    visits.getRow(1).font = { bold: true };
+
+    for (const r of rows) {
+      const punches = r.punches || [];
+      let openIn: any = null;
+      let visitNo = 0;
+      const emit = (inP: any, outP: any) => {
+        visitNo += 1;
+        const row = visits.addRow({
+          employeeName: r.employeeName || '',
+          employeeCode: r.employeeCode || '',
+          branchName: r.branchName || '',
+          visit: visitNo,
+          inTime: inP ? inP.time : '',
+          inLoc: '',
+          outTime: outP ? outP.time : '',
+          outLoc: outP ? '' : '(still in)',
+          duration: durationStr(inP?.time, outP?.time),
+        });
+        setLocationCell(row, 'inLoc', inP);
+        if (outP) setLocationCell(row, 'outLoc', outP);
+      };
+      for (const p of punches) {
+        if (p.punchType === 'IN') {
+          if (openIn) emit(openIn, null); // prior IN never closed
+          openIn = p;
+        } else if (p.punchType === 'OUT') {
+          emit(openIn, p); // openIn may be null (OUT without IN)
+          openIn = null;
+        }
+      }
+      if (openIn) emit(openIn, null); // trailing open IN
+    }
+
+    // ── Sheet 3: Punch log (one row per check-in/out, location hyperlinked) ──
     const log = wb.addWorksheet('Punch Log');
     log.columns = [
       { header: 'Employee', key: 'employeeName', width: 26 },
