@@ -2,7 +2,10 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import type { FederatedReviewResponse } from '../mobile-attendance/client-mobile-attendance.service';
+import type {
+  FederatedEnrollmentResponse,
+  FederatedReviewResponse,
+} from '../mobile-attendance/client-mobile-attendance.service';
 
 export interface FaceDeskDashboard {
   totalEmployees: number;
@@ -207,6 +210,12 @@ export class FaceDeskService {
     const qs = parts.length ? `?${parts.join('&')}` : '';
     return this.http.get<FederatedReviewResponse>(
       `${this.mobileAttendanceBase}/review-federation${qs}`,
+    );
+  }
+
+  listFederatedEnrollment(): Observable<FederatedEnrollmentResponse> {
+    return this.http.get<FederatedEnrollmentResponse>(
+      `${this.mobileAttendanceBase}/enrollment-federation`,
     );
   }
 

@@ -252,4 +252,41 @@ describe('Face attendance pipeline (ingest → attendance_records)', () => {
     expect(result.inserted).toBe(0);
     expect(attRepo.save).not.toHaveBeenCalled();
   });
+
+  it('ingests FaceDesk-approved employee punches via the shared kiosk ingest key', async () => {
+    const { service, attRepo } = makeService({
+      dayPunches: [
+        {
+          id: 'punch-fd',
+          punchTime: new Date('2026-08-09T06:00:00.000Z'),
+          direction: 'IN',
+          source: 'MOBILE_KIOSK',
+        },
+      ],
+    });
+
+    const result = await service.ingest(
+      'client-1',
+      [
+        {
+          employeeCode: 'E001',
+          punchTime: '2026-08-09T06:00:00.000Z',
+          direction: 'IN',
+          deviceId: 'facedesk',
+          branchId: 'branch-1',
+          source: 'MOBILE_KIOSK',
+        },
+      ],
+      true,
+    );
+
+    expect(result.inserted).toBe(1);
+    expect(result.attendanceUpserts).toBeGreaterThan(0);
+    expect(attRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        employeeId: 'employee-1',
+        captureMethod: 'FACE',
+      }),
+    );
+  });
 });

@@ -52,7 +52,11 @@ StatComPy currently runs **two parallel face stacks**. Do not merge storage with
 - **Federated read API:** `GET /api/v1/mobile-attendance/review-federation` returns a merged, entitlement-aware summary + item list with `portalPath` deep links (including `?tab=review`). FaceDesk rows are limited to `FACE_MISMATCH` attendance verifications; mobile rows are ESS employee punches only.
 - **Unified review inbox (dual-module clients):** ESS Mobile Attendance → Punch Review and Kiosk Attendance → Review Queue each show a federated summary plus a read-only table for the sibling queue with deep links.
 - **Federated review action:** `POST /api/v1/mobile-attendance/review-federation/:queue/:itemId/action` routes `MOBILE_BORDERLINE` → punch review and `FACEDESK_VERIFICATION` → FaceDesk admin review (entitlement-gated per queue).
-- **Federated enrollment read (Phase 1):** `GET /api/v1/mobile-attendance/enrollment-federation` merges mobile `face_enrollments` + FaceDesk `facedesk_employee_face_profiles` per employee without moving storage. ESS Mobile Attendance → Enrollment Status shows dual columns for dual-module clients.
+- **Federated enrollment read (Phase 1):** `GET /api/v1/mobile-attendance/enrollment-federation` merges mobile `face_enrollments` + FaceDesk `facedesk_employee_face_profiles` per employee without moving storage. ESS Mobile Attendance → Enrollment Status and Kiosk Attendance → Enrollment both show dual-module columns for employee rosters.
+
+### Engineering status (face-attendance track #485–#502)
+- **Shipped:** review federation, dual-module review inboxes, cross-queue approve/reject API, enrollment federation read API, Android roster crypto tests, V1 offline kiosk restore, punch-review and pipeline guard specs.
+- **Blocked on product:** Phase 2+ enrollment schema merge / dual-write (see ADR).
 
 ### Consolidation blockers (product decision required)
 1. **Enrollment tables** — `face_enrollments` vs `facedesk_employee_face_profiles` (different embedding models, consent audit, contractor paths). See **[FACE_ENROLLMENT_CONSOLIDATION.md](./FACE_ENROLLMENT_CONSOLIDATION.md)** for options and phased rollout (ADR — no merge until product sign-off).
