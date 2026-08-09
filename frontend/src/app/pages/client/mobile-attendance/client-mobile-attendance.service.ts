@@ -397,6 +397,23 @@ export class ClientMobileAttendanceService {
     return this.http.get<ReviewPunchRow[]>(`${this.base}/punches/review${qs}`);
   }
 
+  listFederatedReview(
+    opts: { mobileStatus?: string; facedeskStatus?: string; limit?: number } = {},
+  ): Observable<FederatedReviewResponse> {
+    const parts: string[] = [];
+    if (opts.mobileStatus) {
+      parts.push(`mobileStatus=${encodeURIComponent(opts.mobileStatus)}`);
+    }
+    if (opts.facedeskStatus) {
+      parts.push(`facedeskStatus=${encodeURIComponent(opts.facedeskStatus)}`);
+    }
+    if (opts.limit) parts.push(`limit=${opts.limit}`);
+    const qs = parts.length ? `?${parts.join('&')}` : '';
+    return this.http.get<FederatedReviewResponse>(
+      `${this.base}/review-federation${qs}`,
+    );
+  }
+
   reviewPunch(
     subjectType: 'EMPLOYEE' | 'CONTRACTOR',
     punchId: string,
@@ -806,6 +823,32 @@ export interface ContractorPunchRow {
   livenessScore: string | null;
   captureLat: string | null;
   captureLng: string | null;
+}
+
+export interface FederatedReviewSummary {
+  mobileBorderlinePending: number;
+  facedeskVerificationPending: number;
+  totalPending: number;
+}
+
+export interface FederatedReviewItem {
+  queue: 'MOBILE_BORDERLINE' | 'FACEDESK_VERIFICATION';
+  itemId: string;
+  subjectType: 'EMPLOYEE' | 'CONTRACTOR';
+  displayName: string | null;
+  displayCode: string | null;
+  branchId: string | null;
+  punchTime: string;
+  status: string;
+  issueLabel: string;
+  portalPath:
+    | '/client/mobile-attendance?tab=review'
+    | '/client/facedesk?tab=review';
+}
+
+export interface FederatedReviewResponse {
+  summary: FederatedReviewSummary;
+  items: FederatedReviewItem[];
 }
 
 export interface ReviewPunchRow {
