@@ -2,7 +2,7 @@
 
 **Status:** Proposed — Phase 1 read federation **shipped**; Phases 2+ awaiting product decision  
 **Date:** 2026-08-09  
-**Context:** Face-attendance engineering track #485–#500 shipped review federation, roster crypto, and V1 kiosk restore. Enrollment storage remains split.
+**Context:** Face-attendance engineering track #485–#503 shipped review federation, enrollment federation (Phase 1), roster crypto, and V1 kiosk restore. Enrollment storage remains split until product approves Phase 2+.
 
 ## Problem
 
@@ -86,3 +86,4 @@ Operators with **both** `MOBILE_ATTENDANCE` and `CONTRACTOR_FACE_ATTENDANCE` see
 | 2026-08-09 | ADR drafted; **no schema merge** until product answers open questions |
 | 2026-08-09 | Phase 1 federated enrollment read API + dual-module Enrollment Status UI shipped |
 | 2026-08-09 | Kiosk Attendance Enrollment tab shows Mobile ESS column for dual-module employee rosters |
+| 2026-08-09 | Engineering track #485–#503 marked complete; Phase 2+ gated on product ADR answers |
