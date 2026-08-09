@@ -420,17 +420,26 @@ export class AuthService implements OnModuleInit {
     } catch (err: any) {
       if (err?.code !== '42P01') throw err;
     }
-    const allowedModules = new Set(SERVICE_MODULE_CODES);
-    const enabledModules = entitlementRows.length
-      ? entitlementRows
-          .map((r) => r.module_code)
-          .filter((module) => allowedModules.has(module as any))
-      : (PACKAGE_MODULES[packageCode] ?? [...SERVICE_MODULE_CODES]);
+    const enabledModules = this.normalizeEnabledModules(
+      entitlementRows.length
+        ? entitlementRows.map((r) => r.module_code)
+        : (PACKAGE_MODULES[packageCode] ?? [...SERVICE_MODULE_CODES]),
+    );
 
     return {
       packageCode,
       enabledModules,
     };
+  }
+
+  /** Drop retired modules and unknown codes from JWT / session payloads. */
+  private normalizeEnabledModules(modules: string[]): string[] {
+    const allowedModules = new Set(SERVICE_MODULE_CODES);
+    return modules.filter(
+      (module) =>
+        allowedModules.has(module as (typeof SERVICE_MODULE_CODES)[number]) &&
+        module !== 'MOBILE_ATTENDANCE',
+    );
   }
 
   async refreshToken(dto: RefreshTokenDto) {

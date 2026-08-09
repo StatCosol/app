@@ -123,6 +123,14 @@ const BLOCKED_ROUTE_MODULES: Array<[RegExp, ServiceModuleRequirement]> = [
     'CONTRACTOR_FACE_ATTENDANCE',
   ],
   [
+    /^\/?(api\/v1\/)?mobile-attendance\/enrollment\/contractor-reenroll-requests\b/i,
+    'CONTRACTOR_FACE_ATTENDANCE',
+  ],
+  [
+    /^\/?(api\/v1\/)?mobile-attendance\/punches\/review\b/i,
+    'CONTRACTOR_ATTENDANCE',
+  ],
+  [
     /^\/?(api\/v1\/)?mobile-attendance\/punches\/contractor\b/i,
     'CONTRACTOR_ATTENDANCE',
   ],

@@ -78,6 +78,8 @@ const serviceMigrationFiles = new Set([
   '20260810_face_reenrollment_requests.sql',
   // Retire ESS Mobile Attendance client module entitlements.
   '20260809_retire_mobile_attendance_module.sql',
+  // Deactivate employee mobile ESS enrollments and close pending reviews.
+  '20260809b_retire_mobile_attendance_data.sql',
 ]);
 
 const config = {

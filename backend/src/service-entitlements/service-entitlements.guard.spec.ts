@@ -165,6 +165,34 @@ describe('ServiceEntitlementsGuard', () => {
     },
   );
 
+  it('requires contractor attendance for punch review APIs', async () => {
+    await expect(
+      guard.canActivate(
+        contextFor('/api/v1/mobile-attendance/punches/review'),
+      ),
+    ).resolves.toBe(true);
+
+    expect(entitlements.assertModule).toHaveBeenCalledWith(
+      clientId,
+      'CONTRACTOR_ATTENDANCE',
+    );
+  });
+
+  it('requires contractor face attendance for contractor re-enroll requests', async () => {
+    await expect(
+      guard.canActivate(
+        contextFor(
+          '/api/v1/mobile-attendance/enrollment/contractor-reenroll-requests',
+        ),
+      ),
+    ).resolves.toBe(true);
+
+    expect(entitlements.assertModule).toHaveBeenCalledWith(
+      clientId,
+      'CONTRACTOR_FACE_ATTENDANCE',
+    );
+  });
+
   it('enforces module access when role code casing is lower-case', async () => {
     await expect(
       guard.canActivate(contextFor('/api/v1/facedesk/devices', 'client')),

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -37,28 +38,6 @@ export class PunchReviewService {
 
     return this.dataSource.query(
       `SELECT p.id,
-              'EMPLOYEE' AS "subjectType",
-              p.employee_id AS "subjectId",
-              e.name AS "subjectName",
-              e.employee_code AS "subjectCode",
-              p.branch_id AS "branchId",
-              p.device_id AS "deviceId",
-              p.punch_time AS "punchTime",
-              p.match_cosine AS "matchCosine",
-              p.match_threshold AS "matchThreshold",
-              p.match_margin AS "matchMargin",
-              p.liveness_score AS "livenessScore",
-              p.photo_url AS "photoUrl",
-              p.decision,
-              p.review_note AS "reviewNote",
-              p.reviewed_by AS "reviewedBy",
-              p.reviewed_at AS "reviewedAt",
-              p.created_at AS "createdAt"
-         FROM mobile_attendance_punches p
-         JOIN employees e ON e.id = p.employee_id
-        WHERE p.client_id = $1 AND p.decision = $2 ${branchFilter}
-        UNION ALL
-       SELECT p.id,
               'CONTRACTOR' AS "subjectType",
               p.contractor_employee_id AS "subjectId",
               ce.name AS "subjectName",
@@ -94,63 +73,14 @@ export class PunchReviewService {
     note?: string,
     allowedBranchIds: string[] | null = null,
   ): Promise<{ ok: true; decision: string }> {
+    if (subjectType === 'EMPLOYEE') {
+      throw new ForbiddenException(
+        'ESS Mobile Attendance punch review has been retired',
+      );
+    }
+
     const newDecision =
       action === 'APPROVE' ? 'REVIEW_APPROVED' : 'REVIEW_REJECTED';
-
-    if (subjectType === 'EMPLOYEE') {
-      const punch = await this.punchRepo.findOne({
-        where: { id: punchId, clientId },
-      });
-      if (!punch) throw new NotFoundException('Punch not found');
-      this.assertBranchScope(punch, allowedBranchIds);
-      if (punch.decision !== 'REVIEW_PENDING') {
-        throw new BadRequestException(
-          `Punch is not pending review (decision: ${punch.decision})`,
-        );
-      }
-
-      await this.dataSource.transaction(async (manager) => {
-        let direction: 'IN' | 'OUT' | 'AUTO' = 'AUTO';
-        if (action === 'APPROVE') {
-          direction = await this.directionService.resolveNextPunchDirection(
-            clientId,
-            'EMPLOYEE',
-            punch.employeeId,
-            punch.punchTime,
-            { endExclusive: punch.punchTime },
-          );
-        }
-        await manager.getRepository(MobileAttendancePunchEntity).update(
-          { id: punchId },
-          {
-            decision: newDecision,
-            direction,
-            reviewedBy: actorUserId,
-            reviewedAt: new Date(),
-            reviewNote: note ?? punch.reviewNote,
-          },
-        );
-        if (action === 'APPROVE') {
-          const [emp] = await manager.query<Array<{ employee_code: string }>>(
-            `SELECT employee_code FROM employees WHERE id = $1`,
-            [punch.employeeId],
-          );
-          await this.directionService.mirrorEmployeePunchToDailyAttendance(
-            {
-              clientId,
-              branchId: punch.branchId,
-              employeeCode: emp?.employee_code ?? punch.employeeId,
-              punchTime: punch.punchTime,
-              direction,
-              deviceId: punch.deviceId,
-              source: 'MOBILE_KIOSK',
-            },
-            manager,
-          );
-        }
-      });
-      return { ok: true, decision: newDecision };
-    }
 
     const punch = await this.contractorPunchRepo.findOne({
       where: { id: punchId, clientId },
@@ -191,12 +121,15 @@ export class PunchReviewService {
     punchId: string,
     allowedBranchIds: string[] | null = null,
   ): Promise<{ buffer: Buffer; contentType: string } | null> {
-    const punch =
-      subjectType === 'EMPLOYEE'
-        ? await this.punchRepo.findOne({ where: { id: punchId, clientId } })
-        : await this.contractorPunchRepo.findOne({
-            where: { id: punchId, clientId },
-          });
+    if (subjectType === 'EMPLOYEE') {
+      throw new ForbiddenException(
+        'ESS Mobile Attendance punch review has been retired',
+      );
+    }
+
+    const punch = await this.contractorPunchRepo.findOne({
+      where: { id: punchId, clientId },
+    });
     if (!punch) throw new NotFoundException('Punch not found');
     if (
       allowedBranchIds &&

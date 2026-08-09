@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { PunchReviewService } from './punch-review.service';
 
 describe('PunchReviewService', () => {
@@ -17,15 +18,9 @@ describe('PunchReviewService', () => {
       resolveNextPunchDirection: jest.fn(async () => 'OUT' as const),
       mirrorEmployeePunchToDailyAttendance: jest.fn(async () => undefined),
     };
-    const manager = {
-      getRepository: jest.fn(() => punchRepo),
-      query: jest.fn(async () => [{ employee_code: 'E001' }]),
-    };
     const dataSource = {
       query: jest.fn(),
-      transaction: jest.fn(async (cb: (m: typeof manager) => Promise<void>) =>
-        cb(manager),
-      ),
+      transaction: jest.fn(),
     };
 
     const service = new PunchReviewService(
@@ -42,124 +37,63 @@ describe('PunchReviewService', () => {
       contractorPunchRepo,
       directionService,
       dataSource,
-      manager,
     };
   };
 
-  it('approves a pending employee punch and mirrors attendance', async () => {
+  it('rejects employee punch review after ESS mobile retirement', async () => {
+    const { service, punchRepo } = makeService();
+
+    await expect(
+      service.reviewPunch(
+        'client-1',
+        'EMPLOYEE',
+        'punch-1',
+        'APPROVE',
+        'admin-1',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(punchRepo.findOne).not.toHaveBeenCalled();
+  });
+
+  it('approves a pending contractor punch', async () => {
     const punchTime = new Date('2026-08-09T12:30:00.000Z');
-    const { service, punchRepo, directionService } = makeService();
-    punchRepo.findOne.mockResolvedValue({
+    const { service, contractorPunchRepo, directionService } = makeService();
+    contractorPunchRepo.findOne.mockResolvedValue({
       id: 'punch-1',
       clientId: 'client-1',
-      employeeId: 'employee-1',
+      contractorEmployeeId: 'contractor-1',
       branchId: 'branch-1',
-      deviceId: 'device-1',
       punchTime,
       decision: 'REVIEW_PENDING',
-      reviewNote: 'borderline',
     });
 
     const result = await service.reviewPunch(
       'client-1',
-      'EMPLOYEE',
+      'CONTRACTOR',
       'punch-1',
       'APPROVE',
       'admin-1',
-      'looks ok',
     );
 
     expect(result).toEqual({ ok: true, decision: 'REVIEW_APPROVED' });
     expect(directionService.resolveNextPunchDirection).toHaveBeenCalledWith(
       'client-1',
-      'EMPLOYEE',
-      'employee-1',
+      'CONTRACTOR',
+      'contractor-1',
       punchTime,
       { endExclusive: punchTime },
     );
-    expect(directionService.mirrorEmployeePunchToDailyAttendance).toHaveBeenCalledWith(
-      expect.objectContaining({
-        clientId: 'client-1',
-        branchId: 'branch-1',
-        employeeCode: 'E001',
-        direction: 'OUT',
-        source: 'MOBILE_KIOSK',
-      }),
-      expect.anything(),
-    );
-    expect(punchRepo.update).toHaveBeenCalledWith(
-      { id: 'punch-1' },
-      expect.objectContaining({
-        decision: 'REVIEW_APPROVED',
-        direction: 'OUT',
-        reviewedBy: 'admin-1',
-      }),
-    );
+    expect(contractorPunchRepo.update).toHaveBeenCalled();
   });
 
-  it('rejects a pending employee punch without mirroring attendance', async () => {
-    const { service, punchRepo, directionService } = makeService();
-    punchRepo.findOne.mockResolvedValue({
-      id: 'punch-1',
-      clientId: 'client-1',
-      employeeId: 'employee-1',
-      branchId: 'branch-1',
-      deviceId: 'device-1',
-      punchTime: new Date(),
-      decision: 'REVIEW_PENDING',
-    });
+  it('lists contractor review punches only', async () => {
+    const { service, dataSource } = makeService();
+    dataSource.query.mockResolvedValue([]);
 
-    const result = await service.reviewPunch(
-      'client-1',
-      'EMPLOYEE',
-      'punch-1',
-      'REJECT',
-      'admin-1',
-    );
+    await service.listReviewPunches('client-1');
 
-    expect(result).toEqual({ ok: true, decision: 'REVIEW_REJECTED' });
-    expect(directionService.mirrorEmployeePunchToDailyAttendance).not.toHaveBeenCalled();
-  });
-
-  it('refuses to review a punch that is not pending', async () => {
-    const { service, punchRepo } = makeService();
-    punchRepo.findOne.mockResolvedValue({
-      id: 'punch-1',
-      clientId: 'client-1',
-      decision: 'ACCEPTED',
-    });
-
-    await expect(
-      service.reviewPunch(
-        'client-1',
-        'EMPLOYEE',
-        'punch-1',
-        'APPROVE',
-        'admin-1',
-      ),
-    ).rejects.toThrow('not pending review');
-  });
-
-  it('hides out-of-branch punches from branch users', async () => {
-    const { service, punchRepo } = makeService();
-    punchRepo.findOne.mockResolvedValue({
-      id: 'punch-1',
-      clientId: 'client-1',
-      employeeId: 'employee-1',
-      branchId: 'branch-2',
-      decision: 'REVIEW_PENDING',
-    });
-
-    await expect(
-      service.reviewPunch(
-        'client-1',
-        'EMPLOYEE',
-        'punch-1',
-        'APPROVE',
-        'admin-1',
-        undefined,
-        ['branch-1'],
-      ),
-    ).rejects.toThrow('Punch not found');
+    const [sql] = dataSource.query.mock.calls[0];
+    expect(sql).toContain('contractor_biometric_punches');
+    expect(sql).not.toContain('mobile_attendance_punches');
   });
 });
