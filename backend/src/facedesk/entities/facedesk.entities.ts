@@ -60,6 +60,9 @@ export class FaceDeskDeviceEntity {
   @Column({ name: 'app_version', type: 'varchar', length: 40, nullable: true })
   appVersion: string | null;
 
+  @Column({ name: 'offline_queue_depth', type: 'int', nullable: true })
+  offlineQueueDepth: number | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

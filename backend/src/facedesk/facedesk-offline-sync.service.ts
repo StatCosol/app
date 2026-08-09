@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import { HttpException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { MarkAttendanceDto } from './facedesk.dto';
 import { FaceDeskAttendanceService } from './facedesk-attendance.service';
@@ -42,6 +43,17 @@ function classifyOfflineResult(
   if (res.status === 'RETRY') return 'RETRY';
   if (res.status === 'REVIEW') return 'REVIEW';
   return 'DROPPED';
+}
+
+/** Operational/transient failures should stay on the kiosk queue; 4xx rejections do not. */
+function isTransientOfflineError(err: unknown): boolean {
+  if (err instanceof HttpException) {
+    const status = err.getStatus();
+    if (status === 408 || status === 429) return true;
+    if (status >= 500) return true;
+    return false;
+  }
+  return true;
 }
 
 @Injectable()
@@ -88,15 +100,21 @@ export class FaceDeskOfflineSyncService {
             synced++;
             break;
           case 'RETRY':
+            // Legacy kiosks (<0.7.3) clear the queue when failed == 0.
+            failed++;
             break;
           default:
             failed++;
         }
       } catch (err) {
-        this.logger.warn(`offline punch failed: ${(err as Error)?.message}`);
+        const transient = isTransientOfflineError(err);
+        const status: OfflinePunchSyncStatus = transient ? 'RETRY' : 'DROPPED';
+        this.logger.warn(
+          `offline punch ${status.toLowerCase()}: ${(err as Error)?.message}`,
+        );
         results.push({
           offlineRef: ref,
-          status: 'DROPPED',
+          status,
           message: (err as Error)?.message,
         });
         failed++;

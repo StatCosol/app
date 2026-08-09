@@ -115,6 +115,33 @@ class FaceDeskOfflineStore(private val context: Context) {
         )
     }
 
+    /**
+     * Apply batch/per-punch flush results without clobbering punches enqueued
+     * while the flush was in flight. Only [snapshot] refs are removed unless
+     * they appear in [retryRefs].
+     */
+    @Synchronized
+    fun finishFlush(
+        snapshot: List<MarkAttendanceRequest>,
+        retryRefs: Set<String>,
+    ) {
+        val snapshotRefSet = snapshot.mapNotNull { it.offlineRef }.toSet()
+        if (snapshotRefSet.isEmpty()) return
+        val retryByRef = snapshot
+            .filter { it.offlineRef != null && it.offlineRef in retryRefs }
+            .associateBy { it.offlineRef!! }
+        val kept = mutableListOf<MarkAttendanceRequest>()
+        for (req in peekAll()) {
+            val ref = req.offlineRef
+            when {
+                ref == null -> kept.add(req)
+                ref !in snapshotRefSet -> kept.add(req)
+                ref in retryRefs -> retryByRef[ref]?.let { kept.add(it) }
+            }
+        }
+        replaceAll(kept)
+    }
+
     companion object {
         private const val TAG = "FaceDeskOffline"
     }

@@ -40,6 +40,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
+        android:layout_marginBottom="40dp"
         android:background="@drawable/bg_kiosk_scrim"
         android:orientation="vertical"
         android:padding="24dp">
@@ -65,4 +66,6 @@
             android:textSize="18sp"
             android:textStyle="bold" />
     </LinearLayout>
+
+    <include layout="@layout/include_kiosk_footer" />
 </FrameLayout>

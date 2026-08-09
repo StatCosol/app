@@ -1,4 +1,5 @@
 import { FaceDeskOfflineSyncService } from './facedesk-offline-sync.service';
+import { InternalServerErrorException } from '@nestjs/common';
 
 describe('FaceDeskOfflineSyncService', () => {
   const attendance = { markAttendance: jest.fn() };
@@ -26,7 +27,7 @@ describe('FaceDeskOfflineSyncService', () => {
     expect(res).toEqual(
       expect.objectContaining({
         synced: 1,
-        failed: 0,
+        failed: 1,
         results: [
           expect.objectContaining({ offlineRef: 'a', status: 'REVIEW' }),
           expect.objectContaining({ offlineRef: 'b', status: 'RETRY' }),
@@ -48,5 +49,21 @@ describe('FaceDeskOfflineSyncService', () => {
 
     expect(res.duplicateSkipped).toBe(1);
     expect(res.results[0]?.status).toBe('DUPLICATE');
+  });
+
+  it('reports transient markAttendance failures as RETRY', async () => {
+    attendance.markAttendance.mockRejectedValue(
+      new InternalServerErrorException('database unavailable'),
+    );
+
+    const service = makeService();
+    const res = await service.offlineSync('c1', 'b1', 'd1', [
+      { offlineRef: 'x', frames: [] } as any,
+    ]);
+
+    expect(res.results[0]).toEqual(
+      expect.objectContaining({ offlineRef: 'x', status: 'RETRY' }),
+    );
+    expect(res.failed).toBe(1);
   });
 });

@@ -166,4 +166,20 @@ describe('FaceDeskDeviceService', () => {
     );
     expect(repo.delete).not.toHaveBeenCalled();
   });
+
+  it('persists offline queue depth in device telemetry', async () => {
+    const { service, repo } = makeService();
+    await service.recordTelemetry('dev-1', {
+      appVersion: '0.7.4-kiosk',
+      offlineQueueDepth: 3,
+    });
+    expect(repo.update).toHaveBeenCalledWith(
+      { deviceId: 'dev-1' },
+      expect.objectContaining({
+        appVersion: '0.7.4-kiosk',
+        offlineQueueDepth: 3,
+        deviceStatus: 'ONLINE',
+      }),
+    );
+  });
 });

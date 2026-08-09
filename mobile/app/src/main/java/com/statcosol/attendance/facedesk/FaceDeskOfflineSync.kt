@@ -50,17 +50,16 @@ object FaceDeskOfflineSync {
             // Backward compat: older backends omit per-punch results.
             if (res.results.isEmpty()) {
                 if (res.failed == 0) {
-                    store.clear()
+                    store.finishFlush(pending, emptySet())
                     synced = pending.size
                     logOutcome(synced, 0, 0)
                     return Result(synced, 0, 0)
                 }
                 return Result(0, 0, pending.size)
             }
-            val retry = pending.filter { it.offlineRef in retryRefs }
-            store.replaceAll(retry)
-            logOutcome(synced, dropped, retry.size)
-            return Result(synced, dropped, retry.size)
+            store.finishFlush(pending, retryRefs)
+            logOutcome(synced, dropped, retryRefs.size)
+            return Result(synced, dropped, retryRefs.size)
         } catch (e: Exception) {
             Log.w(TAG, "batch offline sync failed, falling back to per-punch: ${e.message}")
         }
@@ -73,27 +72,35 @@ object FaceDeskOfflineSync {
         store: FaceDeskOfflineStore,
         pending: List<MarkAttendanceRequest>,
     ): Result {
-        val retry = mutableListOf<MarkAttendanceRequest>()
+        val retryRefs = mutableSetOf<String>()
         var synced = 0
         var dropped = 0
         for (req in pending) {
             try {
                 when (api.markAttendance(req).status) {
-                    "RETRY" -> retry.add(req)
+                    "RETRY" -> req.offlineRef?.let { retryRefs.add(it) }
                     else -> synced++
                 }
             } catch (e: FaceDeskApiException) {
-                dropped++
-                Log.w(TAG, "dropped offline punch ref=${req.offlineRef}: ${e.message}")
+                if (isTransientHttp(e.code)) {
+                    req.offlineRef?.let { retryRefs.add(it) }
+                    Log.w(TAG, "offline punch deferred ref=${req.offlineRef}: HTTP ${e.code}")
+                } else {
+                    dropped++
+                    Log.w(TAG, "dropped offline punch ref=${req.offlineRef}: HTTP ${e.code}")
+                }
             } catch (e: Exception) {
-                retry.add(req)
+                req.offlineRef?.let { retryRefs.add(it) }
                 Log.w(TAG, "offline punch deferred ref=${req.offlineRef}: ${e.message}")
             }
         }
-        store.replaceAll(retry)
-        logOutcome(synced, dropped, retry.size)
-        return Result(synced, dropped, retry.size)
+        store.finishFlush(pending, retryRefs)
+        logOutcome(synced, dropped, retryRefs.size)
+        return Result(synced, dropped, retryRefs.size)
     }
+
+    private fun isTransientHttp(code: Int): Boolean =
+        code == 408 || code == 429 || code >= 500
 
     private fun logOutcome(synced: Int, dropped: Int, remaining: Int) {
         when {

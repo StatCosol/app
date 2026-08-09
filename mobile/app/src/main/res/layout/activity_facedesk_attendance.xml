@@ -41,6 +41,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
+        android:layout_marginBottom="40dp"
         android:background="@drawable/bg_kiosk_scrim"
         android:gravity="center"
         android:paddingHorizontal="28dp"
@@ -49,6 +50,8 @@
         android:textColor="#FFFFFF"
         android:textSize="20sp"
         android:textStyle="bold" />
+
+    <include layout="@layout/include_kiosk_footer" />
 
     <include layout="@layout/include_kiosk_success_overlay" />
 </FrameLayout>
