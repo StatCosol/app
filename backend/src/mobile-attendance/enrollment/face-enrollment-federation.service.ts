@@ -48,6 +48,7 @@ export interface FederatedEnrollmentSummary {
 export interface FederatedEnrollmentResult {
   summary: FederatedEnrollmentSummary;
   items: FederatedEnrollmentItem[];
+  hasMore?: boolean;
 }
 
 @Injectable()
@@ -61,21 +62,56 @@ export class FaceEnrollmentFederationService {
       includeFacedesk: boolean;
       branchIds?: string[] | null;
       limit?: number;
+      offset?: number;
     },
   ): Promise<FederatedEnrollmentResult> {
     if (opts.branchIds?.length === 0) {
       return this.emptyResult();
     }
 
-    const limit = Math.min(5000, Math.max(1, opts.limit ?? 2000));
+    const branchIds = opts.branchIds ?? null;
+    const limit =
+      opts.limit !== undefined
+        ? Math.max(1, Math.floor(opts.limit))
+        : undefined;
+    const offset =
+      opts.offset !== undefined
+        ? Math.max(0, Math.floor(opts.offset))
+        : 0;
+
+    if (limit !== undefined) {
+      const [summary, rows] = await Promise.all([
+        this.fetchSummary(
+          clientId,
+          opts.includeMobile,
+          opts.includeFacedesk,
+          branchIds,
+        ),
+        this.listRows(
+          clientId,
+          opts.includeMobile,
+          opts.includeFacedesk,
+          branchIds,
+          limit + 1,
+          offset,
+        ),
+      ]);
+      const hasMore = rows.length > limit;
+      const pageRows = hasMore ? rows.slice(0, limit) : rows;
+      const items = pageRows.map((row) => this.mapRow(row, opts));
+      return {
+        summary,
+        items,
+        ...(hasMore ? { hasMore: true } : {}),
+      };
+    }
+
     const rows = await this.listRows(
       clientId,
       opts.includeMobile,
       opts.includeFacedesk,
-      opts.branchIds ?? null,
-      limit,
+      branchIds,
     );
-
     const items = rows.map((row) => this.mapRow(row, opts));
     return {
       summary: this.buildSummary(items, opts),
@@ -96,12 +132,101 @@ export class FaceEnrollmentFederationService {
     };
   }
 
+  private joinClause(
+    includeMobile: boolean,
+    includeFacedesk: boolean,
+  ): { mobileJoin: string; facedeskJoin: string } {
+    const mobileJoin = includeMobile
+      ? `LEFT JOIN face_enrollments fe
+           ON fe.employee_id = e.id
+          AND fe.client_id = e.client_id`
+      : '';
+    const facedeskJoin = includeFacedesk
+      ? `LEFT JOIN facedesk_employee_face_profiles p
+           ON p.employee_id = e.id
+          AND p.client_id = e.client_id`
+      : '';
+    return { mobileJoin, facedeskJoin };
+  }
+
+  private branchFilter(
+    params: unknown[],
+    branchIds: string[] | null,
+  ): string {
+    if (!branchIds || branchIds.length === 0) return '';
+    params.push(branchIds);
+    return ` AND e.branch_id = ANY($${params.length}::uuid[])`;
+  }
+
+  private async fetchSummary(
+    clientId: string,
+    includeMobile: boolean,
+    includeFacedesk: boolean,
+    branchIds: string[] | null,
+  ): Promise<FederatedEnrollmentSummary> {
+    const params: unknown[] = [clientId];
+    const branchFilter = this.branchFilter(params, branchIds);
+    const { mobileJoin, facedeskJoin } = this.joinClause(
+      includeMobile,
+      includeFacedesk,
+    );
+
+    const mobileActiveExpr = includeMobile
+      ? `fe.employee_id IS NOT NULL AND COALESCE(fe.is_active, false)`
+      : 'FALSE';
+    const facedeskEnrolledExpr = includeFacedesk
+      ? `COALESCE(p.enrollment_status, 'PENDING') = 'ENROLLED'`
+      : 'FALSE';
+
+    const [row] = await this.dataSource.query<
+      Array<{
+        totalEmployees: number;
+        mobileEnrolledActive: number;
+        facedeskEnrolled: number;
+        bothEnrolled: number;
+        pendingEither: number;
+      }>
+    >(
+      `SELECT COUNT(*)::int AS "totalEmployees",
+              COUNT(*) FILTER (WHERE ${mobileActiveExpr})::int AS "mobileEnrolledActive",
+              COUNT(*) FILTER (WHERE ${facedeskEnrolledExpr})::int AS "facedeskEnrolled",
+              COUNT(*) FILTER (WHERE ${mobileActiveExpr} AND ${facedeskEnrolledExpr})::int AS "bothEnrolled",
+              COUNT(*) FILTER (
+                WHERE NOT (${mobileActiveExpr} AND ${facedeskEnrolledExpr})
+                  AND NOT (
+                    ${includeMobile ? `fe.employee_id IS NOT NULL AND NOT COALESCE(fe.is_active, false)` : 'FALSE'}
+                    AND ${includeFacedesk ? `COALESCE(p.enrollment_status, 'PENDING') IN ('DEACTIVATED', 'BLOCKED')` : 'FALSE'}
+                    AND NOT ${facedeskEnrolledExpr}
+                    AND NOT ${mobileActiveExpr}
+                  )
+              )::int AS "pendingEither"
+         FROM employees e
+         ${mobileJoin}
+         ${facedeskJoin}
+        WHERE e.client_id = $1
+          AND e.is_active = TRUE
+          ${branchFilter}`,
+      params,
+    );
+
+    return (
+      row ?? {
+        totalEmployees: 0,
+        mobileEnrolledActive: 0,
+        facedeskEnrolled: 0,
+        bothEnrolled: 0,
+        pendingEither: 0,
+      }
+    );
+  }
+
   private async listRows(
     clientId: string,
     includeMobile: boolean,
     includeFacedesk: boolean,
     branchIds: string[] | null,
-    limit: number,
+    limit?: number,
+    offset = 0,
   ): Promise<
     Array<{
       employeeId: string;
@@ -117,11 +242,11 @@ export class FaceEnrollmentFederationService {
     }>
   > {
     const params: unknown[] = [clientId];
-    let branchFilter = '';
-    if (branchIds && branchIds.length > 0) {
-      params.push(branchIds);
-      branchFilter = ` AND e.branch_id = ANY($${params.length}::uuid[])`;
-    }
+    const branchFilter = this.branchFilter(params, branchIds);
+    const { mobileJoin, facedeskJoin } = this.joinClause(
+      includeMobile,
+      includeFacedesk,
+    );
 
     const mobileSelect = includeMobile
       ? `fe.employee_id IS NOT NULL AS "mobileIsEnrolled",
@@ -135,21 +260,14 @@ export class FaceEnrollmentFederationService {
 
     const facedeskSelect = includeFacedesk
       ? `COALESCE(p.enrollment_status, 'PENDING') AS "facedeskStatus",
-         p.enrolled_at AS "facedeskEnrolledAt"`
+         p.consent_given_at AS "facedeskEnrolledAt"`
       : `NULL::varchar AS "facedeskStatus",
          NULL::timestamptz AS "facedeskEnrolledAt"`;
 
-  const mobileJoin = includeMobile
-      ? `LEFT JOIN face_enrollments fe
-           ON fe.employee_id = e.id
-          AND fe.client_id = e.client_id`
-      : '';
-
-    const facedeskJoin = includeFacedesk
-      ? `LEFT JOIN facedesk_employee_face_profiles p
-           ON p.employee_id = e.id
-          AND p.client_id = e.client_id`
-      : '';
+    let pagination = '';
+    if (limit !== undefined) {
+      pagination = ` LIMIT $${params.push(limit)} OFFSET $${params.push(offset)}`;
+    }
 
     return this.dataSource.query(
       `SELECT e.id AS "employeeId",
@@ -165,7 +283,7 @@ export class FaceEnrollmentFederationService {
           AND e.is_active = TRUE
           ${branchFilter}
         ORDER BY e.employee_code ASC
-        LIMIT $${params.push(limit)}`,
+        ${pagination}`,
       params,
     );
   }

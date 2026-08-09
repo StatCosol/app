@@ -39,7 +39,6 @@ describe('FaceEnrollmentFederationService', () => {
     const result = await service.listFederated('client-1', {
       includeMobile: true,
       includeFacedesk: true,
-      limit: 100,
     });
 
     expect(result.summary).toEqual({
@@ -55,16 +54,57 @@ describe('FaceEnrollmentFederationService', () => {
       mobile: { isEnrolled: true, isActive: true },
       facedesk: { enrollmentStatus: 'PENDING' },
     });
-    expect(result.items[1]).toMatchObject({
-      employeeCode: 'E002',
-      overallStatus: 'PARTIAL',
-    });
     expect(String(dataSource.query.mock.calls[0][0])).toContain(
       'face_enrollments',
     );
     expect(String(dataSource.query.mock.calls[0][0])).toContain(
       'facedesk_employee_face_profiles',
     );
+    expect(String(dataSource.query.mock.calls[0][0])).toContain(
+      'p.consent_given_at AS "facedeskEnrolledAt"',
+    );
+    expect(String(dataSource.query.mock.calls[0][0])).not.toContain(' LIMIT ');
+  });
+
+  it('uses aggregate summary and pagination when limit is provided', async () => {
+    const { service, dataSource } = makeService();
+    dataSource.query
+      .mockResolvedValueOnce([
+        {
+          totalEmployees: 2500,
+          mobileEnrolledActive: 1200,
+          facedeskEnrolled: 900,
+          bothEnrolled: 800,
+          pendingEither: 1600,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          employeeId: 'emp-1',
+          employeeCode: 'E001',
+          employeeName: 'Alice',
+          branchId: 'branch-1',
+          mobileIsEnrolled: true,
+          mobileIsActive: true,
+          mobileEmbeddingModel: 'mobilefacenet',
+          mobileEnrolledAt: new Date('2026-08-01T10:00:00.000Z'),
+          facedeskStatus: 'ENROLLED',
+          facedeskEnrolledAt: new Date('2026-08-02T10:00:00.000Z'),
+        },
+      ]);
+
+    const result = await service.listFederated('client-1', {
+      includeMobile: true,
+      includeFacedesk: true,
+      limit: 100,
+      offset: 0,
+    });
+
+    expect(result.summary.totalEmployees).toBe(2500);
+    expect(result.items).toHaveLength(1);
+    expect(result.hasMore).toBeUndefined();
+    expect(String(dataSource.query.mock.calls[0][0])).toContain('COUNT(*)');
+    expect(String(dataSource.query.mock.calls[1][0])).toContain(' LIMIT ');
   });
 
   it('omits mobile joins when includeMobile is false', async () => {

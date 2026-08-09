@@ -28,6 +28,7 @@ export class MobileAttendanceEnrollmentFederationController {
   async listFederated(
     @CurrentUser() user: ReqUser,
     @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
     const clientId = requireMobileAttendanceClient(user);
     await this.entitlements.assertAnyModule(clientId, [
@@ -43,7 +44,8 @@ export class MobileAttendanceEnrollmentFederationController {
       includeMobile,
       includeFacedesk,
       branchIds,
-      limit: limit ? Number(limit) : undefined,
+      limit: limit !== undefined ? Number(limit) : undefined,
+      offset: offset !== undefined ? Number(offset) : undefined,
     });
   }
 }

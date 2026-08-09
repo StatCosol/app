@@ -139,4 +139,27 @@ describe('PunchReviewService', () => {
       ),
     ).rejects.toThrow('not pending review');
   });
+
+  it('hides out-of-branch punches from branch users', async () => {
+    const { service, punchRepo } = makeService();
+    punchRepo.findOne.mockResolvedValue({
+      id: 'punch-1',
+      clientId: 'client-1',
+      employeeId: 'employee-1',
+      branchId: 'branch-2',
+      decision: 'REVIEW_PENDING',
+    });
+
+    await expect(
+      service.reviewPunch(
+        'client-1',
+        'EMPLOYEE',
+        'punch-1',
+        'APPROVE',
+        'admin-1',
+        undefined,
+        ['branch-1'],
+      ),
+    ).rejects.toThrow('Punch not found');
+  });
 });

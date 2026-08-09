@@ -162,6 +162,7 @@ export class MobileAttendancePunchesController {
       body.action,
       user.id,
       body.note,
+      mobileAttendanceBranchScope(user),
     );
   }
 

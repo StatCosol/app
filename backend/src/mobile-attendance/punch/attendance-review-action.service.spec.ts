@@ -30,6 +30,7 @@ describe('AttendanceReviewActionService', () => {
       'APPROVE',
       'user-1',
       'ok',
+      null,
     );
     expect(facedeskAdmin.actOnReview).not.toHaveBeenCalled();
   });
@@ -59,6 +60,38 @@ describe('AttendanceReviewActionService', () => {
       'review-1',
       'user-1',
       { action: 'REJECT', remarks: 'mismatch' },
+      ['branch-1'],
+    );
+  });
+
+  it('forwards branch scope to mobile punch review', async () => {
+    const punchReview = {
+      reviewPunch: jest
+        .fn()
+        .mockResolvedValue({ ok: true, decision: 'REVIEW_APPROVED' }),
+    };
+    const facedeskAdmin = { actOnReview: jest.fn() };
+    const service = new AttendanceReviewActionService(
+      punchReview as any,
+      facedeskAdmin as any,
+    );
+
+    await service.actOnFederatedItem(
+      'client-1',
+      'MOBILE_BORDERLINE',
+      'punch-1',
+      'user-1',
+      { action: 'APPROVE' },
+      ['branch-1'],
+    );
+
+    expect(punchReview.reviewPunch).toHaveBeenCalledWith(
+      'client-1',
+      'EMPLOYEE',
+      'punch-1',
+      'APPROVE',
+      'user-1',
+      undefined,
       ['branch-1'],
     );
   });

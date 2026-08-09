@@ -38,6 +38,7 @@ export class AttendanceReviewActionService {
         dto.action,
         actorUserId,
         dto.note,
+        branchIds,
       );
       return { ok: true, decision: result.decision };
     }
