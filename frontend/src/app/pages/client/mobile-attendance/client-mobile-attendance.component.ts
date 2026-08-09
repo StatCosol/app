@@ -27,6 +27,8 @@ import {
   ReenrollRequestStatus,
   FederatedReviewItem,
   FederatedReviewSummary,
+  FederatedEnrollmentItem,
+  FederatedEnrollmentSummary,
   ReviewPunchRow,
 } from './client-mobile-attendance.service';
 
@@ -201,9 +203,17 @@ interface BranchOption { id: string; name: string }
 
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div class="text-sm text-gray-700">
-            <span class="font-semibold text-gray-900">{{ enrolledCount }}</span> enrolled ·
-            <span class="font-semibold text-amber-700">{{ pendingCount }}</span> pending ·
-            <span class="text-gray-500">{{ enrollmentRows.length }} total</span>
+            @if (hasFederatedEnrollment && federatedEnrollmentSummary) {
+              <span class="font-semibold text-gray-900">{{ federatedEnrollmentSummary.mobileEnrolledActive }}</span> mobile ESS ·
+              <span class="font-semibold text-indigo-700">{{ federatedEnrollmentSummary.facedeskEnrolled }}</span> kiosk ·
+              <span class="font-semibold text-green-700">{{ federatedEnrollmentSummary.bothEnrolled }}</span> both ·
+              <span class="font-semibold text-amber-700">{{ federatedEnrollmentSummary.pendingEither }}</span> pending/partial ·
+              <span class="text-gray-500">{{ federatedEnrollmentSummary.totalEmployees }} total</span>
+            } @else {
+              <span class="font-semibold text-gray-900">{{ enrolledCount }}</span> enrolled ·
+              <span class="font-semibold text-amber-700">{{ pendingCount }}</span> pending ·
+              <span class="text-gray-500">{{ enrollmentRows.length }} total</span>
+            }
           </div>
           <div class="flex items-center gap-2">
             <input type="text" placeholder="Search code or name…" [(ngModel)]="statusSearch"
@@ -222,7 +232,15 @@ interface BranchOption { id: string; name: string }
 <ui-loading-spinner text="Loading enrollments..." size="lg"></ui-loading-spinner>
 }
 
-        @if (!loadingEnrollments && enrollmentRows.length === 0) {
+        @if (!loadingEnrollments && hasFederatedEnrollment && federatedEnrollmentSummary) {
+          <div class="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+            Enrollment is stored separately for ESS mobile/offline kiosk (<strong>face_enrollments</strong>)
+            and shared kiosk tablets (<strong>FaceDesk profiles</strong>). This view merges read-only status;
+            enroll or deactivate in each module's admin surface.
+          </div>
+        }
+
+        @if (!loadingEnrollments && enrollmentRows.length === 0 && !hasFederatedEnrollment) {
 <ui-empty-state
          
           title="No employees found"
@@ -230,7 +248,81 @@ interface BranchOption { id: string; name: string }
         </ui-empty-state>
 }
 
-        @if (!loadingEnrollments && filteredEnrollments.length > 0) {
+        @if (!loadingEnrollments && hasFederatedEnrollment && federatedEnrollmentRows.length === 0) {
+<ui-empty-state
+         
+          title="No employees found"
+          description="There are no active employees in the selected scope.">
+        </ui-empty-state>
+}
+
+        @if (!loadingEnrollments && hasFederatedEnrollment && filteredFederatedEnrollments.length > 0) {
+<div
+             class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-gray-50 border-b border-gray-200">
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Code</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Employee</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Branch</th>
+                <th class="text-center px-4 py-3 font-semibold text-gray-700">Mobile ESS</th>
+                <th class="text-center px-4 py-3 font-semibold text-gray-700">FaceDesk Kiosk</th>
+                <th class="text-center px-4 py-3 font-semibold text-gray-700">Overall</th>
+                <th class="text-right px-4 py-3 font-semibold text-gray-700">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of filteredFederatedEnrollments; track r.employeeId) {
+<tr class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="px-4 py-3 text-gray-700 font-mono text-xs">{{ r.employeeCode }}</td>
+                <td class="px-4 py-3 text-gray-900 font-medium">{{ r.employeeName }}</td>
+                <td class="px-4 py-3 text-gray-700">{{ branchName(r.branchId) }}</td>
+                <td class="px-4 py-3 text-center">
+                  @if (r.mobile?.isEnrolled && r.mobile?.isActive) {
+<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Enrolled</span>
+} @else if (r.mobile?.isEnrolled && !r.mobile?.isActive) {
+<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Deactivated</span>
+} @else {
+<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pending</span>
+}
+                </td>
+                <td class="px-4 py-3 text-center">
+                  @if (r.facedesk?.enrollmentStatus === 'ENROLLED') {
+<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Enrolled</span>
+} @else if (r.facedesk?.enrollmentStatus === 'DEACTIVATED' || r.facedesk?.enrollmentStatus === 'BLOCKED') {
+<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">{{ r.facedesk?.enrollmentStatus }}</span>
+} @else {
+<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pending</span>
+}
+                </td>
+                <td class="px-4 py-3 text-center">
+                  @if (r.overallStatus === 'FULLY_ENROLLED') {
+<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Both</span>
+} @else if (r.overallStatus === 'PARTIAL') {
+<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Partial</span>
+} @else if (r.overallStatus === 'DEACTIVATED') {
+<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Deactivated</span>
+} @else {
+<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pending</span>
+}
+                </td>
+                <td class="px-4 py-3 text-right whitespace-nowrap text-xs">
+                  <a routerLink="/client/facedesk" [queryParams]="{ tab: 'pending' }" class="text-indigo-600 hover:underline mr-2">Kiosk</a>
+                  @if (r.mobile?.isEnrolled && r.mobile?.isActive) {
+<button class="text-xs text-amber-700 hover:underline mr-2" (click)="deactivate(federatedAsEnrollmentRow(r))">Deactivate mobile</button>
+}
+                  @if (r.mobile?.isEnrolled) {
+<button class="text-xs text-red-600 hover:underline" (click)="hardDeleteEnrollment(federatedAsEnrollmentRow(r))">Delete mobile</button>
+}
+                </td>
+              </tr>
+}
+            </tbody>
+          </table>
+        </div>
+}
+
+        @if (!loadingEnrollments && !hasFederatedEnrollment && filteredEnrollments.length > 0) {
 <div
              class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
           <table class="w-full text-sm">
@@ -293,7 +385,12 @@ interface BranchOption { id: string; name: string }
         </div>
 }
 
-        @if (!loadingEnrollments && enrollmentRows.length > 0 && filteredEnrollments.length === 0) {
+        @if (!loadingEnrollments && enrollmentRows.length > 0 && filteredEnrollments.length === 0 && !hasFederatedEnrollment) {
+<div
+             class="text-sm text-gray-500 mt-4">No employees match the current filter.</div>
+}
+
+        @if (!loadingEnrollments && hasFederatedEnrollment && federatedEnrollmentRows.length > 0 && filteredFederatedEnrollments.length === 0) {
 <div
              class="text-sm text-gray-500 mt-4">No employees match the current filter.</div>
 }
@@ -915,6 +1012,8 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
 
   // Enrollment status tab
   enrollmentRows: EnrollmentStatusRow[] = [];
+  federatedEnrollmentRows: FederatedEnrollmentItem[] = [];
+  federatedEnrollmentSummary: FederatedEnrollmentSummary | null = null;
   loadingEnrollments = false;
   statusFilter: 'all' | 'pending' | 'enrolled' | 'deactivated' = 'all';
   statusSearch = '';
@@ -971,6 +1070,10 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       this.hasEmployeeMobileAttendanceModule &&
       this.hasContractorFaceAttendanceModule
     );
+  }
+
+  get hasFederatedEnrollment(): boolean {
+    return this.hasFederatedReview;
   }
 
   get showReviewEmptyState(): boolean {
@@ -1533,16 +1636,64 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   loadEnrollments(silent = false): void {
     if (!this.hasEmployeeMobileAttendanceModule) {
       this.enrollmentRows = [];
+      this.federatedEnrollmentRows = [];
+      this.federatedEnrollmentSummary = null;
       return;
     }
     if (this.loadingEnrollments) return;
     if (!silent) this.loadingEnrollments = true;
-    this.svc.listEnrollments()
+    const request$ = this.hasFederatedEnrollment
+      ? this.svc.listFederatedEnrollment()
+      : this.svc.listEnrollments();
+    request$
       .pipe(takeUntil(this.destroy$), finalize(() => { if (!silent) this.loadingEnrollments = false; this.bump(); }))
       .subscribe({
-        next: (rows) => { this.enrollmentRows = rows || []; this.bump(); },
+        next: (rows) => {
+          if (this.hasFederatedEnrollment) {
+            const response = rows as { summary: FederatedEnrollmentSummary; items: FederatedEnrollmentItem[] };
+            this.federatedEnrollmentSummary = response.summary;
+            this.federatedEnrollmentRows = response.items || [];
+            this.enrollmentRows = this.federatedEnrollmentRows.map((item) =>
+              this.federatedAsEnrollmentRow(item),
+            );
+          } else {
+            this.federatedEnrollmentSummary = null;
+            this.federatedEnrollmentRows = [];
+            this.enrollmentRows = (rows as EnrollmentStatusRow[]) || [];
+          }
+          this.bump();
+        },
         error: (e) => { if (!silent) this.toast.error(e?.error?.message || 'Failed to load enrollments'); this.bump(); },
       });
+  }
+
+  federatedAsEnrollmentRow(item: FederatedEnrollmentItem): EnrollmentStatusRow {
+    return {
+      employeeId: item.employeeId,
+      employeeCode: item.employeeCode,
+      employeeName: item.employeeName,
+      branchId: item.branchId,
+      isEnrolled: Boolean(item.mobile?.isEnrolled),
+      isActive: Boolean(item.mobile?.isActive),
+      embeddingModel: item.mobile?.embeddingModel ?? null,
+      enrolledAt: item.mobile?.enrolledAt ?? null,
+      deactivatedAt: null,
+      deactivationReason: null,
+    };
+  }
+
+  get filteredFederatedEnrollments(): FederatedEnrollmentItem[] {
+    const q = this.statusSearch.trim().toLowerCase();
+    return this.federatedEnrollmentRows.filter((r) => {
+      const mobileEnrolled = Boolean(r.mobile?.isEnrolled && r.mobile?.isActive);
+      const facedeskEnrolled = r.facedesk?.enrollmentStatus === 'ENROLLED';
+      const mobileDeactivated = Boolean(r.mobile?.isEnrolled && !r.mobile?.isActive);
+      if (this.statusFilter === 'pending' && (mobileEnrolled || facedeskEnrolled)) return false;
+      if (this.statusFilter === 'enrolled' && !(mobileEnrolled || facedeskEnrolled)) return false;
+      if (this.statusFilter === 'deactivated' && !mobileDeactivated && r.facedesk?.enrollmentStatus !== 'DEACTIVATED') return false;
+      if (q && !(r.employeeCode.toLowerCase().includes(q) || r.employeeName.toLowerCase().includes(q))) return false;
+      return true;
+    });
   }
 
   get enrolledCount(): number {

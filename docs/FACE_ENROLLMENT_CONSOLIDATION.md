@@ -1,6 +1,6 @@
 # ADR: Face enrollment storage consolidation (mobile vs FaceDesk)
 
-**Status:** Proposed — awaiting product decision  
+**Status:** Proposed — Phase 1 read federation **shipped**; Phases 2+ awaiting product decision  
 **Date:** 2026-08-09  
 **Context:** Face-attendance engineering track #485–#500 shipped review federation, roster crypto, and V1 kiosk restore. Enrollment storage remains split.
 
@@ -56,7 +56,7 @@ Operators with **both** `MOBILE_ATTENDANCE` and `CONTRACTOR_FACE_ATTENDANCE` see
 | Phase | Scope | Rollback |
 |-------|--------|----------|
 | **0** | This ADR + operator docs (`ATTENDANCE_SYSTEMS.md`) | N/A |
-| **1** | Federated enrollment **read** API + client “enrollment status” column | Disable endpoint |
+| **1** | Federated enrollment **read** API + client “enrollment status” column | **Shipped** — `GET /api/v1/mobile-attendance/enrollment-federation` |
 | **2** | Dual-write on new enroll (feature flag per client) | Flag off |
 | **3** | Backfill job: copy mobile → unified or FaceDesk → unified with `embedding_model` tag | Restore from legacy tables (keep read-only copies) |
 | **4** | Switch roster + FaceDesk gallery to unified read; deprecate legacy write APIs | Re-enable legacy writers |
@@ -76,6 +76,7 @@ Operators with **both** `MOBILE_ATTENDANCE` and `CONTRACTOR_FACE_ATTENDANCE` see
 - Mobile: `backend/src/mobile-attendance/enrollment/`, `face_enrollments`
 - FaceDesk: `backend/src/facedesk/facedesk-enrollment.service.ts`, `facedesk_employee_face_profiles`
 - Review federation (pattern): `backend/src/mobile-attendance/punch/attendance-review-federation.service.ts`
+- Enrollment federation: `backend/src/mobile-attendance/enrollment/face-enrollment-federation.service.ts`
 - Architecture overview: `docs/ATTENDANCE_SYSTEMS.md`
 
 ## Decision log
@@ -83,3 +84,4 @@ Operators with **both** `MOBILE_ATTENDANCE` and `CONTRACTOR_FACE_ATTENDANCE` see
 | Date | Decision |
 |------|----------|
 | 2026-08-09 | ADR drafted; **no schema merge** until product answers open questions |
+| 2026-08-09 | Phase 1 federated enrollment read API + dual-module Enrollment Status UI shipped |

@@ -99,6 +99,6 @@ import { FaceDeskTicketService } from './facedesk-ticket.service';
     // Azure Face Liveness provider) without touching the attendance service.
     { provide: FACEDESK_LIVENESS_PROVIDER, useClass: DeviceLivenessProvider },
   ],
-  exports: [FaceDeskSettingsService],
+  exports: [FaceDeskSettingsService, FaceDeskAdminService],
 })
 export class FaceDeskModule {}
