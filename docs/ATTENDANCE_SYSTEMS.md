@@ -53,6 +53,6 @@ StatComPy currently runs **two parallel face stacks**. Do not merge storage with
 - **Unified review inbox (dual-module clients):** ESS Mobile Attendance → Punch Review shows a federated summary badge plus a read-only FaceDesk verification table with deep links. Approve/reject still uses each queue's native APIs.
 
 ### Consolidation blockers (product decision required)
-1. **Enrollment tables** — `face_enrollments` vs `facedesk_employee_face_profiles` (different embedding models, consent audit, contractor paths).
+1. **Enrollment tables** — `face_enrollments` vs `facedesk_employee_face_profiles` (different embedding models, consent audit, contractor paths). See **[FACE_ENROLLMENT_CONSOLIDATION.md](./FACE_ENROLLMENT_CONSOLIDATION.md)** for options and phased rollout (ADR — no merge until product sign-off).
 2. **Review queues** — federated read API and dual-module inbox shipped; single approve/reject handler across both queues remains future work.
 3. **Offline kiosk** — V1 roster path restored on Android (`#496`); FaceDesk remains the default provision flow for new shared tablets.
