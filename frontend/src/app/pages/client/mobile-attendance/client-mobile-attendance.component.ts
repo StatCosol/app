@@ -1642,28 +1642,42 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     }
     if (this.loadingEnrollments) return;
     if (!silent) this.loadingEnrollments = true;
-    const request$ = this.hasFederatedEnrollment
-      ? this.svc.listFederatedEnrollment()
-      : this.svc.listEnrollments();
-    request$
-      .pipe(takeUntil(this.destroy$), finalize(() => { if (!silent) this.loadingEnrollments = false; this.bump(); }))
-      .subscribe({
-        next: (rows) => {
-          if (this.hasFederatedEnrollment) {
-            const response = rows as { summary: FederatedEnrollmentSummary; items: FederatedEnrollmentItem[] };
+    const finalizeLoad = () => {
+      if (!silent) this.loadingEnrollments = false;
+      this.bump();
+    };
+    const handleError = (e: { error?: { message?: string } }) => {
+      if (!silent) this.toast.error(e?.error?.message || 'Failed to load enrollments');
+      this.bump();
+    };
+
+    if (this.hasFederatedEnrollment) {
+      this.svc.listFederatedEnrollment()
+        .pipe(takeUntil(this.destroy$), finalize(finalizeLoad))
+        .subscribe({
+          next: (response) => {
             this.federatedEnrollmentSummary = response.summary;
             this.federatedEnrollmentRows = response.items || [];
             this.enrollmentRows = this.federatedEnrollmentRows.map((item) =>
               this.federatedAsEnrollmentRow(item),
             );
-          } else {
-            this.federatedEnrollmentSummary = null;
-            this.federatedEnrollmentRows = [];
-            this.enrollmentRows = (rows as EnrollmentStatusRow[]) || [];
-          }
+            this.bump();
+          },
+          error: handleError,
+        });
+      return;
+    }
+
+    this.svc.listEnrollments()
+      .pipe(takeUntil(this.destroy$), finalize(finalizeLoad))
+      .subscribe({
+        next: (rows) => {
+          this.federatedEnrollmentSummary = null;
+          this.federatedEnrollmentRows = [];
+          this.enrollmentRows = rows || [];
           this.bump();
         },
-        error: (e) => { if (!silent) this.toast.error(e?.error?.message || 'Failed to load enrollments'); this.bump(); },
+        error: handleError,
       });
   }
 
