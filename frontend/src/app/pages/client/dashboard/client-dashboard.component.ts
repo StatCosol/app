@@ -217,7 +217,7 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
     if (this.hasEmployeeComplianceModule) chips.push('Employee Compliance');
     if (this.hasContractorModule) chips.push('Contractor');
     if (this.hasPayrollModule) chips.push('Payroll');
-    if (this.auth.hasAnyModule(['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])) chips.push('Attendance');
+    if (this.auth.hasModule('CONTRACTOR_FACE_ATTENDANCE')) chips.push('Kiosk Attendance');
     return chips;
   }
 

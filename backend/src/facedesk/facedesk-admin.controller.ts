@@ -21,6 +21,8 @@ import {
 } from './facedesk.dto';
 import {
   facedeskBranchScope,
+  facedeskVerificationPhotosAllowed,
+  requireFaceDeskBranchVerifier,
   requireFaceDeskClient,
   requireFaceDeskClientAdmin,
 } from './facedesk-controller.helpers';
@@ -63,12 +65,23 @@ export class FaceDeskAdminController {
   @ApiOperation({ summary: 'List review queue' })
   @Get('admin/review-queue')
   @Roles('CLIENT', 'ADMIN')
-  reviewQueue(@CurrentUser() user: ReqUser, @Query('status') status?: string) {
-    return this.admin.listReviewQueue(
+  async reviewQueue(
+    @CurrentUser() user: ReqUser,
+    @Query('status') status?: string,
+  ) {
+    const rows = await this.admin.listReviewQueue(
       requireFaceDeskClient(user),
       status,
       facedeskBranchScope(user),
     );
+    if (!facedeskVerificationPhotosAllowed(user)) {
+      return rows.map((row: Record<string, unknown>) => ({
+        ...row,
+        photoUrl: null,
+        hasEnrolledPhoto: false,
+      }));
+    }
+    return rows;
   }
 
   @ApiOperation({ summary: 'Act on a review item' })
@@ -99,7 +112,7 @@ export class FaceDeskAdminController {
     const photo = await this.admin.getReviewPhoto(
       requireFaceDeskClient(user),
       reviewId,
-      facedeskBranchScope(user),
+      requireFaceDeskBranchVerifier(user),
     );
     if (!photo) throw new NotFoundException('Photo not available');
     res.setHeader('Content-Type', photo.contentType);
@@ -120,7 +133,7 @@ export class FaceDeskAdminController {
     const photo = await this.admin.getReviewEnrollmentPhoto(
       requireFaceDeskClient(user),
       reviewId,
-      facedeskBranchScope(user),
+      requireFaceDeskBranchVerifier(user),
     );
     if (!photo) throw new NotFoundException('Enrollment photo not available');
     res.setHeader('Content-Type', photo.contentType);

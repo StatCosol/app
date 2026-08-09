@@ -75,7 +75,6 @@ const BLOCKED_ROUTE_MODULES: Array<[RegExp, ServiceModuleRequirement]> = [
       'EMPLOYEE_COMPLIANCE',
       'CONTRACTOR_AUDIT',
       'CONTRACTOR_DOCUMENTS',
-      'MOBILE_ATTENDANCE',
       'CONTRACTOR_FACE_ATTENDANCE',
     ],
   ],
@@ -99,18 +98,9 @@ const BLOCKED_ROUTE_MODULES: Array<[RegExp, ServiceModuleRequirement]> = [
   [/^\/?(api\/v1\/)?compliance-notifications\b/i, 'EMPLOYEE_COMPLIANCE'],
   [/^\/?(api\/v1\/)?client\/biometric\b/i, 'EMPLOYEE_ATTENDANCE'],
   [/^\/?(api\/v1\/)?facedesk\b/i, 'CONTRACTOR_FACE_ATTENDANCE'],
-  [/^\/?(api\/v1\/)?client\/mobile-attendance\b/i, 'MOBILE_ATTENDANCE'],
   [
     /^\/?(api\/v1\/)?mobile-attendance\/devices\b/i,
     'CONTRACTOR_FACE_ATTENDANCE',
-  ],
-  [
-    /^\/?(api\/v1\/)?mobile-attendance\/enrollment\/self\b/i,
-    'MOBILE_ATTENDANCE',
-  ],
-  [
-    /^\/?(api\/v1\/)?mobile-attendance\/enrollment\/employees\b/i,
-    'MOBILE_ATTENDANCE',
   ],
   [
     /^\/?(api\/v1\/)?mobile-attendance\/enrollment\/contractors\b/i,
@@ -118,7 +108,7 @@ const BLOCKED_ROUTE_MODULES: Array<[RegExp, ServiceModuleRequirement]> = [
   ],
   [
     /^\/?(api\/v1\/)?mobile-attendance\/enrollment\/(kiosk|deactivate)\b/i,
-    ['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'],
+    'CONTRACTOR_FACE_ATTENDANCE',
   ],
   [
     /^\/?(api\/v1\/)?mobile-attendance\/punches\/contractor\b/i,
@@ -129,7 +119,6 @@ const BLOCKED_ROUTE_MODULES: Array<[RegExp, ServiceModuleRequirement]> = [
 const MOBILE_ATTENDANCE_DEVICE_LIST_PATTERN =
   /^\/?(api\/v1\/)?mobile-attendance\/devices\/?$/i;
 const MOBILE_ATTENDANCE_DEVICE_LIST_MODULES: ServiceModuleCode[] = [
-  'MOBILE_ATTENDANCE',
   'CONTRACTOR_FACE_ATTENDANCE',
 ];
 

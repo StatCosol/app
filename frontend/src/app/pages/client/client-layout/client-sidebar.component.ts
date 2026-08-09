@@ -682,12 +682,10 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
         'EMPLOYEE_COMPLIANCE',
         'CONTRACTOR_AUDIT',
         'CONTRACTOR_DOCUMENTS',
-        'MOBILE_ATTENDANCE',
         'CONTRACTOR_FACE_ATTENDANCE',
       ];
     }
-    if (route.startsWith('/client/mobile-attendance')) return ['MOBILE_ATTENDANCE'];
-    if (route.startsWith('/client/face-failures')) return ['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'];
+    if (route.startsWith('/client/face-failures')) return ['CONTRACTOR_FACE_ATTENDANCE'];
     if (route.startsWith('/client/facedesk')) return ['CONTRACTOR_FACE_ATTENDANCE'];
     if (route.startsWith('/client/payroll') || route.startsWith('/client/ctc-summary') || route.startsWith('/client/registers')) return ['PAYROLL'];
     if (route.startsWith('/client/employees') || route.startsWith('/client/master-data')) return ['EMPLOYEE_COMPLIANCE'];
@@ -771,7 +769,6 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
           { label: 'Attendance Review', route: '/client/attendance', exact: true, icon: this.svg('M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Daily Attendance', route: '/client/attendance/daily', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
           { label: 'Holiday Calendar', route: '/client/holidays', icon: this.svg('M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
-          { label: 'ESS Mobile Attendance', route: '/client/mobile-attendance', icon: this.svg('M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z') },
           { label: 'Kiosk Attendance (PIN + Face)', route: '/client/facedesk', icon: this.svg('M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM12 3a9 9 0 100 18 9 9 0 000-18z') },
           { label: 'Face Failures', route: '/client/face-failures', icon: this.svg('M12 9v2m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3z') },
           { label: 'Master Data', route: '/client/master-data', icon: this.svg('M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4') },

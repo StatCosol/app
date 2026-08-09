@@ -2,8 +2,8 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Observable, forkJoin, of } from 'rxjs';
-import { catchError, finalize } from 'rxjs/operators';
+import { Observable } from 'rxjs';
+import { finalize } from 'rxjs/operators';
 import {
   EmptyStateComponent,
   LoadingSpinnerComponent,
@@ -12,7 +12,6 @@ import {
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
-import { AuthService } from '../../../core/auth.service';
 import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import {
   DuplicateAlert,
@@ -23,12 +22,6 @@ import {
   PendingEnrollmentRow,
   ReviewItem,
 } from './facedesk.service';
-import type {
-  FederatedEnrollmentItem,
-  FederatedEnrollmentSummary,
-  FederatedReviewItem,
-  FederatedReviewSummary,
-} from '../mobile-attendance/client-mobile-attendance.service';
 
 type Tab =
   | 'dashboard'
@@ -216,18 +209,6 @@ type Tab =
             </label>
           }
         </div>
-        @if (hasFederatedEnrollment && federatedEnrollmentSummary) {
-          <div class="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
-            <strong>{{ federatedEnrollmentSummary.facedeskEnrolled }}</strong> kiosk enrolled ·
-            <strong>{{ federatedEnrollmentSummary.mobileEnrolledActive }}</strong> mobile ESS ·
-            <strong>{{ federatedEnrollmentSummary.bothEnrolled }}</strong> both ·
-            <strong>{{ federatedEnrollmentSummary.pendingEither }}</strong> pending/partial.
-            Mobile ESS status is managed in
-            <a routerLink="/client/mobile-attendance" [queryParams]="{ tab: 'status' }" class="text-blue-700 hover:underline">
-              ESS Mobile Attendance
-            </a>.
-          </div>
-        }
         @if (loading) {
 <ui-loading-spinner text="Loading..." size="lg"></ui-loading-spinner>
 }
@@ -236,15 +217,12 @@ type Tab =
 }
         @if (!loading && enrollmentView === 'PENDING' && pending.length > 0) {
 <table class="tbl">
-          <thead><tr><th>Code</th><th>Employee</th>@if (hasFederatedEnrollment) {<th>Mobile ESS</th>}<th>Status</th><th class="right">Action</th></tr></thead>
+          <thead><tr><th>Code</th><th>Employee</th><th>Status</th><th class="right">Action</th></tr></thead>
           <tbody>
             @for (r of pending; track r) {
 <tr>
               <td class="mono">{{ r.employeeCode }}</td>
               <td>{{ r.employeeName || r.name }}</td>
-              @if (hasFederatedEnrollment) {
-                <td><span class="pill" [class.amber]="mobileEssStatus(r.employeeId) === 'Pending'">{{ mobileEssStatus(r.employeeId) }}</span></td>
-              }
               <td><span class="pill amber">{{ r.status || r.enrollmentStatus || 'PENDING' }}</span></td>
               <td class="right">
                 <button class="link green" [disabled]="!enrollDeviceReady || enrollingId === r.employeeId"
@@ -261,19 +239,25 @@ type Tab =
 }
         @if (!loading && enrollmentView === 'ENROLLED' && enrolled.length > 0) {
 <table class="tbl">
-          <thead><tr><th>Code / Type</th><th>Worker</th><th>Branch</th>@if (hasFederatedEnrollment) {<th>Mobile ESS</th>}<th>Profile</th><th>PIN</th><th>Enrolled</th><th class="right">Actions</th></tr></thead>
+          <thead><tr><th>Code / Type</th><th>Worker</th><th>Branch</th><th>Profile</th><th>PIN</th><th>Enrolled</th>@if (branchMode) {<th>Photo</th>}<th class="right">Actions</th></tr></thead>
           <tbody>
             @for (r of enrolled; track r.employeeId) {
 <tr>
               <td><span class="mono">{{ r.employeeCode || '—' }}</span><br><span class="text-xs text-gray-500">{{ r.subjectType || enrollSubjectType }}</span></td>
               <td>{{ r.employeeName || r.name }}<br><span class="text-xs text-gray-500">{{ r.department || '' }}{{ r.department && r.designation ? ' · ' : '' }}{{ r.designation || '' }}</span></td>
               <td>{{ branchName(r.branchId) }}</td>
-              @if (hasFederatedEnrollment) {
-                <td><span class="pill" [class.amber]="mobileEssStatus(r.employeeId) === 'Pending'">{{ mobileEssStatus(r.employeeId) }}</span></td>
-              }
               <td><span class="pill">{{ r.enrollmentStatus }}</span><br><span class="text-xs text-gray-500">Quality: {{ r.qualityScore == null ? '—' : (+r.qualityScore).toFixed(3) }} · Liveness: {{ r.livenessStatus || '—' }} · Duplicate: {{ r.duplicateStatus || '—' }}</span></td>
               <td><span class="pill" [class.amber]="!r.pinConfigured">{{ r.pinConfigured ? 'Configured' : 'Not set' }}</span></td>
               <td>{{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}</td>
+              @if (branchMode) {
+                <td>
+                  @if (r.hasEnrolledPhoto) {
+                    <button type="button" class="link" (click)="viewEnrolledPhoto(r)">View</button>
+                  } @else {
+                    <span class="text-xs text-gray-400">—</span>
+                  }
+                </td>
+              }
               <td class="right nowrap">
                 <button class="link red" [disabled]="deletingId === r.employeeId"
                   (click)="deleteEnrollment(r)">Delete</button>
@@ -346,85 +330,35 @@ type Tab =
 }
         @if (!branchMode) {
           <p class="text-sm text-gray-600 mb-3">
-            PIN-correct / face-mismatch items appear here.
-            @if (hasMobileAttendanceModule) {
-              For borderline 1:N gallery matches from ESS phones or offline kiosk devices, use
-              <a routerLink="/client/mobile-attendance" [queryParams]="{ tab: 'review' }" class="text-blue-600 hover:underline">
-                ESS Mobile Attendance → Punch Review
-              </a>.
-            }
+            PIN-correct / face-mismatch items appear here for branch verification.
           </p>
-        }
-        @if (hasFederatedReview && federatedSummary) {
-          <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            <strong>{{ federatedSummary.totalPending }}</strong> pending face review item(s):
-            {{ federatedSummary.facedeskVerificationPending }} kiosk verification(s) on this page,
-            {{ federatedSummary.mobileBorderlinePending }} borderline ESS/kiosk match(es) in
-            <a routerLink="/client/mobile-attendance" [queryParams]="{ tab: 'review' }" class="text-blue-700 hover:underline">
-              ESS Mobile Attendance
-            </a>.
-          </div>
-        }
-        @if (hasFederatedReview && federatedMobileItems.length > 0) {
-          <div class="mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            <div class="px-4 py-3 border-b border-gray-200 bg-gray-50 text-sm font-semibold text-gray-800">
-              Mobile borderline queue (review in ESS Mobile Attendance)
-            </div>
-            <table class="tbl">
-              <thead>
-                <tr>
-                  <th>Person</th>
-                  <th>Branch</th>
-                  <th>Punch Time</th>
-                  <th>Issue</th>
-                  <th class="right">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (item of federatedMobileItems; track item.itemId) {
-                  <tr>
-                    <td>
-                      <div>{{ item.displayName || 'Unknown' }}</div>
-                      <span class="mono text-xs text-gray-500">{{ item.displayCode || item.subjectType }}</span>
-                    </td>
-                    <td>{{ branchName(item.branchId) }}</td>
-                    <td>{{ item.punchTime | date: 'dd MMM yyyy, HH:mm:ss' }}</td>
-                    <td>{{ item.issueLabel }}</td>
-                    <td class="right">
-                      <a routerLink="/client/mobile-attendance" [queryParams]="{ tab: 'review' }" class="link">
-                        Open in ESS Mobile Attendance
-                      </a>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
         }
         @if (branchMode) {
           <p class="text-sm text-gray-600 mb-3">Punches where the PIN was correct but the face didn't match are marked and listed here. Check the photo against the employee, then <strong>Approve</strong> to keep it or <strong>Reject</strong> to reverse it.</p>
         }
-        @if (!loading && review.length === 0 && (!hasFederatedReview || federatedMobileItems.length === 0)) {
+        @if (!loading && review.length === 0) {
 <ui-empty-state title="Nothing to verify" description="No pending items."></ui-empty-state>
 }
         @if (!loading && review.length > 0) {
 <table class="tbl">
-          <thead><tr><th>Issue</th><th>Worker</th><th>Face comparison</th><th>Confidence</th><th>Punch</th><th>When</th><th class="right">Actions</th></tr></thead>
+          <thead><tr><th>Issue</th><th>Worker</th>@if (branchMode) {<th>Face comparison</th>}<th>Confidence</th><th>Punch</th><th>When</th><th class="right">Actions</th></tr></thead>
           <tbody>
             @for (r of review; track r) {
 <tr>
               <td><span class="pill amber">{{ r.issueType }}</span></td>
               <td>{{ r.employeeName || r.employeeId || '—' }}<br><span class="mono text-xs text-gray-500">{{ r.employeeCode || '' }}{{ r.subjectType === 'CONTRACTOR' ? ' · Contractor' : '' }}</span></td>
-              <td>
-                @if (r.photoUrl) {
-<button class="link compare-link" (click)="viewPhoto(r)">Captured</button>
-} @else {
-<span class="text-xs text-gray-400">—</span>
-}
-                @if (r.hasEnrolledPhoto) {
-<button class="link compare-link" (click)="viewEnrollmentPhoto(r)">Enrolled reference</button>
-}
-              </td>
+              @if (branchMode) {
+                <td>
+                  @if (r.photoUrl) {
+                    <button type="button" class="link compare-link" (click)="viewPhoto(r)">Captured</button>
+                  } @else {
+                    <span class="text-xs text-gray-400">—</span>
+                  }
+                  @if (r.hasEnrolledPhoto) {
+                    <button type="button" class="link compare-link" (click)="viewEnrollmentPhoto(r)">Enrolled reference</button>
+                  }
+                </td>
+              }
               <td>{{ r.confidenceScore ? (+r.confidenceScore * 100 | number:'1.0-0') + '%' : '—' }}</td>
               <td class="text-xs">{{ r.punchType || '' }} {{ r.punchTime ? (r.punchTime | date: 'HH:mm') : '' }}</td>
               <td>{{ r.createdAt | date: 'dd MMM, HH:mm' }}</td>
@@ -603,18 +537,6 @@ export class FaceDeskComponent implements OnInit {
    */
   @Input() branchMode = false;
 
-  get hasMobileAttendanceModule(): boolean {
-    return this.auth.hasModule('MOBILE_ATTENDANCE');
-  }
-
-  get hasFederatedReview(): boolean {
-    return this.hasMobileAttendanceModule && this.auth.hasModule('CONTRACTOR_FACE_ATTENDANCE');
-  }
-
-  get hasFederatedEnrollment(): boolean {
-    return this.hasFederatedReview && this.enrollSubjectType === 'EMPLOYEE';
-  }
-
   tab: Tab = 'dashboard';
   loading = false;
 
@@ -623,10 +545,6 @@ export class FaceDeskComponent implements OnInit {
   enrolled: PendingEnrollmentRow[] = [];
   duplicates: DuplicateAlert[] = [];
   review: ReviewItem[] = [];
-  federatedSummary: FederatedReviewSummary | null = null;
-  federatedMobileItems: FederatedReviewItem[] = [];
-  federatedEnrollmentSummary: FederatedEnrollmentSummary | null = null;
-  federatedEnrollmentByEmployeeId = new Map<string, FederatedEnrollmentItem>();
   settings: FaceDeskSettings | null = null;
 
   reportKind = 'daily';
@@ -671,18 +589,13 @@ export class FaceDeskComponent implements OnInit {
     const seq = ++this.enrollmentLoadSeq;
     const view = this.enrollmentView;
     const subjectType = this.enrollSubjectType;
-    const loadFederation = subjectType === 'EMPLOYEE' && this.hasFederatedReview;
-
     const rows$ =
       view === 'ENROLLED'
         ? this.svc.enrolledEmployees(subjectType)
         : this.svc.pendingEnrollment(subjectType);
-    const federation$ = loadFederation
-      ? this.svc.listFederatedEnrollment().pipe(catchError(() => of(null)))
-      : of(null);
 
     this.loading = true;
-    forkJoin({ rows: rows$, federation: federation$ })
+    rows$
       .pipe(
         finalize(() => {
           if (seq === this.enrollmentLoadSeq) {
@@ -692,21 +605,12 @@ export class FaceDeskComponent implements OnInit {
         }),
       )
       .subscribe({
-        next: ({ rows, federation }) => {
+        next: (rows) => {
           if (seq !== this.enrollmentLoadSeq) return;
           if (view === 'ENROLLED') {
             this.enrolled = rows;
           } else {
             this.pending = rows;
-          }
-          if (federation) {
-            this.federatedEnrollmentSummary = federation.summary;
-            this.federatedEnrollmentByEmployeeId = new Map(
-              federation.items.map((item) => [item.employeeId, item]),
-            );
-          } else {
-            this.federatedEnrollmentSummary = null;
-            this.federatedEnrollmentByEmployeeId.clear();
           }
           this.cdr.detectChanges();
         },
@@ -715,15 +619,6 @@ export class FaceDeskComponent implements OnInit {
           this.toast.error('Failed to load');
         },
       });
-  }
-
-  mobileEssStatus(employeeId: string | undefined): string {
-    if (!employeeId) return '—';
-    const row = this.federatedEnrollmentByEmployeeId.get(employeeId);
-    if (!row?.mobile) return '—';
-    if (row.mobile.isEnrolled && row.mobile.isActive) return 'Enrolled';
-    if (row.mobile.isEnrolled && !row.mobile.isActive) return 'Deactivated';
-    return 'Pending';
   }
 
   // PIN_THEN_FACE: per-employee PIN generation
@@ -739,7 +634,6 @@ export class FaceDeskComponent implements OnInit {
     private branchSvc: ClientBranchesService,
     private protectedFiles: ProtectedFileService,
     private route: ActivatedRoute,
-    private auth: AuthService,
   ) {}
 
   ngOnInit(): void {
@@ -789,6 +683,20 @@ export class FaceDeskComponent implements OnInit {
       });
   }
 
+  /** Branch-only: view the enrolled reference photo from the Enrolled list. */
+  viewEnrolledPhoto(r: PendingEnrollmentRow): void {
+    if (!r.hasEnrolledPhoto || !r.employeeId) return;
+    const subjectType = r.subjectType ?? this.enrollSubjectType;
+    this.protectedFiles
+      .open(
+        this.svc.enrolledPhotoUrl(r.employeeId, subjectType),
+        `enrolled-${r.employeeCode || r.employeeId}`,
+      )
+      .subscribe({
+        error: () => this.toast.error('Unable to open enrolled photo'),
+      });
+  }
+
   loadBranches(): void {
     this.branchSvc.list().subscribe({
       next: (rows: any[]) => {
@@ -830,28 +738,6 @@ export class FaceDeskComponent implements OnInit {
       next: (rows) => {
         if (seq !== this.reviewTabLoadSeq) return;
         this.review = rows;
-        if (this.hasFederatedReview) {
-          this.svc
-            .listFederatedReview({ mobileStatus: 'REVIEW_PENDING', limit: 50 })
-            .pipe(catchError(() => of(null)))
-            .subscribe({
-              next: (response) => {
-                if (seq !== this.reviewTabLoadSeq) return;
-                if (response) {
-                  this.federatedSummary = response.summary;
-                  this.federatedMobileItems = response.mobileItems || [];
-                } else {
-                  this.federatedSummary = null;
-                  this.federatedMobileItems = [];
-                }
-                this.loading = false;
-                this.cdr.detectChanges();
-              },
-            });
-          return;
-        }
-        this.federatedSummary = null;
-        this.federatedMobileItems = [];
         this.loading = false;
         this.cdr.detectChanges();
       },

@@ -30,6 +30,9 @@ import {
 import { ReenrollmentService } from './enrollment/reenrollment.service';
 import {
   mobileAttendanceBranchScope,
+  mobileAttendanceVerificationPhotosAllowed,
+  redactMobileAttendancePhotoFields,
+  requireMobileAttendanceBranchVerifier,
   requireMobileAttendanceClient,
 } from './mobile-attendance-controller.helpers';
 
@@ -118,17 +121,31 @@ export class MobileAttendanceEnrollmentController {
   @ApiOperation({ summary: 'List enrollment tickets' })
   @Get('kiosk/tickets')
   @Roles('CLIENT', 'ADMIN')
-  listTickets(@CurrentUser() user: ReqUser, @Query('status') status?: string) {
+  async listTickets(
+    @CurrentUser() user: ReqUser,
+    @Query('status') status?: string,
+  ) {
     const clientId = requireMobileAttendanceClient(user);
-    return this.enrollmentService.listTickets(clientId, status);
+    const rows = await this.enrollmentService.listTickets(clientId, status);
+    return redactMobileAttendancePhotoFields(
+      rows as { photoUrl?: string | null }[],
+      mobileAttendanceVerificationPhotosAllowed(user),
+    );
   }
 
   @ApiOperation({ summary: 'Get a single enrollment ticket' })
   @Get('kiosk/tickets/:ticketId')
   @Roles('CLIENT', 'ADMIN')
-  getTicket(@Param('ticketId') ticketId: string, @CurrentUser() user: ReqUser) {
+  async getTicket(
+    @Param('ticketId') ticketId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
     const clientId = requireMobileAttendanceClient(user);
-    return this.enrollmentService.getTicket(ticketId, clientId);
+    const row = await this.enrollmentService.getTicket(ticketId, clientId);
+    if (!mobileAttendanceVerificationPhotosAllowed(user)) {
+      return { ...row, photoUrl: null };
+    }
+    return row;
   }
 
   @ApiOperation({
@@ -145,7 +162,7 @@ export class MobileAttendanceEnrollmentController {
     const photo = await this.enrollmentService.getTicketPhoto(
       clientId,
       ticketId,
-      mobileAttendanceBranchScope(user),
+      requireMobileAttendanceBranchVerifier(user),
     );
     if (!photo) throw new NotFoundException('Photo not available');
     res.setHeader('Content-Type', photo.contentType);
@@ -209,7 +226,7 @@ export class MobileAttendanceEnrollmentController {
   @ApiOperation({ summary: 'Admin — list employee re-enrollment requests' })
   @Get('reenroll-requests')
   @Roles('CLIENT', 'ADMIN')
-  listReenrollRequests(
+  async listReenrollRequests(
     @CurrentUser() user: ReqUser,
     @Query('status') status?: string,
   ) {
@@ -219,10 +236,14 @@ export class MobileAttendanceEnrollmentController {
       | 'APPROVED'
       | 'REJECTED'
       | 'CANCELLED';
-    return this.reenrollmentService.listEmployeeRequests(
+    const rows = await this.reenrollmentService.listEmployeeRequests(
       clientId,
       normalized,
       mobileAttendanceBranchScope(user),
+    );
+    return redactMobileAttendancePhotoFields(
+      rows,
+      mobileAttendanceVerificationPhotosAllowed(user),
     );
   }
 
@@ -259,7 +280,7 @@ export class MobileAttendanceEnrollmentController {
     const photo = await this.reenrollmentService.getEmployeeRequestPhoto(
       clientId,
       id,
-      mobileAttendanceBranchScope(user),
+      requireMobileAttendanceBranchVerifier(user),
     );
     if (!photo?.buffer?.length) {
       throw new NotFoundException('Photo not found');
@@ -271,7 +292,7 @@ export class MobileAttendanceEnrollmentController {
   @ApiOperation({ summary: 'Admin — list contractor re-enrollment requests' })
   @Get('contractor-reenroll-requests')
   @Roles('CLIENT', 'ADMIN')
-  listContractorReenrollRequests(
+  async listContractorReenrollRequests(
     @CurrentUser() user: ReqUser,
     @Query('status') status?: string,
   ) {
@@ -281,10 +302,14 @@ export class MobileAttendanceEnrollmentController {
       | 'APPROVED'
       | 'REJECTED'
       | 'CANCELLED';
-    return this.reenrollmentService.listContractorRequests(
+    const rows = await this.reenrollmentService.listContractorRequests(
       clientId,
       normalized,
       mobileAttendanceBranchScope(user),
+    );
+    return redactMobileAttendancePhotoFields(
+      rows,
+      mobileAttendanceVerificationPhotosAllowed(user),
     );
   }
 
@@ -324,7 +349,7 @@ export class MobileAttendanceEnrollmentController {
     const photo = await this.reenrollmentService.getContractorRequestPhoto(
       clientId,
       id,
-      mobileAttendanceBranchScope(user),
+      requireMobileAttendanceBranchVerifier(user),
     );
     if (!photo?.buffer?.length) {
       throw new NotFoundException('Photo not found');

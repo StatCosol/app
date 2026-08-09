@@ -31,18 +31,14 @@ export class MobileAttendanceEnrollmentFederationController {
     @Query('offset') offset?: string,
   ) {
     const clientId = requireMobileAttendanceClient(user);
-    await this.entitlements.assertAnyModule(clientId, [
-      'MOBILE_ATTENDANCE',
+    await this.entitlements.assertModule(
+      clientId,
       'CONTRACTOR_FACE_ATTENDANCE',
-    ]);
-    const [includeMobile, includeFacedesk] = await Promise.all([
-      this.entitlements.hasModule(clientId, 'MOBILE_ATTENDANCE'),
-      this.entitlements.hasModule(clientId, 'CONTRACTOR_FACE_ATTENDANCE'),
-    ]);
+    );
     const branchIds = mobileAttendanceBranchScope(user);
     return this.federation.listFederated(clientId, {
-      includeMobile,
-      includeFacedesk,
+      includeMobile: false,
+      includeFacedesk: true,
       branchIds,
       limit: limit !== undefined ? Number(limit) : undefined,
       offset: offset !== undefined ? Number(offset) : undefined,

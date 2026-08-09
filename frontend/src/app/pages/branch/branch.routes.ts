@@ -95,10 +95,6 @@ const BranchAppraisalCyclesComponent = () =>
 const VendorAuditNcsComponent = () =>
   import('../shared-vendor/vendor-audit-ncs.component').then((m) => m.VendorAuditNcsComponent);
 
-const BranchFaceEnrollmentComponent = () =>
-  import('./branch-face-enrollment/branch-face-enrollment.component').then(
-    (m) => m.BranchFaceEnrollmentComponent,
-  );
 const BranchFaceDeskEnrollmentComponent = () =>
   import('./branch-facedesk/branch-facedesk-enrollment.component').then(
     (m) => m.BranchFaceDeskEnrollmentComponent,
@@ -160,9 +156,8 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'attendance/mark', loadComponent: BranchMarkAttendanceComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
       { path: 'attendance/daily', loadComponent: BranchDailyAttendanceComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
       { path: 'attendance/contractor', loadComponent: BranchContractorAttendanceComponent, canActivate: [moduleAccessGuard('CONTRACTOR_ATTENDANCE')] },
-      { path: 'face-enrollment', loadComponent: BranchFaceEnrollmentComponent, canActivate: [moduleAccessGuard('MOBILE_ATTENDANCE')] },
       { path: 'facedesk-enrollment', loadComponent: BranchFaceDeskEnrollmentComponent, canActivate: [moduleAccessGuard('CONTRACTOR_FACE_ATTENDANCE')] },
-      { path: 'face-failures', loadComponent: BranchFaceFailuresComponent, canActivate: [moduleAccessGuard(['MOBILE_ATTENDANCE', 'CONTRACTOR_FACE_ATTENDANCE'])] },
+      { path: 'face-failures', loadComponent: BranchFaceFailuresComponent, canActivate: [moduleAccessGuard('CONTRACTOR_FACE_ATTENDANCE')] },
       { path: 'notifications', loadComponent: BranchNotificationsComponent },
       { path: 'helpdesk', loadComponent: BranchHelpdeskComponent },
       { path: 'compliance-items', loadComponent: BranchComplianceItemsComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },

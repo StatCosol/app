@@ -21,6 +21,21 @@ export function requireFaceDeskClientAdmin(user: ReqUser): string {
   return requireFaceDeskClient(user);
 }
 
+/** Biometric photos are branch-verifier only (DPDP / least-privilege). */
+export function requireFaceDeskBranchVerifier(user: ReqUser): string[] {
+  const scope = facedeskBranchScope(user);
+  if (scope === null) {
+    throw new ForbiddenException(
+      'Branch verification access required to view biometric photos',
+    );
+  }
+  return scope;
+}
+
+export function facedeskVerificationPhotosAllowed(user: ReqUser): boolean {
+  return facedeskBranchScope(user) !== null;
+}
+
 export function facedeskReportRange(
   user: ReqUser,
   from?: string,

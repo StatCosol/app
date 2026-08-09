@@ -1,6 +1,7 @@
 package com.statcosol.attendance.facedesk
 
 import android.Manifest
+import androidx.activity.result.contract.ActivityResultContracts
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -80,6 +81,20 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     // attendance is held and the enrollment screen is launched for it.
     private var enrollmentHold = false
     private var ticketPollJob: Job? = null
+    /** Brief pause after enrollment returns so a failed ticket doesn't instantly reopen. */
+    private var ticketPollPausedUntilMs = 0L
+
+    private val enrollmentLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) {
+        // Enrollment took the front camera — rebind on resume and cool down ticket poll.
+        ticketPollPausedUntilMs = android.os.SystemClock.elapsedRealtime() + TICKET_POLL_COOLDOWN_MS
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
+            startCamera()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -110,8 +125,6 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             != PackageManager.PERMISSION_GRANTED
         ) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), 1001)
-        } else {
-            startCamera()
         }
     }
 
@@ -180,6 +193,11 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             tvResult.text = ""
             tvTitle.text = getString(R.string.facedesk_look_at_camera)
         }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
+            startCamera()
+        }
         startTicketPolling()
         promptPinEntry()
     }
@@ -192,7 +210,8 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
      * so the kiosk always has a claimed PIN before the camera is used.
      */
     private fun promptPinEntry() {
-        if (pinDialog?.isShowing == true) return
+        pinDialog?.dismiss()
+        pinDialog = null
         paused = true
         frames.clear(); blinkDetector.reset()
         pinDialog?.dismiss()
@@ -222,6 +241,17 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         super.onPause()
         chrome.stopClock()
         ticketPollJob?.cancel()
+        releaseCamera()
+        pinDialog?.dismiss()
+        pinDialog = null
+    }
+
+    private fun releaseCamera() {
+        try {
+            ProcessCameraProvider.getInstance(this).get().unbindAll()
+        } catch (e: Exception) {
+            Log.w(TAG, "camera release failed: ${e.message}")
+        }
     }
 
     /** Poll for a web-initiated enrollment ticket; hold attendance + open enroll. */
@@ -230,7 +260,9 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         ticketPollJob = lifecycleScope.launch {
             while (isActive) {
                 try {
-                    if (!enrollmentHold) {
+                    if (!enrollmentHold &&
+                        android.os.SystemClock.elapsedRealtime() >= ticketPollPausedUntilMs
+                    ) {
                         val ticket = api.pendingTicket()
                         if (ticket != null) {
                             enrollmentHold = true
@@ -242,7 +274,8 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                                 tvTitle.text = getString(R.string.facedesk_enroll_in_progress)
                                 tvResult.text = ticket.employeeName ?: ""
                             }
-                            startActivity(
+                            releaseCamera()
+                            enrollmentLauncher.launch(
                                 Intent(this@FaceDeskAttendanceActivity, FaceDeskEnrollmentActivity::class.java).apply {
                                     putExtra(FaceDeskEnrollmentActivity.EXTRA_EMPLOYEE_ID, ticket.employeeId)
                                     putExtra(FaceDeskEnrollmentActivity.EXTRA_EMPLOYEE_NAME, ticket.employeeName)
@@ -472,6 +505,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         private const val MAX_FRAMES = 24
         private const val STALE_GAP_MS = 2_500L
         private const val TICKET_POLL_MS = 4_000L
+        private const val TICKET_POLL_COOLDOWN_MS = 30_000L
         private const val MODEL = "mobilefacenet"
 
         // Prefer 720p analysis frames, falling back to the closest the camera

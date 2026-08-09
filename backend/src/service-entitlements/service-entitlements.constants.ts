@@ -7,7 +7,6 @@ export const SERVICE_MODULE_CODES = [
   'PAYROLL',
   'EMPLOYEE_COMPLIANCE',
   'EMPLOYEE_ATTENDANCE',
-  'MOBILE_ATTENDANCE',
   'APPRAISAL',
 ] as const;
 
@@ -67,13 +66,7 @@ export const SERVICE_MODULE_OPTIONS: Array<{
     code: 'EMPLOYEE_ATTENDANCE',
     label: 'Employee Attendance',
     description:
-      'Employee attendance review and biometric attendance features.',
-  },
-  {
-    code: 'MOBILE_ATTENDANCE',
-    label: 'ESS Mobile Attendance',
-    description:
-      'Employee face attendance from personal phones, including ESS enrollment and review.',
+      'Employee attendance review, daily attendance, and holiday calendar.',
   },
   {
     code: 'CONTRACTOR_DOCUMENTS',

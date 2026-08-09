@@ -56,7 +56,7 @@ describe('BranchReportsComponent entitlement filtering', () => {
   });
 
   it('does not call a report endpoint when the module is unavailable', () => {
-    const { component, http } = makeComponent(['MOBILE_ATTENDANCE']);
+    const { component, http } = makeComponent(['CONTRACTOR_FACE_ATTENDANCE']);
     const report = component.reports.find((item) => item.key === 'headcount')!;
 
     component.openReport(report);

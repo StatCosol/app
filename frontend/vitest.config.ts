@@ -7,7 +7,6 @@ export default defineConfig({
     // Angular TestBed specs continue to use `ng test`.
     include: [
       'src/app/modules/accounts-billing/**/*.spec.ts',
-      'src/app/pages/client/mobile-attendance/**/*.spec.ts',
     ],
     browser: {
       api: {

@@ -141,6 +141,7 @@
     <string name="facedesk_saving">Saving enrollment…</string>
     <string name="facedesk_enrolled">Enrollment saved</string>
     <string name="facedesk_enroll_failed">Enrollment failed — try again</string>
+    <string name="facedesk_enroll_duplicate">This face matches another employee. Sent to admin for review — please contact your administrator.</string>
     <string name="facedesk_enroll_offline">No connection — please try again</string>
     <string name="facedesk_pick_employee">Select an employee to enroll</string>
     <string name="facedesk_all_enrolled">All employees are enrolled</string>
@@ -160,6 +161,7 @@
     <string name="facedesk_turn_right">Slowly turn your head right</string>
     <string name="facedesk_captured_complete">Captured — tap Complete to save</string>
     <string name="facedesk_complete">Complete</string>
+    <string name="facedesk_done">Done</string>
     <string name="facedesk_capture_timeout">Couldn\'t capture all angles — tap Capture to retry</string>
     <string name="facedesk_enroll_in_progress">Enrollment in progress — attendance paused</string>
 
@@ -179,5 +181,6 @@
     <string name="facedesk_voice_enroll_start">Tap capture, then follow the voice instructions</string>
     <string name="facedesk_voice_enroll_complete">Capture complete. Tap complete to save.</string>
     <string name="facedesk_voice_enroll_saved">Enrollment saved successfully</string>
+    <string name="facedesk_voice_enroll_duplicate">This face matches another employee. Sent to admin for review.</string>
     <string name="facedesk_voice_processing">Please wait while attendance is recorded</string>
 </resources>
