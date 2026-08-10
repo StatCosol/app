@@ -8,11 +8,11 @@ StatComPy currently has **four attendance subsystems**. They serve different por
 - **Storage:** `attendance_records`, policies, holidays
 - **FE:** Branch mark-attendance, client dashboards, payroll processing
 
-## 2. Mobile attendance (`backend/src/mobile-attendance/`)
-- **API:** `/api/v1/mobile-attendance/*`
-- **Users:** ESS mobile app, face enrollment kiosks
-- **Storage:** Punches, face enrollment, geo fences
-- **FE:** `client-mobile-attendance`, branch face enrollment
+## 2. Shared mobile-attendance backend (`backend/src/mobile-attendance/`)
+- **API:** `/api/v1/mobile-attendance/*` (legacy shared routes — **not** the retired ESS phone product)
+- **Users:** FaceDesk kiosk device registry, contractor biometric punches, legacy V1 offline kiosk (`KioskActivity`)
+- **Storage:** `mobile_attendance_devices` (KIOSK mode), `contractor_biometric_punches`, `face_enrollments` (legacy — deactivated for employees)
+- **Retired (2026-08):** ESS Mobile Attendance personal-phone module (`MOBILE_ATTENDANCE`) — UI removed, ESS devices revoked, employee self-enroll and punch-review APIs blocked
 
 ## 3. Contractor computation attendance (`backend/src/contractor/`)
 - **API:** `/api/v1/contractor/computation/attendance/upload`
@@ -26,9 +26,14 @@ StatComPy currently has **four attendance subsystems**. They serve different por
 - **Storage:** `clra_attendance` linked to wage periods
 - **FE:** Assignment detail → Attendance tab
 
+## ESS portal attendance (separate from mobile-attendance)
+- **API:** `/api/v1/ess/attendance/*` (check-in/out with geolocation)
+- **Users:** ESS web (`/app/ess/*`) and `:essportal` Android WebView
+- **Storage:** `ess_attendance_punches`, `attendance_records`
+
 ## Consolidation guidance (future)
 1. Keep **core attendance** as source of truth for permanent employees.
-2. **Mobile** remains the capture channel for ESS; sync into core attendance tables.
+2. **ESS portal** self check-in/out syncs into `attendance_records`.
 3. **Contractor computation** sheets are payroll-input artifacts — do not merge into CLRA.
 4. **CLRA** attendance is statutory register data per deployment — keep separate unless PE establishment adopts core attendance for contract workers.
 
@@ -36,29 +41,22 @@ StatComPy currently has **four attendance subsystems**. They serve different por
 - Month/period scoping uses `YYYY-MM` or wage-period dates depending on subsystem.
 - Payroll run processing reads core attendance + leave ledger; CLRA wages use CLRA attendance only.
 
-## Face attendance capture tracks (mobile + FaceDesk)
-
-StatComPy currently runs **two parallel face stacks**. Do not merge storage without an explicit migration plan.
+## Face attendance capture tracks (FaceDesk + legacy mobile backend)
 
 | Track | Enrollment storage | Punch review queue | Primary clients |
 |-------|-------------------|--------------------|-----------------|
-| **Mobile attendance V1/V2** | `face_enrollments`, `contractor_face_enrollments` | `mobile_attendance_punches` / `contractor_biometric_punches` with `REVIEW_PENDING` | ESS phones, offline 1:N kiosk (`KioskActivity`) |
-| **FaceDesk V2** | `facedesk_employee_face_profiles`, contractor FaceDesk tables | `facedesk_attendance_review_queue` (PIN correct / face mismatch) | PIN+face shared kiosk |
+| **FaceDesk V2** (supported) | `facedesk_employee_face_profiles` | `facedesk_attendance_review_queue` | PIN+face shared kiosk |
+| **Legacy mobile backend** (contractor + V1 kiosk only) | `contractor_face_enrollments`, deactivated `face_enrollments` | `contractor_biometric_punches` with `REVIEW_PENDING` | Contractor attendance, legacy V1 offline kiosk |
+| **ESS Mobile Attendance** (retired) | `face_enrollments` (deactivated) | `mobile_attendance_punches` (closed) | — |
 
-### Operator review UX (R3)
-- **Borderline 1:N cosine matches** (held automatically): Client portal → **ESS Mobile Attendance → Punch Review**.
-- **PIN correct / face mismatch** (FaceDesk): Client or branch portal → **Kiosk Attendance → Review Queue / Verifications**.
-- Cross-links exist in both UIs when the destination module is enabled; queues remain separate because issue types and APIs differ.
-- **Federated read API:** `GET /api/v1/mobile-attendance/review-federation` returns a merged, entitlement-aware summary + item list with `portalPath` deep links (including `?tab=review`). FaceDesk rows are limited to `FACE_MISMATCH` attendance verifications; mobile rows are ESS employee punches only.
-- **Unified review inbox (dual-module clients):** ESS Mobile Attendance → Punch Review and Kiosk Attendance → Review Queue each show a federated summary plus a read-only table for the sibling queue with deep links.
-- **Federated review action:** `POST /api/v1/mobile-attendance/review-federation/:queue/:itemId/action` routes `MOBILE_BORDERLINE` → punch review and `FACEDESK_VERIFICATION` → FaceDesk admin review (entitlement-gated per queue).
-- **Federated enrollment read (Phase 1):** `GET /api/v1/mobile-attendance/enrollment-federation` merges mobile `face_enrollments` + FaceDesk `facedesk_employee_face_profiles` per employee without moving storage. ESS Mobile Attendance → Enrollment Status and Kiosk Attendance → Enrollment both show dual-module columns for employee rosters.
+### Operator review UX
+- **PIN correct / face mismatch (FaceDesk):** Client or branch portal → **Kiosk Attendance → Review Queue / Verifications**.
+- **Contractor borderline punches:** Contractor attendance workflows via `CONTRACTOR_ATTENDANCE` module (if enabled).
+- **Federation APIs:** `GET /api/v1/mobile-attendance/review-federation` and `enrollment-federation` remain for FaceDesk clients; mobile employee rows are no longer included.
 
-### Engineering status (face-attendance track #485–#503) — **complete**
-- **Shipped:** review federation, dual-module review/enrollment inboxes on both portals, cross-queue approve/reject API, enrollment federation read API, Android roster crypto tests, V1 offline kiosk restore, punch-review and pipeline guard specs, portal load race guards.
-- **Blocked on product (no further engineering):** Phase 2+ enrollment schema merge / dual-write (see ADR).
-
-### Consolidation blockers (product decision required)
-1. **Enrollment tables** — `face_enrollments` vs `facedesk_employee_face_profiles` (different embedding models, consent audit, contractor paths). See **[FACE_ENROLLMENT_CONSOLIDATION.md](./FACE_ENROLLMENT_CONSOLIDATION.md)** for options and phased rollout (ADR — no merge until product sign-off).
-2. **Review queues** — federated read API, dual-module inbox, and cross-queue approve/reject handler shipped; writes still use queue-specific business rules under the hood.
-3. **Offline kiosk** — V1 roster path restored on Android (`#496`); FaceDesk remains the default provision flow for new shared tablets.
+### Supported products (2026-08)
+| Product | Status |
+|---------|--------|
+| FaceDesk kiosk (PIN + face) | **Required** — `/api/v1/facedesk/*` |
+| ESS portal web + app | **Required** — `/api/v1/ess/*` |
+| ESS Mobile Attendance (personal phone) | **Retired** |

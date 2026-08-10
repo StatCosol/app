@@ -277,6 +277,7 @@ export class AuthService {
   }
 
   hasModule(moduleCode: string): boolean {
+    if (moduleCode === 'MOBILE_ATTENDANCE') return false;
     const modules = this.getEnabledModules();
     if (modules.length) return modules.includes(moduleCode);
     const servicePackage = this.getServicePackage();

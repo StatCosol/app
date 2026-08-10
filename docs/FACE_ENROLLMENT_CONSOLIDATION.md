@@ -2,7 +2,7 @@
 
 **Status:** Proposed — Phase 1 read federation **shipped**; Phases 2+ awaiting product decision  
 **Date:** 2026-08-09  
-**Context:** Face-attendance engineering track #485–#503 shipped review federation, enrollment federation (Phase 1), roster crypto, and V1 kiosk restore. Enrollment storage remains split until product approves Phase 2+.
+**Context:** Face-attendance engineering track #485–#503 shipped review federation, enrollment federation (Phase 1), roster crypto, and V1 kiosk restore. **ESS Mobile Attendance (`MOBILE_ATTENDANCE`) was retired in Aug 2026** — only FaceDesk kiosk + ESS portal self-punch remain for employees.
 
 ## Problem
 
@@ -10,10 +10,10 @@ StatComPy stores employee/contractor face enrollments in **two parallel schemas*
 
 | Track | Employee table | Contractor table | Capture surfaces |
 |-------|----------------|------------------|------------------|
-| **Mobile attendance** | `face_enrollments` (PK = `employee_id`) | `contractor_face_enrollments` | ESS self-enroll, branch supervised enroll, V1 offline 1:N kiosk roster |
+| **Legacy mobile backend** | `face_enrollments` (employee rows deactivated) | `contractor_face_enrollments` | Legacy V1 offline 1:N kiosk roster; contractor mobile paths |
 | **FaceDesk V2** | `facedesk_employee_face_profiles` + `facedesk_employee_face_samples` | FaceDesk contractor profile tables | PIN+face shared kiosk, admin enrollment portal |
 
-Operators with **both** `MOBILE_ATTENDANCE` and `CONTRACTOR_FACE_ATTENDANCE` see two enrollment admin surfaces and two embedding stores for the same person if both stacks are provisioned.
+Operators with **CONTRACTOR_FACE_ATTENDANCE** use FaceDesk as the single employee enrollment surface. Contractor biometric paths may still use the legacy mobile backend where `CONTRACTOR_ATTENDANCE` is enabled.
 
 ## Why not merge today
 

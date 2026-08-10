@@ -159,6 +159,11 @@ export class MobileAttendancePunchesController {
         'subjectType must be employee or contractor',
       );
     }
+    if (kind === 'EMPLOYEE') {
+      throw new ForbiddenException(
+        'ESS Mobile Attendance punch review has been retired',
+      );
+    }
     if (body?.action !== 'APPROVE' && body?.action !== 'REJECT') {
       throw new BadRequestException('action must be APPROVE or REJECT');
     }
@@ -189,6 +194,11 @@ export class MobileAttendancePunchesController {
     if (kind !== 'EMPLOYEE' && kind !== 'CONTRACTOR') {
       throw new BadRequestException(
         'subjectType must be employee or contractor',
+      );
+    }
+    if (kind === 'EMPLOYEE') {
+      throw new ForbiddenException(
+        'ESS Mobile Attendance punch review has been retired',
       );
     }
     const photo = await this.punchService.getPunchPhoto(
