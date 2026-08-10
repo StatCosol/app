@@ -13,6 +13,11 @@ BEGIN
            embedding = NULL,
            photo_url = NULL
      WHERE is_active = true;
+
+    IF to_regclass('public.face_enrollment_templates') IS NOT NULL THEN
+      DELETE FROM face_enrollment_templates
+       WHERE subject_type = 'EMPLOYEE';
+    END IF;
   END IF;
 
   IF to_regclass('public.mobile_attendance_punches') IS NOT NULL THEN
@@ -30,10 +35,22 @@ BEGIN
     UPDATE face_reenrollment_requests
        SET status = 'CANCELLED',
            reviewed_at = COALESCE(reviewed_at, now()),
-           review_note = COALESCE(
-             review_note,
+           review_notes = COALESCE(
+             review_notes,
              'ESS Mobile Attendance retired'
            )
      WHERE status = 'PENDING';
+  END IF;
+
+  IF to_regclass('public.kiosk_enroll_tickets') IS NOT NULL THEN
+    UPDATE kiosk_enroll_tickets
+       SET status = 'CANCELLED',
+           cancelled_at = COALESCE(cancelled_at, now()),
+           rejection_reason = COALESCE(
+             rejection_reason,
+             'ESS Mobile Attendance retired'
+           )
+     WHERE status = 'PENDING'
+       AND subject_type = 'EMPLOYEE';
   END IF;
 END $$;

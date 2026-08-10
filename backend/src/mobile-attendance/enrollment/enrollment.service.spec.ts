@@ -168,8 +168,8 @@ describe('EnrollmentService kiosk tickets', () => {
       'branch-1',
       {
         deviceId: 'device-1',
-        subjectType: 'EMPLOYEE',
-        employeeId: 'employee-1',
+        subjectType: 'CONTRACTOR',
+        contractorEmployeeId: 'contractor-1',
         subjectName: 'Alice',
       } as any,
       'user-1',
@@ -180,6 +180,24 @@ describe('EnrollmentService kiosk tickets', () => {
       { deviceId: 'device-1', clientId: 'client-1', status: 'PENDING' },
       expect.objectContaining({ status: 'CANCELLED' }),
     );
+  });
+
+  it('rejects employee kiosk ticket creation after ESS mobile retirement', async () => {
+    const service = makeService({} as any);
+
+    await expect(
+      service.createKioskTicket(
+        'client-1',
+        'branch-1',
+        {
+          deviceId: 'device-1',
+          subjectType: 'EMPLOYEE',
+          employeeId: 'employee-1',
+          subjectName: 'Alice',
+        } as any,
+        'user-1',
+      ),
+    ).rejects.toThrow('ESS Mobile Attendance employee enrollment has been retired');
   });
 
   it('uses the selected kiosk device branch for the enrollment ticket', async () => {
@@ -200,8 +218,8 @@ describe('EnrollmentService kiosk tickets', () => {
       null,
       {
         deviceId: 'device-1',
-        subjectType: 'EMPLOYEE',
-        employeeId: 'employee-1',
+        subjectType: 'CONTRACTOR',
+        contractorEmployeeId: 'contractor-1',
         subjectName: 'Alice',
       } as any,
       'user-1',
@@ -229,8 +247,8 @@ describe('EnrollmentService kiosk tickets', () => {
         'branch-1',
         {
           deviceId: 'device-1',
-          subjectType: 'EMPLOYEE',
-          employeeId: 'employee-1',
+          subjectType: 'CONTRACTOR',
+          contractorEmployeeId: 'contractor-1',
           subjectName: 'Alice',
         } as any,
         'user-1',
@@ -255,8 +273,8 @@ describe('EnrollmentService kiosk tickets', () => {
         'branch-1',
         {
           deviceId: 'device-1',
-          subjectType: 'EMPLOYEE',
-          employeeId: 'employee-1',
+          subjectType: 'CONTRACTOR',
+          contractorEmployeeId: 'contractor-1',
           subjectName: 'Alice',
         } as any,
         'user-1',
@@ -287,6 +305,7 @@ describe('EnrollmentService kiosk tickets', () => {
       createQueryBuilder: jest
         .fn()
         .mockReturnValueOnce(updateBuilder)
+        .mockReturnValueOnce(updateBuilder)
         .mockReturnValueOnce(selectBuilder),
     };
     const service = makeService(ticketRepo);
@@ -294,6 +313,9 @@ describe('EnrollmentService kiosk tickets', () => {
     const ticket = await service.getPendingTicketForDevice('device-1');
 
     expect(ticket).toEqual({ id: 'ticket-1' });
+    expect(updateBuilder.set).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'CANCELLED' }),
+    );
     expect(updateBuilder.set).toHaveBeenCalledWith({ status: 'EXPIRED' });
     expect(updateBuilder.andWhere).toHaveBeenCalledWith('expires_at <= now()');
     expect(selectBuilder.andWhere).toHaveBeenCalledWith(
@@ -310,9 +332,9 @@ describe('EnrollmentService kiosk tickets', () => {
       clientId: 'client-1',
       branchId: 'branch-1',
       deviceId: 'device-1',
-      subjectType: 'EMPLOYEE',
-      employeeId: 'employee-1',
-      contractorEmployeeId: null,
+      subjectType: 'CONTRACTOR',
+      employeeId: null,
+      contractorEmployeeId: 'contractor-1',
       status: 'PENDING',
       expiresAt: new Date(Date.now() + 60_000),
       createdBy: 'user-created-ticket',
@@ -391,9 +413,9 @@ describe('EnrollmentService kiosk tickets', () => {
       clientId: 'client-1',
       branchId: 'branch-1',
       deviceId: 'device-1',
-      subjectType: 'EMPLOYEE',
-      employeeId: 'employee-1',
-      contractorEmployeeId: null,
+      subjectType: 'CONTRACTOR',
+      employeeId: null,
+      contractorEmployeeId: 'contractor-1',
       status: 'PENDING',
       expiresAt: new Date(Date.now() + 60_000),
       createdBy: 'user-created-ticket',
@@ -454,6 +476,42 @@ describe('EnrollmentService kiosk tickets', () => {
     expect(updateBuilder.set).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'COMPLETED', photoUrl: null }),
     );
+  });
+
+  it('rejects employee kiosk ticket submission after ESS mobile retirement', async () => {
+    const ticket = {
+      id: 'ticket-1',
+      clientId: 'client-1',
+      branchId: 'branch-1',
+      deviceId: 'device-1',
+      subjectType: 'EMPLOYEE',
+      employeeId: 'employee-1',
+      contractorEmployeeId: null,
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 60_000),
+      createdBy: 'user-created-ticket',
+    };
+    const service = new EnrollmentService(
+      {} as any,
+      {} as any,
+      { findOne: jest.fn().mockResolvedValue(ticket) } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+
+    await expect(
+      service.submitKioskTicket('device-1', {
+        ticketId: 'ticket-1',
+        consentGiven: true,
+        embeddingFrames: ['a', 'b', 'c'],
+        livenessNonce: 'nonce-1',
+      } as any),
+    ).rejects.toThrow('ESS Mobile Attendance employee enrollment has been retired');
   });
 });
 

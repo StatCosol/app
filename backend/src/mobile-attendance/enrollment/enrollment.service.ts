@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -384,6 +385,12 @@ export class EnrollmentService {
     createdBy: string,
     allowedBranchIds: string[] | null = null,
   ): Promise<KioskEnrollTicketEntity> {
+    if (dto.subjectType === 'EMPLOYEE') {
+      throw new ForbiddenException(
+        'ESS Mobile Attendance employee enrollment has been retired',
+      );
+    }
+
     const [device] = await this.dataSource.query<
       Array<{ id: string; branchId: string | null }>
     >(
@@ -445,6 +452,11 @@ export class EnrollmentService {
       where: { id: dto.ticketId },
     });
     if (!ticket) throw new NotFoundException('Ticket not found');
+    if (ticket.subjectType === 'EMPLOYEE') {
+      throw new ForbiddenException(
+        'ESS Mobile Attendance employee enrollment has been retired',
+      );
+    }
     if (ticket.status !== 'PENDING') {
       throw new BadRequestException(
         `Ticket is not PENDING (current: ${ticket.status})`,
@@ -481,7 +493,6 @@ export class EnrollmentService {
       clientId,
       branchId,
       subjectType,
-      employeeId,
       contractorEmployeeId,
     } = ticket;
     const actorUserId = ticket.createdBy ?? null;
@@ -500,48 +511,19 @@ export class EnrollmentService {
     const storedModel = useServer ? server.model : (dto.embeddingModel ?? null);
     const embBuf = embeddingToBuffer(storedEmbedding);
 
-    const excludeId =
-      subjectType === 'EMPLOYEE'
-        ? { excludeEmployeeId: employeeId ?? undefined }
-        : { excludeContractorId: contractorEmployeeId ?? undefined };
+    const excludeId = {
+      excludeContractorId: contractorEmployeeId ?? undefined,
+    };
     await this.assertNotDuplicate(clientId, storedEmbedding, excludeId);
 
-    const subId = employeeId ?? contractorEmployeeId;
+    const subId = contractorEmployeeId;
     const photoUrl = subId
       ? await this.tryUploadPhoto(dto.photoB64, clientId, subId)
       : null;
 
     return this.dataSource
       .transaction(async (em) => {
-        // Upsert enrollment
-        if (subjectType === 'EMPLOYEE' && employeeId) {
-          const existing = await em.findOne(FaceEnrollmentEntity, {
-            where: { employeeId },
-          });
-          const action = existing ? 'RE_ENROLL' : 'ENROLL';
-          await em.save(FaceEnrollmentEntity, {
-            employeeId,
-            clientId,
-            branchId,
-            embedding: embBuf,
-            embeddingModel: storedModel,
-            photoUrl,
-            consentGivenAt: new Date(),
-            consentGivenBy: actorUserId,
-            enrolledAt: new Date(),
-            enrolledBy: actorUserId,
-            isActive: true,
-            deactivatedAt: null,
-            deactivationReason: null,
-          });
-          await em.save(FaceEnrollmentHistoryEntity, {
-            employeeId,
-            clientId,
-            action,
-            embeddingModel: storedModel,
-            actorUserId,
-          });
-        } else if (subjectType === 'CONTRACTOR' && contractorEmployeeId) {
+        if (subjectType === 'CONTRACTOR' && contractorEmployeeId) {
           const existing = await em.findOne(ContractorFaceEnrollmentEntity, {
             where: { contractorEmployeeId },
           });
@@ -604,13 +586,13 @@ export class EnrollmentService {
       .then(async (updated) => {
         // Multi-template gallery append (outside the ticket transaction —
         // eviction failure must not roll back a completed enrollment).
-        const subjectId = employeeId ?? contractorEmployeeId;
+        const subjectId = contractorEmployeeId;
         if (subjectId) {
           await this.templateService
             .appendTemplate(
               clientId,
               branchId,
-              subjectType === 'EMPLOYEE' ? 'EMPLOYEE' : 'CONTRACTOR',
+              'CONTRACTOR',
               subjectId,
               averaged,
               dto.embeddingModel ?? null,
@@ -868,6 +850,19 @@ export class EnrollmentService {
     await this.ticketRepo
       .createQueryBuilder()
       .update(KioskEnrollTicketEntity)
+      .set({
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+        rejectionReason: 'ESS Mobile Attendance retired',
+      })
+      .where('device_id = :deviceId', { deviceId })
+      .andWhere('status = :status', { status: 'PENDING' })
+      .andWhere("subject_type = 'EMPLOYEE'")
+      .execute();
+
+    await this.ticketRepo
+      .createQueryBuilder()
+      .update(KioskEnrollTicketEntity)
       .set({ status: 'EXPIRED' })
       .where('device_id = :deviceId', { deviceId })
       .andWhere('status = :status', { status: 'PENDING' })
@@ -879,6 +874,7 @@ export class EnrollmentService {
       .where('ticket.deviceId = :deviceId', { deviceId })
       .andWhere('ticket.status = :status', { status: 'PENDING' })
       .andWhere('ticket.expiresAt > now()')
+      .andWhere("ticket.subjectType != 'EMPLOYEE'")
       .orderBy('ticket.createdAt', 'ASC')
       .getOne();
   }
