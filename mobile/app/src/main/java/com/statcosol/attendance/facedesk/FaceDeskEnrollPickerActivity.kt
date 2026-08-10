@@ -61,6 +61,8 @@ class FaceDeskEnrollPickerActivity : AppCompatActivity() {
                     getString(R.string.facedesk_all_enrolled)
                 else
                     getString(R.string.facedesk_pick_employee)
+            } catch (e: FaceDeskApiException) {
+                tvStatus.text = e.userMessage(this@FaceDeskEnrollPickerActivity, R.string.facedesk_pending_failed)
             } catch (e: Exception) {
                 tvStatus.text = getString(R.string.facedesk_pending_failed)
             }

@@ -312,7 +312,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     }
 
     private fun showEnrollmentError(e: FaceDeskApiException) {
-        val msg = e.userMessage(this)
+        val msg = e.userMessage(this, R.string.facedesk_enroll_failed)
         tvHint.text = msg
         if (e.code == 409) {
             // Duplicate — admin must review; don't loop another capture.
