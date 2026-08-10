@@ -110,7 +110,7 @@ export class AzureFaceClient {
     userData: string,
   ): Promise<string> {
     const resp = await fetch(
-      `${this.url(`/largefacelists/${largeFaceListId}/faces`)}?userData=${encodeURIComponent(userData)}&detectionModel=detection_03`,
+      `${this.url(`/largefacelists/${largeFaceListId}/persistedfaces`)}?userData=${encodeURIComponent(userData)}&detectionModel=detection_03`,
       {
         method: 'POST',
         headers: this.headers(),

@@ -2,7 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AzureFaceClient } from './azure-face.client';
-import { FaceDeskSettingsEntity } from './entities/facedesk.entities';
+import {
+  FaceDeskProfileEntity,
+  FaceDeskSettingsEntity,
+} from './entities/facedesk.entities';
 
 export interface AzureDuplicateHit {
   matchedEmployeeId: string;
@@ -21,7 +24,17 @@ export class FaceDeskAzureFaceService {
     private readonly azure: AzureFaceClient,
     @InjectRepository(FaceDeskSettingsEntity)
     private readonly settingsRepo: Repository<FaceDeskSettingsEntity>,
+    @InjectRepository(FaceDeskProfileEntity)
+    private readonly profileRepo: Repository<FaceDeskProfileEntity>,
   ) {}
+
+  private scheduleTraining(listId: string): void {
+    void this.azure.trainLargeFaceList(listId).catch((err) =>
+      this.logger.warn(
+        `Azure train failed: ${(err as Error)?.message ?? err}`,
+      ),
+    );
+  }
 
   get enabled(): boolean {
     return this.azure.enabled;
@@ -74,17 +87,18 @@ export class FaceDeskAzureFaceService {
         detected.faceId,
         this.duplicateConfidence,
       );
-      const hit = matches.find(
-        (m) =>
-          m.userData &&
-          m.userData !== excludeEmployeeId &&
-          m.confidence >= this.duplicateConfidence,
-      );
-      if (!hit?.userData) return null;
-      return {
-        matchedEmployeeId: hit.userData,
-        confidence: hit.confidence,
-      };
+      for (const match of matches) {
+        if (match.confidence < this.duplicateConfidence) continue;
+        const profile = await this.profileRepo.findOne({
+          where: { clientId, azurePersistedFaceId: match.persistedFaceId },
+        });
+        if (!profile || profile.employeeId === excludeEmployeeId) continue;
+        return {
+          matchedEmployeeId: profile.employeeId,
+          confidence: match.confidence,
+        };
+      }
+      return null;
     } catch (err) {
       this.logger.warn(
         `Azure duplicate check failed, falling back to cosine: ${(err as Error)?.message}`,
@@ -113,7 +127,7 @@ export class FaceDeskAzureFaceService {
           .deletePersistedFace(listId, existingPersistedFaceId)
           .catch(() => undefined);
       }
-      void this.azure.trainLargeFaceList(listId);
+      this.scheduleTraining(listId);
       return persistedFaceId;
     } catch (err) {
       this.logger.warn(
@@ -131,7 +145,7 @@ export class FaceDeskAzureFaceService {
     try {
       const listId = this.listIdForClient(clientId);
       await this.azure.deletePersistedFace(listId, persistedFaceId);
-      void this.azure.trainLargeFaceList(listId);
+      this.scheduleTraining(listId);
     } catch (err) {
       this.logger.warn(
         `Azure removeEnrollmentFace failed: ${(err as Error)?.message}`,
