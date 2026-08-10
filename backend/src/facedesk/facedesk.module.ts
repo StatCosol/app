@@ -43,6 +43,8 @@ import { FaceDeskAdminService } from './facedesk-admin.service';
 import { FaceDeskDashboardService } from './facedesk-dashboard.service';
 import { FaceDeskReportsService } from './facedesk-reports.service';
 import { FaceDeskTicketService } from './facedesk-ticket.service';
+import { AzureFaceClient } from './azure-face.client';
+import { FaceDeskAzureFaceService } from './facedesk-azure-face.service';
 
 /**
  * FaceDesk V2 — StatCo Smart Attendance Kiosk. Net-new module, separate from
