@@ -80,6 +80,8 @@ const serviceMigrationFiles = new Set([
   '20260809_retire_mobile_attendance_module.sql',
   // Deactivate employee mobile ESS enrollments and close pending reviews.
   '20260809b_retire_mobile_attendance_data.sql',
+  // Azure Face API columns for FaceDesk duplicate detection.
+  '20260811_facedesk_azure_face.sql',
 ]);
 
 const config = {

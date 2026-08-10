@@ -23,12 +23,15 @@ import {
 } from './entities/facedesk.entities';
 import { FaceDeskFaceService, ResolvedFrame } from './facedesk-face.service';
 import { FaceDeskSettingsService } from './facedesk-settings.service';
+import { FaceDeskAzureFaceService } from './facedesk-azure-face.service';
 import { pinLookupHash } from './facedesk-pin.util';
 import { CheckDuplicateDto, SaveEnrollmentDto } from './facedesk.dto';
 
 export interface DuplicateHit {
   matchedEmployeeId: string;
   score: number;
+  source: 'cosine' | 'azure';
+  margin?: number;
 }
 
 @Injectable()
@@ -46,6 +49,7 @@ export class FaceDeskEnrollmentService {
     private readonly auditRepo: Repository<FaceDeskAuditEntity>,
     private readonly faceService: FaceDeskFaceService,
     private readonly settings: FaceDeskSettingsService,
+    private readonly azureFace: FaceDeskAzureFaceService,
     private readonly photoStorage: FacePhotoStorageService,
     private readonly dataSource: DataSource,
   ) {}
@@ -231,28 +235,95 @@ export class FaceDeskEnrollmentService {
     probe: Float32Array,
     excludeEmployeeId: string,
     duplicateCosine: number,
+    minMarginCosine: number,
   ): Promise<DuplicateHit | null> {
     const rows = await this.dataSource.query<
-      Array<{ employee_id: string; face_template: Buffer }>
+      Array<{
+        employee_id: string;
+        face_template: Buffer | null;
+        sample_embedding: Buffer | null;
+      }>
     >(
-      `SELECT employee_id, face_template
-         FROM facedesk_employee_face_profiles
-        WHERE client_id = $1 AND enrollment_status = 'ENROLLED'
-          AND face_template IS NOT NULL AND employee_id <> $2`,
+      `SELECT p.employee_id,
+              p.face_template,
+              s.embedding AS sample_embedding
+         FROM facedesk_employee_face_profiles p
+         LEFT JOIN facedesk_employee_face_samples s
+           ON s.profile_id = p.profile_id
+        WHERE p.client_id = $1
+          AND p.enrollment_status = 'ENROLLED'
+          AND p.employee_id <> $2
+          AND (p.face_template IS NOT NULL OR s.embedding IS NOT NULL)`,
       [clientId, excludeEmployeeId],
     );
-    let best: DuplicateHit | null = null;
+
+    const bestByEmployee = new Map<string, number>();
     for (const r of rows) {
-      if (!r.face_template || r.face_template.length === 0) continue;
-      const sim = this.faceService.cosine(
-        probe,
-        bufferToEmbedding(r.face_template),
+      let maxSim = bestByEmployee.get(r.employee_id) ?? -1;
+      if (r.face_template?.length) {
+        maxSim = Math.max(
+          maxSim,
+          this.faceService.cosine(probe, bufferToEmbedding(r.face_template)),
+        );
+      }
+      if (r.sample_embedding?.length) {
+        maxSim = Math.max(
+          maxSim,
+          this.faceService.cosine(
+            probe,
+            bufferToEmbedding(r.sample_embedding),
+          ),
+        );
+      }
+      if (maxSim >= 0) bestByEmployee.set(r.employee_id, maxSim);
+    }
+
+    const ranked = [...bestByEmployee.entries()].sort((a, b) => b[1] - a[1]);
+    if (!ranked.length || ranked[0][1] < duplicateCosine) return null;
+
+    const margin =
+      ranked.length > 1 ? ranked[0][1] - ranked[1][1] : 1;
+    if (margin < minMarginCosine) return null;
+
+    return {
+      matchedEmployeeId: ranked[0][0],
+      score: ranked[0][1],
+      source: 'cosine',
+      margin,
+    };
+  }
+
+  /** Azure-first duplicate check; falls back to cosine when unavailable. */
+  private async resolveDuplicateHit(
+    clientId: string,
+    dto: { employeeId: string; frames?: Array<{ photoB64?: string }> },
+    probe: Float32Array,
+    duplicateCosine: number,
+    minMarginCosine: number,
+  ): Promise<DuplicateHit | null> {
+    const photoB64 =
+      dto.frames?.find((f) => f.photoB64)?.photoB64 ?? null;
+    if (photoB64) {
+      const azureHit = await this.azureFace.findDuplicate(
+        clientId,
+        photoB64,
+        dto.employeeId,
       );
-      if (sim >= duplicateCosine && (!best || sim > best.score)) {
-        best = { matchedEmployeeId: r.employee_id, score: sim };
+      if (azureHit) {
+        return {
+          matchedEmployeeId: azureHit.matchedEmployeeId,
+          score: azureHit.confidence,
+          source: 'azure',
+        };
       }
     }
-    return best;
+    return this.findDuplicate(
+      clientId,
+      probe,
+      dto.employeeId,
+      duplicateCosine,
+      minMarginCosine,
+    );
   }
 
   async checkDuplicate(clientId: string, dto: CheckDuplicateDto) {
@@ -263,11 +334,12 @@ export class FaceDeskEnrollmentService {
       return { duplicate: false, message: 'No usable frames' };
     }
     const probe = averageEmbeddings(good.map((f) => f.embedding));
-    const hit = await this.findDuplicate(
+    const hit = await this.resolveDuplicateHit(
       clientId,
+      dto,
       probe,
-      dto.employeeId,
       eff.duplicateCosine,
+      eff.minMarginCosine,
     );
     return {
       duplicate: !!hit,
@@ -318,11 +390,12 @@ export class FaceDeskEnrollmentService {
     const model = bestSamples[0]?.model ?? null;
 
     // Duplicate check — block + alert if the face already belongs to someone.
-    const hit = await this.findDuplicate(
+    const hit = await this.resolveDuplicateHit(
       clientId,
+      dto,
       template,
-      dto.employeeId,
       eff.duplicateCosine,
+      eff.minMarginCosine,
     );
     if (hit) {
       const alert = await this.dupeRepo.save({
@@ -387,6 +460,11 @@ export class FaceDeskEnrollmentService {
         .catch(() => null);
     }
 
+    const priorProfile = await this.profileRepo.findOne({
+      where: { employeeId: dto.employeeId, clientId },
+    });
+    const priorAzureFaceId = priorProfile?.azurePersistedFaceId ?? null;
+
     const saved = await this.dataSource.transaction(async (em) => {
       const profileRepo = em.getRepository(FaceDeskProfileEntity);
       const sampleRepo = em.getRepository(FaceDeskSampleEntity);
@@ -450,6 +528,19 @@ export class FaceDeskEnrollmentService {
         auto: true,
       });
       issuedPin = pin;
+    }
+
+    if (representativePhotoB64) {
+      const azureFaceId = await this.azureFace.registerEnrollmentFace(
+        clientId,
+        dto.employeeId,
+        representativePhotoB64,
+        priorAzureFaceId,
+      );
+      if (azureFaceId && azureFaceId !== saved.azurePersistedFaceId) {
+        saved.azurePersistedFaceId = azureFaceId;
+        await this.profileRepo.save(saved);
+      }
     }
 
     return {
@@ -528,6 +619,11 @@ export class FaceDeskEnrollmentService {
     const photoUrls = samples
       .map((s) => s.imagePath)
       .filter((p): p is string => !!p);
+
+    await this.azureFace.removeEnrollmentFace(
+      clientId,
+      profile.azurePersistedFaceId,
+    );
 
     // Atomic: samples, profile and the audit row commit together or not at all,
     // so a partial failure can't leave a profile with its samples gone, or an
