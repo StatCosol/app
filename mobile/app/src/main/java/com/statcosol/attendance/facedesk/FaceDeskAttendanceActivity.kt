@@ -354,7 +354,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                 showResult(res)
             } catch (e: FaceDeskApiException) {
                 // Genuine rejection (4xx with a message) — show it, don't queue.
-                showRejection(e.message ?: getString(R.string.facedesk_not_recognized))
+                showRejection(e.userMessage(this@FaceDeskAttendanceActivity, R.string.facedesk_not_recognized))
             } catch (e: Exception) {
                 // Network/offline — queue and confirm.
                 offline.enqueue(req)

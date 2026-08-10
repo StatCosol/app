@@ -8,19 +8,28 @@ import kotlinx.serialization.json.Json
 @Serializable
 private data class ApiErrorBody(val message: String? = null)
 
-/** Human-readable text from a FaceDesk API error body (never raw JSON). */
-fun FaceDeskApiException.userMessage(context: Context): String {
-    if (body.isBlank()) return context.getString(R.string.facedesk_enroll_failed)
-    if (code == 409) {
-        return context.getString(R.string.facedesk_enroll_duplicate)
-    }
+/** Parsed `message` field from a FaceDesk API error JSON body, if present. */
+fun FaceDeskApiException.serverMessageOrNull(): String? {
+    if (body.isBlank()) return null
     val parsed = runCatching {
         Json { ignoreUnknownKeys = true }.decodeFromString<ApiErrorBody>(body)
     }.getOrNull()
-    val serverMsg = parsed?.message?.trim().orEmpty()
+    return parsed?.message?.trim()?.takeIf { it.isNotBlank() }
+}
+
+/** Human-readable text from a FaceDesk API error (never raw JSON or HTTP metadata). */
+fun FaceDeskApiException.userMessage(
+    context: Context,
+    fallbackRes: Int = R.string.facedesk_request_failed,
+): String {
+    if (code == 409) {
+        return context.getString(R.string.facedesk_enroll_duplicate)
+    }
+    val serverMsg = serverMessageOrNull()
     return when {
-        serverMsg.isNotBlank() -> serverMsg
-        body.trimStart().startsWith("{") -> context.getString(R.string.facedesk_enroll_failed)
-        else -> body
+        serverMsg != null -> serverMsg
+        body.trimStart().startsWith("{") -> context.getString(fallbackRes)
+        body.isNotBlank() -> body
+        else -> context.getString(fallbackRes)
     }
 }

@@ -13,7 +13,7 @@ import okhttp3.Response
 import java.util.concurrent.TimeUnit
 
 class FaceDeskApiException(val code: Int, val body: String) :
-    Exception("FaceDesk API $code: $body")
+    Exception("FaceDesk API HTTP $code")
 
 /**
  * HTTP client for the FaceDesk V2 endpoints. Sends the device Bearer token.
