@@ -95,6 +95,8 @@ import { FaceDeskTicketService } from './facedesk-ticket.service';
     FaceDeskDeviceAuthGuard,
     FaceEmbeddingClient,
     FacePhotoStorageService,
+    AzureFaceClient,
+    FaceDeskAzureFaceService,
     // Liveness-provider seam: device blink today; swap the binding (e.g. to an
     // Azure Face Liveness provider) without touching the attendance service.
     { provide: FACEDESK_LIVENESS_PROVIDER, useClass: DeviceLivenessProvider },

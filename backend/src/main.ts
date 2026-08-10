@@ -462,7 +462,12 @@ async function bootstrap() {
       await ds.query(`
         ALTER TABLE facedesk_face_settings
           ADD COLUMN IF NOT EXISTS shift_start_time varchar(5),
-          ADD COLUMN IF NOT EXISTS shift_end_time varchar(5)
+          ADD COLUMN IF NOT EXISTS shift_end_time varchar(5),
+          ADD COLUMN IF NOT EXISTS azure_face_list_id varchar(64)
+      `);
+      await ds.query(`
+        ALTER TABLE facedesk_employee_face_profiles
+          ADD COLUMN IF NOT EXISTS azure_persisted_face_id varchar(64)
       `);
       logger.log('Schema patch: facedesk PIN verification columns OK');
     } catch (e: any) {

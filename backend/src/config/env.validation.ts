@@ -106,6 +106,11 @@ export const envValidationSchema = Joi.object({
   FACE_ANTISPOOF_PROVIDER: Joi.string()
     .valid('none', 'azure', 'facetec')
     .optional(),
+  // Azure AI Face — optional high-accuracy duplicate detection for FaceDesk.
+  AZURE_FACE_ENDPOINT: Joi.string().uri().optional().allow(''),
+  AZURE_FACE_KEY: Joi.string().optional().allow(''),
+  AZURE_FACE_API_VERSION: Joi.string().optional().default('v1.0'),
+  AZURE_FACE_DUPLICATE_CONFIDENCE: Joi.number().min(0).max(1).optional(),
   // Roadmap #7 / K10 — shift validation enforcement mode
   SHIFT_VALIDATION_MODE: Joi.string()
     .valid('off', 'warn', 'enforce')

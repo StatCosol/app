@@ -83,7 +83,7 @@ export class FaceDeskSettingsService {
     const row = await this.repo.findOne({ where: { clientId } });
     const matchPct = Number(row?.faceMatchConfidence ?? 95);
     const retryPct = Number(row?.faceRetryConfidence ?? 90);
-    const dupPct = Number(row?.duplicateThreshold ?? 90);
+    const dupPct = Number(row?.duplicateThreshold ?? 93);
     return {
       matchConfidencePct: matchPct,
       retryConfidencePct: retryPct,

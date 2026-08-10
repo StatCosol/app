@@ -44,7 +44,7 @@ describe('FaceDeskSettingsService', () => {
     expect(eff.minFaceSamples).toBe(5);
     expect(eff.frameCaptureCount).toBe(15);
     expect(eff.acceptCosine).toBeCloseTo(0.84, 3);
-    expect(eff.duplicateCosine).toBeCloseTo(0.78, 3); // 90% → 0.78
+    expect(eff.duplicateCosine).toBeCloseTo(0.816, 3); // 93% default → ~0.816
     expect(eff.livenessRequired).toBe(true);
     expect(eff.identificationMode).toBe('PIN_THEN_FACE');
   });

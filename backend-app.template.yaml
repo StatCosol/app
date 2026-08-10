@@ -76,3 +76,10 @@ properties:
           # Optional: passive anti-spoof model path on face-svc (see face-svc README).
           # - name: FD_LIVENESS_PROVIDER
           #   value: azure
+          # Azure AI Face — duplicate detection at enrollment (Large Face List).
+          # - name: AZURE_FACE_ENDPOINT
+          #   value: https://<resource>.cognitiveservices.azure.com
+          # - name: AZURE_FACE_KEY
+          #   secretRef: azure-face-key
+          # - name: AZURE_FACE_DUPLICATE_CONFIDENCE
+          #   value: '0.72'

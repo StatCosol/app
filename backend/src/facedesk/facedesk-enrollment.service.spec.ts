@@ -10,6 +10,7 @@ function makeService() {
     {} as any,
     {} as any,
     {} as any,
+    { enabled: false } as any,
     {} as any,
     dataSource as any,
   );
@@ -86,6 +87,10 @@ describe('FaceDeskEnrollmentService deleteEnrollment', () => {
       transaction: jest.fn(async (cb: any) => cb(em)),
     };
     const photoStorage = { deletePhoto: jest.fn().mockResolvedValue(true) };
+    const azureFace = {
+      enabled: false,
+      removeEnrollmentFace: jest.fn().mockResolvedValue(undefined),
+    };
     const service = new FaceDeskEnrollmentService(
       profileRepo as any,
       sampleRepo as any,
@@ -94,6 +99,7 @@ describe('FaceDeskEnrollmentService deleteEnrollment', () => {
       {} as any,
       {} as any,
       {} as any,
+      azureFace as any,
       photoStorage as any,
       dataSource as any,
     );

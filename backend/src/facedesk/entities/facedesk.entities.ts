@@ -162,6 +162,10 @@ export class FaceDeskProfileEntity {
   @Column({ name: 'enrolled_by', type: 'uuid', nullable: true })
   enrolledBy: string | null;
 
+  /** Persisted face id in the client's Azure Large Face List. */
+  @Column({ name: 'azure_persisted_face_id', type: 'varchar', length: 64, nullable: true })
+  azurePersistedFaceId: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
@@ -496,7 +500,7 @@ export class FaceDeskSettingsEntity {
   @Column({ name: 'face_retry_confidence', type: 'numeric', default: 90 })
   faceRetryConfidence: number;
 
-  @Column({ name: 'duplicate_threshold', type: 'numeric', default: 90 })
+  @Column({ name: 'duplicate_threshold', type: 'numeric', default: 93 })
   duplicateThreshold: number;
 
   @Column({ name: 'min_face_samples', type: 'int', default: 5 })
@@ -525,6 +529,10 @@ export class FaceDeskSettingsEntity {
 
   @Column({ name: 'shift_end_time', type: 'varchar', length: 5, nullable: true })
   shiftEndTime: string | null;
+
+  /** Azure Large Face List id for this client (when AZURE_FACE_* is configured). */
+  @Column({ name: 'azure_face_list_id', type: 'varchar', length: 64, nullable: true })
+  azureFaceListId: string | null;
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
