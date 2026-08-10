@@ -32,4 +32,25 @@ class FaceDeskApiErrorsTest {
         val ex = FaceDeskApiException(401, body)
         assertEquals("FaceDesk API HTTP 401", ex.message)
     }
+
+    @Test
+    fun isEnrollmentDuplicateConflict_trueForFaceDuplicateMessage() {
+        val body = """{"message":"Possible duplicate found — sent to admin review"}"""
+        val ex = FaceDeskApiException(409, body)
+        assertEquals(true, ex.isEnrollmentDuplicateConflict())
+    }
+
+    @Test
+    fun isEnrollmentDuplicateConflict_falseForOfflineRefUniqueConstraint() {
+        val body = """{"message":"A record with the same offline_ref already exists."}"""
+        val ex = FaceDeskApiException(409, body)
+        assertEquals(false, ex.isEnrollmentDuplicateConflict())
+    }
+
+    @Test
+    fun isEnrollmentDuplicateConflict_falseForPinClash() {
+        val body = """{"message":"That PIN is already in use — choose a different one"}"""
+        val ex = FaceDeskApiException(409, body)
+        assertEquals(false, ex.isEnrollmentDuplicateConflict())
+    }
 }
