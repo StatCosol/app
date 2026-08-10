@@ -102,17 +102,17 @@ export class FaceDeskAzureFaceService {
     if (!this.enabled) return null;
     try {
       const listId = await this.ensureClientList(clientId);
-      if (existingPersistedFaceId) {
-        await this.azure
-          .deletePersistedFace(listId, existingPersistedFaceId)
-          .catch(() => undefined);
-      }
       const image = this.decodePhoto(photoB64);
       const persistedFaceId = await this.azure.addPersistedFace(
         listId,
         image,
         employeeId,
       );
+      if (existingPersistedFaceId && existingPersistedFaceId !== persistedFaceId) {
+        await this.azure
+          .deletePersistedFace(listId, existingPersistedFaceId)
+          .catch(() => undefined);
+      }
       void this.azure.trainLargeFaceList(listId);
       return persistedFaceId;
     } catch (err) {

@@ -83,20 +83,18 @@ export class AzureFaceClient {
     confidenceThreshold: number,
     maxCandidates = 5,
   ): Promise<AzureSimilarFace[]> {
-    const resp = await fetch(
-      this.url(`/largefacelists/${largeFaceListId}/findsimilars`),
-      {
-        method: 'POST',
-        headers: this.headers(true),
-        body: JSON.stringify({
-          faceId,
-          maxNumOfCandidatesReturned: maxCandidates,
-          mode: 'matchPerson',
-          confidenceThreshold,
-        }),
-        signal: AbortSignal.timeout(15_000),
-      },
-    );
+    const resp = await fetch(this.url('/findsimilars'), {
+      method: 'POST',
+      headers: this.headers(true),
+      body: JSON.stringify({
+        faceId,
+        largeFaceListId,
+        maxNumOfCandidatesReturned: maxCandidates,
+        mode: 'matchPerson',
+        confidenceThreshold,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
     if (!resp.ok) {
       const body = await resp.text().catch(() => '');
       throw new Error(
