@@ -4,12 +4,13 @@ import { RouterOutlet, Router } from '@angular/router';
 import { BranchSidebarComponent } from './branch-sidebar.component';
 import { AuthService } from '../../../core/auth.service';
 import { NewsTickerComponent } from '../../../shared/news/news-ticker.component';
+import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordmark/statco-wordmark.component';
 
 @Component({
   selector: 'app-branch-layout',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, BranchSidebarComponent, NewsTickerComponent],
+  imports: [RouterOutlet, BranchSidebarComponent, NewsTickerComponent, StatcoWordmarkComponent],
   template: `
     <div class="branch-shell">
       <!-- Mobile menu toggle -->
@@ -35,21 +36,9 @@ import { NewsTickerComponent } from '../../../shared/news/news-ticker.component'
           <div class="px-3 sm:px-5 lg:px-7">
             <div class="flex items-center justify-between h-[60px] gap-3">
 
-              <!-- LEFT: Logo + Brand + portal chip -->
+              <!-- LEFT: Company brand -->
               <div class="flex items-center gap-3 min-w-0">
-                <div class="flex-shrink-0">
-                  <svg width="68" height="42" viewBox="0 0 360 220" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="140" cy="110" r="90" fill="#12A8E8"/>
-                    <circle cx="220" cy="110" r="90" fill="#0B2A5B"/>
-                    <rect x="310" y="30" width="8" height="160" fill="#000000"/>
-                  </svg>
-                </div>
-                <div class="leading-tight hidden sm:block">
-                  <div class="flex items-center gap-2">
-                    <span class="text-lg font-bold tracking-tight text-statco-blue">StatCo Solutions</span>
-                  </div>
-                  <p class="text-[11px] font-medium text-slate-400">Ensuring Compliance, Empowering Success</p>
-                </div>
+                <app-statco-wordmark></app-statco-wordmark>
                 <!-- Contact links (xl+) -->
                 <div class="hidden xl:flex flex-col items-start gap-0.5 ml-4 text-[11px] text-gray-400 border-l border-gray-100 pl-4">
                   <a href="mailto:compliance@statcosol.com" class="flex items-center gap-1 hover:text-emerald-600 transition-colors">
