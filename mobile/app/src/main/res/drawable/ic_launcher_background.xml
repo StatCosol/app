@@ -1,30 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Adaptive icon background: deep blue gradient with subtle dot pattern accent -->
+<!-- Adaptive icon background: StatCo brand navy -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:pathData="M0,0h108v108h-108z">
-        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt" name="android:fillColor">
-            <gradient
-                android:type="linear"
-                android:startX="0" android:startY="0"
-                android:endX="108" android:endY="108">
-                <item android:offset="0.0" android:color="#60A5FA"/>
-                <item android:offset="0.5" android:color="#2563EB"/>
-                <item android:offset="1.0" android:color="#1E3A8A"/>
-            </gradient>
-        </aapt:attr>
-    </path>
-    <!-- Top-left highlight glow -->
     <path
-        android:fillColor="#FFFFFF"
-        android:fillAlpha="0.14"
-        android:pathData="M0,0 L60,0 C36,30 18,48 0,54 Z"/>
-    <!-- Lower-right soft shadow band -->
-    <path
-        android:fillColor="#000000"
-        android:fillAlpha="0.14"
-        android:pathData="M108,108 L108,54 C84,72 60,96 36,108 Z"/>
+        android:fillColor="#0A1F44"
+        android:pathData="M0,0h108v108h-108z" />
 </vector>
