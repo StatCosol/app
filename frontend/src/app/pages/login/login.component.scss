@@ -408,18 +408,23 @@
 }
 
 @media (max-width: 850px) {
-  .login-page { display: block; min-height: 100vh; background: #f4f7fb; }
-  .brand-panel { min-height: auto; padding-bottom: 30px; }
-  .brand-inner { padding: 35px 25px; }
-  .brand-logo img { width: 190px; }
-  .hero-content { width: 100%; margin-top: 45px; text-align: center; }
-  .hero-content h1 { font-size: 38px; }
+  /* Stack as a column and put the LOGIN FORM FIRST so credentials are
+     immediately reachable on phones (the promo panel moves below). */
+  .login-page { display: flex; flex-direction: column; min-height: auto; background: #f4f7fb; }
+  .login-panel { order: 1; min-height: auto; padding: 26px 15px 30px; background: #f4f7fb; }
+  .brand-panel { order: 2; min-height: auto; padding-bottom: 30px; }
+
+  .brand-inner { padding: 30px 25px; }
+  .brand-logo { text-align: center; }
+  .brand-logo img { width: 190px; object-position: center; }
+  .hero-content { width: 100%; margin-top: 28px; text-align: center; }
+  .hero-content h1 { font-size: 32px; }
   .green-line { margin: 22px auto; }
-  .digital-shield { position: relative; width: 100%; height: 280px; top: auto; right: auto; margin-top: 10px; opacity: 1; transform: scale(.78); }
+  /* Drop the large decorative shield on mobile to keep the promo compact. */
+  .digital-shield { display: none; }
   .service-grid { width: 100%; grid-template-columns: repeat(3, 1fr); margin-top: 10px; }
   .service-item { align-items: center; text-align: center; border-right: none; }
   .technology-strip { display: none; }
-  .login-panel { min-height: auto; padding: 25px 15px 35px; background: #f4f7fb; }
   .login-card { padding: 30px 22px; border-radius: 18px; box-shadow: 0 10px 35px rgba(6, 30, 65, .12); }
 }
 
