@@ -18,15 +18,15 @@ export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
       </div>
 
       <!-- Modal Panel -->
-      <div class="flex min-h-full items-center justify-center p-4">
+      <div class="flex min-h-full items-center justify-center p-3 sm:p-4">
         <div
           [ngClass]="modalClasses"
-          class="relative transform overflow-hidden rounded-xl bg-white shadow-xl transition-all"
+          class="relative flex max-h-[calc(100dvh-1.5rem)] min-w-0 transform flex-col overflow-hidden rounded-xl bg-white shadow-xl transition-all sm:max-h-[calc(100dvh-2rem)]"
           (click)="$event.stopPropagation()">
 
           <!-- Header -->
           @if (title || showCloseButton) {
-<div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+<div class="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4">
             @if (title) {
 <h3 [id]="'modal-title-' + modalUid" class="text-lg font-semibold text-gray-900">{{ title }}</h3>
 }
@@ -46,13 +46,13 @@ export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
 }
 
           <!-- Body -->
-          <div class="px-6 py-4">
+          <div class="min-h-0 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
             <ng-content></ng-content>
           </div>
 
           <!-- Footer -->
           @if (showFooter) {
-<div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-3">
+<div class="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-4 py-3 sm:px-6 sm:py-4">
             <ng-content select="[slot=footer]"></ng-content>
           </div>
 }

@@ -36,6 +36,19 @@ body {
   text-size-adjust: 100%;
 }
 
+app-root,
+#main-content {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+#main-content > :not(router-outlet) {
+  min-width: 0;
+  max-width: 100%;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -137,6 +150,22 @@ small {
   .min-h-screen {
     min-height: 100dvh !important;
   }
+
+  #main-content,
+  .admin-shell,
+  .auditor-shell,
+  .branch-shell,
+  .cco-shell,
+  .ceo-shell,
+  .client-shell,
+  .contractor-shell,
+  .crm-shell,
+  .accounts-shell,
+  .payroll-shell,
+  app-ess-layout .shell,
+  app-pf-team-layout .shell {
+    min-height: 100dvh;
+  }
 }
 
 /* =========================
@@ -207,13 +236,6 @@ canvas {
     .xl\:grid-cols-4,
     .xl\:grid-cols-5 {
       grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    }
-
-    /* Sidebar auto-collapses on tablet portrait */
-    .admin-shell aside,
-    .branch-shell aside,
-    .client-shell aside {
-      width: 60px;
     }
 
     /* Full-width cards */
@@ -940,6 +962,166 @@ canvas {
 img,
 svg {
   max-width: 100%;
+}
+
+/* =========================================================================
+   Shared responsive contract
+   Keep every portal inside the viewport while allowing dense data regions to
+   scroll independently. Portal sidebars own their mobile drawer behaviour.
+   ========================================================================= */
+:where(
+  .admin-shell,
+  .auditor-shell,
+  .branch-shell,
+  .cco-shell,
+  .ceo-shell,
+  .client-shell,
+  .contractor-shell,
+  .crm-shell,
+  .accounts-shell,
+  .payroll-shell,
+  app-sales-layout > div,
+  app-ess-layout .shell,
+  app-pf-team-layout .shell
+) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+:where(
+  .admin-shell,
+  .auditor-shell,
+  .branch-shell,
+  .cco-shell,
+  .ceo-shell,
+  .client-shell,
+  .contractor-shell,
+  .crm-shell,
+  .accounts-shell,
+  .payroll-shell,
+  app-sales-layout > div,
+  app-ess-layout .shell,
+  app-pf-team-layout .shell
+) > * {
+  min-width: 0;
+}
+
+:where(
+  .admin-content,
+  .auditor-content,
+  .branch-content,
+  .cco-content,
+  .ceo-content,
+  .client-content,
+  .contractor-content,
+  .crm-content,
+  .accounts-content,
+  .payroll-content,
+  .page-content,
+  .role-content,
+  .page
+) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+:where(.page, .role-content, .page-content) > *,
+:where(.page-header, .section-header, .card-header, .toolbar, .filter-bar, .filter-row, .action-bar, .header-actions) > *,
+:where(.form-grid, .filter-grid, .kpi-grid, .stats-grid, .dashboard-grid, .detail-grid, .info-grid) > * {
+  min-width: 0;
+}
+
+:where(.table-scroll, .table-wrap, .table-wrapper, .overflow-x-auto) {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+:where(input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+:where(.page-title, .card-title, .section-title, .page-header h1, .page-header h2) {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1023.98px) {
+  :where(.page-header, .section-header, .card-header, .toolbar, .filter-bar, .filter-row, .action-bar, .header-actions) {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  :where(.form-grid, .filter-grid, .kpi-grid, .stats-grid, .dashboard-grid, .detail-grid, .info-grid) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 639.98px) {
+  :where(
+    .admin-content,
+    .auditor-content,
+    .branch-content,
+    .cco-content,
+    .ceo-content,
+    .client-content,
+    .contractor-content,
+    .crm-content,
+    .accounts-content,
+    .payroll-content,
+    .page-content,
+    .role-content,
+    .page
+  ) {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  :where(.form-grid, .filter-grid, .kpi-grid, .stats-grid, .dashboard-grid, .detail-grid, .info-grid) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .grid-cols-3,
+  .grid-cols-4,
+  .grid-cols-5,
+  .lg\:grid-cols-3,
+  .lg\:grid-cols-4,
+  .xl\:grid-cols-4,
+  .xl\:grid-cols-5 {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  :where(
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="date"],
+    input[type="datetime-local"],
+    input[type="month"],
+    input[type="search"],
+    input[type="tel"],
+    input[type="time"],
+    input[type="url"],
+    select,
+    textarea
+  ) {
+    width: 100%;
+  }
+
+  :where(.page-header, .section-header) {
+    align-items: stretch;
+  }
+
+  :where(.nav-actions, .header-actions, .page-actions, .actions, .btn-row) {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
 }
 
 /* Custom Utility Classes */
