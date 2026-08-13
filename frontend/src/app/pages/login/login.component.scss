@@ -325,6 +325,20 @@
   background-repeat: no-repeat;
 }
 .remember input:focus-visible { outline: 2px solid rgba(0, 65, 145, .25); outline-offset: 2px; }
+@media (forced-colors: active) {
+  .remember input {
+    appearance: auto;
+    border: revert;
+    border-radius: revert;
+    background: revert;
+    accent-color: Highlight;
+    forced-color-adjust: auto;
+  }
+
+  .remember input:checked {
+    background-image: none;
+  }
+}
 .forgot-link { display: inline-flex; align-items: center; color: var(--green); font-weight: 600; line-height: inherit; text-decoration: none; }
 .forgot-link:hover { text-decoration: underline; }
 
