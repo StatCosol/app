@@ -5,12 +5,13 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { PayrollSidebarComponent } from './payroll-sidebar.component';
 import { AuthService } from '../../../core/auth.service';
+import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordmark/statco-wordmark.component';
 
 @Component({
   selector: 'app-payroll-layout',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, PayrollSidebarComponent],
+  imports: [RouterOutlet, PayrollSidebarComponent, StatcoWordmarkComponent],
   template: `
     <div class="payroll-shell">
       <!-- Mobile menu toggle -->
@@ -35,21 +36,9 @@ import { AuthService } from '../../../core/auth.service';
         <header class="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
           <div class="px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-14">
-              <!-- Logo + Brand -->
+              <!-- Company brand -->
               <div class="flex items-center gap-5">
-                <div class="flex-shrink-0" aria-hidden="true">
-                  <svg width="78" height="48" viewBox="0 0 360 220" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="140" cy="110" r="90" fill="#12A8E8" />
-                    <circle cx="220" cy="110" r="90" fill="#0B2A5B" />
-                    <rect x="310" y="30" width="8" height="160" fill="#000000" />
-                  </svg>
-                </div>
-                <div class="leading-tight">
-                  <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-statco-blue font-brand">
-                    StatCo Solutions
-                  </h1>
-                  <p class="text-xs font-medium text-slate-500">Ensuring Compliance, Empowering Success</p>
-                </div>
+                <app-statco-wordmark></app-statco-wordmark>
                 <!-- Contact (xl+) -->
                 <div class="hidden xl:flex flex-col items-start gap-1 ml-6 text-xs text-gray-400">
                   <a href="mailto:compliance@statcosol.com" class="flex items-center gap-1.5 hover:text-statco-blue transition-colors">
