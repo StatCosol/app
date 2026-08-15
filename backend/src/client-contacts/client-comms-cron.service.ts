@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import { EmailService } from '../email/email.service';
 import { ClientContactsService } from './client-contacts.service';
 import { ClientCommTemplatesService } from './client-comm-templates.service';
+import { portalUrl } from '../common/utils/portal-url';
 
 export interface RunOptions {
   triggeredBy: string;
@@ -430,11 +431,6 @@ export class ClientCommsCronService {
     });
   }
   private portalUrl(path: string): string {
-    const base = (
-      process.env.FRONTEND_URL ||
-      process.env.PUBLIC_BASE_URL ||
-      'https://statcompy.statcosol.com'
-    ).replace(/\/$/, '');
-    return `${base}${path.startsWith('/') ? path : `/${path}`}`;
+    return portalUrl(path);
   }
 }
