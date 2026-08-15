@@ -243,14 +243,14 @@ interface BranchOption { id: string; name: string }
 
           <section>
             <h3 class="text-base font-semibold text-gray-900 mb-2">3. Enroll employees on the machine</h3>
-            <p>When you enroll a fingerprint/face on the device, the employee's <b>PIN must equal their Statcompy <code>employeeCode</code></b> (e.g. <code>EMP0042</code>). If they don't match, punches will appear in the Punch Feed marked as "Unknown" — fix the code and click <b>Reconcile Unknown</b> on the Devices tab.</p>
+            <p>When you enroll a fingerprint/face on the device, the employee's <b>PIN must equal their StatCo <code>employeeCode</code></b> (e.g. <code>EMP0042</code>). If they don't match, punches will appear in the Punch Feed marked as "Unknown" — fix the code and click <b>Reconcile Unknown</b> on the Devices tab.</p>
           </section>
 
           <section>
             <h3 class="text-base font-semibold text-gray-900 mb-2">4. How it flows into payroll</h3>
             <ol class="list-decimal pl-5 space-y-1">
               <li>Employee scans on device → device pushes punch to cloud over HTTPS within ~10 sec.</li>
-              <li>Statcompy stores raw punch, computes day's check-in / check-out / worked hours / OT (any time worked over 9h/day).</li>
+              <li>StatCo stores raw punch, computes day's check-in / check-out / worked hours / OT (any time worked over 9h/day).</li>
               <li>Attendance row is written with <code>source = BIOMETRIC</code> and <code>approval_status = APPROVED</code>.</li>
               <li>When you process payroll for the month, the engine pulls <b>Days Present</b>, <b>LOP Days</b>, and <b>OT Hours</b> from these rows and feeds them into salary formulas.</li>
               <li>Manual edits in <b>Mark Attendance</b> always win — biometric will not overwrite them.</li>

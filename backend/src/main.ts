@@ -91,7 +91,7 @@ async function bootstrap() {
   // Swagger / OpenAPI documentation (disabled in production)
   if (config.get<string>('NODE_ENV') !== 'production') {
     const swaggerConfig = new DocumentBuilder()
-      .setTitle('StatComPy API')
+      .setTitle('StatCo API')
       .setDescription('Compliance Management Platform — REST API documentation')
       .setVersion('1.0')
       .addBearerAuth(

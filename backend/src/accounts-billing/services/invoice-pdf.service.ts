@@ -72,7 +72,7 @@ export class InvoicePdfService {
         size: 'A4',
         margins: { top: 40, bottom: 40, left: 40, right: 40 },
         bufferPages: true,
-        info: { Producer: 'StatComPy', Creator: 'StatComPy Billing' },
+        info: { Producer: 'StatCo', Creator: 'StatCo Billing' },
       });
 
       const chunks: Uint8Array[] = [];
