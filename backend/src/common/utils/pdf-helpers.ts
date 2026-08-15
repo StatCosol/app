@@ -22,7 +22,7 @@ export function createDoc(
     size: 'A4',
     margins: { top: 40, bottom: 40, left: 40, right: 40 },
     bufferPages: true,
-    info: { Producer: 'StatComPy', Creator: 'StatComPy Reports' },
+    info: { Producer: 'StatCo', Creator: 'StatCo Reports' },
     ...opts,
   });
 }

@@ -15,7 +15,7 @@ export class ExcelExportService {
     sheetName = 'Export',
   ): Promise<Buffer> {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'StatCompy';
+    wb.creator = 'StatCo';
     wb.created = new Date();
 
     const ws = wb.addWorksheet(sheetName);

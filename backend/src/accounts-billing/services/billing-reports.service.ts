@@ -162,7 +162,7 @@ export class BillingReportsService {
   }> {
     const report = await this.getReport(query);
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'StatCompy';
+    workbook.creator = 'StatCo';
     workbook.created = new Date();
     workbook.modified = new Date();
     workbook.calcProperties.fullCalcOnLoad = true;

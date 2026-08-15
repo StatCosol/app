@@ -123,7 +123,7 @@ import {
 
         <!-- Info -->
         <div class="bg-blue-50 border border-blue-200 rounded-xl p-6">
-          <h3 class="font-semibold text-blue-900 mb-2">How AI Works in StatComPy</h3>
+          <h3 class="font-semibold text-blue-900 mb-2">How AI Works in StatCo</h3>
           <ul class="text-sm text-blue-800 space-y-2">
             <li><strong>With API Key:</strong> Uses OpenAI for enhanced risk scoring, detailed legal analysis, predictive insights, and nuanced audit observations.</li>
             <li><strong>Without API Key:</strong> Falls back to rule-based analysis covering EPF, ESI, Minimum Wages, Factory Act, and Contract Labour regulations. Still detects violations effectively.</li>
