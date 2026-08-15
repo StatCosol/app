@@ -85,7 +85,7 @@ interface NavItem {
 
           <!-- company logo -->
           @if (companyLogoUrl) {
-<img [src]="companyLogoUrl" alt="" class="tb-logo" />
+<img [src]="companyLogoUrl" alt="Company logo" class="tb-logo" />
 }
 
           <div class="tb-spacer"></div>
