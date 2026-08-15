@@ -17,6 +17,7 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { ReqUser } from '../access/access-scope.service';
 import { ClientContactsService } from './client-contacts.service';
+import { portalUrl } from '../common/utils/portal-url';
 import {
   CreateClientContactDto,
   UpdateClientContactDto,
@@ -188,8 +189,8 @@ export class ClientContactsController {
       portalUrl:
         dto?.portalUrl ||
         (ct === 'PAYROLL_INPUT_REQUEST'
-          ? 'https://statcompy.statcosol.com/client/payroll/inputs'
-          : 'https://statcompy.statcosol.com/contractor/mcd/upload'),
+          ? portalUrl('/client/payroll/inputs')
+          : portalUrl('/contractor/mcd/upload')),
     };
     // If caller passed un-saved drafts, render those; otherwise pull from DB/default.
     if (dto?.subjectTemplate || dto?.bodyTemplate) {
