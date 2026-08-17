@@ -82,6 +82,10 @@ jobs:
         run: npm run build
       - name: Unit tests (Vitest service specs)
         run: npm run test:unit
+      - name: Install Chromium for browser tests
+        run: npx playwright install --with-deps chromium
+      - name: Unit tests (Angular TestBed suite)
+        run: npm test
 
   docker:
     runs-on: ubuntu-latest
