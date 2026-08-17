@@ -45,7 +45,12 @@ enum class LivenessChallenge(val wireName: String) {
  * against ML Kit `CLASSIFICATION_MODE_ALL` running on a Redmi 9 in office
  * lighting; revisit if the floor reports persistent failures.
  */
-class LivenessChallengeTracker(val challenge: LivenessChallenge) {
+class LivenessChallengeTracker(
+    val challenge: LivenessChallenge,
+    /** Time source (millis). Injectable so timing-window tests are
+     *  deterministic; defaults to the wall clock in production. */
+    private val clock: () -> Long = { System.currentTimeMillis() },
+) {
 
     @Volatile var passed: Boolean = false
         private set
@@ -68,7 +73,7 @@ class LivenessChallengeTracker(val challenge: LivenessChallenge) {
      */
     fun feed(signal: FaceSignal): Boolean {
         if (passed) return false
-        val now = System.currentTimeMillis()
+        val now = clock()
         val matched = when (challenge) {
             LivenessChallenge.BLINK -> evalBlink(signal, now)
             LivenessChallenge.SMILE -> evalSmile(signal)

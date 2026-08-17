@@ -3,7 +3,6 @@ package com.statcosol.attendance.face
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.random.Random
@@ -67,25 +66,37 @@ class LivenessChallengeTest {
 
     @Test
     fun blink_passesOnClosedThenOpenWithinWindow() {
-        val t = LivenessChallengeTracker(LivenessChallenge.BLINK)
+        var now = 1_000_000L
+        val t = LivenessChallengeTracker(LivenessChallenge.BLINK) { now }
         assertFalse(t.feed(sig(left = 0.1f, right = 0.1f))) // eyes closed
-        Thread.sleep(120) // land inside the 80..2500ms window
+        now += 120 // deterministically inside the 80..2500ms window
         assertTrue(t.feed(sig(left = 0.9f, right = 0.9f))) // eyes open → pass
         assertTrue(t.passed)
     }
 
     @Test
     fun blink_openWithoutPriorClosureDoesNotPass() {
-        val t = LivenessChallengeTracker(LivenessChallenge.BLINK)
+        val t = LivenessChallengeTracker(LivenessChallenge.BLINK) { 1_000_000L }
         assertFalse(t.feed(sig(left = 0.9f, right = 0.9f)))
         assertFalse(t.passed)
     }
 
     @Test
-    fun blink_tooFastReopenIsRejected() {
-        val t = LivenessChallengeTracker(LivenessChallenge.BLINK)
+    fun blink_reopenBelowFloorIsRejected() {
+        var now = 1_000_000L
+        val t = LivenessChallengeTracker(LivenessChallenge.BLINK) { now }
         t.feed(sig(left = 0.1f, right = 0.1f)) // closed
-        // Immediate reopen: elapsed < 80ms floor → rejected, tracker resets.
+        now += 5 // below the 80ms floor → rejected, independent of runner load
+        assertFalse(t.feed(sig(left = 0.9f, right = 0.9f)))
+        assertFalse(t.passed)
+    }
+
+    @Test
+    fun blink_reopenAboveCeilingIsRejected() {
+        var now = 1_000_000L
+        val t = LivenessChallengeTracker(LivenessChallenge.BLINK) { now }
+        t.feed(sig(left = 0.1f, right = 0.1f)) // closed
+        now += 3_000 // past the 2500ms ceiling → rejected
         assertFalse(t.feed(sig(left = 0.9f, right = 0.9f)))
         assertFalse(t.passed)
     }
@@ -124,14 +135,10 @@ class LivenessChallengeTest {
 
     @Test
     fun passedAtIso_isNullUntilPassedThenUtcIso() {
-        val t = LivenessChallengeTracker(LivenessChallenge.SMILE)
+        // Fixed clock at epoch 0 → a known UTC ISO-8601 timestamp.
+        val t = LivenessChallengeTracker(LivenessChallenge.SMILE) { 0L }
         assertNull(t.passedAtIso())
         t.feed(sig(smile = 0.9f))
-        val iso = t.passedAtIso()
-        assertNotNull(iso)
-        assertTrue(
-            "expected ISO-8601 UTC, got $iso",
-            iso!!.matches(Regex("""\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z""")),
-        )
+        assertEquals("1970-01-01T00:00:00Z", t.passedAtIso())
     }
 }
