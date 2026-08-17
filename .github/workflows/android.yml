@@ -22,8 +22,23 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          # Cache ~/.gradle (dependencies + wrapper distribution) so runs after
+          # the first don't re-download the Gradle distribution every time.
+          cache: gradle
       - name: Roster crypto JVM tests
         working-directory: mobile
-        run: bash gradlew :app:testKioskDebugUnitTest --no-daemon
+        # Retry to tolerate transient failures while fetching the Gradle
+        # distribution (services.gradle.org occasionally returns 503 / drops the
+        # connection). Without this a single blip fails a required check.
+        run: |
+          for attempt in 1 2 3; do
+            if bash gradlew :app:testKioskDebugUnitTest --no-daemon; then
+              exit 0
+            fi
+            echo "::warning::Gradle attempt ${attempt} failed; retrying in $((attempt * 15))s..."
+            sleep $((attempt * 15))
+          done
+          echo "::error::Gradle failed after 3 attempts"
+          exit 1
       - name: Android APK check
         run: echo "android apk reporting disabled for required-check stability"
