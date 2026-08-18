@@ -1108,7 +1108,7 @@ import { AuthService } from '../../../core/auth.service';
     .support-strip a { color: #102b58; font-weight: 500; }
     .support-strip svg { width: 20px; height: 20px; color: #315a91; }
 
-    @media (min-width: 981px) and (max-height: 820px) {
+    @media (min-width: 1101px) and (max-height: 820px) {
       .left { padding-top: 30px; padding-bottom: 30px; }
       .brand-logo { width: 245px; }
       .left h1 { margin-top: 24px; font-size: 64px; }
@@ -1129,7 +1129,7 @@ import { AuthService } from '../../../core/auth.service';
       .support-strip { top: calc(100% + 18px); min-height: 72px; }
     }
 
-    @media (max-width: 980px) {
+    @media (max-width: 1100px) {
       .screen { display: block; min-height: 100dvh; }
       .left {
         min-height: auto;
@@ -1183,6 +1183,96 @@ import { AuthService } from '../../../core/auth.service';
       .form-area { padding-inline: 16px; }
       .row { font-size: 13px; gap: 8px; }
       .support-strip a { white-space: normal; overflow-wrap: anywhere; }
+    }
+
+    /* Content must expand under browser zoom, translated text, and OS text scaling. */
+    .left, .right, .form-area, .field, .input, .row, .support-strip { min-width: 0; }
+    .caption, .features p, .support-strip, .support-strip a { overflow-wrap: anywhere; }
+    .language, .input, .login, .bio { height: auto; }
+    .language { min-height: 43px; }
+    .input {
+      min-height: 50px;
+      padding-top: 7px;
+      padding-bottom: 7px;
+    }
+    .input input { min-height: 34px; }
+    .login { min-height: 54px; padding: 12px 48px; }
+    .bio { min-height: 52px; padding: 9px 12px; }
+    .pw-toggle { min-width: 44px; min-height: 44px; margin: -5px -8px -5px 0; }
+    .forgot { min-height: 44px; display: inline-flex; align-items: center; }
+
+    @media (max-width: 1100px) {
+      .left {
+        padding-left: max(clamp(22px, 6vw, 52px), calc(env(safe-area-inset-left) + 16px));
+        padding-right: max(clamp(22px, 6vw, 52px), calc(env(safe-area-inset-right) + 16px));
+      }
+      .right {
+        padding-left: max(20px, calc(env(safe-area-inset-left) + 12px));
+        padding-right: max(20px, calc(env(safe-area-inset-right) + 12px));
+        padding-bottom: max(50px, calc(env(safe-area-inset-bottom) + 24px));
+      }
+    }
+
+    @media (max-width: 620px) {
+      .right {
+        padding-left: max(12px, calc(env(safe-area-inset-left) + 8px));
+        padding-right: max(12px, calc(env(safe-area-inset-right) + 8px));
+        padding-bottom: max(28px, calc(env(safe-area-inset-bottom) + 20px));
+      }
+      .form-area { width: 100%; }
+      .row { align-items: center; }
+      .remember { min-height: 44px; }
+      .support-strip { flex-direction: column; gap: 10px; }
+    }
+
+    @media (max-width: 340px) {
+      .left {
+        padding-left: max(14px, calc(env(safe-area-inset-left) + 8px));
+        padding-right: max(14px, calc(env(safe-area-inset-right) + 8px));
+      }
+      .brand-logo { width: min(190px, 86vw); }
+      .left h1 { font-size: 42px; }
+      .left h3 { font-size: 16px; }
+      .right {
+        padding-left: max(8px, calc(env(safe-area-inset-left) + 6px));
+        padding-right: max(8px, calc(env(safe-area-inset-right) + 6px));
+      }
+      .language-switch { left: 8px; right: 8px; gap: 7px; }
+      .language { padding-inline: 10px; font-size: 13px; }
+      .lang-link { font-size: 13px; }
+      .form-area { padding-inline: 14px; }
+      .form-area h2 { font-size: 25px; }
+      .input { padding-inline: 12px; gap: 10px; }
+      .row { align-items: flex-start; flex-direction: column; gap: 0; }
+      .forgot { align-self: flex-end; }
+      .login { padding-inline: 42px; }
+    }
+
+    /* Keep the brand present without consuming a full screen in short landscape views. */
+    @media (max-width: 1100px) and (max-height: 600px) and (orientation: landscape) {
+      .left {
+        display: grid;
+        grid-template-columns: minmax(130px, 180px) minmax(0, 1fr);
+        grid-template-rows: auto auto;
+        column-gap: 22px;
+        min-height: 0;
+        padding-top: max(14px, env(safe-area-inset-top));
+        padding-bottom: 14px;
+        border-radius: 0 0 18px 18px;
+        text-align: left;
+      }
+      .brand-logo { grid-row: 1 / 3; width: min(180px, 100%); margin: 0; align-self: center; }
+      .left h1 { margin: 0; font-size: 40px; align-self: end; }
+      .left h3 { margin-top: 2px; font-size: 16px; align-self: start; }
+      .line, .features, .brand-footer { display: none; }
+      .right { min-height: 0; padding-top: 72px; }
+      .language-switch { top: 14px; }
+    }
+
+    @media (forced-colors: active) {
+      .form-area, .input, .locked-chip, .support-strip, .language, .bio { border: 1px solid CanvasText; }
+      .login { border: 1px solid ButtonText; }
+      .lang-link:disabled { color: GrayText; opacity: 1; }
     }
 
     @media (prefers-reduced-motion: reduce) {
