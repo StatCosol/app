@@ -215,35 +215,27 @@ export class FaceDeskPinAttendanceService {
       subjectType: claimed.subjectType,
     };
 
-    if (cosine < eff.retryCosine) {
-      return this.punchAcceptService.acceptPunch(
-        clientId,
-        branchId,
-        deviceId,
-        dto,
-        subject,
-        cosine,
-        margin,
-        best3,
-        confidencePercent,
-        true,
-      );
-    }
+    // Hard face gate: attendance is recorded ONLY on a confident 1:1 match.
+    // Below the accept bar we do NOT create a punch — the worker is asked to
+    // retry (better framing/lighting). Persistent failure is an enrollment
+    // problem for an admin to resolve (re-enroll), never a silently-recorded
+    // punch that the kiosk shows as a clean "MARKED" success.
     if (cosine < eff.acceptCosine) {
-      return this.punchAcceptService.acceptPunch(
+      await this.failedAttemptService.recordFailed(
         clientId,
         branchId,
         deviceId,
-        dto,
-        subject,
+        claimed.employeeId,
         cosine,
-        margin,
-        best3,
-        confidencePercent,
-        true,
-        'LOW_CONFIDENCE',
-        `Low confidence match (${confidencePercent}%) — verify the captured photo.`,
+        cosine < eff.retryCosine ? 'NO_MATCH' : 'LOW_CONFIDENCE',
       );
+      return {
+        status: 'RETRY',
+        message:
+          'Face not recognized — look straight at the camera in good light and try again. ' +
+          'If this keeps happening, ask your administrator to re-enroll you.',
+        confidencePercent,
+      };
     }
 
     if (ambiguous) {
