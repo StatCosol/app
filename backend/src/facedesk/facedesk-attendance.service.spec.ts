@@ -255,8 +255,10 @@ describe('FaceDeskAttendanceService.markAttendance — PIN_THEN_FACE', () => {
     expect(attRepo.save).not.toHaveBeenCalled();
   });
 
-  it('MARKS but flags for branch verification when PIN is right and face mismatches', async () => {
-    const { service, attRepo, reviewRepo } = makePinService(
+  it('does NOT record a punch when PIN is right but the face does not match — asks retry', async () => {
+    // Hard face gate: a below-accept match records NO attendance and no review
+    // item; the worker is asked to retry and a failed attempt is logged.
+    const { service, attRepo, reviewRepo, failRepo } = makePinService(
       await claimedProfile(0.6),
     );
     const res = await service.markAttendance('c1', 'b1', 'd1', {
@@ -264,39 +266,29 @@ describe('FaceDeskAttendanceService.markAttendance — PIN_THEN_FACE', () => {
       employeeCode: 'E001',
       pin: '1234',
     } as any);
-    // Counts immediately (reversible) …
-    expect(res.status).toBe('MARKED');
-    expect(res.message).toMatch(/verification/i);
-    expect(attRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ attendanceStatus: 'MARKED', employeeId: 'e1' }),
-    );
-    // … but a FACE_MISMATCH review item is queued for the branch.
-    expect(reviewRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        issueType: 'FACE_MISMATCH',
-        status: 'PENDING',
-        attendanceId: 'att-1',
-      }),
+    expect(res.status).toBe('RETRY');
+    expect(res.message).toMatch(/not recognized/i);
+    expect(attRepo.save).not.toHaveBeenCalled();
+    expect(reviewRepo.save).not.toHaveBeenCalled();
+    expect(failRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'NO_MATCH' }),
     );
   });
 
-  it('flags borderline confidence for branch review instead of asking retry', async () => {
-    const { service, attRepo, reviewRepo } = makePinService(
-      await claimedProfile(0.8),
+  it('asks retry on borderline confidence instead of recording a punch', async () => {
+    const { service, attRepo, reviewRepo, failRepo } = makePinService(
+      await claimedProfile(0.8), // between retry (0.78) and accept (0.84)
     );
     const res = await service.markAttendance('c1', 'b1', 'd1', {
       frames: [probeFrame()],
       employeeCode: 'E001',
       pin: '1234',
     } as any);
-    expect(res.status).toBe('MARKED');
-    expect(res.message).toMatch(/verification/i);
-    expect(attRepo.save).toHaveBeenCalled();
-    expect(reviewRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        issueType: 'LOW_CONFIDENCE',
-        status: 'PENDING',
-      }),
+    expect(res.status).toBe('RETRY');
+    expect(attRepo.save).not.toHaveBeenCalled();
+    expect(reviewRepo.save).not.toHaveBeenCalled();
+    expect(failRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'LOW_CONFIDENCE' }),
     );
   });
 
@@ -506,25 +498,6 @@ describe('FaceDeskAttendanceService.markAttendance — PIN-only (no employee cod
       expect.objectContaining({ serverScores: [null] }),
     );
   });
-
-  it('notes the missing evidence photo on a flagged punch when upload fails', async () => {
-    const base = makeService(
-      await pinRoster([{ id: 'e1', code: 'E001', cos: 0.6, pin: '1234' }]),
-    );
-    (base.photo.uploadPhoto as jest.Mock) = jest.fn(async () => null);
-    const res = await base.service.markAttendance('c1', 'b1', 'd1', {
-      frames: [probeFrame()],
-      pin: '1234',
-      photoB64: 'x',
-    } as any);
-    expect(res.status).toBe('MARKED');
-    expect(base.reviewRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        issueType: 'FACE_MISMATCH',
-        adminRemarks: expect.stringMatching(/photo unavailable/i),
-      }),
-    );
-  });
 });
 
 describe('FaceDeskAttendanceService.markAttendance — contractor punch routing', () => {
@@ -702,7 +675,7 @@ describe('FaceDeskAttendanceService.markAttendance — contractor punch routing'
     );
   });
 
-  it('does NOT ingest a flagged employee mismatch (waits for HR approval)', async () => {
+  it('does NOT record or ingest anything on an employee face mismatch — asks retry', async () => {
     const { service, biometric, reviewRepo, failRepo } = makeService(
       await pinRoster([{ id: 'e1', code: 'E001', cos: 0.6, pin: '1234' }]),
     );
@@ -710,18 +683,16 @@ describe('FaceDeskAttendanceService.markAttendance — contractor punch routing'
       frames: [probeFrame()],
       pin: '1234',
     } as any);
-    expect(res.message).toMatch(/verification/i);
-    expect(reviewRepo.save).toHaveBeenCalled();
-    expect(failRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        bestEmployeeId: 'e1',
-        reason: 'FACE_MISMATCH',
-      }),
-    );
+    expect(res.status).toBe('RETRY');
+    expect(res.message).toMatch(/not recognized/i);
+    expect(reviewRepo.save).not.toHaveBeenCalled();
     expect(biometric.ingest).not.toHaveBeenCalled();
+    expect(failRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ bestEmployeeId: 'e1', reason: 'NO_MATCH' }),
+    );
   });
 
-  it('queues a contractor face mismatch for FaceDesk review', async () => {
+  it('does NOT record a contractor punch on a face mismatch — asks retry', async () => {
     const { service, contractorPunchRepo, reviewRepo, failRepo } = makeService(
       await pinRoster([
         {
@@ -737,29 +708,11 @@ describe('FaceDeskAttendanceService.markAttendance — contractor punch routing'
       frames: [probeFrame()],
       pin: '1234',
     } as any);
-    expect(res.status).toBe('MARKED');
-    expect(res.message).toMatch(/verification/i);
-    // Held for branch verification until HR approves the face mismatch.
-    expect(contractorPunchRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        contractorEmployeeId: 'c1e',
-        decision: 'REVIEW_PENDING',
-      }),
-    );
-    expect(reviewRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        employeeId: 'c1e',
-        contractorPunchId: 'cpunch-1',
-        attendanceId: null,
-        issueType: 'FACE_MISMATCH',
-        status: 'PENDING',
-      }),
-    );
+    expect(res.status).toBe('RETRY');
+    expect(contractorPunchRepo.save).not.toHaveBeenCalled();
+    expect(reviewRepo.save).not.toHaveBeenCalled();
     expect(failRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        bestEmployeeId: 'c1e',
-        reason: 'FACE_MISMATCH',
-      }),
+      expect.objectContaining({ bestEmployeeId: 'c1e', reason: 'NO_MATCH' }),
     );
   });
 });
