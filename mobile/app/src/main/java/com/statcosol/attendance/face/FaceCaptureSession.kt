@@ -22,12 +22,12 @@ import kotlin.math.min
 class FaceCaptureSession(
     private val embedder: FaceEmbedder,
     private val detector: FaceDetector,
-    private val minFaceSize: Float = 0.10f,
-    private val minLuminance: Float = 25f,
-    // maxYaw relaxed during liveness — HEAD_TURN challenges intentionally move the head.
-    // Quality gate only applies to the embedding capture phase (frontal-only frames).
-    private val maxPitch: Float = 25f,
-    private val minSharpness: Float = 35f,
+    private val minFaceSize: Float = FaceKioskTuning.MIN_FACE_SIZE_ATTENDANCE,
+    private val minLuminance: Float = FaceKioskTuning.MIN_LUMINANCE,
+    private val maxPitch: Float = FaceKioskTuning.MAX_PITCH_DEG,
+    private val minSharpness: Float = FaceKioskTuning.MIN_SHARPNESS_ATTENDANCE,
+    /** When true, pitch gate is skipped (for left/right enrollment turns). */
+    private val relaxPitchGate: () -> Boolean = { false },
     // Both default on for the V1 kiosk/ESS screens. FaceDesk V2 discards the
     // full-frame probe and the photo, and skipping them roughly triples frame
     // throughput — which is what makes blink-based liveness catchable at all.
@@ -40,6 +40,7 @@ class FaceCaptureSession(
         photoBase64: String?,
     ) -> Unit,
     private val onHint: (String) -> Unit,
+    private val onPreview: ((FaceScanPreview) -> Unit)? = null,
 ) : ImageAnalysis.Analyzer {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -64,9 +65,12 @@ class FaceCaptureSession(
     @ExperimentalGetImage
     private suspend fun processFrame(imageProxy: ImageProxy) {
         val bitmap = imageProxy.toBitmap() ?: return
+        val frameW = bitmap.width
+        val frameH = bitmap.height
 
         val luminance = computeLuminance(bitmap)
         if (luminance < minLuminance) {
+            emitPreview(null, null, "Lighting too low — please move into the light", false)
             onHint("Lighting too low — please move into the light")
             return
         }
@@ -74,6 +78,7 @@ class FaceCaptureSession(
         val faces = detector.detect(imageProxy)
 
         if (faces.isEmpty()) {
+            emitPreview(null, null, "No face detected — please look at the camera", false)
             onHint("No face detected — please look at the camera")
             return
         }
@@ -82,40 +87,99 @@ class FaceCaptureSession(
         val face = sortedFaces[0]
         val secondFace = sortedFaces.getOrNull(1)
         if (secondFace != null && isRealSecondPerson(face, secondFace, bitmap.width)) {
+            emitPreview(normalizeBox(face.boundingBox, frameW, frameH), null,
+                "Multiple faces detected — only one person at a time", false)
             onHint("Multiple faces detected — only one person at a time")
             return
         }
 
         val faceWidth = face.boundingBox.width().toFloat() / bitmap.width.toFloat()
+        val normBox = normalizeBox(face.boundingBox, frameW, frameH)
 
         if (faceWidth < minFaceSize) {
+            emitPreview(normBox, partialMetrics(face, faceWidth, 0f), "Please move closer to the camera", false)
             onHint("Please move closer to the camera")
             return
         }
 
         val pitch = face.headEulerAngleX
-        val metrics = computeMetrics(face)
         val faceBitmap = cropFaceBitmap(bitmap, face.boundingBox)
 
-        // Quality gate: frontal-only for embedding frames; skip for liveness (head turns).
-        // The activity decides which checks are relevant based on current challenge state.
-        if (Math.abs(pitch) > maxPitch) {
+        if (!relaxPitchGate() && Math.abs(pitch) > maxPitch) {
+            emitPreview(normBox, partialMetrics(face, faceWidth, 0f), "Please look straight at the camera", false)
             onHint("Please look straight at the camera")
             return
         }
 
         val sharpness = computeSharpness(faceBitmap)
         if (sharpness < minSharpness) {
+            emitPreview(normBox, partialMetrics(face, faceWidth, sharpness),
+                "Image blurry — hold still and look at the camera", false)
             onHint("Image blurry — hold still and look at the camera")
             return
         }
+
+        // Face brightness gate: a dark/underexposed face produces a weak
+        // embedding that won't match at the server, so guide the worker to
+        // better light here instead of submitting a frame that only fails the
+        // match. Measured on the face crop (not the frame) so a bright
+        // background can't mask a dark face.
+        val faceLuminance = computeLuminance(faceBitmap)
+        if (faceLuminance < MIN_FACE_LUMINANCE) {
+            emitPreview(normBox, partialMetrics(face, faceWidth, sharpness),
+                "Face too dark — move into better light", false)
+            onHint("Face too dark — move into better light")
+            return
+        }
+
+        val sizeScore = (faceWidth / 0.35f).coerceIn(0f, 1f)
+        val sharpScore = (sharpness / 80f).coerceIn(0f, 1f)
+        val brightScore = (faceLuminance / 120f).coerceIn(0f, 1f)
+        // Quality now factors brightness, so a dark face can no longer read ~99%.
+        val captureQuality =
+            (sizeScore * 0.35f + sharpScore * 0.45f + brightScore * 0.20f).toDouble()
+        val metrics = computeMetrics(face, captureQuality)
 
         val embedding = embedder.embed(faceBitmap)
         val fullFrameEmbedding =
             if (computeFullFrameProbe) embedder.embed(bitmap) else FloatArray(0)
         val photoB64 = if (capturePhoto) bitmapToBase64(faceBitmap) else null
 
+        emitPreview(normBox, metrics, null, true)
         onFace(embedding, fullFrameEmbedding, metrics, photoB64)
+    }
+
+    private fun emitPreview(
+        box: android.graphics.RectF?,
+        metrics: FaceMetrics?,
+        hint: String?,
+        accepted: Boolean,
+    ) {
+        onPreview?.invoke(
+            FaceScanPreview(
+                faceBox = box,
+                metrics = metrics,
+                hint = hint,
+                faceDetected = box != null,
+                frameAccepted = accepted,
+            ),
+        )
+    }
+
+    private fun normalizeBox(box: Rect, frameW: Int, frameH: Int): android.graphics.RectF {
+        return android.graphics.RectF(
+            box.left.toFloat() / frameW,
+            box.top.toFloat() / frameH,
+            box.right.toFloat() / frameW,
+            box.bottom.toFloat() / frameH,
+        )
+    }
+
+    private fun partialMetrics(face: Face, faceWidth: Float, sharpness: Float): FaceMetrics {
+        val sizeScore = (faceWidth / 0.35f).coerceIn(0f, 1f)
+        val sharpScore = (sharpness / 80f).coerceIn(0f, 1f)
+        val q = (sizeScore * 0.45f + sharpScore * 0.55f).toDouble()
+        return computeMetrics(face, q)
     }
 
     private fun faceArea(box: Rect): Int {
@@ -202,7 +266,7 @@ class FaceCaptureSession(
         return (variance / pixels.size).toFloat()
     }
 
-    private fun computeMetrics(face: Face): FaceMetrics {
+    private fun computeMetrics(face: Face, captureQuality: Double): FaceMetrics {
         // Default eye openness to 1.0 (open) — 0.5 default would fail BLINK checks permanently.
         val leftEye = face.leftEyeOpenProbability ?: 1.0f
         val rightEye = face.rightEyeOpenProbability ?: 1.0f
@@ -211,6 +275,8 @@ class FaceCaptureSession(
             eyeOpenness = ((leftEye + rightEye) / 2.0).coerceIn(0.0, 1.0),
             smilingProbability = smiling.toDouble().coerceIn(0.0, 1.0),
             headYaw = face.headEulerAngleY,
+            headPitch = face.headEulerAngleX,
+            captureQuality = captureQuality,
         )
     }
 
@@ -242,5 +308,12 @@ class FaceCaptureSession(
         } catch (e: Exception) {
             null
         }
+    }
+
+    private companion object {
+        /** Minimum average brightness (0–255) of the face crop to accept a
+         *  frame. Conservative — rejects only clearly under-lit faces; tune to
+         *  the deployment's lighting if legitimate captures are being blocked. */
+        const val MIN_FACE_LUMINANCE = 45f
     }
 }

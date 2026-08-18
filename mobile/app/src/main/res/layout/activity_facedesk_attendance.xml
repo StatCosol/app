@@ -12,11 +12,10 @@
         app:implementationMode="compatible"
         app:scaleType="fillCenter" />
 
-    <View
-        android:layout_width="260dp"
-        android:layout_height="330dp"
-        android:layout_gravity="center"
-        android:background="@drawable/bg_face_oval"
+    <com.statcosol.attendance.face.FaceScanOverlayView
+        android:id="@+id/fdScanOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:importantForAccessibility="no" />
 
     <include layout="@layout/include_kiosk_header" />
