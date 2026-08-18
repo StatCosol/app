@@ -843,16 +843,18 @@ import { AuthService } from '../../../core/auth.service';
 
     .screen {
       max-width: none;
-      min-height: 100dvh;
+      height: 100dvh;
+      min-height: 0;
       grid-template-columns: minmax(360px, 35.6%) minmax(0, 64.4%);
       border-radius: 0;
       box-shadow: none;
-      overflow: visible;
+      overflow: hidden;
       margin: 0;
     }
 
     .left {
-      min-height: 100dvh;
+      height: 100dvh;
+      min-height: 0;
       padding: clamp(34px, 5vh, 52px) clamp(38px, 4.7vw, 72px) 48px clamp(46px, 6vw, 92px);
       border-radius: 0 12px 12px 0;
       background:
@@ -934,7 +936,8 @@ import { AuthService } from '../../../core/auth.service';
 
     .right {
       min-width: 0;
-      min-height: 100dvh;
+      height: 100dvh;
+      min-height: 0;
       padding: 0 clamp(24px, 3.5vw, 54px);
       border-radius: 0;
       overflow-x: hidden;
@@ -1108,6 +1111,28 @@ import { AuthService } from '../../../core/auth.service';
     .support-strip a { color: #102b58; font-weight: 500; }
     .support-strip svg { width: 20px; height: 20px; color: #315a91; }
 
+    /* A 1080px display usually leaves a 900-1000px CSS viewport after browser chrome. */
+    @media (min-width: 1101px) and (max-height: 1000px) {
+      .left { padding-top: 34px; padding-bottom: 34px; }
+      .brand-logo { width: 260px; }
+      .left h1 { margin-top: 28px; font-size: 68px; }
+      .features { gap: 14px; }
+      .features span { width: 50px; height: 50px; }
+      .features span svg { width: 26px; height: 26px; }
+      .form-area {
+        margin-top: max(68px, 7vh);
+        margin-bottom: 110px;
+        padding: 27px 34px 29px;
+      }
+      .form-area h2 { font-size: 29px; }
+      .caption { margin-top: 8px; font-size: 15px; }
+      .blue-line { margin: 15px 0 23px; }
+      .field { margin-bottom: 14px; }
+      .row { margin-bottom: 16px; }
+      .or { margin: 15px 0; }
+      .support-strip { top: calc(100% + 20px); min-height: 76px; }
+    }
+
     @media (min-width: 1101px) and (max-height: 820px) {
       .left { padding-top: 30px; padding-bottom: 30px; }
       .brand-logo { width: 245px; }
@@ -1115,7 +1140,7 @@ import { AuthService } from '../../../core/auth.service';
       .features { gap: 12px; }
       .features span { width: 46px; height: 46px; }
       .features span svg { width: 24px; height: 24px; }
-      .form-area { margin-top: 76px; padding: 25px 34px 28px; }
+      .form-area { margin-top: 60px; margin-bottom: 90px; padding: 25px 34px 28px; }
       .form-area h2 { font-size: 28px; }
       .caption { margin-top: 7px; font-size: 14px; }
       .blue-line { margin: 14px 0 20px; }
@@ -1130,8 +1155,9 @@ import { AuthService } from '../../../core/auth.service';
     }
 
     @media (max-width: 1100px) {
-      .screen { display: block; min-height: 100dvh; }
+      .screen { display: block; height: auto; min-height: 100dvh; overflow: visible; }
       .left {
+        height: auto;
         min-height: auto;
         padding: 32px clamp(22px, 6vw, 52px) 36px;
         border-radius: 0 0 28px 28px;
@@ -1147,7 +1173,7 @@ import { AuthService } from '../../../core/auth.service';
       .features span svg { width: 24px; height: 24px; }
       .features p { font-size: 13px; }
       .brand-footer { margin-top: 24px; padding-top: 0; text-align: left; }
-      .right { min-height: 760px; padding: 88px 20px 50px; }
+      .right { height: auto; min-height: 760px; padding: 88px 20px 50px; }
       .right::before, .right::after { opacity: .22; }
       .language-switch { top: 24px; left: 20px; right: 20px; justify-content: center; }
       .form-area { margin: 0 auto 32px; }
