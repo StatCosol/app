@@ -330,7 +330,9 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                 qualityScore = metrics.captureQuality,
             ),
         )
-        refreshAttendanceOverlay()
+        // onFrame runs on FaceCaptureSession's Dispatchers.Default thread;
+        // View updates (invalidate) must be marshalled onto the main thread.
+        runOnUiThread { refreshAttendanceOverlay() }
 
         val blinked = blinkDetector.blinked
         when {

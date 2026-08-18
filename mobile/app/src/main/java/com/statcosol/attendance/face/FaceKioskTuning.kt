@@ -49,8 +49,12 @@ object FaceKioskTuning {
     const val ENROLL_PER_ANGLE = 3
     const val ENROLL_FRONT_YAW = 12f
     const val ENROLL_TURN_YAW = 18f
+    // Enrollment completion gates. MUST stay >= the server's enrollment save
+    // filter (facedesk-face.service.ts ENROLL_MIN_FRAME_QUALITY, 0.50): a frame
+    // counted toward "capture complete" here must be one the server will save,
+    // or enrollment finishes on-device then fails with too few usable frames.
     const val ENROLL_MIN_FRONT_QUALITY = 0.50
-    const val ENROLL_MIN_ANGLE_QUALITY = 0.40
+    const val ENROLL_MIN_ANGLE_QUALITY = 0.50
     /** 2 stable frames before first sample — enough on 60 Hz budget SoC. */
     const val ENROLL_FRONT_STABLE_FRAMES = 2
     const val ENROLL_CAPTURE_TIMEOUT_MS = 50_000L

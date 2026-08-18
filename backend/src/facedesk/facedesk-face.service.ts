@@ -32,9 +32,17 @@ export interface ResolvedFrame {
 
 const MIN_FRAME_QUALITY = Number(process.env.FD_MIN_FRAME_QUALITY ?? 0.5);
 
-/** Stricter bar for enrollment saves — rejects marginal / non-face device fallbacks. */
+/**
+ * Quality bar for enrollment frame saves. Kept in lock-step with the kiosk's
+ * enrollment completion gates (FaceKioskTuning.ENROLL_MIN_FRONT/ANGLE_QUALITY,
+ * both 0.50): a frame the device counts toward "capture complete" must clear
+ * this, otherwise enrollment finishes on the device and then fails server-side
+ * with too few usable frames. The on-device pipeline already gates real-face
+ * detection, size, sharpness and brightness, so this is a floor — not the
+ * primary quality gate. If you change one side, change the other.
+ */
 export const ENROLL_MIN_FRAME_QUALITY = Number(
-  process.env.FD_ENROLL_MIN_FRAME_QUALITY ?? 0.65,
+  process.env.FD_ENROLL_MIN_FRAME_QUALITY ?? 0.5,
 );
 
 export interface ResolveFramesOptions {
