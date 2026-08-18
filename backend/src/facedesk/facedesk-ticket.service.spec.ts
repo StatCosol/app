@@ -103,6 +103,48 @@ describe('FaceDeskTicketService.complete', () => {
   });
 });
 
+describe('FaceDeskTicketService.abandon', () => {
+  it('cancels an open ticket, scoped to the device', async () => {
+    const qb = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
+    const repo = { createQueryBuilder: jest.fn(() => qb) };
+    const service = new FaceDeskTicketService(
+      repo as any,
+      { query: jest.fn() } as any,
+    );
+    await expect(service.abandon('t1', 'd1')).resolves.toEqual({ ok: true });
+    expect(qb.set).toHaveBeenCalledWith({ status: 'CANCELLED' });
+    // Only an open ticket for this device is touched.
+    expect(qb.where).toHaveBeenCalledWith(
+      expect.stringContaining('device_id = :deviceId'),
+      expect.objectContaining({
+        ticketId: 't1',
+        deviceId: 'd1',
+        open: ['PENDING', 'CAPTURING'],
+      }),
+    );
+  });
+
+  it('is idempotent — no error when the ticket is already closed', async () => {
+    const qb = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 0 }), // already closed
+    };
+    const repo = { createQueryBuilder: jest.fn(() => qb) };
+    const service = new FaceDeskTicketService(
+      repo as any,
+      { query: jest.fn() } as any,
+    );
+    await expect(service.abandon('t1', 'd1')).resolves.toEqual({ ok: true });
+  });
+});
+
 describe('FaceDeskTicketService.listByClient branch scope', () => {
   it('filters by branch for branch users', async () => {
     const repo = { find: jest.fn().mockResolvedValue([]) };

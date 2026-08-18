@@ -225,15 +225,34 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         refreshOverlayProgress()
         // Signal the web that capture has started for this ticket.
         ticketId?.let { tid -> lifecycleScope.launch { runCatching { api.markTicketCapturing(tid) } } }
-        // Safety timeout so a stuck capture tells the operator rather than hang.
+        // Hard deadline from capture start: if the full set isn't captured in
+        // time, cancel the whole enrollment rather than hang or loop a retry.
+        // A capture that already completed within the budget (captureComplete)
+        // or is mid-save is left alone — the save has its own handling.
         previewView.postDelayed({
             if (capturing.getAndSet(false) && !captureComplete && !saving.get()) {
-                runOnUiThread {
-                    tvHint.text = getString(R.string.facedesk_capture_timeout)
-                    btnCapture.isEnabled = true
-                }
+                cancelEnrollment()
             }
         }, CAPTURE_TIMEOUT_MS)
+    }
+
+    /**
+     * Abort the enrollment because the capture time limit was exceeded. Cancels
+     * the ticket server-side (best effort — the device token can do this), tells
+     * the operator why, then closes the screen. A fresh attempt must be started
+     * from the admin.
+     */
+    private fun cancelEnrollment() {
+        if (isFinishing) return
+        capturing.set(false)
+        ticketId?.let { tid -> lifecycleScope.launch { runCatching { api.cancelTicket(tid) } } }
+        runOnUiThread {
+            tvHint.text = getString(R.string.facedesk_capture_timeout)
+            btnCapture.isEnabled = false
+            voice.speakRes(R.string.facedesk_voice_enroll_cancelled, minIntervalMs = 0)
+            // Leave the message up briefly so the operator sees the reason.
+            previewView.postDelayed({ if (!isFinishing) finish() }, 2_500)
+        }
     }
 
     private fun onFrame(probe: FloatArray, metrics: com.statcosol.attendance.face.FaceMetrics, photo: String?) {

@@ -57,7 +57,14 @@ object FaceKioskTuning {
     const val ENROLL_MIN_ANGLE_QUALITY = 0.50
     /** 2 stable frames before first sample — enough on 60 Hz budget SoC. */
     const val ENROLL_FRONT_STABLE_FRAMES = 2
-    const val ENROLL_CAPTURE_TIMEOUT_MS = 50_000L
+    /**
+     * Hard deadline for a single enrollment, measured from when the operator
+     * taps Capture. A good capture takes ~15–25 s; if the full multi-angle set
+     * (+ blink) isn't captured within this budget the attempt is CANCELLED — the
+     * screen closes and the ticket is abandoned server-side — rather than
+     * hanging or looping a retry.
+     */
+    const val ENROLL_CAPTURE_TIMEOUT_MS = 60_000L
 
     // ── Attendance punch burst ───────────────────────────────────────────────
     /** 6 frames + blink is enough for 1:1 cosine on-device embedder. */
