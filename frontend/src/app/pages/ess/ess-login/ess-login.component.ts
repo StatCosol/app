@@ -48,14 +48,15 @@ import { AuthService } from '../../../core/auth.service';
         <!-- ═══════ RIGHT: LOGIN PANEL ═══════ -->
         <section class="right">
           <nav class="language-switch" aria-label="Language selection">
-            <button type="button" class="language" aria-label="Current language: English">
+            <span class="language" aria-label="Current language: English">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>
               <span>English</span>
-              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <button type="button" class="lang-link" lang="te">తెలుగు</button>
+            </span>
+            <button type="button" class="lang-link" lang="te" disabled
+                    aria-label="Telugu translation is not yet available" title="Telugu translation is not yet available">తెలుగు</button>
             <span class="lang-separator" aria-hidden="true">|</span>
-            <button type="button" class="lang-link" lang="hi">हिन्दी</button>
+            <button type="button" class="lang-link" lang="hi" disabled
+                    aria-label="Hindi translation is not yet available" title="Hindi translation is not yet available">हिन्दी</button>
           </nav>
 
           <div class="shield" aria-hidden="true">
@@ -979,12 +980,14 @@ import { AuthService } from '../../../core/auth.service';
     }
     .language {
       position: static;
+      display: inline-flex;
       height: 43px;
       padding: 0 16px;
       border: 1px solid #d3dfef;
       border-radius: 999px;
       box-shadow: 0 6px 18px rgba(46, 75, 120, .06);
       font-weight: 650;
+      cursor: default;
     }
     .language svg { width: 20px; height: 20px; }
     .language .caret { width: 16px; height: 16px; }
@@ -997,7 +1000,12 @@ import { AuthService } from '../../../core/auth.service';
       font-weight: 700;
       cursor: pointer;
     }
-    .lang-link:focus-visible, .language:focus-visible { outline: 3px solid rgba(7, 89, 232, .28); outline-offset: 3px; }
+    .lang-link:disabled {
+      color: #64748b;
+      cursor: not-allowed;
+      opacity: .62;
+    }
+    .lang-link:focus-visible { outline: 3px solid rgba(7, 89, 232, .28); outline-offset: 3px; }
     .lang-separator { color: #8fa4c0; }
 
     .form-area {
