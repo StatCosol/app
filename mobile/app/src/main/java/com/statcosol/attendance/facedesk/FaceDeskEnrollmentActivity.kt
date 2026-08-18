@@ -71,6 +71,10 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     private val blinked: Boolean get() = blinkDetector.blinked
     private var captureComplete = false
     private val capturing = AtomicBoolean(false)
+    // Monotonic id for each capture attempt. A pending timeout callback only acts
+    // if its attempt is still the current one, so a stale callback from a prior
+    // attempt can't cancel a fresh retry (or a completed capture).
+    private var captureAttempt = 0
     private var frontStableStreak = 0
     private val saving = AtomicBoolean(false)
     private var guidanceStep = ""
@@ -229,8 +233,15 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         // time, cancel the whole enrollment rather than hang or loop a retry.
         // A capture that already completed within the budget (captureComplete)
         // or is mid-save is left alone — the save has its own handling.
+        // The attempt guard (checked first, before capturing.getAndSet) means a
+        // callback left over from an earlier attempt — e.g. after a failed save
+        // and resetForRetry() started a new capture — becomes a no-op instead of
+        // cancelling the fresh attempt early.
+        val attempt = ++captureAttempt
         previewView.postDelayed({
-            if (capturing.getAndSet(false) && !captureComplete && !saving.get()) {
+            if (attempt == captureAttempt && capturing.getAndSet(false) &&
+                !captureComplete && !saving.get()
+            ) {
                 cancelEnrollment()
             }
         }, CAPTURE_TIMEOUT_MS)
