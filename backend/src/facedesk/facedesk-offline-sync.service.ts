@@ -40,7 +40,15 @@ function classifyOfflineResult(
     if (/verification/i.test(res.message ?? '')) return 'REVIEW';
     return 'SYNCED';
   }
-  if (res.status === 'RETRY') return 'RETRY';
+  // A queued offline punch replays FIXED frames, so a below-threshold match
+  // (RETRY) is deterministic — it can never improve on a later run. Forwarding
+  // it as retryable keeps the entry (and its stored PIN) on the kiosk queue
+  // forever and inserts a failed-attempt row on every sync. It is therefore
+  // TERMINAL during replay: dropped from the queue (a single failed attempt is
+  // still logged server-side for audit). Interactive submissions keep RETRY —
+  // they are marked directly and never flow through offline sync. Transient
+  // network/5xx errors still retry via the caller's catch below.
+  if (res.status === 'RETRY') return 'DROPPED';
   if (res.status === 'REVIEW') return 'REVIEW';
   return 'DROPPED';
 }

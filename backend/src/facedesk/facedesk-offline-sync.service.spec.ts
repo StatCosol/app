@@ -10,13 +10,16 @@ describe('FaceDeskOfflineSyncService', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  it('returns per-punch results and counts REVIEW as synced', async () => {
+  it('counts REVIEW as synced and drops a deterministic RETRY', async () => {
     attendance.markAttendance
       .mockResolvedValueOnce({
         status: 'MARKED',
         message: 'Marked — pending branch verification',
       })
-      .mockResolvedValueOnce({ status: 'RETRY', message: 'Try again' });
+      .mockResolvedValueOnce({
+        status: 'RETRY',
+        message: 'Face not recognized',
+      });
 
     const service = makeService();
     const res = await service.offlineSync('c1', 'b1', 'd1', [
@@ -30,10 +33,29 @@ describe('FaceDeskOfflineSyncService', () => {
         failed: 1,
         results: [
           expect.objectContaining({ offlineRef: 'a', status: 'REVIEW' }),
-          expect.objectContaining({ offlineRef: 'b', status: 'RETRY' }),
+          // Fixed replay frames can't improve → terminal, not retryable.
+          expect.objectContaining({ offlineRef: 'b', status: 'DROPPED' }),
         ],
       }),
     );
+  });
+
+  it('treats a below-threshold replay as terminal so it never loops on the kiosk queue', async () => {
+    // Deterministic RETRY (fixed frames) must NOT come back as retryable —
+    // otherwise the entry (and its PIN) is retained forever and a failed
+    // attempt is logged on every sync run.
+    attendance.markAttendance.mockResolvedValue({
+      status: 'RETRY',
+      message: 'Face not recognized',
+    });
+
+    const service = makeService();
+    const res = await service.offlineSync('c1', 'b1', 'd1', [
+      { offlineRef: 'stuck', pin: '1234', frames: [] } as any,
+    ]);
+
+    expect(res.results[0]?.status).toBe('DROPPED');
+    expect(res.results[0]?.status).not.toBe('RETRY');
   });
 
   it('classifies duplicate offline refs separately', async () => {
