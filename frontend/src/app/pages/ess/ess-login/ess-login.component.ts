@@ -12,21 +12,11 @@ import { AuthService } from '../../../core/auth.service';
   selector: 'app-ess-login',
   template: `
     <div class="page">
-      <div class="screen" [class.card-shake]="errorMsg">
+      <div class="screen">
 
         <!-- ═══════ LEFT: BRAND PANEL ═══════ -->
         <aside class="left">
-          <div class="logo-box">
-            <svg class="people-icon" viewBox="0 0 64 64" fill="none" stroke="#1d4ed8" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M14 30 C 14 16, 50 16, 50 30"/>
-              <circle cx="22" cy="36" r="4.2" fill="#1d4ed8" stroke="none"/>
-              <path d="M14 50 C 14 44, 18 41, 22 41 C 26 41, 30 44, 30 50 Z" fill="#1d4ed8" stroke="none"/>
-              <circle cx="42" cy="36" r="4.2" fill="#1d4ed8" stroke="none"/>
-              <path d="M34 50 C 34 44, 38 41, 42 41 C 46 41, 50 44, 50 50 Z" fill="#1d4ed8" stroke="none"/>
-              <circle cx="32" cy="33" r="4.6" fill="#1d4ed8" stroke="none"/>
-              <path d="M23 50 C 23 43, 27 39, 32 39 C 37 39, 41 43, 41 50 Z" fill="#1d4ed8" stroke="none"/>
-            </svg>
-          </div>
+          <img class="brand-logo" src="assets/images/statco-wordmark-white.png" alt="StatCo Solutions" />
 
           <h1>ESS</h1>
           <h3>Employee Self Service</h3>
@@ -37,19 +27,19 @@ import { AuthService } from '../../../core/auth.service';
               <span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.5 3.1-6 7-6s7 2.5 7 6"/></svg>
               </span>
-              <p>Your Information<br/>At Your Fingertips</p>
+              <p>Everything You Need,<br/>In One Place</p>
             </div>
             <div>
               <span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg>
               </span>
-              <p>Secure, Reliable,<br/>Always With You.</p>
+              <p>Secure &amp; Reliable<br/>Access</p>
             </div>
             <div>
               <span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9"/><path d="M10 19v-6"/><path d="M16 19V5"/><path d="M3 19h18"/></svg>
               </span>
-              <p>Empowering<br/>Employees</p>
+              <p>Payroll, Leave &amp;<br/>Compliance at Your Fingertips</p>
             </div>
           </div>
           <p class="brand-footer">&copy; {{ currentYear }} StatCo Solutions</p>
@@ -57,19 +47,24 @@ import { AuthService } from '../../../core/auth.service';
 
         <!-- ═══════ RIGHT: LOGIN PANEL ═══════ -->
         <section class="right">
-          <button type="button" class="language" aria-label="Language">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>
-            <span>English</span>
-            <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
+          <nav class="language-switch" aria-label="Language selection">
+            <button type="button" class="language" aria-label="Current language: English">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>
+              <span>English</span>
+              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <button type="button" class="lang-link" lang="te">తెలుగు</button>
+            <span class="lang-separator" aria-hidden="true">|</span>
+            <button type="button" class="lang-link" lang="hi">हिन्दी</button>
+          </nav>
 
           <div class="shield" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12 10 17 19 7"/></svg>
           </div>
 
-          <div class="form-area">
+          <div class="form-area" [class.card-shake]="errorMsg">
             <h2>Welcome Back!</h2>
-            <p class="caption">Log in to access your account</p>
+            <p class="caption">Sign in to access your Employee Self Service account</p>
             <div class="blue-line"></div>
 
             <form (ngSubmit)="submit()" autocomplete="on" class="frm">
@@ -77,12 +72,13 @@ import { AuthService } from '../../../core/auth.service';
               <!-- Company code (only when not locked via /:companyCode/login) -->
               @if (!companyCodeLocked) {
 <div class="field">
+                <label for="ess-company-code">Company Code</label>
                 <div class="input" [class.input-err]="submitted && !companyCode.trim()">
                   <span>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M12 6h.01M8 10h.01M16 10h.01M12 10h.01"/></svg>
                   </span>
                   <input id="ess-company-code" type="text" [(ngModel)]="companyCode" name="companyCode"
-                         placeholder="Company Code" autocomplete="organization" />
+                         placeholder="Enter company code" autocomplete="organization" />
                 </div>
                 @if (submitted && !companyCode.trim()) {
 <span class="field-err">Company code is required.</span>
@@ -99,12 +95,13 @@ import { AuthService } from '../../../core/auth.service';
 
               <!-- Username / Email -->
               <div class="field">
+                <label for="ess-email">Email / Employee ID</label>
                 <div class="input" [class.input-err]="submitted && !email.trim()">
                   <span>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.5 3.1-6 7-6s7 2.5 7 6"/></svg>
                   </span>
                   <input id="ess-email" type="email" [(ngModel)]="email" name="email"
-                         placeholder="Username / Employee ID" autocomplete="username" />
+                         placeholder="Enter email or employee ID" autocomplete="username" />
                 </div>
                 @if (submitted && !email.trim()) {
 <span class="field-err">Enter your username or employee ID.</span>
@@ -113,6 +110,7 @@ import { AuthService } from '../../../core/auth.service';
 
               <!-- Password -->
               <div class="field">
+                <label for="ess-password">Password</label>
                 <div class="input" [class.input-err]="submitted && !password">
                   <span>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
@@ -177,14 +175,16 @@ import { AuthService } from '../../../core/auth.service';
               <i></i><p>or</p><i></i>
             </div>
 
-            <button type="button" class="bio" (click)="loginWithBiometrics()">
+            <button type="button" class="bio" disabled aria-describedby="biometric-status">
                 <span aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11v3a2 2 0 002 2"/><path d="M5.5 9.5A8 8 0 0112 6a8 8 0 016.5 3.5"/><path d="M3 13a10 10 0 014-7.5"/><path d="M21 13a10 10 0 00-4-7.5"/><path d="M7 14a5 5 0 015-5 5 5 0 015 5v2"/><path d="M9 19a3 3 0 003-3"/><path d="M15 21a8 8 0 002-5"/></svg>
                 </span>
                 Login with Biometrics
+                <span class="coming-soon" id="biometric-status">Coming Soon</span>
               </button>
 
               <div class="support-strip">
+                <strong>Need help?</strong>
                 <a href="tel:+919000607839">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.2 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.77.62 2.61a2 2 0 0 1-.45 2.11L8 9.72a16 16 0 0 0 6.28 6.28l1.28-1.28a2 2 0 0 1 2.11-.45c.84.29 1.71.5 2.61.62A2 2 0 0 1 22 16.92z"/></svg>
                   +91 9000607839
@@ -824,6 +824,361 @@ import { AuthService } from '../../../core/auth.service';
       .left { padding: 32px 18px; }
       .left h1 { font-size: 48px; }
       .right { padding: 28px 16px 24px; }
+    }
+
+    /* Full-width ESS composition supplied for the production login. */
+    :host, .page, .screen { width: 100%; }
+    :host { letter-spacing: 0; }
+    button, input { font: inherit; }
+
+    .page {
+      min-height: 100dvh;
+      padding: 0;
+      align-items: stretch;
+      background: #f4f8ff;
+      overflow: visible;
+    }
+    .page::before, .page::after { display: none; }
+
+    .screen {
+      max-width: none;
+      min-height: 100dvh;
+      grid-template-columns: minmax(360px, 35.6%) minmax(0, 64.4%);
+      border-radius: 0;
+      box-shadow: none;
+      overflow: visible;
+      margin: 0;
+    }
+
+    .left {
+      min-height: 100dvh;
+      padding: clamp(34px, 5vh, 52px) clamp(38px, 4.7vw, 72px) 48px clamp(46px, 6vw, 92px);
+      border-radius: 0 12px 12px 0;
+      background:
+        radial-gradient(circle at 92% 45%, rgba(14, 81, 170, .32), transparent 34%),
+        linear-gradient(180deg, #06265f 0%, #06255c 52%, #05215a 100%);
+    }
+    .left::before {
+      content: "";
+      position: absolute;
+      top: 10px;
+      right: 14px;
+      width: 120px;
+      height: 102px;
+      opacity: .58;
+      background-image: radial-gradient(circle, #0865e7 2px, transparent 2.4px);
+      background-size: 15px 15px;
+    }
+    .left::after {
+      content: "";
+      position: absolute;
+      right: -86px;
+      bottom: 18%;
+      left: auto;
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      opacity: .25;
+      background: repeating-radial-gradient(circle, transparent 0 15px, rgba(19, 94, 206, .62) 16px 17px);
+    }
+    .brand-logo {
+      display: block;
+      width: min(292px, 100%);
+      height: auto;
+      position: relative;
+      z-index: 2;
+    }
+    .left h1 {
+      margin-top: clamp(28px, 4.4vh, 45px);
+      font-size: clamp(64px, 5.6vw, 86px);
+      line-height: .95;
+      letter-spacing: 0;
+      font-weight: 800;
+    }
+    .left h3 {
+      margin-top: 13px;
+      font-size: clamp(19px, 1.65vw, 25px);
+      line-height: 1.2;
+      letter-spacing: 0;
+      font-weight: 700;
+    }
+    .line {
+      width: 92px;
+      margin: 20px 0 0;
+      background: #6cb82a;
+    }
+    .features {
+      margin-top: clamp(24px, 3vh, 31px);
+      gap: 18px;
+    }
+    .features > div { gap: 16px; }
+    .features span {
+      width: 56px;
+      height: 56px;
+      border-color: rgba(50, 131, 246, .25);
+      background: rgba(6, 76, 166, .54);
+      color: #6cb82a;
+    }
+    .features span svg { width: 30px; height: 30px; }
+    .features p {
+      font-size: clamp(14px, 1.05vw, 16px);
+      line-height: 1.45;
+      font-weight: 600;
+    }
+    .brand-footer {
+      color: rgba(255, 255, 255, .94);
+      font-size: 13px;
+      font-weight: 400;
+    }
+
+    .right {
+      min-width: 0;
+      min-height: 100dvh;
+      padding: 0 clamp(24px, 3.5vw, 54px);
+      border-radius: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      background:
+        radial-gradient(circle at 38% 30%, rgba(255, 255, 255, .98) 0 26%, rgba(249, 252, 255, .94) 51%, rgba(237, 245, 255, .97) 100%);
+    }
+    .right::before {
+      content: "";
+      position: absolute;
+      right: -90px;
+      bottom: -230px;
+      width: 460px;
+      height: 720px;
+      border-radius: 18px;
+      background: linear-gradient(145deg, #0c377c 0%, #0755ce 78%);
+      transform: rotate(43deg);
+    }
+    .right::after {
+      content: "";
+      position: absolute;
+      right: -4px;
+      top: 92px;
+      width: 380px;
+      height: 360px;
+      opacity: .48;
+      background: repeating-linear-gradient(135deg, transparent 0 14px, rgba(42, 111, 239, .34) 15px 16px);
+      clip-path: polygon(42% 0, 100% 0, 100% 100%, 0 100%);
+    }
+    .shield { display: none; }
+
+    .language-switch {
+      position: absolute;
+      top: clamp(24px, 4.6vh, 47px);
+      right: clamp(28px, 4.2vw, 65px);
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      gap: 17px;
+    }
+    .language {
+      position: static;
+      height: 43px;
+      padding: 0 16px;
+      border: 1px solid #d3dfef;
+      border-radius: 999px;
+      box-shadow: 0 6px 18px rgba(46, 75, 120, .06);
+      font-weight: 650;
+    }
+    .language svg { width: 20px; height: 20px; }
+    .language .caret { width: 16px; height: 16px; }
+    .lang-link {
+      border: 0;
+      padding: 5px 0;
+      background: transparent;
+      color: #0759e8;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .lang-link:focus-visible, .language:focus-visible { outline: 3px solid rgba(7, 89, 232, .28); outline-offset: 3px; }
+    .lang-separator { color: #8fa4c0; }
+
+    .form-area {
+      position: relative;
+      z-index: 3;
+      width: min(584px, 100%);
+      max-width: none;
+      margin: clamp(92px, 12vh, 123px) auto 145px;
+      padding: 33px 40px 35px;
+      border: 1px solid rgba(220, 230, 243, .75);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, .97);
+      box-shadow: 0 10px 29px rgba(35, 68, 114, .12);
+    }
+    .form-area h2 {
+      font-size: 32px;
+      line-height: 1.1;
+      letter-spacing: 0;
+      font-weight: 800;
+      color: #09235a;
+    }
+    .caption { margin-top: 12px; font-size: 16px; color: #3d557e; }
+    .blue-line { width: 72px; margin: 19px 0 30px; background: #0759e8; }
+
+    .field { margin-bottom: 18px; }
+    .field > label {
+      display: block;
+      margin-bottom: 8px;
+      color: #17315f;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .input {
+      height: 50px;
+      margin-bottom: 0;
+      padding: 0 16px;
+      gap: 14px;
+      border: 1px solid #ccdaec;
+      border-radius: 10px;
+      box-shadow: none;
+    }
+    .input:focus-within { border-color: #86b3f7; box-shadow: 0 0 0 4px rgba(7, 89, 232, .08); }
+    .input > span svg { width: 23px; height: 23px; }
+    .input input { font-size: 16px; }
+    .locked-chip {
+      width: 100%;
+      min-height: 50px;
+      margin-bottom: 18px;
+      border: 1px solid #ccdaec;
+      border-radius: 10px;
+      background: #f8fbff;
+    }
+    .row { margin: -2px 0 20px; font-size: 14px; }
+    .remember input { width: 18px; height: 18px; margin-right: 9px; }
+    .login {
+      height: 54px;
+      border-radius: 10px;
+      font-size: 16px;
+      background: linear-gradient(90deg, #0d63f3 0%, #054bd6 100%);
+      box-shadow: 0 8px 20px rgba(9, 83, 222, .16);
+    }
+    .or { gap: 15px; margin: 20px 0 19px; color: #3f587d; }
+    .bio {
+      height: 52px;
+      border-radius: 9px;
+      border-color: #cbd9ec;
+      gap: 12px;
+      opacity: 1;
+      cursor: not-allowed;
+    }
+    .bio:disabled { color: #466da8; background: #f9fbfe; }
+    .coming-soon {
+      margin-left: 3px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: #e6efff;
+      color: #0759e8;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .support-strip {
+      position: absolute;
+      top: calc(100% + 30px);
+      left: 0;
+      width: 100%;
+      min-height: 90px;
+      margin: 0;
+      padding: 15px 18px;
+      border: 1px solid rgba(220, 230, 243, .72);
+      border-radius: 19px;
+      background: rgba(255, 255, 255, .94);
+      box-shadow: 0 11px 30px rgba(35, 68, 114, .08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px 22px;
+      font-size: 14px;
+    }
+    .support-strip strong { color: #112b59; }
+    .support-strip a { color: #102b58; font-weight: 500; }
+    .support-strip svg { width: 20px; height: 20px; color: #315a91; }
+
+    @media (min-width: 981px) and (max-height: 820px) {
+      .left { padding-top: 30px; padding-bottom: 30px; }
+      .brand-logo { width: 245px; }
+      .left h1 { margin-top: 24px; font-size: 64px; }
+      .features { gap: 12px; }
+      .features span { width: 46px; height: 46px; }
+      .features span svg { width: 24px; height: 24px; }
+      .form-area { margin-top: 76px; padding: 25px 34px 28px; }
+      .form-area h2 { font-size: 28px; }
+      .caption { margin-top: 7px; font-size: 14px; }
+      .blue-line { margin: 14px 0 20px; }
+      .field { margin-bottom: 12px; }
+      .field > label { margin-bottom: 6px; font-size: 14px; }
+      .input, .locked-chip { min-height: 46px; height: 46px; }
+      .row { margin-bottom: 14px; }
+      .login { height: 50px; }
+      .or { margin: 12px 0; }
+      .bio { height: 46px; }
+      .support-strip { top: calc(100% + 18px); min-height: 72px; }
+    }
+
+    @media (max-width: 980px) {
+      .screen { display: block; min-height: 100dvh; }
+      .left {
+        min-height: auto;
+        padding: 32px clamp(22px, 6vw, 52px) 36px;
+        border-radius: 0 0 28px 28px;
+        text-align: left;
+      }
+      .brand-logo { width: 250px; margin: 0; }
+      .left h1 { margin-top: 24px; font-size: 58px; }
+      .left h3 { font-size: 21px; }
+      .line { margin-left: 0; }
+      .features { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .features > div { align-items: flex-start; gap: 10px; }
+      .features span { width: 46px; height: 46px; }
+      .features span svg { width: 24px; height: 24px; }
+      .features p { font-size: 13px; }
+      .brand-footer { margin-top: 24px; padding-top: 0; text-align: left; }
+      .right { min-height: 760px; padding: 88px 20px 50px; }
+      .right::before, .right::after { opacity: .22; }
+      .language-switch { top: 24px; left: 20px; right: 20px; justify-content: center; }
+      .form-area { margin: 0 auto 32px; }
+      .support-strip { position: static; margin-top: 28px; }
+    }
+
+    @media (max-width: 620px) {
+      .left { padding: 24px 20px 26px; text-align: center; }
+      .brand-logo { width: 210px; margin: 0 auto; }
+      .left h1 { font-size: 48px; }
+      .left h3 { font-size: 18px; }
+      .line { margin-left: auto; margin-right: auto; }
+      .features { display: none; }
+      .brand-footer { margin-top: 20px; text-align: center; font-size: 12px; }
+      .right { min-height: auto; padding: 82px 12px 28px; }
+      .language-switch { gap: 9px; }
+      .language { height: 40px; padding: 0 12px; }
+      .lang-link { font-size: 14px; }
+      .form-area { padding: 27px 20px 28px; border-radius: 18px; }
+      .form-area h2 { font-size: 28px; }
+      .caption { font-size: 14px; line-height: 1.45; }
+      .blue-line { margin-bottom: 25px; }
+      .field { margin-bottom: 16px; }
+      .row { align-items: center; }
+      .bio { height: auto; min-height: 52px; padding: 9px 10px; flex-wrap: wrap; }
+      .coming-soon { padding: 4px 8px; }
+      .support-strip { align-items: flex-start; justify-content: flex-start; }
+      .support-strip strong { flex-basis: 100%; }
+    }
+
+    @media (max-width: 390px) {
+      .lang-separator, .lang-link:last-child { display: none; }
+      .form-area { padding-inline: 16px; }
+      .row { font-size: 13px; gap: 8px; }
+      .support-strip a { white-space: normal; overflow-wrap: anywhere; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
     }
   `],
 })
