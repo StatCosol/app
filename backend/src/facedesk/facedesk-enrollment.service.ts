@@ -21,7 +21,11 @@ import {
   FaceDeskReviewQueueEntity,
   FaceDeskSampleEntity,
 } from './entities/facedesk.entities';
-import { FaceDeskFaceService, ResolvedFrame } from './facedesk-face.service';
+import {
+  FaceDeskFaceService,
+  ENROLL_MIN_FRAME_QUALITY,
+  ResolvedFrame,
+} from './facedesk-face.service';
 import { FaceDeskSettingsService } from './facedesk-settings.service';
 import { FaceDeskAzureFaceService } from './facedesk-azure-face.service';
 import { pinLookupHash } from './facedesk-pin.util';
@@ -216,14 +220,15 @@ export class FaceDeskEnrollmentService {
   }
 
   async validateQuality(dto: { frames: SaveEnrollmentDto['frames'] }) {
-    const resolved = await this.faceService.resolveFrames(dto.frames);
-    const good = this.faceService.goodFrames(resolved);
+    const { resolved, good } = await this.resolveEnrollmentFrames(dto.frames);
+    const frontGood = good.filter((f) => f.sampleType === 'FRONT');
     return {
-      ok: good.length > 0,
+      ok: good.length > 0 && frontGood.length >= 1,
       totalFrames: resolved.length,
       goodFrames: good.length,
+      frontFrames: frontGood.length,
       message:
-        good.length > 0
+        good.length > 0 && frontGood.length >= 1
           ? 'OK'
           : this.faceService.simpleQualityMessage(resolved),
     };
@@ -269,10 +274,7 @@ export class FaceDeskEnrollmentService {
       if (r.sample_embedding?.length) {
         maxSim = Math.max(
           maxSim,
-          this.faceService.cosine(
-            probe,
-            bufferToEmbedding(r.sample_embedding),
-          ),
+          this.faceService.cosine(probe, bufferToEmbedding(r.sample_embedding)),
         );
       }
       if (maxSim >= 0) bestByEmployee.set(r.employee_id, maxSim);
@@ -281,8 +283,7 @@ export class FaceDeskEnrollmentService {
     const ranked = [...bestByEmployee.entries()].sort((a, b) => b[1] - a[1]);
     if (!ranked.length || ranked[0][1] < duplicateCosine) return null;
 
-    const margin =
-      ranked.length > 1 ? ranked[0][1] - ranked[1][1] : 1;
+    const margin = ranked.length > 1 ? ranked[0][1] - ranked[1][1] : 1;
     if (margin < minMarginCosine) return null;
 
     return {
@@ -301,8 +302,7 @@ export class FaceDeskEnrollmentService {
     duplicateCosine: number,
     minMarginCosine: number,
   ): Promise<DuplicateHit | null> {
-    const photoB64 =
-      dto.frames?.find((f) => f.photoB64)?.photoB64 ?? null;
+    const photoB64 = dto.frames?.find((f) => f.photoB64)?.photoB64 ?? null;
     if (photoB64) {
       const azureHit = await this.azureFace.findDuplicate(
         clientId,
@@ -328,8 +328,7 @@ export class FaceDeskEnrollmentService {
 
   async checkDuplicate(clientId: string, dto: CheckDuplicateDto) {
     const eff = await this.settings.getEffective(clientId);
-    const resolved = await this.faceService.resolveFrames(dto.frames);
-    const good = this.faceService.goodFrames(resolved);
+    const { good } = await this.resolveEnrollmentFrames(dto.frames);
     if (good.length === 0) {
       return { duplicate: false, message: 'No usable frames' };
     }
@@ -367,14 +366,8 @@ export class FaceDeskEnrollmentService {
     }
     const eff = await this.settings.getEffective(clientId);
 
-    const resolved = await this.faceService.resolveFrames(dto.frames);
-    const good = this.faceService.goodFrames(resolved);
-    if (good.length < eff.minFaceSamples) {
-      throw new BadRequestException(
-        this.faceService.simpleQualityMessage(resolved) +
-          ` (need ${eff.minFaceSamples} clear frames, got ${good.length})`,
-      );
-    }
+    const { resolved, good } = await this.resolveEnrollmentFrames(dto.frames);
+    this.assertEnrollmentFrames(resolved, good, eff.minFaceSamples);
 
     if (eff.livenessRequired) {
       const livenessOk =
@@ -524,9 +517,15 @@ export class FaceDeskEnrollmentService {
       saved.attendancePinLookup = lookup;
       saved.attendancePinSetAt = new Date();
       await this.profileRepo.save(saved);
-      await this.audit(clientId, actorId, 'SET_ATTENDANCE_PIN', dto.employeeId, {
-        auto: true,
-      });
+      await this.audit(
+        clientId,
+        actorId,
+        'SET_ATTENDANCE_PIN',
+        dto.employeeId,
+        {
+          auto: true,
+        },
+      );
       issuedPin = pin;
     }
 
@@ -647,6 +646,41 @@ export class FaceDeskEnrollmentService {
       await this.photoStorage.deletePhoto(url).catch(() => undefined);
     }
     return { ok: true };
+  }
+
+  /** Enrollment uses strict face-svc validation and a higher quality bar. */
+  private async resolveEnrollmentFrames(
+    frames: SaveEnrollmentDto['frames'],
+  ): Promise<{ resolved: ResolvedFrame[]; good: ResolvedFrame[] }> {
+    const resolved = await this.faceService.resolveFrames(frames, {
+      strictQuality: true,
+    });
+    const good = this.faceService.goodFrames(
+      resolved,
+      ENROLL_MIN_FRAME_QUALITY,
+    );
+    return { resolved, good };
+  }
+
+  private assertEnrollmentFrames(
+    resolved: ResolvedFrame[],
+    good: ResolvedFrame[],
+    minFaceSamples: number,
+  ): void {
+    const minFront = Math.min(3, minFaceSamples);
+    const frontGood = good.filter((f) => f.sampleType === 'FRONT');
+    if (frontGood.length < minFront) {
+      throw new BadRequestException(
+        'Look straight at the camera and hold still — clear front-facing frames are required before head turns. ' +
+          this.faceService.simpleQualityMessage(resolved),
+      );
+    }
+    if (good.length < minFaceSamples) {
+      throw new BadRequestException(
+        this.faceService.simpleQualityMessage(resolved) +
+          ` (need ${minFaceSamples} clear frames, got ${good.length})`,
+      );
+    }
   }
 
   private avgQuality(frames: ResolvedFrame[]): number {

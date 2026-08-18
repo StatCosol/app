@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
-import android.util.Size
 import android.view.WindowManager
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
@@ -15,9 +14,6 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
-import androidx.camera.core.resolutionselector.AspectRatioStrategy
-import androidx.camera.core.resolutionselector.ResolutionSelector
-import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
@@ -29,6 +25,10 @@ import com.statcosol.attendance.face.BlinkDetector
 import com.statcosol.attendance.face.FaceCaptureSession
 import com.statcosol.attendance.face.FaceDetector
 import com.statcosol.attendance.face.FaceEmbedder
+import com.statcosol.attendance.face.FaceKioskTuning
+import com.statcosol.attendance.face.FaceScanOverlayView
+import com.statcosol.attendance.face.ScanPhase
+import com.statcosol.attendance.face.ScanProgress
 import com.statcosol.attendance.prefs.DeviceConfig
 import com.statcosol.attendance.sync.FaceDeskOfflineSyncWorker
 import com.statcosol.attendance.ui.KioskChrome
@@ -51,6 +51,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class FaceDeskAttendanceActivity : AppCompatActivity() {
 
     private lateinit var previewView: PreviewView
+    private lateinit var scanOverlay: FaceScanOverlayView
     private lateinit var tvTitle: TextView
     private lateinit var tvResult: TextView
 
@@ -64,7 +65,10 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     private lateinit var chrome: KioskChrome
 
     private val frames = mutableListOf<FaceFrame>()
-    private val blinkDetector = BlinkDetector()
+    private val blinkDetector = BlinkDetector(
+        FaceKioskTuning.BLINK_ABS_THRESHOLD,
+        FaceKioskTuning.BLINK_DROP_DELTA,
+    )
     private var lastFrameAtMs = 0L
     private val submitting = AtomicBoolean(false)
     private var paused = false
@@ -102,6 +106,8 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         // Kiosk: never let the screen doze off mid-shift while attendance is up.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         previewView = findViewById(R.id.fdPreview)
+        scanOverlay = findViewById(R.id.fdScanOverlay)
+        scanOverlay.setMirrorForFrontCamera(true)
         tvTitle = findViewById(R.id.fdTitle)
         tvResult = findViewById(R.id.fdResult)
 
@@ -154,18 +160,26 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                 // which yields a small, soft face crop and weak embeddings).
                 // Higher-res in gives ML Kit + the embedder a sharper face.
                 val analysis = ImageAnalysis.Builder()
-                    .setResolutionSelector(HD_ANALYSIS_RESOLUTION)
+                    .setResolutionSelector(FaceKioskTuning.analysisResolution)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
                 val session = FaceCaptureSession(
                     embedder = embedder,
                     detector = detector,
+                    minFaceSize = FaceKioskTuning.MIN_FACE_SIZE_ATTENDANCE,
+                    minSharpness = FaceKioskTuning.MIN_SHARPNESS_ATTENDANCE,
                     computeFullFrameProbe = false,
                     onFace = { faceProbe, _, metrics, photo ->
-                        onFrame(faceProbe, metrics.eyeOpenness, photo)
+                        onFrame(faceProbe, metrics, photo)
                     },
                     onHint = { hint ->
                         if (!paused && frames.isEmpty()) runOnUiThread { tvTitle.text = hint }
+                    },
+                    onPreview = { preview ->
+                        runOnUiThread {
+                            scanOverlay.updatePreview(preview)
+                            refreshAttendanceOverlay()
+                        }
                     },
                 )
                 analysis.setAnalyzer(cameraExecutor, session)
@@ -293,7 +307,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         }
     }
 
-    private fun onFrame(probe: FloatArray, eyeOpenness: Double, photo: String?) {
+    private fun onFrame(probe: FloatArray, metrics: com.statcosol.attendance.face.FaceMetrics, photo: String?) {
         if (paused || submitting.get() || enrollmentHold) return
         // Never capture until the worker has entered their PIN.
         if (enteredPin == null) return
@@ -307,14 +321,16 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         }
         lastFrameAtMs = now
 
-        blinkDetector.onOpenness(eyeOpenness)
+        blinkDetector.onOpenness(metrics.eyeOpenness)
         frames.add(
             FaceFrame(
                 embeddingB64 = embedder.toBase64(probe),
                 embeddingModel = MODEL,
                 photoB64 = photo,
+                qualityScore = metrics.captureQuality,
             ),
         )
+        refreshAttendanceOverlay()
 
         val blinked = blinkDetector.blinked
         when {
@@ -328,7 +344,38 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                     tvTitle.text = getString(R.string.facedesk_blink_now)
                     voice.speakRes(R.string.facedesk_voice_blink, key = "blink")
                 }
+            else -> runOnUiThread {
+                tvTitle.text = getString(
+                    R.string.facedesk_capturing,
+                    frames.size,
+                    REQUIRED_FRAMES,
+                )
+            }
         }
+    }
+
+    private fun refreshAttendanceOverlay() {
+        val capturing = enteredPin != null && !paused && !submitting.get() && !enrollmentHold
+        val phase = when {
+            !capturing -> ScanPhase.IDLE
+            blinkDetector.blinked -> ScanPhase.BLINK
+            frames.size >= REQUIRED_FRAMES -> ScanPhase.BLINK
+            frames.isNotEmpty() -> ScanPhase.CAPTURING
+            else -> ScanPhase.IDLE
+        }
+        val required = if (frames.size >= REQUIRED_FRAMES && !blinkDetector.blinked) 1 else REQUIRED_FRAMES
+        val current = when {
+            phase == ScanPhase.BLINK -> if (blinkDetector.blinked) 1 else 0
+            else -> frames.size
+        }
+        scanOverlay.updateProgress(
+            ScanProgress(
+                phase = phase,
+                currentFrames = current,
+                requiredFrames = required,
+                blinked = blinkDetector.blinked,
+            ),
+        )
     }
 
     private fun submit() {
@@ -499,28 +546,11 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "FaceDeskAttendance"
-        private const val REQUIRED_FRAMES = 8
-        // Hard cap: submit even without a blink and let the server decide —
-        // it can hold the punch for review rather than silently dropping it.
-        private const val MAX_FRAMES = 24
-        private const val STALE_GAP_MS = 2_500L
+        private const val REQUIRED_FRAMES = FaceKioskTuning.ATTENDANCE_REQUIRED_FRAMES
+        private const val MAX_FRAMES = FaceKioskTuning.ATTENDANCE_MAX_FRAMES
+        private const val STALE_GAP_MS = FaceKioskTuning.ATTENDANCE_STALE_GAP_MS
         private const val TICKET_POLL_MS = 4_000L
         private const val TICKET_POLL_COOLDOWN_MS = 30_000L
         private const val MODEL = "mobilefacenet"
-
-        // Prefer 720p analysis frames, falling back to the closest the camera
-        // supports. Bigger frames = a larger, sharper face crop for the model.
-        private val HD_ANALYSIS_RESOLUTION = ResolutionSelector.Builder()
-            // ResolutionSelector gives the aspect-ratio strategy precedence over
-            // resolution and defaults to 4:3, which would override the 16:9
-            // 1280x720 bound with a 4:3 output. Pin 16:9 so 720p is honored.
-            .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
-            .setResolutionStrategy(
-                ResolutionStrategy(
-                    Size(1280, 720),
-                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
-                ),
-            )
-            .build()
     }
 }

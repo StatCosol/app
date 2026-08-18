@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
-import android.util.Size
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
@@ -13,9 +12,6 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
-import androidx.camera.core.resolutionselector.AspectRatioStrategy
-import androidx.camera.core.resolutionselector.ResolutionSelector
-import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
@@ -26,6 +22,11 @@ import com.statcosol.attendance.face.BlinkDetector
 import com.statcosol.attendance.face.FaceCaptureSession
 import com.statcosol.attendance.face.FaceDetector
 import com.statcosol.attendance.face.FaceEmbedder
+import com.statcosol.attendance.face.FaceKioskTuning
+import com.statcosol.attendance.face.FaceScanGuidance
+import com.statcosol.attendance.face.FaceScanOverlayView
+import com.statcosol.attendance.face.ScanPhase
+import com.statcosol.attendance.face.ScanProgress
 import com.statcosol.attendance.prefs.DeviceConfig
 import com.statcosol.attendance.ui.KioskChrome
 import com.statcosol.attendance.voice.KioskVoiceGuide
@@ -42,6 +43,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class FaceDeskEnrollmentActivity : AppCompatActivity() {
 
     private lateinit var previewView: PreviewView
+    private lateinit var scanOverlay: FaceScanOverlayView
     private lateinit var tvName: TextView
     private lateinit var tvHint: TextView
     private lateinit var btnCapture: Button
@@ -62,10 +64,14 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     private var frontCount = 0
     private var leftCount = 0
     private var rightCount = 0
-    private val blinkDetector = BlinkDetector()
+    private val blinkDetector = BlinkDetector(
+        FaceKioskTuning.BLINK_ABS_THRESHOLD,
+        FaceKioskTuning.BLINK_DROP_DELTA,
+    )
     private val blinked: Boolean get() = blinkDetector.blinked
     private var captureComplete = false
     private val capturing = AtomicBoolean(false)
+    private var frontStableStreak = 0
     private val saving = AtomicBoolean(false)
     private var guidanceStep = ""
 
@@ -75,6 +81,8 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         // Keep the screen awake through the guided multi-angle capture.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         previewView = findViewById(R.id.fdePreview)
+        scanOverlay = findViewById(R.id.fdeScanOverlay)
+        scanOverlay.setMirrorForFrontCamera(true)
         tvName = findViewById(R.id.fdeName)
         tvHint = findViewById(R.id.fdeHint)
         btnCapture = findViewById(R.id.fdeCapture)
@@ -165,17 +173,30 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
                 // 720p analysis frames so the enrolled templates are built from
                 // a large, sharp face crop (CameraX defaults to ~640x480).
                 val analysis = ImageAnalysis.Builder()
-                    .setResolutionSelector(HD_ANALYSIS_RESOLUTION)
+                    .setResolutionSelector(FaceKioskTuning.analysisResolution)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
                 val session = FaceCaptureSession(
                     embedder = embedder,
                     detector = detector,
+                    minFaceSize = FaceKioskTuning.MIN_FACE_SIZE_ENROLLMENT,
+                    minSharpness = FaceKioskTuning.MIN_SHARPNESS_ENROLLMENT,
+                    minLuminance = FaceKioskTuning.MIN_LUMINANCE,
+                    maxPitch = FaceKioskTuning.MAX_PITCH_DEG,
                     computeFullFrameProbe = false,
+                    relaxPitchGate = { frontCount >= FRONT_FRAMES },
                     onFace = { faceProbe, _, metrics, photo ->
-                        onFrame(faceProbe, metrics.eyeOpenness, metrics.headYaw, photo)
+                        onFrame(faceProbe, metrics, photo)
                     },
-                    onHint = { hint -> if (!capturing.get()) runOnUiThread { tvHint.text = hint } },
+                    onHint = { hint ->
+                        if (!capturing.get()) runOnUiThread { tvHint.text = hint }
+                    },
+                    onPreview = { preview ->
+                        runOnUiThread {
+                            scanOverlay.updatePreview(preview)
+                            if (capturing.get()) refreshOverlayProgress()
+                        }
+                    },
                 )
                 analysis.setAnalyzer(cameraExecutor, session)
                 provider.unbindAll()
@@ -193,12 +214,15 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     private fun startCapture() {
         if (saving.get() || captureComplete) return
         frames.clear()
-        frontCount = 0; leftCount = 0; rightCount = 0; blinkDetector.reset()
+        frontCount = 0; leftCount = 0; rightCount = 0
+        frontStableStreak = 0
+        blinkDetector.reset()
         capturing.set(true)
         btnCapture.isEnabled = false
         guidanceStep = ""
         voice.speakRes(R.string.facedesk_voice_look_straight, key = "enroll-start")
         updateGuidance()
+        refreshOverlayProgress()
         // Signal the web that capture has started for this ticket.
         ticketId?.let { tid -> lifecycleScope.launch { runCatching { api.markTicketCapturing(tid) } } }
         // Safety timeout so a stuck capture tells the operator rather than hang.
@@ -212,9 +236,30 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         }, CAPTURE_TIMEOUT_MS)
     }
 
-    private fun onFrame(probe: FloatArray, eyeOpenness: Double, headYaw: Float, photo: String?) {
+    private fun onFrame(probe: FloatArray, metrics: com.statcosol.attendance.face.FaceMetrics, photo: String?) {
         if (!capturing.get()) return
-        blinkDetector.onOpenness(eyeOpenness)
+        blinkDetector.onOpenness(metrics.eyeOpenness)
+
+        val headYaw = metrics.headYaw
+        val quality = metrics.captureQuality
+
+        // Front-facing frames must be stable and high-quality before angle turns.
+        if (frontCount < FRONT_FRAMES) {
+            if (kotlin.math.abs(headYaw) >= FRONT_YAW) return
+            if (quality < MIN_FRONT_QUALITY) {
+                runOnUiThread { tvHint.text = getString(R.string.facedesk_look_straight) }
+                frontStableStreak = 0
+                return
+            }
+            frontStableStreak++
+            if (frontStableStreak < FRONT_STABLE_FRAMES) {
+                runOnUiThread { tvHint.text = getString(R.string.facedesk_hold_still) }
+                return
+            }
+            frontStableStreak = 0
+        } else if (quality < MIN_ANGLE_QUALITY) {
+            return
+        }
 
         // Bucket the frame by head angle and keep it as a sample.
         val type = when {
@@ -229,7 +274,13 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
                 embeddingModel = MODEL,
                 photoB64 = photo,
                 sampleType = type,
+                qualityScore = quality,
             ),
+        )
+        Log.d(
+            TAG,
+            "capture type=$type yaw=${"%.1f".format(headYaw)} quality=${"%.2f".format(quality)} " +
+                "counts front=$frontCount left=$leftCount right=$rightCount blink=$blinked",
         )
 
         val done = frontCount >= FRONT_FRAMES && leftCount >= PER_ANGLE &&
@@ -264,6 +315,47 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         else -> R.string.facedesk_voice_enroll_complete
     }
 
+    private fun refreshOverlayProgress() {
+        val phase = FaceScanGuidance.phaseForEnrollment(
+            frontCount, leftCount, rightCount,
+            FRONT_FRAMES, PER_ANGLE, blinked,
+            capturing.get(), captureComplete,
+        )
+        val stepIndex = when (phase) {
+            ScanPhase.FRONT -> 0
+            ScanPhase.LEFT -> 1
+            ScanPhase.RIGHT -> 2
+            ScanPhase.BLINK -> 3
+            else -> if (captureComplete) 3 else 0
+        }
+        val (current, required) = when (phase) {
+            ScanPhase.FRONT -> frontCount to FRONT_FRAMES
+            ScanPhase.LEFT -> leftCount to PER_ANGLE
+            ScanPhase.RIGHT -> rightCount to PER_ANGLE
+            ScanPhase.BLINK -> (if (blinked) 1 else 0) to 1
+            else -> 0 to 0
+        }
+        scanOverlay.updateProgress(
+            ScanProgress(
+                phase = phase,
+                stepIndex = stepIndex,
+                currentFrames = current,
+                requiredFrames = required,
+                frontCount = frontCount,
+                leftCount = leftCount,
+                rightCount = rightCount,
+                blinked = blinked,
+            ),
+        )
+        if (capturing.get()) {
+            tvHint.text = getString(
+                R.string.facedesk_capturing,
+                current.coerceAtLeast(1),
+                required.coerceAtLeast(1),
+            ) + " — " + nextPrompt()
+        }
+    }
+
     private fun updateGuidance() {
         val step = when {
             frontCount < FRONT_FRAMES -> "front"
@@ -277,6 +369,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
             guidanceStep = step
             voice.speakRes(nextVoiceRes(), key = "enroll-$step")
         }
+        refreshOverlayProgress()
     }
 
     private fun save() {
@@ -342,29 +435,15 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "FaceDeskEnroll"
-        private const val FRONT_FRAMES = 8
-        private const val PER_ANGLE = 3
-        private const val FRONT_YAW = 12f
-        private const val TURN_YAW = 18f
-        // Guided capture needs 14 quality-gated frames across three head
-        // angles plus a blink; 20s was routinely too tight on kiosk hardware.
-        private const val CAPTURE_TIMEOUT_MS = 45_000L
+        private const val FRONT_FRAMES = FaceKioskTuning.ENROLL_FRONT_FRAMES
+        private const val PER_ANGLE = FaceKioskTuning.ENROLL_PER_ANGLE
+        private const val FRONT_YAW = FaceKioskTuning.ENROLL_FRONT_YAW
+        private const val TURN_YAW = FaceKioskTuning.ENROLL_TURN_YAW
+        private const val MIN_FRONT_QUALITY = FaceKioskTuning.ENROLL_MIN_FRONT_QUALITY
+        private const val MIN_ANGLE_QUALITY = FaceKioskTuning.ENROLL_MIN_ANGLE_QUALITY
+        private const val FRONT_STABLE_FRAMES = FaceKioskTuning.ENROLL_FRONT_STABLE_FRAMES
+        private const val CAPTURE_TIMEOUT_MS = FaceKioskTuning.ENROLL_CAPTURE_TIMEOUT_MS
         private const val MODEL = "mobilefacenet"
-
-        // Prefer 720p analysis frames, falling back to the closest supported —
-        // enrolled templates are only as good as the crop they're built from.
-        private val HD_ANALYSIS_RESOLUTION = ResolutionSelector.Builder()
-            // ResolutionSelector gives the aspect-ratio strategy precedence over
-            // resolution and defaults to 4:3, which would override the 16:9
-            // 1280x720 bound with a 4:3 output. Pin 16:9 so 720p is honored.
-            .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
-            .setResolutionStrategy(
-                ResolutionStrategy(
-                    Size(1280, 720),
-                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
-                ),
-            )
-            .build()
 
         const val EXTRA_EMPLOYEE_ID = "employeeId"
         const val EXTRA_EMPLOYEE_NAME = "employeeName"

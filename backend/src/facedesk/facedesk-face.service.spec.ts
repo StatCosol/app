@@ -13,8 +13,7 @@ const frameWithPhotoAndDevice = {
   sampleType: 'FRONT' as const,
 };
 
-const makeService = (client: any) =>
-  new FaceDeskFaceService(client as any);
+const makeService = (client: any) => new FaceDeskFaceService(client);
 
 describe('FaceDeskFaceService.resolveFrames — device-embedding fallback', () => {
   it('falls back to the device embedding when face-svc rejects the photo (no_face 422)', async () => {
@@ -39,9 +38,11 @@ describe('FaceDeskFaceService.resolveFrames — device-embedding fallback', () =
   it('falls back on a FaceQualityError too when a device embedding is present', async () => {
     const client = {
       enabled: true,
-      extractEmbedding: jest.fn().mockRejectedValue(
-        new FaceQualityError({ faceScore: 0.1, reasons: ['blurry'] } as any),
-      ),
+      extractEmbedding: jest
+        .fn()
+        .mockRejectedValue(
+          new FaceQualityError({ faceScore: 0.1, reasons: ['blurry'] } as any),
+        ),
     };
     const svc = makeService(client);
 
@@ -51,12 +52,32 @@ describe('FaceDeskFaceService.resolveFrames — device-embedding fallback', () =
     expect(good).toHaveLength(1);
   });
 
+  it('rejects face-svc quality errors in strict enrollment mode (no device fallback)', async () => {
+    const client = {
+      enabled: true,
+      extractEmbedding: jest
+        .fn()
+        .mockRejectedValue(
+          new FaceQualityError({ faceScore: 0.1, reasons: ['no_face'] } as any),
+        ),
+    };
+    const svc = makeService(client);
+
+    const resolved = await svc.resolveFrames([frameWithPhotoAndDevice] as any, {
+      strictQuality: true,
+    });
+    expect(svc.goodFrames(resolved, 0.65)).toHaveLength(0);
+    expect(resolved[0].reasons).toContain('no_face');
+  });
+
   it('records a quality-0 frame when face-svc rejects and there is NO device embedding', async () => {
     const client = {
       enabled: true,
-      extractEmbedding: jest.fn().mockRejectedValue(
-        new FaceQualityError({ faceScore: 0.1, reasons: ['blurry'] } as any),
-      ),
+      extractEmbedding: jest
+        .fn()
+        .mockRejectedValue(
+          new FaceQualityError({ faceScore: 0.1, reasons: ['blurry'] } as any),
+        ),
     };
     const svc = makeService(client);
 

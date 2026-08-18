@@ -19,4 +19,10 @@
     <color name="surface_card">#FFFFFF</color>
     <color name="surface_scrim">#99000814</color>
     <color name="divider">#E2E8F0</color>
+
+    <!-- Face scan overlay HUD -->
+    <color name="scan_good">#22C55E</color>
+    <color name="scan_warn">#F59E0B</color>
+    <color name="scan_bad">#EF4444</color>
+    <color name="scan_muted">#475569</color>
 </resources>

@@ -12,4 +12,8 @@ data class FaceMetrics(
     val smilingProbability: Double,
     /** Head yaw in degrees. Negative = turned left, positive = turned right. */
     val headYaw: Float,
+    /** Head pitch in degrees. Positive = looking up. */
+    val headPitch: Float = 0f,
+    /** Heuristic 0–1 capture quality from face size + sharpness (for server gating). */
+    val captureQuality: Double = 0.0,
 )
