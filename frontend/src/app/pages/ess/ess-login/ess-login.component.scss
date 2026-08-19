@@ -167,6 +167,19 @@ input {
   font-size: 12px;
 }
 
+.employee-illustration {
+  display: none;
+  position: absolute;
+  right: clamp(20px, 2.5vw, 42px);
+  bottom: 56px;
+  z-index: 1;
+  width: min(58%, 390px);
+  height: min(37vh, 460px);
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 18px 24px rgba(0, 12, 42, .2));
+}
+
 .right {
   position: relative;
   display: flex;
@@ -674,6 +687,13 @@ a:focus-visible {
   40% { transform: translateX(5px); }
   60% { transform: translateX(-3px); }
   80% { transform: translateX(3px); }
+}
+
+@media (min-width: 1280px) and (min-height: 800px) {
+  .employee-illustration {
+    display: block;
+    background: url('../../../../assets/images/ess-employee-illustration.png') right bottom / contain no-repeat;
+  }
 }
 
 @media (min-width: 900px) and (max-width: 1279.98px) {

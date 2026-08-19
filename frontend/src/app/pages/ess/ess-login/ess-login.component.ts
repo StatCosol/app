@@ -42,6 +42,7 @@ import { AuthService } from '../../../core/auth.service';
               <p>Payroll, Leave &amp;<br/>Compliance at Your Fingertips</p>
             </div>
           </div>
+          <div class="employee-illustration" aria-hidden="true"></div>
           <p class="brand-footer">&copy; {{ currentYear }} StatCo Solutions</p>
         </aside>
 
@@ -231,10 +232,11 @@ export class EssLoginComponent implements OnInit {
   capsLockOn = false;
   companyCodeLocked = false;
   currentYear = new Date().getFullYear();
-  rememberMe = true;
+  rememberMe = false;
 
   private static readonly REMEMBERED_EMAIL_KEY = 'ess_remembered_email';
   private static readonly REMEMBERED_CODE_KEY = 'ess_remembered_company_code';
+  private static readonly REMEMBER_OPT_IN_KEY = 'ess_remember_identity_opt_in';
 
   constructor(
     private auth: AuthService,
@@ -250,13 +252,18 @@ export class EssLoginComponent implements OnInit {
       this.companyCode = code.toUpperCase();
       this.companyCodeLocked = true;
     }
-    // Restore remembered values
     try {
-      const remEmail = localStorage.getItem(EssLoginComponent.REMEMBERED_EMAIL_KEY);
-      if (remEmail) { this.email = remEmail; this.rememberMe = true; }
-      if (!this.companyCodeLocked) {
-        const remCode = localStorage.getItem(EssLoginComponent.REMEMBERED_CODE_KEY);
-        if (remCode) { this.companyCode = remCode; }
+      const optedIn = localStorage.getItem(EssLoginComponent.REMEMBER_OPT_IN_KEY) === 'true';
+      if (optedIn) {
+        const remEmail = localStorage.getItem(EssLoginComponent.REMEMBERED_EMAIL_KEY);
+        if (remEmail) { this.email = remEmail; this.rememberMe = true; }
+        if (!this.companyCodeLocked) {
+          const remCode = localStorage.getItem(EssLoginComponent.REMEMBERED_CODE_KEY);
+          if (remCode) { this.companyCode = remCode; }
+        }
+      } else {
+        localStorage.removeItem(EssLoginComponent.REMEMBERED_EMAIL_KEY);
+        localStorage.removeItem(EssLoginComponent.REMEMBERED_CODE_KEY);
       }
     } catch { /* localStorage unavailable */ }
   }
@@ -319,14 +326,15 @@ export class EssLoginComponent implements OnInit {
           this.cdr.detectChanges();
           return;
         }
-        // Persist or clear remembered values based on checkbox
         try {
           if (this.rememberMe) {
+            localStorage.setItem(EssLoginComponent.REMEMBER_OPT_IN_KEY, 'true');
             localStorage.setItem(EssLoginComponent.REMEMBERED_EMAIL_KEY, email);
             if (!this.companyCodeLocked) {
               localStorage.setItem(EssLoginComponent.REMEMBERED_CODE_KEY, code);
             }
           } else {
+            localStorage.removeItem(EssLoginComponent.REMEMBER_OPT_IN_KEY);
             localStorage.removeItem(EssLoginComponent.REMEMBERED_EMAIL_KEY);
             localStorage.removeItem(EssLoginComponent.REMEMBERED_CODE_KEY);
           }
