@@ -815,10 +815,12 @@ a:focus-visible {
   .bio { min-height: 44px; }
   .support-strip { top: calc(100% + 12px); min-height: 64px; }
   .employee-illustration {
-    right: 28px;
-    bottom: 48px;
-    width: min(48%, 320px);
-    height: min(30vh, 230px);
+    right: 12px;
+    bottom: 38px;
+    width: min(62%, 390px);
+    height: min(42vh, 300px);
+    background-position: right center;
+    background-size: auto 112%;
   }
 }
 
