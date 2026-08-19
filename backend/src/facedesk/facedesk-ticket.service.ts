@@ -170,6 +170,27 @@ export class FaceDeskTicketService {
     return { ok: true };
   }
 
+  /**
+   * Device-initiated cancel: the kiosk gave up on an enrollment (e.g. the
+   * capture time limit was exceeded) and abandons the ticket. Mirrors
+   * {@link complete} — scoped to the device and only touches an OPEN ticket, so
+   * it never resurrects an already cancelled/completed one. Idempotent: a
+   * no-op (still returns ok) when the ticket is already closed, so a retried
+   * timeout call can't error the kiosk.
+   */
+  async abandon(ticketId: string, deviceId: string): Promise<{ ok: true }> {
+    await this.repo
+      .createQueryBuilder()
+      .update(FaceDeskEnrollTicketEntity)
+      .set({ status: 'CANCELLED' })
+      .where(
+        'ticket_id = :ticketId AND device_id = :deviceId AND status IN (:...open)',
+        { ticketId, deviceId, open: ['PENDING', 'CAPTURING'] },
+      )
+      .execute();
+    return { ok: true };
+  }
+
   listByClient(
     clientId: string,
     status?: string,
