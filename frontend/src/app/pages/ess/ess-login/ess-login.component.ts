@@ -69,7 +69,7 @@ import { AuthService } from '../../../core/auth.service';
             <p class="caption">Sign in to access your Employee Self Service account</p>
             <div class="blue-line"></div>
 
-            <form (ngSubmit)="submit()" autocomplete="on" class="frm">
+            <form (ngSubmit)="submit()" autocomplete="off" class="frm">
 
               <!-- Company code (only when not locked via /:companyCode/login) -->
               @if (!companyCodeLocked) {
@@ -79,8 +79,8 @@ import { AuthService } from '../../../core/auth.service';
                   <span>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M12 6h.01M8 10h.01M16 10h.01M12 10h.01"/></svg>
                   </span>
-                  <input id="ess-company-code" type="text" [(ngModel)]="companyCode" name="companyCode"
-                         placeholder="Enter company code" autocomplete="organization" />
+                  <input id="ess-company-code" type="text" [(ngModel)]="companyCode" name="essCompanyCode"
+                         placeholder="Enter company code" autocomplete="off" />
                 </div>
                 @if (submitted && !companyCode.trim()) {
 <span class="field-err">Company code is required.</span>
@@ -102,8 +102,8 @@ import { AuthService } from '../../../core/auth.service';
                   <span>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.5 3.1-6 7-6s7 2.5 7 6"/></svg>
                   </span>
-                  <input id="ess-email" type="email" [(ngModel)]="email" name="email"
-                         placeholder="Enter email or employee ID" autocomplete="username" />
+                  <input id="ess-email" type="email" [(ngModel)]="email" name="essIdentity"
+                         placeholder="Enter email or employee ID" autocomplete="off" />
                 </div>
                 @if (submitted && !email.trim()) {
 <span class="field-err">Enter your username or employee ID.</span>

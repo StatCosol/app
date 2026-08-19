@@ -689,7 +689,7 @@ a:focus-visible {
   80% { transform: translateX(3px); }
 }
 
-@media (min-width: 1280px) and (min-height: 800px) {
+@media (min-width: 1280px) and (min-height: 620px) {
   .employee-illustration {
     display: block;
     background: url('../../../../assets/images/ess-employee-illustration.png') right bottom / contain no-repeat;
@@ -814,6 +814,12 @@ a:focus-visible {
   .or { margin-block: 9px; }
   .bio { min-height: 44px; }
   .support-strip { top: calc(100% + 12px); min-height: 64px; }
+  .employee-illustration {
+    right: 28px;
+    bottom: 48px;
+    width: min(48%, 320px);
+    height: min(30vh, 230px);
+  }
 }
 
 @media (min-width: 640px) and (max-width: 1100px) and (max-height: 600px) and (orientation: landscape) {
