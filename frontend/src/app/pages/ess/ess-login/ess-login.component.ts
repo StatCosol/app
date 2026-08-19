@@ -80,7 +80,7 @@ import { AuthService } from '../../../core/auth.service';
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M12 6h.01M8 10h.01M16 10h.01M12 10h.01"/></svg>
                   </span>
                   <input id="ess-company-code" type="text" [(ngModel)]="companyCode" name="companyCode"
-                         placeholder="Enter company code" autocomplete="organization" />
+                         placeholder="Enter company code" autocomplete="section-ess organization" />
                 </div>
                 @if (submitted && !companyCode.trim()) {
 <span class="field-err">Company code is required.</span>
@@ -103,7 +103,7 @@ import { AuthService } from '../../../core/auth.service';
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.5 3.1-6 7-6s7 2.5 7 6"/></svg>
                   </span>
                   <input id="ess-email" type="email" [(ngModel)]="email" name="email"
-                         placeholder="Enter email or employee ID" autocomplete="username" />
+                         placeholder="Enter email or employee ID" autocomplete="section-ess username" />
                 </div>
                 @if (submitted && !email.trim()) {
 <span class="field-err">Enter your username or employee ID.</span>
@@ -119,7 +119,7 @@ import { AuthService } from '../../../core/auth.service';
                   </span>
                   <input id="ess-password" [type]="showPassword ? 'text' : 'password'"
                          [(ngModel)]="password" name="password"
-                         placeholder="Password" autocomplete="current-password"
+                         placeholder="Password" autocomplete="section-ess current-password"
                          (keydown)="checkCapsLock($event)" />
                   <button type="button" class="pw-toggle" (click)="showPassword=!showPassword" tabindex="-1" aria-label="Show or hide password">
                     @if (!showPassword) {
