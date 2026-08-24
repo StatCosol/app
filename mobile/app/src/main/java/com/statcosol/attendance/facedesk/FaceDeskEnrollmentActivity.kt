@@ -32,6 +32,7 @@ import com.statcosol.attendance.face.ScanPhase
 import com.statcosol.attendance.face.ScanProgress
 import com.statcosol.attendance.prefs.DeviceConfig
 import com.statcosol.attendance.ui.KioskChrome
+import com.statcosol.attendance.ui.KioskLock
 import com.statcosol.attendance.voice.KioskVoiceGuide
 import kotlinx.coroutines.launch
 import java.util.concurrent.ExecutorService
@@ -113,6 +114,17 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
 
         btnCapture.setOnClickListener { if (captureComplete) save() else startCapture() }
 
+        // Same kiosk lock-down as the attendance screen: full-screen, pinned,
+        // and only closable with the admin PIN (long-press the client name).
+        KioskLock.applyImmersive(this)
+        KioskLock.startLockTaskSafe(this)
+        KioskLock.bindExitTrigger(
+            this,
+            { config.faceDeskAdminPin },
+            findViewById(R.id.headerBrand),
+            findViewById(R.id.headerStrip),
+        )
+
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             != PackageManager.PERMISSION_GRANTED
         ) {
@@ -125,6 +137,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        KioskLock.applyImmersive(this)
         chrome.startClock()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             == PackageManager.PERMISSION_GRANTED

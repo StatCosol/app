@@ -9,6 +9,7 @@
     <string name="setup_token_hint">Install token</string>
     <string name="setup_api_hint">API base (optional)</string>
     <string name="setup_admin_pin_hint">Kiosk admin PIN (from portal)</string>
+    <string name="setup_invalid_admin_pin">Set a kiosk admin PIN: 4–12 digits, not all the same (e.g. not 0000). This PIN is required to exit the app and open enrollment.</string>
     <string name="setup_register">Register Device</string>
     <string name="setup_invalid_token">Token must be 64 hex characters. Entered %1$d characters.</string>
     <string name="setup_token_revoked">This device has been revoked by your administrator. Ask for a new install token.</string>

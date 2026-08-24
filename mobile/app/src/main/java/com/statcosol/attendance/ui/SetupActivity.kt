@@ -75,6 +75,16 @@ class SetupActivity : AppCompatActivity() {
             return
         }
 
+        // FaceDesk devices lock the kiosk behind an admin PIN (exit + enrollment),
+        // so require a real one up front — never a blank or a trivial default.
+        val faceDesk = !offlineRosterCheckbox.isChecked
+        val adminPin = findViewById<EditText>(R.id.adminPinInput).text.toString().trim()
+        if (faceDesk && !isValidAdminPin(adminPin)) {
+            tvError.text = getString(R.string.setup_invalid_admin_pin)
+            tvError.visibility = View.VISIBLE
+            return
+        }
+
         tvError.visibility = View.GONE
         setLoading(true)
 
@@ -95,6 +105,15 @@ class SetupActivity : AppCompatActivity() {
         } else {
             registerFaceDesk(token, androidId)
         }
+    }
+
+    /** A usable kiosk admin PIN: 4–12 digits and not all the same digit (so
+     *  "0000"/"1111" and blanks are rejected). This PIN gates both the app-exit
+     *  and enrollment mode, so it must not be trivially guessable. */
+    private fun isValidAdminPin(pin: String): Boolean {
+        if (pin.length < 4 || pin.length > 12) return false
+        if (!pin.all { it.isDigit() }) return false
+        return !pin.all { it == pin[0] }
     }
 
     private fun registerV1Kiosk(token: String, androidId: String) {

@@ -76,6 +76,20 @@
             android:screenOrientation="portrait"
             android:label="FaceDesk Enrollment" />
 
+        <!-- Device-owner admin. When set as Device Owner, the kiosk whitelists
+             itself for lock task so screen pinning fully blocks Home/Recents. -->
+        <receiver
+            android:name=".kiosk.KioskDeviceAdminReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="true">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin_receiver" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

@@ -33,6 +33,7 @@ import com.statcosol.attendance.face.ScanProgress
 import com.statcosol.attendance.prefs.DeviceConfig
 import com.statcosol.attendance.sync.FaceDeskOfflineSyncWorker
 import com.statcosol.attendance.ui.KioskChrome
+import com.statcosol.attendance.ui.KioskLock
 import com.statcosol.attendance.voice.KioskVoiceGuide
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -126,6 +127,17 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         // Keeps one device usable for both without ever mixing the two screens.
         tvTitle.setOnLongClickListener { promptEnrollmentUnlock(); true }
 
+        // Kiosk lock-down: full-screen, pin the app, and only let an operator
+        // close it via the admin PIN — long-press the client name in the header.
+        KioskLock.applyImmersive(this)
+        KioskLock.startLockTaskSafe(this)
+        KioskLock.bindExitTrigger(
+            this,
+            { config.faceDeskAdminPin },
+            findViewById(R.id.headerBrand),
+            findViewById(R.id.headerStrip),
+        )
+
         flushOfflineQueue()
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
@@ -200,6 +212,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        KioskLock.applyImmersive(this)
         chrome.startClock()
         // Returned from enrollment (or first shown) — release the hold, discard
         // any stale buffer, and (re)start ticket polling.
