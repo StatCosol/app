@@ -45,7 +45,17 @@ class FaceDeskApiClient(private val config: DeviceConfig) {
         withContext(Dispatchers.IO) {
             val response: Response = http.newCall(request).execute()
             val body = response.body?.string() ?: ""
-            if (!response.isSuccessful) throw FaceDeskApiException(response.code, body)
+            if (!response.isSuccessful) {
+                // A device-authenticated call (carries the Bearer token) returning
+                // 401 means the server no longer accepts this device's token — it
+                // was revoked/removed in the portal. Signal a reset so the kiosk
+                // stops operating and returns to registration. register() uses no
+                // Authorization header, so its 401 (bad install token) is excluded.
+                if (response.code == 401 && request.header("Authorization") != null) {
+                    DeviceSession.notifyRevoked()
+                }
+                throw FaceDeskApiException(response.code, body)
+            }
             parse(body)
         }
 

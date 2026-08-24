@@ -13,6 +13,7 @@ import androidx.lifecycle.lifecycleScope
 import com.statcosol.attendance.BuildConfig
 import com.statcosol.attendance.AttendanceApp
 import com.statcosol.attendance.R
+import com.statcosol.attendance.facedesk.DeviceSession
 import com.statcosol.attendance.facedesk.FaceDeskApiClient
 import com.statcosol.attendance.facedesk.FaceDeskApiException
 import com.statcosol.attendance.facedesk.FaceDeskAttendanceActivity
@@ -200,6 +201,9 @@ class SetupActivity : AppCompatActivity() {
     }
 
     private fun navigateToMain() {
+        // Arm revocation detection for this (re-)registered session, so a later
+        // portal removal resets the device again.
+        DeviceSession.rearm()
         val mode = config.deviceMode
         val intent = when {
             mode.equals("KIOSK", ignoreCase = true) ->
