@@ -2,21 +2,20 @@ package com.statcosol.attendance.ui
 
 import android.app.Activity
 import android.os.Build
-import android.text.InputType
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
-import android.widget.EditText
 import android.widget.Toast
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.statcosol.attendance.BuildConfig
 import com.statcosol.attendance.R
+import com.statcosol.attendance.facedesk.PinKeypadDialog
 
 /**
  * Shared kiosk lock-down used by the FaceDesk attendance and enrollment screens:
  * full-screen immersive mode, best-effort screen pinning (lock task), and a
  * PIN-gated exit hatch. The app is meant to be un-closable by ordinary users;
- * only someone with the admin PIN (long-press the client name) can leave it.
+ * only someone with the admin PIN — the one set for this device during
+ * registration (DeviceConfig.faceDeskAdminPin) — can leave it by long-pressing
+ * the client name. Same PIN that unlocks enrollment mode.
  */
 object KioskLock {
 
@@ -62,38 +61,33 @@ object KioskLock {
      * Wire a view (the client-name label) so a long-press opens the PIN prompt.
      * The kiosk blocks Home/Back via immersive + lock task, so this is the only
      * sanctioned way out for an operator doing updates or maintenance.
+     *
+     * [expectedPin] is resolved at press time (read fresh from device config) so
+     * a re-registration that changes the admin PIN takes effect without a restart.
      */
-    fun bindExitTrigger(activity: Activity, vararg triggers: View?) {
+    fun bindExitTrigger(activity: Activity, expectedPin: () -> String, vararg triggers: View?) {
         val listener = View.OnLongClickListener {
-            showExitDialog(activity)
+            showExitDialog(activity, expectedPin())
             true
         }
         triggers.forEach { it?.setOnLongClickListener(listener) }
     }
 
-    /** Prompt for the admin PIN; on the correct PIN, leave lock task and close
-     *  the app back to the device launcher. */
-    fun showExitDialog(activity: Activity) {
+    /** Prompt for the device's admin PIN (set during registration); on the
+     *  correct PIN, leave lock task and close the app back to the launcher. */
+    fun showExitDialog(activity: Activity, expectedPin: String) {
         if (dialogActive) return
-        val configuredPin = BuildConfig.ADMIN_EXIT_PIN
         dialogActive = true
-        val input = EditText(activity).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
-            hint = activity.getString(R.string.kiosk_admin_exit_hint)
-            setPadding(48, 32, 48, 32)
-        }
-        MaterialAlertDialogBuilder(activity)
-            .setTitle(R.string.kiosk_admin_exit_title)
-            .setMessage(R.string.kiosk_admin_exit_message)
-            .setView(input)
-            .setPositiveButton(R.string.kiosk_admin_exit_confirm) { d, _ ->
-                val entered = input.text?.toString()?.trim().orEmpty()
-                // An empty configured PIN can never be matched — the exit hatch
-                // stays locked until a real PIN is baked into the build.
-                if (configuredPin.isNotEmpty() && entered == configuredPin) {
+        PinKeypadDialog.show(
+            activity = activity,
+            title = activity.getString(R.string.kiosk_admin_exit_title),
+            message = activity.getString(R.string.kiosk_admin_exit_message),
+            fixedLength = null,
+            cancelable = true,
+            onSubmit = { entered ->
+                dialogActive = false
+                if (expectedPin.isNotBlank() && entered == expectedPin) {
                     try { activity.stopLockTask() } catch (_: Exception) {}
-                    d.dismiss()
-                    dialogActive = false
                     activity.finishAffinity()
                 } else {
                     Toast.makeText(
@@ -101,14 +95,9 @@ object KioskLock {
                         R.string.kiosk_admin_exit_wrong_pin,
                         Toast.LENGTH_SHORT,
                     ).show()
-                    dialogActive = false
                 }
-            }
-            .setNegativeButton(R.string.kiosk_admin_exit_cancel) { d, _ ->
-                d.dismiss()
-                dialogActive = false
-            }
-            .setOnCancelListener { dialogActive = false }
-            .show()
+            },
+            onCancel = { dialogActive = false },
+        )
     }
 }

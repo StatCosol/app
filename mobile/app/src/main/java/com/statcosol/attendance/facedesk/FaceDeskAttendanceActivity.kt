@@ -133,6 +133,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         KioskLock.startLockTaskSafe(this)
         KioskLock.bindExitTrigger(
             this,
+            { config.faceDeskAdminPin },
             findViewById(R.id.headerBrand),
             findViewById(R.id.headerStrip),
         )
