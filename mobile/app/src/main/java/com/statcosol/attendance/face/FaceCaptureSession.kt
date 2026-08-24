@@ -1,7 +1,11 @@
 package com.statcosol.attendance.face
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.Matrix
+import android.graphics.Paint
 import android.graphics.Rect
 import android.util.Base64
 import androidx.camera.core.ExperimentalGetImage
@@ -117,31 +121,42 @@ class FaceCaptureSession(
             return
         }
 
-        // Face brightness gate: a dark/underexposed face produces a weak
-        // embedding that won't match at the server, so guide the worker to
-        // better light here instead of submitting a frame that only fails the
-        // match. Measured on the face crop (not the frame) so a bright
-        // background can't mask a dark face.
+        // Face brightness. Measured on the face crop (not the frame) so a bright
+        // background can't mask a dark face. Below the hard floor there is
+        // essentially no facial signal to recover, so guide the worker to better
+        // light rather than amplify pure sensor noise into the embedding.
         val faceLuminance = computeLuminance(faceBitmap)
-        if (faceLuminance < MIN_FACE_LUMINANCE) {
+        if (faceLuminance < HARD_DARK_FLOOR) {
             emitPreview(normBox, partialMetrics(face, faceWidth, sharpness),
                 "Face too dark — move into better light", false)
             onHint("Face too dark — move into better light")
             return
         }
 
+        // Low-light normalization: lift an under-exposed (but recoverable) face
+        // toward a target brightness before embedding, so a dim face still
+        // produces a strong, illumination-consistent embedding instead of being
+        // rejected outright. Applied on both enrollment and attendance (shared
+        // session) so the two stay comparable. Gain is capped to bound the noise
+        // it amplifies; the camera-side exposure boost does the heavy lifting.
+        val enhancedFace = normalizeIllumination(faceBitmap, faceLuminance)
+        val effectiveLuminance =
+            (faceLuminance * lowLightGain(faceLuminance)).coerceAtMost(FACE_TARGET_LUMINANCE)
+
         val sizeScore = (faceWidth / 0.35f).coerceIn(0f, 1f)
         val sharpScore = (sharpness / 80f).coerceIn(0f, 1f)
-        val brightScore = (faceLuminance / 120f).coerceIn(0f, 1f)
-        // Quality now factors brightness, so a dark face can no longer read ~99%.
+        // Brightness score reflects the post-normalization face, so a recoverable
+        // dim face isn't unfairly gated while a near-black frame (rejected above)
+        // still can't sneak through.
+        val brightScore = (effectiveLuminance / 120f).coerceIn(0f, 1f)
         val captureQuality =
             (sizeScore * 0.35f + sharpScore * 0.45f + brightScore * 0.20f).toDouble()
         val metrics = computeMetrics(face, captureQuality)
 
-        val embedding = embedder.embed(faceBitmap)
+        val embedding = embedder.embed(enhancedFace)
         val fullFrameEmbedding =
             if (computeFullFrameProbe) embedder.embed(bitmap) else FloatArray(0)
-        val photoB64 = if (capturePhoto) bitmapToBase64(faceBitmap) else null
+        val photoB64 = if (capturePhoto) bitmapToBase64(enhancedFace) else null
 
         emitPreview(normBox, metrics, null, true)
         onFace(embedding, fullFrameEmbedding, metrics, photoB64)
@@ -310,10 +325,52 @@ class FaceCaptureSession(
         }
     }
 
+    /** Capped multiplicative gain that lifts [luma] toward the target. 1.0 when
+     *  the face is already bright enough; never above [MAX_LOW_LIGHT_GAIN] so
+     *  sensor noise isn't amplified without bound. */
+    private fun lowLightGain(luma: Float): Float =
+        if (luma <= 1f) 1f
+        else (FACE_TARGET_LUMINANCE / luma).coerceIn(1f, MAX_LOW_LIGHT_GAIN)
+
+    /** Brighten an under-exposed face crop via a capped linear gain so a dim
+     *  face still yields a usable embedding. Returns the original bitmap when
+     *  it's already bright enough (or on any failure). */
+    private fun normalizeIllumination(bitmap: Bitmap, luma: Float): Bitmap {
+        val gain = lowLightGain(luma)
+        if (gain <= 1.02f) return bitmap
+        val cm = ColorMatrix(
+            floatArrayOf(
+                gain, 0f, 0f, 0f, 0f,
+                0f, gain, 0f, 0f, 0f,
+                0f, 0f, gain, 0f, 0f,
+                0f, 0f, 0f, 1f, 0f,
+            ),
+        )
+        return try {
+            val out = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
+            Canvas(out).drawBitmap(
+                bitmap,
+                0f,
+                0f,
+                Paint().apply { colorFilter = ColorMatrixColorFilter(cm) },
+            )
+            out
+        } catch (e: Exception) {
+            bitmap
+        }
+    }
+
     private companion object {
-        /** Minimum average brightness (0–255) of the face crop to accept a
-         *  frame. Conservative — rejects only clearly under-lit faces; tune to
-         *  the deployment's lighting if legitimate captures are being blocked. */
-        const val MIN_FACE_LUMINANCE = 45f
+        /** Average face-crop brightness (0–255) below which there is too little
+         *  signal to recover — the frame is rejected with a "too dark" hint.
+         *  Tune down if a legitimately dim site still blocks real captures. */
+        const val HARD_DARK_FLOOR = 24f
+
+        /** Target average face brightness that low-light normalization lifts an
+         *  under-exposed crop toward before embedding. */
+        const val FACE_TARGET_LUMINANCE = 120f
+
+        /** Upper bound on the low-light gain, to cap amplified sensor noise. */
+        const val MAX_LOW_LIGHT_GAIN = 2.4f
     }
 }
