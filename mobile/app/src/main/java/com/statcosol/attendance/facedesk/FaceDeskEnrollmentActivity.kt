@@ -3,7 +3,9 @@ package com.statcosol.attendance.facedesk
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.CountDownTimer
 import android.util.Log
+import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
@@ -47,6 +49,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     private lateinit var scanOverlay: FaceScanOverlayView
     private lateinit var tvName: TextView
     private lateinit var tvHint: TextView
+    private lateinit var tvTimer: TextView
     private lateinit var btnCapture: Button
 
     private lateinit var config: DeviceConfig
@@ -72,10 +75,9 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     private val blinked: Boolean get() = blinkDetector.blinked
     private var captureComplete = false
     private val capturing = AtomicBoolean(false)
-    // Monotonic id for each capture attempt. A pending timeout callback only acts
-    // if its attempt is still the current one, so a stale callback from a prior
-    // attempt can't cancel a fresh retry (or a completed capture).
-    private var captureAttempt = 0
+    // Live enrollment countdown. Cancelled/restarted per capture attempt, so a
+    // timer from a prior attempt can't cancel a fresh retry or a completed one.
+    private var captureTimer: CountDownTimer? = null
     private var frontStableStreak = 0
     private val saving = AtomicBoolean(false)
     private var guidanceStep = ""
@@ -90,6 +92,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         scanOverlay.setMirrorForFrontCamera(true)
         tvName = findViewById(R.id.fdeName)
         tvHint = findViewById(R.id.fdeHint)
+        tvTimer = findViewById(R.id.fdeTimer)
         btnCapture = findViewById(R.id.fdeCapture)
 
         employeeId = intent.getStringExtra(EXTRA_EMPLOYEE_ID).orEmpty()
@@ -233,22 +236,47 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         refreshOverlayProgress()
         // Signal the web that capture has started for this ticket.
         ticketId?.let { tid -> lifecycleScope.launch { runCatching { api.markTicketCapturing(tid) } } }
-        // Hard deadline from capture start: if the full set isn't captured in
-        // time, cancel the whole enrollment rather than hang or loop a retry.
-        // A capture that already completed within the budget (captureComplete)
-        // or is mid-save is left alone — the save has its own handling.
-        // The attempt guard (checked first, before capturing.getAndSet) means a
-        // callback left over from an earlier attempt — e.g. after a failed save
-        // and resetForRetry() started a new capture — becomes a no-op instead of
-        // cancelling the fresh attempt early.
-        val attempt = ++captureAttempt
-        previewView.postDelayed({
-            if (attempt == captureAttempt && capturing.getAndSet(false) &&
-                !captureComplete && !saving.get()
-            ) {
-                cancelEnrollment()
+        startCaptureTimer()
+    }
+
+    /**
+     * Start (or restart) the live enrollment countdown. Shows an on-screen
+     * mm:ss timer and, if the full set isn't captured before it reaches zero,
+     * cancels the whole enrollment. Cancelling any prior timer first means a
+     * stale countdown from an earlier attempt can't cancel a fresh retry.
+     */
+    private fun startCaptureTimer() {
+        captureTimer?.cancel()
+        tvTimer.visibility = View.VISIBLE
+        captureTimer = object : CountDownTimer(CAPTURE_TIMEOUT_MS, 1_000L) {
+            override fun onTick(msLeft: Long) {
+                val secondsLeft = ((msLeft + 999L) / 1000L).toInt()
+                tvTimer.text = getString(
+                    R.string.facedesk_timer_format,
+                    secondsLeft / 60,
+                    secondsLeft % 60,
+                )
+                // Warn in red for the final stretch.
+                tvTimer.setTextColor(if (secondsLeft <= 30) 0xFFEF4444.toInt() else 0xFFFFFFFF.toInt())
             }
-        }, CAPTURE_TIMEOUT_MS)
+
+            override fun onFinish() {
+                // A capture that already completed within the budget, or one
+                // mid-save, is left alone — the save has its own handling.
+                if (capturing.getAndSet(false) && !captureComplete && !saving.get()) {
+                    cancelEnrollment()
+                } else {
+                    stopCaptureTimer()
+                }
+            }
+        }.start()
+    }
+
+    /** Stop and hide the countdown (capture finished, cancelled, or torn down). */
+    private fun stopCaptureTimer() {
+        captureTimer?.cancel()
+        captureTimer = null
+        tvTimer.visibility = View.GONE
     }
 
     /**
@@ -262,6 +290,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         capturing.set(false)
         ticketId?.let { tid -> lifecycleScope.launch { runCatching { api.cancelTicket(tid) } } }
         runOnUiThread {
+            stopCaptureTimer()
             tvHint.text = getString(R.string.facedesk_capture_timeout)
             btnCapture.isEnabled = false
             voice.speakRes(R.string.facedesk_voice_enroll_cancelled, minIntervalMs = 0)
@@ -324,6 +353,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
             capturing.set(false)
             captureComplete = true
             runOnUiThread {
+                stopCaptureTimer()
                 tvHint.text = getString(R.string.facedesk_captured_complete)
                 btnCapture.text = getString(R.string.facedesk_complete)
                 btnCapture.isEnabled = true
@@ -462,6 +492,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        captureTimer?.cancel()
         voice.shutdown()
         cameraExecutor.shutdown()
         detector.close()
