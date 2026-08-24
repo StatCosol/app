@@ -89,14 +89,13 @@ object KioskLock {
     fun showExitDialog(activity: Activity, expectedPin: String) {
         if (dialogActive) return
         dialogActive = true
-        PinKeypadDialog.show(
+        val dialog = PinKeypadDialog.show(
             activity = activity,
             title = activity.getString(R.string.kiosk_admin_exit_title),
             message = activity.getString(R.string.kiosk_admin_exit_message),
             fixedLength = null,
             cancelable = true,
             onSubmit = { entered ->
-                dialogActive = false
                 if (expectedPin.isNotBlank() && entered == expectedPin) {
                     try { activity.stopLockTask() } catch (_: Exception) {}
                     activity.finishAffinity()
@@ -108,7 +107,11 @@ object KioskLock {
                     ).show()
                 }
             },
-            onCancel = { dialogActive = false },
         )
+        // Reset the guard on ANY dismissal — including the host activity finishing
+        // while the prompt is up (e.g. the enrollment screen's delayed auto-finish).
+        // A button/cancel-only reset would leave the guard stuck true and block
+        // every later exit prompt until the process restarts.
+        dialog.setOnDismissListener { dialogActive = false }
     }
 }

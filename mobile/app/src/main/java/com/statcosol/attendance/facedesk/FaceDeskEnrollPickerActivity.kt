@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.statcosol.attendance.R
 import com.statcosol.attendance.prefs.DeviceConfig
+import com.statcosol.attendance.ui.KioskLock
 import kotlinx.coroutines.launch
 
 /**
@@ -21,6 +22,7 @@ class FaceDeskEnrollPickerActivity : AppCompatActivity() {
     private lateinit var list: ListView
     private lateinit var tvStatus: TextView
     private lateinit var api: FaceDeskApiClient
+    private lateinit var config: DeviceConfig
     private var pending: List<PendingEmployee> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,7 +30,16 @@ class FaceDeskEnrollPickerActivity : AppCompatActivity() {
         setContentView(R.layout.activity_facedesk_enroll_picker)
         list = findViewById(R.id.fdpList)
         tvStatus = findViewById(R.id.fdpStatus)
-        api = FaceDeskApiClient(DeviceConfig(this))
+        config = DeviceConfig(this)
+        api = FaceDeskApiClient(config)
+
+        // This is the task root on FACEDESK_ENROLLMENT devices, so it must carry
+        // the same kiosk lock-down as the attendance screen — otherwise an
+        // enrollment kiosk with no pending employees sits here fully closable.
+        // No client-name label here, so the status text is the exit trigger.
+        KioskLock.applyImmersive(this)
+        KioskLock.startLockTaskSafe(this)
+        KioskLock.bindExitTrigger(this, { config.faceDeskAdminPin }, tvStatus)
 
         list.setOnItemClickListener { _, _, position, _ ->
             val emp = pending.getOrNull(position) ?: return@setOnItemClickListener
@@ -43,6 +54,7 @@ class FaceDeskEnrollPickerActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        KioskLock.applyImmersive(this)
         loadPending()
     }
 
