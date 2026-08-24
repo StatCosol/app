@@ -156,14 +156,27 @@ object PinKeypadDialog {
         val grid = GridLayout(activity).apply {
             columnCount = 3
             rowCount = 4
+            // Center the keypad block within the card. The parent's
+            // CENTER_HORIZONTAL gravity doesn't reliably center a GridLayout, so
+            // set the child's own layout gravity.
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { gravity = Gravity.CENTER_HORIZONTAL }
         }
         for (n in 1..9) grid.addView(makeKey(n.toString()) { addDigit('0' + n) })
-        grid.addView(makeKey("⌫") { backspace() })
-        grid.addView(makeKey("0") { addDigit('0') })
+        // Bottom row. Variable-length (admin) keeps a real OK key: [⌫ | 0 | OK].
+        // Fixed-length (worker PIN, auto-submits) has no OK, so lay it out like a
+        // standard passcode pad — [blank | 0 | ⌫] — keeping 0 centred under 2/5/8
+        // and the delete key bottom-right instead of stranding an empty cell.
         if (fixedLength == null) {
+            grid.addView(makeKey("⌫") { backspace() })
+            grid.addView(makeKey("0") { addDigit('0') })
             grid.addView(makeKey("OK", brand = true) { submit() })
         } else {
             grid.addView(spacer())
+            grid.addView(makeKey("0") { addDigit('0') })
+            grid.addView(makeKey("⌫") { backspace() })
         }
         root.addView(grid)
 
