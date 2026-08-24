@@ -8,7 +8,6 @@ import {
   PageHeaderComponent,
 } from '../../../shared/ui';
 import { ToastService } from '../../../shared/toast/toast.service';
-import { ComplianceNotificationCenterService } from '../../../core/compliance-notification-center.service';
 import {
   ClientMobileAttendanceService,
   FailedScanRow,
@@ -627,7 +626,6 @@ export class BranchFaceFailuresComponent implements OnInit {
   constructor(
     private svc: ClientMobileAttendanceService,
     private toast: ToastService,
-    private notif: ComplianceNotificationCenterService,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -658,15 +656,15 @@ export class BranchFaceFailuresComponent implements OnInit {
   }
 
   dismissAlert(id: string): void {
+    // Face-failure alerts are spike aggregations computed client-side (their ids
+    // are synthetic "branchId:reason:hour" keys, not persisted notifications), so
+    // dismissal is purely local — there is no server-side read state to update.
     this.dismissedAlertIds.add(id);
-    this.notif.markRead(id).subscribe({ error: () => {} });
   }
 
   dismissAllAlerts(): void {
     this.alerts.forEach((a) => {
-      if (this.dismissedAlertIds.has(a.id)) return;
       this.dismissedAlertIds.add(a.id);
-      this.notif.markRead(a.id).subscribe({ error: () => {} });
     });
   }
 
