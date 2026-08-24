@@ -165,6 +165,9 @@
     <string name="facedesk_done">Done</string>
     <string name="facedesk_capture_timeout">Enrollment cancelled — time limit exceeded. Please start again from the admin.</string>
     <string name="facedesk_voice_enroll_cancelled">Enrollment cancelled. Time limit exceeded.</string>
+    <!-- Live enrollment countdown (mm:ss) shown after Capture is tapped. -->
+    <string name="facedesk_timer_format">%1$d:%2$02d</string>
+    <string name="facedesk_time_remaining">Time remaining to complete enrollment</string>
     <string name="facedesk_enroll_in_progress">Enrollment in progress — attendance paused</string>
 
     <!-- FaceDesk spoken guidance (TTS) -->
