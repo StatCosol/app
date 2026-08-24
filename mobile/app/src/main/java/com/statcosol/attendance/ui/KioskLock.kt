@@ -1,6 +1,9 @@
 package com.statcosol.attendance.ui
 
 import android.app.Activity
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
+import android.content.Context
 import android.os.Build
 import android.view.View
 import android.view.WindowInsets
@@ -8,6 +11,7 @@ import android.view.WindowInsetsController
 import android.widget.Toast
 import com.statcosol.attendance.R
 import com.statcosol.attendance.facedesk.PinKeypadDialog
+import com.statcosol.attendance.kiosk.KioskDeviceAdminReceiver
 
 /**
  * Shared kiosk lock-down used by the FaceDesk attendance and enrollment screens:
@@ -46,12 +50,19 @@ object KioskLock {
         }
     }
 
-    /** Best-effort screen pinning. Fully blocks Home/Recents/Back only when the
-     *  package is a Device Owner or whitelisted via a DPC's setLockTaskPackages;
-     *  otherwise it enters the standard "pinned app" mode. No-ops (rather than
-     *  crashing) on un-provisioned devices. */
+    /** Screen pinning. When this app is the device's Device Owner it first
+     *  whitelists itself via setLockTaskPackages, so startLockTask fully blocks
+     *  Home/Recents/Back. Otherwise it falls back to the standard (escapable)
+     *  "pinned app" mode. No-ops (rather than crashing) on un-provisioned
+     *  devices. */
     fun startLockTaskSafe(activity: Activity) {
         try {
+            val dpm = activity.getSystemService(Context.DEVICE_POLICY_SERVICE)
+                as? DevicePolicyManager
+            if (dpm?.isDeviceOwnerApp(activity.packageName) == true) {
+                val admin = ComponentName(activity, KioskDeviceAdminReceiver::class.java)
+                dpm.setLockTaskPackages(admin, arrayOf(activity.packageName))
+            }
             activity.startLockTask()
         } catch (_: Exception) {
         }
