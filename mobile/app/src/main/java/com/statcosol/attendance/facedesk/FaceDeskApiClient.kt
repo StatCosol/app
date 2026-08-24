@@ -118,4 +118,11 @@ class FaceDeskApiClient(private val config: DeviceConfig) {
             .post("".toRequestBody(mediaType)).build()
         execute(request) { }
     }
+
+    /** Kiosk abandoned the enrollment (e.g. capture time limit exceeded). */
+    suspend fun cancelTicket(ticketId: String) {
+        val request = builder("/api/v1/facedesk/device/enroll-ticket/$ticketId/cancel")
+            .post("".toRequestBody(mediaType)).build()
+        execute(request) { }
+    }
 }

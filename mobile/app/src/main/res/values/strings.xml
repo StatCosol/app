@@ -163,7 +163,8 @@
     <string name="facedesk_captured_complete">Captured — tap Complete to save</string>
     <string name="facedesk_complete">Complete</string>
     <string name="facedesk_done">Done</string>
-    <string name="facedesk_capture_timeout">Couldn\'t capture all angles — tap Capture to retry</string>
+    <string name="facedesk_capture_timeout">Enrollment cancelled — time limit exceeded. Please start again from the admin.</string>
+    <string name="facedesk_voice_enroll_cancelled">Enrollment cancelled. Time limit exceeded.</string>
     <string name="facedesk_enroll_in_progress">Enrollment in progress — attendance paused</string>
 
     <!-- FaceDesk spoken guidance (TTS) -->

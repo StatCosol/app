@@ -83,7 +83,11 @@ jobs:
       - name: Unit tests (Vitest service specs)
         run: npm run test:unit
       - name: Install Chromium for browser tests
-        run: npx playwright install --with-deps chromium
+        # ubuntu-latest already includes Chromium's runtime libraries. Avoid
+        # `--with-deps`, which can hang indefinitely when the Azure apt mirror
+        # is unavailable and prevent every required downstream check.
+        timeout-minutes: 5
+        run: npx playwright install chromium
       - name: Unit tests (Angular TestBed suite)
         run: npm test
 

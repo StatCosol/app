@@ -193,4 +193,15 @@ export class FaceDeskDeviceController {
     const d = this.ctx(req);
     return this.tickets.complete(ticketId, d.deviceId);
   }
+
+  @ApiOperation({
+    summary: 'Device — cancel an enrollment ticket (kiosk abandoned/timed out)',
+  })
+  @Public()
+  @UseGuards(FaceDeskDeviceAuthGuard)
+  @Post('enroll-ticket/:ticketId/cancel')
+  cancelTicket(@Req() req: Request, @Param('ticketId') ticketId: string) {
+    const d = this.ctx(req);
+    return this.tickets.abandon(ticketId, d.deviceId);
+  }
 }

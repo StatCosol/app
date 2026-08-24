@@ -12,21 +12,11 @@ import { AuthService } from '../../../core/auth.service';
   selector: 'app-ess-login',
   template: `
     <div class="page">
-      <div class="screen" [class.card-shake]="errorMsg">
+      <div class="screen">
 
         <!-- ═══════ LEFT: BRAND PANEL ═══════ -->
         <aside class="left">
-          <div class="logo-box">
-            <svg class="people-icon" viewBox="0 0 64 64" fill="none" stroke="#1d4ed8" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M14 30 C 14 16, 50 16, 50 30"/>
-              <circle cx="22" cy="36" r="4.2" fill="#1d4ed8" stroke="none"/>
-              <path d="M14 50 C 14 44, 18 41, 22 41 C 26 41, 30 44, 30 50 Z" fill="#1d4ed8" stroke="none"/>
-              <circle cx="42" cy="36" r="4.2" fill="#1d4ed8" stroke="none"/>
-              <path d="M34 50 C 34 44, 38 41, 42 41 C 46 41, 50 44, 50 50 Z" fill="#1d4ed8" stroke="none"/>
-              <circle cx="32" cy="33" r="4.6" fill="#1d4ed8" stroke="none"/>
-              <path d="M23 50 C 23 43, 27 39, 32 39 C 37 39, 41 43, 41 50 Z" fill="#1d4ed8" stroke="none"/>
-            </svg>
-          </div>
+          <img class="brand-logo" src="assets/images/statco-wordmark-white.png" alt="StatCo Solutions" />
 
           <h1>ESS</h1>
           <h3>Employee Self Service</h3>
@@ -37,39 +27,46 @@ import { AuthService } from '../../../core/auth.service';
               <span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.5 3.1-6 7-6s7 2.5 7 6"/></svg>
               </span>
-              <p>Your Information<br/>At Your Fingertips</p>
+              <p>Everything You Need,<br/>In One Place</p>
             </div>
             <div>
               <span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg>
               </span>
-              <p>Secure, Reliable,<br/>Always With You.</p>
+              <p>Secure &amp; Reliable<br/>Access</p>
             </div>
             <div>
               <span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9"/><path d="M10 19v-6"/><path d="M16 19V5"/><path d="M3 19h18"/></svg>
               </span>
-              <p>Empowering<br/>Employees</p>
+              <p>Payroll, Leave &amp;<br/>Compliance at Your Fingertips</p>
             </div>
           </div>
+          <div class="employee-illustration" aria-hidden="true"></div>
           <p class="brand-footer">&copy; {{ currentYear }} StatCo Solutions</p>
         </aside>
 
         <!-- ═══════ RIGHT: LOGIN PANEL ═══════ -->
         <section class="right">
-          <button type="button" class="language" aria-label="Language">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>
-            <span>English</span>
-            <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
+          <nav class="language-switch" aria-label="Language selection">
+            <span class="language" aria-label="Current language: English">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>
+              <span>English</span>
+            </span>
+            <button type="button" class="lang-link" lang="te" disabled
+                    aria-label="Telugu translation is not yet available" title="Telugu translation is not yet available">తెలుగు</button>
+            <span class="lang-separator" aria-hidden="true">|</span>
+            <button type="button" class="lang-link" lang="hi" disabled
+                    aria-label="Hindi translation is not yet available" title="Hindi translation is not yet available">हिन्दी</button>
+          </nav>
 
           <div class="shield" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12 10 17 19 7"/></svg>
           </div>
 
-          <div class="form-area">
+          <div class="form-area" [class.card-shake]="errorMsg">
             <h2>Welcome Back!</h2>
-            <p class="caption">Log in to access your account</p>
+            <p class="caption">Sign in to access your Employee Self Service account</p>
             <div class="blue-line"></div>
 
             <form (ngSubmit)="submit()" autocomplete="on" class="frm">
@@ -77,12 +74,13 @@ import { AuthService } from '../../../core/auth.service';
               <!-- Company code (only when not locked via /:companyCode/login) -->
               @if (!companyCodeLocked) {
 <div class="field">
+                <label for="ess-company-code">Company Code</label>
                 <div class="input" [class.input-err]="submitted && !companyCode.trim()">
                   <span>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M12 6h.01M8 10h.01M16 10h.01M12 10h.01"/></svg>
                   </span>
                   <input id="ess-company-code" type="text" [(ngModel)]="companyCode" name="companyCode"
-                         placeholder="Company Code" autocomplete="organization" />
+                         placeholder="Enter company code" autocomplete="section-ess organization" />
                 </div>
                 @if (submitted && !companyCode.trim()) {
 <span class="field-err">Company code is required.</span>
@@ -99,12 +97,13 @@ import { AuthService } from '../../../core/auth.service';
 
               <!-- Username / Email -->
               <div class="field">
+                <label for="ess-email">Email / Employee ID</label>
                 <div class="input" [class.input-err]="submitted && !email.trim()">
                   <span>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.5 3.1-6 7-6s7 2.5 7 6"/></svg>
                   </span>
                   <input id="ess-email" type="email" [(ngModel)]="email" name="email"
-                         placeholder="Username / Employee ID" autocomplete="username" />
+                         placeholder="Enter email or employee ID" autocomplete="section-ess username" />
                 </div>
                 @if (submitted && !email.trim()) {
 <span class="field-err">Enter your username or employee ID.</span>
@@ -113,13 +112,14 @@ import { AuthService } from '../../../core/auth.service';
 
               <!-- Password -->
               <div class="field">
+                <label for="ess-password">Password</label>
                 <div class="input" [class.input-err]="submitted && !password">
                   <span>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
                   </span>
                   <input id="ess-password" [type]="showPassword ? 'text' : 'password'"
                          [(ngModel)]="password" name="password"
-                         placeholder="Password" autocomplete="current-password"
+                         placeholder="Password" autocomplete="section-ess current-password"
                          (keydown)="checkCapsLock($event)" />
                   <button type="button" class="pw-toggle" (click)="showPassword=!showPassword" tabindex="-1" aria-label="Show or hide password">
                     @if (!showPassword) {
@@ -177,14 +177,16 @@ import { AuthService } from '../../../core/auth.service';
               <i></i><p>or</p><i></i>
             </div>
 
-            <button type="button" class="bio" (click)="loginWithBiometrics()">
+            <button type="button" class="bio" disabled aria-describedby="biometric-status">
                 <span aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11v3a2 2 0 002 2"/><path d="M5.5 9.5A8 8 0 0112 6a8 8 0 016.5 3.5"/><path d="M3 13a10 10 0 014-7.5"/><path d="M21 13a10 10 0 00-4-7.5"/><path d="M7 14a5 5 0 015-5 5 5 0 015 5v2"/><path d="M9 19a3 3 0 003-3"/><path d="M15 21a8 8 0 002-5"/></svg>
                 </span>
                 Login with Biometrics
+                <span class="coming-soon" id="biometric-status">Coming Soon</span>
               </button>
 
               <div class="support-strip">
+                <strong>Need help?</strong>
                 <a href="tel:+919000607839">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.2 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.77.62 2.61a2 2 0 0 1-.45 2.11L8 9.72a16 16 0 0 0 6.28 6.28l1.28-1.28a2 2 0 0 1 2.11-.45c.84.29 1.71.5 2.61.62A2 2 0 0 1 22 16.92z"/></svg>
                   +91 9000607839
@@ -217,615 +219,7 @@ import { AuthService } from '../../../core/auth.service';
       </div>
     </div>
   `,
-  styles: [`
-    /* ═══ HOST ═══════════════════════════════ */
-    :host {
-      display: block;
-      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-      line-height: 1.5;
-      -webkit-font-smoothing: antialiased;
-      color: #11284f;
-      box-sizing: border-box;
-    }
-    *, *::before, *::after { box-sizing: inherit; margin: 0; padding: 0; }
-
-    /* ═══ PAGE ═════════════════════════════════ */
-    .page {
-      min-height: 100vh;
-      width: 100%;
-      background:
-        linear-gradient(43deg, transparent 0 61%, #ffffff 61.15% 62.05%, transparent 62.2%),
-        linear-gradient(43deg, transparent 0 55%, #06335f 55.15%, #087ef5 68%, #06335f 96%),
-        #ffffff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 18px clamp(18px, 4vw, 64px);
-      overflow-x: hidden;
-      position: relative;
-      isolation: isolate;
-    }
-    .page::before {
-      content: "";
-      position: absolute;
-      left: -10vw;
-      bottom: -18vh;
-      width: min(42vw, 560px);
-      height: min(48vh, 440px);
-      background:
-        linear-gradient(135deg, rgba(15,94,154,.1), rgba(8,126,245,.18)),
-        repeating-linear-gradient(135deg, rgba(8,126,245,.16) 0 2px, transparent 2px 24px);
-      clip-path: polygon(0 28%, 74% 0, 100% 72%, 20% 100%);
-      z-index: -1;
-    }
-    .page::after {
-      content: "";
-      position: absolute;
-      right: clamp(24px, 5vw, 86px);
-      top: clamp(86px, 15vh, 150px);
-      width: min(18vw, 260px);
-      height: min(38vh, 360px);
-      background:
-        linear-gradient(135deg, transparent 0 42%, rgba(255,255,255,.72) 42.4% 44.4%, transparent 44.8%),
-        repeating-linear-gradient(135deg, rgba(255,255,255,.62) 0 1px, transparent 1px 18px);
-      opacity: .68;
-      transform: skewX(-8deg);
-      z-index: -1;
-    }
-
-    /* ═══ SCREEN (white card) ═════════════════ */
-    .screen {
-      width: 100%;
-      max-width: 840px;
-      min-height: min(580px, calc(100vh - 36px));
-      background: #fff;
-      border-radius: 24px;
-      display: grid;
-      grid-template-columns: 34% 66%;
-      overflow: hidden;
-      box-shadow: 0 26px 70px rgba(15, 38, 79, .2);
-      margin: 0 auto;
-      position: relative;
-      z-index: 1;
-    }
-
-    /* ═══ LEFT BRAND PANEL ═════════════════════ */
-    .left {
-      color: #fff;
-      padding: 36px 30px;
-      background:
-        linear-gradient(180deg, rgba(15, 94, 154, .96), rgba(7, 37, 84, .98)),
-        radial-gradient(circle at 20% 80%, rgba(20, 184, 166, .8), transparent 35%);
-      position: relative;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-    .left::after {
-      content: "";
-      position: absolute;
-      bottom: 0; left: 0;
-      width: 100%; height: 180px;
-      background: linear-gradient(transparent, rgba(0,0,0,.35));
-      pointer-events: none;
-    }
-
-    .logo-box {
-      width: 72px; height: 72px;
-      background: #fff;
-      border-radius: 22px;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 20px 45px rgba(0,0,0,.18);
-      position: relative;
-      z-index: 2;
-    }
-    .people-icon { width: 46px; height: 46px; }
-
-    .left h1 {
-      font-size: 44px;
-      margin: 24px 0 0;
-      line-height: 1;
-      font-weight: 900;
-      letter-spacing: -1.5px;
-      position: relative;
-      z-index: 2;
-    }
-    .left h3 {
-      font-size: 15px;
-      margin: 12px 0 0;
-      font-weight: 600;
-      position: relative;
-      z-index: 2;
-    }
-    .line {
-      width: 74px;
-      height: 4px;
-      background: #19c8ff;
-      margin: 18px 0 22px;
-      border-radius: 20px;
-      position: relative;
-      z-index: 2;
-    }
-
-    .features {
-      position: relative;
-      z-index: 2;
-      display: grid;
-      gap: 12px;
-    }
-    .features > div {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-    .features span {
-      flex-shrink: 0;
-      width: 34px; height: 34px;
-      border: 1px solid rgba(255,255,255,.45);
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(255,255,255,.08);
-      color: #fff;
-    }
-    .features span svg { width: 17px; height: 17px; }
-    .features p {
-      margin: 0;
-      font-size: 12px;
-      line-height: 1.45;
-    }
-    .brand-footer {
-      margin-top: auto;
-      padding-top: 24px;
-      position: relative;
-      z-index: 2;
-      color: rgba(255,255,255,.72);
-      font-size: 11px;
-      font-weight: 600;
-      line-height: 1.4;
-    }
-
-    /* ═══ RIGHT LOGIN PANEL ═══════════════════ */
-    .right {
-      background: #fbfdff;
-      border-top-left-radius: 76px;
-      padding: 26px 36px;
-      position: relative;
-      overflow-y: auto;
-    }
-
-    .language {
-      position: absolute;
-      top: 22px; right: 36px;
-      background: #fff;
-      border: 0;
-      border-radius: 35px;
-      padding: 8px 14px;
-      color: #33405c;
-      font-size: 14px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.08);
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    .language svg { width: 15px; height: 15px; color: #005cff; }
-    .language .caret { width: 12px; height: 12px; color: #8794ad; }
-
-    .shield {
-      position: absolute;
-      top: 112px; right: 68px;
-      width: 46px; height: 46px;
-      border-radius: 18px;
-      background: linear-gradient(145deg, #1685ff, #0046d9);
-      color: #fff;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 18px 36px rgba(0,98,255,.3);
-      animation: floatY 3.4s ease-in-out infinite;
-    }
-    .shield svg { width: 24px; height: 24px; }
-
-    .form-area {
-      margin-top: 74px;
-      max-width: 370px;
-    }
-
-    .form-area h2 {
-      font-size: 25px;
-      color: #11284f;
-      margin: 0;
-      font-weight: 900;
-      letter-spacing: -.4px;
-    }
-    .caption {
-      font-size: 13px;
-      color: #68738a;
-      margin: 10px 0 0;
-    }
-    .blue-line {
-      width: 70px;
-      height: 4px;
-      background: #086dff;
-      border-radius: 20px;
-      margin: 12px 0 18px;
-    }
-
-    .frm { display: block; }
-
-    .field { margin-bottom: 6px; }
-
-    .input {
-      height: 46px;
-      border-radius: 14px;
-      background: #fff;
-      border: 1px solid #dde7f6;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 0 18px;
-      margin-bottom: 4px;
-      box-shadow: 0 12px 28px rgba(30,80,150,.07);
-      transition: border-color .2s, box-shadow .2s;
-    }
-    .input:focus-within {
-      border-color: #086dff;
-      box-shadow: 0 12px 28px rgba(30,80,150,.07), 0 0 0 4px rgba(8,109,255,.12);
-    }
-    .input.input-err { border-color: #ef4444; }
-    .input > span {
-      display: inline-flex; align-items: center; justify-content: center;
-      color: #6b7790;
-    }
-    .input > span svg { width: 18px; height: 18px; }
-
-    .input input {
-      flex: 1;
-      border: 0;
-      outline: 0;
-      font-size: 14px;
-      color: #11284f;
-      background: transparent;
-      font-family: inherit;
-      min-width: 0;
-    }
-    .input input::placeholder { color: #98a3b8; }
-
-    .pw-toggle {
-      background: transparent;
-      border: 0;
-      padding: 6px;
-      cursor: pointer;
-      color: #6b7790;
-      display: inline-flex; align-items: center; justify-content: center;
-      border-radius: 8px;
-    }
-    .pw-toggle:hover { color: #086dff; background: #eef5ff; }
-    .pw-toggle svg { width: 22px; height: 22px; }
-
-    .field-err {
-      display: block;
-      font-size: 12px;
-      color: #dc2626;
-      margin: 4px 4px 8px;
-    }
-    .caps-note {
-      display: inline-flex; align-items: center; gap: 6px;
-      font-size: 12.5px; color: #b45309;
-      background: #fef3c7;
-      border-radius: 10px;
-      padding: 6px 10px;
-      margin: 6px 4px 14px;
-    }
-    .caps-note svg { width: 14px; height: 14px; }
-
-    .locked-chip {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 12px 18px;
-      border-radius: 999px;
-      background: #eef5ff;
-      color: #11284f;
-      font-weight: 700;
-      font-size: 16px;
-      margin-bottom: 18px;
-    }
-    .locked-chip svg { width: 18px; height: 18px; color: #086dff; }
-
-    .row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin: 6px 4px 10px;
-      font-size: 13px;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .remember {
-      display: inline-flex; align-items: center;
-      color: #1e2e4e;
-      cursor: pointer;
-      user-select: none;
-    }
-    .remember input {
-      width: 16px; height: 16px;
-      accent-color: #0072ff;
-      margin-right: 10px;
-      cursor: pointer;
-    }
-    .forgot {
-      color: #005cff;
-      font-weight: 600;
-      text-decoration: none;
-      cursor: pointer;
-    }
-    .forgot:hover { text-decoration: underline; }
-
-    .err-banner {
-      display: flex; align-items: center; gap: 10px;
-      padding: 12px 16px;
-      border-radius: 14px;
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      color: #b91c1c;
-      font-size: 14px;
-      margin-bottom: 18px;
-    }
-    .err-banner svg { width: 18px; height: 18px; flex-shrink: 0; }
-
-    .login {
-      width: 100%;
-      height: 46px;
-      border: 0;
-      border-radius: 14px;
-      color: #fff;
-      font-size: 15px;
-      font-weight: 800;
-      background: linear-gradient(135deg, #087cff, #003ab8);
-      box-shadow: 0 18px 38px rgba(0,82,255,.35);
-      cursor: pointer;
-      position: relative;
-      display: flex; align-items: center; justify-content: center;
-      gap: 16px;
-      font-family: inherit;
-      transition: transform .15s, box-shadow .2s, opacity .2s;
-    }
-    .login:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 22px 44px rgba(0,82,255,.4);
-    }
-    .login:active:not(:disabled) { transform: translateY(0); }
-    .login:disabled { opacity: .7; cursor: progress; }
-    .login .arrow {
-      position: absolute;
-      right: 18px;
-      top: 50%; transform: translateY(-50%);
-      display: inline-flex;
-    }
-    .login .arrow svg { width: 20px; height: 20px; }
-    .spinner {
-      width: 18px; height: 18px;
-      border: 2.5px solid rgba(255,255,255,.4);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin .9s linear infinite;
-      display: inline-block;
-      vertical-align: -3px;
-      margin-right: 8px;
-    }
-
-    .or {
-      display: flex;
-      align-items: center;
-      gap: 26px;
-      margin: 12px 0 10px;
-      color: #8d96a8;
-    }
-    .or i {
-      flex: 1;
-      height: 1px;
-      background: #dbe4f2;
-    }
-    .or p { margin: 0; font-size: 16px; }
-
-    .bio {
-      width: 100%;
-      height: 42px;
-      border-radius: 14px;
-      border: 1px solid #d3e1f5;
-      background: #fff;
-      color: #005cff;
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      gap: 14px;
-      font-family: inherit;
-      transition: background .2s, border-color .2s;
-    }
-    .bio:hover { background: #f1f7ff; border-color: #086dff; }
-    .bio span { display: inline-flex; }
-    .bio span svg { width: 20px; height: 20px; }
-
-    .support-strip {
-      margin-top: 12px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px 14px;
-      color: #475569;
-      font-size: 12px;
-      line-height: 1.35;
-    }
-    .support-strip a {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      color: #0f766e;
-      font-weight: 700;
-      text-decoration: none;
-      white-space: nowrap;
-    }
-    .support-strip a:hover { color: #0f5e9a; text-decoration: underline; }
-    .support-strip svg {
-      width: 14px;
-      height: 14px;
-      flex-shrink: 0;
-    }
-
-    .help { display: none; }
-    .help-icon {
-      flex-shrink: 0;
-      width: 38px; height: 38px;
-      background: #d9ebff;
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      color: #005cff;
-    }
-    .help-icon svg { width: 18px; height: 18px; }
-    .help-text { flex: 1; min-width: 0; }
-    .help h4 {
-      margin: 0;
-      font-size: 14px;
-      color: #11284f;
-      font-weight: 700;
-    }
-    .help p {
-      margin: 7px 0 0;
-      color: #68738a;
-      font-size: 12px;
-    }
-    .help p a {
-      color: #005cff;
-      text-decoration: none;
-    }
-    .help p a:hover { text-decoration: underline; }
-    .help strong {
-      margin-left: auto;
-      font-size: 28px;
-      color: #8792a5;
-      line-height: 1;
-      font-weight: 400;
-    }
-
-    .secure { display: none; }
-    .secure svg { width: 16px; height: 16px; }
-
-    /* ═══ ANIMATIONS ═══════════════════════════ */
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes floatY {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-6px); }
-    }
-    @keyframes shake {
-      0%,100% { transform: translateX(0); }
-      20% { transform: translateX(-5px); }
-      40% { transform: translateX(5px); }
-      60% { transform: translateX(-3px); }
-      80% { transform: translateX(3px); }
-    }
-    .card-shake { animation: shake .35s ease-in-out; }
-
-    /* ═══ RESPONSIVE ═════════════════════════ */
-
-    /* tablet — tighten paddings, reduce hero typography */
-    @media (max-width: 1100px) {
-      .screen { max-width: 880px; grid-template-columns: 32% 68%; }
-      .left { padding: 38px 32px; }
-      .left h1 { font-size: 48px; }
-      .right { padding: 30px 36px; border-top-left-radius: 64px; }
-      .language { top: 24px; right: 36px; }
-      .shield { top: 140px; right: 68px; width: 52px; height: 52px; }
-      .form-area { margin-top: 96px; max-width: 400px; }
-    }
-
-    /* phone — stack panels, hide hero ornaments */
-    @media (max-width: 900px) {
-      .page { padding: 0; align-items: stretch; background: #fff; }
-      .page::before, .page::after { display: none; }
-      .screen {
-        height: auto;
-        min-height: 100vh;
-        max-width: 100%;
-        grid-template-columns: 1fr;
-        border-radius: 0;
-        box-shadow: none;
-      }
-      .left {
-        padding: 46px 30px;
-        text-align: center;
-      }
-      .logo-box {
-        margin: 0 auto;
-        width: 86px; height: 86px;
-        border-radius: 22px;
-      }
-      .people-icon { width: 54px; height: 54px; }
-      .left h1 { font-size: 46px; margin-top: 24px; }
-      .left h3 { font-size: 18px; }
-      .line { margin: 22px auto 0; }
-      .features { display: none; }
-      .brand-footer {
-        margin-top: 22px;
-        padding-top: 0;
-        text-align: center;
-      }
-
-      .right {
-        border-top-left-radius: 0;
-        padding: 38px 24px 32px;
-      }
-      .language, .shield { display: none; }
-
-      .form-area { margin-top: 8px; }
-      .form-area h2 { font-size: 28px; }
-      .caption { font-size: 16px; }
-      .blue-line { margin: 24px 0 32px; }
-
-      .input {
-        height: 56px;
-        padding: 0 18px;
-        gap: 16px;
-        border-radius: 14px;
-      }
-      .input > span svg { width: 20px; height: 20px; }
-      .input input { font-size: 16px; /* prevents iOS focus-zoom */ }
-
-      .row { font-size: 15px; margin: 8px 4px 22px; }
-      .login {
-        height: 54px;
-        font-size: 17px;
-        border-radius: 14px;
-      }
-      .login .arrow { right: 18px; }
-      .login .arrow svg { width: 20px; height: 20px; }
-
-      .or { margin: 26px 0 22px; }
-
-      .bio {
-        height: 48px;
-        font-size: 15px;
-        border-radius: 14px;
-      }
-      .bio span svg { width: 22px; height: 22px; }
-
-      .support-strip {
-        justify-content: center;
-        font-size: 12px;
-      }
-      .help { padding: 16px; gap: 14px; margin-top: 28px; }
-      .help-icon { width: 52px; height: 52px; }
-      .help-icon svg { width: 22px; height: 22px; }
-      .help h4 { font-size: 17px; }
-      .help p { font-size: 14px; }
-      .help strong { font-size: 32px; }
-      .secure { font-size: 14px; margin-top: 24px; }
-    }
-
-    @media (max-width: 380px) {
-      .left { padding: 32px 18px; }
-      .left h1 { font-size: 48px; }
-      .right { padding: 28px 16px 24px; }
-    }
-  `],
+  styleUrl: './ess-login.component.scss',
 })
 export class EssLoginComponent implements OnInit {
   companyCode = '';
@@ -838,10 +232,11 @@ export class EssLoginComponent implements OnInit {
   capsLockOn = false;
   companyCodeLocked = false;
   currentYear = new Date().getFullYear();
-  rememberMe = true;
+  rememberMe = false;
 
   private static readonly REMEMBERED_EMAIL_KEY = 'ess_remembered_email';
   private static readonly REMEMBERED_CODE_KEY = 'ess_remembered_company_code';
+  private static readonly REMEMBER_OPT_IN_KEY = 'ess_remember_identity_opt_in';
 
   constructor(
     private auth: AuthService,
@@ -857,13 +252,18 @@ export class EssLoginComponent implements OnInit {
       this.companyCode = code.toUpperCase();
       this.companyCodeLocked = true;
     }
-    // Restore remembered values
     try {
-      const remEmail = localStorage.getItem(EssLoginComponent.REMEMBERED_EMAIL_KEY);
-      if (remEmail) { this.email = remEmail; this.rememberMe = true; }
-      if (!this.companyCodeLocked) {
-        const remCode = localStorage.getItem(EssLoginComponent.REMEMBERED_CODE_KEY);
-        if (remCode) { this.companyCode = remCode; }
+      const optedIn = localStorage.getItem(EssLoginComponent.REMEMBER_OPT_IN_KEY) === 'true';
+      if (optedIn) {
+        const remEmail = localStorage.getItem(EssLoginComponent.REMEMBERED_EMAIL_KEY);
+        if (remEmail) { this.email = remEmail; this.rememberMe = true; }
+        if (!this.companyCodeLocked) {
+          const remCode = localStorage.getItem(EssLoginComponent.REMEMBERED_CODE_KEY);
+          if (remCode) { this.companyCode = remCode; }
+        }
+      } else {
+        localStorage.removeItem(EssLoginComponent.REMEMBERED_EMAIL_KEY);
+        localStorage.removeItem(EssLoginComponent.REMEMBERED_CODE_KEY);
       }
     } catch { /* localStorage unavailable */ }
   }
@@ -926,14 +326,15 @@ export class EssLoginComponent implements OnInit {
           this.cdr.detectChanges();
           return;
         }
-        // Persist or clear remembered values based on checkbox
         try {
           if (this.rememberMe) {
+            localStorage.setItem(EssLoginComponent.REMEMBER_OPT_IN_KEY, 'true');
             localStorage.setItem(EssLoginComponent.REMEMBERED_EMAIL_KEY, email);
             if (!this.companyCodeLocked) {
               localStorage.setItem(EssLoginComponent.REMEMBERED_CODE_KEY, code);
             }
           } else {
+            localStorage.removeItem(EssLoginComponent.REMEMBER_OPT_IN_KEY);
             localStorage.removeItem(EssLoginComponent.REMEMBERED_EMAIL_KEY);
             localStorage.removeItem(EssLoginComponent.REMEMBERED_CODE_KEY);
           }

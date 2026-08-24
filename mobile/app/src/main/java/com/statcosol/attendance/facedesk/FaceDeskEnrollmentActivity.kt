@@ -71,6 +71,10 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     private val blinked: Boolean get() = blinkDetector.blinked
     private var captureComplete = false
     private val capturing = AtomicBoolean(false)
+    // Monotonic id for each capture attempt. A pending timeout callback only acts
+    // if its attempt is still the current one, so a stale callback from a prior
+    // attempt can't cancel a fresh retry (or a completed capture).
+    private var captureAttempt = 0
     private var frontStableStreak = 0
     private val saving = AtomicBoolean(false)
     private var guidanceStep = ""
@@ -225,15 +229,41 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         refreshOverlayProgress()
         // Signal the web that capture has started for this ticket.
         ticketId?.let { tid -> lifecycleScope.launch { runCatching { api.markTicketCapturing(tid) } } }
-        // Safety timeout so a stuck capture tells the operator rather than hang.
+        // Hard deadline from capture start: if the full set isn't captured in
+        // time, cancel the whole enrollment rather than hang or loop a retry.
+        // A capture that already completed within the budget (captureComplete)
+        // or is mid-save is left alone — the save has its own handling.
+        // The attempt guard (checked first, before capturing.getAndSet) means a
+        // callback left over from an earlier attempt — e.g. after a failed save
+        // and resetForRetry() started a new capture — becomes a no-op instead of
+        // cancelling the fresh attempt early.
+        val attempt = ++captureAttempt
         previewView.postDelayed({
-            if (capturing.getAndSet(false) && !captureComplete && !saving.get()) {
-                runOnUiThread {
-                    tvHint.text = getString(R.string.facedesk_capture_timeout)
-                    btnCapture.isEnabled = true
-                }
+            if (attempt == captureAttempt && capturing.getAndSet(false) &&
+                !captureComplete && !saving.get()
+            ) {
+                cancelEnrollment()
             }
         }, CAPTURE_TIMEOUT_MS)
+    }
+
+    /**
+     * Abort the enrollment because the capture time limit was exceeded. Cancels
+     * the ticket server-side (best effort — the device token can do this), tells
+     * the operator why, then closes the screen. A fresh attempt must be started
+     * from the admin.
+     */
+    private fun cancelEnrollment() {
+        if (isFinishing) return
+        capturing.set(false)
+        ticketId?.let { tid -> lifecycleScope.launch { runCatching { api.cancelTicket(tid) } } }
+        runOnUiThread {
+            tvHint.text = getString(R.string.facedesk_capture_timeout)
+            btnCapture.isEnabled = false
+            voice.speakRes(R.string.facedesk_voice_enroll_cancelled, minIntervalMs = 0)
+            // Leave the message up briefly so the operator sees the reason.
+            previewView.postDelayed({ if (!isFinishing) finish() }, 2_500)
+        }
     }
 
     private fun onFrame(probe: FloatArray, metrics: com.statcosol.attendance.face.FaceMetrics, photo: String?) {
