@@ -156,6 +156,13 @@ object PinKeypadDialog {
         val grid = GridLayout(activity).apply {
             columnCount = 3
             rowCount = 4
+            // Center the keypad block within the card. The parent's
+            // CENTER_HORIZONTAL gravity doesn't reliably center a GridLayout, so
+            // set the child's own layout gravity.
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { gravity = Gravity.CENTER_HORIZONTAL }
         }
         for (n in 1..9) grid.addView(makeKey(n.toString()) { addDigit('0' + n) })
         // Bottom row. Variable-length (admin) keeps a real OK key: [⌫ | 0 | OK].
