@@ -1,10 +1,8 @@
 package com.statcosol.attendance.face
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.ImageFormat
+import android.graphics.Matrix
 import android.graphics.Rect
-import android.graphics.YuvImage
 import android.util.Base64
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
@@ -64,7 +62,7 @@ class FaceCaptureSession(
 
     @ExperimentalGetImage
     private suspend fun processFrame(imageProxy: ImageProxy) {
-        val bitmap = imageProxy.toBitmap() ?: return
+        val bitmap = imageProxy.toUprightBitmap() ?: return
         val frameW = bitmap.width
         val frameH = bitmap.height
 
@@ -287,26 +285,28 @@ class FaceCaptureSession(
         return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
     }
 
+    // Named distinctly (not toBitmap) so it isn't shadowed by CameraX's built-in
+    // ImageProxy.toBitmap() member. The built-in does a correct, stride-aware
+    // YUV→RGB conversion but returns the frame in the sensor's (un-rotated)
+    // orientation. ML Kit returns face boxes in the rotation-corrected upright
+    // space, so rotate the bitmap to match — otherwise normalizeBox (overlay
+    // oval), cropFaceBitmap (embedding) and the size gate are all mapped against
+    // swapped width/height.
     @ExperimentalGetImage
-    private fun ImageProxy.toBitmap(): Bitmap? {
-        val image = image ?: return null
-        return try {
-            val yBuffer = image.planes[0].buffer
-            val uBuffer = image.planes[1].buffer
-            val vBuffer = image.planes[2].buffer
-            val ySize = yBuffer.remaining()
-            val uSize = uBuffer.remaining()
-            val vSize = vBuffer.remaining()
-            val nv21 = ByteArray(ySize + uSize + vSize)
-            yBuffer.get(nv21, 0, ySize)
-            vBuffer.get(nv21, ySize, vSize)
-            uBuffer.get(nv21, ySize + vSize, uSize)
-            val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
-            val out = ByteArrayOutputStream()
-            yuvImage.compressToJpeg(Rect(0, 0, width, height), 90, out)
-            BitmapFactory.decodeByteArray(out.toByteArray(), 0, out.size())
+    private fun ImageProxy.toUprightBitmap(): Bitmap? {
+        val base = try {
+            toBitmap()
         } catch (e: Exception) {
-            null
+            return null
+        }
+        val rotation = imageInfo.rotationDegrees
+        if (rotation == 0) return base
+        return try {
+            val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
+            Bitmap.createBitmap(base, 0, 0, base.width, base.height, matrix, true)
+                .also { if (it !== base) base.recycle() }
+        } catch (e: Exception) {
+            base
         }
     }
 
