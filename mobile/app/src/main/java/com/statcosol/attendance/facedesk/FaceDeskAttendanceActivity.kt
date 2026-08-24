@@ -22,6 +22,7 @@ import androidx.lifecycle.lifecycleScope
 import com.statcosol.attendance.R
 import com.statcosol.attendance.BuildConfig
 import com.statcosol.attendance.face.BlinkDetector
+import com.statcosol.attendance.face.FaceCameraControl
 import com.statcosol.attendance.face.FaceCaptureSession
 import com.statcosol.attendance.face.FaceDetector
 import com.statcosol.attendance.face.FaceEmbedder
@@ -184,9 +185,12 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                 )
                 analysis.setAnalyzer(cameraExecutor, session)
                 provider.unbindAll()
-                provider.bindToLifecycle(
+                val camera = provider.bindToLifecycle(
                     this, CameraSelector.DEFAULT_FRONT_CAMERA, preview, analysis,
                 )
+                // No front flash on the kiosk phone — brighten exposure so faces
+                // aren't under-exposed under dim gate lighting.
+                FaceCameraControl.applyLowLightExposure(camera)
             } catch (e: Exception) {
                 Log.e(TAG, "camera start failed", e)
                 tvTitle.text = getString(R.string.facedesk_camera_failed)
