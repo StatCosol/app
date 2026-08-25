@@ -1,6 +1,7 @@
 package com.statcosol.attendance.facedesk
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.CountDownTimer
@@ -303,11 +304,35 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
      * blocked.
      */
     private fun exitEnrollment() {
-        if (isFinishing) return
+        // Never race an in-flight save: the button is disabled while saving, but
+        // guard here too against a tap landing in the same frame. Cancelling
+        // mid-save could abandon the ticket while the profile commits, or stop
+        // completeTicket() from running.
+        if (isFinishing || saving.get()) return
         stopCaptureTimer()
         capturing.set(false)
         ticketId?.let { tid -> lifecycleScope.launch { runCatching { api.cancelTicket(tid) } } }
-        finish()
+        returnToAttendance()
+    }
+
+    /**
+     * Go back to the attendance punch screen. On an attendance-mode device the
+     * enrollment sits above the picker (attendance → picker → enrollment), so a
+     * plain finish() would only reveal the picker; bring attendance to the front
+     * and clear the picker + this screen above it. On an enrollment-mode device
+     * the picker IS home, so just finish() back to it.
+     */
+    private fun returnToAttendance() {
+        if (config.deviceMode.equals("FACEDESK_ENROLLMENT", ignoreCase = true)) {
+            finish()
+        } else {
+            startActivity(
+                Intent(this, FaceDeskAttendanceActivity::class.java).addFlags(
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP,
+                ),
+            )
+            finish()
+        }
     }
 
     /**
@@ -476,7 +501,13 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
             livenessPassed = blinked,
             consentGiven = true,
         )
-        runOnUiThread { tvHint.text = getString(R.string.facedesk_saving) }
+        runOnUiThread {
+            tvHint.text = getString(R.string.facedesk_saving)
+            // Lock out interaction while the save is in flight so Cancel can't
+            // race a request that may already be committing on the server.
+            btnCancel.isEnabled = false
+            btnCapture.isEnabled = false
+        }
         lifecycleScope.launch {
             try {
                 val res = api.saveEnrollment(req)
@@ -518,6 +549,8 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         captureComplete = false
         btnCapture.text = getString(R.string.facedesk_capture)
         btnCapture.isEnabled = true
+        // Save failed — re-allow backing out.
+        btnCancel.isEnabled = true
         btnCapture.setOnClickListener { if (captureComplete) save() else startCapture() }
     }
 
