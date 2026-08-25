@@ -1,3 +1,7 @@
+// Jest spies on the mocked service are referenced unbound in assertions
+// (expect(mock.method).toHaveBeenCalled()), which is the standard pattern —
+// disable the unbound-method rule for this test file.
+/* eslint-disable @typescript-eslint/unbound-method */
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { ServiceEntitlementsGuard } from './service-entitlements.guard';
 import { ServiceEntitlementsService } from './service-entitlements.service';
@@ -46,9 +50,9 @@ describe('ServiceEntitlementsGuard', () => {
     '/api/v1/mobile-attendance/enrollment/reenroll-requests',
     '/api/v1/mobile-attendance/enrollment/reenroll-requests/req-1/review',
   ])('rejects retired ESS mobile enrollment path %s', async (url) => {
-    await expect(guard.canActivate(contextFor(url, 'EMPLOYEE'))).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
+    await expect(
+      guard.canActivate(contextFor(url, 'EMPLOYEE')),
+    ).rejects.toBeInstanceOf(ForbiddenException);
     expect(entitlements.assertModule).not.toHaveBeenCalled();
     expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
   });
@@ -118,18 +122,15 @@ describe('ServiceEntitlementsGuard', () => {
     '/api/v1/mobile-attendance/enrollment/kiosk/tickets/ticket-1',
     '/api/v1/mobile-attendance/enrollment/kiosk/tickets/ticket-1/cancel',
     '/api/v1/mobile-attendance/enrollment/deactivate',
-  ])(
-    'requires kiosk attendance for shared enrollment path %s',
-    async (url) => {
-      await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
+  ])('requires kiosk attendance for shared enrollment path %s', async (url) => {
+    await expect(guard.canActivate(contextFor(url))).resolves.toBe(true);
 
-      expect(entitlements.assertModule).toHaveBeenCalledWith(
-        clientId,
-        'CONTRACTOR_FACE_ATTENDANCE',
-      );
-      expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
-    },
-  );
+    expect(entitlements.assertModule).toHaveBeenCalledWith(
+      clientId,
+      'CONTRACTOR_FACE_ATTENDANCE',
+    );
+    expect(entitlements.assertAnyModule).not.toHaveBeenCalled();
+  });
 
   it.each([
     '/api/v1/legitx/dashboard',
@@ -167,9 +168,7 @@ describe('ServiceEntitlementsGuard', () => {
 
   it('requires contractor attendance for punch review APIs', async () => {
     await expect(
-      guard.canActivate(
-        contextFor('/api/v1/mobile-attendance/punches/review'),
-      ),
+      guard.canActivate(contextFor('/api/v1/mobile-attendance/punches/review')),
     ).resolves.toBe(true);
 
     expect(entitlements.assertModule).toHaveBeenCalledWith(
