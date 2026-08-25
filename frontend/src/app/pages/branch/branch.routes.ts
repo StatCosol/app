@@ -7,6 +7,10 @@ const BranchLayoutComponent = () =>
   import('./branch-layout/branch-layout.component').then((m) => m.BranchLayoutComponent);
 const BranchDashboardComponent = () =>
   import('./branch-dashboard/branch-dashboard.component').then((m) => m.BranchDashboardComponent);
+const BranchComplianceStatusComponent = () =>
+  import('../client/compliance/client-compliance-status.component').then(
+    (m) => m.ClientComplianceStatusComponent,
+  );
 const BranchEmployeesComponent = () =>
   import('./branch-employees/branch-employees.component').then((m) => m.BranchEmployeesComponent);
 const BranchEmployeeFormComponent = () =>
@@ -119,6 +123,7 @@ export const BRANCH_ROUTES: Routes = [
     canActivate: [branchPortalGuard],
     children: [
       { path: 'dashboard', loadComponent: BranchDashboardComponent },
+      { path: 'compliance/status', loadComponent: BranchComplianceStatusComponent, data: { portal: 'branch' }, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')], runGuardsAndResolvers: 'always' },
       { path: 'employees/new', loadComponent: BranchEmployeeFormComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'employees/:id/edit', loadComponent: BranchEmployeeFormComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'employees/:id', loadComponent: BranchEmployeeDetailComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },

@@ -19,7 +19,7 @@ export class ClientComplianceService {
 
   getTasks(filters: any): Observable<any> {
     let params = new HttpParams();
-    Object.keys(filters || {}).forEach(k => {
+    Object.keys(filters || {}).forEach((k) => {
       if (filters[k] !== undefined && filters[k] !== null && filters[k] !== '') {
         params = params.set(k, String(filters[k]));
       }
@@ -31,15 +31,26 @@ export class ClientComplianceService {
     const form = new FormData();
     form.append('file', file);
     if (notes) form.append('notes', notes);
-    return this.http.post(`${this.baseUrl}/api/v1/client/compliance/tasks/${taskId}/evidence`, form);
+    return this.http.post(
+      `${this.baseUrl}/api/v1/client/compliance/tasks/${taskId}/evidence`,
+      form,
+    );
   }
 
-  uploadEvidenceForItem(taskId: string | number, itemId: string | number, file: File, notes?: string): Observable<any> {
+  uploadEvidenceForItem(
+    taskId: string | number,
+    itemId: string | number,
+    file: File,
+    notes?: string,
+  ): Observable<any> {
     const form = new FormData();
     form.append('file', file);
     form.append('mcdItemId', String(itemId));
     if (notes) form.append('notes', notes);
-    return this.http.post(`${this.baseUrl}/api/v1/client/compliance/tasks/${taskId}/evidence`, form);
+    return this.http.post(
+      `${this.baseUrl}/api/v1/client/compliance/tasks/${taskId}/evidence`,
+      form,
+    );
   }
 
   submitTask(taskId: string | number): Observable<any> {
@@ -56,7 +67,7 @@ export class ClientComplianceService {
 
   private toParams(filters: Record<string, any>): HttpParams {
     let params = new HttpParams();
-    Object.keys(filters).forEach(k => {
+    Object.keys(filters).forEach((k) => {
       if (filters[k] !== undefined && filters[k] !== null && filters[k] !== '') {
         params = params.set(k, String(filters[k]));
       }
@@ -79,7 +90,13 @@ export class ClientComplianceService {
   getComplianceStatusTasks(
     month: number,
     year: number,
-    opts?: { branchId?: string; category?: string; status?: string; limit?: number; offset?: number },
+    opts?: {
+      branchId?: string;
+      category?: string;
+      status?: string;
+      limit?: number;
+      offset?: number;
+    },
   ): Observable<any> {
     return this.http.get(`${this.statusBase}/tasks`, {
       params: this.toParams({ month, year, ...opts }),
@@ -100,6 +117,12 @@ export class ClientComplianceService {
 
   getComplianceStatusReturns(month: number, year: number, branchId?: string): Observable<any> {
     return this.http.get(`${this.statusBase}/returns`, {
+      params: this.toParams({ month, year, branchId }),
+    });
+  }
+
+  getComplianceStatusOverview(month: number, year: number, branchId?: string): Observable<any> {
+    return this.http.get(`${this.statusBase}/overview`, {
       params: this.toParams({ month, year, branchId }),
     });
   }
