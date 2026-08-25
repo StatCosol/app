@@ -7,6 +7,7 @@ import com.statcosol.attendance.api.MobileAttendanceApiClient
 import com.statcosol.attendance.db.AppDatabase
 import com.statcosol.attendance.face.FaceEmbedder
 import com.statcosol.attendance.facedesk.DeviceSession
+import com.statcosol.attendance.facedesk.FaceDeskOfflineStore
 import com.statcosol.attendance.prefs.DeviceConfig
 import com.statcosol.attendance.security.IntegrityCheck
 import com.statcosol.attendance.ui.SetupActivity
@@ -39,6 +40,11 @@ class AttendanceApp : Application(), Configuration.Provider {
         DeviceSession.onRevoked = {
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 deviceConfig.clearRegistration()
+                // Purge any queued offline punches (frames, photo, plaintext PIN)
+                // captured under the revoked registration — never replay them under
+                // a subsequent registration, which could belong to a different
+                // client (biometric leak + wrong-tenant attribution).
+                runCatching { FaceDeskOfflineStore(this).clear() }
                 val intent = android.content.Intent(this, SetupActivity::class.java)
                     .addFlags(
                         android.content.Intent.FLAG_ACTIVITY_NEW_TASK

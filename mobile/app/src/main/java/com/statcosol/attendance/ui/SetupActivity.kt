@@ -15,6 +15,7 @@ import com.statcosol.attendance.AttendanceApp
 import com.statcosol.attendance.R
 import com.statcosol.attendance.facedesk.DeviceSession
 import com.statcosol.attendance.facedesk.FaceDeskApiClient
+import com.statcosol.attendance.facedesk.FaceDeskOfflineStore
 import com.statcosol.attendance.facedesk.FaceDeskApiException
 import com.statcosol.attendance.facedesk.FaceDeskAttendanceActivity
 import com.statcosol.attendance.facedesk.FaceDeskEnrollPickerActivity
@@ -150,6 +151,10 @@ class SetupActivity : AppCompatActivity() {
                 config.deviceMode = "FACEDESK_${res.mode}"
                 val enteredPin = findViewById<EditText>(R.id.adminPinInput).text.toString().trim()
                 config.faceDeskAdminPin = enteredPin.ifBlank { res.adminPin }
+                // Start this registration with a clean offline queue — never carry
+                // punches captured under a previous registration (possibly another
+                // client) into the new one.
+                runCatching { FaceDeskOfflineStore(this@SetupActivity).clear() }
                 navigateToMain()
             } catch (e: FaceDeskApiException) {
                 setLoading(false)
