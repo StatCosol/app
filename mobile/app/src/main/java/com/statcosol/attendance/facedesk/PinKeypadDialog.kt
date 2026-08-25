@@ -4,6 +4,7 @@ import android.app.Activity
 import android.graphics.Typeface
 import android.view.Gravity
 import android.view.View
+import android.view.WindowManager
 import android.widget.GridLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -34,10 +35,20 @@ object PinKeypadDialog {
         cancelable: Boolean = false,
         onSubmit: (String) -> Unit,
         onCancel: (() -> Unit)? = null,
+        /**
+         * Optional hidden admin gesture: a long-press on the dialog title. Used
+         * by the attendance PIN pad so an operator can reach the kiosk-exit PIN
+         * even while this (modal) keypad is up — otherwise the exit long-press on
+         * the client name is swallowed by the keypad's scrim.
+         */
+        onTitleLongPress: (() -> Unit)? = null,
     ): AlertDialog {
         val density = activity.resources.displayMetrics.density
         fun dp(v: Int) = (v * density).toInt()
 
+        // Declared up front so the title long-press handler (added below) can
+        // dismiss it; assigned once the builder is created.
+        lateinit var dialog: AlertDialog
         val entered = StringBuilder()
 
         val root = LinearLayout(activity).apply {
@@ -53,6 +64,17 @@ object PinKeypadDialog {
                 setTypeface(typeface, Typeface.BOLD)
                 gravity = Gravity.CENTER
                 setTextColor(0xFF0F172A.toInt())
+                if (onTitleLongPress != null) {
+                    // Pad the touch target so the gesture is easy to land.
+                    setPadding(dp(24), dp(8), dp(24), dp(8))
+                    // Show the admin prompt ON TOP of this keypad (don't dismiss),
+                    // so cancelling the admin prompt leaves the attendance PIN pad
+                    // in place instead of a blank screen.
+                    setOnLongClickListener {
+                        onTitleLongPress()
+                        true
+                    }
+                }
             },
         )
         if (!message.isNullOrBlank()) {
@@ -86,8 +108,6 @@ object PinKeypadDialog {
             }
         }
         renderDots()
-
-        lateinit var dialog: AlertDialog
 
         fun submit() {
             val pin = entered.toString()
@@ -190,6 +210,11 @@ object PinKeypadDialog {
             }
         }
         dialog = builder.create()
+        // Let touches outside the keypad card fall through to the activity behind.
+        // Otherwise the modal scrim swallows the admin-exit long-press on the
+        // client name while an employee PIN pad is up — and on a device-owner-
+        // locked kiosk that would leave no way out of the app.
+        dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL)
         dialog.show()
         return dialog
     }

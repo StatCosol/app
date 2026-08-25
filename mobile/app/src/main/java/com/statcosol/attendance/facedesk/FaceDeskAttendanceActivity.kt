@@ -254,6 +254,9 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             title = getString(R.string.facedesk_pin_entry_title),
             fixedLength = 4,
             cancelable = false,
+            // Hidden admin exit: long-press the "Enter your PIN" title to open the
+            // admin-PIN prompt, since this modal keypad covers the client name.
+            onTitleLongPress = { KioskLock.showExitDialog(this, config.faceDeskAdminPin) },
             onSubmit = { pin ->
                 pinDialog = null
                 enteredCode = null
