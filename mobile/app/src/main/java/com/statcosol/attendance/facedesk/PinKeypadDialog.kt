@@ -4,7 +4,6 @@ import android.app.Activity
 import android.graphics.Typeface
 import android.view.Gravity
 import android.view.View
-import android.view.WindowManager
 import android.widget.GridLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -46,8 +45,6 @@ object PinKeypadDialog {
         val density = activity.resources.displayMetrics.density
         fun dp(v: Int) = (v * density).toInt()
 
-        // Declared up front so the title long-press handler (added below) can
-        // dismiss it; assigned once the builder is created.
         lateinit var dialog: AlertDialog
         val entered = StringBuilder()
 
@@ -210,11 +207,6 @@ object PinKeypadDialog {
             }
         }
         dialog = builder.create()
-        // Let touches outside the keypad card fall through to the activity behind.
-        // Otherwise the modal scrim swallows the admin-exit long-press on the
-        // client name while an employee PIN pad is up — and on a device-owner-
-        // locked kiosk that would leave no way out of the app.
-        dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL)
         dialog.show()
         return dialog
     }
