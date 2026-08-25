@@ -35,7 +35,8 @@ export class HolidayCalendarService {
   /** Add a single holiday (branch-specific, state-level, or client-wide). */
   async create(clientId: string, dto: CreateHolidayDto) {
     const date = this.normalizeDate(dto.holidayDate);
-    if (!date) throw new BadRequestException('A valid holiday date is required');
+    if (!date)
+      throw new BadRequestException('A valid holiday date is required');
     if (!dto.name?.trim())
       throw new BadRequestException('Holiday name is required');
 
@@ -86,16 +87,15 @@ export class HolidayCalendarService {
 
     ws.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return; // header
-      const dateCell = row.getCell(1).value;
-      const nameCell = row.getCell(2).value;
-      const stateCell = row.getCell(3).value;
-      const paidCell = row.getCell(4).value;
-
+      // Use exceljs's `.text` (always a string) rather than String(cell.value),
+      // whose value type includes rich-object variants that stringify to
+      // "[object Object]".
+      const dateValue = row.getCell(1).value;
       const rawDate =
-        dateCell instanceof Date
-          ? dateCell.toISOString().slice(0, 10)
-          : String(dateCell ?? '').trim();
-      const name = String(nameCell ?? '').trim();
+        dateValue instanceof Date
+          ? dateValue.toISOString().slice(0, 10)
+          : row.getCell(1).text.trim();
+      const name = row.getCell(2).text.trim();
       if (!rawDate && !name) return; // blank row
 
       const date = this.normalizeDate(rawDate);
@@ -109,9 +109,14 @@ export class HolidayCalendarService {
         skipped++;
         return;
       }
-      const stateCode = String(stateCell ?? '').trim().toUpperCase() || null;
-      const paidStr = String(paidCell ?? '').trim().toLowerCase();
-      const isPaid = !(paidStr === 'n' || paidStr === 'no' || paidStr === 'false' || paidStr === 'unpaid');
+      const stateCode = row.getCell(3).text.trim().toUpperCase() || null;
+      const paidStr = row.getCell(4).text.trim().toLowerCase();
+      const isPaid = !(
+        paidStr === 'n' ||
+        paidStr === 'no' ||
+        paidStr === 'false' ||
+        paidStr === 'unpaid'
+      );
 
       toInsert.push({
         clientId,

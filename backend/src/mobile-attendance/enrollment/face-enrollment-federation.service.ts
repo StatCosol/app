@@ -75,9 +75,7 @@ export class FaceEnrollmentFederationService {
         ? Math.max(1, Math.floor(opts.limit))
         : undefined;
     const offset =
-      opts.offset !== undefined
-        ? Math.max(0, Math.floor(opts.offset))
-        : 0;
+      opts.offset !== undefined ? Math.max(0, Math.floor(opts.offset)) : 0;
 
     if (limit !== undefined) {
       const [summary, rows] = await Promise.all([
@@ -149,10 +147,7 @@ export class FaceEnrollmentFederationService {
     return { mobileJoin, facedeskJoin };
   }
 
-  private branchFilter(
-    params: unknown[],
-    branchIds: string[] | null,
-  ): string {
+  private branchFilter(params: unknown[], branchIds: string[] | null): string {
     if (!branchIds || branchIds.length === 0) return '';
     params.push(branchIds);
     return ` AND e.branch_id = ANY($${params.length}::uuid[])`;
@@ -317,7 +312,7 @@ export class FaceEnrollmentFederationService {
 
     const facedesk = opts.includeFacedesk
       ? {
-          enrollmentStatus: (row.facedeskStatus ?? 'PENDING') as FaceDeskEnrollmentStatus,
+          enrollmentStatus: row.facedeskStatus ?? 'PENDING',
           enrolledAt: row.facedeskEnrolledAt
             ? new Date(row.facedeskEnrolledAt).toISOString()
             : null,
@@ -394,7 +389,10 @@ export class FaceEnrollmentFederationService {
       ) {
         bothEnrolled += 1;
       }
-      if (item.overallStatus === 'PENDING' || item.overallStatus === 'PARTIAL') {
+      if (
+        item.overallStatus === 'PENDING' ||
+        item.overallStatus === 'PARTIAL'
+      ) {
         pendingEither += 1;
       }
     }

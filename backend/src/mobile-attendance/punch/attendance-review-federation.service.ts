@@ -81,7 +81,11 @@ export class AttendanceReviewFederationService {
             )
           : Promise.resolve([]),
         opts.includeMobile
-          ? this.countMobileReview(clientId, mobileStatus, opts.branchIds ?? null)
+          ? this.countMobileReview(
+              clientId,
+              mobileStatus,
+              opts.branchIds ?? null,
+            )
           : Promise.resolve(0),
         opts.includeFacedesk
           ? this.countFacedeskReview(
@@ -137,7 +141,7 @@ export class AttendanceReviewFederationService {
       displayCode: (row.subjectCode as string | null) ?? null,
       branchId: (row.branchId as string | null) ?? null,
       punchTime: new Date(row.punchTime as string | Date).toISOString(),
-      status: String(row.decision ?? 'REVIEW_PENDING'),
+      status: (row.decision as string | null) ?? 'REVIEW_PENDING',
       issueLabel: 'Borderline 1:N face match',
       portalPath: '/client/mobile-attendance?tab=review' as const,
     }));
@@ -150,15 +154,16 @@ export class AttendanceReviewFederationService {
       queue: 'FACEDESK_VERIFICATION' as const,
       itemId: String(row.reviewId),
       subjectType:
-        String(row.subjectType || 'EMPLOYEE').toUpperCase() === 'CONTRACTOR'
+        ((row.subjectType as string | null) || 'EMPLOYEE').toUpperCase() ===
+        'CONTRACTOR'
           ? 'CONTRACTOR'
           : 'EMPLOYEE',
       displayName: (row.employeeName as string | null) ?? null,
       displayCode: (row.employeeCode as string | null) ?? null,
       branchId: (row.branchId as string | null) ?? null,
       punchTime: new Date(row.punchTime as string | Date).toISOString(),
-      status: String(row.status ?? 'PENDING'),
-      issueLabel: String(row.issueType ?? 'PIN / face mismatch'),
+      status: (row.status as string | null) ?? 'PENDING',
+      issueLabel: (row.issueType as string | null) ?? 'PIN / face mismatch',
       portalPath: '/client/facedesk?tab=review' as const,
     }));
   }
