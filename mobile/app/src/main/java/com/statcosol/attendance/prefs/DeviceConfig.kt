@@ -101,6 +101,19 @@ class DeviceConfig(context: Context) {
 
     fun clear() = prefs.edit().clear().apply()
 
+    /**
+     * Clear the device registration (tokens, mode, admin PIN) so the app falls
+     * back to the setup screen — e.g. after the server revokes/removes the
+     * device. Keeps api_base and android_id so re-registration is one step.
+     */
+    fun clearRegistration() = prefs.edit()
+        .remove(KEY_DEVICE_TOKEN)
+        .remove(KEY_INSTALL_TOKEN)
+        .remove(KEY_DEVICE_MODE)
+        .remove(KEY_FD_ADMIN_PIN)
+        .remove(KEY_ROSTER_DEVICE_ID)
+        .apply()
+
     companion object {
         private const val TAG = "DeviceConfig"
         private const val PREF_FILE = "device_config_enc"
