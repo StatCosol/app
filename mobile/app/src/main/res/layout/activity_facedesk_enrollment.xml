@@ -82,6 +82,17 @@
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/fdeCancel"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:minHeight="48dp"
+            android:text="@string/facedesk_enroll_cancel"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp" />
     </LinearLayout>
 
     <include layout="@layout/include_kiosk_footer" />

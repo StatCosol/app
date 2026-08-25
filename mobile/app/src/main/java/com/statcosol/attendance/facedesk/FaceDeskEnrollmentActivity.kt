@@ -52,6 +52,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     private lateinit var tvHint: TextView
     private lateinit var tvTimer: TextView
     private lateinit var btnCapture: Button
+    private lateinit var btnCancel: Button
 
     private lateinit var config: DeviceConfig
     private lateinit var api: FaceDeskApiClient
@@ -95,6 +96,8 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         tvHint = findViewById(R.id.fdeHint)
         tvTimer = findViewById(R.id.fdeTimer)
         btnCapture = findViewById(R.id.fdeCapture)
+        btnCancel = findViewById(R.id.fdeCancel)
+        btnCancel.setOnClickListener { exitEnrollment() }
 
         employeeId = intent.getStringExtra(EXTRA_EMPLOYEE_ID).orEmpty()
         ticketId = intent.getStringExtra(EXTRA_TICKET_ID)
@@ -290,6 +293,21 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         captureTimer?.cancel()
         captureTimer = null
         tvTimer.visibility = View.GONE
+    }
+
+    /**
+     * Operator backs out of enrollment (wrong person, already enrolled, or just
+     * done) without completing a capture. Releases the ticket (idempotent — a
+     * completed ticket is unaffected) and returns to the previous screen. This
+     * is the only sanctioned exit on a device-owner-locked kiosk where Back is
+     * blocked.
+     */
+    private fun exitEnrollment() {
+        if (isFinishing) return
+        stopCaptureTimer()
+        capturing.set(false)
+        ticketId?.let { tid -> lifecycleScope.launch { runCatching { api.cancelTicket(tid) } } }
+        finish()
     }
 
     /**
