@@ -19,6 +19,7 @@ interface StatusQueryParams {
   contractorId?: string | null;
   allowedBranchIds?: string[] | 'ALL';
   status?: string | null;
+  upcomingOnly?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -28,6 +29,158 @@ export class LegitxComplianceStatusService {
   private readonly logger = new Logger(LegitxComplianceStatusService.name);
 
   constructor(private readonly db: DbService) {}
+
+  async getOverview(p: StatusQueryParams) {
+    const [
+      summary,
+      returns,
+      contractors,
+      audit,
+      areas,
+      trend,
+      registrations,
+      expiredRegistrationCount,
+      overdueTasks,
+      upcomingTaskRows,
+    ] = await Promise.all([
+      this.getSummary(p),
+      this.getReturnsStatus(p),
+      this.getContractorImpact(p),
+      this.getAuditImpact(p),
+      this.getComplianceAreas(p),
+      this.getComplianceTrend(p),
+      this.getRegistrationExpiries(p),
+      this.getExpiredRegistrationCount(p),
+      this.getTasks({ ...p, status: 'OVERDUE', limit: 8, offset: 0 }),
+      this.getTasks({ ...p, upcomingOnly: true, limit: 8, offset: 0 }),
+    ]);
+
+    const upcomingTasks = upcomingTaskRows.map((task) => ({
+      id: String(task.taskId),
+      title: task.title,
+      detail: task.frequency,
+      dueDate: task.dueDate,
+      type: 'COMPLIANCE',
+      status: task.status,
+      branchName: task.branchName,
+    }));
+    const upcomingReturns = (returns.data || [])
+      .filter(
+        (item: any) =>
+          item.due_date &&
+          new Date(item.due_date).getTime() >= Date.now() &&
+          item.status !== 'FILED',
+      )
+      .map((item: any) => ({
+        id: item.id,
+        title: item.return_type || item.law_type,
+        detail: item.period_label || 'Return / filing',
+        dueDate: item.due_date,
+        type: 'RETURN',
+        status: item.status,
+        branchName: item.branch_name,
+      }));
+    const upcomingRegistrations = registrations
+      .filter((item: any) => item.expiryDate && item.daysLeft >= 0)
+      .map((item: any) => ({
+        id: item.id,
+        title: item.registrationName,
+        detail: 'Registration renewal',
+        dueDate: item.expiryDate,
+        type: 'REGISTRATION',
+        status: item.status,
+        branchName: item.branchName,
+      }));
+    const upcoming = [
+      ...upcomingTasks,
+      ...upcomingReturns,
+      ...upcomingRegistrations,
+    ]
+      .sort(
+        (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
+      )
+      .slice(0, 8);
+
+    const actionItems = [
+      ...overdueTasks.map((task) => ({
+        id: `task-${task.taskId}`,
+        title: task.title,
+        detail: task.branchName || 'Compliance task',
+        severity: 'CRITICAL',
+        dueDate: task.dueDate,
+        days: task.delayDays,
+        kind: 'OVERDUE',
+      })),
+      ...(returns.data || [])
+        .filter((item: any) => item.status === 'OVERDUE')
+        .slice(0, 5)
+        .map((item: any) => ({
+          id: `return-${item.id}`,
+          title: item.return_type || item.law_type,
+          detail: item.branch_name || 'Return / filing',
+          severity: 'CRITICAL',
+          dueDate: item.due_date,
+          days: item.delay_days,
+          kind: 'OVERDUE',
+        })),
+      ...registrations
+        .filter((item: any) => item.daysLeft <= 30)
+        .slice(0, 5)
+        .map((item: any) => ({
+          id: `registration-${item.id}`,
+          title: item.registrationName,
+          detail: item.branchName,
+          severity: item.daysLeft < 0 ? 'CRITICAL' : 'WARNING',
+          dueDate: item.expiryDate,
+          days: Math.abs(item.daysLeft),
+          kind: item.daysLeft < 0 ? 'OVERDUE' : 'DUE',
+        })),
+      ...(audit.observations || [])
+        .filter((item) => ['CRITICAL', 'HIGH'].includes(item.risk || ''))
+        .slice(0, 5)
+        .map((item) => ({
+          id: `audit-${item.id}`,
+          title: item.observation,
+          detail: item.category || 'Audit observation',
+          severity: item.risk || 'WARNING',
+          dueDate: null,
+          days: null,
+          kind: 'AUDIT',
+        })),
+    ].slice(0, 10);
+
+    const returnSummary = returns.summary || {};
+    const totalApplicable =
+      summary.totalApplicable + (returnSummary.total || 0);
+    const complied = summary.approved + (returnSummary.filed || 0);
+
+    return {
+      summary: {
+        ...summary,
+        totalApplicable,
+        complied,
+        pending:
+          summary.pending + summary.inReview + (returnSummary.pending || 0),
+        overdue: summary.overdue + (returnSummary.overdue || 0),
+        overallCompliancePct:
+          totalApplicable > 0
+            ? +((complied / totalApplicable) * 100).toFixed(1)
+            : 0,
+        criticalIssues:
+          summary.criticalNonCompliances +
+          summary.overdue +
+          (returnSummary.overdue || 0) +
+          expiredRegistrationCount,
+      },
+      areas,
+      trend,
+      upcoming,
+      contractors: contractors.leastCompliant.slice(0, 4),
+      registrations: registrations.slice(0, 6),
+      audit,
+      actionItems,
+    };
+  }
 
   // ───────────── Risk calculation ─────────────
 
@@ -242,6 +395,9 @@ export class LegitxComplianceStatusService {
         extraWhere += ` AND ct.status = $${params.length}`;
       }
     }
+    if (p.upcomingOnly) {
+      extraWhere += ` AND ct.due_date >= CURRENT_DATE AND ct.status NOT IN ('APPROVED','NOT_APPLICABLE')`;
+    }
 
     const limit = Number.isFinite(p.limit)
       ? Math.min(Math.max(p.limit ?? 200, 0), 500)
@@ -280,7 +436,7 @@ export class LegitxComplianceStatusService {
        LEFT JOIN client_branches cb ON cb.id = ct.branch_id AND cb.isdeleted = false
        ${where}${extraWhere}
        ORDER BY
-         CASE WHEN ct.status = 'OVERDUE' OR (ct.status IN ('PENDING','IN_PROGRESS') AND ct.due_date < CURRENT_DATE) THEN 0 ELSE 1 END,
+         ${p.upcomingOnly ? '' : "CASE WHEN ct.status = 'OVERDUE' OR (ct.status IN ('PENDING','IN_PROGRESS') AND ct.due_date < CURRENT_DATE) THEN 0 ELSE 1 END,"}
          ct.due_date ASC NULLS LAST,
          ct.id DESC
        LIMIT $${params.length - 1}
@@ -427,10 +583,7 @@ export class LegitxComplianceStatusService {
     const conditions: string[] = ['a.period_year = $1'];
     const qParams: unknown[] = [p.year];
 
-    if (p.clientId) {
-      qParams.push(p.clientId);
-      conditions.push(`a.client_id = $${qParams.length}`);
-    }
+    this.addScope(conditions, qParams, p, 'a.client_id', 'a.branch_id');
 
     const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
@@ -614,6 +767,155 @@ export class LegitxComplianceStatusService {
     return { summary, data: rows };
   }
 
+  private async getComplianceAreas(p: StatusQueryParams) {
+    const { params, where } = this.buildTaskWhere(p);
+    const rows = await this.safeMany<{
+      area: string;
+      applicable: number;
+      complied: number;
+      pending: number;
+      overdue: number;
+    }>(
+      `SELECT
+         COALESCE(NULLIF(cm.law_family, ''), NULLIF(cm.law_name, ''), 'Other') AS area,
+         COUNT(*)::int AS applicable,
+         COUNT(*) FILTER (WHERE ct.status = 'APPROVED')::int AS complied,
+         COUNT(*) FILTER (WHERE ct.status IN ('PENDING','IN_PROGRESS','SUBMITTED'))::int AS pending,
+         COUNT(*) FILTER (WHERE ct.status = 'OVERDUE' OR (ct.status IN ('PENDING','IN_PROGRESS') AND ct.due_date < CURRENT_DATE))::int AS overdue
+       FROM compliance_tasks ct
+       LEFT JOIN compliance_master cm ON cm.id = ct.compliance_id
+       ${where}
+       GROUP BY COALESCE(NULLIF(cm.law_family, ''), NULLIF(cm.law_name, ''), 'Other')
+       ORDER BY applicable DESC, area ASC
+       LIMIT 10`,
+      params,
+      [],
+    );
+    return rows.map((row) => ({
+      area: row.area,
+      applicable: row.applicable,
+      complied: row.complied,
+      pending: row.pending,
+      overdue: row.overdue,
+      score:
+        row.applicable > 0
+          ? +((row.complied / row.applicable) * 100).toFixed(1)
+          : 0,
+    }));
+  }
+
+  private async getComplianceTrend(p: StatusQueryParams) {
+    const conditions = [
+      'ct.period_month IS NOT NULL',
+      '(ct.period_year * 12 + ct.period_month) BETWEEN $1 AND $2',
+    ];
+    const selectedPeriod = p.year * 12 + p.month;
+    const params: unknown[] = [selectedPeriod - 5, selectedPeriod];
+    this.addScope(conditions, params, p, 'ct.client_id', 'ct.branch_id');
+
+    const rows = await this.safeMany<{
+      year: number;
+      month: number;
+      total: number;
+      complied: number;
+    }>(
+      `SELECT ct.period_year::int AS year, ct.period_month::int AS month,
+              COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE ct.status = 'APPROVED')::int AS complied
+       FROM compliance_tasks ct
+       WHERE ${conditions.join(' AND ')}
+       GROUP BY ct.period_year, ct.period_month
+       ORDER BY ct.period_year, ct.period_month`,
+      params,
+      [],
+    );
+    const byPeriod = new Map(
+      rows.map((row) => [`${row.year}-${row.month}`, row]),
+    );
+    return Array.from({ length: 6 }, (_, index) => {
+      const date = new Date(p.year, p.month - 6 + index, 1);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const row = byPeriod.get(`${year}-${month}`);
+      return {
+        year,
+        month,
+        total: row?.total || 0,
+        complied: row?.complied || 0,
+        score: row?.total ? +((row.complied / row.total) * 100).toFixed(1) : 0,
+      };
+    });
+  }
+
+  private async getRegistrationExpiries(p: StatusQueryParams) {
+    const conditions = [
+      'br.expiry_date IS NOT NULL',
+      'cb.isdeleted = false',
+      `br.expiry_date::date BETWEEN
+         (make_date($1, $2, 1) - INTERVAL '30 days')::date
+         AND (make_date($1, $2, 1) + INTERVAL '1 year')::date`,
+    ];
+    const params: unknown[] = [p.year, p.month];
+    this.addScope(conditions, params, p, 'cb.clientid', 'br.branch_id');
+    const rows = await this.safeMany<{
+      id: string;
+      registration_name: string;
+      expiry_date: string;
+      branch_id: string;
+      branch_name: string;
+      days_left: number;
+    }>(
+      `SELECT br.id, br.type AS registration_name, br.expiry_date,
+              br.branch_id, COALESCE(cb.branchname, 'Branch') AS branch_name,
+              (br.expiry_date::date - CURRENT_DATE)::int AS days_left
+       FROM branch_registrations br
+       JOIN client_branches cb ON cb.id = br.branch_id
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY br.expiry_date ASC
+       LIMIT 25`,
+      params,
+      [],
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      registrationName: row.registration_name,
+      expiryDate: row.expiry_date,
+      branchId: row.branch_id,
+      branchName: row.branch_name,
+      daysLeft: row.days_left,
+      status:
+        row.days_left < 0
+          ? 'EXPIRED'
+          : row.days_left <= 30
+            ? 'EXPIRING_SOON'
+            : 'ACTIVE',
+    }));
+  }
+
+  private async getExpiredRegistrationCount(
+    p: StatusQueryParams,
+  ): Promise<number> {
+    const conditions = [
+      'br.expiry_date IS NOT NULL',
+      'br.expiry_date::date < CURRENT_DATE',
+      'cb.isdeleted = false',
+      `br.expiry_date::date BETWEEN
+         (make_date($1, $2, 1) - INTERVAL '30 days')::date
+         AND (make_date($1, $2, 1) + INTERVAL '1 year')::date`,
+    ];
+    const params: unknown[] = [p.year, p.month];
+    this.addScope(conditions, params, p, 'cb.clientid', 'br.branch_id');
+    const row = await this.safeOne<{ count: number }>(
+      `SELECT COUNT(*)::int AS count
+       FROM branch_registrations br
+       JOIN client_branches cb ON cb.id = br.branch_id
+       WHERE ${conditions.join(' AND ')}`,
+      params,
+      { count: 0 },
+    );
+    return row.count;
+  }
+
   // ───────────── Helpers ─────────────
 
   private buildTaskWhere(p: StatusQueryParams): {
@@ -648,16 +950,37 @@ export class LegitxComplianceStatusService {
     };
   }
 
+  private addScope(
+    conditions: string[],
+    params: unknown[],
+    p: StatusQueryParams,
+    clientColumn: string,
+    branchColumn: string,
+  ) {
+    if (p.clientId) {
+      params.push(p.clientId);
+      conditions.push(`${clientColumn} = $${params.length}`);
+    }
+    if (p.branchId) {
+      params.push(p.branchId);
+      conditions.push(`${branchColumn} = $${params.length}`);
+    } else if (p.allowedBranchIds && p.allowedBranchIds !== 'ALL') {
+      if (p.allowedBranchIds.length === 0) {
+        conditions.push('1=0');
+      } else {
+        params.push(p.allowedBranchIds);
+        conditions.push(`${branchColumn} = ANY($${params.length}::uuid[])`);
+      }
+    }
+  }
+
   private async getObsCounts(
     p: StatusQueryParams,
   ): Promise<{ high: number; critical: number }> {
     const conditions: string[] = ['a.period_year = $1'];
     const qParams: unknown[] = [p.year];
 
-    if (p.clientId) {
-      qParams.push(p.clientId);
-      conditions.push(`a.client_id = $${qParams.length}`);
-    }
+    this.addScope(conditions, qParams, p, 'a.client_id', 'a.branch_id');
 
     const row = await this.safeOne<{ high: number; critical: number }>(
       `SELECT

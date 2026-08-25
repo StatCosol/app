@@ -1,12 +1,14 @@
 import { Component, ChangeDetectorRef, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, Subject, Subscription } from 'rxjs';
 import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { ClientComplianceService } from '../../../core/client-compliance.service';
 import { LegitxComplianceFacade } from './legitx-compliance.facade';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { AuthService } from '../../../core/auth.service';
 import {
   PageHeaderComponent,
   StatusBadgeComponent,
@@ -49,6 +51,17 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
   taskCategory = '';
   taskStatus = '';
   taskLimit = 100;
+  isBranchPortal = false;
+  pageTitle = 'Compliance Status';
+  pageDescription = 'Company compliance health report - live, auto-calculated';
+  currentBranchLabel = 'Assigned Branch';
+  complianceAreaRoute = '/client/compliance/mcd';
+  calendarRoute = '/client/calendar';
+  contractorsRoute = '/client/contractors';
+  registrationsRoute = '/client/compliance/registrations';
+  auditsRoute = '/client/audits';
+  actionItemsRoute = '/client/reminders';
+  detailTabs: Array<{ key: ActiveTab; label: string }> = [];
 
   summary: any = null;
   branchMeta: any[] = [];
@@ -58,6 +71,7 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
   contractorData: any = null;
   auditData: any = null;
   returnsData: any = null;
+  overview: any = null;
 
   branchColumns: TableColumn[] = [
     { key: 'branchName', header: 'Branch', sortable: true },
@@ -104,7 +118,7 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
 
   yearOptions = (() => {
     const current = new Date().getFullYear();
-    return [current - 1, current, current + 1].map(y => ({
+    return [current - 1, current, current + 1].map((y) => ({
       value: String(y),
       label: String(y),
     }));
@@ -144,9 +158,40 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
     private facade: LegitxComplianceFacade,
     private cdr: ChangeDetectorRef,
     private toast: ToastService,
+    private route: ActivatedRoute,
+    private auth: AuthService,
   ) {}
 
   ngOnInit(): void {
+    this.isBranchPortal = this.route.snapshot.data['portal'] === 'branch';
+    if (this.isBranchPortal) {
+      const user = this.auth.getUser();
+      this.selectedBranchId = this.auth.getBranchIds()[0] || '';
+      this.currentBranchLabel = user?.branchName || user?.branch?.name || 'Assigned Branch';
+      this.pageTitle = 'Monthly Compliance Dashboard';
+      this.pageDescription = 'Registrations, renewals, returns and monthly compliance for your branch';
+      this.complianceAreaRoute = '/branch/compliance/monthly';
+      this.calendarRoute = '/branch/calendar';
+      this.contractorsRoute = '/branch/contractors';
+      this.registrationsRoute = '/branch/registrations';
+      this.auditsRoute = '/branch/audits/observations';
+      this.actionItemsRoute = '/branch/compliance-items';
+      this.activeTab = 'tasks';
+    }
+    this.detailTabs = this.isBranchPortal
+      ? [
+          { key: 'tasks', label: 'MCD Tasks' },
+          { key: 'returns', label: 'Returns & Filings' },
+          { key: 'contractors', label: 'Contractors' },
+          { key: 'audit', label: 'Audit Impact' },
+        ]
+      : [
+          { key: 'branches', label: 'Branches' },
+          { key: 'tasks', label: 'MCD Tasks' },
+          { key: 'returns', label: 'Returns & Filings' },
+          { key: 'contractors', label: 'Contractors' },
+          { key: 'audit', label: 'Audit Impact' },
+        ];
     this.loadBranchMeta();
   }
 
@@ -161,21 +206,32 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
 
   loadBranchMeta(): void {
     this.metaSub?.unsubscribe();
-    this.metaSub = this.api.getBranches()
+    this.metaSub = this.api
+      .getBranches()
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res: any) => {
           this.branchMeta = res?.data || res || [];
-          this.branchOptions = [
-            { value: '', label: 'All Branches' },
-            ...this.branchMeta.map((b: any) => ({ value: b.id, label: b.branchName || b.name })),
-          ];
+          const scopedBranches = this.isBranchPortal
+            ? this.branchMeta.filter((b: any) => b.id === this.selectedBranchId)
+            : this.branchMeta;
+          if (this.isBranchPortal && scopedBranches[0]) {
+            this.currentBranchLabel = scopedBranches[0].branchName || scopedBranches[0].name;
+          }
+          this.branchOptions = this.isBranchPortal
+            ? scopedBranches.map((b: any) => ({ value: b.id, label: b.branchName || b.name }))
+            : [
+                { value: '', label: 'All Branches' },
+                ...this.branchMeta.map((b: any) => ({ value: b.id, label: b.branchName || b.name })),
+              ];
           this.cdr.markForCheck();
           this.loadAll();
         },
         error: () => {
           this.branchMeta = [];
-          this.branchOptions = [{ value: '', label: 'All Branches' }];
+          this.branchOptions = this.isBranchPortal
+            ? [{ value: this.selectedBranchId, label: this.currentBranchLabel }]
+            : [{ value: '', label: 'All Branches' }];
           this.loadAll();
         },
       });
@@ -188,7 +244,7 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
     const bid = this.selectedBranchId || undefined;
 
     this.allSub = forkJoin({
-      summary: this.api.getComplianceStatusSummary(this.month, this.year, bid),
+      overview: this.api.getComplianceStatusOverview(this.month, this.year, bid),
       branches: this.api.getComplianceStatusBranches(this.month, this.year, bid),
     })
       .pipe(
@@ -201,7 +257,8 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (res) => {
-          this.summary = res.summary;
+          this.overview = res.overview;
+          this.summary = res.overview?.summary || null;
           this.branchRows = res.branches || [];
           this.loading = false;
           this.cdr.markForCheck();
@@ -210,11 +267,67 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
         error: () => {
           this.loading = false;
           this.summary = null;
+          this.overview = null;
           this.branchRows = [];
           this.error = 'Unable to load compliance summary.';
           this.cdr.markForCheck();
         },
       });
+  }
+
+  get trendPoints(): string {
+    const rows = this.overview?.trend || [];
+    if (!rows.length) return '';
+    return rows
+      .map((row: any, index: number) => {
+        const x = rows.length === 1 ? 50 : (index / (rows.length - 1)) * 100;
+        const y = 94 - Math.max(0, Math.min(100, Number(row.score) || 0)) * 0.82;
+        return `${x},${y}`;
+      })
+      .join(' ');
+  }
+
+  get upcomingItems(): any[] {
+    return (this.overview?.upcoming || []).slice(0, 5);
+  }
+
+  get criticalActionItems(): any[] {
+    return (this.overview?.actionItems || []).slice(0, 5);
+  }
+
+  get auditRingStyle(): Record<string, string> {
+    const audit = this.overview?.audit;
+    const open = Number(audit?.openObservations) || 0;
+    const verified = Number(audit?.completedAudits) || 0;
+    const reverify = Number(audit?.reverifyPending) || 0;
+    const total = Math.max(open + verified + reverify, 1);
+    const openEnd = (open / total) * 100;
+    const verifiedEnd = openEnd + (verified / total) * 100;
+    return {
+      background: `conic-gradient(#ef476f 0 ${openEnd}%, #12b981 ${openEnd}% ${verifiedEnd}%, #4f6bed ${verifiedEnd}% 100%)`,
+    };
+  }
+
+  monthLabel(month: number): string {
+    return new Date(2000, Math.max(0, month - 1), 1).toLocaleString('en', { month: 'short' });
+  }
+
+  daysText(item: any): string {
+    const dueDate = item?.dueDate || item?.expiryDate;
+    if (!dueDate) return '';
+    const days = Math.ceil((new Date(dueDate).getTime() - Date.now()) / 86400000);
+    if (days < 0) return `${Math.abs(days)}d overdue`;
+    if (days === 0) return 'Due today';
+    return `${days}d left`;
+  }
+
+  deadlineClass(item: any): string {
+    const dueDate = item?.dueDate || item?.expiryDate;
+    if (!dueDate) return 'deadline-neutral';
+    const days = Math.ceil((new Date(dueDate).getTime() - Date.now()) / 86400000);
+    if (days < 0) return 'deadline-danger';
+    if (days <= 7) return 'deadline-warning';
+    return 'deadline-safe';
   }
 
   loadTabData(): void {
@@ -234,8 +347,15 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
           })
           .pipe(takeUntil(this.destroy$), timeout(10000))
           .subscribe({
-            next: (res: any) => { this.tasks = res || []; this.cdr.markForCheck(); },
-            error: () => { this.tasks = []; this.error = 'Unable to load tasks. Please retry.'; this.cdr.markForCheck(); },
+            next: (res: any) => {
+              this.tasks = res || [];
+              this.cdr.markForCheck();
+            },
+            error: () => {
+              this.tasks = [];
+              this.error = 'Unable to load tasks. Please retry.';
+              this.cdr.markForCheck();
+            },
           });
         break;
 
@@ -244,8 +364,15 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
           .getComplianceStatusReturns(this.month, this.year, bid)
           .pipe(takeUntil(this.destroy$), timeout(10000))
           .subscribe({
-            next: (res: any) => { this.returnsData = res; this.cdr.markForCheck(); },
-            error: () => { this.returnsData = null; this.error = 'Unable to load returns data.'; this.cdr.markForCheck(); },
+            next: (res: any) => {
+              this.returnsData = res;
+              this.cdr.markForCheck();
+            },
+            error: () => {
+              this.returnsData = null;
+              this.error = 'Unable to load returns data.';
+              this.cdr.markForCheck();
+            },
           });
         break;
 
@@ -254,8 +381,15 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
           .getComplianceStatusContractors(this.month, this.year, bid)
           .pipe(takeUntil(this.destroy$), timeout(10000))
           .subscribe({
-            next: (res: any) => { this.contractorData = res; this.cdr.markForCheck(); },
-            error: () => { this.contractorData = null; this.error = 'Unable to load contractor data.'; this.cdr.markForCheck(); },
+            next: (res: any) => {
+              this.contractorData = res;
+              this.cdr.markForCheck();
+            },
+            error: () => {
+              this.contractorData = null;
+              this.error = 'Unable to load contractor data.';
+              this.cdr.markForCheck();
+            },
           });
         break;
 
@@ -264,8 +398,15 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
           .getComplianceStatusAudit(this.month, this.year, bid)
           .pipe(takeUntil(this.destroy$), timeout(10000))
           .subscribe({
-            next: (res: any) => { this.auditData = res; this.cdr.markForCheck(); },
-            error: () => { this.auditData = null; this.error = 'Unable to load audit data.'; this.cdr.markForCheck(); },
+            next: (res: any) => {
+              this.auditData = res;
+              this.cdr.markForCheck();
+            },
+            error: () => {
+              this.auditData = null;
+              this.error = 'Unable to load audit data.';
+              this.cdr.markForCheck();
+            },
           });
         break;
     }
@@ -286,6 +427,15 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
     this.loadTabData();
   }
 
+  tabCount(tab: ActiveTab): number | undefined {
+    switch (tab) {
+      case 'branches': return this.branchRows.length;
+      case 'tasks': return this.tasks.length;
+      case 'returns': return this.returnsData?.data?.length || 0;
+      default: return undefined;
+    }
+  }
+
   onCategoryChange(): void {
     this.loadTabData();
   }
@@ -302,11 +452,16 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
 
   riskClass(risk: string): string {
     switch (risk) {
-      case 'CRITICAL': return 'risk-critical';
-      case 'HIGH': return 'risk-high';
-      case 'MEDIUM': return 'risk-medium';
-      case 'LOW': return 'risk-low';
-      default: return '';
+      case 'CRITICAL':
+        return 'risk-critical';
+      case 'HIGH':
+        return 'risk-high';
+      case 'MEDIUM':
+        return 'risk-medium';
+      case 'LOW':
+        return 'risk-low';
+      default:
+        return '';
     }
   }
 
@@ -367,11 +522,16 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
   get summaryRiskColor(): string {
     if (!this.summary) return 'gray';
     switch (this.summary.riskLevel) {
-      case 'CRITICAL': return 'error';
-      case 'HIGH': return 'warning';
-      case 'MEDIUM': return 'info';
-      case 'LOW': return 'success';
-      default: return 'gray';
+      case 'CRITICAL':
+        return 'error';
+      case 'HIGH':
+        return 'warning';
+      case 'MEDIUM':
+        return 'info';
+      case 'LOW':
+        return 'success';
+      default:
+        return 'gray';
     }
   }
 }

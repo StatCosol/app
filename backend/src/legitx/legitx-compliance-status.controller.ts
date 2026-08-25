@@ -41,6 +41,17 @@ export class LegitxComplianceStatusController {
     return this.svc.getSummary(await this.buildParams(user, q));
   }
 
+  /** Consolidated monthly dashboard across tasks, returns, registrations and audits */
+  @ApiOperation({ summary: 'Monthly compliance dashboard overview' })
+  @Get('overview')
+  async overview(
+    @CurrentUser() user: ReqUser,
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    q: ComplianceStatusQueryDto,
+  ) {
+    return this.svc.getOverview(await this.buildParams(user, q));
+  }
+
   /** Branch-wise compliance breakdown table */
   @ApiOperation({ summary: 'Branches' })
   @Get('branches')
@@ -113,7 +124,7 @@ export class LegitxComplianceStatusController {
     );
 
     // Branch users can only see their own branch (if branchId is known on token)
-    const branchId =
+    let branchId =
       user.userType === 'BRANCH' && user.branchIds?.[0]
         ? user.branchIds[0]
         : (q.branchId ?? null);
@@ -139,7 +150,7 @@ export class LegitxComplianceStatusController {
         allowedBranchIds.length === 1
       ) {
         // Auto-scope single-branch users
-        q.branchId = allowedBranchIds[0];
+        branchId = allowedBranchIds[0];
       }
     } else if (branchId) {
       // Staff role with no tenant context (CEO/CCO/CRM/AUDITOR/ADMIN) but
@@ -162,7 +173,7 @@ export class LegitxComplianceStatusController {
     return {
       month: normalizedMonth,
       year: normalizedYear,
-      branchId: q.branchId ?? branchId,
+      branchId,
       clientId: resolvedClientId,
       allowedBranchIds,
       status: q.status ?? null,
