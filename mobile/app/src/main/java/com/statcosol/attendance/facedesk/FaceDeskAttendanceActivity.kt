@@ -405,12 +405,16 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         val batch = frames.toList()
         // Blink detected via absolute-floor or a sharp drop from the open baseline.
         val livenessPassed = blinkDetector.blinked
+        // One capture photo is stored server-side (top level); the per-frame
+        // photos are unused for a punch, so drop them to keep the payload small
+        // now that the stored photo is higher resolution.
+        val topPhoto = batch.firstNotNullOfOrNull { it.photoB64 }
         val req = MarkAttendanceRequest(
-            frames = batch,
+            frames = batch.map { it.copy(photoB64 = null) },
             employeeCode = enteredCode,
             pin = enteredPin,
             // Attach one capture photo so the branch can verify a mismatch punch.
-            photoB64 = batch.firstNotNullOfOrNull { it.photoB64 },
+            photoB64 = topPhoto,
             livenessPassed = livenessPassed,
             offlineRef = UUID.randomUUID().toString(),
             appVersion = BuildConfig.VERSION_NAME,

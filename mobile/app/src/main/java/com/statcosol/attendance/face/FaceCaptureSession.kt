@@ -295,8 +295,26 @@ class FaceCaptureSession(
 
     private fun bitmapToBase64(bitmap: Bitmap): String {
         val out = ByteArrayOutputStream()
-        val scaled = Bitmap.createScaledBitmap(bitmap, 320, 320, true)
-        scaled.compress(Bitmap.CompressFormat.JPEG, 70, out)
+        // Keep the stored photo selfie-grade for admin verification: preserve the
+        // crop's aspect ratio (the old 320x320 square stretched the taller
+        // head-and-shoulders crop), only downscale when the native crop exceeds
+        // the target edge (never upscale/stretch), and use quality 90. The
+        // embedding uses its own INPUT_SIZE resize (see FaceEmbedder), so photo
+        // resolution/quality here does not affect matching.
+        val maxEdge = 640
+        val longest = max(bitmap.width, bitmap.height)
+        val scaled = if (longest > maxEdge) {
+            val ratio = maxEdge.toFloat() / longest.toFloat()
+            Bitmap.createScaledBitmap(
+                bitmap,
+                (bitmap.width * ratio).toInt().coerceAtLeast(1),
+                (bitmap.height * ratio).toInt().coerceAtLeast(1),
+                true,
+            )
+        } else {
+            bitmap
+        }
+        scaled.compress(Bitmap.CompressFormat.JPEG, 90, out)
         return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
     }
 
