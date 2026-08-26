@@ -295,8 +295,30 @@ class FaceCaptureSession(
 
     private fun bitmapToBase64(bitmap: Bitmap): String {
         val out = ByteArrayOutputStream()
-        val scaled = Bitmap.createScaledBitmap(bitmap, 320, 320, true)
-        scaled.compress(Bitmap.CompressFormat.JPEG, 70, out)
+        // Sharper than the old 320x320/q70 square (which stretched the taller
+        // head-and-shoulders crop): preserve aspect ratio and only downscale when
+        // the native crop exceeds the target edge (never upscale/stretch).
+        //
+        // Every frame carries this photo, and when face-svc is enabled the server
+        // re-embeds each one with ArcFace, so the size is bounded to keep a full
+        // multi-frame punch/enrolment under the server's request-body limit while
+        // still giving face-svc a good crop. 480px @ q88 matches the native crop
+        // from a 720p frame without upscaling. Matching itself is unaffected — the
+        // device embedder uses its own INPUT_SIZE resize (see FaceEmbedder).
+        val maxEdge = 480
+        val longest = max(bitmap.width, bitmap.height)
+        val scaled = if (longest > maxEdge) {
+            val ratio = maxEdge.toFloat() / longest.toFloat()
+            Bitmap.createScaledBitmap(
+                bitmap,
+                (bitmap.width * ratio).toInt().coerceAtLeast(1),
+                (bitmap.height * ratio).toInt().coerceAtLeast(1),
+                true,
+            )
+        } else {
+            bitmap
+        }
+        scaled.compress(Bitmap.CompressFormat.JPEG, 88, out)
         return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
     }
 

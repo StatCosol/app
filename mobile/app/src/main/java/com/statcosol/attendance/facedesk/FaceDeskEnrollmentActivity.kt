@@ -231,6 +231,15 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
                 // No front flash on the kiosk phone — brighten exposure so faces
                 // aren't under-exposed under dim gate lighting.
                 FaceCameraControl.applyLowLightExposure(camera)
+                // Meter focus + exposure on the face oval so captures are sharp
+                // and correctly exposed for the face, not the background.
+                FaceCameraControl.focusOnFace(
+                    camera,
+                    previewView.meteringPointFactory.createPoint(
+                        0.5f,
+                        FaceKioskTuning.OVERLAY_FACE_CENTER_Y_FRACTION,
+                    ),
+                )
             } catch (e: Exception) {
                 Log.e(TAG, "camera start failed", e)
                 tvHint.text = getString(R.string.facedesk_camera_failed)
@@ -494,6 +503,11 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
 
     private fun save() {
         if (!saving.compareAndSet(false, true)) return
+        // Keep every frame's photo: when face-svc is enabled the server builds
+        // the enrolled ArcFace template by re-embedding each frame's photo (see
+        // FaceDeskFaceService.resolveFrames). Trimming them to one would leave
+        // the profile enrolled from a single sample / the device fallback. The
+        // server picks one of these as the stored representative photo.
         val req = SaveEnrollmentRequest(
             employeeId = employeeId,
             subjectType = subjectType,
