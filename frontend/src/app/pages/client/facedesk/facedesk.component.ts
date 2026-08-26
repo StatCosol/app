@@ -385,7 +385,7 @@ type Tab =
       <!-- SHORT DAYS (worked < full day → branch approval) -->
       @if (tab === 'short-days') {
 
-        <p class="text-sm text-gray-600 mb-3">Days where the total worked hours (summed across all IN→OUT punches) came to less than a full day. <strong>Approve</strong> to count the day as a full day, or <strong>Reject</strong> to count it as absent.</p>
+        <p class="text-sm text-gray-600 mb-3">Days where the total worked hours (summed across all IN→OUT punches) came to less than a full day. Decide how each day counts: <strong>Full day</strong> (1.0), <strong>Half day</strong> (0.5), or <strong>Reject</strong> (absent).</p>
         @if (loading) {
 <ui-loading-spinner text="Loading..." size="lg"></ui-loading-spinner>
 }
@@ -403,7 +403,8 @@ type Tab =
               <td class="text-xs">{{ d.punchList }}</td>
               <td class="nowrap">{{ workedHhMm(d.workedSeconds) }}</td>
               <td class="right nowrap">
-                <button class="link green" [disabled]="dayBusy" (click)="dayAction(d, 'APPROVE')">Approve</button>
+                <button class="link green" [disabled]="dayBusy" (click)="dayAction(d, 'FULL_DAY')">Full day</button>
+                <button class="link" [disabled]="dayBusy" (click)="dayAction(d, 'HALF_DAY')">Half day</button>
                 <button class="link red" [disabled]="dayBusy" (click)="dayAction(d, 'REJECT')">Reject</button>
               </td>
             </tr>
@@ -827,11 +828,26 @@ export class FaceDeskComponent implements OnInit {
     return `${h}:${String(m).padStart(2, '0')}`;
   }
 
-  async dayAction(d: DayReview, action: 'APPROVE' | 'REJECT'): Promise<void> {
+  async dayAction(
+    d: DayReview,
+    action: 'FULL_DAY' | 'HALF_DAY' | 'REJECT',
+  ): Promise<void> {
+    const label =
+      action === 'FULL_DAY'
+        ? 'Count as a full day (1.0)'
+        : action === 'HALF_DAY'
+          ? 'Count as a half day (0.5)'
+          : 'Reject (count as absent)';
+    const confirmText =
+      action === 'FULL_DAY'
+        ? 'Full day'
+        : action === 'HALF_DAY'
+          ? 'Half day'
+          : 'Reject';
     const ok = await this.dialog.confirm(
       'Short Day',
-      `${action === 'APPROVE' ? 'Approve as a full day' : 'Reject (count as absent)'} — ${d.employeeName || d.employeeCode || d.employeeId} on ${d.day} (${this.workedHhMm(d.workedSeconds)} worked)?`,
-      action === 'REJECT' ? { variant: 'danger', confirmText: 'Reject' } : { confirmText: 'Approve' },
+      `${label} — ${d.employeeName || d.employeeCode || d.employeeId} on ${d.day} (${this.workedHhMm(d.workedSeconds)} worked)?`,
+      action === 'REJECT' ? { variant: 'danger', confirmText } : { confirmText },
     );
     if (!ok) return;
     this.dayBusy = true;

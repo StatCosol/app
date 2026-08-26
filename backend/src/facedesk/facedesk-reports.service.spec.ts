@@ -165,6 +165,17 @@ describe('FaceDeskReportsService.workedHoursSummary', () => {
         workedSeconds: 5 * 3600,
         reviewDecision: 'REJECTED',
       },
+      // 4h but branch marked HALF_DAY -> 0.5
+      {
+        employeeCode: 'E5',
+        employeeName: 'Short Half',
+        branchName: null,
+        day: '2026-08-20',
+        punches: 2,
+        punchList: '10:00 IN, 14:00 OUT',
+        workedSeconds: 4 * 3600,
+        reviewDecision: 'HALF_DAY',
+      },
     ]);
 
     const out = (await service.workedHoursSummary('c1', {})) as any[];
@@ -173,5 +184,6 @@ describe('FaceDeskReportsService.workedHoursSummary', () => {
     expect(out[1]).toMatchObject({ status: 'PENDING_REVIEW', dayUnit: 0, workedHours: '8:00' });
     expect(out[2]).toMatchObject({ status: 'APPROVED', dayUnit: 1, workedHours: '6:00', branch: '' });
     expect(out[3]).toMatchObject({ status: 'REJECTED', dayUnit: 0, workedHours: '5:00' });
+    expect(out[4]).toMatchObject({ status: 'HALF_DAY', dayUnit: 0.5, workedHours: '4:00' });
   });
 });

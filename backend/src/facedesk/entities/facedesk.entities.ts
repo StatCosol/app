@@ -629,7 +629,7 @@ export class FaceDeskAuditEntity {
 /**
  * Branch decision on a short (< full-day) worked day. One row per
  * (client, employee, work_date), created only when a branch user acts.
- * APPROVED counts the day as a full day; REJECTED counts it as 0.
+ * APPROVED → full day (1.0), HALF_DAY → 0.5, REJECTED → 0.
  */
 @Entity({ name: 'facedesk_day_reviews' })
 @Index(['clientId', 'workDate'])
@@ -653,7 +653,7 @@ export class FaceDeskDayReviewEntity {
   workedMinutes: number;
 
   @Column({ name: 'decision', type: 'varchar', length: 20 })
-  decision: 'APPROVED' | 'REJECTED';
+  decision: 'APPROVED' | 'HALF_DAY' | 'REJECTED';
 
   @Column({ name: 'reviewed_by', type: 'uuid', nullable: true })
   reviewedBy: string | null;

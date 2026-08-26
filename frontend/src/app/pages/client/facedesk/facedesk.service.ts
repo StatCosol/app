@@ -246,7 +246,7 @@ export class FaceDeskService {
     dto: {
       employeeId: string;
       workDate: string;
-      action: 'APPROVE' | 'REJECT';
+      action: 'FULL_DAY' | 'HALF_DAY' | 'REJECT';
       remarks?: string;
     },
   ): Observable<{ ok: true; decision: string }> {

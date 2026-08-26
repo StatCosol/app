@@ -390,7 +390,7 @@ describe('FaceDeskAdminService short-day reviews', () => {
     const res = await service.actOnDayReview(
       'client-1',
       'actor-1',
-      { employeeId: 'emp-1', workDate: '2026-08-20', action: 'APPROVE' },
+      { employeeId: 'emp-1', workDate: '2026-08-20', action: 'FULL_DAY' },
       null,
     );
     expect(res).toEqual({ ok: true, decision: 'APPROVED' });
@@ -404,6 +404,23 @@ describe('FaceDeskAdminService short-day reviews', () => {
     expect(auditRepo.save).toHaveBeenCalled();
   });
 
+  it('records a half day: upserts HALF_DAY', async () => {
+    const { service, attRepo } = makeService();
+    attRepo.manager.query
+      .mockResolvedValueOnce([{ workedSeconds: 5 * 3600, branchId: 'b1', punches: 2 }])
+      .mockResolvedValueOnce([]);
+    const res = await service.actOnDayReview(
+      'client-1',
+      'actor-1',
+      { employeeId: 'emp-1', workDate: '2026-08-20', action: 'HALF_DAY' },
+      null,
+    );
+    expect(res).toEqual({ ok: true, decision: 'HALF_DAY' });
+    expect(attRepo.manager.query.mock.calls[1][1]).toEqual(
+      expect.arrayContaining(['emp-1', '2026-08-20', 300, 'HALF_DAY']),
+    );
+  });
+
   it('rejects a branch user acting outside their branch', async () => {
     const { service, attRepo } = makeService();
     attRepo.manager.query.mockResolvedValueOnce([
@@ -413,7 +430,7 @@ describe('FaceDeskAdminService short-day reviews', () => {
       service.actOnDayReview(
         'client-1',
         'actor-1',
-        { employeeId: 'emp-1', workDate: '2026-08-20', action: 'APPROVE' },
+        { employeeId: 'emp-1', workDate: '2026-08-20', action: 'FULL_DAY' },
         ['b1'],
       ),
     ).rejects.toThrow();
@@ -428,7 +445,7 @@ describe('FaceDeskAdminService short-day reviews', () => {
       service.actOnDayReview(
         'client-1',
         'actor-1',
-        { employeeId: 'emp-1', workDate: '2026-08-20', action: 'APPROVE' },
+        { employeeId: 'emp-1', workDate: '2026-08-20', action: 'FULL_DAY' },
         null,
       ),
     ).rejects.toThrow(/full-day/);

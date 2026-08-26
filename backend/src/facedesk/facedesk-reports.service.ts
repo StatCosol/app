@@ -111,7 +111,7 @@ export class FaceDeskReportsService {
         lastOut: Date;
         workedSeconds: number;
         punchList: string;
-        reviewDecision: 'APPROVED' | 'REJECTED' | null;
+        reviewDecision: 'APPROVED' | 'HALF_DAY' | 'REJECTED' | null;
       }>
     >(
       `WITH punches AS (
@@ -160,11 +160,11 @@ export class FaceDeskReportsService {
     punches: number;
     punchList: string;
     workedSeconds: number;
-    reviewDecision: 'APPROVED' | 'REJECTED' | null;
+    reviewDecision: 'APPROVED' | 'HALF_DAY' | 'REJECTED' | null;
   }) {
     const workedSeconds = Number(r.workedSeconds) || 0;
     const fullByHours = workedSeconds >= FULL_DAY_MINUTES * 60;
-    let status: 'FULL' | 'APPROVED' | 'REJECTED' | 'PENDING_REVIEW';
+    let status: 'FULL' | 'APPROVED' | 'HALF_DAY' | 'REJECTED' | 'PENDING_REVIEW';
     let dayUnit: number;
     if (fullByHours) {
       status = 'FULL';
@@ -172,6 +172,9 @@ export class FaceDeskReportsService {
     } else if (r.reviewDecision === 'APPROVED') {
       status = 'APPROVED';
       dayUnit = 1;
+    } else if (r.reviewDecision === 'HALF_DAY') {
+      status = 'HALF_DAY';
+      dayUnit = 0.5;
     } else if (r.reviewDecision === 'REJECTED') {
       status = 'REJECTED';
       dayUnit = 0;

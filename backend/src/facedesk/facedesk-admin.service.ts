@@ -565,7 +565,12 @@ export class FaceDeskAdminService {
         'That day already meets full-day hours — no review needed',
       );
     }
-    const decision = dto.action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+    const decision =
+      dto.action === 'FULL_DAY'
+        ? 'APPROVED'
+        : dto.action === 'HALF_DAY'
+          ? 'HALF_DAY'
+          : 'REJECTED';
     const workedMinutes = Math.round(Number(agg.workedSeconds) / 60);
     await this.attRepo.manager.query(
       `INSERT INTO facedesk_day_reviews

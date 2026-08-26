@@ -185,8 +185,9 @@ export class DayReviewActionDto {
   @IsString()
   workDate: string;
 
-  @IsIn(['APPROVE', 'REJECT'])
-  action: 'APPROVE' | 'REJECT';
+  /** FULL_DAY → 1.0, HALF_DAY → 0.5, REJECT → 0 (absent). */
+  @IsIn(['FULL_DAY', 'HALF_DAY', 'REJECT'])
+  action: 'FULL_DAY' | 'HALF_DAY' | 'REJECT';
 
   @IsOptional()
   @IsString()
