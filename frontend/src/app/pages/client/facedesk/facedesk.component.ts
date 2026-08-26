@@ -305,8 +305,8 @@ type Tab =
           <tbody>
             @for (a of duplicates; track a) {
 <tr>
-              <td>{{ a.newEmployeeName || a.newEmployeeId }}<br><span class="mono text-xs text-gray-500">{{ a.newEmployeeCode || '' }}{{ a.newSubjectType ? ' · ' + a.newSubjectType : '' }} · {{ branchName(a.newBranchId) }}</span></td>
-              <td>{{ a.matchedEmployeeName || a.matchedEmployeeId }}<br><span class="mono text-xs text-gray-500">{{ a.matchedEmployeeCode || '' }}{{ a.matchedSubjectType ? ' · ' + a.matchedSubjectType : '' }} · {{ branchName(a.matchedBranchId) }}</span></td>
+              <td>{{ a.newEmployeeName || a.newEmployeeId }}<br><span class="mono text-xs text-gray-500">{{ a.newEmployeeCode || '' }}{{ a.newSubjectType ? ' · ' + a.newSubjectType : '' }} · {{ branchName(a.newBranchId) }}</span>@if (a.hasNewPhoto) {<br><button type="button" class="link" (click)="viewDupeFace(a.newEmployeeId, a.newSubjectType, a.newEmployeeCode)">View face</button>}</td>
+              <td>{{ a.matchedEmployeeName || a.matchedEmployeeId }}<br><span class="mono text-xs text-gray-500">{{ a.matchedEmployeeCode || '' }}{{ a.matchedSubjectType ? ' · ' + a.matchedSubjectType : '' }} · {{ branchName(a.matchedBranchId) }}</span>@if (a.hasMatchedPhoto) {<br><button type="button" class="link" (click)="viewDupeFace(a.matchedEmployeeId, a.matchedSubjectType, a.matchedEmployeeCode)">View face</button>}</td>
               <td>{{ (+a.similarityScore).toFixed(3) }}</td>
               <td>{{ a.createdAt | date: 'dd MMM, HH:mm' }}</td>
               <td class="right nowrap">
@@ -694,6 +694,24 @@ export class FaceDeskComponent implements OnInit {
       )
       .subscribe({
         error: () => this.toast.error('Unable to open enrolled photo'),
+      });
+  }
+
+  /** Branch-only: view the enrolled face behind a duplicate alert so the admin
+   *  can see which employee/face the new capture matched. */
+  viewDupeFace(
+    employeeId: string,
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR' | null | undefined,
+    code: string | null | undefined,
+  ): void {
+    if (!employeeId) return;
+    this.protectedFiles
+      .open(
+        this.svc.enrolledPhotoUrl(employeeId, subjectType ?? this.enrollSubjectType),
+        `face-${code || employeeId}`,
+      )
+      .subscribe({
+        error: () => this.toast.error('Unable to open face photo'),
       });
   }
 

@@ -195,7 +195,9 @@ export class FaceDeskAdminService {
               mp.subject_type AS "matchedSubjectType",
               COALESCE(me.name, mc.name) AS "matchedEmployeeName",
               me.employee_code AS "matchedEmployeeCode",
-              COALESCE(me.branch_id, mc.branch_id, mp.branch_id) AS "matchedBranchId"
+              COALESCE(me.branch_id, mc.branch_id, mp.branch_id) AS "matchedBranchId",
+              (np.photo_url IS NOT NULL) AS "hasNewPhoto",
+              (mp.photo_url IS NOT NULL) AS "hasMatchedPhoto"
          FROM facedesk_face_duplicate_alerts da
          LEFT JOIN facedesk_employee_face_profiles np
            ON np.client_id = da.client_id AND np.employee_id = da.new_employee_id

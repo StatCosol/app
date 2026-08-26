@@ -40,10 +40,24 @@ export class FaceDeskAdminController {
     @CurrentUser() user: ReqUser,
     @Query('status') status?: string,
   ) {
-    return this.admin.listDuplicateAlerts(
-      requireFaceDeskClientAdmin(user),
-      status,
-    );
+    // Guard throws synchronously for non-admins — keep it out of the async
+    // chain so that contract is preserved.
+    const clientId = requireFaceDeskClientAdmin(user);
+    const photosAllowed = facedeskVerificationPhotosAllowed(user);
+    return this.admin
+      .listDuplicateAlerts(clientId, status)
+      .then((rows: Array<Record<string, unknown>>) =>
+        // Biometric faces are viewable only by branch verifiers — strip the
+        // photo availability flags for everyone else so the UI doesn't offer a
+        // "View face" link the scoped photo endpoint would reject.
+        photosAllowed
+          ? rows
+          : rows.map((row) => ({
+              ...row,
+              hasNewPhoto: false,
+              hasMatchedPhoto: false,
+            })),
+      );
   }
 
   @ApiOperation({ summary: 'Approve/reject a duplicate alert' })
