@@ -215,14 +215,18 @@ export class FaceDeskAdminService {
               COALESCE(me.name, mc.name) AS "matchedEmployeeName",
               me.employee_code AS "matchedEmployeeCode",
               COALESCE(me.branch_id, mc.branch_id, mp.branch_id) AS "matchedBranchId",
-              EXISTS (
+              -- Only advertise a viewable face when the enrolled-photo endpoint
+              -- can actually serve it: the subject must be ENROLLED (the endpoint
+              -- filters on enrollment_status), otherwise the "View face" link 404s
+              -- (e.g. a blocked/new duplicate that has a sample but isn't enrolled).
+              (np.enrollment_status = 'ENROLLED' AND EXISTS (
                 SELECT 1 FROM facedesk_employee_face_samples s
                  WHERE s.profile_id = np.profile_id AND s.image_path IS NOT NULL
-              ) AS "hasNewPhoto",
-              EXISTS (
+              )) AS "hasNewPhoto",
+              (mp.enrollment_status = 'ENROLLED' AND EXISTS (
                 SELECT 1 FROM facedesk_employee_face_samples s
                  WHERE s.profile_id = mp.profile_id AND s.image_path IS NOT NULL
-              ) AS "hasMatchedPhoto"
+              )) AS "hasMatchedPhoto"
          FROM facedesk_face_duplicate_alerts da
          LEFT JOIN facedesk_employee_face_profiles np
            ON np.client_id = da.client_id AND np.employee_id = da.new_employee_id
