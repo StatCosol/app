@@ -49,6 +49,20 @@ export interface DuplicateAlert {
   createdAt: string;
 }
 
+export interface DayReview {
+  employeeId: string;
+  employeeCode?: string | null;
+  employeeName?: string | null;
+  branchId?: string | null;
+  branchName?: string | null;
+  day: string;
+  punches: number;
+  punchList: string;
+  workedSeconds: number;
+  firstIn?: string | null;
+  lastOut?: string | null;
+}
+
 export interface ReviewItem {
   reviewId: string;
   subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
@@ -217,6 +231,28 @@ export class FaceDeskService {
     return this.http.post<{ ok: true; status: string }>(
       `${this.base}/admin/review-queue/${reviewId}/action`,
       { action, ...opts },
+    );
+  }
+
+  // Short-day reviews (worked < full day → branch approval)
+  dayReviews(from?: string, to?: string): Observable<DayReview[]> {
+    const parts: string[] = [];
+    if (from) parts.push(`from=${encodeURIComponent(from)}`);
+    if (to) parts.push(`to=${encodeURIComponent(to)}`);
+    const qs = parts.length ? `?${parts.join('&')}` : '';
+    return this.http.get<DayReview[]>(`${this.base}/admin/day-reviews${qs}`);
+  }
+  actOnDayReview(
+    dto: {
+      employeeId: string;
+      workDate: string;
+      action: 'APPROVE' | 'REJECT';
+      remarks?: string;
+    },
+  ): Observable<{ ok: true; decision: string }> {
+    return this.http.post<{ ok: true; decision: string }>(
+      `${this.base}/admin/day-reviews/action`,
+      dto,
     );
   }
 

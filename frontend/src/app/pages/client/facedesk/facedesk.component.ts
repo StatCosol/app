@@ -14,6 +14,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import {
+  DayReview,
   DuplicateAlert,
   FaceDeskDashboard,
   FaceDeskDevice,
@@ -29,6 +30,7 @@ type Tab =
   | 'pending'
   | 'duplicates'
   | 'review'
+  | 'short-days'
   | 'reports'
   | 'settings';
 
@@ -76,6 +78,12 @@ type Tab =
 }
           @if (!branchMode && cards && cards.reviewQueuePending > 0) {
 <span class="badge">{{ cards.reviewQueuePending }}</span>
+}
+        </button>
+        <button class="tab-btn" [class.active]="tab === 'short-days'" (click)="switch('short-days')">
+          Short Days
+          @if (shortDays.length > 0) {
+<span class="badge">{{ shortDays.length }}</span>
 }
         </button>
         @if (!branchMode) {
@@ -374,6 +382,38 @@ type Tab =
       
 }
 
+      <!-- SHORT DAYS (worked < full day → branch approval) -->
+      @if (tab === 'short-days') {
+
+        <p class="text-sm text-gray-600 mb-3">Days where the total worked hours (summed across all IN→OUT punches) came to less than a full day. <strong>Approve</strong> to count the day as a full day, or <strong>Reject</strong> to count it as absent.</p>
+        @if (loading) {
+<ui-loading-spinner text="Loading..." size="lg"></ui-loading-spinner>
+}
+        @if (!loading && shortDays.length === 0) {
+<ui-empty-state title="Nothing to review" description="No short worked-days are pending approval."></ui-empty-state>
+}
+        @if (!loading && shortDays.length > 0) {
+<table class="tbl">
+          <thead><tr><th>Employee</th><th>Day</th><th>Punches</th><th>Worked</th><th class="right">Actions</th></tr></thead>
+          <tbody>
+            @for (d of shortDays; track d) {
+<tr>
+              <td>{{ d.employeeName || d.employeeId }}<br><span class="mono text-xs text-gray-500">{{ d.employeeCode || '' }}{{ d.branchName ? ' · ' + d.branchName : '' }}</span></td>
+              <td class="nowrap">{{ d.day }}</td>
+              <td class="text-xs">{{ d.punchList }}</td>
+              <td class="nowrap">{{ workedHhMm(d.workedSeconds) }}</td>
+              <td class="right nowrap">
+                <button class="link green" [disabled]="dayBusy" (click)="dayAction(d, 'APPROVE')">Approve</button>
+                <button class="link red" [disabled]="dayBusy" (click)="dayAction(d, 'REJECT')">Reject</button>
+              </td>
+            </tr>
+}
+          </tbody>
+        </table>
+}
+
+}
+
       <!-- REPORTS -->
       @if (tab === 'reports') {
 
@@ -383,6 +423,7 @@ type Tab =
           <select [(ngModel)]="reportKind" class="inp">
             <option value="daily">Daily attendance</option>
             <option value="employee">Employee-wise</option>
+            <option value="worked-hours">Worked hours &amp; day units</option>
             <option value="branch">Branch-wise</option>
             <option value="late">Late coming</option>
             <option value="early">Early going</option>
@@ -545,6 +586,8 @@ export class FaceDeskComponent implements OnInit {
   enrolled: PendingEnrollmentRow[] = [];
   duplicates: DuplicateAlert[] = [];
   review: ReviewItem[] = [];
+  shortDays: DayReview[] = [];
+  dayBusy = false;
   settings: FaceDeskSettings | null = null;
 
   reportKind = 'daily';
@@ -728,6 +771,7 @@ export class FaceDeskComponent implements OnInit {
     if (t === 'review') {
       this.loadReviewTab();
     }
+    if (t === 'short-days') this.load(this.svc.dayReviews(), (r) => (this.shortDays = r));
     if (t === 'settings') this.load(this.svc.getSettings(), (r) => (this.settings = r));
   }
 
@@ -773,6 +817,37 @@ export class FaceDeskComponent implements OnInit {
       next: () => { this.toast.success('Done'); this.switch('duplicates'); },
       error: (e) => this.toast.error(e?.error?.message || 'Action failed'),
     });
+  }
+
+  /** Seconds → "H:MM" for display. */
+  workedHhMm(seconds: number): string {
+    const s = Number(seconds) || 0;
+    const h = Math.floor(s / 3600);
+    const m = Math.round((s % 3600) / 60);
+    return `${h}:${String(m).padStart(2, '0')}`;
+  }
+
+  async dayAction(d: DayReview, action: 'APPROVE' | 'REJECT'): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Short Day',
+      `${action === 'APPROVE' ? 'Approve as a full day' : 'Reject (count as absent)'} — ${d.employeeName || d.employeeCode || d.employeeId} on ${d.day} (${this.workedHhMm(d.workedSeconds)} worked)?`,
+      action === 'REJECT' ? { variant: 'danger', confirmText: 'Reject' } : { confirmText: 'Approve' },
+    );
+    if (!ok) return;
+    this.dayBusy = true;
+    this.svc
+      .actOnDayReview({ employeeId: d.employeeId, workDate: d.day, action })
+      .subscribe({
+        next: () => {
+          this.dayBusy = false;
+          this.toast.success('Done');
+          this.switch('short-days');
+        },
+        error: (e) => {
+          this.dayBusy = false;
+          this.toast.error(e?.error?.message || 'Action failed');
+        },
+      });
   }
 
   async reviewAction(r: ReviewItem, action: 'APPROVE' | 'REJECT'): Promise<void> {

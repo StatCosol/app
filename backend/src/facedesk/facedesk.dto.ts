@@ -177,6 +177,22 @@ export class DuplicateActionDto {
   remarks?: string;
 }
 
+export class DayReviewActionDto {
+  @IsString()
+  employeeId: string;
+
+  /** IST business day, YYYY-MM-DD. */
+  @IsString()
+  workDate: string;
+
+  @IsIn(['APPROVE', 'REJECT'])
+  action: 'APPROVE' | 'REJECT';
+
+  @IsOptional()
+  @IsString()
+  remarks?: string;
+}
+
 export class ManualCorrectionDto {
   @IsString()
   employeeId: string;

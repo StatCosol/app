@@ -311,6 +311,33 @@ async function bootstrap() {
       logger.warn(`Schema patch ess_attendance_punches skipped: ${e?.message}`);
     }
 
+    // FaceDesk short-day reviews: a branch user's decision on a day that worked
+    // fewer than the full-day hours. One row per (client, employee, work_date).
+    try {
+      await ds.query(`
+        CREATE TABLE IF NOT EXISTS facedesk_day_reviews (
+          id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          client_id      uuid NOT NULL,
+          employee_id    uuid NOT NULL,
+          branch_id      uuid,
+          work_date      date NOT NULL,
+          worked_minutes int NOT NULL DEFAULT 0,
+          decision       varchar(20) NOT NULL,
+          reviewed_by    uuid,
+          reviewed_at    timestamptz,
+          remarks        text,
+          created_at     timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_facedesk_day_reviews_emp_date
+          ON facedesk_day_reviews (client_id, employee_id, work_date);
+        CREATE INDEX IF NOT EXISTS idx_facedesk_day_reviews_client_date
+          ON facedesk_day_reviews (client_id, work_date);
+      `);
+      logger.log('Schema patch: facedesk_day_reviews OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch facedesk_day_reviews skipped: ${e?.message}`);
+    }
+
     // Holiday calendar: uploadable per-branch / per-state holiday list applied
     // onto attendance_records and used for holiday-work double-wage approval.
     try {

@@ -360,3 +360,92 @@ describe('FaceDeskAdminService.getReviewEnrollmentPhoto', () => {
     ).resolves.toBeNull();
   });
 });
+
+describe('FaceDeskAdminService short-day reviews', () => {
+  it('lists short days with the full-day threshold and branch scope', async () => {
+    const { service, attRepo } = makeService();
+    await service.listShortDayReviews('client-1', { branchIds: ['b1'] });
+    const [sql, params] = attRepo.manager.query.mock.calls[0];
+    expect(sql).toContain("(a.punch_time AT TIME ZONE 'Asia/Kolkata')::date");
+    expect(sql).toContain('d.worked_seconds <');
+    expect(sql).toContain('dr.id IS NULL');
+    // client, from, to, branchIds, threshold-seconds (540*60)
+    expect(params[0]).toBe('client-1');
+    expect(params).toContain(540 * 60);
+    expect(params).toContainEqual(['b1']);
+  });
+
+  it('short-circuits to empty when the branch scope is empty', async () => {
+    const { service, attRepo } = makeService();
+    const res = await service.listShortDayReviews('client-1', { branchIds: [] });
+    expect(res).toEqual([]);
+    expect(attRepo.manager.query).not.toHaveBeenCalled();
+  });
+
+  it('approves a short day: upserts APPROVED and audits', async () => {
+    const { service, attRepo, auditRepo } = makeService();
+    attRepo.manager.query
+      .mockResolvedValueOnce([{ workedSeconds: 6 * 3600, branchId: 'b1', punches: 4 }])
+      .mockResolvedValueOnce([]); // upsert
+    const res = await service.actOnDayReview(
+      'client-1',
+      'actor-1',
+      { employeeId: 'emp-1', workDate: '2026-08-20', action: 'APPROVE' },
+      null,
+    );
+    expect(res).toEqual({ ok: true, decision: 'APPROVED' });
+    const upsertCall = attRepo.manager.query.mock.calls[1];
+    expect(upsertCall[0]).toContain('INSERT INTO facedesk_day_reviews');
+    expect(upsertCall[0]).toContain('ON CONFLICT');
+    // worked_minutes recomputed = 360, decision APPROVED
+    expect(upsertCall[1]).toEqual(
+      expect.arrayContaining(['client-1', 'emp-1', 'b1', '2026-08-20', 360, 'APPROVED', 'actor-1']),
+    );
+    expect(auditRepo.save).toHaveBeenCalled();
+  });
+
+  it('rejects a branch user acting outside their branch', async () => {
+    const { service, attRepo } = makeService();
+    attRepo.manager.query.mockResolvedValueOnce([
+      { workedSeconds: 6 * 3600, branchId: 'b-other', punches: 2 },
+    ]);
+    await expect(
+      service.actOnDayReview(
+        'client-1',
+        'actor-1',
+        { employeeId: 'emp-1', workDate: '2026-08-20', action: 'APPROVE' },
+        ['b1'],
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('refuses to review a day that already meets full-day hours', async () => {
+    const { service, attRepo } = makeService();
+    attRepo.manager.query.mockResolvedValueOnce([
+      { workedSeconds: 9.5 * 3600, branchId: 'b1', punches: 2 },
+    ]);
+    await expect(
+      service.actOnDayReview(
+        'client-1',
+        'actor-1',
+        { employeeId: 'emp-1', workDate: '2026-08-20', action: 'APPROVE' },
+        null,
+      ),
+    ).rejects.toThrow(/full-day/);
+  });
+
+  it('404s when there are no punches for that employee/day', async () => {
+    const { service, attRepo } = makeService();
+    attRepo.manager.query.mockResolvedValueOnce([
+      { workedSeconds: 0, branchId: null, punches: 0 },
+    ]);
+    await expect(
+      service.actOnDayReview(
+        'client-1',
+        'actor-1',
+        { employeeId: 'emp-1', workDate: '2026-08-20', action: 'REJECT' },
+        null,
+      ),
+    ).rejects.toThrow();
+  });
+});
