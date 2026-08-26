@@ -503,22 +503,15 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
 
     private fun save() {
         if (!saving.compareAndSet(false, true)) return
-        // The server stores a single representative photo per profile. Carry the
-        // full-quality photo on only the best FRONT frame and drop it from the
-        // rest, so the higher-resolution photo doesn't multiply across every
-        // frame and push the request past the server body-size limit.
-        val allFrames = frames.toList()
-        val keepPhoto =
-            allFrames.filter { it.sampleType == "FRONT" && it.photoB64 != null }
-                .maxByOrNull { it.qualityScore ?: 0.0 }
-                ?: allFrames.filter { it.photoB64 != null }.maxByOrNull { it.qualityScore ?: 0.0 }
-        val trimmedFrames = allFrames.map { f ->
-            if (f === keepPhoto) f else f.copy(photoB64 = null)
-        }
+        // Keep every frame's photo: when face-svc is enabled the server builds
+        // the enrolled ArcFace template by re-embedding each frame's photo (see
+        // FaceDeskFaceService.resolveFrames). Trimming them to one would leave
+        // the profile enrolled from a single sample / the device fallback. The
+        // server picks one of these as the stored representative photo.
         val req = SaveEnrollmentRequest(
             employeeId = employeeId,
             subjectType = subjectType,
-            frames = trimmedFrames,
+            frames = frames.toList(),
             livenessPassed = blinked,
             consentGiven = true,
         )
