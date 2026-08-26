@@ -102,6 +102,7 @@ type Tab =
           <div class="card"><div class="num text-green-700">{{ cards.enrolledEmployees }}</div><div class="lbl">Enrolled</div></div>
           <div class="card"><div class="num text-amber-700">{{ cards.pendingEnrollment }}</div><div class="lbl">Pending Enrollment</div></div>
           <div class="card"><div class="num text-green-700">{{ cards.todayPresent }}</div><div class="lbl">Today Present</div></div>
+          <div class="card"><div class="num text-blue-700">{{ cards.todayPunches }}</div><div class="lbl">Punches Today</div></div>
           <div class="card"><div class="num text-red-600">{{ cards.todayAbsent }}</div><div class="lbl">Today Absent</div></div>
           <div class="card"><div class="num">{{ cards.failedAttemptsToday }}</div><div class="lbl">Failed Today</div></div>
           <div class="card"><div class="num text-amber-700">{{ cards.duplicateAlertsPending }}</div><div class="lbl">Duplicate Alerts</div></div>
@@ -252,7 +253,7 @@ type Tab =
               <td><span class="mono">{{ r.employeeCode || '—' }}</span><br><span class="text-xs text-gray-500">{{ r.subjectType || enrollSubjectType }}</span></td>
               <td>{{ r.employeeName || r.name }}<br><span class="text-xs text-gray-500">{{ r.department || '' }}{{ r.department && r.designation ? ' · ' : '' }}{{ r.designation || '' }}</span></td>
               <td>{{ branchName(r.branchId) }}</td>
-              <td><span class="pill">{{ r.enrollmentStatus }}</span><br><span class="text-xs text-gray-500">Quality: {{ r.qualityScore == null ? '—' : (+r.qualityScore).toFixed(3) }} · Liveness: {{ r.livenessStatus || '—' }} · Duplicate: {{ r.duplicateStatus || '—' }}</span></td>
+              <td><span class="pill">{{ r.enrollmentStatus }}</span><br><span class="text-xs text-gray-500">Quality: {{ r.qualityScore === null || r.qualityScore === undefined ? '—' : (+r.qualityScore).toFixed(3) }} · Liveness: {{ r.livenessStatus || '—' }} · Duplicate: {{ r.duplicateStatus || '—' }}</span></td>
               <td><span class="pill" [class.amber]="!r.pinConfigured">{{ r.pinConfigured ? 'Configured' : 'Not set' }}</span></td>
               <td>{{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}</td>
               @if (branchMode) {
