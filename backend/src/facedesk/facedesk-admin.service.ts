@@ -19,10 +19,14 @@ import {
   FaceDeskSampleEntity,
 } from './entities/facedesk.entities';
 import {
+  DayReviewActionDto,
   DuplicateActionDto,
   ManualCorrectionDto,
   ReviewActionDto,
 } from './facedesk.dto';
+
+/** Worked minutes that count as a full day; short days need branch approval. */
+const FULL_DAY_MINUTES = Number(process.env.FD_FULL_DAY_MINUTES ?? 540); // 9h
 
 @Injectable()
 export class FaceDeskAdminService {
@@ -447,6 +451,268 @@ export class FaceDeskAdminService {
       },
     );
     return { ok: true, status: newStatus };
+  }
+
+  // ── Short-day reviews ─────────────────────────────────────────────────────
+  /**
+   * Employee-days that worked fewer than the full-day hours and have no branch
+   * decision yet. Branch users see only their own branches. Worked time =
+   * sum of IN→OUT intervals over the IST business day.
+   */
+  listShortDayReviews(
+    clientId: string,
+    opts: { from?: string; to?: string; branchIds?: string[] | null } = {},
+  ) {
+    if (opts.branchIds?.length === 0) return Promise.resolve([]);
+    const from =
+      opts.from ?? new Date(Date.now() - 45 * 86_400_000).toISOString();
+    const to = opts.to ?? new Date().toISOString();
+    const params: unknown[] = [clientId, from, to];
+    let branchFilter = '';
+    if (opts.branchIds && opts.branchIds.length > 0) {
+      params.push(opts.branchIds);
+      branchFilter = `AND a.branch_id = ANY($${params.length}::uuid[])`;
+    }
+    params.push(FULL_DAY_MINUTES * 60);
+    const thr = params.length;
+    return this.attRepo.manager.query(
+      `WITH punches AS (
+         SELECT a.employee_id, a.branch_id, a.punch_time, a.punch_type,
+                (a.punch_time AT TIME ZONE 'Asia/Kolkata')::date AS biz_day,
+                LEAD(a.punch_time) OVER w AS next_time,
+                LEAD(a.punch_type) OVER w AS next_type
+           FROM facedesk_attendance_logs a
+          WHERE a.client_id = $1 AND a.punch_time >= $2 AND a.punch_time < $3
+            AND a.attendance_status IN ('MARKED','APPROVED') ${branchFilter}
+         WINDOW w AS (
+           PARTITION BY a.employee_id, (a.punch_time AT TIME ZONE 'Asia/Kolkata')::date
+           ORDER BY a.punch_time
+         )
+       ), days AS (
+         SELECT p.employee_id, p.branch_id, p.biz_day,
+                count(*)::int AS punches,
+                min(p.punch_time) AS first_in, max(p.punch_time) AS last_out,
+                COALESCE(SUM(CASE WHEN p.punch_type = 'IN' AND p.next_type = 'OUT'
+                      THEN EXTRACT(EPOCH FROM (p.next_time - p.punch_time)) END), 0)::int
+                  AS worked_seconds,
+                string_agg(
+                  to_char(p.punch_time AT TIME ZONE 'Asia/Kolkata', 'HH24:MI') || ' ' || p.punch_type,
+                  ', ' ORDER BY p.punch_time
+                ) AS punch_list
+           FROM punches p
+          GROUP BY p.employee_id, p.branch_id, p.biz_day
+       )
+       SELECT d.employee_id AS "employeeId", e.employee_code AS "employeeCode",
+              e.name AS "employeeName", d.branch_id AS "branchId",
+              b.branch_name AS "branchName", to_char(d.biz_day, 'YYYY-MM-DD') AS "day",
+              d.punches AS "punches", d.punch_list AS "punchList",
+              d.worked_seconds AS "workedSeconds",
+              d.first_in AS "firstIn", d.last_out AS "lastOut"
+         FROM days d
+         JOIN employees e ON e.id = d.employee_id
+         LEFT JOIN branches b ON b.id = d.branch_id
+         LEFT JOIN facedesk_day_reviews dr
+           ON dr.client_id = $1 AND dr.employee_id = d.employee_id AND dr.work_date = d.biz_day
+        WHERE d.worked_seconds < $${thr} AND dr.id IS NULL
+        ORDER BY d.biz_day DESC, e.employee_code ASC LIMIT 500`,
+      params,
+    );
+  }
+
+  /**
+   * Branch decision on a short day. APPROVE → counts as a full day, REJECT → 0.
+   * Upserts one row per (client, employee, work_date). Worked minutes are
+   * recomputed here from the punches so the stored figure can't be spoofed.
+   */
+  async actOnDayReview(
+    clientId: string,
+    actorId: string,
+    dto: DayReviewActionDto,
+    allowedBranchIds: string[] | null = null,
+  ) {
+    const [agg] = await this.attRepo.manager.query<
+      Array<{
+        workedSeconds: number;
+        branchId: string | null;
+        punches: number;
+        firstIn: Date | null;
+        lastOut: Date | null;
+        employeeCode: string | null;
+      }>
+    >(
+      `WITH punches AS (
+         SELECT a.punch_time, a.punch_type, a.branch_id,
+                LEAD(a.punch_time) OVER w AS next_time,
+                LEAD(a.punch_type) OVER w AS next_type
+           FROM facedesk_attendance_logs a
+          WHERE a.client_id = $1 AND a.employee_id = $2
+            AND (a.punch_time AT TIME ZONE 'Asia/Kolkata')::date = $3::date
+            AND a.attendance_status IN ('MARKED','APPROVED')
+         WINDOW w AS (ORDER BY a.punch_time)
+       )
+       SELECT COALESCE(SUM(CASE WHEN punch_type = 'IN' AND next_type = 'OUT'
+                    THEN EXTRACT(EPOCH FROM (next_time - punch_time)) END), 0)::int
+                AS "workedSeconds",
+              (array_agg(branch_id ORDER BY punch_time))[1] AS "branchId",
+              count(*)::int AS "punches",
+              min(punch_time) AS "firstIn", max(punch_time) AS "lastOut",
+              (SELECT employee_code FROM employees WHERE id = $2 AND client_id = $1)
+                AS "employeeCode"
+         FROM punches`,
+      [clientId, dto.employeeId, dto.workDate],
+    );
+    if (!agg || agg.punches === 0) {
+      throw new NotFoundException('No punches for that employee on that day');
+    }
+    const branchId = agg.branchId ?? null;
+    // Branch user may only act on days in their own branch.
+    if (
+      allowedBranchIds !== null &&
+      (branchId === null || !allowedBranchIds.includes(branchId))
+    ) {
+      throw new NotFoundException('No punches for that employee on that day');
+    }
+    if (Number(agg.workedSeconds) >= FULL_DAY_MINUTES * 60) {
+      throw new BadRequestException(
+        'That day already meets full-day hours — no review needed',
+      );
+    }
+    const decision =
+      dto.action === 'FULL_DAY'
+        ? 'APPROVED'
+        : dto.action === 'HALF_DAY'
+          ? 'HALF_DAY'
+          : 'REJECTED';
+    const workedMinutes = Math.round(Number(agg.workedSeconds) / 60);
+    await this.attRepo.manager.query(
+      `INSERT INTO facedesk_day_reviews
+         (client_id, employee_id, branch_id, work_date, worked_minutes,
+          decision, reviewed_by, reviewed_at, remarks)
+       VALUES ($1, $2, $3, $4::date, $5, $6, $7, now(), $8)
+       ON CONFLICT (client_id, employee_id, work_date)
+         DO UPDATE SET decision = EXCLUDED.decision,
+                       worked_minutes = EXCLUDED.worked_minutes,
+                       branch_id = EXCLUDED.branch_id,
+                       reviewed_by = EXCLUDED.reviewed_by,
+                       reviewed_at = now(),
+                       remarks = EXCLUDED.remarks`,
+      [
+        clientId,
+        dto.employeeId,
+        branchId,
+        dto.workDate,
+        workedMinutes,
+        decision,
+        actorId,
+        dto.remarks ?? null,
+      ],
+    );
+    // Push the decision into the payroll source of truth (attendance_records)
+    // so REJECT actually makes the day absent and FULL_DAY/HALF_DAY set the
+    // paid day unit — not just the FaceDesk report.
+    await this.applyDayDecisionToAttendance(clientId, actorId, dto, {
+      workedMinutes,
+      branchId,
+      firstIn: agg.firstIn,
+      lastOut: agg.lastOut,
+      employeeCode: agg.employeeCode,
+    });
+    await this.audit(
+      clientId,
+      actorId,
+      `DAY_REVIEW_${dto.action}`,
+      'DAY_REVIEW',
+      `${dto.employeeId}:${dto.workDate}`,
+      { workedMinutes, branchId },
+    );
+    return { ok: true, decision };
+  }
+
+  /**
+   * Write a short-day decision onto the shared attendance_records row (the
+   * payroll source): FULL_DAY → PRESENT/APPROVED, HALF_DAY → HALF_DAY/APPROVED,
+   * REJECT → ABSENT/REJECTED. source is set to MANUAL so a later biometric
+   * re-ingest preserves the branch decision instead of resetting it to PRESENT
+   * (see BiometricService rollup's manual-override guard). Upserts on
+   * (employee_id, date) so it works whether the punches were already rolled up
+   * or not.
+   */
+  private async applyDayDecisionToAttendance(
+    clientId: string,
+    actorId: string,
+    dto: DayReviewActionDto,
+    ctx: {
+      workedMinutes: number;
+      branchId: string | null;
+      firstIn: Date | null;
+      lastOut: Date | null;
+      employeeCode: string | null;
+    },
+  ): Promise<void> {
+    const status =
+      dto.action === 'FULL_DAY'
+        ? 'PRESENT'
+        : dto.action === 'HALF_DAY'
+          ? 'HALF_DAY'
+          : 'ABSENT';
+    const approvalStatus = dto.action === 'REJECT' ? 'REJECTED' : 'APPROVED';
+    const rejectionReason = dto.action === 'REJECT' ? (dto.remarks ?? null) : null;
+    const shortWorkReason = dto.action === 'REJECT' ? null : (dto.remarks ?? null);
+    const workedHours = (ctx.workedMinutes / 60).toFixed(2);
+
+    const updated: Array<{ id: string }> = await this.attRepo.manager.query(
+      `UPDATE attendance_records
+          SET status = $4, approval_status = $5, approved_by_user_id = $6,
+              approved_at = now(), rejection_reason = $7, short_work_reason = $8,
+              worked_hours = $9, source = 'MANUAL', updated_at = now(),
+              check_in = COALESCE(($10::timestamptz AT TIME ZONE 'Asia/Kolkata')::time, check_in),
+              check_out = COALESCE(($11::timestamptz AT TIME ZONE 'Asia/Kolkata')::time, check_out)
+        WHERE client_id = $1 AND employee_id = $2 AND date = $3::date
+      RETURNING id`,
+      [
+        clientId,
+        dto.employeeId,
+        dto.workDate,
+        status,
+        approvalStatus,
+        actorId,
+        rejectionReason,
+        shortWorkReason,
+        workedHours,
+        ctx.firstIn,
+        ctx.lastOut,
+      ],
+    );
+    if (updated.length > 0) return;
+
+    // No attendance row yet (punches never rolled up, e.g. offline) — create it.
+    await this.attRepo.manager.query(
+      `INSERT INTO attendance_records
+         (client_id, branch_id, employee_id, employee_code, date, status,
+          check_in, check_out, worked_hours, overtime_hours, source,
+          capture_method, approval_status, approved_by_user_id, approved_at,
+          rejection_reason, short_work_reason)
+       VALUES ($1, $2, $3, $4, $5::date, $6,
+               ($7::timestamptz AT TIME ZONE 'Asia/Kolkata')::time,
+               ($8::timestamptz AT TIME ZONE 'Asia/Kolkata')::time,
+               $9, 0, 'MANUAL', 'FACE', $10, $11, now(), $12, $13)
+       ON CONFLICT (employee_id, date) DO NOTHING`,
+      [
+        clientId,
+        ctx.branchId,
+        dto.employeeId,
+        ctx.employeeCode ?? '',
+        dto.workDate,
+        status,
+        ctx.firstIn,
+        ctx.lastOut,
+        workedHours,
+        approvalStatus,
+        actorId,
+        rejectionReason,
+        shortWorkReason,
+      ],
+    );
   }
 
   /**

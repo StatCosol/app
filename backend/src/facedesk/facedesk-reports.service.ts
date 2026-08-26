@@ -6,6 +6,8 @@ import { FaceDeskSettingsService } from './facedesk-settings.service';
 
 const DEFAULT_SHIFT_START = process.env.FD_SHIFT_START ?? '09:30';
 const DEFAULT_SHIFT_END = process.env.FD_SHIFT_END ?? '18:00';
+/** Minutes of worked time that count as one full day. Short days go to review. */
+const FULL_DAY_MINUTES = Number(process.env.FD_FULL_DAY_MINUTES ?? 540); // 9h
 
 export interface ReportRange {
   from?: string;
@@ -84,6 +86,115 @@ export class FaceDeskReportsService {
         ORDER BY "day" DESC, e.employee_code ASC LIMIT 5000`,
       params,
     );
+  }
+
+  /**
+   * Per employee-per-day worked hours from ALL punches. Punches strictly
+   * alternate IN/OUT within an IST business day (see PunchDirectionService), so
+   * worked time = sum of each IN→next-OUT interval. A day with ≥ FULL_DAY_MINUTES
+   * counts as a full day automatically; a shorter day is held as PENDING_REVIEW
+   * until a branch user approves (→ full day) or rejects (→ 0), recorded in
+   * facedesk_day_reviews.
+   */
+  async workedHoursSummary(clientId: string, opts: ReportRange) {
+    const { from, to } = this.range(opts);
+    const params: unknown[] = [clientId, from, to];
+    const branch = this.branchClause(params, opts.branchIds, 'a.branch_id');
+    const rows = await this.dataSource.query<
+      Array<{
+        employeeCode: string;
+        employeeName: string;
+        branchName: string | null;
+        day: string;
+        punches: number;
+        firstIn: Date;
+        lastOut: Date;
+        workedSeconds: number;
+        punchList: string;
+        reviewDecision: 'APPROVED' | 'HALF_DAY' | 'REJECTED' | null;
+      }>
+    >(
+      `WITH punches AS (
+         SELECT a.employee_id, a.branch_id, a.punch_time, a.punch_type,
+                (a.punch_time AT TIME ZONE 'Asia/Kolkata')::date AS biz_day,
+                LEAD(a.punch_time) OVER w AS next_time,
+                LEAD(a.punch_type) OVER w AS next_type
+           FROM facedesk_attendance_logs a
+          WHERE a.client_id = $1 AND a.punch_time >= $2 AND a.punch_time < $3
+            AND a.attendance_status IN ('MARKED','APPROVED') ${branch}
+         WINDOW w AS (
+           PARTITION BY a.employee_id, (a.punch_time AT TIME ZONE 'Asia/Kolkata')::date
+           ORDER BY a.punch_time
+         )
+       )
+       SELECT e.employee_code AS "employeeCode", e.name AS "employeeName",
+              b.branch_name AS "branchName", p.biz_day AS "day",
+              count(*)::int AS "punches",
+              min(p.punch_time) AS "firstIn", max(p.punch_time) AS "lastOut",
+              COALESCE(SUM(CASE WHEN p.punch_type = 'IN' AND p.next_type = 'OUT'
+                    THEN EXTRACT(EPOCH FROM (p.next_time - p.punch_time)) END), 0)::int
+                AS "workedSeconds",
+              string_agg(
+                to_char(p.punch_time AT TIME ZONE 'Asia/Kolkata', 'HH24:MI') || ' ' || p.punch_type,
+                ', ' ORDER BY p.punch_time
+              ) AS "punchList",
+              dr.decision AS "reviewDecision"
+         FROM punches p
+         JOIN employees e ON e.id = p.employee_id
+         LEFT JOIN branches b ON b.id = p.branch_id
+         LEFT JOIN facedesk_day_reviews dr
+           ON dr.client_id = $1 AND dr.employee_id = p.employee_id AND dr.work_date = p.biz_day
+        GROUP BY e.employee_code, e.name, b.branch_name, p.biz_day, dr.decision
+        ORDER BY p.biz_day DESC, e.employee_code ASC LIMIT 5000`,
+      params,
+    );
+    return rows.map((r) => this.decorateWorkedDay(r));
+  }
+
+  /** Worked-hours → status/day-unit, and a readable H:MM string. */
+  private decorateWorkedDay(r: {
+    employeeCode: string;
+    employeeName: string;
+    branchName: string | null;
+    day: string;
+    punches: number;
+    punchList: string;
+    workedSeconds: number;
+    reviewDecision: 'APPROVED' | 'HALF_DAY' | 'REJECTED' | null;
+  }) {
+    const workedSeconds = Number(r.workedSeconds) || 0;
+    const fullByHours = workedSeconds >= FULL_DAY_MINUTES * 60;
+    let status: 'FULL' | 'APPROVED' | 'HALF_DAY' | 'REJECTED' | 'PENDING_REVIEW';
+    let dayUnit: number;
+    if (fullByHours) {
+      status = 'FULL';
+      dayUnit = 1;
+    } else if (r.reviewDecision === 'APPROVED') {
+      status = 'APPROVED';
+      dayUnit = 1;
+    } else if (r.reviewDecision === 'HALF_DAY') {
+      status = 'HALF_DAY';
+      dayUnit = 0.5;
+    } else if (r.reviewDecision === 'REJECTED') {
+      status = 'REJECTED';
+      dayUnit = 0;
+    } else {
+      status = 'PENDING_REVIEW';
+      dayUnit = 0;
+    }
+    const h = Math.floor(workedSeconds / 3600);
+    const m = Math.round((workedSeconds % 3600) / 60);
+    return {
+      day: typeof r.day === 'string' ? r.day : new Date(r.day).toISOString().slice(0, 10),
+      employeeCode: r.employeeCode,
+      employeeName: r.employeeName,
+      branch: r.branchName ?? '',
+      punches: r.punches,
+      punchList: r.punchList,
+      workedHours: `${h}:${String(m).padStart(2, '0')}`,
+      dayUnit,
+      status,
+    };
   }
 
   async branchSummary(clientId: string, opts: ReportRange) {

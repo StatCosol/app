@@ -625,3 +625,45 @@ export class FaceDeskAuditEntity {
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }
+
+/**
+ * Branch decision on a short (< full-day) worked day. One row per
+ * (client, employee, work_date), created only when a branch user acts.
+ * APPROVED → full day (1.0), HALF_DAY → 0.5, REJECTED → 0.
+ */
+@Entity({ name: 'facedesk_day_reviews' })
+@Index(['clientId', 'workDate'])
+export class FaceDeskDayReviewEntity {
+  @PrimaryGeneratedColumn('uuid', { name: 'id' })
+  id: string;
+
+  @Column({ name: 'client_id', type: 'uuid' })
+  clientId: string;
+
+  @Column({ name: 'employee_id', type: 'uuid' })
+  employeeId: string;
+
+  @Column({ name: 'branch_id', type: 'uuid', nullable: true })
+  branchId: string | null;
+
+  @Column({ name: 'work_date', type: 'date' })
+  workDate: string;
+
+  @Column({ name: 'worked_minutes', type: 'int', default: 0 })
+  workedMinutes: number;
+
+  @Column({ name: 'decision', type: 'varchar', length: 20 })
+  decision: 'APPROVED' | 'HALF_DAY' | 'REJECTED';
+
+  @Column({ name: 'reviewed_by', type: 'uuid', nullable: true })
+  reviewedBy: string | null;
+
+  @Column({ name: 'reviewed_at', type: 'timestamptz', nullable: true })
+  reviewedAt: Date | null;
+
+  @Column({ name: 'remarks', type: 'text', nullable: true })
+  remarks: string | null;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  createdAt: Date;
+}

@@ -61,6 +61,20 @@ export class FaceDeskReportsController {
     );
   }
 
+  @ApiOperation({ summary: 'Worked-hours report (all punches + day units)' })
+  @Get('reports/worked-hours')
+  @Roles('CLIENT', 'ADMIN')
+  reportWorkedHours(
+    @CurrentUser() user: ReqUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reports.workedHoursSummary(
+      requireFaceDeskClient(user),
+      facedeskReportRange(user, from, to),
+    );
+  }
+
   @ApiOperation({ summary: 'Branch-wise attendance report' })
   @Get('reports/branch')
   @Roles('CLIENT', 'ADMIN')

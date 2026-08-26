@@ -15,6 +15,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
 import { FaceDeskAdminService } from './facedesk-admin.service';
 import {
+  DayReviewActionDto,
   DuplicateActionDto,
   ManualCorrectionDto,
   ReviewActionDto,
@@ -96,6 +97,36 @@ export class FaceDeskAdminController {
       }));
     }
     return rows;
+  }
+
+  @ApiOperation({ summary: 'Short (<full-day) worked days pending branch review' })
+  @Get('admin/day-reviews')
+  @Roles('CLIENT', 'ADMIN')
+  dayReviews(
+    @CurrentUser() user: ReqUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.admin.listShortDayReviews(requireFaceDeskClient(user), {
+      from,
+      to,
+      branchIds: facedeskBranchScope(user),
+    });
+  }
+
+  @ApiOperation({ summary: 'Approve/reject a short worked day' })
+  @Post('admin/day-reviews/action')
+  @Roles('CLIENT', 'ADMIN')
+  dayReviewAction(
+    @CurrentUser() user: ReqUser,
+    @Body() dto: DayReviewActionDto,
+  ) {
+    return this.admin.actOnDayReview(
+      requireFaceDeskClient(user),
+      user.id,
+      dto,
+      facedeskBranchScope(user),
+    );
   }
 
   @ApiOperation({ summary: 'Act on a review item' })
