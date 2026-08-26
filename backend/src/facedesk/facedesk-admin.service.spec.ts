@@ -77,7 +77,31 @@ describe('FaceDeskAdminService contractor review flow', () => {
     expect(sql).toContain(
       `np.subject_type = 'CONTRACTOR' AND nc.id = da.new_employee_id`,
     );
+    // Photo availability comes from the samples table (profiles has no photo
+    // column) — must not reference a non-existent np.photo_url / mp.photo_url.
+    expect(sql).toContain('facedesk_employee_face_samples s');
+    expect(sql).toContain('s.image_path IS NOT NULL');
+    expect(sql).not.toContain('photo_url');
     expect(params).toEqual(['client-1', 'PENDING']);
+  });
+
+  it('scopes duplicate alerts to a branch verifier’s branches', async () => {
+    const { service, dupeRepo } = makeService();
+
+    await service.listDuplicateAlerts('client-1', 'PENDING', ['branch-1']);
+
+    const [sql, params] = dupeRepo.manager.query.mock.calls[0];
+    expect(sql).toContain('= ANY($3::uuid[])');
+    expect(params).toEqual(['client-1', 'PENDING', ['branch-1']]);
+  });
+
+  it('returns nothing when the branch scope is empty', async () => {
+    const { service, dupeRepo } = makeService();
+
+    const res = await service.listDuplicateAlerts('client-1', 'PENDING', []);
+
+    expect(res).toEqual([]);
+    expect(dupeRepo.manager.query).not.toHaveBeenCalled();
   });
 
   it('lists contractor mismatches through the FaceDesk review query', async () => {

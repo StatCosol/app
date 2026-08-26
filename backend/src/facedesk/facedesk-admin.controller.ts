@@ -41,12 +41,16 @@ export class FaceDeskAdminController {
     @CurrentUser() user: ReqUser,
     @Query('status') status?: string,
   ) {
-    // Guard throws synchronously for non-admins — keep it out of the async
-    // chain so that contract is preserved.
-    const clientId = requireFaceDeskClientAdmin(user);
+    // Both a company admin and a branch verifier may list duplicate alerts.
+    // Branch verifiers are scoped to their own branches (and are the only role
+    // allowed to see the biometric faces); a company admin sees every alert but
+    // no photos. requireFaceDeskClient throws synchronously for a bad context,
+    // so keep it out of the async chain.
+    const clientId = requireFaceDeskClient(user);
+    const branchScope = facedeskBranchScope(user);
     const photosAllowed = facedeskVerificationPhotosAllowed(user);
     return this.admin
-      .listDuplicateAlerts(clientId, status)
+      .listDuplicateAlerts(clientId, status, branchScope)
       .then((rows: Array<Record<string, unknown>>) =>
         // Biometric faces are viewable only by branch verifiers — strip the
         // photo availability flags for everyone else so the UI doesn't offer a
