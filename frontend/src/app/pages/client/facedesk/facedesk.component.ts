@@ -63,14 +63,12 @@ type Tab =
           <button class="tab-btn" [class.active]="tab === 'devices'" (click)="switch('devices')">Devices</button>
         }
         <button class="tab-btn" [class.active]="tab === 'pending'" (click)="switch('pending')">Enrollment</button>
-        @if (!branchMode) {
-          <button class="tab-btn" [class.active]="tab === 'duplicates'" (click)="switch('duplicates')">
-            Duplicate Alerts
-            @if (cards && cards.duplicateAlertsPending > 0) {
+        <button class="tab-btn" [class.active]="tab === 'duplicates'" (click)="switch('duplicates')">
+          Duplicate Alerts
+          @if (cards && cards.duplicateAlertsPending > 0) {
 <span class="badge">{{ cards.duplicateAlertsPending }}</span>
 }
-          </button>
-        }
+        </button>
         <button class="tab-btn" [class.active]="tab === 'review'" (click)="switch('review')">
           {{ branchMode ? 'Verifications' : 'Review Queue' }}
           @if (branchMode && review.length > 0) {
@@ -313,14 +311,18 @@ type Tab =
           <tbody>
             @for (a of duplicates; track a) {
 <tr>
-              <td>{{ a.newEmployeeName || a.newEmployeeId }}<br><span class="mono text-xs text-gray-500">{{ a.newEmployeeCode || '' }}{{ a.newSubjectType ? ' · ' + a.newSubjectType : '' }} · {{ branchName(a.newBranchId) }}</span></td>
-              <td>{{ a.matchedEmployeeName || a.matchedEmployeeId }}<br><span class="mono text-xs text-gray-500">{{ a.matchedEmployeeCode || '' }}{{ a.matchedSubjectType ? ' · ' + a.matchedSubjectType : '' }} · {{ branchName(a.matchedBranchId) }}</span></td>
+              <td>{{ a.newEmployeeName || a.newEmployeeId }}<br><span class="mono text-xs text-gray-500">{{ a.newEmployeeCode || '' }}{{ a.newSubjectType ? ' · ' + a.newSubjectType : '' }} · {{ branchName(a.newBranchId) }}</span>@if (a.hasNewPhoto) {<br><button type="button" class="link" (click)="viewDupeFace(a.newEmployeeId, a.newSubjectType, a.newEmployeeCode)">View face</button>}</td>
+              <td>{{ a.matchedEmployeeName || a.matchedEmployeeId }}<br><span class="mono text-xs text-gray-500">{{ a.matchedEmployeeCode || '' }}{{ a.matchedSubjectType ? ' · ' + a.matchedSubjectType : '' }} · {{ branchName(a.matchedBranchId) }}</span>@if (a.hasMatchedPhoto) {<br><button type="button" class="link" (click)="viewDupeFace(a.matchedEmployeeId, a.matchedSubjectType, a.matchedEmployeeCode)">View face</button>}</td>
               <td>{{ (+a.similarityScore).toFixed(3) }}</td>
               <td>{{ a.createdAt | date: 'dd MMM, HH:mm' }}</td>
               <td class="right nowrap">
-                <button class="link green" (click)="dupeAction(a, 'APPROVE')">Approve</button>
-                <button class="link red" (click)="dupeAction(a, 'REJECT')">Reject</button>
-                <button class="link gray" (click)="dupeAction(a, 'FALSE_ALERT')">False</button>
+                @if (!branchMode) {
+                  <button class="link green" (click)="dupeAction(a, 'APPROVE')">Approve</button>
+                  <button class="link red" (click)="dupeAction(a, 'REJECT')">Reject</button>
+                  <button class="link gray" (click)="dupeAction(a, 'FALSE_ALERT')">False</button>
+                } @else {
+                  <span class="text-xs text-gray-500">View only</span>
+                }
               </td>
             </tr>
 }
@@ -738,6 +740,24 @@ export class FaceDeskComponent implements OnInit {
       )
       .subscribe({
         error: () => this.toast.error('Unable to open enrolled photo'),
+      });
+  }
+
+  /** Branch-only: view the enrolled face behind a duplicate alert so the admin
+   *  can see which employee/face the new capture matched. */
+  viewDupeFace(
+    employeeId: string,
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR' | null | undefined,
+    code: string | null | undefined,
+  ): void {
+    if (!employeeId) return;
+    this.protectedFiles
+      .open(
+        this.svc.enrolledPhotoUrl(employeeId, subjectType ?? this.enrollSubjectType),
+        `face-${code || employeeId}`,
+      )
+      .subscribe({
+        error: () => this.toast.error('Unable to open face photo'),
       });
   }
 
