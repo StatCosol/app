@@ -1,4 +1,3 @@
-import { ForbiddenException } from '@nestjs/common';
 import { FaceDeskEnrollmentController } from './facedesk-enrollment.controller';
 import { FaceDeskAdminController } from './facedesk-admin.controller';
 import { FaceDeskDevicesAdminController } from './facedesk-devices-admin.controller';
@@ -58,13 +57,50 @@ describe('FaceDesk portal controllers branch access', () => {
     );
   });
 
-  it('rejects branch users from client-wide duplicate alerts', () => {
+  it('lets branch users list duplicate alerts scoped to their branch', async () => {
     const { controller, admin } = makeAdminController();
+    admin.listDuplicateAlerts.mockResolvedValue([
+      { alertId: 'a1', hasNewPhoto: true, hasMatchedPhoto: true },
+    ]);
 
-    expect(() => controller.duplicateAlerts(branchUser)).toThrow(
-      ForbiddenException,
+    // Branch verifiers are the role allowed to see biometric faces, so they
+    // must be able to list alerts (scoped) rather than being rejected.
+    const rows = await controller.duplicateAlerts(branchUser, 'PENDING');
+
+    expect(admin.listDuplicateAlerts).toHaveBeenCalledWith(
+      'client-1',
+      'PENDING',
+      ['branch-1'],
     );
-    expect(admin.listDuplicateAlerts).not.toHaveBeenCalled();
+    // Photo flags are preserved for a branch verifier.
+    expect(rows[0]).toMatchObject({ hasNewPhoto: true, hasMatchedPhoto: true });
+  });
+
+  it('lets a company admin list all alerts but strips photo flags', async () => {
+    const { controller, admin } = makeAdminController();
+    admin.listDuplicateAlerts.mockResolvedValue([
+      { alertId: 'a1', hasNewPhoto: true, hasMatchedPhoto: true },
+    ]);
+    const adminUser = {
+      id: 'u2',
+      clientId: 'client-1',
+      roleCode: 'CLIENT',
+      userType: 'HQ',
+    } as any;
+
+    const rows = await controller.duplicateAlerts(adminUser, 'PENDING');
+
+    // scope is null → no branch filter
+    expect(admin.listDuplicateAlerts).toHaveBeenCalledWith(
+      'client-1',
+      'PENDING',
+      null,
+    );
+    // A company admin cannot see biometric faces (DPDP).
+    expect(rows[0]).toMatchObject({
+      hasNewPhoto: false,
+      hasMatchedPhoto: false,
+    });
   });
 
   it('lets branch users verify their own branch review items (scoped)', () => {

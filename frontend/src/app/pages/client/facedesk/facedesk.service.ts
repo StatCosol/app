@@ -47,6 +47,8 @@ export interface DuplicateAlert {
   similarityScore: string;
   status: string;
   createdAt: string;
+  hasNewPhoto?: boolean;
+  hasMatchedPhoto?: boolean;
 }
 
 export interface DayReview {

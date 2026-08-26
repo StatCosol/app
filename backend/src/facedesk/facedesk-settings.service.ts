@@ -83,7 +83,10 @@ export class FaceDeskSettingsService {
     const row = await this.repo.findOne({ where: { clientId } });
     const matchPct = Number(row?.faceMatchConfidence ?? 95);
     const retryPct = Number(row?.faceRetryConfidence ?? 90);
-    const dupPct = Number(row?.duplicateThreshold ?? 93);
+    // Default lowered 93 → 90 so borderline same-person captures (different
+    // lighting/angle) are flagged for review rather than silently enrolled.
+    // Still per-client overridable via facedesk settings.
+    const dupPct = Number(row?.duplicateThreshold ?? 90);
     return {
       matchConfidencePct: matchPct,
       retryConfidencePct: retryPct,
