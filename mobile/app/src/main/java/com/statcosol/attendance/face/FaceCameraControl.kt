@@ -2,6 +2,8 @@ package com.statcosol.attendance.face
 
 import android.util.Log
 import androidx.camera.core.Camera
+import androidx.camera.core.FocusMeteringAction
+import androidx.camera.core.MeteringPoint
 import kotlin.math.roundToInt
 
 /**
@@ -36,6 +38,31 @@ object FaceCameraControl {
             camera.cameraControl.setExposureCompensationIndex(index)
         } catch (e: Exception) {
             Log.w(TAG, "exposure boost failed: ${e.message}")
+        }
+    }
+
+    /**
+     * Lock continuous auto-focus + auto-exposure metering onto the face oval so
+     * captures are sharp and the face (not the background) drives exposure.
+     * Auto-cancel is disabled so the metering stays on the face region for the
+     * whole session instead of resetting to the default after a few seconds.
+     *
+     * On a fixed-focus front sensor the AF flag is a no-op; the AE metering
+     * still improves the crop. Fully guarded — any unsupported control is
+     * ignored rather than crashing the camera start.
+     *
+     * @param point a metering point from previewView.meteringPointFactory,
+     *   created at the face-oval centre (see OVERLAY_FACE_CENTER_Y_FRACTION).
+     */
+    fun focusOnFace(camera: Camera, point: MeteringPoint) {
+        try {
+            val action = FocusMeteringAction.Builder(
+                point,
+                FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE,
+            ).disableAutoCancel().build()
+            camera.cameraControl.startFocusAndMetering(action)
+        } catch (e: Exception) {
+            Log.w(TAG, "focus/AE metering failed: ${e.message}")
         }
     }
 }
