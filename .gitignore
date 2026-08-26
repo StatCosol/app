@@ -46,6 +46,21 @@ _write_test.txt
 *.pem
 .seed-admin-password
 
+# Kiosk device config pulled off a device via adb — holds the device token and
+# admin PIN in plaintext. Local-only, never commit.
+device_config.xml
+
+# Local kiosk test artifacts (adb screenshots, probe scripts, gradle workspaces)
+kiosk-*.png
+.android-workspace/
+.gradle-workspace/
+.gradle-kiosk-*/
+backend/scripts/_probe-kiosk.mjs
+
+# Local git worktrees and test attachments
+.worktrees/
+frontend/.vitest-attachments/
+
 # Azure Container App definitions — may contain plaintext secrets when exported
 # via `az containerapp show`. Commit only the sanitized template; treat the live
 # YAML as a local-only file.
