@@ -107,3 +107,83 @@ describe('FaceDeskReportsService.failedAttempts', () => {
     expect(dataSource.query.mock.calls[0][0]).toContain('AND FALSE');
   });
 });
+
+describe('FaceDeskReportsService.workedHoursSummary', () => {
+  const makeService = (rows: any[]) => {
+    const dataSource = { query: jest.fn().mockResolvedValue(rows) };
+    const service = new FaceDeskReportsService(
+      dataSource as any,
+      {} as any,
+      { getEffective: jest.fn() } as any,
+    );
+    return { service, dataSource };
+  };
+
+  it('pairs IN->OUT hours into full/short day units and a H:MM string', async () => {
+    const { service } = makeService([
+      // 9.5h worked, no decision -> FULL, day 1
+      {
+        employeeCode: 'E1',
+        employeeName: 'Full Day',
+        branchName: 'HQ',
+        day: '2026-08-20',
+        punches: 2,
+        punchList: '09:00 IN, 18:30 OUT',
+        workedSeconds: 9.5 * 3600,
+        reviewDecision: null,
+      },
+      // 8h, no decision -> PENDING_REVIEW, day 0
+      {
+        employeeCode: 'E2',
+        employeeName: 'Short Pending',
+        branchName: 'HQ',
+        day: '2026-08-20',
+        punches: 4,
+        punchList: '09:30 IN, 13:00 OUT, 14:00 IN, 18:30 OUT',
+        workedSeconds: 8 * 3600,
+        reviewDecision: null,
+      },
+      // 6h but branch APPROVED -> counts as full day 1
+      {
+        employeeCode: 'E3',
+        employeeName: 'Short Approved',
+        branchName: null,
+        day: '2026-08-20',
+        punches: 2,
+        punchList: '10:00 IN, 16:00 OUT',
+        workedSeconds: 6 * 3600,
+        reviewDecision: 'APPROVED',
+      },
+      // 5h but REJECTED -> day 0
+      {
+        employeeCode: 'E4',
+        employeeName: 'Short Rejected',
+        branchName: null,
+        day: '2026-08-20',
+        punches: 2,
+        punchList: '10:00 IN, 15:00 OUT',
+        workedSeconds: 5 * 3600,
+        reviewDecision: 'REJECTED',
+      },
+      // 4h but branch marked HALF_DAY -> 0.5
+      {
+        employeeCode: 'E5',
+        employeeName: 'Short Half',
+        branchName: null,
+        day: '2026-08-20',
+        punches: 2,
+        punchList: '10:00 IN, 14:00 OUT',
+        workedSeconds: 4 * 3600,
+        reviewDecision: 'HALF_DAY',
+      },
+    ]);
+
+    const out = (await service.workedHoursSummary('c1', {})) as any[];
+
+    expect(out[0]).toMatchObject({ status: 'FULL', dayUnit: 1, workedHours: '9:30', punchList: '09:00 IN, 18:30 OUT' });
+    expect(out[1]).toMatchObject({ status: 'PENDING_REVIEW', dayUnit: 0, workedHours: '8:00' });
+    expect(out[2]).toMatchObject({ status: 'APPROVED', dayUnit: 1, workedHours: '6:00', branch: '' });
+    expect(out[3]).toMatchObject({ status: 'REJECTED', dayUnit: 0, workedHours: '5:00' });
+    expect(out[4]).toMatchObject({ status: 'HALF_DAY', dayUnit: 0.5, workedHours: '4:00' });
+  });
+});

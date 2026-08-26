@@ -177,6 +177,23 @@ export class DuplicateActionDto {
   remarks?: string;
 }
 
+export class DayReviewActionDto {
+  @IsString()
+  employeeId: string;
+
+  /** IST business day, YYYY-MM-DD. */
+  @IsString()
+  workDate: string;
+
+  /** FULL_DAY → 1.0, HALF_DAY → 0.5, REJECT → 0 (absent). */
+  @IsIn(['FULL_DAY', 'HALF_DAY', 'REJECT'])
+  action: 'FULL_DAY' | 'HALF_DAY' | 'REJECT';
+
+  @IsOptional()
+  @IsString()
+  remarks?: string;
+}
+
 export class ManualCorrectionDto {
   @IsString()
   employeeId: string;

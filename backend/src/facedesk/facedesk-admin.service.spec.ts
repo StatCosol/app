@@ -360,3 +360,148 @@ describe('FaceDeskAdminService.getReviewEnrollmentPhoto', () => {
     ).resolves.toBeNull();
   });
 });
+
+describe('FaceDeskAdminService short-day reviews', () => {
+  it('lists short days with the full-day threshold and branch scope', async () => {
+    const { service, attRepo } = makeService();
+    await service.listShortDayReviews('client-1', { branchIds: ['b1'] });
+    const [sql, params] = attRepo.manager.query.mock.calls[0];
+    expect(sql).toContain("(a.punch_time AT TIME ZONE 'Asia/Kolkata')::date");
+    expect(sql).toContain('d.worked_seconds <');
+    expect(sql).toContain('dr.id IS NULL');
+    // client, from, to, branchIds, threshold-seconds (540*60)
+    expect(params[0]).toBe('client-1');
+    expect(params).toContain(540 * 60);
+    expect(params).toContainEqual(['b1']);
+  });
+
+  it('short-circuits to empty when the branch scope is empty', async () => {
+    const { service, attRepo } = makeService();
+    const res = await service.listShortDayReviews('client-1', { branchIds: [] });
+    expect(res).toEqual([]);
+    expect(attRepo.manager.query).not.toHaveBeenCalled();
+  });
+
+  const aggRow = (workedSeconds: number, branchId: string | null) => ({
+    workedSeconds,
+    branchId,
+    punches: 4,
+    firstIn: new Date('2026-08-20T04:00:00Z'),
+    lastOut: new Date('2026-08-20T10:00:00Z'),
+    employeeCode: 'E-1',
+  });
+
+  it('approves a short day: upserts APPROVED, marks attendance PRESENT, audits', async () => {
+    const { service, attRepo, auditRepo } = makeService();
+    attRepo.manager.query
+      .mockResolvedValueOnce([aggRow(6 * 3600, 'b1')]) // agg
+      .mockResolvedValueOnce([]) // day_reviews upsert
+      .mockResolvedValueOnce([{ id: 'att-1' }]); // attendance UPDATE hits a row
+    const res = await service.actOnDayReview(
+      'client-1',
+      'actor-1',
+      { employeeId: 'emp-1', workDate: '2026-08-20', action: 'FULL_DAY' },
+      null,
+    );
+    expect(res).toEqual({ ok: true, decision: 'APPROVED' });
+    const upsertCall = attRepo.manager.query.mock.calls[1];
+    expect(upsertCall[0]).toContain('INSERT INTO facedesk_day_reviews');
+    expect(upsertCall[1]).toEqual(
+      expect.arrayContaining(['client-1', 'emp-1', 'b1', '2026-08-20', 360, 'APPROVED', 'actor-1']),
+    );
+    // Attendance is updated to a full present day, approved, locked as MANUAL.
+    const attCall = attRepo.manager.query.mock.calls[2];
+    expect(attCall[0]).toContain('UPDATE attendance_records');
+    expect(attCall[0]).toContain("source = 'MANUAL'");
+    expect(attCall[1]).toEqual(
+      expect.arrayContaining(['client-1', 'emp-1', '2026-08-20', 'PRESENT', 'APPROVED', 'actor-1']),
+    );
+    expect(auditRepo.save).toHaveBeenCalled();
+  });
+
+  it('records a half day: attendance HALF_DAY / APPROVED', async () => {
+    const { service, attRepo } = makeService();
+    attRepo.manager.query
+      .mockResolvedValueOnce([aggRow(5 * 3600, 'b1')])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'att-1' }]);
+    const res = await service.actOnDayReview(
+      'client-1',
+      'actor-1',
+      { employeeId: 'emp-1', workDate: '2026-08-20', action: 'HALF_DAY' },
+      null,
+    );
+    expect(res).toEqual({ ok: true, decision: 'HALF_DAY' });
+    const attCall = attRepo.manager.query.mock.calls[2];
+    expect(attCall[1]).toEqual(
+      expect.arrayContaining(['2026-08-20', 'HALF_DAY', 'APPROVED']),
+    );
+  });
+
+  it('rejects a short day: attendance ABSENT / REJECTED, inserts if no row', async () => {
+    const { service, attRepo } = makeService();
+    attRepo.manager.query
+      .mockResolvedValueOnce([aggRow(4 * 3600, 'b1')])
+      .mockResolvedValueOnce([]) // day_reviews upsert
+      .mockResolvedValueOnce([]) // attendance UPDATE hits nothing
+      .mockResolvedValueOnce([]); // attendance INSERT fallback
+    const res = await service.actOnDayReview(
+      'client-1',
+      'actor-1',
+      { employeeId: 'emp-1', workDate: '2026-08-20', action: 'REJECT', remarks: 'too short' },
+      null,
+    );
+    expect(res).toEqual({ ok: true, decision: 'REJECTED' });
+    const updCall = attRepo.manager.query.mock.calls[2];
+    expect(updCall[0]).toContain('UPDATE attendance_records');
+    expect(updCall[1]).toEqual(expect.arrayContaining(['ABSENT', 'REJECTED', 'too short']));
+    const insCall = attRepo.manager.query.mock.calls[3];
+    expect(insCall[0]).toContain('INSERT INTO attendance_records');
+    expect(insCall[1]).toEqual(expect.arrayContaining(['ABSENT', 'REJECTED']));
+  });
+
+  it('rejects a branch user acting outside their branch', async () => {
+    const { service, attRepo } = makeService();
+    attRepo.manager.query.mockResolvedValueOnce([
+      { workedSeconds: 6 * 3600, branchId: 'b-other', punches: 2 },
+    ]);
+    await expect(
+      service.actOnDayReview(
+        'client-1',
+        'actor-1',
+        { employeeId: 'emp-1', workDate: '2026-08-20', action: 'FULL_DAY' },
+        ['b1'],
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('refuses to review a day that already meets full-day hours', async () => {
+    const { service, attRepo } = makeService();
+    attRepo.manager.query.mockResolvedValueOnce([
+      { workedSeconds: 9.5 * 3600, branchId: 'b1', punches: 2 },
+    ]);
+    await expect(
+      service.actOnDayReview(
+        'client-1',
+        'actor-1',
+        { employeeId: 'emp-1', workDate: '2026-08-20', action: 'FULL_DAY' },
+        null,
+      ),
+    ).rejects.toThrow(/full-day/);
+  });
+
+  it('404s when there are no punches for that employee/day', async () => {
+    const { service, attRepo } = makeService();
+    attRepo.manager.query.mockResolvedValueOnce([
+      { workedSeconds: 0, branchId: null, punches: 0 },
+    ]);
+    await expect(
+      service.actOnDayReview(
+        'client-1',
+        'actor-1',
+        { employeeId: 'emp-1', workDate: '2026-08-20', action: 'REJECT' },
+        null,
+      ),
+    ).rejects.toThrow();
+  });
+});
