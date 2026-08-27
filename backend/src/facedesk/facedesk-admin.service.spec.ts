@@ -82,6 +82,10 @@ describe('FaceDeskAdminService contractor review flow', () => {
     expect(sql).toContain('facedesk_employee_face_samples s');
     expect(sql).toContain('s.image_path IS NOT NULL');
     expect(sql).not.toContain('photo_url');
+    // Photo flags must require ENROLLED so the "View face" link matches what the
+    // enrolled-photo endpoint can serve (blocked/new duplicates would 404).
+    expect(sql).toContain("np.enrollment_status = 'ENROLLED'");
+    expect(sql).toContain("mp.enrollment_status = 'ENROLLED'");
     expect(params).toEqual(['client-1', 'PENDING']);
   });
 
