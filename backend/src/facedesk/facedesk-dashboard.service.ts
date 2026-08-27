@@ -20,17 +20,23 @@ function businessDayBoundsUtc(d: Date): { start: Date; end: Date } {
 export class FaceDeskDashboardService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
+  private branchClause(
+    params: unknown[],
+    branchIds: string[] | null,
+    column: string,
+  ): string {
+    if (branchIds === null) return '';
+    if (branchIds.length === 0) return 'AND FALSE';
+    params.push(branchIds);
+    return `AND ${column} = ANY($${params.length}::uuid[])`;
+  }
+
   /** Admin dashboard cards. Branch-scoped when branchIds provided. */
-  async cards(clientId: string, branchIds: string[] = []) {
+  async cards(clientId: string, branchIds: string[] | null = null) {
     const { start, end } = businessDayBoundsUtc(new Date());
-    const hasBranch = branchIds.length > 0;
 
     const empParams: unknown[] = [clientId];
-    let empBranch = '';
-    if (hasBranch) {
-      empParams.push(branchIds);
-      empBranch = `AND e.branch_id = ANY($${empParams.length}::uuid[])`;
-    }
+    const empBranch = this.branchClause(empParams, branchIds, 'e.branch_id');
     const [emp] = await this.dataSource.query<
       Array<{ total: string; enrolled: string }>
     >(
@@ -46,11 +52,7 @@ export class FaceDeskDashboardService {
     const enrolled = Number(emp?.enrolled ?? 0);
 
     const attParams: unknown[] = [clientId, start, end];
-    let attBranch = '';
-    if (hasBranch) {
-      attParams.push(branchIds);
-      attBranch = `AND branch_id = ANY($${attParams.length}::uuid[])`;
-    }
+    const attBranch = this.branchClause(attParams, branchIds, 'branch_id');
     const [attendance] = await this.dataSource.query<
       Array<{ present: string; punches: string }>
     >(
@@ -67,15 +69,53 @@ export class FaceDeskDashboardService {
       attParams,
     );
 
+    const dupeParams: unknown[] = [clientId];
+    let dupeBranch = '';
+    if (branchIds !== null) {
+      if (branchIds.length === 0) {
+        dupeBranch = 'AND FALSE';
+      } else {
+        dupeParams.push(branchIds);
+        dupeBranch = `AND EXISTS (
+          SELECT 1 FROM facedesk_employee_face_profiles p
+           WHERE p.client_id = d.client_id
+             AND p.employee_id = d.new_employee_id
+             AND (
+               (p.subject_type = 'EMPLOYEE' AND EXISTS (
+                 SELECT 1 FROM employees e
+                  WHERE e.id = p.employee_id AND e.client_id = p.client_id
+                    AND e.branch_id = ANY($${dupeParams.length}::uuid[])
+               ))
+               OR (p.subject_type = 'CONTRACTOR' AND EXISTS (
+                 SELECT 1 FROM contractor_employees ce
+                  WHERE ce.id = p.employee_id AND ce.client_id = p.client_id
+                    AND ce.branch_id = ANY($${dupeParams.length}::uuid[])
+               ))
+             )
+        )`;
+      }
+    }
     const [dupes] = await this.dataSource.query<Array<{ n: string }>>(
-      `SELECT count(*)::int AS n FROM facedesk_face_duplicate_alerts
-        WHERE client_id = $1 AND status = 'PENDING'`,
-      [clientId],
+      `SELECT count(*)::int AS n FROM facedesk_face_duplicate_alerts d
+        WHERE d.client_id = $1 AND d.status = 'PENDING' ${dupeBranch}`,
+      dupeParams,
+    );
+    const reviewParams: unknown[] = [clientId];
+    const reviewBranch = this.branchClause(
+      reviewParams,
+      branchIds,
+      'branch_id',
     );
     const [review] = await this.dataSource.query<Array<{ n: string }>>(
       `SELECT count(*)::int AS n FROM facedesk_attendance_review_queue
-        WHERE client_id = $1 AND status = 'PENDING'`,
-      [clientId],
+        WHERE client_id = $1 AND status = 'PENDING' ${reviewBranch}`,
+      reviewParams,
+    );
+    const deviceParams: unknown[] = [clientId];
+    const deviceBranch = this.branchClause(
+      deviceParams,
+      branchIds,
+      'branch_id',
     );
     const [devices] = await this.dataSource.query<
       Array<{ online: string; offline: string; last_sync: Date | null }>
@@ -83,8 +123,9 @@ export class FaceDeskDashboardService {
       `SELECT count(*) FILTER (WHERE device_status = 'ONLINE')::int AS online,
               count(*) FILTER (WHERE device_status <> 'ONLINE')::int AS offline,
               max(last_sync_time) AS last_sync
-         FROM facedesk_kiosk_devices WHERE client_id = $1 AND device_status <> 'REVOKED'`,
-      [clientId],
+         FROM facedesk_kiosk_devices WHERE client_id = $1
+          AND device_status <> 'REVOKED' ${deviceBranch}`,
+      deviceParams,
     );
 
     const todayPresent = Number(attendance?.present ?? 0);

@@ -18,6 +18,15 @@ function makeService() {
 }
 
 describe('FaceDeskEnrollmentService enrolled roster', () => {
+  it('returns no pending rows for a branch user with no assigned branches', async () => {
+    const { service, dataSource } = makeService();
+
+    await expect(
+      service.getPendingEmployees('client-1', [], 'EMPLOYEE'),
+    ).resolves.toEqual([]);
+    expect(dataSource.query).not.toHaveBeenCalled();
+  });
+
   it('returns no rows for a branch user with no assigned branches', async () => {
     const { service, dataSource } = makeService();
 
@@ -30,11 +39,7 @@ describe('FaceDeskEnrollmentService enrolled roster', () => {
   it('returns employee identity and enrollment health within branch scope', async () => {
     const { service, dataSource } = makeService();
 
-    await service.getEnrolledEmployees(
-      'client-1',
-      ['branch-1'],
-      'EMPLOYEE',
-    );
+    await service.getEnrolledEmployees('client-1', ['branch-1'], 'EMPLOYEE');
 
     const [sql, params] = dataSource.query.mock.calls[0];
     expect(sql).toContain('FROM employees e');
@@ -60,6 +65,65 @@ describe('FaceDeskEnrollmentService enrolled roster', () => {
     expect(sql).toContain('NULL::text AS "employeeCode"');
     expect(sql).not.toContain('e.employee_code');
     expect(params).toEqual(['client-1', 'CONTRACTOR']);
+  });
+});
+
+describe('FaceDeskEnrollmentService enrollment ownership', () => {
+  it('rejects an employee that does not belong to the caller client', async () => {
+    const { service, dataSource } = makeService();
+
+    await expect(
+      service.saveProfile('client-1', null, 'actor-1', {
+        employeeId: 'employee-1',
+        frames: [],
+      } as any),
+    ).rejects.toThrow(/scope/i);
+    expect(dataSource.query).toHaveBeenCalledWith(
+      expect.stringContaining('id = $1 AND client_id = $2'),
+      ['employee-1', 'client-1'],
+    );
+  });
+
+  it('rejects a portal enrollment outside the caller branch scope', async () => {
+    const { service, dataSource } = makeService();
+    dataSource.query.mockResolvedValueOnce([{ branchId: 'branch-2' }]);
+
+    await expect(
+      service.saveProfile(
+        'client-1',
+        null,
+        'actor-1',
+        { employeeId: 'employee-1', frames: [] } as any,
+        ['branch-1'],
+      ),
+    ).rejects.toThrow(/scope/i);
+  });
+
+  it('rejects a kiosk enrollment for an employee in another branch', async () => {
+    const { service, dataSource } = makeService();
+    dataSource.query.mockResolvedValueOnce([{ branchId: 'branch-2' }]);
+
+    await expect(
+      service.saveProfile('client-1', 'branch-1', 'device-1', {
+        employeeId: 'employee-1',
+        frames: [],
+      } as any),
+    ).rejects.toThrow(/scope/i);
+  });
+
+  it('denies PIN reset when the caller has no assigned branches', async () => {
+    const { service, dataSource } = makeService();
+
+    await expect(
+      service.setAttendancePin(
+        'client-1',
+        'actor-1',
+        { employeeId: 'employee-1' },
+        '1234',
+        [],
+      ),
+    ).rejects.toThrow(/scope/i);
+    expect(dataSource.query).not.toHaveBeenCalled();
   });
 });
 
@@ -103,7 +167,15 @@ describe('FaceDeskEnrollmentService deleteEnrollment', () => {
       photoStorage as any,
       dataSource as any,
     );
-    return { service, profileRepo, sampleRepo, em, auditInTx, dataSource, photoStorage };
+    return {
+      service,
+      profileRepo,
+      sampleRepo,
+      em,
+      auditInTx,
+      dataSource,
+      photoStorage,
+    };
   };
 
   const profile = {
@@ -115,17 +187,26 @@ describe('FaceDeskEnrollmentService deleteEnrollment', () => {
   };
 
   it('deletes samples + profile + audit atomically and cleans up photos', async () => {
-    const { service, em, auditInTx, dataSource, photoStorage } = build(profile, {
-      currentBranch: 'b1',
-      samples: [{ imagePath: 's3://face/a.jpg' }, { imagePath: null }],
-    });
-    const res = await service.deleteEnrollment('c1', 'actor', 'e1', 'EMPLOYEE', [
-      'b1',
-    ]);
+    const { service, em, auditInTx, dataSource, photoStorage } = build(
+      profile,
+      {
+        currentBranch: 'b1',
+        samples: [{ imagePath: 's3://face/a.jpg' }, { imagePath: null }],
+      },
+    );
+    const res = await service.deleteEnrollment(
+      'c1',
+      'actor',
+      'e1',
+      'EMPLOYEE',
+      ['b1'],
+    );
     expect(res).toEqual({ ok: true });
     // All three writes run inside one transaction.
     expect(dataSource.transaction).toHaveBeenCalledTimes(1);
-    expect(em.delete).toHaveBeenCalledWith(expect.anything(), { profileId: 'p1' });
+    expect(em.delete).toHaveBeenCalledWith(expect.anything(), {
+      profileId: 'p1',
+    });
     expect(em.delete).toHaveBeenCalledTimes(2);
     expect(auditInTx.save).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'ENROLLMENT_DELETED', entityId: 'e1' }),
@@ -162,7 +243,7 @@ describe('FaceDeskEnrollmentService deleteEnrollment', () => {
     expect(photoStorage.deletePhoto).not.toHaveBeenCalled();
   });
 
-  it('denies when the subject is not found in the caller\'s roster scope', async () => {
+  it("denies when the subject is not found in the caller's roster scope", async () => {
     const { service, dataSource } = build(profile, { currentBranch: null });
     await expect(
       service.deleteEnrollment('c1', 'actor', 'e1', 'EMPLOYEE', ['b1']),

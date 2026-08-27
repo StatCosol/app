@@ -27,9 +27,10 @@ export class FaceDeskReportsController {
   @Get('dashboard')
   @Roles('CLIENT', 'ADMIN')
   dashboardCards(@CurrentUser() user: ReqUser) {
+    const branchIds = facedeskBranchScope(user);
     return this.dashboard.cards(
       requireFaceDeskClient(user),
-      facedeskBranchScope(user) ?? [],
+      branchIds,
     );
   }
 
