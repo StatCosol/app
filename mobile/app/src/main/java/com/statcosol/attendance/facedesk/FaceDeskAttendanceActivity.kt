@@ -203,15 +203,9 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                 // No front flash on the kiosk phone — brighten exposure so faces
                 // aren't under-exposed under dim gate lighting.
                 FaceCameraControl.applyLowLightExposure(camera)
-                // Meter focus + exposure on the face oval so captures are sharp
-                // and correctly exposed for the face, not the background.
-                FaceCameraControl.focusOnFace(
-                    camera,
-                    previewView.meteringPointFactory.createPoint(
-                        0.5f,
-                        FaceKioskTuning.OVERLAY_FACE_CENTER_Y_FRACTION,
-                    ),
-                )
+                // NOTE: face-region focus/AE metering was tried here but made the
+                // budget front sensor hunt/mis-expose, so frames failed the
+                // sharpness/brightness gates ("not capturing"). Removed.
             } catch (e: Exception) {
                 Log.e(TAG, "camera start failed", e)
                 tvTitle.text = getString(R.string.facedesk_camera_failed)

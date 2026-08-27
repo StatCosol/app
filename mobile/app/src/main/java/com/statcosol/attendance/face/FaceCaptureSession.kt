@@ -139,7 +139,14 @@ class FaceCaptureSession(
         // rejected outright. Applied on both enrollment and attendance (shared
         // session) so the two stay comparable. Gain is capped to bound the noise
         // it amplifies; the camera-side exposure boost does the heavy lifting.
-        val enhancedFace = normalizeIllumination(faceBitmap, faceLuminance)
+        // The embedding is fed the low-light-gain-only crop (NO white balance):
+        // every gallery embedding ever enrolled — pre-0.7.8 profiles included —
+        // was produced by this pipeline, and the backend cosine-compares them all
+        // as one "mobilefacenet" space. White-balancing only the probe would shift
+        // it out of that space and could reject already-enrolled workers on the
+        // green-cast cameras. Colour correction is applied to the stored photo
+        // only (below), where it's cosmetic and can't affect matching.
+        val embeddingFace = enhanceFace(faceBitmap, faceLuminance, null)
         val effectiveLuminance =
             (faceLuminance * lowLightGain(faceLuminance)).coerceAtMost(FACE_TARGET_LUMINANCE)
 
@@ -153,10 +160,20 @@ class FaceCaptureSession(
             (sizeScore * 0.35f + sharpScore * 0.45f + brightScore * 0.20f).toDouble()
         val metrics = computeMetrics(face, captureQuality)
 
-        val embedding = embedder.embed(enhancedFace)
+        val embedding = embedder.embed(embeddingFace)
         val fullFrameEmbedding =
             if (computeFullFrameProbe) embedder.embed(bitmap) else FloatArray(0)
-        val photoB64 = if (capturePhoto) bitmapToBase64(enhancedFace) else null
+        // Stored photo (human-viewable, never matched): additionally white-balance
+        // the crop to neutralise the budget sensor's green cast so admin galleries
+        // and duplicate alerts show natural-colour faces. Kept off the embedding
+        // above so a colour cast can never affect matching.
+        val photoB64 =
+            if (capturePhoto) {
+                val wbGains = computeWhiteBalanceGains(bitmap)
+                bitmapToBase64(enhanceFace(faceBitmap, faceLuminance, wbGains))
+            } else {
+                null
+            }
 
         emitPreview(normBox, metrics, null, true)
         onFace(embedding, fullFrameEmbedding, metrics, photoB64)
@@ -354,17 +371,71 @@ class FaceCaptureSession(
         if (luma <= 1f) 1f
         else (FACE_TARGET_LUMINANCE / luma).coerceIn(1f, MAX_LOW_LIGHT_GAIN)
 
-    /** Brighten an under-exposed face crop via a capped linear gain so a dim
-     *  face still yields a usable embedding. Returns the original bitmap when
-     *  it's already bright enough (or on any failure). */
-    private fun normalizeIllumination(bitmap: Bitmap, luma: Float): Bitmap {
-        val gain = lowLightGain(luma)
-        if (gain <= 1.02f) return bitmap
+    /**
+     * Per-channel white-balance gains that neutralise a strong colour cast
+     * (e.g. the green cast some budget front sensors produce under fluorescent
+     * or cheap-LED light) via a capped grey-world estimate on a 32x32 downscale
+     * of the full frame. Returns null when the frame is already near-neutral, so
+     * a well-behaved camera is left untouched. Gains are clamped so a genuinely
+     * coloured scene can't be wildly shifted.
+     */
+    private fun computeWhiteBalanceGains(bitmap: Bitmap): FloatArray? {
+        return try {
+            val tiny = Bitmap.createScaledBitmap(bitmap, 32, 32, true)
+            val px = IntArray(32 * 32)
+            tiny.getPixels(px, 0, 32, 0, 0, 32, 32)
+            if (tiny !== bitmap) tiny.recycle()
+            var rs = 0L
+            var gs = 0L
+            var bs = 0L
+            for (p in px) {
+                rs += (p shr 16) and 0xFF
+                gs += (p shr 8) and 0xFF
+                bs += p and 0xFF
+            }
+            val n = px.size.toFloat()
+            val rAvg = rs / n
+            val gAvg = gs / n
+            val bAvg = bs / n
+            val grey = (rAvg + gAvg + bAvg) / 3f
+            if (grey < 1f) return null
+            fun gain(avg: Float) = (grey / avg.coerceAtLeast(1f)).coerceIn(0.7f, 1.4f)
+            val r = gain(rAvg)
+            val g = gain(gAvg)
+            val b = gain(bAvg)
+            // Near-neutral frame → no correction (protects balanced cameras).
+            if (kotlin.math.abs(r - 1f) < 0.08f &&
+                kotlin.math.abs(g - 1f) < 0.08f &&
+                kotlin.math.abs(b - 1f) < 0.08f
+            ) {
+                null
+            } else {
+                floatArrayOf(r, g, b)
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** Colour-correct + brighten a face crop: apply the per-channel white
+     *  balance (from the full frame) and the capped low-light gain in a single
+     *  pass. Returns the original bitmap when neither is needed (or on failure). */
+    private fun enhanceFace(bitmap: Bitmap, luma: Float, wbGains: FloatArray?): Bitmap {
+        val g = lowLightGain(luma)
+        val rG = (wbGains?.getOrNull(0) ?: 1f) * g
+        val gG = (wbGains?.getOrNull(1) ?: 1f) * g
+        val bG = (wbGains?.getOrNull(2) ?: 1f) * g
+        if (kotlin.math.abs(rG - 1f) < 0.02f &&
+            kotlin.math.abs(gG - 1f) < 0.02f &&
+            kotlin.math.abs(bG - 1f) < 0.02f
+        ) {
+            return bitmap
+        }
         val cm = ColorMatrix(
             floatArrayOf(
-                gain, 0f, 0f, 0f, 0f,
-                0f, gain, 0f, 0f, 0f,
-                0f, 0f, gain, 0f, 0f,
+                rG, 0f, 0f, 0f, 0f,
+                0f, gG, 0f, 0f, 0f,
+                0f, 0f, bG, 0f, 0f,
                 0f, 0f, 0f, 1f, 0f,
             ),
         )
