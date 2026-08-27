@@ -463,6 +463,8 @@ export class FaceDeskEnrollmentService {
         newEmployeeId: dto.employeeId,
         matchedEmployeeId: hit.matchedEmployeeId,
         similarityScore: hit.score,
+        // Enrollment is refused below; no template is stored.
+        detectionBand: 'BLOCK',
         status: 'PENDING',
       });
       await this.reviewRepo.save({
@@ -585,6 +587,9 @@ export class FaceDeskEnrollmentService {
         newEmployeeId: dto.employeeId,
         matchedEmployeeId: hit.matchedEmployeeId,
         similarityScore: hit.score,
+        // The profile below is already ENROLLED — resolution must not treat
+        // this like a blocked enrollment.
+        detectionBand: 'REVIEW',
         status: 'PENDING',
       });
       await this.reviewRepo.save({

@@ -439,6 +439,14 @@ async function bootstrap() {
         ALTER TABLE facedesk_attendance_review_queue
           ADD COLUMN IF NOT EXISTS probe_embedding bytea
       `);
+      // Which path raised a duplicate alert. BLOCK (enrollment refused, no
+      // template) and REVIEW (already enrolled, near-miss) need opposite
+      // resolutions. Defaults to BLOCK so pre-existing alerts keep their
+      // original meaning.
+      await ds.query(`
+        ALTER TABLE facedesk_face_duplicate_alerts
+          ADD COLUMN IF NOT EXISTS detection_band varchar(10) NOT NULL DEFAULT 'BLOCK'
+      `);
       await ds.query(`
         ALTER TABLE contractor_biometric_punches
           ADD COLUMN IF NOT EXISTS offline_ref varchar(80)

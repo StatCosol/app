@@ -277,9 +277,26 @@ export class FaceDeskAdminService {
         adminRemarks: dto.remarks ?? null,
       },
     );
-    // Approving or clearing the alert unblocks the new employee's enrollment
-    // (they still must re-enroll to store a template).
-    if (dto.action !== 'REJECT') {
+    // The two detection paths leave the profile in opposite states, so they
+    // need opposite resolutions.
+    //
+    // BLOCK — enrollment was refused and no template stored. Clearing the
+    // alert reopens enrollment (they must re-enroll to store a template);
+    // confirming the duplicate leaves the profile blocked as it already is.
+    //
+    // REVIEW — the profile is already ENROLLED with a valid template. Clearing
+    // the alert must LEAVE it enrolled (forcing PENDING here would destroy a
+    // working enrollment over a false positive); confirming the duplicate must
+    // REVOKE it, otherwise a confirmed duplicate stays enrolled and can punch.
+    const cleared = dto.action !== 'REJECT';
+    if (alert.detectionBand === 'REVIEW') {
+      await this.profileRepo.update(
+        { employeeId: alert.newEmployeeId, clientId },
+        cleared
+          ? { duplicateStatus: 'CLEAR' }
+          : { duplicateStatus: 'FLAGGED', enrollmentStatus: 'BLOCKED' },
+      );
+    } else if (cleared) {
       await this.profileRepo.update(
         { employeeId: alert.newEmployeeId, clientId },
         { duplicateStatus: 'APPROVED', enrollmentStatus: 'PENDING' },

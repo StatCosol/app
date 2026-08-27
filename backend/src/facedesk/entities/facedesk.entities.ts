@@ -322,6 +322,24 @@ export class FaceDeskDuplicateAlertEntity {
   @Column({ name: 'similarity_score', type: 'numeric' })
   similarityScore: number;
 
+  /**
+   * Which detection path raised this alert — the two need opposite resolutions.
+   * BLOCK: scored at/above the duplicate threshold, so enrollment was refused
+   *   and no template was stored. Clearing the alert must reopen enrollment.
+   * REVIEW: scored in the near-miss band, so the profile is already ENROLLED
+   *   with a valid template. Clearing must leave it enrolled; confirming the
+   *   duplicate must revoke it.
+   * Defaults to BLOCK so alerts created before this column existed keep their
+   * original meaning.
+   */
+  @Column({
+    name: 'detection_band',
+    type: 'varchar',
+    length: 10,
+    default: 'BLOCK',
+  })
+  detectionBand: 'BLOCK' | 'REVIEW';
+
   @Column({ name: 'status', type: 'varchar', length: 20, default: 'PENDING' })
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'FALSE_ALERT';
 
