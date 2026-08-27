@@ -8,6 +8,7 @@ export interface FaceDeskDashboard {
   enrolledEmployees: number;
   pendingEnrollment: number;
   todayPresent: number;
+  todayPunches: number;
   todayAbsent: number;
   failedAttemptsToday: number;
   duplicateAlertsPending: number;

@@ -47,9 +47,10 @@ export class FaceDeskEnrollmentController {
     @CurrentUser() user: ReqUser,
     @Query('subjectType') subjectType?: string,
   ) {
+    const branchIds = facedeskBranchScope(user);
     return this.enrollment.getPendingEmployees(
       requireFaceDeskClient(user),
-      facedeskBranchScope(user) ?? [],
+      branchIds,
       facedeskSubjectType(subjectType),
     );
   }
@@ -120,11 +121,13 @@ export class FaceDeskEnrollmentController {
   @Post('enrollment/save')
   @Roles('CLIENT', 'ADMIN')
   enroll(@CurrentUser() user: ReqUser, @Body() dto: SaveEnrollmentDto) {
+    const branchIds = facedeskBranchScope(user);
     return this.enrollment.saveProfile(
       requireFaceDeskClient(user),
-      user?.branchIds?.[0] ?? null,
+      null,
       user.id,
       dto,
+      branchIds,
     );
   }
 
@@ -132,11 +135,13 @@ export class FaceDeskEnrollmentController {
   @Post('enrollment/re-enroll')
   @Roles('CLIENT', 'ADMIN')
   reEnroll(@CurrentUser() user: ReqUser, @Body() dto: SaveEnrollmentDto) {
+    const branchIds = facedeskBranchScope(user);
     return this.enrollment.reEnroll(
       requireFaceDeskClient(user),
-      user?.branchIds?.[0] ?? null,
+      null,
       user.id,
       dto,
+      branchIds,
     );
   }
 
@@ -168,12 +173,13 @@ export class FaceDeskEnrollmentController {
     @CurrentUser() user: ReqUser,
     @Body() dto: SetAttendancePinDto,
   ) {
+    const branchIds = facedeskBranchScope(user);
     return this.enrollment.setAttendancePin(
       requireFaceDeskClient(user),
       user.id,
       { employeeId: dto?.employeeId, employeeCode: dto?.employeeCode },
       dto?.pin,
-      facedeskBranchScope(user) ?? undefined,
+      branchIds,
     );
   }
 

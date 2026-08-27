@@ -87,14 +87,15 @@ export class FaceDeskEnrollmentService {
    */
   async getPendingEmployees(
     clientId: string,
-    branchIds: string[] = [],
+    branchIds: string[] | null = null,
     subjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE',
   ): Promise<unknown[]> {
+    if (branchIds?.length === 0) return [];
     const params: unknown[] = [clientId];
     const table =
       subjectType === 'CONTRACTOR' ? 'contractor_employees' : 'employees';
     let branchFilter = '';
-    if (branchIds.length > 0) {
+    if (branchIds && branchIds.length > 0) {
       params.push(branchIds);
       branchFilter = `AND e.branch_id = ANY($${params.length}::uuid[])`;
     }
@@ -372,6 +373,37 @@ export class FaceDeskEnrollmentService {
     };
   }
 
+  private async resolveEnrollmentBranch(
+    clientId: string,
+    employeeId: string,
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR',
+    requestedBranchId: string | null,
+    allowedBranchIds: string[] | null,
+  ): Promise<string | null> {
+    const table =
+      subjectType === 'CONTRACTOR' ? 'contractor_employees' : 'employees';
+    const [subject] = await this.dataSource.query<
+      Array<{ branchId: string | null }>
+    >(
+      `SELECT branch_id AS "branchId" FROM ${table}
+        WHERE id = $1 AND client_id = $2 AND is_active = true LIMIT 1`,
+      [employeeId, clientId],
+    );
+    if (!subject) {
+      throw new NotFoundException('Employee not found in your scope');
+    }
+
+    const branchId = subject.branchId ?? null;
+    if (
+      (requestedBranchId !== null && branchId !== requestedBranchId) ||
+      (allowedBranchIds !== null &&
+        (!branchId || !allowedBranchIds.includes(branchId)))
+    ) {
+      throw new NotFoundException('Employee not found in your scope');
+    }
+    return branchId;
+  }
+
   /**
    * Save a face profile: quality gate → liveness → duplicate check → persist
    * profile + min-N samples. Duplicate above threshold blocks and raises an
@@ -379,15 +411,24 @@ export class FaceDeskEnrollmentService {
    */
   async saveProfile(
     clientId: string,
-    branchId: string | null,
+    requestedBranchId: string | null,
     actorId: string,
     dto: SaveEnrollmentDto,
+    allowedBranchIds: string[] | null = null,
   ) {
     if (!dto.employeeId)
       throw new BadRequestException('employeeId is required');
     if (dto.consentGiven === false) {
       throw new BadRequestException('Consent is required to enroll');
     }
+    const subjectType = dto.subjectType ?? 'EMPLOYEE';
+    const branchId = await this.resolveEnrollmentBranch(
+      clientId,
+      dto.employeeId,
+      subjectType,
+      requestedBranchId,
+      allowedBranchIds,
+    );
     const eff = await this.settings.getEffective(clientId);
 
     const { resolved, good } = await this.resolveEnrollmentFrames(dto.frames);
@@ -441,7 +482,7 @@ export class FaceDeskEnrollmentService {
           {
             clientId,
             branchId,
-            subjectType: dto.subjectType ?? 'EMPLOYEE',
+            subjectType,
             enrollmentStatus: 'BLOCKED',
             duplicateStatus: 'FLAGGED',
           },
@@ -496,7 +537,7 @@ export class FaceDeskEnrollmentService {
           {
             clientId,
             branchId,
-            subjectType: dto.subjectType ?? 'EMPLOYEE',
+            subjectType,
             enrollmentStatus: 'ENROLLED',
             faceTemplate: embeddingToBuffer(template),
             embeddingModel: model,
@@ -615,9 +656,10 @@ export class FaceDeskEnrollmentService {
 
   async reEnroll(
     clientId: string,
-    branchId: string | null,
+    requestedBranchId: string | null,
     actorId: string,
     dto: SaveEnrollmentDto,
+    allowedBranchIds: string[] | null = null,
   ) {
     const existing = await this.profileRepo.findOne({
       where: { employeeId: dto.employeeId, clientId },
@@ -625,7 +667,13 @@ export class FaceDeskEnrollmentService {
     if (!existing)
       throw new NotFoundException('No existing profile to re-enroll');
     await this.audit(clientId, actorId, 'RE_ENROLL_START', dto.employeeId, {});
-    return this.saveProfile(clientId, branchId, actorId, dto);
+    return this.saveProfile(
+      clientId,
+      requestedBranchId,
+      actorId,
+      dto,
+      allowedBranchIds,
+    );
   }
 
   /**
@@ -761,7 +809,7 @@ export class FaceDeskEnrollmentService {
     actorId: string,
     target: { employeeId?: string; employeeCode?: string },
     explicitPin?: string,
-    branchIds?: string[],
+    branchIds: string[] | null = null,
   ): Promise<{ employeeId: string; employeeCode: string; pin: string }> {
     // Resolve the employee by id or code, scoped to the client and — for a
     // branch-scoped caller — to their permitted branches, so a branch user
@@ -776,6 +824,9 @@ export class FaceDeskEnrollmentService {
       conds.push(`employee_code = $${params.length}`);
     } else {
       throw new BadRequestException('employeeId or employeeCode is required');
+    }
+    if (branchIds?.length === 0) {
+      throw new NotFoundException('Employee not found in your scope');
     }
     if (branchIds && branchIds.length > 0) {
       params.push(branchIds);
