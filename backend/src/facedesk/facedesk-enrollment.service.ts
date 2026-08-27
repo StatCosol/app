@@ -36,6 +36,10 @@ export interface DuplicateHit {
   score: number;
   source: 'cosine' | 'azure';
   margin?: number;
+  /** true → at/above the duplicate threshold: block enrollment and alert.
+   *  false → near-miss in the review band: allow enrollment but raise it for
+   *  admin review. */
+  blocking: boolean;
 }
 
 @Injectable()
@@ -235,13 +239,18 @@ export class FaceDeskEnrollmentService {
     };
   }
 
-  /** Compare a probe embedding against all enrolled faces for the client. */
+  /**
+   * Compare a probe embedding against all enrolled faces for the client.
+   * Scans every branch (client-wide), so the same face enrolled at a second
+   * branch is caught. Returns a blocking hit at/above `duplicateCosine`, or a
+   * non-blocking review hit at/above `reviewCosine`.
+   */
   async findDuplicate(
     clientId: string,
     probe: Float32Array,
     excludeEmployeeId: string,
     duplicateCosine: number,
-    minMarginCosine: number,
+    reviewCosine?: number,
   ): Promise<DuplicateHit | null> {
     const rows = await this.dataSource.query<
       Array<{
@@ -282,16 +291,26 @@ export class FaceDeskEnrollmentService {
     }
 
     const ranked = [...bestByEmployee.entries()].sort((a, b) => b[1] - a[1]);
-    if (!ranked.length || ranked[0][1] < duplicateCosine) return null;
+    // Anything below the review band is genuinely a different face.
+    const floor = Math.min(duplicateCosine, reviewCosine ?? duplicateCosine);
+    if (!ranked.length || ranked[0][1] < floor) return null;
 
+    // NOTE: the margin between the top two candidates is reported but must NOT
+    // veto the hit. Margin logic belongs to 1:N *identification* ("which person
+    // is this?"), where two close candidates mean we cannot tell them apart.
+    // For duplicate detection the question is "does this face already exist?" —
+    // and matching two enrolled profiles almost equally well is *stronger*
+    // evidence of duplication, not weaker. Vetoing on a small margin made the
+    // check go permanently blind to anyone already enrolled twice, since their
+    // two profiles score near-identically and cancel each other out.
     const margin = ranked.length > 1 ? ranked[0][1] - ranked[1][1] : 1;
-    if (margin < minMarginCosine) return null;
 
     return {
       matchedEmployeeId: ranked[0][0],
       score: ranked[0][1],
       source: 'cosine',
       margin,
+      blocking: ranked[0][1] >= duplicateCosine,
     };
   }
 
@@ -301,7 +320,7 @@ export class FaceDeskEnrollmentService {
     dto: { employeeId: string; frames?: Array<{ photoB64?: string }> },
     probe: Float32Array,
     duplicateCosine: number,
-    minMarginCosine: number,
+    reviewCosine?: number,
   ): Promise<DuplicateHit | null> {
     const photoB64 = dto.frames?.find((f) => f.photoB64)?.photoB64 ?? null;
     if (photoB64) {
@@ -315,6 +334,8 @@ export class FaceDeskEnrollmentService {
           matchedEmployeeId: azureHit.matchedEmployeeId,
           score: azureHit.confidence,
           source: 'azure',
+          // Azure only returns a hit once it is already confident.
+          blocking: true,
         };
       }
     }
@@ -323,7 +344,7 @@ export class FaceDeskEnrollmentService {
       probe,
       dto.employeeId,
       duplicateCosine,
-      minMarginCosine,
+      reviewCosine,
     );
   }
 
@@ -339,10 +360,13 @@ export class FaceDeskEnrollmentService {
       dto,
       probe,
       eff.duplicateCosine,
-      eff.minMarginCosine,
+      eff.duplicateReviewCosine,
     );
     return {
-      duplicate: !!hit,
+      // Only a blocking hit is a "duplicate"; a review-band near-miss is
+      // surfaced separately so the caller can warn without hard-failing.
+      duplicate: !!hit?.blocking,
+      needsReview: !!hit && !hit.blocking,
       matchedEmployeeId: hit?.matchedEmployeeId ?? null,
       similarity: hit ? Number(hit.score.toFixed(3)) : null,
       percent: hit ? this.settings.cosineToPercent(hit.score) : null,
@@ -424,19 +448,23 @@ export class FaceDeskEnrollmentService {
     const model = bestSamples[0]?.model ?? null;
 
     // Duplicate check — block + alert if the face already belongs to someone.
+    // A near-miss (review band) is handled after persistence: it must not
+    // block, but it must not pass silently either.
     const hit = await this.resolveDuplicateHit(
       clientId,
       dto,
       template,
       eff.duplicateCosine,
-      eff.minMarginCosine,
+      eff.duplicateReviewCosine,
     );
-    if (hit) {
+    if (hit?.blocking) {
       const alert = await this.dupeRepo.save({
         clientId,
         newEmployeeId: dto.employeeId,
         matchedEmployeeId: hit.matchedEmployeeId,
         similarityScore: hit.score,
+        // Enrollment is refused below; no template is stored.
+        detectionBand: 'BLOCK',
         status: 'PENDING',
       });
       await this.reviewRepo.save({
@@ -547,6 +575,43 @@ export class FaceDeskEnrollmentService {
       dto.employeeId,
       { samples: bestSamples.length, model },
     );
+
+    // Near-miss duplicate: scored in the review band but below the blocking
+    // threshold — typically the same person re-enrolled at another branch under
+    // different lighting/angle. Enrollment stands (blocking here would reject
+    // legitimate re-enrollments), but it is raised for admin review instead of
+    // passing silently, which is how cross-branch double-enrollments slipped in.
+    if (hit && !hit.blocking) {
+      const alert = await this.dupeRepo.save({
+        clientId,
+        newEmployeeId: dto.employeeId,
+        matchedEmployeeId: hit.matchedEmployeeId,
+        similarityScore: hit.score,
+        // The profile below is already ENROLLED — resolution must not treat
+        // this like a blocked enrollment.
+        detectionBand: 'REVIEW',
+        status: 'PENDING',
+      });
+      await this.reviewRepo.save({
+        clientId,
+        branchId,
+        employeeId: dto.employeeId,
+        issueType: 'DUPLICATE_ENROLLMENT',
+        confidenceScore: hit.score,
+        status: 'PENDING',
+      });
+      await this.audit(
+        clientId,
+        actorId,
+        'ENROLL_DUPLICATE_REVIEW',
+        dto.employeeId,
+        {
+          matchedEmployeeId: hit.matchedEmployeeId,
+          similarity: hit.score,
+          alertId: alert.alertId,
+        },
+      );
+    }
 
     // Auto-issue a unique 4-digit PIN the first time an employee is enrolled, so
     // every enrolled employee can punch immediately without a separate admin

@@ -3,6 +3,8 @@ import { FaceDeskAdminService } from './facedesk-admin.service';
 function makeService() {
   const dupeRepo = {
     manager: { query: jest.fn().mockResolvedValue([]) },
+    findOne: jest.fn(),
+    update: jest.fn().mockResolvedValue({ affected: 1 }),
   };
   const reviewRepo = {
     manager: { query: jest.fn().mockResolvedValue([]) },
@@ -18,6 +20,7 @@ function makeService() {
     findOne: jest
       .fn()
       .mockResolvedValue({ profileId: 'p1', embeddingModel: 'mobilefacenet' }),
+    update: jest.fn().mockResolvedValue({ affected: 1 }),
   };
   const sampleRepo = {
     save: jest.fn().mockResolvedValue({}),
@@ -531,5 +534,76 @@ describe('FaceDeskAdminService short-day reviews', () => {
         null,
       ),
     ).rejects.toThrow();
+  });
+});
+
+describe('FaceDeskAdminService.actOnDuplicate — resolution by detection band', () => {
+  function alert(detectionBand: 'BLOCK' | 'REVIEW') {
+    return {
+      alertId: 'a1',
+      clientId: 'c1',
+      newEmployeeId: 'emp-new',
+      matchedEmployeeId: 'emp-old',
+      status: 'PENDING',
+      detectionBand,
+    };
+  }
+
+  // REVIEW alerts are raised AFTER the profile is already ENROLLED with a
+  // valid template, so clearing one must not tear that enrollment down.
+  it('REVIEW + FALSE_ALERT leaves the enrollment intact', async () => {
+    const { service, dupeRepo, profileRepo } = makeService();
+    dupeRepo.findOne.mockResolvedValue(alert('REVIEW'));
+
+    await service.actOnDuplicate('c1', 'a1', 'admin', {
+      action: 'FALSE_ALERT',
+    } as any);
+
+    const [, patch] = profileRepo.update.mock.calls[0];
+    expect(patch).toEqual({ duplicateStatus: 'CLEAR' });
+    expect(patch.enrollmentStatus).toBeUndefined();
+  });
+
+  // The whole point of the review band: confirming the duplicate must stop it
+  // being usable. Leaving it ENROLLED would let a confirmed duplicate punch.
+  it('REVIEW + REJECT revokes the enrollment', async () => {
+    const { service, dupeRepo, profileRepo } = makeService();
+    dupeRepo.findOne.mockResolvedValue(alert('REVIEW'));
+
+    await service.actOnDuplicate('c1', 'a1', 'admin', {
+      action: 'REJECT',
+    } as any);
+
+    const [, patch] = profileRepo.update.mock.calls[0];
+    expect(patch).toEqual({
+      duplicateStatus: 'FLAGGED',
+      enrollmentStatus: 'BLOCKED',
+    });
+  });
+
+  it('BLOCK + APPROVE still reopens enrollment (unchanged behaviour)', async () => {
+    const { service, dupeRepo, profileRepo } = makeService();
+    dupeRepo.findOne.mockResolvedValue(alert('BLOCK'));
+
+    await service.actOnDuplicate('c1', 'a1', 'admin', {
+      action: 'APPROVE',
+    } as any);
+
+    const [, patch] = profileRepo.update.mock.calls[0];
+    expect(patch).toEqual({
+      duplicateStatus: 'APPROVED',
+      enrollmentStatus: 'PENDING',
+    });
+  });
+
+  it('BLOCK + REJECT leaves the profile untouched (unchanged behaviour)', async () => {
+    const { service, dupeRepo, profileRepo } = makeService();
+    dupeRepo.findOne.mockResolvedValue(alert('BLOCK'));
+
+    await service.actOnDuplicate('c1', 'a1', 'admin', {
+      action: 'REJECT',
+    } as any);
+
+    expect(profileRepo.update).not.toHaveBeenCalled();
   });
 });

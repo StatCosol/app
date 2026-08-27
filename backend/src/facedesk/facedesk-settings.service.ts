@@ -25,6 +25,12 @@ export interface EffectiveFaceSettings {
   acceptCosine: number;
   retryCosine: number;
   duplicateCosine: number;
+  /** Lower band: at/above this but below duplicateCosine the enrollment is
+   *  allowed through but raised for admin review. Catches the same face
+   *  re-enrolled under different lighting/angle (typically a different
+   *  branch), which scores below the blocking threshold and used to pass
+   *  silently. */
+  duplicateReviewCosine: number;
   minMarginCosine: number;
 }
 
@@ -48,6 +54,11 @@ export interface EffectiveFaceSettings {
 export class FaceDeskSettingsService {
   private readonly anchors: Array<{ pct: number; cos: number }>;
   private readonly minMargin = Number(process.env.FD_MIN_MARGIN_COSINE ?? 0.05);
+  /** How many percentage points below the duplicate threshold still counts as
+   *  a review-worthy near-miss. */
+  private readonly duplicateReviewBandPct = Number(
+    process.env.FD_DUPLICATE_REVIEW_BAND_PCT ?? 5,
+  );
 
   constructor(
     @InjectRepository(FaceDeskSettingsEntity)
@@ -101,6 +112,9 @@ export class FaceDeskSettingsService {
       acceptCosine: this.percentToCosine(matchPct),
       retryCosine: this.percentToCosine(retryPct),
       duplicateCosine: this.percentToCosine(dupPct),
+      duplicateReviewCosine: this.percentToCosine(
+        Math.max(0, dupPct - this.duplicateReviewBandPct),
+      ),
       minMarginCosine: this.minMargin,
     };
   }
