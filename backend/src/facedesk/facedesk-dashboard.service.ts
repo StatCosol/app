@@ -51,8 +51,12 @@ export class FaceDeskDashboardService {
       attParams.push(branchIds);
       attBranch = `AND branch_id = ANY($${attParams.length}::uuid[])`;
     }
-    const [present] = await this.dataSource.query<Array<{ n: string }>>(
-      `SELECT count(DISTINCT employee_id)::int AS n FROM facedesk_attendance_logs
+    const [attendance] = await this.dataSource.query<
+      Array<{ present: string; punches: string }>
+    >(
+      `SELECT count(DISTINCT employee_id)::int AS present,
+              count(*)::int AS punches
+         FROM facedesk_attendance_logs
         WHERE client_id = $1 AND punch_time >= $2 AND punch_time < $3
           AND attendance_status IN ('MARKED','APPROVED') ${attBranch}`,
       attParams,
@@ -83,12 +87,13 @@ export class FaceDeskDashboardService {
       [clientId],
     );
 
-    const todayPresent = Number(present?.n ?? 0);
+    const todayPresent = Number(attendance?.present ?? 0);
     return {
       totalEmployees,
       enrolledEmployees: enrolled,
       pendingEnrollment: totalEmployees - enrolled,
       todayPresent,
+      todayPunches: Number(attendance?.punches ?? 0),
       todayAbsent: Math.max(0, enrolled - todayPresent),
       failedAttemptsToday: Number(failed?.n ?? 0),
       duplicateAlertsPending: Number(dupes?.n ?? 0),
