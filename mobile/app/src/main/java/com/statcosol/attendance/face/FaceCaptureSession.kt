@@ -139,11 +139,14 @@ class FaceCaptureSession(
         // rejected outright. Applied on both enrollment and attendance (shared
         // session) so the two stay comparable. Gain is capped to bound the noise
         // it amplifies; the camera-side exposure boost does the heavy lifting.
-        // White balance from the full frame (a face crop alone is too warm to
-        // grey-world), applied to the crop along with the low-light gain so the
-        // stored photo and the embedding are colour-correct.
-        val wbGains = computeWhiteBalanceGains(bitmap)
-        val enhancedFace = enhanceFace(faceBitmap, faceLuminance, wbGains)
+        // The embedding is fed the low-light-gain-only crop (NO white balance):
+        // every gallery embedding ever enrolled — pre-0.7.8 profiles included —
+        // was produced by this pipeline, and the backend cosine-compares them all
+        // as one "mobilefacenet" space. White-balancing only the probe would shift
+        // it out of that space and could reject already-enrolled workers on the
+        // green-cast cameras. Colour correction is applied to the stored photo
+        // only (below), where it's cosmetic and can't affect matching.
+        val embeddingFace = enhanceFace(faceBitmap, faceLuminance, null)
         val effectiveLuminance =
             (faceLuminance * lowLightGain(faceLuminance)).coerceAtMost(FACE_TARGET_LUMINANCE)
 
@@ -157,10 +160,20 @@ class FaceCaptureSession(
             (sizeScore * 0.35f + sharpScore * 0.45f + brightScore * 0.20f).toDouble()
         val metrics = computeMetrics(face, captureQuality)
 
-        val embedding = embedder.embed(enhancedFace)
+        val embedding = embedder.embed(embeddingFace)
         val fullFrameEmbedding =
             if (computeFullFrameProbe) embedder.embed(bitmap) else FloatArray(0)
-        val photoB64 = if (capturePhoto) bitmapToBase64(enhancedFace) else null
+        // Stored photo (human-viewable, never matched): additionally white-balance
+        // the crop to neutralise the budget sensor's green cast so admin galleries
+        // and duplicate alerts show natural-colour faces. Kept off the embedding
+        // above so a colour cast can never affect matching.
+        val photoB64 =
+            if (capturePhoto) {
+                val wbGains = computeWhiteBalanceGains(bitmap)
+                bitmapToBase64(enhanceFace(faceBitmap, faceLuminance, wbGains))
+            } else {
+                null
+            }
 
         emitPreview(normBox, metrics, null, true)
         onFace(embedding, fullFrameEmbedding, metrics, photoB64)
