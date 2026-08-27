@@ -76,19 +76,28 @@ export class FaceDeskDashboardService {
         dupeBranch = 'AND FALSE';
       } else {
         dupeParams.push(branchIds);
-        dupeBranch = `AND (
-          EXISTS (SELECT 1 FROM employees e
-                   WHERE e.id = new_employee_id AND e.client_id = $1
-                     AND e.branch_id = ANY($${dupeParams.length}::uuid[]))
-          OR EXISTS (SELECT 1 FROM contractor_employees ce
-                      WHERE ce.id = new_employee_id AND ce.client_id = $1
-                        AND ce.branch_id = ANY($${dupeParams.length}::uuid[]))
+        dupeBranch = `AND EXISTS (
+          SELECT 1 FROM facedesk_employee_face_profiles p
+           WHERE p.client_id = d.client_id
+             AND p.employee_id = d.new_employee_id
+             AND (
+               (p.subject_type = 'EMPLOYEE' AND EXISTS (
+                 SELECT 1 FROM employees e
+                  WHERE e.id = p.employee_id AND e.client_id = p.client_id
+                    AND e.branch_id = ANY($${dupeParams.length}::uuid[])
+               ))
+               OR (p.subject_type = 'CONTRACTOR' AND EXISTS (
+                 SELECT 1 FROM contractor_employees ce
+                  WHERE ce.id = p.employee_id AND ce.client_id = p.client_id
+                    AND ce.branch_id = ANY($${dupeParams.length}::uuid[])
+               ))
+             )
         )`;
       }
     }
     const [dupes] = await this.dataSource.query<Array<{ n: string }>>(
-      `SELECT count(*)::int AS n FROM facedesk_face_duplicate_alerts
-        WHERE client_id = $1 AND status = 'PENDING' ${dupeBranch}`,
+      `SELECT count(*)::int AS n FROM facedesk_face_duplicate_alerts d
+        WHERE d.client_id = $1 AND d.status = 'PENDING' ${dupeBranch}`,
       dupeParams,
     );
     const reviewParams: unknown[] = [clientId];

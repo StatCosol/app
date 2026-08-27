@@ -54,5 +54,12 @@ describe('FaceDeskDashboardService', () => {
       expect(sql).toContain('ANY(');
       expect(params).toContainEqual(['branch-1']);
     }
+
+    const duplicateSql = dataSource.query.mock.calls[3][0];
+    expect(duplicateSql).toContain('facedesk_employee_face_profiles p');
+    expect(duplicateSql).toContain("p.subject_type = 'EMPLOYEE'");
+    expect(duplicateSql).toContain("p.subject_type = 'CONTRACTOR'");
+    expect(duplicateSql).toContain('e.id = p.employee_id');
+    expect(duplicateSql).toContain('ce.id = p.employee_id');
   });
 });
