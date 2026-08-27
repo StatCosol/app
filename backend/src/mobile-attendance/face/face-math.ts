@@ -69,6 +69,18 @@ export function toMatchScore(sim: number): number {
 export function averageEmbeddings(embeddings: Float32Array[]): Float32Array {
   if (embeddings.length === 0) throw new Error('No embeddings to average');
   const dim = embeddings[0].length;
+  // Averaging across models is never meaningful and used to corrupt silently:
+  // the loop below indexes every vector to the FIRST one's length, so a shorter
+  // vector yields undefined (→ NaN template) and a longer one is truncated to a
+  // meaningless hybrid. Both produce a template that matches nothing, which is
+  // how duplicate detection went blind. Callers must group by embedding model
+  // before averaging.
+  const mismatch = embeddings.find((e) => e.length !== dim);
+  if (mismatch) {
+    throw new Error(
+      `Cannot average embeddings of different dimensions (${dim} vs ${mismatch.length}) — group by embedding model first`,
+    );
+  }
   const result = new Float32Array(dim);
   for (const emb of embeddings) {
     for (let i = 0; i < dim; i++) {

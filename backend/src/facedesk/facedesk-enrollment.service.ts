@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -12,6 +13,7 @@ import {
   averageEmbeddings,
   bufferToEmbedding,
   embeddingToBuffer,
+  normalizeEmbeddingModel,
 } from '../mobile-attendance/face/face-math';
 import { FacePhotoStorageService } from '../mobile-attendance/face/face-photo-storage.service';
 import {
@@ -43,6 +45,8 @@ export interface DuplicateHit {
 
 @Injectable()
 export class FaceDeskEnrollmentService {
+  private readonly logger = new Logger(FaceDeskEnrollmentService.name);
+
   constructor(
     @InjectRepository(FaceDeskProfileEntity)
     private readonly profileRepo: Repository<FaceDeskProfileEntity>,
@@ -250,17 +254,22 @@ export class FaceDeskEnrollmentService {
     excludeEmployeeId: string,
     duplicateCosine: number,
     reviewCosine?: number,
+    probeModel?: string | null,
   ): Promise<DuplicateHit | null> {
     const rows = await this.dataSource.query<
       Array<{
         employee_id: string;
         face_template: Buffer | null;
+        profile_model: string | null;
         sample_embedding: Buffer | null;
+        sample_model: string | null;
       }>
     >(
       `SELECT p.employee_id,
               p.face_template,
-              s.embedding AS sample_embedding
+              p.embedding_model AS profile_model,
+              s.embedding AS sample_embedding,
+              s.embedding_model AS sample_model
          FROM facedesk_employee_face_profiles p
          LEFT JOIN facedesk_employee_face_samples s
            ON s.profile_id = p.profile_id
@@ -271,22 +280,48 @@ export class FaceDeskEnrollmentService {
       [clientId, excludeEmployeeId],
     );
 
+    // Only compare embeddings from the SAME model. cosineSim returns -1 on a
+    // dimension mismatch, so a gallery entry from a different model silently
+    // scored as "completely different" and the duplicate became invisible —
+    // exactly how one face got enrolled against two people. Track what we could
+    // not compare so a stale gallery is visible instead of looking clean.
     const bestByEmployee = new Map<string, number>();
+    let skippedIncomparable = 0;
+    const compare = (
+      buf: Buffer | null,
+      model: string | null,
+    ): number | null => {
+      if (!buf?.length) return null;
+      const candidate = bufferToEmbedding(buf);
+      if (candidate.length !== probe.length) {
+        skippedIncomparable++;
+        return null;
+      }
+      if (
+        probeModel &&
+        model &&
+        normalizeEmbeddingModel(model) !== normalizeEmbeddingModel(probeModel)
+      ) {
+        skippedIncomparable++;
+        return null;
+      }
+      return this.faceService.cosine(probe, candidate);
+    };
+
     for (const r of rows) {
       let maxSim = bestByEmployee.get(r.employee_id) ?? -1;
-      if (r.face_template?.length) {
-        maxSim = Math.max(
-          maxSim,
-          this.faceService.cosine(probe, bufferToEmbedding(r.face_template)),
-        );
-      }
-      if (r.sample_embedding?.length) {
-        maxSim = Math.max(
-          maxSim,
-          this.faceService.cosine(probe, bufferToEmbedding(r.sample_embedding)),
-        );
-      }
+      const t = compare(r.face_template, r.profile_model);
+      if (t !== null) maxSim = Math.max(maxSim, t);
+      const s = compare(r.sample_embedding, r.sample_model);
+      if (s !== null) maxSim = Math.max(maxSim, s);
       if (maxSim >= 0) bestByEmployee.set(r.employee_id, maxSim);
+    }
+    if (skippedIncomparable > 0) {
+      this.logger.warn(
+        `duplicate scan skipped ${skippedIncomparable} gallery entries not comparable with the probe model (${
+          probeModel ?? 'unknown'
+        }) — those subjects need re-enrollment to be duplicate-checked`,
+      );
     }
 
     const ranked = [...bestByEmployee.entries()].sort((a, b) => b[1] - a[1]);
@@ -323,6 +358,7 @@ export class FaceDeskEnrollmentService {
     probe: Float32Array,
     duplicateCosine: number,
     reviewCosine?: number,
+    probeModel?: string | null,
   ): Promise<DuplicateHit | null> {
     const photoB64 = dto.frames?.find((f) => f.photoB64)?.photoB64 ?? null;
     if (photoB64) {
@@ -347,6 +383,7 @@ export class FaceDeskEnrollmentService {
       dto.employeeId,
       duplicateCosine,
       reviewCosine,
+      probeModel,
     );
   }
 
@@ -393,13 +430,15 @@ export class FaceDeskEnrollmentService {
     if (good.length === 0) {
       return { duplicate: false, message: 'No usable frames' };
     }
-    const probe = averageEmbeddings(good.map((f) => f.embedding));
+    const bestSamples = this.faceService.bestFrames(good, eff.minFaceSamples);
+    const probe = averageEmbeddings(bestSamples.map((f) => f.embedding));
     const hit = await this.resolveDuplicateHit(
       clientId,
       dto,
       probe,
       eff.duplicateCosine,
       eff.duplicateReviewCosine,
+      bestSamples[0]?.model ?? null,
     );
     const approvedOverride =
       !!hit &&
@@ -476,19 +515,22 @@ export class FaceDeskEnrollmentService {
     );
     const eff = await this.settings.getEffective(clientId);
 
-    const { resolved, good } = await this.resolveEnrollmentFrames(dto.frames);
-    this.assertEnrollmentFrames(resolved, good, eff.minFaceSamples);
+    const { good } = await this.resolveEnrollmentFrames(dto.frames);
+    const bestSamples = this.faceService.bestFrames(good, eff.minFaceSamples);
+    // The selected model group, not the combined capture, must independently
+    // meet the enrollment gate. Frames discarded for using another embedding
+    // model cannot satisfy the sample or front-facing requirements.
+    this.assertEnrollmentFrames(bestSamples, bestSamples, eff.minFaceSamples);
 
     if (eff.livenessRequired) {
       const livenessOk =
         dto.livenessPassed === true ||
-        good.some((f) => (f.livenessScore ?? 0) >= 0.5);
+        bestSamples.some((f) => (f.livenessScore ?? 0) >= 0.5);
       if (!livenessOk) {
         throw new BadRequestException('Liveness check failed — please blink');
       }
     }
 
-    const bestSamples = this.faceService.bestFrames(good, eff.minFaceSamples);
     const template = averageEmbeddings(bestSamples.map((f) => f.embedding));
     const model = bestSamples[0]?.model ?? null;
 
@@ -500,6 +542,7 @@ export class FaceDeskEnrollmentService {
       template,
       eff.duplicateCosine,
       eff.duplicateReviewCosine,
+      model,
     );
     const approvedOverride =
       !!hit &&

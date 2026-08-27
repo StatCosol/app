@@ -6,6 +6,7 @@ import {
 import {
   cosineSim,
   decodeEmbedding,
+  normalizeEmbeddingModel,
 } from '../mobile-attendance/face/face-math';
 import { FaceFrameDto } from './facedesk.dto';
 
@@ -186,7 +187,37 @@ export class FaceDeskFaceService {
 
   /** Top-N frames by quality. */
   bestFrames(frames: ResolvedFrame[], n: number): ResolvedFrame[] {
-    return [...frames]
+    // Frames resolve per-frame, so one capture session can yield a MIX of
+    // face-svc embeddings (frames face-svc accepted) and device embeddings
+    // (frames it rejected with 422 no_face). Those live in different vector
+    // spaces with different dimensions — averaging across them produces a
+    // corrupt template, and comparing across them scores -1, which is how the
+    // same face got enrolled twice without being flagged.
+    //
+    // Commit to ONE model per enrollment: take the group with the most usable
+    // frames, breaking ties on total quality, and discard the rest.
+    const groups = new Map<string, ResolvedFrame[]>();
+    for (const f of frames) {
+      const key = `${normalizeEmbeddingModel(f.model) ?? 'unknown'}:${f.embedding.length}`;
+      const g = groups.get(key);
+      if (g) g.push(f);
+      else groups.set(key, [f]);
+    }
+    const best = [...groups.values()].sort((a, b) => {
+      if (b.length !== a.length) return b.length - a.length;
+      const qa = a.reduce((s, f) => s + f.qualityScore, 0);
+      const qb = b.reduce((s, f) => s + f.qualityScore, 0);
+      return qb - qa;
+    })[0];
+    if (!best) return [];
+    if (groups.size > 1) {
+      this.logger.warn(
+        `mixed embedding models in one capture (${[...groups.keys()].join(', ')}) — keeping ${best.length} frames from ${
+          normalizeEmbeddingModel(best[0].model) ?? 'unknown'
+        }`,
+      );
+    }
+    return [...best]
       .sort((a, b) => b.qualityScore - a.qualityScore)
       .slice(0, n);
   }
