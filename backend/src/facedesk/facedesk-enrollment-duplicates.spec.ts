@@ -127,3 +127,101 @@ describe('FaceDeskEnrollmentService.findDuplicate', () => {
     expect(hit).toBeNull();
   });
 });
+
+// Regression: face-svc resolves per frame, so one capture can yield a mix of
+// server embeddings (frames it accepted) and device embeddings (frames it
+// rejected with 422 no_face). Those have different dimensions. Comparing
+// across them returns -1 from cosineSim, which silently read as "not a
+// duplicate" — this is how one face was enrolled against two people.
+describe('FaceDeskEnrollmentService.findDuplicate — model comparability', () => {
+  function make(rows: Array<Record<string, unknown>>) {
+    const faceService = {
+      cosine: (x: Float32Array, y: Float32Array) => {
+        if (x.length !== y.length) return -1;
+        let dot = 0;
+        for (let i = 0; i < x.length; i++) dot += x[i] * y[i];
+        return dot;
+      },
+    };
+    const dataSource = { query: jest.fn().mockResolvedValue(rows) };
+    return new FaceDeskEnrollmentService(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      faceService as any,
+      {} as any,
+      { enabled: false } as any,
+      {} as any,
+      dataSource as any,
+    );
+  }
+
+  const probe = new Float32Array([1, 0, 0, 0]);
+
+  it('does not score a different-dimension gallery entry as a match', async () => {
+    const service = make([
+      {
+        employee_id: 'emp-other',
+        face_template: Buffer.from(new Float32Array([1, 0, 0, 0, 0, 0]).buffer),
+        profile_model: 'arcface',
+        sample_embedding: null,
+        sample_model: null,
+      },
+    ]);
+    // Incomparable, so nothing to report — must not be a silent -1 "no match".
+    const hit = await service.findDuplicate(
+      'c1',
+      probe,
+      'emp-new',
+      0.5,
+      0.4,
+      'mobilefacenet',
+    );
+    expect(hit).toBeNull();
+  });
+
+  it('skips a same-dimension entry from a different model', async () => {
+    const service = make([
+      {
+        employee_id: 'emp-other',
+        face_template: Buffer.from(new Float32Array([1, 0, 0, 0]).buffer),
+        profile_model: 'arcface',
+        sample_embedding: null,
+        sample_model: null,
+      },
+    ]);
+    const hit = await service.findDuplicate(
+      'c1',
+      probe,
+      'emp-new',
+      0.5,
+      0.4,
+      'mobilefacenet',
+    );
+    expect(hit).toBeNull();
+  });
+
+  it('still matches when the models agree', async () => {
+    const service = make([
+      {
+        employee_id: 'emp-other',
+        face_template: Buffer.from(new Float32Array([1, 0, 0, 0]).buffer),
+        profile_model: 'mobilefacenet',
+        sample_embedding: null,
+        sample_model: null,
+      },
+    ]);
+    const hit = await service.findDuplicate(
+      'c1',
+      probe,
+      'emp-new',
+      0.5,
+      0.4,
+      'mobilefacenet',
+    );
+    expect(hit?.matchedEmployeeId).toBe('emp-other');
+    expect(hit?.blocking).toBe(true);
+  });
+});
