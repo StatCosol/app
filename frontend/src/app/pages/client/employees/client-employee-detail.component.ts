@@ -454,7 +454,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
 
           @if (!loadingDocs && documents.length > 0) {
 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <table class="w-full text-sm">
+            <div class="table-wrap"><table class="w-full text-sm">
               <thead>
                 <tr class="bg-gray-50 border-b border-gray-200">
                   <th class="text-left px-4 py-3 font-semibold text-gray-700">Name</th>
@@ -485,7 +485,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
                 </tr>
 }
               </tbody>
-            </table>
+            </table></div>
           </div>
 }
         </div>

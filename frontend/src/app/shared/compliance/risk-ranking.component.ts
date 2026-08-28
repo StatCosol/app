@@ -20,7 +20,7 @@ import { ClientBranchesService } from '../../core/client-branches.service';
 }
 
       @if (!loading && rows.length) {
-<table class="rr-tbl">
+<div class="table-wrap"><table class="rr-tbl">
         <thead>
           <tr>
             <th>#</th>
@@ -49,7 +49,7 @@ import { ClientBranchesService } from '../../core/client-branches.service';
           </tr>
 }
         </tbody>
-      </table>
+      </table></div>
 }
 
       @if (!loading && !rows.length) {

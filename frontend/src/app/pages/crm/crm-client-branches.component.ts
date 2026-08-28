@@ -353,7 +353,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
 
         @if (!contractorsLoading && contractors.length > 0) {
 <div class="overflow-hidden rounded-lg border border-gray-200 mb-4">
-          <table class="min-w-full divide-y divide-gray-200">
+          <div class="table-wrap"><table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
@@ -379,7 +379,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
               </tr>
 }
             </tbody>
-          </table>
+          </table></div>
         </div>
 }
 
@@ -493,7 +493,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
           </p>
 
           <div class="overflow-hidden rounded-lg border border-gray-200 mb-4">
-            <table class="min-w-full divide-y divide-gray-200">
+            <div class="table-wrap"><table class="min-w-full divide-y divide-gray-200">
               <thead class="bg-gray-50">
                 <tr>
                   <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-10">
@@ -542,7 +542,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
                 </tr>
 }
               </tbody>
-            </table>
+            </table></div>
           </div>
 
           <!-- Save button -->

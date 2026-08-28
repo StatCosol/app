@@ -42,7 +42,7 @@ import type { ClientDto } from '../../../core/api/cco-clients.api';
 
       @if (!isLoading && filtered.length > 0) {
 <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200">
+        <div class="table-wrap"><table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client Code</th>
@@ -79,7 +79,7 @@ import type { ClientDto } from '../../../core/api/cco-clients.api';
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
       </div>
 }
 

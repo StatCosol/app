@@ -79,7 +79,7 @@ interface LoadResult {
         </section>
 
         <div class="table-card">
-          <table>
+          <div class="table-wrap"><table>
             <thead>
               <tr>
                 <th>Period</th>
@@ -136,7 +136,7 @@ interface LoadResult {
                 </tr>
               }
             </tbody>
-          </table>
+          </table></div>
         </div>
       }
     </div>

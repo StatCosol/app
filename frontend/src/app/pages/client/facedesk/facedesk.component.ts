@@ -153,7 +153,7 @@ type Tab =
 <ui-empty-state title="No devices" description="Provision a kiosk device to get started."></ui-empty-state>
 }
         @if (!loading && deviceList.length > 0) {
-<table class="tbl">
+<div class="table-wrap"><table class="tbl">
           <thead><tr><th>Name</th><th>Branch</th><th>Mode</th><th>Status</th><th>Last Sync</th><th>App</th><th class="right">Actions</th></tr></thead>
           <tbody>
             @for (d of deviceList; track d) {
@@ -179,7 +179,7 @@ type Tab =
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
 }
       
 }
@@ -223,7 +223,7 @@ type Tab =
 <ui-empty-state title="All enrolled" description="No {{ enrollSubjectType === 'CONTRACTOR' ? 'contractors' : 'employees' }} are pending enrollment."></ui-empty-state>
 }
         @if (!loading && enrollmentView === 'PENDING' && pending.length > 0) {
-<table class="tbl">
+<div class="table-wrap"><table class="tbl">
           <thead><tr><th>Code</th><th>Employee</th><th>Status</th><th class="right">Action</th></tr></thead>
           <tbody>
             @for (r of pending; track r) {
@@ -238,14 +238,14 @@ type Tab =
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
 }
 
         @if (!loading && enrollmentView === 'ENROLLED' && enrolled.length === 0) {
 <ui-empty-state title="No enrolled people" description="No active {{ enrollSubjectType === 'CONTRACTOR' ? 'contractors' : 'employees' }} have completed FaceDesk enrollment."></ui-empty-state>
 }
         @if (!loading && enrollmentView === 'ENROLLED' && enrolled.length > 0) {
-<table class="tbl">
+<div class="table-wrap"><table class="tbl">
           <thead><tr><th>Code / Type</th><th>Worker</th><th>Branch</th><th>Profile</th><th>PIN</th><th>Enrolled</th>@if (branchMode) {<th>Photo</th>}<th class="right">Actions</th></tr></thead>
           <tbody>
             @for (r of enrolled; track r.employeeId) {
@@ -272,7 +272,7 @@ type Tab =
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
 }
 
         @if (branchMode) {
@@ -307,7 +307,7 @@ type Tab =
 <ui-empty-state title="No duplicate alerts" description="No pending duplicate-face alerts."></ui-empty-state>
 }
         @if (!loading && duplicates.length > 0) {
-<table class="tbl">
+<div class="table-wrap"><table class="tbl">
           <thead><tr><th>New Employee</th><th>Matched</th><th>Similarity</th><th>When</th><th class="right">Actions</th></tr></thead>
           <tbody>
             @for (a of duplicates; track a) {
@@ -328,7 +328,7 @@ type Tab =
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
 }
       
 }
@@ -351,7 +351,7 @@ type Tab =
 <ui-empty-state title="Nothing to verify" description="No pending items."></ui-empty-state>
 }
         @if (!loading && review.length > 0) {
-<table class="tbl">
+<div class="table-wrap"><table class="tbl">
           <thead><tr><th>Issue</th><th>Worker</th>@if (branchMode) {<th>Face comparison</th>}<th>Confidence</th><th>Punch</th><th>When</th><th class="right">Actions</th></tr></thead>
           <tbody>
             @for (r of review; track r) {
@@ -380,7 +380,7 @@ type Tab =
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
 }
       
 }
@@ -396,7 +396,7 @@ type Tab =
 <ui-empty-state title="Nothing to review" description="No short worked-days are pending approval."></ui-empty-state>
 }
         @if (!loading && shortDays.length > 0) {
-<table class="tbl">
+<div class="table-wrap"><table class="tbl">
           <thead><tr><th>Employee</th><th>Day</th><th>Punches</th><th>Worked</th><th class="right">Actions</th></tr></thead>
           <tbody>
             @for (d of shortDays; track d) {
@@ -413,7 +413,7 @@ type Tab =
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
 }
 
 }
@@ -465,7 +465,7 @@ type Tab =
 }
         @if (!loading && reportRows.length > 0) {
 <div class="overflow-auto">
-          <table class="tbl">
+          <div class="table-wrap"><table class="tbl">
             <thead><tr>@for (c of reportCols; track c) {
 <th>{{ c }}</th>
 }</tr></thead>
@@ -478,7 +478,7 @@ type Tab =
               </tr>
 }
             </tbody>
-          </table>
+          </table></div>
           <p class="text-xs text-gray-500 mt-2">{{ reportRows.length }} rows</p>
         </div>
 }

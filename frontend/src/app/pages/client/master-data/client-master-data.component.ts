@@ -64,7 +64,7 @@ type MasterTab = 'departments' | 'grades' | 'designations';
       <!-- Table -->
       @if (!loading && items.length > 0) {
 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-        <table class="w-full text-sm">
+        <div class="table-wrap"><table class="w-full text-sm">
           <thead>
             <tr class="bg-gray-50 border-b border-gray-200">
               <th class="text-left px-4 py-3 font-semibold text-gray-700">Code</th>
@@ -91,7 +91,7 @@ type MasterTab = 'departments' | 'grades' | 'designations';
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
       </div>
 }
 

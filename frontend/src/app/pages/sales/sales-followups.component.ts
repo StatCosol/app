@@ -20,7 +20,7 @@ import { Lead, SalesService } from '../../modules/sales/sales.service';
 <div class="p-10 text-center text-gray-500">All caught up. 🎉</div>
 }
         @if (!loading && items.length > 0) {
-<table class="w-full text-sm">
+<div class="table-wrap"><table class="w-full text-sm">
           <thead class="bg-gray-50 text-xs uppercase text-gray-500">
             <tr>
               <th class="text-left px-4 py-2.5">Company</th>
@@ -45,7 +45,7 @@ import { Lead, SalesService } from '../../modules/sales/sales.service';
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
 }
       </div>
     </div>

@@ -167,7 +167,7 @@ import {
 }
 
         @if (!loading && displayDocuments.length) {
-<table class="doc-table">
+<div class="table-wrap"><table class="doc-table">
           <thead>
             <tr>
               <th>Document</th>
@@ -214,7 +214,7 @@ import {
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
 }
 
         @if (!loading && !displayDocuments.length) {
