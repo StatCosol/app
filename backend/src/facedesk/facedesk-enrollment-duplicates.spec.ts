@@ -86,7 +86,7 @@ describe('FaceDeskEnrollmentService.findDuplicate', () => {
     expect(hit?.blocking).toBe(true);
   });
 
-  it('returns a non-blocking review hit for a near-miss below the threshold', async () => {
+  it('blocks a review-band near-miss instead of enrolling it', async () => {
     const { a, b } = unitVectors();
     const service = make([
       {
@@ -95,10 +95,17 @@ describe('FaceDeskEnrollmentService.findDuplicate', () => {
         sample_embedding: null,
       },
     ]);
-    // b scores ~0.99 with a: above the review floor, below the block threshold.
-    const hit = await service.findDuplicate('client-1', a, 'emp-new', 0.995, 0.9);
+    // b scores ~0.99 with a: above the conservative review floor, below the
+    // configured duplicate threshold. It must still require admin approval.
+    const hit = await service.findDuplicate(
+      'client-1',
+      a,
+      'emp-new',
+      0.995,
+      0.9,
+    );
     expect(hit?.matchedEmployeeId).toBe('emp-other');
-    expect(hit?.blocking).toBe(false);
+    expect(hit?.blocking).toBe(true);
   });
 
   it('ignores faces below the review floor entirely', async () => {
@@ -110,7 +117,13 @@ describe('FaceDeskEnrollmentService.findDuplicate', () => {
         sample_embedding: null,
       },
     ]);
-    const hit = await service.findDuplicate('client-1', a, 'emp-new', 0.9, 0.78);
+    const hit = await service.findDuplicate(
+      'client-1',
+      a,
+      'emp-new',
+      0.9,
+      0.78,
+    );
     expect(hit).toBeNull();
   });
 });
