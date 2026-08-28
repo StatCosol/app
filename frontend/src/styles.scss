@@ -1152,12 +1152,43 @@ svg {
   min-width: 0;
 }
 
-:where(.table-scroll, .table-wrap, .table-wrapper, .overflow-x-auto) {
+:where(.table-scroll, .table-wrap, .table-wrapper, .tableWrap, .tbl, .overflow-x-auto) {
   width: 100%;
   max-width: 100%;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+/* Vertical containment for data tables.
+ *
+ * Without a height cap a table grows the page itself, so a few hundred rows
+ * push the header, filters and pagination far off-screen and the only way to
+ * reach anything is to scroll the whole document. Cap the wrapper instead so
+ * the ROWS scroll inside it and the page chrome stays put.
+ *
+ * Deliberately scoped to the table wrappers and NOT .overflow-x-auto, which is
+ * a generic utility that also sits on non-table content a height cap would clip.
+ *
+ * :where() keeps specificity at zero, so any component that already sets its
+ * own max-height (six do) keeps that value — the cascade resolves per property,
+ * so those components override only max-height and still inherit the rest.
+ */
+:where(.table-scroll, .table-wrap, .table-wrapper, .tableWrap, .tbl) {
+  max-height: 70vh;
+  overflow-y: auto;
+  overscroll-behavior-block: contain;
+}
+
+/* A scrolling table whose header scrolls away is unreadable, so pin it. Zero
+ * specificity again: components with their own header background keep it, and
+ * this only supplies one where none is set (a transparent sticky header would
+ * let rows show through it). */
+:where(.table-scroll, .table-wrap, .table-wrapper, .tableWrap, .tbl) thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface, #ffffff);
 }
 
 :where(input, select, textarea) {
