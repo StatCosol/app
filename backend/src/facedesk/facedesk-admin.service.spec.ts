@@ -30,12 +30,10 @@ function makeService() {
   const correctionRepo = {};
   const auditRepo = { save: jest.fn().mockResolvedValue({}) };
   const photoStorage = {
-    readPhoto: jest
-      .fn()
-      .mockResolvedValue({
-        buffer: Buffer.from('img'),
-        contentType: 'image/jpeg',
-      }),
+    readPhoto: jest.fn().mockResolvedValue({
+      buffer: Buffer.from('img'),
+      contentType: 'image/jpeg',
+    }),
   };
   const biometric = {
     ingest: jest.fn().mockResolvedValue({ received: 1, inserted: 1 }),
@@ -408,7 +406,9 @@ describe('FaceDeskAdminService short-day reviews', () => {
 
   it('short-circuits to empty when the branch scope is empty', async () => {
     const { service, attRepo } = makeService();
-    const res = await service.listShortDayReviews('client-1', { branchIds: [] });
+    const res = await service.listShortDayReviews('client-1', {
+      branchIds: [],
+    });
     expect(res).toEqual([]);
     expect(attRepo.manager.query).not.toHaveBeenCalled();
   });
@@ -438,16 +438,40 @@ describe('FaceDeskAdminService short-day reviews', () => {
     const upsertCall = attRepo.manager.query.mock.calls[1];
     expect(upsertCall[0]).toContain('INSERT INTO facedesk_day_reviews');
     expect(upsertCall[1]).toEqual(
-      expect.arrayContaining(['client-1', 'emp-1', 'b1', '2026-08-20', 360, 'APPROVED', 'actor-1']),
+      expect.arrayContaining([
+        'client-1',
+        'emp-1',
+        'b1',
+        '2026-08-20',
+        360,
+        'APPROVED',
+        'actor-1',
+      ]),
     );
     // Attendance is updated to a full present day, approved, locked as MANUAL.
     const attCall = attRepo.manager.query.mock.calls[2];
     expect(attCall[0]).toContain('UPDATE attendance_records');
     expect(attCall[0]).toContain("source = 'MANUAL'");
     expect(attCall[1]).toEqual(
-      expect.arrayContaining(['client-1', 'emp-1', '2026-08-20', 'PRESENT', 'APPROVED', 'actor-1']),
+      expect.arrayContaining([
+        'client-1',
+        'emp-1',
+        '2026-08-20',
+        'PRESENT',
+        'APPROVED',
+        'actor-1',
+      ]),
     );
-    expect(auditRepo.save).toHaveBeenCalled();
+    expect(auditRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityId: 'emp-1',
+        detail: expect.objectContaining({
+          workDate: '2026-08-20',
+          workedMinutes: 360,
+          branchId: 'b1',
+        }),
+      }),
+    );
   });
 
   it('records a half day: attendance HALF_DAY / APPROVED', async () => {
@@ -479,13 +503,20 @@ describe('FaceDeskAdminService short-day reviews', () => {
     const res = await service.actOnDayReview(
       'client-1',
       'actor-1',
-      { employeeId: 'emp-1', workDate: '2026-08-20', action: 'REJECT', remarks: 'too short' },
+      {
+        employeeId: 'emp-1',
+        workDate: '2026-08-20',
+        action: 'REJECT',
+        remarks: 'too short',
+      },
       null,
     );
     expect(res).toEqual({ ok: true, decision: 'REJECTED' });
     const updCall = attRepo.manager.query.mock.calls[2];
     expect(updCall[0]).toContain('UPDATE attendance_records');
-    expect(updCall[1]).toEqual(expect.arrayContaining(['ABSENT', 'REJECTED', 'too short']));
+    expect(updCall[1]).toEqual(
+      expect.arrayContaining(['ABSENT', 'REJECTED', 'too short']),
+    );
     const insCall = attRepo.manager.query.mock.calls[3];
     expect(insCall[0]).toContain('INSERT INTO attendance_records');
     expect(insCall[1]).toEqual(expect.arrayContaining(['ABSENT', 'REJECTED']));
