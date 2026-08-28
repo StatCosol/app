@@ -1152,7 +1152,7 @@ svg {
   min-width: 0;
 }
 
-:where(.table-scroll, .table-wrap, .table-wrapper, .tableWrap, .tbl, .overflow-x-auto) {
+:where(.table-scroll, .table-wrap, .table-wrapper, .tableWrap, .overflow-x-auto) {
   width: 100%;
   max-width: 100%;
   overflow-x: auto;
@@ -1174,7 +1174,7 @@ svg {
  * own max-height (six do) keeps that value — the cascade resolves per property,
  * so those components override only max-height and still inherit the rest.
  */
-:where(.table-scroll, .table-wrap, .table-wrapper, .tableWrap, .tbl) {
+:where(.table-scroll, .table-wrap, .table-wrapper, .tableWrap, .cal-list) {
   max-height: 70vh;
   overflow-y: auto;
   overscroll-behavior-block: contain;
@@ -1184,7 +1184,7 @@ svg {
  * specificity again: components with their own header background keep it, and
  * this only supplies one where none is set (a transparent sticky header would
  * let rows show through it). */
-:where(.table-scroll, .table-wrap, .table-wrapper, .tableWrap, .tbl) thead th {
+:where(.table-scroll, .table-wrap, .table-wrapper, .tableWrap, .cal-list) thead th {
   position: sticky;
   top: 0;
   z-index: 1;

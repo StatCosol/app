@@ -32,7 +32,10 @@ type ScheduleSignal = 'UPCOMING' | 'OPEN_WINDOW' | 'DUE_SOON' | 'OVERDUE' | 'SCH
     .card{background:#fff;border:1px solid #f1f5f9;border-radius:16px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
     .k{color:#64748b;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
     .v{margin-top:8px;font-size:20px;font-weight:900;color:#0f172a;}
-    .tbl{background:#fff;border:1px solid #f1f5f9;border-radius:16px;overflow:hidden;}
+    /* overflow was hidden, which clipped rows once the list grew; auto still
+       clips to the rounded corners but lets them scroll inside the card. */
+    .tbl{background:#fff;border:1px solid #f1f5f9;border-radius:16px;overflow:auto;max-height:70vh;overscroll-behavior-block:contain;}
+    .tbl thead th{position:sticky;top:0;z-index:1;background:#fff;}
     .table-row{cursor:pointer;transition:background .15s ease;}
     .table-row:hover{background:#f8fafc;}
     .table-row--selected{background:#eff6ff;}
