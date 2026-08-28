@@ -327,6 +327,22 @@ export class FaceDeskEnrollmentService {
     const ranked = [...bestByEmployee.entries()].sort((a, b) => b[1] - a[1]);
     // Anything below the review band is genuinely a different face.
     const floor = Math.min(duplicateCosine, reviewCosine ?? duplicateCosine);
+
+    // Always record the outcome. A silent null is indistinguishable between
+    // "nobody comparable to compare against" and "compared everyone and they
+    // genuinely differ" — and telling those apart is the whole diagnosis when
+    // a duplicate slips through. Cheap: one line per enrollment.
+    this.logger.log(
+      `duplicate scan: gallery=${bestByEmployee.size} comparable subject(s), ` +
+        `top=${ranked.length ? ranked[0][1].toFixed(3) : 'n/a'} ` +
+        `(subject ${ranked.length ? ranked[0][0] : 'n/a'}), ` +
+        `block>=${duplicateCosine.toFixed(3)} review>=${floor.toFixed(3)}, ` +
+        `probeModel=${probeModel ?? 'unknown'} dim=${probe.length}, ` +
+        `skipped=${skippedIncomparable} → ${
+          ranked.length && ranked[0][1] >= floor ? 'HIT' : 'no duplicate'
+        }`,
+    );
+
     if (!ranked.length || ranked[0][1] < floor) return null;
 
     // NOTE: the margin between the top two candidates is reported but must NOT

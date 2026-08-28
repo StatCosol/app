@@ -64,6 +64,9 @@ function makeService(rosterRows: any[], todayCount = 0) {
       })),
     ),
     goodFrames: (fr: any[]) => fr,
+    // Mirrors the real grouping: keep only frames comparable with the first.
+    selectComparableFrames: (fr: any[]) =>
+      fr.filter((f) => f.embedding?.length === fr[0]?.embedding?.length),
     bestFrames: (fr: any[], n: number) => fr.slice(0, n),
     cosine: (a: Float32Array, b: Float32Array) => {
       let dot = 0,
