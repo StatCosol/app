@@ -68,7 +68,7 @@ import { FilterOptionsService } from '../../../shared/filters/services/filter-op
             Showing {{ filteredRequests.length }} of {{ requests.length }} request{{ requests.length === 1 ? '' : 's' }}
           </p>
         </div>
-        <table class="w-full text-sm">
+        <div class="table-wrap"><table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th class="px-4 py-3">Client</th>
@@ -148,7 +148,7 @@ import { FilterOptionsService } from '../../../shared/filters/services/filter-op
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       @if (reviewRow) {
@@ -202,7 +202,7 @@ import { FilterOptionsService } from '../../../shared/filters/services/filter-op
           </div>
           <button class="text-sm text-blue-700" (click)="load()">Refresh</button>
         </div>
-        <table class="w-full text-sm">
+        <div class="table-wrap"><table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th class="px-4 py-3">Client</th>
@@ -251,7 +251,7 @@ import { FilterOptionsService } from '../../../shared/filters/services/filter-op
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
       </div>
     </section>
   `,

@@ -76,7 +76,7 @@ interface BranchOption { id: string; name: string }
         @if (!loadingDevices && devices.length > 0) {
 <div
              class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-          <table class="w-full text-sm">
+          <div class="table-wrap"><table class="w-full text-sm">
             <thead>
               <tr class="bg-gray-50 border-b border-gray-200">
                 <th class="text-left px-4 py-3 font-semibold text-gray-700">Label</th>
@@ -115,7 +115,7 @@ interface BranchOption { id: string; name: string }
               </tr>
 }
             </tbody>
-          </table>
+          </table></div>
         </div>
 }
       
@@ -161,7 +161,7 @@ interface BranchOption { id: string; name: string }
         @if (!loadingPunches && punches.length > 0) {
 <div
              class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-          <table class="w-full text-sm">
+          <div class="table-wrap"><table class="w-full text-sm">
             <thead>
               <tr class="bg-gray-50 border-b border-gray-200">
                 <th class="text-left px-4 py-3 font-semibold text-gray-700">Time</th>
@@ -208,7 +208,7 @@ interface BranchOption { id: string; name: string }
               </tr>
 }
             </tbody>
-          </table>
+          </table></div>
         </div>
 }
       
@@ -227,7 +227,7 @@ interface BranchOption { id: string; name: string }
           <section>
             <h3 class="text-base font-semibold text-gray-900 mb-2">2. Configure the machine (one time)</h3>
             <p>On the device: <b>Menu → Comm → Cloud Server Setting</b> (label varies by model). Enter:</p>
-            <table class="mt-2 text-sm border border-gray-200 rounded">
+            <div class="table-wrap"><table class="mt-2 text-sm border border-gray-200 rounded">
               <tbody>
                 <tr class="border-b"><td class="px-3 py-1.5 font-medium bg-gray-50 w-1/3">Server Address</td><td class="px-3 py-1.5 font-mono">{{ pushHost }}</td></tr>
                 <tr class="border-b"><td class="px-3 py-1.5 font-medium bg-gray-50">Server Port</td><td class="px-3 py-1.5 font-mono">443</td></tr>
@@ -237,7 +237,7 @@ interface BranchOption { id: string; name: string }
                 <tr class="border-b"><td class="px-3 py-1.5 font-medium bg-gray-50">Realtime Upload</td><td class="px-3 py-1.5">Yes</td></tr>
                 <tr><td class="px-3 py-1.5 font-medium bg-gray-50">Heartbeat</td><td class="px-3 py-1.5">10 sec</td></tr>
               </tbody>
-            </table>
+            </table></div>
             <p class="mt-2">Save and <b>reboot the device</b>. Within 30 seconds it will show up here with a "Last Seen" timestamp.</p>
           </section>
 

@@ -63,7 +63,7 @@ import {
         <div class="px-6 py-4 border-b border-slate-200">
           <h3 class="text-base font-semibold text-slate-800">Upcoming Renewals (90 days)</h3>
         </div>
-        <table class="w-full text-sm">
+        <div class="table-wrap"><table class="w-full text-sm">
           <thead class="bg-slate-50 text-slate-600 text-xs uppercase">
             <tr>
               <th class="px-6 py-3 text-left">Registration</th>
@@ -86,7 +86,7 @@ import {
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
       </div>
 }
     </div>

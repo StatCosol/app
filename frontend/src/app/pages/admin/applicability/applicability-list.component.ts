@@ -44,7 +44,7 @@ import { AdminClientsService, Client, Branch } from '../clients/admin-clients.se
               } @else if (branches[client.id]?.length === 0) {
                 <p class="text-sm text-slate-400 py-2">No branches configured</p>
               } @else {
-                <table class="w-full text-sm">
+                <div class="table-wrap"><table class="w-full text-sm">
                   <thead>
                     <tr class="text-left text-slate-500 border-b border-slate-100">
                       <th class="py-2 font-medium">Branch</th>
@@ -71,7 +71,7 @@ import { AdminClientsService, Client, Branch } from '../clients/admin-clients.se
                       </tr>
                     }
                   </tbody>
-                </table>
+                </table></div>
               }
             </div>
           }

@@ -55,7 +55,7 @@ interface BucketView {
 <div class="p-6 text-center text-sm text-gray-500">No leads in this bucket.</div>
 }
         @if (b.items.length > 0) {
-<table class="w-full text-sm">
+<div class="table-wrap"><table class="w-full text-sm">
           <thead class="bg-gray-50 text-xs uppercase text-gray-500">
             <tr>
               <th class="text-left px-4 py-2">Company</th>
@@ -86,7 +86,7 @@ interface BucketView {
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
 }
       </div>
 }

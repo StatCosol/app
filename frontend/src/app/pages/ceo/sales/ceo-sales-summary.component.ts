@@ -57,7 +57,7 @@ import {
         <!-- By stage -->
         <div class="bg-white rounded-xl border border-gray-200">
           <div class="px-5 py-3 border-b font-semibold">By Stage</div>
-          <table class="w-full text-sm">
+          <div class="table-wrap"><table class="w-full text-sm">
             <thead class="bg-gray-50 text-xs uppercase text-gray-500">
               <tr>
                 <th class="text-left px-4 py-2">Stage</th>
@@ -74,13 +74,13 @@ import {
               </tr>
 }
             </tbody>
-          </table>
+          </table></div>
         </div>
 
         <!-- By owner -->
         <div class="bg-white rounded-xl border border-gray-200">
           <div class="px-5 py-3 border-b font-semibold">By Sales Executive</div>
-          <table class="w-full text-sm">
+          <div class="table-wrap"><table class="w-full text-sm">
             <thead class="bg-gray-50 text-xs uppercase text-gray-500">
               <tr>
                 <th class="text-left px-4 py-2">Executive</th>
@@ -106,7 +106,7 @@ import {
               </tr>
 }
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
 }

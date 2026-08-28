@@ -69,7 +69,7 @@ import {
 <div class="p-10 text-center text-gray-500">No leads found.</div>
 }
         @if (!loading && items.length > 0) {
-<table class="w-full text-sm">
+<div class="table-wrap"><table class="w-full text-sm">
           <thead class="bg-gray-50 text-xs uppercase text-gray-500">
             <tr>
               <th class="text-left px-4 py-2.5">Lead #</th>
@@ -108,7 +108,7 @@ import {
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
 }
         @if (total > items.length) {
 <div class="px-4 py-2 text-xs text-gray-500 border-t">

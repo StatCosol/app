@@ -114,7 +114,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
             <ui-empty-state message="No compliance items configured yet" />
           } @else {
             <div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
-              <table class="w-full text-sm">
+              <div class="table-wrap"><table class="w-full text-sm">
                 <thead>
                   <tr class="bg-slate-50 text-left text-slate-600 border-b">
                     <th class="px-4 py-3 font-semibold">Code</th>
@@ -148,7 +148,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
                     </tr>
                   }
                 </tbody>
-              </table>
+              </table></div>
             </div>
           }
         }
@@ -211,7 +211,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
                     <!-- Package Items List -->
                     @if (packageItems[pkg.id]?.length) {
                       <div class="border border-slate-200 rounded overflow-hidden">
-                        <table class="w-full text-sm">
+                        <div class="table-wrap"><table class="w-full text-sm">
                           <thead>
                             <tr class="bg-slate-50 text-left text-slate-600 border-b">
                               <th class="px-3 py-2 font-semibold">Code</th>
@@ -232,7 +232,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
                               </tr>
                             }
                           </tbody>
-                        </table>
+                        </table></div>
                       </div>
                     } @else {
                       <p class="text-sm text-slate-400 py-3">No compliance items in this package</p>
@@ -254,7 +254,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 
                       @if (packageRules[pkg.id]?.length) {
                         <div class="border border-slate-200 rounded overflow-hidden">
-                          <table class="w-full text-sm">
+                          <div class="table-wrap"><table class="w-full text-sm">
                             <thead>
                               <tr class="bg-slate-50 text-left text-slate-600 border-b">
                                 <th class="px-3 py-2 font-semibold">Rule</th>
@@ -281,7 +281,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
                                 </tr>
                               }
                             </tbody>
-                          </table>
+                          </table></div>
                         </div>
                       } @else {
                         <p class="text-sm text-slate-400 py-3">No rules linked to this package</p>
@@ -334,7 +334,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
             <ui-empty-state message="No rules configured yet" />
           } @else {
             <div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
-              <table class="w-full text-sm">
+              <div class="table-wrap"><table class="w-full text-sm">
                 <thead>
                   <tr class="bg-slate-50 text-left text-slate-600 border-b">
                     <th class="px-4 py-3 font-semibold">Priority</th>
@@ -370,7 +370,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
                     </tr>
                   }
                 </tbody>
-              </table>
+              </table></div>
             </div>
           }
         }

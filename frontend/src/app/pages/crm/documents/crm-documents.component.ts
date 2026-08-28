@@ -89,7 +89,7 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
     <!-- Documents Table -->
     @if (!loading && filtered.length > 0) {
 <div class="table-card">
-      <table class="data-table">
+      <div class="table-wrap"><table class="data-table">
         <thead>
           <tr>
             <th>Contractor</th>
@@ -136,7 +136,7 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
           </tr>
 }
         </tbody>
-      </table>
+      </table></div>
     </div>
 }
 
