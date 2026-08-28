@@ -186,7 +186,14 @@ export class FaceDeskFaceService {
   }
 
   /** Top-N frames by quality. */
-  bestFrames(frames: ResolvedFrame[], n: number): ResolvedFrame[] {
+  /**
+   * Reduce a capture to a single, mutually comparable (model, dimension) group.
+   * Callers MUST run this before averaging or validating frame counts —
+   * averaging across models corrupts the template, and validating counts before
+   * the discard lets an enrollment pass its minimum-sample and front-pose gates
+   * on frames that are then thrown away.
+   */
+  selectComparableFrames(frames: ResolvedFrame[]): ResolvedFrame[] {
     // Frames resolve per-frame, so one capture session can yield a MIX of
     // face-svc embeddings (frames face-svc accepted) and device embeddings
     // (frames it rejected with 422 no_face). Those live in different vector
@@ -217,7 +224,12 @@ export class FaceDeskFaceService {
         }`,
       );
     }
-    return [...best]
+    return best;
+  }
+
+  /** The best `n` frames, already reduced to one comparable model group. */
+  bestFrames(frames: ResolvedFrame[], n: number): ResolvedFrame[] {
+    return [...this.selectComparableFrames(frames)]
       .sort((a, b) => b.qualityScore - a.qualityScore)
       .slice(0, n);
   }

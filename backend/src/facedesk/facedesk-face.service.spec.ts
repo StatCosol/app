@@ -120,3 +120,50 @@ describe('FaceDeskFaceService.resolveFrames — device-embedding fallback', () =
     expect(good).toHaveLength(1);
   });
 });
+
+describe('FaceDeskFaceService.selectComparableFrames', () => {
+  const frame = (model: string, dim: number, quality: number, sampleType = 'FRONT') => ({
+    embedding: new Float32Array(dim),
+    model,
+    qualityScore: quality,
+    livenessScore: null,
+    serverLivenessScore: null,
+    sampleType: sampleType as any,
+    reasons: [],
+  });
+
+  // face-svc resolves per frame, so one capture yields both kinds. Averaging
+  // across them corrupts the template; comparing across them scores -1.
+  it('keeps only one model group from a mixed capture', () => {
+    const service = makeService({ enabled: false });
+    const frames = [
+      frame('arcface', 512, 0.9),
+      frame('mobilefacenet', 192, 0.8),
+      frame('mobilefacenet', 192, 0.7),
+      frame('mobilefacenet', 192, 0.6),
+    ];
+
+    const picked = service.selectComparableFrames(frames as any);
+
+    expect(picked).toHaveLength(3);
+    expect(new Set(picked.map((f) => f.embedding.length))).toEqual(new Set([192]));
+  });
+
+  it('breaks a tie on total quality', () => {
+    const service = makeService({ enabled: false });
+    const frames = [
+      frame('arcface', 512, 0.95),
+      frame('mobilefacenet', 192, 0.2),
+    ];
+
+    const picked = service.selectComparableFrames(frames as any);
+
+    expect(picked).toHaveLength(1);
+    expect(picked[0].embedding.length).toBe(512);
+  });
+
+  it('returns an empty list for no frames', () => {
+    const service = makeService({ enabled: false });
+    expect(service.selectComparableFrames([])).toEqual([]);
+  });
+});
