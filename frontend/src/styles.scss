@@ -1191,6 +1191,30 @@ svg {
   background: var(--surface, #ffffff);
 }
 
+/* Keep the sticky header tied to the vertical scroller.
+ *
+ * Below 1024px (and again, with !important, below 640px) the responsive rules
+ * turn every table into `display: block; overflow-x: auto` so it can scroll
+ * sideways. That makes the TABLE the nearest scrolling ancestor, so the sticky
+ * `th` above pins to the table instead of to .table-wrap — and since the
+ * vertical scrolling happens on the wrapper, headers scrolled out of view on
+ * tablet and phone exactly where a long list is hardest to read.
+ *
+ * Every table now sits inside a wrapper that already scrolls on both axes, so
+ * the table no longer needs to be its own scroll container. Restoring
+ * `display: table` also brings back column alignment, which `display: block`
+ * breaks. Deliberately NOT :where() here — this has to outrank
+ * `.data-table { ... !important }` (0,1,0), so it needs both the class-plus-
+ * element specificity (0,1,1) and !important of its own. */
+.table-scroll > table,
+.table-wrap > table,
+.table-wrapper > table,
+.tableWrap > table,
+.cal-list > table {
+  display: table !important;
+  overflow: visible !important;
+}
+
 /* Printing must never inherit the on-screen cap — a payslip, invoice or
  * compliance register would print only its first 70vh and silently drop the
  * rest. Release the height and let the table paginate across pages, repeating
