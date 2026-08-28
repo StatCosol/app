@@ -84,7 +84,14 @@ export class FaceDeskAttendanceService {
     }
 
     const resolved = await this.faceService.resolveFrames(dto.frames);
-    const good = this.faceService.goodFrames(resolved);
+    const allGood = this.faceService.goodFrames(resolved);
+    // Reduce to the group that will actually decide identity BEFORE evaluating
+    // liveness. Evaluating liveness over every good frame let a single
+    // server-resolved frame carry the trusted liveness score while the larger
+    // device-only group — embeddings supplied by the client, and never
+    // server-verified — determined whose punch was accepted. Liveness must be
+    // proven by the same frames that establish identity.
+    const good = this.faceService.selectComparableFrames(allGood);
     if (good.length === 0) {
       await this.failedAttemptService.recordFailed(
         clientId,

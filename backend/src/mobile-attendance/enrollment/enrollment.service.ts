@@ -133,6 +133,24 @@ export class EnrollmentService {
     }
   }
 
+  /**
+   * Average embedding frames that came straight from a request body. These are
+   * client-supplied, so a malformed or version-mixed app can send frames of
+   * differing dimensions — that is a bad request, not a server fault, and must
+   * not surface as a 500 from averageEmbeddings.
+   */
+  private averageClientFrames(frames: string[]): Float32Array {
+    const decoded = frames.map(decodeEmbedding);
+    const dim = decoded[0]?.length ?? 0;
+    const mismatch = decoded.find((e) => e.length !== dim);
+    if (mismatch) {
+      throw new BadRequestException(
+        `All embedding frames must have the same dimension (got ${dim} and ${mismatch.length}) — the app version may be out of date, please re-capture`,
+      );
+    }
+    return averageEmbeddings(decoded);
+  }
+
   // ─── ESS self-enroll ───────────────────────────────────────────────────────
 
   private async buildSelfEnrollEmbedding(dto: SelfEnrollDto): Promise<{
@@ -140,9 +158,7 @@ export class EnrollmentService {
     embeddingModel: string | null;
     averaged: Float32Array;
   }> {
-    const averaged = averageEmbeddings(
-      dto.embeddingFrames.map(decodeEmbedding),
-    );
+    const averaged = this.averageClientFrames(dto.embeddingFrames);
     const server =
       this.faceClient.enabled && dto.photoB64
         ? await this.assertPhotoQuality(dto.photoB64)
@@ -486,9 +502,7 @@ export class EnrollmentService {
       livenessChallengeType,
     );
 
-    const averaged = averageEmbeddings(
-      dto.embeddingFrames.map(decodeEmbedding),
-    );
+    const averaged = this.averageClientFrames(dto.embeddingFrames);
     const {
       clientId,
       branchId,
