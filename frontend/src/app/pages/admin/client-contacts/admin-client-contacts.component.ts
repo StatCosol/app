@@ -216,7 +216,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                 </div>
 }
                 @if (contactsByDept(dept).length > 0) {
-<table
+<div class="table-wrap"><table
                  
                   class="w-full text-sm"
                 >
@@ -269,7 +269,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                     </tr>
 }
                   </tbody>
-                </table>
+                </table></div>
 }
               </div>
 }

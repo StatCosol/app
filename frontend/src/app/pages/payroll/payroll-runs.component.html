@@ -226,7 +226,7 @@
 }
 
         @if (leaveValidationRows.length > 0) {
-<table class="lv-table">
+<div class="table-wrap"><table class="lv-table">
           <thead>
             <tr>
               <th>Code</th>
@@ -284,7 +284,7 @@
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
 }
       </div>
 
@@ -336,7 +336,7 @@
 }
 
         @if (otValidationRows.length > 0) {
-<table class="lv-table">
+<div class="table-wrap"><table class="lv-table">
           <thead>
             <tr>
               <th>Code</th>
@@ -378,7 +378,7 @@
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
 }
       </div>
 
@@ -770,7 +770,7 @@
                       <div class="check-grid">
                         <div class="check-section">
                           <div class="check-section-title">Inputs</div>
-                          <table class="check-table">
+                          <div class="table-wrap"><table class="check-table">
                             <tbody>
                               <tr><td>Designation</td><td class="num">{{ row.designation || '-' }}</td></tr>
                               <tr><td>Monthly Gross (master)</td><td class="num">{{ row.monthlyGross | number:'1.2-2' }}</td></tr>
@@ -784,12 +784,12 @@
                               <tr><td>UAN</td><td class="num">{{ row.uan || '-' }}</td></tr>
                               <tr><td>ESIC</td><td class="num">{{ row.esic || '-' }}</td></tr>
                             </tbody>
-                          </table>
+                          </table></div>
                         </div>
 
                         <div class="check-section">
                           <div class="check-section-title">Statutory Wages &amp; Computations</div>
-                          <table class="check-table">
+                          <div class="table-wrap"><table class="check-table">
                             <tbody>
                               <tr><td>Actual Gross (full month)</td><td class="num">{{ rawComponent(row, 'ACTUAL_GROSS') | number:'1.2-2' }}</td></tr>
                               <tr><td>PF Wage</td><td class="num">{{ rawComponent(row, 'PF_WAGE') | number:'1.2-2' }}</td></tr>
@@ -807,12 +807,12 @@
                               <tr><td>Paid Leave Days</td><td class="num">{{ rawComponent(row, 'EL_PAID_LEAVE_DAYS') | number:'1.0-2' }}</td></tr>
                               <tr><td>EL Balance</td><td class="num">{{ rawComponent(row, 'EL_BALANCE') | number:'1.0-2' }}</td></tr>
                             </tbody>
-                          </table>
+                          </table></div>
                         </div>
 
                         <div class="check-section">
                           <div class="check-section-title">All Components</div>
-                          <table class="check-table">
+                          <div class="table-wrap"><table class="check-table">
                             <thead>
                               <tr><th>Code</th><th>Name</th><th>Type</th><th class="num">Amount</th></tr>
                             </thead>
@@ -826,12 +826,12 @@
                               </tr>
 }
                             </tbody>
-                          </table>
+                          </table></div>
                         </div>
 
                         <div class="check-section">
                           <div class="check-section-title">Verification</div>
-                          <table class="check-table">
+                          <div class="table-wrap"><table class="check-table">
                             <tbody>
                               <tr>
                                 <td>Sum of Earnings</td>
@@ -862,7 +862,7 @@
                                 <td class="num">{{ row.netPay | number:'1.2-2' }}</td>
                               </tr>
                             </tbody>
-                          </table>
+                          </table></div>
                         </div>
                       </div>
 

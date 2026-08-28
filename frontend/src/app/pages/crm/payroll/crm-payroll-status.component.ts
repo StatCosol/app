@@ -100,7 +100,7 @@ interface PayrollRun {
             </div>
           } @else {
             <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-              <table class="min-w-full divide-y divide-gray-200">
+              <div class="table-wrap"><table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                   <tr>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client Name</th>
@@ -122,7 +122,7 @@ interface PayrollRun {
                     </tr>
                   }
                 </tbody>
-              </table>
+              </table></div>
             </div>
           }
         }

@@ -1191,6 +1191,31 @@ svg {
   background: var(--surface, #ffffff);
 }
 
+/* Printing must never inherit the on-screen cap — a payslip, invoice or
+ * compliance register would print only its first 70vh and silently drop the
+ * rest. Release the height and let the table paginate across pages, repeating
+ * the header on each via thead. !important because the per-component caps that
+ * set their own max-height would otherwise still win here. */
+@media print {
+  .table-scroll,
+  .table-wrap,
+  .table-wrapper,
+  .tableWrap,
+  .tbl,
+  .cal-list {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr {
+    break-inside: avoid;
+  }
+}
+
 :where(input, select, textarea) {
   min-width: 0;
   max-width: 100%;

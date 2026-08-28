@@ -80,7 +80,7 @@ import {
           <!-- Employee Side -->
           <div class="bg-white rounded-lg border">
             <h3 class="text-sm font-semibold text-gray-800 p-4 pb-2">Employee Side</h3>
-            <table class="w-full text-sm">
+            <div class="table-wrap"><table class="w-full text-sm">
               <tbody class="divide-y">
                 <tr><td class="px-4 py-2">Gross Salary</td><td class="px-4 py-2 text-right font-mono">{{ fmt(consolidated.grossTotal) }}</td></tr>
                 <tr><td class="px-4 py-2">PF (Employee)</td><td class="px-4 py-2 text-right font-mono">{{ fmt(consolidated.pfEmployee) }}</td></tr>
@@ -88,12 +88,12 @@ import {
                 <tr><td class="px-4 py-2">PT Deduction</td><td class="px-4 py-2 text-right font-mono">{{ fmt(consolidated.ptTotal) }}</td></tr>
                 <tr class="bg-gray-50 font-semibold"><td class="px-4 py-2">Net Pay</td><td class="px-4 py-2 text-right font-mono">{{ fmt(consolidated.netPayTotal) }}</td></tr>
               </tbody>
-            </table>
+            </table></div>
           </div>
           <!-- Employer Side -->
           <div class="bg-white rounded-lg border">
             <h3 class="text-sm font-semibold text-gray-800 p-4 pb-2">Employer Side</h3>
-            <table class="w-full text-sm">
+            <div class="table-wrap"><table class="w-full text-sm">
               <tbody class="divide-y">
                 <tr><td class="px-4 py-2">PF (Employer)</td><td class="px-4 py-2 text-right font-mono">{{ fmt(consolidated.pfEmployer) }}</td></tr>
                 <tr><td class="px-4 py-2">ESI (Employer)</td><td class="px-4 py-2 text-right font-mono">{{ fmt(consolidated.esiEmployer) }}</td></tr>
@@ -101,7 +101,7 @@ import {
                 <tr><td class="px-4 py-2">Other Employer Cost</td><td class="px-4 py-2 text-right font-mono">{{ fmt(consolidated.otherEmployerCost) }}</td></tr>
                 <tr class="bg-indigo-50 font-semibold"><td class="px-4 py-2">Total Employer Cost</td><td class="px-4 py-2 text-right font-mono">{{ fmt(consolidated.employerCostTotal) }}</td></tr>
               </tbody>
-            </table>
+            </table></div>
           </div>
         </div>
 
