@@ -392,23 +392,31 @@ export class BiometricService {
         }
         await attRepo.save(existing);
       } else {
-        existing = await attRepo.save(
-          attRepo.create({
-            clientId,
-            branchId: emp.branchId,
-            employeeId,
-            employeeCode: emp.employeeCode,
-            date,
-            status: 'PRESENT',
-            checkIn: checkInStr,
-            checkOut: checkOutStr,
-            workedHours: workedHours.toFixed(2),
-            overtimeHours: overtimeHours.toFixed(2),
-            source: 'BIOMETRIC',
-            captureMethod,
-            approvalStatus: requiresAttendanceReview ? 'PENDING' : 'APPROVED',
-          } as Partial<AttendanceEntity>),
-        );
+        // Read-then-insert race. This reconcile runs from GET handlers
+        // (attendance/daily and attendance/daily/stats), which the UI fires
+        // concurrently for the same client and date. Both can find no row and
+        // both INSERT, and the loser hits the unique index — surfacing to the
+        // browser as a 409 on a plain read, because the exception filter maps
+        // Postgres 23505 to Conflict.
+        //
+        // Adopt the row the winner created and fall through to the same update
+        // the `existing` branch would have applied, so the outcome does not
+        // depend on which request got there first.
+        existing = await this.insertOrAdoptAttendance(attRepo, {
+          clientId,
+          branchId: emp.branchId,
+          employeeId,
+          employeeCode: emp.employeeCode,
+          date,
+          status: 'PRESENT',
+          checkIn: checkInStr,
+          checkOut: checkOutStr,
+          workedHours: workedHours.toFixed(2),
+          overtimeHours: overtimeHours.toFixed(2),
+          source: 'BIOMETRIC',
+          captureMethod,
+          approvalStatus: requiresAttendanceReview ? 'PENDING' : 'APPROVED',
+        } as Partial<AttendanceEntity>);
       }
 
       // Mark punches as processed and link attendance row
@@ -434,6 +442,37 @@ export class BiometricService {
     const m = String(local.getUTCMonth() + 1).padStart(2, '0');
     const day = String(local.getUTCDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
+  }
+
+  /**
+   * Insert an attendance row, tolerating a concurrent insert of the same day.
+   *
+   * The reconcile runs from read endpoints that the UI calls in parallel, so
+   * two requests can both see no row and both insert. Postgres rejects the
+   * loser with 23505, which the global filter turns into a 409 — a plain GET
+   * appearing to "conflict". Adopting the winner's row is correct rather than
+   * merely quiet: both requests computed the same rollup from the same punches.
+   */
+  private async insertOrAdoptAttendance(
+    attRepo: Repository<AttendanceEntity>,
+    fields: Partial<AttendanceEntity>,
+  ): Promise<AttendanceEntity> {
+    try {
+      return await attRepo.save(attRepo.create(fields));
+    } catch (err: any) {
+      if (err?.code !== '23505' && err?.driverError?.code !== '23505') throw err;
+      const winner = await attRepo.findOne({
+        where: {
+          employeeId: fields.employeeId as string,
+          date: fields.date as any,
+        },
+      });
+      if (!winner) throw err;
+      this.logger.warn(
+        `attendance reconcile raced on ${fields.employeeCode ?? fields.employeeId} ${String(fields.date)} — adopting the concurrently created row`,
+      );
+      return attRepo.save(attRepo.merge(winner, fields));
+    }
   }
 
   private toTimeStr(d: Date): string {
