@@ -55,9 +55,14 @@ export class FaceDeskSettingsService {
   private readonly anchors: Array<{ pct: number; cos: number }>;
   private readonly minMargin = Number(process.env.FD_MIN_MARGIN_COSINE ?? 0.05);
   /** How many percentage points below the duplicate threshold still counts as
-   *  a review-worthy near-miss. */
+   *  a review-worthy near-miss.
+   *
+   *  Defaults to 0. The band was introduced when a near-miss merely raised an
+   *  alert; once a hit began BLOCKING enrollment it silently widened the
+   *  blocking range by five points, which is the opposite of what it was for.
+   *  Set it above zero only if hits go back to being non-blocking. */
   private readonly duplicateReviewBandPct = Number(
-    process.env.FD_DUPLICATE_REVIEW_BAND_PCT ?? 5,
+    process.env.FD_DUPLICATE_REVIEW_BAND_PCT ?? 0,
   );
 
   constructor(
@@ -94,10 +99,22 @@ export class FaceDeskSettingsService {
     const row = await this.repo.findOne({ where: { clientId } });
     const matchPct = Number(row?.faceMatchConfidence ?? 95);
     const retryPct = Number(row?.faceRetryConfidence ?? 90);
-    // Default lowered 93 → 90 so borderline same-person captures (different
-    // lighting/angle) are flagged for review rather than silently enrolled.
-    // Still per-client overridable via facedesk settings.
-    const dupPct = Number(row?.duplicateThreshold ?? 90);
+    // Raised 90 → 97 (cosine 0.78 → ~0.88) on production evidence: at 90 the
+    // check fired on essentially EVERY enrollment, and the matches were
+    // spurious — several different employees all matched the same one or two
+    // profiles at 0.73–0.84. Since a hit blocks, nobody could enrol at all.
+    //
+    // The device embedding (MobileFaceNet, 192-d) simply is not discriminative
+    // enough at the current capture quality for 0.78 to separate people; that
+    // band is full of unrelated faces. 0.88 sits above every false positive
+    // observed, so genuine near-identical captures still flag while ordinary
+    // enrollments go through.
+    //
+    // This is a deliberate trade: some real duplicates will be missed until
+    // capture quality improves (server-side ArcFace embeddings), because a
+    // check that blocks every legitimate worker is worse than one that is
+    // occasionally permissive. Still per-client overridable.
+    const dupPct = Number(row?.duplicateThreshold ?? 97);
     return {
       matchConfidencePct: matchPct,
       retryConfidencePct: retryPct,
