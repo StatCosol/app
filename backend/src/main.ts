@@ -338,6 +338,38 @@ async function bootstrap() {
       logger.warn(`Schema patch facedesk_day_reviews skipped: ${e?.message}`);
     }
 
+    // Attendance audit trail. Defined in migrations/20260617_attendance_fixes.sql
+    // but that migration never reached production, so approve/reject/edit on a
+    // punch returned a 500 (42P01 relation does not exist). The write is not
+    // optional — it is the audit record for a manual attendance change, so the
+    // whole request failed. Mirrored here so a deploy self-heals it, matching
+    // how every other table in this file is kept in step.
+    try {
+      await ds.query(`
+        CREATE TABLE IF NOT EXISTS attendance_audit_logs (
+          id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          attendance_id    uuid NOT NULL,
+          client_id        uuid NOT NULL,
+          employee_id      uuid NOT NULL,
+          date             date NOT NULL,
+          action           varchar(30) NOT NULL
+            CHECK (action IN ('EDIT','APPROVE','REJECT','DELETE','CREATE')),
+          actor_user_id    uuid,
+          before_snapshot  jsonb,
+          after_snapshot   jsonb,
+          note             text,
+          created_at       timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_attendance_audit_logs_attendance_id
+          ON attendance_audit_logs (attendance_id);
+        CREATE INDEX IF NOT EXISTS idx_attendance_audit_logs_client_id
+          ON attendance_audit_logs (client_id);
+      `);
+      logger.log('Schema patch: attendance_audit_logs OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch attendance_audit_logs skipped: ${e?.message}`);
+    }
+
     // Holiday calendar: uploadable per-branch / per-state holiday list applied
     // onto attendance_records and used for holiday-work double-wage approval.
     try {
