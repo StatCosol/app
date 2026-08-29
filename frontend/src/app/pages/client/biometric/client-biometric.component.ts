@@ -235,7 +235,19 @@ interface BranchOption { id: string; name: string }
                 <tr class="border-b"><td class="px-3 py-1.5 font-medium bg-gray-50">Server Mode</td><td class="px-3 py-1.5">ADMS (or "HTTP" / "Cloud")</td></tr>
                 <tr class="border-b"><td class="px-3 py-1.5 font-medium bg-gray-50">Enable Domain Name</td><td class="px-3 py-1.5">Yes</td></tr>
                 <tr class="border-b"><td class="px-3 py-1.5 font-medium bg-gray-50">Realtime Upload</td><td class="px-3 py-1.5">Yes</td></tr>
-                <tr><td class="px-3 py-1.5 font-medium bg-gray-50">Heartbeat</td><td class="px-3 py-1.5">10 sec</td></tr>
+                <tr class="border-b"><td class="px-3 py-1.5 font-medium bg-gray-50">Heartbeat</td><td class="px-3 py-1.5">10 sec</td></tr>
+                <tr><td class="px-3 py-1.5 font-medium bg-gray-50">Server Path</td><td class="px-3 py-1.5 font-mono">/iclock</td></tr>
+              </tbody>
+            </table></div>
+
+            <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <b>If the device cannot connect over HTTPS</b> — many older eSSL
+              units have no TLS support and simply fail silently against port
+              443. Use plain HTTP instead:
+              <table class="mt-2 text-sm border border-amber-200 rounded bg-white">
+              <tbody>
+                <tr class="border-b"><td class="px-3 py-1.5 font-medium bg-amber-50 w-1/3">Server Port</td><td class="px-3 py-1.5 font-mono">80</td></tr>
+                <tr><td class="px-3 py-1.5 font-medium bg-amber-50">HTTPS / SSL</td><td class="px-3 py-1.5">Disable</td></tr>
               </tbody>
             </table></div>
             <p class="mt-2">Save and <b>reboot the device</b>. Within 30 seconds it will show up here with a "Last Seen" timestamp.</p>
