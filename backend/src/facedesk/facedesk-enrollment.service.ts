@@ -104,11 +104,12 @@ export class FaceDeskEnrollmentService {
     }
     params.push(subjectType);
     const subjectParam = `$${params.length}`;
-    // contractor_employees has no employee_code column in production, so only
-    // reference it for the employees roster; contractors are listed/ordered by
-    // name (they punch by PIN, not code).
+    // Both rosters carry employee_code. It was blanked for contractors while
+    // the column was missing in production, but main.ts patches it in on boot,
+    // so the code exists and belongs on screen. Ordering stays on name for
+    // contractors, whose codes are nullable and would sort unpredictably.
     const isContractor = subjectType === 'CONTRACTOR';
-    const codeExpr = isContractor ? 'NULL::text' : 'e.employee_code';
+    const codeExpr = 'e.employee_code';
     const orderExpr = isContractor ? 'e.name' : 'e.employee_code';
     return this.dataSource.query(
       `SELECT e.id AS "employeeId", ${codeExpr} AS "employeeCode",
@@ -150,8 +151,9 @@ export class FaceDeskEnrollmentService {
     }
     params.push(subjectType);
     const subjectParam = `$${params.length}`;
+    // Both rosters carry employee_code — see the note in getPendingEmployees.
     const isContractor = subjectType === 'CONTRACTOR';
-    const codeExpr = isContractor ? 'NULL::text' : 'e.employee_code';
+    const codeExpr = 'e.employee_code';
     const orderExpr = isContractor ? 'e.name' : 'e.employee_code';
 
     return this.dataSource.query(
