@@ -370,6 +370,47 @@ async function bootstrap() {
       logger.warn(`Schema patch attendance_audit_logs skipped: ${e?.message}`);
     }
 
+    // Duplicate threshold: 90/93 → 97.
+    //
+    // Raising the code fallback alone fixes nothing for a client that already
+    // has a settings row, because the fallback is only consulted when the row
+    // is missing — those clients would keep the old value and stay blocked.
+    // The column default was also still 93, so new rows regressed to it.
+    //
+    // The column default doubles as the one-shot marker: once it reads 97 the
+    // whole block is skipped, so this can never re-run and overwrite a value an
+    // administrator deliberately chooses later.
+    //
+    // Only rows still holding a FORMER DEFAULT (90 or 93) are moved. A row set
+    // to anything else is an intentional override and is left alone. The
+    // residual risk is a client who deliberately chose exactly 90 or 93 — they
+    // are moved too, and can set it back; at those values enrollment is
+    // currently blocked outright, so leaving them there is the worse failure.
+    try {
+      await ds.query(`
+        DO $$
+        BEGIN
+          IF COALESCE((
+            SELECT column_default
+              FROM information_schema.columns
+             WHERE table_name = 'facedesk_face_settings'
+               AND column_name = 'duplicate_threshold'
+          ), '') NOT LIKE '97%' THEN
+            UPDATE facedesk_face_settings
+               SET duplicate_threshold = 97
+             WHERE duplicate_threshold IN (90, 93);
+            ALTER TABLE facedesk_face_settings
+              ALTER COLUMN duplicate_threshold SET DEFAULT 97;
+          END IF;
+        END $$;
+      `);
+      logger.log('Schema patch: facedesk duplicate_threshold default OK');
+    } catch (e: any) {
+      logger.warn(
+        `Schema patch facedesk duplicate_threshold skipped: ${e?.message}`,
+      );
+    }
+
     // Holiday calendar: uploadable per-branch / per-state holiday list applied
     // onto attendance_records and used for holiday-work double-wage approval.
     try {
