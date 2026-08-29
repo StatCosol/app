@@ -87,7 +87,11 @@ describe('FaceDeskAdminService contractor review flow', () => {
     expect(sql).not.toContain('photo_url');
     // Photo flags must require ENROLLED so the "View face" link matches what the
     // enrolled-photo endpoint can serve (blocked/new duplicates would 404).
-    expect(sql).toContain("np.enrollment_status = 'ENROLLED'");
+    // The NEW side is the capture under review and is held as BLOCKED until
+    // the admin decides, so it must be viewable in both states — otherwise the
+    // alert has to be resolved without seeing the face that raised it.
+    expect(sql).toContain("np.enrollment_status IN ('ENROLLED', 'BLOCKED')");
+    // The MATCHED side is an existing enrollment; still ENROLLED-only.
     expect(sql).toContain("mp.enrollment_status = 'ENROLLED'");
     expect(params).toEqual(['client-1', 'PENDING']);
   });

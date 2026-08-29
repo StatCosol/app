@@ -216,7 +216,12 @@ export class FaceDeskEnrollmentService {
           AND p.subject_type = $3
         WHERE e.client_id = $1
           AND e.id = $2
-          AND p.enrollment_status = 'ENROLLED'
+          -- BLOCKED is included so a duplicate alert can be reviewed with the
+          -- face that actually raised it. That capture is held against a
+          -- BLOCKED profile until the admin decides, and deciding without
+          -- seeing it defeats the review. Client, branch and role scoping are
+          -- unchanged — only the enrollment state is relaxed.
+          AND p.enrollment_status IN ('ENROLLED', 'BLOCKED')
         LIMIT 1`,
       [clientId, employeeId, subjectType],
     );

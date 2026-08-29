@@ -215,11 +215,13 @@ export class FaceDeskAdminService {
               COALESCE(me.name, mc.name) AS "matchedEmployeeName",
               me.employee_code AS "matchedEmployeeCode",
               COALESCE(me.branch_id, mc.branch_id, mp.branch_id) AS "matchedBranchId",
-              -- Only advertise a viewable face when the enrolled-photo endpoint
-              -- can actually serve it: the subject must be ENROLLED (the endpoint
-              -- filters on enrollment_status), otherwise the "View face" link 404s
-              -- (e.g. a blocked/new duplicate that has a sample but isn't enrolled).
-              (np.enrollment_status = 'ENROLLED' AND EXISTS (
+              -- Only advertise a viewable face when the photo endpoint can
+              -- actually serve it, or the "View face" link 404s.
+              -- The NEW side is the capture under review, and it is held as
+              -- BLOCKED until the admin decides — refusing to show it would
+              -- mean deciding the alert without seeing the face that raised
+              -- it. The endpoint accepts BLOCKED for the same reason.
+              (np.enrollment_status IN ('ENROLLED', 'BLOCKED') AND EXISTS (
                 SELECT 1 FROM facedesk_employee_face_samples s
                  WHERE s.profile_id = np.profile_id AND s.image_path IS NOT NULL
               )) AS "hasNewPhoto",
