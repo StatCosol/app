@@ -417,6 +417,10 @@ export class BiometricService {
           captureMethod,
           approvalStatus: requiresAttendanceReview ? 'PENDING' : 'APPROVED',
         } as Partial<AttendanceEntity>);
+        // A manual entry won the race and was left intact — skip exactly as the
+        // non-racing path does, so the punches are not linked to a row this
+        // reconcile did not write.
+        if (!existing) continue;
       }
 
       // Mark punches as processed and link attendance row
@@ -456,7 +460,7 @@ export class BiometricService {
   private async insertOrAdoptAttendance(
     attRepo: Repository<AttendanceEntity>,
     fields: Partial<AttendanceEntity>,
-  ): Promise<AttendanceEntity> {
+  ): Promise<AttendanceEntity | null> {
     try {
       return await attRepo.save(attRepo.create(fields));
     } catch (err: any) {
@@ -468,6 +472,18 @@ export class BiometricService {
         },
       });
       if (!winner) throw err;
+      // The row that won the race may be a MANUAL entry — markAttendance or an
+      // admin edit can land between our lookup and our insert. The non-racing
+      // path refuses to touch those (`source === 'MANUAL' && checkIn` → skip),
+      // and adopting must honour the same rule: merging here would silently
+      // replace a human's status, times and approval state with biometric
+      // values, and then link the punches to the row it just overwrote.
+      if (winner.source === 'MANUAL' && winner.checkIn) {
+        this.logger.warn(
+          `attendance reconcile raced on ${fields.employeeCode ?? fields.employeeId} ${String(fields.date)} — a manual entry won, leaving it untouched`,
+        );
+        return null;
+      }
       this.logger.warn(
         `attendance reconcile raced on ${fields.employeeCode ?? fields.employeeId} ${String(fields.date)} — adopting the concurrently created row`,
       );
