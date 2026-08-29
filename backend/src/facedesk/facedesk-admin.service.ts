@@ -297,10 +297,37 @@ export class FaceDeskAdminService {
           : { duplicateStatus: 'FLAGGED', enrollmentStatus: 'BLOCKED' },
       );
     } else if (cleared) {
+      // BLOCK band: the capture that triggered the alert was kept against a
+      // BLOCKED profile, so approving it completes the enrollment outright —
+      // the admin has just confirmed this face may enrol, and sending the
+      // worker back to the kiosk to be photographed again achieves nothing.
+      // Only fall back to PENDING for a legacy alert raised before captures
+      // were retained, where there is genuinely no template to activate.
+      const profile = await this.profileRepo.findOne({
+        where: { employeeId: alert.newEmployeeId, clientId },
+      });
+      const hasTemplate = !!profile?.faceTemplate?.length;
       await this.profileRepo.update(
         { employeeId: alert.newEmployeeId, clientId },
-        { duplicateStatus: 'APPROVED', enrollmentStatus: 'PENDING' },
+        {
+          duplicateStatus: 'APPROVED',
+          enrollmentStatus: hasTemplate ? 'ENROLLED' : 'PENDING',
+        },
       );
+    } else if (alert.detectionBand === 'BLOCK') {
+      // Rejected: this face was refused, so do not keep the biometric data
+      // captured for it. The profile row stays (as BLOCKED) for the audit
+      // trail, but the template and samples are shredded.
+      const profile = await this.profileRepo.findOne({
+        where: { employeeId: alert.newEmployeeId, clientId },
+      });
+      if (profile) {
+        await this.sampleRepo.delete({ profileId: profile.profileId });
+        await this.profileRepo.update(
+          { profileId: profile.profileId },
+          { faceTemplate: null as any, enrollmentStatus: 'BLOCKED' },
+        );
+      }
     }
     await this.audit(
       clientId,

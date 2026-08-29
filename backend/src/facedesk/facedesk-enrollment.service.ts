@@ -242,6 +242,30 @@ export class FaceDeskEnrollmentService {
     };
   }
 
+  /** Pick the representative frame and store it, returning its path. Shared by
+   *  the enrolled and blocked paths so a held capture keeps its photo too —
+   *  the admin reviewing a duplicate alert needs a face to look at. */
+  private pickRepresentativePhoto(dto: SaveEnrollmentDto): string | null {
+    return (
+      dto.photoB64 ??
+      dto.frames?.find((f) => f.sampleType === 'FRONT' && f.photoB64)
+        ?.photoB64 ??
+      dto.frames?.find((f) => f.photoB64)?.photoB64 ??
+      null
+    );
+  }
+
+  private async uploadRepresentativePhoto(
+    clientId: string,
+    dto: SaveEnrollmentDto,
+  ): Promise<string | null> {
+    const photoB64 = this.pickRepresentativePhoto(dto);
+    if (!photoB64) return null;
+    return this.photoStorage
+      .uploadPhoto(photoB64, clientId, dto.employeeId)
+      .catch(() => null);
+  }
+
   /**
    * Compare a probe embedding against all enrolled faces for the client.
    * Scans every branch (client-wide), so the same face enrolled at a second
@@ -568,12 +592,57 @@ export class FaceDeskEnrollmentService {
         hit.matchedEmployeeId,
       ));
     if (hit && !approvedOverride) {
+      // Keep this capture rather than discarding it. The admin reviewing the
+      // alert is deciding whether this face may enrol — if they approve, the
+      // worker should simply BE enrolled, not be sent back to the kiosk to
+      // stand in front of the camera again. The template is held against a
+      // BLOCKED profile, so it cannot match a punch until approval flips it to
+      // ENROLLED, and a rejection deletes it (see actOnDuplicate).
+      const photoUrl = await this.uploadRepresentativePhoto(clientId, dto);
+      await this.dataSource.transaction(async (em) => {
+        const profileRepo = em.getRepository(FaceDeskProfileEntity);
+        const sampleRepo = em.getRepository(FaceDeskSampleEntity);
+        const existing = await profileRepo.findOne({
+          where: { employeeId: dto.employeeId },
+        });
+        const profile = await profileRepo.save(
+          profileRepo.merge(
+            existing ?? profileRepo.create({ employeeId: dto.employeeId }),
+            {
+              clientId,
+              branchId,
+              subjectType,
+              enrollmentStatus: 'BLOCKED',
+              duplicateStatus: 'FLAGGED',
+              faceTemplate: embeddingToBuffer(template),
+              embeddingModel: model,
+              qualityScore: this.avgQuality(bestSamples),
+              livenessStatus: eff.livenessRequired ? 'PASSED' : 'UNKNOWN',
+              consentGivenAt: new Date(),
+              consentGivenBy: actorId,
+              enrolledBy: actorId,
+            },
+          ),
+        );
+        await sampleRepo.delete({ profileId: profile.profileId });
+        await sampleRepo.save(
+          bestSamples.map((f, i) => ({
+            employeeId: dto.employeeId,
+            profileId: profile.profileId,
+            sampleType: f.sampleType ?? (i === 0 ? 'FRONT' : 'EXPRESSION'),
+            imagePath: photoUrl,
+            embedding: embeddingToBuffer(f.embedding),
+            embeddingModel: f.model,
+            qualityScore: f.qualityScore,
+          })),
+        );
+      });
+
       const alert = await this.dupeRepo.save({
         clientId,
         newEmployeeId: dto.employeeId,
         matchedEmployeeId: hit.matchedEmployeeId,
         similarityScore: hit.score,
-        // Enrollment is refused below; no template is stored.
         detectionBand: 'BLOCK',
         status: 'PENDING',
       });
@@ -585,21 +654,7 @@ export class FaceDeskEnrollmentService {
         confidenceScore: hit.score,
         status: 'PENDING',
       });
-      await this.profileRepo.save(
-        this.profileRepo.merge(
-          (await this.profileRepo.findOne({
-            where: { employeeId: dto.employeeId },
-          })) ??
-            this.profileRepo.create({ employeeId: dto.employeeId, clientId }),
-          {
-            clientId,
-            branchId,
-            subjectType,
-            enrollmentStatus: 'BLOCKED',
-            duplicateStatus: 'FLAGGED',
-          },
-        ),
-      );
+      // (profile + samples were already written above, as BLOCKED)
       await this.audit(
         clientId,
         actorId,
@@ -619,18 +674,7 @@ export class FaceDeskEnrollmentService {
       });
     }
 
-    const representativePhotoB64 =
-      dto.photoB64 ??
-      dto.frames?.find((f) => f.sampleType === 'FRONT' && f.photoB64)
-        ?.photoB64 ??
-      dto.frames?.find((f) => f.photoB64)?.photoB64 ??
-      null;
-    let photoUrl: string | null = null;
-    if (representativePhotoB64) {
-      photoUrl = await this.photoStorage
-        .uploadPhoto(representativePhotoB64, clientId, dto.employeeId)
-        .catch(() => null);
-    }
+    const photoUrl = await this.uploadRepresentativePhoto(clientId, dto);
 
     const priorProfile = await this.profileRepo.findOne({
       where: { employeeId: dto.employeeId, clientId },
@@ -708,6 +752,7 @@ export class FaceDeskEnrollmentService {
       issuedPin = pin;
     }
 
+    const representativePhotoB64 = this.pickRepresentativePhoto(dto);
     if (representativePhotoB64) {
       const azureFaceId = await this.azureFace.registerEnrollmentFace(
         clientId,
