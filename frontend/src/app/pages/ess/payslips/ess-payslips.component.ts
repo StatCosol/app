@@ -50,7 +50,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 
       @if (!loading && filteredPayslips.length) {
 <div class="section-card">
-        <table class="data-table">
+        <div class="table-wrap"><table class="data-table">
           <thead>
             <tr>
               <th>Period</th>
@@ -88,7 +88,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
       </div>
 }
     </div>

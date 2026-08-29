@@ -246,7 +246,7 @@ import {
             <button class="text-sm text-blue-700" (click)="load()">Refresh</button>
           </div>
         </div>
-        <table class="w-full text-sm">
+        <div class="table-wrap"><table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th class="px-4 py-3">Client</th>
@@ -308,7 +308,7 @@ import {
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
@@ -321,7 +321,7 @@ import {
           </div>
           <button class="text-sm text-blue-700" (click)="load()">Refresh</button>
         </div>
-        <table class="w-full text-sm">
+        <div class="table-wrap"><table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th class="px-4 py-3">Client</th>
@@ -370,7 +370,7 @@ import {
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
       </div>
     </section>
   `,

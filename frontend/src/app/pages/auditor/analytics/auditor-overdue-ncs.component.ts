@@ -90,7 +90,7 @@ interface OverdueNc {
       @if (!loading && items.length > 0) {
 <div
            class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <table class="w-full text-sm">
+        <div class="table-wrap"><table class="w-full text-sm">
           <thead class="bg-slate-50 text-slate-600 text-xs uppercase">
             <tr>
               <th class="px-4 py-3 text-left">Audit</th>
@@ -149,7 +149,7 @@ interface OverdueNc {
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
       </div>
 }
     </div>

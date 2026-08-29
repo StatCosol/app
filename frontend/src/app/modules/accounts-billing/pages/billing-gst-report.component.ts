@@ -188,7 +188,7 @@ interface ReportOption {
             >
           </div>
           <div class="overflow-auto max-h-[65vh]">
-            <table class="min-w-full text-sm">
+            <div class="table-wrap"><table class="min-w-full text-sm">
               <thead class="bg-slate-50 text-slate-500 uppercase text-xs sticky top-0 z-10">
                 <tr>
                   @for (column of report.columns; track column.key) {
@@ -231,7 +231,7 @@ interface ReportOption {
                   </tr>
                 }
               </tbody>
-            </table>
+            </table></div>
           </div>
         </section>
       }

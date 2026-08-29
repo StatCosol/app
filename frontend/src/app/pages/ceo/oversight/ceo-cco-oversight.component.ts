@@ -36,7 +36,7 @@ import { CeoApiService } from '../../../core/api/ceo.api';
 
       @if (!loading && summary.length > 0) {
 <div class="card">
-        <table class="min-w-full divide-y divide-gray-200">
+        <div class="table-wrap"><table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">CCO</th>
@@ -62,7 +62,7 @@ import { CeoApiService } from '../../../core/api/ceo.api';
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
       </div>
 }
     </div>

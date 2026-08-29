@@ -175,7 +175,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 }
         </div>
         @if (payments.length) {
-<table class="w-full text-sm">
+<div class="table-wrap"><table class="w-full text-sm">
           <thead class="bg-slate-50 text-xs text-slate-500 uppercase">
             <tr>
               <th class="px-4 py-2 text-left">Receipt #</th>
@@ -200,7 +200,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
             </tr>
 }
           </tbody>
-        </table>
+        </table></div>
 }
         @if (!payments.length) {
 <p class="text-slate-400 text-sm">No payments recorded yet.</p>

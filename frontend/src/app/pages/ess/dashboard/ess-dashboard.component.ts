@@ -153,7 +153,7 @@ interface TimelineEntry {
 <div class="section">
         <h2 class="sec-title">Leave Balances ({{ currentYear }})</h2>
         <div class="table-card">
-          <table>
+          <div class="table-wrap"><table>
             <thead>
               <tr>
                 <th class="txt-l">Type</th>
@@ -174,7 +174,7 @@ interface TimelineEntry {
               </tr>
 }
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
 }

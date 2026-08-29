@@ -36,7 +36,7 @@ import { CeoReceivables, SalesService } from '../../../modules/sales/sales.servi
 
         <div class="bg-white rounded-xl border border-gray-200">
           <div class="px-5 py-3 border-b font-semibold">Aging Buckets</div>
-          <table class="w-full text-sm">
+          <div class="table-wrap"><table class="w-full text-sm">
             <thead class="bg-gray-50 text-xs uppercase text-gray-500">
               <tr>
                 <th class="text-left px-4 py-2">Bucket</th>
@@ -53,12 +53,12 @@ import { CeoReceivables, SalesService } from '../../../modules/sales/sales.servi
               </tr>
 }
             </tbody>
-          </table>
+          </table></div>
         </div>
 
         <div class="bg-white rounded-xl border border-gray-200">
           <div class="px-5 py-3 border-b font-semibold">Top 25 Clients by Outstanding</div>
-          <table class="w-full text-sm">
+          <div class="table-wrap"><table class="w-full text-sm">
             <thead class="bg-gray-50 text-xs uppercase text-gray-500">
               <tr>
                 <th class="text-left px-4 py-2">Client</th>
@@ -82,7 +82,7 @@ import { CeoReceivables, SalesService } from '../../../modules/sales/sales.servi
               </tr>
 }
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
 }

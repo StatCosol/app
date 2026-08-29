@@ -60,7 +60,7 @@ import { AuditsKpiApi, BranchAuditKpiItem } from '../../../core/api/audits-kpi.a
 
         <!-- Month-wise table -->
         <div class="overflow-auto">
-          <table class="min-w-full text-sm">
+          <div class="table-wrap"><table class="min-w-full text-sm">
             <thead>
               <tr class="text-left border-b border-gray-200 text-xs text-gray-500 uppercase">
                 <th class="py-2 pr-3">Month</th>
@@ -90,7 +90,7 @@ import { AuditsKpiApi, BranchAuditKpiItem } from '../../../core/api/audits-kpi.a
               </tr>
 }
             </tbody>
-          </table>
+          </table></div>
         </div>
       
 }
