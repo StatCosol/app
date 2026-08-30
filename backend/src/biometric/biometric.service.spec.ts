@@ -63,7 +63,71 @@ describe('BiometricService', () => {
         checkIn: '09:00:00',
         checkOut: '18:00:00',
         workedHours: '9.00',
+        // The day contains a kiosk punch, so it is face-verified even though
+        // the check-in came from a fingerprint device.
+        captureMethod: 'FACE',
+      }),
+    );
+  });
+
+  it('requires review when a face punch shares the day with an eSSL device punch', async () => {
+    const { service, attRepo } = makeService({
+      dayPunches: [
+        {
+          id: 'punch-gate-in',
+          punchTime: new Date('2026-07-04T03:30:00.000Z'),
+          direction: 'IN',
+          source: 'DEVICE',
+        },
+        {
+          id: 'punch-kiosk-out',
+          punchTime: new Date('2026-07-04T12:30:00.000Z'),
+          direction: 'OUT',
+          source: 'MOBILE_KIOSK',
+        },
+      ],
+    });
+
+    await (service as any).processAffectedDays('client-1', [
+      { employeeId: 'employee-1', date: '2026-07-04' },
+    ]);
+
+    // A single fingerprint punch must not clear the face-review requirement
+    // for the whole day and push an unreviewed face match into payroll.
+    expect(attRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        captureMethod: 'FACE',
+        approvalStatus: 'PENDING',
+      }),
+    );
+  });
+
+  it('auto-approves a day made up only of eSSL device punches', async () => {
+    const { service, attRepo } = makeService({
+      dayPunches: [
+        {
+          id: 'punch-in',
+          punchTime: new Date('2026-07-04T03:30:00.000Z'),
+          direction: 'IN',
+          source: 'DEVICE',
+        },
+        {
+          id: 'punch-out',
+          punchTime: new Date('2026-07-04T12:30:00.000Z'),
+          direction: 'OUT',
+          source: 'DEVICE',
+        },
+      ],
+    });
+
+    await (service as any).processAffectedDays('client-1', [
+      { employeeId: 'employee-1', date: '2026-07-04' },
+    ]);
+
+    expect(attRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
         captureMethod: 'BIOMETRIC',
+        approvalStatus: 'APPROVED',
       }),
     );
   });

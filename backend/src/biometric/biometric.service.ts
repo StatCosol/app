@@ -361,12 +361,18 @@ export class BiometricService {
 
       // Mobile face-kiosk punches share this rollup, but we tag captureMethod
       // as FACE so the UI can distinguish them from fingerprint biometric.
-      const allMobile = dayPunches.every(
+      //
+      // Any face punch in the day is enough. A face match is probabilistic and
+      // must reach the review queue, so a fingerprint/card punch from a second
+      // device (an eSSL machine at the gate, say) must not clear that flag for
+      // the whole day — which is what requiring *every* punch to be a kiosk
+      // punch used to do, silently auto-approving the face match into payroll.
+      const hasFacePunch = dayPunches.some(
         (p) =>
           p.source === ('MOBILE_KIOSK' as any) ||
           p.source === ('MOBILE_ESS' as any),
       );
-      const captureMethod: AttendanceEntity['captureMethod'] = allMobile
+      const captureMethod: AttendanceEntity['captureMethod'] = hasFacePunch
         ? 'FACE'
         : 'BIOMETRIC';
       const requiresAttendanceReview = captureMethod === 'FACE';
@@ -464,7 +470,8 @@ export class BiometricService {
     try {
       return await attRepo.save(attRepo.create(fields));
     } catch (err: any) {
-      if (err?.code !== '23505' && err?.driverError?.code !== '23505') throw err;
+      if (err?.code !== '23505' && err?.driverError?.code !== '23505')
+        throw err;
       const winner = await attRepo.findOne({
         where: {
           employeeId: fields.employeeId as string,
