@@ -63,7 +63,71 @@ describe('BiometricService', () => {
         checkIn: '09:00:00',
         checkOut: '18:00:00',
         workedHours: '9.00',
+        // The day contains a kiosk punch, so it is face-verified even though
+        // the check-in came from a fingerprint device.
+        captureMethod: 'FACE',
+      }),
+    );
+  });
+
+  it('requires review when a face punch shares the day with an eSSL device punch', async () => {
+    const { service, attRepo } = makeService({
+      dayPunches: [
+        {
+          id: 'punch-gate-in',
+          punchTime: new Date('2026-07-04T03:30:00.000Z'),
+          direction: 'IN',
+          source: 'DEVICE',
+        },
+        {
+          id: 'punch-kiosk-out',
+          punchTime: new Date('2026-07-04T12:30:00.000Z'),
+          direction: 'OUT',
+          source: 'MOBILE_KIOSK',
+        },
+      ],
+    });
+
+    await (service as any).processAffectedDays('client-1', [
+      { employeeId: 'employee-1', date: '2026-07-04' },
+    ]);
+
+    // A single fingerprint punch must not clear the face-review requirement
+    // for the whole day and push an unreviewed face match into payroll.
+    expect(attRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        captureMethod: 'FACE',
+        approvalStatus: 'PENDING',
+      }),
+    );
+  });
+
+  it('auto-approves a day made up only of eSSL device punches', async () => {
+    const { service, attRepo } = makeService({
+      dayPunches: [
+        {
+          id: 'punch-in',
+          punchTime: new Date('2026-07-04T03:30:00.000Z'),
+          direction: 'IN',
+          source: 'DEVICE',
+        },
+        {
+          id: 'punch-out',
+          punchTime: new Date('2026-07-04T12:30:00.000Z'),
+          direction: 'OUT',
+          source: 'DEVICE',
+        },
+      ],
+    });
+
+    await (service as any).processAffectedDays('client-1', [
+      { employeeId: 'employee-1', date: '2026-07-04' },
+    ]);
+
+    expect(attRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
         captureMethod: 'BIOMETRIC',
+        approvalStatus: 'APPROVED',
       }),
     );
   });
@@ -149,5 +213,101 @@ describe('BiometricService', () => {
       ],
       false,
     );
+  });
+});
+
+describe('BiometricService — attendance insert race', () => {
+  // The reconcile runs from GET handlers the UI fires in parallel, so another
+  // writer can create the employee/day row between our lookup and our insert.
+  const makeRacingService = (winner: any) => {
+    const updateExecute = jest.fn(async () => ({ affected: 1 }));
+    const punchRepo = {
+      find: jest.fn(async () => [
+        {
+          id: 'punch-in',
+          punchTime: new Date('2026-07-04T03:30:00.000Z'),
+          direction: 'AUTO',
+          source: 'DEVICE',
+        },
+      ]),
+      createQueryBuilder: jest.fn(() => ({
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: updateExecute,
+      })),
+    };
+    const empRepo = {
+      findOne: jest.fn(async () => ({
+        id: 'employee-1',
+        clientId: 'client-1',
+        branchId: 'branch-1',
+        employeeCode: 'E001',
+      })),
+    };
+    let lookups = 0;
+    const attRepo = {
+      // First lookup (before insert) sees nothing; the post-conflict re-read
+      // returns the row the winner created.
+      findOne: jest.fn(async () => (lookups++ === 0 ? null : winner)),
+      create: jest.fn((row) => row),
+      merge: jest.fn((a: any, b: any) => Object.assign({}, a, b)),
+      save: jest.fn(async (row) => {
+        if (!row.id) {
+          const err: any = new Error('duplicate key');
+          err.code = '23505';
+          throw err;
+        }
+        return row;
+      }),
+    };
+    const service = new BiometricService(
+      punchRepo as any,
+      empRepo as any,
+      attRepo as any,
+    );
+    return { service, attRepo, updateExecute };
+  };
+
+  it('does not overwrite a manual entry that won the race', async () => {
+    const manual = {
+      id: 'attendance-manual',
+      source: 'MANUAL',
+      checkIn: '09:15',
+      status: 'PRESENT',
+      approvalStatus: 'APPROVED',
+    };
+    const { service, attRepo, updateExecute } = makeRacingService(manual);
+
+    await (service as any).processAffectedDays('client-1', [
+      { employeeId: 'employee-1', date: '2026-07-04' },
+    ]);
+
+    // The only save attempted is the insert that lost; the manual row is never
+    // written over, and the punches are not linked to it.
+    const overwrote = attRepo.save.mock.calls.some(
+      ([row]: any[]) => row?.id === 'attendance-manual',
+    );
+    expect(overwrote).toBe(false);
+    expect(updateExecute).not.toHaveBeenCalled();
+  });
+
+  it('adopts a biometric row that won the race', async () => {
+    const biometric = {
+      id: 'attendance-bio',
+      source: 'BIOMETRIC',
+      checkIn: '09:00',
+    };
+    const { service, attRepo, updateExecute } = makeRacingService(biometric);
+
+    await (service as any).processAffectedDays('client-1', [
+      { employeeId: 'employee-1', date: '2026-07-04' },
+    ]);
+
+    const adopted = attRepo.save.mock.calls.some(
+      ([row]: any[]) => row?.id === 'attendance-bio',
+    );
+    expect(adopted).toBe(true);
+    expect(updateExecute).toHaveBeenCalled();
   });
 });

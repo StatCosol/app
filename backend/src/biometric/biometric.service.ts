@@ -361,12 +361,18 @@ export class BiometricService {
 
       // Mobile face-kiosk punches share this rollup, but we tag captureMethod
       // as FACE so the UI can distinguish them from fingerprint biometric.
-      const allMobile = dayPunches.every(
+      //
+      // Any face punch in the day is enough. A face match is probabilistic and
+      // must reach the review queue, so a fingerprint/card punch from a second
+      // device (an eSSL machine at the gate, say) must not clear that flag for
+      // the whole day — which is what requiring *every* punch to be a kiosk
+      // punch used to do, silently auto-approving the face match into payroll.
+      const hasFacePunch = dayPunches.some(
         (p) =>
           p.source === ('MOBILE_KIOSK' as any) ||
           p.source === ('MOBILE_ESS' as any),
       );
-      const captureMethod: AttendanceEntity['captureMethod'] = allMobile
+      const captureMethod: AttendanceEntity['captureMethod'] = hasFacePunch
         ? 'FACE'
         : 'BIOMETRIC';
       const requiresAttendanceReview = captureMethod === 'FACE';
@@ -417,6 +423,10 @@ export class BiometricService {
           captureMethod,
           approvalStatus: requiresAttendanceReview ? 'PENDING' : 'APPROVED',
         } as Partial<AttendanceEntity>);
+        // A manual entry won the race and was left intact — skip exactly as the
+        // non-racing path does, so the punches are not linked to a row this
+        // reconcile did not write.
+        if (!existing) continue;
       }
 
       // Mark punches as processed and link attendance row
@@ -456,11 +466,12 @@ export class BiometricService {
   private async insertOrAdoptAttendance(
     attRepo: Repository<AttendanceEntity>,
     fields: Partial<AttendanceEntity>,
-  ): Promise<AttendanceEntity> {
+  ): Promise<AttendanceEntity | null> {
     try {
       return await attRepo.save(attRepo.create(fields));
     } catch (err: any) {
-      if (err?.code !== '23505' && err?.driverError?.code !== '23505') throw err;
+      if (err?.code !== '23505' && err?.driverError?.code !== '23505')
+        throw err;
       const winner = await attRepo.findOne({
         where: {
           employeeId: fields.employeeId as string,
@@ -468,6 +479,18 @@ export class BiometricService {
         },
       });
       if (!winner) throw err;
+      // The row that won the race may be a MANUAL entry — markAttendance or an
+      // admin edit can land between our lookup and our insert. The non-racing
+      // path refuses to touch those (`source === 'MANUAL' && checkIn` → skip),
+      // and adopting must honour the same rule: merging here would silently
+      // replace a human's status, times and approval state with biometric
+      // values, and then link the punches to the row it just overwrote.
+      if (winner.source === 'MANUAL' && winner.checkIn) {
+        this.logger.warn(
+          `attendance reconcile raced on ${fields.employeeCode ?? fields.employeeId} ${String(fields.date)} — a manual entry won, leaving it untouched`,
+        );
+        return null;
+      }
       this.logger.warn(
         `attendance reconcile raced on ${fields.employeeCode ?? fields.employeeId} ${String(fields.date)} — adopting the concurrently created row`,
       );

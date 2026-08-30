@@ -1,6 +1,6 @@
 # Biometric (eSSL/ZKTeco) → Attendance → Payroll Integration
 
-End-to-end guide for integrating an eSSL/ZKTeco biometric machine with Statcompy
+End-to-end guide for integrating an eSSL/ZKTeco biometric machine with StatComPy
 so that punches automatically flow into payroll.
 
 > **Backend version:** `backend-live-041223e-20260428-030338` or later.
@@ -66,7 +66,7 @@ You only need to do the per-device steps below.
 
 ## 3. Step-by-step integration
 
-### Step 1 — Register the device in Statcompy
+### Step 1 — Register the device in StatComPy
 
 Sign in as a CLIENT, ADMIN, or CRM user, then call:
 
@@ -99,7 +99,7 @@ DELETE /api/v1/client/biometric/devices/:id
 ### Step 2 — Make sure every employee has an `employeeCode`
 
 The eSSL device sends only the **PIN** (employee number you enrolled on the
-machine). That PIN must equal `employees.employee_code` in Statcompy.
+machine). That PIN must equal `employees.employee_code` in StatComPy.
 
 Best practice: enroll on the device using the same code already used in HR
 master (e.g. `EMP0042`). If they don't match, the punch is still saved with
@@ -120,23 +120,39 @@ on some it is **Comm → Webserver** or **WebSetup**).
 | -------------------- | ---------------------------------------------- |
 | Enable Domain Name   | **Yes**                                        |
 | Server Mode          | **ADMS** (or "HTTP")                           |
-| Server Address       | `api.statcosol.com`                            |
-| Server Port          | `443` (HTTPS) — or `80` for HTTP               |
-| HTTPS                | **Yes** (recommended)                          |
+| Server Address       | `app.statcosol.com`                            |
+| Server Path          | `/iclock`                                      |
+| Server Port          | `443` with HTTPS, or `80` with HTTPS off       |
+| HTTPS                | **Yes**, unless the unit has no TLS support    |
 | Proxy                | None                                           |
 | Heartbeat            | `10` sec (default)                             |
 | Realtime upload      | **Yes**                                        |
+
+> **Plain HTTP on port 80 is a supported fallback.** Many older eSSL units have
+> no usable TLS stack and fail silently against HTTPS. Both schemes are served
+> by the nginx front end and neither redirects — measured 2026-08-31:
+>
+> ```
+> http://app.statcosol.com/iclock/ping   -> 200 OK
+> https://app.statcosol.com/iclock/ping  -> 200 OK
+> ```
+>
+> Prefer 443 so punch data is encrypted in transit. Drop to port 80 with SSL
+> disabled only when the device cannot complete the TLS handshake — punches
+> carry an employee code and timestamp, so plaintext is a real if limited
+> exposure. Note that `backend-app.yaml` sets `allowInsecure: false`, but that
+> governs the Azure Container App's own FQDN, not this public hostname.
 
 Save and **reboot** the device. Within ~30 seconds it hits
 `GET /iclock/cdata?SN=...&options=all` and our backend replies with the
 session config. From then on, every punch is pushed within `Heartbeat` seconds.
 
-> Verify: `GET https://api.statcosol.com/iclock/ping` should return `OK`.
+> Verify: `GET https://app.statcosol.com/iclock/ping` should return `OK`.
 
 ### Step 4 — First punch — sanity check
 
 1. Punch a finger / face on the device.
-2. Within ~10 s, check Statcompy:
+2. Within ~10 s, check StatComPy:
 
    ```http
    GET /api/v1/client/biometric/punches?from=2026-04-28&to=2026-04-28
@@ -306,7 +322,7 @@ When you process a payroll run for the period, `PayrollEngineService.process`:
 | Day shows checkIn but no checkOut         | Only one punch received (employee forgot to punch out).           |
 | OT hours = 0 in payroll                   | `workedHours ≤ 9`, OR `attendance.approvalStatus` ≠ APPROVED.     |
 | Manual edit got overwritten               | Manual row was missing a `checkIn`. Set both check-in + check-out.|
-| Device says “upload failed”               | Wrong server IP / port; or HTTPS without valid cert. Try HTTP 80. |
+| Device says “upload failed”               | Check DNS and outbound reach to `app.statcosol.com`. If it fails only on 443 the firmware likely lacks TLS/SNI — switch to port 80 with SSL off. |
 
 ---
 
@@ -314,8 +330,28 @@ When you process a payroll run for the period, `PayrollEngineService.process`:
 
 - Push employee enrollment **down** to the device (so HR can add/remove on the
   web and the device syncs).
-- Frontend screen to register devices and view live punch feed.
+- ~~Frontend screen to register devices and view live punch feed.~~ **Shipped** — Client portal → *Payroll & Workforce → Biometric Devices* (`/client/biometric`).
 - Per-shift OT rules (currently fixed at >9h).
 - Face-template management / photo capture on punch.
 - Stricter device auth using rotated `pushToken` (already stored, not yet
   required by the iclock endpoint).
+
+---
+
+## 9. Known security gap — device auth is serial-number only
+
+`/iclock/*` is `@Public()` and `EsslService.requireDevice()` authorises a push
+on the **serial number alone**. The `pushToken` column is generated and stored
+at registration but is **not checked** by the iclock endpoint.
+
+Consequences:
+
+- Anyone who learns a registered SN can POST arbitrary ATTLOG rows for that
+  client, and those punches land in `attendance_records` with
+  `approvalStatus = APPROVED` — straight into payroll with no human review.
+- `POST /devices/:id/rotate-token` therefore does not currently revoke
+  anything at the device-push boundary.
+
+Closing this is a **breaking change** for already-deployed machines (they would
+all need the token added to their server config), so it is deliberately not
+done here. Plan it before onboarding additional sites.
