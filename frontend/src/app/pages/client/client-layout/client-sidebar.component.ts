@@ -771,6 +771,7 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
           { label: 'Holiday Calendar', route: '/client/holidays', icon: this.svg('M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Kiosk Attendance (PIN + Face)', route: '/client/facedesk', icon: this.svg('M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM12 3a9 9 0 100 18 9 9 0 000-18z') },
           { label: 'Face Failures', route: '/client/face-failures', icon: this.svg('M12 9v2m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3z') },
+          { label: 'Biometric Devices', route: '/client/biometric', icon: this.svg('M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z') },
           { label: 'Master Data', route: '/client/master-data', icon: this.svg('M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4') },
           { label: 'CTC Summary', route: '/client/ctc-summary', icon: this.svg('M9 7h6m-5 4h4m-3 4h2M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z') },
         ],
