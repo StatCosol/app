@@ -120,25 +120,34 @@ on some it is **Comm → Webserver** or **WebSetup**).
 | -------------------- | ---------------------------------------------- |
 | Enable Domain Name   | **Yes**                                        |
 | Server Mode          | **ADMS** (or "HTTP")                           |
-| Server Address       | `api.statcosol.com`                            |
-| Server Port          | `443` (HTTPS only — see note below)            |
-| HTTPS                | **Yes** (mandatory)                            |
+| Server Address       | `app.statcosol.com`                            |
+| Server Path          | `/iclock`                                      |
+| Server Port          | `443` with HTTPS, or `80` with HTTPS off       |
+| HTTPS                | **Yes**, unless the unit has no TLS support    |
 | Proxy                | None                                           |
 | Heartbeat            | `10` sec (default)                             |
 | Realtime upload      | **Yes**                                        |
 
-> **HTTPS is mandatory — port 80 is not available.** The backend runs behind
-> Azure Container Apps ingress with `allowInsecure: false` (see
-> `backend-app.yaml`), so plain HTTP on port 80 is redirected to 443 and the
-> device will not follow the redirect. The machine's TLS stack must handle a
-> public certificate with SNI. Verify this on one physical unit before
-> rolling out to a site — older eSSL firmware occasionally cannot.
+> **Plain HTTP on port 80 is a supported fallback.** Many older eSSL units have
+> no usable TLS stack and fail silently against HTTPS. Both schemes are served
+> by the nginx front end and neither redirects — measured 2026-08-31:
+>
+> ```
+> http://app.statcosol.com/iclock/ping   -> 200 OK
+> https://app.statcosol.com/iclock/ping  -> 200 OK
+> ```
+>
+> Prefer 443 so punch data is encrypted in transit. Drop to port 80 with SSL
+> disabled only when the device cannot complete the TLS handshake — punches
+> carry an employee code and timestamp, so plaintext is a real if limited
+> exposure. Note that `backend-app.yaml` sets `allowInsecure: false`, but that
+> governs the Azure Container App's own FQDN, not this public hostname.
 
 Save and **reboot** the device. Within ~30 seconds it hits
 `GET /iclock/cdata?SN=...&options=all` and our backend replies with the
 session config. From then on, every punch is pushed within `Heartbeat` seconds.
 
-> Verify: `GET https://api.statcosol.com/iclock/ping` should return `OK`.
+> Verify: `GET https://app.statcosol.com/iclock/ping` should return `OK`.
 
 ### Step 4 — First punch — sanity check
 
@@ -313,7 +322,7 @@ When you process a payroll run for the period, `PayrollEngineService.process`:
 | Day shows checkIn but no checkOut         | Only one punch received (employee forgot to punch out).           |
 | OT hours = 0 in payroll                   | `workedHours ≤ 9`, OR `attendance.approvalStatus` ≠ APPROVED.     |
 | Manual edit got overwritten               | Manual row was missing a `checkIn`. Set both check-in + check-out.|
-| Device says “upload failed”               | Device cannot complete TLS to `api.statcosol.com:443`. Check DNS, outbound 443, and that the firmware supports SNI. Port 80 is **not** a fallback. |
+| Device says “upload failed”               | Check DNS and outbound reach to `app.statcosol.com`. If it fails only on 443 the firmware likely lacks TLS/SNI — switch to port 80 with SSL off. |
 
 ---
 
