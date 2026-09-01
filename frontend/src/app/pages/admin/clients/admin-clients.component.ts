@@ -357,6 +357,12 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.clientForm.serviceModules = Array.from(current);
   }
 
+  clearAttendanceSystem(): void {
+    const current = new Set(this.clientForm.serviceModules);
+    this.attendanceModuleCodes.forEach((code) => current.delete(code));
+    this.clientForm.serviceModules = Array.from(current);
+  }
+
   serviceSummary(client: Client): string {
     const count = client.enabledModules?.length || 0;
     if (client.servicePackage === 'FULL_SERVICE') return 'Full Service';
@@ -480,11 +486,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       this.error = 'Select at least one client service';
       return;
     }
-    if (!this.selectedAttendanceSystem) {
-      this.error = 'Select an attendance system';
-      return;
-    }
-
     this.loading = true;
     this.error = '';
     this.success = '';
