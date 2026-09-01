@@ -53,9 +53,11 @@ import { ToastService } from '../../../shared/toast/toast.service';
       <!-- Status Badges -->
       <div class="flex gap-3 flex-wrap">
         <span class="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">{{ invoice.invoiceStatus }}</span>
-        <span class="px-3 py-1 rounded-full text-xs font-semibold" [class]="invoice.paymentStatus === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'">
-          {{ invoice.paymentStatus }}
-        </span>
+        @if (invoice.invoiceType !== 'PROFORMA' || payments.length) {
+          <span class="px-3 py-1 rounded-full text-xs font-semibold" [class]="invoice.paymentStatus === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'">
+            {{ invoice.paymentStatus }}
+          </span>
+        }
         <span class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">Mail: {{ invoice.mailStatus }}</span>
         @if (invoice.pdfPath) {
 <button (click)="generatePdf()" type="button"
@@ -105,8 +107,10 @@ import { ToastService } from '../../../shared/toast/toast.service';
             <div>Round Off:</div><div class="text-right">₹{{ fmt(invoice.roundOff) }}</div>
             <div class="font-bold text-lg border-t pt-2">Grand Total:</div>
             <div class="text-right font-bold text-lg border-t pt-2 text-blue-700">₹{{ fmt(invoice.grandTotal) }}</div>
-            <div class="text-green-600">Received:</div><div class="text-right text-green-600">₹{{ fmt(invoice.amountReceived) }}</div>
-            <div class="text-red-600 font-semibold">Balance:</div><div class="text-right text-red-600 font-semibold">₹{{ fmt(invoice.balanceOutstanding) }}</div>
+            @if (invoice.invoiceType !== 'PROFORMA' || payments.length) {
+              <div class="text-green-600">Received:</div><div class="text-right text-green-600">₹{{ fmt(invoice.amountReceived) }}</div>
+              <div class="text-red-600 font-semibold">Balance:</div><div class="text-right text-red-600 font-semibold">₹{{ fmt(invoice.balanceOutstanding) }}</div>
+            }
           </div>
         </div>
       </div>
@@ -165,10 +169,11 @@ import { ToastService } from '../../../shared/toast/toast.service';
       </div>
 
       <!-- Payments Section -->
+      @if (invoice.invoiceType !== 'PROFORMA' || payments.length) {
       <div class="bg-white rounded-xl border p-6 space-y-4">
         <div class="flex items-center justify-between">
           <h3 class="text-lg font-semibold text-slate-700">Payments</h3>
-          @if (invoice.paymentStatus !== 'PAID' && invoice.invoiceStatus !== 'CANCELLED') {
+          @if (invoice.invoiceType !== 'PROFORMA' && invoice.paymentStatus !== 'PAID' && invoice.invoiceStatus !== 'CANCELLED') {
 <button
                   (click)="showPaymentModal = true"
                   class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700">+ Record Payment</button>
@@ -206,6 +211,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 <p class="text-slate-400 text-sm">No payments recorded yet.</p>
 }
       </div>
+      }
 
       <!-- Payment Modal -->
       @if (showConversionModal) {
@@ -256,7 +262,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
           </div>
         </div>
       </div>
-}
+      }
 
       <!-- Payment Modal -->
       @if (showPaymentModal) {
