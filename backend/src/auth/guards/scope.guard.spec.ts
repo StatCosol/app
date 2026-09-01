@@ -102,22 +102,50 @@ describe('ScopeGuard', () => {
     }
   });
 
-  it('does not restrict roles whose tenancy comes from user.clientId', () => {
-    // These are not assignment-based; blocking them here would lock them out.
-    for (const roleCode of [
-      'CLIENT',
-      'BRANCH_DESK',
-      'CONTRACTOR',
-      'EMPLOYEE',
-    ]) {
-      expect(
-        run(
-          { id: 'u1', roleCode, clientId: 'itc' },
-          { query: { clientId: 'itc' } },
-        ).allowed,
-      ).toBe(true);
-    }
-  });
+  describe.each(['CLIENT', 'BRANCH_DESK', 'CONTRACTOR', 'EMPLOYEE'])(
+    'tenant role: %s',
+    (roleCode) => {
+      it('allows its own client', () => {
+        expect(
+          run(
+            { id: 'u1', roleCode, clientId: 'itc' },
+            { query: { clientId: 'itc' } },
+          ).allowed,
+        ).toBe(true);
+      });
+
+      it('denies another company entirely', () => {
+        // Previously unchecked: these roles are not assignment-based, so the
+        // assignment check never applied and nothing else validated them —
+        // any endpoint reading the parameter would have served the other
+        // company's data.
+        expect(() =>
+          run(
+            { id: 'u1', roleCode, clientId: 'itc' },
+            { query: { clientId: 'vedha' } },
+          ),
+        ).toThrow(ForbiddenException);
+      });
+
+      it('denies a foreign clientId wherever it arrives', () => {
+        for (const where of ['params', 'query', 'body']) {
+          expect(() =>
+            run(
+              { id: 'u1', roleCode, clientId: 'itc' },
+              { [where]: { clientId: 'vedha' } },
+            ),
+          ).toThrow(ForbiddenException);
+        }
+      });
+
+      it('stays out of the way when the token carries no client', () => {
+        // Nothing to compare against; the endpoint must scope itself.
+        expect(
+          run({ id: 'u1', roleCode }, { query: { clientId: 'vedha' } }).allowed,
+        ).toBe(true);
+      });
+    },
+  );
 
   it('cannot police a request that carries no clientId', () => {
     // Documents the guard's blind spot rather than implying coverage: an

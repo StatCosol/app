@@ -17,6 +17,12 @@ export interface ReqUser {
   roleCode: string;
   clientId?: string;
   branchId?: string;
+  /**
+   * Clients this user is assigned to, set by JwtStrategy for the
+   * assignment-scoped roles. Needed here so a CRM's notice KPIs are limited to
+   * their own clients instead of being counted across every tenant.
+   */
+  assignedClientIds?: string[];
 }
 
 @Injectable()
@@ -260,6 +266,18 @@ export class NoticesService {
       qb.andWhere('n.clientId = :cid', { cid: user.clientId });
     } else if (clientId) {
       qb.andWhere('n.clientId = :cid', { cid: clientId });
+    } else if (Array.isArray(user.assignedClientIds)) {
+      // A CRM matched neither branch above, so no filter was applied at all
+      // and the KPIs were counted across every client's notices. Fall back to
+      // the caller's assigned clients, and to nothing when they have none —
+      // an empty assignment set must not read as "all clients".
+      if (user.assignedClientIds.length) {
+        qb.andWhere('n.clientId IN (:...cids)', {
+          cids: user.assignedClientIds,
+        });
+      } else {
+        qb.andWhere('1 = 0');
+      }
     }
     if (user.roleCode === 'BRANCH' && user.branchId) {
       qb.andWhere('n.branchId = :bid', { bid: user.branchId });
