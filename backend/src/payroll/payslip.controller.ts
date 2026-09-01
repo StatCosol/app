@@ -36,6 +36,7 @@ export class PayslipController {
       runId,
       employeeId,
       userId,
+      user,
     );
 
     res.set({
@@ -55,6 +56,6 @@ export class PayslipController {
   ) {
     const userId = user?.userId ?? user?.id;
     if (!userId) throw new BadRequestException('Authenticated user required');
-    return this.generator.generateForRun(runId, userId);
+    return this.generator.generateForRun(runId, userId, user);
   }
 }

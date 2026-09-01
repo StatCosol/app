@@ -1,11 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import archiver from 'archiver';
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Response } from 'express';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -200,7 +196,6 @@ export class PayrollPayslipsService {
       if (cv['HOLIDAY_DBL_DAYS'] === undefined) cv['HOLIDAY_DBL_DAYS'] = 0;
     }
   }
-
 
   async listPayrollRunEmployees(user: ReqUser, runId: string) {
     if (!user?.id) throw new BadRequestException('Invalid user');
@@ -588,5 +583,4 @@ export class PayrollPayslipsService {
       return { items: [], total: 0 };
     }
   }
-
 }
