@@ -53,7 +53,10 @@ export class UsersController {
   @ApiOperation({ summary: 'Get active users by role' })
   @Get('users/active-by-role/:role')
   getActiveUsersByRole(@Param('role') role: string) {
-    return this.service.listActiveUsersByRoleCode(role);
+    // ADMIN-only controller, so a global role may list across every client.
+    return this.service.listActiveUsersByRoleCode(role, undefined, {
+      allowAllClients: true,
+    });
   }
 
   @ApiOperation({ summary: 'Reset CEO password (not allowed for admin)' })
@@ -120,7 +123,9 @@ export class UsersController {
     // If role parameter is provided, return simple array for dropdowns
     if (roleCode) {
       const cid = clientId || undefined;
-      return this.service.listActiveUsersByRoleCode(roleCode, cid);
+      return this.service.listActiveUsersByRoleCode(roleCode, cid, {
+        allowAllClients: true,
+      });
     }
 
     return this.service.listUsersPaged({

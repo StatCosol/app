@@ -55,16 +55,31 @@ describe('FaceDeskEnrollmentService enrolled roster', () => {
     expect(params).toEqual(['client-1', ['branch-1'], 'EMPLOYEE']);
   });
 
-  it('lists contractors without referencing their absent employee_code column', async () => {
+  // The column was once missing in production, so the code was blanked for
+  // contractors and they showed no employee code at all. main.ts patches the
+  // column in on boot, so it exists and must be selected.
+  it('lists a contractor employee code rather than blanking it', async () => {
     const { service, dataSource } = makeService();
 
     await service.getEnrolledEmployees('client-1', null, 'CONTRACTOR');
 
     const [sql, params] = dataSource.query.mock.calls[0];
     expect(sql).toContain('FROM contractor_employees e');
-    expect(sql).toContain('NULL::text AS "employeeCode"');
-    expect(sql).not.toContain('e.employee_code');
+    expect(sql).toContain('e.employee_code AS "employeeCode"');
+    expect(sql).not.toContain('NULL::text AS "employeeCode"');
+    // Contractor codes are nullable, so ordering stays on name.
+    expect(sql).toContain('ORDER BY e.name ASC');
     expect(params).toEqual(['client-1', 'CONTRACTOR']);
+  });
+
+  it('lists a pending contractor employee code too', async () => {
+    const { service, dataSource } = makeService();
+
+    await service.getPendingEmployees('client-1', null, 'CONTRACTOR');
+
+    const [sql] = dataSource.query.mock.calls[0];
+    expect(sql).toContain('e.employee_code AS "employeeCode"');
+    expect(sql).not.toContain('NULL::text AS "employeeCode"');
   });
 });
 

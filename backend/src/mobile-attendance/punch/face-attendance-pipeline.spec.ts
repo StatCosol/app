@@ -67,6 +67,8 @@ describe('Face attendance pipeline (ingest → attendance_records)', () => {
       punchRepo as any,
       empRepo as any,
       attRepo as any,
+      {} as any,
+      {} as any,
     );
     return { service, punchRepo, empRepo, attRepo, insertExecute };
   };

@@ -1,6 +1,6 @@
 # Attendance Systems Architecture
 
-StatComPy currently has **four attendance subsystems**. They serve different portals and should not be merged without a phased migration plan.
+StatComPy currently has **five attendance subsystems**. They serve different portals and should not be merged without a phased migration plan.
 
 ## 1. Core attendance (`backend/src/attendance/`)
 - **API:** `/api/v1/attendance/*`, holiday calendars
@@ -25,6 +25,15 @@ StatComPy currently has **four attendance subsystems**. They serve different por
 - **Users:** CRM CLRA workspace, contractor CLRA self-service
 - **Storage:** `clra_attendance` linked to wage periods
 - **FE:** Assignment detail → Attendance tab
+
+## 5. Biometric device attendance (`backend/src/biometric/`)
+- **API:** `/iclock/*` (public device push, outside the `/api` prefix) + `/api/v1/client/biometric/*`
+- **Users:** Clients running physical eSSL/ZKTeco machines (face, fingerprint, card, or password — all identical to us)
+- **Storage:** `biometric_devices`, `biometric_punches` → rolled up into `attendance_records` (`source=BIOMETRIC`, `captureMethod=BIOMETRIC`)
+- **FE:** Client portal → Payroll & Workforce → **Biometric Devices** (`/client/biometric`)
+- **Protocol:** ZK/eSSL iclock ADMS push over HTTPS. No middleware, no SDK, no polling — the device initiates every upload.
+- **Distinct from FaceDesk.** FaceDesk is our own kiosk app and writes `captureMethod=FACE`; this track is third-party hardware and writes `captureMethod=BIOMETRIC`. `ClientDailyAttendancePage.displaySource()` relies on exactly that to label the two apart. Do not merge them.
+- See `docs/BIOMETRIC_PAYROLL_INTEGRATION.md` for device setup and the punch → payroll lifecycle.
 
 ## ESS portal attendance (separate from mobile-attendance)
 - **API:** `/api/v1/ess/attendance/*` (check-in/out with geolocation)
@@ -59,4 +68,5 @@ StatComPy currently has **four attendance subsystems**. They serve different por
 |---------|--------|
 | FaceDesk kiosk (PIN + face) | **Required** — `/api/v1/facedesk/*` |
 | ESS portal web + app | **Required** — `/api/v1/ess/*` |
+| eSSL/ZKTeco biometric device (ADMS push) | **Supported** — `/iclock/*` + `/api/v1/client/biometric/*` |
 | ESS Mobile Attendance (personal phone) | **Retired** |

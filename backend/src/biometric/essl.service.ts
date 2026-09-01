@@ -100,7 +100,18 @@ export class EsslService {
       return 0;
     }
 
-    const result = await this.biometric.ingest(device.clientId, punches, true);
+    // One machine enrols on-roll staff and contractor workers together, so
+    // the punched code decides who each punch belongs to, not the device.
+    const result = await this.biometric.ingest(
+      device.clientId,
+      punches,
+      true,
+      undefined,
+      {
+        id: device.id,
+        contractorUserId: device.contractorUserId,
+      },
+    );
 
     // Update touch + counter
     await this.deviceRepo
@@ -114,7 +125,10 @@ export class EsslService {
       .execute();
 
     this.logger.log(
-      `eSSL ${sn}: parsed=${punches.length} inserted=${result.inserted} dup=${result.duplicates} unknown=${result.unknownEmployees.length}`,
+      `eSSL ${sn}: parsed=${punches.length} ` +
+        `inserted=${result.inserted} dup=${result.duplicates} ` +
+        `unknown=${result.unknownEmployees.length} ` +
+        `ambiguous=${result.ambiguousEmployees.length}`,
     );
     return punches.length;
   }

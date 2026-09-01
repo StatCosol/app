@@ -8,6 +8,8 @@ export type Employee = {
   clientId: string;
   branchId: string | null;
   employeeCode: string;
+  /** User ID the biometric machine allocated at enrolment; what a punch carries. */
+  punchCode: string | null;
   name: string;
   dateOfBirth: string | null;
   gender: string | null;
@@ -183,6 +185,7 @@ export class ClientEmployeesService {
       clientId: r?.clientId ?? r?.client_id ?? '',
       branchId: r?.branchId ?? r?.branch_id ?? null,
       employeeCode: r?.employeeCode ?? r?.employee_code ?? '',
+      punchCode: r?.punchCode ?? r?.punch_code ?? null,
       name: r?.name ?? ([r?.firstName ?? r?.first_name, r?.lastName ?? r?.last_name].filter(Boolean).join(' ').trim() || ''),
       dateOfBirth: r?.dateOfBirth ?? r?.date_of_birth ?? null,
       gender: r?.gender ?? null,

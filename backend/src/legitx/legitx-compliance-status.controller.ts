@@ -123,11 +123,10 @@ export class LegitxComplianceStatusController {
       0,
     );
 
-    // Branch users can only see their own branch (if branchId is known on token)
-    let branchId =
-      user.userType === 'BRANCH' && user.branchIds?.[0]
-        ? user.branchIds[0]
-        : (q.branchId ?? null);
+    // The requested branch is validated against the user's current mappings below.
+    // Do not take the first token mapping: branch users may be assigned to multiple
+    // units and the ordering of those mappings is not a permission decision.
+    let branchId = q.branchId ?? null;
 
     // Enforce branch scoping for CLIENT users
     let allowedBranchIds: string[] | 'ALL' = 'ALL';

@@ -1,5 +1,11 @@
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  Input,
+  OnDestroy,
+  OnInit,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
@@ -573,7 +579,7 @@ type Tab =
     .col-span-2 { grid-column: span 2; }
   `],
 })
-export class FaceDeskComponent implements OnInit {
+export class FaceDeskComponent implements OnInit, OnDestroy {
   /**
    * Branch mode: rendered inside the branch portal for a branch user. Hides
    * the client-wide admin tabs (devices, reports, settings/thresholds) and
@@ -621,6 +627,16 @@ export class FaceDeskComponent implements OnInit {
   enrollSubjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE';
   enrollmentView: 'PENDING' | 'ENROLLED' = 'PENDING';
   private enrollmentLoadSeq = 0;
+  private enrollPollTimer: ReturnType<typeof setInterval> | null = null;
+  /** How often to check whether the kiosk has finished the capture. */
+  private static readonly ENROLL_POLL_INTERVAL_MS = 4000;
+  /** Matches FaceDeskTicketService.create(), which expires the ticket after
+   *  15 minutes. Anything shorter stops watching while the ticket is still
+   *  valid, so a capture finishing at minute six would go unnoticed. */
+  private static readonly ENROLL_POLL_TIMEOUT_MS = 15 * 60 * 1000;
+  /** The worker we are waiting on, so an unrelated row changing does not end
+   *  the watch early. */
+  private enrollPollEmployeeId: string | null = null;
   private reviewTabLoadSeq = 0;
 
   /** Reload the pending list when the operator switches Employees/Contractors. */
@@ -632,7 +648,7 @@ export class FaceDeskComponent implements OnInit {
     this.loadEnrollmentRows();
   }
 
-  private loadEnrollmentRows(): void {
+  private loadEnrollmentRows(silent = false): void {
     const seq = ++this.enrollmentLoadSeq;
     const view = this.enrollmentView;
     const subjectType = this.enrollSubjectType;
@@ -641,7 +657,10 @@ export class FaceDeskComponent implements OnInit {
         ? this.svc.enrolledEmployees(subjectType)
         : this.svc.pendingEnrollment(subjectType);
 
-    this.loading = true;
+    // Background polls must not flash the spinner or steal focus — the operator
+    // is mid-enrollment and the list refreshing under them should be invisible
+    // until the row actually moves.
+    if (!silent) this.loading = true;
     rows$
       .pipe(
         finalize(() => {
@@ -663,9 +682,60 @@ export class FaceDeskComponent implements OnInit {
         },
         error: () => {
           if (seq !== this.enrollmentLoadSeq) return;
-          this.toast.error('Failed to load');
+          // A dropped background poll is not worth interrupting the operator
+          // for — the next tick retries a few seconds later.
+          if (!silent) this.toast.error('Failed to load');
         },
       });
+  }
+
+  /**
+   * Watch for the kiosk finishing an enrollment.
+   *
+   * The kiosk completes enrollment on the device, so this page has no way to
+   * know the person moved from Pending to Enrolled — operators were left
+   * refreshing the browser by hand after every worker. Poll quietly until the
+   * row moves, then stop.
+   *
+   * Bounded by the enrollment ticket's own lifetime: if nobody completes the
+   * capture the ticket expires anyway, so polling past that is pointless.
+   */
+  private startEnrollPolling(employeeId: string): void {
+    this.stopEnrollPolling();
+    this.enrollPollEmployeeId = employeeId;
+    const startedAt = Date.now();
+    this.enrollPollTimer = setInterval(() => {
+      if (Date.now() - startedAt > FaceDeskComponent.ENROLL_POLL_TIMEOUT_MS) {
+        this.stopEnrollPolling();
+        return;
+      }
+      this.loadEnrollmentRows(true);
+      // The list refreshes asynchronously, so check on the next tick — and
+      // only for the worker we sent. Watching the row COUNT would end the
+      // watch when any other row changed, which during concurrent enrollment
+      // means someone else finishing leaves this one stale.
+      setTimeout(() => {
+        const target = this.enrollPollEmployeeId;
+        if (!target) return;
+        const done =
+          this.enrollmentView === 'ENROLLED'
+            ? this.enrolled.some((r) => r.employeeId === target)
+            : !this.pending.some((r) => r.employeeId === target);
+        if (done) this.stopEnrollPolling();
+      }, 1200);
+    }, FaceDeskComponent.ENROLL_POLL_INTERVAL_MS);
+  }
+
+  private stopEnrollPolling(): void {
+    if (this.enrollPollTimer !== null) {
+      clearInterval(this.enrollPollTimer);
+      this.enrollPollTimer = null;
+    }
+    this.enrollPollEmployeeId = null;
+  }
+
+  ngOnDestroy(): void {
+    this.stopEnrollPolling();
   }
 
   // PIN_THEN_FACE: per-employee PIN generation
@@ -1014,6 +1084,9 @@ export class FaceDeskComponent implements OnInit {
       next: () => {
         this.enrollingId = null;
         this.toast.success('Sent to kiosk — ask the employee to face the camera');
+        // The kiosk completes the enrollment on the device, so watch for the
+        // row to move rather than making the operator refresh the browser.
+        this.startEnrollPolling(empId);
       },
       error: (e) => {
         this.enrollingId = null;

@@ -4,16 +4,39 @@ import { Between, EntityManager, In, IsNull, Repository } from 'typeorm';
 import { BiometricPunchEntity } from './entities/biometric-punch.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { AttendanceEntity } from '../attendance/entities/attendance.entity';
+import { ContractorEmployeeEntity } from '../contractor/contractor-employees/entities/contractor-employee.entity';
+import { ContractorBiometricPunchEntity } from '../mobile-attendance/punch/contractor-punch.entity';
 import { IngestPunchItemDto } from './biometric.dto';
 
 const STANDARD_HOURS = 9;
 const DEFAULT_BUSINESS_TZ_OFFSET_MIN = 330;
 
+/**
+ * The device a push arrived from.
+ *
+ * One machine enrols on-roll staff and contractor workers together, so it
+ * carries no population of its own — who a punch belongs to is decided by the
+ * punched code. `contractorUserId` is an optional narrowing for a machine that
+ * genuinely serves a single contractor.
+ */
+export interface DeviceSubject {
+  /** `biometric_devices.id` — contractor punches are keyed on the uuid, not the serial. */
+  id: string;
+  contractorUserId: string | null;
+}
+
 export interface IngestResult {
   received: number;
   inserted: number;
   duplicates: number;
+  /** User IDs that matched nobody — recoverable via reconcile. */
   unknownEmployees: string[];
+  /**
+   * Contractor User IDs that matched more than one worker. Deliberately left
+   * unattributed: picking one would post hours to the wrong contractor's wage
+   * bill. Fix by making the codes unique, then reconcile.
+   */
+  ambiguousEmployees: string[];
   attendanceUpserts: number;
   affectedDays: { employeeId: string; date: string }[];
 }
@@ -35,6 +58,10 @@ export class BiometricService {
     private readonly empRepo: Repository<EmployeeEntity>,
     @InjectRepository(AttendanceEntity)
     private readonly attRepo: Repository<AttendanceEntity>,
+    @InjectRepository(ContractorEmployeeEntity)
+    private readonly contractorEmpRepo: Repository<ContractorEmployeeEntity>,
+    @InjectRepository(ContractorBiometricPunchEntity)
+    private readonly contractorPunchRepo: Repository<ContractorBiometricPunchEntity>,
   ) {}
 
   /** Insert raw punches (idempotent on (client, code, time, device)). */
@@ -43,7 +70,76 @@ export class BiometricService {
     items: IngestPunchItemDto[],
     autoProcess: boolean,
     manager?: EntityManager,
+    device?: DeviceSubject,
   ): Promise<IngestResult> {
+    // One machine enrols everybody on a site — on-roll staff and every
+    // contractor's workers alike — so who a punch belongs to is decided by the
+    // punched code, never by the device. Split the batch first, then let each
+    // population take its own path: employees roll up into attendance_records,
+    // contractor workers do not.
+    //
+    // Callers that pass no device (FaceDesk, the authenticated ingest API)
+    // resolve employees only, exactly as before.
+    if (device) {
+      const split = await this.splitBySubject(clientId, items, device, manager);
+
+      // Codes matching more than one person are attributed to nobody, but the
+      // punch is still recorded so it shows in the feed and can be recovered
+      // once the codes are made unique. Dropping it would lose the shift.
+      const ambiguousInserted = split.ambiguousItems.length
+        ? await this.insertUnattributed(clientId, split.ambiguousItems, manager)
+        : 0;
+
+      if (split.contractorItems.length) {
+        const contractorResult = await this.ingestContractor(
+          clientId,
+          split.contractorItems,
+          split.workerByCode,
+          device,
+          manager,
+        );
+        const employeeResult = split.employeeItems.length
+          ? await this.ingest(
+              clientId,
+              split.employeeItems,
+              autoProcess,
+              manager,
+              undefined,
+            )
+          : null;
+        return {
+          received: items.length,
+          inserted:
+            contractorResult.inserted +
+            (employeeResult?.inserted ?? 0) +
+            ambiguousInserted,
+          duplicates:
+            contractorResult.duplicates + (employeeResult?.duplicates ?? 0),
+          unknownEmployees: employeeResult?.unknownEmployees ?? [],
+          ambiguousEmployees: split.ambiguous,
+          attendanceUpserts: employeeResult?.attendanceUpserts ?? 0,
+          affectedDays: employeeResult?.affectedDays ?? [],
+        };
+      }
+      // Nothing contractor-bound; fall through to the employee path, but keep
+      // any codes that were ambiguous across the two populations.
+      if (split.ambiguous.length) {
+        const employeeResult = await this.ingest(
+          clientId,
+          split.employeeItems,
+          autoProcess,
+          manager,
+          undefined,
+        );
+        return {
+          ...employeeResult,
+          received: items.length,
+          inserted: employeeResult.inserted + ambiguousInserted,
+          ambiguousEmployees: split.ambiguous,
+        };
+      }
+    }
+
     const punchRepo =
       manager?.getRepository(BiometricPunchEntity) ?? this.punchRepo;
     const empRepo = manager?.getRepository(EmployeeEntity) ?? this.empRepo;
@@ -53,6 +149,9 @@ export class BiometricService {
       inserted: 0,
       duplicates: 0,
       unknownEmployees: [],
+      // Permanent employee codes are unique per client, so ambiguity cannot
+      // arise on this path.
+      ambiguousEmployees: [],
       attendanceUpserts: 0,
       affectedDays: [],
     };
@@ -63,11 +162,25 @@ export class BiometricService {
     const codes = Array.from(
       new Set(items.map((i) => (i.employeeCode || '').trim()).filter(Boolean)),
     );
+    // The machine allocates its own User ID at enrolment, recorded against the
+    // person as `punch_code`, so that is what a punch usually carries. The HR
+    // `employee_code` is the fallback, for sites that type it in instead and
+    // for callers that pass codes straight through (FaceDesk, the ingest API).
     const emps = await empRepo.find({
-      where: { clientId, employeeCode: In(codes) },
+      where: [
+        { clientId, punchCode: In(codes) },
+        { clientId, employeeCode: In(codes) },
+      ] as any,
     });
     const byCode = new Map<string, EmployeeEntity>();
-    emps.forEach((e) => byCode.set(e.employeeCode, e));
+    // Punch code first so it is never shadowed by someone else's HR code.
+    emps.forEach((e) => {
+      const pc = (e.punchCode ?? '').trim();
+      if (pc) byCode.set(pc, e);
+    });
+    emps.forEach((e) => {
+      if (!byCode.has(e.employeeCode)) byCode.set(e.employeeCode, e);
+    });
 
     const unknown = new Set<string>();
     const toInsert: Partial<BiometricPunchEntity>[] = [];
@@ -256,6 +369,295 @@ export class BiometricService {
     };
   }
 
+  /**
+   * Record punches that could not be attributed to anyone, with both subject
+   * ids null. They appear in the Punch Feed as unlinked and are picked up by
+   * reconcile once the underlying code clash is resolved.
+   */
+  private async insertUnattributed(
+    clientId: string,
+    items: IngestPunchItemDto[],
+    manager?: EntityManager,
+  ): Promise<number> {
+    const punchRepo =
+      manager?.getRepository(BiometricPunchEntity) ?? this.punchRepo;
+
+    const rows: Partial<BiometricPunchEntity>[] = [];
+    for (const it of items) {
+      const code = (it.employeeCode || '').trim();
+      if (!code) continue;
+      const ts = new Date(it.punchTime);
+      if (isNaN(ts.getTime())) continue;
+      rows.push({
+        clientId,
+        branchId: it.branchId ?? null,
+        employeeId: null,
+        contractorEmployeeId: null,
+        employeeCode: code,
+        punchTime: ts,
+        direction: it.direction ?? 'AUTO',
+        deviceId: it.deviceId ?? null,
+        source: 'DEVICE',
+        rawPayload: { ...it },
+      });
+    }
+    if (!rows.length) return 0;
+
+    const insert = await punchRepo
+      .createQueryBuilder()
+      .insert()
+      .into(BiometricPunchEntity)
+      .values(rows as any)
+      .orIgnore()
+      .execute();
+    return insert.identifiers.filter(Boolean).length;
+  }
+
+  /**
+   * Work out who each punched code identifies.
+   *
+   * The machine allocates its own User ID at enrolment and that number is
+   * recorded against the person as `punch_code`, so that is what a punch
+   * carries. `employee_code` is the HR code and is only a fallback, for sites
+   * that instead type the HR code into the machine.
+   *
+   * A single machine enrols on-roll staff and contractor workers together, so
+   * both tables are searched. A code found in both, or held by two people in
+   * one table, is left unattributed rather than guessed — guessing would post
+   * one contractor's hours onto another's wage bill, and the mistake would
+   * surface as a payment rather than an error.
+   */
+  private async splitBySubject(
+    clientId: string,
+    items: IngestPunchItemDto[],
+    device: DeviceSubject,
+    manager?: EntityManager,
+  ): Promise<{
+    employeeItems: IngestPunchItemDto[];
+    contractorItems: IngestPunchItemDto[];
+    workerByCode: Map<string, ContractorEmployeeEntity>;
+    ambiguousItems: IngestPunchItemDto[];
+    ambiguous: string[];
+  }> {
+    const empRepo = manager?.getRepository(EmployeeEntity) ?? this.empRepo;
+    const contractorEmpRepo =
+      manager?.getRepository(ContractorEmployeeEntity) ??
+      this.contractorEmpRepo;
+
+    const codes = Array.from(
+      new Set(items.map((i) => (i.employeeCode || '').trim()).filter(Boolean)),
+    );
+    const empty = {
+      employeeItems: items,
+      contractorItems: [] as IngestPunchItemDto[],
+      workerByCode: new Map<string, ContractorEmployeeEntity>(),
+      ambiguousItems: [] as IngestPunchItemDto[],
+      ambiguous: [] as string[],
+    };
+    if (!codes.length) return empty;
+
+    // A device may optionally be pinned to one contractor; otherwise search
+    // every contractor belonging to this client.
+    const scope: Record<string, unknown> = device.contractorUserId
+      ? { clientId, contractorUserId: device.contractorUserId }
+      : { clientId };
+    const [staff, workers] = await Promise.all([
+      empRepo.find({
+        where: [
+          { clientId, punchCode: In(codes) },
+          { clientId, employeeCode: In(codes) },
+        ] as any,
+      }),
+      contractorEmpRepo.find({
+        where: [
+          { ...scope, punchCode: In(codes) },
+          { ...scope, employeeCode: In(codes) },
+        ] as any,
+      }),
+    ]);
+
+    const bucket = <T>(
+      map: Map<string, T[]>,
+      code: string | null | undefined,
+      row: T,
+    ) => {
+      const key = (code ?? '').trim();
+      if (!key) return;
+      const found = map.get(key);
+      if (found) found.push(row);
+      else map.set(key, [row]);
+    };
+
+    const staffByPunch = new Map<string, EmployeeEntity[]>();
+    const staffByHr = new Map<string, EmployeeEntity[]>();
+    for (const e of staff) {
+      bucket(staffByPunch, e.punchCode, e);
+      bucket(staffByHr, e.employeeCode, e);
+    }
+    const workerByPunch = new Map<string, ContractorEmployeeEntity[]>();
+    const workerByHr = new Map<string, ContractorEmployeeEntity[]>();
+    for (const w of workers) {
+      bucket(workerByPunch, w.punchCode, w);
+      bucket(workerByHr, w.employeeCode, w);
+    }
+
+    const contractorCodes = new Set<string>();
+    const ambiguous = new Set<string>();
+    const workerByCode = new Map<string, ContractorEmployeeEntity>();
+
+    for (const code of codes) {
+      // Punch code is the machine's own identity and outranks the HR code, so
+      // it is resolved first across both populations.
+      let staffHits = staffByPunch.get(code) ?? [];
+      let workerHits = workerByPunch.get(code) ?? [];
+      if (!staffHits.length && !workerHits.length) {
+        staffHits = staffByHr.get(code) ?? [];
+        workerHits = workerByHr.get(code) ?? [];
+      }
+
+      const total = staffHits.length + workerHits.length;
+      if (total > 1) {
+        ambiguous.add(code);
+        continue;
+      }
+      if (workerHits.length === 1) {
+        contractorCodes.add(code);
+        workerByCode.set(code, workerHits[0]);
+      }
+      // A single staff hit, or none at all, stays on the employee path — which
+      // already records an unmatched code as unknown for later reconcile.
+    }
+
+    if (!contractorCodes.size && !ambiguous.size) return empty;
+
+    const employeeItems: IngestPunchItemDto[] = [];
+    const contractorItems: IngestPunchItemDto[] = [];
+    const ambiguousItems: IngestPunchItemDto[] = [];
+    for (const it of items) {
+      const code = (it.employeeCode || '').trim();
+      if (contractorCodes.has(code)) contractorItems.push(it);
+      else if (ambiguous.has(code)) ambiguousItems.push(it);
+      else employeeItems.push(it);
+    }
+
+    if (ambiguous.size) {
+      this.logger.warn(
+        `device ${device.id}: ${ambiguous.size} punch code(s) match more than ` +
+          `one person and were left unattributed — ${Array.from(ambiguous).join(', ')}. ` +
+          `Punch codes must be unique across employees and contractor workers.`,
+      );
+    }
+
+    return {
+      employeeItems,
+      contractorItems,
+      workerByCode,
+      ambiguousItems,
+      ambiguous: Array.from(ambiguous),
+    };
+  }
+
+  /**
+   * Contractor-bound punches, already resolved to workers by splitBySubject.
+   *
+   * Contractor attendance does not live in `attendance_records`, so nothing
+   * rolls up here — the punches are the record, and the muster sheet is
+   * derived from them per wage period.
+   */
+  private async ingestContractor(
+    clientId: string,
+    items: IngestPunchItemDto[],
+    byCode: Map<string, ContractorEmployeeEntity>,
+    device: DeviceSubject,
+    manager?: EntityManager,
+  ): Promise<IngestResult> {
+    const punchRepo =
+      manager?.getRepository(BiometricPunchEntity) ?? this.punchRepo;
+    const contractorPunchRepo =
+      manager?.getRepository(ContractorBiometricPunchEntity) ??
+      this.contractorPunchRepo;
+
+    const result: IngestResult = {
+      received: items.length,
+      inserted: 0,
+      duplicates: 0,
+      unknownEmployees: [],
+      ambiguousEmployees: [],
+      attendanceUpserts: 0,
+      affectedDays: [],
+    };
+    if (!items.length) return result;
+
+    const unknown = new Set<string>();
+    const rawRows: Partial<BiometricPunchEntity>[] = [];
+    const contractorRows: Partial<ContractorBiometricPunchEntity>[] = [];
+
+    for (const it of items) {
+      const code = (it.employeeCode || '').trim();
+      if (!code) continue;
+      const ts = new Date(it.punchTime);
+      if (isNaN(ts.getTime())) continue;
+
+      const worker = byCode.get(code);
+      if (!worker) unknown.add(code);
+
+      // Always keep the raw trail, matched or not, so the Punch Feed shows
+      // what the machine sent and reconcile can pick it up later.
+      rawRows.push({
+        clientId,
+        branchId: worker?.branchId ?? it.branchId ?? null,
+        employeeId: null,
+        contractorEmployeeId: worker?.id ?? null,
+        employeeCode: code,
+        punchTime: ts,
+        direction: it.direction ?? 'AUTO',
+        deviceId: it.deviceId ?? null,
+        source: 'DEVICE',
+        rawPayload: { ...it },
+      });
+
+      if (worker) {
+        contractorRows.push({
+          clientId,
+          branchId: worker.branchId ?? null,
+          deviceId: device.id,
+          contractorEmployeeId: worker.id,
+          direction: it.direction ?? 'AUTO',
+          punchTime: ts,
+          decision: 'AUTO',
+        });
+      }
+    }
+
+    if (rawRows.length) {
+      const insert = await punchRepo
+        .createQueryBuilder()
+        .insert()
+        .into(BiometricPunchEntity)
+        .values(rawRows as any)
+        .orIgnore()
+        .execute();
+      result.inserted = insert.identifiers.filter(Boolean).length;
+      result.duplicates = rawRows.length - result.inserted;
+    }
+
+    // Replays of the device's buffered log must not double-count a shift, so
+    // this leans on uq_contractor_punches_device_dedupe exactly as the
+    // employee table leans on its own dedupe index.
+    if (contractorRows.length) {
+      await contractorPunchRepo
+        .createQueryBuilder()
+        .insert()
+        .into(ContractorBiometricPunchEntity)
+        .values(contractorRows as any)
+        .orIgnore()
+        .execute();
+    }
+
+    result.unknownEmployees = Array.from(unknown);
+    return result;
+  }
+
   /** Try to resolve any punches with employeeId IS NULL (e.g. employee added later). */
   async reconcileUnknown(clientId: string): Promise<{ resolved: number }> {
     const orphans = await this.punchRepo.find({
@@ -361,12 +763,18 @@ export class BiometricService {
 
       // Mobile face-kiosk punches share this rollup, but we tag captureMethod
       // as FACE so the UI can distinguish them from fingerprint biometric.
-      const allMobile = dayPunches.every(
+      //
+      // Any face punch in the day is enough. A face match is probabilistic and
+      // must reach the review queue, so a fingerprint/card punch from a second
+      // device (an eSSL machine at the gate, say) must not clear that flag for
+      // the whole day — which is what requiring *every* punch to be a kiosk
+      // punch used to do, silently auto-approving the face match into payroll.
+      const hasFacePunch = dayPunches.some(
         (p) =>
           p.source === ('MOBILE_KIOSK' as any) ||
           p.source === ('MOBILE_ESS' as any),
       );
-      const captureMethod: AttendanceEntity['captureMethod'] = allMobile
+      const captureMethod: AttendanceEntity['captureMethod'] = hasFacePunch
         ? 'FACE'
         : 'BIOMETRIC';
       const requiresAttendanceReview = captureMethod === 'FACE';
@@ -392,23 +800,35 @@ export class BiometricService {
         }
         await attRepo.save(existing);
       } else {
-        existing = await attRepo.save(
-          attRepo.create({
-            clientId,
-            branchId: emp.branchId,
-            employeeId,
-            employeeCode: emp.employeeCode,
-            date,
-            status: 'PRESENT',
-            checkIn: checkInStr,
-            checkOut: checkOutStr,
-            workedHours: workedHours.toFixed(2),
-            overtimeHours: overtimeHours.toFixed(2),
-            source: 'BIOMETRIC',
-            captureMethod,
-            approvalStatus: requiresAttendanceReview ? 'PENDING' : 'APPROVED',
-          } as Partial<AttendanceEntity>),
-        );
+        // Read-then-insert race. This reconcile runs from GET handlers
+        // (attendance/daily and attendance/daily/stats), which the UI fires
+        // concurrently for the same client and date. Both can find no row and
+        // both INSERT, and the loser hits the unique index — surfacing to the
+        // browser as a 409 on a plain read, because the exception filter maps
+        // Postgres 23505 to Conflict.
+        //
+        // Adopt the row the winner created and fall through to the same update
+        // the `existing` branch would have applied, so the outcome does not
+        // depend on which request got there first.
+        existing = await this.insertOrAdoptAttendance(attRepo, {
+          clientId,
+          branchId: emp.branchId,
+          employeeId,
+          employeeCode: emp.employeeCode,
+          date,
+          status: 'PRESENT',
+          checkIn: checkInStr,
+          checkOut: checkOutStr,
+          workedHours: workedHours.toFixed(2),
+          overtimeHours: overtimeHours.toFixed(2),
+          source: 'BIOMETRIC',
+          captureMethod,
+          approvalStatus: requiresAttendanceReview ? 'PENDING' : 'APPROVED',
+        } as Partial<AttendanceEntity>);
+        // A manual entry won the race and was left intact — skip exactly as the
+        // non-racing path does, so the punches are not linked to a row this
+        // reconcile did not write.
+        if (!existing) continue;
       }
 
       // Mark punches as processed and link attendance row
@@ -434,6 +854,50 @@ export class BiometricService {
     const m = String(local.getUTCMonth() + 1).padStart(2, '0');
     const day = String(local.getUTCDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
+  }
+
+  /**
+   * Insert an attendance row, tolerating a concurrent insert of the same day.
+   *
+   * The reconcile runs from read endpoints that the UI calls in parallel, so
+   * two requests can both see no row and both insert. Postgres rejects the
+   * loser with 23505, which the global filter turns into a 409 — a plain GET
+   * appearing to "conflict". Adopting the winner's row is correct rather than
+   * merely quiet: both requests computed the same rollup from the same punches.
+   */
+  private async insertOrAdoptAttendance(
+    attRepo: Repository<AttendanceEntity>,
+    fields: Partial<AttendanceEntity>,
+  ): Promise<AttendanceEntity | null> {
+    try {
+      return await attRepo.save(attRepo.create(fields));
+    } catch (err: any) {
+      if (err?.code !== '23505' && err?.driverError?.code !== '23505')
+        throw err;
+      const winner = await attRepo.findOne({
+        where: {
+          employeeId: fields.employeeId as string,
+          date: fields.date as any,
+        },
+      });
+      if (!winner) throw err;
+      // The row that won the race may be a MANUAL entry — markAttendance or an
+      // admin edit can land between our lookup and our insert. The non-racing
+      // path refuses to touch those (`source === 'MANUAL' && checkIn` → skip),
+      // and adopting must honour the same rule: merging here would silently
+      // replace a human's status, times and approval state with biometric
+      // values, and then link the punches to the row it just overwrote.
+      if (winner.source === 'MANUAL' && winner.checkIn) {
+        this.logger.warn(
+          `attendance reconcile raced on ${fields.employeeCode ?? fields.employeeId} ${String(fields.date)} — a manual entry won, leaving it untouched`,
+        );
+        return null;
+      }
+      this.logger.warn(
+        `attendance reconcile raced on ${fields.employeeCode ?? fields.employeeId} ${String(fields.date)} — adopting the concurrently created row`,
+      );
+      return attRepo.save(attRepo.merge(winner, fields));
+    }
   }
 
   private toTimeStr(d: Date): string {

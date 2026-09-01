@@ -42,6 +42,7 @@ interface EmployeeForm {
   designation: string;
   department: string;
   dateOfJoining: string;
+  punchCode: string;
   aadhaar: string;
   pan: string;
   uan: string;
@@ -65,6 +66,7 @@ function emptyForm(): EmployeeForm {
     designation: '',
     department: '',
     dateOfJoining: '',
+    punchCode: '',
     aadhaar: '',
     pan: '',
     uan: '',
@@ -519,6 +521,21 @@ interface BulkPreviewRow {
                   class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
                 />
               </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Biometric Punch ID</label>
+                <input
+                  type="text"
+                  [(ngModel)]="form.punchCode"
+                  name="punchCode"
+                  placeholder="e.g. 1047"
+                  class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                />
+                <p class="mt-1 text-xs text-gray-500">
+                  The User ID the biometric machine created when this worker was enrolled.
+                  Punches carry this number, and it is what posts their attendance to this
+                  contractor. Must be unique across all workers and employees.
+                </p>
+              </div>
               <div class="grid grid-cols-2 gap-3">
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -967,6 +984,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       designation: emp.designation || '',
       department: emp.department || '',
       dateOfJoining: emp.dateOfJoining || '',
+      punchCode: emp.punchCode || '',
       aadhaar: emp.aadhaar || '',
       pan: emp.pan || '',
       uan: emp.uan || '',
@@ -1013,6 +1031,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       designation: this.form.designation || null,
       department: this.form.department || null,
       dateOfJoining: this.form.dateOfJoining || null,
+      punchCode: this.form.punchCode ? String(this.form.punchCode).trim() : null,
       aadhaar: this.form.aadhaar || null,
       pan: this.form.pan ? this.form.pan.toUpperCase() : null,
       uan: this.form.uan || null,

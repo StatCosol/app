@@ -370,6 +370,47 @@ async function bootstrap() {
       logger.warn(`Schema patch attendance_audit_logs skipped: ${e?.message}`);
     }
 
+    // Duplicate threshold: 90/93 → 97.
+    //
+    // Raising the code fallback alone fixes nothing for a client that already
+    // has a settings row, because the fallback is only consulted when the row
+    // is missing — those clients would keep the old value and stay blocked.
+    // The column default was also still 93, so new rows regressed to it.
+    //
+    // The column default doubles as the one-shot marker: once it reads 97 the
+    // whole block is skipped, so this can never re-run and overwrite a value an
+    // administrator deliberately chooses later.
+    //
+    // Only rows still holding a FORMER DEFAULT (90 or 93) are moved. A row set
+    // to anything else is an intentional override and is left alone. The
+    // residual risk is a client who deliberately chose exactly 90 or 93 — they
+    // are moved too, and can set it back; at those values enrollment is
+    // currently blocked outright, so leaving them there is the worse failure.
+    try {
+      await ds.query(`
+        DO $$
+        BEGIN
+          IF COALESCE((
+            SELECT column_default
+              FROM information_schema.columns
+             WHERE table_name = 'facedesk_face_settings'
+               AND column_name = 'duplicate_threshold'
+          ), '') NOT LIKE '97%' THEN
+            UPDATE facedesk_face_settings
+               SET duplicate_threshold = 97
+             WHERE duplicate_threshold IN (90, 93);
+            ALTER TABLE facedesk_face_settings
+              ALTER COLUMN duplicate_threshold SET DEFAULT 97;
+          END IF;
+        END $$;
+      `);
+      logger.log('Schema patch: facedesk duplicate_threshold default OK');
+    } catch (e: any) {
+      logger.warn(
+        `Schema patch facedesk duplicate_threshold skipped: ${e?.message}`,
+      );
+    }
+
     // Holiday calendar: uploadable per-branch / per-state holiday list applied
     // onto attendance_records and used for holiday-work double-wage approval.
     try {
@@ -651,7 +692,9 @@ async function bootstrap() {
       `);
       logger.log('Schema patch: contractor attendance/payroll columns OK');
     } catch (e: any) {
-      logger.warn(`Schema patch contractor payroll columns skipped: ${e?.message}`);
+      logger.warn(
+        `Schema patch contractor payroll columns skipped: ${e?.message}`,
+      );
     }
 
     try {
@@ -804,6 +847,67 @@ async function bootstrap() {
     } catch (e: any) {
       logger.warn(
         `Schema patch contractor_employees.status skipped: ${e?.message}`,
+      );
+    }
+
+    // eSSL/ZKTeco devices serving contractor workforces. A device now declares
+    // which population its User IDs belong to, and — for contractors — which
+    // contractor, because contractor_employees.employee_code is only scoped
+    // per contractor and is not unique.
+    try {
+      await ds.query(`
+        ALTER TABLE biometric_devices
+          ADD COLUMN IF NOT EXISTS contractor_user_id uuid NULL
+      `);
+      // The machine allocates its own User ID at enrolment, so the operator
+      // records that number against the person here. It is the identity the
+      // device actually transmits, and it is what decides which contractor a
+      // punch belongs to. Kept separate from employee_code, which is the HR
+      // code and is not what the device sends.
+      await ds.query(`
+        ALTER TABLE contractor_employees
+          ADD COLUMN IF NOT EXISTS punch_code varchar(50) NULL
+      `);
+      await ds.query(`
+        ALTER TABLE employees
+          ADD COLUMN IF NOT EXISTS punch_code varchar(50) NULL
+      `);
+      // Unique per client, not per contractor: a punch carries only the code,
+      // so if two people share one the punch cannot be attributed. Enforcing
+      // it here stops the collision being discovered as a wage error.
+      await ds.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_ce_punch_code
+          ON contractor_employees(client_id, punch_code)
+          WHERE punch_code IS NOT NULL
+      `);
+      await ds.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_emp_punch_code
+          ON employees(client_id, punch_code)
+          WHERE punch_code IS NOT NULL
+      `);
+      await ds.query(`
+        ALTER TABLE biometric_punches
+          ADD COLUMN IF NOT EXISTS contractor_employee_id uuid NULL
+      `);
+      await ds.query(`
+        CREATE INDEX IF NOT EXISTS idx_biometric_punches_contractor
+          ON biometric_punches(client_id, contractor_employee_id, punch_time)
+          WHERE contractor_employee_id IS NOT NULL
+      `);
+      // eSSL machines re-push their buffered log on reconnect, so contractor
+      // punches need the same replay guard the employee table already has.
+      // Without it a reconnect after an outage inflates days worked, which
+      // becomes an overpayment once the muster sheet is generated.
+      await ds.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_contractor_punches_device_dedupe
+          ON contractor_biometric_punches(
+            client_id, contractor_employee_id, punch_time, device_id
+          )
+      `);
+      logger.log('Schema patch: biometric contractor device support OK');
+    } catch (e: any) {
+      logger.warn(
+        `Schema patch biometric contractor device support skipped: ${e?.message}`,
       );
     }
 

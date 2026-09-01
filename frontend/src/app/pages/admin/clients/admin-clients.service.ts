@@ -184,6 +184,17 @@ export class AdminClientsService {
     return this.http.get<BranchUserLink[]>(`${this.apiUrl}/branches/${branchId}/users`);
   }
 
+  addBranchUser(branchId: string, userId: string): Observable<{ message: string; userId: string; branchId: string }> {
+    return this.http.post<{ message: string; userId: string; branchId: string }>(
+      `${this.apiUrl}/branches/${branchId}/users`,
+      { userId },
+    );
+  }
+
+  getAvailableBranchUsers(branchId: string): Observable<ClientUserOption[]> {
+    return this.http.get<ClientUserOption[]>(`${this.apiUrl}/branches/${branchId}/available-users`);
+  }
+
   // Client user linking APIs
   getClientUsers(clientId: string): Observable<ClientUserLink[]> {
     return this.http.get<ClientUserLink[]>(`${this.apiUrl}/clients/${clientId}/users`);

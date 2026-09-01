@@ -15,6 +15,8 @@ export interface ContractorEmployee {
   clientId: string;
   branchId: string;
   contractorUserId: string;
+  /** User ID the biometric machine allocated at enrolment; what a punch carries. */
+  punchCode: string | null;
   name: string;
   gender: string | null;
   dateOfBirth: string | null;
@@ -44,6 +46,8 @@ export interface ContractorEmployee {
 
 export interface CreateEmployeeDto {
   name: string;
+  /** User ID from the biometric machine; attributes punches to this worker. */
+  punchCode?: string | null;
   gender?: string | null;
   dateOfBirth?: string | null;
   fatherName?: string | null;

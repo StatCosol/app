@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsIn,
   IsOptional,
   IsString,
   IsUUID,
@@ -10,6 +11,14 @@ export class RegisterBiometricDeviceDto {
   @IsString()
   @MaxLength(80)
   serialNumber: string;
+
+  /**
+   * Optional: pin this machine to a single contractor. Leave unset for a
+   * shared machine — the punched code decides who a punch belongs to.
+   */
+  @IsOptional()
+  @IsUUID()
+  contractorUserId?: string;
 
   @IsOptional()
   @IsUUID()

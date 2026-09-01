@@ -44,6 +44,15 @@ export class EmployeeEntity {
   @Column({ name: 'employee_code', type: 'varchar', length: 50 })
   employeeCode: string;
 
+  /**
+   * User ID the biometric machine allocated at enrolment. This — not
+   * employeeCode — is what an eSSL device transmits with each punch. Unique
+   * per client, and must not collide with a contractor worker's punch code:
+   * a punch carries only the code, so a clash cannot be attributed.
+   */
+  @Column({ name: 'punch_code', type: 'varchar', length: 50, nullable: true })
+  punchCode: string | null;
+
   @Column({ name: 'name', type: 'varchar', length: 250 })
   name: string;
 

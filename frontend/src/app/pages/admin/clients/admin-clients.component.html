@@ -231,11 +231,23 @@
 
         <!-- Section 3: Service Access -->
         <div class="border-t border-gray-200 pt-4">
-          <h4 class="text-sm font-semibold text-gray-700 mb-1 uppercase tracking-wide">Attendance System</h4>
+          <h4 class="text-sm font-semibold text-gray-700 mb-1 uppercase tracking-wide">Attendance System (Optional)</h4>
           <p class="text-xs text-gray-500 mb-3">
             Pick this client's attendance method — it drives what their client and branch users see. One per client.
           </p>
           <div class="flex flex-wrap gap-2 mb-5">
+            <button
+              type="button"
+              (click)="clearAttendanceSystem()"
+              class="px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors"
+              [class.bg-indigo-600]="!selectedAttendanceSystem"
+              [class.text-white]="!selectedAttendanceSystem"
+              [class.border-indigo-600]="!selectedAttendanceSystem"
+              [class.bg-white]="selectedAttendanceSystem"
+              [class.text-gray-700]="selectedAttendanceSystem"
+              [class.border-gray-300]="selectedAttendanceSystem">
+              No attendance
+            </button>
             @for (sys of attendanceSystems; track sys.key) {
 <button
               type="button"
@@ -252,10 +264,6 @@
             </button>
 }
           </div>
-
-          @if (!selectedAttendanceSystem) {
-<p class="text-xs text-red-600 -mt-2 mb-4">Select one attendance system to register the client.</p>
-}
 
           <h4 class="text-sm font-semibold text-gray-700 mb-1 uppercase tracking-wide">Client Services</h4>
           <p class="text-xs text-gray-500 mb-3">
@@ -337,7 +345,7 @@
 }
 
         <ui-button variant="primary" type="submit"
-          [disabled]="!clientForm.clientName || !clientForm.masterUserName || !clientForm.masterUserEmail || !clientForm.masterUserPassword || !clientForm.serviceModules.length || !selectedAttendanceSystem || loading">
+          [disabled]="!clientForm.clientName || !clientForm.masterUserName || !clientForm.masterUserEmail || !clientForm.masterUserPassword || !clientForm.serviceModules.length || loading">
           {{ loading ? 'Registering...' : 'Register Client' }}
         </ui-button>
       </form>
@@ -795,7 +803,7 @@
               placeholder="Leave empty to auto-generate">
             </ui-form-input>
           </div>
-          <p class="text-xs text-gray-500 mt-2">Every branch must have a desk user for branch-level supervision. Password is auto-generated if left empty.</p>
+          <p class="text-xs text-gray-500 mt-2">Every branch must have a desk user for branch-level supervision. Entering an existing active branch-user email for this client links that login to this unit; its password is unchanged.</p>
         </div>
 
         <div class="flex gap-3">
@@ -827,13 +835,15 @@
 <div class="card mt-4 bg-green-50 border border-green-200">
       <div class="flex items-start justify-between">
         <div>
-          <h4 class="text-sm font-semibold text-green-800 mb-1">Branch User Created</h4>
+          <h4 class="text-sm font-semibold text-green-800 mb-1">{{ createdBranchUser.linkedExisting ? 'Existing Branch User Linked' : 'Branch User Created' }}</h4>
           <p class="text-sm text-green-700">
             <strong>Email:</strong> {{ createdBranchUser.email }}
-            &nbsp;|&nbsp;
-            <strong>Password:</strong> {{ createdBranchUser.password }}
+            @if (!createdBranchUser.linkedExisting) {
+              &nbsp;|&nbsp;
+              <strong>Password:</strong> {{ createdBranchUser.password }}
+            }
           </p>
-          <p class="text-xs text-green-600 mt-1">Save these credentials now; the password will not be shown again.</p>
+          <p class="text-xs text-green-600 mt-1">{{ createdBranchUser.linkedExisting ? 'The existing password is unchanged. This login can now access all of its assigned units.' : 'Save these credentials now; the password will not be shown again.' }}</p>
         </div>
         <button type="button" (click)="createdBranchUser = null" class="text-green-600 hover:text-green-800 text-lg font-bold">&times;</button>
       </div>
@@ -916,6 +926,23 @@
   @if (activeTab === 'branches' && branchForUsers) {
 <div id="branchUsersCard" class="card mt-6">
     <h3 class="text-lg font-semibold text-gray-900 mb-4">Login Users for {{ branchForUsers.branchName }}</h3>
+
+    <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-3 mb-4">
+      <ui-form-select
+        label="Link Existing Branch User"
+        [(ngModel)]="selectedBranchUserId"
+        [options]="branchUserSelectOptions"
+        placeholder="Select a branch login from this client">
+      </ui-form-select>
+      <div class="flex items-end">
+        <ui-button variant="primary" (clicked)="linkBranchUser()" [disabled]="!selectedBranchUserId || linkingBranchUser" [loading]="linkingBranchUser">
+          Link User
+        </ui-button>
+      </div>
+    </div>
+    @if (branchUserLinkError) {
+<div class="mb-4 text-sm text-red-600">{{ branchUserLinkError }}</div>
+}
 
     @if (branchUserResetResult) {
 <div class="mb-4 flex items-start gap-3 rounded-lg bg-green-50 border border-green-200 px-4 py-3">

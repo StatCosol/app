@@ -518,7 +518,11 @@ export class FaceDeskSettingsEntity {
   @Column({ name: 'face_retry_confidence', type: 'numeric', default: 90 })
   faceRetryConfidence: number;
 
-  @Column({ name: 'duplicate_threshold', type: 'numeric', default: 93 })
+  /** Percent at/above which an enrollment is treated as a duplicate. Raised to
+   *  97 (cosine ~0.884): at the former 90/93 the check matched unrelated faces
+   *  and blocked every enrollment. See the boot patch in main.ts, which also
+   *  moves existing rows off the old defaults. */
+  @Column({ name: 'duplicate_threshold', type: 'numeric', default: 97 })
   duplicateThreshold: number;
 
   @Column({ name: 'min_face_samples', type: 'int', default: 5 })

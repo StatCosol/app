@@ -26,6 +26,15 @@ export class BiometricDeviceEntity {
   @Column({ name: 'push_token', type: 'varchar', length: 120 })
   pushToken: string;
 
+  /**
+   * Optional narrowing for a machine that serves a single contractor. Left
+   * null on a shared machine — one unit normally enrols on-roll staff and
+   * every contractor's workers together, and the punched code alone decides
+   * who a punch belongs to.
+   */
+  @Column({ name: 'contractor_user_id', type: 'uuid', nullable: true })
+  contractorUserId: string | null;
+
   @Column({ type: 'varchar', length: 40, default: 'ESSL' })
   vendor: string;
 

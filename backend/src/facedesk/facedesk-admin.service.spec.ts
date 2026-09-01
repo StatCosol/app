@@ -85,7 +85,11 @@ describe('FaceDeskAdminService contractor review flow', () => {
     expect(sql).not.toContain('photo_url');
     // Photo flags must require ENROLLED so the "View face" link matches what the
     // enrolled-photo endpoint can serve (blocked/new duplicates would 404).
-    expect(sql).toContain("np.enrollment_status = 'ENROLLED'");
+    // The NEW side is the capture under review and is held as BLOCKED until
+    // the admin decides, so it must be viewable in both states — otherwise the
+    // alert has to be resolved without seeing the face that raised it.
+    expect(sql).toContain("np.enrollment_status IN ('ENROLLED', 'BLOCKED')");
+    // The MATCHED side is an existing enrollment; still ENROLLED-only.
     expect(sql).toContain("mp.enrollment_status = 'ENROLLED'");
     expect(params).toEqual(['client-1', 'PENDING']);
   });
@@ -612,9 +616,35 @@ describe('FaceDeskAdminService.actOnDuplicate — resolution by detection band',
     });
   });
 
-  it('BLOCK + APPROVE still reopens enrollment (unchanged behaviour)', async () => {
+  // The capture that raised the alert is now kept against a BLOCKED profile,
+  // so approving it completes the enrollment — the worker does not go back to
+  // the kiosk to be photographed again.
+  it('BLOCK + APPROVE enrolls when the held capture is present', async () => {
     const { service, dupeRepo, profileRepo } = makeService();
     dupeRepo.findOne.mockResolvedValue(alert('BLOCK'));
+    profileRepo.findOne.mockResolvedValue({
+      profileId: 'p1',
+      faceTemplate: Buffer.from(new Float32Array([1, 0, 0, 0]).buffer),
+    });
+
+    await service.actOnDuplicate('c1', 'a1', 'admin', {
+      action: 'APPROVE',
+    } as any);
+
+    const [, patch] = profileRepo.update.mock.calls[0];
+    expect(patch).toEqual({
+      duplicateStatus: 'APPROVED',
+      enrollmentStatus: 'ENROLLED',
+    });
+  });
+
+  // Alerts raised before captures were retained have no template to activate,
+  // so those must still fall back to re-enrollment rather than enrolling an
+  // empty profile.
+  it('BLOCK + APPROVE falls back to PENDING when no capture was kept', async () => {
+    const { service, dupeRepo, profileRepo } = makeService();
+    dupeRepo.findOne.mockResolvedValue(alert('BLOCK'));
+    profileRepo.findOne.mockResolvedValue({ profileId: 'p1' });
 
     await service.actOnDuplicate('c1', 'a1', 'admin', {
       action: 'APPROVE',
@@ -627,14 +657,23 @@ describe('FaceDeskAdminService.actOnDuplicate — resolution by detection band',
     });
   });
 
-  it('BLOCK + REJECT leaves the profile untouched (unchanged behaviour)', async () => {
-    const { service, dupeRepo, profileRepo } = makeService();
+  // Refused face: the profile row stays for the audit trail, but the biometric
+  // data captured for it must not be retained.
+  it('BLOCK + REJECT shreds the held template and samples', async () => {
+    const { service, dupeRepo, profileRepo, sampleRepo } = makeService();
     dupeRepo.findOne.mockResolvedValue(alert('BLOCK'));
+    profileRepo.findOne.mockResolvedValue({
+      profileId: 'p1',
+      faceTemplate: Buffer.from(new Float32Array([1, 0, 0, 0]).buffer),
+    });
 
     await service.actOnDuplicate('c1', 'a1', 'admin', {
       action: 'REJECT',
     } as any);
 
-    expect(profileRepo.update).not.toHaveBeenCalled();
+    expect(sampleRepo.delete).toHaveBeenCalledWith({ profileId: 'p1' });
+    const [, patch] = profileRepo.update.mock.calls[0];
+    expect(patch.faceTemplate).toBeNull();
+    expect(patch.enrollmentStatus).toBe('BLOCKED');
   });
 });

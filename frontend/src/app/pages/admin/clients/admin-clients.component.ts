@@ -90,7 +90,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   };
   editingBranchId: string | null = null;
 
-  createdBranchUser: { email: string; password: string } | null = null;
+  createdBranchUser: { email: string; password: string | null; linkedExisting: boolean } | null = null;
 
   stateOptions = INDIAN_STATES;
 
@@ -117,6 +117,10 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   // Branch desk users (login accounts) per branch
   branchForUsers: Branch | null = null;
   branchUsers: BranchUserLink[] = [];
+  availableBranchUsers: ClientUserOption[] = [];
+  selectedBranchUserId: string | null = null;
+  linkingBranchUser = false;
+  branchUserLinkError = '';
   branchUserResetResult: { email: string; newPassword: string } | null = null;
   resettingBranchUserId: string | null = null;
 
@@ -357,6 +361,12 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.clientForm.serviceModules = Array.from(current);
   }
 
+  clearAttendanceSystem(): void {
+    const current = new Set(this.clientForm.serviceModules);
+    this.attendanceModuleCodes.forEach((code) => current.delete(code));
+    this.clientForm.serviceModules = Array.from(current);
+  }
+
   serviceSummary(client: Client): string {
     const count = client.enabledModules?.length || 0;
     if (client.servicePackage === 'FULL_SERVICE') return 'Full Service';
@@ -480,11 +490,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       this.error = 'Select at least one client service';
       return;
     }
-    if (!this.selectedAttendanceSystem) {
-      this.error = 'Select an attendance system';
-      return;
-    }
-
     this.loading = true;
     this.error = '';
     this.success = '';
@@ -815,8 +820,12 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         if (!updatedId && res?.branchUser) {
           this.createdBranchUser = {
             email: res.branchUser.email,
-            password: res.branchUser.password,
+            password: res.branchUser.password ?? null,
+            linkedExisting: !!res.branchUser.linkedExisting,
           };
+          if (res.branchUser.linkedExisting) {
+            this.branchSaveMessage = 'Branch added and the existing branch login was linked to it.';
+          }
         }
         this.resetBranchForm();
         // Defer branch reload to avoid ExpressionChanged if form fields clear mid-check
@@ -1090,6 +1099,9 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   selectBranchForUsers(branch: Branch) {
     this.branchForUsers = branch;
     this.branchUsers = [];
+    this.availableBranchUsers = [];
+    this.selectedBranchUserId = null;
+    this.branchUserLinkError = '';
     this.branchUserResetResult = null;
 
     setTimeout(() => {
@@ -1098,7 +1110,51 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
 
     if (branch.id) {
       this.loadBranchUsers(branch.id);
+      this.loadAvailableBranchUsers();
     }
+  }
+
+  get branchUserSelectOptions(): SelectOption[] {
+    const linked = new Set(this.branchUsers.map((user) => user.userId));
+    return this.availableBranchUsers
+      .filter((user) => !linked.has(user.id))
+      .map((user) => ({ value: user.id, label: `${user.name} (${user.email})` }));
+  }
+
+  private loadAvailableBranchUsers() {
+    const branchId = this.branchForUsers?.id;
+    if (!branchId) return;
+    this.service.getAvailableBranchUsers(branchId).pipe(
+      timeout(8000),
+      catchError(() => of([] as ClientUserOption[])),
+      takeUntil(this.destroy$),
+    ).subscribe((users) => {
+      this.availableBranchUsers = users || [];
+      this.cdr.detectChanges();
+    });
+  }
+
+  linkBranchUser() {
+    const branchId = this.branchForUsers?.id;
+    if (!branchId || !this.selectedBranchUserId) return;
+    this.linkingBranchUser = true;
+    this.branchUserLinkError = '';
+    this.service.addBranchUser(branchId, this.selectedBranchUserId).pipe(
+      timeout(8000),
+      takeUntil(this.destroy$),
+      finalize(() => {
+        this.linkingBranchUser = false;
+        this.cdr.detectChanges();
+      }),
+    ).subscribe({
+      next: () => {
+        this.selectedBranchUserId = null;
+        this.loadBranchUsers(branchId);
+      },
+      error: (err) => {
+        this.branchUserLinkError = err?.error?.message || 'Failed to link branch user';
+      },
+    });
   }
 
   loadBranchUsers(branchId: string) {
@@ -1207,6 +1263,8 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.selectedContractorUserId = null;
     this.branchForUsers = null;
     this.branchUsers = [];
+    this.availableBranchUsers = [];
+    this.selectedBranchUserId = null;
     this.branchUserResetResult = null;
     this.editingMasterUser = null;
     this.masterUserResetResult = null;

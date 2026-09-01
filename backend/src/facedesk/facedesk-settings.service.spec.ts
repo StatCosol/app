@@ -44,7 +44,9 @@ describe('FaceDeskSettingsService', () => {
     expect(eff.minFaceSamples).toBe(5);
     expect(eff.frameCaptureCount).toBe(15);
     expect(eff.acceptCosine).toBeCloseTo(0.84, 3);
-    expect(eff.duplicateCosine).toBeCloseTo(0.78, 3); // 90% default → ~0.78
+    // 97% default → ~0.88. Raised from 90%/0.78, where unrelated faces scored
+    // 0.73–0.84 in production and blocked every enrollment.
+    expect(eff.duplicateCosine).toBeCloseTo(0.884, 3);
     expect(eff.livenessRequired).toBe(true);
     expect(eff.identificationMode).toBe('PIN_THEN_FACE');
   });
@@ -67,5 +69,42 @@ describe('FaceDeskSettingsService', () => {
     expect(eff.minFaceSamples).toBe(7);
     expect(eff.livenessRequired).toBe(false);
     expect(eff.identificationMode).toBe('PIN_THEN_FACE');
+  });
+});
+
+describe('FaceDeskSettingsService — duplicate defaults', () => {
+  const makeService = (row: any = null) => {
+    const repo = {
+      findOne: jest.fn().mockResolvedValue(row),
+      create: jest.fn((v: any) => v),
+      merge: jest.fn((a: any, b: any, c: any) => ({ ...a, ...b, ...c })),
+      save: jest.fn(async (v: any) => v),
+    };
+    return new FaceDeskSettingsService(repo as any);
+  };
+
+  // Production evidence: several DIFFERENT employees matched the same profiles
+  // at these scores under the old 0.78 bar, so every enrollment was blocked.
+  const observedFalsePositives = [0.838, 0.807, 0.803, 0.751, 0.746, 0.731];
+
+  it('clears every observed false positive', async () => {
+    const eff = await makeService().getEffective('c1');
+
+    for (const score of observedFalsePositives) {
+      expect(score).toBeLessThan(eff.duplicateCosine);
+      // The review band must not silently re-block below the threshold.
+      expect(score).toBeLessThan(eff.duplicateReviewCosine);
+    }
+  });
+
+  it('leaves punch acceptance untouched', async () => {
+    const eff = await makeService().getEffective('c1');
+    // Raising the duplicate bar must not make punching stricter or looser.
+    expect(eff.acceptCosine).toBeCloseTo(0.84, 3);
+  });
+
+  it('still honours an explicit per-client threshold', async () => {
+    const eff = await makeService({ duplicateThreshold: 90 }).getEffective('c1');
+    expect(eff.duplicateCosine).toBeCloseTo(0.78, 3);
   });
 });
