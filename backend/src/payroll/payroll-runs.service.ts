@@ -121,7 +121,6 @@ export class PayrollRunsService {
     }));
   }
 
-
   async createPayrollRun(user: ReqUser, dto: CreatePayrollRunDto) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (user?.roleCode !== 'PAYROLL' && user?.roleCode !== 'ADMIN') {
@@ -383,7 +382,6 @@ export class PayrollRunsService {
 
     return this.runRepo.save(run);
   }
-
 
   async seedMarchEl(runId: string) {
     const { MARCH_2026_SHEET_DATA } = await import('./march-2026-el-data');

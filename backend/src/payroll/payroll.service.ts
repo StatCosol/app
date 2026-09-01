@@ -194,7 +194,11 @@ export class PayrollService {
     clientId: string,
     opts?: { allowReadOnly?: boolean },
   ) {
-    return this.scopeService.assertPayrollAccessToClient(payrollUser, clientId, opts);
+    return this.scopeService.assertPayrollAccessToClient(
+      payrollUser,
+      clientId,
+      opts,
+    );
   }
 
   private ensureClientOrBranchUser(user: ReqUser) {
@@ -324,14 +328,27 @@ export class PayrollService {
     payrollInputId: string,
     dto: ClientUpdatePayrollInputStatusDto,
   ) {
-    return this.inputService.clientUpdatePayrollInputStatus(user, payrollInputId, dto);
+    return this.inputService.clientUpdatePayrollInputStatus(
+      user,
+      payrollInputId,
+      dto,
+    );
   }
 
-  async clientGetPayrollInputStatusHistory(user: ReqUser, payrollInputId: string) {
-    return this.inputService.clientGetPayrollInputStatusHistory(user, payrollInputId);
+  async clientGetPayrollInputStatusHistory(
+    user: ReqUser,
+    payrollInputId: string,
+  ) {
+    return this.inputService.clientGetPayrollInputStatusHistory(
+      user,
+      payrollInputId,
+    );
   }
 
-  async clientCreatePayrollInput(user: ReqUser, dto: ClientCreatePayrollInputDto) {
+  async clientCreatePayrollInput(
+    user: ReqUser,
+    dto: ClientCreatePayrollInputDto,
+  ) {
     return this.inputService.clientCreatePayrollInput(user, dto);
   }
 
@@ -349,7 +366,6 @@ export class PayrollService {
   async deleteDraftPayrollRun(user: ReqUser, runId: string) {
     return this.runsService.deleteDraftPayrollRun(user, runId);
   }
-
 
   async uploadPayrollRunEmployees(
     user: ReqUser,
@@ -590,8 +606,6 @@ export class PayrollService {
     return { ok: true, runId: run.id, employees: rows.length };
   }
 
-
-
   async listPayrollRuns(user: ReqUser, q: Record<string, any>) {
     return this.runsService.listPayrollRuns(user, q);
   }
@@ -613,7 +627,12 @@ export class PayrollService {
     dto: ClientUploadPayrollInputFileDto,
     file: Express.Multer.File,
   ) {
-    return this.inputService.clientUploadPayrollInputFile(user, payrollInputId, dto, file);
+    return this.inputService.clientUploadPayrollInputFile(
+      user,
+      payrollInputId,
+      dto,
+      file,
+    );
   }
 
   async clientListPayrollInputFiles(user: ReqUser, payrollInputId: string) {
@@ -629,7 +648,12 @@ export class PayrollService {
     file: Express.Multer.File,
     dto: { effectiveFrom?: string; effectiveTo?: string },
   ) {
-    return this.inputService.payrollUploadClientTemplate(user, clientId, file, dto);
+    return this.inputService.payrollUploadClientTemplate(
+      user,
+      clientId,
+      file,
+      dto,
+    );
   }
 
   async payrollGetClientTemplateMeta(user: ReqUser, clientId: string) {
@@ -653,11 +677,18 @@ export class PayrollService {
     payrollInputId: string,
     dto: UpdatePayrollInputStatusDto,
   ) {
-    return this.inputService.updatePayrollInputStatus(user, payrollInputId, dto);
+    return this.inputService.updatePayrollInputStatus(
+      user,
+      payrollInputId,
+      dto,
+    );
   }
 
   async listPayrollInputFilesForPayroll(user: ReqUser, payrollInputId: string) {
-    return this.inputService.listPayrollInputFilesForPayroll(user, payrollInputId);
+    return this.inputService.listPayrollInputFilesForPayroll(
+      user,
+      payrollInputId,
+    );
   }
 
   async downloadPayrollInputFileForClient(user: ReqUser, fileId: string) {
@@ -671,7 +702,11 @@ export class PayrollService {
     return this.registersService.clientListRegistersRecords(user, q);
   }
 
-  async streamClientRegistersPack(user: ReqUser, q: Record<string, any>, res: Response) {
+  async streamClientRegistersPack(
+    user: ReqUser,
+    q: Record<string, any>,
+    res: Response,
+  ) {
     return this.registersService.streamClientRegistersPack(user, q, res);
   }
 
@@ -683,7 +718,11 @@ export class PayrollService {
     return this.registersService.clientUploadRegisterRecord(user, dto, file);
   }
 
-  async payrollUploadRegisterRecord(user: ReqUser, dto: any, file: Express.Multer.File) {
+  async payrollUploadRegisterRecord(
+    user: ReqUser,
+    dto: any,
+    file: Express.Multer.File,
+  ) {
     return this.registersService.payrollUploadRegisterRecord(user, dto, file);
   }
 
@@ -691,7 +730,11 @@ export class PayrollService {
     return this.registersService.payrollListRegistersRecords(user, q);
   }
 
-  async streamPayrollRegistersPack(user: ReqUser, q: Record<string, any>, res: Response) {
+  async streamPayrollRegistersPack(
+    user: ReqUser,
+    q: Record<string, any>,
+    res: Response,
+  ) {
     return this.registersService.streamPayrollRegistersPack(user, q, res);
   }
 
@@ -1380,7 +1423,11 @@ export class PayrollService {
     runId: string,
     employeeId: string,
   ) {
-    return this.payslipsService.generatePayslipPdfForPayroll(user, runId, employeeId);
+    return this.payslipsService.generatePayslipPdfForPayroll(
+      user,
+      runId,
+      employeeId,
+    );
   }
 
   async downloadArchivedPayslipForPayroll(
@@ -1388,7 +1435,11 @@ export class PayrollService {
     runId: string,
     employeeId: string,
   ) {
-    return this.payslipsService.downloadArchivedPayslipForPayroll(user, runId, employeeId);
+    return this.payslipsService.downloadArchivedPayslipForPayroll(
+      user,
+      runId,
+      employeeId,
+    );
   }
 
   async archiveRunPayslips(user: ReqUser, runId: string) {

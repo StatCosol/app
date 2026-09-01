@@ -67,17 +67,21 @@ export class PayslipGeneratorService {
     runId: string,
     employeeId: string,
     generatedByUserId: string,
-    caller?: ReqUser,
+    caller: ReqUser,
   ): Promise<{ buffer: Buffer; fileName: string }> {
     const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new NotFoundException('Payroll run not found');
+
+    // Mandatory, not optional: an optional caller would make the check
+    // opt-in, and a future call site that simply omitted it would silently
+    // reopen this exact hole.
+    await this.access.assertClientAllowed(caller, run.clientId);
 
     // runId and employeeId arrive straight from the URL and nothing here was
     // scoped — `generatedByUserId` is only stamped on the archive record, it
     // never authorised anything. A CLIENT user could name another company's
     // run and download that employee's payslip: salary, deductions, PF, the
     // lot. ScopeGuard cannot help because the request carries no clientId.
-    if (caller) await this.access.assertClientAllowed(caller, run.clientId);
 
     const runEmp = await this.runEmpRepo.findOne({
       where: { runId, employeeId },
@@ -140,13 +144,13 @@ export class PayslipGeneratorService {
   async generateForRun(
     runId: string,
     generatedByUserId: string,
-    caller?: ReqUser,
+    caller: ReqUser,
   ): Promise<{ generated: number; errors: string[] }> {
     const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new NotFoundException('Payroll run not found');
 
     // Same exposure as generateForEmployee, for a whole run at once.
-    if (caller) await this.access.assertClientAllowed(caller, run.clientId);
+    await this.access.assertClientAllowed(caller, run.clientId);
 
     const employees = await this.runEmpRepo.find({ where: { runId } });
     let generated = 0;
@@ -162,6 +166,7 @@ export class PayslipGeneratorService {
           runId,
           emp.employeeId,
           generatedByUserId,
+          caller,
         );
         generated++;
       } catch (err) {
