@@ -46,7 +46,7 @@ import {
           <input class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" name="note" [(ngModel)]="form.note" placeholder="Reason for change">
         </label>
         <div class="flex items-end">
-          <button class="rounded-md bg-blue-700 px-4 py-2 text-white disabled:opacity-50" [disabled]="saving || loadingClientStatus || hasPendingRequest || !form.clientId || !form.modules.length || !selectedAttendanceSystem" (click)="submit()">
+          <button class="rounded-md bg-blue-700 px-4 py-2 text-white disabled:opacity-50" [disabled]="saving || loadingClientStatus || hasPendingRequest || !form.clientId || !form.modules.length" (click)="submit()">
             Submit for CCO
           </button>
         </div>
@@ -104,11 +104,23 @@ import {
           </button>
         </div>
         <div class="mt-4 border-b border-slate-200 pb-4">
-          <h3 class="text-sm font-semibold text-slate-800">Attendance System</h3>
+          <h3 class="text-sm font-semibold text-slate-800">Attendance System (Optional)</h3>
           <p class="mt-1 text-xs text-slate-500">
             Choose one system for this client. This replaces legacy attendance selections and preserves all non-attendance services.
           </p>
           <div class="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors"
+              [class.border-blue-700]="!selectedAttendanceSystem"
+              [class.bg-blue-700]="!selectedAttendanceSystem"
+              [class.text-white]="!selectedAttendanceSystem"
+              [class.border-slate-300]="selectedAttendanceSystem"
+              [class.bg-white]="selectedAttendanceSystem"
+              [class.text-slate-700]="selectedAttendanceSystem"
+              (click)="clearAttendanceSystem()">
+              No attendance
+            </button>
             @for (system of attendanceSystems; track system.key) {
 <button
               type="button"
@@ -124,11 +136,6 @@ import {
             </button>
 }
           </div>
-          @if (form.clientId && !selectedAttendanceSystem) {
-<p class="mt-2 text-xs font-medium text-red-600">
-            Select one attendance system before submitting this service change.
-          </p>
-}
         </div>
 
         <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -548,6 +555,13 @@ export class AdminServicePackagesComponent implements OnInit {
     this.form.packageCode = 'CUSTOM_SERVICES';
   }
 
+  clearAttendanceSystem(): void {
+    const modules = new Set(this.form.modules);
+    this.attendanceModuleCodes.forEach((code) => modules.delete(code));
+    this.form.modules = Array.from(modules);
+    this.form.packageCode = 'CUSTOM_SERVICES';
+  }
+
   /**
    * Existing clients may still carry the old ESS face module together with
    * FaceDesk (and sometimes employee biometric attendance via FULL_SERVICE).
@@ -728,11 +742,6 @@ export class AdminServicePackagesComponent implements OnInit {
   submit(): void {
     if (!this.form.modules.length) {
       this.message = 'Select at least one service.';
-      this.error = true;
-      return;
-    }
-    if (!this.selectedAttendanceSystem) {
-      this.message = 'Select one attendance system.';
       this.error = true;
       return;
     }

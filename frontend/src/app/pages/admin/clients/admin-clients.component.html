@@ -231,11 +231,23 @@
 
         <!-- Section 3: Service Access -->
         <div class="border-t border-gray-200 pt-4">
-          <h4 class="text-sm font-semibold text-gray-700 mb-1 uppercase tracking-wide">Attendance System</h4>
+          <h4 class="text-sm font-semibold text-gray-700 mb-1 uppercase tracking-wide">Attendance System (Optional)</h4>
           <p class="text-xs text-gray-500 mb-3">
             Pick this client's attendance method — it drives what their client and branch users see. One per client.
           </p>
           <div class="flex flex-wrap gap-2 mb-5">
+            <button
+              type="button"
+              (click)="clearAttendanceSystem()"
+              class="px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors"
+              [class.bg-indigo-600]="!selectedAttendanceSystem"
+              [class.text-white]="!selectedAttendanceSystem"
+              [class.border-indigo-600]="!selectedAttendanceSystem"
+              [class.bg-white]="selectedAttendanceSystem"
+              [class.text-gray-700]="selectedAttendanceSystem"
+              [class.border-gray-300]="selectedAttendanceSystem">
+              No attendance
+            </button>
             @for (sys of attendanceSystems; track sys.key) {
 <button
               type="button"
@@ -252,10 +264,6 @@
             </button>
 }
           </div>
-
-          @if (!selectedAttendanceSystem) {
-<p class="text-xs text-red-600 -mt-2 mb-4">Select one attendance system to register the client.</p>
-}
 
           <h4 class="text-sm font-semibold text-gray-700 mb-1 uppercase tracking-wide">Client Services</h4>
           <p class="text-xs text-gray-500 mb-3">
@@ -337,7 +345,7 @@
 }
 
         <ui-button variant="primary" type="submit"
-          [disabled]="!clientForm.clientName || !clientForm.masterUserName || !clientForm.masterUserEmail || !clientForm.masterUserPassword || !clientForm.serviceModules.length || !selectedAttendanceSystem || loading">
+          [disabled]="!clientForm.clientName || !clientForm.masterUserName || !clientForm.masterUserEmail || !clientForm.masterUserPassword || !clientForm.serviceModules.length || loading">
           {{ loading ? 'Registering...' : 'Register Client' }}
         </ui-button>
       </form>
