@@ -693,8 +693,8 @@ export class FaceDeskAdminService {
       actorId,
       `DAY_REVIEW_${dto.action}`,
       'DAY_REVIEW',
-      `${dto.employeeId}:${dto.workDate}`,
-      { workedMinutes, branchId },
+      dto.employeeId,
+      { workDate: dto.workDate, workedMinutes, branchId },
     );
     return { ok: true, decision };
   }
@@ -727,8 +727,10 @@ export class FaceDeskAdminService {
           ? 'HALF_DAY'
           : 'ABSENT';
     const approvalStatus = dto.action === 'REJECT' ? 'REJECTED' : 'APPROVED';
-    const rejectionReason = dto.action === 'REJECT' ? (dto.remarks ?? null) : null;
-    const shortWorkReason = dto.action === 'REJECT' ? null : (dto.remarks ?? null);
+    const rejectionReason =
+      dto.action === 'REJECT' ? (dto.remarks ?? null) : null;
+    const shortWorkReason =
+      dto.action === 'REJECT' ? null : (dto.remarks ?? null);
     const workedHours = (ctx.workedMinutes / 60).toFixed(2);
 
     const updated: Array<{ id: string }> = await this.attRepo.manager.query(
