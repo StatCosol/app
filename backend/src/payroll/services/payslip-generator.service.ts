@@ -18,6 +18,7 @@ import { LeaveBalanceEntity } from '../../ess/entities/leave-balance.entity';
 import { LeavePolicyEntity } from '../../ess/entities/leave-policy.entity';
 import { AttendanceService } from '../../attendance/attendance.service';
 import { AccessScopeService, ReqUser } from '../../access/access-scope.service';
+import { PayrollClientScopeService } from '../payroll-client-scope.service';
 import {
   createDoc,
   toBuffer,
@@ -54,6 +55,7 @@ export class PayslipGeneratorService {
     private readonly leavePolicyRepo: Repository<LeavePolicyEntity>,
     private readonly attendanceService: AttendanceService,
     private readonly access: AccessScopeService,
+    private readonly payrollScope: PayrollClientScopeService,
   ) {}
 
   private readonly UPLOADS_DIR = path.join(
@@ -61,6 +63,33 @@ export class PayslipGeneratorService {
     'uploads',
     'payslips',
   );
+
+  /**
+   * May this caller act on a run belonging to `clientId`?
+   *
+   * PAYROLL needs its own check and cannot use assertClientAllowed:
+   * AccessScopeService lists PAYROLL in GLOBAL_ROLES, so getScope() returns
+   * level 'all' and assertClientAllowed() returns immediately without ever
+   * consulting payroll assignments. A payroll user assigned to one client
+   * would have been allowed to generate salary PDFs for every tenant.
+   *
+   * Their real scope lives in payroll_client_assignments, which is what
+   * PayrollClientScopeService reads — the same check the FnF paths already
+   * use. Every other role keeps assertClientAllowed, which is correct for
+   * them and which assertPayrollAccessToClient would wrongly reject (it
+   * refuses anyone who is not payroll or admin, and CLIENT users legitimately
+   * reach these endpoints).
+   */
+  private async assertCallerOwnsRun(
+    caller: ReqUser,
+    clientId: string,
+  ): Promise<void> {
+    if (caller?.roleCode === 'PAYROLL') {
+      await this.payrollScope.assertPayrollAccessToClient(caller, clientId);
+      return;
+    }
+    await this.access.assertClientAllowed(caller, clientId);
+  }
 
   /** Generate payslip PDF for a single employee in a run */
   async generateForEmployee(
@@ -75,7 +104,7 @@ export class PayslipGeneratorService {
     // Mandatory, not optional: an optional caller would make the check
     // opt-in, and a future call site that simply omitted it would silently
     // reopen this exact hole.
-    await this.access.assertClientAllowed(caller, run.clientId);
+    await this.assertCallerOwnsRun(caller, run.clientId);
 
     // runId and employeeId arrive straight from the URL and nothing here was
     // scoped — `generatedByUserId` is only stamped on the archive record, it
@@ -150,7 +179,7 @@ export class PayslipGeneratorService {
     if (!run) throw new NotFoundException('Payroll run not found');
 
     // Same exposure as generateForEmployee, for a whole run at once.
-    await this.access.assertClientAllowed(caller, run.clientId);
+    await this.assertCallerOwnsRun(caller, run.clientId);
 
     const employees = await this.runEmpRepo.find({ where: { runId } });
     let generated = 0;
