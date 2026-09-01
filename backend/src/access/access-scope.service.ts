@@ -189,8 +189,16 @@ export class AccessScopeService {
 
     if (cid) {
       qb.andWhere('b.clientId = :cid', { cid });
-    } else if (scope.level === 'clients' && scope.clientIds?.length) {
-      qb.andWhere('b.clientId IN (:...ids)', { ids: scope.clientIds });
+    } else if (scope.level === 'clients') {
+      // Fail closed on an empty assignment set. Guarding this branch on
+      // `clientIds?.length` meant a CRM or auditor with no assignments got no
+      // filter at all and saw branches for every client — the opposite of the
+      // intent. applyToQb() already does this correctly; this did not.
+      if (!scope.clientIds?.length) {
+        qb.andWhere('1 = 0');
+      } else {
+        qb.andWhere('b.clientId IN (:...ids)', { ids: scope.clientIds });
+      }
     }
 
     // BRANCH / BRANCH_DESK — restrict to assigned branches
