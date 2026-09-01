@@ -19,6 +19,17 @@ export class CreateContractorEmployeeDto {
   @MaxLength(20)
   employeeCode?: string;
 
+  /**
+   * User ID the biometric machine allocated at enrolment. This — not
+   * employeeCode — is what an eSSL device transmits with each punch, and it is
+   * how a punch is attributed to this worker's contractor. Unique per client
+   * across employees and contractor workers.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  punchCode?: string;
+
   @IsOptional()
   @IsEmail()
   email?: string;
@@ -71,6 +82,17 @@ export class UpdateContractorEmployeeDto {
   @IsString()
   @MaxLength(20)
   employeeCode?: string;
+
+  /**
+   * User ID the biometric machine allocated at enrolment. This — not
+   * employeeCode — is what an eSSL device transmits with each punch, and it is
+   * how a punch is attributed to this worker's contractor. Unique per client
+   * across employees and contractor workers.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  punchCode?: string;
 
   @IsOptional()
   @IsEmail()

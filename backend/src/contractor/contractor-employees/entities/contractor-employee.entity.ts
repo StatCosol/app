@@ -28,6 +28,14 @@ export class ContractorEmployeeEntity {
   @Column({ name: 'employee_code', type: 'varchar', length: 80, nullable: true })
   employeeCode: string | null;
 
+  /**
+   * The User ID the biometric machine allocated for this worker at enrolment.
+   * This — not employeeCode — is what an eSSL device transmits with a punch,
+   * and it is how a punch is attributed to a contractor. Unique per client.
+   */
+  @Column({ name: 'punch_code', type: 'varchar', length: 50, nullable: true })
+  punchCode: string | null;
+
   @Column({ name: 'name', type: 'varchar', length: 250 })
   name: string;
 

@@ -692,7 +692,9 @@ async function bootstrap() {
       `);
       logger.log('Schema patch: contractor attendance/payroll columns OK');
     } catch (e: any) {
-      logger.warn(`Schema patch contractor payroll columns skipped: ${e?.message}`);
+      logger.warn(
+        `Schema patch contractor payroll columns skipped: ${e?.message}`,
+      );
     }
 
     try {
@@ -845,6 +847,67 @@ async function bootstrap() {
     } catch (e: any) {
       logger.warn(
         `Schema patch contractor_employees.status skipped: ${e?.message}`,
+      );
+    }
+
+    // eSSL/ZKTeco devices serving contractor workforces. A device now declares
+    // which population its User IDs belong to, and — for contractors — which
+    // contractor, because contractor_employees.employee_code is only scoped
+    // per contractor and is not unique.
+    try {
+      await ds.query(`
+        ALTER TABLE biometric_devices
+          ADD COLUMN IF NOT EXISTS contractor_user_id uuid NULL
+      `);
+      // The machine allocates its own User ID at enrolment, so the operator
+      // records that number against the person here. It is the identity the
+      // device actually transmits, and it is what decides which contractor a
+      // punch belongs to. Kept separate from employee_code, which is the HR
+      // code and is not what the device sends.
+      await ds.query(`
+        ALTER TABLE contractor_employees
+          ADD COLUMN IF NOT EXISTS punch_code varchar(50) NULL
+      `);
+      await ds.query(`
+        ALTER TABLE employees
+          ADD COLUMN IF NOT EXISTS punch_code varchar(50) NULL
+      `);
+      // Unique per client, not per contractor: a punch carries only the code,
+      // so if two people share one the punch cannot be attributed. Enforcing
+      // it here stops the collision being discovered as a wage error.
+      await ds.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_ce_punch_code
+          ON contractor_employees(client_id, punch_code)
+          WHERE punch_code IS NOT NULL
+      `);
+      await ds.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_emp_punch_code
+          ON employees(client_id, punch_code)
+          WHERE punch_code IS NOT NULL
+      `);
+      await ds.query(`
+        ALTER TABLE biometric_punches
+          ADD COLUMN IF NOT EXISTS contractor_employee_id uuid NULL
+      `);
+      await ds.query(`
+        CREATE INDEX IF NOT EXISTS idx_biometric_punches_contractor
+          ON biometric_punches(client_id, contractor_employee_id, punch_time)
+          WHERE contractor_employee_id IS NOT NULL
+      `);
+      // eSSL machines re-push their buffered log on reconnect, so contractor
+      // punches need the same replay guard the employee table already has.
+      // Without it a reconnect after an outage inflates days worked, which
+      // becomes an overpayment once the muster sheet is generated.
+      await ds.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_contractor_punches_device_dedupe
+          ON contractor_biometric_punches(
+            client_id, contractor_employee_id, punch_time, device_id
+          )
+      `);
+      logger.log('Schema patch: biometric contractor device support OK');
+    } catch (e: any) {
+      logger.warn(
+        `Schema patch biometric contractor device support skipped: ${e?.message}`,
       );
     }
 

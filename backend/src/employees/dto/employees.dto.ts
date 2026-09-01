@@ -26,6 +26,12 @@ export class UpdateMasterDataItemDto {
 export class CreateEmployeeDto {
   @IsOptional() @IsString() name?: string;
   @IsOptional() @IsString() employeeCode?: string;
+  /**
+   * User ID the biometric machine allocated at enrolment. This — not
+   * employeeCode — is what an eSSL device transmits with each punch. Unique
+   * per client across employees and contractor workers.
+   */
+  @IsOptional() @IsString() punchCode?: string;
   @IsOptional() @IsString() email?: string;
   @IsOptional() @IsString() phone?: string;
   @IsOptional() @IsString() aadhaar?: string;
@@ -69,6 +75,12 @@ export class UpdateEmployeeDto {
   @IsOptional() @IsString() id?: string;
   @IsOptional() @IsString() clientId?: string;
   @IsOptional() @IsString() employeeCode?: string;
+  /**
+   * User ID the biometric machine allocated at enrolment. This — not
+   * employeeCode — is what an eSSL device transmits with each punch. Unique
+   * per client across employees and contractor workers.
+   */
+  @IsOptional() @IsString() punchCode?: string;
   @IsOptional() @IsString() dateOfExit?: string;
   @IsOptional() @IsString() approvalStatus?: string;
   @IsOptional() @IsString() name?: string;
