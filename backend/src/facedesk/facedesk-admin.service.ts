@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { ContractorBiometricPunchEntity } from '../mobile-attendance/punch/contractor-punch.entity';
 import { FacePhotoStorageService } from '../mobile-attendance/face/face-photo-storage.service';
 import { BiometricService } from '../biometric/biometric.service';
+import { FaceDeskAzureFaceService } from './facedesk-azure-face.service';
 import {
   FaceDeskAttendanceEntity,
   FaceDeskAuditEntity,
@@ -49,6 +50,7 @@ export class FaceDeskAdminService {
     private readonly auditRepo: Repository<FaceDeskAuditEntity>,
     private readonly photoStorage: FacePhotoStorageService,
     private readonly biometric: BiometricService,
+    private readonly azureFace: FaceDeskAzureFaceService,
   ) {}
 
   private readonly logger = new Logger(FaceDeskAdminService.name);
@@ -919,5 +921,131 @@ export class FaceDeskAdminService {
       {},
     );
     return { ok: true, status: approve ? 'APPROVED' : 'REJECTED' };
+  }
+
+  /**
+   * Seed a client's Azure Large Face List from profiles that were enrolled
+   * before Azure identification was switched on.
+   *
+   * Why this exists: enrolment registers a face with Azure as it happens, so
+   * only people enrolled *after* AZURE_FACE_IDENTIFICATION=true are searchable
+   * by findsimilars. Everyone enrolled before that is invisible to Azure, and
+   * duplicate detection silently falls back to cosine for them — which is the
+   * ghost-worker case Azure was approved for in the first place.
+   *
+   * Batched with a keyset cursor rather than run to completion, because:
+   *   - the S0 tier caps at 10 calls/sec and is SHARED with live kiosk traffic,
+   *     so this paces itself and must never monopolise the quota;
+   *   - a long-running HTTP request would die to a proxy timeout mid-run;
+   *   - profiles that can never succeed (photo lost with its container) would
+   *     stall an "unprocessed rows" cursor forever. Keyset on profileId steps
+   *     past them instead, and reports them so the operator can re-capture.
+   */
+  async backfillAzureFaceList(
+    clientId: string,
+    opts: { cursor?: string | null; limit?: number } = {},
+  ): Promise<{
+    scanned: number;
+    registered: number;
+    skippedNoPhoto: number;
+    failed: number;
+    nextCursor: string | null;
+    done: boolean;
+    errors: string[];
+  }> {
+    if (!this.azureFace.enabled) {
+      throw new BadRequestException(
+        'Azure Face identification is not enabled on this deployment',
+      );
+    }
+    const limit = Math.min(Math.max(opts.limit ?? 100, 1), 500);
+    const cursor = opts.cursor?.trim() || null;
+
+    const qb = this.profileRepo
+      .createQueryBuilder('p')
+      .where('p.clientId = :clientId', { clientId })
+      .andWhere('p.enrollmentStatus = :status', { status: 'ENROLLED' })
+      .andWhere('p.azurePersistedFaceId IS NULL')
+      .orderBy('p.profileId', 'ASC')
+      .take(limit);
+    if (cursor) qb.andWhere('p.profileId > :cursor', { cursor });
+    const profiles = await qb.getMany();
+
+    let registered = 0;
+    let skippedNoPhoto = 0;
+    let failed = 0;
+    const errors: string[] = [];
+    let lastProfileId: string | null = null;
+
+    for (const profile of profiles) {
+      lastProfileId = profile.profileId;
+
+      const sample = await this.sampleRepo
+        .createQueryBuilder('s')
+        .where('s.profileId = :profileId', { profileId: profile.profileId })
+        .andWhere('s.imagePath IS NOT NULL')
+        .orderBy('s.qualityScore', 'DESC', 'NULLS LAST')
+        .getOne();
+
+      const photo = sample
+        ? await this.photoStorage.readPhoto(sample.imagePath)
+        : null;
+      if (!photo) {
+        // Either the profile never stored a representative photo, or the file
+        // is gone (the old local:// uploads died with their container). Azure
+        // needs the image, not the embedding, so these cannot be backfilled —
+        // they need a fresh capture at the kiosk.
+        skippedNoPhoto += 1;
+        continue;
+      }
+
+      try {
+        const persistedFaceId = await this.azureFace.addFaceForBackfill(
+          clientId,
+          profile.employeeId,
+          photo.buffer.toString('base64'),
+        );
+        await this.profileRepo.update(
+          { profileId: profile.profileId },
+          { azurePersistedFaceId: persistedFaceId },
+        );
+        registered += 1;
+      } catch (err) {
+        // Left with azurePersistedFaceId NULL, so a later run retries it.
+        failed += 1;
+        if (errors.length < 5) {
+          errors.push(
+            `${profile.employeeId}: ${(err as Error)?.message ?? String(err)}`,
+          );
+        }
+      }
+
+      // S0 allows 10 TPS across the whole resource. Stay near 6 so live
+      // enrolment and duplicate checks keep their share of the quota.
+      await new Promise((resolve) => setTimeout(resolve, 165));
+    }
+
+    // One train per batch, not per face — faces are not searchable by
+    // findsimilars until the list is trained.
+    if (registered > 0) {
+      await this.azureFace
+        .trainClientList(clientId)
+        .catch((err: unknown) =>
+          this.logger.warn(
+            `Azure train after backfill failed: ${(err as Error)?.message}`,
+          ),
+        );
+    }
+
+    const done = profiles.length < limit;
+    return {
+      scanned: profiles.length,
+      registered,
+      skippedNoPhoto,
+      failed,
+      nextCursor: done ? null : lastProfileId,
+      done,
+      errors,
+    };
   }
 }

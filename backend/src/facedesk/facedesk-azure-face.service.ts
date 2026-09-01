@@ -158,4 +158,38 @@ export class FaceDeskAzureFaceService {
       );
     }
   }
+
+  /**
+   * Backfill helper: put one already-enrolled face into the client's list.
+   *
+   * Two deliberate differences from registerEnrollmentFace:
+   *
+   * 1. It does NOT schedule training. A backfill walks thousands of profiles
+   *    and Azure only needs one train at the end of the run, so the per-face
+   *    scheduleTraining() would fire a throwaway train per profile.
+   * 2. It throws instead of returning null. The caller has to tell a transient
+   *    Azure failure (worth retrying on a later batch) apart from a profile
+   *    with no usable photo (which will never succeed), and a swallowed null
+   *    collapses that distinction.
+   */
+  async addFaceForBackfill(
+    clientId: string,
+    employeeId: string,
+    photoB64: string,
+  ): Promise<string> {
+    const listId = await this.ensureClientList(clientId);
+    return this.azure.addPersistedFace(
+      listId,
+      this.decodePhoto(photoB64),
+      employeeId,
+    );
+  }
+
+  /**
+   * Train a client's list once, after a backfill batch. Faces added to a Large
+   * Face List are not searchable by findsimilars until the list is trained.
+   */
+  async trainClientList(clientId: string): Promise<void> {
+    await this.azure.trainLargeFaceList(this.listIdForClient(clientId));
+  }
 }

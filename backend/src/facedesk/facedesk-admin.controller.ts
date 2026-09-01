@@ -220,4 +220,23 @@ export class FaceDeskAdminController {
       body?.approve === true,
     );
   }
+
+  @ApiOperation({
+    summary: "Backfill the client's Azure face list from existing enrolments",
+  })
+  @Post('admin/azure/backfill')
+  @Roles('CLIENT', 'ADMIN')
+  backfillAzureFaceList(
+    @CurrentUser() user: ReqUser,
+    @Body() body: { cursor?: string; limit?: number },
+  ) {
+    // Client-admin only: this spends Azure transactions and rewrites biometric
+    // linkage for the whole client, so a branch-scoped verifier must not run
+    // it. requireFaceDeskClientAdmin also pins it to the caller's own client,
+    // keeping the backfill inside one tenant.
+    return this.admin.backfillAzureFaceList(requireFaceDeskClientAdmin(user), {
+      cursor: body?.cursor,
+      limit: body?.limit,
+    });
+  }
 }
