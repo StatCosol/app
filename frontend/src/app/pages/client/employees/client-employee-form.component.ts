@@ -197,6 +197,9 @@ import {
               <label class="form-label" for="cef-date-of-joining">Date of Joining</label>
               <input autocomplete="off" id="cef-date-of-joining" type="date" class="form-date-input" [(ngModel)]="form.dateOfJoining" name="dateOfJoining" />
             </div>
+            <ui-form-input label="Biometric Punch ID" [(ngModel)]="form.punchCode" name="punchCode"
+                           placeholder="e.g. 1047"
+                           hint="The User ID the biometric machine created when this person was enrolled. Leave blank if they do not use a device."></ui-form-input>
             <ui-form-select label="State" [options]="stateOptions" [(ngModel)]="form.stateCode"
                             name="stateCode"></ui-form-select>
             <ui-form-input label="CTC (Annual)" type="number" [(ngModel)]="form.ctc" name="ctc"
