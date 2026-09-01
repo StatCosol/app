@@ -104,6 +104,21 @@ export class BranchesController {
     return this.service.listBranchUsers(id);
   }
 
+  @ApiOperation({ summary: 'Link an existing branch user to a branch' })
+  @Post('branches/:id/users')
+  addBranchUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('userId', ParseUUIDPipe) userId: string,
+  ) {
+    return this.service.addBranchUser(id, userId);
+  }
+
+  @ApiOperation({ summary: 'List branch logins available to link to a branch' })
+  @Get('branches/:id/available-users')
+  listAvailableBranchUsers(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.listAvailableBranchUsers(id);
+  }
+
   // ---- Contractors per branch ----
 
   @ApiOperation({ summary: 'List Contractors' })

@@ -59,7 +59,7 @@ export class BranchesService {
         ? Number(dto.headcount) || 0
         : employeeCount + contractorCount;
 
-    const branchCode = await this.generateBranchCode(clientid, dto.branchName);
+    const branchCode = await this.generateBranchCode(dto.branchName);
 
     const branch = this.branchRepo.create({
       clientId: clientid,
@@ -102,8 +102,12 @@ export class BranchesService {
       );
     }
 
-    let branchUser: { email: string; password: string; userId: string } | null =
-      null;
+    let branchUser: {
+      email: string;
+      password: string | null;
+      userId: string;
+      linkedExisting: boolean;
+    } | null = null;
     let branchUserError: string | null = null;
 
     branchUser = await this.createBranchUser(
@@ -135,7 +139,12 @@ export class BranchesService {
     email: string,
     mobile: string,
     password?: string,
-  ): Promise<{ email: string; password: string; userId: string }> {
+  ): Promise<{
+    email: string;
+    password: string | null;
+    userId: string;
+    linkedExisting: boolean;
+  }> {
     // Guard: ensure branch exists before linking
     const branchExists = await this.branchRepo.findOne({
       where: { id: branchId, isActive: true, isDeleted: false },
@@ -151,19 +160,59 @@ export class BranchesService {
       password ||
       `Br@${Math.floor(1000 + Math.random() * 9000)}${new Date().getFullYear()}`;
 
-    // Look up CLIENT role
-    const roleId = await this.usersService.getRoleId('CLIENT');
-
-    // Check duplicate email
-    const existingUser = await this.dataSource.query(
-      `SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+    // An existing branch user may be responsible for more than one unit. Link
+    // that same login to this branch instead of creating a second account.
+    const existingUsers = await this.dataSource.query<
+      Array<{
+        id: string;
+        clientId: string | null;
+        userType: string | null;
+        isActive: boolean;
+        roleCode: string;
+      }>
+    >(
+      `SELECT u.id,
+              u.client_id AS "clientId",
+              u.user_type AS "userType",
+              u.is_active AS "isActive",
+              r.code AS "roleCode"
+         FROM users u
+         JOIN roles r ON r.id = u.role_id
+        WHERE LOWER(u.email) = LOWER($1) AND u.deleted_at IS NULL
+        LIMIT 1`,
       [email],
     );
-    if (existingUser?.length) {
-      throw new BadRequestException(
-        `A user with email "${email}" already exists. Cannot auto-create branch user.`,
+
+    const existingUser = existingUsers?.[0];
+    if (existingUser) {
+      if (
+        existingUser.roleCode !== 'CLIENT' ||
+        existingUser.clientId !== clientId ||
+        existingUser.userType !== 'BRANCH' ||
+        !existingUser.isActive
+      ) {
+        throw new BadRequestException(
+          `The email "${email}" belongs to another account and cannot be used as this branch user.`,
+        );
+      }
+
+      await this.dataSource.query(
+        `INSERT INTO user_branches (user_id, branch_id)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id, branch_id) DO NOTHING`,
+        [existingUser.id, branchId],
       );
+
+      return {
+        email: email.toLowerCase(),
+        password: null,
+        userId: existingUser.id,
+        linkedExisting: true,
+      };
     }
+
+    // Look up CLIENT role only when creating a new login.
+    const roleId = await this.usersService.getRoleId('CLIENT');
 
     // Create user via UsersService.createUser (handles hashing, userCode, user_branches insert)
     const result = await this.usersService.createUser({
@@ -181,6 +230,7 @@ export class BranchesService {
       email: email.toLowerCase(),
       password: plainPassword,
       userId: result.id,
+      linkedExisting: false,
     };
   }
 
@@ -500,6 +550,71 @@ export class BranchesService {
     return rows;
   }
 
+  /** Link an existing CLIENT/BRANCH login to another unit of the same client. */
+  async addBranchUser(branchId: string, userId: string) {
+    const branch = await this.findById(branchId);
+    const [user] = await this.dataSource.query<
+      Array<{
+        id: string;
+        clientId: string | null;
+        userType: string | null;
+        isActive: boolean;
+        roleCode: string;
+      }>
+    >(
+      `SELECT u.id,
+              u.client_id AS "clientId",
+              u.user_type AS "userType",
+              u.is_active AS "isActive",
+              r.code AS "roleCode"
+         FROM users u
+         JOIN roles r ON r.id = u.role_id
+        WHERE u.id = $1 AND u.deleted_at IS NULL`,
+      [userId],
+    );
+
+    if (
+      !user ||
+      user.roleCode !== 'CLIENT' ||
+      user.clientId !== branch.clientId ||
+      user.userType !== 'BRANCH' ||
+      !user.isActive
+    ) {
+      throw new BadRequestException(
+        'Only an active branch user from this client can be linked to this unit.',
+      );
+    }
+
+    await this.dataSource.query(
+      `INSERT INTO user_branches (user_id, branch_id)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id, branch_id) DO NOTHING`,
+      [userId, branch.id],
+    );
+    return { message: 'Branch user linked', userId, branchId: branch.id };
+  }
+
+  async listAvailableBranchUsers(branchId: string) {
+    const branch = await this.findById(branchId);
+    return this.dataSource.query(
+      `SELECT u.id, u.name, u.email
+         FROM users u
+         JOIN roles r ON r.id = u.role_id
+        WHERE u.client_id = $1
+          AND u.user_type = 'BRANCH'
+          AND u.is_active = true
+          AND u.deleted_at IS NULL
+          AND r.code = 'CLIENT'
+          AND NOT EXISTS (
+            SELECT 1
+              FROM user_branches ub
+             WHERE ub.user_id = u.id AND ub.branch_id = $2
+          )
+        ORDER BY u.name ASC`,
+      [branch.clientId, branch.id],
+    );
+  }
+
   async addContractor(branchId: string, contractorUserId: string) {
     const branch = await this.findById(branchId);
 
@@ -603,19 +718,18 @@ export class BranchesService {
    * E.g. "Hyderabad" + state "TS" → "HYD-TS-001"
    * If "HYD-TS-001" already exists, increments to "HYD-TS-002", etc.
    */
-  private async generateBranchCode(
-    clientId: string,
-    branchName: string,
-  ): Promise<string> {
+  private async generateBranchCode(branchName: string): Promise<string> {
     const alpha = branchName.replace(/[^A-Za-z]/g, '').toUpperCase();
     const short = alpha.substring(0, 3) || 'BRN';
 
-    // Find existing branch codes with same prefix for this client
+    // branch_code is globally unique, so the sequence must also be global.
+    // Looking only inside one client can generate HYD-001 for two clients and
+    // fail with a 409 despite the requested branch being valid.
     const existing: { branch_code: string }[] = await this.dataSource.query(
       `SELECT branch_code FROM client_branches
-       WHERE clientid = $1 AND branch_code LIKE $2
+       WHERE branch_code LIKE $1
        ORDER BY branch_code DESC LIMIT 1`,
-      [clientId, `${short}-%`],
+      [`${short}-%`],
     );
 
     let seq = 1;

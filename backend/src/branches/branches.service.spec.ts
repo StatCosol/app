@@ -71,4 +71,71 @@ describe('BranchesService', () => {
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
+
+  it('links an existing branch login to another branch without changing its password', async () => {
+    const branchRepo = (service as any).branchRepo;
+    const dataSource = (service as any).dataSource;
+    branchRepo.findOne = jest.fn().mockResolvedValue({ id: 'branch-2' });
+    dataSource.query = jest
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          id: 'user-1',
+          clientId: 'client-1',
+          userType: 'BRANCH',
+          isActive: true,
+          roleCode: 'CLIENT',
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const result = await (service as any).createBranchUser(
+      'client-1',
+      'branch-2',
+      'Unit Manager',
+      'manager@example.com',
+      '9000000000',
+    );
+
+    expect(result).toEqual({
+      email: 'manager@example.com',
+      password: null,
+      userId: 'user-1',
+      linkedExisting: true,
+    });
+    expect(dataSource.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('INSERT INTO user_branches'),
+      ['user-1', 'branch-2'],
+    );
+  });
+
+  it('links a branch user selected from the branch Users screen', async () => {
+    const branchRepo = (service as any).branchRepo;
+    const dataSource = (service as any).dataSource;
+    branchRepo.findOne = jest
+      .fn()
+      .mockResolvedValue({ id: 'branch-2', clientId: 'client-1' });
+    dataSource.query = jest
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          id: 'user-1',
+          clientId: 'client-1',
+          userType: 'BRANCH',
+          isActive: true,
+          roleCode: 'CLIENT',
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    await expect(service.addBranchUser('branch-2', 'user-1')).resolves.toEqual({
+      message: 'Branch user linked',
+      userId: 'user-1',
+      branchId: 'branch-2',
+    });
+    expect(dataSource.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('INSERT INTO user_branches'),
+      ['user-1', 'branch-2'],
+    );
+  });
 });
