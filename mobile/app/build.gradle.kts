@@ -104,6 +104,9 @@ android {
 
 dependencies {
     val cameraxVersion = "1.3.4"
+    val azureFaceSdkEnabled =
+        (findProperty("azureFaceSdkEnabled") as String?)?.toBoolean() ?: false
+    val azureFaceUiVersion = (findProperty("azureFaceUiVersion") as String?) ?: "1.5.1"
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
@@ -129,6 +132,30 @@ dependencies {
     // TensorFlow Lite for MobileFaceNet embeddings (drop the .tflite into assets)
     implementation("org.tensorflow:tensorflow-lite:2.14.0")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+
+    // Azure AI Vision Face UI SDK — cloud-backed on-device liveness, intended to
+    // replace KioskFaceDetector's naive eye-open/head-pose score.
+    //
+    // OFF by default: enabling it is not a one-line change, because the SDK
+    // brings four migrations with it (all read off the 1.5.1 POM, not assumed):
+    //   1. com.azure:azure-ai-vision-face-ui-assets:1.5.1 is a compile-scope
+    //      dependency that is NOT on mavenCentral — it needs the private feed
+    //      token wired in settings.gradle.kts. The main -ui artifact IS public.
+    //   2. The SDK is built against Kotlin 2.x (kotlin-stdlib 2.2.10); this
+    //      module is on Kotlin 1.9.24, so it needs a Kotlin bump first.
+    //   3. FaceLivenessDetector is a @Composable and the POM pulls
+    //      compose.ui 1.7.3 + material3 1.3.0 + activity-compose. This module is
+    //      View-based (AppCompat/ConstraintLayout) with no Compose at all.
+    //   4. It pulls androidx.camera 1.4.2, bumping this module's pinned CameraX
+    //      1.3.4 — which the existing face capture pipeline is built on.
+    // The backend session-token endpoint it talks to does not exist yet either.
+    //
+    // Once the token is configured, verify resolution on its own with:
+    //   ./gradlew :app:dependencies --configuration kioskDebugRuntimeClasspath     //       -PazureFaceSdkEnabled=true
+    if (azureFaceSdkEnabled) {
+        implementation("com.azure:azure-ai-vision-face-ui:$azureFaceUiVersion")
+        implementation("com.azure.android:azure-core-http-okhttp:1.0.0-beta.12")
+    }
 
     // Networking
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
