@@ -17,6 +17,7 @@ import { LeaveLedgerEntity } from '../../ess/entities/leave-ledger.entity';
 import { LeaveBalanceEntity } from '../../ess/entities/leave-balance.entity';
 import { LeavePolicyEntity } from '../../ess/entities/leave-policy.entity';
 import { AttendanceService } from '../../attendance/attendance.service';
+import { AccessScopeService, ReqUser } from '../../access/access-scope.service';
 import {
   createDoc,
   toBuffer,
@@ -52,6 +53,7 @@ export class PayslipGeneratorService {
     @InjectRepository(LeavePolicyEntity)
     private readonly leavePolicyRepo: Repository<LeavePolicyEntity>,
     private readonly attendanceService: AttendanceService,
+    private readonly access: AccessScopeService,
   ) {}
 
   private readonly UPLOADS_DIR = path.join(
@@ -65,9 +67,17 @@ export class PayslipGeneratorService {
     runId: string,
     employeeId: string,
     generatedByUserId: string,
+    caller?: ReqUser,
   ): Promise<{ buffer: Buffer; fileName: string }> {
     const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new NotFoundException('Payroll run not found');
+
+    // runId and employeeId arrive straight from the URL and nothing here was
+    // scoped — `generatedByUserId` is only stamped on the archive record, it
+    // never authorised anything. A CLIENT user could name another company's
+    // run and download that employee's payslip: salary, deductions, PF, the
+    // lot. ScopeGuard cannot help because the request carries no clientId.
+    if (caller) await this.access.assertClientAllowed(caller, run.clientId);
 
     const runEmp = await this.runEmpRepo.findOne({
       where: { runId, employeeId },
@@ -130,9 +140,13 @@ export class PayslipGeneratorService {
   async generateForRun(
     runId: string,
     generatedByUserId: string,
+    caller?: ReqUser,
   ): Promise<{ generated: number; errors: string[] }> {
     const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new NotFoundException('Payroll run not found');
+
+    // Same exposure as generateForEmployee, for a whole run at once.
+    if (caller) await this.access.assertClientAllowed(caller, run.clientId);
 
     const employees = await this.runEmpRepo.find({ where: { runId } });
     let generated = 0;
