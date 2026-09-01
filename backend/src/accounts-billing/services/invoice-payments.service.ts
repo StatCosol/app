@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Invoice, InvoicePayment } from '../entities';
-import { PaymentStatus, InvoiceStatus } from '../enums';
+import { PaymentStatus, InvoiceStatus, InvoiceType } from '../enums';
 import { RecordPaymentDto } from '../dto';
 
 @Injectable()
@@ -56,6 +56,11 @@ export class InvoicePaymentsService {
         .getOne();
       if (!invoice) throw new NotFoundException('Invoice not found');
 
+      if (invoice.invoiceType === InvoiceType.PROFORMA) {
+        throw new BadRequestException(
+          'Payments can only be recorded against a Tax Invoice',
+        );
+      }
       if (invoice.invoiceStatus === InvoiceStatus.CANCELLED) {
         throw new BadRequestException(
           'Cannot record payment on a cancelled invoice',

@@ -8,6 +8,51 @@ import {
 import { InvoicesService } from './invoices.service';
 
 describe('InvoicesService Proforma conversion', () => {
+  it('excludes proformas from receivable filters and dashboard amounts', async () => {
+    const queryBuilder = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      select: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({}),
+    };
+    const invoiceRepo = {
+      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
+    };
+    const service = new InvoicesService(
+      invoiceRepo as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+
+    await service.findAll({ paymentStatus: PaymentStatus.UNPAID });
+
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'inv.invoice_type != :proforma',
+      { proforma: InvoiceType.PROFORMA },
+    );
+
+    await service.getDashboardStats();
+
+    expect(queryBuilder.select).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.stringContaining('pendingPaymentCount'),
+        expect.stringContaining('totalOutstanding'),
+      ]),
+    );
+    const selectCalls = queryBuilder.select.mock.calls;
+    const dashboardColumns = selectCalls[selectCalls.length - 1][0].join(' ');
+    expect(dashboardColumns).toContain("invoice_type != 'PROFORMA'");
+  });
+
   it('creates one separately numbered Tax Invoice with Proforma and PO references', async () => {
     const proforma = {
       id: 'proforma-id',

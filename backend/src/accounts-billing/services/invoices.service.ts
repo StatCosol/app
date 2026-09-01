@@ -181,6 +181,11 @@ export class InvoicesService {
       qb.andWhere('inv.payment_status = :paymentStatus', {
         paymentStatus: query.paymentStatus,
       });
+      // Proformas retain the UNPAID storage default until converted, but they
+      // are preliminary documents and must not appear in receivable filters.
+      qb.andWhere('inv.invoice_type != :proforma', {
+        proforma: InvoiceType.PROFORMA,
+      });
     }
     if (query.clientId) {
       qb.andWhere('inv.billing_client_id = :clientId', {
@@ -582,12 +587,12 @@ export class InvoicesService {
         'COUNT(*) as "totalInvoices"',
         'COUNT(*) FILTER (WHERE inv.invoice_status = \'DRAFT\') as "draftCount"',
         'COUNT(*) FILTER (WHERE inv.invoice_status = \'APPROVED\') as "approvedCount"',
-        "COUNT(*) FILTER (WHERE inv.payment_status = 'UNPAID' OR inv.payment_status = 'PARTIALLY_PAID') as \"pendingPaymentCount\"",
-        'COUNT(*) FILTER (WHERE inv.payment_status = \'PAID\') as "paidCount"',
+        "COUNT(*) FILTER (WHERE inv.invoice_type != 'PROFORMA' AND (inv.payment_status = 'UNPAID' OR inv.payment_status = 'PARTIALLY_PAID')) as \"pendingPaymentCount\"",
+        "COUNT(*) FILTER (WHERE inv.invoice_type != 'PROFORMA' AND inv.payment_status = 'PAID') as \"paidCount\"",
         'COUNT(*) FILTER (WHERE inv.invoice_status = \'OVERDUE\') as "overdueCount"',
-        'COALESCE(SUM(inv.grand_total), 0) as "totalBilled"',
-        'COALESCE(SUM(inv.amount_received), 0) as "totalReceived"',
-        'COALESCE(SUM(inv.balance_outstanding), 0) as "totalOutstanding"',
+        "COALESCE(SUM(inv.grand_total) FILTER (WHERE inv.invoice_type != 'PROFORMA'), 0) as \"totalBilled\"",
+        "COALESCE(SUM(inv.amount_received) FILTER (WHERE inv.invoice_type != 'PROFORMA'), 0) as \"totalReceived\"",
+        "COALESCE(SUM(inv.balance_outstanding) FILTER (WHERE inv.invoice_type != 'PROFORMA'), 0) as \"totalOutstanding\"",
       ])
       .getRawOne();
 

@@ -52,6 +52,8 @@ const serviceMigrationFiles = new Set([
   '20260726_facedesk_contractor_punch_review.sql',
   // Accounts billing: invoice number width alignment.
   '20260708_accounts_billing_invoice_number_16.sql',
+  // Preserve historical invoice numbers without relaxing new-number rules.
+  '20260901_accounts_billing_legacy_invoice_numbers.sql',
   // Contractor attendance payroll generation tables.
   '20260722_contractor_attendance_payroll_generation.sql',
   // FaceDesk PIN-then-face 1:1 verification.

@@ -65,15 +65,17 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
               <td class="px-4 py-3 text-xs">{{ inv.invoiceType.replace('_',' ') }}</td>
               <td class="px-4 py-3">{{ inv.invoiceDate }}</td>
               <td class="px-4 py-3 text-right font-medium">₹{{ fmt(inv.grandTotal) }}</td>
-              <td class="px-4 py-3 text-right" [class.text-red-600]="inv.balanceOutstanding > 0">₹{{ fmt(inv.balanceOutstanding) }}</td>
+              <td class="px-4 py-3 text-right" [class.text-red-600]="(inv.invoiceType !== 'PROFORMA' || hasHistoricalPayment(inv)) && inv.balanceOutstanding > 0">
+                {{ inv.invoiceType === 'PROFORMA' && !hasHistoricalPayment(inv) ? '—' : '₹' + fmt(inv.balanceOutstanding) }}
+              </td>
               <td class="px-4 py-3 text-center">
                 <span [class]="statusClass(inv.invoiceStatus)" class="px-2 py-0.5 rounded-full text-xs font-medium">
                   {{ inv.invoiceStatus }}
                 </span>
               </td>
               <td class="px-4 py-3 text-center">
-                <span [class]="paymentClass(inv.paymentStatus)" class="px-2 py-0.5 rounded-full text-xs font-medium">
-                  {{ inv.paymentStatus }}
+                <span [class]="paymentClass(inv)" class="px-2 py-0.5 rounded-full text-xs font-medium">
+                  {{ paymentLabel(inv) }}
                 </span>
               </td>
               <td class="px-4 py-3 text-center">
@@ -151,11 +153,25 @@ export class BillingInvoicesComponent implements OnInit {
     return m[s] || 'bg-slate-100 text-slate-600';
   }
 
-  paymentClass(s: string): string {
+  paymentLabel(invoice: Invoice): string {
+    return invoice.invoiceType === 'PROFORMA' && !this.hasHistoricalPayment(invoice)
+      ? 'N/A'
+      : invoice.paymentStatus;
+  }
+
+  paymentClass(invoice: Invoice): string {
+    if (invoice.invoiceType === 'PROFORMA' && !this.hasHistoricalPayment(invoice)) {
+      return 'bg-slate-100 text-slate-500';
+    }
+    const s = invoice.paymentStatus;
     const m: Record<string, string> = {
       UNPAID: 'bg-red-100 text-red-600', PARTIALLY_PAID: 'bg-amber-100 text-amber-600',
       PAID: 'bg-green-100 text-green-700', WRITTEN_OFF: 'bg-slate-100 text-slate-500',
     };
     return m[s] || 'bg-slate-100 text-slate-500';
+  }
+
+  hasHistoricalPayment(invoice: Invoice): boolean {
+    return +invoice.amountReceived > 0 || invoice.paymentStatus !== 'UNPAID';
   }
 }

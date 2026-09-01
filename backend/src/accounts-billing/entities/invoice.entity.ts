@@ -46,7 +46,7 @@ export class Invoice {
   })
   invoiceType: InvoiceType;
 
-  @Column({ name: 'invoice_number', length: 16, unique: true })
+  @Column({ name: 'invoice_number', length: 64, unique: true })
   invoiceNumber: string;
 
   @Column({ name: 'invoice_date', type: 'date' })
