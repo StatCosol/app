@@ -106,10 +106,15 @@ export const envValidationSchema = Joi.object({
   FACE_ANTISPOOF_PROVIDER: Joi.string()
     .valid('none', 'azure', 'facetec')
     .optional(),
-  // Azure AI Face — optional high-accuracy duplicate detection for FaceDesk.
+  // Azure AI Face — optional, for FaceDesk. Credentials alone do not mean a
+  // given feature works: Microsoft grants Limited Access per feature. This
+  // resource has Verification/Liveness but NOT Identification (verified
+  // 2026-08-31), so duplicate detection has its own opt-in below.
   AZURE_FACE_ENDPOINT: Joi.string().uri().optional().allow(''),
   AZURE_FACE_KEY: Joi.string().optional().allow(''),
   AZURE_FACE_API_VERSION: Joi.string().optional().default('v1.0'),
+  // Turn on only once findsimilars stops returning 403 UnsupportedFeature.
+  AZURE_FACE_IDENTIFICATION: Joi.boolean().optional().default(false),
   AZURE_FACE_DUPLICATE_CONFIDENCE: Joi.number().min(0).max(1).optional(),
   // Roadmap #7 / K10 — shift validation enforcement mode
   SHIFT_VALIDATION_MODE: Joi.string()
