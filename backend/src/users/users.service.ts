@@ -1435,7 +1435,15 @@ export class UsersService implements OnModuleInit {
   async listActiveUsersByRoleCode(
     roleCode: string,
     clientId?: string,
-    opts?: { ownerCcoId?: string | null },
+    opts?: {
+      ownerCcoId?: string | null;
+      /**
+       * Permit listing contractors across every client. Only for global roles
+       * (ADMIN/CEO/CCO) — a tenant-scoped caller must pass a clientId, which
+       * ScopeGuard then validates against their assignments.
+       */
+      allowAllClients?: boolean;
+    },
   ) {
     this.logger.debug(
       `[listActiveUsersByRoleCode] Looking for role: ${roleCode}, clientId: ${clientId}, ownerCcoId: ${opts?.ownerCcoId ?? 'none'}`,
@@ -1451,9 +1459,21 @@ export class UsersService implements OnModuleInit {
       ownerCcoId?: string;
     } = { roleId: role.id, isActive: true, deletedAt: IsNull() };
 
-    // For contractor dropdowns, optionally scope by clientId
-    if (roleCode === 'CONTRACTOR' && clientId) {
-      where.clientId = clientId;
+    // Contractor users belong to a client, so listing them without one
+    // returned every contractor across every tenant. ScopeGuard cannot catch
+    // that: it only validates a clientId that is actually present, so a
+    // request that simply omits the parameter bypassed the check entirely.
+    //
+    // Fail closed — the caller must name the client, unless it is a global
+    // role that legitimately sees everything and says so explicitly.
+    if (roleCode === 'CONTRACTOR') {
+      if (clientId) {
+        where.clientId = clientId;
+      } else if (!opts?.allowAllClients) {
+        throw new BadRequestException(
+          'clientId is required when listing contractors',
+        );
+      }
     }
 
     // Scope CRM/AUDITOR dropdowns to the current CCO so a CCO only sees
