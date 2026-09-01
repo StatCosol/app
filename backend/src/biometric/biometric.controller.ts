@@ -11,6 +11,7 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
 import { BiometricService } from './biometric.service';
+import { ContractorDaysService } from './contractor-days.service';
 import { IngestPunchesDto, ProcessPunchesDto } from './biometric.dto';
 
 @ApiTags('Biometric')
@@ -18,7 +19,10 @@ import { IngestPunchesDto, ProcessPunchesDto } from './biometric.dto';
 @Controller({ path: 'client/biometric', version: '1' })
 @Roles('CLIENT', 'ADMIN', 'CRM')
 export class BiometricController {
-  constructor(private readonly svc: BiometricService) {}
+  constructor(
+    private readonly svc: BiometricService,
+    private readonly contractorDaysSvc: ContractorDaysService,
+  ) {}
 
   @ApiOperation({
     summary: 'Ingest raw punches from a biometric/facial-scan device',
@@ -71,6 +75,35 @@ export class BiometricController {
       body.from,
       body.to,
       !!body.reprocess,
+    );
+  }
+
+  @ApiOperation({
+    summary:
+      'Days worked per contractor worker for a wage period, from device punches',
+    description:
+      'A report, not an auto-post: contractor wages are paid from these ' +
+      'numbers, so the sheet is reviewed before it feeds a computation run. ' +
+      'Rows are keyed on employee_code, which is what the muster upload ' +
+      'matches; workers holding attendance but no employee_code are returned ' +
+      'separately under "unpayable" rather than silently dropped.',
+  })
+  @Get('contractor-days')
+  contractorDays(
+    @CurrentUser() user: ReqUser,
+    @Query('from') from: string,
+    @Query('to') to: string,
+    @Query('contractorUserId') contractorUserId?: string,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    if (!from || !to)
+      throw new BadRequestException('from and to date required');
+    return this.contractorDaysSvc.summarise(
+      clientId,
+      from,
+      to,
+      contractorUserId,
     );
   }
 
