@@ -58,18 +58,18 @@
       >
       </ui-form-select>
 
-      @if (!isBranchPortal) {
+      @if (!isBranchPortal || branchOptions.length > 1) {
         <ui-form-select
           id="branch"
-          label="Branch"
+          [label]="isBranchPortal ? 'Unit' : 'Branch'"
           [(ngModel)]="selectedBranchId"
-          (ngModelChange)="onFilterChange()"
+          (ngModelChange)="isBranchPortal ? onBranchChange() : onFilterChange()"
           [options]="branchOptions"
         >
         </ui-form-select>
       } @else {
         <div class="flex min-h-[4.25rem] flex-col justify-end">
-          <span class="mb-1 text-sm font-medium text-gray-700">Branch</span>
+          <span class="mb-1 text-sm font-medium text-gray-700">Unit</span>
           <strong class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900">
             {{ currentBranchLabel }}
           </strong>

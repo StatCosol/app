@@ -166,8 +166,7 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
     this.isBranchPortal = this.route.snapshot.data['portal'] === 'branch';
     if (this.isBranchPortal) {
       const user = this.auth.getUser();
-      this.selectedBranchId = this.auth.getBranchIds()[0] || '';
-      this.currentBranchLabel = user?.branchName || user?.branch?.name || 'Assigned Branch';
+      this.currentBranchLabel = user?.branchName || user?.branch?.name || 'Assigned unit';
       this.pageTitle = 'Monthly Compliance Dashboard';
       this.pageDescription = 'Registrations, renewals, returns and monthly compliance for your branch';
       this.complianceAreaRoute = '/branch/compliance/monthly';
@@ -213,10 +212,20 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
         next: (res: any) => {
           this.branchMeta = res?.data || res || [];
           const scopedBranches = this.isBranchPortal
-            ? this.branchMeta.filter((b: any) => b.id === this.selectedBranchId)
+            ? [...this.branchMeta].sort((a: any, b: any) =>
+                String(a.branchName || a.name || '').localeCompare(
+                  String(b.branchName || b.name || ''),
+                ),
+              )
             : this.branchMeta;
-          if (this.isBranchPortal && scopedBranches[0]) {
-            this.currentBranchLabel = scopedBranches[0].branchName || scopedBranches[0].name;
+          if (this.isBranchPortal) {
+            const selectedBranch = scopedBranches.find(
+              (branch: any) => branch.id === this.selectedBranchId,
+            );
+            const initialBranch = selectedBranch || scopedBranches[0];
+            this.selectedBranchId = initialBranch?.id || '';
+            this.currentBranchLabel =
+              initialBranch?.branchName || initialBranch?.name || 'Assigned unit';
           }
           this.branchOptions = this.isBranchPortal
             ? scopedBranches.map((b: any) => ({ value: b.id, label: b.branchName || b.name }))
@@ -413,6 +422,14 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
   }
 
   onFilterChange(): void {
+    this.loadAll();
+  }
+
+  onBranchChange(): void {
+    const branch = this.branchMeta.find(
+      (item: any) => item.id === this.selectedBranchId,
+    );
+    this.currentBranchLabel = branch?.branchName || branch?.name || 'Assigned unit';
     this.loadAll();
   }
 
