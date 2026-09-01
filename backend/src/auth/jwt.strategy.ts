@@ -84,7 +84,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       assignedClientIds: [] as string[],
     };
 
-    if (roleCode === 'CRM') {
+    // CRM, AUDITOR and PAYDEK are all granted access per client through
+    // `client_assignments_current`, so all three need the list loaded —
+    // ScopeGuard denies a clientId that is not in it, and an unpopulated list
+    // would lock the user out of their own clients.
+    if (roleCode === 'CRM' || roleCode === 'AUDITOR' || roleCode === 'PAYDEK') {
       normalized.assignedClientIds =
         await this.usersService.getAssignedClientIds(payload.sub);
     }

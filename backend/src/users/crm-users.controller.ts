@@ -1,4 +1,10 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  ParseUUIDPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -19,9 +25,18 @@ export class CrmUsersController {
     return this.usersService.listActiveUsersByRoleCode('AUDITOR');
   }
 
-  @ApiOperation({ summary: 'List contractors for CRM' })
+  /**
+   * clientId is required, not optional. Omitting it used to skip the client
+   * filter entirely and return every contractor across every tenant — and
+   * ScopeGuard could not catch it, because it only validates a clientId that
+   * is actually present. With the parameter mandatory, the guard checks it
+   * against this CRM's assignments on every call.
+   */
+  @ApiOperation({
+    summary: 'List contractors for a client assigned to this CRM',
+  })
   @Get('contractors')
-  listContractors(@Query('clientId') clientId?: string) {
+  listContractors(@Query('clientId', new ParseUUIDPipe()) clientId: string) {
     return this.usersService.listActiveUsersByRoleCode('CONTRACTOR', clientId);
   }
 }
