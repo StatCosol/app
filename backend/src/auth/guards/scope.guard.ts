@@ -17,6 +17,13 @@ import {
 const ASSIGNED_ROLES = ['CRM', 'PAYROLL', 'AUDITOR', 'PAYDEK'];
 
 /**
+ * Roles whose tenancy is a single client carried on the token itself. A
+ * clientId on the request must equal `user.clientId` — these users have
+ * exactly one company and can never legitimately name another.
+ */
+const TENANT_ROLES = ['CLIENT', 'BRANCH_DESK', 'CONTRACTOR', 'EMPLOYEE'];
+
+/**
  * ScopeGuard attaches `req.accessScope` derived from the authenticated user
  * so that downstream services can enforce ownership/assignment restrictions.
  *
@@ -68,6 +75,21 @@ export class ScopeGuard implements CanActivate {
         throw new ForbiddenException(
           `${user.roleCode} is not assigned to this client`,
         );
+      }
+    }
+
+    // Hard check: a role whose tenancy is its own `user.clientId` may only
+    // ever name that client. Previously unchecked, which meant a CLIENT user
+    // could pass another company's clientId to any endpoint that reads the
+    // parameter and be served their data — the assignment check above does
+    // not apply to these roles, so nothing was validating them at all.
+    if (TENANT_ROLES.includes(user.roleCode) && clientId && user.clientId) {
+      if (clientId !== user.clientId) {
+        Logger.warn(
+          `ScopeGuard: ${user.roleCode} user ${user.id} blocked from client ${clientId}`,
+          'ScopeGuard',
+        );
+        throw new ForbiddenException('Client not in scope');
       }
     }
 

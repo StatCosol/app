@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import {
   Repository,
   DataSource,
+  In,
   LessThan,
   LessThanOrEqual,
   FindOptionsWhere,
@@ -192,7 +193,17 @@ export class ComplianceMetricsService {
         isActive: true,
         isDeleted: false,
       };
-      if (clientId) where.clientId = clientId;
+      // The controller passes `user.clientId!`, which is NULL for a CRM — so
+      // this filter never applied for them and the metrics were computed over
+      // every client's branches. Fall back to the caller's assigned clients,
+      // and to nothing when they have none.
+      if (clientId) {
+        where.clientId = clientId;
+      } else if (Array.isArray(user.assignedClientIds)) {
+        // No assignments must mean no data, never every client.
+        if (!user.assignedClientIds.length) return { items: [] };
+        where.clientId = In(user.assignedClientIds);
+      }
       const rows = await this.branchRepo.find({
         where,
         select: ['id'],
