@@ -20,8 +20,17 @@ export class BiometricPunchEntity {
   @Column({ name: 'branch_id', type: 'uuid', nullable: true })
   branchId: string | null;
 
+  /** Set when the punch came from an EMPLOYEE device and the code matched. */
   @Column({ name: 'employee_id', type: 'uuid', nullable: true })
   employeeId: string | null;
+
+  /**
+   * Set when the punch came from a CONTRACTOR device and the code matched.
+   * Exactly one of employeeId / contractorEmployeeId is populated; both null
+   * means the User ID matched nobody and the punch is awaiting reconcile.
+   */
+  @Column({ name: 'contractor_employee_id', type: 'uuid', nullable: true })
+  contractorEmployeeId: string | null;
 
   @Column({ name: 'employee_code', type: 'varchar', length: 50 })
   employeeCode: string;

@@ -67,6 +67,10 @@ export class BiometricDevicesController {
       branchId: body.branchId ?? null,
       serialNumber: sn,
       pushToken: randomBytes(24).toString('hex'),
+      // Optional: pin the machine to one contractor. Normally left null — a
+      // single unit enrols on-roll staff and contractor workers together, and
+      // the punched code decides who each punch belongs to.
+      contractorUserId: body.contractorUserId ?? null,
       vendor: body.vendor || 'ESSL',
       model: body.model ?? null,
       label: body.label ?? null,

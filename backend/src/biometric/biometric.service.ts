@@ -4,16 +4,39 @@ import { Between, EntityManager, In, IsNull, Repository } from 'typeorm';
 import { BiometricPunchEntity } from './entities/biometric-punch.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { AttendanceEntity } from '../attendance/entities/attendance.entity';
+import { ContractorEmployeeEntity } from '../contractor/contractor-employees/entities/contractor-employee.entity';
+import { ContractorBiometricPunchEntity } from '../mobile-attendance/punch/contractor-punch.entity';
 import { IngestPunchItemDto } from './biometric.dto';
 
 const STANDARD_HOURS = 9;
 const DEFAULT_BUSINESS_TZ_OFFSET_MIN = 330;
 
+/**
+ * The device a push arrived from.
+ *
+ * One machine enrols on-roll staff and contractor workers together, so it
+ * carries no population of its own — who a punch belongs to is decided by the
+ * punched code. `contractorUserId` is an optional narrowing for a machine that
+ * genuinely serves a single contractor.
+ */
+export interface DeviceSubject {
+  /** `biometric_devices.id` — contractor punches are keyed on the uuid, not the serial. */
+  id: string;
+  contractorUserId: string | null;
+}
+
 export interface IngestResult {
   received: number;
   inserted: number;
   duplicates: number;
+  /** User IDs that matched nobody — recoverable via reconcile. */
   unknownEmployees: string[];
+  /**
+   * Contractor User IDs that matched more than one worker. Deliberately left
+   * unattributed: picking one would post hours to the wrong contractor's wage
+   * bill. Fix by making the codes unique, then reconcile.
+   */
+  ambiguousEmployees: string[];
   attendanceUpserts: number;
   affectedDays: { employeeId: string; date: string }[];
 }
@@ -35,6 +58,10 @@ export class BiometricService {
     private readonly empRepo: Repository<EmployeeEntity>,
     @InjectRepository(AttendanceEntity)
     private readonly attRepo: Repository<AttendanceEntity>,
+    @InjectRepository(ContractorEmployeeEntity)
+    private readonly contractorEmpRepo: Repository<ContractorEmployeeEntity>,
+    @InjectRepository(ContractorBiometricPunchEntity)
+    private readonly contractorPunchRepo: Repository<ContractorBiometricPunchEntity>,
   ) {}
 
   /** Insert raw punches (idempotent on (client, code, time, device)). */
@@ -43,7 +70,76 @@ export class BiometricService {
     items: IngestPunchItemDto[],
     autoProcess: boolean,
     manager?: EntityManager,
+    device?: DeviceSubject,
   ): Promise<IngestResult> {
+    // One machine enrols everybody on a site — on-roll staff and every
+    // contractor's workers alike — so who a punch belongs to is decided by the
+    // punched code, never by the device. Split the batch first, then let each
+    // population take its own path: employees roll up into attendance_records,
+    // contractor workers do not.
+    //
+    // Callers that pass no device (FaceDesk, the authenticated ingest API)
+    // resolve employees only, exactly as before.
+    if (device) {
+      const split = await this.splitBySubject(clientId, items, device, manager);
+
+      // Codes matching more than one person are attributed to nobody, but the
+      // punch is still recorded so it shows in the feed and can be recovered
+      // once the codes are made unique. Dropping it would lose the shift.
+      const ambiguousInserted = split.ambiguousItems.length
+        ? await this.insertUnattributed(clientId, split.ambiguousItems, manager)
+        : 0;
+
+      if (split.contractorItems.length) {
+        const contractorResult = await this.ingestContractor(
+          clientId,
+          split.contractorItems,
+          split.workerByCode,
+          device,
+          manager,
+        );
+        const employeeResult = split.employeeItems.length
+          ? await this.ingest(
+              clientId,
+              split.employeeItems,
+              autoProcess,
+              manager,
+              undefined,
+            )
+          : null;
+        return {
+          received: items.length,
+          inserted:
+            contractorResult.inserted +
+            (employeeResult?.inserted ?? 0) +
+            ambiguousInserted,
+          duplicates:
+            contractorResult.duplicates + (employeeResult?.duplicates ?? 0),
+          unknownEmployees: employeeResult?.unknownEmployees ?? [],
+          ambiguousEmployees: split.ambiguous,
+          attendanceUpserts: employeeResult?.attendanceUpserts ?? 0,
+          affectedDays: employeeResult?.affectedDays ?? [],
+        };
+      }
+      // Nothing contractor-bound; fall through to the employee path, but keep
+      // any codes that were ambiguous across the two populations.
+      if (split.ambiguous.length) {
+        const employeeResult = await this.ingest(
+          clientId,
+          split.employeeItems,
+          autoProcess,
+          manager,
+          undefined,
+        );
+        return {
+          ...employeeResult,
+          received: items.length,
+          inserted: employeeResult.inserted + ambiguousInserted,
+          ambiguousEmployees: split.ambiguous,
+        };
+      }
+    }
+
     const punchRepo =
       manager?.getRepository(BiometricPunchEntity) ?? this.punchRepo;
     const empRepo = manager?.getRepository(EmployeeEntity) ?? this.empRepo;
@@ -53,6 +149,9 @@ export class BiometricService {
       inserted: 0,
       duplicates: 0,
       unknownEmployees: [],
+      // Permanent employee codes are unique per client, so ambiguity cannot
+      // arise on this path.
+      ambiguousEmployees: [],
       attendanceUpserts: 0,
       affectedDays: [],
     };
@@ -63,11 +162,25 @@ export class BiometricService {
     const codes = Array.from(
       new Set(items.map((i) => (i.employeeCode || '').trim()).filter(Boolean)),
     );
+    // The machine allocates its own User ID at enrolment, recorded against the
+    // person as `punch_code`, so that is what a punch usually carries. The HR
+    // `employee_code` is the fallback, for sites that type it in instead and
+    // for callers that pass codes straight through (FaceDesk, the ingest API).
     const emps = await empRepo.find({
-      where: { clientId, employeeCode: In(codes) },
+      where: [
+        { clientId, punchCode: In(codes) },
+        { clientId, employeeCode: In(codes) },
+      ] as any,
     });
     const byCode = new Map<string, EmployeeEntity>();
-    emps.forEach((e) => byCode.set(e.employeeCode, e));
+    // Punch code first so it is never shadowed by someone else's HR code.
+    emps.forEach((e) => {
+      const pc = (e.punchCode ?? '').trim();
+      if (pc) byCode.set(pc, e);
+    });
+    emps.forEach((e) => {
+      if (!byCode.has(e.employeeCode)) byCode.set(e.employeeCode, e);
+    });
 
     const unknown = new Set<string>();
     const toInsert: Partial<BiometricPunchEntity>[] = [];
@@ -254,6 +367,295 @@ export class BiometricService {
       attendanceUpserts: proc.attendanceUpserts,
       affectedDays: affected,
     };
+  }
+
+  /**
+   * Record punches that could not be attributed to anyone, with both subject
+   * ids null. They appear in the Punch Feed as unlinked and are picked up by
+   * reconcile once the underlying code clash is resolved.
+   */
+  private async insertUnattributed(
+    clientId: string,
+    items: IngestPunchItemDto[],
+    manager?: EntityManager,
+  ): Promise<number> {
+    const punchRepo =
+      manager?.getRepository(BiometricPunchEntity) ?? this.punchRepo;
+
+    const rows: Partial<BiometricPunchEntity>[] = [];
+    for (const it of items) {
+      const code = (it.employeeCode || '').trim();
+      if (!code) continue;
+      const ts = new Date(it.punchTime);
+      if (isNaN(ts.getTime())) continue;
+      rows.push({
+        clientId,
+        branchId: it.branchId ?? null,
+        employeeId: null,
+        contractorEmployeeId: null,
+        employeeCode: code,
+        punchTime: ts,
+        direction: it.direction ?? 'AUTO',
+        deviceId: it.deviceId ?? null,
+        source: 'DEVICE',
+        rawPayload: { ...it },
+      });
+    }
+    if (!rows.length) return 0;
+
+    const insert = await punchRepo
+      .createQueryBuilder()
+      .insert()
+      .into(BiometricPunchEntity)
+      .values(rows as any)
+      .orIgnore()
+      .execute();
+    return insert.identifiers.filter(Boolean).length;
+  }
+
+  /**
+   * Work out who each punched code identifies.
+   *
+   * The machine allocates its own User ID at enrolment and that number is
+   * recorded against the person as `punch_code`, so that is what a punch
+   * carries. `employee_code` is the HR code and is only a fallback, for sites
+   * that instead type the HR code into the machine.
+   *
+   * A single machine enrols on-roll staff and contractor workers together, so
+   * both tables are searched. A code found in both, or held by two people in
+   * one table, is left unattributed rather than guessed — guessing would post
+   * one contractor's hours onto another's wage bill, and the mistake would
+   * surface as a payment rather than an error.
+   */
+  private async splitBySubject(
+    clientId: string,
+    items: IngestPunchItemDto[],
+    device: DeviceSubject,
+    manager?: EntityManager,
+  ): Promise<{
+    employeeItems: IngestPunchItemDto[];
+    contractorItems: IngestPunchItemDto[];
+    workerByCode: Map<string, ContractorEmployeeEntity>;
+    ambiguousItems: IngestPunchItemDto[];
+    ambiguous: string[];
+  }> {
+    const empRepo = manager?.getRepository(EmployeeEntity) ?? this.empRepo;
+    const contractorEmpRepo =
+      manager?.getRepository(ContractorEmployeeEntity) ??
+      this.contractorEmpRepo;
+
+    const codes = Array.from(
+      new Set(items.map((i) => (i.employeeCode || '').trim()).filter(Boolean)),
+    );
+    const empty = {
+      employeeItems: items,
+      contractorItems: [] as IngestPunchItemDto[],
+      workerByCode: new Map<string, ContractorEmployeeEntity>(),
+      ambiguousItems: [] as IngestPunchItemDto[],
+      ambiguous: [] as string[],
+    };
+    if (!codes.length) return empty;
+
+    // A device may optionally be pinned to one contractor; otherwise search
+    // every contractor belonging to this client.
+    const scope: Record<string, unknown> = device.contractorUserId
+      ? { clientId, contractorUserId: device.contractorUserId }
+      : { clientId };
+    const [staff, workers] = await Promise.all([
+      empRepo.find({
+        where: [
+          { clientId, punchCode: In(codes) },
+          { clientId, employeeCode: In(codes) },
+        ] as any,
+      }),
+      contractorEmpRepo.find({
+        where: [
+          { ...scope, punchCode: In(codes) },
+          { ...scope, employeeCode: In(codes) },
+        ] as any,
+      }),
+    ]);
+
+    const bucket = <T>(
+      map: Map<string, T[]>,
+      code: string | null | undefined,
+      row: T,
+    ) => {
+      const key = (code ?? '').trim();
+      if (!key) return;
+      const found = map.get(key);
+      if (found) found.push(row);
+      else map.set(key, [row]);
+    };
+
+    const staffByPunch = new Map<string, EmployeeEntity[]>();
+    const staffByHr = new Map<string, EmployeeEntity[]>();
+    for (const e of staff) {
+      bucket(staffByPunch, e.punchCode, e);
+      bucket(staffByHr, e.employeeCode, e);
+    }
+    const workerByPunch = new Map<string, ContractorEmployeeEntity[]>();
+    const workerByHr = new Map<string, ContractorEmployeeEntity[]>();
+    for (const w of workers) {
+      bucket(workerByPunch, w.punchCode, w);
+      bucket(workerByHr, w.employeeCode, w);
+    }
+
+    const contractorCodes = new Set<string>();
+    const ambiguous = new Set<string>();
+    const workerByCode = new Map<string, ContractorEmployeeEntity>();
+
+    for (const code of codes) {
+      // Punch code is the machine's own identity and outranks the HR code, so
+      // it is resolved first across both populations.
+      let staffHits = staffByPunch.get(code) ?? [];
+      let workerHits = workerByPunch.get(code) ?? [];
+      if (!staffHits.length && !workerHits.length) {
+        staffHits = staffByHr.get(code) ?? [];
+        workerHits = workerByHr.get(code) ?? [];
+      }
+
+      const total = staffHits.length + workerHits.length;
+      if (total > 1) {
+        ambiguous.add(code);
+        continue;
+      }
+      if (workerHits.length === 1) {
+        contractorCodes.add(code);
+        workerByCode.set(code, workerHits[0]);
+      }
+      // A single staff hit, or none at all, stays on the employee path — which
+      // already records an unmatched code as unknown for later reconcile.
+    }
+
+    if (!contractorCodes.size && !ambiguous.size) return empty;
+
+    const employeeItems: IngestPunchItemDto[] = [];
+    const contractorItems: IngestPunchItemDto[] = [];
+    const ambiguousItems: IngestPunchItemDto[] = [];
+    for (const it of items) {
+      const code = (it.employeeCode || '').trim();
+      if (contractorCodes.has(code)) contractorItems.push(it);
+      else if (ambiguous.has(code)) ambiguousItems.push(it);
+      else employeeItems.push(it);
+    }
+
+    if (ambiguous.size) {
+      this.logger.warn(
+        `device ${device.id}: ${ambiguous.size} punch code(s) match more than ` +
+          `one person and were left unattributed — ${Array.from(ambiguous).join(', ')}. ` +
+          `Punch codes must be unique across employees and contractor workers.`,
+      );
+    }
+
+    return {
+      employeeItems,
+      contractorItems,
+      workerByCode,
+      ambiguousItems,
+      ambiguous: Array.from(ambiguous),
+    };
+  }
+
+  /**
+   * Contractor-bound punches, already resolved to workers by splitBySubject.
+   *
+   * Contractor attendance does not live in `attendance_records`, so nothing
+   * rolls up here — the punches are the record, and the muster sheet is
+   * derived from them per wage period.
+   */
+  private async ingestContractor(
+    clientId: string,
+    items: IngestPunchItemDto[],
+    byCode: Map<string, ContractorEmployeeEntity>,
+    device: DeviceSubject,
+    manager?: EntityManager,
+  ): Promise<IngestResult> {
+    const punchRepo =
+      manager?.getRepository(BiometricPunchEntity) ?? this.punchRepo;
+    const contractorPunchRepo =
+      manager?.getRepository(ContractorBiometricPunchEntity) ??
+      this.contractorPunchRepo;
+
+    const result: IngestResult = {
+      received: items.length,
+      inserted: 0,
+      duplicates: 0,
+      unknownEmployees: [],
+      ambiguousEmployees: [],
+      attendanceUpserts: 0,
+      affectedDays: [],
+    };
+    if (!items.length) return result;
+
+    const unknown = new Set<string>();
+    const rawRows: Partial<BiometricPunchEntity>[] = [];
+    const contractorRows: Partial<ContractorBiometricPunchEntity>[] = [];
+
+    for (const it of items) {
+      const code = (it.employeeCode || '').trim();
+      if (!code) continue;
+      const ts = new Date(it.punchTime);
+      if (isNaN(ts.getTime())) continue;
+
+      const worker = byCode.get(code);
+      if (!worker) unknown.add(code);
+
+      // Always keep the raw trail, matched or not, so the Punch Feed shows
+      // what the machine sent and reconcile can pick it up later.
+      rawRows.push({
+        clientId,
+        branchId: worker?.branchId ?? it.branchId ?? null,
+        employeeId: null,
+        contractorEmployeeId: worker?.id ?? null,
+        employeeCode: code,
+        punchTime: ts,
+        direction: it.direction ?? 'AUTO',
+        deviceId: it.deviceId ?? null,
+        source: 'DEVICE',
+        rawPayload: { ...it },
+      });
+
+      if (worker) {
+        contractorRows.push({
+          clientId,
+          branchId: worker.branchId ?? null,
+          deviceId: device.id,
+          contractorEmployeeId: worker.id,
+          direction: it.direction ?? 'AUTO',
+          punchTime: ts,
+          decision: 'AUTO',
+        });
+      }
+    }
+
+    if (rawRows.length) {
+      const insert = await punchRepo
+        .createQueryBuilder()
+        .insert()
+        .into(BiometricPunchEntity)
+        .values(rawRows as any)
+        .orIgnore()
+        .execute();
+      result.inserted = insert.identifiers.filter(Boolean).length;
+      result.duplicates = rawRows.length - result.inserted;
+    }
+
+    // Replays of the device's buffered log must not double-count a shift, so
+    // this leans on uq_contractor_punches_device_dedupe exactly as the
+    // employee table leans on its own dedupe index.
+    if (contractorRows.length) {
+      await contractorPunchRepo
+        .createQueryBuilder()
+        .insert()
+        .into(ContractorBiometricPunchEntity)
+        .values(contractorRows as any)
+        .orIgnore()
+        .execute();
+    }
+
+    result.unknownEmployees = Array.from(unknown);
+    return result;
   }
 
   /** Try to resolve any punches with employeeId IS NULL (e.g. employee added later). */
