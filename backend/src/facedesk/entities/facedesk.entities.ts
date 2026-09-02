@@ -151,7 +151,11 @@ export class FaceDeskProfileEntity {
   @Column({ name: 'attendance_pin_lookup', type: 'text', nullable: true })
   attendancePinLookup: string | null;
 
-  @Column({ name: 'attendance_pin_set_at', type: 'timestamptz', nullable: true })
+  @Column({
+    name: 'attendance_pin_set_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
   attendancePinSetAt: Date | null;
 
   @Column({ name: 'consent_given_at', type: 'timestamptz', nullable: true })
@@ -164,7 +168,12 @@ export class FaceDeskProfileEntity {
   enrolledBy: string | null;
 
   /** Persisted face id in the client's Azure Large Face List. */
-  @Column({ name: 'azure_persisted_face_id', type: 'varchar', length: 64, nullable: true })
+  @Column({
+    name: 'azure_persisted_face_id',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
   azurePersistedFaceId: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
@@ -545,16 +554,50 @@ export class FaceDeskSettingsEntity {
     length: 20,
     default: 'PIN_THEN_FACE',
   })
-  identificationMode: 'PIN_THEN_FACE';
+  /**
+   * How a worker is identified at a punch.
+   *
+   *  PIN_THEN_FACE        code + PIN claims an identity, face confirms it (1:1).
+   *  FACE_ONLY            face alone identifies (1:N). Azure only — the on-device
+   *                       matcher cannot separate people reliably, so this fails
+   *                       closed rather than guessing.
+   *  FACE_THEN_BIOMETRIC  face at the kiosk plus a fingerprint on the eSSL device.
+   *  BIOMETRIC_ONLY       eSSL fingerprint alone; the FaceDesk kiosk is not used.
+   *
+   * The two biometric modes are fulfilled by the eSSL devices, which push punches
+   * through BiometricService.ingest rather than through the kiosk endpoint. They
+   * are configured here so one setting describes a client's whole punch policy,
+   * and so the kiosk knows whether to offer a face flow at all.
+   */
+  identificationMode:
+    | 'PIN_THEN_FACE'
+    | 'FACE_ONLY'
+    | 'FACE_THEN_BIOMETRIC'
+    | 'BIOMETRIC_ONLY';
 
-  @Column({ name: 'shift_start_time', type: 'varchar', length: 5, nullable: true })
+  @Column({
+    name: 'shift_start_time',
+    type: 'varchar',
+    length: 5,
+    nullable: true,
+  })
   shiftStartTime: string | null;
 
-  @Column({ name: 'shift_end_time', type: 'varchar', length: 5, nullable: true })
+  @Column({
+    name: 'shift_end_time',
+    type: 'varchar',
+    length: 5,
+    nullable: true,
+  })
   shiftEndTime: string | null;
 
   /** Azure Large Face List id for this client (when AZURE_FACE_* is configured). */
-  @Column({ name: 'azure_face_list_id', type: 'varchar', length: 64, nullable: true })
+  @Column({
+    name: 'azure_face_list_id',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
   azureFaceListId: string | null;
 
   /**

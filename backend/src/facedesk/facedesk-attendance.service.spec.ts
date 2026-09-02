@@ -139,6 +139,11 @@ function makeService(rosterRows: any[], todayCount = 0) {
     failedAttemptService,
     punchAcceptService,
   );
+  const faceOnlyAttendanceService = {
+    markByFace: jest
+      .fn()
+      .mockResolvedValue({ status: 'MARKED', message: 'ok' }),
+  };
   const service = new FaceDeskAttendanceService(
     attRepo as any,
     contractorPunchRepo as any,
@@ -148,11 +153,13 @@ function makeService(rosterRows: any[], todayCount = 0) {
     { offlineSync: jest.fn() } as any,
     failedAttemptService,
     pinAttendanceService,
+    faceOnlyAttendanceService as any,
     punchAcceptService,
     directionService,
   );
   return {
     service,
+    faceOnlyAttendanceService,
     attRepo,
     failRepo,
     reviewRepo,

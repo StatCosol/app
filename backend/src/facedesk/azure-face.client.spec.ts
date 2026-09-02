@@ -213,3 +213,92 @@ describe('AzureFaceClient — image uploads must declare octet-stream', () => {
     expect(contentTypeOf()).toBe('application/json');
   });
 });
+
+/**
+ * The 1:N identification gates. The margin check is the one that matters: in a
+ * crowded gallery a high score alone is not an identification if the runner-up
+ * is almost as high — that is an ambiguous face, and the only safe answer is no.
+ */
+describe('FaceDeskAzureFaceService.identifyForAttendance', () => {
+  const ENV = process.env;
+
+  beforeEach(() => {
+    process.env = { ...ENV };
+    process.env.AZURE_FACE_ENDPOINT =
+      'https://statcompy-face.cognitiveservices.azure.com';
+    process.env.AZURE_FACE_KEY = 'test-key';
+    process.env.AZURE_FACE_IDENTIFICATION = 'true';
+  });
+
+  afterAll(() => {
+    process.env = ENV;
+  });
+
+  const make = (matches: Array<{ persistedFaceId: string; confidence: number }>) => {
+    const azure = {
+      identificationEnabled: true,
+      configured: true,
+      detectFace: jest.fn().mockResolvedValue({ faceId: 'f1' }),
+      findSimilar: jest.fn().mockResolvedValue(matches),
+    };
+    const profileRepo = {
+      findOne: jest.fn().mockResolvedValue({
+        employeeId: 'e1',
+        enrollmentStatus: 'ENROLLED',
+      }),
+    };
+    return {
+      svc: new FaceDeskAzureFaceService(
+        azure as any,
+        {} as any,
+        profileRepo as any,
+      ),
+      profileRepo,
+    };
+  };
+
+  it('identifies a clear top match', async () => {
+    const { svc } = make([
+      { persistedFaceId: 'p1', confidence: 0.93 },
+      { persistedFaceId: 'p2', confidence: 0.61 },
+    ]);
+    await expect(svc.identifyForAttendance('c1', 'img')).resolves.toMatchObject({
+      employeeId: 'e1',
+      confidence: 0.93,
+    });
+  });
+
+  it('refuses when the runner-up is too close to call', async () => {
+    // Both well above the confidence floor, but only 0.01 apart. Picking one
+    // would be a coin flip that marks somebody present.
+    const { svc } = make([
+      { persistedFaceId: 'p1', confidence: 0.9 },
+      { persistedFaceId: 'p2', confidence: 0.89 },
+    ]);
+    await expect(svc.identifyForAttendance('c1', 'img')).resolves.toBeNull();
+  });
+
+  it('refuses a top match below the confidence floor', async () => {
+    const { svc } = make([{ persistedFaceId: 'p1', confidence: 0.4 }]);
+    await expect(svc.identifyForAttendance('c1', 'img')).resolves.toBeNull();
+  });
+
+  it('refuses when the matched face has no enrolled profile', async () => {
+    const { svc, profileRepo } = make([
+      { persistedFaceId: 'orphan', confidence: 0.95 },
+    ]);
+    profileRepo.findOne.mockResolvedValue(null);
+    await expect(svc.identifyForAttendance('c1', 'img')).resolves.toBeNull();
+  });
+
+  it('refuses when the profile is no longer ENROLLED', async () => {
+    const { svc, profileRepo } = make([
+      { persistedFaceId: 'p1', confidence: 0.95 },
+    ]);
+    profileRepo.findOne.mockResolvedValue({
+      employeeId: 'e1',
+      enrollmentStatus: 'BLOCKED',
+    });
+    await expect(svc.identifyForAttendance('c1', 'img')).resolves.toBeNull();
+  });
+});
