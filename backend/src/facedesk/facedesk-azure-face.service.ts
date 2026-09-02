@@ -1,7 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AzureFaceClient } from './azure-face.client';
+import {
+  AzureFaceClient,
+  AzureLivenessSession,
+} from './azure-face.client';
 import {
   FaceDeskProfileEntity,
   FaceDeskSettingsEntity,
@@ -210,4 +217,68 @@ export class FaceDeskAzureFaceService {
   async trainClientList(clientId: string): Promise<boolean> {
     return this.azure.trainLargeFaceList(this.listIdForClient(clientId));
   }
+
+  /**
+   * Liveness is gated on credentials ALONE, not on identificationEnabled.
+   * Microsoft grants Face features independently: this resource has Liveness
+   * and Verification but 1:N Identification is a separate approval, so tying
+   * liveness to the duplicate-search flag would switch off a feature we do
+   * have because of one we might not.
+   */
+  get livenessEnabled(): boolean {
+    return this.azure.configured;
+  }
+
+  /**
+   * Create a liveness session for one kiosk.
+   *
+   * Only the sessionId and a short-lived authToken go back to the device — the
+   * account key stays server-side, which is the whole point of doing this here
+   * rather than shipping credentials in the APK. deviceCorrelationId is the
+   * kiosk's own id so Azure-side sessions are attributable to a device.
+   */
+  async createDeviceLivenessSession(
+    deviceId: string,
+  ): Promise<AzureLivenessSession> {
+    if (!this.livenessEnabled) {
+      throw new ServiceUnavailableException(
+        'Azure Face liveness is not configured on this deployment',
+      );
+    }
+    return this.azure.createLivenessSession({ deviceCorrelationId: deviceId });
+  }
+
+  /**
+   * Read a session verdict server-side.
+   *
+   * Deliberately not exposed to the device: in Azure's flow the SDK only
+   * reports that it finished, and the decision is read by the app server. A
+   * kiosk that could read (or assert) its own verdict would defeat the point of
+   * doing liveness at all.
+   *
+   * Returns null rather than throwing when Azure is unreachable, so a punch
+   * path can fall back rather than fail closed on a network blip.
+   */
+  async readLivenessVerdict(
+    sessionId: string,
+  ): Promise<{ decision: string | null; status: string } | null> {
+    if (!this.livenessEnabled) return null;
+    try {
+      const result = await this.azure.getLivenessSessionResult(sessionId);
+      const latest = result.attempts[result.attempts.length - 1];
+      return {
+        decision:
+          latest?.attemptStatus === 'Succeeded'
+            ? (latest.livenessDecision ?? null)
+            : null,
+        status: result.status,
+      };
+    } catch (err) {
+      this.logger.warn(
+        `Azure liveness result lookup failed: ${(err as Error)?.message}`,
+      );
+      return null;
+    }
+  }
+
 }

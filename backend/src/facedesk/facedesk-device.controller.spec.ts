@@ -1,3 +1,4 @@
+import { ServiceUnavailableException } from '@nestjs/common';
 import { FaceDeskDeviceController } from './facedesk-device.controller';
 
 function makeController() {
@@ -34,15 +35,24 @@ function makeController() {
       offlineSyncEnabled: true,
     }),
   };
+  const azureFace = {
+    livenessEnabled: true,
+    createDeviceLivenessSession: jest
+      .fn()
+      .mockResolvedValue({ sessionId: 'sess-1', authToken: 'tok-1' }),
+    readLivenessVerdict: jest.fn(),
+  };
   const controller = new FaceDeskDeviceController(
     devices as any,
     attendance as any,
     enrollment as any,
     tickets as any,
     settings as any,
+    azureFace as any,
   );
   return {
     controller,
+    azureFace,
     devices,
     attendance,
     enrollment,
@@ -147,5 +157,34 @@ describe('FaceDeskDeviceController', () => {
       },
     });
     expect(settings.getEffective).toHaveBeenCalledWith('client-1');
+  });
+});
+
+describe('FaceDeskDeviceController liveness session', () => {
+  const req = (device: Record<string, unknown>) =>
+    ({ facedeskDevice: device }) as any;
+
+  it('returns only the session id and auth token to the device', async () => {
+    const { controller, azureFace } = makeController();
+    const res = await controller.livenessSession(
+      req({ deviceId: 'dev-1', clientId: 'c1', mode: 'ATTENDANCE' }),
+    );
+
+    // Correlated to the kiosk, so Azure-side sessions are attributable.
+    expect(azureFace.createDeviceLivenessSession).toHaveBeenCalledWith('dev-1');
+    expect(res).toEqual({ sessionId: 'sess-1', authToken: 'tok-1' });
+    // The account key must never reach a device, and neither must a verdict the
+    // kiosk could then assert for itself.
+    expect(Object.keys(res)).toEqual(['sessionId', 'authToken']);
+  });
+
+  it('propagates the service refusal when Azure is not configured', async () => {
+    const { controller, azureFace } = makeController();
+    azureFace.createDeviceLivenessSession.mockRejectedValue(
+      new ServiceUnavailableException('Azure Face liveness is not configured'),
+    );
+    await expect(
+      controller.livenessSession(req({ deviceId: 'dev-1', clientId: 'c1' })),
+    ).rejects.toThrow(/not configured/i);
   });
 });
