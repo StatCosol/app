@@ -46,6 +46,8 @@ export class FaceDeskFaceOnlyAttendanceService {
     deviceId: string | null,
     dto: MarkAttendanceDto,
     best3: ResolvedFrame[],
+    /** FACE_THEN_BIOMETRIC: also require a corroborating fingerprint punch. */
+    requireBiometric = false,
   ): Promise<MarkResult> {
     const photoB64 = dto.frames?.find((f) => f.photoB64)?.photoB64 ?? null;
     if (!photoB64) {
@@ -102,6 +104,16 @@ export class FaceDeskFaceOnlyAttendanceService {
     // Azure confidence and margin stand in for cosine and margin here. They are
     // a different scale, and are recorded so a punch can be audited on the
     // numbers that actually decided it.
+    // FACE_THEN_BIOMETRIC corroborates the face against a fingerprint punch.
+    // It flags rather than rejects, because eSSL devices push in batches: at
+    // the moment somebody's face is captured their fingerprint punch may not
+    // have been ingested yet. Rejecting would turn a lagging sync into refused
+    // attendance, which is the failure the operator would notice least and
+    // trust least.
+    const corroborated = requireBiometric
+      ? await this.hasBiometricPunch(clientId, subject.employeeId, dto)
+      : true;
+
     return this.punchAcceptService.acceptPunch(
       clientId,
       branchId,
@@ -118,7 +130,48 @@ export class FaceDeskFaceOnlyAttendanceService {
       hit.margin,
       best3,
       Math.round(hit.confidence * 100),
+      !corroborated,
+      'BIOMETRIC_MISSING',
     );
+  }
+
+  /**
+   * Is there a fingerprint punch for this subject near this face punch?
+   *
+   * Window is generous on purpose (FD_BIOMETRIC_CORROBORATION_MINUTES, default
+   * 15) and looks both ways: the two devices are independent, their clocks
+   * drift, and a worker may touch them in either order.
+   */
+  private async hasBiometricPunch(
+    clientId: string,
+    employeeId: string,
+    dto: MarkAttendanceDto,
+  ): Promise<boolean> {
+    const minutes = Number(
+      process.env.FD_BIOMETRIC_CORROBORATION_MINUTES ?? 15,
+    );
+    const at = dto.punchTime ? new Date(dto.punchTime) : new Date();
+    try {
+      const [row] = await this.dataSource.query(
+        `SELECT 1
+           FROM biometric_punches
+          WHERE client_id = $1
+            AND (employee_id = $2 OR contractor_employee_id = $2)
+            AND punch_time BETWEEN $3::timestamptz - ($4 || ' minutes')::interval
+                               AND $3::timestamptz + ($4 || ' minutes')::interval
+          LIMIT 1`,
+        [clientId, employeeId, at.toISOString(), String(minutes)],
+      );
+      return !!row;
+    } catch (err) {
+      this.logger.warn(
+        `Biometric corroboration lookup failed: ${(err as Error)?.message}`,
+      );
+      // Treat a failed lookup as corroborated. The face already identified the
+      // worker; flagging every punch because a query broke would bury the real
+      // flags in noise.
+      return true;
+    }
   }
 
   private record(
