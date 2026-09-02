@@ -247,16 +247,26 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
      */
     /**
      * Whether the kiosk may capture. PIN_THEN_FACE waits for the PIN that
-     * claims an identity; FACE_ONLY has no claim to wait for, because the face
-     * IS the claim.
+     * claims an identity; the face-identified modes have no claim to wait for,
+     * because the face IS the claim.
      */
-    private fun readyToCapture(): Boolean = isFaceOnly() || enteredPin != null
+    private fun readyToCapture(): Boolean = isFaceIdentified() || enteredPin != null
 
-    private fun isFaceOnly(): Boolean =
-        config.faceDeskIdentificationMode == "FACE_ONLY"
+    /**
+     * Modes where the kiosk identifies from the face and must NOT ask for a PIN.
+     *
+     * FACE_THEN_BIOMETRIC belongs here as much as FACE_ONLY does: its second
+     * factor is a fingerprint on the eSSL device, not anything this kiosk
+     * collects. Matching only FACE_ONLY would strand those workers at a keypad
+     * whose value the server then ignores — a credential prompt that cannot
+     * succeed and is not documented anywhere they could see.
+     */
+    private fun isFaceIdentified(): Boolean =
+        config.faceDeskIdentificationMode == "FACE_ONLY" ||
+            config.faceDeskIdentificationMode == "FACE_THEN_BIOMETRIC"
 
     private fun promptPinEntry() {
-        if (isFaceOnly()) {
+        if (isFaceIdentified()) {
             // No credential to collect: leave the camera running so the next
             // worker simply steps up. paused stays false, so capture continues.
             pinDialog?.dismiss()

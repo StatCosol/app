@@ -24,6 +24,12 @@ export interface FaceDeskSettings {
   duplicatePct: number;
   minFaceSamples: number;
   frameCaptureCount: number;
+  /** How a worker is identified at the kiosk. Drives the page heading too. */
+  identificationMode?:
+    | 'PIN_THEN_FACE'
+    | 'FACE_ONLY'
+    | 'FACE_THEN_BIOMETRIC'
+    | 'BIOMETRIC_ONLY';
   livenessRequired: boolean;
   offlineSyncEnabled: boolean;
   shiftStartTime?: string | null;

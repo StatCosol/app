@@ -59,8 +59,8 @@ type Tab =
   template: `
     <div class="page">
       <ui-page-header
-        title="Kiosk Attendance — PIN + Face"
-        description="Manage the latest shared kiosk: employees enter their code and PIN, then complete face verification.">
+        [title]="'Kiosk Attendance — ' + modeLabel"
+        [description]="modeDescription">
       </ui-page-header>
 
       <div class="tab-bar">
@@ -505,6 +505,21 @@ type Tab =
               so look-alike / duplicate mismatches can't happen. Set each enrolled
               employee's PIN below.
             </p>
+          <label class="col-span-2">Identification mode
+            <select [(ngModel)]="settings.identificationMode" class="inp">
+              <option value="PIN_THEN_FACE">PIN + Face — code and PIN, then face verification</option>
+              <option value="FACE_ONLY">Face only — no PIN, identified from the face</option>
+              <option value="FACE_THEN_BIOMETRIC">Face + Biometric — face, corroborated by a fingerprint punch</option>
+              <option value="BIOMETRIC_ONLY">Biometric only — eSSL fingerprint, no kiosk face flow</option>
+            </select>
+          </label>
+          @if (settings.identificationMode === 'FACE_ONLY' || settings.identificationMode === 'FACE_THEN_BIOMETRIC') {
+            <p class="col-span-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Face identification runs on Azure and needs this client's faces synced there
+              (Admin &rarr; Clients &rarr; Azure Face Sync). Without a synced face nobody is
+              recognised, and there is no offline fallback &mdash; no network means no punch.
+            </p>
+          }
           <label>Match confidence (%)<input type="number" [(ngModel)]="settings.matchConfidencePct" class="inp"></label>
           <label>Retry confidence (%)<input type="number" [(ngModel)]="settings.retryConfidencePct" class="inp"></label>
           <label>Duplicate threshold (%)<input type="number" [(ngModel)]="settings.duplicatePct" class="inp"></label>
@@ -755,6 +770,15 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadBranches();
+    // The heading states how workers punch at this site, so it has to be right
+    // from the first paint. Settings otherwise only load on the Settings tab —
+    // and branch users never see that tab, so a face-only site would have read
+    // "PIN + Face" for their whole session. Failure here is silent on purpose:
+    // a wrong heading is bad, a page that will not open over it is worse.
+    this.svc.getSettings().subscribe({
+      next: (s) => (this.settings = this.settings ?? s),
+      error: () => undefined,
+    });
     const requestedTab = this.route.snapshot.queryParamMap.get('tab');
     if (requestedTab === 'review') {
       this.tab = 'review';
@@ -1186,11 +1210,43 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
       frameCaptureCount: this.settings.frameCaptureCount,
       livenessRequired: this.settings.livenessRequired,
       offlineSyncEnabled: this.settings.offlineSyncEnabled,
+      identificationMode: this.settings.identificationMode,
     };
     this.svc.updateSettings(patch).subscribe({
       next: (r) => { this.settings = r; this.toast.success('Settings saved'); },
       error: (e) => this.toast.error(e?.error?.message || 'Save failed'),
     });
+  }
+
+  /**
+   * The heading used to be hard-coded to "PIN + Face". Once the mode became a
+   * per-client setting that was actively misleading — a face-only site would
+   * still be told its workers enter a code and PIN.
+   */
+  get modeLabel(): string {
+    switch (this.settings?.identificationMode) {
+      case 'FACE_ONLY':
+        return 'Face Only';
+      case 'FACE_THEN_BIOMETRIC':
+        return 'Face + Biometric';
+      case 'BIOMETRIC_ONLY':
+        return 'Biometric Only';
+      default:
+        return 'PIN + Face';
+    }
+  }
+
+  get modeDescription(): string {
+    switch (this.settings?.identificationMode) {
+      case 'FACE_ONLY':
+        return 'Manage the latest shared kiosk: workers are identified from their face alone — no code or PIN.';
+      case 'FACE_THEN_BIOMETRIC':
+        return 'Manage the latest shared kiosk: workers are identified from their face, corroborated by a fingerprint punch.';
+      case 'BIOMETRIC_ONLY':
+        return 'This site records attendance on the biometric device; the kiosk face flow is off.';
+      default:
+        return 'Manage the latest shared kiosk: employees enter their code and PIN, then complete face verification.';
+    }
   }
 
   fmt(v: unknown): string {
