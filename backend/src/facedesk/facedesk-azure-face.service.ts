@@ -142,20 +142,33 @@ export class FaceDeskAzureFaceService {
       return null;
     }
   }
-
+  /**
+   * Remove an enrolment’s face from Azure.
+   *
+   * Returns whether the face is actually gone. The caller deletes the profile
+   * row straight after, and that row holds the only record of the persisted
+   * face id — so a silently failed delete strands biometric data in Azure with
+   * nothing left to identify it by. It must be reported, not swallowed.
+   */
   async removeEnrollmentFace(
     clientId: string,
     persistedFaceId: string | null | undefined,
-  ): Promise<void> {
-    if (!this.enabled || !persistedFaceId) return;
+  ): Promise<boolean> {
+    // Nothing to remove is not a failure.
+    if (!this.enabled || !persistedFaceId) return true;
     try {
       const listId = this.listIdForClient(clientId);
-      await this.azure.deletePersistedFace(listId, persistedFaceId);
-      this.scheduleTraining(listId);
+      const removed = await this.azure.deletePersistedFace(
+        listId,
+        persistedFaceId,
+      );
+      if (removed) this.scheduleTraining(listId);
+      return removed;
     } catch (err) {
       this.logger.warn(
         `Azure removeEnrollmentFace failed: ${(err as Error)?.message}`,
       );
+      return false;
     }
   }
 

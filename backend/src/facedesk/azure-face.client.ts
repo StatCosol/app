@@ -171,10 +171,17 @@ export class AzureFaceClient {
     return data.persistedFaceId;
   }
 
+  /**
+   * Removes a face from a list. Treats 404 as success (already gone) and
+   * resolves rather than throwing on other HTTP failures, but RETURNS whether
+   * the face is actually gone — a caller deleting an enrolment needs to know,
+   * because a silent failure leaves biometric data in Azure after the profile
+   * row that recorded its id has been deleted.
+   */
   async deletePersistedFace(
     largeFaceListId: string,
     persistedFaceId: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const resp = await fetch(
       this.url(
         `/largefacelists/${largeFaceListId}/persistedfaces/${persistedFaceId}`,
@@ -190,7 +197,9 @@ export class AzureFaceClient {
       this.logger.warn(
         `Azure Face deletePersistedFace ${resp.status}: ${body.slice(0, 120)}`,
       );
+      return false;
     }
+    return true;
   }
 
   /**
