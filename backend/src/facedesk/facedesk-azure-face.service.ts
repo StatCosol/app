@@ -23,6 +23,15 @@ export interface AzureDuplicateHit {
 @Injectable()
 export class FaceDeskAzureFaceService {
   private readonly logger = new Logger(FaceDeskAzureFaceService.name);
+  /** 1:N attendance bar. Higher than duplicate detection: this decides whose
+   *  attendance is recorded, not whether an admin gets a second look. */
+  private readonly attendanceConfidence = Number(
+    process.env.AZURE_FACE_ATTENDANCE_CONFIDENCE ?? 0.75,
+  );
+  /** Required gap to the runner-up before a match counts as an identification. */
+  private readonly attendanceMargin = Number(
+    process.env.AZURE_FACE_ATTENDANCE_MARGIN ?? 0.05,
+  );
   private readonly duplicateConfidence = Number(
     process.env.AZURE_FACE_DUPLICATE_CONFIDENCE ?? 0.72,
   );
@@ -276,6 +285,79 @@ export class FaceDeskAzureFaceService {
     } catch (err) {
       this.logger.warn(
         `Azure liveness result lookup failed: ${(err as Error)?.message}`,
+      );
+      return null;
+    }
+  }
+
+
+  /**
+   * Identify who a face belongs to, for FACE_ONLY attendance (1:N).
+   *
+   * This is a different and much harder problem than findDuplicate. There the
+   * question is "does this face already exist?", a hit only raises a review, and
+   * a wrong answer costs an admin a glance. Here the answer decides whose
+   * attendance is recorded, and a wrong answer marks the wrong person present
+   * and pays them.
+   *
+   * It deliberately does NOT fall back to the on-device cosine matcher. The
+   * duplicate threshold comment in facedesk-settings.service.ts records what
+   * happened when 192-d MobileFaceNet embeddings were asked to separate people:
+   * "several different employees all matched the same one or two profiles at
+   * 0.73-0.84". Those embeddings cannot answer a 1:N question safely, so when
+   * Azure cannot answer, this returns null and the punch is refused.
+   *
+   * Two gates, both required:
+   *  - the top candidate must clear AZURE_FACE_ATTENDANCE_CONFIDENCE, and
+   *  - it must beat the runner-up by AZURE_FACE_ATTENDANCE_MARGIN.
+   *
+   * The margin is the one that matters in a crowded gallery. A high score alone
+   * is not enough if two people score nearly the same — that is an ambiguous
+   * face, not an identification, and refusing is the only safe answer.
+   */
+  async identifyForAttendance(
+    clientId: string,
+    photoB64: string,
+  ): Promise<{ employeeId: string; confidence: number; margin: number } | null> {
+    if (!this.enabled) return null;
+    try {
+      const listId = this.listIdForClient(clientId);
+      const detected = await this.azure.detectFace(this.decodePhoto(photoB64));
+      if (!detected?.faceId) return null;
+
+      const matches = await this.azure.findSimilar(
+        listId,
+        detected.faceId,
+        this.attendanceConfidence,
+        5,
+      );
+      const [top, second] = matches;
+      if (!top || top.confidence < this.attendanceConfidence) return null;
+      if (second && top.confidence - second.confidence < this.attendanceMargin) {
+        this.logger.warn(
+          `Azure attendance identify ambiguous: ${top.confidence.toFixed(3)} vs ` +
+            `${second.confidence.toFixed(3)} — refusing rather than guessing`,
+        );
+        return null;
+      }
+
+      const profile = await this.profileRepo.findOne({
+        where: { clientId, azurePersistedFaceId: top.persistedFaceId },
+      });
+      // A face in the list with no profile row is an orphan (see the deletion
+      // path). It must never resolve to an identity.
+      if (!profile || profile.enrollmentStatus !== 'ENROLLED') return null;
+
+      return {
+        employeeId: profile.employeeId,
+        confidence: top.confidence,
+        // Recorded on the punch: how clear-cut the identification was is worth
+        // auditing, not just that it passed.
+        margin: second ? top.confidence - second.confidence : top.confidence,
+      };
+    } catch (err) {
+      this.logger.warn(
+        `Azure attendance identify failed: ${(err as Error)?.message}`,
       );
       return null;
     }

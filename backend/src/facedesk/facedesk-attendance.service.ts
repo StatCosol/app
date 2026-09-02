@@ -19,6 +19,7 @@ import { MarkAttendanceDto } from './facedesk.dto';
 import { FaceDeskOfflineSyncService } from './facedesk-offline-sync.service';
 import { FaceDeskFailedAttemptService } from './facedesk-failed-attempt.service';
 import { FaceDeskPinAttendanceService } from './facedesk-pin-attendance.service';
+import { FaceDeskFaceOnlyAttendanceService } from './facedesk-face-only-attendance.service';
 import { FaceDeskPunchAcceptService } from './facedesk-punch-accept.service';
 import { FaceDeskPunchDirectionService } from './facedesk-punch-direction.service';
 
@@ -48,6 +49,7 @@ export class FaceDeskAttendanceService {
     private readonly offlineSyncService: FaceDeskOfflineSyncService,
     private readonly failedAttemptService: FaceDeskFailedAttemptService,
     private readonly pinAttendanceService: FaceDeskPinAttendanceService,
+    private readonly faceOnlyAttendanceService: FaceDeskFaceOnlyAttendanceService,
     private readonly punchAcceptService: FaceDeskPunchAcceptService,
     private readonly directionService: FaceDeskPunchDirectionService,
   ) {}
@@ -131,6 +133,19 @@ export class FaceDeskAttendanceService {
     const best3 = this.faceService.bestFrames(good, 3);
     const probe = averageEmbeddings(best3.map((f) => f.embedding));
     const probeModel = normalizeEmbeddingModel(best3[0]?.model ?? null);
+
+    // FACE_ONLY drops the PIN and identifies 1:N, which only Azure can answer
+    // safely — see FaceDeskFaceOnlyAttendanceService for why the on-device
+    // matcher is never used for it. Per client; everyone else is unchanged.
+    if (eff.identificationMode === 'FACE_ONLY') {
+      return this.faceOnlyAttendanceService.markByFace(
+        clientId,
+        branchId,
+        deviceId,
+        dto,
+        best3,
+      );
+    }
 
     return this.pinAttendanceService.markByPin(
       clientId,

@@ -285,6 +285,24 @@ export class UpdateSettingsDto {
   @Type(() => CaptureTuningDto)
   captureTuning?: CaptureTuningDto;
 
+  /**
+   * FACE_ONLY removes the PIN and identifies 1:N. It requires Azure
+   * identification and a populated face list for the client — see
+   * FaceDeskAzureFaceService.identifyForAttendance.
+   */
+  @IsOptional()
+  @IsIn([
+    'PIN_THEN_FACE',
+    'FACE_ONLY',
+    'FACE_THEN_BIOMETRIC',
+    'BIOMETRIC_ONLY',
+  ])
+  identificationMode?:
+    | 'PIN_THEN_FACE'
+    | 'FACE_ONLY'
+    | 'FACE_THEN_BIOMETRIC'
+    | 'BIOMETRIC_ONLY';
+
   @IsOptional()
   @IsNumber()
   faceMatchConfidence?: number;

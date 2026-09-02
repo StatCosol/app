@@ -68,7 +68,9 @@ describe('FaceDeskSettingsService', () => {
     expect(eff.duplicateCosine).toBeCloseTo(0.84, 3); // 95% → 0.84
     expect(eff.minFaceSamples).toBe(7);
     expect(eff.livenessRequired).toBe(false);
-    expect(eff.identificationMode).toBe('PIN_THEN_FACE');
+    // Previously hard-coded and this fixture's value ignored. It is now a real
+    // per-client setting, so the override has to survive.
+    expect(eff.identificationMode).toBe('FACE_ONLY');
   });
 });
 

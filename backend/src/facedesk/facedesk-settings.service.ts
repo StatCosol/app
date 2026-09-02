@@ -20,8 +20,16 @@ export interface EffectiveFaceSettings {
   frameCaptureCount: number;
   livenessRequired: boolean;
   offlineSyncEnabled: boolean;
-  /** FaceDesk kiosks always use code + PIN followed by 1:1 face verification. */
-  identificationMode: 'PIN_THEN_FACE';
+  /**
+   * PIN_THEN_FACE: code + PIN, then 1:1 face verification.
+   * FACE_ONLY: 1:N identification, Azure only. Per client, defaulting to
+   * PIN_THEN_FACE so nothing changes for anyone who has not asked for it.
+   */
+  identificationMode:
+    | 'PIN_THEN_FACE'
+    | 'FACE_ONLY'
+    | 'FACE_THEN_BIOMETRIC'
+    | 'BIOMETRIC_ONLY';
   /** HH:MM (24h) for late/early reports; null → env default. */
   shiftStartTime: string | null;
   shiftEndTime: string | null;
@@ -132,7 +140,7 @@ export class FaceDeskSettingsService {
       frameCaptureCount: Number(row?.frameCaptureCount ?? 15),
       livenessRequired: row?.livenessRequired ?? true,
       offlineSyncEnabled: row?.offlineSyncEnabled ?? true,
-      identificationMode: 'PIN_THEN_FACE',
+      identificationMode: row?.identificationMode ?? 'PIN_THEN_FACE',
       shiftStartTime: row?.shiftStartTime ?? null,
       shiftEndTime: row?.shiftEndTime ?? null,
       captureTuning: resolveCaptureTuning(row?.captureTuning),

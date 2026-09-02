@@ -48,6 +48,7 @@ import { FaceDeskReportsService } from './facedesk-reports.service';
 import { FaceDeskTicketService } from './facedesk-ticket.service';
 import { AzureFaceClient } from './azure-face.client';
 import { FaceDeskAzureFaceService } from './facedesk-azure-face.service';
+import { FaceDeskFaceOnlyAttendanceService } from './facedesk-face-only-attendance.service';
 
 /**
  * FaceDesk V2 — StatCo Smart Attendance Kiosk. Net-new module, separate from
@@ -105,6 +106,7 @@ import { FaceDeskAzureFaceService } from './facedesk-azure-face.service';
     FacePhotoStorageService,
     AzureFaceClient,
     FaceDeskAzureFaceService,
+    FaceDeskFaceOnlyAttendanceService,
     // Liveness-provider seam: device blink today; swap the binding (e.g. to an
     // Azure Face Liveness provider) without touching the attendance service.
     { provide: FACEDESK_LIVENESS_PROVIDER, useClass: DeviceLivenessProvider },
