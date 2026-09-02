@@ -113,6 +113,27 @@ export class AzureFaceClient {
     };
   }
 
+  /**
+   * Headers for the calls that POST raw image bytes.
+   *
+   * Azure REQUIRES an explicit octet-stream content type on these. Node's fetch
+   * sends no Content-Type for a Uint8Array body, and Azure then tries to parse
+   * the image as JSON and fails with:
+   *
+   *   400 BadArgument "JSON parsing error."
+   *
+   * which names neither the header nor the image, so it reads like a malformed
+   * request rather than a missing content type. Verified against the live
+   * resource: without the header the call is rejected at media-type validation;
+   * with it, the same bytes reach face detection.
+   */
+  private binaryHeaders(): Record<string, string> {
+    return {
+      ...this.headers(),
+      'Content-Type': 'application/octet-stream',
+    };
+  }
+
   async ensureLargeFaceList(largeFaceListId: string): Promise<void> {
     const resp = await fetch(this.url(`/largefacelists/${largeFaceListId}`), {
       method: 'PUT',
@@ -138,7 +159,7 @@ export class AzureFaceClient {
       `${this.url('/detect')}?detectionModel=detection_03&recognitionModel=recognition_04&returnFaceId=true`,
       {
         method: 'POST',
-        headers: this.headers(),
+        headers: this.binaryHeaders(),
         body: new Uint8Array(image),
         signal: AbortSignal.timeout(15_000),
       },
@@ -187,7 +208,7 @@ export class AzureFaceClient {
       `${this.url(`/largefacelists/${largeFaceListId}/persistedfaces`)}?userData=${encodeURIComponent(userData)}&detectionModel=detection_03`,
       {
         method: 'POST',
-        headers: this.headers(),
+        headers: this.binaryHeaders(),
         body: new Uint8Array(image),
         signal: AbortSignal.timeout(20_000),
       },
