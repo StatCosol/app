@@ -4,6 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import {
+  contractorPrefixCandidates,
+  formatContractorEmployeeCode,
+} from './contractor-employee-code.util';
 import { DataSource, Repository } from 'typeorm';
 import { ContractorEmployeeEntity } from './entities/contractor-employee.entity';
 import { MinimumWageService } from './minimum-wage.service';
@@ -132,6 +136,91 @@ export class ContractorEmployeesService {
     return out;
   }
 
+  /**
+   * Allocate the next contractor employee code, e.g. SBS0001.
+   *
+   * The prefix is the contractor's initials; if another contractor in the same
+   * client already holds it, the last character advances through the final word
+   * (SBS -> SBE -> SBR). Once a contractor has any coded worker, that prefix is
+   * reused for the rest so all of one contractor's workers stay together.
+   *
+   * The sequence runs per (client, prefix). Since a prefix belongs to exactly
+   * one contractor within a client, that makes codes unique client-wide, which
+   * is what matters on a payslip.
+   *
+   * Serialised on an advisory lock because the index on
+   * (client_id, contractor_user_id, employee_code) is NOT unique — two
+   * concurrent creates, or a bulk upload racing itself, would otherwise both
+   * read the same MAX and hand out the same code with nothing to catch it.
+   *
+   * Returns null when the contractor's name yields no letters; the caller
+   * leaves the code unset rather than inventing a bare number.
+   */
+  async allocateEmployeeCode(
+    clientId: string,
+    contractorUserId: string,
+  ): Promise<string | null> {
+    const [contractor] = await this.dataSource.query(
+      `SELECT name FROM users WHERE id = $1 LIMIT 1`,
+      [contractorUserId],
+    );
+    const candidates = contractorPrefixCandidates(contractor?.name ?? '');
+    if (candidates.length === 0) return null;
+
+    return this.dataSource.transaction(async (em) => {
+      // Lock per client, so allocation for one client never blocks another.
+      await em.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+        `ce_code:${clientId}`,
+      ]);
+
+      // Reuse whatever prefix this contractor is already on.
+      const [mine] = await em.query(
+        `SELECT employee_code AS code
+           FROM contractor_employees
+          WHERE client_id = $1 AND contractor_user_id = $2
+            AND employee_code IS NOT NULL
+          LIMIT 1`,
+        [clientId, contractorUserId],
+      );
+
+      let prefix = mine?.code
+        ? String(mine.code).replace(/[0-9]+$/, '')
+        : null;
+
+      if (!prefix) {
+        for (const candidate of candidates) {
+          const [taken] = await em.query(
+            `SELECT 1
+               FROM contractor_employees
+              WHERE client_id = $1 AND contractor_user_id <> $2
+                AND employee_code ~ ('^' || $3 || '[0-9]+$')
+              LIMIT 1`,
+            [clientId, contractorUserId, candidate],
+          );
+          if (!taken) {
+            prefix = candidate;
+            break;
+          }
+        }
+      }
+      // Every candidate is spoken for: fall back to the contractor's own
+      // initials. The sequence still keeps the full code unique, so this
+      // degrades readability rather than correctness.
+      if (!prefix) prefix = candidates[0];
+
+      const [next] = await em.query(
+        `SELECT COALESCE(
+                  MAX(substring(employee_code from ${'$2'} )::int), 0
+                ) + 1 AS seq
+           FROM contractor_employees
+          WHERE client_id = $1
+            AND employee_code ~ ('^' || $3 || '[0-9]+$')`,
+        [clientId, prefix.length + 1, prefix],
+      );
+      return formatContractorEmployeeCode(prefix, Number(next?.seq ?? 1));
+    });
+  }
+
   async create(
     clientId: string,
     branchId: string,
@@ -151,12 +240,19 @@ export class ContractorEmployeesService {
       scheduledEmployment,
     });
 
+    // An explicitly supplied code wins — this only fills the gap that used to
+    // leave every contractor worker with a NULL code.
+    const employeeCode =
+      prepared.employeeCode?.trim() ||
+      (await this.allocateEmployeeCode(clientId, contractorUserId));
+
     const emp = this.repo.create({
       ...prepared,
       clientId,
       branchId,
       contractorUserId,
       name: dto.name.trim(),
+      employeeCode,
       isActive: true,
       status: prepared.status ?? 'ACTIVE',
     });
@@ -245,12 +341,21 @@ export class ContractorEmployeesService {
           scheduledEmployment,
         });
 
+        // Allocated per row rather than in one block: the allocator takes a
+        // per-client lock and reads MAX each time, so a row that fails
+        // validation does not burn a number, and two uploads running at once
+        // cannot interleave onto the same code.
+        const employeeCode =
+          prepared.employeeCode?.trim() ||
+          (await this.allocateEmployeeCode(clientId, contractorUserId));
+
         const emp = this.repo.create({
           ...prepared,
           clientId,
           branchId,
           contractorUserId,
           name,
+          employeeCode,
           isActive: true,
           status: prepared.status ?? 'ACTIVE',
         });
