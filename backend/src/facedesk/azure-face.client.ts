@@ -171,10 +171,17 @@ export class AzureFaceClient {
     return data.persistedFaceId;
   }
 
+  /**
+   * Removes a face from a list. Treats 404 as success (already gone) and
+   * resolves rather than throwing on other HTTP failures, but RETURNS whether
+   * the face is actually gone — a caller deleting an enrolment needs to know,
+   * because a silent failure leaves biometric data in Azure after the profile
+   * row that recorded its id has been deleted.
+   */
   async deletePersistedFace(
     largeFaceListId: string,
     persistedFaceId: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const resp = await fetch(
       this.url(
         `/largefacelists/${largeFaceListId}/persistedfaces/${persistedFaceId}`,
@@ -190,11 +197,21 @@ export class AzureFaceClient {
       this.logger.warn(
         `Azure Face deletePersistedFace ${resp.status}: ${body.slice(0, 120)}`,
       );
+      return false;
     }
+    return true;
   }
 
-  /** Fire-and-forget training so new faces become searchable. */
-  async trainLargeFaceList(largeFaceListId: string): Promise<void> {
+  /**
+   * Training, so newly added faces become searchable by findsimilars.
+   *
+   * Resolves rather than throwing on an HTTP failure, because the enrolment
+   * path fires this and forgets. It returns whether Azure actually accepted
+   * the request, so a caller that CANNOT afford a silent failure — the
+   * backfill, which would otherwise leave a fully populated list permanently
+   * unsearchable — can see it and retry.
+   */
+  async trainLargeFaceList(largeFaceListId: string): Promise<boolean> {
     const resp = await fetch(
       this.url(`/largefacelists/${largeFaceListId}/train`),
       {
@@ -208,6 +225,8 @@ export class AzureFaceClient {
       this.logger.warn(
         `Azure Face train ${resp.status}: ${body.slice(0, 120)}`,
       );
+      return false;
     }
+    return true;
   }
 }

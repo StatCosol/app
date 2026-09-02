@@ -857,7 +857,12 @@ export class FaceDeskEnrollmentService {
       .map((s) => s.imagePath)
       .filter((p): p is string => !!p);
 
-    await this.azureFace.removeEnrollmentFace(
+    // Deleting the profile row destroys the only record of this Azure face id,
+    // so if Azure would not let go of the face we must say so in the audit —
+    // otherwise biometric data survives the deletion, unidentifiable and
+    // therefore unremovable. The deletion itself still proceeds: an Azure
+    // hiccup must not block an admin from deleting an enrolment.
+    const azureFaceRemoved = await this.azureFace.removeEnrollmentFace(
       clientId,
       profile.azurePersistedFaceId,
     );
@@ -874,7 +879,14 @@ export class FaceDeskEnrollmentService {
         action: 'ENROLLMENT_DELETED',
         entityType: 'ENROLLMENT',
         entityId: employeeId,
-        detail: { subjectType, profileId: profile.profileId },
+        detail: {
+          subjectType,
+          profileId: profile.profileId,
+          // Present only when Azure kept the face: the id needed to clean it up.
+          ...(azureFaceRemoved
+            ? {}
+            : { azureOrphanFaceId: profile.azurePersistedFaceId }),
+        },
       });
     });
 

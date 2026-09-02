@@ -142,20 +142,72 @@ export class FaceDeskAzureFaceService {
       return null;
     }
   }
-
+  /**
+   * Remove an enrolment’s face from Azure.
+   *
+   * Returns whether the face is actually gone. The caller deletes the profile
+   * row straight after, and that row holds the only record of the persisted
+   * face id — so a silently failed delete strands biometric data in Azure with
+   * nothing left to identify it by. It must be reported, not swallowed.
+   */
   async removeEnrollmentFace(
     clientId: string,
     persistedFaceId: string | null | undefined,
-  ): Promise<void> {
-    if (!this.enabled || !persistedFaceId) return;
+  ): Promise<boolean> {
+    // Nothing to remove is not a failure.
+    if (!this.enabled || !persistedFaceId) return true;
     try {
       const listId = this.listIdForClient(clientId);
-      await this.azure.deletePersistedFace(listId, persistedFaceId);
-      this.scheduleTraining(listId);
+      const removed = await this.azure.deletePersistedFace(
+        listId,
+        persistedFaceId,
+      );
+      if (removed) this.scheduleTraining(listId);
+      return removed;
     } catch (err) {
       this.logger.warn(
         `Azure removeEnrollmentFace failed: ${(err as Error)?.message}`,
       );
+      return false;
     }
+  }
+
+  /**
+   * Backfill helper: add one already-enrolled face to a list the caller has
+   * ALREADY ensured.
+   *
+   * Takes a listId rather than a clientId on purpose. ensureLargeFaceList is
+   * an unconditional Azure PUT, so folding it in here would cost TWO Azure
+   * transactions per profile — silently doubling the backfill’s real request
+   * rate against the shared 10 TPS S0 cap. The caller ensures the list once
+   * per batch and this stays exactly one transaction per face, so pacing on
+   * profiles genuinely is pacing on transactions.
+   *
+   * Throws instead of returning null: the caller has to tell a transient
+   * Azure failure (worth retrying later) from a profile with no usable photo
+   * (which never will be), and a swallowed null collapses that distinction.
+   */
+  async addFaceToList(
+    listId: string,
+    employeeId: string,
+    photoB64: string,
+  ): Promise<string> {
+    return this.azure.addPersistedFace(
+      listId,
+      this.decodePhoto(photoB64),
+      employeeId,
+    );
+  }
+
+  /**
+   * Train a client’s list once, after a backfill batch. Faces added to a
+   * Large Face List are not searchable by findsimilars until it is trained.
+   *
+   * Returns whether Azure accepted the request. A swallowed failure here
+   * would leave every face just added permanently unsearchable, with nothing
+   * to signal it.
+   */
+  async trainClientList(clientId: string): Promise<boolean> {
+    return this.azure.trainLargeFaceList(this.listIdForClient(clientId));
   }
 }

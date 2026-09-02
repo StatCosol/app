@@ -145,7 +145,11 @@ describe('FaceDeskEnrollmentService enrollment ownership', () => {
 describe('FaceDeskEnrollmentService deleteEnrollment', () => {
   const build = (
     profile: any,
-    opts: { currentBranch?: string | null; samples?: any[] } = {},
+    opts: {
+      currentBranch?: string | null;
+      samples?: any[];
+      azureRemoved?: boolean;
+    } = {},
   ) => {
     const profileRepo = { findOne: jest.fn().mockResolvedValue(profile) };
     const sampleRepo = {
@@ -168,7 +172,9 @@ describe('FaceDeskEnrollmentService deleteEnrollment', () => {
     const photoStorage = { deletePhoto: jest.fn().mockResolvedValue(true) };
     const azureFace = {
       enabled: false,
-      removeEnrollmentFace: jest.fn().mockResolvedValue(undefined),
+      removeEnrollmentFace: jest
+        .fn()
+        .mockResolvedValue(opts.azureRemoved ?? true),
     };
     const service = new FaceDeskEnrollmentService(
       profileRepo as any,
@@ -190,6 +196,7 @@ describe('FaceDeskEnrollmentService deleteEnrollment', () => {
       auditInTx,
       dataSource,
       photoStorage,
+      azureFace,
     };
   };
 
@@ -271,5 +278,39 @@ describe('FaceDeskEnrollmentService deleteEnrollment', () => {
     await expect(
       service.deleteEnrollment('c1', 'actor', 'missing'),
     ).rejects.toThrow(/no enrollment/i);
+  });
+
+  it('records the Azure face id in the audit when Azure would not delete it', async () => {
+    // Deleting the profile row destroys the only record of this face id. If
+    // Azure kept the face and we said nothing, biometric data would survive the
+    // deletion with no way left to identify — or remove — it.
+    const { service, auditInTx } = build(
+      { ...profile, azurePersistedFaceId: 'azure-face-9' },
+      { currentBranch: 'b1', azureRemoved: false },
+    );
+    const res = await service.deleteEnrollment('c1', 'actor', 'e1', 'EMPLOYEE', [
+      'b1',
+    ]);
+
+    // The deletion still succeeds — an Azure hiccup must not block an admin.
+    expect(res).toEqual({ ok: true });
+    expect(auditInTx.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'ENROLLMENT_DELETED',
+        detail: expect.objectContaining({ azureOrphanFaceId: 'azure-face-9' }),
+      }),
+    );
+  });
+
+  it('leaves no orphan marker when Azure did delete the face', async () => {
+    const { service, auditInTx } = build(
+      { ...profile, azurePersistedFaceId: 'azure-face-9' },
+      { currentBranch: 'b1', azureRemoved: true },
+    );
+    await service.deleteEnrollment('c1', 'actor', 'e1', 'EMPLOYEE', ['b1']);
+
+    const detail = auditInTx.save.mock.calls[0][0].detail;
+    expect(detail).not.toHaveProperty('azureOrphanFaceId');
+    expect(detail).toMatchObject({ profileId: 'p1' });
   });
 });
