@@ -770,6 +770,15 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadBranches();
+    // The heading states how workers punch at this site, so it has to be right
+    // from the first paint. Settings otherwise only load on the Settings tab —
+    // and branch users never see that tab, so a face-only site would have read
+    // "PIN + Face" for their whole session. Failure here is silent on purpose:
+    // a wrong heading is bad, a page that will not open over it is worse.
+    this.svc.getSettings().subscribe({
+      next: (s) => (this.settings = this.settings ?? s),
+      error: () => undefined,
+    });
     const requestedTab = this.route.snapshot.queryParamMap.get('tab');
     if (requestedTab === 'review') {
       this.tab = 'review';
