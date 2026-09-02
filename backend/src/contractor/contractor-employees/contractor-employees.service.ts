@@ -8,7 +8,7 @@ import {
   contractorPrefixCandidates,
   formatContractorEmployeeCode,
 } from './contractor-employee-code.util';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ContractorEmployeeEntity } from './entities/contractor-employee.entity';
 import { MinimumWageService } from './minimum-wage.service';
 import { UserEntity } from '../../users/entities/user.entity';
@@ -49,6 +49,13 @@ function toNumberOrNull(value: any): number | null {
   const n = Number(value);
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
+
+/**
+ * What a code we generated looks like. A prefix reused from an existing code
+ * is only trusted if it matches this — hand-entered codes can contain regex
+ * metacharacters, and these prefixes are interpolated into SQL regexes.
+ */
+const GENERATED_PREFIX = /^[A-Z]+$/;
 
 export interface BulkRowResult {
   index: number;
@@ -120,7 +127,15 @@ export class ContractorEmployeesService {
     const dailyWage =
       dto.dailyWage !== undefined ? toNumberOrNull(dto.dailyWage) : undefined;
 
+    // Bulk rows are not DTO-validated, so a spreadsheet can deliver this as a
+    // number; String() first or .trim() throws and fails an otherwise fine row.
+    const employeeCode =
+      dto.employeeCode !== undefined && dto.employeeCode !== null
+        ? String(dto.employeeCode).trim() || null
+        : undefined;
+
     const out: Partial<ContractorEmployeeEntity> = { ...dto };
+    if (employeeCode !== undefined) out.employeeCode = employeeCode;
     if (skill !== undefined) out.skillCategory = skill;
     if (status !== undefined && status !== null) out.status = status;
     if (monthlySalary !== undefined) out.monthlySalary = monthlySalary;
@@ -137,88 +152,101 @@ export class ContractorEmployeesService {
   }
 
   /**
-   * Allocate the next contractor employee code, e.g. SBS0001.
+   * Run `work` holding the per-client code lock, in one transaction.
    *
-   * The prefix is the contractor's initials; if another contractor in the same
-   * client already holds it, the last character advances through the final word
-   * (SBS -> SBE -> SBR). Once a contractor has any coded worker, that prefix is
-   * reused for the rest so all of one contractor's workers stay together.
-   *
-   * The sequence runs per (client, prefix). Since a prefix belongs to exactly
-   * one contractor within a client, that makes codes unique client-wide, which
-   * is what matters on a payslip.
-   *
-   * Serialised on an advisory lock because the index on
-   * (client_id, contractor_user_id, employee_code) is NOT unique — two
-   * concurrent creates, or a bulk upload racing itself, would otherwise both
-   * read the same MAX and hand out the same code with nothing to catch it.
-   *
-   * Returns null when the contractor's name yields no letters; the caller
-   * leaves the code unset rather than inventing a bare number.
+   * Codes are allocated by reading MAX, and the pre-existing index on
+   * (client_id, contractor_user_id, employee_code) is NOT unique, so nothing
+   * would reject a duplicate. The lock makes that read-then-write atomic — but
+   * only if the write happens inside it. pg_advisory_xact_lock releases at
+   * COMMIT, so allocating in one transaction and saving in another reopens
+   * exactly the race it was meant to close: a second writer takes the lock
+   * before the first row is visible and reads the same MAX.
    */
-  async allocateEmployeeCode(
+  async withCodeLock<T>(
+    clientId: string,
+    work: (em: EntityManager) => Promise<T>,
+  ): Promise<T> {
+    return this.dataSource.transaction(async (em) => {
+      // Locked per client, so allocation for one client never blocks another.
+      // pg_advisory_xact_lock releases at COMMIT — which is why the caller's
+      // insert must happen inside `work`, not after this returns.
+      await em.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+        `ce_code:${clientId}`,
+      ]);
+      return work(em);
+    });
+  }
+
+  /**
+   * Pick the next code. MUST run inside {@link withCodeLock}, on that
+   * transaction's EntityManager, and the row that uses the code must be written
+   * in the same transaction.
+   *
+   * Only generated prefixes are ever interpolated into the SQL regexes below.
+   * A reused prefix comes from an existing code, which may have been typed by
+   * hand and can hold anything the DTO allows — `A(001` would make the regex
+   * invalid, `A|B001` would match unrelated rows and blow up the ::int cast. So
+   * a reused prefix is accepted only if it looks like one we would have
+   * produced; anything else is ignored in favour of a fresh candidate.
+   */
+  private async nextEmployeeCode(
+    em: EntityManager,
     clientId: string,
     contractorUserId: string,
   ): Promise<string | null> {
-    const [contractor] = await this.dataSource.query(
+    const [contractor] = await em.query(
       `SELECT name FROM users WHERE id = $1 LIMIT 1`,
       [contractorUserId],
     );
     const candidates = contractorPrefixCandidates(contractor?.name ?? '');
     if (candidates.length === 0) return null;
 
-    return this.dataSource.transaction(async (em) => {
-      // Lock per client, so allocation for one client never blocks another.
-      await em.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
-        `ce_code:${clientId}`,
-      ]);
+    // Reuse whatever prefix this contractor is already on.
+    const [mine] = await em.query(
+      `SELECT employee_code AS code
+         FROM contractor_employees
+        WHERE client_id = $1 AND contractor_user_id = $2
+          AND employee_code IS NOT NULL
+        LIMIT 1`,
+      [clientId, contractorUserId],
+    );
 
-      // Reuse whatever prefix this contractor is already on.
-      const [mine] = await em.query(
-        `SELECT employee_code AS code
-           FROM contractor_employees
-          WHERE client_id = $1 AND contractor_user_id = $2
-            AND employee_code IS NOT NULL
-          LIMIT 1`,
-        [clientId, contractorUserId],
-      );
+    const derived = mine?.code
+      ? String(mine.code).replace(/[0-9]+$/, '')
+      : '';
+    let prefix = GENERATED_PREFIX.test(derived) ? derived : null;
 
-      let prefix = mine?.code
-        ? String(mine.code).replace(/[0-9]+$/, '')
-        : null;
-
-      if (!prefix) {
-        for (const candidate of candidates) {
-          const [taken] = await em.query(
-            `SELECT 1
-               FROM contractor_employees
-              WHERE client_id = $1 AND contractor_user_id <> $2
-                AND employee_code ~ ('^' || $3 || '[0-9]+$')
-              LIMIT 1`,
-            [clientId, contractorUserId, candidate],
-          );
-          if (!taken) {
-            prefix = candidate;
-            break;
-          }
+    if (!prefix) {
+      for (const candidate of candidates) {
+        const [taken] = await em.query(
+          `SELECT 1
+             FROM contractor_employees
+            WHERE client_id = $1 AND contractor_user_id <> $2
+              AND employee_code ~ ('^' || $3 || '[0-9]+$')
+            LIMIT 1`,
+          [clientId, contractorUserId, candidate],
+        );
+        if (!taken) {
+          prefix = candidate;
+          break;
         }
       }
-      // Every candidate is spoken for: fall back to the contractor's own
-      // initials. The sequence still keeps the full code unique, so this
-      // degrades readability rather than correctness.
-      if (!prefix) prefix = candidates[0];
+    }
+    // Every candidate is spoken for: fall back to the contractor's own
+    // initials. The sequence still keeps the full code unique, so this
+    // degrades readability rather than correctness.
+    if (!prefix) prefix = candidates[0];
 
-      const [next] = await em.query(
-        `SELECT COALESCE(
-                  MAX(substring(employee_code from ${'$2'} )::int), 0
-                ) + 1 AS seq
-           FROM contractor_employees
-          WHERE client_id = $1
-            AND employee_code ~ ('^' || $3 || '[0-9]+$')`,
-        [clientId, prefix.length + 1, prefix],
-      );
-      return formatContractorEmployeeCode(prefix, Number(next?.seq ?? 1));
-    });
+    const [next] = await em.query(
+      `SELECT COALESCE(
+                MAX(substring(employee_code from ${'$2'} )::int), 0
+              ) + 1 AS seq
+         FROM contractor_employees
+        WHERE client_id = $1
+          AND employee_code ~ ('^' || $3 || '[0-9]+$')`,
+      [clientId, prefix.length + 1, prefix],
+    );
+    return formatContractorEmployeeCode(prefix, Number(next?.seq ?? 1));
   }
 
   /**
@@ -260,23 +288,28 @@ export class ContractorEmployeesService {
     let coded = 0;
     let skippedNoName = 0;
     for (const row of rows) {
-      const code = await this.allocateEmployeeCode(
-        clientId,
-        row.contractor_user_id,
-      );
-      if (!code) {
-        // Contractor name has no usable letters. Leaving it NULL is correct —
-        // a bare number would be worse than no code.
-        skippedNoName += 1;
-        continue;
-      }
-      await this.dataSource.query(
-        `UPDATE contractor_employees
-            SET employee_code = $1, updated_at = now()
-          WHERE id = $2 AND employee_code IS NULL`,
-        [code, row.id],
-      );
-      coded += 1;
+      // Allocate and write in one locked transaction, exactly as a live create
+      // does — otherwise a backfill and a concurrent create can both read the
+      // same MAX and land on the same code.
+      const wrote = await this.withCodeLock(clientId, async (em) => {
+        const code = await this.nextEmployeeCode(
+          em,
+          clientId,
+          row.contractor_user_id,
+        );
+        if (!code) return false;
+        await em.query(
+          `UPDATE contractor_employees
+              SET employee_code = $1, updated_at = now()
+            WHERE id = $2 AND employee_code IS NULL`,
+          [code, row.id],
+        );
+        return true;
+      });
+      // No code means the contractor name has no usable letters. Leaving it
+      // NULL is correct — a bare number would be worse than no code.
+      if (wrote) coded += 1;
+      else skippedNoName += 1;
     }
 
     const [left] = await this.dataSource.query(
@@ -302,6 +335,9 @@ export class ContractorEmployeesService {
     if (!dto.name?.trim()) throw new BadRequestException('Name is required');
     await this.assertContractorBranch(clientId, branchId, contractorUserId);
     const prepared = this.prepare(dto);
+    // Captured here because the guard above narrows dto.name in this scope, but
+    // not inside the transaction closure below.
+    const trimmedName = dto.name.trim();
 
     // Item #4b: hard-validate against state+skill+schedule min wage.
     const scheduledEmployment = await this.resolveSchedule(contractorUserId);
@@ -312,23 +348,29 @@ export class ContractorEmployeesService {
       scheduledEmployment,
     });
 
-    // An explicitly supplied code wins — this only fills the gap that used to
-    // leave every contractor worker with a NULL code.
-    const employeeCode =
-      prepared.employeeCode?.trim() ||
-      (await this.allocateEmployeeCode(clientId, contractorUserId));
+    // Allocation and insert share one locked transaction. The advisory lock
+    // releases at COMMIT, so allocating in its own transaction and saving after
+    // would let a second writer read the same MAX before this row is visible
+    // and hand out the same code — which the index would not reject.
+    return this.withCodeLock(clientId, async (em) => {
+      // An explicitly supplied code wins; this only fills the gap that used to
+      // leave every contractor worker with a NULL code.
+      const employeeCode =
+        prepared.employeeCode ||
+        (await this.nextEmployeeCode(em, clientId, contractorUserId));
 
-    const emp = this.repo.create({
-      ...prepared,
-      clientId,
-      branchId,
-      contractorUserId,
-      name: dto.name.trim(),
-      employeeCode,
-      isActive: true,
-      status: prepared.status ?? 'ACTIVE',
+      const emp = em.create(ContractorEmployeeEntity, {
+        ...prepared,
+        clientId,
+        branchId,
+        contractorUserId,
+        name: trimmedName,
+        employeeCode,
+        isActive: true,
+        status: prepared.status ?? 'ACTIVE',
+      });
+      return em.save(emp);
     });
-    return this.repo.save(emp);
   }
 
   /**
@@ -413,25 +455,27 @@ export class ContractorEmployeesService {
           scheduledEmployment,
         });
 
-        // Allocated per row rather than in one block: the allocator takes a
-        // per-client lock and reads MAX each time, so a row that fails
-        // validation does not burn a number, and two uploads running at once
-        // cannot interleave onto the same code.
-        const employeeCode =
-          prepared.employeeCode?.trim() ||
-          (await this.allocateEmployeeCode(clientId, contractorUserId));
+        // One locked transaction per row: allocate and insert together, so the
+        // lock is still held when the row becomes visible. Per row rather than
+        // one block for the whole upload, so a row that fails validation does
+        // not burn a number and the lock is not held across the entire file.
+        const saved = await this.withCodeLock(clientId, async (em) => {
+          const employeeCode =
+            prepared.employeeCode ||
+            (await this.nextEmployeeCode(em, clientId, contractorUserId));
 
-        const emp = this.repo.create({
-          ...prepared,
-          clientId,
-          branchId,
-          contractorUserId,
-          name,
-          employeeCode,
-          isActive: true,
-          status: prepared.status ?? 'ACTIVE',
+          const emp = em.create(ContractorEmployeeEntity, {
+            ...prepared,
+            clientId,
+            branchId,
+            contractorUserId,
+            name,
+            employeeCode,
+            isActive: true,
+            status: prepared.status ?? 'ACTIVE',
+          });
+          return em.save(emp);
         });
-        const saved = await this.repo.save(emp);
         created++;
         results.push({
           index: i,
