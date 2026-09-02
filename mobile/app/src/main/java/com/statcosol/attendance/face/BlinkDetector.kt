@@ -17,8 +17,11 @@ package com.statcosol.attendance.face
  * call [reset] at the start of each capture session.
  */
 class BlinkDetector(
-    private val absThreshold: Double = 0.45,
-    private val dropDelta: Double = 0.30,
+    // Providers, not values: these are constructed as activity properties, long
+    // before server config arrives, so a captured Double would pin the detector
+    // to the build's defaults for the life of the screen.
+    private val absThreshold: () -> Double = { FaceKioskTuning.BLINK_ABS_THRESHOLD },
+    private val dropDelta: () -> Double = { FaceKioskTuning.BLINK_DROP_DELTA },
 ) {
     private var openBaseline = 0.0
 
@@ -29,7 +32,7 @@ class BlinkDetector(
         // The baseline tracks how "open" this person's eyes read while open, so
         // the drop test adapts to their lighting instead of assuming ~1.0.
         if (openness > openBaseline) openBaseline = openness
-        if (openness <= absThreshold || (openBaseline - openness) >= dropDelta) {
+        if (openness <= absThreshold() || (openBaseline - openness) >= dropDelta()) {
             blinked = true
         }
     }

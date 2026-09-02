@@ -17,6 +17,8 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
+  Min,
   ValidateNested,
 } from 'class-validator';
 
@@ -231,7 +233,58 @@ export class CreateEnrollTicketDto {
   subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
 }
 
+
+/**
+ * Per-client kiosk capture thresholds.
+ *
+ * Every field optional: set one and inherit the rest. Ranges are enforced here
+ * so a bad value is a 400 the operator can see, rather than silently ignored on
+ * read — resolveCaptureTuning still falls back defensively, but a typo should
+ * be reported, not swallowed. Bounds mirror RANGES in facedesk-capture-tuning.
+ */
+export class CaptureTuningDto {
+  @IsOptional() @IsNumber() @Min(0.05) @Max(0.6)
+  minFaceSizeAttendance?: number;
+
+  @IsOptional() @IsNumber() @Min(0.05) @Max(0.6)
+  minFaceSizeEnrollment?: number;
+
+  @IsOptional() @IsNumber() @Min(5) @Max(200)
+  minSharpnessAttendance?: number;
+
+  @IsOptional() @IsNumber() @Min(5) @Max(200)
+  minSharpnessEnrollment?: number;
+
+  @IsOptional() @IsNumber() @Min(1) @Max(200)
+  minLuminance?: number;
+
+  @IsOptional() @IsNumber() @Min(5) @Max(60)
+  maxPitchDeg?: number;
+
+  @IsOptional() @IsNumber() @Min(0.1) @Max(0.95)
+  blinkAbsThreshold?: number;
+
+  @IsOptional() @IsNumber() @Min(0.05) @Max(0.9)
+  blinkDropDelta?: number;
+
+  @IsOptional() @IsNumber() @Min(320) @Max(3840)
+  analysisWidth?: number;
+
+  @IsOptional() @IsNumber() @Min(240) @Max(2160)
+  analysisHeight?: number;
+}
+
 export class UpdateSettingsDto {
+  /**
+   * Capture thresholds for this client's kiosks. Without this the value could
+   * not be set at all: the global ValidationPipe runs forbidNonWhitelisted, so
+   * an undeclared property is a 400.
+   */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CaptureTuningDto)
+  captureTuning?: CaptureTuningDto;
+
   @IsOptional()
   @IsNumber()
   faceMatchConfidence?: number;

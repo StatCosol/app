@@ -1,4 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import {
+  FaceDeskCaptureTuning,
+  resolveCaptureTuning,
+} from './facedesk-capture-tuning';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FaceDeskSettingsEntity } from './entities/facedesk.entities';
@@ -21,6 +25,11 @@ export interface EffectiveFaceSettings {
   /** HH:MM (24h) for late/early reports; null → env default. */
   shiftStartTime: string | null;
   shiftEndTime: string | null;
+  /**
+   * Capture thresholds for the kiosk. The APK ships defaults profiled on one
+   * handset; this lets a client on different hardware override them.
+   */
+  captureTuning: FaceDeskCaptureTuning;
   // Calibrated cosine thresholds the matcher uses.
   acceptCosine: number;
   retryCosine: number;
@@ -126,6 +135,7 @@ export class FaceDeskSettingsService {
       identificationMode: 'PIN_THEN_FACE',
       shiftStartTime: row?.shiftStartTime ?? null,
       shiftEndTime: row?.shiftEndTime ?? null,
+      captureTuning: resolveCaptureTuning(row?.captureTuning),
       acceptCosine: this.percentToCosine(matchPct),
       retryCosine: this.percentToCosine(retryPct),
       duplicateCosine: this.percentToCosine(dupPct),

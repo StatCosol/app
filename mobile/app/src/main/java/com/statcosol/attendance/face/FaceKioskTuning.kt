@@ -1,6 +1,7 @@
 package com.statcosol.attendance.face
 
 import android.util.Size
+import com.statcosol.attendance.facedesk.FaceDeskCaptureTuning
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
@@ -16,32 +17,37 @@ import androidx.camera.core.resolutionselector.ResolutionStrategy
  */
 object FaceKioskTuning {
     /** 720p 16:9 — best balance of face crop size vs MT6835 throughput. */
-    val analysisResolution: ResolutionSelector = ResolutionSelector.Builder()
+    @Volatile @JvmStatic
+    var analysisResolution: ResolutionSelector = buildResolution(1280, 720)
+        private set
+
+    private fun buildResolution(width: Int, height: Int): ResolutionSelector =
+        ResolutionSelector.Builder()
         .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
         .setResolutionStrategy(
             ResolutionStrategy(
-                Size(1280, 720),
+                Size(width, height),
                 ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
             ),
         )
         .build()
 
     /** Face width / frame width. 0.12 ≈ 40–55 cm on a 720p kiosk screen. */
-    const val MIN_FACE_SIZE_ATTENDANCE = 0.12f
-    const val MIN_FACE_SIZE_ENROLLMENT = 0.13f
+    @Volatile @JvmStatic var MIN_FACE_SIZE_ATTENDANCE = 0.12f
+    @Volatile @JvmStatic var MIN_FACE_SIZE_ENROLLMENT = 0.13f
 
     /**
      * Budget front sensors run soft — slightly below flagship thresholds.
      * Enrollment is stricter than attendance punch.
      */
-    const val MIN_SHARPNESS_ATTENDANCE = 38f
-    const val MIN_SHARPNESS_ENROLLMENT = 42f
+    @Volatile @JvmStatic var MIN_SHARPNESS_ATTENDANCE = 38f
+    @Volatile @JvmStatic var MIN_SHARPNESS_ENROLLMENT = 42f
 
     /** No front flash — allow dimmer gate lighting (lux still blocks very dark). */
-    const val MIN_LUMINANCE = 20f
+    @Volatile @JvmStatic var MIN_LUMINANCE = 20f
 
     /** Front phase only; relaxed automatically during left/right turns. */
-    const val MAX_PITCH_DEG = 28f
+    @Volatile @JvmStatic var MAX_PITCH_DEG = 28f
 
     // ── Enrollment guided capture ────────────────────────────────────────────
     /** 6 good fronts + 3 per side = 12 angle frames (was 14 on faster hardware). */
@@ -80,7 +86,34 @@ object FaceKioskTuning {
 
     // ── Blink / liveness (dim kiosk lighting, no front flash) ───────────────
     /** Slightly higher floor — budget cams report low open-eye probs in dim light. */
-    const val BLINK_ABS_THRESHOLD = 0.50
+    @Volatile @JvmStatic var BLINK_ABS_THRESHOLD = 0.50
     /** Smaller drop catches blinks when baseline is already low (~0.6–0.7). */
-    const val BLINK_DROP_DELTA = 0.25
+    @Volatile @JvmStatic var BLINK_DROP_DELTA = 0.25
+
+    /**
+     * Override the built-in thresholds from server-supplied config.
+     *
+     * These defaults were profiled on one handset (SM-E076B) but ship in a
+     * universal APK, so on a different camera they are the wrong gates — too
+     * permissive on a better sensor, which lets weaker captures become enrolled
+     * embeddings. This is how a device gets values that match its hardware.
+     *
+     * Every field is optional and anything absent keeps the current value, so a
+     * server that sends nothing leaves the app exactly as it was built.
+     */
+    @JvmStatic
+    fun applyFrom(tuning: FaceDeskCaptureTuning?) {
+        if (tuning == null) return
+        tuning.minFaceSizeAttendance?.let { MIN_FACE_SIZE_ATTENDANCE = it }
+        tuning.minFaceSizeEnrollment?.let { MIN_FACE_SIZE_ENROLLMENT = it }
+        tuning.minSharpnessAttendance?.let { MIN_SHARPNESS_ATTENDANCE = it }
+        tuning.minSharpnessEnrollment?.let { MIN_SHARPNESS_ENROLLMENT = it }
+        tuning.minLuminance?.let { MIN_LUMINANCE = it }
+        tuning.maxPitchDeg?.let { MAX_PITCH_DEG = it }
+        tuning.blinkAbsThreshold?.let { BLINK_ABS_THRESHOLD = it }
+        tuning.blinkDropDelta?.let { BLINK_DROP_DELTA = it }
+        val w = tuning.analysisWidth
+        val h = tuning.analysisHeight
+        if (w != null && h != null) analysisResolution = buildResolution(w, h)
+    }
 }

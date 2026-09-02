@@ -67,10 +67,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     private lateinit var chrome: KioskChrome
 
     private val frames = mutableListOf<FaceFrame>()
-    private val blinkDetector = BlinkDetector(
-        FaceKioskTuning.BLINK_ABS_THRESHOLD,
-        FaceKioskTuning.BLINK_DROP_DELTA,
-    )
+    private val blinkDetector = BlinkDetector()
     private var lastFrameAtMs = 0L
     private val submitting = AtomicBoolean(false)
     private var paused = false
@@ -179,8 +176,8 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                 val session = FaceCaptureSession(
                     embedder = embedder,
                     detector = detector,
-                    minFaceSize = FaceKioskTuning.MIN_FACE_SIZE_ATTENDANCE,
-                    minSharpness = FaceKioskTuning.MIN_SHARPNESS_ATTENDANCE,
+                    minFaceSize = { FaceKioskTuning.MIN_FACE_SIZE_ATTENDANCE },
+                    minSharpness = { FaceKioskTuning.MIN_SHARPNESS_ATTENDANCE },
                     computeFullFrameProbe = false,
                     onFace = { faceProbe, _, metrics, photo ->
                         onFrame(faceProbe, metrics, photo)
@@ -560,6 +557,10 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val cfg = api.fetchConfig()
+                // Capture thresholds before branding: these gate what counts as
+                // a usable frame, and the built-in defaults were profiled on one
+                // handset. Absent config leaves this build's values untouched.
+                FaceKioskTuning.applyFrom(cfg.captureTuning)
                 runOnUiThread { chrome.bindBranding(cfg.branding) }
             } catch (e: Exception) {
                 Log.w(TAG, "branding fetch failed: ${e.message}")

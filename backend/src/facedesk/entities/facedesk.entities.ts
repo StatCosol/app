@@ -10,6 +10,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { FaceDeskCaptureTuning } from '../facedesk-capture-tuning';
 
 @Entity({ name: 'facedesk_kiosk_devices' })
 @Index(['clientId'])
@@ -555,6 +556,18 @@ export class FaceDeskSettingsEntity {
   /** Azure Large Face List id for this client (when AZURE_FACE_* is configured). */
   @Column({ name: 'azure_face_list_id', type: 'varchar', length: 64, nullable: true })
   azureFaceListId: string | null;
+
+  /**
+   * Per-client capture thresholds handed to the kiosk, overriding the app's
+   * built-in defaults. Those defaults were profiled on one handset and applied
+   * to every device; this is how a client on different hardware gets gates that
+   * match its cameras. Null means "use the app defaults".
+   *
+   * Partial objects are fine — set one value, inherit the rest. See
+   * facedesk-capture-tuning.ts for the shape and accepted ranges.
+   */
+  @Column({ name: 'capture_tuning', type: 'jsonb', nullable: true })
+  captureTuning: Partial<FaceDeskCaptureTuning> | null;
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
