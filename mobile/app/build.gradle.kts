@@ -106,7 +106,7 @@ dependencies {
     val cameraxVersion = "1.3.4"
     val azureFaceSdkEnabled =
         (findProperty("azureFaceSdkEnabled") as String?)?.toBoolean() ?: false
-    val azureFaceUiVersion = (findProperty("azureFaceUiVersion") as String?) ?: "1.5.1"
+    val azureFaceUiVersion = (findProperty("azureFaceUiVersion") as String?) ?: "1.5.0"
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
@@ -136,11 +136,19 @@ dependencies {
     // Azure AI Vision Face UI SDK — cloud-backed on-device liveness, intended to
     // replace KioskFaceDetector's naive eye-open/head-pose score.
     //
+    // PINNED TO 1.5.0, NOT the latest 1.5.1, because Microsoft's 1.5.1 is
+    // broken: mavenCentral carries azure-ai-vision-face-ui:1.5.1, whose POM
+    // requires azure-ai-vision-face-ui-assets:1.5.1 — but the gated feed only
+    // publishes assets through 1.5.0, so 1.5.1 cannot resolve for anybody. Read
+    // off the feed directly: assets 1.4.5 / 1.4.7 / 1.4.8 / 1.5.0 are present,
+    // 1.5.1 is a 404. The same mismatch is reported against their npm package.
+    // Revisit when assets 1.5.1+ ships; override with -PazureFaceUiVersion.
+    //
     // OFF by default: enabling it is not a one-line change, because the SDK
-    // brings four migrations with it (all read off the 1.5.1 POM, not assumed):
-    //   1. com.azure:azure-ai-vision-face-ui-assets:1.5.1 is a compile-scope
-    //      dependency that is NOT on mavenCentral — it needs the private feed
-    //      token wired in settings.gradle.kts. The main -ui artifact IS public.
+    // brings four migrations with it (all read off the POM, not assumed):
+    //   1. azure-ai-vision-face-ui-assets is a compile-scope dependency that is
+    //      NOT on mavenCentral — it needs the gated feed wired in
+    //      settings.gradle.kts. The main -ui artifact IS public.
     //   2. The SDK is built against Kotlin 2.x (kotlin-stdlib 2.2.10); this
     //      module is on Kotlin 1.9.24, so it needs a Kotlin bump first.
     //   3. FaceLivenessDetector is a @Composable and the POM pulls
