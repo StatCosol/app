@@ -653,6 +653,12 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
 
   loadAzureBackfillStatus(): void {
     if (!this.selectedClient || !this.hasFaceAttendanceService) return;
+    // This component is reused across clients/:id, so a slow response for one
+    // client can land after another has been selected. Pin the id we asked
+    // about and drop the answer if the selection moved on — otherwise client
+    // A's counts render on B's page and A's storedPhotoCandidates decides
+    // whether B's sync buttons are enabled.
+    const requestedClientId = this.selectedClient.id;
     this.loadingAzureBackfill = true;
     this.azureBackfillError = '';
     this.service.getAzureFaceBackfillStatus(this.selectedClient.id).pipe(
@@ -664,10 +670,12 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       }),
     ).subscribe({
       next: (status) => {
+        if (this.selectedClient?.id !== requestedClientId) return;
         this.azureBackfillStatus = status;
         this.cdr.detectChanges();
       },
       error: (err) => {
+        if (this.selectedClient?.id !== requestedClientId) return;
         this.azureBackfillError = err.error?.message || 'Unable to load Azure Face status';
       },
     });
@@ -695,6 +703,13 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   }
 
   private startAzureBackfill(limit: number, continueUntilDone: boolean): void {
+    // Capture the client the admin actually confirmed. Re-reading
+    // selectedClient on each batch would let a mid-run navigation send the
+    // NEXT batch to a different client — registering faces nobody confirmed,
+    // and against a cursor belonging to the first client, which silently skips
+    // an arbitrary slice of the second one.
+    const runClientId = this.selectedClient?.id;
+    if (!runClientId) return;
     this.syncingAzureBackfill = true;
     this.azureBackfillError = '';
     this.azureBackfillResult = {
@@ -707,18 +722,24 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       done: false,
       errors: [],
     };
-    this.runAzureBackfillBatch(undefined, limit, continueUntilDone, 0);
+    this.runAzureBackfillBatch(runClientId, undefined, limit, continueUntilDone, 0);
   }
 
   private runAzureBackfillBatch(
+    clientId: string,
     cursor: string | undefined,
     limit: number,
     continueUntilDone: boolean,
     batchCount: number,
   ): void {
-    const clientId = this.selectedClient?.id;
-    if (!clientId) {
+    // Stop rather than keep writing to a client the admin is no longer
+    // looking at. The run is cursor-based and resumable, so abandoning it
+    // here costs nothing but a restart.
+    if (this.selectedClient?.id !== clientId) {
       this.syncingAzureBackfill = false;
+      this.azureBackfillError =
+        'Sync stopped because the selected client changed. Re-run it from the client you want to sync.';
+      this.cdr.detectChanges();
       return;
     }
     if (batchCount >= 100) {
@@ -727,8 +748,13 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Deliberately NOT wrapped in timeout(): this is a mutation, and giving up
+    // on the response does not stop the server. A batch that is merely slow
+    // (S3 or Azure latency on 25 records) would surface as a failure, invite a
+    // retry, and let two runs select the same unlinked profiles — creating two
+    // Azure faces where only one id can be stored. The controls stay disabled
+    // until the server actually answers.
     this.service.backfillAzureFaces(clientId, { cursor, limit }).pipe(
-      timeout(30000),
       takeUntil(this.destroy$),
     ).subscribe({
       next: (result) => {
@@ -744,7 +770,13 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
 
         if (continueUntilDone && !result.done && result.nextCursor) {
-          this.runAzureBackfillBatch(result.nextCursor, limit, true, batchCount + 1);
+          this.runAzureBackfillBatch(
+            clientId,
+            result.nextCursor,
+            limit,
+            true,
+            batchCount + 1,
+          );
           return;
         }
         this.syncingAzureBackfill = false;

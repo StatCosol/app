@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { ContractorBiometricPunchEntity } from '../mobile-attendance/punch/contractor-punch.entity';
 import { FacePhotoStorageService } from '../mobile-attendance/face/face-photo-storage.service';
 import { BiometricService } from '../biometric/biometric.service';
@@ -1100,11 +1100,27 @@ export class FaceDeskAdminService {
           profile.employeeId,
           photo.buffer.toString('base64'),
         );
-        await this.profileRepo.update(
-          { profileId: profile.profileId },
+        // Claim the profile ONLY if it is still unlinked. Two overlapping
+        // runs — a client that retried while its predecessor was still
+        // working, or two admins at once — can both select the same
+        // NULL-linked profile and both add a face to Azure. Last-write-wins
+        // would then strand the other face in the list with nothing recording
+        // its id: exactly the untracked-biometric problem the deletion path
+        // guards against. Losing the race means undoing our own add.
+        const linked = await this.profileRepo.update(
+          { profileId: profile.profileId, azurePersistedFaceId: IsNull() },
           { azurePersistedFaceId: persistedFaceId },
         );
-        registered += 1;
+        if (linked.affected) {
+          registered += 1;
+        } else {
+          await this.azureFace
+            .removeEnrollmentFace(clientId, persistedFaceId)
+            .catch(() => false);
+          this.logger.warn(
+            `Azure backfill raced on profile ${profile.profileId}; removed the duplicate face it had just added`,
+          );
+        }
       } catch (err) {
         // Left with azurePersistedFaceId NULL, so a later run retries it.
         failed += 1;
