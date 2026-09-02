@@ -9,6 +9,25 @@ export interface AzureSimilarFace {
   confidence: number;
   userData?: string;
 }
+/** What a created liveness session hands back. Only these two ever reach a device. */
+export interface AzureLivenessSession {
+  sessionId: string;
+  authToken: string;
+}
+
+export interface AzureLivenessAttempt {
+  attemptStatus: string;
+  livenessDecision?: string;
+  sessionImageId?: string;
+  errorCode?: string;
+}
+
+export interface AzureLivenessSessionResult {
+  sessionId: string;
+  status: string;
+  attempts: AzureLivenessAttempt[];
+}
+
 
 /**
  * Thin REST client for Azure AI Face (Large Face List).
@@ -70,6 +89,21 @@ export class AzureFaceClient {
 
   private url(path: string): string {
     return `${this.endpoint}/face/${this.apiVersion}${path}`;
+  }
+
+  /**
+   * Liveness sessions live on v1.2 — the Large Face List calls above are v1.0,
+   * so they cannot share a base path. Overridable for when v1.3 goes GA.
+   *
+   * Note the shape: the session result is a GET on the session itself.
+   * Microsoft's C#/Java/Python samples show /livenessSessions/{id}/result,
+   * which 404s against a real resource; only this form answers 200.
+   */
+  private readonly livenessApiVersion =
+    process.env.AZURE_FACE_LIVENESS_API_VERSION?.trim() || 'v1.2';
+
+  private livenessUrl(): string {
+    return `${this.endpoint}/face/${this.livenessApiVersion}/detectLiveness-sessions`;
   }
 
   private headers(json = false): Record<string, string> {
@@ -229,4 +263,91 @@ export class AzureFaceClient {
     }
     return true;
   }
+
+  /**
+   * Create an on-device liveness session.
+   *
+   * The device runs Azure's Vision SDK against the returned authToken; the
+   * account key never leaves the server. Liveness needs only credentials — it
+   * is NOT gated on `identificationEnabled`, which covers 1:N search.
+   */
+  async createLivenessSession(opts: {
+    deviceCorrelationId: string;
+    livenessOperationMode?: string;
+    enableSessionImage?: boolean;
+  }): Promise<AzureLivenessSession> {
+    const resp = await fetch(this.livenessUrl(), {
+      method: 'POST',
+      headers: this.headers(true),
+      body: JSON.stringify({
+        livenessOperationMode: opts.livenessOperationMode ?? 'Passive',
+        deviceCorrelationId: opts.deviceCorrelationId,
+        enableSessionImage: opts.enableSessionImage ?? true,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => '');
+      throw new Error(
+        `Azure Face createLivenessSession ${resp.status}: ${body.slice(0, 200)}`,
+      );
+    }
+    const data = (await resp.json()) as Partial<AzureLivenessSession>;
+    if (!data.sessionId || !data.authToken) {
+      throw new Error('Azure Face createLivenessSession: incomplete session');
+    }
+    return { sessionId: data.sessionId, authToken: data.authToken };
+  }
+
+  /**
+   * Read a session's verdict. The device never sees this — per Azure's flow the
+   * SDK only reports that it finished, and the decision is read server-side.
+   */
+  async getLivenessSessionResult(
+    sessionId: string,
+  ): Promise<AzureLivenessSessionResult> {
+    const resp = await fetch(`${this.livenessUrl()}/${sessionId}`, {
+      headers: this.headers(),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => '');
+      throw new Error(
+        `Azure Face getLivenessSessionResult ${resp.status}: ${body.slice(0, 200)}`,
+      );
+    }
+    const data = (await resp.json()) as {
+      sessionId?: string;
+      status?: string;
+      results?: { attempts?: Array<Record<string, any>> };
+    };
+    return {
+      sessionId: data.sessionId ?? sessionId,
+      status: data.status ?? 'Unknown',
+      attempts: (data.results?.attempts ?? []).map((a) => ({
+        attemptStatus: String(a.attemptStatus ?? 'Unknown'),
+        livenessDecision: a.result?.livenessDecision,
+        sessionImageId: a.result?.sessionImageId,
+        errorCode: a.error?.code,
+      })),
+    };
+  }
+
+  /** Sessions are cheap but not free to leave lying around; delete once read. */
+  async deleteLivenessSession(sessionId: string): Promise<boolean> {
+    const resp = await fetch(`${this.livenessUrl()}/${sessionId}`, {
+      method: 'DELETE',
+      headers: this.headers(),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!resp.ok && resp.status !== 404) {
+      const body = await resp.text().catch(() => '');
+      this.logger.warn(
+        `Azure Face deleteLivenessSession ${resp.status}: ${body.slice(0, 120)}`,
+      );
+      return false;
+    }
+    return true;
+  }
+
 }

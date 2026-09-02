@@ -18,6 +18,7 @@ import {
 } from './facedesk-device.service';
 import { FaceDeskAttendanceService } from './facedesk-attendance.service';
 import { FaceDeskEnrollmentService } from './facedesk-enrollment.service';
+import { FaceDeskAzureFaceService } from './facedesk-azure-face.service';
 import { FaceDeskSettingsService } from './facedesk-settings.service';
 import { FaceDeskTicketService } from './facedesk-ticket.service';
 import {
@@ -42,6 +43,7 @@ export class FaceDeskDeviceController {
     private readonly enrollment: FaceDeskEnrollmentService,
     private readonly tickets: FaceDeskTicketService,
     private readonly settings: FaceDeskSettingsService,
+    private readonly azureFace: FaceDeskAzureFaceService,
   ) {}
 
   private ctx(req: Request): FaceDeskDeviceContext {
@@ -204,4 +206,20 @@ export class FaceDeskDeviceController {
     const d = this.ctx(req);
     return this.tickets.abandon(ticketId, d.deviceId);
   }
+
+  @ApiOperation({ summary: 'Device — create an Azure liveness session' })
+  @Public()
+  @UseGuards(FaceDeskDeviceAuthGuard)
+  @Post('liveness/session')
+  async livenessSession(@Req() req: Request) {
+    const d = this.ctx(req);
+    // Returns ONLY the sessionId and a short-lived authToken. The Face account
+    // key never leaves the server — that is the reason this endpoint exists
+    // rather than the APK holding credentials. The verdict is deliberately not
+    // returned here either: the device reports that the check finished, and the
+    // decision is read server-side, so a kiosk cannot assert its own liveness.
+    const session = await this.azureFace.createDeviceLivenessSession(d.deviceId);
+    return { sessionId: session.sessionId, authToken: session.authToken };
+  }
+
 }
