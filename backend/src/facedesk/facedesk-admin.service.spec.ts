@@ -824,6 +824,52 @@ describe('FaceDeskAdminService Azure face list backfill', () => {
   });
 });
 
+describe('FaceDeskAdminService Azure face list backfill status', () => {
+  it('returns normalized aggregate-only status for the admin portal', async () => {
+    const profileQuery = jest
+      .fn()
+      .mockResolvedValueOnce([{ exists: 1 }])
+      .mockResolvedValueOnce([
+        {
+          enrolled: 14,
+          linked: 3,
+          pending: 11,
+          storedPhotoCandidates: 9,
+          recaptureNeeded: 2,
+        },
+      ]);
+    const auditQuery = jest.fn().mockResolvedValue([{ count: 1 }]);
+    const service = new FaceDeskAdminService(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      { manager: { query: profileQuery } } as any,
+      {} as any,
+      {} as any,
+      { manager: { query: auditQuery } } as any,
+      {} as any,
+      {} as any,
+      { enabled: true } as any,
+    );
+
+    await expect(
+      service.getAzureFaceBackfillStatus(
+        '51936d06-168f-47d2-a12b-33e9306987e2',
+      ),
+    ).resolves.toEqual({
+      azureEnabled: true,
+      enrolled: 14,
+      linked: 3,
+      pending: 11,
+      storedPhotoCandidates: 9,
+      recaptureNeeded: 2,
+      orphanAuditCount: 1,
+      complete: false,
+    });
+  });
+});
+
 describe('FaceDeskAdminService Azure backfill rate + training safety', () => {
   it('ensures the face list once per batch, not once per profile', async () => {
     // ensureLargeFaceList is an unconditional Azure PUT. Doing it per profile

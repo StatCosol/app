@@ -119,6 +119,28 @@ export interface BranchUserLink {
   createdAt: string;
 }
 
+export interface AzureFaceBackfillStatus {
+  azureEnabled: boolean;
+  enrolled: number;
+  linked: number;
+  pending: number;
+  storedPhotoCandidates: number;
+  recaptureNeeded: number;
+  orphanAuditCount: number;
+  complete: boolean;
+}
+
+export interface AzureFaceBackfillResult {
+  scanned: number;
+  registered: number;
+  skippedNoPhoto: number;
+  failed: number;
+  trained: boolean | null;
+  nextCursor: string | null;
+  done: boolean;
+  errors: string[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminClientsService {
   private http = inject(HttpClient);
@@ -164,6 +186,22 @@ export class AdminClientsService {
 
   getReadinessCheck(clientId: string): Observable<any> {
     return this.http.get(`${this.apiUrl}/clients/${clientId}/readiness`);
+  }
+
+  getAzureFaceBackfillStatus(clientId: string): Observable<AzureFaceBackfillStatus> {
+    return this.http.get<AzureFaceBackfillStatus>(
+      `${environment.apiBaseUrl}/api/v1/facedesk/platform-admin/clients/${clientId}/azure/backfill/status`,
+    );
+  }
+
+  backfillAzureFaces(
+    clientId: string,
+    payload: { cursor?: string; limit: number },
+  ): Observable<AzureFaceBackfillResult> {
+    return this.http.post<AzureFaceBackfillResult>(
+      `${environment.apiBaseUrl}/api/v1/facedesk/platform-admin/clients/${clientId}/azure/backfill`,
+      payload,
+    );
   }
 
   // Branch contractor APIs

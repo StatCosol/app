@@ -29,6 +29,17 @@ import {
 /** Worked minutes that count as a full day; short days need branch approval. */
 const FULL_DAY_MINUTES = Number(process.env.FD_FULL_DAY_MINUTES ?? 540); // 9h
 
+export interface AzureFaceBackfillStatus {
+  azureEnabled: boolean;
+  enrolled: number;
+  linked: number;
+  pending: number;
+  storedPhotoCandidates: number;
+  recaptureNeeded: number;
+  orphanAuditCount: number;
+  complete: boolean;
+}
+
 @Injectable()
 export class FaceDeskAdminService {
   constructor(
@@ -54,6 +65,80 @@ export class FaceDeskAdminService {
   ) {}
 
   private readonly logger = new Logger(FaceDeskAdminService.name);
+
+  async assertAzureBackfillClient(clientId: string): Promise<void> {
+    const rows = await this.profileRepo.manager.query(
+      `SELECT 1 FROM clients WHERE id = $1::uuid AND is_deleted = FALSE LIMIT 1`,
+      [clientId],
+    );
+    if (!rows.length) throw new NotFoundException('Client not found');
+  }
+
+  async getAzureFaceBackfillStatus(
+    clientId: string,
+  ): Promise<AzureFaceBackfillStatus> {
+    await this.assertAzureBackfillClient(clientId);
+    const [counts] = await this.profileRepo.manager.query(
+      `WITH enrolled AS (
+         SELECT p.profile_id,
+                p.azure_persisted_face_id,
+                sample.image_path AS "imagePath"
+           FROM facedesk_employee_face_profiles p
+           LEFT JOIN LATERAL (
+             SELECT s.image_path
+               FROM facedesk_employee_face_samples s
+              WHERE s.profile_id = p.profile_id
+                AND s.image_path IS NOT NULL
+              ORDER BY s.quality_score DESC NULLS LAST
+              LIMIT 1
+           ) sample ON TRUE
+          WHERE p.client_id = $1::uuid
+            AND p.enrollment_status = 'ENROLLED'
+       )
+       SELECT COUNT(*)::int AS enrolled,
+              COUNT(*) FILTER (
+                WHERE azure_persisted_face_id IS NOT NULL
+              )::int AS linked,
+              COUNT(*) FILTER (
+                WHERE azure_persisted_face_id IS NULL
+              )::int AS pending,
+              COUNT(*) FILTER (
+                WHERE azure_persisted_face_id IS NULL
+                  AND ("imagePath" LIKE '/uploads/face-photos/%'
+                       OR "imagePath" LIKE 's3://%')
+              )::int AS "storedPhotoCandidates",
+              COUNT(*) FILTER (
+                WHERE azure_persisted_face_id IS NULL
+                  AND ("imagePath" IS NULL
+                       OR ("imagePath" NOT LIKE '/uploads/face-photos/%'
+                           AND "imagePath" NOT LIKE 's3://%'))
+              )::int AS "recaptureNeeded"
+         FROM enrolled`,
+      [clientId],
+    );
+    const [orphans] = await this.auditRepo.manager.query(
+      `SELECT COUNT(*)::int AS count
+         FROM facedesk_audit_logs
+        WHERE client_id = $1::uuid
+          AND action = 'ENROLLMENT_DELETED'
+          AND detail ? 'azureOrphanFaceId'`,
+      [clientId],
+    );
+
+    const enrolled = Number(counts?.enrolled ?? 0);
+    const linked = Number(counts?.linked ?? 0);
+    const pending = Number(counts?.pending ?? 0);
+    return {
+      azureEnabled: this.azureFace.enabled,
+      enrolled,
+      linked,
+      pending,
+      storedPhotoCandidates: Number(counts?.storedPhotoCandidates ?? 0),
+      recaptureNeeded: Number(counts?.recaptureNeeded ?? 0),
+      orphanAuditCount: Number(orphans?.count ?? 0),
+      complete: pending === 0,
+    };
+  }
 
   /**
    * On HR approval of a flagged EMPLOYEE punch, reflect it into the biometric /

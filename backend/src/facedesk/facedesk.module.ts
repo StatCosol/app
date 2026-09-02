@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BiometricModule } from '../biometric/biometric.module';
+import { ServiceEntitlementsModule } from '../service-entitlements/service-entitlements.module';
 import { FaceEmbeddingClient } from '../mobile-attendance/face/face-embedding.client';
 import { FacePhotoStorageService } from '../mobile-attendance/face/face-photo-storage.service';
 import { ContractorBiometricPunchEntity } from '../mobile-attendance/punch/contractor-punch.entity';
@@ -22,6 +23,7 @@ import {
 import { FaceDeskEnrollmentController } from './facedesk-enrollment.controller';
 import { FaceDeskAttendancePortalController } from './facedesk-attendance-portal.controller';
 import { FaceDeskAdminController } from './facedesk-admin.controller';
+import { FaceDeskPlatformAdminController } from './facedesk-platform-admin.controller';
 import { FaceDeskDevicesAdminController } from './facedesk-devices-admin.controller';
 import { FaceDeskReportsController } from './facedesk-reports.controller';
 import { FaceDeskDeviceController } from './facedesk-device.controller';
@@ -72,11 +74,13 @@ import { FaceDeskAzureFaceService } from './facedesk-azure-face.service';
       ContractorBiometricPunchEntity,
     ]),
     BiometricModule,
+    ServiceEntitlementsModule,
   ],
   controllers: [
     FaceDeskEnrollmentController,
     FaceDeskAttendancePortalController,
     FaceDeskAdminController,
+    FaceDeskPlatformAdminController,
     FaceDeskDevicesAdminController,
     FaceDeskReportsController,
     FaceDeskDeviceController,
