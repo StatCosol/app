@@ -240,7 +240,32 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
      * unskilled staff enter a single short code. The dialog is non-cancelable
      * so the kiosk always has a claimed PIN before the camera is used.
      */
+    /**
+     * FACE_ONLY identifies 1:N from the face alone, so there is no PIN to ask
+     * for. Read from persisted config rather than the live fetch, which has not
+     * necessarily completed by the time the keypad would be shown.
+     */
+    /**
+     * Whether the kiosk may capture. PIN_THEN_FACE waits for the PIN that
+     * claims an identity; FACE_ONLY has no claim to wait for, because the face
+     * IS the claim.
+     */
+    private fun readyToCapture(): Boolean = isFaceOnly() || enteredPin != null
+
+    private fun isFaceOnly(): Boolean =
+        config.faceDeskIdentificationMode == "FACE_ONLY"
+
     private fun promptPinEntry() {
+        if (isFaceOnly()) {
+            // No credential to collect: leave the camera running so the next
+            // worker simply steps up. paused stays false, so capture continues.
+            pinDialog?.dismiss()
+            pinDialog = null
+            enteredCode = null
+            enteredPin = null
+            paused = false
+            return
+        }
         pinDialog?.dismiss()
         pinDialog = null
         paused = true
@@ -329,8 +354,9 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
 
     private fun onFrame(probe: FloatArray, metrics: com.statcosol.attendance.face.FaceMetrics, photo: String?) {
         if (paused || submitting.get() || enrollmentHold) return
-        // Never capture until the worker has entered their PIN.
-        if (enteredPin == null) return
+        // Never capture until the worker has claimed an identity — the PIN in
+        // PIN_THEN_FACE, and nothing at all in FACE_ONLY.
+        if (!readyToCapture()) return
 
         // A long gap between accepted frames means the previous person walked
         // away mid-capture — drop their frames so batches never mix people.
@@ -377,7 +403,8 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     }
 
     private fun refreshAttendanceOverlay() {
-        val capturing = enteredPin != null && !paused && !submitting.get() && !enrollmentHold
+        val capturing =
+            readyToCapture() && !paused && !submitting.get() && !enrollmentHold
         val phase = when {
             !capturing -> ScanPhase.IDLE
             blinkDetector.blinked -> ScanPhase.BLINK
@@ -561,6 +588,9 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                 // a usable frame, and the built-in defaults were profiled on one
                 // handset. Absent config leaves this build's values untouched.
                 FaceKioskTuning.applyFrom(cfg.captureTuning)
+                // Persisted: the PIN keypad is raised in onResume, before this
+                // fetch can finish, so the mode has to be known without it.
+                cfg.identificationMode?.let { config.faceDeskIdentificationMode = it }
                 runOnUiThread { chrome.bindBranding(cfg.branding) }
             } catch (e: Exception) {
                 Log.w(TAG, "branding fetch failed: ${e.message}")

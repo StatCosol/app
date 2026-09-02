@@ -134,16 +134,34 @@ export class FaceDeskAttendanceService {
     const probe = averageEmbeddings(best3.map((f) => f.embedding));
     const probeModel = normalizeEmbeddingModel(best3[0]?.model ?? null);
 
-    // FACE_ONLY drops the PIN and identifies 1:N, which only Azure can answer
-    // safely — see FaceDeskFaceOnlyAttendanceService for why the on-device
-    // matcher is never used for it. Per client; everyone else is unchanged.
-    if (eff.identificationMode === 'FACE_ONLY') {
+    // BIOMETRIC_ONLY: this client punches on eSSL fingerprint readers, which
+    // ingest through BiometricService on their own path. A face punch arriving
+    // here means a kiosk is pointed at a client that does not use one, so
+    // refuse it rather than quietly recording attendance by a method the
+    // client has switched off.
+    if (eff.identificationMode === 'BIOMETRIC_ONLY') {
+      return {
+        status: 'REJECTED',
+        message: 'This site records attendance on the biometric device',
+      };
+    }
+
+    // FACE_ONLY and FACE_THEN_BIOMETRIC both identify 1:N from the face, which
+    // only Azure can answer safely — see FaceDeskFaceOnlyAttendanceService for
+    // why the on-device matcher is never used for it. The difference is that
+    // FACE_THEN_BIOMETRIC additionally wants a fingerprint punch to corroborate,
+    // and flags the punch when none is found.
+    if (
+      eff.identificationMode === 'FACE_ONLY' ||
+      eff.identificationMode === 'FACE_THEN_BIOMETRIC'
+    ) {
       return this.faceOnlyAttendanceService.markByFace(
         clientId,
         branchId,
         deviceId,
         dto,
         best3,
+        eff.identificationMode === 'FACE_THEN_BIOMETRIC',
       );
     }
 

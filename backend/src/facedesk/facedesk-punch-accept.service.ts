@@ -67,7 +67,12 @@ export class FaceDeskPunchAcceptService {
     best3: ResolvedFrame[],
     confidencePercent: number,
     flagForReview = false,
-    reviewIssue: 'FACE_MISMATCH' | 'LOW_CONFIDENCE' = 'FACE_MISMATCH',
+    reviewIssue:
+      | 'FACE_MISMATCH'
+      | 'LOW_CONFIDENCE'
+      // FACE_THEN_BIOMETRIC: the face identified, but no fingerprint punch
+      // corroborated it inside the window.
+      | 'BIOMETRIC_MISSING' = 'FACE_MISMATCH',
     reviewRemarkOverride?: string,
   ): Promise<MarkResult> {
     const punchTime = dto.punchTime ? new Date(dto.punchTime) : new Date();
