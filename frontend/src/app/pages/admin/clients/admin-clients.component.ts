@@ -5,7 +5,7 @@ import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize, timeout, catchError } from 'rxjs/operators';
 import { of, Subscription, Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
-import { AdminClientsService, Client, Branch, BranchComplianceApplicability, ClientUserLink, ClientUserOption, BranchContractorLink, BranchUserLink, ContractorOption } from './admin-clients.service';
+import { AdminClientsService, Client, Branch, BranchComplianceApplicability, ClientUserLink, ClientUserOption, BranchContractorLink, BranchUserLink, ContractorOption, AzureFaceBackfillResult, AzureFaceBackfillStatus } from './admin-clients.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { AuthService } from '../../../core/auth.service';
 import { ServiceEntitlementsApiService, ServiceModuleOption } from '../../../core/service-entitlements.service';
@@ -153,6 +153,11 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   savingClient = false;
   loadingReadiness = false;
   readinessResult: any = null;
+  azureBackfillStatus: AzureFaceBackfillStatus | null = null;
+  azureBackfillResult: AzureFaceBackfillResult | null = null;
+  loadingAzureBackfill = false;
+  syncingAzureBackfill = false;
+  azureBackfillError = '';
 
   // Master user edit state
   editingMasterUser: { userId: string; name: string; email: string; mobile: string } | null = null;
@@ -618,8 +623,169 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         this.activeTab = tab || 'branches';
         this.loadBranches();
         this.loadClientUsers(client.id);
+        this.loadSelectedClientServices(client.id);
       },
       error: () => {
+      },
+    });
+  }
+
+  private loadSelectedClientServices(clientId: string): void {
+    this.entitlementsApi.getClientStatus(clientId).pipe(
+      timeout(10000),
+      takeUntil(this.destroy$),
+    ).subscribe({
+      next: (status) => {
+        if (!this.selectedClient || this.selectedClient.id !== clientId) return;
+        this.selectedClient = {
+          ...this.selectedClient,
+          servicePackage: status.packageCode,
+          enabledModules: status.enabledModules,
+        };
+        if (this.hasFaceAttendanceService) this.loadAzureBackfillStatus();
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.azureBackfillStatus = null;
+      },
+    });
+  }
+
+  loadAzureBackfillStatus(): void {
+    if (!this.selectedClient || !this.hasFaceAttendanceService) return;
+    // This component is reused across clients/:id, so a slow response for one
+    // client can land after another has been selected. Pin the id we asked
+    // about and drop the answer if the selection moved on — otherwise client
+    // A's counts render on B's page and A's storedPhotoCandidates decides
+    // whether B's sync buttons are enabled.
+    const requestedClientId = this.selectedClient.id;
+    this.loadingAzureBackfill = true;
+    this.azureBackfillError = '';
+    this.service.getAzureFaceBackfillStatus(this.selectedClient.id).pipe(
+      timeout(10000),
+      takeUntil(this.destroy$),
+      finalize(() => {
+        this.loadingAzureBackfill = false;
+        this.cdr.detectChanges();
+      }),
+    ).subscribe({
+      next: (status) => {
+        if (this.selectedClient?.id !== requestedClientId) return;
+        this.azureBackfillStatus = status;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        if (this.selectedClient?.id !== requestedClientId) return;
+        this.azureBackfillError = err.error?.message || 'Unable to load Azure Face status';
+      },
+    });
+  }
+
+  async runAzureBackfillCanary(): Promise<void> {
+    if (!this.selectedClient || this.syncingAzureBackfill) return;
+    const confirmed = await this.dialog.confirm(
+      'Run Azure Face Test',
+      `Register one stored face for ${this.selectedClient.clientName} and train its Azure face list?`,
+      { confirmText: 'Run Test' },
+    );
+    if (confirmed) this.startAzureBackfill(1, false);
+  }
+
+  async runAzureBackfillAll(): Promise<void> {
+    if (!this.selectedClient || this.syncingAzureBackfill) return;
+    const pending = this.azureBackfillStatus?.pending ?? 0;
+    const confirmed = await this.dialog.confirm(
+      'Sync Azure Faces',
+      `Register up to ${pending} pending face${pending === 1 ? '' : 's'} for ${this.selectedClient.clientName}? The operation runs in paced batches.`,
+      { confirmText: 'Start Sync' },
+    );
+    if (confirmed) this.startAzureBackfill(25, true);
+  }
+
+  private startAzureBackfill(limit: number, continueUntilDone: boolean): void {
+    // Capture the client the admin actually confirmed. Re-reading
+    // selectedClient on each batch would let a mid-run navigation send the
+    // NEXT batch to a different client — registering faces nobody confirmed,
+    // and against a cursor belonging to the first client, which silently skips
+    // an arbitrary slice of the second one.
+    const runClientId = this.selectedClient?.id;
+    if (!runClientId) return;
+    this.syncingAzureBackfill = true;
+    this.azureBackfillError = '';
+    this.azureBackfillResult = {
+      scanned: 0,
+      registered: 0,
+      skippedNoPhoto: 0,
+      failed: 0,
+      trained: null,
+      nextCursor: null,
+      done: false,
+      errors: [],
+    };
+    this.runAzureBackfillBatch(runClientId, undefined, limit, continueUntilDone, 0);
+  }
+
+  private runAzureBackfillBatch(
+    clientId: string,
+    cursor: string | undefined,
+    limit: number,
+    continueUntilDone: boolean,
+    batchCount: number,
+  ): void {
+    // Stop rather than keep writing to a client the admin is no longer
+    // looking at. The run is cursor-based and resumable, so abandoning it
+    // here costs nothing but a restart.
+    if (this.selectedClient?.id !== clientId) {
+      this.syncingAzureBackfill = false;
+      this.azureBackfillError =
+        'Sync stopped because the selected client changed. Re-run it from the client you want to sync.';
+      this.cdr.detectChanges();
+      return;
+    }
+    if (batchCount >= 100) {
+      this.syncingAzureBackfill = false;
+      this.azureBackfillError = 'Sync paused after 100 batches. Refresh status before continuing.';
+      return;
+    }
+
+    // Deliberately NOT wrapped in timeout(): this is a mutation, and giving up
+    // on the response does not stop the server. A batch that is merely slow
+    // (S3 or Azure latency on 25 records) would surface as a failure, invite a
+    // retry, and let two runs select the same unlinked profiles — creating two
+    // Azure faces where only one id can be stored. The controls stay disabled
+    // until the server actually answers.
+    this.service.backfillAzureFaces(clientId, { cursor, limit }).pipe(
+      takeUntil(this.destroy$),
+    ).subscribe({
+      next: (result) => {
+        const previous = this.azureBackfillResult!;
+        this.azureBackfillResult = {
+          ...result,
+          scanned: previous.scanned + result.scanned,
+          registered: previous.registered + result.registered,
+          skippedNoPhoto: previous.skippedNoPhoto + result.skippedNoPhoto,
+          failed: previous.failed + result.failed,
+          errors: [...previous.errors, ...result.errors].slice(0, 5),
+        };
+        this.cdr.detectChanges();
+
+        if (continueUntilDone && !result.done && result.nextCursor) {
+          this.runAzureBackfillBatch(
+            clientId,
+            result.nextCursor,
+            limit,
+            true,
+            batchCount + 1,
+          );
+          return;
+        }
+        this.syncingAzureBackfill = false;
+        this.loadAzureBackfillStatus();
+      },
+      error: (err) => {
+        this.syncingAzureBackfill = false;
+        this.azureBackfillError = err.error?.message || 'Azure Face sync failed';
+        this.loadAzureBackfillStatus();
       },
     });
   }
@@ -1114,6 +1280,11 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     }
   }
 
+  get hasFaceAttendanceService(): boolean {
+    return this.selectedClient?.servicePackage === 'FULL_SERVICE' ||
+      this.selectedClient?.enabledModules?.includes('CONTRACTOR_FACE_ATTENDANCE') === true;
+  }
+
   get branchUserSelectOptions(): SelectOption[] {
     const linked = new Set(this.branchUsers.map((user) => user.userId));
     return this.availableBranchUsers
@@ -1268,6 +1439,9 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.branchUserResetResult = null;
     this.editingMasterUser = null;
     this.masterUserResetResult = null;
+    this.azureBackfillStatus = null;
+    this.azureBackfillResult = null;
+    this.azureBackfillError = '';
     this.activeTab = 'company';
     this.router.navigate(['/admin/clients']);
   }

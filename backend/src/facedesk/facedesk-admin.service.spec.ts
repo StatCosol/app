@@ -1,3 +1,4 @@
+import { IsNull } from 'typeorm';
 import { FaceDeskAdminService } from './facedesk-admin.service';
 
 function makeService() {
@@ -700,6 +701,7 @@ function makeBackfillService(opts: {
   enabled?: boolean;
   addFace?: jest.Mock;
   train?: jest.Mock;
+  linkAffected?: number;
 }) {
   const profileQb = chainable();
   profileQb.getMany = jest.fn().mockResolvedValue(opts.profiles);
@@ -708,7 +710,7 @@ function makeBackfillService(opts: {
 
   const profileRepo = {
     createQueryBuilder: jest.fn(() => profileQb),
-    update: jest.fn().mockResolvedValue({ affected: 1 }),
+    update: jest.fn().mockResolvedValue({ affected: opts.linkAffected ?? 1 }),
   };
   const sampleRepo = { createQueryBuilder: jest.fn(() => sampleQb) };
   const photoStorage = {
@@ -719,6 +721,7 @@ function makeBackfillService(opts: {
     ensureClientList: jest.fn().mockResolvedValue('sc-list'),
     addFaceToList: opts.addFace ?? jest.fn().mockResolvedValue('persisted-1'),
     trainClientList: opts.train ?? jest.fn().mockResolvedValue(true),
+    removeEnrollmentFace: jest.fn().mockResolvedValue(true),
   };
   const service = new FaceDeskAdminService(
     {} as any,
@@ -763,8 +766,10 @@ describe('FaceDeskAdminService Azure face list backfill', () => {
       'e1',
       PHOTO.buffer.toString('base64'),
     );
+    // Conditional on the profile still being unlinked — that IS NULL guard is
+    // what stops two overlapping runs both claiming it.
     expect(profileRepo.update).toHaveBeenCalledWith(
-      { profileId: 'p1' },
+      { profileId: 'p1', azurePersistedFaceId: IsNull() },
       { azurePersistedFaceId: 'persisted-1' },
     );
     expect(res).toMatchObject({ registered: 1, failed: 0, done: true });
@@ -821,6 +826,52 @@ describe('FaceDeskAdminService Azure face list backfill', () => {
       photo: PHOTO,
     }).service.backfillAzureFaceList('c1', { limit: 2 });
     expect(partial).toMatchObject({ done: true, nextCursor: null });
+  });
+});
+
+describe('FaceDeskAdminService Azure face list backfill status', () => {
+  it('returns normalized aggregate-only status for the admin portal', async () => {
+    const profileQuery = jest
+      .fn()
+      .mockResolvedValueOnce([{ exists: 1 }])
+      .mockResolvedValueOnce([
+        {
+          enrolled: 14,
+          linked: 3,
+          pending: 11,
+          storedPhotoCandidates: 9,
+          recaptureNeeded: 2,
+        },
+      ]);
+    const auditQuery = jest.fn().mockResolvedValue([{ count: 1 }]);
+    const service = new FaceDeskAdminService(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      { manager: { query: profileQuery } } as any,
+      {} as any,
+      {} as any,
+      { manager: { query: auditQuery } } as any,
+      {} as any,
+      {} as any,
+      { enabled: true } as any,
+    );
+
+    await expect(
+      service.getAzureFaceBackfillStatus(
+        '51936d06-168f-47d2-a12b-33e9306987e2',
+      ),
+    ).resolves.toEqual({
+      azureEnabled: true,
+      enrolled: 14,
+      linked: 3,
+      pending: 11,
+      storedPhotoCandidates: 9,
+      recaptureNeeded: 2,
+      orphanAuditCount: 1,
+      complete: false,
+    });
   });
 });
 
@@ -893,5 +944,29 @@ describe('FaceDeskAdminService Azure backfill rate + training safety', () => {
     expect(res.trained).toBe(false);
     expect(res.done).toBe(false);
     expect(res.nextCursor).toBe('p9');
+  });
+});
+
+describe('FaceDeskAdminService Azure backfill concurrency guard', () => {
+  it('undoes its own Azure add when another run already claimed the profile', async () => {
+    // Two overlapping runs can both select the same NULL-linked profile and
+    // both add a face. Only one id can be stored, so the loser must remove the
+    // face it just created — otherwise it is stranded in Azure, untracked.
+    const { service, azureFace } = makeBackfillService({
+      profiles: [{ profileId: 'p1', employeeId: 'e1' }],
+      sample: { imagePath: 's3://b/k.jpg' },
+      photo: PHOTO,
+      linkAffected: 0,
+    });
+    const res = await service.backfillAzureFaceList('c1');
+
+    expect(azureFace.addFaceToList).toHaveBeenCalledTimes(1);
+    expect(azureFace.removeEnrollmentFace).toHaveBeenCalledWith(
+      'c1',
+      'persisted-1',
+    );
+    // Not counted as registered: this run did not link it.
+    expect(res.registered).toBe(0);
+    expect(res.failed).toBe(0);
   });
 });

@@ -453,6 +453,57 @@
 }
 
         <!-- ── Client Logo Upload ────────────────────── -->
+        @if (hasFaceAttendanceService) {
+<section class="mt-6 border-t border-gray-200 pt-6" aria-labelledby="azure-face-sync-title">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h4 id="azure-face-sync-title" class="text-lg font-semibold text-gray-900">Azure Face Sync</h4>
+              <p class="mt-1 text-sm text-gray-500">{{ selectedClient.clientName }}</p>
+            </div>
+            <ui-button variant="secondary" size="sm" (clicked)="loadAzureBackfillStatus()" [disabled]="loadingAzureBackfill || syncingAzureBackfill">
+              {{ loadingAzureBackfill ? 'Refreshing...' : 'Refresh Status' }}
+            </ui-button>
+          </div>
+
+          @if (azureBackfillStatus) {
+<div class="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded border border-gray-200 bg-gray-200 sm:grid-cols-3 lg:grid-cols-6">
+            <div class="bg-white px-3 py-3"><div class="text-xs text-gray-500">Enrolled</div><div class="mt-1 text-xl font-semibold text-gray-900">{{ azureBackfillStatus.enrolled }}</div></div>
+            <div class="bg-white px-3 py-3"><div class="text-xs text-gray-500">Azure Linked</div><div class="mt-1 text-xl font-semibold text-green-700">{{ azureBackfillStatus.linked }}</div></div>
+            <div class="bg-white px-3 py-3"><div class="text-xs text-gray-500">Pending</div><div class="mt-1 text-xl font-semibold text-amber-700">{{ azureBackfillStatus.pending }}</div></div>
+            <div class="bg-white px-3 py-3"><div class="text-xs text-gray-500">Stored Photos</div><div class="mt-1 text-xl font-semibold text-gray-900">{{ azureBackfillStatus.storedPhotoCandidates }}</div></div>
+            <div class="bg-white px-3 py-3"><div class="text-xs text-gray-500">Recapture</div><div class="mt-1 text-xl font-semibold text-red-700">{{ azureBackfillStatus.recaptureNeeded }}</div></div>
+            <div class="bg-white px-3 py-3"><div class="text-xs text-gray-500">Azure Orphans</div><div class="mt-1 text-xl font-semibold text-gray-900">{{ azureBackfillStatus.orphanAuditCount }}</div></div>
+          </div>
+
+          <div class="mt-4 flex flex-wrap items-center gap-3">
+            <ui-status-badge [variant]="azureBackfillStatus.azureEnabled ? (azureBackfillStatus.complete ? 'success' : 'warning') : 'error'" size="sm">
+              {{ !azureBackfillStatus.azureEnabled ? 'Azure unavailable' : (azureBackfillStatus.complete ? 'Synchronized' : 'Action required') }}
+            </ui-status-badge>
+            @if (azureBackfillStatus.azureEnabled && azureBackfillStatus.pending > 0) {
+<ui-button variant="secondary" size="sm" (clicked)="runAzureBackfillCanary()" [disabled]="syncingAzureBackfill">Run 1-Record Test</ui-button>
+<ui-button variant="primary" size="sm" (clicked)="runAzureBackfillAll()" [disabled]="syncingAzureBackfill || azureBackfillStatus.storedPhotoCandidates === 0">{{ syncingAzureBackfill ? 'Synchronizing...' : 'Sync Remaining' }}</ui-button>
+}
+          </div>
+}
+
+          @if (azureBackfillResult) {
+<div class="mt-4 rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900" aria-live="polite">
+            Scanned {{ azureBackfillResult.scanned }} | Registered {{ azureBackfillResult.registered }} | Skipped {{ azureBackfillResult.skippedNoPhoto }} | Failed {{ azureBackfillResult.failed }}
+            @if (azureBackfillResult.trained === false) {
+<div class="mt-1 font-medium text-amber-800">Azure list training is pending. Retry the sync.</div>
+}
+            @if (azureBackfillResult.errors.length) {
+<div class="mt-1 text-red-700">{{ azureBackfillResult.errors.join(' | ') }}</div>
+}
+          </div>
+}
+
+          @if (azureBackfillError) {
+<div class="mt-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">{{ azureBackfillError }}</div>
+}
+        </section>
+}
+
         <div class="mt-8 border-t border-gray-200 pt-6">
           <h4 class="text-lg font-semibold text-gray-900 mb-4">Client Logo</h4>
 
