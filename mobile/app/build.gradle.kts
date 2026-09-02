@@ -1,11 +1,25 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.24"
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.10"
     id("com.google.devtools.ksp")
 }
 
 import java.util.Properties
+
+// Whether to pull in the Azure AI Vision Face UI SDK. Off by default; see the
+// dependency block for why enabling it is a migration rather than a switch.
+val azureFaceSdkEnabled =
+    (findProperty("azureFaceSdkEnabled") as String?)?.toBoolean() ?: false
+val azureFaceUiVersion = (findProperty("azureFaceUiVersion") as String?) ?: "1.5.0"
+
+// Applied only with the SDK. The Compose compiler plugin activates the compiler
+// wherever it is applied — buildFeatures.compose = false does not stop it — and it
+// then fails the build demanding a Compose runtime this app otherwise has no reason
+// to ship. So it is applied conditionally rather than declared in the plugins block.
+if (azureFaceSdkEnabled) {
+    apply(plugin = "org.jetbrains.kotlin.plugin.compose")
+}
 
 val releaseSigningProperties = Properties()
 val releaseSigningPropertiesFile = rootProject.file("key.properties")
@@ -46,6 +60,12 @@ android {
     }
 
     buildFeatures {
+        // Only with the Azure SDK. Its FaceLivenessDetector is a @Composable, so
+        // hosting it needs the Compose compiler — but nothing else in this app is
+        // Compose, and turning it on unconditionally would demand a Compose runtime
+        // in every build and grow the shipped APK for no benefit. With the SDK on,
+        // its own POM brings compose.ui / material3 transitively.
+        compose = azureFaceSdkEnabled
         buildConfig = true
         viewBinding = true
     }
@@ -104,9 +124,6 @@ android {
 
 dependencies {
     val cameraxVersion = "1.3.4"
-    val azureFaceSdkEnabled =
-        (findProperty("azureFaceSdkEnabled") as String?)?.toBoolean() ?: false
-    val azureFaceUiVersion = (findProperty("azureFaceUiVersion") as String?) ?: "1.5.0"
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
