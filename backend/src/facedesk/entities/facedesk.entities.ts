@@ -402,7 +402,14 @@ export class FaceDeskReviewQueueEntity {
     | 'MULTIPLE_MATCH'
     | 'FACE_MISMATCH'
     | 'REPEATED_FAILURE'
-    | 'MANUAL_CORRECTION';
+    | 'MANUAL_CORRECTION'
+    /**
+     * FACE_THEN_BIOMETRIC: the face identified the worker, but no fingerprint
+     * punch corroborated it inside the window. The punch is kept and flagged
+     * rather than refused — eSSL devices push in batches, so the fingerprint
+     * half may simply not have arrived yet.
+     */
+    | 'BIOMETRIC_MISSING';
 
   @Column({ name: 'confidence_score', type: 'numeric', nullable: true })
   confidenceScore: number | null;
