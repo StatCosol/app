@@ -1,4 +1,5 @@
 import {
+  Logger,
   Body,
   Controller,
   Get,
@@ -37,6 +38,8 @@ import {
 @ApiTags('FaceDesk V2 — Device')
 @Controller({ path: 'facedesk/device', version: '1' })
 export class FaceDeskDeviceController {
+  private readonly logger = new Logger(FaceDeskDeviceController.name);
+
   constructor(
     private readonly devices: FaceDeskDeviceService,
     private readonly attendance: FaceDeskAttendanceService,
@@ -84,6 +87,16 @@ export class FaceDeskDeviceController {
     const d = this.ctx(req);
     const eff = await this.settings.getEffective(d.clientId);
     const branding = await this.devices.getKioskBranding(d.deviceId);
+    // "The kiosk still asks for a PIN" was unfalsifiable without this. The
+    // device is a release build, so R8 strips its logging; nothing on either
+    // side recorded which client a device belongs to or which mode it was
+    // handed. That left a settings change saved for one client and a device
+    // registered to another indistinguishable from a bug in the kiosk — and
+    // cost hours of reinstalling an APK that was correct all along.
+    this.logger.log(
+      `device config: deviceId=${d.deviceId} clientId=${d.clientId} ` +
+        `identificationMode=${eff.identificationMode}`,
+    );
     return {
       mode: d.mode,
       identificationMode: eff.identificationMode,
