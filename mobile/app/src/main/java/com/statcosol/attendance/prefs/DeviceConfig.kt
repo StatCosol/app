@@ -86,6 +86,19 @@ class DeviceConfig(context: Context) {
         get() = prefs.getString(KEY_ROSTER_DEVICE_ID, "") ?: ""
         set(value) = prefs.edit().putString(KEY_ROSTER_DEVICE_ID, value).apply()
 
+    /**
+     * How this kiosk identifies a worker, mirrored from the server config.
+     *
+     * Persisted because the PIN keypad is raised in onResume, long before the
+     * config fetch completes — reading it from the network would mean showing
+     * a PIN prompt on a FACE_ONLY kiosk on every launch. A fresh fetch updates
+     * this for next time, and PIN_THEN_FACE is the safe default for a device
+     * that has never fetched.
+     */
+    var faceDeskIdentificationMode: String
+        get() = prefs.getString(KEY_FD_ID_MODE, "PIN_THEN_FACE") ?: "PIN_THEN_FACE"
+        set(value) = prefs.edit().putString(KEY_FD_ID_MODE, value).apply()
+
     /** FaceDesk admin PIN — gates switching this device into enrollment mode. */
     var faceDeskAdminPin: String
         get() = prefs.getString(KEY_FD_ADMIN_PIN, "0000") ?: "0000"
@@ -111,6 +124,10 @@ class DeviceConfig(context: Context) {
         .remove(KEY_INSTALL_TOKEN)
         .remove(KEY_DEVICE_MODE)
         .remove(KEY_FD_ADMIN_PIN)
+        // A de-registered device must not keep a previous client's punch policy:
+        // re-registering elsewhere would otherwise start in FACE_ONLY and skip
+        // the PIN before any config for the new client had arrived.
+        .remove(KEY_FD_ID_MODE)
         .remove(KEY_ROSTER_DEVICE_ID)
         .apply()
 
@@ -125,6 +142,7 @@ class DeviceConfig(context: Context) {
         private const val KEY_ANDROID_ID = "android_id"
         private const val KEY_ROSTER_DEVICE_ID = "roster_device_id"
         private const val KEY_FD_ADMIN_PIN = "fd_admin_pin"
+        private const val KEY_FD_ID_MODE = "fd_identification_mode"
         private const val DEFAULT_API_BASE = "https://app.statcosol.com"
     }
 }
