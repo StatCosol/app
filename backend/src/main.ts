@@ -338,6 +338,35 @@ async function bootstrap() {
       logger.warn(`Schema patch facedesk_day_reviews skipped: ${e?.message}`);
     }
 
+    // Contractor employee codes must be unique within a client — they identify
+    // a worker on payroll. The pre-existing index on
+    // (client_id, contractor_user_id, employee_code) is NOT unique, so nothing
+    // stopped two workers sharing a code.
+    //
+    // Deliberately left to warn rather than block the boot: if historical
+    // hand-entered codes already contain duplicates this will fail, and
+    // refusing to start the API over it would be far worse than running one
+    // more day without the constraint. It is self-healing — once the duplicates
+    // are resolved the next boot creates the index. Find them with:
+    //
+    //   SELECT client_id, employee_code, count(*)
+    //     FROM contractor_employees
+    //    WHERE employee_code IS NOT NULL
+    //    GROUP BY 1, 2 HAVING count(*) > 1;
+    try {
+      await ds.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_contractor_employee_code
+          ON contractor_employees (client_id, employee_code)
+          WHERE employee_code IS NOT NULL
+      `);
+      logger.log('Schema patch: contractor employee_code uniqueness OK');
+    } catch (e: any) {
+      logger.warn(
+        `Schema patch contractor employee_code uniqueness skipped — ` +
+          `likely duplicate codes already present: ${e?.message}`,
+      );
+    }
+
     // Attendance audit trail. Defined in migrations/20260617_attendance_fixes.sql
     // but that migration never reached production, so approve/reject/edit on a
     // punch returned a 500 (42P01 relation does not exist). The write is not

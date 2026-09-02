@@ -226,4 +226,22 @@ export class ClientContractorEmployeesController {
       allowed,
     );
   }
+
+  @ApiOperation({
+    summary: 'Backfill employee codes for contractor workers that have none',
+  })
+  @Post('backfill-codes')
+  @Roles('ADMIN')
+  async backfillCodes(
+    @CurrentUser() user: ReqUser,
+    @Body() body: { limit?: number },
+  ) {
+    // Platform admin only, narrower than the controller default. This assigns
+    // identifiers that land on payroll records for a whole client, so it is not
+    // something a branch desk or a client user should be able to trigger.
+    const clientId = user.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.svc.backfillEmployeeCodes(clientId, body?.limit ?? 200);
+  }
+
 }
