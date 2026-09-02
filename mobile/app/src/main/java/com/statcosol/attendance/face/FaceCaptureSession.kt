@@ -21,13 +21,18 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
 import kotlin.math.min
 
+/**
+ * Thresholds are providers, not values: the server can revise them per client
+ * after this session was constructed, and a captured Float would pin the session
+ * to whatever the build shipped with.
+ */
 class FaceCaptureSession(
     private val embedder: FaceEmbedder,
     private val detector: FaceDetector,
-    private val minFaceSize: Float = FaceKioskTuning.MIN_FACE_SIZE_ATTENDANCE,
-    private val minLuminance: Float = FaceKioskTuning.MIN_LUMINANCE,
-    private val maxPitch: Float = FaceKioskTuning.MAX_PITCH_DEG,
-    private val minSharpness: Float = FaceKioskTuning.MIN_SHARPNESS_ATTENDANCE,
+    private val minFaceSize: () -> Float = { FaceKioskTuning.MIN_FACE_SIZE_ATTENDANCE },
+    private val minLuminance: () -> Float = { FaceKioskTuning.MIN_LUMINANCE },
+    private val maxPitch: () -> Float = { FaceKioskTuning.MAX_PITCH_DEG },
+    private val minSharpness: () -> Float = { FaceKioskTuning.MIN_SHARPNESS_ATTENDANCE },
     /** When true, pitch gate is skipped (for left/right enrollment turns). */
     private val relaxPitchGate: () -> Boolean = { false },
     // Both default on for the V1 kiosk/ESS screens. FaceDesk V2 discards the
@@ -71,7 +76,7 @@ class FaceCaptureSession(
         val frameH = bitmap.height
 
         val luminance = computeLuminance(bitmap)
-        if (luminance < minLuminance) {
+        if (luminance < minLuminance()) {
             emitPreview(null, null, "Lighting too low — please move into the light", false)
             onHint("Lighting too low — please move into the light")
             return
@@ -98,7 +103,7 @@ class FaceCaptureSession(
         val faceWidth = face.boundingBox.width().toFloat() / bitmap.width.toFloat()
         val normBox = normalizeBox(face.boundingBox, frameW, frameH)
 
-        if (faceWidth < minFaceSize) {
+        if (faceWidth < minFaceSize()) {
             emitPreview(normBox, partialMetrics(face, faceWidth, 0f), "Please move closer to the camera", false)
             onHint("Please move closer to the camera")
             return
@@ -107,14 +112,14 @@ class FaceCaptureSession(
         val pitch = face.headEulerAngleX
         val faceBitmap = cropFaceBitmap(bitmap, face.boundingBox)
 
-        if (!relaxPitchGate() && Math.abs(pitch) > maxPitch) {
+        if (!relaxPitchGate() && Math.abs(pitch) > maxPitch()) {
             emitPreview(normBox, partialMetrics(face, faceWidth, 0f), "Please look straight at the camera", false)
             onHint("Please look straight at the camera")
             return
         }
 
         val sharpness = computeSharpness(faceBitmap)
-        if (sharpness < minSharpness) {
+        if (sharpness < minSharpness()) {
             emitPreview(normBox, partialMetrics(face, faceWidth, sharpness),
                 "Image blurry — hold still and look at the camera", false)
             onHint("Image blurry — hold still and look at the camera")
@@ -235,7 +240,7 @@ class FaceCaptureSession(
         val hasFaceClassification = second.leftEyeOpenProbability != null ||
             second.rightEyeOpenProbability != null ||
             second.smilingProbability != null
-        return relative >= 0.5f && secondWidth >= minFaceSize && hasFaceClassification
+        return relative >= 0.5f && secondWidth >= minFaceSize() && hasFaceClassification
     }
 
     private fun cropFaceBitmap(bitmap: Bitmap, box: Rect): Bitmap {

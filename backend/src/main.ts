@@ -370,17 +370,22 @@ async function bootstrap() {
     // Per-client kiosk capture thresholds. Null means "use the APK defaults",
     // which are the values the app already shipped with — so adding this column
     // changes nothing until somebody configures a client.
-    try {
-      await ds.query(`
-        ALTER TABLE face_settings
-          ADD COLUMN IF NOT EXISTS capture_tuning jsonb
-      `);
-      logger.log('Schema patch: face_settings.capture_tuning OK');
-    } catch (e: any) {
-      logger.warn(
-        `Schema patch face_settings.capture_tuning skipped: ${e?.message}`,
-      );
-    }
+    //
+    // The table is facedesk_face_settings (see the entity and
+    // 20260707b_facedesk_v2_module.sql). Getting this name wrong is not a
+    // no-op: a wrong name fails, the entity still maps capture_tuning, and
+    // every FaceDeskSettingsEntity read then asks for a column that does not
+    // exist — taking getEffective(), and with it device config for every
+    // kiosk, down.
+    //
+    // So unlike the other patches here, this one must NOT be allowed to fail
+    // quietly. If the column cannot be added, the entity mapping is a liability
+    // and we want the deploy to stop rather than serve a broken config endpoint.
+    await ds.query(`
+      ALTER TABLE facedesk_face_settings
+        ADD COLUMN IF NOT EXISTS capture_tuning jsonb
+    `);
+    logger.log('Schema patch: facedesk_face_settings.capture_tuning OK');
 
     // Attendance audit trail. Defined in migrations/20260617_attendance_fixes.sql
     // but that migration never reached production, so approve/reject/edit on a

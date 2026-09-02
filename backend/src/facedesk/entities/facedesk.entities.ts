@@ -10,6 +10,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { FaceDeskCaptureTuning } from '../facedesk-capture-tuning';
 
 @Entity({ name: 'facedesk_kiosk_devices' })
 @Index(['clientId'])
@@ -566,7 +567,7 @@ export class FaceDeskSettingsEntity {
    * facedesk-capture-tuning.ts for the shape and accepted ranges.
    */
   @Column({ name: 'capture_tuning', type: 'jsonb', nullable: true })
-  captureTuning: Record<string, number> | null;
+  captureTuning: Partial<FaceDeskCaptureTuning> | null;
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;

@@ -71,10 +71,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
     private var frontCount = 0
     private var leftCount = 0
     private var rightCount = 0
-    private val blinkDetector = BlinkDetector(
-        FaceKioskTuning.BLINK_ABS_THRESHOLD,
-        FaceKioskTuning.BLINK_DROP_DELTA,
-    )
+    private val blinkDetector = BlinkDetector()
     private val blinked: Boolean get() = blinkDetector.blinked
     private var captureComplete = false
     private val capturing = AtomicBoolean(false)
@@ -208,10 +205,10 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
                 val session = FaceCaptureSession(
                     embedder = embedder,
                     detector = detector,
-                    minFaceSize = FaceKioskTuning.MIN_FACE_SIZE_ENROLLMENT,
-                    minSharpness = FaceKioskTuning.MIN_SHARPNESS_ENROLLMENT,
-                    minLuminance = FaceKioskTuning.MIN_LUMINANCE,
-                    maxPitch = FaceKioskTuning.MAX_PITCH_DEG,
+                    minFaceSize = { FaceKioskTuning.MIN_FACE_SIZE_ENROLLMENT },
+                    minSharpness = { FaceKioskTuning.MIN_SHARPNESS_ENROLLMENT },
+                    minLuminance = { FaceKioskTuning.MIN_LUMINANCE },
+                    maxPitch = { FaceKioskTuning.MAX_PITCH_DEG },
                     computeFullFrameProbe = false,
                     relaxPitchGate = { frontCount >= FRONT_FRAMES },
                     onFace = { faceProbe, _, metrics, photo ->

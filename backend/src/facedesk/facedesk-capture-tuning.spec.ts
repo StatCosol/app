@@ -1,3 +1,7 @@
+import 'reflect-metadata';
+import { validateSync } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
+import { CaptureTuningDto, UpdateSettingsDto } from './facedesk.dto';
 import {
   DEFAULT_CAPTURE_TUNING,
   resolveCaptureTuning,
@@ -69,5 +73,59 @@ describe('resolveCaptureTuning', () => {
       analysisWidth: 1280,
       analysisHeight: 720,
     });
+  });
+});
+
+/**
+ * The DTO is the only supported way to set this: the global ValidationPipe runs
+ * forbidNonWhitelisted, so an undeclared property is a 400 and the value would
+ * be unreachable except by editing Postgres directly.
+ */
+describe('CaptureTuningDto', () => {
+  const errorsFor = (payload: unknown) =>
+    validateSync(plainToInstance(UpdateSettingsDto, payload), {
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    });
+
+  it('is declared on UpdateSettingsDto, so a write is not rejected outright', () => {
+    expect(new UpdateSettingsDto()).toHaveProperty('captureTuning', undefined);
+    expect(errorsFor({ captureTuning: { minLuminance: 30 } })).toHaveLength(0);
+  });
+
+  it('accepts a partial override', () => {
+    expect(errorsFor({ captureTuning: { minSharpnessEnrollment: 55 } }))
+      .toHaveLength(0);
+  });
+
+  it('rejects an out-of-range value instead of storing it', () => {
+    // Reported to the operator rather than silently ignored on read.
+    expect(errorsFor({ captureTuning: { minSharpnessAttendance: 0 } }))
+      .not.toHaveLength(0);
+    expect(errorsFor({ captureTuning: { minFaceSizeAttendance: 1.0 } }))
+      .not.toHaveLength(0);
+  });
+
+  it('rejects an unknown key inside the tuning object', () => {
+    expect(errorsFor({ captureTuning: { nonsense: 1 } })).not.toHaveLength(0);
+  });
+
+  it('declares every field resolveCaptureTuning knows about', () => {
+    // A field missing here would be silently unsettable through the API.
+    const dtoKeys = Object.keys(
+      plainToInstance(CaptureTuningDto, {
+        minFaceSizeAttendance: 0.2,
+        minFaceSizeEnrollment: 0.2,
+        minSharpnessAttendance: 40,
+        minSharpnessEnrollment: 40,
+        minLuminance: 25,
+        maxPitchDeg: 30,
+        blinkAbsThreshold: 0.5,
+        blinkDropDelta: 0.3,
+        analysisWidth: 1280,
+        analysisHeight: 720,
+      }),
+    ).sort();
+    expect(dtoKeys).toEqual(Object.keys(DEFAULT_CAPTURE_TUNING).sort());
   });
 });
