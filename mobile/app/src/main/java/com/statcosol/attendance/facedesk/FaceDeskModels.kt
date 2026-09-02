@@ -124,7 +124,34 @@ data class FaceDeskDeviceConfig(
     val frameCaptureCount: Int? = null,
     val livenessRequired: Boolean? = null,
     val offlineSyncEnabled: Boolean? = null,
+    val captureTuning: FaceDeskCaptureTuning? = null,
     val branding: FaceDeskKioskBranding? = null,
+)
+
+/**
+ * Capture thresholds from the server, overriding this build's defaults.
+ *
+ * The APK is one universal binary, but its thresholds were profiled on a single
+ * handset and then applied everywhere — gates set for a soft 8 MP sensor with no
+ * flash are too permissive on a better camera, so weaker captures than necessary
+ * become enrolled embeddings.
+ *
+ * Every field is nullable: the server may send none, some or all, and anything
+ * absent keeps the built-in default. An older server that does not send this at
+ * all therefore behaves exactly as before.
+ */
+@Serializable
+data class FaceDeskCaptureTuning(
+    val minFaceSizeAttendance: Float? = null,
+    val minFaceSizeEnrollment: Float? = null,
+    val minSharpnessAttendance: Float? = null,
+    val minSharpnessEnrollment: Float? = null,
+    val minLuminance: Float? = null,
+    val maxPitchDeg: Float? = null,
+    val blinkAbsThreshold: Double? = null,
+    val blinkDropDelta: Double? = null,
+    val analysisWidth: Int? = null,
+    val analysisHeight: Int? = null,
 )
 
 @Serializable

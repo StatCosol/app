@@ -168,6 +168,10 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val cfg = api.fetchConfig()
+                // Capture thresholds before branding: these gate what counts as
+                // a usable frame, and the built-in defaults were profiled on one
+                // handset. Absent config leaves this build's values untouched.
+                FaceKioskTuning.applyFrom(cfg.captureTuning)
                 runOnUiThread { chrome.bindBranding(cfg.branding) }
             } catch (e: Exception) {
                 Log.w(TAG, "branding fetch failed: ${e.message}")

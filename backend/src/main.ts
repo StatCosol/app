@@ -367,6 +367,21 @@ async function bootstrap() {
       );
     }
 
+    // Per-client kiosk capture thresholds. Null means "use the APK defaults",
+    // which are the values the app already shipped with — so adding this column
+    // changes nothing until somebody configures a client.
+    try {
+      await ds.query(`
+        ALTER TABLE face_settings
+          ADD COLUMN IF NOT EXISTS capture_tuning jsonb
+      `);
+      logger.log('Schema patch: face_settings.capture_tuning OK');
+    } catch (e: any) {
+      logger.warn(
+        `Schema patch face_settings.capture_tuning skipped: ${e?.message}`,
+      );
+    }
+
     // Attendance audit trail. Defined in migrations/20260617_attendance_fixes.sql
     // but that migration never reached production, so approve/reject/edit on a
     // punch returned a 500 (42P01 relation does not exist). The write is not

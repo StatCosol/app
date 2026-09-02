@@ -90,6 +90,10 @@ export class FaceDeskDeviceController {
       frameCaptureCount: eff.frameCaptureCount,
       livenessRequired: eff.livenessRequired,
       offlineSyncEnabled: eff.offlineSyncEnabled,
+      // Capture thresholds. The APK carries the same values as defaults, so an
+      // older build that ignores this field behaves exactly as before; a device
+      // on different camera hardware gets gates that suit it.
+      captureTuning: eff.captureTuning,
       branding,
     };
   }

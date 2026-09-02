@@ -1,0 +1,93 @@
+/**
+ * Capture tuning served to kiosk devices.
+ *
+ * The kiosk APK is universal — one binary, all ABIs, no Build.MODEL branching.
+ * But its capture thresholds were compile-time constants profiled on a single
+ * handset (SM-E076B: 720p, 8 MP front camera, no flash, MT6835), and they then
+ * applied to every device the APK ran on.
+ *
+ * That is the wrong way round. Gates calibrated to the weakest expected camera
+ * are too permissive on a better one — a sharper sensor clears a sharpness floor
+ * set for a soft one, so poorer captures than necessary enter the gallery, and
+ * the embeddings built from them are what duplicate detection has to work with.
+ *
+ * These are the values that genuinely vary with hardware: face size (sensor FOV),
+ * sharpness (optics), luminance (flash and sensitivity), blink probabilities (how
+ * the camera reports eye-open in dim light) and analysis resolution (SoC
+ * throughput). Frame counts, timeouts and overlay geometry are flow and layout
+ * rather than hardware, so they stay in the app.
+ *
+ * The defaults below are exactly the constants the APK shipped with, so a client
+ * that configures nothing behaves precisely as before.
+ */
+export interface FaceDeskCaptureTuning {
+  minFaceSizeAttendance: number;
+  minFaceSizeEnrollment: number;
+  minSharpnessAttendance: number;
+  minSharpnessEnrollment: number;
+  minLuminance: number;
+  maxPitchDeg: number;
+  blinkAbsThreshold: number;
+  blinkDropDelta: number;
+  analysisWidth: number;
+  analysisHeight: number;
+}
+
+/** The SM-E076B profile the APK has always used. */
+export const DEFAULT_CAPTURE_TUNING: FaceDeskCaptureTuning = {
+  minFaceSizeAttendance: 0.12,
+  minFaceSizeEnrollment: 0.13,
+  minSharpnessAttendance: 38,
+  minSharpnessEnrollment: 42,
+  minLuminance: 20,
+  maxPitchDeg: 28,
+  blinkAbsThreshold: 0.5,
+  blinkDropDelta: 0.25,
+  analysisWidth: 1280,
+  analysisHeight: 720,
+};
+
+/**
+ * Bounds for each value. A tuning row is operator-supplied, and these numbers
+ * gate biometric capture: a zeroed sharpness floor would accept anything, and a
+ * face-size of 1.0 would accept nothing and silently break every kiosk on that
+ * client. Out-of-range values fall back to the default rather than being clamped
+ * silently to an edge, so a typo behaves like "not configured" instead of like a
+ * deliberate extreme.
+ */
+const RANGES: Record<keyof FaceDeskCaptureTuning, [number, number]> = {
+  minFaceSizeAttendance: [0.05, 0.6],
+  minFaceSizeEnrollment: [0.05, 0.6],
+  minSharpnessAttendance: [5, 200],
+  minSharpnessEnrollment: [5, 200],
+  minLuminance: [1, 200],
+  maxPitchDeg: [5, 60],
+  blinkAbsThreshold: [0.1, 0.95],
+  blinkDropDelta: [0.05, 0.9],
+  analysisWidth: [320, 3840],
+  analysisHeight: [240, 2160],
+};
+
+/**
+ * Merge a stored tuning row over the defaults, dropping anything unusable.
+ *
+ * Accepts null/undefined (nothing configured), a partial object (configure one
+ * value, inherit the rest) and junk (a bad row must not stop a kiosk booting).
+ */
+export function resolveCaptureTuning(
+  stored: unknown,
+): FaceDeskCaptureTuning {
+  const out: FaceDeskCaptureTuning = { ...DEFAULT_CAPTURE_TUNING };
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return out;
+
+  for (const key of Object.keys(RANGES) as Array<keyof FaceDeskCaptureTuning>) {
+    const raw = (stored as Record<string, unknown>)[key];
+    if (raw === undefined || raw === null || raw === '') continue;
+    const value = Number(raw);
+    if (!Number.isFinite(value)) continue;
+    const [min, max] = RANGES[key];
+    if (value < min || value > max) continue;
+    out[key] = value;
+  }
+  return out;
+}
