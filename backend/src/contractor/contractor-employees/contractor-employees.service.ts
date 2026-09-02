@@ -221,6 +221,78 @@ export class ContractorEmployeesService {
     });
   }
 
+  /**
+   * Give a code to contractor workers who predate code generation.
+   *
+   * Idempotent: it only ever touches rows where employee_code IS NULL, so a
+   * second run is a no-op and an interrupted run simply resumes. Codes already
+   * in place — including hand-typed ones — are never rewritten, because these
+   * appear on historical payroll records.
+   *
+   * Ordered by (contractor, created_at, id) so one contractor's workers get
+   * consecutive numbers in the order they were added, rather than interleaved
+   * by whatever order the table happens to return.
+   *
+   * Batched, and each row is allocated through the same locked path as a live
+   * create, so a backfill running while somebody is adding workers cannot
+   * collide with them.
+   */
+  async backfillEmployeeCodes(
+    clientId: string,
+    limit = 200,
+  ): Promise<{
+    scanned: number;
+    coded: number;
+    skippedNoName: number;
+    remaining: number;
+  }> {
+    const size = Math.min(Math.max(limit, 1), 1000);
+    const rows: Array<{ id: string; contractor_user_id: string }> =
+      await this.dataSource.query(
+        `SELECT id, contractor_user_id
+           FROM contractor_employees
+          WHERE client_id = $1 AND employee_code IS NULL
+          ORDER BY contractor_user_id, created_at, id
+          LIMIT $2`,
+        [clientId, size],
+      );
+
+    let coded = 0;
+    let skippedNoName = 0;
+    for (const row of rows) {
+      const code = await this.allocateEmployeeCode(
+        clientId,
+        row.contractor_user_id,
+      );
+      if (!code) {
+        // Contractor name has no usable letters. Leaving it NULL is correct —
+        // a bare number would be worse than no code.
+        skippedNoName += 1;
+        continue;
+      }
+      await this.dataSource.query(
+        `UPDATE contractor_employees
+            SET employee_code = $1, updated_at = now()
+          WHERE id = $2 AND employee_code IS NULL`,
+        [code, row.id],
+      );
+      coded += 1;
+    }
+
+    const [left] = await this.dataSource.query(
+      `SELECT COUNT(*)::int AS n
+         FROM contractor_employees
+        WHERE client_id = $1 AND employee_code IS NULL`,
+      [clientId],
+    );
+    return {
+      scanned: rows.length,
+      coded,
+      skippedNoName,
+      remaining: Number(left?.n ?? 0),
+    };
+  }
+
   async create(
     clientId: string,
     branchId: string,
