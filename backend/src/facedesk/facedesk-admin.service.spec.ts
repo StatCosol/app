@@ -40,7 +40,8 @@ function makeService() {
   };
   const azureFace = {
     enabled: false,
-    addFaceForBackfill: jest.fn(),
+    ensureClientList: jest.fn().mockResolvedValue('sc-list'),
+    addFaceToList: jest.fn(),
     trainClientList: jest.fn().mockResolvedValue(undefined),
   };
   const service = new FaceDeskAdminService(
@@ -698,6 +699,7 @@ function makeBackfillService(opts: {
   photo?: { buffer: Buffer; contentType: string } | null;
   enabled?: boolean;
   addFace?: jest.Mock;
+  train?: jest.Mock;
 }) {
   const profileQb = chainable();
   profileQb.getMany = jest.fn().mockResolvedValue(opts.profiles);
@@ -714,9 +716,9 @@ function makeBackfillService(opts: {
   };
   const azureFace = {
     enabled: opts.enabled ?? true,
-    addFaceForBackfill:
-      opts.addFace ?? jest.fn().mockResolvedValue('persisted-1'),
-    trainClientList: jest.fn().mockResolvedValue(undefined),
+    ensureClientList: jest.fn().mockResolvedValue('sc-list'),
+    addFaceToList: opts.addFace ?? jest.fn().mockResolvedValue('persisted-1'),
+    trainClientList: opts.train ?? jest.fn().mockResolvedValue(true),
   };
   const service = new FaceDeskAdminService(
     {} as any,
@@ -745,7 +747,7 @@ describe('FaceDeskAdminService Azure face list backfill', () => {
     await expect(service.backfillAzureFaceList('c1')).rejects.toThrow(
       /not enabled/i,
     );
-    expect(azureFace.addFaceForBackfill).not.toHaveBeenCalled();
+    expect(azureFace.addFaceToList).not.toHaveBeenCalled();
   });
 
   it('registers a face and stores the persisted id against the profile', async () => {
@@ -756,8 +758,8 @@ describe('FaceDeskAdminService Azure face list backfill', () => {
     });
     const res = await service.backfillAzureFaceList('c1');
 
-    expect(azureFace.addFaceForBackfill).toHaveBeenCalledWith(
-      'c1',
+    expect(azureFace.addFaceToList).toHaveBeenCalledWith(
+      'sc-list',
       'e1',
       PHOTO.buffer.toString('base64'),
     );
@@ -779,10 +781,11 @@ describe('FaceDeskAdminService Azure face list backfill', () => {
     const res = await service.backfillAzureFaceList('c1');
 
     expect(res).toMatchObject({ skippedNoPhoto: 1, registered: 0 });
-    expect(azureFace.addFaceForBackfill).not.toHaveBeenCalled();
+    expect(azureFace.addFaceToList).not.toHaveBeenCalled();
     expect(profileRepo.update).not.toHaveBeenCalled();
-    // Nothing was registered, so there is nothing to make searchable.
-    expect(azureFace.trainClientList).not.toHaveBeenCalled();
+    // Still trains: this is the final page, and training there is what lets
+    // a re-run retry a previously failed train.
+    expect(azureFace.trainClientList).toHaveBeenCalledTimes(1);
   });
 
   it('counts an Azure failure and leaves the profile unlinked for a retry', async () => {
@@ -818,5 +821,77 @@ describe('FaceDeskAdminService Azure face list backfill', () => {
       photo: PHOTO,
     }).service.backfillAzureFaceList('c1', { limit: 2 });
     expect(partial).toMatchObject({ done: true, nextCursor: null });
+  });
+});
+
+describe('FaceDeskAdminService Azure backfill rate + training safety', () => {
+  it('ensures the face list once per batch, not once per profile', async () => {
+    // ensureLargeFaceList is an unconditional Azure PUT. Doing it per profile
+    // costs two Azure transactions per face, which doubles the real request
+    // rate against the 10 TPS cap shared with live kiosk traffic.
+    const { service, azureFace } = makeBackfillService({
+      profiles: [
+        { profileId: 'p1', employeeId: 'e1' },
+        { profileId: 'p2', employeeId: 'e2' },
+        { profileId: 'p3', employeeId: 'e3' },
+      ],
+      sample: { imagePath: 's3://b/k.jpg' },
+      photo: PHOTO,
+    });
+    await service.backfillAzureFaceList('c1', { limit: 3 });
+
+    expect(azureFace.ensureClientList).toHaveBeenCalledTimes(1);
+    expect(azureFace.addFaceToList).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not touch Azure at all on an empty page', async () => {
+    const { service, azureFace } = makeBackfillService({ profiles: [] });
+    const res = await service.backfillAzureFaceList('c1');
+
+    expect(azureFace.ensureClientList).not.toHaveBeenCalled();
+    expect(azureFace.addFaceToList).not.toHaveBeenCalled();
+    // Still trains: an empty final page is how a failed train gets retried.
+    expect(azureFace.trainClientList).toHaveBeenCalledTimes(1);
+    expect(res).toMatchObject({ done: true, trained: true });
+  });
+
+  it('keeps done=false and returns a cursor when training fails', async () => {
+    // trainLargeFaceList resolves on a 429/500 rather than throwing. If that
+    // were swallowed, every face just added would stay unsearchable forever:
+    // their profiles are already linked, so no later run would select them.
+    const { service } = makeBackfillService({
+      profiles: [{ profileId: 'p1', employeeId: 'e1' }],
+      sample: { imagePath: 's3://b/k.jpg' },
+      photo: PHOTO,
+      train: jest.fn().mockResolvedValue(false),
+    });
+    const res = await service.backfillAzureFaceList('c1', { limit: 5 });
+
+    expect(res.registered).toBe(1);
+    expect(res.trained).toBe(false);
+    expect(res.done).toBe(false);
+    // A `while (!done)` caller re-runs from here and trains again.
+    expect(res.nextCursor).toBe('p1');
+  });
+
+  it('retries training on a re-run of the final empty page', async () => {
+    const train = jest.fn().mockResolvedValue(true);
+    const { service } = makeBackfillService({ profiles: [], train });
+    const res = await service.backfillAzureFaceList('c1', { cursor: 'p1' });
+
+    expect(train).toHaveBeenCalledWith('c1');
+    expect(res).toMatchObject({ done: true, trained: true, registered: 0 });
+  });
+
+  it('treats a thrown training error as a failure, not a success', async () => {
+    const { service } = makeBackfillService({
+      profiles: [],
+      train: jest.fn().mockRejectedValue(new Error('socket hang up')),
+    });
+    const res = await service.backfillAzureFaceList('c1', { cursor: 'p9' });
+
+    expect(res.trained).toBe(false);
+    expect(res.done).toBe(false);
+    expect(res.nextCursor).toBe('p9');
   });
 });

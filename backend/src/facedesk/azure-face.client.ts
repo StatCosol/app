@@ -193,8 +193,16 @@ export class AzureFaceClient {
     }
   }
 
-  /** Fire-and-forget training so new faces become searchable. */
-  async trainLargeFaceList(largeFaceListId: string): Promise<void> {
+  /**
+   * Training, so newly added faces become searchable by findsimilars.
+   *
+   * Resolves rather than throwing on an HTTP failure, because the enrolment
+   * path fires this and forgets. It returns whether Azure actually accepted
+   * the request, so a caller that CANNOT afford a silent failure — the
+   * backfill, which would otherwise leave a fully populated list permanently
+   * unsearchable — can see it and retry.
+   */
+  async trainLargeFaceList(largeFaceListId: string): Promise<boolean> {
     const resp = await fetch(
       this.url(`/largefacelists/${largeFaceListId}/train`),
       {
@@ -208,6 +216,8 @@ export class AzureFaceClient {
       this.logger.warn(
         `Azure Face train ${resp.status}: ${body.slice(0, 120)}`,
       );
+      return false;
     }
+    return true;
   }
 }

@@ -949,6 +949,7 @@ export class FaceDeskAdminService {
     registered: number;
     skippedNoPhoto: number;
     failed: number;
+    trained: boolean | null;
     nextCursor: string | null;
     done: boolean;
     errors: string[];
@@ -970,6 +971,15 @@ export class FaceDeskAdminService {
       .take(limit);
     if (cursor) qb.andWhere('p.profileId > :cursor', { cursor });
     const profiles = await qb.getMany();
+
+    // Ensure the client’s list ONCE per batch. ensureLargeFaceList is an
+    // unconditional Azure PUT, so doing it per profile would cost two Azure
+    // transactions per face and put the real rate at ~12/sec against a 10 TPS
+    // cap shared with live kiosk traffic — 429s for the batch AND for live
+    // enrolment. Skipped on an empty page, which costs nothing.
+    const listId = profiles.length
+      ? await this.azureFace.ensureClientList(clientId)
+      : null;
 
     let registered = 0;
     let skippedNoPhoto = 0;
@@ -1000,8 +1010,8 @@ export class FaceDeskAdminService {
       }
 
       try {
-        const persistedFaceId = await this.azureFace.addFaceForBackfill(
-          clientId,
+        const persistedFaceId = await this.azureFace.addFaceToList(
+          listId as string,
           profile.employeeId,
           photo.buffer.toString('base64'),
         );
@@ -1027,23 +1037,37 @@ export class FaceDeskAdminService {
 
     // One train per batch, not per face — faces are not searchable by
     // findsimilars until the list is trained.
-    if (registered > 0) {
-      await this.azureFace
+    //
+    // Also train on the FINAL page even when that page added nothing: that is
+    // what makes a re-run a usable retry. trainLargeFaceList resolves on an
+    // HTTP failure (429/500) rather than throwing, so a swallowed failure here
+    // would strand every face just added — searchable to nobody — while their
+    // profiles are already linked, so no later run would ever select them
+    // again and nothing would retrain the list.
+    const noMoreProfiles = profiles.length < limit;
+    let trained: boolean | null = null;
+    if (registered > 0 || noMoreProfiles) {
+      trained = await this.azureFace
         .trainClientList(clientId)
-        .catch((err: unknown) =>
+        .catch((err: unknown) => {
           this.logger.warn(
             `Azure train after backfill failed: ${(err as Error)?.message}`,
-          ),
-        );
+          );
+          return false;
+        });
     }
 
-    const done = profiles.length < limit;
+    // `done` means nothing is left to do, and that includes training. A failed
+    // train keeps done false and hands back a cursor, so a `while (!done)`
+    // caller re-runs the (now empty) final page and trains again.
+    const done = noMoreProfiles && trained !== false;
     return {
       scanned: profiles.length,
       registered,
       skippedNoPhoto,
       failed,
-      nextCursor: done ? null : lastProfileId,
+      trained,
+      nextCursor: done ? null : (lastProfileId ?? cursor),
       done,
       errors,
     };

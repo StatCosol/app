@@ -160,24 +160,25 @@ export class FaceDeskAzureFaceService {
   }
 
   /**
-   * Backfill helper: put one already-enrolled face into the client's list.
+   * Backfill helper: add one already-enrolled face to a list the caller has
+   * ALREADY ensured.
    *
-   * Two deliberate differences from registerEnrollmentFace:
+   * Takes a listId rather than a clientId on purpose. ensureLargeFaceList is
+   * an unconditional Azure PUT, so folding it in here would cost TWO Azure
+   * transactions per profile — silently doubling the backfill’s real request
+   * rate against the shared 10 TPS S0 cap. The caller ensures the list once
+   * per batch and this stays exactly one transaction per face, so pacing on
+   * profiles genuinely is pacing on transactions.
    *
-   * 1. It does NOT schedule training. A backfill walks thousands of profiles
-   *    and Azure only needs one train at the end of the run, so the per-face
-   *    scheduleTraining() would fire a throwaway train per profile.
-   * 2. It throws instead of returning null. The caller has to tell a transient
-   *    Azure failure (worth retrying on a later batch) apart from a profile
-   *    with no usable photo (which will never succeed), and a swallowed null
-   *    collapses that distinction.
+   * Throws instead of returning null: the caller has to tell a transient
+   * Azure failure (worth retrying later) from a profile with no usable photo
+   * (which never will be), and a swallowed null collapses that distinction.
    */
-  async addFaceForBackfill(
-    clientId: string,
+  async addFaceToList(
+    listId: string,
     employeeId: string,
     photoB64: string,
   ): Promise<string> {
-    const listId = await this.ensureClientList(clientId);
     return this.azure.addPersistedFace(
       listId,
       this.decodePhoto(photoB64),
@@ -186,10 +187,14 @@ export class FaceDeskAzureFaceService {
   }
 
   /**
-   * Train a client's list once, after a backfill batch. Faces added to a Large
-   * Face List are not searchable by findsimilars until the list is trained.
+   * Train a client’s list once, after a backfill batch. Faces added to a
+   * Large Face List are not searchable by findsimilars until it is trained.
+   *
+   * Returns whether Azure accepted the request. A swallowed failure here
+   * would leave every face just added permanently unsearchable, with nothing
+   * to signal it.
    */
-  async trainClientList(clientId: string): Promise<void> {
-    await this.azure.trainLargeFaceList(this.listIdForClient(clientId));
+  async trainClientList(clientId: string): Promise<boolean> {
+    return this.azure.trainLargeFaceList(this.listIdForClient(clientId));
   }
 }
