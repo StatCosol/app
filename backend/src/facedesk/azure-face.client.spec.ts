@@ -156,3 +156,60 @@ describe('FaceDeskAzureFaceService — liveness gating is independent of 1:N', (
     expect(flaky.getLivenessSessionResult).toHaveBeenCalledWith('sess-1');
   });
 });
+
+/**
+ * Regression guard for a bug that was invisible in production.
+ *
+ * Node's fetch sends NO Content-Type for a Uint8Array body. Azure then tries to
+ * parse the image as JSON and returns 400 BadArgument "JSON parsing error" —
+ * naming neither the header nor the image. Because every Azure path falls back
+ * to cosine on failure, enrolment registration and duplicate detection both
+ * failed silently for as long as the header was missing; only the backfill,
+ * which reports per-profile errors, surfaced it.
+ */
+describe('AzureFaceClient — image uploads must declare octet-stream', () => {
+  const ENV = process.env;
+  let fetchMock: jest.Mock;
+
+  beforeEach(() => {
+    process.env = { ...ENV };
+    process.env.AZURE_FACE_ENDPOINT =
+      'https://statcompy-face.cognitiveservices.azure.com';
+    process.env.AZURE_FACE_KEY = 'test-key';
+    fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ persistedFaceId: 'pf-1' }),
+    });
+    (global as any).fetch = fetchMock;
+  });
+
+  afterAll(() => {
+    process.env = ENV;
+  });
+
+  const contentTypeOf = () =>
+    (fetchMock.mock.calls[0][1].headers as Record<string, string>)[
+      'Content-Type'
+    ];
+
+  it('sets octet-stream on addPersistedFace', async () => {
+    await new AzureFaceClient().addPersistedFace(
+      'list-1',
+      Buffer.from('jpeg-bytes'),
+      'emp-1',
+    );
+    expect(contentTypeOf()).toBe('application/octet-stream');
+  });
+
+  it('sets octet-stream on detectFace', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => [] });
+    await new AzureFaceClient().detectFace(Buffer.from('jpeg-bytes'));
+    expect(contentTypeOf()).toBe('application/octet-stream');
+  });
+
+  it('still sends JSON content type on the JSON calls', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => [] });
+    await new AzureFaceClient().findSimilar('list-1', 'face-1', 0.7);
+    expect(contentTypeOf()).toBe('application/json');
+  });
+});
