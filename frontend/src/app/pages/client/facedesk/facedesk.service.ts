@@ -18,6 +18,24 @@ export interface FaceDeskDashboard {
   lastSyncTime: string | null;
 }
 
+/** The write shape of PUT /facedesk/settings — see updateSettings(). */
+export interface UpdateFaceDeskSettings {
+  faceMatchConfidence?: number;
+  faceRetryConfidence?: number;
+  duplicateThreshold?: number;
+  minFaceSamples?: number;
+  frameCaptureCount?: number;
+  livenessRequired?: boolean;
+  offlineSyncEnabled?: boolean;
+  shiftStartTime?: string | null;
+  shiftEndTime?: string | null;
+  identificationMode?:
+    | 'PIN_THEN_FACE'
+    | 'FACE_ONLY'
+    | 'FACE_THEN_BIOMETRIC'
+    | 'BIOMETRIC_ONLY';
+}
+
 export interface FaceDeskSettings {
   matchConfidencePct: number;
   retryConfidencePct: number;
@@ -137,7 +155,16 @@ export class FaceDeskService {
     return this.http.get<FaceDeskSettings>(`${this.base}/settings`);
   }
 
-  updateSettings(patch: Partial<FaceDeskSettings>): Observable<FaceDeskSettings> {
+  /**
+   * PUT /facedesk/settings takes the SETTINGS-TABLE names, which are not the
+   * names getEffective() returns. Echoing the read model back was rejected
+   * wholesale by forbidNonWhitelisted, so this is deliberately its own type
+   * rather than Partial<FaceDeskSettings> — the compiler now catches the
+   * mismatch the API used to answer with a bare 400.
+   */
+  updateSettings(
+    patch: UpdateFaceDeskSettings,
+  ): Observable<FaceDeskSettings> {
     return this.http.put<FaceDeskSettings>(`${this.base}/settings`, patch);
   }
 

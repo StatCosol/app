@@ -26,6 +26,7 @@ import {
   FaceDeskDevice,
   FaceDeskService,
   FaceDeskSettings,
+  UpdateFaceDeskSettings,
   PendingEnrollmentRow,
   ReviewItem,
 } from './facedesk.service';
@@ -1202,14 +1203,20 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
     if (!this.settings) return;
     // Send only the editable fields — getEffective() also returns computed
     // cosine values which UpdateSettingsDto rejects (forbidNonWhitelisted).
-    const patch: Partial<FaceDeskSettings> = {
-      matchConfidencePct: this.settings.matchConfidencePct,
-      retryConfidencePct: this.settings.retryConfidencePct,
-      duplicatePct: this.settings.duplicatePct,
+    const patch: UpdateFaceDeskSettings = {
+      // The API takes the settings-table names; getEffective() hands back
+      // display names. Sending the display names back made every save on this
+      // page a 400 — the mismatch is why shift times and, latterly, the
+      // identification mode appeared to save and never did.
+      faceMatchConfidence: this.settings.matchConfidencePct,
+      faceRetryConfidence: this.settings.retryConfidencePct,
+      duplicateThreshold: this.settings.duplicatePct,
       minFaceSamples: this.settings.minFaceSamples,
       frameCaptureCount: this.settings.frameCaptureCount,
       livenessRequired: this.settings.livenessRequired,
       offlineSyncEnabled: this.settings.offlineSyncEnabled,
+      shiftStartTime: this.settings.shiftStartTime,
+      shiftEndTime: this.settings.shiftEndTime,
       identificationMode: this.settings.identificationMode,
     };
     this.svc.updateSettings(patch).subscribe({
