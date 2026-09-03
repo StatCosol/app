@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Logger,
   Body,
   Controller,
@@ -179,9 +180,32 @@ export class FaceDeskDeviceController {
   @Public()
   @UseGuards(FaceDeskDeviceAuthGuard)
   @Post('enrollment/save')
-  save(@Req() req: Request, @Body() dto: SaveEnrollmentDto) {
+  async save(@Req() req: Request, @Body() dto: SaveEnrollmentDto) {
     const d = this.ctx(req);
-    return this.enrollment.saveProfile(d.clientId, d.branchId, d.deviceId, dto);
+    try {
+      return await this.enrollment.saveProfile(
+        d.clientId,
+        d.branchId,
+        d.deviceId,
+        dto,
+      );
+    } catch (err) {
+      // A ConflictException here means retrying cannot help: the capture was a
+      // duplicate now queued for admin review, or the subject is already
+      // enrolled. Release the ticket, or this device's poller finds it still
+      // open and relaunches enrolment for the same person on a loop — showing
+      // the correct refusal every time, which is what makes it look like the
+      // refusal did not register.
+      //
+      // The kiosk cancels its own ticket too; this is the half that survives a
+      // kiosk crash or a dropped connection in between. Both are idempotent.
+      if (err instanceof ConflictException) {
+        await this.tickets
+          .cancelOpenForSubject(d.deviceId, d.clientId, dto.employeeId)
+          .catch(() => undefined);
+      }
+      throw err;
+    }
   }
 
   // ── Enrollment ticket polling (web-initiated enrollment) ───────────────────
