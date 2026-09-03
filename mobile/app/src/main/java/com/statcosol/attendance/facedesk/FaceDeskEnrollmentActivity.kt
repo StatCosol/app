@@ -560,6 +560,21 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         tvHint.text = msg
         if (e.isEnrollmentDuplicateConflict()) {
             // Duplicate — admin must review; don't loop another capture.
+            //
+            // Close the ticket too. Only the SUCCESS path called completeTicket,
+            // so a duplicate left the ticket CAPTURING — and getPendingForDevice
+            // treats PENDING and CAPTURING alike. The operator tapped Done, the
+            // attendance screen resumed, its poller found the same open ticket,
+            // and enrollment relaunched for the same person. Forever, with the
+            // right refusal shown each time. The cooldown in the attendance
+            // screen only delayed the next loop; nothing ended it.
+            //
+            // Cancel rather than complete: nothing was enrolled. The decision has
+            // moved to an admin resolving the duplicate alert, and approving that
+            // alert completes the enrollment server-side without this ticket.
+            ticketId?.let { tid ->
+                lifecycleScope.launch { runCatching { api.cancelTicket(tid) } }
+            }
             btnCapture.text = getString(R.string.facedesk_done)
             btnCapture.isEnabled = true
             btnCapture.setOnClickListener { finish() }

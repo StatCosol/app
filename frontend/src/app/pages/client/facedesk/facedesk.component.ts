@@ -28,6 +28,7 @@ import {
   FaceDeskService,
   FaceDeskSettings,
   UpdateFaceDeskSettings,
+  CaptureAuditRow,
   PendingEnrollmentRow,
   ReviewItem,
 } from './facedesk.service';
@@ -39,6 +40,7 @@ type Tab =
   | 'duplicates'
   | 'review'
   | 'short-days'
+  | 'capture-audit'
   | 'reports'
   | 'settings';
 
@@ -86,6 +88,9 @@ type Tab =
 <span class="badge">{{ cards.reviewQueuePending }}</span>
 }
         </button>
+        @if (branchMode) {
+          <button class="tab-btn" [class.active]="tab === 'capture-audit'" (click)="switch('capture-audit')">Capture Check</button>
+        }
         <button class="tab-btn" [class.active]="tab === 'short-days'" (click)="switch('short-days')">
           Short Days
           @if (shortDays.length > 0) {
@@ -394,6 +399,42 @@ type Tab =
 }
 
       <!-- SHORT DAYS (worked < full day → branch approval) -->
+      @if (tab === 'capture-audit') {
+        <p class="text-sm text-gray-600 mb-3">Recent punches with what the kiosk actually photographed. Open a capture next to its enrolled reference to confirm the camera is framing people properly &mdash; a side-on or blurred capture is visible here before it becomes a wrong match.</p>
+        @if (loading) {
+          <ui-loading-spinner text="Loading..." size="lg"></ui-loading-spinner>
+        } @else if (captures.length === 0) {
+          <p class="text-sm text-gray-500">No punches recorded yet.</p>
+        } @else {
+          <table class="tbl">
+            <thead><tr>
+              <th>When</th><th>Who</th><th>Type</th><th>Confidence</th><th>Status</th><th>Photos</th>
+            </tr></thead>
+            <tbody>
+            @for (c of captures; track c.attendanceId) {
+              <tr>
+                <td class="nowrap">{{ c.punchTime | date: 'dd MMM, HH:mm:ss' }}</td>
+                <td>{{ c.employeeName || '—' }}<br><span class="mono text-xs text-gray-500">{{ c.employeeCode || '' }}{{ c.subjectType === 'CONTRACTOR' ? ' · Contractor' : '' }}</span></td>
+                <td>{{ c.punchType || '—' }}</td>
+                <td>{{ c.confidenceScore != null ? (+c.confidenceScore).toFixed(3) : '—' }}</td>
+                <td><span class="pill">{{ c.attendanceStatus || '—' }}</span></td>
+                <td class="nowrap">
+                  @if (c.hasPhoto) {
+                    <button type="button" class="link compare-link" (click)="viewCapturePhoto(c)">Captured</button>
+                  } @else {
+                    <span class="text-xs text-gray-400">no photo</span>
+                  }
+                  @if (c.hasEnrolledPhoto) {
+                    <button type="button" class="link compare-link" (click)="viewCaptureEnrolledPhoto(c)">Enrolled</button>
+                  }
+                </td>
+              </tr>
+            }
+            </tbody>
+          </table>
+        }
+      }
+
       @if (tab === 'short-days') {
 
         <p class="text-sm text-gray-600 mb-3">Days where the total worked hours (summed across all IN→OUT punches) came to less than a full day. Decide how each day counts: <strong>Full day</strong> (1.0), <strong>Half day</strong> (0.5), or <strong>Reject</strong> (absent).</p>
@@ -539,6 +580,7 @@ type Tab =
               <label>Min blur score (enrollment) <span class="hint">0 = off</span><input type="number" step="0.1" [(ngModel)]="settings.captureTuning.minBlurEnrollment" class="inp"></label>
               <label>Min luminance<input type="number" [(ngModel)]="settings.captureTuning.minLuminance" class="inp"></label>
               <label>Max pitch (deg)<input type="number" [(ngModel)]="settings.captureTuning.maxPitchDeg" class="inp"></label>
+              <label>Max yaw / head turn (deg)<input type="number" [(ngModel)]="settings.captureTuning.maxYawDeg" class="inp"></label>
               <label>Analysis width<input type="number" [(ngModel)]="settings.captureTuning.analysisWidth" class="inp"></label>
               <label>Analysis height<input type="number" [(ngModel)]="settings.captureTuning.analysisHeight" class="inp"></label>
               }
@@ -627,6 +669,7 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
   duplicates: DuplicateAlert[] = [];
   review: ReviewItem[] = [];
   shortDays: DayReview[] = [];
+  captures: CaptureAuditRow[] = [];
   dayBusy = false;
   settings: FaceDeskSettings | null = null;
 
@@ -826,6 +869,30 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
       });
   }
 
+  /** Capture Check: the photo this punch actually stored. */
+  viewCapturePhoto(c: CaptureAuditRow): void {
+    if (!c.hasPhoto) return;
+    this.protectedFiles
+      .open(
+        this.svc.capturePhotoUrl(c.attendanceId),
+        `capture-${c.employeeCode || c.attendanceId}`,
+      )
+      .subscribe({ error: () => this.toast.error('Unable to open photo') });
+  }
+
+  /** Capture Check: the enrolled reference, to compare the capture against. */
+  viewCaptureEnrolledPhoto(c: CaptureAuditRow): void {
+    if (!c.hasEnrolledPhoto) return;
+    this.protectedFiles
+      .open(
+        this.svc.captureEnrollmentPhotoUrl(c.attendanceId),
+        `enrolled-${c.employeeCode || c.attendanceId}`,
+      )
+      .subscribe({
+        error: () => this.toast.error('Unable to open enrolled reference photo'),
+      });
+  }
+
   /** Open the enrolled reference face through the same scoped photo boundary. */
   viewEnrollmentPhoto(r: ReviewItem): void {
     if (!r.hasEnrolledPhoto) return;
@@ -902,6 +969,7 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
     if (t === 'review') {
       this.loadReviewTab();
     }
+    if (t === 'capture-audit') this.load(this.svc.captureAudit(50), (r) => (this.captures = r));
     if (t === 'short-days') this.load(this.svc.dayReviews(), (r) => (this.shortDays = r));
     if (t === 'settings') this.load(this.svc.getSettings(), (r) => (this.settings = r));
   }

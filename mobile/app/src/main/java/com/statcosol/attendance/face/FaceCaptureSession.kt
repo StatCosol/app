@@ -39,6 +39,8 @@ class FaceCaptureSession(
     private val minFacePx: () -> Int = { FaceKioskTuning.MIN_FACE_PX },
     private val minLuminance: () -> Float = { FaceKioskTuning.MIN_LUMINANCE },
     private val maxPitch: () -> Float = { FaceKioskTuning.MAX_PITCH_DEG },
+    /** Head turn (left/right). A side profile is almost pure yaw. */
+    private val maxYaw: () -> Float = { FaceKioskTuning.MAX_YAW_DEG },
     private val minSharpness: () -> Float = { FaceKioskTuning.MIN_SHARPNESS_ATTENDANCE },
     /**
      * Device-independent blur floor. 0 disables the gate, which is the shipped
@@ -126,9 +128,24 @@ class FaceCaptureSession(
         }
 
         val pitch = face.headEulerAngleX
+        val yaw = face.headEulerAngleY
         val faceBitmap = cropFaceBitmap(bitmap, face.boundingBox)
 
-        if (!relaxPitchGate() && Math.abs(pitch) > maxPitch()) {
+        // Both head angles, not just pitch.
+        //
+        // headEulerAngleX is PITCH (nodding); YAW — turning to face sideways —
+        // is headEulerAngleY, and it was computed for FaceMetrics but never
+        // gated. A side profile is almost pure yaw, so it cleared every check
+        // and was punched as a normal capture. That is a bad frame to enrol
+        // against and a much worse one to identify FROM: in FACE_ONLY the
+        // profile is the evidence Azure picks a name out of the whole gallery
+        // with, and half a face is where 1:N gets its confusions.
+        //
+        // Relaxed by the same flag as pitch, because enrolment's left/right
+        // steps are deliberately off-axis; only the front phase is gated.
+        if (!relaxPitchGate() &&
+            (Math.abs(pitch) > maxPitch() || Math.abs(yaw) > maxYaw())
+        ) {
             emitPreview(normBox, partialMetrics(face, faceWidth, 0f), "Please look straight at the camera", false)
             onHint("Please look straight at the camera")
             return
@@ -152,10 +169,25 @@ class FaceCaptureSession(
             onHint("Image blurry — hold still and look at the camera")
             return
         }
-        // Logged in debug only — blur/contrast/face metrics are tuning telemetry,
-        // not for production logcat where adb can capture them.
-        if (com.statcosol.attendance.BuildConfig.DEBUG) {
-            Log.d(TAG, "capture blur=%.2f contrast=%.0f face=%.3f".format(blur, sharpness, faceWidth))
+        // Tuning telemetry, off in production but reachable on a real kiosk.
+        //
+        // A BuildConfig.DEBUG guard was the wrong switch here, for a reason that
+        // only shows up on hardware: kiosks run the RELEASE build, so the line
+        // could never fire on the only devices whose numbers matter, and the
+        // floor these values exist to calibrate could never be set. Nothing was
+        // logged despite frames being accepted.
+        //
+        // isLoggable keeps the intent — silent by default, no scalars in
+        // production logcat — while letting an operator opt a single device in:
+        //   adb shell setprop log.tag.FaceCaptureSession DEBUG
+        // These are quality scalars (edge energy, contrast, face fraction), not
+        // identity: nothing here says who was captured.
+        //
+        // Gate on DEBUG, emit at INFO: the gate is what controls visibility, and
+        // emitting at INFO keeps it independent of whether the release build's
+        // minifier drops debug-level calls.
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.i(TAG, "capture blur=%.2f contrast=%.0f face=%.3f".format(blur, sharpness, faceWidth))
         }
 
         // Face brightness. Measured on the face crop (not the frame) so a bright

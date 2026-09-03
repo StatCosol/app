@@ -187,6 +187,129 @@ export class FaceDeskAdminService {
    * the portal must fetch them through here — we load the review row, enforce
    * client + branch scope, and stream the file from storage.
    */
+  /**
+   * Recent punches with what was captured, for spot-checking the camera.
+   *
+   * The review queue and duplicate alerts only ever show FLAGGED captures, so
+   * there was no way to answer "is this kiosk photographing people properly?"
+   * — a side-on frame that the gates happily accepted looked, from the portal,
+   * exactly like a clean one. This lists ordinary punches so a bad capture is
+   * visible before it becomes a misidentification.
+   *
+   * Returns availability flags, never image bytes: the images come from the
+   * scoped photo endpoints, which enforce branch-verifier access per image.
+   */
+  async listRecentCaptures(
+    clientId: string,
+    branchIds: string[] | null,
+    limit = 50,
+  ): Promise<unknown[]> {
+    const capped = Math.min(Math.max(Number(limit) || 50, 1), 200);
+    const params: unknown[] = [clientId];
+    let branchFilter = '';
+    if (branchIds != null) {
+      // Empty scope means no branches, which must match nothing rather than
+      // degrading to "all" — the same trap actOnReview() guards against.
+      if (branchIds.length === 0) return [];
+      params.push(branchIds);
+      branchFilter = `AND a.branch_id = ANY($${params.length}::uuid[])`;
+    }
+    params.push(capped);
+    return this.reviewRepo.manager.query(
+      // subject_type lives on the PROFILE, not on the attendance log, so the
+      // roster a punch belongs to has to be resolved through the profile join
+      // rather than read off the row.
+      `SELECT a.attendance_id     AS "attendanceId",
+              a.branch_id         AS "branchId",
+              a.punch_time        AS "punchTime",
+              a.punch_type        AS "punchType",
+              a.confidence_score  AS "confidenceScore",
+              a.match_margin      AS "matchMargin",
+              a.liveness_score    AS "livenessScore",
+              a.attendance_status AS "attendanceStatus",
+              p.subject_type      AS "subjectType",
+              COALESCE(e.name, ce.name) AS "employeeName",
+              COALESCE(e.employee_code, ce.employee_code) AS "employeeCode",
+              (a.photo_url IS NOT NULL) AS "hasPhoto",
+              EXISTS (
+                SELECT 1
+                  FROM facedesk_employee_face_samples s
+                 WHERE s.profile_id = p.profile_id
+                   AND s.image_path IS NOT NULL
+              ) AS "hasEnrolledPhoto"
+         FROM facedesk_attendance_logs a
+         LEFT JOIN facedesk_employee_face_profiles p
+           ON p.client_id = a.client_id AND p.employee_id = a.employee_id
+         LEFT JOIN employees e
+           ON p.subject_type IS DISTINCT FROM 'CONTRACTOR'
+          AND e.id = a.employee_id AND e.client_id = a.client_id
+         LEFT JOIN contractor_employees ce
+           ON p.subject_type = 'CONTRACTOR'
+          AND ce.id = a.employee_id AND ce.client_id = a.client_id
+        WHERE a.client_id = $1 ${branchFilter}
+        ORDER BY a.punch_time DESC
+        LIMIT $${params.length}`,
+      params,
+    );
+  }
+
+  /** Captured photo for one punch, scoped exactly like the review photos. */
+  async getCapturePhoto(
+    clientId: string,
+    attendanceId: string,
+    branchIds: string[] | null,
+  ): Promise<{ buffer: Buffer; contentType: string } | null> {
+    const [row] = await this.reviewRepo.manager.query(
+      `SELECT branch_id AS "branchId", photo_url AS "photoUrl"
+         FROM facedesk_attendance_logs
+        WHERE attendance_id = $1 AND client_id = $2
+        LIMIT 1`,
+      [attendanceId, clientId],
+    );
+    if (!row) throw new NotFoundException('Punch not found');
+    if (branchIds != null) {
+      if (!row.branchId || !branchIds.includes(row.branchId)) {
+        throw new NotFoundException('Punch not found');
+      }
+    }
+    if (!row.photoUrl) return null;
+    return this.photoStorage.readPhoto(row.photoUrl);
+  }
+
+  /** Enrolled reference for the subject of one punch, for side-by-side compare. */
+  async getCaptureEnrolledPhoto(
+    clientId: string,
+    attendanceId: string,
+    branchIds: string[] | null,
+  ): Promise<{ buffer: Buffer; contentType: string } | null> {
+    const [row] = await this.reviewRepo.manager.query(
+      `SELECT a.branch_id AS "branchId",
+              (SELECT s.image_path
+                 FROM facedesk_employee_face_profiles p
+                 JOIN facedesk_employee_face_samples s
+                   ON s.profile_id = p.profile_id
+                WHERE p.client_id = a.client_id
+                  AND p.employee_id = a.employee_id
+                  AND s.image_path IS NOT NULL
+                ORDER BY (s.sample_type = 'FRONT') DESC,
+                         s.quality_score DESC NULLS LAST,
+                         s.created_at DESC
+                LIMIT 1) AS "photoUrl"
+         FROM facedesk_attendance_logs a
+        WHERE a.attendance_id = $1 AND a.client_id = $2
+        LIMIT 1`,
+      [attendanceId, clientId],
+    );
+    if (!row) throw new NotFoundException('Punch not found');
+    if (branchIds != null) {
+      if (!row.branchId || !branchIds.includes(row.branchId)) {
+        throw new NotFoundException('Punch not found');
+      }
+    }
+    if (!row.photoUrl) return null;
+    return this.photoStorage.readPhoto(row.photoUrl);
+  }
+
   async getReviewPhoto(
     clientId: string,
     reviewId: string,

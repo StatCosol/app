@@ -191,6 +191,38 @@ export class FaceDeskTicketService {
     return { ok: true };
   }
 
+  /**
+   * Close any open ticket this device holds for one subject.
+   *
+   * Used when an enrolment cannot proceed no matter how often it is retried —
+   * a duplicate sent to admin review, or a subject already enrolled. The kiosk
+   * cancels its own ticket in those cases, but only if it survives to make the
+   * call: a crash, a dropped network, or a killed app between the refusal and
+   * the cancel leaves the ticket open, and getPendingForDevice treats PENDING
+   * and CAPTURING alike, so the device relaunches enrolment for the same person
+   * on its next poll. This is the copy that does not depend on the kiosk.
+   *
+   * Scoped to device + client + subject so it can never touch a queued ticket
+   * for somebody else.
+   */
+  async cancelOpenForSubject(
+    deviceId: string,
+    clientId: string,
+    employeeId: string,
+  ): Promise<{ ok: true }> {
+    await this.repo
+      .createQueryBuilder()
+      .update(FaceDeskEnrollTicketEntity)
+      .set({ status: 'CANCELLED' })
+      .where(
+        'device_id = :deviceId AND client_id = :clientId ' +
+          'AND employee_id = :employeeId AND status IN (:...open)',
+        { deviceId, clientId, employeeId, open: ['PENDING', 'CAPTURING'] },
+      )
+      .execute();
+    return { ok: true };
+  }
+
   listByClient(
     clientId: string,
     status?: string,

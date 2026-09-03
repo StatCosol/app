@@ -73,10 +73,14 @@ describe('resolveCaptureTuning', () => {
       minBlurEnrollment: 0,
       minLuminance: 20,
       maxPitchDeg: 28,
+      maxYawDeg: 30,
       blinkAbsThreshold: 0.5,
       blinkDropDelta: 0.25,
-      analysisWidth: 1280,
-      analysisHeight: 720,
+      // null = unconfigured, so the handset keeps the size DeviceCameraProfile
+      // derived from its own camera. Sending a number here forces every kiosk
+      // on the client to that size.
+      analysisWidth: null,
+      analysisHeight: null,
     });
   });
 });
@@ -125,6 +129,7 @@ describe('CaptureTuningDto', () => {
         minSharpnessEnrollment: 40,
         minLuminance: 25,
         maxPitchDeg: 30,
+        maxYawDeg: 30,
         blinkAbsThreshold: 0.5,
         blinkDropDelta: 0.3,
         analysisWidth: 1280,

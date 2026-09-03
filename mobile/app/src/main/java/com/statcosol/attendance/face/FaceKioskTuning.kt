@@ -99,6 +99,14 @@ object FaceKioskTuning {
     /** Front phase only; relaxed automatically during left/right turns. */
     @Volatile @JvmStatic var MAX_PITCH_DEG = 28f
 
+    /**
+     * Max head turn for a usable frame. Pitch had a gate from the start; yaw did
+     * not, so faces turned side-on passed every check and were punched.
+     * Slightly looser than pitch: people approach a kiosk at an angle far more
+     * naturally than they look up or down at it.
+     */
+    @Volatile @JvmStatic var MAX_YAW_DEG = 30f
+
     // ── Enrollment guided capture ────────────────────────────────────────────
     /** 6 good fronts + 3 per side = 12 angle frames (was 14 on faster hardware). */
     const val ENROLL_FRONT_FRAMES = 6
@@ -162,6 +170,7 @@ object FaceKioskTuning {
         tuning.minBlurEnrollment?.let { MIN_BLUR_ENROLLMENT = it }
         tuning.minLuminance?.let { MIN_LUMINANCE = it }
         tuning.maxPitchDeg?.let { MAX_PITCH_DEG = it }
+        tuning.maxYawDeg?.let { MAX_YAW_DEG = it }
         tuning.blinkAbsThreshold?.let { BLINK_ABS_THRESHOLD = it }
         tuning.blinkDropDelta?.let { BLINK_DROP_DELTA = it }
         val w = tuning.analysisWidth
