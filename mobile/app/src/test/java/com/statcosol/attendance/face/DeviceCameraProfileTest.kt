@@ -29,6 +29,27 @@ class DeviceCameraProfileTest {
     }
 
     @Test
+    fun `prefers true 16 by 9 over the encoder-aligned twin at the same size`() {
+        // Real case, caught on a Xiaomi: the driver offers 1920x1088 (1080
+        // rounded up to a multiple of 16) BEFORE 1920x1080. Both clear the
+        // aspect tolerance and both are 1920 long, so without an explicit
+        // tie-break the winner is just whichever the driver listed first.
+        val listedFirst = listOf(Dims(1280, 720), Dims(1920, 1088), Dims(1920, 1080))
+        assertEquals(Dims(1920, 1080), DeviceCameraProfile.chooseDims(listedFirst, 1920))
+
+        // ...and the answer must not depend on the order either.
+        val listedLast = listOf(Dims(1280, 720), Dims(1920, 1080), Dims(1920, 1088))
+        assertEquals(Dims(1920, 1080), DeviceCameraProfile.chooseDims(listedLast, 1920))
+    }
+
+    @Test
+    fun `still takes the aligned size when no true 16 by 9 exists at that size`() {
+        // 1088 is better than dropping to 1280 just because it isn't exact.
+        val noExact = listOf(Dims(1280, 720), Dims(1920, 1088))
+        assertEquals(Dims(1920, 1088), DeviceCameraProfile.chooseDims(noExact, 1920))
+    }
+
+    @Test
     fun `never picks below the floor when something bigger is offered`() {
         val chosen = DeviceCameraProfile.chooseDims(typical, 1920)
         assertTrue(chosen.longEdge >= 640)

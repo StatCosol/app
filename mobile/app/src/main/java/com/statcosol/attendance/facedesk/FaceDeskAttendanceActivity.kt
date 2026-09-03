@@ -312,6 +312,11 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         pinDialog = null
         paused = true
         frames.clear(); blinkDetector.reset()
+        // onResume leaves the header on "Loading kiosk settings…" until the mode
+        // is known. Reaching here means it IS known, so clear it: the keypad
+        // does not cover the header strip, and a screen that says it is still
+        // loading while asking for input reads as a stuck kiosk.
+        runOnUiThread { tvTitle.text = getString(R.string.facedesk_pin_entry_title) }
         // Big on-screen numeric keypad — no soft keyboard. Auto-submits the
         // instant a full 4-digit PIN is tapped; non-cancelable so the kiosk
         // always has a claimed PIN before the camera is used.

@@ -150,8 +150,21 @@ object DeviceCameraProfile {
                     ?: listOf(supported.maxByOrNull { it.longEdge }!!)
             }
 
+        // Size first, then squareness of fit. The second half is not academic:
+        // sensors commonly offer 1920x1088 alongside 1920x1080 (1080 rounded up
+        // to the encoder's multiple of 16). Both clear the tolerance below and
+        // both have a 1920 long edge, so picking "the largest" alone comes down
+        // to whichever the driver happened to list first. The Xiaomi lists 1088
+        // first and got it. Preferring true 16:9 on a tie keeps the analysis
+        // stream matched to the preview and makes the choice reproducible
+        // instead of driver-order dependent.
         val widescreen = usable.filter { abs(it.aspect - TARGET_ASPECT) < 0.05f }
-        if (widescreen.isNotEmpty()) return widescreen.maxByOrNull { it.longEdge }!!
+        if (widescreen.isNotEmpty()) {
+            return widescreen.sortedWith(
+                compareByDescending<Dims> { it.longEdge }
+                    .thenBy { abs(it.aspect - TARGET_ASPECT) },
+            ).first()
+        }
 
         // No true 16:9 offered. Closest aspect wins, ties broken by size, so a
         // 4:3-only sensor still gets its best usable stream.
