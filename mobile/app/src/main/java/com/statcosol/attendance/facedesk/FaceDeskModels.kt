@@ -161,7 +161,7 @@ data class FaceDeskRegisterResponse(
     val mode: String,
     val clientId: String,
     val branchId: String? = null,
-    val adminPin: String = "",
+    val identificationMode: String? = null,
     val branding: FaceDeskKioskBranding? = null,
 )
 

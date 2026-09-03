@@ -1,7 +1,11 @@
 # Face Attendance System - Documentation Index
 
-Last updated: 2026-06-13
-Status: Production stop in effect until validation is complete
+Last updated: 2026-09-03
+
+> **Current system:** **FaceDesk V2** is the supported shared-kiosk product.
+> See `docs/ATTENDANCE_SYSTEMS.md` for the full architecture (FaceDesk, eSSL,
+> ESS, legacy V1). The documents below describe the **June 2026 V1 kiosk hotfix**
+> and remain useful for roster-matcher thresholds and production safety defaults.
 
 ## Start Here
 
@@ -12,14 +16,9 @@ Status: Production stop in effect until validation is complete
 
 ## Current Production Position
 
-Shared-kiosk live face attendance must remain disabled until:
+**FaceDesk V2** (`/api/v1/facedesk/*`, kiosk APK 0.7.x) is the primary shared-kiosk path. Identification modes: `PIN_THEN_FACE` (default), `FACE_ONLY`, `FACE_THEN_BIOMETRIC`, `BIOMETRIC_ONLY`.
 
-1. Known duplicate/wrong-template records are cleaned.
-2. Problem employees are re-enrolled under controlled lighting.
-3. The kiosk APK and backend hotfix are deployed together.
-4. Acceptance testing confirms no wrong-person attendance capture.
-
-The hotfix intentionally defaults `FACE_KIOSK_LIVE_ATTENDANCE_ENABLED=false`.
+The **V1 roster kiosk** hotfix controls below (`FACE_KIOSK_LIVE_ATTENDANCE_ENABLED`) apply only to legacy `KioskActivity` / mobile-attendance roster matching — not FaceDesk V2 mark-attendance.
 
 ## Immediate Configuration
 

@@ -63,10 +63,21 @@ StatComPy currently has **five attendance subsystems**. They serve different por
 - **Contractor borderline punches:** Contractor attendance workflows via `CONTRACTOR_ATTENDANCE` module (if enabled).
 - **Federation APIs:** `GET /api/v1/mobile-attendance/review-federation` and `enrollment-federation` remain for FaceDesk clients; mobile employee rows are no longer included.
 
-### Supported products (2026-08)
-| Product | Status |
-|---------|--------|
-| FaceDesk kiosk (PIN + face) | **Required** — `/api/v1/facedesk/*` |
-| ESS portal web + app | **Required** — `/api/v1/ess/*` |
-| eSSL/ZKTeco biometric device (ADMS push) | **Supported** — `/iclock/*` + `/api/v1/client/biometric/*` |
-| ESS Mobile Attendance (personal phone) | **Retired** |
+### Supported products (2026-09)
+
+| Product | Status | API / portal |
+|---------|--------|--------------|
+| **FaceDesk V2 kiosk** | **Required** (default for new sites) | `/api/v1/facedesk/*` · Client → Kiosk Attendance |
+| **ESS portal** (web + `:essportal` WebView) | **Required** | `/api/v1/ess/*` |
+| **eSSL/ZKTeco biometric** (ADMS push) | **Supported** | `/iclock/*` + `/api/v1/client/biometric/*` |
+| **V1 offline roster kiosk** | **Legacy** (migration only) | `/api/v1/mobile-attendance/*` · Setup → Offline roster |
+| **ESS Mobile Attendance** (personal phone) | **Retired** | — |
+
+### FaceDesk identification modes (per client)
+
+| Mode | Kiosk | Server |
+|------|-------|--------|
+| `PIN_THEN_FACE` (default) | 4-digit PIN, then face | PIN claims identity; 1:1 face verify |
+| `FACE_ONLY` | Face only | Azure 1:N identify; no offline queue |
+| `FACE_THEN_BIOMETRIC` | Face only | Azure 1:N + corroborating eSSL fingerprint punch |
+| `BIOMETRIC_ONLY` | Face flow off | eSSL fingerprint only via `/iclock` |

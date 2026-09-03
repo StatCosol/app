@@ -52,7 +52,7 @@ export class FaceDeskDeviceEntity {
   @Column({ name: 'mode', type: 'varchar', length: 20, default: 'ATTENDANCE' })
   mode: 'ATTENDANCE' | 'ENROLLMENT';
 
-  @Column({ name: 'admin_pin', type: 'varchar', length: 12, nullable: true })
+  @Column({ name: 'admin_pin', type: 'varchar', length: 72, nullable: true })
   adminPin: string | null;
 
   @Column({ name: 'last_sync_time', type: 'timestamptz', nullable: true })

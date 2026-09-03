@@ -500,12 +500,7 @@ type Tab =
 }
         @if (!loading && settings) {
 <div class="settings">
-            <p class="text-xs text-gray-500 col-span-2">
-              The kiosk always asks for the employee code and a 6-digit PIN,
-              then verifies the face 1:1 against that employee — no roster-wide scan,
-              so look-alike / duplicate mismatches can't happen. Set each enrolled
-              employee's PIN below.
-            </p>
+            <p class="text-xs text-gray-500 col-span-2">{{ modeDescription }}</p>
           <label class="col-span-2">Identification mode
             <select [(ngModel)]="settings.identificationMode" class="inp">
               <option value="PIN_THEN_FACE">PIN + Face — code and PIN, then face verification</option>
@@ -530,6 +525,22 @@ type Tab =
           <label class="chk"><input type="checkbox" [(ngModel)]="settings.offlineSyncEnabled"> Offline sync enabled</label>
           <label>Shift start (HH:MM)<input type="text" [(ngModel)]="settings.shiftStartTime" class="inp" placeholder="09:30"></label>
           <label>Shift end (HH:MM)<input type="text" [(ngModel)]="settings.shiftEndTime" class="inp" placeholder="18:00"></label>
+          <details class="col-span-2 capture-tuning">
+            <summary class="text-sm font-medium cursor-pointer">Capture tuning (per-camera hardware)</summary>
+            <p class="text-xs text-gray-500 mt-2 mb-3">
+              Override thresholds pushed to kiosks via GET /facedesk/device/config. Leave blank to use server defaults.
+            </p>
+            <div class="grid grid-cols-2 gap-3">
+              @if (settings.captureTuning) {
+              <label>Min sharpness (attendance)<input type="number" [(ngModel)]="settings.captureTuning.minSharpnessAttendance" class="inp"></label>
+              <label>Min sharpness (enrollment)<input type="number" [(ngModel)]="settings.captureTuning.minSharpnessEnrollment" class="inp"></label>
+              <label>Min luminance<input type="number" [(ngModel)]="settings.captureTuning.minLuminance" class="inp"></label>
+              <label>Max pitch (deg)<input type="number" [(ngModel)]="settings.captureTuning.maxPitchDeg" class="inp"></label>
+              <label>Analysis width<input type="number" [(ngModel)]="settings.captureTuning.analysisWidth" class="inp"></label>
+              <label>Analysis height<input type="number" [(ngModel)]="settings.captureTuning.analysisHeight" class="inp"></label>
+              }
+            </div>
+          </details>
           <p class="text-xs text-gray-500 col-span-2">
             Percentages map to the model's calibrated cosine thresholds (accept ≈ {{ settings.acceptCosine }},
             retry ≈ {{ settings.retryCosine }}). Tune per site.
@@ -1218,6 +1229,7 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
       shiftStartTime: this.settings.shiftStartTime,
       shiftEndTime: this.settings.shiftEndTime,
       identificationMode: this.settings.identificationMode,
+      captureTuning: this.settings.captureTuning,
     };
     this.svc.updateSettings(patch).subscribe({
       next: (r) => { this.settings = r; this.toast.success('Settings saved'); },

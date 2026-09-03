@@ -47,13 +47,19 @@ android {
         // kiosk header to bring up the PIN prompt.
         //
         // The PIN is read at build time from one of:
-        //   * gradle.properties  →  statco.adminExitPin=...
+        //   * secrets.properties →  statco.adminExitPin=...  (gitignored; see example)
         //   * CLI                →  -Pstatco.adminExitPin=...
         //   * env var            →  STATCO_ADMIN_EXIT_PIN=...
         // If unset, the value is empty and the exit dialog will refuse to
         // unlock — set a PIN before producing a release build.
+        val secretsProperties = Properties()
+        val secretsFile = rootProject.file("secrets.properties")
+        if (secretsFile.exists()) {
+            secretsFile.inputStream().use { secretsProperties.load(it) }
+        }
         val adminExitPin: String =
             (project.findProperty("statco.adminExitPin") as String?)
+                ?: secretsProperties.getProperty("statco.adminExitPin")
                 ?: System.getenv("STATCO_ADMIN_EXIT_PIN")
                 ?: ""
         buildConfigField("String", "ADMIN_EXIT_PIN", "\"$adminExitPin\"")

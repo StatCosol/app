@@ -25,8 +25,8 @@ function makeService(row: any = null) {
 }
 
 describe('FaceDeskDeviceService', () => {
-  it('provisions a device with a 64-hex install token', async () => {
-    const { service } = makeService();
+  it('provisions a device with a 64-hex install token and hashed admin PIN', async () => {
+    const { service, repo } = makeService();
     const d = await service.provision('c1', {
       deviceName: 'Gate 1',
       branchId: 'b1',
@@ -35,6 +35,9 @@ describe('FaceDeskDeviceService', () => {
     expect(d.installToken).toMatch(/^[0-9a-f]{64}$/);
     expect(d.deviceStatus).toBe('PROVISIONED');
     expect(d.clientId).toBe('c1');
+    expect(d).not.toHaveProperty('adminPin');
+    const saved = repo.save.mock.calls[0][0];
+    expect(saved.adminPin).toMatch(/^\$2[aby]\$/);
   });
 
   it('requires an admin PIN at provision time', async () => {

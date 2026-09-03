@@ -7,8 +7,9 @@ export default defineConfig({
     // Angular TestBed specs continue to use `ng test`.
     include: [
       'src/app/modules/accounts-billing/**/*.spec.ts',
-      // Pure/logic specs (utils, validators, pipes) — no Angular TestBed needed.
       'src/app/shared/**/*.spec.ts',
+      'src/app/core/**/*.spec.ts',
+      'src/app/pages/**/*.spec.ts',
     ],
     browser: {
       api: {

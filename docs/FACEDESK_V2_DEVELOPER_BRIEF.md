@@ -2,9 +2,9 @@
 
 ## Objective
 
-FaceDesk V2 is a clean replacement module for the current kiosk flow. It separates employee face enrollment from attendance capture so admin-controlled registration and employee self-service punching never share the same screen.
+FaceDesk V2 is the **production** shared-kiosk attendance module. It separates employee face enrollment from attendance capture so admin-controlled registration and employee self-service punching never share the same screen.
 
-Existing kiosk behavior is V1 and can remain available until V2 is tested.
+Legacy **V1 offline roster kiosk** (`KioskActivity` + mobile-attendance roster) remains in the APK for migration only. New sites should provision **FaceDesk devices** in the portal.
 
 ## Core Rule
 
@@ -75,12 +75,16 @@ Use clear operator messages instead of technical errors.
 
 ## Confidence Settings
 
-- `FACE_MATCH_CONFIDENCE`: 95
-- `FACE_RETRY_CONFIDENCE`: 90
-- `DUPLICATE_THRESHOLD`: 90
-- `MIN_FACE_SAMPLES`: 5
-- `FRAME_CAPTURE_COUNT`: 15
-- `OFFLINE_SYNC_ENABLED`: true
+Portal settings use **display percentages** (e.g. 95% accept). The matcher uses **calibrated cosine** thresholds — see `backend/.env.example` (`FD_COSINE_AT_95=0.84`, etc.) and `FaceDeskSettingsService.percentToCosine()`.
+
+Typical defaults (percent → effective cosine):
+
+- Match confidence: **95%** → ~0.84 accept
+- Retry confidence: **90%** → ~0.78 retry band
+- Duplicate threshold: **97%** → ~0.88 block enrollment duplicates
+- Min face samples: **5**
+- Frame capture count: **15**
+- Offline sync: **enabled** for `PIN_THEN_FACE` only (`FACE_ONLY` has no offline fallback)
 
 ## Admin Review Queue
 

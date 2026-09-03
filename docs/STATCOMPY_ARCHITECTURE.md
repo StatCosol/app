@@ -52,6 +52,10 @@ Core differentiator: all compliance is branch-wise; Client Master sees consolida
 - **Assignments**: client→CRM and client/branch→Auditor; rotation job (CRM yearly, Auditor every 4 months); history trail.
 - **Dashboard**: role-scoped KPI aggregations (client, branch, contractor, assignments, compliance coverage).
 - **Files/Helpdesk/Payroll**: cross-cutting helpers and optional payroll scope.
+- **FaceDesk V2** (`facedesk/`): shared Android kiosk attendance — device registry, enrollment, PIN/face/Azure identification modes, review queue, payroll sync. API: `/api/v1/facedesk/*`. Portal: Client → Kiosk Attendance.
+- **Biometric devices** (`biometric/`): eSSL/ZKTeco ADMS push (`/iclock/*`) and client device management. Distinct from FaceDesk (`captureMethod=BIOMETRIC` vs `FACE`).
+- **Mobile-attendance (legacy)**: V1 offline roster kiosk and contractor punch paths. ESS personal-phone product retired 2026-08.
+- **face-svc** (optional Python sidecar): server-side embeddings and quality gate at `FACE_SVC_URL`.
 
 ## 6. Core Data Model (Documentation-Level)
 - **ClientCompany**: id, name, industryType, isActive, createdAt.

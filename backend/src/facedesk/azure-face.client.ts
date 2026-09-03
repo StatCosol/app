@@ -34,21 +34,17 @@ export interface AzureLivenessSessionResult {
  * Configured when AZURE_FACE_ENDPOINT and AZURE_FACE_KEY are set.
  *
  * Microsoft gates Face features behind separate Limited Access approvals, and
- * they are granted independently. As of 2026-08-31 this resource has
- * **Verification and Liveness** but NOT **Identification** — probed directly:
+ * they are granted independently. On statcompy-face (re-probed 2026-09-03):
  *
  *   detectLiveness/singleModal/sessions  -> 200
  *   detect?returnFaceId=true             -> 200 (400 on a junk image)
  *   largefacelists                       -> 200
- *   findsimilars / identify              -> 403 UnsupportedFeature
- *                                           "missing approval for: Identification"
+ *   findsimilars / identify              -> 400 BadArgument on bad input (not 403)
  *
- * Credentials alone therefore do not mean every call will work. Duplicate
- * detection needs findsimilars, so it is gated separately on
- * AZURE_FACE_IDENTIFICATION — otherwise setting the credentials to enable
- * liveness would also switch on a duplicate path that 403s on every
- * enrolment and silently falls back to cosine, adding a failed round-trip to
- * each one.
+ * Identification is approved on this resource. Duplicate detection and
+ * FACE_ONLY attendance still require AZURE_FACE_IDENTIFICATION=true on the
+ * deployment — an explicit opt-in so liveness can run without turning on 1:N
+ * paths on environments that are not ready.
  */
 @Injectable()
 export class AzureFaceClient {
@@ -66,9 +62,9 @@ export class AzureFaceClient {
   }
 
   /**
-   * Identification (findsimilars / identify) additionally requires Microsoft
-   * approval for that specific feature. Opt in only once it is granted:
-   * re-probe `POST /face/v1.0/findsimilars` and look for 200 rather than 403.
+   * Identification (findsimilars / identify) requires AZURE_FACE_IDENTIFICATION
+   * on the deployment. Microsoft approval is granted on statcompy-face; this
+   * flag controls whether this environment uses 1:N paths.
    */
   get identificationEnabled(): boolean {
     return (
