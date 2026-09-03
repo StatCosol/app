@@ -76,6 +76,23 @@ object FaceKioskTuning {
     @Volatile @JvmStatic var MIN_SHARPNESS_ATTENDANCE = 38f
     @Volatile @JvmStatic var MIN_SHARPNESS_ENROLLMENT = 42f
 
+    /**
+     * Device-independent blur floors — see FaceCaptureSession.computeBlurScore.
+     *
+     * MIN_SHARPNESS_* above measure CONTRAST, not blur, so they read differently
+     * on every sensor. These are on a new scale that does not, which is why they
+     * are new fields rather than a redefinition: changing what MIN_SHARPNESS
+     * means would silently invalidate every per-client captureTuning already
+     * stored against the old scale.
+     *
+     * 0 = disabled, and that is deliberate for now. No field data exists to set
+     * a floor from, and a guessed threshold on a live attendance system rejects
+     * real punches for a reason nobody can see. Collect values from the logged
+     * `capture blur=` lines first, then set this per client from the server.
+     */
+    @Volatile @JvmStatic var MIN_BLUR_ATTENDANCE = 0f
+    @Volatile @JvmStatic var MIN_BLUR_ENROLLMENT = 0f
+
     /** No front flash — allow dimmer gate lighting (lux still blocks very dark). */
     @Volatile @JvmStatic var MIN_LUMINANCE = 20f
 
@@ -141,6 +158,8 @@ object FaceKioskTuning {
         tuning.minFaceSizeEnrollment?.let { MIN_FACE_SIZE_ENROLLMENT = it }
         tuning.minSharpnessAttendance?.let { MIN_SHARPNESS_ATTENDANCE = it }
         tuning.minSharpnessEnrollment?.let { MIN_SHARPNESS_ENROLLMENT = it }
+        tuning.minBlurAttendance?.let { MIN_BLUR_ATTENDANCE = it }
+        tuning.minBlurEnrollment?.let { MIN_BLUR_ENROLLMENT = it }
         tuning.minLuminance?.let { MIN_LUMINANCE = it }
         tuning.maxPitchDeg?.let { MAX_PITCH_DEG = it }
         tuning.blinkAbsThreshold?.let { BLINK_ABS_THRESHOLD = it }

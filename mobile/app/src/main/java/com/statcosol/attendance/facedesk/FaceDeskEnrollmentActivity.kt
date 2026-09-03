@@ -220,6 +220,7 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
                     detector = detector,
                     minFaceSize = { FaceKioskTuning.MIN_FACE_SIZE_ENROLLMENT },
                     minSharpness = { FaceKioskTuning.MIN_SHARPNESS_ENROLLMENT },
+                    minBlurScore = { FaceKioskTuning.MIN_BLUR_ENROLLMENT },
                     minLuminance = { FaceKioskTuning.MIN_LUMINANCE },
                     maxPitch = { FaceKioskTuning.MAX_PITCH_DEG },
                     computeFullFrameProbe = false,
@@ -413,11 +414,13 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
                 qualityScore = quality,
             ),
         )
-        Log.d(
-            TAG,
-            "capture type=$type yaw=${"%.1f".format(headYaw)} quality=${"%.2f".format(quality)} " +
-                "counts front=$frontCount left=$leftCount right=$rightCount blink=$blinked",
-        )
+        if (com.statcosol.attendance.BuildConfig.DEBUG) {
+            Log.d(
+                TAG,
+                "capture type=$type yaw=${"%.1f".format(headYaw)} quality=${"%.2f".format(quality)} " +
+                    "counts front=$frontCount left=$leftCount right=$rightCount blink=$blinked",
+            )
+        }
 
         val done = frontCount >= FRONT_FRAMES && leftCount >= PER_ANGLE &&
             rightCount >= PER_ANGLE && blinked

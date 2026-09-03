@@ -25,6 +25,8 @@ export interface FaceDeskCaptureTuning {
   minFaceSizeEnrollment: number;
   minSharpnessAttendance: number;
   minSharpnessEnrollment: number;
+  minBlurAttendance: number;
+  minBlurEnrollment: number;
   minLuminance: number;
   maxPitchDeg: number;
   blinkAbsThreshold: number;
@@ -39,6 +41,10 @@ export const DEFAULT_CAPTURE_TUNING: FaceDeskCaptureTuning = {
   minFaceSizeEnrollment: 0.13,
   minSharpnessAttendance: 38,
   minSharpnessEnrollment: 42,
+  // 0 = gate disabled. New scale (Laplacian variance / contrast), no field data
+  // yet to set a floor from — see FaceCaptureSession.computeBlurScore.
+  minBlurAttendance: 0,
+  minBlurEnrollment: 0,
   minLuminance: 20,
   maxPitchDeg: 28,
   blinkAbsThreshold: 0.5,
@@ -60,6 +66,10 @@ const RANGES: Record<keyof FaceDeskCaptureTuning, [number, number]> = {
   minFaceSizeEnrollment: [0.05, 0.6],
   minSharpnessAttendance: [5, 200],
   minSharpnessEnrollment: [5, 200],
+  // 0 is a legitimate value here, unlike the sharpness floors: it means the
+  // gate is off, which is the current default.
+  minBlurAttendance: [0, 50],
+  minBlurEnrollment: [0, 50],
   minLuminance: [1, 200],
   maxPitchDeg: [5, 60],
   blinkAbsThreshold: [0.1, 0.95],

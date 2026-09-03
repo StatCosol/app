@@ -65,7 +65,10 @@ export class UsersComponent implements OnInit, OnDestroy {
   msg = '';
   err = '';
   isLoading = false;
+  usersLoading = false;
   actionUserId: string | null = null;
+  private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private usersLoadSeq = 0;
 
   // Data
   roles: Role[] = [];
@@ -214,6 +217,17 @@ export class UsersComponent implements OnInit, OnDestroy {
     return true;
   }
 
+  onSearchChanged(): void {
+    this.currentPage = 1;
+    if (this.searchDebounceTimer) {
+      clearTimeout(this.searchDebounceTimer);
+    }
+    this.searchDebounceTimer = setTimeout(() => {
+      this.searchDebounceTimer = null;
+      this.loadUsers();
+    }, 300);
+  }
+
   onFiltersChanged(): void {
     this.currentPage = 1;
     this.loadUsers();
@@ -275,6 +289,9 @@ export class UsersComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.searchDebounceTimer) {
+      clearTimeout(this.searchDebounceTimer);
+    }
     // Complete the destroy subject to unsubscribe from all observables
     this.destroy$.next();
     this.destroy$.complete();
@@ -467,20 +484,27 @@ export class UsersComponent implements OnInit, OnDestroy {
   // Removed duplicate declarations for users, groupByClient, page, limit, total, loading
 
   async loadUsers(): Promise<void> {
-    this.isLoading = true;
+    const seq = ++this.usersLoadSeq;
+    this.usersLoading = true;
 
+    const search = this.searchTerm.trim();
     const params: Record<string, string> = {
       page: String(this.currentPage),
       limit: String(this.pageSize),
-      search: this.searchTerm || '',
       roleCode: this.filterRoleCode || 'all',
       status: this.filterStatus || 'all',
     };
+    if (search) {
+      // Bracket access: params is typed Record<string, string>, and the build
+      // runs noPropertyAccessFromIndexSignature (TS4111).
+      params['search'] = search;
+    }
 
     const startedAt = Date.now();
     const safetyTimer = setTimeout(() => {
-      if (this.isLoading) {
-        this.isLoading = false;
+      if (seq === this.usersLoadSeq && this.usersLoading) {
+        this.usersLoading = false;
+        this.cdr.detectChanges();
       }
     }, 8000);
 
@@ -495,6 +519,10 @@ export class UsersComponent implements OnInit, OnDestroy {
         ),
       );
 
+      if (seq !== this.usersLoadSeq) {
+        return;
+      }
+
       const items = Array.isArray(res?.items) ? res.items : [];
       const filtered = items.filter((u: any) => !this.isDeletedUser(u));
       this.users = filtered.map((u: any) => this.ensureProtectedActive(this.normalizeUserRow(u)));
@@ -503,9 +531,11 @@ export class UsersComponent implements OnInit, OnDestroy {
       this.cdr.detectChanges();
     } finally {
       clearTimeout(safetyTimer);
-      this.isLoading = false;
-      const _duration = Date.now() - startedAt;
-      this.cdr.detectChanges();
+      if (seq === this.usersLoadSeq) {
+        this.usersLoading = false;
+        const _duration = Date.now() - startedAt;
+        this.cdr.detectChanges();
+      }
     }
   }
 

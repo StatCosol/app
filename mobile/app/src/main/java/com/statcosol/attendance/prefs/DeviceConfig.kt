@@ -21,10 +21,18 @@ class DeviceConfig(context: Context) {
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
         )
     } catch (e: Exception) {
-        // Fallback to plain prefs only if keystore is unavailable (e.g. emulator without keystore).
-        // This should never happen on a production device.
-        Log.w(TAG, "EncryptedSharedPreferences unavailable, falling back to plain prefs: ${e.message}")
-        context.getSharedPreferences(PREF_FILE, Context.MODE_PRIVATE)
+        // Never persist device tokens or admin PINs in plain SharedPreferences on
+        // a production kiosk — adb backup and rooted devices can read them.
+        Log.e(TAG, "EncryptedSharedPreferences unavailable", e)
+        if (com.statcosol.attendance.BuildConfig.DEBUG) {
+            Log.w(TAG, "Debug build only: falling back to plain prefs")
+            context.getSharedPreferences(PREF_FILE, Context.MODE_PRIVATE)
+        } else {
+            throw IllegalStateException(
+                "Secure credential storage is unavailable on this device",
+                e,
+            )
+        }
     }
 
     init {

@@ -8,6 +8,7 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Rect
 import android.util.Base64
+import android.util.Log
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -39,6 +40,11 @@ class FaceCaptureSession(
     private val minLuminance: () -> Float = { FaceKioskTuning.MIN_LUMINANCE },
     private val maxPitch: () -> Float = { FaceKioskTuning.MAX_PITCH_DEG },
     private val minSharpness: () -> Float = { FaceKioskTuning.MIN_SHARPNESS_ATTENDANCE },
+    /**
+     * Device-independent blur floor. 0 disables the gate, which is the shipped
+     * default until a real distribution exists to set it from.
+     */
+    private val minBlurScore: () -> Float = { FaceKioskTuning.MIN_BLUR_ATTENDANCE },
     /** When true, pitch gate is skipped (for left/right enrollment turns). */
     private val relaxPitchGate: () -> Boolean = { false },
     // Both default on for the V1 kiosk/ESS screens. FaceDesk V2 discards the
@@ -134,6 +140,22 @@ class FaceCaptureSession(
                 "Image blurry — hold still and look at the camera", false)
             onHint("Image blurry — hold still and look at the camera")
             return
+        }
+
+        // Device-independent blur check. Off unless a floor has been configured
+        // for this client — see computeBlurScore for why it ships disabled.
+        val blur = computeBlurScore(faceBitmap)
+        val blurFloor = minBlurScore()
+        if (blurFloor > 0f && blur < blurFloor) {
+            emitPreview(normBox, partialMetrics(face, faceWidth, sharpness),
+                "Image blurry — hold still and look at the camera", false)
+            onHint("Image blurry — hold still and look at the camera")
+            return
+        }
+        // Logged in debug only — blur/contrast/face metrics are tuning telemetry,
+        // not for production logcat where adb can capture them.
+        if (com.statcosol.attendance.BuildConfig.DEBUG) {
+            Log.d(TAG, "capture blur=%.2f contrast=%.0f face=%.3f".format(blur, sharpness, faceWidth))
         }
 
         // Face brightness. Measured on the face crop (not the frame) so a bright
@@ -283,6 +305,86 @@ class FaceCaptureSession(
             sum += (0.299 * r + 0.587 * g + 0.114 * b).toLong()
         }
         return sum.toFloat() / pixels.size
+    }
+
+    /**
+     * How blurred the face is, independent of the sensor and the lighting.
+     *
+     * [computeSharpness] below is not a sharpness measure despite the name: it
+     * is the global intensity variance of a 64x64 thumbnail, which is CONTRAST.
+     * Downscaling that far removes precisely the high-frequency detail that blur
+     * destroys, so a sharp face in flat light scores badly while a blurred face
+     * in harsh light scores well. That makes MIN_SHARPNESS_* a lighting- and
+     * sensor-dependent gate — the exact kind of constant that cannot be right on
+     * a handset it was not profiled on.
+     *
+     * This is a Laplacian variance instead, which responds to edge detail rather
+     * than tonal spread, and it is divided by the image's own intensity variance
+     * so that doubling the contrast does not double the score. What is left is
+     * roughly "how much edge energy per unit of contrast" — comparable across
+     * cameras, exposures and white balance.
+     *
+     * Computed at a fixed 128x128 so the number means the same thing regardless
+     * of how many pixels the crop happened to have.
+     *
+     * DEFAULTED OFF (threshold 0). The scale is new and no field data exists to
+     * set a floor from; shipping a guessed threshold to a live attendance system
+     * would reject real punches for a reason nobody could see. The value is
+     * logged on every accepted frame so a real distribution can be collected,
+     * and the floor is server-tunable per client once it is known.
+     */
+    private fun computeBlurScore(bitmap: Bitmap): Float {
+        val n = 128
+        val gray = Bitmap.createScaledBitmap(bitmap, n, n, true)
+        val pixels = IntArray(n * n)
+        gray.getPixels(pixels, 0, n, 0, 0, n, n)
+
+        val lum = FloatArray(n * n)
+        var mean = 0.0
+        for (i in pixels.indices) {
+            val p = pixels[i]
+            val v = (p shr 16 and 0xFF) * 0.299f +
+                (p shr 8 and 0xFF) * 0.587f +
+                (p and 0xFF) * 0.114f
+            lum[i] = v
+            mean += v
+        }
+        mean /= lum.size
+
+        var intensityVar = 0.0
+        for (v in lum) {
+            val d = v - mean
+            intensityVar += d * d
+        }
+        intensityVar /= lum.size
+        // A near-flat crop has no edges to find and no contrast to divide by;
+        // the ratio would be noise over noise.
+        if (intensityVar < 1.0) return 0f
+
+        // 4-neighbour Laplacian over the interior; the border is skipped rather
+        // than clamped so an edge artifact cannot masquerade as detail.
+        var lapMean = 0.0
+        var count = 0
+        val lap = FloatArray((n - 2) * (n - 2))
+        for (y in 1 until n - 1) {
+            for (x in 1 until n - 1) {
+                val i = y * n + x
+                val l = 4f * lum[i] - lum[i - 1] - lum[i + 1] - lum[i - n] - lum[i + n]
+                lap[count] = l
+                lapMean += l
+                count++
+            }
+        }
+        lapMean /= count
+
+        var lapVar = 0.0
+        for (i in 0 until count) {
+            val d = lap[i] - lapMean
+            lapVar += d * d
+        }
+        lapVar /= count
+
+        return (lapVar / intensityVar).toFloat()
     }
 
     private fun computeSharpness(bitmap: Bitmap): Float {
@@ -473,6 +575,8 @@ class FaceCaptureSession(
     }
 
     private companion object {
+        const val TAG = "FaceCaptureSession"
+
         /** Average face-crop brightness (0–255) below which there is too little
          *  signal to recover — the frame is rejected with a "too dark" hint.
          *  Tune down if a legitimately dim site still blocks real captures. */

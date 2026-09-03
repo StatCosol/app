@@ -93,7 +93,7 @@ export class FaceDeskDeviceController {
     // handed. That left a settings change saved for one client and a device
     // registered to another indistinguishable from a bug in the kiosk — and
     // cost hours of reinstalling an APK that was correct all along.
-    this.logger.log(
+    this.logger.debug(
       `device config: deviceId=${d.deviceId} clientId=${d.clientId} ` +
         `identificationMode=${eff.identificationMode}`,
     );
