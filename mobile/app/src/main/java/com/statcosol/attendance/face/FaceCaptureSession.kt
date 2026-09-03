@@ -39,6 +39,8 @@ class FaceCaptureSession(
     private val minFacePx: () -> Int = { FaceKioskTuning.MIN_FACE_PX },
     private val minLuminance: () -> Float = { FaceKioskTuning.MIN_LUMINANCE },
     private val maxPitch: () -> Float = { FaceKioskTuning.MAX_PITCH_DEG },
+    /** Head turn (left/right). A side profile is almost pure yaw. */
+    private val maxYaw: () -> Float = { FaceKioskTuning.MAX_YAW_DEG },
     private val minSharpness: () -> Float = { FaceKioskTuning.MIN_SHARPNESS_ATTENDANCE },
     /**
      * Device-independent blur floor. 0 disables the gate, which is the shipped
@@ -126,9 +128,24 @@ class FaceCaptureSession(
         }
 
         val pitch = face.headEulerAngleX
+        val yaw = face.headEulerAngleY
         val faceBitmap = cropFaceBitmap(bitmap, face.boundingBox)
 
-        if (!relaxPitchGate() && Math.abs(pitch) > maxPitch()) {
+        // Both head angles, not just pitch.
+        //
+        // headEulerAngleX is PITCH (nodding); YAW — turning to face sideways —
+        // is headEulerAngleY, and it was computed for FaceMetrics but never
+        // gated. A side profile is almost pure yaw, so it cleared every check
+        // and was punched as a normal capture. That is a bad frame to enrol
+        // against and a much worse one to identify FROM: in FACE_ONLY the
+        // profile is the evidence Azure picks a name out of the whole gallery
+        // with, and half a face is where 1:N gets its confusions.
+        //
+        // Relaxed by the same flag as pitch, because enrolment's left/right
+        // steps are deliberately off-axis; only the front phase is gated.
+        if (!relaxPitchGate() &&
+            (Math.abs(pitch) > maxPitch() || Math.abs(yaw) > maxYaw())
+        ) {
             emitPreview(normBox, partialMetrics(face, faceWidth, 0f), "Please look straight at the camera", false)
             onHint("Please look straight at the camera")
             return

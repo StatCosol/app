@@ -29,6 +29,7 @@ export interface FaceDeskCaptureTuning {
   minBlurEnrollment: number;
   minLuminance: number;
   maxPitchDeg: number;
+  maxYawDeg: number;
   blinkAbsThreshold: number;
   blinkDropDelta: number;
   /**
@@ -58,6 +59,8 @@ export const DEFAULT_CAPTURE_TUNING: FaceDeskCaptureTuning = {
   minBlurEnrollment: 0,
   minLuminance: 20,
   maxPitchDeg: 28,
+  // Yaw was ungated until a side-on face was seen punching successfully.
+  maxYawDeg: 30,
   blinkAbsThreshold: 0.5,
   blinkDropDelta: 0.25,
   // Deliberately null — see the interface. The device picks unless an operator
@@ -85,6 +88,7 @@ const RANGES: Record<keyof FaceDeskCaptureTuning, [number, number]> = {
   minBlurEnrollment: [0, 50],
   minLuminance: [1, 200],
   maxPitchDeg: [5, 60],
+  maxYawDeg: [5, 60],
   blinkAbsThreshold: [0.1, 0.95],
   blinkDropDelta: [0.05, 0.9],
   analysisWidth: [320, 3840],
