@@ -150,6 +150,7 @@ data class FaceDeskCaptureTuning(
     val minBlurEnrollment: Float? = null,
     val minLuminance: Float? = null,
     val maxPitchDeg: Float? = null,
+    val maxYawDeg: Float? = null,
     val blinkAbsThreshold: Double? = null,
     val blinkDropDelta: Double? = null,
     val analysisWidth: Int? = null,

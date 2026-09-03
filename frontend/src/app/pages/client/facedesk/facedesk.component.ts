@@ -539,6 +539,7 @@ type Tab =
               <label>Min blur score (enrollment) <span class="hint">0 = off</span><input type="number" step="0.1" [(ngModel)]="settings.captureTuning.minBlurEnrollment" class="inp"></label>
               <label>Min luminance<input type="number" [(ngModel)]="settings.captureTuning.minLuminance" class="inp"></label>
               <label>Max pitch (deg)<input type="number" [(ngModel)]="settings.captureTuning.maxPitchDeg" class="inp"></label>
+              <label>Max yaw / head turn (deg)<input type="number" [(ngModel)]="settings.captureTuning.maxYawDeg" class="inp"></label>
               <label>Analysis width<input type="number" [(ngModel)]="settings.captureTuning.analysisWidth" class="inp"></label>
               <label>Analysis height<input type="number" [(ngModel)]="settings.captureTuning.analysisHeight" class="inp"></label>
               }
