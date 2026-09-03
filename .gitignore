@@ -56,6 +56,10 @@ kiosk-*.png
 .gradle-workspace/
 .gradle-kiosk-*/
 backend/scripts/_probe-kiosk.mjs
+backend/scripts/_*.mjs
+
+# Local agent / IDE scratch
+.claude/
 
 # Local git worktrees and test attachments
 .worktrees/
