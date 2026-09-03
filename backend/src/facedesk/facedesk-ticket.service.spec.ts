@@ -158,3 +158,43 @@ describe('FaceDeskTicketService.listByClient branch scope', () => {
     expect(where.branchId).toBeDefined(); // In(['b1','b2'])
   });
 });
+
+describe('FaceDeskTicketService.cancelOpenForSubject', () => {
+  it('closes only the open tickets this device holds for this subject', () => {
+    // The scoping is the safety property: a queued ticket for a different
+    // employee, client or device must survive, or refusing one enrolment would
+    // silently drop somebody else's.
+    const { service, qb } = makeService();
+    void service.cancelOpenForSubject('d1', 'c1', 'e1');
+
+    expect(qb.set).toHaveBeenCalledWith({ status: 'CANCELLED' });
+    const [sql, params] = qb.where.mock.calls[0];
+    expect(sql).toContain('device_id = :deviceId');
+    expect(sql).toContain('client_id = :clientId');
+    expect(sql).toContain('employee_id = :employeeId');
+    expect(params).toMatchObject({
+      deviceId: 'd1',
+      clientId: 'c1',
+      employeeId: 'e1',
+    });
+  });
+
+  it('targets both open states, since the poller treats them alike', () => {
+    // A duplicate is refused mid-capture, so the ticket is CAPTURING rather
+    // than PENDING by then. Missing that state is what left the loop running.
+    const { service, qb } = makeService();
+    void service.cancelOpenForSubject('d1', 'c1', 'e1');
+
+    const [, params] = qb.where.mock.calls[0];
+    expect(params.open).toEqual(['PENDING', 'CAPTURING']);
+  });
+
+  it('is idempotent when nothing is open', async () => {
+    // The kiosk cancels too, so this usually runs second and must not error.
+    const { service, qb } = makeService();
+    qb.execute.mockResolvedValueOnce({ affected: 0 });
+    await expect(service.cancelOpenForSubject('d1', 'c1', 'e1')).resolves.toEqual({
+      ok: true,
+    });
+  });
+});
