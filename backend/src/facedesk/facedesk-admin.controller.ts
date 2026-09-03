@@ -150,6 +150,64 @@ export class FaceDeskAdminController {
     );
   }
 
+  @ApiOperation({
+    summary: 'Recent captures for verifying the kiosk is photographing properly',
+  })
+  @Get('admin/capture-audit')
+  @Roles('CLIENT', 'ADMIN')
+  captureAudit(
+    @CurrentUser() user: ReqUser,
+    @Query('limit') limit?: string,
+  ) {
+    // Branch-verifier scope, same as the photos themselves. The listing carries
+    // names and availability flags rather than images, but it is still a roster
+    // of who was photographed and when, so it is not widened past the people
+    // allowed to look at the images.
+    return this.admin.listRecentCaptures(
+      requireFaceDeskClient(user),
+      requireFaceDeskBranchVerifier(user),
+      Number(limit ?? 50),
+    );
+  }
+
+  @ApiOperation({ summary: 'Scoped captured photo for one punch' })
+  @Get('admin/capture-audit/:attendanceId/photo')
+  @Roles('CLIENT', 'ADMIN')
+  async capturePhoto(
+    @CurrentUser() user: ReqUser,
+    @Param('attendanceId') attendanceId: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const photo = await this.admin.getCapturePhoto(
+      requireFaceDeskClient(user),
+      attendanceId,
+      requireFaceDeskBranchVerifier(user),
+    );
+    if (!photo) throw new NotFoundException('Photo not available');
+    res.setHeader('Content-Type', photo.contentType);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(photo.buffer);
+  }
+
+  @ApiOperation({ summary: 'Scoped enrolled reference for one punch' })
+  @Get('admin/capture-audit/:attendanceId/enrollment-photo')
+  @Roles('CLIENT', 'ADMIN')
+  async captureEnrollmentPhoto(
+    @CurrentUser() user: ReqUser,
+    @Param('attendanceId') attendanceId: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const photo = await this.admin.getCaptureEnrolledPhoto(
+      requireFaceDeskClient(user),
+      attendanceId,
+      requireFaceDeskBranchVerifier(user),
+    );
+    if (!photo) throw new NotFoundException('Enrollment photo not available');
+    res.setHeader('Content-Type', photo.contentType);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(photo.buffer);
+  }
+
   @ApiOperation({ summary: 'Scoped captured photo for a review item' })
   @Get('admin/review-queue/:reviewId/photo')
   @Roles('CLIENT', 'ADMIN')
