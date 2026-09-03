@@ -611,10 +611,7 @@ async function bootstrap() {
       `);
       await ds.query(`
         ALTER TABLE facedesk_face_settings
-          ALTER COLUMN identification_mode SET DEFAULT 'PIN_THEN_FACE';
-        UPDATE facedesk_face_settings
-          SET identification_mode = 'PIN_THEN_FACE'
-          WHERE identification_mode IS DISTINCT FROM 'PIN_THEN_FACE'
+          ALTER COLUMN identification_mode SET DEFAULT 'PIN_THEN_FACE'
       `);
       await ds.query(`
         ALTER TABLE facedesk_face_settings

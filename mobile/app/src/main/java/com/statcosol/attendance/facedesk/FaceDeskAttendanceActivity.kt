@@ -86,6 +86,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     private var ticketPollJob: Job? = null
     /** Brief pause after enrollment returns so a failed ticket doesn't instantly reopen. */
     private var ticketPollPausedUntilMs = 0L
+    private var configFetchJob: Job? = null
 
     private val enrollmentLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -118,7 +119,6 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         cameraExecutor = Executors.newSingleThreadExecutor()
         voice = KioskVoiceGuide(this)
         chrome = KioskChrome(this, config.apiBase)
-        loadBranding()
 
         // Admin-gated switch to enrollment: long-press the title, enter the PIN.
         // Keeps one device usable for both without ever mixing the two screens.
@@ -218,11 +218,17 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         // any stale buffer, and (re)start ticket polling.
         enrollmentHold = false
         frames.clear(); blinkDetector.reset()
-        submitting.set(false); paused = false
+        submitting.set(false)
         enteredCode = null; enteredPin = null
+        // Hold capture until the server confirms identification mode. Showing the
+        // PIN keypad from stale prefs (default PIN_THEN_FACE) before config
+        // arrives made FACE_ONLY sites ask for a PIN the server would ignore.
+        paused = true
+        pinDialog?.dismiss()
+        pinDialog = null
         runOnUiThread {
             tvResult.text = ""
-            tvTitle.text = getString(R.string.facedesk_look_at_camera)
+            tvTitle.text = getString(R.string.facedesk_loading_config)
         }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             == PackageManager.PERMISSION_GRANTED
@@ -230,7 +236,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             startCamera()
         }
         startTicketPolling()
-        promptPinEntry()
+        refreshDeviceConfig()
     }
 
     /**
@@ -273,6 +279,19 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             pinDialog = null
             enteredCode = null
             enteredPin = null
+            paused = false
+            runOnUiThread {
+                tvResult.text = ""
+                setTitleWithVoice(
+                    R.string.facedesk_look_at_camera,
+                    R.string.facedesk_voice_look_at_camera,
+                )
+            }
+            return
+        }
+        if (enteredPin != null) {
+            // Worker already claimed identity for this resume cycle; do not
+            // re-open the keypad when a late config fetch confirms PIN mode.
             paused = false
             return
         }
@@ -590,20 +609,44 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadBranding() {
-        lifecycleScope.launch {
+    /**
+     * Persist server identification mode and re-evaluate the PIN gate.
+     *
+     * onResume raises the keypad from stored prefs before this fetch completes,
+     * so a FACE_ONLY device can briefly show PIN_THEN_FACE UI until we hear back.
+     */
+    private fun applyServerIdentificationMode(serverMode: String?) {
+        if (serverMode.isNullOrBlank()) return
+        val previous = config.faceDeskIdentificationMode
+        config.faceDeskIdentificationMode = serverMode
+        // onResume always sets paused=true until mode UI is applied. When the
+        // persisted mode already matches FACE_ONLY, skipping promptPinEntry()
+        // left the kiosk on "Loading kiosk settings…" forever.
+        if (previous == serverMode && enteredPin != null && !isFaceIdentified()) {
+            paused = false
+            return
+        }
+        runOnUiThread {
+            if (isFinishing || isDestroyed) return@runOnUiThread
+            promptPinEntry()
+        }
+    }
+
+    private fun refreshDeviceConfig() {
+        configFetchJob?.cancel()
+        configFetchJob = lifecycleScope.launch {
             try {
                 val cfg = api.fetchConfig()
-                // Capture thresholds before branding: these gate what counts as
-                // a usable frame, and the built-in defaults were profiled on one
-                // handset. Absent config leaves this build's values untouched.
                 FaceKioskTuning.applyFrom(cfg.captureTuning)
-                // Persisted: the PIN keypad is raised in onResume, before this
-                // fetch can finish, so the mode has to be known without it.
-                cfg.identificationMode?.let { config.faceDeskIdentificationMode = it }
+                applyServerIdentificationMode(cfg.identificationMode)
                 runOnUiThread { chrome.bindBranding(cfg.branding) }
             } catch (e: Exception) {
-                Log.w(TAG, "branding fetch failed: ${e.message}")
+                Log.w(TAG, "config fetch failed: ${e.message}")
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    tvTitle.text = getString(R.string.facedesk_look_at_camera)
+                    promptPinEntry()
+                }
             }
         }
     }

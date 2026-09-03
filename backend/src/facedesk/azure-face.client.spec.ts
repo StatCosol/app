@@ -2,13 +2,9 @@ import { AzureFaceClient } from './azure-face.client';
 import { FaceDeskAzureFaceService } from './facedesk-azure-face.service';
 
 /**
- * Microsoft grants Face Limited Access per feature, and this resource has
- * Verification/Liveness but not Identification (probed 2026-08-31: liveness
- * sessions 200, findsimilars 403 "missing approval for: Identification").
- *
- * These pin the consequence: credentials must not, on their own, switch on the
- * duplicate-detection path — that would 403 on every enrolment and fall back to
- * cosine, adding a failed round-trip to each one.
+ * AZURE_FACE_IDENTIFICATION is an explicit deployment opt-in even though
+ * Microsoft Identification is approved on statcompy-face (re-probed 2026-09-03:
+ * findsimilars returns 400 on bad input, not 403 UnsupportedFeature).
  */
 describe('AzureFaceClient — feature gating', () => {
   const ENV = process.env;

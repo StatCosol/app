@@ -15,6 +15,8 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../../auth/jwt-auth.guard';
+import { RolesGuard } from '../../../auth/roles.guard';
+import { Roles } from '../../../auth/roles.decorator';
 import {
   makeSafeUploadOptions,
   assertSafeFile,
@@ -35,7 +37,8 @@ const returnsProofOptions = makeSafeUploadOptions({
 
 @ApiTags('Returns Upload')
 @ApiBearerAuth('JWT')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('CRM', 'ADMIN')
 @Controller({ path: 'returns/upload', version: '1' })
 export class ReturnsUploadController {
   @Post('proof')

@@ -277,6 +277,7 @@ export class AuthService {
   }
 
   hasModule(moduleCode: string): boolean {
+    // ESS Mobile Attendance (personal phone) was retired Aug 2026; keep blocked.
     if (moduleCode === 'MOBILE_ATTENDANCE') return false;
     const modules = this.getEnabledModules();
     if (modules.length) return modules.includes(moduleCode);

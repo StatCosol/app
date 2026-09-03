@@ -137,6 +137,7 @@ class SetupActivity : AppCompatActivity() {
     }
 
     private fun registerFaceDesk(token: String, androidId: String) {
+        val enteredPin = findViewById<EditText>(R.id.adminPinInput).text.toString().trim()
         lifecycleScope.launch {
             try {
                 val fdClient = FaceDeskApiClient(config)
@@ -149,8 +150,8 @@ class SetupActivity : AppCompatActivity() {
                 )
                 config.deviceToken = res.deviceToken
                 config.deviceMode = "FACEDESK_${res.mode}"
-                val enteredPin = findViewById<EditText>(R.id.adminPinInput).text.toString().trim()
-                config.faceDeskAdminPin = enteredPin.ifBlank { res.adminPin }
+                config.faceDeskAdminPin = enteredPin
+                res.identificationMode?.let { config.faceDeskIdentificationMode = it }
                 // Start this registration with a clean offline queue — never carry
                 // punches captured under a previous registration (possibly another
                 // client) into the new one.

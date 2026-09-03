@@ -51,10 +51,10 @@ import { FaceDeskAzureFaceService } from './facedesk-azure-face.service';
 import { FaceDeskFaceOnlyAttendanceService } from './facedesk-face-only-attendance.service';
 
 /**
- * FaceDesk V2 — StatCo Smart Attendance Kiosk. Net-new module, separate from
- * V1 mobile-attendance. Reuses the shared face-svc client, face-math and the
- * scoped photo storage. Not for deploy until the module is feature-complete
- * and validated (V1 stays live meanwhile).
+ * FaceDesk V2 — StatCo Smart Attendance Kiosk. Production module for shared
+ * gate tablets. Reuses the shared face-svc client, face-math, and scoped photo
+ * storage. Legacy V1 offline-roster kiosk (mobile-attendance KIOSK mode) remains
+ * in the APK for migration only; new sites should provision FaceDesk devices.
  */
 @Module({
   imports: [

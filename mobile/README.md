@@ -59,10 +59,15 @@ Per install (encrypted prefs):
 
 ```
 cd mobile
+cp secrets.properties.example secrets.properties   # set statco.adminExitPin for release
 ./gradlew :app:assembleKioskDebug :essportal:assembleDebug
 ./gradlew :app:testKioskDebugUnitTest
 ```
 
-Min SDK 26, Target SDK 34, Kotlin 1.9.
+Min SDK 26, Target SDK 34, Kotlin 2.2.10.
+
+**Release exit PIN:** copy `secrets.properties.example` → `secrets.properties` (gitignored) or set `STATCO_ADMIN_EXIT_PIN` / `-Pstatco.adminExitPin=...`. Do not commit the PIN.
+
+**Kiosk verification:** see [docs/FACEDESK_KIOSK_VERIFICATION.md](../docs/FACEDESK_KIOSK_VERIFICATION.md).
 
 See the parent repo `docs/GOD_SERVICE_REFACTOR.md` and backend `mobile-attendance` module for API details.

@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
+import * as bcrypt from 'bcryptjs';
 import { FaceDeskDeviceEntity } from './entities/facedesk.entities';
 
 export interface FaceDeskDeviceContext {
@@ -55,7 +56,7 @@ export class FaceDeskDeviceService {
       mode?: 'ATTENDANCE' | 'ENROLLMENT';
       adminPin?: string;
     },
-  ): Promise<FaceDeskDeviceEntity> {
+  ): Promise<Omit<FaceDeskDeviceEntity, 'adminPin'>> {
     if (!body?.deviceName)
       throw new BadRequestException('deviceName is required');
     const adminPin = (body.adminPin ?? '').trim();
@@ -68,18 +69,21 @@ export class FaceDeskDeviceService {
       throw new BadRequestException('Admin PIN must be 4–12 digits');
     }
     const installToken = randomBytes(32).toString('hex');
-    return this.repo.save(
+    const adminPinHash = await bcrypt.hash(adminPin, 12);
+    const saved = await this.repo.save(
       this.repo.create({
         clientId,
         branchId: body.branchId ?? null,
         deviceName: body.deviceName,
         location: body.location ?? null,
         mode: body.mode ?? 'ATTENDANCE',
-        adminPin,
+        adminPin: adminPinHash,
         installToken,
         deviceStatus: 'PROVISIONED',
       }),
     );
+    const { adminPin: _removed, ...safe } = saved;
+    return safe;
   }
 
   /** Device binds its androidId to the install token (first run). */

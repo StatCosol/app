@@ -18,6 +18,17 @@ export interface FaceDeskDashboard {
   lastSyncTime: string | null;
 }
 
+export interface FaceDeskCaptureTuning {
+  minFaceSizeAttendance?: number;
+  minFaceSizeEnrollment?: number;
+  minSharpnessAttendance?: number;
+  minSharpnessEnrollment?: number;
+  minLuminance?: number;
+  maxPitchDeg?: number;
+  analysisWidth?: number;
+  analysisHeight?: number;
+}
+
 /** The write shape of PUT /facedesk/settings — see updateSettings(). */
 export interface UpdateFaceDeskSettings {
   faceMatchConfidence?: number;
@@ -29,6 +40,7 @@ export interface UpdateFaceDeskSettings {
   offlineSyncEnabled?: boolean;
   shiftStartTime?: string | null;
   shiftEndTime?: string | null;
+  captureTuning?: FaceDeskCaptureTuning;
   identificationMode?:
     | 'PIN_THEN_FACE'
     | 'FACE_ONLY'
@@ -52,6 +64,7 @@ export interface FaceDeskSettings {
   offlineSyncEnabled: boolean;
   shiftStartTime?: string | null;
   shiftEndTime?: string | null;
+  captureTuning?: FaceDeskCaptureTuning;
   acceptCosine: number;
   retryCosine: number;
   duplicateCosine: number;

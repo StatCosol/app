@@ -101,7 +101,7 @@ class DeviceConfig(context: Context) {
 
     /** FaceDesk admin PIN — gates switching this device into enrollment mode. */
     var faceDeskAdminPin: String
-        get() = prefs.getString(KEY_FD_ADMIN_PIN, "0000") ?: "0000"
+        get() = prefs.getString(KEY_FD_ADMIN_PIN, "") ?: ""
         set(value) = prefs.edit().putString(KEY_FD_ADMIN_PIN, value).apply()
 
     fun isRegistered(): Boolean = deviceToken.isNotBlank()

@@ -53,10 +53,9 @@ export class FaceDeskAzureFaceService {
   }
 
   /**
-   * Duplicate detection runs on findsimilars, which needs Microsoft's
-   * Identification approval on top of credentials. Gate on that specifically,
-   * so turning Azure on for liveness does not start a duplicate path that
-   * 403s on every enrolment.
+   * Duplicate detection and FACE_ONLY attendance run on findsimilars. Gated on
+   * AZURE_FACE_IDENTIFICATION so liveness can be enabled without turning on 1:N
+   * paths on deployments that are not ready.
    */
   get enabled(): boolean {
     return this.azure.identificationEnabled;
