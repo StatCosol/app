@@ -495,7 +495,9 @@ export class UsersComponent implements OnInit, OnDestroy {
       status: this.filterStatus || 'all',
     };
     if (search) {
-      params.search = search;
+      // Bracket access: params is typed Record<string, string>, and the build
+      // runs noPropertyAccessFromIndexSignature (TS4111).
+      params['search'] = search;
     }
 
     const startedAt = Date.now();
