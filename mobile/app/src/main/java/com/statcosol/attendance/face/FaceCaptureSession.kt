@@ -30,6 +30,12 @@ class FaceCaptureSession(
     private val embedder: FaceEmbedder,
     private val detector: FaceDetector,
     private val minFaceSize: () -> Float = { FaceKioskTuning.MIN_FACE_SIZE_ATTENDANCE },
+    /**
+     * Absolute face width floor in pixels. The fraction above says how the
+     * worker is framed; this says whether there is enough face to recognise,
+     * which is the part that must hold identically on every handset.
+     */
+    private val minFacePx: () -> Int = { FaceKioskTuning.MIN_FACE_PX },
     private val minLuminance: () -> Float = { FaceKioskTuning.MIN_LUMINANCE },
     private val maxPitch: () -> Float = { FaceKioskTuning.MAX_PITCH_DEG },
     private val minSharpness: () -> Float = { FaceKioskTuning.MIN_SHARPNESS_ATTENDANCE },
@@ -103,7 +109,11 @@ class FaceCaptureSession(
         val faceWidth = face.boundingBox.width().toFloat() / bitmap.width.toFloat()
         val normBox = normalizeBox(face.boundingBox, frameW, frameH)
 
-        if (faceWidth < minFaceSize()) {
+        // Two gates, same message: the worker's answer to either is to step
+        // closer. The fraction keeps them framed inside the oval; the pixel
+        // floor is what makes a frame worth embedding on a stream whose
+        // resolution this build does not know in advance.
+        if (faceWidth < minFaceSize() || face.boundingBox.width() < minFacePx()) {
             emitPreview(normBox, partialMetrics(face, faceWidth, 0f), "Please move closer to the camera", false)
             onHint("Please move closer to the camera")
             return
@@ -324,10 +334,14 @@ class FaceCaptureSession(
         // Every frame carries this photo, and when face-svc is enabled the server
         // re-embeds each one with ArcFace, so the size is bounded to keep a full
         // multi-frame punch/enrolment under the server's request-body limit while
-        // still giving face-svc a good crop. 480px @ q88 matches the native crop
-        // from a 720p frame without upscaling. Matching itself is unaffected — the
+        // still giving face-svc a good crop. Matching itself is unaffected — the
         // device embedder uses its own INPUT_SIZE resize (see FaceEmbedder).
-        val maxEdge = 480
+        //
+        // Derived from the analysis stream rather than fixed at 480: on a 720p
+        // stream the native crop rarely reaches even that, so a constant cap
+        // described the one handset it was profiled on and silently discarded
+        // resolution on any better sensor. See DeviceCameraProfile.
+        val maxEdge = FaceKioskTuning.PHOTO_MAX_EDGE
         val longest = max(bitmap.width, bitmap.height)
         val scaled = if (longest > maxEdge) {
             val ratio = maxEdge.toFloat() / longest.toFloat()

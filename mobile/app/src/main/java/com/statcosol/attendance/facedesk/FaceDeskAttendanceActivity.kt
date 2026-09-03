@@ -22,6 +22,7 @@ import androidx.lifecycle.lifecycleScope
 import com.statcosol.attendance.R
 import com.statcosol.attendance.BuildConfig
 import com.statcosol.attendance.face.BlinkDetector
+import com.statcosol.attendance.face.DeviceCameraProfile
 import com.statcosol.attendance.face.FaceCameraControl
 import com.statcosol.attendance.face.FaceCaptureSession
 import com.statcosol.attendance.face.FaceDetector
@@ -163,12 +164,24 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         future.addListener({
             try {
                 val provider = future.get()
+                // Size the stream to THIS camera before building the analysis
+                // use case. The built-in default was profiled on one handset;
+                // on any other it is a guess, and the APK ships everywhere.
+                CameraSelector.DEFAULT_FRONT_CAMERA
+                    .filter(provider.availableCameraInfos)
+                    .firstOrNull()
+                    ?.let {
+                        FaceKioskTuning.applyDeviceProfile(
+                            DeviceCameraProfile.analysisSizeFor(this, it),
+                        )
+                    }
                 val preview = Preview.Builder().build().apply {
                     setSurfaceProvider(previewView.surfaceProvider)
                 }
-                // Request 720p analysis frames (CameraX defaults to ~640x480,
-                // which yields a small, soft face crop and weak embeddings).
-                // Higher-res in gives ML Kit + the embedder a sharper face.
+                // Analysis frames come in at the profiled size (CameraX defaults
+                // to ~640x480, which yields a small, soft face crop and weak
+                // embeddings). Higher-res in gives ML Kit + the embedder a
+                // sharper face.
                 val analysis = ImageAnalysis.Builder()
                     .setResolutionSelector(FaceKioskTuning.analysisResolution)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -299,7 +312,11 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         pinDialog = null
         paused = true
         frames.clear(); blinkDetector.reset()
-        pinDialog?.dismiss()
+        // onResume leaves the header on "Loading kiosk settings…" until the mode
+        // is known. Reaching here means it IS known, so clear it: the keypad
+        // does not cover the header strip, and a screen that says it is still
+        // loading while asking for input reads as a stuck kiosk.
+        runOnUiThread { tvTitle.text = getString(R.string.facedesk_pin_entry_title) }
         // Big on-screen numeric keypad — no soft keyboard. Auto-submits the
         // instant a full 4-digit PIN is tapped; non-cancelable so the kiosk
         // always has a claimed PIN before the camera is used.
@@ -610,21 +627,21 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     }
 
     /**
-     * Persist server identification mode and re-evaluate the PIN gate.
+     * Persist the server's identification mode, then open the gate it implies.
      *
-     * onResume raises the keypad from stored prefs before this fetch completes,
-     * so a FACE_ONLY device can briefly show PIN_THEN_FACE UI until we hear back.
+     * onResume pauses capture and holds the screen on "Loading kiosk settings…"
+     * until this lands, so every path out of here MUST reach promptPinEntry():
+     * it is the only thing that clears paused, and it is what chooses the keypad
+     * over going straight to the camera. An early return leaves the kiosk on the
+     * loading title with the camera dead — no error, no way forward.
+     *
+     * That includes a blank mode. The response field is nullable, and a kiosk
+     * that hears nothing is better off running the mode it already had than
+     * stranding the queue.
      */
     private fun applyServerIdentificationMode(serverMode: String?) {
-        if (serverMode.isNullOrBlank()) return
-        val previous = config.faceDeskIdentificationMode
-        config.faceDeskIdentificationMode = serverMode
-        // onResume always sets paused=true until mode UI is applied. When the
-        // persisted mode already matches FACE_ONLY, skipping promptPinEntry()
-        // left the kiosk on "Loading kiosk settings…" forever.
-        if (previous == serverMode && enteredPin != null && !isFaceIdentified()) {
-            paused = false
-            return
+        if (!serverMode.isNullOrBlank()) {
+            config.faceDeskIdentificationMode = serverMode
         }
         runOnUiThread {
             if (isFinishing || isDestroyed) return@runOnUiThread
