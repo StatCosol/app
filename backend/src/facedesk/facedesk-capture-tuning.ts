@@ -31,8 +31,19 @@ export interface FaceDeskCaptureTuning {
   maxPitchDeg: number;
   blinkAbsThreshold: number;
   blinkDropDelta: number;
-  analysisWidth: number;
-  analysisHeight: number;
+  /**
+   * Null means "not configured — let the device decide".
+   *
+   * These two are NOT like the thresholds around them. A threshold default is a
+   * constant the APK also ships, so sending it is a genuine no-op. The APK's
+   * resolution default is not a constant any more: DeviceCameraProfile derives
+   * it from the handset's own camera at bind time. Sending 1280x720 here
+   * therefore did not mean "unconfigured", it meant "force 720p" — and because
+   * this object is always fully populated, EVERY kiosk was overridden back to
+   * 720p the moment it fetched config, silently discarding the device profile.
+   */
+  analysisWidth: number | null;
+  analysisHeight: number | null;
 }
 
 /** The SM-E076B profile the APK has always used. */
@@ -49,8 +60,10 @@ export const DEFAULT_CAPTURE_TUNING: FaceDeskCaptureTuning = {
   maxPitchDeg: 28,
   blinkAbsThreshold: 0.5,
   blinkDropDelta: 0.25,
-  analysisWidth: 1280,
-  analysisHeight: 720,
+  // Deliberately null — see the interface. The device picks unless an operator
+  // has explicitly pinned a size for this client.
+  analysisWidth: null,
+  analysisHeight: null,
 };
 
 /**
@@ -97,7 +110,7 @@ export function resolveCaptureTuning(
     if (!Number.isFinite(value)) continue;
     const [min, max] = RANGES[key];
     if (value < min || value > max) continue;
-    out[key] = value;
+    (out as unknown as Record<string, number | null>)[key] = value;
   }
   return out;
 }

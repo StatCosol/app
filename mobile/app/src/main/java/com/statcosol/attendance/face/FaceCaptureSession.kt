@@ -152,10 +152,25 @@ class FaceCaptureSession(
             onHint("Image blurry — hold still and look at the camera")
             return
         }
-        // Logged in debug only — blur/contrast/face metrics are tuning telemetry,
-        // not for production logcat where adb can capture them.
-        if (com.statcosol.attendance.BuildConfig.DEBUG) {
-            Log.d(TAG, "capture blur=%.2f contrast=%.0f face=%.3f".format(blur, sharpness, faceWidth))
+        // Tuning telemetry, off in production but reachable on a real kiosk.
+        //
+        // A BuildConfig.DEBUG guard was the wrong switch here, for a reason that
+        // only shows up on hardware: kiosks run the RELEASE build, so the line
+        // could never fire on the only devices whose numbers matter, and the
+        // floor these values exist to calibrate could never be set. Nothing was
+        // logged despite frames being accepted.
+        //
+        // isLoggable keeps the intent — silent by default, no scalars in
+        // production logcat — while letting an operator opt a single device in:
+        //   adb shell setprop log.tag.FaceCaptureSession DEBUG
+        // These are quality scalars (edge energy, contrast, face fraction), not
+        // identity: nothing here says who was captured.
+        //
+        // Gate on DEBUG, emit at INFO: the gate is what controls visibility, and
+        // emitting at INFO keeps it independent of whether the release build's
+        // minifier drops debug-level calls.
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.i(TAG, "capture blur=%.2f contrast=%.0f face=%.3f".format(blur, sharpness, faceWidth))
         }
 
         // Face brightness. Measured on the face crop (not the frame) so a bright
