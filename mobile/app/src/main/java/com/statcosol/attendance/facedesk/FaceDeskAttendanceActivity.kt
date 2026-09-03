@@ -299,7 +299,6 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         pinDialog = null
         paused = true
         frames.clear(); blinkDetector.reset()
-        pinDialog?.dismiss()
         // Big on-screen numeric keypad — no soft keyboard. Auto-submits the
         // instant a full 4-digit PIN is tapped; non-cancelable so the kiosk
         // always has a claimed PIN before the camera is used.
@@ -610,21 +609,21 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     }
 
     /**
-     * Persist server identification mode and re-evaluate the PIN gate.
+     * Persist the server's identification mode, then open the gate it implies.
      *
-     * onResume raises the keypad from stored prefs before this fetch completes,
-     * so a FACE_ONLY device can briefly show PIN_THEN_FACE UI until we hear back.
+     * onResume pauses capture and holds the screen on "Loading kiosk settings…"
+     * until this lands, so every path out of here MUST reach promptPinEntry():
+     * it is the only thing that clears paused, and it is what chooses the keypad
+     * over going straight to the camera. An early return leaves the kiosk on the
+     * loading title with the camera dead — no error, no way forward.
+     *
+     * That includes a blank mode. The response field is nullable, and a kiosk
+     * that hears nothing is better off running the mode it already had than
+     * stranding the queue.
      */
     private fun applyServerIdentificationMode(serverMode: String?) {
-        if (serverMode.isNullOrBlank()) return
-        val previous = config.faceDeskIdentificationMode
-        config.faceDeskIdentificationMode = serverMode
-        // onResume always sets paused=true until mode UI is applied. When the
-        // persisted mode already matches FACE_ONLY, skipping promptPinEntry()
-        // left the kiosk on "Loading kiosk settings…" forever.
-        if (previous == serverMode && enteredPin != null && !isFaceIdentified()) {
-            paused = false
-            return
+        if (!serverMode.isNullOrBlank()) {
+            config.faceDeskIdentificationMode = serverMode
         }
         runOnUiThread {
             if (isFinishing || isDestroyed) return@runOnUiThread
