@@ -94,7 +94,14 @@ export class FaceDeskDeviceController {
     // handed. That left a settings change saved for one client and a device
     // registered to another indistinguishable from a bug in the kiosk — and
     // cost hours of reinstalling an APK that was correct all along.
-    this.logger.debug(
+    //
+    // Stays at log/info deliberately. app.module.ts runs Pino at `info` in
+    // production, so debug is discarded exactly where this is needed — a kiosk
+    // in the field is the only place the question ever gets asked, and a
+    // diagnostic that only exists in dev is the same as no diagnostic. The
+    // volume argument does not apply either: /config is fetched on activity
+    // resume, not per punch, so this is a handful of lines per device per day.
+    this.logger.log(
       `device config: deviceId=${d.deviceId} clientId=${d.clientId} ` +
         `identificationMode=${eff.identificationMode}`,
     );
