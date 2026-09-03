@@ -19,6 +19,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
+import { describeApiError } from '../../../shared/utils/api-error.util';
 import {
   DayReview,
   DuplicateAlert,
@@ -1233,7 +1234,16 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
     };
     this.svc.updateSettings(patch).subscribe({
       next: (r) => { this.settings = r; this.toast.success('Settings saved'); },
-      error: (e) => this.toast.error(e?.error?.message || 'Save failed'),
+      error: (e) => {
+        this.toast.error('Settings not saved', describeApiError(e));
+        // Snap the form back to what the server actually holds. Leaving the
+        // typed values on screen after a refusal is what let the #433 payload
+        // mismatch hide for months: the page looked saved, so nobody looked.
+        this.svc.getSettings().subscribe({
+          next: (s) => (this.settings = s),
+          error: () => undefined,
+        });
+      },
     });
   }
 

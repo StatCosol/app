@@ -628,6 +628,27 @@ async function bootstrap() {
       logger.warn(`Schema patch facedesk PIN columns skipped: ${e?.message}`);
     }
 
+    // Kiosk admin PINs are bcrypt hashes as of #593 — 60 chars into a column
+    // created varchar(12) by 20260711_facedesk_device_admin_pin.sql. Nothing
+    // applies that directory automatically (no workflow runs db:migrate:sql,
+    // and synchronize is false), and facedesk_kiosk_devices is patched nowhere
+    // else here, so without this a deploy leaves device provisioning failing on
+    // Postgres 22001 with no other symptom. Idempotent: re-running on a column
+    // that is already varchar(72) is a no-op.
+    try {
+      await ds.query(`
+        ALTER TABLE facedesk_kiosk_devices
+          ADD COLUMN IF NOT EXISTS admin_pin varchar(72)
+      `);
+      await ds.query(`
+        ALTER TABLE facedesk_kiosk_devices
+          ALTER COLUMN admin_pin TYPE varchar(72)
+      `);
+      logger.log('Schema patch: facedesk_kiosk_devices.admin_pin width OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch facedesk admin_pin skipped: ${e?.message}`);
+    }
+
     // Face re-enrollment approval queues (migration 20260810). Deploy jobs may
     // not run the SQL file; without these tables ESS re-enroll queues 500.
     try {
