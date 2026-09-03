@@ -22,6 +22,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.statcosol.attendance.R
 import com.statcosol.attendance.face.BlinkDetector
+import com.statcosol.attendance.face.DeviceCameraProfile
 import com.statcosol.attendance.face.FaceCameraControl
 import com.statcosol.attendance.face.FaceCaptureSession
 import com.statcosol.attendance.face.FaceDetector
@@ -193,11 +194,23 @@ class FaceDeskEnrollmentActivity : AppCompatActivity() {
         future.addListener({
             try {
                 val provider = future.get()
+                // Enrolment sets the ceiling for every later match, so it gets
+                // the same device-derived stream size as attendance rather than
+                // one handset's 720p default. See DeviceCameraProfile.
+                CameraSelector.DEFAULT_FRONT_CAMERA
+                    .filter(provider.availableCameraInfos)
+                    .firstOrNull()
+                    ?.let {
+                        FaceKioskTuning.applyDeviceProfile(
+                            DeviceCameraProfile.analysisSizeFor(this, it),
+                        )
+                    }
                 val preview = Preview.Builder().build().apply {
                     setSurfaceProvider(previewView.surfaceProvider)
                 }
-                // 720p analysis frames so the enrolled templates are built from
-                // a large, sharp face crop (CameraX defaults to ~640x480).
+                // Analysis frames at the profiled size so enrolled templates are
+                // built from a large, sharp face crop (CameraX defaults to
+                // ~640x480).
                 val analysis = ImageAnalysis.Builder()
                     .setResolutionSelector(FaceKioskTuning.analysisResolution)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)

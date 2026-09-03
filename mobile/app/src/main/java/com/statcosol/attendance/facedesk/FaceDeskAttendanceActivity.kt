@@ -22,6 +22,7 @@ import androidx.lifecycle.lifecycleScope
 import com.statcosol.attendance.R
 import com.statcosol.attendance.BuildConfig
 import com.statcosol.attendance.face.BlinkDetector
+import com.statcosol.attendance.face.DeviceCameraProfile
 import com.statcosol.attendance.face.FaceCameraControl
 import com.statcosol.attendance.face.FaceCaptureSession
 import com.statcosol.attendance.face.FaceDetector
@@ -163,12 +164,24 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         future.addListener({
             try {
                 val provider = future.get()
+                // Size the stream to THIS camera before building the analysis
+                // use case. The built-in default was profiled on one handset;
+                // on any other it is a guess, and the APK ships everywhere.
+                CameraSelector.DEFAULT_FRONT_CAMERA
+                    .filter(provider.availableCameraInfos)
+                    .firstOrNull()
+                    ?.let {
+                        FaceKioskTuning.applyDeviceProfile(
+                            DeviceCameraProfile.analysisSizeFor(this, it),
+                        )
+                    }
                 val preview = Preview.Builder().build().apply {
                     setSurfaceProvider(previewView.surfaceProvider)
                 }
-                // Request 720p analysis frames (CameraX defaults to ~640x480,
-                // which yields a small, soft face crop and weak embeddings).
-                // Higher-res in gives ML Kit + the embedder a sharper face.
+                // Analysis frames come in at the profiled size (CameraX defaults
+                // to ~640x480, which yields a small, soft face crop and weak
+                // embeddings). Higher-res in gives ML Kit + the embedder a
+                // sharper face.
                 val analysis = ImageAnalysis.Builder()
                     .setResolutionSelector(FaceKioskTuning.analysisResolution)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)

@@ -16,10 +16,43 @@ import androidx.camera.core.resolutionselector.ResolutionStrategy
  * soft front sensor, and UI readable on a small HD+ screen.
  */
 object FaceKioskTuning {
-    /** 720p 16:9 — best balance of face crop size vs MT6835 throughput. */
+    /**
+     * 720p 16:9 until something better is known — replaced at camera bind by
+     * [DeviceCameraProfile], or by server config, whichever applies. See
+     * [applyDeviceProfile] for which of the two wins.
+     */
     @Volatile @JvmStatic
     var analysisResolution: ResolutionSelector = buildResolution(1280, 720)
         private set
+
+    /**
+     * The size behind [analysisResolution]. Kept because the photo edge and the
+     * face-pixel floor are both derived from it, and a ResolutionSelector will
+     * not tell you what it was built from.
+     */
+    @Volatile @JvmStatic
+    var analysisSize: Size = Size(1280, 720)
+        private set
+
+    /**
+     * Longest edge of a stored face photo. Derived from the stream unless the
+     * server says otherwise; see [DeviceCameraProfile.photoMaxEdgeFor] for why
+     * it is bounded rather than simply "as large as possible".
+     */
+    @Volatile @JvmStatic var PHOTO_MAX_EDGE = 480
+
+    /**
+     * Minimum face width in real pixels, alongside the fraction gates below.
+     * A fraction alone cannot express "enough pixels to recognise", which is
+     * the thing that actually has to hold on every device.
+     */
+    @Volatile @JvmStatic var MIN_FACE_PX = 86
+
+    /**
+     * Set once the server has spoken, so a later camera rebind cannot quietly
+     * replace a site's configured resolution with a device-derived guess.
+     */
+    @Volatile private var resolutionFromServer = false
 
     private fun buildResolution(width: Int, height: Int): ResolutionSelector =
         ResolutionSelector.Builder()
@@ -114,6 +147,31 @@ object FaceKioskTuning {
         tuning.blinkDropDelta?.let { BLINK_DROP_DELTA = it }
         val w = tuning.analysisWidth
         val h = tuning.analysisHeight
-        if (w != null && h != null) analysisResolution = buildResolution(w, h)
+        if (w != null && h != null) {
+            resolutionFromServer = true
+            setAnalysis(Size(w, h))
+        }
+    }
+
+    /**
+     * Adopt the size [DeviceCameraProfile] derived from this handset's camera.
+     *
+     * Skipped once server config has set a resolution: a site that deliberately
+     * pinned a stream size has a reason the device cannot see, and silently
+     * overriding it on the next camera bind would make that setting look
+     * intermittent rather than ignored.
+     */
+    @JvmStatic
+    fun applyDeviceProfile(size: Size) {
+        if (resolutionFromServer) return
+        setAnalysis(size)
+    }
+
+    private fun setAnalysis(size: Size) {
+        analysisSize = size
+        analysisResolution = buildResolution(size.width, size.height)
+        // Both of these are statements about the stream, so they move with it.
+        PHOTO_MAX_EDGE = DeviceCameraProfile.photoMaxEdgeFor(size)
+        MIN_FACE_PX = DeviceCameraProfile.minFacePxFor(size)
     }
 }
