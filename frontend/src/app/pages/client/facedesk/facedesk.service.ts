@@ -23,6 +23,8 @@ export interface FaceDeskCaptureTuning {
   minFaceSizeEnrollment?: number;
   minSharpnessAttendance?: number;
   minSharpnessEnrollment?: number;
+  minBlurAttendance?: number;
+  minBlurEnrollment?: number;
   minLuminance?: number;
   maxPitchDeg?: number;
   analysisWidth?: number;

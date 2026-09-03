@@ -1330,7 +1330,15 @@ async function bootstrap() {
       `CREATE INDEX IF NOT EXISTS IDX_CAR_EMP_DATE ON contractor_attendance_records (contractor_employee_id, attendance_date)`,
     );
     await ds.query(
-      `CREATE INDEX IF NOT EXISTS IDX_CAR_CLIENT_MONTH ON contractor_attendance_records (client_id, date_trunc('month', attendance_date))`,
+      // Plain composite, NOT date_trunc('month', attendance_date). attendance_date
+      // is DATE and there is no date_trunc(text, date) overload, so Postgres
+      // resolved it to date_trunc(text, timestamptz) — STABLE, not IMMUTABLE,
+      // because it depends on the session TimeZone. Postgres refuses to index
+      // that, so this statement threw on every boot since at least revision
+      // 0001018 and the index has never existed in production. Nothing queries
+      // the table through date_trunc anyway; a plain (client_id, attendance_date)
+      // serves month ranges via BETWEEN and arbitrary ranges besides.
+      `CREATE INDEX IF NOT EXISTS IDX_CAR_CLIENT_MONTH ON contractor_attendance_records (client_id, attendance_date)`,
     );
     logger.log('Schema patch: contractor attendance tables OK');
   } catch (e: any) {

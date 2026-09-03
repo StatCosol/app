@@ -489,7 +489,13 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             employeeCode = enteredCode,
             pin = enteredPin,
             // Attach one capture photo so the branch can verify a mismatch punch.
-            photoB64 = batch.firstNotNullOfOrNull { it.photoB64 },
+            // The best of the burst, not the first: the gates are minimums, so
+            // the first accepted frame is the instant the worker crossed them —
+            // furthest away and least settled. The server ranks by the same
+            // score when it picks frames to match on.
+            photoB64 = batch.filter { it.photoB64 != null }
+                .maxByOrNull { it.qualityScore ?: -1.0 }
+                ?.photoB64,
             livenessPassed = livenessPassed,
             offlineRef = UUID.randomUUID().toString(),
             appVersion = BuildConfig.VERSION_NAME,

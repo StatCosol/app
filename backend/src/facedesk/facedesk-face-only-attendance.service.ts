@@ -6,6 +6,7 @@ import { FaceDeskFailedAttemptService } from './facedesk-failed-attempt.service'
 import { FaceDeskPunchAcceptService } from './facedesk-punch-accept.service';
 import { MarkResult } from './facedesk-attendance.service';
 import { ResolvedFrame } from './facedesk-face.service';
+import { pickBestPhoto } from './facedesk-photo-pick.util';
 
 /**
  * FACE_ONLY attendance: no PIN, identify 1:N from the face alone.
@@ -49,7 +50,10 @@ export class FaceDeskFaceOnlyAttendanceService {
     /** FACE_THEN_BIOMETRIC: also require a corroborating fingerprint punch. */
     requireBiometric = false,
   ): Promise<MarkResult> {
-    const photoB64 = dto.frames?.find((f) => f.photoB64)?.photoB64 ?? null;
+    // The best frame of the burst, not the first. In this mode the photo is not
+    // a record of the punch — it is the input Azure identifies the worker FROM,
+    // so handing it the softest frame is handing it the weakest 1:N evidence.
+    const photoB64 = pickBestPhoto(dto.frames);
     if (!photoB64) {
       // Azure identifies from the image, not from a device embedding. A kiosk
       // configured for FACE_ONLY must send one.

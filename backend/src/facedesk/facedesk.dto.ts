@@ -255,6 +255,14 @@ export class CaptureTuningDto {
   @IsOptional() @IsNumber() @Min(5) @Max(200)
   minSharpnessEnrollment?: number;
 
+  // 0 means "gate off", the current default, so unlike the sharpness floors a
+  // zero here is legitimate rather than a typo that would accept anything.
+  @IsOptional() @IsNumber() @Min(0) @Max(50)
+  minBlurAttendance?: number;
+
+  @IsOptional() @IsNumber() @Min(0) @Max(50)
+  minBlurEnrollment?: number;
+
   @IsOptional() @IsNumber() @Min(1) @Max(200)
   minLuminance?: number;
 

@@ -66,6 +66,11 @@ describe('resolveCaptureTuning', () => {
       minFaceSizeEnrollment: 0.13,
       minSharpnessAttendance: 38,
       minSharpnessEnrollment: 42,
+      // FaceKioskTuning.MIN_BLUR_* also ship at 0 (gate disabled). If the server
+      // defaulted these to anything else, every kiosk that fetches config would
+      // start applying a blur floor that no APK build was calibrated against.
+      minBlurAttendance: 0,
+      minBlurEnrollment: 0,
       minLuminance: 20,
       maxPitchDeg: 28,
       blinkAbsThreshold: 0.5,

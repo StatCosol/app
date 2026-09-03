@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { randomInt } from 'crypto';
 import * as bcrypt from 'bcryptjs';
+import { pickBestPhoto } from './facedesk-photo-pick.util';
 import {
   averageEmbeddings,
   bufferToEmbedding,
@@ -253,13 +254,11 @@ export class FaceDeskEnrollmentService {
    *  the enrolled and blocked paths so a held capture keeps its photo too —
    *  the admin reviewing a duplicate alert needs a face to look at. */
   private pickRepresentativePhoto(dto: SaveEnrollmentDto): string | null {
-    return (
-      dto.photoB64 ??
-      dto.frames?.find((f) => f.sampleType === 'FRONT' && f.photoB64)
-        ?.photoB64 ??
-      dto.frames?.find((f) => f.photoB64)?.photoB64 ??
-      null
-    );
+    // Best FRONT frame, not the first one. This photo is what an admin looks at
+    // when deciding whether two profiles are the same person in the duplicate
+    // queue, and the first FRONT frame is the one captured the moment the
+    // worker first satisfied the gates — the softest of the set.
+    return dto.photoB64 ?? pickBestPhoto(dto.frames, 'FRONT');
   }
 
   private async uploadRepresentativePhoto(
@@ -363,7 +362,7 @@ export class FaceDeskEnrollmentService {
     // "nobody comparable to compare against" and "compared everyone and they
     // genuinely differ" — and telling those apart is the whole diagnosis when
     // a duplicate slips through. Cheap: one line per enrollment.
-    this.logger.log(
+    this.logger.debug(
       `duplicate scan: gallery=${bestByEmployee.size} comparable subject(s), ` +
         `top=${ranked.length ? ranked[0][1].toFixed(3) : 'n/a'} ` +
         `(subject ${ranked.length ? ranked[0][0] : 'n/a'}), ` +
