@@ -263,6 +263,18 @@ export class FaceDeskService {
    * The raw /uploads/face-photos path is blocked for biometric photos, so the
    * portal must load them through this endpoint.
    */
+  captureAudit(limit = 50): Observable<CaptureAuditRow[]> {
+    return this.http.get<CaptureAuditRow[]>(
+      `${this.base}/admin/capture-audit`,
+      { params: { limit } },
+    );
+  }
+  capturePhotoUrl(attendanceId: string): string {
+    return `${this.base}/admin/capture-audit/${attendanceId}/photo`;
+  }
+  captureEnrollmentPhotoUrl(attendanceId: string): string {
+    return `${this.base}/admin/capture-audit/${attendanceId}/enrollment-photo`;
+  }
   reviewPhotoUrl(reviewId: string): string {
     return `${this.base}/admin/review-queue/${reviewId}/photo`;
   }
@@ -359,4 +371,26 @@ export class FaceDeskService {
       body,
     );
   }
+}
+
+/**
+ * One recent punch, for verifying the kiosk is photographing people properly.
+ *
+ * Carries availability flags rather than image data: the images come from the
+ * scoped photo endpoints, which enforce branch-verifier access per image.
+ */
+export interface CaptureAuditRow {
+  attendanceId: string;
+  branchId: string | null;
+  punchTime: string;
+  punchType: string | null;
+  confidenceScore: number | null;
+  matchMargin: number | null;
+  livenessScore: number | null;
+  attendanceStatus: string | null;
+  subjectType: string | null;
+  employeeName: string | null;
+  employeeCode: string | null;
+  hasPhoto: boolean;
+  hasEnrolledPhoto: boolean;
 }
