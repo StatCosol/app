@@ -362,7 +362,7 @@ export class FaceDeskEnrollmentService {
     // "nobody comparable to compare against" and "compared everyone and they
     // genuinely differ" — and telling those apart is the whole diagnosis when
     // a duplicate slips through. Cheap: one line per enrollment.
-    this.logger.debug(
+    this.logger.log(
       `duplicate scan: gallery=${bestByEmployee.size} comparable subject(s), ` +
         `top=${ranked.length ? ranked[0][1].toFixed(3) : 'n/a'} ` +
         `(subject ${ranked.length ? ranked[0][0] : 'n/a'}), ` +
