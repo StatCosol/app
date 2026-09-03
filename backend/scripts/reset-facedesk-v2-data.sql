@@ -3,6 +3,8 @@
 --
 -- Keeps: facedesk_kiosk_devices, facedesk_face_settings
 -- Optional client scope: add AND client_id = '<uuid>' to each DELETE
+-- Set AZURE_FACE_ENDPOINT + AZURE_FACE_KEY and use reset-facedesk-v2-data.mjs
+-- to delete each client's Large Face List before profile rows (avoids orphans).
 
 BEGIN;
 

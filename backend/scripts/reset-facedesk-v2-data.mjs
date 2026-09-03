@@ -90,6 +90,57 @@ async function countTable(table, clientId) {
   return res.rows[0].n;
 }
 
+function listIdForClient(clientId) {
+  return `sc-${clientId.replace(/-/g, '')}`;
+}
+
+async function affectedClientIds(db) {
+  if (clientId) return [clientId];
+  const res = await db.query(`
+    SELECT DISTINCT client_id::text AS id FROM facedesk_employee_face_profiles
+    UNION
+    SELECT client_id::text FROM facedesk_face_settings
+     WHERE azure_face_list_id IS NOT NULL
+  `);
+  return res.rows.map((r) => r.id);
+}
+
+async function purgeAzureFaceLists(db) {
+  const endpoint = (process.env.AZURE_FACE_ENDPOINT ?? '')
+    .trim()
+    .replace(/\/+$/, '');
+  const key = (process.env.AZURE_FACE_KEY ?? '').trim();
+  if (!endpoint || !key) {
+    console.log('Azure Face not configured — skipping Large Face List purge');
+    return;
+  }
+  const ids = await affectedClientIds(db);
+  if (!ids.length) {
+    console.log('Azure Face: no client lists to purge');
+    return;
+  }
+  const apiVersion = process.env.AZURE_FACE_API_VERSION?.trim() || 'v1.0';
+  for (const id of ids) {
+    const listId = listIdForClient(id);
+    const resp = await fetch(
+      `${endpoint}/face/${apiVersion}/largefacelists/${listId}`,
+      {
+        method: 'DELETE',
+        headers: { 'Ocp-Apim-Subscription-Key': key },
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+    if (resp.ok || resp.status === 404) {
+      console.log(`Azure list ${listId}: removed`);
+    } else {
+      const body = await resp.text().catch(() => '');
+      console.warn(
+        `Azure list ${listId}: ${resp.status} ${body.slice(0, 120)}`,
+      );
+    }
+  }
+}
+
 async function main() {
   await client.connect();
   console.log(
@@ -158,6 +209,7 @@ async function main() {
 
   await client.query('BEGIN');
   try {
+    await purgeAzureFaceLists(client);
     for (const [label, sql] of deletes) {
       const exists = await client.query(`SELECT to_regclass($1) AS name`, [label]);
       if (!exists.rows[0]?.name) {
@@ -169,9 +221,15 @@ async function main() {
     }
     await client.query('COMMIT');
     console.log('\nDone. ESS / legacy tables were not modified.');
-    console.log(
-      'Note: Azure Large Face List entries are NOT removed by this script — run Admin → Azure Face Sync after re-enrollment if needed.',
-    );
+    if (process.env.AZURE_FACE_ENDPOINT && process.env.AZURE_FACE_KEY) {
+      console.log(
+        'Azure Large Face Lists for affected clients were deleted; re-sync after re-enrollment.',
+      );
+    } else {
+      console.log(
+        'Set AZURE_FACE_* env vars to purge orphaned Azure faces on the next reset.',
+      );
+    }
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

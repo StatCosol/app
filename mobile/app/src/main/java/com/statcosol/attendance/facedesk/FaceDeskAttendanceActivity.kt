@@ -619,7 +619,13 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         if (serverMode.isNullOrBlank()) return
         val previous = config.faceDeskIdentificationMode
         config.faceDeskIdentificationMode = serverMode
-        if (previous == serverMode && (isFaceIdentified() || enteredPin != null)) return
+        // onResume always sets paused=true until mode UI is applied. When the
+        // persisted mode already matches FACE_ONLY, skipping promptPinEntry()
+        // left the kiosk on "Loading kiosk settings…" forever.
+        if (previous == serverMode && enteredPin != null && !isFaceIdentified()) {
+            paused = false
+            return
+        }
         runOnUiThread {
             if (isFinishing || isDestroyed) return@runOnUiThread
             promptPinEntry()
