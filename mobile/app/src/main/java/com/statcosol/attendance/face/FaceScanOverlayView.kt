@@ -37,6 +37,12 @@ class FaceScanOverlayView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
     }
+    /** Dashed and dim: a target to stand in, never mistaken for the live ring. */
+    private val guidePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = dp(2f)
+        pathEffect = android.graphics.DashPathEffect(floatArrayOf(dp(10f), dp(10f)), 0f)
+    }
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
@@ -55,6 +61,7 @@ class FaceScanOverlayView @JvmOverloads constructor(
 
     private val faceRect = RectF()
     private val ringRect = RectF()
+    private val guideRect = RectF()
     private var pulse = 1f
     private var qualityAnim = 0f
 
@@ -62,6 +69,7 @@ class FaceScanOverlayView @JvmOverloads constructor(
     private val colorWarn = ContextCompat.getColor(context, R.color.scan_warn)
     private val colorBad = ContextCompat.getColor(context, R.color.scan_bad)
     private val colorAccent = ContextCompat.getColor(context, R.color.brand_accent)
+    private val colorGuide = Color.argb(90, 255, 255, 255)
     private val colorMuted = ContextCompat.getColor(context, R.color.scan_muted)
 
     private val pulseAnimator = ValueAnimator.ofFloat(0.92f, 1.06f).apply {
@@ -234,6 +242,18 @@ class FaceScanOverlayView @JvmOverloads constructor(
         val cy = height * FaceKioskTuning.OVERLAY_FACE_CENTER_Y_FRACTION
         val defaultRx = width * FaceKioskTuning.OVERLAY_OVAL_RX_FRACTION
         val defaultRy = height * FaceKioskTuning.OVERLAY_OVAL_RY_FRACTION
+
+        // The guide oval is drawn ALWAYS, not only when no face is found.
+        //
+        // It used to be the else-branch below: the moment a face appeared the
+        // ring snapped onto it, so there was no fixed target left on screen.
+        // "Put your face in the oval" was not something a worker could act on —
+        // the oval was wherever their face already was. Capture now refuses a
+        // face that is clipped or well off-centre, so the target it is asking
+        // for has to stay visible.
+        guideRect.set(cx - defaultRx, cy - defaultRy, cx + defaultRx, cy + defaultRy)
+        guidePaint.color = colorGuide
+        canvas.drawOval(guideRect, guidePaint)
 
         if (box != null) {
             mapBox(box, faceRect)

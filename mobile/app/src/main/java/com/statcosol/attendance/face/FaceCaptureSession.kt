@@ -127,6 +127,40 @@ class FaceCaptureSession(
             return
         }
 
+        // WHERE the face is, not just how big it is.
+        //
+        // Nothing checked position at all, so a face half outside the frame — or
+        // well off to one side of the guide oval — cleared every gate and punched
+        // like a properly framed one. The detector happily reports a box for a
+        // partial face; size, sharpness and brightness all pass on the half that
+        // is visible, and the embedding is then built from half a face.
+        //
+        // Two separate conditions, because they fail differently:
+        //  - touching the frame edge means part of the face is outside the
+        //    picture entirely, and no threshold makes that recoverable;
+        //  - being far from the guide centre means the worker is not where the
+        //    oval is asking them to stand.
+        val edge = FaceKioskTuning.FACE_EDGE_MARGIN
+        val clipped = edge > 0f && (
+            normBox.left < edge ||
+                normBox.top < edge ||
+                normBox.right > 1f - edge ||
+                normBox.bottom > 1f - edge
+            )
+        val offX = FaceKioskTuning.MAX_FACE_OFFSET_X
+        val offY = FaceKioskTuning.MAX_FACE_OFFSET_Y
+        val cxOff = Math.abs(normBox.centerX() - 0.5f)
+        val cyOff = Math.abs(
+            normBox.centerY() - FaceKioskTuning.OVERLAY_FACE_CENTER_Y_FRACTION,
+        )
+        val offCentre = (offX > 0f && cxOff > offX) || (offY > 0f && cyOff > offY)
+        if (clipped || offCentre) {
+            emitPreview(normBox, partialMetrics(face, faceWidth, 0f),
+                "Move your whole face inside the oval", false)
+            onHint("Move your whole face inside the oval")
+            return
+        }
+
         val pitch = face.headEulerAngleX
         val yaw = face.headEulerAngleY
         val faceBitmap = cropFaceBitmap(bitmap, face.boundingBox)
