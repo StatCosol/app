@@ -40,6 +40,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -88,6 +89,10 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     /** Brief pause after enrollment returns so a failed ticket doesn't instantly reopen. */
     private var ticketPollPausedUntilMs = 0L
     private var configFetchJob: Job? = null
+    private var requiredFrames = FaceKioskTuning.ATTENDANCE_REQUIRED_FRAMES
+    private var maxFrames = FaceKioskTuning.ATTENDANCE_MAX_FRAMES
+    private var livenessRequired = true
+    private var offlineSyncEnabled = true
 
     private val enrollmentLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -428,12 +433,9 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
 
         val blinked = blinkDetector.blinked
         when {
-            // Enough frames + a blink seen → submit with liveness proven.
-            frames.size >= REQUIRED_FRAMES && blinked -> submit()
-            // Enough frames but no blink yet — prompt and keep sampling
-            // instead of submitting a batch the server will reject.
-            frames.size >= MAX_FRAMES -> submit()
-            frames.size >= REQUIRED_FRAMES ->
+            frames.size >= requiredFrames && (!livenessRequired || blinked) -> submit()
+            frames.size >= maxFrames -> submit()
+            frames.size >= requiredFrames && livenessRequired ->
                 runOnUiThread {
                     tvTitle.text = getString(R.string.facedesk_blink_now)
                     voice.speakRes(R.string.facedesk_voice_blink, key = "blink")
@@ -442,7 +444,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                 tvTitle.text = getString(
                     R.string.facedesk_capturing,
                     frames.size,
-                    REQUIRED_FRAMES,
+                    requiredFrames,
                 )
             }
         }
@@ -454,11 +456,11 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         val phase = when {
             !capturing -> ScanPhase.IDLE
             blinkDetector.blinked -> ScanPhase.BLINK
-            frames.size >= REQUIRED_FRAMES -> ScanPhase.BLINK
+            frames.size >= requiredFrames -> ScanPhase.BLINK
             frames.isNotEmpty() -> ScanPhase.CAPTURING
             else -> ScanPhase.IDLE
         }
-        val required = if (frames.size >= REQUIRED_FRAMES && !blinkDetector.blinked) 1 else REQUIRED_FRAMES
+        val required = if (frames.size >= requiredFrames && livenessRequired && !blinkDetector.blinked) 1 else requiredFrames
         val current = when {
             phase == ScanPhase.BLINK -> if (blinkDetector.blinked) 1 else 0
             else -> frames.size
@@ -473,30 +475,54 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         )
     }
 
+    /**
+     * Keep photos only on the frames the server will actually look at.
+     *
+     * A punch could carry up to ATTENDANCE_MAX_FRAMES (18) frames and EVERY one
+     * carried its own JPEG, against a 2 MB JSON body limit on the server. Two
+     * kiosks punching at once produced `request entity too large` — the punch
+     * simply failed — and, when it fit, face-svc re-embedded all 18 photos with
+     * ArcFace before the server used `bestFrames(good, 3)` and threw away
+     * fifteen of them. That is where the delay came from: six times the network
+     * payload and six times the server-side face work per punch, all discarded.
+     *
+     * PHOTO_FRAMES is deliberately larger than the 3 the server keeps. Ranking
+     * here uses the same qualityScore the server ranks by, so its best 3 are a
+     * subset of these; the margin covers frames face-svc rejects (422 no_face is
+     * common) without falling back to the device embedding, which would fail the
+     * enrolled-model check when the gallery is ArcFace.
+     *
+     * Embeddings stay on every frame — they are ~1 KB and are what matching and
+     * liveness actually run on offline.
+     */
+    private fun trimPhotosToBest(batch: List<FaceFrame>): List<FaceFrame> {
+        if (batch.size <= PHOTO_FRAMES) return batch
+        val keep = batch.indices
+            .sortedByDescending { batch[it].qualityScore ?: -1.0 }
+            .take(PHOTO_FRAMES)
+            .toSet()
+        return batch.mapIndexed { i, f ->
+            if (i in keep) f else f.copy(photoB64 = null)
+        }
+    }
+
     private fun submit() {
         if (!submitting.compareAndSet(false, true)) return
-        val batch = frames.toList()
+        val batch = trimPhotosToBest(frames.toList())
         // Blink detected via absolute-floor or a sharp drop from the open baseline.
         val livenessPassed = blinkDetector.blinked
-        // Keep the per-frame photos: when face-svc is enabled the server
-        // re-embeds each frame's photo with ArcFace and scores server liveness
-        // from it (see FaceDeskFaceService.resolveFrames). Dropping them forces
-        // the device MobileFaceNet fallback, which fails the enrolled-model
-        // check and any server-liveness gate. One of them is also surfaced at
-        // the top level as the branch-review photo.
+        // Photos ride only on the frames the server can actually use — see
+        // trimPhotosToBest. Every frame still carries its device embedding, so
+        // the batch and its liveness signal are unchanged.
         val req = MarkAttendanceRequest(
             frames = batch,
             employeeCode = enteredCode,
             pin = enteredPin,
-            // Attach one capture photo so the branch can verify a mismatch punch.
-            // The best of the burst, not the first: the gates are minimums, so
-            // the first accepted frame is the instant the worker crossed them —
-            // furthest away and least settled. The server ranks by the same
-            // score when it picks frames to match on.
             photoB64 = batch.filter { it.photoB64 != null }
                 .maxByOrNull { it.qualityScore ?: -1.0 }
                 ?.photoB64,
             livenessPassed = livenessPassed,
+            punchTime = Instant.now().toString(),
             offlineRef = UUID.randomUUID().toString(),
             appVersion = BuildConfig.VERSION_NAME,
             offlineQueueDepth = offline.size(),
@@ -507,13 +533,16 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                 val res = api.markAttendance(req)
                 showResult(res)
             } catch (e: FaceDeskApiException) {
-                // Genuine rejection (4xx with a message) — show it, don't queue.
                 showRejection(e.userMessage(this@FaceDeskAttendanceActivity, R.string.facedesk_not_recognized))
             } catch (e: Exception) {
-                // Network/offline — queue and confirm.
-                offline.enqueue(req)
-                FaceDeskOfflineSyncWorker.enqueue(this@FaceDeskAttendanceActivity)
-                showOfflineSaved()
+                if (!offlineSyncEnabled || isFaceIdentified()) {
+                    showRejection(getString(R.string.facedesk_network_error))
+                } else if (offline.enqueue(req)) {
+                    FaceDeskOfflineSyncWorker.enqueue(this@FaceDeskAttendanceActivity)
+                    showOfflineSaved()
+                } else {
+                    showRejection(getString(R.string.facedesk_network_error))
+                }
             }
         }
     }
@@ -661,6 +690,20 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             try {
                 val cfg = api.fetchConfig()
                 FaceKioskTuning.applyFrom(cfg.captureTuning)
+                livenessRequired = cfg.livenessRequired ?: true
+                offlineSyncEnabled = cfg.offlineSyncEnabled ?: true
+                val frameCount = cfg.frameCaptureCount ?: FaceKioskTuning.ATTENDANCE_REQUIRED_FRAMES
+                requiredFrames = frameCount.coerceIn(3, 30)
+                maxFrames = (requiredFrames * 3).coerceAtMost(60)
+                if (cfg.identificationMode == "BIOMETRIC_ONLY") {
+                    paused = true
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed) return@runOnUiThread
+                        tvTitle.text = getString(R.string.facedesk_biometric_only_hint)
+                        tvResult.text = ""
+                    }
+                    return@launch
+                }
                 applyServerIdentificationMode(cfg.identificationMode)
                 runOnUiThread { chrome.bindBranding(cfg.branding) }
             } catch (e: Exception) {
@@ -686,6 +729,11 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         private const val TAG = "FaceDeskAttendance"
         private const val REQUIRED_FRAMES = FaceKioskTuning.ATTENDANCE_REQUIRED_FRAMES
         private const val MAX_FRAMES = FaceKioskTuning.ATTENDANCE_MAX_FRAMES
+        /**
+         * How many frames carry a photo. Above the 3 the server keeps, to
+         * absorb face-svc rejections; see trimPhotosToBest.
+         */
+        private const val PHOTO_FRAMES = 5
         private const val STALE_GAP_MS = FaceKioskTuning.ATTENDANCE_STALE_GAP_MS
         private const val TICKET_POLL_MS = 4_000L
         private const val TICKET_POLL_COOLDOWN_MS = 30_000L
