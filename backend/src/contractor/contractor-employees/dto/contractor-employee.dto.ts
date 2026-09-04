@@ -6,6 +6,9 @@ import {
   IsDateString,
   MaxLength,
   IsUUID,
+  IsInt,
+  Min,
+  Max,
 } from 'class-validator';
 
 export class CreateContractorEmployeeDto {
@@ -130,4 +133,28 @@ export class UpdateContractorEmployeeDto {
   @IsString()
   @MaxLength(20)
   esicNumber?: string;
+}
+
+/**
+ * Body for the ADMIN employee-code backfill.
+ *
+ * A class, not an inline `{ clientId?: string }` type: an inline type erases to
+ * `Object` in the emitted metadata, so the global ValidationPipe skips it
+ * entirely. Unvalidated, `{"clientId": 123}` reached `.trim()` and threw a
+ * TypeError — a 500 where the caller should have been told 400 — and a
+ * non-numeric `limit` reached `Math.min(Math.max(limit,1),1000)` as NaN and was
+ * handed to a query.
+ */
+export class BackfillCodesDto {
+  /** Target client. A platform admin has no client context of its own. */
+  @IsOptional()
+  @IsUUID()
+  clientId?: string;
+
+  /** Upper bound is the service's own cap, so a larger value is a typo. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(1000)
+  limit?: number;
 }

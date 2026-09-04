@@ -20,6 +20,7 @@ import { BranchAccessService } from '../../auth/branch-access.service';
 import {
   CreateContractorEmployeeDto,
   UpdateContractorEmployeeDto,
+  BackfillCodesDto,
 } from './dto/contractor-employee.dto';
 
 // ── Contractor-facing: manage own employees ─────────────
@@ -234,13 +235,27 @@ export class ClientContractorEmployeesController {
   @Roles('ADMIN')
   async backfillCodes(
     @CurrentUser() user: ReqUser,
-    @Body() body: { limit?: number },
+    @Body() body: BackfillCodesDto,
   ) {
     // Platform admin only, narrower than the controller default. This assigns
     // identifiers that land on payroll records for a whole client, so it is not
     // something a branch desk or a client user should be able to trigger.
-    const clientId = user.clientId;
-    if (!clientId) throw new BadRequestException('Client context required');
+    //
+    // The target client is named in the body. Reading it from user.clientId made
+    // this endpoint impossible for anyone to call: a platform ADMIN has no client
+    // of its own — production JWTs log `roleCode=ADMIN clientId=` with nothing
+    // after it — so every call answered 400 "Client context required", while the
+    // CLIENT user who does have one is refused by @Roles('ADMIN') above. That is
+    // why contractor codes were never backfilled anywhere: not a failing job, an
+    // endpoint with no possible caller.
+    // Shape is enforced by BackfillCodesDto, so this only has to decide which
+    // client applies — not whether the input is a string.
+    const clientId = body?.clientId || user.clientId;
+    if (!clientId) {
+      throw new BadRequestException(
+        'clientId is required — a platform admin has no client context of its own',
+      );
+    }
     return this.svc.backfillEmployeeCodes(clientId, body?.limit ?? 200);
   }
 

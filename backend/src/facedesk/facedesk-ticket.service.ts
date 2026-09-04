@@ -62,9 +62,14 @@ export class FaceDeskTicketService {
     // roster table depends on subjectType — employees or contractor_employees.
     const subjectTable =
       subjectType === 'CONTRACTOR' ? 'contractor_employees' : 'employees';
-    // contractor_employees has no employee_code column in production.
-    const codeCol =
-      subjectType === 'CONTRACTOR' ? 'NULL::text AS employee_code' : 'employee_code';
+    // Both rosters carry employee_code. This used to select NULL for
+    // contractors because the column really was absent in production, but
+    // main.ts adds it and its partial unique index on boot ("Schema patch:
+    // contractor employee_code uniqueness OK" on the live revision), and #585
+    // generates the codes. Selecting NULL now blanks the code on every
+    // contractor enrolment ticket — the kiosk shows the worker with no
+    // identifier, and it stays blank even after the backfill fills the column.
+    const codeCol = 'employee_code';
     const [emp] = await this.dataSource.query<
       Array<{
         id: string;
