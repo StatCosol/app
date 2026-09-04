@@ -564,7 +564,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                 } else {
                     voice.speakRes(R.string.facedesk_voice_success_generic, minIntervalMs = 0)
                 }
-                autoReset(3000)
+                autoReset(FaceKioskTuning.POST_PUNCH_HOLD_MS)
             }
             "RETRY" -> {
                 tvResult.text = res.message
@@ -574,7 +574,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             "REVIEW" -> {
                 tvResult.text = res.message
                 voice.speakRes(R.string.facedesk_voice_success_generic, minIntervalMs = 0)
-                autoReset(3000)
+                autoReset(FaceKioskTuning.POST_PUNCH_HOLD_MS)
             }
             else -> showRejection(res.message)
         }
@@ -589,7 +589,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     private fun showOfflineSaved() {
         runOnUiThread { tvResult.text = getString(R.string.facedesk_offline_saved) }
         voice.speakRes(R.string.facedesk_voice_offline, minIntervalMs = 0)
-        autoReset(2500)
+        autoReset(FaceKioskTuning.POST_PUNCH_HOLD_MS)
     }
 
     private fun setTitleWithVoice(titleRes: Int, voiceRes: Int) {
