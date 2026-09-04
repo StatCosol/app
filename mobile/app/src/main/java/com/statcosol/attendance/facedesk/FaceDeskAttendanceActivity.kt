@@ -476,34 +476,39 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     }
 
     /**
-     * Keep photos only on the frames the server will actually look at.
+     * Send only the best frames, each complete with its photo.
      *
-     * A punch could carry up to ATTENDANCE_MAX_FRAMES (18) frames and EVERY one
-     * carried its own JPEG, against a 2 MB JSON body limit on the server. Two
-     * kiosks punching at once produced `request entity too large` — the punch
-     * simply failed — and, when it fit, face-svc re-embedded all 18 photos with
-     * ArcFace before the server used `bestFrames(good, 3)` and threw away
-     * fifteen of them. That is where the delay came from: six times the network
-     * payload and six times the server-side face work per punch, all discarded.
+     * A punch carried up to `frameCaptureCount` frames (server default 15, and
+     * maxFrames is three times that) and EVERY one carried its own JPEG, against
+     * a 2 MB JSON body limit. Two kiosks punching at once produced `request
+     * entity too large` — the punch simply failed — and when it fit, face-svc
+     * re-embedded every photo with ArcFace before the server used
+     * `bestFrames(good, 3)` and discarded the rest.
      *
-     * PHOTO_FRAMES is deliberately larger than the 3 the server keeps. Ranking
-     * here uses the same qualityScore the server ranks by, so its best 3 are a
-     * subset of these; the margin covers frames face-svc rejects (422 no_face is
-     * common) without falling back to the device embedding, which would fail the
-     * enrolled-model check when the gallery is ArcFace.
+     * The first attempt at this stripped photos from the surplus frames and sent
+     * them anyway. That was wrong in a way worth recording, because it broke
+     * matching rather than merely wasting bytes. A frame without a photo still
+     * resolves — through its device MobileFaceNet embedding — so the batch
+     * arrived split across two vector spaces. `selectComparableFrames` commits
+     * to whichever model group has the MOST frames, so 5 ArcFace against 10
+     * MobileFaceNet elected MobileFaceNet, `probeModel` became mobilefacenet,
+     * and `FaceDeskPinAttendanceService` then skipped every ArcFace-enrolled
+     * profile and answered "Face model mismatch — please re-enroll". Every
+     * PIN_THEN_FACE punch against an ArcFace gallery, for a payload
+     * optimisation.
      *
-     * Embeddings stay on every frame — they are ~1 KB and are what matching and
-     * liveness actually run on offline.
+     * Dropping the surplus frames outright avoids that: what arrives is one
+     * model group, so there is no majority to lose. The frames are not missed —
+     * the server keeps 3, device liveness is a batch-level flag computed before
+     * this, and server liveness reads face-svc scores from these same frames.
+     *
+     * PHOTO_FRAMES stays above the 3 the server keeps so quality rejections and
+     * the occasional face-svc 422 still leave enough, and leave ArcFace in the
+     * majority when a few do fall back.
      */
     private fun trimPhotosToBest(batch: List<FaceFrame>): List<FaceFrame> {
         if (batch.size <= PHOTO_FRAMES) return batch
-        val keep = batch.indices
-            .sortedByDescending { batch[it].qualityScore ?: -1.0 }
-            .take(PHOTO_FRAMES)
-            .toSet()
-        return batch.mapIndexed { i, f ->
-            if (i in keep) f else f.copy(photoB64 = null)
-        }
+        return batch.sortedByDescending { it.qualityScore ?: -1.0 }.take(PHOTO_FRAMES)
     }
 
     private fun submit() {
@@ -730,10 +735,11 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         private const val REQUIRED_FRAMES = FaceKioskTuning.ATTENDANCE_REQUIRED_FRAMES
         private const val MAX_FRAMES = FaceKioskTuning.ATTENDANCE_MAX_FRAMES
         /**
-         * How many frames carry a photo. Above the 3 the server keeps, to
-         * absorb face-svc rejections; see trimPhotosToBest.
+         * How many frames are sent, each with its photo. Above the 3 the server
+         * keeps, so quality rejections and face-svc 422s still leave enough —
+         * and leave ArcFace in the majority. See trimPhotosToBest.
          */
-        private const val PHOTO_FRAMES = 5
+        private const val PHOTO_FRAMES = 6
         private const val STALE_GAP_MS = FaceKioskTuning.ATTENDANCE_STALE_GAP_MS
         private const val TICKET_POLL_MS = 4_000L
         private const val TICKET_POLL_COOLDOWN_MS = 30_000L
