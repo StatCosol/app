@@ -123,6 +123,14 @@ function makeService(rosterRows: any[], todayCount = 0) {
     dataSource as any,
   );
   const directionService = new FaceDeskPunchDirectionService(dataSource as any);
+  /** Serves only the advisory lock/unlock the punch path wraps itself in. */
+  const lockingDataSource = {
+    createQueryRunner: () => ({
+      connect: jest.fn().mockResolvedValue(undefined),
+      query: jest.fn().mockResolvedValue([]),
+      release: jest.fn().mockResolvedValue(undefined),
+    }),
+  };
   const punchAcceptService = new FaceDeskPunchAcceptService(
     attRepo as any,
     reviewRepo as any,
@@ -131,6 +139,11 @@ function makeService(rosterRows: any[], todayCount = 0) {
     biometric as any,
     directionService,
     failedAttemptService,
+    // acceptPunch takes a per-subject advisory lock around the gap check and the
+    // insert, so it needs a DataSource it can get a QueryRunner from. The runner
+    // only ever runs pg_advisory_lock/unlock here; the punch itself still goes
+    // through the repositories above.
+    lockingDataSource as any,
   );
   const pinAttendanceService = new FaceDeskPinAttendanceService(
     dataSource as any,

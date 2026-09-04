@@ -68,6 +68,35 @@ describe('minutesSinceLastPunch', () => {
     expect(sql).toContain("attendance_status IN ('MARKED','APPROVED')");
   });
 
+  it('ignores a punch LATER than the one being offered', async () => {
+    // The data-loss case. An offline capture from 09:00 syncing after a stored
+    // 17:00 punch used to return a NEGATIVE gap, which is always below a
+    // positive threshold, so the punch was refused — and offline sync maps a
+    // rejection to DROPPED, discarding a real punch for good. The query is now
+    // upper-bounded by the incoming timestamp, so a later punch is not a
+    // candidate at all.
+    const { svc, dataSource } = makeService(null);
+    const at = new Date('2026-09-04T09:00:00.000Z');
+    await svc.minutesSinceLastPunch('c1', 'e1', 'EMPLOYEE', at);
+    const [sql, params] = dataSource.query.mock.calls[0];
+    expect(sql).toContain('punch_time < $5');
+    expect(params[4]).toEqual(at);
+  });
+
+  it('never returns a negative gap', async () => {
+    // Belt and braces on the same bug: whatever the query returns, a negative
+    // value would read as "far too soon" and refuse a punch hours apart.
+    const { svc } = makeService(new Date('2026-09-04T08:00:00.000Z'));
+    const since = await svc.minutesSinceLastPunch(
+      'c1',
+      'e1',
+      'EMPLOYEE',
+      new Date('2026-09-04T09:00:00.000Z'),
+    );
+    expect(since).not.toBeNull();
+    expect(since as number).toBeGreaterThanOrEqual(0);
+  });
+
   it('takes the most recent punch, not the first', async () => {
     const { svc, dataSource } = makeService(new Date('2026-09-04T09:59:00Z'));
     await svc.minutesSinceLastPunch('c1', 'e1', 'EMPLOYEE', now);
