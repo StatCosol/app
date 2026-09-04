@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import {
   averageEmbeddings,
   embeddingToBuffer,
@@ -35,6 +35,7 @@ export class FaceDeskPunchAcceptService {
     private readonly biometric: BiometricService,
     private readonly directionService: FaceDeskPunchDirectionService,
     private readonly failedAttemptService: FaceDeskFailedAttemptService,
+    private readonly dataSource: DataSource,
   ) {}
 
   contractorPunchResult(
@@ -50,7 +51,98 @@ export class FaceDeskPunchAcceptService {
     };
   }
 
-  async acceptPunch(
+  /**
+   * Serialise everything this method does for one subject.
+   *
+   * The minimum-gap check reads the last punch and then, some way later, writes
+   * a new one. Two kiosks submitting for the same person can both finish that
+   * read before either write lands, so both pass the gap check and both are
+   * recorded — the exact second-kiosk case the gap exists to prevent. A
+   * time-based rule cannot be expressed as a unique constraint, so the read and
+   * the write have to be held together.
+   *
+   * A Postgres advisory lock rather than a transaction: the writes below go
+   * through several repositories on the pool's own connections, and threading a
+   * transaction manager through all of them would be a far larger change to a
+   * method that is being rewritten in parallel. An advisory lock is global to
+   * the database, so it serialises regardless of which connection does the
+   * insert.
+   *
+   * Keyed on client + subject, so it only ever blocks the same person punching
+   * twice at once — never two different workers at the same gate.
+   */
+  private async withSubjectLock<T>(
+    clientId: string,
+    subjectId: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const runner = this.dataSource.createQueryRunner();
+    await runner.connect();
+    try {
+      await runner.query('SELECT pg_advisory_lock(hashtext($1), hashtext($2))', [
+        clientId,
+        subjectId,
+      ]);
+      return await fn();
+    } finally {
+      // Released even when the punch throws; the runner is released either way,
+      // which drops any lock still held on that connection as a backstop.
+      try {
+        await runner.query(
+          'SELECT pg_advisory_unlock(hashtext($1), hashtext($2))',
+          [clientId, subjectId],
+        );
+      } catch (err) {
+        this.logger.warn(
+          `advisory unlock failed: ${(err as Error)?.message ?? err}`,
+        );
+      }
+      await runner.release();
+    }
+  }
+
+  acceptPunch(
+    clientId: string,
+    branchId: string | null,
+    deviceId: string | null,
+    dto: MarkAttendanceDto,
+    employee: {
+      employeeId: string;
+      employeeCode: string;
+      name: string;
+      branchId: string | null;
+      subjectType: 'EMPLOYEE' | 'CONTRACTOR';
+    },
+    cosine: number,
+    margin: number,
+    best3: ResolvedFrame[],
+    confidencePercent: number,
+    flagForReview = false,
+    reviewIssue:
+      | 'FACE_MISMATCH'
+      | 'LOW_CONFIDENCE'
+      | 'BIOMETRIC_MISSING' = 'FACE_MISMATCH',
+    reviewRemarkOverride?: string,
+  ): Promise<MarkResult> {
+    return this.withSubjectLock(clientId, employee.employeeId, () =>
+      this.acceptPunchSerialised(
+        clientId,
+        branchId,
+        deviceId,
+        dto,
+        employee,
+        cosine,
+        margin,
+        best3,
+        confidencePercent,
+        flagForReview,
+        reviewIssue,
+        reviewRemarkOverride,
+      ),
+    );
+  }
+
+  private async acceptPunchSerialised(
     clientId: string,
     branchId: string | null,
     deviceId: string | null,
@@ -76,6 +168,42 @@ export class FaceDeskPunchAcceptService {
     reviewRemarkOverride?: string,
   ): Promise<MarkResult> {
     const punchTime = dto.punchTime ? new Date(dto.punchTime) : new Date();
+
+    // Minimum gap between one punch and the next for the same subject.
+    //
+    // Punches alternate IN/OUT per business day, so a second capture moments
+    // after the first is not read as a duplicate — it is read as the worker
+    // leaving the instant they arrived, and the worked-hours report pairs the
+    // two into a zero-length shift.
+    //
+    // The kiosk already holds capture for POST_PUNCH_HOLD_MS, but that is a
+    // client-side timer and cannot see past its own screen: a worker who simply
+    // stands there long enough, a second kiosk at the same gate, a device
+    // restart, or an offline batch replaying all reach this method regardless.
+    // This is the check that holds for all of them, because everything funnels
+    // through acceptPunch.
+    //
+    // Refused rather than silently swallowed: the worker is told, instead of
+    // walking away believing a punch was recorded that never was.
+    const gapMinutes = Number(process.env.FD_MIN_PUNCH_GAP_MINUTES ?? 3);
+    if (gapMinutes > 0) {
+      const since = await this.directionService.minutesSinceLastPunch(
+        clientId,
+        employee.employeeId,
+        employee.subjectType,
+        punchTime,
+      );
+      if (since !== null && since < gapMinutes) {
+        const wait = Math.max(1, Math.ceil(gapMinutes - since));
+        return {
+          status: 'REJECTED',
+          message: `Attendance already recorded — please wait ${wait} more minute${
+            wait === 1 ? '' : 's'
+          }`,
+        };
+      }
+    }
+
     const resolvedBranchId = employee.branchId ?? branchId;
     const livenessScore =
       best3.find((f) => f.livenessScore != null)?.livenessScore ?? null;
