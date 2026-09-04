@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Bring the kiosk back after a reboot; see KioskBootReceiver. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <uses-feature android:name="android.hardware.camera" android:required="true" />
     <uses-feature android:name="android.hardware.camera.front" android:required="true" />
@@ -37,7 +39,10 @@
                 tools:node="remove" />
         </provider>
 
-        <!-- Token entry / device bootstrap -->
+        <!-- Token entry / device bootstrap. Also the kiosk's HOME entry: it
+             already decides where to go (attendance when registered, token
+             entry when not), so it is the right target for both a tap and a
+             boot. -->
         <activity
             android:name=".ui.SetupActivity"
             android:exported="true"
@@ -45,6 +50,19 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- HOME is what actually keeps a kiosk up. Without it, a screen
+                 off/on cycle leaves the device on the OEM launcher with the
+                 kiosk alive but backgrounded — reproducible on the Samsung —
+                 and a reboot leaves it there indefinitely. As HOME, the system
+                 returns here instead, and starts it at boot by definition.
+                 Declaring the filter only makes the app ELIGIBLE; it becomes
+                 the launcher when an operator (or device-owner provisioning)
+                 selects it, so a handset used for anything else is unaffected. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 
@@ -75,6 +93,21 @@
             android:exported="false"
             android:screenOrientation="portrait"
             android:label="FaceDesk Enrollment" />
+
+        <!-- Restart the kiosk after a reboot. Secondary to the HOME filter
+             above, which the system honours by definition; this covers the case
+             where the kiosk is not the selected launcher. -->
+        <receiver
+            android:name=".kiosk.KioskBootReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter android:priority="1000">
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
 
         <!-- Device-owner admin. When set as Device Owner, the kiosk whitelists
              itself for lock task so screen pinning fully blocks Home/Recents. -->

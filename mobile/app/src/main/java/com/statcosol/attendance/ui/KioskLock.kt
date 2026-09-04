@@ -1,5 +1,7 @@
 package com.statcosol.attendance.ui
 
+import com.statcosol.attendance.prefs.DeviceConfig
+import android.content.Intent
 import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
@@ -84,8 +86,61 @@ object KioskLock {
         triggers.forEach { it?.setOnLongClickListener(listener) }
     }
 
+    /**
+     * How long an admin gets after the PIN before the kiosk takes the device
+     * back. Long enough to reach Settings and change something, short enough
+     * that a forgotten exit does not leave a gate unattended all day.
+     */
+    private const val MAINTENANCE_WINDOW_MS = 5 * 60 * 1000L
+
+    /**
+     * Actually leave, which finishing alone no longer achieves.
+     *
+     * Once the kiosk is the selected HOME app, finishAffinity() hands control to
+     * HOME — which is this app — and SetupActivity redirects a registered device
+     * straight back into the kiosk. The documented maintenance escape became a
+     * loop with no way out on a locked device, which is exactly the state a
+     * device owner cannot be pulled out of externally: lock task blocks
+     * `am start`, and the package is protected against `pm disable-user`.
+     *
+     * So two things, and both are needed. The window tells SetupActivity to stay
+     * out of the way rather than redirect. Handing off to another HOME app is
+     * what puts a launcher on screen; without it the admin is left staring at a
+     * finished activity.
+     */
+    fun leaveKiosk(activity: Activity) {
+        runCatching {
+            DeviceConfig(activity).maintenanceUntilMs =
+                System.currentTimeMillis() + MAINTENANCE_WINDOW_MS
+        }
+        val other = systemLauncher(activity)
+        if (other != null) {
+            runCatching {
+                activity.startActivity(
+                    Intent(Intent.ACTION_MAIN).apply {
+                        addCategory(Intent.CATEGORY_HOME)
+                        component = other
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    },
+                )
+            }
+        }
+        activity.finishAffinity()
+    }
+
+    /** A HOME activity that is not us, if the device still has one. */
+    private fun systemLauncher(activity: Activity): ComponentName? {
+        val pm = activity.packageManager
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        return pm.queryIntentActivities(intent, 0)
+            .asSequence()
+            .map { it.activityInfo }
+            .firstOrNull { it.packageName != activity.packageName }
+            ?.let { ComponentName(it.packageName, it.name) }
+    }
+
     /** Prompt for the device's admin PIN (set during registration); on the
-     *  correct PIN, leave lock task and close the app back to the launcher. */
+     *  correct PIN, leave lock task and hand the device to a real launcher. */
     fun showExitDialog(activity: Activity, expectedPin: String) {
         if (dialogActive) return
         dialogActive = true
@@ -98,7 +153,7 @@ object KioskLock {
             onSubmit = { entered ->
                 if (expectedPin.isNotBlank() && entered == expectedPin) {
                     try { activity.stopLockTask() } catch (_: Exception) {}
-                    activity.finishAffinity()
+                    leaveKiosk(activity)
                 } else {
                     Toast.makeText(
                         activity,

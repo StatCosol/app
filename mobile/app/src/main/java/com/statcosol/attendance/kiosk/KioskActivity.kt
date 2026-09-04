@@ -1,5 +1,6 @@
 package com.statcosol.attendance.kiosk
 
+import com.statcosol.attendance.ui.KioskLock
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -268,7 +269,12 @@ class KioskActivity : AppCompatActivity() {
                     try { stopLockTask() } catch (_: Exception) {}
                     d.dismiss()
                     dialogActive = false
-                    finish()
+                    // Same trap as the FaceDesk exit: with the kiosk selected as
+                    // HOME, finishing hands the device back to HOME — this app —
+                    // and SetupActivity sends a registered device straight back
+                    // in. leaveKiosk opens a real launcher and marks the
+                    // maintenance window so that redirect stands down.
+                    KioskLock.leaveKiosk(this)
                 } else {
                     Toast.makeText(this, R.string.kiosk_admin_exit_wrong_pin, Toast.LENGTH_SHORT).show()
                     dialogActive = false
