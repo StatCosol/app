@@ -119,6 +119,24 @@ object FaceKioskTuning {
      */
     @Volatile @JvmStatic var POST_PUNCH_HOLD_MS = 8_000L
 
+    /**
+     * Framing gates. Nothing checked WHERE the face was, only how big and how
+     * sharp — so a face half out of frame, or off to one side, punched normally.
+     *
+     * FACE_EDGE_MARGIN is the unambiguous half of it: a bounding box touching
+     * the frame edge means part of the face is outside the picture, whatever the
+     * detector reports for the rest. Fraction of frame width/height; 0 disables.
+     *
+     * MAX_FACE_OFFSET_* keep the face near the guide oval, measured from the box
+     * CENTRE rather than its corners — a rectangle inscribed in that ellipse
+     * would reject anyone standing close, which is where the best captures come
+     * from. Deliberately generous: they exclude a face clearly off to the side,
+     * not one slightly off-centre. 0 disables either axis.
+     */
+    @Volatile @JvmStatic var FACE_EDGE_MARGIN = 0.02f
+    @Volatile @JvmStatic var MAX_FACE_OFFSET_X = 0.28f
+    @Volatile @JvmStatic var MAX_FACE_OFFSET_Y = 0.32f
+
     // ── Enrollment guided capture ────────────────────────────────────────────
     /** 6 good fronts + 3 per side = 12 angle frames (was 14 on faster hardware). */
     const val ENROLL_FRONT_FRAMES = 6
@@ -184,6 +202,9 @@ object FaceKioskTuning {
         tuning.maxPitchDeg?.let { MAX_PITCH_DEG = it }
         tuning.maxYawDeg?.let { MAX_YAW_DEG = it }
         tuning.postPunchHoldMs?.let { POST_PUNCH_HOLD_MS = it }
+        tuning.faceEdgeMargin?.let { FACE_EDGE_MARGIN = it }
+        tuning.maxFaceOffsetX?.let { MAX_FACE_OFFSET_X = it }
+        tuning.maxFaceOffsetY?.let { MAX_FACE_OFFSET_Y = it }
         tuning.blinkAbsThreshold?.let { BLINK_ABS_THRESHOLD = it }
         tuning.blinkDropDelta?.let { BLINK_DROP_DELTA = it }
         val w = tuning.analysisWidth

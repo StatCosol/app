@@ -275,6 +275,15 @@ export class CaptureTuningDto {
   @IsOptional() @IsNumber() @Min(2000) @Max(120000)
   postPunchHoldMs?: number;
 
+  @IsOptional() @IsNumber() @Min(0) @Max(0.2)
+  faceEdgeMargin?: number;
+
+  @IsOptional() @IsNumber() @Min(0) @Max(0.5)
+  maxFaceOffsetX?: number;
+
+  @IsOptional() @IsNumber() @Min(0) @Max(0.5)
+  maxFaceOffsetY?: number;
+
   @IsOptional() @IsNumber() @Min(0.1) @Max(0.95)
   blinkAbsThreshold?: number;
 
