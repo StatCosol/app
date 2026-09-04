@@ -29,6 +29,9 @@ export interface FaceDeskCaptureTuning {
   maxPitchDeg?: number;
   maxYawDeg?: number;
   postPunchHoldMs?: number;
+  faceEdgeMargin?: number;
+  maxFaceOffsetX?: number;
+  maxFaceOffsetY?: number;
   analysisWidth?: number;
   analysisHeight?: number;
 }

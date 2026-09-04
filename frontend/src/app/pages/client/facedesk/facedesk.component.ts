@@ -582,6 +582,9 @@ type Tab =
               <label>Max pitch (deg)<input type="number" [(ngModel)]="settings.captureTuning.maxPitchDeg" class="inp"></label>
               <label>Max yaw / head turn (deg)<input type="number" [(ngModel)]="settings.captureTuning.maxYawDeg" class="inp"></label>
               <label>Hold after punch (ms) <span class="hint">min 2000</span><input type="number" step="500" [(ngModel)]="settings.captureTuning.postPunchHoldMs" class="inp"></label>
+              <label>Face edge margin <span class="hint">0 = off</span><input type="number" step="0.01" [(ngModel)]="settings.captureTuning.faceEdgeMargin" class="inp"></label>
+              <label>Max face offset X <span class="hint">0 = off</span><input type="number" step="0.01" [(ngModel)]="settings.captureTuning.maxFaceOffsetX" class="inp"></label>
+              <label>Max face offset Y <span class="hint">0 = off</span><input type="number" step="0.01" [(ngModel)]="settings.captureTuning.maxFaceOffsetY" class="inp"></label>
               <label>Analysis width<input type="number" [(ngModel)]="settings.captureTuning.analysisWidth" class="inp"></label>
               <label>Analysis height<input type="number" [(ngModel)]="settings.captureTuning.analysisHeight" class="inp"></label>
               }

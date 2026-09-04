@@ -32,6 +32,10 @@ export interface FaceDeskCaptureTuning {
   maxYawDeg: number;
   /** Milliseconds the kiosk stops capturing after a punch is RECORDED. */
   postPunchHoldMs: number;
+  /** Framing: keep the whole face in frame and near the guide oval. */
+  faceEdgeMargin: number;
+  maxFaceOffsetX: number;
+  maxFaceOffsetY: number;
   blinkAbsThreshold: number;
   blinkDropDelta: number;
   /**
@@ -66,6 +70,11 @@ export const DEFAULT_CAPTURE_TUNING: FaceDeskCaptureTuning = {
   // 3 s let the same worker be captured twice before stepping away, which
   // registers them OUT the moment they arrive.
   postPunchHoldMs: 8000,
+  // Nothing checked WHERE the face was, so half-out-of-frame and off-to-one-side
+  // captures punched normally. 0 disables any of the three.
+  faceEdgeMargin: 0.02,
+  maxFaceOffsetX: 0.28,
+  maxFaceOffsetY: 0.32,
   blinkAbsThreshold: 0.5,
   blinkDropDelta: 0.25,
   // Deliberately null — see the interface. The device picks unless an operator
@@ -97,6 +106,11 @@ const RANGES: Record<keyof FaceDeskCaptureTuning, [number, number]> = {
   // Floor of 2 s, not 0: a zero hold is the bug this exists to prevent, and an
   // out-of-range value falls back to the default rather than disabling it.
   postPunchHoldMs: [2000, 120000],
+  // 0 = off. Upper bounds keep a typo from disabling framing entirely: an
+  // offset of 1.0 would accept a face anywhere in the frame.
+  faceEdgeMargin: [0, 0.2],
+  maxFaceOffsetX: [0, 0.5],
+  maxFaceOffsetY: [0, 0.5],
   blinkAbsThreshold: [0.1, 0.95],
   blinkDropDelta: [0.05, 0.9],
   analysisWidth: [320, 3840],
