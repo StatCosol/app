@@ -76,6 +76,42 @@ export class FaceDeskPunchAcceptService {
     reviewRemarkOverride?: string,
   ): Promise<MarkResult> {
     const punchTime = dto.punchTime ? new Date(dto.punchTime) : new Date();
+
+    // Minimum gap between one punch and the next for the same subject.
+    //
+    // Punches alternate IN/OUT per business day, so a second capture moments
+    // after the first is not read as a duplicate — it is read as the worker
+    // leaving the instant they arrived, and the worked-hours report pairs the
+    // two into a zero-length shift.
+    //
+    // The kiosk already holds capture for POST_PUNCH_HOLD_MS, but that is a
+    // client-side timer and cannot see past its own screen: a worker who simply
+    // stands there long enough, a second kiosk at the same gate, a device
+    // restart, or an offline batch replaying all reach this method regardless.
+    // This is the check that holds for all of them, because everything funnels
+    // through acceptPunch.
+    //
+    // Refused rather than silently swallowed: the worker is told, instead of
+    // walking away believing a punch was recorded that never was.
+    const gapMinutes = Number(process.env.FD_MIN_PUNCH_GAP_MINUTES ?? 3);
+    if (gapMinutes > 0) {
+      const since = await this.directionService.minutesSinceLastPunch(
+        clientId,
+        employee.employeeId,
+        employee.subjectType,
+        punchTime,
+      );
+      if (since !== null && since < gapMinutes) {
+        const wait = Math.max(1, Math.ceil(gapMinutes - since));
+        return {
+          status: 'REJECTED',
+          message: `Attendance already recorded — please wait ${wait} more minute${
+            wait === 1 ? '' : 's'
+          }`,
+        };
+      }
+    }
+
     const resolvedBranchId = employee.branchId ?? branchId;
     const livenessScore =
       best3.find((f) => f.livenessScore != null)?.livenessScore ?? null;
