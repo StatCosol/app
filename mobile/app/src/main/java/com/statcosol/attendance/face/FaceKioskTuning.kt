@@ -107,6 +107,18 @@ object FaceKioskTuning {
      */
     @Volatile @JvmStatic var MAX_YAW_DEG = 30f
 
+    /**
+     * How long the kiosk stops capturing after a punch is RECORDED.
+     *
+     * Was 3 s, which is less than the time it takes a worker to read the
+     * confirmation and step away — so the same face was still in frame when
+     * capture resumed and punched again. Because punches alternate IN/OUT per
+     * day, that second capture registered them as leaving the instant they
+     * arrived. A refused punch is NOT held: nothing was recorded, so making
+     * someone wait to retry only looks broken.
+     */
+    @Volatile @JvmStatic var POST_PUNCH_HOLD_MS = 8_000L
+
     // ── Enrollment guided capture ────────────────────────────────────────────
     /** 6 good fronts + 3 per side = 12 angle frames (was 14 on faster hardware). */
     const val ENROLL_FRONT_FRAMES = 6
@@ -171,6 +183,7 @@ object FaceKioskTuning {
         tuning.minLuminance?.let { MIN_LUMINANCE = it }
         tuning.maxPitchDeg?.let { MAX_PITCH_DEG = it }
         tuning.maxYawDeg?.let { MAX_YAW_DEG = it }
+        tuning.postPunchHoldMs?.let { POST_PUNCH_HOLD_MS = it }
         tuning.blinkAbsThreshold?.let { BLINK_ABS_THRESHOLD = it }
         tuning.blinkDropDelta?.let { BLINK_DROP_DELTA = it }
         val w = tuning.analysisWidth

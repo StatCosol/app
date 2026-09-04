@@ -272,6 +272,9 @@ export class CaptureTuningDto {
   @IsOptional() @IsNumber() @Min(5) @Max(60)
   maxYawDeg?: number;
 
+  @IsOptional() @IsNumber() @Min(2000) @Max(120000)
+  postPunchHoldMs?: number;
+
   @IsOptional() @IsNumber() @Min(0.1) @Max(0.95)
   blinkAbsThreshold?: number;
 

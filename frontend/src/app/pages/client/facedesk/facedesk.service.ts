@@ -28,6 +28,7 @@ export interface FaceDeskCaptureTuning {
   minLuminance?: number;
   maxPitchDeg?: number;
   maxYawDeg?: number;
+  postPunchHoldMs?: number;
   analysisWidth?: number;
   analysisHeight?: number;
 }

@@ -30,6 +30,8 @@ export interface FaceDeskCaptureTuning {
   minLuminance: number;
   maxPitchDeg: number;
   maxYawDeg: number;
+  /** Milliseconds the kiosk stops capturing after a punch is RECORDED. */
+  postPunchHoldMs: number;
   blinkAbsThreshold: number;
   blinkDropDelta: number;
   /**
@@ -61,6 +63,9 @@ export const DEFAULT_CAPTURE_TUNING: FaceDeskCaptureTuning = {
   maxPitchDeg: 28,
   // Yaw was ungated until a side-on face was seen punching successfully.
   maxYawDeg: 30,
+  // 3 s let the same worker be captured twice before stepping away, which
+  // registers them OUT the moment they arrive.
+  postPunchHoldMs: 8000,
   blinkAbsThreshold: 0.5,
   blinkDropDelta: 0.25,
   // Deliberately null — see the interface. The device picks unless an operator
@@ -89,6 +94,9 @@ const RANGES: Record<keyof FaceDeskCaptureTuning, [number, number]> = {
   minLuminance: [1, 200],
   maxPitchDeg: [5, 60],
   maxYawDeg: [5, 60],
+  // Floor of 2 s, not 0: a zero hold is the bug this exists to prevent, and an
+  // out-of-range value falls back to the default rather than disabling it.
+  postPunchHoldMs: [2000, 120000],
   blinkAbsThreshold: [0.1, 0.95],
   blinkDropDelta: [0.05, 0.9],
   analysisWidth: [320, 3840],

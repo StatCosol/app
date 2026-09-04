@@ -108,6 +108,9 @@ import {
           <p class="mt-1 text-xs text-slate-500">
             Choose one system for this client. This replaces legacy attendance selections and preserves all non-attendance services.
           </p>
+          <p class="mb-3 text-xs text-slate-500">
+            This grants the attendance service. It does NOT choose how workers identify themselves &mdash; PIN + Face, Face only, Face + Biometric and Biometric only are set per client under FaceDesk &rarr; Settings &rarr; Identification mode.
+          </p>
           <div class="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
@@ -409,13 +412,13 @@ export class AdminServicePackagesComponent implements OnInit {
     label: string;
     modules: string[];
   }> = [
-    { key: 'PIN_FACE', label: 'PIN + Face', modules: ['CONTRACTOR_FACE_ATTENDANCE'] },
+    { key: 'PIN_FACE', label: 'Face kiosk', modules: ['CONTRACTOR_FACE_ATTENDANCE'] },
     {
       key: 'FACE_BIOMETRIC',
-      label: 'Face + Biometric',
+      label: 'Face kiosk + eSSL',
       modules: ['CONTRACTOR_FACE_ATTENDANCE', 'EMPLOYEE_ATTENDANCE'],
     },
-    { key: 'ESSL', label: 'eSSL', modules: ['EMPLOYEE_ATTENDANCE'] },
+    { key: 'ESSL', label: 'eSSL only', modules: ['EMPLOYEE_ATTENDANCE'] },
   ];
   private readonly attendanceModuleCodes = [
     'CONTRACTOR_FACE_ATTENDANCE',

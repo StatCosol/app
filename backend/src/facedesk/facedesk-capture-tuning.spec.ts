@@ -74,6 +74,7 @@ describe('resolveCaptureTuning', () => {
       minLuminance: 20,
       maxPitchDeg: 28,
       maxYawDeg: 30,
+      postPunchHoldMs: 8000,
       blinkAbsThreshold: 0.5,
       blinkDropDelta: 0.25,
       // null = unconfigured, so the handset keeps the size DeviceCameraProfile
@@ -130,6 +131,7 @@ describe('CaptureTuningDto', () => {
         minLuminance: 25,
         maxPitchDeg: 30,
         maxYawDeg: 30,
+        postPunchHoldMs: 8000,
         blinkAbsThreshold: 0.5,
         blinkDropDelta: 0.3,
         analysisWidth: 1280,

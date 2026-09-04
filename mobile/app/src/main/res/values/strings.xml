@@ -135,6 +135,8 @@
     <string name="facedesk_loading_config">Loading kiosk settings…</string>
     <string name="facedesk_offline_saved">Offline attendance saved</string>
     <string name="facedesk_not_recognized">Face not recognized</string>
+    <string name="facedesk_network_error">Network required — please check connection and try again</string>
+    <string name="facedesk_biometric_only_hint">Use the fingerprint device to mark attendance</string>
     <string name="facedesk_request_failed">Something went wrong — please try again</string>
     <string name="facedesk_camera_needed">Camera permission is required</string>
     <string name="facedesk_camera_failed">Could not start the camera</string>

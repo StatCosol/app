@@ -81,9 +81,11 @@ class FaceDeskOfflineStore(private val context: Context) {
     }
 
     @Synchronized
-    fun enqueue(req: MarkAttendanceRequest) {
-        val line = runCatching { json.encodeToString(req) }.getOrNull() ?: return
-        writeLinesEncrypted(readLinesEncrypted() + line)
+    fun enqueue(req: MarkAttendanceRequest): Boolean {
+        val line = runCatching { json.encodeToString(req) }.getOrNull() ?: return false
+        val lines = readLinesEncrypted()
+        writeLinesEncrypted(lines + line)
+        return readLinesEncrypted().size > lines.size
     }
 
     @Synchronized
