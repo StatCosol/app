@@ -47,7 +47,13 @@ class SetupActivity : AppCompatActivity() {
 
         config = DeviceConfig(this)
 
-        if (config.isRegistered()) {
+        // A registered device normally goes straight to the kiosk. Not while an
+        // admin is deliberately out of it: with the kiosk as the HOME app this
+        // screen is where the system lands after the PIN exit, and redirecting
+        // here would put them right back where they just left — the maintenance
+        // escape would be a loop. The window is short and self-clearing, so a
+        // forgotten exit still returns the device to service on its own.
+        if (config.isRegistered() && !config.inMaintenanceWindow()) {
             navigateToMain()
             return
         }

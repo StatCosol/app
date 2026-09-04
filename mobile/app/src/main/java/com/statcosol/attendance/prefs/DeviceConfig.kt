@@ -107,6 +107,23 @@ class DeviceConfig(context: Context) {
         get() = prefs.getString(KEY_FD_ID_MODE, "PIN_THEN_FACE") ?: "PIN_THEN_FACE"
         set(value) = prefs.edit().putString(KEY_FD_ID_MODE, value).apply()
 
+    /**
+     * Until when an admin has deliberately left the kiosk, epoch millis.
+     *
+     * Once the kiosk is the HOME app, finishing it just sends the system back to
+     * HOME — which is the kiosk — so the admin PIN exit looped straight back in
+     * and there was no way to reach Settings on a locked device. This window is
+     * what tells SetupActivity to stay out of the way for a few minutes instead
+     * of redirecting.
+     */
+    var maintenanceUntilMs: Long
+        get() = prefs.getLong(KEY_MAINTENANCE_UNTIL, 0L)
+        set(value) = prefs.edit().putLong(KEY_MAINTENANCE_UNTIL, value).apply()
+
+    /** True while an admin exit is still in effect. */
+    fun inMaintenanceWindow(): Boolean =
+        System.currentTimeMillis() < maintenanceUntilMs
+
     /** FaceDesk admin PIN — gates switching this device into enrollment mode. */
     var faceDeskAdminPin: String
         get() = prefs.getString(KEY_FD_ADMIN_PIN, "") ?: ""
@@ -151,6 +168,7 @@ class DeviceConfig(context: Context) {
         private const val KEY_ROSTER_DEVICE_ID = "roster_device_id"
         private const val KEY_FD_ADMIN_PIN = "fd_admin_pin"
         private const val KEY_FD_ID_MODE = "fd_identification_mode"
+        private const val KEY_MAINTENANCE_UNTIL = "maintenance_until_ms"
         private const val DEFAULT_API_BASE = "https://app.statcosol.com"
     }
 }
