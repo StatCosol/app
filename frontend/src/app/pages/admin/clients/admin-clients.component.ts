@@ -331,13 +331,13 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     label: string;
     modules: string[];
   }> = [
-    { key: 'PIN_FACE', label: 'PIN + Face', modules: ['CONTRACTOR_FACE_ATTENDANCE'] },
+    { key: 'PIN_FACE', label: 'Face kiosk', modules: ['CONTRACTOR_FACE_ATTENDANCE'] },
     {
       key: 'FACE_BIOMETRIC',
-      label: 'Face + Biometric',
+      label: 'Face kiosk + eSSL',
       modules: ['CONTRACTOR_FACE_ATTENDANCE', 'EMPLOYEE_ATTENDANCE'],
     },
-    { key: 'ESSL', label: 'eSSL', modules: ['EMPLOYEE_ATTENDANCE'] },
+    { key: 'ESSL', label: 'eSSL only', modules: ['EMPLOYEE_ATTENDANCE'] },
   ];
 
   /** All attendance-gating modules the selector manages (mutually exclusive). */
