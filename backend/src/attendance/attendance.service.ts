@@ -931,12 +931,52 @@ export class AttendanceService {
     const recordIds = records.map((r) => r.id);
 
     return this.ds.transaction(async (manager) => {
-      const punchDelete = await manager
-        .getRepository(BiometricPunchEntity)
-        .delete({
-          clientId,
-          attendanceId: In(recordIds),
-        });
+      const punchRepo = manager.getRepository(BiometricPunchEntity);
+
+      // Retire the FaceDesk source rows BEFORE the punches that mask them.
+      //
+      // Deleting alone did not stick, and the reason is circular:
+      // listDaily() calls syncFaceDeskRange() before it lists, which re-ingests
+      // every facedesk_attendance_logs row with attendance_status in
+      // ('MARKED','APPROVED') — guarded only by "NOT EXISTS a matching
+      // biometric_punches row". Deleting the punch is exactly what removes that
+      // guard, so the delete re-enabled the re-ingest and the next page load
+      // recreated the record. The delete worked; rendering the screen undid it.
+      //
+      // Matching on the sync's own key (employee_code, punch_time, device_id)
+      // rather than a date range, so only the punches actually being removed are
+      // retired — never a neighbouring one on the same day.
+      //
+      // REJECTED, not deleted: the log carries the capture photo and the audit
+      // trail for a biometric decision, and the sync's status filter already
+      // excludes it. Removing the evidence because someone corrected a day's
+      // attendance would be the wrong trade.
+      const punches = await punchRepo.find({
+        where: { clientId, attendanceId: In(recordIds) },
+        select: ['employeeCode', 'punchTime', 'deviceId'],
+      });
+      let retiredSourceLogs = 0;
+      for (const p of punches) {
+        const res: { rowCount?: number } | unknown[] = await manager.query(
+          `UPDATE facedesk_attendance_logs a
+              SET attendance_status = 'REJECTED'
+             FROM employees e
+            WHERE e.id = a.employee_id
+              AND e.client_id = a.client_id
+              AND a.client_id = $1
+              AND e.employee_code = $2
+              AND a.punch_time = $3
+              AND COALESCE(a.device_id::text, 'facedesk') = COALESCE($4, 'facedesk')
+              AND a.attendance_status IN ('MARKED','APPROVED')`,
+          [clientId, p.employeeCode, p.punchTime, p.deviceId ?? null],
+        );
+        retiredSourceLogs += Array.isArray(res) ? 0 : (res?.rowCount ?? 0);
+      }
+
+      const punchDelete = await punchRepo.delete({
+        clientId,
+        attendanceId: In(recordIds),
+      });
 
       const attendanceDelete = await manager
         .getRepository(AttendanceEntity)
@@ -948,6 +988,7 @@ export class AttendanceService {
       return {
         deleted: attendanceDelete.affected ?? 0,
         deletedPunches: punchDelete.affected ?? 0,
+        retiredSourceLogs,
       };
     });
   }
