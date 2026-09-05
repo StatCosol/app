@@ -82,5 +82,21 @@
             android:textColor="#CCE0E0E0"
             android:textSize="11sp"
             tools:text="Thu, 09 Aug" />
+
+        <!-- Whether the SERVER is reachable, not whether Wi-Fi is associated.
+             Those are different questions and the difference has already cost a
+             day here: a gate sat on full-strength Wi-Fi that could resolve DNS
+             and ping, while every attendance call timed out because that network
+             blocked our host. A Wi-Fi icon would have shown four bars. -->
+        <TextView
+            android:id="@+id/headerNetwork"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:text="OFFLINE"
+            tools:visibility="visible" />
     </LinearLayout>
 </LinearLayout>

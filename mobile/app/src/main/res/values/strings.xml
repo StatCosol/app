@@ -200,4 +200,5 @@
     <string name="facedesk_voice_logged_out">Logged out, %1$s</string>
     <string name="facedesk_voice_logged_in_generic">Logged in</string>
     <string name="facedesk_voice_logged_out_generic">Logged out</string>
+    <string name="kiosk_header_offline">OFFLINE — CHECK NETWORK</string>
 </resources>

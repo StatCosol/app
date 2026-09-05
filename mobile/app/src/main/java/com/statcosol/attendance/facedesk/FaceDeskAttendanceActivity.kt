@@ -379,6 +379,11 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                         android.os.SystemClock.elapsedRealtime() >= ticketPollPausedUntilMs
                     ) {
                         val ticket = api.pendingTicket()
+                        // This poll is already a round trip to the server on a
+                        // fixed interval, so it is the honest heartbeat for
+                        // "can we reach the server" — no extra traffic, and it
+                        // fails exactly when a punch would.
+                        chrome.setServerReachable(true)
                         if (ticket != null) {
                             enrollmentHold = true
                             // Drop any frames buffered before the hold so a
@@ -402,6 +407,11 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "ticket poll failed: ${e.message}")
+                    // Only a transport failure means the gate is cut off. An
+                    // HTTP error is the server answering, so the network is
+                    // fine and saying OFFLINE would send staff to fix the
+                    // wrong thing.
+                    if (e !is FaceDeskApiException) chrome.setServerReachable(false)
                 }
                 delay(TICKET_POLL_MS)
             }
