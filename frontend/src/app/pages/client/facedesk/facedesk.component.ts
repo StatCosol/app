@@ -218,16 +218,14 @@ type Tab =
               <option value="CONTRACTOR">Contractors</option>
             </select>
           </label>
-          @if (enrollmentView === 'PENDING') {
-            <label class="text-sm">Kiosk device
-              <select [(ngModel)]="enrollDeviceId" class="inp">
-                <option value="">— select device —</option>
-                @for (d of activeDevices; track d) {
+          <label class="text-sm">Kiosk device
+            <select [(ngModel)]="enrollDeviceId" class="inp">
+              <option value="">— select device —</option>
+              @for (d of activeDevices; track d) {
 <option [value]="d.deviceId">{{ d.deviceName }} ({{ branchName(d.branchId) }})</option>
 }
-              </select>
-            </label>
-          }
+            </select>
+          </label>
         </div>
         @if (loading) {
 <ui-loading-spinner text="Loading..." size="lg"></ui-loading-spinner>
@@ -279,6 +277,8 @@ type Tab =
                 </td>
               }
               <td class="right nowrap">
+                <button class="link green" [disabled]="!enrollDeviceReady || enrollingId === r.employeeId"
+                  (click)="enroll(r)">Re-enroll</button>
                 <button class="link red" [disabled]="deletingId === r.employeeId"
                   (click)="deleteEnrollment(r)">Delete</button>
               </td>
@@ -714,6 +714,8 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
   /** The worker we are waiting on, so an unrelated row changing does not end
    *  the watch early. */
   private enrollPollEmployeeId: string | null = null;
+  /** Enrolment timestamp before a re-enrolment, so the watch knows what changed. */
+  private enrollPollPreviousEnrolledAt: string | null = null;
   private reviewTabLoadSeq = 0;
 
   /** Reload the pending list when the operator switches Employees/Contractors. */
@@ -777,9 +779,14 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
    * Bounded by the enrollment ticket's own lifetime: if nobody completes the
    * capture the ticket expires anyway, so polling past that is pointless.
    */
-  private startEnrollPolling(employeeId: string): void {
+  private startEnrollPolling(employeeId: string, wasEnrolledAt?: string | null): void {
     this.stopEnrollPolling();
     this.enrollPollEmployeeId = employeeId;
+    // A re-enrolment does not move the row anywhere — the worker is already in
+    // the enrolled list — so "the row is present" is true from the first tick
+    // and the watch would stop before the kiosk had captured anything. Compare
+    // the enrolment timestamp instead, which is the thing that actually changes.
+    this.enrollPollPreviousEnrolledAt = wasEnrolledAt ?? null;
     const startedAt = Date.now();
     this.enrollPollTimer = setInterval(() => {
       if (Date.now() - startedAt > FaceDeskComponent.ENROLL_POLL_TIMEOUT_MS) {
@@ -794,9 +801,13 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
       setTimeout(() => {
         const target = this.enrollPollEmployeeId;
         if (!target) return;
+        const row = this.enrolled.find((r) => r.employeeId === target);
         const done =
           this.enrollmentView === 'ENROLLED'
-            ? this.enrolled.some((r) => r.employeeId === target)
+            ? this.enrollPollPreviousEnrolledAt
+              // Re-enrolment: wait for a NEW enrolment timestamp, not presence.
+              ? !!row && row.enrolledAt !== this.enrollPollPreviousEnrolledAt
+              : !!row
             : !this.pending.some((r) => r.employeeId === target);
         if (done) this.stopEnrollPolling();
       }, 1200);
@@ -809,6 +820,7 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
       this.enrollPollTimer = null;
     }
     this.enrollPollEmployeeId = null;
+    this.enrollPollPreviousEnrolledAt = null;
   }
 
   ngOnDestroy(): void {
@@ -1184,9 +1196,17 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
       this.toast.error('That kiosk is no longer available — pick another');
       return;
     }
+    // Re-enrolment of someone already enrolled, rather than a first capture.
+    // Worth saying so: the existing face is replaced, and until the kiosk
+    // finishes they keep punching on the OLD one — which is the reason this
+    // exists instead of making an operator delete the enrolment first and
+    // leave the worker unable to punch at all in the meantime.
+    const existing = this.enrolled.find((e) => e.employeeId === empId);
     const ok = await this.dialog.confirm(
-      'Enroll on Kiosk',
-      `Send ${r.employeeName || r.name} to "${dev?.deviceName}" for enrollment? The kiosk opens the enrollment screen and pauses attendance until done.`,
+      existing ? 'Re-enroll on Kiosk' : 'Enroll on Kiosk',
+      existing
+        ? `Re-enroll ${r.employeeName || r.name} on "${dev?.deviceName}"? This replaces their current face capture. They can keep punching on the existing one until the new capture is saved.`
+        : `Send ${r.employeeName || r.name} to "${dev?.deviceName}" for enrollment? The kiosk opens the enrollment screen and pauses attendance until done.`,
       { confirmText: 'Send to kiosk' },
     );
     if (!ok) return;
@@ -1197,7 +1217,7 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
         this.toast.success('Sent to kiosk — ask the employee to face the camera');
         // The kiosk completes the enrollment on the device, so watch for the
         // row to move rather than making the operator refresh the browser.
-        this.startEnrollPolling(empId);
+        this.startEnrollPolling(empId, existing?.enrolledAt ?? null);
       },
       error: (e) => {
         this.enrollingId = null;
