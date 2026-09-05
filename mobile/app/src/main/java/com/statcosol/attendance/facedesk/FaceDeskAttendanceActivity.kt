@@ -405,13 +405,21 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                             )
                         }
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    // Not a failure: the activity is going away. Rethrow so the
+                    // coroutine actually ends instead of being swallowed by the
+                    // catch below — and so a teardown never paints OFFLINE.
+                    throw e
                 } catch (e: Exception) {
                     Log.w(TAG, "ticket poll failed: ${e.message}")
-                    // Only a transport failure means the gate is cut off. An
-                    // HTTP error is the server answering, so the network is
-                    // fine and saying OFFLINE would send staff to fix the
-                    // wrong thing.
-                    if (e !is FaceDeskApiException) chrome.setServerReachable(false)
+                    // ONLY a transport failure means the gate is cut off, and
+                    // that is exactly IOException. Anything else reaching here
+                    // came back from a server that answered — an HTTP error, or
+                    // a 200 whose body would not decode — so it counts as
+                    // reachable and clears a stale badge. Calling those OFFLINE
+                    // would send staff to fix a network that is fine while the
+                    // real fault goes unexamined.
+                    chrome.setServerReachable(e !is java.io.IOException)
                 }
                 delay(TICKET_POLL_MS)
             }
