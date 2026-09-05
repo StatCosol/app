@@ -13,6 +13,7 @@ import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import com.google.mlkit.vision.face.Face
+import com.google.mlkit.vision.face.FaceLandmark
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -154,10 +155,10 @@ class FaceCaptureSession(
             normBox.centerY() - FaceKioskTuning.OVERLAY_FACE_CENTER_Y_FRACTION,
         )
         val offCentre = (offX > 0f && cxOff > offX) || (offY > 0f && cyOff > offY)
-        if (clipped || offCentre) {
+        if (clipped || offCentre || !hasWholeFace(face)) {
             emitPreview(normBox, partialMetrics(face, faceWidth, 0f),
-                "Move your whole face inside the oval", false)
-            onHint("Move your whole face inside the oval")
+                WHOLE_FACE_HINT, false)
+            onHint(WHOLE_FACE_HINT)
             return
         }
 
@@ -640,8 +641,56 @@ class FaceCaptureSession(
         }
     }
 
+    /**
+     * Is the WHOLE face in shot, rather than part of one?
+     *
+     * This replaces the guide-oval position gate as the defence against half
+     * faces, and it is a better fit for what actually goes wrong. Nobody
+     * presents half a face on purpose — the bad frames are accidental, someone
+     * walking past the lens or turning away mid-capture. Asking them to line up
+     * inside an oval made every honest capture slow in order to catch that,
+     * which is the wrong trade at a gate with a queue.
+     *
+     * The landmarks answer the same question directly and cost nothing to
+     * satisfy: LANDMARK_MODE_ALL is already on, and a face pointed at the camera
+     * returns all five. Lose a side of the face off the edge of the frame — or
+     * turn far enough that it stops being a usable capture — and the detector
+     * stops reporting that side's eye and mouth corner, so the frame is rejected
+     * without the worker having to position themselves at all.
+     *
+     * Cheap enough to run on every frame: these are already computed as part of
+     * the detection that produced [face], so this is a null check, not work.
+     */
+    private fun hasWholeFace(face: Face): Boolean {
+        if (!FaceKioskTuning.REQUIRE_FACE_LANDMARKS) return true
+        // Enrollment's left/right steps are deliberately off-axis — it asks for
+        // at least 18 degrees of turn — and a face turned that far can stop
+        // reporting the hidden side's eye or mouth corner. Gating those frames
+        // would leave the angle buckets permanently unfilled, so enrollment
+        // would run to its timeout while showing "show your full face", which
+        // is both wrong and unactionable. Relaxed by the same flag as pitch and
+        // yaw, which exists for exactly this phase.
+        if (relaxPitchGate()) return true
+        return WHOLE_FACE_LANDMARKS.all { face.getLandmark(it) != null }
+    }
+
     private companion object {
         const val TAG = "FaceCaptureSession"
+
+        /** Shown for every "we can only see part of you" rejection. Says what to
+         *  do, and no longer mentions the oval — the oval is now only a framing
+         *  guide, not something a worker has to fit inside to be captured. */
+        const val WHOLE_FACE_HINT = "Show your full face to the camera"
+
+        /** The landmarks a face looking at the camera always yields. A partial
+         *  or side-on face is missing the ones on the hidden side. */
+        val WHOLE_FACE_LANDMARKS = intArrayOf(
+            FaceLandmark.LEFT_EYE,
+            FaceLandmark.RIGHT_EYE,
+            FaceLandmark.NOSE_BASE,
+            FaceLandmark.MOUTH_LEFT,
+            FaceLandmark.MOUTH_RIGHT,
+        )
 
         /** Average face-crop brightness (0–255) below which there is too little
          *  signal to recover — the frame is rejected with a "too dark" hint.

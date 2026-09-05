@@ -70,11 +70,17 @@ export const DEFAULT_CAPTURE_TUNING: FaceDeskCaptureTuning = {
   // 3 s let the same worker be captured twice before stepping away, which
   // registers them OUT the moment they arrive.
   postPunchHoldMs: 8000,
-  // Nothing checked WHERE the face was, so half-out-of-frame and off-to-one-side
-  // captures punched normally. 0 disables any of the three.
+  // faceEdgeMargin is the half-face guard: a box touching the frame edge means
+  // part of the face is outside the picture. Kept on.
+  //
+  // The offsets, which additionally required the face near the guide oval, ship
+  // DISABLED. Requiring workers to line up inside the oval made every honest
+  // capture slow at a gate with a queue, and it was never the thing catching
+  // half faces — the edge margin and the device-side landmark check are. Still
+  // configurable per client for a site that wants positional discipline back.
   faceEdgeMargin: 0.02,
-  maxFaceOffsetX: 0.28,
-  maxFaceOffsetY: 0.32,
+  maxFaceOffsetX: 0,
+  maxFaceOffsetY: 0,
   blinkAbsThreshold: 0.5,
   blinkDropDelta: 0.25,
   // Deliberately null — see the interface. The device picks unless an operator

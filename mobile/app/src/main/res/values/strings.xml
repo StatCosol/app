@@ -193,4 +193,5 @@
     <string name="facedesk_voice_enroll_saved">Enrollment saved successfully</string>
     <string name="facedesk_voice_enroll_duplicate">This face matches another employee. Sent to admin for review.</string>
     <string name="facedesk_voice_processing">Please wait while attendance is recorded</string>
+    <string name="kiosk_network_settings_unavailable">Network settings are not available on this device</string>
 </resources>

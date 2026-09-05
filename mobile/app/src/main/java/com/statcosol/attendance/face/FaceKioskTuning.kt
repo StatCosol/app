@@ -127,15 +127,23 @@ object FaceKioskTuning {
      * the frame edge means part of the face is outside the picture, whatever the
      * detector reports for the rest. Fraction of frame width/height; 0 disables.
      *
-     * MAX_FACE_OFFSET_* keep the face near the guide oval, measured from the box
-     * CENTRE rather than its corners — a rectangle inscribed in that ellipse
-     * would reject anyone standing close, which is where the best captures come
-     * from. Deliberately generous: they exclude a face clearly off to the side,
-     * not one slightly off-centre. 0 disables either axis.
+     * MAX_FACE_OFFSET_* additionally kept the face near the guide oval. They now
+     * ship DISABLED (0). Lining up inside an oval is slow, and at a gate with a
+     * queue that cost was paid on every honest capture to catch a case the other
+     * two gates already cover. The oval remains on screen as a guide — it is no
+     * longer something a worker has to fit inside to be recognised. Still
+     * per-client configurable for a site that wants positional discipline back.
+     *
+     * REQUIRE_FACE_LANDMARKS is what replaced them, and it asks the question the
+     * oval was a proxy for: can we see a WHOLE face? A face pointed at the camera
+     * yields both eyes, the nose base and both mouth corners; one that is partly
+     * out of frame does not. It costs nothing to satisfy when someone simply
+     * looks at the camera, which is the whole point.
      */
     @Volatile @JvmStatic var FACE_EDGE_MARGIN = 0.02f
-    @Volatile @JvmStatic var MAX_FACE_OFFSET_X = 0.28f
-    @Volatile @JvmStatic var MAX_FACE_OFFSET_Y = 0.32f
+    @Volatile @JvmStatic var MAX_FACE_OFFSET_X = 0f
+    @Volatile @JvmStatic var MAX_FACE_OFFSET_Y = 0f
+    @Volatile @JvmStatic var REQUIRE_FACE_LANDMARKS = true
 
     // ── Enrollment guided capture ────────────────────────────────────────────
     /** 6 good fronts + 3 per side = 12 angle frames (was 14 on faster hardware). */
