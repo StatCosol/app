@@ -5,25 +5,33 @@ import { FaceDeskFaceOnlyAttendanceService } from './facedesk-face-only-attendan
  * claim. Every test here is about refusing rather than guessing — a wrong answer
  * marks the wrong person present and pays them, and it does so silently.
  */
-function makeService(opts: {
-  enabled?: boolean;
-  identify?: unknown;
-  subject?: Record<string, unknown> | null;
-} = {}) {
+function makeService(
+  opts: {
+    enabled?: boolean;
+    identify?: unknown;
+    subject?: Record<string, unknown> | null;
+  } = {},
+) {
   const azureFace = {
     enabled: opts.enabled ?? true,
-    identifyForAttendance: jest.fn().mockResolvedValue(opts.identify ?? null),
+    identifyForAttendance: jest
+      .fn()
+      .mockResolvedValue(opts.identify ?? { ok: false, reason: 'NO_MATCH' }),
   };
   const dataSource = {
-    query: jest
-      .fn()
-      .mockResolvedValue(opts.subject === null ? [] : [opts.subject ?? {
-        employeeId: 'e1',
-        employeeCode: 'EMP001',
-        name: 'Ravi',
-        branchId: 'b1',
-        subjectType: 'EMPLOYEE',
-      }]),
+    query: jest.fn().mockResolvedValue(
+      opts.subject === null
+        ? []
+        : [
+            opts.subject ?? {
+              employeeId: 'e1',
+              employeeCode: 'EMP001',
+              name: 'Ravi',
+              branchId: 'b1',
+              subjectType: 'EMPLOYEE',
+            },
+          ],
+    ),
   };
   const failedAttemptService = {
     recordFailed: jest.fn().mockResolvedValue(undefined),
@@ -45,7 +53,7 @@ const dto = { frames: [{ photoB64: 'jpeg' }] } as any;
 describe('FaceDeskFaceOnlyAttendanceService', () => {
   it('marks the punch on a clear identification', async () => {
     const { service, punchAcceptService } = makeService({
-      identify: { employeeId: 'e1', confidence: 0.91, margin: 0.2 },
+      identify: { ok: true, employeeId: 'e1', confidence: 0.91, margin: 0.2 },
     });
     const res = await service.markByFace('c1', 'b1', 'd1', dto, []);
 
@@ -72,10 +80,15 @@ describe('FaceDeskFaceOnlyAttendanceService', () => {
   });
 
   it('refuses when Azure returns no confident match', async () => {
-    const { service, punchAcceptService } = makeService({ identify: null });
+    const { service, punchAcceptService } = makeService({
+      identify: { ok: false, reason: 'NO_MATCH' },
+    });
     const res = await service.markByFace('c1', 'b1', 'd1', dto, []);
 
-    expect(res).toMatchObject({ status: 'REJECTED', message: /not recognised/i });
+    expect(res).toMatchObject({
+      status: 'REJECTED',
+      message: /not recognised/i,
+    });
     expect(punchAcceptService.acceptPunch).not.toHaveBeenCalled();
   });
 
@@ -83,7 +96,7 @@ describe('FaceDeskFaceOnlyAttendanceService', () => {
     // Azure can still hold a face whose profile was deleted — an orphan must
     // never resolve to an identity.
     const { service, punchAcceptService } = makeService({
-      identify: { employeeId: 'gone', confidence: 0.95, margin: 0.3 },
+      identify: { ok: true, employeeId: 'gone', confidence: 0.95, margin: 0.3 },
       subject: null,
     });
     const res = await service.markByFace('c1', 'b1', 'd1', dto, []);
@@ -95,7 +108,13 @@ describe('FaceDeskFaceOnlyAttendanceService', () => {
   it('refuses when the kiosk sent no photo', async () => {
     // Azure identifies from the image; a device embedding is not enough.
     const { service, azureFace } = makeService();
-    const res = await service.markByFace('c1', 'b1', 'd1', { frames: [] } as any, []);
+    const res = await service.markByFace(
+      'c1',
+      'b1',
+      'd1',
+      { frames: [] } as any,
+      [],
+    );
 
     expect(res.status).toBe('REJECTED');
     expect(azureFace.identifyForAttendance).not.toHaveBeenCalled();
@@ -104,7 +123,9 @@ describe('FaceDeskFaceOnlyAttendanceService', () => {
   it('records every refusal as a failed attempt', async () => {
     // A face-only kiosk that silently rejects people needs a trail, otherwise
     // "it does not recognise me" is unfalsifiable.
-    const { service, failedAttemptService } = makeService({ identify: null });
+    const { service, failedAttemptService } = makeService({
+      identify: { ok: false, reason: 'NO_MATCH' },
+    });
     await service.markByFace('c1', 'b1', 'd1', dto, []);
     expect(failedAttemptService.recordFailed).toHaveBeenCalled();
   });
@@ -122,9 +143,12 @@ describe('FaceDeskFaceOnlyAttendanceService — biometric corroboration', () => 
   const build = (biometricRows: unknown[]) => {
     const azureFace = {
       enabled: true,
-      identifyForAttendance: jest
-        .fn()
-        .mockResolvedValue({ employeeId: 'e1', confidence: 0.93, margin: 0.3 }),
+      identifyForAttendance: jest.fn().mockResolvedValue({
+        ok: true,
+        employeeId: 'e1',
+        confidence: 0.93,
+        margin: 0.3,
+      }),
     };
     const dataSource = {
       query: jest.fn(async (sql: string) =>
@@ -202,5 +226,62 @@ describe('FaceDeskFaceOnlyAttendanceService — biometric corroboration', () => 
 
     await service.markByFace('c1', 'b1', 'd1', dto, [], true);
     expect(punchAcceptService.acceptPunch.mock.calls[0][9]).toBe(false);
+  });
+});
+
+/**
+ * Every identification failure used to reach the gate as "Face not recognised",
+ * so the only failure a worker could act on correctly was the one where trying
+ * again happened to be the right move. These pin the distinctions: what is said
+ * has to differ, and the recorded reason has to survive to whoever explains it
+ * afterwards.
+ */
+describe('FaceDeskFaceOnlyAttendanceService — rejection messages', () => {
+  const dto = { frames: [{ photoB64: 'p', qualityScore: 1 }] } as never;
+
+  const messageFor = async (reason: string) => {
+    const { service, failedAttemptService } = makeService({
+      identify: { ok: false, reason },
+    });
+    const res = await service.markByFace('c1', 'b1', 'd1', dto, [], true);
+    return {
+      message: (res as { message: string }).message,
+      recorded: failedAttemptService.recordFailed.mock.calls[0]?.[5],
+    };
+  };
+
+  it('tells an unenrolled worker to see a supervisor, not to try again', async () => {
+    const { message, recorded } = await messageFor('NOT_ENROLLED');
+    expect(message).toMatch(/supervisor/i);
+    expect(message).not.toMatch(/try again/i);
+    expect(recorded).toBe('NOT_ENROLLED');
+  });
+
+  it('tells a stranger they may not be enrolled', async () => {
+    const { message, recorded } = await messageFor('NO_MATCH');
+    expect(message).toMatch(/may not be enrolled/i);
+    expect(recorded).toBe('NO_MATCH');
+  });
+
+  it('asks for a better photo when no face was found in it', async () => {
+    const { message, recorded } = await messageFor('NO_FACE_IN_PHOTO');
+    expect(message).toMatch(/move closer/i);
+    expect(recorded).toBe('NO_FACE_IN_PHOTO');
+  });
+
+  it('gives every failure a distinct message', async () => {
+    const reasons = [
+      'AZURE_UNAVAILABLE',
+      'AZURE_ERROR',
+      'NO_FACE_IN_PHOTO',
+      'NO_MATCH',
+      'AMBIGUOUS',
+      'NOT_ENROLLED',
+      'ORPHAN_FACE',
+    ];
+    const messages = await Promise.all(
+      reasons.map(async (r) => (await messageFor(r)).message),
+    );
+    expect(new Set(messages).size).toBe(reasons.length);
   });
 });

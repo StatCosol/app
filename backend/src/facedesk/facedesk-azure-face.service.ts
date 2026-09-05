@@ -19,6 +19,30 @@ export interface AzureDuplicateHit {
   confidence: number;
 }
 
+/**
+ * Why a 1:N attendance identification did not produce a person.
+ *
+ * These used to be one bare `null`, and every one of them reached the worker as
+ * "Face not recognised". That is wrong for most of them: a service outage, an
+ * unusable photo, a face the system knows but has not finished enrolling, and a
+ * genuine stranger all need different things done about them, and telling a
+ * queue of people to "try again" when the answer is "your enrolment is pending"
+ * wastes everyone's morning. Kept as a discriminated result so the caller has to
+ * decide what each one says.
+ */
+export type FaceDeskIdentifyFailure =
+  | 'AZURE_UNAVAILABLE'
+  | 'NO_FACE_IN_PHOTO'
+  | 'NO_MATCH'
+  | 'AMBIGUOUS'
+  | 'ORPHAN_FACE'
+  | 'NOT_ENROLLED'
+  | 'AZURE_ERROR';
+
+export type FaceDeskIdentifyOutcome =
+  | { ok: true; employeeId: string; confidence: number; margin: number }
+  | { ok: false; reason: FaceDeskIdentifyFailure };
+
 /** Per-client Azure Large Face List for high-accuracy duplicate detection. */
 @Injectable()
 export class FaceDeskAzureFaceService {
@@ -317,12 +341,12 @@ export class FaceDeskAzureFaceService {
   async identifyForAttendance(
     clientId: string,
     photoB64: string,
-  ): Promise<{ employeeId: string; confidence: number; margin: number } | null> {
-    if (!this.enabled) return null;
+  ): Promise<FaceDeskIdentifyOutcome> {
+    if (!this.enabled) return { ok: false, reason: 'AZURE_UNAVAILABLE' };
     try {
       const listId = this.listIdForClient(clientId);
       const detected = await this.azure.detectFace(this.decodePhoto(photoB64));
-      if (!detected?.faceId) return null;
+      if (!detected?.faceId) return { ok: false, reason: 'NO_FACE_IN_PHOTO' };
 
       const matches = await this.azure.findSimilar(
         listId,
@@ -331,13 +355,19 @@ export class FaceDeskAzureFaceService {
         5,
       );
       const [top, second] = matches;
-      if (!top || top.confidence < this.attendanceConfidence) return null;
+      if (!top || top.confidence < this.attendanceConfidence) {
+        this.logger.log(
+          `Azure attendance identify: no candidate at or above ` +
+            `${this.attendanceConfidence} (best ${top?.confidence?.toFixed(3) ?? 'none'})`,
+        );
+        return { ok: false, reason: 'NO_MATCH' };
+      }
       if (second && top.confidence - second.confidence < this.attendanceMargin) {
         this.logger.warn(
           `Azure attendance identify ambiguous: ${top.confidence.toFixed(3)} vs ` +
             `${second.confidence.toFixed(3)} — refusing rather than guessing`,
         );
-        return null;
+        return { ok: false, reason: 'AMBIGUOUS' };
       }
 
       const profile = await this.profileRepo.findOne({
@@ -345,9 +375,26 @@ export class FaceDeskAzureFaceService {
       });
       // A face in the list with no profile row is an orphan (see the deletion
       // path). It must never resolve to an identity.
-      if (!profile || profile.enrollmentStatus !== 'ENROLLED') return null;
+      if (!profile) {
+        this.logger.warn(
+          `Azure attendance identify matched an orphan face ` +
+            `(persistedFaceId=${top.persistedFaceId}) with no profile row`,
+        );
+        return { ok: false, reason: 'ORPHAN_FACE' };
+      }
+      if (profile.enrollmentStatus !== 'ENROLLED') {
+        // Recognised, but the profile is not live. Telling this worker "face not
+        // recognised" sends them away to try again forever; the fix is an
+        // enrolment one and somebody has to be told that.
+        this.logger.log(
+          `Azure attendance identify matched employee=${profile.employeeId} ` +
+            `whose profile is ${profile.enrollmentStatus}, not ENROLLED`,
+        );
+        return { ok: false, reason: 'NOT_ENROLLED' };
+      }
 
       return {
+        ok: true,
         employeeId: profile.employeeId,
         confidence: top.confidence,
         // Recorded on the punch: how clear-cut the identification was is worth
@@ -358,7 +405,7 @@ export class FaceDeskAzureFaceService {
       this.logger.warn(
         `Azure attendance identify failed: ${(err as Error)?.message}`,
       );
-      return null;
+      return { ok: false, reason: 'AZURE_ERROR' };
     }
   }
 

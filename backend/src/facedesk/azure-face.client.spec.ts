@@ -230,7 +230,9 @@ describe('FaceDeskAzureFaceService.identifyForAttendance', () => {
     process.env = ENV;
   });
 
-  const make = (matches: Array<{ persistedFaceId: string; confidence: number }>) => {
+  const make = (
+    matches: Array<{ persistedFaceId: string; confidence: number }>,
+  ) => {
     const azure = {
       identificationEnabled: true,
       configured: true,
@@ -258,10 +260,12 @@ describe('FaceDeskAzureFaceService.identifyForAttendance', () => {
       { persistedFaceId: 'p1', confidence: 0.93 },
       { persistedFaceId: 'p2', confidence: 0.61 },
     ]);
-    await expect(svc.identifyForAttendance('c1', 'img')).resolves.toMatchObject({
-      employeeId: 'e1',
-      confidence: 0.93,
-    });
+    await expect(svc.identifyForAttendance('c1', 'img')).resolves.toMatchObject(
+      {
+        employeeId: 'e1',
+        confidence: 0.93,
+      },
+    );
   });
 
   it('refuses when the runner-up is too close to call', async () => {
@@ -271,12 +275,18 @@ describe('FaceDeskAzureFaceService.identifyForAttendance', () => {
       { persistedFaceId: 'p1', confidence: 0.9 },
       { persistedFaceId: 'p2', confidence: 0.89 },
     ]);
-    await expect(svc.identifyForAttendance('c1', 'img')).resolves.toBeNull();
+    await expect(svc.identifyForAttendance('c1', 'img')).resolves.toEqual({
+      ok: false,
+      reason: 'AMBIGUOUS',
+    });
   });
 
   it('refuses a top match below the confidence floor', async () => {
     const { svc } = make([{ persistedFaceId: 'p1', confidence: 0.4 }]);
-    await expect(svc.identifyForAttendance('c1', 'img')).resolves.toBeNull();
+    await expect(svc.identifyForAttendance('c1', 'img')).resolves.toEqual({
+      ok: false,
+      reason: 'NO_MATCH',
+    });
   });
 
   it('refuses when the matched face has no enrolled profile', async () => {
@@ -284,7 +294,10 @@ describe('FaceDeskAzureFaceService.identifyForAttendance', () => {
       { persistedFaceId: 'orphan', confidence: 0.95 },
     ]);
     profileRepo.findOne.mockResolvedValue(null);
-    await expect(svc.identifyForAttendance('c1', 'img')).resolves.toBeNull();
+    await expect(svc.identifyForAttendance('c1', 'img')).resolves.toEqual({
+      ok: false,
+      reason: 'ORPHAN_FACE',
+    });
   });
 
   it('refuses when the profile is no longer ENROLLED', async () => {
@@ -295,6 +308,9 @@ describe('FaceDeskAzureFaceService.identifyForAttendance', () => {
       employeeId: 'e1',
       enrollmentStatus: 'BLOCKED',
     });
-    await expect(svc.identifyForAttendance('c1', 'img')).resolves.toBeNull();
+    await expect(svc.identifyForAttendance('c1', 'img')).resolves.toEqual({
+      ok: false,
+      reason: 'NOT_ENROLLED',
+    });
   });
 });

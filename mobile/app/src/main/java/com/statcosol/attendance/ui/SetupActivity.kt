@@ -35,6 +35,8 @@ import java.util.Locale
 class SetupActivity : AppCompatActivity() {
 
     private lateinit var config: DeviceConfig
+    private val maintenanceHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var maintenanceTick: Runnable? = null
     private lateinit var etToken: EditText
     private lateinit var etApiBase: EditText
     private lateinit var btnRegister: Button
@@ -53,8 +55,21 @@ class SetupActivity : AppCompatActivity() {
         // here would put them right back where they just left — the maintenance
         // escape would be a loop. The window is short and self-clearing, so a
         // forgotten exit still returns the device to service on its own.
-        if (config.isRegistered() && !config.inMaintenanceWindow()) {
-            navigateToMain()
+        if (config.isRegistered()) {
+            if (!config.inMaintenanceWindow()) {
+                navigateToMain()
+                return
+            }
+            // Registered, but an admin is deliberately out of the kiosk.
+            //
+            // Standing down is right; showing TOKEN ENTRY while doing it is not.
+            // A registered device asking a client's staff to "paste the install
+            // token" reads as though the kiosk has lost its setup, and it invites
+            // someone to type into a form that would re-provision the gate. This
+            // was reported from the field within minutes of the exit hatch being
+            // used for the first time.
+            setContentView(R.layout.activity_setup)
+            showMaintenanceMode()
             return
         }
 
@@ -68,6 +83,77 @@ class SetupActivity : AppCompatActivity() {
         offlineRosterCheckbox = findViewById(R.id.offlineRosterCheckbox)
 
         btnRegister.setOnClickListener { attemptRegistration() }
+    }
+
+    /**
+     * The screen a registered device shows while an admin is out of the kiosk:
+     * says what is happening, and offers the one action that makes sense — go
+     * back. No token field, nothing that can re-provision the device.
+     *
+     * The window still expires on its own, so a forgotten exit returns the gate
+     * to service without anyone touching it; this only removes the need to wait
+     * when the admin has finished early.
+     */
+    private fun showMaintenanceMode() {
+        findViewById<View>(R.id.tokenLayout).visibility = View.GONE
+        findViewById<View>(R.id.apiInput).visibility = View.GONE
+        findViewById<View>(R.id.adminPinInput).visibility = View.GONE
+        findViewById<View>(R.id.offlineRosterCheckbox).visibility = View.GONE
+        findViewById<View>(R.id.statusText).visibility = View.GONE
+        findViewById<Button>(R.id.registerBtn).apply {
+            setText(R.string.setup_maintenance_return)
+            setOnClickListener { returnToKiosk() }
+        }
+
+        // Actually return when the window ends, rather than only promising to.
+        //
+        // The expiry was checked once, in onCreate. Left on this screen, nothing
+        // brought the device back: the copy said the kiosk would return on its
+        // own, an admin reasonably trusted it and walked away, and the gate
+        // recorded nobody until someone pressed the button. That is precisely
+        // the unattended gate the window exists to prevent, arrived at by
+        // believing our own message.
+        //
+        // The countdown is shown rather than just scheduled, so the promise on
+        // screen is one the admin can watch being kept.
+        val intro = findViewById<TextView>(R.id.setupIntro)
+        val tick = object : Runnable {
+            override fun run() {
+                val remainingMs = config.maintenanceUntilMs - System.currentTimeMillis()
+                if (remainingMs <= 0L) {
+                    returnToKiosk()
+                    return
+                }
+                val seconds = (remainingMs / 1000L).toInt()
+                intro.text = getString(
+                    R.string.setup_maintenance_intro,
+                    seconds / 60,
+                    seconds % 60,
+                )
+                maintenanceHandler.postDelayed(this, 1000L)
+            }
+        }
+        maintenanceTick = tick
+        tick.run()
+    }
+
+    /** End the maintenance window now and hand the device back to the kiosk. */
+    private fun returnToKiosk() {
+        cancelMaintenanceTick()
+        // Clearing the window is what stops the kiosk bouncing straight back
+        // here on the next HOME event.
+        config.maintenanceUntilMs = 0L
+        navigateToMain()
+    }
+
+    private fun cancelMaintenanceTick() {
+        maintenanceTick?.let { maintenanceHandler.removeCallbacks(it) }
+        maintenanceTick = null
+    }
+
+    override fun onDestroy() {
+        cancelMaintenanceTick()
+        super.onDestroy()
     }
 
     private fun attemptRegistration() {
