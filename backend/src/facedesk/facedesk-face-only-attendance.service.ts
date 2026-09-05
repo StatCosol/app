@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { MarkAttendanceDto } from './facedesk.dto';
-import { FaceDeskAzureFaceService } from './facedesk-azure-face.service';
+import {
+  FaceDeskAzureFaceService,
+  FaceDeskIdentifyFailure,
+} from './facedesk-azure-face.service';
 import { FaceDeskFailedAttemptService } from './facedesk-failed-attempt.service';
 import { FaceDeskPunchAcceptService } from './facedesk-punch-accept.service';
 import { MarkResult } from './facedesk-attendance.service';
@@ -30,6 +33,32 @@ import { pickBestPhoto } from './facedesk-photo-pick.util';
  *  - Azure is called on every punch, not just at enrolment, which is a very
  *    different cost profile.
  */
+/**
+ * What the kiosk says for each way an identification can fail.
+ *
+ * Written for the person standing at the gate, not for us: each one should tell
+ * them whether to try again, do something differently, or go and find someone.
+ * "Face not recognised" answered all seven, so the only failure a worker could
+ * act on correctly was the one where retrying happened to be right.
+ */
+const FACE_ONLY_REJECTION_MESSAGES: Record<FaceDeskIdentifyFailure, string> = {
+  AZURE_UNAVAILABLE:
+    'Face recognition is unavailable — please try again shortly',
+  AZURE_ERROR: 'Face recognition failed — please try again',
+  // Recoverable by the worker, and the only one where "try again" is the whole
+  // answer — so say what to change.
+  NO_FACE_IN_PHOTO:
+    'Could not get a clear photo — move closer and look at the camera',
+  NO_MATCH: 'Face not recognised — you may not be enrolled yet',
+  // Not the worker's problem to solve, and retrying cannot fix either.
+  AMBIGUOUS:
+    'Could not tell you apart from another profile — please see your supervisor',
+  NOT_ENROLLED:
+    'Your face enrolment is not active yet — please see your supervisor',
+  ORPHAN_FACE:
+    'Your enrolment record is incomplete — please see your supervisor',
+};
+
 @Injectable()
 export class FaceDeskFaceOnlyAttendanceService {
   private readonly logger = new Logger(FaceDeskFaceOnlyAttendanceService.name);
@@ -73,13 +102,22 @@ export class FaceDeskFaceOnlyAttendanceService {
       };
     }
 
-    const hit = await this.azureFace.identifyForAttendance(clientId, photoB64);
-    if (!hit) {
-      // Covers not-recognised, below-threshold, and too-close-to-call alike.
-      // They are the same answer to the worker, and each is a refusal.
-      await this.record(clientId, branchId, deviceId, 'NO_MATCH');
-      return { status: 'REJECTED', message: 'Face not recognised' };
+    const outcome = await this.azureFace.identifyForAttendance(
+      clientId,
+      photoB64,
+    );
+    if (!outcome.ok) {
+      // Every one of these was previously "Face not recognised", which sent a
+      // worker away to retry regardless of whether retrying could ever help.
+      // The refusal is unchanged — only what we say about it, and what gets
+      // recorded for whoever has to explain it afterwards.
+      await this.record(clientId, branchId, deviceId, outcome.reason);
+      return {
+        status: 'REJECTED',
+        message: FACE_ONLY_REJECTION_MESSAGES[outcome.reason],
+      };
     }
+    const hit = outcome;
 
     const [subject] = await this.dataSource.query(
       `SELECT p.employee_id AS "employeeId",
