@@ -196,4 +196,8 @@
     <string name="kiosk_network_settings_unavailable">Network settings are not available on this device</string>
     <string name="setup_maintenance_intro">Maintenance mode. This device is still registered — the kiosk will return on its own shortly.</string>
     <string name="setup_maintenance_return">Return to kiosk now</string>
+    <string name="facedesk_voice_logged_in">Logged in, %1$s</string>
+    <string name="facedesk_voice_logged_out">Logged out, %1$s</string>
+    <string name="facedesk_voice_logged_in_generic">Logged in</string>
+    <string name="facedesk_voice_logged_out_generic">Logged out</string>
 </resources>

@@ -569,16 +569,34 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                         chrome.showSuccess(name, res.punchType) { }
                     }
                 }
+                // Say WHICH it was. The card has shown "Login recorded" /
+                // "Logout recorded" all along, but the voice said "attendance
+                // recorded" either way — and the voice is the half a worker
+                // actually gets, walking past without stopping to read. Arriving
+                // and leaving are the two things they need to tell apart: an
+                // unnoticed OUT at the start of a shift is a lost day.
+                val isOut = res.punchType.equals("OUT", ignoreCase = true)
                 if (name.isNotBlank()) {
-                    voice.speak(getString(R.string.facedesk_voice_success, name), minIntervalMs = 0)
+                    voice.speak(
+                        getString(
+                            if (isOut) R.string.facedesk_voice_logged_out
+                            else R.string.facedesk_voice_logged_in,
+                            name,
+                        ),
+                        minIntervalMs = 0,
+                    )
                 } else {
-                    voice.speakRes(R.string.facedesk_voice_success_generic, minIntervalMs = 0)
+                    voice.speakRes(
+                        if (isOut) R.string.facedesk_voice_logged_out_generic
+                        else R.string.facedesk_voice_logged_in_generic,
+                        minIntervalMs = 0,
+                    )
                 }
                 autoReset(FaceKioskTuning.POST_PUNCH_HOLD_MS)
             }
             "RETRY" -> {
                 tvResult.text = res.message
-                voice.speakRes(R.string.facedesk_voice_not_recognized, minIntervalMs = 0)
+                speakOutcome(res.message)
                 softReset(1500)
             }
             "REVIEW" -> {
@@ -592,8 +610,29 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
 
     private fun showRejection(msg: String) {
         runOnUiThread { tvResult.text = msg }
-        voice.speakRes(R.string.facedesk_voice_not_recognized, minIntervalMs = 0)
+        speakOutcome(msg)
         softReset(2000)
+    }
+
+    /**
+     * Speak what the screen says, rather than a fixed "face not recognised".
+     *
+     * The server now distinguishes why an identification failed — not enrolled,
+     * unavailable, ambiguous, no clear photo — and a fixed line would have
+     * thrown that away at the last step, telling someone to try again while the
+     * screen told them to find a supervisor. The messages are already written
+     * for the person at the gate, so they are the right thing to read out.
+     *
+     * The dash is stripped because TTS reads it as a pause mid-sentence, and
+     * these messages use it to join two clauses.
+     */
+    private fun speakOutcome(msg: String) {
+        val spoken = msg.replace(" — ", ", ").trim()
+        if (spoken.isBlank()) {
+            voice.speakRes(R.string.facedesk_voice_not_recognized, minIntervalMs = 0)
+        } else {
+            voice.speak(spoken, minIntervalMs = 0)
+        }
     }
 
     private fun showOfflineSaved() {
