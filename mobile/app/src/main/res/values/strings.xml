@@ -194,4 +194,6 @@
     <string name="facedesk_voice_enroll_duplicate">This face matches another employee. Sent to admin for review.</string>
     <string name="facedesk_voice_processing">Please wait while attendance is recorded</string>
     <string name="kiosk_network_settings_unavailable">Network settings are not available on this device</string>
+    <string name="setup_maintenance_intro">Maintenance mode. This device is still registered — the kiosk will return on its own shortly.</string>
+    <string name="setup_maintenance_return">Return to kiosk now</string>
 </resources>
