@@ -586,22 +586,20 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                 // and leaving are the two things they need to tell apart: an
                 // unnoticed OUT at the start of a shift is a lost day.
                 val isOut = res.punchType.equals("OUT", ignoreCase = true)
-                if (name.isNotBlank()) {
-                    voice.speak(
+                voice.speakOutcome(
+                    if (name.isNotBlank()) {
                         getString(
                             if (isOut) R.string.facedesk_voice_logged_out
                             else R.string.facedesk_voice_logged_in,
                             name,
-                        ),
-                        minIntervalMs = 0,
-                    )
-                } else {
-                    voice.speakRes(
-                        if (isOut) R.string.facedesk_voice_logged_out_generic
-                        else R.string.facedesk_voice_logged_in_generic,
-                        minIntervalMs = 0,
-                    )
-                }
+                        )
+                    } else {
+                        getString(
+                            if (isOut) R.string.facedesk_voice_logged_out_generic
+                            else R.string.facedesk_voice_logged_in_generic,
+                        )
+                    },
+                )
                 autoReset(FaceKioskTuning.POST_PUNCH_HOLD_MS)
             }
             "RETRY" -> {
@@ -611,7 +609,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             }
             "REVIEW" -> {
                 tvResult.text = res.message
-                voice.speakRes(R.string.facedesk_voice_success_generic, minIntervalMs = 0)
+                voice.speakOutcome(getString(R.string.facedesk_voice_success_generic))
                 autoReset(FaceKioskTuning.POST_PUNCH_HOLD_MS)
             }
             else -> showRejection(res.message)
@@ -641,13 +639,13 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         if (spoken.isBlank()) {
             voice.speakRes(R.string.facedesk_voice_not_recognized, minIntervalMs = 0)
         } else {
-            voice.speak(spoken, minIntervalMs = 0)
+            voice.speakOutcome(spoken)
         }
     }
 
     private fun showOfflineSaved() {
         runOnUiThread { tvResult.text = getString(R.string.facedesk_offline_saved) }
-        voice.speakRes(R.string.facedesk_voice_offline, minIntervalMs = 0)
+        voice.speakOutcome(getString(R.string.facedesk_voice_offline))
         autoReset(FaceKioskTuning.POST_PUNCH_HOLD_MS)
     }
 
