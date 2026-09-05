@@ -76,8 +76,8 @@ describe('resolveCaptureTuning', () => {
       maxYawDeg: 30,
       postPunchHoldMs: 8000,
       faceEdgeMargin: 0.02,
-      maxFaceOffsetX: 0.28,
-      maxFaceOffsetY: 0.32,
+      maxFaceOffsetX: 0,
+      maxFaceOffsetY: 0,
       blinkAbsThreshold: 0.5,
       blinkDropDelta: 0.25,
       // null = unconfigured, so the handset keeps the size DeviceCameraProfile
