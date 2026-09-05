@@ -7,6 +7,7 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.os.Build
+import android.provider.Settings
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -36,10 +37,10 @@ object KioskLock {
      * admin-PIN exit exists, but a guard on a night shift with no PIN and a dead
      * Wi-Fi link cannot record anyone, and the punches are simply lost.
      *
-     * The cost is real and worth stating: anyone who can reach the shade can now
-     * open Settings on this device. HOME and OVERVIEW are still blocked so the
-     * kiosk cannot be backgrounded, and Device Owner cannot be removed from the
-     * UI, but a determined person could change device settings or factory reset.
+     * The cost is real and worth stating: anyone who knows the gesture can open
+     * Settings on this device. HOME and OVERVIEW are still blocked so the kiosk
+     * cannot be backgrounded, and Device Owner cannot be removed from the UI,
+     * but a determined person could change device settings or factory reset.
      * That is the trade the deployment asked for — availability over lockdown —
      * and it is a one-line revert if a site decides otherwise.
      */
@@ -93,16 +94,21 @@ object KioskLock {
     }
 
     /**
-     * Let the status bar and its pull-down shade through the lock.
+     * Show the status bar through the lock, so the network state is visible.
      *
-     * A fully locked kiosk hides both, which means nobody standing at the gate
-     * can see whether the device still has Wi-Fi — and a kiosk that has quietly
-     * dropped off the network looks identical to one that is working until the
-     * punches are missed. The shade is how an operator checks signal and
-     * battery, and how they toggle Wi-Fi back on.
+     * A fully locked kiosk hides it, which means nobody at the gate can see
+     * whether the device still has Wi-Fi — and a kiosk that has quietly dropped
+     * off the network looks identical to a working one until the punches are
+     * missed. SYSTEM_INFO puts the signal and battery icons back.
      *
-     * Deliberately NOT granted: HOME and OVERVIEW, so the kiosk still cannot be
-     * backgrounded or swapped away from — the device stays a kiosk.
+     * NOT the notification shade, however much we would like it. The platform
+     * rejects LOCK_TASK_FEATURE_NOTIFICATIONS unless LOCK_TASK_FEATURE_HOME is
+     * granted alongside it, and setLockTaskFeatures throws on the whole call
+     * rather than dropping the offending bit — so asking for the shade without
+     * HOME would leave us with NO features at all, silently, and the status bar
+     * would stay hidden too. Granting HOME is not an option: it is what stops
+     * the kiosk being backgrounded. Reaching Wi-Fi settings is handled instead
+     * by [openNetworkSettings], which needs no shade.
      *
      * GLOBAL_ACTIONS is passed explicitly because it is on by default and this
      * call replaces the whole feature set — omitting it would take away the
@@ -114,10 +120,47 @@ object KioskLock {
             dpm.setLockTaskFeatures(
                 admin,
                 DevicePolicyManager.LOCK_TASK_FEATURE_SYSTEM_INFO or
-                    DevicePolicyManager.LOCK_TASK_FEATURE_NOTIFICATIONS or
                     DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS,
             )
         }
+    }
+
+    /**
+     * Open Wi-Fi settings from inside the kiosk.
+     *
+     * This is the half of the network story the status bar cannot do. Settings
+     * is on the lock-task package list (see [SETTINGS_PACKAGE]), so it is
+     * allowed to run alongside a locked kiosk — the system returns to the kiosk
+     * when it is dismissed, and no other app becomes reachable.
+     *
+     * Deliberately not PIN-gated. The person who needs this is a guard whose
+     * gate has stopped recording anyone, on a shift where nobody with the admin
+     * PIN is around; requiring the PIN would put us back where we started.
+     */
+    fun openNetworkSettings(activity: Activity) {
+        val opened = runCatching {
+            activity.startActivity(
+                Intent(Settings.ACTION_WIFI_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            true
+        }.getOrDefault(false)
+        if (!opened) {
+            Toast.makeText(
+                activity,
+                R.string.kiosk_network_settings_unavailable,
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+
+    /** Long-press a view (the on-screen status line) to reach Wi-Fi settings. */
+    fun bindNetworkTrigger(activity: Activity, vararg triggers: View?) {
+        val listener = View.OnLongClickListener {
+            openNetworkSettings(activity)
+            true
+        }
+        triggers.forEach { it?.setOnLongClickListener(listener) }
     }
 
     /**

@@ -1345,6 +1345,36 @@ async function bootstrap() {
     logger.warn(`Schema patch contractor attendance skipped: ${e?.message}`);
   }
 
+  // Retire the guide-oval position gate for clients who already saved settings.
+  //
+  // Changing the default in facedesk-capture-tuning.ts is not enough on its own.
+  // getEffective() returns a FULLY populated captureTuning (defaults merged in),
+  // the settings form posts that whole object straight back, and upsert() stores
+  // it — so every client who has ever pressed Save has the old 0.28/0.32 sitting
+  // in capture_tuning. resolveCaptureTuning() then overlays those stored values
+  // on top of the new zero defaults and the oval requirement survives the
+  // deploy, on exactly the configured clients most likely to be running kiosks.
+  //
+  // Only the old generated defaults are cleared. A site that deliberately chose
+  // some other offset keeps it. A site that deliberately chose 0.28 is
+  // indistinguishable from a generated one and gets reset — accepted, because
+  // the value was almost certainly never chosen at all, and 0 is now the
+  // intended behaviour everywhere.
+  try {
+    const res = await ds.query(
+      `UPDATE facedesk_face_settings
+          SET capture_tuning = capture_tuning
+                || jsonb_build_object('maxFaceOffsetX', 0, 'maxFaceOffsetY', 0)
+        WHERE capture_tuning ? 'maxFaceOffsetX'
+          AND (capture_tuning ->> 'maxFaceOffsetX')::numeric = 0.28
+          AND (capture_tuning ->> 'maxFaceOffsetY')::numeric = 0.32`,
+    );
+    const n = Array.isArray(res) ? res.length : (res?.[1] ?? 0);
+    logger.log(`Schema patch: cleared guide-oval offsets on ${n} client(s)`);
+  } catch (e: any) {
+    logger.warn(`Schema patch facedesk oval offsets skipped: ${e?.message}`);
+  }
+
   // Separate block — payroll sheet tables must not be blocked by attendance index failures
   try {
     await ds.query(`CREATE TABLE IF NOT EXISTS contractor_payroll_sheets (

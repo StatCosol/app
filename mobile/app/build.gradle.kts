@@ -35,8 +35,8 @@ android {
         applicationId = "com.statcosol.attendance"
         minSdk = 26
         targetSdk = 34
-        versionCode = 27
-        versionName = "0.7.20"
+        versionCode = 28
+        versionName = "0.7.21"
 
         // Default API host. Override at runtime via Settings screen if needed.
         buildConfigField("String", "DEFAULT_API_BASE", "\"https://app.statcosol.com\"")

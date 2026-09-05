@@ -140,6 +140,11 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             findViewById(R.id.headerBrand),
             findViewById(R.id.headerStrip),
         )
+        // Reaching Wi-Fi settings without leaving the kiosk. The status bar
+        // shows whether the network is up; this is how it gets fixed. Bound to
+        // the on-screen status line rather than the header, which already
+        // carries the PIN exit and the enrollment unlock.
+        KioskLock.bindNetworkTrigger(this, findViewById(R.id.fdResult))
 
         flushOfflineQueue()
 

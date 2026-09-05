@@ -663,6 +663,14 @@ class FaceCaptureSession(
      */
     private fun hasWholeFace(face: Face): Boolean {
         if (!FaceKioskTuning.REQUIRE_FACE_LANDMARKS) return true
+        // Enrollment's left/right steps are deliberately off-axis — it asks for
+        // at least 18 degrees of turn — and a face turned that far can stop
+        // reporting the hidden side's eye or mouth corner. Gating those frames
+        // would leave the angle buckets permanently unfilled, so enrollment
+        // would run to its timeout while showing "show your full face", which
+        // is both wrong and unactionable. Relaxed by the same flag as pitch and
+        // yaw, which exists for exactly this phase.
+        if (relaxPitchGate()) return true
         return WHOLE_FACE_LANDMARKS.all { face.getLandmark(it) != null }
     }
 
