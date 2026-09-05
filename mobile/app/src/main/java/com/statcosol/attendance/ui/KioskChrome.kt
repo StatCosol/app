@@ -39,6 +39,7 @@ class KioskChrome(
     private val headerBranch: TextView? = activity.findViewById(R.id.headerBranch)
     private val headerClock: TextView? = activity.findViewById(R.id.headerClock)
     private val headerDate: TextView? = activity.findViewById(R.id.headerDate)
+    private val headerNetwork: TextView? = activity.findViewById(R.id.headerNetwork)
 
     private val successOverlay: FrameLayout? = activity.findViewById(R.id.successOverlay)
     private val successCard: LinearLayout? = activity.findViewById(R.id.successCard)
@@ -61,6 +62,34 @@ class KioskChrome(
         headerBranch?.text = formatSubtitle(branding)
         branding.clientLogoUrl?.takeIf { it.isNotBlank() }?.let { path ->
             loadClientLogo(path)
+        }
+    }
+
+    /**
+     * Show whether the kiosk can currently reach the server.
+     *
+     * Deliberately driven by real API outcomes rather than by Wi-Fi state. The
+     * lock-task status bar cannot serve this — immersive mode hides it — and it
+     * would answer the wrong question anyway: a gate here spent a morning on
+     * full-strength Wi-Fi that resolved DNS and answered pings while every
+     * attendance call timed out, because that network blocked our host. The
+     * signal staff need is "are punches reaching the server", and only the
+     * punches know.
+     *
+     * Silent while healthy. A permanent green badge becomes wallpaper within a
+     * day and stops being read; the point is to be noticeable exactly when
+     * something is wrong.
+     */
+    fun setServerReachable(reachable: Boolean) {
+        val view = headerNetwork ?: return
+        activity.runOnUiThread {
+            if (reachable) {
+                view.visibility = View.GONE
+            } else {
+                view.setText(R.string.kiosk_header_offline)
+                view.setTextColor(0xFFFF6B6B.toInt())
+                view.visibility = View.VISIBLE
+            }
         }
     }
 

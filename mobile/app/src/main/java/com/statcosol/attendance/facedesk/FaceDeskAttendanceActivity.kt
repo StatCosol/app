@@ -379,6 +379,11 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                         android.os.SystemClock.elapsedRealtime() >= ticketPollPausedUntilMs
                     ) {
                         val ticket = api.pendingTicket()
+                        // This poll is already a round trip to the server on a
+                        // fixed interval, so it is the honest heartbeat for
+                        // "can we reach the server" — no extra traffic, and it
+                        // fails exactly when a punch would.
+                        chrome.setServerReachable(true)
                         if (ticket != null) {
                             enrollmentHold = true
                             // Drop any frames buffered before the hold so a
@@ -400,8 +405,21 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                             )
                         }
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    // Not a failure: the activity is going away. Rethrow so the
+                    // coroutine actually ends instead of being swallowed by the
+                    // catch below — and so a teardown never paints OFFLINE.
+                    throw e
                 } catch (e: Exception) {
                     Log.w(TAG, "ticket poll failed: ${e.message}")
+                    // ONLY a transport failure means the gate is cut off, and
+                    // that is exactly IOException. Anything else reaching here
+                    // came back from a server that answered — an HTTP error, or
+                    // a 200 whose body would not decode — so it counts as
+                    // reachable and clears a stale badge. Calling those OFFLINE
+                    // would send staff to fix a network that is fine while the
+                    // real fault goes unexamined.
+                    chrome.setServerReachable(e !is java.io.IOException)
                 }
                 delay(TICKET_POLL_MS)
             }
@@ -576,22 +594,20 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                 // and leaving are the two things they need to tell apart: an
                 // unnoticed OUT at the start of a shift is a lost day.
                 val isOut = res.punchType.equals("OUT", ignoreCase = true)
-                if (name.isNotBlank()) {
-                    voice.speak(
+                voice.speakOutcome(
+                    if (name.isNotBlank()) {
                         getString(
                             if (isOut) R.string.facedesk_voice_logged_out
                             else R.string.facedesk_voice_logged_in,
                             name,
-                        ),
-                        minIntervalMs = 0,
-                    )
-                } else {
-                    voice.speakRes(
-                        if (isOut) R.string.facedesk_voice_logged_out_generic
-                        else R.string.facedesk_voice_logged_in_generic,
-                        minIntervalMs = 0,
-                    )
-                }
+                        )
+                    } else {
+                        getString(
+                            if (isOut) R.string.facedesk_voice_logged_out_generic
+                            else R.string.facedesk_voice_logged_in_generic,
+                        )
+                    },
+                )
                 autoReset(FaceKioskTuning.POST_PUNCH_HOLD_MS)
             }
             "RETRY" -> {
@@ -601,7 +617,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             }
             "REVIEW" -> {
                 tvResult.text = res.message
-                voice.speakRes(R.string.facedesk_voice_success_generic, minIntervalMs = 0)
+                voice.speakOutcome(getString(R.string.facedesk_voice_success_generic))
                 autoReset(FaceKioskTuning.POST_PUNCH_HOLD_MS)
             }
             else -> showRejection(res.message)
@@ -631,13 +647,13 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         if (spoken.isBlank()) {
             voice.speakRes(R.string.facedesk_voice_not_recognized, minIntervalMs = 0)
         } else {
-            voice.speak(spoken, minIntervalMs = 0)
+            voice.speakOutcome(spoken)
         }
     }
 
     private fun showOfflineSaved() {
         runOnUiThread { tvResult.text = getString(R.string.facedesk_offline_saved) }
-        voice.speakRes(R.string.facedesk_voice_offline, minIntervalMs = 0)
+        voice.speakOutcome(getString(R.string.facedesk_voice_offline))
         autoReset(FaceKioskTuning.POST_PUNCH_HOLD_MS)
     }
 
