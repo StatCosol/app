@@ -27,6 +27,24 @@ object KioskLock {
 
     private var dialogActive = false
 
+    /**
+     * Settings is allowed to run alongside the kiosk under lock task.
+     *
+     * The operational reality this serves: when attendance stops being captured,
+     * the first thing anyone at the gate does is check the network and, if it is
+     * down, join another one. That has to be possible without a developer — the
+     * admin-PIN exit exists, but a guard on a night shift with no PIN and a dead
+     * Wi-Fi link cannot record anyone, and the punches are simply lost.
+     *
+     * The cost is real and worth stating: anyone who can reach the shade can now
+     * open Settings on this device. HOME and OVERVIEW are still blocked so the
+     * kiosk cannot be backgrounded, and Device Owner cannot be removed from the
+     * UI, but a determined person could change device settings or factory reset.
+     * That is the trade the deployment asked for — availability over lockdown —
+     * and it is a one-line revert if a site decides otherwise.
+     */
+    private const val SETTINGS_PACKAGE = "com.android.settings"
+
     /** Hide the status/nav bars so the kiosk fills the whole screen. Call from
      *  onCreate AND onResume — the system re-shows the bars after dialogs and
      *  power events. */
@@ -63,10 +81,42 @@ object KioskLock {
                 as? DevicePolicyManager
             if (dpm?.isDeviceOwnerApp(activity.packageName) == true) {
                 val admin = ComponentName(activity, KioskDeviceAdminReceiver::class.java)
-                dpm.setLockTaskPackages(admin, arrayOf(activity.packageName))
+                dpm.setLockTaskPackages(
+                    admin,
+                    arrayOf(activity.packageName, SETTINGS_PACKAGE),
+                )
+                allowStatusBar(dpm, admin)
             }
             activity.startLockTask()
         } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * Let the status bar and its pull-down shade through the lock.
+     *
+     * A fully locked kiosk hides both, which means nobody standing at the gate
+     * can see whether the device still has Wi-Fi — and a kiosk that has quietly
+     * dropped off the network looks identical to one that is working until the
+     * punches are missed. The shade is how an operator checks signal and
+     * battery, and how they toggle Wi-Fi back on.
+     *
+     * Deliberately NOT granted: HOME and OVERVIEW, so the kiosk still cannot be
+     * backgrounded or swapped away from — the device stays a kiosk.
+     *
+     * GLOBAL_ACTIONS is passed explicitly because it is on by default and this
+     * call replaces the whole feature set — omitting it would take away the
+     * power menu as a side effect.
+     */
+    private fun allowStatusBar(dpm: DevicePolicyManager, admin: ComponentName) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
+        runCatching {
+            dpm.setLockTaskFeatures(
+                admin,
+                DevicePolicyManager.LOCK_TASK_FEATURE_SYSTEM_INFO or
+                    DevicePolicyManager.LOCK_TASK_FEATURE_NOTIFICATIONS or
+                    DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS,
+            )
         }
     }
 
