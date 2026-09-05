@@ -35,6 +35,8 @@ import java.util.Locale
 class SetupActivity : AppCompatActivity() {
 
     private lateinit var config: DeviceConfig
+    private val maintenanceHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var maintenanceTick: Runnable? = null
     private lateinit var etToken: EditText
     private lateinit var etApiBase: EditText
     private lateinit var btnRegister: Button
@@ -93,7 +95,6 @@ class SetupActivity : AppCompatActivity() {
      * when the admin has finished early.
      */
     private fun showMaintenanceMode() {
-        findViewById<TextView>(R.id.setupIntro).setText(R.string.setup_maintenance_intro)
         findViewById<View>(R.id.tokenLayout).visibility = View.GONE
         findViewById<View>(R.id.apiInput).visibility = View.GONE
         findViewById<View>(R.id.adminPinInput).visibility = View.GONE
@@ -101,13 +102,58 @@ class SetupActivity : AppCompatActivity() {
         findViewById<View>(R.id.statusText).visibility = View.GONE
         findViewById<Button>(R.id.registerBtn).apply {
             setText(R.string.setup_maintenance_return)
-            setOnClickListener {
-                // Ending the window is the point of the button — without this the
-                // kiosk would bounce straight back here on the next HOME event.
-                config.maintenanceUntilMs = 0L
-                navigateToMain()
+            setOnClickListener { returnToKiosk() }
+        }
+
+        // Actually return when the window ends, rather than only promising to.
+        //
+        // The expiry was checked once, in onCreate. Left on this screen, nothing
+        // brought the device back: the copy said the kiosk would return on its
+        // own, an admin reasonably trusted it and walked away, and the gate
+        // recorded nobody until someone pressed the button. That is precisely
+        // the unattended gate the window exists to prevent, arrived at by
+        // believing our own message.
+        //
+        // The countdown is shown rather than just scheduled, so the promise on
+        // screen is one the admin can watch being kept.
+        val intro = findViewById<TextView>(R.id.setupIntro)
+        val tick = object : Runnable {
+            override fun run() {
+                val remainingMs = config.maintenanceUntilMs - System.currentTimeMillis()
+                if (remainingMs <= 0L) {
+                    returnToKiosk()
+                    return
+                }
+                val seconds = (remainingMs / 1000L).toInt()
+                intro.text = getString(
+                    R.string.setup_maintenance_intro,
+                    seconds / 60,
+                    seconds % 60,
+                )
+                maintenanceHandler.postDelayed(this, 1000L)
             }
         }
+        maintenanceTick = tick
+        tick.run()
+    }
+
+    /** End the maintenance window now and hand the device back to the kiosk. */
+    private fun returnToKiosk() {
+        cancelMaintenanceTick()
+        // Clearing the window is what stops the kiosk bouncing straight back
+        // here on the next HOME event.
+        config.maintenanceUntilMs = 0L
+        navigateToMain()
+    }
+
+    private fun cancelMaintenanceTick() {
+        maintenanceTick?.let { maintenanceHandler.removeCallbacks(it) }
+        maintenanceTick = null
+    }
+
+    override fun onDestroy() {
+        cancelMaintenanceTick()
+        super.onDestroy()
     }
 
     private fun attemptRegistration() {
