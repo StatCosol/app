@@ -393,13 +393,28 @@ export class FaceDeskAzureFaceService {
         return { ok: false, reason: 'NOT_ENROLLED' };
       }
 
+      const margin = second
+        ? top.confidence - second.confidence
+        : top.confidence;
+      // Log the winning score, not just the failures.
+      //
+      // A pass and a comfortable pass look identical from outside, and they are
+      // not the same thing: 0.76 against a 0.75 floor will start refusing the
+      // moment the light changes, while 0.92 is settled. Without this, tuning
+      // the floor means waiting for someone to be turned away and reading the
+      // failure — which is exactly the situation this is meant to pre-empt.
+      this.logger.log(
+        `Azure attendance identify: matched employee=${profile.employeeId} ` +
+          `confidence=${top.confidence.toFixed(3)} margin=${margin.toFixed(3)} ` +
+          `(floor ${this.attendanceConfidence})`,
+      );
       return {
         ok: true,
         employeeId: profile.employeeId,
         confidence: top.confidence,
         // Recorded on the punch: how clear-cut the identification was is worth
         // auditing, not just that it passed.
-        margin: second ? top.confidence - second.confidence : top.confidence,
+        margin,
       };
     } catch (err) {
       this.logger.warn(
