@@ -1375,6 +1375,97 @@ async function bootstrap() {
     logger.warn(`Schema patch facedesk oval offsets skipped: ${e?.message}`);
   }
 
+  // Retire registers that were seeded twice under different codes.
+  //
+  // The February branch-compliance migration created generic factory registers
+  // (ACCIDENT_REGISTER, OVERTIME_REGISTER); the March factory-compliance
+  // migration created FACT_-prefixed rows for the same registers without
+  // removing the originals. return_code is the primary key, so nothing
+  // deduplicated them, and a factory branch matches BOTH — which is why the
+  // monthly workbench lists two Accident registers and two Overtime registers.
+  //
+  // Written as a rule rather than a list of four codes, because the same
+  // re-seed may have produced pairs nobody has noticed yet: any two ACTIVE rows
+  // sharing name, applies_to and frequency collide the same way.
+  //
+  // The safety property that makes this runnable without inspecting production
+  // first: a row is only ever deactivated when it has NO documents attached.
+  // compliance_documents references registers by return_code, so retiring a code
+  // that carries history would orphan real uploads. Where both twins hold
+  // documents, both are left active and reported — that needs a human to decide
+  // which is canonical and to repoint the history, which is not a boot patch's
+  // job. Deactivated rather than deleted, so the row is still there to explain
+  // an old document if one turns up.
+  // An explicit list of verified aliases, NOT a rule.
+  //
+  // A rule was tried and was wrong in both directions. Grouping by
+  // (return_name, applies_to, frequency) treats PT_AP / PT_TS / PT_KA / PT_MH as
+  // duplicates of each other — they share all three and differ only by
+  // state_code — so it would have deactivated Professional Tax for three states,
+  // and Labour Welfare Fund for four. In a compliance product, silently removing
+  // a statutory item for a whole state is the worst thing this patch could do.
+  //
+  // It also would not have fixed the reported bug: the legacy rows predate the
+  // applies_to column (added 2026-03-21 with DEFAULT 'BRANCH'), so they are
+  // BRANCH while the FACT_ rows are FACTORY, and the two never group.
+  //
+  // No grouping key separates the real aliases from the state variants reliably,
+  // so this does not try. These four codes were read out of the migrations and
+  // confirmed by hand; anything else is left alone and merely reported.
+  const REGISTER_ALIASES: Array<{ retire: string; keep: string }> = [
+    { retire: 'ACCIDENT_REGISTER', keep: 'FACT_ACCIDENT_REGISTER' },
+    { retire: 'OVERTIME_REGISTER', keep: 'FACT_OT_REGISTER' },
+  ];
+  try {
+    const retired: string[] = [];
+    for (const { retire, keep } of REGISTER_ALIASES) {
+      // Retire only when the replacement is really there and really active, and
+      // only when nothing points at the old code — compliance_documents
+      // references registers by return_code, so retiring one that carries
+      // history would orphan real uploads.
+      const res = await ds.query(
+        `UPDATE compliance_return_master t
+            SET is_active = false
+          WHERE t.return_code = $1
+            AND t.is_active = true
+            AND EXISTS (
+              SELECT 1 FROM compliance_return_master k
+               WHERE k.return_code = $2 AND k.is_active = true
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM compliance_documents d WHERE d.return_code = $1
+            )
+          RETURNING t.return_code`,
+        [retire, keep],
+      );
+      if ((Array.isArray(res) ? res.length : 0) > 0) retired.push(retire);
+    }
+    if (retired.length) {
+      logger.log(
+        `Schema patch: retired duplicate register(s) ${retired.join(', ')}`,
+      );
+    }
+
+    // Report-only, and never acted on. state_code is in the grouping so the
+    // per-state PT and LWF rows are not reported as duplicates of each other.
+    const stuck = await ds.query(
+      `SELECT return_name, applies_to, frequency, state_code,
+              string_agg(return_code, ', ' ORDER BY return_code) AS codes
+         FROM compliance_return_master
+        WHERE is_active = true
+        GROUP BY return_name, applies_to, frequency, state_code
+       HAVING COUNT(*) > 1`,
+    );
+    for (const s of Array.isArray(stuck) ? stuck : []) {
+      logger.warn(
+        `Duplicate register active, needs a manual decision: ` +
+          `"${s.return_name}" [${s.applies_to}/${s.frequency}/${s.state_code}] → ${s.codes}`,
+      );
+    }
+  } catch (e: any) {
+    logger.warn(`Schema patch duplicate registers skipped: ${e?.message}`);
+  }
+
   // Separate block — payroll sheet tables must not be blocked by attendance index failures
   try {
     await ds.query(`CREATE TABLE IF NOT EXISTS contractor_payroll_sheets (
