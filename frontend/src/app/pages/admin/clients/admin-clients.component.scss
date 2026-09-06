@@ -38,7 +38,7 @@ form input:not([type="checkbox"]), form select, form textarea {
 .form-actions { @apply flex gap-2.5 mt-5; }
 
 button.primary { @apply text-white px-5 py-2.5 border-none rounded-xl cursor-pointer transition-all duration-150; background: linear-gradient(135deg, #0A1F44 0%, #0f3470 100%); }
-button.primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(10, 38, 86, 0.3); }
+button.primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(10, 31, 68, 0.3); }
 button.primary:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
 button.primary:disabled { @apply opacity-60 cursor-not-allowed; }
 

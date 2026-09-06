@@ -589,9 +589,9 @@ canvas {
   }
 
   button:not([class]):not(.btn-secondary):not(.btn-danger):not(.btn-outline):not(.btn-ghost):not(.btn-icon):not(.btn-accent):hover, .btn-primary:hover {
-    background: linear-gradient(135deg, #0d2f66 0%, #133e80 100%);
+    background: linear-gradient(135deg, #16305A 0%, #35548A 100%);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(10, 38, 86, 0.3);
+    box-shadow: 0 4px 12px rgba(10, 31, 68, 0.3);
   }
 
   .btn-accent {
@@ -761,7 +761,7 @@ canvas {
 
   .btn-primary-sm:hover {
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(10, 38, 86, 0.25);
+    box-shadow: 0 2px 8px rgba(10, 31, 68, 0.25);
   }
 
   .btn-secondary-sm {

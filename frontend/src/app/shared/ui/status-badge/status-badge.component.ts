@@ -206,7 +206,7 @@ export class StatusBadgeComponent {
 
   get dotGlowColor(): string {
     const glowColors: Record<BadgeVariant, string> = {
-      primary: 'rgba(10, 38, 86, 0.2)',
+      primary: 'rgba(10, 31, 68, 0.2)',
       success: 'rgba(34, 197, 94, 0.2)',
       warning: 'rgba(245, 158, 11, 0.2)',
       error: 'rgba(239, 68, 68, 0.2)',
