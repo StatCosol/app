@@ -466,7 +466,13 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
       takeUntil(this.destroy$),
       timeout(15000),
       finalize(() => {
-        if (!this.selectedBranchId) this.loading = false;
+        // Clear the spinner unless a real request is now in flight.
+        //
+        // Keying this on selectedBranchId alone assumed that having a branch
+        // meant a load had started. It does not: the branch can be resolved
+        // while startInitialLoad declines to fetch, and then nothing was ever
+        // going to turn the skeleton off.
+        if (!this.initialLoadStarted) this.loading = false;
       }),
     ).subscribe({
       next: (branches: any[]) => {
@@ -505,8 +511,22 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
 
   private startInitialLoad(): void {
     if (this.initialLoadStarted) return;
+    // Only claim the initial load has happened once one can actually happen.
+    //
+    // This used to set the flag and then call load(), which returns silently
+    // when a branch or month is missing. A no-op therefore burned the one-shot
+    // guard: the branch id arriving moments later from fetchMe() or the branch
+    // list hit `if (initialLoadStarted) return` and nothing was ever requested,
+    // while `loading` stayed true from resolveBranchAndLoad. That is the page
+    // sitting on skeletons until you click the tab again — a second click
+    // builds a fresh component with a fresh flag, which is why it then works.
+    if (!this.canLoad()) return;
     this.initialLoadStarted = true;
     this.load();
+  }
+
+  private canLoad(): boolean {
+    return !!this.selectedBranchId && !!this.selectedMonth;
   }
 
   private extractBranchId(value: unknown): string | null {
@@ -525,7 +545,13 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
   }
 
   load(): void {
-    if (!this.selectedBranchId || !this.selectedMonth) return;
+    if (!this.canLoad()) {
+      // Never leave the skeleton up on a path that fetches nothing. Silently
+      // returning while `loading` was true is what made a missing branch id
+      // look like an endless load rather than an empty or failed state.
+      this.loading = false;
+      return;
+    }
 
     this.loading = true;
     this.error = '';
