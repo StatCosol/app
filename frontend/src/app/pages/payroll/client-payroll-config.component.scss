@@ -50,7 +50,7 @@ code { background: #f3f4f6; padding: 0.12rem 0.3rem; border-radius: 0.3rem; font
 /* Buttons */
 .btn { border-radius: 0.58rem; font-size: 0.77rem; font-weight: 700; border: 1px solid transparent; padding: 0.38rem 0.66rem; cursor: pointer; transition: opacity 0.15s; }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-primary   { background: linear-gradient(135deg, #0a2656, #0f3470); color: #fff; }
+.btn-primary   { background: linear-gradient(135deg, #0A1F44, #0f3470); color: #fff; }
 .btn-secondary { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
 .btn-ghost     { background: #fff; border-color: #d1d5db; color: #374151; }
 .btn-danger    { background: #fee2e2; border-color: #fecaca; color: #991b1b; }
@@ -112,7 +112,7 @@ input:disabled, select:disabled { opacity: 0.5; cursor: not-allowed; }
 .preview-row .amount { font-weight: 600; }
 .preview-total { display: flex; justify-content: space-between; border-top: 1px solid #e5e7eb; padding-top: 0.35rem; margin-top: 0.35rem; font-weight: 700; font-size: 0.82rem; }
 
-.net-pay-bar { background: linear-gradient(135deg, #0a2656, #0f3470); color: #fff; border-radius: 0.7rem; padding: 0.75rem 1rem; display: flex; justify-content: space-between; align-items: center; margin-top: 0.6rem; font-weight: 800; font-size: 0.95rem; }
+.net-pay-bar { background: linear-gradient(135deg, #0A1F44, #0f3470); color: #fff; border-radius: 0.7rem; padding: 0.75rem 1rem; display: flex; justify-content: space-between; align-items: center; margin-top: 0.6rem; font-weight: 800; font-size: 0.95rem; }
 .net-amount { font-size: 1.3rem; }
 
 /* Modal */

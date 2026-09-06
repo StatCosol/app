@@ -27,13 +27,13 @@
 <div class="border-b border-gray-200 mb-6">
     <nav class="-mb-px flex space-x-8">
       <a
-        [class]="activeTab === 'company' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
+        [class]="activeTab === 'company' ? 'border-accent-500 text-accent-500' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
         class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors cursor-pointer"
         [routerLink]="['/admin/clients', selectedClient.id, 'company']">
         Company Details
       </a>
       <a
-        [class]="activeTab === 'branches' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
+        [class]="activeTab === 'branches' ? 'border-accent-500 text-accent-500' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
         class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors cursor-pointer"
         [routerLink]="['/admin/clients', selectedClient.id, 'branches']">
         Branches @if (branches.length) {
@@ -41,7 +41,7 @@
 }
       </a>
       <a
-        [class]="activeTab === 'compliances' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
+        [class]="activeTab === 'compliances' ? 'border-accent-500 text-accent-500' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
         class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors cursor-pointer"
         [routerLink]="['/admin/clients', selectedClient.id, 'compliances']">
         Compliance Applicability
@@ -805,7 +805,7 @@
             rows="3"
             placeholder="Enter full address"
             required
-            class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light"></textarea>
+            class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500"></textarea>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1068,7 +1068,7 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         @for (b of branches; track b) {
 <button type="button"
-          class="text-left p-4 rounded-lg border border-gray-200 hover:border-statco-blue-light hover:bg-brand-50 transition-colors"
+          class="text-left p-4 rounded-lg border border-gray-200 hover:border-accent-500 hover:bg-brand-50 transition-colors"
           (click)="selectBranchForCompliance(b)">
           <div class="font-medium text-gray-900">{{ b.branchName }}</div>
           <div class="text-xs text-gray-500 mt-1">{{ b.stateCode || 'No state' }} · {{ b.branchType || 'Branch' }}</div>
@@ -1100,14 +1100,14 @@
         @for (c of compliances; track trackById($index, c)) {
 <label
           class="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer"
-          [class.bg-primary-50]="selectedComplianceIds.has(c.complianceId)"
-          [class.border-primary-200]="selectedComplianceIds.has(c.complianceId)">
+          [class.bg-brand-50]="selectedComplianceIds.has(c.complianceId)"
+          [class.border-brand-200]="selectedComplianceIds.has(c.complianceId)">
           <input
             type="checkbox"
             [checked]="selectedComplianceIds.has(c.complianceId)"
             (change)="toggleCompliance(c.complianceId, $any($event.target).checked)"
             [disabled]="c.autoApplicable || !c.applicable"
-            class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            class="mt-0.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
           />
           <div class="min-w-0">
             <div class="text-sm font-medium text-gray-900">

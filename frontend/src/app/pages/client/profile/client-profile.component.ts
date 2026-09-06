@@ -56,11 +56,11 @@ import { ChangePasswordComponent } from '../../../shared/components/change-passw
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label for="client-edit-name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-              <input type="text" id="client-edit-name" name="name" autocomplete="name" [(ngModel)]="editName" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
+              <input type="text" id="client-edit-name" name="name" autocomplete="name" [(ngModel)]="editName" class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500" />
             </div>
             <div>
               <label for="client-edit-phone" class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-              <input type="text" id="client-edit-phone" name="phone" autocomplete="tel" [(ngModel)]="editPhone" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
+              <input type="text" id="client-edit-phone" name="phone" autocomplete="tel" [(ngModel)]="editPhone" class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500" />
             </div>
           </div>
           <ui-button variant="primary" size="md" (click)="saveProfile()" [disabled]="saving">

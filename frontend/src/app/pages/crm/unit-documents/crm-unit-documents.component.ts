@@ -121,7 +121,7 @@ type ScopeFilter = '' | CrmDocumentScope;
         <button
           (click)="showUploadForm = !showUploadForm"
           class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors"
-          [style.background]="showUploadForm ? '#dc2626' : '#0a2656'">
+          [style.background]="showUploadForm ? '#dc2626' : '#0A1F44'">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               stroke-linecap="round"
@@ -243,7 +243,7 @@ type ScopeFilter = '' | CrmDocumentScope;
           (click)="uploadDocument()"
           [disabled]="uploading || !canUpload()"
           class="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50"
-          style="background: #0a2656;">
+          style="background: #0A1F44;">
           @if (uploading) {
 <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

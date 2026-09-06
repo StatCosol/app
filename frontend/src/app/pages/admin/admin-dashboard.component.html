@@ -10,7 +10,7 @@
         <button
           type="button"
           class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
-          [class.bg-statco-blue]="dateRange==='7d'"
+          [class.bg-brand-800]="dateRange==='7d'"
           [class.text-white]="dateRange==='7d'"
           [class.text-gray-700]="dateRange!=='7d'"
           (click)="setRange('7d')">
@@ -19,7 +19,7 @@
         <button
           type="button"
           class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
-          [class.bg-statco-blue]="dateRange==='30d'"
+          [class.bg-brand-800]="dateRange==='30d'"
           [class.text-white]="dateRange==='30d'"
           [class.text-gray-700]="dateRange!=='30d'"
           (click)="setRange('30d')">
@@ -28,7 +28,7 @@
         <button
           type="button"
           class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
-          [class.bg-statco-blue]="dateRange==='90d'"
+          [class.bg-brand-800]="dateRange==='90d'"
           [class.text-white]="dateRange==='90d'"
           [class.text-gray-700]="dateRange!=='90d'"
           (click)="setRange('90d')">

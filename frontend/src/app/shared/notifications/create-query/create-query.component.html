@@ -5,7 +5,7 @@
     <div class="space-y-6">
       <div class="form-group">
         <label class="block text-sm font-medium text-gray-700 mb-2" for="cq-query-type">Query Type</label>
-        <select id="cq-query-type" name="queryType" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="queryType">
+        <select id="cq-query-type" name="queryType" class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500" [(ngModel)]="queryType">
           <option value="TECHNICAL">Technical Query (to Admin)</option>
           <option value="COMPLIANCE">Compliance Query (to CRM)</option>
           <option value="AUDIT">Audit Query (to Auditor)</option>
@@ -17,7 +17,7 @@
         <input autocomplete="off" id="cq-subject"
           type="text"
           name="querySubject"
-          class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light"
+          class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500"
           [(ngModel)]="subject"
           placeholder="Short subject (min 3 characters)"
         />
@@ -28,7 +28,7 @@
         <label class="block text-sm font-medium text-gray-700 mb-2" for="cq-message">Message</label>
         <textarea autocomplete="off" id="cq-message"
           name="queryMessage"
-          class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light"
+          class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500"
           [(ngModel)]="message"
           rows="5"
           placeholder="Explain your issue..."

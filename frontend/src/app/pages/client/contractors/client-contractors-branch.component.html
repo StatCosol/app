@@ -90,14 +90,14 @@
 <div
        
         (click)="selectContractor(c)"
-        class="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md hover:border-statco-blue/20 transition-all duration-200 cursor-pointer group"
+        class="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md hover:border-brand-800/20 transition-all duration-200 cursor-pointer group"
       >
         <div class="flex items-center gap-4 mb-4">
-          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-statco-blue to-statco-blue-light flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-brand-800 to-accent-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
             {{ c.name?.slice(0, 2)?.toUpperCase() || '?' }}
           </div>
           <div class="flex-1 min-w-0">
-            <h3 class="font-semibold text-gray-900 truncate group-hover:text-statco-blue transition-colors">{{ c.name }}</h3>
+            <h3 class="font-semibold text-gray-900 truncate group-hover:text-brand-800 transition-colors">{{ c.name }}</h3>
             <p class="text-sm text-gray-500 truncate">{{ c.email || 'No email' }}</p>
           </div>
           <ui-status-badge [status]="c.isActive ? 'ACTIVE' : 'INACTIVE'"></ui-status-badge>
@@ -120,7 +120,7 @@
 <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 text-slate-700">Audit risk: {{ auditRiskPoints(c) }}</span>
 }
           </div>
-          <svg class="w-4 h-4 text-gray-300 group-hover:text-statco-blue group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-4 h-4 text-gray-300 group-hover:text-brand-800 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
           </svg>
         </div>

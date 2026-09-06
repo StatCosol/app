@@ -5,7 +5,7 @@
       <div class="card">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-lg font-semibold text-gray-900">Inbox</h2>
-          <select id="i-status" name="inboxStatus" class="rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light text-sm" [(ngModel)]="status" (change)="page = 1; loadInbox()">
+          <select id="i-status" name="inboxStatus" class="rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500 text-sm" [(ngModel)]="status" (change)="page = 1; loadInbox()">
             <option value="all">All</option>
             <option value="OPEN">Open</option>
             <option value="IN_PROGRESS">In Progress</option>
@@ -17,7 +17,7 @@
 
         @if (!adminAll) {
 <label class="flex items-center mb-3 text-sm">
-          <input autocomplete="off" id="i-unread-only" type="checkbox" name="unreadOnly" class="rounded border-gray-300 text-statco-blue focus:ring-statco-blue-light mr-2" [(ngModel)]="unreadOnly" (change)="page = 1; loadInbox()" />
+          <input autocomplete="off" id="i-unread-only" type="checkbox" name="unreadOnly" class="rounded border-gray-300 text-brand-800 focus:ring-accent-500 mr-2" [(ngModel)]="unreadOnly" (change)="page = 1; loadInbox()" />
           Unread only
         </label>
 }
@@ -35,7 +35,7 @@
 <button
             type="button"
             class="w-full text-left px-3 py-3 hover:bg-gray-50 transition-colors"
-            [class.bg-statco-blue-light]="t.id === selectedThreadId"
+            [class.bg-accent-500]="t.id === selectedThreadId"
             [class.text-white]="t.id === selectedThreadId"
            
             (click)="openThread(t.id)"
@@ -84,7 +84,7 @@
 
           <div class="space-y-4 mb-6" style="max-height: 50vh; overflow-y: auto;">
             @for (m of messages; track m) {
-<div class="border-l-4 border-statco-blue-light pl-4">
+<div class="border-l-4 border-accent-500 pl-4">
               <div class="text-xs text-gray-500 mb-2">
                 {{ m.from?.name || m.from?.roleCode || 'Unknown user' }}
                 ({{ m.from?.roleCode || '-' }}) •
@@ -98,7 +98,7 @@
           @if (thread.status !== 'CLOSED') {
 <div class="border-t border-gray-200 pt-4">
             <textarea autocomplete="off" id="i-reply-text" name="replyText"
-              class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light mb-3"
+              class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500 mb-3"
               [(ngModel)]="replyText"
               rows="3"
               placeholder="Type your reply..."

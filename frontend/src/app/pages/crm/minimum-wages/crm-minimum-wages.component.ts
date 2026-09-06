@@ -64,7 +64,7 @@ interface FormState extends UpsertWagePayload {
           <label class="block text-sm font-medium text-gray-700 mb-1">State Code</label>
           <input type="text" name="fState" [(ngModel)]="filters.stateCode"
             placeholder="e.g. KA" maxlength="8"
-            class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light uppercase" />
+            class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500 uppercase" />
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Skill</label>

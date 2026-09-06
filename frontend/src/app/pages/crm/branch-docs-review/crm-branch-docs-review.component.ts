@@ -90,7 +90,7 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
       padding: 0.5rem 1rem; border-radius: 0.375rem; font-size: 0.8125rem; font-weight: 500;
       cursor: pointer; transition: all 0.2s; border: none; background: transparent; color: #64748b;
     }
-    .tab-btn.active { background: white; color: #0a2656; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: 600; }
+    .tab-btn.active { background: white; color: #0A1F44; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: 600; }
     .remarks-textarea {
       width: 100%; min-height: 80px; padding: 0.75rem; border: 1px solid #d1d5db;
       border-radius: 0.5rem; font-size: 0.8125rem; resize: vertical;

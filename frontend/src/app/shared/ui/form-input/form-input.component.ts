@@ -109,7 +109,7 @@ export class FormInputComponent implements ControlValueAccessor {
       ? 'border-red-500 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500'
       : this.disabled
         ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed'
-        : 'border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-accent-400 focus:border-accent-400';
+        : 'border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-accent-500 focus:border-accent-500';
 
     return `${base} ${padding} ${stateClasses}`;
   }

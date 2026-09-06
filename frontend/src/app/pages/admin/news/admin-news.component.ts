@@ -140,7 +140,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               (click)="save()"
               [disabled]="!form.title.trim() || !form.body.trim()"
               class="px-5 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 transition-colors"
-              style="background: linear-gradient(135deg, #0a2656, #1a3a6e);"
+              style="background: linear-gradient(135deg, #0A1F44, #1a3a6e);"
             >
               {{ editing ? 'Update' : 'Publish' }}
             </button>

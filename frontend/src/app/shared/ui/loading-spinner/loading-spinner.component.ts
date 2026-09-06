@@ -54,7 +54,7 @@ export class LoadingSpinnerComponent {
     };
 
     const colorClasses: Record<SpinnerColor, string> = {
-      primary: 'text-accent-400',
+      primary: 'text-accent-500',
       white: 'text-white',
       gray: 'text-gray-400',
     };

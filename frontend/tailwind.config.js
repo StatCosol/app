@@ -54,24 +54,21 @@ module.exports = {
           950: '#072819',
           DEFAULT: '#20A15A',
         },
-        'statco-blue': {
-          light: '#1eb6f7',
-          DEFAULT: '#0a2656',
-          dark: '#051734',
-        },
-        'primary': {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0a2656',
-          800: '#075985',
-          900: '#0c4a6e',
-          950: '#082f49',
-        },
+        /* 'statco-blue' is gone. It was the third identity palette: DEFAULT
+         * #0a2656 was a drift from the brand guide's #0A1F44, and its dominant
+         * variant was `light` (#1eb6f7) — a bright cyan with no place in a
+         * navy-and-green brand, carrying 123 of its 197 uses on focus rings and
+         * hovers. Those are now accent-500, the same green as every other focus
+         * state; DEFAULT and dark map to brand-800 and brand-950.
+         *
+         * Removed rather than aliased, so nothing can quietly go on using it. */
+        /* 'primary' is gone too — a fourth identity ramp, and a stock Tailwind
+         * sky-blue at that, with a single step (700) patched to the old navy so
+         * it was not even internally consistent. Its six call sites were
+         * selection state and a submit button; they are brand-* now.
+         *
+         * success / warning / error / info stay: those are SEMANTIC, and a
+         * status badge must keep meaning colour rather than brand colour. */
         /* The cyan 'accent' ramp that used to sit here is gone. It duplicated
          * the `accent` key defined above, and last-key-wins meant it silently
          * discarded the brand green ramp on every build — so --statco-accent
@@ -80,8 +77,10 @@ module.exports = {
          * Green wins because it is the brand's second colour and the 15 call
          * sites are pure chrome (focus rings, a loading spinner), carrying no
          * semantic meaning that a colour change would break. Its 400 step was
-         * #1eb6f7, the legacy statco-light-blue, which is still available as
-         * statco-blue.light for anything that genuinely wants it. */
+         * #1eb6f7, the legacy statco-light-blue — now gone entirely along with
+         * the statco-blue token, so there is no cyan left to fall back to. That
+         * is deliberate: a bright cyan has no place in a navy-and-green brand,
+         * and leaving an escape hatch is how the drift started the first time. */
         'success': {
           50: '#f0fdf4',
           100: '#dcfce7',

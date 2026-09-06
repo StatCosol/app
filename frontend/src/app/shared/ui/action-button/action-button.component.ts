@@ -87,12 +87,12 @@ export class ActionButtonComponent {
     };
 
     const variantClasses: Record<ButtonVariant, string> = {
-      primary: 'text-white focus:ring-statco-blue shadow-sm hover:shadow-md hover:-translate-y-px active:translate-y-0',
+      primary: 'text-white focus:ring-brand-800 shadow-sm hover:shadow-md hover:-translate-y-px active:translate-y-0',
       secondary: 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 focus:ring-gray-500 shadow-sm hover:-translate-y-px active:translate-y-0',
       danger: 'text-white focus:ring-error-500 shadow-sm hover:shadow-md hover:-translate-y-px active:translate-y-0',
       success: 'text-white focus:ring-emerald-500 shadow-sm hover:shadow-md hover:-translate-y-px active:translate-y-0',
       warning: 'text-white focus:ring-amber-500 shadow-sm hover:shadow-md hover:-translate-y-px active:translate-y-0',
-      outline: 'bg-transparent border-2 border-statco-blue text-statco-blue hover:bg-statco-blue hover:text-white focus:ring-statco-blue',
+      outline: 'bg-transparent border-2 border-brand-800 text-brand-800 hover:bg-brand-800 hover:text-white focus:ring-brand-800',
       ghost: 'bg-transparent text-gray-700 hover:bg-gray-100 focus:ring-gray-500',
     };
 
@@ -103,7 +103,7 @@ export class ActionButtonComponent {
 
   get buttonStyle(): string {
     const gradients: Partial<Record<ButtonVariant, string>> = {
-      primary: 'background: linear-gradient(135deg, #0a2656 0%, #1e40af 100%)',
+      primary: 'background: linear-gradient(135deg, #0A1F44 0%, #1e40af 100%)',
       danger: 'background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%)',
       success: 'background: linear-gradient(135deg, #047857 0%, #10b981 100%)',
       warning: 'background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%)',

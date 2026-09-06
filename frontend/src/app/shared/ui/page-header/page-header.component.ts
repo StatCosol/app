@@ -23,7 +23,7 @@ export interface Breadcrumb {
             @if (!last && crumb.route) {
 
               <a [routerLink]="crumb.route"
-                 class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-statco-blue transition-colors">
+                 class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-brand-800 transition-colors">
                 {{ crumb.label }}
               </a>
               <svg class="w-4 h-4 mx-2 text-gray-400" fill="currentColor" viewBox="0 0 20 20">

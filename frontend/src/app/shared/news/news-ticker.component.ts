@@ -51,7 +51,7 @@ import { Subject, takeUntil } from 'rxjs';
     .news-ticker-bar {
       display: flex;
       align-items: center;
-      background: linear-gradient(135deg, #0a2656, #144B7A);
+      background: linear-gradient(135deg, #0A1F44, #144B7A);
       color: #fff;
       overflow: hidden;
       height: 36px;
