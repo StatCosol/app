@@ -28,30 +28,34 @@ export class ClientReturnsVisibilityController {
   @Get('returns-visibility/:clientId')
   @ApiOperation({ summary: 'Get return tasks for client visibility' })
   async getReturns(
+    @CurrentUser() user: ReqUser,
     @Param('clientId', ParseUUIDPipe) clientId: string,
     @Query('branchId') branchId?: string,
   ) {
-    return this.clientVisibilityService.getReturns(clientId, branchId);
+    return this.clientVisibilityService.getReturns(clientId, branchId, user);
   }
 
   @Get('expiry-visibility/:clientId')
   @ApiOperation({ summary: 'Get renewal tasks for client visibility' })
   async getExpiry(
+    @CurrentUser() user: ReqUser,
     @Param('clientId', ParseUUIDPipe) clientId: string,
     @Query('branchId') branchId?: string,
   ) {
-    return this.clientVisibilityService.getExpiry(clientId, branchId);
+    return this.clientVisibilityService.getExpiry(clientId, branchId, user);
   }
 
   @Get('compliance-summary/:clientId')
   @ApiOperation({ summary: 'Get client compliance summary' })
   async getSummary(
+    @CurrentUser() user: ReqUser,
     @Param('clientId', ParseUUIDPipe) clientId: string,
     @Query('branchId') branchId?: string,
   ) {
     return this.clientVisibilityService.getComplianceSummary(
       clientId,
       branchId,
+      user,
     );
   }
 
