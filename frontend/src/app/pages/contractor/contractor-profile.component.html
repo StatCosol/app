@@ -109,7 +109,10 @@
           </div>
 }
         </div>
-        <ui-data-table [columns]="servedBranchColumns" [data]="servedBranchRows" emptyMessage="No branch status rows">
+        <!-- minWidth 0: three columns, two of them fixed at 170px and 130px.
+             The shared 600px floor is for wide tables and only forced this one
+             past its card, producing a horizontal scrollbar for a single row. -->
+        <ui-data-table [columns]="servedBranchColumns" [data]="servedBranchRows" minWidth="0" emptyMessage="No branch status rows">
           <ng-template uiTableCell="riskBand" let-row>
             <span [class]="riskBandClass(row.riskBand)">{{ row.riskBand }}</span>
           </ng-template>
