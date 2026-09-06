@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -31,6 +31,8 @@ interface TimelineEvent {
   styleUrls: ['./branch-mcd.component.scss'],
 })
 export class BranchMcdComponent implements OnInit, OnDestroy {
+  @Input() embedMode = false;
+
   private readonly destroy$ = new Subject<void>();
   private readonly load$ = new Subject<void>();
 

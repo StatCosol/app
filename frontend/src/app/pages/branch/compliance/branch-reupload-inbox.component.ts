@@ -1,4 +1,4 @@
-import { Component, NgZone, OnInit } from '@angular/core';
+import { Component, Input, NgZone, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
@@ -13,6 +13,8 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
   templateUrl: './branch-reupload-inbox.component.html',
 })
 export class BranchReuploadInboxComponent implements OnInit {
+  @Input() embedMode = false;
+
   loading = false;
   rows: any[] = [];
 

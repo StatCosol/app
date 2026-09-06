@@ -28,6 +28,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
+import { PageHeaderComponent } from '../../shared/ui';
 import { LeaveManagementService } from '../client/leave-management.service';
 import {
   FormulaBuilderComponent,
@@ -73,7 +74,7 @@ interface LocalSetupAddon {
 @Component({
   selector: 'app-payroll-setup',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClientContextStripComponent, FormulaBuilderComponent],
+  imports: [CommonModule, FormsModule, ClientContextStripComponent, FormulaBuilderComponent, PageHeaderComponent],
   templateUrl: './payroll-setup.component.html',
   styleUrls: ['./payroll-setup.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

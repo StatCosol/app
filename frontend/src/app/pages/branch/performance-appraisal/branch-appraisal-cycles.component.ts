@@ -6,11 +6,12 @@ import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { PerformanceAppraisalService } from '../../../core/services/performance-appraisal.service';
 import { AppraisalCycle } from '../../../core/models/appraisal.models';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-branch-appraisal-cycles',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
     .page-container { max-width: 1280px; margin: 0 auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
@@ -27,13 +28,11 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
   `],
   template: `
     <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">Appraisal Cycles</h1>
-          <p class="page-subtitle">View active and past appraisal cycles</p>
-        </div>
+      <ui-page-header
+        title="Appraisal Cycles"
+        subtitle="View active and past appraisal cycles">
         <a routerLink="/branch/appraisal-dashboard" class="btn-secondary">Dashboard</a>
-      </div>
+      </ui-page-header>
 
       @if (loading) {
 <div class="flex items-center justify-center py-20"><div class="spinner"></div></div>

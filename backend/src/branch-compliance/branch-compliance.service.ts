@@ -248,15 +248,39 @@ export class BranchComplianceService {
     }
   }
 
-  private async ensureCombinedReturnMasters(): Promise<void> {
-    for (const seed of STATE_COMBINED_RETURN_SEEDS) {
-      await this.masterRepo.save(
-        this.masterRepo.create({
-          ...seed,
-          isActive: seed.isActive ?? true,
-        }),
-      );
+  /**
+   * Seeded once per process, not once per request.
+   *
+   * This is called from getReturnMaster, which every branch checklist load goes
+   * through — so it was upserting the whole seed list on a read path, for every
+   * branch user, every time they opened the page. The rows are static and
+   * return_code is the primary key, so all but the first call rewrote identical
+   * data.
+   *
+   * The promise is cached rather than a boolean so concurrent first requests
+   * await the same seeding instead of racing it, and it is cleared on failure so
+   * a transient database error does not leave the masters unseeded for the life
+   * of the process.
+   */
+  private combinedSeedPromise: Promise<void> | null = null;
+
+  private ensureCombinedReturnMasters(): Promise<void> {
+    if (!this.combinedSeedPromise) {
+      this.combinedSeedPromise = (async () => {
+        for (const seed of STATE_COMBINED_RETURN_SEEDS) {
+          await this.masterRepo.save(
+            this.masterRepo.create({
+              ...seed,
+              isActive: seed.isActive ?? true,
+            }),
+          );
+        }
+      })().catch((err: unknown) => {
+        this.combinedSeedPromise = null;
+        throw err;
+      });
     }
+    return this.combinedSeedPromise;
   }
 
   // ─── Return Master CRUD ────────────────────────────────────

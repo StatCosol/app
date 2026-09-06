@@ -3,14 +3,15 @@ import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { forkJoin, Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { EssApiService, StatutoryDetails, ContributionRow } from '../ess-api.service';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-ess-esi',
   standalone: true,
-  imports: [],
+  imports: [PageHeaderComponent],
   template: `
     <div class="max-w-5xl mx-auto space-y-6">
-      <h1 class="text-2xl font-bold text-gray-900">My ESI Details</h1>
+      <ui-page-header title="My ESI Details" subtitle="ESI identity and monthly contributions"></ui-page-header>
 
       @if (loading) {
 <div class="text-gray-500 text-sm">Loading...</div>

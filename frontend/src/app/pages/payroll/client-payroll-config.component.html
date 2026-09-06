@@ -1,11 +1,9 @@
 <div class="page-wrap">
-  <header class="page-head card">
-    <div>
-      <h1>Client Payroll Configuration</h1>
-      <p>Configure salary structures, components, formulas, and statutory rules per client.</p>
-    </div>
+  <ui-page-header
+    title="Client Payroll Configuration"
+    subtitle="Configure salary structures, components, formulas, and statutory rules per client.">
     <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
-  </header>
+  </ui-page-header>
 
   <div class="head-controls">
     @if (view === 'list') {

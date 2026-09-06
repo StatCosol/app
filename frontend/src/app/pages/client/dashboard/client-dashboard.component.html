@@ -134,9 +134,13 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
           </svg>
           <span slot="detail">
-            <span class="text-blue-600">M: {{ d.kpis.contractors.male || 0 }}</span>
-            <span class="mx-1.5 text-slate-300">|</span>
-            <span class="text-pink-500">F: {{ d.kpis.contractors.female || 0 }}</span>
+            @if (d.kpis.contractors.male || d.kpis.contractors.female) {
+              <span class="text-blue-600">M: {{ d.kpis.contractors.male || 0 }}</span>
+              <span class="mx-1.5 text-slate-300">|</span>
+              <span class="text-pink-500">F: {{ d.kpis.contractors.female || 0 }}</span>
+            } @else if (d.kpis.contractors.total) {
+              <span class="text-slate-500">Gender not reported</span>
+            }
           </span>
         </ui-kpi-tile>
 }
@@ -500,7 +504,7 @@
               </div>
             </div>
             @if (pfSummary.pendingEmployees.length) {
-<p class="mini-kpi-sub">Top pending: {{ pfSummary.pendingEmployees[0]?.empCode }} ({{ pfSummary.pendingEmployees[0]?.pendingDays }} days)</p>
+<p class="mini-kpi-sub">Top pending: {{ pfSummary.pendingEmployees[0]?.empCode || pfSummary.pendingEmployees[0]?.name || 'Employee' }} ({{ pfSummary.pendingEmployees[0]?.pendingDays ?? 0 }} days)</p>
 }
             @if (!pfSummary.pendingEmployees.length) {
 <p class="mini-kpi-sub">All PF applicable employees are registered.</p>
@@ -532,7 +536,7 @@
               </div>
             </div>
             @if (esiSummary.pendingEmployees.length) {
-<p class="mini-kpi-sub">Top pending: {{ esiSummary.pendingEmployees[0]?.empCode }} ({{ esiSummary.pendingEmployees[0]?.pendingDays }} days)</p>
+<p class="mini-kpi-sub">Top pending: {{ esiSummary.pendingEmployees[0]?.empCode || esiSummary.pendingEmployees[0]?.name || 'Employee' }} ({{ esiSummary.pendingEmployees[0]?.pendingDays ?? 0 }} days)</p>
 }
             @if (!esiSummary.pendingEmployees.length) {
 <p class="mini-kpi-sub">All ESI applicable employees are registered.</p>

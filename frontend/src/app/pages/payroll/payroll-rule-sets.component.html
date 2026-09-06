@@ -1,11 +1,9 @@
 ﻿<div class="page-wrap">
-  <header class="page-head card">
-    <div>
-      <h1>Payroll Rule Sets</h1>
-      <p>Manage effective-dated payroll rule versions, maintain parameter libraries, and compare version deltas before activation.</p>
-    </div>
+  <ui-page-header
+    title="Payroll Rule Sets"
+    subtitle="Manage effective-dated payroll rule versions, maintain parameter libraries, and compare version deltas before activation.">
     <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
-  </header>
+  </ui-page-header>
 
   <div class="head-controls">
     <button type="button" class="btn btn-primary" [disabled]="!selectedClientId" (click)="openCreateRuleSet()">

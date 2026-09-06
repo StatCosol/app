@@ -26,6 +26,7 @@ import { ActivatedRoute } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
+import { PageHeaderComponent } from '../../shared/ui';
 import {
   FormulaBuilderComponent,
   FormulaNode,
@@ -99,6 +100,7 @@ interface GuardrailCheck {
     FormsModule,
     ClientContextStripComponent,
     FormulaBuilderComponent,
+    PageHeaderComponent,
   ],
   templateUrl: './payroll-structures.component.html',
   styleUrls: ['./payroll-structures.component.scss'],

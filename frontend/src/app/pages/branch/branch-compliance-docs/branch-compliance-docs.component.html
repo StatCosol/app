@@ -1,10 +1,7 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-  <div class="flex items-center justify-between mb-4">
-    <div>
-      <h2 class="text-lg font-semibold">Review / Reupload</h2>
-      <div class="text-xs text-gray-500">Month: {{ monthKey }}</div>
-    </div>
-
+  <ui-page-header
+    title="Review / Reupload"
+    [subtitle]="'Month: ' + monthKey">
     <div class="flex gap-2 items-center">
       <input autocomplete="off" id="bcd-year" name="year" type="number" class="border rounded p-2 text-sm w-28"
              [(ngModel)]="year" (ngModelChange)="onPeriodChange()" />
@@ -16,7 +13,7 @@
       </select>
       <button type="button" class="px-3 py-2 text-sm border rounded" (click)="loadAll()">Refresh</button>
     </div>
-  </div>
+  </ui-page-header>
 
   <!-- KPI Cards -->
   @if (kpis) {

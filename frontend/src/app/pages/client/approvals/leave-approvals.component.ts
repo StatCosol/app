@@ -5,14 +5,19 @@ import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { BranchApprovalsApiService, PendingLeave } from './branch-approvals-api.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-leave-approvals',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, PageHeaderComponent],
   template: `
-    <div class="max-w-6xl mx-auto space-y-6">
-      <h1 class="text-2xl font-bold text-gray-900">Leave Approvals</h1>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <ui-page-header
+        title="Leave Approvals"
+        subtitle="Review pending leave applications"
+        [breadcrumbs]="[{ label: 'Approvals Center', route: '/client/approvals' }, { label: 'Leave Approvals' }]">
+      </ui-page-header>
 
       @if (loading) {
 <div class="text-gray-500 text-sm">Loading pending leave applications...</div>

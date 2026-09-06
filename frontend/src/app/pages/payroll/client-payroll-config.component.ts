@@ -24,6 +24,7 @@ import {
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
+import { PageHeaderComponent } from '../../shared/ui';
 
 /* ── Default form helpers ──────────────────────────────────────────────────── */
 
@@ -111,7 +112,7 @@ const INDIAN_STATES = [
 @Component({
   selector: 'app-client-payroll-config',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClientContextStripComponent],
+  imports: [CommonModule, FormsModule, ClientContextStripComponent, PageHeaderComponent],
   templateUrl: './client-payroll-config.component.html',
   styleUrls: ['./client-payroll-config.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -6,23 +6,22 @@ import { Subject } from 'rxjs';
 import { takeUntil, finalize, switchMap } from 'rxjs/operators';
 import { PerformanceAppraisalService } from '../../../core/services/performance-appraisal.service';
 import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/appraisal.models';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-client-appraisal-approve',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
     @if (appraisal) {
-<div class="page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">{{ appraisal.employee_name }} — Approval</h1>
-          <p class="page-subtitle">{{ appraisal.cycle_name }} | {{ appraisal.financial_year }} | Status: {{ appraisal.status.replace('_', ' ') }}</p>
-        </div>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <ui-page-header
+        [title]="appraisal.employee_name + ' — Approval'"
+        [subtitle]="appraisal.cycle_name + ' | ' + appraisal.financial_year + ' | Status: ' + appraisal.status.replace('_', ' ')">
         <a routerLink="/client/appraisals" class="appraisal-action">Back</a>
-      </div>
+      </ui-page-header>
 
       <!-- Employee Info -->
       <div class="table-card mb-6">

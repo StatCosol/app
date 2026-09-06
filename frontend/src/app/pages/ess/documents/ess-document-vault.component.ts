@@ -12,17 +12,18 @@ import {
   SharedFilePreviewModalComponent,
   SharedFilePreviewData,
 } from '../../../shared/components/file-preview';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-ess-document-vault',
   standalone: true,
-  imports: [CommonModule, FormsModule, SharedFilePreviewModalComponent],
+  imports: [CommonModule, FormsModule, SharedFilePreviewModalComponent, PageHeaderComponent],
   template: `
     <div class="space-y-6 max-w-6xl mx-auto">
-      <div>
-        <h1 class="text-2xl font-bold text-gray-900">Document Vault</h1>
-        <p class="text-sm text-gray-500">Letters, statutory documents, and identity files in one place</p>
-      </div>
+      <ui-page-header
+        title="Document Vault"
+        subtitle="Letters, statutory documents, and identity files in one place">
+      </ui-page-header>
 
       <div class="card p-4">
         <div class="flex flex-wrap gap-2 mb-3">

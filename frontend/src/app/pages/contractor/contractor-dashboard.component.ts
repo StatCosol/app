@@ -372,6 +372,10 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
   }
 
   openTask(t: any): void {
+    if (t?.id === 'rejected-docs') {
+      this.router.navigate(['/contractor/profile']);
+      return;
+    }
     if (t?.checklist) {
       // Checklist pseudo-items live on the tasks page's monthly checklist, not a task detail
       this.router.navigate(['/contractor/tasks']);
@@ -521,11 +525,25 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
 
     const rejectedItems = this.tasks.filter((t) => t.status === 'REJECTED');
     // Add contractor_documents rejected by auditor (AuditXpert) from dashboard API
-    // (count only — checklist rejects are already inside rejectedDocs)
     const apiRejectedDocs: number = Number(this.data?.rejectedDocs ?? 0);
     this.rejectedDocsCount = rejectedItems.length + apiRejectedDocs;
     const checklistRejected = checklistPending.filter((i) => i.status === 'REJECTED');
     this.rejectedItemsPreview = [...checklistRejected, ...rejectedItems].slice(0, 25);
+    if (!this.rejectedItemsPreview.length && apiRejectedDocs > 0) {
+      this.rejectedItemsPreview = [
+        {
+          id: 'rejected-docs',
+          title:
+            apiRejectedDocs === 1
+              ? '1 contractor document rejected'
+              : `${apiRejectedDocs} contractor documents rejected`,
+          branchName: 'Open Profile → Recent Documents',
+          clientName: '-',
+          dueDate: null,
+          status: 'REJECTED',
+        },
+      ];
+    }
 
     const expiringLicenses = this.tasks
       .filter((t) => this.looksLikeLicenseTask(t.title))

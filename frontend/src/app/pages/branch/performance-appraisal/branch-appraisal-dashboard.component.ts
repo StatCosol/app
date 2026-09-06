@@ -6,24 +6,21 @@ import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { PerformanceAppraisalService } from '../../../core/services/performance-appraisal.service';
 import { AppraisalDashboard } from '../../../core/models/appraisal.models';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-branch-appraisal-dashboard',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">Performance Appraisals</h1>
-          <p class="page-subtitle">Branch appraisal overview and pending actions</p>
-        </div>
-        <div class="flex items-center gap-3">
-          <a routerLink="/branch/appraisals" class="btn-secondary">View All Appraisals</a>
-          <a routerLink="/branch/appraisal-cycles" class="btn-secondary">Cycles</a>
-        </div>
-      </div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <ui-page-header
+        title="Performance Appraisals"
+        subtitle="Branch appraisal overview and pending actions">
+        <a routerLink="/branch/appraisals" class="btn-secondary">View All Appraisals</a>
+        <a routerLink="/branch/appraisal-cycles" class="btn-secondary">Cycles</a>
+      </ui-page-header>
 
       @if (loading) {
 <div class="flex items-center justify-center py-20">

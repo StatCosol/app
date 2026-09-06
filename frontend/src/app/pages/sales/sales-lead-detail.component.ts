@@ -10,11 +10,12 @@ import {
   LeadStage,
   SalesService,
 } from '../../modules/sales/sales.service';
+import { PageHeaderComponent } from '../../shared/ui';
 
 @Component({
   selector: 'app-sales-lead-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, PageHeaderComponent],
   template: `
     @if (loading) {
 <div class="text-center text-gray-500 py-10">Loading…</div>
@@ -22,14 +23,12 @@ import {
 
     @if (!loading && lead) {
 <div class="space-y-5">
-      <div class="flex items-center justify-between">
-        <div>
-          <a routerLink="/sales/leads" class="text-sm text-gray-500 hover:underline">← Leads</a>
-          <h2 class="text-2xl font-bold text-gray-900 mt-1">{{ lead.companyName }}</h2>
-          <div class="text-xs text-gray-500 mt-0.5">{{ lead.leadNo }} · created {{ lead.createdAt | date:'mediumDate' }}</div>
-        </div>
+      <ui-page-header
+        [title]="lead.companyName"
+        [subtitle]="lead.leadNo + ' · created ' + (lead.createdAt | date:'mediumDate')"
+        [breadcrumbs]="[{ label: 'Leads', route: '/sales/leads' }, { label: lead.companyName }]">
         <span class="text-xs px-2.5 py-1 rounded font-medium" [ngClass]="stageClass(lead.stage)">{{ lead.stage }}</span>
-      </div>
+      </ui-page-header>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <!-- Lead summary -->

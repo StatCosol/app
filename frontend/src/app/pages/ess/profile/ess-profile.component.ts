@@ -4,38 +4,32 @@ import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { EssApiService, EssProfile } from '../ess-api.service';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-ess-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PageHeaderComponent],
   template: `
     <div class="max-w-4xl mx-auto space-y-6">
-      <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold text-gray-900">My Profile</h1>
-        @if (emp) {
-<div class="flex gap-2">
-          @if (!editing) {
-<button (click)="startEdit()"
+      <ui-page-header title="My Profile" subtitle="Personal, employment, and bank details">
+        @if (emp && !editing) {
+          <button (click)="startEdit()"
             class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
             Edit Profile
           </button>
-}
-          @if (editing) {
-
-            <button (click)="cancelEdit()"
-              class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
-              Cancel
-            </button>
-            <button (click)="saveEdit()" [disabled]="saving"
-              class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition disabled:opacity-50">
-              {{ saving ? 'Saving...' : 'Save Changes' }}
-            </button>
-          
-}
-        </div>
-}
-      </div>
+        }
+        @if (emp && editing) {
+          <button (click)="cancelEdit()"
+            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
+            Cancel
+          </button>
+          <button (click)="saveEdit()" [disabled]="saving"
+            class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition disabled:opacity-50">
+            {{ saving ? 'Saving...' : 'Save Changes' }}
+          </button>
+        }
+      </ui-page-header>
 
       @if (loading) {
 <div class="text-gray-500 text-sm">Loading...</div>

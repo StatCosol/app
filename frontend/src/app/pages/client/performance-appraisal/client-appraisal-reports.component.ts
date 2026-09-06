@@ -6,25 +6,22 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { PerformanceAppraisalService } from '../../../core/services/performance-appraisal.service';
 import { AppraisalCycle } from '../../../core/models/appraisal.models';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-client-appraisal-reports',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">Appraisal Reports</h1>
-          <p class="page-subtitle">Analytics and reports for performance appraisals</p>
-        </div>
-        <div class="page-actions">
-          <a routerLink="/client/appraisal-dashboard" class="appraisal-action">Dashboard</a>
-          <button (click)="exportData()" class="appraisal-action">Export Data</button>
-        </div>
-      </div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <ui-page-header
+        title="Appraisal Reports"
+        subtitle="Analytics and reports for performance appraisals">
+        <a routerLink="/client/appraisal-dashboard" class="appraisal-action">Dashboard</a>
+        <button (click)="exportData()" class="appraisal-action">Export Data</button>
+      </ui-page-header>
 
       <!-- Cycle Filter -->
       <div class="table-card mb-6">

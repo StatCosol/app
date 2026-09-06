@@ -11,17 +11,25 @@ import {
   ServiceModuleOption,
   ServicePackageOption,
 } from '../../../core/service-entitlements.service';
+import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-admin-service-packages',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent],
   template: `
-    <section class="p-6 space-y-6">
-      <header>
-        <h1 class="text-2xl font-semibold text-slate-900">Client Service Packages</h1>
-        <p class="text-sm text-slate-500 mt-1">Create package requests for CCO approval.</p>
-      </header>
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <ui-page-header
+        title="Client Service Packages"
+        subtitle="Create package requests for CCO approval">
+        <ui-button variant="secondary" size="sm" [disabled]="loading" (clicked)="load()">
+          {{ loading ? 'Refreshing…' : 'Refresh' }}
+        </ui-button>
+      </ui-page-header>
+
+      @if (loading && !clients.length) {
+        <ui-loading-spinner text="Loading service packages..."></ui-loading-spinner>
+      }
 
       <div class="rounded-lg border border-slate-200 bg-white p-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <label class="block">
@@ -166,7 +174,7 @@ import {
 }
 
       @if (changeRequestedRequests.length) {
-<div class="rounded-lg border border-amber-200 bg-amber-50 overflow-hidden">
+      <div class="rounded-lg border border-amber-200 bg-amber-50">
         <div class="px-4 py-3 border-b border-amber-200 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 class="font-semibold text-amber-950">CCO Change Requests</h2>
@@ -209,7 +217,7 @@ import {
       </div>
 }
 
-      <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
+      <div class="rounded-lg border border-slate-200 bg-white">
         <div class="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 class="font-semibold text-slate-900">Recent Requests</h2>
@@ -304,7 +312,7 @@ import {
 <button
                  
                   type="button"
-                  class="text-blue-700 font-medium"
+                  class="rounded-md bg-blue-700 px-3 py-1.5 text-xs font-medium text-white"
                   (click)="reviseRequest(r)">
                   Revise
                 </button>
@@ -321,7 +329,7 @@ import {
         </table></div>
       </div>
 
-      <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
+      <div class="rounded-lg border border-slate-200 bg-white">
         <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
           <div>
             <h2 class="font-semibold text-slate-900">Audit Trail</h2>

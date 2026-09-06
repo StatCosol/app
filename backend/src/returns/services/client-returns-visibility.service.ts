@@ -1,12 +1,66 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { ReqUser } from '../../access/access-scope.service';
 
 @Injectable()
 export class ClientReturnsVisibilityService {
   constructor(private readonly dataSource: DataSource) {}
 
+  /**
+   * Resolve what this caller is actually allowed to see.
+   *
+   * These endpoints took clientId from a URL parameter and branchId from the
+   * query string, with no user context at all — the role guard checked that you
+   * were a CLIENT, never that you were *that* client. So any authenticated
+   * client user could read another tenant's returns by changing the UUID in the
+   * path, and a branch-scoped user could see every branch of their client by
+   * omitting branchId.
+   *
+   * Scope has to be decided here rather than in the caller: the frontend can
+   * choose sensible defaults, but anyone can craft the request themselves, so
+   * the filter the query runs with must come from the token.
+   */
+  private resolveScope(
+    user: ReqUser | undefined,
+    requestedClientId: string,
+    requestedBranchId?: string,
+  ): { clientId: string; branchIds: string[] | null } {
+    const isAdmin = user?.roleCode === 'ADMIN';
+    if (!isAdmin) {
+      if (!user?.clientId || user.clientId !== requestedClientId) {
+        throw new ForbiddenException('Not permitted for this client');
+      }
+    }
+
+    // A branch-scoped user is confined to their own branches whatever they ask
+    // for; an explicit branchId may only narrow that set, never widen it.
+    const assigned = user?.branchIds?.length ? user.branchIds : null;
+    if (assigned) {
+      if (requestedBranchId) {
+        if (!assigned.includes(requestedBranchId)) {
+          throw new ForbiddenException('Not permitted for this branch');
+        }
+        return { clientId: requestedClientId, branchIds: [requestedBranchId] };
+      }
+      return { clientId: requestedClientId, branchIds: assigned };
+    }
+    return {
+      clientId: requestedClientId,
+      branchIds: requestedBranchId ? [requestedBranchId] : null,
+    };
+  }
+
   /** Return tasks for a client (optionally filtered by branch) */
-  async getReturns(clientId: string, branchId?: string) {
+  async getReturns(
+    requestedClientId: string,
+    requestedBranchId?: string,
+    user?: ReqUser,
+  ) {
+    const { clientId, branchIds } = this.resolveScope(
+      user,
+      requestedClientId,
+      requestedBranchId,
+    );
     let sql = `
       SELECT cr.id, cr.law_type, cr.return_type, cr.period_year, cr.period_month,
              cr.period_label, cr.due_date, cr.filed_date, cr.status,
@@ -18,16 +72,25 @@ export class ClientReturnsVisibilityService {
       WHERE cr.client_id = $1 AND cr.is_deleted = false
     `;
     const params: unknown[] = [clientId];
-    if (branchId) {
-      sql += ` AND cr.branch_id = $2`;
-      params.push(branchId);
+    if (branchIds) {
+      sql += ` AND cr.branch_id = ANY($2)`;
+      params.push(branchIds);
     }
     sql += ` ORDER BY cr.due_date DESC`;
     return this.dataSource.query(sql, params);
   }
 
   /** Expiry / renewal tasks for a client */
-  async getExpiry(clientId: string, branchId?: string) {
+  async getExpiry(
+    requestedClientId: string,
+    requestedBranchId?: string,
+    user?: ReqUser,
+  ) {
+    const { clientId, branchIds } = this.resolveScope(
+      user,
+      requestedClientId,
+      requestedBranchId,
+    );
     let sql = `
       SELECT ret.id, ret.registration_name, ret.expiry_date,
              ret.days_before_expiry, ret.status, ret.notes AS remarks,
@@ -38,19 +101,28 @@ export class ClientReturnsVisibilityService {
       WHERE ret.client_id = $1
     `;
     const params: unknown[] = [clientId];
-    if (branchId) {
-      sql += ` AND ret.branch_id = $2`;
-      params.push(branchId);
+    if (branchIds) {
+      sql += ` AND ret.branch_id = ANY($2)`;
+      params.push(branchIds);
     }
     sql += ` ORDER BY ret.expiry_date ASC`;
     return this.dataSource.query(sql, params);
   }
 
   /** Aggregated compliance summary */
-  async getComplianceSummary(clientId: string, branchId?: string) {
-    const branchFilter = branchId ? 'AND cr.branch_id = $2' : '';
-    const branchFilterExp = branchId ? 'AND ret.branch_id = $2' : '';
-    const params: unknown[] = branchId ? [clientId, branchId] : [clientId];
+  async getComplianceSummary(
+    requestedClientId: string,
+    requestedBranchId?: string,
+    user?: ReqUser,
+  ) {
+    const { clientId, branchIds } = this.resolveScope(
+      user,
+      requestedClientId,
+      requestedBranchId,
+    );
+    const branchFilter = branchIds ? 'AND cr.branch_id = ANY($2)' : '';
+    const branchFilterExp = branchIds ? 'AND ret.branch_id = ANY($2)' : '';
+    const params: unknown[] = branchIds ? [clientId, branchIds] : [clientId];
 
     const returnRows = await this.dataSource.query(
       `SELECT

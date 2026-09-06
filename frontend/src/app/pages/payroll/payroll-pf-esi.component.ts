@@ -22,6 +22,7 @@ import { PayrollSetupApiService } from './payroll-setup-api.service';
 import { ActivatedRoute } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
+import { PageHeaderComponent } from '../../shared/ui';
 
 type SchemeFilter = 'ALL' | 'PF' | 'ESI';
 type RemittanceFilter = 'ALL' | 'READY' | 'IN_PROGRESS' | 'NOT_STARTED' | 'REWORK' | 'UNKNOWN';
@@ -32,7 +33,7 @@ type UploadRegisterType = 'PF_CHALLAN_REGISTER' | 'ESI_CHALLAN_REGISTER' | 'ECR'
 @Component({
   selector: 'app-payroll-pf-esi',
   standalone: true,
-  imports: [FormsModule, ClientContextStripComponent],
+  imports: [FormsModule, ClientContextStripComponent, PageHeaderComponent],
   templateUrl: './payroll-pf-esi.component.html',
   styleUrls: ['./payroll-pf-esi.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

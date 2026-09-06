@@ -87,9 +87,19 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                 </td>
               </tr>
 }
+              <!-- Say WHICH data is missing, and for when.
+                   This table is monthly compliance upload progress, not the
+                   vendor roster. "No contractor data available" next to a
+                   dashboard reporting 40 contractors reads as though the
+                   records have been lost, and was reported as a bug on exactly
+                   that basis. The contractors still exist; nothing has been
+                   uploaded for the selected month. -->
               @if (contractors.length === 0) {
 <tr>
-                <td colspan="4" class="text-center text-slate-400 py-12">No contractor data available</td>
+                <td colspan="4" class="text-center py-12">
+                  <div class="text-slate-500 font-medium">No contractor uploads for {{ currentMonth }}</div>
+                  <div class="text-slate-400 text-xs mt-1">This page tracks monthly compliance upload progress. Contractors on this branch are unaffected — pick another month, or upload documents to see progress here.</div>
+                </td>
               </tr>
 }
             </tbody>

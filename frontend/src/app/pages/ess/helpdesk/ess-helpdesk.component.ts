@@ -2,6 +2,7 @@ import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EssApiService } from '../ess-api.service';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 interface EssTicket {
   id: string;
@@ -25,13 +26,13 @@ interface EssMessage {
 @Component({
   selector: 'app-ess-helpdesk',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PageHeaderComponent],
   template: `
     <div class="space-y-6">
-      <div>
-        <h1 class="text-2xl font-bold text-gray-900">Helpdesk</h1>
-        <p class="mt-1 text-sm text-gray-500">Raise and track your PF, ESI, and Payslip queries</p>
-      </div>
+      <ui-page-header
+        title="Helpdesk"
+        subtitle="Raise and track your PF, ESI, and Payslip queries">
+      </ui-page-header>
 
       <!-- New Ticket Form -->
       <div class="bg-white rounded-xl border border-gray-200 p-6">

@@ -4,12 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { BranchComplianceFacade } from '../services/branch-compliance.facade';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
-import { DataTableComponent, TableCellDirective, TableColumn } from '../../../shared/ui';
+import { DataTableComponent, PageHeaderComponent, TableCellDirective, TableColumn } from '../../../shared/ui';
 
 @Component({
   selector: 'app-branch-compliance-docs',
   standalone: true,
-  imports: [CommonModule, FormsModule, DataTableComponent, TableCellDirective],
+  imports: [CommonModule, FormsModule, DataTableComponent, TableCellDirective, PageHeaderComponent],
   templateUrl: './branch-compliance-docs.component.html',
 })
 export class BranchComplianceDocsComponent implements OnInit {

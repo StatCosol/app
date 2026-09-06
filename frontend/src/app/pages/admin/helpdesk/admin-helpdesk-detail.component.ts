@@ -5,22 +5,20 @@ import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { AdminHelpdeskApiService, HdTicket, HdMessage } from './admin-helpdesk-api.service';
 import { AdminUsersApi, UserDto } from '../../../core/api/admin-users.api';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-admin-helpdesk-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [CommonModule, RouterModule, FormsModule, PageHeaderComponent],
   template: `
     @if (ticket) {
 <div class="space-y-6">
-      <!-- Back + Header -->
-      <div class="flex items-center gap-3">
-        <a routerLink="/admin/helpdesk" class="text-gray-400 hover:text-gray-600 transition-colors">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
-        </a>
-        <h1 class="text-xl font-bold text-gray-900">Ticket Detail</h1>
+      <ui-page-header
+        title="Ticket Detail"
+        [breadcrumbs]="[{ label: 'Helpdesk', route: '/admin/helpdesk' }, { label: 'Ticket Detail' }]">
         <span class="text-xs px-2 py-0.5 rounded-full font-medium" [class]="statusClass(ticket.status)">{{ ticket.status.replace('_', ' ') }}</span>
-      </div>
+      </ui-page-header>
 
       <!-- Ticket Info -->
       <div class="bg-white rounded-xl border border-gray-200 p-6">

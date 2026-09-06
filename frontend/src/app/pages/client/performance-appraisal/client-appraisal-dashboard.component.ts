@@ -6,25 +6,22 @@ import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { PerformanceAppraisalService } from '../../../core/services/performance-appraisal.service';
 import { AppraisalDashboard } from '../../../core/models/appraisal.models';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-client-appraisal-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">Performance Appraisals</h1>
-          <p class="page-subtitle">Organization-wide appraisal overview and analytics</p>
-        </div>
-        <div class="page-actions">
-          <a routerLink="/client/appraisals" class="appraisal-action">All Appraisals</a>
-          <a routerLink="/client/appraisal-cycles" class="appraisal-action appraisal-action--primary">Manage Cycles</a>
-        </div>
-      </div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <ui-page-header
+        title="Performance Appraisals"
+        subtitle="Organization-wide appraisal overview and analytics">
+        <a routerLink="/client/appraisals" class="appraisal-action">All Appraisals</a>
+        <a routerLink="/client/appraisal-cycles" class="appraisal-action appraisal-action--primary">Manage Cycles</a>
+      </ui-page-header>
 
       @if (loading) {
 <div class="flex items-center justify-center py-20"><div class="spinner"></div></div>

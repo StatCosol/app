@@ -5,14 +5,15 @@ import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { EssApiService, Payslip } from '../ess-api.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-ess-payslips',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PageHeaderComponent],
   template: `
     <div class="max-w-5xl mx-auto space-y-6">
-      <h1 class="text-2xl font-bold text-gray-900">My Payslips</h1>
+      <ui-page-header title="My Payslips" subtitle="Download monthly salary slips"></ui-page-header>
 
       <!-- Filter bar -->
       <div class="flex flex-wrap items-end gap-3">

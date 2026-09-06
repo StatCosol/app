@@ -2,15 +2,18 @@ import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 
 import { RouterModule } from '@angular/router';
 import { AdminClientsService, Client, Branch } from '../clients/admin-clients.service';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-applicability-list',
   standalone: true,
-  imports: [RouterModule],
+  imports: [RouterModule, PageHeaderComponent],
   template: `
     <div class="p-6 max-w-6xl mx-auto">
-      <h1 class="text-2xl font-bold text-slate-800 mb-1">Applicability Engine</h1>
-      <p class="text-slate-500 mb-6">Configure compliance applicability rules per branch</p>
+      <ui-page-header
+        title="Applicability Engine"
+        subtitle="Configure compliance applicability rules per branch">
+      </ui-page-header>
 
       @if (error) {
         <div class="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">

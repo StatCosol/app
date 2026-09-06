@@ -5,27 +5,24 @@ import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs/operators';
 import { PerformanceAppraisalService } from '../../../core/services/performance-appraisal.service';
 import { AppraisalTemplate } from '../../../core/models/appraisal.models';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-client-appraisal-templates',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">Appraisal Templates</h1>
-          <p class="page-subtitle">Manage rating templates used in appraisal cycles</p>
-        </div>
-        <div class="page-actions">
-          <a routerLink="/client/appraisal-cycles" class="appraisal-action">Cycles</a>
-          <button type="button" class="appraisal-action appraisal-action--primary" (click)="showCreate = !showCreate">
-            {{ showCreate ? 'Cancel' : 'New Template' }}
-          </button>
-        </div>
-      </div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <ui-page-header
+        title="Appraisal Templates"
+        subtitle="Manage rating templates used in appraisal cycles">
+        <a routerLink="/client/appraisal-cycles" class="appraisal-action">Cycles</a>
+        <button type="button" class="appraisal-action appraisal-action--primary" (click)="showCreate = !showCreate">
+          {{ showCreate ? 'Cancel' : 'New Template' }}
+        </button>
+      </ui-page-header>
 
       @if (showCreate) {
         <div class="table-card mb-6">

@@ -1,14 +1,15 @@
 import { Component, OnInit } from '@angular/core';
 
 import { AuthService } from '../../core/auth.service';
+import { PageHeaderComponent } from '../../shared/ui';
 
 @Component({
   selector: 'app-sales-profile',
   standalone: true,
-  imports: [],
+  imports: [PageHeaderComponent],
   template: `
     <div class="max-w-2xl mx-auto space-y-5">
-      <h2 class="text-2xl font-bold text-gray-900">My Profile</h2>
+      <ui-page-header title="My Profile" subtitle="Your sales workspace identity"></ui-page-header>
       <div class="bg-white rounded-xl border border-gray-200 p-5">
         @if (!user) {
 <div class="text-gray-500 text-sm">Loading…</div>

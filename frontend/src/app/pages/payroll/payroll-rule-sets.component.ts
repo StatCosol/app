@@ -20,6 +20,7 @@ import { ActivatedRoute } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
+import { PageHeaderComponent } from '../../shared/ui';
 
 interface RuleSetFormModel {
   name: string;
@@ -58,7 +59,7 @@ interface GuardrailCheck {
 @Component({
   selector: 'app-payroll-rule-sets',
   standalone: true,
-  imports: [FormsModule, ClientContextStripComponent],
+  imports: [FormsModule, ClientContextStripComponent, PageHeaderComponent],
   templateUrl: './payroll-rule-sets.component.html',
   styleUrls: ['./payroll-rule-sets.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

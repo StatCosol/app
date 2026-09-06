@@ -29,12 +29,13 @@ import {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
     <ui-page-header
       title="Contractor Attendance"
       subtitle="View ConTrack face-attendance punches for contractor employees in your branch"
     ></ui-page-header>
 
-    <div class="p-4 md:p-6 space-y-4">
+    <div class="space-y-4">
       <div
         class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-3"
       >
@@ -217,6 +218,7 @@ import {
         
 }
       </div>
+    </div>
     </div>
   `,
 })
