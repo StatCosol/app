@@ -1396,53 +1396,70 @@ async function bootstrap() {
   // which is canonical and to repoint the history, which is not a boot patch's
   // job. Deactivated rather than deleted, so the row is still there to explain
   // an old document if one turns up.
+  // An explicit list of verified aliases, NOT a rule.
+  //
+  // A rule was tried and was wrong in both directions. Grouping by
+  // (return_name, applies_to, frequency) treats PT_AP / PT_TS / PT_KA / PT_MH as
+  // duplicates of each other — they share all three and differ only by
+  // state_code — so it would have deactivated Professional Tax for three states,
+  // and Labour Welfare Fund for four. In a compliance product, silently removing
+  // a statutory item for a whole state is the worst thing this patch could do.
+  //
+  // It also would not have fixed the reported bug: the legacy rows predate the
+  // applies_to column (added 2026-03-21 with DEFAULT 'BRANCH'), so they are
+  // BRANCH while the FACT_ rows are FACTORY, and the two never group.
+  //
+  // No grouping key separates the real aliases from the state variants reliably,
+  // so this does not try. These four codes were read out of the migrations and
+  // confirmed by hand; anything else is left alone and merely reported.
+  const REGISTER_ALIASES: Array<{ retire: string; keep: string }> = [
+    { retire: 'ACCIDENT_REGISTER', keep: 'FACT_ACCIDENT_REGISTER' },
+    { retire: 'OVERTIME_REGISTER', keep: 'FACT_OT_REGISTER' },
+  ];
   try {
-    const res = await ds.query(
-      `WITH ranked AS (
-         SELECT m.return_code,
-                ROW_NUMBER() OVER (
-                  PARTITION BY m.return_name, m.applies_to, m.frequency
-                  ORDER BY COUNT(d.id) DESC, m.return_code ASC
-                ) AS rnk,
-                COUNT(d.id) AS docs,
-                COUNT(*) OVER (
-                  PARTITION BY m.return_name, m.applies_to, m.frequency
-                ) AS twins
-           FROM compliance_return_master m
-           LEFT JOIN compliance_documents d ON d.return_code = m.return_code
-          WHERE m.is_active = true
-          GROUP BY m.return_code, m.return_name, m.applies_to, m.frequency
-       )
-       UPDATE compliance_return_master t
-          SET is_active = false
-         FROM ranked r
-        WHERE t.return_code = r.return_code
-          AND r.twins > 1
-          AND r.rnk > 1
-          AND r.docs = 0
-        RETURNING t.return_code`,
-    );
-    const rows = Array.isArray(res) ? res : [];
-    if (rows.length) {
+    const retired: string[] = [];
+    for (const { retire, keep } of REGISTER_ALIASES) {
+      // Retire only when the replacement is really there and really active, and
+      // only when nothing points at the old code — compliance_documents
+      // references registers by return_code, so retiring one that carries
+      // history would orphan real uploads.
+      const res = await ds.query(
+        `UPDATE compliance_return_master t
+            SET is_active = false
+          WHERE t.return_code = $1
+            AND t.is_active = true
+            AND EXISTS (
+              SELECT 1 FROM compliance_return_master k
+               WHERE k.return_code = $2 AND k.is_active = true
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM compliance_documents d WHERE d.return_code = $1
+            )
+          RETURNING t.return_code`,
+        [retire, keep],
+      );
+      if ((Array.isArray(res) ? res.length : 0) > 0) retired.push(retire);
+    }
+    if (retired.length) {
       logger.log(
-        `Schema patch: retired ${rows.length} duplicate register(s): ` +
-          rows.map((r: any) => r.return_code).join(', '),
+        `Schema patch: retired duplicate register(s) ${retired.join(', ')}`,
       );
     }
-    // Anything still duplicated has documents on both sides — say so loudly
-    // rather than leaving it to be rediscovered from the UI.
+
+    // Report-only, and never acted on. state_code is in the grouping so the
+    // per-state PT and LWF rows are not reported as duplicates of each other.
     const stuck = await ds.query(
-      `SELECT return_name, applies_to, frequency,
+      `SELECT return_name, applies_to, frequency, state_code,
               string_agg(return_code, ', ' ORDER BY return_code) AS codes
          FROM compliance_return_master
         WHERE is_active = true
-        GROUP BY return_name, applies_to, frequency
+        GROUP BY return_name, applies_to, frequency, state_code
        HAVING COUNT(*) > 1`,
     );
     for (const s of Array.isArray(stuck) ? stuck : []) {
       logger.warn(
-        `Duplicate register still active (documents on more than one code, ` +
-          `needs a manual decision): "${s.return_name}" [${s.applies_to}/${s.frequency}] → ${s.codes}`,
+        `Duplicate register active, needs a manual decision: ` +
+          `"${s.return_name}" [${s.applies_to}/${s.frequency}/${s.state_code}] → ${s.codes}`,
       );
     }
   } catch (e: any) {
