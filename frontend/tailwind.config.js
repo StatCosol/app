@@ -72,18 +72,16 @@ module.exports = {
           900: '#0c4a6e',
           950: '#082f49',
         },
-        'accent': {
-          50: '#f0fdff',
-          100: '#cef8ff',
-          200: '#9ef2ff',
-          300: '#5de9ff',
-          400: '#1eb6f7',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
-        },
+        /* The cyan 'accent' ramp that used to sit here is gone. It duplicated
+         * the `accent` key defined above, and last-key-wins meant it silently
+         * discarded the brand green ramp on every build — so --statco-accent
+         * resolved to green while every accent-* utility still compiled cyan.
+         *
+         * Green wins because it is the brand's second colour and the 15 call
+         * sites are pure chrome (focus rings, a loading spinner), carrying no
+         * semantic meaning that a colour change would break. Its 400 step was
+         * #1eb6f7, the legacy statco-light-blue, which is still available as
+         * statco-blue.light for anything that genuinely wants it. */
         'success': {
           50: '#f0fdf4',
           100: '#dcfce7',
