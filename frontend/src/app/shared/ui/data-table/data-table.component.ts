@@ -54,7 +54,7 @@ export class TableCellDirective {
 
       <!-- Table -->
       <div class="overflow-x-auto">
-        <table class="w-full table-fixed min-w-[600px]">
+        <table class="w-full table-fixed" [style.min-width]="minWidth">
           <thead>
             <tr>
               @for (col of columns; track col) {
@@ -215,6 +215,18 @@ export class DataTableComponent {
   @Input() data: any[] = [];
   @Input() loading = false;
   @Input() emptyMessage = 'No data available';
+  /**
+   * Floor for the table's width before the wrapper starts scrolling.
+   *
+   * 600px suits the wide tables this was built for — it stops eight columns
+   * crushing into an unreadable concertina on a narrow screen. It is wrong for a
+   * short one: a three-column table in a side card was pushed past its container
+   * and grew a horizontal scrollbar for a single row of data.
+   *
+   * Kept as the default so every existing table behaves exactly as before, and
+   * overridable ("0") where the column count does not need the floor.
+   */
+  @Input() minWidth = '600px';
   @Input() clickable = false;
   /** When set, an "Export CSV" button is shown that downloads the current rows as <name>.csv */
   @Input() exportFileName = '';
