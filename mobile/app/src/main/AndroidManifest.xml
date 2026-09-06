@@ -17,9 +17,19 @@
         </intent>
     </queries>
 
+    <!-- allowClearUserData="false": Settings is reachable from the locked kiosk
+         so staff can fix Wi-Fi without the admin PIN, and lock-task whitelisting
+         is package-level — there is no way to expose only the Wi-Fi screen. That
+         put Apps > Storage > Clear data within reach of anyone at the gate, which
+         would wipe the device token, the admin PIN and any queued punches and
+         leave the kiosk asking for an install token nobody there can supply. The
+         app itself cannot be uninstalled (Device Owner); this closes the other
+         way to achieve the same thing. See KioskLock.blockDestructiveSettings
+         for the factory-reset and safe-mode halves. -->
     <application
         android:name=".AttendanceApp"
         android:allowBackup="false"
+        android:allowClearUserData="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"

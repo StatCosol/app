@@ -7,6 +7,7 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.os.Build
+import android.os.UserManager
 import android.provider.Settings
 import android.view.View
 import android.view.WindowInsets
@@ -87,6 +88,7 @@ object KioskLock {
                     arrayOf(activity.packageName, SETTINGS_PACKAGE),
                 )
                 allowStatusBar(dpm, admin)
+                blockDestructiveSettings(dpm, admin)
             }
             activity.startLockTask()
         } catch (_: Exception) {
@@ -122,6 +124,37 @@ object KioskLock {
                 DevicePolicyManager.LOCK_TASK_FEATURE_SYSTEM_INFO or
                     DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS,
             )
+        }
+    }
+
+    /**
+     * Shut the destructive doors that opening Settings left ajar.
+     *
+     * The app cannot be uninstalled — Device Owner sees to that — but "cannot be
+     * uninstalled" is not "cannot be killed", and two cheaper routes reach the
+     * same place. Clear data wipes the device token, the admin PIN and any
+     * queued punches, leaving the kiosk asking for an install token nobody at a
+     * gate can supply. Factory reset does the lot. Both sit a few taps inside
+     * Settings, which this kiosk deliberately allows through lock task so staff
+     * can fix Wi-Fi without the admin PIN.
+     *
+     * As Device Owner these are user restrictions the Settings UI then refuses
+     * to override, so Wi-Fi stays reachable while the destructive paths close.
+     * Safe mode is included because booting into it is the other way to get a
+     * device admin out of the way.
+     *
+     * Deliberately NOT restricted: DISALLOW_DEBUGGING_FEATURES. It would block
+     * adb, and adb is how this device gets serviced and recovered — including
+     * undoing these very restrictions, which is the only way back to a factory
+     * reset once DISALLOW_FACTORY_RESET is in force.
+     */
+    private fun blockDestructiveSettings(dpm: DevicePolicyManager, admin: ComponentName) {
+        listOf(
+            UserManager.DISALLOW_FACTORY_RESET,
+            UserManager.DISALLOW_APPS_CONTROL,
+            UserManager.DISALLOW_SAFE_BOOT,
+        ).forEach { restriction ->
+            runCatching { dpm.addUserRestriction(admin, restriction) }
         }
     }
 
