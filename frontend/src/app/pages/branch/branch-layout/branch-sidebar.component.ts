@@ -168,7 +168,11 @@ interface SidebarItem {
             <!-- Collapsible group (has children) -->
             @if (item.children) {
 <div class="sidebar-group">
-              <button class="sidebar-item sidebar-group-toggle" (click)="toggleGroup(item)">
+              <!-- title: .sidebar-label ellipsises at 15rem, so "Reports &
+                   Communication" renders as "Reports & Commu…" with no way to
+                   read the rest. Applied to every label rather than shortening
+                   this one, since the next long label would hit it too. -->
+              <button class="sidebar-item sidebar-group-toggle" (click)="toggleGroup(item)" [title]="item.label">
                 <span class="sidebar-icon" [innerHTML]="item.icon"></span>
                 <span class="sidebar-label">{{ item.label }}</span>
                 @if (totalBadge(item)) {
@@ -179,14 +183,16 @@ interface SidebarItem {
                 </svg>
               </button>
               <div class="sidebar-children" [class.sidebar-children--open]="item.expanded">
+                <div class="sidebar-children-inner">
                 @for (child of item.children; track child) {
 <a
-                 
+
                   [routerLink]="child.route"
                   routerLinkActive="sidebar-active"
                   [routerLinkActiveOptions]="{ exact: child.route === '/branch/compliance' || child.route === '/branch/attendance' }"
                   (click)="onNavClick()"
                   class="sidebar-item sidebar-child"
+                  [title]="child.label"
                 >
                   <span class="sidebar-icon" [innerHTML]="child.icon"></span>
                   <span class="sidebar-label">{{ child.label }}</span>
@@ -195,6 +201,7 @@ interface SidebarItem {
 }
                 </a>
 }
+                </div>
               </div>
             </div>
 }
@@ -435,13 +442,30 @@ interface SidebarItem {
       border: none;
       text-align: left;
     }
+    /* Height follows the content instead of a fixed cap.
+     *
+     * This was max-height: 400px with overflow: hidden. Compliance has twelve
+     * children — about 408px of rows — so its last item was clipped, invisible
+     * and unclickable, and Workforce at nine sat close enough to the line to
+     * behave differently depending on row height. A magic number here breaks
+     * silently every time someone adds a menu item, and the failure looks like
+     * a routing bug rather than a CSS one.
+     *
+     * The 0fr/1fr grid animates to natural height, so nothing is ever clipped
+     * and no number needs maintaining. The inner wrapper is required: the
+     * transition works on the row track, so the overflow must be hidden on the
+     * child, not on the grid itself. */
     .sidebar-children {
-      max-height: 0;
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.3s ease;
+    }
+    .sidebar-children-inner {
       overflow: hidden;
-      transition: max-height 0.3s ease;
+      min-height: 0;
     }
     .sidebar-children--open {
-      max-height: 400px;
+      grid-template-rows: 1fr;
     }
     .sidebar-child {
       padding-left: 2.5rem;
