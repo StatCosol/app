@@ -5,13 +5,13 @@
 :host {
   --navy-950: #06132B;
   --navy-900: #0A1F44;
-  --navy-800: #16305A;
-  --navy-700: #064996;
-  --green: #1ca965;
-  --green-light: #36c779;
-  --text-dark: #071f4c;
+  --navy-800: #0F2650;
+  --navy-700: #16305A;
+  --green: #20A15A;
+  --green-light: #3FB57B;
+  --text-dark: #0A1F44;
   --text-muted: #5d6b82;
-  --border: #d7dfeb;
+  --border: #C3D0E6;
 
   display: block;
   width: 100%;
@@ -40,7 +40,7 @@
   color: #fff;
   background:
     radial-gradient(circle at 70% 48%, rgba(32, 161, 90, 0.25), transparent 28%),
-    linear-gradient(135deg, #06132B 0%, #0F2650 50%, #16305A 100%);
+    linear-gradient(135deg, #06132B 0%, #0F2650 50%, #0F2650 100%);
 }
 .brand-panel::before {
   content: "";
@@ -97,7 +97,7 @@
   margin: 0;
   font-size: 18px;
   line-height: 1.75;
-  color: #e1e9f4;
+  color: #E1E8F2;
 }
 
 /* Shield */
@@ -122,7 +122,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, #16305A, #06132B);
+  background: linear-gradient(145deg, #0F2650, #06132B);
   border: 4px solid #20A15A;
   clip-path: polygon(50% 0, 95% 18%, 90% 65%, 75% 82%, 50% 100%, 25% 82%, 10% 65%, 5% 18%);
 }
@@ -170,7 +170,7 @@
   color: #3FB57B;
 }
 .service-icon svg { width: 27px; height: 27px; }
-.service-item span { color: #eef6ff; font-size: 14px; line-height: 1.4; }
+.service-item span { color: #F2F5FA; font-size: 14px; line-height: 1.4; }
 
 /* Technology strip */
 .technology-strip {
@@ -192,7 +192,7 @@
 .tech-item:last-child { border: none; }
 .tech-item svg { width: 27px; height: 27px; color: var(--green-light); flex-shrink: 0; }
 .tech-item strong { display: block; font-size: 14px; }
-.tech-item span { display: block; margin-top: 3px; color: #d1deed; font-size: 11px; }
+.tech-item span { display: block; margin-top: 3px; color: #C3D0E6; font-size: 11px; }
 
 /* ---------------- RIGHT / LOGIN PANEL ---------------- */
 .login-panel {
@@ -222,7 +222,7 @@
   margin: 12px auto 0;
   padding: 7px 16px;
   border-radius: 30px;
-  background: #edf8f3;
+  background: #EAF7F0;
   color: var(--green);
   font-size: 12px;
   font-weight: 700;
@@ -366,7 +366,7 @@
   gap: 10px;
   border: none;
   border-radius: 7px;
-  background: linear-gradient(90deg, #16305A, #1E3C6E);
+  background: linear-gradient(90deg, #0F2650, #1E3C6E);
   color: #fff;
   font-family: inherit;
   font-size: 14px;
@@ -417,7 +417,7 @@
   border-radius: 8px;
   transition: .2s ease;
 }
-.workspace-item:hover { background: #edf5ff; }
+.workspace-item:hover { background: #F2F5FA; }
 .workspace-item div { height: 34px; display: flex; align-items: center; justify-content: center; }
 .workspace-item svg { width: 25px; height: 25px; }
 .workspace-item span { display: block; margin-top: 6px; font-size: 10px; font-weight: 600; }
@@ -448,7 +448,7 @@
   gap: 7px;
   border-top: 1px solid rgba(47, 136, 215, .3);
   background: #06132B;
-  color: #d2ddea;
+  color: #C3D0E6;
   font-size: 11px;
   text-align: center;
 }
