@@ -8,6 +8,8 @@ import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.statcosol.attendance.BuildConfig
@@ -105,6 +107,21 @@ class SetupActivity : AppCompatActivity() {
             setOnClickListener { returnToKiosk() }
         }
 
+        // The way back out of the device-owner restrictions.
+        //
+        // Nothing outside the app can lift them: dpm remove-active-admin refuses
+        // to remove a Device Owner unless the package is testOnly, which a
+        // production build is not. Without this the handset could never be reset
+        // or repurposed. It sits here because this screen is only reachable with
+        // the admin PIN, so the PIN gates it without a second prompt.
+        //
+        // Long-press, not tap: the button next to it is the one people mean, and
+        // this should be hard to hit by accident.
+        findViewById<TextView>(R.id.setupIntro).setOnLongClickListener {
+            confirmReleaseForService()
+            true
+        }
+
         // Actually return when the window ends, rather than only promising to.
         //
         // The expiry was checked once, in onCreate. Left on this screen, nothing
@@ -135,6 +152,22 @@ class SetupActivity : AppCompatActivity() {
         }
         maintenanceTick = tick
         tick.run()
+    }
+
+    /**
+     * Confirm before lifting the device-owner restrictions, because it cannot be
+     * undone from here — re-applying them needs the kiosk set up again.
+     */
+    private fun confirmReleaseForService() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.setup_release_title)
+            .setMessage(R.string.setup_release_message)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.setup_release_confirm) { _, _ ->
+                KioskLock.releaseForService(this)
+                Toast.makeText(this, R.string.setup_release_done, Toast.LENGTH_LONG).show()
+            }
+            .show()
     }
 
     /** End the maintenance window now and hand the device back to the kiosk. */

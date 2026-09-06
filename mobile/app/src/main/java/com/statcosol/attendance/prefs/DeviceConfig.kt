@@ -124,6 +124,22 @@ class DeviceConfig(context: Context) {
     fun inMaintenanceWindow(): Boolean =
         System.currentTimeMillis() < maintenanceUntilMs
 
+    /**
+     * Service mode: the kiosk stops re-applying the device-owner restrictions
+     * that block factory reset, app control and safe boot.
+     *
+     * Those restrictions have no route out from adb. `dpm remove-active-admin`
+     * refuses to remove a Device Owner unless the package declares
+     * android:testOnly, which a production build does not — so once applied,
+     * nothing outside the app can lift them and the device could not be reset
+     * or repurposed. This flag is that route, and it has to be persistent:
+     * lifting the restrictions alone would not survive the next kiosk start,
+     * which re-applies them.
+     */
+    var serviceMode: Boolean
+        get() = prefs.getBoolean(KEY_SERVICE_MODE, false)
+        set(value) = prefs.edit().putBoolean(KEY_SERVICE_MODE, value).apply()
+
     /** FaceDesk admin PIN — gates switching this device into enrollment mode. */
     var faceDeskAdminPin: String
         get() = prefs.getString(KEY_FD_ADMIN_PIN, "") ?: ""
@@ -169,6 +185,7 @@ class DeviceConfig(context: Context) {
         private const val KEY_FD_ADMIN_PIN = "fd_admin_pin"
         private const val KEY_FD_ID_MODE = "fd_identification_mode"
         private const val KEY_MAINTENANCE_UNTIL = "maintenance_until_ms"
+        private const val KEY_SERVICE_MODE = "service_mode"
         private const val DEFAULT_API_BASE = "https://app.statcosol.com"
     }
 }

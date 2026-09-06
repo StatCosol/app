@@ -201,4 +201,8 @@
     <string name="facedesk_voice_logged_in_generic">Logged in</string>
     <string name="facedesk_voice_logged_out_generic">Logged out</string>
     <string name="kiosk_header_offline">OFFLINE — CHECK NETWORK</string>
+    <string name="setup_release_title">Release device for service?</string>
+    <string name="setup_release_message">Allows factory reset, app control and safe mode again. Use before resetting or repurposing this handset — the kiosk cannot re-apply these locks afterwards without being set up again.</string>
+    <string name="setup_release_confirm">Release</string>
+    <string name="setup_release_done">Released. Factory reset is now available in Settings.</string>
 </resources>

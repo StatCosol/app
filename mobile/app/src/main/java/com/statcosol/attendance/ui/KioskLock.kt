@@ -7,6 +7,7 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.os.Build
+import android.os.UserManager
 import android.provider.Settings
 import android.view.View
 import android.view.WindowInsets
@@ -45,6 +46,13 @@ object KioskLock {
      * and it is a one-line revert if a site decides otherwise.
      */
     private const val SETTINGS_PACKAGE = "com.android.settings"
+
+    /** Restrictions applied while the kiosk is in service; lifted by releaseForService. */
+    private val DESTRUCTIVE_RESTRICTIONS = listOf(
+        UserManager.DISALLOW_FACTORY_RESET,
+        UserManager.DISALLOW_APPS_CONTROL,
+        UserManager.DISALLOW_SAFE_BOOT,
+    )
 
     /** Hide the status/nav bars so the kiosk fills the whole screen. Call from
      *  onCreate AND onResume — the system re-shows the bars after dialogs and
@@ -87,6 +95,7 @@ object KioskLock {
                     arrayOf(activity.packageName, SETTINGS_PACKAGE),
                 )
                 allowStatusBar(dpm, admin)
+                blockDestructiveSettings(activity, dpm, admin)
             }
             activity.startLockTask()
         } catch (_: Exception) {
@@ -123,6 +132,93 @@ object KioskLock {
                     DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS,
             )
         }
+    }
+
+    /**
+     * Shut the destructive doors that opening Settings left ajar.
+     *
+     * The app cannot be uninstalled — Device Owner sees to that — but "cannot be
+     * uninstalled" is not "cannot be killed", and two cheaper routes reach the
+     * same place. Clear data wipes the device token, the admin PIN and any
+     * queued punches, leaving the kiosk asking for an install token nobody at a
+     * gate can supply. Factory reset does the lot. Both sit a few taps inside
+     * Settings, which this kiosk deliberately allows through lock task so staff
+     * can fix Wi-Fi without the admin PIN.
+     *
+     * As Device Owner these are user restrictions the Settings UI then refuses
+     * to override, so Wi-Fi stays reachable while the destructive paths close.
+     * Safe mode is included because booting into it is the other way to get a
+     * device admin out of the way.
+     *
+     * Deliberately NOT restricted: DISALLOW_DEBUGGING_FEATURES, so adb keeps
+     * working for servicing.
+     *
+     * adb is NOT, however, a way out of these restrictions — an earlier version
+     * of this comment claimed it was, and that was wrong. `dpm
+     * remove-active-admin` refuses to remove a Device Owner unless the package
+     * declares android:testOnly, which a production build does not. The only
+     * route back is [releaseForService], which is why it exists: a restriction
+     * with no removal path is how a kiosk becomes e-waste.
+     */
+    private fun blockDestructiveSettings(
+        activity: Activity,
+        dpm: DevicePolicyManager,
+        admin: ComponentName,
+    ) {
+        // Service mode is the way back out — see releaseForService. Without this
+        // check the restrictions would be re-applied on the next kiosk start and
+        // the release would last only until someone tapped the icon.
+        val released = runCatching { DeviceConfig(activity).serviceMode }.getOrDefault(false)
+        if (released) return
+        DESTRUCTIVE_RESTRICTIONS.forEach { restriction ->
+            runCatching { dpm.addUserRestriction(admin, restriction) }
+        }
+    }
+
+    /**
+     * Hand the device back for servicing: lift the restrictions that block
+     * factory reset, app control and safe boot, and remember not to re-apply
+     * them.
+     *
+     * This exists because there is otherwise NO way out. `dpm
+     * remove-active-admin` refuses to remove a Device Owner unless the package
+     * declares android:testOnly, which a production build does not — so once
+     * DISALLOW_FACTORY_RESET is set, nothing outside this app can lift it and
+     * the handset could never be reset or repurposed. Applying a restriction
+     * with no removal path is how a kiosk becomes e-waste.
+     *
+     * Gated by the admin PIN because it is only reachable from the maintenance
+     * screen, which the PIN is the only way to reach.
+     *
+     * Device Owner itself is deliberately left in place: clearing it also
+     * destroys lock task, and a factory reset from Settings is enough for every
+     * case this needs to serve. [clearDeviceOwner] is there for the case that
+     * needs the rest.
+     */
+    fun releaseForService(activity: Activity) {
+        val dpm = activity.getSystemService(Context.DEVICE_POLICY_SERVICE)
+            as? DevicePolicyManager ?: return
+        if (dpm.isDeviceOwnerApp(activity.packageName) != true) return
+        val admin = ComponentName(activity, KioskDeviceAdminReceiver::class.java)
+        DESTRUCTIVE_RESTRICTIONS.forEach { restriction ->
+            runCatching { dpm.clearUserRestriction(admin, restriction) }
+        }
+        runCatching { DeviceConfig(activity).serviceMode = true }
+    }
+
+    /**
+     * The full release: give up Device Owner entirely.
+     *
+     * After this the app is an ordinary app — no lock task, no restrictions, and
+     * it can be uninstalled. Needed when the handset is being retired or
+     * repurposed rather than merely serviced, and it is the only way to undo
+     * Device Owner on a non-testOnly build.
+     */
+    fun clearDeviceOwner(activity: Activity) {
+        val dpm = activity.getSystemService(Context.DEVICE_POLICY_SERVICE)
+            as? DevicePolicyManager ?: return
+        runCatching { dpm.clearDeviceOwnerApp(activity.packageName) }
+        runCatching { DeviceConfig(activity).serviceMode = true }
     }
 
     /**
