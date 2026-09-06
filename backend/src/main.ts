@@ -1375,6 +1375,80 @@ async function bootstrap() {
     logger.warn(`Schema patch facedesk oval offsets skipped: ${e?.message}`);
   }
 
+  // Retire registers that were seeded twice under different codes.
+  //
+  // The February branch-compliance migration created generic factory registers
+  // (ACCIDENT_REGISTER, OVERTIME_REGISTER); the March factory-compliance
+  // migration created FACT_-prefixed rows for the same registers without
+  // removing the originals. return_code is the primary key, so nothing
+  // deduplicated them, and a factory branch matches BOTH — which is why the
+  // monthly workbench lists two Accident registers and two Overtime registers.
+  //
+  // Written as a rule rather than a list of four codes, because the same
+  // re-seed may have produced pairs nobody has noticed yet: any two ACTIVE rows
+  // sharing name, applies_to and frequency collide the same way.
+  //
+  // The safety property that makes this runnable without inspecting production
+  // first: a row is only ever deactivated when it has NO documents attached.
+  // compliance_documents references registers by return_code, so retiring a code
+  // that carries history would orphan real uploads. Where both twins hold
+  // documents, both are left active and reported — that needs a human to decide
+  // which is canonical and to repoint the history, which is not a boot patch's
+  // job. Deactivated rather than deleted, so the row is still there to explain
+  // an old document if one turns up.
+  try {
+    const res = await ds.query(
+      `WITH ranked AS (
+         SELECT m.return_code,
+                ROW_NUMBER() OVER (
+                  PARTITION BY m.return_name, m.applies_to, m.frequency
+                  ORDER BY COUNT(d.id) DESC, m.return_code ASC
+                ) AS rnk,
+                COUNT(d.id) AS docs,
+                COUNT(*) OVER (
+                  PARTITION BY m.return_name, m.applies_to, m.frequency
+                ) AS twins
+           FROM compliance_return_master m
+           LEFT JOIN compliance_documents d ON d.return_code = m.return_code
+          WHERE m.is_active = true
+          GROUP BY m.return_code, m.return_name, m.applies_to, m.frequency
+       )
+       UPDATE compliance_return_master t
+          SET is_active = false
+         FROM ranked r
+        WHERE t.return_code = r.return_code
+          AND r.twins > 1
+          AND r.rnk > 1
+          AND r.docs = 0
+        RETURNING t.return_code`,
+    );
+    const rows = Array.isArray(res) ? res : [];
+    if (rows.length) {
+      logger.log(
+        `Schema patch: retired ${rows.length} duplicate register(s): ` +
+          rows.map((r: any) => r.return_code).join(', '),
+      );
+    }
+    // Anything still duplicated has documents on both sides — say so loudly
+    // rather than leaving it to be rediscovered from the UI.
+    const stuck = await ds.query(
+      `SELECT return_name, applies_to, frequency,
+              string_agg(return_code, ', ' ORDER BY return_code) AS codes
+         FROM compliance_return_master
+        WHERE is_active = true
+        GROUP BY return_name, applies_to, frequency
+       HAVING COUNT(*) > 1`,
+    );
+    for (const s of Array.isArray(stuck) ? stuck : []) {
+      logger.warn(
+        `Duplicate register still active (documents on more than one code, ` +
+          `needs a manual decision): "${s.return_name}" [${s.applies_to}/${s.frequency}] → ${s.codes}`,
+      );
+    }
+  } catch (e: any) {
+    logger.warn(`Schema patch duplicate registers skipped: ${e?.message}`);
+  }
+
   // Separate block — payroll sheet tables must not be blocked by attendance index failures
   try {
     await ds.query(`CREATE TABLE IF NOT EXISTS contractor_payroll_sheets (
