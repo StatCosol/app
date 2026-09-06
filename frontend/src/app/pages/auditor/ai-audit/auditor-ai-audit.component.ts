@@ -241,7 +241,7 @@ import {
             @if (selectedObs.auditorNotes) {
 <div>
               <h4 class="font-semibold text-sm mb-1">Review Notes</h4>
-              <p class="text-sm text-gray-700 bg-blue-50 rounded p-3">{{ selectedObs.auditorNotes }}</p>
+              <p class="text-sm text-gray-700 bg-brand-50 rounded p-3">{{ selectedObs.auditorNotes }}</p>
             </div>
 }
           </div>

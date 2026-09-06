@@ -261,7 +261,7 @@
           <ul class="doc-list">
             @for (d of selected.documents; track d) {
 <li>
-              <a [href]="d.fileUrl" target="_blank" class="text-blue-600 text-xs hover:underline">{{ d.fileName }}</a>
+              <a [href]="d.fileUrl" target="_blank" class="text-brand-600 text-xs hover:underline">{{ d.fileName }}</a>
               <span class="text-gray-400 text-xs ml-2">{{ d.documentType }} · {{ d.uploadedAt | date:'short' }}</span>
             </li>
 }

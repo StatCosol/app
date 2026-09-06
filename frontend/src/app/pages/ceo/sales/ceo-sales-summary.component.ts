@@ -50,7 +50,7 @@ import {
           </div>
           <div class="bg-white rounded-xl border border-gray-200 p-4">
             <div class="text-xs text-gray-500 uppercase">Win Rate</div>
-            <div class="text-2xl font-bold text-blue-700 mt-1">{{ winRate() }}%</div>
+            <div class="text-2xl font-bold text-brand-700 mt-1">{{ winRate() }}%</div>
           </div>
         </div>
 

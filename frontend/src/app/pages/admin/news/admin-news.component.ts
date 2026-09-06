@@ -40,7 +40,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               [(ngModel)]="form.title"
               type="text"
               maxlength="255"
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
               placeholder="News headline..."
             />
           </div>
@@ -53,7 +53,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               name="body"
               [(ngModel)]="form.body"
               rows="5"
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
               placeholder="Full news content..."
             ></textarea>
           </div>
@@ -66,7 +66,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                 id="news-category"
                 name="category"
                 [(ngModel)]="form.category"
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
               >
                 @for (cat of categories; track cat) {
 <option [value]="cat">{{ cat }}</option>
@@ -80,7 +80,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                 name="expiresAt"
                 [(ngModel)]="form.expiresAt"
                 type="date"
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
               />
             </div>
             <div>
@@ -93,7 +93,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 }
                 @if (isPdf(form.imageUrl)) {
 <a [href]="form.imageUrl" target="_blank"
-                   class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-blue-700 hover:bg-blue-50">
+                   class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-brand-700 hover:bg-brand-50">
                   📄 View PDF
                 </a>
 }
@@ -130,7 +130,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 
           <!-- Pinned toggle -->
           <label class="flex items-center gap-2 cursor-pointer">
-            <input autocomplete="off" id="news-pinned" name="pinned" [(ngModel)]="form.pinned" type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+            <input autocomplete="off" id="news-pinned" name="pinned" [(ngModel)]="form.pinned" type="checkbox" class="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
             <span class="text-sm text-gray-700 font-medium">📌 Pin to top</span>
           </label>
 
@@ -169,7 +169,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               (ngModelChange)="onFilterChange()"
               type="text"
               placeholder="Search by title or body..."
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </div>
           <!-- Category filter -->
@@ -178,7 +178,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             name="filterCategory"
             [(ngModel)]="filterCategory"
             (ngModelChange)="onFilterChange()"
-            class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           >
             <option value="">All Categories</option>
             @for (cat of categories; track cat) {
@@ -191,7 +191,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             name="filterStatus"
             [(ngModel)]="filterStatus"
             (ngModelChange)="onFilterChange()"
-            class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
@@ -249,7 +249,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                 <!-- Title -->
                 <h3 class="text-sm font-semibold text-gray-900 truncate">{{ item.title }}</h3>
                 <!-- Category -->
-                <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-brand-50 text-brand-700">
                   {{ item.category }}
                 </span>
                 <!-- Active/Inactive -->
@@ -306,7 +306,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               </button>
               <button
                 (click)="startEdit(item)"
-                class="px-3 py-1.5 text-xs font-medium rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors"
+                class="px-3 py-1.5 text-xs font-medium rounded-lg border border-brand-300 text-brand-700 hover:bg-brand-50 transition-colors"
               >
                 Edit
               </button>

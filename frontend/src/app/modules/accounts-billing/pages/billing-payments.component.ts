@@ -34,7 +34,7 @@ import { InvoicePayment } from '../models/billing.models';
               <td class="px-4 py-3">
                 @if (p.invoice) {
 <a [routerLink]="['/accounts/invoices', p.invoice.id]"
-                   class="text-blue-600 hover:underline text-xs font-mono">{{ p.invoice.invoiceNumber }}</a>
+                   class="text-brand-600 hover:underline text-xs font-mono">{{ p.invoice.invoiceNumber }}</a>
 }
               </td>
               <td class="px-4 py-3">{{ p.paymentDate }}</td>

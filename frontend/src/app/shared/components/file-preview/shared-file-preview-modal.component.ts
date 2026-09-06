@@ -57,7 +57,7 @@ import { RejectionReasonBoxComponent } from './rejection-reason-box.component';
 
         <div class="border-t border-gray-200 p-3 flex justify-end gap-2">
           <button type="button" class="px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 bg-white" (click)="closed.emit()">Close</button>
-          <button type="button" class="px-3 py-2 rounded-lg text-sm font-semibold text-white bg-blue-700" (click)="download.emit()" [disabled]="!file">Download</button>
+          <button type="button" class="px-3 py-2 rounded-lg text-sm font-semibold text-white bg-brand-700" (click)="download.emit()" [disabled]="!file">Download</button>
         </div>
       </div>
     </div>

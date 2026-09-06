@@ -20,7 +20,7 @@ import { NoticesService, Notice, NoticeKpis } from '../../../core/notices.servic
         <div class="border rounded-lg p-3 bg-white"><span class="block text-xl font-bold">{{ kpis.total }}</span><span class="text-xs text-gray-500">Total</span></div>
         <div class="border border-orange-200 rounded-lg p-3 bg-orange-50"><span class="block text-xl font-bold">{{ kpis.actionRequired }}</span><span class="text-xs text-gray-500">Action Required</span></div>
         <div class="border border-red-200 rounded-lg p-3 bg-red-50"><span class="block text-xl font-bold">{{ kpis.overdue }}</span><span class="text-xs text-gray-500">Overdue</span></div>
-        <div class="border border-blue-200 rounded-lg p-3 bg-blue-50"><span class="block text-xl font-bold">{{ kpis.responseSubmitted }}</span><span class="text-xs text-gray-500">Responded</span></div>
+        <div class="border border-brand-200 rounded-lg p-3 bg-brand-50"><span class="block text-xl font-bold">{{ kpis.responseSubmitted }}</span><span class="text-xs text-gray-500">Responded</span></div>
         <div class="border border-green-200 rounded-lg p-3 bg-green-50"><span class="block text-xl font-bold">{{ kpis.closed }}</span><span class="text-xs text-gray-500">Closed</span></div>
         <div class="border border-red-200 rounded-lg p-3 bg-red-50"><span class="block text-xl font-bold">{{ kpis.critical }}</span><span class="text-xs text-gray-500">Critical</span></div>
         <div class="border border-red-200 rounded-lg p-3 bg-red-50"><span class="block text-xl font-bold">{{ kpis.escalated }}</span><span class="text-xs text-gray-500">Escalated</span></div>
@@ -87,7 +87,7 @@ import { NoticesService, Notice, NoticeKpis } from '../../../core/notices.servic
 <div class="mt-2">
               <span class="text-xs font-semibold text-gray-500">Documents</span>
               @for (d of detail.documents; track d) {
-<div class="text-xs text-blue-600 hover:underline mt-0.5">
+<div class="text-xs text-brand-600 hover:underline mt-0.5">
                 <a [href]="d.fileUrl" target="_blank">{{ d.fileName }}</a>
               </div>
 }

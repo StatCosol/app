@@ -67,8 +67,8 @@ interface CalendarDay {
                 [class.text-amber-700]="item.proofPending && item.status !== 'OVERDUE'"
                 [class.bg-green-100]="item.status === 'VERIFIED'"
                 [class.text-green-700]="item.status === 'VERIFIED'"
-                [class.bg-blue-100]="item.status !== 'OVERDUE' && item.status !== 'VERIFIED' && !item.proofPending"
-                [class.text-blue-700]="item.status !== 'OVERDUE' && item.status !== 'VERIFIED' && !item.proofPending"
+                [class.bg-brand-100]="item.status !== 'OVERDUE' && item.status !== 'VERIFIED' && !item.proofPending"
+                [class.text-brand-700]="item.status !== 'OVERDUE' && item.status !== 'VERIFIED' && !item.proofPending"
           >{{ item.itemType }}</span>
           <span class="cal-item-title">{{ item.title }}</span>
           <span class="cal-item-status text-xs ml-auto">{{ item.status }}</span>

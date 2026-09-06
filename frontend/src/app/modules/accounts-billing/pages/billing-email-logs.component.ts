@@ -31,7 +31,7 @@ import { InvoiceEmailLog } from '../models/billing.models';
               <td class="px-4 py-3">
                 @if (l.invoice) {
 <a [routerLink]="['/accounts/invoices', l.invoice.id]"
-                   class="text-blue-600 hover:underline text-xs font-mono">{{ l.invoice.invoiceNumber }}</a>
+                   class="text-brand-600 hover:underline text-xs font-mono">{{ l.invoice.invoiceNumber }}</a>
 }
                 @if (!l.invoice && l.pendingPayment) {
 <a [routerLink]="['/accounts/pending-payments']"

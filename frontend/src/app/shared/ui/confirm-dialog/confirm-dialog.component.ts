@@ -56,7 +56,7 @@ import {
               [(ngModel)]="inputValue"
               [placeholder]="config.placeholder || ''"
               rows="3"
-              class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+              class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 resize-none"
               (keydown.enter)="$any($event).ctrlKey && ok()">
             </textarea>
           </div>
@@ -75,7 +75,7 @@ import {
             type="button"
             [ngClass]="{
               'bg-red-600 hover:bg-red-700 focus:ring-red-500': config.variant === 'danger',
-              'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500': config.variant !== 'danger'
+              'bg-brand-600 hover:bg-brand-700 focus:ring-brand-500': config.variant !== 'danger'
             }"
             class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
             (click)="ok()">

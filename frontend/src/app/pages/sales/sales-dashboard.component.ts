@@ -76,7 +76,7 @@ import {
             label="Pipeline Value"
             [value]="pipelineValue()"
             color="blue">
-            <ui-icon slot="icon" name="currency-rupee" class="text-blue-600" />
+            <ui-icon slot="icon" name="currency-rupee" class="text-brand-600" />
           </ui-kpi-tile>
           <ui-kpi-tile
             label="In Negotiation"

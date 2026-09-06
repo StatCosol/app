@@ -51,12 +51,12 @@
           <h3 class="text-sm font-semibold text-gray-900">Controls Table</h3>
           <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
             <input autocomplete="off" id="cc-search" name="search"
-              class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
               placeholder="Search name/scope/type..."
               [(ngModel)]="search"
               (ngModelChange)="applyFilters()" />
             <select id="cc-type-filter" name="typeFilter"
-              class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
               [(ngModel)]="typeFilter"
               (ngModelChange)="applyFilters()">
               <option value="ALL">All Types</option>
@@ -65,7 +65,7 @@
               <option value="REMINDER">Reminder</option>
             </select>
             <select id="cc-status-filter" name="statusFilter"
-              class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
               [(ngModel)]="statusFilter"
               (ngModelChange)="applyFilters()">
               <option value="ALL">All Status</option>
@@ -73,7 +73,7 @@
               <option value="INACTIVE">Inactive</option>
             </select>
             <select id="cc-severity-filter" name="severityFilter"
-              class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
               [(ngModel)]="severityFilter"
               (ngModelChange)="applyFilters()">
               <option value="ALL">All Severity</option>
@@ -103,7 +103,7 @@
                
                 (click)="selectControl(row)"
                 class="hover:bg-gray-50 cursor-pointer"
-                [class.bg-blue-50]="selected?.key === row.key">
+                [class.bg-brand-50]="selected?.key === row.key">
                 <td class="px-4 py-3">
                   <div class="font-medium text-gray-900">{{ row.name }}</div>
                   <div class="text-xs text-gray-500">{{ row.scope }}</div>

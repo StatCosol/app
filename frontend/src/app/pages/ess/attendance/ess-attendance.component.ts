@@ -226,7 +226,7 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
         </div>
         <div class="card stat">
           <div class="lbl">Present Rate</div>
-          <div class="val text-blue-600">{{ presentRate }}%</div>
+          <div class="val text-brand-600">{{ presentRate }}%</div>
         </div>
         <div class="card stat">
           <div class="lbl">Unmarked / Incomplete</div>
@@ -246,7 +246,7 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
           <div class="ot-stat">
             <div class="ot-stat-label">Total OT Hours</div>
-            <div class="ot-stat-value text-blue-600">{{ otSummary?.totalOtHours ?? '0.00' }}</div>
+            <div class="ot-stat-value text-brand-600">{{ otSummary?.totalOtHours ?? '0.00' }}</div>
           </div>
           @if (otSummary?.otEligibility === 'COMP_OFF') {
 <div class="ot-stat">

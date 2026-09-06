@@ -60,7 +60,7 @@ import {
             <div>
               <label for="ai-provider" class="block text-sm font-medium text-gray-700 mb-1">Provider</label>
               <select id="ai-provider" name="provider" [(ngModel)]="form.provider"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500">
                 <option value="openai">OpenAI</option>
                 <option value="azure">Azure OpenAI</option>
               </select>
@@ -69,7 +69,7 @@ import {
             <div>
               <label for="ai-model" class="block text-sm font-medium text-gray-700 mb-1">Model Name</label>
               <select id="ai-model" name="modelName" [(ngModel)]="form.modelName"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500">
                 <optgroup label="GPT-4.1 Series (Latest)">
                   <option value="gpt-4.1-nano">GPT-4.1 Nano (fastest, cheapest)</option>
                   <option value="gpt-4.1-mini">GPT-4.1 Mini (fast, affordable)</option>
@@ -89,7 +89,7 @@ import {
             <div>
               <label for="ai-apikey" class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
               <input type="password" id="ai-apikey" name="apiKey" autocomplete="off" [(ngModel)]="form.apiKey" placeholder="sk-..."
-                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500" />
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-brand-500" />
               <p class="text-xs text-gray-500 mt-1">
                 {{ config?.configured ? '🔑 API key is configured. Enter a new key to replace it.' : 'No API key set. The system will use rule-based analysis without an API key.' }}
               </p>
@@ -98,7 +98,7 @@ import {
             <div>
               <label for="ai-temperature" class="block text-sm font-medium text-gray-700 mb-1">Temperature ({{ form.temperature }})</label>
               <input autocomplete="off" type="range" id="ai-temperature" name="temperature" [(ngModel)]="form.temperature" min="0" max="1" step="0.05"
-                     class="w-full accent-blue-600" />
+                     class="w-full accent-brand-600" />
               <div class="flex justify-between text-xs text-gray-400 mt-1">
                 <span>Deterministic (0)</span>
                 <span>Creative (1)</span>
@@ -108,7 +108,7 @@ import {
             <div>
               <label for="ai-max-tokens" class="block text-sm font-medium text-gray-700 mb-1">Max Tokens</label>
               <input autocomplete="off" type="number" id="ai-max-tokens" name="maxTokens" [(ngModel)]="form.maxTokens" min="256" max="8192" step="256"
-                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500" />
               <p class="text-xs text-gray-500 mt-1">Typical range: 1024–4096. Higher values allow more detailed analysis.</p>
             </div>
           </div>
@@ -122,9 +122,9 @@ import {
         </div>
 
         <!-- Info -->
-        <div class="bg-blue-50 border border-blue-200 rounded-xl p-6">
-          <h3 class="font-semibold text-blue-900 mb-2">How AI Works in StatCo</h3>
-          <ul class="text-sm text-blue-800 space-y-2">
+        <div class="bg-brand-50 border border-brand-200 rounded-xl p-6">
+          <h3 class="font-semibold text-brand-900 mb-2">How AI Works in StatCo</h3>
+          <ul class="text-sm text-brand-800 space-y-2">
             <li><strong>With API Key:</strong> Uses OpenAI for enhanced risk scoring, detailed legal analysis, predictive insights, and nuanced audit observations.</li>
             <li><strong>Without API Key:</strong> Falls back to rule-based analysis covering EPF, ESI, Minimum Wages, Factory Act, and Contract Labour regulations. Still detects violations effectively.</li>
             <li><strong>Data Privacy:</strong> Only aggregated compliance metrics are sent to OpenAI — never employee PII, salary data, or confidential client information.</li>

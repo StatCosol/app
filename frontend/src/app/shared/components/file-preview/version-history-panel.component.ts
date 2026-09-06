@@ -22,7 +22,7 @@ import { FileVersionItem } from './file-preview.model';
         </div>
         <button
           type="button"
-          class="text-xs font-semibold text-blue-700 hover:underline"
+          class="text-xs font-semibold text-brand-700 hover:underline"
           (click)="open.emit(v)"
           [disabled]="!v.url"
         >Open</button>

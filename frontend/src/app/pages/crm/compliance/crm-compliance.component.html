@@ -35,9 +35,9 @@
     @if (reuploadBacklog) {
 <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
       <a routerLink="/crm/reupload-backlog" [queryParams]="{ status: 'OPEN' }"
-        class="border rounded-lg p-3 bg-blue-50 border-blue-200 hover:shadow-md transition-shadow cursor-pointer block">
+        class="border rounded-lg p-3 bg-brand-50 border-brand-200 hover:shadow-md transition-shadow cursor-pointer block">
         <div class="text-xs text-gray-500">Reupload Requests &mdash; OPEN</div>
-        <div class="text-2xl font-semibold text-blue-700">{{ reuploadBacklog.open || 0 }}</div>
+        <div class="text-2xl font-semibold text-brand-700">{{ reuploadBacklog.open || 0 }}</div>
       </a>
       <a routerLink="/crm/reupload-backlog" [queryParams]="{ status: 'SUBMITTED' }"
         class="border rounded-lg p-3 bg-yellow-50 border-yellow-200 hover:shadow-md transition-shadow cursor-pointer block">
@@ -61,7 +61,7 @@
         Uploaded <span class="font-bold">{{ docKpis.uploaded || 0 }}</span>
       </button>
       <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-colors"
-        [class.bg-blue-100]="docFilters.status==='PENDING_REVIEW'" [class.border-blue-300]="docFilters.status==='PENDING_REVIEW'"
+        [class.bg-brand-100]="docFilters.status==='PENDING_REVIEW'" [class.border-brand-300]="docFilters.status==='PENDING_REVIEW'"
         [class.bg-white]="docFilters.status!=='PENDING_REVIEW'" [class.border-gray-300]="docFilters.status!=='PENDING_REVIEW'"
         (click)="filterDocsByKpi('PENDING_REVIEW')">
         Pending Review <span class="font-bold">{{ docKpis.pending_review || 0 }}</span>
@@ -407,7 +407,7 @@
               <td class="px-3 py-3 text-xs">
                 @if (cd.uploadedFileUrl) {
 <a [href]="'/' + cd.uploadedFileUrl" target="_blank"
-                   class="text-blue-600 hover:underline truncate block max-w-[150px]" [title]="cd.uploadedFileName">
+                   class="text-brand-600 hover:underline truncate block max-w-[150px]" [title]="cd.uploadedFileName">
                   {{ cd.uploadedFileName || 'View' }}
                 </a>
 }
@@ -529,7 +529,7 @@
 <span class="ml-1 px-2 py-0.5 rounded bg-green-100 text-green-800">Finalized</span>
 }
           </div>
-          <div class="mt-2 text-[11px] text-blue-600 underline">View documents</div>
+          <div class="mt-2 text-[11px] text-brand-600 underline">View documents</div>
         </div>
 }
       </div>
@@ -588,7 +588,7 @@
             </td>
             <td class="p-2">
               <div class="flex gap-1">
-                <button type="button" class="px-2 py-1 text-xs border rounded text-blue-600 hover:bg-blue-50"
+                <button type="button" class="px-2 py-1 text-xs border rounded text-brand-600 hover:bg-brand-50"
                   (click)="toggleMcdItems(row)">
                   {{ expandedMcdBranchId === getBranchId(row) ? 'Hide Items' : 'View Items' }}
                 </button>
@@ -609,7 +609,7 @@
           @if (expandedMcdBranchId === getBranchId(row)) {
 <tr>
             <td colspan="10" class="p-0">
-              <div class="bg-blue-50 p-4">
+              <div class="bg-brand-50 p-4">
                 @if (mcdItemsLoading) {
 <div class="text-sm text-gray-500">Loading MCD items...</div>
 }
@@ -640,8 +640,8 @@
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
                           [class.bg-yellow-100]="item.status==='PENDING'"
                           [class.text-yellow-800]="item.status==='PENDING'"
-                          [class.bg-blue-100]="item.status==='SUBMITTED'"
-                          [class.text-blue-800]="item.status==='SUBMITTED'"
+                          [class.bg-brand-100]="item.status==='SUBMITTED'"
+                          [class.text-brand-800]="item.status==='SUBMITTED'"
                           [class.bg-green-100]="item.status==='APPROVED' || item.status==='VERIFIED'"
                           [class.text-green-800]="item.status==='APPROVED' || item.status==='VERIFIED'"
                           [class.bg-red-100]="item.status==='REJECTED' || item.status==='RETURNED'"
@@ -718,8 +718,8 @@
                           <!-- Uploaded by badge -->
                           @if (item.uploadedByRole) {
 <span class="text-xs px-1.5 py-0.5 rounded"
-                            [class.bg-indigo-100]="item.uploadedByRole === 'CRM'"
-                            [class.text-indigo-700]="item.uploadedByRole === 'CRM'"
+                            [class.bg-brand-100]="item.uploadedByRole === 'CRM'"
+                            [class.text-brand-700]="item.uploadedByRole === 'CRM'"
                             [class.bg-cyan-100]="item.uploadedByRole !== 'CRM'"
                             [class.text-cyan-700]="item.uploadedByRole !== 'CRM'">
                             By {{ item.uploadedByRole }}
@@ -738,10 +738,10 @@
                         <div class="space-y-1">
                           @for (ev of item.evidenceFiles; track ev) {
 <div class="flex items-center gap-2 text-xs">
-                            <svg class="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-3.5 h-3.5 text-brand-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                             </svg>
-                            <button type="button" (click)="openFile(ev.filePath, ev.fileName)" class="text-blue-600 hover:underline truncate">{{ ev.fileName }}</button>
+                            <button type="button" (click)="openFile(ev.filePath, ev.fileName)" class="text-brand-600 hover:underline truncate">{{ ev.fileName }}</button>
                             <span class="text-gray-400">{{ ev.createdAt | date:'short' }}</span>
                             @if (ev.notes) {
 <span class="text-gray-500 italic">{{ ev.notes }}</span>

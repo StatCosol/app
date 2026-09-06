@@ -56,8 +56,8 @@ import {
           </div>
           <div class="mt-3 grid grid-cols-3 gap-2 text-center">
             <div>
-              <span class="text-xs text-blue-500">In Progress</span>
-              <p class="text-lg font-bold text-blue-600">{{ s.in_progress }}</p>
+              <span class="text-xs text-brand-500">In Progress</span>
+              <p class="text-lg font-bold text-brand-600">{{ s.in_progress }}</p>
             </div>
             <div>
               <span class="text-xs text-red-500">Rejected</span>

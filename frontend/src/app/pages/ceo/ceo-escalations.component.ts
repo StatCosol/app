@@ -52,9 +52,9 @@ import { CeoApiService, CeoEscalation } from '../../core/api/ceo.api';
             <div class="text-xs text-amber-600 font-medium uppercase">Open</div>
             <div class="text-2xl font-bold text-amber-700 mt-1">{{ countByStatus('OPEN') }}</div>
           </div>
-          <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
-            <div class="text-xs text-blue-600 font-medium uppercase">In Progress</div>
-            <div class="text-2xl font-bold text-blue-700 mt-1">{{ countByStatus('IN_PROGRESS') }}</div>
+          <div class="bg-brand-50 border border-brand-200 rounded-xl p-4">
+            <div class="text-xs text-brand-600 font-medium uppercase">In Progress</div>
+            <div class="text-2xl font-bold text-brand-700 mt-1">{{ countByStatus('IN_PROGRESS') }}</div>
           </div>
           <div class="bg-green-50 border border-green-200 rounded-xl p-4">
             <div class="text-xs text-green-600 font-medium uppercase">Resolved</div>
@@ -67,7 +67,7 @@ import { CeoApiService, CeoEscalation } from '../../core/api/ceo.api';
           <div class="relative w-56">
             <input autocomplete="off" id="ce-search-term" name="searchTerm" type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilter()"
               placeholder="Search subject..."
-              class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
             <svg class="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>

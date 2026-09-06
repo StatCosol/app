@@ -54,7 +54,7 @@ export class StatCardComponent {
 
   get cardBgClass(): string {
     const colors: Record<StatCardColor, string> = {
-      primary: 'bg-blue-50 border-blue-200',
+      primary: 'bg-brand-50 border-brand-200',
       success: 'bg-emerald-50 border-emerald-200',
       warning: 'bg-amber-50 border-amber-200',
       error: 'bg-red-50 border-red-200',
@@ -66,7 +66,7 @@ export class StatCardComponent {
 
   get labelClass(): string {
     const colors: Record<StatCardColor, string> = {
-      primary: 'text-blue-600',
+      primary: 'text-brand-600',
       success: 'text-emerald-600',
       warning: 'text-amber-600',
       error: 'text-red-600',
@@ -78,7 +78,7 @@ export class StatCardComponent {
 
   get valueClass(): string {
     const colors: Record<StatCardColor, string> = {
-      primary: 'text-blue-900',
+      primary: 'text-brand-900',
       success: 'text-emerald-900',
       warning: 'text-amber-900',
       error: 'text-red-900',
@@ -90,7 +90,7 @@ export class StatCardComponent {
 
   get descClass(): string {
     const colors: Record<StatCardColor, string> = {
-      primary: 'text-blue-600/80',
+      primary: 'text-brand-600/80',
       success: 'text-emerald-600/80',
       warning: 'text-amber-600/80',
       error: 'text-red-600/80',
@@ -102,7 +102,7 @@ export class StatCardComponent {
 
   get iconBgClass(): string {
     const colors: Record<StatCardColor, string> = {
-      primary: 'bg-blue-100 text-blue-600',
+      primary: 'bg-brand-100 text-brand-600',
       success: 'bg-emerald-100 text-emerald-600',
       warning: 'bg-amber-100 text-amber-600',
       error: 'bg-red-100 text-red-600',

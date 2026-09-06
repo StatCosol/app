@@ -150,7 +150,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
               </td>
               <td class="px-4 py-3">
                 @for (m of r.requestedModules; track m) {
-<span class="inline-block rounded bg-blue-50 text-blue-700 px-2 py-1 mr-1 mb-1 text-xs">{{ moduleLabel(m) }}</span>
+<span class="inline-block rounded bg-brand-50 text-brand-700 px-2 py-1 mr-1 mb-1 text-xs">{{ moduleLabel(m) }}</span>
 }
               </td>
               <td class="px-4 py-3">
@@ -207,7 +207,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
               Showing {{ filteredAuditLogs.length }} of {{ auditLogs.length }} entr{{ auditLogs.length === 1 ? 'y' : 'ies' }}
             </p>
           </div>
-          <button class="text-sm text-blue-700" (click)="load()">Refresh</button>
+          <button class="text-sm text-brand-700" (click)="load()">Refresh</button>
         </div>
         <div class="table-wrap"><table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -309,7 +309,7 @@ export class CcoServicePackageApprovalsComponent implements OnInit {
   statusBadgeClass(status: ServiceChangeRequest['status']): string {
     switch (status) {
       case 'PENDING_CCO':
-        return 'bg-blue-50 text-blue-700';
+        return 'bg-brand-50 text-brand-700';
       case 'CHANGES_REQUESTED':
         return 'bg-amber-100 text-amber-800';
       case 'REJECTED':
@@ -337,7 +337,7 @@ export class CcoServicePackageApprovalsComponent implements OnInit {
   auditActionBadgeClass(action: string): string {
     switch (action) {
       case 'REQUESTED':
-        return 'bg-blue-50 text-blue-700';
+        return 'bg-brand-50 text-brand-700';
       case 'APPROVED':
         return 'bg-green-50 text-green-700';
       case 'CHANGES_REQUESTED':

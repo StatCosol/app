@@ -22,7 +22,7 @@ import { ProtectedFileService } from '../../files/services/protected-file.servic
             type="button"
            
             (click)="downloadAttachment(attachment)"
-            class="text-xs font-medium text-blue-700 hover:underline"
+            class="text-xs font-medium text-brand-700 hover:underline"
             [class.pointer-events-none]="!attachment.url"
             [class.opacity-60]="!attachment.url"
           >

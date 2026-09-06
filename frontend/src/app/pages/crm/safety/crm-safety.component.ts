@@ -88,8 +88,8 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             @for (tab of frequencyTabs; track tab) {
 <button (click)="filterFrequency = tab.value; loadDocuments()"
               class="whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-colors"
-              [class.border-indigo-500]="filterFrequency === tab.value"
-              [class.text-indigo-600]="filterFrequency === tab.value"
+              [class.border-brand-500]="filterFrequency === tab.value"
+              [class.text-brand-600]="filterFrequency === tab.value"
               [class.border-transparent]="filterFrequency !== tab.value"
               [class.text-gray-500]="filterFrequency !== tab.value">
               {{ tab.label }}
@@ -106,7 +106,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 }
           </select>
           <button (click)="showUploadForm = !showUploadForm" type="button"
-            class="ml-auto inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
+            class="ml-auto inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700">
             {{ showUploadForm ? 'Cancel' : 'Upload on Behalf' }}
           </button>
         </div>
@@ -175,7 +175,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">File *</label>
             <input type="file" (change)="onFileSelected($event)" #fileInput
-              class="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+              class="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100">
           </div>
           <div class="flex items-end">
             <button (click)="submitUpload()" [disabled]="uploading"
@@ -226,7 +226,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                   <div class="text-xs text-gray-400 truncate" [title]="doc.fileName">{{ doc.fileName }}</div>
                 </td>
                 <td class="px-3 py-3 text-xs">
-                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{{ doc.category || '—' }}</span>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-800">{{ doc.category || '—' }}</span>
                 </td>
                 <td class="px-3 py-3 text-sm text-gray-600">{{ doc.branchName || '—' }}</td>
                 <td class="px-3 py-3 text-xs text-gray-600">{{ doc.frequency || '—' }}</td>
@@ -249,7 +249,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                   <div [class.text-green-600]="doc.verifiedByAuditor" [class.text-gray-400]="!doc.verifiedByAuditor">Auditor: {{ doc.verifiedByAuditor ? '✓' : '—' }}</div>
                 </td>
                 <td class="px-3 py-3 text-sm space-x-1">
-                  <button (click)="download(doc)" class="text-indigo-600 hover:text-indigo-800 font-medium text-xs">Download</button>
+                  <button (click)="download(doc)" class="text-brand-600 hover:text-brand-800 font-medium text-xs">Download</button>
                   @if (!doc.verifiedByCrm) {
 <button (click)="verify(doc)" [disabled]="doc.verifying"
                     class="text-green-600 hover:text-green-800 font-medium text-xs disabled:opacity-50">

@@ -78,7 +78,7 @@ interface ReportCard {
           <div class="flex items-start gap-4">
             <div class="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center"
                  [ngClass]="{
-                   'bg-blue-50 text-blue-600': report.key === 'bank-statement',
+                   'bg-brand-50 text-brand-600': report.key === 'bank-statement',
                    'bg-emerald-50 text-emerald-600': report.key === 'muster-roll',
                    'bg-amber-50 text-amber-600': report.key === 'cost-analysis',
                    'bg-purple-50 text-purple-600': report.key === 'form16'

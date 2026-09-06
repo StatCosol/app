@@ -142,9 +142,9 @@ import {
         <!-- Quick Actions -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <button (click)="navigateTo('ai-risk')"
-                  class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:border-blue-400 hover:shadow-md transition-all text-left group">
+                  class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:border-brand-400 hover:shadow-md transition-all text-left group">
             <div class="flex items-center gap-4">
-              <div class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center text-2xl group-hover:bg-blue-200 transition-colors">🛡</div>
+              <div class="w-12 h-12 rounded-lg bg-brand-100 flex items-center justify-center text-2xl group-hover:bg-brand-200 transition-colors">🛡</div>
               <div>
                 <h3 class="font-semibold text-gray-900">Risk Assessments</h3>
                 <p class="text-sm text-gray-500">Run & view client risk scores</p>
@@ -230,7 +230,7 @@ import {
                    'border-red-200 bg-red-50': insight.severity === 'CRITICAL',
                    'border-orange-200 bg-orange-50': insight.severity === 'HIGH',
                    'border-yellow-200 bg-yellow-50': insight.severity === 'MEDIUM',
-                   'border-blue-200 bg-blue-50': insight.severity === 'LOW'
+                   'border-brand-200 bg-brand-50': insight.severity === 'LOW'
                  }">
               <div class="text-2xl">
                 {{ insight.severity === 'CRITICAL' ? '🔴' : insight.severity === 'HIGH' ? '🟠' : insight.severity === 'MEDIUM' ? '🟡' : '🔵' }}
@@ -243,7 +243,7 @@ import {
                           'bg-red-100 text-red-700': insight.severity === 'CRITICAL',
                           'bg-orange-100 text-orange-700': insight.severity === 'HIGH',
                           'bg-yellow-100 text-yellow-700': insight.severity === 'MEDIUM',
-                          'bg-blue-100 text-blue-700': insight.severity === 'LOW'
+                          'bg-brand-100 text-brand-700': insight.severity === 'LOW'
                         }">{{ insight.severity }}</span>
                 </div>
                 <p class="text-sm text-gray-600">{{ insight.description }}</p>

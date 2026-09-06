@@ -22,11 +22,11 @@ import type { ClientDto } from '../../../core/api/cco-clients.api';
           [(ngModel)]="search"
           (ngModelChange)="applyFilters()"
           placeholder="Search by name or code"
-          class="rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+          class="rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
         />
 
         <select id="cc-status" name="status" [(ngModel)]="status" (ngModelChange)="applyFilters()"
-                class="rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                class="rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm">
           <option value="all">All status</option>
           <option value="ACTIVE">Active</option>
           <option value="INACTIVE">Inactive</option>
@@ -65,14 +65,14 @@ import type { ClientDto } from '../../../core/api/cco-clients.api';
               </td>
               <td class="px-4 py-3 text-sm">
                 <a [routerLink]="['/crm/clients', c.id, 'branches']"
-                   class="text-indigo-600 hover:text-indigo-800 font-medium">
+                   class="text-brand-600 hover:text-brand-800 font-medium">
                   View branches
                 </a>
               </td>
               <td class="px-4 py-3 text-sm">
                 <a [routerLink]="['/crm/clients', c.id, 'overview']"
-                   class="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg
-                          text-xs font-medium hover:bg-indigo-100 transition-colors">
+                   class="inline-flex items-center gap-1 bg-brand-50 text-brand-700 px-3 py-1.5 rounded-lg
+                          text-xs font-medium hover:bg-brand-100 transition-colors">
                   Open Workspace →
                 </a>
               </td>

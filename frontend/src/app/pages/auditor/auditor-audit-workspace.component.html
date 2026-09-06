@@ -287,9 +287,9 @@
           <span>{{ checklistSummary.total || 0 }} items &middot; {{ checklistSummary.complied || 0 }} complied &middot; {{ checklistSummary.nonComplied || 0 }} non-complied &middot; {{ checklistSummary.pending || 0 }} pending</span>
         </header>
 
-        <div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 flex items-start gap-2.5">
+        <div class="bg-brand-50 border border-brand-200 rounded-lg px-4 py-3 mb-4 flex items-start gap-2.5">
           <span class="text-lg leading-none">ℹ️</span>
-          <div class="text-xs text-blue-800 leading-relaxed">
+          <div class="text-xs text-brand-800 leading-relaxed">
             <strong>How this works:</strong> When you <strong>Approve or Reject a document</strong> in the Documents tab, the matching checklist item updates automatically — no double entry needed.
             Items still showing <em>Pending</em> either have no uploaded document or couldn't be matched automatically — use the buttons to mark them manually.
           </div>
@@ -331,7 +331,7 @@
 <span class="text-red-600 text-[10px] ml-1">*</span>
 }
                     @if (item.linkedDocId) {
-<span class="block text-[10px] text-indigo-500 mt-0.5">📄 Auto-verified from document review</span>
+<span class="block text-[10px] text-brand-500 mt-0.5">📄 Auto-verified from document review</span>
 }
                   </td>
                   <td>
@@ -349,7 +349,7 @@
                     <!-- Auto-verified items: show subtle override buttons only -->
                     @if (item.linkedDocId) {
 
-                      <span class="text-[10px] text-indigo-500 mr-1.5">Auto-marked</span>
+                      <span class="text-[10px] text-brand-500 mr-1.5">Auto-marked</span>
                       @if (item.status !== 'COMPLIED') {
 <button
                        
@@ -654,9 +654,9 @@
           <span>{{ checklistSummary.total || 0 }} items &middot; {{ checklistSummary.complied || 0 }} complied &middot; {{ checklistSummary.nonComplied || 0 }} non-complied &middot; {{ checklistSummary.pending || 0 }} pending</span>
         </header>
 
-        <div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 flex items-start gap-2.5">
+        <div class="bg-brand-50 border border-brand-200 rounded-lg px-4 py-3 mb-4 flex items-start gap-2.5">
           <span class="text-lg leading-none">ℹ️</span>
-          <div class="text-xs text-blue-800 leading-relaxed">
+          <div class="text-xs text-brand-800 leading-relaxed">
             Approving or Rejecting a document above <strong>automatically updates the matching checklist item</strong>. Items still <em>Pending</em> have no matched document — mark them manually here.
           </div>
         </div>
@@ -697,7 +697,7 @@
 <span class="text-red-600 text-[10px] ml-1">*</span>
 }
                     @if (item.linkedDocId) {
-<span class="block text-[10px] text-indigo-500 mt-0.5">📄 Auto-verified from document review</span>
+<span class="block text-[10px] text-brand-500 mt-0.5">📄 Auto-verified from document review</span>
 }
                   </td>
                   <td>
@@ -716,7 +716,7 @@
                   <td class="text-right whitespace-nowrap">
                     @if (item.linkedDocId) {
 
-                      <span class="text-[10px] text-indigo-500 mr-1.5">Auto-marked</span>
+                      <span class="text-[10px] text-brand-500 mr-1.5">Auto-marked</span>
                       @if (item.status !== 'COMPLIED') {
 <button type="button" class="btn btn-primary text-[10px] px-2 py-0.5 mr-0.5" (click)="updateChecklistStatus(item, 'COMPLIED')">OK</button>
 }
@@ -836,7 +836,7 @@
         @if (statusKey(auditDetail.status) === 'SUBMITTED') {
 <div class="py-3">
           <div class="flex items-center gap-2.5 mb-2">
-            <span class="text-sm font-semibold text-blue-700">Audit Submitted</span>
+            <span class="text-sm font-semibold text-brand-700">Audit Submitted</span>
             @if (auditDetail.score !== null) {
 <span
              

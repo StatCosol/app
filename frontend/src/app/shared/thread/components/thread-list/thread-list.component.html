@@ -26,10 +26,10 @@
   @for (t of items; track t) {
 <button
     type="button"
-    class="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors focus:outline-none focus:bg-blue-50"
-    [class.bg-blue-50]="t.id === selectedId"
+    class="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors focus:outline-none focus:bg-brand-50"
+    [class.bg-brand-50]="t.id === selectedId"
     [class.border-l-4]="t.id === selectedId"
-    [class.border-l-blue-600]="t.id === selectedId"
+    [class.border-l-brand-600]="t.id === selectedId"
     (click)="selected.emit(t)">
 
     <!-- Badges row -->

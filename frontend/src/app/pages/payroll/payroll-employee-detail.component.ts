@@ -72,7 +72,7 @@ type Tab = 'profile' | 'compliance' | 'history';
 <button
               (click)="activeTab = t.key"
               class="pb-3 px-1 text-sm font-medium border-b-2 transition-colors"
-              [class]="activeTab === t.key ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'">
+              [class]="activeTab === t.key ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'">
               {{ t.label }}
             </button>
 }

@@ -31,7 +31,7 @@
     </div>
 
     <!-- Phase 1: Quick Audit Selector -->
-    <div class="card mb-6 border-l-4 border-indigo-500">
+    <div class="card mb-6 border-l-4 border-brand-500">
       <div class="flex items-start justify-between gap-4 flex-wrap mb-3">
         <div>
           <h3 class="card-title mb-1">Quick Start / Continue Audit</h3>
@@ -206,7 +206,7 @@
               <div
                 class="h-2 rounded-full"
                 [ngClass]="{
-                  'bg-blue-500': row.progressPct < 100,
+                  'bg-brand-500': row.progressPct < 100,
                   'bg-green-500': row.progressPct === 100
                 }"
                 [style.width.%]="row.progressPct">
@@ -491,10 +491,10 @@
             <div
               class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs"
               [ngClass]="{
-                'bg-blue-500': activity.activityType === 'AUDIT_STARTED',
+                'bg-brand-500': activity.activityType === 'AUDIT_STARTED',
                 'bg-purple-500': activity.activityType === 'OBSERVATION_ADDED',
                 'bg-green-500': activity.activityType === 'EVIDENCE_RECEIVED',
-                'bg-indigo-500': activity.activityType === 'REPORT_SUBMITTED',
+                'bg-brand-800': activity.activityType === 'REPORT_SUBMITTED',
                 'bg-gray-500': activity.activityType === 'OTHER'
               }">
               @if (activity.activityType === 'AUDIT_STARTED') {
@@ -575,13 +575,13 @@
             [ngClass]="{
               'bg-red-50 border border-red-200': item.tone === 'red',
               'bg-amber-50 border border-amber-200': item.tone === 'amber',
-              'bg-blue-50 border border-blue-200': item.tone === 'blue'
+              'bg-brand-50 border border-brand-200': item.tone === 'blue'
             }">
           <span class="mt-0.5 inline-block w-2 h-2 rounded-full"
                 [ngClass]="{
                   'bg-red-500': item.tone === 'red',
                   'bg-amber-500': item.tone === 'amber',
-                  'bg-blue-500': item.tone === 'blue'
+                  'bg-brand-500': item.tone === 'blue'
                 }"></span>
           <span class="text-sm text-gray-800">{{ item.text }}</span>
         </li>

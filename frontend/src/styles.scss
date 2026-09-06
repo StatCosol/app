@@ -9,10 +9,18 @@
    StatCo Solutions Brand Colors
    ========================= */
 :root {
-  --statco-light-blue: #1eb6f7;
-  --statco-dark-blue: #0a2656;
-  --statco-primary: var(--statco-dark-blue);
-  --statco-accent: var(--statco-light-blue);
+  /* Aligned to the brand guide and to the Tailwind `brand`/`accent` scales.
+     These were a third competing palette: --statco-dark-blue was #0a2656, an
+     undocumented drift from the guide's #0A1F44, and --statco-primary/--accent
+     were referenced ZERO times anywhere in the app. Kept (rather than deleted)
+     for non-Tailwind contexts — inline styles, SCSS, canvas — but they must
+     agree with the scales or the drift simply starts again somewhere else. */
+  --statco-navy: #0a1f44;        /* brand-900 */
+  --statco-green: #20a15a;       /* accent-500 */
+  --statco-light-blue: #1eb6f7;  /* legacy, still used by statco-blue.light */
+  --statco-dark-blue: var(--statco-navy);
+  --statco-primary: var(--statco-navy);
+  --statco-accent: var(--statco-green);
   --card-radius: 1rem;
   --font-sans: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --text-primary: #111827;

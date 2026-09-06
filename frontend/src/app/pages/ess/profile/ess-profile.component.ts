@@ -15,7 +15,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
       <ui-page-header title="My Profile" subtitle="Personal, employment, and bank details">
         @if (emp && !editing) {
           <button (click)="startEdit()"
-            class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
+            class="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition">
             Edit Profile
           </button>
         }

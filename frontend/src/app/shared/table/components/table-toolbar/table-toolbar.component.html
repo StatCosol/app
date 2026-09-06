@@ -4,7 +4,7 @@
 <div class="flex-1 min-w-[200px]">
     <input name="tableToolbarSearch" type="text"
       class="w-full rounded-xl border-gray-300 shadow-sm text-sm placeholder-gray-400
-             focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+             focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
       placeholder="Search..."
       [value]="q"
       (input)="onQChange($any($event.target).value)" />
@@ -13,7 +13,7 @@
 
   <div class="flex items-center gap-2 ml-auto">
     <!-- Page size -->
-    <select name="tableToolbarPageSize" class="rounded-xl border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+    <select name="tableToolbarPageSize" class="rounded-xl border-gray-300 text-sm focus:ring-2 focus:ring-brand-500"
       (change)="setLimit($any($event.target).value)">
       <option [selected]="query.limit === 10" value="10">10 / page</option>
       <option [selected]="query.limit === 20" value="20">20 / page</option>

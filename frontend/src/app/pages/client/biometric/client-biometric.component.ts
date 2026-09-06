@@ -106,10 +106,10 @@ interface BranchOption { id: string; name: string }
                   </span>
                 </td>
                 <td class="px-4 py-3 text-right whitespace-nowrap">
-                  <button class="text-xs text-blue-600 hover:underline mr-3" (click)="toggleEnabled(d)">
+                  <button class="text-xs text-brand-600 hover:underline mr-3" (click)="toggleEnabled(d)">
                     {{ d.enabled ? 'Disable' : 'Enable' }}
                   </button>
-                  <button class="text-xs text-blue-600 hover:underline mr-3" (click)="openRotate(d)">Rotate Token</button>
+                  <button class="text-xs text-brand-600 hover:underline mr-3" (click)="openRotate(d)">Rotate Token</button>
                   <button class="text-xs text-red-600 hover:underline" (click)="remove(d)">Delete</button>
                 </td>
               </tr>
@@ -180,8 +180,8 @@ interface BranchOption { id: string; name: string }
                 <td class="px-4 py-3 font-mono text-gray-500 text-xs">{{ p.deviceId || '—' }}</td>
                 <td class="px-4 py-3">
                   <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium"
-                    [class.bg-blue-100]="p.direction === 'IN'"
-                    [class.text-blue-700]="p.direction === 'IN'"
+                    [class.bg-brand-100]="p.direction === 'IN'"
+                    [class.text-brand-700]="p.direction === 'IN'"
                     [class.bg-orange-100]="p.direction === 'OUT'"
                     [class.text-orange-700]="p.direction === 'OUT'"
                     [class.bg-gray-100]="p.direction === 'AUTO'"

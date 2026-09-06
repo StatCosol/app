@@ -30,7 +30,7 @@ import {
       <!-- Branch filter -->
       <div class="mb-4">
         <select [(ngModel)]="selectedBranchId" (ngModelChange)="loadReminders()"
-                class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
           <option value="">All Branches</option>
           @for (b of branches; track b) {
 <option [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
@@ -75,7 +75,7 @@ import {
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-0.5">
               <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                    [class]="r.reminder_type === 'RETURN_DUE' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'">
+                    [class]="r.reminder_type === 'RETURN_DUE' ? 'bg-brand-100 text-brand-800' : 'bg-orange-100 text-orange-800'">
                 {{ r.reminder_type === 'RETURN_DUE' ? 'Return' : 'Registration' }}
               </span>
               @if (r.status) {

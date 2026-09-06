@@ -32,7 +32,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
           <div><span class="text-gray-500">Designation:</span> <span class="font-medium ml-1">{{ appraisal.designation || '—' }}</span></div>
           <div><span class="text-gray-500">DOJ:</span> <span class="font-medium ml-1">{{ appraisal.date_of_joining | date:'dd/MM/yyyy' }}</span></div>
           <div><span class="text-gray-500">CTC:</span> <span class="font-medium ml-1">{{ appraisal.ctc | number:'1.0-0' }}</span></div>
-          <div><span class="text-gray-500">Score:</span> <span class="font-semibold ml-1 text-indigo-600">{{ appraisal.totalScore ?? '—' }}</span></div>
+          <div><span class="text-gray-500">Score:</span> <span class="font-semibold ml-1 text-brand-600">{{ appraisal.totalScore ?? '—' }}</span></div>
           <div><span class="text-gray-500">Rating:</span> <span class="font-semibold ml-1">{{ appraisal.finalRatingLabel ?? '—' }}</span></div>
         </div>
       </div>
@@ -64,14 +64,14 @@ import { PageHeaderComponent } from '../../../shared/ui';
                 <td class="text-center">{{ item.managerRating ?? '—' }}</td>
                 <td class="text-center">{{ item.branchRating ?? '—' }}</td>
                 <td class="text-center font-semibold">{{ item.finalRating ?? '—' }}</td>
-                <td class="text-center text-indigo-600 font-medium">{{ item.weightedScore ?? '—' }}</td>
+                <td class="text-center text-brand-600 font-medium">{{ item.weightedScore ?? '—' }}</td>
               </tr>
 }
             </tbody>
             <tfoot>
               <tr class="bg-gray-50 font-semibold">
                 <td colspan="7" class="text-right">Total Score:</td>
-                <td class="text-center text-indigo-700">{{ appraisal.totalScore ?? '—' }}</td>
+                <td class="text-center text-brand-700">{{ appraisal.totalScore ?? '—' }}</td>
               </tr>
             </tfoot>
           </table>

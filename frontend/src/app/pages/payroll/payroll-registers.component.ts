@@ -68,7 +68,7 @@ const STATE_NAMES: Record<string, string> = {
       <!-- ═══════ Generate & Download Panel ═══════ -->
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
         <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <svg class="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
@@ -79,7 +79,7 @@ const STATE_NAMES: Record<string, string> = {
           <!-- Branch -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-            <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-indigo-500 focus:border-indigo-500"
+            <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-brand-500 focus:border-brand-500"
               [(ngModel)]="genBranchId" (ngModelChange)="onBranchChange()">
               <option value="">-- Select Branch --</option>
               @for (b of genBranches; track b) {
@@ -92,7 +92,7 @@ const STATE_NAMES: Record<string, string> = {
           <!-- Month -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Month</label>
-            <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-indigo-500 focus:border-indigo-500"
+            <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-brand-500 focus:border-brand-500"
               [(ngModel)]="selMonth" (ngModelChange)="onPeriodChange()">
               <option [ngValue]="null">-- Select Month --</option>
               @for (m of months; track m) {
@@ -103,7 +103,7 @@ const STATE_NAMES: Record<string, string> = {
           <!-- Year -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Year</label>
-            <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-indigo-500 focus:border-indigo-500"
+            <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-brand-500 focus:border-brand-500"
               [(ngModel)]="selYear" (ngModelChange)="onPeriodChange()">
               <option [ngValue]="null">-- Select Year --</option>
               @for (y of years; track y) {
@@ -114,7 +114,7 @@ const STATE_NAMES: Record<string, string> = {
           <!-- Generate -->
           <div>
             <button
-              class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
               [disabled]="!canGenerate || generating"
               (click)="generateRegisters()">
               @if (!generating) {
@@ -151,7 +151,7 @@ const STATE_NAMES: Record<string, string> = {
           <p class="text-sm font-medium text-gray-700 mb-2">
             Applicable registers for <span class="font-semibold">{{ branchTemplateInfo.branchName }}</span>
             <span class="text-xs text-gray-500 ml-1">({{ branchTemplateInfo.branchType }} — {{ branchTemplateInfo.establishmentCategory }})</span>
-            <span class="ml-2 inline-flex items-center rounded-full bg-indigo-100 text-indigo-800 px-2.5 py-0.5 text-xs font-semibold">
+            <span class="ml-2 inline-flex items-center rounded-full bg-brand-100 text-brand-800 px-2.5 py-0.5 text-xs font-semibold">
               {{ stateName(branchTemplateInfo.stateCode) }}
             </span>
           </p>
@@ -159,7 +159,7 @@ const STATE_NAMES: Record<string, string> = {
             @for (t of branchTemplateInfo.templates; track t) {
 <span
               class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium"
-              [class]="t.establishmentType === 'COMMON' ? 'bg-blue-100 text-blue-800' :
+              [class]="t.establishmentType === 'COMMON' ? 'bg-brand-100 text-brand-800' :
                         t.establishmentType === 'FACTORY' ? 'bg-orange-100 text-orange-800' :
                         'bg-green-100 text-green-800'">
               {{ t.title }}
@@ -183,7 +183,7 @@ const STATE_NAMES: Record<string, string> = {
         <div class="flex flex-wrap items-end gap-4">
           <div class="flex-1 min-w-[180px]">
             <label class="block text-sm font-medium text-gray-700 mb-1">Filter by Act</label>
-            <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-indigo-500 focus:border-indigo-500"
+            <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-brand-500 focus:border-brand-500"
               [(ngModel)]="filterAct" (ngModelChange)="onActChange()">
               <option value="">All Acts</option>
               @for (a of filteredActs; track a) {
@@ -193,7 +193,7 @@ const STATE_NAMES: Record<string, string> = {
           </div>
           <div class="flex-1 min-w-[180px]">
             <label class="block text-sm font-medium text-gray-700 mb-1">Filter by Register Type</label>
-            <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-indigo-500 focus:border-indigo-500"
+            <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-brand-500 focus:border-brand-500"
               [(ngModel)]="filterRegisterType" (ngModelChange)="reload()">
               <option value="">{{ filterAct ? 'All under this Act' : 'All Registers' }}</option>
               @for (rt of filteredRegisterTypes; track rt) {
@@ -275,7 +275,7 @@ const STATE_NAMES: Record<string, string> = {
         <ng-template uiTableCell="state" let-row>
           @if (row.stateCode) {
 <span
-            class="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 px-2.5 py-0.5 text-xs font-medium">
+            class="inline-flex items-center rounded-full bg-brand-50 text-brand-700 px-2.5 py-0.5 text-xs font-medium">
             {{ stateName(row.stateCode) }}
           </span>
 }
@@ -829,11 +829,11 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
     if (type?.includes('PT')) return 'bg-pink-100 text-pink-800';
     if (type?.includes('LEAVE')) return 'bg-green-100 text-green-800';
     if (type?.includes('OVERTIME')) return 'bg-red-100 text-red-800';
-    if (type?.includes('DEDUCTION')) return 'bg-indigo-100 text-indigo-800';
+    if (type?.includes('DEDUCTION')) return 'bg-brand-100 text-brand-800';
     if (type?.includes('MATERNITY')) return 'bg-rose-100 text-rose-800';
     if (type?.includes('GRATUITY')) return 'bg-amber-100 text-amber-800';
     if (type?.includes('CONTRACT')) return 'bg-cyan-100 text-cyan-800';
-    if (type?.includes('EMPLOYEE') || type?.includes('ADULT_WORKER') || type?.includes('EMPLOYMENT_CARD')) return 'bg-blue-100 text-blue-800';
+    if (type?.includes('EMPLOYEE') || type?.includes('ADULT_WORKER') || type?.includes('EMPLOYMENT_CARD')) return 'bg-brand-100 text-brand-800';
     if (type?.includes('ACCIDENT') || type?.includes('DANGEROUS')) return 'bg-red-100 text-red-800';
     if (type?.includes('FINE') || type?.includes('ADVANCE') || type?.includes('DAMAGE_LOSS')) return 'bg-slate-100 text-slate-800';
     if (type?.includes('EQUAL_REMUNERATION')) return 'bg-violet-100 text-violet-800';

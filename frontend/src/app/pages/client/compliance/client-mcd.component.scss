@@ -12,5 +12,5 @@
 }
 
 .btn-secondary {
-  @apply inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-semibold text-statco-blue bg-blue-50 hover:bg-blue-100 transition disabled:opacity-60 disabled:cursor-not-allowed;
+  @apply inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-semibold text-statco-blue bg-brand-50 hover:bg-brand-100 transition disabled:opacity-60 disabled:cursor-not-allowed;
 }

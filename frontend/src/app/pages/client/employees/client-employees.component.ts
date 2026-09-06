@@ -208,8 +208,8 @@ import {
 
         <ng-template uiTableCell="actions" let-row>
           <div class="employee-actions">
-            <button class="employee-action text-blue-600 hover:underline" title="View employee" (click)="$event.stopPropagation(); viewEmployee(row)">View</button>
-            <button class="employee-action text-blue-600 hover:underline" title="Edit employee" (click)="$event.stopPropagation(); editEmployee(row)">Edit</button>
+            <button class="employee-action text-brand-600 hover:underline" title="View employee" (click)="$event.stopPropagation(); viewEmployee(row)">View</button>
+            <button class="employee-action text-brand-600 hover:underline" title="Edit employee" (click)="$event.stopPropagation(); editEmployee(row)">Edit</button>
             @if (row.approvalStatus === 'PENDING') {
 <button
              

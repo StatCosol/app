@@ -81,7 +81,7 @@ export class ClientReuploadInboxComponent implements OnInit {
   statusBadgeClass(row: any): string {
     const s = this.statusText(row);
     switch (s) {
-      case 'OPEN': return 'bg-blue-100 text-blue-700';
+      case 'OPEN': return 'bg-brand-100 text-brand-700';
       case 'SUBMITTED': return 'bg-yellow-100 text-yellow-800';
       case 'REVERIFIED': return 'bg-green-100 text-green-800';
       case 'REJECTED': return 'bg-red-100 text-red-700';

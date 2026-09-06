@@ -41,7 +41,7 @@ interface RecurringConfig {
             {{ running ? 'Running…' : 'Run Now' }}
           </button>
           <button (click)="openCreate()"
-                  class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
+                  class="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition text-sm font-medium">
             + Add Recurring
           </button>
         </div>
@@ -87,7 +87,7 @@ interface RecurringConfig {
                 </button>
               </td>
               <td class="px-4 py-3 text-center">
-                <button (click)="openEdit(r)" class="text-blue-600 hover:underline text-xs mr-2">Edit</button>
+                <button (click)="openEdit(r)" class="text-brand-600 hover:underline text-xs mr-2">Edit</button>
                 <button (click)="onDelete(r)" class="text-red-600 hover:underline text-xs">Delete</button>
               </td>
             </tr>
@@ -189,7 +189,7 @@ interface RecurringConfig {
           <div class="px-6 py-4 border-t flex justify-end gap-2">
             <button (click)="closeForm()" class="px-4 py-2 border rounded-lg text-sm">Cancel</button>
             <button (click)="save()" [disabled]="saving"
-                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm disabled:opacity-50">
+                    class="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm disabled:opacity-50">
               {{ saving ? 'Saving…' : (editing ? 'Update' : 'Create') }}
             </button>
           </div>

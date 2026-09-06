@@ -39,7 +39,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
         @for (t of tabs; track t.key) {
           <button (click)="activeTab = t.key"
                   [class]="activeTab === t.key
-                    ? 'px-4 py-2.5 text-sm font-semibold text-indigo-600 border-b-2 border-indigo-600 -mb-px'
+                    ? 'px-4 py-2.5 text-sm font-semibold text-brand-600 border-b-2 border-brand-600 -mb-px'
                     : 'px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700'">
             {{ t.label }}
             @if (t.key === 'items') { <span class="ml-1.5 text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">{{ complianceItems.length }}</span> }
@@ -79,7 +79,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
             <h3 class="text-sm font-semibold text-slate-700 mb-4">Bulk Upload (Excel)</h3>
             <div class="flex flex-wrap items-center gap-3">
               <button (click)="downloadTemplate()"
-                      class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100">
+                      class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-brand-600 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3"/></svg>
                 Download Template
               </button>
@@ -130,7 +130,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
                 <tbody>
                   @for (item of complianceItems; track item.id) {
                     <tr class="border-b border-slate-100 hover:bg-slate-50">
-                      <td class="px-4 py-3 font-mono text-xs text-indigo-600">{{ item.code }}</td>
+                      <td class="px-4 py-3 font-mono text-xs text-brand-600">{{ item.code }}</td>
                       <td class="px-4 py-3 text-slate-700">{{ item.name }}</td>
                       <td class="px-4 py-3 text-slate-500">{{ item.category }}</td>
                       <td class="px-4 py-3 text-slate-500">{{ item.stateCode || 'ALL' }}</td>
@@ -182,7 +182,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
                 <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
                   <div>
                     <span class="font-semibold text-slate-700">{{ pkg.name }}</span>
-                    <span class="ml-2 font-mono text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{{ pkg.code }}</span>
+                    <span class="ml-2 font-mono text-xs text-brand-600 bg-brand-50 px-2 py-0.5 rounded">{{ pkg.code }}</span>
                     <ui-status-badge class="ml-2" [status]="pkg.isActive ? 'Active' : 'Inactive'" />
                   </div>
                   <div class="flex gap-2">
@@ -223,7 +223,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
                           <tbody>
                             @for (pi of packageItems[pkg.id]; track pi.id) {
                               <tr class="border-b border-slate-50 hover:bg-slate-50">
-                                <td class="px-3 py-2 font-mono text-xs text-indigo-600">{{ pi.compliance?.code }}</td>
+                                <td class="px-3 py-2 font-mono text-xs text-brand-600">{{ pi.compliance?.code }}</td>
                                 <td class="px-3 py-2 text-slate-700">{{ pi.compliance?.name }}</td>
                                 <td class="px-3 py-2 text-slate-500">{{ pi.compliance?.category }}</td>
                                 <td class="px-3 py-2 text-right">
@@ -312,7 +312,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
               <label class="block text-sm font-medium text-slate-700 mb-1" for="ec-conditions-json-str">Conditions (JSON)</label>
               <textarea autocomplete="off" id="ec-conditions-json-str" name="conditionsJsonStr" [(ngModel)]="ruleForm.conditionsJsonStr"
                         rows="4"
-                        class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                         placeholder='{"all": [{"field": "employee_total", "op": ">=", "value": 20}]}'></textarea>
               <p class="text-xs text-slate-400 mt-1">
                 Operators: ==, !=, &gt;, &gt;=, &lt;, &lt;=, in, not_in, exists.
@@ -356,7 +356,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
                           {{ rule.effect }}
                         </span>
                       </td>
-                      <td class="px-4 py-3 font-mono text-xs text-indigo-600">{{ rule.targetCompliance?.code || rule.targetComplianceId }}</td>
+                      <td class="px-4 py-3 font-mono text-xs text-brand-600">{{ rule.targetCompliance?.code || rule.targetComplianceId }}</td>
                       <td class="px-4 py-3 text-slate-500">{{ rule.stateCode || 'ALL' }}</td>
                       <td class="px-4 py-3">
                         <ui-status-badge [status]="rule.isActive ? 'Active' : 'Inactive'" />

@@ -101,7 +101,7 @@ import {
           </h3>
           <button
             type="button"
-            class="text-sm text-indigo-600 hover:text-indigo-700"
+            class="text-sm text-brand-600 hover:text-brand-700"
             [disabled]="loadingPunches"
             (click)="loadPunches()"
           >
@@ -183,7 +183,7 @@ import {
                     @if (r.photoUrl) {
                       <button
                         type="button"
-                        class="text-indigo-600 hover:text-indigo-700 text-xs"
+                        class="text-brand-600 hover:text-brand-700 text-xs"
                         (click)="viewPunchPhoto(r)"
                       >View</button>
                     }
@@ -194,7 +194,7 @@ import {
                   <td class="px-4 py-2 text-right whitespace-nowrap">
                     <button
                       type="button"
-                      class="text-xs font-medium text-indigo-600 hover:text-indigo-700 disabled:text-gray-400"
+                      class="text-xs font-medium text-brand-600 hover:text-brand-700 disabled:text-gray-400"
                       [disabled]="actionBusyId === r.rowKey"
                       (click)="editRow(r)"
                     >

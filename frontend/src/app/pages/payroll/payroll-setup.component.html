@@ -492,7 +492,7 @@
           <button class="btn btn-secondary" type="button" (click)="openRuleForm()">+ Add Rule</button>
         </header>
 
-        <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-900 my-2 py-2 px-3 text-sm rounded-r-lg">
+        <div class="bg-brand-50 border-l-4 border-brand-500 text-brand-900 my-2 py-2 px-3 text-sm rounded-r-lg">
           <strong>Note:</strong> Use the <em>Formula</em> button above to set how
           this component is calculated (BASIC = 40% of GROSS, HRA = 50% of BASIC,
           etc.). The "Rules" listed here are optional add-ons (e.g.
@@ -551,7 +551,7 @@
         <span class="section-meta">Read-only view of every rule the payroll engine will execute for this client. Edits here flow into the next run automatically.</span>
       </header>
 
-      <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-900 my-2 py-2 px-3 text-sm rounded-r-lg">
+      <div class="bg-brand-50 border-l-4 border-brand-500 text-brand-900 my-2 py-2 px-3 text-sm rounded-r-lg">
         Everything below comes from the same data the engine reads at run time.
         Use <strong>Edit in Builder</strong> to change formulas, components, or
         statutory config &mdash; saved changes apply to the next payroll run.
@@ -916,7 +916,7 @@
       <button type="button" class="link" (click)="showFormulaModal = false">Close</button>
     </header>
 
-    <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-900 mb-2 py-2 px-3 text-sm rounded-r-lg">
+    <div class="bg-brand-50 border-l-4 border-brand-500 text-brand-900 mb-2 py-2 px-3 text-sm rounded-r-lg">
       Saved values are used by the payroll engine on the next run. Variables you can use in formulas:
       <code>ACTUAL_GROSS</code>, <code>BASIC</code>, <code>HRA</code>, <code>GROSS</code>, <code>WORKED_DAYS</code>, <code>PAYABLE_DAYS</code>, <code>LOP_DAYS</code>, plus any other component code defined for this client.
       Operators: <code>+ - * / ( )</code>, <code>MIN(a,b)</code>, <code>MAX(a,b)</code>, <code>IF(cond, a, b)</code>, comparisons <code>&gt; &lt; &gt;= &lt;= == !=</code>.

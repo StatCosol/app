@@ -32,12 +32,12 @@
     </button>
 
     <button type="button"
-      class="bg-white rounded-lg border border-blue-200 p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
+      class="bg-white rounded-lg border border-brand-200 p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
       [class.ring-2]="status === 'SUBMITTED'"
-      [class.ring-blue-500]="status === 'SUBMITTED'"
+      [class.ring-brand-500]="status === 'SUBMITTED'"
       (click)="filterByStatus('SUBMITTED')">
-      <div class="text-2xl font-bold text-blue-600">{{ kpis.submitted }}</div>
-      <div class="text-xs text-blue-500 mt-1">Awaiting Review</div>
+      <div class="text-2xl font-bold text-brand-600">{{ kpis.submitted }}</div>
+      <div class="text-xs text-brand-500 mt-1">Awaiting Review</div>
     </button>
 
     <button type="button"
@@ -65,9 +65,9 @@
     <button type="button"
       class="bg-gray-50 rounded-lg border border-gray-200 px-3 py-2 text-center hover:bg-gray-100 cursor-pointer text-sm"
       [class.ring-2]="status === 'IN_PROGRESS'"
-      [class.ring-indigo-400]="status === 'IN_PROGRESS'"
+      [class.ring-brand-400]="status === 'IN_PROGRESS'"
       (click)="filterByStatus('IN_PROGRESS')">
-      <span class="font-semibold text-indigo-600">{{ kpis.inProgress }}</span>
+      <span class="font-semibold text-brand-600">{{ kpis.inProgress }}</span>
       <span class="text-gray-500 ml-1">In Progress</span>
     </button>
     <button type="button"
@@ -135,9 +135,9 @@
   <!-- ─── Bulk Actions Bar ─── -->
   @if (selectedCount > 0) {
 <div
-    class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-center justify-between"
+    class="bg-brand-50 border border-brand-200 rounded-lg p-3 mb-4 flex items-center justify-between"
    >
-    <span class="text-sm text-blue-800 font-medium">{{ selectedCount }} task(s) selected</span>
+    <span class="text-sm text-brand-800 font-medium">{{ selectedCount }} task(s) selected</span>
     <div class="flex items-center gap-2">
       <ui-button variant="primary" size="sm" (clicked)="bulkApprove()">Bulk Approve</ui-button>
       <ui-button variant="danger" size="sm" (clicked)="bulkReject()">Bulk Reject</ui-button>
@@ -169,7 +169,7 @@
        
         [checked]="selectedIds.has(row.id)"
         (change)="toggleSelect(row.id)"
-        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+        class="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
 }
     </ng-template>
     <ng-template uiTableCell="taskName" let-row>

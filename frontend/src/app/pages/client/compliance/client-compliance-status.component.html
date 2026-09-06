@@ -364,7 +364,7 @@
             <span
               class="ml-1 inline-flex items-center justify-center min-w-[1.25rem] px-1 py-0.5 text-xs rounded-full"
               [ngClass]="
-                activeTab === tab.key ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-600'
+                activeTab === tab.key ? 'bg-brand-100 text-brand-700' : 'bg-gray-200 text-gray-600'
               "
             >
               {{ tabCount(tab.key) }}
@@ -414,7 +414,7 @@
             <tbody>
               @for (b of branchRows; track b) {
                 <tr
-                  class="border-b border-gray-100 hover:bg-blue-50 cursor-pointer transition-colors"
+                  class="border-b border-gray-100 hover:bg-brand-50 cursor-pointer transition-colors"
                   (click)="drillIntoBranch(b)"
                 >
                   <td class="px-4 py-3 font-medium text-gray-900">{{ getBranchName(b) }}</td>
@@ -657,9 +657,9 @@
             <div class="text-xl font-bold text-green-700">{{ auditData.completedAudits }}</div>
             <div class="text-xs text-green-600 mt-0.5">Completed</div>
           </div>
-          <div class="text-center p-3 bg-blue-50 rounded-xl border border-blue-200">
-            <div class="text-xl font-bold text-blue-700">{{ auditData.overallAuditScore }}%</div>
-            <div class="text-xs text-blue-600 mt-0.5">Audit Score</div>
+          <div class="text-center p-3 bg-brand-50 rounded-xl border border-brand-200">
+            <div class="text-xl font-bold text-brand-700">{{ auditData.overallAuditScore }}%</div>
+            <div class="text-xs text-brand-600 mt-0.5">Audit Score</div>
           </div>
           <div class="text-center p-3 bg-amber-50 rounded-xl border border-amber-200">
             <div class="text-xl font-bold text-amber-700">{{ auditData.openObservations }}</div>

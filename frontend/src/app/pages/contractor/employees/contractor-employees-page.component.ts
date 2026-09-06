@@ -113,7 +113,7 @@ interface BulkPreviewRow {
         </div>
         <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
           <p class="text-xs text-gray-500 font-medium mb-1">Male</p>
-          <p class="text-2xl font-bold text-blue-600">{{ maleCount }}</p>
+          <p class="text-2xl font-bold text-brand-600">{{ maleCount }}</p>
         </div>
         <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
           <p class="text-xs text-gray-500 font-medium mb-1">Female</p>
@@ -313,7 +313,7 @@ interface BulkPreviewRow {
                       </span>
                       <button
                         (click)="openEdit(emp)"
-                        class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                        class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100"
                       >Edit</button>
                     
 } @else {
@@ -329,7 +329,7 @@ interface BulkPreviewRow {
 
                     <button
                       (click)="openEdit(emp)"
-                        class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                        class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100"
                     >Edit</button>
 
                     @if (emp.isActive) {
@@ -1115,7 +1115,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
 
   genderClass(gender: string): string {
     const g = (gender || '').toLowerCase();
-    if (g === 'm' || g === 'male') return 'bg-blue-50 text-blue-700';
+    if (g === 'm' || g === 'male') return 'bg-brand-50 text-brand-700';
     if (g === 'f' || g === 'female') return 'bg-rose-50 text-rose-700';
     return 'bg-gray-50 text-gray-500';
   }

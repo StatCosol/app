@@ -169,7 +169,7 @@
       <span class="text-xs text-gray-700">{{ getBranchName(row.branchId) }}</span>
     </ng-template>
     <ng-template uiTableCell="category" let-row>
-      <span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">{{ getCategoryLabel(row.category) }}</span>
+      <span class="text-xs px-2 py-0.5 rounded-full bg-brand-50 text-brand-700">{{ getCategoryLabel(row.category) }}</span>
       @if (row.subCategory) {
 <span class="ml-1 text-xs text-gray-500">{{ row.subCategory }}</span>
 }
@@ -185,7 +185,7 @@
       <span class="text-gray-500 text-xs">{{ row.createdAt | date:'mediumDate' }}</span>
     </ng-template>
     <ng-template uiTableCell="actions" let-row>
-      <a class="text-blue-600 hover:text-blue-800 text-sm font-medium mr-3" [href]="getDownloadUrl(row.id)" target="_blank">Download</a>
+      <a class="text-brand-600 hover:text-brand-800 text-sm font-medium mr-3" [href]="getDownloadUrl(row.id)" target="_blank">Download</a>
       <span class="text-red-600 hover:text-red-800 text-sm font-medium cursor-pointer" (click)="deleteDoc(row)">Delete</span>
     </ng-template>
   </ui-data-table>

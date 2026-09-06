@@ -54,7 +54,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
           <input class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" name="note" [(ngModel)]="form.note" placeholder="Reason for change">
         </label>
         <div class="flex items-end">
-          <button class="rounded-md bg-blue-700 px-4 py-2 text-white disabled:opacity-50" [disabled]="saving || loadingClientStatus || hasPendingRequest || !form.clientId || !form.modules.length" (click)="submit()">
+          <button class="rounded-md bg-brand-700 px-4 py-2 text-white disabled:opacity-50" [disabled]="saving || loadingClientStatus || hasPendingRequest || !form.clientId || !form.modules.length" (click)="submit()">
             Submit for CCO
           </button>
         </div>
@@ -105,7 +105,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
           </div>
           <button
             type="button"
-            class="text-sm text-blue-700 disabled:text-slate-400"
+            class="text-sm text-brand-700 disabled:text-slate-400"
             [disabled]="!form.clientId || loadingClientStatus"
             (click)="loadSelectedClientStatus(form.clientId)">
             {{ loadingClientStatus ? 'Loading...' : 'Reload current services' }}
@@ -123,8 +123,8 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
             <button
               type="button"
               class="rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors"
-              [class.border-blue-700]="!selectedAttendanceSystem"
-              [class.bg-blue-700]="!selectedAttendanceSystem"
+              [class.border-brand-700]="!selectedAttendanceSystem"
+              [class.bg-brand-700]="!selectedAttendanceSystem"
               [class.text-white]="!selectedAttendanceSystem"
               [class.border-slate-300]="selectedAttendanceSystem"
               [class.bg-white]="selectedAttendanceSystem"
@@ -136,8 +136,8 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
 <button
               type="button"
               class="rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors"
-              [class.border-blue-700]="selectedAttendanceSystem === system.key"
-              [class.bg-blue-700]="selectedAttendanceSystem === system.key"
+              [class.border-brand-700]="selectedAttendanceSystem === system.key"
+              [class.bg-brand-700]="selectedAttendanceSystem === system.key"
               [class.text-white]="selectedAttendanceSystem === system.key"
               [class.border-slate-300]="selectedAttendanceSystem !== system.key"
               [class.bg-white]="selectedAttendanceSystem !== system.key"
@@ -153,7 +153,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
           @for (service of moduleOptions; track service) {
 <label
            
-            class="flex items-start gap-3 rounded-lg border border-slate-200 p-3 cursor-pointer hover:border-blue-300">
+            class="flex items-start gap-3 rounded-lg border border-slate-200 p-3 cursor-pointer hover:border-brand-300">
             <input
               type="checkbox"
               class="mt-1 rounded border-slate-300"
@@ -261,7 +261,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
                 [(ngModel)]="searchTerm"
                 placeholder="Search client, package, service, or note">
             </label>
-            <button class="text-sm text-blue-700" (click)="load()">Refresh</button>
+            <button class="text-sm text-brand-700" (click)="load()">Refresh</button>
           </div>
         </div>
         <div class="table-wrap"><table class="w-full text-sm">
@@ -312,7 +312,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
 <button
                  
                   type="button"
-                  class="rounded-md bg-blue-700 px-3 py-1.5 text-xs font-medium text-white"
+                  class="rounded-md bg-brand-700 px-3 py-1.5 text-xs font-medium text-white"
                   (click)="reviseRequest(r)">
                   Revise
                 </button>
@@ -337,7 +337,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
               Showing {{ filteredAuditLogs.length }} of {{ auditLogs.length }} entr{{ auditLogs.length === 1 ? 'y' : 'ies' }}
             </p>
           </div>
-          <button class="text-sm text-blue-700" (click)="load()">Refresh</button>
+          <button class="text-sm text-brand-700" (click)="load()">Refresh</button>
         </div>
         <div class="table-wrap"><table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -612,7 +612,7 @@ export class AdminServicePackagesComponent implements OnInit {
   statusBadgeClass(status: ServiceChangeRequest['status']): string {
     switch (status) {
       case 'PENDING_CCO':
-        return 'bg-blue-50 text-blue-700';
+        return 'bg-brand-50 text-brand-700';
       case 'CHANGES_REQUESTED':
         return 'bg-amber-100 text-amber-800';
       case 'REJECTED':
@@ -640,7 +640,7 @@ export class AdminServicePackagesComponent implements OnInit {
   auditActionBadgeClass(action: string): string {
     switch (action) {
       case 'REQUESTED':
-        return 'bg-blue-50 text-blue-700';
+        return 'bg-brand-50 text-brand-700';
       case 'APPROVED':
         return 'bg-green-50 text-green-700';
       case 'CHANGES_REQUESTED':

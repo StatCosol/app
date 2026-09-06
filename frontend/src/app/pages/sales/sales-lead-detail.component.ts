@@ -217,7 +217,7 @@ export class SalesLeadDetailComponent implements OnInit {
 
   stageClass(stage: LeadStage): string {
     const map: Record<LeadStage, string> = {
-      NEW: 'bg-blue-50 text-blue-700',
+      NEW: 'bg-brand-50 text-brand-700',
       CONTACTED: 'bg-cyan-50 text-cyan-700',
       QUALIFIED: 'bg-violet-50 text-violet-700',
       PROPOSAL_SENT: 'bg-amber-50 text-amber-700',

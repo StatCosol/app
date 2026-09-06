@@ -248,7 +248,7 @@ import { INDIAN_STATES } from '../models/billing.models';
           <button
             (click)="save()"
             [disabled]="saving"
-            class="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+            class="px-6 py-2.5 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700 disabled:opacity-50"
           >
             {{ saving ? 'Saving...' : 'Save Settings' }}
           </button>

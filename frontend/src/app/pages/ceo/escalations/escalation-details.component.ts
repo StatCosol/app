@@ -13,7 +13,7 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
   imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent],
   template: `
     <main class="max-w-4xl mx-auto px-4 sm:px-6 py-6">
-      <a (click)="goBack()" class="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800 mb-4 cursor-pointer">
+      <a (click)="goBack()" class="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-800 mb-4 cursor-pointer">
         ← Back to Escalations
       </a>
 
@@ -99,13 +99,13 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
 
             <div class="mb-3">
               <textarea autocomplete="off" id="ed-new-comment" name="newComment" [(ngModel)]="newComment" rows="2" placeholder="Add a comment..."
-                        class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm"></textarea>
+                        class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"></textarea>
             </div>
 
             <div class="flex gap-3">
               <button (click)="onComment()" [disabled]="submitting || !newComment.trim()"
-                      class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium
-                             hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                      class="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium
+                             hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                 {{ submitting ? 'Posting...' : 'Post Comment' }}
               </button>
               <button (click)="onClose()" [disabled]="submitting"

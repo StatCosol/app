@@ -11,7 +11,7 @@
       type="button"
       (click)="activeTab = 'uploads'"
       [class]="activeTab === 'uploads'
-        ? 'px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600 -mb-px'
+        ? 'px-4 py-2 text-sm font-medium text-brand-600 border-b-2 border-brand-600 -mb-px'
         : 'px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700'">
       Monthly Uploads
     </button>
@@ -19,7 +19,7 @@
       type="button"
       (click)="activeTab = 'reupload'"
       [class]="activeTab === 'reupload'
-        ? 'px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600 -mb-px'
+        ? 'px-4 py-2 text-sm font-medium text-brand-600 border-b-2 border-brand-600 -mb-px'
         : 'px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700'">
       Returned for Reupload
     </button>
@@ -199,7 +199,7 @@
 <span class="px-2 py-0.5 rounded bg-amber-50 text-amber-700">Optional</span>
 }
                       @if (item.uploadedByRole === 'CRM') {
-<span class="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium">Uploaded by CRM</span>
+<span class="px-2 py-0.5 rounded bg-brand-100 text-brand-700 font-medium">Uploaded by CRM</span>
 }
                       @if (item.uploadedByRole === 'CLIENT') {
 <span class="px-2 py-0.5 rounded bg-cyan-100 text-cyan-700">Uploaded by Client</span>
@@ -227,10 +227,10 @@
 <div class="w-full mt-2 space-y-1">
                     @for (ev of item.evidenceFiles; track ev) {
 <div class="flex items-center gap-2 text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1">
-                      <svg class="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg class="w-3.5 h-3.5 text-brand-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                       </svg>
-                      <a [href]="ev.filePath" target="_blank" class="text-blue-600 hover:underline truncate flex-1" [title]="ev.fileName">{{ ev.fileName }}</a>
+                      <a [href]="ev.filePath" target="_blank" class="text-brand-600 hover:underline truncate flex-1" [title]="ev.fileName">{{ ev.fileName }}</a>
                       <span class="text-gray-400 flex-shrink-0">{{ ev.createdAt | date:'shortDate' }}</span>
                       @if (ev.notes) {
 <span class="text-gray-500 italic truncate max-w-[120px]" [title]="ev.notes">{{ ev.notes }}</span>
@@ -243,7 +243,7 @@
                     <!-- Block upload if CRM uploaded this item -->
                     @if (item.uploadedByRole === 'CRM') {
 
-                      <span class="text-xs text-indigo-600 font-medium">View only — Uploaded by CRM</span>
+                      <span class="text-xs text-brand-600 font-medium">View only — Uploaded by CRM</span>
                     
 }
                     @if (item.uploadedByRole !== 'CRM') {

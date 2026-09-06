@@ -48,7 +48,7 @@ interface ClientTab {
           @for (tab of tabs; track tab) {
 <a
              [routerLink]="['/crm/clients', clientId, tab.route]"
-             routerLinkActive="bg-white text-indigo-700 shadow-sm"
+             routerLinkActive="bg-white text-brand-700 shadow-sm"
              [routerLinkActiveOptions]="{ exact: true }"
              class="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600
                     hover:text-gray-900 transition-colors whitespace-nowrap">
@@ -63,10 +63,10 @@ interface ClientTab {
           @for (tab of tabs; track tab) {
 <a
              [routerLink]="['/crm/clients', clientId, tab.route]"
-             class="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md hover:border-indigo-200
+             class="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md hover:border-brand-200
                     transition-all group cursor-pointer">
             <div class="text-2xl mb-3">{{ tab.icon }}</div>
-            <h4 class="text-base font-semibold text-gray-900 group-hover:text-indigo-700">{{ tab.label }}</h4>
+            <h4 class="text-base font-semibold text-gray-900 group-hover:text-brand-700">{{ tab.label }}</h4>
             <p class="text-sm text-gray-500 mt-1">{{ tab.description }}</p>
           </a>
 }

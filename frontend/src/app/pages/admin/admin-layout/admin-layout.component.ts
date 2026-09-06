@@ -72,7 +72,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
         <app-news-ticker></app-news-ticker>
 
         <!-- Page content -->
-        <main class="flex-1 bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
+        <main class="flex-1 bg-gradient-to-br from-slate-50 via-brand-50/30 to-slate-50">
           <div class="admin-content">
             <router-outlet></router-outlet>
           </div>

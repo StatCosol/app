@@ -178,7 +178,7 @@ export class CrmNoticesComponent implements OnInit, OnDestroy {
       case 'CLOSED': return 'text-green-700 bg-green-50';
       case 'ESCALATED': return 'text-red-700 bg-red-50';
       case 'ACTION_REQUIRED': return 'text-orange-700 bg-orange-50';
-      case 'RESPONSE_SUBMITTED': return 'text-blue-700 bg-blue-50';
+      case 'RESPONSE_SUBMITTED': return 'text-brand-700 bg-brand-50';
       default: return 'text-gray-700 bg-gray-50';
     }
   }

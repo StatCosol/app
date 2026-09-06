@@ -72,7 +72,7 @@ const TYPE_LABELS: Record<ClientCommType, string> = {
                     (click)="resetToDefault(t)" [disabled]="state[t.commType].saving">Reset to default</button>
             <button class="px-3 py-1.5 text-sm rounded border border-slate-300 hover:bg-slate-50"
                     (click)="preview(t)">Preview</button>
-            <button class="px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            <button class="px-3 py-1.5 text-sm rounded bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
                     (click)="save(t)" [disabled]="state[t.commType].saving">
               {{ state[t.commType].saving ? 'Saving…' : 'Save' }}
             </button>

@@ -40,7 +40,7 @@ import { FormsModule } from '@angular/forms';
       <textarea autocomplete="off"
         id="evidence-note"
         name="evidenceNote"
-        class="mt-3 w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+        class="mt-3 w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-brand-500 focus:border-brand-500"
         rows="2"
         [placeholder]="notePlaceholder"
         [(ngModel)]="note"
@@ -49,7 +49,7 @@ import { FormsModule } from '@angular/forms';
       <!-- Actions -->
       <div class="mt-3 flex items-center gap-3">
         <button
-          class="px-4 py-2 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="px-4 py-2 rounded-md text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
           [disabled]="!selectedFile || uploading"
           (click)="onUpload()"
         >

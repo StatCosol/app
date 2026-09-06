@@ -44,7 +44,7 @@ interface PayrollRun {
       <!-- Loading state -->
       @if (loading()) {
         <div class="flex items-center justify-center py-12">
-          <div class="animate-spin h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full"></div>
+          <div class="animate-spin h-8 w-8 border-4 border-brand-500 border-t-transparent rounded-full"></div>
           <span class="ml-3 text-sm text-gray-500">Loading payroll data…</span>
         </div>
       }
@@ -79,13 +79,13 @@ interface PayrollRun {
           <nav class="flex gap-6 -mb-px">
             <button (click)="activeTab.set('clients')"
               [class]="activeTab() === 'clients'
-                ? 'border-indigo-500 text-indigo-600 border-b-2 pb-3 text-sm font-medium'
+                ? 'border-brand-500 text-brand-600 border-b-2 pb-3 text-sm font-medium'
                 : 'border-transparent text-gray-500 hover:text-gray-700 border-b-2 pb-3 text-sm font-medium'">
               Clients ({{ clients().length }})
             </button>
             <button (click)="activeTab.set('runs')"
               [class]="activeTab() === 'runs'
-                ? 'border-indigo-500 text-indigo-600 border-b-2 pb-3 text-sm font-medium'
+                ? 'border-brand-500 text-brand-600 border-b-2 pb-3 text-sm font-medium'
                 : 'border-transparent text-gray-500 hover:text-gray-700 border-b-2 pb-3 text-sm font-medium'">
               Payroll Runs ({{ runs().length }})
             </button>
@@ -132,7 +132,7 @@ interface PayrollRun {
           <!-- Filter row -->
           <div class="flex flex-wrap items-center gap-3 mb-4">
             <select id="cps-run-status-filter" name="runStatusFilter" [(ngModel)]="runStatusFilter" (ngModelChange)="loadRuns()"
-              class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+              class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
               <option value="">All Statuses</option>
               <option value="DRAFT">Draft</option>
               <option value="PROCESSING">Processing</option>
@@ -167,7 +167,7 @@ interface PayrollRun {
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
                           [ngClass]="{
                             'bg-gray-100 text-gray-700': r.status === 'DRAFT',
-                            'bg-blue-100 text-blue-700': r.status === 'PROCESSING',
+                            'bg-brand-100 text-brand-700': r.status === 'PROCESSING',
                             'bg-green-100 text-green-800': r.status === 'COMPLETED' || r.status === 'APPROVED',
                             'bg-amber-100 text-amber-700': r.status !== 'DRAFT' && r.status !== 'PROCESSING' && r.status !== 'COMPLETED' && r.status !== 'APPROVED'
                           }">

@@ -37,8 +37,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
             <span class="badge ml-1"
               [class.bg-amber-100]="appraisal.status === 'INITIATED' || appraisal.status === 'SENT_BACK'"
               [class.text-amber-800]="appraisal.status === 'INITIATED' || appraisal.status === 'SENT_BACK'"
-              [class.bg-blue-100]="appraisal.status === 'SELF_SUBMITTED' || appraisal.status === 'MANAGER_REVIEWED' || appraisal.status === 'BRANCH_REVIEWED'"
-              [class.text-blue-700]="appraisal.status === 'SELF_SUBMITTED' || appraisal.status === 'MANAGER_REVIEWED' || appraisal.status === 'BRANCH_REVIEWED'"
+              [class.bg-brand-100]="appraisal.status === 'SELF_SUBMITTED' || appraisal.status === 'MANAGER_REVIEWED' || appraisal.status === 'BRANCH_REVIEWED'"
+              [class.text-brand-700]="appraisal.status === 'SELF_SUBMITTED' || appraisal.status === 'MANAGER_REVIEWED' || appraisal.status === 'BRANCH_REVIEWED'"
               [class.bg-emerald-100]="appraisal.status === 'CLIENT_APPROVED' || appraisal.status === 'LOCKED'"
               [class.text-emerald-700]="appraisal.status === 'CLIENT_APPROVED' || appraisal.status === 'LOCKED'">
               {{ appraisal.status?.replace('_', ' ') }}
@@ -49,11 +49,11 @@ import { PageHeaderComponent } from '../../../shared/ui';
 
       <!-- Self-Review Pending Banner -->
       @if (canSelfReview) {
-<div class="bg-indigo-50 border border-indigo-200 rounded-xl px-5 py-4 mb-6 flex items-center gap-3">
-        <svg class="text-indigo-500 shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+<div class="bg-brand-50 border border-brand-200 rounded-xl px-5 py-4 mb-6 flex items-center gap-3">
+        <svg class="text-brand-500 shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
         </svg>
-        <p class="text-sm text-indigo-800">Please rate yourself on each parameter below and submit your self-review.</p>
+        <p class="text-sm text-brand-800">Please rate yourself on each parameter below and submit your self-review.</p>
       </div>
 }
 
@@ -85,7 +85,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
                   @if (canSelfReview) {
 <input type="number" min="0" max="5" step="0.25"
                     [(ngModel)]="item.selfRating" [name]="'sr_' + item.id"
-                    class="w-16 text-center border rounded px-1 py-0.5 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400" />
+                    class="w-16 text-center border rounded px-1 py-0.5 text-sm focus:ring-2 focus:ring-brand-300 focus:border-brand-400" />
 }
                   @if (!canSelfReview) {
 <span class="font-medium">{{ item.selfRating ?? item.self_rating ?? '—' }}</span>
@@ -95,7 +95,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
                   @if (canSelfReview) {
 <input type="text"
                     [(ngModel)]="item.employeeRemarks" [name]="'er_' + item.id"
-                    placeholder="Your remarks..." class="w-32 border rounded px-1 py-0.5 text-xs focus:ring-2 focus:ring-indigo-300" />
+                    placeholder="Your remarks..." class="w-32 border rounded px-1 py-0.5 text-xs focus:ring-2 focus:ring-brand-300" />
 }
                   @if (!canSelfReview) {
 <span class="text-xs text-gray-500">{{ item.employeeRemarks ?? item.employee_remarks ?? '—' }}</span>
@@ -104,7 +104,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
                 <td class="text-center text-gray-500">{{ item.managerRating ?? item.manager_rating ?? '—' }}</td>
                 <td class="text-center text-gray-500">{{ item.branchRating ?? item.branch_rating ?? '—' }}</td>
                 <td class="text-center font-semibold">{{ item.finalRating ?? item.final_rating ?? '—' }}</td>
-                <td class="text-center text-indigo-600 font-medium">{{ item.weightedScore ?? item.weighted_score ?? '—' }}</td>
+                <td class="text-center text-brand-600 font-medium">{{ item.weightedScore ?? item.weighted_score ?? '—' }}</td>
               </tr>
 }
             </tbody>
@@ -112,7 +112,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
               @if (appraisal.total_score || appraisal.totalScore) {
 <tr class="bg-gray-50 font-semibold">
                 <td colspan="8" class="text-right">Total Score:</td>
-                <td class="text-center text-indigo-700">{{ appraisal.total_score ?? appraisal.totalScore ?? '—' }}</td>
+                <td class="text-center text-brand-700">{{ appraisal.total_score ?? appraisal.totalScore ?? '—' }}</td>
               </tr>
 }
             </tfoot>
@@ -169,7 +169,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 <div class="table-card mt-6">
         <h3 class="text-sm font-semibold text-gray-900 mb-3">Final Rating</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div><span class="text-gray-500">Rating:</span> <span class="font-semibold text-indigo-700 ml-1">{{ appraisal.final_rating_label ?? appraisal.finalRatingLabel }}</span></div>
+          <div><span class="text-gray-500">Rating:</span> <span class="font-semibold text-brand-700 ml-1">{{ appraisal.final_rating_label ?? appraisal.finalRatingLabel }}</span></div>
           <div><span class="text-gray-500">Total Score:</span> <span class="font-semibold ml-1">{{ appraisal.total_score ?? appraisal.totalScore ?? '—' }}</span></div>
           @if (appraisal.recommendation) {
 <div><span class="text-gray-500">Recommendation:</span> <span class="font-medium ml-1">{{ appraisal.recommendation }}</span></div>

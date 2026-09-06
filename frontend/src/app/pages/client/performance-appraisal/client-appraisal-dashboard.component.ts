@@ -32,7 +32,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
         <!-- Summary Cards -->
         <div class="summary-strip">
           <div class="summary-card">
-            <span class="summary-value text-blue-600">{{ dashboard.summary.total }}</span>
+            <span class="summary-value text-brand-600">{{ dashboard.summary.total }}</span>
             <span class="summary-label">Total</span>
           </div>
           <div class="summary-card">
@@ -48,7 +48,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
             <span class="summary-label">Sent Back</span>
           </div>
           <div class="summary-card">
-            <span class="summary-value text-indigo-600">{{ dashboard.summary.avg_score || '—' }}</span>
+            <span class="summary-value text-brand-600">{{ dashboard.summary.avg_score || '—' }}</span>
             <span class="summary-label">Avg Score</span>
           </div>
           <div class="summary-card">
@@ -91,7 +91,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
                   </td>
                   <td>
                     <div class="w-full bg-gray-200 rounded-full h-2">
-                      <div class="bg-indigo-500 h-2 rounded-full" [style.width.%]="b.total ? (b.completed / b.total * 100) : 0"></div>
+                      <div class="bg-brand-500 h-2 rounded-full" [style.width.%]="b.total ? (b.completed / b.total * 100) : 0"></div>
                     </div>
                     <span class="text-xs text-gray-400">{{ b.total ? (b.completed / b.total * 100 | number:'1.0-0') : 0 }}%</span>
                   </td>

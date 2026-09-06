@@ -16,7 +16,7 @@ import { Component, Input } from '@angular/core';
 <span>?</span>
 }
       @if (to) {
-<span class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">{{ to }}</span>
+<span class="px-1.5 py-0.5 rounded bg-brand-100 text-brand-700">{{ to }}</span>
 }
     </div>
 }

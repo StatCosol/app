@@ -119,7 +119,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
           </svg>
           <span slot="detail">
-            <span class="text-blue-600">M: {{ d.kpis.employees.male || 0 }}</span>
+            <span class="text-brand-600">M: {{ d.kpis.employees.male || 0 }}</span>
             <span class="mx-1.5 text-slate-300">|</span>
             <span class="text-pink-500">F: {{ d.kpis.employees.female || 0 }}</span>
             <span class="mx-1.5 text-slate-300">|</span>
@@ -135,7 +135,7 @@
           </svg>
           <span slot="detail">
             @if (d.kpis.contractors.male || d.kpis.contractors.female) {
-              <span class="text-blue-600">M: {{ d.kpis.contractors.male || 0 }}</span>
+              <span class="text-brand-600">M: {{ d.kpis.contractors.male || 0 }}</span>
               <span class="mx-1.5 text-slate-300">|</span>
               <span class="text-pink-500">F: {{ d.kpis.contractors.female || 0 }}</span>
             } @else if (d.kpis.contractors.total) {
@@ -229,7 +229,7 @@
 
       <!-- ═══════ Company Compliance Intelligence Banner ═══════ -->
       @if (companySummary && !selectedBranchId) {
-<div class="panel border-l-4 border-blue-600">
+<div class="panel border-l-4 border-brand-600">
         <div class="panel-header">
           <div class="flex items-center gap-2">
             <span class="text-xl">🤖</span>
@@ -252,7 +252,7 @@
             </div>
             <div class="mini-kpi">
               <p class="mini-kpi-label">Upload Completion</p>
-              <p class="mini-kpi-value text-blue-700">{{ companySummary.avgCompletionPercent }}%</p>
+              <p class="mini-kpi-value text-brand-700">{{ companySummary.avgCompletionPercent }}%</p>
             </div>
             <div class="mini-kpi">
               <p class="mini-kpi-label">HIGH Risk</p>
@@ -288,7 +288,7 @@
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div class="mini-kpi">
               <p class="mini-kpi-label">Total</p>
-              <p class="mini-kpi-value text-blue-700">{{ regSummary.total }}</p>
+              <p class="mini-kpi-value text-brand-700">{{ regSummary.total }}</p>
             </div>
             <div class="mini-kpi">
               <p class="mini-kpi-label">Active</p>
@@ -345,7 +345,7 @@
             </div>
             <div class="mini-kpi">
               <p class="mini-kpi-label">Pending inputs</p>
-              <p class="mini-kpi-value text-blue-700">{{ d.kpis.payroll.pendingEmployees }}</p>
+              <p class="mini-kpi-value text-brand-700">{{ d.kpis.payroll.pendingEmployees }}</p>
             </div>
             <div class="mini-kpi">
               <p class="mini-kpi-label">PF pending</p>

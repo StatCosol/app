@@ -32,8 +32,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
 
       <!-- Stats Cards -->
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
-        <div class="bg-white rounded-xl border border-gray-200 p-4 text-center cursor-pointer hover:border-indigo-300 transition-colors"
-             [class.ring-2]="!filterStatus" [class.ring-indigo-500]="!filterStatus"
+        <div class="bg-white rounded-xl border border-gray-200 p-4 text-center cursor-pointer hover:border-brand-300 transition-colors"
+             [class.ring-2]="!filterStatus" [class.ring-brand-500]="!filterStatus"
              (click)="filterStatus = ''; reload()">
           <p class="text-2xl font-bold text-gray-900">{{ stats.total }}</p>
           <p class="text-xs text-gray-500 mt-1">Total</p>
@@ -44,10 +44,10 @@ import { PageHeaderComponent } from '../../../shared/ui';
           <p class="text-2xl font-bold text-amber-600">{{ stats.open }}</p>
           <p class="text-xs text-gray-500 mt-1">Open</p>
         </div>
-        <div class="bg-white rounded-xl border border-gray-200 p-4 text-center cursor-pointer hover:border-blue-300 transition-colors"
-             [class.ring-2]="filterStatus === 'IN_PROGRESS'" [class.ring-blue-500]="filterStatus === 'IN_PROGRESS'"
+        <div class="bg-white rounded-xl border border-gray-200 p-4 text-center cursor-pointer hover:border-brand-300 transition-colors"
+             [class.ring-2]="filterStatus === 'IN_PROGRESS'" [class.ring-brand-500]="filterStatus === 'IN_PROGRESS'"
              (click)="filterStatus = 'IN_PROGRESS'; reload()">
-          <p class="text-2xl font-bold text-blue-600">{{ stats.inProgress }}</p>
+          <p class="text-2xl font-bold text-brand-600">{{ stats.inProgress }}</p>
           <p class="text-xs text-gray-500 mt-1">In Progress</p>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-4 text-center cursor-pointer hover:border-purple-300 transition-colors"
@@ -80,11 +80,11 @@ import { PageHeaderComponent } from '../../../shared/ui';
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           <input autocomplete="off" id="ah-search-term" name="searchTerm" type="text" [(ngModel)]="searchTerm" (input)="onSearchChange()"
                  placeholder="Search tickets…"
-                 class="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                 class="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
         </div>
 
         <select id="ah-filter-category" name="filterCategory" [(ngModel)]="filterCategory" (ngModelChange)="reload()"
-                class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
           <option value="">All Categories</option>
           @for (c of stats.categories; track c) {
 <option [value]="c.label">{{ c.label }} ({{ c.count }})</option>
@@ -92,7 +92,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
         </select>
 
         <select id="ah-filter-priority" name="filterPriority" [(ngModel)]="filterPriority" (ngModelChange)="reload()"
-                class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
           <option value="">All Priorities</option>
           <option value="CRITICAL">Critical</option>
           <option value="HIGH">High</option>
@@ -129,8 +129,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
               @for (t of tickets; track t) {
 <tr
                   [routerLink]="['/admin/helpdesk', t.id]"
-                  class="hover:bg-indigo-50/40 cursor-pointer transition-colors">
-                <td class="px-4 py-3 font-medium text-indigo-700 whitespace-nowrap">{{ t.client?.clientName || '—' }}</td>
+                  class="hover:bg-brand-50/40 cursor-pointer transition-colors">
+                <td class="px-4 py-3 font-medium text-brand-700 whitespace-nowrap">{{ t.client?.clientName || '—' }}</td>
                 <td class="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">
                   {{ t.category }}@if (t.subCategory) {
 <span class="text-gray-400"> / {{ t.subCategory }}</span>
@@ -163,7 +163,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
         <!-- Loading -->
         @if (loading) {
 <div class="flex items-center justify-center py-8">
-          <div class="w-6 h-6 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+          <div class="w-6 h-6 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
         </div>
 }
 
@@ -182,7 +182,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
             @for (p of pageNumbers; track p) {
 <button (click)="goToPage(p)"
                     class="px-3 py-1.5 text-sm border rounded-lg transition-colors"
-                    [class]="p === currentPage ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-300 hover:bg-gray-100'">
+                    [class]="p === currentPage ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-300 hover:bg-gray-100'">
               {{ p }}
             </button>
 }
@@ -342,10 +342,10 @@ export class AdminHelpdeskComponent implements OnInit, OnDestroy {
   }
 
   priorityClass(p: string): string {
-    return { CRITICAL: 'bg-red-100 text-red-700', HIGH: 'bg-orange-100 text-orange-700', NORMAL: 'bg-blue-100 text-blue-700', LOW: 'bg-gray-100 text-gray-600' }[p] || 'bg-gray-100 text-gray-600';
+    return { CRITICAL: 'bg-red-100 text-red-700', HIGH: 'bg-orange-100 text-orange-700', NORMAL: 'bg-brand-100 text-brand-700', LOW: 'bg-gray-100 text-gray-600' }[p] || 'bg-gray-100 text-gray-600';
   }
 
   statusClass(s: string): string {
-    return { OPEN: 'bg-amber-100 text-amber-700', IN_PROGRESS: 'bg-blue-100 text-blue-700', AWAITING_CLIENT: 'bg-purple-100 text-purple-700', RESOLVED: 'bg-green-100 text-green-700', CLOSED: 'bg-gray-100 text-gray-600' }[s] || 'bg-gray-100 text-gray-600';
+    return { OPEN: 'bg-amber-100 text-amber-700', IN_PROGRESS: 'bg-brand-100 text-brand-700', AWAITING_CLIENT: 'bg-purple-100 text-purple-700', RESOLVED: 'bg-green-100 text-green-700', CLOSED: 'bg-gray-100 text-gray-600' }[s] || 'bg-gray-100 text-gray-600';
   }
 }

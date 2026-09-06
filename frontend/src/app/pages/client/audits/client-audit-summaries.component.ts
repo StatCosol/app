@@ -73,7 +73,7 @@ import {
             </div>
             <div>
               <span class="text-slate-500 text-xs">Avg Score</span>
-              <p class="font-bold text-indigo-600">
+              <p class="font-bold text-brand-600">
                 {{
                   s.avg_score !== null && s.avg_score !== undefined
                     ? s.avg_score + '%'

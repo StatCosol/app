@@ -129,7 +129,7 @@ import {
                 </div>
                 <p class="text-sm text-gray-600">{{ a.description }}</p>
                 @if (a.recommendation) {
-<p class="text-xs text-blue-600 mt-1">💡 {{ a.recommendation }}</p>
+<p class="text-xs text-brand-600 mt-1">💡 {{ a.recommendation }}</p>
 }
               </div>
               @if (a.status === 'OPEN') {

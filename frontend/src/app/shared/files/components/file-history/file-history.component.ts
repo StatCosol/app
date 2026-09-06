@@ -23,7 +23,7 @@ export class FileHistoryComponent {
       case 'RETURNED':
       case 'REUPLOAD_REQUESTED': return 'bg-amber-100 text-amber-700';
       case 'SUBMITTED':
-      case 'UPLOADED': return 'bg-blue-100 text-blue-700';
+      case 'UPLOADED': return 'bg-brand-100 text-brand-700';
       case 'LOCKED': return 'bg-gray-100 text-gray-700';
       default: return 'bg-gray-100 text-gray-600';
     }

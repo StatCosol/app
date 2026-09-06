@@ -64,7 +64,7 @@ interface RepeatNcItem {
             type="button"
             (click)="reload()"
             [disabled]="!clientId || loading"
-            class="px-4 py-2 bg-indigo-600 text-white text-sm rounded-md disabled:opacity-50"
+            class="px-4 py-2 bg-brand-600 text-white text-sm rounded-md disabled:opacity-50"
           >
             Refresh
           </button>

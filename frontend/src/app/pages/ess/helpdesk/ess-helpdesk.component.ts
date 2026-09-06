@@ -41,7 +41,7 @@ interface EssMessage {
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1" for="eh-new-category">Category *</label>
             <select id="eh-new-category" name="newCategory" [(ngModel)]="newCategory"
-                    class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
               <option value="">Select…</option>
               <option value="PF">PF (Provident Fund)</option>
               <option value="ESI">ESI (Employee State Insurance)</option>
@@ -51,12 +51,12 @@ interface EssMessage {
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1" for="eh-new-sub-category">Sub-category</label>
             <input autocomplete="off" id="eh-new-sub-category" name="newSubCategory" [(ngModel)]="newSubCategory" placeholder="e.g. UAN Issue, Claim Delay"
-                   class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                   class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1" for="eh-new-priority">Priority</label>
             <select id="eh-new-priority" name="newPriority" [(ngModel)]="newPriority"
-                    class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
               <option value="NORMAL">Normal</option>
               <option value="LOW">Low</option>
               <option value="HIGH">High</option>
@@ -67,11 +67,11 @@ interface EssMessage {
         <div class="mb-4">
           <label class="block text-xs font-medium text-gray-600 mb-1" for="eh-new-description">Description *</label>
           <textarea autocomplete="off" id="eh-new-description" name="newDescription" [(ngModel)]="newDescription" rows="3" placeholder="Describe your query in detail…"
-                    class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"></textarea>
         </div>
         <button (click)="submitTicket()"
                 [disabled]="!newCategory || !newDescription.trim() || submitting"
-                class="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                class="px-5 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
           {{ submitting ? 'Submitting…' : 'Submit Query' }}
         </button>
         @if (submitSuccess) {
@@ -89,7 +89,7 @@ interface EssMessage {
 <button
                   (click)="filterStatus = f.value; applyFilter()"
                   class="px-3 py-1 text-xs font-medium rounded-full border transition-colors"
-                  [class]="filterStatus === f.value ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'">
+                  [class]="filterStatus === f.value ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'">
             {{ f.label }}
           </button>
 }
@@ -103,7 +103,7 @@ interface EssMessage {
           @for (t of filtered; track t) {
 <div
                class="rounded-lg border transition-all"
-               [class]="selectedTicket?.id === t.id ? 'border-indigo-300 bg-indigo-50/30' : 'border-gray-100 hover:border-gray-200'">
+               [class]="selectedTicket?.id === t.id ? 'border-brand-300 bg-brand-50/30' : 'border-gray-100 hover:border-gray-200'">
             <!-- Ticket row -->
             <div class="p-4 cursor-pointer" (click)="selectTicket(t)">
               <div class="flex items-center justify-between">
@@ -140,10 +140,10 @@ interface EssMessage {
               <div class="flex gap-2">
                 <input autocomplete="off" id="eh-reply-message" name="replyMessage" [(ngModel)]="replyMessage" (keydown.enter)="sendReply()"
                        placeholder="Type a reply…"
-                       class="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                       class="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
                 <button (click)="sendReply()"
                         [disabled]="!replyMessage.trim() || sendingReply"
-                        class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                        class="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                   Send
                 </button>
               </div>
@@ -264,10 +264,10 @@ export class EssHelpdeskComponent implements OnInit {
   }
 
   priorityClass(p: string): string {
-    return { CRITICAL: 'bg-red-100 text-red-700', HIGH: 'bg-orange-100 text-orange-700', NORMAL: 'bg-blue-100 text-blue-700', LOW: 'bg-gray-100 text-gray-600' }[p] || 'bg-gray-100 text-gray-600';
+    return { CRITICAL: 'bg-red-100 text-red-700', HIGH: 'bg-orange-100 text-orange-700', NORMAL: 'bg-brand-100 text-brand-700', LOW: 'bg-gray-100 text-gray-600' }[p] || 'bg-gray-100 text-gray-600';
   }
 
   statusClass(s: string): string {
-    return { OPEN: 'bg-amber-100 text-amber-700', IN_PROGRESS: 'bg-blue-100 text-blue-700', AWAITING_CLIENT: 'bg-purple-100 text-purple-700', RESOLVED: 'bg-green-100 text-green-700', CLOSED: 'bg-gray-100 text-gray-600' }[s] || 'bg-gray-100 text-gray-600';
+    return { OPEN: 'bg-amber-100 text-amber-700', IN_PROGRESS: 'bg-brand-100 text-brand-700', AWAITING_CLIENT: 'bg-purple-100 text-purple-700', RESOLVED: 'bg-green-100 text-green-700', CLOSED: 'bg-gray-100 text-gray-600' }[s] || 'bg-gray-100 text-gray-600';
   }
 }

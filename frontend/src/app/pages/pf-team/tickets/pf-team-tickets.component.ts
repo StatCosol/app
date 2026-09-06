@@ -20,7 +20,7 @@ import { PfTeamApiService, HdTicket } from '../pf-team-api.service';
       <!-- Filters -->
       <div class="flex flex-wrap items-center gap-3">
         <select id="ptt-filter-client" name="filterClient" [(ngModel)]="filterClient" (ngModelChange)="applyFilter()"
-                class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
           <option value="">All Clients</option>
           @for (c of clientOptions; track c) {
 <option [value]="c.id">{{ c.name }}</option>
@@ -28,7 +28,7 @@ import { PfTeamApiService, HdTicket } from '../pf-team-api.service';
         </select>
 
         <select id="ptt-filter-status" name="filterStatus" [(ngModel)]="filterStatus" (ngModelChange)="applyFilter()"
-                class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
           <option value="">All Statuses</option>
           <option value="OPEN">Open</option>
           <option value="IN_PROGRESS">In Progress</option>
@@ -38,7 +38,7 @@ import { PfTeamApiService, HdTicket } from '../pf-team-api.service';
         </select>
 
         <select id="ptt-filter-category" name="filterCategory" [(ngModel)]="filterCategory" (ngModelChange)="applyFilter()"
-                class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
           <option value="">All Categories</option>
           <option value="PF">PF</option>
           <option value="ESI">ESI</option>
@@ -46,7 +46,7 @@ import { PfTeamApiService, HdTicket } from '../pf-team-api.service';
         </select>
 
         <select id="ptt-filter-priority" name="filterPriority" [(ngModel)]="filterPriority" (ngModelChange)="applyFilter()"
-                class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
           <option value="">All Priorities</option>
           <option value="CRITICAL">Critical</option>
           <option value="HIGH">High</option>
@@ -75,8 +75,8 @@ import { PfTeamApiService, HdTicket } from '../pf-team-api.service';
               @for (t of filtered; track t) {
 <tr
                   [routerLink]="['/pf-team/tickets', t.id]"
-                  class="hover:bg-indigo-50/40 cursor-pointer transition-colors">
-                <td class="px-4 py-3 font-medium text-indigo-700 whitespace-nowrap">{{ t.client?.clientName || '—' }}</td>
+                  class="hover:bg-brand-50/40 cursor-pointer transition-colors">
+                <td class="px-4 py-3 font-medium text-brand-700 whitespace-nowrap">{{ t.client?.clientName || '—' }}</td>
                 <td class="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">
                   {{ t.category }}@if (t.subCategory) {
 <span class="text-gray-400"> / {{ t.subCategory }}</span>
@@ -164,7 +164,7 @@ export class PfTeamTicketsComponent implements OnInit {
     return {
       CRITICAL: 'bg-red-100 text-red-700',
       HIGH: 'bg-orange-100 text-orange-700',
-      NORMAL: 'bg-blue-100 text-blue-700',
+      NORMAL: 'bg-brand-100 text-brand-700',
       LOW: 'bg-gray-100 text-gray-600',
     }[p] || 'bg-gray-100 text-gray-600';
   }
@@ -172,7 +172,7 @@ export class PfTeamTicketsComponent implements OnInit {
   statusClass(s: string): string {
     return {
       OPEN: 'bg-amber-100 text-amber-700',
-      IN_PROGRESS: 'bg-blue-100 text-blue-700',
+      IN_PROGRESS: 'bg-brand-100 text-brand-700',
       AWAITING_CLIENT: 'bg-purple-100 text-purple-700',
       RESOLVED: 'bg-green-100 text-green-700',
       CLOSED: 'bg-gray-100 text-gray-600',

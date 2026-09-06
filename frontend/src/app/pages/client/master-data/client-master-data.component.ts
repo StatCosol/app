@@ -86,7 +86,7 @@ type MasterTab = 'departments' | 'grades' | 'designations';
                 </span>
               </td>
               <td class="px-4 py-3 text-right">
-                <button class="text-xs text-blue-600 hover:underline" (click)="editItem(item)">Edit</button>
+                <button class="text-xs text-brand-600 hover:underline" (click)="editItem(item)">Edit</button>
               </td>
             </tr>
 }

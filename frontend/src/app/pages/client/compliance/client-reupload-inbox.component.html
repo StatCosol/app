@@ -10,11 +10,11 @@
         type="text"
         [(ngModel)]="q"
         placeholder="Search documents..."
-        class="rounded-lg border-gray-300 text-sm focus:ring-indigo-500 focus:border-indigo-500 w-48"
+        class="rounded-lg border-gray-300 text-sm focus:ring-brand-500 focus:border-brand-500 w-48"
       />
       <button type="button"
         (click)="load()"
-        class="px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-sm font-medium"
+        class="px-3 py-2 rounded-lg bg-brand-50 text-brand-700 hover:bg-brand-100 text-sm font-medium"
       >
         Refresh
       </button>
@@ -43,7 +43,7 @@
   <!-- Loading -->
   @if (loading) {
 <div class="flex items-center justify-center py-12">
-    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div>
     <span class="ml-3 text-gray-500">Loading...</span>
   </div>
 }
@@ -125,7 +125,7 @@
           <a
             [href]="latestFileUrl(r)"
             target="_blank"
-            class="inline-flex items-center text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+            class="inline-flex items-center text-xs text-brand-600 hover:text-brand-800 font-medium"
           >
             <svg class="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
@@ -141,7 +141,7 @@
             <div class="flex-1">
               <input
                 type="file"
-                class="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                class="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"
                 (change)="onFileChange(id(r), $event)"
                 [disabled]="!canUpload(r)"
               />
