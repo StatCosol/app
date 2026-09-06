@@ -77,8 +77,10 @@ module.exports = {
          * Green wins because it is the brand's second colour and the 15 call
          * sites are pure chrome (focus rings, a loading spinner), carrying no
          * semantic meaning that a colour change would break. Its 400 step was
-         * #1eb6f7, the legacy statco-light-blue, which is still available as
-         * statco-blue.light for anything that genuinely wants it. */
+         * #1eb6f7, the legacy statco-light-blue — now gone entirely along with
+         * the statco-blue token, so there is no cyan left to fall back to. That
+         * is deliberate: a bright cyan has no place in a navy-and-green brand,
+         * and leaving an escape hatch is how the drift started the first time. */
         'success': {
           50: '#f0fdf4',
           100: '#dcfce7',

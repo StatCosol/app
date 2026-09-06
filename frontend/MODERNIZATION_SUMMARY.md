@@ -129,7 +129,7 @@ npm install -D tailwindcss postcss autoprefixer
 
 ### Custom Tailwind Configuration
 - **Colors:**
-  - `statco-blue` (light, DEFAULT, dark)
+  - `brand` (50–950, navy #0A1F44) and `accent` (50–950, green #20A15A)
   - Extended `primary` palette (50-950)
   - Extended `accent` palette (50-900)
 - **Fonts:**

@@ -101,7 +101,8 @@ This guide documents the comprehensive UI modernization of the StatCo Comply app
 --statco-light-blue: #1eb6f7
 
 // Tailwind Extended Colors
-statco-blue: { light: '#1eb6f7', DEFAULT: '#0a2656', dark: '#051734' }
+brand:  { 50…950, DEFAULT: '#0A1F44' }   // navy, brand guide
+accent: { 50…950, DEFAULT: '#20A15A' }   // green, brand guide
 primary: { 50-950 scale }
 accent: { 50-900 scale }
 ```
@@ -319,7 +320,8 @@ Use Tailwind's responsive grid system:
 - Captions: `text-xs text-gray-500`
 
 ### 4. Color Usage
-- Primary actions: Use `statco-blue` brand color
+- Primary actions: Use `bg-brand-600` / `hover:bg-brand-700` (navy)
+- Focus rings and hovers: Use `accent-500` (brand green)
 - Success states: Green palette
 - Warning states: Yellow/Amber palette
 - Danger states: Red palette

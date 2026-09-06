@@ -178,7 +178,7 @@
 ### Text Colors
 ```html
 <!-- Brand -->
-<span class="text-statco-blue">Brand Blue</span>
+<span class="text-brand-800">Brand Navy</span>
 
 <!-- Status Colors -->
 <span class="text-gray-600">Muted</span>
@@ -262,7 +262,7 @@ font-bold     700
 
 <!-- Group Hover (parent affects child) -->
 <div class="group">
-  <span class="text-gray-700 group-hover:text-statco-blue transition-colors">
+  <span class="text-gray-700 group-hover:text-brand-700 transition-colors">
 </div>
 
 <!-- All transitions at once -->
@@ -279,7 +279,7 @@ font-bold     700
 <button disabled class="disabled:opacity-50 disabled:cursor-not-allowed">
 
 <!-- Focus Ring (for forms) -->
-<input class="focus:ring-2 focus:ring-statco-blue focus:border-transparent">
+<input class="focus:ring-2 focus:ring-accent-500 focus:border-transparent">
 ```
 
 ## 📱 Responsive Utilities
