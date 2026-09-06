@@ -374,7 +374,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
       transition: transform 0.25s ease, box-shadow 0.25s ease;
     }
     .article-card--featured {
-      border: 1px solid rgba(10,38,86,0.08);
+      border: 1px solid rgba(10, 31, 68,0.08);
     }
     .article-card--grid:hover {
       transform: translateY(-4px);

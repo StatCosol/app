@@ -97,13 +97,13 @@ This guide documents the comprehensive UI modernization of the StatCo Comply app
 ### Colors
 ```javascript
 // Primary Brand Colors
---statco-dark-blue: #0a2656
---statco-light-blue: #1eb6f7
+--statco-navy: #0A1F44   /* brand-900 */
+--statco-green: #20A15A  /* accent-500 */
 
 // Tailwind Extended Colors
 brand:  { 50…950, DEFAULT: '#0A1F44' }   // navy, brand guide
 accent: { 50…950, DEFAULT: '#20A15A' }   // green, brand guide
-primary: { 50-950 scale }
+success / warning / error / info: semantic only
 accent: { 50-900 scale }
 ```
 

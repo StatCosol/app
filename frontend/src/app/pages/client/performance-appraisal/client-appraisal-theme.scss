@@ -71,13 +71,13 @@
 .appraisal-action--primary {
   color: #fff;
   background: linear-gradient(135deg, #0A1F44 0%, #0f3470 100%);
-  box-shadow: 0 8px 18px rgba(10, 38, 86, 0.18);
+  box-shadow: 0 8px 18px rgba(10, 31, 68, 0.18);
 }
 
 .btn-primary:hover,
 .appraisal-action--primary:hover {
-  background: linear-gradient(135deg, #0d2f66 0%, #133e80 100%);
-  box-shadow: 0 12px 24px rgba(10, 38, 86, 0.24);
+  background: linear-gradient(135deg, #16305A 0%, #35548A 100%);
+  box-shadow: 0 12px 24px rgba(10, 31, 68, 0.24);
   transform: translateY(-1px);
 }
 
@@ -108,12 +108,12 @@
 
 .table-card {
   background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);
-  border: 1px solid rgba(10, 38, 86, 0.08);
+  border: 1px solid rgba(10, 31, 68, 0.08);
   border-radius: 1rem;
   padding: 1.25rem;
   box-shadow:
-    0 1px 3px rgba(10, 38, 86, 0.04),
-    0 8px 20px rgba(10, 38, 86, 0.04);
+    0 1px 3px rgba(10, 31, 68, 0.04),
+    0 8px 20px rgba(10, 31, 68, 0.04);
 }
 
 .filter-select,
@@ -215,8 +215,8 @@ textarea:focus {
   padding: 1rem;
   text-align: center;
   background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);
-  border: 1px solid rgba(10, 38, 86, 0.08);
-  box-shadow: 0 1px 3px rgba(10, 38, 86, 0.05);
+  border: 1px solid rgba(10, 31, 68, 0.08);
+  box-shadow: 0 1px 3px rgba(10, 31, 68, 0.05);
 }
 
 .summary-value {
