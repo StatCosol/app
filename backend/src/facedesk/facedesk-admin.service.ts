@@ -34,6 +34,17 @@ export interface AzureFaceBackfillStatus {
   enrolled: number;
   linked: number;
   pending: number;
+  /**
+   * Enrolled profiles that have a usable stored photo, whatever their Azure
+   * link state.
+   *
+   * Distinct from [storedPhotoCandidates], which counts only UNLINKED profiles
+   * — it answers "how many can a backfill still fix", so on a fully linked
+   * client it is necessarily 0. Displayed as "Stored Photos", that read as
+   * "this client has no photos" on a perfectly healthy client and sent us
+   * chasing a bug that did not exist.
+   */
+  storedPhotos: number;
   storedPhotoCandidates: number;
   recaptureNeeded: number;
   orphanAuditCount: number;
@@ -108,6 +119,10 @@ export class FaceDeskAdminService {
                        OR "imagePath" LIKE 's3://%')
               )::int AS "storedPhotoCandidates",
               COUNT(*) FILTER (
+                WHERE "imagePath" LIKE '/uploads/face-photos/%'
+                   OR "imagePath" LIKE 's3://%'
+              )::int AS "storedPhotos",
+              COUNT(*) FILTER (
                 WHERE azure_persisted_face_id IS NULL
                   AND ("imagePath" IS NULL
                        OR ("imagePath" NOT LIKE '/uploads/face-photos/%'
@@ -133,6 +148,7 @@ export class FaceDeskAdminService {
       enrolled,
       linked,
       pending,
+      storedPhotos: Number(counts?.storedPhotos ?? 0),
       storedPhotoCandidates: Number(counts?.storedPhotoCandidates ?? 0),
       recaptureNeeded: Number(counts?.recaptureNeeded ?? 0),
       orphanAuditCount: Number(orphans?.count ?? 0),

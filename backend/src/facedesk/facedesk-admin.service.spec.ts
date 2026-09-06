@@ -838,6 +838,7 @@ describe('FaceDeskAdminService Azure face list backfill status', () => {
         {
           enrolled: 14,
           linked: 3,
+          storedPhotos: 12,
           pending: 11,
           storedPhotoCandidates: 9,
           recaptureNeeded: 2,
@@ -867,6 +868,7 @@ describe('FaceDeskAdminService Azure face list backfill status', () => {
       enrolled: 14,
       linked: 3,
       pending: 11,
+      storedPhotos: 12,
       storedPhotoCandidates: 9,
       recaptureNeeded: 2,
       orphanAuditCount: 1,
