@@ -475,7 +475,11 @@
             <div class="bg-white px-3 py-3"><div class="text-xs text-gray-500">Enrolled</div><div class="mt-1 text-xl font-semibold text-gray-900">{{ azureBackfillStatus.enrolled }}</div></div>
             <div class="bg-white px-3 py-3"><div class="text-xs text-gray-500">Azure Linked</div><div class="mt-1 text-xl font-semibold text-green-700">{{ azureBackfillStatus.linked }}</div></div>
             <div class="bg-white px-3 py-3"><div class="text-xs text-gray-500">Pending</div><div class="mt-1 text-xl font-semibold text-amber-700">{{ azureBackfillStatus.pending }}</div></div>
-            <div class="bg-white px-3 py-3"><div class="text-xs text-gray-500">Stored Photos</div><div class="mt-1 text-xl font-semibold text-gray-900">{{ azureBackfillStatus.storedPhotoCandidates }}</div></div>
+            <!-- storedPhotos, not storedPhotoCandidates: the latter counts only
+                 UNLINKED profiles a backfill could still fix, so it reads 0 on a
+                 fully linked client. Under the label "Stored Photos" that looked
+                 like "this client has no photos" on a perfectly healthy one. -->
+            <div class="bg-white px-3 py-3"><div class="text-xs text-gray-500">Stored Photos</div><div class="mt-1 text-xl font-semibold text-gray-900">{{ azureBackfillStatus.storedPhotos }}</div></div>
             <div class="bg-white px-3 py-3"><div class="text-xs text-gray-500">Recapture</div><div class="mt-1 text-xl font-semibold text-red-700">{{ azureBackfillStatus.recaptureNeeded }}</div></div>
             <div class="bg-white px-3 py-3"><div class="text-xs text-gray-500">Azure Orphans</div><div class="mt-1 text-xl font-semibold text-gray-900">{{ azureBackfillStatus.orphanAuditCount }}</div></div>
           </div>

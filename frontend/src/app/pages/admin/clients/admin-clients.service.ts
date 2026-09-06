@@ -124,6 +124,7 @@ export interface AzureFaceBackfillStatus {
   enrolled: number;
   linked: number;
   pending: number;
+  storedPhotos: number;
   storedPhotoCandidates: number;
   recaptureNeeded: number;
   orphanAuditCount: number;
