@@ -4,6 +4,7 @@ import {
   IsNotEmpty,
   IsEmail,
   IsDateString,
+  IsBoolean,
   MaxLength,
   IsUUID,
   IsInt,
@@ -65,10 +66,57 @@ export class CreateContractorEmployeeDto {
   @MaxLength(20)
   uan?: string;
 
+  /**
+   * `esic`, not `esicNumber`.
+   *
+   * The service takes Partial<ContractorEmployeeEntity> and maps property names
+   * straight onto the column, so `esicNumber` matched nothing and was dropped
+   * by the whitelist — silently, because it was optional.
+   */
   @IsOptional()
   @IsString()
-  @MaxLength(20)
-  esicNumber?: string;
+  @MaxLength(30)
+  esic?: string;
+
+  /*
+   * Everything below was sent by the registration form and not declared here.
+   *
+   * The global pipe runs whitelist + forbidNonWhitelisted, so a single unknown
+   * property is a flat 400 with no clue in the network tab. That is why single
+   * registration failed while bulk import worked: the bulk endpoint takes
+   * `@Body() body: { rows: any[] }` — a plain type, not a DTO class — so
+   * class-validator never inspects it and it accepts anything.
+   *
+   * Column lengths mirror the entity exactly (gender 10, father_name 200,
+   * department 120, esic 30) rather than being guessed, so validation fails
+   * before Postgres does and with a message that names the field.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  gender?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateOfBirth?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  fatherName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  department?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  pfApplicable?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  esiApplicable?: boolean;
 
   @IsOptional()
   @IsUUID()
@@ -129,10 +177,44 @@ export class UpdateContractorEmployeeDto {
   @MaxLength(20)
   uan?: string;
 
+  /* Same set as the create DTO, and for the same reason: the edit form posts
+   * these too, so leaving them undeclared makes editing a worker fail exactly
+   * as creating one did. `esicNumber` was the wrong name here as well. */
   @IsOptional()
   @IsString()
-  @MaxLength(20)
-  esicNumber?: string;
+  @MaxLength(30)
+  esic?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  gender?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateOfBirth?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  fatherName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  department?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  pfApplicable?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  esiApplicable?: boolean;
+
+  @IsOptional()
+  @IsUUID()
+  branchId?: string;
 }
 
 /**
