@@ -113,9 +113,9 @@ interface BranchItem {
               <div class="flex items-center justify-between mb-2">
                 <span class="text-xs font-semibold text-gray-700 uppercase tracking-wide">Select Branches</span>
                 <div class="flex gap-2">
-                  <button type="button" class="text-xs text-blue-600 hover:underline" (click)="selectAllBranches()" [disabled]="!isMaster || saving">Select All</button>
+                  <button type="button" class="text-xs text-brand-600 hover:underline" (click)="selectAllBranches()" [disabled]="!isMaster || saving">Select All</button>
                   <span class="text-gray-300">|</span>
-                  <button type="button" class="text-xs text-blue-600 hover:underline" (click)="clearAllBranches()" [disabled]="!isMaster || saving">Clear All</button>
+                  <button type="button" class="text-xs text-brand-600 hover:underline" (click)="clearAllBranches()" [disabled]="!isMaster || saving">Clear All</button>
                 </div>
               </div>
               @if (branches.length === 0) {

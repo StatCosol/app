@@ -97,7 +97,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
                 <td class="text-xs font-mono text-gray-500">{{ c.cycleCode }}</td>
                 <td class="font-medium text-slate-800">{{ c.cycleName }}</td>
                 <td>{{ c.financialYear }}</td>
-                <td><span class="badge bg-indigo-100 text-indigo-700">{{ c.appraisalType.replace(/_/g, ' ') }}</span></td>
+                <td><span class="badge bg-brand-100 text-brand-700">{{ c.appraisalType.replace(/_/g, ' ') }}</span></td>
                 <td class="text-xs text-gray-500">{{ c.reviewPeriodFrom | date:'dd/MM/yyyy' }} — {{ c.reviewPeriodTo | date:'dd/MM/yyyy' }}</td>
                 <td>
                   <span class="badge"
@@ -116,7 +116,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 <button (click)="activateCycle(c.id)" class="text-emerald-600 hover:text-emerald-800 text-xs font-medium">Activate</button>
 }
                     @if (c.status === 'ACTIVE') {
-<button (click)="generateEmployees(c.id)" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Generate</button>
+<button (click)="generateEmployees(c.id)" class="text-brand-600 hover:text-brand-800 text-xs font-medium">Generate</button>
 }
                     @if (c.status === 'ACTIVE') {
 <button (click)="closeCycle(c.id)" class="text-red-600 hover:text-red-800 text-xs font-medium">Close</button>
@@ -138,8 +138,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
 
       <!-- Generation result -->
       @if (genResult) {
-<div class="table-card mt-4 bg-blue-50 border-blue-200">
-        <p class="text-sm text-blue-800">Generated {{ genResult.generated }} appraisals ({{ genResult.alreadyExisted }} already existed, {{ genResult.total }} eligible)</p>
+<div class="table-card mt-4 bg-brand-50 border-brand-200">
+        <p class="text-sm text-brand-800">Generated {{ genResult.generated }} appraisals ({{ genResult.alreadyExisted }} already existed, {{ genResult.total }} eligible)</p>
       </div>
 }
     </div>

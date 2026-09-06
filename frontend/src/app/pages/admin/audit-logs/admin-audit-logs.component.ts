@@ -79,7 +79,7 @@ import {
         </div>
         <div class="flex items-end">
           <button (click)="page = 1; load()"
-                  class="w-full px-4 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 transition-colors">
+                  class="w-full px-4 py-2 bg-brand-600 text-white text-sm rounded-md hover:bg-brand-700 transition-colors">
             Search
           </button>
         </div>
@@ -141,7 +141,7 @@ import {
                 </td>
                 <td class="px-4 py-3 text-sm">
                   <button (click)="expandedId = expandedId === log.id ? null : log.id"
-                          class="text-indigo-600 hover:text-indigo-800 text-xs underline">
+                          class="text-brand-600 hover:text-brand-800 text-xs underline">
                     {{ expandedId === log.id ? 'Hide' : 'View' }}
                   </button>
                 </td>
@@ -272,7 +272,7 @@ export class AdminAuditLogsComponent implements OnInit, OnDestroy {
       case 'CREATE':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
       case 'UPDATE':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+        return 'bg-brand-100 text-brand-800 dark:bg-brand-900 dark:text-brand-300';
       case 'SOFT_DELETE':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
       case 'RESTORE':

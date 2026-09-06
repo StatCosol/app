@@ -54,13 +54,13 @@ import {
 
       <!-- Run Assessment Panel -->
       @if (showAssessPanel) {
-<div class="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
-        <h3 class="font-semibold text-blue-900 mb-3">Run Risk Assessment</h3>
+<div class="bg-brand-50 border border-brand-200 rounded-xl p-6 mb-6">
+        <h3 class="font-semibold text-brand-900 mb-3">Run Risk Assessment</h3>
         <div class="flex items-end gap-4">
           <div class="flex-1">
             <label class="block text-sm font-medium text-gray-700 mb-1" for="ar-assess-client-id">Client</label>
             <select id="ar-assess-client-id" name="assessClientId" [(ngModel)]="assessClientId"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
               <option value="">Select client</option>
               @for (c of clients; track c) {
 <option [value]="c.id">{{ c.name }}</option>
@@ -151,8 +151,8 @@ import {
           <div class="space-y-2">
             @for (r of latestAssessment.recommendations; track r; let i = $index) {
 <div
-                 class="flex items-start gap-3 bg-blue-50 rounded-lg p-3">
-              <span class="shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">
+                 class="flex items-start gap-3 bg-brand-50 rounded-lg p-3">
+              <span class="shrink-0 w-6 h-6 rounded-full bg-brand-600 text-white text-xs flex items-center justify-center font-bold">
                 {{ r.priority }}
               </span>
               <div>

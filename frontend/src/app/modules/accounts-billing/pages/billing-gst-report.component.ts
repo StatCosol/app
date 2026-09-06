@@ -24,7 +24,7 @@ interface ReportOption {
     <div class="p-6 space-y-6">
       <div class="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-wider text-blue-700">
+          <p class="text-xs font-semibold uppercase tracking-wider text-brand-700">
             Accounts & Billing
           </p>
           <h1 class="text-2xl font-bold text-slate-800">Advanced Billing Reports</h1>
@@ -142,16 +142,16 @@ interface ReportOption {
             type="button"
             (click)="load()"
             [disabled]="loading"
-            class="ml-auto px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+            class="ml-auto px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
           >
             {{ loading ? 'Generating...' : 'Generate Report' }}
           </button>
         </div>
 
-        <div class="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 text-sm text-blue-900">
+        <div class="rounded-lg bg-brand-50 border border-brand-100 px-4 py-3 text-sm text-brand-900">
           <strong>{{ selectedOption.label }}:</strong> {{ selectedOption.description }}
           @if (reportType === 'GST_DETAIL') {
-            <span class="block mt-1 text-xs text-blue-700">
+            <span class="block mt-1 text-xs text-brand-700">
               Proforma, draft and cancelled documents are excluded. Only issued Tax Invoices are
               included.
             </span>

@@ -155,7 +155,7 @@ export class SalesLeadsListComponent implements OnInit {
 
   stageClass(stage: LeadStage): string {
     const map: Record<LeadStage, string> = {
-      NEW: 'bg-blue-50 text-blue-700',
+      NEW: 'bg-brand-50 text-brand-700',
       CONTACTED: 'bg-cyan-50 text-cyan-700',
       QUALIFIED: 'bg-violet-50 text-violet-700',
       PROPOSAL_SENT: 'bg-amber-50 text-amber-700',
@@ -171,7 +171,7 @@ export class SalesLeadsListComponent implements OnInit {
   priorityClass(p: LeadPriority): string {
     const map: Record<LeadPriority, string> = {
       LOW: 'bg-gray-100 text-gray-700',
-      MEDIUM: 'bg-blue-50 text-blue-700',
+      MEDIUM: 'bg-brand-50 text-brand-700',
       HIGH: 'bg-orange-50 text-orange-700',
       CRITICAL: 'bg-rose-100 text-rose-800',
     };

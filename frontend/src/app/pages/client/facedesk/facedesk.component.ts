@@ -115,7 +115,7 @@ type Tab =
           <div class="card"><div class="num text-green-700">{{ cards.enrolledEmployees }}</div><div class="lbl">Enrolled</div></div>
           <div class="card"><div class="num text-amber-700">{{ cards.pendingEnrollment }}</div><div class="lbl">Pending Enrollment</div></div>
           <div class="card"><div class="num text-green-700">{{ cards.todayPresent }}</div><div class="lbl">Today Present</div></div>
-          <div class="card"><div class="num text-blue-700">{{ cards.todayPunches }}</div><div class="lbl">Punches Today</div></div>
+          <div class="card"><div class="num text-brand-700">{{ cards.todayPunches }}</div><div class="lbl">Punches Today</div></div>
           <div class="card"><div class="num text-red-600">{{ cards.todayAbsent }}</div><div class="lbl">Today Absent</div></div>
           <div class="card"><div class="num">{{ cards.failedAttemptsToday }}</div><div class="lbl">Failed Today</div></div>
           <div class="card"><div class="num text-amber-700">{{ cards.duplicateAlertsPending }}</div><div class="lbl">Duplicate Alerts</div></div>

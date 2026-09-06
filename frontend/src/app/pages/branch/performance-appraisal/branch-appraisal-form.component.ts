@@ -82,7 +82,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 }
                 </td>
                 <td class="text-center font-semibold">{{ item.finalRating ?? '—' }}</td>
-                <td class="text-center text-indigo-600 font-medium">{{ item.weightedScore ?? '—' }}</td>
+                <td class="text-center text-brand-600 font-medium">{{ item.weightedScore ?? '—' }}</td>
                 <td>
                   @if (canManagerReview || canBranchReview) {
 <input type="text"
@@ -99,7 +99,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
             <tfoot>
               <tr class="bg-gray-50 font-semibold">
                 <td colspan="7" class="text-right">Total Score:</td>
-                <td class="text-center text-indigo-700">{{ appraisal.totalScore ?? '—' }}</td>
+                <td class="text-center text-brand-700">{{ appraisal.totalScore ?? '—' }}</td>
                 <td></td>
               </tr>
             </tfoot>

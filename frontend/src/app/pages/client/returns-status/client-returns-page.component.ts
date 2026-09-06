@@ -25,7 +25,7 @@ type StatusTab = 'ALL' | 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'OV
         @for (tab of tabs; track tab) {
           <button (click)="activeTab = tab; applyFilter()"
             [class]="activeTab === tab
-              ? 'px-3 py-1 rounded-full text-sm font-medium bg-indigo-600 text-white'
+              ? 'px-3 py-1 rounded-full text-sm font-medium bg-brand-600 text-white'
               : 'px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200'">
             {{ tab }}
           </button>
@@ -156,7 +156,7 @@ export class ClientReturnsPageComponent implements OnInit {
   statusBadge(status: string): string {
     const map: Record<string, string> = {
       PENDING: 'bg-yellow-100 text-yellow-800',
-      SUBMITTED: 'bg-blue-100 text-blue-800',
+      SUBMITTED: 'bg-brand-100 text-brand-800',
       APPROVED: 'bg-green-100 text-green-800',
       REJECTED: 'bg-red-100 text-red-800',
       OVERDUE: 'bg-red-200 text-red-900',

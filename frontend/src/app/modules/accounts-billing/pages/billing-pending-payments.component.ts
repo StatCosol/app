@@ -18,7 +18,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             Upload a CSV of already-issued invoices awaiting payment. The system can
             send a reminder email to each client immediately.
           </p>
-          <p class="text-xs text-blue-700 mt-1">
+          <p class="text-xs text-brand-700 mt-1">
             🔔 Auto-reminders run daily at <strong>9:00 AM IST</strong> for every
             pending invoice until it is marked Paid. Use the Pause button on a row
             to stop daily reminders for that invoice without deleting it.
@@ -47,7 +47,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           </label>
           <button (click)="upload(fileInput)"
                   [disabled]="!selectedFile || uploading"
-                  class="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50">
+                  class="px-4 py-2 bg-brand-600 text-white rounded text-sm hover:bg-brand-700 disabled:opacity-50">
             {{ uploading ? 'Uploading…' : 'Upload' }}
           </button>
         </div>
@@ -155,7 +155,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                 @if (p.status === 'PENDING') {
 <button
                         (click)="sendOne(p)"
-                        class="text-blue-600 hover:underline text-xs mr-2">Remind</button>
+                        class="text-brand-600 hover:underline text-xs mr-2">Remind</button>
 }
                 @if (p.status === 'PENDING' && !p.remindersPaused) {
 <button

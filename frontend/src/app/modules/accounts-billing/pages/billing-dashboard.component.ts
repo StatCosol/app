@@ -106,7 +106,7 @@ import {
 
         <!-- Revenue Cards -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-5 text-white shadow">
+          <div class="bg-gradient-to-br from-brand-500 to-brand-600 rounded-xl p-5 text-white shadow">
             <p class="text-sm opacity-80">Total Billed</p>
             <p class="text-3xl font-bold mt-1">₹{{ formatNum(stats().totalBilled) }}</p>
           </div>
@@ -196,7 +196,7 @@ export class BillingDashboardComponent implements OnInit {
 
   quickLinks = [
     { route: '/accounts/clients', icon: 'users', bg: 'bg-purple-100', fg: 'text-purple-600', title: 'Billing Clients', sub: 'Manage clients' },
-    { route: '/accounts/invoices', icon: 'document', bg: 'bg-blue-100', fg: 'text-blue-600', title: 'All Invoices', sub: 'View & manage' },
+    { route: '/accounts/invoices', icon: 'document', bg: 'bg-brand-100', fg: 'text-brand-600', title: 'All Invoices', sub: 'View & manage' },
     { route: '/accounts/payments', icon: 'banknotes', bg: 'bg-green-100', fg: 'text-green-600', title: 'Payments', sub: 'Track receipts' },
     { route: '/accounts/settings', icon: 'cog', bg: 'bg-slate-100', fg: 'text-slate-600', title: 'Settings', sub: 'Company profile' },
   ] as const;

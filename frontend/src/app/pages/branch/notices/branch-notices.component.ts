@@ -76,7 +76,7 @@ import { NoticesService, Notice, NoticeKpis } from '../../../core/notices.servic
 <div class="mt-2">
               <span class="text-xs font-semibold text-gray-500">Documents</span>
               @for (d of detail.documents; track d) {
-<div class="text-xs text-blue-600 hover:underline mt-0.5">
+<div class="text-xs text-brand-600 hover:underline mt-0.5">
                 <a [href]="d.fileUrl" target="_blank">{{ d.fileName }}</a>
               </div>
 }

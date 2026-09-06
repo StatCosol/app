@@ -46,7 +46,7 @@ import { AuditsKpiApi, BranchAuditKpiItem } from '../../../core/api/audits-kpi.a
           </div>
           <div class="rounded-xl border border-gray-200 p-3">
             <div class="text-xs text-gray-500">Low</div>
-            <div class="text-xl font-semibold text-blue-600">{{ total.low }}</div>
+            <div class="text-xl font-semibold text-brand-600">{{ total.low }}</div>
           </div>
           <div class="rounded-xl border border-gray-200 p-3">
             <div class="text-xs text-gray-500">Open</div>
@@ -79,7 +79,7 @@ import { AuditsKpiApi, BranchAuditKpiItem } from '../../../core/api/audits-kpi.a
                 <td class="py-2 pr-3 text-red-600">{{ x.critical }}</td>
                 <td class="py-2 pr-3 text-orange-600">{{ x.high }}</td>
                 <td class="py-2 pr-3 text-amber-600">{{ x.medium }}</td>
-                <td class="py-2 pr-3 text-blue-600">{{ x.low }}</td>
+                <td class="py-2 pr-3 text-brand-600">{{ x.low }}</td>
                 <td class="py-2 pr-3">{{ x.open }}</td>
                 <td class="py-2 pr-3 text-green-600">{{ x.closed }}</td>
               </tr>

@@ -50,7 +50,7 @@ import {
             <div class="text-xs text-gray-500 mt-1">Total Employees</div>
           </div>
           <div class="bg-white rounded-lg border p-4 text-center">
-            <div class="text-xl font-bold text-blue-700">{{ fmt(consolidated.grossTotal) }}</div>
+            <div class="text-xl font-bold text-brand-700">{{ fmt(consolidated.grossTotal) }}</div>
             <div class="text-xs text-gray-500 mt-1">Gross Wages</div>
           </div>
           <div class="bg-white rounded-lg border p-4 text-center">
@@ -58,7 +58,7 @@ import {
             <div class="text-xs text-gray-500 mt-1">Employer PF</div>
           </div>
           <div class="bg-white rounded-lg border p-4 text-center">
-            <div class="text-xl font-bold text-indigo-700">{{ fmt(consolidated.esiEmployer) }}</div>
+            <div class="text-xl font-bold text-brand-700">{{ fmt(consolidated.esiEmployer) }}</div>
             <div class="text-xs text-gray-500 mt-1">Employer ESI</div>
           </div>
           <div class="bg-white rounded-lg border p-4 text-center">
@@ -99,7 +99,7 @@ import {
                 <tr><td class="px-4 py-2">ESI (Employer)</td><td class="px-4 py-2 text-right font-mono">{{ fmt(consolidated.esiEmployer) }}</td></tr>
                 <tr><td class="px-4 py-2">Bonus Provision</td><td class="px-4 py-2 text-right font-mono">{{ fmt(consolidated.bonusTotal) }}</td></tr>
                 <tr><td class="px-4 py-2">Other Employer Cost</td><td class="px-4 py-2 text-right font-mono">{{ fmt(consolidated.otherEmployerCost) }}</td></tr>
-                <tr class="bg-indigo-50 font-semibold"><td class="px-4 py-2">Total Employer Cost</td><td class="px-4 py-2 text-right font-mono">{{ fmt(consolidated.employerCostTotal) }}</td></tr>
+                <tr class="bg-brand-50 font-semibold"><td class="px-4 py-2">Total Employer Cost</td><td class="px-4 py-2 text-right font-mono">{{ fmt(consolidated.employerCostTotal) }}</td></tr>
               </tbody>
             </table></div>
           </div>

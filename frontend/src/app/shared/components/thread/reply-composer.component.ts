@@ -18,7 +18,7 @@ import { FormsModule } from '@angular/forms';
       ></textarea>
       <div class="flex justify-between items-center mt-2">
         <span class="text-xs text-gray-400">{{ text.length }}/{{ maxLength }}</span>
-        <button type="button" class="px-3 py-2 rounded-lg bg-blue-700 text-white text-sm font-semibold disabled:opacity-60" [disabled]="busy || !text.trim()" (click)="submit()">
+        <button type="button" class="px-3 py-2 rounded-lg bg-brand-700 text-white text-sm font-semibold disabled:opacity-60" [disabled]="busy || !text.trim()" (click)="submit()">
           {{ busy ? 'Sending...' : 'Send Reply' }}
         </button>
       </div>

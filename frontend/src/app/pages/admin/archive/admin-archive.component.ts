@@ -34,7 +34,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
         @for (tab of tabs; track tab) {
 <button (click)="activeTab = tab.key; loadTab()"
           [class]="activeTab === tab.key
-            ? 'px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600'
+            ? 'px-4 py-2 text-sm font-medium text-brand-600 border-b-2 border-brand-600'
             : 'px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700'">
           {{ tab.label }}
         </button>
@@ -59,7 +59,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 <div class="card">
           <ui-data-table [columns]="clientColumns" [data]="deletedClients">
             <ng-template uiTableCell="clientName" let-row>
-              <button class="text-blue-600 hover:underline font-medium" (click)="openClientDetail(row)">
+              <button class="text-brand-600 hover:underline font-medium" (click)="openClientDetail(row)">
                 {{ row.clientName }}
               </button>
               <div class="text-xs text-gray-400">{{ row.clientCode }}</div>
@@ -122,7 +122,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 <div class="card">
           <ui-data-table [columns]="retentionColumns" [data]="retentionSnapshots">
             <ng-template uiTableCell="clientName" let-row>
-              <button class="text-blue-600 hover:underline font-medium" (click)="openRetentionDetail(row)">
+              <button class="text-brand-600 hover:underline font-medium" (click)="openRetentionDetail(row)">
                 {{ row.clientName }}
               </button>
               <div class="text-xs text-gray-400">{{ row.clientCode }}</div>
@@ -213,7 +213,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
               @for (st of snapshotTabs; track st) {
 <button (click)="snapshotTab = st.key"
                 [class]="snapshotTab === st.key
-                  ? 'px-3 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600'
+                  ? 'px-3 py-2 text-sm font-medium text-brand-600 border-b-2 border-brand-600'
                   : 'px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700'">
                 {{ st.label }}
               </button>
@@ -336,7 +336,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
               @for (dt of detailTabs; track dt) {
 <button (click)="detailTab = dt.key; loadDetailData()"
                 [class]="detailTab === dt.key
-                  ? 'px-3 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600'
+                  ? 'px-3 py-2 text-sm font-medium text-brand-600 border-b-2 border-brand-600'
                   : 'px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700'">
                 {{ dt.label }}
               </button>

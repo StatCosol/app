@@ -66,7 +66,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
                         <td class="py-2.5 text-slate-500">{{ branch.employeeCount || 0 }}</td>
                         <td class="py-2.5 text-right">
                           <a [routerLink]="['/admin/branches', branch.id, 'applicability']"
-                             class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium text-sm">
+                             class="inline-flex items-center gap-1 text-brand-600 hover:text-brand-800 font-medium text-sm">
                             Configure
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                           </a>

@@ -107,7 +107,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
                       <td class="py-2 pr-4">{{ row.ratePerMonth ?? '—' }}</td>
                       <td class="py-2 pr-4"><ui-status-badge [label]="row.status || 'ACTIVE'" /></td>
                       <td class="py-2">
-                        <button class="text-blue-600 hover:underline text-xs" (click)="openDeploymentForm(row)">Edit</button>
+                        <button class="text-brand-600 hover:underline text-xs" (click)="openDeploymentForm(row)">Edit</button>
                       </td>
                     </tr>
                   }
@@ -190,7 +190,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
                         <td class="py-2 pr-4">{{ row.status }}</td>
                         <td class="py-2 pr-4">{{ row.normalHours ?? '—' }} / OT {{ row.otHours ?? '—' }}</td>
                         <td class="py-2">
-                          <button class="text-blue-600 hover:underline text-xs" (click)="openAttendanceForm(row)">Edit</button>
+                          <button class="text-brand-600 hover:underline text-xs" (click)="openAttendanceForm(row)">Edit</button>
                         </td>
                       </tr>
                     }
@@ -231,7 +231,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
                         <td class="py-2 pr-4">₹{{ row.grossWages | number:'1.2-2' }}</td>
                         <td class="py-2 pr-4">₹{{ row.netWages | number:'1.2-2' }}</td>
                         <td class="py-2">
-                          <button class="text-blue-600 hover:underline text-xs" (click)="openWageForm(row)">Edit</button>
+                          <button class="text-brand-600 hover:underline text-xs" (click)="openWageForm(row)">Edit</button>
                         </td>
                       </tr>
                     }
@@ -267,7 +267,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
                       <td class="py-2 pr-4">{{ row.status || 'GENERATED' }}</td>
                       <td class="py-2 pr-4">
                         @if (row.fileUrl) {
-                          <a [href]="downloadRegisterHref(row.id)" target="_blank" class="text-blue-600 hover:underline">{{ row.fileName || 'Download' }}</a>
+                          <a [href]="downloadRegisterHref(row.id)" target="_blank" class="text-brand-600 hover:underline">{{ row.fileName || 'Download' }}</a>
                         } @else {
                           {{ row.fileName || '—' }}
                         }

@@ -6,6 +6,54 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        /**
+         * The brand palette, as actual scales.
+         *
+         * Before this the product ran on stock Tailwind: 667 blue-*, 378
+         * indigo-* and 234 emerald-* utilities against ZERO uses of the brand
+         * navy or green. That is why it looked like every other Tailwind
+         * application — including the competitor's. Worse, blue and indigo were
+         * both used as "primary" in the same portals, so there was no single
+         * identity colour to recognise.
+         *
+         * 900 is the brand-guide navy (#0A1F44) and accent-500 the brand-guide
+         * green (#20A15A); the rest of each ramp is built around them so that
+         * chips, hovers and borders have on-brand steps to use. Without a full
+         * ramp every component reaches back for gray-* or blue-* and the drift
+         * starts again.
+         *
+         * Note this is NOT the old 'statco-blue' DEFAULT (#0a2656) — that was
+         * an undocumented drift from the guide's #0A1F44. Close enough to look
+         * deliberate, different enough to be wrong.
+         */
+        brand: {
+          50: '#F2F5FA',
+          100: '#E1E8F2',
+          200: '#C3D0E6',
+          300: '#94A9CD',
+          400: '#5E7AAC',
+          500: '#35548A',
+          600: '#1E3C6E',
+          700: '#16305A',
+          800: '#0F2650',
+          900: '#0A1F44',
+          950: '#06132B',
+          DEFAULT: '#0A1F44',
+        },
+        accent: {
+          50: '#EAF7F0',
+          100: '#D0EFE0',
+          200: '#A5E0C1',
+          300: '#6FCB9C',
+          400: '#3FB57B',
+          500: '#20A15A',
+          600: '#1B8B4E',
+          700: '#167340',
+          800: '#115A33',
+          900: '#0C4126',
+          950: '#072819',
+          DEFAULT: '#20A15A',
+        },
         'statco-blue': {
           light: '#1eb6f7',
           DEFAULT: '#0a2656',
@@ -24,18 +72,16 @@ module.exports = {
           900: '#0c4a6e',
           950: '#082f49',
         },
-        'accent': {
-          50: '#f0fdff',
-          100: '#cef8ff',
-          200: '#9ef2ff',
-          300: '#5de9ff',
-          400: '#1eb6f7',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
-        },
+        /* The cyan 'accent' ramp that used to sit here is gone. It duplicated
+         * the `accent` key defined above, and last-key-wins meant it silently
+         * discarded the brand green ramp on every build — so --statco-accent
+         * resolved to green while every accent-* utility still compiled cyan.
+         *
+         * Green wins because it is the brand's second colour and the 15 call
+         * sites are pure chrome (focus rings, a loading spinner), carrying no
+         * semantic meaning that a colour change would break. Its 400 step was
+         * #1eb6f7, the legacy statco-light-blue, which is still available as
+         * statco-blue.light for anything that genuinely wants it. */
         'success': {
           50: '#f0fdf4',
           100: '#dcfce7',

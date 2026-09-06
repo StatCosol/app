@@ -55,7 +55,7 @@ export class KpiTileComponent {
   get accentClass(): string {
     const map: Record<KpiTileColor, string> = {
       amber:   'border-l-4 border-l-amber-400',
-      blue:    'border-l-4 border-l-blue-500',
+      blue:    'border-l-4 border-l-brand-500',
       red:     'border-l-4 border-l-red-500',
       violet:  'border-l-4 border-l-violet-500',
       green:   'border-l-4 border-l-green-500',
@@ -68,7 +68,7 @@ export class KpiTileComponent {
   get iconBgClass(): string {
     const map: Record<KpiTileColor, string> = {
       amber:   'bg-amber-100',
-      blue:    'bg-blue-100',
+      blue:    'bg-brand-100',
       red:     'bg-red-100',
       violet:  'bg-violet-100',
       green:   'bg-green-100',
@@ -82,7 +82,7 @@ export class KpiTileComponent {
     if (!this.valueColor) return '';
     const map: Record<KpiTileColor, string> = {
       amber:   'text-amber-700',
-      blue:    'text-blue-700',
+      blue:    'text-brand-700',
       red:     'text-red-600',
       violet:  'text-violet-700',
       green:   'text-green-700',

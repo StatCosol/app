@@ -19,7 +19,7 @@
     <div class="flex flex-wrap items-end gap-4 p-4">
       <div>
         <label class="block text-xs font-medium text-gray-600 mb-1" for="cb-month">Month</label>
-        <input autocomplete="off" id="cb-month" name="month" type="month" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+        <input autocomplete="off" id="cb-month" name="month" type="month" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500"
           [(ngModel)]="month" (change)="load()" />
       </div>
       <div class="flex-grow max-w-sm">
@@ -28,14 +28,14 @@
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
-          <input autocomplete="off" id="cb-q" name="q" class="w-full pl-10 rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+          <input autocomplete="off" id="cb-q" name="q" class="w-full pl-10 rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500"
             placeholder="Search by branch, client, state..."
             [(ngModel)]="q" (keyup.enter)="load()" />
         </div>
       </div>
       <div>
         <label class="block text-xs font-medium text-gray-600 mb-1" for="cb-state-filter">State</label>
-        <select id="cb-state-filter" name="stateFilter" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+        <select id="cb-state-filter" name="stateFilter" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500"
           [(ngModel)]="stateFilter" (ngModelChange)="applyLocalFilters()">
           <option value="ALL">All States</option>
           @for (state of stateOptions; track state) {
@@ -45,7 +45,7 @@
       </div>
       <div>
         <label class="block text-xs font-medium text-gray-600 mb-1" for="cb-client-filter">Client</label>
-        <select id="cb-client-filter" name="clientFilter" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+        <select id="cb-client-filter" name="clientFilter" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500"
           [(ngModel)]="clientFilter" (ngModelChange)="applyLocalFilters()">
           <option value="ALL">All Clients</option>
           @for (client of clientOptions; track client) {
@@ -55,7 +55,7 @@
       </div>
       <div>
         <label class="block text-xs font-medium text-gray-600 mb-1" for="cb-risk-band-filter">Risk Band</label>
-        <select id="cb-risk-band-filter" name="riskBandFilter" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+        <select id="cb-risk-band-filter" name="riskBandFilter" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500"
           [(ngModel)]="riskBandFilter" (ngModelChange)="applyLocalFilters()">
           <option value="ALL">All Risk Bands</option>
           <option value="HIGH">High</option>
@@ -134,7 +134,7 @@
       <ui-status-badge [status]="riskLabel(row.riskExposureScore)" size="sm"></ui-status-badge>
     </ng-template>
     <ng-template uiTableCell="action" let-row>
-      <a class="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800"
+      <a class="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-800"
         [routerLink]="['/ceo/branches', row.branchId]">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>

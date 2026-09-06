@@ -162,7 +162,7 @@ export class TableCellDirective {
             type="button"
             [disabled]="currentPage === 1"
             (click)="onPageChange(1)"
-            class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-blue-600 transition hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-brand-600 transition hover:bg-brand-50 disabled:text-gray-300 disabled:cursor-not-allowed"
             title="First page"
             aria-label="First page">&#171;</button>
 
@@ -170,7 +170,7 @@ export class TableCellDirective {
             type="button"
             [disabled]="currentPage === 1"
             (click)="onPageChange(currentPage - 1)"
-            class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-blue-600 transition hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-brand-600 transition hover:bg-brand-50 disabled:text-gray-300 disabled:cursor-not-allowed"
             title="Previous page"
             aria-label="Previous page">&#8249;</button>
 
@@ -184,7 +184,7 @@ export class TableCellDirective {
               [value]="currentPage"
               (keydown.enter)="commitPageInput($event)"
               (blur)="commitPageInput($event)"
-              class="h-8 w-14 rounded-md border border-gray-300 bg-white text-center text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              class="h-8 w-14 rounded-md border border-gray-300 bg-white text-center text-sm font-semibold outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               aria-label="Current page" />
             <span class="text-sm font-semibold">of {{ totalPages }}</span>
           </div>
@@ -193,7 +193,7 @@ export class TableCellDirective {
             type="button"
             [disabled]="currentPage >= totalPages"
             (click)="onPageChange(currentPage + 1)"
-            class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-blue-600 transition hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-brand-600 transition hover:bg-brand-50 disabled:text-gray-300 disabled:cursor-not-allowed"
             title="Next page"
             aria-label="Next page">&#8250;</button>
 
@@ -201,7 +201,7 @@ export class TableCellDirective {
             type="button"
             [disabled]="currentPage >= totalPages"
             (click)="onPageChange(totalPages)"
-            class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-blue-600 transition hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-brand-600 transition hover:bg-brand-50 disabled:text-gray-300 disabled:cursor-not-allowed"
             title="Last page"
             aria-label="Last page">&#187;</button>
         </div>

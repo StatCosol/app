@@ -14,7 +14,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
     @if (loading) {
 <div class="flex items-center justify-center min-h-[60vh]">
       <div class="flex flex-col items-center gap-3">
-        <div class="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+        <div class="w-10 h-10 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
         <span class="text-sm text-gray-400 font-medium">Loading news&hellip;</span>
       </div>
     </div>
@@ -43,7 +43,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
             </div>
             <div>
               <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Latest News</h1>
-              <p class="text-blue-200 text-sm mt-0.5">Stay updated with the latest announcements</p>
+              <p class="text-brand-200 text-sm mt-0.5">Stay updated with the latest announcements</p>
             </div>
           </div>
         </div>
@@ -111,7 +111,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
         @if (otherItems.length) {
 <div class="mt-10">
           <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
             </svg>
             More News
@@ -289,8 +289,8 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
       <!-- ── Empty state ── -->
       @if (!selectedItem && !allItems.length) {
 <div class="max-w-md mx-auto text-center py-20 px-4">
-        <div class="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-5">
-          <svg class="w-10 h-10 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="w-20 h-20 rounded-full bg-brand-50 flex items-center justify-center mx-auto mb-5">
+          <svg class="w-10 h-10 text-brand-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
               d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
           </svg>

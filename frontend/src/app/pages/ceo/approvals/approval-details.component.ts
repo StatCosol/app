@@ -13,7 +13,7 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
   imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent],
   template: `
     <main class="max-w-4xl mx-auto px-4 sm:px-6 py-6">
-      <a (click)="goBack()" class="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800 mb-4 cursor-pointer">
+      <a (click)="goBack()" class="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-800 mb-4 cursor-pointer">
         ← Back to Approvals
       </a>
 
@@ -90,7 +90,7 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1" for="ad-remarks">Remarks (required for rejection)</label>
             <textarea autocomplete="off" id="ad-remarks" name="remarks" [(ngModel)]="remarks" rows="3" placeholder="Optional remarks..."
-                      class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm"></textarea>
+                      class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"></textarea>
           </div>
 
           <div class="flex gap-3">

@@ -106,7 +106,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
                 <td class="font-semibold" [class.text-emerald-600]="(a.totalScore ?? 0) >= 3.5" [class.text-amber-600]="(a.totalScore ?? 0) >= 2 && (a.totalScore ?? 0) < 3.5" [class.text-red-600]="(a.totalScore ?? 0) < 2 && a.totalScore">
                   {{ a.totalScore ?? '—' }}
                 </td>
-                <td><span class="badge bg-indigo-100 text-indigo-700">{{ a.finalRatingLabel || '—' }}</span></td>
+                <td><span class="badge bg-brand-100 text-brand-700">{{ a.finalRatingLabel || '—' }}</span></td>
                 <td>
                   @if (a.recommendation) {
 <span class="badge"
@@ -127,8 +127,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
                   <span class="badge"
                     [class.bg-amber-100]="a.status === 'INITIATED' || a.status === 'SENT_BACK'"
                     [class.text-amber-800]="a.status === 'INITIATED' || a.status === 'SENT_BACK'"
-                    [class.bg-blue-100]="a.status === 'MANAGER_REVIEWED' || a.status === 'BRANCH_REVIEWED'"
-                    [class.text-blue-700]="a.status === 'MANAGER_REVIEWED' || a.status === 'BRANCH_REVIEWED'"
+                    [class.bg-brand-100]="a.status === 'MANAGER_REVIEWED' || a.status === 'BRANCH_REVIEWED'"
+                    [class.text-brand-700]="a.status === 'MANAGER_REVIEWED' || a.status === 'BRANCH_REVIEWED'"
                     [class.bg-emerald-100]="a.status === 'CLIENT_APPROVED' || a.status === 'LOCKED'"
                     [class.text-emerald-700]="a.status === 'CLIENT_APPROVED' || a.status === 'LOCKED'"
                     [class.bg-red-100]="a.status === 'REJECTED'"
@@ -137,7 +137,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
                   </span>
                 </td>
                 <td>
-                  <a [routerLink]="['/client/appraisals', a.id]" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">
+                  <a [routerLink]="['/client/appraisals', a.id]" class="text-brand-600 hover:text-brand-800 text-xs font-medium">
                     {{ canApprove(a) ? 'Approve' : 'View' }}
                   </a>
                 </td>

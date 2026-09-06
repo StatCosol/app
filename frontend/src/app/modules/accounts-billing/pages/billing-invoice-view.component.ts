@@ -17,7 +17,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
       <!-- Header -->
       <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <a routerLink="/accounts/invoices" class="text-blue-600 text-sm hover:underline">&larr; Back to Invoices</a>
+          <a routerLink="/accounts/invoices" class="text-brand-600 text-sm hover:underline">&larr; Back to Invoices</a>
           <h1 class="text-2xl font-bold text-slate-800 mt-1">{{ invoice.invoiceNumber }}</h1>
           <p class="text-sm text-slate-500">{{ invoice.invoiceType.replace('_',' ') }} &middot; {{ invoice.invoiceDate }}</p>
         </div>
@@ -38,7 +38,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
           </button>
 }
           <button (click)="generatePdf()" [disabled]="generatingPdf"
-                  class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
+                  class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700">
             {{ generatingPdf ? 'Generating...' : 'Generate PDF' }}
           </button>
           <button (click)="showEmailModal = true"
@@ -52,7 +52,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 
       <!-- Status Badges -->
       <div class="flex gap-3 flex-wrap">
-        <span class="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">{{ invoice.invoiceStatus }}</span>
+        <span class="px-3 py-1 rounded-full text-xs font-semibold bg-brand-100 text-brand-700">{{ invoice.invoiceStatus }}</span>
         @if (invoice.invoiceType !== 'PROFORMA' || payments.length) {
           <span class="px-3 py-1 rounded-full text-xs font-semibold" [class]="invoice.paymentStatus === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'">
             {{ invoice.paymentStatus }}
@@ -61,7 +61,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
         <span class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">Mail: {{ invoice.mailStatus }}</span>
         @if (invoice.pdfPath) {
 <button (click)="generatePdf()" type="button"
-           class="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 hover:underline">View PDF</button>
+           class="px-3 py-1 rounded-full text-xs font-semibold bg-brand-100 text-brand-700 hover:underline">View PDF</button>
 }
       </div>
 
@@ -106,7 +106,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 }
             <div>Round Off:</div><div class="text-right">₹{{ fmt(invoice.roundOff) }}</div>
             <div class="font-bold text-lg border-t pt-2">Grand Total:</div>
-            <div class="text-right font-bold text-lg border-t pt-2 text-blue-700">₹{{ fmt(invoice.grandTotal) }}</div>
+            <div class="text-right font-bold text-lg border-t pt-2 text-brand-700">₹{{ fmt(invoice.grandTotal) }}</div>
             @if (invoice.invoiceType !== 'PROFORMA' || payments.length) {
               <div class="text-green-600">Received:</div><div class="text-right text-green-600">₹{{ fmt(invoice.amountReceived) }}</div>
               <div class="text-red-600 font-semibold">Balance:</div><div class="text-right text-red-600 font-semibold">₹{{ fmt(invoice.balanceOutstanding) }}</div>
@@ -359,7 +359,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 } @else {
 
       <div class="p-6 space-y-4">
-        <a routerLink="/accounts/invoices" class="text-blue-600 text-sm hover:underline">&larr; Back to Invoices</a>
+        <a routerLink="/accounts/invoices" class="text-brand-600 text-sm hover:underline">&larr; Back to Invoices</a>
         <h1 class="text-2xl font-bold text-slate-800">Invoice</h1>
         <div class="bg-white rounded-xl border p-10 text-center text-slate-500">
           @if (!loadError) {

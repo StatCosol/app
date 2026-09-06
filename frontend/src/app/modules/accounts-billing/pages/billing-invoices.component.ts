@@ -14,7 +14,7 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
       <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-slate-800">Invoices</h1>
         <a routerLink="/accounts/invoices/new"
-           class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
+           class="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition text-sm font-medium">
           + New Invoice
         </a>
       </div>
@@ -22,7 +22,7 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
       <!-- Filters -->
       <div class="flex flex-wrap gap-3">
         <input [(ngModel)]="search" (keyup.enter)="load()" placeholder="Search invoice # or client..."
-               class="px-3 py-2 border rounded-lg text-sm w-64 focus:ring-2 focus:ring-blue-500 outline-none">
+               class="px-3 py-2 border rounded-lg text-sm w-64 focus:ring-2 focus:ring-brand-500 outline-none">
         <select [(ngModel)]="statusFilter" (change)="load()" class="px-3 py-2 border rounded-lg text-sm">
           <option value="">All Status</option>
           @for (s of statuses; track s) {
@@ -59,7 +59,7 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
             @for (inv of invoices; track inv) {
 <tr class="hover:bg-slate-50">
               <td class="px-4 py-3 font-mono text-xs font-medium">
-                <a [routerLink]="['/accounts/invoices', inv.id]" class="text-blue-600 hover:underline">{{ inv.invoiceNumber }}</a>
+                <a [routerLink]="['/accounts/invoices', inv.id]" class="text-brand-600 hover:underline">{{ inv.invoiceNumber }}</a>
               </td>
               <td class="px-4 py-3">{{ inv.billingClient?.legalName || '—' }}</td>
               <td class="px-4 py-3 text-xs">{{ inv.invoiceType.replace('_',' ') }}</td>
@@ -79,7 +79,7 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
                 </span>
               </td>
               <td class="px-4 py-3 text-center">
-                <a [routerLink]="['/accounts/invoices', inv.id]" class="text-blue-600 hover:underline text-xs">View</a>
+                <a [routerLink]="['/accounts/invoices', inv.id]" class="text-brand-600 hover:underline text-xs">View</a>
               </td>
             </tr>
 }
@@ -145,8 +145,8 @@ export class BillingInvoicesComponent implements OnInit {
 
   statusClass(s: string): string {
     const m: Record<string, string> = {
-      DRAFT: 'bg-slate-100 text-slate-600', APPROVED: 'bg-blue-100 text-blue-700',
-      GENERATED: 'bg-indigo-100 text-indigo-700', EMAILED: 'bg-purple-100 text-purple-700',
+      DRAFT: 'bg-slate-100 text-slate-600', APPROVED: 'bg-brand-100 text-brand-700',
+      GENERATED: 'bg-brand-100 text-brand-700', EMAILED: 'bg-purple-100 text-purple-700',
       PARTIALLY_PAID: 'bg-amber-100 text-amber-700', PAID: 'bg-green-100 text-green-700',
       OVERDUE: 'bg-red-100 text-red-700', CANCELLED: 'bg-red-50 text-red-500',
     };

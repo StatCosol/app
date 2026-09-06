@@ -318,7 +318,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
             <div class="mt-4">
               <div class="flex justify-between items-center mb-2">
                 <h4 class="text-sm font-semibold text-gray-700">Nominee Members</h4>
-                <button class="text-xs text-blue-600 hover:underline" (click)="addNomMember()">+ Add Member</button>
+                <button class="text-xs text-brand-600 hover:underline" (click)="addNomMember()">+ Add Member</button>
               </div>
               @for (m of nomForm.members; track m; let i = $index) {
 <div class="member-row">
@@ -475,7 +475,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
                   <td class="px-4 py-3 text-gray-600">{{ d.expiryDate || '-' }}</td>
                   <td class="px-4 py-3 text-right">
                     <div class="flex justify-end gap-2">
-                      <button class="text-xs text-blue-600 hover:underline" (click)="downloadDoc(d)">Download</button>
+                      <button class="text-xs text-brand-600 hover:underline" (click)="downloadDoc(d)">Download</button>
                       @if (!d.isVerified) {
 <button class="text-xs text-green-600 hover:underline" (click)="verifyDoc(d)">Verify</button>
 }

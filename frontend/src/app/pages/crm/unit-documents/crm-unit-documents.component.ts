@@ -229,7 +229,7 @@ type ScopeFilter = '' | CrmDocumentScope;
             multiple
             (change)="onFileSelected($event)"
             accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png,.zip"
-            class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+            class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100">
           @if (selectedFiles.length) {
 <div class="mt-1 text-xs text-gray-500">
             {{ selectedFiles.length }} file{{ selectedFiles.length !== 1 ? 's' : '' }} selected
@@ -299,7 +299,7 @@ type ScopeFilter = '' | CrmDocumentScope;
               <td class="px-4 py-3">
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
                   [ngClass]="{
-                    'bg-blue-100 text-blue-700': doc.lawCategory === 'PF',
+                    'bg-brand-100 text-brand-700': doc.lawCategory === 'PF',
                     'bg-green-100 text-green-700': doc.lawCategory === 'ESI',
                     'bg-purple-100 text-purple-700': doc.lawCategory === 'PT',
                     'bg-amber-100 text-amber-700': doc.lawCategory === 'FACTORY',
@@ -315,7 +315,7 @@ type ScopeFilter = '' | CrmDocumentScope;
               <td class="px-4 py-3 text-sm text-gray-500 max-w-[120px] truncate" [title]="doc.remarks || ''">{{ doc.remarks || '—' }}</td>
               <td class="px-4 py-3 text-center">
                 <div class="flex items-center justify-center gap-2">
-                  <button (click)="downloadDoc(doc)" class="text-blue-600 hover:text-blue-800 transition-colors" title="Download">
+                  <button (click)="downloadDoc(doc)" class="text-brand-600 hover:text-brand-800 transition-colors" title="Download">
                     <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>

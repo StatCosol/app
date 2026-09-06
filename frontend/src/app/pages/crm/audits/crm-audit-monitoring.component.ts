@@ -61,7 +61,7 @@ import {
           </div>
           <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 text-center">
             <span class="text-xs text-slate-500 uppercase">Avg Score</span>
-            <p class="text-2xl font-bold text-indigo-600">{{ overallAvgScore }}%</p>
+            <p class="text-2xl font-bold text-brand-600">{{ overallAvgScore }}%</p>
           </div>
         </div>
 
@@ -93,7 +93,7 @@ import {
                 <td class="px-6 py-3 text-center text-amber-600 font-medium">
                   {{ s.in_progress }}
                 </td>
-                <td class="px-6 py-3 text-center text-blue-600 font-medium">
+                <td class="px-6 py-3 text-center text-brand-600 font-medium">
                   {{ s.scheduled }}
                 </td>
                 <td class="px-6 py-3 text-center font-bold">

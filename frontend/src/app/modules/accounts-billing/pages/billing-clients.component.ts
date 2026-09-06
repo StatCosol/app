@@ -13,7 +13,7 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
       <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-slate-800">Billing Clients</h1>
         <button (click)="showForm = true; editClient = null; saveError = ''; resetForm()"
-                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
+                class="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition text-sm font-medium">
           + Add Client
         </button>
       </div>
@@ -21,7 +21,7 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
       <!-- Search -->
       <div class="flex gap-3">
         <input name="bc-search" [(ngModel)]="search" (keyup.enter)="loadClients()" placeholder="Search clients..."
-               class="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+               class="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none">
         <select name="bc-status-filter" [(ngModel)]="statusFilter" (change)="loadClients()"
                 class="px-3 py-2 border rounded-lg text-sm">
           <option value="">All Status</option>
@@ -57,7 +57,7 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
                       class="px-2 py-0.5 rounded-full text-xs font-medium">{{ c.status }}</span>
               </td>
               <td class="px-4 py-3 text-center">
-                <button (click)="onEdit(c)" class="text-blue-600 hover:underline text-xs mr-2">Edit</button>
+                <button (click)="onEdit(c)" class="text-brand-600 hover:underline text-xs mr-2">Edit</button>
               </td>
             </tr>
 }
@@ -163,7 +163,7 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
           </div>
           <div class="p-6 border-t flex justify-end gap-3">
             <button (click)="showForm = false" class="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-            <button (click)="onSave()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+            <button (click)="onSave()" class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700"
                     [disabled]="saving">{{ saving ? 'Saving...' : 'Save' }}</button>
           </div>
         </div>

@@ -45,7 +45,7 @@ import { BranchThreadApiService } from '../../../core/branch-thread-api.service'
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1" for="bh-query-type">Query Type</label>
             <select id="bh-query-type"
-              class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
               [(ngModel)]="newTicket.queryType"
               name="queryType">
               <option value="COMPLIANCE">Compliance</option>
@@ -59,7 +59,7 @@ import { BranchThreadApiService } from '../../../core/branch-thread-api.service'
             <label class="block text-xs font-medium text-gray-600 mb-1" for="bh-subject">Subject</label>
             <input autocomplete="off" id="bh-subject"
               type="text"
-              class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
               [(ngModel)]="newTicket.subject"
               name="subject"
               placeholder="Brief query title" />
@@ -69,7 +69,7 @@ import { BranchThreadApiService } from '../../../core/branch-thread-api.service'
             <label class="block text-xs font-medium text-gray-600 mb-1" for="bh-message">Message</label>
             <textarea autocomplete="off" id="bh-message"
               rows="3"
-              class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
               [(ngModel)]="newTicket.message"
               name="message"
               placeholder="Describe the issue or request clearly"></textarea>
@@ -85,7 +85,7 @@ import { BranchThreadApiService } from '../../../core/branch-thread-api.service'
             </button>
             <button
               type="submit"
-              class="px-3 py-2 rounded-lg bg-blue-700 text-white text-sm font-semibold disabled:opacity-60"
+              class="px-3 py-2 rounded-lg bg-brand-700 text-white text-sm font-semibold disabled:opacity-60"
               [disabled]="submitting || !canSubmitTicket">
               {{ submitting ? 'Submitting...' : 'Submit Ticket' }}
             </button>

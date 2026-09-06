@@ -45,10 +45,10 @@
               <ui-status-badge [status]="t.status" size="sm"></ui-status-badge>
             </div>
             <div class="font-medium text-sm mb-1" [class.text-white]="t.id === selectedThreadId" [class.text-gray-900]="t.id !== selectedThreadId">{{ t.subject || '(No subject)' }}</div>
-            <div class="text-xs mb-1" [class.text-blue-100]="t.id === selectedThreadId" [class.text-gray-600]="t.id !== selectedThreadId">
+            <div class="text-xs mb-1" [class.text-brand-100]="t.id === selectedThreadId" [class.text-gray-600]="t.id !== selectedThreadId">
               Client: {{ t.clientName || '-' }} | Branch: {{ t.branchName || '-' }}
             </div>
-            <div class="text-xs" [class.text-blue-100]="t.id === selectedThreadId" [class.text-gray-500]="t.id !== selectedThreadId">
+            <div class="text-xs" [class.text-brand-100]="t.id === selectedThreadId" [class.text-gray-500]="t.id !== selectedThreadId">
               From: {{ t.createdBy?.name || '-' }} ({{ t.createdBy?.roleCode || '-' }})
             </div>
           </button>

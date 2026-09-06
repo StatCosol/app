@@ -61,7 +61,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 }
             @if (m.isMinor && m.guardianName) {
 
-              <span class="text-xs text-blue-700 ml-4">Guardian: {{ m.guardianName }}@if (m.guardianRelationship) {
+              <span class="text-xs text-brand-700 ml-4">Guardian: {{ m.guardianName }}@if (m.guardianRelationship) {
  ({{ m.guardianRelationship }})
 }</span>
             
@@ -144,7 +144,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
             <div>
               <div class="flex justify-between items-center mb-2">
                 <span class="field-label">Nominee Members</span>
-                <button class="text-xs text-blue-600 hover:underline" (click)="addMember()">+ Add Member</button>
+                <button class="text-xs text-brand-600 hover:underline" (click)="addMember()">+ Add Member</button>
               </div>
               @for (m of form.members; track m; let i = $index) {
 <div class="member-form-block">
@@ -190,8 +190,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
                 </div>
                 <!-- Guardian section: shown only when isMinor -->
                 @if (m.isMinor) {
-<div class="guardian-section mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p class="text-xs font-semibold text-blue-700 mb-2">Guardian Details (required for Dependent nominee)</p>
+<div class="guardian-section mt-3 p-3 bg-brand-50 border border-brand-200 rounded-lg">
+                  <p class="text-xs font-semibold text-brand-700 mb-2">Guardian Details (required for Dependent nominee)</p>
                   <div class="grid grid-cols-2 gap-3">
                     <div>
                       <label class="field-label" [attr.for]="'guardian-name-' + i">Guardian Name *</label>

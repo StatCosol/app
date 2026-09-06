@@ -8,7 +8,7 @@ import { IdleTimeoutService } from './core/idle-timeout.service';
   selector: 'app-root',
   imports: [RouterOutlet, ToastHostComponent, ConfirmDialogComponent],
   template: `
-    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[9999] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-white focus:text-indigo-700 focus:rounded-lg focus:shadow-lg focus:font-semibold">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[9999] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-white focus:text-brand-700 focus:rounded-lg focus:shadow-lg focus:font-semibold">
       Skip to main content
     </a>
     <main id="main-content">

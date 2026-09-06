@@ -24,7 +24,7 @@ import { PfTeamApiService, HdTicket, HdMessage } from '../pf-team-api.service';
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <div>
             <span class="text-xs text-gray-500 uppercase tracking-wider">Client</span>
-            <p class="text-sm font-semibold text-indigo-700 mt-0.5">{{ ticket.client?.clientName || '—' }}</p>
+            <p class="text-sm font-semibold text-brand-700 mt-0.5">{{ ticket.client?.clientName || '—' }}</p>
           </div>
           <div>
             <span class="text-xs text-gray-500 uppercase tracking-wider">Category</span>
@@ -72,7 +72,7 @@ import { PfTeamApiService, HdTicket, HdMessage } from '../pf-team-api.service';
                   (click)="changeStatus(s)"
                   [disabled]="ticket.status === s || updatingStatus"
                   class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  [class]="ticket.status === s ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-300 text-gray-700 hover:bg-gray-50'">
+                  [class]="ticket.status === s ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-300 text-gray-700 hover:bg-gray-50'">
             {{ s.replace('_', ' ') }}
           </button>
 }
@@ -102,12 +102,12 @@ import { PfTeamApiService, HdTicket, HdMessage } from '../pf-team-api.service';
             [(ngModel)]="newMessage"
             (keydown.enter)="postMessage()"
             placeholder="Type a message…"
-            class="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            class="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
           />
           <button
             (click)="postMessage()"
             [disabled]="!newMessage.trim() || sendingMessage"
-            class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+            class="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
             Send
           </button>
         </div>
@@ -118,7 +118,7 @@ import { PfTeamApiService, HdTicket, HdMessage } from '../pf-team-api.service';
     <!-- Loading -->
     @if (!ticket && !error) {
 <div class="flex items-center justify-center py-20">
-      <div class="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+      <div class="w-8 h-8 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
     </div>
 }
 
@@ -126,7 +126,7 @@ import { PfTeamApiService, HdTicket, HdMessage } from '../pf-team-api.service';
     @if (error) {
 <div class="text-center py-20">
       <p class="text-red-500 text-sm">{{ error }}</p>
-      <a routerLink="/pf-team/tickets" class="text-sm text-indigo-600 hover:underline mt-2 inline-block">← Back to tickets</a>
+      <a routerLink="/pf-team/tickets" class="text-sm text-brand-600 hover:underline mt-2 inline-block">← Back to tickets</a>
     </div>
 }
   `,
@@ -193,10 +193,10 @@ export class PfTeamTicketDetailComponent implements OnInit {
   }
 
   priorityClass(p: string): string {
-    return { CRITICAL: 'bg-red-100 text-red-700', HIGH: 'bg-orange-100 text-orange-700', NORMAL: 'bg-blue-100 text-blue-700', LOW: 'bg-gray-100 text-gray-600' }[p] || 'bg-gray-100 text-gray-600';
+    return { CRITICAL: 'bg-red-100 text-red-700', HIGH: 'bg-orange-100 text-orange-700', NORMAL: 'bg-brand-100 text-brand-700', LOW: 'bg-gray-100 text-gray-600' }[p] || 'bg-gray-100 text-gray-600';
   }
 
   statusClass(s: string): string {
-    return { OPEN: 'bg-amber-100 text-amber-700', IN_PROGRESS: 'bg-blue-100 text-blue-700', AWAITING_CLIENT: 'bg-purple-100 text-purple-700', RESOLVED: 'bg-green-100 text-green-700', CLOSED: 'bg-gray-100 text-gray-600' }[s] || 'bg-gray-100 text-gray-600';
+    return { OPEN: 'bg-amber-100 text-amber-700', IN_PROGRESS: 'bg-brand-100 text-brand-700', AWAITING_CLIENT: 'bg-purple-100 text-purple-700', RESOLVED: 'bg-green-100 text-green-700', CLOSED: 'bg-gray-100 text-gray-600' }[s] || 'bg-gray-100 text-gray-600';
   }
 }

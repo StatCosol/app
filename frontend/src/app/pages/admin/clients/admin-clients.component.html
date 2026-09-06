@@ -54,7 +54,7 @@
   @if (selectedClient) {
 <div class="card mb-6">
     <h3 class="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-      <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg class="w-5 h-5 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
       </svg>
       Master Client User
@@ -113,7 +113,7 @@
 
       <!-- Edit Mode -->
       @if (editingMasterUser) {
-<div class="bg-white border border-indigo-200 rounded-lg p-5">
+<div class="bg-white border border-brand-200 rounded-lg p-5">
         <h4 class="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">Edit Master User Details</h4>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <ui-form-input
@@ -245,9 +245,9 @@
               type="button"
               (click)="clearAttendanceSystem()"
               class="px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors"
-              [class.bg-indigo-600]="!selectedAttendanceSystem"
+              [class.bg-brand-600]="!selectedAttendanceSystem"
               [class.text-white]="!selectedAttendanceSystem"
-              [class.border-indigo-600]="!selectedAttendanceSystem"
+              [class.border-brand-600]="!selectedAttendanceSystem"
               [class.bg-white]="selectedAttendanceSystem"
               [class.text-gray-700]="selectedAttendanceSystem"
               [class.border-gray-300]="selectedAttendanceSystem">
@@ -258,13 +258,13 @@
               type="button"
               (click)="setAttendanceSystem(sys)"
               class="px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors"
-              [class.bg-indigo-600]="selectedAttendanceSystem === sys.key"
+              [class.bg-brand-600]="selectedAttendanceSystem === sys.key"
               [class.text-white]="selectedAttendanceSystem === sys.key"
-              [class.border-indigo-600]="selectedAttendanceSystem === sys.key"
+              [class.border-brand-600]="selectedAttendanceSystem === sys.key"
               [class.bg-white]="selectedAttendanceSystem !== sys.key"
               [class.text-gray-700]="selectedAttendanceSystem !== sys.key"
               [class.border-gray-300]="selectedAttendanceSystem !== sys.key"
-              [class.hover:border-indigo-300]="selectedAttendanceSystem !== sys.key">
+              [class.hover:border-brand-300]="selectedAttendanceSystem !== sys.key">
               {{ sys.label }}
             </button>
 }
@@ -278,7 +278,7 @@
             @for (service of serviceModuleOptions; track service) {
 <label
              
-              class="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 cursor-pointer hover:border-indigo-300">
+              class="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 cursor-pointer hover:border-brand-300">
               <input
                 type="checkbox"
                 class="mt-1 rounded border-gray-300"
@@ -310,7 +310,7 @@
             Upload a company logo (PNG, JPG, SVG, or WebP — max 2 MB). It will appear beside the client user's name in the portal.
           </p>
           <div class="flex items-center gap-4">
-            <label class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg cursor-pointer hover:bg-indigo-100 transition-colors">
+            <label class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-brand-700 bg-brand-50 border border-brand-200 rounded-lg cursor-pointer hover:bg-brand-100 transition-colors">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
               </svg>
@@ -445,7 +445,7 @@
                      class="sr-only peer"
                      [checked]="selectedClient.crmOnBehalfEnabled"
                      (change)="toggleCrmOnBehalf()">
-              <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
             </label>
             <span class="text-sm text-gray-700">
               Allow CRM to upload documents on behalf of this client's branches
@@ -496,7 +496,7 @@
 }
 
           @if (azureBackfillResult) {
-<div class="mt-4 rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900" aria-live="polite">
+<div class="mt-4 rounded border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900" aria-live="polite">
             Scanned {{ azureBackfillResult.scanned }} | Registered {{ azureBackfillResult.registered }} | Skipped {{ azureBackfillResult.skippedNoPhoto }} | Failed {{ azureBackfillResult.failed }}
             @if (azureBackfillResult.trained === false) {
 <div class="mt-1 font-medium text-amber-800">Azure list training is pending. Retry the sync.</div>
@@ -529,7 +529,7 @@
           <div class="space-y-3">
             <input type="file" accept="image/png,image/jpeg,image/webp"
               (change)="onLogoFileSelected($event)"
-              class="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+              class="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100" />
             @if (logoPreviewUrl) {
 <img [src]="logoPreviewUrl" alt="Preview" class="h-16 w-auto rounded border border-gray-200 bg-white p-1" />
 }
@@ -538,7 +538,7 @@
           <!-- Upload button + messages -->
           <div class="mt-4 flex items-center gap-3">
             <button type="button" (click)="uploadLogo()" [disabled]="uploadingLogo"
-              class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors">
+              class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 transition-colors">
               @if (uploadingLogo) {
 <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
 }
@@ -581,7 +581,7 @@
               @if (!readinessResult.checks?.masterUser?.ok) {
 <a
                  [routerLink]="['/admin/users']" [queryParams]="{action:'create',role:'CLIENT',clientId:selectedClient.id}"
-                 class="text-xs text-indigo-600 hover:text-indigo-800 underline">Create Master User</a>
+                 class="text-xs text-brand-600 hover:text-brand-800 underline">Create Master User</a>
 }
             </div>
 
@@ -602,7 +602,7 @@
               @if (!readinessResult.checks?.branches?.ok && selectedClient) {
 <a
                  [routerLink]="['/admin/clients', selectedClient.id, 'branches']"
-                 class="text-xs text-indigo-600 hover:text-indigo-800 underline">Create Branch</a>
+                 class="text-xs text-brand-600 hover:text-brand-800 underline">Create Branch</a>
 }
             </div>
 
@@ -630,7 +630,7 @@
               @if (!readinessResult.checks?.branchUsers?.ok && selectedClient) {
 <a
                  [routerLink]="['/admin/clients', selectedClient.id, 'branches']"
-                 class="text-xs text-indigo-600 hover:text-indigo-800 underline">Map Branch Users</a>
+                 class="text-xs text-brand-600 hover:text-brand-800 underline">Map Branch Users</a>
 }
             </div>
 
@@ -651,7 +651,7 @@
               @if (!readinessResult.checks?.payrollUser?.ok) {
 <a
                  [routerLink]="['/admin/users']" [queryParams]="{action:'create',role:'PAYROLL',clientId:selectedClient.id}"
-                 class="text-xs text-indigo-600 hover:text-indigo-800 underline">Create Payroll User</a>
+                 class="text-xs text-brand-600 hover:text-brand-800 underline">Create Payroll User</a>
 }
             </div>
 
@@ -671,7 +671,7 @@
               @if (!readinessResult.checks?.crmAssigned?.ok) {
 <a
                  [routerLink]="['/admin/assignments']"
-                 class="text-xs text-indigo-600 hover:text-indigo-800 underline">Assign CRM</a>
+                 class="text-xs text-brand-600 hover:text-brand-800 underline">Assign CRM</a>
 }
             </div>
 
@@ -1068,7 +1068,7 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         @for (b of branches; track b) {
 <button type="button"
-          class="text-left p-4 rounded-lg border border-gray-200 hover:border-statco-blue-light hover:bg-blue-50 transition-colors"
+          class="text-left p-4 rounded-lg border border-gray-200 hover:border-statco-blue-light hover:bg-brand-50 transition-colors"
           (click)="selectBranchForCompliance(b)">
           <div class="font-medium text-gray-900">{{ b.branchName }}</div>
           <div class="text-xs text-gray-500 mt-1">{{ b.stateCode || 'No state' }} · {{ b.branchType || 'Branch' }}</div>

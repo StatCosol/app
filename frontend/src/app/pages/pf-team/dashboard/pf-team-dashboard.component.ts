@@ -64,7 +64,7 @@ interface ClientStat {
             [value]="totalTickets()"
             color="blue"
             (tileClick)="goToTickets()">
-            <ui-icon slot="icon" name="clipboard" class="text-blue-600" />
+            <ui-icon slot="icon" name="clipboard" class="text-brand-600" />
           </ui-kpi-tile>
           <ui-kpi-tile
             label="Open"
@@ -80,7 +80,7 @@ interface ClientStat {
             color="violet"
             valueColor="violet"
             (tileClick)="goToTickets()">
-            <ui-icon slot="icon" name="bolt" class="text-indigo-600" />
+            <ui-icon slot="icon" name="bolt" class="text-brand-600" />
           </ui-kpi-tile>
           <ui-kpi-tile
             label="SLA Breached"
@@ -142,10 +142,10 @@ interface ClientStat {
                   routerLink="/pf-team/tickets"
                   [queryParams]="{ clientId: cs.clientId }"
                   class="flex items-center justify-between group cursor-pointer">
-                  <span class="text-sm text-gray-700 group-hover:text-indigo-700 truncate max-w-[140px]">{{ cs.clientName }}</span>
+                  <span class="text-sm text-gray-700 group-hover:text-brand-700 truncate max-w-[140px]">{{ cs.clientName }}</span>
                   <div class="flex items-center gap-2">
                     <div class="w-24 bg-gray-100 rounded-full h-2">
-                      <div class="h-2 rounded-full bg-indigo-500" [style.width.%]="cs.pct"></div>
+                      <div class="h-2 rounded-full bg-brand-500" [style.width.%]="cs.pct"></div>
                     </div>
                     <span class="text-sm font-medium text-gray-900 w-8 text-right">{{ cs.total }}</span>
                     @if (cs.open > 0) {
@@ -160,7 +160,7 @@ interface ClientStat {
           <div class="bg-white rounded-xl border border-gray-200 p-6">
             <div class="flex items-center justify-between mb-4">
               <h2 class="text-base font-semibold text-gray-900">Recent Open Tickets</h2>
-              <a routerLink="/pf-team/tickets" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium">View All →</a>
+              <a routerLink="/pf-team/tickets" class="text-sm text-brand-600 hover:text-brand-700 font-medium">View All →</a>
             </div>
             @if (recentOpen().length === 0) {
               <div class="text-sm text-gray-400 py-4 text-center">No open tickets</div>
@@ -169,7 +169,7 @@ interface ClientStat {
               @for (t of recentOpen(); track t.id) {
                 <a
                   [routerLink]="['/pf-team/tickets', t.id]"
-                  class="block p-3 rounded-lg border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-colors">
+                  class="block p-3 rounded-lg border border-gray-100 hover:border-brand-200 hover:bg-brand-50/30 transition-colors">
                   <div class="flex items-center justify-between">
                     <span class="text-sm font-medium text-gray-900 truncate">
                       {{ t.category }}@if (t.subCategory) {<span> / {{ t.subCategory }}</span>}
@@ -178,7 +178,7 @@ interface ClientStat {
                   </div>
                   <p class="text-xs text-gray-500 mt-1 truncate">{{ t.description }}</p>
                   @if (t.client?.clientName) {
-                    <p class="text-xs text-indigo-500 mt-0.5">{{ t.client?.clientName }}</p>
+                    <p class="text-xs text-brand-500 mt-0.5">{{ t.client?.clientName }}</p>
                   }
                 </a>
               }
@@ -320,7 +320,7 @@ export class PfTeamDashboardComponent implements OnInit {
       {
         CRITICAL: 'bg-red-100 text-red-700',
         HIGH: 'bg-orange-100 text-orange-700',
-        NORMAL: 'bg-blue-100 text-blue-700',
+        NORMAL: 'bg-brand-100 text-brand-700',
         LOW: 'bg-gray-100 text-gray-600',
       }[p] || 'bg-gray-100 text-gray-600'
     );

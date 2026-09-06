@@ -114,7 +114,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
       <!-- Summary cards -->
       <div class="summary-strip">
         <div class="summary-card">
-          <span class="summary-value text-blue-600">{{ total }}</span>
+          <span class="summary-value text-brand-600">{{ total }}</span>
           <span class="summary-label">{{ currentListLabel }}</span>
         </div>
         <div class="summary-card">
@@ -157,12 +157,12 @@ import { ToastService } from '../../../shared/toast/toast.service';
 <tr class="data-row">
                 <td class="text-slate-500 font-mono text-xs">{{ emp.employeeCode || '—' }}</td>
                 <td class="font-medium text-slate-800">
-                  <a [routerLink]="['/branch/employees', emp.id]" class="hover:text-indigo-600 cursor-pointer">
+                  <a [routerLink]="['/branch/employees', emp.id]" class="hover:text-brand-600 cursor-pointer">
                     {{ emp.name }}
                   </a>
                 </td>
                 <td>
-                  <span class="badge" [class.bg-blue-100]="emp.gender === 'Male'" [class.text-blue-700]="emp.gender === 'Male'"
+                  <span class="badge" [class.bg-brand-100]="emp.gender === 'Male'" [class.text-brand-700]="emp.gender === 'Male'"
                         [class.bg-pink-100]="emp.gender === 'Female'" [class.text-pink-700]="emp.gender === 'Female'"
                         [class.bg-gray-100]="!emp.gender" [class.text-gray-500]="!emp.gender">
                     {{ emp.gender || '—' }}
@@ -192,7 +192,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
                 </td>
                 <td>
                   <div class="row-actions">
-                    <button (click)="editEmployee(emp.id)" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Edit</button>
+                    <button (click)="editEmployee(emp.id)" class="text-brand-600 hover:text-brand-800 text-xs font-medium">Edit</button>
                     @if (emp.isActive && !emp.dateOfExit && emp.approvalStatus !== 'PENDING') {
 <button
                      

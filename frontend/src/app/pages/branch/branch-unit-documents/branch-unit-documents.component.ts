@@ -140,7 +140,7 @@ type ScopeFilter = '' | CrmDocumentScope;
                 <td class="px-4 py-3 text-sm text-gray-600">{{ doc.scope === 'COMPANY' ? 'All branches' : 'This branch' }}</td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ doc.month || '—' }}</td>
                 <td class="px-4 py-3 text-sm">
-                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-800">
                     {{ doc.lawCategory }}
                   </span>
                 </td>
@@ -152,7 +152,7 @@ type ScopeFilter = '' | CrmDocumentScope;
                 <td class="px-4 py-3 text-sm">
                   <div class="flex gap-3 justify-end">
                     <button (click)="view(doc)" class="text-emerald-600 hover:text-emerald-800 font-medium text-sm">View</button>
-                    <button (click)="download(doc)" class="text-indigo-600 hover:text-indigo-800 font-medium text-sm">Download</button>
+                    <button (click)="download(doc)" class="text-brand-600 hover:text-brand-800 font-medium text-sm">Download</button>
                   </div>
                 </td>
               </tr>

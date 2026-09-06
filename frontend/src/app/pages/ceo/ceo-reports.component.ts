@@ -87,7 +87,7 @@ interface ReportHistoryRow {
            
             type="button"
             class="text-left bg-white rounded-2xl border p-4 transition-all"
-            [ngClass]="selectedType === pack.id ? 'border-blue-500 ring-1 ring-blue-100' : 'border-gray-200 hover:border-gray-300'"
+            [ngClass]="selectedType === pack.id ? 'border-brand-500 ring-1 ring-brand-100' : 'border-gray-200 hover:border-gray-300'"
             (click)="selectPack(pack)">
             <div class="text-xs text-gray-500">{{ pack.title }}</div>
             <div class="text-2xl font-semibold text-gray-900 mt-1">{{ getPrimaryMetric(pack) }}</div>

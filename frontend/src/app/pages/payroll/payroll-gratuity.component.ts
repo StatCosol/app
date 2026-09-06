@@ -49,7 +49,7 @@ interface GratuityResult {
               [(ngModel)]="input.monthsOfService" placeholder="0-11"></ui-form-input>
             <label class="flex items-center gap-2 text-sm text-gray-700">
               <input autocomplete="off" id="pg-is-death-or-disability" name="isDeathOrDisability" type="checkbox" [(ngModel)]="input.isDeathOrDisability"
-                class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                class="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
               Death or disability (waives 5-year minimum)
             </label>
 
@@ -107,7 +107,7 @@ interface GratuityResult {
 }
             <div class="border-t border-gray-200 pt-3 flex justify-between">
               <span class="text-lg font-semibold text-gray-900">Payable Gratuity</span>
-              <span class="text-2xl font-bold text-indigo-700">₹{{ fmt(result.cappedGratuity) }}</span>
+              <span class="text-2xl font-bold text-brand-700">₹{{ fmt(result.cappedGratuity) }}</span>
             </div>
           </div>
 }
@@ -116,9 +116,9 @@ interface GratuityResult {
       </div>
 
       <!-- Info Card -->
-      <div class="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-5">
-        <h4 class="text-sm font-semibold text-blue-800 mb-2">About Gratuity</h4>
-        <ul class="text-sm text-blue-700 space-y-1 list-disc pl-5">
+      <div class="mt-6 bg-brand-50 border border-brand-200 rounded-xl p-5">
+        <h4 class="text-sm font-semibold text-brand-800 mb-2">About Gratuity</h4>
+        <ul class="text-sm text-brand-700 space-y-1 list-disc pl-5">
           <li>Formula: (15 × Last Drawn Salary × Years of Service) / 26</li>
           <li>"Last Drawn Salary" = Basic Pay + Dearness Allowance</li>
           <li>Minimum 5 years of continuous service required</li>

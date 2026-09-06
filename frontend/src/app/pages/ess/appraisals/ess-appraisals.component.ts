@@ -46,8 +46,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
               <span class="badge"
                 [class.bg-amber-100]="a.status === 'INITIATED' || a.status === 'SENT_BACK'"
                 [class.text-amber-800]="a.status === 'INITIATED' || a.status === 'SENT_BACK'"
-                [class.bg-blue-100]="a.status === 'SELF_SUBMITTED' || a.status === 'MANAGER_REVIEWED' || a.status === 'BRANCH_REVIEWED'"
-                [class.text-blue-700]="a.status === 'SELF_SUBMITTED' || a.status === 'MANAGER_REVIEWED' || a.status === 'BRANCH_REVIEWED'"
+                [class.bg-brand-100]="a.status === 'SELF_SUBMITTED' || a.status === 'MANAGER_REVIEWED' || a.status === 'BRANCH_REVIEWED'"
+                [class.text-brand-700]="a.status === 'SELF_SUBMITTED' || a.status === 'MANAGER_REVIEWED' || a.status === 'BRANCH_REVIEWED'"
                 [class.bg-emerald-100]="a.status === 'CLIENT_APPROVED' || a.status === 'LOCKED'"
                 [class.text-emerald-700]="a.status === 'CLIENT_APPROVED' || a.status === 'LOCKED'"
                 [class.bg-red-100]="a.status === 'REJECTED'"
@@ -63,7 +63,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
               </span>
 }
               @if (a.final_rating_label) {
-<span class="badge bg-indigo-100 text-indigo-700">{{ a.final_rating_label }}</span>
+<span class="badge bg-brand-100 text-brand-700">{{ a.final_rating_label }}</span>
 }
             </div>
           </div>
@@ -73,7 +73,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
             <div><span class="text-gray-500">Branch:</span> <span class="font-medium ml-1">{{ a.branch_name || '—' }}</span></div>
             <div>
               @if (canSelfReview(a)) {
-<span class="text-indigo-600 font-medium text-xs">✎ Self-rating pending</span>
+<span class="text-brand-600 font-medium text-xs">✎ Self-rating pending</span>
 }
               @if (a.self_status === 'SUBMITTED') {
 <span class="text-emerald-600 font-medium text-xs">✓ Self-rating submitted</span>

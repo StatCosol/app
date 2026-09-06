@@ -33,7 +33,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
         <!-- Summary Cards -->
         <div class="summary-strip">
           <div class="summary-card">
-            <span class="summary-value text-blue-600">{{ dashboard.summary.total }}</span>
+            <span class="summary-value text-brand-600">{{ dashboard.summary.total }}</span>
             <span class="summary-label">Total</span>
           </div>
           <div class="summary-card">
@@ -49,7 +49,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
             <span class="summary-label">Sent Back</span>
           </div>
           <div class="summary-card">
-            <span class="summary-value text-indigo-600">{{ dashboard.summary.avg_score || '—' }}</span>
+            <span class="summary-value text-brand-600">{{ dashboard.summary.avg_score || '—' }}</span>
             <span class="summary-label">Avg Score</span>
           </div>
           <div class="summary-card">
@@ -76,7 +76,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
             <h3 class="text-sm font-semibold text-gray-900 mb-4">Recommendations</h3>
             <div class="space-y-2 text-sm">
               <div class="flex justify-between"><span class="text-gray-500">Increment</span><span class="font-medium text-emerald-600">{{ dashboard.summary.increment_recommended }}</span></div>
-              <div class="flex justify-between"><span class="text-gray-500">Promotion</span><span class="font-medium text-blue-600">{{ dashboard.summary.promotion_recommended }}</span></div>
+              <div class="flex justify-between"><span class="text-gray-500">Promotion</span><span class="font-medium text-brand-600">{{ dashboard.summary.promotion_recommended }}</span></div>
               <div class="flex justify-between"><span class="text-gray-500">PIP</span><span class="font-medium text-red-600">{{ dashboard.summary.pip_recommended }}</span></div>
             </div>
           </div>

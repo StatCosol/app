@@ -31,14 +31,14 @@
     </div>
     <div class="client-kpi client-kpi--blue">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-          <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
           </svg>
         </div>
         <div>
           <p class="text-xs font-medium text-gray-500">Planned</p>
-          <p class="text-2xl font-bold text-blue-600">{{ auditCounts.planned }}</p>
+          <p class="text-2xl font-bold text-brand-600">{{ auditCounts.planned }}</p>
         </div>
       </div>
     </div>
@@ -127,7 +127,7 @@
       </ng-template>
       <ng-template uiTableCell="notes" let-row>
         @if (row.status === 'COMPLETED') {
-<button type="button" (click)="openAuditDetail(row)" class="text-xs text-blue-600 hover:text-blue-800 font-medium underline">View</button>
+<button type="button" (click)="openAuditDetail(row)" class="text-xs text-brand-600 hover:text-brand-800 font-medium underline">View</button>
 }
         @if (row.status !== 'COMPLETED') {
 <span class="text-gray-400">{{ row.notes }}</span>

@@ -4,8 +4,8 @@
 <div
     class="relative border-2 border-dashed rounded-xl p-5 text-center transition-colors cursor-pointer"
     [class.border-gray-300]="!dragOver && !config.disabled"
-    [class.border-blue-400]="dragOver"
-    [class.bg-blue-50]="dragOver"
+    [class.border-brand-400]="dragOver"
+    [class.bg-brand-50]="dragOver"
     [class.border-gray-200]="config.disabled"
     [class.opacity-50]="config.disabled || uploading"
     [class.pointer-events-none]="config.disabled || uploading"
@@ -62,7 +62,7 @@
   @if (uploading) {
 <div class="space-y-1">
     <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-      <div class="h-full bg-blue-500 rounded-full transition-all duration-300"
+      <div class="h-full bg-brand-500 rounded-full transition-all duration-300"
         [style.width.%]="progress"></div>
     </div>
     <p class="text-xs text-gray-500 text-right">{{ progress }}%</p>

@@ -85,7 +85,7 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
             <!-- State Code -->
             <div>
               <label for="ba-state" class="block text-sm font-medium text-gray-700 mb-1.5">State</label>
-              <select id="ba-state" name="stateCode" [(ngModel)]="factsForm.stateCode" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+              <select id="ba-state" name="stateCode" [(ngModel)]="factsForm.stateCode" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-brand-500 focus:border-brand-500 text-sm">
                 <option value="">Select State</option>
                 @for (s of stateOptions; track s) {
 <option [value]="s.value">{{ s.label }}</option>
@@ -95,7 +95,7 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
             <!-- Establishment Type -->
             <div>
               <label for="ba-estab-type" class="block text-sm font-medium text-gray-700 mb-1.5">Establishment Type</label>
-              <select id="ba-estab-type" name="establishmentType" [(ngModel)]="factsForm.establishmentType" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+              <select id="ba-estab-type" name="establishmentType" [(ngModel)]="factsForm.establishmentType" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-brand-500 focus:border-brand-500 text-sm">
                 <option value="FACTORY">Factory</option>
                 <option value="ESTABLISHMENT">Establishment</option>
                 <option value="BOTH">Both</option>
@@ -104,7 +104,7 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
             <!-- Hazardous -->
             <div>
               <label for="ba-hazardous" class="block text-sm font-medium text-gray-700 mb-1.5">Hazardous</label>
-              <select id="ba-hazardous" name="isHazardous" [(ngModel)]="factsForm.isHazardous" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+              <select id="ba-hazardous" name="isHazardous" [(ngModel)]="factsForm.isHazardous" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-brand-500 focus:border-brand-500 text-sm">
                 <option [ngValue]="false">Non-Hazardous</option>
                 <option [ngValue]="true">Hazardous</option>
               </select>
@@ -112,39 +112,39 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
             <!-- Headcounts -->
             <div>
               <label for="ba-emp-total" class="block text-sm font-medium text-gray-700 mb-1.5">Total Employees</label>
-              <input autocomplete="off" type="number" id="ba-emp-total" name="employeeTotal" [(ngModel)]="factsForm.employeeTotal" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+              <input autocomplete="off" type="number" id="ba-emp-total" name="employeeTotal" [(ngModel)]="factsForm.employeeTotal" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-brand-500 focus:border-brand-500 text-sm" />
             </div>
             <div>
               <label for="ba-emp-male" class="block text-sm font-medium text-gray-700 mb-1.5">Male Employees</label>
-              <input autocomplete="off" type="number" id="ba-emp-male" name="employeeMale" [(ngModel)]="factsForm.employeeMale" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+              <input autocomplete="off" type="number" id="ba-emp-male" name="employeeMale" [(ngModel)]="factsForm.employeeMale" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-brand-500 focus:border-brand-500 text-sm" />
             </div>
             <div>
               <label for="ba-emp-female" class="block text-sm font-medium text-gray-700 mb-1.5">Female Employees</label>
-              <input autocomplete="off" type="number" id="ba-emp-female" name="employeeFemale" [(ngModel)]="factsForm.employeeFemale" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+              <input autocomplete="off" type="number" id="ba-emp-female" name="employeeFemale" [(ngModel)]="factsForm.employeeFemale" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-brand-500 focus:border-brand-500 text-sm" />
             </div>
             <div>
               <label for="ba-contract-workers" class="block text-sm font-medium text-gray-700 mb-1.5">Contract Workers</label>
-              <input autocomplete="off" type="number" id="ba-contract-workers" name="contractWorkersTotal" [(ngModel)]="factsForm.contractWorkersTotal" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+              <input autocomplete="off" type="number" id="ba-contract-workers" name="contractWorkersTotal" [(ngModel)]="factsForm.contractWorkersTotal" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-brand-500 focus:border-brand-500 text-sm" />
             </div>
             <div>
               <label for="ba-contractors" class="block text-sm font-medium text-gray-700 mb-1.5">Total Contractors</label>
-              <input autocomplete="off" type="number" id="ba-contractors" name="contractorsCount" [(ngModel)]="factsForm.contractorsCount" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+              <input autocomplete="off" type="number" id="ba-contractors" name="contractorsCount" [(ngModel)]="factsForm.contractorsCount" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-brand-500 focus:border-brand-500 text-sm" />
             </div>
             <div>
               <label for="ba-industry" class="block text-sm font-medium text-gray-700 mb-1.5">Industry Category</label>
-              <input autocomplete="off" type="text" id="ba-industry" name="industryCategory" [(ngModel)]="factsForm.industryCategory" placeholder="e.g. Chemicals, IT, Manufacturing" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+              <input autocomplete="off" type="text" id="ba-industry" name="industryCategory" [(ngModel)]="factsForm.industryCategory" placeholder="e.g. Chemicals, IT, Manufacturing" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-brand-500 focus:border-brand-500 text-sm" />
             </div>
             <!-- Toggle fields -->
             <div class="flex items-center gap-3">
-              <input autocomplete="off" type="checkbox" name="isBocwProject" [(ngModel)]="factsForm.isBocwProject" id="bocw" class="h-4 w-4 text-blue-600 rounded border-gray-300" />
+              <input autocomplete="off" type="checkbox" name="isBocwProject" [(ngModel)]="factsForm.isBocwProject" id="bocw" class="h-4 w-4 text-brand-600 rounded border-gray-300" />
               <label for="bocw" class="text-sm text-gray-700">BOCW Project</label>
             </div>
             <div class="flex items-center gap-3">
-              <input autocomplete="off" type="checkbox" name="hasCanteen" [(ngModel)]="factsForm.hasCanteen" id="canteen" class="h-4 w-4 text-blue-600 rounded border-gray-300" />
+              <input autocomplete="off" type="checkbox" name="hasCanteen" [(ngModel)]="factsForm.hasCanteen" id="canteen" class="h-4 w-4 text-brand-600 rounded border-gray-300" />
               <label for="canteen" class="text-sm text-gray-700">Has Canteen</label>
             </div>
             <div class="flex items-center gap-3">
-              <input autocomplete="off" type="checkbox" name="hasCreche" [(ngModel)]="factsForm.hasCreche" id="creche" class="h-4 w-4 text-blue-600 rounded border-gray-300" />
+              <input autocomplete="off" type="checkbox" name="hasCreche" [(ngModel)]="factsForm.hasCreche" id="creche" class="h-4 w-4 text-brand-600 rounded border-gray-300" />
               <label for="creche" class="text-sm text-gray-700">Has Creche</label>
             </div>
           </div>
@@ -170,15 +170,15 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
             @for (act of specialActOptions; track act) {
 <div
               class="flex items-center gap-3 p-3 rounded-lg border transition-colors"
-              [class.border-blue-200]="isSpecialActSelected(act.code)"
-              [class.bg-blue-50]="isSpecialActSelected(act.code)"
+              [class.border-brand-200]="isSpecialActSelected(act.code)"
+              [class.bg-brand-50]="isSpecialActSelected(act.code)"
               [class.border-gray-200]="!isSpecialActSelected(act.code)"
             >
               <input
                 type="checkbox"
                 [checked]="isSpecialActSelected(act.code)"
                 (change)="toggleSpecialAct(act.code, $event)"
-                class="h-4 w-4 text-blue-600 rounded border-gray-300"
+                class="h-4 w-4 text-brand-600 rounded border-gray-300"
               />
               <div class="flex-1 min-w-0">
                 <span class="text-sm font-medium text-gray-900 block truncate">{{ act.name }}</span>
@@ -244,8 +244,8 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
                   </div>
                   <!-- Source badge -->
                   <span class="text-xs px-2 py-0.5 rounded-full"
-                    [class.bg-blue-100]="item.source === 'AUTO'"
-                    [class.text-blue-700]="item.source === 'AUTO'"
+                    [class.bg-brand-100]="item.source === 'AUTO'"
+                    [class.text-brand-700]="item.source === 'AUTO'"
                     [class.bg-teal-100]="item.source === 'SPECIAL_SELECTED'"
                     [class.text-teal-700]="item.source === 'SPECIAL_SELECTED'"
                     [class.bg-amber-100]="item.source === 'OVERRIDE'"
@@ -260,7 +260,7 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
                   <!-- Override button -->
                   <button
                     (click)="openOverrideModal(item)"
-                    class="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors"
+                    class="text-xs text-brand-600 hover:text-brand-800 font-medium px-2 py-1 rounded hover:bg-brand-50 transition-colors"
                   >Override</button>
                 </div>
 }
@@ -325,7 +325,7 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
           <div class="flex justify-end gap-3">
             <button (click)="overrideModal = null" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
             <button (click)="addOverride()" [disabled]="!overrideReason || overrideReason.trim().length < 5"
-              class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50">
+              class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg disabled:opacity-50">
               Add Override
             </button>
           </div>

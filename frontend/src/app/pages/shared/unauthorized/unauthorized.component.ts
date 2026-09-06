@@ -10,7 +10,7 @@ import { RouterLink } from '@angular/router';
       <div class="text-center">
         <h1 class="text-6xl font-bold text-red-500 mb-4">403</h1>
         <p class="text-xl text-gray-600 mb-6">You are not authorized to view this page.</p>
-        <a routerLink="/login" class="text-indigo-600 hover:text-indigo-800 font-medium">
+        <a routerLink="/login" class="text-brand-600 hover:text-brand-800 font-medium">
           Back to Login
         </a>
       </div>

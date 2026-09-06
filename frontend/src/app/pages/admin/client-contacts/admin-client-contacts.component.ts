@@ -43,7 +43,7 @@ const DEPT_LABELS: Record<ClientContactDepartment, string> = {
 
 const DEPT_COLORS: Record<ClientContactDepartment, string> = {
   ACCOUNTS: 'bg-amber-100 text-amber-800',
-  COMPLIANCE: 'bg-blue-100 text-blue-800',
+  COMPLIANCE: 'bg-brand-100 text-brand-800',
   CONTRACTOR_COMPLIANCE: 'bg-purple-100 text-purple-800',
   HR: 'bg-pink-100 text-pink-800',
   PAYROLL: 'bg-emerald-100 text-emerald-800',
@@ -73,7 +73,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                 type="text"
                 [(ngModel)]="clientSearch"
                 placeholder="Search clients…"
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
               />
             </div>
             @if (loadingClients()) {
@@ -89,10 +89,10 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
               @for (c of filteredClients(); track c) {
 <li
                
-                class="cursor-pointer px-3 py-2.5 hover:bg-blue-50 transition-colors"
-                [class.bg-blue-50]="selectedClient()?.id === c.id"
+                class="cursor-pointer px-3 py-2.5 hover:bg-brand-50 transition-colors"
+                [class.bg-brand-50]="selectedClient()?.id === c.id"
                 [class.border-l-4]="selectedClient()?.id === c.id"
-                [class.border-blue-500]="selectedClient()?.id === c.id"
+                [class.border-brand-500]="selectedClient()?.id === c.id"
                 (click)="selectClient(c)"
               >
                 <div class="text-sm font-medium text-gray-900 truncate">
@@ -167,7 +167,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                 </button>
                 <button
                   type="button"
-                  class="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                  class="px-3 py-1.5 text-xs font-medium rounded-md bg-brand-600 text-white hover:bg-brand-700"
                   (click)="openCreate()"
                 >
                   + Add Contact
@@ -204,7 +204,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                     </span>
                   </div>
                   <button
-                    class="text-xs font-medium text-blue-600 hover:text-blue-800"
+                    class="text-xs font-medium text-brand-600 hover:text-brand-800"
                     (click)="openCreate(dept)"
                   >
                     + Add to {{ deptLabel(dept) }}
@@ -237,7 +237,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                       <td class="px-4 py-2 text-gray-700">
                         <a
                           [href]="'mailto:' + c.email"
-                          class="text-blue-600 hover:underline"
+                          class="text-brand-600 hover:underline"
                           >{{ c.email }}</a
                         >
                       </td>
@@ -254,7 +254,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                       </td>
                       <td class="px-4 py-2 text-right space-x-2">
                         <button
-                          class="text-xs text-blue-600 hover:text-blue-800"
+                          class="text-xs text-brand-600 hover:text-brand-800"
                           (click)="openEdit(c)"
                         >
                           Edit
@@ -311,7 +311,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
             >
             <select
               [(ngModel)]="form.department"
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             >
               @for (d of departments; track d) {
 <option [value]="d">
@@ -329,7 +329,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                 type="text"
                 [(ngModel)]="form.name"
                 maxlength="160"
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
               />
             </div>
             <div>
@@ -340,7 +340,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                 type="text"
                 [(ngModel)]="form.designation"
                 maxlength="120"
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
               />
             </div>
           </div>
@@ -353,7 +353,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                 type="email"
                 [(ngModel)]="form.email"
                 maxlength="160"
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
               />
             </div>
             <div>
@@ -364,7 +364,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                 type="text"
                 [(ngModel)]="form.phone"
                 maxlength="40"
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
               />
             </div>
           </div>
@@ -375,7 +375,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
             <textarea
               rows="2"
               [(ngModel)]="form.notes"
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             ></textarea>
           </div>
           <label class="flex items-center gap-2 text-sm text-gray-700">
@@ -400,7 +400,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
           </button>
           <button
             type="button"
-            class="px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+            class="px-3 py-1.5 text-sm rounded-md bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-60"
             (click)="save()"
             [disabled]="busySave()"
           >

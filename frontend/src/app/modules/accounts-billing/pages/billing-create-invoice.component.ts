@@ -86,7 +86,7 @@ const EDITABLE_STATUSES = new Set([
 
           <!-- Selected Client Info -->
           @if (selectedClient) {
-<div class="bg-blue-50 rounded-lg p-4 text-sm">
+<div class="bg-brand-50 rounded-lg p-4 text-sm">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
               <div><span class="text-slate-500">GSTIN:</span> <strong>{{ selectedClient.gstin || 'N/A' }}</strong></div>
               <div><span class="text-slate-500">State:</span> <strong>{{ selectedClient.stateName }} ({{ selectedClient.stateCode }})</strong></div>
@@ -165,7 +165,7 @@ const EDITABLE_STATUSES = new Set([
           <button type="button" (click)="onCancel()"
                   class="px-6 py-2.5 border rounded-lg text-sm">Cancel</button>
           <button type="submit" [disabled]="saving || form.invalid"
-                  class="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
+                  class="px-6 py-2.5 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700 disabled:opacity-50">
             {{ saving ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save Changes' : 'Create Invoice') }}
           </button>
         </div>

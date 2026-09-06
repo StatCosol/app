@@ -91,7 +91,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
           <ui-data-table [columns]="peCols" [data]="peEstablishments" emptyMessage="No PE establishments yet.">
             <ng-template uiTableCell="stateCode" let-row>{{ row.stateCode }}</ng-template>
             <ng-template uiTableCell="actions" let-row>
-              <button class="text-blue-600 hover:underline text-sm" (click)="openPeForm(row)">Edit</button>
+              <button class="text-brand-600 hover:underline text-sm" (click)="openPeForm(row)">Edit</button>
             </ng-template>
           </ui-data-table>
         </div>
@@ -105,7 +105,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
           </div>
           <ui-data-table [columns]="contractorCols" [data]="contractors" emptyMessage="No CLRA contractors registered.">
             <ng-template uiTableCell="actions" let-row>
-              <button class="text-blue-600 hover:underline text-sm" (click)="openContractorForm(row)">Edit</button>
+              <button class="text-brand-600 hover:underline text-sm" (click)="openContractorForm(row)">Edit</button>
             </ng-template>
           </ui-data-table>
         </div>
@@ -133,7 +133,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
             <ui-data-table [columns]="workerCols" [data]="workers" emptyMessage="No workers for this contractor.">
               <ng-template uiTableCell="category" let-row>{{ row.category || '—' }}</ng-template>
               <ng-template uiTableCell="actions" let-row>
-                <button class="text-blue-600 hover:underline text-sm" (click)="openWorkerForm(row)">Edit</button>
+                <button class="text-brand-600 hover:underline text-sm" (click)="openWorkerForm(row)">Edit</button>
               </ng-template>
             </ui-data-table>
           }
@@ -172,7 +172,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
             <ng-template uiTableCell="actions" let-row>
               <div class="flex gap-2">
                 <button class="text-emerald-700 hover:underline text-sm" (click)="selectAssignment(row)">Manage</button>
-                <button class="text-blue-600 hover:underline text-sm" (click)="openAssignmentForm(row)">Edit</button>
+                <button class="text-brand-600 hover:underline text-sm" (click)="openAssignmentForm(row)">Edit</button>
               </div>
             </ng-template>
           </ui-data-table>

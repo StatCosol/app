@@ -15,7 +15,7 @@ import { StatusChipComponent } from '../status/status-chip.component';
        
         type="button"
         class="w-full text-left px-3 py-2 hover:bg-gray-50"
-        [class.bg-blue-50]="t.id === selectedId"
+        [class.bg-brand-50]="t.id === selectedId"
         (click)="selected.emit(t)">
         <div class="flex items-start justify-between gap-2">
           <div>
@@ -29,7 +29,7 @@ import { StatusChipComponent } from '../status/status-chip.component';
             <ui-priority-chip [priority]="t.priority || 'MEDIUM'"></ui-priority-chip>
             <ui-status-chip [status]="t.status || 'OPEN'"></ui-status-chip>
             @if (t.unreadCount) {
-<span class="text-[11px] font-semibold text-blue-700">{{ t.unreadCount }} unread</span>
+<span class="text-[11px] font-semibold text-brand-700">{{ t.unreadCount }} unread</span>
 }
           </div>
         </div>

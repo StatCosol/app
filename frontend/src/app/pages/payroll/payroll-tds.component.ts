@@ -113,8 +113,8 @@ interface CompareResult {
 <div
                  class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm"
                  [class.ring-2]="r.regime === result.recommended"
-                 [class.ring-indigo-400]="r.regime === result.recommended">
-              <h4 class="text-base font-semibold mb-3" [class.text-indigo-700]="r.regime === 'NEW'" [class.text-amber-700]="r.regime === 'OLD'">
+                 [class.ring-brand-400]="r.regime === result.recommended">
+              <h4 class="text-base font-semibold mb-3" [class.text-brand-700]="r.regime === 'NEW'" [class.text-amber-700]="r.regime === 'OLD'">
                 {{ r.regime }} Regime
                 @if (r.regime === result.recommended) {
 <span class="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full ml-1">Best</span>
@@ -149,9 +149,9 @@ interface CompareResult {
                 @if (r.tdsAlreadyPaid > 0) {
 <div class="flex justify-between"><span class="text-gray-600">Already Paid</span><span>₹{{ fmt(r.tdsAlreadyPaid) }}</span></div>
 }
-                <div class="flex justify-between bg-indigo-50 rounded px-2 py-1 -mx-2">
-                  <span class="font-semibold text-indigo-800">Monthly TDS</span>
-                  <span class="font-bold text-indigo-900">₹{{ fmt(r.monthlyTds) }}</span>
+                <div class="flex justify-between bg-brand-50 rounded px-2 py-1 -mx-2">
+                  <span class="font-semibold text-brand-800">Monthly TDS</span>
+                  <span class="font-bold text-brand-900">₹{{ fmt(r.monthlyTds) }}</span>
                 </div>
               </div>
             </div>

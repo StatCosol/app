@@ -25,9 +25,9 @@
         <div class="text-xs text-amber-700 font-medium uppercase">Open</div>
         <div class="text-2xl font-bold text-amber-700 mt-1">{{ kpiOpen }}</div>
       </article>
-      <article class="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <div class="text-xs text-blue-700 font-medium uppercase">In Progress</div>
-        <div class="text-2xl font-bold text-blue-700 mt-1">{{ kpiInProgress }}</div>
+      <article class="bg-brand-50 border border-brand-200 rounded-xl p-4">
+        <div class="text-xs text-brand-700 font-medium uppercase">In Progress</div>
+        <div class="text-2xl font-bold text-brand-700 mt-1">{{ kpiInProgress }}</div>
       </article>
       <article class="bg-green-50 border border-green-200 rounded-xl p-4">
         <div class="text-xs text-green-700 font-medium uppercase">Resolved / Closed</div>
@@ -47,7 +47,7 @@
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1" for="an-q">Search</label>
               <input autocomplete="off" id="an-q" name="q"
-                class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                 type="text"
                 placeholder="Subject, client, branch..."
                 [(ngModel)]="filters.q" />
@@ -56,7 +56,7 @@
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1" for="an-status">Status</label>
                 <select id="an-status" name="status"
-                  class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   [(ngModel)]="filters.status"
                   (change)="onServerFilterChanged()">
                   @for (option of statuses; track option) {
@@ -67,7 +67,7 @@
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1" for="an-query-type">Type</label>
                 <select id="an-query-type" name="queryType"
-                  class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   [(ngModel)]="filters.queryType"
                   (change)="onServerFilterChanged()">
                   @for (option of queryTypes; track option) {
@@ -80,7 +80,7 @@
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1" for="an-from-role">From Role</label>
                 <select id="an-from-role" name="fromRole"
-                  class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   [(ngModel)]="filters.fromRole"
                   (change)="onLocalFilterChanged()">
                   @for (option of roles; track option) {
@@ -91,7 +91,7 @@
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1" for="an-priority">Priority</label>
                 <select id="an-priority" name="priority"
-                  class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   [(ngModel)]="filters.priority"
                   (change)="onLocalFilterChanged()">
                   @for (option of priorities; track option) {
@@ -102,7 +102,7 @@
             </div>
             <label class="flex items-center gap-2 text-sm text-gray-700">
               <input autocomplete="off" id="an-unread-only" name="unreadOnly"
-                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                 type="checkbox"
                 [(ngModel)]="filters.unreadOnly"
                 (change)="onServerFilterChanged()" />

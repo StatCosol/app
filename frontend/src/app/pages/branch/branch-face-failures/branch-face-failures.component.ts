@@ -115,7 +115,7 @@ const REASONS: { value: string; label: string }[] = [
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-3 shadow-sm col-span-2 md:col-span-1">
           <div class="text-xs font-medium text-gray-500">Top branch</div>
-          <div class="text-sm font-semibold text-indigo-700 truncate" [title]="topBranch()?.branchName || ''">
+          <div class="text-sm font-semibold text-brand-700 truncate" [title]="topBranch()?.branchName || ''">
             {{ topBranch()?.branchName || '—' }}
           </div>
           <div class="text-xs text-gray-500">{{ topBranch()?.count || 0 }} hits</div>
@@ -161,7 +161,7 @@ const REASONS: { value: string; label: string }[] = [
               <span class="text-gray-700 truncate pr-2" [title]="b.branchName || ''">
                 {{ b.branchName || '(unassigned)' }}
               </span>
-              <span class="text-indigo-700 font-medium text-xs">{{ b.count }}</span>
+              <span class="text-brand-700 font-medium text-xs">{{ b.count }}</span>
             </li>
 }
             @if (!stats.byBranch.length) {
@@ -184,7 +184,7 @@ const REASONS: { value: string; label: string }[] = [
                 hits
               </label>
               <button type="button"
-                      class="text-[10px] text-blue-700 hover:underline disabled:text-gray-400"
+                      class="text-[10px] text-brand-700 hover:underline disabled:text-gray-400"
                       [disabled]="!topSubjects.length"
                       (click)="exportOffendersCsv()">
                 Export CSV
@@ -196,7 +196,7 @@ const REASONS: { value: string; label: string }[] = [
 
             <li class="flex items-center justify-between px-4 py-2 text-sm">
               <button type="button"
-                      class="text-left truncate pr-2 text-gray-700 hover:text-blue-700"
+                      class="text-left truncate pr-2 text-gray-700 hover:text-brand-700"
                       [title]="subjectLabel(s)"
                       (click)="focusOnSubject(s)">
                 <div class="truncate">{{ subjectLabel(s) }}</div>
@@ -336,7 +336,7 @@ const REASONS: { value: string; label: string }[] = [
         <div class="flex items-end gap-1 h-20">
           @for (d of stats.byDayOfWeek; track d) {
 <div
-               class="flex-1 bg-indigo-500/70 hover:bg-indigo-600 rounded-sm transition-colors"
+               class="flex-1 bg-brand-500/70 hover:bg-brand-600 rounded-sm transition-colors"
                [style.height.%]="dowBarPct(d.count)"
                [title]="dowLabel(d.dow) + ': ' + d.count"></div>
 }
@@ -392,9 +392,9 @@ const REASONS: { value: string; label: string }[] = [
           @for (p of rangePresets; track p) {
 <button type="button"
                   class="px-2.5 py-1 rounded-full border transition-colors"
-                  [class.bg-blue-50]="activeRange === p.days"
-                  [class.border-blue-300]="activeRange === p.days"
-                  [class.text-blue-700]="activeRange === p.days"
+                  [class.bg-brand-50]="activeRange === p.days"
+                  [class.border-brand-300]="activeRange === p.days"
+                  [class.text-brand-700]="activeRange === p.days"
                   [class.font-semibold]="activeRange === p.days"
                   [class.border-gray-200]="activeRange !== p.days"
                   [class.text-gray-600]="activeRange !== p.days"
@@ -448,41 +448,41 @@ const REASONS: { value: string; label: string }[] = [
 
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
         @if (hasActiveFilters()) {
-<div class="px-4 py-2 border-b border-blue-100 bg-blue-50 flex items-center justify-between gap-2 flex-wrap">
+<div class="px-4 py-2 border-b border-brand-100 bg-brand-50 flex items-center justify-between gap-2 flex-wrap">
           <div class="flex items-center gap-1.5 flex-wrap">
-            <span class="text-[10px] uppercase font-semibold text-blue-700">Active filters:</span>
+            <span class="text-[10px] uppercase font-semibold text-brand-700">Active filters:</span>
             @if (subject !== 'ALL') {
-<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-brand-200 text-xs text-brand-800">
               Subject: {{ subject === 'EMPLOYEE' ? 'Employees' : 'Contractors' }}
-              <button type="button" class="text-blue-400 hover:text-blue-700" title="Clear subject" (click)="clearSubject()">×</button>
+              <button type="button" class="text-brand-400 hover:text-brand-700" title="Clear subject" (click)="clearSubject()">×</button>
             </span>
 }
             @if (reason) {
-<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-brand-200 text-xs text-brand-800">
               Reason: {{ reason }}
-              <button type="button" class="text-blue-400 hover:text-blue-700" title="Clear reason" (click)="clearReason()">×</button>
+              <button type="button" class="text-brand-400 hover:text-brand-700" title="Clear reason" (click)="clearReason()">×</button>
             </span>
 }
             @if (focusLabel) {
-<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-brand-200 text-xs text-brand-800">
               Person: {{ focusLabel }}
-              <button type="button" class="text-blue-400 hover:text-blue-700" title="Clear person" (click)="clearFocus()">×</button>
+              <button type="button" class="text-brand-400 hover:text-brand-700" title="Clear person" (click)="clearFocus()">×</button>
             </span>
 }
             @if (activeRange === null && (from || to)) {
-<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-brand-200 text-xs text-brand-800">
               Range: {{ from || '…' }} → {{ to || '…' }}
-              <button type="button" class="text-blue-400 hover:text-blue-700" title="Reset to last 7 days" (click)="clearCustomRange()">×</button>
+              <button type="button" class="text-brand-400 hover:text-brand-700" title="Reset to last 7 days" (click)="clearCustomRange()">×</button>
             </span>
 }
             @if (minCount !== 5) {
-<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-brand-200 text-xs text-brand-800">
               Top offenders ≥ {{ minCount }}
-              <button type="button" class="text-blue-400 hover:text-blue-700" title="Reset min hits" (click)="clearMinCount()">×</button>
+              <button type="button" class="text-brand-400 hover:text-brand-700" title="Reset min hits" (click)="clearMinCount()">×</button>
             </span>
 }
           </div>
-          <button type="button" class="text-xs font-medium text-blue-700 hover:text-blue-900" (click)="resetFilters()">Reset all</button>
+          <button type="button" class="text-xs font-medium text-brand-700 hover:text-brand-900" (click)="resetFilters()">Reset all</button>
         </div>
 }
         <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -561,7 +561,7 @@ const REASONS: { value: string; label: string }[] = [
                     </span>
                   </td>
                   <td class="px-4 py-2">
-                    <button type="button" class="text-left hover:text-blue-700"
+                    <button type="button" class="text-left hover:text-brand-700"
                             [disabled]="!r.employeeId && !r.contractorEmployeeId"
                             [class.cursor-default]="!r.employeeId && !r.contractorEmployeeId"
                             (click)="focusOn(r)"

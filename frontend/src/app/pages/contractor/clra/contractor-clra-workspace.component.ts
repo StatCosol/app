@@ -94,7 +94,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
             <ui-data-table [columns]="workerCols" [data]="workers" emptyMessage="No CLRA workers yet.">
               <ng-template uiTableCell="category" let-row>{{ row.category || '—' }}</ng-template>
               <ng-template uiTableCell="actions" let-row>
-                <button class="text-blue-600 hover:underline text-sm" (click)="openWorkerForm(row)">Edit</button>
+                <button class="text-brand-600 hover:underline text-sm" (click)="openWorkerForm(row)">Edit</button>
               </ng-template>
             </ui-data-table>
           </div>

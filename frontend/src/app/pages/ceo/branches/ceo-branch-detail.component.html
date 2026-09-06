@@ -9,7 +9,7 @@
   <div class="flex items-end gap-4 mb-6">
     <div>
       <label class="block text-xs font-medium text-gray-600 mb-1" for="cbd-month">Month</label>
-      <input autocomplete="off" id="cbd-month" name="month" type="month" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+      <input autocomplete="off" id="cbd-month" name="month" type="month" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500"
         [(ngModel)]="month" (change)="load()" />
     </div>
     <ui-button variant="secondary" size="sm" (clicked)="load()">Refresh</ui-button>
@@ -57,9 +57,9 @@
         <div class="text-xs text-amber-600 font-medium uppercase">Due Soon</div>
         <div class="text-2xl font-bold text-amber-700 mt-1">{{ detail.dueSoonItems }}</div>
       </div>
-      <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <div class="text-xs text-blue-600 font-medium uppercase">Open Queries</div>
-        <div class="text-2xl font-bold text-blue-700 mt-1">{{ detail.openQueries }}</div>
+      <div class="bg-brand-50 border border-brand-200 rounded-xl p-4">
+        <div class="text-xs text-brand-600 font-medium uppercase">Open Queries</div>
+        <div class="text-2xl font-bold text-brand-700 mt-1">{{ detail.openQueries }}</div>
       </div>
     </div>
 
@@ -129,7 +129,7 @@
         <div class="space-y-2 text-sm">
           <div class="flex justify-between"><span class="text-gray-500">Escalated Tasks</span><span class="font-semibold text-amber-700">{{ detail.alerts?.escalatedTasks || 0 }}</span></div>
           <div class="flex justify-between"><span class="text-gray-500">Open Observations</span><span class="font-semibold text-red-700">{{ detail.alerts?.openObservations || 0 }}</span></div>
-          <div class="flex justify-between"><span class="text-gray-500">Open Queries</span><span class="font-semibold text-blue-700">{{ detail.alerts?.openQueries || 0 }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Open Queries</span><span class="font-semibold text-brand-700">{{ detail.alerts?.openQueries || 0 }}</span></div>
         </div>
       </div>
     </div>

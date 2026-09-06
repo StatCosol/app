@@ -116,7 +116,7 @@ interface FormState extends UpsertWagePayload {
       <ng-template uiTableCell="scheduledEmployment" let-row>{{ row.scheduledEmployment || 'Default' }}</ng-template>
       <ng-template uiTableCell="actions" let-row>
         <div class="flex gap-2">
-          <button class="text-blue-600 hover:underline text-sm" (click)="openEdit(row)">Edit</button>
+          <button class="text-brand-600 hover:underline text-sm" (click)="openEdit(row)">Edit</button>
           <button class="text-red-600 hover:underline text-sm" (click)="remove(row)">Delete</button>
         </div>
       </ng-template>

@@ -25,7 +25,7 @@ type RenewalTab = 'ALL' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'OVERDUE';
         @for (tab of tabs; track tab) {
           <button (click)="activeTab = tab; applyFilter()"
             [class]="activeTab === tab
-              ? 'px-3 py-1 rounded-full text-sm font-medium bg-indigo-600 text-white'
+              ? 'px-3 py-1 rounded-full text-sm font-medium bg-brand-600 text-white'
               : 'px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200'">
             {{ tab === 'IN_PROGRESS' ? 'IN PROGRESS' : tab }}
           </button>
@@ -153,7 +153,7 @@ export class ClientRenewalsPageComponent implements OnInit {
   statusBadge(status: string): string {
     const map: Record<string, string> = {
       OPEN: 'bg-yellow-100 text-yellow-800',
-      IN_PROGRESS: 'bg-blue-100 text-blue-800',
+      IN_PROGRESS: 'bg-brand-100 text-brand-800',
       COMPLETED: 'bg-green-100 text-green-800',
       OVERDUE: 'bg-red-200 text-red-900',
     };

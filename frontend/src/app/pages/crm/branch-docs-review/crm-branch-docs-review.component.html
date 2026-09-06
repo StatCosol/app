@@ -40,7 +40,7 @@
   @if (kpis) {
 <div class="kpi-grid">
     <div class="kpi-card">
-      <div class="kpi-value text-blue-600">{{ kpis.pending_review || 0 }}</div>
+      <div class="kpi-value text-brand-600">{{ kpis.pending_review || 0 }}</div>
       <div class="kpi-label">Pending Review</div>
     </div>
     <div class="kpi-card">
@@ -101,7 +101,7 @@
           <div class="font-medium">{{ row.returnName }}</div>
           <div class="text-xs text-gray-400">{{ row.returnCode }}</div>
           @if (row.uploadedFileName) {
-<div class="text-xs text-blue-500 mt-0.5 truncate max-w-[200px]">
+<div class="text-xs text-brand-500 mt-0.5 truncate max-w-[200px]">
             {{ row.uploadedFileName }}
           </div>
 }
@@ -115,7 +115,7 @@
         <ng-template uiTableCell="status" let-row>
           <ui-status-badge [status]="row.status" size="sm"></ui-status-badge>
           @if (row.uploaderRemarks) {
-<div class="text-xs text-blue-600 italic mt-1">
+<div class="text-xs text-brand-600 italic mt-1">
             <strong>Uploader:</strong> {{ row.uploaderRemarks }}
           </div>
 }

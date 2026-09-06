@@ -47,11 +47,11 @@ import {
             <div class="text-xs text-gray-500 mt-1">Total Employees</div>
           </div>
           <div class="bg-white rounded-lg border p-4 text-center">
-            <div class="text-2xl font-bold text-blue-700">{{ fmt(summary.grossTotal) }}</div>
+            <div class="text-2xl font-bold text-brand-700">{{ fmt(summary.grossTotal) }}</div>
             <div class="text-xs text-gray-500 mt-1">Gross Wages</div>
           </div>
           <div class="bg-white rounded-lg border p-4 text-center">
-            <div class="text-2xl font-bold text-indigo-700">{{ fmt(summary.employerCostTotal) }}</div>
+            <div class="text-2xl font-bold text-brand-700">{{ fmt(summary.employerCostTotal) }}</div>
             <div class="text-xs text-gray-500 mt-1">Employer Contributions</div>
           </div>
           <div class="bg-white rounded-lg border p-4 text-center">
@@ -81,7 +81,7 @@ import {
               </thead>
               <tbody class="divide-y">
                 <tr><td class="px-4 py-2">Gross Wages</td><td class="px-4 py-2 text-right font-mono">{{ fmt(summary.grossTotal) }}</td></tr>
-                <tr class="bg-blue-50"><td class="px-4 py-2 font-semibold" colspan="2">Employee Deductions</td></tr>
+                <tr class="bg-brand-50"><td class="px-4 py-2 font-semibold" colspan="2">Employee Deductions</td></tr>
                 @if (hasComponentBreakdown(summary)) {
 
                   <tr><td class="px-4 py-2 pl-8">PF (Employee)</td><td class="px-4 py-2 text-right font-mono">{{ fmt(summary.pfEmployee) }}</td></tr>
@@ -96,7 +96,7 @@ import {
                 
 }
                 <tr><td class="px-4 py-2 font-semibold">Net Pay</td><td class="px-4 py-2 text-right font-mono font-semibold">{{ fmt(summary.netPayTotal) }}</td></tr>
-                <tr class="bg-indigo-50"><td class="px-4 py-2 font-semibold" colspan="2">Employer Contributions</td></tr>
+                <tr class="bg-brand-50"><td class="px-4 py-2 font-semibold" colspan="2">Employer Contributions</td></tr>
                 @if (hasEmployerBreakdown(summary)) {
 
                   <tr><td class="px-4 py-2 pl-8">PF (Employer)</td><td class="px-4 py-2 text-right font-mono">{{ fmt(summary.pfEmployer) }}</td></tr>

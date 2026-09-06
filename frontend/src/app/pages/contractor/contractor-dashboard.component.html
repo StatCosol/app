@@ -137,7 +137,7 @@
       <button type="button" class="contractor-kpi contractor-kpi--indigo ctr-kpi" (click)="goToTasks('IN_PROGRESS')">
         <span class="ctr-kpi__icon ctr-kpi__icon--indigo"><ui-icon name="chart-bar" [size]="20"></ui-icon></span>
         <div class="ctr-kpi__body">
-          <div class="ctr-kpi__label text-indigo-600">In Progress</div>
+          <div class="ctr-kpi__label text-brand-600">In Progress</div>
           <div class="ctr-kpi__value">{{ inProgressCount }}</div>
           <div class="ctr-kpi__hint">being worked on</div>
         </div>
@@ -226,7 +226,7 @@
       <div class="contractor-card p-4 ctr-action ctr-action--indigo">
         <div class="flex items-center justify-between mb-2">
           <h4 class="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
-            <ui-icon name="clipboard-check" [size]="16" class="text-indigo-600"></ui-icon>
+            <ui-icon name="clipboard-check" [size]="16" class="text-brand-600"></ui-icon>
             Pending Uploads
           </h4>
           <span class="ctr-count-badge ctr-count-badge--indigo">{{ pendingUploadsCount }}</span>
@@ -234,7 +234,7 @@
         @if (pendingUploadsPreview.length) {
           <div class="space-y-2 ctr-action__list">
             @for (item of pendingUploadsPreview; track item) {
-              <button type="button" class="w-full text-left p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 transition-colors"
+              <button type="button" class="w-full text-left p-2 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors"
                       (click)="openTask(item)">
                 <div class="text-xs font-semibold text-gray-900 truncate">{{ item.title }}</div>
                 <div class="text-xs text-gray-600">{{ item.branchName }} | {{ item.status }}</div>
@@ -325,7 +325,7 @@
             </thead>
             <tbody>
               @for (row of branchStatusBoard; track row) {
-                <tr class="border-b border-gray-100 hover:bg-indigo-50/40 transition-colors">
+                <tr class="border-b border-gray-100 hover:bg-brand-50/40 transition-colors">
                   <td class="py-2.5 px-2 font-medium text-gray-900">{{ row.branchName }}</td>
                   <td class="py-2.5 px-2">
                     <div class="flex items-center gap-2">
@@ -340,7 +340,7 @@
                     </div>
                   </td>
                   <td class="py-2.5 px-2 text-center">{{ row.total }}</td>
-                  <td class="py-2.5 px-2 text-center text-indigo-700 font-medium">{{ row.pending }}</td>
+                  <td class="py-2.5 px-2 text-center text-brand-700 font-medium">{{ row.pending }}</td>
                   <td class="py-2.5 px-2 text-center font-medium" [class.text-red-700]="row.rejected > 0" [class.text-gray-400]="row.rejected === 0">{{ row.rejected }}</td>
                   <td class="py-2.5 px-2 text-center font-medium" [class.text-amber-700]="row.overdue > 0" [class.text-gray-400]="row.overdue === 0">{{ row.overdue }}</td>
                   <td class="py-2.5 px-2 text-center text-green-700 font-medium">{{ row.approved }}</td>
@@ -379,14 +379,14 @@
             </div>
           </div>
           <button type="button" (click)="goToTasks('')"
-                  class="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1">
+                  class="text-sm font-medium text-brand-600 hover:text-brand-800 transition-colors flex items-center gap-1">
             View all <ui-icon name="arrow-right" [size]="14"></ui-icon>
           </button>
         </div>
         @if (upcomingTasks.length) {
           <div class="space-y-2">
             @for (t of upcomingTasks; track t) {
-              <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-indigo-50 transition-colors cursor-pointer"
+              <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-brand-50 transition-colors cursor-pointer"
                    (click)="openTask(t)">
                 <div class="flex-grow min-w-0">
                   <div class="text-sm font-medium text-gray-900 truncate">{{ t.complianceName }}</div>
@@ -397,7 +397,7 @@
                         [ngClass]="{
                           'bg-red-100 text-red-700': t.daysUntilDue < 0,
                           'bg-amber-100 text-amber-700': t.daysUntilDue >= 0 && t.daysUntilDue <= 3,
-                          'bg-blue-100 text-blue-700': t.daysUntilDue > 3
+                          'bg-brand-100 text-brand-700': t.daysUntilDue > 3
                         }">
                     {{ t.dueLabel }}
                   </span>
@@ -441,7 +441,7 @@
                   <td class="py-2 px-2 text-center">
                     <span class="font-bold" [ngClass]="getScoreTextColor(pt.score)">{{ pt.score }}%</span>
                   </td>
-                  <td class="py-2 px-2 text-center text-blue-700">{{ pt.uploadedPercent }}%</td>
+                  <td class="py-2 px-2 text-center text-brand-700">{{ pt.uploadedPercent }}%</td>
                   <td class="py-2 px-2 text-center" [class.text-red-600]="pt.ncPoints > 0">{{ pt.ncPoints }}</td>
                   <td class="py-2 px-2 text-center" [class.text-amber-600]="pt.missingCount > 0">{{ pt.missingCount }}</td>
                   <td class="py-2 px-2 text-center" [class.text-red-600]="pt.auditRiskPoints > 0">{{ pt.auditRiskPoints }}</td>
@@ -489,8 +489,8 @@
         <h3 class="text-base font-semibold text-gray-900">System Tasks</h3>
       </div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <div class="rounded-lg bg-blue-50 p-2.5 text-center">
-          <p class="text-xl font-bold text-blue-700">{{ taskSummary.open }}</p>
+        <div class="rounded-lg bg-brand-50 p-2.5 text-center">
+          <p class="text-xl font-bold text-brand-700">{{ taskSummary.open }}</p>
           <p class="text-xs text-gray-500">Open</p>
         </div>
         <div class="rounded-lg bg-red-50 p-2.5 text-center">

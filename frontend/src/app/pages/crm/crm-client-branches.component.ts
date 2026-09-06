@@ -34,12 +34,12 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-branch-name">Name *</label>
               <input autocomplete="off" id="ccb-branch-name" type="text" name="branchName" [(ngModel)]="newBranch.branchName" required
-                     class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                     class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-branch-type">Type</label>
               <select id="ccb-branch-type" name="branchType" [(ngModel)]="newBranch.branchType"
-                      class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                      class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm">
                 <option value="HO">HO</option>
                 <option value="BRANCH">BRANCH</option>
               </select>
@@ -47,7 +47,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-status">Status</label>
               <select id="ccb-status" name="status" [(ngModel)]="newBranch.status"
-                      class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                      class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm">
                 <option value="ACTIVE">Active</option>
                 <option value="INACTIVE">Inactive</option>
               </select>
@@ -57,7 +57,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-state-code">State *</label>
               <select id="ccb-state-code" name="stateCode" [(ngModel)]="newBranch.stateCode" required
-                      class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                      class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm">
                 @for (s of states; track s) {
 <option [value]="s.code">{{ s.label }} ({{ s.code }})</option>
 }
@@ -66,7 +66,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-establishment-type">Establishment Type *</label>
               <select id="ccb-establishment-type" name="establishmentType" [(ngModel)]="newBranch.establishmentType" required
-                      class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                      class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm">
                 @for (t of establishmentTypes; track t) {
 <option [value]="t.code">{{ t.label }}</option>
 }
@@ -81,17 +81,17 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             <div class="sm:col-span-1">
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-address">Address</label>
               <input autocomplete="off" id="ccb-address" type="text" name="address" [(ngModel)]="newBranch.address"
-                     class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                     class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-employee-count">On-Role Employees</label>
               <input autocomplete="off" id="ccb-employee-count" type="number" name="employeeCount" [(ngModel)]="newBranch.employeeCount" min="0"
-                     class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                     class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-contractor-count">Contract Employees</label>
               <input autocomplete="off" id="ccb-contractor-count" type="number" name="contractorCount" [(ngModel)]="newBranch.contractorCount" min="0"
-                     class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                     class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm" />
             </div>
           </div>
 
@@ -101,13 +101,13 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-pf-code">PF Establishment Code (branch-wise, optional)</label>
               <input autocomplete="off" id="ccb-pf-code" type="text" name="pfCode" [(ngModel)]="newBranch.pfCode"
-                     class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                     class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
                      placeholder="e.g., HYHYD0123456000" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-esi-code">ESI Sub-Code (branch-wise, optional)</label>
               <input autocomplete="off" id="ccb-esi-code" type="text" name="esiCode" [(ngModel)]="newBranch.esiCode"
-                     class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                     class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
                      placeholder="e.g., 53000123456789001" />
             </div>
             <div class="text-xs text-gray-500 self-end pb-2">
@@ -122,25 +122,25 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-branch-user-name">User Name *</label>
                 <input autocomplete="off" id="ccb-branch-user-name" type="text" name="branchUserName" [(ngModel)]="newBranch.branchUserName" required
-                       class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                       class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
                        placeholder="e.g., Branch Manager" />
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-branch-user-email">Email *</label>
                 <input autocomplete="off" id="ccb-branch-user-email" type="email" name="branchUserEmail" [(ngModel)]="newBranch.branchUserEmail" required
-                       class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                       class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
                        placeholder="branch@example.com" />
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-branch-user-mobile">Mobile *</label>
                 <input autocomplete="off" id="ccb-branch-user-mobile" type="text" name="branchUserMobile" [(ngModel)]="newBranch.branchUserMobile" required
-                       class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                       class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
                        placeholder="e.g., 9876543210" />
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-branch-user-password">Password</label>
                 <input autocomplete="off" id="ccb-branch-user-password" type="text" name="branchUserPassword" [(ngModel)]="newBranch.branchUserPassword"
-                       class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                       class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
                        placeholder="Leave empty to auto-generate" />
               </div>
             </div>
@@ -148,8 +148,8 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
 
           <div>
             <button type="submit" [disabled]="branchForm.invalid || creatingBranch"
-                    class="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-medium
-                           hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    class="bg-brand-600 text-white px-6 py-2 rounded-lg text-sm font-medium
+                           hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               {{ creatingBranch ? 'Creating…' : '+ Create Branch' }}
             </button>
           </div>
@@ -181,7 +181,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
         <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
           <label class="text-xs font-medium text-gray-500 uppercase" for="ccb-selected-month">Compliance Month:</label>
           <input autocomplete="off" id="ccb-selected-month" name="selectedMonth" type="month" [(ngModel)]="selectedMonth" (change)="loadCompliancePercent()"
-                 class="rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm px-2 py-1" />
+                 class="rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm px-2 py-1" />
         </div>
         <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -203,7 +203,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
               <td class="px-3 py-3 text-sm font-medium text-gray-900 whitespace-nowrap" [title]="b.address || ''">{{ b.branchName }}</td>
               <td class="px-3 py-3 text-sm whitespace-nowrap">
                 <span class="px-2 py-0.5 text-xs font-medium rounded-full"
-                      [ngClass]="b.branchType === 'HO' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'">
+                      [ngClass]="b.branchType === 'HO' ? 'bg-brand-100 text-brand-700' : 'bg-gray-100 text-gray-700'">
                   {{ b.branchType }}
                 </span>
               </td>
@@ -223,7 +223,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
               <td class="px-3 py-3 text-sm whitespace-nowrap">
                 <div class="inline-flex gap-3">
                   <button (click)="startEditBranch(b)"
-                          class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Edit</button>
+                          class="text-brand-600 hover:text-brand-800 text-xs font-medium">Edit</button>
                   <button (click)="confirmDeleteBranch(b)"
                           class="text-red-600 hover:text-red-800 text-xs font-medium">Delete</button>
                   <button (click)="showContractors(b)"
@@ -246,19 +246,19 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
 
       <!-- Edit Branch Panel -->
       @if (editingBranch) {
-<div class="bg-white rounded-lg border border-indigo-200 p-5 mb-6">
+<div class="bg-white rounded-lg border border-brand-200 p-5 mb-6">
         <h3 class="text-base font-semibold text-gray-900 mb-4">Edit Branch — {{ editingBranch.branchName }}</h3>
         <form (ngSubmit)="onUpdateBranch()" #editForm="ngForm">
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-branch-name-2">Name *</label>
               <input autocomplete="off" id="ccb-branch-name-2" type="text" name="editBranchName" [(ngModel)]="editingBranch.branchName" required
-                     class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                     class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-branch-type-2">Type</label>
               <select id="ccb-branch-type-2" name="editBranchType" [(ngModel)]="editingBranch.branchType"
-                      class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                      class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm">
                 <option value="HO">HO</option>
                 <option value="BRANCH">BRANCH</option>
               </select>
@@ -266,7 +266,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-status-2">Status</label>
               <select id="ccb-status-2" name="editStatus" [(ngModel)]="editingBranch.status"
-                      class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                      class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm">
                 <option value="ACTIVE">Active</option>
                 <option value="INACTIVE">Inactive</option>
               </select>
@@ -276,7 +276,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-state-code-2">State *</label>
               <select id="ccb-state-code-2" name="editStateCode" [(ngModel)]="editingBranch.stateCode" required
-                      class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                      class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm">
                 @for (s of states; track s) {
 <option [value]="s.code">{{ s.label }} ({{ s.code }})</option>
 }
@@ -285,7 +285,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-establishment-type-2">Establishment Type *</label>
               <select id="ccb-establishment-type-2" name="editEstablishmentType" [(ngModel)]="editingBranch.establishmentType" required
-                      class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                      class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm">
                 @for (t of establishmentTypes; track t) {
 <option [value]="t.code">{{ t.label }}</option>
 }
@@ -297,17 +297,17 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-address-2">Address</label>
               <input autocomplete="off" id="ccb-address-2" type="text" name="editAddress" [(ngModel)]="editingBranch.address"
-                     class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                     class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-employee-count-2">On-Role Employees</label>
               <input autocomplete="off" id="ccb-employee-count-2" type="number" name="editEmployeeCount" [(ngModel)]="editingBranch.employeeCount" min="0"
-                     class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                     class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm" />
             </div>
             <div class="flex items-end gap-2">
               <button type="submit" [disabled]="editForm.invalid || updatingBranch"
-                      class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium
-                             hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                      class="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium
+                             hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                 {{ updatingBranch ? 'Saving…' : 'Save' }}
               </button>
               <button type="button" (click)="cancelEdit()"
@@ -322,12 +322,12 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-pf-code-2">PF Establishment Code (branch-wise, optional)</label>
               <input autocomplete="off" id="ccb-pf-code-2" type="text" name="editPfCode" [(ngModel)]="editingBranch.pfCode"
-                     class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                     class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-esi-code-2">ESI Sub-Code (branch-wise, optional)</label>
               <input autocomplete="off" id="ccb-esi-code-2" type="text" name="editEsiCode" [(ngModel)]="editingBranch.esiCode"
-                     class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                     class="w-full rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm" />
             </div>
           </div>
         </form>
@@ -373,7 +373,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
                     <button (click)="removeContractor(c)"
                             class="text-red-600 hover:text-red-800 text-xs font-medium">Remove</button>
                     <button (click)="openEditContractorBranches(c)"
-                            class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Edit Branches</button>
+                            class="text-brand-600 hover:text-brand-800 text-xs font-medium">Edit Branches</button>
                   </div>
                 </td>
               </tr>
@@ -394,7 +394,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-new-contractor-user-id">Contractor User ID</label>
             <input autocomplete="off" id="ccb-new-contractor-user-id" type="text" name="contractorUserId" [(ngModel)]="newContractorUserId" required
-                   class="rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                   class="rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm" />
           </div>
           <button type="submit" [disabled]="contractorForm.invalid || addingContractor"
                   class="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium
@@ -407,7 +407,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
 
       <!-- Edit Contractor Branches Panel -->
       @if (editContractorBranchesUserId) {
-<div class="bg-white rounded-lg border border-indigo-200 p-5 mb-6">
+<div class="bg-white rounded-lg border border-brand-200 p-5 mb-6">
         <h3 class="text-base font-semibold text-gray-900 mb-4">
           Edit Branches for {{ editContractorBranchesUserLabel || 'Contractor' }}
         </h3>
@@ -433,9 +433,9 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             @for (b of branches; track b) {
 <label
                    class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200 text-sm cursor-pointer
-                          hover:bg-indigo-50 hover:border-indigo-200 transition-colors">
+                          hover:bg-brand-50 hover:border-brand-200 transition-colors">
               <input autocomplete="off" id="ccb-edit-contractor-branches-selected" type="checkbox" name="contractorBranches" [value]="b.id" [(ngModel)]="editContractorBranchesSelected"
-                     class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                     class="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
               {{ b.branchName }}
             </label>
 }
@@ -444,8 +444,8 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
 
           <div class="flex gap-2">
             <button type="button" (click)="saveEditContractorBranches()" [disabled]="saveEditContractorBranchesLoading"
-                    class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium
-                           hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    class="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium
+                           hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               {{ saveEditContractorBranchesLoading ? 'Saving…' : 'Save' }}
             </button>
             <button type="button" (click)="cancelEditContractorBranches()"
@@ -489,7 +489,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
           <!-- Summary -->
           <p class="text-xs text-gray-500 mb-3">
             Showing all {{ compliances.length }} compliance items.
-            <span class="font-medium text-indigo-600">{{ selected.size }}</span> selected for this branch.
+            <span class="font-medium text-brand-600">{{ selected.size }}</span> selected for this branch.
           </p>
 
           <div class="overflow-hidden rounded-lg border border-gray-200 mb-4">
@@ -499,7 +499,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
                   <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-10">
                     <input type="checkbox" [checked]="selected.size === compliances.length"
                            (change)="toggleAll($event)"
-                           class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                           class="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
                   </th>
                   <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                   <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Law</th>
@@ -511,11 +511,11 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
               <tbody class="bg-white divide-y divide-gray-200">
                 @for (c of compliances; track c) {
 <tr class="hover:bg-gray-50"
-                    [ngClass]="{ 'bg-indigo-50/40': selected.has(c.complianceId) }">
+                    [ngClass]="{ 'bg-brand-50/40': selected.has(c.complianceId) }">
                   <td class="px-3 py-3">
                     <input type="checkbox" [checked]="selected.has(c.complianceId)"
                            (change)="onToggle(c.complianceId, $any($event.target).checked)"
-                           class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                           class="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
                   </td>
                   <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ c.complianceName }}</td>
                   <td class="px-4 py-3 text-sm text-gray-600">{{ c.lawName || '—' }}</td>
@@ -548,8 +548,8 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
           <!-- Save button -->
           <div class="flex items-center gap-3">
             <button (click)="saveCompliances()" [disabled]="savingCompliances"
-                    class="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-medium
-                           hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    class="bg-brand-600 text-white px-5 py-2 rounded-lg text-sm font-medium
+                           hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               {{ savingCompliances ? 'Saving…' : 'Save Compliance Selections' }}
             </button>
             <span class="text-xs text-gray-400">CRM can add/remove compliance mappings for this branch</span>

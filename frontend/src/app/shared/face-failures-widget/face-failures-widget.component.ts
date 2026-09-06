@@ -36,7 +36,7 @@ import {
         </div>
         <a
           [routerLink]="route"
-          class="text-xs font-medium text-blue-600 hover:text-blue-800"
+          class="text-xs font-medium text-brand-600 hover:text-brand-800"
         >
           View all →
         </a>
@@ -50,8 +50,8 @@ import {
             <p class="text-2xl font-bold text-slate-800">{{ stats.total }}</p>
             <p class="text-[11px] text-slate-500 mt-0.5">Total failures</p>
           </div>
-          <div class="rounded-lg bg-blue-50 p-3 text-center">
-            <p class="text-2xl font-bold text-blue-700">
+          <div class="rounded-lg bg-brand-50 p-3 text-center">
+            <p class="text-2xl font-bold text-brand-700">
               {{ stats.bySubject.employee }}
             </p>
             <p class="text-[11px] text-slate-500 mt-0.5">Employees</p>
@@ -90,7 +90,7 @@ import {
 
         <div class="py-4 flex justify-center">
           <div
-            class="h-5 w-5 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin"
+            class="h-5 w-5 border-2 border-slate-300 border-t-brand-500 rounded-full animate-spin"
           ></div>
         </div>
       
