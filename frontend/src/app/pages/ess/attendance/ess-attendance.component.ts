@@ -16,6 +16,7 @@ import {
   CompOffEntry,
 } from '../ess-api.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 interface CalendarDay {
   date: string;
@@ -42,14 +43,12 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
 @Component({
   selector: 'app-ess-attendance',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PageHeaderComponent],
   template: `
     <div class="space-y-6 max-w-6xl mx-auto">
-      <div class="flex flex-wrap items-end gap-3 justify-between">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-900">Attendance</h1>
-          <p class="text-sm text-gray-500">Mark your daily attendance and view monthly records</p>
-        </div>
+      <ui-page-header
+        title="Attendance"
+        subtitle="Mark your daily attendance and view monthly records">
         <div class="flex items-end gap-2">
           <div>
             <label for="att-month" class="block text-xs text-gray-500 mb-1">Month</label>
@@ -57,7 +56,7 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
           </div>
           <button class="btn-secondary" [disabled]="loading" (click)="load()">{{ loading ? 'Loading...' : 'Refresh' }}</button>
         </div>
-      </div>
+      </ui-page-header>
 
       @if (error) {
 <div class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">{{ error }}</div>

@@ -20,6 +20,7 @@ import {
 import { ActivatedRoute } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
+import { PageHeaderComponent } from '../../shared/ui';
 import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 type FnfLifecycleFilter = 'ALL' | 'INITIATED' | 'UNDER_REVIEW' | 'APPROVED' | 'SETTLED' | 'DOCS_ISSUED' | 'COMPLETED';
@@ -47,7 +48,7 @@ interface ChecklistItem {
 @Component({
   selector: 'app-payroll-fnf',
   standalone: true,
-  imports: [FormsModule, ClientContextStripComponent],
+  imports: [FormsModule, ClientContextStripComponent, PageHeaderComponent],
   templateUrl: './payroll-fnf.component.html',
   styleUrls: ['./payroll-fnf.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

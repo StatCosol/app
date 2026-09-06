@@ -13,22 +13,21 @@ import { of } from 'rxjs';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import { Holiday, HolidayCalendarService, HolidayComp, HolidayWork } from './holiday-calendar.service';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 interface BranchOpt { value: string; label: string; state: string | null; }
 
 @Component({
   selector: 'app-client-holiday-calendar',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page">
-      <div class="header">
-        <div>
-          <h1 class="title">Holiday Calendar</h1>
-          <p class="sub">Upload the year's holidays (per branch or state), then apply them onto attendance. Employees who work on a holiday can be paid double wage at payroll submission.</p>
-        </div>
-      </div>
+      <ui-page-header
+        title="Holiday Calendar"
+        subtitle="Upload the year's holidays (per branch or state), then apply them onto attendance. Employees who work on a holiday can be paid double wage at payroll submission.">
+      </ui-page-header>
 
       <!-- Upload + Apply toolbar -->
       <section class="card">

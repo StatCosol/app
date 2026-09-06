@@ -5,14 +5,19 @@ import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { BranchApprovalsApiService, PendingNomination } from './branch-approvals-api.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-nomination-approvals',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, PageHeaderComponent],
   template: `
-    <div class="max-w-6xl mx-auto space-y-6">
-      <h1 class="text-2xl font-bold text-gray-900">Nomination Approvals</h1>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <ui-page-header
+        title="Nomination Approvals"
+        subtitle="Review pending statutory nominations"
+        [breadcrumbs]="[{ label: 'Approvals Center', route: '/client/approvals' }, { label: 'Nomination Approvals' }]">
+      </ui-page-header>
 
       @if (loading) {
 <div class="text-gray-500 text-sm">Loading pending nominations...</div>

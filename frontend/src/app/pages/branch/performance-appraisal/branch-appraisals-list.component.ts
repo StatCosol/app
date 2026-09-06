@@ -6,11 +6,12 @@ import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { PerformanceAppraisalService } from '../../../core/services/performance-appraisal.service';
 import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisal.models';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-branch-appraisals-list',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
     .page-container { max-width: 1280px; margin: 0 auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
@@ -55,13 +56,11 @@ import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisa
   `],
   template: `
     <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">Employee Appraisals</h1>
-          <p class="page-subtitle">Review and manage employee performance appraisals</p>
-        </div>
+      <ui-page-header
+        title="Employee Appraisals"
+        subtitle="Review and manage employee performance appraisals">
         <a routerLink="/branch/appraisal-dashboard" class="header-action-btn">Dashboard</a>
-      </div>
+      </ui-page-header>
 
       <!-- Filters -->
       <div class="table-card mb-6">

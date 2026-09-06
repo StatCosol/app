@@ -8,17 +8,19 @@ import {
   LeadSource,
   SalesService,
 } from '../../modules/sales/sales.service';
+import { PageHeaderComponent } from '../../shared/ui';
 
 @Component({
   selector: 'app-sales-lead-create',
   standalone: true,
-  imports: [FormsModule, RouterModule],
+  imports: [FormsModule, RouterModule, PageHeaderComponent],
   template: `
     <div class="max-w-3xl mx-auto space-y-5">
-      <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-bold text-gray-900">New Lead</h2>
-        <a routerLink="/sales/leads" class="text-sm text-gray-500 hover:underline">← Back to leads</a>
-      </div>
+      <ui-page-header
+        title="New Lead"
+        subtitle="Capture a company and contact for the sales pipeline"
+        [breadcrumbs]="[{ label: 'Leads', route: '/sales/leads' }, { label: 'New Lead' }]">
+      </ui-page-header>
 
       <form (submit)="$event.preventDefault(); save()" class="bg-white rounded-xl border border-gray-200 p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="md:col-span-2">

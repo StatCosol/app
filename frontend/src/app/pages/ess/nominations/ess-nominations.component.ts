@@ -6,17 +6,17 @@ import { finalize, takeUntil } from 'rxjs/operators';
 import { EssApiService, EssNomination } from '../ess-api.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-ess-nominations',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PageHeaderComponent],
   template: `
     <div class="max-w-5xl mx-auto space-y-6">
-      <div class="flex justify-between items-center">
-        <h1 class="text-2xl font-bold text-gray-900">Nominations</h1>
+      <ui-page-header title="Nominations" subtitle="Statutory nominees for PF, ESI, and gratuity">
         <button (click)="openForm()" class="btn-primary">+ Add Nomination</button>
-      </div>
+      </ui-page-header>
 
       @if (loading) {
 <div class="text-gray-500 text-sm">Loading...</div>

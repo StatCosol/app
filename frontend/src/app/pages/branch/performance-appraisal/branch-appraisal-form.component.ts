@@ -6,24 +6,21 @@ import { Subject } from 'rxjs';
 import { takeUntil, finalize, switchMap } from 'rxjs/operators';
 import { PerformanceAppraisalService } from '../../../core/services/performance-appraisal.service';
 import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/appraisal.models';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-branch-appraisal-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (appraisal) {
 <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">{{ appraisal.employee_name }} — Appraisal Review</h1>
-          <p class="page-subtitle">{{ appraisal.cycle_name }} | {{ appraisal.financial_year }} | Status: {{ appraisal.status.replace('_', ' ') }}</p>
-        </div>
-        <div class="flex items-center gap-3">
-          <a routerLink="/branch/appraisals" class="btn-secondary">Back to List</a>
-        </div>
-      </div>
+      <ui-page-header
+        [title]="appraisal.employee_name + ' — Appraisal Review'"
+        [subtitle]="appraisal.cycle_name + ' | ' + appraisal.financial_year + ' | Status: ' + appraisal.status.replace('_', ' ')">
+        <a routerLink="/branch/appraisals" class="btn-secondary">Back to List</a>
+      </ui-page-header>
 
       <!-- Employee Info -->
       <div class="table-card mb-6">

@@ -1,8 +1,10 @@
 <div class="page">
-  <ui-page-header
-    title="Monthly Compliance Workbench"
-    subtitle="Branch-first execution board for due uploads, query returns, and closure tracking">
-  </ui-page-header>
+  @if (!embedMode) {
+    <ui-page-header
+      title="Monthly Compliance Workbench"
+      subtitle="Branch-first execution board for due uploads, query returns, and closure tracking">
+    </ui-page-header>
+  }
 
   <div class="toolbar">
     <div class="toolbar-group">

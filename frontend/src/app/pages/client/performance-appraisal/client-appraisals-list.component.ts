@@ -6,25 +6,22 @@ import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { PerformanceAppraisalService } from '../../../core/services/performance-appraisal.service';
 import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisal.models';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-client-appraisals-list',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">All Employee Appraisals</h1>
-          <p class="page-subtitle">Review, approve, and track performance appraisals</p>
-        </div>
-        <div class="page-actions">
-          <a routerLink="/client/appraisal-dashboard" class="appraisal-action">Dashboard</a>
-          <a routerLink="/client/appraisal-reports" class="appraisal-action">Reports</a>
-        </div>
-      </div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <ui-page-header
+        title="All Employee Appraisals"
+        subtitle="Review, approve, and track performance appraisals">
+        <a routerLink="/client/appraisal-dashboard" class="appraisal-action">Dashboard</a>
+        <a routerLink="/client/appraisal-reports" class="appraisal-action">Reports</a>
+      </ui-page-header>
 
       <!-- Filters -->
       <div class="table-card mb-6">

@@ -8,20 +8,20 @@ import {
   LeadStage,
   SalesService,
 } from '../../modules/sales/sales.service';
+import { PageHeaderComponent } from '../../shared/ui';
 
 @Component({
   selector: 'app-sales-leads-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, PageHeaderComponent],
   template: `
     <div class="space-y-5">
-      <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-bold text-gray-900">Leads</h2>
+      <ui-page-header title="Leads" subtitle="Pipeline of open, won, and archived opportunities">
         <a routerLink="/sales/leads/new"
            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg">
           + New Lead
         </a>
-      </div>
+      </ui-page-header>
 
       <!-- Filters -->
       <div class="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap gap-3 items-end">

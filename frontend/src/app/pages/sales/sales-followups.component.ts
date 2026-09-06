@@ -2,15 +2,18 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { Lead, SalesService } from '../../modules/sales/sales.service';
+import { PageHeaderComponent } from '../../shared/ui';
 
 @Component({
   selector: 'app-sales-followups',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, PageHeaderComponent],
   template: `
     <div class="space-y-5">
-      <h2 class="text-2xl font-bold text-gray-900">My Follow-ups</h2>
-      <p class="text-sm text-gray-600">Open leads where the next follow-up time has passed.</p>
+      <ui-page-header
+        title="My Follow-ups"
+        subtitle="Open leads where the next follow-up time has passed">
+      </ui-page-header>
 
       <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         @if (loading) {

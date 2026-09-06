@@ -5,22 +5,21 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize, switchMap } from 'rxjs/operators';
 import { EssApiService } from '../ess-api.service';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-ess-appraisal-self-review',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (appraisal) {
-<div class="page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">Performance Appraisal</h1>
-          <p class="page-subtitle">{{ appraisal.cycle_name }} | {{ appraisal.financial_year }}</p>
-        </div>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <ui-page-header
+        title="Performance Appraisal"
+        [subtitle]="appraisal.cycle_name + ' | ' + appraisal.financial_year">
         <a routerLink="/ess/appraisals" class="btn-secondary">Back to List</a>
-      </div>
+      </ui-page-header>
 
       <!-- Employee Info -->
       <div class="table-card mb-6">

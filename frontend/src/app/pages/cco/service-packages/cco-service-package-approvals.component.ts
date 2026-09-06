@@ -10,17 +10,25 @@ import {
 } from '../../../core/service-entitlements.service';
 import { ClientOption } from '../../../shared/filters/models/filter.model';
 import { FilterOptionsService } from '../../../shared/filters/services/filter-options.service';
+import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-cco-service-package-approvals',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent],
   template: `
-    <section class="p-6 space-y-6">
-      <header>
-        <h1 class="text-2xl font-semibold text-slate-900">Service Package Approvals</h1>
-        <p class="text-sm text-slate-500 mt-1">Review client module changes requested by Admin.</p>
-      </header>
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <ui-page-header
+        title="Service Package Approvals"
+        subtitle="Review client module changes requested by Admin">
+        <ui-button variant="secondary" size="sm" [disabled]="loading" (clicked)="load()">
+          {{ loading ? 'Refreshing…' : 'Refresh' }}
+        </ui-button>
+      </ui-page-header>
+
+      @if (loading && !requests.length) {
+        <ui-loading-spinner text="Loading service package approvals..."></ui-loading-spinner>
+      }
 
       <div class="flex flex-wrap gap-3 items-end">
         <label>
@@ -58,10 +66,51 @@ import { FilterOptionsService } from '../../../shared/filters/services/filter-op
       </div>
 
       @if (message) {
-<p class="text-sm" [class.text-green-700]="!error" [class.text-red-700]="error">{{ message }}</p>
-}
+        <p class="text-sm" [class.text-green-700]="!error" [class.text-red-700]="error">{{ message }}</p>
+      }
 
-      <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
+      @if (reviewRow) {
+        <div class="sticky top-4 z-10 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 class="font-semibold text-slate-900">
+                {{ reviewAction === 'REJECTED' ? 'Reject service package request' : 'Request service package changes' }}
+              </h2>
+              <p class="mt-1 text-sm text-slate-600">
+                {{ reviewRow.clientName || reviewRow.clientId }} - {{ reviewRow.packageCode }}
+              </p>
+            </div>
+            <button class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm" type="button" (click)="closeReviewPanel()">Cancel</button>
+          </div>
+          <label class="mt-3 block">
+            <span class="text-xs font-medium text-slate-700">Review note <span class="text-red-600">*</span></span>
+            <textarea
+              class="mt-1 w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
+              rows="3"
+              name="reviewNote"
+              [(ngModel)]="reviewNote"
+              placeholder="Explain what Admin must change before this can be approved.">
+            </textarea>
+          </label>
+          @if (reviewNoteError) {
+            <p class="mt-2 text-sm text-red-700">{{ reviewNoteError }}</p>
+          }
+          <div class="mt-3 flex justify-end gap-2">
+            <button class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm" type="button" (click)="closeReviewPanel()">Cancel</button>
+            <button
+              class="rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              [class.bg-amber-700]="reviewAction === 'CHANGES_REQUESTED'"
+              [class.bg-red-700]="reviewAction === 'REJECTED'"
+              type="button"
+              [disabled]="actionId === reviewRow.id"
+              (click)="submitReview(reviewRow, reviewAction)">
+              {{ reviewAction === 'REJECTED' ? 'Reject request' : 'Send change request' }}
+            </button>
+          </div>
+        </div>
+      }
+
+      <div class="rounded-lg border border-slate-200 bg-white">
         <div class="px-4 py-3 border-b border-slate-200">
           <h2 class="font-semibold text-slate-900">Requests</h2>
           <p class="mt-1 text-xs text-slate-500">
@@ -130,15 +179,14 @@ import { FilterOptionsService } from '../../../shared/filters/services/filter-op
               </td>
               <td class="px-4 py-3 text-right">
                 @if (r.status === 'PENDING_CCO') {
-
-                  <button class="text-green-700 font-medium mr-3" [disabled]="actionId === r.id" (click)="submitReview(r, 'APPROVED')">Approve</button>
-                  <button class="text-amber-700 font-medium mr-3" [disabled]="actionId === r.id" (click)="openReviewPanel(r, 'CHANGES_REQUESTED')">Request changes</button>
-                  <button class="text-red-700 font-medium" [disabled]="actionId === r.id" (click)="openReviewPanel(r, 'REJECTED')">Reject</button>
-                
-} @else {
-{{ r.reviewedAt ? (r.reviewedAt | date:'dd MMM, HH:mm') : '-' }}
-}
-                
+                  <div class="flex flex-wrap justify-end gap-2">
+                    <button type="button" class="rounded-md bg-green-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50" [disabled]="actionId === r.id" (click)="submitReview(r, 'APPROVED')">Approve</button>
+                    <button type="button" class="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50" [disabled]="actionId === r.id" (click)="openReviewPanel(r, 'CHANGES_REQUESTED')">Request changes</button>
+                    <button type="button" class="rounded-md bg-red-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50" [disabled]="actionId === r.id" (click)="openReviewPanel(r, 'REJECTED')">Reject</button>
+                  </div>
+                } @else {
+                  {{ r.reviewedAt ? (r.reviewedAt | date:'dd MMM, HH:mm') : '-' }}
+                }
               </td>
             </tr>
 }
@@ -151,48 +199,7 @@ import { FilterOptionsService } from '../../../shared/filters/services/filter-op
         </table></div>
       </div>
 
-      @if (reviewRow) {
-<div class="rounded-lg border border-amber-200 bg-amber-50 p-4 shadow-sm">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 class="font-semibold text-slate-900">
-              {{ reviewAction === 'REJECTED' ? 'Reject service package request' : 'Request service package changes' }}
-            </h2>
-            <p class="mt-1 text-sm text-slate-600">
-              {{ reviewRow.clientName || reviewRow.clientId }} - {{ reviewRow.packageCode }}
-            </p>
-          </div>
-          <button class="text-sm text-slate-600 hover:text-slate-900" type="button" (click)="closeReviewPanel()">Cancel</button>
-        </div>
-        <label class="mt-3 block">
-          <span class="text-xs font-medium text-slate-700">Review note <span class="text-red-600">*</span></span>
-          <textarea
-            class="mt-1 w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
-            rows="3"
-            name="reviewNote"
-            [(ngModel)]="reviewNote"
-            placeholder="Explain what Admin must change before this can be approved.">
-          </textarea>
-        </label>
-        @if (reviewNoteError) {
-<p class="mt-2 text-sm text-red-700">{{ reviewNoteError }}</p>
-}
-        <div class="mt-3 flex justify-end gap-2">
-          <button class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm" type="button" (click)="closeReviewPanel()">Cancel</button>
-          <button
-            class="rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            [class.bg-amber-700]="reviewAction === 'CHANGES_REQUESTED'"
-            [class.bg-red-700]="reviewAction === 'REJECTED'"
-            type="button"
-            [disabled]="actionId === reviewRow.id"
-            (click)="submitReview(reviewRow, reviewAction)">
-            {{ reviewAction === 'REJECTED' ? 'Reject request' : 'Send change request' }}
-          </button>
-        </div>
-      </div>
-}
-
-      <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
+      <div class="rounded-lg border border-slate-200 bg-white">
         <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
           <div>
             <h2 class="font-semibold text-slate-900">Recent Audit Trail</h2>

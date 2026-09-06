@@ -4,24 +4,22 @@ import { NavigationEnd, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subscription, filter } from 'rxjs';
 import { AdminHelpdeskApiService, HdTicket, HdStats } from './admin-helpdesk-api.service';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-admin-helpdesk',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [CommonModule, RouterModule, FormsModule, PageHeaderComponent],
   template: `
     <div class="space-y-6">
-      <!-- Header -->
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-900">Helpdesk Management</h1>
-          <p class="mt-1 text-sm text-gray-500">Monitor and manage all helpdesk tickets across clients</p>
-        </div>
+      <ui-page-header
+        title="Helpdesk Management"
+        subtitle="Monitor and manage all helpdesk tickets across clients">
         <button type="button" (click)="reload(); loadStats()"
                 class="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-          ↻ Refresh
+          Refresh
         </button>
-      </div>
+      </ui-page-header>
 
       <!-- Load error banner -->
       @if (loadError) {

@@ -3,79 +3,86 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs/operators';
+import { AuthService } from '../../../core/auth.service';
+import { ClientComplianceService } from '../../../core/client-compliance.service';
 import { ReturnsService } from '../../../core/returns.service';
+import { EmptyStateComponent, LoadingSpinnerComponent, PageHeaderComponent } from '../../../shared/ui';
 
 type RenewalTab = 'ALL' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'OVERDUE';
 
 @Component({
   standalone: true,
   selector: 'app-client-renewals-page',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent],
   template: `
-    <div class="p-6">
-      <h2 class="text-xl font-semibold text-gray-800 mb-4">Renewals Status</h2>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <ui-page-header
+        title="Renewals Status"
+        subtitle="Registration and license renewals by branch and status">
+      </ui-page-header>
 
       <div class="flex flex-wrap gap-2 mb-4">
         @for (tab of tabs; track tab) {
-<button (click)="activeTab = tab; applyFilter()"
-          [class]="activeTab === tab
-            ? 'px-3 py-1 rounded-full text-sm font-medium bg-indigo-600 text-white'
-            : 'px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200'">
-          {{ tab === 'IN_PROGRESS' ? 'IN PROGRESS' : tab }}
-        </button>
-}
+          <button (click)="activeTab = tab; applyFilter()"
+            [class]="activeTab === tab
+              ? 'px-3 py-1 rounded-full text-sm font-medium bg-indigo-600 text-white'
+              : 'px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200'">
+            {{ tab === 'IN_PROGRESS' ? 'IN PROGRESS' : tab }}
+          </button>
+        }
       </div>
 
       <div class="mb-4 flex gap-3 items-center flex-wrap">
         <select [(ngModel)]="branchId" (ngModelChange)="load()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
           <option value="">All Branches</option>
+          @for (branch of branches; track branch.id) {
+            <option [value]="branch.id">{{ branch.name || branch.branchName || branch.code }}</option>
+          }
         </select>
         <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilter()"
           placeholder="Search renewals..." class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-56" />
       </div>
 
       @if (loading) {
-<div class="text-center py-10 text-gray-500">Loading renewals...</div>
-}
+        <ui-loading-spinner text="Loading renewals..."></ui-loading-spinner>
+      }
 
       @if (!loading && filtered.length === 0) {
-<div class="text-center py-10 text-gray-400">
-        No renewals found.
-      </div>
-}
+        <ui-empty-state title="No renewals found" description="Try another branch, status tab, or search term."></ui-empty-state>
+      }
 
       @if (!loading && filtered.length > 0) {
-<div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200 text-sm">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-4 py-3 text-left font-medium text-gray-600">Registration Name</th>
-              <th class="px-4 py-3 text-left font-medium text-gray-600">Branch</th>
-              <th class="px-4 py-3 text-left font-medium text-gray-600">Expiry Date</th>
-              <th class="px-4 py-3 text-left font-medium text-gray-600">Days Before Expiry</th>
-              <th class="px-4 py-3 text-left font-medium text-gray-600">Renewal Date</th>
-              <th class="px-4 py-3 text-left font-medium text-gray-600">Status</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100">
-            @for (r of filtered; track r) {
-<tr class="hover:bg-gray-50">
-              <td class="px-4 py-3">{{ r.registration_name }}</td>
-              <td class="px-4 py-3">{{ r.branch_name || '—' }}</td>
-              <td class="px-4 py-3">{{ r.expiry_date | date:'mediumDate' }}</td>
-              <td class="px-4 py-3">{{ r.days_before_expiry }}</td>
-              <td class="px-4 py-3">{{ r.renewal_date ? (r.renewal_date | date:'mediumDate') : '—' }}</td>
-              <td class="px-4 py-3">
-                <span [class]="statusBadge(r.status)" class="px-2 py-0.5 rounded-full text-xs font-medium">
-                  {{ r.status }}
-                </span>
-              </td>
-            </tr>
-}
-          </tbody>
-        </table>
-      </div>
-}
+        <div class="table-wrap rounded-lg border border-gray-200 bg-white">
+          <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left font-medium text-gray-600">Registration Name</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-600">Branch</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-600">Expiry Date</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-600">Days Before Expiry</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-600">Renewal Date</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-600">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              @for (r of filtered; track r) {
+                <tr class="hover:bg-gray-50">
+                  <td class="px-4 py-3">{{ r.registration_name }}</td>
+                  <td class="px-4 py-3">{{ r.branch_name || '—' }}</td>
+                  <td class="px-4 py-3">{{ r.expiry_date | date:'mediumDate' }}</td>
+                  <td class="px-4 py-3">{{ r.days_before_expiry }}</td>
+                  <td class="px-4 py-3">{{ r.renewal_date ? (r.renewal_date | date:'mediumDate') : '—' }}</td>
+                  <td class="px-4 py-3">
+                    <span [class]="statusBadge(r.status)" class="px-2 py-0.5 rounded-full text-xs font-medium">
+                      {{ r.status }}
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
     </div>
   `,
 })
@@ -85,6 +92,7 @@ export class ClientRenewalsPageComponent implements OnInit {
   branchId = '';
   searchTerm = '';
   loading = false;
+  branches: Array<{ id: string; name?: string; branchName?: string; code?: string }> = [];
 
   rows: any[] = [];
   filtered: any[] = [];
@@ -93,11 +101,26 @@ export class ClientRenewalsPageComponent implements OnInit {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly returnsService: ReturnsService,
+    private readonly auth: AuthService,
+    private readonly complianceSvc: ClientComplianceService,
   ) {}
 
   ngOnInit(): void {
-    this.clientId = this.route.parent?.snapshot.params['clientId'] || '';
+    this.clientId =
+      this.route.parent?.snapshot.params['clientId'] || this.auth.getUser()?.clientId || '';
+    this.loadBranches();
     this.load();
+  }
+
+  loadBranches(): void {
+    this.complianceSvc.getBranches().subscribe({
+      next: (res: any) => {
+        this.branches = res?.data || res || [];
+      },
+      error: () => {
+        this.branches = [];
+      },
+    });
   }
 
   load(): void {

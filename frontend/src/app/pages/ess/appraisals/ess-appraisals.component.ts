@@ -4,20 +4,19 @@ import { RouterLink } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { EssApiService } from '../ess-api.service';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-ess-appraisals',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">My Appraisals</h1>
-          <p class="page-subtitle">View your performance appraisals and submit self-ratings</p>
-        </div>
-      </div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <ui-page-header
+        title="My Appraisals"
+        subtitle="View your performance appraisals and submit self-ratings">
+      </ui-page-header>
 
       @if (loading) {
 <div class="flex items-center justify-center py-20"><div class="spinner"></div></div>

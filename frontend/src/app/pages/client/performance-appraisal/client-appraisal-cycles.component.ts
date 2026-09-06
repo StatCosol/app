@@ -6,27 +6,24 @@ import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { PerformanceAppraisalService } from '../../../core/services/performance-appraisal.service';
 import { AppraisalCycle } from '../../../core/models/appraisal.models';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-client-appraisal-cycles',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
-    <div class="page-container">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">Appraisal Cycles</h1>
-          <p class="page-subtitle">Create and manage appraisal cycles</p>
-        </div>
-        <div class="page-actions">
-          <a routerLink="/client/appraisal-dashboard" class="appraisal-action">Dashboard</a>
-          <button (click)="showCreateForm = !showCreateForm" class="appraisal-action appraisal-action--primary">
-            {{ showCreateForm ? 'Cancel' : 'Create Cycle' }}
-          </button>
-        </div>
-      </div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <ui-page-header
+        title="Appraisal Cycles"
+        subtitle="Create and manage appraisal cycles">
+        <a routerLink="/client/appraisal-dashboard" class="appraisal-action">Dashboard</a>
+        <button (click)="showCreateForm = !showCreateForm" class="appraisal-action appraisal-action--primary">
+          {{ showCreateForm ? 'Cancel' : 'Create Cycle' }}
+        </button>
+      </ui-page-header>
 
       <!-- Create Form -->
       @if (showCreateForm) {

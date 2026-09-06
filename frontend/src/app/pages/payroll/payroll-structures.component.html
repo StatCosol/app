@@ -1,11 +1,9 @@
 ﻿<div class="page-wrap">
-  <header class="page-head card">
-    <div>
-      <h1>Payroll Structures Builder</h1>
-      <p>Create and version salary structures, map component formulas, and preview calculations before activation.</p>
-    </div>
+  <ui-page-header
+    title="Payroll Structures Builder"
+    subtitle="Create and version salary structures, map component formulas, and preview calculations before activation.">
     <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
-  </header>
+  </ui-page-header>
 
   <div class="head-controls">
     <button type="button" class="btn btn-primary" [disabled]="!selectedClientId" (click)="openCreateStructure()">

@@ -1,9 +1,7 @@
 ﻿<div class="page-wrap">
-  <header class="page-head card">
-    <div>
-      <h1>Payroll Setup</h1>
-      <p>Configure statutory settings, pay cycle, leave/pay policy, attendance, and deduction/recovery rules with section-wise save controls.</p>
-    </div>
+  <ui-page-header
+    title="Payroll Setup"
+    subtitle="Configure statutory settings, pay cycle, leave/pay policy, attendance, and deduction/recovery rules with section-wise save controls.">
     <div class="head-actions" style="display:flex;align-items:center;gap:12px;">
       @if (!isClientScoped && clients.length) {
 <label style="display:flex;align-items:center;gap:6px;font-size:0.9em;">
@@ -20,7 +18,7 @@
 }
       <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
     </div>
-  </header>
+  </ui-page-header>
 
   @if (loading) {
 <div class="loader">Loading payroll setup...</div>

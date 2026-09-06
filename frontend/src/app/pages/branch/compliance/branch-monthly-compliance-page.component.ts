@@ -2,13 +2,18 @@ import { Component } from '@angular/core';
 
 import { BranchMcdComponent } from '../branch-mcd/branch-mcd.component';
 import { BranchReuploadInboxComponent } from './branch-reupload-inbox.component';
+import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   standalone: true,
   selector: 'app-branch-monthly-compliance-page',
-  imports: [BranchMcdComponent, BranchReuploadInboxComponent],
+  imports: [BranchMcdComponent, BranchReuploadInboxComponent, PageHeaderComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 pt-4">
+      <ui-page-header
+        title="Monthly Compliance"
+        subtitle="Due uploads and documents returned for reupload">
+      </ui-page-header>
       <div class="flex gap-1 border-b border-gray-200 mb-4">
         <button
           type="button"
@@ -29,9 +34,11 @@ import { BranchReuploadInboxComponent } from './branch-reupload-inbox.component'
       </div>
     </div>
     @if (activeTab === 'uploads') {
-<app-branch-mcd></app-branch-mcd>
-}
-    <app-branch-reupload-inbox [hidden]="activeTab !== 'reupload'"></app-branch-reupload-inbox>
+      <app-branch-mcd [embedMode]="true"></app-branch-mcd>
+    }
+    @if (activeTab === 'reupload') {
+      <app-branch-reupload-inbox [embedMode]="true"></app-branch-reupload-inbox>
+    }
   `,
 })
 export class BranchMonthlyCompliancePageComponent {
