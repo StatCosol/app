@@ -312,7 +312,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
 
     /* ── Hero Banner ── */
     .hero-banner {
-      background: linear-gradient(135deg, #0a2656 0%, #144B7A 50%, #1a6fb5 100%);
+      background: linear-gradient(135deg, #0A1F44 0%, #144B7A 50%, #1a6fb5 100%);
       padding: 2rem 1.5rem 3.5rem;
       position: relative;
     }
@@ -382,7 +382,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
     }
     .article-accent {
       height: 4px;
-      background: linear-gradient(90deg, #0a2656, #2980d9);
+      background: linear-gradient(90deg, #0A1F44, #2980d9);
     }
 
     /* ── Grid ── */
@@ -430,7 +430,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
       font-size: 0.6875rem;
       font-weight: 700;
       letter-spacing: 0.08em;
-      color: #0a2656;
+      color: #0A1F44;
       background: linear-gradient(135deg, #dbeafe, #bfdbfe);
     }
 
@@ -454,7 +454,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
       margin-top: 1rem;
       padding: 0.45rem 0.8rem;
       border-radius: 0.5rem;
-      background: #0a2656;
+      background: #0A1F44;
       color: #fff;
       font-size: 0.8125rem;
       font-weight: 700;
@@ -473,7 +473,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
       height: 3px;
       width: 50px;
       border-radius: 3px;
-      background: linear-gradient(90deg, #0a2656, #2980d9);
+      background: linear-gradient(90deg, #0A1F44, #2980d9);
       margin-bottom: 1.25rem;
     }
 
@@ -535,7 +535,7 @@ export class NewsDetailComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   accentColors = [
-    'linear-gradient(90deg, #0a2656, #2980d9)',
+    'linear-gradient(90deg, #0A1F44, #2980d9)',
     'linear-gradient(90deg, #065f46, #10b981)',
     'linear-gradient(90deg, #7c3aed, #a78bfa)',
     'linear-gradient(90deg, #b45309, #f59e0b)',

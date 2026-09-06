@@ -90,7 +90,7 @@ import {
           emptyMessage="All clients have complete assignments — no gaps detected.">
 
           <ng-template uiTableCell="clientName" let-row>
-            <a [routerLink]="['/admin/clients', row.clientId]" class="font-medium text-statco-blue hover:underline">
+            <a [routerLink]="['/admin/clients', row.clientId]" class="font-medium text-brand-800 hover:underline">
               {{ row.clientName }}
             </a>
           </ng-template>

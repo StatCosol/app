@@ -57,7 +57,7 @@
 
   &--blue {
     background: linear-gradient(135deg, #eef4ff 0%, #f0f7ff 50%, #ffffff 100%);
-    &::after { background: radial-gradient(circle, #0a2656, transparent); }
+    &::after { background: radial-gradient(circle, #0A1F44, transparent); }
   }
   &--green {
     background: linear-gradient(135deg, #edfdf5 0%, #f0fdf4 50%, #ffffff 100%);
@@ -116,7 +116,7 @@
   }
 
   &--active {
-    @apply bg-statco-blue/10 border-statco-blue/30 text-statco-blue;
+    @apply bg-brand-800/10 border-brand-800/30 text-brand-800;
   }
 }
 
@@ -139,12 +139,12 @@
   &__action {
     font-size: 0.8125rem;
     font-weight: 600;
-    color: #0a2656;
+    color: #0A1F44;
     transition: color 0.2s;
     cursor: pointer;
 
     &:hover {
-      color: #1eb6f7;
+      color: #20a15a;
     }
   }
 }
@@ -162,7 +162,7 @@
 
 // Welcome banner — rich gradient with mesh overlay
 .welcome-banner {
-  background: linear-gradient(135deg, #051734 0%, #0a2656 35%, #0e3a7a 65%, #1eb6f7 100%);
+  background: linear-gradient(135deg, #06132B 0%, #0A1F44 35%, #16305A 65%, #35548A 100%);
   border-radius: 1rem;
   padding: 1.25rem 1rem;
   color: white;
@@ -183,9 +183,9 @@
     position: absolute;
     inset: 0;
     background-image:
-      radial-gradient(circle at 20% 80%, rgba(30, 182, 247, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 20% 80%, rgba(32, 161, 90, 0.15) 0%, transparent 50%),
       radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.08) 0%, transparent 40%),
-      radial-gradient(circle at 60% 60%, rgba(30, 182, 247, 0.1) 0%, transparent 35%);
+      radial-gradient(circle at 60% 60%, rgba(32, 161, 90, 0.1) 0%, transparent 35%);
     pointer-events: none;
   }
 
@@ -222,8 +222,8 @@
     transform: translateY(-4px);
     box-shadow:
       0 8px 24px rgba(10, 38, 86, 0.1),
-      0 0 0 1px rgba(30, 182, 247, 0.15);
-    border-color: rgba(30, 182, 247, 0.3);
+      0 0 0 1px rgba(32, 161, 90, 0.15);
+    border-color: rgba(32, 161, 90, 0.3);
   }
 
   &__icon {
@@ -233,7 +233,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #0a2656 0%, #1eb6f7 100%);
+    background: linear-gradient(135deg, #0A1F44 0%, #20A15A 100%);
     color: white;
     transition: all 0.3s ease;
     box-shadow: 0 4px 12px rgba(10, 38, 86, 0.2);
@@ -252,7 +252,7 @@
   }
 
   &:hover &__label {
-    color: #0a2656;
+    color: #0A1F44;
   }
 }
 

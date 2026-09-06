@@ -117,7 +117,7 @@ export class FormSelectComponent implements ControlValueAccessor, OnChanges {
       ? 'border-error-300 text-error-900 focus:ring-error-500 focus:border-error-500'
       : this.disabled
         ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed'
-        : 'border-gray-300 text-gray-900 focus:ring-accent-400 focus:border-accent-400';
+        : 'border-gray-300 text-gray-900 focus:ring-accent-500 focus:border-accent-500';
 
     this.selectClassStr = `${base} ${stateClasses}`;
   }

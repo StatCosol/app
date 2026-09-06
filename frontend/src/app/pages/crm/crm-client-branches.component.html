@@ -1,6 +1,6 @@
 <div class="card">
   <h3 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-    <svg class="w-6 h-6 text-statco-blue-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg class="w-6 h-6 text-accent-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
     </svg>
     Compliance Applicability
@@ -14,7 +14,7 @@
   </div>
 
   <h4 class="text-lg font-medium text-gray-900 mb-3">
-    Compliance Applicability for <span class="text-statco-blue-light">{{ compliancesBranch.branchName }}</span>
+    Compliance Applicability for <span class="text-accent-500">{{ compliancesBranch.branchName }}</span>
   </h4>
   
   <p class="text-gray-600 mb-4">Select which compliances apply to this branch:</p>
@@ -44,7 +44,7 @@
           type="checkbox"
           [checked]="selected.has(item.complianceId)"
           (change)="onToggle(item.complianceId, $event.target.checked)"
-          class="mt-1 rounded border-gray-300 text-statco-blue-light focus:ring-statco-blue-light"
+          class="mt-1 rounded border-gray-300 text-accent-500 focus:ring-accent-500"
         />
         <div class="flex-grow">
           <span class="text-gray-900 font-medium">{{ item.complianceName }}</span>
@@ -63,7 +63,7 @@
 
     <!-- Actions -->
     <div class="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
-      <div class="text-sm text-statco-blue-light font-medium">
+      <div class="text-sm text-accent-500 font-medium">
         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>

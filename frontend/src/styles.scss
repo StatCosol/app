@@ -10,14 +10,13 @@
    ========================= */
 :root {
   /* Aligned to the brand guide and to the Tailwind `brand`/`accent` scales.
-     These were a third competing palette: --statco-dark-blue was #0a2656, an
+     These were a third competing palette: --statco-dark-blue was #0A1F44, an
      undocumented drift from the guide's #0A1F44, and --statco-primary/--accent
      were referenced ZERO times anywhere in the app. Kept (rather than deleted)
      for non-Tailwind contexts — inline styles, SCSS, canvas — but they must
      agree with the scales or the drift simply starts again somewhere else. */
   --statco-navy: #0a1f44;        /* brand-900 */
   --statco-green: #20a15a;       /* accent-500 */
-  --statco-light-blue: #1eb6f7;  /* legacy, still used by statco-blue.light */
   --statco-dark-blue: var(--statco-navy);
   --statco-primary: var(--statco-navy);
   --statco-accent: var(--statco-green);
@@ -527,8 +526,8 @@ canvas {
   input:focus,
   select:focus,
   textarea:focus {
-    @apply outline-none border-accent-400 ring-2 ring-accent-400/20;
-    box-shadow: 0 0 0 3px rgba(30, 182, 247, 0.18), 0 1px 2px rgb(0 0 0 / 0.04);
+    @apply outline-none border-accent-500 ring-2 ring-accent-500/20;
+    box-shadow: 0 0 0 3px rgba(32, 161, 90, 0.18), 0 1px 2px rgb(0 0 0 / 0.04);
   }
 
   select {
@@ -585,8 +584,8 @@ canvas {
   }
 
   button:not([class]):not(.btn-secondary):not(.btn-danger):not(.btn-outline):not(.btn-ghost):not(.btn-icon):not(.btn-accent), .btn-primary {
-    background: linear-gradient(135deg, #0a2656 0%, #0f3470 100%);
-    @apply text-white focus:ring-statco-blue shadow-sm;
+    background: linear-gradient(135deg, #0A1F44 0%, #0f3470 100%);
+    @apply text-white focus:ring-brand-800 shadow-sm;
   }
 
   button:not([class]):not(.btn-secondary):not(.btn-danger):not(.btn-outline):not(.btn-ghost):not(.btn-icon):not(.btn-accent):hover, .btn-primary:hover {
@@ -596,8 +595,8 @@ canvas {
   }
 
   .btn-accent {
-    background: linear-gradient(135deg, #0ea5e9 0%, #1eb6f7 100%);
-    @apply text-white focus:ring-accent-400 shadow-sm;
+    background: linear-gradient(135deg, #0A1F44 0%, #1E3C6E 100%);
+    @apply text-white focus:ring-accent-500 shadow-sm;
   }
 
   .btn-accent:hover {
@@ -628,7 +627,7 @@ canvas {
   }
 
   .btn-outline {
-    @apply bg-transparent border-2 border-statco-blue text-statco-blue hover:bg-statco-blue hover:text-white focus:ring-statco-blue;
+    @apply bg-transparent border-2 border-brand-800 text-brand-800 hover:bg-brand-800 hover:text-white focus:ring-brand-800;
   }
 
   .btn-sm {
@@ -676,7 +675,7 @@ canvas {
   }
 
   .badge-primary {
-    @apply bg-statco-blue/10 text-statco-blue;
+    @apply bg-brand-800/10 text-brand-800;
   }
 
   .badge-success {
@@ -757,7 +756,7 @@ canvas {
      =========================== */
   .btn-primary-sm {
     @apply inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-lg text-white transition-all;
-    background: linear-gradient(135deg, #0a2656 0%, #0f3470 100%);
+    background: linear-gradient(135deg, #0A1F44 0%, #0f3470 100%);
   }
 
   .btn-primary-sm:hover {
@@ -922,29 +921,29 @@ canvas {
   /* ===========================
      Role-themed gradient buttons
      =========================== */
-  .role-fab-admin    { background: linear-gradient(135deg, #0a2656, #051734); }
+  .role-fab-admin    { background: linear-gradient(135deg, #0A1F44, #06132B); }
   .role-fab-ceo      { background: linear-gradient(135deg, #0A3D1E, #06281A); }
   .role-fab-cco      { background: linear-gradient(135deg, #2D0A56, #1A0636); }
   .role-fab-crm      { background: linear-gradient(135deg, #0A3D3D, #063028); }
   .role-fab-auditor   { background: linear-gradient(135deg, #3D2A0A, #281C06); }
   .role-fab-branch    { background: linear-gradient(135deg, #0D3558, #144B7A); }
-  .role-fab-client    { background: linear-gradient(135deg, #0a2656, #051734); }
+  .role-fab-client    { background: linear-gradient(135deg, #0A1F44, #06132B); }
   .role-fab-contractor { background: linear-gradient(135deg, #3D0A1E, #2A0615); }
   .role-fab-payroll   { background: linear-gradient(135deg, #1E293B, #0F172A); }
-  .role-fab-ess       { background: linear-gradient(135deg, #0a2656, #051734); }
-  .role-fab-pf-team   { background: linear-gradient(135deg, #0a2656, #051734); }
+  .role-fab-ess       { background: linear-gradient(135deg, #0A1F44, #06132B); }
+  .role-fab-pf-team   { background: linear-gradient(135deg, #0A1F44, #06132B); }
 
-  .role-btn-admin    { background: linear-gradient(135deg, #0a2656, #1a3a6e); }
+  .role-btn-admin    { background: linear-gradient(135deg, #0A1F44, #1a3a6e); }
   .role-btn-ceo      { background: linear-gradient(135deg, #0A3D1E, #1A6B3D); }
   .role-btn-cco      { background: linear-gradient(135deg, #2D0A56, #4A1B7A); }
   .role-btn-crm      { background: linear-gradient(135deg, #0A3D3D, #147A6B); }
   .role-btn-auditor   { background: linear-gradient(135deg, #3D2A0A, #7A5A1B); }
-  .role-btn-branch    { background: linear-gradient(135deg, #0a2656, #1a3a6e); }
-  .role-btn-client    { background: linear-gradient(135deg, #0a2656, #1a3a6e); }
+  .role-btn-branch    { background: linear-gradient(135deg, #0A1F44, #1a3a6e); }
+  .role-btn-client    { background: linear-gradient(135deg, #0A1F44, #1a3a6e); }
   .role-btn-contractor { background: linear-gradient(135deg, #3D0A1E, #7A1B3D); }
   .role-btn-payroll   { background: linear-gradient(135deg, #1E293B, #334155); }
-  .role-btn-ess       { background: linear-gradient(135deg, #0a2656, #1a3a6e); }
-  .role-btn-pf-team   { background: linear-gradient(135deg, #0a2656, #1a3a6e); }
+  .role-btn-ess       { background: linear-gradient(135deg, #0A1F44, #1a3a6e); }
+  .role-btn-pf-team   { background: linear-gradient(135deg, #0A1F44, #1a3a6e); }
 
   /* ===========================
      Tab navigation - Unified
@@ -985,7 +984,7 @@ canvas {
   button:focus-visible,
   select:focus-visible,
   [tabindex]:focus-visible {
-    @apply outline-none ring-2 ring-accent-400/50 ring-offset-2;
+    @apply outline-none ring-2 ring-accent-500/50 ring-offset-2;
   }
 }
 

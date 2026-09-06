@@ -181,7 +181,7 @@ export class StatusBadgeComponent {
     };
 
     const variantClasses: Record<BadgeVariant, string> = {
-      primary: 'bg-statco-blue/10 text-statco-blue',
+      primary: 'bg-brand-800/10 text-brand-800',
       success: 'bg-success-100 text-success-700',
       warning: 'bg-warning-100 text-warning-700',
       error: 'bg-error-100 text-error-700',
@@ -194,7 +194,7 @@ export class StatusBadgeComponent {
 
   get dotClass(): string {
     const dotColors: Record<BadgeVariant, string> = {
-      primary: 'bg-statco-blue',
+      primary: 'bg-brand-800',
       success: 'bg-success-500',
       warning: 'bg-warning-500',
       error: 'bg-error-500',

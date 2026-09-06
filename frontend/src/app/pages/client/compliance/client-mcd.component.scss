@@ -4,13 +4,13 @@
 
 .form-select,
 .form-input {
-  @apply border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-statco-blue-light focus:border-statco-blue-light;
+  @apply border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-accent-500 focus:border-accent-500;
 }
 
 .btn-primary {
-  @apply inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-semibold text-white bg-statco-blue hover:bg-statco-blue-dark transition disabled:opacity-60 disabled:cursor-not-allowed;
+  @apply inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-semibold text-white bg-brand-800 hover:bg-brand-950 transition disabled:opacity-60 disabled:cursor-not-allowed;
 }
 
 .btn-secondary {
-  @apply inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-semibold text-statco-blue bg-brand-50 hover:bg-brand-100 transition disabled:opacity-60 disabled:cursor-not-allowed;
+  @apply inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-semibold text-brand-800 bg-brand-50 hover:bg-brand-100 transition disabled:opacity-60 disabled:cursor-not-allowed;
 }

@@ -210,7 +210,7 @@ interface SidebarItem {
     }
 
     .sidebar-dark {
-      background: linear-gradient(180deg, #0a2656 0%, #0D3558 50%, #144B7A 100%);
+      background: linear-gradient(180deg, #0A1F44 0%, #0D3558 50%, #144B7A 100%);
       border-right: 1px solid rgba(255, 255, 255, 0.05);
       box-shadow: 2px 0 16px rgba(10, 38, 86, 0.22);
     }

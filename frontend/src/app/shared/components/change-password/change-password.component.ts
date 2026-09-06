@@ -46,7 +46,7 @@ import { ValidationMessagesComponent } from '../../ui/validation-messages/valida
               formControlName="currentPassword"
               autocomplete="current-password"
               placeholder="Enter current password"
-              class="block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-accent-400 focus:border-accent-400 outline-none transition"
+              class="block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none transition"
             />
             <button type="button" (click)="showCurrent = !showCurrent"
               class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -72,7 +72,7 @@ import { ValidationMessagesComponent } from '../../ui/validation-messages/valida
               formControlName="newPassword"
               autocomplete="new-password"
               placeholder="Enter new password"
-              class="block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-accent-400 focus:border-accent-400 outline-none transition"
+              class="block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none transition"
             />
             <button type="button" (click)="showNew = !showNew"
               class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -98,7 +98,7 @@ import { ValidationMessagesComponent } from '../../ui/validation-messages/valida
               formControlName="confirmPassword"
               autocomplete="new-password"
               placeholder="Re-enter new password"
-              class="block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-accent-400 focus:border-accent-400 outline-none transition"
+              class="block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none transition"
             />
             <button type="button" (click)="showConfirm = !showConfirm"
               class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -116,7 +116,7 @@ import { ValidationMessagesComponent } from '../../ui/validation-messages/valida
         <button
           type="submit"
           [disabled]="saving || form.invalid"
-          class="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-primary-600 text-white font-medium text-sm hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          class="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-brand-600 text-white font-medium text-sm hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
         >
           @if (!saving) {
 <span>Update Password</span>

@@ -17,8 +17,8 @@
 <button type="button"
         (click)="switchTab(tab.id)"
         class="whitespace-nowrap px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
-        [class.border-statco-blue]="activeTab===tab.id"
-        [class.text-statco-blue]="activeTab===tab.id"
+        [class.border-brand-800]="activeTab===tab.id"
+        [class.text-brand-800]="activeTab===tab.id"
         [class.border-transparent]="activeTab!==tab.id"
         [class.text-gray-500]="activeTab!==tab.id"
         [class.hover:text-gray-700]="activeTab!==tab.id">
@@ -99,7 +99,7 @@
         @if (!routeClientId) {
 <div class="w-48">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-client-id">Client</label>
-          <select id="cc-client-id" name="clientId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="docFilters.clientId" (change)="onClientChange('doc')">
+          <select id="cc-client-id" name="clientId" class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500" [(ngModel)]="docFilters.clientId" (change)="onClientChange('doc')">
             <option value="">All Clients</option>
             @for (c of clients; track c) {
 <option [value]="c.id">{{ c.clientName }}</option>
@@ -109,7 +109,7 @@
 }
         <div class="w-48">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-branch-id">Branch</label>
-          <select id="cc-branch-id" name="branchId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="docFilters.branchId">
+          <select id="cc-branch-id" name="branchId" class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500" [(ngModel)]="docFilters.branchId">
             <option value="">All Branches</option>
             @for (b of branches; track b) {
 <option [value]="b.id">{{ b.branchName }}</option>
@@ -118,7 +118,7 @@
         </div>
         <div class="w-48">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-status">Status</label>
-          <select id="cc-status" name="status" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="docFilters.status">
+          <select id="cc-status" name="status" class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500" [(ngModel)]="docFilters.status">
             <option value="">All Status</option>
             <option>UPLOADED</option>
             <option>PENDING_REVIEW</option>
@@ -129,12 +129,12 @@
         </div>
         <div class="w-48">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-contractor-id">Contractor</label>
-          <select id="cc-contractor-id" name="contractorId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="docFilters.contractorId">
+          <select id="cc-contractor-id" name="contractorId" class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500" [(ngModel)]="docFilters.contractorId">
             <option value="">All Contractors</option>
           </select>
         </div>
         <button type="button"
-          class="rounded-lg bg-statco-blue text-white font-semibold text-sm px-5 py-2 hover:bg-statco-blue-dark focus:ring-2 focus:ring-statco-blue focus:ring-offset-2 transition-all h-[38px] disabled:opacity-50"
+          class="rounded-lg bg-brand-800 text-white font-semibold text-sm px-5 py-2 hover:bg-brand-950 focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 transition-all h-[38px] disabled:opacity-50"
           [disabled]="docLoading"
           (click)="loadDocs()">{{ docLoading ? 'Loading...' : 'Search' }}</button>
       </div>
@@ -460,7 +460,7 @@
       <div class="flex flex-wrap gap-3 items-end">
         <div class="w-48">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-mcd-year">Year</label>
-          <select id="cc-mcd-year" name="mcdYear" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="mcdYear" (ngModelChange)="onMcdFilterChange()">
+          <select id="cc-mcd-year" name="mcdYear" class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500" [(ngModel)]="mcdYear" (ngModelChange)="onMcdFilterChange()">
             @for (y of yearOptions; track y) {
 <option [ngValue]="y">{{ y }}</option>
 }
@@ -468,7 +468,7 @@
         </div>
         <div class="w-48">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-mcd-month">Month</label>
-          <select id="cc-mcd-month" name="mcdMonth" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="mcdMonth" (ngModelChange)="onMcdFilterChange()">
+          <select id="cc-mcd-month" name="mcdMonth" class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500" [(ngModel)]="mcdMonth" (ngModelChange)="onMcdFilterChange()">
             @for (m of monthOptions; track m) {
 <option [ngValue]="m.value">{{ m.label }}</option>
 }
@@ -477,7 +477,7 @@
         @if (!routeClientId) {
 <div class="w-56">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-mcd-client-id">Client</label>
-          <select id="cc-mcd-client-id" name="mcdClientId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="mcdClientId" (ngModelChange)="onClientChange('mcd'); onMcdFilterChange()">
+          <select id="cc-mcd-client-id" name="mcdClientId" class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500" [(ngModel)]="mcdClientId" (ngModelChange)="onClientChange('mcd'); onMcdFilterChange()">
             <option value="">All Clients</option>
             @for (c of clients; track c) {
 <option [value]="c.id">{{ c.clientName }}</option>
@@ -486,7 +486,7 @@
         </div>
 }
         <button type="button"
-          class="rounded-lg bg-statco-blue text-white font-semibold text-sm px-5 py-2 hover:bg-statco-blue-dark focus:ring-2 focus:ring-statco-blue focus:ring-offset-2 transition-all h-[38px]"
+          class="rounded-lg bg-brand-800 text-white font-semibold text-sm px-5 py-2 hover:bg-brand-950 focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 transition-all h-[38px]"
           (click)="loadMcd()">Refresh</button>
         <button type="button"
           class="rounded-lg bg-gray-900 text-white font-semibold text-sm px-5 py-2 hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed h-[38px]"
@@ -791,14 +791,14 @@
       <div class="flex flex-wrap gap-3 items-end">
         <div class="w-48">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-expiry-days">Expiring In</label>
-          <select id="cc-expiry-days" name="expiryDays" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="expiryDays" (change)="loadExpiry()">
+          <select id="cc-expiry-days" name="expiryDays" class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500" [(ngModel)]="expiryDays" (change)="loadExpiry()">
             <option [ngValue]="30">30 Days</option>
             <option [ngValue]="60">60 Days</option>
             <option [ngValue]="90">90 Days</option>
           </select>
         </div>
         <button type="button"
-          class="rounded-lg bg-statco-blue text-white font-semibold text-sm px-5 py-2 hover:bg-statco-blue-dark focus:ring-2 focus:ring-statco-blue focus:ring-offset-2 transition-all h-[38px]"
+          class="rounded-lg bg-brand-800 text-white font-semibold text-sm px-5 py-2 hover:bg-brand-950 focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 transition-all h-[38px]"
           (click)="loadExpiry()">Refresh</button>
       </div>
     </div>
@@ -905,7 +905,7 @@
         @if (!routeClientId) {
 <div class="w-56">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-audit-closures-client-id">Client</label>
-          <select id="cc-audit-closures-client-id" name="auditClosuresClientId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="auditClosuresClientId" (ngModelChange)="onClientChange('audit'); onAuditFilterChange()">
+          <select id="cc-audit-closures-client-id" name="auditClosuresClientId" class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500" [(ngModel)]="auditClosuresClientId" (ngModelChange)="onClientChange('audit'); onAuditFilterChange()">
             <option value="">All Clients</option>
             @for (c of clients; track c) {
 <option [value]="c.id">{{ c.clientName }}</option>
@@ -914,7 +914,7 @@
         </div>
 }
         <button type="button"
-          class="rounded-lg bg-statco-blue text-white font-semibold text-sm px-5 py-2 hover:bg-statco-blue-dark focus:ring-2 focus:ring-statco-blue focus:ring-offset-2 transition-all h-[38px]"
+          class="rounded-lg bg-brand-800 text-white font-semibold text-sm px-5 py-2 hover:bg-brand-950 focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 transition-all h-[38px]"
           (click)="loadAuditClosures()">Refresh</button>
       </div>
     </div>
@@ -1004,7 +1004,7 @@
       <h3 class="text-lg font-semibold text-gray-900 mb-2">Compliance Tasks</h3>
       <p class="text-sm text-gray-500 mb-6">Task approvals, rejections, and assignments have moved to a dedicated page for a better experience.</p>
       <a routerLink="/crm/compliance/tasks"
-        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-statco-blue rounded-lg hover:bg-statco-blue-dark transition-colors">
+        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-800 rounded-lg hover:bg-brand-950 transition-colors">
         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
         </svg>

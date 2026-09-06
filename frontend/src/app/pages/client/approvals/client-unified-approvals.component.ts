@@ -351,7 +351,7 @@ interface UnifiedApprovalItem {
     .grid-layout { display: grid; grid-template-columns: 1fr 1.25fr; gap: 1rem; }
     .tabs { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .7rem; }
     .tabs button { border: 1px solid #d1d5db; background: #fff; border-radius: 999px; padding: .3rem .7rem; font-size: .78rem; font-weight: 700; color: #374151; }
-    .tabs button.active { background: #0a2656; color: #fff; border-color: #0a2656; }
+    .tabs button.active { background: #0A1F44; color: #fff; border-color: #0A1F44; }
     .filter-row { display: grid; grid-template-columns: 1fr 170px 1fr 190px auto; gap: .65rem; }
     .filter-actions { display: flex; align-items: end; gap: .45rem; }
     label { display: flex; flex-direction: column; gap: .35rem; }
