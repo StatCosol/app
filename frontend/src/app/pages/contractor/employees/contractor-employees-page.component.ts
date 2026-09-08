@@ -26,6 +26,7 @@ import {
   LoadingSpinnerComponent,
   PageHeaderComponent,
 } from '../../../shared/ui';
+import { describeApiError } from '../../../shared/utils/api-error.util';
 import {
   SKILL_CATEGORIES,
   skillCategoryLabel,
@@ -952,7 +953,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
           this.applyFilters();
         },
         error: (err: any) => {
-          this.errorMsg = err?.error?.message || 'Failed to load employees.';
+          this.errorMsg = describeApiError(err, 'Failed to load employees.');
         },
       });
   }
@@ -1025,6 +1026,34 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       this.formError = 'Please select a branch.';
       return;
     }
+    // Identity numbers are read off a card and typed in groups — "1234 5678
+    // 9012" is the natural way to enter an Aadhaar, and at 14 characters the
+    // server rejected it against a 12-wide column. The spaces are formatting,
+    // not data, so they come out here rather than becoming a refusal.
+    const compact = (v: string | null | undefined): string | null => {
+      const out = (v ?? '').replace(/\s+/g, '');
+      return out ? out : null;
+    };
+    const aadhaar = compact(this.form.aadhaar);
+    const pan = compact(this.form.pan)?.toUpperCase() ?? null;
+    const uan = compact(this.form.uan);
+    const esic = compact(this.form.esic);
+    const phone = compact(this.form.phone);
+
+    // These mirror the DTO's column widths. Without them the only feedback was
+    // a 400 whose body named the field, in a form that showed the raw array.
+    const tooLong =
+      (aadhaar && !/^\d{12}$/.test(aadhaar) && 'Aadhaar must be 12 digits.') ||
+      (pan && pan.length > 10 && 'PAN cannot be longer than 10 characters.') ||
+      (uan && uan.length > 20 && 'UAN cannot be longer than 20 characters.') ||
+      (esic && esic.length > 30 && 'ESIC number cannot be longer than 30 characters.') ||
+      (phone && phone.length > 15 && 'Phone cannot be longer than 15 characters.') ||
+      null;
+    if (tooLong) {
+      this.formError = tooLong;
+      return;
+    }
+
     this.formError = null;
     this.saving = true;
 
@@ -1033,16 +1062,16 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       gender: this.form.gender || null,
       dateOfBirth: this.form.dateOfBirth || null,
       fatherName: this.form.fatherName || null,
-      phone: this.form.phone || null,
+      phone,
       email: this.form.email || null,
       designation: this.form.designation || null,
       department: this.form.department || null,
       dateOfJoining: this.form.dateOfJoining || null,
       punchCode: this.form.punchCode ? String(this.form.punchCode).trim() : null,
-      aadhaar: this.form.aadhaar || null,
-      pan: this.form.pan ? this.form.pan.toUpperCase() : null,
-      uan: this.form.uan || null,
-      esic: this.form.esic || null,
+      aadhaar,
+      pan,
+      uan,
+      esic,
       pfApplicable: this.form.pfApplicable,
       esiApplicable: this.form.esiApplicable,
       skillCategory: this.form.skillCategory || null,
@@ -1089,7 +1118,11 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
           this.closeDrawer();
         },
         error: (err: any) => {
-          this.formError = err?.error?.message || 'Could not save employee.';
+          // The pipe answers 400 with an ARRAY of per-field complaints, so the
+          // raw value rendered as a comma-mashed wall and the refusal read as
+          // "something went wrong" — which is how a payload mismatch stayed
+          // invisible here. describeApiError names the fields instead.
+          this.formError = describeApiError(err, 'Could not save employee.');
         },
       });
   }
@@ -1122,7 +1155,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
           this.toast.success('Deactivated', `${empName} has been marked inactive.`);
         },
         error: (err: any) => {
-          this.toast.error('Error', err?.error?.message || 'Could not deactivate employee.');
+          this.toast.error('Error', describeApiError(err, 'Could not deactivate employee.'));
         },
       });
   }
@@ -1174,7 +1207,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
           this.toast.success('Reactivated', `${empName} marked active again.`);
         },
         error: (err: any) => {
-          this.toast.error('Error', err?.error?.message || 'Could not reactivate employee.');
+          this.toast.error('Error', describeApiError(err, 'Could not reactivate employee.'));
         },
       });
   }
@@ -1228,7 +1261,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
             );
             return;
           }
-          this.toast.error('Error', err?.error?.message || 'Could not send delete request.');
+          this.toast.error('Error', describeApiError(err, 'Could not send delete request.'));
         },
       });
   }
@@ -1435,7 +1468,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
         error: (err: any) => {
           this.toast.error(
             'Upload error',
-            err?.error?.message || err?.message || 'Server error.',
+            describeApiError(err, 'Server error.'),
           );
         },
       });
