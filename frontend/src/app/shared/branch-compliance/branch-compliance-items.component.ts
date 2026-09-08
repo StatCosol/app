@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { of, Subject } from 'rxjs';
+import { forkJoin, of, Subject } from 'rxjs';
 import { catchError, finalize, takeUntil, timeout } from 'rxjs/operators';
 import { AuthService } from '../../core/auth.service';
 import { ClientBranchesService } from '../../core/client-branches.service';
@@ -450,39 +450,31 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
     this.error = '';
     this.data = null;
 
-    this.loadBranchListFallback();
-
-    this.auth.fetchMe().pipe(
-      takeUntil(this.destroy$),
-      timeout(15000),
-      catchError(() => of(null)),
-    ).subscribe(() => {
-      this.applyBranchIdsAndLoad(this.auth.getBranchIds());
-    });
-  }
-
-  private loadBranchListFallback(): void {
-    this.branchesApi.list().pipe(
-      takeUntil(this.destroy$),
-      timeout(15000),
-      finalize(() => {
-        if (!this.selectedBranchId) this.loading = false;
-      }),
-    ).subscribe({
-      next: (branches: any[]) => {
-        const ids = (branches || [])
-          .map((branch) => this.extractBranchId(branch))
-          .filter((id): id is string => !!id);
-        if (this.applyBranchIdsAndLoad(ids)) {
-          return;
-        } else {
-          this.error = 'No branch is available for this user.';
-        }
-      },
-      error: (err) => {
-        this.error = err?.error?.message || 'Failed to load branch details.';
-      },
-    });
+    // Both sources settle, then ONE decision.
+    //
+    // These used to be two independent subscriptions, with `loading` cleared by
+    // a condition inside the branch-list finalize. Whether the spinner ever
+    // stopped therefore depended on which of the two won the race and on what
+    // the other had already mutated — and one interleaving left the page on
+    // skeletons with no request in flight, no error, and nothing that could
+    // clear it. That state is unreachable now: forkJoin waits for both, errors
+    // are folded into empty values so neither can strand the other, and every
+    // path out of the subscribe either starts a load or sets an error.
+    forkJoin({
+      me: this.auth.fetchMe().pipe(timeout(15000), catchError(() => of(null))),
+      branches: this.branchesApi
+        .list()
+        .pipe(timeout(15000), catchError(() => of([] as unknown[]))),
+    })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(({ branches }) => {
+        // The refreshed profile is the authority; the branch list is the
+        // fallback for users whose token carries no branch ids.
+        if (this.applyBranchIdsAndLoad(this.auth.getBranchIds())) return;
+        if (this.applyBranchIdsAndLoad(branches as unknown[])) return;
+        this.error = 'No branch is available for this user.';
+        this.loading = false;
+      });
   }
 
   private applyBranchIds(ids: unknown[] | null | undefined): boolean {
@@ -497,16 +489,37 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
     return true;
   }
 
+  /**
+   * True only when a request actually started — not merely when ids parsed.
+   *
+   * The caller uses this to decide whether to fall through to an error, so
+   * "ids looked fine but nothing was fetched" must report false, or the page
+   * goes back to sitting on a spinner nobody clears.
+   */
   private applyBranchIdsAndLoad(ids: unknown[] | null | undefined): boolean {
     if (!this.applyBranchIds(ids)) return false;
-    this.startInitialLoad();
+    return this.startInitialLoad();
+  }
+
+  private startInitialLoad(): boolean {
+    if (this.initialLoadStarted) return true;
+    // Only claim the initial load has happened once one can actually happen.
+    //
+    // This used to set the flag and then call load(), which returns silently
+    // when a branch or month is missing. A no-op therefore burned the one-shot
+    // guard: the branch id arriving moments later from fetchMe() or the branch
+    // list hit `if (initialLoadStarted) return` and nothing was ever requested,
+    // while `loading` stayed true from resolveBranchAndLoad. That is the page
+    // sitting on skeletons until you click the tab again — a second click
+    // builds a fresh component with a fresh flag, which is why it then works.
+    if (!this.canLoad()) return false;
+    this.initialLoadStarted = true;
+    this.load();
     return true;
   }
 
-  private startInitialLoad(): void {
-    if (this.initialLoadStarted) return;
-    this.initialLoadStarted = true;
-    this.load();
+  private canLoad(): boolean {
+    return !!this.selectedBranchId && !!this.selectedMonth;
   }
 
   private extractBranchId(value: unknown): string | null {
@@ -525,7 +538,13 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
   }
 
   load(): void {
-    if (!this.selectedBranchId || !this.selectedMonth) return;
+    if (!this.canLoad()) {
+      // Never leave the skeleton up on a path that fetches nothing. Silently
+      // returning while `loading` was true is what made a missing branch id
+      // look like an endless load rather than an empty or failed state.
+      this.loading = false;
+      return;
+    }
 
     this.loading = true;
     this.error = '';
