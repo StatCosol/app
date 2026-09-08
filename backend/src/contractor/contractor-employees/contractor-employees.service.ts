@@ -11,7 +11,7 @@ import {
   contractorPrefixCandidates,
   formatContractorEmployeeCode,
 } from './contractor-employee-code.util';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import {
   ContractorEmployeeEntity,
   SKILL_CATEGORIES,
@@ -20,6 +20,7 @@ import {
 import { MinimumWageService } from './minimum-wage.service';
 import { UserEntity } from '../../users/entities/user.entity';
 import { BranchContractorEntity } from '../../branches/entities/branch-contractor.entity';
+import { BranchEntity } from '../../branches/entities/branch.entity';
 
 const STATUSES = ['ACTIVE', 'LEFT', 'INACTIVE', 'PENDING_DELETE'] as const;
 type EmployeeStatus = (typeof STATUSES)[number];
@@ -112,6 +113,8 @@ export class ContractorEmployeesService {
     @InjectRepository(BranchContractorEntity)
     private readonly branchContractorRepo: Repository<BranchContractorEntity>,
     private readonly dataSource: DataSource,
+    @InjectRepository(BranchEntity)
+    private readonly branchRepo: Repository<BranchEntity>,
   ) {}
 
   /**
@@ -132,6 +135,26 @@ export class ContractorEmployeesService {
     if (!link) {
       throw new BadRequestException('Contractor is not mapped to this branch');
     }
+  }
+
+  /**
+   * The state whose minimum wage applies to a worker at this branch.
+   *
+   * Payroll already answers this as `branch?.stateCode ?? employee?.stateCode`
+   * (contractor-computation.service.ts), so the branch wins here too rather
+   * than inventing a second precedence. It is not copied onto the employee row:
+   * payroll reads the branch first anyway, and a stored copy would go stale the
+   * day a branch's state is corrected.
+   */
+  private async resolveBranchStateCode(
+    branchId: string,
+  ): Promise<string | null> {
+    if (!branchId) return null;
+    const branch = await this.branchRepo.findOne({
+      where: { id: branchId },
+      select: ['id', 'stateCode'],
+    });
+    return branch?.stateCode ?? null;
   }
 
   /** Resolve the contractor user's schedule of employment (cached not needed; light query). */
@@ -376,9 +399,19 @@ export class ContractorEmployeesService {
     const trimmedName = dto.name.trim();
 
     // Item #4b: hard-validate against state+skill+schedule min wage.
+    //
+    // The state comes from the branch. Nothing on the single-registration path
+    // ever set stateCode — the form has no state field and the DTO carries no
+    // such property — so this check has been inert since it was written:
+    // lookup() returns early on a missing state, and every registration passed
+    // whatever the salary was. Bulk imports were checked, because the
+    // spreadsheet has a stateCode column.
     const scheduledEmployment = await this.resolveSchedule(contractorUserId);
     await this.minWage.validateSalary({
-      stateCode: prepared.stateCode ?? null,
+      stateCode:
+        (await this.resolveBranchStateCode(branchId)) ??
+        prepared.stateCode ??
+        null,
       skillCategory: prepared.skillCategory ?? null,
       monthlySalary: prepared.monthlySalary ?? null,
       scheduledEmployment,
@@ -443,6 +476,17 @@ export class ContractorEmployeesService {
     // Resolve schedule of employment once (shared across all rows for this contractor).
     const scheduledEmployment = await this.resolveSchedule(contractorUserId);
 
+    // Branch states for the same reason as create(), in one query rather than
+    // per row: a sheet that omits stateCode still gets its wage warning.
+    const branchStates = new Map<string, string | null>();
+    if (allowedBranchIds.size > 0) {
+      const branches = await this.branchRepo.find({
+        where: { id: In(Array.from(allowedBranchIds)) },
+        select: ['id', 'stateCode'],
+      });
+      for (const b of branches) branchStates.set(b.id, b.stateCode ?? null);
+    }
+
     for (let i = 0; i < rows.length; i++) {
       // Each row is validated here rather than by the global pipe: @Body() on
       // this endpoint carries the rows as plain objects precisely so that one
@@ -497,7 +541,8 @@ export class ContractorEmployeesService {
 
         // Item #4b: per-row min-wage soft check (warning, not abort).
         const wageWarning = await this.minWage.checkSalary({
-          stateCode: prepared.stateCode ?? null,
+          stateCode:
+            branchStates.get(branchId) ?? prepared.stateCode ?? null,
           skillCategory: prepared.skillCategory ?? null,
           monthlySalary: prepared.monthlySalary ?? null,
           scheduledEmployment,
@@ -627,9 +672,20 @@ export class ContractorEmployeesService {
     Object.assign(emp, prepared);
 
     // Item #4b: re-validate against min-wage using merged state+skill+salary.
+    //
+    // Branch-first, exactly as create() and payroll resolve it. Reading
+    // emp.stateCode alone reopened the gate the moment it closed: the state is
+    // deliberately not denormalised onto the row, so for every worker
+    // registered through the form it is null, validateSalary() returned early,
+    // and a compliant salary could be edited below the statutory minimum by the
+    // next request. emp.branchId is the right source here because prepare()
+    // strips branchId — an update cannot move the worker.
     const scheduledEmployment = await this.resolveSchedule(contractorUserId);
     await this.minWage.validateSalary({
-      stateCode: emp.stateCode ?? null,
+      stateCode:
+        (await this.resolveBranchStateCode(emp.branchId)) ??
+        emp.stateCode ??
+        null,
       skillCategory: emp.skillCategory ?? null,
       monthlySalary: emp.monthlySalary ?? null,
       scheduledEmployment,

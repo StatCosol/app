@@ -44,6 +44,7 @@ function makeService(opts: {
     {} as any,
     {} as any,
     dataSource as any,
+    {} as any,
   );
   return { service, dataSource, queries };
 }
@@ -168,6 +169,7 @@ function makeBackfillService(opts: {
     {} as any,
     {} as any,
     dataSource as any,
+    {} as any,
   );
   return { service, updates, dataSource, queries };
 }
@@ -271,6 +273,9 @@ describe('ContractorEmployeesService code allocation — review regressions', ()
       { findOne: jest.fn().mockResolvedValue(null) } as any,
       { findOne: jest.fn().mockResolvedValue({ id: 'link' }) } as any,
       dataSource as any,
+      // Branch lookup for the minimum-wage state; no branch, so no state and
+      // the wage check stays a no-op — this suite is about code allocation.
+      { findOne: jest.fn().mockResolvedValue(null) } as any,
     );
     return { service, em, queries, saved };
   }
