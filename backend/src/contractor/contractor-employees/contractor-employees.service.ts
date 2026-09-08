@@ -4,6 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { plainToInstance } from 'class-transformer';
+import { validateSync } from 'class-validator';
+import { BulkContractorEmployeeRowDto } from './dto/contractor-employee-bulk.dto';
 import {
   contractorPrefixCandidates,
   formatContractorEmployeeCode,
@@ -38,6 +41,43 @@ function normalizeStatus(value: any): EmployeeStatus | null {
   return (STATUSES as readonly string[]).includes(v)
     ? (v as EmployeeStatus)
     : null;
+}
+
+/**
+ * Validate one bulk row.
+ *
+ * On failure the message is class-validator's own, which names the property —
+ * the upload screen shows it beside the row number, so "monthlySalary must not
+ * be less than 0" is the useful form.
+ *
+ * On success the caller gets the validated INSTANCE, not the raw row, so only
+ * declared columns can ride the spread in bulkCreate() into the entity. A
+ * column the import does not own is rejected rather than quietly dropped —
+ * forbidNonWhitelisted turns it into this row's error, which is what tells the
+ * uploader their extra column did nothing.
+ */
+export function validateBulkRow(
+  raw: any,
+): { ok: true; row: Record<string, any> } | { ok: false; error: string } {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { ok: false, error: 'Row must be an object' };
+  }
+  const instance = plainToInstance(BulkContractorEmployeeRowDto, raw);
+  const errors = validateSync(instance, {
+    whitelist: true,
+    forbidNonWhitelisted: true,
+  });
+  if (errors.length > 0) {
+    return {
+      ok: false,
+      error:
+        errors
+          .map((e) => Object.values(e.constraints ?? {}).join('; '))
+          .filter(Boolean)
+          .join('; ') || 'Row is not valid',
+    };
+  }
+  return { ok: true, row: instance as unknown as Record<string, any> };
 }
 
 function toNumberOrNull(value: any): number | null {
@@ -404,7 +444,19 @@ export class ContractorEmployeesService {
     const scheduledEmployment = await this.resolveSchedule(contractorUserId);
 
     for (let i = 0; i < rows.length; i++) {
-      const raw = rows[i] || {};
+      // Each row is validated here rather than by the global pipe: @Body() on
+      // this endpoint carries the rows as plain objects precisely so that one
+      // bad cell fails one row instead of the whole file. It is also the only
+      // thing standing between a row and the entity — the spread below used to
+      // let a row set any column prepare() does not delete, status and
+      // dateOfExit included.
+      const checked = validateBulkRow(rows[i]);
+      if (!checked.ok) {
+        failed++;
+        results.push({ index: i, ok: false, error: checked.error });
+        continue;
+      }
+      const raw = checked.row;
       const name = String(raw.name || '').trim();
       const branchId = String(raw.branchId || defaultBranchId || '').trim();
 

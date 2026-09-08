@@ -1356,6 +1356,17 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
         errors.push('dailyWage invalid');
       }
 
+      // The server validates each row now, so anything it rejects has to show
+      // in this preview too — otherwise a row reads as fine here and comes back
+      // failed with no way to see why before uploading.
+      const email = raw['email'] ? String(raw['email']).trim() : null;
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        errors.push('email invalid');
+      }
+      if (raw['gender'] && String(raw['gender']).length > 10) {
+        errors.push('gender too long');
+      }
+
       const dto: CreateEmployeeDto = {
         name,
         skillCategory: skill,
@@ -1365,7 +1376,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
         dateOfBirth: raw['dateOfBirth'] ? String(raw['dateOfBirth']) : null,
         fatherName: raw['fatherName'] ? String(raw['fatherName']) : null,
         phone: raw['phone'] ? String(raw['phone']) : null,
-        email: raw['email'] ? String(raw['email']) : null,
+        email,
         designation: raw['designation'] ? String(raw['designation']) : null,
         department: raw['department'] ? String(raw['department']) : null,
         dateOfJoining: raw['dateOfJoining'] ? String(raw['dateOfJoining']) : null,
