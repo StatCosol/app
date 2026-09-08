@@ -5,12 +5,18 @@ import {
   IsEmail,
   IsDateString,
   IsBoolean,
+  IsNumber,
+  IsIn,
   MaxLength,
   IsUUID,
   IsInt,
   Min,
   Max,
 } from 'class-validator';
+import {
+  SKILL_CATEGORIES,
+  SkillCategory,
+} from '../entities/contractor-employee.entity';
 
 export class CreateContractorEmployeeDto {
   @IsNotEmpty()
@@ -118,6 +124,44 @@ export class CreateContractorEmployeeDto {
   @IsBoolean()
   esiApplicable?: boolean;
 
+  /*
+   * The wage trio, sent by the form on every save exactly as the fields above
+   * are, and undeclared until now — so on their own they kept the 400 alive
+   * after the rest of this DTO was fixed.
+   *
+   * They are not cosmetic. create() passes skillCategory and monthlySalary to
+   * minWage.validateSalary(), the statutory minimum-wage gate; accepting them
+   * under `whitelist: true` without declaring them would have stripped them and
+   * run that gate against nulls, which passes everything.
+   *
+   * @IsIn uses the entity's own SKILL_CATEGORIES rather than leaning on the
+   * service's normalizeSkill(), which maps an unrecognised grade to null —
+   * again a silent pass through the wage gate.
+   *
+   * The @Max bounds are the numeric column widths (12,2 and 10,2), so an
+   * overflow is a 400 naming the field instead of a Postgres 500.
+   */
+  @IsOptional()
+  @IsIn(SKILL_CATEGORIES)
+  skillCategory?: SkillCategory;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(9999999999.99)
+  monthlySalary?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(99999999.99)
+  dailyWage?: number;
+
+  /**
+   * Placement, and create-only: the controller reads it, access-checks it with
+   * assertBranchAccess() and passes it to the service as an explicit argument.
+   * It is deliberately absent from the update DTO — see the note there.
+   */
   @IsOptional()
   @IsUUID()
   branchId?: string;
@@ -212,9 +256,53 @@ export class UpdateContractorEmployeeDto {
   @IsBoolean()
   esiApplicable?: boolean;
 
+  /*
+   * The wage trio, sent by the form on every save exactly as the fields above
+   * are, and undeclared until now — so on their own they kept the 400 alive
+   * after the rest of this DTO was fixed.
+   *
+   * They are not cosmetic. create() passes skillCategory and monthlySalary to
+   * minWage.validateSalary(), the statutory minimum-wage gate; accepting them
+   * under `whitelist: true` without declaring them would have stripped them and
+   * run that gate against nulls, which passes everything.
+   *
+   * @IsIn uses the entity's own SKILL_CATEGORIES rather than leaning on the
+   * service's normalizeSkill(), which maps an unrecognised grade to null —
+   * again a silent pass through the wage gate.
+   *
+   * The @Max bounds are the numeric column widths (12,2 and 10,2), so an
+   * overflow is a 400 naming the field instead of a Postgres 500.
+   */
   @IsOptional()
-  @IsUUID()
-  branchId?: string;
+  @IsIn(SKILL_CATEGORIES)
+  skillCategory?: SkillCategory;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(9999999999.99)
+  monthlySalary?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(99999999.99)
+  dailyWage?: number;
+
+  /*
+   * No branchId here, deliberately.
+   *
+   * ContractorEmployeesService.prepare() deletes clientId, branchId,
+   * contractorUserId and id before the body reaches the entity, so that no
+   * request body can move a worker across a tenant, branch or contractor
+   * boundary. Declaring branchId here would therefore accept the property and
+   * silently drop it: the edit screen would report a branch change that never
+   * happened. Rejecting it is the honest answer, and the form now sends it only
+   * on create.
+   *
+   * Moving a worker to another branch is a real operation, but it is a transfer
+   * with its own access check — not a field on the profile form.
+   */
 }
 
 /**

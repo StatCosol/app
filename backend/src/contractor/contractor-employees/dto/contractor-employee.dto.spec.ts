@@ -17,11 +17,16 @@ import {
  * adding it here should fail this test, not production.
  */
 describe('CreateContractorEmployeeDto — accepts what the form sends', () => {
-  // Exactly the payload built by contractor-employees-page.component.ts.
+  /**
+   * Every property saveEmployee() puts on the create body, with the values the
+   * controls actually produce: the gender select emits M/F/Other, and the three
+   * wage fields are sent on every save — as null when their inputs are blank,
+   * which is why they have to be declared even though nothing here fills them.
+   */
   const formPayload = {
     name: 'Test Worker',
     branchId: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
-    gender: 'MALE',
+    gender: 'M',
     dateOfBirth: '1990-04-12',
     fatherName: 'Father Name',
     phone: '9000000000',
@@ -36,7 +41,18 @@ describe('CreateContractorEmployeeDto — accepts what the form sends', () => {
     esic: '31001234560000001',
     pfApplicable: true,
     esiApplicable: false,
+    skillCategory: 'SEMI_SKILLED',
+    monthlySalary: 18500,
+    dailyWage: 712.5,
   };
+
+  /**
+   * The edit body. Same shape minus branchId: the update DTO does not declare
+   * it, because ContractorEmployeesService.prepare() deletes the tenancy fields
+   * before they reach the row — accepting it would report a branch change that
+   * never happened. saveEmployee() adds branchId only when creating.
+   */
+  const { branchId: _createOnlyBranchId, ...updatePayload } = formPayload;
 
   const errorsFor = (cls: any, payload: Record<string, unknown>) =>
     validateSync(plainToInstance(cls, payload), {
@@ -49,9 +65,45 @@ describe('CreateContractorEmployeeDto — accepts what the form sends', () => {
     expect(errors.map((e) => `${e.property}: ${Object.keys(e.constraints ?? {})}`)).toEqual([]);
   });
 
-  it('accepts the same payload on update', () => {
-    const errors = errorsFor(UpdateContractorEmployeeDto, formPayload);
+  it('accepts the same payload on update, without branchId', () => {
+    const errors = errorsFor(UpdateContractorEmployeeDto, updatePayload);
     expect(errors.map((e) => e.property)).toEqual([]);
+  });
+
+  it('accepts the blank wage fields the form sends as null', () => {
+    const errors = errorsFor(CreateContractorEmployeeDto, {
+      ...formPayload,
+      skillCategory: null,
+      monthlySalary: null,
+      dailyWage: null,
+    });
+    expect(errors.map((e) => e.property)).toEqual([]);
+  });
+
+  it('rejects a skill category outside the statutory four', () => {
+    // normalizeSkill() would turn this into null and the minimum-wage gate
+    // would then compare against nothing, so it has to fail here.
+    const errors = errorsFor(CreateContractorEmployeeDto, {
+      ...formPayload,
+      skillCategory: 'EXPERT',
+    });
+    expect(errors.map((e) => e.property)).toContain('skillCategory');
+  });
+
+  it('rejects wages that are negative or wider than the column', () => {
+    const errors = errorsFor(CreateContractorEmployeeDto, {
+      ...formPayload,
+      monthlySalary: -1,
+      dailyWage: 100000000, // daily_wage is numeric(10,2)
+    });
+    const failed = errors.map((e) => e.property);
+    expect(failed).toContain('monthlySalary');
+    expect(failed).toContain('dailyWage');
+  });
+
+  it('rejects branchId on update rather than silently discarding it', () => {
+    const errors = errorsFor(UpdateContractorEmployeeDto, formPayload);
+    expect(errors.map((e) => e.property)).toContain('branchId');
   });
 
   it('uses esic, not esicNumber — the service maps property names onto columns', () => {
