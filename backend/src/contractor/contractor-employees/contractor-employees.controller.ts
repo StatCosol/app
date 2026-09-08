@@ -22,6 +22,7 @@ import {
   UpdateContractorEmployeeDto,
   BackfillCodesDto,
 } from './dto/contractor-employee.dto';
+import { BulkCreateContractorEmployeesDto } from './dto/contractor-employee-bulk.dto';
 
 // ── Contractor-facing: manage own employees ─────────────
 @ApiTags('Contractor Employees')
@@ -118,7 +119,7 @@ export class ContractorEmployeesController {
   @Post('bulk')
   async bulk(
     @CurrentUser() user: ReqUser,
-    @Body() body: { branchId?: string; rows: any[] },
+    @Body() body: BulkCreateContractorEmployeesDto,
   ) {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
@@ -126,7 +127,7 @@ export class ContractorEmployeesController {
     if (defaultBranchId) {
       await this.branchAccess.assertBranchAccess(user.userId, defaultBranchId);
     }
-    const rows = Array.isArray(body.rows) ? body.rows : [];
+    const rows = body.rows;
     const rowBranches = Array.from(
       new Set(
         rows
