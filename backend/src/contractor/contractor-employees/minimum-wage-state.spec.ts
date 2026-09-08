@@ -1,7 +1,7 @@
 import { ContractorEmployeesService } from './contractor-employees.service';
 
 /**
- * Which state the minimum-wage gate is measured against.
+ * Which state the minimum-wage gate is measured against, on create and update.
  *
  * `validateSalary()` returns early when the state is missing, and nothing on
  * the single-registration path ever supplied one: the form has no state field
@@ -31,8 +31,20 @@ function makeService(opts: {
     ),
   };
 
+  const employeeRepo = {
+    findOne: jest.fn().mockResolvedValue({
+      id: 'e1',
+      branchId: 'b1',
+      contractorUserId: 'u1',
+      stateCode: null,
+      skillCategory: 'SKILLED',
+      monthlySalary: 15000,
+    }),
+    save: jest.fn(async (v: any) => v),
+  };
+
   const service = new ContractorEmployeesService(
-    {} as any,
+    employeeRepo as any,
     { validateSalary, checkSalary } as any,
     // resolveSchedule()
     { findOne: jest.fn().mockResolvedValue({ scheduledEmployment: null }) } as any,
@@ -42,7 +54,7 @@ function makeService(opts: {
     branchRepo as any,
   );
 
-  return { service, validateSalary, branchRepo };
+  return { service, validateSalary, branchRepo, employeeRepo };
 }
 
 /** employeeCode supplied so the run does not need the allocation queries. */
@@ -54,7 +66,7 @@ const dto = (extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
-describe('minimum-wage state on single registration', () => {
+describe('minimum-wage state resolution', () => {
   it("measures the salary against the branch's state", async () => {
     const { service, validateSalary, branchRepo } = makeService({
       branchStateCode: 'KA',
@@ -103,6 +115,21 @@ describe('minimum-wage state on single registration', () => {
 
     expect(validateSalary).toHaveBeenCalledWith(
       expect.objectContaining({ stateCode: null }),
+    );
+  });
+
+  it('applies the same state to an update', async () => {
+    // The gate would otherwise close on create and reopen one request later:
+    // the state is deliberately not stored on the row, so update() reading
+    // emp.stateCode alone saw null and validateSalary() returned early. A
+    // worker registered at a compliant salary could be edited below the
+    // statutory minimum immediately afterwards.
+    const { service, validateSalary } = makeService({ branchStateCode: 'KA' });
+
+    await service.update('e1', 'u1', { monthlySalary: 9000 } as any);
+
+    expect(validateSalary).toHaveBeenCalledWith(
+      expect.objectContaining({ stateCode: 'KA', monthlySalary: 9000 }),
     );
   });
 

@@ -672,9 +672,20 @@ export class ContractorEmployeesService {
     Object.assign(emp, prepared);
 
     // Item #4b: re-validate against min-wage using merged state+skill+salary.
+    //
+    // Branch-first, exactly as create() and payroll resolve it. Reading
+    // emp.stateCode alone reopened the gate the moment it closed: the state is
+    // deliberately not denormalised onto the row, so for every worker
+    // registered through the form it is null, validateSalary() returned early,
+    // and a compliant salary could be edited below the statutory minimum by the
+    // next request. emp.branchId is the right source here because prepare()
+    // strips branchId — an update cannot move the worker.
     const scheduledEmployment = await this.resolveSchedule(contractorUserId);
     await this.minWage.validateSalary({
-      stateCode: emp.stateCode ?? null,
+      stateCode:
+        (await this.resolveBranchStateCode(emp.branchId)) ??
+        emp.stateCode ??
+        null,
       skillCategory: emp.skillCategory ?? null,
       monthlySalary: emp.monthlySalary ?? null,
       scheduledEmployment,
