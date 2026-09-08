@@ -393,13 +393,20 @@ interface BulkPreviewRow {
               [(ngModel)]="form.branchId"
               name="branchId"
               required
-              class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+              [disabled]="!!editingId"
+              class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm disabled:bg-gray-100 disabled:text-gray-500"
             >
               <option value="">Select branch…</option>
               @for (b of availableBranches; track b) {
 <option [value]="b.id">{{ b.name || b.branchName }}</option>
 }
             </select>
+            <!-- The control used to be editable here and did nothing: the API
+                 strips tenancy fields on update, so a "moved" worker stayed put
+                 and the drawer still showed the new branch. -->
+            @if (editingId) {
+<p class="mt-1 text-xs text-gray-500">Branch is fixed at registration and cannot be changed from this form.</p>
+}
           </div>
 }
 
@@ -1012,17 +1019,17 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       this.formError = 'Name is required.';
       return;
     }
-    this.formError = null;
-    this.saving = true;
-
-    if (this.availableBranches.length >= 1 && !this.form.branchId) {
+    // Checked before `saving` latches: returning after setting it left the
+    // Save button disabled with no way back but closing the drawer.
+    if (!this.editingId && this.availableBranches.length >= 1 && !this.form.branchId) {
       this.formError = 'Please select a branch.';
       return;
     }
+    this.formError = null;
+    this.saving = true;
 
     const dto: CreateEmployeeDto = {
       name: this.form.name.trim(),
-      branchId: this.form.branchId || undefined,
       gender: this.form.gender || null,
       dateOfBirth: this.form.dateOfBirth || null,
       fatherName: this.form.fatherName || null,
@@ -1048,6 +1055,13 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
           ? null
           : Number(this.form.dailyWage),
     };
+
+    // Create only. The update DTO does not declare branchId, because the
+    // service strips tenancy fields before they reach the row — sending it on
+    // an edit would be a 400 for a change the API was never going to make.
+    if (!this.editingId) {
+      dto.branchId = this.form.branchId || undefined;
+    }
 
     const req$ = this.editingId
       ? this.api.update(this.editingId, dto)

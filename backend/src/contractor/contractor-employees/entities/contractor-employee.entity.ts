@@ -7,6 +7,21 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+/**
+ * The statutory skill grades (Minimum Wages Act / state wage notifications).
+ *
+ * Exported from the entity so the column type, the create/update DTOs and the
+ * service's normalizeSkill() all read the same list. They used to keep private
+ * copies, and a grade added to one would have been rejected by the others.
+ */
+export const SKILL_CATEGORIES = [
+  'UNSKILLED',
+  'SEMI_SKILLED',
+  'SKILLED',
+  'HIGHLY_SKILLED',
+] as const;
+export type SkillCategory = (typeof SKILL_CATEGORIES)[number];
+
 @Entity({ name: 'contractor_employees' })
 @Index('IDX_CE_CLIENT_BRANCH', ['clientId', 'branchId'])
 @Index('IDX_CE_CONTRACTOR', ['contractorUserId'])
@@ -101,12 +116,7 @@ export class ContractorEmployeeEntity {
     length: 20,
     nullable: true,
   })
-  skillCategory:
-    | 'UNSKILLED'
-    | 'SEMI_SKILLED'
-    | 'SKILLED'
-    | 'HIGHLY_SKILLED'
-    | null;
+  skillCategory: SkillCategory | null;
 
   @Column({
     name: 'monthly_salary',

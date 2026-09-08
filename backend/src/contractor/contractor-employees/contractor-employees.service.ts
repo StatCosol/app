@@ -9,18 +9,14 @@ import {
   formatContractorEmployeeCode,
 } from './contractor-employee-code.util';
 import { DataSource, EntityManager, Repository } from 'typeorm';
-import { ContractorEmployeeEntity } from './entities/contractor-employee.entity';
+import {
+  ContractorEmployeeEntity,
+  SKILL_CATEGORIES,
+  SkillCategory,
+} from './entities/contractor-employee.entity';
 import { MinimumWageService } from './minimum-wage.service';
 import { UserEntity } from '../../users/entities/user.entity';
 import { BranchContractorEntity } from '../../branches/entities/branch-contractor.entity';
-
-const SKILL_CATEGORIES = [
-  'UNSKILLED',
-  'SEMI_SKILLED',
-  'SKILLED',
-  'HIGHLY_SKILLED',
-] as const;
-type SkillCategory = (typeof SKILL_CATEGORIES)[number];
 
 const STATUSES = ['ACTIVE', 'LEFT', 'INACTIVE', 'PENDING_DELETE'] as const;
 type EmployeeStatus = (typeof STATUSES)[number];
