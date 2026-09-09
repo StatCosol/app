@@ -19,6 +19,16 @@ import {
 } from 'rxjs';
 import { AuthService } from '../auth.service';
 import { IdleTimeoutService } from '../idle-timeout.service';
+import { ToastService } from '../../shared/toast/toast.service';
+
+/**
+ * Last time the user was told their session had been renewed.
+ *
+ * A screen that fires several mutating requests at once would otherwise stack
+ * one identical toast per request.
+ */
+let lastRenewalNotice = 0;
+const RENEWAL_NOTICE_GAP_MS = 5000;
 
 let isRefreshing = false;
 const refreshTokenSubject = new BehaviorSubject<string | null>(null);
@@ -29,6 +39,25 @@ export function authInterceptor(
 ): Observable<HttpEvent<unknown>> {
   const authService = inject(AuthService);
   const idleTimeout = inject(IdleTimeoutService);
+  const toast = inject(ToastService);
+
+  /*
+   * The refresh worked and the token is good again, but a mutating request is
+   * deliberately NOT replayed (see below), so the user's click did nothing.
+   *
+   * Nothing else tells them: the error interceptor suppresses toasts for 401
+   * outright, so a session expiring mid-form was a Save button that failed in
+   * silence while the very next press would have worked. Say so.
+   */
+  const noticeSessionRenewed = () => {
+    const now = Date.now();
+    if (now - lastRenewalNotice < RENEWAL_NOTICE_GAP_MS) return;
+    lastRenewalNotice = now;
+    toast.warning(
+      'Session renewed',
+      'Your sign-in had expired, so nothing was saved. Please try that once more.',
+    );
+  };
   const isEssPath = window.location.pathname.includes('/ess/');
 
   // Safety net: check idle timeout on every API request.
@@ -113,6 +142,7 @@ export function authInterceptor(
         return refresh$.pipe(
           switchMap((newToken) => {
             if (!isIdempotent) {
+              noticeSessionRenewed();
               return throwError(() => error);
             }
             // Retry original request with the new token (idempotent only)
@@ -132,6 +162,7 @@ export function authInterceptor(
             return throwError(() => error);
           }
           if (!isIdempotent) {
+            noticeSessionRenewed();
             return throwError(() => error);
           }
           return next(req.clone({
