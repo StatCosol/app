@@ -129,11 +129,10 @@ export class CrmSafetyDocumentsController {
     @CurrentUser() user: ReqUser,
     @Res() res: Response,
   ) {
-    // Verify document belongs to a client assigned to this CRM
-    const doc = await this.svc.getDocumentEntity(id);
-    await this.svc.assertCrmAssigned(doc.clientId, user.id);
+    // assertDocumentInScope resolves a CRM to their assigned clients, so the
+    // separate assignment call here would be the same question asked twice.
     const { absolutePath, fileName, mimeType } =
-      await this.svc.getDocumentForDownload(id);
+      await this.svc.getDocumentForDownload(id, user);
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="${encodeURIComponent(fileName)}"`,

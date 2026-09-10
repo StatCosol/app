@@ -10,6 +10,7 @@ import { Repository } from 'typeorm';
 import * as path from 'path';
 import * as fs from 'fs';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 
 import { SafetyDocumentEntity } from './entities/safety-document.entity';
 import { UploadSafetyDocumentDto } from './dto/upload-safety-document.dto';
@@ -55,6 +56,7 @@ export class SafetyDocumentsService {
   constructor(
     @InjectRepository(SafetyDocumentEntity)
     private readonly repo: Repository<SafetyDocumentEntity>,
+    private readonly scope: AccessScopeService,
   ) {}
 
   /** Verify CRM user is assigned to this client */
@@ -259,6 +261,14 @@ export class SafetyDocumentsService {
     clientId: string,
     filters: {
       branchId?: string;
+      /**
+       * Restrict to these branches, for a caller who is branch-scoped.
+       *
+       * An empty array means "no branches", and returns nothing — leaving the
+       * filter off for an empty list is how a branch user with no mappings
+       * would have seen the whole company.
+       */
+      branchIds?: string[];
       documentType?: string;
       category?: string;
       frequency?: string;
@@ -299,6 +309,15 @@ export class SafetyDocumentsService {
 
     if (filters.branchId) {
       qb.andWhere('sd.branch_id = :branchId', { branchId: filters.branchId });
+    }
+    if (filters.branchIds) {
+      if (!filters.branchIds.length) {
+        qb.andWhere('1 = 0');
+      } else {
+        qb.andWhere('sd.branch_id IN (:...scopedBranchIds)', {
+          scopedBranchIds: filters.branchIds,
+        });
+      }
     }
     if (filters.documentType) {
       qb.andWhere('sd.document_type = :dt', { dt: filters.documentType });
@@ -361,7 +380,20 @@ export class SafetyDocumentsService {
      Download
      ═══════════════════════════════════════════════════ */
 
-  async getDocumentForDownload(docId: string): Promise<{
+  /**
+   * Takes the user and does the access check itself.
+   *
+   * It used to take only a docId and return the file, leaving every caller to
+   * remember its own check. Two of the three remembered; the client controller
+   * compared clientId alone, and a branch user's roleCode is CLIENT — so a
+   * branch user could download any branch's safety document in the company.
+   * A signature that cannot be called without a user is what stops that
+   * recurring.
+   */
+  async getDocumentForDownload(
+    docId: string,
+    user: ReqUser,
+  ): Promise<{
     absolutePath: string;
     fileName: string;
     mimeType: string;
@@ -371,7 +403,9 @@ export class SafetyDocumentsService {
     });
     if (!doc) throw new NotFoundException('Document not found');
 
-    const absolutePath = path.join(process.cwd(), 'uploads', doc.filePath);
+    await this.scope.assertDocumentInScope(user, doc);
+
+    const absolutePath = this.resolveUploadPath(doc.filePath);
     if (!fs.existsSync(absolutePath)) {
       throw new NotFoundException('File not found on disk');
     }
@@ -381,6 +415,23 @@ export class SafetyDocumentsService {
       fileName: doc.fileName,
       mimeType: doc.mimeType || 'application/octet-stream',
     };
+  }
+
+  /**
+   * Resolve a stored path under uploads/, and refuse anything that climbs out.
+   *
+   * filePath is written by this service from validated parts, so this is not a
+   * live hole — but it is one careless writer away from being one, and
+   * FilesController guards the equivalent. Cheap to hold.
+   */
+  private resolveUploadPath(filePath: string): string {
+    const uploadsRoot = path.resolve(process.cwd(), 'uploads');
+    const resolved = path.resolve(uploadsRoot, filePath);
+    const rel = path.relative(uploadsRoot, resolved);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+      throw new ForbiddenException('Invalid document path');
+    }
+    return resolved;
   }
 
   async getDocumentEntity(docId: string): Promise<SafetyDocumentEntity> {

@@ -368,7 +368,7 @@ export class CrmDocumentsService {
       }
     }
 
-    const absolutePath = path.join(process.cwd(), 'uploads', doc.filePath);
+    const absolutePath = this.resolveUploadPath(doc.filePath);
     if (!fs.existsSync(absolutePath)) {
       throw new NotFoundException('File not found on disk');
     }
@@ -378,6 +378,24 @@ export class CrmDocumentsService {
       fileName: doc.fileName,
       mimeType: doc.mimeType || 'application/octet-stream',
     };
+  }
+
+  /**
+   * Resolve a stored path under uploads/, and refuse anything that climbs out.
+   *
+   * filePath is written by this service from validated parts — clientId and
+   * branchId are UUIDs and month is matched against YYYY-MM — so this is not a
+   * live hole. It is one careless writer away from being one, and
+   * FilesController guards the equivalent.
+   */
+  private resolveUploadPath(filePath: string): string {
+    const uploadsRoot = path.resolve(process.cwd(), 'uploads');
+    const resolved = path.resolve(uploadsRoot, filePath);
+    const rel = path.relative(uploadsRoot, resolved);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+      throw new ForbiddenException('Invalid document path');
+    }
+    return resolved;
   }
 
   /* ───────── Client Master: list ───────── */

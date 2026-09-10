@@ -1,6 +1,14 @@
-import { Controller, Get, Param, Query, Res } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Controller,
+  Get,
+  Param,
+  Query,
+  Res,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { Roles } from '../../auth/roles.decorator';
+import { AccessScopeService } from '../../access/access-scope.service';
 import { SafetyDocumentsService } from '../safety-documents.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -15,7 +23,10 @@ import { ReqUser } from '../../access/access-scope.service';
 @Controller({ path: 'client/safety-documents', version: '1' })
 @Roles('CLIENT')
 export class ClientSafetyDocumentsController {
-  constructor(private readonly svc: SafetyDocumentsService) {}
+  constructor(
+    private readonly svc: SafetyDocumentsService,
+    private readonly scope: AccessScopeService,
+  ) {}
 
   /** Get master categories */
   @ApiOperation({ summary: 'Get Categories' })
@@ -42,8 +53,20 @@ export class ClientSafetyDocumentsController {
   ) {
     const clientId = user.clientId;
     if (!clientId) return [];
+
+    // Same gap as the download: a branch user reaching this endpoint listed
+    // every branch in the company. Narrow them to their own, and refuse a
+    // filter for a branch they do not hold rather than answering emptily.
+    const scope = await this.scope.getScope(user);
+    const branchIds =
+      scope.level === 'branches' ? (scope.branchIds ?? []) : undefined;
+    if (branchIds && query.branchId && !branchIds.includes(query.branchId)) {
+      throw new ForbiddenException('You do not have access to this branch');
+    }
+
     return this.svc.listForClient(clientId, {
       branchId: query.branchId,
+      branchIds,
       documentType: query.documentType,
       category: query.category,
       frequency: query.frequency,
@@ -67,15 +90,10 @@ export class ClientSafetyDocumentsController {
     @CurrentUser() user: ReqUser,
     @Res() res: Response,
   ) {
-    const clientId = user.clientId;
-    const doc = await this.svc.getDocumentEntity(id);
-
-    if (doc.clientId !== clientId) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
+    // Compared clientId alone, and a branch user's roleCode is CLIENT — so a
+    // branch user could download any branch's document in the company.
     const { absolutePath, fileName, mimeType } =
-      await this.svc.getDocumentForDownload(id);
+      await this.svc.getDocumentForDownload(id, user);
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="${encodeURIComponent(fileName)}"`,

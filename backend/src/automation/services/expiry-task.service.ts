@@ -68,12 +68,30 @@ export class ExpiryTaskService {
   /**
    * KPI summary: counts by status + upcoming counts.
    */
-  async getKpiSummary(clientId?: string, crmUserId?: string): Promise<any> {
+  /**
+   * @param branchIds Restrict to these branches, for a branch-scoped caller.
+   *   An empty array means "no branches" and counts nothing — leaving the
+   *   filter off for an empty list is how a branch user with no mappings would
+   *   have been given the company's totals.
+   */
+  async getKpiSummary(
+    clientId?: string,
+    crmUserId?: string,
+    branchIds?: string[],
+  ): Promise<any> {
     let whereClause = '';
     const params: unknown[] = [];
     if (clientId) {
       whereClause = 'WHERE ret.client_id = $1';
       params.push(clientId);
+      if (branchIds) {
+        if (!branchIds.length) {
+          whereClause += ' AND 1 = 0';
+        } else {
+          params.push(branchIds);
+          whereClause += ` AND ret.branch_id = ANY(${params.length})`;
+        }
+      }
     } else if (crmUserId) {
       whereClause =
         'WHERE EXISTS (SELECT 1 FROM client_assignments cac WHERE cac.client_id = ret.client_id AND cac.crm_user_id = $1)';

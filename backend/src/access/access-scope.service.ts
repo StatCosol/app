@@ -1,10 +1,7 @@
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
-import {
-  ClientAssignment,
-  AssignmentStatus,
-} from '../assignments/entities/client-assignment.entity';
+import { ClientAssignment } from '../assignments/entities/client-assignment.entity';
 import { BranchAuditorAssignmentEntity } from '../assignments/entities/branch-auditor-assignment.entity';
 import { ClientEntity } from '../clients/entities/client.entity';
 import { BranchEntity } from '../branches/entities/branch.entity';
@@ -122,25 +119,31 @@ export class AccessScopeService {
       return { level: 'clients', clientIds };
     }
 
-    if (roleCode === 'CRM' || roleCode === 'PAYDEK') {
-      const assignments = await this.caRepo.find({
-        where: { crmUserId: user.id, status: AssignmentStatus.ACTIVE },
-        select: ['clientId'],
-      });
+    if (roleCode === 'CRM' || roleCode === 'PAYDEK' || roleCode === 'AUDITOR') {
+      /*
+       * client_assignments_current, not the legacy client_assignments table.
+       *
+       * AssignmentsService.changeAssignment() and the automatic rotation write
+       * client_assignments_current and the history table; nothing in the
+       * application writes the legacy one, and no trigger syncs them. Resolving
+       * scope from it therefore answered with whoever was assigned whenever
+       * that table was last populated — a newly assigned CRM denied, a former
+       * assignee still admitted.
+       *
+       * This is the same query UsersService.getAssignedClientIds() runs, which
+       * is what JwtStrategy already puts on the token, so scope and token now
+       * agree. Keyed on assigned_to_user_id alone for the same reason: a user
+       * holds one role, and the row's type follows from it.
+       */
+      const rows: Array<{ client_id: string }> =
+        await this.caRepo.manager.query(
+          `SELECT client_id FROM client_assignments_current
+            WHERE assigned_to_user_id = $1`,
+          [user.id],
+        );
       return {
         level: 'clients',
-        clientIds: assignments.map((a) => a.clientId),
-      };
-    }
-
-    if (roleCode === 'AUDITOR') {
-      const assignments = await this.caRepo.find({
-        where: { auditorUserId: user.id, status: AssignmentStatus.ACTIVE },
-        select: ['clientId'],
-      });
-      return {
-        level: 'clients',
-        clientIds: assignments.map((a) => a.clientId),
+        clientIds: rows.map((r) => r.client_id),
       };
     }
 
@@ -363,6 +366,37 @@ export class AccessScopeService {
       [branchId, ccoId],
     );
     if (!rows.length) throw new ForbiddenException('Branch not in CCO scope');
+  }
+
+  /**
+   * May this user have a document owned by (clientId, branchId)?
+   *
+   * One rule, because this question kept being answered separately and the
+   * copies disagreed. A branch user's roleCode is CLIENT — only userType tells
+   * them apart — so any check written as "does the document's client match
+   * mine?" admits them to every branch in the company. That shipped twice: CRM
+   * unit documents and safety documents, each with a correctly scoped branch
+   * endpoint sitting beside a client endpoint that was not.
+   *
+   * A null branchId means company-scoped: visible to anyone the client check
+   * admits, which is what the branch-scoped listings already do.
+   */
+  async assertDocumentInScope(
+    user: ReqUser,
+    doc: { clientId: string | null; branchId?: string | null },
+  ): Promise<void> {
+    if (!doc.clientId) throw new ForbiddenException('Document has no owner');
+
+    await this.assertClientAllowed(user, doc.clientId);
+
+    if (!doc.branchId) return;
+
+    const scope = await this.getScope(user);
+    if (scope.level === 'branches') {
+      if (!(scope.branchIds ?? []).includes(doc.branchId)) {
+        throw new ForbiddenException('Branch not in scope');
+      }
+    }
   }
 
   /** Throws ForbiddenException if the user cannot operate on this branch */
