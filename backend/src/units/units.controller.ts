@@ -18,7 +18,7 @@ import { RecomputeDto } from './dto/recompute.dto';
 import { SaveApplicableDto } from './dto/save-applicable.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ReqUser } from '../access/access-scope.service';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Units')
 @ApiBearerAuth('JWT')
@@ -30,34 +30,58 @@ export class UnitsController {
     private readonly factsSvc: UnitsFactsService,
     private readonly engineSvc: ApplicabilityEngineService,
     private readonly applicabilitySvc: UnitApplicabilityService,
+    private readonly scope: AccessScopeService,
   ) {}
+
+  /**
+   * Every route here is addressed by :branchId and nothing checked it.
+   *
+   * The guards admit ADMIN, CRM and CLIENT, so any signed-in client or CRM
+   * user could read AND rewrite another tenant's unit facts — headcount,
+   * hazardous status, contractor counts — and recompute their statutory
+   * applicability from it. actorUserId was only ever audit metadata; it
+   * recorded who did it, it did not decide whether they could.
+   *
+   * assertBranchAllowed resolves the branch's owning client and applies the
+   * caller's scope, so a master client user is held to their own client and a
+   * branch user to their own branches.
+   */
+  private assertBranch(user: ReqUser, branchId: string): Promise<void> {
+    return this.scope.assertBranchAllowed(user, branchId);
+  }
 
   /** GET /api/v1/units/:branchId/facts */
   @ApiOperation({ summary: 'Get Facts' })
   @Get(':branchId/facts')
-  getFacts(@Param('branchId') branchId: string) {
+  async getFacts(
+    @Param('branchId') branchId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.assertBranch(user, branchId);
     return this.factsSvc.getFacts(branchId);
   }
 
   /** PUT /api/v1/units/:branchId/facts */
   @ApiOperation({ summary: 'Upsert Facts' })
   @Put(':branchId/facts')
-  upsertFacts(
+  async upsertFacts(
     @Param('branchId') branchId: string,
     @Body() dto: UnitFactsDto,
     @CurrentUser() user: ReqUser,
   ) {
+    await this.assertBranch(user, branchId);
     return this.factsSvc.upsertFacts(branchId, dto, user?.id ?? null);
   }
 
   /** POST /api/v1/units/:branchId/recompute */
   @ApiOperation({ summary: 'Recompute' })
   @Post(':branchId/recompute')
-  recompute(
+  async recompute(
     @Param('branchId') branchId: string,
     @Body() dto: RecomputeDto,
     @CurrentUser() user: ReqUser,
   ) {
+    await this.assertBranch(user, branchId);
     return this.engineSvc.recompute(
       branchId,
       dto.packageId,
@@ -69,7 +93,11 @@ export class UnitsController {
   /** GET /api/v1/units/:branchId/applicable */
   @ApiOperation({ summary: 'Get Applicable' })
   @Get(':branchId/applicable')
-  getApplicable(@Param('branchId') branchId: string) {
+  async getApplicable(
+    @Param('branchId') branchId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.assertBranch(user, branchId);
     return this.applicabilitySvc.getApplicable(branchId);
   }
 
@@ -81,6 +109,7 @@ export class UnitsController {
     @Body() dto: SaveApplicableDto,
     @CurrentUser() user: ReqUser,
   ) {
+    await this.assertBranch(user, branchId);
     const actorUserId = user?.id ?? null;
 
     // 1. Recompute AUTO rules

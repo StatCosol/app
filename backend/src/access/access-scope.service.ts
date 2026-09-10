@@ -188,6 +188,12 @@ export class AccessScopeService {
       .andWhere('b.isDeleted = :del', { del: false });
 
     if (cid) {
+      // A supplied clientId was trusted as given, so a CRM assigned to one
+      // client could ask for another client's id and get its branches — the
+      // dropdown was the whole authorization. Intersect it with the caller's
+      // scope; picking a client they cannot see is a refusal, not an empty
+      // list, because the UI should never have offered it.
+      await this.assertClientAllowed(user, cid);
       qb.andWhere('b.clientId = :cid', { cid });
     } else if (scope.level === 'clients') {
       // Fail closed on an empty assignment set. Guarding this branch on
@@ -201,9 +207,18 @@ export class AccessScopeService {
       }
     }
 
-    // BRANCH / BRANCH_DESK — restrict to assigned branches
-    if (scope.level === 'branches' && scope.branchIds?.length) {
-      qb.andWhere('b.id IN (:...bids)', { bids: scope.branchIds });
+    // BRANCH / BRANCH_DESK — restrict to assigned branches.
+    //
+    // Guarding on `branchIds?.length` meant a branch user whose assignment list
+    // was empty got no branch filter at all and saw every branch of the client
+    // — the same fail-open that the `clients` case above was already fixed for.
+    if (scope.level === 'branches') {
+      const bids = scope.branchIds ?? [];
+      if (!bids.length) {
+        qb.andWhere('1 = 0');
+      } else {
+        qb.andWhere('b.id IN (:...bids)', { bids });
+      }
     }
 
     qb.orderBy('b.branchName', 'ASC');

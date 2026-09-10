@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MastersModule } from '../masters/masters.module';
+import { AccessModule } from '../access/access.module';
 import {
   UnitFactsEntity,
   UnitApplicableComplianceEntity,
@@ -20,6 +21,9 @@ import { UnitsController } from './units.controller';
       UnitApplicabilityAuditEntity,
     ]),
     MastersModule,
+    // Every route here is addressed by :branchId; AccessScopeService is what
+    // decides whether the caller may touch that branch.
+    AccessModule,
   ],
   controllers: [UnitsController],
   providers: [
