@@ -527,27 +527,10 @@ export class PayrollProcessingService {
       // per business rule: PT/LWF base = basic+HRA+other+OTHER_EARNINGS+OT;
       // ESI base = basic+HRA+other+OT). Do NOT add OT again here.
       const grossEarnings = Number(finalValues['GROSS'] ?? 0);
-      let totalDeductions = 0;
-      let employerCost = 0;
-
-      for (const comp of components) {
-        const val = finalValues[comp.code] ?? 0;
-        if (comp.componentType === 'DEDUCTION') totalDeductions += val;
-        else if (comp.componentType === 'EMPLOYER') employerCost += val;
-      }
-
-      // Statutory employee deductions
-      totalDeductions +=
-        (finalValues['PF_EMP'] || 0) +
-        (finalValues['ESI_EMP'] || 0) +
-        (finalValues['PT'] || 0) +
-        (finalValues['LWF_EMP'] || 0);
-
-      // Statutory employer costs
-      employerCost +=
-        (finalValues['PF_ER'] || 0) +
-        (finalValues['ESI_ER'] || 0) +
-        (finalValues['LWF_ER'] || 0);
+      const { totalDeductions, employerCost } = this.sumTotals(
+        finalValues,
+        components,
+      );
 
       const netPay = grossEarnings - totalDeductions;
 
@@ -630,6 +613,59 @@ export class PayrollProcessingService {
       }
     }
     return null;
+  }
+
+  /**
+   * Employee deductions and employer cost, each component counted once.
+   *
+   * The statutory codes are taken from the computed values, so a configured
+   * component carrying the same code must not also be counted as a plain
+   * DEDUCTION/EMPLOYER component. Configuring PF_EMP as a deduction component
+   * is an ordinary thing to do — it is how the payslip lists it — and it used
+   * to be counted twice: Gross 15000 with PF_EMP 1800 gave a net of 11400
+   * instead of 13200. The employer side double-counted the same way.
+   *
+   * The engine reaches the same result in sumDeductions()/sumEmployerCost();
+   * this is that rule for the legacy processor, in one classified pass.
+   */
+  private sumTotals(
+    finalValues: Record<string, number>,
+    components: { code: string; componentType: string }[],
+  ): { totalDeductions: number; employerCost: number } {
+    const STATUTORY_EMPLOYEE_CODES = new Set([
+      'PF_EMP',
+      'ESI_EMP',
+      'PT',
+      'LWF_EMP',
+    ]);
+    const STATUTORY_EMPLOYER_CODES = new Set(['PF_ER', 'ESI_ER', 'LWF_ER']);
+
+    let totalDeductions = 0;
+    let employerCost = 0;
+
+    for (const comp of components) {
+      const val = Number(finalValues[comp.code] ?? 0) || 0;
+      if (
+        comp.componentType === 'DEDUCTION' &&
+        !STATUTORY_EMPLOYEE_CODES.has(comp.code)
+      ) {
+        totalDeductions += val;
+      } else if (
+        comp.componentType === 'EMPLOYER' &&
+        !STATUTORY_EMPLOYER_CODES.has(comp.code)
+      ) {
+        employerCost += val;
+      }
+    }
+
+    for (const code of STATUTORY_EMPLOYEE_CODES) {
+      totalDeductions += Number(finalValues[code] ?? 0) || 0;
+    }
+    for (const code of STATUTORY_EMPLOYER_CODES) {
+      employerCost += Number(finalValues[code] ?? 0) || 0;
+    }
+
+    return { totalDeductions, employerCost };
   }
 
   private async upsertValue(
