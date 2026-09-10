@@ -28,7 +28,6 @@ import { CrmClraAssignmentDetailComponent } from '../../crm/clra/crm-clra-assign
 type Tab = 'assignments' | 'workers';
 
 const WORKER_CATEGORIES = ['SKILLED', 'SEMI_SKILLED', 'UNSKILLED', 'HIGHLY_SKILLED'] as const;
-const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
 
 @Component({
   selector: 'app-contractor-clra-workspace',

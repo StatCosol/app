@@ -47,9 +47,9 @@ describe('listAllowedBranches', () => {
       clientIds: ['client-a'],
     });
 
-    await expect(
-      svc.listAllowedBranches(user, 'client-b'),
-    ).rejects.toThrow(ForbiddenException);
+    await expect(svc.listAllowedBranches(user, 'client-b')).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 
   it('allows a clientId the caller is assigned to', async () => {
@@ -58,9 +58,9 @@ describe('listAllowedBranches', () => {
       clientIds: ['client-a'],
     });
 
-    await expect(
-      svc.listAllowedBranches(user, 'client-a'),
-    ).resolves.toEqual([]);
+    await expect(svc.listAllowedBranches(user, 'client-a')).resolves.toEqual(
+      [],
+    );
     expect(wheres.join(' ')).toContain('b.clientId = :cid');
   });
 
@@ -71,9 +71,9 @@ describe('listAllowedBranches', () => {
       branchIds: ['branch-1'],
     });
 
-    await expect(
-      svc.listAllowedBranches(user, 'client-b'),
-    ).rejects.toThrow(ForbiddenException);
+    await expect(svc.listAllowedBranches(user, 'client-b')).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 
   it('returns nothing for a branch user with no assignments', async () => {
@@ -102,8 +102,8 @@ describe('listAllowedBranches', () => {
 
   it('lets a global-scope user through', async () => {
     const { svc } = makeService({ level: 'all' });
-    await expect(
-      svc.listAllowedBranches(user, 'any-client'),
-    ).resolves.toEqual([]);
+    await expect(svc.listAllowedBranches(user, 'any-client')).resolves.toEqual(
+      [],
+    );
   });
 });

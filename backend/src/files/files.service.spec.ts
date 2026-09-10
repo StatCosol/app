@@ -26,7 +26,11 @@ describe('FilesService', () => {
   async function build(
     rows: Record<
       string,
-      { clientId: string | null; branchId: string | null; employeeId: string | null }
+      {
+        clientId: string | null;
+        branchId: string | null;
+        employeeId: string | null;
+      }
     >,
     scope: any = { level: 'all' },
   ) {

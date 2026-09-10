@@ -136,7 +136,10 @@ describe('payroll breakup upload — column alignment', () => {
         ['Employee Code', 'Employee Name', 'Basic', 'HRA'],
       );
 
-      const { svc, savedRunEmps, insertedValues } = makeService(['BASIC', 'HRA']);
+      const { svc, savedRunEmps, insertedValues } = makeService([
+        'BASIC',
+        'HRA',
+      ]);
 
       await expect(svc.uploadBreakup('run-1', { path } as any)).rejects.toThrow(
         /nothing was imported/i,
@@ -154,9 +157,9 @@ describe('payroll breakup upload — column alignment', () => {
       );
       const { svc } = makeService(['BASIC', 'HRA']);
 
-      await expect(
-        svc.uploadBreakup('run-1', { path } as any),
-      ).rejects.toThrow(/Row 2.*BASIC/s);
+      await expect(svc.uploadBreakup('run-1', { path } as any)).rejects.toThrow(
+        /Row 2.*BASIC/s,
+      );
     });
 
     it('rejects a duplicate employee code rather than importing one of them', async () => {
@@ -169,9 +172,9 @@ describe('payroll breakup upload — column alignment', () => {
       );
       const { svc, savedRunEmps } = makeService(['BASIC', 'HRA']);
 
-      await expect(
-        svc.uploadBreakup('run-1', { path } as any),
-      ).rejects.toThrow(/Duplicate employee code/i);
+      await expect(svc.uploadBreakup('run-1', { path } as any)).rejects.toThrow(
+        /Duplicate employee code/i,
+      );
       expect(savedRunEmps).toHaveLength(0);
     });
 
@@ -213,14 +216,17 @@ describe('payroll breakup upload — column alignment', () => {
       },
     );
 
-    it.each(['DRAFT', 'REJECTED'])('accepts an upload over a %s run', async (status) => {
-      // REJECTED is editable on purpose: correcting the sheet is the point.
-      const path = await sheet();
-      const { svc, savedRunEmps } = makeService(['BASIC', 'HRA'], status);
+    it.each(['DRAFT', 'REJECTED'])(
+      'accepts an upload over a %s run',
+      async (status) => {
+        // REJECTED is editable on purpose: correcting the sheet is the point.
+        const path = await sheet();
+        const { svc, savedRunEmps } = makeService(['BASIC', 'HRA'], status);
 
-      await svc.uploadBreakup('run-1', { path } as any);
-      expect(savedRunEmps).toHaveLength(1);
-    });
+        await svc.uploadBreakup('run-1', { path } as any);
+        expect(savedRunEmps).toHaveLength(1);
+      },
+    );
 
     it('sends a PROCESSED run back to draft, because its totals are now stale', async () => {
       const path = await sheet();

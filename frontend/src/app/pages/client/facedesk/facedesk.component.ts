@@ -416,7 +416,7 @@ type Tab =
                 <td class="nowrap">{{ c.punchTime | date: 'dd MMM, HH:mm:ss' }}</td>
                 <td>{{ c.employeeName || '—' }}<br><span class="mono text-xs text-gray-500">{{ c.employeeCode || '' }}{{ c.subjectType === 'CONTRACTOR' ? ' · Contractor' : '' }}</span></td>
                 <td>{{ c.punchType || '—' }}</td>
-                <td>{{ c.confidenceScore != null ? (+c.confidenceScore).toFixed(3) : '—' }}</td>
+                <td>{{ (c.confidenceScore ?? null) !== null ? (+c.confidenceScore).toFixed(3) : '—' }}</td>
                 <td><span class="pill">{{ c.attendanceStatus || '—' }}</span></td>
                 <td class="nowrap">
                   @if (c.hasPhoto) {

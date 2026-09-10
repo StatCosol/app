@@ -26,9 +26,13 @@ function makeService(opts: {
   };
 
   const branchRepo = {
-    findOne: jest.fn().mockResolvedValue(
-      opts.branchMissing ? null : { id: 'b1', stateCode: opts.branchStateCode ?? null },
-    ),
+    findOne: jest
+      .fn()
+      .mockResolvedValue(
+        opts.branchMissing
+          ? null
+          : { id: 'b1', stateCode: opts.branchStateCode ?? null },
+      ),
   };
 
   const employeeRepo = {
@@ -47,7 +51,9 @@ function makeService(opts: {
     employeeRepo as any,
     { validateSalary, checkSalary } as any,
     // resolveSchedule()
-    { findOne: jest.fn().mockResolvedValue({ scheduledEmployment: null }) } as any,
+    {
+      findOne: jest.fn().mockResolvedValue({ scheduledEmployment: null }),
+    } as any,
     // assertContractorBranch()
     { findOne: jest.fn().mockResolvedValue({ id: 'link' }) } as any,
     { transaction: jest.fn(async (cb: any) => cb(em)) } as any,

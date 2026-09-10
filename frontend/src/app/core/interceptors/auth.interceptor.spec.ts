@@ -49,7 +49,7 @@ describe('authInterceptor — session renewal is visible', () => {
 
   afterEach(() => httpTesting.verify());
 
-  const unauthorized = (req: { flush: Function }) =>
+  const unauthorized = (req: { flush: (body: unknown, opts: unknown) => void }) =>
     req.flush({ message: 'Unauthorized', statusCode: 401 }, { status: 401, statusText: 'Unauthorized' });
 
   it('tells the user their submit was dropped when a POST hits an expired session', async () => {

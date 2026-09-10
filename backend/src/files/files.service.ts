@@ -190,19 +190,57 @@ export class FilesService {
       clientColumn: 'company_id',
       branchColumn: 'branch_id',
     },
-    { table: 'compliance_doc_library', pathColumn: 'file_path', clientColumn: 'client_id', branchColumn: 'branch_id' },
-    { table: 'branch_documents', pathColumn: 'file_path', clientColumn: 'client_id', branchColumn: 'branch_id' },
-    { table: 'monthly_compliance_uploads', pathColumn: 'file_path', clientColumn: 'client_id', branchColumn: 'branch_id' },
-    { table: 'crm_unit_documents', pathColumn: 'file_path', clientColumn: 'client_id', branchColumn: 'branch_id' },
-    { table: 'safety_documents', pathColumn: 'file_path', clientColumn: 'client_id', branchColumn: 'branch_id' },
-    { table: 'payroll_payslip_archives', pathColumn: 'file_path', clientColumn: 'client_id', branchColumn: 'branch_id' },
-    { table: 'employee_documents', pathColumn: 'file_path', clientColumn: 'client_id', employeeColumn: 'employee_id' },
-    { table: 'payroll_fnf_documents', pathColumn: 'file_path', clientColumn: 'client_id', employeeColumn: 'employee_id' },
+    {
+      table: 'compliance_doc_library',
+      pathColumn: 'file_path',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+    },
+    {
+      table: 'branch_documents',
+      pathColumn: 'file_path',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+    },
+    {
+      table: 'monthly_compliance_uploads',
+      pathColumn: 'file_path',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+    },
+    {
+      table: 'crm_unit_documents',
+      pathColumn: 'file_path',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+    },
+    {
+      table: 'safety_documents',
+      pathColumn: 'file_path',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+    },
+    {
+      table: 'payroll_payslip_archives',
+      pathColumn: 'file_path',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+    },
+    {
+      table: 'employee_documents',
+      pathColumn: 'file_path',
+      clientColumn: 'client_id',
+      employeeColumn: 'employee_id',
+    },
+    {
+      table: 'payroll_fnf_documents',
+      pathColumn: 'file_path',
+      clientColumn: 'client_id',
+      employeeColumn: 'employee_id',
+    },
   ];
 
-  private async findScopedOwner(
-    filePathVariants: string[],
-  ): Promise<{
+  private async findScopedOwner(filePathVariants: string[]): Promise<{
     clientId: string | null;
     branchId: string | null;
     employeeId: string | null;

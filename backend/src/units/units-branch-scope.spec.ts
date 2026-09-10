@@ -12,10 +12,12 @@ import { UnitsController } from './units.controller';
  */
 describe('units routes — branch authorization', () => {
   function makeController(allowed: boolean) {
-    const assertBranchAllowed = jest.fn(async (_user: any, branchId: string) => {
-      if (!allowed) throw new ForbiddenException('Branch not in scope');
-      return undefined;
-    });
+    const assertBranchAllowed = jest.fn(
+      async (_user: any, branchId: string) => {
+        if (!allowed) throw new ForbiddenException('Branch not in scope');
+        return undefined;
+      },
+    );
 
     const factsSvc = {
       getFacts: jest.fn().mockResolvedValue({ branchId: 'b1' }),
@@ -35,7 +37,13 @@ describe('units routes — branch authorization', () => {
       { assertBranchAllowed } as any,
     );
 
-    return { controller, assertBranchAllowed, factsSvc, engineSvc, applicabilitySvc };
+    return {
+      controller,
+      assertBranchAllowed,
+      factsSvc,
+      engineSvc,
+      applicabilitySvc,
+    };
   }
 
   const user = { id: 'u1', userId: 'u1', roleCode: 'CLIENT' } as any;
@@ -86,7 +94,8 @@ describe('units routes — branch authorization', () => {
 
   describe('when the branch is in scope', () => {
     it('reads and writes as before', async () => {
-      const { controller, assertBranchAllowed, factsSvc } = makeController(true);
+      const { controller, assertBranchAllowed, factsSvc } =
+        makeController(true);
 
       await controller.getFacts('b1', user);
       await controller.upsertFacts('b1', {} as any, user);

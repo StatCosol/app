@@ -12,7 +12,11 @@ import { PayrollProcessingService } from './payroll-processing.service';
  */
 describe('reprocessing a payroll run', () => {
   function makeService(
-    existingValues: Array<{ componentCode: string; amount: number; source: string }>,
+    existingValues: Array<{
+      componentCode: string;
+      amount: number;
+      source: string;
+    }>,
   ) {
     const upserts: Array<{ code: string; amount: number }> = [];
 
@@ -32,7 +36,12 @@ describe('reprocessing a payroll run', () => {
     // runEmpRepo
     args[1] = {
       find: async () => [
-        { id: 'emp-1', employeeCode: 'E001', employeeName: 'Example', stateCode: 'KA' },
+        {
+          id: 'emp-1',
+          employeeCode: 'E001',
+          employeeName: 'Example',
+          stateCode: 'KA',
+        },
       ],
       save: async (e: any) => e,
       update: async () => undefined,
@@ -90,8 +99,10 @@ describe('reprocessing a payroll run', () => {
     return { svc, upserts };
   }
 
-  const latest = (upserts: Array<{ code: string; amount: number }>, code: string) =>
-    [...upserts].reverse().find((u) => u.code === code)?.amount;
+  const latest = (
+    upserts: Array<{ code: string; amount: number }>,
+    code: string,
+  ) => [...upserts].reverse().find((u) => u.code === code)?.amount;
 
   it('recalculates a derived component after its base changes', async () => {
     // Basic was re-uploaded as 20000; HRA 6000 is last pass's calculated value.

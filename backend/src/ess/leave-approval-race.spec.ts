@@ -58,9 +58,7 @@ describe('approveLeave — concurrent approvals', () => {
       },
     };
 
-    const svc = new (EssService as any)(
-      ...new Array(30).fill({}),
-    ) as any;
+    const svc = new (EssService as any)(...new Array(30).fill({})) as any;
     svc.leaveAppRepo = { findOne: async () => ({ ...app }) };
     svc.ds = { transaction: async (cb: any) => cb(mgr) };
     svc.assertClientBranchScope = () => undefined;

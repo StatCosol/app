@@ -21,10 +21,10 @@ describe('legacy payroll totals', () => {
   });
 
   it('counts a statutory code once even when it is also a configured component', () => {
-    const { totalDeductions } = svc.sumTotals(
-      { GROSS: 15000, PF_EMP: 1800 },
-      [comp('BASIC', 'EARNING'), comp('PF_EMP', 'DEDUCTION')],
-    );
+    const { totalDeductions } = svc.sumTotals({ GROSS: 15000, PF_EMP: 1800 }, [
+      comp('BASIC', 'EARNING'),
+      comp('PF_EMP', 'DEDUCTION'),
+    ]);
 
     // 1800, not 3600 — so net is 13200, not 11400.
     expect(totalDeductions).toBe(1800);
