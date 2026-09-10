@@ -79,22 +79,18 @@ describe('payroll breakup upload — column alignment', () => {
       branchId: 'b1',
       status: runStatus,
     };
-    const args: any[] = new Array(16).fill({});
-    args[0] = {
-      findOne: async () => run,
-      save: async (r: any) => r,
-    };
-    args[1] = { find: async () => [] };
-    args[5] = {
+    // Bound by name rather than constructor position: the parameter list has
+    // changed under these tests before, and an index that silently shifts fails
+    // in a way that looks like a product bug.
+    const svc = new (PayrollProcessingService as any)() as any;
+    svc.runRepo = { findOne: async () => run, save: async (r: any) => r };
+    svc.runEmpRepo = { find: async () => [] };
+    svc.compRepo = {
       find: async () =>
         components.map((code) => ({ code, isActive: true, isRequired: false })),
     };
-    args[8] = { find: async () => [] };
-    args[13] = { transaction: async (cb: any) => cb(manager) };
-
-    // getRepository dispatches on the entity class, so the mock has to see the
-    // real ones the service passes in.
-    const svc = new (PayrollProcessingService as any)(...args);
+    svc.empRepo = { find: async () => [] };
+    svc.ds = { transaction: async (cb: any) => cb(manager) };
     return { svc, savedRunEmps, insertedValues, run };
   }
 
