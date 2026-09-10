@@ -712,6 +712,7 @@ export class PayrollEngineService {
         values,
         ptEnabled: setup.ptEnabled,
         lwfEnabled: setup.lwfEnabled,
+        asOfDate,
       });
       Object.assign(values, stateDeductions);
     }
@@ -1434,6 +1435,7 @@ export class PayrollEngineService {
           values,
           ptEnabled: setup.ptEnabled,
           lwfEnabled: setup.lwfEnabled,
+          asOfDate,
         });
         Object.assign(values, stateDeductions);
       }

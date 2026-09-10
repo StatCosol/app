@@ -917,6 +917,51 @@ async function bootstrap() {
       );
     }
 
+    // PT/LWF slabs had no period columns, so a state's table could hold only
+    // one version of its rates: revising one mid-year meant reprocessing an
+    // earlier month produced a figure that never applied to it.
+    //
+    // effective_from is backfilled from created_at — the only honest date an
+    // existing row has. It is when the rate entered the system, not necessarily
+    // when the statute took effect, which matches how those rows have actually
+    // been used. Mirrors migrations/20260910_statutory_slab_effective_dates.sql;
+    // nothing here runs migrations automatically.
+    try {
+      await ds.query(`
+        ALTER TABLE payroll_statutory_slabs
+          ADD COLUMN IF NOT EXISTS effective_from DATE
+      `);
+      await ds.query(`
+        ALTER TABLE payroll_statutory_slabs
+          ADD COLUMN IF NOT EXISTS effective_to DATE
+      `);
+      await ds.query(`
+        UPDATE payroll_statutory_slabs
+           SET effective_from = created_at::date
+         WHERE effective_from IS NULL
+      `);
+      // A row without a created_at must still be selectable rather than
+      // dropping out of every lookup once the filter is applied.
+      await ds.query(`
+        UPDATE payroll_statutory_slabs
+           SET effective_from = DATE '1970-01-01'
+         WHERE effective_from IS NULL
+      `);
+      await ds.query(`
+        ALTER TABLE payroll_statutory_slabs
+          ALTER COLUMN effective_from SET NOT NULL
+      `);
+      await ds.query(`
+        CREATE INDEX IF NOT EXISTS IDX_PSS_EFFECTIVE
+          ON payroll_statutory_slabs (client_id, state_code, component_code, effective_from)
+      `);
+      logger.log('Schema patch: payroll_statutory_slabs effective dates OK');
+    } catch (e: any) {
+      logger.warn(
+        `Schema patch payroll_statutory_slabs effective dates skipped: ${e?.message}`,
+      );
+    }
+
     // eSSL/ZKTeco devices serving contractor workforces. A device now declares
     // which population its User IDs belong to, and — for contractors — which
     // contractor, because contractor_employees.employee_code is only scoped

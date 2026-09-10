@@ -608,6 +608,9 @@ export class PayrollProcessingService {
         values: afterStat.values,
         ptEnabled: setup.ptEnabled,
         lwfEnabled: setup.lwfEnabled,
+        // The run's own period, so reprocessing an old month uses the slabs
+        // that applied to it rather than today's.
+        asOfDate: `${run.periodYear}-${String(run.periodMonth).padStart(2, '0')}-01`,
       });
 
       // ── 4. Save computed/statutory values, never over a human-supplied one ──

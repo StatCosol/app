@@ -22,8 +22,14 @@ export class StateStatutoryService {
     values: Record<string, number>;
     ptEnabled: boolean;
     lwfEnabled: boolean;
+    /**
+     * The payroll period, YYYY-MM-DD, so a slab revision applies from the month
+     * it took effect rather than to every month ever reprocessed after it.
+     */
+    asOfDate?: string;
   }): Promise<Record<string, number>> {
-    const { clientId, stateCode, values, ptEnabled, lwfEnabled } = params;
+    const { clientId, stateCode, values, ptEnabled, lwfEnabled, asOfDate } =
+      params;
     const gross = Number(values['GROSS'] ?? 0);
 
     // ── PT ──
@@ -33,6 +39,7 @@ export class StateStatutoryService {
         stateCode: stateCode || 'ALL',
         componentCode: 'PT',
         baseAmount: gross,
+        asOfDate,
       });
       values['PT'] = Math.ceil(pt);
     }
@@ -44,12 +51,14 @@ export class StateStatutoryService {
         stateCode: stateCode || 'ALL',
         componentCode: 'LWF_EMP',
         baseAmount: gross,
+        asOfDate,
       });
       const lwfEr = await this.slab.resolveAmount({
         clientId,
         stateCode: stateCode || 'ALL',
         componentCode: 'LWF_ER',
         baseAmount: gross,
+        asOfDate,
       });
       values['LWF_EMP'] = Math.ceil(lwfEmp);
       values['LWF_ER'] = Math.ceil(lwfEr);

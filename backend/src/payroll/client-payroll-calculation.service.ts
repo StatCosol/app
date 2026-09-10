@@ -100,6 +100,7 @@ export class ClientPayrollCalculationService {
         structure.clientId,
         ctx['GROSS'] ?? input.gross,
         input.stateCode,
+        `${input.year}-${String(input.month).padStart(2, '0')}-01`,
       );
     }
     if (statutory.enablePf) {
@@ -122,17 +123,22 @@ export class ClientPayrollCalculationService {
     // 20260508_state_pt_lwf_global_slabs.sql, per-client overrides supported.
     {
       const gross = ctx['GROSS'] ?? input.gross;
+      // input.month/year is the period being calculated, so a slab revision
+      // applies from the month it took effect.
+      const asOfDate = `${input.year}-${String(input.month).padStart(2, '0')}-01`;
       const lwfEmp = await this.stateSlab.resolveAmount({
         clientId: structure.clientId,
         stateCode: input.stateCode,
         componentCode: 'LWF_EMP',
         baseAmount: gross,
+        asOfDate,
       });
       const lwfEr = await this.stateSlab.resolveAmount({
         clientId: structure.clientId,
         stateCode: input.stateCode,
         componentCode: 'LWF_ER',
         baseAmount: gross,
+        asOfDate,
       });
       if (lwfEmp > 0) ctx['LWF_EMP'] = Math.ceil(lwfEmp);
       if (lwfEr > 0) ctx['LWF_ER'] = Math.ceil(lwfEr);
@@ -235,12 +241,14 @@ export class ClientPayrollCalculationService {
     clientId: string,
     gross: number,
     stateCode: string,
+    asOfDate?: string,
   ): Promise<number> {
     const amount = await this.stateSlab.resolveAmount({
       clientId,
       stateCode,
       componentCode: 'PT',
       baseAmount: gross,
+      asOfDate,
     });
     return Math.ceil(amount);
   }
