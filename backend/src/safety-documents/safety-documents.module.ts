@@ -1,3 +1,4 @@
+import { AccessModule } from '../access/access.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SafetyDocumentEntity } from './entities/safety-document.entity';
@@ -13,6 +14,8 @@ import { UnitFactsEntity } from '../units/entities/unit-facts.entity';
 
 @Module({
   imports: [
+    // One rule for document scope — see AccessScopeService.assertDocumentInScope.
+    AccessModule,
     TypeOrmModule.forFeature([
       SafetyDocumentEntity,
       BranchSafetyUploadEntity,

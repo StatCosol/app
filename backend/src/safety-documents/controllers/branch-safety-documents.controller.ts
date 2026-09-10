@@ -189,27 +189,11 @@ export class BranchSafetyDocumentsController {
     @CurrentUser() user: ReqUser,
     @Res() res: Response,
   ) {
-    // Verify user has access to this document's branch
-    const doc = await this.svc.getDocumentEntity(id);
-    const userId = user.id;
-    const branchIds = await this.branchAccess.getUserBranchIds(userId);
-
-    if (branchIds.length > 0) {
-      // Branch-scoped user: must own the document's branch.
-      if (!branchIds.includes(doc.branchId)) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
-    } else {
-      // Master CLIENT user: must at least be in the same client tenant.
-      // Without this guard, a master could download any safety document
-      // by guessing the doc UUID.
-      if (!user.clientId || doc.clientId !== user.clientId) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
-    }
-
+    // The check moved into the service, which cannot be called without a
+    // user — this controller had it right, the client one did not, and one
+    // rule is what stops them diverging again.
     const { absolutePath, fileName, mimeType } =
-      await this.svc.getDocumentForDownload(id);
+      await this.svc.getDocumentForDownload(id, user);
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="${encodeURIComponent(fileName)}"`,

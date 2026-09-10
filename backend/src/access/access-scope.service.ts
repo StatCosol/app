@@ -365,6 +365,37 @@ export class AccessScopeService {
     if (!rows.length) throw new ForbiddenException('Branch not in CCO scope');
   }
 
+  /**
+   * May this user have a document owned by (clientId, branchId)?
+   *
+   * One rule, because this question kept being answered separately and the
+   * copies disagreed. A branch user's roleCode is CLIENT — only userType tells
+   * them apart — so any check written as "does the document's client match
+   * mine?" admits them to every branch in the company. That shipped twice: CRM
+   * unit documents and safety documents, each with a correctly scoped branch
+   * endpoint sitting beside a client endpoint that was not.
+   *
+   * A null branchId means company-scoped: visible to anyone the client check
+   * admits, which is what the branch-scoped listings already do.
+   */
+  async assertDocumentInScope(
+    user: ReqUser,
+    doc: { clientId: string | null; branchId?: string | null },
+  ): Promise<void> {
+    if (!doc.clientId) throw new ForbiddenException('Document has no owner');
+
+    await this.assertClientAllowed(user, doc.clientId);
+
+    if (!doc.branchId) return;
+
+    const scope = await this.getScope(user);
+    if (scope.level === 'branches') {
+      if (!(scope.branchIds ?? []).includes(doc.branchId)) {
+        throw new ForbiddenException('Branch not in scope');
+      }
+    }
+  }
+
   /** Throws ForbiddenException if the user cannot operate on this branch */
   async assertBranchAllowed(user: ReqUser, branchId: string): Promise<void> {
     const scope = await this.getScope(user);
