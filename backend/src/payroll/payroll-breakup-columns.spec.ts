@@ -111,6 +111,76 @@ describe('payroll breakup upload — column alignment', () => {
     expect(byCode).toEqual({ BASIC: 15000, HRA: 6000 });
   });
 
+  describe('a batch with errors', () => {
+    /**
+     * Errors used to be collected and returned while the rows that caused them
+     * were saved anyway — the caller got `imported: n` alongside complaints
+     * about the data it had just accepted. The run then held values nobody
+     * agreed to.
+     */
+    it('imports nothing when a row carries a negative amount', async () => {
+      const path = await writeSheet(
+        [
+          ['E001', 'Good Row', 15000, 6000],
+          ['E002', 'Bad Row', -500, 6000],
+        ],
+        ['Employee Code', 'Employee Name', 'Basic', 'HRA'],
+      );
+
+      const { svc, savedRunEmps, insertedValues } = makeService(['BASIC', 'HRA']);
+
+      await expect(svc.uploadBreakup('run-1', { path } as any)).rejects.toThrow(
+        /nothing was imported/i,
+      );
+
+      // Including the row that was fine — a half-populated run is worse.
+      expect(savedRunEmps).toHaveLength(0);
+      expect(insertedValues).toHaveLength(0);
+    });
+
+    it('names the offending row and component', async () => {
+      const path = await writeSheet(
+        [['E002', 'Bad Row', -500, 6000]],
+        ['Employee Code', 'Employee Name', 'Basic', 'HRA'],
+      );
+      const { svc } = makeService(['BASIC', 'HRA']);
+
+      await expect(
+        svc.uploadBreakup('run-1', { path } as any),
+      ).rejects.toThrow(/Row 2.*BASIC/s);
+    });
+
+    it('rejects a duplicate employee code rather than importing one of them', async () => {
+      const path = await writeSheet(
+        [
+          ['E001', 'First', 15000, 6000],
+          ['E001', 'Second', 20000, 8000],
+        ],
+        ['Employee Code', 'Employee Name', 'Basic', 'HRA'],
+      );
+      const { svc, savedRunEmps } = makeService(['BASIC', 'HRA']);
+
+      await expect(
+        svc.uploadBreakup('run-1', { path } as any),
+      ).rejects.toThrow(/Duplicate employee code/i);
+      expect(savedRunEmps).toHaveLength(0);
+    });
+
+    it('says .xls is unsupported instead of failing inside the parser', async () => {
+      // The endpoint advertises application/vnd.ms-excel, but ExcelJS cannot
+      // read the legacy binary format at all.
+      const path = await writeSheet(
+        [['E001', 'Name', 1, 2]],
+        ['Employee Code', 'Employee Name', 'Basic', 'HRA'],
+      );
+      const { svc } = makeService(['BASIC', 'HRA']);
+
+      await expect(
+        svc.uploadBreakup('run-1', { path, originalname: 'sheet.xls' } as any),
+      ).rejects.toThrow(/.xls files are not supported/i);
+    });
+  });
+
   it('does not silently drop the last column', async () => {
     // The off-by-one pushed the rightmost component past the end of the row,
     // so it vanished without an error — the failure mode that makes this

@@ -87,8 +87,27 @@ export class PayrollProcessingService {
     const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new NotFoundException('Payroll run not found');
 
+    // Pick the parser from the extension, as the attendance upload does.
+    //
+    // The controller accepts text/csv and application/vnd.ms-excel, but this
+    // always called xlsx.readFile, so a CSV the endpoint advertised failed on a
+    // parser error rather than importing. Extension, not MIME: Excel on Windows
+    // reports .csv as vnd.ms-excel often enough that the MIME cannot decide it.
+    //
+    // Legacy .xls is a different binary format that ExcelJS cannot read at all,
+    // so it is named as unsupported instead of failing deep in the parser.
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(file.path);
+    const ext = (file.originalname || '').split('.').pop()?.toLowerCase();
+    if (ext === 'xls') {
+      throw new BadRequestException(
+        'Legacy .xls files are not supported — save the sheet as .xlsx or .csv and upload it again.',
+      );
+    }
+    if (ext === 'csv') {
+      await workbook.csv.readFile(file.path);
+    } else {
+      await workbook.xlsx.readFile(file.path);
+    }
     const sheet = workbook.worksheets[0];
     if (!sheet) throw new BadRequestException('No worksheet found');
 
@@ -216,6 +235,25 @@ export class PayrollProcessingService {
       }
 
       parsedRows.push({ rowNum: r, empCode, empName, values: rowValues });
+    }
+
+    // ── Nothing is written unless the whole batch is valid ──
+    //
+    // Errors used to be collected and returned while the very rows that caused
+    // them were saved anyway: a negative amount was reported and imported, and
+    // the caller got `imported: n` alongside a list of complaints about the
+    // data it had just accepted. Reporting a problem and persisting it is the
+    // worst of both — the run then holds values nobody agreed to.
+    //
+    // The whole upload is rejected rather than the offending rows skipped:
+    // a partly imported breakup leaves a run half-populated, and the operator
+    // cannot tell which half without diffing it against their sheet.
+    // Warnings (unknown columns, employees missing from master) stay warnings —
+    // they do not describe wrong numbers.
+    if (errors.length > 0) {
+      throw new BadRequestException(
+        `Upload rejected — nothing was imported. ${errors.length} problem(s): ${errors.join('; ')}`,
+      );
     }
 
     // ── Bulk insert/update within a transaction ──
