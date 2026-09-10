@@ -93,8 +93,15 @@ export class PayrollProcessingService {
     if (!sheet) throw new BadRequestException('No worksheet found');
 
     const headers: string[] = [];
+    // ExcelJS reports colNum ONE-based; this array is read back with
+    // findIndex() and getCell(index + 1), both of which assume zero-based. It
+    // was stored one-based, so every value came from the column to its right:
+    // the name arrived as the code, Basic took HRA's amount, and the rightmost
+    // component fell off the end of the row — with imported: 1 and no errors.
+    // (The attendance parser below keeps the one-based key and calls
+    // getCell(col) with no offset; that one is correct.)
     sheet.getRow(1).eachCell((cell, colNum) => {
-      headers[colNum] = this.normalizeHeader(cell.value);
+      headers[colNum - 1] = this.normalizeHeader(cell.value);
     });
 
     // Identify employee_code and employee_name columns
