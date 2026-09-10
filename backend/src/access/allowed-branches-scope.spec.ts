@@ -34,6 +34,7 @@ describe('listAllowedBranches', () => {
       {} as any,
       {} as any,
       { createQueryBuilder: () => qb } as any,
+      { find: async () => [] } as any,
     );
     jest.spyOn(svc, 'getScope').mockResolvedValue(scope);
     return { svc, wheres };

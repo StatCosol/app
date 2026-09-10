@@ -1,6 +1,6 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
+import { IsNull, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import {
   ClientAssignment,
   AssignmentStatus,
@@ -8,6 +8,7 @@ import {
 import { BranchAuditorAssignmentEntity } from '../assignments/entities/branch-auditor-assignment.entity';
 import { ClientEntity } from '../clients/entities/client.entity';
 import { BranchEntity } from '../branches/entities/branch.entity';
+import { PayrollClientAssignmentEntity } from '../payroll/entities/payroll-client-assignment.entity';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -54,11 +55,22 @@ export interface BranchOption {
 /*  Service                                                            */
 /* ------------------------------------------------------------------ */
 
-/** Roles that see the whole dataset */
-const GLOBAL_ROLES = ['ADMIN', 'CEO', 'CCO', 'PAYROLL'];
+/**
+ * Roles that see the whole dataset.
+ *
+ * PAYROLL is deliberately NOT here. It used to be, which meant a payroll user
+ * resolved to level 'all' and could reach every client — while JwtStrategy was
+ * loading getPayrollAssignedClientIds() for that same role and FilesService was
+ * checking payroll_client_assignments before serving a payroll file. The rest
+ * of the system already treated payroll as assignment-scoped; only this list
+ * disagreed, and it was the one that decided.
+ */
+const GLOBAL_ROLES = ['ADMIN', 'CEO', 'CCO'];
 
 @Injectable()
 export class AccessScopeService {
+  private readonly logger = new Logger(AccessScopeService.name);
+
   constructor(
     @InjectRepository(ClientAssignment)
     private readonly caRepo: Repository<ClientAssignment>,
@@ -68,6 +80,8 @@ export class AccessScopeService {
     private readonly clientRepo: Repository<ClientEntity>,
     @InjectRepository(BranchEntity)
     private readonly branchRepo: Repository<BranchEntity>,
+    @InjectRepository(PayrollClientAssignmentEntity)
+    private readonly payrollAssignRepo: Repository<PayrollClientAssignmentEntity>,
   ) {}
 
   /* ── Scope resolution ────────────────────────────────────────── */
@@ -77,6 +91,35 @@ export class AccessScopeService {
 
     if (GLOBAL_ROLES.includes(roleCode)) {
       return { level: 'all' };
+    }
+
+    if (roleCode === 'PAYROLL') {
+      /*
+       * Read the assignments rather than trusting user.assignedClientIds.
+       *
+       * That field is only populated by JwtStrategy; FilesController and the
+       * /uploads middleware in main.ts each build their own ReqUser with an
+       * empty list, so a payroll user would silently lose access on exactly
+       * the paths this scoping is meant to guard.
+       */
+      const assignments = await this.payrollAssignRepo.find({
+        where: {
+          payrollUserId: user.id,
+          status: 'ACTIVE',
+          endDate: IsNull(),
+        },
+        select: ['clientId'],
+      });
+      const clientIds = assignments.map((a) => a.clientId);
+      if (!clientIds.length) {
+        // Fails closed from here on, so say why — an unassigned payroll user
+        // now sees nothing where they previously saw everything, and that
+        // needs to be diagnosable from the logs rather than guessed at.
+        this.logger.warn(
+          `PAYROLL user ${user.id} has no active client assignments — scope is empty`,
+        );
+      }
+      return { level: 'clients', clientIds };
     }
 
     if (roleCode === 'CRM' || roleCode === 'PAYDEK') {
