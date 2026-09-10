@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { StateSlabModule } from '../payroll/state-slab.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import {
   ContractorController,
@@ -70,10 +71,11 @@ import { ContractorComputationService } from './contractor-computation.service';
 import { AccessModule } from '../access/access.module';
 import { ServiceEntitlementsModule } from '../service-entitlements/service-entitlements.module';
 import { PayrollClientSetupEntity } from '../payroll/entities/payroll-client-setup.entity';
-import { PayrollStatutorySlabEntity } from '../payroll/entities/payroll-statutory-slab.entity';
 
 @Module({
   imports: [
+    // Same PT/LWF resolution employee payroll uses — see StateSlabModule.
+    StateSlabModule,
     TypeOrmModule.forFeature([
       BranchContractorEntity,
       BranchEntity,
@@ -100,7 +102,6 @@ import { PayrollStatutorySlabEntity } from '../payroll/entities/payroll-statutor
       ContractorQuotationWageEntity,
       ContractorMcdComputationEntity,
       PayrollClientSetupEntity,
-      PayrollStatutorySlabEntity,
     ]),
     AuthModule, // ✅ required (ClientContractorsController uses BranchAccessService)
     UsersModule,
