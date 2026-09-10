@@ -43,7 +43,7 @@ describe('payroll breakup upload — column alignment', () => {
     return path;
   }
 
-  function makeService(components: string[]) {
+  function makeService(components: string[], runStatus = 'DRAFT') {
     const savedRunEmps: any[] = [];
     const insertedValues: any[] = [];
 
@@ -73,8 +73,17 @@ describe('payroll breakup upload — column alignment', () => {
         entity?.name === 'PayrollRunEmployeeEntity' ? runEmpRepo : compValRepo,
     };
 
+    const run: any = {
+      id: 'run-1',
+      clientId: 'c1',
+      branchId: 'b1',
+      status: runStatus,
+    };
     const args: any[] = new Array(16).fill({});
-    args[0] = { findOne: async () => ({ id: 'run-1', clientId: 'c1', branchId: 'b1', status: 'DRAFT' }) };
+    args[0] = {
+      findOne: async () => run,
+      save: async (r: any) => r,
+    };
     args[1] = { find: async () => [] };
     args[5] = {
       find: async () =>
@@ -86,7 +95,7 @@ describe('payroll breakup upload — column alignment', () => {
     // getRepository dispatches on the entity class, so the mock has to see the
     // real ones the service passes in.
     const svc = new (PayrollProcessingService as any)(...args);
-    return { svc, savedRunEmps, insertedValues };
+    return { svc, savedRunEmps, insertedValues, run };
   }
 
   it('reads each value from its own column, not the one to its right', async () => {
@@ -178,6 +187,49 @@ describe('payroll breakup upload — column alignment', () => {
       await expect(
         svc.uploadBreakup('run-1', { path, originalname: 'sheet.xls' } as any),
       ).rejects.toThrow(/.xls files are not supported/i);
+    });
+  });
+
+  describe('which runs accept new input', () => {
+    const sheet = () =>
+      writeSheet(
+        [['E001', 'Example', 15000, 6000]],
+        ['Employee Code', 'Employee Name', 'Basic', 'HRA'],
+      );
+
+    it.each(['SUBMITTED', 'APPROVED', 'COMPLETED'])(
+      'refuses an upload over a %s run',
+      async (status) => {
+        // The inputs would then disagree with the totals that were approved
+        // and with payslips already issued, and the status stayed put so
+        // nothing ever flagged it.
+        const path = await sheet();
+        const { svc, savedRunEmps } = makeService(['BASIC', 'HRA'], status);
+
+        await expect(
+          svc.uploadBreakup('run-1', { path } as any),
+        ).rejects.toThrow(new RegExp(`run is "${status}"`));
+        expect(savedRunEmps).toHaveLength(0);
+      },
+    );
+
+    it.each(['DRAFT', 'REJECTED'])('accepts an upload over a %s run', async (status) => {
+      // REJECTED is editable on purpose: correcting the sheet is the point.
+      const path = await sheet();
+      const { svc, savedRunEmps } = makeService(['BASIC', 'HRA'], status);
+
+      await svc.uploadBreakup('run-1', { path } as any);
+      expect(savedRunEmps).toHaveLength(1);
+    });
+
+    it('sends a PROCESSED run back to draft, because its totals are now stale', async () => {
+      const path = await sheet();
+      const { svc, run } = makeService(['BASIC', 'HRA'], 'PROCESSED');
+
+      const res = await svc.uploadBreakup('run-1', { path } as any);
+
+      expect(run.status).toBe('DRAFT');
+      expect(res.warnings.join(' ')).toMatch(/returned to draft/i);
     });
   });
 

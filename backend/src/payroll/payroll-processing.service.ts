@@ -83,9 +83,35 @@ export class PayrollProcessingService {
   ) {}
 
   // ── Upload Breakup Excel ────────────────────────────────
+  /** Statuses whose inputs may still be changed. */
+  private static readonly BREAKUP_EDITABLE_STATUSES = new Set([
+    'DRAFT',
+    'PROCESSED',
+    'REJECTED',
+  ]);
+
   async uploadBreakup(runId: string, file: Express.Multer.File) {
     const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new NotFoundException('Payroll run not found');
+
+    /*
+     * Inputs may only change while the run is still open.
+     *
+     * This checked nothing but existence, so a breakup could be uploaded over
+     * an APPROVED run: the stored inputs then disagreed with the totals that
+     * were approved and with payslips already issued, and the status stayed
+     * APPROVED so nothing ever flagged it.
+     *
+     * An allowlist rather than a blocklist — a status added later should have
+     * to be declared editable deliberately, not inherit the right by omission.
+     * REJECTED is editable on purpose: correcting the sheet is the whole point
+     * of a rejection.
+     */
+    if (!PayrollProcessingService.BREAKUP_EDITABLE_STATUSES.has(run.status)) {
+      throw new BadRequestException(
+        `Cannot upload a breakup: run is "${run.status}". Revert it to draft first if these figures need to change.`,
+      );
+    }
 
     // Pick the parser from the extension, as the attendance upload does.
     //
@@ -360,6 +386,21 @@ export class PayrollProcessingService {
       }
     });
 
+    // New inputs invalidate whatever was computed from the old ones.
+    //
+    // A PROCESSED run whose breakup has just changed is no longer processed —
+    // its stored totals, statutory figures and payslip values were derived from
+    // the sheet this upload replaced. Sending it back to DRAFT forces a
+    // reprocess before submitRun() will accept it, which is the only thing that
+    // makes the outputs match the inputs again.
+    if (run.status === 'PROCESSED') {
+      run.status = 'DRAFT';
+      await this.runRepo.save(run);
+      warnings.push(
+        'Run returned to draft: the figures were recalculated from the previous upload, so process it again before submitting.',
+      );
+    }
+
     return {
       imported,
       componentColumns: componentCols
@@ -425,17 +466,32 @@ export class PayrollProcessingService {
       const existingValues = await this.compValRepo.find({
         where: { runEmployeeId: emp.id },
       });
-      const valueMap = new Map<string, number>();
-      existingValues.forEach((v) =>
-        valueMap.set(v.componentCode, Number(v.amount)),
-      );
 
-      // Track which codes were uploaded (so we don't override them)
-      const uploadedCodes = new Set(
-        existingValues
-          .filter((v) => v.source === 'UPLOADED')
-          .map((v) => v.componentCode),
-      );
+      /*
+       * Authoritative inputs are the ones a human supplied; everything else is
+       * derived and must be recomputed on every pass.
+       *
+       * The seed used to include CALCULATED values, and the rule loop below
+       * skips any code already in the map — so a derived component kept its
+       * previous figure forever. Change Basic from 15000 to 20000 with an HRA
+       * rule of 40% and HRA stayed at the old 6000 instead of becoming 8000,
+       * while the payslip showed the new Basic beside the stale HRA.
+       */
+      const AUTHORITATIVE_SOURCES = new Set([
+        'UPLOADED',
+        'OVERRIDE',
+        'MANUAL_EDIT',
+      ]);
+      const valueMap = new Map<string, number>();
+      for (const v of existingValues) {
+        if (!AUTHORITATIVE_SOURCES.has(v.source)) continue;
+        valueMap.set(v.componentCode, Number(v.amount));
+      }
+
+      // The same set guards step 4 below, so a recomputation cannot overwrite
+      // what a person entered — an override that a later pass silently replaced
+      // would be the same bug wearing the other shoe.
+      const authoritativeCodes = new Set(valueMap.keys());
 
       // ── 1. Apply rules for components that have no uploaded value ──
       for (const comp of components) {
@@ -554,9 +610,9 @@ export class PayrollProcessingService {
         lwfEnabled: setup.lwfEnabled,
       });
 
-      // ── 4. Save all computed/statutory values (without overriding UPLOADED) ──
+      // ── 4. Save computed/statutory values, never over a human-supplied one ──
       for (const [code, amount] of Object.entries(finalValues)) {
-        if (uploadedCodes.has(code)) continue; // don't override uploaded
+        if (authoritativeCodes.has(code)) continue;
         await this.upsertValue(runId, emp.id, code, amount);
       }
 
