@@ -1749,13 +1749,24 @@ export class PayrollEngineService {
     let employerContributions = 0;
 
     // Statutory employer contributions
-    employerContributions += values['PF_ER'] ?? 0;
-    employerContributions += values['ESI_ER'] ?? 0;
-    employerContributions += values['LWF_ER'] ?? 0;
+    const STATUTORY_EMPLOYER_CODES = new Set(['PF_ER', 'ESI_ER', 'LWF_ER']);
+    for (const code of STATUTORY_EMPLOYER_CODES) {
+      employerContributions += values[code] ?? 0;
+    }
 
-    // All EMPLOYER type components
+    // All other EMPLOYER type components.
+    //
+    // Skipping the statutory codes here is what sumDeductions() has always done
+    // on the employee side, and this half did not: a client who configures
+    // PF_ER as an EMPLOYER component — an ordinary thing to do, since that is
+    // how the CTC breakdown lists it — had it counted twice, once from the
+    // values above and again in this loop. Gross 15000 with PF_ER 1950 and
+    // ESI_ER 487 reported an employer cost of 19874 instead of 17437.
     for (const comp of components) {
-      if (comp.componentType === 'EMPLOYER') {
+      if (
+        comp.componentType === 'EMPLOYER' &&
+        !STATUTORY_EMPLOYER_CODES.has(comp.code)
+      ) {
         employerContributions += values[comp.code] ?? 0;
       }
     }

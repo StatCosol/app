@@ -48,9 +48,10 @@ describe('payroll attendance upload — column handling', () => {
       branchId: 'b1',
     };
 
-    const args: any[] = new Array(16).fill({});
-    // runRepo
-    args[0] = {
+    // Bound by name rather than constructor position — see the note in
+    // payroll-breakup-columns.spec.ts.
+    const svc = new (PayrollProcessingService as any)() as any;
+    svc.runRepo = {
       findOne: async () => ({
         id: 'run-1',
         clientId: 'c1',
@@ -60,8 +61,7 @@ describe('payroll attendance upload — column handling', () => {
         status: 'DRAFT',
       }),
     };
-    // runEmpRepo
-    args[1] = {
+    svc.runEmpRepo = {
       find: async () => [runEmp],
       create: (v: any) => v,
       save: async (v: any) => {
@@ -69,9 +69,8 @@ describe('payroll attendance upload — column handling', () => {
         return v;
       },
     };
-    // compValRepo — attendance writes component values straight through the
-    // query builder rather than upsertValue().
-    args[3] = {
+    // Attendance writes component values straight through the query builder.
+    svc.compValRepo = {
       createQueryBuilder: () => ({
         insert: () => ({
           values: (v: any) => {
@@ -81,10 +80,7 @@ describe('payroll attendance upload — column handling', () => {
         }),
       }),
     };
-    // empRepo
-    args[8] = { find: async () => [] };
-
-    const svc = new (PayrollProcessingService as any)(...args);
+    svc.empRepo = { find: async () => [] };
     return { svc, saved, upserts, runEmp };
   }
 
