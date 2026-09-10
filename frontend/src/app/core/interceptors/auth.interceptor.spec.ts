@@ -1,6 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import {
+  HttpTestingController,
+  TestRequest,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
 import { of } from 'rxjs';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { authInterceptor } from './auth.interceptor';
@@ -49,7 +53,9 @@ describe('authInterceptor — session renewal is visible', () => {
 
   afterEach(() => httpTesting.verify());
 
-  const unauthorized = (req: { flush: (body: unknown, opts: unknown) => void }) =>
+  // TestRequest, not a structural stand-in: its flush() overloads are narrower
+  // than any hand-written shape, so anything looser fails to accept it.
+  const unauthorized = (req: TestRequest) =>
     req.flush({ message: 'Unauthorized', statusCode: 401 }, { status: 401, statusText: 'Unauthorized' });
 
   it('tells the user their submit was dropped when a POST hits an expired session', async () => {
