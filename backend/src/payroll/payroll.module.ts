@@ -56,7 +56,7 @@ import { PayrollQueryService } from './payroll-query.service';
 import { PayrollSetupService } from './payroll-setup.service';
 import { PayrollProcessingService } from './payroll-processing.service';
 import { StatutoryCalculatorService } from './services/statutory-calculator.service';
-import { StateSlabService } from './services/state-slab.service';
+import { StateSlabModule } from './state-slab.module';
 import { StateStatutoryService } from './services/state-statutory.service';
 import { PfEcrGenerator } from './generators/pf-ecr.generator';
 import { EsiGenerator } from './generators/esi.generator';
@@ -131,6 +131,7 @@ import { AccessModule } from '../access/access.module';
 @Module({
   imports: [
     AccessModule,
+    StateSlabModule,
     TypeOrmModule.forFeature([
       PayrollClientAssignmentEntity,
       PayrollInputEntity,
@@ -235,7 +236,6 @@ import { AccessModule } from '../access/access.module';
     PayrollSetupService,
     PayrollProcessingService,
     StatutoryCalculatorService,
-    StateSlabService,
     StateStatutoryService,
     PfEcrGenerator,
     EsiGenerator,

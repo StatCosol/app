@@ -11,8 +11,7 @@ import { BranchContractorEntity } from '../branches/entities/branch-contractor.e
 import { BranchEntity } from '../branches/entities/branch.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PayrollClientSetupEntity } from '../payroll/entities/payroll-client-setup.entity';
-import { PayrollStatutorySlabEntity } from '../payroll/entities/payroll-statutory-slab.entity';
-import { SHARED_SLAB_CLIENT_ID } from '../payroll/services/state-slab.service';
+import { StateSlabService } from '../payroll/services/state-slab.service';
 import { UserEntity } from '../users/entities/user.entity';
 import { ContractorEmployeeEntity } from './contractor-employees/entities/contractor-employee.entity';
 import { MinimumWageEntity } from './contractor-employees/entities/minimum-wage.entity';
@@ -50,8 +49,7 @@ export class ContractorComputationService {
     private readonly minimumWageRepo: Repository<MinimumWageEntity>,
     @InjectRepository(PayrollClientSetupEntity)
     private readonly payrollSetupRepo: Repository<PayrollClientSetupEntity>,
-    @InjectRepository(PayrollStatutorySlabEntity)
-    private readonly statutorySlabRepo: Repository<PayrollStatutorySlabEntity>,
+    private readonly stateSlab: StateSlabService,
     private readonly scope: AccessScopeService,
     private readonly notifications: NotificationsService,
   ) {}
@@ -378,7 +376,8 @@ export class ContractorComputationService {
       contractorUserId,
       input.branchId ?? undefined,
     );
-    if (input.branchId) await this.scope.assertBranchAllowed(user, input.branchId);
+    if (input.branchId)
+      await this.scope.assertBranchAllowed(user, input.branchId);
 
     if (!Array.isArray(input.rows)) {
       throw new BadRequestException('rows must be an array');
@@ -438,8 +437,9 @@ export class ContractorComputationService {
     raw: AttendanceComputeRow,
   ) {
     const employeeCode =
-      this.unknownToString(raw['employee_code'] ?? raw['worker_code'] ?? raw['code']) ||
-      null;
+      this.unknownToString(
+        raw['employee_code'] ?? raw['worker_code'] ?? raw['code'],
+      ) || null;
     const rawEmployeeName = this.unknownToString(
       raw['employee_name'] ?? raw['worker_name'] ?? raw['name'],
     );
@@ -475,11 +475,11 @@ export class ContractorComputationService {
     const stateCode = branch?.stateCode ?? employee?.stateCode ?? null;
     const [quote, setup, minimumDailyWage] = await Promise.all([
       this.findQuotation(
-      clientId,
-      contractorUserId,
-      branchId,
-      skillCategory,
-      `${periodMonth}-01`,
+        clientId,
+        contractorUserId,
+        branchId,
+        skillCategory,
+        `${periodMonth}-01`,
       ),
       this.findPayrollSetup(clientId),
       this.findMinimumDailyWage(stateCode, skillCategory, `${periodMonth}-01`),
@@ -570,7 +570,9 @@ export class ContractorComputationService {
         `MCD daily wage ${mcdDailyWage} does not match quotation ${quote.dailyWage}`,
       );
     if (!minimumDailyWage && stateCode)
-      reasons.push(`No minimum wage configured for ${stateCode}/${skillCategory}`);
+      reasons.push(
+        `No minimum wage configured for ${stateCode}/${skillCategory}`,
+      );
     if (minimumDailyWage && payableDailyWage < minimumDailyWage)
       reasons.push('Payable wage is below state minimum wage');
     if (!stateCode) reasons.push('Branch/employee state is missing');
@@ -736,11 +738,18 @@ export class ContractorComputationService {
   /**
    * PT/LWF for a contractor worker.
    *
-   * NOTE: this duplicates StateSlabService.resolveAmount — same fallback chain,
-   * same band match, separate copy. It is left in place here rather than
-   * refactored mid-change, but the two must move together: a rule added to one
-   * and not the other is how contractor and employee payroll end up deducting
-   * different PT for the same state.
+   * Delegates to StateSlabService, the same resolution employee payroll uses.
+   * This used to be a private copy of that fallback chain and band match, and
+   * the two had already drifted: the copy fell through to the next fallback
+   * tier when a tier's bands did not cover the amount, where the shared service
+   * stops at the first tier that has any slabs at all. The shared behaviour
+   * wins — a client who has configured their own PT table is the authority for
+   * their own state, and quietly falling back to the shared defaults applies
+   * someone else's rates.
+   *
+   * The rounding stays here: contractor figures are ceil'd at the point of use,
+   * and StateSlabService deliberately returns the raw amount so its other
+   * callers can round on their own terms.
    */
   private async resolveSlabAmount(input: {
     clientId: string;
@@ -752,52 +761,14 @@ export class ContractorComputationService {
     asOfDate?: string;
   }): Promise<number> {
     if (!input.enabled || !input.stateCode) return 0;
-    const asOfDate =
-      input.asOfDate && /^\d{4}-\d{2}-\d{2}$/.test(input.asOfDate)
-        ? input.asOfDate
-        : new Date().toISOString().slice(0, 10);
-    const candidates: Array<[string, string]> = [
-      [input.clientId, input.stateCode],
-      [input.clientId, 'ALL'],
-      [SHARED_SLAB_CLIENT_ID, input.stateCode],
-      [SHARED_SLAB_CLIENT_ID, 'ALL'],
-    ];
-    for (const [clientId, stateCode] of candidates) {
-      const allSlabs = await this.statutorySlabRepo.find({
-        where: { clientId, stateCode, componentCode: input.componentCode },
-        order: { fromAmount: 'ASC' },
-      });
-      // In force on the period, newest generation first — see
-      // StateSlabService.inForceOn for why the newest has to win.
-      const live = allSlabs.filter((s) => {
-        const from = String(s.effectiveFrom ?? '');
-        const to = s.effectiveTo != null ? String(s.effectiveTo) : null;
-        if (from && from > asOfDate) return false;
-        if (to && to < asOfDate) return false;
-        return true;
-      });
-      let newest = '';
-      for (const s of live) {
-        const from = String(s.effectiveFrom ?? '');
-        if (from > newest) newest = from;
-      }
-      const slabs = live.filter(
-        (s) => String(s.effectiveFrom ?? '') === newest,
-      );
-      for (const slab of slabs) {
-        const from = Number(slab.fromAmount);
-        const to = slab.toAmount != null ? Number(slab.toAmount) : null;
-        if (input.baseAmount < from || (to != null && input.baseAmount > to)) {
-          continue;
-        }
-        if (slab.valueAmount != null) return Math.ceil(Number(slab.valueAmount));
-        if (slab.valuePercent != null) {
-          return Math.ceil((input.baseAmount * Number(slab.valuePercent)) / 100);
-        }
-        return 0;
-      }
-    }
-    return 0;
+    const amount = await this.stateSlab.resolveAmount({
+      clientId: input.clientId,
+      stateCode: input.stateCode,
+      componentCode: input.componentCode,
+      baseAmount: input.baseAmount,
+      asOfDate: input.asOfDate,
+    });
+    return Math.ceil(amount);
   }
 
   private async notifyCrm(
@@ -927,7 +898,9 @@ export class ContractorComputationService {
       input.basicDaWage + input.regularAllowance + excessHra,
     );
     const wage = this.round(
-      input.ceilingEnabled ? Math.min(uncappedWage, input.ceiling) : uncappedWage,
+      input.ceilingEnabled
+        ? Math.min(uncappedWage, input.ceiling)
+        : uncappedWage,
     );
     return {
       wage,
@@ -942,7 +915,11 @@ export class ContractorComputationService {
     applicable: boolean;
   }) {
     const ceiling = Number(input.setup.esiWageCeiling) || 21000;
-    if (!input.applicable || input.grossWage <= 0 || input.grossWage > ceiling) {
+    if (
+      !input.applicable ||
+      input.grossWage <= 0 ||
+      input.grossWage > ceiling
+    ) {
       return { employee: 0, employer: 0 };
     }
     return {
