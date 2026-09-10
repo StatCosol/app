@@ -17,6 +17,7 @@ import { UsersService } from './users/users.service';
 import { DataSource } from 'typeorm';
 import { Request, Response, NextFunction } from 'express';
 import { JwtService } from '@nestjs/jwt';
+import { FilesService } from './files/files.service';
 import { ConfigService } from '@nestjs/config';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { CacheHeaderInterceptor } from './common/interceptors/cache-header.interceptor';
@@ -176,6 +177,32 @@ async function bootstrap() {
   // Serve uploaded files behind JWT authentication.
   // Previously: app.useStaticAssets('uploads/') — unauthenticated (SECURITY FIX)
   const jwtService = app.get(JwtService);
+  const filesService = app.get(FilesService);
+
+  /**
+   * Upload prefixes still served on a valid token alone, without an ownership
+   * check, because nothing records who owns those files.
+   *
+   * This set is the honest inventory of what is left. Every entry is a file
+   * type whose rows carry no owner FilesService can resolve; adding the owning
+   * table to FilesService.SCOPED_DOCUMENT_TABLES is what removes an entry.
+   * Anything not named here is now scoped, so a new upload directory fails
+   * closed rather than inheriting an exemption by being forgotten.
+   */
+  const UNSCOPED_UPLOAD_PREFIXES = new Set([
+    // Generated artefacts written straight to disk, with no row recording who
+    // they belong to. Each needs an owning table before it can be scoped.
+    'forms',
+    'notices',
+    'registrations',
+    'returns',
+    'payroll-breakups',
+    'payroll-run-employees',
+    'invoices',
+    'compliance-docs',
+    // Scratch space for in-flight uploads; never a durable artefact.
+    'temp',
+  ]);
   app.use('/uploads', (req: Request, res: Response, next: NextFunction) => {
     // Logos and news images are non-sensitive assets — serve publicly
     if (req.path.startsWith('/logos/') || req.path.startsWith('/news/')) {
@@ -231,8 +258,51 @@ async function bootstrap() {
           timestamp: new Date().toISOString(),
         });
       }
-      // Token is valid — proceed to static file serving
-      next();
+      // Authenticated — now check this user may have THIS file.
+      //
+      // A valid token used to be the whole test, so any signed-in user could
+      // read any other tenant's compliance evidence, payslip or employee
+      // document by knowing its path. FilesService resolves the owning row and
+      // applies the same client/branch/employee scope as the rest of the API.
+      const relative = decodeURIComponent(req.path.replace(/^\/+/, ''));
+      const prefix = relative.split('/')[0] ?? '';
+      if (UNSCOPED_UPLOAD_PREFIXES.has(prefix)) {
+        // Named, not assumed — see the note on the set below.
+        return next();
+      }
+
+      void filesService
+        .assertCanDownload(
+          {
+            id: payload.sub,
+            userId: payload.sub,
+            email: payload.email,
+            roleCode: payload.roleCode,
+            clientId: payload.clientId ?? null,
+            userType: payload.userType ?? null,
+            branchIds: Array.isArray(payload.branchIds) ? payload.branchIds : [],
+            assignedClientIds: [],
+            employeeId: payload.employeeId ?? null,
+          } as any,
+          relative,
+        )
+        .then(() => next())
+        .catch((err: any) => {
+          const status = Number(err?.status) === 400 ? 404 : 403;
+          return res.status(status).json({
+            success: false,
+            statusCode: status,
+            message:
+              status === 404
+                ? 'Not found'
+                : 'You do not have permission to access this file',
+            error: status === 404 ? 'Not Found' : 'Forbidden',
+            path: req.originalUrl,
+            method: req.method,
+            timestamp: new Date().toISOString(),
+          });
+        });
+      return;
     } catch {
       return res.status(401).json({
         success: false,
@@ -914,6 +984,51 @@ async function bootstrap() {
     } catch (e: any) {
       logger.warn(
         `Schema patch contractor_employees.status skipped: ${e?.message}`,
+      );
+    }
+
+    // PT/LWF slabs had no period columns, so a state's table could hold only
+    // one version of its rates: revising one mid-year meant reprocessing an
+    // earlier month produced a figure that never applied to it.
+    //
+    // effective_from is backfilled from created_at — the only honest date an
+    // existing row has. It is when the rate entered the system, not necessarily
+    // when the statute took effect, which matches how those rows have actually
+    // been used. Mirrors migrations/20260910_statutory_slab_effective_dates.sql;
+    // nothing here runs migrations automatically.
+    try {
+      await ds.query(`
+        ALTER TABLE payroll_statutory_slabs
+          ADD COLUMN IF NOT EXISTS effective_from DATE
+      `);
+      await ds.query(`
+        ALTER TABLE payroll_statutory_slabs
+          ADD COLUMN IF NOT EXISTS effective_to DATE
+      `);
+      await ds.query(`
+        UPDATE payroll_statutory_slabs
+           SET effective_from = created_at::date
+         WHERE effective_from IS NULL
+      `);
+      // A row without a created_at must still be selectable rather than
+      // dropping out of every lookup once the filter is applied.
+      await ds.query(`
+        UPDATE payroll_statutory_slabs
+           SET effective_from = DATE '1970-01-01'
+         WHERE effective_from IS NULL
+      `);
+      await ds.query(`
+        ALTER TABLE payroll_statutory_slabs
+          ALTER COLUMN effective_from SET NOT NULL
+      `);
+      await ds.query(`
+        CREATE INDEX IF NOT EXISTS IDX_PSS_EFFECTIVE
+          ON payroll_statutory_slabs (client_id, state_code, component_code, effective_from)
+      `);
+      logger.log('Schema patch: payroll_statutory_slabs effective dates OK');
+    } catch (e: any) {
+      logger.warn(
+        `Schema patch payroll_statutory_slabs effective dates skipped: ${e?.message}`,
       );
     }
 

@@ -31,9 +31,10 @@ const mockRepo = () => ({
 
 describe('PayrollEngineService', () => {
   let service: PayrollEngineService;
+  let moduleRef: Awaited<ReturnType<ReturnType<typeof Test.createTestingModule>['compile']>>;
 
   beforeEach(async () => {
-    const moduleRef = await Test.createTestingModule({
+    moduleRef = await Test.createTestingModule({
       providers: [
         PayrollEngineService,
         { provide: getRepositoryToken(PayrollRunEntity), useFactory: mockRepo },
@@ -91,7 +92,10 @@ describe('PayrollEngineService', () => {
         },
         {
           provide: AttendanceService,
-          useValue: { getAttendanceSummary: jest.fn() },
+          useValue: {
+            getAttendanceSummary: jest.fn(),
+            getMonthlySummary: jest.fn().mockResolvedValue([]),
+          },
         },
         {
           provide: getRepositoryToken(LeaveLedgerEntity),
@@ -113,5 +117,90 @@ describe('PayrollEngineService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  /**
+   * A run is only PROCESSED if every employee actually calculated.
+   *
+   * The per-employee catch collects failures and carries on, which is right —
+   * one broken formula should not abandon the other 200 employees. But the
+   * status was then set to PROCESSED regardless, and submitRun() admits exactly
+   * that status, so a run where every employee failed could be submitted and
+   * approved on totals that were never computed.
+   */
+  describe('run status after processing', () => {
+    const arrange = () => {
+      const run: any = {
+        id: 'run-1',
+        clientId: 'c1',
+        periodMonth: 4,
+        periodYear: 2026,
+        status: 'DRAFT',
+      };
+      moduleRef.get(getRepositoryToken(PayrollRunEntity)).findOne = jest
+        .fn()
+        .mockResolvedValue(run);
+      moduleRef.get(getRepositoryToken(PayrollRunEntity)).save = jest
+        .fn()
+        .mockImplementation(async (r: any) => r);
+      moduleRef.get(getRepositoryToken(PayrollClientSetupEntity)).findOne = jest
+        .fn()
+        .mockResolvedValue({ clientId: 'c1' });
+      moduleRef.get(getRepositoryToken(PayrollComponentEntity)).find = jest
+        .fn()
+        .mockResolvedValue([
+          { id: 'comp-1', code: 'BASIC', componentType: 'EARNING' },
+        ]);
+      moduleRef.get(getRepositoryToken(PayrollRunEmployeeEntity)).find = jest
+        .fn()
+        .mockResolvedValue([
+          { id: 'emp-1', employeeCode: 'E001', employeeName: 'Example' },
+        ]);
+      return run;
+    };
+
+    it('leaves a run that failed out of PROCESSED, so it cannot be submitted', async () => {
+      const run = arrange();
+      jest
+        .spyOn(service as any, 'processEmployee')
+        .mockRejectedValue(new Error('Undefined variable BASIC'));
+
+      const result = await service.processWithEngine('run-1');
+
+      expect(result.errors).toHaveLength(1);
+      expect(result.processed).toBe(0);
+      // submitRun() admits only PROCESSED, so DRAFT is what blocks it.
+      expect(result.status).toBe('DRAFT');
+      expect(run.status).toBe('DRAFT');
+    });
+
+    it('demotes a previously PROCESSED run when a reprocess fails', async () => {
+      // Its stored values have been partly overwritten by this pass, so
+      // leaving it submittable would approve a half-recomputed run.
+      const run = arrange();
+      run.status = 'PROCESSED';
+      jest
+        .spyOn(service as any, 'processEmployee')
+        .mockRejectedValue(new Error('boom'));
+
+      const result = await service.processWithEngine('run-1');
+
+      expect(result.status).toBe('DRAFT');
+      expect(run.status).toBe('DRAFT');
+    });
+
+    it('marks a clean run PROCESSED', async () => {
+      const run = arrange();
+      jest
+        .spyOn(service as any, 'processEmployee')
+        .mockResolvedValue(undefined as never);
+
+      const result = await service.processWithEngine('run-1');
+
+      expect(result.errors).toEqual([]);
+      expect(result.processed).toBe(1);
+      expect(result.status).toBe('PROCESSED');
+      expect(run.status).toBe('PROCESSED');
+    });
   });
 });

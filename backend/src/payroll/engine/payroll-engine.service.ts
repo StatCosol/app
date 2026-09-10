@@ -192,10 +192,25 @@ export class PayrollEngineService {
       }
     }
 
-    run.status = 'PROCESSED' as PayrollRunEntity['status'];
+    // A run is only PROCESSED if every employee actually calculated.
+    //
+    // The per-employee catch above collects failures and carries on, which is
+    // right — one broken formula should not abandon the other 200 employees.
+    // But the status was then set to PROCESSED regardless, and submitRun()
+    // admits exactly that status, so a run where every employee failed could be
+    // submitted and approved on totals that were never computed.
+    //
+    // On failure the run goes back to DRAFT rather than to a new status: DRAFT
+    // is already the "not ready" state the UI understands, and submitRun()
+    // rejects it by name. Demoting rather than merely declining to promote
+    // matters when a previously PROCESSED run is reprocessed — its stored
+    // values have been partly overwritten by this pass, so leaving it
+    // submittable would approve a half-recomputed run.
+    const ok = errors.length === 0;
+    run.status = (ok ? 'PROCESSED' : 'DRAFT') as PayrollRunEntity['status'];
     await this.runRepo.save(run);
 
-    return { processed, status: 'PROCESSED', errors };
+    return { processed, status: run.status, errors };
   }
 
   /**
@@ -697,6 +712,7 @@ export class PayrollEngineService {
         values,
         ptEnabled: setup.ptEnabled,
         lwfEnabled: setup.lwfEnabled,
+        asOfDate,
       });
       Object.assign(values, stateDeductions);
     }
@@ -1419,6 +1435,7 @@ export class PayrollEngineService {
           values,
           ptEnabled: setup.ptEnabled,
           lwfEnabled: setup.lwfEnabled,
+          asOfDate,
         });
         Object.assign(values, stateDeductions);
       }

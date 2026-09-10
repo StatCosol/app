@@ -12,7 +12,7 @@ import { RegistersRecordEntity } from '../payroll/entities/registers-record.enti
 import { HelpdeskMessageFileEntity } from '../helpdesk/entities/helpdesk-message-file.entity';
 import { ContractorDocumentEntity } from '../contractor/entities/contractor-document.entity';
 import { PayrollClientAssignmentEntity } from '../payroll/entities/payroll-client-assignment.entity';
-import { ReqUser } from '../access/access-scope.service';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 
 @Injectable()
 export class FilesService {
@@ -27,6 +27,7 @@ export class FilesService {
     private cdRepo: Repository<ContractorDocumentEntity>,
     @InjectRepository(PayrollClientAssignmentEntity)
     private assignRepo: Repository<PayrollClientAssignmentEntity>,
+    private readonly scope: AccessScopeService,
   ) {}
 
   // Determine if user can access a filePath (by checking known tables)
@@ -150,7 +151,163 @@ export class FilesService {
       throw new ForbiddenException();
     }
 
+    // 5) Everything else that is registered against an owning row.
+    //
+    // The four checks above are bespoke because their ownership is indirect —
+    // a helpdesk file belongs to a ticket, a payroll input file to a payroll
+    // input. The rest of the document tables all carry the owner on the row
+    // itself, so one rule serves them and adding a document type is one entry
+    // in SCOPED_DOCUMENT_TABLES rather than another branch here.
+    const owner = await this.findScopedOwner(filePathVariants);
+    if (owner) {
+      await this.assertOwnerInScope(user, owner);
+      return;
+    }
+
     throw new BadRequestException('File not registered in DB');
+  }
+
+  /**
+   * Tables whose rows carry their own owner and a path to the stored file.
+   *
+   * Any file not reachable through one of these — or the four indirect cases
+   * above — cannot be authorized, which is why UNSCOPED_UPLOAD_PREFIXES in
+   * main.ts has to name what is still served without an ownership check.
+   */
+  private static readonly SCOPED_DOCUMENT_TABLES: ReadonlyArray<{
+    table: string;
+    /** Column holding the stored path — not uniform across these tables. */
+    pathColumn: string;
+    clientColumn: string;
+    branchColumn?: string;
+    employeeColumn?: string;
+  }> = [
+    // Branch compliance evidence: the largest sensitive category, and the one
+    // that names its path column differently from every other table.
+    {
+      table: 'compliance_documents',
+      pathColumn: 'uploaded_file_url',
+      clientColumn: 'company_id',
+      branchColumn: 'branch_id',
+    },
+    {
+      table: 'compliance_doc_library',
+      pathColumn: 'file_path',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+    },
+    {
+      table: 'branch_documents',
+      pathColumn: 'file_path',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+    },
+    {
+      table: 'monthly_compliance_uploads',
+      pathColumn: 'file_path',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+    },
+    {
+      table: 'crm_unit_documents',
+      pathColumn: 'file_path',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+    },
+    {
+      table: 'safety_documents',
+      pathColumn: 'file_path',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+    },
+    {
+      table: 'payroll_payslip_archives',
+      pathColumn: 'file_path',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+    },
+    {
+      table: 'employee_documents',
+      pathColumn: 'file_path',
+      clientColumn: 'client_id',
+      employeeColumn: 'employee_id',
+    },
+    {
+      table: 'payroll_fnf_documents',
+      pathColumn: 'file_path',
+      clientColumn: 'client_id',
+      employeeColumn: 'employee_id',
+    },
+  ];
+
+  private async findScopedOwner(filePathVariants: string[]): Promise<{
+    clientId: string | null;
+    branchId: string | null;
+    employeeId: string | null;
+  } | null> {
+    for (const spec of FilesService.SCOPED_DOCUMENT_TABLES) {
+      const branchSelect = spec.branchColumn
+        ? `${spec.branchColumn} AS "branchId"`
+        : `NULL::uuid AS "branchId"`;
+      const employeeSelect = spec.employeeColumn
+        ? `${spec.employeeColumn} AS "employeeId"`
+        : `NULL::uuid AS "employeeId"`;
+      let rows: Array<{
+        clientId: string | null;
+        branchId: string | null;
+        employeeId: string | null;
+      }> = [];
+      try {
+        rows = await this.cdRepo.manager.query(
+          `SELECT ${spec.clientColumn} AS "clientId", ${branchSelect}, ${employeeSelect}
+             FROM ${spec.table}
+            WHERE ${spec.pathColumn} = ANY($1::text[])
+            LIMIT 1`,
+          [filePathVariants],
+        );
+      } catch {
+        // A table this build does not have yet must not make every download
+        // fail; it simply cannot authorize anything.
+        continue;
+      }
+      if (rows[0]) return rows[0];
+    }
+    return null;
+  }
+
+  private async assertOwnerInScope(
+    user: ReqUser,
+    owner: {
+      clientId: string | null;
+      branchId: string | null;
+      employeeId: string | null;
+    },
+  ): Promise<void> {
+    // An employee sees their own documents and nobody else's, whatever client
+    // scope would otherwise allow.
+    if (user.roleCode === 'EMPLOYEE') {
+      if (
+        owner.employeeId &&
+        user.employeeId &&
+        owner.employeeId === user.employeeId
+      ) {
+        return;
+      }
+      throw new ForbiddenException();
+    }
+
+    if (!owner.clientId) throw new ForbiddenException();
+
+    // Client, assigned-clients and branch scoping all live in one place
+    // already; reimplementing them here is how the two would drift apart.
+    await this.scope.assertClientAllowed(user, owner.clientId);
+
+    const scope = await this.scope.getScope(user);
+    if (scope.level === 'branches' && owner.branchId) {
+      if (!(scope.branchIds ?? []).includes(owner.branchId)) {
+        throw new ForbiddenException('Branch not in scope');
+      }
+    }
   }
 
   private filePathVariants(filePath: string): string[] {

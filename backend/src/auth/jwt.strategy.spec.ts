@@ -22,6 +22,11 @@ describe('JwtStrategy branch scope', () => {
 
     const result = await strategy.validate({
       sub: 'user-1',
+      // Real access tokens have always carried this; the strategy now requires
+      // it, so a fixture without it is no longer a realistic access token.
+      // Token-type behaviour itself is covered in
+      // jwt-strategy-token-type.spec.ts.
+      type: 'access',
       roleCode: 'CLIENT',
       clientId: 'client-1',
       branchIds: ['branch-stale'],

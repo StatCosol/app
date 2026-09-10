@@ -479,6 +479,40 @@ export class CrmComplianceTrackerController {
     if (!scope.length)
       return { ok: false, message: 'Branch not in your scope' };
 
+    /*
+     * Finalizing meant "set everything that is not already APPROVED to
+     * APPROVED", which approved items that had no evidence at all and items a
+     * reviewer had explicitly RETURNED for correction. The month then read as
+     * complete on the strength of nothing having been uploaded.
+     *
+     * A required item with no evidence blocks the finalize instead. Refusing
+     * the whole month rather than approving the rest keeps the indicator
+     * honest: a partly finalized month is what made this invisible.
+     */
+    const missing = await this.db.many(
+      `SELECT mci.id, mci.item_label AS "itemLabel"
+       FROM compliance_mcd_items mci
+       JOIN compliance_tasks ct ON ct.id = mci.task_id
+       WHERE ct.branch_id = $1::uuid
+         AND ct.period_year = $2::int
+         AND ct.period_month = $3::int
+         AND mci.required = true
+         AND mci.status NOT IN ('APPROVED', 'VERIFIED')
+         AND NOT EXISTS (
+           SELECT 1 FROM compliance_evidence ce WHERE ce.mcd_item_id = mci.id
+         )
+       ORDER BY mci.item_label
+       LIMIT 20`,
+      [branchId, year, month],
+    );
+    if (missing.length) {
+      return {
+        ok: false,
+        message: `Cannot finalize: ${missing.length} required item(s) have no evidence uploaded.`,
+        missing: missing.map((m: any) => m.itemLabel),
+      };
+    }
+
     await this.db.many(
       `UPDATE compliance_mcd_items mci
        SET status = 'APPROVED',
@@ -490,7 +524,15 @@ export class CrmComplianceTrackerController {
          AND ct.branch_id = $2::uuid
          AND ct.period_year = $3::int
          AND ct.period_month = $4::int
-         AND mci.status NOT IN ('APPROVED')
+         -- VERIFIED is the locked state. Excluding it here is the difference
+         -- between a lock and a suggestion: finalize used to pull a locked
+         -- item back to APPROVED, silently undoing the lock that lockMcd had
+         -- just applied. Reopening stays deliberate — returnMcd, which takes a
+         -- reason — rather than a side effect of finalizing again.
+         AND mci.status NOT IN ('APPROVED', 'VERIFIED')
+         AND EXISTS (
+           SELECT 1 FROM compliance_evidence ce WHERE ce.mcd_item_id = mci.id
+         )
        RETURNING mci.id`,
       [crmUserId, branchId, year, month],
     );

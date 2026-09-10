@@ -533,6 +533,7 @@ export class ContractorComputationService {
       componentCode: 'PT',
       baseAmount: grossWage,
       enabled: setup.ptEnabled,
+      asOfDate: `${periodMonth}-01`,
     });
     const lwfEmployeeDeduction = await this.resolveSlabAmount({
       clientId,
@@ -540,6 +541,7 @@ export class ContractorComputationService {
       componentCode: 'LWF_EMP',
       baseAmount: grossWage,
       enabled: setup.lwfEnabled,
+      asOfDate: `${periodMonth}-01`,
     });
     const lwfEmployerContribution = await this.resolveSlabAmount({
       clientId,
@@ -547,6 +549,7 @@ export class ContractorComputationService {
       componentCode: 'LWF_ER',
       baseAmount: grossWage,
       enabled: setup.lwfEnabled,
+      asOfDate: `${periodMonth}-01`,
     });
     const netSalary = this.round(
       grossWage -
@@ -730,14 +733,29 @@ export class ContractorComputationService {
     );
   }
 
+  /**
+   * PT/LWF for a contractor worker.
+   *
+   * NOTE: this duplicates StateSlabService.resolveAmount — same fallback chain,
+   * same band match, separate copy. It is left in place here rather than
+   * refactored mid-change, but the two must move together: a rule added to one
+   * and not the other is how contractor and employee payroll end up deducting
+   * different PT for the same state.
+   */
   private async resolveSlabAmount(input: {
     clientId: string;
     stateCode: string | null;
     componentCode: string;
     baseAmount: number;
     enabled: boolean;
+    /** Payroll period as YYYY-MM-DD, so a slab revision applies from its month. */
+    asOfDate?: string;
   }): Promise<number> {
     if (!input.enabled || !input.stateCode) return 0;
+    const asOfDate =
+      input.asOfDate && /^\d{4}-\d{2}-\d{2}$/.test(input.asOfDate)
+        ? input.asOfDate
+        : new Date().toISOString().slice(0, 10);
     const candidates: Array<[string, string]> = [
       [input.clientId, input.stateCode],
       [input.clientId, 'ALL'],
@@ -745,10 +763,27 @@ export class ContractorComputationService {
       [SHARED_SLAB_CLIENT_ID, 'ALL'],
     ];
     for (const [clientId, stateCode] of candidates) {
-      const slabs = await this.statutorySlabRepo.find({
+      const allSlabs = await this.statutorySlabRepo.find({
         where: { clientId, stateCode, componentCode: input.componentCode },
         order: { fromAmount: 'ASC' },
       });
+      // In force on the period, newest generation first — see
+      // StateSlabService.inForceOn for why the newest has to win.
+      const live = allSlabs.filter((s) => {
+        const from = String(s.effectiveFrom ?? '');
+        const to = s.effectiveTo != null ? String(s.effectiveTo) : null;
+        if (from && from > asOfDate) return false;
+        if (to && to < asOfDate) return false;
+        return true;
+      });
+      let newest = '';
+      for (const s of live) {
+        const from = String(s.effectiveFrom ?? '');
+        if (from > newest) newest = from;
+      }
+      const slabs = live.filter(
+        (s) => String(s.effectiveFrom ?? '') === newest,
+      );
       for (const slab of slabs) {
         const from = Number(slab.fromAmount);
         const to = slab.toAmount != null ? Number(slab.toAmount) : null;

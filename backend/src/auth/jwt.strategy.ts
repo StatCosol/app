@@ -6,6 +6,15 @@ import { ConfigService } from '@nestjs/config';
 
 type JwtPayload = {
   sub: string; // userId
+  /**
+   * Which credential this is: 'access', 'refresh' or 'reset'.
+   *
+   * All three are signed with the same JWT_SECRET, so without checking this a
+   * refresh token — good for 14 days — worked as an API credential on every
+   * protected route, and so did a password-reset token, which is emailed and
+   * therefore sits in mail logs, browser history and referrer headers.
+   */
+  type?: string;
   roleId?: string;
   roleCode?: string; // ADMIN/CCO/...
   email?: string;
@@ -40,6 +49,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     );
     if (!payload.sub) {
       throw new UnauthorizedException('Invalid token payload');
+    }
+
+    // Only an access token authenticates an API call. issueTokens() has stamped
+    // type on every token since it was written, and access tokens live 15
+    // minutes, so nothing valid is in flight without it. The /uploads
+    // middleware in main.ts already made exactly this check; the strategy
+    // guarding every other route did not.
+    if (payload.type !== 'access') {
+      Logger.warn(
+        `JwtStrategy: rejecting token - wrong type "${payload.type ?? 'missing'}"`,
+        'JwtStrategy',
+      );
+      throw new UnauthorizedException('Invalid token type');
     }
 
     const user = await this.usersService.findById(payload.sub);

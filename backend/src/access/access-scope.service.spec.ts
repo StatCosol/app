@@ -5,6 +5,7 @@ import { ClientAssignment } from '../assignments/entities/client-assignment.enti
 import { BranchAuditorAssignmentEntity } from '../assignments/entities/branch-auditor-assignment.entity';
 import { ClientEntity } from '../clients/entities/client.entity';
 import { BranchEntity } from '../branches/entities/branch.entity';
+import { PayrollClientAssignmentEntity } from '../payroll/entities/payroll-client-assignment.entity';
 
 describe('AccessScopeService', () => {
   let service: AccessScopeService;
@@ -32,6 +33,11 @@ describe('AccessScopeService', () => {
         },
         {
           provide: getRepositoryToken(BranchEntity),
+          useValue: { ...mockRepo },
+        },
+        {
+          // PAYROLL resolves its scope from this table now, not GLOBAL_ROLES.
+          provide: getRepositoryToken(PayrollClientAssignmentEntity),
           useValue: { ...mockRepo },
         },
       ],

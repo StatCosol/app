@@ -57,6 +57,23 @@ export class PayrollStatutorySlabEntity {
   })
   valuePercent: string | null;
 
+  /**
+   * First payroll date this row applies to.
+   *
+   * Without it a slab table could hold only one version of a state's rates, so
+   * a mid-year PT revision either overwrote history — recomputing an old month
+   * produced the new figure — or sat alongside the old rows with nothing to
+   * choose between them. Rows that existed before this column was added are
+   * backfilled with their own created_at, which is the only honest date
+   * available: it is when the rate entered the system.
+   */
+  @Column({ name: 'effective_from', type: 'date' })
+  effectiveFrom: string;
+
+  /** Last date this row applies to; NULL means it is still current. */
+  @Column({ name: 'effective_to', type: 'date', nullable: true })
+  effectiveTo: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

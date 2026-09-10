@@ -30,19 +30,70 @@ export class StateSlabService {
     private readonly slabRepo: Repository<PayrollStatutorySlabEntity>,
   ) {}
 
+  /**
+   * Keep only the rows in force on `asOfDate`, then the newest version of them.
+   *
+   * A state can have several generations of slabs in the table at once — that
+   * is the point of the effective dates. Filtering by date alone can still
+   * leave two generations overlapping (an old row nobody closed off, and its
+   * replacement), and the band match would then take whichever sorted first.
+   * The latest effective_from wins, which is what "revised with effect from"
+   * means.
+   */
+  private static inForceOn(
+    rows: PayrollStatutorySlabEntity[],
+    asOfDate: string,
+  ): PayrollStatutorySlabEntity[] {
+    const live = rows.filter((r) => {
+      const from = String(r.effectiveFrom ?? '');
+      const to = r.effectiveTo != null ? String(r.effectiveTo) : null;
+      if (from && from > asOfDate) return false;
+      if (to && to < asOfDate) return false;
+      return true;
+    });
+    if (live.length === 0) return [];
+
+    let newest = '';
+    for (const r of live) {
+      const from = String(r.effectiveFrom ?? '');
+      if (from > newest) newest = from;
+    }
+    return live.filter((r) => String(r.effectiveFrom ?? '') === newest);
+  }
+
+  /** Today, when a caller has no payroll period to offer. */
+  private static today(): string {
+    return new Date().toISOString().slice(0, 10);
+  }
+
   async resolveAmount(params: {
     clientId: string;
     stateCode: string;
     componentCode: string;
     baseAmount: number;
+    /**
+     * The payroll period this is being computed for, as YYYY-MM-DD.
+     *
+     * Without it every lookup answered with today's rates, so reprocessing an
+     * earlier month applied a revision that month never saw. Optional because
+     * preview and admin callers legitimately mean "as things stand now".
+     */
+    asOfDate?: string;
   }): Promise<number> {
     const { clientId, stateCode, componentCode, baseAmount } = params;
+    const asOfDate =
+      params.asOfDate && /^\d{4}-\d{2}-\d{2}$/.test(params.asOfDate)
+        ? params.asOfDate
+        : StateSlabService.today();
 
     const lookup = async (cid: string, sc: string) =>
-      this.slabRepo.find({
-        where: { clientId: cid, stateCode: sc, componentCode },
-        order: { fromAmount: 'ASC' },
-      });
+      StateSlabService.inForceOn(
+        await this.slabRepo.find({
+          where: { clientId: cid, stateCode: sc, componentCode },
+          order: { fromAmount: 'ASC' },
+        }),
+        asOfDate,
+      );
 
     // 1) Per-client, state-specific
     let slabs = await lookup(clientId, stateCode);
@@ -95,6 +146,8 @@ export class StateSlabService {
     clientId: string;
     stateCode: string;
     componentCode: string;
+    /** Same meaning as on resolveAmount; defaults to today. */
+    asOfDate?: string;
   }): Promise<{
     source: 'CLIENT' | 'CLIENT_ALL' | 'SHARED' | 'SHARED_ALL' | 'NONE';
     stateCode: string;
@@ -107,12 +160,21 @@ export class StateSlabService {
     }>;
   }> {
     const { clientId, stateCode, componentCode } = params;
+    // The UI has to show what the calculator would actually use, so it walks
+    // the same period filter, not just the same fallback chain.
+    const asOfDate =
+      params.asOfDate && /^\d{4}-\d{2}-\d{2}$/.test(params.asOfDate)
+        ? params.asOfDate
+        : StateSlabService.today();
 
     const lookup = async (cid: string, sc: string) =>
-      this.slabRepo.find({
-        where: { clientId: cid, stateCode: sc, componentCode },
-        order: { fromAmount: 'ASC' },
-      });
+      StateSlabService.inForceOn(
+        await this.slabRepo.find({
+          where: { clientId: cid, stateCode: sc, componentCode },
+          order: { fromAmount: 'ASC' },
+        }),
+        asOfDate,
+      );
 
     const map = (
       rows: PayrollStatutorySlabEntity[],

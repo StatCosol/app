@@ -1847,11 +1847,36 @@ export class EssService {
       throw new BadRequestException('Not in SUBMITTED status');
 
     return this.ds.transaction(async (mgr) => {
-      // Update application
+      /*
+       * Claim the application before debiting anything.
+       *
+       * The status check above happens outside this transaction and the write
+       * used to be an unconditional save(), so two approvals racing on the same
+       * application both read SUBMITTED, both proceeded, and both debited the
+       * balance and wrote a ledger row — the employee lost twice the leave they
+       * took. Making the transition itself the guard means the second one
+       * matches no row and stops here, before the debit.
+       */
+      const claimed = await mgr
+        .createQueryBuilder()
+        .update(LeaveApplicationEntity)
+        .set({
+          status: 'APPROVED',
+          approverUserId: userId,
+          actionedAt: new Date(),
+        })
+        .where('id = :id AND status = :expected', {
+          id: leaveId,
+          expected: 'SUBMITTED',
+        })
+        .execute();
+
+      if (!claimed.affected) {
+        throw new BadRequestException('Not in SUBMITTED status');
+      }
+
       app.status = 'APPROVED';
       app.approverUserId = userId;
-      app.actionedAt = new Date();
-      await mgr.save(app);
 
       // Debit leave balance
       const yr = new Date(app.fromDate).getFullYear();
