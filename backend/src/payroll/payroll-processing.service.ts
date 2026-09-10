@@ -137,38 +137,35 @@ export class PayrollProcessingService {
     const sheet = workbook.worksheets[0];
     if (!sheet) throw new BadRequestException('No worksheet found');
 
-    const headers: string[] = [];
-    // ExcelJS reports colNum ONE-based; this array is read back with
-    // findIndex() and getCell(index + 1), both of which assume zero-based. It
-    // was stored one-based, so every value came from the column to its right:
-    // the name arrived as the code, Basic took HRA's amount, and the rightmost
-    // component fell off the end of the row — with imported: 1 and no errors.
-    // (The attendance parser below keeps the one-based key and calls
-    // getCell(col) with no offset; that one is correct.)
-    sheet.getRow(1).eachCell((cell, colNum) => {
-      headers[colNum - 1] = this.normalizeHeader(cell.value);
-    });
+    const headers = this.readHeaderRow(sheet);
 
     // Identify employee_code and employee_name columns
-    const codeCol = headers.findIndex((h) =>
-      ['employee code', 'employeecode', 'emp code', 'empcode'].includes(h),
-    );
-    const nameCol = headers.findIndex((h) =>
-      ['employee name', 'employeename', 'emp name', 'name'].includes(h),
-    );
+    const CODE_HEADERS = [
+      'employee code',
+      'employeecode',
+      'emp code',
+      'empcode',
+    ];
+    const NAME_HEADERS = ['employee name', 'employeename', 'emp name', 'name'];
+    let codeCol = -1;
+    let nameCol = -1;
+    for (const [col, h] of headers) {
+      if (CODE_HEADERS.includes(h)) codeCol = col;
+      else if (NAME_HEADERS.includes(h)) nameCol = col;
+    }
     if (codeCol < 0)
       throw new BadRequestException('Column "Employee Code" not found');
 
     // Component columns: all remaining columns after code/name
     const componentCols: { col: number; code: string }[] = [];
-    headers.forEach((h, i) => {
-      if (i !== codeCol && i !== nameCol && h) {
+    for (const [col, h] of headers) {
+      if (col !== codeCol && col !== nameCol && h) {
         componentCols.push({
-          col: i,
+          col,
           code: h.replace(/\s/g, '_').toUpperCase(),
         });
       }
-    });
+    }
 
     // ── Validation: check component columns against configured + system codes ──
     const knownComponents = await this.compRepo.find({
@@ -225,7 +222,7 @@ export class PayrollProcessingService {
 
     for (let r = 2; r <= sheet.rowCount; r++) {
       const row = sheet.getRow(r);
-      const empCode = this.cellStr(row.getCell(codeCol + 1).value);
+      const empCode = this.cellStr(row.getCell(codeCol).value);
       if (!empCode) continue;
 
       if (seenCodes.has(empCode)) {
@@ -237,7 +234,7 @@ export class PayrollProcessingService {
       // Negative amount check (only for known non-system components)
       for (const cc of componentCols) {
         if (!knownCodes.has(cc.code)) continue;
-        const amt = this.cellNum(row.getCell(cc.col + 1).value);
+        const amt = this.cellNum(row.getCell(cc.col).value);
         if (amt !== null && amt < 0) {
           errors.push(
             `Row ${r}: Negative amount (${amt}) for component "${cc.code}"`,
@@ -247,14 +244,14 @@ export class PayrollProcessingService {
 
       const empName =
         nameCol >= 0
-          ? this.cellStr(row.getCell(nameCol + 1).value) || empCode
+          ? this.cellStr(row.getCell(nameCol).value) || empCode
           : empCode;
 
       // Collect component values for this row
       const rowValues: { code: string; amount: number }[] = [];
       for (const cc of componentCols) {
         if (!knownCodes.has(cc.code)) continue;
-        const amount = this.cellNum(row.getCell(cc.col + 1).value);
+        const amount = this.cellNum(row.getCell(cc.col).value);
         if (amount !== null) {
           rowValues.push({ code: cc.code, amount });
         }
@@ -848,12 +845,7 @@ export class PayrollProcessingService {
     const ws = wb.worksheets[0];
     if (!ws) throw new BadRequestException('Empty workbook');
 
-    // Parse header row
-    const headerRow = ws.getRow(1);
-    const headers: Record<number, string> = {};
-    headerRow.eachCell((cell, colNum) => {
-      headers[colNum] = this.normalizeHeader(cell.value);
-    });
+    const headers = this.readHeaderRow(ws);
 
     // Find required columns
     let codeCol = -1;
@@ -867,8 +859,8 @@ export class PayrollProcessingService {
     let plLeaveCol = -1;
     let slLeaveCol = -1;
 
-    for (const [col, h] of Object.entries(headers)) {
-      const c = Number(col);
+    for (const [col, h] of headers) {
+      const c = col;
       if (/employee.*(code|id)|emp.*(code|id)/.test(h)) codeCol = c;
       else if (/working.*days|work.*days|days.*worked/.test(h))
         workingDaysCol = c;
@@ -898,7 +890,7 @@ export class PayrollProcessingService {
     }
     if (approvedLeaveCol > 0) {
       this.logger.debug(
-        `[uploadAttendance] Detected approved-leave column at index ${approvedLeaveCol} (header="${headers[approvedLeaveCol]}")`,
+        `[uploadAttendance] Detected approved-leave column at index ${approvedLeaveCol} (header="${headers.get(approvedLeaveCol)}")`,
       );
     } else {
       this.logger.debug(
@@ -934,8 +926,8 @@ export class PayrollProcessingService {
       ].filter((c) => c > 0),
     );
     const unrecognisedHeaders: string[] = [];
-    for (const [col, h] of Object.entries(headers)) {
-      const c = Number(col);
+    for (const [col, h] of headers) {
+      const c = col;
       if (recognisedCols.has(c)) continue;
       if (!h) continue;
       // Allow purely informational columns (employee name, designation, etc.)
@@ -1897,6 +1889,25 @@ export class PayrollProcessingService {
       balancesUpdated: details.length,
       details,
     };
+  }
+
+  /**
+   * The header row as { column number → normalised header }.
+   *
+   * Keyed by ExcelJS's own ONE-based column number — the same value getCell()
+   * takes — so no reader has to add or subtract anything. This file used to
+   * hold two conventions: the attendance parser keyed by that number and read
+   * getCell(col), while the breakup parser stored the same number in an array
+   * and read getCell(index + 1). That off-by-one shifted every value one
+   * column right and dropped the last one (F10). Removing the arithmetic
+   * removes the class of bug, not just the instance.
+   */
+  private readHeaderRow(sheet: ExcelJS.Worksheet): Map<number, string> {
+    const headers = new Map<number, string>();
+    sheet.getRow(1).eachCell((cell, colNum) => {
+      headers.set(colNum, this.normalizeHeader(cell.value));
+    });
+    return headers;
   }
 
   private normalizeHeader(value: unknown): string {
