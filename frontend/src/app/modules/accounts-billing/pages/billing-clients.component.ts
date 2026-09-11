@@ -120,7 +120,12 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">CC Email</label>
-                <input name="bc-cc-email" [(ngModel)]="form.ccEmail" class="w-full px-3 py-2 border rounded-lg text-sm">
+                <input name="bc-cc-email" [(ngModel)]="form.ccEmail" placeholder="a@x.com,b@y.com" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">BCC Email</label>
+                <input name="bc-bcc-email" [(ngModel)]="form.bccEmail" placeholder="a@x.com,b@y.com" class="w-full px-3 py-2 border rounded-lg text-sm">
+                <p class="mt-1 text-[11px] text-slate-500">Hidden from the client. CC recipients are visible to each other.</p>
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">GSTIN</label>
@@ -212,7 +217,7 @@ export class BillingClientsComponent implements OnInit {
   resetForm(): void {
     this.form = {
       legalName: '', tradeName: '', billingEmail: '', contactPerson: '', mobile: '',
-      ccEmail: '', gstin: '', pan: '', stateCode: '', stateName: '',
+      ccEmail: '', bccEmail: '', gstin: '', pan: '', stateCode: '', stateName: '',
       defaultGstRate: 18, paymentTermsDays: 30, billingFrequency: 'MONTHLY',
       billingAddress: '',
     };
@@ -227,6 +232,7 @@ export class BillingClientsComponent implements OnInit {
       contactPerson: c.contactPerson,
       mobile: c.mobile,
       ccEmail: c.ccEmail,
+      bccEmail: c.bccEmail,
       gstin: c.gstin,
       pan: c.pan,
       stateCode: c.stateCode,

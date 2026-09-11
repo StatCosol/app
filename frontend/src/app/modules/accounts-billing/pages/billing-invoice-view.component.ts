@@ -334,7 +334,12 @@ import { ToastService } from '../../../shared/toast/toast.service';
             </div>
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">CC Email</label>
-              <input [(ngModel)]="emailForm.ccEmail" class="w-full px-3 py-2 border rounded-lg text-sm">
+              <input [(ngModel)]="emailForm.ccEmail" placeholder="a@x.com,b@y.com" class="w-full px-3 py-2 border rounded-lg text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">BCC Email</label>
+              <input [(ngModel)]="emailForm.bccEmail" placeholder="a@x.com,b@y.com" class="w-full px-3 py-2 border rounded-lg text-sm">
+              <p class="mt-1 text-[11px] text-slate-500">Hidden from the client. CC recipients are visible to each other.</p>
             </div>
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Subject</label>
@@ -572,6 +577,9 @@ export class BillingInvoiceViewComponent implements OnInit {
     this.emailForm = {
       toEmail: this.invoice?.billingClient?.billingEmail || '',
       ccEmail: this.invoice?.billingClient?.ccEmail || '',
+      // Prefilled from the client so a standing blind copy is not forgotten on
+      // a one-off send; still editable for this invoice only.
+      bccEmail: this.invoice?.billingClient?.bccEmail || '',
       subject: this.invoice
         ? `Invoice ${this.invoice.invoiceNumber}${
             references.length ? ` | ${references.join(' | ')}` : ''

@@ -38,6 +38,16 @@ export class BillingClient {
   @Column({ name: 'cc_email', type: 'text', nullable: true })
   ccEmail: string;
 
+  /**
+   * Blind copies for this client's invoices, comma-separated like ccEmail.
+   *
+   * Separate from ccEmail because CC discloses every recipient to the others.
+   * An internal address that should receive the invoice without the client
+   * seeing it belongs here.
+   */
+  @Column({ name: 'bcc_email', type: 'text', nullable: true })
+  bccEmail: string;
+
   @Column({ length: 20, nullable: true })
   mobile: string;
 

@@ -47,6 +47,10 @@ const APPLIED_ANOTHER_WAY: Record<string, string> = {
     'Documentation only — every statement is commented out. It records the removal ' +
     'of the boot-time UPDATE that reset identification_mode, and the manual ' +
     'follow-up for clients forced back to PIN_THEN_FACE.',
+  '20260911_invoice_bcc_email.sql':
+    'Boot patch in main.ts adds billing_clients.bcc_email and ' +
+    'invoice_email_logs.bcc_email. The file is the record and the path for a ' +
+    'fresh database; the boot patch is what reaches production.',
   '20260910_statutory_slab_effective_dates.sql':
     'Boot patch in main.ts adds payroll_statutory_slabs.effective_from/effective_to ' +
     'and backfills effective_from from created_at. The file is the record and the ' +

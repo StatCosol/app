@@ -29,6 +29,11 @@ export class CreateBillingClientDto {
   @IsString()
   ccEmail?: string;
 
+  /** Comma-separated blind copies; hidden from the other recipients. */
+  @IsOptional()
+  @IsString()
+  bccEmail?: string;
+
   @IsOptional()
   @IsString()
   mobile?: string;
@@ -102,6 +107,11 @@ export class UpdateBillingClientDto {
   @IsOptional()
   @IsString()
   ccEmail?: string;
+
+  /** Comma-separated blind copies; hidden from the other recipients. */
+  @IsOptional()
+  @IsString()
+  bccEmail?: string;
 
   @IsOptional()
   @IsString()
