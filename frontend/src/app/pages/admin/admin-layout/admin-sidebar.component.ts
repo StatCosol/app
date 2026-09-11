@@ -599,22 +599,16 @@ export class AdminSidebarComponent implements OnDestroy {
         ],
       },
       {
-        // ADMIN could always reach these routes — the guard on ACCOUNTS_ROUTES
-        // is roleGuard(['ACCOUNTS', 'ADMIN']) — but nothing in this sidebar
-        // linked to them, so they were only findable by typing the URL.
+        // One link into the billing portal, not a copy of its menu. ADMIN could
+        // always reach these routes — ACCOUNTS_ROUTES guards on
+        // roleGuard(['ACCOUNTS', 'ADMIN']) — but nothing linked to them, so
+        // they were findable only by typing the URL. The screens themselves are
+        // listed by the billing module's own sidebar, which owns them; a second
+        // list here would be a second thing to keep in step.
         label: 'Accounts & Billing',
-        expanded: false,
-        items: [
-          { label: 'Billing Dashboard', route: '/accounts/dashboard', icon: this.svg('M9 7h6M9 11h6m-6 4h3m-5 6h10a2 2 0 002-2V7a2 2 0 00-.586-1.414l-3-3A2 2 0 0015 2H7a2 2 0 00-2 2v15a2 2 0 002 2z') },
-          { label: 'Billing Clients', route: '/accounts/clients', icon: this.svg('M9 7h6M9 11h6m-6 4h3m-5 6h10a2 2 0 002-2V7a2 2 0 00-.586-1.414l-3-3A2 2 0 0015 2H7a2 2 0 00-2 2v15a2 2 0 002 2z') },
-          { label: 'Invoices', route: '/accounts/invoices', icon: this.svg('M9 7h6M9 11h6m-6 4h3m-5 6h10a2 2 0 002-2V7a2 2 0 00-.586-1.414l-3-3A2 2 0 0015 2H7a2 2 0 00-2 2v15a2 2 0 002 2z') },
-          { label: 'Recurring Invoices', route: '/accounts/recurring', icon: this.svg('M9 7h6M9 11h6m-6 4h3m-5 6h10a2 2 0 002-2V7a2 2 0 00-.586-1.414l-3-3A2 2 0 0015 2H7a2 2 0 00-2 2v15a2 2 0 002 2z') },
-          { label: 'Payments', route: '/accounts/payments', icon: this.svg('M9 7h6M9 11h6m-6 4h3m-5 6h10a2 2 0 002-2V7a2 2 0 00-.586-1.414l-3-3A2 2 0 0015 2H7a2 2 0 00-2 2v15a2 2 0 002 2z') },
-          { label: 'Pending Payments', route: '/accounts/pending-payments', icon: this.svg('M9 7h6M9 11h6m-6 4h3m-5 6h10a2 2 0 002-2V7a2 2 0 00-.586-1.414l-3-3A2 2 0 0015 2H7a2 2 0 00-2 2v15a2 2 0 002 2z') },
-          { label: 'GST Report', route: '/accounts/reports', icon: this.svg('M9 7h6M9 11h6m-6 4h3m-5 6h10a2 2 0 002-2V7a2 2 0 00-.586-1.414l-3-3A2 2 0 0015 2H7a2 2 0 00-2 2v15a2 2 0 002 2z') },
-          { label: 'Email Logs', route: '/accounts/email-logs', icon: this.svg('M9 7h6M9 11h6m-6 4h3m-5 6h10a2 2 0 002-2V7a2 2 0 00-.586-1.414l-3-3A2 2 0 0015 2H7a2 2 0 00-2 2v15a2 2 0 002 2z') },
-          { label: 'Billing Settings', route: '/accounts/settings', icon: this.svg('M9 7h6M9 11h6m-6 4h3m-5 6h10a2 2 0 002-2V7a2 2 0 00-.586-1.414l-3-3A2 2 0 0015 2H7a2 2 0 00-2 2v15a2 2 0 002 2z') },
-        ],
+        route: '/accounts/dashboard',
+        icon: this.svg('M9 7h6M9 11h6m-6 4h3m-5 6h10a2 2 0 002-2V7a2 2 0 00-.586-1.414l-3-3A2 2 0 0015 2H7a2 2 0 00-2 2v15a2 2 0 002 2z'),
+        items: [],
       },
       {
         label: 'AI Intelligence',
