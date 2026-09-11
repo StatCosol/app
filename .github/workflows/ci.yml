@@ -55,6 +55,8 @@ jobs:
         run: node --test scripts/deep-module-check.test.js scripts/deployment-gate.test.js
       - name: Unit tests
         run: npm test
+      - name: Patched dependency runtime smoke
+        run: node scripts/security-dependency-smoke.cjs
       - name: Boot check (entity metadata + DB connect)
         # Boots a TypeORM DataSource with every entity against Postgres, so a bad
         # column type (e.g. an untyped `string | null` reflecting as Object) is
@@ -119,9 +121,23 @@ jobs:
         with:
           context: ./frontend
           push: false
-          load: false
+          load: true
+          tags: statcompy-frontend-ci:${{ github.sha }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
+      - name: Verify non-root frontend runtime
+        run: |
+          docker run -d --name frontend-smoke -p 127.0.0.1:18080:8080 \
+            -e BACKEND_URL=http://127.0.0.1:3000 statcompy-frontend-ci:${{ github.sha }}
+          trap 'docker logs frontend-smoke; docker rm -f frontend-smoke' EXIT
+          test "$(docker exec frontend-smoke id -u)" != "0"
+          for i in {1..20}; do
+            if curl -fsS http://127.0.0.1:18080/healthz && curl -fsS http://127.0.0.1:18080/app/ >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
 
   face-service:
     runs-on: ubuntu-latest

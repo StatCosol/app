@@ -243,6 +243,12 @@ jobs:
 
       - name: Deploy frontend Container App
         run: |
+          # Non-root Nginx now listens on 8080. The first rollout changes ingress;
+          # subsequent rollouts keep the port unchanged. External HTTPS stays 443.
+          az containerapp ingress update \
+            --name ${{ env.FRONTEND_APP }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --target-port 8080 --only-show-errors
           az containerapp update \
             --name ${{ env.FRONTEND_APP }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \

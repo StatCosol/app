@@ -16,7 +16,7 @@ ENV NODE_ENV=production
 # Microsoft RSA Root Certificate Authority 2017 — i.e. every CA Azure rotates
 # its managed-PG server certs to. Set DB_SSL_CA_PATH=/etc/ssl/certs/ca-certificates.crt
 # in the Container App env to enforce strict TLS verification end-to-end.
-RUN apk add --no-cache ca-certificates && update-ca-certificates
+RUN apk upgrade --no-cache && apk add --no-cache ca-certificates && update-ca-certificates
 
 # Default DB_SSL_CA_PATH so strict TLS is on by default; override with empty
 # string only if explicitly debugging.
@@ -26,7 +26,9 @@ ENV DB_SSL_CA_PATH=/etc/ssl/certs/ca-certificates.crt
 RUN addgroup -S statco && adduser -S statco -G statco
 
 COPY package*.json ./
-RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force && \
+    rm -rf /usr/local/lib/node_modules/npm /opt/yarn-* && \
+    rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/yarn /usr/local/bin/yarnpkg
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/migrations ./migrations
