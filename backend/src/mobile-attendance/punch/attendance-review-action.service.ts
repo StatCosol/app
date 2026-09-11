@@ -29,7 +29,9 @@ export class AttendanceReviewActionService {
     if (queue === 'MOBILE_BORDERLINE') {
       const subjectType = dto.subjectType ?? 'EMPLOYEE';
       if (subjectType !== 'EMPLOYEE' && subjectType !== 'CONTRACTOR') {
-        throw new BadRequestException('subjectType must be EMPLOYEE or CONTRACTOR');
+        throw new BadRequestException(
+          'subjectType must be EMPLOYEE or CONTRACTOR',
+        );
       }
       const result = await this.punchReview.reviewPunch(
         clientId,
@@ -54,6 +56,8 @@ export class AttendanceReviewActionService {
       return { ok: true, status: result.status };
     }
 
-    throw new BadRequestException('queue must be MOBILE_BORDERLINE or FACEDESK_VERIFICATION');
+    throw new BadRequestException(
+      'queue must be MOBILE_BORDERLINE or FACEDESK_VERIFICATION',
+    );
   }
 }

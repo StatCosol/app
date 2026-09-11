@@ -1,0 +1,69 @@
+<main class="close-workspace">
+  <header class="hero">
+    <div><p class="eyebrow">MONTHLY WORKSPACE</p><h1>Know what needs attention.</h1>
+      <p>Bring attendance, payroll and evidence checks into one branch review.</p></div>
+    <a [routerLink]="['/', portal, 'dashboard']">Back to dashboard <span aria-hidden="true">↗</span></a>
+  </header>
+
+  <form class="filters" (ngSubmit)="load()">
+    <label>Company<select name="company" [(ngModel)]="clientId" (ngModelChange)="changeClient()" [disabled]="optionsBusy()">
+      <option value="">Choose company</option>@for (client of clients(); track client.id) { <option [value]="client.id">{{ client.clientName }}</option> }
+    </select></label>
+    <label>Branch<select name="branch" [(ngModel)]="branchId" (ngModelChange)="invalidate()" [disabled]="optionsBusy() || !clientId">
+      <option value="">Choose branch</option>@for (branch of branches(); track branch.id) { <option [value]="branch.id">{{ branch.branchName }}</option> }
+    </select></label>
+    <label>Reporting month<input name="month" type="month" min="2000-01" max="2099-12" [(ngModel)]="month" (ngModelChange)="invalidate()" required></label>
+    <button type="submit" [disabled]="busy() || optionsBusy() || !branchId">{{ busy() ? 'Checking…' : 'Review month' }}</button>
+  </form>
+
+  @if (error()) { <div role="alert" class="message error">{{ error() }} @if (!clients().length) { <button type="button" (click)="loadClients()">Retry</button> }</div> }
+  @if (optionsBusy()) { <p role="status" class="message">Loading your available companies and branches…</p> }
+  @if (busy()) { <p role="status" class="message">Checking recorded data for this branch and month…</p> }
+  @if (!optionsBusy() && !busy() && !error() && !data()) {
+    <div class="empty"><h2>{{ clients().length ? 'Start with a branch and month' : 'No companies available' }}</h2>
+      <p>{{ clients().length ? 'Review the next actions across your enabled services.' : 'Your account has no assigned companies for this workspace.' }}</p>
+      @if (clientId && !branches().length) { <p>No active branches are available for this company under your access.</p> }
+    </div>
+  }
+
+  @if (data(); as review) {
+    <section class="summary" aria-label="Review summary">
+      <div><p class="eyebrow">{{ review.branchName }} · {{ review.month }}</p>
+        <h2>{{ review.outstanding }} outstanding checks</h2>
+        <p>Counts describe checks, not unique employees. Attendance checks can overlap.</p>
+      </div>
+      <div><strong>{{ review.needsVerification ? 'Some checks need verification' : 'Review recorded results' }}</strong>
+        <p>Updated {{ review.generatedAt | date:'medium' }}</p></div>
+    </section>
+    <p class="scope-note">{{ review.note }}</p>
+    @if (!review.stages.length) { <div class="empty"><h2>No closing checks enabled</h2><p>Your current service package has no modules included in this review.</p></div> }
+    @if (review.stages.length) {
+      <div class="review-tools"><label class="search-label">Search visible actions<input type="search" [(ngModel)]="search" placeholder="Document, owner or issue"></label>
+        <label class="checkbox"><input type="checkbox" [(ngModel)]="onlyOutstanding"> Only checks needing attention</label></div>
+      @if (!visibleStages().length) { <div class="empty"><h2>No outstanding checks in recorded data</h2><p>Show all checks to inspect coverage before making a closing decision.</p></div> }
+      <div class="stages">
+        @for (stage of visibleStages(); track stage.area) {
+          <section class="stage" [attr.aria-label]="stage.title">
+            <div class="stage-heading"><div><p class="eyebrow">{{ stage.total }} recorded {{ stage.area === 'documents' ? 'requirement checks' : 'items' }}</p><h2>{{ stage.title }}</h2></div>
+              <span class="badge" [class.clear]="stage.state === 'RECORDED_CLEAR'" [class.review]="stage.state === 'REVIEW'">{{ stateLabels[stage.state] }}</span></div>
+            <p class="description">{{ stage.description }}</p>
+            @if (stage.state === 'UNKNOWN') { <p class="message">No qualifying records found. Confirm setup and data coverage with the responsible team.</p> }
+            @if (stage.issues.length) {
+              <ul class="issues">@for (issue of visibleIssues(stage); track issue.id) {
+                <li><h3>{{ issue.title }}</h3><p>{{ issue.reason }}</p>
+                  <div class="issue-meta"><span>Responsible: {{ issue.owner }}</span>@if (issue.dueDate) { <span>Due {{ issue.dueDate | date:'mediumDate' }}</span> }</div>
+                </li>
+              }</ul>
+              @if (!visibleIssues(stage).length) { <p class="message">No visible actions match this search.</p> }
+            }
+            @if (stage.truncated) { <p class="scope-note">Showing the first 100 actions. Open the source workspace to review all {{ stage.outstanding }} outstanding checks.</p> }
+            @if (stage.state !== 'UNAVAILABLE') {
+              @if (actionPath(stage.area); as path) { <a class="action" [routerLink]="path" [queryParams]="{branchId: review.branchId, month: review.month, clientId: review.clientId}">Open {{ stage.title | lowercase }} workspace <span aria-hidden="true">→</span></a> }
+              @else { <p class="scope-note">{{ stage.area === 'returns' ? 'Ask the compliance team to review these records in the returns workspace.' : 'Ask the attendance reviewer to resolve these checks in the branch attendance workspace.' }}</p> }
+            }
+          </section>
+        }
+      </div>
+    }
+  }
+</main>

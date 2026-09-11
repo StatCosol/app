@@ -31,7 +31,9 @@ const mockRepo = () => ({
 
 describe('PayrollEngineService', () => {
   let service: PayrollEngineService;
-  let moduleRef: Awaited<ReturnType<ReturnType<typeof Test.createTestingModule>['compile']>>;
+  let moduleRef: Awaited<
+    ReturnType<ReturnType<typeof Test.createTestingModule>['compile']>
+  >;
 
   beforeEach(async () => {
     moduleRef = await Test.createTestingModule({
@@ -189,6 +191,40 @@ describe('PayrollEngineService', () => {
       expect(run.status).toBe('DRAFT');
     });
 
+    it.each(['all', 'selected'])(
+      'stops before writing %s payroll when attendance loading fails',
+      async (mode) => {
+        arrange();
+        (
+          moduleRef.get(AttendanceService).getMonthlySummary as jest.Mock
+        ).mockRejectedValue(new Error('connection lost'));
+        const employee = jest
+          .spyOn(service as any, 'processEmployee')
+          .mockResolvedValue(undefined);
+        await expect(
+          mode === 'all'
+            ? service.processWithEngine('run-1')
+            : service.processSpecificEmployees('run-1', ['E001']),
+        ).rejects.toThrow('Attendance summary could not be loaded');
+        expect(employee).not.toHaveBeenCalled();
+        expect(
+          moduleRef.get(getRepositoryToken(PayrollRunEntity)).save,
+        ).not.toHaveBeenCalled();
+      },
+    );
+
+    it('does not mark an empty payroll run as processed', async () => {
+      arrange();
+      moduleRef
+        .get(getRepositoryToken(PayrollRunEmployeeEntity))
+        .find.mockResolvedValue([]);
+      await expect(service.processWithEngine('run-1')).rejects.toThrow(
+        'no employees',
+      );
+      expect(
+        moduleRef.get(getRepositoryToken(PayrollRunEntity)).save,
+      ).not.toHaveBeenCalled();
+    });
     it('marks a clean run PROCESSED', async () => {
       const run = arrange();
       jest

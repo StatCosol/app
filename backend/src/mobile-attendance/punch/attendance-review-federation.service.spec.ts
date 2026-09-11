@@ -101,7 +101,9 @@ describe('AttendanceReviewFederationService', () => {
       subjectName: `Employee ${index}`,
       subjectCode: `E${index}`,
       branchId: 'branch-1',
-      punchTime: new Date(`2026-08-09T${String(10 + (index % 10)).padStart(2, '0')}:00:00.000Z`),
+      punchTime: new Date(
+        `2026-08-09T${String(10 + (index % 10)).padStart(2, '0')}:00:00.000Z`,
+      ),
       decision: 'REVIEW_PENDING',
     }));
     dataSource.query
@@ -127,9 +129,9 @@ describe('AttendanceReviewFederationService', () => {
       limit: 50,
     });
 
-    expect(result.items.every((item) => item.queue === 'MOBILE_BORDERLINE')).toBe(
-      true,
-    );
+    expect(
+      result.items.every((item) => item.queue === 'MOBILE_BORDERLINE'),
+    ).toBe(true);
     expect(result.facedeskItems).toHaveLength(1);
     expect(result.facedeskItems[0]?.itemId).toBe('fd-old');
   });

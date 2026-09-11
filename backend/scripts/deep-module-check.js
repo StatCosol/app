@@ -5,6 +5,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const ts = require('typescript');
 
 const SRC = path.join(__dirname, '..', 'src');
 
@@ -17,38 +18,51 @@ function walk(dir, acc = []) {
   return acc;
 }
 
+function source(content) {
+  return ts.createSourceFile('audit.ts', content, ts.ScriptTarget.Latest, true);
+}
+
+function decoratedClasses(content, decorator) {
+  return source(content).statements.filter(ts.isClassDeclaration).filter(c =>
+    (ts.getDecorators(c) || []).some(d => ts.isCallExpression(d.expression) && d.expression.expression.getText() === decorator),
+  );
+}
+
 function parseModuleArray(content, key) {
-  const names = new Set();
-  const re = new RegExp(`${key}\\s*:\\s*\\[([\\s\\S]*?)\\]`, 'g');
-  let m;
-  while ((m = re.exec(content))) {
-    for (const part of m[1].split(/[,\n]/)) {
-      let t = part.replace(/\/\/.*$/, '').trim();
-      t = t.replace(/\.\.\.[A-Za-z0-9_]+/, '').trim();
-      const cm = t.match(/([A-Z][A-Za-z0-9_]*)/);
-      if (cm) names.add(cm[1]);
-    }
+  const sf = source(content);
+  const constants = new Map();
+  for (const stmt of sf.statements.filter(ts.isVariableStatement)) {
+    for (const d of stmt.declarationList.declarations) constants.set(d.name.getText(), d.initializer);
   }
-  if (/providers:\s*SERVICES/.test(content)) {
-    const sm = content.match(/const SERVICES = \[([\s\S]*?)\]/);
-    if (sm) {
-      for (const line of sm[1].split(/[,\n]/)) {
-        const cm = line.trim().match(/^([A-Z][A-Za-z0-9_]*)/);
-        if (cm) names.add(cm[1]);
-      }
+  const names = new Set();
+  function collect(n, seen = new Set()) {
+    if (!n) return;
+    if (ts.isIdentifier(n)) {
+      if (constants.has(n.text) && !seen.has(n.text)) {
+        collect(constants.get(n.text), new Set([...seen, n.text]));
+      } else names.add(n.text);
+    } else if (ts.isArrayLiteralExpression(n)) n.elements.forEach(e => collect(e, seen));
+    else if (ts.isSpreadElement(n)) collect(n.expression, seen);
+    else if (ts.isObjectLiteralExpression(n)) {
+      n.properties.filter(ts.isPropertyAssignment).filter(p => ['provide', 'useClass', 'useExisting'].includes(p.name.getText())).forEach(p => collect(p.initializer, seen));
+    } else if (ts.isCallExpression(n)) {
+      if (ts.isPropertyAccessExpression(n.expression)) collect(n.expression.expression, seen);
+      else if (n.expression.getText() === 'forwardRef') n.arguments.forEach(a => collect(a, seen));
+    } else if (ts.isArrowFunction(n)) collect(n.body, seen);
+  }
+  for (const c of sf.statements.filter(ts.isClassDeclaration)) {
+    for (const d of ts.getDecorators(c) || []) {
+      if (!ts.isCallExpression(d.expression) || d.expression.expression.getText() !== 'Module') continue;
+      const metadata = d.expression.arguments[0];
+      if (!metadata || !ts.isObjectLiteralExpression(metadata)) continue;
+      metadata.properties.filter(ts.isPropertyAssignment).filter(p => p.name.getText() === key).forEach(p => collect(p.initializer));
     }
   }
   return names;
 }
 
 function toModuleName(file) {
-  const bn = path.basename(file, '.module.ts');
-  return (
-    bn
-      .split('-')
-      .map((p) => p[0].toUpperCase() + p.slice(1))
-      .join('') + 'Module'
-  );
+  return decoratedClasses(fs.readFileSync(file, 'utf8'), 'Module')[0]?.name?.text;
 }
 
 const moduleFiles = walk(SRC).filter((f) => f.endsWith('.module.ts'));
@@ -64,32 +78,37 @@ for (const mf of moduleFiles) {
 const orphanServices = [];
 for (const f of walk(SRC).filter((f) => f.endsWith('.service.ts') && !f.includes('.spec.'))) {
   const c = fs.readFileSync(f, 'utf8');
-  if (!c.includes('@Injectable')) continue;
-  const m = c.match(/export class ([A-Za-z0-9_]+)/);
-  if (!m) continue;
-  if (!serviceMap.has(m[1])) orphanServices.push(`${m[1]} -> ${path.relative(SRC, f)}`);
+  for (const cls of decoratedClasses(c, 'Injectable')) {
+    if (!serviceMap.has(cls.name.text)) orphanServices.push(`${cls.name.text} -> ${path.relative(SRC, f)}`);
+  }
 }
 
 const orphanControllers = [];
 for (const f of walk(SRC).filter((f) => f.endsWith('.controller.ts'))) {
   const c = fs.readFileSync(f, 'utf8');
-  if (!c.includes('@Controller')) continue;
-  for (const m of c.matchAll(/export class ([A-Za-z0-9_]+)/g)) {
-    if (!controllerMap.has(m[1]))
-      orphanControllers.push(`${m[1]} -> ${path.relative(SRC, f)}`);
+  for (const cls of decoratedClasses(c, 'Controller')) {
+    if (!controllerMap.has(cls.name.text))
+      orphanControllers.push(`${cls.name.text} -> ${path.relative(SRC, f)}`);
   }
 }
 
 const app = fs.readFileSync(path.join(SRC, 'app.module.ts'), 'utf8');
-const appImports = [...app.matchAll(/^\s+([A-Za-z]+Module),/gm)].map((m) => m[1]);
+const moduleGraph = new Map(moduleFiles.map(f => [toModuleName(f), parseModuleArray(fs.readFileSync(f, 'utf8'), 'imports')]));
+const appImports = new Set();
+function visit(name) {
+  if (appImports.has(name)) return;
+  appImports.add(name);
+  for (const child of moduleGraph.get(name) || []) visit(child);
+}
+visit('AppModule');
 
 const missingFromApp = moduleFiles
   .filter((f) => {
     const c = fs.readFileSync(f, 'utf8');
-    return /controllers\s*:\s*\[/.test(c) && !f.endsWith('app.module.ts');
+    return parseModuleArray(c, 'controllers').size > 0 && !f.endsWith('app.module.ts');
   })
   .map(toModuleName)
-  .filter((m) => !appImports.includes(m) && m !== 'SharedModule');
+  .filter((m) => !appImports.has(m));
 
 const gods = [
   'payroll/payroll.service.ts',
@@ -141,9 +160,9 @@ function nonDelegateMethods(file) {
 function methodsOf(file) {
   const c = fs.readFileSync(path.join(SRC, file), 'utf8');
   return new Set(
-    [...c.matchAll(/^\s+(?:async\s+)?([a-z]\w*)\s*\(/gm)]
-      .map((m) => m[1])
-      .filter((name) => name !== 'constructor'),
+    source(c).statements.filter(ts.isClassDeclaration).flatMap(cls =>
+      cls.members.filter(ts.isMethodDeclaration).map(m => m.name.getText()),
+    ),
   );
 }
 
@@ -189,7 +208,9 @@ function verifyDelegates() {
   return ok;
 }
 
-verifyDelegates();
+if (!verifyDelegates() || orphanServices.length || orphanControllers.length || missingFromApp.length) {
+  process.exitCode = 1;
+}
 
 console.log('\n=== LARGEST NON-DELEGATE METHODS IN GOD SERVICES (top 15 each) ===');
 for (const g of gods) {

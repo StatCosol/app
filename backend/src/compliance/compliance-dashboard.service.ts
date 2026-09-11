@@ -675,5 +675,4 @@ export class ComplianceDashboardService {
       submittedBranch,
     };
   }
-
 }

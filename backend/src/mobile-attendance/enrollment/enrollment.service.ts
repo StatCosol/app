@@ -503,12 +503,7 @@ export class EnrollmentService {
     );
 
     const averaged = this.averageClientFrames(dto.embeddingFrames);
-    const {
-      clientId,
-      branchId,
-      subjectType,
-      contractorEmployeeId,
-    } = ticket;
+    const { clientId, branchId, subjectType, contractorEmployeeId } = ticket;
     const actorUserId = ticket.createdBy ?? null;
 
     // Quality gate via face-svc; with FACE_SERVER_EMBED=true the server's

@@ -13,7 +13,7 @@ import { ContractorComputationService } from './contractor-computation.service';
 describe('contractor PT/LWF resolution', () => {
   function makeService(resolveAmount: jest.Mock) {
     const args: any[] = new Array(12).fill({});
-    const svc = new (ContractorComputationService as any)(...args) as any;
+    const svc = new (ContractorComputationService as any)(...args);
     svc.stateSlab = { resolveAmount };
     return svc;
   }

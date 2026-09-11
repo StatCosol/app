@@ -164,7 +164,12 @@ export class FaceDeskReportsService {
   }) {
     const workedSeconds = Number(r.workedSeconds) || 0;
     const fullByHours = workedSeconds >= FULL_DAY_MINUTES * 60;
-    let status: 'FULL' | 'APPROVED' | 'HALF_DAY' | 'REJECTED' | 'PENDING_REVIEW';
+    let status:
+      | 'FULL'
+      | 'APPROVED'
+      | 'HALF_DAY'
+      | 'REJECTED'
+      | 'PENDING_REVIEW';
     let dayUnit: number;
     if (fullByHours) {
       status = 'FULL';
@@ -185,7 +190,10 @@ export class FaceDeskReportsService {
     const h = Math.floor(workedSeconds / 3600);
     const m = Math.round((workedSeconds % 3600) / 60);
     return {
-      day: typeof r.day === 'string' ? r.day : new Date(r.day).toISOString().slice(0, 10),
+      day:
+        typeof r.day === 'string'
+          ? r.day
+          : new Date(r.day).toISOString().slice(0, 10),
       employeeCode: r.employeeCode,
       employeeName: r.employeeName,
       branch: r.branchName ?? '',

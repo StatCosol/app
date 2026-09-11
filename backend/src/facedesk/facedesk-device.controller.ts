@@ -59,7 +59,11 @@ export class FaceDeskDeviceController {
   @Post('register')
   async register(
     @Body()
-    body: { installToken: string; androidId: string; appVersion?: string },
+    body: {
+      installToken: string;
+      androidId: string;
+      appVersion?: string;
+    },
   ) {
     const res = await this.devices.register(
       body?.installToken,
@@ -163,10 +167,7 @@ export class FaceDeskDeviceController {
   @Public()
   @UseGuards(FaceDeskDeviceAuthGuard)
   @Get('enrollment/pending')
-  pending(
-    @Req() req: Request,
-    @Query('subjectType') subjectType?: string,
-  ) {
+  pending(@Req() req: Request, @Query('subjectType') subjectType?: string) {
     const d = this.ctx(req);
     return this.enrollment.getPendingEmployees(
       d.clientId,
@@ -266,8 +267,9 @@ export class FaceDeskDeviceController {
     // rather than the APK holding credentials. The verdict is deliberately not
     // returned here either: the device reports that the check finished, and the
     // decision is read server-side, so a kiosk cannot assert its own liveness.
-    const session = await this.azureFace.createDeviceLivenessSession(d.deviceId);
+    const session = await this.azureFace.createDeviceLivenessSession(
+      d.deviceId,
+    );
     return { sessionId: session.sessionId, authToken: session.authToken };
   }
-
 }

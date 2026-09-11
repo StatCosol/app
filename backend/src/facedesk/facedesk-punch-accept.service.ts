@@ -79,10 +79,10 @@ export class FaceDeskPunchAcceptService {
     const runner = this.dataSource.createQueryRunner();
     await runner.connect();
     try {
-      await runner.query('SELECT pg_advisory_lock(hashtext($1), hashtext($2))', [
-        clientId,
-        subjectId,
-      ]);
+      await runner.query(
+        'SELECT pg_advisory_lock(hashtext($1), hashtext($2))',
+        [clientId, subjectId],
+      );
       return await fn();
     } finally {
       // Released even when the punch throws; the runner is released either way,

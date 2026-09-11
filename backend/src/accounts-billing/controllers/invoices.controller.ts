@@ -21,11 +21,7 @@ import {
   BillingReportQuery,
   BillingReportsService,
 } from '../services/billing-reports.service';
-import {
-  ConvertProformaDto,
-  CreateInvoiceDto,
-  UpdateInvoiceDto,
-} from '../dto';
+import { ConvertProformaDto, CreateInvoiceDto, UpdateInvoiceDto } from '../dto';
 
 @ApiTags('Accounts & Billing - Invoices')
 @ApiBearerAuth()
@@ -113,7 +109,9 @@ export class InvoicesController {
     return this.invoicesService.findOne(id);
   }
 
-  @ApiOperation({ summary: 'Edit an invoice (only before payments are recorded)' })
+  @ApiOperation({
+    summary: 'Edit an invoice (only before payments are recorded)',
+  })
   @Patch(':id')
   async update(
     @Param('id', ParseUUIDPipe) id: string,

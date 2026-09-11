@@ -1,3 +1,4 @@
+import { WorkspaceToolsComponent } from '../../../shared/components/workspace-tools/workspace-tools.component';
 import { Component , ChangeDetectionStrategy} from '@angular/core';
 
 import { RouterOutlet } from '@angular/router';
@@ -9,8 +10,9 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
 @Component({
   selector: 'app-admin-layout',
   standalone: true,
+  host: { class: 'workspace-ui' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, AdminSidebarComponent, NewsTickerComponent, StatcoWordmarkComponent],
+  imports: [WorkspaceToolsComponent, RouterOutlet, AdminSidebarComponent, NewsTickerComponent, StatcoWordmarkComponent],
   template: `
     <div class="admin-shell">
       <!-- Mobile menu toggle -->
@@ -74,7 +76,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
         <!-- Page content -->
         <main class="flex-1 bg-gradient-to-br from-slate-50 via-brand-50/30 to-slate-50">
           <div class="admin-content">
-            <router-outlet></router-outlet>
+            <app-workspace-tools></app-workspace-tools><router-outlet></router-outlet>
           </div>
         </main>
       </div>

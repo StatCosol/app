@@ -40,7 +40,8 @@ export class SelfEnrollDto {
   subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
 
   @ApiPropertyOptional({
-    description: 'Required when subjectType is CONTRACTOR (client-portal enroll).',
+    description:
+      'Required when subjectType is CONTRACTOR (client-portal enroll).',
   })
   @IsOptional()
   @IsUUID()

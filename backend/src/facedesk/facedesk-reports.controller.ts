@@ -28,10 +28,7 @@ export class FaceDeskReportsController {
   @Roles('CLIENT', 'ADMIN')
   dashboardCards(@CurrentUser() user: ReqUser) {
     const branchIds = facedeskBranchScope(user);
-    return this.dashboard.cards(
-      requireFaceDeskClient(user),
-      branchIds,
-    );
+    return this.dashboard.cards(requireFaceDeskClient(user), branchIds);
   }
 
   @ApiOperation({ summary: 'Daily attendance report' })

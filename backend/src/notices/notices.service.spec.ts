@@ -27,8 +27,14 @@ describe('NoticesService', () => {
       providers: [
         NoticesService,
         { provide: getRepositoryToken(NoticeEntity), useValue: repoMock() },
-        { provide: getRepositoryToken(NoticeDocumentEntity), useValue: repoMock() },
-        { provide: getRepositoryToken(NoticeActivityLogEntity), useValue: repoMock() },
+        {
+          provide: getRepositoryToken(NoticeDocumentEntity),
+          useValue: repoMock(),
+        },
+        {
+          provide: getRepositoryToken(NoticeActivityLogEntity),
+          useValue: repoMock(),
+        },
       ],
     }).compile();
 

@@ -1,3 +1,4 @@
+import { WorkspaceToolsComponent } from '../../../shared/components/workspace-tools/workspace-tools.component';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 
 import { RouterOutlet } from '@angular/router';
@@ -9,7 +10,8 @@ import { AuthService } from '../../../core/auth.service';
 @Component({
   selector: 'app-sales-layout',
   standalone: true,
-  imports: [RouterOutlet, SalesSidebarComponent],
+  host: { class: 'workspace-ui' },
+  imports: [WorkspaceToolsComponent, RouterOutlet, SalesSidebarComponent],
   template: `
     <div class="flex min-h-screen">
       <button
@@ -53,7 +55,7 @@ import { AuthService } from '../../../core/auth.service';
 
         <main class="flex-1 bg-slate-50">
           <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-            <router-outlet></router-outlet>
+            <app-workspace-tools></app-workspace-tools><router-outlet></router-outlet>
           </div>
         </main>
       </div>

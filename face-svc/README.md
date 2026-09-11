@@ -69,3 +69,22 @@ az acr build --registry statcompyacr001 --image face-svc:latest `
 az containerapp update -g statcompy-rg -n statcompy-face-svc `
     --image statcompyacr001.azurecr.io/face-svc:latest
 ```
+# Compatibility and inference safety
+
+Concurrent embedding requests are serialized around the shared detector and
+interpreter. The API response format, MobileFaceNet model, preprocessing, and
+embedding dimensions remain unchanged; existing kiosks and enrollments remain
+compatible.
+
+When using a passive liveness model, `LIVENESS_REAL_CLASS_INDEX` explicitly selects
+the real-face output class (default `1`, preserving the MiniFASNet convention).
+Confirm the deployed model's class order before changing this setting. A failed
+configured model returns a zero liveness score; an unconfigured model continues
+to return `null`. These fixes do not require a replacement kiosk APK.
+
+Run inference safety regressions without downloading biometric models:
+
+```sh
+pip install -r requirements-test.txt
+python -m unittest discover -s tests -v
+```

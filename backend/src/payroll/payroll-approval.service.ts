@@ -223,17 +223,29 @@ export class PayrollApprovalService {
       );
     }
 
-    run.status = 'DRAFT';
-    run.submittedByUserId = null;
-    run.submittedAt = null;
-    run.approvedByUserId = null;
-    run.approvedAt = null;
-    run.approvalComments = null;
-    run.rejectedByUserId = null;
-    run.rejectedAt = null;
-    run.rejectionReason = null;
-    await this.runRepo.save(run);
-    return { id: run.id, status: run.status, message: 'Run reverted to draft' };
+    // Update only decision fields and only while the observed state still holds.
+    // Saving the previously read entity could overwrite a competing submission
+    // or unrelated run edits made while access checks were in flight.
+    const result = await this.runRepo.update(
+      { id: runId, status: run.status },
+      {
+        status: 'DRAFT',
+        submittedByUserId: null,
+        submittedAt: null,
+        approvedByUserId: null,
+        approvedAt: null,
+        approvalComments: null,
+        rejectedByUserId: null,
+        rejectedAt: null,
+        rejectionReason: null,
+      },
+    );
+    if (!result.affected) {
+      throw new BadRequestException(
+        'Run state changed concurrently. Please refresh and try again.',
+      );
+    }
+    return { id: runId, status: 'DRAFT', message: 'Run reverted to draft' };
   }
 
   /** Get approval status details */

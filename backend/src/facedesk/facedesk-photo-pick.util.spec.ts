@@ -71,8 +71,16 @@ describe('pickBestPhoto', () => {
 
   it('picks the best FRONT when there are several', () => {
     const frames = [
-      { photoB64: 'front-weak', qualityScore: 0.55, sampleType: 'FRONT' as const },
-      { photoB64: 'front-strong', qualityScore: 0.9, sampleType: 'FRONT' as const },
+      {
+        photoB64: 'front-weak',
+        qualityScore: 0.55,
+        sampleType: 'FRONT' as const,
+      },
+      {
+        photoB64: 'front-strong',
+        qualityScore: 0.9,
+        sampleType: 'FRONT' as const,
+      },
     ];
     expect(pickBestPhoto(frames, 'FRONT')).toBe('front-strong');
   });

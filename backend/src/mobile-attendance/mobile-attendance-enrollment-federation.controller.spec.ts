@@ -10,7 +10,13 @@ describe('MobileAttendanceEnrollmentFederationController', () => {
   it('lists federated enrollment status for FaceDesk clients', async () => {
     const federation = {
       listFederated: jest.fn().mockResolvedValue({
-        summary: { totalEmployees: 2, mobileEnrolledActive: 0, facedeskEnrolled: 1, bothEnrolled: 0, pendingEither: 1 },
+        summary: {
+          totalEmployees: 2,
+          mobileEnrolledActive: 0,
+          facedeskEnrolled: 1,
+          bothEnrolled: 0,
+          pendingEither: 1,
+        },
         items: [],
       }),
     };

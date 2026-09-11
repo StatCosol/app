@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { MobileAttendanceDeviceEntity } from '../devices/device.entity';
@@ -748,7 +744,11 @@ export class PunchService {
     id: string,
     body: { punchTime?: string; direction?: string },
   ): Promise<{ ok: true; id: string; punchTime: string; direction: string }> {
-    return this.contractorAdminService.updateContractorPunch(clientId, id, body);
+    return this.contractorAdminService.updateContractorPunch(
+      clientId,
+      id,
+      body,
+    );
   }
 
   async deleteContractorPunch(

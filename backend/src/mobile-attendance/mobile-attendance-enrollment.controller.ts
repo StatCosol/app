@@ -68,8 +68,7 @@ export class MobileAttendanceEnrollmentController {
       );
     }
     const employeeId = user?.employeeId ?? user?.userId;
-    if (!employeeId)
-      throw new BadRequestException('Employee context required');
+    if (!employeeId) throw new BadRequestException('Employee context required');
     return this.enrollmentService.enrollSelf(
       employeeId,
       clientId,

@@ -97,6 +97,61 @@ describe('FilesService', () => {
     expect(service).toBeDefined();
   });
 
+  it.each([
+    'employee_generated_forms',
+    'compliance_returns',
+    'branch_registrations',
+    'notice_documents',
+  ])(
+    'scopes newly registered %s files to their owning client',
+    async (table) => {
+      const row = {
+        clientId: 'client-a',
+        branchId: 'branch-1',
+        employeeId: 'emp-1',
+      };
+      const { service } = await build(
+        { [table]: row },
+        { level: 'client', clientId: 'client-b' },
+      );
+      await expect(
+        service.assertCanDownload(
+          user({ clientId: 'client-b' }),
+          'forms/a.pdf',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      const allowed = await build(
+        { [table]: row },
+        { level: 'client', clientId: 'client-a' },
+      );
+      await expect(
+        allowed.service.assertCanDownload(user(), 'forms/a.pdf'),
+      ).resolves.toBeUndefined();
+    },
+  );
+
+  it('restricts invoice PDFs to billing roles and requires an existing record', async () => {
+    const { service } = await build({
+      invoices: { clientId: null, branchId: null, employeeId: null },
+    });
+    await expect(
+      service.assertCanDownload(user(), 'invoices/INV-1.pdf'),
+    ).rejects.toThrow(ForbiddenException);
+    await expect(
+      service.assertCanDownload(
+        user({ roleCode: 'ACCOUNTS' }),
+        'invoices/INV-1.pdf',
+      ),
+    ).resolves.toBeUndefined();
+    const missing = await build({});
+    await expect(
+      missing.service.assertCanDownload(
+        user({ roleCode: 'ADMIN' }),
+        'invoices/missing.pdf',
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
   /**
    * A valid token used to be the whole test on the static /uploads route, so
    * any signed-in user could read another tenant's compliance evidence,

@@ -5,10 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import {
-  AzureFaceClient,
-  AzureLivenessSession,
-} from './azure-face.client';
+import { AzureFaceClient, AzureLivenessSession } from './azure-face.client';
 import {
   FaceDeskProfileEntity,
   FaceDeskSettingsEntity,
@@ -69,11 +66,13 @@ export class FaceDeskAzureFaceService {
   ) {}
 
   private scheduleTraining(listId: string): void {
-    void this.azure.trainLargeFaceList(listId).catch((err) =>
-      this.logger.warn(
-        `Azure train failed: ${(err as Error)?.message ?? err}`,
-      ),
-    );
+    void this.azure
+      .trainLargeFaceList(listId)
+      .catch((err) =>
+        this.logger.warn(
+          `Azure train failed: ${(err as Error)?.message ?? err}`,
+        ),
+      );
   }
 
   /**
@@ -90,9 +89,7 @@ export class FaceDeskAzureFaceService {
   }
 
   private decodePhoto(photoB64: string): Buffer {
-    const raw = photoB64.includes(',')
-      ? photoB64.split(',', 2)[1]
-      : photoB64;
+    const raw = photoB64.includes(',') ? photoB64.split(',', 2)[1] : photoB64;
     return Buffer.from(raw, 'base64');
   }
 
@@ -167,7 +164,10 @@ export class FaceDeskAzureFaceService {
         image,
         employeeId,
       );
-      if (existingPersistedFaceId && existingPersistedFaceId !== persistedFaceId) {
+      if (
+        existingPersistedFaceId &&
+        existingPersistedFaceId !== persistedFaceId
+      ) {
         await this.azure
           .deletePersistedFace(listId, existingPersistedFaceId)
           .catch(() => undefined);
@@ -313,7 +313,6 @@ export class FaceDeskAzureFaceService {
     }
   }
 
-
   /**
    * Identify who a face belongs to, for FACE_ONLY attendance (1:N).
    *
@@ -362,7 +361,10 @@ export class FaceDeskAzureFaceService {
         );
         return { ok: false, reason: 'NO_MATCH' };
       }
-      if (second && top.confidence - second.confidence < this.attendanceMargin) {
+      if (
+        second &&
+        top.confidence - second.confidence < this.attendanceMargin
+      ) {
         this.logger.warn(
           `Azure attendance identify ambiguous: ${top.confidence.toFixed(3)} vs ` +
             `${second.confidence.toFixed(3)} — refusing rather than guessing`,
@@ -423,5 +425,4 @@ export class FaceDeskAzureFaceService {
       return { ok: false, reason: 'AZURE_ERROR' };
     }
   }
-
 }

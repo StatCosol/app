@@ -713,8 +713,8 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
     }
 
     private fun flushOfflineQueue() {
-        if (offline.size() == 0) return
         lifecycleScope.launch {
+          try {
             FaceDeskOfflineSync.flush(
                 api = api,
                 store = offline,
@@ -723,6 +723,12 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             if (offline.size() > 0) {
                 FaceDeskOfflineSyncWorker.enqueue(this@FaceDeskAttendanceActivity)
             }
+          } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+          } catch (e: Exception) {
+            android.util.Log.e("FaceDeskSync", "Queue flush deferred", e)
+            FaceDeskOfflineSyncWorker.enqueue(this@FaceDeskAttendanceActivity)
+          }
         }
     }
 

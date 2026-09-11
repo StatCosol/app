@@ -73,7 +73,11 @@ export class ReenrollmentService {
     embeddingModel: string | null;
     photoUrl: string | null;
     reason?: string | null;
-  }): Promise<{ status: 'PENDING_REVIEW'; requestId: string; message: string }> {
+  }): Promise<{
+    status: 'PENDING_REVIEW';
+    requestId: string;
+    message: string;
+  }> {
     const saved = await this.dataSource.transaction(async (em) => {
       await em.update(
         FaceReenrollmentRequestEntity,
@@ -117,7 +121,11 @@ export class ReenrollmentService {
     embeddingModel: string | null;
     photoUrl: string | null;
     reason?: string | null;
-  }): Promise<{ status: 'PENDING_REVIEW'; requestId: string; message: string }> {
+  }): Promise<{
+    status: 'PENDING_REVIEW';
+    requestId: string;
+    message: string;
+  }> {
     const saved = await this.dataSource.transaction(async (em) => {
       await em.update(
         ContractorFaceReenrollmentRequestEntity,

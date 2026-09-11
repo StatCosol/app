@@ -106,17 +106,41 @@ describe('bulk upload validation', () => {
       // even when the sheet has no such column — harmless, and TypeORM ignores
       // undefined. What matters is that nothing UNdeclared is on it.
       const declared = [
-        'name', 'skillCategory', 'monthlySalary', 'dailyWage', 'gender',
-        'dateOfBirth', 'dateOfJoining', 'fatherName', 'phone', 'email',
-        'designation', 'department', 'aadhaar', 'pan', 'uan', 'esic',
-        'pfApplicable', 'esiApplicable', 'stateCode', 'employeeCode',
-        'punchCode', 'branchId',
+        'name',
+        'skillCategory',
+        'monthlySalary',
+        'dailyWage',
+        'gender',
+        'dateOfBirth',
+        'dateOfJoining',
+        'fatherName',
+        'phone',
+        'email',
+        'designation',
+        'department',
+        'aadhaar',
+        'pan',
+        'uan',
+        'esic',
+        'pfApplicable',
+        'esiApplicable',
+        'stateCode',
+        'employeeCode',
+        'punchCode',
+        'branchId',
       ];
       const res = validateBulkRow(goodRow);
       expect(res.ok).toBe(true);
       if (res.ok) {
-        expect(Object.keys(res.row).filter((k) => !declared.includes(k))).toEqual([]);
-        for (const owned of ['status', 'dateOfExit', 'exitReason', 'isActive']) {
+        expect(
+          Object.keys(res.row).filter((k) => !declared.includes(k)),
+        ).toEqual([]);
+        for (const owned of [
+          'status',
+          'dateOfExit',
+          'exitReason',
+          'isActive',
+        ]) {
           expect(res.row).not.toHaveProperty(owned);
         }
       }
@@ -157,9 +181,9 @@ describe('bulk upload validation', () => {
       // the row by name if the result is not one of the four grades, so @IsIn
       // here would reject these before that ever ran.
       for (const spelling of ['semi skilled', 'Semi-Skilled', 'skilled']) {
-        expect(validateBulkRow({ ...goodRow, skillCategory: spelling }).ok).toBe(
-          true,
-        );
+        expect(
+          validateBulkRow({ ...goodRow, skillCategory: spelling }).ok,
+        ).toBe(true);
       }
     });
 

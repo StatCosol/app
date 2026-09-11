@@ -37,7 +37,10 @@ describe('FaceDeskDeviceAuthGuard', () => {
     } as ExecutionContext;
 
     await expect(guard.canActivate(execution)).resolves.toBe(true);
-    expect(deviceService.authenticate).toHaveBeenCalledWith('abc123', undefined);
+    expect(deviceService.authenticate).toHaveBeenCalledWith(
+      'abc123',
+      undefined,
+    );
     expect(request.facedeskDevice.deviceId).toBe('dev-1');
   });
 
@@ -50,10 +53,7 @@ describe('FaceDeskDeviceAuthGuard', () => {
     } as ExecutionContext;
 
     await guard.canActivate(execution);
-    expect(deviceService.authenticate).toHaveBeenCalledWith(
-      'tok',
-      'android-1',
-    );
+    expect(deviceService.authenticate).toHaveBeenCalledWith('tok', 'android-1');
   });
 
   it('rejects invalid bearer tokens from authenticate failures', async () => {
@@ -62,9 +62,7 @@ describe('FaceDeskDeviceAuthGuard', () => {
     );
 
     await expect(
-      guard.canActivate(
-        ctx({ authorization: 'Bearer revoked-token' }),
-      ),
+      guard.canActivate(ctx({ authorization: 'Bearer revoked-token' })),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

@@ -1,3 +1,6 @@
+import { PayrollReconciliationController } from './reconciliation/payroll-reconciliation.controller';
+import { PayrollReconciliationService } from './reconciliation/payroll-reconciliation.service';
+import { ServiceEntitlementsModule } from '../service-entitlements/service-entitlements.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PayrollClientAssignmentEntity } from './entities/payroll-client-assignment.entity';
@@ -131,6 +134,7 @@ import { AccessModule } from '../access/access.module';
 @Module({
   imports: [
     AccessModule,
+    ServiceEntitlementsModule,
     StateSlabModule,
     TypeOrmModule.forFeature([
       PayrollClientAssignmentEntity,
@@ -190,6 +194,7 @@ import { AccessModule } from '../access/access.module';
     AttendanceModule,
   ],
   controllers: [
+    PayrollReconciliationController,
     PayrollAssignmentsAdminController,
     ClientPayrollInputsController,
     ClientPayrollMonitoringController,
@@ -224,6 +229,7 @@ import { AccessModule } from '../access/access.module';
     BranchCtcController,
   ],
   providers: [
+    PayrollReconciliationService,
     PayrollService,
     PayrollClientScopeService,
     PayrollQueryService,

@@ -32,6 +32,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.statcosol.ess.portal.databinding.ActivityMainBinding
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
+import org.json.JSONObject
+import android.util.Base64
 
 /**
  * Thin WebView wrapper that hosts the existing Angular ESS portal at
@@ -56,6 +60,22 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefs: SharedPreferences
     private var pendingFileChooser: ValueCallback<Array<Uri>>? = null
     private var pendingPermissionRequest: PermissionRequest? = null
+    private var pendingDownload: ByteArray? = null
+    private val saveDownloadLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val bytes = pendingDownload
+        pendingDownload = null
+        val uri = result.data?.data
+        if (result.resultCode == RESULT_OK && bytes != null && uri != null) {
+            Thread {
+                val saved = runCatching {
+                    checkNotNull(contentResolver.openOutputStream(uri)).use { it.write(bytes) }
+                }.isSuccess
+                runOnUiThread { Toast.makeText(this, if (saved) "File saved" else "Could not save file", Toast.LENGTH_LONG).show() }
+            }.start()
+        }
+    }
 
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -135,6 +155,42 @@ class MainActivity : AppCompatActivity() {
 
     private fun configureWebView() {
         val wv = binding.webView
+        val portal = prefs.getString(KEY_PORTAL_URL, null)?.takeIf { isAllowedUrl(it) }
+            ?: BuildConfig.DEFAULT_PORTAL_URL
+        val uri = Uri.parse(portal)
+        val origin = "https://${uri.encodedAuthority}"
+        if (uri.scheme == "https" && WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            WebViewCompat.addWebMessageListener(wv, "StatcoDownload", setOf(origin)) { _, message, sourceOrigin, isMainFrame, _ ->
+                if (!isMainFrame || sourceOrigin.toString().trimEnd('/') != origin ||
+                    binding.webView.url?.let { Uri.parse(it).let { page -> "${page.scheme}://${page.encodedAuthority}" } } != origin) {
+                    return@addWebMessageListener
+                }
+                if (pendingDownload != null) {
+                    Toast.makeText(this, "Finish the current download first", Toast.LENGTH_SHORT).show()
+                    return@addWebMessageListener
+                }
+                try {
+                    val raw = message.data ?: error("Empty download")
+                    check(raw.length <= 28 * 1024 * 1024) { "Download exceeds 20 MB" }
+                    val payload = JSONObject(raw)
+                    val bytes = Base64.decode(payload.getString("data"), Base64.NO_WRAP)
+                    check(bytes.size <= 20 * 1024 * 1024) { "Download exceeds 20 MB" }
+                    val name = payload.optString("fileName", "document")
+                        .replace(Regex("[\\\\/\\p{Cntrl}]"), "_").take(180).ifBlank { "document" }
+                    val mime = payload.optString("mimeType", "application/octet-stream")
+                        .takeIf { it.matches(Regex("[a-zA-Z0-9.+-]+/[a-zA-Z0-9.+-]+")) } ?: "application/octet-stream"
+                    pendingDownload = bytes
+                    saveDownloadLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = mime
+                        putExtra(Intent.EXTRA_TITLE, name)
+                    })
+                } catch (e: Exception) {
+                    pendingDownload = null
+                    Toast.makeText(this, "Could not start download: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
         with(wv.settings) {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -306,8 +362,9 @@ class MainActivity : AppCompatActivity() {
             val u = Uri.parse(raw)
             val scheme = u.scheme?.lowercase()
             val host = u.host?.lowercase()
-            if (scheme != "https" && scheme != "http") return false
+            if (scheme != "https") return false
             if (host.isNullOrBlank()) return false
+            if (u.encodedAuthority?.contains('@') == true) return false
             isAllowedHost(host)
         } catch (_: Exception) {
             false

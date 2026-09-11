@@ -28,14 +28,12 @@ describe('resolveCaptureTuning', () => {
   it('ignores a value outside its range rather than clamping it', () => {
     // Clamping a typo to an edge would look deliberate. Falling back to the
     // default makes a bad entry behave like "not configured".
-    expect(resolveCaptureTuning({ minSharpnessAttendance: 0 }))
-      .toMatchObject({
-        minSharpnessAttendance: DEFAULT_CAPTURE_TUNING.minSharpnessAttendance,
-      });
-    expect(resolveCaptureTuning({ minFaceSizeAttendance: 1.0 }))
-      .toMatchObject({
-        minFaceSizeAttendance: DEFAULT_CAPTURE_TUNING.minFaceSizeAttendance,
-      });
+    expect(resolveCaptureTuning({ minSharpnessAttendance: 0 })).toMatchObject({
+      minSharpnessAttendance: DEFAULT_CAPTURE_TUNING.minSharpnessAttendance,
+    });
+    expect(resolveCaptureTuning({ minFaceSizeAttendance: 1.0 })).toMatchObject({
+      minFaceSizeAttendance: DEFAULT_CAPTURE_TUNING.minFaceSizeAttendance,
+    });
   });
 
   it('never lets a bad row stop a kiosk configuring itself', () => {
@@ -107,16 +105,19 @@ describe('CaptureTuningDto', () => {
   });
 
   it('accepts a partial override', () => {
-    expect(errorsFor({ captureTuning: { minSharpnessEnrollment: 55 } }))
-      .toHaveLength(0);
+    expect(
+      errorsFor({ captureTuning: { minSharpnessEnrollment: 55 } }),
+    ).toHaveLength(0);
   });
 
   it('rejects an out-of-range value instead of storing it', () => {
     // Reported to the operator rather than silently ignored on read.
-    expect(errorsFor({ captureTuning: { minSharpnessAttendance: 0 } }))
-      .not.toHaveLength(0);
-    expect(errorsFor({ captureTuning: { minFaceSizeAttendance: 1.0 } }))
-      .not.toHaveLength(0);
+    expect(
+      errorsFor({ captureTuning: { minSharpnessAttendance: 0 } }),
+    ).not.toHaveLength(0);
+    expect(
+      errorsFor({ captureTuning: { minFaceSizeAttendance: 1.0 } }),
+    ).not.toHaveLength(0);
   });
 
   it('rejects an unknown key inside the tuning object', () => {

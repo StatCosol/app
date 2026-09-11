@@ -47,8 +47,12 @@ jobs:
         run: npm ci
       - name: Typecheck
         run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint:check
       - name: Deep module check
         run: npm run deep-module-check
+      - name: Module checker regressions
+        run: node --test scripts/deep-module-check.test.js scripts/deployment-gate.test.js
       - name: Unit tests
         run: npm test
       - name: Boot check (entity metadata + DB connect)
@@ -80,6 +84,8 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+      - name: Lint
+        run: npm run lint
       - name: Unit tests (Vitest service specs)
         run: npm run test:unit
       - name: Install Chromium for browser tests
@@ -116,6 +122,19 @@ jobs:
           load: false
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
+
+  face-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Inference safety regressions
+        working-directory: face-svc
+        run: |
+          pip install -r requirements-test.txt
+          python -m unittest discover -s tests -v
 
   payroll-transition-smoke:
     runs-on: ubuntu-latest

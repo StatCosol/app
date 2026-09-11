@@ -1,3 +1,4 @@
+import { WorkspaceToolsComponent } from '../../../shared/components/workspace-tools/workspace-tools.component';
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy} from '@angular/core';
 
 import { RouterOutlet } from '@angular/router';
@@ -10,8 +11,9 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
 @Component({
   selector: 'app-payroll-layout',
   standalone: true,
+  host: { class: 'workspace-ui' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, PayrollSidebarComponent, StatcoWordmarkComponent],
+  imports: [WorkspaceToolsComponent, RouterOutlet, PayrollSidebarComponent, StatcoWordmarkComponent],
   template: `
     <div class="payroll-shell">
       <!-- Mobile menu toggle -->
@@ -56,7 +58,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
               <div class="flex items-center gap-4">
                 @if (clientLogoUrl) {
 <img
-                 
+
                   [src]="clientLogoUrl"
                   alt="Client logo"
                   class="h-10 w-auto hidden sm:block"
@@ -81,7 +83,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
         <!-- Page content -->
         <main class="flex-1 bg-gradient-to-br from-slate-50 via-sky-50/30 to-slate-50">
           <div class="payroll-content">
-            <router-outlet></router-outlet>
+            <app-workspace-tools></app-workspace-tools><router-outlet></router-outlet>
           </div>
         </main>
       </div>

@@ -7,11 +7,11 @@
   overflow: hidden;
   border-radius: 1.25rem;
   padding: 1.75rem 2rem;
-  background: linear-gradient(120deg, #312e81 0%, #4338ca 45%, #4f46e5 75%, #6d28d9 100%);
+  background: linear-gradient(115deg, #0a1f44 0%, #123a55 65%, #14624f 100%);
   color: #fff;
   box-shadow:
-    0 10px 30px rgba(67, 56, 202, 0.35),
-    0 2px 8px rgba(67, 56, 202, 0.25);
+    0 10px 30px rgba(10, 31, 68, 0.14),
+    0 2px 8px rgba(10, 31, 68, 0.08);
 
   &__glow {
     position: absolute;
@@ -25,7 +25,7 @@
       height: 340px;
       top: -160px;
       right: -80px;
-      background: radial-gradient(circle, #818cf8, transparent 70%);
+      background: radial-gradient(circle, #70b5bb, transparent 70%);
     }
     &--two {
       width: 260px;
@@ -53,7 +53,7 @@
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #c7d2fe;
+    color: #c5e1e5;
     margin-bottom: 0.25rem;
   }
 
@@ -71,7 +71,7 @@
   &__subtitle {
     margin-top: 0.35rem;
     font-size: 0.9rem;
-    color: #e0e7ff;
+    color: #e0eff3;
 
     strong { color: #fff; font-weight: 700; }
   }
@@ -92,7 +92,7 @@
     border: 1px solid rgba(255, 255, 255, 0.18);
     white-space: nowrap;
 
-    &--more { background: rgba(255, 255, 255, 0.06); color: #c7d2fe; }
+    &--more { background: rgba(255, 255, 255, 0.06); color: #c5e1e5; }
   }
 
   &__quickstats {
@@ -126,7 +126,7 @@
 
   &__stat-label {
     font-size: 0.7rem;
-    color: #c7d2fe;
+    color: #c5e1e5;
     font-weight: 500;
   }
 
@@ -201,5 +201,5 @@
   }
 
   &__ring-value { font-size: 1.4rem; font-weight: 800; }
-  &__ring-label { font-size: 0.68rem; color: #c7d2fe; }
+  &__ring-label { font-size: 0.68rem; color: #c5e1e5; }
 }

@@ -1,3 +1,4 @@
+import { WorkspaceToolsComponent } from '../../../shared/components/workspace-tools/workspace-tools.component';
 import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 import { RouterOutlet, Router } from '@angular/router';
@@ -9,8 +10,9 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
 @Component({
   selector: 'app-branch-layout',
   standalone: true,
+  host: { class: 'workspace-ui' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, BranchSidebarComponent, NewsTickerComponent, StatcoWordmarkComponent],
+  imports: [WorkspaceToolsComponent, RouterOutlet, BranchSidebarComponent, NewsTickerComponent, StatcoWordmarkComponent],
   template: `
     <div class="branch-shell">
       <!-- Mobile menu toggle -->
@@ -58,7 +60,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
                 <!-- Client logo -->
                 @if (clientLogoUrl) {
 <img
-                 
+
                   [src]="clientLogoUrl"
                   alt="Client logo"
                   class="h-8 w-auto hidden sm:block mr-1"
@@ -125,7 +127,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
         <!-- Page content -->
         <main class="flex-1 bg-gradient-to-br from-slate-50 via-brand-50/30 to-slate-50">
           <div class="branch-content">
-            <router-outlet></router-outlet>
+            <app-workspace-tools></app-workspace-tools><router-outlet></router-outlet>
           </div>
         </main>
       </div>

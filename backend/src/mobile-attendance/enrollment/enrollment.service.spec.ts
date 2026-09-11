@@ -197,7 +197,9 @@ describe('EnrollmentService kiosk tickets', () => {
         } as any,
         'user-1',
       ),
-    ).rejects.toThrow('ESS Mobile Attendance employee enrollment has been retired');
+    ).rejects.toThrow(
+      'ESS Mobile Attendance employee enrollment has been retired',
+    );
   });
 
   it('uses the selected kiosk device branch for the enrollment ticket', async () => {
@@ -511,7 +513,9 @@ describe('EnrollmentService kiosk tickets', () => {
         embeddingFrames: ['a', 'b', 'c'],
         livenessNonce: 'nonce-1',
       } as any),
-    ).rejects.toThrow('ESS Mobile Attendance employee enrollment has been retired');
+    ).rejects.toThrow(
+      'ESS Mobile Attendance employee enrollment has been retired',
+    );
   });
 });
 
@@ -566,11 +570,13 @@ describe('EnrollmentService self-enrollment embeddings', () => {
       save: jest.fn(async (_target: unknown, entity: any) => entity),
     };
     const dataSource = {
-      query: jest.fn().mockResolvedValue(
-        subject === 'CONTRACTOR'
-          ? [{ id: 'contractor-1', branch_id: 'branch-1' }]
-          : [],
-      ),
+      query: jest
+        .fn()
+        .mockResolvedValue(
+          subject === 'CONTRACTOR'
+            ? [{ id: 'contractor-1', branch_id: 'branch-1' }]
+            : [],
+        ),
       transaction: jest.fn(async (fn: any) => fn(manager)),
     };
     const service = new EnrollmentService(

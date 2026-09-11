@@ -270,9 +270,7 @@ export class ContractorEmployeesService {
       [clientId, contractorUserId],
     );
 
-    const derived = mine?.code
-      ? String(mine.code).replace(/[0-9]+$/, '')
-      : '';
+    const derived = mine?.code ? String(mine.code).replace(/[0-9]+$/, '') : '';
     let prefix = GENERATED_PREFIX.test(derived) ? derived : null;
 
     if (!prefix) {
@@ -541,8 +539,7 @@ export class ContractorEmployeesService {
 
         // Item #4b: per-row min-wage soft check (warning, not abort).
         const wageWarning = await this.minWage.checkSalary({
-          stateCode:
-            branchStates.get(branchId) ?? prepared.stateCode ?? null,
+          stateCode: branchStates.get(branchId) ?? prepared.stateCode ?? null,
           skillCategory: prepared.skillCategory ?? null,
           monthlySalary: prepared.monthlySalary ?? null,
           scheduledEmployment,

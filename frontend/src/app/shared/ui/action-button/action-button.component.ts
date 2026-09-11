@@ -7,33 +7,38 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
 
 @Component({
   selector: 'ui-button',
+  host: { class: 'bs-surface' },
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, RouterModule],
   template: `
     @if (routerLink) {
 
-      <a [routerLink]="routerLink"
+      <a [routerLink]="disabled || loading ? null : routerLink"
+         [attr.aria-disabled]="disabled || loading"
+         [attr.aria-busy]="loading"
+         [attr.tabindex]="disabled || loading ? -1 : null"
          [ngClass]="buttonClasses"
          [style]="buttonStyle"
-         [class.pointer-events-none]="disabled"
+         [class.pointer-events-none]="disabled || loading"
          [class.opacity-50]="disabled">
         <ng-container *ngTemplateOutlet="contentTemplate"></ng-container>
       </a>
-    
+
 } @else {
 
       <button [type]="type"
               [disabled]="disabled || loading"
+              [attr.aria-busy]="loading"
               [ngClass]="buttonClasses"
               [style]="buttonStyle"
               (click)="handleClick($event)">
         <ng-container *ngTemplateOutlet="contentTemplate"></ng-container>
       </button>
-    
+
 }
 
-    
+
 
     <ng-template #contentTemplate>
       @if (loading) {
@@ -98,16 +103,12 @@ export class ActionButtonComponent {
 
     const widthClass = this.fullWidth ? 'w-full' : '';
 
-    return `${base} ${sizeClasses[this.size]} ${variantClasses[this.variant]} ${widthClass}`;
+    const bootstrapVariants: Record<ButtonVariant, string> = {
+      primary: 'btn-primary', secondary: 'btn-outline-secondary', danger: 'btn-danger',
+      success: 'btn-success', warning: 'btn-warning', outline: 'btn-outline-primary', ghost: 'btn-light',
+    };
+    return `btn ${bootstrapVariants[this.variant]} ${base} ${sizeClasses[this.size]} ${variantClasses[this.variant]} ${widthClass}`;
   }
 
-  get buttonStyle(): string {
-    const gradients: Partial<Record<ButtonVariant, string>> = {
-      primary: 'background: linear-gradient(135deg, #0A1F44 0%, #1e40af 100%)',
-      danger: 'background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%)',
-      success: 'background: linear-gradient(135deg, #047857 0%, #10b981 100%)',
-      warning: 'background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%)',
-    };
-    return gradients[this.variant] ?? '';
-  }
+  readonly buttonStyle = '';
 }

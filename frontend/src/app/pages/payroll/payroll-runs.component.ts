@@ -1,3 +1,4 @@
+import { PayrollReconciliationComponent } from './reconciliation/payroll-reconciliation.component';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
@@ -118,6 +119,7 @@ interface GuardrailItem {
     LoadingSpinnerComponent,
     EmptyStateComponent,
     ClientContextStripComponent,
+    PayrollReconciliationComponent,
   ],
   templateUrl: './payroll-runs.component.html',
   styleUrls: ['./payroll-runs.component.scss'],

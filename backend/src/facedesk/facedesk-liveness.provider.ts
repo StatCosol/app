@@ -61,7 +61,8 @@ export class DeviceLivenessProvider implements FaceDeskLivenessProvider {
   readonly name = 'device';
 
   private readonly requireServer =
-    (process.env.FD_REQUIRE_SERVER_LIVENESS ?? 'false').toLowerCase() === 'true';
+    (process.env.FD_REQUIRE_SERVER_LIVENESS ?? 'false').toLowerCase() ===
+    'true';
   private readonly floor = Number(process.env.FD_SERVER_LIVENESS_MIN ?? 0.5);
 
   async evaluate(input: LivenessInput): Promise<LivenessResult> {

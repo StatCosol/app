@@ -103,7 +103,9 @@ export class FaceDeskAdminController {
     return rows;
   }
 
-  @ApiOperation({ summary: 'Short (<full-day) worked days pending branch review' })
+  @ApiOperation({
+    summary: 'Short (<full-day) worked days pending branch review',
+  })
   @Get('admin/day-reviews')
   @Roles('CLIENT', 'ADMIN')
   dayReviews(
@@ -151,14 +153,12 @@ export class FaceDeskAdminController {
   }
 
   @ApiOperation({
-    summary: 'Recent captures for verifying the kiosk is photographing properly',
+    summary:
+      'Recent captures for verifying the kiosk is photographing properly',
   })
   @Get('admin/capture-audit')
   @Roles('CLIENT', 'ADMIN')
-  captureAudit(
-    @CurrentUser() user: ReqUser,
-    @Query('limit') limit?: string,
-  ) {
+  captureAudit(@CurrentUser() user: ReqUser, @Query('limit') limit?: string) {
     // Branch-verifier scope, same as the photos themselves. The listing carries
     // names and availability flags rather than images, but it is still a roster
     // of who was photographed and when, so it is not widened past the people

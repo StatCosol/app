@@ -1,0 +1,46 @@
+// Selective Bootstrap components, scoped to explicitly adopted Angular surfaces.
+// Omit Reboot, grid and utilities to preserve legacy Tailwind layouts.
+@import 'bootstrap/scss/functions';
+$primary: #116653;
+$secondary: #526576;
+$success: #14764b;
+$info: #156d8c;
+$warning: #f0b429;
+$danger: #b32636;
+$body-color: #18352f;
+$body-bg: #f5f7f6;
+$border-color: #d6e2de;
+$border-radius: .65rem;
+$border-radius-lg: .9rem;
+$font-family-sans-serif: 'Segoe UI', Inter, sans-serif;
+$btn-font-weight: 600;
+$btn-padding-y: .65rem;
+$btn-padding-x: 1rem;
+$input-padding-y: .7rem;
+$input-focus-border-color: #187e68;
+$input-focus-box-shadow: 0 0 0 .2rem rgba(17, 102, 83, .14);
+$enable-dark-mode: false;
+@import 'bootstrap/scss/variables';
+@import 'bootstrap/scss/variables-dark';
+@import 'bootstrap/scss/maps';
+@import 'bootstrap/scss/mixins';
+@import 'bootstrap/scss/root';
+.bs-surface {
+  @import 'bootstrap/scss/buttons';
+  @import 'bootstrap/scss/button-group';
+  @import 'bootstrap/scss/forms/labels';
+  @import 'bootstrap/scss/forms/form-control';
+  @import 'bootstrap/scss/forms/form-select';
+  @import 'bootstrap/scss/tables';
+  @import 'bootstrap/scss/badge';
+  @import 'bootstrap/scss/nav';
+  @import 'bootstrap/scss/pagination';
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; text-decoration: none; }
+  .btn:focus-visible { outline: 3px solid #16816a; outline-offset: 3px; }
+  .btn-warning { color: #362600; }
+  .form-control, .form-select { font-size: .875rem; }
+  .form-control[aria-invalid=true], .form-select[aria-invalid=true] { border-color: #b32636; }
+  .table { --bs-table-bg: #fff; --bs-table-hover-bg: #f0f7f4; --bs-table-border-color: #e4ece8; margin-bottom: 0; }
+  .table thead th { background: #f0f5f2; color: #445e54; font-weight: 700; border-bottom-width: 1px; }
+  .table tbody td { vertical-align: middle; }
+}

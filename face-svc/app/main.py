@@ -53,6 +53,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from PIL import Image
 from pydantic import BaseModel, model_validator
+from app.inference_safety import INFERENCE_LOCK, real_probability
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("face-svc")
@@ -75,6 +76,8 @@ ARC_MODEL_NAME = f"arcface-{INSIGHTFACE_MODEL}-v1"
 # passive liveness (optional MiniFASNet-style ONNX)
 LIVENESS_MODEL_PATH = os.environ.get("LIVENESS_MODEL_PATH", "").strip()
 LIVENESS_INPUT_SIZE = int(os.environ.get("LIVENESS_INPUT_SIZE", "80"))
+# Preserve the MiniFASNet real class (index 1), including binary models.
+LIVENESS_REAL_CLASS_INDEX = int(os.environ.get("LIVENESS_REAL_CLASS_INDEX", "1"))
 
 # quality thresholds (computed on the face crop)
 MIN_FACE_PX = int(os.environ.get("MIN_FACE_PX", "112"))
@@ -160,6 +163,11 @@ def _load_insightface():
 def _load_liveness():
     import onnxruntime as ort  # type: ignore
     sess = ort.InferenceSession(LIVENESS_MODEL_PATH, providers=["CPUExecutionProvider"])
+    shape = sess.get_outputs()[0].shape
+    if LIVENESS_REAL_CLASS_INDEX < 0:
+        raise ValueError("LIVENESS_REAL_CLASS_INDEX must be non-negative")
+    if shape and isinstance(shape[-1], int):
+        real_probability([0.0] * shape[-1], LIVENESS_REAL_CLASS_INDEX)
     return sess
 
 
@@ -291,13 +299,11 @@ def _liveness_score(crop_rgb: np.ndarray) -> Optional[float]:
         inp = _liveness.get_inputs()[0]
         out = _liveness.run(None, {inp.name: x})[0].reshape(-1)
         # MiniFASNet heads emit [spoof-2d, real, spoof-3d] logits; softmax → P(real)
-        e = np.exp(out - out.max())
-        probs = e / e.sum()
-        real_idx = 1 if probs.shape[0] >= 3 else int(np.argmax(probs))
-        return float(probs[real_idx])
+        return real_probability(out, LIVENESS_REAL_CLASS_INDEX)
     except Exception as exc:  # pylint: disable=broad-except
         log.warning("liveness scoring failed: %s", exc)
-        return None
+        # A configured model that fails must not disable the liveness gate.
+        return 0.0
 
 
 # ---------------------------------------------------------------- backends
@@ -389,9 +395,12 @@ def embed(req: EmbedRequest) -> JSONResponse:
     arr = np.asarray(img, dtype=np.uint8)
 
     # 2. detect + embed via the configured backend
-    result = (
-        _embed_insightface(arr) if EMBEDDING_BACKEND == "insightface" else _embed_mobilefacenet(arr)
-    )
+    # FastAPI runs this synchronous endpoint in a thread pool. Protect the
+    # complete detector + set/invoke/get sequence, not only invoke().
+    with INFERENCE_LOCK:
+        result = (
+            _embed_insightface(arr) if EMBEDDING_BACKEND == "insightface" else _embed_mobilefacenet(arr)
+        )
     if isinstance(result, str):
         status = 500 if result in ("model_failed", "bad_embedding_dim") else 422
         return JSONResponse(EmbedResponse(ok=False, error=result).model_dump(), status_code=status)

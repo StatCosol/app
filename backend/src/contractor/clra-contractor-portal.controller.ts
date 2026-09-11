@@ -168,7 +168,10 @@ export class ClraContractorPortalController {
   ) {
     const c = await this.contractor(user);
     await this.svc.assertWagePeriodBelongsToContractor(dto.wagePeriodId, c.id);
-    await this.svc.assertDeploymentBelongsToContractor(dto.workerDeploymentId, c.id);
+    await this.svc.assertDeploymentBelongsToContractor(
+      dto.workerDeploymentId,
+      c.id,
+    );
     return this.svc.upsertAttendance(dto);
   }
 
@@ -189,7 +192,10 @@ export class ClraContractorPortalController {
   ) {
     const c = await this.contractor(user);
     await this.svc.assertWagePeriodBelongsToContractor(dto.wagePeriodId, c.id);
-    await this.svc.assertDeploymentBelongsToContractor(dto.workerDeploymentId, c.id);
+    await this.svc.assertDeploymentBelongsToContractor(
+      dto.workerDeploymentId,
+      c.id,
+    );
     return this.svc.upsertWage(dto);
   }
 
@@ -211,7 +217,10 @@ export class ClraContractorPortalController {
     const c = await this.contractor(user);
     await this.svc.assertAssignmentBelongsToContractor(dto.assignmentId, c.id);
     if (dto.wagePeriodId) {
-      await this.svc.assertWagePeriodBelongsToContractor(dto.wagePeriodId, c.id);
+      await this.svc.assertWagePeriodBelongsToContractor(
+        dto.wagePeriodId,
+        c.id,
+      );
     }
     return this.svc.createRegisterRun(
       dto.assignmentId,
@@ -225,7 +234,10 @@ export class ClraContractorPortalController {
 
   @Post('register-runs/upload')
   @UseInterceptors(
-    FileInterceptor('file', makeSafeUploadOptions({ folder: 'clra-registers', maxMb: 10 })),
+    FileInterceptor(
+      'file',
+      makeSafeUploadOptions({ folder: 'clra-registers', maxMb: 10 }),
+    ),
   )
   async uploadRegisterRun(
     @CurrentUser() user: ReqUser,
@@ -235,7 +247,10 @@ export class ClraContractorPortalController {
     const c = await this.contractor(user);
     await this.svc.assertAssignmentBelongsToContractor(dto.assignmentId, c.id);
     if (dto.wagePeriodId) {
-      await this.svc.assertWagePeriodBelongsToContractor(dto.wagePeriodId, c.id);
+      await this.svc.assertWagePeriodBelongsToContractor(
+        dto.wagePeriodId,
+        c.id,
+      );
     }
     assertSafeFileOnDisk(file);
     return this.svc.createRegisterRunFromUpload(dto, file, user.userId);
@@ -252,7 +267,10 @@ export class ClraContractorPortalController {
     await this.svc.assertAssignmentBelongsToContractor(row.assignmentId, c.id);
     const out = await this.svc.downloadRegisterRun(id);
     res.setHeader('Content-Type', out.mimeType);
-    res.setHeader('Content-Disposition', `attachment; filename="${out.fileName}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${out.fileName}"`,
+    );
     res.end(out.buffer);
   }
 }

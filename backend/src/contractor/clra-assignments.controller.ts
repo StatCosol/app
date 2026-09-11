@@ -274,7 +274,10 @@ export class ClraAssignmentsController {
   @Post('register-runs/upload')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM')
   @UseInterceptors(
-    FileInterceptor('file', makeSafeUploadOptions({ folder: 'clra-registers', maxMb: 10 })),
+    FileInterceptor(
+      'file',
+      makeSafeUploadOptions({ folder: 'clra-registers', maxMb: 10 }),
+    ),
   )
   uploadRegisterRun(
     @Body() dto: CreateClraRegisterRunDto,
@@ -293,7 +296,10 @@ export class ClraAssignmentsController {
   ) {
     const out = await this.svc.downloadRegisterRun(id);
     res.setHeader('Content-Type', out.mimeType);
-    res.setHeader('Content-Disposition', `attachment; filename="${out.fileName}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${out.fileName}"`,
+    );
     res.end(out.buffer);
   }
 }

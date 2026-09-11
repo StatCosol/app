@@ -1,4 +1,5 @@
 import { Component, Input, forwardRef, OnChanges , ChangeDetectionStrategy} from '@angular/core';
+import { ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from '@angular/forms';
 
@@ -10,6 +11,7 @@ export interface SelectOption {
 
 @Component({
   selector: 'ui-form-select',
+  host: { class: 'bs-surface' },
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule],
@@ -32,9 +34,11 @@ export interface SelectOption {
 }
       <div class="relative">
         <select
+          class="form-select"
           [id]="selectId"
           [name]="name || selectId"
           [disabled]="disabled"
+          [attr.aria-required]="required"
           [attr.aria-invalid]="error ? 'true' : null"
           [attr.aria-describedby]="error ? selectId + '-error' : hint ? selectId + '-hint' : null"
           [ngClass]="selectClassStr"
@@ -67,6 +71,7 @@ export interface SelectOption {
   `
 })
 export class FormSelectComponent implements ControlValueAccessor, OnChanges {
+  private readonly cdr = inject(ChangeDetectorRef);
   @Input() label = '';
   @Input() placeholder = '';
   @Input() options: SelectOption[] = [];
@@ -86,6 +91,7 @@ export class FormSelectComponent implements ControlValueAccessor, OnChanges {
 
   writeValue(value: any): void {
     this.value = value;
+    this.cdr.markForCheck();
   }
 
   registerOnChange(fn: (value: any) => void): void {
@@ -98,6 +104,7 @@ export class FormSelectComponent implements ControlValueAccessor, OnChanges {
 
   setDisabledState(isDisabled: boolean): void {
     this.disabled = isDisabled;
+    this.cdr.markForCheck();
     this.updateSelectClasses();
   }
 

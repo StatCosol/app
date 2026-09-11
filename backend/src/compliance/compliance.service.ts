@@ -229,8 +229,16 @@ export class ComplianceService {
     return this.portalTasksService.contractorSubmit(user, taskId);
   }
 
-  async contractorMarkNotApplicable(user: ReqUser, taskId: string, remarks: string) {
-    return this.portalTasksService.contractorMarkNotApplicable(user, taskId, remarks);
+  async contractorMarkNotApplicable(
+    user: ReqUser,
+    taskId: string,
+    remarks: string,
+  ) {
+    return this.portalTasksService.contractorMarkNotApplicable(
+      user,
+      taskId,
+      remarks,
+    );
   }
 
   async contractorUploadEvidence(
@@ -239,7 +247,12 @@ export class ComplianceService {
     file: Express.Multer.File,
     notes?: string,
   ) {
-    return this.portalTasksService.contractorUploadEvidence(user, taskId, file, notes);
+    return this.portalTasksService.contractorUploadEvidence(
+      user,
+      taskId,
+      file,
+      notes,
+    );
   }
 
   async auditorListTasks(user: ReqUser, q: Record<string, string>) {
@@ -264,7 +277,12 @@ export class ComplianceService {
     year: number,
     month: number,
   ) {
-    return this.portalTasksService.autoGenerateMonthlyTasks(clientId, branchId, year, month);
+    return this.portalTasksService.autoGenerateMonthlyTasks(
+      clientId,
+      branchId,
+      year,
+      month,
+    );
   }
 
   async clientListMcdItems(user: ReqUser, taskId: string | number) {
@@ -278,7 +296,13 @@ export class ComplianceService {
     notes?: string,
     mcdItemId?: string | number,
   ) {
-    return this.portalTasksService.clientUploadEvidence(user, taskId, file, notes, mcdItemId);
+    return this.portalTasksService.clientUploadEvidence(
+      user,
+      taskId,
+      file,
+      notes,
+      mcdItemId,
+    );
   }
 
   async clientSubmitTask(user: ReqUser, taskId: string) {
@@ -302,11 +326,18 @@ export class ComplianceService {
   }
   // ---------- Reupload APIs — delegated to ComplianceReuploadService ----------
 
-  async clientListReuploadRequests(user: ReqUser, filters?: Record<string, string>) {
+  async clientListReuploadRequests(
+    user: ReqUser,
+    filters?: Record<string, string>,
+  ) {
     return this.reuploadService.clientListReuploadRequests(user, filters);
   }
 
-  async clientReuploadFile(user: ReqUser, requestId: string, file: Express.Multer.File) {
+  async clientReuploadFile(
+    user: ReqUser,
+    requestId: string,
+    file: Express.Multer.File,
+  ) {
     return this.reuploadService.clientReuploadFile(user, requestId, file);
   }
 
@@ -314,11 +345,18 @@ export class ComplianceService {
     return this.reuploadService.clientSubmitReupload(user, requestId);
   }
 
-  async branchListReuploadRequests(user: ReqUser, filters?: Record<string, string>) {
+  async branchListReuploadRequests(
+    user: ReqUser,
+    filters?: Record<string, string>,
+  ) {
     return this.reuploadService.branchListReuploadRequests(user, filters);
   }
 
-  async branchReuploadFile(user: ReqUser, requestId: string, file: Express.Multer.File) {
+  async branchReuploadFile(
+    user: ReqUser,
+    requestId: string,
+    file: Express.Multer.File,
+  ) {
     return this.reuploadService.branchReuploadFile(user, requestId, file);
   }
 
@@ -326,15 +364,30 @@ export class ComplianceService {
     return this.reuploadService.branchSubmitReupload(user, requestId);
   }
 
-  async branchMarkReuploadNotApplicable(user: ReqUser, requestId: string, remarks: string) {
-    return this.reuploadService.branchMarkReuploadNotApplicable(user, requestId, remarks);
+  async branchMarkReuploadNotApplicable(
+    user: ReqUser,
+    requestId: string,
+    remarks: string,
+  ) {
+    return this.reuploadService.branchMarkReuploadNotApplicable(
+      user,
+      requestId,
+      remarks,
+    );
   }
 
-  async contractorListReuploadRequests(user: ReqUser, filters?: Record<string, string>) {
+  async contractorListReuploadRequests(
+    user: ReqUser,
+    filters?: Record<string, string>,
+  ) {
     return this.reuploadService.contractorListReuploadRequests(user, filters);
   }
 
-  async contractorReuploadFile(user: ReqUser, requestId: string, file: Express.Multer.File) {
+  async contractorReuploadFile(
+    user: ReqUser,
+    requestId: string,
+    file: Express.Multer.File,
+  ) {
     return this.reuploadService.contractorReuploadFile(user, requestId, file);
   }
 
@@ -357,11 +410,23 @@ export class ComplianceService {
     return this.reuploadService.auditorListReuploadRequests(user, q);
   }
 
-  async auditorApproveReupload(user: ReqUser, requestId: string, remarks?: string) {
-    return this.reuploadService.auditorApproveReupload(user, requestId, remarks);
+  async auditorApproveReupload(
+    user: ReqUser,
+    requestId: string,
+    remarks?: string,
+  ) {
+    return this.reuploadService.auditorApproveReupload(
+      user,
+      requestId,
+      remarks,
+    );
   }
 
-  async auditorRejectReupload(user: ReqUser, requestId: string, remarks: string) {
+  async auditorRejectReupload(
+    user: ReqUser,
+    requestId: string,
+    remarks: string,
+  ) {
     return this.reuploadService.auditorRejectReupload(user, requestId, remarks);
   }
 
@@ -372,5 +437,4 @@ export class ComplianceService {
   async crmTopOverdueReuploadUnits(user: ReqUser, q: Record<string, string>) {
     return this.reuploadService.crmTopOverdueReuploadUnits(user, q);
   }
-
 }

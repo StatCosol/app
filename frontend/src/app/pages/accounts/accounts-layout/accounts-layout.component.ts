@@ -1,3 +1,4 @@
+import { WorkspaceToolsComponent } from '../../../shared/components/workspace-tools/workspace-tools.component';
 import { Component, OnInit, OnDestroy } from '@angular/core';
 
 import { RouterOutlet } from '@angular/router';
@@ -10,7 +11,8 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
 @Component({
   selector: 'app-accounts-layout',
   standalone: true,
-  imports: [RouterOutlet, AccountsSidebarComponent, StatcoWordmarkComponent],
+  host: { class: 'workspace-ui' },
+  imports: [WorkspaceToolsComponent, RouterOutlet, AccountsSidebarComponent, StatcoWordmarkComponent],
   template: `
     <div class="accounts-shell">
       <!-- Mobile menu toggle -->
@@ -71,7 +73,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
         <!-- Page content -->
         <main class="flex-1 bg-gradient-to-br from-slate-50 via-emerald-50/30 to-slate-50">
           <div class="accounts-content">
-            <router-outlet></router-outlet>
+            <app-workspace-tools></app-workspace-tools><router-outlet></router-outlet>
           </div>
         </main>
       </div>

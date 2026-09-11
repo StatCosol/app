@@ -122,7 +122,12 @@ describe('FaceDeskFaceService.resolveFrames — device-embedding fallback', () =
 });
 
 describe('FaceDeskFaceService.selectComparableFrames', () => {
-  const frame = (model: string, dim: number, quality: number, sampleType = 'FRONT') => ({
+  const frame = (
+    model: string,
+    dim: number,
+    quality: number,
+    sampleType = 'FRONT',
+  ) => ({
     embedding: new Float32Array(dim),
     model,
     qualityScore: quality,
@@ -146,7 +151,9 @@ describe('FaceDeskFaceService.selectComparableFrames', () => {
     const picked = service.selectComparableFrames(frames as any);
 
     expect(picked).toHaveLength(3);
-    expect(new Set(picked.map((f) => f.embedding.length))).toEqual(new Set([192]));
+    expect(new Set(picked.map((f) => f.embedding.length))).toEqual(
+      new Set([192]),
+    );
   });
 
   it('breaks a tie on total quality', () => {

@@ -741,7 +741,10 @@ export class AuditsService implements OnModuleInit {
     return this.reportService.reopenReportForAuditor(user, auditId);
   }
 
-  async exportReportPdfForAuditor(user: ReqUser, auditId: string): Promise<Buffer> {
+  async exportReportPdfForAuditor(
+    user: ReqUser,
+    auditId: string,
+  ): Promise<Buffer> {
     return this.reportService.exportReportPdfForAuditor(user, auditId);
   }
   // ─── Branch Audit KPI ─────────────────────────────
@@ -1054,8 +1057,14 @@ export class AuditsService implements OnModuleInit {
     return this.ncService.listNcsForAudit(user, auditId);
   }
   /** Phase 4: Export preliminary findings PDF (auditor + post-publish only). */
-  async exportPreliminaryReportPdf(user: ReqUser, auditId: string): Promise<Buffer> {
-    return this.auditorDashboardService.exportPreliminaryReportPdf(user, auditId);
+  async exportPreliminaryReportPdf(
+    user: ReqUser,
+    auditId: string,
+  ): Promise<Buffer> {
+    return this.auditorDashboardService.exportPreliminaryReportPdf(
+      user,
+      auditId,
+    );
   }
   /** List NCs assigned to the calling vendor/contractor. */
   async listNcsForVendor(user: ReqUser, auditId: string) {

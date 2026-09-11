@@ -111,7 +111,16 @@ export class ContractorComputationController {
 @ApiBearerAuth('JWT')
 @Controller({ path: 'client/contractor-computation', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('CLIENT', 'BRANCH', 'BRANCH_DESK', 'AUDITOR', 'ADMIN', 'CRM', 'CEO', 'CCO')
+@Roles(
+  'CLIENT',
+  'BRANCH',
+  'BRANCH_DESK',
+  'AUDITOR',
+  'ADMIN',
+  'CRM',
+  'CEO',
+  'CCO',
+)
 export class ClientContractorComputationController {
   constructor(private readonly svc: ContractorComputationService) {}
 

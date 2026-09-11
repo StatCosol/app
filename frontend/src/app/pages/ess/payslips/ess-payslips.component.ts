@@ -1,3 +1,4 @@
+import { downloadBlob } from "../../../shared/utils/download-blob";
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -229,12 +230,8 @@ export class EssPayslipsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (blob) => {
           this.downloading.delete(p.id);
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = p.fileName || `payslip_${p.periodYear}_${p.periodMonth}.pdf`;
-          a.click();
-          window.URL.revokeObjectURL(url);
+          void downloadBlob(blob, p.fileName || `payslip_${p.periodYear}_${p.periodMonth}.pdf`)
+            .catch(() => this.toast.error('Could not save payslip.'));
         },
         error: () => {
           this.downloading.delete(p.id);

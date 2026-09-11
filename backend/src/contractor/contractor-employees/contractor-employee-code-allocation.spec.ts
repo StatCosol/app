@@ -58,9 +58,7 @@ const alloc = (service: any, clientId: string, contractorUserId: string) =>
 describe('ContractorEmployeesService code allocation', () => {
   it('uses the plain initials when the prefix is free', async () => {
     const { service } = makeService({ contractorName: 'Sri Balaji Services' });
-    await expect(alloc(service, 'c1', 'u1')).resolves.toBe(
-      'SBS0001',
-    );
+    await expect(alloc(service, 'c1', 'u1')).resolves.toBe('SBS0001');
   });
 
   it('advances the last character when another contractor holds the prefix', async () => {
@@ -69,9 +67,7 @@ describe('ContractorEmployeesService code allocation', () => {
       takenByOthers: ['SBS'],
     });
     // SBS belongs to someone else, so this contractor gets SBO.
-    await expect(alloc(service, 'c1', 'u2')).resolves.toBe(
-      'SBO0001',
-    );
+    await expect(alloc(service, 'c1', 'u2')).resolves.toBe('SBO0001');
   });
 
   it('keeps skipping until it finds a free prefix', async () => {
@@ -79,9 +75,7 @@ describe('ContractorEmployeesService code allocation', () => {
       contractorName: 'Sri Balaji Services',
       takenByOthers: ['SBS', 'SBE'],
     });
-    await expect(alloc(service, 'c1', 'u3')).resolves.toBe(
-      'SBR0001',
-    );
+    await expect(alloc(service, 'c1', 'u3')).resolves.toBe('SBR0001');
   });
 
   it('reuses the prefix this contractor is already on', async () => {
@@ -92,9 +86,7 @@ describe('ContractorEmployeesService code allocation', () => {
       ownCode: 'SBE0007',
       maxSeq: 7,
     });
-    await expect(alloc(service, 'c1', 'u1')).resolves.toBe(
-      'SBE0008',
-    );
+    await expect(alloc(service, 'c1', 'u1')).resolves.toBe('SBE0008');
   });
 
   it('continues the sequence rather than restarting it', async () => {
@@ -102,9 +94,7 @@ describe('ContractorEmployeesService code allocation', () => {
       contractorName: 'Sri Balaji Services',
       maxSeq: 41,
     });
-    await expect(alloc(service, 'c1', 'u1')).resolves.toBe(
-      'SBS0042',
-    );
+    await expect(alloc(service, 'c1', 'u1')).resolves.toBe('SBS0042');
   });
 
   it('returns null for a contractor name with no letters', async () => {

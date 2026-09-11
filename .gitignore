@@ -90,3 +90,5 @@ deploy-last.log
 deploy-*.log
 backup-be-revisions.txt
 backup-be-secret-names.txt
+face-svc/.test-deps/
+**/__pycache__/

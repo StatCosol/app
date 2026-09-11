@@ -62,7 +62,11 @@ describe('CreateContractorEmployeeDto — accepts what the form sends', () => {
 
   it('accepts the full registration payload', () => {
     const errors = errorsFor(CreateContractorEmployeeDto, formPayload);
-    expect(errors.map((e) => `${e.property}: ${Object.keys(e.constraints ?? {})}`)).toEqual([]);
+    expect(
+      errors.map(
+        (e) => `${e.property}: ${Object.keys(e.constraints ?? {}).join(', ')}`,
+      ),
+    ).toEqual([]);
   });
 
   it('accepts the same payload on update, without branchId', () => {
@@ -107,7 +111,10 @@ describe('CreateContractorEmployeeDto — accepts what the form sends', () => {
   });
 
   it('uses esic, not esicNumber — the service maps property names onto columns', () => {
-    const dto = plainToInstance(CreateContractorEmployeeDto, formPayload) as any;
+    const dto = plainToInstance(
+      CreateContractorEmployeeDto,
+      formPayload,
+    ) as any;
     expect(dto.esic).toBe(formPayload.esic);
     expect(dto.esicNumber).toBeUndefined();
   });

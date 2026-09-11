@@ -136,6 +136,11 @@ export class PayrollEngineService {
       where: { runId: run.id },
     });
 
+    if (!runEmployees.length) {
+      throw new BadRequestException(
+        'This payroll run has no employees. Import employees before processing.',
+      );
+    }
     const asOfDate = `${run.periodYear}-${String(run.periodMonth).padStart(2, '0')}-01`;
 
     // ── Fetch attendance summaries (LOP/working days) ────────────────────────
@@ -165,7 +170,10 @@ export class PayrollEngineService {
       this.logger.log(`Attendance loaded for ${attendanceMap.size} employees`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.logger.warn(`Attendance fetch skipped: ${msg}`);
+      this.logger.error(`Attendance fetch failed: ${msg}`);
+      throw new BadRequestException(
+        'Attendance summary could not be loaded. Payroll has not been reprocessed. Restore attendance access and retry.',
+      );
     }
 
     const errors: string[] = [];
@@ -277,7 +285,10 @@ export class PayrollEngineService {
         if (s.employeeCode) attendanceMap.set(s.employeeCode, s);
       }
     } catch {
-      this.logger.warn('Attendance fetch skipped for specific employees');
+      this.logger.error('Attendance fetch failed for specific employees');
+      throw new BadRequestException(
+        'Attendance summary could not be loaded. Payroll has not been reprocessed. Restore attendance access and retry.',
+      );
     }
 
     const errors: string[] = [];

@@ -32,37 +32,53 @@ export class TableCellDirective {
 
 @Component({
   selector: 'ui-data-table',
+  host: { class: 'bs-surface' },
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule],
   template: `
     <div class="animate-fade-up">
+      <!-- Table display preferences affect this table only. -->
+      <div class="table-tools">
+      @if (allowColumnSelection && columns.length > 1) {
+        <details><summary>Columns · {{ visibleColumns.length }}/{{ columns.length }}</summary>
+          <div class="column-options">
+          @for (col of columns; track col.key) {
+            <label><input type="checkbox" [checked]="isColumnVisible(col.key)" [disabled]="isColumnVisible(col.key) && visibleColumns.length === 1" (change)="toggleColumn(col.key)" />{{ col.header || 'Actions' }}</label>
+          }
+          </div>
+        </details>
+      }
       <!-- Export toolbar -->
       @if (exportFileName && !loading && data.length > 0) {
         <div class="flex justify-end mb-2">
           <button
             type="button"
             (click)="exportCsv()"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 hover:text-gray-800 transition-colors">
+            class="btn btn-outline-primary btn-sm">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
             </svg>
-            Export CSV
+            Export loaded rows
           </button>
         </div>
       }
 
+      </div>
       <!-- Table -->
-      <div class="overflow-x-auto">
-        <table class="w-full table-fixed" [style.min-width]="minWidth">
+      <div class="overflow-x-auto" role="region" [attr.aria-label]="tableLabel" tabindex="0" [attr.aria-busy]="loading">
+        <table class="table table-hover w-full table-fixed" [style.min-width]="minWidth">
           <thead>
             <tr>
-              @for (col of columns; track col) {
+              @for (col of visibleColumns; track col) {
 <th
                   scope="col"
                   [style.width]="col.width"
                   [ngClass]="getHeaderClasses(col)"
                   [attr.aria-sort]="col.sortable ? (sortColumn === col.key ? (sortDirection === 'asc' ? 'ascending' : sortDirection === 'desc' ? 'descending' : 'none') : 'none') : null"
+                  [attr.tabindex]="col.sortable ? 0 : null"
+                  (keydown.enter)="col.sortable && onSort(col.key)"
+                  (keydown.space)="sortWithSpace($event, col)"
                   (click)="col.sortable && onSort(col.key)">
                 <div class="flex items-center gap-1.5" [ngClass]="{'justify-center': col.align === 'center', 'justify-end': col.align === 'right'}">
                   <span>{{ col.header }}</span>
@@ -83,7 +99,7 @@ export class TableCellDirective {
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path>
                     </svg>
 }
-                  
+
 }
                 </div>
               </th>
@@ -94,7 +110,7 @@ export class TableCellDirective {
             @if (loading) {
 
               <tr>
-                <td [attr.colspan]="columns.length" class="px-6 py-16 text-center">
+                <td [attr.colspan]="visibleColumns.length" class="px-6 py-16 text-center">
                   <div class="flex flex-col items-center justify-center gap-3">
                     <svg class="animate-spin h-8 w-8 text-accent-500" fill="none" viewBox="0 0 24 24">
                       <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -104,12 +120,12 @@ export class TableCellDirective {
                   </div>
                 </td>
               </tr>
-            
+
 }
             @if (!loading && data.length === 0) {
 
               <tr>
-                <td [attr.colspan]="columns.length" class="px-6 py-16 text-center">
+                <td [attr.colspan]="visibleColumns.length" class="px-6 py-16 text-center">
                   <div class="flex flex-col items-center">
                     <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
                       <svg class="h-7 w-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -121,7 +137,7 @@ export class TableCellDirective {
                   </div>
                 </td>
               </tr>
-            
+
 }
             @if (!loading && data.length > 0) {
 
@@ -129,22 +145,24 @@ export class TableCellDirective {
 <tr
                   class="hover:bg-gray-50/80 transition-colors duration-150"
                   [class.cursor-pointer]="clickable"
+                  [attr.tabindex]="clickable ? 0 : null"
+                  (keydown.enter)="activateRow($event, row, i)"
                   (click)="onRowClick(row, i)">
-                @for (col of columns; track col) {
+                @for (col of visibleColumns; track col) {
 <td [ngClass]="getCellClasses(col)">
                   @if (getCellTemplate(col.key); as tmpl) {
 
                     <ng-container *ngTemplateOutlet="tmpl; context: { $implicit: row, row: row, value: row[col.key], index: i }"></ng-container>
-                  
+
 } @else {
 {{ row[col.key] }}
 }
-                  
+
                 </td>
 }
               </tr>
 }
-            
+
 }
           </tbody>
         </table>
@@ -153,7 +171,7 @@ export class TableCellDirective {
       <!-- Pagination -->
       @if (showPagination && !loading && data.length > 0) {
 <div
-           class="px-6 py-4 border-t border-gray-100 bg-gray-50/60 flex items-center justify-between">
+           class="table-pagination px-6 py-4 border-t border-gray-100 bg-gray-50/60 flex items-center justify-between">
         <div class="text-sm text-gray-500 font-medium">
           Showing <span class="text-gray-800">{{ startItem }}</span> to <span class="text-gray-800">{{ endItem }}</span> of <span class="text-gray-800">{{ totalItems }}</span>
         </div>
@@ -215,6 +233,25 @@ export class DataTableComponent {
   @Input() data: any[] = [];
   @Input() loading = false;
   @Input() emptyMessage = 'No data available';
+  @Input() tableLabel = 'Data table';
+  @Input() allowColumnSelection = true;
+  private hiddenColumns = new Set<string>();
+  get visibleColumns(): TableColumn[] {
+    const visible = this.columns.filter(col => !this.hiddenColumns.has(col.key));
+    return visible.length ? visible : this.columns.slice(0, 1);
+  }
+  isColumnVisible(key: string): boolean { return this.visibleColumns.some(col => col.key === key); }
+  toggleColumn(key: string): void {
+    if (this.isColumnVisible(key)) {
+      if (this.visibleColumns.length > 1) this.hiddenColumns.add(key);
+    } else this.hiddenColumns.delete(key);
+  }
+  sortWithSpace(event: Event, col: TableColumn): void {
+    if (col.sortable) { event.preventDefault(); this.onSort(col.key); }
+  }
+  activateRow(event: Event, row: any, index: number): void {
+    if (event.target === event.currentTarget) this.onRowClick(row, index);
+  }
   /**
    * Floor for the table's width before the wrapper starts scrolling.
    *
@@ -313,9 +350,10 @@ export class DataTableComponent {
 
   exportCsv(): void {
     // Columns without a header are action columns — skip them in the export.
-    const cols = this.columns.filter((c) => c.header);
+    const cols = this.visibleColumns.filter((c) => c.header);
     const escape = (v: unknown): string => {
-      const s = v == null ? '' : String(v);
+      let s = v == null ? '' : String(v);
+      if (typeof v === 'string' && /^[=+@\-\t\r]/.test(s)) s = "'" + s;
       return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const lines = [
