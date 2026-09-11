@@ -1032,6 +1032,27 @@ async function bootstrap() {
       );
     }
 
+    // Invoices could already reach several addresses through cc_email, but CC
+    // discloses every recipient to the others. An internal address that should
+    // receive a client's invoice without the client seeing it had nowhere to
+    // go. Mirrors migrations/20260911_invoice_bcc_email.sql; nothing here runs
+    // migrations automatically.
+    try {
+      await ds.query(`
+        ALTER TABLE billing_clients
+          ADD COLUMN IF NOT EXISTS bcc_email TEXT
+      `);
+      await ds.query(`
+        ALTER TABLE invoice_email_logs
+          ADD COLUMN IF NOT EXISTS bcc_email TEXT
+      `);
+      logger.log('Schema patch: invoice bcc_email OK');
+    } catch (e: any) {
+      logger.warn(
+        `Schema patch payroll_statutory_slabs effective dates skipped: ${e?.message}`,
+      );
+    }
+
     // eSSL/ZKTeco devices serving contractor workforces. A device now declares
     // which population its User IDs belong to, and — for contractors — which
     // contractor, because contractor_employees.employee_code is only scoped

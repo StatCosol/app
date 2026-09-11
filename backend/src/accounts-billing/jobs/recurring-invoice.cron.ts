@@ -162,6 +162,7 @@ export class RecurringInvoiceCron {
         {
           toEmail,
           ccEmail: client.ccEmail || undefined,
+          bccEmail: client.bccEmail || undefined,
         } as any,
         cfg.createdBy,
       );

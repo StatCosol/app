@@ -59,6 +59,7 @@ export class InvoiceEmailService {
       invoiceId,
       toEmail: dto.toEmail,
       ccEmail: dto.ccEmail,
+      bccEmail: dto.bccEmail,
       subject,
       body,
       sentStatus: MailStatus.NOT_SENT,
@@ -84,6 +85,7 @@ export class InvoiceEmailService {
         },
         {
           cc: dto.ccEmail || undefined,
+          bcc: dto.bccEmail || undefined,
           attachments: [
             {
               filename: pdfFileName,

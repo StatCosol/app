@@ -34,6 +34,9 @@ export class InvoiceEmailLog {
   @Column({ name: 'to_email', type: 'text' })
   toEmail: string;
 
+  @Column({ name: 'bcc_email', type: 'text', nullable: true })
+  bccEmail: string;
+
   @Column({ name: 'cc_email', type: 'text', nullable: true })
   ccEmail: string | null;
 

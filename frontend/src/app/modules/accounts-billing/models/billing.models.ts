@@ -6,6 +6,8 @@ export interface BillingClient {
   contactPerson?: string;
   billingEmail: string;
   ccEmail?: string;
+  /** Comma-separated, and hidden from the other recipients. */
+  bccEmail?: string;
   mobile?: string;
   gstApplicable: boolean;
   gstin?: string;
@@ -105,6 +107,7 @@ export interface InvoiceEmailLog {
   source?: string;
   toEmail: string;
   ccEmail?: string;
+  bccEmail?: string;
   subject: string;
   sentStatus: string;
   sentAt?: string;
