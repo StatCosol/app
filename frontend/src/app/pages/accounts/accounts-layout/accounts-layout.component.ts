@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 
-import { RouterOutlet } from '@angular/router';
+import { RouterLink, RouterOutlet } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { AccountsSidebarComponent } from './accounts-sidebar.component';
@@ -10,7 +10,12 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
 @Component({
   selector: 'app-accounts-layout',
   standalone: true,
-  imports: [RouterOutlet, AccountsSidebarComponent, StatcoWordmarkComponent],
+  imports: [
+    RouterLink,
+    RouterOutlet,
+    AccountsSidebarComponent,
+    StatcoWordmarkComponent,
+  ],
   template: `
     <div class="accounts-shell">
       <!-- Mobile menu toggle -->
@@ -53,6 +58,20 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
 
               <!-- User + Logout -->
               <div class="flex items-center gap-4">
+                @if (isAdmin) {
+                  <!-- An ADMIN reaches this portal from the admin sidebar, and
+                       this layout has its own shell — without this the only way
+                       back was retyping the URL or logging out. -->
+                  <a
+                    routerLink="/admin/dashboard"
+                    class="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-900 transition-colors"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                    <span class="hidden sm:inline">Back to Admin</span>
+                  </a>
+                }
                 <div class="hidden sm:block text-sm font-semibold text-gray-900">{{ userName }}</div>
                 <button
                   (click)="logout()"
@@ -96,10 +115,13 @@ export class AccountsLayoutComponent implements OnInit, OnDestroy {
   sidebarCollapsed = false;
   mobileOpen = false;
   userName = 'Accounts User';
+  /** Only an ADMIN has somewhere else to go back to. */
+  isAdmin = false;
 
   constructor(private auth: AuthService) {
     const u = this.auth.getUser();
     if (u?.name) this.userName = u.name;
+    this.isAdmin = u?.roleCode === 'ADMIN';
   }
 
   ngOnInit(): void {
