@@ -1,9 +1,9 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { forkJoin, of, Subject } from 'rxjs';
-import { catchError, finalize, takeUntil, timeout } from 'rxjs/operators';
+import { forkJoin, of, Subject, Subscription } from 'rxjs';
+import { catchError, defaultIfEmpty, finalize, takeUntil, timeout } from 'rxjs/operators';
 import { AuthService } from '../../core/auth.service';
 import { ClientBranchesService } from '../../core/client-branches.service';
 import {
@@ -39,6 +39,7 @@ import {
           <input
             type="month"
             class="month-input"
+            aria-label="Schedule month"
             [ngModel]="selectedMonth"
             (ngModelChange)="onMonthChange($event)"
           />
@@ -64,7 +65,7 @@ import {
 
       <!-- Loading skeleton -->
       @if (loading) {
-<div class="space-y-3 mt-6">
+<div class="space-y-3 mt-6" role="status" aria-label="Loading compliance schedule">
         @for (i of [1,2,3,4,5]; track i) {
 <div class="skeleton-row"></div>
 }
@@ -73,11 +74,12 @@ import {
 
       <!-- Error -->
       @if (error && !loading) {
-<div class="error-banner mt-6">
+<div class="error-banner mt-6" role="alert">
         <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
         </svg>
         <span>{{ error }}</span>
+        <button type="button" class="retry-button" (click)="retry()">Retry</button>
       </div>
 }
 
@@ -236,6 +238,16 @@ import {
     .btn-icon:hover {
       background: #f1f5f9;
       border-color: #cbd5e1;
+    }
+
+    .btn-icon svg { width: 20px; height: 20px; flex: none; }
+    .retry-button {
+      margin-left: auto; padding: 8px 16px; border: 1px solid currentColor;
+      border-radius: 8px; background: #fff; color: #991b1b; font-weight: 600;
+      cursor: pointer;
+    }
+    .retry-button:focus-visible, .btn-icon:focus-visible {
+      outline: 2px solid #1d4ed8; outline-offset: 2px;
     }
 
     .month-input {
@@ -415,6 +427,7 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
   private initialLoadStarted = false;
+  private scheduleRequest?: Subscription;
 
   constructor(
     private api: BranchComplianceService,
@@ -422,6 +435,7 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
     private branchesApi: ClientBranchesService,
     private route: ActivatedRoute,
     private router: Router,
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -461,10 +475,10 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
     // are folded into empty values so neither can strand the other, and every
     // path out of the subscribe either starts a load or sets an error.
     forkJoin({
-      me: this.auth.fetchMe().pipe(timeout(15000), catchError(() => of(null))),
+      me: this.auth.fetchMe().pipe(timeout(15000), defaultIfEmpty(null), catchError(() => of(null))),
       branches: this.branchesApi
         .list()
-        .pipe(timeout(15000), catchError(() => of([] as unknown[]))),
+        .pipe(timeout(15000), defaultIfEmpty([]), catchError(() => of([] as unknown[]))),
     })
       .pipe(takeUntil(this.destroy$))
       .subscribe(({ branches }) => {
@@ -472,8 +486,9 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
         // fallback for users whose token carries no branch ids.
         if (this.applyBranchIdsAndLoad(this.auth.getBranchIds())) return;
         if (this.applyBranchIdsAndLoad(branches as unknown[])) return;
-        this.error = 'No branch is available for this user.';
+        this.error = 'No branch is available for this user. Retry or contact your administrator.';
         this.loading = false;
+        this.cdr.markForCheck();
       });
   }
 
@@ -537,12 +552,21 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  retry(): void {
+    if (this.canLoad()) this.load();
+    else this.resolveBranchAndLoad();
+  }
+
   load(): void {
+    // Cancel the previous month before starting another request.
+    this.scheduleRequest?.unsubscribe();
     if (!this.canLoad()) {
       // Never leave the skeleton up on a path that fetches nothing. Silently
       // returning while `loading` was true is what made a missing branch id
       // look like an endless load rather than an empty or failed state.
       this.loading = false;
+      this.error = 'Select a branch and month to load the schedule.';
+      this.cdr.markForCheck();
       return;
     }
 
@@ -550,15 +574,24 @@ export class BranchComplianceItemsComponent implements OnInit, OnDestroy {
     this.error = '';
     this.data = null;
 
-    this.api
+    this.cdr.markForCheck();
+    this.scheduleRequest = this.api
       .getComplianceItems(this.selectedBranchId, this.selectedMonth)
       .pipe(
         takeUntil(this.destroy$),
         timeout(15000),
-        finalize(() => (this.loading = false)),
+        defaultIfEmpty(null),
+        finalize(() => {
+          this.loading = false;
+          // The route is inside an OnPush layout; HTTP completion must notify it.
+          this.cdr.markForCheck();
+        }),
       )
       .subscribe({
-        next: (res) => (this.data = res),
+        next: (res) => {
+          this.data = res;
+          if (!res) this.error = 'The schedule request ended without a response. Please retry.';
+        },
         error: (err) => (this.error = err?.error?.message || 'Failed to load compliance items.'),
       });
   }
