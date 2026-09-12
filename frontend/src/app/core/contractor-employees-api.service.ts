@@ -15,6 +15,7 @@ export interface ContractorEmployee {
   clientId: string;
   branchId: string;
   contractorUserId: string;
+  employeeCode: string | null;
   /** User ID the biometric machine allocated at enrolment; what a punch carries. */
   punchCode: string | null;
   name: string;

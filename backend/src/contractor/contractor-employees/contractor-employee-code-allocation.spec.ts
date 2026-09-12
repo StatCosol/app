@@ -97,9 +97,9 @@ describe('ContractorEmployeesService code allocation', () => {
     await expect(alloc(service, 'c1', 'u1')).resolves.toBe('SBS0042');
   });
 
-  it('returns null for a contractor name with no letters', async () => {
+  it('uses a neutral prefix for a contractor name with no English letters', async () => {
     const { service } = makeService({ contractorName: '12345' });
-    await expect(alloc(service, 'c1', 'u1')).resolves.toBeNull();
+    await expect(alloc(service, 'c1', 'u1')).resolves.toBe('CE0001');
   });
 
   it('takes the per-client lock before reading, not after', async () => {
@@ -112,6 +112,8 @@ describe('ContractorEmployeesService code allocation', () => {
     // Reading MAX outside the lock is exactly how two writers collide.
     expect(lock).toBeGreaterThanOrEqual(0);
     expect(lock).toBeLessThan(max);
+    // PostgreSQL otherwise selects substring(text, text), restarting the sequence.
+    expect(queries[max]).toContain('substring(employee_code from $2::int)');
   });
 });
 
@@ -124,6 +126,7 @@ function makeBackfillService(opts: {
   nullRows: Array<{ id: string; contractor_user_id: string }>;
   contractorName?: string;
   remaining?: number;
+  affected?: number;
 }) {
   const updates: Array<{ code: string; id: string }> = [];
   const queries: string[] = [];
@@ -143,7 +146,7 @@ function makeBackfillService(opts: {
     if (sql.includes('MAX(')) return [{ seq: ++allocSeq }];
     if (sql.startsWith('UPDATE contractor_employees')) {
       updates.push({ code: params[0], id: params[1] });
-      return [];
+      return [[{ id: params[1] }], opts.affected ?? 1];
     }
     if (sql.includes('COUNT(*)')) return [{ n: opts.remaining ?? 0 }];
     return [];
@@ -189,18 +192,29 @@ describe('ContractorEmployeesService.backfillEmployeeCodes', () => {
       q.startsWith('UPDATE contractor_employees'),
     );
     expect(update).toContain('employee_code IS NULL');
+    expect(update).toContain("btrim(employee_code) = ''");
+    expect(update).toContain('client_id = $3');
   });
 
-  it('leaves a worker uncoded when the contractor name has no letters', async () => {
+  it('assigns an ID even when the contractor name has no English letters', async () => {
     const { service, updates } = makeBackfillService({
       nullRows: [{ id: 'e1', contractor_user_id: 'u1' }],
       contractorName: '9999',
     });
     const res = await service.backfillEmployeeCodes('c1');
 
-    // A bare number would be worse than no code at all.
-    expect(res).toMatchObject({ coded: 0, skippedNoName: 1 });
-    expect(updates).toHaveLength(0);
+    expect(res).toMatchObject({ coded: 1, skippedNoName: 0 });
+    expect(updates[0].code).toBe('CE0001');
+  });
+
+  it('does not count a row already assigned by another backfill', async () => {
+    const { service } = makeBackfillService({
+      nullRows: [{ id: 'e1', contractor_user_id: 'u1' }],
+      affected: 0,
+    });
+    expect(await service.backfillEmployeeCodes('c1')).toMatchObject({
+      coded: 0,
+    });
   });
 
   it('reports what is left so the caller knows to run again', async () => {
