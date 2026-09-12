@@ -1,5 +1,8 @@
+import { ContractorDaysService } from '../biometric/contractor-days.service';
 import {
   BadRequestException,
+  ConflictException,
+  NotFoundException,
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
@@ -58,6 +61,7 @@ export class ContractorComputationService {
     private readonly scope: AccessScopeService,
     private readonly notifications: NotificationsService,
     private readonly workflow: ContractorPayrollWorkflowService,
+    private readonly contractorDays: ContractorDaysService,
   ) {}
 
   async listQuotations(user: ReqUser, q: Record<string, string>) {
@@ -222,6 +226,10 @@ export class ContractorComputationService {
         'days',
       ]);
       if (!employeeName && !employeeCode && daysWorked == null) continue;
+      if (daysWorked == null)
+        throw new BadRequestException(
+          `Payable days are required on row ${rowNumber}`,
+        );
       rows.push({
         employee_code: employeeCode,
         employee_name: employeeName,
@@ -231,25 +239,6 @@ export class ContractorComputationService {
           'category',
         ]),
         days_worked: daysWorked ?? 0,
-        daily_wage: this.cellNumber(row, headers, [
-          'daily_wage',
-          'wage_rate',
-          'mcd_daily_wage',
-        ]),
-        basic_wage: this.cellNumber(row, headers, ['basic_wage', 'basic']),
-        da: this.cellNumber(row, headers, ['da', 'dearness_allowance']),
-        hra: this.cellNumber(row, headers, ['hra']),
-        ot_hours: this.cellNumber(row, headers, ['ot_hours', 'overtime_hours']),
-        ot: this.cellNumber(row, headers, ['ot', 'ot_amount', 'ot_wages']),
-        arrears: this.cellNumber(row, headers, ['arrears']),
-        attendance_bonus: this.cellNumber(row, headers, [
-          'attendance_bonus',
-          'attn_bonus',
-        ]),
-        bonus: this.cellNumber(row, headers, ['bonus']),
-        incentive: this.cellNumber(row, headers, ['incentive']),
-        other_earnings: this.cellNumber(row, headers, ['other_earnings']),
-        other_deductions: this.cellNumber(row, headers, ['other_deductions']),
       });
     }
     return this.computeMcdRows(user, {
@@ -405,9 +394,73 @@ export class ContractorComputationService {
       branchId?: string | null;
       periodMonth: string;
       uploadId?: string | null;
-      rows: Array<AttendanceComputeRow>;
+      rows: AttendanceComputeRow[];
     },
   ) {
+    return this.submitAttendanceRows(user, input);
+  }
+
+  async submitSystemAttendance(
+    user: ReqUser,
+    input: { branchId: string; periodMonth: string },
+  ) {
+    if (user.roleCode !== 'CONTRACTOR' || !user.clientId)
+      throw new ForbiddenException('Contractor access required');
+    if (
+      !/^\d{4}-(0[1-9]|1[0-2])$/.test(input.periodMonth || '') ||
+      !input.branchId
+    )
+      throw new BadRequestException('Select a branch and payroll month');
+    await this.scope.assertBranchAllowed(user, input.branchId);
+    await this.assertContractorLinked(user.clientId, user.id, input.branchId);
+    const from = input.periodMonth + '-01';
+    const day = new Date(
+      Number(input.periodMonth.slice(0, 4)),
+      Number(input.periodMonth.slice(5)),
+      0,
+    ).getDate();
+    const summary = await this.contractorDays.summarise(
+      user.clientId,
+      from,
+      input.periodMonth + '-' + day,
+      user.id,
+      input.branchId,
+    );
+    if (summary.unpayable.length)
+      throw new BadRequestException(
+        'Assign employee IDs to all workers before submitting device attendance',
+      );
+    return this.submitAttendanceRows(
+      user,
+      {
+        clientId: user.clientId,
+        contractorUserId: user.id,
+        ...input,
+        rows: summary.rows.map((row) => ({
+          employee_code: row.employeeCode,
+          days_worked: row.daysWorked,
+        })),
+      },
+      'SYSTEM',
+    );
+  }
+
+  private async submitAttendanceRows(
+    user: ReqUser,
+    input: {
+      clientId: string;
+      contractorUserId: string;
+      branchId?: string | null;
+      periodMonth: string;
+      uploadId?: string | null;
+      rows: Array<AttendanceComputeRow>;
+    },
+    source: 'EXCEL' | 'SYSTEM' = 'EXCEL',
+  ) {
+    if (user.roleCode !== 'CONTRACTOR')
+      throw new ForbiddenException(
+        'Only the contractor can submit Excel attendance',
+      );
     const clientId =
       user.roleCode === 'CONTRACTOR' ? user.clientId : input.clientId;
     if (!clientId) throw new BadRequestException('clientId is required');
@@ -496,47 +549,230 @@ export class ContractorComputationService {
       }
       delete row.pf_ceiling_enabled;
     }
-    const { saved, version } = await this.workflow.saveDraft(
+    // Store only attendance fields; wages in vendor documents are reconciliation evidence.
+    const attendanceRows: AttendanceComputeRow[] = [];
+    for (const row of input.rows) {
+      const code = this.unknownToString(
+        row.employee_code ?? row.worker_code ?? row.code,
+      ).trim();
+      const employee = await this.findEmployee(
+        clientId,
+        contractorUserId,
+        input.branchId,
+        code,
+        '',
+      );
+      if (!employee)
+        throw new BadRequestException(
+          'Register and assign every attendance employee before submission',
+        );
+      attendanceRows.push({
+        employee_code: employee.employeeCode,
+        employee_name: employee.name,
+        days_worked: Number(row.days_worked ?? row.days),
+      });
+    }
+    if (input.uploadId) {
+      const [document] = await this.computationRepo.manager.query(
+        'SELECT id FROM contractor_documents WHERE id=$1 AND client_id=$2 AND contractor_user_id=$3 AND branch_id=$4 AND doc_month=$5',
+        [
+          input.uploadId,
+          clientId,
+          contractorUserId,
+          input.branchId,
+          input.periodMonth,
+        ],
+      );
+      if (!document)
+        throw new BadRequestException(
+          'Attendance document does not match this contractor, branch and month',
+        );
+    }
+    const key = {
+      client_id: clientId,
+      contractor_user_id: contractorUserId,
+      branch_id: input.branchId,
+      period_month: input.periodMonth,
+    };
+    return this.computationRepo.manager.transaction(async (manager) => {
+      await this.workflow.lock(manager, key);
+      const [previous] = await manager.query(
+        'SELECT status FROM contractor_payroll_versions WHERE client_id=$1 AND contractor_user_id=$2 AND branch_id=$3 AND period_month=$4 AND is_current',
+        [clientId, contractorUserId, input.branchId, input.periodMonth],
+      );
+      if (
+        previous &&
+        !['DRAFT', 'RETURNED', 'REOPENED'].includes(previous.status)
+      )
+        throw new ConflictException(
+          'Return or reopen payroll before replacing attendance',
+        );
+      await manager.query(
+        'UPDATE contractor_attendance_batches SET is_current=false WHERE client_id=$1 AND contractor_user_id=$2 AND branch_id=$3 AND period_month=$4 AND is_current',
+        [clientId, contractorUserId, input.branchId, input.periodMonth],
+      );
+      const [batch] = await manager.query(
+        `INSERT INTO contractor_attendance_batches(client_id,contractor_user_id,branch_id,period_month,rows_snapshot,submitted_by,source,source_document_id)
+         VALUES($1,$2,$3,$4,$5::jsonb,$6,$7,$8) RETURNING id,status`,
+        [
+          clientId,
+          contractorUserId,
+          input.branchId,
+          input.periodMonth,
+          JSON.stringify(attendanceRows),
+          user.id,
+          source,
+          input.uploadId || null,
+        ],
+      );
+      return {
+        ...batch,
+        total: attendanceRows.length,
+        message: 'Attendance submitted for branch approval',
+      };
+    });
+  }
+
+  private isAttendanceApprover(user: ReqUser) {
+    return (
+      user.roleCode === 'BRANCH_DESK' ||
+      (user.roleCode === 'CLIENT' && user.userType === 'BRANCH')
+    );
+  }
+
+  async listAttendance(user: ReqUser, query: Record<string, string>) {
+    if (user.roleCode !== 'CONTRACTOR' && !this.isAttendanceApprover(user))
+      return { data: [] };
+    const clientId = this.scope.resolveClientId(user, query.clientId);
+    if (!clientId) throw new BadRequestException('Select a client');
+    await this.scope.assertClientAllowed(user, clientId);
+    const params: unknown[] = [clientId];
+    const where = ['a.client_id=$1', 'a.is_current'];
+    if (user.roleCode === 'CONTRACTOR') {
+      params.push(user.id);
+      where.push('a.contractor_user_id=$' + params.length);
+    } else {
+      params.push(user.branchIds || []);
+      where.push('a.branch_id=ANY($' + params.length + '::uuid[])');
+    }
+    if (query.periodMonth) {
+      params.push(query.periodMonth);
+      where.push('a.period_month=$' + params.length);
+    }
+    const data = await this.computationRepo.manager.query(
+      `SELECT a.*, b.branchname AS branch_name, u.name AS contractor_name
+       FROM contractor_attendance_batches a JOIN client_branches b ON b.id=a.branch_id
+       JOIN users u ON u.id=a.contractor_user_id WHERE ${where.join(' AND ')}
+       ORDER BY a.created_at DESC LIMIT 200`,
+      params,
+    );
+    return {
+      data: data.map((row) => ({
+        ...row,
+        canReview: this.isAttendanceApprover(user) && row.status === 'PENDING',
+      })),
+    };
+  }
+
+  async reviewAttendance(
+    user: ReqUser,
+    id: string,
+    decision: string,
+    remarks: string,
+  ) {
+    if (!this.isAttendanceApprover(user))
+      throw new ForbiddenException(
+        'Only the assigned branch user can approve attendance',
+      );
+    if (!['approve', 'return'].includes(decision))
+      throw new BadRequestException('Invalid attendance decision');
+    if (
+      typeof remarks !== 'string' ||
+      remarks.trim().length < 5 ||
+      remarks.length > 2000
+    )
+      throw new BadRequestException(
+        'Provide review remarks (5 to 2000 characters)',
+      );
+    const [batch] = await this.computationRepo.manager.query(
+      'SELECT * FROM contractor_attendance_batches WHERE id=$1',
+      [id],
+    );
+    if (!batch) throw new NotFoundException('Attendance batch not found');
+    if (
+      user.clientId !== batch.client_id ||
+      !user.branchIds?.includes(batch.branch_id)
+    )
+      throw new ForbiddenException(
+        'Attendance is outside your assigned branch',
+      );
+    await this.scope.assertBranchAllowed(user, batch.branch_id);
+    const review = async (manager: import('typeorm').EntityManager) => {
+      const [current] = await manager.query(
+        'SELECT * FROM contractor_attendance_batches WHERE id=$1 FOR UPDATE',
+        [id],
+      );
+      if (!current?.is_current || current.status !== 'PENDING')
+        throw new ConflictException(
+          'Attendance was already reviewed or replaced. Refresh the queue.',
+        );
+      await manager.query(
+        'UPDATE contractor_attendance_batches SET status=$2,reviewed_by=$3,reviewed_at=now(),remarks=$4 WHERE id=$1',
+        [
+          id,
+          decision === 'approve' ? 'APPROVED' : 'RETURNED',
+          user.id,
+          remarks.trim(),
+        ],
+      );
+    };
+    if (decision === 'return') {
+      await this.computationRepo.manager.transaction(async (manager) => {
+        await this.workflow.lock(manager, batch);
+        await review(manager);
+      });
+      return { id, status: 'RETURNED' };
+    }
+    const result = await this.workflow.saveDraft(
       user,
-      {
-        client_id: clientId,
-        contractor_user_id: contractorUserId,
-        branch_id: input.branchId,
-        period_month: input.periodMonth,
-      },
+      batch,
       async () => {
         const output: ContractorMcdComputationEntity[] = [];
-        for (let i = 0; i < input.rows.length; i++)
+        for (let i = 0; i < batch.rows_snapshot.length; i++) {
           output.push(
             await this.computeOne(
-              clientId,
-              contractorUserId,
-              input.branchId!,
-              input.periodMonth,
-              input.uploadId ?? null,
+              batch.client_id,
+              batch.contractor_user_id,
+              batch.branch_id,
+              batch.period_month,
+              batch.source_document_id || null,
               i + 1,
-              input.rows[i],
+              batch.rows_snapshot[i],
             ),
           );
+        }
         return output;
       },
+      review,
     );
-    const mismatches = saved.filter((r) => r.matchStatus !== 'MATCHED');
-    if (mismatches.length)
+    // saveDraft resolves after the approval and payroll transaction commits.
+    const mismatches = result.saved.filter(
+      (row) => row.matchStatus !== 'MATCHED',
+    );
+    if (mismatches.length) {
       await this.notifyCrm(
-        clientId,
-        input.branchId ?? null,
-        contractorUserId,
-        input.periodMonth,
+        batch.client_id,
+        batch.branch_id,
+        batch.contractor_user_id,
+        batch.period_month,
         mismatches,
       );
+    }
     return {
-      total: saved.length,
-      matched: saved.length - mismatches.length,
-      mismatches: mismatches.length,
-      summary: this.summarize(saved),
-      version,
-      rows: saved,
+      id,
+      status: 'APPROVED',
+      total: result.saved.length,
+      version: result.version,
     };
   }
 

@@ -32,6 +32,12 @@ async function main() {
     await ds.query('CREATE TABLE clients(id uuid PRIMARY KEY, assigned_crm_id uuid, is_deleted boolean DEFAULT false)');
     await ds.query("INSERT INTO users(id,name,owner_cco_id) VALUES ($1,'Managed CRM',$2),($3,'Other CRM',$4)",[id(4),id(6),id(10),id(11)]);
     await ds.query('INSERT INTO clients(id,assigned_crm_id) VALUES ($1,$2),($3,$4)',[id(1),id(4),id(9),id(10)]);
+    await ds.query('CREATE TABLE contractor_documents(id uuid PRIMARY KEY)');
+    await ds.query("INSERT INTO users(id,name) VALUES ($1,'Branch reviewer')",[id(8)]);
+    const attendanceMigration=fs.readFileSync(path.join(__dirname,'../migrations/20260915_contractor_attendance_approval.sql'),'utf8');
+    await ds.query(attendanceMigration); await ds.query(attendanceMigration);
+    await ds.query(`INSERT INTO contractor_attendance_batches(client_id,branch_id,contractor_user_id,period_month,rows_snapshot,submitted_by,status,reviewed_by,reviewed_at)
+      VALUES($1,$2,$3,'2026-09','[]',$3,'APPROVED',$4,now())`,[id(1),id(2),id(3),id(8)]);
     const ccoAccess = new AccessScopeService({}, {}, {manager:ds.manager}, {manager:ds.manager}, {});
     const scope = {
       assertCcoClientAllowed: (u,c)=>ccoAccess.assertCcoClientAllowed(u,c),
@@ -106,6 +112,16 @@ async function main() {
     await assert.rejects(workflow.transition(contractor,third.version.id,'submit','Resubmit unchanged snapshot'),/not available/);
     const fourth=await workflow.saveDraft(contractor,key,calculate); assert.equal(fourth.version.version,4);
     await workflow.transition(contractor,fourth.version.id,'submit','Recalculated payroll submitted');
+    const [pending] = await ds.query(`INSERT INTO contractor_attendance_batches(client_id,branch_id,contractor_user_id,period_month,rows_snapshot,submitted_by)
+      VALUES($1,$2,$3,'2026-10',$4::jsonb,$3) RETURNING id`,[id(1),id(2),id(3),JSON.stringify([{employee_code:'E001',days_worked:20}])]);
+    computation.computeOne=async()=>{throw new Error('Invalid employee deployment');};
+    await assert.rejects(computation.reviewAttendance(user('BRANCH_DESK',8),pending.id,'approve','Checked attendance'),/Invalid employee deployment/);
+    assert.equal((await ds.query('SELECT status FROM contractor_attendance_batches WHERE id=$1',[pending.id]))[0].status,'PENDING');
+    computation.computeOne=async()=>{const rows=await calculate();rows[0].periodMonth='2026-10';return rows[0];};
+    const approvals=await Promise.allSettled([computation.reviewAttendance(user('BRANCH_DESK',8),pending.id,'approve','Checked attendance'),computation.reviewAttendance(user('BRANCH_DESK',8),pending.id,'approve','Checked attendance')]);
+    assert.equal(approvals.filter(r=>r.status==='fulfilled').length,1);
+    assert.equal((await ds.query('SELECT status FROM contractor_attendance_batches WHERE id=$1',[pending.id]))[0].status,'APPROVED');
+    assert.equal(Number((await ds.query("SELECT count(*) FROM contractor_payroll_versions WHERE period_month='2026-10'"))[0].count),1);
     console.log('PASS: actual entity schema + migration, transactional preservation, role visibility, approval, independent verification, controlled reopening, immutable snapshots and concurrent transitions.');
   } finally { if(ds?.isInitialized) await ds.destroy(); await admin.query(`DROP SCHEMA "${schema}" CASCADE`); await admin.end(); }
 }
