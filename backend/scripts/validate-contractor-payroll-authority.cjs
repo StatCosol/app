@@ -12,7 +12,7 @@ const ExcelJS = require('exceljs');
 const { ContractorPayrollWorkflowController } = require('../dist/src/contractor/contractor-payroll-workflow.controller');
 const { ContractorPayrollWorkflowService } = require('../dist/src/contractor/contractor-payroll-workflow.service');
 const schema = `payroll_authority_${Date.now()}`;
-const connection = { host: '127.0.0.1', port: 55439, user: 'monthly_close_test', database: 'postgres' };
+const connection = { host: '127.0.0.1', port: Number(process.env.AUTOMATION_TEST_PORT || 55439), user: process.env.AUTOMATION_TEST_USER || 'monthly_close_test', password: process.env.AUTOMATION_TEST_PASSWORD || undefined, database: process.env.AUTOMATION_TEST_DATABASE || 'postgres' };
 const id = (n) => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 async function main() {
   const admin = new Client(connection); await admin.connect();
@@ -84,6 +84,9 @@ async function main() {
     await assert.rejects(computation.computeOne(id(1),id(3),id(2),'2026-11',null,1,{employee_code:'E001',days_worked:30}),/changes within/);
     const ledger=Array.from({length:30},(_,i)=>({date:'2026-11-'+String(i+1).padStart(2,'0'),days:1,hours:0}));
     const revised=await computation.computeOne(id(1),id(3),id(2),'2026-11',null,1,{employee_code:'E001',days_worked:30,daily_attendance:ledger});
+    computation.findMinimumDailyWage=async()=>600;
+    const belowMinimum=await computation.computeOne(id(1),id(3),id(2),'2026-11',null,1,{employee_code:'E001',days_worked:30,daily_attendance:ledger});assert.equal(belowMinimum.matchStatus,'MISMATCH');assert.match(belowMinimum.mismatchReason,/minimum wage/);
+    computation.findMinimumDailyWage=async()=>400;
     assert.equal(revised.basicWage,18000);assert.equal(revised.pfDeduction,1800);assert.equal(revised.pfEmployerContribution,1950);assert.equal(revised.calculationSnapshot.segments.length,2);
     const first=await workflow.saveDraft(contractor,key,calculate); const firstId=first.version.id;
     assert.equal((await workflow.list(contractor,{})).data[0].branchName,'Branch One');

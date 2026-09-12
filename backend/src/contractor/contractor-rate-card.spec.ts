@@ -113,3 +113,14 @@ it('pays hourly overtime once and charges an unprorated monthly component once',
   expect(result.amounts.OT).toBe(600);
   expect(result.amounts.PT).toBe(150);
 });
+
+it('reconciles the supplied supervisor monthly wage breakup', () => {
+  const card = sample();
+  const values = { BASIC_DA: 20000, SITE: 2150, BONUS: 1666, LEAVE: 962 };
+  for (const component of card.components)
+    if (component.code in values) component.value = values[component.code];
+  const result = calculateRateCard(card, 30);
+  expect(result.earnings).toBe(24778);
+  expect(result.deductions).toBe(2100);
+  expect(result.netPay).toBe(22678);
+});

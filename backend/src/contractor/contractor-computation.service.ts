@@ -1209,7 +1209,11 @@ export class ContractorComputationService {
       reasons.push(
         `No minimum wage configured for ${stateCode}/${skillCategory}`,
       );
-    if (minimumDailyWage && payableDailyWage < minimumDailyWage)
+    if (
+      minimumDailyWage &&
+      (payableDailyWage < minimumDailyWage ||
+        segments.some((s) => s.quote.dailyWage < minimumDailyWage))
+    )
       reasons.push('Payable wage is below state minimum wage');
     if (!stateCode) reasons.push('Branch/employee state is missing');
     const excluded = [
@@ -1248,7 +1252,11 @@ export class ContractorComputationService {
         ...(employee.pfApplicable ? ['PF_EMP', 'PF_ER'] : []),
         ...(employee.esiApplicable ? ['ESI_EMP', 'ESI_ER'] : []),
       ]) {
-        if (!(code in cardResult.amounts))
+        if (
+          calculationSegments.some(
+            (s) => !s.quote.rateCard!.components.some((c) => c.code === code),
+          )
+        )
           reasons.push('Rate card missing required component ' + code);
       }
     }

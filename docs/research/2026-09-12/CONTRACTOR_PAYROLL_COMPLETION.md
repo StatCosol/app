@@ -16,10 +16,11 @@ The supplied guard figures produce gross A 18,000, bonus 1,333, leave 770, total
 
 ## Verification
 
-- Local backend suite: 1,294 passed, one existing skipped test. Isolated branch suite run separately.
+- Full isolated backend suite: 1,276 passed, one existing skipped test. Latest focused payroll/comparison regressions: 70 passed. The broader working checkout also passed 1,294 tests.
 - Frontend unit suite: 64 passed; isolated Angular browser suite: 277 passed.
 - Backend compilation, frontend production build, Angular template compilation and changed backend lint checks passed; frontend lint passed.
 - Disposable PostgreSQL: migrations applied twice; quotation version concurrency; actual midmonth rate calculation and shared PF ceiling; scope denial; draft visibility; rollback on calculation failure; immutable history; simultaneous approval; 205-row branch queue.
+- CI runs the payroll PostgreSQL and document extraction regressions after building the backend.
 - Actual synthetic Excel and grid PDF files: match, one-rupee NC, saved comparison history and invalid-PDF manual-review fallback. Synthetic files removed afterwards. No production employee records were used.
 
 ## Deployment and operating requirements
