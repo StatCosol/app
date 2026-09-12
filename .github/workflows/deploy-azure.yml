@@ -103,14 +103,6 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy backend Container App
-        run: |
-          IMAGE="${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}"
-          az containerapp update \
-            --name ${{ env.BACKEND_APP }} \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image "$IMAGE"
-
       - name: Apply service entitlement migrations
         run: |
           IMAGE="${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}"
@@ -172,6 +164,15 @@ jobs:
             --execution "$EXECUTION_NAME" \
             --container ${{ env.MIGRATION_JOB }} || true
           exit 1
+
+      # Additive schema changes must succeed while the old revision still serves traffic.
+      - name: Deploy backend Container App
+        run: |
+          IMAGE="${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}"
+          az containerapp update \
+            --name ${{ env.BACKEND_APP }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image "$IMAGE"
 
       - name: Route backend traffic to migrated image
         run: |

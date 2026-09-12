@@ -189,6 +189,9 @@ export class CreateContractorEmployeeDto {
 
 export class UpdateContractorEmployeeDto {
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.replace(/\s+/g, '') : value,
+  )
   @IsString()
   @Matches(/^[0-9]{1,40}$/, {
     message: 'Bank account number must contain only digits (maximum 40)',
@@ -234,13 +237,21 @@ export class UpdateContractorEmployeeDto {
   dateOfJoining?: string;
 
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.replace(/\s+/g, '') : value,
+  )
   @IsString()
-  @MaxLength(12)
+  @Matches(/^\d{12}$/, { message: 'Aadhaar must contain 12 digits' })
   aadhaar?: string;
 
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.replace(/\s+/g, '').toUpperCase() : value,
+  )
   @IsString()
-  @MaxLength(10)
+  @Matches(/^[A-Z]{5}[0-9]{4}[A-Z]$/, {
+    message: 'PAN must use the format ABCDE1234F',
+  })
   pan?: string;
 
   @IsOptional()

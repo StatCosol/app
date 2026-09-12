@@ -1417,7 +1417,8 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target!.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: 'array' });
+        // Preserve CSV tokens as text; binary Excel cells retain their original types.
+        const wb = XLSX.read(data, { type: 'array', raw: true });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, {
           defval: null,

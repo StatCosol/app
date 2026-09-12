@@ -63,3 +63,31 @@ it('allows an unrelated edit to an existing employee without inventing missing i
     ),
   ).toHaveLength(0);
 });
+
+describe('contract employee identity updates', () => {
+  it.each([
+    ['aadhaar', 'abc'],
+    ['aadhaar', ''],
+    ['pan', '123'],
+    ['pan', '   '],
+  ])('rejects malformed supplied %s', (field, value) => {
+    const errors = validateSync(
+      plainToInstance(UpdateContractorEmployeeDto, { [field]: value }),
+    );
+    expect(errors.map((e) => e.property)).toContain(field);
+  });
+  it('normalizes supplied fields while keeping omitted legacy values optional', () => {
+    const value = plainToInstance(UpdateContractorEmployeeDto, {
+      aadhaar: '1234 5678 9012',
+      pan: 'abcde1234f',
+      bankAccount: '00 1234567890',
+    });
+    expect(validateSync(value)).toHaveLength(0);
+    expect(value.aadhaar).toBe('123456789012');
+    expect(value.pan).toBe('ABCDE1234F');
+    expect(value.bankAccount).toBe('001234567890');
+    expect(
+      validateSync(plainToInstance(UpdateContractorEmployeeDto, {})),
+    ).toHaveLength(0);
+  });
+});

@@ -73,6 +73,26 @@ describe('Contractor worker download', () => {
     expect(rows[2].errors).toHaveLength(3);
   });
 
+  it('preserves long account numbers and leading zeros from a CSV file', async () => {
+    const csv = 'name,skillCategory,monthlySalary,aadhaar,pan,bankAccount\nWorker,SKILLED,15000,123456789012,ABCDE1234F,0012345678901234567890';
+    const input = { files: [new File([csv], 'workers.csv', { type: 'text/csv' })], value: 'workers.csv' };
+    component.onBulkFile({ target: input } as unknown as Event);
+    await vi.waitFor(() => expect(component.bulkPreview).toHaveLength(1));
+    expect(component.bulkPreview[0].errors).toEqual([]);
+    expect(component.bulkPreview[0].dto.bankAccount).toBe('0012345678901234567890');
+    expect(component.bulkPreview[0].dto.monthlySalary).toBe(15000);
+  });
+
+  it('still rejects numeric bank cells from an Excel workbook', async () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ name: 'Worker', skillCategory: 'SKILLED', aadhaar: '123456789012', pan: 'ABCDE1234F', bankAccount: 1234567890 }]), 'Workers');
+    const bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+    const input = { files: [new File([bytes], 'workers.xlsx')], value: 'workers.xlsx' };
+    component.onBulkFile({ target: input } as unknown as Event);
+    await vi.waitFor(() => expect(component.bulkPreview).toHaveLength(1));
+    expect(component.bulkPreview[0].errors.join(' ')).toContain('as text');
+  });
+
   it('blocks exports while branch data is loading, after failure, and for an empty list', async () => {
     component.filteredRows = [worker('Old branch worker')];
     component.loading = true;
