@@ -29,6 +29,7 @@ const aliases: Record<string, string> = {
   gross_wages: 'grossWage',
   gross_salary: 'grossWage',
   gross_wage: 'grossWage',
+  pf_wage: 'pfWage',
   pf_wages: 'pfWage',
   epf_wages: 'pfWage',
   pf_employee: 'pfDeduction',

@@ -1,4 +1,4 @@
-import { comparePayrollDocument } from './document-comparison';
+import { comparePayrollDocument, normalizeHeader } from './document-comparison';
 const worker = {
   employeeCode: 'G001',
   daysWorked: 30,
@@ -102,4 +102,16 @@ it('does not infer missing workers when an identifier is ambiguous', () => {
     'PF',
   );
   expect(result.status).toBe('NEEDS_REVIEW');
+});
+
+it('accepts singular PF Wage headers used by the payroll working pack', () => {
+  const fields = Object.fromEntries(
+    ['UAN', 'PF Wage', 'PF Deduction'].map((header, index) => [
+      normalizeHeader(header),
+      [row.uan, '15000', '1800'][index],
+    ]),
+  );
+  expect(comparePayrollDocument([fields], [worker], 'PF').status).toBe(
+    'MATCHED',
+  );
 });
