@@ -1,3 +1,5 @@
+import { runLocalOcr } from './local-ocr';
+import { ocrRows, OcrPage } from './ocr-table';
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import * as ExcelJS from 'exceljs';
@@ -26,7 +28,8 @@ export class PayrollDocumentReconciliationService {
     );
     for (const doc of documents) await this.check(doc.id);
   }
-  async check(documentId: string) {
+  async check(documentId: string, options: { ocr?: boolean } = {}) {
+    const profile = options.ocr ? 'ocr-v1' : 'tables-v2';
     const [doc] = await this.db.query(
       'SELECT * FROM contractor_documents WHERE id=$1',
       [documentId],
@@ -45,11 +48,12 @@ export class PayrollDocumentReconciliationService {
     const buffer = await readFile(candidate),
       hash = createHash('sha256').update(buffer).digest('hex');
     const [cached] = await this.db.query(
-      'SELECT result FROM payroll_document_checks WHERE document_id=$1 AND file_hash=$2 AND payroll_version_id IS NOT DISTINCT FROM $3::uuid AND file_path=$4 ORDER BY created_at DESC LIMIT 1',
-      [documentId, hash, payroll?.id || null, doc.file_path],
+      'SELECT result FROM payroll_document_checks WHERE document_id=$1 AND file_hash=$2 AND payroll_version_id IS NOT DISTINCT FROM $3::uuid AND file_path=$4 AND check_profile=$5 ORDER BY created_at DESC LIMIT 1',
+      [documentId, hash, payroll?.id || null, doc.file_path, profile],
     );
     if (cached) return cached.result;
     let result: any;
+    let cacheable = true;
     const review = (remark: string) => ({
       status: 'NEEDS_REVIEW',
       findings: [{ status: 'NEEDS_REVIEW', field: 'document', remark }],
@@ -63,7 +67,7 @@ export class PayrollDocumentReconciliationService {
         'Verify establishment, payment period and multi-site coverage manually before comparing totals',
       );
     else {
-      const kind = /ECR|EPF|PF_/i.test(doc.doc_type)
+      const kind = /ECR|EPF|PF_|^PF$/i.test(doc.doc_type)
         ? 'PF'
         : /ESI/i.test(doc.doc_type)
           ? 'ESI'
@@ -77,6 +81,8 @@ export class PayrollDocumentReconciliationService {
       else
         try {
           let rows: DocumentRow[] = [];
+          let incompletePdf = false;
+          let recognized: OcrPage[] | undefined;
           const add = (table: string[][], page: number) => {
             const headerIndex = table.findIndex((row) =>
               row.some((cell) =>
@@ -148,10 +154,24 @@ export class PayrollDocumentReconciliationService {
               const info = await parser.getInfo();
               if (info.total > 100) throw new Error('Too many PDF pages');
               const tables = await parser.getTable();
-              for (const page of tables.pages)
+              const covered = new Set<number>();
+              for (const page of tables.pages) {
+                const before = rows.length;
                 for (const table of page.tables) add(table, page.num);
+                if (rows.length > before) covered.add(page.num);
+              }
+              incompletePdf = covered.size !== info.total;
             } finally {
               await parser.destroy();
+            }
+            if (incompletePdf && options.ocr) {
+              try {
+                recognized = await runLocalOcr(buffer);
+                rows = ocrRows(recognized);
+              } catch {
+                cacheable = false;
+                throw new Error('OCR unavailable');
+              }
             }
           } else throw new Error('Unsupported file type');
           if (kind === 'ATTENDANCE' && rows.some((r) => r.attendance_date)) {
@@ -193,29 +213,77 @@ export class PayrollDocumentReconciliationService {
             : review(
                 'No supported table found. Scanned or unfamiliar PDFs require auditor review; no automatic compliance conclusion was made.',
               );
+          if (recognized) {
+            result = {
+              status: 'NEEDS_REVIEW',
+              extraction: 'OCR',
+              findings: [
+                {
+                  status: 'NEEDS_REVIEW',
+                  field: 'document',
+                  remark:
+                    'OCR suggestions only. Check each identifier and amount against the original PDF; no automatic compliance decision was made.',
+                },
+                ...result.findings.map((finding: any) => ({
+                  ...finding,
+                  status: 'NEEDS_REVIEW',
+                  remark: 'OCR suggestion: ' + finding.remark,
+                })),
+              ],
+              ocr: {
+                pages: recognized.map((p) => ({
+                  page: p.page,
+                  confidence: p.confidence,
+                  text: p.text,
+                })),
+                rows: rows.length,
+              },
+            };
+          } else if (incompletePdf) {
+            result.findings.push({
+              status: 'NEEDS_REVIEW',
+              field: 'coverage',
+              remark:
+                'Some PDF pages could not be compared. Use Compare with payroll to try OCR, or review every page manually.',
+            });
+            if (result.status === 'MATCHED') result.status = 'NEEDS_REVIEW';
+          }
         } catch {
           result = review(
-            'Document extraction could not be completed; review the original file manually',
+            'Document extraction could not finish (unreadable file, busy processor or processing limit). Retry comparison or review the original file manually',
           );
         }
+    }
+    const [latestPayroll] = await this.db.query(
+      'SELECT * FROM contractor_payroll_versions WHERE client_id=$1 AND branch_id=$2 AND contractor_user_id=$3 AND period_month=$4 AND is_current',
+      [doc.client_id, doc.branch_id, doc.contractor_user_id, doc.doc_month],
+    );
+    if ((latestPayroll?.id || null) !== (payroll?.id || null)) {
+      cacheable = false;
+      result = review(
+        'Payroll changed during comparison. Run comparison again against the latest approved attendance.',
+      );
     }
     result = {
       ...result,
       payrollVersionId: payroll?.id || null,
       payrollVersion: payroll?.version || null,
       fileHash: hash,
+      checkProfile: profile,
     };
-    await this.db.query(
-      'INSERT INTO payroll_document_checks(document_id,file_hash,payroll_version_id,status,result,file_path) VALUES($1,$2,$3,$4,$5::jsonb,$6) ON CONFLICT DO NOTHING',
-      [
-        documentId,
-        hash,
-        payroll?.id || null,
-        result.status,
-        JSON.stringify(result),
-        doc.file_path,
-      ],
-    );
+    if (cacheable)
+      await this.db.query(
+        'INSERT INTO payroll_document_checks(document_id,file_hash,payroll_version_id,status,result,file_path,check_profile) VALUES($1,$2,$3,$4,$5::jsonb,$6,$7) ON CONFLICT DO NOTHING',
+        [
+          documentId,
+          hash,
+          payroll?.id || null,
+          result.status,
+          JSON.stringify(result),
+          doc.file_path,
+          profile,
+        ],
+      );
     return result;
   }
 }

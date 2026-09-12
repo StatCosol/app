@@ -44,7 +44,7 @@ export class AuditDocumentReviewService {
     const documents = await this.listDocumentsForAudit(user, auditId);
     if (!documents.contractorDocuments.some((doc) => doc.id === documentId))
       throw new ForbiddenException('Document is not in this assigned audit');
-    return this.reconciliation.check(documentId);
+    return this.reconciliation.check(documentId, { ocr: true });
   }
 
   private assertAuditor(user: ReqUser) {
