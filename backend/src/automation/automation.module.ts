@@ -1,3 +1,5 @@
+import { AutomationControlController } from './control-center.controller';
+import { AutomationControlService } from './control-center.service';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -61,6 +63,7 @@ import { AuthModule } from '../auth/auth.module';
     AuthModule,
   ],
   controllers: [
+    AutomationControlController,
     AutomationController,
     AuditScheduleAutomationController,
     ApplicabilityAutomationController,
@@ -70,6 +73,7 @@ import { AuthModule } from '../auth/auth.module';
     ReturnsFilingAutomationController,
   ],
   providers: [
+    AutomationControlService,
     // Core
     AutomationService,
 

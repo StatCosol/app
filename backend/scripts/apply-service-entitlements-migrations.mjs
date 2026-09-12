@@ -88,6 +88,7 @@ const serviceMigrationFiles = new Set([
   '20260811_facedesk_azure_face.sql',
   // Durable reminder receipts and one canonical renewal filing per expiry.
   '20260912_automation_delivery_dedup.sql',
+  '20260912b_automation_control_center.sql',
 ]);
 
 const config = {

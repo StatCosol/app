@@ -1240,6 +1240,8 @@ export class CrmReturnsFilingsComponent implements OnInit, OnDestroy {
       });
   }
 
+  get canManageAutomation(): boolean { return this.auth.getRoleCode?.() === 'ADMIN'; }
+
   runAutoRenewals(): void {
     this.autoRenewing = true;
     this.returnsAutomation

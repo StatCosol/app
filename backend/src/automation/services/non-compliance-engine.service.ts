@@ -1,6 +1,7 @@
+import { AutomationScope, scopedRows } from '../automation-scope';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, IsNull, Repository } from 'typeorm';
+import { DataSource, In, IsNull, Repository } from 'typeorm';
 import {
   AuditNonComplianceEntity,
   NcStatus,
@@ -142,14 +143,20 @@ export class NonComplianceEngineService {
   }
 
   /** Get all open NCs (for daily reminders). */
-  async getOpenNcForDailyReminder(): Promise<AuditNonComplianceEntity[]> {
+  async getOpenNcForDailyReminder(
+    scope: AutomationScope = {},
+  ): Promise<AuditNonComplianceEntity[]> {
+    const ids = await scopedRows(
+      this.dataSource,
+      `SELECT nc.id, a.client_id, a.branch_id FROM audit_non_compliances nc
+      JOIN audits a ON a.id=nc.audit_id WHERE nc.closed_at IS NULL
+      AND nc.status IN ('NC_RAISED','AWAITING_REUPLOAD','REUPLOADED','REVERIFICATION_PENDING')`,
+      [],
+      scope,
+    );
+    if (!ids.length) return [];
     return this.ncRepo.find({
-      where: [
-        { closedAt: IsNull(), status: 'NC_RAISED' as NcStatus },
-        { closedAt: IsNull(), status: 'AWAITING_REUPLOAD' as NcStatus },
-        { closedAt: IsNull(), status: 'REUPLOADED' as NcStatus },
-        { closedAt: IsNull(), status: 'REVERIFICATION_PENDING' as NcStatus },
-      ],
+      where: { id: In(ids.map((x) => x.id)) },
       order: { raisedAt: 'ASC' },
     });
   }
@@ -158,12 +165,14 @@ export class NonComplianceEngineService {
    * Send daily NC reminders to responsible parties.
    * Called by the NonComplianceRemindersJob cron.
    */
-  async sendDailyReminders(): Promise<{
+  async sendDailyReminders(scope: AutomationScope = {}): Promise<{
+    failures: number;
     totalOpenNc: number;
     remindersSent: number;
   }> {
-    const rows = await this.getOpenNcForDailyReminder();
-    let sent = 0;
+    const rows = await this.getOpenNcForDailyReminder(scope);
+    let sent = 0,
+      failures = 0;
 
     for (const nc of rows) {
       try {
@@ -194,6 +203,7 @@ export class NonComplianceEngineService {
         )
           sent++;
       } catch (err) {
+        failures++;
         this.logger.error(
           `NC reminder failed for ${nc.id}: ${err instanceof Error ? err.message : String(err)}`,
         );
@@ -201,6 +211,6 @@ export class NonComplianceEngineService {
     }
 
     this.logger.log(`NC reminders: ${sent}/${rows.length} sent`);
-    return { totalOpenNc: rows.length, remindersSent: sent };
+    return { totalOpenNc: rows.length, remindersSent: sent, failures };
   }
 }

@@ -1,3 +1,4 @@
+import { AutomationScope, scopedRows } from '../automation-scope';
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { TaskEngineService } from './task-engine.service';
@@ -12,9 +13,10 @@ export class RenewalFilingEngineService {
     private readonly taskEngine: TaskEngineService,
   ) {}
 
-  async generateRenewalFilings() {
+  async getExpiringRegistrations(scope: AutomationScope = {}) {
     const today = operationalDate();
-    const registrations = await this.dataSource.query(
+    return scopedRows(
+      this.dataSource,
       `SELECT br.id AS reg_id, br.type AS registration_type,
       br.expiry_date::text AS expiry_date, br.branch_id, br.client_id, b.branchname,
       br.expiry_date - $1::date AS days_left
@@ -23,7 +25,12 @@ export class RenewalFilingEngineService {
       WHERE br.expiry_date BETWEEN $1::date AND $1::date + 60
         AND br.status='ACTIVE' AND b.isactive=true AND c.is_deleted=false`,
       [today],
+      scope,
     );
+  }
+
+  async generateRenewalFilings(scope: AutomationScope = {}) {
+    const registrations = await this.getExpiringRegistrations(scope);
     let filingsCreated = 0,
       tasksCreated = 0,
       skipped = 0;

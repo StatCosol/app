@@ -1,3 +1,6 @@
+import { AutomationControlService } from '../control-center.service';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { ReqUser } from '../../access/access-scope.service';
 import { Controller, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
@@ -18,6 +21,7 @@ import { RenewalFilingEngineService } from '../services/renewal-filing-engine.se
 @Roles('ADMIN', 'CRM')
 export class ReturnsFilingAutomationController {
   constructor(
+    private readonly controls: AutomationControlService,
     private readonly filingEngine: ReturnsFilingEngineService,
     private readonly renewalEngine: RenewalFilingEngineService,
   ) {}
@@ -43,14 +47,16 @@ export class ReturnsFilingAutomationController {
     summary:
       'Generate renewal filings from expiring registrations (manual trigger)',
   })
+  @Roles('ADMIN')
   @Post('generate-renewals')
-  async generateRenewals() {
-    return this.renewalEngine.generateRenewalFilings();
+  async generateRenewals(@CurrentUser() user: ReqUser) {
+    return this.controls.legacyRun('expiry', user.userId || user.id);
   }
 
   @ApiOperation({ summary: 'Send overdue filing alerts (manual trigger)' })
+  @Roles('ADMIN')
   @Post('overdue-alerts')
-  async sendOverdueAlerts() {
-    return this.filingEngine.generateOverdueAlerts();
+  async sendOverdueAlerts(@CurrentUser() user: ReqUser) {
+    return this.controls.legacyRun('filing_overdue', user.userId || user.id);
   }
 }

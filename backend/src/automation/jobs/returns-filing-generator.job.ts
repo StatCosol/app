@@ -37,7 +37,6 @@ export class ReturnsFilingGeneratorJob {
    * Runs daily at 03:00.
    * Generates renewal filings from expiring registrations.
    */
-  @Cron('0 0 3 * * *')
   async handleDailyRenewals() {
     this.logger.log('Daily renewal filing scan started');
     try {
@@ -55,7 +54,6 @@ export class ReturnsFilingGeneratorJob {
    * Runs daily at 08:00.
    * Sends overdue alerts for past-due filings.
    */
-  @Cron('0 0 8 * * *')
   async handleOverdueAlerts() {
     this.logger.log('Overdue filing alerts job started');
     try {

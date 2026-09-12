@@ -1,12 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { ExpiryEngineService } from '../services/expiry-engine.service';
 
 @Injectable()
 export class ExpiryRemindersJob {
   private readonly logger = new Logger(ExpiryRemindersJob.name);
   constructor(private readonly expiry: ExpiryEngineService) {}
-  @Cron('0 0 7 * * *', { timeZone: 'Asia/Kolkata' })
   async handle() {
     try {
       const result = await this.expiry.generateExpiryAlerts();

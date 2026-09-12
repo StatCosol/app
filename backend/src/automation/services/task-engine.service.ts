@@ -1,3 +1,4 @@
+import { AutomationScope, scopedRows } from '../automation-scope';
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { operationalDate } from '../../common/operational-date';
@@ -252,8 +253,9 @@ export class TaskEngineService {
     );
   }
 
-  async getOverdueTasks() {
-    return this.dataSource.query(
+  async getOverdueTasks(scope: AutomationScope = {}) {
+    return scopedRows(
+      this.dataSource,
       `
       SELECT *
       FROM system_tasks
@@ -262,11 +264,13 @@ export class TaskEngineService {
       ORDER BY due_date ASC
       `,
       [operationalDate()],
+      scope,
     );
   }
 
-  async getTasksDueSoon(days = 3) {
-    return this.dataSource.query(
+  async getTasksDueSoon(days = 3, scope: AutomationScope = {}) {
+    return scopedRows(
+      this.dataSource,
       `
       SELECT *
       FROM system_tasks
@@ -276,6 +280,7 @@ export class TaskEngineService {
       ORDER BY due_date ASC
       `,
       [days, operationalDate()],
+      scope,
     );
   }
 

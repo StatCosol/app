@@ -1,3 +1,6 @@
+import { AutomationControlService } from './control-center.service';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 import {
   Controller,
   Get,
@@ -25,6 +28,7 @@ import { RolesGuard } from '../auth/roles.guard';
 @Controller({ path: 'automation', version: '1' })
 export class AutomationController {
   constructor(
+    private readonly controls: AutomationControlService,
     private readonly automationService: AutomationService,
     private readonly ncEngine: NonComplianceEngineService,
     private readonly auditOutputEngine: AuditOutputEngineService,
@@ -46,8 +50,8 @@ export class AutomationController {
   @ApiOperation({ summary: 'Trigger NC reminders manually' })
   @Roles('ADMIN')
   @Post('triggers/nc-reminders')
-  async triggerNcReminders() {
-    return this.ncEngine.sendDailyReminders();
+  async triggerNcReminders(@CurrentUser() user: ReqUser) {
+    return this.controls.legacyRun('nc_reminders', user.userId || user.id);
   }
 
   @ApiOperation({ summary: 'Trigger audit output refresh' })
@@ -94,8 +98,8 @@ export class AutomationController {
   @ApiOperation({ summary: 'Trigger expiry alerts' })
   @Roles('ADMIN')
   @Post('triggers/expiry-alerts')
-  async triggerExpiryAlerts() {
-    return this.expiryEngine.generateExpiryAlerts();
+  async triggerExpiryAlerts(@CurrentUser() user: ReqUser) {
+    return this.controls.legacyRun('expiry', user.userId || user.id);
   }
 
   // ── Task center endpoints ──────────────────────────────────

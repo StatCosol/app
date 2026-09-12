@@ -1,3 +1,5 @@
+import { operationalDate } from '../../common/operational-date';
+import { AutomationScope, scopedRows } from '../automation-scope';
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { TaskEngineService } from './task-engine.service';
@@ -220,23 +222,32 @@ export class ReturnsFilingEngineService {
   /**
    * Generate overdue alerts for filings past their due date still in PENDING / IN_PROGRESS.
    */
-  async generateOverdueAlerts(): Promise<{ alertsSent: number }> {
-    this.logger.log('Scanning for overdue filings');
-
-    const overdue = await this.dataSource.query(
+  async getOverdueFilings(scope: AutomationScope = {}) {
+    return scopedRows(
+      this.dataSource,
       `SELECT cr.id, cr.client_id, cr.branch_id, cr.return_type, cr.due_date,
               cr.period_label, cr.law_type,
               b.branchname,
-              EXTRACT(DAY FROM NOW() - cr.due_date::timestamp)::int AS days_overdue
+              ($1::date - cr.due_date) AS days_overdue
        FROM compliance_returns cr
        JOIN client_branches b ON b.id = cr.branch_id
        WHERE cr.status IN ('PENDING', 'IN_PROGRESS')
          AND cr.due_date IS NOT NULL
-         AND cr.due_date < CURRENT_DATE
+         AND cr.due_date < $1::date
          AND cr.is_deleted = false`,
+      [operationalDate()],
+      scope,
     );
+  }
 
-    let alertsSent = 0;
+  async generateOverdueAlerts(
+    scope: AutomationScope = {},
+  ): Promise<{ alertsSent: number; failures: number }> {
+    this.logger.log('Scanning for overdue filings');
+
+    const overdue = await this.getOverdueFilings(scope);
+    let alertsSent = 0,
+      failures = 0;
     for (const row of overdue) {
       // Escalate task priority if overdue > 7 days
       if (row.days_overdue > 7) {
@@ -277,12 +288,13 @@ export class ReturnsFilingEngineService {
             alertsSent++;
         }
       } catch {
+        failures++;
         this.logger.warn(`Failed to send overdue alert for filing ${row.id}`);
       }
     }
 
     this.logger.log(`Overdue alerts: ${alertsSent} sent`);
-    return { alertsSent };
+    return { alertsSent, failures };
   }
 
   /**

@@ -1,3 +1,4 @@
+import { AutomationScope, scopedRows } from '../automation-scope';
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { TaskEngineService } from './task-engine.service';
@@ -15,9 +16,9 @@ export class ExpiryEngineService {
     private readonly renewals: RenewalFilingEngineService,
   ) {}
 
-  async generateExpiryAlerts() {
-    const renewal = await this.renewals.generateRenewalFilings();
-    const docs = await this.dataSource.query(
+  async getExpiringDocuments(scope: AutomationScope = {}) {
+    return scopedRows(
+      this.dataSource,
       `SELECT cd.id,cd.title,cd.expiry_date::text AS expiry_date,
       cd.contractor_user_id,cd.client_id,cd.branch_id FROM contractor_documents cd
       JOIN clients c ON c.id=cd.client_id
@@ -27,7 +28,13 @@ export class ExpiryEngineService {
         AND cd.status NOT IN ('EXPIRED','CANCELLED') AND c.is_deleted=false
         AND b.isactive=true AND u.is_active=true AND u.deleted_at IS NULL`,
       [operationalDate()],
+      scope,
     );
+  }
+
+  async generateExpiryAlerts(scope: AutomationScope = {}) {
+    const renewal = await this.renewals.generateRenewalFilings(scope);
+    const docs = await this.getExpiringDocuments(scope);
     let tasksCreated = renewal.tasksCreated,
       alertsSent = 0;
     for (const doc of docs) {
@@ -122,6 +129,8 @@ export class ExpiryEngineService {
         alertsSent++;
     }
     return {
+      filingsCreated: renewal.filingsCreated,
+      skipped: renewal.skipped,
       expiringItems: docs.length + renewal.filingsCreated + renewal.skipped,
       tasksCreated,
       alertsSent,
