@@ -649,10 +649,9 @@ export class PayrollEngineService {
     const { structure, items } = resolved;
 
     let paramMap = new Map<string, number>();
-    // L1: both branches called resolveAndLoad with identical args. Always
-    // resolve the active rule set for this client+branch+date — if the
-    // structure is pinned to a specific ruleSetId, prefer that one's params.
+    // Preview and processing resolve the same client-owned, effective rule set.
     const ruleSetResult = await this.rulesetResolver.resolveAndLoad({
+      ruleSetId: structure.ruleSetId,
       clientId,
       branchId: branchId ?? null,
       asOfDate,
@@ -1273,22 +1272,15 @@ export class PayrollEngineService {
 
         // Resolve rule set
         let paramMap = new Map<string, number>();
-        if (structure.ruleSetId) {
-          const ruleParams = await this.rulesetResolver.loadParameters(
-            structure.ruleSetId,
-          );
-          ruleSetId = structure.ruleSetId;
-          paramMap = ruleParams;
-        } else {
-          const ruleSetResult = await this.rulesetResolver.resolveAndLoad({
-            clientId: run.clientId,
-            branchId: emp.branchId ?? null,
-            asOfDate,
-          });
-          if (ruleSetResult) {
-            ruleSetId = ruleSetResult.ruleSet.id;
-            paramMap = ruleSetResult.params;
-          }
+        const ruleSetResult = await this.rulesetResolver.resolveAndLoad({
+          ruleSetId: structure.ruleSetId,
+          clientId: run.clientId,
+          branchId: emp.branchId ?? null,
+          asOfDate,
+        });
+        if (ruleSetResult) {
+          ruleSetId = ruleSetResult.ruleSet.id;
+          paramMap = ruleSetResult.params;
         }
 
         const componentMap = this.buildComponentMap(components);

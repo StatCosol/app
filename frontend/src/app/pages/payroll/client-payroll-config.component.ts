@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subject, forkJoin, of } from 'rxjs';
 import { catchError, finalize, takeUntil } from 'rxjs/operators';
 
@@ -112,7 +112,7 @@ const INDIAN_STATES = [
 @Component({
   selector: 'app-client-payroll-config',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClientContextStripComponent, PageHeaderComponent],
+  imports: [CommonModule, FormsModule, RouterLink, ClientContextStripComponent, PageHeaderComponent],
   templateUrl: './client-payroll-config.component.html',
   styleUrls: ['./client-payroll-config.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -299,7 +299,7 @@ export class ClientPayrollConfigComponent implements OnInit, OnDestroy {
       this.selectedStructure = s;
       this.view = 'detail';
       this.previewResult = null;
-      this.toast.info('Showing legacy structure in read-only mode. Create a new structure to manage it in this module.');
+      this.toast.info('This structure is used by payroll runs. Open Payroll Run Structures to edit it and submit changes for approval.');
       this.cdr.markForCheck();
       return;
     }

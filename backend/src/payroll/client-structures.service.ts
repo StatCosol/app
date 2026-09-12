@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { PayrollClientStructureEntity } from './entities/payroll-client-structure.entity';
 import { PayrollStructureComponentEntity } from './entities/payroll-structure-component.entity';
 import { PayrollStatutoryConfigEntity } from './entities/payroll-statutory-config.entity';
@@ -92,7 +92,7 @@ export class ClientStructuresService {
         await manager.save(PayrollStatutoryConfigEntity, configs);
       }
 
-      return this.findOneWithRelations(saved.id);
+      return this.findOneWithRelations(saved.id, manager);
     });
   }
 
@@ -222,14 +222,17 @@ export class ClientStructuresService {
         await manager.save(PayrollStatutoryConfigEntity, cloned);
       }
 
-      return this.findOneWithRelations(saved.id);
+      return this.findOneWithRelations(saved.id, manager);
     });
   }
 
   // ── Private ────────────────────────────────────────────────────────────────
 
-  private async findOneWithRelations(id: string) {
-    const structure = await this.structureRepo.findOne({
+  private async findOneWithRelations(id: string, manager?: EntityManager) {
+    const repo = manager
+      ? manager.getRepository(PayrollClientStructureEntity)
+      : this.structureRepo;
+    const structure = await repo.findOne({
       where: { id },
       relations: ['components', 'statutoryConfigs'],
     });

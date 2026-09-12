@@ -5,6 +5,16 @@
     <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
   </ui-page-header>
 
+  @if (selectedClientId) {
+    <section class="rounded-lg border border-blue-200 bg-blue-50 p-4 mb-4 text-sm" aria-label="Client payroll configuration guidance">
+      <p>Payroll runs use this client's approved salary structures and effective rules. The calculator below supports planning; saving a planning structure does not activate it for payroll runs.</p>
+      <div class="flex gap-3 mt-2">
+        <a class="btn btn-primary" [routerLink]="['/payroll/clients', selectedClientId, 'structures']">Payroll Run Structures</a>
+        <a class="btn btn-secondary" [routerLink]="['/payroll/clients', selectedClientId, 'setup']">Attendance and Deduction Settings</a>
+      </div>
+    </section>
+  }
+
   <div class="head-controls">
     @if (view === 'list') {
 <button type="button" class="btn btn-secondary"

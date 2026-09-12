@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PayRuleSetEntity } from '../entities/pay-rule-set.entity';
 import { PayRuleParameterEntity } from '../entities/pay-rule-parameter.entity';
 
 interface ResolveRuleSetParams {
+  ruleSetId?: string | null;
   clientId: string;
   branchId: string | null;
   asOfDate: string;
@@ -28,6 +29,23 @@ export class RulesetResolverService {
     params: ResolveRuleSetParams,
   ): Promise<PayRuleSetEntity | null> {
     const { clientId, branchId, asOfDate } = params;
+
+    if (params.ruleSetId) {
+      const pinned = await this.ruleSetRepo.findOne({
+        where: { id: params.ruleSetId, clientId, isActive: true },
+      });
+      if (
+        !pinned ||
+        (pinned.branchId && pinned.branchId !== branchId) ||
+        pinned.effectiveFrom > asOfDate ||
+        (pinned.effectiveTo && pinned.effectiveTo < asOfDate)
+      ) {
+        throw new BadRequestException(
+          'The salary structure rule set is not valid for this client, branch and payroll period',
+        );
+      }
+      return pinned;
+    }
 
     // Try branch-specific first
     if (branchId) {
