@@ -64,16 +64,17 @@ export class AppraisalCyclesService {
     return saved;
   }
 
-  async findAll(clientId: string, branchId?: string) {
+  async findAll(clientId: string, branchId?: string, branchIds?: string[]) {
+    const branches = branchId ? [branchId] : branchIds;
     const qb = this.cycleRepo
       .createQueryBuilder('c')
       .where('c.client_id = :clientId', { clientId })
       .orderBy('c.created_at', 'DESC');
 
-    if (branchId)
+    if (branches)
       qb.andWhere(
-        '(NOT EXISTS (SELECT 1 FROM appraisal_cycle_scopes s WHERE s.cycle_id = c.id AND s.is_active = true) OR EXISTS (SELECT 1 FROM appraisal_cycle_scopes s WHERE s.cycle_id = c.id AND s.is_active = true AND (s.branch_id IS NULL OR s.branch_id = :branchId)))',
-        { branchId },
+        '(NOT EXISTS (SELECT 1 FROM appraisal_cycle_scopes s WHERE s.cycle_id = c.id AND s.is_active = true) OR EXISTS (SELECT 1 FROM appraisal_cycle_scopes s WHERE s.cycle_id = c.id AND s.is_active = true AND (s.branch_id IS NULL OR s.branch_id = ANY(CAST(:branches AS uuid[])))))',
+        { branches },
       );
     const cycles = await qb.getMany();
 
@@ -85,8 +86,8 @@ export class AppraisalCyclesService {
            COUNT(*)::int AS total,
            COUNT(*) FILTER (WHERE status IN ('CLIENT_APPROVED','LOCKED','CLOSED'))::int AS completed,
            COUNT(*) FILTER (WHERE status NOT IN ('CLIENT_APPROVED','LOCKED','CLOSED'))::int AS pending
-         FROM employee_appraisals WHERE cycle_id = $1 AND ($2::uuid IS NULL OR branch_id = $2)`,
-        [cycle.id, branchId || null],
+         FROM employee_appraisals WHERE cycle_id = $1 AND ($2::uuid[] IS NULL OR branch_id = ANY($2::uuid[]))`,
+        [cycle.id, branches ?? null],
       );
       result.push({
         ...cycle,

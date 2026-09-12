@@ -1,5 +1,9 @@
 import { UseGuards } from '@nestjs/common';
-import { AppraisalScopeGuard, appraisalFilter } from '../appraisal-scope.guard';
+import {
+  AppraisalScopeGuard,
+  appraisalFilter,
+  isAppraisalBranch,
+} from '../appraisal-scope.guard';
 import {
   Controller,
   Get,
@@ -46,7 +50,11 @@ export class EmployeeAppraisalsController {
     @Query('branchId') branchId?: string,
   ) {
     const scope = appraisalFilter(user, { branchId });
-    return this.appraisalsService.getDashboard(scope.clientId!, scope.branchId);
+    return this.appraisalsService.getDashboard(
+      scope.clientId!,
+      scope.branchId,
+      scope.branchIds,
+    );
   }
 
   @Get(':id')
@@ -104,7 +112,14 @@ export class EmployeeAppraisalsController {
     @Body('remarks') remarks: string,
     @CurrentUser() user: ReqUser,
   ) {
-    return this.appraisalsService.sendBack(id, remarks, user.id);
+    return this.appraisalsService.sendBack(
+      id,
+      remarks,
+      user.id,
+      !isAppraisalBranch(user) && ['CLIENT', 'ADMIN'].includes(user.roleCode)
+        ? 'CLIENT'
+        : 'BRANCH',
+    );
   }
 
   @Post(':id/lock')

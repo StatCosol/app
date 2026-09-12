@@ -17,18 +17,24 @@ export function isAppraisalBranch(user: ReqUser): boolean {
 export function appraisalFilter(
   user: ReqUser,
   filter: { clientId?: string; branchId?: string },
-) {
+): { clientId?: string; branchId?: string; branchIds?: string[] } {
   if (user.roleCode === 'ADMIN') return filter;
   if (!user.clientId) throw new ForbiddenException('Company scope is required');
   if (filter.clientId && filter.clientId !== user.clientId)
     throw new ForbiddenException('Company not in scope');
-  const result = { ...filter, clientId: user.clientId };
+  const result: { clientId?: string; branchId?: string; branchIds?: string[] } =
+    {
+      ...filter,
+      clientId: user.clientId,
+    };
   if (isAppraisalBranch(user)) {
     if (!user.branchIds?.length)
       throw new ForbiddenException('Branch scope is required');
     if (filter.branchId && !user.branchIds.includes(filter.branchId))
       throw new ForbiddenException('Branch not in scope');
-    result.branchId = filter.branchId || user.branchIds[0];
+    if (filter.branchId || user.branchIds.length === 1)
+      result.branchId = filter.branchId || user.branchIds[0];
+    else result.branchIds = [...user.branchIds];
   }
   return result;
 }

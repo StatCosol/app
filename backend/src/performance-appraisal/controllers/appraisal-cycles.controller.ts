@@ -39,7 +39,11 @@ export class AppraisalCyclesController {
   @ApiOperation({ summary: 'List appraisal cycles' })
   findAll(@CurrentUser() user: ReqUser, @Query('branchId') branchId?: string) {
     const scope = appraisalFilter(user, { branchId });
-    return this.cyclesService.findAll(scope.clientId!, scope.branchId);
+    return this.cyclesService.findAll(
+      scope.clientId!,
+      scope.branchId,
+      scope.branchIds,
+    );
   }
 
   @Get(':id')

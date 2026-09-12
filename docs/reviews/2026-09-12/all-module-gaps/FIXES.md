@@ -27,3 +27,9 @@ Additional real PostgreSQL verification passed: two concurrent receipt transacti
 ## Limits
 
 Verification includes local regression tests, browser component tests, production builds and the database checks above. A staging HTTP acceptance session and production deployment have not been performed. Release requires the protected branch checks and an independent approving review. No production data or schema changes are required by these fixes.
+## Appraisal review follow-up
+
+- Branch users cannot send back CLIENT_APPROVED appraisals. Authority comes from the authenticated user and is checked after the transaction acquires the appraisal lock. Company users retain this action, with the correct CLIENT audit approval level.
+- Unfiltered multi-branch users receive every assigned branch in employee lists, dashboard aggregates and cycle visibility/counts. Explicit branch filters remain validated; single-branch assignments retain automatic selection.
+- The dashboard branch summary now retains the same authorized scope as its other aggregates.
+- Focused appraisal verification: 24 tests passed, including transaction-level rejection, company approval reversal, actor audit levels and all dashboard query parameters. Backend type checking passed.
