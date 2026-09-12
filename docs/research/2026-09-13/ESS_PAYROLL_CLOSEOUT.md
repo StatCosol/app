@@ -9,3 +9,9 @@ Play Console subsequently confirmed publication on 2026-09-13, with no changes r
 The merged payroll workflow passed disposable PostgreSQL checks for quotation revisions, attendance approval, role visibility, independent audit verification, history and concurrency. Actual synthetic Excel/PDF extraction passed matching, NC differences and unreadable-document review fallback. No production worker or quotation data was inserted.
 
 Operational inputs still required: actual client/vendor/branch assignments, effective quotation dates and approved component bases. The supplied example has no named client/vendor assignment and cannot safely be applied to production. Scanned PDFs and consolidated challans require auditor review; OCR is not implemented by this release and must not be represented as automatic certification.
+
+## Offline retry follow-up (1.0.4 / version code 5)
+
+A visible Retry button replaces the obsolete pull-down instruction. Offline startup waits without issuing a failed WebView load; Retry rechecks connectivity and loads the configured, validated portal URL. Main-frame load errors retain the retry screen even when WebView subsequently emits onPageFinished. Native refresh remains disabled so nested page scrolling is unaffected.
+
+Android assembleDebug passed for the isolated branch. Device acceptance: start offline, tap Retry while offline (screen stays available), reconnect and tap Retry (portal loads), interrupt a main-frame load (Retry stays visible), and verify normal vertical scrolling. No device was connected, so these physical checks are not claimed as completed. Version 1.0.4 needs a new signed Play upload; the previously published 1.0.3 does not include this follow-up.
