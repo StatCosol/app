@@ -16,6 +16,9 @@ const {
   TaskCenterService,
 } = require('../dist/src/task-center/task-center.service');
 const {
+  TaskEngineService,
+} = require('../dist/src/automation/services/task-engine.service');
+const {
   TaskCenterController,
 } = require('../dist/src/task-center/task-center.controller');
 const {
@@ -229,6 +232,69 @@ async function main() {
     console.log(
       'PASS: counts/list reconciliation, exact filters, empty/multi-branch scope, facets, terminal states, pagination and 5000-row fixture; query ms=' +
         (Date.now() - start),
+    );
+    const engine = new TaskEngineService(ds, {});
+    const activity = {
+      module: 'COMPLIANCE',
+      referenceId: id(900),
+      referenceType: 'DUPLICATE_CHECK',
+      assignedRole: 'BRANCH',
+      clientId: id(1),
+      branchId: id(11),
+      title: 'One assigned activity',
+      description: 'Concurrency fixture',
+    };
+    const simultaneous = await Promise.all(
+      Array.from({ length: 20 }, () => engine.createTask(activity)),
+    );
+    assert.equal(new Set(simultaneous.map((t) => t.id)).size, 1);
+    const original = simultaneous[0];
+    assert.equal(
+      (
+        await engine.createTask({
+          ...activity,
+          title: 'Changed wording',
+          dueDate: new Date(),
+        })
+      ).id,
+      original.id,
+    );
+    const anotherBranch = await engine.createTask({
+      ...activity,
+      branchId: id(12),
+    });
+    assert.notEqual(anotherBranch.id, original.id);
+    const anotherRole = await engine.createTask({
+      ...activity,
+      assignedRole: 'CRM',
+    });
+    assert.notEqual(anotherRole.id, original.id);
+    const anotherPerson = await engine.createTask({
+      ...activity,
+      assignedUserId: id(21),
+    });
+    assert.notEqual(anotherPerson.id, original.id);
+    await ds.query("UPDATE system_tasks SET status='IN_PROGRESS' WHERE id=$1", [
+      original.id,
+    ]);
+    assert.equal((await engine.createTask(activity)).status, 'IN_PROGRESS');
+    await ds.query("UPDATE system_tasks SET status='CLOSED' WHERE id=$1", [
+      original.id,
+    ]);
+    const reopened = await engine.createTask(activity);
+    assert.notEqual(reopened.id, original.id);
+    await ds.query("UPDATE system_tasks SET status='CANCELLED' WHERE id=$1", [
+      reopened.id,
+    ]);
+    assert.notEqual((await engine.createTask(activity)).id, reopened.id);
+    const queue = await controller.workspace(user, {
+      q: activity.title,
+      view: 'active',
+    });
+    assert.equal(queue.pagination.total, 2);
+    assert.equal(queue.summary.active, 2);
+    console.log(
+      'PASS: 20 concurrent creators produce one task; retries preserve progress; distinct branches, roles and recipients remain separate; terminal history retained; My Work totals reconcile.',
     );
   } finally {
     if (ds?.isInitialized) await ds.destroy();

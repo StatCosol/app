@@ -55,8 +55,40 @@ export class TaskEngineService {
       `Creating task: ${input.module} | ${input.referenceType} | ${input.referenceId}`,
     );
 
-    const rows = await this.dataSource.query(
-      `
+    // Serialize creators for the same source and recipient across application
+    // instances. The lookup runs after the lock in a fresh READ COMMITTED
+    // snapshot, so a concurrent winner is visible before inserting.
+    const identity = [
+      input.module,
+      input.referenceType,
+      input.referenceId.toLowerCase(),
+      input.assignedRole,
+      input.assignedUserId?.toLowerCase() ?? null,
+      input.clientId?.toLowerCase() ?? null,
+      input.branchId?.toLowerCase() ?? null,
+      input.contractorId?.toLowerCase() ?? null,
+    ];
+    return this.dataSource.transaction('READ COMMITTED', async (manager) => {
+      await manager.query(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+        [JSON.stringify(['system-task', ...identity])],
+      );
+      const existing = await manager.query(
+        `SELECT * FROM system_tasks
+         WHERE module = $1 AND reference_type = $2 AND reference_id = $3::uuid
+           AND assigned_role = $4
+           AND assigned_user_id IS NOT DISTINCT FROM $5::uuid
+           AND client_id IS NOT DISTINCT FROM $6::uuid
+           AND branch_id IS NOT DISTINCT FROM $7::uuid
+           AND contractor_id IS NOT DISTINCT FROM $8::uuid
+           AND status NOT IN ('CLOSED', 'CANCELLED')
+         ORDER BY created_at, id LIMIT 1`,
+        identity,
+      );
+      if (existing.length) return existing[0];
+
+      const rows = await manager.query(
+        `
       INSERT INTO system_tasks
       (
         task_type,
@@ -80,23 +112,24 @@ export class TaskEngineService {
       ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'OPEN', NOW(), NOW())
       RETURNING *
       `,
-      [
-        input.module,
-        input.title,
-        input.description,
-        input.referenceId,
-        input.referenceType,
-        input.priority ?? 'MEDIUM',
-        input.assignedRole,
-        input.assignedUserId ?? null,
-        input.clientId ?? null,
-        input.branchId ?? null,
-        input.contractorId ?? null,
-        input.dueDate ?? null,
-      ],
-    );
+        [
+          input.module,
+          input.title,
+          input.description,
+          input.referenceId,
+          input.referenceType,
+          input.priority ?? 'MEDIUM',
+          input.assignedRole,
+          input.assignedUserId ?? null,
+          input.clientId ?? null,
+          input.branchId ?? null,
+          input.contractorId ?? null,
+          input.dueDate ?? null,
+        ],
+      );
 
-    return rows[0];
+      return rows[0];
+    });
   }
 
   async createAuditNcTask(params: {
