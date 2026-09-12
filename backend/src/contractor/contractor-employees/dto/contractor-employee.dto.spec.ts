@@ -35,6 +35,7 @@ describe('CreateContractorEmployeeDto — accepts what the form sends', () => {
     department: 'Production',
     dateOfJoining: '2026-09-01',
     punchCode: 'P-1001',
+    bankAccount: '001234567890',
     aadhaar: '123456789012',
     pan: 'ABCDE1234F',
     uan: '100200300400',

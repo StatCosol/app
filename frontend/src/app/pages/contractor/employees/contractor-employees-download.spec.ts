@@ -56,6 +56,43 @@ describe('Contractor worker download', () => {
     expect(component.filteredRows).toHaveLength(1);
   });
 
+  it('blocks new registration without mandatory identity and bank details', () => {
+    component.form.name = 'Synthetic Worker';
+    component.saveEmployee();
+    expect(component.formError).toContain('Aadhaar, PAN and bank account number are required');
+    expect(component.saving).toBe(false);
+  });
+
+  it('validates mandatory bulk fields and refuses numeric bank cells', () => {
+    const valid = { name: 'Synthetic Worker', skillCategory: 'SKILLED', monthlySalary: 15000, aadhaar: '123456789012', pan: 'abcde1234f', bankAccount: '001234567890' };
+    const rows = component['validateBulkRows']([valid, { ...valid, bankAccount: 1234567890 }, { ...valid, aadhaar: '', pan: '', bankAccount: '' }]);
+    expect(rows[0].errors).toEqual([]);
+    expect(rows[0].dto.bankAccount).toBe('001234567890');
+    expect(rows[0].dto.pan).toBe('ABCDE1234F');
+    expect(rows[1].errors.join(' ')).toContain('as text');
+    expect(rows[2].errors).toHaveLength(3);
+  });
+
+  it('preserves long account numbers and leading zeros from a CSV file', async () => {
+    const csv = 'name,skillCategory,monthlySalary,aadhaar,pan,bankAccount\nWorker,SKILLED,15000,123456789012,ABCDE1234F,0012345678901234567890';
+    const input = { files: [new File([csv], 'workers.csv', { type: 'text/csv' })], value: 'workers.csv' };
+    component.onBulkFile({ target: input } as unknown as Event);
+    await vi.waitFor(() => expect(component.bulkPreview).toHaveLength(1));
+    expect(component.bulkPreview[0].errors).toEqual([]);
+    expect(component.bulkPreview[0].dto.bankAccount).toBe('0012345678901234567890');
+    expect(component.bulkPreview[0].dto.monthlySalary).toBe(15000);
+  });
+
+  it('still rejects numeric bank cells from an Excel workbook', async () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ name: 'Worker', skillCategory: 'SKILLED', aadhaar: '123456789012', pan: 'ABCDE1234F', bankAccount: 1234567890 }]), 'Workers');
+    const bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+    const input = { files: [new File([bytes], 'workers.xlsx')], value: 'workers.xlsx' };
+    component.onBulkFile({ target: input } as unknown as Event);
+    await vi.waitFor(() => expect(component.bulkPreview).toHaveLength(1));
+    expect(component.bulkPreview[0].errors.join(' ')).toContain('as text');
+  });
+
   it('blocks exports while branch data is loading, after failure, and for an empty list', async () => {
     component.filteredRows = [worker('Old branch worker')];
     component.loading = true;

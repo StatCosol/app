@@ -77,6 +77,9 @@ export class ContractorEmployeeEntity {
   @Column({ name: 'aadhaar', type: 'varchar', length: 20, nullable: true })
   aadhaar: string | null;
 
+  @Column({ name: 'bank_account', type: 'varchar', length: 40, nullable: true })
+  bankAccount: string | null;
+
   @Column({ name: 'pan', type: 'varchar', length: 20, nullable: true })
   pan: string | null;
 

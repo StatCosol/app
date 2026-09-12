@@ -45,6 +45,7 @@ interface EmployeeForm {
   department: string;
   dateOfJoining: string;
   punchCode: string;
+  bankAccount: string;
   aadhaar: string;
   pan: string;
   uan: string;
@@ -69,6 +70,7 @@ function emptyForm(): EmployeeForm {
     department: '',
     dateOfJoining: '',
     punchCode: '',
+    bankAccount: '',
     aadhaar: '',
     pan: '',
     uan: '',
@@ -607,26 +609,32 @@ interface BulkPreviewRow {
 
           <!-- Section: Identity -->
           <div>
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Statutory Identity</h3>
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Identity and bank details</h3>
+            <div class="mb-3">
+              <label for="contract-bank-account" class="block text-sm font-medium text-gray-700 mb-1">Bank account number <span *ngIf="!editingId" class="text-red-500">*</span></label>
+              <input id="contract-bank-account" type="text" inputmode="numeric" autocomplete="off" [(ngModel)]="form.bankAccount" name="bankAccount" [required]="!editingId" maxlength="40" class="w-full rounded-lg border-gray-300 text-sm" />
+            </div>
             <div class="space-y-3">
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Aadhaar</label>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Aadhaar <span *ngIf="!editingId" class="text-red-500">*</span></label>
                   <input
                     type="text"
                     [(ngModel)]="form.aadhaar"
                     name="aadhaar"
-                    maxlength="12"
+                    [required]="!editingId"
+                    maxlength="16"
                     placeholder="12-digit number"
                     class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
                   />
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">PAN</label>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">PAN <span *ngIf="!editingId" class="text-red-500">*</span></label>
                   <input
                     type="text"
                     [(ngModel)]="form.pan"
                     name="pan"
+                    [required]="!editingId"
                     maxlength="10"
                     placeholder="ABCDE1234F"
                     class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm uppercase"
@@ -707,8 +715,9 @@ interface BulkPreviewRow {
         <p class="text-sm text-gray-600 mb-3">
           Upload an Excel/CSV file. Required columns: <strong>name</strong>, <strong>skillCategory</strong>
           (UNSKILLED / SEMI_SKILLED / SKILLED / HIGHLY_SKILLED).
+          Required identity fields: aadhaar, pan, bankAccount. Store these cells as text to preserve digits and leading zeros.
           Optional: gender, dateOfBirth, fatherName, phone, email, designation, department,
-          dateOfJoining, monthlySalary, dailyWage, aadhaar, pan, uan, esic, pfApplicable, esiApplicable, branchId, stateCode.
+          dateOfJoining, monthlySalary, dailyWage, uan, esic, pfApplicable, esiApplicable, branchId, stateCode.
         </p>
 
         <div class="flex flex-wrap gap-3 items-center mb-4">
@@ -1049,6 +1058,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       department: emp.department || '',
       dateOfJoining: emp.dateOfJoining || '',
       punchCode: emp.punchCode || '',
+      bankAccount: emp.bankAccount || '',
       aadhaar: emp.aadhaar || '',
       pan: emp.pan || '',
       uan: emp.uan || '',
@@ -1090,6 +1100,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       const out = (v ?? '').replace(/\s+/g, '');
       return out ? out : null;
     };
+    const bankAccount = compact(this.form.bankAccount);
     const aadhaar = compact(this.form.aadhaar);
     const pan = compact(this.form.pan)?.toUpperCase() ?? null;
     const uan = compact(this.form.uan);
@@ -1099,8 +1110,10 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     // These mirror the DTO's column widths. Without them the only feedback was
     // a 400 whose body named the field, in a form that showed the raw array.
     const tooLong =
+      (!this.editingId && (!aadhaar || !pan || !bankAccount) && 'Aadhaar, PAN and bank account number are required.') ||
+      (bankAccount && !/^[0-9]{1,40}$/.test(bankAccount) && 'Bank account number must contain only digits (maximum 40).') ||
       (aadhaar && !/^\d{12}$/.test(aadhaar) && 'Aadhaar must be 12 digits.') ||
-      (pan && pan.length > 10 && 'PAN cannot be longer than 10 characters.') ||
+      (pan && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan) && 'PAN must use the format ABCDE1234F.') ||
       (uan && uan.length > 20 && 'UAN cannot be longer than 20 characters.') ||
       (esic && esic.length > 30 && 'ESIC number cannot be longer than 30 characters.') ||
       (phone && phone.length > 15 && 'Phone cannot be longer than 15 characters.') ||
@@ -1124,6 +1137,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       department: this.form.department || null,
       dateOfJoining: this.form.dateOfJoining || null,
       punchCode: this.form.punchCode ? String(this.form.punchCode).trim() : null,
+      bankAccount,
       aadhaar,
       pan,
       uan,
@@ -1356,6 +1370,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       'department',
       'dateOfJoining',
       'dailyWage',
+      'bankAccount',
       'aadhaar',
       'pan',
       'uan',
@@ -1378,6 +1393,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       department: 'Production',
       dateOfJoining: '2025-01-15',
       dailyWage: 600,
+      bankAccount: '',
       aadhaar: '',
       pan: '',
       uan: '',
@@ -1401,7 +1417,8 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target!.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: 'array' });
+        // Preserve CSV tokens as text; binary Excel cells retain their original types.
+        const wb = XLSX.read(data, { type: 'array', raw: true });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, {
           defval: null,
@@ -1469,8 +1486,9 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
         designation: raw['designation'] ? String(raw['designation']) : null,
         department: raw['department'] ? String(raw['department']) : null,
         dateOfJoining: raw['dateOfJoining'] ? String(raw['dateOfJoining']) : null,
-        aadhaar: raw['aadhaar'] ? String(raw['aadhaar']) : null,
-        pan: raw['pan'] ? String(raw['pan']).toUpperCase() : null,
+        bankAccount: raw['bankAccount'] == null ? null : String(raw['bankAccount']).replace(/\s+/g, ''),
+        aadhaar: raw['aadhaar'] == null ? null : String(raw['aadhaar']).replace(/\s+/g, ''),
+        pan: raw['pan'] ? String(raw['pan']).replace(/\s+/g, '').toUpperCase() : null,
         uan: raw['uan'] ? String(raw['uan']) : null,
         esic: raw['esic'] ? String(raw['esic']) : null,
         pfApplicable: this.toBool(raw['pfApplicable']),
@@ -1478,6 +1496,10 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
         stateCode: raw['stateCode'] ? String(raw['stateCode']).toUpperCase() : null,
         branchId: raw['branchId'] ? String(raw['branchId']) : undefined,
       };
+      if (!dto.aadhaar || !/^\d{12}$/.test(dto.aadhaar)) errors.push('Aadhaar is required and must contain 12 digits');
+      if (!dto.pan || !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(dto.pan)) errors.push('PAN is required (ABCDE1234F)');
+      if (!dto.bankAccount || !/^[0-9]{1,40}$/.test(dto.bankAccount)) errors.push('Bank account number is required (digits only, maximum 40)');
+      if (typeof raw['bankAccount'] === 'number') errors.push('Store bankAccount as text in Excel to preserve all digits and leading zeros');
       return { index, raw, dto, errors };
     });
   }

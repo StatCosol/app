@@ -43,3 +43,7 @@ test('manual deployment from a feature branch is refused', async () => {
   assert.equal(result.calls.length, 0);
   assert.match(result.failures[0], /requires main/);
 });
+
+test('migration failure, cancellation and timeout block the backend update', () => {
+  require('./validate-deploy-migration-order.cjs');
+});
