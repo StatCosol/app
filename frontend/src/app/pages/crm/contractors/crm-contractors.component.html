@@ -193,10 +193,10 @@
               <label>Code<input [(ngModel)]="c.code" placeholder="BASIC_DA" class="form-control" /></label>
               <label>Description<input [(ngModel)]="c.label" class="form-control" /></label>
               <label>Category<select [(ngModel)]="c.category" class="form-control"><option value="EARNING">Employee earning</option><option value="DEDUCTION">Employee deduction</option><option value="EMPLOYER_COST">Employer cost</option><option value="BILLING_FEE">Billing fee</option></select></label>
-              <label>Calculation<select [(ngModel)]="c.method" class="form-control"><option value="FIXED">Fixed amount</option><option value="PERCENT">Percentage</option><option value="HOURLY">Hourly rate</option></select></label>
+              <label>Calculation<select [(ngModel)]="c.method" (ngModelChange)="onQuoteMethodChange(c)" class="form-control"><option value="FIXED">Fixed amount</option><option value="PERCENT">Percentage</option><option value="HOURLY">Hourly rate</option></select></label>
               <label>Amount / percentage<input type="number" min="0" [(ngModel)]="c.value" class="form-control" /></label>
               @if(c.method === 'PERCENT') {<label>Based on codes<input [(ngModel)]="c.basis" placeholder="BASIC_DA,SITE" class="form-control" /></label><label>Wage ceiling (optional)<input type="number" min="0" [(ngModel)]="c.ceiling" class="form-control" /></label>}
-              <label><input type="checkbox" [(ngModel)]="c.prorate" /> Prorate by approved attendance</label>
+              <label><input type="checkbox" [(ngModel)]="c.prorate" [disabled]="c.method !== 'FIXED'" /> Prorate by approved attendance</label>
             </div>
             <button type="button" (click)="quoteComponents.splice($index, 1)">Remove component</button>
           </div>

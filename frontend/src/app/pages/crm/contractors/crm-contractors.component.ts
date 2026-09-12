@@ -61,6 +61,10 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
     return { code: '', label: '', category: 'EARNING', method: 'FIXED', value: 0, basis: '', ceiling: '', prorate: true };
   }
 
+  onQuoteMethodChange(component: { method: string; prorate: boolean }): void {
+    if (component.method !== 'FIXED') component.prorate = false;
+  }
+
   manualQuoteFile(): File {
     if (!this.quoteDesignation.trim() || !this.quoteSkill || !this.quoteComponents.length)
       throw new Error('Enter a designation, skill category and at least one component');
@@ -79,7 +83,7 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
         effective_from: this.quoteEffectiveFrom, divisor: this.quoteDivisor, rounding: this.quoteRounding,
         component_code: code, label: c.label.trim() || code, category: c.category, method: c.method,
         value: c.value, basis: c.method === 'PERCENT' ? basis.join(',') : '',
-        ceiling: c.ceiling, prorate: c.prorate ? 'yes' : 'no' };
+        ceiling: c.ceiling, prorate: c.method === 'FIXED' && c.prorate ? 'yes' : 'no' };
     });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Components');
@@ -246,6 +250,7 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
     this.quoteDesignation = '';
     this.quoteSkill = '';
     this.quoteDivisor = 30;
+    this.quoteRounding = 'RUPEE';
     this.quoteComponents = [this.newQuoteComponent()];
     this.quoteBranches = [];
     this.contractorApi
