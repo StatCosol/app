@@ -121,3 +121,69 @@ describe('payroll configuration client isolation', () => {
     ).resolves.toBe(true);
   });
 });
+
+describe.each([
+  { field: 'departmentId', table: 'departments', scopeType: 'DEPARTMENT' },
+  { field: 'gradeId', table: 'grades', scopeType: 'GRADE' },
+])('$scopeType salary structure ownership', ({ field, table, scopeType }) => {
+  const targetId = '00000000-0000-4000-8000-000000000004';
+  const request = (method: string, resourceId = targetId) =>
+    harness({
+      route: method === 'POST' ? 'structures' : 'structures/:id',
+      method,
+      params: method === 'POST' ? {} : { id: ID },
+      body: { clientId: A, scopeType, [field]: resourceId },
+    });
+  it.each(['POST', 'PUT'])(
+    '%s permits a target owned by the structure client',
+    async (method) => {
+      const h = request(method);
+      await expect(h.run()).resolves.toBe(true);
+      expect(h.ds.query).toHaveBeenCalledWith(
+        'SELECT client_id AS client_id FROM ' + table + ' WHERE id=$1',
+        [targetId],
+      );
+      expect(h.access.assertClientAllowed).toHaveBeenCalledWith(
+        expect.anything(),
+        A,
+      );
+    },
+  );
+  it.each(['POST', 'PUT'])(
+    '%s rejects a target belonging to another client',
+    async (method) => {
+      const h = request(method);
+      h.ds.query.mockImplementation(async (sql) => [
+        { client_id: sql.includes('FROM ' + table + ' ') ? B : A },
+      ]);
+      await expect(h.run()).rejects.toThrow('same client');
+      expect(h.access.assertClientAllowed).not.toHaveBeenCalled();
+    },
+  );
+  it.each(['POST', 'PUT'])(
+    '%s rejects a nonexistent target',
+    async (method) => {
+      const h = request(method);
+      h.ds.query.mockImplementation(async (sql) =>
+        sql.includes('FROM ' + table + ' ') ? [] : [{ client_id: A }],
+      );
+      await expect(h.run()).rejects.toThrow('Payroll resource not found');
+      expect(h.access.assertClientAllowed).not.toHaveBeenCalled();
+    },
+  );
+  it.each(['POST', 'PUT'])(
+    '%s rejects malformed target IDs',
+    async (method) => {
+      const h = request(method, 'not-a-uuid');
+      await expect(h.run()).rejects.toThrow('Invalid payroll resource ID');
+      expect(h.access.assertClientAllowed).not.toHaveBeenCalled();
+    },
+  );
+  it('validates a partial update against the stored structure owner', async () => {
+    const h = harness({ method: 'PUT', body: { [field]: targetId } });
+    h.ds.query.mockImplementation(async (sql) => [
+      { client_id: sql.includes('FROM ' + table + ' ') ? B : A },
+    ]);
+    await expect(h.run()).rejects.toThrow('same client');
+  });
+});

@@ -97,6 +97,8 @@ export class PayrollConfigurationScopeGuard implements CanActivate {
         }
       }
       await owner('employees', body.employeeId);
+      await owner('departments', body.departmentId);
+      await owner('grades', body.gradeId);
       await owner('client_branches', body.branchId, 'clientid');
       if (
         route === 'formula-templates' &&
