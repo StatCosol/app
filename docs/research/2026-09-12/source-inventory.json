@@ -3364,7 +3364,7 @@
         "<RolesGuard>"
       ],
       "file": "backend/src/task-center/task-center.controller.ts",
-      "line": 27
+      "line": 28
     },
     {
       "name": "UnitsController",
@@ -26752,6 +26752,30 @@
     {
       "controller": "TaskCenterController",
       "method": "GET",
+      "path": "/tasks/workspace",
+      "roles": [
+        "ADMIN",
+        "CEO",
+        "CCO",
+        "PAYROLL",
+        "CRM",
+        "AUDITOR",
+        "CLIENT",
+        "BRANCH_DESK",
+        "CONTRACTOR"
+      ],
+      "guards": [
+        "<JwtAuthGuard>",
+        "<RolesGuard>"
+      ],
+      "public": false,
+      "handler": "workspace",
+      "file": "backend/src/task-center/task-center.controller.ts",
+      "line": 49
+    },
+    {
+      "controller": "TaskCenterController",
+      "method": "GET",
       "path": "/tasks/my-summary",
       "roles": [
         "ADMIN",
@@ -26771,7 +26795,7 @@
       "public": false,
       "handler": "getMySummary",
       "file": "backend/src/task-center/task-center.controller.ts",
-      "line": 48
+      "line": 61
     },
     {
       "controller": "TaskCenterController",
@@ -26795,7 +26819,7 @@
       "public": false,
       "handler": "getMyItems",
       "file": "backend/src/task-center/task-center.controller.ts",
-      "line": 64
+      "line": 77
     },
     {
       "controller": "TaskCenterController",
@@ -26819,7 +26843,7 @@
       "public": false,
       "handler": "getMyOverdue",
       "file": "backend/src/task-center/task-center.controller.ts",
-      "line": 81
+      "line": 94
     },
     {
       "controller": "TaskCenterController",
@@ -26843,7 +26867,7 @@
       "public": false,
       "handler": "getMyExpiring",
       "file": "backend/src/task-center/task-center.controller.ts",
-      "line": 97
+      "line": 110
     },
     {
       "controller": "UnitsController",
@@ -43541,219 +43565,225 @@
       ]
     },
     {
-      "path": "dashboard",
+      "path": "my-work",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 91,
       "guards": []
     },
     {
-      "path": "reports",
+      "path": "dashboard",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 92,
       "guards": []
     },
     {
-      "path": "users",
+      "path": "reports",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 93,
       "guards": []
     },
     {
-      "path": "clients",
+      "path": "users",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 94,
       "guards": []
     },
     {
-      "path": "service-packages",
+      "path": "clients",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 95,
       "guards": []
     },
     {
-      "path": "clients/:id",
+      "path": "service-packages",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 96,
       "guards": []
     },
     {
-      "path": "clients/:id/:tab",
+      "path": "clients/:id",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 97,
       "guards": []
     },
     {
-      "path": "assignments",
+      "path": "clients/:id/:tab",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
-      "line": 100,
+      "line": 98,
       "guards": []
     },
     {
-      "path": "payroll-assignments",
+      "path": "assignments",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 101,
       "guards": []
     },
     {
-      "path": "masters",
+      "path": "payroll-assignments",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 102,
       "guards": []
     },
     {
-      "path": "approvals",
+      "path": "masters",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 103,
       "guards": []
     },
     {
-      "path": "notifications",
+      "path": "approvals",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 104,
       "guards": []
     },
     {
-      "path": "digest",
+      "path": "notifications",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 105,
       "guards": []
     },
     {
-      "path": "ai-hub",
+      "path": "digest",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 106,
       "guards": []
     },
     {
-      "path": "ai-risk",
+      "path": "ai-hub",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 107,
       "guards": []
     },
     {
-      "path": "ai-audit",
+      "path": "ai-risk",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 108,
       "guards": []
     },
     {
-      "path": "ai-payroll",
+      "path": "ai-audit",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 109,
       "guards": []
     },
     {
-      "path": "ai-config",
+      "path": "ai-payroll",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 110,
       "guards": []
     },
     {
-      "path": "sla",
+      "path": "ai-config",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 111,
       "guards": []
     },
     {
-      "path": "heatmap",
+      "path": "sla",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 112,
       "guards": []
     },
     {
-      "path": "risk-trend",
+      "path": "heatmap",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 113,
       "guards": []
     },
     {
-      "path": "escalations",
+      "path": "risk-trend",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 114,
       "guards": []
     },
     {
-      "path": "audit-logs",
+      "path": "escalations",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 115,
       "guards": []
     },
     {
-      "path": "governance",
+      "path": "audit-logs",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 116,
       "guards": []
     },
     {
-      "path": "governance/unassigned",
+      "path": "governance",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 117,
       "guards": []
     },
     {
-      "path": "archive",
+      "path": "governance/unassigned",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 118,
       "guards": []
     },
     {
-      "path": "applicability",
+      "path": "archive",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 119,
       "guards": []
     },
     {
-      "path": "applicability/config",
+      "path": "applicability",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 120,
       "guards": []
     },
     {
-      "path": "branches/:branchId/applicability",
+      "path": "applicability/config",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 121,
       "guards": []
     },
     {
-      "path": "news",
+      "path": "branches/:branchId/applicability",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 122,
       "guards": []
     },
     {
-      "path": "news/:newsId",
+      "path": "news",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 123,
       "guards": []
     },
     {
-      "path": "helpdesk",
+      "path": "news/:newsId",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 124,
       "guards": []
     },
     {
-      "path": "helpdesk/:id",
+      "path": "helpdesk",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 125,
       "guards": []
     },
     {
-      "path": "client-contacts",
+      "path": "helpdesk/:id",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 126,
       "guards": []
     },
     {
-      "path": "mail-templates",
+      "path": "client-contacts",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 127,
       "guards": []
     },
     {
-      "path": "",
+      "path": "mail-templates",
       "file": "frontend/src/app/pages/admin/admin.routes.ts",
       "line": 128,
+      "guards": []
+    },
+    {
+      "path": "",
+      "file": "frontend/src/app/pages/admin/admin.routes.ts",
+      "line": 129,
       "guards": []
     },
     {
@@ -43765,111 +43795,117 @@
       ]
     },
     {
-      "path": "dashboard",
+      "path": "my-work",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 54,
       "guards": []
     },
     {
-      "path": "audits/:auditId/workspace",
+      "path": "dashboard",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 55,
       "guards": []
     },
     {
-      "path": "audits",
+      "path": "audits/:auditId/workspace",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 56,
       "guards": []
     },
     {
-      "path": "audit-workspace",
+      "path": "audits",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 57,
       "guards": []
     },
     {
-      "path": "observations",
+      "path": "audit-workspace",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 58,
       "guards": []
     },
     {
-      "path": "contractor-payroll",
+      "path": "observations",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 59,
       "guards": []
     },
     {
-      "path": "reverification",
+      "path": "contractor-payroll",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 60,
       "guards": []
     },
     {
-      "path": "compliance",
+      "path": "reverification",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 61,
       "guards": []
     },
     {
-      "path": "registers",
+      "path": "compliance",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 62,
       "guards": []
     },
     {
-      "path": "reports/:auditId/builder",
+      "path": "registers",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 63,
       "guards": []
     },
     {
-      "path": "reports",
+      "path": "reports/:auditId/builder",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 64,
       "guards": []
     },
     {
-      "path": "notifications",
+      "path": "reports",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 65,
       "guards": []
     },
     {
-      "path": "news",
+      "path": "notifications",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 66,
       "guards": []
     },
     {
-      "path": "news/:newsId",
+      "path": "news",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 67,
       "guards": []
     },
     {
-      "path": "ai-audit",
+      "path": "news/:newsId",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 68,
       "guards": []
     },
     {
-      "path": "analytics/repeat-ncs",
+      "path": "ai-audit",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 69,
       "guards": []
     },
     {
-      "path": "analytics/overdue-ncs",
+      "path": "analytics/repeat-ncs",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 70,
       "guards": []
     },
     {
-      "path": "",
+      "path": "analytics/overdue-ncs",
       "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
       "line": 71,
+      "guards": []
+    },
+    {
+      "path": "",
+      "file": "frontend/src/app/pages/auditor/auditor.routes.ts",
+      "line": 72,
       "guards": []
     },
     {
@@ -43881,27 +43917,25 @@
       ]
     },
     {
-      "path": "monthly-close",
+      "path": "my-work",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 125,
       "guards": []
     },
     {
-      "path": "dashboard",
+      "path": "monthly-close",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 126,
       "guards": []
     },
     {
-      "path": "compliance/status",
+      "path": "dashboard",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 127,
-      "guards": [
-        "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
-      ]
+      "guards": []
     },
     {
-      "path": "employees/new",
+      "path": "compliance/status",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 128,
       "guards": [
@@ -43909,7 +43943,7 @@
       ]
     },
     {
-      "path": "employees/:id/edit",
+      "path": "employees/new",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 129,
       "guards": [
@@ -43917,7 +43951,7 @@
       ]
     },
     {
-      "path": "employees/:id",
+      "path": "employees/:id/edit",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 130,
       "guards": [
@@ -43925,7 +43959,7 @@
       ]
     },
     {
-      "path": "employees",
+      "path": "employees/:id",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 131,
       "guards": [
@@ -43933,9 +43967,17 @@
       ]
     },
     {
-      "path": "contractors",
+      "path": "employees",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 132,
+      "guards": [
+        "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
+      ]
+    },
+    {
+      "path": "contractors",
+      "file": "frontend/src/app/pages/branch/branch.routes.ts",
+      "line": 133,
       "guards": [
         "[moduleAccessGuard(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'])]"
       ]
@@ -43943,7 +43985,7 @@
     {
       "path": "contractor-payroll",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 133,
+      "line": 134,
       "guards": [
         "[moduleAccessGuard(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS', 'PAYROLL']), branchPayrollAccessGuard]"
       ]
@@ -43951,13 +43993,13 @@
     {
       "path": "monthly-compliance",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 136,
+      "line": 137,
       "guards": []
     },
     {
       "path": "compliance/monthly",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 137,
+      "line": 138,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -43965,19 +44007,19 @@
     {
       "path": "compliance/factory",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 140,
+      "line": 141,
       "guards": []
     },
     {
       "path": "compliance/office",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 141,
+      "line": 142,
       "guards": []
     },
     {
       "path": "uploads",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 144,
+      "line": 145,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -43985,13 +44027,13 @@
     {
       "path": "uploads/monthly",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 145,
+      "line": 146,
       "guards": []
     },
     {
       "path": "uploads/:periodicity",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 146,
+      "line": 147,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -43999,31 +44041,31 @@
     {
       "path": "returns-filings",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 149,
+      "line": 150,
       "guards": []
     },
     {
       "path": "compliance/quarterly",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 150,
+      "line": 151,
       "guards": []
     },
     {
       "path": "compliance/half-yearly",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 151,
+      "line": 152,
       "guards": []
     },
     {
       "path": "compliance/yearly",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 152,
+      "line": 153,
       "guards": []
     },
     {
       "path": "registrations",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 154,
+      "line": 155,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44031,7 +44073,7 @@
     {
       "path": "audits/observations",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 155,
+      "line": 156,
       "guards": [
         "[moduleAccessGuard('CONTRACTOR_AUDIT')]"
       ]
@@ -44039,13 +44081,13 @@
     {
       "path": "audit-observations",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 156,
+      "line": 157,
       "guards": []
     },
     {
       "path": "documents",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 157,
+      "line": 158,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44053,7 +44095,7 @@
     {
       "path": "reports",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 158,
+      "line": 159,
       "guards": [
         "[moduleAccessGuard(['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'])]"
       ]
@@ -44061,7 +44103,7 @@
     {
       "path": "payroll",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 159,
+      "line": 160,
       "guards": [
         "[moduleAccessGuard('PAYROLL'), branchPayrollAccessGuard]"
       ]
@@ -44069,7 +44111,7 @@
     {
       "path": "branch-ctc",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 160,
+      "line": 161,
       "guards": [
         "[moduleAccessGuard('PAYROLL')]"
       ]
@@ -44077,7 +44119,7 @@
     {
       "path": "attendance",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 161,
+      "line": 162,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_ATTENDANCE')]"
       ]
@@ -44085,7 +44127,7 @@
     {
       "path": "attendance/mark",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 162,
+      "line": 163,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_ATTENDANCE')]"
       ]
@@ -44093,7 +44135,7 @@
     {
       "path": "attendance/daily",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 163,
+      "line": 164,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_ATTENDANCE')]"
       ]
@@ -44101,7 +44143,7 @@
     {
       "path": "attendance/contractor",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 164,
+      "line": 165,
       "guards": [
         "[moduleAccessGuard('CONTRACTOR_ATTENDANCE')]"
       ]
@@ -44109,7 +44151,7 @@
     {
       "path": "facedesk-enrollment",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 165,
+      "line": 166,
       "guards": [
         "[moduleAccessGuard('CONTRACTOR_FACE_ATTENDANCE')]"
       ]
@@ -44117,7 +44159,7 @@
     {
       "path": "face-failures",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 166,
+      "line": 167,
       "guards": [
         "[moduleAccessGuard('CONTRACTOR_FACE_ATTENDANCE')]"
       ]
@@ -44125,25 +44167,17 @@
     {
       "path": "notifications",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 167,
+      "line": 168,
       "guards": []
     },
     {
       "path": "helpdesk",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 168,
+      "line": 169,
       "guards": []
     },
     {
       "path": "compliance-items",
-      "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 169,
-      "guards": [
-        "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
-      ]
-    },
-    {
-      "path": "compliance",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 170,
       "guards": [
@@ -44151,7 +44185,7 @@
       ]
     },
     {
-      "path": "compliance-docs",
+      "path": "compliance",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 171,
       "guards": [
@@ -44159,7 +44193,7 @@
       ]
     },
     {
-      "path": "calendar",
+      "path": "compliance-docs",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 172,
       "guards": [
@@ -44167,7 +44201,7 @@
       ]
     },
     {
-      "path": "heatmap",
+      "path": "calendar",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 173,
       "guards": [
@@ -44175,7 +44209,7 @@
       ]
     },
     {
-      "path": "sla",
+      "path": "heatmap",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 174,
       "guards": [
@@ -44183,7 +44217,7 @@
       ]
     },
     {
-      "path": "risk-trend",
+      "path": "sla",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 175,
       "guards": [
@@ -44191,7 +44225,7 @@
       ]
     },
     {
-      "path": "escalations",
+      "path": "risk-trend",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 176,
       "guards": [
@@ -44199,7 +44233,7 @@
       ]
     },
     {
-      "path": "unit-documents",
+      "path": "escalations",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 177,
       "guards": [
@@ -44207,7 +44241,7 @@
       ]
     },
     {
-      "path": "safety",
+      "path": "unit-documents",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 178,
       "guards": [
@@ -44215,21 +44249,29 @@
       ]
     },
     {
-      "path": "news",
+      "path": "safety",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 179,
-      "guards": []
+      "guards": [
+        "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
+      ]
     },
     {
-      "path": "news/:newsId",
+      "path": "news",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 180,
       "guards": []
     },
     {
-      "path": "notices",
+      "path": "news/:newsId",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
       "line": 181,
+      "guards": []
+    },
+    {
+      "path": "notices",
+      "file": "frontend/src/app/pages/branch/branch.routes.ts",
+      "line": 182,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44237,7 +44279,7 @@
     {
       "path": "appraisal-dashboard",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 182,
+      "line": 183,
       "guards": [
         "[moduleAccessGuard('APPRAISAL')]"
       ]
@@ -44245,7 +44287,7 @@
     {
       "path": "appraisals",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 183,
+      "line": 184,
       "guards": [
         "[moduleAccessGuard('APPRAISAL')]"
       ]
@@ -44253,7 +44295,7 @@
     {
       "path": "appraisals/:id",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 184,
+      "line": 185,
       "guards": [
         "[moduleAccessGuard('APPRAISAL')]"
       ]
@@ -44261,7 +44303,7 @@
     {
       "path": "appraisal-cycles",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 185,
+      "line": 186,
       "guards": [
         "[moduleAccessGuard('APPRAISAL')]"
       ]
@@ -44269,7 +44311,7 @@
     {
       "path": "audits/:id/non-compliances",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 186,
+      "line": 187,
       "guards": [
         "[moduleAccessGuard('CONTRACTOR_AUDIT')]"
       ]
@@ -44277,7 +44319,7 @@
     {
       "path": "",
       "file": "frontend/src/app/pages/branch/branch.routes.ts",
-      "line": 187,
+      "line": 188,
       "guards": []
     },
     {
@@ -44289,99 +44331,105 @@
       ]
     },
     {
-      "path": "dashboard",
+      "path": "my-work",
       "file": "frontend/src/app/pages/cco/cco.routes.ts",
       "line": 49,
       "guards": []
     },
     {
-      "path": "approvals",
+      "path": "dashboard",
       "file": "frontend/src/app/pages/cco/cco.routes.ts",
       "line": 50,
       "guards": []
     },
     {
-      "path": "service-package-approvals",
+      "path": "approvals",
       "file": "frontend/src/app/pages/cco/cco.routes.ts",
       "line": 51,
       "guards": []
     },
     {
-      "path": "payroll-approvals",
+      "path": "service-package-approvals",
       "file": "frontend/src/app/pages/cco/cco.routes.ts",
       "line": 52,
       "guards": []
     },
     {
-      "path": "oversight",
+      "path": "payroll-approvals",
       "file": "frontend/src/app/pages/cco/cco.routes.ts",
       "line": 53,
       "guards": []
     },
     {
-      "path": "crms-under-me",
+      "path": "oversight",
       "file": "frontend/src/app/pages/cco/cco.routes.ts",
       "line": 54,
       "guards": []
     },
     {
-      "path": "crm-performance",
+      "path": "crms-under-me",
       "file": "frontend/src/app/pages/cco/cco.routes.ts",
       "line": 55,
       "guards": []
     },
     {
-      "path": "escalations",
+      "path": "crm-performance",
       "file": "frontend/src/app/pages/cco/cco.routes.ts",
       "line": 56,
       "guards": []
     },
     {
-      "path": "risk-heatmap",
+      "path": "escalations",
       "file": "frontend/src/app/pages/cco/cco.routes.ts",
       "line": 57,
       "guards": []
     },
     {
-      "path": "controls",
+      "path": "risk-heatmap",
       "file": "frontend/src/app/pages/cco/cco.routes.ts",
       "line": 58,
       "guards": []
     },
     {
-      "path": "registers",
+      "path": "controls",
       "file": "frontend/src/app/pages/cco/cco.routes.ts",
       "line": 59,
       "guards": []
     },
     {
-      "path": "notifications",
+      "path": "registers",
       "file": "frontend/src/app/pages/cco/cco.routes.ts",
       "line": 60,
       "guards": []
     },
     {
-      "path": "news",
+      "path": "notifications",
       "file": "frontend/src/app/pages/cco/cco.routes.ts",
       "line": 61,
       "guards": []
     },
     {
-      "path": "news/:newsId",
+      "path": "news",
       "file": "frontend/src/app/pages/cco/cco.routes.ts",
       "line": 62,
       "guards": []
     },
     {
-      "path": "profile",
+      "path": "news/:newsId",
       "file": "frontend/src/app/pages/cco/cco.routes.ts",
       "line": 63,
       "guards": []
     },
     {
-      "path": "",
+      "path": "profile",
       "file": "frontend/src/app/pages/cco/cco.routes.ts",
       "line": 64,
+      "guards": []
+    },
+    {
+      "path": "",
+      "file": "frontend/src/app/pages/cco/cco.routes.ts",
+      "line": 65,
       "guards": []
     },
     {
@@ -44393,105 +44441,111 @@
       ]
     },
     {
-      "path": "dashboard",
+      "path": "my-work",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
       "line": 41,
       "guards": []
     },
     {
-      "path": "approvals",
+      "path": "dashboard",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
       "line": 42,
       "guards": []
     },
     {
-      "path": "escalations",
+      "path": "approvals",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
       "line": 43,
       "guards": []
     },
     {
-      "path": "oversight",
+      "path": "escalations",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
       "line": 44,
       "guards": []
     },
     {
-      "path": "branches",
+      "path": "oversight",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
       "line": 45,
       "guards": []
     },
     {
-      "path": "branches/:branchId",
+      "path": "branches",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
       "line": 46,
       "guards": []
     },
     {
-      "path": "sales",
+      "path": "branches/:branchId",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
       "line": 47,
       "guards": []
     },
     {
-      "path": "followups",
+      "path": "sales",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
       "line": 48,
       "guards": []
     },
     {
-      "path": "receivables",
+      "path": "followups",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
       "line": 49,
       "guards": []
     },
     {
-      "path": "registers",
+      "path": "receivables",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
       "line": 50,
       "guards": []
     },
     {
-      "path": "reports",
+      "path": "registers",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
       "line": 51,
       "guards": []
     },
     {
-      "path": "notifications",
+      "path": "reports",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
       "line": 52,
       "guards": []
     },
     {
-      "path": "news",
+      "path": "notifications",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
       "line": 53,
       "guards": []
     },
     {
-      "path": "news/:newsId",
+      "path": "news",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
       "line": 54,
       "guards": []
     },
     {
-      "path": "profile",
+      "path": "news/:newsId",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
       "line": 55,
       "guards": []
     },
     {
-      "path": "",
+      "path": "profile",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
       "line": 56,
       "guards": []
     },
     {
+      "path": "",
+      "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
+      "line": 57,
+      "guards": []
+    },
+    {
       "path": "ceo/approvals/:id",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
-      "line": 61,
+      "line": 62,
       "guards": [
         "[roleGuard(['CEO'])]"
       ]
@@ -44499,7 +44553,7 @@
     {
       "path": "ceo/escalations/:id",
       "file": "frontend/src/app/pages/ceo/ceo.routes.ts",
-      "line": 69,
+      "line": 70,
       "guards": [
         "[roleGuard(['CEO'])]"
       ]
@@ -44513,15 +44567,21 @@
       ]
     },
     {
-      "path": "monthly-close",
+      "path": "my-work",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 148,
       "guards": []
     },
     {
-      "path": "dashboard",
+      "path": "monthly-close",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 149,
+      "guards": []
+    },
+    {
+      "path": "dashboard",
+      "file": "frontend/src/app/pages/client/client.routes.ts",
+      "line": 150,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44529,7 +44589,7 @@
     {
       "path": "branches",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 154,
+      "line": 155,
       "guards": [
         "[moduleAccessGuard(['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS', 'CONTRACTOR_FACE_ATTENDANCE'])]"
       ]
@@ -44537,7 +44597,7 @@
     {
       "path": "branches/:branchId",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 155,
+      "line": 156,
       "guards": [
         "[moduleAccessGuard(['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS', 'CONTRACTOR_FACE_ATTENDANCE'])]"
       ]
@@ -44545,7 +44605,7 @@
     {
       "path": "contractors",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 156,
+      "line": 157,
       "guards": [
         "[moduleAccessGuard(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'])]"
       ]
@@ -44553,7 +44613,7 @@
     {
       "path": "contractor-payroll",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 157,
+      "line": 158,
       "guards": [
         "[moduleAccessGuard(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS', 'PAYROLL'])]"
       ]
@@ -44561,7 +44621,7 @@
     {
       "path": "contractors/branch/:branchId",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 158,
+      "line": 159,
       "guards": [
         "[moduleAccessGuard(['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'])]"
       ]
@@ -44569,7 +44629,7 @@
     {
       "path": "compliance/status",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 159,
+      "line": 160,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44577,7 +44637,7 @@
     {
       "path": "compliance/mcd",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 160,
+      "line": 161,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44585,7 +44645,7 @@
     {
       "path": "compliance/mcd/uploads",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 161,
+      "line": 162,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE'), branchUserOnlyGuard]"
       ]
@@ -44593,7 +44653,7 @@
     {
       "path": "compliance/returns",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 167,
+      "line": 168,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44601,7 +44661,7 @@
     {
       "path": "compliance/library",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 168,
+      "line": 169,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44609,7 +44669,7 @@
     {
       "path": "payroll",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 169,
+      "line": 170,
       "guards": [
         "[moduleAccessGuard('PAYROLL'), branchPayrollAccessGuard]"
       ]
@@ -44617,7 +44677,7 @@
     {
       "path": "ctc-summary",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 170,
+      "line": 171,
       "guards": [
         "[moduleAccessGuard('PAYROLL')]"
       ]
@@ -44625,7 +44685,7 @@
     {
       "path": "employees",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 171,
+      "line": 172,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44633,7 +44693,7 @@
     {
       "path": "employees/new",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 172,
+      "line": 173,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44641,7 +44701,7 @@
     {
       "path": "employees/:id",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 173,
+      "line": 174,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44649,7 +44709,7 @@
     {
       "path": "employees/:id/edit",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 174,
+      "line": 175,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44657,7 +44717,7 @@
     {
       "path": "compliance/registrations",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 175,
+      "line": 176,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44665,7 +44725,7 @@
     {
       "path": "registers",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 176,
+      "line": 177,
       "guards": [
         "[moduleAccessGuard('PAYROLL')]"
       ]
@@ -44673,7 +44733,7 @@
     {
       "path": "audits",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 177,
+      "line": 178,
       "guards": [
         "[moduleAccessGuard('CONTRACTOR_AUDIT')]"
       ]
@@ -44681,7 +44741,7 @@
     {
       "path": "audit-summaries",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 178,
+      "line": 179,
       "guards": [
         "[moduleAccessGuard('CONTRACTOR_AUDIT')]"
       ]
@@ -44689,7 +44749,7 @@
     {
       "path": "renewals",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 179,
+      "line": 180,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44697,7 +44757,7 @@
     {
       "path": "returns-summary",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 180,
+      "line": 181,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44705,7 +44765,7 @@
     {
       "path": "reminders",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 181,
+      "line": 182,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44713,7 +44773,7 @@
     {
       "path": "returns-status",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 182,
+      "line": 183,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44721,7 +44781,7 @@
     {
       "path": "renewals-status",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 183,
+      "line": 184,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44729,49 +44789,41 @@
     {
       "path": "compliance-calendar-feed",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 184,
+      "line": 185,
       "guards": []
     },
     {
       "path": "compliance-reminders-feed",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 185,
+      "line": 186,
       "guards": []
     },
     {
       "path": "queries",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 186,
+      "line": 187,
       "guards": []
     },
     {
       "path": "queries/:id",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 187,
+      "line": 188,
       "guards": []
     },
     {
       "path": "profile",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 188,
+      "line": 189,
       "guards": []
     },
     {
       "path": "support",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 189,
+      "line": 190,
       "guards": []
     },
     {
       "path": "approvals",
-      "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 190,
-      "guards": [
-        "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
-      ]
-    },
-    {
-      "path": "approvals/nominations",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 191,
       "guards": [
@@ -44779,7 +44831,7 @@
       ]
     },
     {
-      "path": "approvals/leaves",
+      "path": "approvals/nominations",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 192,
       "guards": [
@@ -44787,7 +44839,7 @@
       ]
     },
     {
-      "path": "settings/access",
+      "path": "approvals/leaves",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 193,
       "guards": [
@@ -44795,7 +44847,7 @@
       ]
     },
     {
-      "path": "branches/:branchId/compliance-items",
+      "path": "settings/access",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 194,
       "guards": [
@@ -44803,7 +44855,7 @@
       ]
     },
     {
-      "path": "branch-compliance",
+      "path": "branches/:branchId/compliance-items",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 195,
       "guards": [
@@ -44811,7 +44863,7 @@
       ]
     },
     {
-      "path": "calendar",
+      "path": "branch-compliance",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 196,
       "guards": [
@@ -44819,7 +44871,7 @@
       ]
     },
     {
-      "path": "heatmap",
+      "path": "calendar",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 197,
       "guards": [
@@ -44827,7 +44879,7 @@
       ]
     },
     {
-      "path": "sla",
+      "path": "heatmap",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 198,
       "guards": [
@@ -44835,7 +44887,7 @@
       ]
     },
     {
-      "path": "risk-trend",
+      "path": "sla",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 199,
       "guards": [
@@ -44843,7 +44895,7 @@
       ]
     },
     {
-      "path": "escalations",
+      "path": "risk-trend",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 200,
       "guards": [
@@ -44851,7 +44903,7 @@
       ]
     },
     {
-      "path": "unit-documents",
+      "path": "escalations",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 201,
       "guards": [
@@ -44859,7 +44911,7 @@
       ]
     },
     {
-      "path": "safety",
+      "path": "unit-documents",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 202,
       "guards": [
@@ -44867,7 +44919,7 @@
       ]
     },
     {
-      "path": "branches/:branchId/applicability",
+      "path": "safety",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 203,
       "guards": [
@@ -44875,7 +44927,7 @@
       ]
     },
     {
-      "path": "master-data",
+      "path": "branches/:branchId/applicability",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 204,
       "guards": [
@@ -44883,15 +44935,15 @@
       ]
     },
     {
-      "path": "attendance",
+      "path": "master-data",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 205,
       "guards": [
-        "[moduleAccessGuard('EMPLOYEE_ATTENDANCE')]"
+        "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
     },
     {
-      "path": "attendance/daily",
+      "path": "attendance",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 206,
       "guards": [
@@ -44899,7 +44951,7 @@
       ]
     },
     {
-      "path": "holidays",
+      "path": "attendance/daily",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 207,
       "guards": [
@@ -44907,7 +44959,7 @@
       ]
     },
     {
-      "path": "biometric",
+      "path": "holidays",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 208,
       "guards": [
@@ -44915,15 +44967,15 @@
       ]
     },
     {
-      "path": "face-failures",
+      "path": "biometric",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 209,
       "guards": [
-        "[moduleAccessGuard('CONTRACTOR_FACE_ATTENDANCE')]"
+        "[moduleAccessGuard('EMPLOYEE_ATTENDANCE')]"
       ]
     },
     {
-      "path": "facedesk",
+      "path": "face-failures",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 210,
       "guards": [
@@ -44931,21 +44983,29 @@
       ]
     },
     {
-      "path": "news",
+      "path": "facedesk",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 211,
-      "guards": []
+      "guards": [
+        "[moduleAccessGuard('CONTRACTOR_FACE_ATTENDANCE')]"
+      ]
     },
     {
-      "path": "news/:newsId",
+      "path": "news",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 212,
       "guards": []
     },
     {
-      "path": "notices",
+      "path": "news/:newsId",
       "file": "frontend/src/app/pages/client/client.routes.ts",
       "line": 213,
+      "guards": []
+    },
+    {
+      "path": "notices",
+      "file": "frontend/src/app/pages/client/client.routes.ts",
+      "line": 214,
       "guards": [
         "[moduleAccessGuard('EMPLOYEE_COMPLIANCE')]"
       ]
@@ -44953,7 +45013,7 @@
     {
       "path": "appraisal-dashboard",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 214,
+      "line": 215,
       "guards": [
         "[moduleAccessGuard('APPRAISAL')]"
       ]
@@ -44961,7 +45021,7 @@
     {
       "path": "appraisals",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 215,
+      "line": 216,
       "guards": [
         "[moduleAccessGuard('APPRAISAL')]"
       ]
@@ -44969,7 +45029,7 @@
     {
       "path": "appraisals/:id",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 216,
+      "line": 217,
       "guards": [
         "[moduleAccessGuard('APPRAISAL')]"
       ]
@@ -44977,7 +45037,7 @@
     {
       "path": "appraisal-cycles",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 217,
+      "line": 218,
       "guards": [
         "[moduleAccessGuard('APPRAISAL')]"
       ]
@@ -44985,7 +45045,7 @@
     {
       "path": "appraisal-templates",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 218,
+      "line": 219,
       "guards": [
         "[moduleAccessGuard('APPRAISAL')]"
       ]
@@ -44993,7 +45053,7 @@
     {
       "path": "appraisal-reports",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 219,
+      "line": 220,
       "guards": [
         "[moduleAccessGuard('APPRAISAL')]"
       ]
@@ -45001,7 +45061,7 @@
     {
       "path": "",
       "file": "frontend/src/app/pages/client/client.routes.ts",
-      "line": 220,
+      "line": 221,
       "guards": []
     },
     {
@@ -45013,99 +45073,105 @@
       ]
     },
     {
-      "path": "dashboard",
+      "path": "my-work",
       "file": "frontend/src/app/pages/contractor/contractor.routes.ts",
       "line": 48,
       "guards": []
     },
     {
-      "path": "notifications",
+      "path": "dashboard",
       "file": "frontend/src/app/pages/contractor/contractor.routes.ts",
       "line": 49,
       "guards": []
     },
     {
-      "path": "support",
+      "path": "notifications",
       "file": "frontend/src/app/pages/contractor/contractor.routes.ts",
       "line": 50,
       "guards": []
     },
     {
-      "path": "compliance",
+      "path": "support",
       "file": "frontend/src/app/pages/contractor/contractor.routes.ts",
       "line": 51,
       "guards": []
     },
     {
-      "path": "compliance/tasks",
+      "path": "compliance",
       "file": "frontend/src/app/pages/contractor/contractor.routes.ts",
       "line": 52,
       "guards": []
     },
     {
-      "path": "compliance/tasks/:id",
+      "path": "compliance/tasks",
       "file": "frontend/src/app/pages/contractor/contractor.routes.ts",
       "line": 53,
       "guards": []
     },
     {
-      "path": "tasks",
+      "path": "compliance/tasks/:id",
       "file": "frontend/src/app/pages/contractor/contractor.routes.ts",
       "line": 54,
       "guards": []
     },
     {
-      "path": "tasks/:id",
+      "path": "tasks",
       "file": "frontend/src/app/pages/contractor/contractor.routes.ts",
       "line": 55,
       "guards": []
     },
     {
-      "path": "profile",
+      "path": "tasks/:id",
       "file": "frontend/src/app/pages/contractor/contractor.routes.ts",
       "line": 56,
       "guards": []
     },
     {
-      "path": "news",
+      "path": "profile",
       "file": "frontend/src/app/pages/contractor/contractor.routes.ts",
       "line": 57,
       "guards": []
     },
     {
-      "path": "news/:newsId",
+      "path": "news",
       "file": "frontend/src/app/pages/contractor/contractor.routes.ts",
       "line": 58,
       "guards": []
     },
     {
-      "path": "employees",
+      "path": "news/:newsId",
       "file": "frontend/src/app/pages/contractor/contractor.routes.ts",
       "line": 59,
       "guards": []
     },
     {
-      "path": "clra",
+      "path": "employees",
       "file": "frontend/src/app/pages/contractor/contractor.routes.ts",
       "line": 60,
       "guards": []
     },
     {
-      "path": "payroll-computation",
+      "path": "clra",
       "file": "frontend/src/app/pages/contractor/contractor.routes.ts",
       "line": 61,
       "guards": []
     },
     {
-      "path": "audits/:id/non-compliances",
+      "path": "payroll-computation",
       "file": "frontend/src/app/pages/contractor/contractor.routes.ts",
       "line": 62,
       "guards": []
     },
     {
-      "path": "",
+      "path": "audits/:id/non-compliances",
       "file": "frontend/src/app/pages/contractor/contractor.routes.ts",
       "line": 63,
+      "guards": []
+    },
+    {
+      "path": "",
+      "file": "frontend/src/app/pages/contractor/contractor.routes.ts",
+      "line": 64,
       "guards": []
     },
     {
@@ -45117,309 +45183,315 @@
       ]
     },
     {
-      "path": "monthly-close",
+      "path": "my-work",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 106,
       "guards": []
     },
     {
-      "path": "dashboard",
+      "path": "monthly-close",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
-      "line": 108,
+      "line": 107,
       "guards": []
     },
     {
-      "path": "clients",
+      "path": "dashboard",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 109,
       "guards": []
     },
     {
-      "path": "",
+      "path": "clients",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
-      "line": 112,
+      "line": 110,
       "guards": []
     },
     {
-      "path": ":clientId",
+      "path": "",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 113,
       "guards": []
     },
     {
-      "path": "overview",
+      "path": ":clientId",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
-      "line": 117,
+      "line": 114,
       "guards": []
     },
     {
-      "path": "branches",
+      "path": "overview",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 118,
       "guards": []
     },
     {
-      "path": "contractors",
+      "path": "branches",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 119,
       "guards": []
     },
     {
-      "path": "contractor-computation",
+      "path": "contractors",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 120,
       "guards": []
     },
     {
-      "path": "clra",
+      "path": "contractor-computation",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 121,
       "guards": []
     },
     {
-      "path": "compliance-tracker",
+      "path": "clra",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 122,
       "guards": []
     },
     {
-      "path": "documents",
+      "path": "compliance-tracker",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 123,
       "guards": []
     },
     {
-      "path": "compliance-docs",
+      "path": "documents",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 124,
       "guards": []
     },
     {
-      "path": "registrations",
+      "path": "compliance-docs",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 125,
       "guards": []
     },
     {
-      "path": "payroll-status",
+      "path": "registrations",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 126,
       "guards": []
     },
     {
-      "path": "unit-documents",
+      "path": "payroll-status",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 127,
       "guards": []
     },
     {
-      "path": "safety",
+      "path": "unit-documents",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 128,
       "guards": []
     },
     {
-      "path": "",
+      "path": "safety",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 129,
       "guards": []
     },
     {
-      "path": "notifications",
+      "path": "",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
-      "line": 134,
+      "line": 130,
       "guards": []
     },
     {
-      "path": "compliance-tracker",
+      "path": "notifications",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 135,
       "guards": []
     },
     {
-      "path": "compliance/tasks",
+      "path": "compliance-tracker",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 136,
       "guards": []
     },
     {
-      "path": "helpdesk",
+      "path": "compliance/tasks",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 137,
       "guards": []
     },
     {
-      "path": "requests",
+      "path": "helpdesk",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 138,
       "guards": []
     },
     {
-      "path": "reports",
+      "path": "requests",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 139,
       "guards": []
     },
     {
-      "path": "audits",
+      "path": "reports",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 140,
       "guards": []
     },
     {
-      "path": "audit-monitoring",
+      "path": "audits",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 141,
       "guards": []
     },
     {
-      "path": "audit-analytics/repeat-ncs",
+      "path": "audit-monitoring",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 142,
       "guards": []
     },
     {
-      "path": "expiry-tasks",
+      "path": "audit-analytics/repeat-ncs",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 143,
       "guards": []
     },
     {
-      "path": "returns",
+      "path": "expiry-tasks",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 144,
       "guards": []
     },
     {
-      "path": "registrations",
+      "path": "returns",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 145,
       "guards": []
     },
     {
-      "path": "renewals",
+      "path": "registrations",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 146,
       "guards": []
     },
     {
-      "path": "amendments",
+      "path": "renewals",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 147,
       "guards": []
     },
     {
-      "path": "branch-docs-review",
+      "path": "amendments",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 148,
       "guards": []
     },
     {
-      "path": "notices",
+      "path": "branch-docs-review",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 149,
       "guards": []
     },
     {
-      "path": "minimum-wages",
+      "path": "notices",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 150,
       "guards": []
     },
     {
-      "path": "contractor-computation",
+      "path": "minimum-wages",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 151,
       "guards": []
     },
     {
-      "path": "news",
+      "path": "contractor-computation",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 152,
       "guards": []
     },
     {
-      "path": "news/:newsId",
+      "path": "news",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 153,
       "guards": []
     },
     {
-      "path": "profile",
+      "path": "news/:newsId",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 154,
       "guards": []
     },
     {
-      "path": "calendar",
+      "path": "profile",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 155,
       "guards": []
     },
     {
-      "path": "sla",
+      "path": "calendar",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 156,
       "guards": []
     },
     {
-      "path": "heatmap",
+      "path": "sla",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 157,
       "guards": []
     },
     {
-      "path": "risk-trend",
+      "path": "heatmap",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 158,
       "guards": []
     },
     {
-      "path": "escalations",
+      "path": "risk-trend",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 159,
       "guards": []
     },
     {
-      "path": "reupload-backlog",
+      "path": "escalations",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 160,
       "guards": []
     },
     {
-      "path": "contractors",
+      "path": "reupload-backlog",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
-      "line": 163,
+      "line": 161,
       "guards": []
     },
     {
-      "path": "compliance",
+      "path": "contractors",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 164,
       "guards": []
     },
     {
-      "path": "returns/filings",
+      "path": "compliance",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 165,
       "guards": []
     },
     {
-      "path": "compliance-tracker/mcd",
+      "path": "returns/filings",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 166,
       "guards": []
     },
     {
-      "path": "helpdesk/tickets",
+      "path": "compliance-tracker/mcd",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
       "line": 167,
       "guards": []
     },
     {
+      "path": "helpdesk/tickets",
+      "file": "frontend/src/app/pages/crm/crm.routes.ts",
+      "line": 168,
+      "guards": []
+    },
+    {
       "path": "",
       "file": "frontend/src/app/pages/crm/crm.routes.ts",
-      "line": 169,
+      "line": 170,
       "guards": []
     },
     {
@@ -45535,183 +45607,189 @@
       ]
     },
     {
-      "path": "dashboard",
+      "path": "my-work",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 64,
       "guards": []
     },
     {
-      "path": "clients",
+      "path": "dashboard",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 65,
       "guards": []
     },
     {
-      "path": "",
+      "path": "clients",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
-      "line": 68,
+      "line": 66,
       "guards": []
     },
     {
-      "path": ":clientId",
+      "path": "",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 69,
       "guards": []
     },
     {
-      "path": "overview",
+      "path": ":clientId",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
-      "line": 73,
+      "line": 70,
       "guards": []
     },
     {
-      "path": "employees",
+      "path": "overview",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 74,
       "guards": []
     },
     {
-      "path": "employees/:employeeId",
+      "path": "employees",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 75,
       "guards": []
     },
     {
-      "path": "runs",
+      "path": "employees/:employeeId",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 76,
       "guards": []
     },
     {
-      "path": "pf-esi",
+      "path": "runs",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 77,
       "guards": []
     },
     {
-      "path": "queries",
+      "path": "pf-esi",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 78,
       "guards": []
     },
     {
-      "path": "full-and-final",
+      "path": "queries",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 79,
       "guards": []
     },
     {
-      "path": "fnf",
+      "path": "full-and-final",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 80,
       "guards": []
     },
     {
-      "path": "setup",
+      "path": "fnf",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 81,
       "guards": []
     },
     {
-      "path": "rule-sets",
+      "path": "setup",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 82,
       "guards": []
     },
     {
-      "path": "structures",
+      "path": "rule-sets",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 83,
       "guards": []
     },
     {
-      "path": "config",
+      "path": "structures",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 84,
       "guards": []
     },
     {
-      "path": "registers",
+      "path": "config",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 85,
       "guards": []
     },
     {
-      "path": "",
+      "path": "registers",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 86,
       "guards": []
     },
     {
-      "path": "tds-calculator",
+      "path": "",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
-      "line": 91,
+      "line": 87,
       "guards": []
     },
     {
-      "path": "gratuity-calculator",
+      "path": "tds-calculator",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 92,
       "guards": []
     },
     {
-      "path": "reports",
+      "path": "gratuity-calculator",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 93,
       "guards": []
     },
     {
-      "path": "profile",
+      "path": "reports",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 94,
       "guards": []
     },
     {
-      "path": "employees",
+      "path": "profile",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
-      "line": 97,
+      "line": 95,
       "guards": []
     },
     {
-      "path": "runs",
+      "path": "employees",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 98,
       "guards": []
     },
     {
-      "path": "pf-esi",
+      "path": "runs",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 99,
       "guards": []
     },
     {
-      "path": "queries",
+      "path": "pf-esi",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 100,
       "guards": []
     },
     {
-      "path": "full-and-final",
+      "path": "queries",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 101,
       "guards": []
     },
     {
-      "path": "setup",
+      "path": "full-and-final",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 102,
       "guards": []
     },
     {
-      "path": "registers",
+      "path": "setup",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
       "line": 103,
       "guards": []
     },
     {
+      "path": "registers",
+      "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
+      "line": 104,
+      "guards": []
+    },
+    {
       "path": "",
       "file": "frontend/src/app/pages/payroll/payroll.routes.ts",
-      "line": 105,
+      "line": 106,
       "guards": []
     },
     {
@@ -45797,8 +45875,8 @@
       "guards": []
     }
   ],
-  "sourceFiles": 951,
-  "testFiles": 186,
+  "sourceFiles": 952,
+  "testFiles": 187,
   "roleStats": [
     {
       "role": "ACCOUNTS",
@@ -45807,12 +45885,12 @@
     },
     {
       "role": "ADMIN",
-      "readEndpoints": 452,
+      "readEndpoints": 453,
       "mutationEndpoints": 385
     },
     {
       "role": "AUDITOR",
-      "readEndpoints": 87,
+      "readEndpoints": 88,
       "mutationEndpoints": 38
     },
     {
@@ -45822,7 +45900,7 @@
     },
     {
       "role": "BRANCH_DESK",
-      "readEndpoints": 44,
+      "readEndpoints": 45,
       "mutationEndpoints": 10
     },
     {
@@ -45842,27 +45920,27 @@
     },
     {
       "role": "CCO",
-      "readEndpoints": 162,
+      "readEndpoints": 163,
       "mutationEndpoints": 90
     },
     {
       "role": "CEO",
-      "readEndpoints": 163,
+      "readEndpoints": 164,
       "mutationEndpoints": 58
     },
     {
       "role": "CLIENT",
-      "readEndpoints": 317,
+      "readEndpoints": 318,
       "mutationEndpoints": 159
     },
     {
       "role": "CONTRACTOR",
-      "readEndpoints": 46,
+      "readEndpoints": 47,
       "mutationEndpoints": 29
     },
     {
       "role": "CRM",
-      "readEndpoints": 258,
+      "readEndpoints": 259,
       "mutationEndpoints": 163
     },
     {
@@ -45877,7 +45955,7 @@
     },
     {
       "role": "PAYROLL",
-      "readEndpoints": 75,
+      "readEndpoints": 76,
       "mutationEndpoints": 83
     },
     {
@@ -46219,7 +46297,7 @@
     {
       "domain": "task-center",
       "controllers": 1,
-      "endpoints": 4,
+      "endpoints": 5,
       "entities": 0
     },
     {

@@ -61,6 +61,7 @@ export const PAYROLL_ROUTES: Routes = [
     loadComponent: PayrollLayoutComponent,
     canActivate: [roleGuard(['PAYROLL', 'CCO'])],
     children: [
+      { path: 'my-work', loadComponent: () => import('../../shared/my-work/my-work.component').then(m => m.MyWorkComponent) },
       { path: 'dashboard', loadComponent: PayrollDashboardComponent },
       {
         path: 'clients',

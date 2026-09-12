@@ -46,6 +46,7 @@ export const CCO_ROUTES: Routes = [
     // Keeping the frontend guard aligned prevents CEO users from seeing CCO UI that will 403.
     canActivate: [roleGuard(['CCO'])],
     children: [
+      { path: 'my-work', loadComponent: () => import('../../shared/my-work/my-work.component').then(m => m.MyWorkComponent) },
       { path: 'dashboard', loadComponent: CcoDashboardComponent },
       { path: 'approvals', loadComponent: CcoApprovalsComponent },
       { path: 'service-package-approvals', loadComponent: CcoServicePackageApprovalsComponent },

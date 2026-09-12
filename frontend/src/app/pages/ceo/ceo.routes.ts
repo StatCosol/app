@@ -38,6 +38,7 @@ export const CEO_ROUTES: Routes = [
     loadComponent: CeoLayoutComponent,
     canActivate: [roleGuard(['CEO'])],
     children: [
+      { path: 'my-work', loadComponent: () => import('../../shared/my-work/my-work.component').then(m => m.MyWorkComponent) },
       { path: 'dashboard', loadComponent: CeoExecutiveDashboardPageComponent },
       { path: 'approvals', loadComponent: CeoApprovalsComponent },
       { path: 'escalations', loadComponent: CeoEscalationsComponent },

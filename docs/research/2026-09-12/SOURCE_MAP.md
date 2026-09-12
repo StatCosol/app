@@ -2,28 +2,28 @@
 
 Generated from source by backend/scripts/research-project.cjs. This is declaration coverage, not certification of runtime behavior. Role aliases, global guards, service scopes and module entitlements still apply. Frontend route counts include parent/group/redirect declarations.
 
-951 backend source files; 186 backend test files; 63 Nest modules; 241 controllers; 1475 HTTP handlers; 229 entity classes; 363 frontend route declarations; 39 scheduled methods; 145 explicit status/state assignments.
+952 backend source files; 187 backend test files; 63 Nest modules; 241 controllers; 1476 HTTP handlers; 229 entity classes; 372 frontend route declarations; 39 scheduled methods; 145 explicit status/state assignments.
 
 ## Role declarations
 
 | Role | GET handlers | Other HTTP handlers |
 | --- | --- | --- |
 | ACCOUNTS | 18 | 23 |
-| ADMIN | 452 | 385 |
-| AUDITOR | 87 | 38 |
+| ADMIN | 453 | 385 |
+| AUDITOR | 88 | 38 |
 | BRANCH | 18 | 6 |
-| BRANCH_DESK | 44 | 10 |
+| BRANCH_DESK | 45 | 10 |
 | BRANCH_EXEC | 6 | 0 |
 | BRANCH_MANAGER | 6 | 0 |
 | BRANCH_USER | 1 | 1 |
-| CCO | 162 | 90 |
-| CEO | 163 | 58 |
-| CLIENT | 317 | 159 |
-| CONTRACTOR | 46 | 29 |
-| CRM | 258 | 163 |
+| CCO | 163 | 90 |
+| CEO | 164 | 58 |
+| CLIENT | 318 | 159 |
+| CONTRACTOR | 47 | 29 |
+| CRM | 259 | 163 |
 | EMPLOYEE | 27 | 18 |
 | PAYDEK | 5 | 0 |
-| PAYROLL | 75 | 83 |
+| PAYROLL | 76 | 83 |
 | PF_TEAM | 3 | 3 |
 | SALES | 5 | 4 |
 
@@ -85,7 +85,7 @@ Generated from source by backend/scripts/research-project.cjs. This is declarati
 | sales | 2 | 12 | 2 |
 | service-entitlements | 1 | 7 | 0 |
 | sla | 1 | 2 | 1 |
-| task-center | 1 | 4 | 0 |
+| task-center | 1 | 5 | 0 |
 | units | 1 | 5 | 3 |
 | users | 6 | 30 | 5 |
 

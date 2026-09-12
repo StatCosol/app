@@ -1,3 +1,4 @@
+import { WorkQueryDto } from './work-query.dto';
 import {
   Controller,
   ForbiddenException,
@@ -44,6 +45,18 @@ export class TaskCenterController {
     private readonly taskCenterService: TaskCenterService,
     private readonly accessScope: OperationalScopeService,
   ) {}
+
+  @Get('workspace')
+  @ApiOperation({
+    summary: 'Assigned work with reconciled counts and pagination',
+  })
+  async workspace(@CurrentUser() user: ReqUser, @Query() q: WorkQueryDto) {
+    await this.resolveScope(user, q);
+    return this.taskCenterService.getWorkspace(
+      await this.resolveScope(user, {}),
+      q,
+    );
+  }
 
   @ApiOperation({ summary: 'Get task summary for logged-in user' })
   @Get('my-summary')
