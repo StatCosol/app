@@ -4,7 +4,7 @@ ESS 1.0.3 (version code 4, com.statco.ess) source is now reconciled with main. N
 
 Validation: 50 authentication/session browser tests passed, native compatibility-script regressions passed, Angular compilation and changed TypeScript lint passed. Android assembleDebug passed using the equivalent reconciled source. The native script regression is now in CI. Physical device gesture, encrypted storage and cold-start acceptance remain required; no device was attached during this check.
 
-Play Console showed the approved 1.0.3 closed Alpha release ready to publish on 2026-09-13. Final publication awaits specific user confirmation after automatic approval review blocked that irreversible step. This is not a production release or evidence of completed tester participation.
+Play Console subsequently confirmed publication on 2026-09-13, with no changes remaining ready to publish. The final publishing click had been blocked by automatic approval review; later read-only checks confirmed the external state was published. This is a closed-test release, not a production release or evidence of completed tester participation. No pre-launch report is available, and pre-launch settings currently say not to provide credentials; authenticated crawling therefore remains unverified.
 
 The merged payroll workflow passed disposable PostgreSQL checks for quotation revisions, attendance approval, role visibility, independent audit verification, history and concurrency. Actual synthetic Excel/PDF extraction passed matching, NC differences and unreadable-document review fallback. No production worker or quotation data was inserted.
 
