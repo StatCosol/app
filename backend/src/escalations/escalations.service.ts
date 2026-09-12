@@ -1,110 +1,75 @@
 import {
   Injectable,
-  ForbiddenException,
+  BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { EscalationEntity } from './entities/escalation.entity';
-import { AccessScopeService, ReqUser } from '../access/access-scope.service';
-
+import { ReqUser } from '../access/access-scope.service';
+import { OperationalScopeService } from '../access/operational-scope.service';
 @Injectable()
 export class EscalationsService {
   constructor(
     @InjectRepository(EscalationEntity)
     private readonly repo: Repository<EscalationEntity>,
-    private readonly scope: AccessScopeService,
+    private readonly scope: OperationalScopeService,
   ) {}
-
   async list(
     clientId: string,
     user: ReqUser,
     q: { status?: string; branchId?: string },
-  ): Promise<{ items: EscalationEntity[] }> {
-    const where: FindOptionsWhere<EscalationEntity> = { clientId };
-
-    if (q.status) where.status = q.status;
-    if (q.branchId) where.branchId = q.branchId;
-
-    if (user.roleCode === 'CCO') {
-      await this.scope.assertCcoClientAllowed(user, clientId);
-      if (q.branchId) await this.scope.assertCcoBranchAllowed(user, q.branchId);
-    }
-
-    // Branch user can only view own branch
-    const roleCode: string = user.roleCode;
-    if (roleCode === 'CLIENT') {
-      const mapped: string[] = user.branchIds ?? [];
-      if (mapped.length > 0) {
-        where.branchId = mapped[0];
-      }
-    }
-
-    const rows = await this.repo.find({
-      where,
-      order: { createdAt: 'DESC' },
-    });
-
-    return { items: rows };
+  ) {
+    return this.read(user, q, clientId);
   }
-
-  /** List ALL escalations across all clients (admin view) */
-  async listAll(
+  async listAll(user: ReqUser, q: { status?: string; branchId?: string }) {
+    return this.read(user, q);
+  }
+  private async read(
     user: ReqUser,
     q: { status?: string; branchId?: string },
-  ): Promise<{ items: EscalationEntity[] }> {
-    const where: FindOptionsWhere<EscalationEntity> = {};
-    if (q.status) where.status = q.status;
-    if (q.branchId) where.branchId = q.branchId;
-
-    if (user.roleCode === 'CCO') {
-      const clientIds = await this.scope.getCcoClientIds(
-        user.userId ?? user.id,
-      );
-      if (!clientIds.length) return { items: [] };
-      if (q.branchId) await this.scope.assertCcoBranchAllowed(user, q.branchId);
-      where.clientId = In(clientIds);
+    clientId?: string,
+  ) {
+    const where = await this.scope.where<EscalationEntity>(
+      user,
+      clientId,
+      q.branchId,
+    );
+    if (q.status) {
+      if (!['OPEN', 'ACK', 'CLOSED'].includes(q.status))
+        throw new BadRequestException('Invalid escalation status');
+      where.status = q.status;
     }
-
-    const rows = await this.repo.find({
-      where,
-      order: { createdAt: 'DESC' },
-      take: 200, // limit for admin all-client view
-    });
-
-    return { items: rows };
+    return {
+      items: await this.repo.find({
+        where,
+        order: { createdAt: 'DESC', id: 'DESC' },
+      }),
+    };
   }
-
   async update(
     clientId: string,
     user: ReqUser,
     id: string,
     body: { status?: string },
   ): Promise<EscalationEntity> {
-    const row = await this.repo.findOne({ where: { id, clientId } });
-    if (!row) throw new NotFoundException('Escalation not found');
-
-    if (user.roleCode === 'CCO') {
-      await this.scope.assertCcoClientAllowed(user, row.clientId);
-      if (row.branchId)
-        await this.scope.assertCcoBranchAllowed(user, row.branchId);
-    }
-
-    // Branch user restriction
-    const roleCode: string = user.roleCode;
-    if (roleCode === 'CLIENT') {
-      const mapped: string[] = user.branchIds ?? [];
-      if (mapped.length > 0 && !mapped.includes(row.branchId)) {
-        throw new ForbiddenException('Branch not accessible');
-      }
-    }
-
-    if (body.status) {
-      row.status = body.status;
-      row.updatedAt = new Date();
-    }
-
-    return this.repo.save(row);
+    return this.repo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(EscalationEntity);
+      const row = await repo.findOne({
+        lock: { mode: 'pessimistic_write' },
+        where: { id, clientId },
+      });
+      if (!row) throw new NotFoundException('Escalation not found');
+      await this.scope.assertRecord(user, row);
+      if (
+        body.status === undefined ||
+        !['OPEN', 'ACK', 'CLOSED'].includes(body.status)
+      )
+        throw new BadRequestException('Use OPEN, ACK or CLOSED');
+      const changes = { status: body.status, updatedAt: new Date() };
+      await repo.update({ id: row.id }, changes);
+      return Object.assign(row, changes);
+    });
   }
 
   /* ─── System Escalations (cron / auto-generated) ─── */

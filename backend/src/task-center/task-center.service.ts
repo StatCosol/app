@@ -1,5 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { operationalDate, addCalendarDays } from '../common/operational-date';
+const active = (row: TaskRow) => !['CLOSED', 'CANCELLED'].includes(row.status);
+const due = (row: TaskRow) =>
+  row.due_date ? String(row.due_date).slice(0, 10) : null;
 
 export interface TaskRow {
   id: string;
@@ -24,11 +28,22 @@ export class TaskCenterService {
   constructor(private readonly dataSource: DataSource) {}
 
   async getMySummary(params: {
-    role: 'ADMIN' | 'CRM' | 'AUDITOR' | 'CLIENT' | 'BRANCH' | 'CONTRACTOR';
+    role:
+      | 'ADMIN'
+      | 'CCO'
+      | 'PAYROLL'
+      | 'CRM'
+      | 'AUDITOR'
+      | 'CLIENT'
+      | 'BRANCH'
+      | 'CONTRACTOR';
     userId?: string | null;
     clientId?: string | null;
     branchId?: string | null;
     branchIds?: string[];
+    clientIds?: string[];
+    assignedRoles?: string[];
+    taskModules?: string[];
     contractorId?: string | null;
   }) {
     const rows = await this.getMyItems(params);
@@ -36,12 +51,17 @@ export class TaskCenterService {
     const total = rows.length;
     const open = rows.filter((x) => x.status === 'OPEN').length;
     const inProgress = rows.filter((x) => x.status === 'IN_PROGRESS').length;
-    const overdue = rows.filter((x) => {
-      if (!x.due_date) return false;
-      return (
-        new Date(x.due_date).getTime() < Date.now() && x.status !== 'CLOSED'
-      );
-    }).length;
+    const today = operationalDate();
+    const overdue = rows.filter(
+      (x) => active(x) && due(x) && due(x)! < today,
+    ).length;
+    const dueSoon = rows.filter(
+      (x) =>
+        active(x) &&
+        due(x) &&
+        due(x)! >= today &&
+        due(x)! <= addCalendarDays(today, 7),
+    ).length;
     const closed = rows.filter((x) => x.status === 'CLOSED').length;
 
     return {
@@ -49,23 +69,44 @@ export class TaskCenterService {
       open,
       inProgress,
       overdue,
+      dueSoon,
       closed,
     };
   }
 
   async getMyItems(params: {
-    role: 'ADMIN' | 'CRM' | 'AUDITOR' | 'CLIENT' | 'BRANCH' | 'CONTRACTOR';
+    role:
+      | 'ADMIN'
+      | 'CCO'
+      | 'PAYROLL'
+      | 'CRM'
+      | 'AUDITOR'
+      | 'CLIENT'
+      | 'BRANCH'
+      | 'CONTRACTOR';
     userId?: string | null;
     clientId?: string | null;
     branchId?: string | null;
     branchIds?: string[];
+    clientIds?: string[];
+    assignedRoles?: string[];
+    taskModules?: string[];
     contractorId?: string | null;
     status?: string | null;
   }) {
-    const where: string[] = ['t.assigned_role = $1'];
-    const values: unknown[] = [params.role];
+    const where: string[] = [
+      params.assignedRoles !== undefined
+        ? 't.assigned_role = ANY($1::text[])'
+        : 't.assigned_role = $1',
+    ];
+    const values: unknown[] = [params.assignedRoles ?? params.role];
     let idx = 2;
 
+    if (params.taskModules !== undefined) {
+      where.push(`t.module = ANY($${idx}::text[])`);
+      values.push(params.taskModules);
+      idx += 1;
+    }
     if (params.userId) {
       where.push(
         `(t.assigned_user_id = $${idx} OR t.assigned_user_id IS NULL)`,
@@ -77,6 +118,12 @@ export class TaskCenterService {
     if (params.clientId) {
       where.push(`t.client_id = $${idx}`);
       values.push(params.clientId);
+      idx += 1;
+    }
+
+    if (params.clientIds !== undefined) {
+      where.push(`t.client_id = ANY($${idx}::uuid[])`);
+      values.push(params.clientIds);
       idx += 1;
     }
 
@@ -116,7 +163,7 @@ export class TaskCenterService {
         t.client_id,
         t.branch_id,
         t.contractor_id,
-        t.due_date,
+        t.due_date::text AS due_date,
         t.status,
         t.created_at
       FROM system_tasks t
@@ -136,39 +183,57 @@ export class TaskCenterService {
   }
 
   async getOverdueItems(params: {
-    role: 'ADMIN' | 'CRM' | 'AUDITOR' | 'CLIENT' | 'BRANCH' | 'CONTRACTOR';
+    role:
+      | 'ADMIN'
+      | 'CCO'
+      | 'PAYROLL'
+      | 'CRM'
+      | 'AUDITOR'
+      | 'CLIENT'
+      | 'BRANCH'
+      | 'CONTRACTOR';
     userId?: string | null;
     clientId?: string | null;
     branchId?: string | null;
     branchIds?: string[];
+    clientIds?: string[];
+    assignedRoles?: string[];
+    taskModules?: string[];
     contractorId?: string | null;
   }) {
     const rows = await this.getMyItems(params);
-    return rows.filter((x) => {
-      if (!x.due_date) return false;
-      return (
-        new Date(x.due_date).getTime() < Date.now() && x.status !== 'CLOSED'
-      );
-    });
+    const today = operationalDate();
+    return rows.filter((x) => active(x) && due(x) && due(x)! < today);
   }
 
   async getExpiringItems(params: {
-    role: 'ADMIN' | 'CRM' | 'AUDITOR' | 'CLIENT' | 'BRANCH' | 'CONTRACTOR';
+    role:
+      | 'ADMIN'
+      | 'CCO'
+      | 'PAYROLL'
+      | 'CRM'
+      | 'AUDITOR'
+      | 'CLIENT'
+      | 'BRANCH'
+      | 'CONTRACTOR';
     userId?: string | null;
     clientId?: string | null;
     branchId?: string | null;
     branchIds?: string[];
+    clientIds?: string[];
+    assignedRoles?: string[];
+    taskModules?: string[];
     contractorId?: string | null;
     withinDays?: number;
   }) {
     const withinDays = params.withinDays ?? 7;
     const rows = await this.getMyItems(params);
-    const future = Date.now() + withinDays * 24 * 60 * 60 * 1000;
-
-    return rows.filter((x) => {
-      if (!x.due_date) return false;
-      const ts = new Date(x.due_date).getTime();
-      return ts >= Date.now() && ts <= future && x.status !== 'CLOSED';
-    });
+    if (!Number.isInteger(withinDays) || withinDays < 0 || withinDays > 365)
+      throw new BadRequestException('withinDays must be between 0 and 365');
+    const today = operationalDate();
+    const future = addCalendarDays(today, withinDays);
+    return rows.filter(
+      (x) => active(x) && due(x) && due(x)! >= today && due(x)! <= future,
+    );
   }
 }

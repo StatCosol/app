@@ -11,16 +11,18 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { AccessScopeService, ReqUser } from '../access/access-scope.service';
+import { ReqUser } from '../access/access-scope.service';
+import { OperationalScopeService } from '../access/operational-scope.service';
 
 type TaskRole =
   | 'ADMIN'
+  | 'CCO'
+  | 'PAYROLL'
   | 'CRM'
   | 'AUDITOR'
   | 'CLIENT'
   | 'BRANCH'
   | 'CONTRACTOR';
-const GLOBAL_ROLES = new Set(['ADMIN', 'CEO', 'CCO', 'PAYROLL']);
 
 @ApiTags('Task Center')
 @ApiBearerAuth('JWT')
@@ -40,7 +42,7 @@ const GLOBAL_ROLES = new Set(['ADMIN', 'CEO', 'CCO', 'PAYROLL']);
 export class TaskCenterController {
   constructor(
     private readonly taskCenterService: TaskCenterService,
-    private readonly accessScope: AccessScopeService,
+    private readonly accessScope: OperationalScopeService,
   ) {}
 
   @ApiOperation({ summary: 'Get task summary for logged-in user' })
@@ -112,77 +114,32 @@ export class TaskCenterController {
     });
   }
 
-  /**
-   * Derive the task-center scope strictly from the JWT identity.
-   * Query params for clientId / branchId / contractorId are accepted only
-   * for global roles (ADMIN/CEO/CCO/PAYROLL) or after the user's allowed
-   * client/branch lists are verified. For tenant-scoped roles the values
-   * are forced to the user's own scope so a CLIENT/CONTRACTOR cannot
-   * peek at another tenant's tasks by tampering with the query string.
-   */
+  /** Resolve every queue from the same current company and branch assignments. */
   private async resolveScope(
     user: ReqUser,
     q: { clientId?: string; branchId?: string; contractorId?: string },
-  ): Promise<{
-    role: TaskRole;
-    userId: string;
-    clientId: string | null;
-    branchId: string | null;
-    branchIds?: string[];
-    contractorId: string | null;
-  }> {
+  ) {
     const role = this.deriveRole(user);
-    const isGlobal = GLOBAL_ROLES.has(user.roleCode);
-
-    let clientId: string | null = null;
-    let branchId: string | null = null;
-    let branchIds: string[] | undefined;
-    let contractorId: string | null = null;
-
-    if (isGlobal) {
-      clientId = q.clientId ?? null;
-      branchId = q.branchId ?? null;
-      contractorId = q.contractorId ?? null;
-    } else {
-      // CLIENT (master/branch) — locked to own client, branch optional within own list
-      if (user.roleCode === 'CLIENT' || user.roleCode === 'BRANCH_DESK') {
-        clientId = user.clientId ?? null;
-        if (!clientId)
-          throw new ForbiddenException('Company scope is required');
-        if (q.branchId) {
-          await this.accessScope.assertBranchAllowed(user, q.branchId);
-          branchId = q.branchId;
-        } else if (
-          user.userType === 'BRANCH' ||
-          user.roleCode === 'BRANCH_DESK'
-        ) {
-          branchIds = [...(user.branchIds ?? [])];
-        }
-      }
-      // CRM / AUDITOR — restrict to assigned clients only
-      else if (user.roleCode === 'CRM' || user.roleCode === 'AUDITOR') {
-        if (q.clientId) {
-          await this.accessScope.assertClientAllowed(user, q.clientId);
-          clientId = q.clientId;
-        }
-        if (q.branchId) {
-          await this.accessScope.assertBranchAllowed(user, q.branchId);
-          branchId = q.branchId;
-        }
-      }
-      // CONTRACTOR — locked to own user id; ignore any query contractorId override
-      else if (user.roleCode === 'CONTRACTOR') {
-        contractorId = user.userId;
-      }
-    }
-
+    const userId = user.userId || user.id;
+    if (!userId) throw new ForbiddenException('User identity is required');
+    const scope = await this.accessScope.resolve(user, q.clientId, q.branchId);
     return {
       role,
-      userId: user.userId,
-      clientId,
-      branchId,
-      ...(branchIds !== undefined ? { branchIds } : {}),
-      contractorId,
+      // Keep legacy ADMIN queue entries inside the caller's company/module scope.
+      ...(role === 'CCO' ? { assignedRoles: ['CCO', 'ADMIN'] } : {}),
+      ...(role === 'PAYROLL'
+        ? { assignedRoles: ['PAYROLL', 'ADMIN'], taskModules: ['PAYROLL'] }
+        : {}),
+      userId,
+      clientId: q.clientId || scope.clientId || null,
+      ...(scope.level === 'clients'
+        ? { clientIds: scope.clientIds || [] }
+        : {}),
+      branchId: q.branchId || null,
+      ...(scope.level === 'branches' && !q.branchId
+        ? { branchIds: scope.branchIds || [] }
+        : {}),
+      contractorId: role === 'CONTRACTOR' ? userId : q.contractorId || null,
     };
   }
 
@@ -193,21 +150,18 @@ export class TaskCenterController {
     )
       return 'BRANCH';
     switch (user.roleCode) {
-      case 'ADMIN':
       case 'CEO':
+        return 'ADMIN';
+      case 'ADMIN':
       case 'CCO':
       case 'PAYROLL':
-        return 'ADMIN';
       case 'CRM':
-        return 'CRM';
       case 'AUDITOR':
-        return 'AUDITOR';
       case 'CLIENT':
-        return 'CLIENT';
       case 'CONTRACTOR':
-        return 'CONTRACTOR';
+        return user.roleCode;
       default:
-        return 'ADMIN';
+        throw new ForbiddenException('Role has no task queue');
     }
   }
 }
