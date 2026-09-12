@@ -53,6 +53,8 @@ export class ThreadListService {
 
     const cid = this.scope.resolveClientId(user, q.clientId);
     if (cid) qb.andWhere('th.clientId = :cid', { cid });
+    const bid = this.scope.resolveBranchId(user, q.branchId);
+    if (bid) qb.andWhere('th.branchId = :bid', { bid });
 
     if (q.status) qb.andWhere('th.status = :s', { s: q.status.toUpperCase() });
     if (q.type) qb.andWhere('th.queryType = :t', { t: q.type.toUpperCase() });
@@ -103,6 +105,8 @@ export class ThreadListService {
 
     const cid = this.scope.resolveClientId(user, q.clientId);
     if (cid) qb.andWhere('hd.clientId = :cid', { cid });
+    const bid = this.scope.resolveBranchId(user, q.branchId);
+    if (bid) qb.andWhere('hd.branchId = :bid', { bid });
 
     if (q.status) qb.andWhere('hd.status = :s', { s: q.status.toUpperCase() });
     if (q.category) qb.andWhere('hd.category = :cat', { cat: q.category });

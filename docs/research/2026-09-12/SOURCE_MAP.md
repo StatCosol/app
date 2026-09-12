@@ -2,7 +2,7 @@
 
 Generated from source by backend/scripts/research-project.cjs. This is declaration coverage, not certification of runtime behavior. Role aliases, global guards, service scopes and module entitlements still apply. Frontend route counts include parent/group/redirect declarations.
 
-951 backend source files; 184 backend test files; 63 Nest modules; 241 controllers; 1475 HTTP handlers; 229 entity classes; 363 frontend route declarations; 39 scheduled methods; 145 explicit status/state assignments.
+951 backend source files; 186 backend test files; 63 Nest modules; 241 controllers; 1475 HTTP handlers; 229 entity classes; 363 frontend route declarations; 39 scheduled methods; 145 explicit status/state assignments.
 
 ## Role declarations
 
