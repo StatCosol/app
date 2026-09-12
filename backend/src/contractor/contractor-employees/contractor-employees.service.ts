@@ -258,14 +258,17 @@ export class ContractorEmployeesService {
       [contractorUserId],
     );
     const candidates = contractorPrefixCandidates(contractor?.name ?? '');
-    if (candidates.length === 0) return null;
+    // Names written in other scripts still need an identifier. The client-wide
+    // locked sequence keeps this neutral fallback unique.
+    if (candidates.length === 0) candidates.push('CE');
 
     // Reuse whatever prefix this contractor is already on.
     const [mine] = await em.query(
       `SELECT employee_code AS code
          FROM contractor_employees
         WHERE client_id = $1 AND contractor_user_id = $2
-          AND employee_code IS NOT NULL
+          AND employee_code ~ '^[A-Z]+[0-9]+$'
+        ORDER BY created_at, id
         LIMIT 1`,
       [clientId, contractorUserId],
     );
@@ -296,7 +299,7 @@ export class ContractorEmployeesService {
 
     const [next] = await em.query(
       `SELECT COALESCE(
-                MAX(substring(employee_code from ${'$2'} )::int), 0
+                MAX(substring(employee_code from $2::int)::bigint), 0
               ) + 1 AS seq
          FROM contractor_employees
         WHERE client_id = $1
@@ -309,7 +312,7 @@ export class ContractorEmployeesService {
   /**
    * Give a code to contractor workers who predate code generation.
    *
-   * Idempotent: it only ever touches rows where employee_code IS NULL, so a
+   * Idempotent: it only ever touches NULL or blank employee codes, so a
    * second run is a no-op and an interrupted run simply resumes. Codes already
    * in place — including hand-typed ones — are never rewritten, because these
    * appear on historical payroll records.
@@ -336,14 +339,14 @@ export class ContractorEmployeesService {
       await this.dataSource.query(
         `SELECT id, contractor_user_id
            FROM contractor_employees
-          WHERE client_id = $1 AND employee_code IS NULL
+          WHERE client_id = $1 AND (employee_code IS NULL OR btrim(employee_code) = '')
           ORDER BY contractor_user_id, created_at, id
           LIMIT $2`,
         [clientId, size],
       );
 
     let coded = 0;
-    let skippedNoName = 0;
+    const skippedNoName = 0;
     for (const row of rows) {
       // Allocate and write in one locked transaction, exactly as a live create
       // does — otherwise a backfill and a concurrent create can both read the
@@ -355,24 +358,26 @@ export class ContractorEmployeesService {
           row.contractor_user_id,
         );
         if (!code) return false;
-        await em.query(
-          `UPDATE contractor_employees
+        const updated = await em.query(
+          `WITH assigned AS (
+            UPDATE contractor_employees
               SET employee_code = $1, updated_at = now()
-            WHERE id = $2 AND employee_code IS NULL`,
-          [code, row.id],
+            WHERE id = $2 AND client_id = $3
+              AND (employee_code IS NULL OR btrim(employee_code) = '')
+            RETURNING id
+          ) SELECT id FROM assigned`,
+          [code, row.id, clientId],
         );
-        return true;
+        // The outer SELECT returns rows directly, avoiding UPDATE result-shape differences.
+        return updated.length > 0;
       });
-      // No code means the contractor name has no usable letters. Leaving it
-      // NULL is correct — a bare number would be worse than no code.
       if (wrote) coded += 1;
-      else skippedNoName += 1;
     }
 
     const [left] = await this.dataSource.query(
       `SELECT COUNT(*)::int AS n
          FROM contractor_employees
-        WHERE client_id = $1 AND employee_code IS NULL`,
+        WHERE client_id = $1 AND (employee_code IS NULL OR btrim(employee_code) = '')`,
       [clientId],
     );
     return {
