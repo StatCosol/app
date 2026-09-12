@@ -64,6 +64,8 @@ describe('Contractor worker download', () => {
   });
 
   it('validates mandatory bulk fields and refuses numeric bank cells', () => {
+    component.availableBranches = [{ id: 'branch-1', branchName: 'Branch 1' }] as any;
+    component.bulkBranchId = 'branch-1';
     const valid = { name: 'Synthetic Worker', skillCategory: 'SKILLED', monthlySalary: 15000, aadhaar: '123456789012', pan: 'abcde1234f', bankAccount: '001234567890' };
     const rows = component['validateBulkRows']([valid, { ...valid, bankAccount: 1234567890 }, { ...valid, aadhaar: '', pan: '', bankAccount: '' }]);
     expect(rows[0].errors).toEqual([]);
@@ -74,6 +76,8 @@ describe('Contractor worker download', () => {
   });
 
   it('preserves long account numbers and leading zeros from a CSV file', async () => {
+    component.availableBranches = [{ id: 'branch-1', branchName: 'Branch 1' }] as any;
+    component.bulkBranchId = 'branch-1';
     const csv = 'name,skillCategory,monthlySalary,aadhaar,pan,bankAccount\nWorker,SKILLED,15000,123456789012,ABCDE1234F,0012345678901234567890';
     const input = { files: [new File([csv], 'workers.csv', { type: 'text/csv' })], value: 'workers.csv' };
     component.onBulkFile({ target: input } as unknown as Event);
@@ -84,6 +88,8 @@ describe('Contractor worker download', () => {
   });
 
   it('still rejects numeric bank cells from an Excel workbook', async () => {
+    component.availableBranches = [{ id: 'branch-1', branchName: 'Branch 1' }] as any;
+    component.bulkBranchId = 'branch-1';
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ name: 'Worker', skillCategory: 'SKILLED', aadhaar: '123456789012', pan: 'ABCDE1234F', bankAccount: 1234567890 }]), 'Workers');
     const bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });

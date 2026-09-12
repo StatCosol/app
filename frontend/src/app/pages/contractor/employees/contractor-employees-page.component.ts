@@ -726,7 +726,7 @@ interface BulkPreviewRow {
           </button>
           <label class="text-xs text-gray-600">
             Default Branch:
-            <select [(ngModel)]="bulkBranchId" class="ml-2 text-xs border border-gray-200 rounded px-2 py-1">
+            <select [(ngModel)]="bulkBranchId" (ngModelChange)="revalidateBulkBranch()" [disabled]="bulkUploading" class="ml-2 text-xs border border-gray-200 rounded px-2 py-1">
               <option value="">(use row branchId)</option>
               @for (b of availableBranches; track b) {
 <option [value]="b.id">{{ b.name || b.branchName }}</option>
@@ -1038,7 +1038,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     this.editingId = null;
     this.form = emptyForm();
     // Pre-select branch from the current filter or the only available branch
-    this.form.branchId = this.selectedBranchId || (this.availableBranches.length >= 1 ? this.availableBranches[0].id : '');
+    this.form.branchId = this.selectedBranchId || (this.availableBranches.length === 1 ? this.availableBranches[0].id : '');
     this.formError = null;
     this.drawerOpen = true;
     this.cdr.markForCheck();
@@ -1401,7 +1401,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       pfApplicable: true,
       esiApplicable: true,
       stateCode: 'KA',
-      branchId: '',
+      branchId: this.bulkBranchId || this.selectedBranchId || '',
     };
     const ws = XLSX.utils.json_to_sheet([sample], { header: headers });
     const wb = XLSX.utils.book_new();
@@ -1434,6 +1434,11 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     reader.readAsArrayBuffer(file);
     // Allow re-selecting the same file later
     input.value = '';
+  }
+
+  revalidateBulkBranch(): void {
+    this.bulkPreview = this.validateBulkRows(this.bulkPreview.map(row => row.raw));
+    this.bulkResult = null;
   }
 
   private validateBulkRows(rows: Record<string, any>[]): BulkPreviewRow[] {
@@ -1496,6 +1501,12 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
         stateCode: raw['stateCode'] ? String(raw['stateCode']).toUpperCase() : null,
         branchId: raw['branchId'] ? String(raw['branchId']) : undefined,
       };
+      const rowBranch = String(raw['branchId'] ?? '').trim();
+      dto.branchId = rowBranch || this.bulkBranchId || undefined;
+      if (!dto.branchId) errors.push('Choose a branch or supply branchId in the row');
+      else if (!this.availableBranches.some(b => b.id === dto.branchId)) errors.push('Branch is not assigned to you');
+      if (this.bulkBranchId && rowBranch && rowBranch !== this.bulkBranchId)
+        errors.push('Row branch differs from the selected upload branch');
       if (!dto.aadhaar || !/^\d{12}$/.test(dto.aadhaar)) errors.push('Aadhaar is required and must contain 12 digits');
       if (!dto.pan || !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(dto.pan)) errors.push('PAN is required (ABCDE1234F)');
       if (!dto.bankAccount || !/^[0-9]{1,40}$/.test(dto.bankAccount)) errors.push('Bank account number is required (digits only, maximum 40)');
@@ -1511,6 +1522,8 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
   }
 
   submitBulk(): void {
+    if (this.bulkUploading) return;
+    this.revalidateBulkBranch();
     const valid = this.bulkPreview
       .filter((r) => r.errors.length === 0)
       .map((r) => r.dto);

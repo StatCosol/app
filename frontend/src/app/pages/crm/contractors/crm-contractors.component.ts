@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 import { downloadBlob } from '../../../shared/utils/download-blob';
 import { ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -49,6 +50,42 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
   quoteUploadFor: any = null;
   quoteFile: File | null = null;
   quoteEffectiveFrom = new Date().toISOString().slice(0, 10);
+  quoteMode: 'excel' | 'manual' = 'excel';
+  quoteDesignation = '';
+  quoteSkill = '';
+  quoteDivisor = 30;
+  quoteRounding = 'RUPEE';
+  quoteComponents = [this.newQuoteComponent()];
+
+  newQuoteComponent() {
+    return { code: '', label: '', category: 'EARNING', method: 'FIXED', value: 0, basis: '', ceiling: '', prorate: true };
+  }
+
+  manualQuoteFile(): File {
+    if (!this.quoteDesignation.trim() || !this.quoteSkill || !this.quoteComponents.length)
+      throw new Error('Enter a designation, skill category and at least one component');
+    if (!Number.isInteger(this.quoteDivisor) || this.quoteDivisor < 1 || this.quoteDivisor > 31)
+      throw new Error('Attendance divisor must be between 1 and 31 days');
+    const codes = new Set<string>();
+    const rows = this.quoteComponents.map(c => {
+      const code = c.code.trim().toUpperCase();
+      if (!code || codes.has(code) || !Number.isFinite(c.value) || c.value < 0)
+        throw new Error('Each component needs a unique code and a non-negative amount or percentage');
+      const basis = c.basis.split(',').map(v => v.trim().toUpperCase()).filter(Boolean);
+      if (c.method === 'PERCENT' && (!basis.length || basis.some(v => !codes.has(v))))
+        throw new Error('Percentage components must reference codes entered in earlier rows');
+      codes.add(code);
+      return { skill_category: this.quoteSkill, designation: this.quoteDesignation.trim(),
+        effective_from: this.quoteEffectiveFrom, divisor: this.quoteDivisor, rounding: this.quoteRounding,
+        component_code: code, label: c.label.trim() || code, category: c.category, method: c.method,
+        value: c.value, basis: c.method === 'PERCENT' ? basis.join(',') : '',
+        ceiling: c.ceiling, prorate: c.prorate ? 'yes' : 'no' };
+    });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Components');
+    return new File([XLSX.write(wb, { type: 'array', bookType: 'xlsx' })], 'branch-quotation.xlsx');
+  }
+
   quoteUploading = false;
   quoteUploadResult: any = null;
 
@@ -205,6 +242,11 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
 
   openQuoteUpload(contractor: any) {
     this.quoteBranchId = '';
+    this.quoteMode = 'excel';
+    this.quoteDesignation = '';
+    this.quoteSkill = '';
+    this.quoteDivisor = 30;
+    this.quoteComponents = [this.newQuoteComponent()];
     this.quoteBranches = [];
     this.contractorApi
       .quotationBranches(contractor.id)
@@ -224,6 +266,7 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
   }
 
   closeQuoteUpload() {
+    if (this.quoteUploading) return;
     this.quoteUploadFor = null;
     this.quoteFile = null;
     this.quoteUploadResult = null;
@@ -236,7 +279,16 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
   }
 
   uploadQuote() {
-    if (!this.quoteUploadFor?.id || !this.quoteUploadFor?.clientId || !this.quoteFile) {
+    if (this.quoteUploading) return;
+    if (!this.quoteEffectiveFrom || !/^\d{4}-\d{2}-\d{2}$/.test(this.quoteEffectiveFrom)) {
+      this.toast.warning('Choose the quotation effective date'); return;
+    }
+    let file = this.quoteFile;
+    if (this.quoteMode === 'manual') {
+      try { file = this.manualQuoteFile(); }
+      catch (err) { this.toast.warning((err as Error).message); return; }
+    }
+    if (!this.quoteUploadFor?.id || !this.quoteUploadFor?.clientId || !file) {
       this.toast.warning('Select quotation Excel file');
       return;
     }
@@ -246,7 +298,7 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
       contractorUserId: this.quoteUploadFor.id,
       effectiveFrom: this.quoteEffectiveFrom,
       branchId: this.quoteBranchId || undefined,
-      file: this.quoteFile,
+      file,
     }).pipe(
       takeUntil(this.destroy$),
       finalize(() => { this.quoteUploading = false; this.cdr.detectChanges(); }),

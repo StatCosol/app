@@ -145,7 +145,7 @@
       </ng-template>
       <ng-template uiTableCell="actions" let-row>
         <button type="button" class="quote-link" (click)="$event.stopPropagation(); openQuoteUpload(row)">
-          Upload Quote
+          Quotation
         </button>
       </ng-template>
     </ui-data-table>
@@ -158,29 +158,57 @@
     <div class="quote-modal" (click)="$event.stopPropagation()">
       <div class="quote-modal__head">
         <div>
-          <h3>Upload Quotation Wages</h3>
+          <h3>Branch Quotation</h3>
           <p>{{ quoteUploadFor.name }} · {{ quoteUploadFor.client?.clientName || quoteUploadFor.clientName }}</p>
         </div>
         <button type="button" class="modal-close" (click)="closeQuoteUpload()" title="Close">×</button>
       </div>
 
+      <fieldset [disabled]="quoteUploading" class="quote-editor">
+      <label>Entry method <select [(ngModel)]="quoteMode" class="form-control"><option value="excel">Upload Excel</option><option value="manual">Enter components manually</option></select></label>
       <div class="quote-grid">
         <label>Quotation scope<select name="quoteBranch" [(ngModel)]="quoteBranchId" class="form-control"><option value="">All assigned sites (default rate)</option>@for(branch of quoteBranches; track branch.id){<option [value]="branch.id">{{branch.branchName || branch.name}}</option>}</select></label>
         <label class="form-group">
           <span>Effective From</span>
           <input type="date" name="quoteEffectiveFrom" [(ngModel)]="quoteEffectiveFrom" class="form-control" />
         </label>
-        <label class="form-group">
+        <label class="form-group" *ngIf="quoteMode === 'excel'">
           <span>Quotation Excel</span>
           <input type="file" accept=".xlsx" (change)="onQuoteFileSelected($event)" class="form-control" />
         </label>
       </div>
 
+      @if (quoteMode === 'manual') {
+        <div class="quote-grid">
+          <label>Designation<input [(ngModel)]="quoteDesignation" class="form-control" placeholder="Security Guard / ASO" /></label>
+          <label>Skill category<select [(ngModel)]="quoteSkill" class="form-control"><option value="">Select category</option><option value="UNSKILLED">Unskilled</option><option value="SEMI_SKILLED">Semi-skilled</option><option value="SKILLED">Skilled</option><option value="HIGHLY_SKILLED">Highly skilled</option></select></label>
+          <label>Monthly attendance divisor<input type="number" min="1" max="31" [(ngModel)]="quoteDivisor" class="form-control" /></label>
+          <label>Rounding<select [(ngModel)]="quoteRounding" class="form-control"><option value="RUPEE">Nearest rupee</option><option value="PAISE">Two decimal places</option></select></label>
+        </div>
+        <p>Enter one designation at a time. Keep employee earnings, deductions, employer costs and billing fees separate. Percentage bases use earlier component codes, separated by commas.</p>
+        @for (c of quoteComponents; track $index) {
+          <div class="quote-component">
+            <strong>Component {{ $index + 1 }}</strong>
+            <div class="quote-grid">
+              <label>Code<input [(ngModel)]="c.code" placeholder="BASIC_DA" class="form-control" /></label>
+              <label>Description<input [(ngModel)]="c.label" class="form-control" /></label>
+              <label>Category<select [(ngModel)]="c.category" class="form-control"><option value="EARNING">Employee earning</option><option value="DEDUCTION">Employee deduction</option><option value="EMPLOYER_COST">Employer cost</option><option value="BILLING_FEE">Billing fee</option></select></label>
+              <label>Calculation<select [(ngModel)]="c.method" class="form-control"><option value="FIXED">Fixed amount</option><option value="PERCENT">Percentage</option><option value="HOURLY">Hourly rate</option></select></label>
+              <label>Amount / percentage<input type="number" min="0" [(ngModel)]="c.value" class="form-control" /></label>
+              @if(c.method === 'PERCENT') {<label>Based on codes<input [(ngModel)]="c.basis" placeholder="BASIC_DA,SITE" class="form-control" /></label><label>Wage ceiling (optional)<input type="number" min="0" [(ngModel)]="c.ceiling" class="form-control" /></label>}
+              <label><input type="checkbox" [(ngModel)]="c.prorate" /> Prorate by approved attendance</label>
+            </div>
+            <button type="button" (click)="quoteComponents.splice($index, 1)">Remove component</button>
+          </div>
+        }
+        <button type="button" [disabled]="quoteComponents.length >= 50" (click)="quoteComponents.push(newQuoteComponent())">Add component</button>
+      }
       <button type="button" (click)="downloadQuoteTemplate()">Download component quotation template</button>
       <div class="quote-format">
         Use the component template for designation-specific employee pay, employer costs and billing fees. Existing skill_category / daily_wage sheets remain supported. Upload a revised quotation only when rates change.
       </div>
 
+      </fieldset>
       @if (quoteUploadResult) {
 <div class="quote-result">
         {{ quoteUploadResult.inserted || 0 }} inserted,
@@ -191,7 +219,7 @@
 }
 
       <div class="quote-actions">
-        <ui-button variant="primary" [disabled]="quoteUploading || !quoteFile" (clicked)="uploadQuote()">
+        <ui-button variant="primary" [disabled]="quoteUploading || (quoteMode === 'excel' && !quoteFile)" (clicked)="uploadQuote()">
           {{ quoteUploading ? 'Uploading...' : 'Upload Quotation' }}
         </ui-button>
         <ui-button variant="secondary" (clicked)="closeQuoteUpload()">Close</ui-button>
