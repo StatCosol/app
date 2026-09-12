@@ -29,6 +29,7 @@ export class AuthService {
       .post<any>(`${environment.apiBaseUrl}/api/v1/auth/login`, { email, password })
       .pipe(
         tap((res) => {
+          this.syncNativeSession(true);
           const user = res?.user || {};
           const normalizedUser = {
             ...user,
@@ -84,6 +85,7 @@ export class AuthService {
           if (encKey) {
             this.cryptoService.setKey(encKey);
           }
+          this.syncNativeSession();
         })
       );
   }
@@ -128,6 +130,7 @@ export class AuthService {
 
   /** Clears all auth-related keys from storage */
   private clearAuthState(): void {
+    this.syncNativeSession(true);
     sessionStorage.removeItem(this.TOKEN_KEY);
     sessionStorage.removeItem(this.REFRESH_KEY);
     sessionStorage.removeItem(this.USER_KEY);
@@ -137,6 +140,27 @@ export class AuthService {
     localStorage.removeItem(this.USER_KEY);
     // Clear encryption key
     this.cryptoService.clearKey();
+  }
+
+  /** Available only in the origin-restricted Android wrapper. Browsers remain session-only. */
+  private syncNativeSession(clear = false): void {
+    const native = (window as Window & { StatcoSession?: { postMessage(value: string): void } }).StatcoSession;
+    if (!native) return;
+    try {
+      if (clear || this.getUser()?.roleCode !== 'EMPLOYEE') {
+        native.postMessage(JSON.stringify({ action: 'clear' }));
+        return;
+      }
+      const session: Record<string, string> = {};
+      for (const key of [this.TOKEN_KEY, this.REFRESH_KEY, this.USER_KEY, 'encryptionKey']) {
+        session[key] = sessionStorage.getItem(key) || '';
+      }
+      if (session[this.TOKEN_KEY] && session[this.REFRESH_KEY]) {
+        native.postMessage(JSON.stringify({ action: 'save', session }));
+      }
+    } catch {
+      // Storage unavailable: keep the current web session usable.
+    }
   }
 
   getAccessToken(): string {
@@ -183,6 +207,7 @@ export class AuthService {
             );
           }
         }),
+        tap(() => { if (!this.loggingOut) this.syncNativeSession(); }),
         map((res) => res.accessToken),
       );
   }

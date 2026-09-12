@@ -127,7 +127,11 @@ export function authInterceptor(
           catchError((refreshError) => {
             refreshTokenSubject.next('REFRESH_FAILED');
             isRefreshing = false;
-            authService.logoutOnce('refresh failed', isEssPath);
+            // Connectivity, throttling and server outages do not invalidate
+            // a session. Preserve it so the next request can retry renewal.
+            const status = refreshError?.status;
+            const temporaryFailure = status === 0 || status === 408 || status === 429 || status >= 500;
+            if (!temporaryFailure) authService.logoutOnce('refresh failed', isEssPath);
             return throwError(() => refreshError);
           }),
           tap((newToken) => {

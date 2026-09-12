@@ -46,7 +46,7 @@ import android.util.Base64
  *    geofence flows,
  *  * a file chooser bridge for document uploads,
  *  * a system DownloadManager handoff for payslip / report downloads,
- *  * pull-to-refresh and a hardware back-button â†’ webview history bridge,
+ *  * uninterrupted web scrolling and a hardware back-button â†’ webview history bridge,
  *  * a hidden Settings dialog (long-press anywhere on the offline banner) to
  *    point the app at staging during QA.
  *
@@ -61,6 +61,8 @@ class MainActivity : AppCompatActivity() {
     private var pendingFileChooser: ValueCallback<Array<Uri>>? = null
     private var pendingPermissionRequest: PermissionRequest? = null
     private var pendingDownload: ByteArray? = null
+    private val sessionBridge by lazy { EssSessionBridge(this) }
+    private var mainFrameLoadFailed = false
     private var downloadBridgeRegistered = false
     private val saveDownloadLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -125,9 +127,9 @@ class MainActivity : AppCompatActivity() {
 
         configureWebView()
 
-        binding.swipeRefresh.setOnRefreshListener {
-            binding.webView.reload()
-        }
+        // ESS scrolls inside HTML containers; native refresh intercepts those gestures.
+        binding.swipeRefresh.isEnabled = false
+        binding.retryButton.setOnClickListener { loadStartUrl() }
 
         // Hidden settings: long-press the offline banner area to change URL.
         binding.offlineBanner.setOnLongClickListener {
@@ -203,6 +205,7 @@ class MainActivity : AppCompatActivity() {
         // so saved/reset portal settings take effect without restarting the app.
         binding.webView.stopLoading()
         registerDownloadBridge(url)
+        if (isAllowedUrl(url)) sessionBridge.attach(binding.webView, url)
         binding.webView.loadUrl(url)
     }
 
@@ -236,6 +239,12 @@ class MainActivity : AppCompatActivity() {
         CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true)
 
         wv.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                mainFrameLoadFailed = false
+                binding.offlineBanner.visibility = android.view.View.GONE
+            }
+
             override fun shouldOverrideUrlLoading(
                 view: WebView, request: WebResourceRequest
             ): Boolean {
@@ -254,7 +263,8 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 binding.swipeRefresh.isRefreshing = false
-                binding.offlineBanner.visibility = android.view.View.GONE
+                // WebView also calls onPageFinished after a failed load.
+                if (!mainFrameLoadFailed) binding.offlineBanner.visibility = android.view.View.GONE
             }
 
             override fun onReceivedError(
@@ -263,7 +273,8 @@ class MainActivity : AppCompatActivity() {
                 error: android.webkit.WebResourceError?
             ) {
                 super.onReceivedError(view, request, error)
-                if (request?.isForMainFrame == true && !isOnline()) {
+                if (request?.isForMainFrame == true) {
+                    mainFrameLoadFailed = true
                     binding.offlineBanner.visibility = android.view.View.VISIBLE
                 }
             }
@@ -365,6 +376,7 @@ class MainActivity : AppCompatActivity() {
         }
         if (!isOnline()) {
             binding.offlineBanner.visibility = android.view.View.VISIBLE
+            return
         }
         loadPortalUrl(url)
     }

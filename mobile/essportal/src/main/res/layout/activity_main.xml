@@ -54,6 +54,13 @@
             android:text="@string/no_internet"
             android:textSize="16sp"
             android:gravity="center"/>
+        <Button
+            android:id="@+id/retryButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:minHeight="48dp"
+            android:text="@string/retry" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
