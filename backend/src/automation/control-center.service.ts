@@ -33,9 +33,9 @@ export const CONTROL_RULES = [
     key: 'expiry',
     name: 'Expiry renewals',
     description:
-      'Create renewal filings and tasks; remind contractors about expiring documents.',
-    routing: 'Branch work queue and document owner',
-    window: 'Registrations: 60 days; contractor documents: 30 days',
+      'Create renewal filings and tasks; remind branch users and contractors about expiring documents.',
+    routing: 'Branch work queue, assigned branch users and document owner',
+    window: 'Registrations: 60 days; branch and contractor documents: 30 days',
   },
   {
     key: 'task_reminders',
@@ -391,6 +391,10 @@ export class AutomationControlService {
       groups.push({
         name: 'Contractor document expiries',
         rows: await this.expiry.getExpiringDocuments(plan.scope),
+      });
+      groups.push({
+        name: 'Branch document expiries',
+        rows: await this.expiry.getExpiringBranchDocuments(plan.scope),
       });
     } else if (q.ruleKey === 'task_reminders') {
       groups.push({

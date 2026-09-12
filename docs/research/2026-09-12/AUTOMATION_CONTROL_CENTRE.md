@@ -57,3 +57,11 @@ Apply migrations in registered order: `20260912_automation_delivery_dedup.sql`, 
 GitHub main requires backend, frontend, payroll-transition-smoke and docker checks plus one approving review. Production deployment additionally requires successful CI and Security Scans for the exact main commit. Do not bypass those gates. Deployment and live verification are pending until the reviewed release merges; local fixture results do not establish production health.
 
 After deployment, verify health and migration completion, role restrictions, all-assigned-branch totals, saved schedules, a scoped read-only preview, run-history access, provider readiness and the next scheduled execution. Use existing configured AI credentials; never write credentials to reports or source control.
+
+### Branch document expiry restoration
+
+The expiry flow also scans branch_documents within the configured document window, includes them in previews, and creates BRANCH_DOC_EXPIRY work in the shared branch queue. Existing tasks (including completed occurrences) are retained; a changed expiry date permits a new occurrence. Alerts go only to active users mapped to that branch and company. Concurrent scans reuse tasks and delivery receipts.
+
+Apply the registered 20260912d_branch_document_expiry.sql migration before deploying this backend. It adds the nullable expiry_date field and index without replacing existing dates. Documents without an expiry date are excluded.
+
+Validation: backend build, 39 focused tests, changed-file lint, and both PostgreSQL automation/control and delivery-deduplication fixtures passed. Branch fixtures cover scoped previews, exclusions, concurrency, recipient isolation, terminal reuse and changed expiry dates.

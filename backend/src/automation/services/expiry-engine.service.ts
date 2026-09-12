@@ -32,6 +32,22 @@ export class ExpiryEngineService {
     );
   }
 
+  async getExpiringBranchDocuments(scope: AutomationScope = {}) {
+    return scopedRows(
+      this.dataSource,
+      `SELECT bd.id,bd.file_name AS title,
+      bd.expiry_date::text AS expiry_date,bd.client_id,bd.branch_id
+      FROM branch_documents bd
+      JOIN clients c ON c.id=bd.client_id
+      JOIN client_branches b ON b.id=bd.branch_id AND b.clientid=bd.client_id
+      WHERE bd.expiry_date BETWEEN $1::date AND $1::date + $2::int
+        AND bd.status NOT IN ('EXPIRED','CANCELLED') AND c.is_deleted=false
+        AND b.isactive=true AND b.deletedat IS NULL`,
+      [operationalDate(), scope.options?.documentDays ?? 30],
+      scope,
+    );
+  }
+
   async generateExpiryAlerts(scope: AutomationScope = {}) {
     const renewal = await this.renewals.generateRenewalFilings(scope);
     const docs = await this.getExpiringDocuments(scope);
@@ -128,10 +144,76 @@ export class ExpiryEngineService {
       )
         alertsSent++;
     }
+    const branchDocs = await this.getExpiringBranchDocuments(scope);
+    for (const doc of branchDocs) {
+      const created = await this.dataSource.transaction(
+        'READ COMMITTED',
+        async (manager) => {
+          await manager.query(
+            'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+            [JSON.stringify(['branch-document-expiry', doc.id])],
+          );
+          // Preserve legacy assigned tasks and completed work for this expiry occurrence.
+          const existing = await manager.query(
+            `SELECT id FROM system_tasks
+          WHERE reference_type='BRANCH_DOC_EXPIRY' AND reference_id=$1
+            AND client_id=$2 AND branch_id=$3 AND due_date=$4::date LIMIT 1`,
+            [doc.id, doc.client_id, doc.branch_id, doc.expiry_date],
+          );
+          if (existing.length) return false;
+          await this.taskEngine.createTask(
+            {
+              module: 'RENEWAL',
+              title: `Renew: ${doc.title || 'Branch document'}`,
+              description: `Branch document "${doc.title || 'Document'}" expires ${doc.expiry_date}.`,
+              referenceId: doc.id,
+              referenceType: 'BRANCH_DOC_EXPIRY',
+              priority: 'HIGH',
+              assignedRole: 'BRANCH',
+              clientId: doc.client_id,
+              branchId: doc.branch_id,
+              dueDate: new Date(doc.expiry_date),
+              reuseTerminal: true,
+              occurrenceDate: doc.expiry_date,
+            },
+            manager,
+          );
+          return true;
+        },
+      );
+      if (created) tasksCreated++;
+      // A shared branch task remains available even when no branch user is assigned.
+      const recipients = await this.dataSource.query(
+        `SELECT DISTINCT u.id FROM users u
+        JOIN roles r ON r.id=u.role_id JOIN user_branches ub ON ub.user_id=u.id
+        WHERE ub.branch_id=$1 AND u.client_id=$2 AND u.is_active=true
+          AND u.deleted_at IS NULL AND (r.code IN ('BRANCH','BRANCH_DESK')
+            OR (r.code='CLIENT' AND u.user_type='BRANCH'))`,
+        [doc.branch_id, doc.client_id],
+      );
+      for (const user of recipients) {
+        if (
+          await this.notifications.sendExpiryAlert({
+            documentId: doc.id,
+            userId: user.id,
+            role: 'BRANCH',
+            documentName: doc.title || 'Branch document',
+            expiryDate: doc.expiry_date,
+            clientId: doc.client_id,
+            branchId: doc.branch_id,
+          })
+        )
+          alertsSent++;
+      }
+    }
     return {
       filingsCreated: renewal.filingsCreated,
       skipped: renewal.skipped,
-      expiringItems: docs.length + renewal.filingsCreated + renewal.skipped,
+      expiringItems:
+        docs.length +
+        branchDocs.length +
+        renewal.filingsCreated +
+        renewal.skipped,
       tasksCreated,
       alertsSent,
     };

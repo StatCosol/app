@@ -1,4 +1,7 @@
 const {
+  BranchDocumentEntity,
+} = require('../dist/src/branches/entities/branch-document.entity');
+const {
   NotificationEntity,
 } = require('../dist/src/notifications/entities/notification.entity');
 const {
@@ -69,6 +72,7 @@ async function main() {
       ComplianceReturnEntity,
       BranchRegistrationEntity,
       ContractorDocumentEntity,
+      BranchDocumentEntity,
       ClientAssignmentCurrentEntity,
     ];
     const runner = ds.createQueryRunner();

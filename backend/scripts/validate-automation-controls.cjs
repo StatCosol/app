@@ -1,3 +1,6 @@
+const {
+  BranchDocumentEntity,
+} = require('../dist/src/branches/entities/branch-document.entity');
 const { RoleEntity } = require('../dist/src/users/entities/role.entity');
 const {
   CompliancePackageEntity,
@@ -114,6 +117,7 @@ async function main() {
       ComplianceReturnEntity,
       BranchRegistrationEntity,
       ContractorDocumentEntity,
+      BranchDocumentEntity,
       ClientAssignmentCurrentEntity,
       AuditEntity,
       AuditNonComplianceEntity,
@@ -202,6 +206,7 @@ async function main() {
       '20260912_automation_delivery_dedup.sql',
       '20260912b_automation_control_center.sql',
       '20260912c_automation_expansion.sql',
+      '20260912d_branch_document_expiry.sql',
     ]) {
       const sql = fs.readFileSync(
         path.join(__dirname, '../migrations', file),
@@ -827,6 +832,113 @@ async function main() {
         )
       )[0].n,
       1,
+    );
+    await ds.query('CREATE TABLE user_branches(user_id uuid, branch_id uuid)');
+    await seed(RoleEntity, { id: id(997), code: 'CLIENT', name: 'Client' });
+    for (const [n, branch] of [
+      [41, 11],
+      [42, 12],
+    ]) {
+      await seed(UserEntity, {
+        id: id(n),
+        roleId: id(997),
+        clientId: id(1),
+        userType: 'BRANCH',
+        email: 'branch' + n + '@example.invalid',
+      });
+      await ds.query("UPDATE users SET user_type='BRANCH' WHERE id=$1", [
+        id(n),
+      ]);
+      await ds.query('INSERT INTO user_branches VALUES($1,$2)', [
+        id(n),
+        id(branch),
+      ]);
+    }
+    for (const [n, branch, status, date] of [
+      [951, 11, 'APPROVED', today],
+      [952, 12, 'APPROVED', today],
+      [953, 11, 'CANCELLED', today],
+      [954, 11, 'APPROVED', null],
+    ]) {
+      await seed(BranchDocumentEntity, {
+        id: id(n),
+        clientId: id(1),
+        branchId: id(branch),
+        fileName: 'Branch certificate',
+        expiryDate: date,
+        status,
+      });
+    }
+    const branchScope = {
+      clientId: id(1),
+      branchId: id(11),
+      options: { documentDays: 0 },
+    };
+    assert.equal(
+      (await expiry.getExpiringBranchDocuments(branchScope)).length,
+      1,
+    );
+    assert.equal(
+      (await expiry.getExpiringBranchDocuments({ excludedBranchIds: [id(11)] }))
+        .length,
+      1,
+    );
+    const expiryPreview = await service.preview({
+      ruleKey: 'expiry',
+      clientId: id(1),
+      branchId: id(11),
+    });
+    assert.equal(
+      expiryPreview.groups.find((g) => g.name === 'Branch document expiries')
+        .count,
+      1,
+    );
+    await Promise.all([
+      expiry.generateExpiryAlerts(branchScope),
+      expiry.generateExpiryAlerts(branchScope),
+    ]);
+    const branchTasks = await ds.query(
+      "SELECT * FROM system_tasks WHERE reference_type='BRANCH_DOC_EXPIRY'",
+    );
+    assert.equal(branchTasks.length, 1);
+    assert.equal(branchTasks[0].branch_id, id(11));
+    const branchAlerts = await ds.query(
+      "SELECT * FROM notifications WHERE subject='Document expiring: Branch certificate'",
+    );
+    assert.equal(branchAlerts.length, 1);
+    assert.equal(branchAlerts[0].assigned_to_user_id, id(41));
+    await ds.query("UPDATE system_tasks SET status='CLOSED' WHERE id=$1", [
+      branchTasks[0].id,
+    ]);
+    await expiry.generateExpiryAlerts(branchScope);
+    assert.equal(
+      (
+        await ds.query(
+          "SELECT * FROM system_tasks WHERE reference_type='BRANCH_DOC_EXPIRY'",
+        )
+      ).length,
+      1,
+    );
+    const nextDate = new Date(today + 'T00:00:00Z');
+    nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+    await ds.query('UPDATE branch_documents SET expiry_date=$2 WHERE id=$1', [
+      id(951),
+      nextDate.toISOString().slice(0, 10),
+    ]);
+    await expiry.generateExpiryAlerts({
+      ...branchScope,
+      options: { documentDays: 1 },
+    });
+    assert.equal(
+      (
+        await ds.query(
+          "SELECT * FROM system_tasks WHERE reference_type='BRANCH_DOC_EXPIRY'",
+        )
+      ).length,
+      2,
+    );
+    console.log(
+      'PASS: branch-document scope, exclusions, preview, concurrent delivery, terminal reuse and renewed expiry occurrence.',
     );
     await ds.query('UPDATE client_branches SET deletedat=now() WHERE id=$1', [
       id(11),
