@@ -1,3 +1,4 @@
+import { OperationalScopeService } from './operational-scope.service';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ClientAssignment } from '../assignments/entities/client-assignment.entity';
@@ -23,7 +24,7 @@ import { AccessScopeService } from './access-scope.service';
       PayrollClientAssignmentEntity,
     ]),
   ],
-  providers: [AccessScopeService],
-  exports: [AccessScopeService],
+  providers: [AccessScopeService, OperationalScopeService],
+  exports: [AccessScopeService, OperationalScopeService],
 })
 export class AccessModule {}

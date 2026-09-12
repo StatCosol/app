@@ -1133,11 +1133,14 @@ export class UsersService implements OnModuleInit {
   }
 
   // ---- Auth helpers ----
-  async findByEmail(email: string) {
+  async findByEmail(email: string, includePassword = false) {
     if (!email) return null;
-    return this.usersRepo.findOne({
-      where: { email: email.toLowerCase(), deletedAt: IsNull() },
-    });
+    const query = this.usersRepo
+      .createQueryBuilder('user')
+      .where('user.email = :email', { email: email.toLowerCase() })
+      .andWhere('user.deletedAt IS NULL');
+    if (includePassword) query.addSelect('user.passwordHash');
+    return query.getOne();
   }
 
   async findById(id: string): Promise<UserEntity | null> {
@@ -1164,7 +1167,7 @@ export class UsersService implements OnModuleInit {
     }
 
     // Find user by email
-    const user = await this.findByEmail(email);
+    const user = await this.findByEmail(email, true);
 
     if (!user) throw new UnauthorizedException('Invalid credentials');
     if (!user.isActive) throw new UnauthorizedException('User is inactive');
@@ -1953,7 +1956,10 @@ export class UsersService implements OnModuleInit {
     currentPassword: string,
     newPassword: string,
   ) {
-    const user = await this.usersRepo.findOne({ where: { id: userId } });
+    const user = await this.usersRepo.findOne({
+      where: { id: userId },
+      select: { id: true, passwordHash: true },
+    });
     if (!user) throw new NotFoundException('User not found');
 
     const ok = await bcrypt.compare(currentPassword, user.passwordHash);

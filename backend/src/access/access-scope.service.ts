@@ -446,8 +446,16 @@ export class AccessScopeService {
         qb.andWhere(`${cp} IN (:...scopeIds)`, { scopeIds: scope.clientIds });
       }
     } else if (scope.level === 'client') {
+      if (!scope.clientId) {
+        qb.andWhere('1 = 0');
+        return;
+      }
       qb.andWhere(`${cp} = :scopeCid`, { scopeCid: scope.clientId });
     } else if (scope.level === 'branches') {
+      if (!scope.clientId || !scope.branchIds?.length) {
+        qb.andWhere('1 = 0');
+        return;
+      }
       if (scope.clientId) {
         qb.andWhere(`${cp} = :scopeCid`, { scopeCid: scope.clientId });
       }

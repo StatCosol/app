@@ -55,6 +55,17 @@ jobs:
         run: node --test scripts/deep-module-check.test.js scripts/deployment-gate.test.js
       - name: Unit tests
         run: npm test
+      - name: Automation PostgreSQL regressions
+        env:
+          AUTOMATION_TEST_PORT: 5432
+          AUTOMATION_TEST_USER: postgres
+          AUTOMATION_TEST_PASSWORD: postgres
+          AUTOMATION_TEST_DATABASE: statcompy_ci
+        run: |
+          npm run build
+          node scripts/validate-automation-controls.cjs
+          node scripts/validate-automation-dedup.cjs
+          node scripts/validate-my-work.cjs
       - name: Patched dependency runtime smoke
         run: node scripts/security-dependency-smoke.cjs
       - name: Boot check (entity metadata + DB connect)

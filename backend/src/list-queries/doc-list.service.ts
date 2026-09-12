@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 import { ScopedListQueryDto } from '../common/dto/scoped-list-query.dto';
@@ -118,6 +118,14 @@ export class DocListService {
     const bid = this.scope.resolveBranchId(user, q.branchId);
     if (bid) qb.andWhere('cd.branchId = :bid', { bid });
 
+    if (user.roleCode === 'CONTRACTOR') {
+      const contractorUserId = user.id || user.userId;
+      if (!contractorUserId)
+        throw new ForbiddenException('Contractor identity is required');
+      qb.andWhere('cd.contractorUserId = :ownerId', {
+        ownerId: contractorUserId,
+      });
+    }
     if (q.status) qb.andWhere('cd.status = :s', { s: q.status });
     if (q.month) qb.andWhere('cd.docMonth = :dm', { dm: q.month });
 

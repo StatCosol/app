@@ -1,3 +1,8 @@
+import { AiModule } from '../ai/ai.module';
+import { AutomationGapReviewService } from './automation-gap-review.service';
+import { UnitsModule } from '../units/units.module';
+import { AutomationControlController } from './control-center.controller';
+import { AutomationControlService } from './control-center.service';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -49,6 +54,8 @@ import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
+    UnitsModule,
+    AiModule,
     TypeOrmModule.forFeature([
       SystemTaskEntity,
       AuditScheduleEntity,
@@ -61,6 +68,7 @@ import { AuthModule } from '../auth/auth.module';
     AuthModule,
   ],
   controllers: [
+    AutomationControlController,
     AutomationController,
     AuditScheduleAutomationController,
     ApplicabilityAutomationController,
@@ -70,6 +78,8 @@ import { AuthModule } from '../auth/auth.module';
     ReturnsFilingAutomationController,
   ],
   providers: [
+    AutomationGapReviewService,
+    AutomationControlService,
     // Core
     AutomationService,
 

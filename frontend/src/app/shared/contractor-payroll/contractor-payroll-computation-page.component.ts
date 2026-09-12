@@ -1,3 +1,4 @@
+import { ContractorPayrollWorkflowComponent } from './contractor-payroll-workflow.component';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit } from '@angular/core';
@@ -22,7 +23,7 @@ interface LoadResult {
 @Component({
   standalone: true,
   selector: 'app-contractor-payroll-computation-page',
-  imports: [CommonModule, FormsModule],
+  imports: [ContractorPayrollWorkflowComponent, CommonModule, FormsModule],
   template: `
     <div class="page">
       <header class="hero">
@@ -38,6 +39,7 @@ interface LoadResult {
         </button>
       </header>
 
+      <app-contractor-payroll-workflow [clientId]="clientId" [periodMonth]="periodMonth" />
       <section class="filters">
         <label>
           <span>Period</span>

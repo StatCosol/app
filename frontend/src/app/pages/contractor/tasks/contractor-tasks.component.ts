@@ -1511,8 +1511,8 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
               .subscribe({
                 next: (calc: any) =>
                   this.toast.success(
-                    'Payroll generated',
-                    `${calc?.total ?? 0} attendance rows computed for branch/client review.`,
+                    'Draft payroll generated',
+                    `${calc?.total ?? 0} attendance rows calculated. Open Payroll Computation and submit the draft to CRM.`,
                   ),
                 error: (err: any) =>
                   this.toast.error(

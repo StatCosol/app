@@ -50,7 +50,7 @@ export class UserEntity {
   @Column({ type: 'varchar', length: 20, nullable: true })
   mobile: string | null;
 
-  @Column({ name: 'password_hash' })
+  @Column({ name: 'password_hash', select: false })
   passwordHash: string;
 
   @Column({ name: 'is_active', default: true })

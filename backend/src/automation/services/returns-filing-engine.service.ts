@@ -1,4 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { operationalDate } from '../../common/operational-date';
+import { AutomationScope, scopedRows } from '../automation-scope';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { TaskEngineService } from './task-engine.service';
 import { AutomationNotificationService } from './automation-notification.service';
@@ -107,139 +109,140 @@ export class ReturnsFilingEngineService {
    * Main entry: generate filing rows + tasks for the given year/month.
    * Called by cron (monthly on 1st) or manually via controller.
    */
+  async candidates(year: number, month: number, scope: AutomationScope = {}) {
+    if (
+      !Number.isInteger(year) ||
+      year < 2000 ||
+      year > 2100 ||
+      !Number.isInteger(month) ||
+      month < 1 ||
+      month > 12
+    )
+      throw new BadRequestException('Invalid filing period');
+    const masters = await this.dataSource.query(
+      'SELECT * FROM compliance_return_master WHERE is_active=true',
+    );
+    const rows: any[] = [];
+    for (const master of masters) {
+      if (!this.isFilingDue(master.frequency, month)) continue;
+      for (const branch of await this.findApplicableBranches(master, scope))
+        rows.push({
+          ...branch,
+          branch_id: branch.id,
+          master,
+          title: master.return_name,
+          periodLabel: this.buildPeriodLabel(master.frequency, year, month),
+          periodMonth: this.resolvePeriodMonth(master.frequency, month),
+          dueDate: this.computeDueDate(master, year, month),
+        });
+    }
+    return rows;
+  }
   async generateFilings(
     year: number,
     month: number,
-  ): Promise<{
-    filingsCreated: number;
-    tasksCreated: number;
-    skipped: number;
-  }> {
-    this.logger.log(
-      `Generating filings for ${year}-${String(month).padStart(2, '0')}`,
-    );
-
-    let filingsCreated = 0;
-    let tasksCreated = 0;
-    let skipped = 0;
-
-    // 1. Fetch all active return masters
-    const masters = await this.dataSource.query(
-      `SELECT return_code, return_name, law_area, frequency, due_day,
-              scope_default, applicable_for, applies_to, state_code,
-              responsible_role, risk_level, upload_required
-       FROM compliance_return_master
-       WHERE is_active = true`,
-    );
-
-    // 2. For each master, find applicable branches
-    for (const master of masters) {
-      if (!this.isFilingDue(master.frequency, month)) {
-        continue;
-      }
-
-      const periodLabel = this.buildPeriodLabel(master.frequency, year, month);
-      const periodMonth = this.resolvePeriodMonth(master.frequency, month);
-      const dueDate = this.computeDueDate(master, year, month);
-
-      // Find branches that should file this return
-      const branches = await this.findApplicableBranches(master);
-
-      for (const branch of branches) {
-        // Skip if filing already exists
-        const existing = await this.dataSource.query(
-          `SELECT id FROM compliance_returns
-           WHERE client_id = $1 AND branch_id = $2
-             AND return_type = $3 AND period_year = $4
-             AND ($5::int IS NULL OR period_month = $5)
-             AND is_deleted = false
-           LIMIT 1`,
-          [branch.client_id, branch.id, master.return_code, year, periodMonth],
-        );
-
-        if (existing.length) {
-          skipped++;
-          continue;
-        }
-
-        // Insert filing row
-        const inserted = await this.dataSource.query(
-          `INSERT INTO compliance_returns
-           (client_id, branch_id, law_type, return_type,
-            period_year, period_month, period_label,
-            due_date, status, created_by_role)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'PENDING', 'SYSTEM')
-           RETURNING id`,
+    scope: AutomationScope = {},
+  ) {
+    let filingsCreated = 0,
+      tasksCreated = 0,
+      skipped = 0;
+    for (const row of await this.candidates(year, month, scope)) {
+      const count = await this.dataSource.transaction(async (manager) => {
+        const { master, periodMonth, periodLabel, dueDate } = row;
+        await manager.query(
+          'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
           [
-            branch.client_id,
-            branch.id,
-            master.law_area,
-            master.return_code,
-            year,
-            periodMonth,
-            periodLabel,
-            dueDate,
+            JSON.stringify([
+              'periodic-filing',
+              row.client_id,
+              row.id,
+              master.return_code,
+              year,
+              periodMonth,
+            ]),
           ],
         );
-
-        filingsCreated++;
-
-        // Create task for branch user
-        const filingId = inserted[0]?.id;
-        if (filingId) {
-          try {
-            await this.taskEngine.createTask({
+        let [filing] = await manager.query(
+          'SELECT id,status FROM compliance_returns WHERE client_id=$1 AND branch_id=$2 AND return_type=$3 AND period_year=$4 AND period_month IS NOT DISTINCT FROM $5::int AND is_deleted=false ORDER BY id LIMIT 1',
+          [row.client_id, row.id, master.return_code, year, periodMonth],
+        );
+        const created = !filing;
+        if (!filing)
+          [filing] = await manager.query(
+            "INSERT INTO compliance_returns(client_id,branch_id,law_type,return_type,period_year,period_month,period_label,due_date,status,created_by_role) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'PENDING','SYSTEM') RETURNING id,status",
+            [
+              row.client_id,
+              row.id,
+              master.law_area,
+              master.return_code,
+              year,
+              periodMonth,
+              periodLabel,
+              dueDate,
+            ],
+          );
+        let task = false;
+        if (['PENDING', 'IN_PROGRESS'].includes(filing.status)) {
+          const existing = await manager.query(
+            "SELECT id FROM system_tasks WHERE reference_id=$1 AND reference_type='COMPLIANCE_RETURN'",
+            [filing.id],
+          );
+          await this.taskEngine.createTask(
+            {
               module: 'RETURNS',
-              title: `File: ${master.return_name} — ${periodLabel}`,
-              description: `${master.return_name} (${master.law_area}) is due for ${periodLabel}. Due date: ${dueDate ?? 'N/A'}.`,
-              referenceId: filingId,
+              title: 'File: ' + master.return_name + ' — ' + periodLabel,
+              description: master.return_name + ' is due for ' + periodLabel,
+              referenceId: filing.id,
               referenceType: 'COMPLIANCE_RETURN',
               priority: master.risk_level === 'HIGH' ? 'HIGH' : 'MEDIUM',
               assignedRole: 'BRANCH',
-              clientId: branch.client_id,
-              branchId: branch.id,
+              clientId: row.client_id,
+              branchId: row.id,
               dueDate: dueDate ? new Date(dueDate) : null,
-            });
-            tasksCreated++;
-          } catch (err) {
-            const errMsg = err instanceof Error ? err.message : 'unknown';
-            this.logger.warn(
-              `Failed to create task for filing ${filingId}: ${errMsg}`,
-            );
-          }
+              reuseTerminal: true,
+            },
+            manager,
+          );
+          task = !existing.length;
         }
-      }
+        return { created, task };
+      });
+      if (count.created) filingsCreated++;
+      else skipped++;
+      if (count.task) tasksCreated++;
     }
-
-    this.logger.log(
-      `Filing generation done: ${filingsCreated} created, ${tasksCreated} tasks, ${skipped} skipped`,
-    );
     return { filingsCreated, tasksCreated, skipped };
   }
 
-  /**
-   * Generate overdue alerts for filings past their due date still in PENDING / IN_PROGRESS.
-   */
-  async generateOverdueAlerts(): Promise<{ alertsSent: number }> {
-    this.logger.log('Scanning for overdue filings');
-
-    const overdue = await this.dataSource.query(
+  async getOverdueFilings(scope: AutomationScope = {}) {
+    return scopedRows(
+      this.dataSource,
       `SELECT cr.id, cr.client_id, cr.branch_id, cr.return_type, cr.due_date,
               cr.period_label, cr.law_type,
               b.branchname,
-              EXTRACT(DAY FROM NOW() - cr.due_date::timestamp)::int AS days_overdue
+              ($1::date - cr.due_date) AS days_overdue
        FROM compliance_returns cr
        JOIN client_branches b ON b.id = cr.branch_id
        WHERE cr.status IN ('PENDING', 'IN_PROGRESS')
          AND cr.due_date IS NOT NULL
-         AND cr.due_date < CURRENT_DATE
+         AND cr.due_date < $1::date
          AND cr.is_deleted = false`,
+      [operationalDate()],
+      scope,
     );
+  }
 
-    let alertsSent = 0;
+  async generateOverdueAlerts(
+    scope: AutomationScope = {},
+  ): Promise<{ alertsSent: number; failures: number }> {
+    this.logger.log('Scanning for overdue filings');
+
+    const overdue = await this.getOverdueFilings(scope);
+    let alertsSent = 0,
+      failures = 0;
     for (const row of overdue) {
       // Escalate task priority if overdue > 7 days
-      if (row.days_overdue > 7) {
+      if (row.days_overdue > (scope.options?.escalationDays ?? 7)) {
         await this.dataSource.query(
           `UPDATE system_tasks
            SET priority = 'CRITICAL', updated_at = NOW()
@@ -261,25 +264,29 @@ export class ReturnsFilingEngineService {
           [row.client_id],
         );
         if (crmRows.length) {
-          await this.notifications.sendReturnOverdueAlert({
-            userId: crmRows[0].assigned_to_user_id,
-            role: 'CRM',
-            returnType: row.return_type,
-            periodLabel: row.period_label,
-            branchName: row.branchname,
-            daysOverdue: row.days_overdue,
-            clientId: row.client_id,
-            branchId: row.branch_id,
-          });
-          alertsSent++;
+          if (
+            await this.notifications.sendReturnOverdueAlert({
+              filingId: row.id,
+              userId: crmRows[0].assigned_to_user_id,
+              role: 'CRM',
+              returnType: row.return_type,
+              periodLabel: row.period_label,
+              branchName: row.branchname,
+              daysOverdue: row.days_overdue,
+              clientId: row.client_id,
+              branchId: row.branch_id,
+            })
+          )
+            alertsSent++;
         }
       } catch {
+        failures++;
         this.logger.warn(`Failed to send overdue alert for filing ${row.id}`);
       }
     }
 
     this.logger.log(`Overdue alerts: ${alertsSent} sent`);
-    return { alertsSent };
+    return { alertsSent, failures };
   }
 
   /**
@@ -408,12 +415,15 @@ export class ReturnsFilingEngineService {
     return `${year}-${String(month).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
   }
 
-  private async findApplicableBranches(master: {
-    return_code: string;
-    applies_to: string;
-    state_code: string;
-    applicable_for: string;
-  }): Promise<{ id: string; client_id: string }[]> {
+  private async findApplicableBranches(
+    master: {
+      return_code: string;
+      applies_to: string;
+      state_code: string;
+      applicable_for: string;
+    },
+    scope: AutomationScope = {},
+  ): Promise<{ id: string; client_id: string }[]> {
     const conditions: string[] = ['b.isactive = true', 'b.deletedat IS NULL'];
     const params: (string | null)[] = [];
     let paramIdx = 1;
@@ -456,12 +466,14 @@ export class ReturnsFilingEngineService {
       conditions.push(`b.establishment_type = 'ESTABLISHMENT'`);
     }
 
-    const rows = await this.dataSource.query(
-      `SELECT b.id, b.clientid AS client_id
-       FROM client_branches b
+    const rows = await scopedRows(
+      this.dataSource,
+      `SELECT b.id, b.id AS branch_id, b.clientid AS client_id
+       FROM client_branches b JOIN clients c ON c.id=b.clientid AND c.is_deleted=false
        WHERE ${conditions.join(' AND ')}
        ORDER BY b.clientid, b.id`,
       params,
+      scope,
     );
 
     return rows;

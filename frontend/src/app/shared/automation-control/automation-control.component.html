@@ -1,0 +1,431 @@
+<section class="automation-page">
+  <header>
+    <div>
+      <p class="eyebrow">Operations</p>
+      <h1>Automation Control Centre</h1>
+      <p>Keep routine work moving with clear scope, schedules and execution history.</p>
+    </div>
+    <button (click)="refresh()" [disabled]="busy() || loading()">Refresh</button>
+  </header>
+  @if (error()) {
+    <div class="notice error" role="alert">{{ error() }}</div>
+  }
+  @if (message()) {
+    <div class="notice" role="status">{{ message() }}</div>
+  }
+  @if (loading()) {
+    <p role="status">Loading automation settings…</p>
+  }
+  @if (overview(); as data) {
+    <nav class="rules" aria-label="Automation rules">
+      @for (item of data.rules; track item.key) {
+        <button
+          class="rule"
+          [class.selected]="ruleKey === item.key"
+          [attr.aria-pressed]="ruleKey === item.key"
+          [disabled]="busy()"
+          (click)="selectRule(item.key)"
+        >
+          <strong>{{ item.name }}</strong
+          ><span>{{ item.description }}</span>
+        </button>
+      }
+    </nav>
+    <div class="workspace">
+      <section class="panel settings">
+        <h2>{{ rule?.name }}</h2>
+        <p>{{ rule?.description }}</p>
+        @if (ruleKey === 'gap_review') {
+          <p class="scope-note">
+            {{
+              data.aiAvailable
+                ? 'AI provider is configured. Generated suggestions require human review.'
+                : 'AI provider is unavailable. Scheduled reviews will still provide rule-based guidance.'
+            }}
+          </p>
+        }
+        <form (ngSubmit)="save()">
+          <label
+            >Company<select
+              name="company"
+              [(ngModel)]="company"
+              (ngModelChange)="companyChanged()"
+              [disabled]="busy()"
+            >
+              <option value="">Default for all companies</option>
+              @for (c of data.companies; track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select></label
+          >
+          <label
+            >Branch<select
+              name="branch"
+              [(ngModel)]="branch"
+              (ngModelChange)="syncSelection()"
+              [disabled]="!company || busy()"
+            >
+              <option value="">All branches in this company</option>
+              @for (b of branches; track b.id) {
+                <option [value]="b.id">{{ b.name }}</option>
+              }
+            </select></label
+          >
+          <div class="two">
+            <label
+              >Frequency<select
+                name="frequency"
+                [(ngModel)]="frequency"
+                (ngModelChange)="invalidate()"
+                [disabled]="busy()"
+              >
+                <option value="DAILY">Daily</option>
+                <option value="WEEKLY">Weekly</option>
+                <option value="MONTHLY">Monthly</option>
+              </select></label
+            >
+            @if (frequency === 'WEEKLY') {
+              <label
+                >Day<select
+                  name="weekday"
+                  [(ngModel)]="weekDay"
+                  (ngModelChange)="invalidate()"
+                  [disabled]="busy()"
+                >
+                  @for (day of weekdays; track day; let i = $index) {
+                    <option [ngValue]="i">{{ day }}</option>
+                  }
+                </select></label
+              >
+            }
+            @if (frequency === 'MONTHLY') {
+              <label
+                >Day of month<input
+                  type="number"
+                  name="monthday"
+                  min="1"
+                  max="31"
+                  [(ngModel)]="monthDay"
+                  (ngModelChange)="invalidate()"
+                  [disabled]="busy()"
+              /></label>
+            }
+          </div>
+          <p class="small">
+            Dates beyond month-end use the last day. Missed runs catch up within the current
+            schedule period.
+          </p>
+          <div class="two">
+            <label
+              >Run time · India<input
+                type="time"
+                name="time"
+                [(ngModel)]="localTime"
+                (ngModelChange)="invalidate()"
+                required
+                [disabled]="busy()" /></label
+            ><label
+              >State<select
+                name="enabled"
+                [(ngModel)]="enabled"
+                (ngModelChange)="invalidate()"
+                [disabled]="busy()"
+              >
+                <option [ngValue]="true">Enabled</option>
+                <option [ngValue]="false">Paused</option>
+              </select></label
+            >
+          </div>
+          <p class="scope-note">
+            {{
+              exact
+                ? 'Editing saved settings for this scope.'
+                : 'Using inherited settings. Saving creates an override for this scope.'
+            }}
+            Default pause stops this rule everywhere. Company pause also stops its branches.
+          </p>
+          <details>
+            <summary>Reminder windows and summary recipients</summary>
+            @if (ruleKey === 'expiry') {
+              <label
+                >Registration look-ahead (days)<input
+                  name="registrationDays"
+                  type="number"
+                  min="0"
+                  max="365"
+                  [(ngModel)]="options.registrationDays"
+                  (ngModelChange)="invalidate()"
+                  [disabled]="busy()" /></label
+              ><label
+                >Document look-ahead (days)<input
+                  name="documentDays"
+                  type="number"
+                  min="0"
+                  max="365"
+                  [(ngModel)]="options.documentDays"
+                  (ngModelChange)="invalidate()"
+                  [disabled]="busy()"
+              /></label>
+            }
+            @if (ruleKey === 'task_reminders') {
+              <label
+                >Task reminder look-ahead (days)<input
+                  name="taskDays"
+                  type="number"
+                  min="0"
+                  max="90"
+                  [(ngModel)]="options.taskDays"
+                  (ngModelChange)="invalidate()"
+                  [disabled]="busy()"
+              /></label>
+            }
+            @if (ruleKey === 'task_reminders' || ruleKey === 'audit_schedules') {
+              <label
+                >Audit look-ahead (days)<input
+                  name="auditDays"
+                  type="number"
+                  min="0"
+                  max="90"
+                  [(ngModel)]="options.auditDays"
+                  (ngModelChange)="invalidate()"
+                  [disabled]="busy()"
+              /></label>
+            }
+            @if (ruleKey === 'filing_overdue') {
+              <label
+                >Escalate after overdue days<input
+                  name="escalationDays"
+                  type="number"
+                  min="0"
+                  max="90"
+                  [(ngModel)]="options.escalationDays"
+                  (ngModelChange)="invalidate()"
+                  [disabled]="busy()"
+              /></label>
+            }
+            @if (ruleKey === 'applicability') {
+              <label
+                >Compliance package<select
+                  name="package"
+                  [(ngModel)]="options.packageId"
+                  (ngModelChange)="invalidate()"
+                  [disabled]="busy()"
+                >
+                  <option value="DEFAULT_INDIA">Default India package</option>
+                  @for (pkg of data.packages || []; track pkg.id) {
+                    <option [value]="pkg.id">{{ pkg.name }}</option>
+                  }
+                </select></label
+              >
+            }
+            <label
+              >Additional administrator summary recipients<select
+                name="recipients"
+                multiple
+                [(ngModel)]="options.recipientIds"
+                (ngModelChange)="invalidate()"
+                [disabled]="busy()"
+              >
+                @for (person of data.recipients || []; track person.id) {
+                  <option [value]="person.id">{{ person.name }}</option>
+                }
+              </select></label
+            >
+            <p class="small">
+              Up to 10 administrators can receive run summaries. Existing owner reminders continue.
+              Select no additional recipients to keep results in history only.
+            </p>
+          </details>
+          <dl>
+            <dt>Recipients</dt>
+            <dd>{{ rule?.routing }}</dd>
+            <dt>Eligibility</dt>
+            <dd>{{ rule?.window }}</dd>
+          </dl>
+          <div class="actions">
+            <button
+              type="button"
+              class="secondary"
+              (click)="showPreview()"
+              [disabled]="busy() || previewing()"
+            >
+              {{ previewing() ? 'Preparing preview…' : 'Preview affected work' }}</button
+            ><button
+              type="submit"
+              [disabled]="busy() || !dirty || !localTime || (enabled && !preview())"
+            >
+              Save settings
+            </button>
+          </div>
+          <p class="small">
+            Preview before enabling or changing an active rule. Recipient routing follows current
+            assignments. Final approvals stay with authorized users.
+          </p>
+          @if (company && exact) {
+            <button type="button" class="secondary" (click)="inherit()" [disabled]="busy()">
+              Use inherited settings
+            </button>
+          }
+        </form>
+      </section>
+      <section class="panel preview">
+        <h2>Preview</h2>
+        @if (preview(); as p) {
+          <p class="scope-note">{{ scopeLabel(company, branch) }}</p>
+          <div class="preview-groups">
+            @for (group of p.groups; track group.name) {
+              <article>
+                <div>
+                  <h3>{{ group.name }}</h3>
+                  <strong>{{ group.count | number }}</strong>
+                </div>
+                <ul>
+                  @for (example of group.examples; track example.id) {
+                    <li>{{ example.title }}</li>
+                  }
+                </ul>
+              </article>
+            }
+          </div>
+          <p class="small">{{ p.note }}</p>
+          @if (!p.plan.enabled) {
+            <p class="notice">
+              This scope is paused. Update its settings or the parent settings to enable it.
+            </p>
+          }
+          @if (dirty) {
+            <p class="small">Save these settings, then preview again to start a manual run.</p>
+          }
+          <button
+            (click)="run()"
+            [disabled]="busy() || dirty || !p.plan.enabled || !p.plan.controlId"
+          >
+            Run now
+          </button>
+        } @else {
+          <div class="empty">
+            <h3>See the work before it runs</h3>
+            <p>
+              Choose a scope and preview the eligible records. Existing completed work and delivered
+              reminders will be reused.
+            </p>
+          </div>
+        }
+      </section>
+    </div>
+    <section class="panel">
+      <h2>Schedules and overrides</h2>
+      <p class="small">
+        Scoped overrides are excluded from broader runs, including paused overrides. All times
+        follow India time. These controls cover the nine rules shown above.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Scope</th>
+              <th>Schedule</th>
+              <th>Configured state</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (c of configured; track c.id) {
+              <tr>
+                <td>{{ scopeLabel(c.client_id, c.branch_id) }}</td>
+                <td>{{ scheduleLabel(c) }}</td>
+                <td>{{ c.enabled ? 'Enabled' : 'Paused' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <section class="panel history">
+      <div class="section-heading">
+        <h2>Execution history</h2>
+        <button class="secondary" (click)="history()">Refresh history</button>
+      </div>
+      @if (!runs().length) {
+        <p>No recorded runs yet. Preview a rule to get started.</p>
+      }
+      @for (run of runs(); track run.id) {
+        <article class="run">
+          <div>
+            <h3>
+              {{ ruleName(run.rule_key) }}
+              <span
+                class="status"
+                [class.failed]="run.status === 'FAILED' || run.status === 'PARTIAL'"
+                >{{ statusLabel(run.status) }}</span
+              >
+            </h3>
+            <p>{{ scopeLabel(run.snapshot.scope.clientId, run.snapshot.scope.branchId) }}</p>
+            <p class="small">
+              {{ run.started_at | date: 'medium' : '+0530' }} IST ·
+              {{
+                run.trigger_type === 'SCHEDULED'
+                  ? 'Scheduled'
+                  : run.trigger_type === 'RETRY'
+                    ? 'Retry'
+                    : 'Manual'
+              }}
+              @if (run.actor_name) {
+                · {{ run.actor_name }}
+              }
+            </p>
+            <p>{{ resultText(run.result) }}</p>
+            @if (run.result?.['actions']; as actions) {
+              <details>
+                <summary>Gap explanations and next actions</summary>
+                <p class="small">{{ run.result?.['note'] }}</p>
+                @for (action of actions; track action.id) {
+                  <article>
+                    <h3>{{ action.title }}</h3>
+                    <p>{{ action.explanation }}</p>
+                    <p><strong>Suggested next action:</strong> {{ action.nextAction }}</p>
+                    <p class="small">Activity {{ action.id }} · {{ action.status }}</p>
+                  </article>
+                }
+              </details>
+            }
+            @if (run.error_message) {
+              <p class="small error-text">{{ run.error_message }}</p>
+            }
+          </div>
+          @if (['FAILED', 'PARTIAL', 'INTERRUPTED'].includes(run.status)) {
+            <button class="secondary" [disabled]="busy()" (click)="retry(run)">Retry safely</button>
+          }
+        </article>
+      }
+      <div class="pagination">
+        <button class="secondary" (click)="movePage(-1)" [disabled]="page <= 1">Previous</button
+        ><span>Page {{ page }} · {{ total }} runs</span
+        ><button class="secondary" (click)="movePage(1)" [disabled]="page * 25 >= total">
+          Next
+        </button>
+      </div>
+    </section>
+    <details class="panel">
+      <summary>Recent setting changes</summary>
+      @if (!changes().length) {
+        <p>No setting changes recorded yet.</p>
+      }
+      @for (change of changes(); track change.id) {
+        <p>
+          {{ change.created_at | date: 'medium' : '+0530' }} IST ·
+          {{ change.actor_name || 'Administrator' }} · {{ ruleName(change.after_value.rule_key) }} ·
+          {{ scopeLabel(change.after_value.client_id, change.after_value.branch_id) }} ·
+          {{
+            change.after_value.inherited
+              ? 'Inherited settings restored'
+              : change.after_value.enabled
+                ? 'Enabled'
+                : 'Paused'
+          }}
+          at
+          {{ change.after_value.local_time }}
+        </p>
+      }
+    </details>
+  }
+</section>

@@ -2,10 +2,10 @@ import { Module } from '@nestjs/common';
 import { RiskController } from './risk.controller';
 import { RiskService } from './risk.service';
 import { RiskSnapshotCronService } from './risk-snapshot-cron.service';
-import { AssignmentsModule } from '../assignments/assignments.module';
+import { AccessModule } from '../access/access.module';
 
 @Module({
-  imports: [AssignmentsModule],
+  imports: [AccessModule],
   controllers: [RiskController],
   providers: [RiskService, RiskSnapshotCronService],
   exports: [RiskService],

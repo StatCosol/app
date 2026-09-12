@@ -103,6 +103,7 @@ export const CRM_ROUTES: Routes = [
     loadComponent: CrmLayoutComponent,
     canActivate: [roleGuard(['CRM', 'ADMIN'])],
     children: [
+      { path: 'my-work', loadComponent: () => import('../../shared/my-work/my-work.component').then(m => m.MyWorkComponent) },
       { path: 'monthly-close', loadComponent: () => import('../monthly-close/monthly-close.component').then(m => m.MonthlyCloseComponent) },
       // ── Top-level pages ──
       { path: 'dashboard', loadComponent: CrmDashboardActionPageComponent },

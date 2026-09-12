@@ -1,3 +1,5 @@
+import { ContractorPayrollWorkflowService } from './contractor-payroll-workflow.service';
+import { ContractorPayrollWorkflowController } from './contractor-payroll-workflow.controller';
 import { Module } from '@nestjs/common';
 import { StateSlabModule } from '../payroll/state-slab.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -116,6 +118,7 @@ import { PayrollClientSetupEntity } from '../payroll/entities/payroll-client-set
     ServiceEntitlementsModule,
   ],
   controllers: [
+    ContractorPayrollWorkflowController,
     ContractorController,
     AdminContractorsController,
     CrmContractorsController,
@@ -135,6 +138,7 @@ import { PayrollClientSetupEntity } from '../payroll/entities/payroll-client-set
     ClientContractorComputationController,
   ],
   providers: [
+    ContractorPayrollWorkflowService,
     ContractorService,
     ContractorDocumentsService,
     CrmContractorRegistrationService,

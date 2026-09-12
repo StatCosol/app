@@ -1,0 +1,158 @@
+<section class="work-page">
+  <header class="work-header">
+    <div>
+      <p class="eyebrow">Your priorities</p>
+      <h1>My Work</h1>
+      <p>{{ introduction }}</p>
+    </div>
+    <button type="button" (click)="load()" [disabled]="loading()">Refresh</button>
+  </header>
+  <form class="filters" (ngSubmit)="update()" aria-label="Filter assigned work">
+    <label
+      >Company<select name="company" [(ngModel)]="company" (ngModelChange)="companyChanged()">
+        <option value="">All permitted companies</option>
+        @for (c of companies; track c.id) {
+          <option [value]="c.id">{{ c.name || 'Company' }}</option>
+        }
+      </select></label
+    >
+    <label
+      >Branch<select name="branch" [(ngModel)]="branch" (ngModelChange)="update()">
+        <option value="">All permitted branches</option>
+        @for (b of visibleBranches; track b.id) {
+          <option [value]="b.id">{{ b.name || 'Branch' }}</option>
+        }
+      </select></label
+    >
+    <label
+      >Due month<input type="month" name="month" [(ngModel)]="month" (change)="update()"
+    /></label>
+    <label
+      >Work area<select name="module" [(ngModel)]="module" (ngModelChange)="update()">
+        <option value="">All work areas</option>
+        @for (m of modules; track m) {
+          <option [value]="m">{{ label(m) }}</option>
+        }
+      </select></label
+    >
+    <label class="search"
+      >Find a task<input
+        name="search"
+        [(ngModel)]="search"
+        placeholder="Search task titles"
+        maxlength="200"
+    /></label>
+    <div class="filter-actions">
+      <button type="submit">Search</button
+      ><button type="button" class="quiet" (click)="reset()">Clear filters</button>
+    </div>
+  </form>
+  <p class="scope-note">
+    Options show companies and branches with tasks in your permitted queue. Leave the due month
+    blank to include older and undated work.
+  </p>
+  @if (loading()) {
+    <div class="notice" role="status">Loading your work…</div>
+  } @else if (error()) {
+    <div class="notice error" role="alert">
+      <p>{{ error() }}</p>
+      <button type="button" (click)="load()">Try again</button
+      ><button type="button" class="quiet" (click)="reset()">Clear filters</button>
+    </div>
+  } @else if (result(); as r) {
+    <nav class="cards" aria-label="Work status">
+      @for (card of cards; track card.key) {
+        <button
+          type="button"
+          class="stat"
+          [class.chosen]="view === card.key"
+          [attr.aria-pressed]="view === card.key"
+          (click)="chooseView(card.key)"
+        >
+          <span>{{ card.label }}</span
+          ><strong>{{ r.summary[card.key] | number }}</strong>
+        </button>
+      }
+    </nav>
+    <div class="list-heading">
+      <h2>{{ r.pagination.total | number }} {{ r.pagination.total === 1 ? 'task' : 'tasks' }}</h2>
+      <span>Updated {{ r.generatedAt | date: 'shortTime' }} · Deadlines follow India time</span>
+    </div>
+    @if (!r.items.length) {
+      <div class="empty">
+        <h3>No tasks match this view</h3>
+        <p>
+          Try another status or clear the filters. An empty work queue does not confirm that all
+          compliance requirements are complete.
+        </p>
+        <button type="button" (click)="reset()">Show all active work</button>
+      </div>
+    }
+    <div class="task-list">
+      @for (item of r.items; track item.id) {
+        <article class="task" [class.overdue]="item.overdue">
+          <div class="task-main">
+            <div class="tags">
+              <span>{{ label(item.module) }}</span
+              ><span>{{ label(item.status) }}</span
+              ><span>{{ label(item.priority) }} priority</span>
+            </div>
+            <h3>{{ item.title }}</h3>
+            <p>
+              {{ item.company_name || 'Company-wide work' }} ·
+              {{ item.branch_name || 'Company-level task' }}
+            </p>
+            <p class="due">
+              {{ item.overdue ? 'Overdue · ' : ''
+              }}{{
+                item.due_date
+                  ? 'Due ' + (item.due_date | date: 'mediumDate')
+                  : 'No due date recorded'
+              }}
+            </p>
+          </div>
+          <button
+            type="button"
+            (click)="selected.set(selected()?.id === item.id ? null : item)"
+            [attr.aria-expanded]="selected()?.id === item.id"
+          >
+            Review next step
+          </button>
+          @if (selected()?.id === item.id) {
+            <div class="task-detail">
+              <h4>Next step</h4>
+              <p>{{ nextStep(item) }}</p>
+              @if (item.description) {
+                <p class="description">{{ item.description }}</p>
+              }
+              @if (workArea(item); as area) {
+                <a
+                  [routerLink]="area"
+                  [queryParams]="{ clientId: item.client_id, branchId: item.branch_id }"
+                  >Open work area →</a
+                >
+              }
+              <small
+                >Task closure and source approval are separate. Confirm approval or verification in
+                the source record.</small
+              >
+            </div>
+          }
+        </article>
+      }
+    </div>
+    <footer class="pagination">
+      <button type="button" (click)="changePage(-1)" [disabled]="r.pagination.page <= 1">
+        Previous</button
+      ><span
+        >Page {{ r.pagination.page }} · {{ r.items.length }} shown of {{ r.pagination.total }}</span
+      ><button
+        type="button"
+        (click)="changePage(1)"
+        [disabled]="r.pagination.page * r.limit >= r.pagination.total"
+      >
+        Next
+      </button>
+    </footer>
+  }
+</section>

@@ -122,6 +122,7 @@ export const BRANCH_ROUTES: Routes = [
     loadComponent: BranchLayoutComponent,
     canActivate: [branchPortalGuard],
     children: [
+      { path: 'my-work', loadComponent: () => import('../../shared/my-work/my-work.component').then(m => m.MyWorkComponent) },
       { path: 'monthly-close', loadComponent: () => import('../monthly-close/monthly-close.component').then(m => m.MonthlyCloseComponent) },
       { path: 'dashboard', loadComponent: BranchDashboardComponent },
       { path: 'compliance/status', loadComponent: BranchComplianceStatusComponent, data: { portal: 'branch' }, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')], runGuardsAndResolvers: 'always' },

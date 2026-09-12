@@ -46,6 +46,9 @@ export class BranchDocumentEntity {
   @Column({ name: 'file_name', type: 'varchar', length: 512 })
   fileName: string;
 
+  @Column({ name: 'expiry_date', type: 'date', nullable: true })
+  expiryDate: string | null;
+
   @Column({ name: 'mime_type', type: 'varchar', length: 128, nullable: true })
   mimeType: string | null;
 

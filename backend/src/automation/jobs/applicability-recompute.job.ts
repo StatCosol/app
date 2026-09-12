@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { ApplicabilityEngineService } from '../services/applicability-engine.service';
 
 @Injectable()
@@ -11,7 +10,6 @@ export class ApplicabilityRecomputeJob {
   ) {}
 
   /** Nightly at 03:00 — recompute compliance applicability for all branches. */
-  @Cron('0 0 3 * * *')
   async handle() {
     this.logger.log('Starting nightly applicability recompute');
     try {

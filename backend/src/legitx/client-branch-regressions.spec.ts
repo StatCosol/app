@@ -208,6 +208,24 @@ describe('Compliance assistant', () => {
     );
     expect(completeWithTracking.mock.calls[0][1]).not.toContain('Branch Two');
   });
+  it('keeps the factual plan available when the AI adapter rejects', async () => {
+    const { service, completeWithTracking } = setup(true);
+    completeWithTracking.mockRejectedValue(new Error('provider unavailable'));
+    const result = await service.plan(user, {});
+    expect(result.mode).toBe('RULES');
+    expect(result.actions[0].route).toBe('/branch/compliance/status');
+  });
+  it('uses the Indian reporting month at the UTC month boundary', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-31T19:00:00Z'));
+    try {
+      expect((await setup().service.plan(user, {})).period).toEqual({
+        month: 9,
+        year: 2026,
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
   it('falls back honestly when AI output cannot be parsed', async () => {
     const { service } = setup(true, 'invalid JSON');
     expect((await service.plan(user, {})).mode).toBe('RULES');

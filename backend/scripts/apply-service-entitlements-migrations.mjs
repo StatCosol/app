@@ -56,6 +56,8 @@ const serviceMigrationFiles = new Set([
   '20260901_accounts_billing_legacy_invoice_numbers.sql',
   // Contractor attendance payroll generation tables.
   '20260722_contractor_attendance_payroll_generation.sql',
+  // Versioned contractor payroll approval and independent verification.
+  '20260913_contractor_payroll_authority.sql',
   // FaceDesk PIN-then-face 1:1 verification.
   '20260722b_facedesk_pin_verification.sql',
   // FaceDesk per-branch PIN uniqueness.
@@ -84,6 +86,11 @@ const serviceMigrationFiles = new Set([
   '20260809b_retire_mobile_attendance_data.sql',
   // Azure Face API columns for FaceDesk duplicate detection.
   '20260811_facedesk_azure_face.sql',
+  // Durable reminder receipts and one canonical renewal filing per expiry.
+  '20260912_automation_delivery_dedup.sql',
+  '20260912b_automation_control_center.sql',
+  '20260912c_automation_expansion.sql',
+  '20260912d_branch_document_expiry.sql',
 ]);
 
 const config = {

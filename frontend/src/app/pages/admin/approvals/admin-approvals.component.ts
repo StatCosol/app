@@ -1,3 +1,4 @@
+import { ContractorPayrollOversightComponent } from '../../../shared/contractor-payroll/contractor-payroll-oversight.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subject } from 'rxjs';
@@ -9,9 +10,10 @@ import { PageHeaderComponent, StatusBadgeComponent, ActionButtonComponent, Loadi
 @Component({
   standalone: true,
   selector: 'app-admin-approvals',
-  imports: [CommonModule, PageHeaderComponent, StatusBadgeComponent, ActionButtonComponent, LoadingSpinnerComponent, EmptyStateComponent],
+  imports: [ContractorPayrollOversightComponent, CommonModule, PageHeaderComponent, StatusBadgeComponent, ActionButtonComponent, LoadingSpinnerComponent, EmptyStateComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <app-contractor-payroll-oversight />
       <ui-page-header 
         title="Approval Requests" 
         description="Review and manage system approval requests"

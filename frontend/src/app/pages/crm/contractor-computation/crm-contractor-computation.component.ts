@@ -1,3 +1,4 @@
+import { ContractorPayrollWorkflowComponent } from '../../../shared/contractor-payroll/contractor-payroll-workflow.component';
 
 import { HttpClient } from '@angular/common/http';
 import { Component, OnDestroy, OnInit } from '@angular/core';
@@ -19,7 +20,7 @@ import {
 @Component({
   standalone: true,
   selector: 'app-crm-contractor-computation',
-  imports: [
+  imports: [ContractorPayrollWorkflowComponent,
     FormsModule,
     PageHeaderComponent,
     ClientContextStripComponent,
@@ -36,6 +37,7 @@ import {
         <ui-client-context-strip [inline]="true"></ui-client-context-strip>
       </ui-page-header>
 
+      <app-contractor-payroll-workflow [clientId]="clientId" [periodMonth]="periodMonth" />
       <div class="filters">
         @if (!lockedClientId) {
 <label>
