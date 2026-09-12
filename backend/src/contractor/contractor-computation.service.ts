@@ -21,6 +21,11 @@ import {
 } from './entities/contractor-quotation-wage.entity';
 import { ContractorMcdComputationEntity } from './entities/contractor-mcd-computation.entity';
 
+import {
+  ContractorPayrollWorkflowService,
+  DRAFT_PAYROLL_ROLES,
+} from './contractor-payroll-workflow.service';
+
 const SKILLS: ContractorWageSkill[] = [
   'UNSKILLED',
   'SEMI_SKILLED',
@@ -52,6 +57,7 @@ export class ContractorComputationService {
     private readonly stateSlab: StateSlabService,
     private readonly scope: AccessScopeService,
     private readonly notifications: NotificationsService,
+    private readonly workflow: ContractorPayrollWorkflowService,
   ) {}
 
   async listQuotations(user: ReqUser, q: Record<string, string>) {
@@ -81,9 +87,16 @@ export class ContractorComputationService {
     const qb = this.computationRepo
       .createQueryBuilder('c')
       .leftJoin(UserEntity, 'u', 'u.id = c.contractor_user_id')
+      .leftJoin(
+        'contractor_payroll_versions',
+        'pv',
+        'pv.client_id=c.client_id AND pv.contractor_user_id=c.contractor_user_id AND pv.branch_id IS NOT DISTINCT FROM c.branch_id AND pv.period_month=c.period_month AND pv.is_current',
+      )
       .leftJoin('client_branches', 'b', 'b.id = c.branch_id')
       .select([
         'c.id AS "id"',
+        `COALESCE(pv.status, 'DRAFT') AS "payrollStatus"`,
+        'pv.version AS "payrollVersion"',
         'c.upload_id AS "uploadId"',
         'c.client_id AS "clientId"',
         'c.branch_id AS "branchId"',
@@ -120,6 +133,9 @@ export class ContractorComputationService {
       ])
       .where('c.client_id = :clientId', { clientId });
 
+    if (!DRAFT_PAYROLL_ROLES.includes(user.roleCode)) {
+      qb.andWhere("pv.status IN ('CRM_APPROVED','VERIFIED_LOCKED')");
+    }
     const scope = await this.scope.getScope(user);
     this.scope.applyToQb(qb, scope, {
       clientPath: 'c.client_id',
@@ -252,6 +268,10 @@ export class ContractorComputationService {
     },
     file: Express.Multer.File,
   ) {
+    if (!['CRM', 'ADMIN'].includes(user.roleCode))
+      throw new ForbiddenException(
+        'Only CRM can maintain contractor wage rates',
+      );
     if (!file?.buffer) throw new BadRequestException('Excel file is required');
     if (!dto.clientId) throw new BadRequestException('clientId is required');
     if (!dto.contractorUserId)
@@ -266,7 +286,7 @@ export class ContractorComputationService {
     const sheet = await this.firstSheet(file.buffer);
     const headers = this.headers(sheet);
     let inserted = 0;
-    let updated = 0;
+    const updated = 0;
     let errors = 0;
     const results: any[] = [];
 
@@ -303,35 +323,56 @@ export class ContractorComputationService {
           skillCategory,
           effectiveFrom,
         } as any;
-        const existing = await this.quotationRepo.findOne({ where });
-        const entity =
-          existing ??
-          this.quotationRepo.create({
-            clientId,
-            contractorUserId: dto.contractorUserId,
-            branchId: dto.branchId ?? null,
-            skillCategory,
-            effectiveFrom,
-            createdByUserId: user.id,
-          });
-        entity.dailyWage = dailyWage;
-        entity.monthlyWage = this.cellNumber(row, headers, [
-          'monthly_wage',
-          'monthly_rate',
-        ]);
-        entity.effectiveTo =
-          this.cellString(row, headers, ['effective_to']) || null;
-        entity.source =
-          this.cellString(row, headers, ['source']) || file.originalname;
-        entity.notes =
-          this.cellString(row, headers, ['notes', 'remarks']) || null;
-        await this.quotationRepo.save(entity);
-        if (existing) updated++;
-        else inserted++;
+        await this.quotationRepo.manager.transaction(async (manager) => {
+          await manager.query(
+            'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+            [
+              [
+                'contractor-rate',
+                clientId,
+                dto.contractorUserId,
+                dto.branchId || '',
+                skillCategory,
+                effectiveFrom,
+              ]
+                .join(':')
+                .toLowerCase(),
+            ],
+          );
+          const rates = manager.getRepository(ContractorQuotationWageEntity);
+          const existing = await rates.findOne({ where });
+          if (existing)
+            throw new BadRequestException(
+              'Rate versions cannot be overwritten; use a new effective date',
+            );
+          const entity =
+            existing ??
+            rates.create({
+              clientId,
+              contractorUserId: dto.contractorUserId,
+              branchId: dto.branchId ?? null,
+              skillCategory,
+              effectiveFrom,
+              createdByUserId: user.id,
+            });
+          entity.dailyWage = dailyWage;
+          entity.monthlyWage = this.cellNumber(row, headers, [
+            'monthly_wage',
+            'monthly_rate',
+          ]);
+          entity.effectiveTo =
+            this.cellString(row, headers, ['effective_to']) || null;
+          entity.source =
+            this.cellString(row, headers, ['source']) || file.originalname;
+          entity.notes =
+            this.cellString(row, headers, ['notes', 'remarks']) || null;
+          await rates.save(entity);
+        });
+        inserted++;
         results.push({
           rowNumber,
           skillCategory,
-          outcome: existing ? 'updated' : 'inserted',
+          outcome: 'inserted',
         });
       } catch (err) {
         errors++;
@@ -386,29 +427,96 @@ export class ContractorComputationService {
     if (input.rows.length > MAX_ROWS) {
       throw new BadRequestException(`rows must not exceed ${MAX_ROWS} items`);
     }
-    const rows = input.rows;
-    await this.computationRepo.delete({
-      clientId,
-      contractorUserId,
-      branchId: input.branchId ?? IsNull(),
-      periodMonth: input.periodMonth,
-    });
-
-    const output: ContractorMcdComputationEntity[] = [];
-    for (let i = 0; i < rows.length; i++) {
-      output.push(
-        await this.computeOne(
-          clientId,
-          contractorUserId,
-          input.branchId ?? null,
-          input.periodMonth,
-          input.uploadId ?? null,
-          i + 1,
-          rows[i],
-        ),
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(input.periodMonth || ''))
+      throw new BadRequestException('periodMonth must be YYYY-MM');
+    if (!input.branchId)
+      throw new BadRequestException(
+        'Select the deployment branch before calculating payroll',
       );
+    if (!input.rows.length)
+      throw new BadRequestException('Attendance must contain employees');
+    const seen = new Set<string>();
+    const daysInMonth = new Date(
+      Number(input.periodMonth.slice(0, 4)),
+      Number(input.periodMonth.slice(5)),
+      0,
+    ).getDate();
+    for (const row of input.rows) {
+      if (!row || typeof row !== 'object')
+        throw new BadRequestException('Invalid attendance row');
+      const code = this.unknownToString(
+        row.employee_code ?? row.worker_code ?? row.code ?? '',
+      )
+        .trim()
+        .toLowerCase();
+      if (!code || seen.has(code))
+        throw new BadRequestException(
+          'Each attendance row needs a unique employee code',
+        );
+      seen.add(code);
+      const days = Number(row.days_worked ?? row.days);
+      if (!Number.isFinite(days) || days < 0 || days > daysInMonth)
+        throw new BadRequestException(
+          'Payable days must be within the selected month',
+        );
+      // Contractor input is attendance, not a source of wage or deduction authority.
+      for (const field of [
+        'daily_wage',
+        'wage_rate',
+        'basic_wage',
+        'basic',
+        'da',
+        'dearness_allowance',
+        'hra',
+        'ot',
+        'ot_amount',
+        'ot_hours',
+        'arrears',
+        'attendance_bonus',
+        'attn_bonus',
+        'bonus',
+        'incentive',
+        'other_earnings',
+        'other_deductions',
+        'special_allowance',
+        'other_allowance',
+        'regular_allowance',
+        'universal_allowance',
+        'conveyance',
+      ]) {
+        if (row[field] != null && row[field] !== '' && Number(row[field]) !== 0)
+          throw new BadRequestException(
+            'Upload attendance only. Wage components, overtime and adjustments require an approved rate/adjustment workflow.',
+          );
+        delete row[field];
+      }
+      delete row.pf_ceiling_enabled;
     }
-    const saved = await this.computationRepo.save(output);
+    const { saved, version } = await this.workflow.saveDraft(
+      user,
+      {
+        client_id: clientId,
+        contractor_user_id: contractorUserId,
+        branch_id: input.branchId,
+        period_month: input.periodMonth,
+      },
+      async () => {
+        const output: ContractorMcdComputationEntity[] = [];
+        for (let i = 0; i < input.rows.length; i++)
+          output.push(
+            await this.computeOne(
+              clientId,
+              contractorUserId,
+              input.branchId!,
+              input.periodMonth,
+              input.uploadId ?? null,
+              i + 1,
+              input.rows[i],
+            ),
+          );
+        return output;
+      },
+    );
     const mismatches = saved.filter((r) => r.matchStatus !== 'MATCHED');
     if (mismatches.length)
       await this.notifyCrm(
@@ -423,6 +531,7 @@ export class ContractorComputationService {
       matched: saved.length - mismatches.length,
       mismatches: mismatches.length,
       summary: this.summarize(saved),
+      version,
       rows: saved,
     };
   }
@@ -450,12 +559,45 @@ export class ContractorComputationService {
       employeeCode,
       rawEmployeeName,
     );
-    const skillCategory = this.normalizeSkill(
-      this.unknownToString(
-        raw['skill_category'] ?? raw['skill'] ?? employee?.skillCategory,
-      ),
-    );
+    if (!employee)
+      throw new BadRequestException(
+        'Attendance employee is not active in this contractor deployment',
+      );
+    const skillCategory = this.normalizeSkill(employee.skillCategory ?? '');
+    const suppliedSkill = raw['skill_category'] ?? raw['skill'];
+    if (
+      suppliedSkill &&
+      this.normalizeSkill(this.unknownToString(suppliedSkill)) !== skillCategory
+    )
+      throw new BadRequestException(
+        'Attendance skill must match the employee master',
+      );
     const daysWorked = this.num(raw['days_worked'] ?? raw['days']);
+    const monthStart = new Date(`${periodMonth}-01T00:00:00Z`);
+    const monthEnd = new Date(
+      Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 0),
+    );
+    const start = employee.dateOfJoining
+      ? new Date(
+          Math.max(
+            monthStart.getTime(),
+            new Date(employee.dateOfJoining).getTime(),
+          ),
+        )
+      : monthStart;
+    const end = employee.dateOfExit
+      ? new Date(
+          Math.min(monthEnd.getTime(), new Date(employee.dateOfExit).getTime()),
+        )
+      : monthEnd;
+    const eligibleDays = Math.max(
+      0,
+      Math.floor((end.getTime() - start.getTime()) / 86400000) + 1,
+    );
+    if (daysWorked > eligibleDays)
+      throw new BadRequestException(
+        'Payable days exceed the employee employment dates',
+      );
     const mcdDailyWage = this.optionalNum(
       raw['daily_wage'] ?? raw['wage_rate'],
     );
@@ -485,14 +627,7 @@ export class ContractorComputationService {
       this.findMinimumDailyWage(stateCode, skillCategory, `${periodMonth}-01`),
     ]);
     const employeeDailyWage = this.resolveEmployeeDailyWage(employee);
-    const payableDailyWage = this.round(
-      Math.max(
-        quote?.dailyWage ?? 0,
-        minimumDailyWage ?? 0,
-        employeeDailyWage ?? 0,
-        mcdDailyWage ?? 0,
-      ),
-    );
+    const payableDailyWage = this.round(quote?.dailyWage ?? 0);
     const basicWage = this.round(
       this.optionalNum(raw['basic_wage'] ?? raw['basic']) ??
         payableDailyWage * daysWorked,
@@ -659,7 +794,10 @@ export class ContractorComputationService {
           ...(branchId ? { branchId } : {}),
         } as any,
       });
-      if (byCode) return byCode;
+      return byCode?.isActive &&
+        !['LEFT', 'INACTIVE', 'PENDING_DELETE'].includes(byCode.status)
+        ? byCode
+        : null;
     }
     if (!employeeName) return null;
     const qb = this.employeeRepo

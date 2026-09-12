@@ -1,4 +1,4 @@
-﻿<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header
     [title]="typeFilter === 'AUDIT' ? 'Audits' : 'My Workboard'"
     [description]="typeFilter === 'AUDIT' ? 'Upload compliance documents and complete audit checklist items' : 'Simple page to upload documents, fix rejected files, and complete audit work'"
@@ -250,7 +250,7 @@
         </label>
       </div>
       <p class="checklist-upload-form__note">
-        Uploaded documents are reviewed and verified by <strong>CRM</strong>. Excel muster/attendance uploads also generate wage, PF, ESI, PT and LWF calculations for review.
+        CRM reviews uploaded documents. Excel attendance uploads generate a draft payroll version: submit it to CRM from Payroll Computation; an auditor verifies and locks approved payroll. Use employee_code and days_worked columns. Wage rates, overtime amounts and deductions must not be entered in the attendance upload.
       </p>
       <div class="checklist-upload-form__actions">
         <button

@@ -1,0 +1,88 @@
+// Run after backend build. Uses only the disposable local integration database.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { Client } = require('pg');
+const { DataSource } = require('typeorm');
+const { ContractorMcdComputationEntity } = require('../dist/src/contractor/entities/contractor-mcd-computation.entity');
+const { ContractorQuotationWageEntity } = require('../dist/src/contractor/entities/contractor-quotation-wage.entity');
+const { ContractorComputationService } = require('../dist/src/contractor/contractor-computation.service');
+const ExcelJS = require('exceljs');
+const { ContractorPayrollWorkflowController } = require('../dist/src/contractor/contractor-payroll-workflow.controller');
+const { ContractorPayrollWorkflowService } = require('../dist/src/contractor/contractor-payroll-workflow.service');
+const schema = `payroll_authority_${Date.now()}`;
+const connection = { host: '127.0.0.1', port: 55439, user: 'monthly_close_test', database: 'postgres' };
+const id = (n) => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+async function main() {
+  const admin = new Client(connection); await admin.connect();
+  let ds;
+  try {
+    await admin.query(`CREATE SCHEMA "${schema}"`);
+    ds = new DataSource({ type: 'postgres', uuidExtension: 'pgcrypto', ...connection, username: connection.user, schema,
+      extra: { options: `-c search_path=${schema}` }, entities: [ContractorMcdComputationEntity, ContractorQuotationWageEntity], synchronize: true });
+    await ds.initialize();
+    await ds.query('CREATE TABLE client_branches(id uuid PRIMARY KEY, branchname text)');
+    await ds.query('CREATE TABLE users(id uuid PRIMARY KEY, name text)');
+    await ds.query("INSERT INTO client_branches VALUES ($1, 'Branch One')", [id(2)]);
+    await ds.query("INSERT INTO users VALUES ($1, 'Contractor One')", [id(3)]);
+    const migration = fs.readFileSync(path.join(__dirname, '../migrations/20260913_contractor_payroll_authority.sql'), 'utf8');
+    await ds.query(migration); await ds.query(migration);
+    const repo = ds.getRepository(ContractorMcdComputationEntity);
+    const scope = {
+      assertClientAllowed: async (u,c) => { assert.equal(c,id(1)); },
+      assertBranchAllowed: async (u,b) => { assert.equal(b,id(2)); },
+      getScope: async (u) => u.roleCode === 'BRANCH_DESK' ? { level: 'branches', branchIds: u.branchIds } : { level: 'client', clientId: id(1) },
+      resolveClientId: () => id(1),
+    };
+    const workflow = new ContractorPayrollWorkflowService(repo,scope);
+    const user = (role,n) => ({ id:id(n),roleCode:role,clientId:id(1),branchIds:[id(2)] });
+    const contractor=user('CONTRACTOR',3), crm=user('CRM',4), auditor=user('AUDITOR',5), cco=user('CCO',6);
+    const key = {client_id:id(1),branch_id:id(2),contractor_user_id:id(3),period_month:'2026-09'};
+    const calculate = async () => [repo.create({clientId:id(1),branchId:id(2),contractorUserId:id(3),periodMonth:'2026-09',rowNumber:1,
+      payableDailyWage:500,pfWage:10000,pfEmployerContribution:100,esiEmployerContribution:0,lwfEmployeeDeduction:0,lwfEmployerContribution:0,totalEmployerContribution:100,employeeCode:'E001',employeeName:'Test Employee',skillCategory:'SKILLED',daysWorked:20,basicWage:10000,otherEarnings:0,grossWage:10000,
+      pfDeduction:100,esiDeduction:0,ptDeduction:0,netSalary:9900,matchStatus:'MATCHED'})];
+    const computation = new ContractorComputationService(ds.getRepository(ContractorQuotationWageEntity),repo,{ findOne: async()=>({}) },{},{},{},{},{},{},scope,{},workflow);
+    const workbook = new ExcelJS.Workbook(); const sheet = workbook.addWorksheet('Rates');
+    sheet.addRow(['skill_category','daily_wage','effective_from']); sheet.addRow(['SKILLED',500,'2026-09-01']);
+    const upload = {buffer:Buffer.from(await workbook.xlsx.writeBuffer()),originalname:'rates.xlsx'};
+    const rateInput = {clientId:id(1),contractorUserId:id(3),branchId:id(2)};
+    const rateResults = await Promise.all([computation.uploadQuotationExcel(crm,rateInput,upload),computation.uploadQuotationExcel(crm,rateInput,upload)]);
+    assert.equal(rateResults.reduce((n,r)=>n+r.inserted,0),1); assert.equal(rateResults.reduce((n,r)=>n+r.errors,0),1);
+    assert.equal(await ds.getRepository(ContractorQuotationWageEntity).count(),1);
+    const first=await workflow.saveDraft(contractor,key,calculate); const firstId=first.version.id;
+    assert.equal((await workflow.list(contractor,{})).data[0].branchName,'Branch One');
+    assert.equal((await workflow.list(contractor,{offset:'1'})).data.length,0);
+    await assert.rejects(workflow.list(contractor,{offset:'-1'}),/offset/);
+    assert.equal((await workflow.list(user('CLIENT',7),{})).data.length,0);
+    await assert.rejects(workflow.pack(contractor,firstId),/CRM-approved/);
+    await assert.rejects(workflow.saveDraft(contractor,key,async()=>{throw Error('Invalid employee');}),/Invalid employee/);
+    await assert.rejects(workflow.saveDraft(contractor,key,async()=>{const rows=await calculate();rows[0].employeeName=null;return rows;}), /null value/);
+    assert.equal(await repo.count(),1); assert.equal((await workflow.list(contractor,{})).data[0].version,1);
+    await workflow.transition(contractor,firstId,'submit','Attendance confirmed for review');
+    await assert.rejects(workflow.saveDraft(contractor,key,calculate),/under review/);
+    await workflow.transition(crm,firstId,'approve','Attendance and wage rates checked');
+    assert.equal((await workflow.list(user('CLIENT',7),{})).data.length,1);
+    assert.equal((await workflow.list({...user('BRANCH_DESK',8),branchIds:[]},{})).data.length,0);
+    const pack=await workflow.pack(contractor,firstId); assert.equal(pack.rows[0].netSalary,9900);
+    const download = await new ContractorPayrollWorkflowController(workflow).pack(contractor,firstId);
+    const chunks=[]; for await (const chunk of download.getStream()) chunks.push(chunk);
+    const exported = new ExcelJS.Workbook(); await exported.xlsx.load(Buffer.concat(chunks));
+    assert.equal(exported.getWorksheet('Payroll').rowCount,2);
+    assert.equal(exported.getWorksheet('Approval').getCell('B2').value,'CRM_APPROVED');
+    assert.equal(exported.getWorksheet('PF working').getCell('C2').value,10000);
+    await workflow.transition(auditor,firstId,'verify','Evidence: attendance A1, rates R1, payment P1 and statutory S1 checked');
+    await assert.rejects(workflow.transition(crm,firstId,'reopen','Need to change payroll'),/not available/);
+    await workflow.transition(cco,firstId,'reopen','Authorized correction to attendance');
+    await assert.rejects(workflow.pack(contractor,firstId),/CRM-approved/);
+    const second=await workflow.saveDraft(contractor,key,calculate); assert.equal(second.version.version,2);
+    assert.ok((await workflow.history(contractor,second.version.id)).some(e=>e.action==='VERIFY' && e.version===1));
+    const history=await ds.query('SELECT * FROM contractor_payroll_versions ORDER BY version');
+    assert.equal(history.length,2); assert.equal(history[0].rows_snapshot[0].netSalary,9900); assert.equal(history[0].is_current,false);
+    // Concurrent submissions: exactly one valid transition, one recorded event.
+    const submissions=await Promise.allSettled([workflow.transition(contractor,second.version.id,'submit','Attendance ready for review'),workflow.transition(contractor,second.version.id,'submit','Attendance ready for review')]);
+    assert.equal(submissions.filter((r)=>r.status==='fulfilled').length,1);
+    assert.equal(Number((await ds.query("SELECT count(*) FROM contractor_payroll_events WHERE version_id=$1 AND action='SUBMIT'",[second.version.id]))[0].count),1);
+    console.log('PASS: actual entity schema + migration, transactional preservation, role visibility, approval, independent verification, controlled reopening, immutable snapshots and concurrent transitions.');
+  } finally { if(ds?.isInitialized) await ds.destroy(); await admin.query(`DROP SCHEMA "${schema}" CASCADE`); await admin.end(); }
+}
+main().catch((err)=>{console.error(err);process.exitCode=1;});
