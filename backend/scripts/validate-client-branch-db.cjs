@@ -27,15 +27,25 @@ async function main(){
   const dashboard = new LegitxDashboardService(adapter);
   const scope={month:9,year:2026,clientId:id(10),allowedBranchIds:resolved.allowedBranchIds};
   assert.equal((await dashboard.getBranchKpi(scope)).total,2);
-  await db.query('CREATE TABLE audits(client_id uuid,branch_id uuid,status text,due_date date,period_year int,period_month int)');
-  await db.query("INSERT INTO audits VALUES($1,$2,'COMPLETED',NULL,2026,9),($1,$3,'PLANNED','2020-01-01',2026,9),($1,$2,'COMPLETED',NULL,2025,9),($4,$5,'COMPLETED',NULL,2026,9)",[id(10),id(1),id(2),id(20),id(3)]);
+  await db.query('CREATE TABLE audits(client_id uuid,branch_id uuid,status text,due_date date,period_year int,period_code varchar(20))');
+  await db.query("INSERT INTO audits VALUES($1,$2,'COMPLETED',NULL,2026,'2026-09'),($1,$3,'PLANNED','2020-01-01',2026,'2026-09'),($1,$2,'COMPLETED',NULL,2025,'2025-09'),($4,$5,'COMPLETED',NULL,2026,'2026-09')",[id(10),id(1),id(2),id(20),id(3)]);
   const audit=await dashboard.getAuditKpis(scope);
   assert.equal(audit.completed,1);assert.equal(audit.pending,1);assert.equal(audit.overdue,1);assert.equal(audit.overallAuditScore,50);
+  await db.query("INSERT INTO audits VALUES($1,$2,'COMPLETED',NULL,2026,'2026-Q3'),($1,$2,'COMPLETED',NULL,2026,'2026-H2'),($1,$2,'COMPLETED',NULL,2026,'2026'),($1,$2,'COMPLETED',NULL,2026,'2026-Q4'),($1,$2,'COMPLETED',NULL,2026,'2026-H1'),($1,$2,'COMPLETED',NULL,2026,'2026-08')",[id(10),id(1)]);
+  assert.equal((await dashboard.getAuditKpis(scope)).completed,4);
+  const { AuditEntity } = require('../dist/src/audits/entities/audit.entity');
+  const auditColumns = require('typeorm').getMetadataArgsStorage().columns.filter(c => c.target === AuditEntity).map(c=>c.options.name || c.propertyName);
+  assert.ok(auditColumns.includes('period_code')); assert.ok(!auditColumns.includes('period_month'));
   await db.query('CREATE TABLE payroll_runs(id uuid,client_id uuid,branch_id uuid,status text,period_year int,period_month int)');
   await db.query('CREATE TABLE payroll_run_employees(run_id uuid,branch_id uuid,uan text,esic text)');
   await db.query("INSERT INTO payroll_runs VALUES($1,$2,NULL,'DRAFT',2026,9)",[id(30),id(10)]);
   await db.query("INSERT INTO payroll_run_employees VALUES($1,$2,NULL,NULL),($1,$3,'uan',NULL),($1,$4,NULL,NULL)",[id(30),id(1),id(2),id(3)]);
   const payroll=await dashboard.getPayroll(scope);assert.equal(payroll.pfPendingEmployees,1);assert.equal(payroll.esiPendingEmployees,2);
+  await db.query("INSERT INTO payroll_runs VALUES($1,$4,$5,'DRAFT',2026,9),($2,$4,$6,'DRAFT',2026,9),($3,$4,$7,'DRAFT',2026,9),($8,$4,NULL,'CANCELLED',2026,9)",[id(31),id(32),id(33),id(10),id(1),id(2),id(4),id(34)]);
+  await db.query('INSERT INTO payroll_run_employees VALUES($1,$4,NULL,NULL),($2,$5,NULL,NULL),($3,$4,NULL,NULL),($6,$4,NULL,NULL)',[id(31),id(32),id(33),id(1),id(2),id(34)]);
+  const multiPayroll=await dashboard.getPayroll(scope);assert.equal(multiPayroll.pfPendingEmployees,3);assert.equal(multiPayroll.esiPendingEmployees,4);
+  const singlePayroll=await dashboard.getPayroll({...scope,branchId:id(2)});assert.equal(singlePayroll.pfPendingEmployees,1);assert.equal(singlePayroll.esiPendingEmployees,2);
+  assert.equal((await dashboard.getPayroll({...scope,allowedBranchIds:[]})).pfPendingEmployees,0);
   await db.query('CREATE TABLE compliance_tasks(id int,client_id uuid,branch_id uuid,period_month int,period_year int,compliance_id int,title text,frequency text,status text,due_date date,remarks text)');
   await db.query('CREATE TABLE compliance_master(id int,compliance_name text,law_name text,law_family text)');
   await db.query("INSERT INTO compliance_tasks VALUES(1,$1,$2,9,2026,7,'Weekly evidence','WEEKLY','PENDING','2020-01-01',NULL),(2,$1,$2,9,2026,7,'Next evidence','WEEKLY','PENDING','2020-01-02',NULL),(3,$3,$4,9,2026,7,'Foreign','WEEKLY','PENDING','2020-01-03',NULL)",[id(10),id(1),id(20),id(3)]);
@@ -43,6 +53,13 @@ async function main(){
   const tasks=await status.getTasks({...scope,status:'OVERDUE',limit:1,offset:1});
   assert.equal(tasks.length,1);assert.equal(tasks[0].taskId,2);
   const all=await status.getTasks({...scope,status:'OVERDUE',limit:10});assert.equal(all.length,2);
+  await db.query('CREATE TABLE system_tasks(id uuid,module text,title text,description text,reference_id text,reference_type text,priority text,assigned_role text,assigned_user_id uuid,client_id uuid,branch_id uuid,contractor_id uuid,due_date date,status text,created_at timestamptz DEFAULT now())');
+  await db.query("INSERT INTO system_tasks(id,title,priority,assigned_role,client_id,branch_id,status) VALUES($1,'One','HIGH','BRANCH',$5,$6,'OPEN'),($2,'Two','HIGH','BRANCH',$5,$7,'OPEN'),($3,'Unassigned','HIGH','BRANCH',$5,$8,'OPEN'),($4,'Foreign','HIGH','BRANCH',$9,$10,'OPEN')",[id(51),id(52),id(53),id(54),id(10),id(1),id(2),id(4),id(20),id(3)]);
+  const taskService = new (require('../dist/src/task-center/task-center.service').TaskCenterService)(source);
+  const taskController = new (require('../dist/src/task-center/task-center.controller').TaskCenterController)(taskService,{});
+  assert.equal((await taskController.getMySummary(user)).total,2);
+  assert.equal((await taskController.getMyItems(user)).length,2);
+  assert.equal((await taskController.getMySummary({...user,branchIds:[]})).total,0);
   console.log('PASS: live branch scope, cross-company denial, scoped payroll rows, monthly audit counts without double counting, and recurring-task pagination against PostgreSQL.');
  } finally { await db.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);await db.end(); }
 }

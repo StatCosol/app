@@ -90,7 +90,7 @@ describe('Client and Branch Desk scope', () => {
       'a.branch_id = ANY',
     );
     expect(
-      calls.find(([sql]) => sql.includes('JOIN latest_run'))?.[0],
+      calls.find(([sql]) => sql.includes('JOIN scoped_runs'))?.[0],
     ).toContain('pre.branch_id = ANY');
     expect(
       calls.find(([sql]) => sql.includes('ORDER BY percent'))?.[0],

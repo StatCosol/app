@@ -468,9 +468,14 @@ export class LegitxDashboardService {
       params.push(scope.clientId);
       whereRuns.push(`client_id = $${params.length}`);
     }
-    if (scope.branchId) {
-      params.push(scope.branchId);
-      whereRuns.push(`(branch_id = $${params.length} OR branch_id IS NULL)`);
+    const runBranches = scope.branchId
+      ? [String(scope.branchId)]
+      : scope.allowedBranchIds;
+    if (runBranches && runBranches !== 'ALL') {
+      params.push(runBranches);
+      whereRuns.push(
+        `(branch_id = ANY($${params.length}::uuid[]) OR branch_id IS NULL)`,
+      );
     }
 
     let employeeScope = '';
@@ -482,12 +487,10 @@ export class LegitxDashboardService {
       employeeScope = `WHERE pre.branch_id = ANY($${params.length}::uuid[])`;
     }
     const row = await this.safeOne(
-      `WITH latest_run AS (
+      `WITH scoped_runs AS (
          SELECT id, period_year, period_month
          FROM payroll_runs
          ${whereRuns.length ? `WHERE ${whereRuns.join(' AND ')}` : ''}
-         ORDER BY period_year DESC, period_month DESC
-         LIMIT 1
        )
        SELECT
          0::int AS "pendingQueries",
@@ -497,7 +500,7 @@ export class LegitxDashboardService {
          0::int AS "completedFF",
          0::int AS "pendingFF"
        FROM payroll_run_employees pre
-       JOIN latest_run lr ON lr.id = pre.run_id ${employeeScope}`,
+       JOIN scoped_runs lr ON lr.id = pre.run_id ${employeeScope}`,
       params,
       fallback,
     );
@@ -755,8 +758,17 @@ export class LegitxDashboardService {
   }
 
   private async getAuditKpis(scope: LegitxDashboardScope) {
-    const params: unknown[] = [scope.year, scope.month];
-    const conditions: string[] = ['a.period_year = $1', 'a.period_month = $2'];
+    const periodCodes = [
+      `${scope.year}-${String(scope.month).padStart(2, '0')}`,
+      `${scope.year}-Q${Math.ceil(scope.month / 3)}`,
+      `${scope.year}-H${Math.ceil(scope.month / 6)}`,
+      String(scope.year),
+    ];
+    const params: unknown[] = [scope.year, periodCodes];
+    const conditions: string[] = [
+      'a.period_year = $1',
+      'a.period_code = ANY($2::text[])',
+    ];
     if (scope.clientId) {
       params.push(scope.clientId);
       conditions.push(`a.client_id = $${params.length}`);

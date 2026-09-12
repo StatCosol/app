@@ -29,3 +29,10 @@ If AI is unconfigured, unavailable or produces invalid output, an explicitly lab
 - Repeatable database check: backend/scripts/validate-client-branch-db.cjs.
 
 This was a code and workflow review with regression and database testing, not an exhaustive live session for every permission combination. No pending customer compliance record was automatically marked complete. These new changes require review and deployment; the prior PR #645 is already live.
+## PR #646 review follow-up
+
+- Replaced the invalid audits.period_month reference with period_code matching for monthly, quarterly, half-yearly and annual periods covering the selected month. The PostgreSQL fixture now uses period_code and checks AuditEntity metadata; the earlier fixture incorrectly included period_month and therefore missed this defect.
+- Payroll runs are filtered to the allowed branch set (plus company-wide runs) before aggregation. All applicable runs are included, with employee-level branch filtering retained; no arbitrary LIMIT 1 selection remains.
+- Task-center summary, items, overdue and expiring endpoints preserve all assigned branches when no explicit branch is selected. Empty branch sets return no rows. Explicit branch selections remain validated.
+- Task summary and task items now share the dashboard subscription, so branch/month changes and component destruction cancel the entire request group. Stale task responses cannot replace the current selection.
+Verification of the follow-up: 31 focused backend tests, the browser request-cancellation regression, backend build and both affected lint checks passed. PostgreSQL checks passed for actual audit period_code metadata and period coverage, multiple assigned payroll runs (including company-wide, cancelled and unassigned cases), and combined task-center summaries/items. No migration is required.

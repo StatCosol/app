@@ -159,30 +159,12 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
     const hasContractor = this.hasContractorModule;
     const canLoadComplianceDashboard = hasEmployeeCompliance;
 
-    // Load task center data in parallel
     const user = this.authService.getUser();
-    this.taskCenterService.getMySummary({
-      role: 'BRANCH',
-      userId: user?.userId || user?.id,
-      branchId: this.branchId || undefined,
-    }).pipe(takeUntil(this.destroy$), catchError(() => this.unavailable({ open: 0, overdue: 0, dueSoon: 0, total: 0 })))
-      .subscribe(summary => {
-        this.taskSummary = summary;
-        this.cdr.markForCheck();
-      });
-
-    this.taskCenterService.getMyItems({
-      role: 'BRANCH',
-      userId: user?.userId || user?.id,
-      branchId: this.branchId || undefined,
-      status: 'OPEN',
-    }).pipe(takeUntil(this.destroy$), catchError(() => this.unavailable([])))
-      .subscribe(tasks => {
-        this.pendingTasks = tasks.slice(0, 10);
-        this.cdr.markForCheck();
-      });
-
+    const taskScope = { role: 'BRANCH', userId: user?.userId || user?.id, branchId: this.branchId || undefined };
+    this.pendingTasks = [];
     this.dashboardRequest = forkJoin({
+      taskSummary: this.taskCenterService.getMySummary(taskScope).pipe(catchError(() => this.unavailable({ open: 0, overdue: 0, dueSoon: 0, total: 0 }))),
+      tasks: this.taskCenterService.getMyItems({ ...taskScope, status: 'OPEN' }).pipe(catchError(() => this.unavailable([]))),
       legitx: canLoadComplianceDashboard
         ? this.legitxService.getSummary({
           month: +month,
@@ -208,8 +190,10 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
     })
     .pipe(takeUntil(this.destroy$))
     .subscribe({
-      next: ({ legitx, pfEsi, contractor, branchDash }) => {
+      next: ({ legitx, pfEsi, contractor, branchDash, taskSummary, tasks }) => {
           if (this.dataUnavailable) return;
+        this.taskSummary = taskSummary;
+        this.pendingTasks = tasks.slice(0, 10);
         const kpis = legitx?.kpis;
 
         // Employee headcount
