@@ -46,7 +46,7 @@ import android.util.Base64
  *    geofence flows,
  *  * a file chooser bridge for document uploads,
  *  * a system DownloadManager handoff for payslip / report downloads,
- *  * pull-to-refresh and a hardware back-button â†’ webview history bridge,
+ *  * uninterrupted web scrolling and a hardware back-button â†’ webview history bridge,
  *  * a hidden Settings dialog (long-press anywhere on the offline banner) to
  *    point the app at staging during QA.
  *
@@ -61,6 +61,7 @@ class MainActivity : AppCompatActivity() {
     private var pendingFileChooser: ValueCallback<Array<Uri>>? = null
     private var pendingPermissionRequest: PermissionRequest? = null
     private var pendingDownload: ByteArray? = null
+    private val sessionBridge by lazy { EssSessionBridge(this) }
     private var downloadBridgeRegistered = false
     private val saveDownloadLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -125,9 +126,8 @@ class MainActivity : AppCompatActivity() {
 
         configureWebView()
 
-        binding.swipeRefresh.setOnRefreshListener {
-            binding.webView.reload()
-        }
+        // ESS scrolls inside HTML containers; native refresh intercepts those gestures.
+        binding.swipeRefresh.isEnabled = false
 
         // Hidden settings: long-press the offline banner area to change URL.
         binding.offlineBanner.setOnLongClickListener {
@@ -203,6 +203,7 @@ class MainActivity : AppCompatActivity() {
         // so saved/reset portal settings take effect without restarting the app.
         binding.webView.stopLoading()
         registerDownloadBridge(url)
+        if (isAllowedUrl(url)) sessionBridge.attach(binding.webView, url)
         binding.webView.loadUrl(url)
     }
 

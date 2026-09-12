@@ -101,6 +101,9 @@ jobs:
         run: npm run build
       - name: Lint
         run: npm run lint
+      - name: ESS native session bridge regressions
+        run: node scripts/validate-ess-session-bridge.cjs
+        working-directory: .
       - name: Unit tests (Vitest service specs)
         run: npm run test:unit
       - name: Install Chromium for browser tests

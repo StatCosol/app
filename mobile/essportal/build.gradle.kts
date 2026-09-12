@@ -8,11 +8,11 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.statcosol.ess.portal"
+        applicationId = "com.statco.ess"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 2
-        versionName = "0.1.1"
+        targetSdk = 35
+        versionCode = 4
+        versionName = "1.0.3"
 
         // Production ESS portal entry point. Override at runtime via the in-app
         // Settings screen (long-press the toolbar) when pointing at staging.
@@ -33,8 +33,21 @@ android {
         jvmTarget = "17"
     }
 
+    signingConfigs {
+        create("release") {
+            val path = System.getenv("STATCO_UPLOAD_STORE_FILE")
+            if (!path.isNullOrBlank()) {
+                storeFile = file(path)
+                storePassword = System.getenv("STATCO_UPLOAD_STORE_PASSWORD")
+                keyAlias = System.getenv("STATCO_UPLOAD_KEY_ALIAS")
+                keyPassword = System.getenv("STATCO_UPLOAD_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

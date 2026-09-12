@@ -5,7 +5,7 @@ import {
   TestRequest,
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { authInterceptor } from './auth.interceptor';
 import { AuthService } from '../auth.service';
@@ -76,6 +76,29 @@ describe('authInterceptor — session renewal is visible', () => {
       'Session renewed',
       expect.stringContaining('try that once more'),
     );
+  });
+
+  it.each([0, 408, 429, 503])('keeps the session on temporary renewal failure %s and permits retry', (status) => {
+    auth.refreshAccessToken.mockReturnValue(throwError(() => ({ status })));
+    http.get('/api/v1/ess/profile').subscribe({ error: () => {} });
+    unauthorized(httpTesting.expectOne('/api/v1/ess/profile'));
+    expect(auth.logoutOnce).not.toHaveBeenCalled();
+
+    auth.refreshAccessToken.mockReturnValue(of('fresh-token'));
+    let result: unknown;
+    http.get('/api/v1/ess/profile').subscribe(value => result = value);
+    unauthorized(httpTesting.expectOne('/api/v1/ess/profile'));
+    const retry = httpTesting.expectOne('/api/v1/ess/profile');
+    expect(retry.request.headers.get('Authorization')).toBe('Bearer fresh-token');
+    retry.flush({ ok: true });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it.each([400, 401, 403])('still ends rejected sessions on renewal status %s', (status) => {
+    auth.refreshAccessToken.mockReturnValue(throwError(() => ({ status })));
+    http.get('/api/v1/ess/profile').subscribe({ error: () => {} });
+    unauthorized(httpTesting.expectOne('/api/v1/ess/profile'));
+    expect(auth.logoutOnce).toHaveBeenCalled();
   });
 
   it('does not nag when the refresh itself is what failed', async () => {
