@@ -68,8 +68,16 @@ jobs:
           go-version: stable
       - name: Install standalone Gitleaks CLI
         run: go install github.com/zricethezav/gitleaks/v8@v8.24.2
+      # The baseline holds the eight findings already committed to this public
+      # repository's history between 2026-02-01 and 2026-03-13. They cannot be
+      # recalled, so they are remediated by revoking the credentials at source,
+      # tracked in docs/security/leaked-credentials.md, not by rewriting git.
+      # Baselining them is what lets this job fail on anything NEW: a secret
+      # added from here on has a different fingerprint and breaks the build.
       - name: Scan history (redacted)
-        run: gitleaks git --redact --report-format json --report-path gitleaks.json .
+        run: >-
+          gitleaks git --baseline-path .gitleaks-baseline.json
+          --redact --report-format json --report-path gitleaks.json .
       - uses: actions/upload-artifact@v4
         if: always()
         with:
