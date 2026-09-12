@@ -135,14 +135,26 @@ export class ContractorPayrollWorkflowService {
     });
   }
 
-  clients(user: ReqUser) {
-    return this.scope.listAllowedClients(user);
+  async clients(user: ReqUser) {
+    if (user.roleCode !== 'CCO') return this.scope.listAllowedClients(user);
+    const allowed = new Set(
+      await this.scope.getCcoClientIds(user.userId ?? user.id),
+    );
+    if (!allowed.size) return [];
+    return (await this.scope.listAllowedClients(user)).filter((client) =>
+      allowed.has(client.id),
+    );
   }
 
   async list(user: ReqUser, query: Record<string, string>) {
     const clientId = this.scope.resolveClientId(user, query.clientId);
     if (!clientId) throw new BadRequestException('Select a client');
     await this.scope.assertClientAllowed(user, clientId);
+    if (user.roleCode === 'CCO') {
+      await this.scope.assertCcoClientAllowed(user, clientId);
+      if (query.branchId)
+        await this.scope.assertCcoBranchAllowed(user, query.branchId);
+    }
     const scope = await this.scope.getScope(user);
     const params: unknown[] = [clientId];
     const where = ['client_id=$1', 'is_current'];
@@ -182,6 +194,11 @@ export class ContractorPayrollWorkflowService {
 
   private async assertAccess(user: ReqUser, version: PayrollVersion) {
     await this.scope.assertClientAllowed(user, version.client_id);
+    if (user.roleCode === 'CCO') {
+      await this.scope.assertCcoClientAllowed(user, version.client_id);
+      if (version.branch_id)
+        await this.scope.assertCcoBranchAllowed(user, version.branch_id);
+    }
     if (version.branch_id)
       await this.scope.assertBranchAllowed(user, version.branch_id);
     const scope = await this.scope.getScope(user);
@@ -203,7 +220,7 @@ export class ContractorPayrollWorkflowService {
     if (!version.is_current) return [];
     const role = user.roleCode;
     const actions: string[] = [];
-    if (role === 'CONTRACTOR' && ['DRAFT', 'RETURNED'].includes(version.status))
+    if (role === 'CONTRACTOR' && version.status === 'DRAFT')
       actions.push('submit');
     if (role === 'CRM' && version.status === 'SUBMITTED')
       actions.push('approve', 'return');

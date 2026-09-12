@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Client } = require('pg');
 const { DataSource } = require('typeorm');
+const { AccessScopeService } = require('../dist/src/access/access-scope.service');
 const { ContractorMcdComputationEntity } = require('../dist/src/contractor/entities/contractor-mcd-computation.entity');
 const { ContractorQuotationWageEntity } = require('../dist/src/contractor/entities/contractor-quotation-wage.entity');
 const { ContractorComputationService } = require('../dist/src/contractor/contractor-computation.service');
@@ -21,14 +22,22 @@ async function main() {
     ds = new DataSource({ type: 'postgres', uuidExtension: 'pgcrypto', ...connection, username: connection.user, schema,
       extra: { options: `-c search_path=${schema}` }, entities: [ContractorMcdComputationEntity, ContractorQuotationWageEntity], synchronize: true });
     await ds.initialize();
-    await ds.query('CREATE TABLE client_branches(id uuid PRIMARY KEY, branchname text)');
-    await ds.query('CREATE TABLE users(id uuid PRIMARY KEY, name text)');
-    await ds.query("INSERT INTO client_branches VALUES ($1, 'Branch One')", [id(2)]);
-    await ds.query("INSERT INTO users VALUES ($1, 'Contractor One')", [id(3)]);
+    await ds.query('CREATE TABLE client_branches(id uuid PRIMARY KEY, branchname text, clientid uuid, isdeleted boolean DEFAULT false)');
+    await ds.query('CREATE TABLE users(id uuid PRIMARY KEY, name text, owner_cco_id uuid, deleted_at timestamptz)');
+    await ds.query("INSERT INTO client_branches(id,branchname,clientid) VALUES ($1, 'Branch One', $2)", [id(2),id(1)]);
+    await ds.query("INSERT INTO users(id,name) VALUES ($1, 'Contractor One')", [id(3)]);
     const migration = fs.readFileSync(path.join(__dirname, '../migrations/20260913_contractor_payroll_authority.sql'), 'utf8');
     await ds.query(migration); await ds.query(migration);
     const repo = ds.getRepository(ContractorMcdComputationEntity);
+    await ds.query('CREATE TABLE clients(id uuid PRIMARY KEY, assigned_crm_id uuid, is_deleted boolean DEFAULT false)');
+    await ds.query("INSERT INTO users(id,name,owner_cco_id) VALUES ($1,'Managed CRM',$2),($3,'Other CRM',$4)",[id(4),id(6),id(10),id(11)]);
+    await ds.query('INSERT INTO clients(id,assigned_crm_id) VALUES ($1,$2),($3,$4)',[id(1),id(4),id(9),id(10)]);
+    const ccoAccess = new AccessScopeService({}, {}, {manager:ds.manager}, {manager:ds.manager}, {});
     const scope = {
+      assertCcoClientAllowed: (u,c)=>ccoAccess.assertCcoClientAllowed(u,c),
+      assertCcoBranchAllowed: (u,b)=>ccoAccess.assertCcoBranchAllowed(u,b),
+      getCcoClientIds: (u)=>ccoAccess.getCcoClientIds(u),
+      listAllowedClients: async()=>[{id:id(1),clientName:'Managed client'},{id:id(9),clientName:'Other client'}],
       assertClientAllowed: async (u,c) => { assert.equal(c,id(1)); },
       assertBranchAllowed: async (u,b) => { assert.equal(b,id(2)); },
       getScope: async (u) => u.roleCode === 'BRANCH_DESK' ? { level: 'branches', branchIds: u.branchIds } : { level: 'client', clientId: id(1) },
@@ -72,6 +81,12 @@ async function main() {
     assert.equal(exported.getWorksheet('PF working').getCell('C2').value,10000);
     await workflow.transition(auditor,firstId,'verify','Evidence: attendance A1, rates R1, payment P1 and statutory S1 checked');
     await assert.rejects(workflow.transition(crm,firstId,'reopen','Need to change payroll'),/not available/);
+    assert.deepEqual((await workflow.clients(cco)).map(c=>c.id),[id(1)]);
+    assert.deepEqual(await workflow.clients(user('CCO',12)),[]);
+    await assert.rejects(workflow.list(user('CCO',11),{}),/CCO scope/);
+    await assert.rejects(workflow.pack(user('CCO',11),firstId),/CCO scope/);
+    await assert.rejects(workflow.history(user('CCO',11),firstId),/CCO scope/);
+    await assert.rejects(workflow.transition(user('CCO',11),firstId,'reopen','Unauthorized correction'),/CCO scope/);
     await workflow.transition(cco,firstId,'reopen','Authorized correction to attendance');
     await assert.rejects(workflow.pack(contractor,firstId),/CRM-approved/);
     const second=await workflow.saveDraft(contractor,key,calculate); assert.equal(second.version.version,2);
@@ -82,6 +97,15 @@ async function main() {
     const submissions=await Promise.allSettled([workflow.transition(contractor,second.version.id,'submit','Attendance ready for review'),workflow.transition(contractor,second.version.id,'submit','Attendance ready for review')]);
     assert.equal(submissions.filter((r)=>r.status==='fulfilled').length,1);
     assert.equal(Number((await ds.query("SELECT count(*) FROM contractor_payroll_events WHERE version_id=$1 AND action='SUBMIT'",[second.version.id]))[0].count),1);
+    await workflow.transition(crm,second.version.id,'return','Correct attendance before resubmission');
+    await assert.rejects(workflow.transition(contractor,second.version.id,'submit','No correction made'),/not available/);
+    const third=await workflow.saveDraft(contractor,key,calculate); assert.equal(third.version.version,3);
+    await workflow.transition(contractor,third.version.id,'submit','Corrected attendance submitted');
+    await workflow.transition(crm,third.version.id,'approve','Corrected attendance reviewed');
+    await workflow.transition(auditor,third.version.id,'return','Correct the reviewed payroll evidence');
+    await assert.rejects(workflow.transition(contractor,third.version.id,'submit','Resubmit unchanged snapshot'),/not available/);
+    const fourth=await workflow.saveDraft(contractor,key,calculate); assert.equal(fourth.version.version,4);
+    await workflow.transition(contractor,fourth.version.id,'submit','Recalculated payroll submitted');
     console.log('PASS: actual entity schema + migration, transactional preservation, role visibility, approval, independent verification, controlled reopening, immutable snapshots and concurrent transitions.');
   } finally { if(ds?.isInitialized) await ds.destroy(); await admin.query(`DROP SCHEMA "${schema}" CASCADE`); await admin.end(); }
 }

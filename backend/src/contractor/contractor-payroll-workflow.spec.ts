@@ -31,6 +31,13 @@ function makeWorkflow(record = version('SUBMITTED')) {
   manager.transaction = (fn: any) => fn(manager);
   const scope: any = {
     assertClientAllowed: jest.fn(),
+    assertCcoClientAllowed: jest.fn(),
+    assertCcoBranchAllowed: jest.fn(),
+    getCcoClientIds: jest.fn().mockResolvedValue(['client']),
+    listAllowedClients: jest
+      .fn()
+      .mockResolvedValue([{ id: 'client' }, { id: 'other' }]),
+    resolveClientId: jest.fn().mockReturnValue('client'),
     assertBranchAllowed: jest.fn(),
     getScope: jest
       .fn()
@@ -217,5 +224,94 @@ describe('contractor attendance authority', () => {
     expect(
       await svc.findEmployee('client', 'CONTRACTOR', 'branch', 'E001', ''),
     ).toBeNull();
+  });
+});
+
+describe('payroll review corrections', () => {
+  it('requires a new calculation after a return', async () => {
+    const { service, query } = makeWorkflow(version('RETURNED'));
+    expect(
+      service.allowedActions(version('RETURNED'), user('CONTRACTOR')),
+    ).toEqual([]);
+    await expect(
+      service.transition(
+        user('CONTRACTOR'),
+        'version',
+        'submit',
+        'Resubmit unchanged payroll',
+      ),
+    ).rejects.toThrow('not available');
+    expect(query.mock.calls.some(([sql]) => sql.startsWith('UPDATE'))).toBe(
+      false,
+    );
+  });
+  it('limits CCO company options to managed CRM clients', async () => {
+    const { service, scope } = makeWorkflow();
+    expect(await service.clients(user('CCO'))).toEqual([{ id: 'client' }]);
+    expect(scope.getCcoClientIds).toHaveBeenCalledWith('CCO');
+    scope.getCcoClientIds.mockResolvedValue([]);
+    scope.listAllowedClients.mockClear();
+    expect(await service.clients(user('CCO'))).toEqual([]);
+    expect(scope.listAllowedClients).not.toHaveBeenCalled();
+  });
+  it.each(['list', 'pack', 'history', 'reopen'])(
+    'denies CCO access outside its management span: %s',
+    async (operation) => {
+      const { service, scope, query } = makeWorkflow(
+        version('VERIFIED_LOCKED'),
+      );
+      scope.assertCcoClientAllowed.mockRejectedValue(
+        new ForbiddenException('Client not in CCO scope'),
+      );
+      const result =
+        operation === 'list'
+          ? service.list(user('CCO'), {})
+          : operation === 'pack'
+            ? service.pack(user('CCO'), 'version')
+            : operation === 'history'
+              ? service.history(user('CCO'), 'version')
+              : service.transition(
+                  user('CCO'),
+                  'version',
+                  'reopen',
+                  'Correction requested',
+                );
+      await expect(result).rejects.toThrow('CCO scope');
+      expect(query.mock.calls.some(([sql]) => sql.startsWith('UPDATE'))).toBe(
+        false,
+      );
+    },
+  );
+  it('also enforces the CCO branch check', async () => {
+    const { service, scope } = makeWorkflow(version('VERIFIED_LOCKED'));
+    scope.assertCcoBranchAllowed.mockRejectedValue(
+      new ForbiddenException('Branch not in CCO scope'),
+    );
+    await expect(
+      service.transition(
+        user('CCO'),
+        'version',
+        'reopen',
+        'Correction requested',
+      ),
+    ).rejects.toThrow('Branch not in CCO scope');
+  });
+  it('keeps the computation row endpoint inside the same CCO scope', async () => {
+    const svc: any = new (ContractorComputationService as any)(
+      ...new Array(12).fill({}),
+    );
+    svc.scope = {
+      resolveClientId: () => 'client',
+      assertClientAllowed: jest.fn(),
+      assertCcoClientAllowed: jest
+        .fn()
+        .mockRejectedValue(new ForbiddenException('Client not in CCO scope')),
+    };
+    await expect(svc.listComputationsForScope(user('CCO'), {})).rejects.toThrow(
+      'CCO scope',
+    );
+    await expect(
+      svc.listQuotations(user('CCO'), { clientId: 'client' }),
+    ).rejects.toThrow('CCO scope');
   });
 });

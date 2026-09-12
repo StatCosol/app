@@ -59,3 +59,9 @@ Validation results are recorded below after execution. PostgreSQL tests use disp
 - Downloaded workbook was reopened with ExcelJS and checked for approval status, payroll row count and PF working amount.
 - Migration coverage initially identified missing deploy registration; the runner now includes the new migration and the guard passes.
 - Production deployment and full statutory/evidence reconciliation have not been performed by these local checks. The AI provider is unchanged from PR #646.
+
+### Review corrections
+
+- CCO company options, calculation/quotation lists, workflow lists, history, downloads and reopening now enforce the existing managed-CRM client scope. Branch-sensitive operations also use the CCO branch check; generic global CCO access is insufficient.
+- Returned payroll cannot be resubmitted. Recalculation creates a new draft version before submission, for both CRM returns and auditor returns.
+- Final affected suite: **120 tests passed across 13 suites**, including migration coverage; backend build and affected lint passed. PostgreSQL regression now executes the real CCO ownership SQL against managed/unmanaged CRM fixtures and covers both return/recalculate/resubmit paths.

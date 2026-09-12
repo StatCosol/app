@@ -84,6 +84,10 @@ export class ContractorComputationService {
     const clientId = this.scope.resolveClientId(user, q.clientId);
     if (!clientId) throw new BadRequestException('clientId is required');
     await this.scope.assertClientAllowed(user, clientId);
+    if (user.roleCode === 'CCO') {
+      await this.scope.assertCcoClientAllowed(user, clientId);
+      if (q.branchId) await this.scope.assertCcoBranchAllowed(user, q.branchId);
+    }
     const qb = this.computationRepo
       .createQueryBuilder('c')
       .leftJoin(UserEntity, 'u', 'u.id = c.contractor_user_id')
@@ -940,6 +944,8 @@ export class ContractorComputationService {
       throw new ForbiddenException('CRM access required');
     if (!clientId) throw new BadRequestException('clientId is required');
     await this.scope.assertClientAllowed(user, clientId);
+    if (user.roleCode === 'CCO')
+      await this.scope.assertCcoClientAllowed(user, clientId);
     return clientId;
   }
 
