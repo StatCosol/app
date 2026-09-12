@@ -1,3 +1,4 @@
+import { PayrollDocumentReconciliationService } from '../payroll-reconciliation/payroll-document-reconciliation.service';
 import {
   BadRequestException,
   ForbiddenException,
@@ -36,7 +37,15 @@ export class AuditDocumentReviewService {
     private readonly ncEngine: NonComplianceEngineService,
     private readonly listingService: AuditListingService,
     private readonly rejectionMail: RejectionMailService,
+    private readonly reconciliation: PayrollDocumentReconciliationService,
   ) {}
+
+  async reconcileDocument(user: ReqUser, auditId: string, documentId: string) {
+    const documents = await this.listDocumentsForAudit(user, auditId);
+    if (!documents.contractorDocuments.some((doc) => doc.id === documentId))
+      throw new ForbiddenException('Document is not in this assigned audit');
+    return this.reconciliation.check(documentId);
+  }
 
   private assertAuditor(user: ReqUser) {
     if (!user || user.roleCode !== 'AUDITOR') {
@@ -130,6 +139,8 @@ export class AuditDocumentReviewService {
                 cd.file_path AS "filePath", cd.file_type AS "fileType",
                 cd.file_size AS "fileSize", cd.status,
                 cd.review_notes AS "reviewNotes",
+                (SELECT pc.result FROM payroll_document_checks pc JOIN contractor_payroll_versions pv ON pv.id=pc.payroll_version_id AND pv.is_current
+                  WHERE pc.document_id=cd.id AND pc.file_path=cd.file_path ORDER BY pc.created_at DESC LIMIT 1) AS "payrollCheck",
                 cd.reviewed_by_user_id AS "reviewedByUserId",
                 cd.reviewed_at AS "reviewedAt",
                 cd.doc_month AS "docMonth", cd.expiry_date AS "expiryDate",

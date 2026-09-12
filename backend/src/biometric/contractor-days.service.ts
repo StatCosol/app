@@ -16,6 +16,7 @@ export interface ContractorDaysRow {
   employeeName: string;
   skillCategory: string | null;
   daysWorked: number;
+  attendanceDates?: string[];
   firstPunch: string;
   lastPunch: string;
 }
@@ -99,6 +100,7 @@ export class ContractorDaysService {
              ce.skill_category                        AS "skillCategory",
              COUNT(DISTINCT (p.punch_time + ($4 || ' minutes')::interval)::date)::int
                                                       AS "daysWorked",
+             ARRAY_AGG(DISTINCT ((p.punch_time + ($4 || ' minutes')::interval)::date)::text) AS "attendanceDates",
              MIN(p.punch_time)                        AS "firstPunch",
              MAX(p.punch_time)                        AS "lastPunch"
         FROM contractor_biometric_punches p

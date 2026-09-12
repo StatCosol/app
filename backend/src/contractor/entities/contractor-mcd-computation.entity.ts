@@ -239,6 +239,19 @@ export class ContractorMcdComputationEntity {
   @Column({ name: 'mismatch_reason', type: 'text', nullable: true })
   mismatchReason: string | null;
 
+  @Column({
+    name: 'total_earnings',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+    transformer: numericTransformer,
+  })
+  totalEarnings: number | null;
+
+  @Column({ name: 'calculation_snapshot', type: 'jsonb', nullable: true })
+  calculationSnapshot: Record<string, unknown> | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

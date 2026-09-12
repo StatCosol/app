@@ -60,6 +60,8 @@ const serviceMigrationFiles = new Set([
   // Versioned contractor payroll approval and independent verification.
   '20260913_contractor_payroll_authority.sql',
   '20260915_contractor_attendance_approval.sql',
+  '20260916_contractor_rate_cards.sql',
+  '20260917_payroll_document_checks.sql',
   // FaceDesk PIN-then-face 1:1 verification.
   '20260722b_facedesk_pin_verification.sql',
   // FaceDesk per-branch PIN uniqueness.

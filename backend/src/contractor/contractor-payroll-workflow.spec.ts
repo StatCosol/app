@@ -130,11 +130,13 @@ describe('contractor payroll approval authority', () => {
     ).rejects.toThrow('review reason');
     expect(query).not.toHaveBeenCalled();
   });
-  it('denies draft downloads and other contractors', async () => {
+  it('allows generated draft reports but denies other contractors', async () => {
     const { service } = makeWorkflow(version('DRAFT'));
-    await expect(service.pack(user('CONTRACTOR'), 'version')).rejects.toThrow(
-      'CRM-approved',
-    );
+    await expect(
+      service.pack(user('CONTRACTOR'), 'version'),
+    ).resolves.toMatchObject({
+      version: { status: 'DRAFT', canDownload: true },
+    });
     await expect(
       service.pack(user('CONTRACTOR', 'OTHER'), 'version'),
     ).rejects.toThrow('another contractor');

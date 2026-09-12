@@ -1,3 +1,4 @@
+import { PayrollDocumentReconciliationService } from '../payroll-reconciliation/payroll-document-reconciliation.service';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -43,6 +44,7 @@ export class ContractorDocumentsService {
     @InjectRepository(AuditObservationEntity)
     private readonly observationRepo: Repository<AuditObservationEntity>,
     private readonly riskCache: AiRiskCacheInvalidatorService,
+    private readonly reconciliation?: PayrollDocumentReconciliationService,
   ) {}
 
   private toUploadsRelativePath(filePath: string): string {
@@ -213,6 +215,11 @@ export class ContractorDocumentsService {
     });
 
     const saved = await this.repo.save(row);
+    await this.reconciliation
+      ?.check(saved.id)
+      .catch(() =>
+        this.logger.warn('Document payroll comparison needs a retry'),
+      );
     this.riskCache
       .invalidateBranch(saved.branchId)
       .catch((e) =>
@@ -421,6 +428,11 @@ export class ContractorDocumentsService {
     doc.expiryDate = null;
 
     const saved = await this.repo.save(doc);
+    await this.reconciliation
+      ?.check(saved.id)
+      .catch(() =>
+        this.logger.warn('Document payroll comparison needs a retry'),
+      );
     this.riskCache
       .invalidateBranch(saved.branchId)
       .catch((e) =>

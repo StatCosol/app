@@ -37,6 +37,12 @@ export class ContractorQuotationWageEntity {
   @Column({ name: 'skill_category', type: 'varchar', length: 20 })
   skillCategory: ContractorWageSkill;
 
+  @Column({ name: 'designation', type: 'varchar', length: 120, default: '' })
+  designation: string;
+
+  @Column({ name: 'rate_card', type: 'jsonb', nullable: true })
+  rateCard: import('../contractor-rate-card').ContractorRateCard | null;
+
   @Column({
     name: 'daily_wage',
     type: 'numeric',

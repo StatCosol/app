@@ -966,6 +966,43 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     return `${environment.apiBaseUrl}/api/v1/files/download?p=${encodeURIComponent(filePath)}`;
   }
 
+
+
+  reconcileDocument(doc: any): void {
+    if (!this.auditId || this.reviewingDocId) return;
+    this.reviewingDocId = doc.id;
+    this.auditsApi
+      .auditorReconcileDocument(this.auditId, doc.id)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.reviewingDocId = null;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (result) => {
+          doc.payrollCheck = result;
+          if (result.status === 'NC' && !(this.docRemarks[doc.id] || '').trim())
+            this.docRemarks[doc.id] = result.findings
+              .map((f: any) =>
+                [
+                  f.employeeCode,
+                  f.field,
+                  f.remark,
+                  f.expected != null ? 'Expected: ' + f.expected : '',
+                  f.submitted != null ? 'Uploaded: ' + f.submitted : '',
+                ]
+                  .filter(Boolean)
+                  .join(' · '),
+              )
+              .join('; ');
+          this.toast.success('Payroll comparison completed: ' + result.status);
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Document comparison failed'),
+      });
+  }
+
   reviewDocument(doc: any, decision: 'COMPLIED' | 'NON_COMPLIED'): void {
     if (!this.auditId || this.reviewingDocId) return;
     const remarks = (this.docRemarks[doc.id] || '').trim();

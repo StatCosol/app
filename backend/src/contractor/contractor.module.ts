@@ -1,3 +1,4 @@
+import { PayrollDocumentReconciliationModule } from '../payroll-reconciliation/payroll-document-reconciliation.module';
 import { BiometricModule } from '../biometric/biometric.module';
 import { ContractorPayrollWorkflowService } from './contractor-payroll-workflow.service';
 import { ContractorPayrollWorkflowController } from './contractor-payroll-workflow.controller';
@@ -78,6 +79,7 @@ import { PayrollClientSetupEntity } from '../payroll/entities/payroll-client-set
 
 @Module({
   imports: [
+    PayrollDocumentReconciliationModule,
     BiometricModule,
     // Same PT/LWF resolution employee payroll uses — see StateSlabModule.
     StateSlabModule,

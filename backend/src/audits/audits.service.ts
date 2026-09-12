@@ -813,6 +813,14 @@ export class AuditsService implements OnModuleInit {
   // ─── Auditor: List Contractors for Client ──────────────────────
   // ─── Document review — delegated to AuditDocumentReviewService ───
 
+  async reconcileDocument(user: ReqUser, auditId: string, documentId: string) {
+    return this.documentReviewService.reconcileDocument(
+      user,
+      auditId,
+      documentId,
+    );
+  }
+
   async listDocumentsForAudit(user: ReqUser, auditId: string) {
     return this.documentReviewService.listDocumentsForAudit(user, auditId);
   }

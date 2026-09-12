@@ -165,18 +165,20 @@
       </div>
 
       <div class="quote-grid">
+        <label>Quotation scope<select name="quoteBranch" [(ngModel)]="quoteBranchId" class="form-control"><option value="">All assigned sites (default rate)</option>@for(branch of quoteBranches; track branch.id){<option [value]="branch.id">{{branch.branchName || branch.name}}</option>}</select></label>
         <label class="form-group">
           <span>Effective From</span>
           <input type="date" name="quoteEffectiveFrom" [(ngModel)]="quoteEffectiveFrom" class="form-control" />
         </label>
         <label class="form-group">
           <span>Quotation Excel</span>
-          <input type="file" accept=".xlsx,.xls" (change)="onQuoteFileSelected($event)" class="form-control" />
+          <input type="file" accept=".xlsx" (change)="onQuoteFileSelected($event)" class="form-control" />
         </label>
       </div>
 
+      <button type="button" (click)="downloadQuoteTemplate()">Download component quotation template</button>
       <div class="quote-format">
-        Required columns: skill_category, daily_wage. Optional: monthly_wage, effective_from, effective_to, source, notes.
+        Use the component template for designation-specific employee pay, employer costs and billing fees. Existing skill_category / daily_wage sheets remain supported. Upload a revised quotation only when rates change.
       </div>
 
       @if (quoteUploadResult) {
@@ -184,6 +186,7 @@
         {{ quoteUploadResult.inserted || 0 }} inserted,
         {{ quoteUploadResult.updated || 0 }} updated,
         {{ quoteUploadResult.errors || 0 }} errors
+        @for(result of quoteUploadResult.results || []; track $index){@if(result.message){<p>Row {{result.rowNumber}}: {{result.message}}</p>}}
       </div>
 }
 

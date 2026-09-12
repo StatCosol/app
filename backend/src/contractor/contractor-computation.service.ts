@@ -1,3 +1,9 @@
+import { PayrollDocumentReconciliationService } from '../payroll-reconciliation/payroll-document-reconciliation.service';
+import {
+  calculateRateCard,
+  calculateRateCardSegments,
+  validateRateCard,
+} from './contractor-rate-card';
 import { ContractorDaysService } from '../biometric/contractor-days.service';
 import {
   BadRequestException,
@@ -5,6 +11,7 @@ import {
   NotFoundException,
   ForbiddenException,
   Injectable,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as ExcelJS from 'exceljs';
@@ -27,6 +34,7 @@ import { ContractorMcdComputationEntity } from './entities/contractor-mcd-comput
 import {
   ContractorPayrollWorkflowService,
   DRAFT_PAYROLL_ROLES,
+  auditorPayrollScope,
 } from './contractor-payroll-workflow.service';
 
 const SKILLS: ContractorWageSkill[] = [
@@ -40,6 +48,7 @@ type AttendanceComputeRow = Record<string, unknown>;
 
 @Injectable()
 export class ContractorComputationService {
+  private readonly logger = new Logger(ContractorComputationService.name);
   constructor(
     @InjectRepository(ContractorQuotationWageEntity)
     private readonly quotationRepo: Repository<ContractorQuotationWageEntity>,
@@ -62,6 +71,7 @@ export class ContractorComputationService {
     private readonly notifications: NotificationsService,
     private readonly workflow: ContractorPayrollWorkflowService,
     private readonly contractorDays: ContractorDaysService,
+    private readonly reconciliation?: PayrollDocumentReconciliationService,
   ) {}
 
   async listQuotations(user: ReqUser, q: Record<string, string>) {
@@ -125,6 +135,7 @@ export class ContractorComputationService {
         'c.basic_wage AS "basicWage"',
         'c.other_earnings AS "otherEarnings"',
         'c.gross_wage AS "grossWage"',
+        'c.total_earnings AS "totalEarnings"',
         'c.pf_wage AS "pfWage"',
         'c.pf_deduction AS "pfDeduction"',
         'c.pf_employer_contribution AS "pfEmployerContribution"',
@@ -137,10 +148,15 @@ export class ContractorComputationService {
         'c.net_salary AS "netSalary"',
         'c.match_status AS "matchStatus"',
         'c.mismatch_reason AS "mismatchReason"',
+        'c.calculation_snapshot AS "calculationSnapshot"',
         'c.created_at AS "createdAt"',
       ])
       .where('c.client_id = :clientId', { clientId });
 
+    if (user.roleCode === 'AUDITOR')
+      qb.andWhere(auditorPayrollScope('c', ':payrollAuditorId'), {
+        payrollAuditorId: user.id,
+      });
     if (!DRAFT_PAYROLL_ROLES.includes(user.roleCode)) {
       qb.andWhere("pv.status IN ('CRM_APPROVED','VERIFIED_LOCKED')");
     }
@@ -232,6 +248,10 @@ export class ContractorComputationService {
         );
       rows.push({
         employee_code: employeeCode,
+        attendance_date: this.cellString(row, headers, [
+          'attendance_date',
+          'date',
+        ]),
         employee_name: employeeName,
         skill_category: this.cellString(row, headers, [
           'skill_category',
@@ -239,7 +259,38 @@ export class ContractorComputationService {
           'category',
         ]),
         days_worked: daysWorked ?? 0,
+        ot_hours: this.cellString(row, headers, ['ot_hours', 'overtime_hours'])
+          ? Number(
+              this.cellString(row, headers, ['ot_hours', 'overtime_hours']),
+            )
+          : 0,
       });
+    }
+    let submittedRows = rows;
+    if (rows.some((row) => row.attendance_date)) {
+      const grouped = new Map<string, AttendanceComputeRow>();
+      for (const row of rows) {
+        const code = this.unknownToString(row.employee_code);
+        let group = grouped.get(code);
+        if (!group) {
+          group = {
+            employee_code: code,
+            employee_name: row.employee_name,
+            days_worked: 0,
+            ot_hours: 0,
+            daily_attendance: [],
+          };
+          grouped.set(code, group);
+        }
+        group.days_worked = Number(group.days_worked) + Number(row.days_worked);
+        group.ot_hours = Number(group.ot_hours) + Number(row.ot_hours || 0);
+        (group.daily_attendance as any[]).push({
+          date: row.attendance_date,
+          days: Number(row.days_worked),
+          hours: Number(row.ot_hours || 0),
+        });
+      }
+      submittedRows = [...grouped.values()];
     }
     return this.computeMcdRows(user, {
       clientId: dto.clientId ?? '',
@@ -247,7 +298,7 @@ export class ContractorComputationService {
       branchId: dto.branchId ?? null,
       periodMonth: dto.periodMonth,
       uploadId: dto.uploadId ?? null,
-      rows,
+      rows: submittedRows,
     });
   }
 
@@ -276,7 +327,10 @@ export class ContractorComputationService {
       dto.branchId,
     );
 
-    const sheet = await this.firstSheet(file.buffer);
+    const sheet = this.normalizeQuotationSheet(
+      await this.firstSheet(file.buffer),
+      dto.effectiveFrom,
+    );
     const headers = this.headers(sheet);
     let inserted = 0;
     const updated = 0;
@@ -290,7 +344,7 @@ export class ContractorComputationService {
         'skill',
         'category',
       ]);
-      const dailyWage = this.cellNumber(row, headers, [
+      let dailyWage = this.cellNumber(row, headers, [
         'daily_wage',
         'quotation_daily_wage',
         'wage_rate',
@@ -299,21 +353,44 @@ export class ContractorComputationService {
       if (!skillRaw && dailyWage == null) continue;
       try {
         const skillCategory = this.normalizeSkill(skillRaw);
+        const designation = this.cellString(row, headers, ['designation'])
+          .trim()
+          .toUpperCase();
+        if (designation.length > 120)
+          throw new BadRequestException('Designation exceeds 120 characters');
+        const cardText = this.cellString(row, headers, ['rate_card_json']);
+        const rateCard = cardText
+          ? validateRateCard(JSON.parse(cardText))
+          : null;
+        if (rateCard)
+          dailyWage =
+            calculateRateCard(rateCard, rateCard.divisor).amounts.BASIC_DA /
+            rateCard.divisor;
         if (!dailyWage || dailyWage <= 0)
           throw new BadRequestException('daily_wage must be greater than zero');
         const effectiveFrom =
           this.cellString(row, headers, ['effective_from']) ||
           dto.effectiveFrom;
-        if (!effectiveFrom || !/^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)) {
+        if (!effectiveFrom || !this.validDate(effectiveFrom)) {
           throw new BadRequestException(
             'effective_from is required as YYYY-MM-DD',
           );
         }
+        const effectiveTo =
+          this.cellString(row, headers, ['effective_to']) || null;
+        if (
+          effectiveTo &&
+          (!this.validDate(effectiveTo) || effectiveTo < effectiveFrom)
+        )
+          throw new BadRequestException(
+            'effective_to must be a valid date on or after effective_from',
+          );
         const where = {
           clientId,
           contractorUserId: dto.contractorUserId,
           branchId: dto.branchId ?? IsNull(),
           skillCategory,
+          designation,
           effectiveFrom,
         } as any;
         await this.quotationRepo.manager.transaction(async (manager) => {
@@ -326,6 +403,7 @@ export class ContractorComputationService {
                 dto.contractorUserId,
                 dto.branchId || '',
                 skillCategory,
+                designation,
                 effectiveFrom,
               ]
                 .join(':')
@@ -345,16 +423,24 @@ export class ContractorComputationService {
               contractorUserId: dto.contractorUserId,
               branchId: dto.branchId ?? null,
               skillCategory,
+              designation,
               effectiveFrom,
               createdByUserId: user.id,
             });
-          entity.dailyWage = dailyWage;
+          entity.rateCard = rateCard;
+          entity.dailyWage = rateCard
+            ? calculateRateCard(rateCard, rateCard.divisor).amounts.BASIC_DA /
+              rateCard.divisor
+            : dailyWage!;
+          if (!Number.isFinite(entity.dailyWage) || entity.dailyWage <= 0)
+            throw new BadRequestException(
+              'A positive BASIC_DA earning is required',
+            );
           entity.monthlyWage = this.cellNumber(row, headers, [
             'monthly_wage',
             'monthly_rate',
           ]);
-          entity.effectiveTo =
-            this.cellString(row, headers, ['effective_to']) || null;
+          entity.effectiveTo = effectiveTo;
           entity.source =
             this.cellString(row, headers, ['source']) || file.originalname;
           entity.notes =
@@ -439,6 +525,15 @@ export class ContractorComputationService {
         rows: summary.rows.map((row) => ({
           employee_code: row.employeeCode,
           days_worked: row.daysWorked,
+          ...(row.attendanceDates
+            ? {
+                daily_attendance: row.attendanceDates.map((date) => ({
+                  date,
+                  days: 1,
+                  hours: 0,
+                })),
+              }
+            : {}),
         })),
       },
       'SYSTEM',
@@ -527,7 +622,6 @@ export class ContractorComputationService {
         'hra',
         'ot',
         'ot_amount',
-        'ot_hours',
         'arrears',
         'attendance_bonus',
         'attn_bonus',
@@ -547,6 +641,16 @@ export class ContractorComputationService {
           );
         delete row[field];
       }
+      const hours = Number(row.ot_hours || 0);
+      if (!Number.isFinite(hours) || hours < 0 || hours > daysInMonth * 24)
+        throw new BadRequestException('Invalid overtime hours');
+      if (row.daily_attendance)
+        this.validateDatedAttendance(
+          row.daily_attendance,
+          input.periodMonth,
+          days,
+          hours,
+        );
       delete row.pf_ceiling_enabled;
     }
     // Store only attendance fields; wages in vendor documents are reconciliation evidence.
@@ -570,6 +674,10 @@ export class ContractorComputationService {
         employee_code: employee.employeeCode,
         employee_name: employee.name,
         days_worked: Number(row.days_worked ?? row.days),
+        ...(Number(row.ot_hours) ? { ot_hours: Number(row.ot_hours) } : {}),
+        ...(row.daily_attendance
+          ? { daily_attendance: row.daily_attendance }
+          : {}),
       });
     }
     if (input.uploadId) {
@@ -646,6 +754,9 @@ export class ContractorComputationService {
     const clientId = this.scope.resolveClientId(user, query.clientId);
     if (!clientId) throw new BadRequestException('Select a client');
     await this.scope.assertClientAllowed(user, clientId);
+    const offset = Number(query.offset || 0);
+    if (!Number.isSafeInteger(offset) || offset < 0)
+      throw new BadRequestException('Invalid page offset');
     const params: unknown[] = [clientId];
     const where = ['a.client_id=$1', 'a.is_current'];
     if (user.roleCode === 'CONTRACTOR') {
@@ -663,12 +774,14 @@ export class ContractorComputationService {
       `SELECT a.*, b.branchname AS branch_name, u.name AS contractor_name
        FROM contractor_attendance_batches a JOIN client_branches b ON b.id=a.branch_id
        JOIN users u ON u.id=a.contractor_user_id WHERE ${where.join(' AND ')}
-       ORDER BY a.created_at DESC LIMIT 200`,
+       ORDER BY a.created_at DESC, a.id DESC LIMIT 51 OFFSET ${offset}`,
       params,
     );
     return {
-      data: data.map((row) => ({
+      hasMore: data.length > 50,
+      data: data.slice(0, 50).map((row) => ({
         ...row,
+        rows_snapshot: row.approved_rows_snapshot || row.rows_snapshot,
         canReview: this.isAttendanceApprover(user) && row.status === 'PENDING',
       })),
     };
@@ -679,6 +792,11 @@ export class ContractorComputationService {
     id: string,
     decision: string,
     remarks: string,
+    adjustments?: Array<{
+      employee_code: string;
+      days_worked: number;
+      ot_hours?: number;
+    }>,
   ) {
     if (!this.isAttendanceApprover(user))
       throw new ForbiddenException(
@@ -707,6 +825,49 @@ export class ContractorComputationService {
         'Attendance is outside your assigned branch',
       );
     await this.scope.assertBranchAllowed(user, batch.branch_id);
+    let approvedRows = batch.rows_snapshot;
+    if (decision === 'approve' && adjustments !== undefined) {
+      if (
+        !Array.isArray(adjustments) ||
+        adjustments.length !== batch.rows_snapshot.length
+      )
+        throw new BadRequestException(
+          'Review must contain every submitted employee',
+        );
+      const seen = new Set<string>(),
+        daysInMonth = new Date(
+          Number(batch.period_month.slice(0, 4)),
+          Number(batch.period_month.slice(5)),
+          0,
+        ).getDate();
+      approvedRows = adjustments.map((row) => {
+        const original = batch.rows_snapshot.find(
+          (item) => item.employee_code === row.employee_code,
+        );
+        if (
+          !original ||
+          seen.has(row.employee_code) ||
+          typeof row.days_worked !== 'number' ||
+          !Number.isFinite(row.days_worked) ||
+          row.days_worked < 0 ||
+          row.days_worked > daysInMonth ||
+          !Number.isFinite(Number(row.ot_hours || 0)) ||
+          Number(row.ot_hours || 0) < 0 ||
+          Number(row.ot_hours || 0) > daysInMonth * 24
+        )
+          throw new BadRequestException('Invalid branch attendance correction');
+        seen.add(row.employee_code);
+        const changed =
+          Number(original.days_worked) !== row.days_worked ||
+          Number(original.ot_hours || 0) !== Number(row.ot_hours || 0);
+        return {
+          ...original,
+          days_worked: row.days_worked,
+          ot_hours: Number(row.ot_hours || 0),
+          ...(changed ? { daily_attendance: undefined } : {}),
+        };
+      });
+    }
     const review = async (manager: import('typeorm').EntityManager) => {
       const [current] = await manager.query(
         'SELECT * FROM contractor_attendance_batches WHERE id=$1 FOR UPDATE',
@@ -717,12 +878,13 @@ export class ContractorComputationService {
           'Attendance was already reviewed or replaced. Refresh the queue.',
         );
       await manager.query(
-        'UPDATE contractor_attendance_batches SET status=$2,reviewed_by=$3,reviewed_at=now(),remarks=$4 WHERE id=$1',
+        'UPDATE contractor_attendance_batches SET status=$2,reviewed_by=$3,reviewed_at=now(),remarks=$4,approved_rows_snapshot=$5::jsonb WHERE id=$1',
         [
           id,
           decision === 'approve' ? 'APPROVED' : 'RETURNED',
           user.id,
           remarks.trim(),
+          decision === 'approve' ? JSON.stringify(approvedRows) : null,
         ],
       );
     };
@@ -738,7 +900,7 @@ export class ContractorComputationService {
       batch,
       async () => {
         const output: ContractorMcdComputationEntity[] = [];
-        for (let i = 0; i < batch.rows_snapshot.length; i++) {
+        for (let i = 0; i < approvedRows.length; i++) {
           output.push(
             await this.computeOne(
               batch.client_id,
@@ -747,7 +909,7 @@ export class ContractorComputationService {
               batch.period_month,
               batch.source_document_id || null,
               i + 1,
-              batch.rows_snapshot[i],
+              approvedRows[i],
             ),
           );
         }
@@ -768,6 +930,18 @@ export class ContractorComputationService {
         mismatches,
       );
     }
+    await this.reconciliation
+      ?.checkPeriod(
+        batch.client_id,
+        batch.branch_id,
+        batch.contractor_user_id,
+        batch.period_month,
+      )
+      .catch(() =>
+        this.logger.warn(
+          'Payroll document checks need a retry from the auditor portal',
+        ),
+      );
     return {
       id,
       status: 'APPROVED',
@@ -855,17 +1029,104 @@ export class ContractorComputationService {
         })
       : null;
     const stateCode = branch?.stateCode ?? employee?.stateCode ?? null;
-    const [quote, setup, minimumDailyWage] = await Promise.all([
+    const [initialQuote, setup, minimumDailyWage] = await Promise.all([
       this.findQuotation(
         clientId,
         contractorUserId,
         branchId,
         skillCategory,
         `${periodMonth}-01`,
+        employee.designation || '',
       ),
       this.findPayrollSetup(clientId),
       this.findMinimumDailyWage(stateCode, skillCategory, `${periodMonth}-01`),
     ]);
+    const candidates = await this.quotationRepo
+      .createQueryBuilder('q')
+      .where(
+        'q.client_id = :clientId AND q.contractor_user_id = :contractorUserId',
+        { clientId, contractorUserId },
+      )
+      .andWhere('q.skill_category = :skillCategory', { skillCategory })
+      .andWhere("(q.designation = '' OR q.designation = :designation)", {
+        designation: (employee.designation || '').trim().toUpperCase(),
+      })
+      .andWhere('(q.branch_id IS NULL OR q.branch_id = :branchId)', {
+        branchId,
+      })
+      .andWhere(
+        'q.effective_from <= :end AND (q.effective_to IS NULL OR q.effective_to >= :start)',
+        {
+          start: periodMonth + '-01',
+          end: monthEnd.toISOString().slice(0, 10),
+        },
+      )
+      .orderBy('CASE WHEN q.branch_id IS NOT NULL THEN 1 ELSE 0 END', 'DESC')
+      .addOrderBy('q.designation', 'DESC')
+      .addOrderBy('q.effective_from', 'DESC')
+      .getMany();
+    const quoteForDate = (date: string) =>
+      candidates.find(
+        (q) =>
+          q.effectiveFrom <= date && (!q.effectiveTo || q.effectiveTo >= date),
+      );
+    const selectedIds = new Set<string | undefined>();
+    for (let day = 1; day <= monthEnd.getUTCDate(); day++)
+      selectedIds.add(
+        quoteForDate(periodMonth + '-' + String(day).padStart(2, '0'))?.id,
+      );
+    const dated = raw.daily_attendance as
+      | Array<{ date: string; days: number; hours: number }>
+      | undefined;
+    if (dated) {
+      this.validateDatedAttendance(
+        dated,
+        periodMonth,
+        daysWorked,
+        Number(raw.ot_hours || 0),
+      );
+      if (
+        dated.some(
+          (r) =>
+            (r.days > 0 || r.hours > 0) &&
+            (new Date(r.date).getTime() < start.getTime() ||
+              new Date(r.date).getTime() > end.getTime()),
+        )
+      )
+        throw new BadRequestException(
+          'Dated attendance falls outside employee employment dates',
+        );
+    }
+    if (selectedIds.size > 1 && !dated)
+      throw new BadRequestException(
+        'Quotation changes within this month. Upload attendance with attendance_date, days_worked and ot_hours so each date uses its applicable rate',
+      );
+    const segments: Array<{
+      quote: ContractorQuotationWageEntity;
+      days: number;
+      hours: number;
+    }> = [];
+    if (dated && selectedIds.size > 1) {
+      for (const entry of dated) {
+        if (!entry.days && !entry.hours) continue;
+        const applicable = quoteForDate(entry.date);
+        if (!applicable?.rateCard)
+          throw new BadRequestException(
+            'CRM must configure component rate cards covering every payable date before approving revised-rate attendance',
+          );
+        let segment = segments.find((x) => x.quote.id === applicable.id);
+        if (!segment) {
+          segment = { quote: applicable, days: 0, hours: 0 };
+          segments.push(segment);
+        }
+        segment.days += entry.days;
+        segment.hours += Number(entry.hours || 0);
+      }
+      segments.sort((a, b) =>
+        a.quote.effectiveFrom.localeCompare(b.quote.effectiveFrom),
+      );
+    }
+    const quote = segments[segments.length - 1]?.quote || initialQuote;
     const employeeDailyWage = this.resolveEmployeeDailyWage(employee);
     const payableDailyWage = this.round(quote?.dailyWage ?? 0);
     const basicWage = this.round(
@@ -951,7 +1212,66 @@ export class ContractorComputationService {
     if (minimumDailyWage && payableDailyWage < minimumDailyWage)
       reasons.push('Payable wage is below state minimum wage');
     if (!stateCode) reasons.push('Branch/employee state is missing');
+    const excluded = [
+      ...(employee.pfApplicable === false ? ['PF_EMP', 'PF_ER'] : []),
+      ...(employee.esiApplicable === false ? ['ESI_EMP', 'ESI_ER'] : []),
+    ];
+    const calculationSegments = segments.length
+      ? segments
+      : quote?.rateCard
+        ? [{ quote, days: daysWorked, hours: Number(raw.ot_hours || 0) }]
+        : [];
+    if (
+      calculationSegments.some(
+        (s) =>
+          s.hours > 0 &&
+          !s.quote.rateCard?.components.some((c) => c.method === 'HOURLY'),
+      ) ||
+      (!calculationSegments.length && Number(raw.ot_hours) > 0)
+    )
+      throw new BadRequestException(
+        'CRM must configure an hourly overtime component before approving overtime',
+      );
+    const cardResult = calculationSegments.length
+      ? calculateRateCardSegments(
+          calculationSegments.map((s) => ({
+            card: s.quote.rateCard!,
+            days: s.days,
+            hours: s.hours,
+          })),
+          excluded,
+        )
+      : null;
+    if (cardResult) {
+      for (const code of [
+        'BASIC_DA',
+        ...(employee.pfApplicable ? ['PF_EMP', 'PF_ER'] : []),
+        ...(employee.esiApplicable ? ['ESI_EMP', 'ESI_ER'] : []),
+      ]) {
+        if (!(code in cardResult.amounts))
+          reasons.push('Rate card missing required component ' + code);
+      }
+    }
     return this.computationRepo.create({
+      calculationSnapshot: {
+        quotationId: quote?.id || null,
+        effectiveFrom: quote?.effectiveFrom || null,
+        designation: employee.designation,
+        uan: employee.uan,
+        esic: employee.esic,
+        pfApplicable: employee.pfApplicable,
+        esiApplicable: employee.esiApplicable,
+        rateCard: quote?.rateCard || null,
+        result: cardResult,
+        overtimeHours: Number(raw.ot_hours || 0),
+        segments: calculationSegments.map((s) => ({
+          quotationId: s.quote.id,
+          effectiveFrom: s.quote.effectiveFrom,
+          days: s.days,
+          hours: s.hours,
+          rateCard: s.quote.rateCard,
+        })),
+      },
       uploadId,
       clientId,
       branchId,
@@ -967,19 +1287,37 @@ export class ContractorComputationService {
       minimumDailyWage,
       employeeDailyWage,
       payableDailyWage,
-      basicWage,
-      otherEarnings: this.round(otherEarnings),
-      grossWage,
-      pfWage: pf.wage,
-      pfDeduction,
-      pfEmployerContribution,
-      esiDeduction: esi.employee,
-      esiEmployerContribution: esi.employer,
-      ptDeduction,
-      lwfEmployeeDeduction,
-      lwfEmployerContribution,
-      totalEmployerContribution,
-      netSalary,
+      basicWage: cardResult?.amounts.BASIC_DA ?? basicWage,
+      otherEarnings: cardResult
+        ? this.round(cardResult.earnings - (cardResult.amounts.BASIC_DA || 0))
+        : this.round(otherEarnings),
+      grossWage: cardResult
+        ? this.round(
+            cardResult.earnings -
+              (cardResult.amounts.BONUS || 0) -
+              (cardResult.amounts.LEAVE || 0),
+          )
+        : grossWage,
+      totalEarnings: cardResult?.earnings ?? grossWage,
+      pfWage: cardResult ? cardResult.bases.PF_EMP || 0 : pf.wage,
+      pfDeduction: cardResult ? cardResult.amounts.PF_EMP || 0 : pfDeduction,
+      pfEmployerContribution: cardResult
+        ? cardResult.amounts.PF_ER || 0
+        : pfEmployerContribution,
+      esiDeduction: cardResult ? cardResult.amounts.ESI_EMP || 0 : esi.employee,
+      esiEmployerContribution: cardResult
+        ? cardResult.amounts.ESI_ER || 0
+        : esi.employer,
+      ptDeduction: cardResult ? cardResult.amounts.PT || 0 : ptDeduction,
+      lwfEmployeeDeduction: cardResult
+        ? cardResult.amounts.LWF_EMP || 0
+        : lwfEmployeeDeduction,
+      lwfEmployerContribution: cardResult
+        ? cardResult.amounts.LWF_ER || 0
+        : lwfEmployerContribution,
+      totalEmployerContribution:
+        cardResult?.employerCosts ?? totalEmployerContribution,
+      netSalary: cardResult?.netPay ?? netSalary,
       matchStatus: !quote
         ? 'NO_QUOTATION'
         : reasons.length
@@ -995,6 +1333,7 @@ export class ContractorComputationService {
     branchId: string | null,
     skillCategory: ContractorWageSkill,
     onDate: string,
+    designation = '',
   ) {
     const qb = this.quotationRepo
       .createQueryBuilder('q')
@@ -1003,6 +1342,9 @@ export class ContractorComputationService {
         contractorUserId,
       })
       .andWhere('q.skill_category = :skillCategory', { skillCategory })
+      .andWhere("(q.designation='' OR q.designation=:designation)", {
+        designation: designation.trim().toUpperCase(),
+      })
       .andWhere('q.effective_from <= :onDate', { onDate })
       .andWhere('(q.effective_to IS NULL OR q.effective_to >= :onDate)', {
         onDate,
@@ -1013,7 +1355,8 @@ export class ContractorComputationService {
       });
     else qb.andWhere('q.branch_id IS NULL');
     return qb
-      .orderBy('q.branch_id', 'DESC')
+      .orderBy('CASE WHEN q.branch_id IS NOT NULL THEN 1 ELSE 0 END', 'DESC')
+      .addOrderBy('q.designation', 'DESC')
       .addOrderBy('q.effective_from', 'DESC')
       .getOne();
   }
@@ -1206,6 +1549,304 @@ export class ContractorComputationService {
     if (!SKILLS.includes(skill))
       throw new BadRequestException(`Invalid skill category: ${value}`);
     return skill;
+  }
+
+  private validDate(value: string) {
+    return (
+      /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+      Number.isFinite(Date.parse(value + 'T00:00:00Z')) &&
+      new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) === value
+    );
+  }
+
+  private validateDatedAttendance(
+    value: unknown,
+    month: string,
+    days: number,
+    hours: number,
+  ) {
+    if (!Array.isArray(value) || value.length > 31)
+      throw new BadRequestException(
+        'Provide at most one attendance entry per employee per date',
+      );
+    const dates = new Set<string>();
+    let totalDays = 0,
+      totalHours = 0;
+    for (const row of value) {
+      const date = String(row?.date || '');
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+        date.slice(0, 7) !== month ||
+        !Number.isFinite(Date.parse(date + 'T00:00:00Z')) ||
+        new Date(date + 'T00:00:00Z').toISOString().slice(0, 10) !== date ||
+        dates.has(date) ||
+        typeof row.days !== 'number' ||
+        !Number.isFinite(row.days) ||
+        row.days < 0 ||
+        row.days > 1 ||
+        !Number.isFinite(Number(row.hours || 0)) ||
+        Number(row.hours || 0) < 0 ||
+        Number(row.hours || 0) > 24
+      )
+        throw new BadRequestException('Invalid or duplicate dated attendance');
+      dates.add(date);
+      totalDays += row.days;
+      totalHours += Number(row.hours || 0);
+    }
+    if (
+      Math.abs(totalDays - days) > 0.0001 ||
+      Math.abs(totalHours - hours) > 0.0001
+    )
+      throw new BadRequestException(
+        'Dated attendance must reconcile with payable days and overtime',
+      );
+  }
+
+  private normalizeQuotationSheet(
+    sheet: ExcelJS.Worksheet,
+    effectiveFrom?: string,
+  ) {
+    const headers = this.headers(sheet);
+    if (!headers.has('component_code')) return sheet;
+    const groups = new Map<
+      string,
+      {
+        skill: string;
+        designation: string;
+        from: string;
+        to: string;
+        divisor: number;
+        rounding: string;
+        components: unknown[];
+      }
+    >();
+    for (let n = 2; n <= sheet.rowCount; n++) {
+      const row = sheet.getRow(n);
+      const text = (key: string) => this.cellString(row, headers, [key]);
+      const code = text('component_code').toUpperCase();
+      if (!code) continue;
+      const skill = text('skill_category'),
+        designation = text('designation').toUpperCase();
+      const from = text('effective_from') || effectiveFrom || '',
+        to = text('effective_to');
+      const divisor = Number(text('divisor')),
+        rounding = text('rounding').toUpperCase();
+      const key = JSON.stringify([skill, designation, from]);
+      let group = groups.get(key);
+      if (!group) {
+        group = {
+          skill,
+          designation,
+          from,
+          to,
+          divisor,
+          rounding,
+          components: [],
+        };
+        groups.set(key, group);
+      }
+      if (
+        group.divisor !== divisor ||
+        group.rounding !== rounding ||
+        group.to !== to
+      )
+        throw new BadRequestException(
+          'All rows in a rate card must use the same divisor, rounding and end date',
+        );
+      const prorate = text('prorate').toLowerCase();
+      if (!['true', 'false', 'yes', 'no'].includes(prorate))
+        throw new BadRequestException('Prorate must be yes or no');
+      group.components.push({
+        code,
+        label: text('label') || code,
+        category: text('category').toUpperCase(),
+        method: text('method').toUpperCase(),
+        value: this.cellNumber(row, headers, ['value']),
+        basis: text('basis')
+          .split(',')
+          .map((v) => v.trim().toUpperCase())
+          .filter(Boolean),
+        ...(text('ceiling') ? { ceiling: Number(text('ceiling')) } : {}),
+        prorate: ['true', 'yes'].includes(prorate),
+      });
+    }
+    const normalized = new ExcelJS.Workbook().addWorksheet('Rate cards');
+    normalized.addRow([
+      'skill_category',
+      'designation',
+      'effective_from',
+      'effective_to',
+      'rate_card_json',
+    ]);
+    for (const g of groups.values())
+      normalized.addRow([
+        g.skill,
+        g.designation,
+        g.from,
+        g.to,
+        JSON.stringify({
+          divisor: g.divisor,
+          rounding: g.rounding,
+          components: g.components,
+        }),
+      ]);
+    return normalized;
+  }
+
+  async quotationTemplate() {
+    const workbook = new ExcelJS.Workbook(),
+      sheet = workbook.addWorksheet('Components');
+    sheet.addRow([
+      'skill_category',
+      'designation',
+      'effective_from',
+      'effective_to',
+      'divisor',
+      'rounding',
+      'component_code',
+      'label',
+      'category',
+      'method',
+      'value',
+      'basis',
+      'ceiling',
+      'prorate',
+    ]);
+    for (const [designation, basic, site, bonus, leave] of [
+      ['SECURITY GUARD', 16000, 2000, 1333, 770],
+      ['ASO', 20000, 2150, 1666, 962],
+    ] as const) {
+      const rows = [
+        ['BASIC_DA', 'Basic + DA', 'EARNING', 'FIXED', basic, '', '', 'yes'],
+        ['SITE', 'Site allowance', 'EARNING', 'FIXED', site, '', '', 'yes'],
+        ['BONUS', 'Monthly bonus', 'EARNING', 'FIXED', bonus, '', '', 'yes'],
+        [
+          'LEAVE',
+          'Monthly leave wages',
+          'EARNING',
+          'FIXED',
+          leave,
+          '',
+          '',
+          'yes',
+        ],
+        [
+          'PF_EMP',
+          'Employee PF',
+          'DEDUCTION',
+          'PERCENT',
+          12,
+          'BASIC_DA',
+          15000,
+          'no',
+        ],
+        [
+          'ESI_EMP',
+          'Employee ESI (quotation basis)',
+          'DEDUCTION',
+          'PERCENT',
+          0.75,
+          'BASIC_DA',
+          '',
+          'no',
+        ],
+        [
+          'PT',
+          'Professional tax (quotation amount)',
+          'DEDUCTION',
+          'FIXED',
+          150,
+          '',
+          '',
+          'no',
+        ],
+        [
+          'PF_ER',
+          'Employer PF quotation cost',
+          'EMPLOYER_COST',
+          'FIXED',
+          1950,
+          '',
+          '',
+          'yes',
+        ],
+        [
+          'ESI_ER',
+          'Employer ESI quotation cost',
+          'EMPLOYER_COST',
+          'PERCENT',
+          3.25,
+          'BASIC_DA',
+          '',
+          'no',
+        ],
+      ];
+      for (const r of rows)
+        sheet.addRow(['SKILLED', designation, '', '', 30, 'RUPEE', ...r]);
+    }
+    sheet.getRow(1).font = { bold: true };
+    sheet.columns.forEach((c) => (c.width = 24));
+    const notes = workbook.addWorksheet('Instructions');
+    notes.getColumn(1).width = 120;
+    notes.addRows([
+      [
+        'Sample quotation mapping only. Enter effective dates and verify client-specific statutory bases/rates before use.',
+      ],
+      [
+        'Use one row per component. Percentage basis contains preceding component codes, separated by commas.',
+      ],
+      [
+        'EARNING adds employee pay; DEDUCTION reduces take-home; EMPLOYER_COST and BILLING_FEE add billing only.',
+      ],
+      [
+        'Include bonus and leave payouts once as EARNING; do not repeat them as employer costs.',
+      ],
+      [
+        'Add the remaining approved quotation charges. The sample does not represent a complete commercial bill.',
+      ],
+      [
+        'Overtime: use method HOURLY, value as the approved hourly amount and prorate=no. Use code OT.',
+      ],
+      [
+        'Fixed monthly components with prorate=yes use payable days/divisor; percentage components must use prorate=no.',
+      ],
+    ]);
+    return Buffer.from(await workbook.xlsx.writeBuffer());
+  }
+
+  async attendanceTemplate() {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Attendance');
+    sheet.addRow([
+      'employee_code',
+      'attendance_date',
+      'days_worked',
+      'ot_hours',
+    ]);
+    sheet.columns.forEach((c) => {
+      c.width = 24;
+      c.numFmt = '@';
+    });
+    const instructions = workbook.addWorksheet('Instructions');
+    instructions.getColumn(1).width = 120;
+    instructions.addRows([
+      [
+        'Use enrolled employee IDs. Enter dates as YYYY-MM-DD and one row per employee per date.',
+      ],
+      [
+        'Payable days: 0 to 1 per date (for example 0.5 for half day). Overtime hours: 0 to 24.',
+      ],
+      [
+        'Dates are required when the quotation changes within the selected month. Otherwise one monthly total row per employee can leave attendance_date blank.',
+      ],
+      [
+        'Upload the completed XLSX through Monthly Documents. Branch approval is required before calculation.',
+      ],
+      [
+        'Do not enter wages or deductions here. CRM quotations determine pay; upload the wage register separately for comparison.',
+      ],
+    ]);
+    return Buffer.from(await workbook.xlsx.writeBuffer());
   }
 
   private async firstSheet(buffer: Buffer) {

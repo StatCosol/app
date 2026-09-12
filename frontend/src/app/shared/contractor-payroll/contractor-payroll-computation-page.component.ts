@@ -92,7 +92,7 @@ interface LoadResult {
                 <th>Skill</th>
                 <th class="num">Days</th>
                 <th class="num">Daily Wage</th>
-                <th class="num">Gross</th>
+                <th class="num">Gross (A)</th><th class="num">Total earnings (B)</th>
                 <th class="num">PF / ESI</th>
                 <th class="num">PT / LWF</th>
                 <th class="num">Net</th>
@@ -117,7 +117,7 @@ interface LoadResult {
                     <div>Pay {{ money(row.payableDailyWage) }}</div>
                     <small>Quote {{ money(row.quotationDailyWage) }} / Min {{ money(row.minimumDailyWage) }}</small>
                   </td>
-                  <td class="num">{{ money(row.grossWage) }}</td>
+                  <td class="num">{{ money(row.grossWage) }}</td><td class="num">{{ money(row.totalEarnings ?? row.grossWage) }}</td>
                   <td class="num">
                     <div>PF {{ money(row.pfDeduction) }} / {{ money(row.pfEmployerContribution) }}</div>
                     <small>ESI {{ money(row.esiDeduction) }} / {{ money(row.esiEmployerContribution) }}</small>
