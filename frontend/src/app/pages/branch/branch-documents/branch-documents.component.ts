@@ -56,6 +56,7 @@ interface DocumentItem {
         </div>
       </div>
 
+      @if (loadError) { <div role="alert" class="rounded border border-amber-300 p-4">{{loadError}} <button type="button" class="underline" (click)="loadAllDocs()">Retry</button></div> }
       <!-- Summary -->
       <div class="summary-strip">
         <div class="summary-card border-l-4 border-emerald-500">
@@ -115,7 +116,7 @@ interface DocumentItem {
                 </td>
               </tr>
 }
-              @if (filteredDocs.length === 0) {
+              @if (filteredDocs.length === 0 && !loadError) {
 <tr>
                 <td [attr.colspan]="branches.length > 1 ? 7 : 6" class="text-center text-slate-400 py-12">No documents found</td>
               </tr>
@@ -159,6 +160,8 @@ export class BranchDocumentsComponent implements OnInit, OnDestroy {
   pendingCount = 0;
   rejectedCount = 0;
   loading = true;
+  loadError = '';
+  private loadSubscription?: import('rxjs').Subscription;
   private readonly destroy$ = new Subject<void>();
 
   constructor(
@@ -189,7 +192,9 @@ export class BranchDocumentsComponent implements OnInit, OnDestroy {
     });
   }
 
-  private loadAllDocs(): void {
+  loadAllDocs(): void {
+    this.loadSubscription?.unsubscribe();
+    this.loadError = "";
     if (!this.branches.length) {
       this.loading = false;
       this.cdr.markForCheck();
@@ -198,11 +203,11 @@ export class BranchDocumentsComponent implements OnInit, OnDestroy {
     this.loading = true;
     // Fan out one listDocuments call per branch and merge — each document
     // gets its source branchId/branchName attached so the UI can group/filter.
-    forkJoin(
+    this.loadSubscription = forkJoin(
       this.branches.map((b) =>
-        this.branchSvc.listDocuments(b.id).pipe(catchError(() => of([] as any[]))),
+        this.branchSvc.listDocuments(b.id),
       ),
-    ).pipe(takeUntil(this.destroy$)).subscribe((perBranch) => {
+    ).pipe(takeUntil(this.destroy$)).subscribe({ next: (perBranch) => {
       const all: DocumentItem[] = [];
       perBranch.forEach((rows, idx) => {
         const br = this.branches[idx];
@@ -239,7 +244,11 @@ export class BranchDocumentsComponent implements OnInit, OnDestroy {
       this.applyFilter();
       this.loading = false;
       this.cdr.markForCheck();
-    });
+    }, error: () => {
+      this.loading = false;
+      this.loadError = 'Documents could not be refreshed for all assigned branches. Previously loaded records may be out of date.';
+      this.cdr.markForCheck();
+    }});
   }
 
   applyFilter(): void {

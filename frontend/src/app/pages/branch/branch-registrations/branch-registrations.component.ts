@@ -100,6 +100,9 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
   loading = true;
   requestSaving = false;
   branchId = '';
+  branchOptions: Array<{id:string; name:string}> = [];
+  loadError = '';
+  private workspaceRequest?: import('rxjs').Subscription;
 
   registrations: RegistrationRow[] = [];
   filteredRegistrations: RegistrationRow[] = [];
@@ -147,6 +150,20 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     const branchIds = this.auth.getBranchIds();
     this.branchId = branchIds.length ? String(branchIds[0]) : '';
+    this.branchOptions = branchIds.map((id, index) => ({id, name:'Branch ' + (index + 1)}));
+    this.branchesService.list().pipe(takeUntil(this.destroy$)).subscribe({next: rows => {
+      this.branchOptions = rows.map((b:any)=>({id:b.id, name:b.branchName || b.branchname || b.name || b.id}));
+      this.cdr.markForCheck();
+    }, error: () => { this.cdr.markForCheck(); }});
+    this.loadWorkspace();
+  }
+
+  changeBranch(): void {
+    this.requestModalOpen = false;
+    this.selectedRegistration = null;
+    this.selectedRequests = [];
+    this.selectedTimeline = [];
+    this.registrations = []; this.filteredRegistrations = []; this.requests = []; this.alerts = [];
     this.loadWorkspace();
   }
 
@@ -597,7 +614,9 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
     return list.length ? Math.round((completed / list.length) * 100) : 0;
   }
 
-  private loadWorkspace(): void {
+  loadWorkspace(): void {
+    this.workspaceRequest?.unsubscribe();
+    this.loadError = "";
     if (!this.branchId) {
       this.loading = false;
       this.toast.error('Branch mapping not available for current user.');
@@ -606,7 +625,7 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
     }
 
     this.loading = true;
-    forkJoin({
+    this.workspaceRequest = forkJoin({
       registrations: this.branchesService.listRegistrations(this.branchId),
       tickets: this.helpdeskService.listTickets({ branchId: this.branchId, category: 'COMPLIANCE' }),
       alerts: this.branchesService.getRegistrationAlerts(this.branchId),
@@ -634,6 +653,7 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
           this.selectedRequests = [];
           this.alerts = [];
           this.selectedTimeline = [];
+          this.loadError = 'Registrations could not be loaded. Retry to refresh this branch.';
           this.toast.error(err?.error?.message || 'Failed to load registrations workspace');
         },
       });

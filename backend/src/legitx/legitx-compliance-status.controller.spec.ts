@@ -1,4 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
+import { LegitxScopeService } from './legitx-scope.service';
 import { LegitxComplianceStatusController } from './legitx-compliance-status.controller';
 
 describe('LegitxComplianceStatusController branch scoping', () => {
@@ -9,13 +10,24 @@ describe('LegitxComplianceStatusController branch scoping', () => {
     const service = {
       getOverview: jest.fn().mockResolvedValue({}),
     };
-    const branchAccess = {
-      getAllowedBranchIds: jest.fn().mockResolvedValue([assignedBranchId]),
-    };
+    const scopeService = new LegitxScopeService(
+      {
+        getScope: async () => ({
+          level: 'branches',
+          clientId: '11111111-1111-4111-8111-111111111111',
+        }),
+      } as any,
+      { getUserBranchIds: async () => [assignedBranchId] } as any,
+      {
+        query: async (sql: string) =>
+          sql.includes('SELECT clientid')
+            ? [{ clientid: '11111111-1111-4111-8111-111111111111' }]
+            : [assignedBranchId].map((id) => ({ id })),
+      } as any,
+    );
     const controller = new LegitxComplianceStatusController(
       service as any,
-      branchAccess as any,
-      {} as any,
+      scopeService,
     );
 
     await expect(
@@ -38,15 +50,26 @@ describe('LegitxComplianceStatusController branch scoping', () => {
     const service = {
       getOverview: jest.fn().mockResolvedValue({}),
     };
-    const branchAccess = {
-      getAllowedBranchIds: jest
-        .fn()
-        .mockResolvedValue([assignedBranchId, otherBranchId]),
-    };
+    const scopeService = new LegitxScopeService(
+      {
+        getScope: async () => ({
+          level: 'branches',
+          clientId: '11111111-1111-4111-8111-111111111111',
+        }),
+      } as any,
+      {
+        getUserBranchIds: async () => [assignedBranchId, otherBranchId],
+      } as any,
+      {
+        query: async (sql: string) =>
+          sql.includes('SELECT clientid')
+            ? [{ clientid: '11111111-1111-4111-8111-111111111111' }]
+            : [assignedBranchId, otherBranchId].map((id) => ({ id })),
+      } as any,
+    );
     const controller = new LegitxComplianceStatusController(
       service as any,
-      branchAccess as any,
-      {} as any,
+      scopeService,
     );
 
     await controller.overview(

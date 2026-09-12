@@ -9,6 +9,13 @@
     </button>
   </header>
 
+  @if (branchOptions.length > 1) {
+    <label for="registration-branch">Branch</label>
+    <select id="registration-branch" name="registrationBranch" [(ngModel)]="branchId" (change)="changeBranch()" [disabled]="requestSaving">
+      @for (branch of branchOptions; track branch.id) { <option [value]="branch.id">{{branch.name}}</option> }
+    </select>
+  }
+  @if (loadError) { <p role="alert">{{loadError}} <button type="button" (click)="loadWorkspace()">Retry</button></p> }
   <section class="summary-grid">
     <article class="summary-card">
       <span class="label">Total</span>

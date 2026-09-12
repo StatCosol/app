@@ -28,6 +28,7 @@ export class TaskCenterService {
     userId?: string | null;
     clientId?: string | null;
     branchId?: string | null;
+    branchIds?: string[];
     contractorId?: string | null;
   }) {
     const rows = await this.getMyItems(params);
@@ -57,6 +58,7 @@ export class TaskCenterService {
     userId?: string | null;
     clientId?: string | null;
     branchId?: string | null;
+    branchIds?: string[];
     contractorId?: string | null;
     status?: string | null;
   }) {
@@ -81,6 +83,10 @@ export class TaskCenterService {
     if (params.branchId) {
       where.push(`t.branch_id = $${idx}`);
       values.push(params.branchId);
+      idx += 1;
+    } else if (params.branchIds !== undefined) {
+      where.push(`t.branch_id = ANY($${idx}::uuid[])`);
+      values.push(params.branchIds);
       idx += 1;
     }
 
@@ -134,6 +140,7 @@ export class TaskCenterService {
     userId?: string | null;
     clientId?: string | null;
     branchId?: string | null;
+    branchIds?: string[];
     contractorId?: string | null;
   }) {
     const rows = await this.getMyItems(params);
@@ -150,6 +157,7 @@ export class TaskCenterService {
     userId?: string | null;
     clientId?: string | null;
     branchId?: string | null;
+    branchIds?: string[];
     contractorId?: string | null;
     withinDays?: number;
   }) {

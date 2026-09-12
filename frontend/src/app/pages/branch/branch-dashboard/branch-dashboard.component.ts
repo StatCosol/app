@@ -1,3 +1,4 @@
+import { ComplianceAssistantComponent } from '../../../shared/components/compliance-assistant/compliance-assistant.component';
 import {
   Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, OnDestroy
 } from '@angular/core';
@@ -16,7 +17,7 @@ import { FaceFailuresWidgetComponent } from '../../../shared/face-failures-widge
 @Component({
   selector: 'app-branch-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, FaceFailuresWidgetComponent],
+  imports: [ComplianceAssistantComponent, CommonModule, FormsModule, RouterModule, FaceFailuresWidgetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './branch-dashboard.component.html',
   styleUrls: ['./branch-dashboard.component.scss'],
@@ -31,6 +32,9 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
 
   loading = true;
   branchId = '';
+  assignedBranches: string[] = [];
+  branchLabels: Record<string,string> = {};
+  private dashboardRequest?: import('rxjs').Subscription;
   currentMonth = '';
   branchName = 'Branch';
 
@@ -122,7 +126,13 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     const branchIds = this.authService.getBranchIds();
-    this.branchId = branchIds?.[0] || '';
+    this.assignedBranches = branchIds || [];
+    this.assignedBranches.forEach((id, index) => this.branchLabels[id] = 'Branch ' + (index + 1));
+    this.branchesService.list().pipe(takeUntil(this.destroy$)).subscribe({next: rows => {
+      for (const branch of rows) this.branchLabels[branch.id] = branch.branchName || (branch as any).name || this.branchLabels[branch.id];
+      this.cdr.markForCheck();
+    }, error: () => { this.cdr.markForCheck(); }});
+    this.branchId = branchIds?.length === 1 ? branchIds[0] : '';
     const user = this.authService.getUser();
     this.branchName = user?.branchName || user?.branch?.name || 'Branch';
 
@@ -138,6 +148,7 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
   }
 
   loadDashboard(): void {
+    this.dashboardRequest?.unsubscribe();
     this.dataUnavailable = false;
     this.loading = true;
     this.cdr.markForCheck();
@@ -148,30 +159,12 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
     const hasContractor = this.hasContractorModule;
     const canLoadComplianceDashboard = hasEmployeeCompliance;
 
-    // Load task center data in parallel
     const user = this.authService.getUser();
-    this.taskCenterService.getMySummary({
-      role: 'BRANCH',
-      userId: user?.userId || user?.id,
-      branchId: this.branchId || undefined,
-    }).pipe(takeUntil(this.destroy$), catchError(() => this.unavailable({ open: 0, overdue: 0, dueSoon: 0, total: 0 })))
-      .subscribe(summary => {
-        this.taskSummary = summary;
-        this.cdr.markForCheck();
-      });
-
-    this.taskCenterService.getMyItems({
-      role: 'BRANCH',
-      userId: user?.userId || user?.id,
-      branchId: this.branchId || undefined,
-      status: 'OPEN',
-    }).pipe(takeUntil(this.destroy$), catchError(() => this.unavailable([])))
-      .subscribe(tasks => {
-        this.pendingTasks = tasks.slice(0, 10);
-        this.cdr.markForCheck();
-      });
-
-    forkJoin({
+    const taskScope = { role: 'BRANCH', userId: user?.userId || user?.id, branchId: this.branchId || undefined };
+    this.pendingTasks = [];
+    this.dashboardRequest = forkJoin({
+      taskSummary: this.taskCenterService.getMySummary(taskScope).pipe(catchError(() => this.unavailable({ open: 0, overdue: 0, dueSoon: 0, total: 0 }))),
+      tasks: this.taskCenterService.getMyItems({ ...taskScope, status: 'OPEN' }).pipe(catchError(() => this.unavailable([]))),
       legitx: canLoadComplianceDashboard
         ? this.legitxService.getSummary({
           month: +month,
@@ -197,8 +190,10 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
     })
     .pipe(takeUntil(this.destroy$))
     .subscribe({
-      next: ({ legitx, pfEsi, contractor, branchDash }) => {
+      next: ({ legitx, pfEsi, contractor, branchDash, taskSummary, tasks }) => {
           if (this.dataUnavailable) return;
+        this.taskSummary = taskSummary;
+        this.pendingTasks = tasks.slice(0, 10);
         const kpis = legitx?.kpis;
 
         // Employee headcount

@@ -1,3 +1,4 @@
+@if (hasEmployeeComplianceModule && currentMonth) { <app-compliance-assistant [month]="+currentMonth.split('-')[1]" [year]="+currentMonth.split('-')[0]" [branchId]="branchId" /> }
 @if (dataUnavailable) {
   <div role="alert" class="m-4 rounded border border-amber-300 bg-amber-50 p-4">
     Dashboard data could not be refreshed. Totals are unavailable until all required data loads.
@@ -69,6 +70,13 @@
             </div>
           }
           <div class="dash-hero__controls">
+            @if (assignedBranches.length > 1) {
+              <label for="branch-dashboard-scope" class="text-sm">Branch</label>
+              <select id="branch-dashboard-scope" name="branchScope" class="text-slate-900" [(ngModel)]="branchId" (change)="loadDashboard()">
+                <option value="">All assigned branches</option>
+                @for (id of assignedBranches; track id) { <option [value]="id">{{branchLabels[id]}}</option> }
+              </select>
+            }
             <input autocomplete="off" id="bd-current-month" name="currentMonth"
               type="month"
               [(ngModel)]="currentMonth"

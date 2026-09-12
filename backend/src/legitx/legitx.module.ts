@@ -1,3 +1,8 @@
+import { AccessModule } from '../access/access.module';
+import { AiModule } from '../ai/ai.module';
+import { LegitxScopeService } from './legitx-scope.service';
+import { LegitxAssistantController } from './legitx-assistant.controller';
+import { LegitxAssistantService } from './legitx-assistant.service';
 import { Module } from '@nestjs/common';
 import { LegitxDashboardController } from './legitx-dashboard.controller';
 import { LegitxDashboardService } from './legitx-dashboard.service';
@@ -8,13 +13,16 @@ import { LegitxComplianceStatusService } from './legitx-compliance-status.servic
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, AccessModule, AiModule],
   controllers: [
+    LegitxAssistantController,
     LegitxDashboardController,
     LegitxComplianceController,
     LegitxComplianceStatusController,
   ],
   providers: [
+    LegitxAssistantService,
+    LegitxScopeService,
     LegitxDashboardService,
     LegitxComplianceService,
     LegitxComplianceStatusService,

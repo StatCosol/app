@@ -1,4 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { DbService } from '../common/db/db.service';
 import {
   ComplianceStatusSummaryResponse,
@@ -447,16 +451,8 @@ export class LegitxComplianceStatusService {
 
     const today = new Date();
 
-    // Deduplicate tasks with same compliance+branch (within same period filtered by WHERE)
-    const seenKeys = new Set<string>();
-    const dedupedRows = rows.filter((r) => {
-      const key = `${r.compliance_id}|${r.branch_id}`;
-      if (seenKeys.has(key)) return false;
-      seenKeys.add(key);
-      return true;
-    });
-
-    return dedupedRows.map((r) => {
+    // Each task is a distinct obligation; recurring tasks must survive pagination.
+    return rows.map((r) => {
       const dueDate = r.due_date ? new Date(r.due_date) : null;
       const delayDays =
         dueDate && dueDate < today
@@ -597,7 +593,7 @@ export class LegitxComplianceStatusService {
       `SELECT
          COUNT(*)::int AS total,
          COUNT(*) FILTER (WHERE a.status = 'COMPLETED')::int AS completed,
-         COALESCE(AVG(a.score_percent) FILTER (WHERE a.status = 'COMPLETED'), 0)::int AS avg_score,
+         COALESCE(AVG(a.score) FILTER (WHERE a.status = 'COMPLETED'), 0)::int AS avg_score,
          MAX(a.updated_at)::text AS last_audit_date
        FROM audits a
        ${whereClause}`,
@@ -997,11 +993,31 @@ export class LegitxComplianceStatusService {
   }
 
   private async getObsCountsByBranch(
-    _p: StatusQueryParams,
+    p: StatusQueryParams,
   ): Promise<Map<string, { high: number; critical: number }>> {
-    // Since audits are at client level (no branch_id), we return empty map
-    // When audits get branch_id, this can be enhanced
-    return new Map();
+    const conditions = ['a.period_year = $1'];
+    const params: unknown[] = [p.year];
+    this.addScope(conditions, params, p, 'a.client_id', 'a.branch_id');
+    const rows = await this.safeMany<{
+      branch_id: string;
+      high: number;
+      critical: number;
+    }>(
+      `SELECT a.branch_id,
+       COUNT(*) FILTER (WHERE ao.risk = 'HIGH')::int AS high,
+       COUNT(*) FILTER (WHERE ao.risk = 'CRITICAL')::int AS critical
+       FROM audit_observations ao JOIN audits a ON a.id = ao.audit_id
+       WHERE ${conditions.join(' AND ')} AND ao.status IN ('OPEN','ACKNOWLEDGED','IN_PROGRESS')
+       GROUP BY a.branch_id`,
+      params,
+      [],
+    );
+    return new Map(
+      rows.map((row) => [
+        row.branch_id,
+        { high: row.high, critical: row.critical },
+      ]),
+    );
   }
 
   private async safeOne<T>(
@@ -1014,7 +1030,9 @@ export class LegitxComplianceStatusService {
       return (row as T) ?? fallback;
     } catch (err: unknown) {
       this.logger.debug(`SQL one failed: ${(err as Error)?.message ?? err}`);
-      return fallback;
+      throw new ServiceUnavailableException(
+        'Compliance data is temporarily unavailable',
+      );
     }
   }
 
@@ -1027,7 +1045,9 @@ export class LegitxComplianceStatusService {
       return (await this.db.many<T>(sql, params)) ?? fallback;
     } catch (err: unknown) {
       this.logger.debug(`SQL many failed: ${(err as Error)?.message ?? err}`);
-      return fallback;
+      throw new ServiceUnavailableException(
+        'Compliance data is temporarily unavailable',
+      );
     }
   }
 }

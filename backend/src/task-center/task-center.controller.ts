@@ -1,4 +1,10 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TaskCenterService } from './task-center.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -27,6 +33,7 @@ const GLOBAL_ROLES = new Set(['ADMIN', 'CEO', 'CCO', 'PAYROLL']);
   'CRM',
   'AUDITOR',
   'CLIENT',
+  'BRANCH_DESK',
   'CONTRACTOR',
 )
 @Controller({ path: 'tasks', version: '1' })
@@ -121,6 +128,7 @@ export class TaskCenterController {
     userId: string;
     clientId: string | null;
     branchId: string | null;
+    branchIds?: string[];
     contractorId: string | null;
   }> {
     const role = this.deriveRole(user);
@@ -128,6 +136,7 @@ export class TaskCenterController {
 
     let clientId: string | null = null;
     let branchId: string | null = null;
+    let branchIds: string[] | undefined;
     let contractorId: string | null = null;
 
     if (isGlobal) {
@@ -136,14 +145,18 @@ export class TaskCenterController {
       contractorId = q.contractorId ?? null;
     } else {
       // CLIENT (master/branch) — locked to own client, branch optional within own list
-      if (user.roleCode === 'CLIENT') {
+      if (user.roleCode === 'CLIENT' || user.roleCode === 'BRANCH_DESK') {
         clientId = user.clientId ?? null;
+        if (!clientId)
+          throw new ForbiddenException('Company scope is required');
         if (q.branchId) {
           await this.accessScope.assertBranchAllowed(user, q.branchId);
           branchId = q.branchId;
-        } else if (user.userType === 'BRANCH' && user.branchIds.length) {
-          // BRANCH user with no branch query: scope to first allowed branch
-          branchId = user.branchIds[0];
+        } else if (
+          user.userType === 'BRANCH' ||
+          user.roleCode === 'BRANCH_DESK'
+        ) {
+          branchIds = [...(user.branchIds ?? [])];
         }
       }
       // CRM / AUDITOR — restrict to assigned clients only
@@ -168,12 +181,16 @@ export class TaskCenterController {
       userId: user.userId,
       clientId,
       branchId,
+      ...(branchIds !== undefined ? { branchIds } : {}),
       contractorId,
     };
   }
 
   private deriveRole(user: ReqUser): TaskRole {
-    if (user.roleCode === 'CLIENT' && user.userType === 'BRANCH')
+    if (
+      user.roleCode === 'BRANCH_DESK' ||
+      (user.roleCode === 'CLIENT' && user.userType === 'BRANCH')
+    )
       return 'BRANCH';
     switch (user.roleCode) {
       case 'ADMIN':

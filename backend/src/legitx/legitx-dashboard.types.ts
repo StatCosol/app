@@ -1,6 +1,7 @@
 export type LegitxToggle = 'ALL' | 'CRITICAL' | 'PENDING';
 
 export interface LegitxDashboardScope {
+  allowedBranchIds?: string[] | 'ALL';
   month: number;
   year: number;
   branchId?: string | number | null;
