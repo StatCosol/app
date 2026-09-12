@@ -46,7 +46,7 @@ export class AuditScheduleEngineService {
       JOIN clients c ON c.id=afr.client_id
       LEFT JOIN client_branches b ON b.id=afr.branch_id AND b.clientid=afr.client_id
       WHERE afr.is_active=true AND c.is_deleted=false AND (afr.branch_id IS NULL OR b.isactive=true)
-      AND NOT EXISTS (SELECT 1 FROM audit_schedules made WHERE made.frequency_rule_id=afr.id AND (made.created_at AT TIME ZONE 'Asia/Kolkata')::date=$1::date)`,
+      AND NOT EXISTS (SELECT 1 FROM audit_schedules made WHERE made.frequency_rule_id=afr.id AND (made.created_at::timestamptz AT TIME ZONE 'Asia/Kolkata')::date=$1::date)`,
       [operationalDate()],
       scope,
     );
