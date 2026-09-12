@@ -24,7 +24,19 @@ async function main(){
   current=await write('.pdf',Buffer.from('not a PDF'));assert.equal((await service.check('doc')).status,'NEEDS_REVIEW');
   docType='PF_ECR';const pfBook=new ExcelJS.Workbook();const pfSheet=pfBook.addWorksheet('PF working');pfSheet.addRow(['UAN','PF Wage','PF Deduction']);pfSheet.addRow(['100000000001','15000','1800']);worker.pfWage=15000;
   current=await write('.xlsx',Buffer.from(await pfBook.xlsx.writeBuffer()));assert.equal((await service.check('doc')).status,'MATCHED');
-  assert.equal(checks.length,5);console.log('PASS: actual Excel and PDF extraction, exact comparison, NC details, unreadable PDF manual-review fallback and saved check history.');
+  assert.equal(checks.length,5);
+  // Raster-only page exercises real rendering + local OCR with all networking disabled in the worker.
+  const {createCanvas}=require('@napi-rs/canvas');const canvas=createCanvas(1400,260),ctx=canvas.getContext('2d');
+  ctx.fillStyle='white';ctx.fillRect(0,0,1400,260);ctx.fillStyle='black';ctx.font='32px Arial';
+  for(const [x,h,v] of [[40,'UAN','100000000001'],[520,'PF Wage','15000'],[900,'PF Deduction','1900']]) {ctx.fillText(h,x,60);ctx.fillText(v,x,130);}
+  const scan=new PDFDocument({size:[1400,260],margin:0});const scanChunks=[];scan.on('data',c=>scanChunks.push(c));const scanEnd=new Promise(resolve=>scan.on('end',resolve));scan.image(canvas.toBuffer('image/png'),0,0,{width:1400});scan.end();await scanEnd;
+  current=await write('.pdf',Buffer.concat(scanChunks));
+  const automatic=await service.check('doc');assert.equal(automatic.status,'NEEDS_REVIEW');assert.equal(automatic.ocr,undefined);
+  const assisted=await service.check('doc',{ocr:true});assert.equal(assisted.status,'NEEDS_REVIEW',JSON.stringify(assisted));assert.equal(assisted.extraction,'OCR',JSON.stringify(assisted));assert.ok(assisted.ocr.rows>=1,JSON.stringify(assisted));
+  assert.ok(assisted.findings.every(f=>f.status==='NEEDS_REVIEW'));
+  assert.ok(assisted.findings.some(f=>f.field==='pfDeduction'&&f.expected===1800&&String(f.submitted)==='1900'),JSON.stringify(assisted));
+  assert.equal(checks.at(-1)[6],'ocr-v1');
+  console.log('PASS: raster-only PDF OCR finds the PF difference offline and preserves mandatory auditor review.');console.log('PASS: actual Excel and PDF extraction, exact comparison, NC details, unreadable PDF manual-review fallback and saved check history.');
  }finally{for(const file of files)await fs.unlink(file);}
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

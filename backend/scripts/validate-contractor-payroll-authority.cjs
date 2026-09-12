@@ -38,7 +38,10 @@ async function main() {
     await ds.query(attendanceMigration); await ds.query(attendanceMigration);
     await ds.query(`INSERT INTO contractor_attendance_batches(client_id,branch_id,contractor_user_id,period_month,rows_snapshot,submitted_by,status,reviewed_by,reviewed_at)
       VALUES($1,$2,$3,'2026-09','[]',$3,'APPROVED',$4,now())`,[id(1),id(2),id(3),id(8)]);
-    for(const file of ['20260916_contractor_rate_cards.sql','20260917_payroll_document_checks.sql']) {const sql=fs.readFileSync(path.join(__dirname,'../migrations',file),'utf8');await ds.query(sql);await ds.query(sql);}
+    for(const file of ['20260916_contractor_rate_cards.sql','20260917_payroll_document_checks.sql','20260918_payroll_document_check_profiles.sql']) {const sql=fs.readFileSync(path.join(__dirname,'../migrations',file),'utf8');await ds.query(sql);await ds.query(sql);}
+    await ds.query("INSERT INTO contractor_documents(id) VALUES ($1)",[id(999)]);
+    for (const profile of ['tables-v2','ocr-v1']) await ds.query("INSERT INTO payroll_document_checks(document_id,file_path,file_hash,status,result,check_profile) VALUES($1,'sample.pdf','hash','NEEDS_REVIEW','{}',$2) ON CONFLICT DO NOTHING",[id(999),profile]);
+    assert.equal((await ds.query('SELECT * FROM payroll_document_checks')).length,2);
     await ds.query('CREATE TABLE audits(client_id uuid,branch_id uuid,contractor_user_id uuid,assigned_auditor_id uuid)');
     await ds.query('INSERT INTO audits VALUES($1,$2,$3,$4)',[id(1),id(2),id(3),id(5)]);
     const ccoAccess = new AccessScopeService({}, {}, {manager:ds.manager}, {manager:ds.manager}, {});

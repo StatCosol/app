@@ -473,8 +473,15 @@
                 <td>{{ doc.docType || '-' }}
  @if (doc.sourceTable === 'contractor_documents') {
   <button type="button" class="link" (click)="reconcileDocument(doc)" [disabled]="reviewingDocId === doc.id">Compare with payroll</button>
+  <p class="minor">Scanned English PDFs: up to 5 pages and 10 MB. Review larger or unclear documents manually.</p>
   @if (doc.payrollCheck) {
    <details><summary>Payroll: {{ doc.payrollCheck.status }}</summary><p>Comparison checks extracted employee rows. Verify the document period, establishment and payment coverage before marking complied.</p>
+    @if (doc.payrollCheck.ocr) {
+      <p>Scanned PDF: {{ doc.payrollCheck.ocr.rows }} candidate rows. OCR suggestions require manual verification.</p>
+      @for (page of doc.payrollCheck.ocr.pages; track page.page) {
+        <details><summary>Extracted text — page {{ page.page }}</summary><pre class="whitespace-pre-wrap break-words">{{ page.text }}</pre></details>
+      }
+    }
     @for (finding of doc.payrollCheck.findings; track $index) {
      <p>{{ finding.employeeCode }} · {{ finding.field }}: {{ finding.remark }}
       @if (finding.expected !== null && finding.expected !== undefined) { Expected {{ finding.expected }}, uploaded {{ finding.submitted }} }
