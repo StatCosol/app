@@ -145,6 +145,7 @@ export const CLIENT_ROUTES: Routes = [
     loadComponent: ClientLayoutComponent,
     canActivate: [roleGuard(['CLIENT'])],
     children: [
+      { path: 'monthly-close', loadComponent: () => import('../monthly-close/monthly-close.component').then(m => m.MonthlyCloseComponent) },
       {
         path: 'dashboard',
         loadComponent: ClientDashboardComponent,

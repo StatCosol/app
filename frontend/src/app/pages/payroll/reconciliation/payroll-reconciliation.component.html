@@ -1,0 +1,41 @@
+@if (allowed) {
+<section class="reconciliation" aria-label="Wage register reconciliation">
+  <header><div><p class="eyebrow">PAYROLL EVIDENCE</p><h3>Compare a wage register</h3>
+    <p>Find missing employees and amount differences before approving or closing payroll.</p></div>
+    <button type="button" class="secondary" (click)="template()">Download CSV template</button></header>
+  <p class="help">Use employee codes exactly as recorded in payroll and period <strong>{{ period }}</strong> on every row. Enter plain amounts without currency symbols or separators. Blank amounts remain unknown; use 0 only for a known zero. CSV only, up to 1 MB and 5,000 employees.</p>
+  @if (!processed) { <p class="notice">Process this run before comparing its amounts.</p> }
+  <div class="upload"><div><p class="file-label">Wage register</p><input #filePicker hidden type="file" aria-label="Wage register" accept=".csv,text/csv" (change)="selectFile($event)" [disabled]="!processed"><button type="button" class="secondary" (click)="filePicker.click()" [disabled]="!processed">Choose CSV file</button></div>
+    <span aria-live="polite">{{ file?.name || 'No file selected' }}</span><button type="button" (click)="compare()" [disabled]="!file || !processed || busy()">{{ busy() ? 'Comparing…' : 'Compare with payroll' }}</button></div>
+  @if (error()) { <p role="alert" class="notice error">{{ error() }}</p> }
+  @if (busy()) { <p role="status" class="notice">Reading the register and comparing recorded payroll amounts…</p> }
+  @if (result(); as report) {
+    <div class="metrics" aria-label="Comparison counts">
+      <div><strong>{{ report.summary.matched }}</strong><span>Match supplied amounts</span></div>
+      <div><strong>{{ report.summary.mismatched }}</strong><span>Amount differences</span></div>
+      <div><strong>{{ report.summary.missingInFile }}</strong><span>Missing in register</span></div>
+      <div><strong>{{ report.summary.extraInFile }}</strong><span>Not in payroll</span></div>
+      <div><strong>{{ report.summary.unverifiable }}</strong><span>Have unknown values</span></div>
+    </div>
+    <p class="help">{{ report.summary.payrollEmployees }} employees in payroll · {{ report.summary.fileEmployees }} in the register. Unknown-value counts can overlap other findings.</p>
+    <p class="notice">{{ report.note }}</p>
+    @if (report.uncheckedFields.length) { <p class="notice">Not compared because columns were omitted: @for (field of report.uncheckedFields; track field) { <strong>{{ labels[field] }} </strong> }</p> }
+    <div class="table-scroll"><table><caption>Totals across each source, including employees present in only one source. Equal totals can still contain employee-level differences.</caption><thead><tr><th>Amount</th><th>Payroll (₹)</th><th>Register (₹)</th></tr></thead><tbody>
+      @for (total of report.totals; track total.field) { <tr><th>{{ labels[total.field] }}</th><td>{{ total.expected.amount ?? 'Unknown' }} @if (total.expected.missingValues) { <small>({{ total.expected.missingValues }} missing values)</small> }</td><td>{{ total.actual.amount ?? 'Unknown' }} @if (total.actual.missingValues) { <small>({{ total.actual.missingValues }} missing values)</small> }</td></tr> }
+    </tbody></table></div>
+    <div class="tools"><label>Employee code<input type="search" [(ngModel)]="search" (ngModelChange)="page = 0" placeholder="Search employee code"></label>
+      <label class="check"><input type="checkbox" [(ngModel)]="onlyIssues" (ngModelChange)="page = 0"> Only differences or unknowns</label></div>
+    @for (row of visibleRows(); track row.employeeCode) {
+      <details><summary><strong>{{ row.employeeCode }}</strong><span class="status" [class.match]="row.status === 'MATCH'">{{ statuses[row.status] }}</span><span>{{ row.sourceLine ? 'CSV line ' + row.sourceLine : 'No CSV row' }}</span></summary>
+        <div class="table-scroll"><table><thead><tr><th>Field</th><th>Payroll (₹)</th><th>Register (₹)</th><th>Difference (₹)</th></tr></thead><tbody>
+          @for (comparison of row.comparisons; track comparison.field) { <tr [class.different]="comparison.state === 'MISMATCH'"><th>{{ labels[comparison.field] }}</th><td>{{ comparison.expected ?? 'Unknown' }}</td><td>{{ comparison.actual ?? 'Unknown' }}</td><td>{{ comparison.difference ?? 'Not comparable' }}</td></tr> }
+        </tbody></table></div>
+      </details>
+    }
+    @if (!filteredRows().length) { <p class="notice">No rows match the current filters. Show all employees to inspect matching values.</p> }
+    @if (filteredRows().length > 50) { <div class="tools"><button type="button" class="secondary" [disabled]="page === 0" (click)="page = page - 1">Previous</button><span>Page {{ page + 1 }}</span><button type="button" class="secondary" [disabled]="(page + 1) * 50 >= filteredRows().length" (click)="page = page + 1">Next</button></div> }
+    <footer><div><strong>Snapshot: {{ report.generatedAt | date:'medium' }}</strong><p>Source: {{ report.source.fileName }}. Compare again after editing payroll or the register.</p></div><button type="button" (click)="download()">Download full comparison</button></footer>
+    <details class="provenance"><summary>Source identification</summary><p>Original file SHA-256: {{ report.source.sha256 }}</p><p>Payroll baseline SHA-256: {{ report.baselineSha256 }}</p><p>The download includes every compared row, source line, payroll run and comparison time. It is a review report, not an approval record.</p></details>
+  }
+</section>
+}

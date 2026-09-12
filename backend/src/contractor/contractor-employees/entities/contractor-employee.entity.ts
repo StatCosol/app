@@ -40,7 +40,12 @@ export class ContractorEmployeeEntity {
   @Column({ name: 'contractor_user_id', type: 'uuid' })
   contractorUserId: string;
 
-  @Column({ name: 'employee_code', type: 'varchar', length: 80, nullable: true })
+  @Column({
+    name: 'employee_code',
+    type: 'varchar',
+    length: 80,
+    nullable: true,
+  })
   employeeCode: string | null;
 
   /**

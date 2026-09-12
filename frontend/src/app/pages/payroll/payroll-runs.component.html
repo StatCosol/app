@@ -164,6 +164,12 @@
         </article>
       </div>
 
+      <app-payroll-reconciliation
+        [runId]="run.id"
+        [period]="run.periodYear + '-' + (run.periodMonth < 10 ? '0' : '') + run.periodMonth"
+        [runStatus]="run.status">
+      </app-payroll-reconciliation>
+
       <div class="import-box">
         <div class="import-title">Attendance Upload</div>
         <div class="import-hint">Excel with columns: Employee Code, Employee Name, Working Days, Payable Days, Approved Leave Days, OT Hours, Other Earnings, Arrears Attendance Bonus, Other Deductions</div>

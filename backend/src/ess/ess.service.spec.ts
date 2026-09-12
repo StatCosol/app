@@ -118,7 +118,12 @@ describe('EssService', () => {
   describe('multi-punch summariseDay', () => {
     const base = Date.parse('2026-08-06T03:30:00.000Z') / 1000; // 09:00 IST
 
-    const punch = (type: 'IN' | 'OUT', offsetHrs: number, lat = 12.9, lng = 77.5) => ({
+    const punch = (
+      type: 'IN' | 'OUT',
+      offsetHrs: number,
+      lat = 12.9,
+      lng = 77.5,
+    ) => ({
       punchType: type,
       epoch: base + offsetHrs * 3600,
       latitude: lat,
@@ -134,7 +139,10 @@ describe('EssService', () => {
         punch('OUT', 9),
       ]);
 
-      const summary = await (service as any).summariseDay('emp-1', '2026-08-06');
+      const summary = await (service as any).summariseDay(
+        'emp-1',
+        '2026-08-06',
+      );
 
       expect(summary.workedDecimal).toBeCloseTo(7, 5);
       expect(summary.openSession).toBe(false);
@@ -151,7 +159,10 @@ describe('EssService', () => {
         punch('IN', 5),
       ]);
 
-      const summary = await (service as any).summariseDay('emp-1', '2026-08-06');
+      const summary = await (service as any).summariseDay(
+        'emp-1',
+        '2026-08-06',
+      );
 
       expect(summary.workedDecimal).toBeCloseTo(3, 5);
       expect(summary.openSession).toBe(true);
@@ -161,7 +172,10 @@ describe('EssService', () => {
     it('reports zero worked time and no open session for an empty day', async () => {
       (service as any).ds.query.mockResolvedValueOnce([]);
 
-      const summary = await (service as any).summariseDay('emp-1', '2026-08-06');
+      const summary = await (service as any).summariseDay(
+        'emp-1',
+        '2026-08-06',
+      );
 
       expect(summary.workedDecimal).toBe(0);
       expect(summary.openSession).toBe(false);

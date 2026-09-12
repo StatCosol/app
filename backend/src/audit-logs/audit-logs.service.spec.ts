@@ -13,11 +13,17 @@ describe('AuditLogsService', () => {
         AuditLogsService,
         {
           provide: getRepositoryToken(AuditLogEntity),
-          useValue: { save: jest.fn().mockResolvedValue({}), create: jest.fn() },
+          useValue: {
+            save: jest.fn().mockResolvedValue({}),
+            create: jest.fn(),
+          },
         },
         {
           provide: getRepositoryToken(TaskApprovalHistoryEntity),
-          useValue: { save: jest.fn().mockResolvedValue({}), create: jest.fn() },
+          useValue: {
+            save: jest.fn().mockResolvedValue({}),
+            create: jest.fn(),
+          },
         },
       ],
     }).compile();

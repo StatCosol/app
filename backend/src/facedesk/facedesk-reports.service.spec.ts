@@ -24,7 +24,11 @@ describe('FaceDeskReportsService.pushToPayroll', () => {
     const service = new FaceDeskReportsService(
       dataSource as any,
       biometric as any,
-      { getEffective: jest.fn().mockResolvedValue({ shiftStartTime: null, shiftEndTime: null }) } as any,
+      {
+        getEffective: jest
+          .fn()
+          .mockResolvedValue({ shiftStartTime: null, shiftEndTime: null }),
+      } as any,
     );
 
     const res = await service.pushToPayroll('c1', {
@@ -62,7 +66,11 @@ describe('FaceDeskReportsService.pushToPayroll', () => {
     const service = new FaceDeskReportsService(
       dataSource as any,
       biometric as any,
-      { getEffective: jest.fn().mockResolvedValue({ shiftStartTime: null, shiftEndTime: null }) } as any,
+      {
+        getEffective: jest
+          .fn()
+          .mockResolvedValue({ shiftStartTime: null, shiftEndTime: null }),
+      } as any,
     );
     const res = await service.pushToPayroll('c1', {});
     expect(res).toEqual({ pushed: 0, received: 0 });
@@ -73,9 +81,15 @@ describe('FaceDeskReportsService.pushToPayroll', () => {
 describe('FaceDeskReportsService.failedAttempts', () => {
   it('returns enriched FaceDesk failures for the attendance-failures screen', async () => {
     const dataSource = { query: jest.fn().mockResolvedValue([]) };
-    const service = new FaceDeskReportsService(dataSource as any, {} as any, {
-      getEffective: jest.fn().mockResolvedValue({ shiftStartTime: null, shiftEndTime: null }),
-    } as any);
+    const service = new FaceDeskReportsService(
+      dataSource as any,
+      {} as any,
+      {
+        getEffective: jest
+          .fn()
+          .mockResolvedValue({ shiftStartTime: null, shiftEndTime: null }),
+      } as any,
+    );
 
     await service.failedAttempts('c1', {
       from: '2026-08-01T00:00:00.000Z',
@@ -98,9 +112,15 @@ describe('FaceDeskReportsService.failedAttempts', () => {
 
   it('returns no rows for a branch user with no assigned branches', async () => {
     const dataSource = { query: jest.fn().mockResolvedValue([]) };
-    const service = new FaceDeskReportsService(dataSource as any, {} as any, {
-      getEffective: jest.fn().mockResolvedValue({ shiftStartTime: null, shiftEndTime: null }),
-    } as any);
+    const service = new FaceDeskReportsService(
+      dataSource as any,
+      {} as any,
+      {
+        getEffective: jest
+          .fn()
+          .mockResolvedValue({ shiftStartTime: null, shiftEndTime: null }),
+      } as any,
+    );
 
     await service.failedAttempts('c1', { branchIds: [] });
 
@@ -180,10 +200,32 @@ describe('FaceDeskReportsService.workedHoursSummary', () => {
 
     const out = (await service.workedHoursSummary('c1', {})) as any[];
 
-    expect(out[0]).toMatchObject({ status: 'FULL', dayUnit: 1, workedHours: '9:30', punchList: '09:00 IN, 18:30 OUT' });
-    expect(out[1]).toMatchObject({ status: 'PENDING_REVIEW', dayUnit: 0, workedHours: '8:00' });
-    expect(out[2]).toMatchObject({ status: 'APPROVED', dayUnit: 1, workedHours: '6:00', branch: '' });
-    expect(out[3]).toMatchObject({ status: 'REJECTED', dayUnit: 0, workedHours: '5:00' });
-    expect(out[4]).toMatchObject({ status: 'HALF_DAY', dayUnit: 0.5, workedHours: '4:00' });
+    expect(out[0]).toMatchObject({
+      status: 'FULL',
+      dayUnit: 1,
+      workedHours: '9:30',
+      punchList: '09:00 IN, 18:30 OUT',
+    });
+    expect(out[1]).toMatchObject({
+      status: 'PENDING_REVIEW',
+      dayUnit: 0,
+      workedHours: '8:00',
+    });
+    expect(out[2]).toMatchObject({
+      status: 'APPROVED',
+      dayUnit: 1,
+      workedHours: '6:00',
+      branch: '',
+    });
+    expect(out[3]).toMatchObject({
+      status: 'REJECTED',
+      dayUnit: 0,
+      workedHours: '5:00',
+    });
+    expect(out[4]).toMatchObject({
+      status: 'HALF_DAY',
+      dayUnit: 0.5,
+      workedHours: '4:00',
+    });
   });
 });

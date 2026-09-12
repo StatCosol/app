@@ -159,7 +159,6 @@ export class AuditNcService {
     };
   }
 
-
   async getNonCompliancesForAudit(user: ReqUser, auditId: string) {
     this.assertAuditor(user);
     const audit = await this.repo.findOne({ where: { id: auditId } });

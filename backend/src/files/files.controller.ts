@@ -65,7 +65,9 @@ export class FilesController {
   private toUploadsRelativePath(filePath: string): string {
     const normalizedInput = String(filePath || '').replace(/\\/g, '/');
     const uploadsMarker = '/uploads/';
-    const markerIndex = normalizedInput.toLowerCase().lastIndexOf(uploadsMarker);
+    const markerIndex = normalizedInput
+      .toLowerCase()
+      .lastIndexOf(uploadsMarker);
     if (markerIndex >= 0) {
       return normalizedInput.slice(markerIndex + uploadsMarker.length);
     }

@@ -1,3 +1,4 @@
+import { WorkspaceToolsComponent } from '../../../shared/components/workspace-tools/workspace-tools.component';
 import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 import { RouterOutlet, Router } from '@angular/router';
@@ -9,8 +10,9 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
 @Component({
   selector: 'app-client-layout',
   standalone: true,
+  host: { class: 'workspace-ui' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, ClientSidebarComponent, NewsTickerComponent, StatcoWordmarkComponent],
+  imports: [WorkspaceToolsComponent, RouterOutlet, ClientSidebarComponent, NewsTickerComponent, StatcoWordmarkComponent],
   template: `
     <div class="client-shell">
       <!-- Mobile menu toggle FAB -->
@@ -60,13 +62,10 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
                   <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
                   </svg>
-                  <input
-                    type="text"
-                    placeholder="Search pages, reports…"
-                    (focus)="searchFocused = true"
-                    (blur)="searchFocused = false"
-                    class="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400 focus:bg-white transition-all placeholder:text-gray-400"
-                  />
+                  <button type="button" (click)="workspaceTools.open()" aria-haspopup="dialog"
+                    class="w-full pl-9 pr-3 py-2 text-left text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl">
+                    Find a module
+                  </button>
                 </div>
               </div>
 
@@ -76,7 +75,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
                 <!-- Client logo -->
                 @if (clientLogoUrl) {
 <img
-                 
+
                   [src]="clientLogoUrl"
                   alt="Client logo"
                   class="h-8 w-auto hidden sm:block mr-1"
@@ -143,7 +142,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
         <!-- Page content -->
         <main class="flex-1 bg-gradient-to-br from-slate-50 via-brand-50/20 to-slate-50">
           <div class="client-content">
-            <router-outlet></router-outlet>
+            <app-workspace-tools #workspaceTools></app-workspace-tools><router-outlet></router-outlet>
           </div>
         </main>
       </div>
@@ -158,7 +157,7 @@ export class ClientLayoutComponent implements OnInit {
   userInitial = 'C';
   clientName = 'Client';
   clientLogoUrl = '';
-  searchFocused = false;
+
 
   constructor(
     private auth: AuthService,

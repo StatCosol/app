@@ -5,7 +5,7 @@ describe('LegitxComplianceStatusController branch scoping', () => {
   const assignedBranchId = '22222222-2222-4222-8222-222222222221';
   const otherBranchId = '22222222-2222-4222-8222-222222222222';
 
-  it('rejects a branch outside a branch user\'s mappings', async () => {
+  it("rejects a branch outside a branch user's mappings", async () => {
     const service = {
       getOverview: jest.fn().mockResolvedValue({}),
     };
@@ -34,7 +34,7 @@ describe('LegitxComplianceStatusController branch scoping', () => {
     expect(service.getOverview).not.toHaveBeenCalled();
   });
 
-  it('honors a requested branch that is in a branch user\'s mappings', async () => {
+  it("honors a requested branch that is in a branch user's mappings", async () => {
     const service = {
       getOverview: jest.fn().mockResolvedValue({}),
     };

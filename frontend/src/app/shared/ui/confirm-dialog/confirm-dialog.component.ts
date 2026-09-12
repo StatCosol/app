@@ -1,10 +1,11 @@
+import { DialogFocusDirective } from '../../directives/dialog-focus.directive';
 import {
   Component,
   OnInit,
   OnDestroy,
   ChangeDetectorRef,
   ApplicationRef,
-  HostListener,
+
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -22,7 +23,7 @@ import {
   selector: 'app-confirm-dialog',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule],
+  imports: [DialogFocusDirective, CommonModule, FormsModule],
   template: `
     @if (open) {
 <div class="fixed inset-0 flex items-center justify-center" style="z-index: 9999;">
@@ -32,7 +33,7 @@ import {
       <!-- Dialog -->
       <div
         class="relative z-10 w-full max-w-md mx-4 bg-white rounded-xl shadow-2xl overflow-hidden"
-        role="alertdialog"
+        uiDialogFocus (uiDialogEscape)="onEscape()" role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-desc">
@@ -118,8 +119,6 @@ export class ConfirmDialogComponent implements OnInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
   }
-
-  @HostListener('document:keydown.escape')
   onEscape(): void {
     if (this.open) this.cancel();
   }

@@ -158,23 +158,29 @@ jobs:
           IMG=$(az containerapp revision list -g "$RG" -n "$CA_BACKEND" \
             --query "[?properties.active].properties.template.containers[0].image | [0]" -o tsv)
           echo "Image under test: $IMG"
-          # Run the container locally with the sandbox DB; succeed if HTTP 200 on /api/v1/health within 60s.
+          # Run the container locally with the sandbox DB; succeed if HTTP 200 on /api/v1/health/ready within 60s.
+          az acr login --name "${IMG%%.*}"
+          export DB_PASS="$PGPASSWORD"
+          export JWT_SECRET="$(openssl rand -hex 32)"
+          export AI_ENCRYPTION_KEY="$(openssl rand -hex 32)"
           docker run -d --name be-boot -p 3000:3000 \
-            -e DATABASE_HOST="$SANDBOX_HOST" \
-            -e DATABASE_PORT=5432 \
-            -e DATABASE_USER="$PG_USER" \
-            -e DATABASE_PASSWORD="$PGPASSWORD" \
-            -e DATABASE_NAME="$PG_DB" \
-            -e DATABASE_SSL=true \
+            -e DB_HOST="$SANDBOX_HOST" \
+            -e DB_PORT=5432 \
+            -e DB_USER="$PG_USER" \
+            -e DB_PASS \
+            -e DB_NAME="$PG_DB" \
+            -e DB_SSL=true \
+            -e JWT_SECRET -e AI_ENCRYPTION_KEY \
+            -e EMAIL_ENABLED=false -e SKIP_BOOTSTRAP_SEED=true \
             -e NODE_ENV=production \
             "$IMG" || true
           for i in {1..30}; do
-            if curl -fsS http://localhost:3000/api/v1/health >/dev/null 2>&1; then
+            if curl -fsS http://localhost:3000/api/v1/health/ready >/dev/null 2>&1; then
               echo "BOOT TEST: PASS (after ${i}*2s)"; docker logs be-boot --tail 30 || true; docker rm -f be-boot; exit 0
             fi
             sleep 2
           done
-          echo "BOOT TEST: FAIL (no /api/v1/health 200 in 60s)"
+          echo "BOOT TEST: FAIL (no /api/v1/health/ready 200 in 60s)"
           docker logs be-boot --tail 80 || true
           docker rm -f be-boot
           exit 1

@@ -76,7 +76,8 @@ export class HolidayCalendarController {
   }
 
   @ApiOperation({
-    summary: 'List holiday-work (employees who worked on a holiday) for a month',
+    summary:
+      'List holiday-work (employees who worked on a holiday) for a month',
   })
   @Get('holiday-work')
   holidayWork(

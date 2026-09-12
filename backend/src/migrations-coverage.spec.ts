@@ -40,6 +40,13 @@ const GUARD_FROM = '20260901';
  * applies the change.
  */
 const APPLIED_ANOTHER_WAY: Record<string, string> = {
+  '20260912_critical_workflow_query_indexes.sql':
+    'Manual DBA maintenance migration: apply this file using psql --single-transaction ' +
+    '-v ON_ERROR_STOP=1 -f during an agreed window. The generic db:migrate:sql runner ' +
+    'also discovers it. Not a boot patch or automatic deploy migration because regular ' +
+    'index creation can block writes. Exact file is validated transactionally by ' +
+    'scripts/benchmark-critical-workflows.cjs; rollout is recorded in ' +
+    'docs/reviews/2026-09-12/CRITICAL_WORKFLOW_VALIDATION.md.',
   '20260903_facedesk_admin_pin_hash.sql':
     'Boot patch in main.ts widens facedesk_kiosk_devices.admin_pin to varchar(72). ' +
     'That table is patched nowhere else, so the file alone would never have applied.',

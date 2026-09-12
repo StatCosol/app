@@ -106,7 +106,9 @@ describe('FaceDeskSettingsService — duplicate defaults', () => {
   });
 
   it('still honours an explicit per-client threshold', async () => {
-    const eff = await makeService({ duplicateThreshold: 90 }).getEffective('c1');
+    const eff = await makeService({ duplicateThreshold: 90 }).getEffective(
+      'c1',
+    );
     expect(eff.duplicateCosine).toBeCloseTo(0.78, 3);
   });
 });

@@ -63,7 +63,9 @@ export class ContractorService {
   private fileDownloadUrl(filePath: string | null | undefined): string | null {
     if (!filePath) return null;
     const relative = this.toUploadsRelativePath(filePath);
-    return relative ? `/api/v1/files/download?p=${encodeURIComponent(relative)}` : null;
+    return relative
+      ? `/api/v1/files/download?p=${encodeURIComponent(relative)}`
+      : null;
   }
 
   private async assertContractorForClient(

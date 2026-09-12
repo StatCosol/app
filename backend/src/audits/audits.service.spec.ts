@@ -46,13 +46,31 @@ describe('AuditsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuditsService,
-        { provide: DataSource, useValue: { query: jest.fn().mockResolvedValue([]) } },
+        {
+          provide: DataSource,
+          useValue: { query: jest.fn().mockResolvedValue([]) },
+        },
         { provide: getRepositoryToken(AuditEntity), useValue: repoMock() },
-        { provide: getRepositoryToken(AuditObservationEntity), useValue: repoMock() },
-        { provide: getRepositoryToken(AuditChecklistItemEntity), useValue: repoMock() },
-        { provide: getRepositoryToken(AuditDocumentReviewEntity), useValue: repoMock() },
-        { provide: getRepositoryToken(AuditNonComplianceEntity), useValue: repoMock() },
-        { provide: getRepositoryToken(AuditResubmissionEntity), useValue: repoMock() },
+        {
+          provide: getRepositoryToken(AuditObservationEntity),
+          useValue: repoMock(),
+        },
+        {
+          provide: getRepositoryToken(AuditChecklistItemEntity),
+          useValue: repoMock(),
+        },
+        {
+          provide: getRepositoryToken(AuditDocumentReviewEntity),
+          useValue: repoMock(),
+        },
+        {
+          provide: getRepositoryToken(AuditNonComplianceEntity),
+          useValue: repoMock(),
+        },
+        {
+          provide: getRepositoryToken(AuditResubmissionEntity),
+          useValue: repoMock(),
+        },
         { provide: ClientsService, useValue: {} },
         { provide: UsersService, useValue: {} },
         { provide: AssignmentsService, useValue: {} },

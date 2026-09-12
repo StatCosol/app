@@ -21,29 +21,78 @@ jobs:
       matrix:
         project: [backend, frontend]
     steps:
-      - name: Runtime audit check
-        run: echo "npm audit reporting disabled for required-check stability"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Audit locked production dependencies
+        working-directory: ${{ matrix.project }}
+        run: npm audit --omit=dev --audit-level=high --json > npm-audit.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: npm-audit-${{ matrix.project }}
+          path: ${{ matrix.project }}/npm-audit.json
 
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
     steps:
-      - name: Semgrep check
-        run: echo "semgrep reporting disabled for required-check stability"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install semgrep
+      - name: Scan first-party source
+        run: semgrep scan --config p/security-audit --error --metrics=off --json --output semgrep.json backend/src frontend/src face-svc/app mobile/app/src mobile/essportal/src
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep
+          path: semgrep.json
 
   gitleaks:
     name: gitleaks (secret scan)
     runs-on: ubuntu-latest
     steps:
-      - name: Gitleaks check
-        run: echo "gitleaks reporting disabled for required-check stability"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Install standalone Gitleaks CLI
+        run: go install github.com/zricethezav/gitleaks/v8@v8.24.2
+      - name: Scan history (redacted)
+        run: gitleaks git --redact --report-format json --report-path gitleaks.json .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gitleaks
+          path: gitleaks.json
 
   trivy-fs:
     name: Trivy filesystem scan
     runs-on: ubuntu-latest
     steps:
-      - name: Trivy filesystem check
-        run: echo "trivy filesystem reporting disabled for required-check stability"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Trivy filesystem scan
+        run: >-
+          docker run --rm -v "$PWD:/workspace" aquasec/trivy:0.74.0 fs
+          --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1
+          --format json --output /workspace/trivy-fs.json /workspace
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-filesystem
+          path: trivy-fs.json
 
   trivy-images:
     name: Trivy image scan
@@ -53,12 +102,39 @@ jobs:
       matrix:
         name: [backend, frontend]
     steps:
-      - name: Trivy image check
-        run: echo "trivy image reporting disabled for required-check stability"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build scan target
+        run: docker build -t scan-target:${{ github.sha }} ./${{ matrix.name }}
+      - name: Trivy image scan
+        run: >-
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/workspace"
+          aquasec/trivy:0.74.0 image --severity HIGH,CRITICAL --exit-code 1
+          --format json --output /workspace/trivy-image.json scan-target:${{ github.sha }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-image-${{ matrix.name }}
+          path: trivy-image.json
 
   codeql:
     name: CodeQL (JS/TS)
     runs-on: ubuntu-latest
     steps:
-      - name: CodeQL check
-        run: echo "codeql reporting disabled for required-check stability"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          build-mode: none
+      - uses: github/codeql-action/analyze@v4
+        with:
+          upload: false
+          output: codeql-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: codeql
+          path: codeql-results

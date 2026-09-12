@@ -50,7 +50,7 @@ describe('payroll attendance upload — column handling', () => {
 
     // Bound by name rather than constructor position — see the note in
     // payroll-breakup-columns.spec.ts.
-    const svc = new (PayrollProcessingService as any)() as any;
+    const svc = new (PayrollProcessingService as any)();
     svc.runRepo = {
       findOne: async () => ({
         id: 'run-1',

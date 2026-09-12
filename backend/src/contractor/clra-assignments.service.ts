@@ -380,7 +380,8 @@ export class ClraAssignmentsService {
     mimeType: string;
   }> {
     const row = await this.registerRunRepo.findOne({ where: { id } });
-    if (!row?.fileUrl) throw new NotFoundException('Register run or file not found');
+    if (!row?.fileUrl)
+      throw new NotFoundException('Register run or file not found');
     const resolved = path.isAbsolute(row.fileUrl)
       ? row.fileUrl
       : path.resolve(process.cwd(), row.fileUrl);
@@ -426,7 +427,9 @@ export class ClraAssignmentsService {
         where: { email: ILike(email.trim()), active: true },
       });
       if (entity && !entity.contractorUserId) {
-        await this.contractorRepo.update(entity.id, { contractorUserId: userId });
+        await this.contractorRepo.update(entity.id, {
+          contractorUserId: userId,
+        });
         entity.contractorUserId = userId;
       }
     }
@@ -444,7 +447,9 @@ export class ClraAssignmentsService {
   ): Promise<ClraContractorAssignment> {
     const assignment = await this.getAssignment(assignmentId);
     if (assignment.contractorId !== contractorId) {
-      throw new ForbiddenException('Assignment does not belong to this contractor');
+      throw new ForbiddenException(
+        'Assignment does not belong to this contractor',
+      );
     }
     return assignment;
   }
@@ -467,7 +472,9 @@ export class ClraAssignmentsService {
     const deployment = await this.getDeployment(deploymentId);
     const assignment = await this.getAssignment(deployment.assignmentId);
     if (assignment.contractorId !== contractorId) {
-      throw new ForbiddenException('Deployment does not belong to this contractor');
+      throw new ForbiddenException(
+        'Deployment does not belong to this contractor',
+      );
     }
     return deployment;
   }
@@ -477,7 +484,10 @@ export class ClraAssignmentsService {
     contractorId: string,
   ): Promise<ClraWagePeriod> {
     const period = await this.getWagePeriod(wagePeriodId);
-    await this.assertAssignmentBelongsToContractor(period.assignmentId, contractorId);
+    await this.assertAssignmentBelongsToContractor(
+      period.assignmentId,
+      contractorId,
+    );
     return period;
   }
 }

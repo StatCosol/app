@@ -15,9 +15,7 @@ import { PayrollEngineService } from './payroll-engine.service';
  */
 describe('payroll engine totals', () => {
   // Neither helper touches an injected dependency.
-  const svc = new (PayrollEngineService as any)(
-    ...new Array(20).fill({}),
-  ) as any;
+  const svc = new (PayrollEngineService as any)(...new Array(20).fill({}));
 
   const comp = (code: string, componentType: string) => ({
     code,

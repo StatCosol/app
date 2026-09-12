@@ -71,12 +71,7 @@ describe('ReenrollmentService', () => {
       branchId: 'branch-1',
     });
     await expect(
-      service.reviewEmployeeRequest(
-        'client-1',
-        'req-1',
-        'APPROVED',
-        'admin-1',
-      ),
+      service.reviewEmployeeRequest('client-1', 'req-1', 'APPROVED', 'admin-1'),
     ).rejects.toThrow('not pending');
   });
 

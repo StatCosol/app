@@ -1,0 +1,9 @@
+[extend]
+useDefault = true
+
+# This exact literal was introduced in the environment example, not a credential.
+# Historical keys, JWTs and other secret findings remain subject to the full scan.
+[allowlist]
+description = "Exact documented encryption-key placeholder"
+regexTarget = "secret"
+regexes = ['''^REPLACE_WITH_64_HEX_CHARACTERS$''']

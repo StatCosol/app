@@ -233,7 +233,6 @@ export class CreateEnrollTicketDto {
   subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
 }
 
-
 /**
  * Per-client kiosk capture thresholds.
  *
@@ -243,57 +242,108 @@ export class CreateEnrollTicketDto {
  * be reported, not swallowed. Bounds mirror RANGES in facedesk-capture-tuning.
  */
 export class CaptureTuningDto {
-  @IsOptional() @IsNumber() @Min(0.05) @Max(0.6)
+  @IsOptional()
+  @IsNumber()
+  @Min(0.05)
+  @Max(0.6)
   minFaceSizeAttendance?: number;
 
-  @IsOptional() @IsNumber() @Min(0.05) @Max(0.6)
+  @IsOptional()
+  @IsNumber()
+  @Min(0.05)
+  @Max(0.6)
   minFaceSizeEnrollment?: number;
 
-  @IsOptional() @IsNumber() @Min(5) @Max(200)
+  @IsOptional()
+  @IsNumber()
+  @Min(5)
+  @Max(200)
   minSharpnessAttendance?: number;
 
-  @IsOptional() @IsNumber() @Min(5) @Max(200)
+  @IsOptional()
+  @IsNumber()
+  @Min(5)
+  @Max(200)
   minSharpnessEnrollment?: number;
 
   // 0 means "gate off", the current default, so unlike the sharpness floors a
   // zero here is legitimate rather than a typo that would accept anything.
-  @IsOptional() @IsNumber() @Min(0) @Max(50)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(50)
   minBlurAttendance?: number;
 
-  @IsOptional() @IsNumber() @Min(0) @Max(50)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(50)
   minBlurEnrollment?: number;
 
-  @IsOptional() @IsNumber() @Min(1) @Max(200)
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(200)
   minLuminance?: number;
 
-  @IsOptional() @IsNumber() @Min(5) @Max(60)
+  @IsOptional()
+  @IsNumber()
+  @Min(5)
+  @Max(60)
   maxPitchDeg?: number;
 
-  @IsOptional() @IsNumber() @Min(5) @Max(60)
+  @IsOptional()
+  @IsNumber()
+  @Min(5)
+  @Max(60)
   maxYawDeg?: number;
 
-  @IsOptional() @IsNumber() @Min(2000) @Max(120000)
+  @IsOptional()
+  @IsNumber()
+  @Min(2000)
+  @Max(120000)
   postPunchHoldMs?: number;
 
-  @IsOptional() @IsNumber() @Min(0) @Max(0.2)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(0.2)
   faceEdgeMargin?: number;
 
-  @IsOptional() @IsNumber() @Min(0) @Max(0.5)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(0.5)
   maxFaceOffsetX?: number;
 
-  @IsOptional() @IsNumber() @Min(0) @Max(0.5)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(0.5)
   maxFaceOffsetY?: number;
 
-  @IsOptional() @IsNumber() @Min(0.1) @Max(0.95)
+  @IsOptional()
+  @IsNumber()
+  @Min(0.1)
+  @Max(0.95)
   blinkAbsThreshold?: number;
 
-  @IsOptional() @IsNumber() @Min(0.05) @Max(0.9)
+  @IsOptional()
+  @IsNumber()
+  @Min(0.05)
+  @Max(0.9)
   blinkDropDelta?: number;
 
-  @IsOptional() @IsNumber() @Min(320) @Max(3840)
+  @IsOptional()
+  @IsNumber()
+  @Min(320)
+  @Max(3840)
   analysisWidth?: number;
 
-  @IsOptional() @IsNumber() @Min(240) @Max(2160)
+  @IsOptional()
+  @IsNumber()
+  @Min(240)
+  @Max(2160)
   analysisHeight?: number;
 }
 
@@ -314,12 +364,7 @@ export class UpdateSettingsDto {
    * FaceDeskAzureFaceService.identifyForAttendance.
    */
   @IsOptional()
-  @IsIn([
-    'PIN_THEN_FACE',
-    'FACE_ONLY',
-    'FACE_THEN_BIOMETRIC',
-    'BIOMETRIC_ONLY',
-  ])
+  @IsIn(['PIN_THEN_FACE', 'FACE_ONLY', 'FACE_THEN_BIOMETRIC', 'BIOMETRIC_ONLY'])
   identificationMode?:
     | 'PIN_THEN_FACE'
     | 'FACE_ONLY'

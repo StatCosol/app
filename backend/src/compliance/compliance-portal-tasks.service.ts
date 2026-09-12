@@ -108,7 +108,6 @@ export class CompliancePortalTasksService {
       throw new ForbiddenException('Client not assigned to this auditor');
   }
 
-
   private async loadTaskOrThrow(taskId: string | number) {
     const idNum = Number(taskId);
     const t = await this.tasks.findOne({
@@ -308,7 +307,6 @@ export class CompliancePortalTasksService {
       });
     });
   }
-
 
   // ---------- Contractor APIs ----------
   async contractorListTasks(user: ReqUser, q: Record<string, string>) {

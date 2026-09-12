@@ -20,11 +20,26 @@ describe('AppraisalTemplatesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AppraisalTemplatesService,
-        { provide: getRepositoryToken(AppraisalTemplateEntity), useValue: { ...repoMock } },
-        { provide: getRepositoryToken(AppraisalTemplateSectionEntity), useValue: { ...repoMock } },
-        { provide: getRepositoryToken(AppraisalTemplateItemEntity), useValue: { ...repoMock } },
-        { provide: getRepositoryToken(AppraisalRatingScaleEntity), useValue: { ...repoMock } },
-        { provide: getRepositoryToken(AppraisalRatingScaleItemEntity), useValue: { ...repoMock } },
+        {
+          provide: getRepositoryToken(AppraisalTemplateEntity),
+          useValue: { ...repoMock },
+        },
+        {
+          provide: getRepositoryToken(AppraisalTemplateSectionEntity),
+          useValue: { ...repoMock },
+        },
+        {
+          provide: getRepositoryToken(AppraisalTemplateItemEntity),
+          useValue: { ...repoMock },
+        },
+        {
+          provide: getRepositoryToken(AppraisalRatingScaleEntity),
+          useValue: { ...repoMock },
+        },
+        {
+          provide: getRepositoryToken(AppraisalRatingScaleItemEntity),
+          useValue: { ...repoMock },
+        },
       ],
     }).compile();
 

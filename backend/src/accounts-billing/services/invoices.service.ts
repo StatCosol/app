@@ -18,11 +18,7 @@ import {
   PaymentStatus,
   MailStatus,
 } from '../enums';
-import {
-  ConvertProformaDto,
-  CreateInvoiceDto,
-  UpdateInvoiceDto,
-} from '../dto';
+import { ConvertProformaDto, CreateInvoiceDto, UpdateInvoiceDto } from '../dto';
 import { BillingCalculationService } from './billing-calculation.service';
 import { BillingNumberService } from './billing-number.service';
 
@@ -286,19 +282,17 @@ export class InvoicesService {
         dto.invoiceDate || new Date().toISOString().slice(0, 10);
       const paymentTermsDays = proforma.billingClient?.paymentTermsDays ?? 30;
       const dueDate =
-        dto.dueDate ||
-        this.calculateDueDate(invoiceDate, paymentTermsDays);
+        dto.dueDate || this.calculateDueDate(invoiceDate, paymentTermsDays);
       if (dueDate < invoiceDate) {
         throw new BadRequestException(
           'Due date cannot be earlier than the Tax Invoice date',
         );
       }
-      const invoiceNumber =
-        await this.numberService.generateInvoiceNumber(
-          InvoiceType.TAX_INVOICE,
-          invoiceDate,
-          manager,
-        );
+      const invoiceNumber = await this.numberService.generateInvoiceNumber(
+        InvoiceType.TAX_INVOICE,
+        invoiceDate,
+        manager,
+      );
 
       const taxInvoice = invoiceRepo.create({
         tenantId: proforma.tenantId,
@@ -590,9 +584,9 @@ export class InvoicesService {
         "COUNT(*) FILTER (WHERE inv.invoice_type != 'PROFORMA' AND (inv.payment_status = 'UNPAID' OR inv.payment_status = 'PARTIALLY_PAID')) as \"pendingPaymentCount\"",
         "COUNT(*) FILTER (WHERE inv.invoice_type != 'PROFORMA' AND inv.payment_status = 'PAID') as \"paidCount\"",
         'COUNT(*) FILTER (WHERE inv.invoice_status = \'OVERDUE\') as "overdueCount"',
-        "COALESCE(SUM(inv.grand_total) FILTER (WHERE inv.invoice_type != 'PROFORMA'), 0) as \"totalBilled\"",
-        "COALESCE(SUM(inv.amount_received) FILTER (WHERE inv.invoice_type != 'PROFORMA'), 0) as \"totalReceived\"",
-        "COALESCE(SUM(inv.balance_outstanding) FILTER (WHERE inv.invoice_type != 'PROFORMA'), 0) as \"totalOutstanding\"",
+        'COALESCE(SUM(inv.grand_total) FILTER (WHERE inv.invoice_type != \'PROFORMA\'), 0) as "totalBilled"',
+        'COALESCE(SUM(inv.amount_received) FILTER (WHERE inv.invoice_type != \'PROFORMA\'), 0) as "totalReceived"',
+        'COALESCE(SUM(inv.balance_outstanding) FILTER (WHERE inv.invoice_type != \'PROFORMA\'), 0) as "totalOutstanding"',
       ])
       .getRawOne();
 

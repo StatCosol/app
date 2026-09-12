@@ -17,9 +17,9 @@ describe('contractorPrefixCandidates', () => {
   it('advances only the last character on collision', () => {
     // The leading letters stay put so the code still reads as that contractor;
     // only the final character moves along the last word.
-    expect(contractorPrefixCandidates('Sri Balaji Services').slice(0, 3)).toEqual(
-      ['SBS', 'SBE', 'SBR'],
-    );
+    expect(
+      contractorPrefixCandidates('Sri Balaji Services').slice(0, 3),
+    ).toEqual(['SBS', 'SBE', 'SBR']);
   });
 
   it('separates two contractors that share their initials', () => {

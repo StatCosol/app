@@ -82,7 +82,7 @@ describe('payroll breakup upload — column alignment', () => {
     // Bound by name rather than constructor position: the parameter list has
     // changed under these tests before, and an index that silently shifts fails
     // in a way that looks like a product bug.
-    const svc = new (PayrollProcessingService as any)() as any;
+    const svc = new (PayrollProcessingService as any)();
     svc.runRepo = { findOne: async () => run, save: async (r: any) => r };
     svc.runEmpRepo = { find: async () => [] };
     svc.compRepo = {

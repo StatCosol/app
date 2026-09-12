@@ -1,0 +1,37 @@
+:host { display: block; margin: 20px 0; }
+.reconciliation { border: 1px solid #bdcfc9; border-radius: 12px; padding: 22px; background: #f8fcfa; color: #18392f; }
+header, footer, .upload, .tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+header { align-items: start; }
+.eyebrow { font-size: 11px; letter-spacing: .1em; font-weight: 700; }
+h3 { font-size: 20px; font-weight: 700; margin: 5px 0 8px; }
+p { font-size: 14px; line-height: 1.6; margin: 5px 0; }
+.help { color: #4a6259; margin: 16px 0; }
+button { padding: 10px 14px; background: #176655; color: white; border-radius: 8px; font-weight: 600; font-size: 13px; }
+button.secondary { color: #176655; background: #fff; border: 1px solid #a4bfb6; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
+input[type=search] { border: 1px solid #b7c5cd; background: white; padding: 9px; border-radius: 7px; }
+.check { display: flex; align-items: center; }
+.upload span { font-size: 13px; overflow-wrap: anywhere; }
+.notice { padding: 12px; margin: 16px 0; background: #eaf2ee; border-radius: 8px; }
+.error { background: #fff0ec; color: #8a3020; }
+.metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 20px 0 10px; }
+.metrics div { background: white; border: 1px solid #d8e5df; padding: 12px; border-radius: 9px; }
+.metrics strong { display: block; font-size: 23px; }
+.metrics span { font-size: 12px; }
+.tools { margin: 20px 0; }
+.table-scroll { overflow: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; background: white; }
+caption { text-align: left; padding: 10px 0; color: #4a6259; }
+th, td { padding: 10px; border-bottom: 1px solid #dbe5df; text-align: left; white-space: nowrap; }
+thead { background: #eaf2ee; }
+details { background: white; border: 1px solid #d8e5df; border-radius: 8px; margin: 8px 0; padding: 12px; }
+summary { cursor: pointer; font-size: 13px; }
+summary span { margin-left: 12px; }
+.status { padding: 4px 7px; border-radius: 5px; background: #fff1d9; color: #704205; }
+.status.match { background: #e2f5e9; color: #18583a; }
+.different { background: #fff8ed; }
+footer { margin-top: 22px; padding-top: 16px; border-top: 1px solid #bdcfc9; }
+.provenance p { overflow-wrap: anywhere; font-size: 12px; }
+:is(button, input, summary):focus-visible { outline: 3px solid #2e91d5; outline-offset: 3px; }
+@media(max-width: 700px) { .metrics { grid-template-columns: repeat(2, 1fr); } .reconciliation { padding: 14px; } summary span { display: inline-block; margin: 8px 8px 0 0; } input[type=file] { width: 100%; } }

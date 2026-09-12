@@ -1,3 +1,5 @@
+import { uploadsAuthorization } from './files/uploads-authorization';
+import { JwtStrategy } from './auth/jwt.strategy';
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
@@ -179,144 +181,10 @@ async function bootstrap() {
   const jwtService = app.get(JwtService);
   const filesService = app.get(FilesService);
 
-  /**
-   * Upload prefixes still served on a valid token alone, without an ownership
-   * check, because nothing records who owns those files.
-   *
-   * This set is the honest inventory of what is left. Every entry is a file
-   * type whose rows carry no owner FilesService can resolve; adding the owning
-   * table to FilesService.SCOPED_DOCUMENT_TABLES is what removes an entry.
-   * Anything not named here is now scoped, so a new upload directory fails
-   * closed rather than inheriting an exemption by being forgotten.
-   */
-  const UNSCOPED_UPLOAD_PREFIXES = new Set([
-    // Generated artefacts written straight to disk, with no row recording who
-    // they belong to. Each needs an owning table before it can be scoped.
-    'forms',
-    'notices',
-    'registrations',
-    'returns',
-    'payroll-breakups',
-    'payroll-run-employees',
-    'invoices',
-    'compliance-docs',
-    // Scratch space for in-flight uploads; never a durable artefact.
-    'temp',
-  ]);
-  app.use('/uploads', (req: Request, res: Response, next: NextFunction) => {
-    // Logos and news images are non-sensitive assets — serve publicly
-    if (req.path.startsWith('/logos/') || req.path.startsWith('/news/')) {
-      return next();
-    }
-
-    // Biometric face photos must NOT be served via the generic uploads route:
-    // that only checks token validity, not client/branch/subject authorization.
-    // They are served exclusively through the scoped mobile-attendance
-    // endpoints (…/kiosk/tickets/:id/photo, …/review/:type/:id/photo) which
-    // load the owning record and enforce access. Block the static path.
-    if (req.path.startsWith('/face-photos/')) {
-      return res.status(404).json({
-        success: false,
-        statusCode: 404,
-        message: 'Not found',
-        error: 'Not Found',
-        path: req.originalUrl,
-        method: req.method,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    // Extract token from Authorization header only.
-    let token = '';
-    const authHeader = req.headers?.authorization || '';
-    if (authHeader.startsWith('Bearer ')) {
-      token = authHeader.slice(7);
-    }
-
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        statusCode: 401,
-        message: 'Authentication required',
-        error: 'Unauthorized',
-        path: req.originalUrl,
-        method: req.method,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    try {
-      const payload = jwtService.verify(token);
-      if (payload?.type !== 'access') {
-        return res.status(401).json({
-          success: false,
-          statusCode: 401,
-          message: 'Invalid token type',
-          error: 'Unauthorized',
-          path: req.originalUrl,
-          method: req.method,
-          timestamp: new Date().toISOString(),
-        });
-      }
-      // Authenticated — now check this user may have THIS file.
-      //
-      // A valid token used to be the whole test, so any signed-in user could
-      // read any other tenant's compliance evidence, payslip or employee
-      // document by knowing its path. FilesService resolves the owning row and
-      // applies the same client/branch/employee scope as the rest of the API.
-      const relative = decodeURIComponent(req.path.replace(/^\/+/, ''));
-      const prefix = relative.split('/')[0] ?? '';
-      if (UNSCOPED_UPLOAD_PREFIXES.has(prefix)) {
-        // Named, not assumed — see the note on the set below.
-        return next();
-      }
-
-      void filesService
-        .assertCanDownload(
-          {
-            id: payload.sub,
-            userId: payload.sub,
-            email: payload.email,
-            roleCode: payload.roleCode,
-            clientId: payload.clientId ?? null,
-            userType: payload.userType ?? null,
-            branchIds: Array.isArray(payload.branchIds)
-              ? payload.branchIds
-              : [],
-            assignedClientIds: [],
-            employeeId: payload.employeeId ?? null,
-          } as any,
-          relative,
-        )
-        .then(() => next())
-        .catch((err: any) => {
-          const status = Number(err?.status) === 400 ? 404 : 403;
-          return res.status(status).json({
-            success: false,
-            statusCode: status,
-            message:
-              status === 404
-                ? 'Not found'
-                : 'You do not have permission to access this file',
-            error: status === 404 ? 'Not Found' : 'Forbidden',
-            path: req.originalUrl,
-            method: req.method,
-            timestamp: new Date().toISOString(),
-          });
-        });
-      return;
-    } catch {
-      return res.status(401).json({
-        success: false,
-        statusCode: 401,
-        message: 'Invalid or expired token',
-        error: 'Unauthorized',
-        path: req.originalUrl,
-        method: req.method,
-        timestamp: new Date().toISOString(),
-      });
-    }
-  });
+  app.use(
+    '/uploads',
+    uploadsAuthorization(jwtService, app.get(JwtStrategy), filesService),
+  );
 
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',

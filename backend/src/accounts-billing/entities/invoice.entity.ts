@@ -254,11 +254,9 @@ export class Invoice {
   @JoinColumn({ name: 'converted_from_proforma_id' })
   convertedFromProforma: Invoice | null;
 
-  @OneToOne(
-    () => Invoice,
-    (invoice) => invoice.convertedFromProforma,
-    { nullable: true },
-  )
+  @OneToOne(() => Invoice, (invoice) => invoice.convertedFromProforma, {
+    nullable: true,
+  })
   convertedInvoice: Invoice | null;
 
   @Column({ name: 'created_by', type: 'uuid' })

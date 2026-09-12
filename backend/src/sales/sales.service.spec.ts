@@ -15,7 +15,10 @@ describe('SalesService', () => {
         { provide: DataSource, useValue: { query: jest.fn() } },
         {
           provide: getRepositoryToken(LeadEntity),
-          useValue: { find: jest.fn().mockResolvedValue([]), findOne: jest.fn() },
+          useValue: {
+            find: jest.fn().mockResolvedValue([]),
+            findOne: jest.fn(),
+          },
         },
         {
           provide: getRepositoryToken(LeadActivityEntity),

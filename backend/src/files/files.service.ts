@@ -34,15 +34,33 @@ export class FilesService {
   async assertCanDownload(user: ReqUser, filePath: string) {
     const filePathVariants = this.filePathVariants(filePath);
 
+    // Match the billing PDF controller's role policy. Billing tenant_id is not
+    // a platform client_id, so it must never be treated as client ownership.
+    if (/^(?:\/?uploads\/)?invoices\//.test(filePath)) {
+      if (!['ADMIN', 'ACCOUNTS'].includes(user.roleCode))
+        throw new ForbiddenException();
+      const rows = await this.cdRepo.manager.query(
+        'SELECT id FROM invoices WHERE pdf_path = ANY($1::text[]) LIMIT 1',
+        [filePathVariants],
+      );
+      if (!rows[0]) throw new BadRequestException('File not registered in DB');
+      return;
+    }
+
     // 1) contractor_documents
     const cd = await this.cdRepo.findOne({
       where: filePathVariants.map((p) => ({ filePath: p })),
     });
     if (cd) {
-      if (user.roleCode === 'CONTRACTOR' && user.id !== cd.contractorUserId)
-        throw new ForbiddenException();
-      if (user.roleCode === 'CLIENT' && user.clientId !== cd.clientId)
-        throw new ForbiddenException();
+      if (user.roleCode === 'CONTRACTOR') {
+        if (user.id !== cd.contractorUserId) throw new ForbiddenException();
+        return;
+      }
+      await this.assertOwnerInScope(user, {
+        clientId: cd.clientId,
+        branchId: cd.branchId ?? null,
+        employeeId: null,
+      });
       return;
     }
 
@@ -100,7 +118,12 @@ export class FilesService {
         if (!ok) throw new ForbiddenException();
         return;
       }
-      return; // ADMIN/others
+      await this.assertOwnerInScope(user, {
+        clientId: rr.clientId,
+        branchId: rr.branchId ?? null,
+        employeeId: null,
+      });
+      return;
     }
 
     // 4) helpdesk_message_files — join back to the ticket so we enforce
@@ -170,9 +193,8 @@ export class FilesService {
   /**
    * Tables whose rows carry their own owner and a path to the stored file.
    *
-   * Any file not reachable through one of these — or the four indirect cases
-   * above — cannot be authorized, which is why UNSCOPED_UPLOAD_PREFIXES in
-   * main.ts has to name what is still served without an ownership check.
+   * Files without an owning row cannot be downloaded. Scratch imports are
+   * deliberately not served by the static uploads middleware.
    */
   private static readonly SCOPED_DOCUMENT_TABLES: ReadonlyArray<{
     table: string;
@@ -182,6 +204,37 @@ export class FilesService {
     branchColumn?: string;
     employeeColumn?: string;
   }> = [
+    {
+      table: 'employee_generated_forms',
+      pathColumn: 'file_path',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+      employeeColumn: 'employee_id',
+    },
+    {
+      table: 'compliance_returns',
+      pathColumn: 'ack_file_path',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+    },
+    {
+      table: 'compliance_returns',
+      pathColumn: 'challan_file_path',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+    },
+    {
+      table: 'branch_registrations',
+      pathColumn: 'document_url',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+    },
+    {
+      table: 'branch_registrations',
+      pathColumn: 'renewal_document_url',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+    },
     // Branch compliance evidence: the largest sensitive category, and the one
     // that names its path column differently from every other table.
     {
@@ -245,6 +298,20 @@ export class FilesService {
     branchId: string | null;
     employeeId: string | null;
   } | null> {
+    try {
+      const notices = await this.cdRepo.manager.query(
+        `SELECT n.client_id AS "clientId", n.branch_id AS "branchId", NULL::uuid AS "employeeId"
+           FROM notice_documents d JOIN notices n ON n.id = d.notice_id
+          WHERE d.file_url = ANY($1::text[]) LIMIT 1`,
+        [filePathVariants],
+      );
+      if (notices[0]) return notices[0];
+    } catch (err) {
+      // A deployment without the notices module cannot authorize its files,
+      // but may still serve other registered document types.
+      if (!['42P01', '42703'].includes((err as { code?: string }).code ?? ''))
+        throw err;
+    }
     for (const spec of FilesService.SCOPED_DOCUMENT_TABLES) {
       const branchSelect = spec.branchColumn
         ? `${spec.branchColumn} AS "branchId"`

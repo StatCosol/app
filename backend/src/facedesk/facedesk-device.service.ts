@@ -139,10 +139,7 @@ export class FaceDeskDeviceService {
       patch.appVersion = meta.appVersion.trim().slice(0, 40);
     }
     if (meta?.offlineQueueDepth != null) {
-      patch.offlineQueueDepth = Math.max(
-        0,
-        Math.floor(meta.offlineQueueDepth),
-      );
+      patch.offlineQueueDepth = Math.max(0, Math.floor(meta.offlineQueueDepth));
     }
     await this.repo.update({ deviceId }, patch);
   }

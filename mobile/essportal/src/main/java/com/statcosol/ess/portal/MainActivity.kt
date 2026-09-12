@@ -32,21 +32,25 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.statcosol.ess.portal.databinding.ActivityMainBinding
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
+import org.json.JSONObject
+import android.util.Base64
 
 /**
  * Thin WebView wrapper that hosts the existing Angular ESS portal at
  * [BuildConfig.DEFAULT_PORTAL_URL]. The web app continues to be the source of
- * truth — this Activity only provides:
+ * truth â€” this Activity only provides:
  *
  *  * native camera + geolocation permission grants for the in-page Face ID and
  *    geofence flows,
  *  * a file chooser bridge for document uploads,
  *  * a system DownloadManager handoff for payslip / report downloads,
- *  * pull-to-refresh and a hardware back-button → webview history bridge,
+ *  * pull-to-refresh and a hardware back-button â†’ webview history bridge,
  *  * a hidden Settings dialog (long-press anywhere on the offline banner) to
  *    point the app at staging during QA.
  *
- * Navigation is locked to the Statcosol domain — anything else opens in the
+ * Navigation is locked to the Statcosol domain â€” anything else opens in the
  * external browser so the user cannot get phished into typing their ESS
  * password into a third-party page that loaded inside this WebView.
  */
@@ -56,6 +60,23 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefs: SharedPreferences
     private var pendingFileChooser: ValueCallback<Array<Uri>>? = null
     private var pendingPermissionRequest: PermissionRequest? = null
+    private var pendingDownload: ByteArray? = null
+    private var downloadBridgeRegistered = false
+    private val saveDownloadLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val bytes = pendingDownload
+        pendingDownload = null
+        val uri = result.data?.data
+        if (result.resultCode == RESULT_OK && bytes != null && uri != null) {
+            Thread {
+                val saved = runCatching {
+                    checkNotNull(contentResolver.openOutputStream(uri)).use { it.write(bytes) }
+                }.isSuccess
+                runOnUiThread { Toast.makeText(this, if (saved) "File saved" else "Could not save file", Toast.LENGTH_LONG).show() }
+            }.start()
+        }
+    }
 
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -113,7 +134,7 @@ class MainActivity : AppCompatActivity() {
             showSettingsDialog(); true
         }
 
-        // Hardware back → webview history.
+        // Hardware back â†’ webview history.
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (binding.webView.canGoBack()) binding.webView.goBack() else finish()
@@ -131,6 +152,58 @@ class MainActivity : AppCompatActivity() {
         }
 
         loadStartUrl()
+    }
+
+    private fun registerDownloadBridge(portal: String) {
+        val wv = binding.webView
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
+        if (downloadBridgeRegistered) {
+            WebViewCompat.removeWebMessageListener(wv, "StatcoDownload")
+            downloadBridgeRegistered = false
+        }
+        val uri = Uri.parse(portal)
+        val origin = "https://${uri.encodedAuthority}"
+        if (isAllowedUrl(portal)) {
+            WebViewCompat.addWebMessageListener(wv, "StatcoDownload", setOf(origin)) { _, message, sourceOrigin, isMainFrame, _ ->
+                if (!isMainFrame || sourceOrigin.toString().trimEnd('/') != origin ||
+                    binding.webView.url?.let { Uri.parse(it).let { page -> "${page.scheme}://${page.encodedAuthority}" } } != origin) {
+                    return@addWebMessageListener
+                }
+                if (pendingDownload != null) {
+                    Toast.makeText(this, "Finish the current download first", Toast.LENGTH_SHORT).show()
+                    return@addWebMessageListener
+                }
+                try {
+                    val raw = message.data ?: error("Empty download")
+                    check(raw.length <= 28 * 1024 * 1024) { "Download exceeds 20 MB" }
+                    val payload = JSONObject(raw)
+                    val bytes = Base64.decode(payload.getString("data"), Base64.NO_WRAP)
+                    check(bytes.size <= 20 * 1024 * 1024) { "Download exceeds 20 MB" }
+                    val name = payload.optString("fileName", "document")
+                        .replace(Regex("[\\\\/\\p{Cntrl}]"), "_").take(180).ifBlank { "document" }
+                    val mime = payload.optString("mimeType", "application/octet-stream")
+                        .takeIf { it.matches(Regex("[a-zA-Z0-9.+-]+/[a-zA-Z0-9.+-]+")) } ?: "application/octet-stream"
+                    pendingDownload = bytes
+                    saveDownloadLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = mime
+                        putExtra(Intent.EXTRA_TITLE, name)
+                    })
+                } catch (e: Exception) {
+                    pendingDownload = null
+                    Toast.makeText(this, "Could not start download: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            downloadBridgeRegistered = true
+        }
+    }
+
+    private fun loadPortalUrl(url: String) {
+        // Listener rules are injected on the next page load. Replace them first
+        // so saved/reset portal settings take effect without restarting the app.
+        binding.webView.stopLoading()
+        registerDownloadBridge(url)
+        binding.webView.loadUrl(url)
     }
 
     private fun configureWebView() {
@@ -153,7 +226,7 @@ class MainActivity : AppCompatActivity() {
             useWideViewPort = true
             loadWithOverviewMode = true
             // Pinch-to-zoom is allowed (page is responsive) but the on-screen
-            // zoom controls are hidden — they overlap the bottom nav.
+            // zoom controls are hidden â€” they overlap the bottom nav.
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
@@ -170,7 +243,7 @@ class MainActivity : AppCompatActivity() {
                 return if (isAllowedHost(host)) {
                     false // let WebView load it
                 } else {
-                    // External link → system browser, never inside this app.
+                    // External link â†’ system browser, never inside this app.
                     runCatching {
                         startActivity(Intent(Intent.ACTION_VIEW, request.url))
                     }
@@ -256,7 +329,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // PDF / image / etc. downloads → system DownloadManager.
+        // PDF / image / etc. downloads â†’ system DownloadManager.
         wv.setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
             try {
                 val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
@@ -293,7 +366,7 @@ class MainActivity : AppCompatActivity() {
         if (!isOnline()) {
             binding.offlineBanner.visibility = android.view.View.VISIBLE
         }
-        binding.webView.loadUrl(url)
+        loadPortalUrl(url)
     }
 
     private fun isAllowedHost(host: String): Boolean {
@@ -306,8 +379,9 @@ class MainActivity : AppCompatActivity() {
             val u = Uri.parse(raw)
             val scheme = u.scheme?.lowercase()
             val host = u.host?.lowercase()
-            if (scheme != "https" && scheme != "http") return false
+            if (scheme != "https") return false
             if (host.isNullOrBlank()) return false
+            if (u.encodedAuthority?.contains('@') == true) return false
             isAllowedHost(host)
         } catch (_: Exception) {
             false
@@ -343,7 +417,7 @@ class MainActivity : AppCompatActivity() {
                 val v = input.text.toString().trim()
                 if (isAllowedUrl(v)) {
                     prefs.edit().putString(KEY_PORTAL_URL, v).apply()
-                    binding.webView.loadUrl(v)
+                    loadPortalUrl(v)
                 } else {
                     Toast.makeText(
                         this,
@@ -357,7 +431,7 @@ class MainActivity : AppCompatActivity() {
             }
             .setNeutralButton(R.string.settings_reset) { _, _ ->
                 prefs.edit().remove(KEY_PORTAL_URL).apply()
-                binding.webView.loadUrl(BuildConfig.DEFAULT_PORTAL_URL)
+                loadPortalUrl(BuildConfig.DEFAULT_PORTAL_URL)
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()

@@ -50,9 +50,7 @@ export function pickBestPhoto(
 
   // An absent score must never outrank a real one, but must not reorder a
   // batch where nothing is scored either.
-  const best = [...pool].sort(
-    (a, b) => scoreOf(b) - scoreOf(a),
-  )[0];
+  const best = [...pool].sort((a, b) => scoreOf(b) - scoreOf(a))[0];
   return best.photoB64;
 }
 

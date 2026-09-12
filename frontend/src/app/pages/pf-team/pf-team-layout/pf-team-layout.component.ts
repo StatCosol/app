@@ -1,3 +1,4 @@
+import { WorkspaceToolsComponent } from '../../../shared/components/workspace-tools/workspace-tools.component';
 import { Component, HostListener , ChangeDetectionStrategy} from '@angular/core';
 
 import { RouterOutlet, RouterModule } from '@angular/router';
@@ -12,8 +13,9 @@ interface NavItem {
 @Component({
   selector: 'app-pf-team-layout',
   standalone: true,
+  host: { class: 'workspace-ui' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterModule],
+  imports: [WorkspaceToolsComponent, RouterOutlet, RouterModule],
   template: `
     <div class="shell" [class.sb-collapsed]="sidebarCollapsed" [class.sb-mobile-open]="mobileOpen">
       <!-- ==== SIDEBAR ==== -->
@@ -93,7 +95,7 @@ interface NavItem {
         </header>
 
         <main class="page-content">
-          <router-outlet></router-outlet>
+          <app-workspace-tools></app-workspace-tools><router-outlet></router-outlet>
         </main>
       </div>
     </div>

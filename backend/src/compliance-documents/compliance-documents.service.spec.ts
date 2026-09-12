@@ -27,16 +27,30 @@ describe('ComplianceDocumentsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ComplianceDocumentsService,
-        { provide: getRepositoryToken(ComplianceDocLibraryEntity), useValue: repoMock() },
-        { provide: getRepositoryToken(ComplianceDocumentVisibilityEntity), useValue: repoMock() },
-        { provide: getRepositoryToken(CompanySettingsEntity), useValue: repoMock() },
-        { provide: getRepositoryToken(ClientAssignmentCurrentEntity), useValue: repoMock() },
+        {
+          provide: getRepositoryToken(ComplianceDocLibraryEntity),
+          useValue: repoMock(),
+        },
+        {
+          provide: getRepositoryToken(ComplianceDocumentVisibilityEntity),
+          useValue: repoMock(),
+        },
+        {
+          provide: getRepositoryToken(CompanySettingsEntity),
+          useValue: repoMock(),
+        },
+        {
+          provide: getRepositoryToken(ClientAssignmentCurrentEntity),
+          useValue: repoMock(),
+        },
         { provide: getRepositoryToken(BranchEntity), useValue: repoMock() },
         { provide: BranchAccessService, useValue: {} },
       ],
     }).compile();
 
-    service = module.get<ComplianceDocumentsService>(ComplianceDocumentsService);
+    service = module.get<ComplianceDocumentsService>(
+      ComplianceDocumentsService,
+    );
   });
 
   it('should be defined', () => {

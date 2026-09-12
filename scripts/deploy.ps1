@@ -150,6 +150,8 @@ if ($buildBackend) {
 # -- 4. Container Apps update ---------------------------------------------
 if ($buildFrontend) {
     Invoke-Step "Update Container App: $FrontendApp -> $FrontendImage" {
+        az containerapp ingress update --name $FrontendApp --resource-group $ResourceGroup --target-port 8080 --only-show-errors
+        if ($LASTEXITCODE -ne 0) { throw 'Frontend ingress update failed.' }
         az containerapp update `
             --name $FrontendApp `
             --resource-group $ResourceGroup `

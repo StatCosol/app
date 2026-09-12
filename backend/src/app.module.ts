@@ -42,6 +42,7 @@ import { FilesModule } from './files/files.module';
 import { ReturnsModule } from './returns/returns.module';
 import { NominationsModule } from './nominations/nominations.module';
 import { ClientDashboardModule } from './client-dashboard/client-dashboard.module';
+import { MonthlyCloseModule } from './monthly-close/monthly-close.module';
 import { EssModule } from './ess/ess.module';
 import { AiModule } from './ai/ai.module';
 import { BranchComplianceModule } from './branch-compliance/branch-compliance.module';
@@ -189,6 +190,7 @@ import { ServiceEntitlementsGuard } from './service-entitlements/service-entitle
     ReturnsModule,
     NominationsModule,
     ClientDashboardModule,
+    MonthlyCloseModule,
     EssModule,
     AiModule,
     BranchComplianceModule,

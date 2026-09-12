@@ -85,7 +85,9 @@ export class FaceDeskTicketService {
     );
     if (!emp)
       throw new BadRequestException(
-        subjectType === 'CONTRACTOR' ? 'Contractor not found' : 'Employee not found',
+        subjectType === 'CONTRACTOR'
+          ? 'Contractor not found'
+          : 'Employee not found',
       );
     if (
       allowedBranchIds &&

@@ -11,8 +11,8 @@ android {
         applicationId = "com.statcosol.ess.portal"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
 
         // Production ESS portal entry point. Override at runtime via the in-app
         // Settings screen (long-press the toolbar) when pointing at staging.

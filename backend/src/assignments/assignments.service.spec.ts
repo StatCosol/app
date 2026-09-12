@@ -22,9 +22,18 @@ describe('AssignmentsService', () => {
       providers: [
         AssignmentsService,
         { provide: DataSource, useValue: { transaction: jest.fn() } },
-        { provide: getRepositoryToken(ClientAssignmentCurrentEntity), useValue: repoMock },
-        { provide: getRepositoryToken(ClientAssignmentHistoryEntity), useValue: repoMock },
-        { provide: getRepositoryToken(BranchAuditorAssignmentEntity), useValue: repoMock },
+        {
+          provide: getRepositoryToken(ClientAssignmentCurrentEntity),
+          useValue: repoMock,
+        },
+        {
+          provide: getRepositoryToken(ClientAssignmentHistoryEntity),
+          useValue: repoMock,
+        },
+        {
+          provide: getRepositoryToken(BranchAuditorAssignmentEntity),
+          useValue: repoMock,
+        },
         { provide: UsersService, useValue: {} },
         { provide: ClientsService, useValue: {} },
         { provide: AuditLogsService, useValue: { log: jest.fn() } },

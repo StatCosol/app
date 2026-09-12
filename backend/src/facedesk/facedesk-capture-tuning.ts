@@ -129,11 +129,10 @@ const RANGES: Record<keyof FaceDeskCaptureTuning, [number, number]> = {
  * Accepts null/undefined (nothing configured), a partial object (configure one
  * value, inherit the rest) and junk (a bad row must not stop a kiosk booting).
  */
-export function resolveCaptureTuning(
-  stored: unknown,
-): FaceDeskCaptureTuning {
+export function resolveCaptureTuning(stored: unknown): FaceDeskCaptureTuning {
   const out: FaceDeskCaptureTuning = { ...DEFAULT_CAPTURE_TUNING };
-  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return out;
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored))
+    return out;
 
   for (const key of Object.keys(RANGES) as Array<keyof FaceDeskCaptureTuning>) {
     const raw = (stored as Record<string, unknown>)[key];

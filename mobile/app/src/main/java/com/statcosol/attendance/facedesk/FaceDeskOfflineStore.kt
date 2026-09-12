@@ -28,40 +28,33 @@ class FaceDeskOfflineStore(private val context: Context) {
         MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
 
     init {
-        migrateLegacyPlaintext()
+        synchronized(AtomicQueueFile.lock) {
+            runCatching { migrateLegacyPlaintext() }
+                .onFailure { Log.e(TAG, "queue migration deferred", it) }
+        }
     }
 
-    private fun crypto(): EncryptedFile =
+    private fun crypto(file: File = encFile): EncryptedFile =
         EncryptedFile.Builder(
             context,
-            encFile,
+            file,
             masterKey,
             EncryptedFile.FileEncryptionScheme.AES256_GCM_HKDF_4KB,
         ).build()
 
     private fun readLinesEncrypted(): List<String> {
         if (!encFile.exists()) return emptyList()
-        return try {
-            crypto().openFileInput().bufferedReader().use { r ->
-                r.readLines().filter { it.isNotBlank() }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "read failed", e)
-            emptyList()
+        return crypto().openFileInput().bufferedReader().use { r ->
+            r.readLines().filter { it.isNotBlank() }
         }
     }
 
     private fun writeLinesEncrypted(lines: List<String>) {
-        // EncryptedFile refuses to open an existing target for write.
-        if (encFile.exists()) encFile.delete()
-        if (lines.isEmpty()) return
-        try {
-            crypto().openFileOutput().use { out ->
+        AtomicQueueFile.replace(encFile) { pending ->
+            crypto(pending).openFileOutput().use { out ->
                 out.write(lines.joinToString("\n").toByteArray())
                 out.write("\n".toByteArray())
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "write failed", e)
         }
     }
 
@@ -71,48 +64,50 @@ class FaceDeskOfflineStore(private val context: Context) {
         try {
             val old = legacyFile.readLines().filter { it.isNotBlank() }
             if (old.isNotEmpty()) {
-                writeLinesEncrypted(readLinesEncrypted() + old)
+                writeLinesEncrypted((readLinesEncrypted() + old).distinct())
             }
+            check(legacyFile.delete()) { "Cannot remove migrated queue" }
         } catch (e: Exception) {
-            Log.w(TAG, "legacy migrate failed: ${e.message}")
-        } finally {
-            runCatching { legacyFile.delete() }
+            Log.w(TAG, "legacy migrate deferred: ${e.message}")
+            throw e
         }
     }
 
-    @Synchronized
-    fun enqueue(req: MarkAttendanceRequest): Boolean {
-        val line = runCatching { json.encodeToString(req) }.getOrNull() ?: return false
-        val lines = readLinesEncrypted()
-        writeLinesEncrypted(lines + line)
-        return readLinesEncrypted().size > lines.size
+    fun enqueue(req: MarkAttendanceRequest): Boolean = synchronized(AtomicQueueFile.lock) {
+        try {
+            migrateLegacyPlaintext()
+            val line = json.encodeToString(req)
+            val lines = readLinesEncrypted()
+            writeLinesEncrypted(lines + line)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "enqueue failed; previous queue preserved", e)
+            false
+        }
     }
 
-    @Synchronized
-    fun peekAll(): List<MarkAttendanceRequest> =
-        readLinesEncrypted().mapNotNull { line ->
-            runCatching { json.decodeFromString<MarkAttendanceRequest>(line) }.getOrNull()
+    fun peekAll(): List<MarkAttendanceRequest> = synchronized(AtomicQueueFile.lock) {
+        migrateLegacyPlaintext()
+        readLinesEncrypted().map { line ->
+            json.decodeFromString<MarkAttendanceRequest>(line)
         }
+    }
 
-    @Synchronized
-    fun size(): Int = readLinesEncrypted().size
+    // Telemetry only; sync uses peekAll() and retries on read errors.
+    fun size(): Int = synchronized(AtomicQueueFile.lock) {
+        runCatching { readLinesEncrypted().size }.getOrDefault(0)
+    }
 
     /** Clear the queue after a fully successful sync. */
-    @Synchronized
-    fun clear() {
-        runCatching { if (encFile.exists()) encFile.delete() }
+    fun clear() = synchronized(AtomicQueueFile.lock) {
+        writeLinesEncrypted(emptyList())
     }
 
     /** Replace the queue with only the punches that still need retry. */
-    @Synchronized
-    fun replaceAll(keep: List<MarkAttendanceRequest>) {
-        if (keep.isEmpty()) {
-            clear()
-            return
-        }
+    fun replaceAll(keep: List<MarkAttendanceRequest>) = synchronized(AtomicQueueFile.lock) {
         writeLinesEncrypted(
-            keep.mapNotNull { req ->
-                runCatching { json.encodeToString(req) }.getOrNull()
+            keep.map { req ->
+                json.encodeToString(req)
             },
         )
     }
@@ -122,13 +117,12 @@ class FaceDeskOfflineStore(private val context: Context) {
      * while the flush was in flight. Only [snapshot] refs are removed unless
      * they appear in [retryRefs].
      */
-    @Synchronized
     fun finishFlush(
         snapshot: List<MarkAttendanceRequest>,
         retryRefs: Set<String>,
-    ) {
+    ) = synchronized(AtomicQueueFile.lock) {
         val snapshotRefSet = snapshot.mapNotNull { it.offlineRef }.toSet()
-        if (snapshotRefSet.isEmpty()) return
+        if (snapshotRefSet.isEmpty()) return@synchronized
         val retryByRef = snapshot
             .filter { it.offlineRef != null && it.offlineRef in retryRefs }
             .associateBy { it.offlineRef!! }

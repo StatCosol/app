@@ -193,7 +193,9 @@ describe('FaceDeskTicketService.cancelOpenForSubject', () => {
     // The kiosk cancels too, so this usually runs second and must not error.
     const { service, qb } = makeService();
     qb.execute.mockResolvedValueOnce({ affected: 0 });
-    await expect(service.cancelOpenForSubject('d1', 'c1', 'e1')).resolves.toEqual({
+    await expect(
+      service.cancelOpenForSubject('d1', 'c1', 'e1'),
+    ).resolves.toEqual({
       ok: true,
     });
   });

@@ -1,9 +1,11 @@
 import { Component, Input, forwardRef , ChangeDetectionStrategy} from '@angular/core';
+import { ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'ui-form-input',
+  host: { class: 'bs-surface' },
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule],
@@ -31,6 +33,7 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from '@angular/f
         </div>
 }
         <input
+          class="form-control"
           [id]="inputId"
           [name]="name || inputId"
           [type]="type"
@@ -38,6 +41,7 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from '@angular/f
           [disabled]="disabled"
           [readonly]="readonly"
           [attr.autocomplete]="autocomplete || null"
+          [attr.aria-required]="required"
           [attr.aria-invalid]="error ? 'true' : null"
           [attr.aria-describedby]="error ? inputId + '-error' : hint ? inputId + '-hint' : null"
           [ngClass]="inputClasses"
@@ -61,6 +65,7 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from '@angular/f
   `
 })
 export class FormInputComponent implements ControlValueAccessor {
+  private readonly cdr = inject(ChangeDetectorRef);
   @Input() label = '';
   @Input() placeholder = '';
   @Input() type: 'text' | 'email' | 'password' | 'number' | 'tel' | 'url' | 'search' | 'date' = 'text';
@@ -80,7 +85,8 @@ export class FormInputComponent implements ControlValueAccessor {
   onTouched: () => void = () => {};
 
   writeValue(value: string): void {
-    this.value = value || '';
+    this.value = value ?? '';
+    this.cdr.markForCheck();
   }
 
   registerOnChange(fn: (value: string) => void): void {
@@ -93,6 +99,7 @@ export class FormInputComponent implements ControlValueAccessor {
 
   setDisabledState(isDisabled: boolean): void {
     this.disabled = isDisabled;
+    this.cdr.markForCheck();
   }
 
   onInput(event: Event): void {

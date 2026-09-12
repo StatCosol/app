@@ -21,7 +21,11 @@ function makeService(row: any = null) {
       },
     ]),
   };
-  return { service: new FaceDeskDeviceService(repo as any, dataSource as any), repo, dataSource };
+  return {
+    service: new FaceDeskDeviceService(repo as any, dataSource as any),
+    repo,
+    dataSource,
+  };
 }
 
 describe('FaceDeskDeviceService', () => {

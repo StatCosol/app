@@ -28,7 +28,6 @@ export interface AzureLivenessSessionResult {
   attempts: AzureLivenessAttempt[];
 }
 
-
 /**
  * Thin REST client for Azure AI Face (Large Face List).
  * Configured when AZURE_FACE_ENDPOINT and AZURE_FACE_KEY are set.
@@ -162,7 +161,9 @@ export class AzureFaceClient {
     );
     if (!resp.ok) {
       const body = await resp.text().catch(() => '');
-      throw new Error(`Azure Face detect ${resp.status}: ${body.slice(0, 200)}`);
+      throw new Error(
+        `Azure Face detect ${resp.status}: ${body.slice(0, 200)}`,
+      );
     }
     const faces = (await resp.json()) as AzureDetectedFace[];
     return faces?.[0] ?? null;
@@ -366,5 +367,4 @@ export class AzureFaceClient {
     }
     return true;
   }
-
 }

@@ -108,10 +108,8 @@ describe('FaceDesk portal controllers branch access', () => {
 
     void controller.reviewQueue(branchUser, 'PENDING');
 
-    expect(admin.listReviewQueue).toHaveBeenCalledWith(
-      'client-1',
-      'PENDING',
-      ['branch-1'],
-    );
+    expect(admin.listReviewQueue).toHaveBeenCalledWith('client-1', 'PENDING', [
+      'branch-1',
+    ]);
   });
 });

@@ -81,10 +81,7 @@ export class ComplianceCrmTasksService {
     };
   }
 
-  private async assertCrmAssignedToClient(
-    crmUserId: string,
-    clientId: string,
-  ) {
+  private async assertCrmAssignedToClient(crmUserId: string, clientId: string) {
     const ok = await this.assignmentsService.isClientAssignedToCrm(
       clientId,
       crmUserId,
@@ -624,5 +621,4 @@ export class ComplianceCrmTasksService {
 
     return { status: 'REJECTED' };
   }
-
 }

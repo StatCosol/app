@@ -14,9 +14,7 @@ export function mobileAttendanceBranchScope(user: ReqUser): string[] | null {
 }
 
 /** Biometric photos are branch-verifier only (DPDP / least-privilege). */
-export function requireMobileAttendanceBranchVerifier(
-  user: ReqUser,
-): string[] {
+export function requireMobileAttendanceBranchVerifier(user: ReqUser): string[] {
   const scope = mobileAttendanceBranchScope(user);
   if (scope === null) {
     throw new ForbiddenException(

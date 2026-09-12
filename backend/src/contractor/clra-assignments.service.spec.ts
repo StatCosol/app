@@ -31,11 +31,26 @@ describe('ClraAssignmentsService (portal)', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ClraAssignmentsService,
-        { provide: getRepositoryToken(ClraPeEstablishment), useValue: repoMock() },
-        { provide: getRepositoryToken(ClraContractor), useValue: contractorRepo },
-        { provide: getRepositoryToken(ClraContractorAssignment), useValue: repoMock() },
-        { provide: getRepositoryToken(ClraContractorWorker), useValue: repoMock() },
-        { provide: getRepositoryToken(ClraWorkerDeployment), useValue: repoMock() },
+        {
+          provide: getRepositoryToken(ClraPeEstablishment),
+          useValue: repoMock(),
+        },
+        {
+          provide: getRepositoryToken(ClraContractor),
+          useValue: contractorRepo,
+        },
+        {
+          provide: getRepositoryToken(ClraContractorAssignment),
+          useValue: repoMock(),
+        },
+        {
+          provide: getRepositoryToken(ClraContractorWorker),
+          useValue: repoMock(),
+        },
+        {
+          provide: getRepositoryToken(ClraWorkerDeployment),
+          useValue: repoMock(),
+        },
         { provide: getRepositoryToken(ClraWagePeriod), useValue: repoMock() },
         { provide: getRepositoryToken(ClraAttendance), useValue: repoMock() },
         { provide: getRepositoryToken(ClraWage), useValue: repoMock() },
@@ -48,10 +63,16 @@ describe('ClraAssignmentsService (portal)', () => {
   });
 
   it('findContractorForUser returns linked contractor', async () => {
-    const contractor = { id: 'c1', contractorUserId: 'u1', active: true } as ClraContractor;
+    const contractor = {
+      id: 'c1',
+      contractorUserId: 'u1',
+      active: true,
+    } as ClraContractor;
     contractorRepo.findOne.mockResolvedValueOnce(contractor);
 
-    await expect(service.findContractorForUser('u1')).resolves.toEqual(contractor);
+    await expect(service.findContractorForUser('u1')).resolves.toEqual(
+      contractor,
+    );
     expect(contractorRepo.findOne).toHaveBeenCalledWith({
       where: { contractorUserId: 'u1', active: true },
     });
@@ -59,9 +80,9 @@ describe('ClraAssignmentsService (portal)', () => {
 
   it('findContractorForUser throws when not linked', async () => {
     contractorRepo.findOne.mockResolvedValue(null);
-    await expect(service.findContractorForUser('u1', null)).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.findContractorForUser('u1', null),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('assertAssignmentBelongsToContractor rejects foreign assignment', async () => {
@@ -73,11 +94,26 @@ describe('ClraAssignmentsService (portal)', () => {
     const module = await Test.createTestingModule({
       providers: [
         ClraAssignmentsService,
-        { provide: getRepositoryToken(ClraPeEstablishment), useValue: repoMock() },
-        { provide: getRepositoryToken(ClraContractor), useValue: contractorRepo },
-        { provide: getRepositoryToken(ClraContractorAssignment), useValue: assignmentRepo },
-        { provide: getRepositoryToken(ClraContractorWorker), useValue: repoMock() },
-        { provide: getRepositoryToken(ClraWorkerDeployment), useValue: repoMock() },
+        {
+          provide: getRepositoryToken(ClraPeEstablishment),
+          useValue: repoMock(),
+        },
+        {
+          provide: getRepositoryToken(ClraContractor),
+          useValue: contractorRepo,
+        },
+        {
+          provide: getRepositoryToken(ClraContractorAssignment),
+          useValue: assignmentRepo,
+        },
+        {
+          provide: getRepositoryToken(ClraContractorWorker),
+          useValue: repoMock(),
+        },
+        {
+          provide: getRepositoryToken(ClraWorkerDeployment),
+          useValue: repoMock(),
+        },
         { provide: getRepositoryToken(ClraWagePeriod), useValue: repoMock() },
         { provide: getRepositoryToken(ClraAttendance), useValue: repoMock() },
         { provide: getRepositoryToken(ClraWage), useValue: repoMock() },
@@ -87,7 +123,9 @@ describe('ClraAssignmentsService (portal)', () => {
     }).compile();
     const svc = module.get(ClraAssignmentsService);
 
-    await expect(svc.assertAssignmentBelongsToContractor('a1', 'mine')).rejects.toMatchObject({
+    await expect(
+      svc.assertAssignmentBelongsToContractor('a1', 'mine'),
+    ).rejects.toMatchObject({
       name: 'ForbiddenException',
     });
   });

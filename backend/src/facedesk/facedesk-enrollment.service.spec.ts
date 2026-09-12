@@ -288,9 +288,13 @@ describe('FaceDeskEnrollmentService deleteEnrollment', () => {
       { ...profile, azurePersistedFaceId: 'azure-face-9' },
       { currentBranch: 'b1', azureRemoved: false },
     );
-    const res = await service.deleteEnrollment('c1', 'actor', 'e1', 'EMPLOYEE', [
-      'b1',
-    ]);
+    const res = await service.deleteEnrollment(
+      'c1',
+      'actor',
+      'e1',
+      'EMPLOYEE',
+      ['b1'],
+    );
 
     // The deletion still succeeds — an Azure hiccup must not block an admin.
     expect(res).toEqual({ ok: true });

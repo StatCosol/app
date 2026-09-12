@@ -259,7 +259,6 @@ export class AuditListingService {
     };
   }
 
-
   async listForAuditor(
     user: ReqUser,
     q: {
@@ -410,7 +409,6 @@ export class AuditListingService {
     return audit;
   }
 
-
   async listForClient(
     user: ReqUser,
     q: { frequency?: string; status?: string; year?: number | string },
@@ -477,8 +475,6 @@ export class AuditListingService {
     return { total, completed, inProgress, planned };
   }
 
-
-
   private ensurePeriod(p?: string): string {
     if (!p || !/^\d{4}-(0[1-9]|1[0-2])$/.test(p)) {
       throw new BadRequestException(
@@ -538,7 +534,6 @@ export class AuditListingService {
     return { branchId, period: p, items: rows || [] };
   }
 
-
   async listContractorsForAuditor(user: ReqUser, clientId: string) {
     this.assertAuditor(user);
     if (!clientId) throw new BadRequestException('clientId required');
@@ -565,7 +560,6 @@ export class AuditListingService {
     return rows;
   }
 
-
   async getUploadLockForContractor(user: ReqUser, auditId: string) {
     this.assertContractor(user);
     const audit = await this.repo.findOne({ where: { id: auditId } });
@@ -586,7 +580,6 @@ export class AuditListingService {
       allowRejectedReupload: true,
     };
   }
-
 
   async getDashboardAudits(
     user: ReqUser,

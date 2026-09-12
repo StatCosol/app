@@ -6,9 +6,7 @@ import {
   normalizeEmbeddingModel,
 } from '../mobile-attendance/face/face-math';
 import { ContractorBiometricPunchEntity } from '../mobile-attendance/punch/contractor-punch.entity';
-import {
-  FaceDeskAttendanceEntity,
-} from './entities/facedesk.entities';
+import { FaceDeskAttendanceEntity } from './entities/facedesk.entities';
 import { FaceDeskFaceService } from './facedesk-face.service';
 import { FaceDeskSettingsService } from './facedesk-settings.service';
 import {

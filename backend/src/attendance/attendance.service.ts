@@ -650,7 +650,9 @@ export class AttendanceService {
       const pb = String(b).split(':').map(Number);
       if (pa.length < 2 || pb.length < 2) return '';
       let secs =
-        (pb[0] * 3600 + pb[1] * 60 + (pb[2] || 0)) -
+        pb[0] * 3600 +
+        pb[1] * 60 +
+        (pb[2] || 0) -
         (pa[0] * 3600 + pa[1] * 60 + (pa[2] || 0));
       if (secs < 0) secs += 24 * 3600; // overnight
       const h = Math.floor(secs / 3600);

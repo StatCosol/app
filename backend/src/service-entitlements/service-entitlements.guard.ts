@@ -159,7 +159,9 @@ export class ServiceEntitlementsGuard implements CanActivate {
       .replace(/^\/+/, '');
     const method = String(req.method || '').toUpperCase();
 
-    if (RETIRED_MOBILE_ESS_ROUTE_PATTERNS.some((pattern) => pattern.test(path))) {
+    if (
+      RETIRED_MOBILE_ESS_ROUTE_PATTERNS.some((pattern) => pattern.test(path))
+    ) {
       throw new ForbiddenException(
         'ESS Mobile Attendance has been retired for this organization',
       );

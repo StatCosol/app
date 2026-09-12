@@ -130,9 +130,7 @@ describe('InvoicesService Proforma conversion', () => {
       transaction: jest.fn(async (callback) => callback(manager)),
     };
     const numberService = {
-      generateInvoiceNumber: jest
-        .fn()
-        .mockResolvedValue('STSINV/2627/0012'),
+      generateInvoiceNumber: jest.fn().mockResolvedValue('STSINV/2627/0012'),
       getFinancialYear: jest.fn().mockReturnValue('2026-27'),
     };
 
@@ -186,4 +184,3 @@ describe('InvoicesService Proforma conversion', () => {
     expect(transactionAuditRepo.save).toHaveBeenCalledTimes(1);
   });
 });
-

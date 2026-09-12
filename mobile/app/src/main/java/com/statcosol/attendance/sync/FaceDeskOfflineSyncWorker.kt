@@ -20,10 +20,11 @@ class FaceDeskOfflineSyncWorker(ctx: Context, params: WorkerParameters) :
     CoroutineWorker(ctx, params) {
 
     override suspend fun doWork(): Result {
+      try {
         val config = DeviceConfig(applicationContext)
         if (!config.isRegistered()) return Result.success()
         val store = FaceDeskOfflineStore(applicationContext)
-        if (store.size() == 0) return Result.success()
+        if (store.peekAll().isEmpty()) return Result.success()
 
         val api = FaceDeskApiClient(config)
         val flush = FaceDeskOfflineSync.flush(
@@ -32,6 +33,12 @@ class FaceDeskOfflineSyncWorker(ctx: Context, params: WorkerParameters) :
             appVersion = BuildConfig.VERSION_NAME,
         )
         return if (flush.remaining == 0) Result.success() else Result.retry()
+      } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        android.util.Log.e("FaceDeskSync", "Queue unavailable; preserving punches for retry", e)
+        return Result.retry()
+      }
     }
 
     companion object {

@@ -44,7 +44,12 @@ export class FaceReenrollmentRequestEntity {
   @Column({ name: 'pending_embedding', type: 'bytea' })
   pendingEmbedding: Buffer;
 
-  @Column({ name: 'embedding_model', type: 'varchar', length: 40, nullable: true })
+  @Column({
+    name: 'embedding_model',
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+  })
   embeddingModel: string | null;
 
   @Column({ name: 'source', type: 'varchar', length: 10 })

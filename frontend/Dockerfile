@@ -7,8 +7,10 @@ COPY . .
 RUN npx ng build --configuration=production --base-href /app/ --deploy-url /app/
 
 # ── Stage 2: Serve with Nginx ────────────────
-FROM nginx:1.27-alpine
-COPY --from=builder /app/dist/statco-frontend/browser /usr/share/nginx/html/app
+FROM nginxinc/nginx-unprivileged:stable-alpine
+USER root
+RUN apk upgrade --no-cache
+COPY --from=builder --chown=101:101 /app/dist/statco-frontend/browser /usr/share/nginx/html/app
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 # Pre-compress immutable Angular assets so Nginx can serve gzip_static files
@@ -19,7 +21,8 @@ RUN find /usr/share/nginx/html/app -type f \
 
 ENV BACKEND_URL=http://backend:3000
 
-EXPOSE 80
+USER 101
+EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:80/healthz || exit 1
+  CMD wget -qO- http://localhost:8080/healthz || exit 1
 CMD ["nginx", "-g", "daemon off;"]

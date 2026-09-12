@@ -32,6 +32,7 @@ import {
   skillCategoryLabel,
 } from '../shared/skill-category';
 import * as XLSX from 'xlsx';
+import { downloadBlob } from '../../../shared/utils/download-blob';
 
 interface EmployeeForm {
   name: string;
@@ -90,6 +91,7 @@ interface BulkPreviewRow {
 
 @Component({
   selector: 'app-contractor-employees-page',
+  host: { class: 'bs-surface' },
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
@@ -108,10 +110,10 @@ interface BulkPreviewRow {
 
       <!-- KPI bar -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-          <p class="text-xs text-gray-500 font-medium mb-1">Total Workers</p>
+        <button type="button" (click)="showWorkers('active')" class="workforce-metric bg-white rounded-xl border border-gray-100 p-4 shadow-sm" aria-label="View active workers">
+          <p class="text-xs text-gray-500 font-medium mb-1">Active Workers</p>
           <p class="text-2xl font-bold text-gray-900">{{ totalActive }}</p>
-        </div>
+        </button>
         <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
           <p class="text-xs text-gray-500 font-medium mb-1">Male</p>
           <p class="text-2xl font-bold text-brand-600">{{ maleCount }}</p>
@@ -127,7 +129,7 @@ interface BulkPreviewRow {
       </div>
 
       <!-- Toolbar -->
-      <div class="flex flex-wrap gap-3 items-center justify-between">
+      <div class="workforce-toolbar flex flex-wrap gap-3 items-center justify-between">
         <div class="flex gap-2 flex-wrap items-center">
           <!-- Branch filter -->
           @if (availableBranches.length > 1) {
@@ -157,20 +159,25 @@ interface BulkPreviewRow {
             />
           </div>
           <!-- Status filter -->
-          <select
-            [(ngModel)]="statusFilter"
-            (change)="applyFilters()"
-            class="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-rose-400 focus:border-rose-400"
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="all">All</option>
-          </select>
+          <div class="btn-group" role="group" aria-label="Worker status filter">
+            <button type="button" class="btn btn-outline-primary" [class.active]="statusFilter === 'active'" [attr.aria-pressed]="statusFilter === 'active'" (click)="statusFilter = 'active'; applyFilters()">Active</button>
+            <button type="button" class="btn btn-outline-primary" [class.active]="statusFilter === 'inactive'" [attr.aria-pressed]="statusFilter === 'inactive'" (click)="statusFilter = 'inactive'; applyFilters()">Inactive</button>
+            <button type="button" class="btn btn-outline-primary" [class.active]="statusFilter === 'all'" [attr.aria-pressed]="statusFilter === 'all'" (click)="statusFilter = 'all'; applyFilters()">All</button>
+          </div>
         </div>
-        <div class="flex gap-2 items-center">
+        <div class="flex gap-2 flex-wrap items-center">
+          <button
+            type="button"
+            (click)="downloadWorkers()"
+            [disabled]="loading || downloading || !!errorMsg || filteredRows.length === 0"
+            title="Download the workers matching the current branch, status and search filters as Excel"
+            class="btn btn-primary"
+          >
+            {{ downloading ? 'Preparing download…' : 'Download Workers' }}
+          </button>
           <button
             (click)="openBulkUpload()"
-            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
+            class="btn btn-outline-primary"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12"/>
@@ -179,7 +186,7 @@ interface BulkPreviewRow {
           </button>
           <button
             (click)="openAdd()"
-            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition-colors"
+            class="btn btn-outline-primary"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -217,7 +224,7 @@ interface BulkPreviewRow {
       @if (!loading && filteredRows.length > 0) {
 <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-100">
+          <table class="table table-hover min-w-full divide-y divide-gray-100">
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
@@ -844,6 +851,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
 
   loading = false;
   saving = false;
+  downloading = false;
   errorMsg: string | null = null;
   formError: string | null = null;
 
@@ -967,6 +975,52 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       return true;
     });
     this.cdr.markForCheck();
+  }
+
+  showWorkers(status: 'active' | 'inactive' | 'all'): void {
+    this.statusFilter = status;
+    this.searchTerm = '';
+    this.applyFilters();
+  }
+
+  async downloadWorkers(): Promise<void> {
+    if (this.loading || this.downloading || this.errorMsg || !this.filteredRows.length) return;
+    this.downloading = true;
+    try {
+      const rows = this.filteredRows.map((emp) => ({
+        'Worker Name': emp.name,
+        'Punch Code': emp.punchCode || '',
+        Branch: this.branchName(emp.branchId),
+        Gender: emp.gender || '',
+        Phone: emp.phone || '',
+        Designation: emp.designation || '',
+        Skill: emp.skillCategory ? this.skillLabel(emp.skillCategory) : '',
+        'Monthly Salary': emp.monthlySalary ?? '',
+        Department: emp.department || '',
+        'Date of Joining': emp.dateOfJoining || '',
+        'PF Applicable': emp.pfApplicable ? 'Yes' : 'No',
+        'ESI Applicable': emp.esiApplicable ? 'Yes' : 'No',
+        Status: this.statusLabel(emp),
+        'Date of Exit': emp.dateOfExit || '',
+        'Exit Reason': emp.exitReason || '',
+      }));
+      // XLSX stores strings as text cells, preserving codes and avoiding CSV formula interpretation.
+      const sheet = XLSX.utils.json_to_sheet(rows);
+      sheet['!autofilter'] = { ref: sheet['!ref']! };
+      sheet['!cols'] = Object.keys(rows[0]).map(() => ({ wch: 22 }));
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, sheet, 'Workers');
+      const bytes = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      await downloadBlob(
+        new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+        `contractor-workers-${this.statusFilter}-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      );
+    } catch {
+      this.toast.error('Download failed', 'Could not download the worker list. Please retry.');
+    } finally {
+      this.downloading = false;
+      this.cdr.markForCheck();
+    }
   }
 
   openAdd(): void {

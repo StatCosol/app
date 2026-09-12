@@ -1,4 +1,5 @@
-import { Component, Input, Output, EventEmitter, HostListener , ChangeDetectionStrategy} from '@angular/core';
+import { DialogFocusDirective } from '../../directives/dialog-focus.directive';
+import { Component, Input, Output, EventEmitter,  ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
@@ -7,10 +8,10 @@ export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
   selector: 'ui-modal',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule],
+  imports: [DialogFocusDirective, CommonModule],
   template: `
     @if (isOpen) {
-<div class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" [attr.aria-labelledby]="title ? 'modal-title-' + modalUid : null">
+<div class="fixed inset-0 z-50 overflow-y-auto" uiDialogFocus (uiDialogEscape)="onEscapeKey()" role="dialog" aria-modal="true" [attr.aria-labelledby]="title ? 'modal-title-' + modalUid : null">
       <!-- Backdrop -->
       <div
         class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity"
@@ -32,7 +33,7 @@ export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
 }
             @if (showCloseButton) {
 <button
-             
+
               type="button"
               class="rounded-lg p-1.5 text-gray-400 hover:text-gray-500 hover:bg-gray-100 transition-colors"
               aria-label="Close dialog"
@@ -74,8 +75,6 @@ export class ModalComponent {
   readonly modalUid = Math.random().toString(36).substring(2, 9);
 
   @Output() closed = new EventEmitter<void>();
-
-  @HostListener('document:keydown.escape')
   onEscapeKey(): void {
     if (this.isOpen && this.closeOnEscape) {
       this.close();

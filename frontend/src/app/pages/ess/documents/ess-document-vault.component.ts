@@ -1,4 +1,5 @@
-﻿import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import { downloadBlob } from "../../../shared/utils/download-blob";
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
@@ -446,12 +447,8 @@ export class EssDocumentVaultComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (blob) => {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = doc.docName || doc.fileName || 'document';
-          a.click();
-          URL.revokeObjectURL(url);
+          void downloadBlob(blob, doc.docName || doc.fileName || 'document')
+            .catch(() => this.toast.error('Could not save document.'));
         },
         error: () => {
           this.toast.error('Document download failed.');
