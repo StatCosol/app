@@ -1511,14 +1511,14 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
               .subscribe({
                 next: (calc: any) =>
                   this.toast.success(
-                    'Draft payroll generated',
-                    `${calc?.total ?? 0} attendance rows calculated. Open Payroll Computation and submit the draft to CRM.`,
+                    'Attendance sent for branch approval',
+                    `${calc?.total ?? 0} attendance rows submitted. The branch user must approve them before payroll is calculated.`,
                   ),
                 error: (err: any) =>
                   this.toast.error(
-                    'Payroll generation failed',
+                    'Attendance submission failed',
                     err?.error?.message ||
-                      'Document uploaded, but payroll could not be generated.',
+                      'Document uploaded, but attendance could not be submitted for branch approval.',
                   ),
               });
           } else {

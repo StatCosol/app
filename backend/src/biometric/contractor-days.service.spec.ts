@@ -94,6 +94,28 @@ describe('ContractorDaysService', () => {
     expect(params).toContain('contractor-a');
   });
 
+  it('binds contractor and branch independently of timezone', async () => {
+    const { service, query } = makeService([]);
+    await service.summarise(
+      'client-1',
+      '2026-08-01',
+      '2026-08-31',
+      'contractor-a',
+      'branch-a',
+    );
+    const [sql, params] = query.mock.calls[0];
+    expect(sql).toContain('ce.contractor_user_id = $5');
+    expect(sql).toContain('p.branch_id=$6');
+    expect(params).toEqual([
+      'client-1',
+      '2026-08-01',
+      '2026-08-31',
+      '330',
+      'contractor-a',
+      'branch-a',
+    ]);
+  });
+
   it('shapes muster rows to the columns the computation upload accepts', async () => {
     const { service } = makeService([row()]);
 

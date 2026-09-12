@@ -1,3 +1,4 @@
+import { BiometricModule } from '../biometric/biometric.module';
 import { ContractorPayrollWorkflowService } from './contractor-payroll-workflow.service';
 import { ContractorPayrollWorkflowController } from './contractor-payroll-workflow.controller';
 import { Module } from '@nestjs/common';
@@ -65,6 +66,7 @@ import { ClraRegisterRun } from './entities/clra-register-run.entity';
 import { ContractorQuotationWageEntity } from './entities/contractor-quotation-wage.entity';
 import { ContractorMcdComputationEntity } from './entities/contractor-mcd-computation.entity';
 import {
+  ContractorAttendanceController,
   ClientContractorComputationController,
   ContractorComputationController,
   CrmContractorComputationController,
@@ -76,6 +78,7 @@ import { PayrollClientSetupEntity } from '../payroll/entities/payroll-client-set
 
 @Module({
   imports: [
+    BiometricModule,
     // Same PT/LWF resolution employee payroll uses — see StateSlabModule.
     StateSlabModule,
     TypeOrmModule.forFeature([
@@ -118,6 +121,7 @@ import { PayrollClientSetupEntity } from '../payroll/entities/payroll-client-set
     ServiceEntitlementsModule,
   ],
   controllers: [
+    ContractorAttendanceController,
     ContractorPayrollWorkflowController,
     ContractorController,
     AdminContractorsController,

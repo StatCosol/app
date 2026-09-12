@@ -62,12 +62,27 @@ export class ContractorDaysService {
     from: string,
     to: string,
     contractorUserId?: string,
+    branchId?: string,
   ): Promise<ContractorDaysSummary> {
-    const params: unknown[] = [clientId, from, to];
+    const params: unknown[] = [
+      clientId,
+      from,
+      to,
+      String(BUSINESS_TZ_OFFSET_MIN),
+    ];
     let contractorFilter = '';
     if (contractorUserId) {
       params.push(contractorUserId);
       contractorFilter = `AND ce.contractor_user_id = $${params.length}`;
+    }
+
+    if (branchId) {
+      params.push(branchId);
+      contractorFilter +=
+        ' AND p.branch_id=$' +
+        params.length +
+        ' AND ce.branch_id=$' +
+        params.length;
     }
 
     // A day is worked if the person punched at all that day. Counting distinct
@@ -88,7 +103,7 @@ export class ContractorDaysService {
              MAX(p.punch_time)                        AS "lastPunch"
         FROM contractor_biometric_punches p
         JOIN contractor_employees ce ON ce.id = p.contractor_employee_id
-       WHERE p.client_id = $1
+       WHERE p.client_id = $1 AND ce.client_id=$1
          AND (p.punch_time + ($4 || ' minutes')::interval)::date >= $2::date
          AND (p.punch_time + ($4 || ' minutes')::interval)::date <= $3::date
          -- A punch still awaiting face review is not a worked day yet.
@@ -98,11 +113,7 @@ export class ContractorDaysService {
                 ce.punch_code, ce.name, ce.skill_category
        ORDER BY ce.name
       `,
-      [
-        ...params.slice(0, 3),
-        String(BUSINESS_TZ_OFFSET_MIN),
-        ...params.slice(3),
-      ],
+      params,
     );
 
     const unpayable = rows.filter((r) => !(r.employeeCode || '').trim());
