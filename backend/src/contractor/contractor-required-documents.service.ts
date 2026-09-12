@@ -229,38 +229,41 @@ export class ContractorRequiredDocumentsService {
       order: { docType: 'ASC' },
     });
 
-    // Merge standard types with DB-configured types (deduped, standard first)
-    const dbDocTypes = new Set(dbRequired.map((r) => r.docType));
+    // Each branch has its own obligations, including globally configured types.
+    const mappings = branchId
+      ? []
+      : await this.branchContractorRepo.find({
+          where: { contractorUserId, clientId },
+          select: ['branchId'],
+        });
+    const branches: Array<string | null> = branchId
+      ? [branchId]
+      : [...new Set(mappings.map((mapping) => mapping.branchId))];
+    if (!branches.length) branches.push(null);
     const allDocTypes: Array<{
       docType: string;
       branchId: string | null;
       dbId: string | null;
     }> = [];
 
-    for (const dt of ContractorRequiredDocumentsService.STANDARD_MONTHLY_DOC_TYPES) {
-      const dbEntry = dbRequired.find((r) => r.docType === dt);
-      allDocTypes.push({
-        docType: dt,
-        branchId: dbEntry?.branchId ?? null,
-        dbId: dbEntry?.id ?? null,
-      });
-    }
-
-    for (const r of dbRequired) {
-      if (
-        !dbDocTypes.has(r.docType) ||
-        !ContractorRequiredDocumentsService.STANDARD_MONTHLY_DOC_TYPES.includes(
-          r.docType,
-        )
-      ) {
-        // only add if not already added from standard list
-        if (!allDocTypes.some((x) => x.docType === r.docType)) {
-          allDocTypes.push({
-            docType: r.docType,
-            branchId: r.branchId,
-            dbId: r.id,
-          });
-        }
+    for (const currentBranch of branches) {
+      const requirements = dbRequired.filter(
+        (r) => !r.branchId || r.branchId === currentBranch,
+      );
+      const types = new Set([
+        ...ContractorRequiredDocumentsService.STANDARD_MONTHLY_DOC_TYPES,
+        ...requirements.map((r) => r.docType),
+      ]);
+      for (const docType of types) {
+        const requirement =
+          requirements.find(
+            (r) => r.docType === docType && r.branchId === currentBranch,
+          ) ?? requirements.find((r) => r.docType === docType);
+        allDocTypes.push({
+          docType,
+          branchId: currentBranch,
+          dbId: requirement?.id ?? null,
+        });
       }
     }
 
@@ -327,18 +330,19 @@ export class ContractorRequiredDocumentsService {
 
     const uploadedMap = new Map<string, (typeof uploaded)[number][]>();
     for (const doc of uploaded) {
-      const key = doc.doc_type;
+      const key = JSON.stringify([doc.doc_type, doc.branch_id]);
       if (!uploadedMap.has(key)) uploadedMap.set(key, []);
       uploadedMap.get(key)!.push(doc);
     }
 
     const items = allDocTypes.map((entry) => {
-      const docs = uploadedMap.get(entry.docType) ?? [];
+      const docs =
+        uploadedMap.get(JSON.stringify([entry.docType, entry.branchId])) ?? [];
       const approvedOrPending = docs.filter(
         (d) => d.status !== 'REJECTED' && d.status !== 'EXPIRED',
       );
       return {
-        id: entry.dbId ?? entry.docType,
+        id: `${entry.dbId ?? entry.docType}:${entry.branchId ?? 'global'}`,
         docType: entry.docType,
         branchId: entry.branchId,
         isRequired: true,

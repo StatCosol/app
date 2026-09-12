@@ -1,3 +1,4 @@
+import { AppraisalScopeGuard } from './appraisal-scope.guard';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -46,6 +47,7 @@ import { AppraisalReportsController } from './controllers/appraisal-reports.cont
     AppraisalReportsController,
   ],
   providers: [
+    AppraisalScopeGuard,
     AppraisalCyclesService,
     EmployeeAppraisalsService,
     AppraisalTemplatesService,

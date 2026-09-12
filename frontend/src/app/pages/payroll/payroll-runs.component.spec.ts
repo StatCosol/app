@@ -8,13 +8,14 @@ describe('PayrollRunsComponent', () => {
   let controller: HttpTestingController;
 
   const fakeRoute = {
-    snapshot: { paramMap: convertToParamMap({}) },
+    snapshot: { paramMap: convertToParamMap({}), queryParamMap: convertToParamMap({}) },
     params: of({}),
     paramMap: of(convertToParamMap({})),
     queryParamMap: of(convertToParamMap({})),
   };
 
   beforeEach(() => {
+    fakeRoute.snapshot.queryParamMap = convertToParamMap({});
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule, PayrollRunsComponent],
       providers: [
@@ -90,5 +91,18 @@ describe('PayrollRunsComponent', () => {
     expect(fixture.componentInstance.filteredRuns.length).toBe(0);
     expect(fixture.componentInstance.selectedRun).toBeNull();
     expect(fixture.componentInstance.loadingRuns).toBe(false);
+  });
+  it('selects the requested run instead of the first listed run', () => {
+    fakeRoute.snapshot.queryParamMap = convertToParamMap({ runId: '2' });
+    const fixture = TestBed.createComponent(PayrollRunsComponent);
+    fixture.detectChanges();
+    controller.expectOne('/api/v1/payroll/clients').flush([]);
+    controller.expectOne('/api/v1/payroll/runs').flush([
+      { id: '1', periodMonth: 8, periodYear: 2026, status: 'DRAFT' },
+      { id: '2', periodMonth: 8, periodYear: 2026, status: 'DRAFT' },
+    ]);
+    controller.expectOne('/api/v1/payroll/runs/2/employees').flush([]);
+    controller.expectOne('/api/v1/payroll/runs/2/approval-status').flush({});
+    expect(fixture.componentInstance.selectedRun?.id).toBe('2');
   });
 });

@@ -1,3 +1,10 @@
+@if (dataUnavailable) {
+  <div role="alert" class="m-4 rounded border border-amber-300 bg-amber-50 p-4">
+    Dashboard data could not be refreshed. Totals are unavailable until all required data loads.
+    <button type="button" class="underline" (click)="loadDashboard()">Retry</button>
+  </div>
+}
+@if (!dataUnavailable) {
 <div class="mx-4 mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex flex-wrap items-center justify-between gap-3">
   <div><strong class="text-emerald-950">What needs attention this month?</strong><p class="text-sm text-emerald-900">Review attendance, payroll approvals and missing evidence in one place.</p></div>
   <a routerLink="/branch/monthly-close" class="font-semibold text-emerald-800 underline underline-offset-4">Open monthly close &rarr;</a>
@@ -569,3 +576,5 @@
   
 }
 </div>
+
+}

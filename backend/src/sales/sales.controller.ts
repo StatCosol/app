@@ -50,6 +50,11 @@ export class SalesLeadsController {
     return this.svc.myFollowups(user);
   }
 
+  @Get('summary')
+  summary(@CurrentUser() user: any) {
+    return this.svc.summary(user);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get lead by id' })
   findOne(@CurrentUser() user: any, @Param('id', ParseUUIDPipe) id: string) {

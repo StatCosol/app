@@ -147,7 +147,7 @@ export class PayrollDashboardComponent implements OnInit, OnDestroy {
   }
 
   openRun(row: PayrollRunSummary): void {
-    this.router.navigate(['/payroll/clients'], { queryParams: { runId: row.id } });
+    this.router.navigate(['/payroll/clients', row.clientId, 'runs'], { queryParams: { runId: row.id } });
   }
 
   goTo(route: string): void {

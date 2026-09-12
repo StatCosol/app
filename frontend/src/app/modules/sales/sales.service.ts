@@ -160,6 +160,10 @@ export class SalesService {
   constructor(private http: HttpClient) {}
 
   // -------- Leads --------
+  summary(): Observable<{ stages: { stage: string; count: number; value: string }[] }> {
+    return this.http.get<{ stages: { stage: string; count: number; value: string }[] }>(this.base + '/sales/leads/summary');
+  }
+
   list(opts: {
     bucket?: 'open' | 'won' | 'lost' | 'archived' | 'all';
     stage?: LeadStage;

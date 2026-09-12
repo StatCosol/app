@@ -1,3 +1,5 @@
+import { UseGuards } from '@nestjs/common';
+import { AppraisalScopeGuard, appraisalFilter } from '../appraisal-scope.guard';
 import {
   Controller,
   Get,
@@ -18,6 +20,7 @@ import {
   UpdateAppraisalCycleDto,
 } from '../dto/appraisal-cycle.dto';
 
+@UseGuards(AppraisalScopeGuard)
 @ApiTags('Appraisal Cycles')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'appraisal/cycles', version: '1' })
@@ -32,14 +35,15 @@ export class AppraisalCyclesController {
   }
 
   @Get()
-  @Roles('CLIENT', 'ADMIN', 'BRANCH')
+  @Roles('CLIENT', 'ADMIN', 'BRANCH_DESK')
   @ApiOperation({ summary: 'List appraisal cycles' })
   findAll(@CurrentUser() user: ReqUser, @Query('branchId') branchId?: string) {
-    return this.cyclesService.findAll(user.clientId!, branchId);
+    const scope = appraisalFilter(user, { branchId });
+    return this.cyclesService.findAll(scope.clientId!, scope.branchId);
   }
 
   @Get(':id')
-  @Roles('CLIENT', 'ADMIN', 'BRANCH')
+  @Roles('CLIENT', 'ADMIN', 'BRANCH_DESK')
   @ApiOperation({ summary: 'Get appraisal cycle details' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.cyclesService.findOne(id);

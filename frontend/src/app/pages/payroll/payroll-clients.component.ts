@@ -103,7 +103,10 @@ export class PayrollClientsComponent implements OnInit, OnDestroy {
         // If navigated with ?runId=..., auto-open the first client (or single client)
         const runId = this.route.snapshot.queryParamMap.get('runId');
         if (runId && this.clients.length >= 1) {
-          this.openClient({ row: this.clients[0], index: 0 }, runId);
+          const clientId = this.route.snapshot.queryParamMap.get('clientId');
+          const client = this.clients.find(c => c.id === clientId);
+          if (client) this.openClient({ row: client, index: this.clients.indexOf(client) }, runId);
+          else this.error = 'Choose the client that owns this payroll run.';
         }
       },
       error: (e) => {

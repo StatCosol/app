@@ -22,6 +22,13 @@ import { FaceFailuresWidgetComponent } from '../../../shared/face-failures-widge
   styleUrls: ['./branch-dashboard.component.scss'],
 })
 export class BranchDashboardComponent implements OnInit, OnDestroy {
+  dataUnavailable = false;
+  private unavailable<T>(fallback: T) {
+    this.dataUnavailable = true;
+    this.cdr.markForCheck();
+    return of(fallback);
+  }
+
   loading = true;
   branchId = '';
   currentMonth = '';
@@ -131,6 +138,7 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
   }
 
   loadDashboard(): void {
+    this.dataUnavailable = false;
     this.loading = true;
     this.cdr.markForCheck();
 
@@ -146,7 +154,7 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
       role: 'BRANCH',
       userId: user?.userId || user?.id,
       branchId: this.branchId || undefined,
-    }).pipe(takeUntil(this.destroy$), catchError(() => of({ open: 0, overdue: 0, dueSoon: 0, total: 0 })))
+    }).pipe(takeUntil(this.destroy$), catchError(() => this.unavailable({ open: 0, overdue: 0, dueSoon: 0, total: 0 })))
       .subscribe(summary => {
         this.taskSummary = summary;
         this.cdr.markForCheck();
@@ -157,7 +165,7 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
       userId: user?.userId || user?.id,
       branchId: this.branchId || undefined,
       status: 'OPEN',
-    }).pipe(takeUntil(this.destroy$), catchError(() => of([])))
+    }).pipe(takeUntil(this.destroy$), catchError(() => this.unavailable([])))
       .subscribe(tasks => {
         this.pendingTasks = tasks.slice(0, 10);
         this.cdr.markForCheck();
@@ -169,27 +177,28 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
           month: +month,
           year: +year,
           branchId: this.branchId || undefined,
-        }).pipe(catchError(() => of(null as any)))
+        }).pipe(catchError(() => this.unavailable(null as any)))
         : of(null as any),
       pfEsi: hasPayroll
         ? this.dashboardService.getClientPfEsiSummary({
           month: this.currentMonth,
           branchId: this.branchId || undefined,
-        }).pipe(catchError(() => of(null as any)))
+        }).pipe(catchError(() => this.unavailable(null as any)))
         : of(null as any),
       contractor: hasContractor
         ? this.dashboardService.getClientContractorUploadSummary({
           month: this.currentMonth,
           branchId: this.branchId || undefined,
-        }).pipe(catchError(() => of(null as any)))
+        }).pipe(catchError(() => this.unavailable(null as any)))
         : of(null as any),
       branchDash: this.branchId && (hasContractor || hasEmployeeCompliance)
-        ? this.branchesService.getDashboard(this.branchId, this.currentMonth).pipe(catchError(() => of(null)))
+        ? this.branchesService.getDashboard(this.branchId, this.currentMonth).pipe(catchError(() => this.unavailable(null)))
         : of(null),
     })
     .pipe(takeUntil(this.destroy$))
     .subscribe({
       next: ({ legitx, pfEsi, contractor, branchDash }) => {
+          if (this.dataUnavailable) return;
         const kpis = legitx?.kpis;
 
         // Employee headcount

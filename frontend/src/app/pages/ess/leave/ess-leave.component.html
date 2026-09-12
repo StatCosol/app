@@ -1,3 +1,7 @@
+@if (loadError) {
+  <div role="alert" class="p-4">Leave data could not be loaded. <button type="button" (click)="loadAll()">Retry</button></div>
+}
+@if (!loadError) {
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
   <div class="flex justify-between items-center">
     <ui-page-header
@@ -180,3 +184,5 @@
     </ui-button>
   </div>
 </ui-modal>
+
+}

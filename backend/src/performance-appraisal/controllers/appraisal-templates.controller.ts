@@ -1,3 +1,5 @@
+import { UseGuards } from '@nestjs/common';
+import { AppraisalScopeGuard } from '../appraisal-scope.guard';
 import {
   Controller,
   Get,
@@ -13,6 +15,7 @@ import { ReqUser } from '../../access/access-scope.service';
 import { AppraisalTemplatesService } from '../services/appraisal-templates.service';
 import { CreateAppraisalTemplateDto } from '../dto/appraisal-template.dto';
 
+@UseGuards(AppraisalScopeGuard)
 @ApiTags('Appraisal Templates')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'appraisal/templates', version: '1' })
@@ -30,14 +33,14 @@ export class AppraisalTemplatesController {
   }
 
   @Get()
-  @Roles('CLIENT', 'ADMIN', 'BRANCH')
+  @Roles('CLIENT', 'ADMIN', 'BRANCH_DESK')
   @ApiOperation({ summary: 'List appraisal templates' })
   findAll(@CurrentUser() user: ReqUser) {
     return this.templatesService.findAllTemplates(user.clientId!);
   }
 
   @Get(':id')
-  @Roles('CLIENT', 'ADMIN', 'BRANCH')
+  @Roles('CLIENT', 'ADMIN', 'BRANCH_DESK')
   @ApiOperation({ summary: 'Get appraisal template with sections and items' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.templatesService.findOneTemplate(id);

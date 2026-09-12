@@ -93,6 +93,20 @@ export class SalesService {
     return this.leadRepo.save(lead);
   }
 
+  async summary(user: AuthUser) {
+    const qb = this.leadRepo
+      .createQueryBuilder('lead')
+      .select('lead.stage', 'stage')
+      .addSelect('COUNT(*)::int', 'count')
+      .addSelect('COALESCE(SUM(lead.estimated_value), 0)::text', 'value')
+      .where('lead.stage IN (:...stages)', { stages: OPEN_LEAD_STAGES })
+      .andWhere('lead.is_archived = false');
+    if (user.roleCode === 'SALES')
+      qb.andWhere('lead.owner_user_id = :owner', { owner: user.id });
+    const stages = await qb.groupBy('lead.stage').getRawMany();
+    return { stages };
+  }
+
   async list(user: AuthUser, q: ListLeadsQueryDto) {
     const where: Record<string, unknown> = {};
     const bucket = q.bucket ?? 'open';
@@ -113,7 +127,7 @@ export class SalesService {
     if (q.search) where.companyName = ILike(`%${q.search}%`);
 
     // Non-admin/CEO sales users see only their own leads by default.
-    if (user.roleCode === 'SALES' && !q.ownerUserId) {
+    if (user.roleCode === 'SALES') {
       where.ownerUserId = user.id;
     }
 

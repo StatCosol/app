@@ -8,8 +8,8 @@ import {
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { Subject, forkJoin } from 'rxjs';
-import { finalize, takeUntil } from 'rxjs/operators';
+import { Subject, Subscription, forkJoin, of } from 'rxjs';
+import { catchError, finalize, takeUntil } from 'rxjs/operators';
 
 import { ComplianceService } from '../../../core/compliance.service';
 import { AuditsService } from '../../../core/audits.service';
@@ -122,6 +122,9 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   auditNonCompliances: AuditNonComplianceRow[] = [];
 
   loading = false;
+  loadErrors: string[] = [];
+  checklistError = false;
+  private checklistSubscription?: Subscription;
   detailLoading = false;
   actionBusy = false;
 
@@ -613,9 +616,15 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    let initialQuery = true;
     this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      const previousMonth = this.checklistMonthParam;
       this.applyRouteDefaults();
       this.applyFilters();
+      if (!initialQuery && previousMonth !== this.checklistMonthParam) {
+        this.reloadChecklist();
+      }
+      initialQuery = false;
     });
 
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
@@ -635,13 +644,19 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
 
   load(): void {
     this.loading = true;
+    this.loadErrors = [];
     this.loadChecklist();
 
+    const failed = (section: string) => {
+      this.loadErrors.push(section);
+      return of(null);
+    };
+
     forkJoin({
-      tasks: this.api.getContractorTasks({}),
-      reuploads: this.api.contractorGetReuploadRequests({}),
-      audits: this.auditsApi.contractorListAudits({}),
-      profile: this.contractorProfileApi.getContractorBranches(),
+      tasks: this.api.getContractorTasks({}).pipe(catchError(() => failed('Tasks'))),
+      reuploads: this.api.contractorGetReuploadRequests({}).pipe(catchError(() => failed('Reupload requests'))),
+      audits: this.auditsApi.contractorListAudits({}).pipe(catchError(() => failed('Audits'))),
+      profile: this.contractorProfileApi.getContractorBranches().pipe(catchError(() => failed('Branches'))),
     })
       .pipe(
         takeUntil(this.destroy$),
@@ -652,17 +667,17 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: ({ tasks, reuploads, audits, profile }) => {
-          const taskRows = this.toArray(tasks).map((t: any) =>
+          const taskRows = tasks === null ? this.allRows.filter(r => r.rowType === 'TASK') : this.toArray(tasks).map((t: any) =>
             this.mapTaskRow(t),
           );
-          const reuploadRows = this.toArray(reuploads).map((r: any) =>
+          const reuploadRows = reuploads === null ? this.allRows.filter(r => r.rowType === 'REUPLOAD') : this.toArray(reuploads).map((r: any) =>
             this.mapReuploadRow(r),
           );
-          const auditRows = this.toArray(audits).map((a: any) =>
+          const auditRows = audits === null ? this.allRows.filter(r => r.rowType === 'AUDIT') : this.toArray(audits).map((a: any) =>
             this.mapAuditRow(a),
           );
 
-          this.availableBranches = (profile?.branches || []).map((b: any) => ({
+          this.availableBranches = profile === null ? this.availableBranches : (profile?.branches || []).map((b: any) => ({
             id: b.id,
             name: b.name || b.branchName || '',
           })).filter((b: any) => b.name);
@@ -670,6 +685,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
           // Auto-select first branch for checklist if none chosen yet
           if (!this.checklistBranchId && this.availableBranches.length === 1) {
             this.checklistBranchId = this.availableBranches[0].id;
+            this.reloadChecklist();
           }
 
           this.allRows = [...taskRows, ...reuploadRows, ...auditRows].sort(
@@ -1376,8 +1392,11 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   private loadChecklist(): void {
+    this.checklistSubscription?.unsubscribe();
+    this.monthlyChecklist = null;
+    this.checklistError = false;
     this.checklistLoading = true;
-    this.contractorProfileApi
+    this.checklistSubscription = this.contractorProfileApi
       .getMonthlyDocChecklist(this.checklistMonthParam, this.checklistBranchId || undefined)
       .pipe(
         takeUntil(this.destroy$),
@@ -1392,6 +1411,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
         },
         error: () => {
           this.monthlyChecklist = null;
+          this.checklistError = true;
         },
       });
   }
@@ -1655,8 +1675,9 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   private selectFromRouteId(taskId: string): void {
+    const rowType = this.typeFilter === 'ALL' ? 'TASK' : this.typeFilter;
     const row = this.filteredRows.find(
-      (r) => r.rowType === 'TASK' && String(r.id) === String(taskId),
+      (r) => r.rowType === rowType && String(r.id) === String(taskId),
     );
     if (row) {
       this.selectRow(row);
@@ -1665,6 +1686,11 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   private applyRouteDefaults(): void {
+    const month = this.route.snapshot.queryParamMap.get('month') || '';
+    if (/^\d{4}-(0[1-9]|1[0-2])$/.test(month) && Number(month.slice(0, 4)) > 0) {
+      this.checklistYear = Number(month.slice(0, 4));
+      this.checklistMonth = Number(month.slice(5, 7));
+    }
     // Recompute from URL each time query params change to avoid stale view state.
     this.statusFilter = 'ALL';
     this.typeFilter = 'ALL';

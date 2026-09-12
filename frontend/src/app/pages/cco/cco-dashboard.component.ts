@@ -51,6 +51,13 @@ interface OversightItem {
   styleUrls: ['./cco-dashboard.component.scss'],
 })
 export class CcoDashboardComponent implements OnInit, OnDestroy {
+  dataUnavailable = false;
+  private unavailable<T>(fallback: T) {
+    this.dataUnavailable = true;
+    this.cdr.markForCheck();
+    return of(fallback);
+  }
+
   private destroy$ = new Subject<void>();
   data: CcoDashboardData = {
     pendingApprovals: 0,
@@ -98,19 +105,21 @@ export class CcoDashboardComponent implements OnInit, OnDestroy {
   constructor(private dash: CcoDashboardService, private cdr: ChangeDetectorRef, private router: Router) {}
 
   ngOnInit(): void {
+    this.dataUnavailable = false;
     this.loading = true;
     this.errorMsg = '';
 
     forkJoin({
-      dashboard: this.dash.getDashboard().pipe(catchError(() => of(this.data))),
-      crms: this.dash.getCrmsUnderMe().pipe(catchError(() => of([]))),
-      oversight: this.dash.getOversight().pipe(catchError(() => of([]))),
+      dashboard: this.dash.getDashboard().pipe(catchError(() => this.unavailable(this.data))),
+      crms: this.dash.getCrmsUnderMe().pipe(catchError(() => this.unavailable([]))),
+      oversight: this.dash.getOversight().pipe(catchError(() => this.unavailable([]))),
     }).pipe(
       takeUntil(this.destroy$),
       timeout(15000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: ({ dashboard, crms, oversight }) => {
+          if (this.dataUnavailable) return;
         this.loading = false;
         this.data = dashboard || this.data;
         this.crms = crms || [];

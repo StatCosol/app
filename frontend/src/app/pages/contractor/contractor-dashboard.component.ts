@@ -39,6 +39,7 @@ interface ScoreTrendPoint {
 
 interface ContractorTaskListItem {
   id: string | number;
+  rowType?: 'TASK' | 'REUPLOAD';
   title: string;
   branchName: string;
   clientName: string;
@@ -79,6 +80,13 @@ interface BranchStatusRow {
   styleUrls: ['./shared/contractor-theme.scss', './contractor-dashboard.component.scss'],
 })
 export class ContractorDashboardComponent implements OnInit, OnDestroy {
+  dataUnavailable = false;
+  private unavailable<T>(fallback: T) {
+    this.dataUnavailable = true;
+    this.cdr.markForCheck();
+    return of(fallback);
+  }
+
   data: any = null;
   loading = false;
   errorMsg: string | null = null;
@@ -155,7 +163,10 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
   }
 
   get dueTodayCount(): number {
-    const base = this.tasks.filter((t) => this.daysToDue(t.dueDate) === 0).length;
+    const base = this.tasks.filter((t) =>
+      ['PENDING', 'IN_PROGRESS', 'REJECTED', 'OVERDUE', 'OPEN'].includes(t.status) &&
+      this.daysToDue(t.dueDate) === 0,
+    ).length;
     const days = this.checklistDeadlineDays();
     return base + (days === 0 ? this.checklistPendingItems.length : 0);
   }
@@ -270,6 +281,7 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.dataUnavailable = false;
     this.loading = true;
     this.errorMsg = null;
 
@@ -288,26 +300,26 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
 
     // Load task center data
     this.taskCenterService.getMySummary({ role: 'CONTRACTOR' })
-      .pipe(takeUntil(this.destroy$), catchError(() => of({ open: 0, overdue: 0, dueSoon: 0, total: 0 })))
+      .pipe(takeUntil(this.destroy$), catchError(() => this.unavailable({ open: 0, overdue: 0, dueSoon: 0, total: 0 })))
       .subscribe(s => { this.taskSummary = s; this.cdr.detectChanges(); });
 
     this.taskCenterService.getMyItems({ role: 'CONTRACTOR', status: 'OPEN' })
-      .pipe(takeUntil(this.destroy$), catchError(() => of([])))
+      .pipe(takeUntil(this.destroy$), catchError(() => this.unavailable([])))
       .subscribe(items => { this.systemTasks = items.slice(0, 10); this.cdr.detectChanges(); });
 
     forkJoin({
       dashboard: this.dash.contractor().pipe(timeout(10000)),
       trend: this.dash.contractorScoreTrend(from, to).pipe(
-        catchError(() => of([] as ScoreTrendPoint[])),
+        catchError(() => this.unavailable([] as ScoreTrendPoint[])),
       ),
       tasks: this.compliance.getContractorTasks({}).pipe(
-        catchError(() => of({ data: [] as any[] })),
+        catchError(() => this.unavailable({ data: [] as any[] })),
       ),
       reuploads: this.compliance.contractorGetReuploadRequests({}).pipe(
-        catchError(() => of({ data: [] as any[] })),
+        catchError(() => this.unavailable({ data: [] as any[] })),
       ),
       checklist: this.contractorProfile.getMonthlyDocChecklist(checklistMonth).pipe(
-        catchError(() => of({ month: checklistMonth, items: [] as any[] })),
+        catchError(() => this.unavailable({ month: checklistMonth, items: [] as any[] })),
       ),
     })
       .pipe(
@@ -319,6 +331,7 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (res) => {
+          if (this.dataUnavailable) return;
           this.loading = false;
           this.data = res.dashboard || null;
           this.scoreTrend = res.trend || [];
@@ -364,11 +377,9 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
   }
 
   goToTasks(filter: string): void {
-    if (filter) {
-      this.router.navigate(['/contractor/tasks'], { queryParams: { status: filter } });
-    } else {
-      this.router.navigate(['/contractor/tasks']);
-    }
+    this.router.navigate(['/contractor/tasks'], {
+      queryParams: { status: filter || undefined, month: this.checklistMonthKey || undefined },
+    });
   }
 
   openTask(t: any): void {
@@ -378,7 +389,15 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
     }
     if (t?.checklist) {
       // Checklist pseudo-items live on the tasks page's monthly checklist, not a task detail
-      this.router.navigate(['/contractor/tasks']);
+      this.router.navigate(['/contractor/tasks'], {
+        queryParams: { month: this.checklistMonthKey },
+      });
+      return;
+    }
+    if (t?.rowType === 'REUPLOAD') {
+      this.router.navigate(['/contractor/tasks', t.id], {
+        queryParams: { type: 'REUPLOAD' },
+      });
       return;
     }
     this.router.navigate(['/contractor/tasks', t.id]);
@@ -496,6 +515,7 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
       .filter((r: any) => ['OPEN', 'REJECTED'].includes(String(r?.status || '').toUpperCase()))
       .map((r: any): ContractorTaskListItem => ({
         id: r.id,
+        rowType: 'REUPLOAD',
         title: r.documentType
           ? `Reupload required: ${r.documentType}`
           : (r.reason || 'Reupload required'),
@@ -516,10 +536,8 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
         checklist: true,
       }),
     );
-    // Add pending contractor_documents (awaiting auditor review) from dashboard API
-    const pendingReviewDocs: number = Number(this.data?.pendingReviewDocs ?? 0);
     this.pendingUploadsCount =
-      pendingUploads.length + openReuploads.length + pendingReviewDocs + checklistPending.length;
+      pendingUploads.length + openReuploads.length + checklistPending.length;
     // List capped generously; the card scrolls internally past a few rows.
     this.pendingUploadsPreview = [...checklistPending, ...pendingUploads, ...openReuploads].slice(0, 25);
 
