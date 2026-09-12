@@ -14,6 +14,10 @@
 
 The supplied guard figures produce gross A 18,000, bonus 1,333, leave 770, total B 20,103, deductions 2,070 and net 18,033. The originally supplied 20,102/18,032 differ by one rupee. The supervisor figures produce total B 24,778 and net 22,678. The workbook is a configurable example, not validation of statutory contribution bases or a complete commercial bill; CRM must enter the agreed components and applicable bases.
 
+## Duplicate scheduling regression
+
+CI exposed an existing timezone conversion error in daily audit-schedule suppression. The timestamp column is now interpreted in the database session timezone before conversion to the India operational date. A UTC-session fixture at the day boundary verifies that a repeated run does not create another schedule. The complete automation database regressions pass locally.
+
 ## Verification
 
 - Full isolated backend suite: 1,276 passed, one existing skipped test. Latest focused payroll/comparison regressions: 70 passed. The broader working checkout also passed 1,294 tests.

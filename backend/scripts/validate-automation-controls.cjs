@@ -91,7 +91,7 @@ async function main() {
       ...connection,
       username: connection.user,
       schema,
-      extra: { options: `-c search_path=${schema},public` },
+      extra: { options: `-c search_path=${schema},public -c timezone=UTC` },
       entities: [path.join(__dirname, '../dist/src/**/*.entity.js')],
       synchronize: false,
     });
@@ -736,6 +736,9 @@ async function main() {
       (await schedules.generateDueSchedules({ branchId: id(12) })).created,
       1,
     );
+    // UTC midnight is 05:30 in India: the same operational day must be suppressed.
+    // audit_schedules.created_at is timestamp without time zone, populated in the DB session timezone.
+    await ds.query('UPDATE audit_schedules SET created_at=$1::timestamptz WHERE frequency_rule_id=$2',[today+'T00:00:00Z',id(821)]);
     assert.equal(
       (await schedules.generateDueSchedules({ branchId: id(12) })).created,
       0,
