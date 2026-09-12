@@ -24,6 +24,7 @@ export interface ContractorEmployee {
   fatherName: string | null;
   phone: string | null;
   email: string | null;
+  bankAccount: string | null;
   aadhaar: string | null;
   pan: string | null;
   uan: string | null;
@@ -54,6 +55,7 @@ export interface CreateEmployeeDto {
   fatherName?: string | null;
   phone?: string | null;
   email?: string | null;
+  bankAccount?: string | null;
   aadhaar?: string | null;
   pan?: string | null;
   uan?: string | null;

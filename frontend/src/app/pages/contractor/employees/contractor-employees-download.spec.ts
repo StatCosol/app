@@ -56,6 +56,23 @@ describe('Contractor worker download', () => {
     expect(component.filteredRows).toHaveLength(1);
   });
 
+  it('blocks new registration without mandatory identity and bank details', () => {
+    component.form.name = 'Synthetic Worker';
+    component.saveEmployee();
+    expect(component.formError).toContain('Aadhaar, PAN and bank account number are required');
+    expect(component.saving).toBe(false);
+  });
+
+  it('validates mandatory bulk fields and refuses numeric bank cells', () => {
+    const valid = { name: 'Synthetic Worker', skillCategory: 'SKILLED', monthlySalary: 15000, aadhaar: '123456789012', pan: 'abcde1234f', bankAccount: '001234567890' };
+    const rows = component['validateBulkRows']([valid, { ...valid, bankAccount: 1234567890 }, { ...valid, aadhaar: '', pan: '', bankAccount: '' }]);
+    expect(rows[0].errors).toEqual([]);
+    expect(rows[0].dto.bankAccount).toBe('001234567890');
+    expect(rows[0].dto.pan).toBe('ABCDE1234F');
+    expect(rows[1].errors.join(' ')).toContain('as text');
+    expect(rows[2].errors).toHaveLength(3);
+  });
+
   it('blocks exports while branch data is loading, after failure, and for an empty list', async () => {
     component.filteredRows = [worker('Old branch worker')];
     component.loading = true;
