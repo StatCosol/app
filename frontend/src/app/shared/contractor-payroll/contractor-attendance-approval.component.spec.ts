@@ -1,3 +1,4 @@
+import '@angular/compiler';
 import { describe, it, expect, vi } from 'vitest';
 import { Subject, of, throwError } from 'rxjs';
 import { ContractorAttendanceApprovalComponent } from './contractor-attendance-approval.component';
