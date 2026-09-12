@@ -1,3 +1,4 @@
+import { downloadBlob } from '../../../shared/utils/download-blob';
 import { ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -182,7 +183,40 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
     this.cancelForm();
   }
 
+  quoteBranchId = '';
+  quoteBranches: any[] = [];
+
+
+
+  downloadQuoteTemplate() {
+    this.contractorApi
+      .downloadQuotationTemplate()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (blob) => {
+          void downloadBlob(blob, 'contractor-rate-card-template.xlsx').catch(() =>
+            this.toast.error('Download failed'),
+          );
+        },
+        error: () => this.toast.error('Could not download quotation template'),
+      });
+  }
+
+
   openQuoteUpload(contractor: any) {
+    this.quoteBranchId = '';
+    this.quoteBranches = [];
+    this.contractorApi
+      .quotationBranches(contractor.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows) => {
+          if (this.quoteUploadFor?.id !== contractor.id) return;
+          this.quoteBranches = Array.isArray(rows) ? rows : rows.branches || rows.data || [];
+          this.cdr.markForCheck();
+        },
+        error: () => this.toast.error('Could not load quotation branches'),
+      });
     this.quoteUploadFor = contractor;
     this.quoteFile = null;
     this.quoteUploadResult = null;
@@ -211,6 +245,7 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
       clientId: this.quoteUploadFor.clientId,
       contractorUserId: this.quoteUploadFor.id,
       effectiveFrom: this.quoteEffectiveFrom,
+      branchId: this.quoteBranchId || undefined,
       file: this.quoteFile,
     }).pipe(
       takeUntil(this.destroy$),

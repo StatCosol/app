@@ -1,3 +1,4 @@
+import { downloadBlob } from '../utils/download-blob';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, Input, OnChanges, OnDestroy, signal } from '@angular/core';
@@ -20,6 +21,9 @@ import { AuthService } from '../../core/auth.service';
         </p>
         @if (isContractor) {
           <p>Upload attendance Excel from Monthly Documents, or submit device attendance below.</p>
+          <button type="button" (click)="downloadTemplate()" [disabled]="busy()">
+            Download attendance template
+          </button>
           <label
             >Deployment branch
             <select [(ngModel)]="branchId">
@@ -57,6 +61,7 @@ import { AuthService } from '../../core/auth.service';
                     <th>Employee ID</th>
                     <th>Employee</th>
                     <th>Payable days</th>
+                    <th>Overtime hours</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -64,7 +69,34 @@ import { AuthService } from '../../core/auth.service';
                     <tr>
                       <td>{{ row.employee_code }}</td>
                       <td>{{ row.employee_name }}</td>
-                      <td>{{ row.days_worked }}</td>
+                      <td>
+                        @if (batch.canReview) {
+                          <input
+                            type="number"
+                            min="0"
+                            max="31"
+                            step="0.5"
+                            [attr.aria-label]="'Payable days for ' + row.employee_code"
+                            [(ngModel)]="row.days_worked"
+                          />
+                        } @else {
+                          {{ row.days_worked }}
+                        }
+                      </td>
+                      <td>
+                        @if (batch.canReview) {
+                          <input
+                            type="number"
+                            min="0"
+                            max="744"
+                            step="0.5"
+                            [attr.aria-label]="'Overtime hours for ' + row.employee_code"
+                            [(ngModel)]="row.ot_hours"
+                          />
+                        } @else {
+                          {{ row.ot_hours || 0 }}
+                        }
+                      </td>
                     </tr>
                   }
                 </tbody>
@@ -94,6 +126,11 @@ import { AuthService } from '../../core/auth.service';
           @if (!busy()) {
             <p>No attendance batches for this period.</p>
           }
+        }
+        @if (hasMore()) {
+          <button type="button" (click)="load(true)" [disabled]="busy()">
+            Load more attendance
+          </button>
         }
       </section>
     }
@@ -144,6 +181,7 @@ export class ContractorAttendanceApprovalComponent implements OnChanges, OnDestr
   private branchRequest?: Subscription;
   readonly batches = signal<any[]>([]);
   readonly branches = signal<any[]>([]);
+  readonly hasMore = signal(false);
   readonly busy = signal(false);
   readonly error = signal('');
   notes: Record<string, string> = {};
@@ -174,19 +212,28 @@ export class ContractorAttendanceApprovalComponent implements OnChanges, OnDestr
     this.request?.unsubscribe();
     this.branchRequest?.unsubscribe();
   }
-  load() {
+  load(append = false) {
     this.request?.unsubscribe();
     if (!this.visible) return;
     this.busy.set(true);
     this.error.set('');
-    this.batches.set([]);
+    if (!append) {
+      this.batches.set([]);
+      this.notes = {};
+      this.hasMore.set(false);
+    }
     this.request = this.http
       .get<any>('/api/v1/contractor-attendance', {
-        params: { clientId: this.clientId, periodMonth: this.periodMonth },
+        params: {
+          clientId: this.clientId,
+          periodMonth: this.periodMonth,
+          offset: this.batches().length,
+        },
       })
       .subscribe({
         next: (data) => {
-          this.batches.set(data.data);
+          this.batches.set(append ? [...this.batches(), ...data.data] : data.data);
+          this.hasMore.set(!!data.hasMore);
           this.busy.set(false);
         },
         error: (err) => {
@@ -202,6 +249,17 @@ export class ContractorAttendanceApprovalComponent implements OnChanges, OnDestr
       .post('/api/v1/contractor-attendance/' + id + '/review', {
         decision,
         remarks: this.notes[id],
+        ...(decision === 'approve'
+          ? {
+              rows: this.batches()
+                .find((b) => b.id === id)
+                ?.rows_snapshot.map((r: any) => ({
+                  employee_code: r.employee_code,
+                  days_worked: r.days_worked,
+                  ot_hours: r.ot_hours || 0,
+                })),
+            }
+          : {}),
       })
       .subscribe({
         next: () => this.load(),
@@ -209,6 +267,18 @@ export class ContractorAttendanceApprovalComponent implements OnChanges, OnDestr
           this.error.set(err.error?.message || 'Attendance review failed');
           this.busy.set(false);
         },
+      });
+  }
+  downloadTemplate() {
+    this.request = this.http
+      .get('/api/v1/contractor/computation/attendance/template', { responseType: 'blob' })
+      .subscribe({
+        next: (blob) => {
+          void downloadBlob(blob, 'contractor-attendance-template.xlsx').catch(() =>
+            this.error.set('Download failed'),
+          );
+        },
+        error: () => this.error.set('Could not download attendance template'),
       });
   }
   submitSystem() {

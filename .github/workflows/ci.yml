@@ -66,6 +66,8 @@ jobs:
           node scripts/validate-automation-controls.cjs
           node scripts/validate-automation-dedup.cjs
           node scripts/validate-my-work.cjs
+          node scripts/validate-contractor-payroll-authority.cjs
+          node scripts/validate-payroll-document-reconciliation.cjs
       - name: Patched dependency runtime smoke
         run: node scripts/security-dependency-smoke.cjs
       - name: Boot check (entity metadata + DB connect)

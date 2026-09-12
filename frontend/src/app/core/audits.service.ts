@@ -400,4 +400,13 @@ export class AuditsService {
   clientGetLatestReport(auditId: string): Observable<any> {
     return this.http.get(`${this.clientBase}/${auditId}/latest-report`);
   }
+
+
+  // Auditor: review a document (COMPLIED / NON_COMPLIED)
+  auditorReconcileDocument(auditId: string, docId: string): Observable<any> {
+    return this.http.post(
+      this.auditorBase + '/' + auditId + '/documents/' + docId + '/reconcile',
+      {},
+    );
+  }
 }

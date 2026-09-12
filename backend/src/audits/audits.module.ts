@@ -1,3 +1,4 @@
+import { PayrollDocumentReconciliationModule } from '../payroll-reconciliation/payroll-document-reconciliation.module';
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditEntity } from './entities/audit.entity';
@@ -40,6 +41,7 @@ import { AccessModule } from '../access/access.module';
 
 @Module({
   imports: [
+    PayrollDocumentReconciliationModule,
     TypeOrmModule.forFeature([
       AuditEntity,
       AuditObservationCategoryEntity,

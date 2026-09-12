@@ -12,7 +12,7 @@ const ExcelJS = require('exceljs');
 const { ContractorPayrollWorkflowController } = require('../dist/src/contractor/contractor-payroll-workflow.controller');
 const { ContractorPayrollWorkflowService } = require('../dist/src/contractor/contractor-payroll-workflow.service');
 const schema = `payroll_authority_${Date.now()}`;
-const connection = { host: '127.0.0.1', port: 55439, user: 'monthly_close_test', database: 'postgres' };
+const connection = { host: '127.0.0.1', port: Number(process.env.AUTOMATION_TEST_PORT || 55439), user: process.env.AUTOMATION_TEST_USER || 'monthly_close_test', password: process.env.AUTOMATION_TEST_PASSWORD || undefined, database: process.env.AUTOMATION_TEST_DATABASE || 'postgres' };
 const id = (n) => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 async function main() {
   const admin = new Client(connection); await admin.connect();
@@ -38,6 +38,9 @@ async function main() {
     await ds.query(attendanceMigration); await ds.query(attendanceMigration);
     await ds.query(`INSERT INTO contractor_attendance_batches(client_id,branch_id,contractor_user_id,period_month,rows_snapshot,submitted_by,status,reviewed_by,reviewed_at)
       VALUES($1,$2,$3,'2026-09','[]',$3,'APPROVED',$4,now())`,[id(1),id(2),id(3),id(8)]);
+    for(const file of ['20260916_contractor_rate_cards.sql','20260917_payroll_document_checks.sql']) {const sql=fs.readFileSync(path.join(__dirname,'../migrations',file),'utf8');await ds.query(sql);await ds.query(sql);}
+    await ds.query('CREATE TABLE audits(client_id uuid,branch_id uuid,contractor_user_id uuid,assigned_auditor_id uuid)');
+    await ds.query('INSERT INTO audits VALUES($1,$2,$3,$4)',[id(1),id(2),id(3),id(5)]);
     const ccoAccess = new AccessScopeService({}, {}, {manager:ds.manager}, {manager:ds.manager}, {});
     const scope = {
       assertCcoClientAllowed: (u,c)=>ccoAccess.assertCcoClientAllowed(u,c),
@@ -64,12 +67,36 @@ async function main() {
     const rateResults = await Promise.all([computation.uploadQuotationExcel(crm,rateInput,upload),computation.uploadQuotationExcel(crm,rateInput,upload)]);
     assert.equal(rateResults.reduce((n,r)=>n+r.inserted,0),1); assert.equal(rateResults.reduce((n,r)=>n+r.errors,0),1);
     assert.equal(await ds.getRepository(ContractorQuotationWageEntity).count(),1);
+
+    // Exercise the real calculation against dated quotation versions in PostgreSQL.
+    const rateRepo=ds.getRepository(ContractorQuotationWageEntity);
+    const makeCard=(basic)=>({divisor:30,rounding:'RUPEE',components:[
+      {code:'BASIC_DA',label:'Basic and DA',category:'EARNING',method:'FIXED',value:basic,prorate:true},
+      {code:'SITE',label:'Site allowance',category:'EARNING',method:'FIXED',value:2000,prorate:true},
+      {code:'PF_EMP',label:'Employee PF',category:'DEDUCTION',method:'PERCENT',basis:['BASIC_DA'],ceiling:15000,value:12,prorate:false},
+      {code:'PF_ER',label:'Employer PF',category:'EMPLOYER_COST',method:'PERCENT',basis:['BASIC_DA'],ceiling:15000,value:13,prorate:false}
+    ]});
+    for(const [date,basic] of [['2026-11-01',16000],['2026-11-16',20000]]) await rateRepo.save(rateRepo.create({clientId:id(1),branchId:id(2),contractorUserId:id(3),skillCategory:'SKILLED',designation:'GUARD',effectiveFrom:date,dailyWage:basic/30,rateCard:makeCard(basic),createdByUserId:id(4)}));
+    computation.findEmployee=async()=>({employeeCode:'E001',name:'Test Employee',skillCategory:'SKILLED',designation:'GUARD',pfApplicable:true,esiApplicable:false,uan:'100000000001',dateOfJoining:'2026-01-01'});
+    computation.branchRepo={findOne:async()=>({id:id(2),clientId:id(1),stateCode:'TS'})};
+    computation.findPayrollSetup=async()=>({pfEnabled:true,pfWageCeiling:15000,pfEmployeeRate:12,pfEmployerRate:13,esiEnabled:false,ptEnabled:false,lwfEnabled:false});
+    computation.findMinimumDailyWage=async()=>400;computation.resolveSlabAmount=async()=>0;
+    await assert.rejects(computation.computeOne(id(1),id(3),id(2),'2026-11',null,1,{employee_code:'E001',days_worked:30}),/changes within/);
+    const ledger=Array.from({length:30},(_,i)=>({date:'2026-11-'+String(i+1).padStart(2,'0'),days:1,hours:0}));
+    const revised=await computation.computeOne(id(1),id(3),id(2),'2026-11',null,1,{employee_code:'E001',days_worked:30,daily_attendance:ledger});
+    computation.findMinimumDailyWage=async()=>600;
+    const belowMinimum=await computation.computeOne(id(1),id(3),id(2),'2026-11',null,1,{employee_code:'E001',days_worked:30,daily_attendance:ledger});assert.equal(belowMinimum.matchStatus,'MISMATCH');assert.match(belowMinimum.mismatchReason,/minimum wage/);
+    computation.findMinimumDailyWage=async()=>400;
+    assert.equal(revised.basicWage,18000);assert.equal(revised.pfDeduction,1800);assert.equal(revised.pfEmployerContribution,1950);assert.equal(revised.calculationSnapshot.segments.length,2);
     const first=await workflow.saveDraft(contractor,key,calculate); const firstId=first.version.id;
     assert.equal((await workflow.list(contractor,{})).data[0].branchName,'Branch One');
     assert.equal((await workflow.list(contractor,{offset:'1'})).data.length,0);
     await assert.rejects(workflow.list(contractor,{offset:'-1'}),/offset/);
-    assert.equal((await workflow.list(user('CLIENT',7),{})).data.length,0);
-    await assert.rejects(workflow.pack(contractor,firstId),/CRM-approved/);
+    assert.equal((await workflow.list(user('CLIENT',7),{})).data.length,1);
+    assert.equal((await workflow.list(auditor,{})).data.length,1);
+    assert.equal((await workflow.list(user('AUDITOR',55),{})).data.length,0);
+    await assert.rejects(workflow.pack(user('AUDITOR',55),firstId),/audit/i);
+    assert.equal((await workflow.pack(contractor,firstId)).rows.length,1);
     await assert.rejects(workflow.saveDraft(contractor,key,async()=>{throw Error('Invalid employee');}),/Invalid employee/);
     await assert.rejects(workflow.saveDraft(contractor,key,async()=>{const rows=await calculate();rows[0].employeeName=null;return rows;}), /null value/);
     assert.equal(await repo.count(),1); assert.equal((await workflow.list(contractor,{})).data[0].version,1);
@@ -84,7 +111,7 @@ async function main() {
     const exported = new ExcelJS.Workbook(); await exported.xlsx.load(Buffer.concat(chunks));
     assert.equal(exported.getWorksheet('Payroll').rowCount,2);
     assert.equal(exported.getWorksheet('Approval').getCell('B2').value,'CRM_APPROVED');
-    assert.equal(exported.getWorksheet('PF working').getCell('C2').value,10000);
+    assert.equal(exported.getWorksheet('PF working').getCell('D2').value,10000);
     await workflow.transition(auditor,firstId,'verify','Evidence: attendance A1, rates R1, payment P1 and statutory S1 checked');
     await assert.rejects(workflow.transition(crm,firstId,'reopen','Need to change payroll'),/not available/);
     assert.deepEqual((await workflow.clients(cco)).map(c=>c.id),[id(1)]);
@@ -94,7 +121,7 @@ async function main() {
     await assert.rejects(workflow.history(user('CCO',11),firstId),/CCO scope/);
     await assert.rejects(workflow.transition(user('CCO',11),firstId,'reopen','Unauthorized correction'),/CCO scope/);
     await workflow.transition(cco,firstId,'reopen','Authorized correction to attendance');
-    await assert.rejects(workflow.pack(contractor,firstId),/CRM-approved/);
+    assert.equal((await workflow.pack(contractor,firstId)).rows.length,1);
     const second=await workflow.saveDraft(contractor,key,calculate); assert.equal(second.version.version,2);
     assert.ok((await workflow.history(contractor,second.version.id)).some(e=>e.action==='VERIFY' && e.version===1));
     const history=await ds.query('SELECT * FROM contractor_payroll_versions ORDER BY version');
@@ -122,6 +149,12 @@ async function main() {
     assert.equal(approvals.filter(r=>r.status==='fulfilled').length,1);
     assert.equal((await ds.query('SELECT status FROM contractor_attendance_batches WHERE id=$1',[pending.id]))[0].status,'APPROVED');
     assert.equal(Number((await ds.query("SELECT count(*) FROM contractor_payroll_versions WHERE period_month='2026-10'"))[0].count),1);
+
+    // The branch queue must remain accessible beyond the previous 200-row cap.
+    await ds.query("INSERT INTO users(id,name) SELECT ('00000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'Synthetic vendor '||n FROM generate_series(1000,1204) n");
+    await ds.query("INSERT INTO contractor_attendance_batches(client_id,branch_id,contractor_user_id,period_month,rows_snapshot,submitted_by) SELECT $1,$2,('00000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'2026-12','[]'::jsonb,$3 FROM generate_series(1000,1204) n",[id(1),id(2),id(3)]);
+    let attendanceOffset=0,more=true;const attendanceIds=new Set();while(more){const page=await computation.listAttendance(user('BRANCH_DESK',8),{periodMonth:'2026-12',offset:String(attendanceOffset)});page.data.forEach(r=>attendanceIds.add(r.id));attendanceOffset+=page.data.length;more=page.hasMore;assert.ok(attendanceOffset<=205);}
+    assert.equal(attendanceIds.size,205);
     console.log('PASS: actual entity schema + migration, transactional preservation, role visibility, approval, independent verification, controlled reopening, immutable snapshots and concurrent transitions.');
   } finally { if(ds?.isInitialized) await ds.destroy(); await admin.query(`DROP SCHEMA "${schema}" CASCADE`); await admin.end(); }
 }

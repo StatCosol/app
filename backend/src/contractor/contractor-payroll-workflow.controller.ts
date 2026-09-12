@@ -90,21 +90,28 @@ export class ContractorPayrollWorkflowController {
       Payroll: [
         'employeeCode',
         'employeeName',
+        'uan',
+        'esic',
+        'quotationId',
         'skillCategory',
         'daysWorked',
         'payableDailyWage',
         'basicWage',
         'otherEarnings',
         'grossWage',
+        'totalEarnings',
         'pfDeduction',
         'esiDeduction',
         'ptDeduction',
         'lwfEmployeeDeduction',
         'netSalary',
         'totalEmployerContribution',
+        'billingFees',
+        'billingTotal',
       ],
       Attendance: ['employeeCode', 'employeeName', 'daysWorked'],
       'PF working': [
+        'uan',
         'employeeCode',
         'employeeName',
         'pfWage',
@@ -112,6 +119,8 @@ export class ContractorPayrollWorkflowController {
         'pfEmployerContribution',
       ],
       'ESI working': [
+        'esic',
+        'esiWage',
         'employeeCode',
         'employeeName',
         'grossWage',
@@ -144,12 +153,41 @@ export class ContractorPayrollWorkflowController {
         if (name === 'Exceptions' && row.matchStatus === 'MATCHED') continue;
         sheet.addRow(
           Object.fromEntries(
-            keys.map((key) => [key, row[key as keyof typeof row] ?? '']),
+            keys.map((key) => [
+              key,
+              ['billingFees', 'billingTotal'].includes(key)
+                ? ((row.calculationSnapshot?.result as any)?.[key] ?? '')
+                : key === 'esiWage'
+                  ? ((row.calculationSnapshot?.result as any)?.bases?.ESI_EMP ??
+                    '')
+                  : ['uan', 'esic', 'quotationId'].includes(key)
+                    ? (row.calculationSnapshot?.[key] ?? '')
+                    : (row[key as keyof typeof row] ?? ''),
+            ]),
           ),
         );
       }
       sheet.getRow(1).font = { bold: true };
       sheet.views = [{ state: 'frozen', ySplit: 1 }];
+    }
+    const breakdown = workbook.addWorksheet('Quotation components');
+    breakdown.columns = [
+      'employeeCode',
+      'quotationId',
+      'component',
+      'category',
+      'amount',
+    ].map((key) => ({ key, header: key, width: 24 }));
+    for (const row of pack.rows) {
+      const snapshot = row.calculationSnapshot as any;
+      for (const component of snapshot?.rateCard?.components || [])
+        breakdown.addRow({
+          employeeCode: row.employeeCode,
+          quotationId: snapshot.quotationId,
+          component: component.label,
+          category: component.category,
+          amount: snapshot.result?.amounts?.[component.code],
+        });
     }
     const history = workbook.addWorksheet('Review trail');
     history.columns = [

@@ -54,7 +54,7 @@ import { Subscription } from 'rxjs';
           }
           @if (item.canDownload) {
             <button type="button" (click)="download(item)" [disabled]="busy()">
-              Download approved working pack
+              Download payroll working pack
             </button>
           }
           <button type="button" (click)="showHistory(item)" [disabled]="busy()">

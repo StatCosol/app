@@ -43,11 +43,15 @@ describe('contractor attendance review UI', () => {
   });
   it('sends branch remarks with the decision', () => {
     const { component, http } = setup({ roleCode: 'BRANCH_DESK' });
+    component.batches.set([
+      { id: 'batch', rows_snapshot: [{ employee_code: 'G001', days_worked: 28, ot_hours: 2 }] },
+    ]);
     component.notes['batch'] = 'Verified against shifts';
     component.review('batch', 'approve');
     expect(http.post).toHaveBeenCalledWith('/api/v1/contractor-attendance/batch/review', {
       decision: 'approve',
       remarks: 'Verified against shifts',
+      rows: [{ employee_code: 'G001', days_worked: 28, ot_hours: 2 }],
     });
   });
   it('surfaces a calculation failure without pretending approval succeeded', () => {
@@ -59,4 +63,17 @@ describe('contractor attendance review UI', () => {
     expect(component.error()).toBe('Employee deployment changed');
     expect(component.busy()).toBe(false);
   });
+});
+
+it('loads the next page without discarding earlier attendance', () => {
+  const { component, http } = setup({ roleCode: 'BRANCH_DESK' });
+  http.get
+    .mockReturnValueOnce(of({ data: [{ id: 'first' }], hasMore: true }))
+    .mockReturnValueOnce(of({ data: [{ id: 'second' }], hasMore: false }));
+  component.load();
+  expect(component.hasMore()).toBe(true);
+  component.load(true);
+  expect(http.get.mock.calls[1][1].params.offset).toBe(1);
+  expect(component.batches().map((b) => b.id)).toEqual(['first', 'second']);
+  expect(component.hasMore()).toBe(false);
 });

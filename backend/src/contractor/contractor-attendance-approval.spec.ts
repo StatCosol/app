@@ -282,3 +282,56 @@ describe('CRM alerts after branch approval', () => {
     ).not.toHaveBeenCalled();
   });
 });
+
+describe('branch attendance corrections', () => {
+  it('retains original attendance and calculates only branch-approved corrections', async () => {
+    const batch = record();
+    const { service, query } = setup(batch);
+    await service.reviewAttendance(
+      branch,
+      'batch',
+      'approve',
+      'Corrected verified payable days',
+      [{ employee_code: 'G001', days_worked: 28, ot_hours: 2 }],
+    );
+    expect(batch.rows_snapshot[0].days_worked).toBe(30);
+    expect(service.computeOne.mock.calls[0][6]).toMatchObject({
+      days_worked: 28,
+      ot_hours: 2,
+    });
+    expect(
+      query.mock.calls.some(([sql]) => sql.includes('approved_rows_snapshot')),
+    ).toBe(true);
+  });
+  it('rejects corrections to a worker not in the submitted batch', async () => {
+    const { service } = setup();
+    await expect(
+      service.reviewAttendance(
+        branch,
+        'batch',
+        'approve',
+        'Checked attendance',
+        [{ employee_code: 'OTHER', days_worked: 28 }],
+      ),
+    ).rejects.toThrow('correction');
+  });
+  it('rejects impossible dates and nonreconciling daily ledgers', () => {
+    const { service } = setup();
+    expect(() =>
+      service.validateDatedAttendance(
+        [{ date: '2026-09-31', days: 1 }],
+        '2026-09',
+        1,
+        0,
+      ),
+    ).toThrow('Invalid');
+    expect(() =>
+      service.validateDatedAttendance(
+        [{ date: '2026-09-01', days: 1 }],
+        '2026-09',
+        2,
+        0,
+      ),
+    ).toThrow('reconcile');
+  });
+});

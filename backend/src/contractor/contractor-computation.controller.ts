@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Query,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -36,6 +37,14 @@ const excelUploadOptions = makeSafeUploadOptions({
 @Roles('ADMIN', 'CRM', 'CEO', 'CCO')
 export class CrmContractorComputationController {
   constructor(private readonly svc: ContractorComputationService) {}
+
+  @Get('quotations/template')
+  async quotationTemplate() {
+    return new StreamableFile(await this.svc.quotationTemplate(), {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: 'attachment; filename="contractor-rate-card-template.xlsx"',
+    });
+  }
 
   @Get('quotations')
   listQuotations(
@@ -89,6 +98,14 @@ export class ContractorComputationController {
   @Post('mcd/compute')
   computeMcd(@CurrentUser() user: ReqUser, @Body() body: any) {
     return this.svc.computeMcdRows(user, body);
+  }
+
+  @Get('attendance/template')
+  async attendanceTemplate() {
+    return new StreamableFile(await this.svc.attendanceTemplate(), {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: 'attachment; filename="contractor-attendance-template.xlsx"',
+    });
   }
 
   @Post('attendance/system')
@@ -161,8 +178,23 @@ export class ContractorAttendanceController {
   review(
     @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { decision: string; remarks: string },
+    @Body()
+    body: {
+      decision: string;
+      remarks: string;
+      rows?: Array<{
+        employee_code: string;
+        days_worked: number;
+        ot_hours?: number;
+      }>;
+    },
   ) {
-    return this.svc.reviewAttendance(user, id, body.decision, body.remarks);
+    return this.svc.reviewAttendance(
+      user,
+      id,
+      body.decision,
+      body.remarks,
+      body.rows,
+    );
   }
 }

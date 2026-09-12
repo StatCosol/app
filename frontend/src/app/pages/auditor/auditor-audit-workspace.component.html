@@ -470,7 +470,21 @@
                 </td>
                 <td>{{ doc.branchName || '-' }}</td>
                 <td>{{ doc.category || '-' }}</td>
-                <td>{{ doc.docType || '-' }}</td>
+                <td>{{ doc.docType || '-' }}
+ @if (doc.sourceTable === 'contractor_documents') {
+  <button type="button" class="link" (click)="reconcileDocument(doc)" [disabled]="reviewingDocId === doc.id">Compare with payroll</button>
+  @if (doc.payrollCheck) {
+   <details><summary>Payroll: {{ doc.payrollCheck.status }}</summary><p>Comparison checks extracted employee rows. Verify the document period, establishment and payment coverage before marking complied.</p>
+    @for (finding of doc.payrollCheck.findings; track $index) {
+     <p>{{ finding.employeeCode }} · {{ finding.field }}: {{ finding.remark }}
+      @if (finding.expected !== null && finding.expected !== undefined) { Expected {{ finding.expected }}, uploaded {{ finding.submitted }} }
+      @if (finding.page) { (PDF page {{ finding.page }}) }
+     </p>
+    }
+   </details>
+  }
+ }
+</td>
                 <td>{{ doc.periodYear ? doc.periodYear + '-' + (doc.periodMonth < 10 ? '0' : '') + doc.periodMonth : '-' }}</td>
                 <td>
                   <span [class]="statusClass(doc.status)">
@@ -587,7 +601,21 @@
                 </td>
                 <td>{{ doc.contractorName || '-' }}</td>
                 <td>{{ doc.branchName || '-' }}</td>
-                <td>{{ doc.docType || '-' }}</td>
+                <td>{{ doc.docType || '-' }}
+ @if (doc.sourceTable === 'contractor_documents') {
+  <button type="button" class="link" (click)="reconcileDocument(doc)" [disabled]="reviewingDocId === doc.id">Compare with payroll</button>
+  @if (doc.payrollCheck) {
+   <details><summary>Payroll: {{ doc.payrollCheck.status }}</summary><p>Comparison checks extracted employee rows. Verify the document period, establishment and payment coverage before marking complied.</p>
+    @for (finding of doc.payrollCheck.findings; track $index) {
+     <p>{{ finding.employeeCode }} · {{ finding.field }}: {{ finding.remark }}
+      @if (finding.expected !== null && finding.expected !== undefined) { Expected {{ finding.expected }}, uploaded {{ finding.submitted }} }
+      @if (finding.page) { (PDF page {{ finding.page }}) }
+     </p>
+    }
+   </details>
+  }
+ }
+</td>
                 <td>
                   <span [class]="statusClass(doc.status)">
                     {{ doc.status === 'APPROVED' ? 'Complied' : doc.status === 'REJECTED' ? 'Non Complied' : formatLabel(doc.status) }}

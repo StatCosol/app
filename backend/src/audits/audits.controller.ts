@@ -376,6 +376,15 @@ export class AuditorAuditsController {
   }
 
   @ApiOperation({ summary: 'Review a document (COMPLIED / NON_COMPLIED)' })
+  @Post(':id/documents/:docId/reconcile')
+  async reconcileDocument(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('docId', ParseUUIDPipe) docId: string,
+  ) {
+    return this.svc.reconcileDocument(user, id, docId);
+  }
+
   @Post(':id/documents/:docId/review')
   async reviewDocument(
     @CurrentUser() user: ReqUser,

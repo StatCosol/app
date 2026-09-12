@@ -28,7 +28,16 @@ export interface PayrollVersion {
 }
 
 export const PUBLISHED_PAYROLL = ['CRM_APPROVED', 'VERIFIED_LOCKED'];
-export const DRAFT_PAYROLL_ROLES = ['CONTRACTOR', 'CRM', 'ADMIN'];
+export const DRAFT_PAYROLL_ROLES = [
+  'CONTRACTOR',
+  'CRM',
+  'ADMIN',
+  'CLIENT',
+  'BRANCH_DESK',
+  'AUDITOR',
+];
+export const auditorPayrollScope = (alias: string, parameter: string) =>
+  `EXISTS (SELECT 1 FROM audits pa WHERE pa.assigned_auditor_id=${parameter} AND pa.client_id=${alias}.client_id AND (pa.branch_id IS NULL OR pa.branch_id=${alias}.branch_id) AND (pa.contractor_user_id IS NULL OR pa.contractor_user_id=${alias}.contractor_user_id))`;
 
 @Injectable()
 export class ContractorPayrollWorkflowService {
@@ -160,6 +169,10 @@ export class ContractorPayrollWorkflowService {
     const scope = await this.scope.getScope(user);
     const params: unknown[] = [clientId];
     const where = ['client_id=$1', 'is_current'];
+    if (user.roleCode === 'AUDITOR') {
+      params.push(user.id);
+      where.push(auditorPayrollScope('v', '$' + params.length));
+    }
     if (scope.level === 'branches') {
       params.push(scope.branchIds || []);
       where.push(`branch_id=ANY($${params.length}::uuid[])`);
@@ -203,6 +216,15 @@ export class ContractorPayrollWorkflowService {
     }
     if (version.branch_id)
       await this.scope.assertBranchAllowed(user, version.branch_id);
+    if (user.roleCode === 'AUDITOR') {
+      const [allowed] = await this.repo.manager.query(
+        'SELECT 1 FROM contractor_payroll_versions v WHERE v.id=$1 AND ' +
+          auditorPayrollScope('v', '$2'),
+        [version.id, user.id],
+      );
+      if (!allowed)
+        throw new ForbiddenException('Payroll is outside your assigned audit');
+    }
     const scope = await this.scope.getScope(user);
     if (
       scope.level === 'branches' &&
@@ -346,9 +368,13 @@ export class ContractorPayrollWorkflowService {
     );
     if (!version) throw new NotFoundException('Payroll version not found');
     await this.assertAccess(user, version);
-    if (!version.is_current || !PUBLISHED_PAYROLL.includes(version.status))
+    if (
+      !version.is_current ||
+      (!PUBLISHED_PAYROLL.includes(version.status) &&
+        !DRAFT_PAYROLL_ROLES.includes(user.roleCode))
+    )
       throw new ForbiddenException(
-        'Only the current CRM-approved payroll pack can be downloaded',
+        'Only the current payroll pack available to your role can be downloaded',
       );
     return {
       version: this.summary(version, user),
@@ -379,7 +405,9 @@ export class ContractorPayrollWorkflowService {
       exceptions: rows.filter((r) => r.matchStatus !== 'MATCHED').length,
       allowedActions: this.allowedActions(version, user),
       canDownload:
-        version.is_current && PUBLISHED_PAYROLL.includes(version.status),
+        version.is_current &&
+        (PUBLISHED_PAYROLL.includes(version.status) ||
+          DRAFT_PAYROLL_ROLES.includes(user.roleCode)),
     };
   }
 
