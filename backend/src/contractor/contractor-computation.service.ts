@@ -755,6 +755,19 @@ export class ContractorComputationService {
       },
       review,
     );
+    // saveDraft resolves after the approval and payroll transaction commits.
+    const mismatches = result.saved.filter(
+      (row) => row.matchStatus !== 'MATCHED',
+    );
+    if (mismatches.length) {
+      await this.notifyCrm(
+        batch.client_id,
+        batch.branch_id,
+        batch.contractor_user_id,
+        batch.period_month,
+        mismatches,
+      );
+    }
     return {
       id,
       status: 'APPROVED',

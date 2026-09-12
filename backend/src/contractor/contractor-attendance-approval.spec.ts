@@ -44,7 +44,15 @@ function setup(batch = record()) {
   service.findEmployee = jest
     .fn()
     .mockResolvedValue({ employeeCode: 'G001', name: 'Sample guard' });
-  service.computeOne = jest.fn().mockResolvedValue({ netSalary: 18033 });
+  service.computeOne = jest
+    .fn()
+    .mockResolvedValue({ netSalary: 18033, matchStatus: 'MATCHED' });
+  service.userRepo = {
+    findOne: jest.fn().mockResolvedValue({ name: 'Sample vendor' }),
+  };
+  service.notifications = {
+    createSystemNotification: jest.fn().mockResolvedValue({}),
+  };
   service.workflow = {
     lock: jest.fn(),
     saveDraft: jest.fn(async (_user, _key, calculate, before) => {
@@ -172,5 +180,105 @@ describe('branch-approved contractor attendance', () => {
       ['branch', 'branch2'],
       '2026-09',
     ]);
+  });
+});
+
+describe('CRM alerts after branch approval', () => {
+  it.each(['NO_QUOTATION', 'MISMATCH'])(
+    'alerts CRM for committed %s rows only',
+    async (status) => {
+      const { service } = setup();
+      const mismatch = {
+        rowNumber: 2,
+        employeeName: 'Sample guard',
+        matchStatus: status,
+        mismatchReason: 'Quotation requires CRM review',
+      };
+      let commit: (result: any) => void;
+      service.workflow.saveDraft.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            commit = resolve;
+          }),
+      );
+      const approval = service.reviewAttendance(
+        branch,
+        'batch',
+        'approve',
+        'Attendance checked',
+      );
+      // Let scope checks finish and the transaction begin without resolving it.
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(
+        service.notifications.createSystemNotification,
+      ).not.toHaveBeenCalled();
+      commit!({
+        saved: [
+          {
+            rowNumber: 1,
+            employeeName: 'Matched worker',
+            matchStatus: 'MATCHED',
+          },
+          mismatch,
+        ],
+        version: { id: 'payroll' },
+      });
+      await approval;
+      expect(
+        service.notifications.createSystemNotification,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        service.notifications.createSystemNotification,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientId: 'client',
+          branchId: 'branch',
+          priority: 1,
+          subject: 'Contractor MCD wage mismatch - Sample vendor - 2026-09',
+          message: 'Row 2: Sample guard - Quotation requires CRM review',
+        }),
+      );
+    },
+  );
+  it('does not alert for matched payroll', async () => {
+    const { service } = setup();
+    await service.reviewAttendance(
+      branch,
+      'batch',
+      'approve',
+      'Attendance checked',
+    );
+    expect(
+      service.notifications.createSystemNotification,
+    ).not.toHaveBeenCalled();
+  });
+  it('does not alert when payroll fails to commit', async () => {
+    const { service } = setup();
+    service.workflow.saveDraft.mockRejectedValue(
+      new Error('Calculation failed'),
+    );
+    await expect(
+      service.reviewAttendance(
+        branch,
+        'batch',
+        'approve',
+        'Attendance checked',
+      ),
+    ).rejects.toThrow('Calculation failed');
+    expect(
+      service.notifications.createSystemNotification,
+    ).not.toHaveBeenCalled();
+  });
+  it('does not alert when attendance is returned', async () => {
+    const { service } = setup();
+    await service.reviewAttendance(
+      branch,
+      'batch',
+      'return',
+      'Attendance incomplete',
+    );
+    expect(
+      service.notifications.createSystemNotification,
+    ).not.toHaveBeenCalled();
   });
 });
