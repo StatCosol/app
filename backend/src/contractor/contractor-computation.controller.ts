@@ -3,6 +3,8 @@ import {
   Controller,
   Get,
   Post,
+  Param,
+  ParseUUIDPipe,
   Query,
   UploadedFile,
   UseGuards,
@@ -89,6 +91,14 @@ export class ContractorComputationController {
     return this.svc.computeMcdRows(user, body);
   }
 
+  @Post('attendance/system')
+  submitSystemAttendance(
+    @CurrentUser() user: ReqUser,
+    @Body() body: { branchId: string; periodMonth: string },
+  ) {
+    return this.svc.submitSystemAttendance(user, body);
+  }
+
   @Post('attendance/upload')
   @UseInterceptors(FileInterceptor('file', excelUploadOptions))
   uploadAttendance(
@@ -130,5 +140,29 @@ export class ClientContractorComputationController {
     @Query() q: Record<string, string>,
   ) {
     return this.svc.listComputationsForScope(user, q);
+  }
+}
+
+@ApiTags('Contractor Attendance')
+@ApiBearerAuth('JWT')
+@Controller({ path: 'contractor-attendance', version: '1' })
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('CONTRACTOR', 'CLIENT', 'BRANCH_DESK')
+export class ContractorAttendanceController {
+  constructor(private readonly svc: ContractorComputationService) {}
+
+  @Get()
+  list(@CurrentUser() user: ReqUser, @Query() query: Record<string, string>) {
+    return this.svc.listAttendance(user, query);
+  }
+
+  @Post(':id/review')
+  @Roles('CLIENT', 'BRANCH_DESK')
+  review(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { decision: string; remarks: string },
+  ) {
+    return this.svc.reviewAttendance(user, id, body.decision, body.remarks);
   }
 }

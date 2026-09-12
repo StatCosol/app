@@ -69,6 +69,7 @@ export class ContractorPayrollWorkflowService {
       'client_id' | 'branch_id' | 'contractor_user_id' | 'period_month'
     >,
     calculate: () => Promise<ContractorMcdComputationEntity[]>,
+    beforeCalculate?: (manager: EntityManager) => Promise<void>,
   ) {
     return this.repo.manager.transaction(async (manager) => {
       await this.lock(manager, key);
@@ -90,6 +91,7 @@ export class ContractorPayrollWorkflowService {
           'Payroll is under review or approved. Return or reopen it before recalculating.',
         );
       }
+      if (beforeCalculate) await beforeCalculate(manager);
       const output = await calculate();
       const rowsRepo = manager.getRepository(ContractorMcdComputationEntity);
       await rowsRepo
@@ -275,6 +277,21 @@ export class ContractorPayrollWorkflowService {
         throw new ConflictException(
           'Resolve payroll exceptions and recalculate before approval',
         );
+      }
+      if (action === 'submit') {
+        const [attendance] = await manager.query(
+          'SELECT status FROM contractor_attendance_batches WHERE client_id=$1 AND contractor_user_id=$2 AND branch_id=$3 AND period_month=$4 AND is_current',
+          [
+            version.client_id,
+            version.contractor_user_id,
+            version.branch_id,
+            version.period_month,
+          ],
+        );
+        if (attendance?.status !== 'APPROVED')
+          throw new ConflictException(
+            'Branch-approved attendance is required before submitting payroll',
+          );
       }
       const status = {
         submit: 'SUBMITTED',
