@@ -1,3 +1,4 @@
+import { PayrollConfigurationScopeGuard } from '../payroll-configuration-scope.guard';
 import {
   BadRequestException,
   ConflictException,
@@ -46,7 +47,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 @ApiTags('Payroll')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'payroll/engine', version: '1' })
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PayrollConfigurationScopeGuard)
 @Roles('PAYROLL', 'ADMIN', 'CCO')
 export class PayrollEngineController {
   constructor(

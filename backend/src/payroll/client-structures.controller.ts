@@ -1,3 +1,6 @@
+import { PayrollConfigurationScopeGuard } from './payroll-configuration-scope.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
 import {
   Body,
   Controller,
@@ -7,6 +10,7 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { Roles } from '../auth/roles.decorator';
 import { ClientStructuresService } from './client-structures.service';
@@ -22,6 +26,7 @@ import {
 } from './dto/client-structure.dto';
 
 @Controller({ path: 'payroll/client-structures', version: '1' })
+@UseGuards(JwtAuthGuard, RolesGuard, PayrollConfigurationScopeGuard)
 @Roles('PAYROLL', 'ADMIN')
 export class ClientStructuresController {
   constructor(

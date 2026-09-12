@@ -1,3 +1,4 @@
+import { PayrollConfigurationScopeGuard } from './payroll-configuration-scope.guard';
 import { PayrollReconciliationController } from './reconciliation/payroll-reconciliation.controller';
 import { PayrollReconciliationService } from './reconciliation/payroll-reconciliation.service';
 import { ServiceEntitlementsModule } from '../service-entitlements/service-entitlements.module';
@@ -229,6 +230,7 @@ import { AccessModule } from '../access/access.module';
     BranchCtcController,
   ],
   providers: [
+    PayrollConfigurationScopeGuard,
     PayrollReconciliationService,
     PayrollService,
     PayrollClientScopeService,
