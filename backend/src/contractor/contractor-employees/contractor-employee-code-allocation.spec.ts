@@ -134,7 +134,7 @@ function makeBackfillService(opts: {
 
   const run = async (sql: string, params: any[]) => {
     queries.push(sql);
-    if (sql.includes('employee_code IS NULL') && sql.includes('SELECT id')) {
+    if (sql.includes('employee_code IS NULL') && sql.startsWith('SELECT id')) {
       return opts.nullRows;
     }
     if (sql.includes('FROM users')) {
@@ -144,9 +144,9 @@ function makeBackfillService(opts: {
     if (sql.includes('contractor_user_id = $2')) return [];
     if (sql.includes('contractor_user_id <> $2')) return [];
     if (sql.includes('MAX(')) return [{ seq: ++allocSeq }];
-    if (sql.startsWith('UPDATE contractor_employees')) {
+    if (sql.includes('UPDATE contractor_employees')) {
       updates.push({ code: params[0], id: params[1] });
-      return [[{ id: params[1] }], opts.affected ?? 1];
+      return opts.affected === 0 ? [] : [{ id: params[1] }];
     }
     if (sql.includes('COUNT(*)')) return [{ n: opts.remaining ?? 0 }];
     return [];
@@ -189,11 +189,12 @@ describe('ContractorEmployeesService.backfillEmployeeCodes', () => {
     });
     await service.backfillEmployeeCodes('c1');
     const update = queries.find((q) =>
-      q.startsWith('UPDATE contractor_employees'),
+      q.includes('UPDATE contractor_employees'),
     );
     expect(update).toContain('employee_code IS NULL');
     expect(update).toContain("btrim(employee_code) = ''");
     expect(update).toContain('client_id = $3');
+    expect(update).toContain('SELECT id FROM assigned');
   });
 
   it('assigns an ID even when the contractor name has no English letters', async () => {
@@ -214,6 +215,20 @@ describe('ContractorEmployeesService.backfillEmployeeCodes', () => {
     });
     expect(await service.backfillEmployeeCodes('c1')).toMatchObject({
       coded: 0,
+    });
+  });
+
+  it('reports progress for a full batch so maintenance can continue', async () => {
+    const { service } = makeBackfillService({
+      nullRows: Array.from({ length: 200 }, (_, i) => ({
+        id: `e${i}`,
+        contractor_user_id: 'u1',
+      })),
+      remaining: 201,
+    });
+    expect(await service.backfillEmployeeCodes('c1', 200)).toMatchObject({
+      coded: 200,
+      remaining: 201,
     });
   });
 

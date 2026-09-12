@@ -359,15 +359,17 @@ export class ContractorEmployeesService {
         );
         if (!code) return false;
         const updated = await em.query(
-          `UPDATE contractor_employees
+          `WITH assigned AS (
+            UPDATE contractor_employees
               SET employee_code = $1, updated_at = now()
             WHERE id = $2 AND client_id = $3
               AND (employee_code IS NULL OR btrim(employee_code) = '')
-            RETURNING id`,
+            RETURNING id
+          ) SELECT id FROM assigned`,
           [code, row.id, clientId],
         );
-        // PostgreSQL UPDATE results from TypeORM are [rows, affectedCount].
-        return updated[1] > 0;
+        // The outer SELECT returns rows directly, avoiding UPDATE result-shape differences.
+        return updated.length > 0;
       });
       if (wrote) coded += 1;
     }
