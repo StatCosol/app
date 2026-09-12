@@ -1,3 +1,4 @@
+import { ComplianceAssistantComponent } from '../../../shared/components/compliance-assistant/compliance-assistant.component';
 import {
   Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, OnDestroy
 } from '@angular/core';
@@ -16,7 +17,7 @@ import { FaceFailuresWidgetComponent } from '../../../shared/face-failures-widge
 @Component({
   selector: 'app-branch-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, FaceFailuresWidgetComponent],
+  imports: [ComplianceAssistantComponent, CommonModule, FormsModule, RouterModule, FaceFailuresWidgetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './branch-dashboard.component.html',
   styleUrls: ['./branch-dashboard.component.scss'],
@@ -31,6 +32,9 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
 
   loading = true;
   branchId = '';
+  assignedBranches: string[] = [];
+  branchLabels: Record<string,string> = {};
+  private dashboardRequest?: import('rxjs').Subscription;
   currentMonth = '';
   branchName = 'Branch';
 
@@ -122,7 +126,13 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     const branchIds = this.authService.getBranchIds();
-    this.branchId = branchIds?.[0] || '';
+    this.assignedBranches = branchIds || [];
+    this.assignedBranches.forEach((id, index) => this.branchLabels[id] = 'Branch ' + (index + 1));
+    this.branchesService.list().pipe(takeUntil(this.destroy$)).subscribe({next: rows => {
+      for (const branch of rows) this.branchLabels[branch.id] = branch.branchName || (branch as any).name || this.branchLabels[branch.id];
+      this.cdr.markForCheck();
+    }, error: () => { this.cdr.markForCheck(); }});
+    this.branchId = branchIds?.length === 1 ? branchIds[0] : '';
     const user = this.authService.getUser();
     this.branchName = user?.branchName || user?.branch?.name || 'Branch';
 
@@ -138,6 +148,7 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
   }
 
   loadDashboard(): void {
+    this.dashboardRequest?.unsubscribe();
     this.dataUnavailable = false;
     this.loading = true;
     this.cdr.markForCheck();
@@ -171,7 +182,7 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       });
 
-    forkJoin({
+    this.dashboardRequest = forkJoin({
       legitx: canLoadComplianceDashboard
         ? this.legitxService.getSummary({
           month: +month,

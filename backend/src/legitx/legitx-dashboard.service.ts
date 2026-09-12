@@ -1,4 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { DbService } from '../common/db/db.service';
 import {
   LegitxCharts,
@@ -42,8 +46,9 @@ export class LegitxDashboardService {
       toggle?: string;
     },
     clientId?: string | null,
+    allowedBranchIds: string[] | 'ALL' = 'ALL',
   ): Promise<LegitxDashboardResponse> {
-    const scope = this.parseScope(query, clientId);
+    const scope = { ...this.parseScope(query, clientId), allowedBranchIds };
     const meta = await this.getMeta(scope);
 
     const [
@@ -164,6 +169,10 @@ export class LegitxDashboardService {
       branchConditions.push(`clientid = $${branchParams.length}`);
     }
 
+    if (scope.allowedBranchIds && scope.allowedBranchIds !== 'ALL') {
+      branchParams.push(scope.allowedBranchIds);
+      branchConditions.push(`id = ANY($${branchParams.length}::uuid[])`);
+    }
     const contractorParams: unknown[] = [];
     const contractorConditions: string[] = [];
     if (scope.clientId) {
@@ -173,6 +182,11 @@ export class LegitxDashboardService {
     if (scope.branchId) {
       contractorParams.push(scope.branchId);
       contractorConditions.push(`bc.branch_id = $${contractorParams.length}`);
+    } else if (scope.allowedBranchIds && scope.allowedBranchIds !== 'ALL') {
+      contractorParams.push(scope.allowedBranchIds);
+      contractorConditions.push(
+        `bc.branch_id = ANY($${contractorParams.length}::uuid[])`,
+      );
     }
 
     const [branches, contractors] = await Promise.all([
@@ -225,6 +239,9 @@ export class LegitxDashboardService {
     if (scope.branchId) {
       params.push(scope.branchId);
       branchFilter.push(`e.branch_id = $${params.length}`);
+    } else if (scope.allowedBranchIds && scope.allowedBranchIds !== 'ALL') {
+      params.push(scope.allowedBranchIds);
+      branchFilter.push(`e.branch_id = ANY($${params.length}::uuid[])`);
     } else if (scope.clientId) {
       params.push(scope.clientId);
       branchFilter.push(`e.client_id = $${params.length}`);
@@ -273,6 +290,9 @@ export class LegitxDashboardService {
     if (scope.branchId) {
       params.push(scope.branchId);
       branchFilter.push(`e.branch_id = $${params.length}`);
+    } else if (scope.allowedBranchIds && scope.allowedBranchIds !== 'ALL') {
+      params.push(scope.allowedBranchIds);
+      branchFilter.push(`e.branch_id = ANY($${params.length}::uuid[])`);
     } else if (scope.clientId) {
       params.push(scope.clientId);
       branchFilter.push(`e.client_id = $${params.length}`);
@@ -342,6 +362,9 @@ export class LegitxDashboardService {
     if (scope.branchId) {
       params.push(scope.branchId);
       where.push(`ce.branch_id = $${params.length}`);
+    } else if (scope.allowedBranchIds && scope.allowedBranchIds !== 'ALL') {
+      params.push(scope.allowedBranchIds);
+      where.push(`ce.branch_id = ANY($${params.length}::uuid[])`);
     }
     if (scope.contractorId) {
       params.push(scope.contractorId);
@@ -389,6 +412,9 @@ export class LegitxDashboardService {
     if (scope.branchId) {
       params.push(scope.branchId);
       conditions.push(`branch_id = $${params.length}`);
+    } else if (scope.allowedBranchIds && scope.allowedBranchIds !== 'ALL') {
+      params.push(scope.allowedBranchIds);
+      conditions.push(`branch_id = ANY($${params.length}::uuid[])`);
     }
     if (scope.contractorId) {
       params.push(scope.contractorId);
@@ -447,6 +473,14 @@ export class LegitxDashboardService {
       whereRuns.push(`(branch_id = $${params.length} OR branch_id IS NULL)`);
     }
 
+    let employeeScope = '';
+    const payrollBranches = scope.branchId
+      ? [String(scope.branchId)]
+      : scope.allowedBranchIds;
+    if (payrollBranches && payrollBranches !== 'ALL') {
+      params.push(payrollBranches);
+      employeeScope = `WHERE pre.branch_id = ANY($${params.length}::uuid[])`;
+    }
     const row = await this.safeOne(
       `WITH latest_run AS (
          SELECT id, period_year, period_month
@@ -463,7 +497,7 @@ export class LegitxDashboardService {
          0::int AS "completedFF",
          0::int AS "pendingFF"
        FROM payroll_run_employees pre
-       JOIN latest_run lr ON lr.id = pre.run_id`,
+       JOIN latest_run lr ON lr.id = pre.run_id ${employeeScope}`,
       params,
       fallback,
     );
@@ -481,6 +515,9 @@ export class LegitxDashboardService {
     if (scope.branchId) {
       params.push(scope.branchId);
       conditions.push(`id = $${params.length}`);
+    } else if (scope.allowedBranchIds && scope.allowedBranchIds !== 'ALL') {
+      params.push(scope.allowedBranchIds);
+      conditions.push(`id = ANY($${params.length}::uuid[])`);
     }
 
     const row = await this.safeOne(
@@ -508,6 +545,9 @@ export class LegitxDashboardService {
     if (scope.branchId) {
       compParams.push(scope.branchId);
       compConditions.push(`bc.branch_id = $${compParams.length}`);
+    } else if (scope.allowedBranchIds && scope.allowedBranchIds !== 'ALL') {
+      compParams.push(scope.allowedBranchIds);
+      compConditions.push(`bc.branch_id = ANY($${compParams.length}::uuid[])`);
     }
 
     const compWhere = compConditions.length
@@ -557,6 +597,11 @@ export class LegitxDashboardService {
     if (scope.branchId) {
       trendParams.push(scope.branchId);
       trendConditions.push(`bc.branch_id = $${trendParams.length}`);
+    } else if (scope.allowedBranchIds && scope.allowedBranchIds !== 'ALL') {
+      trendParams.push(scope.allowedBranchIds);
+      trendConditions.push(
+        `bc.branch_id = ANY($${trendParams.length}::uuid[])`,
+      );
     }
 
     const rows = await this.safeMany<{
@@ -601,6 +646,9 @@ export class LegitxDashboardService {
     if (scope.branchId) {
       opsParams.push(scope.branchId);
       scopeFilter = `AND ct.branch_id = $3`;
+    } else if (scope.allowedBranchIds && scope.allowedBranchIds !== 'ALL') {
+      opsParams.push(scope.allowedBranchIds);
+      scopeFilter = 'AND ct.branch_id = ANY($3::uuid[])';
     } else if (scope.clientId) {
       opsParams.push(scope.clientId);
       scopeFilter = `AND ct.branch_id IN (SELECT id FROM client_branches WHERE clientid = $3 AND isdeleted = false)`;
@@ -609,6 +657,8 @@ export class LegitxDashboardService {
     let returnScopeFilter = '';
     if (scope.branchId) {
       returnScopeFilter = `AND cr.branch_id = $3`;
+    } else if (scope.allowedBranchIds && scope.allowedBranchIds !== 'ALL') {
+      returnScopeFilter = 'AND cr.branch_id = ANY($3::uuid[])';
     } else if (scope.clientId) {
       returnScopeFilter = `AND cr.branch_id IN (SELECT id FROM client_branches WHERE clientid = $3 AND isdeleted = false)`;
     }
@@ -672,6 +722,9 @@ export class LegitxDashboardService {
     if (scope.branchId) {
       params.push(scope.branchId);
       conditions.push(`b.id = $${params.length}`);
+    } else if (scope.allowedBranchIds && scope.allowedBranchIds !== 'ALL') {
+      params.push(scope.allowedBranchIds);
+      conditions.push(`b.id = ANY($${params.length}::uuid[])`);
     }
 
     const rows = await this.safeMany<BranchRankRow>(
@@ -689,8 +742,7 @@ export class LegitxDashboardService {
        LEFT JOIN branch_compliances bc ON bc.branch_id = b.id
        WHERE ${conditions.join(' AND ')}
        GROUP BY b.id, b.branchname
-       ORDER BY percent DESC NULLS LAST
-       LIMIT 10`,
+       ORDER BY percent ASC NULLS LAST`,
       params,
       [],
     );
@@ -703,8 +755,8 @@ export class LegitxDashboardService {
   }
 
   private async getAuditKpis(scope: LegitxDashboardScope) {
-    const params: unknown[] = [];
-    const conditions: string[] = [];
+    const params: unknown[] = [scope.year, scope.month];
+    const conditions: string[] = ['a.period_year = $1', 'a.period_month = $2'];
     if (scope.clientId) {
       params.push(scope.clientId);
       conditions.push(`a.client_id = $${params.length}`);
@@ -716,6 +768,13 @@ export class LegitxDashboardService {
       );
     }
 
+    const auditBranches = scope.branchId
+      ? [String(scope.branchId)]
+      : scope.allowedBranchIds;
+    if (auditBranches && auditBranches !== 'ALL') {
+      params.push(auditBranches);
+      conditions.push(`a.branch_id = ANY($${params.length}::uuid[])`);
+    }
     const row = await this.safeOne(
       `SELECT
          COUNT(*) FILTER (WHERE status = 'COMPLETED')::int AS completed,
@@ -727,7 +786,7 @@ export class LegitxDashboardService {
       { completed: 0, pending: 0, overdue: 0 },
     );
 
-    const total = row.completed + row.pending + row.overdue;
+    const total = row.completed + row.pending;
     const overallAuditScore = total
       ? Math.round((row.completed / total) * 100)
       : 0;
@@ -905,7 +964,9 @@ export class LegitxDashboardService {
       return (row as T) ?? fallback;
     } catch (err: unknown) {
       this.logger.debug(`SQL one failed: ${(err as Error)?.message ?? err}`);
-      return fallback;
+      throw new ServiceUnavailableException(
+        'Dashboard data is temporarily unavailable',
+      );
     }
   }
 
@@ -918,7 +979,9 @@ export class LegitxDashboardService {
       return (await this.db.many<T>(sql, params)) ?? fallback;
     } catch (err: unknown) {
       this.logger.debug(`SQL many failed: ${(err as Error)?.message ?? err}`);
-      return fallback;
+      throw new ServiceUnavailableException(
+        'Dashboard data is temporarily unavailable',
+      );
     }
   }
 }

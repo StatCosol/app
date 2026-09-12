@@ -51,6 +51,8 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
   taskCategory = '';
   taskStatus = '';
   taskLimit = 100;
+  taskOffset = 0;
+  tasksLoading = false;
   isBranchPortal = false;
   pageTitle = 'Compliance Status';
   pageDescription = 'Company compliance health report - live, auto-calculated';
@@ -191,7 +193,16 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
           { key: 'contractors', label: 'Contractors' },
           { key: 'audit', label: 'Audit Impact' },
         ];
-    this.loadBranchMeta();
+    this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe(params => {
+      const month = Number(params.get('month'));
+      const year = Number(params.get('year'));
+      if (month >= 1 && month <= 12) this.month = month;
+      if (year >= 2000 && year <= 2100) this.year = year;
+      this.selectedBranchId = params.get('branchId') || '';
+      this.taskStatus = params.get('status') || '';
+      if (this.taskStatus) this.activeTab = 'tasks';
+      this.loadBranchMeta();
+    });
   }
 
   ngOnDestroy(): void {
@@ -222,13 +233,13 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
             const selectedBranch = scopedBranches.find(
               (branch: any) => branch.id === this.selectedBranchId,
             );
-            const initialBranch = selectedBranch || scopedBranches[0];
+            const initialBranch = selectedBranch || (scopedBranches.length === 1 ? scopedBranches[0] : undefined);
             this.selectedBranchId = initialBranch?.id || '';
             this.currentBranchLabel =
-              initialBranch?.branchName || initialBranch?.name || 'Assigned unit';
+              initialBranch?.branchName || initialBranch?.name || 'All assigned branches';
           }
           this.branchOptions = this.isBranchPortal
-            ? scopedBranches.map((b: any) => ({ value: b.id, label: b.branchName || b.name }))
+            ? [{ value: '', label: 'All assigned branches' }, ...scopedBranches.map((b: any) => ({ value: b.id, label: b.branchName || b.name }))]
             : [
                 { value: '', label: 'All Branches' },
                 ...this.branchMeta.map((b: any) => ({ value: b.id, label: b.branchName || b.name })),
@@ -339,7 +350,8 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
     return 'deadline-safe';
   }
 
-  loadTabData(): void {
+  loadTabData(offset = 0): void {
+    this.taskOffset = Math.max(0, offset);
     this.tabSub?.unsubscribe();
     this.tasksSub?.unsubscribe();
     const bid = this.selectedBranchId || undefined;
@@ -347,21 +359,25 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
 
     switch (this.activeTab) {
       case 'tasks':
+        this.tasksLoading = true;
         this.tasksSub = this.api
           .getComplianceStatusTasks(this.month, this.year, {
             branchId: bid,
             category: this.taskCategory || undefined,
             status: this.taskStatus || undefined,
             limit: this.taskLimit,
+            offset: this.taskOffset,
           })
           .pipe(takeUntil(this.destroy$), timeout(10000))
           .subscribe({
             next: (res: any) => {
               this.tasks = res || [];
+              this.tasksLoading = false;
               this.cdr.markForCheck();
             },
             error: () => {
               this.tasks = [];
+              this.tasksLoading = false;
               this.error = 'Unable to load tasks. Please retry.';
               this.cdr.markForCheck();
             },
@@ -462,7 +478,7 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
   }
 
   onTaskLimitChange(): void {
-    if (this.taskLimit < 0) this.taskLimit = 0;
+    if (this.taskLimit < 1) this.taskLimit = 50;
     if (this.taskLimit > 500) this.taskLimit = 500;
     this.loadTabData();
   }

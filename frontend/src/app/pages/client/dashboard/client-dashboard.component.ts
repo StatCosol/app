@@ -1,3 +1,4 @@
+import { ComplianceAssistantComponent } from '../../../shared/components/compliance-assistant/compliance-assistant.component';
 import {
   AfterViewInit,
   ChangeDetectorRef,
@@ -53,7 +54,7 @@ type ChartKey =
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-client-dashboard',
-  imports: [CommonModule, FormsModule, RouterModule, AiRiskScoreComponent, BranchAuditKpiComponent, ComplianceCalendarWidgetComponent, ComplianceNotificationCenterComponent, KpiTileComponent],
+  imports: [ComplianceAssistantComponent, CommonModule, FormsModule, RouterModule, AiRiskScoreComponent, BranchAuditKpiComponent, ComplianceCalendarWidgetComponent, ComplianceNotificationCenterComponent, KpiTileComponent],
   templateUrl: './client-dashboard.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-dashboard.component.scss'],
 })
@@ -252,6 +253,12 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
     this.destroyCharts();
   }
 
+  private widgetFailure<T>(fallback: T) {
+    this.errorMsg = 'Some dashboard data could not be loaded. Retry to refresh the complete view.';
+    this.cdr.markForCheck();
+    return of(fallback);
+  }
+
   load(): void {
     this.loadSub?.unsubscribe();
     this.loading = true;
@@ -272,37 +279,37 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
       }),
       pfEsi: hasPayroll
         ? this.dashboard.getClientPfEsiSummary({ month: monthStr, branchId: branchIdParam }).pipe(
-          catchError(() => of(null as PfEsiSummaryResponse | null)),
+          catchError(() => this.widgetFailure(null as PfEsiSummaryResponse | null)),
         )
         : of(null as PfEsiSummaryResponse | null),
       contractor: hasContractor
         ? this.dashboard.getClientContractorUploadSummary({ month: monthStr, branchId: branchIdParam }).pipe(
-          catchError(() => of(null as ContractorUploadSummaryResponse | null)),
+          catchError(() => this.widgetFailure(null as ContractorUploadSummaryResponse | null)),
         )
         : of(null as ContractorUploadSummaryResponse | null),
       lowestBranches: hasEmployeeCompliance
         ? this.complianceDocs.getLowestBranches({ year: this.filters.year, limit: 10 }).pipe(
-          catchError(() => of([] as LowestBranch[])),
+          catchError(() => this.widgetFailure([] as LowestBranch[])),
         )
         : of([] as LowestBranch[]),
       companyTrend: hasEmployeeCompliance
         ? this.complianceDocs.getCompanyTrend({ year: this.filters.year }).pipe(
-          catchError(() => of([] as ComplianceTrendPoint[])),
+          catchError(() => this.widgetFailure([] as ComplianceTrendPoint[])),
         )
         : of([] as ComplianceTrendPoint[]),
       regSummary: hasEmployeeCompliance
         ? this.clientBranches.getRegistrationSummary(branchIdParam).pipe(
-          catchError(() => of(null)),
+          catchError(() => this.widgetFailure(null)),
         )
         : of(null),
       regAlerts: hasEmployeeCompliance
         ? this.clientBranches.getRegistrationAlerts(branchIdParam).pipe(
-          catchError(() => of([])),
+          catchError(() => this.widgetFailure([])),
         )
         : of([]),
       companySummary: hasEmployeeCompliance
         ? this.clientBranches.getComplianceSummary(monthStr).pipe(
-          catchError(() => of(null)),
+          catchError(() => this.widgetFailure(null)),
         )
         : of(null),
     })

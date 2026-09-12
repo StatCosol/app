@@ -501,7 +501,7 @@
 
         <ui-form-select
           id="limit"
-          label="Max Rows"
+          label="Rows per page"
           [(ngModel)]="taskLimit"
           (ngModelChange)="onTaskLimitChange()"
           [options]="taskLimitOptions"
@@ -509,11 +509,16 @@
         </ui-form-select>
       </div>
 
+      <nav aria-label="Task pages" class="mb-3 flex items-center gap-4">
+        <button type="button" [disabled]="taskOffset === 0 || tasksLoading" (click)="loadTabData(taskOffset - taskLimit)">Previous</button>
+        <span class="text-sm">Page {{ (taskOffset / taskLimit) + 1 }} · {{tasks.length}} tasks</span>
+        <button type="button" [disabled]="tasks.length < taskLimit || tasksLoading || !!error" (click)="loadTabData(taskOffset + taskLimit)">Next</button>
+      </nav>
       <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <ui-data-table
           [columns]="taskColumns"
           [data]="tasks"
-          [loading]="false"
+          [loading]="tasksLoading"
           emptyMessage="No compliance tasks found for this period."
         >
           <ng-template uiTableCell="status" let-row>
