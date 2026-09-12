@@ -20,7 +20,7 @@ import { ReqUser } from '../access/access-scope.service';
 @ApiBearerAuth('JWT')
 @Controller({ path: 'sla', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN', 'CCO', 'CEO', 'CRM', 'CLIENT')
+@Roles('ADMIN', 'CCO', 'CEO', 'CRM', 'CLIENT', 'BRANCH_DESK')
 export class SlaController {
   constructor(private readonly slaService: SlaService) {}
 

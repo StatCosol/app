@@ -1,5 +1,7 @@
 # StatComPy Architecture & Technical Design
 
+> Historical design overview. For the current PostgreSQL runtime, multi-branch role model, source inventory and modernization findings, use [the September 2026 project research](research/2026-09-12/PROJECT_RESEARCH.md). Some terminology and deployment assumptions below predate the current implementation.
+
 ## 1. Product Definition
 StatComPy (StatCo Comply) is a multi-tenant compliance operations platform that manages:
 - Branch-wise statutory compliance (MCD uploads, documents, returns/filings, renewals)

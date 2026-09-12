@@ -51,6 +51,7 @@ export const AUDITOR_ROUTES: Routes = [
     loadComponent: AuditorLayoutComponent,
     canActivate: [roleGuard(['AUDITOR'])],
     children: [
+      { path: 'my-work', loadComponent: () => import('../../shared/my-work/my-work.component').then(m => m.MyWorkComponent) },
       { path: 'dashboard', loadComponent: AuditorDashboardComponent },
       { path: 'audits/:auditId/workspace', loadComponent: AuditorAuditCockpitPageComponent },
       { path: 'audits', loadComponent: AuditorAuditsComponent },

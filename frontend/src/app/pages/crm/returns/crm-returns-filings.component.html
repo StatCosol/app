@@ -88,9 +88,11 @@
       <div class="auto-card">
         <h4>Generate Monthly Filings</h4>
         <p>Creates filing rows + tasks from return master rules for the current month.</p>
+        @if (canManageAutomation) {
         <ui-button variant="primary" size="sm" [disabled]="autoGenerating" (clicked)="runAutoGenerate()">
           {{ autoGenerating ? 'Generating...' : 'Generate Filings' }}
         </ui-button>
+        } @else { <p>Managed by your administrator in the Automation Control Centre.</p> }
         @if (lastAutoResult) {
 <div class="auto-result">
           <span class="ok">{{ lastAutoResult.filingsCreated }} created</span>
@@ -102,9 +104,11 @@
       <div class="auto-card">
         <h4>Generate Renewal Filings</h4>
         <p>Scans expiring registrations and creates renewal filing rows + tasks.</p>
-        <ui-button variant="secondary" size="sm" [disabled]="autoRenewing" (clicked)="runAutoRenewals()">
+        @if (canManageAutomation) {
+<ui-button variant="secondary" size="sm" [disabled]="autoRenewing" (clicked)="runAutoRenewals()">
           {{ autoRenewing ? 'Scanning...' : 'Generate Renewals' }}
         </ui-button>
+} @else { <p>Managed by your administrator in the Automation Control Centre.</p> }
         @if (lastRenewalResult) {
 <div class="auto-result">
           <span class="ok">{{ lastRenewalResult.filingsCreated }} created</span>
@@ -116,9 +120,11 @@
       <div class="auto-card">
         <h4>Send Overdue Alerts</h4>
         <p>Escalates priority of overdue filings and sends CRM notifications.</p>
-        <ui-button variant="danger" size="sm" [disabled]="autoAlerting" (clicked)="runOverdueAlerts()">
+        @if (canManageAutomation) {
+<ui-button variant="danger" size="sm" [disabled]="autoAlerting" (clicked)="runOverdueAlerts()">
           {{ autoAlerting ? 'Sending...' : 'Send Alerts' }}
         </ui-button>
+} @else { <p>Managed by your administrator in the Automation Control Centre.</p> }
         @if (lastAlertResult) {
 <div class="auto-result">
           <span class="ok">{{ lastAlertResult.alertsSent }} alerts sent</span>

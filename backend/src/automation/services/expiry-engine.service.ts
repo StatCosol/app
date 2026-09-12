@@ -1,160 +1,221 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { AutomationScope, scopedRows } from '../automation-scope';
+import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { TaskEngineService } from './task-engine.service';
-import { NotificationsService } from '../../notifications/notifications.service';
+import { AutomationNotificationService } from './automation-notification.service';
+import { RenewalFilingEngineService } from './renewal-filing-engine.service';
+import { operationalDate } from '../../common/operational-date';
 
-/**
- * Expiry Engine: Tracks license/registration/certificate expiry
- * and auto-creates renewal tasks + alerts.
- */
+/** Canonical expiry scan used by scheduled and manual triggers. */
 @Injectable()
 export class ExpiryEngineService {
-  private readonly logger = new Logger(ExpiryEngineService.name);
-
   constructor(
     private readonly dataSource: DataSource,
     private readonly taskEngine: TaskEngineService,
-    private readonly notificationsService: NotificationsService,
+    private readonly notifications: AutomationNotificationService,
+    private readonly renewals: RenewalFilingEngineService,
   ) {}
 
-  /**
-   * Scan for expiring registrations, licenses, and safety certificates.
-   * Create renewal tasks and send alerts at 30/15/7/3 day thresholds.
-   */
-  async generateExpiryAlerts(): Promise<{
-    expiringItems: number;
-    tasksCreated: number;
-    alertsSent: number;
-  }> {
-    this.logger.log('Scanning for expiring documents');
-
-    let expiringItems = 0;
-    let tasksCreated = 0;
-    let alertsSent = 0;
-
-    // Scan branch registrations with expiry dates
-    const expiringRegs = await this.dataSource.query(
-      `SELECT br.id, br.registration_name, br.expiry_date, br.branch_id,
-              b.client_id, b.branchname,
-              EXTRACT(DAY FROM br.expiry_date - NOW())::int AS days_left
-       FROM branch_registrations br
-       JOIN client_branches b ON b.id = br.branch_id
-       WHERE br.expiry_date IS NOT NULL
-         AND br.expiry_date > NOW()
-         AND br.expiry_date <= NOW() + INTERVAL '30 days'
-         AND br.deleted_at IS NULL`,
+  async getExpiringDocuments(scope: AutomationScope = {}) {
+    return scopedRows(
+      this.dataSource,
+      `SELECT cd.id,cd.title,cd.expiry_date::text AS expiry_date,
+      cd.contractor_user_id,cd.client_id,cd.branch_id FROM contractor_documents cd
+      JOIN clients c ON c.id=cd.client_id
+      JOIN client_branches b ON b.id=cd.branch_id AND b.clientid=cd.client_id
+      JOIN users u ON u.id=cd.contractor_user_id
+      WHERE cd.expiry_date BETWEEN $1::date AND $1::date + $2::int
+        AND cd.status NOT IN ('EXPIRED','CANCELLED') AND c.is_deleted=false
+        AND b.isactive=true AND u.is_active=true AND u.deleted_at IS NULL`,
+      [operationalDate(), scope.options?.documentDays ?? 30],
+      scope,
     );
+  }
 
-    for (const reg of expiringRegs) {
-      expiringItems++;
-      const daysLeft = reg.days_left;
-      const alertThresholds = [30, 15, 7, 3];
+  async getExpiringBranchDocuments(scope: AutomationScope = {}) {
+    return scopedRows(
+      this.dataSource,
+      `SELECT bd.id,bd.file_name AS title,
+      bd.expiry_date::text AS expiry_date,bd.client_id,bd.branch_id
+      FROM branch_documents bd
+      JOIN clients c ON c.id=bd.client_id
+      JOIN client_branches b ON b.id=bd.branch_id AND b.clientid=bd.client_id
+      WHERE bd.expiry_date BETWEEN $1::date AND $1::date + $2::int
+        AND bd.status NOT IN ('EXPIRED','CANCELLED') AND c.is_deleted=false
+        AND b.isactive=true AND b.deletedat IS NULL`,
+      [operationalDate(), scope.options?.documentDays ?? 30],
+      scope,
+    );
+  }
 
-      if (alertThresholds.includes(daysLeft)) {
-        // Check if we already created a task for this
-        const existingTask = await this.dataSource.query(
-          `SELECT id FROM system_tasks
-           WHERE reference_id = $1 AND reference_type = 'REGISTRATION_EXPIRY'
-             AND status NOT IN ('CLOSED','CANCELLED')
-           LIMIT 1`,
-          [reg.id],
-        );
-
-        if (!existingTask.length) {
-          await this.taskEngine.createTask({
-            module: 'RENEWAL',
-            referenceId: reg.id,
-            referenceType: 'REGISTRATION_EXPIRY',
-            clientId: reg.client_id,
-            branchId: reg.branch_id,
-            assignedRole: 'BRANCH',
-            title: `Renewal due: ${reg.registration_name} — ${daysLeft} days left`,
-            description: `${reg.registration_name} at ${reg.branchname} expires on ${new Date(reg.expiry_date).toDateString()}. Please initiate renewal.`,
-            dueDate: new Date(reg.expiry_date),
-            priority:
-              daysLeft <= 7 ? 'CRITICAL' : daysLeft <= 15 ? 'HIGH' : 'MEDIUM',
-          });
-          tasksCreated++;
-        }
-
-        // Send notification
-        try {
-          // Find CRM for this client
-          const crmRows = await this.dataSource.query(
-            `SELECT crm_user_id FROM client_assignments_current
-             WHERE client_id = $1 AND crm_user_id IS NOT NULL LIMIT 1`,
-            [reg.client_id],
+  async generateExpiryAlerts(scope: AutomationScope = {}) {
+    const renewal = await this.renewals.generateRenewalFilings(scope);
+    const docs = await this.getExpiringDocuments(scope);
+    let tasksCreated = renewal.tasksCreated,
+      alertsSent = 0;
+    for (const doc of docs) {
+      const created = await this.dataSource.transaction(
+        'READ COMMITTED',
+        async (manager) => {
+          await manager.query(
+            'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+            [JSON.stringify(['document-expiry', doc.id])],
           );
-          if (crmRows.length) {
-            await this.notificationsService.createTicket(
-              crmRows[0].crm_user_id,
-              'CRM',
-              {
-                queryType: 'COMPLIANCE',
-                subject: `Expiry Alert: ${reg.registration_name} — ${daysLeft} days`,
-                message: `${reg.registration_name} at ${reg.branchname} expires in ${daysLeft} days. Please ensure renewal is initiated.`,
-                clientId: reg.client_id,
-                branchId: reg.branch_id,
-              },
-            );
-            alertsSent++;
-          }
-        } catch {
-          this.logger.warn(
-            `Failed to send expiry alert for registration ${reg.id}`,
+          // Adopt the old alias, retaining task ID and history. Only exact document owner/scope matches qualify.
+          await manager.query(
+            `UPDATE system_tasks SET reference_type='CONTRACTOR_DOC_EXPIRY',
+          contractor_id=$2, branch_id=$4, updated_at=now(),
+          description=CASE WHEN reference_type='LICENSE_EXPIRY' THEN COALESCE(description,'') || E'\nLegacy LICENSE_EXPIRY activity adopted by the document expiry workflow.' ELSE description END
+          WHERE reference_type IN ('LICENSE_EXPIRY','CONTRACTOR_DOC_EXPIRY') AND reference_id=$1
+            AND client_id=$3 AND (branch_id=$4 OR branch_id IS NULL)
+            AND assigned_role='CONTRACTOR' AND assigned_user_id=$2
+            AND (contractor_id=$2 OR contractor_id IS NULL) AND due_date=$5::date`,
+            [
+              doc.id,
+              doc.contractor_user_id,
+              doc.client_id,
+              doc.branch_id,
+              doc.expiry_date,
+            ],
           );
-        }
+          await manager.query(
+            `WITH ranked AS (
+          SELECT id, first_value(id) OVER (ORDER BY CASE status WHEN 'IN_PROGRESS' THEN 0 WHEN 'REUPLOADED' THEN 1 ELSE 2 END,created_at,id) AS kept,
+            row_number() OVER (ORDER BY CASE status WHEN 'IN_PROGRESS' THEN 0 WHEN 'REUPLOADED' THEN 1 ELSE 2 END,created_at,id) AS rn
+          FROM system_tasks WHERE reference_type='CONTRACTOR_DOC_EXPIRY' AND reference_id=$1
+            AND client_id=$3 AND branch_id=$4 AND contractor_id=$2
+            AND assigned_role='CONTRACTOR' AND assigned_user_id=$2
+            AND status NOT IN ('CLOSED','CANCELLED') AND due_date=$5::date)
+          UPDATE system_tasks t SET status='CANCELLED', updated_at=now(),
+            description=COALESCE(t.description,'') || E'\nDuplicate expiry activity; retained task ' || ranked.kept::text
+          FROM ranked WHERE t.id=ranked.id AND ranked.rn>1`,
+            [
+              doc.id,
+              doc.contractor_user_id,
+              doc.client_id,
+              doc.branch_id,
+              doc.expiry_date,
+            ],
+          );
+          const existing = await manager.query(
+            `SELECT id FROM system_tasks WHERE reference_type='CONTRACTOR_DOC_EXPIRY'
+          AND reference_id=$1 AND assigned_user_id=$2 AND client_id=$3 AND branch_id=$4 AND due_date=$5::date`,
+            [
+              doc.id,
+              doc.contractor_user_id,
+              doc.client_id,
+              doc.branch_id,
+              doc.expiry_date,
+            ],
+          );
+          await this.taskEngine.createTask(
+            {
+              module: 'RENEWAL',
+              title: `Renew: ${doc.title || 'Document'}`,
+              description: `Document "${doc.title}" expires ${doc.expiry_date}.`,
+              referenceId: doc.id,
+              referenceType: 'CONTRACTOR_DOC_EXPIRY',
+              priority: 'HIGH',
+              assignedRole: 'CONTRACTOR',
+              assignedUserId: doc.contractor_user_id,
+              contractorId: doc.contractor_user_id,
+              clientId: doc.client_id,
+              branchId: doc.branch_id,
+              dueDate: new Date(doc.expiry_date),
+              reuseTerminal: true,
+              occurrenceDate: doc.expiry_date,
+            },
+            manager,
+          );
+          return !existing.length;
+        },
+      );
+      if (created) tasksCreated++;
+      if (
+        await this.notifications.sendExpiryAlert({
+          documentId: doc.id,
+          userId: doc.contractor_user_id,
+          role: 'CONTRACTOR',
+          documentName: doc.title || 'Document',
+          expiryDate: doc.expiry_date,
+          clientId: doc.client_id,
+          branchId: doc.branch_id,
+        })
+      )
+        alertsSent++;
+    }
+    const branchDocs = await this.getExpiringBranchDocuments(scope);
+    for (const doc of branchDocs) {
+      const created = await this.dataSource.transaction(
+        'READ COMMITTED',
+        async (manager) => {
+          await manager.query(
+            'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+            [JSON.stringify(['branch-document-expiry', doc.id])],
+          );
+          // Preserve legacy assigned tasks and completed work for this expiry occurrence.
+          const existing = await manager.query(
+            `SELECT id FROM system_tasks
+          WHERE reference_type='BRANCH_DOC_EXPIRY' AND reference_id=$1
+            AND client_id=$2 AND branch_id=$3 AND due_date=$4::date LIMIT 1`,
+            [doc.id, doc.client_id, doc.branch_id, doc.expiry_date],
+          );
+          if (existing.length) return false;
+          await this.taskEngine.createTask(
+            {
+              module: 'RENEWAL',
+              title: `Renew: ${doc.title || 'Branch document'}`,
+              description: `Branch document "${doc.title || 'Document'}" expires ${doc.expiry_date}.`,
+              referenceId: doc.id,
+              referenceType: 'BRANCH_DOC_EXPIRY',
+              priority: 'HIGH',
+              assignedRole: 'BRANCH',
+              clientId: doc.client_id,
+              branchId: doc.branch_id,
+              dueDate: new Date(doc.expiry_date),
+              reuseTerminal: true,
+              occurrenceDate: doc.expiry_date,
+            },
+            manager,
+          );
+          return true;
+        },
+      );
+      if (created) tasksCreated++;
+      // A shared branch task remains available even when no branch user is assigned.
+      const recipients = await this.dataSource.query(
+        `SELECT DISTINCT u.id FROM users u
+        JOIN roles r ON r.id=u.role_id JOIN user_branches ub ON ub.user_id=u.id
+        WHERE ub.branch_id=$1 AND u.client_id=$2 AND u.is_active=true
+          AND u.deleted_at IS NULL AND (r.code IN ('BRANCH','BRANCH_DESK')
+            OR (r.code='CLIENT' AND u.user_type='BRANCH'))`,
+        [doc.branch_id, doc.client_id],
+      );
+      for (const user of recipients) {
+        if (
+          await this.notifications.sendExpiryAlert({
+            documentId: doc.id,
+            userId: user.id,
+            role: 'BRANCH',
+            documentName: doc.title || 'Branch document',
+            expiryDate: doc.expiry_date,
+            clientId: doc.client_id,
+            branchId: doc.branch_id,
+          })
+        )
+          alertsSent++;
       }
     }
-
-    // Scan contractor licenses
-    const expiringLicenses = await this.dataSource.query(
-      `SELECT cd.id, cd.title, cd.expiry_date, cd.contractor_id,
-              u.client_id,
-              EXTRACT(DAY FROM cd.expiry_date - NOW())::int AS days_left
-       FROM contractor_documents cd
-       JOIN users u ON u.id = cd.contractor_id
-       WHERE cd.expiry_date IS NOT NULL
-         AND cd.expiry_date > NOW()
-         AND cd.expiry_date <= NOW() + INTERVAL '30 days'
-         AND cd.deleted_at IS NULL`,
-    );
-
-    for (const lic of expiringLicenses) {
-      expiringItems++;
-      const daysLeft = lic.days_left;
-
-      if ([30, 15, 7, 3].includes(daysLeft)) {
-        const existingTask = await this.dataSource.query(
-          `SELECT id FROM system_tasks
-           WHERE reference_id = $1 AND reference_type = 'LICENSE_EXPIRY'
-             AND status NOT IN ('CLOSED','CANCELLED')
-           LIMIT 1`,
-          [lic.id],
-        );
-
-        if (!existingTask.length) {
-          await this.taskEngine.createTask({
-            module: 'RENEWAL',
-            referenceId: lic.id,
-            referenceType: 'LICENSE_EXPIRY',
-            clientId: lic.client_id,
-            contractorId: lic.contractor_id,
-            assignedRole: 'CONTRACTOR',
-            assignedUserId: lic.contractor_id,
-            title: `License renewal: ${lic.title} — ${daysLeft} days left`,
-            description: `Contractor license ${lic.title} expires on ${new Date(lic.expiry_date).toDateString()}.`,
-            dueDate: new Date(lic.expiry_date),
-            priority: daysLeft <= 7 ? 'CRITICAL' : 'HIGH',
-          });
-          tasksCreated++;
-        }
-      }
-    }
-
-    this.logger.log(
-      `Expiry scan: ${expiringItems} expiring, ${tasksCreated} tasks, ${alertsSent} alerts`,
-    );
-    return { expiringItems, tasksCreated, alertsSent };
+    return {
+      filingsCreated: renewal.filingsCreated,
+      skipped: renewal.skipped,
+      expiringItems:
+        docs.length +
+        branchDocs.length +
+        renewal.filingsCreated +
+        renewal.skipped,
+      tasksCreated,
+      alertsSent,
+    };
   }
 }

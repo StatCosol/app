@@ -1,0 +1,280 @@
+:host {
+  display: block;
+  color: #183244;
+}
+.work-page {
+  max-width: 1280px;
+  margin: auto;
+  padding: 28px;
+}
+.work-header,
+.list-heading,
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #176e68;
+}
+h1 {
+  font-size: 30px;
+  font-weight: 750;
+  margin: 4px 0 8px;
+}
+h2 {
+  font-size: 19px;
+  font-weight: 700;
+}
+p {
+  line-height: 1.6;
+  color: #526675;
+}
+button,
+a,
+input,
+select {
+  font: inherit;
+}
+button,
+a {
+  font-weight: 600;
+}
+button {
+  border: 1px solid #a9bfc9;
+  border-radius: 9px;
+  padding: 10px 15px;
+  background: #fff;
+  color: #1e4d59;
+  cursor: pointer;
+}
+button:hover {
+  background: #edf5f5;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid #4ea3c2;
+  outline-offset: 2px;
+}
+.filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  background: white;
+  border: 1px solid #dbe6eb;
+  border-radius: 14px;
+  padding: 20px;
+  margin-top: 24px;
+}
+label {
+  font-size: 13px;
+  font-weight: 650;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+input,
+select {
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #b7cbd4;
+  border-radius: 8px;
+  background: white;
+  color: #213c4a;
+}
+.search {
+  grid-column: span 2;
+}
+.filter-actions {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+.quiet {
+  border-color: transparent;
+  background: transparent;
+}
+.scope-note {
+  font-size: 12px;
+  margin: 10px 0 22px;
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+.stat {
+  text-align: left;
+  padding: 16px;
+  border-color: #dbe6eb;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.stat span {
+  font-size: 12px;
+}
+.stat strong {
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+}
+.chosen {
+  border-color: #176e68;
+  background: #eaf6f3;
+  color: #12564f;
+  box-shadow: inset 0 3px #176e68;
+}
+.list-heading {
+  margin: 24px 0 12px;
+}
+.list-heading span {
+  font-size: 12px;
+  color: #617783;
+}
+.task-list {
+  display: grid;
+  gap: 12px;
+}
+.task {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  border: 1px solid #dbe6eb;
+  border-radius: 12px;
+  padding: 20px;
+  background: white;
+}
+.task.overdue {
+  border-left: 4px solid #b45636;
+}
+.task-main {
+  flex: 1;
+  min-width: 220px;
+}
+h3 {
+  font-weight: 700;
+  font-size: 17px;
+  margin: 10px 0 5px;
+  overflow-wrap: anywhere;
+}
+.task p {
+  font-size: 13px;
+  margin: 4px 0;
+}
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.tags span {
+  font-size: 11px;
+  border-radius: 20px;
+  padding: 3px 9px;
+  background: #f0f5f7;
+  color: #476271;
+}
+.overdue .due {
+  color: #9b4226;
+  font-weight: 600;
+}
+.task-detail {
+  flex-basis: 100%;
+  border-top: 1px solid #e2ebef;
+  padding-top: 16px;
+}
+.task-detail h4 {
+  font-weight: 700;
+}
+.task-detail a {
+  display: inline-block;
+  color: #11685f;
+  margin: 12px 0;
+}
+.task-detail small {
+  display: block;
+  color: #607581;
+}
+.description {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.pagination {
+  margin: 20px 0;
+  font-size: 13px;
+}
+.notice,
+.empty {
+  padding: 36px;
+  background: #fff;
+  border: 1px solid #dbe6eb;
+  border-radius: 14px;
+  text-align: center;
+  margin-top: 20px;
+}
+.error {
+  border-color: #e3b2a6;
+}
+.empty p {
+  max-width: 550px;
+  margin: 10px auto 20px;
+}
+@media (max-width: 900px) {
+  .cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .filter-actions {
+    grid-column: span 2;
+  }
+}
+@media (max-width: 540px) {
+  .work-page {
+    padding: 16px;
+  }
+  .work-header {
+    align-items: start;
+  }
+  h1 {
+    font-size: 26px;
+  }
+  .filters {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+  .search,
+  .filter-actions {
+    grid-column: auto;
+  }
+  .cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .list-heading {
+    align-items: start;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .pagination {
+    gap: 8px;
+  }
+  .pagination span {
+    text-align: center;
+  }
+  .task > button {
+    width: 100%;
+  }
+}

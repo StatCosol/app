@@ -58,10 +58,14 @@ export class AuditListService {
     if (q.month) {
       const [y, m] = q.month.split('-').map(Number);
       qb.andWhere('a.periodYear = :py', { py: y });
-      if (m)
-        qb.andWhere('a.periodCode LIKE :pc', {
-          pc: `%${String(m).padStart(2, '0')}%`,
-        });
+      qb.andWhere('a.periodCode IN (:...periodCodes)', {
+        periodCodes: [
+          q.month,
+          `${y}-Q${Math.ceil(m / 3)}`,
+          `${y}-H${Math.ceil(m / 6)}`,
+          String(y),
+        ],
+      });
     } else if (q.year) {
       qb.andWhere('a.periodYear = :py', { py: Number(q.year) });
     }

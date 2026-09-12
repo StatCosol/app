@@ -1,3 +1,4 @@
+import { OperationalScopeService } from '../access/operational-scope.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { SlaService } from './sla.service';
@@ -10,6 +11,7 @@ describe('SlaService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SlaService,
+        { provide: OperationalScopeService, useValue: {} },
         {
           provide: getRepositoryToken(SlaTaskEntity),
           useValue: {

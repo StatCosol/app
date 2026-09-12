@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { NonComplianceEngineService } from '../services/non-compliance-engine.service';
 
 @Injectable()
@@ -9,7 +8,6 @@ export class NonComplianceRemindersJob {
   constructor(private readonly ncEngine: NonComplianceEngineService) {}
 
   /** Daily at 09:00 — send reminders for all open audit NCs. */
-  @Cron('0 0 9 * * *')
   async handle() {
     this.logger.log('Starting daily NC reminder job');
     try {

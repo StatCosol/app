@@ -73,7 +73,7 @@ export class RiskService {
    */
   async getHeatmap(params: {
     clientId: string;
-    branchIds: string[];
+    branchIds?: string[];
     month: string;
   }): Promise<{ month: string; branches: BranchRiskItem[] }> {
     const { clientId, branchIds, month } = params;
@@ -87,7 +87,7 @@ export class RiskService {
     `;
     const sqlParams: unknown[] = [clientId];
 
-    if (branchIds.length > 0) {
+    if (branchIds !== undefined) {
       sqlParams.push(branchIds);
       sql += ` AND id = ANY($${sqlParams.length}::uuid[])`;
     }

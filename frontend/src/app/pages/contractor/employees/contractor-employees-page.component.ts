@@ -154,7 +154,7 @@ interface BulkPreviewRow {
               type="text"
               [(ngModel)]="searchTerm"
               (input)="applyFilters()"
-              placeholder="Search by name…"
+              placeholder="Search by name or employee ID…"
               class="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-rose-400 focus:border-rose-400 w-52"
             />
           </div>
@@ -248,6 +248,7 @@ interface BulkPreviewRow {
 <tr class="hover:bg-gray-50 transition-colors">
                 <td class="px-4 py-3">
                   <div class="font-medium text-sm text-gray-900">{{ emp.name }}</div>
+                  <div class="text-xs text-gray-500 font-mono mt-0.5">Employee ID: {{ emp.employeeCode || 'Not assigned' }}</div>
                   @if (emp.phone) {
 <div class="text-xs text-gray-400 mt-0.5">{{ emp.phone }}</div>
 }
@@ -971,7 +972,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     this.filteredRows = this.allRows.filter((e) => {
       if (this.statusFilter === 'active' && !e.isActive) return false;
       if (this.statusFilter === 'inactive' && e.isActive) return false;
-      if (term && !e.name.toLowerCase().includes(term)) return false;
+      if (term && ![e.name, e.employeeCode].some(value => value?.toLowerCase().includes(term))) return false;
       return true;
     });
     this.cdr.markForCheck();
@@ -989,6 +990,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     try {
       const rows = this.filteredRows.map((emp) => ({
         'Worker Name': emp.name,
+        'Contract Employee ID': emp.employeeCode || '',
         'Punch Code': emp.punchCode || '',
         Branch: this.branchName(emp.branchId),
         Gender: emp.gender || '',

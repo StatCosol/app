@@ -45,6 +45,7 @@ export const CONTRACTOR_ROUTES: Routes = [
     loadComponent: ContractorLayoutComponent,
     canActivate: [roleGuard(['CONTRACTOR'])],
     children: [
+      { path: 'my-work', loadComponent: () => import('../../shared/my-work/my-work.component').then(m => m.MyWorkComponent) },
       { path: 'dashboard', loadComponent: ContractorDashboardUpgradePageComponent },
       { path: 'notifications', loadComponent: ContractorNotificationsComponent },
       { path: 'support', loadComponent: ContractorSupportComponent },

@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { ReturnsFilingEngineService } from '../services/returns-filing-engine.service';
 import { RenewalFilingEngineService } from '../services/renewal-filing-engine.service';
 
@@ -16,7 +15,6 @@ export class ReturnsFilingGeneratorJob {
    * Runs on the 1st of every month at 02:00.
    * Generates periodic filing rows for the current month.
    */
-  @Cron('0 0 2 1 * *')
   async handleMonthlyFilings() {
     this.logger.log('Monthly filing generation job started');
     try {
@@ -37,7 +35,6 @@ export class ReturnsFilingGeneratorJob {
    * Runs daily at 03:00.
    * Generates renewal filings from expiring registrations.
    */
-  @Cron('0 0 3 * * *')
   async handleDailyRenewals() {
     this.logger.log('Daily renewal filing scan started');
     try {
@@ -55,7 +52,6 @@ export class ReturnsFilingGeneratorJob {
    * Runs daily at 08:00.
    * Sends overdue alerts for past-due filings.
    */
-  @Cron('0 0 8 * * *')
   async handleOverdueAlerts() {
     this.logger.log('Overdue filing alerts job started');
     try {

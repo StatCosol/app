@@ -68,6 +68,8 @@ export class EscalationListService {
 
     const cid = this.scope.resolveClientId(user, q.clientId);
     if (cid) qb.andWhere('e.clientId = :cid', { cid });
+    const bid = this.scope.resolveBranchId(user, q.branchId);
+    if (bid) qb.andWhere('e.branchId = :bid', { bid });
 
     if (q.status) qb.andWhere('e.status = :s', { s: q.status.toUpperCase() });
     if (q.severity) {

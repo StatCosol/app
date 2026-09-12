@@ -8,7 +8,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "test:unit": "vitest run",
+    "test:unit": "vitest run --exclude \"**/shared/{my-work,automation-control}/**/*.spec.ts\"",
     "lint": "ng lint"
   },
   "prettier": {

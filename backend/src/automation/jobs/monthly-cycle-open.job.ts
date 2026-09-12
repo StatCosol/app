@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { MonthlyCycleEngineService } from '../services/monthly-cycle-engine.service';
 
 @Injectable()
@@ -9,7 +8,6 @@ export class MonthlyCycleOpenJob {
   constructor(private readonly monthlyCycleEngine: MonthlyCycleEngineService) {}
 
   // Runs on 1st day of every month at 01:00 AM
-  @Cron('0 1 1 * *')
   async handle() {
     this.logger.log('Starting monthly cycle opening job');
 
