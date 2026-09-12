@@ -88,9 +88,11 @@
       <div class="auto-card">
         <h4>Generate Monthly Filings</h4>
         <p>Creates filing rows + tasks from return master rules for the current month.</p>
+        @if (canManageAutomation) {
         <ui-button variant="primary" size="sm" [disabled]="autoGenerating" (clicked)="runAutoGenerate()">
           {{ autoGenerating ? 'Generating...' : 'Generate Filings' }}
         </ui-button>
+        } @else { <p>Managed by your administrator in the Automation Control Centre.</p> }
         @if (lastAutoResult) {
 <div class="auto-result">
           <span class="ok">{{ lastAutoResult.filingsCreated }} created</span>

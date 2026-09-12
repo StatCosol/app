@@ -89,6 +89,7 @@ const serviceMigrationFiles = new Set([
   // Durable reminder receipts and one canonical renewal filing per expiry.
   '20260912_automation_delivery_dedup.sql',
   '20260912b_automation_control_center.sql',
+  '20260912c_automation_expansion.sql',
 ]);
 
 const config = {

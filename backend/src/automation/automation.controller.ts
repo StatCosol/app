@@ -66,33 +66,34 @@ export class AutomationController {
   @Post('triggers/applicability/:branchId')
   async triggerApplicability(
     @Param('branchId', ParseUUIDPipe) branchId: string,
+    @CurrentUser() user: ReqUser,
   ) {
-    return this.applicabilityEngine.recomputeBranchApplicability(branchId);
+    return this.controls.legacyBranchRun(
+      'applicability',
+      user.userId || user.id,
+      branchId,
+    );
   }
 
   @ApiOperation({ summary: 'Trigger applicability recompute for all branches' })
   @Roles('ADMIN')
   @Post('triggers/applicability-all')
-  async triggerApplicabilityAll() {
-    return this.applicabilityEngine.recomputeAllBranches();
+  async triggerApplicabilityAll(@CurrentUser() user: ReqUser) {
+    return this.controls.legacyRun('applicability', user.userId || user.id);
   }
 
   @ApiOperation({ summary: 'Trigger monthly compliance cycle opening' })
   @Roles('ADMIN')
   @Post('triggers/monthly-cycle')
-  async triggerMonthlyCycle() {
-    const now = new Date();
-    return this.cycleEngine.openMonthlyCycle(
-      now.getMonth() + 1,
-      now.getFullYear(),
-    );
+  async triggerMonthlyCycle(@CurrentUser() user: ReqUser) {
+    return this.controls.legacyRun('monthly_cycles', user.userId || user.id);
   }
 
   @ApiOperation({ summary: 'Trigger audit schedule generation' })
   @Roles('ADMIN')
   @Post('triggers/audit-schedules')
-  async triggerAuditSchedules() {
-    return this.scheduleEngine.generateDueSchedules();
+  async triggerAuditSchedules(@CurrentUser() user: ReqUser) {
+    return this.controls.legacyRun('audit_schedules', user.userId || user.id);
   }
 
   @ApiOperation({ summary: 'Trigger expiry alerts' })
@@ -105,6 +106,7 @@ export class AutomationController {
   // ── Task center endpoints ──────────────────────────────────
 
   @ApiOperation({ summary: 'Get task summary for current user' })
+  @Roles('ADMIN')
   @Get('tasks/summary/:userId/:role')
   async getTaskSummary(
     @Param('userId', ParseUUIDPipe) userId: string,
@@ -114,6 +116,7 @@ export class AutomationController {
   }
 
   @ApiOperation({ summary: 'Get pending tasks for current user' })
+  @Roles('ADMIN')
   @Get('tasks/pending/:userId/:role')
   async getPendingTasks(
     @Param('userId', ParseUUIDPipe) userId: string,
@@ -123,13 +126,14 @@ export class AutomationController {
   }
 
   @ApiOperation({ summary: 'Get overdue tasks (for CRM/Admin)' })
-  @Roles('ADMIN', 'CRM')
+  @Roles('ADMIN')
   @Get('tasks/overdue')
   async getOverdueTasks() {
     return this.taskEngine.getOverdueTasks();
   }
 
   @ApiOperation({ summary: 'Get tasks due within 3 days' })
+  @Roles('ADMIN')
   @Get('tasks/due-soon')
   async getDueSoonTasks() {
     return this.taskEngine.getTasksDueSoon(3);

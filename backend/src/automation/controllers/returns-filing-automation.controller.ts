@@ -1,7 +1,14 @@
+import { operationalDate } from '../../common/operational-date';
 import { AutomationControlService } from '../control-center.service';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ReqUser } from '../../access/access-scope.service';
-import { Controller, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -32,15 +39,19 @@ export class ReturnsFilingAutomationController {
   })
   @ApiQuery({ name: 'year', required: false, type: Number })
   @ApiQuery({ name: 'month', required: false, type: Number })
+  @Roles('ADMIN')
   @Post('generate')
   async generateFilings(
+    @CurrentUser() user: ReqUser,
     @Query('year') year?: string,
     @Query('month') month?: string,
   ) {
-    const now = new Date();
-    const y = year ? Number(year) : now.getFullYear();
-    const m = month ? Number(month) : now.getMonth() + 1;
-    return this.filingEngine.generateFilings(y, m);
+    const [y, m] = operationalDate().split('-').map(Number);
+    if ((year && Number(year) !== y) || (month && Number(month) !== m))
+      throw new BadRequestException(
+        'Automation generates the current period. Use the filing workspace for historical records.',
+      );
+    return this.controls.legacyRun('monthly_filings', user.userId || user.id);
   }
 
   @ApiOperation({

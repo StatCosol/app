@@ -26,6 +26,39 @@ interface Delivery {
 export class AutomationNotificationService {
   constructor(private readonly dataSource: DataSource) {}
 
+  async sendControlSummary(run: any, recipients: string[]) {
+    let failures = 0;
+    for (const userId of recipients)
+      try {
+        const allowed = await this.dataSource.query(
+          "SELECT u.id FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=$1 AND u.is_active=true AND u.deleted_at IS NULL AND r.code='ADMIN'",
+          [userId],
+        );
+        if (!allowed.length) {
+          failures++;
+          continue;
+        }
+        await this.deliver({
+          event: 'automation-run',
+          sourceId: run.id,
+          userId,
+          role: 'ADMIN',
+          module: 'AUTOMATION',
+          clientId: run.snapshot.scope.clientId,
+          branchId: run.snapshot.scope.branchId,
+          title: 'Automation ' + run.rule_key + ': ' + run.status,
+          message:
+            'Review execution history in Admin → Automation. Run: ' + run.id,
+          entityType: 'AUTOMATION_RUN',
+          center: false,
+          daily: false,
+        });
+      } catch {
+        failures++;
+      }
+    return failures;
+  }
+
   // A durable receipt and both visible records commit together. Failed delivery
   // leaves no receipt, allowing a retry without losing or multiplying reminders.
   private async deliver(p: Delivery): Promise<boolean> {

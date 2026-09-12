@@ -1,3 +1,6 @@
+import { AutomationControlService } from '../control-center.service';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { ReqUser } from '../../access/access-scope.service';
 import {
   Controller,
   Param,
@@ -15,21 +18,31 @@ import { ApplicabilityEngineService } from '../services/applicability-engine.ser
 @ApiBearerAuth('JWT')
 @Controller({ path: 'automation/applicability', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN', 'CRM')
+@Roles('ADMIN')
 export class ApplicabilityAutomationController {
-  constructor(private readonly engine: ApplicabilityEngineService) {}
+  constructor(
+    private readonly engine: ApplicabilityEngineService,
+    private readonly controls: AutomationControlService,
+  ) {}
 
   @ApiOperation({ summary: 'Recompute applicability for a single branch' })
   @Post('branch/:branchId/recompute')
-  async recomputeBranch(@Param('branchId', ParseUUIDPipe) branchId: string) {
-    return this.engine.recomputeBranchApplicability(branchId);
+  async recomputeBranch(
+    @Param('branchId', ParseUUIDPipe) branchId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.controls.legacyBranchRun(
+      'applicability',
+      user.userId || user.id,
+      branchId,
+    );
   }
 
   @ApiOperation({
     summary: 'Recompute applicability for all branches (manual trigger)',
   })
   @Post('recompute-all')
-  async recomputeAll() {
-    return this.engine.recomputeAllBranches();
+  async recomputeAll(@CurrentUser() user: ReqUser) {
+    return this.controls.legacyRun('applicability', user.userId || user.id);
   }
 }

@@ -5,6 +5,15 @@ import { HttpClient } from '@angular/common/http';
 import { Subscription } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
+interface Options {
+  registrationDays: number;
+  documentDays: number;
+  taskDays: number;
+  auditDays: number;
+  escalationDays: number;
+  recipientIds: string[];
+  packageId: string;
+}
 interface Control {
   id: string;
   rule_key: string;
@@ -13,8 +22,15 @@ interface Control {
   enabled: boolean;
   local_time: string;
   version: number;
+  frequency?: string;
+  week_day?: number;
+  month_day?: number;
+  options?: Partial<Options>;
 }
 interface Overview {
+  aiAvailable?: boolean;
+  recipients?: { id: string; name: string }[];
+  packages?: { id: string; code: string; name: string }[];
   rules: { key: string; name: string; description: string; routing: string; window: string }[];
   controls: Control[];
   companies: { id: string; name: string }[];
@@ -35,7 +51,7 @@ interface Run {
   started_at: string;
   finished_at: string | null;
   error_message: string | null;
-  result: Record<string, number> | null;
+  result: Record<string, any> | null;
   snapshot: { scope: { clientId?: string; branchId?: string } };
   retry_of: string | null;
 }
@@ -63,6 +79,19 @@ export class AutomationControlComponent implements OnInit, OnDestroy {
   branch = '';
   enabled = true;
   localTime = '07:00';
+  frequency = 'DAILY';
+  weekDay = 0;
+  monthDay = 1;
+  readonly weekdays = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+  options: Options = this.normalizeOptions();
   page = 1;
   total = 0;
   private subscriptions = new Subscription();
@@ -92,9 +121,32 @@ export class AutomationControlComponent implements OnInit, OnDestroy {
         (c.branch_id || '') === this.branch,
     );
   }
+  normalizeOptions(value?: Partial<Options>): Options {
+    return {
+      registrationDays: 60,
+      documentDays: 30,
+      taskDays: 3,
+      auditDays: this.ruleKey === 'audit_schedules' ? 30 : 5,
+      escalationDays: 7,
+      recipientIds: [],
+      packageId: 'DEFAULT_INDIA',
+      ...value,
+    };
+  }
+  get optionsChanged() {
+    return (
+      JSON.stringify(this.options) !== JSON.stringify(this.normalizeOptions(this.exact?.options))
+    );
+  }
   get dirty() {
     return (
-      !this.exact || this.exact.enabled !== this.enabled || this.exact.local_time !== this.localTime
+      !this.exact ||
+      this.exact.enabled !== this.enabled ||
+      this.exact.local_time !== this.localTime ||
+      (this.exact.frequency || 'DAILY') !== this.frequency ||
+      (this.exact.week_day ?? 0) !== this.weekDay ||
+      (this.exact.month_day ?? 1) !== this.monthDay ||
+      this.optionsChanged
     );
   }
   get configured() {
@@ -131,6 +183,10 @@ export class AutomationControlComponent implements OnInit, OnDestroy {
       controls.find((c) => c.rule_key === this.ruleKey && !c.client_id);
     this.enabled = inherited?.enabled ?? true;
     this.localTime = inherited?.local_time || '07:00';
+    this.frequency = inherited?.frequency || 'DAILY';
+    this.weekDay = inherited?.week_day ?? 0;
+    this.monthDay = inherited?.month_day ?? 1;
+    this.options = this.normalizeOptions(inherited?.options);
     this.invalidate();
   }
   companyChanged() {
@@ -160,16 +216,21 @@ export class AutomationControlComponent implements OnInit, OnDestroy {
     this.previewing.set(true);
     this.preview.set(null);
     this.error.set('');
-    this.previewRequest = this.http.post<Preview>(`${this.base}/preview`, this.scope()).subscribe({
-      next: (r) => {
-        this.preview.set(r);
-        this.previewing.set(false);
-      },
-      error: (e) => {
-        this.previewing.set(false);
-        this.fail(e);
-      },
-    });
+    this.previewRequest = this.http
+      .post<Preview>(`${this.base}/preview`, {
+        ...this.scope(),
+        ...(this.optionsChanged ? { options: this.options } : {}),
+      })
+      .subscribe({
+        next: (r) => {
+          this.preview.set(r);
+          this.previewing.set(false);
+        },
+        error: (e) => {
+          this.previewing.set(false);
+          this.fail(e);
+        },
+      });
   }
   save() {
     this.busy.set(true);
@@ -180,6 +241,10 @@ export class AutomationControlComponent implements OnInit, OnDestroy {
           ...this.scope(),
           enabled: this.enabled,
           localTime: this.localTime,
+          frequency: this.frequency,
+          weekDay: this.weekDay,
+          monthDay: this.monthDay,
+          options: this.options,
           version: this.exact?.version || 0,
         })
         .subscribe({
@@ -308,6 +373,17 @@ export class AutomationControlComponent implements OnInit, OnDestroy {
       )[status] || status
     );
   }
+  scheduleLabel(c: Control) {
+    return (
+      (c.frequency === 'WEEKLY'
+        ? 'Weekly · ' + this.weekdays[c.week_day ?? 0]
+        : c.frequency === 'MONTHLY'
+          ? 'Monthly · day ' + (c.month_day ?? 1)
+          : 'Daily') +
+      ' · ' +
+      c.local_time
+    );
+  }
   resultText(result: Record<string, number> | null) {
     const labels: Record<string, string> = {
       tasksCreated: 'new tasks',
@@ -318,6 +394,13 @@ export class AutomationControlComponent implements OnInit, OnDestroy {
       auditReminders: 'audit reminders',
       remindersSentCount: 'reminders',
       failures: 'failed items',
+      cyclesCreated: 'new cycles',
+      itemsCreated: 'new compliance items',
+      branchesProcessed: 'branches processed',
+      created: 'new schedules',
+      skipped: 'existing or skipped',
+      openTasks: 'open activities',
+      reviewedTasks: 'reviewed activities',
       totalOpenNc: 'open findings',
     };
     return (

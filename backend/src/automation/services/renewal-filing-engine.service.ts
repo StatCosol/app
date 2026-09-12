@@ -22,9 +22,9 @@ export class RenewalFilingEngineService {
       br.expiry_date - $1::date AS days_left
       FROM branch_registrations br JOIN client_branches b ON b.id=br.branch_id AND b.clientid=br.client_id
       JOIN clients c ON c.id=br.client_id
-      WHERE br.expiry_date BETWEEN $1::date AND $1::date + 60
+      WHERE br.expiry_date BETWEEN $1::date AND $1::date + $2::int
         AND br.status='ACTIVE' AND b.isactive=true AND c.is_deleted=false`,
-      [today],
+      [today, scope.options?.registrationDays ?? 60],
       scope,
     );
   }

@@ -1,3 +1,4 @@
+import { ControlPreviewDto } from './control-center.dto';
 import { ControlInheritDto } from './control-center.dto';
 import {
   Body,
@@ -53,7 +54,7 @@ export class AutomationControlController {
   ) {
     return this.controls.inherit(id, q.version, this.actor(user));
   }
-  @Post('preview') preview(@Body() q: ControlScopeDto) {
+  @Post('preview') preview(@Body() q: ControlPreviewDto) {
     return this.controls.preview(q);
   }
   @Get('runs') history(@Query() q: ControlHistoryDto) {

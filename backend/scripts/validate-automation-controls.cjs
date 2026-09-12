@@ -1,3 +1,31 @@
+const { RoleEntity } = require('../dist/src/users/entities/role.entity');
+const {
+  CompliancePackageEntity,
+} = require('../dist/src/masters/entities/compliance-package.entity');
+const {
+  UnitComplianceMasterEntity,
+} = require('../dist/src/masters/entities/unit-compliance-master.entity');
+const {
+  UnitFactsEntity,
+} = require('../dist/src/units/entities/unit-facts.entity');
+const {
+  UnitApplicableComplianceEntity,
+} = require('../dist/src/units/entities/unit-applicable-compliance.entity');
+const {
+  UnitApplicabilityAuditEntity,
+} = require('../dist/src/units/entities/unit-applicability-audit.entity');
+const {
+  PackageComplianceEntity,
+} = require('../dist/src/masters/entities/package-compliance.entity');
+const {
+  PackageRuleEntity,
+} = require('../dist/src/masters/entities/package-rule.entity');
+const {
+  ApplicabilityRuleEntity,
+} = require('../dist/src/masters/entities/applicability-rule.entity');
+const {
+  ComplianceReturnMasterEntity,
+} = require('../dist/src/branch-compliance/entities/compliance-return-master.entity');
 const { AuditEntity } = require('../dist/src/audits/entities/audit.entity');
 const {
   AuditNonComplianceEntity,
@@ -42,9 +70,10 @@ const {
 } = require('../dist/src/automation/services/task-engine.service');
 const connection = {
   host: '127.0.0.1',
-  port: 55439,
-  user: 'monthly_close_test',
-  database: 'postgres',
+  port: Number(process.env.AUTOMATION_TEST_PORT || 55439),
+  user: process.env.AUTOMATION_TEST_USER || 'monthly_close_test',
+  password: process.env.AUTOMATION_TEST_PASSWORD || undefined,
+  database: process.env.AUTOMATION_TEST_DATABASE || 'postgres',
 };
 const schema = `automation_control_${Date.now()}`,
   id = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -65,6 +94,16 @@ async function main() {
     });
     await ds.initialize();
     const entities = [
+      RoleEntity,
+      CompliancePackageEntity,
+      UnitComplianceMasterEntity,
+      UnitFactsEntity,
+      UnitApplicableComplianceEntity,
+      UnitApplicabilityAuditEntity,
+      PackageComplianceEntity,
+      PackageRuleEntity,
+      ApplicabilityRuleEntity,
+      ComplianceReturnMasterEntity,
       UserEntity,
       ClientEntity,
       BranchEntity,
@@ -159,8 +198,10 @@ async function main() {
     } = require('../dist/src/automation/control-center.service');
     const { operationalDate } = require('../dist/src/common/operational-date');
     for (const file of [
+      '20260326_phase2_automation.sql',
       '20260912_automation_delivery_dedup.sql',
       '20260912b_automation_control_center.sql',
+      '20260912c_automation_expansion.sql',
     ]) {
       const sql = fs.readFileSync(
         path.join(__dirname, '../migrations', file),
@@ -169,6 +210,14 @@ async function main() {
       await ds.query(sql);
       await ds.query(sql);
     }
+    await ds.query(
+      'ALTER TABLE audit_schedules ADD COLUMN IF NOT EXISTS auditor_slot_hours numeric',
+    );
+    await seed(RoleEntity, {
+      id: id(998),
+      code: 'ADMIN',
+      name: 'Administrator',
+    });
     for (const n of [1, 2])
       await seed(ClientEntity, {
         id: id(n),
@@ -188,6 +237,7 @@ async function main() {
     for (const n of [31, 32])
       await seed(UserEntity, {
         id: id(n),
+        roleId: id(998),
         clientId: id(1),
         email: `control${n}@example.invalid`,
       });
@@ -223,6 +273,40 @@ async function main() {
       ds,
     );
     const due = new DueRemindersJob(tasks, notifications, ds);
+    const {
+      MonthlyCycleEngineService,
+    } = require('../dist/src/automation/services/monthly-cycle-engine.service');
+    const {
+      AuditScheduleEngineService,
+    } = require('../dist/src/automation/services/audit-schedule-engine.service');
+    const {
+      ApplicabilityEngineService,
+    } = require('../dist/src/automation/services/applicability-engine.service');
+    const {
+      ApplicabilityEngineService: UnitEngine,
+    } = require('../dist/src/units/services/applicability-engine.service');
+    const {
+      RuleEvaluatorService,
+    } = require('../dist/src/units/services/rule-evaluator.service');
+    const {
+      AutomationGapReviewService,
+    } = require('../dist/src/automation/automation-gap-review.service');
+    const units = new UnitEngine(
+      ...[
+        UnitFactsEntity,
+        UnitApplicableComplianceEntity,
+        UnitApplicabilityAuditEntity,
+        PackageComplianceEntity,
+        PackageRuleEntity,
+        ApplicabilityRuleEntity,
+        CompliancePackageEntity,
+      ].map((e) => ds.getRepository(e)),
+      new RuleEvaluatorService({}),
+    );
+    const cycles = new MonthlyCycleEngineService(ds, tasks),
+      schedules = new AuditScheduleEngineService(ds),
+      applicability = new ApplicabilityEngineService(ds, units),
+      gaps = new AutomationGapReviewService(ds, { isReady: async () => false });
     const service = new AutomationControlService(
       ds,
       expiry,
@@ -231,10 +315,23 @@ async function main() {
       filing,
       nc,
       due,
+      cycles,
+      schedules,
+      applicability,
+      gaps,
+      notifications,
     );
     const overview = await service.overview();
-    assert.equal(overview.controls.length, 4);
-    for (const ruleKey of ['expiry', 'filing_overdue', 'nc_reminders']) {
+    assert.equal(overview.controls.length, 9);
+    for (const ruleKey of [
+      'expiry',
+      'filing_overdue',
+      'nc_reminders',
+      'monthly_filings',
+      'monthly_cycles',
+      'applicability',
+      'audit_schedules',
+    ]) {
       const empty = await service.preview({ ruleKey });
       assert.ok(empty.groups.every((g) => g.count === 0));
     }
@@ -512,6 +609,228 @@ async function main() {
     );
     assert.equal((await due.handle({ branchId: id(11) })).auditReminders, 1);
     assert.equal((await due.handle({ branchId: id(11) })).auditReminders, 0);
+    const [year, month] = today.split('-').map(Number);
+    await seed(UnitComplianceMasterEntity, {
+      id: id(801),
+      code: 'CONTROL_MONTHLY',
+      name: 'Monthly evidence',
+      frequency: 'MONTHLY',
+      appliesTo: 'BOTH',
+    });
+    await seed(UnitApplicableComplianceEntity, {
+      id: id(802),
+      branchId: id(11),
+      complianceId: id(801),
+      isApplicable: true,
+      source: 'OVERRIDE',
+    });
+    await seed(UnitFactsEntity, {
+      id: id(803),
+      branchId: id(11),
+      stateCode: 'TN',
+      establishmentType: 'ESTABLISHMENT',
+    });
+    await seed(CompliancePackageEntity, {
+      id: id(804),
+      code: 'DEFAULT_INDIA',
+      name: 'Fixture package',
+    });
+    await seed(PackageComplianceEntity, {
+      id: id(805),
+      packageId: id(804),
+      complianceId: id(801),
+      includedByDefault: false,
+    });
+    assert.equal(
+      (await applicability.recomputeAllBranches({ branchId: id(11) })).failures,
+      0,
+    );
+    assert.equal(
+      (
+        await ds.query(
+          'SELECT is_applicable FROM unit_applicable_compliance WHERE id=$1',
+          [id(802)],
+        )
+      )[0].is_applicable,
+      true,
+    );
+    assert.equal((await cycles.candidates({ branchId: id(12) })).length, 0);
+    await Promise.all([
+      cycles.openMonthlyCycle(month, year, { branchId: id(11) }),
+      cycles.openMonthlyCycle(month, year, { branchId: id(11) }),
+    ]);
+    assert.equal(
+      (
+        await ds.query('SELECT count(*)::int n FROM monthly_compliance_items')
+      )[0].n,
+      1,
+    );
+    assert.equal(
+      (
+        await ds.query(
+          "SELECT count(*)::int n FROM system_tasks WHERE reference_type='MONTHLY_COMPLIANCE_ITEM'",
+        )
+      )[0].n,
+      1,
+    );
+    await seed(ComplianceReturnMasterEntity, {
+      id: id(810),
+      returnCode: 'CONTROL_RETURN',
+      returnName: 'Fixture monthly return',
+      lawArea: 'TEST',
+      frequency: 'MONTHLY',
+      dueDay: 20,
+      stateCode: 'ALL',
+      applicableFor: 'BOTH',
+      appliesTo: 'BOTH',
+    });
+    await Promise.all([
+      filing.generateFilings(year, month, { branchId: id(11) }),
+      filing.generateFilings(year, month, { branchId: id(11) }),
+    ]);
+    assert.equal(
+      (
+        await ds.query(
+          "SELECT count(*)::int n FROM compliance_returns WHERE return_type='CONTROL_RETURN'",
+        )
+      )[0].n,
+      1,
+    );
+    const auditInput = {
+      clientId: id(1),
+      branchId: id(12),
+      auditType: 'BRANCH_COMPLIANCE_AUDIT',
+      auditorId: id(32),
+      scheduleDate: new Date(today + 'T00:00:00Z'),
+    };
+    await Promise.all([
+      schedules.createSchedule(auditInput),
+      schedules.createSchedule(auditInput),
+    ]);
+    assert.equal(
+      (
+        await ds.query(
+          'SELECT count(*)::int n FROM audit_schedules WHERE branch_id=$1',
+          [id(12)],
+        )
+      )[0].n,
+      1,
+    );
+    await seed(ClientAssignmentCurrentEntity, {
+      id: id(820),
+      clientId: id(1),
+      assignmentType: 'AUDITOR',
+      assignedToUserId: id(32),
+      startDate: new Date(),
+    });
+    await ds.query(
+      "INSERT INTO audit_frequency_rules(id,client_id,branch_id,audit_type,frequency) VALUES($1,$2,$3,'SAFETY_AUDIT','MONTHLY')",
+      [id(821), id(1), id(12)],
+    );
+    assert.equal(
+      (await schedules.generateDueSchedules({ branchId: id(12) })).created,
+      1,
+    );
+    assert.equal(
+      (await schedules.generateDueSchedules({ branchId: id(12) })).created,
+      0,
+    );
+    await seed(UnitApplicableComplianceEntity, {
+      id: id(822),
+      branchId: id(12),
+      complianceId: id(801),
+      isApplicable: true,
+      source: 'OVERRIDE',
+    });
+    const createTask = tasks.createTask.bind(tasks);
+    tasks.createTask = async () => {
+      throw new Error('fixture task failure');
+    };
+    await assert.rejects(
+      cycles.openMonthlyCycle(month, year, { branchId: id(12) }),
+      /fixture task failure/,
+    );
+    await assert.rejects(
+      filing.generateFilings(year, month, { branchId: id(12) }),
+      /fixture task failure/,
+    );
+    assert.equal(
+      (
+        await ds.query(
+          'SELECT count(*)::int n FROM monthly_compliance_cycles WHERE branch_id=$1',
+          [id(12)],
+        )
+      )[0].n,
+      0,
+    );
+    assert.equal(
+      (
+        await ds.query(
+          'SELECT count(*)::int n FROM compliance_returns WHERE branch_id=$1',
+          [id(12)],
+        )
+      )[0].n,
+      0,
+    );
+    tasks.createTask = createTask;
+    await ds.query(
+      "UPDATE monthly_compliance_cycles SET status='CLOSED' WHERE branch_id=$1",
+      [id(11)],
+    );
+    assert.equal(
+      (await cycles.openMonthlyCycle(month, year, { branchId: id(11) }))
+        .tasksCreated,
+      0,
+    );
+    const guidance = await gaps.review({ branchId: id(11) }, actor);
+    assert.equal(guidance.mode, 'RULES');
+    assert.ok(guidance.actions.length > 0);
+    assert.ok(guidance.actions.every((a) => a.explanation && a.nextAction));
+    const nowRoot = (await service.overview()).controls.find(
+      (c) => c.id === root.id,
+    );
+    const updated = await service.save(
+      {
+        ruleKey: 'task_reminders',
+        enabled: true,
+        localTime: '00:00',
+        version: nowRoot.version,
+        frequency: 'WEEKLY',
+        weekDay: 2,
+        options: { taskDays: 0, recipientIds: [actor] },
+      },
+      actor,
+    );
+    assert.equal(updated.frequency, 'WEEKLY');
+    assert.equal(updated.week_day, 2);
+    const narrow = await service.preview({ ruleKey: 'task_reminders' });
+    const summarized = await service.run(
+      root.id,
+      id(900),
+      actor,
+      narrow.plan.digest,
+    );
+    assert.equal(summarized.status, 'SUCCEEDED');
+    assert.equal(
+      (
+        await ds.query(
+          "SELECT count(*)::int n FROM notifications WHERE subject LIKE 'Automation %'",
+        )
+      )[0].n,
+      1,
+    );
+    await service.run(root.id, id(900), actor, narrow.plan.digest);
+    assert.equal(
+      (
+        await ds.query(
+          "SELECT count(*)::int n FROM notifications WHERE subject LIKE 'Automation %'",
+        )
+      )[0].n,
+      1,
+    );
+    console.log(
+      'PASS: expanded generator concurrency, actual schema, branch exclusions, manual applicability overrides, AI fallback, weekly options and administrator summaries.',
+    );
     console.log(
       'PASS: preview is read-only; company/branch exclusions and NULL scope; stale preview/version rejection; real scoped delivery; manual idempotency; global pause; inherited settings; concurrent-run exclusion; failure/partial/interruption history; safe retry; once-per-day scheduler and audit attribution.',
     );

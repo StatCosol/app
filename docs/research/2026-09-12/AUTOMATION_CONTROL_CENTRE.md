@@ -1,50 +1,59 @@
-# Automation Control Centre — 12 September 2026
+# Automation Control Centre — expanded release, 12 September 2026
 
-Implemented locally at **Admin → Automation** (`/admin/automation`). This release manages four existing automation flows; it is not a replacement for every scheduler in the project.
+## Implemented scope
 
-## Included flows
+Admin → Automation (`/admin/automation`) now manages nine flows:
 
-| Flow | Actions | Default daily time (India) |
-| --- | --- | --- |
-| Expiry renewals | Registration renewal filings/tasks within 60 days; contractor document tasks/reminders within 30 days | 07:00 |
-| Task reminders | Tasks due within 3 days, overdue escalations to CRM, audit schedule reminders within 5 days | 08:00 |
-| Overdue filing alerts | Notify the current CRM; raise linked active task priority after seven overdue days | 08:00 |
-| Audit corrections | Remind the assigned auditor, or audit creator, about open non-compliances | 09:00 |
+| Flow | Result |
+| --- | --- |
+| Expiry renewals | Registration renewal filings/tasks and contractor document reminders |
+| Task reminders | Due-task notices, overdue escalations and audit reminders |
+| Overdue filings | CRM alerts and configurable priority escalation |
+| Audit corrections | Reminders for unresolved non-compliances |
+| Periodic filings | Current-period filings and branch tasks from return-master rules |
+| Monthly compliance cycles | Monthly items/tasks from the branch’s actual applicable compliance list |
+| Audit scheduling | Schedules from active frequency rules and current auditor assignments |
+| Applicability checks | The existing unit/package evaluator, preserving manual overrides |
+| AI gap review | Stored explanations and suggested next actions for up to 20 open activities, with a full open count |
 
-## Behaviour
+The Client/Branch compliance assistant continues to provide its existing scoped on-demand guidance. Scheduled AI gap review adds administrator history and optional summaries. AI output never approves, closes or submits records. If the provider is unavailable or returns invalid output, the system stores factual rule-based guidance. The page reports provider readiness. AI review starts paused so an administrator can choose its scope and frequency before enabling provider usage.
 
-- Administrator-only configuration, preview, execution, retry and history APIs. Legacy renewal/overdue triggers are also administrator-only and use the same controls.
-- Company and branch overrides support enable/pause and daily India time. Scoped overrides are excluded from parent runs, including paused overrides. Default pause stops the rule everywhere; company pause stops its child branches. Removing a scoped override restores inheritance.
-- Preview uses the same scoped eligibility queries as execution. It shows eligible counts and examples without writing records. Counts are not a promise of new work: existing activities/reminders are reused, and underlying records may change before execution.
-- Manual runs require a saved scope and current configuration digest. Settings use version checks. Settings cannot change while the rule is running.
-- Database advisory locks prevent simultaneous runs of the same rule across application replicas. Request keys prevent repeat execution of a submitted run. Existing task/filing identities and notification receipts protect individual actions against duplicate retries.
-- Each enabled scope runs once per Indian calendar day at or after its configured time. The minute scheduler catches up on the current day after downtime; it does not backfill previous days. Failed scheduled attempts need a manual retry or a new run.
-- History distinguishes completed, partial, failed, interrupted and running work, with actor, scope, results and timestamps. Setting changes retain before/after values and actor identity even after an override is removed.
-- Retry is available for failed, partial or interrupted runs on the same Indian date and unchanged configuration. Older or changed-scope work requires a new preview/run. A subsequent run holding the rule lock marks abandoned running records interrupted.
-- Preview and history requests are cancelled when superseded, preventing stale responses. Desktop and mobile layouts have been checked.
-- Final approvals remain with existing authorized users. This feature does not approve appraisals, submit statutory filings, or make AI compliance decisions.
+## Configuration and operating rules
 
-## Corrections found during verification
+- Daily, weekly and monthly schedules use Indian calendar dates. Month-end schedules clamp to the last real day. Catch-up occurs only within the current daily/weekly/monthly period.
+- Company/branch overrides are excluded from parent runs, including paused overrides. Default pause stops a rule globally; company pause stops its branches. A scoped override can be removed to restore inheritance.
+- Registration/document look-ahead, task/audit reminder windows and overdue escalation thresholds are configurable within validated bounds. Applicability allows selection of an active compliance package; the default is `DEFAULT_INDIA`.
+- Up to ten active administrators may receive additional execution summaries. Default task-owner/CRM/auditor routing continues; this does not assign work or grant access to arbitrary recipients.
+- Read-only previews use the same scoped eligibility queries, including proposed window changes. Counts are eligible work, not a promise of new records. Underlying records can change before execution.
+- Manual execution requires a saved scope and current configuration digest. Version checks reject stale saves. Settings changes conflict with active execution.
+- Database locks serialize each rule across application replicas. Request identities deduplicate submitted runs. Existing activity identities and notification receipts protect retries.
+- Failed, partial and interrupted runs can be retried on the same Indian date with unchanged configuration. Older/changed configurations require a fresh preview/run.
+- History stores scope, settings, actor, status and results. Setting history retains before/after values. Superseded preview/history requests are cancelled in the UI.
 
-- Audit reminder query now uses the actual `audit_schedules.auditor_id` field.
-- Managed date queries use the Indian operational date independently of database timezone.
-- PostgreSQL update/delete results are read consistently through result-returning queries; saved settings and execution history are verified against a real database.
-- The quick frontend test command excludes the two browser-only shared pages, while retaining the existing pure component tests.
+## Correctness and duplication fixes
+
+- Monthly generation uses actual branch and applicability fields; the previous query mixed incompatible catalogs.
+- Filing/task and cycle/item/task creation commit atomically. Concurrent generators create one occurrence; failures roll back records that would otherwise be orphaned. Closed cycles and terminal task history are preserved.
+- Audit scheduling uses actual assignment columns and typed UUID comparisons. It locks occurrence creation and prevents a retry from advancing the same frequency rule again on the same day.
+- Applicability uses the existing unit/package evaluator instead of writing computed results into an audit-trail table with nonexistent fields.
+- Managed legacy global triggers use centre controls and administrator authority. CRM filing automation buttons identify administrator ownership. Legacy unscoped automation task readers are administrator-only; normal users retain the scoped My Work APIs.
+- The old cron decorators for all eight operational flows have been removed. The centre owns their scheduling; other unrelated application jobs remain separate.
 
 ## Validation
 
-- Backend build passed; 187 test suites passed, 1,179 tests passed, one environment-dependent test skipped.
-- Frontend production build passed; 48 browser suites / 264 tests passed; quick suite 9 files / 58 tests passed.
-- Changed backend files and new frontend page lint passed. Existing Sass deprecation warnings remain.
-- Disposable PostgreSQL fixture passed: migration replay, previews, company/branch exclusions, null-branch records, wrong-company rejection, stale configuration rejection, actual scoped delivery, repeated request identity, global pause, inherited settings, concurrent-run/settings exclusion, failed/partial/interrupted results, retries, daily scheduling, actor attribution and scoped audit reminders.
-- Existing duplicate-delivery, expiry/renewal deduplication, concurrent task creation and My Work reconciliation fixtures passed.
-- Module registration check passed: no orphan services/controllers.
-- Screenshots: `docs/reviews/2026-09-12/automation-control-desktop.png` and `automation-control-mobile.png`.
+- Backend and frontend production builds pass.
+- Backend regression suite: 189 suites / 1,193 tests passed. The normally skipped database boot check passed separately. Frontend: 48 browser suites / 266 tests passed. Calendar, AI fallback, validation and database regressions are included.
+- Real PostgreSQL fixture tests migration replay, null/branch/company scopes, pauses/inheritance, configuration conflicts, scoped delivery, run locking, failure/partial/interruption history, safe retries, summary recipients and schedules.
+- Expanded database cases cover concurrent monthly generators, task-failure rollback, closed cycles, manual applicability overrides, actual audit assignment schema, repeated audit scheduling and AI fallback.
+- Existing duplicate-delivery, expiry/renewal deduplication and My Work reconciliation fixtures pass.
+- These database regressions are now included in GitHub CI using its disposable PostgreSQL service. The scripts connect only to loopback and never load production credentials.
+- Module registration: 63 modules, 257 providers, 239 controllers; no orphan services/controllers.
+- Desktop/mobile screenshots are in `docs/reviews/2026-09-12/automation-control-*.png`.
 
-## Deployment and remaining scope
+## Release requirements
 
-Apply `backend/migrations/20260912b_automation_control_center.sql` after `20260912_automation_delivery_dedup.sql`, before starting the new backend. Both are registered in the service-entitlements deployment migration list. Deploy backend and frontend together and retire old backend instances: old versions do not consult these controls. The new scheduler replaces the old scheduled invocations of these four flows.
+Apply migrations in registered order: `20260912_automation_delivery_dedup.sql`, `20260912b_automation_control_center.sql`, then `20260912c_automation_expansion.sql`. Deploy matching backend/frontend versions and stop old backend revisions so their legacy jobs cannot continue independently.
 
-No production migration, deployment or remote push was performed. Validation used isolated local schemas and synthetic records, not production data.
+GitHub main requires backend, frontend, payroll-transition-smoke and docker checks plus one approving review. Production deployment additionally requires successful CI and Security Scans for the exact main commit. Do not bypass those gates. Deployment and live verification are pending until the reviewed release merges; local fixture results do not establish production health.
 
-Monthly filing generation, monthly compliance cycles, applicability recalculation and audit schedule generation retain their existing scheduling. Custom recipient rules, configurable eligibility windows, weekly/monthly frequencies, a general workflow designer and additional AI automation remain future work.
+After deployment, verify health and migration completion, role restrictions, all-assigned-branch totals, saved schedules, a scoped read-only preview, run-history access, provider readiness and the next scheduled execution. Use existing configured AI credentials; never write credentials to reports or source control.

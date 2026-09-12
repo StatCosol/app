@@ -1,3 +1,4 @@
+import { AutomationControlService } from '../control-center.service';
 import {
   BadRequestException,
   Body,
@@ -29,6 +30,7 @@ import { ReqUser } from '../../access/access-scope.service';
 @Controller({ path: 'audit-schedules', version: '1' })
 export class AuditScheduleAutomationController {
   constructor(
+    private readonly controls: AutomationControlService,
     private readonly auditScheduleEngine: AuditScheduleEngineService,
   ) {}
 
@@ -36,8 +38,8 @@ export class AuditScheduleAutomationController {
   @ApiOperation({ summary: 'Generate audit schedules now (system)' })
   @Roles('ADMIN')
   @Post('auto-generate')
-  autoGenerateNow() {
-    return this.auditScheduleEngine.generateDueSchedules();
+  autoGenerateNow(@CurrentUser() user: ReqUser) {
+    return this.controls.legacyRun('audit_schedules', user.userId || user.id);
   }
 
   @ApiOperation({ summary: 'Create audit schedule manually by CRM' })

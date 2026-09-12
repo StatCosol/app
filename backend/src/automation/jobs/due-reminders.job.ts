@@ -25,9 +25,9 @@ export class DueRemindersJob {
            JOIN clients c ON c.id = s.client_id
            WHERE s.status = 'SCHEDULED'
              AND s.due_date >= $1::date
-             AND s.due_date <= $1::date + 5
+             AND s.due_date <= $1::date + $2::int
              AND c.is_deleted = false`,
-      [operationalDate()],
+      [operationalDate(), scope.options?.auditDays ?? 5],
       scope,
     );
   }
@@ -38,7 +38,10 @@ export class DueRemindersJob {
     let failures = 0;
     try {
       /* ── 1. Tasks due within 3 days ──────────────────────────── */
-      const dueSoon = await this.taskEngine.getTasksDueSoon(3, scope);
+      const dueSoon = await this.taskEngine.getTasksDueSoon(
+        scope.options?.taskDays ?? 3,
+        scope,
+      );
       let remindersSent = 0;
 
       for (const task of dueSoon) {

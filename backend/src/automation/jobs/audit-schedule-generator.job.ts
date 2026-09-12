@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { AuditScheduleEngineService } from '../services/audit-schedule-engine.service';
 
 @Injectable()
@@ -11,7 +10,6 @@ export class AuditScheduleGeneratorJob {
   ) {}
 
   // Daily at 02:00 AM
-  @Cron('0 2 * * *')
   async handle() {
     this.logger.log('Starting audit schedule auto-generation job');
 

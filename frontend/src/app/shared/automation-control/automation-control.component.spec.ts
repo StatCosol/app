@@ -51,6 +51,21 @@ const data = {
     { id: 'b2', clientId: 'c1', name: 'South Branch' },
   ],
 };
+data.rules.push(
+  ...[
+    ['monthly_filings', 'Periodic filings'],
+    ['monthly_cycles', 'Monthly compliance cycles'],
+    ['audit_schedules', 'Audit scheduling'],
+    ['applicability', 'Applicability checks'],
+    ['gap_review', 'AI gap review'],
+  ].map(([key, name]) => ({
+    key,
+    name,
+    description: 'Review and schedule routine work for the selected scope.',
+    routing: 'Assigned owners and administrator summaries',
+    window: 'Configured scope and calendar',
+  })),
+);
 const preview = {
   plan: { digest: 'a'.repeat(64), controlId: 'control1', enabled: true, scope: {} },
   asOf: '2026-09-12',
@@ -191,6 +206,47 @@ describe('Automation Control Centre browser behaviour', () => {
     expect(current.request.params.get('page')).toBe('2');
     current.flush({ rows: [run], total: 26 });
     expect(f.componentInstance.runs()[0].id).toBe('run1');
+    f.destroy();
+  });
+  it('previews the proposed reminder window and saves a weekly schedule', () => {
+    const f = mount();
+    f.componentInstance.options.registrationDays = 15;
+    f.componentInstance.frequency = 'WEEKLY';
+    f.componentInstance.weekDay = 4;
+    f.componentInstance.showPreview();
+    const request = http.expectOne((r) => r.url.endsWith('/preview'));
+    expect(request.request.body.options.registrationDays).toBe(15);
+    request.flush(preview);
+    f.componentInstance.save();
+    const save = http.expectOne((r) => r.url.endsWith('/settings'));
+    expect(save.request.body.frequency).toBe('WEEKLY');
+    expect(save.request.body.weekDay).toBe(4);
+    expect(save.request.body.options.registrationDays).toBe(15);
+    save.flush({ message: 'Fixture conflict' }, { status: 409, statusText: 'Conflict' });
+    f.destroy();
+  });
+  it('shows stored gap suggestions without adding approval actions', () => {
+    const f = mount();
+    f.componentInstance.runs.set([
+      {
+        ...run,
+        result: {
+          mode: 'RULES',
+          actions: [
+            {
+              id: 'task1',
+              title: 'Missing evidence',
+              status: 'OPEN',
+              explanation: 'This evidence is missing.',
+              nextAction: 'Ask the owner to submit evidence.',
+            },
+          ],
+          note: 'Rule-based guidance',
+        },
+      },
+    ]);
+    f.detectChanges();
+    expect(f.nativeElement.textContent).toContain('Ask the owner to submit evidence.');
     f.destroy();
   });
   it('renders desktop and mobile without horizontal overflow', async () => {

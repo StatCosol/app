@@ -1,6 +1,8 @@
+import { AutomationOptions } from './control-schedule';
 import { DataSource } from 'typeorm';
 
 export interface AutomationScope {
+  options?: AutomationOptions;
   clientId?: string;
   branchId?: string;
   excludedClientIds?: string[];

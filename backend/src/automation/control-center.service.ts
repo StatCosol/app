@@ -1,3 +1,9 @@
+import { dueScheduleKey } from './control-schedule';
+import { AutomationGapReviewService } from './automation-gap-review.service';
+import { AutomationNotificationService } from './services/automation-notification.service';
+import { MonthlyCycleEngineService } from './services/monthly-cycle-engine.service';
+import { AuditScheduleEngineService } from './services/audit-schedule-engine.service';
+import { ApplicabilityEngineService } from './services/applicability-engine.service';
 import {
   BadRequestException,
   ConflictException,
@@ -55,6 +61,45 @@ export const CONTROL_RULES = [
     routing: 'Assigned auditor; audit creator when no auditor is assigned',
     window: 'Open audit non-compliances',
   },
+  {
+    key: 'monthly_filings',
+    name: 'Periodic filings',
+    description:
+      'Create filings and tasks from the configured return calendar.',
+    routing: 'Branch work queue',
+    window: 'Current calendar period; existing return master dates',
+  },
+  {
+    key: 'monthly_cycles',
+    name: 'Monthly compliance cycles',
+    description:
+      'Open monthly work from each branch’s applicable compliance list.',
+    routing: 'Branch work queue',
+    window: 'Current calendar month',
+  },
+  {
+    key: 'audit_schedules',
+    name: 'Audit scheduling',
+    description: 'Generate due audit schedules from active frequency rules.',
+    routing: 'Assigned auditor',
+    window: 'Configured look-ahead',
+  },
+  {
+    key: 'applicability',
+    name: 'Applicability checks',
+    description:
+      'Recompute from branch facts and the selected compliance package; preserve manual overrides.',
+    routing: 'Administrator review',
+    window: 'Branches with configured facts',
+  },
+  {
+    key: 'gap_review',
+    name: 'AI gap review',
+    description:
+      'Review open activities and suggest next steps without changing approvals.',
+    routing: 'Execution history and selected administrator recipients',
+    window: 'Up to 20 open activities; full open count',
+  },
 ];
 type Control = {
   id: string;
@@ -64,6 +109,10 @@ type Control = {
   enabled: boolean;
   local_time: string;
   version: number;
+  frequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  week_day?: number;
+  month_day?: number;
+  options?: import('./control-schedule').AutomationOptions;
 };
 
 @Injectable()
@@ -77,6 +126,11 @@ export class AutomationControlService {
     private readonly filings: ReturnsFilingEngineService,
     private readonly nc: NonComplianceEngineService,
     private readonly due: DueRemindersJob,
+    private readonly cycles: MonthlyCycleEngineService,
+    private readonly schedules: AuditScheduleEngineService,
+    private readonly applicability: ApplicabilityEngineService,
+    private readonly gaps: AutomationGapReviewService,
+    private readonly notifications: AutomationNotificationService,
   ) {}
 
   private async controls(): Promise<Control[]> {
@@ -126,6 +180,7 @@ export class AutomationControlService {
     );
     const settings = exact || company || root;
     const scope: AutomationScope = {
+      options: settings.options || {},
       clientId: q.clientId,
       branchId: q.branchId,
       excludedClientIds: !q.clientId
@@ -152,6 +207,9 @@ export class AutomationControlService {
       scope,
       enabled,
       localTime: settings.local_time,
+      frequency: settings.frequency || 'DAILY',
+      weekDay: settings.week_day ?? 0,
+      monthDay: settings.month_day ?? 1,
       version: exact?.version || 0,
       controlId: exact?.id || null,
       parents: rows
@@ -175,16 +233,26 @@ export class AutomationControlService {
     };
   }
   async overview() {
-    const [controls, companies, branches] = await Promise.all([
-      this.controls(),
-      this.ds.query(
-        'SELECT id,client_name AS name FROM clients WHERE is_deleted=false ORDER BY client_name',
-      ),
-      this.ds.query(
-        'SELECT b.id,b.clientid AS "clientId",b.branchname AS name FROM client_branches b JOIN clients c ON c.id=b.clientid WHERE b.isactive=true AND c.is_deleted=false ORDER BY b.branchname',
-      ),
-    ]);
+    const [controls, companies, branches, recipients, packages] =
+      await Promise.all([
+        this.controls(),
+        this.ds.query(
+          'SELECT id,client_name AS name FROM clients WHERE is_deleted=false ORDER BY client_name',
+        ),
+        this.ds.query(
+          'SELECT b.id,b.clientid AS "clientId",b.branchname AS name FROM client_branches b JOIN clients c ON c.id=b.clientid WHERE b.isactive=true AND c.is_deleted=false ORDER BY b.branchname',
+        ),
+        this.ds.query(
+          "SELECT u.id,u.name FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=true AND u.deleted_at IS NULL AND r.code='ADMIN' ORDER BY u.name",
+        ),
+        this.ds.query(
+          'SELECT id,code,name FROM compliance_package WHERE is_active=true ORDER BY name',
+        ),
+      ]);
     return {
+      aiAvailable: await this.gaps.isReady(),
+      recipients,
+      packages,
       rules: CONTROL_RULES,
       controls,
       companies,
@@ -194,6 +262,24 @@ export class AutomationControlService {
   }
   async save(q: ControlSettingsDto, actor: string) {
     await this.validateScope(q);
+    if (q.options?.recipientIds?.length) {
+      const allowed = await this.ds.query(
+        "SELECT u.id FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=ANY($1::uuid[]) AND u.is_active=true AND u.deleted_at IS NULL AND r.code='ADMIN'",
+        [q.options.recipientIds],
+      );
+      if (allowed.length !== q.options.recipientIds.length)
+        throw new BadRequestException(
+          'Summary recipients must be active administrators',
+        );
+    }
+    if (q.ruleKey === 'applicability' && q.options?.packageId) {
+      const packages = await this.ds.query(
+        'SELECT id FROM compliance_package WHERE (id::text=$1 OR code=$1) AND is_active=true',
+        [q.options.packageId],
+      );
+      if (!packages.length)
+        throw new BadRequestException('Choose an active compliance package');
+    }
     return this.ds.transaction(async (manager) => {
       const [lock] = await manager.query(
         'SELECT pg_try_advisory_xact_lock(hashtextextended($1,0)) AS locked',
@@ -209,7 +295,7 @@ export class AutomationControlService {
       );
       if ((old?.version || 0) !== q.version)
         throw new ConflictException('Settings changed. Refresh before saving.');
-      const [saved] = old
+      let [saved] = old
         ? await manager.query(
             'WITH changed AS (UPDATE automation_controls SET enabled=$2,local_time=$3,version=version+1,updated_by=$4,updated_at=now() WHERE id=$1 RETURNING *) SELECT * FROM changed',
             [old.id, q.enabled, q.localTime, actor],
@@ -225,6 +311,16 @@ export class AutomationControlService {
               actor,
             ],
           );
+      [saved] = await manager.query(
+        'WITH changed AS (UPDATE automation_controls SET frequency=$2,week_day=$3,month_day=$4,options=$5::jsonb WHERE id=$1 RETURNING *) SELECT * FROM changed',
+        [
+          saved.id,
+          q.frequency || old?.frequency || 'DAILY',
+          q.weekDay ?? old?.week_day ?? 0,
+          q.monthDay ?? old?.month_day ?? 1,
+          JSON.stringify(q.options ?? old?.options ?? {}),
+        ],
+      );
       await manager.query(
         'INSERT INTO automation_control_changes(control_id,actor_id,before_value,after_value) VALUES($1,$2,$3::jsonb,$4::jsonb)',
         [
@@ -272,9 +368,20 @@ export class AutomationControlService {
       return { inherited: true };
     });
   }
-  async preview(q: ControlScopeDto) {
+  async preview(
+    q: ControlScopeDto & {
+      options?: import('./control-schedule').AutomationOptions;
+    },
+  ) {
     await this.validateScope(q);
     const plan = this.plan(q, await this.controls());
+    if (q.options) {
+      plan.scope.options = q.options;
+      const { digest, ...snapshot } = plan;
+      plan.digest = createHash('sha256')
+        .update(JSON.stringify(snapshot))
+        .digest('hex');
+    }
     const groups: { name: string; rows: any[] }[] = [];
     if (q.ruleKey === 'expiry') {
       groups.push({
@@ -288,7 +395,10 @@ export class AutomationControlService {
     } else if (q.ruleKey === 'task_reminders') {
       groups.push({
         name: 'Tasks due soon',
-        rows: await this.tasks.getTasksDueSoon(3, plan.scope),
+        rows: await this.tasks.getTasksDueSoon(
+          plan.scope.options?.taskDays ?? 3,
+          plan.scope,
+        ),
       });
       groups.push({
         name: 'Overdue tasks',
@@ -303,19 +413,40 @@ export class AutomationControlService {
         name: 'Overdue filings',
         rows: await this.filings.getOverdueFilings(plan.scope),
       });
-    else
+    else if (q.ruleKey === 'nc_reminders')
       groups.push({
         name: 'Open audit corrections',
         rows: await this.nc.getOpenNcForDailyReminder(plan.scope),
       });
+    else {
+      const [year, month] = operationalDate().split('-').map(Number);
+      const rows =
+        q.ruleKey === 'monthly_filings'
+          ? await this.filings.candidates(year, month, plan.scope)
+          : q.ruleKey === 'monthly_cycles'
+            ? await this.cycles.candidates(plan.scope)
+            : q.ruleKey === 'audit_schedules'
+              ? await this.schedules.candidates(plan.scope)
+              : q.ruleKey === 'applicability'
+                ? await this.applicability.candidates(plan.scope)
+                : await this.gaps.candidates(plan.scope);
+      groups.push({
+        name: CONTROL_RULES.find((r) => r.key === q.ruleKey)!.name,
+        rows,
+      });
+    }
     return {
       plan,
       asOf: operationalDate(),
       groups: groups.map((g) => ({
         name: g.name,
         count: g.rows.length,
-        examples: g.rows.slice(0, 5).map((r) => ({
-          id: r.id || r.reg_id,
+        examples: g.rows.slice(0, 5).map((r, index) => ({
+          id: [
+            r.id || r.reg_id || r.compliance_id || index,
+            r.branch_id || '',
+            r.master?.return_code || '',
+          ].join(':'),
           title:
             r.title ||
             r.registration_type ||
@@ -430,7 +561,33 @@ export class AutomationControlService {
           result = await this.due.handle(plan.scope);
         else if (control.rule_key === 'filing_overdue')
           result = await this.filings.generateOverdueAlerts(plan.scope);
-        else result = await this.nc.sendDailyReminders(plan.scope);
+        else if (control.rule_key === 'nc_reminders')
+          result = await this.nc.sendDailyReminders(plan.scope);
+        else {
+          const [year, month] = operationalDate().split('-').map(Number);
+          result =
+            control.rule_key === 'monthly_filings'
+              ? await this.filings.generateFilings(year, month, plan.scope)
+              : control.rule_key === 'monthly_cycles'
+                ? await this.cycles.openMonthlyCycle(month, year, plan.scope)
+                : control.rule_key === 'audit_schedules'
+                  ? await this.schedules.generateDueSchedules(plan.scope)
+                  : control.rule_key === 'applicability'
+                    ? await this.applicability.recomputeAllBranches(plan.scope)
+                    : await this.gaps.review(plan.scope, actor || undefined);
+        }
+        const summaryFailures = await this.notifications.sendControlSummary(
+          {
+            ...run,
+            snapshot: plan,
+            status: result?.failures ? 'PARTIAL' : 'SUCCEEDED',
+          },
+          plan.scope.options?.recipientIds || [],
+        );
+        result = {
+          ...result,
+          failures: (result?.failures || 0) + summaryFailures,
+        };
         [run] = await runner.query(
           'WITH changed AS (UPDATE automation_runs SET status=$2,result=$3::jsonb,finished_at=now() WHERE id=$1 RETURNING *) SELECT * FROM changed',
           [
@@ -446,6 +603,10 @@ export class AutomationControlService {
         [run] = await runner.query(
           "WITH changed AS (UPDATE automation_runs SET status='FAILED',finished_at=now(),error_message='Execution failed. Completed actions are protected against duplicate retries; inspect server logs for the underlying error.' WHERE id=$1 RETURNING *) SELECT * FROM changed",
           [run.id],
+        );
+        await this.notifications.sendControlSummary(
+          run,
+          plan.scope.options?.recipientIds || [],
         );
       }
       return run;
@@ -484,6 +645,27 @@ export class AutomationControlService {
       id,
     );
   }
+  async legacyBranchRun(ruleKey: RuleKey, actor: string, branchId: string) {
+    const control = (await this.controls()).find(
+      (c) => c.rule_key === ruleKey && c.branch_id === branchId.toLowerCase(),
+    );
+    if (!control)
+      throw new ConflictException(
+        'Save this branch scope in Admin Automation before running it.',
+      );
+    const preview = await this.preview({
+      ruleKey,
+      clientId: control.client_id!,
+      branchId: control.branch_id!,
+    });
+    const run = await this.run(
+      control.id,
+      'legacy:' + operationalDate(),
+      actor,
+      preview.plan.digest,
+    );
+    return { ...(run.result || {}), runId: run.id, status: run.status };
+  }
   async legacyRun(ruleKey: RuleKey, actor: string) {
     const row = (await this.controls()).find(
       (c) => c.rule_key === ruleKey && !c.client_id,
@@ -504,34 +686,27 @@ export class AutomationControlService {
   }
   @Cron('0 * * * * *', { timeZone: 'Asia/Kolkata' })
   async tick() {
-    const time = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Asia/Kolkata',
-      hour: '2-digit',
-      minute: '2-digit',
-      hourCycle: 'h23',
-    }).format(new Date());
-    for (const control of await this.controls()) {
+    const controls = await this.controls();
+    for (const control of controls) {
       const plan = this.plan(
         {
           ruleKey: control.rule_key,
           clientId: control.client_id || undefined,
           branchId: control.branch_id || undefined,
         },
-        await this.controls(),
+        controls,
       );
-      if (!plan.enabled || time < plan.localTime) continue;
+      const key = dueScheduleKey(control);
+      if (!plan.enabled || !key) continue;
       try {
-        await this.run(
-          control.id,
-          operationalDate(),
-          null,
-          undefined,
-          'SCHEDULED',
-        );
+        await this.run(control.id, key, null, undefined, 'SCHEDULED');
       } catch (error) {
         if (!(error instanceof ConflictException))
           this.logger.error(
-            `Scheduled automation ${control.id}: ${error instanceof Error ? error.message : String(error)}`,
+            'Scheduled automation ' +
+              control.id +
+              ': ' +
+              (error instanceof Error ? error.message : String(error)),
           );
       }
     }

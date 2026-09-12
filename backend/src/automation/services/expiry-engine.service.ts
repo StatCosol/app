@@ -24,10 +24,10 @@ export class ExpiryEngineService {
       JOIN clients c ON c.id=cd.client_id
       JOIN client_branches b ON b.id=cd.branch_id AND b.clientid=cd.client_id
       JOIN users u ON u.id=cd.contractor_user_id
-      WHERE cd.expiry_date BETWEEN $1::date AND $1::date + 30
+      WHERE cd.expiry_date BETWEEN $1::date AND $1::date + $2::int
         AND cd.status NOT IN ('EXPIRED','CANCELLED') AND c.is_deleted=false
         AND b.isactive=true AND u.is_active=true AND u.deleted_at IS NULL`,
-      [operationalDate()],
+      [operationalDate(), scope.options?.documentDays ?? 30],
       scope,
     );
   }

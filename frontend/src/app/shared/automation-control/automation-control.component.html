@@ -35,6 +35,15 @@
       <section class="panel settings">
         <h2>{{ rule?.name }}</h2>
         <p>{{ rule?.description }}</p>
+        @if (ruleKey === 'gap_review') {
+          <p class="scope-note">
+            {{
+              data.aiAvailable
+                ? 'AI provider is configured. Generated suggestions require human review.'
+                : 'AI provider is unavailable. Scheduled reviews will still provide rule-based guidance.'
+            }}
+          </p>
+        }
         <form (ngSubmit)="save()">
           <label
             >Company<select
@@ -64,7 +73,51 @@
           >
           <div class="two">
             <label
-              >Daily run time · India<input
+              >Frequency<select
+                name="frequency"
+                [(ngModel)]="frequency"
+                (ngModelChange)="invalidate()"
+                [disabled]="busy()"
+              >
+                <option value="DAILY">Daily</option>
+                <option value="WEEKLY">Weekly</option>
+                <option value="MONTHLY">Monthly</option>
+              </select></label
+            >
+            @if (frequency === 'WEEKLY') {
+              <label
+                >Day<select
+                  name="weekday"
+                  [(ngModel)]="weekDay"
+                  (ngModelChange)="invalidate()"
+                  [disabled]="busy()"
+                >
+                  @for (day of weekdays; track day; let i = $index) {
+                    <option [ngValue]="i">{{ day }}</option>
+                  }
+                </select></label
+              >
+            }
+            @if (frequency === 'MONTHLY') {
+              <label
+                >Day of month<input
+                  type="number"
+                  name="monthday"
+                  min="1"
+                  max="31"
+                  [(ngModel)]="monthDay"
+                  (ngModelChange)="invalidate()"
+                  [disabled]="busy()"
+              /></label>
+            }
+          </div>
+          <p class="small">
+            Dates beyond month-end use the last day. Missed runs catch up within the current
+            schedule period.
+          </p>
+          <div class="two">
+            <label
+              >Run time · India<input
                 type="time"
                 name="time"
                 [(ngModel)]="localTime"
@@ -91,6 +144,98 @@
             }}
             Default pause stops this rule everywhere. Company pause also stops its branches.
           </p>
+          <details>
+            <summary>Reminder windows and summary recipients</summary>
+            @if (ruleKey === 'expiry') {
+              <label
+                >Registration look-ahead (days)<input
+                  name="registrationDays"
+                  type="number"
+                  min="0"
+                  max="365"
+                  [(ngModel)]="options.registrationDays"
+                  (ngModelChange)="invalidate()"
+                  [disabled]="busy()" /></label
+              ><label
+                >Document look-ahead (days)<input
+                  name="documentDays"
+                  type="number"
+                  min="0"
+                  max="365"
+                  [(ngModel)]="options.documentDays"
+                  (ngModelChange)="invalidate()"
+                  [disabled]="busy()"
+              /></label>
+            }
+            @if (ruleKey === 'task_reminders') {
+              <label
+                >Task reminder look-ahead (days)<input
+                  name="taskDays"
+                  type="number"
+                  min="0"
+                  max="90"
+                  [(ngModel)]="options.taskDays"
+                  (ngModelChange)="invalidate()"
+                  [disabled]="busy()"
+              /></label>
+            }
+            @if (ruleKey === 'task_reminders' || ruleKey === 'audit_schedules') {
+              <label
+                >Audit look-ahead (days)<input
+                  name="auditDays"
+                  type="number"
+                  min="0"
+                  max="90"
+                  [(ngModel)]="options.auditDays"
+                  (ngModelChange)="invalidate()"
+                  [disabled]="busy()"
+              /></label>
+            }
+            @if (ruleKey === 'filing_overdue') {
+              <label
+                >Escalate after overdue days<input
+                  name="escalationDays"
+                  type="number"
+                  min="0"
+                  max="90"
+                  [(ngModel)]="options.escalationDays"
+                  (ngModelChange)="invalidate()"
+                  [disabled]="busy()"
+              /></label>
+            }
+            @if (ruleKey === 'applicability') {
+              <label
+                >Compliance package<select
+                  name="package"
+                  [(ngModel)]="options.packageId"
+                  (ngModelChange)="invalidate()"
+                  [disabled]="busy()"
+                >
+                  <option value="DEFAULT_INDIA">Default India package</option>
+                  @for (pkg of data.packages || []; track pkg.id) {
+                    <option [value]="pkg.id">{{ pkg.name }}</option>
+                  }
+                </select></label
+              >
+            }
+            <label
+              >Additional administrator summary recipients<select
+                name="recipients"
+                multiple
+                [(ngModel)]="options.recipientIds"
+                (ngModelChange)="invalidate()"
+                [disabled]="busy()"
+              >
+                @for (person of data.recipients || []; track person.id) {
+                  <option [value]="person.id">{{ person.name }}</option>
+                }
+              </select></label
+            >
+            <p class="small">
+              Up to 10 administrators can receive run summaries. Existing owner reminders continue.
+              Select no additional recipients to keep results in history only.
+            </p>
+          </details>
           <dl>
             <dt>Recipients</dt>
             <dd>{{ rule?.routing }}</dd>
@@ -172,14 +317,14 @@
       <h2>Schedules and overrides</h2>
       <p class="small">
         Scoped overrides are excluded from broader runs, including paused overrides. All times
-        follow India time. Other project automations retain their existing schedules.
+        follow India time. These controls cover the nine rules shown above.
       </p>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>Scope</th>
-              <th>Daily time</th>
+              <th>Schedule</th>
               <th>Configured state</th>
             </tr>
           </thead>
@@ -187,7 +332,7 @@
             @for (c of configured; track c.id) {
               <tr>
                 <td>{{ scopeLabel(c.client_id, c.branch_id) }}</td>
-                <td>{{ c.local_time }}</td>
+                <td>{{ scheduleLabel(c) }}</td>
                 <td>{{ c.enabled ? 'Enabled' : 'Paused' }}</td>
               </tr>
             }
@@ -229,6 +374,20 @@
               }
             </p>
             <p>{{ resultText(run.result) }}</p>
+            @if (run.result?.['actions']; as actions) {
+              <details>
+                <summary>Gap explanations and next actions</summary>
+                <p class="small">{{ run.result?.['note'] }}</p>
+                @for (action of actions; track action.id) {
+                  <article>
+                    <h3>{{ action.title }}</h3>
+                    <p>{{ action.explanation }}</p>
+                    <p><strong>Suggested next action:</strong> {{ action.nextAction }}</p>
+                    <p class="small">Activity {{ action.id }} · {{ action.status }}</p>
+                  </article>
+                }
+              </details>
+            }
             @if (run.error_message) {
               <p class="small error-text">{{ run.error_message }}</p>
             }

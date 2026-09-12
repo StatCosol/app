@@ -1,5 +1,7 @@
+import { operationalDate } from '../../common/operational-date';
+import { AutomationScope, scopedRows } from '../automation-scope';
 import { Injectable, Logger } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 
 export type SupportedAuditType =
   | 'CONTRACTOR_AUDIT'
@@ -34,135 +36,99 @@ export class AuditScheduleEngineService {
 
   constructor(private readonly dataSource: DataSource) {}
 
-  async generateDueSchedules() {
-    const today = new Date();
-    const fromDate = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
+  async candidates(scope: AutomationScope = {}) {
+    const today = new Date(operationalDate() + 'T00:00:00Z');
+    const until = new Date(today);
+    until.setUTCDate(until.getUTCDate() + (scope.options?.auditDays ?? 30));
+    const rules = await scopedRows(
+      this.dataSource,
+      `SELECT afr.*,afr.audit_type AS title FROM audit_frequency_rules afr
+      JOIN clients c ON c.id=afr.client_id
+      LEFT JOIN client_branches b ON b.id=afr.branch_id AND b.clientid=afr.client_id
+      WHERE afr.is_active=true AND c.is_deleted=false AND (afr.branch_id IS NULL OR b.isactive=true)
+      AND NOT EXISTS (SELECT 1 FROM audit_schedules made WHERE made.frequency_rule_id=afr.id AND (made.created_at AT TIME ZONE 'Asia/Kolkata')::date=$1::date)`,
+      [operationalDate()],
+      scope,
     );
-    const toDate = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate() + 30,
-    );
-
-    const rules = await this.dataSource.query(
-      `
-      SELECT
-        afr.id,
-        afr.client_id,
-        afr.audit_type,
-        afr.frequency,
-        afr.branch_id,
-        afr.contractor_id,
-        afr.is_active
-      FROM audit_frequency_rules afr
-      JOIN clients c ON c.id = afr.client_id
-      WHERE afr.is_active = true
-        AND COALESCE(c.is_deleted, false) = false
-      `,
-    );
-
-    let created = 0;
-    let skipped = 0;
-
+    const candidates: any[] = [];
     for (const rule of rules) {
-      const lastSchedule = await this.dataSource.query(
-        `
-        SELECT schedule_date
-        FROM audit_schedules
-        WHERE client_id = $1
-          AND audit_type = $2
-          AND COALESCE(branch_id, '00000000-0000-0000-0000-000000000000') =
-              COALESCE($3, '00000000-0000-0000-0000-000000000000')
-          AND COALESCE(contractor_id, '00000000-0000-0000-0000-000000000000') =
-              COALESCE($4, '00000000-0000-0000-0000-000000000000')
-        ORDER BY schedule_date DESC
-        LIMIT 1
-        `,
-        [
-          rule.client_id,
-          rule.audit_type,
-          rule.branch_id ?? null,
-          rule.contractor_id ?? null,
-        ],
+      const [last] = await this.dataSource.query(
+        `SELECT schedule_date FROM audit_schedules WHERE client_id=$1 AND audit_type=$2 AND branch_id IS NOT DISTINCT FROM $3::uuid AND contractor_id IS NOT DISTINCT FROM $4::uuid AND status<>'CANCELLED' ORDER BY schedule_date DESC LIMIT 1`,
+        [rule.client_id, rule.audit_type, rule.branch_id, rule.contractor_id],
       );
-
-      const nextDate = this.computeNextScheduleDate(
+      const next = this.computeNextScheduleDate(
         rule.frequency,
-        lastSchedule[0]?.schedule_date
-          ? new Date(lastSchedule[0].schedule_date)
-          : null,
-        fromDate,
+        last ? new Date(last.schedule_date) : null,
+        today,
       );
-
-      if (!nextDate) {
-        skipped += 1;
+      if (next && next <= until)
+        candidates.push({
+          ...rule,
+          scheduleDate: next,
+          auditorId: await this.assignAuditor(rule.client_id, rule.audit_type),
+        });
+    }
+    return candidates;
+  }
+  async generateDueSchedules(scope: AutomationScope = {}) {
+    let created = 0,
+      skipped = 0,
+      failures = 0;
+    for (const rule of await this.candidates(scope)) {
+      if (!rule.auditorId) {
+        failures++;
         continue;
       }
-
-      if (nextDate > toDate) {
-        skipped += 1;
-        continue;
-      }
-
-      const auditorId = await this.assignAuditor(
-        rule.client_id,
-        rule.audit_type,
-      );
-      if (!auditorId) {
-        this.logger.warn(
-          `No auditor found for client ${rule.client_id} and type ${rule.audit_type}`,
-        );
-        skipped += 1;
-        continue;
-      }
-
-      const alreadyExists = await this.findDuplicateSchedule({
+      const result = await this.createSchedule({
         clientId: rule.client_id,
         auditType: rule.audit_type,
-        branchId: rule.branch_id ?? null,
-        contractorId: rule.contractor_id ?? null,
-        scheduleDate: nextDate,
-      });
-
-      if (alreadyExists) {
-        skipped += 1;
-        continue;
-      }
-
-      await this.createSchedule({
-        clientId: rule.client_id,
-        auditType: rule.audit_type,
-        auditorId,
-        scheduleDate: nextDate,
-        dueDate: this.computeDefaultDueDate(nextDate),
-        branchId: rule.branch_id ?? null,
-        contractorId: rule.contractor_id ?? null,
+        auditorId: rule.auditorId,
+        scheduleDate: rule.scheduleDate,
+        dueDate: this.computeDefaultDueDate(rule.scheduleDate),
+        branchId: rule.branch_id,
+        contractorId: rule.contractor_id,
         scheduledBySystem: true,
         frequencyRuleId: rule.id,
         remarks: 'System auto-generated schedule',
       });
-
-      created += 1;
+      if (result.success) created++;
+      else skipped++;
     }
-
-    return {
-      generatedAt: new Date(),
-      created,
-      skipped,
-    };
+    return { created, skipped, failures };
   }
 
   async createSchedule(input: CreateScheduleInput) {
-    const duplicate = await this.findDuplicateSchedule({
-      clientId: input.clientId,
-      auditType: input.auditType,
-      branchId: input.branchId ?? null,
-      contractorId: input.contractorId ?? null,
-      scheduleDate: input.scheduleDate,
+    return this.dataSource.transaction(async (manager) => {
+      await manager.query(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+        [
+          JSON.stringify([
+            'audit-schedule',
+            input.clientId,
+            input.auditType,
+            input.branchId || null,
+            input.contractorId || null,
+            new Date(input.scheduleDate).toISOString().slice(0, 10),
+          ]),
+        ],
+      );
+      return this.createScheduleWithin(input, manager);
     });
+  }
+  private async createScheduleWithin(
+    input: CreateScheduleInput,
+    manager: EntityManager,
+  ) {
+    const duplicate = await this.findDuplicateSchedule(
+      {
+        clientId: input.clientId,
+        auditType: input.auditType,
+        branchId: input.branchId ?? null,
+        contractorId: input.contractorId ?? null,
+        scheduleDate: input.scheduleDate,
+      },
+      manager,
+    );
 
     if (duplicate) {
       return {
@@ -182,7 +148,7 @@ export class AuditScheduleEngineService {
             )
           : null;
 
-    const rows = await this.dataSource.query(
+    const rows = await manager.query(
       `
       INSERT INTO audit_schedules
       (
@@ -262,11 +228,11 @@ export class AuditScheduleEngineService {
   ): Promise<string | null> {
     const rows = await this.dataSource.query(
       `
-      SELECT ca.auditor_user_id AS auditor_id
+      SELECT ca.assigned_to_user_id AS auditor_id
       FROM client_assignments_current ca
       WHERE ca.client_id = $1
-        AND ca.auditor_user_id IS NOT NULL
-      ORDER BY ca.created_at DESC
+        AND ca.assignment_type='AUDITOR' AND ca.assigned_to_user_id IS NOT NULL
+      ORDER BY ca.updated_at DESC
       LIMIT 1
       `,
       [clientId],
@@ -323,23 +289,26 @@ export class AuditScheduleEngineService {
     );
   }
 
-  async findDuplicateSchedule(params: {
-    clientId: string;
-    auditType: string;
-    branchId?: string | null;
-    contractorId?: string | null;
-    scheduleDate: Date;
-  }) {
-    const rows = await this.dataSource.query(
+  async findDuplicateSchedule(
+    params: {
+      clientId: string;
+      auditType: string;
+      branchId?: string | null;
+      contractorId?: string | null;
+      scheduleDate: Date;
+    },
+    manager: Pick<DataSource, 'query'> | EntityManager = this.dataSource,
+  ) {
+    const rows = await manager.query(
       `
       SELECT *
       FROM audit_schedules
       WHERE client_id = $1
         AND audit_type = $2
         AND COALESCE(branch_id, '00000000-0000-0000-0000-000000000000') =
-            COALESCE($3, '00000000-0000-0000-0000-000000000000')
+            COALESCE($3::uuid, '00000000-0000-0000-0000-000000000000'::uuid)
         AND COALESCE(contractor_id, '00000000-0000-0000-0000-000000000000') =
-            COALESCE($4, '00000000-0000-0000-0000-000000000000')
+            COALESCE($4::uuid, '00000000-0000-0000-0000-000000000000'::uuid)
         AND DATE(schedule_date) = DATE($5)
         AND status <> 'CANCELLED'
       LIMIT 1
@@ -387,23 +356,45 @@ export class AuditScheduleEngineService {
     lastDate: Date | null,
     fallbackDate: Date,
   ): Date | null {
-    const base = lastDate ? new Date(lastDate) : new Date(fallbackDate);
+    if (
+      ![
+        'MONTHLY',
+        'QUARTERLY',
+        'HALF_YEARLY',
+        'YEARLY',
+        'ANNUAL',
+        'WEEKLY',
+      ].includes((frequency || '').toUpperCase())
+    )
+      return null;
+    if (!lastDate) return new Date(fallbackDate);
+    const base = new Date(lastDate);
 
     switch ((frequency ?? '').toUpperCase()) {
       case 'MONTHLY':
-        return new Date(base.getFullYear(), base.getMonth() + 1, 5);
+        return new Date(
+          Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 5),
+        );
       case 'QUARTERLY':
-        return new Date(base.getFullYear(), base.getMonth() + 3, 5);
+        return new Date(
+          Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 3, 5),
+        );
       case 'HALF_YEARLY':
-        return new Date(base.getFullYear(), base.getMonth() + 6, 5);
+        return new Date(
+          Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 6, 5),
+        );
       case 'YEARLY':
       case 'ANNUAL':
-        return new Date(base.getFullYear() + 1, base.getMonth(), 5);
+        return new Date(
+          Date.UTC(base.getUTCFullYear() + 1, base.getUTCMonth(), 5),
+        );
       case 'WEEKLY':
         return new Date(
-          base.getFullYear(),
-          base.getMonth(),
-          base.getDate() + 7,
+          Date.UTC(
+            base.getUTCFullYear(),
+            base.getUTCMonth(),
+            base.getUTCDate() + 7,
+          ),
         );
       default:
         return null;
@@ -412,12 +403,11 @@ export class AuditScheduleEngineService {
 
   private computeDefaultDueDate(scheduleDate: Date) {
     return new Date(
-      scheduleDate.getFullYear(),
-      scheduleDate.getMonth(),
-      scheduleDate.getDate() + 3,
-      23,
-      59,
-      59,
+      Date.UTC(
+        scheduleDate.getUTCFullYear(),
+        scheduleDate.getUTCMonth(),
+        scheduleDate.getUTCDate() + 3,
+      ),
     );
   }
 

@@ -35,9 +35,10 @@ const {
 } = require('../dist/src/automation/services/task-engine.service');
 const connection = {
   host: '127.0.0.1',
-  port: 55439,
-  user: 'monthly_close_test',
-  database: 'postgres',
+  port: Number(process.env.AUTOMATION_TEST_PORT || 55439),
+  user: process.env.AUTOMATION_TEST_USER || 'monthly_close_test',
+  password: process.env.AUTOMATION_TEST_PASSWORD || undefined,
+  database: process.env.AUTOMATION_TEST_DATABASE || 'postgres',
 };
 const schema = `automation_dedup_${Date.now()}`,
   id = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;

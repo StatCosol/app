@@ -32,6 +32,6 @@ import { UnitsController } from './units.controller';
     ApplicabilityEngineService,
     UnitApplicabilityService,
   ],
-  exports: [UnitsFactsService],
+  exports: [UnitsFactsService, ApplicabilityEngineService],
 })
 export class UnitsModule {}

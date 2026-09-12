@@ -79,7 +79,7 @@ describe('Automation control authority and scheduler ownership', () => {
         'SCHEDULE_CRON_OPTIONS',
         ReturnsFilingGeneratorJob.prototype.handleMonthlyFilings,
       ),
-    ).toBeDefined();
+    ).toBeUndefined();
   });
   it.each([
     { ruleKey: 'unrecognized' },
@@ -88,6 +88,11 @@ describe('Automation control authority and scheduler ownership', () => {
     { localTime: '8:00' },
     { version: -1 },
     { clientId: 'wrong' },
+    { frequency: 'HOURLY' },
+    { weekDay: 7 },
+    { monthDay: 0 },
+    { options: { taskDays: 91 } },
+    { options: { recipientIds: ['wrong'] } },
   ])('rejects invalid settings %j', (patch) => {
     expect(
       validateSync(
