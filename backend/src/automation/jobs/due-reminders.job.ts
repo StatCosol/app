@@ -25,16 +25,18 @@ export class DueRemindersJob {
 
       for (const task of dueSoon) {
         try {
-          await this.automationNotification.sendTaskDueReminder({
-            id: task.id,
-            title: task.title,
-            dueDate: task.due_date,
-            assignedUserId: task.assigned_user_id,
-            assignedRole: task.assigned_role,
-            clientId: task.client_id,
-            branchId: task.branch_id,
-          });
-          remindersSent++;
+          if (
+            await this.automationNotification.sendTaskDueReminder({
+              id: task.id,
+              title: task.title,
+              dueDate: task.due_date,
+              assignedUserId: task.assigned_user_id,
+              assignedRole: task.assigned_role,
+              clientId: task.client_id,
+              branchId: task.branch_id,
+            })
+          )
+            remindersSent++;
         } catch {
           // continue on individual failures
         }
@@ -46,16 +48,20 @@ export class DueRemindersJob {
 
       for (const task of overdue) {
         try {
-          await this.automationNotification.sendOverdueEscalation({
-            id: task.id,
-            title: task.title,
-            dueDate: task.due_date,
-            assignedUserId: task.assigned_user_id,
-            assignedRole: task.assigned_role,
-            clientId: task.client_id,
-            branchId: task.branch_id,
-          });
-          escalated++;
+          if (
+            await this.automationNotification.sendOverdueEscalation({
+              id: task.id,
+              title: task.title,
+              dueDate: task.due_date,
+              assignedUserId: task.assigned_user_id,
+              assignedRole: task.assigned_role,
+              clientId: task.client_id,
+              branchId: task.branch_id,
+              referenceId: task.reference_id,
+              referenceType: task.reference_type,
+            })
+          )
+            escalated++;
         } catch {
           // continue
         }
@@ -79,17 +85,20 @@ export class DueRemindersJob {
         for (const sch of schedules) {
           if (!sch.auditor_user_id) continue;
           try {
-            await this.automationNotification.sendScheduleNotice({
-              auditorUserId: sch.auditor_user_id,
-              clientName: sch.client_name,
-              auditType: sch.audit_type,
-              scheduleDate: new Date(sch.schedule_date).toDateString(),
-              dueDate: sch.due_date
-                ? new Date(sch.due_date).toDateString()
-                : null,
-              clientId: sch.client_id,
-            });
-            auditReminders++;
+            if (
+              await this.automationNotification.sendScheduleNotice({
+                scheduleId: sch.id,
+                auditorUserId: sch.auditor_user_id,
+                clientName: sch.client_name,
+                auditType: sch.audit_type,
+                scheduleDate: new Date(sch.schedule_date).toDateString(),
+                dueDate: sch.due_date
+                  ? new Date(sch.due_date).toDateString()
+                  : null,
+                clientId: sch.client_id,
+              })
+            )
+              auditReminders++;
           } catch {
             // continue
           }

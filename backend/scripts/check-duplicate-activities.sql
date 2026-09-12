@@ -1,12 +1,15 @@
 -- Read-only diagnostics. Review business context before merging any records.
 -- Exact active task identities: titles and dates can change without creating a new activity.
 SELECT module, reference_type, reference_id, assigned_role, assigned_user_id,
-       client_id, branch_id, contractor_id, COUNT(*) AS copies,
+       client_id, branch_id, contractor_id,
+       CASE WHEN reference_type IN ('CONTRACTOR_DOC_EXPIRY','LICENSE_EXPIRY') THEN due_date END AS expiry_cycle,
+       COUNT(*) AS copies,
        ARRAY_AGG(id ORDER BY created_at, id) AS task_ids
 FROM system_tasks
 WHERE status NOT IN ('CLOSED', 'CANCELLED') AND reference_id IS NOT NULL
 GROUP BY module, reference_type, reference_id, assigned_role, assigned_user_id,
-         client_id, branch_id, contractor_id
+         client_id, branch_id, contractor_id,
+         CASE WHEN reference_type IN ('CONTRACTOR_DOC_EXPIRY','LICENSE_EXPIRY') THEN due_date END
 HAVING COUNT(*) > 1
 ORDER BY copies DESC;
 

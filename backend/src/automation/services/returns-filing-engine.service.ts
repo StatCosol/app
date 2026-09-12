@@ -261,17 +261,20 @@ export class ReturnsFilingEngineService {
           [row.client_id],
         );
         if (crmRows.length) {
-          await this.notifications.sendReturnOverdueAlert({
-            userId: crmRows[0].assigned_to_user_id,
-            role: 'CRM',
-            returnType: row.return_type,
-            periodLabel: row.period_label,
-            branchName: row.branchname,
-            daysOverdue: row.days_overdue,
-            clientId: row.client_id,
-            branchId: row.branch_id,
-          });
-          alertsSent++;
+          if (
+            await this.notifications.sendReturnOverdueAlert({
+              filingId: row.id,
+              userId: crmRows[0].assigned_to_user_id,
+              role: 'CRM',
+              returnType: row.return_type,
+              periodLabel: row.period_label,
+              branchName: row.branchname,
+              daysOverdue: row.days_overdue,
+              clientId: row.client_id,
+              branchId: row.branch_id,
+            })
+          )
+            alertsSent++;
         }
       } catch {
         this.logger.warn(`Failed to send overdue alert for filing ${row.id}`);

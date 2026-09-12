@@ -1,148 +1,163 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { TaskEngineService, TaskPriority } from './task-engine.service';
-import { AutomationNotificationService } from './automation-notification.service';
+import { TaskEngineService } from './task-engine.service';
+import { operationalDate } from '../../common/operational-date';
 
-/**
- * Renewal Filing Engine:
- * Scans branch_registrations and creates renewal-type filing rows
- * in compliance_returns when a registration nears expiry (within 60 days).
- * Complementary to ExpiryEngineService (which creates system_tasks).
- */
+/** One filing and task for each registration expiry, shared by every trigger. */
 @Injectable()
 export class RenewalFilingEngineService {
   private readonly logger = new Logger(RenewalFilingEngineService.name);
-
   constructor(
     private readonly dataSource: DataSource,
     private readonly taskEngine: TaskEngineService,
-    private readonly _notifications: AutomationNotificationService,
   ) {}
 
-  /**
-   * Scan expiring registrations and generate renewal filing rows + tasks.
-   * Creates a compliance_returns row of type RENEWAL-<regType> so the
-   * branch user can track and upload renewal proof through the same flow.
-   */
-  async generateRenewalFilings(): Promise<{
-    filingsCreated: number;
-    tasksCreated: number;
-    skipped: number;
-  }> {
-    this.logger.log('Scanning for registrations needing renewal filings');
-
-    let filingsCreated = 0;
-    let tasksCreated = 0;
-    let skipped = 0;
-
-    // Find registrations expiring within 60 days that don't yet have a renewal filing
-    const expiring = await this.dataSource.query(
-      `SELECT br.id AS reg_id,
-              br.type AS registration_name,
-              br.type AS registration_type,
-              br.expiry_date,
-              br.branch_id,
-              b.clientid AS client_id,
-              b.branchname,
-              EXTRACT(DAY FROM br.expiry_date - NOW())::int AS days_left
-       FROM branch_registrations br
-       JOIN client_branches b ON b.id = br.branch_id
-       WHERE br.expiry_date IS NOT NULL
-         AND br.expiry_date > NOW()
-         AND br.expiry_date <= NOW() + INTERVAL '60 days'
-         AND br.status = 'ACTIVE'
-         AND b.isactive = true`,
+  async generateRenewalFilings() {
+    const today = operationalDate();
+    const registrations = await this.dataSource.query(
+      `SELECT br.id AS reg_id, br.type AS registration_type,
+      br.expiry_date::text AS expiry_date, br.branch_id, br.client_id, b.branchname,
+      br.expiry_date - $1::date AS days_left
+      FROM branch_registrations br JOIN client_branches b ON b.id=br.branch_id AND b.clientid=br.client_id
+      JOIN clients c ON c.id=br.client_id
+      WHERE br.expiry_date BETWEEN $1::date AND $1::date + 60
+        AND br.status='ACTIVE' AND b.isactive=true AND c.is_deleted=false`,
+      [today],
     );
-
-    const currentYear = new Date().getFullYear();
-
-    for (const reg of expiring) {
-      const returnType = `RENEWAL-${(reg.registration_type || 'REG').toUpperCase().replace(/\s+/g, '_')}`;
-
-      // Check if renewal filing already exists for this registration
-      const existing = await this.dataSource.query(
-        `SELECT id FROM compliance_returns
-         WHERE client_id = $1
-           AND branch_id = $2
-           AND return_type = $3
-           AND period_year = $4
-           AND is_deleted = false
-         LIMIT 1`,
-        [reg.client_id, reg.branch_id, returnType, currentYear],
-      );
-
-      if (existing.length) {
-        skipped++;
-        continue;
-      }
-
-      // Insert renewal filing row
-      const expiryDateStr = new Date(reg.expiry_date)
-        .toISOString()
-        .substring(0, 10);
-
-      const periodLabel = `Renewal — ${reg.registration_name}`.substring(
-        0,
-        200,
-      );
-
-      const inserted = await this.dataSource.query(
-        `INSERT INTO compliance_returns
-         (client_id, branch_id, law_type, return_type,
-          period_year, period_month, period_label,
-          due_date, status, created_by_role)
-         VALUES ($1, $2, 'RENEWAL', $3, $4, $5, $6, $7, 'PENDING', 'SYSTEM')
-         RETURNING id`,
-        [
-          reg.client_id,
-          reg.branch_id,
-          returnType,
-          currentYear,
-          new Date(reg.expiry_date).getMonth() + 1,
-          periodLabel,
-          expiryDateStr,
-        ],
-      );
-
-      filingsCreated++;
-
-      const filingId = inserted[0]?.id;
-      if (filingId) {
-        const priority =
-          reg.days_left <= 7
-            ? 'CRITICAL'
-            : reg.days_left <= 15
-              ? 'HIGH'
-              : 'MEDIUM';
-
-        try {
-          await this.taskEngine.createTask({
-            module: 'RENEWAL',
-            title: `Renew: ${reg.registration_name} (${reg.days_left}d left)`,
-            description:
-              `${reg.registration_name} at ${reg.branchname} expires on ${expiryDateStr}. ` +
-              `Please upload renewal proof via the returns filing flow.`,
-            referenceId: filingId,
-            referenceType: 'RENEWAL_FILING',
-            priority: priority as TaskPriority,
-            assignedRole: 'BRANCH',
-            clientId: reg.client_id,
-            branchId: reg.branch_id,
-            dueDate: new Date(reg.expiry_date),
-          });
-          tasksCreated++;
-        } catch (err) {
-          const errMsg = err instanceof Error ? err.message : 'unknown';
-          this.logger.warn(
-            `Failed to create renewal task for reg ${reg.reg_id}: ${errMsg}`,
+    let filingsCreated = 0,
+      tasksCreated = 0,
+      skipped = 0;
+    for (const reg of registrations) {
+      const result = await this.dataSource.transaction(
+        'READ COMMITTED',
+        async (manager) => {
+          // Lock the branch/type/expiry as legacy filings did not record registration IDs.
+          const returnType = `RENEWAL-${(reg.registration_type || 'REG').toUpperCase().replace(/\s+/g, '_')}`;
+          await manager.query(
+            'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+            [
+              JSON.stringify([
+                'renewal',
+                reg.client_id,
+                reg.branch_id,
+                returnType,
+                reg.expiry_date,
+              ]),
+            ],
           );
-        }
-      }
+          const links = await manager.query(
+            `SELECT cr.* FROM registration_renewal_links l
+          JOIN compliance_returns cr ON cr.id=l.filing_id WHERE l.registration_id=$1 AND l.expiry_date=$2::date`,
+            [reg.reg_id, reg.expiry_date],
+          );
+          let filing = links[0],
+            created = false;
+          if (!filing) {
+            const legacy = await manager.query(
+              `SELECT cr.* FROM compliance_returns cr
+            WHERE client_id=$1 AND branch_id=$2 AND return_type=$3 AND due_date=$4::date AND is_deleted=false
+              AND NOT EXISTS (SELECT 1 FROM registration_renewal_links l WHERE l.filing_id=cr.id)
+            ORDER BY created_at,id`,
+              [reg.client_id, reg.branch_id, returnType, reg.expiry_date],
+            );
+            if (
+              legacy.length > 1 ||
+              (legacy.length === 1 &&
+                registrations.filter(
+                  (other) =>
+                    other.client_id === reg.client_id &&
+                    other.branch_id === reg.branch_id &&
+                    other.expiry_date === reg.expiry_date &&
+                    other.registration_type === reg.registration_type,
+                ).length > 1)
+            ) {
+              this.logger.warn(
+                `Ambiguous legacy renewal filings need review for registration ${reg.reg_id}`,
+              );
+              return { created: false, task: false, skipped: true };
+            }
+            filing = legacy[0];
+            if (!filing) {
+              [filing] = await manager.query(
+                `INSERT INTO compliance_returns
+              (client_id,branch_id,law_type,return_type,period_year,period_month,period_label,due_date,status,created_by_role)
+              VALUES ($1,$2,'RENEWAL',$3,$4,$5,$6,$7,'PENDING','SYSTEM') RETURNING *`,
+                [
+                  reg.client_id,
+                  reg.branch_id,
+                  returnType,
+                  Number(reg.expiry_date.slice(0, 4)),
+                  Number(reg.expiry_date.slice(5, 7)),
+                  `Renewal — ${reg.registration_type}`.slice(0, 200),
+                  reg.expiry_date,
+                ],
+              );
+              created = true;
+            }
+            await manager.query(
+              `INSERT INTO registration_renewal_links (registration_id,expiry_date,filing_id) VALUES ($1,$2,$3)`,
+              [reg.reg_id, reg.expiry_date, filing.id],
+            );
+          }
+          // A removed filing requires explicit recovery; a scan must not undo that action.
+          if (filing.is_deleted)
+            return { created: false, task: false, skipped: true };
+          const terminal = ['APPROVED', 'NOT_APPLICABLE'].includes(
+            filing.status,
+          );
+          const existing = await manager.query(
+            `SELECT id FROM system_tasks WHERE reference_type='RENEWAL_FILING'
+          AND reference_id=$1 AND assigned_role='BRANCH' AND client_id=$2 AND branch_id=$3`,
+            [filing.id, reg.client_id, reg.branch_id],
+          );
+          if (!terminal)
+            await this.taskEngine.createTask(
+              {
+                module: 'RENEWAL',
+                referenceId: filing.id,
+                referenceType: 'RENEWAL_FILING',
+                assignedRole: 'BRANCH',
+                clientId: reg.client_id,
+                branchId: reg.branch_id,
+                reuseTerminal: true,
+                title: `Renew: ${reg.registration_type}`,
+                description: `${reg.registration_type} at ${reg.branchname} expires on ${reg.expiry_date}. Upload renewal proof through the filing.`,
+                dueDate: new Date(reg.expiry_date),
+                priority:
+                  reg.days_left <= 7
+                    ? 'CRITICAL'
+                    : reg.days_left <= 15
+                      ? 'HIGH'
+                      : 'MEDIUM',
+              },
+              manager,
+            );
+          // Retire only the exact legacy expiry activity once its canonical filing exists.
+          // History is kept and the replacement is recorded; this does not approve anything.
+          await manager.query(
+            `UPDATE system_tasks SET status='CANCELLED', updated_at=now(),
+          description=COALESCE(description,'') || $5
+          WHERE reference_type='REGISTRATION_EXPIRY' AND reference_id=$1 AND client_id=$2 AND branch_id=$3
+            AND due_date=$4::date AND status NOT IN ('CLOSED','CANCELLED')`,
+            [
+              reg.reg_id,
+              reg.client_id,
+              reg.branch_id,
+              reg.expiry_date,
+              `\nSuperseded by renewal filing ${filing.id}.`,
+            ],
+          );
+          return {
+            created,
+            task: !terminal && !existing.length,
+            skipped: !created,
+          };
+        },
+      );
+      if (result.created) filingsCreated++;
+      if (result.task) tasksCreated++;
+      if (result.skipped) skipped++;
     }
-
-    this.logger.log(
-      `Renewal filings: ${filingsCreated} created, ${tasksCreated} tasks, ${skipped} skipped`,
-    );
     return { filingsCreated, tasksCreated, skipped };
   }
 }

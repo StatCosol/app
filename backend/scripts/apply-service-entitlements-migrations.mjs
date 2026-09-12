@@ -86,6 +86,8 @@ const serviceMigrationFiles = new Set([
   '20260809b_retire_mobile_attendance_data.sql',
   // Azure Face API columns for FaceDesk duplicate detection.
   '20260811_facedesk_azure_face.sql',
+  // Durable reminder receipts and one canonical renewal filing per expiry.
+  '20260912_automation_delivery_dedup.sql',
 ]);
 
 const config = {

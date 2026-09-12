@@ -7,7 +7,7 @@ import {
 } from '../../audits/entities/audit-non-compliance.entity';
 import { AuditEntity } from '../../audits/entities/audit.entity';
 import { TaskEngineService } from './task-engine.service';
-import { NotificationsService } from '../../notifications/notifications.service';
+import { AutomationNotificationService } from './automation-notification.service';
 
 @Injectable()
 export class NonComplianceEngineService {
@@ -19,7 +19,7 @@ export class NonComplianceEngineService {
     @InjectRepository(AuditEntity)
     private readonly auditRepo: Repository<AuditEntity>,
     private readonly taskEngine: TaskEngineService,
-    private readonly notificationsService: NotificationsService,
+    private readonly notificationsService: AutomationNotificationService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -182,19 +182,17 @@ export class NonComplianceEngineService {
           `Status: ${nc.status}\n` +
           `Raised: ${nc.raisedAt ? new Date(nc.raisedAt).toDateString() : 'N/A'}`;
 
-        // Use existing notification system
-        await this.notificationsService.createTicket(
-          audit.assignedAuditorId ?? audit.createdByUserId,
-          'AUDITOR',
-          {
+        if (
+          await this.notificationsService.sendNcReminder({
+            ncId: nc.id,
+            userId: audit.assignedAuditorId ?? audit.createdByUserId,
+            clientId: audit.clientId,
+            branchId: audit.branchId,
             subject,
             message,
-            queryType: 'AUDIT',
-            clientId: audit.clientId,
-            branchId: audit.branchId || undefined,
-          },
-        );
-        sent++;
+          })
+        )
+          sent++;
       } catch (err) {
         this.logger.error(
           `NC reminder failed for ${nc.id}: ${err instanceof Error ? err.message : String(err)}`,

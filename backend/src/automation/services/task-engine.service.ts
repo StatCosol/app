@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
+import { operationalDate } from '../../common/operational-date';
 import { NotificationsService } from '../../notifications/notifications.service';
 
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
@@ -39,6 +40,8 @@ export interface CreateSystemTaskInput {
   contractorId?: string | null;
   dueDate?: Date | null;
   createdByUserId?: string | null;
+  reuseTerminal?: boolean;
+  occurrenceDate?: string;
 }
 
 @Injectable()
@@ -50,7 +53,10 @@ export class TaskEngineService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
-  async createTask(input: CreateSystemTaskInput) {
+  async createTask(
+    input: CreateSystemTaskInput,
+    transactionManager?: EntityManager,
+  ) {
     this.logger.log(
       `Creating task: ${input.module} | ${input.referenceType} | ${input.referenceId}`,
     );
@@ -68,10 +74,16 @@ export class TaskEngineService {
       input.branchId?.toLowerCase() ?? null,
       input.contractorId?.toLowerCase() ?? null,
     ];
-    return this.dataSource.transaction('READ COMMITTED', async (manager) => {
+    const create = async (manager: EntityManager) => {
       await manager.query(
         'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
-        [JSON.stringify(['system-task', ...identity])],
+        [
+          JSON.stringify([
+            'system-task',
+            ...identity,
+            ...(input.occurrenceDate ? [input.occurrenceDate] : []),
+          ]),
+        ],
       );
       const existing = await manager.query(
         `SELECT * FROM system_tasks
@@ -81,9 +93,14 @@ export class TaskEngineService {
            AND client_id IS NOT DISTINCT FROM $6::uuid
            AND branch_id IS NOT DISTINCT FROM $7::uuid
            AND contractor_id IS NOT DISTINCT FROM $8::uuid
-           AND status NOT IN ('CLOSED', 'CANCELLED')
+           AND ($9::boolean OR status NOT IN ('CLOSED', 'CANCELLED'))
+           AND ($10::date IS NULL OR due_date = $10::date)
          ORDER BY created_at, id LIMIT 1`,
-        identity,
+        [
+          ...identity,
+          input.reuseTerminal ?? false,
+          input.occurrenceDate ?? null,
+        ],
       );
       if (existing.length) return existing[0];
 
@@ -129,7 +146,10 @@ export class TaskEngineService {
       );
 
       return rows[0];
-    });
+    };
+    return transactionManager
+      ? create(transactionManager)
+      : this.dataSource.transaction('READ COMMITTED', create);
   }
 
   async createAuditNcTask(params: {
@@ -238,9 +258,10 @@ export class TaskEngineService {
       SELECT *
       FROM system_tasks
       WHERE status IN ('OPEN', 'IN_PROGRESS', 'AWAITING_REUPLOAD')
-        AND due_date < NOW()
+        AND due_date < $1::date
       ORDER BY due_date ASC
       `,
+      [operationalDate()],
     );
   }
 
@@ -250,11 +271,11 @@ export class TaskEngineService {
       SELECT *
       FROM system_tasks
       WHERE status IN ('OPEN', 'IN_PROGRESS', 'AWAITING_REUPLOAD')
-        AND due_date >= NOW()
-        AND due_date <= NOW() + $1 * interval '1 day'
+        AND due_date >= $2::date
+        AND due_date <= $2::date + $1::int
       ORDER BY due_date ASC
       `,
-      [days],
+      [days, operationalDate()],
     );
   }
 
