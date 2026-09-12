@@ -13,6 +13,8 @@ import { InvoicePayment } from '../models/billing.models';
     <div class="p-6 space-y-6">
       <h1 class="text-2xl font-bold text-slate-800">Payment Receipts</h1>
 
+      @if (loadError) { <div role="alert">Payments could not be loaded. <button type="button" (click)="load()">Retry</button></div> }
+      @if (!loadError && !loading) {
       <div class="bg-white rounded-xl border shadow-sm overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
@@ -63,11 +65,14 @@ import { InvoicePayment } from '../models/billing.models';
         </div>
       </div>
 }
+      }
     </div>
   `,
 })
 export class BillingPaymentsComponent implements OnInit {
   payments: InvoicePayment[] = [];
+  loadError = false;
+  loading = false;
   page = 1;
   totalPages = 0;
 
@@ -76,12 +81,15 @@ export class BillingPaymentsComponent implements OnInit {
   ngOnInit(): void { this.load(); }
 
   load(): void {
+    this.loadError = false;
+    this.loading = true;
     this.svc.getAllPayments({ page: String(this.page) }).subscribe({
       next: (r) => {
+        this.loading = false;
         this.payments = (r && r.data) || [];
         this.totalPages = (r && r.totalPages) || 0;
       },
-      error: (e) => { console.error('[billing] payments load failed', e); this.payments = []; this.totalPages = 0; },
+      error: () => { this.loadError = true; this.loading = false; },
     });
   }
 

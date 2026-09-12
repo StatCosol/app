@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -36,7 +37,7 @@ export class EmployeeAppraisalsService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async findAll(filter: AppraisalFilterDto) {
+  async findAll(filter: AppraisalFilterDto & { branchIds?: string[] }) {
     const page = filter.page ?? 1;
     const pageSize = filter.pageSize ?? 50;
 
@@ -62,6 +63,10 @@ export class EmployeeAppraisalsService {
       params.push(filter.branchId);
       paramIdx++;
       query += ` AND ea.branch_id = $${paramIdx}`;
+    } else if (filter.branchIds) {
+      params.push(filter.branchIds);
+      paramIdx++;
+      query += ` AND ea.branch_id = ANY($${paramIdx}::uuid[])`;
     }
     if (filter.cycleId) {
       params.push(filter.cycleId);
@@ -135,16 +140,35 @@ export class EmployeeAppraisalsService {
   }
 
   async managerReview(id: string, dto: ManagerReviewDto, userId: string) {
+    if (!this.inTransaction)
+      return this.transition(id, (tx) => tx.managerReview(id, dto, userId));
+
     const appraisal = await this.appraisalRepo.findOne({ where: { id } });
     if (!appraisal) throw new NotFoundException('Appraisal not found');
+    if (
+      appraisal.lockedAt ||
+      !['INITIATED', 'SELF_SUBMITTED', 'SENT_BACK'].includes(appraisal.status)
+    )
+      throw new BadRequestException(
+        'Action is not allowed in the current appraisal state',
+      );
     if (appraisal.lockedAt)
       throw new BadRequestException('Appraisal is locked');
 
     // Update item ratings
     for (const item of dto.items) {
+      if (
+        !item.itemId ||
+        !(await this.itemRepo.findOne({
+          where: { id: item.itemId, employeeAppraisalId: id },
+        }))
+      )
+        throw new BadRequestException(
+          'Review item does not belong to this appraisal',
+        );
       if (item.itemId) {
         await this.itemRepo.update(
-          { id: item.itemId },
+          { id: item.itemId, employeeAppraisalId: id },
           {
             managerRating: item.rating ?? null,
             managerRemarks: item.remarks ?? null,
@@ -183,15 +207,31 @@ export class EmployeeAppraisalsService {
   }
 
   async branchReview(id: string, dto: BranchReviewDto, userId: string) {
+    if (!this.inTransaction)
+      return this.transition(id, (tx) => tx.branchReview(id, dto, userId));
+
     const appraisal = await this.appraisalRepo.findOne({ where: { id } });
     if (!appraisal) throw new NotFoundException('Appraisal not found');
+    if (appraisal.lockedAt || !['MANAGER_REVIEWED'].includes(appraisal.status))
+      throw new BadRequestException(
+        'Action is not allowed in the current appraisal state',
+      );
     if (appraisal.lockedAt)
       throw new BadRequestException('Appraisal is locked');
 
     for (const item of dto.items) {
+      if (
+        !item.itemId ||
+        !(await this.itemRepo.findOne({
+          where: { id: item.itemId, employeeAppraisalId: id },
+        }))
+      )
+        throw new BadRequestException(
+          'Review item does not belong to this appraisal',
+        );
       if (item.itemId) {
         await this.itemRepo.update(
-          { id: item.itemId },
+          { id: item.itemId, employeeAppraisalId: id },
           {
             branchRating: item.rating ?? null,
             branchRemarks: item.remarks ?? null,
@@ -227,8 +267,15 @@ export class EmployeeAppraisalsService {
   }
 
   async clientApprove(id: string, dto: ClientApproveDto, userId: string) {
+    if (!this.inTransaction)
+      return this.transition(id, (tx) => tx.clientApprove(id, dto, userId));
+
     const appraisal = await this.appraisalRepo.findOne({ where: { id } });
     if (!appraisal) throw new NotFoundException('Appraisal not found');
+    if (appraisal.lockedAt || !['BRANCH_REVIEWED'].includes(appraisal.status))
+      throw new BadRequestException(
+        'Action is not allowed in the current appraisal state',
+      );
     if (appraisal.lockedAt)
       throw new BadRequestException('Appraisal is locked');
 
@@ -268,23 +315,56 @@ export class EmployeeAppraisalsService {
     return this.findOne(id);
   }
 
-  async sendBack(id: string, remarks: string, userId: string) {
+  async sendBack(
+    id: string,
+    remarks: string,
+    userId: string,
+    actorLevel: 'CLIENT' | 'BRANCH' = 'BRANCH',
+  ) {
+    if (!this.inTransaction)
+      return this.transition(id, (tx) =>
+        tx.sendBack(id, remarks, userId, actorLevel),
+      );
+
     const appraisal = await this.appraisalRepo.findOne({ where: { id } });
     if (!appraisal) throw new NotFoundException('Appraisal not found');
+    if (
+      appraisal.lockedAt ||
+      ![
+        'SELF_SUBMITTED',
+        'MANAGER_REVIEWED',
+        'BRANCH_REVIEWED',
+        'CLIENT_APPROVED',
+      ].includes(appraisal.status)
+    )
+      throw new BadRequestException(
+        'Action is not allowed in the current appraisal state',
+      );
 
+    if (appraisal.status === 'CLIENT_APPROVED' && actorLevel !== 'CLIENT')
+      throw new ForbiddenException(
+        'Only company users can send back an approved appraisal',
+      );
     const oldStatus = appraisal.status;
     appraisal.status = 'SENT_BACK';
     await this.appraisalRepo.save(appraisal);
 
-    await this.logApproval(id, 'BRANCH', userId, 'SENT_BACK', remarks);
+    await this.logApproval(id, actorLevel, userId, 'SENT_BACK', remarks);
     await this.logAudit(id, 'SENT_BACK', oldStatus, 'SENT_BACK', userId);
 
     return { ok: true };
   }
 
   async lock(id: string, userId: string) {
+    if (!this.inTransaction)
+      return this.transition(id, (tx) => tx.lock(id, userId));
+
     const appraisal = await this.appraisalRepo.findOne({ where: { id } });
     if (!appraisal) throw new NotFoundException('Appraisal not found');
+    if (appraisal.lockedAt || !['CLIENT_APPROVED'].includes(appraisal.status))
+      throw new BadRequestException(
+        'Action is not allowed in the current appraisal state',
+      );
     if (appraisal.status !== 'CLIENT_APPROVED')
       throw new BadRequestException('Only approved appraisals can be locked');
 
@@ -303,12 +383,19 @@ export class EmployeeAppraisalsService {
     });
   }
 
-  async getDashboard(clientId: string, branchId?: string) {
+  async getDashboard(
+    clientId: string,
+    branchId?: string,
+    branchIds?: string[],
+  ) {
     let where = 'ea.client_id = $1';
     const params: any[] = [clientId];
     if (branchId) {
       where += ' AND ea.branch_id = $2';
       params.push(branchId);
+    } else if (branchIds) {
+      where += ' AND ea.branch_id = ANY($2::uuid[])';
+      params.push(branchIds);
     }
 
     const [summary] = await this.dataSource.query(
@@ -367,10 +454,10 @@ export class EmployeeAppraisalsService {
              COUNT(*) FILTER (WHERE ea.status IN ('CLIENT_APPROVED','LOCKED','CLOSED'))::int AS completed
       FROM employee_appraisals ea
       LEFT JOIN client_branches b ON ea.branch_id = b.id
-      WHERE ${where.replace('ea.branch_id = $2', '1=1')}
+      WHERE ${where}
       GROUP BY b.branchname ORDER BY avg_score DESC NULLS LAST
     `,
-      [clientId],
+      params,
     );
 
     return { summary, topPerformers, lowPerformers, branchSummary };
@@ -400,8 +487,18 @@ export class EmployeeAppraisalsService {
     items: { itemId: string; rating: number; remarks?: string }[],
     employeeId: string,
   ) {
+    if (!this.inTransaction)
+      return this.transition(id, (tx) => tx.selfReview(id, items, employeeId));
+
     const appraisal = await this.appraisalRepo.findOne({ where: { id } });
     if (!appraisal) throw new NotFoundException('Appraisal not found');
+    if (
+      appraisal.lockedAt ||
+      !['INITIATED', 'SENT_BACK'].includes(appraisal.status)
+    )
+      throw new BadRequestException(
+        'Action is not allowed in the current appraisal state',
+      );
     if (appraisal.employeeId !== employeeId)
       throw new BadRequestException('This appraisal does not belong to you');
     if (appraisal.lockedAt)
@@ -412,6 +509,15 @@ export class EmployeeAppraisalsService {
       );
 
     for (const item of items) {
+      if (
+        !item.itemId ||
+        !(await this.itemRepo.findOne({
+          where: { id: item.itemId, employeeAppraisalId: id },
+        }))
+      )
+        throw new BadRequestException(
+          'Review item does not belong to this appraisal',
+        );
       if (item.itemId) {
         await this.itemRepo.update(
           { id: item.itemId, employeeAppraisalId: id },
@@ -446,6 +552,31 @@ export class EmployeeAppraisalsService {
     return this.findOne(id);
   }
 
+  private inTransaction = false;
+  private transition<T>(
+    id: string,
+    action: (service: EmployeeAppraisalsService) => Promise<T>,
+  ): Promise<T> {
+    return this.dataSource.transaction(async (manager) => {
+      await manager
+        .getRepository(EmployeeAppraisalEntity)
+        .createQueryBuilder('a')
+        .setLock('pessimistic_write')
+        .where('a.id = :id', { id })
+        .getOne();
+      const tx = new EmployeeAppraisalsService(
+        manager.getRepository(EmployeeAppraisalEntity),
+        manager.getRepository(EmployeeAppraisalItemEntity),
+        manager.getRepository(AppraisalApprovalEntity),
+        manager.getRepository(AppraisalAuditLogEntity),
+        manager.getRepository(AppraisalRatingScaleItemEntity),
+        manager.getRepository(AppraisalCycleEntity),
+        manager as unknown as DataSource,
+      );
+      tx.inTransaction = true;
+      return action(tx);
+    });
+  }
   // ── Private helpers ──
 
   private async recalculateScores(

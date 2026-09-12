@@ -344,7 +344,11 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
           this.filteredRuns = this.applyLocalSearch(rows);
           this._guardCache.clear();
 
-          if (this.selectedRun) {
+          const linkedRunId = this.route.snapshot.queryParamMap?.get('runId');
+          if (!this.selectedRun && linkedRunId) {
+            this.selectedRun = rows.find(r => r.id === linkedRunId) || null;
+            if (!this.selectedRun) this.toast.error('The requested payroll run is not available for this client and period.');
+          } else if (this.selectedRun) {
             const updated = this.filteredRuns.find((r) => r.id === this.selectedRun?.id);
             this.selectedRun = updated || (this.filteredRuns[0] || null);
           } else {

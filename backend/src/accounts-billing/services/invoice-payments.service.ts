@@ -182,21 +182,17 @@ export class InvoicePaymentsService {
         : `${date.getFullYear() - 1}-${String(date.getFullYear()).slice(2)}`;
 
     const prefix = `STS/REC/${fy}/`;
-    const repo = manager
-      ? manager.getRepository(InvoicePayment)
-      : this.paymentRepo;
-    const last = await repo
-      .createQueryBuilder('p')
-      .where('p.receipt_number LIKE :prefix', { prefix: `${prefix}%` })
-      .orderBy('p.receiptNumber', 'DESC')
-      .getOne();
-
-    let seq = 1;
-    if (last) {
-      const parts = last.receiptNumber.split('/');
-      const num = parseInt(parts[parts.length - 1], 10);
-      if (!isNaN(num)) seq = num + 1;
-    }
+    if (!manager)
+      throw new BadRequestException(
+        'Receipt allocation requires a transaction',
+      );
+    // Serialize the financial-year counter across invoices until payment commit.
+    await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [prefix]);
+    const [row] = await manager.query(
+      "SELECT COALESCE(MAX(split_part(receipt_number, '/', 4)::bigint), 0)::text AS maximum FROM invoice_payments WHERE receipt_number LIKE $1 AND split_part(receipt_number, '/', 4) ~ '^[0-9]+$'",
+      [prefix + '%'],
+    );
+    const seq = BigInt(row.maximum) + 1n;
 
     return `${prefix}${String(seq).padStart(4, '0')}`;
   }

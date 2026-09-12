@@ -42,6 +42,7 @@ import {
 })
 export class EssLeaveComponent implements OnInit, OnDestroy {
   loading = false;
+  loadError = false;
   balances: LeaveBalance[] = [];
   policies: LeavePolicy[] = [];
   applications: LeaveApplication[] = [];
@@ -76,6 +77,7 @@ export class EssLeaveComponent implements OnInit, OnDestroy {
   }
 
   loadAll(): void {
+    this.loadError = false;
     this.loading = true;
     forkJoin({
       balances: this.api.getLeaveBalances(),
@@ -99,9 +101,7 @@ export class EssLeaveComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.loading = false;
-        this.balances = [];
-        this.policies = [];
-        this.applications = [];
+        this.loadError = true;
       },
     });
   }

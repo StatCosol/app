@@ -5,6 +5,13 @@
     icon="clipboard-list">
   </ui-page-header>
 
+  @if (loadErrors.length) {
+    <div role="alert" class="mb-4 rounded border border-amber-300 bg-amber-50 p-3">
+      Could not refresh: {{ loadErrors.join(', ') }}. Previously loaded items may be out of date.
+      <button type="button" (click)="load()" [disabled]="loading">Retry</button>
+    </div>
+  }
+
   <div class="summary-grid">
     @for (card of summaryCards; track card) {
 <div
@@ -132,7 +139,10 @@
 <ui-loading-spinner size="sm" text="Loading checklist..."></ui-loading-spinner>
 }
 
-    @if (!checklistLoading) {
+    @if (checklistError) {
+      <div role="alert">Could not load this checklist. <button type="button" (click)="reloadChecklist()">Retry</button></div>
+    }
+    @if (!checklistLoading && !checklistError) {
 <div class="checklist-items">
       @for (item of monthlyChecklist?.items; track item) {
 <div
@@ -164,6 +174,9 @@
         </div>
         <div class="checklist-row__info">
           <span class="checklist-row__name">{{ monthlyDocLabel(item.docType) }}</span>
+          @if (item.branchId && !checklistBranchId) {
+            <span>{{ branchName(item.branchId) }}</span>
+          }
           <span class="checklist-row__desc">{{ monthlyDocDesc(item.docType) }}</span>
           <span class="checklist-badge"
                 [class.checklist-badge--ok]="item.uploadedDocs[0]?.status === 'APPROVED'"

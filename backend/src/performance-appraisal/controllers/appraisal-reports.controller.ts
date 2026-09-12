@@ -1,3 +1,5 @@
+import { UseGuards } from '@nestjs/common';
+import { AppraisalScopeGuard } from '../appraisal-scope.guard';
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Roles } from '../../auth/roles.decorator';
@@ -5,6 +7,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ReqUser } from '../../access/access-scope.service';
 import { AppraisalReportsService } from '../services/appraisal-reports.service';
 
+@UseGuards(AppraisalScopeGuard)
 @ApiTags('Appraisal Reports')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'appraisal/reports', version: '1' })

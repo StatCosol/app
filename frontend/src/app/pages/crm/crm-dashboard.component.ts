@@ -78,6 +78,13 @@ function coerceDateValue(value: unknown): string {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CrmDashboardComponent implements OnInit, OnDestroy {
+  dataUnavailable = false;
+  private unavailable<T>(fallback: T) {
+    this.dataUnavailable = true;
+    this.cdr.markForCheck();
+    return of(fallback);
+  }
+
   private readonly destroy$ = new Subject<void>();
 
   loading = false;
@@ -149,26 +156,27 @@ export class CrmDashboardComponent implements OnInit, OnDestroy {
   }
 
   loadAll(): void {
+    this.dataUnavailable = false;
     this.loading = true;
     this.errorMsg = '';
 
     forkJoin({
-      kpis: this.dashboardSvc.getCrmKpis().pipe(catchError(() => of(this.kpis))),
+      kpis: this.dashboardSvc.getCrmKpis().pipe(catchError(() => this.unavailable(this.kpis))),
       due: this.dashboardSvc.getCrmDueCompliances({ tab: this.dueTab, limit: '20' }).pipe(
-        catchError(() => of({ items: [] as ComplianceDueItem[] })),
+        catchError(() => this.unavailable({ items: [] as ComplianceDueItem[] })),
       ),
       lowCoverage: this.dashboardSvc.getCrmLowCoverage({ limit: '12' }).pipe(
-        catchError(() => of({ items: [] })),
+        catchError(() => this.unavailable({ items: [] })),
       ),
       pendingDocs: this.dashboardSvc.getCrmPendingDocuments({ limit: '12' }).pipe(
-        catchError(() => of({ items: [] })),
+        catchError(() => this.unavailable({ items: [] })),
       ),
       queries: this.dashboardSvc.getCrmQueries({ status: 'UNREAD', limit: '8' }).pipe(
-        catchError(() => of({ items: [] })),
+        catchError(() => this.unavailable({ items: [] })),
       ),
-      priority: this.dashboardSvc.getCrmPriorityToday(12).pipe(catchError(() => of({ items: [] }))),
-      risk: this.dashboardSvc.getCrmTopRiskClients(8).pipe(catchError(() => of({ items: [] }))),
-      audits: this.dashboardSvc.getCrmUpcomingAudits(15).pipe(catchError(() => of({ items: [] }))),
+      priority: this.dashboardSvc.getCrmPriorityToday(12).pipe(catchError(() => this.unavailable({ items: [] }))),
+      risk: this.dashboardSvc.getCrmTopRiskClients(8).pipe(catchError(() => this.unavailable({ items: [] }))),
+      audits: this.dashboardSvc.getCrmUpcomingAudits(15).pipe(catchError(() => this.unavailable({ items: [] }))),
     })
       .pipe(
         takeUntil(this.destroy$),
@@ -179,6 +187,7 @@ export class CrmDashboardComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: ({ kpis, due, lowCoverage, pendingDocs, queries, priority, risk, audits }) => {
+          if (this.dataUnavailable) return;
           this.kpis = kpis || this.kpis;
           this.dueItems = (due?.items || []).map((row) => ({
             ...row,
@@ -313,13 +322,13 @@ export class CrmDashboardComponent implements OnInit, OnDestroy {
     forkJoin({
       renewals: this.dueItemsSvc
         .list({ month, tab: 'OVERDUE', category: 'RENEWAL', page: 1, limit: 1 })
-        .pipe(catchError(() => of({ total: 0 } as any))),
+        .pipe(catchError(() => this.unavailable({ total: 0 } as any))),
       amendments: this.dueItemsSvc
         .list({ month, tab: 'OVERDUE', category: 'AMENDMENT', page: 1, limit: 1 })
-        .pipe(catchError(() => of({ total: 0 } as any))),
+        .pipe(catchError(() => this.unavailable({ total: 0 } as any))),
       registrationsHint: this.dashboardSvc
         .getCrmDueCompliances({ tab: 'OVERDUE', limit: '100' })
-        .pipe(catchError(() => of({ items: [] as ComplianceDueItem[] }))),
+        .pipe(catchError(() => this.unavailable({ items: [] as ComplianceDueItem[] }))),
     })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
@@ -341,7 +350,7 @@ export class CrmDashboardComponent implements OnInit, OnDestroy {
     const calls = months.map((month) =>
       this.dueItemsSvc
         .getKpis({ month })
-        .pipe(catchError(() => of({ overdue: 0, dueSoon: 0, thisMonth: 0, completed: 0 } as DueKpis))),
+        .pipe(catchError(() => this.unavailable({ overdue: 0, dueSoon: 0, thisMonth: 0, completed: 0 } as DueKpis))),
     );
 
     forkJoin(calls)
@@ -380,7 +389,7 @@ export class CrmDashboardComponent implements OnInit, OnDestroy {
       .listFilings({})
       .pipe(
         takeUntil(this.destroy$),
-        catchError(() => of([])),
+        catchError(() => this.unavailable([])),
       )
       .subscribe({
         next: (rows) => {

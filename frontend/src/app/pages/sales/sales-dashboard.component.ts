@@ -1,3 +1,4 @@
+import { forkJoin } from 'rxjs';
 import { Component, OnInit, ChangeDetectionStrategy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
@@ -67,7 +68,7 @@ import {
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <ui-kpi-tile
             label="Open Leads"
-            [value]="openLeads().length"
+            [value]="openLeadCount()"
             color="emerald"
             (tileClick)="goTo('/sales/leads')">
             <ui-icon slot="icon" name="funnel" class="text-emerald-600" />
@@ -156,31 +157,16 @@ export class SalesDashboardComponent implements OnInit {
   loading = signal(true);
   error = signal<string | null>(null);
   followups = signal<Lead[]>([]);
-  openLeads = signal<Lead[]>([]);
+  summaryStages = signal<{ stage: string; count: number; value: string }[]>([]);
 
+  openLeadCount = computed(() => this.summaryStages().reduce((n, s) => n + Number(s.count), 0));
   pipelineValue = computed(() => {
-    const sum = this.openLeads().reduce((s, l) => s + Number(l.estimatedValue || 0), 0);
+    const sum = this.summaryStages().reduce((s, l) => s + Number(l.value || 0), 0);
     return '₹ ' + sum.toLocaleString('en-IN');
   });
-  inNegotiation = computed(
-    () =>
-      this.openLeads().filter(
-        (l) => l.stage === 'PROPOSAL_SENT' || l.stage === 'AGREEMENT_SENT' || l.stage === 'NEGOTIATION',
-      ).length,
-  );
-  newLeads = computed(() => this.openLeads().filter((l) => l.stage === 'NEW').length);
-
-  private stageBuckets = computed(() => {
-    const counts = new Map<string, { count: number; value: number }>();
-    for (const l of this.openLeads()) {
-      const stage = l.stage || 'UNKNOWN';
-      const entry = counts.get(stage) ?? { count: 0, value: 0 };
-      entry.count++;
-      entry.value += Number(l.estimatedValue || 0);
-      counts.set(stage, entry);
-    }
-    return [...counts.entries()].sort((a, b) => b[1].count - a[1].count);
-  });
+  inNegotiation = computed(() => this.summaryStages().filter(l => ['PROPOSAL_SENT', 'AGREEMENT_SENT', 'NEGOTIATION'].includes(l.stage)).reduce((n, l) => n + Number(l.count), 0));
+  newLeads = computed(() => Number(this.summaryStages().find(l => l.stage === 'NEW')?.count || 0));
+  private stageBuckets = computed(() => this.summaryStages().map(l => [l.stage, { count: Number(l.count), value: Number(l.value) }] as [string, {count: number; value: number}]).sort((a, b) => b[1].count - a[1].count));
 
   stageLabels = computed(() => this.stageBuckets().map(([stage]) => stage.replace(/_/g, ' ')));
   stageDatasets = computed<ChartCardDataset[]>(() => [
@@ -210,17 +196,14 @@ export class SalesDashboardComponent implements OnInit {
   reload(): void {
     this.loading.set(true);
     this.error.set(null);
-    this.svc.list({ bucket: 'open', limit: 500 }).subscribe({
-      next: (r) => this.openLeads.set(r.items),
-      error: () => this.error.set('Could not load open leads. Please try again.'),
-    });
-    this.svc.myFollowups().subscribe({
-      next: (r) => {
-        this.followups.set(r);
+    forkJoin({ summary: this.svc.summary(), followups: this.svc.myFollowups() }).subscribe({
+      next: ({ summary, followups }) => {
+        this.summaryStages.set(summary.stages);
+        this.followups.set(followups);
         this.loading.set(false);
       },
       error: () => {
-        this.error.set('Could not load follow-ups. Please try again.');
+        this.error.set('Could not refresh sales data. Please try again.');
         this.loading.set(false);
       },
     });

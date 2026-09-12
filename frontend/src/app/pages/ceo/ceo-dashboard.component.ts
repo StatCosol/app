@@ -35,6 +35,13 @@ interface ExecutiveGuardrail {
   styleUrls: ['./ceo-dashboard.component.scss'],
 })
 export class CeoDashboardComponent implements OnInit {
+  dataUnavailable = false;
+  private unavailable<T>(fallback: T) {
+    this.dataUnavailable = true;
+    this.errorMsg.set("Dashboard data is unavailable. Please retry.");
+    return of(fallback);
+  }
+
   private readonly dashboardService = inject(CeoDashboardService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -127,6 +134,7 @@ export class CeoDashboardComponent implements OnInit {
   }
 
   loadAll() {
+    this.dataUnavailable = false;
     this.loading.set(true);
     this.errorMsg.set(null);
 
@@ -136,20 +144,21 @@ export class CeoDashboardComponent implements OnInit {
     };
 
     forkJoin({
-      summary: this.dashboardService.getSummary().pipe(catchError(() => of(defaults.summary))),
-      governance: this.dashboardService.getGovernanceCompliance().pipe(catchError(() => of(defaults.governance))),
-      clients: this.dashboardService.getClientOverview({ limit: 100 }).pipe(catchError(() => of({ items: [] }))),
-      team: this.dashboardService.getCcoCrmPerformance().pipe(catchError(() => of({ items: [] }))),
-      escalations: this.dashboardService.getRecentEscalations({ limit: 10, status: 'PENDING' }).pipe(catchError(() => of({ items: [] }))),
-      trend: this.dashboardService.getComplianceTrend(12).pipe(catchError(() => of({ items: [] }))),
-      branchRankings: this.dashboardService.getBranchRankings(undefined, 10).pipe(catchError(() => of({ month: null, topRisk: [], bottomRisk: [] }))),
-      closureTrend: this.dashboardService.getAuditClosureTrend(12).pipe(catchError(() => of({ items: [] }))),
+      summary: this.dashboardService.getSummary().pipe(catchError(() => this.unavailable(defaults.summary))),
+      governance: this.dashboardService.getGovernanceCompliance().pipe(catchError(() => this.unavailable(defaults.governance))),
+      clients: this.dashboardService.getClientOverview({ limit: 100 }).pipe(catchError(() => this.unavailable({ items: [] }))),
+      team: this.dashboardService.getCcoCrmPerformance().pipe(catchError(() => this.unavailable({ items: [] }))),
+      escalations: this.dashboardService.getRecentEscalations({ limit: 10, status: 'PENDING' }).pipe(catchError(() => this.unavailable({ items: [] }))),
+      trend: this.dashboardService.getComplianceTrend(12).pipe(catchError(() => this.unavailable({ items: [] }))),
+      branchRankings: this.dashboardService.getBranchRankings(undefined, 10).pipe(catchError(() => this.unavailable({ month: null, topRisk: [], bottomRisk: [] }))),
+      closureTrend: this.dashboardService.getAuditClosureTrend(12).pipe(catchError(() => this.unavailable({ items: [] }))),
     }).pipe(
       takeUntilDestroyed(this.destroyRef),
       timeout(15000),
       finalize(() => this.loading.set(false)),
     ).subscribe({
       next: ({ summary, governance, clients, team, escalations, trend, branchRankings, closureTrend }) => {
+          if (this.dataUnavailable) return;
         this.summary.set(summary || defaults.summary);
         this.governance.set(governance || defaults.governance);
         this.clientOverview.set(clients?.items || []);
