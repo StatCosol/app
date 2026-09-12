@@ -157,7 +157,7 @@ export class AutomationControlService {
       q.branchId &&
       !(
         await this.ds.query(
-          'SELECT id FROM client_branches WHERE id=$1 AND clientid=$2 AND isactive=true',
+          'SELECT id FROM client_branches WHERE id=$1 AND clientid=$2 AND isactive=true AND deletedat IS NULL',
           [q.branchId, q.clientId],
         )
       ).length
@@ -240,7 +240,7 @@ export class AutomationControlService {
           'SELECT id,client_name AS name FROM clients WHERE is_deleted=false ORDER BY client_name',
         ),
         this.ds.query(
-          'SELECT b.id,b.clientid AS "clientId",b.branchname AS name FROM client_branches b JOIN clients c ON c.id=b.clientid WHERE b.isactive=true AND c.is_deleted=false ORDER BY b.branchname',
+          'SELECT b.id,b.clientid AS "clientId",b.branchname AS name FROM client_branches b JOIN clients c ON c.id=b.clientid WHERE b.isactive=true AND b.deletedat IS NULL AND c.is_deleted=false ORDER BY b.branchname',
         ),
         this.ds.query(
           "SELECT u.id,u.name FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=true AND u.deleted_at IS NULL AND r.code='ADMIN' ORDER BY u.name",
@@ -513,6 +513,12 @@ export class AutomationControlService {
       if (!plan.enabled)
         throw new ConflictException(
           'This automation is paused for the selected scope.',
+        );
+      // Settings can change after tick selects a due control. Recheck while
+      // holding the same lock used by settings updates, before recording work.
+      if (trigger === 'SCHEDULED' && dueScheduleKey(current) !== requestId)
+        throw new ConflictException(
+          'The schedule changed or is no longer due. Wait for the next scheduled check.',
         );
       if (digest && digest !== plan.digest)
         throw new ConflictException(

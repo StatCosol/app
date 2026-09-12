@@ -12,6 +12,7 @@ import { DueRemindersJob } from './jobs/due-reminders.job';
 import { NonComplianceRemindersJob } from './jobs/non-compliance-reminders.job';
 import { ReturnsFilingGeneratorJob } from './jobs/returns-filing-generator.job';
 import { ReturnsFilingAutomationController } from './controllers/returns-filing-automation.controller';
+import { DataSource } from 'typeorm';
 
 const context = (
   role: string,
@@ -23,6 +24,72 @@ const context = (
     getClass: () => controller,
     switchToHttp: () => ({ getRequest: () => ({ user: { roleCode: role } }) }),
   }) as any;
+
+describe('Scheduled automation execution revalidation', () => {
+  afterEach(() => jest.useRealTimers());
+
+  it.each([
+    { local_time: '23:00', requestId: '2026-09-12' },
+    { local_time: '00:00', requestId: '2026-09-11' },
+  ])(
+    'rejects a stale scheduled request %j before creating work',
+    async (test) => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-09-12T06:00:00Z'));
+      const current = {
+        id: 'control',
+        rule_key: 'expiry',
+        client_id: null,
+        branch_id: null,
+        enabled: true,
+        version: 2,
+        frequency: 'DAILY',
+        local_time: test.local_time,
+      };
+      const runner = {
+        connect: jest.fn(),
+        release: jest.fn(),
+        query: jest.fn().mockResolvedValue([{ locked: true }]),
+      };
+      const ds = {
+        query: jest
+          .fn()
+          .mockResolvedValueOnce([
+            { ...current, version: 1, local_time: '00:00' },
+          ])
+          .mockResolvedValue([current]),
+        createQueryRunner: () => runner,
+      };
+      const expiry = { generateExpiryAlerts: jest.fn() };
+      const service = new AutomationControlService(
+        ds as unknown as DataSource,
+        expiry as any,
+        null!,
+        null!,
+        null!,
+        null!,
+        null!,
+        null!,
+        null!,
+        null!,
+        null!,
+        null!,
+      );
+      await expect(
+        service.run('control', test.requestId, null, undefined, 'SCHEDULED'),
+      ).rejects.toThrow('schedule changed or is no longer due');
+      expect(expiry.generateExpiryAlerts).not.toHaveBeenCalled();
+      expect(
+        runner.query.mock.calls.some(([sql]) => sql.includes('INSERT')),
+      ).toBe(false);
+      expect(runner.query).toHaveBeenLastCalledWith(
+        'SELECT pg_advisory_unlock(hashtextextended($1,0))',
+        ['automation-run:expiry'],
+      );
+      expect(runner.release).toHaveBeenCalled();
+    },
+  );
+});
+
 describe('Automation control authority and scheduler ownership', () => {
   const guard = new RolesGuard(new Reflector());
   it('allows administrators to manage settings', () =>

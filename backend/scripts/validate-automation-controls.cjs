@@ -828,6 +828,37 @@ async function main() {
       )[0].n,
       1,
     );
+    await ds.query('UPDATE client_branches SET deletedat=now() WHERE id=$1', [
+      id(11),
+    ]);
+    assert.ok(
+      !(await service.overview()).branches.some((b) => b.id === id(11)),
+    );
+    await assert.rejects(
+      service.preview({
+        ruleKey: 'task_reminders',
+        clientId: id(1),
+        branchId: id(11),
+      }),
+      /Branch does not belong/,
+    );
+    await assert.rejects(
+      service.save(
+        {
+          ruleKey: 'task_reminders',
+          clientId: id(1),
+          branchId: id(11),
+          enabled: true,
+          localTime: '00:00',
+          version: 0,
+        },
+        actor,
+      ),
+      /Branch does not belong/,
+    );
+    console.log(
+      'PASS: deleted branches are unavailable in settings and previews.',
+    );
     console.log(
       'PASS: expanded generator concurrency, actual schema, branch exclusions, manual applicability overrides, AI fallback, weekly options and administrator summaries.',
     );
