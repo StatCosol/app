@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 /* ── V2 Types ── */
 
 export interface UnitFacts {
+  appropriateGovernment?: 'CENTRAL' | 'STATE' | null;
   id?: string;
   branchId: string;
   stateCode: string;
@@ -25,6 +26,7 @@ export interface UnitFacts {
 }
 
 export interface UnitFactsDto {
+  appropriateGovernment?: 'CENTRAL' | 'STATE' | null;
   stateCode: string;
   establishmentType: 'FACTORY' | 'ESTABLISHMENT' | 'BOTH';
   isHazardous: boolean;

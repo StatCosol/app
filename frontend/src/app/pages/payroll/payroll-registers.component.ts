@@ -1,3 +1,4 @@
+import { RegisterLibraryComponent } from './register-library.component';
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 
@@ -42,6 +43,7 @@ const STATE_NAMES: Record<string, string> = {
   selector: 'app-payroll-registers',
   standalone: true,
   imports: [
+    RegisterLibraryComponent,
     FormsModule,
     PageHeaderComponent,
     DataTableComponent,
@@ -72,7 +74,7 @@ const STATE_NAMES: Record<string, string> = {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          Generate &amp; Download Registers
+          Select Branch &amp; Period
         </h3>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
@@ -115,8 +117,8 @@ const STATE_NAMES: Record<string, string> = {
           <div>
             <button
               class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
-              [disabled]="!canGenerate || generating"
-              (click)="generateRegisters()">
+              [disabled]="!genBranchId || !selMonth || !selYear"
+              (click)="registerBuilderOpen = true">
               @if (!generating) {
 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -128,7 +130,7 @@ const STATE_NAMES: Record<string, string> = {
                 <path fill="currentColor" class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
               </svg>
 }
-              {{ generating ? 'Generating...' : 'Generate All' }}
+              Choose Act and Register
             </button>
           </div>
         </div>
@@ -178,6 +180,7 @@ const STATE_NAMES: Record<string, string> = {
 }
       </div>
 
+      <app-register-library (generated)="reload()" [expanded]="registerBuilderOpen" [branchId]="genBranchId" [runId]="matchedRun?.id || ''" [year]="selYear" [month]="selMonth"></app-register-library>
       <!-- ═══════ Download & Filter Bar ═══════ -->
       <div class="bg-white rounded-xl border border-gray-200 p-5 mb-6 shadow-sm">
         <div class="flex flex-wrap items-end gap-4">
@@ -238,7 +241,7 @@ const STATE_NAMES: Record<string, string> = {
 
       @if (!loading && !error && rows.length === 0) {
 <ui-empty-state
-       
+
         title="No Registers Found"
         description="No statutory registers match the selected filters. Select a branch, month, and year above to generate registers.">
       </ui-empty-state>
@@ -246,7 +249,7 @@ const STATE_NAMES: Record<string, string> = {
 
       @if (!loading && !error && rows.length > 0) {
 <ui-data-table
-       
+
         [columns]="columns"
         [data]="rows"
         [loading]="loading"
@@ -255,7 +258,7 @@ const STATE_NAMES: Record<string, string> = {
         <ng-template uiTableCell="title" let-row>
           <div class="font-semibold text-gray-900">{{ row.title }}</div>
           @if (row.registerType) {
-<div class="text-xs text-gray-500">{{ row.registerType }}</div>
+<div class="text-xs text-gray-500">{{ row.legalIdentity?.label || row.registerType }}</div>
 }
         </ng-template>
 
@@ -264,7 +267,7 @@ const STATE_NAMES: Record<string, string> = {
 <span
             class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
             [class]="registerTypeBadge(row.registerType)">
-            {{ registerTypeLabel(row.registerType) }}
+            {{ row.legalIdentity?.label || registerTypeLabel(row.registerType) }}
           </span>
 }
           @if (!row.registerType) {
@@ -304,14 +307,14 @@ const STATE_NAMES: Record<string, string> = {
             </button>
             @if (row.approvalStatus !== 'APPROVED') {
 <ui-button
-             
+
               size="sm" variant="primary" (clicked)="approve(row)">
               Approve
             </ui-button>
 }
             @if (row.approvalStatus !== 'REJECTED') {
 <ui-button
-             
+
               size="sm" variant="danger" (clicked)="reject(row)">
               Reject
             </ui-button>
@@ -342,6 +345,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
   // ── Generate panel state ──
   allRuns: any[] = [];
   genBranches: { id: string; branchName: string; branchType: string; stateCode: string }[] = [];
+  registerBuilderOpen = false;
   genBranchId = '';
   selMonth: number | null = null;
   selYear: number | null = null;
@@ -361,6 +365,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
   years: number[] = [];
 
   acts = [
+    { value: 'OSH_CODE', label: 'OSH Code, 2020' },
     { value: 'CODE_ON_WAGES', label: 'Code on Wages / Minimum Wages Act' },
     { value: 'FACTORIES_ACT', label: 'Factories Act' },
     { value: 'SHOPS_ESTABLISHMENTS', label: 'Shops & Establishments Act' },
@@ -501,7 +506,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
   get filteredActs() {
     // Show only acts that have PAYROLL-type registers
     const payrollActs = new Set(this.registerTypes.filter(rt => rt.portalType === 'PAYROLL').map(rt => rt.act));
-    return this.acts.filter(act => payrollActs.has(act.value));
+    return this.acts.filter(act => payrollActs.has(act.value) || act.value === 'OSH_CODE');
   }
 
   columns: TableColumn[] = [
@@ -645,7 +650,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
           // filter rows to only those whose registerType belongs to the selected act
           if (this.filterAct && !this.filterRegisterType) {
             const actTypes = new Set(this.registerTypes.filter(rt => rt.act === this.filterAct).map(rt => rt.value));
-            return (rows || []).filter(r => actTypes.has(r.registerType || ''));
+            return (rows || []).filter(r => actTypes.has(r.registerType || '') || (this.filterAct === 'CODE_ON_WAGES' && r.legalIdentity?.actCode === 'WAGES_2019') || (this.filterAct === 'OSH_CODE' && r.legalIdentity?.actCode === 'OSH_2020'));
           }
           return rows;
         }),
@@ -702,12 +707,13 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
   private matchRun(): void {
     this.matchedRun = null;
     if (!this.selMonth || !this.selYear) return;
-    const match = this.allRuns.find(
+    const candidates = this.allRuns.filter(
       (r) =>
         Number(r.periodMonth) === this.selMonth &&
         Number(r.periodYear) === this.selYear &&
-        (r.status === 'APPROVED' || r.status === 'PROCESSED' || r.status === 'COMPLETED' || r.status === 'DRAFT'),
+        r.status === 'APPROVED' && (!r.branchId || r.branchId === this.genBranchId),
     );
+    const match = candidates.find(r=>r.branchId === this.genBranchId) || candidates.find(r=>!r.branchId);
     if (match) {
       this.matchedRun = {
         id: match.id,

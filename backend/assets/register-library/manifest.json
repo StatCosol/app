@@ -1,0 +1,58 @@
+[
+  {
+    "sourceId": "apw",
+    "file": "apw.pdf",
+    "sha256": "beefd68fec3fb347bf4ba90f4c18d2d5fef6702fd558482190729fc8c17930f7",
+    "bytes": 3603535,
+    "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "cw",
+    "file": "cw.pdf",
+    "sha256": "39fd8e7c94ea7515c285f1a5e35fe77697adce4a0f557fe0f1393bb82d9b91aa",
+    "bytes": 1352183,
+    "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "ir",
+    "file": "ir.pdf",
+    "sha256": "368c4a4836deb7d1a23d424412ff039254b51327b14361a7d69ea959336f7d32",
+    "bytes": 1681403,
+    "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "mh",
+    "file": "mh.pdf",
+    "sha256": "905ff0a391a44f181b9160f8e1f35d8ff2eb271d430f58494833c2000651863d",
+    "bytes": 767181,
+    "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "osh",
+    "file": "osh.pdf",
+    "sha256": "e70b1398caedc1f28f0e135bbed9fd942d5435669eeffdef04ef2050b3665fae",
+    "bytes": 2976282,
+    "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "ss",
+    "file": "ss.pdf",
+    "sha256": "37c5a8cd8684e9362f86a1a72642174045a302234fa1918e8a73a30296b43878",
+    "bytes": 3856046,
+    "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "tn",
+    "file": "tn.pdf",
+    "sha256": "e1dc6230614b3d364625d4f35ab2ed53baa90df351210fdb9d3e18a63b532f40",
+    "bytes": 181294,
+    "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "tsi",
+    "file": "tsi.pdf",
+    "sha256": "80ffd79de853d08b5b7572f899953e8533b697a3bf54e1ebc0b33ad3c9fd3fd5",
+    "bytes": 157619,
+    "reviewedOn": "2026-09-14"
+  }
+]

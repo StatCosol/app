@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { UnitFactsEntity } from '../entities/unit-facts.entity';
 
 export class UnitFactsDto {
+  appropriateGovernment?: 'CENTRAL' | 'STATE' | null;
   stateCode: string;
   establishmentType: 'FACTORY' | 'ESTABLISHMENT' | 'BOTH';
   isHazardous: boolean;
@@ -40,6 +41,8 @@ export class UnitsFactsService {
     }
 
     row.stateCode = dto.stateCode;
+    if (dto.appropriateGovernment !== undefined)
+      row.appropriateGovernment = dto.appropriateGovernment;
     row.establishmentType = dto.establishmentType;
     row.isHazardous = dto.isHazardous;
     row.industryCategory = dto.industryCategory ?? null;

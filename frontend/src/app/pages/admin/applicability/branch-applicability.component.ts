@@ -93,7 +93,8 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
               </select>
             </div>
             <!-- Establishment Type -->
-            <div>
+            <div><label class="block text-sm font-medium">Appropriate government for Labour Code registers</label><select name="appropriateGovernment" [(ngModel)]="factsForm.appropriateGovernment" class="w-full border rounded p-2"><option [ngValue]="null">Not determined</option><option value="STATE">State government</option><option value="CENTRAL">Central government</option></select></div>
+<div>
               <label for="ba-estab-type" class="block text-sm font-medium text-gray-700 mb-1.5">Establishment Type</label>
               <select id="ba-estab-type" name="establishmentType" [(ngModel)]="factsForm.establishmentType" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-brand-500 focus:border-brand-500 text-sm">
                 <option value="FACTORY">Factory</option>
@@ -420,6 +421,7 @@ export class BranchApplicabilityComponent implements OnInit, OnDestroy {
       next: (facts) => {
         if (facts) {
           this.factsForm = {
+            appropriateGovernment: facts.appropriateGovernment ?? null,
             stateCode: facts.stateCode || '',
             establishmentType: facts.establishmentType || 'ESTABLISHMENT',
             isHazardous: facts.isHazardous ?? false,

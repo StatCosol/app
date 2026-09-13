@@ -11,6 +11,7 @@ export type RegisterRecordRow = {
   category: string;
   title: string;
   registerType?: string | null;
+  legalIdentity?: { actCode: string; label: string; formId: string } | null;
   stateCode?: string | null;
   periodYear?: number | null;
   periodMonth?: number | null;
@@ -69,6 +70,7 @@ export class PayrollRegistersService {
           category: String(r?.category ?? ''),
           title: String(r?.title ?? ''),
           registerType: r?.registerType ?? r?.register_type ?? null,
+          legalIdentity: r?.legalIdentity ?? null,
           stateCode: r?.stateCode ?? r?.state_code ?? null,
           periodYear: r?.periodYear ?? r?.period_year ?? null,
           periodMonth: r?.periodMonth ?? r?.period_month ?? null,

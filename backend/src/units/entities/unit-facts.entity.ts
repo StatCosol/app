@@ -4,6 +4,14 @@ export type EstablishmentType = 'FACTORY' | 'ESTABLISHMENT' | 'BOTH';
 
 @Entity({ name: 'unit_facts' })
 export class UnitFactsEntity {
+  @Column({
+    name: 'appropriate_government',
+    type: 'varchar',
+    length: 10,
+    nullable: true,
+  })
+  appropriateGovernment: 'CENTRAL' | 'STATE' | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
