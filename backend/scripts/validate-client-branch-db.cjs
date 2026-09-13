@@ -5,8 +5,9 @@ const { LegitxDashboardService } = require('../dist/src/legitx/legitx-dashboard.
 const { LegitxScopeService } = require('../dist/src/legitx/legitx-scope.service');
 const { LegitxComplianceStatusService } = require('../dist/src/legitx/legitx-compliance-status.service');
 const { BranchAccessService } = require('../dist/src/auth/branch-access.service');
+const { OperationalScopeService } = require('../dist/src/access/operational-scope.service');
 const { AccessScopeService } = require('../dist/src/access/access-scope.service');
-const db = new Client({host:'127.0.0.1',port:55439,user:'monthly_close_test',database:'postgres'});
+const db = new Client({host:'127.0.0.1',port: Number(process.env.AUTOMATION_TEST_PORT || 55439),user: process.env.AUTOMATION_TEST_USER || 'monthly_close_test', password: process.env.AUTOMATION_TEST_PASSWORD || undefined,database: process.env.AUTOMATION_TEST_DATABASE || 'postgres'});
 const schema = `client_branch_test_${Date.now()}`;
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 async function main(){
@@ -56,7 +57,7 @@ async function main(){
   await db.query('CREATE TABLE system_tasks(id uuid,module text,title text,description text,reference_id text,reference_type text,priority text,assigned_role text,assigned_user_id uuid,client_id uuid,branch_id uuid,contractor_id uuid,due_date date,status text,created_at timestamptz DEFAULT now())');
   await db.query("INSERT INTO system_tasks(id,title,priority,assigned_role,client_id,branch_id,status) VALUES($1,'One','HIGH','BRANCH',$5,$6,'OPEN'),($2,'Two','HIGH','BRANCH',$5,$7,'OPEN'),($3,'Unassigned','HIGH','BRANCH',$5,$8,'OPEN'),($4,'Foreign','HIGH','BRANCH',$9,$10,'OPEN')",[id(51),id(52),id(53),id(54),id(10),id(1),id(2),id(4),id(20),id(3)]);
   const taskService = new (require('../dist/src/task-center/task-center.service').TaskCenterService)(source);
-  const taskController = new (require('../dist/src/task-center/task-center.controller').TaskCenterController)(taskService,{});
+  const taskController = new (require('../dist/src/task-center/task-center.controller').TaskCenterController)(taskService,new OperationalScopeService(new AccessScopeService({}, {}, {}, {}, {})));
   assert.equal((await taskController.getMySummary(user)).total,2);
   assert.equal((await taskController.getMyItems(user)).length,2);
   assert.equal((await taskController.getMySummary({...user,branchIds:[]})).total,0);

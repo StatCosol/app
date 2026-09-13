@@ -10,7 +10,7 @@ const {ClientEntity}=require('../dist/src/clients/entities/client.entity');
 const {BranchEntity}=require('../dist/src/branches/entities/branch.entity');
 const {ContractorDocumentEntity}=require('../dist/src/contractor/entities/contractor-document.entity');
 const {AuditEntity}=require('../dist/src/audits/entities/audit.entity');
-const connection={host:'127.0.0.1',port:55439,user:'monthly_close_test',database:'postgres'};
+const connection={host:'127.0.0.1',port: Number(process.env.AUTOMATION_TEST_PORT || 55439),user: process.env.AUTOMATION_TEST_USER || 'monthly_close_test', password: process.env.AUTOMATION_TEST_PASSWORD || undefined,database: process.env.AUTOMATION_TEST_DATABASE || 'postgres'};
 const schema=`deep_scope_${Date.now()}`,id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 async function main(){const admin=new Client(connection);await admin.connect();let ds;
  try{

@@ -3,17 +3,17 @@
 const assert = require('node:assert/strict');
 const { Client } = require('pg');
 const { DataSource } = require('typeorm');
-const { PayrollRunEntity } = require('../src/payroll/entities/payroll-run.entity');
-const { PayrollApprovalService } = require('../src/payroll/payroll-approval.service');
-const { PunchDirectionService } = require('../src/mobile-attendance/punch/punch-direction.service');
-const config={host:'127.0.0.1',port:55439,user:'monthly_close_test',database:'postgres'};
+const { PayrollRunEntity } = require('../dist/src/payroll/entities/payroll-run.entity');
+const { PayrollApprovalService } = require('../dist/src/payroll/payroll-approval.service');
+const { PunchDirectionService } = require('../dist/src/mobile-attendance/punch/punch-direction.service');
+const config={host:'127.0.0.1',port: Number(process.env.AUTOMATION_TEST_PORT || 55439),user: process.env.AUTOMATION_TEST_USER || 'monthly_close_test', password: process.env.AUTOMATION_TEST_PASSWORD || undefined,database: process.env.AUTOMATION_TEST_DATABASE || 'postgres'};
 const uuid=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 async function main(){
  const schema=`critical_logic_${Date.now()}`;assert.match(schema,/^critical_logic_\d+$/);
  const admin=new Client(config);await admin.connect();let db;
  try {
   await admin.query(`CREATE SCHEMA "${schema}"`);
-  db=new DataSource({type:'postgres',host:config.host,port:config.port,username:config.user,database:config.database,schema,uuidExtension:'pgcrypto',extra:{options:`-c search_path=${schema}`},entities:[PayrollRunEntity]});await db.initialize();await db.synchronize();
+  db=new DataSource({type:'postgres',host:config.host,port:config.port,username:config.user,password:config.password,database:config.database,schema,uuidExtension:'pgcrypto',extra:{options:`-c search_path=${schema}`},entities:[PayrollRunEntity]});await db.initialize();await db.synchronize();
   await db.query(`CREATE TABLE mobile_attendance_punches(client_id uuid,employee_id uuid,punch_time timestamptz,direction text,decision text);
     CREATE TABLE biometric_punches(client_id uuid,employee_id uuid,punch_time timestamptz,direction text,source text);
     CREATE TABLE contractor_biometric_punches(client_id uuid,contractor_employee_id uuid,punch_time timestamptz,direction text,decision text);`);
