@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { Client } = require('pg');
 const { InvoicePaymentsService } = require('../dist/src/accounts-billing/services/invoice-payments.service');
 const { AppraisalScopeGuard } = require('../dist/src/performance-appraisal/appraisal-scope.guard');
-const config = { host: '127.0.0.1', port: 55439, user: 'monthly_close_test', database: 'postgres' };
+const config = { host: '127.0.0.1', port: Number(process.env.AUTOMATION_TEST_PORT || 55439), user: process.env.AUTOMATION_TEST_USER || 'monthly_close_test', password: process.env.AUTOMATION_TEST_PASSWORD || undefined, database: process.env.AUTOMATION_TEST_DATABASE || 'postgres' };
 const schema = `module_gap_test_${Date.now()}`;
 async function main() {
   const admin = new Client(config); await admin.connect();

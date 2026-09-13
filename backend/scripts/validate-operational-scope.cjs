@@ -12,7 +12,7 @@ const {SystemTaskEntity}=require('../dist/src/automation/entities/system-task.en
 const {TaskCenterController}=require('../dist/src/task-center/task-center.controller');
 const {TaskCenterService}=require('../dist/src/task-center/task-center.service');
 const {operationalDate,addCalendarDays}=require('../dist/src/common/operational-date');
-const connection={host:'127.0.0.1',port:55439,user:'monthly_close_test',database:'postgres'};
+const connection={host:'127.0.0.1',port: Number(process.env.AUTOMATION_TEST_PORT || 55439),user: process.env.AUTOMATION_TEST_USER || 'monthly_close_test', password: process.env.AUTOMATION_TEST_PASSWORD || undefined,database: process.env.AUTOMATION_TEST_DATABASE || 'postgres'};
 const schema=`operational_test_${Date.now()}`;
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 async function main(){
