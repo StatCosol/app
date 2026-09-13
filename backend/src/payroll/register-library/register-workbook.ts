@@ -7,6 +7,8 @@ import { registerLayout } from './register-layouts';
 export type RegisterRow = Record<string, string | number>;
 export interface RegisterInput {
   branchId: string;
+  contractorUserId?: string;
+  supportingReference?: string;
   year: number;
   month: number;
   employer: string;
@@ -79,6 +81,17 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
       ...errors,
       'Provide 1 to 500 records; an empty register is not an authenticated NIL declaration',
     ];
+  if (
+    input.supportingReference !== undefined &&
+    (typeof input.supportingReference !== 'string' ||
+      input.supportingReference.length > 1000)
+  )
+    errors.push('Supporting reference must be text (maximum 1000 characters)');
+  if (
+    layout.baseFormNumber === 'EVENT' &&
+    !String(input.supportingReference || '').trim()
+  )
+    errors.push('An incident/report evidence reference is required');
   const allowed = new Set(layout.fields.map((f) => f.key));
   const identities = new Set<string>();
   input.rows.forEach((row, i) => {
@@ -127,7 +140,10 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
       if (f.type === 'date' && !validDate(value))
         errors.push(prefix + f.label + ' must be YYYY-MM-DD');
     }
-    const identity = String(row.employeeCode || row.employee_1 || '').trim();
+    const identity =
+      layout.baseFormNumber === 'LEAVE'
+        ? ''
+        : String(row.employeeCode || row.employee_1 || '').trim();
     if (identity && identities.has(identity))
       errors.push(prefix + 'duplicate employee code');
     if (identity) identities.add(identity);
@@ -196,6 +212,35 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
           errors.push(prefix + 'damage/loss reason is required');
       }
     }
+    if (layout.baseFormNumber === 'EVENT') {
+      const monthPrefix =
+        input.year + '-' + String(input.month).padStart(2, '0');
+      if (
+        typeof row.eventDate === 'string' &&
+        !row.eventDate.startsWith(monthPrefix + '-')
+      )
+        errors.push(prefix + 'event date must be in the selected month');
+      for (const key of ['reportDate', 'returnDate'])
+        if (row[key] && String(row[key]) < String(row.eventDate))
+          errors.push(prefix + key + ' cannot precede the event');
+      if (
+        row.returnDate &&
+        (row.absenceDays === undefined || row.absenceDays === '')
+      )
+        errors.push(
+          prefix +
+            'days absent must be completed when return to work is recorded',
+        );
+    }
+    if (layout.baseFormNumber === 'LEAVE') {
+      if (!['ADULT', 'ADOLESCENT'].includes(String(row.part)))
+        errors.push(prefix + 'part must be ADULT or ADOLESCENT');
+      if (
+        row.leaveAllowedFrom &&
+        String(row.leaveAllowedFrom) < String(row.joiningDate)
+      )
+        errors.push(prefix + 'leave cannot precede joining');
+    }
     const days = new Date(Date.UTC(input.year, input.month, 0)).getUTCDate();
     if (row.daysWorked !== undefined && Number(row.daysWorked) > days)
       errors.push(prefix + 'days worked exceed the selected month');
@@ -246,11 +291,15 @@ export async function registerWorkbook(
     'Source URL': source.url,
     'Source page': String(form.sourcePage || ''),
     'Data purpose':
-      layout.baseFormNumber === 'IX'
-        ? 'Daily attendance — not reconstructed from payroll totals'
-        : layout.baseFormNumber === 'I'
-          ? 'Employee master — not a monthly payroll subset'
-          : 'Monthly wages / payment',
+      layout.baseFormNumber === 'EVENT'
+        ? 'Accident/dangerous-occurrence evidence'
+        : layout.baseFormNumber === 'LEAVE'
+          ? 'Leave with wages records'
+          : layout.baseFormNumber === 'IX'
+            ? 'Daily attendance — not reconstructed from payroll totals'
+            : layout.baseFormNumber === 'I'
+              ? 'Employee master — not a monthly payroll subset'
+              : 'Monthly wages / payment',
     'Required review':
       'Confirm jurisdiction, applicability, supporting records and signatures before use. No automatic NIL declaration.',
     ...context,
@@ -260,6 +309,7 @@ export async function registerWorkbook(
     'Employer PAN/TAN': input?.employerPan || '',
     'Registration number': input?.registrationNumber || '',
     'Date of issue': input?.issueDate || '',
+    'Supporting record reference': input?.supportingReference || '',
     Period: input
       ? input.year + '-' + String(input.month).padStart(2, '0')
       : '',
@@ -267,15 +317,26 @@ export async function registerWorkbook(
   for (const [key, value] of Object.entries(metadata)) {
     const r = guide.addRow([key, value]);
     r.alignment = { vertical: 'top', wrapText: true };
-    r.height = 32;
+    r.height = Math.max(32, Math.ceil(String(value).length / 80) * 16);
     r.getCell(1).font = { bold: true };
   }
+  guide.pageSetup = {
+    paperSize: 9,
+    orientation: 'portrait',
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 0,
+  };
+  guide.pageSetup.printArea = 'A1:B' + guide.rowCount;
   const isAttendance = layout.baseFormNumber === 'IX';
+  const dailySignature = layout.fields.some((f) =>
+    /^day\d+Signature$/.test(f.key),
+  );
   rows.forEach((row, index) => {
     const sheet = book.addWorksheet(
       'Form ' + form.formNumber + (index ? ' - ' + (index + 1) : ''),
     );
-    const width = isAttendance ? 22 : layout.individual ? 2 : 16;
+    const width = isAttendance ? 22 : layout.individual ? 2 : 8;
     for (let c = 1; c <= width; c++)
       sheet.getColumn(c).width = isAttendance
         ? 8
@@ -346,11 +407,13 @@ export async function registerWorkbook(
           sheet.getCell(n + 1, c + 1).value = 'Out';
           sheet.getCell(n + 2, c).value = row['day' + d + 'In'] || '';
           sheet.getCell(n + 2, c + 1).value = row['day' + d + 'Out'] || '';
-          sheet.mergeCells(n + 3, c, n + 3, c + 1);
-          sheet.getCell(n + 3, c).value =
-            'Signature: ' + (row['day' + d + 'Signature'] || '');
+          if (dailySignature) {
+            sheet.mergeCells(n + 3, c, n + 3, c + 1);
+            sheet.getCell(n + 3, c).value =
+              'Signature: ' + (row['day' + d + 'Signature'] || '');
+          }
         }
-        for (let r = n; r <= n + 3; r++) {
+        for (let r = n; r <= n + (dailySignature ? 3 : 2); r++) {
           sheet.getRow(r).height = 28;
           sheet.getRow(r).alignment = { wrapText: true, vertical: 'middle' };
         }
@@ -377,16 +440,19 @@ export async function registerWorkbook(
             ? Number(row[f.key])
             : (row[f.key] ?? ''),
         ]);
-        r.height = 26;
+        r.height = Math.max(
+          26,
+          Math.ceil(f.label.length / 45) * 15,
+          Math.ceil(String(row[f.key] ?? '').length / 58) * 15,
+        );
         r.alignment = { wrapText: true, vertical: 'top' };
         r.getCell(2).numFmt = f.type === 'money' ? '0.00' : '@';
       }
     } else {
-      [
-        layout.fields.slice(0, 12),
-        layout.fields.slice(12, 28),
-        layout.fields.slice(28),
-      ].forEach((fields, i) => {
+      Array.from({ length: Math.ceil(layout.fields.length / 8) }, (_, i) =>
+        layout.fields.slice(i * 8, (i + 1) * 8),
+      ).forEach((fields, i) => {
+        if (i > 0 && i % 3 === 0) sheet.getRow(sheet.rowCount).addPageBreak();
         banner('Part ' + (i + 1));
         const heading = sheet.addRow(fields.map((f) => f.label));
         heading.height = 90;
@@ -401,7 +467,13 @@ export async function registerWorkbook(
               : (row[f.key] ?? ''),
           ),
         );
-        values.height = 36;
+        values.height = Math.max(
+          36,
+          ...fields.map(
+            (f) => Math.ceil(String(row[f.key] ?? '').length / 18) * 14,
+          ),
+        );
+        values.alignment = { wrapText: true, vertical: 'top' };
         fields.forEach(
           (f, c) =>
             (values.getCell(c + 1).numFmt = f.type === 'money' ? '0.00' : '@'),

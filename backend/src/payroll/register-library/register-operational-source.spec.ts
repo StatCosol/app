@@ -131,3 +131,46 @@ describe('Register operational data sources', () => {
     ).rejects.toThrow(/500/);
   });
 });
+
+describe('Leave and incident evidence', () => {
+  it('uses only approved earned leave in the selected branch and preserves missing entitlement', async () => {
+    const ds: any = {
+      query: jest.fn().mockResolvedValue([
+        {
+          employee_code: 'E1',
+          name: 'Sample',
+          id: 'leave1',
+          from_date: '2026-09-10',
+          to_date: '2026-09-12',
+          total_days: '3',
+        },
+      ]),
+    };
+    const result = await registerOperationalSource(
+      ds,
+      'LEAVE',
+      'client',
+      'branch',
+      2026,
+      9,
+    );
+    expect(ds.query).toHaveBeenCalledWith(
+      expect.stringContaining("l.leave_type='EL'"),
+      ['client', 'branch', '2026-09-01', '2026-09-30'],
+    );
+    expect(result.rows[0]).toMatchObject({
+      employeeCode: 'E1',
+      leaveAllowedFrom: '2026-09-10',
+    });
+    expect(result.rows[0].carryForward).toBeUndefined();
+    expect(result.rows[0].workerRegisterSerial).toBeUndefined();
+    expect(result.rows[0].leaveWages).toBeUndefined();
+  });
+  it('does not derive accident entries from payroll or attendance', async () => {
+    const ds: any = { query: jest.fn() };
+    await expect(
+      registerOperationalSource(ds, 'EVENT', 'client', 'branch', 2026, 9),
+    ).rejects.toThrow(/incident/);
+    expect(ds.query).not.toHaveBeenCalled();
+  });
+});

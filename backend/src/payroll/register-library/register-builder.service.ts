@@ -1,3 +1,8 @@
+import {
+  registerContractors,
+  assertRegisterContractor,
+  contractorRegisterSource,
+} from './register-contractor-source';
 import { registerOperationalSource } from './register-operational-source';
 import {
   BadRequestException,
@@ -124,6 +129,17 @@ export class RegisterBuilderService {
     };
   }
 
+  async contractors(
+    id: string,
+    branchId: string,
+    year: number,
+    month: number,
+    user: ReqUser,
+  ) {
+    const ctx = await this.context(id, branchId, year, month, user);
+    return registerContractors(this.ds, ctx.branch.clientId, branchId);
+  }
+
   async prefill(
     id: string,
     branchId: string,
@@ -131,8 +147,19 @@ export class RegisterBuilderService {
     year: number,
     month: number,
     user: ReqUser,
+    contractorId?: string,
   ) {
     const context = await this.context(id, branchId, year, month, user);
+    if (contractorId)
+      return contractorRegisterSource(
+        this.ds,
+        context.layout,
+        context.branch.clientId,
+        branchId,
+        contractorId,
+        year,
+        month,
+      );
     if (!context.layout.payrollPrefill)
       return registerOperationalSource(
         this.ds,
@@ -229,7 +256,17 @@ export class RegisterBuilderService {
       input.month,
       user,
     );
+    const contractor = input.contractorUserId
+      ? await assertRegisterContractor(
+          this.ds,
+          ctx.branch.clientId,
+          input.branchId,
+          input.contractorUserId,
+        )
+      : null;
     const auditContext = {
+      'Contractor ID': input.contractorUserId || '',
+      'Contractor name': contractor?.name || '',
       establishment: ctx.branch.branchName || '',
       address: ctx.branch.address,
       'Client ID': ctx.branch.clientId,
@@ -267,6 +304,8 @@ export class RegisterBuilderService {
             input.employerPan,
             input.registrationNumber,
             input.issueDate,
+            input.contractorUserId || '',
+            input.supportingReference || '',
           ],
           rows: canonicalRows,
           applicability: ctx.applicabilityEvidence,
@@ -309,6 +348,7 @@ export class RegisterBuilderService {
           payrollInputId: null,
           category: 'REGISTER',
           title: (
+            (contractor ? contractor.name.slice(0, 60) + ' | ' : '') +
             ctx.form.actCode +
             ' | Form ' +
             ctx.form.formNumber +

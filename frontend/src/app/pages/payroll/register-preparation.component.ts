@@ -43,6 +43,42 @@ interface Field {
         <p>Select a branch, month and year above.</p>
       }
       @if (fields.length) {
+        @if (eligible && supportsContractor) {
+          <label class="block text-sm my-2"
+            >Records for
+            <select
+              class="border rounded p-2 ml-2"
+              [(ngModel)]="recordSource"
+              (ngModelChange)="changeSource()"
+            >
+              <option value="EMPLOYEES">Company employees</option>
+              <option value="CONTRACTOR">Contract labour</option>
+            </select>
+          </label>
+          @if (recordSource === 'CONTRACTOR') {
+            <label class="block text-sm my-2"
+              >Assigned contractor
+              <select
+                class="border rounded p-2 ml-2"
+                [(ngModel)]="contractorId"
+                (ngModelChange)="changeContractor()"
+              >
+                <option value="">Select contractor</option>
+                @for (c of contractors; track c.id) {
+                  <option [value]="c.id">{{ c.name }}</option>
+                }
+              </select>
+            </label>
+          }
+        }
+        <label class="block text-sm my-2"
+          >Supporting record reference {{ isEvent ? '*' : '(optional)' }}
+          <input
+            class="border rounded p-2 block w-full"
+            [(ngModel)]="meta['supportingReference']"
+            placeholder="Incident report, source document or ledger reference"
+          />
+        </label>
         <div class="flex gap-3 my-3">
           <button type="button" class="underline" (click)="blank()" [disabled]="busy">
             Download blank format
@@ -52,9 +88,18 @@ interface Field {
               type="button"
               class="underline"
               (click)="prefill()"
-              [disabled]="busy || (requiresPayroll && !runId) || !eligible"
+              [disabled]="
+                busy ||
+                (recordSource === 'EMPLOYEES' && requiresPayroll && !runId) ||
+                (recordSource === 'CONTRACTOR' && !contractorId) ||
+                !eligible
+              "
             >
-              {{ prefillLabel }}
+              {{
+                recordSource === 'CONTRACTOR'
+                  ? 'Fill from selected contractor records'
+                  : prefillLabel
+              }}
             </button>
           }
         </div>
@@ -143,6 +188,11 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
   notice = '';
   busy = false;
   eligible = false;
+  recordSource = 'EMPLOYEES';
+  contractorId = '';
+  contractors: { id: string; name: string }[] = [];
+  supportsContractor = false;
+  isEvent = false;
   canPrefill = false;
   requiresPayroll = true;
   prefillLabel = 'Prefill from approved payroll';
@@ -158,6 +208,11 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     this.eligible = false;
     this.busy = false;
     this.canPrefill = false;
+    this.recordSource = 'EMPLOYEES';
+    this.contractorId = '';
+    this.contractors = [];
+    this.supportsContractor = false;
+    this.isEvent = false;
     if (!this.formId) return;
     this.http
       .get<any>(this.url('/definition'))
@@ -165,9 +220,17 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
       .subscribe({
         next: (d) => {
           this.fields = d.layout.fields;
-          this.canPrefill = true;
+          this.isEvent = d.layout.baseFormNumber === 'EVENT';
+          this.canPrefill = !this.isEvent;
+          this.supportsContractor = ['I', 'IV', 'V', 'IX'].includes(d.layout.baseFormNumber);
           this.requiresPayroll = d.layout.payrollPrefill;
-          this.prefillLabel = d.layout.payrollPrefill ? 'Prefill from approved payroll' : d.layout.baseFormNumber === 'I' ? 'Prefill approved employee records' : 'Prefill approved daily attendance';
+          this.prefillLabel = d.layout.payrollPrefill
+            ? 'Prefill from approved payroll'
+            : d.layout.baseFormNumber === 'I'
+              ? 'Prefill approved employee records'
+              : d.layout.baseFormNumber === 'LEAVE'
+                ? 'Fill from approved earned-leave applications'
+                : 'Prefill approved daily attendance';
           this.cdr.markForCheck();
         },
         error: (e) => this.fail(e),
@@ -194,15 +257,48 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
       .set('year', String(this.year))
       .set('month', String(this.month));
   }
+  changeContractor() {
+    this.revision++;
+    this.changed.next();
+    this.rows = [{}];
+    this.meta = {};
+    this.error = '';
+    this.notice = '';
+    this.busy = false;
+  }
+  changeSource() {
+    this.contractorId = '';
+    this.changeContractor();
+    this.contractors = [];
+    if (this.recordSource === 'CONTRACTOR') {
+      this.busy = true;
+      this.http
+        .get<{ id: string; name: string }[]>(this.url('/contractors'), { params: this.params() })
+        .pipe(takeUntil(this.changed), takeUntil(this.destroyed))
+        .subscribe({
+          next: (rows) => {
+            this.contractors = rows;
+            this.busy = false;
+            this.cdr.markForCheck();
+          },
+          error: (e) => this.fail(e),
+        });
+    }
+  }
   prefill() {
     this.busy = true;
     this.error = '';
     this.http
-      .get<any>(this.url('/prefill'), { params: this.params().set('runId', this.runId) })
+      .get<any>(this.url('/prefill'), {
+        params: this.params()
+          .set('runId', this.runId)
+          .set('contractorId', this.recordSource === 'CONTRACTOR' ? this.contractorId : ''),
+      })
       .pipe(takeUntil(this.changed), takeUntil(this.destroyed))
       .subscribe({
         next: (d) => {
           this.rows = d.rows;
+          if (d.sourceReference) this.meta['supportingReference'] = d.sourceReference;
           this.notice = d.notice;
           this.busy = false;
           this.cdr.markForCheck();
@@ -214,12 +310,17 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     this.fetchFile('/template');
   }
   generate() {
+    if (this.recordSource === 'CONTRACTOR' && !this.contractorId) {
+      this.error = 'Select the assigned contractor';
+      return;
+    }
     this.fetchFile('/generate', {
       ...this.meta,
       branchId: this.branchId,
       year: this.year,
       month: this.month,
       rows: this.rows,
+      contractorUserId: this.recordSource === 'CONTRACTOR' ? this.contractorId : undefined,
     });
   }
   private fetchFile(suffix: string, body?: unknown) {

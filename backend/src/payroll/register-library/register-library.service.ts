@@ -32,20 +32,32 @@ export class RegisterLibraryService {
             .includes(search)),
     ).map((f) => ({
       ...f,
+      notes: registerLayout(f.sourceId, f.formNumber)
+        ? f.sourceId === 'osh' &&
+          ['XIII', 'XIV', 'XV', 'XVI'].includes(f.formNumber)
+          ? 'Rule 72(3) recognises required Code on Wages registers and wage slips. Review existing Wages records before preparing duplicate OSH records; this does not establish applicability by itself.'
+          : 'Prepare from verified supporting records; complete missing particulars and obtain statutory review and authentication.'
+        : f.notes,
       generation: registerLayout(f.sourceId, f.formNumber)
         ? 'MANUAL_PREPARATION'
         : 'REFERENCE_ONLY',
       preparationAvailable: !!registerLayout(f.sourceId, f.formNumber),
       usage:
-        f.kind === 'AUTHORITY_REGISTER'
-          ? 'Authority maintained'
-          : registerLayout(f.sourceId, f.formNumber)?.baseFormNumber === 'IX'
-            ? 'Daily attendance'
-            : registerLayout(f.sourceId, f.formNumber)?.baseFormNumber === 'I'
-              ? 'Employee master'
-              : registerLayout(f.sourceId, f.formNumber)?.payrollPrefill
-                ? 'Monthly payroll'
-                : f.kind,
+        registerLayout(f.sourceId, f.formNumber)?.baseFormNumber === 'EVENT'
+          ? 'Incident/report evidence'
+          : registerLayout(f.sourceId, f.formNumber)?.baseFormNumber === 'LEAVE'
+            ? 'Leave records'
+            : f.kind === 'AUTHORITY_REGISTER'
+              ? 'Authority maintained'
+              : registerLayout(f.sourceId, f.formNumber)?.baseFormNumber ===
+                  'IX'
+                ? 'Daily attendance'
+                : registerLayout(f.sourceId, f.formNumber)?.baseFormNumber ===
+                    'I'
+                  ? 'Employee master'
+                  : registerLayout(f.sourceId, f.formNumber)?.payrollPrefill
+                    ? 'Monthly payroll'
+                    : f.kind,
       source: REGISTER_SOURCES[f.sourceId],
       sourceDownloadAvailable: fs.existsSync(this.sourcePath(f.sourceId)),
     }));

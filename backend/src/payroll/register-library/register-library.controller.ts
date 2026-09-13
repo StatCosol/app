@@ -72,12 +72,31 @@ export class RegisterLibraryController {
     return res.send(buffer);
   }
 
+  @Get(':id/contractors')
+  @Roles('ADMIN', 'PAYROLL', 'CRM')
+  contractors(
+    @Param('id') id: string,
+    @Query('branchId') branchId: string,
+    @Query('year') year: string,
+    @Query('month') month: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.builder.contractors(
+      id,
+      branchId,
+      Number(year),
+      Number(month),
+      user,
+    );
+  }
+
   @Get(':id/prefill')
   @Roles('ADMIN', 'PAYROLL', 'CRM')
   prefill(
     @Param('id') id: string,
     @Query('branchId') branchId: string,
     @Query('runId') runId: string,
+    @Query('contractorId') contractorId: string,
     @Query('year') year: string,
     @Query('month') month: string,
     @CurrentUser() user: ReqUser,
@@ -89,6 +108,7 @@ export class RegisterLibraryController {
       Number(year),
       Number(month),
       user,
+      contractorId,
     );
   }
 
@@ -115,7 +135,11 @@ export class RegisterLibraryController {
         ? 'PAYROLL'
         : context.layout.baseFormNumber === 'IX'
           ? 'ATTENDANCE'
-          : 'EMPLOYEE_MASTER',
+          : context.layout.baseFormNumber === 'EVENT'
+            ? 'INCIDENT_RECORD'
+            : context.layout.baseFormNumber === 'LEAVE'
+              ? 'LEAVE_RECORD'
+              : 'EMPLOYEE_MASTER',
     };
   }
 

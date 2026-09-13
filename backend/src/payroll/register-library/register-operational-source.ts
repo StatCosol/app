@@ -14,6 +14,42 @@ export async function registerOperationalSource(
   const start = `${year}-${String(month).padStart(2, '0')}-01`;
   const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const end = `${year}-${String(month).padStart(2, '0')}-${days}`;
+  if (formNumber === 'EVENT')
+    throw new BadRequestException(
+      'Enter this event from its incident/report evidence; attendance and payroll are not incident records',
+    );
+  if (formNumber === 'LEAVE') {
+    const leaves = await ds.query(
+      `SELECT e.employee_code,e.name,e.department,e.father_name,e.date_of_joining::text,l.id,l.from_date::text,l.to_date::text,l.total_days::text FROM leave_applications l JOIN employees e ON e.id=l.employee_id AND e.client_id=l.client_id WHERE l.client_id=$1 AND l.branch_id=$2 AND l.status='APPROVED' AND l.actioned_at IS NOT NULL AND l.leave_type='EL' AND l.from_date <= $4::date AND l.to_date >= $3::date ORDER BY e.employee_code,l.from_date LIMIT 501`,
+      [clientId, branchId, start, end],
+    );
+    if (!leaves.length || leaves.length > 500)
+      throw new BadRequestException(
+        'Select a branch/period with 1 to 500 approved earned-leave applications, or enter the authenticated leave register manually',
+      );
+    return {
+      rows: leaves.map((l: any, i: number) => ({
+        serial: i + 1,
+        employeeCode: l.employee_code,
+        name: l.name,
+        department: l.department || '',
+        relativeName: l.father_name || '',
+        joiningDate: l.date_of_joining || '',
+        leaveAllowedFrom: l.from_date,
+        remarks:
+          'Approved earned leave ' +
+          l.from_date +
+          ' to ' +
+          l.to_date +
+          ' (' +
+          l.total_days +
+          ' days); application ' +
+          l.id,
+      })),
+      notice:
+        'Approved earned-leave applications overlapping this month. Application days are not treated as the statutory leave entitlement or carry-forward balance. Complete interruptions, leave-due dates, leave wages and year carry-forward from the authenticated leave ledger. Each application has a separate worker page; review overlapping periods.',
+    };
+  }
   if (formNumber === 'I') {
     const employees = await ds.query(
       `SELECT employee_code, name, gender, father_name, date_of_birth::text,

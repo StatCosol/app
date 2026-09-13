@@ -389,3 +389,46 @@ describe('Register preparation branch and Act eligibility', () => {
     );
   });
 });
+
+describe('Purpose-specific register validation', () => {
+  it('requires accident evidence and consistent incident dates', () => {
+    const data = validSlip();
+    data.rows = [
+      { eventDate: '2026-09-10', eventNature: 'Sample dangerous occurrence' },
+    ];
+    const form = id('osh', 'XIX');
+    expect(validateRegister(form, data).join(' ')).toMatch(
+      /evidence reference/,
+    );
+    data.supportingReference = 'Fictional incident report 1';
+    expect(validateRegister(form, data)).toEqual([]);
+    data.rows[0].returnDate = '2026-09-09';
+    expect(validateRegister(form, data).join(' ')).toMatch(/cannot precede/);
+    data.rows[0].eventDate = '2026-08-10';
+    expect(validateRegister(form, data).join(' ')).toMatch(/selected month/);
+  });
+  it('keeps worker-register serial distinct from the employee identifier in leave forms', () => {
+    const data = validSlip();
+    const form = id('osh', 'XX');
+    const row: any = {};
+    for (const f of definition(form).layout.fields) {
+      if (f.required)
+        row[f.key] =
+          f.type === 'date'
+            ? '2026-09-01'
+            : f.type === 'number' || f.type === 'money'
+              ? 0
+              : 'Sample';
+    }
+    row.part = 'ADULT';
+    row.serial = 1;
+    data.rows = [row];
+    expect(validateRegister(form, data)).toEqual([]);
+    delete row.workerRegisterSerial;
+    expect(validateRegister(form, data).join(' ')).toMatch(/workers register/);
+    row.part = 'UNKNOWN';
+    expect(validateRegister(form, data).join(' ')).toMatch(
+      /ADULT or ADOLESCENT/,
+    );
+  });
+});

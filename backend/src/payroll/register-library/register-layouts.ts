@@ -5,7 +5,7 @@ export interface RegisterField {
   required: boolean;
 }
 export interface RegisterLayout {
-  baseFormNumber: 'I' | 'IV' | 'V' | 'IX';
+  baseFormNumber: 'I' | 'IV' | 'V' | 'IX' | 'LEAVE' | 'EVENT';
   fields: RegisterField[];
   individual: boolean;
   payrollPrefill: boolean;
@@ -166,6 +166,88 @@ export function registerLayout(
   sourceId: string,
   formNumber: string,
 ): RegisterLayout | null {
+  if (sourceId === 'osh' && formNumber === 'XIX')
+    return {
+      baseFormNumber: 'EVENT',
+      individual: true,
+      payrollPrefill: false,
+      fields: [
+        field(
+          'injuredName',
+          '1. Name of injured/deceased person (if any)',
+          'text',
+          false,
+        ),
+        field(
+          'eventDate',
+          '2. Date of accident or dangerous occurrence',
+          'date',
+        ),
+        field(
+          'reportDate',
+          '3. Date reported to Inspector-cum-Facilitator',
+          'date',
+          false,
+        ),
+        field('eventNature', '4. Nature of accident or dangerous occurrence'),
+        field('returnDate', '5. Date of return to work', 'date', false),
+        field('absenceDays', '6. Days absent from work', 'number', false),
+        field(
+          'signature',
+          '7. Employer/representative signature',
+          'text',
+          false,
+        ),
+      ],
+    };
+  if (sourceId === 'osh' && formNumber === 'XX')
+    return {
+      baseFormNumber: 'LEAVE',
+      individual: true,
+      payrollPrefill: false,
+      fields: [
+        field('part', 'Part I Adults / Part II Adolescents'),
+        field('name', 'Name of worker'),
+        field('department', 'Department'),
+        field('relativeName', 'Father’s name'),
+        field('serial', '1. Serial number', 'number'),
+        field('employeeCode', 'Employee code (reference)'),
+        field('workerRegisterSerial', '2. Serial number in workers register'),
+        field('joiningDate', '3. Date of entry into service', 'date'),
+        field('sickness', '4. Sickness and accidents — interruptions'),
+        field('authorisedLeave', '5. Authorised leave — interruptions'),
+        field('lockout', '6. Lockout or legal strike — interruptions'),
+        field('unemployment', '7. Involuntary unemployment — interruptions'),
+        field('otherInterruptions', '8. Other interruptions'),
+        field('leaveDueFrom', '9. Leave due with effect from', 'date'),
+        field(
+          'leaveNotDesired',
+          '10. Whether leave not desired during next 12 months',
+        ),
+        field(
+          'leaveAllowedFrom',
+          '11. Date from which leave allowed',
+          'date',
+          false,
+        ),
+        field('leaveWages', '12. Wages for leave paid', 'money'),
+        field('dischargeDate', '13. Date of discharge', 'date', false),
+        field(
+          'inLieuPayment',
+          '14. Date and amount paid in lieu of leave due',
+          'text',
+          false,
+        ),
+        field('carryForward', '15. Accumulated carry-forward leave', 'number'),
+        field('remarks', '16. Remarks', 'text', false),
+        field(
+          'signature',
+          'Employer/register keeper/representative signature',
+          'text',
+          false,
+        ),
+      ],
+    };
   if (sourceId === 'osh') {
     const base = (
       { XIII: 'I', XIV: 'IX', XV: 'IV', XVI: 'V' } as Record<string, string>
