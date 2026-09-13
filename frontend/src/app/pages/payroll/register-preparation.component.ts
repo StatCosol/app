@@ -1,3 +1,4 @@
+import { RegisterEvidenceComponent } from './register-evidence.component';
 import {
   Component,
   Input,
@@ -24,7 +25,7 @@ interface Field {
 @Component({
   selector: 'app-register-preparation',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RegisterEvidenceComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="border p-4 my-4 bg-gray-50">
@@ -104,6 +105,21 @@ interface Field {
           }
         </div>
         @if (eligible) {
+          @if ((reuseAvailable || operational) && (recordSource === 'EMPLOYEES' || contractorId)) {
+            <app-register-evidence
+              [formId]="formId"
+              [branchId]="branchId"
+              [year]="year || 0"
+              [month]="month || 0"
+              [contractorId]="recordSource === 'CONTRACTOR' ? contractorId : ''"
+              [reuseAvailable]="reuseAvailable"
+              [operational]="operational"
+              [isEvent]="isEvent"
+              [draftMetadata]="meta"
+              [draftRows]="rows"
+              (sourceSelected)="useSource($event)"
+            ></app-register-evidence>
+          }
           <div class="grid sm:grid-cols-2 gap-3">
             @for (item of metadataFields; track item.key) {
               <label class="text-sm"
@@ -193,6 +209,8 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
   contractors: { id: string; name: string }[] = [];
   supportsContractor = false;
   isEvent = false;
+  operational = false;
+  reuseAvailable = false;
   canPrefill = false;
   requiresPayroll = true;
   prefillLabel = 'Prefill from approved payroll';
@@ -213,6 +231,8 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     this.contractors = [];
     this.supportsContractor = false;
     this.isEvent = false;
+    this.operational = false;
+    this.reuseAvailable = false;
     if (!this.formId) return;
     this.http
       .get<any>(this.url('/definition'))
@@ -221,6 +241,9 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
         next: (d) => {
           this.fields = d.layout.fields;
           this.isEvent = d.layout.baseFormNumber === 'EVENT';
+          this.operational = ['EVENT', 'LEAVE'].includes(d.layout.baseFormNumber);
+          this.reuseAvailable =
+            d.form?.sourceId === 'osh' && ['XIII', 'XIV', 'XV', 'XVI'].includes(d.form?.formNumber);
           this.canPrefill = !this.isEvent;
           this.supportsContractor = ['I', 'IV', 'V', 'IX'].includes(d.layout.baseFormNumber);
           this.requiresPayroll = d.layout.payrollPrefill;
@@ -247,6 +270,17 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
           error: (e) => this.fail(e),
         });
     }
+  }
+  useSource(input: any) {
+    if (input.branchId !== this.branchId || input.year !== this.year || input.month !== this.month)
+      return;
+    this.rows = structuredClone(input.rows);
+    this.meta = Object.fromEntries(
+      Object.entries(input).filter(
+        ([k]) => !['rows', 'branchId', 'year', 'month', 'contractorUserId'].includes(k),
+      ),
+    ) as Record<string, string>;
+    this.cdr.markForCheck();
   }
   private url(suffix: string) {
     return this.base + '/' + encodeURIComponent(this.formId) + suffix;

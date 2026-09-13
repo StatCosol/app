@@ -370,6 +370,10 @@ export class RegisterBuilderService {
           approvalStatus: 'PENDING',
         }),
       );
+      await manager.query(
+        'INSERT INTO register_preparation_scopes(register_id,contractor_user_id) VALUES ($1,$2)',
+        [record.id, input.contractorUserId || null],
+      );
       return { buffer, recordId: record.id };
     });
   }

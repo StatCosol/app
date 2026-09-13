@@ -148,7 +148,7 @@ Validated workbooks are saved as PENDING records in the existing register review
 ## Sources
 
 1. Chief Labour Commissioner (Central). [Contract Labour (Regulation and Abolition) Central Rules, 1971](https://clc.gov.in/clc/acts-rules/contract-labour-regulation-abolition-act-1970), Rules 74–78. Historical source subject to later supersession and savings.
-2. Ministry of Labour and Employment. [OSH (Central) Rules, 2026](https://www.labour.gov.in/static/uploads/2026/05/ee246f790cad0b8e99c3828f34fa09a6.pdf), G.S.R.345(E), 8 May 2026; Rule 72 and annexed forms, PDF pages 242–243, 280–310.
+2. Ministry of Labour and Employment. [OSH (Central) Rules, 2026](https://www.labour.gov.in/static/uploads/2026/05/ee246f790cad0b8e99c3828f34fa09a6.pdf), G.S.R.345(E), 8 May 2026; Rule 72 and annexed forms, PDF pages 192–194 (Rules 72–76), 280–310 (forms).
 3. Government of Andhra Pradesh. [Code on Wages (Andhra Pradesh) Rules, 2026](https://www.ricago.com/assets/front/base/file/file_management/6536.pdf), G.O.Rt.No.124, Gazette No.328, 29 June 2026. Government Gazette copy hosted by Ricago; Rules 42–43 and schedules.
 4. Government of Telangana. [G.O.Ms.No.6](https://ipass.telangana.gov.in/viewpdf.aspx?filepathnew=D%3A%2FTS-iPASSFinal%2Fdocs%2F2019LETF_MS6+%282%29.PDF), 2 March 2019, common return and integrated registers.
 5. Ministry of Labour and Employment. [Code on Wages (Central) Rules, 2026](https://www.labour.gov.in/static/uploads/2026/05/6eb0c35ba63b776487a025e5123b6b12.pdf), G.S.R.343(E), 8 May 2026; Rules 51–52 and Forms I, IV, V, IX.
@@ -158,3 +158,18 @@ Validated workbooks are saved as PENDING records in the existing register review
 9. Government of Maharashtra. [Shops and Establishments Rules, 2018](https://mahakamgar.maharashtra.gov.in/Site/Upload/PDF/Regulation_of_Employment_Conditions_of_Service_Rules_2018.pdf), 23 March 2018; Rule 26 and Form Q, PDF page 90 onwards.
 10. Government of Tamil Nadu. [Factories Rules amendment](https://dish.tn.gov.in/assets/pdf/Amendment%20of%20Rules%20for%20Maintenance%20of%20registers.pdf), 24 March 2021; amended Forms 12, 15 and 25.
 11. Supplied Word/Excel files and ZIP archives, local private references; filenames and classifications listed above. Content reviewed for form identity, not accepted as evidence of current legal applicability.
+
+
+## Reviewed evidence and leave calculation follow-up
+
+Added versioned operational source records for implemented incident and leave forms. The branch, period, form and stable evidence reference identify a record. Identical JSON inputs reuse the current version; corrections retain the earlier snapshot and create a new pending version. Only Payroll/Admin can approve the current version. The preparation screen can load saved evidence for review and reuse approved particulars. Generation retains its separate pending-register review.
+
+Added explicit reuse attestations for Central OSH Rule 72(3), limited to the verified Central Wages counterparts for OSH XIII–XVI. A source must already be approved and match the client, branch, period and employee/contractor workforce. Both Acts' current applicability must pass. Reuse creates a link, not a duplicate register or a change to the source's legal identity. Payroll/Admin approval is required; withdrawing source approval makes the link ineffective. Older generated records without persisted workforce scope are deliberately excluded.
+
+Added a Central OSH section 32 annual leave calculator using reviewed annual attendance/leave totals: qualification versus earning days, mid-year joining, adolescent/underground rates, exit entitlement, ordinary carry cap, separately protected refused leave and encashable excess. It requires confirmation that standard section 32 applies. Special-category schemes/exemptions need separate verification. No rounding convention, payment, ESS balance or unavailable source total is invented. Existing register remarks are retained and editing inputs cancels stale calculations.
+
+Legal basis: [OSH Code 2020, section 32, Gazette pages 30–31](https://labour.maharashtra.gov.in/sites/default/files/2026-04/the-occupational-safety-health-and-working-conditions-code-2020.pdf), together with Central OSH Rule 76. The original Gazette distinguishes qualifying days from days earning leave and protects refused leave separately. More-beneficial and special provisions must be checked for the worker.
+
+Validation of this follow-up: backend and production frontend builds passed; 1,369 backend tests passed (one skipped); 10 Angular register-screen tests passed; 18 isolated PostgreSQL checks passed, including migration idempotence, concurrent reuse without duplicate files, source withdrawal, JSON-order deduplication, reviewer roles and source revision preservation. Existing Sass deprecation warnings remain.
+
+Remaining coverage: this does not complete all-state prescribed formats. The 14 implemented layouts remain the generation set. Other states and register types remain reference/research entries until their current notification, exact columns, source adapter and printed output are verified. Telangana is not assumed to inherit Andhra Pradesh's 2026 rules. Further review must also address the older generic register-generation API before declaring all statutory generation paths migrated. New evidence tables require migration 20260921 before these features are deployed.

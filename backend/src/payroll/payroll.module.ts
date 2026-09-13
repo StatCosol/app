@@ -1,3 +1,4 @@
+import { RegisterEvidenceService } from './register-library/register-evidence.service';
 import { RegisterBuilderService } from './register-library/register-builder.service';
 import { RegisterLibraryController } from './register-library/register-library.controller';
 import { RegisterLibraryService } from './register-library/register-library.service';
@@ -234,6 +235,7 @@ import { AccessModule } from '../access/access.module';
     BranchCtcController,
   ],
   providers: [
+    RegisterEvidenceService,
     RegisterBuilderService,
     RegisterLibraryService,
     PayrollConfigurationScopeGuard,

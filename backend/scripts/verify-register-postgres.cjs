@@ -7,6 +7,7 @@ const { RegistersRecordEntity } = require('../src/payroll/entities/registers-rec
 const { BranchEntity } = require('../src/branches/entities/branch.entity');
 const { RegisterBuilderService } = require('../src/payroll/register-library/register-builder.service');
 const { PayrollRegistersService } = require('../src/payroll/payroll-registers.service');
+const { RegisterEvidenceService } = require('../src/payroll/register-library/register-evidence.service');
 const { REGISTER_FORMS } = require('../src/payroll/register-library/register-catalogue');
 
 (async () => {
@@ -26,6 +27,8 @@ const { REGISTER_FORMS } = require('../src/payroll/register-library/register-cat
     const [{current_user: user}] = await ds.query('SELECT current_user');
     assert.equal(user,'register_test');
     await ds.synchronize();
+    await ds.query(await fs.readFile(path.join(backend,'migrations/20260921_register_evidence.sql'),'utf8'));
+    await ds.query(await fs.readFile(path.join(backend,'migrations/20260921_register_evidence.sql'),'utf8'));
     const base = await fs.readFile(path.join(backend,'migrations/20260306_sprint1_applicability_v2.sql'),'utf8');
     await ds.query(base.slice(0,base.indexOf('-- 10) Branch Safety Upload')));
     await ds.query("INSERT INTO compliance_package(code,name) VALUES ('DEFAULT_INDIA','Test default') ON CONFLICT(code) DO NOTHING");
@@ -65,8 +68,44 @@ const { REGISTER_FORMS } = require('../src/payroll/register-library/register-cat
     const revision=await builder.generate(formId,revised,{id:actor,roleCode:'ADMIN'});
     assert.notEqual(revision.recordId,results[0].recordId);
     assert.equal((await repo.findOneBy({id:results[0].recordId})).approvalStatus,'APPROVED');
+    // New evidence/reuse migrations and services use this isolated database only.
+    await ds.query("UPDATE unit_facts SET appropriate_government='CENTRAL' WHERE branch_id=$1",[branchId]);
+    await ds.query("INSERT INTO unit_applicable_compliance(branch_id,compliance_id,is_applicable,computed_at) SELECT $1,id,true,'2026-09-02' FROM unit_compliance_master WHERE code='OSH_2020' ON CONFLICT(branch_id,compliance_id) DO UPDATE SET is_applicable=true,computed_at='2026-09-02'",[branchId]);
+    const admin={id:actor,roleCode:'ADMIN'};
+    const centralSlip=REGISTER_FORMS.find(f=>f.sourceId==='cw'&&f.formNumber==='V').id;
+    const oshSlip=REGISTER_FORMS.find(f=>f.sourceId==='osh'&&f.formNumber==='XVI').id;
+    const evidence=new RegisterEvidenceService(ds,builder);
+    const central=await builder.generate(centralSlip,input,admin);
+    assert.equal((await evidence.reuseOptions(oshSlip,branchId,2026,9,admin)).candidates.length,0);
+    await service.approveRegister(admin,central.recordId);
+    assert.equal((await evidence.reuseOptions(oshSlip,branchId,2026,9,admin)).candidates.length,1);
+    await assert.rejects(evidence.requestReuse(oshSlip,{branchId,year:2026,month:9,sourceRegisterId:results[0].recordId,attestation:'Wrong jurisdiction source'},admin),/approved source/);
+    const reuseBody={branchId,year:2026,month:9,sourceRegisterId:central.recordId,attestation:'Verified same workers, period and applicable Wages requirements'};
+    const beforeReuse=await repo.count();
+    const reuse=await Promise.all([evidence.requestReuse(oshSlip,reuseBody,admin),evidence.requestReuse(oshSlip,reuseBody,admin)]);
+    assert.equal(reuse[0].id,reuse[1].id);assert.equal(await repo.count(),beforeReuse);
+    await assert.rejects(evidence.approveReuse(oshSlip,reuse[0].id,{id:actor,roleCode:'CRM'}),/Only payroll/);
+    await evidence.approveReuse(oshSlip,reuse[0].id,admin);
+    assert.equal((await evidence.reuseOptions(oshSlip,branchId,2026,9,admin)).links[0].effective,true);
+    await service.rejectRegister(admin,central.recordId,'Test withdrawal');
+    assert.equal((await evidence.reuseOptions(oshSlip,branchId,2026,9,admin)).links[0].effective,false);
+    const eventForm=REGISTER_FORMS.find(f=>f.sourceId==='osh'&&f.formNumber==='XIX').id;
+    const event={...input,supportingReference:'Fictional incident 1',rows:[{eventDate:'2026-09-10',eventNature:'Fictional incident description'}]};
+    const saved=await evidence.saveSource(eventForm,event,admin);
+    const same=await evidence.saveSource(eventForm,{...event,rows:[{eventNature:'Fictional incident description',eventDate:'2026-09-10'}]},admin);
+    assert.equal(saved.id,same.id);
+    await assert.rejects(evidence.approveSource(eventForm,saved.id,{id:actor,roleCode:'CRM'}),/Only payroll/);
+    await evidence.approveSource(eventForm,saved.id,admin);
+    event.rows[0].eventNature='Corrected fictional description';
+    const revisedEvent=await evidence.saveSource(eventForm,event,admin);
+    assert.equal(revisedEvent.revision,2);
+    const savedList=await evidence.sourceList(eventForm,branchId,2026,9,admin);
+    assert.equal(savedList.records.length,1);assert.equal(savedList.records[0].approvedAt,null);
+    assert.equal((await ds.query('SELECT approved_at,is_current FROM register_operational_sources WHERE id=$1',[saved.id]))[0].is_current,false);
+    await assert.rejects(evidence.approveSource(eventForm,saved.id,admin),/Current source/);
+    await ds.query("UPDATE unit_facts SET appropriate_government='STATE' WHERE branch_id=$1",[branchId]);
     await ds.query("UPDATE unit_facts SET updated_at='2026-09-03' WHERE branch_id=$1",[branchId]);
     await assert.rejects(builder.generate(formId,input,{id:actor,roleCode:'ADMIN'}),/facts changed/);
-    console.log(JSON.stringify({result:'PASS',checks:['migration twice','jurisdiction constraint','concurrent generation deduplication','pending download denial','approval and byte-identical download','second assigned branch access','empty branch denial','cross-client denial','list legal identity','revision preserves approval','stale applicability denial'],sampleDirectory:output},null,2));
+    console.log(JSON.stringify({result:'PASS',checks:['migration twice','jurisdiction constraint','concurrent generation deduplication','pending download denial','approval and byte-identical download','second assigned branch access','empty branch denial','cross-client denial','list legal identity','revision preserves approval','stale applicability denial','reuse excludes pending and wrong-jurisdiction sources','concurrent reuse deduplication without new files','reuse approval role','withdrawn source invalidates reuse','source JSON-order deduplication','operational approval role','revisions retain old evidence and require new approval'],sampleDirectory:output},null,2));
   } finally { process.chdir(oldCwd); await ds.destroy(); await control.query('DROP DATABASE '+database); await control.destroy(); }
 })().catch(e=>{console.error(e);process.exitCode=1;});

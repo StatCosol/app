@@ -1,4 +1,9 @@
 import {
+  statutoryLeaveCalculation,
+  StatutoryLeaveInput,
+} from './statutory-leave-calculator';
+import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -12,6 +17,7 @@ import type { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
+import { RegisterEvidenceService } from './register-evidence.service';
 import { RegisterLibraryService } from './register-library.service';
 import { RegisterBuilderService } from './register-builder.service';
 import {
@@ -39,6 +45,7 @@ export class RegisterLibraryController {
   constructor(
     private readonly library: RegisterLibraryService,
     private readonly builder: RegisterBuilderService,
+    private readonly evidence: RegisterEvidenceService,
   ) {}
 
   @Get('jurisdictions')
@@ -141,6 +148,114 @@ export class RegisterLibraryController {
               ? 'LEAVE_RECORD'
               : 'EMPLOYEE_MASTER',
     };
+  }
+
+  @Get(':id/reuse')
+  @Roles('ADMIN', 'PAYROLL', 'CRM')
+  reuseOptions(
+    @Param('id') id: string,
+    @Query('branchId') branchId: string,
+    @Query('year') year: string,
+    @Query('month') month: string,
+    @Query('contractorId') contractorId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.evidence.reuseOptions(
+      id,
+      branchId,
+      Number(year),
+      Number(month),
+      user,
+      contractorId,
+    );
+  }
+  @Post(':id/reuse')
+  @Roles('ADMIN', 'PAYROLL', 'CRM')
+  requestReuse(
+    @Param('id') id: string,
+    @Body() body: any,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.evidence.requestReuse(id, body, user);
+  }
+  @Post(':id/reuse/:linkId/approve')
+  @Roles('ADMIN', 'PAYROLL')
+  approveReuse(
+    @Param('id') id: string,
+    @Param('linkId') linkId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.evidence.approveReuse(id, linkId, user);
+  }
+  @Get(':id/operational-sources')
+  @Roles('ADMIN', 'PAYROLL', 'CRM')
+  sourceList(
+    @Param('id') id: string,
+    @Query('branchId') branchId: string,
+    @Query('year') year: string,
+    @Query('month') month: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.evidence.sourceList(
+      id,
+      branchId,
+      Number(year),
+      Number(month),
+      user,
+    );
+  }
+  @Post(':id/operational-sources')
+  @Roles('ADMIN', 'PAYROLL', 'CRM')
+  saveSource(
+    @Param('id') id: string,
+    @Body() body: RegisterInput,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.evidence.saveSource(id, body, user);
+  }
+  @Post(':id/operational-sources/:sourceId/approve')
+  @Roles('ADMIN', 'PAYROLL')
+  approveSource(
+    @Param('id') id: string,
+    @Param('sourceId') sourceId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.evidence.approveSource(id, sourceId, user);
+  }
+
+  @Post(':id/leave-calculation')
+  @Roles('ADMIN', 'PAYROLL', 'CRM')
+  async calculateLeave(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      branchId: string;
+      month: number;
+      year: number;
+      ledger: StatutoryLeaveInput;
+    },
+    @CurrentUser() user: ReqUser,
+  ) {
+    if (!body || typeof body !== 'object')
+      throw new BadRequestException(
+        'Enter the branch, period and leave totals',
+      );
+    const ctx = await this.builder.context(
+      id,
+      body.branchId,
+      body.year,
+      body.month,
+      user,
+    );
+    if (
+      ctx.form.sourceId !== 'osh' ||
+      ctx.layout.baseFormNumber !== 'LEAVE' ||
+      body.ledger?.year !== body.year
+    )
+      throw new BadRequestException(
+        'Use this calculation only for the selected Central OSH annual leave record and year',
+      );
+    return statutoryLeaveCalculation(body.ledger);
   }
 
   @Post(':id/generate')
