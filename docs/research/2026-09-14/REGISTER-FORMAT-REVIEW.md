@@ -129,7 +129,7 @@ Validated workbooks are saved as PENDING records in the existing register review
 
 ## Remaining coverage and verification (current)
 
-1. The catalogue contains 100 Act/state/form identities; 68 have implemented preparation layouts. Other combinations remain explicitly unavailable for generation until the full applicable schedule is verified. Telangana is not silently mapped to Andhra Pradesh.
+1. The catalogue contains 101 Act/state/form identities; 69 have implemented preparation layouts. Other combinations remain explicitly unavailable for generation until the full applicable schedule is verified. Telangana is not silently mapped to Andhra Pradesh.
 2. Remaining state/UT rules, state Acts, savings provisions, amendments, vernacular layouts and authentication requirements still require verification. This is not complete India-wide coverage.
 3. Arunachal schedules were recovered from a complete alternate Gazette copy; Forms I, IV and V are implemented. The earlier clipped copy is not the bundled source.
 4. Special statutory leave schemes (including working journalists and sales promotion employees), historical leave transfers and direct incident-system integration remain pending. Standard section 32 calculation, reviewed incident/leave evidence and explicit OSH Rule 72(3) reuse attestations are implemented.
@@ -291,3 +291,10 @@ AP Rule 28 and Bihar Rule 27 recognise specified Wages/OSH registers. Those depe
 Source quality: the Praans page labelled AP final Social Security rules linked the February preliminary G.O.Rt.43 PDF. That file was excluded. The Ricago copy contains the actual final Gazette header and final-making recital. The Bihar government download provides the complete readable Gazette; it replaces the scanned notification research copy as bundled evidence.
 
 Current verification: 68 layouts across 100 legal identities, 25 hashed source PDFs, and 68 fictional XLSX/PDF pairs. Ninety focused backend tests cover the current changes; 13 frontend register tests and the frontend production build passed before these backend-only additions. The latest backend build and targeted lint passed. Annual leave reconciles exact hundredths of a day. CI on f2e9bbda passed all 14 checks; the next commit requires its own CI result. India-wide state-Act coverage, specialist schemes, transition periods, vernacular/authentication review and production deployment remain open.
+
+
+## Uttar Pradesh Social Security women register
+
+[Uttar Pradesh Gazette, 27 August 2026](https://egazette.labourcodesadvisor.com/state-notifications/uttar-pradesh-final-notification-of-the-uttar-pradesh-code-on-social-security-rules-2026.pdf), notification 1431/XXXVI-3-2026-1399661, pages 1, 91, 131 and 167, establishes final-making, publication commencement and Form XXXVI under Rule 88(3). It preserves an unnumbered establishment heading, serial number, groups 2–19 and employer signature. It has no separate PF/ESI or inspector-remarks fields. Positive whole serials are required and duplicates rejected. The incorrect Rule 55 cross-reference in the definition is recorded; the operative rule and schedule both identify Rule 88(3). Rule 88 also specifies Wages records, five-year retention and the UP Wages Form IX slip.
+
+Current totals: 69 implemented layouts, 101 catalogue identities, 26 verified source PDFs and 69 fictional sample pairs. All 91 focused backend tests, backend production build and targeted lint pass. The new sample validates and exports through native Excel; its schedule/body and continuation pages were checked. No additional frontend or database change was required. Broader remaining coverage and production limitations above still apply.

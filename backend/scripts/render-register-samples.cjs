@@ -21,7 +21,7 @@ const {registerWorkbook,validateRegister}=require('../src/payroll/register-libra
   }
   const values={noticeTime:'09:30',eventTime:'09:00',serial:1,part:'ADULT',employeeCode:'SAMPLE-001',employee_1:'SAMPLE-001',name:'Fictional Employee',employee_2:'Fictional Employee',bankAccount:'00012345678901234567890',employee_25:'00012345678901234567890',uan:'001234567890',employee_18:'001234567890',wagePeriod:prefix+'-01 to '+prefix+'-'+days,frequency:'Monthly',daysWorked:days};
   for(const [k,v] of Object.entries(values))if(k in row)row[k]=v;
-  if(layout.baseFormNumber==='MATERNITY')Object.assign(row,{employmentMonth:'2026-09',employedDays:30,laidOffDays:0,notEmployedDays:0,inspectorRemarks:'',dischargeDate:''});
+  if(layout.baseFormNumber==='MATERNITY'){const maternity={employmentMonth:prefix,employedDays:days,laidOffDays:0,notEmployedDays:0,inspectorRemarks:'',dischargeDate:''};for(const [k,v] of Object.entries(maternity))if(k in row)row[k]=v;}
   const input={branchId:'11111111-1111-4111-8111-111111111111',year,month,employer:'Fictional employer - print test only',owner:'Example owner',employerPan:'ABCDE1234F',registrationNumber:'SAMPLE',issueDate:prefix+'-'+days,supportingReference:'Fictional QA data; not for statutory filing',rows:[row]};
   const errors=validateRegister(form.id,input);if(errors.length)throw new Error(form.id+': '+errors.join('; '));
   const file=path.join(output,form.id+'.xlsx');await fs.writeFile(file,await registerWorkbook(form.id,input,{establishment:'Fictional branch',address:'Example address, sample district'}));files.push(file);

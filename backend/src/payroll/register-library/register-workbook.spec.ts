@@ -823,6 +823,29 @@ describe('Social Security women employees register', () => {
       expect(validateRegister(formId, input).join(' ')).toMatch(/left blank/);
     },
   );
+  it('keeps UP serial identity and excludes unprescribed inspector fields', () => {
+    const formId = id('upss', 'XXXVI');
+    const def = definition(formId);
+    expect(def.form.ruleReference).toBe('Rule 88(3)');
+    expect(def.layout.fields[0].label).toBe('Name of establishment');
+    expect(def.layout.fields[1].key).toBe('serial');
+    expect(
+      def.layout.fields.some((f) =>
+        ['inspectorRemarks', 'esiNumber', 'pfNumber'].includes(f.key),
+      ),
+    ).toBe(false);
+    const input = sample();
+    input.rows[0].serial = 1;
+    expect(validateRegister(formId, input)).toEqual([]);
+    input.rows.push({ ...input.rows[0], name: 'Another employee' });
+    expect(validateRegister(formId, input).join(' ')).toMatch(
+      /duplicate register serial/,
+    );
+    input.rows[1].serial = 0.5;
+    expect(validateRegister(formId, input).join(' ')).toMatch(
+      /positive whole number/,
+    );
+  });
   it('requires evidence, consistent month totals and paired payment details', () => {
     const input = sample();
     input.supportingReference = '';

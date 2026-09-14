@@ -155,14 +155,29 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
       if (f.type === 'date' && !validDate(value))
         errors.push(prefix + f.label + ' must be YYYY-MM-DD');
     }
+    const usesSerialIdentity =
+      layout.baseFormNumber === 'MATERNITY' &&
+      layout.fields.some((f) => f.key === 'serial');
+    if (
+      usesSerialIdentity &&
+      (!Number.isInteger(Number(row.serial)) || Number(row.serial) < 1)
+    )
+      errors.push(prefix + 'register serial must be a positive whole number');
     const identity =
       layout.periodKind === 'ANNUAL'
         ? String(row.workerRegisterNumber || '').trim()
-        : layout.baseFormNumber === 'LEAVE'
-          ? ''
-          : String(row.employeeCode || row.employee_1 || '').trim();
+        : usesSerialIdentity
+          ? String(row.serial ?? '').trim()
+          : layout.baseFormNumber === 'LEAVE'
+            ? ''
+            : String(row.employeeCode || row.employee_1 || '').trim();
     if (identity && identities.has(identity))
-      errors.push(prefix + 'duplicate employee code');
+      errors.push(
+        prefix +
+          (usesSerialIdentity
+            ? 'duplicate register serial'
+            : 'duplicate employee code'),
+      );
     if (identity) identities.add(identity);
     const money = (key: string) => Number(row[key]);
     const checkTotal = (total: string, parts: string[], tolerance = 1) => {

@@ -1,5 +1,13 @@
 /** Source identity is separate from layout identity. Never match on title or form number alone. */
 export const REGISTER_SOURCES = {
+  upss: {
+    url: 'https://egazette.labourcodesadvisor.com/state-notifications/uttar-pradesh-final-notification-of-the-uttar-pradesh-code-on-social-security-rules-2026.pdf',
+    title: 'Uttar Pradesh Code on Social Security Rules, 2026',
+    notification: '1431/XXXVI-3-2026-1399661, 27 August 2026',
+    publicationDate: '2026-08-27',
+    publisher:
+      'Government of Uttar Pradesh (Gazette copy hosted by Labour Code Advisor)',
+  },
   apss: {
     url: 'https://www.ricago.com/assets/front/base/file/file_management/6454.pdf',
     title: 'Code on Social Security (Andhra Pradesh) Rules, 2026',
@@ -206,6 +214,26 @@ export const REGISTER_SOURCES = {
 } as const;
 
 export const REGISTER_FORMS = [
+  {
+    id: 'up--social-security-2020--up-ss-2026--xxxvi--upss',
+    jurisdiction: 'UP',
+    actCode: 'SOCIAL_SECURITY_2020',
+    rulesCode: 'UP_SS_2026',
+    formNumber: 'XXXVI',
+    title: 'Women employees register',
+    ruleReference: 'Rule 88(3)',
+    kind: 'REGISTER',
+    sourceId: 'upss',
+    sourceStatus: 'FINAL',
+    sourcePage: 167,
+    layoutId: null,
+    notes:
+      'Rule 1(3) commences on Gazette publication. Rule 88(3) covers particulars of all women workers and inspection availability. The schedule has a serial number and no inspector remarks field. Authorised HR evidence and supporting prior history are required; maternity events are not inferred from payroll. Rule 88(1) requires five-year preservation from last entry for the specified records. The Rule 2 definition references Rule 55, but the operative rule and Form XXXVI both cite Rule 88(3).',
+    verifiedOn: '2026-09-14',
+    effectiveFrom: '2026-08-27',
+    applicability: 'REVIEW_REQUIRED',
+    generation: 'REFERENCE_ONLY',
+  },
   {
     id: 'ap--social-security-2020--ap-ss-2026--xx--apss',
     jurisdiction: 'AP',

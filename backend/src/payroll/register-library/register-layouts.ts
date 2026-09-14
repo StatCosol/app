@@ -609,6 +609,26 @@ export function registerLayout(
     }
     return null;
   }
+  if (sourceId === 'upss' && formNumber === 'XXXVI') {
+    // UP Gazette 27 August 2026, p.167: establishment heading, serial 1, groups 2–19 and signature.
+    const layout = registerLayout('apss', 'XX')!;
+    return {
+      ...layout,
+      fields: [
+        field('establishmentName', 'Name of establishment'),
+        field('serial', '1. Serial number', 'number'),
+        ...layout.fields
+          .filter(
+            (f) => !['establishmentName', 'inspectorRemarks'].includes(f.key),
+          )
+          .map((f) =>
+            f.key === 'signature'
+              ? { ...f, label: 'Employer authentication' }
+              : { ...f },
+          ),
+      ],
+    };
+  }
   if (
     (sourceId === 'apss' && formNumber === 'XX') ||
     (sourceId === 'brss' && formNumber === 'XXI')
