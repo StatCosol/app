@@ -1,3 +1,4 @@
+import { addSharedRegisterTable } from './register-shared-table';
 import { addTelanganaRegisterTable } from './register-telangana-table';
 import { registerReuseRule } from './register-reuse-rule';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
@@ -623,7 +624,25 @@ export async function registerWorkbook(
       'Form II — retain with Form III | Page &P of &N';
   }
   if (layout.employeeRows === 'TABLE') {
-    addTelanganaRegisterTable(book, layout, rows, input, context, periodLabel);
+    if (layout.particulars)
+      addTelanganaRegisterTable(
+        book,
+        layout,
+        rows,
+        input,
+        context,
+        periodLabel,
+      );
+    else
+      addSharedRegisterTable(
+        book,
+        layout,
+        rows,
+        input,
+        context,
+        periodLabel,
+        form,
+      );
     return Buffer.from(await book.xlsx.writeBuffer());
   }
   const isAttendance =
