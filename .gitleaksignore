@@ -4,3 +4,8 @@ b2112f004ff2d2dc07af18e94dd257ff3bcf3070:backend/src/payroll/register-library/re
 
 # Public statutory attendance field name day31Signature in an assertion, not a credential.
 f09c66f2db2560d68df27a1efb11b57b08156d39:backend/src/payroll/register-library/register-workbook.spec.ts:generic-api-key:443
+
+# Squash merge of the same reviewed attendance-column assertions; no credentials.
+# Exact historical fingerprints only: future findings remain subject to the scan.
+e2ef27fd5ccee5b887b2b97fed6cec2c4636b11a:backend/src/payroll/register-library/register-workbook.spec.ts:generic-api-key:259
+e2ef27fd5ccee5b887b2b97fed6cec2c4636b11a:backend/src/payroll/register-library/register-workbook.spec.ts:generic-api-key:700

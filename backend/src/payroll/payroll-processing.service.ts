@@ -794,36 +794,36 @@ export class PayrollProcessingService {
         // Rebuild leave_balances row for this calendar year + leave type
         await this.leaveBalanceRepo.query(
           `INSERT INTO leave_balances (id, employee_id, client_id, year, leave_type, opening, accrued, used, lapsed, available, created_at)
-           VALUES (gen_random_uuid(), $1, $2, $3, $4, 0,
+           VALUES (gen_random_uuid(), $1, $2, $3::int, $4::varchar, 0,
                    COALESCE((SELECT SUM(ABS(qty)) FROM leave_ledger
-                             WHERE employee_id = $1 AND leave_type = $4 AND ref_type = $5
-                               AND EXTRACT(YEAR FROM entry_date::date) = $3), 0),
+                             WHERE employee_id = $1 AND leave_type = $4::varchar AND ref_type = $5
+                               AND EXTRACT(YEAR FROM entry_date::date) = $3::int), 0),
                    COALESCE((SELECT SUM(ABS(qty)) FROM leave_ledger
-                             WHERE employee_id = $1 AND leave_type = $4 AND ref_type = $6
-                               AND EXTRACT(YEAR FROM entry_date::date) = $3), 0),
+                             WHERE employee_id = $1 AND leave_type = $4::varchar AND ref_type = $6
+                               AND EXTRACT(YEAR FROM entry_date::date) = $3::int), 0),
                    0,
                    GREATEST(
                      COALESCE((SELECT SUM(ABS(qty)) FROM leave_ledger
-                               WHERE employee_id = $1 AND leave_type = $4 AND ref_type = $5
-                                 AND EXTRACT(YEAR FROM entry_date::date) = $3), 0)
+                               WHERE employee_id = $1 AND leave_type = $4::varchar AND ref_type = $5
+                                 AND EXTRACT(YEAR FROM entry_date::date) = $3::int), 0)
                      - COALESCE((SELECT SUM(ABS(qty)) FROM leave_ledger
-                                 WHERE employee_id = $1 AND leave_type = $4 AND ref_type = $6
-                                   AND EXTRACT(YEAR FROM entry_date::date) = $3), 0), 0),
+                                 WHERE employee_id = $1 AND leave_type = $4::varchar AND ref_type = $6
+                                   AND EXTRACT(YEAR FROM entry_date::date) = $3::int), 0), 0),
                    NOW())
            ON CONFLICT (employee_id, year, leave_type)
            DO UPDATE SET accrued   = COALESCE((SELECT SUM(ABS(qty)) FROM leave_ledger
-                                               WHERE employee_id = $1 AND leave_type = $4 AND ref_type = $5
-                                                 AND EXTRACT(YEAR FROM entry_date::date) = $3), 0),
+                                               WHERE employee_id = $1 AND leave_type = $4::varchar AND ref_type = $5
+                                                 AND EXTRACT(YEAR FROM entry_date::date) = $3::int), 0),
                          used      = COALESCE((SELECT SUM(ABS(qty)) FROM leave_ledger
-                                               WHERE employee_id = $1 AND leave_type = $4 AND ref_type = $6
-                                                 AND EXTRACT(YEAR FROM entry_date::date) = $3), 0),
+                                               WHERE employee_id = $1 AND leave_type = $4::varchar AND ref_type = $6
+                                                 AND EXTRACT(YEAR FROM entry_date::date) = $3::int), 0),
                          available = GREATEST(leave_balances.opening
                            + COALESCE((SELECT SUM(ABS(qty)) FROM leave_ledger
-                                       WHERE employee_id = $1 AND leave_type = $4 AND ref_type = $5
-                                         AND EXTRACT(YEAR FROM entry_date::date) = $3), 0)
+                                       WHERE employee_id = $1 AND leave_type = $4::varchar AND ref_type = $5
+                                         AND EXTRACT(YEAR FROM entry_date::date) = $3::int), 0)
                            - COALESCE((SELECT SUM(ABS(qty)) FROM leave_ledger
-                                       WHERE employee_id = $1 AND leave_type = $4 AND ref_type = $6
-                                         AND EXTRACT(YEAR FROM entry_date::date) = $3), 0), 0),
+                                       WHERE employee_id = $1 AND leave_type = $4::varchar AND ref_type = $6
+                                         AND EXTRACT(YEAR FROM entry_date::date) = $3::int), 0), 0),
                          last_updated_at = NOW()`,
           [
             employeeId,

@@ -65,6 +65,39 @@ function sample(id: string): RegisterInput {
   };
 }
 describe('State Shops Act records', () => {
+  it('lists Telangana employees in serial order on one Form III sheet with all 26 columns', async () => {
+    const input = sample(ts);
+    input.rows = [3, 1, 2].map((serial) => ({
+      ...input.rows[0],
+      serial,
+      name: 'Worker ' + serial,
+      remarks: 'Remark ' + serial,
+    }));
+    const original = JSON.stringify(input.rows);
+    const book = new ExcelJS.Workbook();
+    await book.xlsx.load((await registerWorkbook(ts, input)) as any);
+    expect(book.worksheets.map((s) => s.name)).toEqual([
+      'Identity and review',
+      'Form II',
+      'Form III',
+    ]);
+    const sheet = book.getWorksheet('Form III')!;
+    expect(sheet.getRow(5).cellCount).toBe(26);
+    for (let serial = 1; serial <= 3; serial++) {
+      expect(sheet.getCell(5 + serial, 1).value).toBe(serial);
+      expect(sheet.getCell(5 + serial, 2).value).toBe('Worker ' + serial);
+      expect(sheet.getCell(5 + serial, 26).value).toBe('Remark ' + serial);
+    }
+    expect(sheet.pageSetup.printTitlesColumn).toBe('A:B');
+    expect(JSON.stringify(input.rows)).toBe(original);
+    const blank = new ExcelJS.Workbook();
+    await blank.xlsx.load((await registerWorkbook(ts)) as any);
+    expect(blank.worksheets.map((s) => s.name)).toEqual([
+      'Identity and review',
+      'Form II',
+      'Form III',
+    ]);
+  });
   it('keeps the Telangana Shops binding distinct from unverified multi-Act reuse', () => {
     const forms = new RegisterLibraryService().list('TS').forms;
     expect(forms.find((f) => f.id === ts)?.preparationAvailable).toBe(true);

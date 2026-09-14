@@ -15,6 +15,7 @@ const serviceMigrationFiles = new Set([
   '20260921_register_evidence.sql',
   '20260923_state_shops_registers.sql',
   '20260924_social_security_register_applicability.sql',
+  '20260925_reviewed_register_applicability.sql',
   '20260914_contract_employee_bank_account.sql',
   '20260627_client_service_entitlements.sql',
   '20260628_client_module_pending_request_unique.sql',

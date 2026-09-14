@@ -20,6 +20,7 @@ export interface RegisterLayout {
   particulars?: RegisterField[];
   particularsTitle?: string;
   capacityRequired?: boolean;
+  employeeRows?: 'TABLE';
   pageBreakBefore?: string[];
   attendanceMode?: 'STATUS';
   omitPrefillFields?: string[];
@@ -181,7 +182,7 @@ const attendance = [
   field('signature', '11. Register keeper signature', 'text', false),
 ];
 
-export function registerLayout(
+function sourceRegisterLayout(
   sourceId: string,
   formNumber: string,
   actCode?: string,
@@ -1112,4 +1113,19 @@ export function registerLayout(
     default:
       return null;
   }
+}
+
+/** Source presentation and employee grouping are separate decisions. */
+export function registerLayout(
+  sourceId: string,
+  formNumber: string,
+  actCode?: string,
+): RegisterLayout | null {
+  const layout = sourceRegisterLayout(sourceId, formNumber, actCode);
+  if (!layout) return null;
+  const shared =
+    layout.baseFormNumber === 'EVENT' ||
+    (!layout.individual && layout.baseFormNumber !== 'IX') ||
+    (sourceId === 'rjw' && formNumber === 'V');
+  return shared ? { ...layout, employeeRows: 'TABLE' } : layout;
 }
