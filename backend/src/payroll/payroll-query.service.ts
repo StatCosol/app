@@ -138,9 +138,23 @@ export class PayrollQueryService {
     return saved;
   }
 
-  async addQueryMessage(user: ReqUser, queryId: string, message: string) {
+  /**
+   * Load a query the caller may act on. getQueryDetail already checked this;
+   * the three write paths below looked a query up by id and changed it
+   * without asking whose it was.
+   */
+  private async findQueryInScope(user: ReqUser, queryId: string) {
     const query = await this.queryRepo.findOne({ where: { id: queryId } });
     if (!query) throw new BadRequestException('Query not found');
+    const clientIds = await this.scope.getAssignedClientIds(user);
+    if (!clientIds.includes(query.clientId)) {
+      throw new ForbiddenException('Query not in your assigned clients');
+    }
+    return query;
+  }
+
+  async addQueryMessage(user: ReqUser, queryId: string, message: string) {
+    await this.findQueryInScope(user, queryId);
 
     const msg = await this.queryMsgRepo.save(
       this.queryMsgRepo.create({
@@ -155,8 +169,7 @@ export class PayrollQueryService {
   }
 
   async resolveQuery(user: ReqUser, queryId: string, resolution: string) {
-    const query = await this.queryRepo.findOne({ where: { id: queryId } });
-    if (!query) throw new BadRequestException('Query not found');
+    await this.findQueryInScope(user, queryId);
 
     await this.queryRepo.update(queryId, {
       status: 'RESOLVED',
@@ -176,9 +189,8 @@ export class PayrollQueryService {
     return { success: true };
   }
 
-  async updateQueryStatus(_user: ReqUser, queryId: string, status: string) {
-    const query = await this.queryRepo.findOne({ where: { id: queryId } });
-    if (!query) throw new BadRequestException('Query not found');
+  async updateQueryStatus(user: ReqUser, queryId: string, status: string) {
+    await this.findQueryInScope(user, queryId);
     await this.queryRepo.update(queryId, { status });
     return { success: true };
   }

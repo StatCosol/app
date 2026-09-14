@@ -1,4 +1,10 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
@@ -23,6 +29,18 @@ export class ClientComplianceDocsController {
     return this.svc.listForClient(user, q);
   }
 
+  /**
+   * A CLIENT user has exactly one company: the one on their token. These
+   * endpoints used to accept `?companyId=` and fall back to the token only when
+   * it was absent, so any client could read another company's branch figures —
+   * and ScopeGuard never saw it, because it only checks a param named clientId.
+   */
+  private ownCompany(user: ReqUser): string {
+    if (!user.clientId)
+      throw new ForbiddenException('No client linked to user');
+    return user.clientId;
+  }
+
   /** Dashboard KPIs: branch-wise compliance % */
   @ApiOperation({ summary: 'Dashboard Kpis' })
   @Get('dashboard-kpis')
@@ -30,7 +48,7 @@ export class ClientComplianceDocsController {
     @CurrentUser() user: ReqUser,
     @Query() q: Record<string, string>,
   ) {
-    const companyId = q.companyId || user.clientId!;
+    const companyId = this.ownCompany(user);
     const year = q.year ? Number(q.year) : new Date().getFullYear();
     const month = q.month ? Number(q.month) : undefined;
     return this.svc.getClientDashboardKpis(user, companyId, year, month);
@@ -50,7 +68,7 @@ export class ClientComplianceDocsController {
     @CurrentUser() user: ReqUser,
     @Query() q: Record<string, string>,
   ) {
-    const companyId = q.companyId || user.clientId!;
+    const companyId = this.ownCompany(user);
     const year = q.year ? Number(q.year) : new Date().getFullYear();
     const limit = q.limit ? Number(q.limit) : 10;
     return this.svc.getLowestComplianceBranches(companyId, year, limit);
@@ -63,7 +81,7 @@ export class ClientComplianceDocsController {
     @CurrentUser() user: ReqUser,
     @Query() q: Record<string, string>,
   ) {
-    const companyId = q.companyId || user.clientId!;
+    const companyId = this.ownCompany(user);
     const year = q.year ? Number(q.year) : new Date().getFullYear();
     // Use a special "all-branches" query — pass empty branchId
     return this.svc.getComplianceTrend('', companyId, year);
