@@ -7,7 +7,7 @@ const { Client } = require('pg');
 const { MonthlyCloseService } = require('../src/monthly-close/monthly-close.service');
 
 async function main() {
-  const db = new Client({ host: '127.0.0.1', port: 55439, user: 'monthly_close_test', database: 'postgres' });
+  const db = new Client({ host: '127.0.0.1', port: Number(process.env.AUTOMATION_TEST_PORT || 55439), user: process.env.AUTOMATION_TEST_USER || 'monthly_close_test', password: process.env.AUTOMATION_TEST_PASSWORD || undefined, database: process.env.AUTOMATION_TEST_DATABASE || 'postgres' });
   await db.connect();
   try {
     await db.query(`
