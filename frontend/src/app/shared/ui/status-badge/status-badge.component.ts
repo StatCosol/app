@@ -146,7 +146,12 @@ const STATUS_LABEL_MAP: Record<string, string> = {
 <span class="w-2 h-2 rounded-full mr-1.5" [ngClass]="dotClass"
             [style.boxShadow]="'0 0 0 2px ' + dotGlowColor"></span>
 }
-      {{ displayLabel }}
+      @if (displayLabel) {
+        {{ displayLabel }}
+      } @else {
+        <!-- Callers that pass only a variant put the text between the tags. -->
+        <ng-content />
+      }
     </span>
   `
 })

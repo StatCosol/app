@@ -228,16 +228,17 @@
         <ui-data-table
           [columns]="usersColumns"
           [data]="users"
-          [loading]="usersLoading">
-          
+          [loading]="usersLoading"
+          minWidth="860px">
+
           <!-- User Code -->
           <ng-template uiTableCell="userCode" let-row>
-            <span class="font-medium text-gray-900">{{ row['userCode'] ? row['userCode'] : '-' }}</span>
+            <span class="font-medium text-gray-900 block truncate" [title]="row['userCode'] || ''">{{ row['userCode'] ? row['userCode'] : '-' }}</span>
           </ng-template>
-          
+
           <!-- Role -->
           <ng-template uiTableCell="role" let-row>
-            <span class="text-sm text-gray-600">{{ getRoleLabelForRow(row) }}</span>
+            <span class="text-sm text-gray-600 block truncate" [title]="getRoleLabelForRow(row)">{{ getRoleLabelForRow(row) }}</span>
           </ng-template>
           
           <!-- Email -->
@@ -252,7 +253,7 @@
           
           <!-- Name -->
           <ng-template uiTableCell="name" let-row>
-            <span class="text-sm text-gray-900">{{ row.name }}</span>
+            <span class="text-sm text-gray-900 block truncate" [title]="row.name">{{ row.name }}</span>
           </ng-template>
           
           <!-- Status -->
@@ -264,7 +265,7 @@
           
           <!-- Actions -->
           <ng-template uiTableCell="actions" let-row>
-            <div class="flex justify-end gap-1 sm:gap-2">
+            <div class="flex flex-wrap justify-end gap-1 sm:gap-2">
               <ui-button
                 variant="secondary"
                 size="sm"
