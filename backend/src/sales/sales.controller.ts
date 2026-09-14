@@ -28,7 +28,7 @@ import {
 @ApiBearerAuth('JWT')
 @Controller({ path: 'sales/leads', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('SALES', 'ADMIN', 'CEO')
+@Roles('SALES', 'CEO')
 export class SalesLeadsController {
   constructor(private readonly svc: SalesService) {}
 
@@ -73,7 +73,7 @@ export class SalesLeadsController {
 
   @Delete(':id')
   @HttpCode(204)
-  @ApiOperation({ summary: 'Delete lead (ADMIN/CEO only)' })
+  @ApiOperation({ summary: 'Delete lead (CEO only)' })
   async remove(
     @CurrentUser() user: any,
     @Param('id', ParseUUIDPipe) id: string,
@@ -110,12 +110,14 @@ export class CeoSalesController {
   constructor(private readonly svc: SalesService) {}
 
   @Get('sales/summary')
+  @Roles('CEO')
   @ApiOperation({ summary: 'CEO sales pipeline summary' })
   pipeline() {
     return this.svc.ceoPipelineSummary();
   }
 
   @Get('sales/followups')
+  @Roles('CEO')
   @ApiOperation({ summary: 'CEO follow-ups view (overdue/awaiting/stale)' })
   followups() {
     return this.svc.ceoFollowups();

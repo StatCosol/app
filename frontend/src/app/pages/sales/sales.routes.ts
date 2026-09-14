@@ -6,7 +6,7 @@ export const SALES_ROUTES: Routes = [
     path: 'sales',
     loadComponent: () =>
       import('./sales-layout/sales-layout.component').then((m) => m.SalesLayoutComponent),
-    canActivate: [roleGuard(['SALES', 'ADMIN'])],
+    canActivate: [roleGuard(['SALES'])],
     children: [
       {
         path: 'dashboard',
