@@ -1,0 +1,538 @@
+[
+  {
+    "file": "Form-XII-Register-of-Contractors-CLRA.doc",
+    "sha256": "7020382288f87b677c3008480ce5364c33d606a836aa918f3410608ff9a2b7d2",
+    "extension": ".doc",
+    "bytes": 41984,
+    "duplicateOf": null,
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "Form-11 Accident Book.xlsx",
+    "sha256": "60272abfc1f4a5bb7d6db5f6ac8e918906b2ee66d93294bdd88f04d8af308873",
+    "extension": ".xlsx",
+    "bytes": 10354,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "FORM E LABOUR WELFARE FUND ACT.docx",
+    "sha256": "aecc55993987a0457de4922752728d44e5f4a57fe17915fcf9c3c4801ef6eca7",
+    "extension": ".docx",
+    "bytes": 13080,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Copy of Registers-Shop & Establishment.xls",
+    "sha256": "b5fde158475aa051f2cc909f55366c67a3768149aac563c26b8b060861295f44",
+    "extension": ".xls",
+    "bytes": 96256,
+    "duplicateOf": null,
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Joint Undertaking.doc",
+    "sha256": "ee46c9d6a58984b00e87cfc65e8c72beae824089b2eff613fe65c3ea70bddad3",
+    "extension": ".doc",
+    "bytes": 24064,
+    "duplicateOf": null,
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form IV Application CLRA (1).xls",
+    "sha256": "93668f51dcf7f98d6dae30b388e47223620916b3ba2b2753017870df7b35c556",
+    "extension": ".xls",
+    "bytes": 27648,
+    "duplicateOf": null,
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-E Labour Welfare Fund.xlsx",
+    "sha256": "2a55003cbf7d5ff49dbd437db7833eca25aa6a43316397f7fa86105188e1a947",
+    "extension": ".xlsx",
+    "bytes": 11334,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/form c & d bonus act.doc",
+    "sha256": "292fdf2503bf28a82e7c99abbf2717a260f45b00379003a34118ca3c00890c3e",
+    "extension": ".doc",
+    "bytes": 56320,
+    "duplicateOf": null,
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/FORM VI-B - Commencement of Work - Copy - Copy.doc",
+    "sha256": "175804f6334e860590a5536b0bdbbf87bbbab69f0936a1a54a4da1aa59a95c44",
+    "extension": ".doc",
+    "bytes": 23552,
+    "duplicateOf": null,
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-D Bonus Act.xlsx",
+    "sha256": "522e79e9b135af18bf5472d6a8bcd7ca90642b0b9fd449100aef8f372f90c491",
+    "extension": ".xlsx",
+    "bytes": 19783,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-VII ESI Act.xlsx",
+    "sha256": "fd6f07f7330a712d1ca865d9825a1d2f13dcabf29b3b376f404ff8e88b2a8a14",
+    "extension": ".xlsx",
+    "bytes": 22788,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form IV Application.xls",
+    "sha256": "2990ae58097c0fec0f94a7225fc822ff077f1fef579c8ccfff1d26da7a8dc25a",
+    "extension": ".xls",
+    "bytes": 27136,
+    "duplicateOf": null,
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Leave with wages - CL.doc",
+    "sha256": "435c9d8382f60466c2d0ffe50e3fad2b6cd34b114971f436c4bd6cd46da59963",
+    "extension": ".doc",
+    "bytes": 23552,
+    "duplicateOf": null,
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/FAQ OF GUARDING STAFF.docx",
+    "sha256": "d99a2ff93e6e562db5592fd6e16e431eed90b95f8cb906390a1a2e2f5c314aff",
+    "extension": ".docx",
+    "bytes": 11518,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Shops and Establishments act Forms.xlsx",
+    "sha256": "45922de160d3794369a40111b1cd1b3a30d2fa9f973737bcedef9959a135ae00",
+    "extension": ".xlsx",
+    "bytes": 22610,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-XIII.xlsx",
+    "sha256": "501b0adeaaaaecfb624e6049f1083368d8e4604e83e18375a6c22cdb18b8a78f",
+    "extension": ".xlsx",
+    "bytes": 11515,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/FORM XII(Register of Contractors) - Copy.doc",
+    "sha256": "af5c76f39743688da959cba6b7436a700ebb2e428f1e1e26ff26811d5c115321",
+    "extension": ".doc",
+    "bytes": 49664,
+    "duplicateOf": null,
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Harish Mee-Seva Details.docx",
+    "sha256": "78e6ea0ee42db0fbac7e57134f0fdd45218d6ab19deb3c5e4917340218b7a22a",
+    "extension": ".docx",
+    "bytes": 10634,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-XIV.docx",
+    "sha256": "d606e20aca073e18dcb48d34600e35dd72507e525f1cd59aa6601d380cde3bc1",
+    "extension": ".docx",
+    "bytes": 17163,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-XV Service Certificate.docx",
+    "sha256": "749c7b6f545a4273f88893671f6cbb73962bdd6656580cbf5a549df1ff9e1694",
+    "extension": ".docx",
+    "bytes": 20988,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/STATUTORY COMPLIANCE NILL REGISTERS - PRINICIPAL EMPLOYER.xlsx",
+    "sha256": "79761d25c645725c92fb992e3a988686eb822703ce0d5d0ca1dd36c25080f290",
+    "extension": ".xlsx",
+    "bytes": 24350,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Telangana wage slip clra.docx",
+    "sha256": "951e5771c04b305bc49d689450b72865f54199a72d9dd5cb375642f424e936be",
+    "extension": ".docx",
+    "bytes": 9249,
+    "duplicateOf": null,
+    "magic": "504b030414000808"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-XVI.xlsx",
+    "sha256": "16209e70515cee1193413974b6a4a70742a6ec1c7931b8e1388a18f27ae7dca5",
+    "extension": ".xlsx",
+    "bytes": 15431,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form XIV- Employment cum wage Card.doc",
+    "sha256": "6203dd9ba76e7ea69b2eb3562574f20473867996675eb8e246893d9b725c3498",
+    "extension": ".doc",
+    "bytes": 36864,
+    "duplicateOf": null,
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-XVII.xlsx",
+    "sha256": "a0eaa7edbf3b1a23b86d2389545e650f263451fbce64bde7da4fc99f21424ca3",
+    "extension": ".xlsx",
+    "bytes": 28915,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/FORM I Contract Labor Act - Copy (2).doc",
+    "sha256": "0bdfca80cf9b2e6aceabd739bb8254640daf8701b5875e7b9da48bc05136df23",
+    "extension": ".doc",
+    "bytes": 38400,
+    "duplicateOf": null,
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/FORM VII - Renewal form - Copy.doc",
+    "sha256": "e56c6623f0a69663c9d69ce16fb69b50eb207a9fdb07c083571399e8fe6ea19a",
+    "extension": ".doc",
+    "bytes": 21504,
+    "duplicateOf": null,
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Leave Rules under C A Act Latest.doc",
+    "sha256": "ee3936f07cfb5e859c1ee52f87a00ed899cfbbd7cf366a420fb327baec6697a7",
+    "extension": ".doc",
+    "bytes": 26624,
+    "duplicateOf": null,
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Statutory Nill Registers.xlsx",
+    "sha256": "229ba9fb802068b288d878c3975c91781fe555e2d0baadb1be5de688a010c1f2",
+    "extension": ".xlsx",
+    "bytes": 22865,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/FORM I Contract Labor Act - Copy (2).doc",
+    "sha256": "0bdfca80cf9b2e6aceabd739bb8254640daf8701b5875e7b9da48bc05136df23",
+    "extension": ".doc",
+    "bytes": 38400,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/FORM I Contract Labor Act - Copy (2).doc",
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form IV Application.xls",
+    "sha256": "706d5cebafe9a688b54ad440bca5991075805448f4b165a0a111ecaf2b761282",
+    "extension": ".xls",
+    "bytes": 27136,
+    "duplicateOf": null,
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/FORM VI-B - Commencement of Work - Copy - Copy.doc",
+    "sha256": "e635399aa1c212d183e37d3c4bf8d8cd96c9af3e9e9a7c26f822ee4d2df5d1e5",
+    "extension": ".doc",
+    "bytes": 23552,
+    "duplicateOf": null,
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/FORM VII - Renewal form - Copy.doc",
+    "sha256": "e56c6623f0a69663c9d69ce16fb69b50eb207a9fdb07c083571399e8fe6ea19a",
+    "extension": ".doc",
+    "bytes": 21504,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/FORM VII - Renewal form - Copy.doc",
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/FORM XII(Register of Contractors) - Copy.doc",
+    "sha256": "1d4e8c7ecff25161458e1c260d89fa9d7a5335f2b6183f5a5046352c0a9a5090",
+    "extension": ".doc",
+    "bytes": 38912,
+    "duplicateOf": null,
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form XIV- Employment cum wage Card.doc",
+    "sha256": "6203dd9ba76e7ea69b2eb3562574f20473867996675eb8e246893d9b725c3498",
+    "extension": ".doc",
+    "bytes": 36864,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form XIV- Employment cum wage Card.doc",
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form XIX Wage Slips.docx",
+    "sha256": "a1ad1ef884dcfeafefab9353adeeeb44d784e1ee3e18450fdea54bf353704c07",
+    "extension": ".docx",
+    "bytes": 15405,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-D Bonus Act.xlsx",
+    "sha256": "522e79e9b135af18bf5472d6a8bcd7ca90642b0b9fd449100aef8f372f90c491",
+    "extension": ".xlsx",
+    "bytes": 19783,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-D Bonus Act.xlsx",
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-E Labour Welfare Fund.xlsx",
+    "sha256": "2a55003cbf7d5ff49dbd437db7833eca25aa6a43316397f7fa86105188e1a947",
+    "extension": ".xlsx",
+    "bytes": 11334,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-E Labour Welfare Fund.xlsx",
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-VII ESI Act.xlsx",
+    "sha256": "fd6f07f7330a712d1ca865d9825a1d2f13dcabf29b3b376f404ff8e88b2a8a14",
+    "extension": ".xlsx",
+    "bytes": 22788,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-VII ESI Act.xlsx",
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-XIII.xlsx",
+    "sha256": "501b0adeaaaaecfb624e6049f1083368d8e4604e83e18375a6c22cdb18b8a78f",
+    "extension": ".xlsx",
+    "bytes": 11515,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-XIII.xlsx",
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-XIV.docx",
+    "sha256": "d606e20aca073e18dcb48d34600e35dd72507e525f1cd59aa6601d380cde3bc1",
+    "extension": ".docx",
+    "bytes": 17163,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-XIV.docx",
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-XV Service Certificate.docx",
+    "sha256": "749c7b6f545a4273f88893671f6cbb73962bdd6656580cbf5a549df1ff9e1694",
+    "extension": ".docx",
+    "bytes": 20988,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-XV Service Certificate.docx",
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-XVI.xlsx",
+    "sha256": "cfd0f3a91c87cb9b318c25485831352f466618c251c0abd74a0331bddeb981f9",
+    "extension": ".xlsx",
+    "bytes": 17517,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-XVII.xlsx",
+    "sha256": "c9c01a0cb49fc197e1eb4299b00a5a59fc91804d22933308095ae17e812708f2",
+    "extension": ".xlsx",
+    "bytes": 31079,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Joint Undertaking.doc",
+    "sha256": "ee46c9d6a58984b00e87cfc65e8c72beae824089b2eff613fe65c3ea70bddad3",
+    "extension": ".doc",
+    "bytes": 24064,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Joint Undertaking.doc",
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Leave Rules under C A Act Latest.doc",
+    "sha256": "ad2adb2753ed160583a37298ec6ff0c40c4aa231a1b493a97258bfaaa488cba7",
+    "extension": ".doc",
+    "bytes": 26624,
+    "duplicateOf": null,
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Leave with wages - CL.doc",
+    "sha256": "435c9d8382f60466c2d0ffe50e3fad2b6cd34b114971f436c4bd6cd46da59963",
+    "extension": ".doc",
+    "bytes": 23552,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Leave with wages - CL.doc",
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Statutory Nill Registers.xlsx",
+    "sha256": "ef5cc2c9d39e2bfa7686db39dd7cbec663bf8740b1aba435f27b878ba74d62a6",
+    "extension": ".xlsx",
+    "bytes": 22844,
+    "duplicateOf": null,
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/FORM I Contract Labor Act - Copy (2).doc",
+    "sha256": "0bdfca80cf9b2e6aceabd739bb8254640daf8701b5875e7b9da48bc05136df23",
+    "extension": ".doc",
+    "bytes": 38400,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/FORM I Contract Labor Act - Copy (2).doc",
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form IV Application.xls",
+    "sha256": "706d5cebafe9a688b54ad440bca5991075805448f4b165a0a111ecaf2b761282",
+    "extension": ".xls",
+    "bytes": 27136,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form IV Application.xls",
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/FORM VI-B - Commencement of Work - Copy - Copy.doc",
+    "sha256": "e635399aa1c212d183e37d3c4bf8d8cd96c9af3e9e9a7c26f822ee4d2df5d1e5",
+    "extension": ".doc",
+    "bytes": 23552,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/FORM VI-B - Commencement of Work - Copy - Copy.doc",
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/FORM VII - Renewal form - Copy.doc",
+    "sha256": "e56c6623f0a69663c9d69ce16fb69b50eb207a9fdb07c083571399e8fe6ea19a",
+    "extension": ".doc",
+    "bytes": 21504,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/FORM VII - Renewal form - Copy.doc",
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/FORM XII(Register of Contractors) - Copy.doc",
+    "sha256": "1d4e8c7ecff25161458e1c260d89fa9d7a5335f2b6183f5a5046352c0a9a5090",
+    "extension": ".doc",
+    "bytes": 38912,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/FORM XII(Register of Contractors) - Copy.doc",
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form XIV- Employment cum wage Card.doc",
+    "sha256": "6203dd9ba76e7ea69b2eb3562574f20473867996675eb8e246893d9b725c3498",
+    "extension": ".doc",
+    "bytes": 36864,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form XIV- Employment cum wage Card.doc",
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form XIX Wage Slips.docx",
+    "sha256": "a1ad1ef884dcfeafefab9353adeeeb44d784e1ee3e18450fdea54bf353704c07",
+    "extension": ".docx",
+    "bytes": 15405,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form XIX Wage Slips.docx",
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-D Bonus Act.xlsx",
+    "sha256": "522e79e9b135af18bf5472d6a8bcd7ca90642b0b9fd449100aef8f372f90c491",
+    "extension": ".xlsx",
+    "bytes": 19783,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-D Bonus Act.xlsx",
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-E Labour Welfare Fund.xlsx",
+    "sha256": "2a55003cbf7d5ff49dbd437db7833eca25aa6a43316397f7fa86105188e1a947",
+    "extension": ".xlsx",
+    "bytes": 11334,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-E Labour Welfare Fund.xlsx",
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-VII ESI Act.xlsx",
+    "sha256": "fd6f07f7330a712d1ca865d9825a1d2f13dcabf29b3b376f404ff8e88b2a8a14",
+    "extension": ".xlsx",
+    "bytes": 22788,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-VII ESI Act.xlsx",
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-XIII.xlsx",
+    "sha256": "501b0adeaaaaecfb624e6049f1083368d8e4604e83e18375a6c22cdb18b8a78f",
+    "extension": ".xlsx",
+    "bytes": 11515,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-XIII.xlsx",
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-XIV.docx",
+    "sha256": "d606e20aca073e18dcb48d34600e35dd72507e525f1cd59aa6601d380cde3bc1",
+    "extension": ".docx",
+    "bytes": 17163,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-XIV.docx",
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-XV Service Certificate.docx",
+    "sha256": "749c7b6f545a4273f88893671f6cbb73962bdd6656580cbf5a549df1ff9e1694",
+    "extension": ".docx",
+    "bytes": 20988,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Form-XV Service Certificate.docx",
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-XVI.xlsx",
+    "sha256": "cfd0f3a91c87cb9b318c25485831352f466618c251c0abd74a0331bddeb981f9",
+    "extension": ".xlsx",
+    "bytes": 17517,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-XVI.xlsx",
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-XVII.xlsx",
+    "sha256": "c9c01a0cb49fc197e1eb4299b00a5a59fc91804d22933308095ae17e812708f2",
+    "extension": ".xlsx",
+    "bytes": 31079,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Form-XVII.xlsx",
+    "magic": "504b030414000600"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Joint Undertaking.doc",
+    "sha256": "ee46c9d6a58984b00e87cfc65e8c72beae824089b2eff613fe65c3ea70bddad3",
+    "extension": ".doc",
+    "bytes": 24064,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Joint Undertaking.doc",
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Leave Rules under C A Act Latest.doc",
+    "sha256": "ad2adb2753ed160583a37298ec6ff0c40c4aa231a1b493a97258bfaaa488cba7",
+    "extension": ".doc",
+    "bytes": 26624,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Leave Rules under C A Act Latest.doc",
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Leave with wages - CL.doc",
+    "sha256": "435c9d8382f60466c2d0ffe50e3fad2b6cd34b114971f436c4bd6cd46da59963",
+    "extension": ".doc",
+    "bytes": 23552,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/Leave with wages - CL.doc",
+    "magic": "d0cf11e0a1b11ae1"
+  },
+  {
+    "file": "CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Statutory Nill Registers.xlsx",
+    "sha256": "ef5cc2c9d39e2bfa7686db39dd7cbec663bf8740b1aba435f27b878ba74d62a6",
+    "extension": ".xlsx",
+    "bytes": 22844,
+    "duplicateOf": "CLRA Registers Soft Copy-20260913T170847Z-1-001.zip!CLRA Registers Soft Copy/CLRA Registers Soft Copy.zip!CLRA Registers Soft Copy/Statutory Nill Registers.xlsx",
+    "magic": "504b030414000600"
+  }
+]

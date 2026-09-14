@@ -1,3 +1,7 @@
+import { RegisterEvidenceService } from './register-library/register-evidence.service';
+import { RegisterBuilderService } from './register-library/register-builder.service';
+import { RegisterLibraryController } from './register-library/register-library.controller';
+import { RegisterLibraryService } from './register-library/register-library.service';
 import { PayrollConfigurationScopeGuard } from './payroll-configuration-scope.guard';
 import { PayrollReconciliationController } from './reconciliation/payroll-reconciliation.controller';
 import { PayrollReconciliationService } from './reconciliation/payroll-reconciliation.service';
@@ -195,6 +199,7 @@ import { AccessModule } from '../access/access.module';
     AttendanceModule,
   ],
   controllers: [
+    RegisterLibraryController,
     PayrollReconciliationController,
     PayrollAssignmentsAdminController,
     ClientPayrollInputsController,
@@ -230,6 +235,9 @@ import { AccessModule } from '../access/access.module';
     BranchCtcController,
   ],
   providers: [
+    RegisterEvidenceService,
+    RegisterBuilderService,
+    RegisterLibraryService,
     PayrollConfigurationScopeGuard,
     PayrollReconciliationService,
     PayrollService,

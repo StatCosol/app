@@ -1,3 +1,4 @@
+import { registerIdentity } from './register-library/register-identity';
 import * as fs from 'fs';
 import archiver from 'archiver';
 import {
@@ -88,6 +89,7 @@ export class PayrollRegistersService {
       category: r.category,
       title: r.title,
       registerType: r.registerType ?? null,
+      legalIdentity: registerIdentity(r.registerType),
       stateCode: r.stateCode ?? null,
       periodYear: r.periodYear ?? null,
       periodMonth: r.periodMonth ?? null,
@@ -138,7 +140,10 @@ export class PayrollRegistersService {
     const used = new Set<string>();
     for (const row of available) {
       const period = `${row.periodYear || 'na'}-${row.periodMonth ? String(row.periodMonth).padStart(2, '0') : 'na'}`;
-      const source = row.payrollInputId ? 'generated' : 'manual';
+      const source =
+        row.payrollInputId || registerIdentity(row.registerType)
+          ? 'generated'
+          : 'manual';
       const rawName = `${period}_${source}_${row.title || 'register'}_${row.fileName || row.id}`;
       const zipName = this.uniqueZipFileName(rawName, used);
       archive.file(row.filePath, { name: zipName });
@@ -164,8 +169,17 @@ export class PayrollRegistersService {
           'Payroll access has not been enabled for branch users',
         );
       }
-      if (user.branchIds?.[0]) {
-        qb.andWhere('r.branch_id = :ub', { ub: user.branchIds[0] });
+      if (!user.branchIds?.length)
+        throw new ForbiddenException('Branch assignments are required');
+      qb.andWhere('r.branch_id IN (:...userBranches)', {
+        userBranches: user.branchIds,
+      });
+      if (toggles.payrollBranchScope === 'SELECTED') {
+        if (!toggles.payrollAllowedBranchIds.length)
+          throw new ForbiddenException('No branches enabled for payroll');
+        qb.andWhere('r.branch_id IN (:...enabledBranches)', {
+          enabledBranches: toggles.payrollAllowedBranchIds,
+        });
       }
       qb.andWhere('r.approval_status = :approved', { approved: 'APPROVED' });
       if (!toggles.allowBranchWageRegisters) {
@@ -187,9 +201,13 @@ export class PayrollRegistersService {
     if (q?.periodMonth)
       qb.andWhere('r.period_month = :m', { m: Number(q.periodMonth) });
     if (q?.sourceType === 'GENERATED') {
-      qb.andWhere('r.payroll_input_id IS NOT NULL');
+      qb.andWhere(
+        "(r.payroll_input_id IS NOT NULL OR LEFT(COALESCE(r.register_type,''),6) = 'LEGAL_')",
+      );
     } else if (q?.sourceType === 'MANUAL') {
-      qb.andWhere('r.payroll_input_id IS NULL');
+      qb.andWhere(
+        "r.payroll_input_id IS NULL AND LEFT(COALESCE(r.register_type,''),6) <> 'LEGAL_'",
+      );
     }
 
     const search = String(q?.search || '').trim();
@@ -410,6 +428,7 @@ export class PayrollRegistersService {
       category: r.category,
       title: r.title,
       registerType: r.registerType ?? null,
+      legalIdentity: registerIdentity(r.registerType),
       stateCode: r.stateCode ?? null,
       periodYear: r.periodYear ?? null,
       periodMonth: r.periodMonth ?? null,
@@ -458,11 +477,7 @@ export class PayrollRegistersService {
       throw new ForbiddenException('Access denied');
     // Branch users: approved only + same branch
     if (user.userType === 'BRANCH') {
-      if (
-        user.branchIds?.[0] &&
-        row.branchId &&
-        row.branchId !== user.branchIds[0]
-      ) {
+      if (!row.branchId || !user.branchIds?.includes(row.branchId)) {
         throw new ForbiddenException('Not your branch register');
       }
       if (row.approvalStatus !== 'APPROVED') {
@@ -474,6 +489,11 @@ export class PayrollRegistersService {
       // Enforce wage/salary register download restrictions
       const toggles = await this.getClientAccessToggles(user.clientId);
 
+      if (
+        toggles.payrollBranchScope === 'SELECTED' &&
+        !toggles.payrollAllowedBranchIds.includes(row.branchId)
+      )
+        throw new ForbiddenException('This branch is not enabled for payroll');
       const title = String(row.title || '').toLowerCase();
       const rtype = String(row.registerType || '').toLowerCase();
 
@@ -609,6 +629,7 @@ export class PayrollRegistersService {
       category: r.category,
       title: r.title,
       registerType: r.registerType ?? null,
+      legalIdentity: registerIdentity(r.registerType),
       stateCode: r.stateCode ?? null,
       periodYear: r.periodYear ?? null,
       periodMonth: r.periodMonth ?? null,

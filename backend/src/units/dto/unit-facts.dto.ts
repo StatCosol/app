@@ -8,6 +8,10 @@ import {
 } from 'class-validator';
 
 export class UnitFactsDto {
+  @IsOptional()
+  @IsEnum(['CENTRAL', 'STATE'])
+  appropriateGovernment?: 'CENTRAL' | 'STATE' | null;
+
   @IsString()
   stateCode: string;
 
