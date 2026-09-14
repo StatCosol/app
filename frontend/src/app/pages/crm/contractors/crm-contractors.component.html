@@ -182,10 +182,9 @@
         <div class="quote-grid">
           <label>Designation<input [(ngModel)]="quoteDesignation" class="form-control" placeholder="Security Guard / ASO" /></label>
           <label>Skill category<select [(ngModel)]="quoteSkill" class="form-control"><option value="">Select category</option><option value="UNSKILLED">Unskilled</option><option value="SEMI_SKILLED">Semi-skilled</option><option value="SKILLED">Skilled</option><option value="HIGHLY_SKILLED">Highly skilled</option></select></label>
-          <label>Monthly attendance divisor<input type="number" min="1" max="31" [(ngModel)]="quoteDivisor" class="form-control" /></label>
           <label>Rounding<select [(ngModel)]="quoteRounding" class="form-control"><option value="RUPEE">Nearest rupee</option><option value="PAISE">Two decimal places</option></select></label>
         </div>
-        <p>Enter one designation at a time. Keep employee earnings, deductions, employer costs and billing fees separate. Percentage bases use earlier component codes, separated by commas.</p>
+        <p>Enter one designation at a time. Keep employee earnings, deductions, employer costs and billing fees separate. Percentage bases use earlier component codes, separated by commas. Prorated amounts are paid for payable days out of the month's working days (calendar days excluding Sundays).</p>
         @for (c of quoteComponents; track $index) {
           <div class="quote-component">
             <strong>Component {{ $index + 1 }}</strong>

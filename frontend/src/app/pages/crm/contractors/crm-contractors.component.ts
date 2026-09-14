@@ -53,7 +53,6 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
   quoteMode: 'excel' | 'manual' = 'excel';
   quoteDesignation = '';
   quoteSkill = '';
-  quoteDivisor = 30;
   quoteRounding = 'RUPEE';
   quoteComponents = [this.newQuoteComponent()];
 
@@ -68,8 +67,6 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
   manualQuoteFile(): File {
     if (!this.quoteDesignation.trim() || !this.quoteSkill || !this.quoteComponents.length)
       throw new Error('Enter a designation, skill category and at least one component');
-    if (!Number.isInteger(this.quoteDivisor) || this.quoteDivisor < 1 || this.quoteDivisor > 31)
-      throw new Error('Attendance divisor must be between 1 and 31 days');
     const codes = new Set<string>();
     const rows = this.quoteComponents.map(c => {
       const code = c.code.trim().toUpperCase();
@@ -80,7 +77,7 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
         throw new Error('Percentage components must reference codes entered in earlier rows');
       codes.add(code);
       return { skill_category: this.quoteSkill, designation: this.quoteDesignation.trim(),
-        effective_from: this.quoteEffectiveFrom, divisor: this.quoteDivisor, rounding: this.quoteRounding,
+        effective_from: this.quoteEffectiveFrom, divisor: '', rounding: this.quoteRounding,
         component_code: code, label: c.label.trim() || code, category: c.category, method: c.method,
         value: c.value, basis: c.method === 'PERCENT' ? basis.join(',') : '',
         ceiling: c.ceiling, prorate: c.method === 'FIXED' && c.prorate ? 'yes' : 'no' };
@@ -249,7 +246,6 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
     this.quoteMode = 'excel';
     this.quoteDesignation = '';
     this.quoteSkill = '';
-    this.quoteDivisor = 30;
     this.quoteRounding = 'RUPEE';
     this.quoteComponents = [this.newQuoteComponent()];
     this.quoteBranches = [];

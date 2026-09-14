@@ -4,6 +4,10 @@ import {
   calculateRateCardSegments,
   validateRateCard,
 } from './contractor-rate-card';
+import {
+  applyMonthDivisor,
+  workingDaysInMonth,
+} from './contractor-working-days';
 import { ContractorDaysService } from '../biometric/contractor-days.service';
 import {
   BadRequestException,
@@ -362,12 +366,6 @@ export class ContractorComputationService {
         const rateCard = cardText
           ? validateRateCard(JSON.parse(cardText))
           : null;
-        if (rateCard)
-          dailyWage =
-            calculateRateCard(rateCard, rateCard.divisor).amounts.BASIC_DA /
-            rateCard.divisor;
-        if (!dailyWage || dailyWage <= 0)
-          throw new BadRequestException('daily_wage must be greater than zero');
         const effectiveFrom =
           this.cellString(row, headers, ['effective_from']) ||
           dto.effectiveFrom;
@@ -376,6 +374,19 @@ export class ContractorComputationService {
             'effective_from is required as YYYY-MM-DD',
           );
         }
+        if (rateCard) {
+          // Reference daily rate: BASIC_DA for the working days of the month the
+          // quotation takes effect (calendar days excluding Sundays). The card
+          // carries no fixed divisor; payroll runs use each wage month's days.
+          const monthDays = workingDaysInMonth(effectiveFrom.slice(0, 7));
+          dailyWage =
+            calculateRateCard(
+              applyMonthDivisor(rateCard, effectiveFrom.slice(0, 7)),
+              monthDays,
+            ).amounts.BASIC_DA / monthDays;
+        }
+        if (!dailyWage || dailyWage <= 0)
+          throw new BadRequestException('daily_wage must be greater than zero');
         const effectiveTo =
           this.cellString(row, headers, ['effective_to']) || null;
         if (
@@ -428,10 +439,7 @@ export class ContractorComputationService {
               createdByUserId: user.id,
             });
           entity.rateCard = rateCard;
-          entity.dailyWage = rateCard
-            ? calculateRateCard(rateCard, rateCard.divisor).amounts.BASIC_DA /
-              rateCard.divisor
-            : dailyWage!;
+          entity.dailyWage = dailyWage!;
           if (!Number.isFinite(entity.dailyWage) || entity.dailyWage <= 0)
             throw new BadRequestException(
               'A positive BASIC_DA earning is required',
@@ -1127,7 +1135,10 @@ export class ContractorComputationService {
       );
     }
     const quote = segments[segments.length - 1]?.quote || initialQuote;
-    const employeeDailyWage = this.resolveEmployeeDailyWage(employee);
+    const employeeDailyWage = this.resolveEmployeeDailyWage(
+      employee,
+      periodMonth,
+    );
     const payableDailyWage = this.round(quote?.dailyWage ?? 0);
     const basicWage = this.round(
       this.optionalNum(raw['basic_wage'] ?? raw['basic']) ??
@@ -1239,7 +1250,10 @@ export class ContractorComputationService {
     const cardResult = calculationSegments.length
       ? calculateRateCardSegments(
           calculationSegments.map((s) => ({
-            card: s.quote.rateCard!,
+            // Prorated components: payable days / working days of the wage
+            // month (calendar days excluding Sundays), not the card's stored
+            // divisor.
+            card: applyMonthDivisor(s.quote.rateCard!, periodMonth),
             days: s.days,
             hours: s.hours,
           })),
@@ -1272,6 +1286,7 @@ export class ContractorComputationService {
         rateCard: quote?.rateCard || null,
         result: cardResult,
         overtimeHours: Number(raw.ot_hours || 0),
+        monthDivisor: workingDaysInMonth(periodMonth),
         segments: calculationSegments.map((s) => ({
           quotationId: s.quote.id,
           effectiveFrom: s.quote.effectiveFrom,
@@ -1408,13 +1423,18 @@ export class ContractorComputationService {
 
   private resolveEmployeeDailyWage(
     employee: ContractorEmployeeEntity | null,
+    periodMonth: string,
   ): number | null {
     if (!employee) return null;
     if (employee.dailyWage != null && employee.dailyWage > 0) {
       return employee.dailyWage;
     }
     if (employee.monthlySalary != null && employee.monthlySalary > 0) {
-      return this.round(employee.monthlySalary / 26);
+      // Divide by the wage month's working days (calendar days excluding
+      // Sundays), not a fixed 26.
+      return this.round(
+        employee.monthlySalary / workingDaysInMonth(periodMonth),
+      );
     }
     return null;
   }
@@ -1437,7 +1457,11 @@ export class ContractorComputationService {
       .addOrderBy('mw.effective_from', 'DESC')
       .getOne();
     if (!row) return null;
-    return row.dailyWage ?? this.round(row.monthlyWage / 26);
+    // onDate is the first of the wage month; use that month's working days.
+    return (
+      row.dailyWage ??
+      this.round(row.monthlyWage / workingDaysInMonth(onDate.slice(0, 7)))
+    );
   }
 
   private async findPayrollSetup(
@@ -1623,7 +1647,7 @@ export class ContractorComputationService {
         designation: string;
         from: string;
         to: string;
-        divisor: number;
+        divisor: number | null;
         rounding: string;
         components: unknown[];
       }
@@ -1637,7 +1661,9 @@ export class ContractorComputationService {
         designation = text('designation').toUpperCase();
       const from = text('effective_from') || effectiveFrom || '',
         to = text('effective_to');
-      const divisor = Number(text('divisor')),
+      // Blank is the expected value: runs divide by the wage month's working
+      // days. A number from an older sheet is kept but never used to prorate.
+      const divisor = text('divisor') ? Number(text('divisor')) : null,
         rounding = text('rounding').toUpperCase();
       const key = JSON.stringify([skill, designation, from]);
       let group = groups.get(key);
@@ -1693,7 +1719,7 @@ export class ContractorComputationService {
         g.from,
         g.to,
         JSON.stringify({
-          divisor: g.divisor,
+          ...(g.divisor != null ? { divisor: g.divisor } : {}),
           rounding: g.rounding,
           components: g.components,
         }),
@@ -1790,7 +1816,7 @@ export class ContractorComputationService {
         ],
       ];
       for (const r of rows)
-        sheet.addRow(['SKILLED', designation, '', '', 30, 'RUPEE', ...r]);
+        sheet.addRow(['SKILLED', designation, '', '', '', 'RUPEE', ...r]);
     }
     sheet.getRow(1).font = { bold: true };
     sheet.columns.forEach((c) => (c.width = 24));
@@ -1816,7 +1842,7 @@ export class ContractorComputationService {
         'Overtime: use method HOURLY, value as the approved hourly amount and prorate=no. Use code OT.',
       ],
       [
-        'Fixed monthly components with prorate=yes use payable days/divisor; percentage components must use prorate=no.',
+        'Leave divisor empty. Fixed monthly components with prorate=yes are paid as payable days / working days of the wage month (calendar days excluding Sundays). Percentage components must use prorate=no.',
       ],
     ]);
     return Buffer.from(await workbook.xlsx.writeBuffer());

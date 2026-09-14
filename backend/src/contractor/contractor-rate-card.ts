@@ -11,7 +11,12 @@ export interface RateComponent {
   prorate: boolean;
 }
 export interface ContractorRateCard {
-  divisor: number;
+  /**
+   * Optional. Payroll runs prorate by the wage month's working days (calendar
+   * days excluding Sundays) and ignore any stored value; older cards may still
+   * carry one, which must then be 1–31.
+   */
+  divisor?: number | null;
   rounding: 'RUPEE' | 'PAISE';
   components: RateComponent[];
 }
@@ -19,16 +24,17 @@ export function validateRateCard(value: unknown): ContractorRateCard {
   const card = value as ContractorRateCard;
   if (
     !card ||
-    !Number.isInteger(card.divisor) ||
-    card.divisor < 1 ||
-    card.divisor > 31 ||
+    (card.divisor != null &&
+      (!Number.isInteger(card.divisor) ||
+        card.divisor < 1 ||
+        card.divisor > 31)) ||
     !['RUPEE', 'PAISE'].includes(card.rounding) ||
     !Array.isArray(card.components) ||
     !card.components.length ||
     card.components.length > 50
   )
     throw new BadRequestException(
-      'Rate card needs a divisor (1–31), rounding and 1–50 components',
+      'Rate card needs rounding and 1–50 components; a divisor, if given, must be 1–31',
     );
   const codes = new Set<string>();
   for (const c of card.components) {
@@ -102,6 +108,10 @@ export function calculateRateCard(
     throw new BadRequestException('Invalid overtime hours');
   if (!Number.isFinite(days) || days < 0 || days > 31)
     throw new BadRequestException('Invalid payable days');
+  if (!card.divisor && card.components.some((c) => c.prorate))
+    throw new BadRequestException(
+      "Prorated components need the wage month's working days as the divisor",
+    );
   const factor = card.rounding === 'RUPEE' ? 1 : 100;
   const round = (n: number) =>
     Math.round((n + Number.EPSILON) * factor) / factor;
@@ -135,7 +145,7 @@ export function calculateRateCard(
     if (excludedCodes.includes(c.code)) bases[c.code] = 0;
     const amount = excludedCodes.includes(c.code)
       ? 0
-      : round(base * (c.prorate ? days / card.divisor : 1));
+      : round(base * (c.prorate ? days / card.divisor! : 1));
     amounts[c.code] = amount;
     const bucket = {
       EARNING: 'earnings',
