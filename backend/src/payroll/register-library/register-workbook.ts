@@ -69,6 +69,14 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
     input.month > 12
   )
     errors.push('Select a valid month and year');
+  if (layout.periodKind === 'ANNUAL') {
+    if (input.month !== 12)
+      errors.push('Annual registers must use the year-end reporting period');
+    if (input.issueDate < input.year + '-12-31')
+      errors.push(
+        'A completed annual register cannot be issued before the reporting year ends',
+      );
+  }
   const validDate = (v: unknown) =>
     typeof v === 'string' &&
     /^\d{4}-\d{2}-\d{2}$/.test(v) &&
@@ -92,7 +100,8 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
   )
     errors.push('Supporting reference must be text (maximum 1000 characters)');
   if (
-    ['EVENT', 'MATERNITY'].includes(layout.baseFormNumber) &&
+    (layout.manualOnly ||
+      ['EVENT', 'MATERNITY'].includes(layout.baseFormNumber)) &&
     !String(input.supportingReference || '').trim()
   )
     errors.push(
@@ -147,9 +156,11 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
         errors.push(prefix + f.label + ' must be YYYY-MM-DD');
     }
     const identity =
-      layout.baseFormNumber === 'LEAVE'
-        ? ''
-        : String(row.employeeCode || row.employee_1 || '').trim();
+      layout.periodKind === 'ANNUAL'
+        ? String(row.workerRegisterNumber || '').trim()
+        : layout.baseFormNumber === 'LEAVE'
+          ? ''
+          : String(row.employeeCode || row.employee_1 || '').trim();
     if (identity && identities.has(identity))
       errors.push(prefix + 'duplicate employee code');
     if (identity) identities.add(identity);
@@ -166,6 +177,45 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
           errors.push(prefix + total + ' does not match its component total');
       }
     };
+    if (layout.periodKind === 'ANNUAL') {
+      checkTotal(
+        'totalWorkedDays',
+        Array.from({ length: 12 }, (_, i) => 'workedMonth' + (i + 1)),
+      );
+      checkTotal('availableLeave', ['openingLeave', 'earnedLeave']);
+      checkTotal('availableLeave', [
+        'usedLeave',
+        'encashedLeave',
+        'closingLeave',
+      ]);
+      for (let m = 1; m <= 12; m++) {
+        const monthStart = `${input.year}-${String(m).padStart(2, '0')}-01`;
+        const monthEnd = `${input.year}-${String(m).padStart(2, '0')}-${new Date(Date.UTC(input.year, m, 0)).getUTCDate()}`;
+        const start =
+          validDate(row.joiningDate) && String(row.joiningDate) > monthStart
+            ? String(row.joiningDate)
+            : monthStart;
+        const end =
+          validDate(row.exitDate) && String(row.exitDate) < monthEnd
+            ? String(row.exitDate)
+            : monthEnd;
+        const availableDays = Math.max(
+          0,
+          (Date.parse(end) - Date.parse(start)) / 86400000 + 1,
+        );
+        if (Number(row['workedMonth' + m]) > availableDays)
+          errors.push(
+            prefix + 'workedMonth' + m + ' exceeds days employed in that month',
+          );
+      }
+      if (row.exitDate && String(row.exitDate) < String(row.joiningDate))
+        errors.push(prefix + 'exit cannot precede joining');
+      if (
+        String(row.joiningDate) > input.year + '-12-31' ||
+        (row.exitDate && String(row.exitDate) < input.year + '-01-01')
+      )
+        errors.push(prefix + 'employment must overlap the reporting year');
+    }
     if (layout.baseFormNumber === 'IV' || layout.baseFormNumber === 'V') {
       const expectedPeriod =
         input.year +
@@ -318,6 +368,15 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
       for (const key of ['reportDate', 'returnDate', 'entryDate'])
         if (row[key] && String(row[key]) < String(row.eventDate))
           errors.push(prefix + key + ' cannot precede the event');
+      for (const key of ['eventDate', 'reportDate', 'returnDate', 'entryDate'])
+        if (
+          row[key] &&
+          validDate(input.issueDate) &&
+          String(row[key]) > input.issueDate
+        )
+          errors.push(
+            prefix + key + ' cannot be later than the register issue date',
+          );
       for (const key of ['noticeTime', 'eventTime']) {
         if (row[key] && !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(row[key])))
           errors.push(prefix + key + ' must use 24-hour HH:mm format');
@@ -332,6 +391,7 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
           prefix + 'notice time cannot precede the event on the same date',
         );
       if (
+        allowed.has('absenceDays') &&
         row.returnDate &&
         (row.absenceDays === undefined || row.absenceDays === '')
       )
@@ -341,7 +401,10 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
         );
     }
     if (layout.baseFormNumber === 'LEAVE') {
-      if (!['ADULT', 'ADOLESCENT'].includes(String(row.part)))
+      if (
+        allowed.has('part') &&
+        !['ADULT', 'ADOLESCENT'].includes(String(row.part))
+      )
         errors.push(prefix + 'part must be ADULT or ADOLESCENT');
       if (
         row.leaveAllowedFrom &&
@@ -404,6 +467,11 @@ export async function registerWorkbook(
   context: Record<string, string> = {},
 ): Promise<Buffer> {
   const { form, layout, schemaVersion } = definition(id);
+  const periodLabel = input
+    ? layout.periodKind === 'ANNUAL'
+      ? 'Calendar year ' + input.year + ' (January–December)'
+      : input.year + '-' + String(input.month).padStart(2, '0')
+    : '';
   const source = REGISTER_SOURCES[form.sourceId];
   const book = new ExcelJS.Workbook();
   book.creator = 'StatComPy';
@@ -452,9 +520,7 @@ export async function registerWorkbook(
     'Registration number': input?.registrationNumber || '',
     'Date of issue': input?.issueDate || '',
     'Supporting record reference': input?.supportingReference || '',
-    Period: input
-      ? input.year + '-' + String(input.month).padStart(2, '0')
-      : '',
+    Period: periodLabel,
   };
   for (const [key, value] of Object.entries(metadata)) {
     const r = guide.addRow([key, value]);
@@ -515,7 +581,7 @@ export async function registerWorkbook(
     );
     banner(
       'Period: ' +
-        (input ? input.year + '-' + String(input.month).padStart(2, '0') : '') +
+        periodLabel +
         ' | Date of issue: ' +
         (input?.issueDate || ''),
     );

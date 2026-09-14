@@ -9,6 +9,8 @@ export interface RegisterLayout {
   fields: RegisterField[];
   attendanceMode?: 'STATUS';
   omitPrefillFields?: string[];
+  periodKind?: 'ANNUAL';
+  manualOnly?: boolean;
   establishmentRequirement?: 'FACTORY_OR_CONSTRUCTION';
   individual: boolean;
   payrollPrefill: boolean;
@@ -169,6 +171,190 @@ export function registerLayout(
   sourceId: string,
   formNumber: string,
 ): RegisterLayout | null {
+  if (sourceId === 'uposh' && formNumber === '16')
+    return {
+      baseFormNumber: 'EVENT',
+      individual: true,
+      payrollPrefill: false,
+      fields: [
+        field('serial', '1. Serial number', 'number'),
+        field(
+          'reportDate',
+          '2. Date of Form 10/11 report to Inspector-cum-Facilitator and notice to insurance authorities',
+          'date',
+        ),
+        field('noticeTime', '3. Time of report and notice'),
+        field(
+          'injuredName',
+          '4. Name and address of injured person',
+          'text',
+          false,
+        ),
+        field('sex', '5. Sex', 'text', false),
+        field('age', '6. Age', 'number', false),
+        field('esiNumber', '7. Insurance number', 'text', false),
+        field(
+          'assignment',
+          '8. Shift, department and occupation',
+          'text',
+          false,
+        ),
+        field('eventDate', '9. Date of injury/dangerous occurrence', 'date'),
+        field('eventTime', '10. Time of injury/dangerous occurrence'),
+        field('eventPlace', '11. Place of injury/dangerous occurrence'),
+        field('eventCause', '12. Cause of injury/dangerous occurrence'),
+        field('eventNature', '13. Nature of injury/dangerous occurrence'),
+        field(
+          'activity',
+          '14. What the injured person was doing at the time of injury',
+          'text',
+          false,
+        ),
+        field(
+          'notifier',
+          '15. Notice giver: name, occupation, address and signature/thumb impression',
+        ),
+        field(
+          'signature',
+          '16. Signature and designation of person making entry',
+          'text',
+          false,
+        ),
+        field(
+          'witnesses',
+          '17. Names, addresses and occupations of two witnesses',
+        ),
+        field(
+          'returnDate',
+          '18. Date injured person returned to work',
+          'date',
+          false,
+        ),
+        field(
+          'insuranceOffice',
+          '19. State Insurance Local Office to which injured person is attached',
+          'text',
+          false,
+        ),
+        field('remarks', '20. Remarks', 'text', false),
+      ],
+    };
+  if (sourceId === 'laosh') {
+    if (formNumber === 'I' || formNumber === 'IV')
+      return registerLayout('ldw', formNumber);
+    if (formNumber === '19')
+      return {
+        baseFormNumber: 'LEAVE',
+        individual: true,
+        payrollPrefill: false,
+        periodKind: 'ANNUAL',
+        manualOnly: true,
+        fields: [
+          field('name', '1. Name of employee'),
+          field(
+            'workerRegisterNumber',
+            '2. Number in Adult/Adolescent Register',
+          ),
+          field('joiningDate', '3. Date of joining', 'date'),
+          field('wageRate', '4. Wage rate', 'money'),
+          field(
+            'exitDate',
+            '5. Date of resignation/superannuation/dismissal/death etc.',
+            'date',
+            false,
+          ),
+          field(
+            'totalWorkedDays',
+            '6. Total days worked during calendar year',
+            'number',
+          ),
+          ...[
+            'January',
+            'February',
+            'March',
+            'April',
+            'May',
+            'June',
+            'July',
+            'August',
+            'September',
+            'October',
+            'November',
+            'December',
+          ].map((month, i) =>
+            field(
+              'workedMonth' + (i + 1),
+              '6. ' + month + ' — days worked',
+              'number',
+            ),
+          ),
+          field('earnedLeave', '7. Leave earned during the year', 'number'),
+          field(
+            'openingLeave',
+            '8. Balance of leave from previous year',
+            'number',
+          ),
+          field(
+            'availableLeave',
+            '9. Total number at credit in the end of year',
+            'number',
+          ),
+          field('usedLeave', '10. Leave enjoyed during the year', 'number'),
+          field(
+            'encashedLeave',
+            '11. Leave encashed during the year',
+            'number',
+          ),
+          field(
+            'closingLeave',
+            '12. Balance leave at the end of the year',
+            'number',
+          ),
+          field('remarks', '13. Remarks', 'text', false),
+        ],
+      };
+    if (formNumber === '18')
+      return {
+        baseFormNumber: 'EVENT',
+        individual: true,
+        payrollPrefill: false,
+        fields: [
+          field(
+            'eventDate',
+            '1. Date of accident or dangerous occurrence',
+            'date',
+          ),
+          field(
+            'reportDate',
+            '2. Date of report to authorities',
+            'date',
+            false,
+          ),
+          field(
+            'eventNature',
+            '3. Description of accident or dangerous occurrence',
+          ),
+          field(
+            'injuredName',
+            '4. Details of injured/deceased person, if any',
+            'text',
+            false,
+          ),
+          field(
+            'returnDate',
+            '5. Date injured person returned to duty',
+            'date',
+            false,
+          ),
+          field(
+            'lostManHours',
+            '6. Total man-hours lost due to accident/dangerous occurrence',
+            'number',
+          ),
+        ],
+      };
+    return null;
+  }
   if (sourceId === 'arosh' || sourceId === 'gjosh') {
     if (
       (sourceId === 'arosh' && formNumber === 'VIII') ||

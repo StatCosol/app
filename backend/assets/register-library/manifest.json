@@ -145,5 +145,19 @@
     "sha256": "5db73d94c1b13061116b72daba9b38f88ef3e121388069a688e6fbf92beee8da",
     "bytes": 1209273,
     "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "laosh",
+    "file": "laosh.pdf",
+    "sha256": "651dd9a3e3427639f5c61a8781dd28b60ac1b5e053f59f09d4db8ff3c9a6ccb8",
+    "bytes": 2216656,
+    "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "uposh",
+    "file": "uposh.pdf",
+    "sha256": "14c4759a7a193aaf15f50be792a584faa559bfb775a3e09ccb623bc206a776d6",
+    "bytes": 7203256,
+    "reviewedOn": "2026-09-14"
   }
 ]

@@ -40,8 +40,15 @@ interface Field {
       @if (notice) {
         <p role="status" class="text-sm my-2">{{ notice }}</p>
       }
-      @if (!branchId || !year || !month) {
+      @if (!branchId || !year || !periodMonth) {
         <p>Select a branch, month and year above.</p>
+      }
+      @if (annual) {
+        <p class="text-sm my-2">
+          Annual calendar-year register (January–December). The selected year applies; the monthly
+          filter is ignored. Enter reviewed full-year worked days and leave balances with an HR
+          ledger reference.
+        </p>
       }
       @if (fields.length) {
         @if (eligible && supportsContractor) {
@@ -73,7 +80,7 @@ interface Field {
           }
         }
         <label class="block text-sm my-2"
-          >Supporting record reference {{ isEvent || isMaternity ? '*' : '(optional)' }}
+          >Supporting record reference {{ isEvent || isMaternity || annual ? '*' : '(optional)' }}
           <input
             class="border rounded p-2 block w-full"
             [(ngModel)]="meta['supportingReference']"
@@ -110,7 +117,7 @@ interface Field {
               [formId]="formId"
               [branchId]="branchId"
               [year]="year || 0"
-              [month]="month || 0"
+              [month]="periodMonth || 0"
               [contractorId]="recordSource === 'CONTRACTOR' ? contractorId : ''"
               [reuseAvailable]="reuseAvailable"
               [reuseBasis]="reuseBasis"
@@ -221,6 +228,10 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
   supportsContractor = false;
   isEvent = false;
   isMaternity = false;
+  annual = false;
+  get periodMonth() {
+    return this.annual ? 12 : this.month;
+  }
   operational = false;
   reuseAvailable = false;
   reuseBasis = '';
@@ -246,6 +257,7 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     this.supportsContractor = false;
     this.isEvent = false;
     this.isMaternity = false;
+    this.annual = false;
     this.operational = false;
     this.reuseAvailable = false;
     this.reuseBasis = '';
@@ -259,11 +271,12 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
           this.fields = d.layout.fields;
           this.isEvent = d.layout.baseFormNumber === 'EVENT';
           this.isMaternity = d.layout.baseFormNumber === 'MATERNITY';
+          this.annual = d.layout.periodKind === 'ANNUAL';
           this.operational = ['EVENT', 'LEAVE'].includes(d.layout.baseFormNumber);
           this.reuseAvailable = !!d.reuseRule;
           this.reuseBasis = d.reuseRule?.basis || '';
           this.leaveCalculationAvailable = d.leaveCalculationAvailable === true;
-          this.canPrefill = !this.isEvent && !this.isMaternity;
+          this.canPrefill = !this.isEvent && !this.isMaternity && !d.layout.manualOnly;
           this.supportsContractor = ['I', 'IV', 'V', 'IX'].includes(d.layout.baseFormNumber);
           this.requiresPayroll = d.layout.payrollPrefill;
           this.prefillLabel = d.layout.payrollPrefill
@@ -273,11 +286,14 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
               : d.layout.baseFormNumber === 'LEAVE'
                 ? 'Fill from approved earned-leave applications'
                 : 'Prefill approved daily attendance';
+          this.checkEligibility();
           this.cdr.markForCheck();
         },
         error: (e) => this.fail(e),
       });
-    if (this.branchId && this.year && this.month) {
+  }
+  private checkEligibility() {
+    if (this.branchId && this.year && this.periodMonth) {
       this.http
         .get<any>(this.url('/eligibility'), { params: this.params() })
         .pipe(takeUntil(this.changed), takeUntil(this.destroyed))
@@ -291,7 +307,11 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     }
   }
   useSource(input: any) {
-    if (input.branchId !== this.branchId || input.year !== this.year || input.month !== this.month)
+    if (
+      input.branchId !== this.branchId ||
+      input.year !== this.year ||
+      input.month !== this.periodMonth
+    )
       return;
     this.rows = structuredClone(input.rows);
     this.meta = Object.fromEntries(
@@ -308,7 +328,7 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     return new HttpParams()
       .set('branchId', this.branchId)
       .set('year', String(this.year))
-      .set('month', String(this.month));
+      .set('month', String(this.periodMonth));
   }
   changeContractor() {
     this.revision++;
@@ -371,7 +391,7 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
       ...this.meta,
       branchId: this.branchId,
       year: this.year,
-      month: this.month,
+      month: this.periodMonth,
       rows: this.rows,
       contractorUserId: this.recordSource === 'CONTRACTOR' ? this.contractorId : undefined,
     });
@@ -387,7 +407,10 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
         const url = URL.createObjectURL(blob),
           a = document.createElement('a');
         a.href = url;
-        a.download = this.formId + (body ? '-' + this.year + '-' + this.month : '-blank') + '.xlsx';
+        a.download =
+          this.formId +
+          (body ? '-' + this.year + (this.annual ? '' : '-' + this.periodMonth) : '-blank') +
+          '.xlsx';
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         this.busy = false;

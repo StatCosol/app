@@ -59,10 +59,20 @@ export class RegisterBuilderService {
       .findOneBy({ id: branchId, isActive: true, isDeleted: false });
     if (!branch) throw new BadRequestException('Active branch not found');
     await this.access.assertClientAllowed(user, branch.clientId);
-    const periodStart = year + '-' + String(month).padStart(2, '0') + '-01';
+    if (layout.periodKind === 'ANNUAL' && month !== 12)
+      throw new BadRequestException(
+        'Annual registers must use the year-end reporting period',
+      );
+    const periodStart =
+      year +
+      '-' +
+      (layout.periodKind === 'ANNUAL' ? '01' : String(month).padStart(2, '0')) +
+      '-01';
     if (form.effectiveFrom && periodStart < form.effectiveFrom) {
       throw new BadRequestException(
-        'This rule version does not cover the full selected month. Select the applicable earlier version or split the transition period.',
+        'This rule version does not cover the full selected ' +
+          (layout.periodKind === 'ANNUAL' ? 'year' : 'month') +
+          '. Select the applicable earlier version or split the transition period.',
       );
     }
     if (
@@ -163,6 +173,10 @@ export class RegisterBuilderService {
     contractorId?: string,
   ) {
     const context = await this.context(id, branchId, year, month, user);
+    if (context.layout.manualOnly)
+      throw new BadRequestException(
+        'Complete this annual ledger from reviewed full-year HR records; monthly payroll or leave applications cannot establish annual balances',
+      );
     if (context.layout.baseFormNumber === 'MATERNITY')
       throw new BadRequestException(
         'Complete this register from authorised HR and maternity payment evidence; payroll cannot establish these events',

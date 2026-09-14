@@ -3,6 +3,14 @@ export function registerReuseRule(form: {
   sourceId: string;
   formNumber: string;
 }) {
+  if (form.sourceId === 'laosh' && ['I', 'IV'].includes(form.formNumber))
+    return {
+      sourceId: 'ldw',
+      sourceNumber: form.formNumber,
+      basis:
+        'Ladakh OSH Rules 2026, Rule ' +
+        (form.formNumber === 'I' ? '39' : '45'),
+    };
   const rules: Record<
     string,
     { sourceId: string; basis: string; forms: Record<string, string> }

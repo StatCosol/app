@@ -21,6 +21,36 @@ describe('Register source selection and cancellation', () => {
     component.ngOnDestroy();
     http.verify();
   });
+  it('uses the year-end period for an annual ledger and disables monthly prefills', () => {
+    component.ngOnChanges();
+    http
+      .expectOne((r) => r.url.endsWith('/definition'))
+      .flush({
+        layout: {
+          fields: [],
+          baseFormNumber: 'LEAVE',
+          periodKind: 'ANNUAL',
+          manualOnly: true,
+          payrollPrefill: false,
+        },
+      });
+    http
+      .expectOne((r) => r.url.endsWith('/eligibility') && r.params.get('month') === '12')
+      .flush({ eligible: true });
+    expect(component.annual).toBe(true);
+    expect(component.periodMonth).toBe(12);
+    expect(component.month).toBe(9);
+    expect(component.canPrefill).toBe(false);
+    component.formId = 'monthly';
+    component.ngOnChanges();
+    http
+      .expectOne((r) => r.url.endsWith('/definition'))
+      .flush({ layout: { fields: [], baseFormNumber: 'LEAVE', payrollPrefill: false } });
+    http
+      .expectOne((r) => r.url.endsWith('/eligibility') && r.params.get('month') === '9')
+      .flush({ eligible: true });
+    expect(component.annual).toBe(false);
+  });
   it('keeps maternity details separate from payroll and contractor prefills', () => {
     component.ngOnChanges();
     http

@@ -57,7 +57,129 @@ function validSlip(): RegisterInput {
   };
 }
 
+function annualLeave(): RegisterInput {
+  const input = validSlip();
+  input.year = 2027;
+  input.month = 12;
+  input.issueDate = '2027-12-31';
+  input.supportingReference = 'Reviewed fictional annual HR ledger';
+  const row: Record<string, string | number> = {
+    name: 'Fictional worker',
+    workerRegisterNumber: '001',
+    joiningDate: '2027-01-01',
+    wageRate: 600,
+    totalWorkedDays: 40,
+    earnedLeave: 2,
+    openingLeave: 5,
+    availableLeave: 7,
+    usedLeave: 3,
+    encashedLeave: 1,
+    closingLeave: 3,
+  };
+  for (let m = 1; m <= 12; m++) row['workedMonth' + m] = m <= 2 ? 20 : 0;
+  input.rows = [row];
+  return input;
+}
+
 describe('Act-specific register preparation', () => {
+  it('reconciles annual leave credits, uses, encashment and worked-day totals', async () => {
+    const input = annualLeave();
+    expect(validateRegister(id('laosh', '19'), input)).toEqual([]);
+    const book = new ExcelJS.Workbook();
+    await book.xlsx.load(
+      (await registerWorkbook(id('laosh', '19'), input)) as any,
+    );
+    expect(
+      JSON.stringify(
+        book.getWorksheet('Identity and review')!.getSheetValues(),
+      ),
+    ).toContain('Calendar year 2027 (January–December)');
+    input.rows[0].closingLeave = 4;
+    expect(validateRegister(id('laosh', '19'), input).join(' ')).toMatch(
+      /availableLeave does not match/,
+    );
+    input.rows[0].closingLeave = 3;
+    input.rows[0].totalWorkedDays = 41;
+    expect(validateRegister(id('laosh', '19'), input).join(' ')).toMatch(
+      /totalWorkedDays does not match/,
+    );
+    input.month = 9;
+    expect(validateRegister(id('laosh', '19'), input).join(' ')).toMatch(
+      /year-end/,
+    );
+  });
+  it('checks calendar and employment boundaries before accepting annual worked days', () => {
+    const input = annualLeave();
+    input.rows[0].workedMonth2 = 29;
+    input.rows[0].totalWorkedDays = 49;
+    expect(validateRegister(id('laosh', '19'), input).join(' ')).toMatch(
+      /workedMonth2 exceeds/,
+    );
+    input.year = 2028;
+    input.issueDate = '2028-12-31';
+    expect(validateRegister(id('laosh', '19'), input)).toEqual([]);
+    input.rows[0].joiningDate = '2028-02-10';
+    expect(validateRegister(id('laosh', '19'), input).join(' ')).toMatch(
+      /workedMonth1 exceeds/,
+    );
+    input.issueDate = '2028-09-30';
+    expect(validateRegister(id('laosh', '19'), input).join(' ')).toMatch(
+      /before the reporting year ends/,
+    );
+  });
+  it('retains the Uttar Pradesh accident schedule without importing other states absence units', () => {
+    const fields = definition(id('uposh', '16')).layout.fields;
+    expect(fields).toHaveLength(20);
+    expect(fields.map((f) => f.key)).not.toEqual(
+      expect.arrayContaining(['absenceDays', 'lostManHours']),
+    );
+    expect(fields.find((f) => f.key === 'insuranceOffice')!.label).toMatch(
+      /^19\./,
+    );
+    expect(() => definition(id('uposh', '29'))).toThrow(/reference-only/);
+  });
+  it('does not issue an incident record before the event or recorded return to duty', () => {
+    const input = validSlip();
+    input.issueDate = '2026-09-02';
+    input.supportingReference = 'Fictional incident';
+    input.rows = [
+      {
+        eventDate: '2026-09-03',
+        eventNature: 'Sample incident',
+        returnDate: '2026-09-04',
+        absenceDays: 1,
+      },
+    ];
+    const errors = validateRegister(id('arosh', 'X'), input).join(' ');
+    expect(errors).toMatch(/eventDate cannot be later/);
+    expect(errors).toMatch(/returnDate cannot be later/);
+  });
+  it('records Ladakh lost man-hours without requiring an unprescribed days-absent field', () => {
+    const input = validSlip();
+    input.month = 10;
+    input.issueDate = '2026-10-31';
+    input.supportingReference = 'Fictional incident';
+    input.rows = [
+      {
+        eventDate: '2026-10-02',
+        reportDate: '2026-10-03',
+        eventNature: 'Sample event',
+        returnDate: '2026-10-04',
+        lostManHours: 12.5,
+      },
+    ];
+    expect(validateRegister(id('laosh', '18'), input)).toEqual([]);
+    input.rows[0].lostManHours = -1;
+    expect(validateRegister(id('laosh', '18'), input).length).toBeGreaterThan(
+      0,
+    );
+    input.rows[0].lostManHours = 12.5;
+    input.rows[0].absenceDays = 2;
+    expect(validateRegister(id('laosh', '18'), input).join(' ')).toMatch(
+      /another form/,
+    );
+    expect(() => definition(id('laosh', '29'))).toThrow(/reference-only/);
+  });
   it('preserves Arunachal accident column order and Gujarat incident chronology', () => {
     expect(
       definition(id('arosh', 'X'))
@@ -298,6 +420,28 @@ describe('Register preparation branch and Act eligibility', () => {
       assertCcoBranchAllowed: jest.fn(),
     };
     builder = new RegisterBuilderService(ds, access);
+  });
+  it('keeps annual ledgers separate from monthly sources and rule-transition years', async () => {
+    branch.stateCode = decision.factState = 'LA';
+    await expect(
+      builder.context(id('laosh', '19'), branchId, 2027, 9, {} as any),
+    ).rejects.toThrow(/year-end/);
+    await expect(
+      builder.context(id('laosh', '19'), branchId, 2026, 12, {} as any),
+    ).rejects.toThrow(/full selected year/);
+    await expect(
+      builder.prefill(id('laosh', '19'), branchId, 'RUN1', 2027, 12, {} as any),
+    ).rejects.toThrow(/full-year HR/);
+    expect(employeeRepo.find).not.toHaveBeenCalled();
+  });
+  it('does not backdate Ladakh preparation to the notification signature date', async () => {
+    branch.stateCode = decision.factState = 'LA';
+    await expect(
+      builder.context(id('laosh', '18'), branchId, 2026, 9, {} as any),
+    ).rejects.toThrow(/full selected month/);
+    await expect(
+      builder.context(id('laosh', '18'), branchId, 2026, 10, {} as any),
+    ).resolves.toBeDefined();
   });
   it('restricts Gujarat accident records to reviewed factory or construction facts', async () => {
     branch.stateCode = decision.factState = 'GJ';

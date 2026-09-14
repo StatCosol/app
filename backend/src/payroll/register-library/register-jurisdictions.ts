@@ -221,7 +221,7 @@ export const REGISTER_JURISDICTIONS = [
     name: 'Uttar Pradesh',
     sourceUrl:
       'https://niveshmitra.up.gov.in/information/criminal-provisions-list',
-    note: 'Uttar Pradesh Wages Rules 2026 prescribed schedules verified and implemented; effective 2026-08-12. Other Acts remain pending.',
+    note: 'Uttar Pradesh Wages Rules 2026 schedules implemented. Final OSH Gazette 2026-08-27: accident Form 16 implemented; attendance, leave and specialist schedules remain pending. Authority-owned contractor Form 29 is reference-only.',
     coverage: 'PARTIAL',
     reviewedOn: '2026-09-14',
   },
@@ -292,7 +292,7 @@ export const REGISTER_JURISDICTIONS = [
     name: 'Ladakh',
     sourceUrl:
       'https://cdnbbsr.s3waas.gov.in/s395192c98732387165bf8e396c0f2dad2/uploads/2026/04/20260427650973687.pdf',
-    note: 'Ladakh Wages Rules 2026 prescribed schedules verified and implemented; effective 2026-08-03. Other Acts remain pending.',
+    note: 'Ladakh Wages Rules 2026 schedules implemented. Final OSH Gazette published 2026-09-02: Rule 39/45 Wages references, accident 18 and annual leave 19 implemented. Annual preparation requires a complete year under one rule version. Attendance/card and other Acts remain pending.',
     coverage: 'PARTIAL',
     reviewedOn: '2026-09-14',
   },
