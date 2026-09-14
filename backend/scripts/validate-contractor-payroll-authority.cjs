@@ -90,7 +90,9 @@ async function main() {
     computation.findMinimumDailyWage=async()=>600;
     const belowMinimum=await computation.computeOne(id(1),id(3),id(2),'2026-11',null,1,{employee_code:'E001',days_worked:30,daily_attendance:ledger});assert.equal(belowMinimum.matchStatus,'MISMATCH');assert.match(belowMinimum.mismatchReason,/minimum wage/);
     computation.findMinimumDailyWage=async()=>400;
-    assert.equal(revised.basicWage,18000);assert.equal(revised.pfDeduction,1800);assert.equal(revised.pfEmployerContribution,1950);assert.equal(revised.calculationSnapshot.segments.length,2);
+    // Prorated by November 2026 working days (30 days minus Sundays 1/8/15/22/29 = 25), not the card divisor of 30:
+    // 15 x 16000/25 + 15 x 20000/25 = 21600. PF is capped at the shared 15000 ceiling, so it is unchanged.
+    assert.equal(revised.basicWage,21600);assert.equal(revised.pfDeduction,1800);assert.equal(revised.pfEmployerContribution,1950);assert.equal(revised.calculationSnapshot.segments.length,2);
     const first=await workflow.saveDraft(contractor,key,calculate); const firstId=first.version.id;
     assert.equal((await workflow.list(contractor,{})).data[0].branchName,'Branch One');
     assert.equal((await workflow.list(contractor,{offset:'1'})).data.length,0);
