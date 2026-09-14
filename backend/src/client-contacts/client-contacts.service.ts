@@ -28,6 +28,15 @@ export class ClientContactsService {
     });
   }
 
+  async getClientId(id: string): Promise<string> {
+    const contact = await this.repo.findOne({
+      where: { id },
+      select: ['id', 'clientId'],
+    });
+    if (!contact) throw new NotFoundException('Contact not found');
+    return contact.clientId;
+  }
+
   async listByDepartment(
     department: ClientContactDepartment,
     clientIds?: string[],

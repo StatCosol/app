@@ -1,3 +1,4 @@
+import { OperationalScopeService } from '../access/operational-scope.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ChecklistsController } from './checklists.controller';
 import { ChecklistsService } from './checklists.service';
@@ -9,6 +10,7 @@ describe('ChecklistsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ChecklistsController],
       providers: [
+        { provide: OperationalScopeService, useValue: {} },
         {
           provide: ChecklistsService,
           useValue: {

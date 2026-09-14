@@ -1,3 +1,4 @@
+import { OperationalScopeService } from '../access/operational-scope.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NoticesService } from './notices.service';
@@ -26,6 +27,7 @@ describe('NoticesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NoticesService,
+        { provide: OperationalScopeService, useValue: {} },
         { provide: getRepositoryToken(NoticeEntity), useValue: repoMock() },
         {
           provide: getRepositoryToken(NoticeDocumentEntity),
