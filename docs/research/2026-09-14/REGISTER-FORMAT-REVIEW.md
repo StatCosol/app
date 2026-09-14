@@ -129,7 +129,7 @@ Validated workbooks are saved as PENDING records in the existing register review
 
 ## Remaining coverage and verification (current)
 
-1. The catalogue contains 81 Act/state/form identities; 56 have implemented preparation layouts. Other combinations remain explicitly unavailable for generation until the full applicable schedule is verified. Telangana is not silently mapped to Andhra Pradesh.
+1. The catalogue contains 86 Act/state/form identities; 61 have implemented preparation layouts. Other combinations remain explicitly unavailable for generation until the full applicable schedule is verified. Telangana is not silently mapped to Andhra Pradesh.
 2. Remaining state/UT rules, state Acts, savings provisions, amendments, vernacular layouts and authentication requirements still require verification. This is not complete India-wide coverage.
 3. Arunachal schedules were recovered from a complete alternate Gazette copy; Forms I, IV and V are implemented. The earlier clipped copy is not the bundled source.
 4. Special statutory leave schemes (including working journalists and sales promotion employees), historical leave transfers and direct incident-system integration remain pending. Standard section 32 calculation, reviewed incident/leave evidence and explicit OSH Rule 72(3) reuse attestations are implemented.
@@ -247,3 +247,14 @@ Shared field definitions are reused only after comparing these specific schedule
 Verified reuse now covers Bihar Rule 27(2) and Rajasthan Rule 49(3), as well as Central Rule 72(3). Source records must belong to the same jurisdiction, client, branch, period and workforce and already be approved. Both Acts are independently checked before offering sources. The stored attestation records the correct state rule. No equivalence is inferred for Andhra Pradesh. The UI consumes verified capabilities from the definition; state leave records no longer show the Central-only leave calculator.
 
 Validation: 73 focused backend tests, 12 browser tests, backend/frontend production builds and targeted backend lint passed. All 56 sample workbooks validate and exported through native Excel. The 56-pair sample archive includes fictional establishment particulars and source identity. Source/output pages were visually checked; original bundled PDF hashes were verified. This update does not claim all-state or all-Act completion; the remaining coverage below is still applicable.
+
+
+## Arunachal Pradesh and Gujarat OSH schedules
+
+Five further layouts are implemented from primary Gazette copies: [Arunachal Gazette No.132, 2 May 2022](https://a4m1n.praansconsultech.com/storage/labour-code-documents/01KZG1HNEYB4P5VVA0CNZDVW64.pdf), pages 15, 207 and 214, and [Gujarat Gazette Extra No.87, 12 June 2025](https://cdn.labourcodesadvisor.com/Rules/gujarat/final-osh-rules.pdf), pages 26–28, 61 and 66. Code commencement is checked against [S.O.5321(E), 21 November 2025](https://labour.maharashtra.gov.in/sites/default/files/2025-11/implementation-of-labour-codes_0.pdf).
+
+Arunachal VIII preserves the 19 wage columns; X places event date before the injured person's name; XI retains the 15 leave columns. The rule text and printed schedule cite inconsistent sub-rule numbers; both are recorded rather than silently corrected. Gujarat 13 preserves its 19 wage columns, and 22 retains 15 numbered groups including notice time, ESIC, witnesses and absence including holidays. Its factory/construction restriction is enforced against fresh applicability facts and retained in the approval evidence. The December 2025 Gujarat amendment examined is a draft, not an operative replacement.
+
+Combined designation/department fields are not filled with an incomplete designation from payroll. Incident notice times use 24-hour HH:mm; same-day notices cannot precede the incident and entry dates cannot precede it. Gujarat's written-order equivalence provision is not treated as automatic permission to reuse another Act's register.
+
+Validation: 77 focused backend tests pass; backend production build and targeted lint pass. All 61 fictional workbooks validate and export through native Excel. The five new printed schedules were inspected for field order and readability. The isolated PostgreSQL verifier passed all 18 checks with the updated applicability query. Previous frontend changes passed 12 browser tests and production build; no frontend code changed in this batch. All 21 bundled source hashes were verified. Coverage remains partial: 61 implemented layouts among 86 catalogue identities, with other state/Act schedules, specialist leave and vernacular review still pending.

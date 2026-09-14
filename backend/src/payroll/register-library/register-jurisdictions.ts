@@ -13,7 +13,7 @@ export const REGISTER_JURISDICTIONS = [
     name: 'Arunachal Pradesh',
     sourceUrl:
       'https://labour.arunachal.gov.in/Code%20on%20Wages%20%28Arunachal%20Pradesh%29%20Rules%2C%202022.pdf',
-    note: 'Final 2022 Wages I, employee IV and slip V verified from a complete alternate Gazette copy and implemented. Other Acts remain pending.',
+    note: 'Final 2022 Wages I, employee IV and slip V verified from a complete alternate Gazette copy. OSH VIII wages, X accidents and XI leave also implemented; schedule/rule numbering discrepancies are recorded. Other Acts remain pending.',
     coverage: 'PARTIAL',
     reviewedOn: '2026-09-14',
   },
@@ -56,7 +56,7 @@ export const REGISTER_JURISDICTIONS = [
     code: 'GJ',
     name: 'Gujarat',
     sourceUrl: 'https://shramsetu.gujarat.gov.in/',
-    note: 'Gujarat Wages Rules 2021 employee, wages and wage-slip schedules inspected and implemented. Rule 1(3) commencement checked against S.O.5322(E), 21 November 2025. Other Acts remain pending.',
+    note: 'Gujarat Wages Rules 2021 employee, wages and wage-slip schedules inspected and implemented. Rule 1(3) commencement checked against S.O.5322(E), 21 November 2025. Final OSH 2025 Form 13 wages and Form 22 accidents implemented; Form 22 requires factory/construction facts. Other schedules remain pending.',
     coverage: 'PARTIAL',
     reviewedOn: '2026-09-14',
   },

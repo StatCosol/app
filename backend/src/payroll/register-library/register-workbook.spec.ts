@@ -58,6 +58,43 @@ function validSlip(): RegisterInput {
 }
 
 describe('Act-specific register preparation', () => {
+  it('preserves Arunachal accident column order and Gujarat incident chronology', () => {
+    expect(
+      definition(id('arosh', 'X'))
+        .layout.fields.slice(0, 2)
+        .map((f) => f.key),
+    ).toEqual(['eventDate', 'injuredName']);
+    const input = validSlip();
+    input.supportingReference = 'Fictional incident evidence';
+    input.rows = [
+      {
+        serial: 1,
+        reportDate: '2026-09-02',
+        noticeTime: '09:30',
+        eventDate: '2026-09-02',
+        eventTime: '09:00',
+        eventPlace: 'Sample location',
+        eventCause: 'Sample cause',
+        eventNature: 'Sample injury',
+        notifier: 'Sample notifier',
+        witnesses: 'Two fictional witnesses, occupations and addresses',
+        entryDate: '2026-09-02',
+      },
+    ];
+    expect(validateRegister(id('gjosh', '22'), input)).toEqual([]);
+    input.rows[0].noticeTime = '08:00';
+    expect(validateRegister(id('gjosh', '22'), input)).toContain(
+      'Record 1: notice time cannot precede the event on the same date',
+    );
+    input.rows[0].noticeTime = '25:00';
+    input.rows[0].entryDate = '2026-09-01';
+    expect(validateRegister(id('gjosh', '22'), input).join(' ')).toMatch(
+      /HH:mm/,
+    );
+    expect(validateRegister(id('gjosh', '22'), input).join(' ')).toMatch(
+      /entryDate cannot precede/,
+    );
+  });
   it('offers only implemented form identities, never same-number substitutes', () => {
     expect(() => definition(id('clra', 'XIX'))).toThrow(/reference-only/);
     expect(() => definition(id('osh', 'V'))).toThrow(/reference-only/);
@@ -262,6 +299,53 @@ describe('Register preparation branch and Act eligibility', () => {
     };
     builder = new RegisterBuilderService(ds, access);
   });
+  it('restricts Gujarat accident records to reviewed factory or construction facts', async () => {
+    branch.stateCode = decision.factState = 'GJ';
+    decision.establishmentType = 'ESTABLISHMENT';
+    decision.isBocwProject = false;
+    await expect(
+      builder.context(id('gjosh', '22'), branchId, 2026, 9, {} as any),
+    ).rejects.toThrow(/factories or building/);
+    for (const type of ['FACTORY', 'BOTH']) {
+      decision.establishmentType = type;
+      const context = await builder.context(
+        id('gjosh', '22'),
+        branchId,
+        2026,
+        9,
+        {} as any,
+      );
+      expect(context.applicabilityEvidence[0].establishmentType).toBe(type);
+    }
+    decision.establishmentType = 'ESTABLISHMENT';
+    decision.isBocwProject = true;
+    await expect(
+      builder.context(id('gjosh', '22'), branchId, 2026, 9, {} as any),
+    ).resolves.toBeDefined();
+    decision.isBocwProject = false;
+    await expect(
+      builder.context(id('gjosh', '13'), branchId, 2026, 9, {} as any),
+    ).resolves.toBeDefined();
+  });
+  it.each([
+    ['arosh', 'VIII', 'AR'],
+    ['gjosh', '13', 'GJ'],
+  ])(
+    'does not fill composite designation/department with partial payroll data for %s',
+    async (source, form, state) => {
+      branch.stateCode = decision.factState = state;
+      const result = await builder.prefill(
+        id(source, form),
+        branchId,
+        'RUN1',
+        2026,
+        9,
+        {} as any,
+      );
+      expect(result.rows[0].name).toBe('Sample');
+      expect(result.rows[0]).not.toHaveProperty('designation');
+    },
+  );
   it('requires confirmed Act applicability and the appropriate government', async () => {
     decision.applicable = false;
     await expect(

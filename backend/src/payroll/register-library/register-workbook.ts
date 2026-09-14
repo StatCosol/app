@@ -315,9 +315,22 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
         !row.eventDate.startsWith(monthPrefix + '-')
       )
         errors.push(prefix + 'event date must be in the selected month');
-      for (const key of ['reportDate', 'returnDate'])
+      for (const key of ['reportDate', 'returnDate', 'entryDate'])
         if (row[key] && String(row[key]) < String(row.eventDate))
           errors.push(prefix + key + ' cannot precede the event');
+      for (const key of ['noticeTime', 'eventTime']) {
+        if (row[key] && !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(row[key])))
+          errors.push(prefix + key + ' must use 24-hour HH:mm format');
+      }
+      if (
+        row.reportDate === row.eventDate &&
+        row.noticeTime &&
+        row.eventTime &&
+        String(row.noticeTime) < String(row.eventTime)
+      )
+        errors.push(
+          prefix + 'notice time cannot precede the event on the same date',
+        );
       if (
         row.returnDate &&
         (row.absenceDays === undefined || row.absenceDays === '')

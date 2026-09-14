@@ -76,7 +76,8 @@ export class RegisterBuilderService {
     // Read the existing applicability decision, not a guessed headcount threshold.
     const decisions = await this.ds.query(
       `SELECT uc.is_applicable AS applicable, uc.computed_at AS "computedAt", uf.appropriate_government AS government,
-               uf.updated_at AS "factsUpdatedAt", uf.state_code AS "factState"
+               uf.updated_at AS "factsUpdatedAt", uf.state_code AS "factState",
+               uf.establishment_type AS "establishmentType", uf.is_bocw_project AS "isBocwProject"
        FROM unit_applicable_compliance uc
        JOIN unit_compliance_master cm ON cm.id=uc.compliance_id AND cm.is_active=true
        JOIN unit_facts uf ON uf.branch_id=uc.branch_id
@@ -115,6 +116,15 @@ export class RegisterBuilderService {
           ' in branch applicability facts, then recompute and review applicability.',
       );
     }
+    if (
+      layout.establishmentRequirement === 'FACTORY_OR_CONSTRUCTION' &&
+      !['FACTORY', 'BOTH'].includes(decision.establishmentType) &&
+      decision.isBocwProject !== true
+    ) {
+      throw new BadRequestException(
+        'This register applies only to factories or building/construction work. Review the branch establishment facts before generating it.',
+      );
+    }
     return {
       form,
       layout,
@@ -126,6 +136,8 @@ export class RegisterBuilderService {
         government: d.government,
         factState: d.factState,
         factsUpdatedAt: d.factsUpdatedAt,
+        establishmentType: d.establishmentType,
+        isBocwProject: d.isBocwProject,
       })),
     };
   }
@@ -163,12 +175,7 @@ export class RegisterBuilderService {
           Object.entries({ serial: i + 1, ...row }).filter(
             ([key]) =>
               allowedFields.has(key) &&
-              !(
-                ['rjw', 'gjw', 'skw', 'arw'].includes(context.form.sourceId) &&
-                context.form.formNumber === 'I' &&
-                (key === 'designation' ||
-                  (context.form.sourceId === 'rjw' && key === 'name'))
-              ),
+              !context.layout.omitPrefillFields?.includes(key),
           ),
         ),
       ),
@@ -265,13 +272,8 @@ export class RegisterBuilderService {
         deductions: e.totalDeductions,
         net: e.netPay,
       };
-      if (
-        ['rjw', 'gjw', 'skw', 'arw'].includes(context.form.sourceId) &&
-        context.form.formNumber === 'I'
-      ) {
-        if (context.form.sourceId === 'rjw') delete values.name;
-        delete values.designation;
-      }
+      for (const key of context.layout.omitPrefillFields || [])
+        delete values[key];
       return Object.fromEntries(
         Object.entries(values).filter(
           ([k, v]) => allowed.has(k) && v !== null && v !== undefined,

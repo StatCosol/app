@@ -1,5 +1,24 @@
 /** Source identity is separate from layout identity. Never match on title or form number alone. */
 export const REGISTER_SOURCES = {
+  arosh: {
+    url: 'https://a4m1n.praansconsultech.com/storage/labour-code-documents/01KZG1HNEYB4P5VVA0CNZDVW64.pdf',
+    title:
+      'Arunachal Pradesh Occupational Safety, Health and Working Conditions Rules, 2022',
+    notification: 'LAB (W) 03/2020 dated 1 April 2022; Gazette No.132',
+    publicationDate: '2022-05-02',
+    publisher:
+      'Government of Arunachal Pradesh (Gazette copy hosted by Praans Consultech)',
+  },
+  gjosh: {
+    url: 'https://cdn.labourcodesadvisor.com/Rules/gujarat/final-osh-rules.pdf',
+    title:
+      'Gujarat Occupational Safety, Health and Working Conditions Rules, 2025',
+    notification:
+      'GR/2025/76/FAC/142021/68396/M3 dated 6 June 2025; Gazette Extra No.87',
+    publicationDate: '2025-06-12',
+    publisher:
+      'Government of Gujarat (Gazette copy hosted by Labour Code Advisor)',
+  },
   rjosh: {
     url: 'https://employmentlaw.lkslaw.com/file/updates/legacy/rajasthan-osh-rules-2026.pdf',
     title:
@@ -154,6 +173,106 @@ export const REGISTER_SOURCES = {
 } as const;
 
 export const REGISTER_FORMS = [
+  {
+    id: 'ar--osh-2020--arunachal-pradesh-osh-2022--viii--arosh',
+    jurisdiction: 'AR',
+    actCode: 'OSH_2020',
+    rulesCode: 'ARUNACHAL_PRADESH_OSH_2022',
+    formNumber: 'VIII',
+    title: 'Register of workers, wages, overtime, fine and deductions',
+    ruleReference: 'Rule 21(a); schedule cites 21(1)',
+    kind: 'REGISTER',
+    sourceId: 'arosh',
+    sourceStatus: 'FINAL',
+    sourcePage: 207,
+    layoutId: 'ar-osh-viii',
+    notes:
+      'Commencement follows the parent Code: S.O.5321(E), 21 November 2025. Verify appropriate-government jurisdiction and retain the prescribed authentication/language evidence. Rule 21 and its schedule contain inconsistent sub-rule numbering; both references are retained. General records require one-year retention; leave records require two years and proper transfer before destruction.',
+    verifiedOn: '2026-09-14',
+    effectiveFrom: '2025-11-21',
+    applicability: 'REVIEW_REQUIRED',
+    generation: 'REFERENCE_ONLY',
+  },
+  {
+    id: 'ar--osh-2020--arunachal-pradesh-osh-2022--x--arosh',
+    jurisdiction: 'AR',
+    actCode: 'OSH_2020',
+    rulesCode: 'ARUNACHAL_PRADESH_OSH_2022',
+    formNumber: 'X',
+    title: 'Register of accidents and dangerous occurrences',
+    ruleReference: 'Rule 21(3); schedule cites 21(4)',
+    kind: 'REGISTER',
+    sourceId: 'arosh',
+    sourceStatus: 'FINAL',
+    sourcePage: 214,
+    layoutId: 'ar-osh-x',
+    notes:
+      'Commencement follows the parent Code: S.O.5321(E), 21 November 2025. Verify appropriate-government jurisdiction and retain the prescribed authentication/language evidence. Rule 21 and its schedule contain inconsistent sub-rule numbering; both references are retained. General records require one-year retention; leave records require two years and proper transfer before destruction.',
+    verifiedOn: '2026-09-14',
+    effectiveFrom: '2025-11-21',
+    applicability: 'REVIEW_REQUIRED',
+    generation: 'REFERENCE_ONLY',
+  },
+  {
+    id: 'ar--osh-2020--arunachal-pradesh-osh-2022--xi--arosh',
+    jurisdiction: 'AR',
+    actCode: 'OSH_2020',
+    rulesCode: 'ARUNACHAL_PRADESH_OSH_2022',
+    formNumber: 'XI',
+    title: 'Register for leave with wages',
+    ruleReference: 'Rule 21(4); schedule cites 21(5)',
+    kind: 'REGISTER',
+    sourceId: 'arosh',
+    sourceStatus: 'FINAL',
+    sourcePage: 214,
+    layoutId: 'ar-osh-xi',
+    notes:
+      'Commencement follows the parent Code: S.O.5321(E), 21 November 2025. Verify appropriate-government jurisdiction and retain the prescribed authentication/language evidence. Rule 21 and its schedule contain inconsistent sub-rule numbering; both references are retained. General records require one-year retention; leave records require two years and proper transfer before destruction.',
+    verifiedOn: '2026-09-14',
+    effectiveFrom: '2025-11-21',
+    applicability: 'REVIEW_REQUIRED',
+    generation: 'REFERENCE_ONLY',
+  },
+  {
+    id: 'gj--osh-2020--gujarat-osh-2025--13--gjosh',
+    jurisdiction: 'GJ',
+    actCode: 'OSH_2020',
+    rulesCode: 'GUJARAT_OSH_2025',
+    formNumber: '13',
+    title: 'Register of workers, wages, overtime, fine and deductions',
+    ruleReference: 'Rule 29(1)(a) and 38(3)',
+    kind: 'REGISTER',
+    sourceId: 'gjosh',
+    sourceStatus: 'FINAL',
+    sourcePage: 61,
+    layoutId: 'gj-osh-13',
+    notes:
+      'Commencement follows the parent Code: S.O.5321(E), 21 November 2025. Verify appropriate-government jurisdiction and retain the prescribed authentication/language evidence. Rules 29/38 prescribe language and original-record retention. The December 2025 amendment source inspected is a draft and is not used as an operative schedule.',
+    verifiedOn: '2026-09-14',
+    effectiveFrom: '2025-11-21',
+    applicability: 'REVIEW_REQUIRED',
+    generation: 'REFERENCE_ONLY',
+  },
+  {
+    id: 'gj--osh-2020--gujarat-osh-2025--22--gjosh',
+    jurisdiction: 'GJ',
+    actCode: 'OSH_2020',
+    rulesCode: 'GUJARAT_OSH_2025',
+    formNumber: '22',
+    title: 'Register of accidents, major accidents and dangerous occurrences',
+    ruleReference: 'Rule 36',
+    kind: 'REGISTER',
+    sourceId: 'gjosh',
+    sourceStatus: 'FINAL',
+    sourcePage: 66,
+    layoutId: 'gj-osh-22',
+    notes:
+      'Commencement follows the parent Code: S.O.5321(E), 21 November 2025. Verify appropriate-government jurisdiction and retain the prescribed authentication/language evidence. Rules 29/38 prescribe language and original-record retention. The December 2025 amendment source inspected is a draft and is not used as an operative schedule. Rule 36 is limited to factories or building/other construction work; verified branch facts must establish this usage. Absence days include holidays and off days.',
+    verifiedOn: '2026-09-14',
+    effectiveFrom: '2025-11-21',
+    applicability: 'REVIEW_REQUIRED',
+    generation: 'REFERENCE_ONLY',
+  },
   {
     id: 'rj--osh-2020--rajasthan-osh-2026--16--rjosh',
     jurisdiction: 'RJ',

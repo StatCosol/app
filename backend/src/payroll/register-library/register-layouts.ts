@@ -8,6 +8,8 @@ export interface RegisterLayout {
   baseFormNumber: 'I' | 'IV' | 'V' | 'IX' | 'LEAVE' | 'EVENT' | 'MATERNITY';
   fields: RegisterField[];
   attendanceMode?: 'STATUS';
+  omitPrefillFields?: string[];
+  establishmentRequirement?: 'FACTORY_OR_CONSTRUCTION';
   individual: boolean;
   payrollPrefill: boolean;
 }
@@ -167,6 +169,97 @@ export function registerLayout(
   sourceId: string,
   formNumber: string,
 ): RegisterLayout | null {
+  if (sourceId === 'arosh' || sourceId === 'gjosh') {
+    if (
+      (sourceId === 'arosh' && formNumber === 'VIII') ||
+      (sourceId === 'gjosh' && formNumber === '13')
+    ) {
+      const layout = registerLayout('gjw', 'I')!;
+      return {
+        ...layout,
+        fields: layout.fields.map((f) => ({
+          ...f,
+          label:
+            f.key === 'attendanceSignature'
+              ? '19. Attendance signature'
+              : f.label,
+        })),
+      };
+    }
+    if (sourceId === 'arosh' && formNumber === 'XI')
+      return registerLayout('aposh', 'X');
+    if (sourceId === 'arosh' && formNumber === 'X') {
+      const layout = registerLayout('brosh', 'X')!;
+      const byKey = new Map(layout.fields.map((f) => [f.key, f]));
+      return {
+        ...layout,
+        fields: [
+          'eventDate',
+          'injuredName',
+          'reportDate',
+          'eventNature',
+          'returnDate',
+          'absenceDays',
+        ].map((key, i) => ({
+          ...byKey.get(key)!,
+          label: `${i + 1}. ${byKey.get(key)!.label.replace(/^\d+\. /, '')}`,
+        })),
+      };
+    }
+    if (sourceId === 'gjosh' && formNumber === '22')
+      return {
+        baseFormNumber: 'EVENT',
+        individual: true,
+        payrollPrefill: false,
+        establishmentRequirement: 'FACTORY_OR_CONSTRUCTION',
+        fields: [
+          field('serial', '1. Serial number', 'number'),
+          field('reportDate', '2. Date of notice', 'date'),
+          field('noticeTime', '2. Time of notice'),
+          field(
+            'injuredName',
+            '3. Name and serial number in adult/child workers register',
+            'text',
+            false,
+          ),
+          field('esiNumber', '4. ESIC insurance number', 'text', false),
+          field('eventDate', '5. Date of injury/dangerous occurrence', 'date'),
+          field('eventTime', '6. Time of injury/dangerous occurrence'),
+          field('eventPlace', '7. Place'),
+          field(
+            'eventCause',
+            '8. Cause of accident/major accident/dangerous occurrence',
+          ),
+          field('eventNature', '9. Nature of injury/dangerous occurrence'),
+          field(
+            'activity',
+            '10. What the injured person was doing at that notice',
+            'text',
+            false,
+          ),
+          field('notifier', '11. Name of person giving notice'),
+          field(
+            'witnesses',
+            '12. Names, addresses and occupations of two witnesses',
+          ),
+          field('returnDate', '13. Date of return to work', 'date', false),
+          field(
+            'absenceDays',
+            '14. Days absent including holidays and off days',
+            'number',
+            false,
+          ),
+          field(
+            'signature',
+            '15. Signature and designation of person making entry',
+            'text',
+            false,
+          ),
+          field('entryDate', '15. Date of entry', 'date'),
+        ],
+      };
+    return null;
+  }
   if (sourceId === 'rjosh') {
     // Rajasthan S.O.23, PDF pp.186–191 and 198. Arabic form numbers are intentional.
     const matching = (
@@ -505,6 +598,7 @@ export function registerLayout(
         baseFormNumber: 'IV',
         individual: false,
         payrollPrefill: true,
+        omitPrefillFields: ['designation'],
         fields: [
           ...keys.map((key, i) => {
             const f = wage.find((f) => f.key === key)!;
@@ -583,6 +677,7 @@ export function registerLayout(
         baseFormNumber: 'IV',
         individual: false,
         payrollPrefill: true,
+        omitPrefillFields: ['name', 'designation'],
         fields: [
           ...keys.map((key, i) => {
             const f = wage.find((f) => f.key === key)!;
