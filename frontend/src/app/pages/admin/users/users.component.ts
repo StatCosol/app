@@ -97,14 +97,17 @@ export class UsersComponent implements OnInit, OnDestroy {
   pageSizeOptions: number[] = [10, 20, 50, 100];
 
   // Table columns
+  // The data table clips overflowing cells. At 16% the Action column cut Edit off the left
+  // of Edit + Deactivate + Delete. At 25% all three small buttons sit on one line on wide
+  // screens; on ~1280px laptops Delete wraps to a second line instead of being clipped.
   usersColumns: TableColumn[] = [
-    { key: 'userCode', header: 'Code', sortable: true, width: '10%' },
+    { key: 'userCode', header: 'Code', sortable: true, width: '11%' },
     { key: 'role', header: 'Role', sortable: true, width: '10%' },
-    { key: 'email', header: 'Email', sortable: true, width: '24%' },
-    { key: 'mobile', header: 'Mobile', width: '14%' },
-    { key: 'name', header: 'Name', sortable: true, width: '16%' },
+    { key: 'email', header: 'Email', sortable: true, width: '18%' },
+    { key: 'mobile', header: 'Mobile', width: '12%' },
+    { key: 'name', header: 'Name', sortable: true, width: '14%' },
     { key: 'status', header: 'Status', sortable: true, width: '10%' },
-    { key: 'actions', header: 'Action', align: 'right', width: '16%' },
+    { key: 'actions', header: 'Action', align: 'right', width: '25%' },
   ];
 
   constructor(
