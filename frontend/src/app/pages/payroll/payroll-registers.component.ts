@@ -143,41 +143,10 @@ const STATE_NAMES: Record<string, string> = {
 }
         @if (genBranchId && selMonth && selYear && !matchedRun && !generating) {
 <div class="mt-3 text-xs text-amber-600">
-          No payroll run found for {{ monthName(selMonth) }} {{ selYear }}. Please process payroll first.
+          No approved payroll run found for this period. Employee, attendance and incident registers can still be prepared from their own records.
         </div>
 }
 
-        <!-- Applicable templates preview -->
-        @if (branchTemplateInfo) {
-<div class="mt-4 border border-gray-100 rounded-lg bg-gray-50 p-4">
-          <p class="text-sm font-medium text-gray-700 mb-2">
-            Applicable registers for <span class="font-semibold">{{ branchTemplateInfo.branchName }}</span>
-            <span class="text-xs text-gray-500 ml-1">({{ branchTemplateInfo.branchType }} — {{ branchTemplateInfo.establishmentCategory }})</span>
-            <span class="ml-2 inline-flex items-center rounded-full bg-brand-100 text-brand-800 px-2.5 py-0.5 text-xs font-semibold">
-              {{ stateName(branchTemplateInfo.stateCode) }}
-            </span>
-          </p>
-          <div class="flex flex-wrap gap-2">
-            @for (t of branchTemplateInfo.templates; track t) {
-<span
-              class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium"
-              [class]="t.establishmentType === 'COMMON' ? 'bg-brand-100 text-brand-800' :
-                        t.establishmentType === 'FACTORY' ? 'bg-orange-100 text-orange-800' :
-                        'bg-green-100 text-green-800'">
-              {{ t.title }}
-            </span>
-}
-          </div>
-        </div>
-}
-
-        <!-- Result feedback -->
-        @if (genResult) {
-<div class="mt-4 p-3 rounded-lg text-sm"
-          [class]="genResultError ? 'bg-red-50 border border-red-200 text-red-800' : 'bg-green-50 border border-green-200 text-green-800'">
-          {{ genResult }}
-        </div>
-}
       </div>
 
       <app-register-library (generated)="reload()" [expanded]="registerBuilderOpen" [branchId]="genBranchId" [runId]="matchedRun?.id || ''" [year]="selYear" [month]="selMonth"></app-register-library>
@@ -684,16 +653,6 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
 
   onBranchChange(): void {
     this.genResult = '';
-    this.branchTemplateInfo = null;
-    if (this.genBranchId) {
-      this.api.getApplicableTemplates(this.genBranchId).pipe(
-        takeUntil(this.destroy$),
-        catchError(() => of(null)),
-      ).subscribe((info) => {
-        this.branchTemplateInfo = info;
-        this.cdr.markForCheck();
-      });
-    }
     this.matchRun();
     this.reload();
   }
@@ -721,41 +680,6 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
       };
     }
     this.cdr.markForCheck();
-  }
-
-  generateRegisters(): void {
-    if (!this.matchedRun || !this.genBranchId) return;
-    this.generating = true;
-    this.genResult = '';
-    this.genResultError = false;
-    this.cdr.markForCheck();
-
-    this.api.generateAllRegisters(this.matchedRun.id, this.genBranchId).pipe(
-      takeUntil(this.destroy$),
-      finalize(() => { this.generating = false; this.cdr.markForCheck(); }),
-    ).subscribe({
-      next: (res) => {
-        const g = res?.generated?.length ?? 0;
-        const s = res?.skipped?.length ?? 0;
-        const parts: string[] = [];
-        if (g > 0) parts.push(`${g} register(s) generated successfully`);
-        if (s > 0) parts.push(`${s} skipped (already exist)`);
-        this.genResult = parts.join('. ') || 'Done.';
-        this.genResultError = false;
-        this.cdr.markForCheck();
-        // Refresh list
-        this.loading = true;
-        this.fetchRegisters$().pipe(takeUntil(this.destroy$)).subscribe({
-          next: (rows) => { this.rows = rows || []; this.loading = false; this.cdr.detectChanges(); },
-          error: () => { this.loading = false; this.cdr.detectChanges(); },
-        });
-      },
-      error: (e) => {
-        this.genResult = e?.error?.message || 'Generation failed. Check the payroll run and branch.';
-        this.genResultError = true;
-        this.cdr.markForCheck();
-      },
-    });
   }
 
   /* ── Downloads ── */

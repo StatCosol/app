@@ -1,3 +1,4 @@
+import { registerStatusAttendance } from './register-status-attendance';
 import {
   registerContractors,
   assertRegisterContractor,
@@ -150,24 +151,58 @@ export class RegisterBuilderService {
     contractorId?: string,
   ) {
     const context = await this.context(id, branchId, year, month, user);
-    if (contractorId)
-      return contractorRegisterSource(
+    const allowedFields = new Set(context.layout.fields.map((f) => f.key));
+    const scopeRows = (result: any) => ({
+      ...result,
+      rows: result.rows.map((row: any, i: number) =>
+        Object.fromEntries(
+          Object.entries({ serial: i + 1, ...row }).filter(
+            ([key]) =>
+              allowedFields.has(key) &&
+              !(
+                context.form.sourceId === 'rjw' &&
+                context.form.formNumber === 'I' &&
+                ['name', 'designation'].includes(key)
+              ),
+          ),
+        ),
+      ),
+    });
+    if (context.layout.attendanceMode === 'STATUS') {
+      if (contractorId)
+        throw new BadRequestException(
+          'Enter daily contractor attendance from the approved attendance register; monthly totals cannot fill the Rajasthan daily muster',
+        );
+      return registerStatusAttendance(
         this.ds,
-        context.layout,
         context.branch.clientId,
         branchId,
-        contractorId,
         year,
         month,
       );
+    }
+    if (contractorId)
+      return scopeRows(
+        await contractorRegisterSource(
+          this.ds,
+          context.layout,
+          context.branch.clientId,
+          branchId,
+          contractorId,
+          year,
+          month,
+        ),
+      );
     if (!context.layout.payrollPrefill)
-      return registerOperationalSource(
-        this.ds,
-        context.layout.baseFormNumber,
-        context.branch.clientId,
-        branchId,
-        year,
-        month,
+      return scopeRows(
+        await registerOperationalSource(
+          this.ds,
+          context.layout.baseFormNumber,
+          context.branch.clientId,
+          branchId,
+          year,
+          month,
+        ),
       );
     const run = await this.ds
       .getRepository(PayrollRunEntity)
@@ -225,6 +260,10 @@ export class RegisterBuilderService {
         deductions: e.totalDeductions,
         net: e.netPay,
       };
+      if (context.form.sourceId === 'rjw' && context.form.formNumber === 'I') {
+        delete values.name;
+        delete values.designation;
+      }
       return Object.fromEntries(
         Object.entries(values).filter(
           ([k, v]) => allowed.has(k) && v !== null && v !== undefined,

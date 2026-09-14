@@ -12,6 +12,7 @@ const {registerWorkbook,validateRegister}=require('../src/payroll/register-libra
   for(const f of layout.fields){
    row[f.key]=f.type==='date'?'2026-09-01':['number','money'].includes(f.type)?0:'Sample';
    if(/^day\d+(In|Out)$/.test(f.key))row[f.key]=f.key.endsWith('In')?'09:00':'17:00';
+   if(/^day\d+Status$/.test(f.key))row[f.key]='P';
    if(f.key.startsWith('day31'))row[f.key]='';
   }
   const values={serial:1,part:'ADULT',employeeCode:'SAMPLE-001',employee_1:'SAMPLE-001',name:'Fictional Employee',employee_2:'Fictional Employee',bankAccount:'00012345678901234567890',employee_25:'00012345678901234567890',uan:'001234567890',employee_18:'001234567890',wagePeriod:'2026-09-01 to 2026-09-30',frequency:'Monthly',daysWorked:30};

@@ -7,6 +7,7 @@ export interface RegisterField {
 export interface RegisterLayout {
   baseFormNumber: 'I' | 'IV' | 'V' | 'IX' | 'LEAVE' | 'EVENT';
   fields: RegisterField[];
+  attendanceMode?: 'STATUS';
   individual: boolean;
   payrollPrefill: boolean;
 }
@@ -166,6 +167,107 @@ export function registerLayout(
   sourceId: string,
   formNumber: string,
 ): RegisterLayout | null {
+  if (sourceId === 'rjw') {
+    if (formNumber === 'VII')
+      return {
+        ...registerLayout('cw', 'V')!,
+        fields: slip.map((f) =>
+          f.key === 'relativeName'
+            ? { ...f, label: "2. Father's / Spouse name" }
+            : f,
+        ),
+      };
+    if (formNumber === 'IV') {
+      const keys = [
+        0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 16, 17, 18, 22, 23, 24, 25, 26,
+        27, 28, 29, 30, 31, 32, 33, 34, 35,
+      ];
+      return {
+        baseFormNumber: 'I',
+        individual: true,
+        payrollPrefill: false,
+        fields: [
+          field('serial', '1. Serial number', 'number'),
+          ...keys.map((k, i) => ({
+            ...employee[k],
+            label: `${i + 2}. ${k === 4 ? "Father's / Spouse name" : employee[k].label.replace(/^\d+\. /, '')}`,
+          })),
+        ],
+      };
+    }
+    if (formNumber === 'I') {
+      const keys = [
+        'employeeCode',
+        'name',
+        'designation',
+        'frequency',
+        'wagePeriod',
+        'daysWorked',
+        'otHours',
+        'basicRate',
+        'daRate',
+        'allowanceRate',
+        'overtime',
+        'gross',
+        'pf',
+        'esi',
+        'otherDeductions',
+        'fineImposed',
+        'fineReason',
+        'damageReason',
+        'damageRecovery',
+        'deductions',
+        'net',
+        'paymentDate',
+        'receipt',
+      ];
+      return {
+        baseFormNumber: 'IV',
+        individual: false,
+        payrollPrefill: true,
+        fields: [
+          ...keys.map((key, i) => {
+            const f = wage.find((f) => f.key === key)!;
+            return {
+              ...f,
+              label: `${i + 1}. ${key === 'name' ? "Name with father/husband's name" : key === 'designation' ? 'Designation / Department' : f.label.replace(/^\d+\. /, '')}`,
+            };
+          }),
+          field('signature', 'Employer signature', 'text', false),
+        ],
+      };
+    }
+    if (formNumber === 'V')
+      return {
+        baseFormNumber: 'IX',
+        attendanceMode: 'STATUS',
+        individual: true,
+        payrollPrefill: false,
+        fields: [
+          field('serial', '1. Serial number', 'number'),
+          field('name', '2. Name of workman'),
+          field('relativeName', "3. Father/husband's name"),
+          field('designation', '4. Designation / Department'),
+          ...Array.from({ length: 31 }, (_, i) =>
+            field(
+              `day${i + 1}Status`,
+              `5. Attendance — day ${i + 1}`,
+              'text',
+              false,
+            ),
+          ),
+          field('daysWorked', '6. Total days present', 'number'),
+          field('restDays', '7. Rest days', 'number'),
+          field('leaveDays', '8. Leave days', 'number'),
+          field('paidDays', '9. Total days for which payment made', 'number'),
+          field('otDates', '10. Dates of overtime'),
+          field('otDetails', '11. Hours of overtime by date'),
+          field('otHours', '12. Total overtime hours', 'number'),
+          field('signature', 'Employer signature', 'text', false),
+        ],
+      };
+    return null;
+  }
   if (sourceId === 'osh' && formNumber === 'XIX')
     return {
       baseFormNumber: 'EVENT',

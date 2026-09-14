@@ -38,7 +38,7 @@ export function definition(id: string) {
 }
 
 export function validateRegister(id: string, input: RegisterInput): string[] {
-  const { layout } = definition(id);
+  const { form, layout } = definition(id);
   const errors: string[] = [];
   if (!input || typeof input !== 'object')
     return ['Register details are required'];
@@ -187,8 +187,15 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
       checkTotal('gross', ['net', 'deductions']);
       checkTotal(
         'deductions',
-        layout.baseFormNumber === 'V'
-          ? ['pf', 'esi', 'otherDeductions']
+        layout.baseFormNumber === 'V' || form.sourceId === 'rjw'
+          ? [
+              'pf',
+              'esi',
+              'otherDeductions',
+              ...(form.sourceId === 'rjw' && layout.baseFormNumber === 'IV'
+                ? ['fineImposed', 'damageRecovery']
+                : []),
+            ]
           : [
               'pf',
               'esi',
@@ -244,7 +251,35 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
     const days = new Date(Date.UTC(input.year, input.month, 0)).getUTCDate();
     if (row.daysWorked !== undefined && Number(row.daysWorked) > days)
       errors.push(prefix + 'days worked exceed the selected month');
-    if (layout.baseFormNumber === 'IX') {
+    if (layout.baseFormNumber === 'IX' && layout.attendanceMode === 'STATUS') {
+      for (let d = 1; d <= 31; d++) {
+        const status = row[`day${d}Status`];
+        if (
+          d <= days &&
+          !['P', 'HD', 'A', 'L', 'WO', 'H'].includes(String(status))
+        )
+          errors.push(prefix + `day ${d} requires P, HD, A, L, WO or H`);
+        if (d > days && status)
+          errors.push(prefix + `day ${d} does not exist in this month`);
+      }
+      const statuses = Array.from(
+        { length: days },
+        (_, i) => row[`day${i + 1}Status`],
+      );
+      const present = statuses.reduce<number>(
+        (n, v) => n + (v === 'P' ? 1 : v === 'HD' ? 0.5 : 0),
+        0,
+      );
+      if (Number(row.daysWorked) !== present)
+        errors.push(prefix + 'days present do not match daily attendance');
+      if (Number(row.restDays) !== statuses.filter((v) => v === 'WO').length)
+        errors.push(prefix + 'rest days do not match daily attendance');
+      if (Number(row.leaveDays) !== statuses.filter((v) => v === 'L').length)
+        errors.push(prefix + 'leave days do not match daily attendance');
+      if (Number(row.paidDays) > days)
+        errors.push(prefix + 'paid days exceed this month');
+    }
+    if (layout.baseFormNumber === 'IX' && layout.attendanceMode !== 'STATUS') {
       for (let d = 1; d <= 31; d++) {
         const a = row['day' + d + 'In'],
           b = row['day' + d + 'Out'];
@@ -328,7 +363,8 @@ export async function registerWorkbook(
     fitToHeight: 0,
   };
   guide.pageSetup.printArea = 'A1:B' + guide.rowCount;
-  const isAttendance = layout.baseFormNumber === 'IX';
+  const isAttendance =
+    layout.baseFormNumber === 'IX' && layout.attendanceMode !== 'STATUS';
   const dailySignature = layout.fields.some((f) =>
     /^day\d+Signature$/.test(f.key),
   );

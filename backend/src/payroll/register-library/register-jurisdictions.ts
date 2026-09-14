@@ -176,7 +176,7 @@ export const REGISTER_JURISDICTIONS = [
     code: 'RJ',
     name: 'Rajasthan',
     sourceUrl: 'https://labour.rajasthan.gov.in/DownloadForms.aspx',
-    note: 'Official forms index located; state Code draft forms require final-notification review.',
+    note: 'Rajasthan Wages final Gazette S.O.40 dated 12 August 2026 inspected; employee, wage, daily muster and wage-slip layouts implemented. Other Acts remain pending.',
     coverage: 'PARTIAL',
     reviewedOn: '2026-09-14',
   },

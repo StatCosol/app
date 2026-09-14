@@ -54,5 +54,12 @@
     "sha256": "80ffd79de853d08b5b7572f899953e8533b697a3bf54e1ebc0b33ad3c9fd3fd5",
     "bytes": 157619,
     "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "rjw",
+    "file": "rjw.pdf",
+    "sha256": "6d83c7a8c918ad28de66419eb3230b52da143d2d2e753124bde48bc280da18eb",
+    "bytes": 692304,
+    "reviewedOn": "2026-09-14"
   }
 ]

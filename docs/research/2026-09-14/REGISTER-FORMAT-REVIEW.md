@@ -173,3 +173,18 @@ Legal basis: [OSH Code 2020, section 32, Gazette pages 30–31](https://labour.m
 Validation of this follow-up: backend and production frontend builds passed; 1,369 backend tests passed (one skipped); 10 Angular register-screen tests passed; 18 isolated PostgreSQL checks passed, including migration idempotence, concurrent reuse without duplicate files, source withdrawal, JSON-order deduplication, reviewer roles and source revision preservation. Existing Sass deprecation warnings remain.
 
 Remaining coverage: this does not complete all-state prescribed formats. The 14 implemented layouts remain the generation set. Other states and register types remain reference/research entries until their current notification, exact columns, source adapter and printed output are verified. Telangana is not assumed to inherit Andhra Pradesh's 2026 rules. Further review must also address the older generic register-generation API before declaring all statutory generation paths migrated. New evidence tables require migration 20260921 before these features are deployed.
+
+
+## Rajasthan formats and retirement of generic generation
+
+Rajasthan Gazette S.O.40 dated 12 August 2026 was retrieved and its own schedules inspected (source retained as rjw.pdf with SHA-256 in the manifest). Four additional layouts implement Form I wages/fines/damage, Form IV employee particulars, Form V daily status muster/overtime, and Form VII wage slips. These are not matched to the same-number Central forms. Rule 1 requires commencement on publication, so this monthly preparation flow first accepts September 2026; it does not apply the new rules retroactively to the whole of August.
+
+The Rajasthan employee form omits Central-only particulars. The wage form preserves its 23 numbered columns and distinct deduction reconciliation. Composite worker/parent and designation/department particulars require completion from source records rather than accepting partial payroll fields. Daily muster uses P/HD/A/L/WO/H and validates days present, rest and leave against the daily entries. Approved company attendance can prefill statuses and complete-month totals; paid days require payment evidence. Contractor monthly totals cannot be turned into daily attendance, so that register requires the reviewed daily record.
+
+Both generic generation methods and the legacy branch-template preview now return HTTP 410 with the Act-specific library replacement. The old template metadata remains reference-only, and existing files remain available through the scoped record-download workflow. PF ECR and ESI contribution generators are separate and unaffected. The frontend no longer displays the old unverified applicable-template badges or invokes bulk generation.
+
+The implemented generation count is now 18. All 18 fictional sample workbooks validate; all four new Rajasthan workbooks exported through native Excel. Source and output pages were visually inspected. Remaining states/Acts still require their own source and layout verification: this update does not represent complete India-wide statutory coverage.
+
+Primary document: [Rajasthan Gazette, Code on Wages Rules 2026](https://cdn.labourcodesadvisor.com/Rules/rajasthan/final-wages-rules.pdf), Rules 42–43 and PDF pages 18–19, 24–26 (government document hosted by Labour Code Advisor).
+
+Follow-up validation: all 52 focused register/retired-path tests passed; backend and frontend production builds passed; targeted backend lint passed. The isolated PostgreSQL evidence tests from the previous commit remain applicable; this follow-up introduces no database migration.
