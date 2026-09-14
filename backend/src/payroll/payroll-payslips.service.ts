@@ -565,9 +565,15 @@ export class PayrollPayslipsService {
     await archive.finalize();
   }
 
-  async listPayslips(_user: ReqUser, q: Record<string, any>) {
+  async listPayslips(user: ReqUser, q: Record<string, any>) {
     try {
-      const qb = this.payslipArchiveRepo.createQueryBuilder('p');
+      // Payslips are salary data: restrict to the caller's clients. This used to
+      // ignore the user, so omitting ?clientId returned every tenant's payslips.
+      const clientIds = await this.scope.getAssignedClientIds(user);
+      if (!clientIds.length) return { items: [], total: 0 };
+      const qb = this.payslipArchiveRepo
+        .createQueryBuilder('p')
+        .where('p.client_id IN (:...scopeIds)', { scopeIds: clientIds });
       if (q?.clientId) qb.andWhere('p.client_id = :cid', { cid: q.clientId });
       if (q?.month && q?.year) {
         qb.andWhere('p.period_month = :m AND p.period_year = :y', {
