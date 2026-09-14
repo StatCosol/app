@@ -20,6 +20,7 @@ export interface RegisterLayout {
   particulars?: RegisterField[];
   particularsTitle?: string;
   capacityRequired?: boolean;
+  employeeRows?: 'TABLE';
   pageBreakBefore?: string[];
   attendanceMode?: 'STATUS';
   omitPrefillFields?: string[];

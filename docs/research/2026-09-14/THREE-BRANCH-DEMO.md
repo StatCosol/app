@@ -9,3 +9,9 @@ September 2026 results: TS gross 54,000/net 48,195; AP gross 60,000/net 54,150; 
 The first real import exposed PostgreSQL parameter inference conflicts in syncEmployeePaidLeave: year is inserted into an integer column and compared to numeric EXTRACT results; leave_type is reused across varchar/text columns. Explicit casts resolve both conflicts. The demo asserts both leave balances exist after each import; this failed before the fix and passes afterward for all nine employees. The final run produced no leave-sync errors. All 347 payroll/register tests, backend build and targeted lint passed.
 
 Generated data, database dumps and workbooks remain local artifacts and are not committed. This demonstrates current implemented forms, not complete statutory coverage or production deployment.
+
+## Telangana shared register correction
+
+The supplied Telangana Form III is a branch-level register, not an employee-specific record. The exporter now creates one Form III table with all 26 columns and employee rows sorted by serial number; Form II remains a single establishment sheet. Sorting does not mutate source rows. The layout metadata changes the generation schema fingerprint, so historical employee-sheet files cannot be returned as the new format by deduplication.
+
+The three-worker demo was regenerated and visually checked using native Excel PDF export: one worksheet with serials 1, 2, 3; two readable A3 landscape print panels repeat employee identity and headings. The branch heading and period appear on both pages; signature/certification sections are retained. All 106 register-library tests, backend build and targeted lint passed. Other form layouts were not changed by this correction.

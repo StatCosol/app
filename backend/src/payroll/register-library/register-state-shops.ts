@@ -23,6 +23,7 @@ export function stateShopsLayout(
       particularsTitle:
         'Form II — Integrated register: establishment particulars',
       capacityRequired: true,
+      employeeRows: 'TABLE',
       particulars: [
         f('establishmentName', '1(a). Name of establishment'),
         f('establishmentAddress', '1(b). Address'),

@@ -1,3 +1,4 @@
+import { addTelanganaRegisterTable } from './register-telangana-table';
 import { registerReuseRule } from './register-reuse-rule';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { createHash } from 'crypto';
@@ -620,6 +621,10 @@ export async function registerWorkbook(
     particulars.pageSetup.printArea = 'A1:B' + particulars.rowCount;
     particulars.headerFooter.oddFooter =
       'Form II — retain with Form III | Page &P of &N';
+  }
+  if (layout.employeeRows === 'TABLE') {
+    addTelanganaRegisterTable(book, layout, rows, input, context, periodLabel);
+    return Buffer.from(await book.xlsx.writeBuffer());
   }
   const isAttendance =
     layout.baseFormNumber === 'IX' && layout.attendanceMode !== 'STATUS';
