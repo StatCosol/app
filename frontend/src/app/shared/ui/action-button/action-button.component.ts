@@ -107,7 +107,11 @@ export class ActionButtonComponent {
       primary: 'btn-primary', secondary: 'btn-outline-secondary', danger: 'btn-danger',
       success: 'btn-success', warning: 'btn-warning', outline: 'btn-outline-primary', ghost: 'btn-light',
     };
-    return `btn ${bootstrapVariants[this.variant]} ${base} ${sizeClasses[this.size]} ${variantClasses[this.variant]} ${widthClass}`;
+    // The host is a .bs-surface, so Bootstrap's `.bs-surface .btn` padding and font size
+    // outrank the Tailwind size utilities above. Without the matching Bootstrap size class
+    // every size renders as a full-size button (and "sm" table actions overflow their cells).
+    const bootstrapSizes: Record<ButtonSize, string> = { sm: 'btn-sm', md: '', lg: 'btn-lg' };
+    return `btn ${bootstrapVariants[this.variant]} ${bootstrapSizes[this.size]} ${base} ${sizeClasses[this.size]} ${variantClasses[this.variant]} ${widthClass}`;
   }
 
   readonly buttonStyle = '';
