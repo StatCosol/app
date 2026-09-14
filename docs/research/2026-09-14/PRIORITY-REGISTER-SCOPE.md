@@ -6,16 +6,16 @@ Focus on Telangana, Andhra Pradesh, Karnataka, Tamil Nadu, Kerala, Maharashtra, 
 
 ## Starting position
 
-Counts describe enabled preparation layouts, not complete legal coverage. There are 26 implemented layouts within this priority group; the wider library has 69.
+Counts describe enabled preparation layouts, not complete legal coverage. There are 29 implemented layouts within this priority group; the wider library has 72.
 
 | Jurisdiction | Implemented layouts | Priority gap |
 |---|---:|---|
-| Telangana | 0 | Integrated Forms II and III together; Shops, LWF, holiday and other applicable state schedules; Code transition and any later final notifications |
+| Telangana | 1 | Shops Act integrated Forms II and III are implemented together. Remaining: other Act bindings; Shops, LWF, holiday and other applicable state schedules; Code transition and any later final notifications |
 | Andhra Pradesh | 10 | State Acts including Shops, LWF and holiday records; remaining Code schedules and specialist records |
 | Karnataka | 0 | Shops and combined-register schedules, LWF, holiday records, sector registers and final Code-rule status |
 | Tamil Nadu | 0 | Shops/holiday records, existing Factories amendments and transition, LWF and Code-rule status |
 | Kerala | 0 | Shops, wage-register alternatives, holiday/LWF and sector schemes; Code transition |
-| Maharashtra | 0 | Shops Form Q and other prescribed schedules, LWF, holidays, sector schemes and final Code-rule status |
+| Maharashtra | 2 | Shops Forms O and Q are implemented. Remaining: other prescribed schedules, LWF, holidays, sector schemes and final Code-rule status |
 | Haryana | 0 | Shops, LWF, holiday/sector schedules, combined-register permissions and final Code rules |
 | Gujarat | 5 | Remaining OSH records, Shops, LWF, holiday and other applicable state schedules |
 | Odisha | 0 | Shops, LWF, holidays, construction/sector schedules and final Code rules |
@@ -56,3 +56,8 @@ Completion for each form requires primary-source verification, all prescribed fi
 The [Telangana government integrated-register order, G.O.Ms.No.6 dated 2 March 2019](https://ipass.telangana.gov.in/viewpdf.aspx?filepathnew=D%3A%2FTS-iPASSFinal%2Fdocs%2F2019LETF_MS6+%282%29.PDF) requires Forms II and III together and separately prescribes the annual return. Its current scope must be reconciled with later rules and savings before operational activation. This is not evidence that AP and Telangana have identical current Code formats.
 
 See REGISTER-FORMAT-REVIEW.md for the source research history. Prioritisation changes no existing production configuration and does not activate an unverified format.
+
+
+## Confirmed selection and business-role behaviour
+
+Select jurisdiction, Act and Show registers; only that Act's legally identified forms are presented. Generate each applicable record after its required data and scope checks. Selecting Shops must not substitute Contract Labour forms; selecting Contract Labour must not silently return Shops forms. A verified integrated alternative may coexist with separately required records. A Client portal account can be the contractor in a downstream work order, and a principal employer for another relationship. Record this capacity per work site/register, not as an exclusive company/account type. The present explicit capacity implementation covers the Telangana Shops integrated preparation; it does not claim all outstanding contractor schedules are now enabled.

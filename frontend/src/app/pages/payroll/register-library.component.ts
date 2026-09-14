@@ -78,7 +78,7 @@ interface Jurisdiction {
             aria-label="Select Act for registers"
             class="border rounded p-2 block"
             [(ngModel)]="actCode"
-            (ngModelChange)="selectedForm = null"
+            (ngModelChange)="changeAct()"
           >
             <option value="">Select an Act</option>
             @for (act of acts; track act.code) {
@@ -86,8 +86,16 @@ interface Jurisdiction {
             }
           </select></label
         >
+        <button
+          type="button"
+          class="border rounded px-4 py-2 self-end bg-blue-700 text-white"
+          (click)="submitAct()"
+          [disabled]="loading || !actCode"
+        >
+          Show registers
+        </button>
         <label
-          >Find an Act or form
+          >Find a register in the selected Act
           <input
             aria-label="Find an Act or form"
             class="border rounded p-2 block"
@@ -109,9 +117,9 @@ interface Jurisdiction {
       @if (info && !loading && !error) {
         <p class="text-sm mb-3">{{ info.note }}</p>
         <p class="text-sm text-amber-800 mb-3">
-          Select the Act to see its registers and their usage. Preparation is enabled only for
-          implemented formats and confirmed branch applicability. Other formats remain available as
-          source references.
+          Select the Act and choose Show registers to see only that Act’s formats and their usage.
+          Preparation is enabled only for implemented formats and confirmed branch applicability.
+          Other formats remain available as source references.
         </p>
         @for (form of visibleForms; track form.id) {
           <article class="border-t py-4">
@@ -181,8 +189,12 @@ interface Jurisdiction {
           </article>
         } @empty {
           <p class="py-4">
-            No reviewed form is available for this selection. A format from another Act or state
-            will not be substituted.
+            @if (!submittedActCode) {
+              Select an Act and choose Show registers.
+            } @else {
+              No reviewed form matches this selection. A format from another Act or state will not
+              be substituted.
+            }
           </p>
         }
       }
@@ -202,6 +214,7 @@ export class RegisterLibraryComponent implements OnInit, OnDestroy {
   @Input() year: number | null = null;
   @Input() month: number | null = null;
   actCode = '';
+  submittedActCode = '';
   selectedForm: LibraryForm | null = null;
   jurisdictions: Jurisdiction[] = [];
   jurisdiction = 'AP';
@@ -232,6 +245,8 @@ export class RegisterLibraryComponent implements OnInit, OnDestroy {
   load() {
     this.scopeChanged.next();
     this.actCode = '';
+    this.submittedActCode = '';
+    this.query = '';
     this.selectedForm = null;
     this.forms = [];
     this.info = null;
@@ -264,6 +279,7 @@ export class RegisterLibraryComponent implements OnInit, OnDestroy {
       IR_2020: 'Industrial Relations Code, 2020',
       CLRA_1970: 'Contract Labour Act, 1970',
       MULTI_ACT: 'Integrated registers under multiple Acts',
+      TS_SHOPS_1988: 'Telangana Shops and Establishments Act, 1988',
       SHOPS_2017: 'Maharashtra Shops and Establishments Act, 2017',
       FACTORIES_1948: 'Factories Act, 1948',
     };
@@ -272,10 +288,19 @@ export class RegisterLibraryComponent implements OnInit, OnDestroy {
       name: names[code] || code,
     }));
   }
+  changeAct() {
+    this.submittedActCode = '';
+    this.selectedForm = null;
+    this.query = '';
+  }
+  submitAct() {
+    this.selectedForm = null;
+    this.submittedActCode = this.acts.some((a) => a.code === this.actCode) ? this.actCode : '';
+  }
   get visibleForms() {
     const q = this.query.trim().toLowerCase();
     return this.forms
-      .filter((f) => f.actCode === this.actCode)
+      .filter((f) => !!this.submittedActCode && f.actCode === this.submittedActCode)
       .filter((f) =>
         [f.title, f.formNumber, f.ruleReference, f.source.title, f.actCode, f.rulesCode]
           .join(' ')

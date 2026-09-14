@@ -106,6 +106,25 @@ const { REGISTER_FORMS } = require('../src/payroll/register-library/register-cat
     await ds.query("UPDATE unit_facts SET appropriate_government='STATE' WHERE branch_id=$1",[branchId]);
     await ds.query("UPDATE unit_facts SET updated_at='2026-09-03' WHERE branch_id=$1",[branchId]);
     await assert.rejects(builder.generate(formId,input,{id:actor,roleCode:'ADMIN'}),/facts changed/);
-    console.log(JSON.stringify({result:'PASS',checks:['migration twice','jurisdiction constraint','concurrent generation deduplication','pending download denial','approval and byte-identical download','second assigned branch access','empty branch denial','cross-client denial','list legal identity','revision preserves approval','stale applicability denial','reuse excludes pending and wrong-jurisdiction sources','concurrent reuse deduplication without new files','reuse approval role','withdrawn source invalidates reuse','source JSON-order deduplication','operational approval role','revisions retain old evidence and require new approval'],sampleDirectory:output},null,2));
+    const shopsMigration=await fs.readFile(path.join(backend,'migrations/20260923_state_shops_registers.sql'),'utf8');
+    await ds.query(shopsMigration);await ds.query(shopsMigration);
+    assert.equal(Number((await ds.query("SELECT count(*) n FROM package_compliance pc JOIN unit_compliance_master cm ON cm.id=pc.compliance_id WHERE cm.code IN ('TS_SHOPS_1988','SHOPS_2017')"))[0].n),2);
+    branch.stateCode='TS';
+    await ds.query("UPDATE unit_facts SET state_code='TS',appropriate_government='STATE',updated_at='2026-09-01' WHERE branch_id=$1",[branchId]);
+    const tsForm=REGISTER_FORMS.find(f=>f.actCode==='TS_SHOPS_1988').id;
+    await assert.rejects(builder.context(tsForm,branchId,2026,9,admin),/TS_SHOPS_1988 applicability/);
+    await ds.query("INSERT INTO unit_applicable_compliance(branch_id,compliance_id,is_applicable,computed_at) SELECT $1,id,true,'2026-09-02' FROM unit_compliance_master WHERE code='TS_SHOPS_1988'",[branchId]);
+    const {definition}=require('../src/payroll/register-library/register-workbook');
+    const layout=definition(tsForm).layout;
+    const make=fields=>Object.fromEntries(fields.filter(f=>f.required).map(f=>[f.key,f.type==='number'||f.type==='money'?0:'Fictional reviewed evidence']));
+    const integrated={...input,actingCapacity:'DIRECT_EMPLOYER',supportingReference:'Fictional work order and payroll',particulars:make(layout.particulars),rows:[{...make(layout.fields),serial:1,sex:'M'}]};
+    const first=await builder.generate(tsForm,integrated,admin);
+    const sameIntegrated=await builder.generate(tsForm,{...integrated,particulars:Object.fromEntries(Object.entries(integrated.particulars).reverse())},admin);
+    assert.equal(first.recordId,sameIntegrated.recordId);
+    const changedParticulars=structuredClone(integrated);changedParticulars.particulars.location='Different reviewed work location';
+    assert.notEqual((await builder.generate(tsForm,changedParticulars,admin)).recordId,first.recordId);
+    const asContractor=structuredClone(integrated);asContractor.actingCapacity='CONTRACTOR';asContractor.particulars.peSignatory='Customer representative';asContractor.particulars.peDesignation='Site manager';
+    assert.notEqual((await builder.generate(tsForm,asContractor,admin)).recordId,first.recordId);
+    console.log(JSON.stringify({result:'PASS',checks:['state Shops migration twice','Code applicability does not grant Shops eligibility','integrated particulars order deduplication','changed particulars create revision','client-as-contractor capacity creates distinct record','migration twice','jurisdiction constraint','concurrent generation deduplication','pending download denial','approval and byte-identical download','second assigned branch access','empty branch denial','cross-client denial','list legal identity','revision preserves approval','stale applicability denial','reuse excludes pending and wrong-jurisdiction sources','concurrent reuse deduplication without new files','reuse approval role','withdrawn source invalidates reuse','source JSON-order deduplication','operational approval role','revisions retain old evidence and require new approval'],sampleDirectory:output},null,2));
   } finally { process.chdir(oldCwd); await ds.destroy(); await control.query('DROP DATABASE '+database); await control.destroy(); }
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -175,7 +175,9 @@ export class RegisterBuilderService {
     const context = await this.context(id, branchId, year, month, user);
     if (context.layout.manualOnly)
       throw new BadRequestException(
-        'Complete this annual ledger from reviewed full-year HR records; monthly payroll or leave applications cannot establish annual balances',
+        context.layout.periodKind === 'ANNUAL'
+          ? 'Complete this annual ledger from reviewed full-year HR records; monthly payroll or leave applications cannot establish annual balances'
+          : 'Complete this register from reviewed supporting records; payroll totals alone cannot establish all prescribed particulars',
       );
     if (context.layout.baseFormNumber === 'MATERNITY')
       throw new BadRequestException(
@@ -371,6 +373,21 @@ export class RegisterBuilderService {
             input.supportingReference || '',
           ],
           rows: canonicalRows,
+          ...(ctx.layout.capacityRequired
+            ? { actingCapacity: input.actingCapacity }
+            : {}),
+          ...(ctx.layout.particulars
+            ? {
+                particulars: ctx.layout.particulars.map((f) => {
+                  const value = input.particulars?.[f.key];
+                  return value == null || value === ''
+                    ? ''
+                    : f.type === 'number' || f.type === 'money'
+                      ? Number(value)
+                      : value;
+                }),
+              }
+            : {}),
           applicability: ctx.applicabilityEvidence,
         }),
       )

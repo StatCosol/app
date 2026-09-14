@@ -1,3 +1,5 @@
+import { stateShopsLayout } from './register-state-shops';
+
 export interface RegisterField {
   key: string;
   label: string;
@@ -5,8 +7,20 @@ export interface RegisterField {
   required: boolean;
 }
 export interface RegisterLayout {
-  baseFormNumber: 'I' | 'IV' | 'V' | 'IX' | 'LEAVE' | 'EVENT' | 'MATERNITY';
+  baseFormNumber:
+    | 'I'
+    | 'IV'
+    | 'V'
+    | 'IX'
+    | 'LEAVE'
+    | 'EVENT'
+    | 'MATERNITY'
+    | 'STATE';
   fields: RegisterField[];
+  particulars?: RegisterField[];
+  particularsTitle?: string;
+  capacityRequired?: boolean;
+  pageBreakBefore?: string[];
   attendanceMode?: 'STATUS';
   omitPrefillFields?: string[];
   periodKind?: 'ANNUAL';
@@ -170,7 +184,10 @@ const attendance = [
 export function registerLayout(
   sourceId: string,
   formNumber: string,
+  actCode?: string,
 ): RegisterLayout | null {
+  const stateLayout = stateShopsLayout(sourceId, formNumber, actCode);
+  if (stateLayout) return stateLayout;
   if (sourceId === 'uposh' && formNumber === '16')
     return {
       baseFormNumber: 'EVENT',

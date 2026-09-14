@@ -213,7 +213,74 @@ export const REGISTER_SOURCES = {
   },
 } as const;
 
-export const REGISTER_FORMS = [
+export interface RegisterForm {
+  id: string;
+  jurisdiction: string;
+  actCode: string;
+  rulesCode: string;
+  formNumber: string;
+  title: string;
+  ruleReference: string;
+  kind:
+    | 'REGISTER'
+    | 'AUTHORITY_REGISTER'
+    | 'CARD'
+    | 'CERTIFICATE'
+    | 'NOTICE'
+    | 'RETURN'
+    | 'WAGE_SLIP';
+  sourceId: keyof typeof REGISTER_SOURCES;
+  sourceStatus: 'EXISTING_RULES' | 'FINAL' | 'LEGACY';
+  sourcePage: number | null;
+  layoutId: string | null;
+  notes: string;
+  verifiedOn: string;
+  effectiveFrom: string | null;
+  applicability: 'REVIEW_REQUIRED';
+  generation: 'REFERENCE_ONLY';
+}
+export const REGISTER_FORMS: readonly RegisterForm[] = [
+  {
+    id: 'ts--shops-1988--ts-integrated-2019--ii---iii--tsi',
+    jurisdiction: 'TS',
+    actCode: 'TS_SHOPS_1988',
+    rulesCode: 'TS_INTEGRATED_2019',
+    formNumber: 'II + III',
+    title: 'Integrated register — Shops Act (both parts)',
+    ruleReference: 'G.O.Ms.No.6, paragraph 4(8) and notification 2–3',
+    kind: 'REGISTER',
+    sourceId: 'tsi',
+    sourceStatus: 'EXISTING_RULES',
+    sourcePage: 12,
+    layoutId: 'ts-integrated-shops',
+    notes:
+      'Shops Act binding only. Both Forms II and III must be maintained together. Separately review annual Form I obligation. Confirm establishment exemptions, including G.O.Rt.No.383 of 23 September 2025. This entry does not establish current CLRA, Factories or Labour Code equivalence. Form III column 24 contains a printed cross-reference error; use supporting wage and deduction evidence, never that printed arithmetic as a payroll formula.',
+    verifiedOn: '2026-09-14',
+    effectiveFrom: '2019-03-02',
+    applicability: 'REVIEW_REQUIRED',
+    generation: 'REFERENCE_ONLY',
+  },
+  {
+    id: 'mh--shops-2017--mh-shops-2018--o--mh',
+    jurisdiction: 'MH',
+    actCode: 'SHOPS_2017',
+    rulesCode: 'MH_SHOPS_2018',
+    formNumber: 'O',
+    title: 'Leave book',
+    ruleReference: 'Rule 19',
+    kind: 'REGISTER',
+    sourceId: 'mh',
+    sourceStatus: 'EXISTING_RULES',
+    sourcePage: 88,
+    layoutId: 'mh-shops-o',
+    notes:
+      'Worker leave book; employer retains a copy. Record sanctioned and refused earned leave, festival and casual leave. Retain preceding entries; a monthly extract is not a reset of accumulated balances. Rule 19 permits a format retaining every prescribed particular. Rule 26 requires authentication and English/Marathi records; its three-year preservation provision specifically concerns Facilitator inspection records. Verify current establishment coverage and exemptions.',
+    verifiedOn: '2026-09-14',
+    effectiveFrom: '2018-03-23',
+    applicability: 'REVIEW_REQUIRED',
+    generation: 'REFERENCE_ONLY',
+  },
+
   {
     id: 'up--social-security-2020--up-ss-2026--xxxvi--upss',
     jurisdiction: 'UP',
@@ -1914,7 +1981,7 @@ export const REGISTER_FORMS = [
     sourcePage: 90,
     layoutId: 'mh-shops-q',
     notes:
-      'State Shops Act format; do not replace with a CLRA form carrying the same title.',
+      'State Shops Act format. Rule 26 requires authentication, immediate overtime entries and English/Marathi records. Its three-year preservation provision concerns Facilitator inspection records. Rule 26(1) provides a specific Maharashtra Minimum Wages Rule 27(1) alternative; do not automatically substitute a Labour Code register. Confirm current Act coverage and exemptions. Daily P/HD/A/L/WO/H notation is an application legend, not prescribed statutory text.',
     verifiedOn: '2026-09-14',
     effectiveFrom: null,
     applicability: 'REVIEW_REQUIRED',

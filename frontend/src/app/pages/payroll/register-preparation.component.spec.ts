@@ -21,6 +21,48 @@ describe('Register source selection and cancellation', () => {
     component.ngOnDestroy();
     http.verify();
   });
+  it('keeps client-as-contractor capacity separate from the vendor selector and resets site particulars', () => {
+    component.ngOnChanges();
+    http
+      .expectOne((r) => r.url.endsWith('/definition'))
+      .flush({
+        form: { actCode: 'TS_SHOPS_1988' },
+        layout: {
+          fields: [{ key: 'name', label: 'Name', type: 'text', required: true }],
+          baseFormNumber: 'STATE',
+          manualOnly: true,
+          capacityRequired: true,
+          particulars: [
+            { key: 'principalEmployer', label: 'Principal employer', type: 'text', required: true },
+          ],
+          particularsTitle: 'Form II',
+        },
+      });
+    http.expectOne((r) => r.url.endsWith('/eligibility')).flush({ eligible: true });
+    expect(component.supportsContractor).toBe(true);
+    expect(component.canPrefill).toBe(false);
+    expect(component.reuseAvailable).toBe(false);
+    component.generate();
+    expect(component.error).toContain('company capacity');
+    http.expectNone((r) => r.url.endsWith('/generate'));
+    component.actingCapacity = 'CONTRACTOR';
+    component.particulars = { principalEmployer: 'Other Company — customer site' };
+    component.generate();
+    const request = http.expectOne((r) => r.url.endsWith('/generate'));
+    expect(request.request.body.actingCapacity).toBe('CONTRACTOR');
+    expect(request.request.body.contractorUserId).toBeUndefined();
+    expect(request.request.body.particulars.principalEmployer).toContain('Other Company');
+    component.branchId = 'another-branch';
+    component.ngOnChanges();
+    expect(request.cancelled).toBe(true);
+    expect(component.particulars).toEqual({});
+    expect(component.actingCapacity).toBe('');
+    http
+      .expectOne((r) => r.url.endsWith('/definition'))
+      .flush({ layout: { fields: [], baseFormNumber: 'I' } });
+    http.expectOne((r) => r.url.endsWith('/eligibility')).flush({ eligible: true });
+    expect(component.capacityRequired).toBe(false);
+  });
   it('uses the year-end period for an annual ledger and disables monthly prefills', () => {
     component.ngOnChanges();
     http

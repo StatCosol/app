@@ -116,7 +116,7 @@ export const REGISTER_JURISDICTIONS = [
     name: 'Maharashtra',
     sourceUrl:
       'https://mahakamgar.maharashtra.gov.in/Site/Upload/PDF/Regulation_of_Employment_Conditions_of_Service_Rules_2018.pdf',
-    note: 'Shops Rules Form Q inspected. Labour Code drafts must not be treated as final rules.',
+    note: 'Shops Rules Forms O (leave book) and Q (muster/wages) support reviewed preparation. Confirm current Act coverage and exemptions. Labour Code drafts are separate.',
     coverage: 'PARTIAL',
     reviewedOn: '2026-09-14',
   },
@@ -203,7 +203,7 @@ export const REGISTER_JURISDICTIONS = [
     name: 'Telangana',
     sourceUrl:
       'https://ipass.telangana.gov.in/viewpdf.aspx?filepathnew=D%3A%2FTS-iPASSFinal%2Fdocs%2F2019LETF_MS6+%282%29.PDF',
-    note: '2019 G.O.Ms.No.6 integrated Forms II and III inspected. Current Code transition requires separate review.',
+    note: 'Integrated Forms II and III support the separate Shops Act binding, with explicit site capacity and both parts required. Other Act/Code bindings require their own applicability and transition review; this does not suppress contract-labour records.',
     coverage: 'PARTIAL',
     reviewedOn: '2026-09-14',
   },

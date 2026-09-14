@@ -51,6 +51,23 @@ interface Field {
         </p>
       }
       @if (fields.length) {
+        @if (eligible && capacityRequired) {
+          <label class="block text-sm my-3"
+            >Company capacity for this register *
+            <select class="block border rounded p-2 w-full" [(ngModel)]="actingCapacity">
+              <option value="">Select the work relationship</option>
+              <option value="DIRECT_EMPLOYER">Direct employer at this site</option>
+              <option value="PRINCIPAL_EMPLOYER">Principal employer engaging contractors</option>
+              <option value="CONTRACTOR">Our company is a contractor to another company</option>
+            </select>
+          </label>
+          <p class="text-sm">
+            This is the site's work relationship, separate from your Client login. For your
+            company's own deployed workers, select Company employees below. Enter the other
+            company's name/address under principal employer and retain the work-order reference.
+            Other applicable registers remain separate.
+          </p>
+        }
         @if (eligible && supportsContractor) {
           <label class="block text-sm my-2"
             >Records for
@@ -80,7 +97,8 @@ interface Field {
           }
         }
         <label class="block text-sm my-2"
-          >Supporting record reference {{ isEvent || isMaternity || annual ? '*' : '(optional)' }}
+          >Supporting record reference
+          {{ isEvent || isMaternity || manualOnly ? '*' : '(optional)' }}
           <input
             class="border rounded p-2 block w-full"
             [(ngModel)]="meta['supportingReference']"
@@ -140,6 +158,24 @@ interface Field {
               /></label>
             }
           </div>
+          @if (particularFields.length) {
+            <h5 class="font-semibold my-3">{{ particularsTitle }}</h5>
+            <p class="text-sm">
+              Enter these once. Both required parts are included in the downloaded workbook.
+            </p>
+            <div class="grid sm:grid-cols-2 gap-3 my-3">
+              @for (field of particularFields; track field.key) {
+                <label class="text-sm"
+                  >{{ field.label }}{{ field.required ? ' *' : '' }}
+                  <textarea
+                    class="block border rounded p-2 w-full"
+                    [(ngModel)]="particulars[field.key]"
+                    maxlength="2000"
+                  ></textarea>
+                </label>
+              }
+            </div>
+          }
           @if (isMaternity) {
             <p class="text-sm my-3">
               Use authorised HR records for every woman employee, including those without a
@@ -211,6 +247,12 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
   fields: Field[] = [];
   rows: Record<string, string | number>[] = [{}];
   meta: Record<string, string> = {};
+  particulars: Record<string, string | number> = {};
+  particularFields: Field[] = [];
+  particularsTitle = '';
+  manualOnly = false;
+  capacityRequired = false;
+  actingCapacity = '';
   metadataFields = [
     { key: 'employer', label: 'Employer name' },
     { key: 'owner', label: 'Owner name' },
@@ -244,8 +286,16 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     this.revision++;
     this.changed.next();
     this.fields = [];
+    this.particularFields = [];
+    this.particulars = {};
+    this.particularsTitle = '';
+    this.manualOnly = false;
+    this.capacityRequired = false;
+    this.actingCapacity = '';
     this.rows = [{}];
     this.meta = {};
+    this.particulars = {};
+    this.actingCapacity = '';
     this.error = '';
     this.notice = '';
     this.eligible = false;
@@ -269,6 +319,10 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
       .subscribe({
         next: (d) => {
           this.fields = d.layout.fields;
+          this.particularFields = d.layout.particulars || [];
+          this.particularsTitle = d.layout.particularsTitle || '';
+          this.manualOnly = !!d.layout.manualOnly;
+          this.capacityRequired = !!d.layout.capacityRequired;
           this.isEvent = d.layout.baseFormNumber === 'EVENT';
           this.isMaternity = d.layout.baseFormNumber === 'MATERNITY';
           this.annual = d.layout.periodKind === 'ANNUAL';
@@ -277,7 +331,9 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
           this.reuseBasis = d.reuseRule?.basis || '';
           this.leaveCalculationAvailable = d.leaveCalculationAvailable === true;
           this.canPrefill = !this.isEvent && !this.isMaternity && !d.layout.manualOnly;
-          this.supportsContractor = ['I', 'IV', 'V', 'IX'].includes(d.layout.baseFormNumber);
+          this.supportsContractor =
+            ['I', 'IV', 'V', 'IX'].includes(d.layout.baseFormNumber) ||
+            d.form?.actCode === 'TS_SHOPS_1988';
           this.requiresPayroll = d.layout.payrollPrefill;
           this.prefillLabel = d.layout.payrollPrefill
             ? 'Prefill from approved payroll'
@@ -314,9 +370,20 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     )
       return;
     this.rows = structuredClone(input.rows);
+    this.particulars = structuredClone(input.particulars || {});
+    this.actingCapacity = input.actingCapacity || '';
     this.meta = Object.fromEntries(
       Object.entries(input).filter(
-        ([k]) => !['rows', 'branchId', 'year', 'month', 'contractorUserId'].includes(k),
+        ([k]) =>
+          ![
+            'rows',
+            'particulars',
+            'actingCapacity',
+            'branchId',
+            'year',
+            'month',
+            'contractorUserId',
+          ].includes(k),
       ),
     ) as Record<string, string>;
     this.cdr.markForCheck();
@@ -335,6 +402,8 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     this.changed.next();
     this.rows = [{}];
     this.meta = {};
+    this.particulars = {};
+    this.actingCapacity = '';
     this.error = '';
     this.notice = '';
     this.busy = false;
@@ -387,12 +456,18 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
       this.error = 'Select the assigned contractor';
       return;
     }
+    if (this.capacityRequired && !this.actingCapacity) {
+      this.error = 'Select the company capacity at this site';
+      return;
+    }
     this.fetchFile('/generate', {
       ...this.meta,
       branchId: this.branchId,
       year: this.year,
       month: this.periodMonth,
       rows: this.rows,
+      ...(this.capacityRequired ? { actingCapacity: this.actingCapacity } : {}),
+      ...(this.particularFields.length ? { particulars: this.particulars } : {}),
       contractorUserId: this.recordSource === 'CONTRACTOR' ? this.contractorId : undefined,
     });
   }

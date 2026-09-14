@@ -13,6 +13,7 @@ loadEnv({ path: join(__dirname, '..', '.env') });
 const serviceMigrationFiles = new Set([
   '20260920_register_jurisdiction.sql',
   '20260921_register_evidence.sql',
+  '20260923_state_shops_registers.sql',
   '20260914_contract_employee_bank_account.sql',
   '20260627_client_service_entitlements.sql',
   '20260628_client_module_pending_request_unique.sql',

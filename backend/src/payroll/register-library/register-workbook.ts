@@ -4,6 +4,7 @@ import { createHash } from 'crypto';
 import * as ExcelJS from 'exceljs';
 import { REGISTER_FORMS, REGISTER_SOURCES } from './register-catalogue';
 import { registerLayout } from './register-layouts';
+import { validateStateShops } from './register-state-shops-validation';
 
 export type RegisterRow = Record<string, string | number>;
 export interface RegisterInput {
@@ -18,12 +19,14 @@ export interface RegisterInput {
   employerPan: string;
   issueDate: string;
   rows: RegisterRow[];
+  particulars?: RegisterRow;
+  actingCapacity?: 'DIRECT_EMPLOYER' | 'PRINCIPAL_EMPLOYER' | 'CONTRACTOR';
 }
 
 export function definition(id: string) {
   const form = REGISTER_FORMS.find((f) => f.id === id);
   if (!form) throw new NotFoundException('Register not found');
-  const layout = registerLayout(form.sourceId, form.formNumber);
+  const layout = registerLayout(form.sourceId, form.formNumber, form.actCode);
   if (!layout || form.kind === 'AUTHORITY_REGISTER') {
     throw new BadRequestException(
       'This form is reference-only until its layout and data source are implemented',
@@ -84,6 +87,9 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
     new Date(v).toISOString().slice(0, 10) === v;
   if (!validDate(input.issueDate))
     errors.push('Issue date must be a valid YYYY-MM-DD date');
+  errors.push(
+    ...validateStateShops(form.sourceId, form.formNumber, layout, input),
+  );
   if (
     !Array.isArray(input.rows) ||
     input.rows.length === 0 ||
@@ -563,6 +569,13 @@ export async function registerWorkbook(
     'Registration number': input?.registrationNumber || '',
     'Date of issue': input?.issueDate || '',
     'Supporting record reference': input?.supportingReference || '',
+    ...(layout.capacityRequired
+      ? {
+          'Company capacity at this work site': input?.actingCapacity || '',
+          'Capacity basis':
+            'Reviewed site/contract relationship; independent of portal login role. This does not establish equivalence between Acts or replace other required registers.',
+        }
+      : {}),
     Period: periodLabel,
   };
   for (const [key, value] of Object.entries(metadata)) {
@@ -579,6 +592,35 @@ export async function registerWorkbook(
     fitToHeight: 0,
   };
   guide.pageSetup.printArea = 'A1:B' + guide.rowCount;
+  if (layout.particulars?.length) {
+    const particulars = book.addWorksheet('Form II');
+    particulars.columns = [{ width: 60 }, { width: 70 }];
+    particulars.addRow([layout.particularsTitle, periodLabel]);
+    particulars.addRow(['Legal identity', form.id]);
+    for (const field of layout.particulars.filter(
+      (f) => !f.label.startsWith('Form III.'),
+    )) {
+      const value = input?.particulars?.[field.key] ?? '';
+      const row = particulars.addRow([field.label, value]);
+      row.height = Math.max(
+        28,
+        Math.ceil(field.label.length / 55) * 15,
+        Math.ceil(String(value).length / 65) * 15,
+      );
+      row.alignment = { wrapText: true, vertical: 'top' };
+    }
+    particulars.pageSetup = {
+      paperSize: 9,
+      orientation: 'portrait',
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      printTitlesRow: '1:2',
+    };
+    particulars.pageSetup.printArea = 'A1:B' + particulars.rowCount;
+    particulars.headerFooter.oddFooter =
+      'Form II — retain with Form III | Page &P of &N';
+  }
   const isAttendance =
     layout.baseFormNumber === 'IX' && layout.attendanceMode !== 'STATUS';
   const dailySignature = layout.fields.some((f) =>
@@ -586,7 +628,9 @@ export async function registerWorkbook(
   );
   rows.forEach((row, index) => {
     const sheet = book.addWorksheet(
-      'Form ' + form.formNumber + (index ? ' - ' + (index + 1) : ''),
+      'Form ' +
+        (layout.particulars ? 'III' : form.formNumber) +
+        (index ? ' - ' + (index + 1) : ''),
     );
     const width = isAttendance ? 22 : layout.individual ? 2 : 8;
     for (let c = 1; c <= width; c++)
@@ -604,7 +648,12 @@ export async function registerWorkbook(
       r.getCell(1).value = text;
       r.font = { bold: true, size: 11 };
       r.alignment = { wrapText: true };
-      r.height = 32;
+      r.height = layout.particulars
+        ? Math.max(
+            32,
+            Math.ceil(text.length / (layout.individual ? 110 : 160)) * 16,
+          )
+        : 32;
     };
     banner('FORM ' + form.formNumber + ' — ' + form.title);
     banner(source.title + ' | ' + form.ruleReference);
@@ -636,6 +685,21 @@ export async function registerWorkbook(
         ' | ' +
         String(row.name || row.employee_2 || ''),
     );
+    if (layout.particulars) {
+      banner(
+        'Form III | Retain together with Form II establishment particulars.',
+      );
+      banner(
+        'Location: ' +
+          (input?.particulars?.location || '') +
+          ' | Business: ' +
+          (input?.particulars?.business || ''),
+      );
+      banner(
+        'Employer/manager name and address: ' +
+          (input?.particulars?.managerAddress || ''),
+      );
+    }
     if (isAttendance) {
       if (row.establishmentDistrict)
         banner('Establishment district: ' + row.establishmentDistrict);
@@ -686,6 +750,8 @@ export async function registerWorkbook(
       );
     } else if (layout.individual) {
       for (const f of layout.fields) {
+        if (layout.pageBreakBefore?.includes(f.key))
+          sheet.getRow(sheet.rowCount).addPageBreak();
         const r = sheet.addRow([
           f.label,
           (f.type === 'money' || f.type === 'number') &&
@@ -706,7 +772,9 @@ export async function registerWorkbook(
       Array.from({ length: Math.ceil(layout.fields.length / 8) }, (_, i) =>
         layout.fields.slice(i * 8, (i + 1) * 8),
       ).forEach((fields, i) => {
-        if (i > 0 && i % 3 === 0) sheet.getRow(sheet.rowCount).addPageBreak();
+        const groupsPerPage = layout.particulars ? 2 : 3;
+        if (i > 0 && i % groupsPerPage === 0)
+          sheet.getRow(sheet.rowCount).addPageBreak();
         banner('Part ' + (i + 1));
         const heading = sheet.addRow(fields.map((f) => f.label));
         heading.height = 90;
@@ -734,6 +802,29 @@ export async function registerWorkbook(
         );
       });
     }
+    if (layout.particulars) {
+      banner(
+        'Employer/contractor signatory: ' +
+          (input?.particulars?.employerSignatory || '') +
+          ' | Signature: ' +
+          (input?.particulars?.employerSignature || ''),
+      );
+      {
+        banner(
+          'Certificate for authentication by the principal employer (where employer is contractor): This is to certify that the contractor has paid wages to workmen employed by him as shown in this register in his / in the presence of his authorised representatives.',
+        );
+        banner(
+          'Principal-employer representative: ' +
+            (input?.particulars?.peSignatory || '') +
+            ' | Designation: ' +
+            (input?.particulars?.peDesignation || ''),
+        );
+        banner(
+          'Principal-employer representative signature: ' +
+            (input?.particulars?.peSignature || ''),
+        );
+      }
+    }
     sheet.eachRow((r) =>
       r.eachCell(
         { includeEmpty: true },
@@ -754,6 +845,17 @@ export async function registerWorkbook(
       fitToHeight: 0,
       printTitlesRow: '1:6',
     };
+    if (layout.baseFormNumber === 'STATE') {
+      sheet.headerFooter.oddHeader =
+        '&LRecord ' +
+        (index + 1) +
+        ' — ' +
+        String(row.name || '')
+          .slice(0, 100)
+          .replace(/&/g, '&&') +
+        '&RForm ' +
+        (layout.particulars ? 'III' : form.formNumber);
+    }
     sheet.headerFooter.oddFooter =
       'Form ' +
       form.formNumber +
