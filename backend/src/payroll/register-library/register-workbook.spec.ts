@@ -108,6 +108,22 @@ describe('Act-specific register preparation', () => {
       /year-end/,
     );
   });
+  it('does not round away fractional annual leave mismatches or duplicate worker records', () => {
+    const input = annualLeave();
+    input.rows[0].closingLeave = 3.01;
+    expect(validateRegister(id('laosh', '19'), input).join(' ')).toMatch(
+      /availableLeave does not match/,
+    );
+    input.rows[0].closingLeave = 3.001;
+    expect(validateRegister(id('laosh', '19'), input).join(' ')).toMatch(
+      /two decimal places/,
+    );
+    input.rows[0].closingLeave = 3;
+    input.rows.push({ ...input.rows[0] });
+    expect(validateRegister(id('laosh', '19'), input).join(' ')).toMatch(
+      /duplicate employee/,
+    );
+  });
   it('checks calendar and employment boundaries before accepting annual worked days', () => {
     const input = annualLeave();
     input.rows[0].workedMonth2 = 29;
@@ -772,6 +788,41 @@ describe('Social Security women employees register', () => {
     );
     expect(validateRegister(id('ss', 'XXII'), sample())).toEqual([]);
   });
+  it.each([
+    ['apss', 'XX', '2026-07-07'],
+    ['brss', 'XXI', '2026-07-01'],
+  ])(
+    'preserves %s state schedule and validates its HR evidence',
+    (source, formNumber, effectiveFrom) => {
+      const formId = id(source, formNumber);
+      const def = definition(formId);
+      expect(def.form.effectiveFrom).toBe(effectiveFrom);
+      expect(def.form.actCode).toBe('SOCIAL_SECURITY_2020');
+      expect(def.layout.payrollPrefill).toBe(false);
+      expect(
+        def.layout.fields.some((f) =>
+          ['esiNumber', 'pfNumber'].includes(f.key),
+        ),
+      ).toBe(false);
+      expect(
+        def.layout.fields.find((f) => f.key === 'natureOfWork')?.label,
+      ).toBe('4. Nature of work');
+      expect(
+        def.layout.fields.find((f) => f.key === 'employmentMonth')?.label,
+      ).toBe('5(a). Employment month (YYYY-MM)');
+      expect(def.layout.fields.at(-1)?.label).toBe(
+        '21. Reserved for Inspector-cum-Facilitator',
+      );
+      expect(validateRegister(formId, sample())).toEqual([]);
+      const input = sample();
+      input.rows[0].advanceAmount = 1000;
+      input.rows[0].inspectorRemarks = 'Approved';
+      expect(validateRegister(formId, input).join(' ')).toMatch(
+        /advance payment date/,
+      );
+      expect(validateRegister(formId, input).join(' ')).toMatch(/left blank/);
+    },
+  );
   it('requires evidence, consistent month totals and paired payment details', () => {
     const input = sample();
     input.supportingReference = '';
@@ -781,6 +832,24 @@ describe('Social Security women employees register', () => {
     expect(errors).toMatch(/without overlap/);
     expect(errors).toMatch(/advance payment date/);
   });
+  it.each([
+    ['ss', 'XXII'],
+    ['apss', 'XX'],
+    ['brss', 'XXI'],
+  ])(
+    'rejects future recorded events and paid benefits in %s',
+    (source, formNumber) => {
+      const input = sample();
+      input.issueDate = '2026-09-30';
+      input.rows[0].birthDate = '2026-10-01';
+      input.rows[0].advanceDate = '2026-10-02';
+      input.rows[0].advanceAmount = 500;
+      const errors = validateRegister(id(source, formNumber), input);
+      expect(
+        errors.filter((e) => e.includes('later than the register issue date')),
+      ).toHaveLength(2);
+    },
+  );
   it('rejects employment totals outside appointment and discharge dates', () => {
     const input = sample();
     input.rows[0].dischargeDate = '2026-09-10';

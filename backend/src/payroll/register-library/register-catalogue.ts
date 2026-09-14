@@ -1,5 +1,20 @@
 /** Source identity is separate from layout identity. Never match on title or form number alone. */
 export const REGISTER_SOURCES = {
+  apss: {
+    url: 'https://www.ricago.com/assets/front/base/file/file_management/6454.pdf',
+    title: 'Code on Social Security (Andhra Pradesh) Rules, 2026',
+    notification: 'G.O.Rt.No.126; Andhra Pradesh Gazette No.345, 7 July 2026',
+    publicationDate: '2026-07-07',
+    publisher: 'Government of Andhra Pradesh (Gazette copy hosted by Ricago)',
+  },
+  brss: {
+    url: 'https://betastate.bihar.gov.in/file_2/FileUpload/2026/Jul/22-Jul-2026/35/DyPage/1b6711fd-9342-46c0-a9cb-7de816f3e6f5.pdf',
+    title: 'Social Security (Bihar) Rules, 2026',
+    notification:
+      'Notification 10-01/2021 dated 30 June 2026; Bihar Gazette No.697',
+    publicationDate: '2026-07-01',
+    publisher: 'Government of Bihar',
+  },
   uposh: {
     url: 'https://cdn.labourcodesadvisor.com/Rules/uttar-pradesh/final-osh-rules.pdf',
     title:
@@ -191,6 +206,46 @@ export const REGISTER_SOURCES = {
 } as const;
 
 export const REGISTER_FORMS = [
+  {
+    id: 'ap--social-security-2020--ap-ss-2026--xx--apss',
+    jurisdiction: 'AP',
+    actCode: 'SOCIAL_SECURITY_2020',
+    rulesCode: 'AP_SS_2026',
+    formNumber: 'XX',
+    title: 'Women employees register',
+    ruleReference: 'Rule 28(1)(a)(iv)',
+    kind: 'REGISTER',
+    sourceId: 'apss',
+    sourceStatus: 'FINAL',
+    sourcePage: 73,
+    layoutId: null,
+    notes:
+      'Rule 1(2) commences on Gazette publication. Women employee and maternity records require authorised HR evidence, not payroll inference. Rule 28(1)(a)(iv) prescribes this form; preserve originals for five calendar years from last entry under Rule 28(1)(e). Entries: English and Hindi or the language understood by the majority. Common Wages/OSH registers mentioned in Rule 28 retain their own legal identities; this women register is not a substitute. Monthly snapshots require supporting prior history.',
+    verifiedOn: '2026-09-14',
+    effectiveFrom: '2026-07-07',
+    applicability: 'REVIEW_REQUIRED',
+    generation: 'REFERENCE_ONLY',
+  },
+  {
+    id: 'br--social-security-2020--bihar-ss-2026--xxi--brss',
+    jurisdiction: 'BR',
+    actCode: 'SOCIAL_SECURITY_2020',
+    rulesCode: 'BIHAR_SS_2026',
+    formNumber: 'XXI',
+    title: 'Women employees register',
+    ruleReference: 'Rule 27(1)(a)(iv)',
+    kind: 'REGISTER',
+    sourceId: 'brss',
+    sourceStatus: 'FINAL',
+    sourcePage: 106,
+    layoutId: null,
+    notes:
+      'Rule 1(3) commences on Gazette publication. Women employee and maternity records require authorised HR evidence, not payroll inference. Rule 27(1)(a)(iv) prescribes this form; preserve originals for five calendar years from last entry under Rule 27(1)(e). Entries: English and Hindi or the language understood by the majority. Common Wages/OSH registers mentioned in Rule 27 retain their own legal identities; this women register is not a substitute. Monthly snapshots require supporting prior history.',
+    verifiedOn: '2026-09-14',
+    effectiveFrom: '2026-07-01',
+    applicability: 'REVIEW_REQUIRED',
+    generation: 'REFERENCE_ONLY',
+  },
   {
     id: 'up--osh-2020--uttar-pradesh-osh-2026--6--uposh',
     jurisdiction: 'UP',

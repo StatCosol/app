@@ -609,6 +609,25 @@ export function registerLayout(
     }
     return null;
   }
+  if (
+    (sourceId === 'apss' && formNumber === 'XX') ||
+    (sourceId === 'brss' && formNumber === 'XXI')
+  ) {
+    // AP Gazette 345 pp.73–74 and Bihar Gazette 697 p.106 prescribe 21 groups.
+    // Neither schedule has the Central form's separate ESIC/EPFO particulars.
+    const central = registerLayout('ss', 'XXII')!;
+    return {
+      ...central,
+      fields: central.fields
+        .filter((f) => !['esiNumber', 'pfNumber'].includes(f.key))
+        .map((f) => ({
+          ...f,
+          label: f.label.replace(/^\d+/, (n) =>
+            String(Number(n) > 5 ? Number(n) - 2 : Number(n)),
+          ),
+        })),
+    };
+  }
   if (sourceId === 'ss' && formNumber === 'XXII')
     return {
       baseFormNumber: 'MATERNITY',

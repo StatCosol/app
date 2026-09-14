@@ -159,5 +159,19 @@
     "sha256": "14c4759a7a193aaf15f50be792a584faa559bfb775a3e09ccb623bc206a776d6",
     "bytes": 7203256,
     "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "apss",
+    "file": "apss.pdf",
+    "sha256": "aa946240c206cd822b09b488454d3e10791684039cc88c6ad57913031a027446",
+    "bytes": 6791809,
+    "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "brss",
+    "file": "brss.pdf",
+    "sha256": "477435147596cb1f74ab5e205bed534bac469a825c6ee203d1bc2def5672c812",
+    "bytes": 3556872,
+    "reviewedOn": "2026-09-14"
   }
 ]

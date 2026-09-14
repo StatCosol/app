@@ -129,7 +129,7 @@ Validated workbooks are saved as PENDING records in the existing register review
 
 ## Remaining coverage and verification (current)
 
-1. The catalogue contains 98 Act/state/form identities; 66 have implemented preparation layouts. Other combinations remain explicitly unavailable for generation until the full applicable schedule is verified. Telangana is not silently mapped to Andhra Pradesh.
+1. The catalogue contains 100 Act/state/form identities; 68 have implemented preparation layouts. Other combinations remain explicitly unavailable for generation until the full applicable schedule is verified. Telangana is not silently mapped to Andhra Pradesh.
 2. Remaining state/UT rules, state Acts, savings provisions, amendments, vernacular layouts and authentication requirements still require verification. This is not complete India-wide coverage.
 3. Arunachal schedules were recovered from a complete alternate Gazette copy; Forms I, IV and V are implemented. The earlier clipped copy is not the bundled source.
 4. Special statutory leave schemes (including working journalists and sales promotion employees), historical leave transfers and direct incident-system integration remain pending. Standard section 32 calculation, reviewed incident/leave evidence and explicit OSH Rule 72(3) reuse attestations are implemented.
@@ -273,3 +273,21 @@ Ladakh Forms 16 and 17 remain identified but unavailable for preparation pending
 Sikkim follow-up: the [official OSH notification retrieved](https://labour.sikkim.gov.in/Uploads/AllFiles/133.pdf) is a draft. No final Sikkim OSH schedule was established by this follow-up search, so no draft-based generation was enabled. This does not assert that no later final notification exists.
 
 Latest verification: 84 focused backend tests and 13 frontend register tests pass. Sixty-six fictional XLSX formats validate; new Ladakh and UP samples export through native Excel, while unchanged PDF samples retain their earlier verified exports. Annual/incident output and source pages were inspected. Original bundled source hashes and the sample archive were checked. Backend/frontend production builds and targeted backend lint passed. This remains a partial all-state implementation; other state/Act registers, specialist leave, transition periods and vernacular/authentication review remain open.
+
+
+## Follow-up on draft and preliminary sources
+
+The following sources were rechecked rather than treated as final register authority: [Maharashtra's official rules index](https://labour.maharashtra.gov.in/en/publication/new-labour-code), [Odisha Gazette notification index](https://labour.odisha.gov.in/en/notification/gazette-notification), [Uttarakhand's proposed-rule documents](https://labour.uk.gov.in/documents/), [Kerala's Labour Commissionerate updates](https://lc.kerala.gov.in/ml/node/5), [Assam's draft-rule index](https://labour.assam.gov.in/document-details/draft-state-rules-labour-code), [Karnataka Gazette No.99, 23 January 2026](https://ascent-hr.com/wp-content/uploads/2026/01/Karnataka-draft-OSH-Rules-2026.pdf), [Tamil Nadu Gazette No.214, 11 April 2022](https://labour.tn.gov.in/pdf/Code_on_Wages.pdf), and [Telangana G.O.Rt.480, 29 September 2021](https://saralweb.com/state-wise-rules/telangana/COWTelangana.pdf). These particular rule sources are labelled draft/proposed/preliminary. This establishes their status, not the absence of any later final rule. No generation was enabled from these documents, and no Andhra Pradesh-to-Telangana equivalence was inferred. Existing saved rules, later amendments and unrepealed state Acts still require separate applicability/version review.
+
+Annual balance reconciliation now uses exact hundredths of a day rather than the monetary one-paise tolerance; finer precision and duplicate annual worker-register numbers are rejected.
+
+
+## Final Andhra Pradesh and Bihar Social Security schedules
+
+Verified [Andhra Pradesh Gazette No.345, 7 July 2026](https://www.ricago.com/assets/front/base/file/file_management/6454.pdf), pages 1–2, 28–29 and 73–74, and [Bihar Gazette No.697, 1 July 2026](https://betastate.bihar.gov.in/file_2/FileUpload/2026/Jul/22-Jul-2026/35/DyPage/1b6711fd-9342-46c0-a9cb-7de816f3e6f5.pdf), pages 1, 76–77 and 106. AP Form XX and Bihar Form XXI retain 21 prescribed groups. Their schedules omit the two separate Central PF/ESI particulars. Each uses its own Act, rule, source and commencement date. Monthly preparation records reviewed HR evidence and retains supporting history; it does not calculate maternity entitlements or infer events from payroll. Inspector remarks remain reserved. Recorded events and paid-benefit dates cannot exceed issue date.
+
+AP Rule 28 and Bihar Rule 27 recognise specified Wages/OSH registers. Those dependencies are not new Social Security form numbers; the women register cannot replace them. Bihar Rule 27(2) prints Wages Rules 2025 for slips, while its common-register clauses name 2026; no automatic slip equivalence was added from that inconsistent reference. Bihar Chapter V records also have the separate ten-year retention provision in Rule 27(6).
+
+Source quality: the Praans page labelled AP final Social Security rules linked the February preliminary G.O.Rt.43 PDF. That file was excluded. The Ricago copy contains the actual final Gazette header and final-making recital. The Bihar government download provides the complete readable Gazette; it replaces the scanned notification research copy as bundled evidence.
+
+Current verification: 68 layouts across 100 legal identities, 25 hashed source PDFs, and 68 fictional XLSX/PDF pairs. Ninety focused backend tests cover the current changes; 13 frontend register tests and the frontend production build passed before these backend-only additions. The latest backend build and targeted lint passed. Annual leave reconciles exact hundredths of a day. CI on f2e9bbda passed all 14 checks; the next commit requires its own CI result. India-wide state-Act coverage, specialist schemes, transition periods, vernacular/authentication review and production deployment remain open.

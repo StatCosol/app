@@ -165,7 +165,7 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
       errors.push(prefix + 'duplicate employee code');
     if (identity) identities.add(identity);
     const money = (key: string) => Number(row[key]);
-    const checkTotal = (total: string, parts: string[]) => {
+    const checkTotal = (total: string, parts: string[], tolerance = 1) => {
       if (
         [total, ...parts].every(
           (k) =>
@@ -173,21 +173,39 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
         )
       ) {
         const sum = parts.reduce((s, k) => s + Math.round(money(k) * 100), 0);
-        if (Math.abs(Math.round(money(total) * 100) - sum) > 1)
+        if (Math.abs(Math.round(money(total) * 100) - sum) > tolerance)
           errors.push(prefix + total + ' does not match its component total');
       }
     };
     if (layout.periodKind === 'ANNUAL') {
-      checkTotal(
-        'totalWorkedDays',
-        Array.from({ length: 12 }, (_, i) => 'workedMonth' + (i + 1)),
+      const monthKeys = Array.from(
+        { length: 12 },
+        (_, i) => 'workedMonth' + (i + 1),
       );
-      checkTotal('availableLeave', ['openingLeave', 'earnedLeave']);
-      checkTotal('availableLeave', [
+      const balanceKeys = [
+        'totalWorkedDays',
+        'earnedLeave',
+        'openingLeave',
+        'availableLeave',
         'usedLeave',
         'encashedLeave',
         'closingLeave',
-      ]);
+      ];
+      for (const key of [...monthKeys, ...balanceKeys]) {
+        const value = Number(row[key]);
+        if (
+          Number.isFinite(value) &&
+          Math.abs(value * 100 - Math.round(value * 100)) > 0.000001
+        )
+          errors.push(prefix + key + ' must use at most two decimal places');
+      }
+      checkTotal('totalWorkedDays', monthKeys, 0);
+      checkTotal('availableLeave', ['openingLeave', 'earnedLeave'], 0);
+      checkTotal(
+        'availableLeave',
+        ['usedLeave', 'encashedLeave', 'closingLeave'],
+        0,
+      );
       for (let m = 1; m <= 12; m++) {
         const monthStart = `${input.year}-${String(m).padStart(2, '0')}-01`;
         const monthEnd = `${input.year}-${String(m).padStart(2, '0')}-${new Date(Date.UTC(input.year, m, 0)).getUTCDate()}`;
@@ -293,6 +311,16 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
     }
     const days = new Date(Date.UTC(input.year, input.month, 0)).getUTCDate();
     if (layout.baseFormNumber === 'MATERNITY') {
+      for (const f of layout.fields.filter((field) => field.type === 'date')) {
+        if (
+          validDate(row[f.key]) &&
+          validDate(input.issueDate) &&
+          String(row[f.key]) > input.issueDate
+        )
+          errors.push(
+            prefix + f.label + ' cannot be later than the register issue date',
+          );
+      }
       const expectedMonth = `${input.year}-${String(input.month).padStart(2, '0')}`;
       if (row.employmentMonth !== expectedMonth)
         errors.push(prefix + 'employment month must match the selected period');
