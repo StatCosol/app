@@ -10,6 +10,12 @@ export class ChecklistsService {
     private readonly branchComplianceRepo: Repository<BranchComplianceEntity>,
   ) {}
 
+  async getItem(id: string) {
+    const row = await this.branchComplianceRepo.findOneBy({ id });
+    if (!row) throw new NotFoundException(`Checklist item ${id} not found`);
+    return row;
+  }
+
   /** All checklist items for a branch, optionally filtered by status */
   async getByBranch(branchId: string, status?: string) {
     const qb = this.branchComplianceRepo
@@ -42,7 +48,17 @@ export class ChecklistsService {
     if (!existing) {
       throw new NotFoundException(`Checklist item ${id} not found`);
     }
-    await this.branchComplianceRepo.update(id, data);
+    // Pick allowed fields at runtime: an inline controller body type does not
+    // strip extra JSON keys such as clientId, branchId or complianceId.
+    const changes = Object.fromEntries(
+      Object.entries(data).filter(
+        ([key, value]) =>
+          ['isApplicable', 'status', 'reason', 'ownerUserId'].includes(key) &&
+          value !== undefined,
+      ),
+    );
+    if (!Object.keys(changes).length) return existing;
+    await this.branchComplianceRepo.update(id, changes);
     return this.branchComplianceRepo.findOneByOrFail({ id });
   }
 

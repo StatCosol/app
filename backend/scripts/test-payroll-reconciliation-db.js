@@ -6,7 +6,7 @@ const {PayrollRunEmployeeEntity}=require('../dist/src/payroll/entities/payroll-r
 const {PayrollReconciliationService}=require('../dist/src/payroll/reconciliation/payroll-reconciliation.service');
 async function main(){
  const schema=`reconciliation_test_${Date.now()}`;
- const db=new DataSource({type:'postgres',host:'127.0.0.1',port:55439,username:'monthly_close_test',database:'postgres',schema,entities:[PayrollRunEntity,PayrollRunEmployeeEntity]});
+ const db=new DataSource({type:'postgres',host:'127.0.0.1',port:Number(process.env.AUTOMATION_TEST_PORT || 55439),username:process.env.AUTOMATION_TEST_USER || 'monthly_close_test',password:process.env.AUTOMATION_TEST_PASSWORD || undefined,database:process.env.AUTOMATION_TEST_DATABASE || 'postgres',schema,entities:[PayrollRunEntity,PayrollRunEmployeeEntity]});
  await db.initialize();
  try{
   await db.query(`CREATE SCHEMA "${schema}"`);await db.synchronize();

@@ -44,15 +44,21 @@ export class SalesService {
   // Helpers
   // ---------------------------------------------------------------------
 
-  private isAdminOrCeo(user: AuthUser): boolean {
-    return user.roleCode === 'ADMIN' || user.roleCode === 'CEO';
+  private isCeo(user: AuthUser): boolean {
+    return user.roleCode === 'CEO';
+  }
+
+  private assertSalesAccess(user: AuthUser): void {
+    if (user.roleCode !== 'SALES' && !this.isCeo(user)) {
+      throw new ForbiddenException('Sales access requires SALES or CEO');
+    }
   }
 
   private async assertCanMutate(
     user: AuthUser,
     lead: LeadEntity,
   ): Promise<void> {
-    if (this.isAdminOrCeo(user)) return;
+    if (this.isCeo(user)) return;
     if (user.roleCode !== 'SALES') {
       throw new ForbiddenException('Only SALES users can modify leads');
     }
@@ -79,8 +85,8 @@ export class SalesService {
   // ---------------------------------------------------------------------
 
   async create(user: AuthUser, dto: CreateLeadDto): Promise<LeadEntity> {
-    if (user.roleCode !== 'SALES' && !this.isAdminOrCeo(user)) {
-      throw new ForbiddenException('Only SALES/ADMIN can create leads');
+    if (user.roleCode !== 'SALES' && !this.isCeo(user)) {
+      throw new ForbiddenException('Only SALES/CEO can create leads');
     }
     const lead = this.leadRepo.create({
       ...dto,
@@ -94,6 +100,7 @@ export class SalesService {
   }
 
   async summary(user: AuthUser) {
+    this.assertSalesAccess(user);
     const qb = this.leadRepo
       .createQueryBuilder('lead')
       .select('lead.stage', 'stage')
@@ -108,6 +115,7 @@ export class SalesService {
   }
 
   async list(user: AuthUser, q: ListLeadsQueryDto) {
+    this.assertSalesAccess(user);
     const where: Record<string, unknown> = {};
     const bucket = q.bucket ?? 'open';
     if (bucket === 'open') {
@@ -126,7 +134,7 @@ export class SalesService {
     if (q.ownerUserId) where.ownerUserId = q.ownerUserId;
     if (q.search) where.companyName = ILike(`%${q.search}%`);
 
-    // Non-admin/CEO sales users see only their own leads by default.
+    // Non-CEO sales users see only their own leads by default.
     if (user.roleCode === 'SALES') {
       where.ownerUserId = user.id;
     }
@@ -144,6 +152,7 @@ export class SalesService {
   }
 
   async findOne(user: AuthUser, id: string): Promise<LeadEntity> {
+    this.assertSalesAccess(user);
     const lead = await this.leadRepo.findOne({ where: { id } });
     if (!lead) throw new NotFoundException('Lead not found');
     if (
@@ -184,8 +193,8 @@ export class SalesService {
 
   async remove(user: AuthUser, id: string): Promise<void> {
     const lead = await this.findOne(user, id);
-    if (!this.isAdminOrCeo(user)) {
-      throw new ForbiddenException('Only ADMIN/CEO can delete leads');
+    if (!this.isCeo(user)) {
+      throw new ForbiddenException('Only CEO can delete leads');
     }
     await this.leadRepo.delete({ id: lead.id });
   }
@@ -256,6 +265,7 @@ export class SalesService {
   // ---------------------------------------------------------------------
 
   async myFollowups(user: AuthUser) {
+    this.assertSalesAccess(user);
     const now = new Date();
     const overdue = await this.leadRepo.find({
       where: {

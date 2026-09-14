@@ -1,3 +1,6 @@
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
+import { OperationalScopeService } from '../access/operational-scope.service';
 import {
   Controller,
   Get,
@@ -18,37 +21,51 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller({ path: 'checklists', version: '1' })
 export class ChecklistsController {
-  constructor(private readonly svc: ChecklistsService) {}
+  constructor(
+    private readonly svc: ChecklistsService,
+    private readonly scope: OperationalScopeService,
+  ) {}
 
   @ApiOperation({ summary: 'Get By Branch' })
   @Get('branch/:branchId')
   @Roles('CRM', 'CLIENT', 'ADMIN', 'CCO', 'CEO')
-  getByBranch(
+  async getByBranch(
     @Param('branchId') branchId: string,
+    @CurrentUser() user: ReqUser,
     @Query('status') status?: string,
   ) {
+    await this.scope.resolve(user, undefined, branchId);
     return this.svc.getByBranch(branchId, status);
   }
 
   @ApiOperation({ summary: 'Branch Summary' })
   @Get('branch/:branchId/summary')
   @Roles('CRM', 'CLIENT', 'ADMIN', 'CCO', 'CEO')
-  branchSummary(@Param('branchId') branchId: string) {
+  async branchSummary(
+    @Param('branchId') branchId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.scope.resolve(user, undefined, branchId);
     return this.svc.branchSummary(branchId);
   }
 
   @ApiOperation({ summary: 'Get By Client' })
   @Get('client/:clientId')
   @Roles('CRM', 'ADMIN', 'CCO', 'CEO')
-  getByClient(@Param('clientId') clientId: string) {
+  async getByClient(
+    @Param('clientId') clientId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.scope.resolve(user, clientId);
     return this.svc.getByClient(clientId);
   }
 
   @ApiOperation({ summary: 'Update Item' })
   @Patch(':id')
   @Roles('CRM', 'ADMIN')
-  updateItem(
+  async updateItem(
     @Param('id') id: string,
+    @CurrentUser() user: ReqUser,
     @Body()
     body: {
       isApplicable?: boolean;
@@ -57,6 +74,7 @@ export class ChecklistsController {
       ownerUserId?: string;
     },
   ) {
+    await this.scope.assertRecord(user, await this.svc.getItem(id));
     return this.svc.updateItem(id, body);
   }
 }

@@ -73,6 +73,11 @@ jobs:
           node scripts/validate-my-work.cjs
           node scripts/validate-contractor-payroll-authority.cjs
           node scripts/validate-payroll-document-reconciliation.cjs
+          node scripts/validate-deeper-business-flows.cjs
+          node scripts/validate-notice-checklist-options.cjs
+          node scripts/validate-endpoint-role-options.cjs
+          node -r ts-node/register scripts/test-monthly-close-db.js
+          node scripts/test-payroll-reconciliation-db.js
       - name: Patched dependency runtime smoke
         run: node scripts/security-dependency-smoke.cjs
       - name: Boot check (entity metadata + DB connect)
@@ -106,6 +111,8 @@ jobs:
         run: npm run build
       - name: Lint
         run: npm run lint
+      - name: Portal option and menu inventory
+        run: node puppeteer-tests/option-inventory.cjs
       - name: ESS native session bridge regressions
         run: node scripts/validate-ess-session-bridge.cjs
         working-directory: .

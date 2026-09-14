@@ -1,3 +1,4 @@
+import { AccessModule } from '../access/access.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BranchComplianceEntity } from './entities/branch-compliance.entity';
@@ -8,6 +9,7 @@ import { ChecklistsService } from './checklists.service';
 
 @Module({
   imports: [
+    AccessModule,
     TypeOrmModule.forFeature([
       BranchComplianceEntity,
       ComplianceMasterEntity,

@@ -15,7 +15,10 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import type { ReqUser } from '../access/access-scope.service';
+import {
+  AccessScopeService,
+  type ReqUser,
+} from '../access/access-scope.service';
 import { ClientContactsService } from './client-contacts.service';
 import { portalUrl } from '../common/utils/portal-url';
 import {
@@ -45,6 +48,7 @@ export class ClientContactsController {
     private readonly svc: ClientContactsService,
     private readonly cron: ClientCommsCronService,
     private readonly templates: ClientCommTemplatesService,
+    private readonly access: AccessScopeService,
   ) {}
 
   @ApiOperation({ summary: 'List supported departments' })
@@ -55,29 +59,51 @@ export class ClientContactsController {
 
   @ApiOperation({ summary: 'List all contacts for a client' })
   @Get('client/:clientId')
-  list(@Param('clientId', new ParseUUIDPipe()) clientId: string) {
+  async list(
+    @Param('clientId', new ParseUUIDPipe()) clientId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.access.assertCcoClientAllowed(user, clientId);
     return this.svc.listForClient(clientId);
   }
 
   @ApiOperation({ summary: 'Create a contact' })
   @Post()
-  create(@Body() dto: CreateClientContactDto, @CurrentUser() user: ReqUser) {
+  async create(
+    @Body() dto: CreateClientContactDto,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.access.assertCcoClientAllowed(user, dto.clientId);
     return this.svc.create(dto, user?.userId);
   }
 
   @ApiOperation({ summary: 'Update a contact' })
   @Patch(':id')
-  update(
+  async update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateClientContactDto,
     @CurrentUser() user: ReqUser,
   ) {
+    await this.access.assertCcoClientAllowed(
+      user,
+      await this.svc.getClientId(id),
+    );
+    if (dto.clientId) {
+      await this.access.assertCcoClientAllowed(user, dto.clientId);
+    }
     return this.svc.update(id, dto, user?.userId);
   }
 
   @ApiOperation({ summary: 'Delete a contact' })
   @Delete(':id')
-  remove(@Param('id', new ParseUUIDPipe()) id: string) {
+  async remove(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.access.assertCcoClientAllowed(
+      user,
+      await this.svc.getClientId(id),
+    );
     return this.svc.remove(id);
   }
 
@@ -85,6 +111,7 @@ export class ClientContactsController {
 
   @ApiOperation({ summary: 'Trigger payroll-input request emails now' })
   @Post('trigger/payroll-input')
+  @Roles('ADMIN')
   triggerPayroll(
     @CurrentUser() user: ReqUser,
     @Query('clientId') clientId?: string,
@@ -98,6 +125,7 @@ export class ClientContactsController {
 
   @ApiOperation({ summary: 'Trigger MCD-data request emails now' })
   @Post('trigger/mcd-request')
+  @Roles('ADMIN')
   triggerMcd(
     @CurrentUser() user: ReqUser,
     @Query('clientId') clientId?: string,
@@ -119,6 +147,7 @@ export class ClientContactsController {
 
   @ApiOperation({ summary: 'Update a mail template (subject + HTML body)' })
   @Patch('templates/:commType')
+  @Roles('ADMIN')
   async updateTemplate(
     @Param('commType') commType: string,
     @Body()
@@ -153,6 +182,7 @@ export class ClientContactsController {
 
   @ApiOperation({ summary: 'Reset a mail template to its built-in default' })
   @Post('templates/:commType/reset')
+  @Roles('ADMIN')
   async resetTemplate(@Param('commType') commType: string) {
     const ct = commType as ClientCommType;
     if (!CLIENT_COMM_TYPES.includes(ct)) {

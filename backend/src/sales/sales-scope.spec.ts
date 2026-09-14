@@ -13,7 +13,7 @@ describe('Sales ownership and complete aggregates', () => {
     );
     expect(findAndCount.mock.calls[0][0].where.ownerUserId).toBe('a');
     await service.list(
-      { id: 'admin', userId: 'admin', roleCode: 'ADMIN' },
+      { id: 'ceo', userId: 'ceo', roleCode: 'CEO' },
       { ownerUserId: 'b' },
     );
     expect(findAndCount.mock.calls[1][0].where.ownerUserId).toBe('b');

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AccessModule } from '../access/access.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EmailModule } from '../email/email.module';
 import { ClientDepartmentContactEntity } from './client-department-contact.entity';
@@ -15,6 +16,7 @@ import { ClientCommTemplatesService } from './client-comm-templates.service';
       ClientCommTemplateEntity,
     ]),
     EmailModule,
+    AccessModule,
   ],
   controllers: [ClientContactsController],
   providers: [

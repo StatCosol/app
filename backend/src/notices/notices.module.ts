@@ -1,3 +1,4 @@
+import { AccessModule } from '../access/access.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MulterModule } from '@nestjs/platform-express';
@@ -16,6 +17,7 @@ import {
 
 @Module({
   imports: [
+    AccessModule,
     TypeOrmModule.forFeature([
       NoticeEntity,
       NoticeDocumentEntity,

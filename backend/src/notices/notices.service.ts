@@ -1,8 +1,4 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NoticeEntity, NoticeStatus } from './entities/notice.entity';
@@ -12,18 +8,9 @@ import { CreateNoticeDto } from './dto/create-notice.dto';
 import { UpdateNoticeDto } from './dto/update-notice.dto';
 import { NoticeQueryDto } from './dto/notice-query.dto';
 
-export interface ReqUser {
-  userId: string;
-  roleCode: string;
-  clientId?: string;
-  branchId?: string;
-  /**
-   * Clients this user is assigned to, set by JwtStrategy for the
-   * assignment-scoped roles. Needed here so a CRM's notice KPIs are limited to
-   * their own clients instead of being counted across every tenant.
-   */
-  assignedClientIds?: string[];
-}
+export type { ReqUser } from '../access/access-scope.service';
+import { ReqUser } from '../access/access-scope.service';
+import { OperationalScopeService } from '../access/operational-scope.service';
 
 @Injectable()
 export class NoticesService {
@@ -34,6 +21,7 @@ export class NoticesService {
     private readonly docRepo: Repository<NoticeDocumentEntity>,
     @InjectRepository(NoticeActivityLogEntity)
     private readonly logRepo: Repository<NoticeActivityLogEntity>,
+    private readonly scope: OperationalScopeService,
   ) {}
 
   /** Generate a notice code: NTC-YYYY-NNN */
@@ -78,6 +66,7 @@ export class NoticesService {
 
   /** Create a new notice (CRM / Admin) */
   async create(user: ReqUser, dto: CreateNoticeDto): Promise<NoticeEntity> {
+    await this.scope.assertRecord(user, dto);
     const noticeCode = await this.generateNoticeCode();
     const notice = this.repo.create({
       noticeCode,
@@ -110,13 +99,13 @@ export class NoticesService {
       .leftJoinAndSelect('n.assignedTo', 'assignedTo')
       .orderBy('n.createdAt', 'DESC');
 
-    // Scope by role
-    if (user.roleCode === 'CLIENT' && user.clientId) {
-      qb.andWhere('n.clientId = :cid', { cid: user.clientId });
-    }
-    if (user.roleCode === 'BRANCH' && user.branchId) {
-      qb.andWhere('n.branchId = :bid', { bid: user.branchId });
-    }
+    qb.andWhere(
+      await this.scope.where<NoticeEntity>(
+        user,
+        query.clientId,
+        query.branchId,
+      ),
+    );
 
     // Filters
     if (query.clientId)
@@ -149,21 +138,7 @@ export class NoticesService {
     });
     if (!notice) throw new NotFoundException('Notice not found');
 
-    // Role-based scope check
-    if (
-      user.roleCode === 'CLIENT' &&
-      user.clientId &&
-      notice.clientId !== user.clientId
-    ) {
-      throw new ForbiddenException();
-    }
-    if (
-      user.roleCode === 'BRANCH' &&
-      user.branchId &&
-      notice.branchId !== user.branchId
-    ) {
-      throw new ForbiddenException();
-    }
+    await this.scope.assertRecord(user, notice);
 
     const documents = await this.docRepo.find({
       where: { noticeId: id },
@@ -189,6 +164,7 @@ export class NoticesService {
     const notice = await this.repo.findOneBy({ id });
     if (!notice) throw new NotFoundException('Notice not found');
 
+    await this.scope.assertRecord(user, notice);
     const oldStatus = notice.status;
 
     if (dto.noticeType !== undefined) notice.noticeType = dto.noticeType as any;
@@ -238,6 +214,7 @@ export class NoticesService {
     const notice = await this.repo.findOneBy({ id: noticeId });
     if (!notice) throw new NotFoundException('Notice not found');
 
+    await this.scope.assertRecord(user, notice);
     const doc = this.docRepo.create({
       noticeId,
       documentType: documentType as any,
@@ -262,26 +239,7 @@ export class NoticesService {
   async getKpis(user: ReqUser, clientId?: string) {
     const qb = this.repo.createQueryBuilder('n');
 
-    if (user.roleCode === 'CLIENT' && user.clientId) {
-      qb.andWhere('n.clientId = :cid', { cid: user.clientId });
-    } else if (clientId) {
-      qb.andWhere('n.clientId = :cid', { cid: clientId });
-    } else if (Array.isArray(user.assignedClientIds)) {
-      // A CRM matched neither branch above, so no filter was applied at all
-      // and the KPIs were counted across every client's notices. Fall back to
-      // the caller's assigned clients, and to nothing when they have none —
-      // an empty assignment set must not read as "all clients".
-      if (user.assignedClientIds.length) {
-        qb.andWhere('n.clientId IN (:...cids)', {
-          cids: user.assignedClientIds,
-        });
-      } else {
-        qb.andWhere('1 = 0');
-      }
-    }
-    if (user.roleCode === 'BRANCH' && user.branchId) {
-      qb.andWhere('n.branchId = :bid', { bid: user.branchId });
-    }
+    qb.andWhere(await this.scope.where<NoticeEntity>(user, clientId));
 
     const all = await qb.getMany();
     const now = new Date().toISOString().slice(0, 10);
