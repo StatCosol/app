@@ -325,3 +325,9 @@ Register preparation now resolves the selected active branch through authorized 
 Changing or clearing the branch cancels pending requests and clears the previous Act, form and preparation. Existing generation checks still enforce jurisdiction and current applicability. Approved company employee prefills and payroll-run employee queries retain both client and branch restrictions, including client-wide payroll runs. Manual evidence remains reviewed input; employee names entered manually are not claimed to be verified enrollment automatically.
 
 Validation for this increment: 107 focused backend tests, 18 frontend register tests and 25 isolated PostgreSQL checks passed. Backend and frontend production builds and targeted backend lint passed. The database check includes selected-branch, other-branch, other-client and unapproved fictional employees, and returns only the selected branch approved employee. Full priority-state coverage and production deployment remain incomplete.
+
+## Social Security applicability seed correction
+
+The preparable Central, AP, Bihar and UP women-employees forms share the exact SOCIAL_SECURITY_2020 applicability identity. Migration 20260924_social_security_register_applicability.sql adds that identity and links it to DEFAULT_INDIA with included_by_default=false, so recomputation exposes a reviewable decision without blanket enablement. The existing pre-deployment migration runner includes this additive migration; previously applied migration checksums are unchanged.
+
+The isolated PostgreSQL suite now has 29 checks. It applies the seed repeatedly, runs the actual applicability recomputation and override services, and verifies all four form jurisdictions are denied before review, accepted after an audited positive override, preserved through recomputation/repeated migration and denied after a negative override. No statutory scope is inferred merely from the package link.
