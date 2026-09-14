@@ -167,6 +167,53 @@ export function registerLayout(
   sourceId: string,
   formNumber: string,
 ): RegisterLayout | null {
+  if (sourceId === 'gjw') {
+    if (formNumber === 'IV') return registerLayout('rjw', 'IV');
+    if (formNumber === 'V') return registerLayout('rjw', 'VII');
+    if (formNumber === 'I') {
+      const keys = [
+        'employeeCode',
+        'name',
+        'designation',
+        'frequency',
+        'wagePeriod',
+        'daysWorked',
+        'otHours',
+        'basicRate',
+        'daRate',
+        'allowanceRate',
+        'overtime',
+        'fineReason',
+        'fineImposed',
+        'damageReason',
+        'deductions',
+        'net',
+        'paymentDate',
+      ];
+      return {
+        baseFormNumber: 'IV',
+        individual: false,
+        payrollPrefill: true,
+        fields: [
+          ...keys.map((key, i) => {
+            const f = wage.find((f) => f.key === key)!;
+            return {
+              ...f,
+              label: `${i + 1}. ${key === 'designation' ? 'Designation / Department' : f.label.replace(/^\d+\. /, '')}`,
+            };
+          }),
+          field('attendanceDate', '18. Attendance date', 'date'),
+          field(
+            'attendanceSignature',
+            '19. Attendance signature (not required for electronic maintenance)',
+            'text',
+            false,
+          ),
+        ],
+      };
+    }
+    return null;
+  }
   if (sourceId === 'rjw') {
     if (formNumber === 'VII')
       return {

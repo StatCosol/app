@@ -188,3 +188,14 @@ The implemented generation count is now 18. All 18 fictional sample workbooks va
 Primary document: [Rajasthan Gazette, Code on Wages Rules 2026](https://cdn.labourcodesadvisor.com/Rules/rajasthan/final-wages-rules.pdf), Rules 42–43 and PDF pages 18–19, 24–26 (government document hosted by Labour Code Advisor).
 
 Follow-up validation: all 52 focused register/retired-path tests passed; backend and frontend production builds passed; targeted backend lint passed. The isolated PostgreSQL evidence tests from the previous commit remain applicable; this follow-up introduces no database migration.
+
+
+## Gujarat schedules and commencement
+
+Gujarat notification KHR/2021/128/LVD/10/2020/555709/M(2), dated 5 October 2021, was inspected, including its final-making recital and Rule 1(3). The rule ties operation to commencement of the Code. The relevant provisions, including record requirements, commenced on 21 November 2025 under S.O.5322(E). This is distinct from the 2021 publication date.
+
+Implemented Gujarat Form I (19 columns, including attendance date/signature), Form IV employee particulars, and Form V wage slip. Form I has no prescribed separate gross or PF/ESI deduction columns; those are not copied from Rajasthan's 23-column schedule. The employee and wage-slip particulars were compared against their schedules before sharing field definitions. The signature exception for electronic maintenance is retained. The notification is stored as gjw.pdf and hashed in the source manifest.
+
+Current implemented total: 21 formats. All 21 fictional workbooks validate; the three Gujarat workbooks also exported through native Excel and the wage output was visually inspected. All 53 focused register tests passed. Other state/Act combinations remain reference/research items, not implicitly substituted with these forms.
+
+Sources: [Gujarat final notification](https://cdn.labourcodesadvisor.com/Rules/gujarat/final-wages-rules.pdf), Rules 1, 42–43 and PDF pages 14 and 17; [Central commencement notification S.O.5322(E)](https://www.labour.gov.in/static/uploads/2025/12/0fd090d29a4576739079a7b565c8ca9d.pdf).

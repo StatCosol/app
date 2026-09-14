@@ -160,9 +160,10 @@ export class RegisterBuilderService {
             ([key]) =>
               allowedFields.has(key) &&
               !(
-                context.form.sourceId === 'rjw' &&
+                ['rjw', 'gjw'].includes(context.form.sourceId) &&
                 context.form.formNumber === 'I' &&
-                ['name', 'designation'].includes(key)
+                (key === 'designation' ||
+                  (context.form.sourceId === 'rjw' && key === 'name'))
               ),
           ),
         ),
@@ -260,8 +261,11 @@ export class RegisterBuilderService {
         deductions: e.totalDeductions,
         net: e.netPay,
       };
-      if (context.form.sourceId === 'rjw' && context.form.formNumber === 'I') {
-        delete values.name;
+      if (
+        ['rjw', 'gjw'].includes(context.form.sourceId) &&
+        context.form.formNumber === 'I'
+      ) {
+        if (context.form.sourceId === 'rjw') delete values.name;
         delete values.designation;
       }
       return Object.fromEntries(

@@ -108,3 +108,21 @@ describe('Rajasthan prescribed identities and attendance', () => {
     );
   });
 });
+
+describe('Gujarat state schedules', () => {
+  it('keeps the 19-column wage form separate from Rajasthan and Central', () => {
+    const wage = registerLayout('gjw', 'I')!;
+    expect(wage.fields).toHaveLength(19);
+    expect(wage.fields[17].key).toBe('attendanceDate');
+    expect(wage.fields[18].required).toBe(false);
+    expect(wage.fields.some((f) => f.key === 'gross')).toBe(false);
+    expect(registerLayout('gjw', 'IV')?.baseFormNumber).toBe('I');
+    expect(registerLayout('gjw', 'V')?.baseFormNumber).toBe('V');
+    expect(registerLayout('gjw', 'IX')).toBeNull();
+    expect(
+      REGISTER_FORMS.filter((f) => f.sourceId === 'gjw').every(
+        (f) => f.effectiveFrom === '2025-11-21',
+      ),
+    ).toBe(true);
+  });
+});

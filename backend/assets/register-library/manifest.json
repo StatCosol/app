@@ -61,5 +61,12 @@
     "sha256": "6d83c7a8c918ad28de66419eb3230b52da143d2d2e753124bde48bc280da18eb",
     "bytes": 692304,
     "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "gjw",
+    "file": "gjw.pdf",
+    "sha256": "fae940072006a0231de9f5d78935d10304318f070a1e41a525083700e8f46999",
+    "bytes": 3183941,
+    "reviewedOn": "2026-09-14"
   }
 ]

@@ -56,7 +56,7 @@ export const REGISTER_JURISDICTIONS = [
     code: 'GJ',
     name: 'Gujarat',
     sourceUrl: 'https://shramsetu.gujarat.gov.in/',
-    note: 'Official portal located; Code rules and combined register schedules require verification.',
+    note: 'Gujarat Wages Rules 2021 employee, wages and wage-slip schedules inspected and implemented. Rule 1(3) commencement checked against S.O.5322(E), 21 November 2025. Other Acts remain pending.',
     coverage: 'PARTIAL',
     reviewedOn: '2026-09-14',
   },

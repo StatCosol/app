@@ -1,5 +1,13 @@
 /** Source identity is separate from layout identity. Never match on title or form number alone. */
 export const REGISTER_SOURCES = {
+  gjw: {
+    url: 'https://cdn.labourcodesadvisor.com/Rules/gujarat/final-wages-rules.pdf',
+    title: 'Code on Wages (Gujarat) Rules, 2021',
+    notification: 'KHR/2021/128/LVD/10/2020/555709/M(2)',
+    publicationDate: '2021-10-05',
+    publisher:
+      'Government of Gujarat (notification copy hosted by Labour Code Advisor)',
+  },
   rjw: {
     url: 'https://cdn.labourcodesadvisor.com/Rules/rajasthan/final-wages-rules.pdf',
     title: 'Code on Wages (Rajasthan) Rules, 2026',
@@ -76,6 +84,66 @@ export const REGISTER_SOURCES = {
 } as const;
 
 export const REGISTER_FORMS = [
+  {
+    id: 'gj--wages-2019--gujarat-wages-2021--i--gjw',
+    jurisdiction: 'GJ',
+    actCode: 'WAGES_2019',
+    rulesCode: 'GUJARAT_WAGES_2021',
+    formNumber: 'I',
+    title: 'Wages, overtime, fines and deductions for damage and loss',
+    ruleReference: 'Rules 17 and 42(1)–(3)',
+    kind: 'REGISTER',
+    sourceId: 'gjw',
+    sourceStatus: 'FINAL',
+    sourcePage: 14,
+    layoutId: 'gj-wages-i',
+    notes:
+      'Rule 1(3) ties commencement to the Code; S.O.5322(E) commenced the relevant provisions on 21 November 2025. State-government applicability must be checked.',
+    verifiedOn: '2026-09-14',
+    effectiveFrom: '2025-11-21',
+    applicability: 'REVIEW_REQUIRED',
+    generation: 'REFERENCE_ONLY',
+  },
+  {
+    id: 'gj--wages-2019--gujarat-wages-2021--iv--gjw',
+    jurisdiction: 'GJ',
+    actCode: 'WAGES_2019',
+    rulesCode: 'GUJARAT_WAGES_2021',
+    formNumber: 'IV',
+    title: 'Employee register',
+    ruleReference: 'Rule 42(3)',
+    kind: 'REGISTER',
+    sourceId: 'gjw',
+    sourceStatus: 'FINAL',
+    sourcePage: 17,
+    layoutId: 'gj-wages-iv',
+    notes:
+      'Rule 1(3) ties commencement to the Code; S.O.5322(E) commenced the relevant provisions on 21 November 2025. State-government applicability must be checked.',
+    verifiedOn: '2026-09-14',
+    effectiveFrom: '2025-11-21',
+    applicability: 'REVIEW_REQUIRED',
+    generation: 'REFERENCE_ONLY',
+  },
+  {
+    id: 'gj--wages-2019--gujarat-wages-2021--v--gjw',
+    jurisdiction: 'GJ',
+    actCode: 'WAGES_2019',
+    rulesCode: 'GUJARAT_WAGES_2021',
+    formNumber: 'V',
+    title: 'Wage slip',
+    ruleReference: 'Rule 43',
+    kind: 'WAGE_SLIP',
+    sourceId: 'gjw',
+    sourceStatus: 'FINAL',
+    sourcePage: 17,
+    layoutId: 'gj-wages-v',
+    notes:
+      'Rule 1(3) ties commencement to the Code; S.O.5322(E) commenced the relevant provisions on 21 November 2025. State-government applicability must be checked.',
+    verifiedOn: '2026-09-14',
+    effectiveFrom: '2025-11-21',
+    applicability: 'REVIEW_REQUIRED',
+    generation: 'REFERENCE_ONLY',
+  },
   {
     id: 'rj--wages-2019--rajasthan-wages-2026--i--rjw',
     jurisdiction: 'RJ',
