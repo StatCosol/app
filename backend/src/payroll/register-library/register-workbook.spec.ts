@@ -506,6 +506,19 @@ describe('Register preparation branch and Act eligibility', () => {
       expect(result.rows[0]).not.toHaveProperty('designation');
     },
   );
+  it('restricts a client-wide payroll run to employees of the selected branch', async () => {
+    run.branchId = null;
+    await builder.prefill(id('apw', 'V'), branchId, run.id, 2026, 9, {} as any);
+    expect(employeeRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { runId: run.id, clientId: branch.clientId, branchId },
+      }),
+    );
+    run.branchId = '44444444-4444-4444-8444-444444444444';
+    await expect(
+      builder.prefill(id('apw', 'V'), branchId, run.id, 2026, 9, {} as any),
+    ).rejects.toThrow(/does not belong/);
+  });
   it('requires confirmed Act applicability and the appropriate government', async () => {
     decision.applicable = false;
     await expect(

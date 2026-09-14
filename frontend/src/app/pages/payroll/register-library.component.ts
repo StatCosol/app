@@ -8,6 +8,8 @@ import {
   EventEmitter,
   OnDestroy,
   OnInit,
+  OnChanges,
+  SimpleChanges,
   inject,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -56,19 +58,29 @@ interface Jurisdiction {
         Register formats by State, Act and Form
       </summary>
       <p class="text-sm text-gray-600 my-3">
-        Choose the legal jurisdiction. Matching names or form numbers do not make two registers
-        interchangeable.
+        The selected branch supplies its state code. Employee, attendance and payroll records are
+        restricted to that branch. Select the Act to see its register formats.
       </p>
+      @if (branchName) {
+        <p class="text-sm">
+          Branch: <strong>{{ branchName }}</strong> · State code:
+          <strong>{{ branchStateCode }}</strong>
+        </p>
+      }
+      @if (!branchId) {
+        <p class="text-sm my-3">Select a branch above to load its register formats.</p>
+      }
       <div class="flex flex-wrap gap-3 my-3">
         <label
-          >Jurisdiction
+          >State / applicable rules
           <select
             aria-label="Register jurisdiction"
+            [disabled]="loading || availableJurisdictions.length < 2"
             class="border rounded p-2 block"
             [(ngModel)]="jurisdiction"
             (ngModelChange)="load()"
           >
-            @for (state of jurisdictions; track state.code) {
+            @for (state of availableJurisdictions; track state.code) {
               <option [value]="state.code">{{ state.name }}</option>
             }
           </select>
@@ -109,7 +121,7 @@ interface Jurisdiction {
       }
       @if (error) {
         <p role="alert" class="text-red-700">{{ error }}</p>
-        <button type="button" (click)="load()" class="underline">Retry</button>
+        <button type="button" (click)="loadBranch()" class="underline">Retry</button>
       }
       @if (downloadError) {
         <p role="alert" class="text-red-700">{{ downloadError }}</p>
@@ -201,7 +213,7 @@ interface Jurisdiction {
     </details>
   `,
 })
-export class RegisterLibraryComponent implements OnInit, OnDestroy {
+export class RegisterLibraryComponent implements OnInit, OnChanges, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyed = new Subject<void>();
@@ -217,7 +229,10 @@ export class RegisterLibraryComponent implements OnInit, OnDestroy {
   submittedActCode = '';
   selectedForm: LibraryForm | null = null;
   jurisdictions: Jurisdiction[] = [];
-  jurisdiction = 'AP';
+  jurisdiction = '';
+  branchStateCode = '';
+  branchName = '';
+  centralRulesAvailable = false;
   query = '';
   forms: LibraryForm[] = [];
   info: Jurisdiction | null = null;
@@ -240,7 +255,62 @@ export class RegisterLibraryComponent implements OnInit, OnDestroy {
           this.cdr.markForCheck();
         },
       });
-    this.load();
+  }
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['branchId']) this.loadBranch();
+  }
+  get availableJurisdictions() {
+    if (!this.branchStateCode) return [];
+    const state = this.jurisdictions.find((j) => j.code === this.branchStateCode) || {
+      code: this.branchStateCode,
+      name: this.branchStateCode,
+    };
+    return this.centralRulesAvailable
+      ? [state, { code: 'CENTRAL', name: 'Central rules — confirmed branch jurisdiction' }]
+      : [state];
+  }
+  loadBranch() {
+    this.scopeChanged.next();
+    this.actCode = '';
+    this.submittedActCode = '';
+    this.selectedForm = null;
+    this.forms = [];
+    this.info = null;
+    this.query = '';
+    this.jurisdiction = '';
+    this.branchStateCode = '';
+    this.branchName = '';
+    this.centralRulesAvailable = false;
+    this.loading = false;
+    this.error = '';
+    if (!this.branchId) return;
+    this.loading = true;
+    this.http
+      .get<{
+        branchId: string;
+        branchName: string;
+        stateCode: string;
+        centralRulesAvailable: boolean;
+      }>(this.base + '/branch-context', { params: new HttpParams().set('branchId', this.branchId) })
+      .pipe(takeUntil(this.scopeChanged), takeUntil(this.destroyed))
+      .subscribe({
+        next: (context) => {
+          if (context.branchId !== this.branchId) return;
+          this.branchStateCode = context.stateCode;
+          this.branchName = context.branchName;
+          this.centralRulesAvailable = context.centralRulesAvailable;
+          this.jurisdiction = context.stateCode;
+          this.load();
+        },
+        error: (e) => {
+          this.loading = false;
+          this.error =
+            typeof e?.error?.message === 'string'
+              ? e.error.message
+              : 'The selected branch state could not be loaded. Check its profile and retry.';
+          this.cdr.markForCheck();
+        },
+      });
   }
   load() {
     this.scopeChanged.next();
@@ -251,6 +321,11 @@ export class RegisterLibraryComponent implements OnInit, OnDestroy {
     this.forms = [];
     this.info = null;
     this.error = '';
+    if (!this.branchId || !this.availableJurisdictions.some((j) => j.code === this.jurisdiction)) {
+      this.loading = false;
+      this.error = 'Select a branch with a valid state code';
+      return;
+    }
     this.loading = true;
     this.http
       .get<{ forms: LibraryForm[]; jurisdiction: Jurisdiction }>(this.base, {

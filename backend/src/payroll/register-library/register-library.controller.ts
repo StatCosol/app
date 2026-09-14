@@ -53,6 +53,15 @@ export class RegisterLibraryController {
     return this.library.jurisdictions();
   }
 
+  @Get('branch-context')
+  @Roles('ADMIN', 'PAYROLL', 'CRM')
+  branchContext(
+    @Query('branchId') branchId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.builder.branchContext(branchId, user);
+  }
+
   @Get()
   list(@Query('jurisdiction') jurisdiction = '', @Query('q') query = '') {
     return this.library.list(jurisdiction, query);

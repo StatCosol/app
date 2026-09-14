@@ -16,6 +16,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { AccessScopeService, ReqUser } from '../../access/access-scope.service';
 import { BranchEntity } from '../../branches/entities/branch.entity';
+import { REGISTER_JURISDICTIONS } from './register-jurisdictions';
 import { PayrollRunEntity } from '../entities/payroll-run.entity';
 import { PayrollRunEmployeeEntity } from '../entities/payroll-run-employee.entity';
 import { RegistersRecordEntity } from '../entities/registers-record.entity';
@@ -33,6 +34,41 @@ export class RegisterBuilderService {
     private readonly ds: DataSource,
     private readonly access: AccessScopeService,
   ) {}
+
+  async branchContext(branchId: string, user: ReqUser) {
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        branchId || '',
+      )
+    )
+      throw new BadRequestException('Select a valid branch');
+    await this.access.assertBranchAllowed(user, branchId);
+    await this.access.assertCcoBranchAllowed(user, branchId);
+    const branch = await this.ds
+      .getRepository(BranchEntity)
+      .findOneBy({ id: branchId, isActive: true, isDeleted: false });
+    if (!branch) throw new BadRequestException('Active branch not found');
+    await this.access.assertClientAllowed(user, branch.clientId);
+    const stateCode = branch.stateCode?.trim().toUpperCase();
+    if (!stateCode || !REGISTER_JURISDICTIONS.some((s) => s.code === stateCode))
+      throw new BadRequestException(
+        'Set a recognised state code in the selected branch profile before choosing registers',
+      );
+    const [facts] = await this.ds.query(
+      'SELECT state_code AS "stateCode", appropriate_government AS government FROM unit_facts WHERE branch_id=$1',
+      [branchId],
+    );
+    if (facts && facts.stateCode?.trim().toUpperCase() !== stateCode)
+      throw new BadRequestException(
+        'Branch state and applicability facts disagree. Correct the branch profile first.',
+      );
+    return {
+      branchId: branch.id,
+      branchName: branch.branchName,
+      stateCode,
+      centralRulesAvailable: facts?.government === 'CENTRAL',
+    };
+  }
 
   async context(
     id: string,
