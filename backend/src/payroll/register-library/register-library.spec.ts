@@ -4,6 +4,14 @@ import { REGISTER_FORMS, REGISTER_SOURCES } from './register-catalogue';
 describe('Register legal identity and jurisdiction isolation', () => {
   const library = new RegisterLibraryService();
 
+  it('retains source-specific commencement notes for enabled formats', () => {
+    expect(library.list('BR').forms[0].notes).toMatch(/Rule 1\(3\)/);
+    expect(
+      library.list('CENTRAL').forms.find((f) => f.sourceId === 'cw')!.source
+        .title,
+    ).toBe('Wages (Central) Rules, 2026');
+  });
+
   it('keeps all 36 states/UTs once, with Central separately', () => {
     const rows = library.jurisdictions();
     expect(rows).toHaveLength(37);

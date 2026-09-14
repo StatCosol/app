@@ -30,7 +30,13 @@ interface LibraryForm {
   sourceDownloadAvailable: boolean;
   preparationAvailable: boolean;
   usage: string;
-  source: { title: string; url: string; notification: string; publicationDate: string | null };
+  source: {
+    title: string;
+    url: string;
+    notification: string;
+    publicationDate: string | null;
+    corrigendumUrl?: string;
+  };
 }
 interface Jurisdiction {
   code: string;
@@ -152,6 +158,15 @@ interface Jurisdiction {
                   form.sourcePage ? ' (page ' + form.sourcePage + ')' : ''
                 }}</a
               >
+              @if (form.source.corrigendumUrl) {
+                <a
+                  class="underline"
+                  [href]="form.source.corrigendumUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >Open official correction</a
+                >
+              }
               @if (form.sourceDownloadAvailable) {
                 <button
                   type="button"

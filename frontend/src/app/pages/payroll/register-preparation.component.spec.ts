@@ -21,6 +21,17 @@ describe('Register source selection and cancellation', () => {
     component.ngOnDestroy();
     http.verify();
   });
+  it('keeps maternity details separate from payroll and contractor prefills', () => {
+    component.ngOnChanges();
+    http
+      .expectOne((r) => r.url.endsWith('/definition'))
+      .flush({ layout: { fields: [], baseFormNumber: 'MATERNITY', payrollPrefill: false } });
+    http.expectOne((r) => r.url.endsWith('/eligibility')).flush({ eligible: true });
+    expect(component.isMaternity).toBe(true);
+    expect(component.canPrefill).toBe(false);
+    expect(component.supportsContractor).toBe(false);
+    expect(component.operational).toBe(false);
+  });
   it('uses the employee source without requiring a payroll run', () => {
     component.ngOnChanges();
     http

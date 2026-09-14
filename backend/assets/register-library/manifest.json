@@ -68,5 +68,47 @@
     "sha256": "fae940072006a0231de9f5d78935d10304318f070a1e41a525083700e8f46999",
     "bytes": 3183941,
     "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "brw",
+    "file": "brw.pdf",
+    "sha256": "dfa9e9c1940baad9d7e25fef1715ecd207149aee18fb915a5c1c0a597eaa98fd",
+    "bytes": 1853100,
+    "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "ldw",
+    "file": "ldw.pdf",
+    "sha256": "1bdb4ad62e9e354cc4a35bd359a371c8376c711ce04b077ab131d03e1299a1bf",
+    "bytes": 841695,
+    "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "upw",
+    "file": "upw.pdf",
+    "sha256": "2b0d7008d852a5907e6b49626d37dea83a0ebcc4ddf51bfc8179cec84cadd83b",
+    "bytes": 2175163,
+    "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "arw",
+    "file": "arw.pdf",
+    "sha256": "74b3ed36ce26a2f8119b6fbe06472b57e6addc20ee8894955552f68b114f1681",
+    "bytes": 272673,
+    "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "skw",
+    "file": "skw.pdf",
+    "sha256": "4e3b68d3ad371e9a8a1e4c24469bcae0510b9ab8335cecf903a124bc2d66f948",
+    "bytes": 1240267,
+    "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "cw-corrigendum",
+    "file": "cw-corrigendum.pdf",
+    "sha256": "f808d77a75114ae8cd0a503eaadb21841137fa10ac4715b5b0f2a841d9223332",
+    "bytes": 485433,
+    "reviewedOn": "2026-09-14"
   }
 ]

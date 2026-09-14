@@ -151,6 +151,10 @@ export class RegisterBuilderService {
     contractorId?: string,
   ) {
     const context = await this.context(id, branchId, year, month, user);
+    if (context.layout.baseFormNumber === 'MATERNITY')
+      throw new BadRequestException(
+        'Complete this register from authorised HR and maternity payment evidence; payroll cannot establish these events',
+      );
     const allowedFields = new Set(context.layout.fields.map((f) => f.key));
     const scopeRows = (result: any) => ({
       ...result,
@@ -160,7 +164,7 @@ export class RegisterBuilderService {
             ([key]) =>
               allowedFields.has(key) &&
               !(
-                ['rjw', 'gjw'].includes(context.form.sourceId) &&
+                ['rjw', 'gjw', 'skw', 'arw'].includes(context.form.sourceId) &&
                 context.form.formNumber === 'I' &&
                 (key === 'designation' ||
                   (context.form.sourceId === 'rjw' && key === 'name'))
@@ -262,7 +266,7 @@ export class RegisterBuilderService {
         net: e.netPay,
       };
       if (
-        ['rjw', 'gjw'].includes(context.form.sourceId) &&
+        ['rjw', 'gjw', 'skw', 'arw'].includes(context.form.sourceId) &&
         context.form.formNumber === 'I'
       ) {
         if (context.form.sourceId === 'rjw') delete values.name;

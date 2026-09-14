@@ -73,7 +73,7 @@ interface Field {
           }
         }
         <label class="block text-sm my-2"
-          >Supporting record reference {{ isEvent ? '*' : '(optional)' }}
+          >Supporting record reference {{ isEvent || isMaternity ? '*' : '(optional)' }}
           <input
             class="border rounded p-2 block w-full"
             [(ngModel)]="meta['supportingReference']"
@@ -131,6 +131,14 @@ interface Field {
               /></label>
             }
           </div>
+          @if (isMaternity) {
+            <p class="text-sm my-3">
+              Use authorised HR records for every woman employee, including those without a
+              maternity event. Enter the selected month's employment dates and retain earlier
+              records. Leave inapplicable event details blank. Payment dates and amounts must agree
+              with supporting evidence.
+            </p>
+          }
           @for (row of rows; track $index; let i = $index) {
             <details class="border my-3 p-3" [open]="rows.length === 1">
               <summary class="cursor-pointer">
@@ -144,6 +152,7 @@ interface Field {
                       class="block border rounded p-2 w-full"
                       [type]="field.type === 'date' ? 'date' : 'text'"
                       [(ngModel)]="row[field.key]"
+                      [readonly]="field.key === 'inspectorRemarks'"
                       maxlength="2000"
                     />
                   </label>
@@ -209,6 +218,7 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
   contractors: { id: string; name: string }[] = [];
   supportsContractor = false;
   isEvent = false;
+  isMaternity = false;
   operational = false;
   reuseAvailable = false;
   canPrefill = false;
@@ -231,6 +241,7 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     this.contractors = [];
     this.supportsContractor = false;
     this.isEvent = false;
+    this.isMaternity = false;
     this.operational = false;
     this.reuseAvailable = false;
     if (!this.formId) return;
@@ -241,10 +252,11 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
         next: (d) => {
           this.fields = d.layout.fields;
           this.isEvent = d.layout.baseFormNumber === 'EVENT';
+          this.isMaternity = d.layout.baseFormNumber === 'MATERNITY';
           this.operational = ['EVENT', 'LEAVE'].includes(d.layout.baseFormNumber);
           this.reuseAvailable =
             d.form?.sourceId === 'osh' && ['XIII', 'XIV', 'XV', 'XVI'].includes(d.form?.formNumber);
-          this.canPrefill = !this.isEvent;
+          this.canPrefill = !this.isEvent && !this.isMaternity;
           this.supportsContractor = ['I', 'IV', 'V', 'IX'].includes(d.layout.baseFormNumber);
           this.requiresPayroll = d.layout.payrollPrefill;
           this.prefillLabel = d.layout.payrollPrefill

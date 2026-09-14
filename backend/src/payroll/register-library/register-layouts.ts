@@ -5,7 +5,7 @@ export interface RegisterField {
   required: boolean;
 }
 export interface RegisterLayout {
-  baseFormNumber: 'I' | 'IV' | 'V' | 'IX' | 'LEAVE' | 'EVENT';
+  baseFormNumber: 'I' | 'IV' | 'V' | 'IX' | 'LEAVE' | 'EVENT' | 'MATERNITY';
   fields: RegisterField[];
   attendanceMode?: 'STATUS';
   individual: boolean;
@@ -167,6 +167,154 @@ export function registerLayout(
   sourceId: string,
   formNumber: string,
 ): RegisterLayout | null {
+  if (sourceId === 'ss' && formNumber === 'XXII')
+    return {
+      baseFormNumber: 'MATERNITY',
+      individual: true,
+      payrollPrefill: false,
+      fields: [
+        field('establishmentName', '1. Name of establishment'),
+        field('name', '2. Woman employee name and father/husband name'),
+        field('appointmentDate', '3. Date of appointment', 'date'),
+        field(
+          'esiNumber',
+          '4. ESIC insurance number, if covered',
+          'text',
+          false,
+        ),
+        field(
+          'pfNumber',
+          '5. EPFO registration number, if covered',
+          'text',
+          false,
+        ),
+        field('natureOfWork', '6. Nature of work'),
+        field('employmentMonth', '7(a). Employment month (YYYY-MM)'),
+        field('employedDays', '7(b). Days employed', 'number'),
+        field('laidOffDays', '7(c). Days laid off', 'number'),
+        field('notEmployedDays', '7(d). Days not employed', 'number'),
+        field('employmentRemarks', '7(e). Employment dates and remarks'),
+        field('noticeDate', '8. Notice under section 62', 'date', false),
+        field('dischargeDate', '9. Discharge/dismissal date', 'date', false),
+        field(
+          'pregnancyProofDate',
+          '10. Date pregnancy proof produced',
+          'date',
+          false,
+        ),
+        field('birthDate', '11. Date of birth of child', 'date', false),
+        field(
+          'eventProofDate',
+          '12. Date proof produced: delivery/miscarriage/termination/tubectomy/death/adoption',
+          'date',
+          false,
+        ),
+        field(
+          'illnessProofDate',
+          '13. Date illness proof produced under section 65',
+          'date',
+          false,
+        ),
+        ...[
+          ['advance', '14. Maternity benefit in advance of expected delivery'],
+          ['subsequent', '15. Subsequent maternity benefit'],
+          ['bonus', '16. Medical bonus under section 64'],
+          ['section65Leave', '17. Leave wages under section 65(1)/(3)'],
+          ['section65Illness', '18. Leave wages under section 65(2)'],
+        ].flatMap(([key, label]) => [
+          field(key + 'Date', label + ' — payment date', 'date', false),
+          field(key + 'Amount', label + ' — amount paid', 'money', false),
+        ]),
+        field(
+          'illnessLeavePeriod',
+          '18. Period of leave granted under section 65(2)',
+          'text',
+          false,
+        ),
+        field(
+          'nominee',
+          '19. Person nominated under section 62',
+          'text',
+          false,
+        ),
+        field(
+          'deathPayment',
+          '20. If woman dies: death date, recipient, amount and payment date',
+          'text',
+          false,
+        ),
+        field(
+          'survivingChildPayment',
+          '21. If child survives: recipient on behalf of child and period paid',
+          'text',
+          false,
+        ),
+        field('signature', '22. Employer authentication', 'text', false),
+        field(
+          'inspectorRemarks',
+          '23. Reserved for Inspector-cum-Facilitator',
+          'text',
+          false,
+        ),
+      ],
+    };
+  // Bihar and Ladakh print Others instead of a separate Advances column.
+  if (sourceId === 'brw' || sourceId === 'ldw') {
+    if (formNumber !== 'IV') return registerLayout('cw', formNumber);
+    const columns = [
+      ...wage.slice(0, 22),
+      wage[25],
+      wage[23],
+      wage[24],
+      ...wage.slice(26),
+    ];
+    return {
+      ...registerLayout('cw', 'IV')!,
+      fields: columns.map((f, i) => ({
+        ...f,
+        label: `${i + 1}. ${f.label.replace(/^\d+\. /, '')}`,
+      })),
+    };
+  }
+  if (sourceId === 'upw') {
+    if (formNumber === 'IX') return registerLayout('rjw', 'VII');
+    if (formNumber === 'I')
+      return {
+        ...registerLayout('cw', 'IV')!,
+        fields: centralWage.slice(1).map((f, i) => ({
+          ...f,
+          label: `${i + 1}. ${f.label.replace(/^\d+\. /, '')}`,
+        })),
+      };
+    if (formNumber === 'II')
+      return {
+        ...registerLayout('rjw', 'IV')!,
+        fields: [
+          ...registerLayout('rjw', 'IV')!.fields,
+          ...[6, 13, 14, 15, 19, 20, 21].map((k, i) => ({
+            ...employee[k],
+            label: `${i + 31}. ${employee[k].label.replace(/^\d+\. /, '')}`,
+          })),
+        ],
+      };
+    return null;
+  }
+  if (sourceId === 'skw' || sourceId === 'arw') {
+    const layout = registerLayout('gjw', formNumber);
+    if (!layout || formNumber !== 'I') return layout;
+    return {
+      ...layout,
+      fields: layout.fields.map((f) =>
+        f.key === 'attendanceSignature'
+          ? { ...f, label: '19. Attendance signature' }
+          : sourceId === 'arw' && f.key === 'fineImposed'
+            ? { ...f, label: '13. Fine imposed / realized' }
+            : sourceId === 'arw' && f.key === 'deductions'
+              ? { ...f, label: '15. Deduction / realization from wages' }
+              : f,
+      ),
+    };
+  }
   if (sourceId === 'gjw') {
     if (formNumber === 'IV') return registerLayout('rjw', 'IV');
     if (formNumber === 'V') return registerLayout('rjw', 'VII');

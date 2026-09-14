@@ -432,3 +432,143 @@ describe('Purpose-specific register validation', () => {
     );
   });
 });
+
+describe('Bihar, Ladakh and Uttar Pradesh prescribed schedules', () => {
+  it('distinguishes the Uttar Pradesh wage slip from same-number muster rolls', () => {
+    expect(definition(id('upw', 'IX')).layout.baseFormNumber).toBe('V');
+    for (const source of ['brw', 'ldw']) {
+      expect(definition(id(source, 'IX')).layout.baseFormNumber).toBe('IX');
+      expect(
+        definition(id(source, 'IX')).layout.fields.some(
+          (f) => f.key === 'day31Signature',
+        ),
+      ).toBe(true);
+    }
+    expect(validateRegister(id('upw', 'IX'), validSlip())).toEqual([]);
+  });
+  it('preserves the Uttar Pradesh employee continuation and wage column numbering', () => {
+    const fields = definition(id('upw', 'II')).layout.fields;
+    expect(fields).toHaveLength(37);
+    expect(fields.find((f) => f.key === 'employee_7')!.label).toMatch(/^31\./);
+    expect(fields.find((f) => f.key === 'employee_22')!.label).toMatch(/^37\./);
+    const wages = definition(id('upw', 'I')).layout.fields;
+    expect(wages).toHaveLength(33);
+    expect(wages[0].key).toBe('employeeCode');
+    expect(wages.find((f) => f.key === 'paymentDate')!.label).toMatch(/^28\./);
+  });
+  it.each(['brw', 'ldw'])(
+    'validates %s deductions without an invented Advances column',
+    (source) => {
+      const fields = definition(id(source, 'IV')).layout.fields;
+      expect(fields).toHaveLength(33);
+      expect(fields.some((f) => f.key === 'advances')).toBe(false);
+      expect(fields.find((f) => f.key === 'otherDeductions')!.label).toMatch(
+        /^23\./,
+      );
+      const input = validSlip();
+      input.rows = [
+        Object.fromEntries(
+          fields.map((f) => [
+            f.key,
+            f.type === 'money' || f.type === 'number'
+              ? 0
+              : f.type === 'date'
+                ? '2026-09-30'
+                : 'Sample',
+          ]),
+        ),
+      ];
+      Object.assign(input.rows[0], {
+        serial: 1,
+        frequency: 'Monthly',
+        wagePeriod: '2026-09-01 to 2026-09-30',
+        basic: 18000,
+        gross: 18000,
+        pf: 1800,
+        esi: 120,
+        otherDeductions: 150,
+        deductions: 2070,
+        net: 15930,
+      });
+      expect(validateRegister(id(source, 'IV'), input)).toEqual([]);
+      input.rows[0].otherDeductions = 149;
+      expect(validateRegister(id(source, 'IV'), input).join(' ')).toMatch(
+        /deductions does not match/,
+      );
+    },
+  );
+  it('uses publication commencement rather than earlier notification dates', () => {
+    expect(definition(id('brw', 'I')).form.effectiveFrom).toBe('2026-07-01');
+    expect(definition(id('ldw', 'I')).form.effectiveFrom).toBe('2026-08-03');
+    expect(definition(id('upw', 'II')).form.effectiveFrom).toBe('2026-08-12');
+  });
+});
+
+describe('Sikkim and Arunachal Pradesh source-specific implementation', () => {
+  it('uses the complete alternate Arunachal notification for all three schedules', () => {
+    expect(definition(id('arw', 'I')).layout.fields).toHaveLength(19);
+    expect(validateRegister(id('arw', 'V'), validSlip())).toEqual([]);
+    expect(definition(id('arw', 'IV')).layout.fields).toHaveLength(30);
+  });
+  it('preserves Sikkim wage columns without inventing PF or gross wage columns', () => {
+    const fields = definition(id('skw', 'I')).layout.fields;
+    expect(fields).toHaveLength(19);
+    expect(fields.some((f) => f.key === 'gross' || f.key === 'pf')).toBe(false);
+    expect(fields[18].label).toBe('19. Attendance signature');
+    expect(definition(id('skw', 'IV')).layout.fields).toHaveLength(30);
+    expect(validateRegister(id('skw', 'V'), validSlip())).toEqual([]);
+  });
+});
+
+describe('Social Security women employees register', () => {
+  const sample = (): RegisterInput => ({
+    ...validSlip(),
+    supportingReference: 'HR register and bank evidence',
+    rows: [
+      {
+        establishmentName: 'Example branch',
+        name: 'Example woman; Parent name',
+        appointmentDate: '2026-01-01',
+        natureOfWork: 'Accounts',
+        employmentMonth: '2026-09',
+        employedDays: 30,
+        laidOffDays: 0,
+        notEmployedDays: 0,
+        employmentRemarks: 'Employed throughout month',
+      },
+    ],
+  });
+  it('allows women employees without inventing a maternity event', () => {
+    expect(definition(id('ss', 'XXII')).layout.baseFormNumber).toBe(
+      'MATERNITY',
+    );
+    expect(validateRegister(id('ss', 'XXII'), sample())).toEqual([]);
+  });
+  it('requires evidence, consistent month totals and paired payment details', () => {
+    const input = sample();
+    input.supportingReference = '';
+    Object.assign(input.rows[0], { employedDays: 31, advanceAmount: 1000 });
+    const errors = validateRegister(id('ss', 'XXII'), input).join(' ');
+    expect(errors).toMatch(/evidence reference/);
+    expect(errors).toMatch(/without overlap/);
+    expect(errors).toMatch(/advance payment date/);
+  });
+  it('rejects employment totals outside appointment and discharge dates', () => {
+    const input = sample();
+    input.rows[0].dischargeDate = '2026-09-10';
+    expect(validateRegister(id('ss', 'XXII'), input).join(' ')).toMatch(
+      /appointment\/discharge period/,
+    );
+  });
+  it('reserves inspector remarks and requires the illness leave period', () => {
+    const input = sample();
+    Object.assign(input.rows[0], {
+      inspectorRemarks: 'Approved',
+      section65IllnessAmount: 1000,
+      section65IllnessDate: '2026-09-10',
+    });
+    const errors = validateRegister(id('ss', 'XXII'), input).join(' ');
+    expect(errors).toMatch(/left blank/);
+    expect(errors).toMatch(/leave period is required/);
+  });
+});

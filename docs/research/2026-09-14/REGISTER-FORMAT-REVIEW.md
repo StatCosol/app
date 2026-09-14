@@ -127,14 +127,13 @@ Forms IV and V can prefill stored fields from an approved payroll run belonging 
 
 Validated workbooks are saved as PENDING records in the existing register review workflow. Identical content is deduplicated under a database transaction lock. Changed content creates another record with a unique evidence file; existing approved evidence is preserved. Generated values are explicitly identified as preparer-entered/reviewed, not an immutable payroll snapshot. Monetary reconciliations, selected wage period, required details, text identifiers and valid calendar days are checked.
 
-## Remaining coverage and verification
+## Remaining coverage and verification (current)
 
-1. Verify the remaining state/UT schedules, amendments, effective dates and savings provisions. Forty catalogue entries are available as references; only the fourteen layouts above support preparation. Telangana is not silently mapped to Andhra Pradesh.
-2. Resolve contradictory headings in supplied workbooks and convert remaining prescribed forms under their exact legal identity.
-3. Complete exact prescribed-layout, vernacular and authentication review for the remaining formats. Native Excel printing has been checked for the implemented layouts; these electronic field layouts still require statutory authentication before operational use.
-4. Full statutory leave-ledger calculations and structured incident-system integration remain pending. Current adapters use approved earned-leave applications and referenced manual incident evidence. Historical transfers, missing contractor daily timings and particulars absent from source snapshots require supporting records.
-5. Implement approved-record reuse/attestation for statutory equivalence. Central OSH Rule 72(3), verified on PDF page 193, is now explained beside the four relevant forms to avoid unnecessary duplicate preparation. This notice does not automatically approve applicability or link existing records.
-6. Production migration and deployment have not been performed. The migration and service-level generation/approval/download flow were verified against an isolated PostgreSQL 18 instance, which is stopped after testing.
+1. The catalogue contains 64 Act/state/form identities; 39 have implemented preparation layouts. Other combinations remain explicitly unavailable for generation until the full applicable schedule is verified. Telangana is not silently mapped to Andhra Pradesh.
+2. Remaining state/UT rules, state Acts, savings provisions, amendments, vernacular layouts and authentication requirements still require verification. This is not complete India-wide coverage.
+3. Arunachal schedules were recovered from a complete alternate Gazette copy; Forms I, IV and V are implemented. The earlier clipped copy is not the bundled source.
+4. Special statutory leave schemes (including working journalists and sales promotion employees), historical leave transfers and direct incident-system integration remain pending. Standard section 32 calculation, reviewed incident/leave evidence and explicit OSH Rule 72(3) reuse attestations are implemented.
+5. Production migration and deployment have not been performed. Isolated PostgreSQL checks cover migration, generation, approval, downloads, revisions and access scope.
 
 ## Validation completed
 
@@ -199,3 +198,38 @@ Implemented Gujarat Form I (19 columns, including attendance date/signature), Fo
 Current implemented total: 21 formats. All 21 fictional workbooks validate; the three Gujarat workbooks also exported through native Excel and the wage output was visually inspected. All 53 focused register tests passed. Other state/Act combinations remain reference/research items, not implicitly substituted with these forms.
 
 Sources: [Gujarat final notification](https://cdn.labourcodesadvisor.com/Rules/gujarat/final-wages-rules.pdf), Rules 1, 42–43 and PDF pages 14 and 17; [Central commencement notification S.O.5322(E)](https://www.labour.gov.in/static/uploads/2025/12/0fd090d29a4576739079a7b565c8ca9d.pdf).
+
+
+## Bihar, Ladakh, Uttar Pradesh, Sikkim and Arunachal follow-up
+
+Final-making recitals and commencement provisions were inspected, separately from the tracker used to locate the Gazette copies. Bihar notification 30 June 2026 was published on 1 July: Rule 1(3) uses publication, so preparation starts with July, not June. Ladakh S.O.231 is dated 28 July but published 3 August; the monthly flow requires September or later. Uttar Pradesh's notification and publication are 12 August, so its monthly flow likewise starts in September.
+
+| Jurisdiction | Implemented schedules | Distinctions retained |
+| --- | --- | --- |
+| Bihar | I employee; IV wages; V slip; IX attendance | 33-column wages with Others instead of a separate Advances column; deduction reconciliation remains enforced |
+| Ladakh | I employee; IV wages; V slip; IX attendance | Same verified field purposes as Bihar, independently identified; daily in/out/signatures |
+| Uttar Pradesh | I wages; II employee; IX slip | 33 wage columns; 37 employee columns including the continuation; IX is not a muster roll |
+| Sikkim | I wages; IV employee; V slip | Final Gazette No.168, 28 April 2022, rather than the draft No.12 on the official download page; 19 wage columns |
+| Arunachal Pradesh | I wages; IV employee; V slip | Complete alternate Gazette No.35, 24 February 2022; Rules 50–51, 19 wage / 30 employee fields |
+
+Sikkim Rule 1(3) refers to final publication; this implementation conservatively limits Code register preparation to periods after the relevant Code commencement on 21 November 2025. Arunachal Rule 1(3) expressly ties commencement to the Code. The 2022 publication dates remain separately recorded. No claim of earlier Code enforceability is made.
+
+Sources: government Gazette copies hosted by Labour Code Advisor: [Bihar](https://cdn.labourcodesadvisor.com/Rules/bihar/final-wages-rules.pdf), pages 23, 36, 38–39, 42–43, 48; [Ladakh](https://cdn.labourcodesadvisor.com/Rules/ladakh/final-wages-rules.pdf), pages 1–2, 20–21, 25, 30–31, 35; [Uttar Pradesh](https://cdn.labourcodesadvisor.com/Rules/uttar-pradesh/final-wages-rules.pdf), pages 46, 57–58, 63–64, 68; [Sikkim](https://cdn.labourcodesadvisor.com/Rules/sikkim/final-wages-rules.pdf), pages 1, 14–15, 17, 21–22; [Arunachal Pradesh](https://a4m1n.praansconsultech.com/storage/labour-code-documents/01KZG1FS2S09AVA50JXMT95TEF.pdf), pages 1, 9–10, 13. Original downloaded PDFs are preserved and hashed; inspection copies do not replace source evidence.
+
+Validation: 60 focused tests passed; 32 prior/new fictional workbooks passed validation and 11 Bihar/Ladakh/UP formats exported through native Excel. Final Sikkim/Arunachal print checks and full build checks are recorded below when complete.
+
+
+The Central short title was corrected to **Wages (Central) Rules, 2026** by [G.S.R.629(E), 15 July 2026](https://egazette.gov.in/WriteReadData/2026/274525.pdf). The original notification and separate corrigendum are bundled with hashes. Existing internal Act/rules/form identifiers are preserved; this wording correction does not change the implemented columns.
+
+
+## Social Security women-employees schedule
+
+Central Social Security Form XXII (Rule 53(1)(a), PDF page 232) is implemented as a separate authorised-HR preparation. It records women employees even when maternity event fields are inapplicable. All 23 prescribed groups are retained, including the employment-month table, proof dates, dated payments, nominee/death-payment particulars and reserved inspector remarks. Each monthly snapshot retains its own evidence and approval; prior employment/event history must be retained in supporting records rather than inferred from payroll.
+
+The preparer cannot fill the inspector-only remarks. Payment amounts require dates, illness payments require the granted leave period, and employment-status days must reconcile to the selected calendar month. Payroll and attendance prefills are disabled for this form. This is record preparation, not maternity entitlement calculation or a payment instruction.
+
+Current implementation: 39 layouts, 64 focused tests passing. Backend and frontend builds, 10 frontend register tests and targeted lint passed before this final maternity addition; subsequent validation is recorded in the PR. The preceding 38 layouts all exported through native Excel; the new women-employees layout is checked separately.
+
+Special leave research: Central OSH Rule 66, pages 187–190, uses a separate 1/11 duty earning basis with a 120-day earned-leave accumulation stop, 1/18 service medical leave with a 90-day stop, medical conversion, and specific exit provisions. Intervening holidays count within such leave, unlike the standard section 32 flow. Applying annual aggregate totals without chronological balance movements can over-credit when a cap is reached. A separate chronological implementation remains required; the existing calculator continues to exclude this scheme explicitly.
+
+Final follow-up validation: 65 focused backend tests and 11 Angular register tests passed; backend/frontend production builds and targeted backend lint passed. All 39 fictional formats validate and export through native Excel. Original source hashes and the 39-pair sample archive were checked. No application database or live employee data was used for these print tests.

@@ -88,10 +88,12 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
   )
     errors.push('Supporting reference must be text (maximum 1000 characters)');
   if (
-    layout.baseFormNumber === 'EVENT' &&
+    ['EVENT', 'MATERNITY'].includes(layout.baseFormNumber) &&
     !String(input.supportingReference || '').trim()
   )
-    errors.push('An incident/report evidence reference is required');
+    errors.push(
+      'An incident/report or authorised HR evidence reference is required',
+    );
   const allowed = new Set(layout.fields.map((f) => f.key));
   const identities = new Set<string>();
   input.rows.forEach((row, i) => {
@@ -202,7 +204,7 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
               'society',
               'incomeTax',
               'insurance',
-              'advances',
+              ...(['brw', 'ldw'].includes(form.sourceId) ? [] : ['advances']),
               'fineRecovery',
               'damageRecovery',
               'otherDeductions',
@@ -218,6 +220,72 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
         )
           errors.push(prefix + 'damage/loss reason is required');
       }
+    }
+    const days = new Date(Date.UTC(input.year, input.month, 0)).getUTCDate();
+    if (layout.baseFormNumber === 'MATERNITY') {
+      const expectedMonth = `${input.year}-${String(input.month).padStart(2, '0')}`;
+      if (row.employmentMonth !== expectedMonth)
+        errors.push(prefix + 'employment month must match the selected period');
+      if (
+        Number(row.employedDays) +
+          Number(row.laidOffDays) +
+          Number(row.notEmployedDays) !==
+        days
+      )
+        errors.push(
+          prefix +
+            'employment status days must cover this calendar month without overlap',
+        );
+      if (String(row.appointmentDate) > `${expectedMonth}-${days}`)
+        errors.push(prefix + 'appointment cannot follow the register month');
+      if (
+        row.dischargeDate &&
+        String(row.dischargeDate) < String(row.appointmentDate)
+      )
+        errors.push(prefix + 'discharge cannot precede appointment');
+      if (
+        validDate(row.appointmentDate) &&
+        (!row.dischargeDate || validDate(row.dischargeDate))
+      ) {
+        const start = Math.max(
+          Date.parse(`${expectedMonth}-01`),
+          Date.parse(String(row.appointmentDate)),
+        );
+        const end = Math.min(
+          Date.parse(`${expectedMonth}-${days}`),
+          row.dischargeDate ? Date.parse(String(row.dischargeDate)) : Infinity,
+        );
+        const activeDays = Math.max(0, (end - start) / 86400000 + 1);
+        if (Number(row.employedDays) + Number(row.laidOffDays) > activeDays)
+          errors.push(
+            prefix +
+              'employed and laid-off days exceed the appointment/discharge period',
+          );
+      }
+      if (String(row.inspectorRemarks || '').trim())
+        errors.push(
+          prefix +
+            'Inspector-cum-Facilitator remarks must be left blank by the preparer',
+        );
+      for (const key of [
+        'advance',
+        'subsequent',
+        'bonus',
+        'section65Leave',
+        'section65Illness',
+      ]) {
+        const amount = row[key + 'Amount'],
+          date = row[key + 'Date'];
+        if (Number(amount) > 0 && !date)
+          errors.push(prefix + key + ' payment date is required');
+        if (date && (amount === undefined || amount === null || amount === ''))
+          errors.push(prefix + key + ' paid amount is required');
+      }
+      if (
+        (row.section65IllnessDate || Number(row.section65IllnessAmount) > 0) &&
+        !String(row.illnessLeavePeriod || '').trim()
+      )
+        errors.push(prefix + 'section 65(2) leave period is required');
     }
     if (layout.baseFormNumber === 'EVENT') {
       const monthPrefix =
@@ -248,7 +316,6 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
       )
         errors.push(prefix + 'leave cannot precede joining');
     }
-    const days = new Date(Date.UTC(input.year, input.month, 0)).getUTCDate();
     if (row.daysWorked !== undefined && Number(row.daysWorked) > days)
       errors.push(prefix + 'days worked exceed the selected month');
     if (layout.baseFormNumber === 'IX' && layout.attendanceMode === 'STATUS') {
@@ -324,17 +391,22 @@ export async function registerWorkbook(
     'Legal identity': form.id,
     'Schema version': schemaVersion,
     'Source URL': source.url,
+    ...('corrigendumUrl' in source
+      ? { 'Corrigendum URL': source.corrigendumUrl }
+      : {}),
     'Source page': String(form.sourcePage || ''),
     'Data purpose':
-      layout.baseFormNumber === 'EVENT'
-        ? 'Accident/dangerous-occurrence evidence'
-        : layout.baseFormNumber === 'LEAVE'
-          ? 'Leave with wages records'
-          : layout.baseFormNumber === 'IX'
-            ? 'Daily attendance — not reconstructed from payroll totals'
-            : layout.baseFormNumber === 'I'
-              ? 'Employee master — not a monthly payroll subset'
-              : 'Monthly wages / payment',
+      layout.baseFormNumber === 'MATERNITY'
+        ? 'Women employee and maternity evidence — authorised HR records'
+        : layout.baseFormNumber === 'EVENT'
+          ? 'Accident/dangerous-occurrence evidence'
+          : layout.baseFormNumber === 'LEAVE'
+            ? 'Leave with wages records'
+            : layout.baseFormNumber === 'IX'
+              ? 'Daily attendance — not reconstructed from payroll totals'
+              : layout.baseFormNumber === 'I'
+                ? 'Employee master — not a monthly payroll subset'
+                : 'Monthly wages / payment',
     'Required review':
       'Confirm jurisdiction, applicability, supporting records and signatures before use. No automatic NIL declaration.',
     ...context,

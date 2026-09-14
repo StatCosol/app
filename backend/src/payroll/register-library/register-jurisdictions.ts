@@ -13,7 +13,7 @@ export const REGISTER_JURISDICTIONS = [
     name: 'Arunachal Pradesh',
     sourceUrl:
       'https://labour.arunachal.gov.in/Code%20on%20Wages%20%28Arunachal%20Pradesh%29%20Rules%2C%202022.pdf',
-    note: '2022 Wages source located; later commencement and amendment verification pending.',
+    note: 'Final 2022 Wages I, employee IV and slip V verified from a complete alternate Gazette copy and implemented. Other Acts remain pending.',
     coverage: 'PARTIAL',
     reviewedOn: '2026-09-14',
   },
@@ -31,7 +31,7 @@ export const REGISTER_JURISDICTIONS = [
     name: 'Bihar',
     sourceUrl:
       'https://state.bihar.gov.in/cache/40/Acts/Bihar-Contract-Labour-%28Regulation-%26-Abolition%29-Rules-1972.pdf',
-    note: 'Legacy CLRA rules located; 2026 Code rules require form and supersession review.',
+    note: 'Bihar Wages Rules 2026 prescribed schedules verified and implemented; effective 2026-07-01. Other Acts remain pending.',
     coverage: 'PARTIAL',
     reviewedOn: '2026-09-14',
   },
@@ -185,7 +185,7 @@ export const REGISTER_JURISDICTIONS = [
     name: 'Sikkim',
     sourceUrl:
       'https://labour.sikkim.gov.in/Uploads/LawsAndForms/16621372-87C7-4373-B920-18C9EF1F486C.pdf',
-    note: 'Rules on attendance, payment, advances and overtime located; exact numbering and current amendments require verification.',
+    note: 'Final Gazette No.168, 28 April 2022: Wages I, employee IV and slip V implemented. Earlier official download No.12 is a draft. Other Acts remain pending.',
     coverage: 'PARTIAL',
     reviewedOn: '2026-09-14',
   },
@@ -221,7 +221,7 @@ export const REGISTER_JURISDICTIONS = [
     name: 'Uttar Pradesh',
     sourceUrl:
       'https://niveshmitra.up.gov.in/information/criminal-provisions-list',
-    note: 'Official compliance list located; prescribed schedules require verification.',
+    note: 'Uttar Pradesh Wages Rules 2026 prescribed schedules verified and implemented; effective 2026-08-12. Other Acts remain pending.',
     coverage: 'PARTIAL',
     reviewedOn: '2026-09-14',
   },
@@ -292,7 +292,7 @@ export const REGISTER_JURISDICTIONS = [
     name: 'Ladakh',
     sourceUrl:
       'https://cdnbbsr.s3waas.gov.in/s395192c98732387165bf8e396c0f2dad2/uploads/2026/04/20260427650973687.pdf',
-    note: 'April 2026 OSH source located; later final rules and supersession need verification.',
+    note: 'Ladakh Wages Rules 2026 prescribed schedules verified and implemented; effective 2026-08-03. Other Acts remain pending.',
     coverage: 'PARTIAL',
     reviewedOn: '2026-09-14',
   },
