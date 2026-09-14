@@ -572,3 +572,109 @@ describe('Social Security women employees register', () => {
     expect(errors).toMatch(/leave period is required/);
   });
 });
+
+describe('Andhra Pradesh final OSH schedules', () => {
+  it('keeps PPF separate and does not add Central attendance signatures or leave carry-forward', () => {
+    const employee = definition(id('aposh', 'VIII'));
+    expect(employee.form.effectiveFrom).toBe('2026-08-07');
+    expect(employee.layout.fields).toHaveLength(37);
+    expect(employee.layout.fields[16]).toMatchObject({
+      key: 'ppfNumber',
+      label: '17. PPF No.',
+    });
+    expect(employee.layout.fields[21]).toMatchObject({
+      key: 'employee_15',
+      label: '22. Scale of Pay',
+    });
+    expect(
+      definition(id('aposh', 'VIII(A)')).layout.fields.some((f) =>
+        /^day\d+Signature$/.test(f.key),
+      ),
+    ).toBe(false);
+    expect(
+      definition(id('aposh', 'X')).layout.fields.some(
+        (f) => f.key === 'carryForward',
+      ),
+    ).toBe(false);
+    expect(definition(id('aposh', 'XI')).layout.fields).toHaveLength(6);
+    expect(() => definition(id('aposh', 'XIII'))).toThrow();
+  });
+  it('validates state wage rates, deductions and evidence without a nonexistent advances field', () => {
+    const fields = definition(id('aposh', 'IX')).layout.fields;
+    const input = validSlip();
+    input.rows = [
+      Object.fromEntries(
+        fields.map((f) => [
+          f.key,
+          ['number', 'money'].includes(f.type)
+            ? 0
+            : f.type === 'date'
+              ? '2026-09-30'
+              : 'Sample',
+        ]),
+      ),
+    ];
+    Object.assign(input.rows[0], {
+      frequency: 'Monthly',
+      wagePeriod: '2026-09-01 to 2026-09-30',
+      basicRate: 16000,
+      allowanceRate: 2000,
+      totalRate: 18000,
+      basic: 16000,
+      allowances: 2000,
+      gross: 18000,
+      pf: 1800,
+      fineRecovery: 100,
+      deductions: 1900,
+      net: 16100,
+    });
+    expect(validateRegister(id('aposh', 'IX'), input).join(' ')).toMatch(
+      /deduction evidence/,
+    );
+    input.supportingReference = 'Authorised deduction order and wage evidence';
+    expect(validateRegister(id('aposh', 'IX'), input)).toEqual([]);
+    input.rows[0].totalRate = 17000;
+    input.rows[0].deductions = 1800;
+    const errors = validateRegister(id('aposh', 'IX'), input).join(' ');
+    expect(errors).toMatch(/totalRate does not match/);
+    expect(errors).toMatch(/deductions does not match/);
+  });
+});
+
+describe('Bihar OSH source identity and reuse', () => {
+  it('maps six verified schedules and reserves the annual return identity', () => {
+    expect(definition(id('brosh', 'VIII')).layout.fields).toHaveLength(37);
+    expect(definition(id('brosh', 'VIII(A)')).layout.baseFormNumber).toBe('IX');
+    expect(
+      definition(id('brosh', 'VIII(B)')).layout.fields.map((f) => f.key),
+    ).toEqual(definition(id('aposh', 'IX')).layout.fields.map((f) => f.key));
+    expect(definition(id('brosh', 'X')).layout.baseFormNumber).toBe('EVENT');
+    expect(definition(id('brosh', 'XI')).layout.baseFormNumber).toBe('LEAVE');
+    expect(definition(id('brosh', 'XI')).leaveCalculationAvailable).toBe(false);
+    expect(definition(id('osh', 'XX')).leaveCalculationAvailable).toBe(true);
+    expect(definition(id('brosh', 'VIII(B)')).reuseRule).toEqual({
+      sourceId: 'brw',
+      sourceNumber: 'IV',
+      basis: 'Bihar OSH Rules 2026, Rule 27(2)',
+    });
+    expect(definition(id('aposh', 'IX')).reuseRule).toBeNull();
+    const input = validSlip();
+    delete input.rows[0].signature;
+    expect(validateRegister(id('brosh', 'VIII(C)'), input)).toEqual([]);
+  });
+});
+
+describe('Rajasthan numeric OSH register identities', () => {
+  it('retains district particulars and uses the verified Rajasthan Wages counterparts', () => {
+    expect(definition(id('rjosh', '16')).layout.fields[0].key).toBe(
+      'establishmentDistrict',
+    );
+    expect(definition(id('rjosh', '17')).reuseRule?.sourceNumber).toBe('V');
+    expect(definition(id('rjosh', '18')).reuseRule?.sourceNumber).toBe('I');
+    expect(definition(id('rjosh', '19')).leaveCalculationAvailable).toBe(false);
+    expect(definition(id('rjosh', '24')).layout.fields).toHaveLength(6);
+    const input = validSlip();
+    delete input.rows[0].signature;
+    expect(validateRegister(id('rjosh', '20'), input)).toEqual([]);
+  });
+});

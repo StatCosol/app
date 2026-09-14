@@ -31,9 +31,8 @@ import { environment } from '../../../environments/environment';
     @if (reuseAvailable) {
       <h5 class="font-semibold">Reuse an approved Wages register</h5>
       <p class="text-sm my-2">
-        Central OSH Rule 72(3) may allow the matching Wages register to satisfy this requirement.
-        Confirm the same workforce and period. Reuse keeps the original file and requires
-        payroll/admin approval.
+        {{ reuseBasis }} permits reviewed use of the corresponding Wages register. Confirm the same
+        workforce and period. Reuse keeps the original file and requires payroll/admin approval.
       </p>
       <button class="underline" type="button" (click)="load()" [disabled]="busy">
         Find approved records
@@ -96,7 +95,7 @@ import { environment } from '../../../environments/environment';
         }
       }
     }
-    @if (operational && !isEvent) {
+    @if (operational && !isEvent && leaveCalculationAvailable) {
       <app-register-leave-calculator
         [formId]="formId"
         [branchId]="branchId"
@@ -157,6 +156,8 @@ export class RegisterEvidenceComponent implements OnChanges, OnDestroy {
   @Input() month = 0;
   @Input() contractorId = '';
   @Input() reuseAvailable = false;
+  @Input() reuseBasis = '';
+  @Input() leaveCalculationAvailable = false;
   @Input() operational = false;
   @Input() isEvent = false;
   @Input() draftMetadata: Record<string, string> = {};

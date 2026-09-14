@@ -4,7 +4,7 @@ export const REGISTER_JURISDICTIONS = [
     name: 'Andhra Pradesh',
     sourceUrl:
       'https://www.ricago.com/assets/front/base/file/file_management/6536.pdf',
-    note: 'Wages final Gazette 328, 29 June 2026 inspected (government document hosted by Ricago). Other Acts and current OSH form mapping pending.',
+    note: 'Wages final Gazette 328, 29 June 2026 inspected (government document hosted by Ricago). Final OSH Gazette 432, 7 August 2026: employee VIII, attendance VIII(A), wages IX, leave X and accident XI implemented. Other Acts and specialist schedules remain pending.',
     coverage: 'PARTIAL',
     reviewedOn: '2026-09-14',
   },
@@ -31,7 +31,7 @@ export const REGISTER_JURISDICTIONS = [
     name: 'Bihar',
     sourceUrl:
       'https://state.bihar.gov.in/cache/40/Acts/Bihar-Contract-Labour-%28Regulation-%26-Abolition%29-Rules-1972.pdf',
-    note: 'Bihar Wages Rules 2026 prescribed schedules verified and implemented; effective 2026-07-01. Other Acts remain pending.',
+    note: 'Bihar Wages schedules and six core OSH schedules verified and implemented; effective 2026-07-01. Other Acts and specialist schedules remain pending.',
     coverage: 'PARTIAL',
     reviewedOn: '2026-09-14',
   },
@@ -176,7 +176,7 @@ export const REGISTER_JURISDICTIONS = [
     code: 'RJ',
     name: 'Rajasthan',
     sourceUrl: 'https://labour.rajasthan.gov.in/DownloadForms.aspx',
-    note: 'Rajasthan Wages final Gazette S.O.40 dated 12 August 2026 inspected; employee, wage, daily muster and wage-slip layouts implemented. Other Acts remain pending.',
+    note: 'Rajasthan Wages schedules and six core OSH registers verified and implemented. Numeric OSH forms 16–20 and 24 retain separate legal identities. Other Acts and specialist schedules remain pending.',
     coverage: 'PARTIAL',
     reviewedOn: '2026-09-14',
   },

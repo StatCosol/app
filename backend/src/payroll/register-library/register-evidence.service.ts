@@ -1,3 +1,4 @@
+import { registerReuseRule } from './register-reuse-rule';
 import {
   BadRequestException,
   ForbiddenException,
@@ -38,15 +39,13 @@ export class RegisterEvidenceService {
     contractorId?: string,
   ) {
     const ctx = await this.builder.context(formId, branchId, year, month, user);
-    const sourceNumber = (
-      { XIII: 'I', XIV: 'IX', XV: 'IV', XVI: 'V' } as Record<string, string>
-    )[ctx.form.formNumber];
-    if (ctx.form.sourceId !== 'osh' || !sourceNumber)
+    const rule = registerReuseRule(ctx.form);
+    if (!rule)
       throw new BadRequestException(
         'No verified register-equivalence rule is configured for this form',
       );
     const source = REGISTER_FORMS.find(
-      (f) => f.sourceId === 'cw' && f.formNumber === sourceNumber,
+      (f) => f.sourceId === rule.sourceId && f.formNumber === rule.sourceNumber,
     )!;
     const sourceCtx = await this.builder.context(
       source.id,
@@ -65,6 +64,7 @@ export class RegisterEvidenceService {
     return {
       ctx,
       source,
+      basis: rule.basis,
       snapshot: {
         target: ctx.applicabilityEvidence,
         source: sourceCtx.applicabilityEvidence,
@@ -79,7 +79,7 @@ export class RegisterEvidenceService {
     user: ReqUser,
     contractorId?: string,
   ) {
-    const { ctx, source } = await this.reuseContext(
+    const { ctx, source, basis } = await this.reuseContext(
       formId,
       branchId,
       year,
@@ -114,7 +114,7 @@ export class RegisterEvidenceService {
       candidates,
       links,
       canApprove: this.reviewer(user),
-      basis: 'Central OSH Rules 2026, Rule 72(3)',
+      basis,
       sourceFormId: source.id,
     };
   }
@@ -141,7 +141,7 @@ export class RegisterEvidenceService {
         'Select an approved source and explain why it satisfies this requirement (10–2000 characters)',
       );
     const actor = this.actor(user);
-    const { ctx, source, snapshot } = await this.reuseContext(
+    const { ctx, source, snapshot, basis } = await this.reuseContext(
       formId,
       body.branchId,
       body.year,
@@ -175,7 +175,7 @@ export class RegisterEvidenceService {
           body.branchId,
           body.year,
           body.month,
-          'Central OSH Rules 2026, Rule 72(3)',
+          basis,
           body.attestation.trim(),
           actor,
           JSON.stringify(snapshot),

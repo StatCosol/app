@@ -113,6 +113,8 @@ interface Field {
               [month]="month || 0"
               [contractorId]="recordSource === 'CONTRACTOR' ? contractorId : ''"
               [reuseAvailable]="reuseAvailable"
+              [reuseBasis]="reuseBasis"
+              [leaveCalculationAvailable]="leaveCalculationAvailable"
               [operational]="operational"
               [isEvent]="isEvent"
               [draftMetadata]="meta"
@@ -221,6 +223,8 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
   isMaternity = false;
   operational = false;
   reuseAvailable = false;
+  reuseBasis = '';
+  leaveCalculationAvailable = false;
   canPrefill = false;
   requiresPayroll = true;
   prefillLabel = 'Prefill from approved payroll';
@@ -244,6 +248,8 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     this.isMaternity = false;
     this.operational = false;
     this.reuseAvailable = false;
+    this.reuseBasis = '';
+    this.leaveCalculationAvailable = false;
     if (!this.formId) return;
     this.http
       .get<any>(this.url('/definition'))
@@ -254,8 +260,9 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
           this.isEvent = d.layout.baseFormNumber === 'EVENT';
           this.isMaternity = d.layout.baseFormNumber === 'MATERNITY';
           this.operational = ['EVENT', 'LEAVE'].includes(d.layout.baseFormNumber);
-          this.reuseAvailable =
-            d.form?.sourceId === 'osh' && ['XIII', 'XIV', 'XV', 'XVI'].includes(d.form?.formNumber);
+          this.reuseAvailable = !!d.reuseRule;
+          this.reuseBasis = d.reuseRule?.basis || '';
+          this.leaveCalculationAvailable = d.leaveCalculationAvailable === true;
           this.canPrefill = !this.isEvent && !this.isMaternity;
           this.supportsContractor = ['I', 'IV', 'V', 'IX'].includes(d.layout.baseFormNumber);
           this.requiresPayroll = d.layout.payrollPrefill;

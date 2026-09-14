@@ -85,3 +85,33 @@ describe('Register source selection and cancellation', () => {
     expect(component.meta['supportingReference']).toBe('Published payroll two');
   });
 });
+
+// State leave registers must not offer the Central-only statutory calculator.
+describe('Register preparation capabilities', () => {
+  it('uses verified definition capabilities for state reuse and leave calculations', () => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+    const fixture = TestBed.createComponent(RegisterPreparationComponent);
+    const c = fixture.componentInstance;
+    const http = TestBed.inject(HttpTestingController);
+    c.formId = 'bihar';
+    c.branchId = 'branch';
+    c.year = 2026;
+    c.month = 9;
+    c.ngOnChanges();
+    http
+      .expectOne((r) => r.url.endsWith('/definition'))
+      .flush({
+        layout: { fields: [], baseFormNumber: 'LEAVE', payrollPrefill: false },
+        reuseRule: { basis: 'Bihar OSH Rules 2026, Rule 27(2)' },
+        leaveCalculationAvailable: false,
+      });
+    http.expectOne((r) => r.url.endsWith('/eligibility')).flush({ eligible: true });
+    expect(c.reuseAvailable).toBe(true);
+    expect(c.reuseBasis).toContain('Bihar');
+    expect(c.leaveCalculationAvailable).toBe(false);
+    c.ngOnDestroy();
+    http.verify();
+  });
+});

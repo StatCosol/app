@@ -1,3 +1,4 @@
+import { registerReuseRule } from './register-reuse-rule';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { createHash } from 'crypto';
 import * as ExcelJS from 'exceljs';
@@ -31,6 +32,9 @@ export function definition(id: string) {
   return {
     form,
     layout,
+    reuseRule: registerReuseRule(form),
+    leaveCalculationAvailable:
+      form.sourceId === 'osh' && layout.baseFormNumber === 'LEAVE',
     schemaVersion: createHash('sha256')
       .update(JSON.stringify({ form, layout }))
       .digest('hex'),
@@ -204,7 +208,11 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
               'society',
               'incomeTax',
               'insurance',
-              ...(['brw', 'ldw'].includes(form.sourceId) ? [] : ['advances']),
+              ...(['brw', 'ldw', 'aposh', 'brosh', 'rjosh'].includes(
+                form.sourceId,
+              )
+                ? []
+                : ['advances']),
               'fineRecovery',
               'damageRecovery',
               'otherDeductions',
@@ -212,10 +220,22 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
       );
       if (layout.baseFormNumber === 'IV') {
         checkTotal('gross', ['basic', 'da', 'allowances', 'overtime']);
+        if (['aposh', 'brosh', 'rjosh'].includes(form.sourceId)) {
+          checkTotal('totalRate', ['basicRate', 'daRate', 'allowanceRate']);
+          if (
+            (money('fineRecovery') > 0 || money('damageRecovery') > 0) &&
+            !String(input.supportingReference || '').trim()
+          )
+            errors.push(
+              prefix +
+                'fine/damage recovery requires supporting deduction evidence',
+            );
+        }
         if (money('fineImposed') > 0 && !String(row.fineReason || '').trim())
           errors.push(prefix + 'fine reason is required');
         if (
           money('damageRecovery') > 0 &&
+          allowed.has('damageReason') &&
           !String(row.damageReason || '').trim()
         )
           errors.push(prefix + 'damage/loss reason is required');
@@ -395,6 +415,7 @@ export async function registerWorkbook(
       ? { 'Corrigendum URL': source.corrigendumUrl }
       : {}),
     'Source page': String(form.sourcePage || ''),
+    'Source-specific requirements': form.notes || '',
     'Data purpose':
       layout.baseFormNumber === 'MATERNITY'
         ? 'Women employee and maternity evidence — authorised HR records'
@@ -411,6 +432,7 @@ export async function registerWorkbook(
       'Confirm jurisdiction, applicability, supporting records and signatures before use. No automatic NIL declaration.',
     ...context,
     Establishment: context.establishment || '',
+    Address: context.address || '',
     Employer: input?.employer || '',
     Owner: input?.owner || '',
     'Employer PAN/TAN': input?.employerPan || '',
@@ -493,6 +515,8 @@ export async function registerWorkbook(
         String(row.name || row.employee_2 || ''),
     );
     if (isAttendance) {
+      if (row.establishmentDistrict)
+        banner('Establishment district: ' + row.establishmentDistrict);
       banner(
         'Designation: ' +
           (row.designation || '') +

@@ -20,7 +20,7 @@ const {registerWorkbook,validateRegister}=require('../src/payroll/register-libra
   if(layout.baseFormNumber==='MATERNITY')Object.assign(row,{employmentMonth:'2026-09',employedDays:30,laidOffDays:0,notEmployedDays:0,inspectorRemarks:'',dischargeDate:''});
   const input={branchId:'11111111-1111-4111-8111-111111111111',year:2026,month:9,employer:'Fictional employer - print test only',owner:'Example owner',employerPan:'ABCDE1234F',registrationNumber:'SAMPLE',issueDate:'2026-09-30',supportingReference:'Fictional QA data; not for statutory filing',rows:[row]};
   const errors=validateRegister(form.id,input);if(errors.length)throw new Error(form.id+': '+errors.join('; '));
-  const file=path.join(output,form.id+'.xlsx');await fs.writeFile(file,await registerWorkbook(form.id,input));files.push(file);
+  const file=path.join(output,form.id+'.xlsx');await fs.writeFile(file,await registerWorkbook(form.id,input,{establishment:'Fictional branch',address:'Example address, sample district'}));files.push(file);
  }
  console.log(JSON.stringify({output,files},null,2));
 })().catch(e=>{console.error(e);process.exitCode=1});

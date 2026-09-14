@@ -110,5 +110,26 @@
     "sha256": "f808d77a75114ae8cd0a503eaadb21841137fa10ac4715b5b0f2a841d9223332",
     "bytes": 485433,
     "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "aposh",
+    "file": "aposh.pdf",
+    "sha256": "6afb65c17fa9c1f72072968db004a0935ba4917d716397e8cdf41d9b2aa56c85",
+    "bytes": 2732371,
+    "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "brosh",
+    "file": "brosh.pdf",
+    "sha256": "ba6ec4c62c1115792855efd6387fe48dd1a164620c3a399c25731ad868f2c066",
+    "bytes": 5643984,
+    "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "rjosh",
+    "file": "rjosh.pdf",
+    "sha256": "5cb846f24b49ccc48f0c2a9ea8b3c3b4348d74f6d62c72514a2a34be4b6ac54a",
+    "bytes": 2060934,
+    "reviewedOn": "2026-09-14"
   }
 ]

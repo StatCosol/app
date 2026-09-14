@@ -129,7 +129,7 @@ Validated workbooks are saved as PENDING records in the existing register review
 
 ## Remaining coverage and verification (current)
 
-1. The catalogue contains 64 Act/state/form identities; 39 have implemented preparation layouts. Other combinations remain explicitly unavailable for generation until the full applicable schedule is verified. Telangana is not silently mapped to Andhra Pradesh.
+1. The catalogue contains 81 Act/state/form identities; 56 have implemented preparation layouts. Other combinations remain explicitly unavailable for generation until the full applicable schedule is verified. Telangana is not silently mapped to Andhra Pradesh.
 2. Remaining state/UT rules, state Acts, savings provisions, amendments, vernacular layouts and authentication requirements still require verification. This is not complete India-wide coverage.
 3. Arunachal schedules were recovered from a complete alternate Gazette copy; Forms I, IV and V are implemented. The earlier clipped copy is not the bundled source.
 4. Special statutory leave schemes (including working journalists and sales promotion employees), historical leave transfers and direct incident-system integration remain pending. Standard section 32 calculation, reviewed incident/leave evidence and explicit OSH Rule 72(3) reuse attestations are implemented.
@@ -233,3 +233,17 @@ Current implementation: 39 layouts, 64 focused tests passing. Backend and fronte
 Special leave research: Central OSH Rule 66, pages 187–190, uses a separate 1/11 duty earning basis with a 120-day earned-leave accumulation stop, 1/18 service medical leave with a 90-day stop, medical conversion, and specific exit provisions. Intervening holidays count within such leave, unlike the standard section 32 flow. Applying annual aggregate totals without chronological balance movements can over-credit when a cap is reached. A separate chronological implementation remains required; the existing calculator continues to exclude this scheme explicitly.
 
 Final follow-up validation: 65 focused backend tests and 11 Angular register tests passed; backend/frontend production builds and targeted backend lint passed. All 39 fictional formats validate and export through native Excel. Original source hashes and the 39-pair sample archive were checked. No application database or live employee data was used for these print tests.
+
+## Andhra Pradesh, Bihar and Rajasthan final OSH schedules
+
+Verified and implemented 17 additional state layouts from original government notifications hosted by public legal/compliance publishers:
+
+- [Andhra Pradesh Gazette No.432, 7 August 2026](https://ascent-hr.com/wp-content/uploads/2026/08/OSHWC-Andhra-Pradesh-Rules-2026_07.08.2026.pdf): Rule 32 and Forms VIII, VIII(A), IX, X and XI; PDF pages 38–39 and 449–453. Effective from publication, not the previous day's notification. Employee VIII includes a separate PPF number; wage IX includes total wage rate and eight deduction categories without an advances column. Leave X has 15 numbered columns without the Central carry-forward field. Accident XI has six columns.
+- [Bihar Gazette No.699, 1 July 2026](https://employmentlaw.lkslaw.com/file/updates/state-rules/bihar/bihar-osh-rules-2026.pdf): Rules 27, 30 and 31; Forms VIII, VIII(A), VIII(B), VIII(C), X and XI; PDF pages 227–229, 381–384 and 388. The readable 408-page final Gazette replaces the unusable scanned research copy as bundled evidence. English/Hindi and five-year preservation requirements are recorded, along with quarterly incident-register communication and the leave-register transfer requirement.
+- [Rajasthan S.O.23, 30 June 2026](https://employmentlaw.lkslaw.com/file/updates/legacy/rajasthan-osh-rules-2026.pdf): Rules 49, 52 and 53; numeric Forms 16–20 and 24; PDF pages 26–28, 186–191 and 198. These identities are distinct from Rajasthan Wages forms. Employee and attendance preparation retains establishment district; statutory source PDFs preserve the complete original schedules.
+
+Shared field definitions are reused only after comparing these specific schedules. Every register retains its jurisdiction, Act, rules, form, commencement and source page. The workbook identity sheet now carries the source-specific requirements and establishment address. Samples contain a fictional branch/address and no live employee data.
+
+Verified reuse now covers Bihar Rule 27(2) and Rajasthan Rule 49(3), as well as Central Rule 72(3). Source records must belong to the same jurisdiction, client, branch, period and workforce and already be approved. Both Acts are independently checked before offering sources. The stored attestation records the correct state rule. No equivalence is inferred for Andhra Pradesh. The UI consumes verified capabilities from the definition; state leave records no longer show the Central-only leave calculator.
+
+Validation: 73 focused backend tests, 12 browser tests, backend/frontend production builds and targeted backend lint passed. All 56 sample workbooks validate and exported through native Excel. The 56-pair sample archive includes fictional establishment particulars and source identity. Source/output pages were visually checked; original bundled PDF hashes were verified. This update does not claim all-state or all-Act completion; the remaining coverage below is still applicable.

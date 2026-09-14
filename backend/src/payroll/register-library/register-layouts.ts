@@ -167,6 +167,169 @@ export function registerLayout(
   sourceId: string,
   formNumber: string,
 ): RegisterLayout | null {
+  if (sourceId === 'rjosh') {
+    // Rajasthan S.O.23, PDF pp.186–191 and 198. Arabic form numbers are intentional.
+    const matching = (
+      {
+        '16': 'VIII',
+        '17': 'VIII(A)',
+        '18': 'VIII(B)',
+        '19': 'XI',
+        '20': 'VIII(C)',
+        '24': 'X',
+      } as Record<string, string>
+    )[formNumber];
+    if (!matching) return null;
+    const layout = registerLayout('brosh', matching)!;
+    return {
+      ...layout,
+      fields: [
+        ...(['16', '17'].includes(formNumber)
+          ? [field('establishmentDistrict', 'Establishment district')]
+          : []),
+        ...layout.fields.map((f) => ({
+          ...f,
+          label:
+            formNumber === '24' && f.key === 'injuredName'
+              ? '1. Name of injured/deceased person (if any)'
+              : f.label,
+        })),
+      ],
+    };
+  }
+  if (sourceId === 'brosh') {
+    // Bihar final Gazette 699, pp.381–384 and 388: verified common fields, distinct identities.
+    if (formNumber === 'VIII(C)')
+      return {
+        baseFormNumber: 'V',
+        individual: true,
+        payrollPrefill: true,
+        fields: slip
+          .filter((f) => f.key !== 'signature')
+          .map((f) => ({
+            ...f,
+            label: f.key === 'relativeName' ? '2. Father/Spouse Name' : f.label,
+          })),
+      };
+    const matching = (
+      {
+        VIII: 'VIII',
+        'VIII(A)': 'VIII(A)',
+        'VIII(B)': 'IX',
+        X: 'XI',
+        XI: 'X',
+      } as Record<string, string>
+    )[formNumber];
+    if (!matching) return null;
+    const layout = registerLayout('aposh', matching)!;
+    return {
+      ...layout,
+      fields: layout.fields.map((f) => ({
+        ...f,
+        label:
+          formNumber === 'X' && f.key === 'injuredName'
+            ? '1. Name of injured person (if any)'
+            : f.label,
+      })),
+    };
+  }
+  if (sourceId === 'aposh') {
+    // AP Gazette 432, 7 August 2026, pp.449–453. These are not Central form identities.
+    if (formNumber === 'VIII') {
+      const fields = registerLayout('osh', 'XIII')!.fields.map((f) => ({
+        ...f,
+      }));
+      fields.splice(16, 0, field('ppfNumber', 'PPF No.', 'text', false));
+      return {
+        baseFormNumber: 'I',
+        individual: true,
+        payrollPrefill: false,
+        fields: fields.map((f, i) => ({
+          ...f,
+          label: `${i + 1}. ${f.key === 'employee_5' ? 'Father/Spouse Name' : f.key === 'employee_15' ? 'Scale of Pay' : f.label.replace(/^\d+\. /, '')}`,
+        })),
+      };
+    }
+    if (formNumber === 'VIII(A)')
+      return {
+        baseFormNumber: 'IX',
+        individual: false,
+        payrollPrefill: false,
+        fields: attendance
+          .filter((f) => !/^day\d+Signature$/.test(f.key))
+          .map((f) => ({ ...f })),
+      };
+    if (formNumber === 'IX')
+      return {
+        baseFormNumber: 'IV',
+        individual: true,
+        payrollPrefill: true,
+        fields: [
+          field('frequency', 'Wage period frequency'),
+          field('wagePeriod', 'Wage period from–to'),
+          field('serial', '1. Serial number', 'number'),
+          field('employeeCode', '2. Employee code number'),
+          field('name', '3. Name'),
+          field('designation', '4. Designation'),
+          field('basicRate', '5(a). Rate of wage — Basic', 'money'),
+          field('daRate', '5(b). Rate of wage — DA', 'money'),
+          field(
+            'allowanceRate',
+            '5(c). Rate of wage — Other allowance',
+            'money',
+          ),
+          field('totalRate', '5(d). Total rate of wage', 'money'),
+          field('daysWorked', '6. Number of days worked', 'number'),
+          field('otHours', '7. Overtime hours worked', 'number'),
+          field('basic', '8(a). Wages earned — Basic', 'money'),
+          field('da', '8(b). Wages earned — DA', 'money'),
+          field('allowances', '8(c). Wages earned — Other allowance', 'money'),
+          field('overtime', '8(d). Payment of overtime', 'money'),
+          field('gross', '8(e). Total wages earned', 'money'),
+          field('pf', '9(a). EPF', 'money'),
+          field('esi', '9(b). ESIC', 'money'),
+          field('society', '9(c). Society', 'money'),
+          field('incomeTax', '9(d). Income tax', 'money'),
+          field('insurance', '9(e). Insurance', 'money'),
+          field('otherDeductions', '9(f). Others', 'money'),
+          field('fineRecovery', '9(g). Recovery of fine', 'money'),
+          field('damageRecovery', '9(h). Recovery of damages/losses', 'money'),
+          field('deductions', '9. Total deductions', 'money'),
+          field('net', '10. Net payment', 'money'),
+          field('receipt', '11. Receipt by employee / bank transaction ID'),
+          field('paymentDate', '12. Date of payment', 'date'),
+          field(
+            'signature',
+            '13. Initials of employer/representative',
+            'text',
+            false,
+          ),
+          field('remarks', '14. Remarks', 'text', false),
+        ],
+      };
+    if (formNumber === 'X') {
+      const layout = registerLayout('osh', 'XX')!;
+      return {
+        ...layout,
+        fields: layout.fields
+          .filter((f) => !['carryForward', 'signature'].includes(f.key))
+          .map((f) => ({
+            ...f,
+            label: f.key === 'remarks' ? '15. Remarks' : f.label,
+          })),
+      };
+    }
+    if (formNumber === 'XI') {
+      const layout = registerLayout('osh', 'XIX')!;
+      return {
+        ...layout,
+        fields: layout.fields
+          .filter((f) => f.key !== 'signature')
+          .map((f) => ({ ...f })),
+      };
+    }
+    return null;
+  }
   if (sourceId === 'ss' && formNumber === 'XXII')
     return {
       baseFormNumber: 'MATERNITY',
