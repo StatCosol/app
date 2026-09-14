@@ -186,6 +186,9 @@ export class ContractorAttendanceController {
         employee_code: string;
         days_worked: number;
         ot_hours?: number;
+        sunday_days_worked?: number;
+        sunday_coff_days?: number;
+        coff_days_availed?: number;
       }>;
     },
   ) {

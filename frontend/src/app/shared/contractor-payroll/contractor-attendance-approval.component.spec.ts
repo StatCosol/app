@@ -44,14 +44,35 @@ describe('contractor attendance review UI', () => {
   it('sends branch remarks with the decision', () => {
     const { component, http } = setup({ roleCode: 'BRANCH_DESK' });
     component.batches.set([
-      { id: 'batch', rows_snapshot: [{ employee_code: 'G001', days_worked: 28, ot_hours: 2 }] },
+      {
+        id: 'batch',
+        rows_snapshot: [
+          {
+            employee_code: 'G001',
+            days_worked: 28,
+            ot_hours: 2,
+            sunday_days_worked: 3,
+            sunday_coff_days: 1,
+            coff_balance: 2,
+          },
+        ],
+      },
     ]);
     component.notes['batch'] = 'Verified against shifts';
     component.review('batch', 'approve');
     expect(http.post).toHaveBeenCalledWith('/api/v1/contractor-attendance/batch/review', {
       decision: 'approve',
       remarks: 'Verified against shifts',
-      rows: [{ employee_code: 'G001', days_worked: 28, ot_hours: 2 }],
+      rows: [
+        {
+          employee_code: 'G001',
+          days_worked: 28,
+          ot_hours: 2,
+          sunday_days_worked: 3,
+          sunday_coff_days: 1,
+          coff_days_availed: 0,
+        },
+      ],
     });
   });
   it('surfaces a calculation failure without pretending approval succeeded', () => {
