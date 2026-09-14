@@ -2,9 +2,11 @@
 
 ## Scope and status
 
-The register library covers a research entry for each of the 28 states and eight union territories, with Central jurisdiction kept separate. This is **not a declaration that all state-prescribed formats are complete or approved**. The initial application library contains 40 source-linked form identities across Central rules, Andhra Pradesh, Telangana, Maharashtra and Tamil Nadu. Other jurisdictions retain explicit research gaps rather than receiving a generic substitute.
+The current library contains 101 source-linked legal identities, of which 69 have implemented preparation layouts. It provides a research entry for each of the 28 states and eight union territories, with Central jurisdiction separate. This is **not complete national coverage**. Twenty-six original source PDFs are bundled; unsupported schedules remain reference-only. Generic unverified generation is disabled, while historical downloads remain available.
 
-Review cut-off: 14 September 2026. Eight published source PDFs are bundled with the application so that reviewed layouts remain inspectable without depending on a live government website. The downloaded documents are source references, not completed payroll registers. Automatic population of these new catalogue entries remains disabled pending field mapping, applicability and layout acceptance. Existing payroll register generation is unchanged.
+The user's priority is now **Telangana, Andhra Pradesh, Karnataka, Tamil Nadu, Kerala, Maharashtra, Haryana, Gujarat, Odisha, Madhya Pradesh, Delhi and Central Government rules**, covering Labour Acts as well as Labour Codes. See [the priority scope and acceptance checklist](PRIORITY-REGISTER-SCOPE.md). Twenty-six of the implemented layouts fall within this group. Other jurisdictions remain available but are secondary for further expansion.
+
+Review cut-off: 14 September 2026. Current implementation at commit 562afc52 passed 91 focused backend tests and all 14 GitHub checks. The sections below preserve the research and validation history; earlier batch counts are historical.
 
 The supplied archives contain 67 file occurrences and 37 unique file hashes. Repeated filenames are not reliable duplicate identifiers: several versions contain different content. The inventory records hashes and duplicate relationships without importing employee data into the catalogue.
 
