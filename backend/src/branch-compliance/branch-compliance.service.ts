@@ -23,7 +23,7 @@ import {
 } from './dto/branch-compliance.dto';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ReqUser } from '../access/access-scope.service';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { RejectionMailService } from '../email/rejection-mail.service';
 import { uniqueUploadDiskName } from '../common/safe-upload';
@@ -161,6 +161,7 @@ export class BranchComplianceService {
     private readonly dataSource: DataSource,
     private readonly auditLogs: AuditLogsService,
     private readonly rejectionMail: RejectionMailService,
+    private readonly accessScope: AccessScopeService,
   ) {}
 
   private normalizeStateCode(
@@ -912,12 +913,19 @@ export class BranchComplianceService {
 
   // ─── Review (CRM) ─────────────────────────────────────────
 
-  async listForCrmReview(_user: ReqUser, q: ChecklistQueryDto) {
-    // CRM sees documents belonging to their assigned clients
+  async listForCrmReview(user: ReqUser, q: ChecklistQueryDto) {
+    // CRM sees documents belonging to their assigned clients — and only those.
+    // The comment above used to be the whole implementation: the user was never
+    // read, so "All Clients" (no companyId) returned every tenant's documents and
+    // ScopeGuard could not help, because it only checks a clientId on the request.
     const qb = this.docRepo
       .createQueryBuilder('d')
       .leftJoinAndSelect('d.branch', 'branch')
       .leftJoinAndSelect('d.company', 'company');
+    this.accessScope.applyToQb(qb, await this.accessScope.getScope(user), {
+      clientPath: 'd.companyId',
+      branchPath: 'd.branchId',
+    });
 
     if (q.companyId)
       qb.andWhere('d.company_id = :companyId', { companyId: q.companyId });
@@ -968,6 +976,14 @@ export class BranchComplianceService {
   ) {
     const doc = await this.docRepo.findOne({ where: { id: docId } });
     if (!doc) throw new NotFoundException('Document not found');
+
+    // Approving or rejecting by id must not reach another client's document.
+    // Answer as not-found so a document id outside scope reveals nothing.
+    try {
+      await this.accessScope.assertClientAllowed(user, doc.companyId);
+    } catch {
+      throw new NotFoundException('Document not found');
+    }
 
     if (
       ![
@@ -1274,7 +1290,7 @@ export class BranchComplianceService {
   }
 
   async getCrmDashboardKpis(
-    _user: ReqUser,
+    user: ReqUser,
     q: {
       companyId?: string;
       year?: number;
@@ -1299,6 +1315,11 @@ export class BranchComplianceService {
         "COUNT(*) FILTER (WHERE d.acting_on_behalf = true AND d.status IN ('SUBMITTED','RESUBMITTED'))::int AS crm_on_behalf_pending",
       ])
       .where('d.period_year = :year', { year });
+    // Counts must cover the caller's assigned clients only, like the list.
+    this.accessScope.applyToQb(qb, await this.accessScope.getScope(user), {
+      clientPath: 'd.companyId',
+      branchPath: 'd.branchId',
+    });
 
     if (q.companyId) qb.andWhere('d.company_id = :cid', { cid: q.companyId });
     if (q.frequency)
@@ -1331,11 +1352,17 @@ export class BranchComplianceService {
 
   // ─── Auditor read-only ────────────────────────────────────
 
-  async listForAuditor(_user: ReqUser, q: ChecklistQueryDto) {
-    // Auditor can view all branches assigned through audits
+  async listForAuditor(user: ReqUser, q: ChecklistQueryDto) {
+    // Auditor sees documents for the clients they are assigned to (the same
+    // client_assignments_current scope ScopeGuard enforces for AUDITOR). This
+    // previously ignored the user and listed every tenant's documents.
     const qb = this.docRepo
       .createQueryBuilder('d')
       .leftJoinAndSelect('d.branch', 'branch');
+    this.accessScope.applyToQb(qb, await this.accessScope.getScope(user), {
+      clientPath: 'd.companyId',
+      branchPath: 'd.branchId',
+    });
 
     if (q.companyId)
       qb.andWhere('d.company_id = :companyId', { companyId: q.companyId });
