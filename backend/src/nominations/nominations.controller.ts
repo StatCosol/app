@@ -22,7 +22,11 @@ export class NominationsController {
       userId: user.userId,
       clientId: user.clientId!,
       roleCode: user.roleCode,
-      branchId: user.branchIds?.[0] ?? null,
+      branchIds: user.branchIds ?? [],
+      branchScoped:
+        user.userType === 'BRANCH' ||
+        user.roleCode === 'BRANCH_DESK' ||
+        !!user.branchIds?.length,
     };
   }
 

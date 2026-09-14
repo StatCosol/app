@@ -20,6 +20,8 @@ type UserCtx = {
   clientId: string;
   roleCode: string;
   branchId?: string | null;
+  branchIds?: string[];
+  branchScoped?: boolean;
 };
 
 @Injectable()
@@ -40,13 +42,20 @@ export class NominationsService {
     user: UserCtx,
     employeeId: string,
   ): Promise<EmployeeEntity> {
+    if (!user.clientId)
+      throw new ForbiddenException('Client scope is required');
+    const branchIds = user.branchIds ?? (user.branchId ? [user.branchId] : []);
+    const branchScoped =
+      user.branchScoped || !!user.branchId || branchIds.length > 0;
+    if (branchScoped && !branchIds.length)
+      throw new ForbiddenException('Branch scope is required');
     const emp = await this.empRepo.findOne({
       where: { id: employeeId, clientId: user.clientId },
     });
     if (!emp) throw new NotFoundException('Employee not found');
 
-    // If user has a branchId (branch-level user), restrict to their branch only
-    if (user.branchId && emp.branchId !== user.branchId) {
+    // Preserve every assigned branch; an empty branch-user scope is denied above.
+    if (branchScoped && (!emp.branchId || !branchIds.includes(emp.branchId))) {
       throw new ForbiddenException('Employee does not belong to your branch');
     }
     return emp;
@@ -78,51 +87,77 @@ export class NominationsService {
       throw new BadRequestException('At least one nominee is required');
     }
 
-    // Validate total share percent <= 100
-    const sum = dto.nominees.reduce((t, n) => t + Number(n.sharePct ?? 0), 0);
-    if (sum > 100.01) {
+    // Validate before opening a transaction or replacing any stored nominees.
+    let totalHundredths = 0;
+    for (const nominee of dto.nominees) {
+      const share = String(nominee.sharePct ?? '0').trim();
+      if (
+        !/^\d+(?:\.\d{1,2})?$/.test(share) ||
+        !Number.isFinite(Number(share)) ||
+        Number(share) > 100
+      ) {
+        throw new BadRequestException(
+          'Each nominee share must be between 0 and 100 with at most two decimals',
+        );
+      }
+      if (!nominee.memberName?.trim())
+        throw new BadRequestException('Nominee name is required');
+      totalHundredths += Math.round(Number(share) * 100);
+    }
+    if (totalHundredths > 10000)
       throw new BadRequestException('Total share percent cannot exceed 100');
-    }
 
-    // Upsert: find existing nomination for this employee + type
-    let nom = await this.nomRepo.findOne({
-      where: { employeeId: emp.id, nominationType: dto.nominationType },
-    });
-
-    if (!nom) {
-      nom = this.nomRepo.create({
-        employeeId: emp.id,
-        nominationType: dto.nominationType,
-        declarationDate: dto.declarationDate || null,
-        witnessName: dto.witnessName || null,
-        witnessAddress: dto.witnessAddress || null,
+    return this.nomRepo.manager.transaction(async (manager) => {
+      // Serialize even the first save, when there is no nomination row to lock yet.
+      await manager.query(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+        [`nomination:${emp.id}:${dto.nominationType}`],
+      );
+      const nomRepo = manager.getRepository(EmployeeNominationEntity);
+      const memRepo = manager.getRepository(EmployeeNominationMemberEntity);
+      let nom = await nomRepo.findOne({
+        where: { employeeId: emp.id, nominationType: dto.nominationType },
       });
-      nom = await this.nomRepo.save(nom);
-    } else {
-      nom.declarationDate = dto.declarationDate || nom.declarationDate;
-      nom.witnessName = dto.witnessName || nom.witnessName;
-      nom.witnessAddress = dto.witnessAddress || nom.witnessAddress;
-      await this.nomRepo.save(nom);
-      // Clear old nominees so we can replace with new set
-      await this.memRepo.delete({ nominationId: nom.id });
-    }
-
-    // Insert new nominees
-    const members = dto.nominees.map((n) =>
-      this.memRepo.create({
-        nominationId: nom.id,
-        memberName: n.memberName,
-        relationship: n.relationship || null,
-        dateOfBirth: n.dateOfBirth || null,
-        sharePct: String(n.sharePct ?? '0'),
-        address: n.address || null,
-        guardianName: n.guardianName || null,
-        isMinor: n.isMinor ?? false,
-      }),
-    );
-    await this.memRepo.save(members);
-
-    return { ok: true, nominationId: nom.id };
+      if (nom && ['SUBMITTED', 'APPROVED'].includes(nom.status)) {
+        throw new BadRequestException(
+          'Submitted or approved nominations cannot be edited',
+        );
+      }
+      if (!nom)
+        nom = nomRepo.create({
+          employeeId: emp.id,
+          nominationType: dto.nominationType,
+        });
+      Object.assign(nom, {
+        clientId: emp.clientId,
+        branchId: emp.branchId,
+        status: 'DRAFT',
+        submittedAt: null,
+        approvedAt: null,
+        approvedByUserId: null,
+        rejectionReason: null,
+        declarationDate: dto.declarationDate || nom.declarationDate || null,
+        witnessName: dto.witnessName || nom.witnessName || null,
+        witnessAddress: dto.witnessAddress || nom.witnessAddress || null,
+      });
+      nom = await nomRepo.save(nom);
+      await memRepo.delete({ nominationId: nom.id });
+      await memRepo.save(
+        dto.nominees.map((n) =>
+          memRepo.create({
+            nominationId: nom.id,
+            memberName: n.memberName.trim(),
+            relationship: n.relationship || null,
+            dateOfBirth: n.dateOfBirth || null,
+            sharePct: String(n.sharePct ?? '0').trim(),
+            address: n.address || null,
+            guardianName: n.guardianName || null,
+            isMinor: n.isMinor ?? false,
+          }),
+        ),
+      );
+      return { ok: true, nominationId: nom.id };
+    });
   }
 
   // ── Get Nomination ─────────────────────────────────────────

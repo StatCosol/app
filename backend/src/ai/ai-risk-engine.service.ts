@@ -415,6 +415,32 @@ export class AiRiskEngineService {
       if (result) {
         try {
           const parsed = JSON.parse(result.content);
+          if (
+            !parsed ||
+            typeof parsed !== 'object' ||
+            Array.isArray(parsed) ||
+            (parsed.riskScore != null &&
+              (!Number.isInteger(parsed.riskScore) ||
+                parsed.riskScore < 0 ||
+                parsed.riskScore > 100)) ||
+            (parsed.summary != null && typeof parsed.summary !== 'string') ||
+            (parsed.recommendations != null &&
+              (!Array.isArray(parsed.recommendations) ||
+                parsed.recommendations.some(
+                  (r: any) =>
+                    !r ||
+                    !Number.isFinite(r.priority) ||
+                    typeof r.action !== 'string' ||
+                    typeof r.impact !== 'string',
+                ))) ||
+            (parsed.predictions != null &&
+              (typeof parsed.predictions !== 'object' ||
+                Array.isArray(parsed.predictions) ||
+                Object.values(parsed.predictions).some(
+                  (v) => typeof v !== 'string',
+                )))
+          )
+            throw new Error('Invalid risk assessment response');
           finalScore = parsed.riskScore ?? baseScore;
           summary = parsed.summary || '';
           recommendations = parsed.recommendations || [];

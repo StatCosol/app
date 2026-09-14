@@ -32,6 +32,7 @@ export class ClientContactsService {
     department: ClientContactDepartment,
     clientIds?: string[],
   ) {
+    if (clientIds && !clientIds.length) return [];
     const qb = this.repo
       .createQueryBuilder('c')
       .where('c.department = :department', { department })
@@ -62,7 +63,7 @@ export class ClientContactsService {
       .createQueryBuilder('c')
       .where('c.client_id = :clientId', { clientId: dto.clientId })
       .andWhere('c.department = :department', { department: dto.department })
-      .andWhere('LOWER(c.email) = LOWER(:email)', { email: dto.email })
+      .andWhere('LOWER(c.email) = LOWER(:email)', { email: dto.email.trim() })
       .getOne();
     if (dup) {
       throw new BadRequestException(
