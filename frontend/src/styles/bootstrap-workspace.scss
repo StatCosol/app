@@ -20,6 +20,8 @@ $input-padding-y: .7rem;
 $input-focus-border-color: #187e68;
 $input-focus-box-shadow: 0 0 0 .2rem rgba(17, 102, 83, .14);
 $enable-dark-mode: false;
+// Follow the workspace density setting (styles/workspace.scss); this scoped rule outranks it otherwise.
+$table-cell-padding-y: var(--ui-cell-block);
 @import 'bootstrap/scss/variables';
 @import 'bootstrap/scss/variables-dark';
 @import 'bootstrap/scss/maps';
