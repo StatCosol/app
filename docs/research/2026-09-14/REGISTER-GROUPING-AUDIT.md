@@ -113,3 +113,11 @@ Validation: 179 register tests pass, including three-record preservation across 
 | central--clra-1970--central-clra-1971--xxi--clra | Reference-only |
 | central--clra-1970--central-clra-1971--xxii--clra | Reference-only |
 | central--clra-1970--central-clra-1971--xxiii--clra | Reference-only |
+
+## PR 659 review corrections
+
+- Added `20260925_reviewed_register_applicability.sql` to the predeployment runner. It upserts DEFAULT_INDIA links for WAGES_2019, OSH_2020, TS_SHOPS_1988, SHOPS_2017 and SOCIAL_SECURITY_2020 with `included_by_default=false`. Earlier deployed migration files remain unchanged because the runner verifies their recorded checksums.
+- The correction immediately disables stored `AUTO=true` decisions for these review-only identities, with before/after audit entries. Explicit OVERRIDE and SPECIAL_SELECTED decisions remain intact. Reapplication produces no duplicate repair audits.
+- The payroll Act filter now recognizes exact legal identities for Social Security, Telangana/Maharashtra Shops, Wages, OSH, Factories and CLRA while retaining legacy register-type filtering. Exact legal identity takes precedence over an ambiguous legacy label.
+- Resolved main-branch conflicts while preserving the shared-table changes and tests.
+- Validation: 179 register tests; nine frontend Act-filter tests; isolated PostgreSQL upgrade, missing-link, repeat-application, override-preservation and all-five-identity recomputation/generation checks; frontend/backend production builds and targeted backend lint passed. The isolated verification database was dropped and its server stopped. Production was not changed.

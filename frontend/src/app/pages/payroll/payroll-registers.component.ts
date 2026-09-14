@@ -1,3 +1,4 @@
+import { matchesRegisterAct } from '../../shared/utils/register-act-filter';
 import { RegisterLibraryComponent } from './register-library.component';
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
@@ -619,7 +620,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
           // filter rows to only those whose registerType belongs to the selected act
           if (this.filterAct && !this.filterRegisterType) {
             const actTypes = new Set(this.registerTypes.filter(rt => rt.act === this.filterAct).map(rt => rt.value));
-            return (rows || []).filter(r => actTypes.has(r.registerType || '') || (this.filterAct === 'CODE_ON_WAGES' && r.legalIdentity?.actCode === 'WAGES_2019') || (this.filterAct === 'OSH_CODE' && r.legalIdentity?.actCode === 'OSH_2020'));
+            return (rows || []).filter(r => matchesRegisterAct(r, this.filterAct, actTypes));
           }
           return rows;
         }),
