@@ -68,6 +68,8 @@ const serviceMigrationFiles = new Set([
   '20260916_contractor_rate_cards.sql',
   '20260917_payroll_document_checks.sql',
   '20260918_payroll_document_check_profiles.sql',
+  // Contractor Sunday work C-off ledger (also a boot patch in main.ts).
+  '20260926_contractor_comp_off.sql',
   // FaceDesk PIN-then-face 1:1 verification.
   '20260722b_facedesk_pin_verification.sql',
   // FaceDesk per-branch PIN uniqueness.

@@ -8,6 +8,15 @@ import {
   applyMonthDivisor,
   workingDaysInMonth,
 } from './contractor-working-days';
+import {
+  addDays,
+  allocateCompOff,
+  COMP_OFF_VALIDITY_DAYS,
+  lastSundayOfMonth,
+  sundayDaysFromDated,
+  sundayExtraPay,
+  sundaysBetween,
+} from './contractor-sunday-work';
 import { ContractorDaysService } from '../biometric/contractor-days.service';
 import {
   BadRequestException,
@@ -263,6 +272,14 @@ export class ContractorComputationService {
           'category',
         ]),
         days_worked: daysWorked ?? 0,
+        sunday_days_worked:
+          this.cellNumber(row, headers, [
+            'sunday_days_worked',
+            'sunday_days',
+          ]) ?? undefined,
+        coff_days_availed:
+          this.cellNumber(row, headers, ['coff_days_availed', 'coff_days']) ??
+          undefined,
         ot_hours: this.cellString(row, headers, ['ot_hours', 'overtime_hours'])
           ? Number(
               this.cellString(row, headers, ['ot_hours', 'overtime_hours']),
@@ -288,6 +305,14 @@ export class ContractorComputationService {
         }
         group.days_worked = Number(group.days_worked) + Number(row.days_worked);
         group.ot_hours = Number(group.ot_hours) + Number(row.ot_hours || 0);
+        if (row.sunday_days_worked != null)
+          group.sunday_days_worked =
+            Number(group.sunday_days_worked || 0) +
+            Number(row.sunday_days_worked);
+        if (row.coff_days_availed != null)
+          group.coff_days_availed =
+            Number(group.coff_days_availed || 0) +
+            Number(row.coff_days_availed);
         (group.daily_attendance as any[]).push({
           date: row.attendance_date,
           days: Number(row.days_worked),
@@ -660,6 +685,53 @@ export class ContractorComputationService {
           hours,
         );
       delete row.pf_ceiling_enabled;
+      // The branch decides C-off at approval; conversions are computed by the
+      // server. Neither can come from the contractor.
+      delete row.sunday_coff_days;
+      delete row.coff_converted_days;
+      const monthEndIso =
+        input.periodMonth + '-' + String(daysInMonth).padStart(2, '0');
+      const derivedSundays = row.daily_attendance
+        ? sundayDaysFromDated(
+            row.daily_attendance as Array<{ date: string; days: number }>,
+          )
+        : null;
+      const suppliedSundays =
+        row.sunday_days_worked == null || row.sunday_days_worked === ''
+          ? null
+          : Number(row.sunday_days_worked);
+      if (
+        derivedSundays != null &&
+        suppliedSundays != null &&
+        Math.abs(derivedSundays - suppliedSundays) > 0.0001
+      )
+        throw new BadRequestException(
+          'sunday_days_worked must match the Sunday dates in dated attendance',
+        );
+      const sundayDays = derivedSundays ?? suppliedSundays ?? 0;
+      if (
+        !Number.isFinite(sundayDays) ||
+        sundayDays < 0 ||
+        sundayDays > days ||
+        sundayDays > sundaysBetween(input.periodMonth + '-01', monthEndIso)
+      )
+        throw new BadRequestException(
+          'Sunday days worked must be within the Sundays of the month and not more than payable days',
+        );
+      const coffTaken =
+        row.coff_days_availed == null || row.coff_days_availed === ''
+          ? 0
+          : Number(row.coff_days_availed);
+      if (
+        !Number.isFinite(coffTaken) ||
+        coffTaken < 0 ||
+        days + coffTaken > daysInMonth
+      )
+        throw new BadRequestException(
+          'C-off days taken must be 0 or more, and payable days plus C-off days cannot exceed the days in the month',
+        );
+      row.sunday_days_worked = sundayDays;
+      row.coff_days_availed = coffTaken;
     }
     // Store only attendance fields; wages in vendor documents are reconciliation evidence.
     const attendanceRows: AttendanceComputeRow[] = [];
@@ -683,6 +755,12 @@ export class ContractorComputationService {
         employee_name: employee.name,
         days_worked: Number(row.days_worked ?? row.days),
         ...(Number(row.ot_hours) ? { ot_hours: Number(row.ot_hours) } : {}),
+        ...(Number(row.sunday_days_worked)
+          ? { sunday_days_worked: Number(row.sunday_days_worked) }
+          : {}),
+        ...(Number(row.coff_days_availed)
+          ? { coff_days_availed: Number(row.coff_days_availed) }
+          : {}),
         ...(row.daily_attendance
           ? { daily_attendance: row.daily_attendance }
           : {}),
@@ -749,6 +827,117 @@ export class ContractorComputationService {
     });
   }
 
+  /**
+   * Records C-off for an approved month and settles earlier C-off.
+   *
+   * Re-approving a month first removes what the previous approval of that month
+   * recorded, so figures are never counted twice. Refuses when C-off earned in
+   * this month was already used in a later month.
+   */
+  private async settleCompOff(
+    manager: import('typeorm').EntityManager,
+    user: ReqUser,
+    batch: {
+      id: string;
+      client_id: string;
+      branch_id: string;
+      contractor_user_id: string;
+      period_month: string;
+    },
+    rows: AttendanceComputeRow[],
+    converted: Map<string, number>,
+  ) {
+    const owner = [batch.client_id, batch.contractor_user_id, batch.branch_id];
+    const period = batch.period_month;
+    const [usedLater] = await manager.query(
+      `SELECT 1 FROM contractor_comp_off_usages u
+         JOIN contractor_comp_off_lots l ON l.id = u.lot_id
+        WHERE l.client_id = $1 AND l.contractor_user_id = $2 AND l.branch_id = $3
+          AND l.earned_period_month = $4 AND u.period_month > $4
+        LIMIT 1`,
+      [...owner, period],
+    );
+    if (usedLater)
+      throw new ConflictException(
+        `C-off earned in ${period} was already used in a later month. Reopen that month first.`,
+      );
+    await manager.query(
+      `DELETE FROM contractor_comp_off_usages u USING contractor_comp_off_lots l
+        WHERE l.id = u.lot_id AND l.client_id = $1 AND l.contractor_user_id = $2
+          AND l.branch_id = $3 AND u.period_month = $4`,
+      [...owner, period],
+    );
+    await manager.query(
+      `DELETE FROM contractor_comp_off_lots
+        WHERE client_id = $1 AND contractor_user_id = $2 AND branch_id = $3
+          AND earned_period_month = $4`,
+      [...owner, period],
+    );
+    const earnedOn = lastSundayOfMonth(period);
+    const expiresOn = addDays(earnedOn, COMP_OFF_VALIDITY_DAYS);
+    for (const row of rows) {
+      const code = this.unknownToString(row.employee_code);
+      const coffDays = Number(row.sunday_coff_days || 0);
+      if (coffDays > 0)
+        await manager.query(
+          `INSERT INTO contractor_comp_off_lots
+             (client_id, branch_id, contractor_user_id, employee_code, earned_period_month,
+              earned_on, expires_on, days, source_batch_id, created_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [
+            batch.client_id,
+            batch.branch_id,
+            batch.contractor_user_id,
+            code,
+            period,
+            earnedOn,
+            expiresOn,
+            coffDays,
+            batch.id,
+            user.id,
+          ],
+        );
+      await manager.query(
+        `SELECT id FROM contractor_comp_off_lots
+          WHERE client_id = $1 AND contractor_user_id = $2 AND branch_id = $3
+            AND employee_code = $4 FOR UPDATE`,
+        [...owner, code],
+      );
+      const lots = await manager.query(
+        `SELECT l.id, l.earned_period_month AS "earnedPeriodMonth",
+                l.expires_on::text AS "expiresOn",
+                (l.days - COALESCE(SUM(u.days), 0))::float AS balance
+           FROM contractor_comp_off_lots l
+           LEFT JOIN contractor_comp_off_usages u ON u.lot_id = l.id
+          WHERE l.client_id = $1 AND l.contractor_user_id = $2 AND l.branch_id = $3
+            AND l.employee_code = $4
+          GROUP BY l.id`,
+        [...owner, code],
+      );
+      const result = allocateCompOff(
+        lots,
+        period,
+        Number(row.coff_days_availed || 0),
+      );
+      if (result.shortfall > 0)
+        throw new BadRequestException(
+          `${code}: C-off days taken exceed the available C-off balance by ${result.shortfall}`,
+        );
+      for (const [kind, usages] of [
+        ['AVAILED', result.availed],
+        ['CONVERTED', result.converted],
+      ] as const)
+        for (const usage of usages)
+          await manager.query(
+            `INSERT INTO contractor_comp_off_usages (lot_id, period_month, kind, days, source_batch_id)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [usage.lotId, period, kind, usage.days, batch.id],
+          );
+      const convertedDays = result.converted.reduce((n, c) => n + c.days, 0);
+      if (convertedDays > 0) converted.set(code, convertedDays);
+    }
+  }
+
   private isAttendanceApprover(user: ReqUser) {
     return (
       user.roleCode === 'BRANCH_DESK' ||
@@ -785,11 +974,44 @@ export class ContractorComputationService {
        ORDER BY a.created_at DESC, a.id DESC LIMIT 51 OFFSET ${offset}`,
       params,
     );
+    const page = data.slice(0, 50);
+    // Unexpired C-off still available to each worker, shown to the branch when
+    // it records C-off days taken.
+    const balances: Array<{
+      contractor_user_id: string;
+      branch_id: string;
+      employee_code: string;
+      balance: number;
+    }> = page.length
+      ? await this.computationRepo.manager
+          .query(
+            `SELECT l.contractor_user_id, l.branch_id, l.employee_code,
+                    SUM(l.days - COALESCE(u.used, 0))::float AS balance
+               FROM contractor_comp_off_lots l
+               LEFT JOIN (SELECT lot_id, SUM(days) AS used
+                            FROM contractor_comp_off_usages GROUP BY lot_id) u
+                 ON u.lot_id = l.id
+              WHERE l.client_id = $1 AND l.expires_on >= CURRENT_DATE
+              GROUP BY 1, 2, 3
+             HAVING SUM(l.days - COALESCE(u.used, 0)) > 0`,
+            [clientId],
+          )
+          .catch(() => [])
+      : [];
+    const balanceOf = (batch: any, code: string) =>
+      balances.find(
+        (b) =>
+          b.contractor_user_id === batch.contractor_user_id &&
+          b.branch_id === batch.branch_id &&
+          b.employee_code === code,
+      )?.balance ?? 0;
     return {
       hasMore: data.length > 50,
-      data: data.slice(0, 50).map((row) => ({
+      data: page.map((row) => ({
         ...row,
-        rows_snapshot: row.approved_rows_snapshot || row.rows_snapshot,
+        rows_snapshot: (row.approved_rows_snapshot || row.rows_snapshot).map(
+          (r: any) => ({ ...r, coff_balance: balanceOf(row, r.employee_code) }),
+        ),
         canReview: this.isAttendanceApprover(user) && row.status === 'PENDING',
       })),
     };
@@ -804,6 +1026,9 @@ export class ContractorComputationService {
       employee_code: string;
       days_worked: number;
       ot_hours?: number;
+      sunday_days_worked?: number;
+      sunday_coff_days?: number;
+      coff_days_availed?: number;
     }>,
   ) {
     if (!this.isAttendanceApprover(user))
@@ -865,6 +1090,29 @@ export class ContractorComputationService {
         )
           throw new BadRequestException('Invalid branch attendance correction');
         seen.add(row.employee_code);
+        const sundayDays = Number(
+          row.sunday_days_worked ?? original.sunday_days_worked ?? 0,
+        );
+        const coffDays = Number(row.sunday_coff_days ?? 0);
+        const coffTaken = Number(
+          row.coff_days_availed ?? original.coff_days_availed ?? 0,
+        );
+        const sundaysInMonth = sundaysBetween(
+          batch.period_month + '-01',
+          batch.period_month + '-' + String(daysInMonth).padStart(2, '0'),
+        );
+        if (
+          [sundayDays, coffDays, coffTaken].some(
+            (n) => !Number.isFinite(n) || n < 0 || (n * 2) % 1 !== 0,
+          ) ||
+          sundayDays > sundaysInMonth ||
+          sundayDays > row.days_worked ||
+          coffDays > sundayDays ||
+          row.days_worked + coffTaken > daysInMonth
+        )
+          throw new BadRequestException(
+            'Sundays worked, Sundays as C-off and C-off days taken must fit the month and payable days',
+          );
         const changed =
           Number(original.days_worked) !== row.days_worked ||
           Number(original.ot_hours || 0) !== Number(row.ot_hours || 0);
@@ -872,10 +1120,16 @@ export class ContractorComputationService {
           ...original,
           days_worked: row.days_worked,
           ot_hours: Number(row.ot_hours || 0),
+          sunday_days_worked: sundayDays,
+          sunday_coff_days: coffDays,
+          coff_days_availed: coffTaken,
           ...(changed ? { daily_attendance: undefined } : {}),
         };
       });
     }
+    // Expired C-off converted to double wages, per employee code, filled while
+    // settling the C-off ledger inside the approval transaction.
+    const convertedCoff = new Map<string, number>();
     const review = async (manager: import('typeorm').EntityManager) => {
       const [current] = await manager.query(
         'SELECT * FROM contractor_attendance_batches WHERE id=$1 FOR UPDATE',
@@ -895,6 +1149,14 @@ export class ContractorComputationService {
           decision === 'approve' ? JSON.stringify(approvedRows) : null,
         ],
       );
+      if (decision === 'approve')
+        await this.settleCompOff(
+          manager,
+          user,
+          batch,
+          approvedRows,
+          convertedCoff,
+        );
     };
     if (decision === 'return') {
       await this.computationRepo.manager.transaction(async (manager) => {
@@ -917,7 +1179,14 @@ export class ContractorComputationService {
               batch.period_month,
               batch.source_document_id || null,
               i + 1,
-              approvedRows[i],
+              convertedCoff.get(String(approvedRows[i].employee_code))
+                ? {
+                    ...approvedRows[i],
+                    coff_converted_days: convertedCoff.get(
+                      String(approvedRows[i].employee_code),
+                    ),
+                  }
+                : approvedRows[i],
             ),
           );
         }
@@ -1016,9 +1285,31 @@ export class ContractorComputationService {
       0,
       Math.floor((end.getTime() - start.getTime()) / 86400000) + 1,
     );
-    if (daysWorked > eligibleDays)
+    const sundayDaysWorked = this.num(raw['sunday_days_worked']);
+    const sundayCoffDays = this.num(raw['sunday_coff_days']);
+    const coffAvailedDays = this.num(raw['coff_days_availed']);
+    const coffConvertedDays = this.num(raw['coff_converted_days']);
+    if (daysWorked + coffAvailedDays > eligibleDays)
       throw new BadRequestException(
         'Payable days exceed the employee employment dates',
+      );
+    if (
+      [
+        sundayDaysWorked,
+        sundayCoffDays,
+        coffAvailedDays,
+        coffConvertedDays,
+      ].some((n) => n < 0) ||
+      sundayDaysWorked > daysWorked ||
+      sundayCoffDays > sundayDaysWorked ||
+      sundayDaysWorked >
+        sundaysBetween(
+          start.toISOString().slice(0, 10),
+          end.toISOString().slice(0, 10),
+        )
+    )
+      throw new BadRequestException(
+        'Sunday days worked must fit the Sundays in the employment period and payable days',
       );
     const mcdDailyWage = this.optionalNum(
       raw['daily_wage'] ?? raw['wage_rate'],
@@ -1140,6 +1431,31 @@ export class ContractorComputationService {
       periodMonth,
     );
     const payableDailyWage = this.round(quote?.dailyWage ?? 0);
+    // Sunday work: each Sunday not taken as C-off, and each expired unused
+    // C-off, earns one extra day's wage (the Sunday is already a payable day,
+    // so the extra makes it double); each C-off taken is a paid day. A day's
+    // wage is the prorated monthly earnings (excluding bonus and leave) / the
+    // month's working days — the basis regular payroll uses for holiday work.
+    const sundayDayRate = quote?.rateCard
+      ? this.round(
+          quote.rateCard.components
+            .filter(
+              (c) =>
+                c.category === 'EARNING' &&
+                c.method === 'FIXED' &&
+                c.prorate &&
+                !['BONUS', 'LEAVE'].includes(c.code),
+            )
+            .reduce((n, c) => n + c.value, 0) / workingDaysInMonth(periodMonth),
+        )
+      : payableDailyWage;
+    const sundayPay = sundayExtraPay({
+      sundayDaysWorked,
+      sundayCoffDays,
+      coffAvailedDays,
+      coffConvertedDays,
+      dayRate: sundayDayRate,
+    });
     const basicWage = this.round(
       this.optionalNum(raw['basic_wage'] ?? raw['basic']) ??
         payableDailyWage * daysWorked,
@@ -1154,8 +1470,15 @@ export class ContractorComputationService {
     );
     const conveyance = this.round(this.num(raw['conveyance']));
     const basicDaWage = this.round(basicWage + daWage);
+    // Sunday/C-off pay counts towards gross (ESI, PT, LWF) but not PF wages,
+    // like holiday-work double wages in regular payroll.
     const grossWage = this.round(
-      basicDaWage + hraWage + regularAllowance + conveyance + otherEarnings,
+      basicDaWage +
+        hraWage +
+        regularAllowance +
+        conveyance +
+        otherEarnings +
+        sundayPay.amount,
     );
     const pf = this.computePf({
       basicDaWage,
@@ -1287,6 +1610,16 @@ export class ContractorComputationService {
         result: cardResult,
         overtimeHours: Number(raw.ot_hours || 0),
         monthDivisor: workingDaysInMonth(periodMonth),
+        sundayWork: {
+          sundayDaysWorked,
+          sundayCoffDays,
+          coffAvailedDays,
+          coffConvertedDays,
+          doubleDays: sundayPay.doubleDays,
+          paidDays: sundayPay.paidDays,
+          dayRate: sundayDayRate,
+          amount: sundayPay.amount,
+        },
         segments: calculationSegments.map((s) => ({
           quotationId: s.quote.id,
           effectiveFrom: s.quote.effectiveFrom,
@@ -1312,16 +1645,23 @@ export class ContractorComputationService {
       payableDailyWage,
       basicWage: cardResult?.amounts.BASIC_DA ?? basicWage,
       otherEarnings: cardResult
-        ? this.round(cardResult.earnings - (cardResult.amounts.BASIC_DA || 0))
-        : this.round(otherEarnings),
+        ? this.round(
+            cardResult.earnings -
+              (cardResult.amounts.BASIC_DA || 0) +
+              sundayPay.amount,
+          )
+        : this.round(otherEarnings + sundayPay.amount),
       grossWage: cardResult
         ? this.round(
             cardResult.earnings -
               (cardResult.amounts.BONUS || 0) -
-              (cardResult.amounts.LEAVE || 0),
+              (cardResult.amounts.LEAVE || 0) +
+              sundayPay.amount,
           )
         : grossWage,
-      totalEarnings: cardResult?.earnings ?? grossWage,
+      totalEarnings: cardResult
+        ? this.round(cardResult.earnings + sundayPay.amount)
+        : grossWage,
       pfWage: cardResult ? cardResult.bases.PF_EMP || 0 : pf.wage,
       pfDeduction: cardResult ? cardResult.amounts.PF_EMP || 0 : pfDeduction,
       pfEmployerContribution: cardResult
@@ -1340,7 +1680,9 @@ export class ContractorComputationService {
         : lwfEmployerContribution,
       totalEmployerContribution:
         cardResult?.employerCosts ?? totalEmployerContribution,
-      netSalary: cardResult?.netPay ?? netSalary,
+      netSalary: cardResult
+        ? this.round(cardResult.netPay + sundayPay.amount)
+        : netSalary,
       matchStatus: !quote
         ? 'NO_QUOTATION'
         : reasons.length
@@ -1856,6 +2198,8 @@ export class ContractorComputationService {
       'attendance_date',
       'days_worked',
       'ot_hours',
+      'sunday_days_worked',
+      'coff_days_availed',
     ]);
     sheet.columns.forEach((c) => {
       c.width = 24;
@@ -1878,6 +2222,12 @@ export class ContractorComputationService {
       ],
       [
         'Do not enter wages or deductions here. CRM quotations determine pay; upload the wage register separately for comparison.',
+      ],
+      [
+        "sunday_days_worked: payable days that fell on Sundays (monthly total rows). With dated rows, Sundays are read from the dates. The branch marks each worker's Sundays as double wages or C-off at approval.",
+      ],
+      [
+        'coff_days_availed: C-off days the worker took this month. They are paid days and must not also be counted in days_worked. C-off is valid for 90 days; unused C-off is paid as double wages when it expires.',
       ],
     ]);
     return Buffer.from(await workbook.xlsx.writeBuffer());

@@ -38,7 +38,7 @@ async function main() {
     await ds.query(attendanceMigration); await ds.query(attendanceMigration);
     await ds.query(`INSERT INTO contractor_attendance_batches(client_id,branch_id,contractor_user_id,period_month,rows_snapshot,submitted_by,status,reviewed_by,reviewed_at)
       VALUES($1,$2,$3,'2026-09','[]',$3,'APPROVED',$4,now())`,[id(1),id(2),id(3),id(8)]);
-    for(const file of ['20260916_contractor_rate_cards.sql','20260917_payroll_document_checks.sql','20260918_payroll_document_check_profiles.sql']) {const sql=fs.readFileSync(path.join(__dirname,'../migrations',file),'utf8');await ds.query(sql);await ds.query(sql);}
+    for(const file of ['20260916_contractor_rate_cards.sql','20260917_payroll_document_checks.sql','20260918_payroll_document_check_profiles.sql','20260926_contractor_comp_off.sql']) {const sql=fs.readFileSync(path.join(__dirname,'../migrations',file),'utf8');await ds.query(sql);await ds.query(sql);}
     await ds.query("INSERT INTO contractor_documents(id) VALUES ($1)",[id(999)]);
     for (const profile of ['tables-v2','ocr-v1']) await ds.query("INSERT INTO payroll_document_checks(document_id,file_path,file_hash,status,result,check_profile) VALUES($1,'sample.pdf','hash','NEEDS_REVIEW','{}',$2) ON CONFLICT DO NOTHING",[id(999),profile]);
     assert.equal((await ds.query('SELECT * FROM payroll_document_checks')).length,2);
@@ -154,6 +154,15 @@ async function main() {
     assert.equal(approvals.filter(r=>r.status==='fulfilled').length,1);
     assert.equal((await ds.query('SELECT status FROM contractor_attendance_batches WHERE id=$1',[pending.id]))[0].status,'APPROVED');
     assert.equal(Number((await ds.query("SELECT count(*) FROM contractor_payroll_versions WHERE period_month='2026-10'"))[0].count),1);
+
+    // A Sunday the branch marks as C-off earns a lot valid 90 days from the month's last Sunday (29 Nov 2026).
+    const [sundayBatch] = await ds.query(`INSERT INTO contractor_attendance_batches(client_id,branch_id,contractor_user_id,period_month,rows_snapshot,submitted_by)
+      VALUES($1,$2,$3,'2026-11',$4::jsonb,$3) RETURNING id`,[id(1),id(2),id(3),JSON.stringify([{employee_code:'E001',days_worked:20,sunday_days_worked:2}])]);
+    computation.computeOne=async()=>{const rows=await calculate();rows[0].periodMonth='2026-11';return rows[0];};
+    await assert.rejects(computation.reviewAttendance(user('BRANCH_DESK',8),sundayBatch.id,'approve','Checked Sundays',[{employee_code:'E001',days_worked:20,sunday_days_worked:2,coff_days_availed:1}]),/exceed the available C-off balance/);
+    await computation.reviewAttendance(user('BRANCH_DESK',8),sundayBatch.id,'approve','Checked Sundays',[{employee_code:'E001',days_worked:20,sunday_days_worked:2,sunday_coff_days:1}]);
+    const lots=await ds.query("SELECT days::float AS days, earned_on::text AS earned_on, expires_on::text AS expires_on FROM contractor_comp_off_lots WHERE employee_code='E001'");
+    assert.deepEqual(lots,[{days:1,earned_on:'2026-11-29',expires_on:'2027-02-27'}]);
 
     // The branch queue must remain accessible beyond the previous 200-row cap.
     await ds.query("INSERT INTO users(id,name) SELECT ('00000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'Synthetic vendor '||n FROM generate_series(1000,1204) n");

@@ -16,6 +16,10 @@ import { AuthService } from '../../core/auth.service';
         <h2>Attendance approval</h2>
         <p>Contractor submits attendance → Assigned branch reviews → Payroll is calculated.</p>
         <p>
+          Sundays worked are paid double unless you mark them as C-off. C-off is valid for 90 days;
+          unused C-off is paid as double wages when it expires. C-off days taken are paid days.
+        </p>
+        <p>
           Device attendance counts distinct days with accepted punches. Review incomplete shifts and
           leave before approval.
         </p>
@@ -62,6 +66,10 @@ import { AuthService } from '../../core/auth.service';
                     <th>Employee</th>
                     <th>Payable days</th>
                     <th>Overtime hours</th>
+                    <th>Sundays worked</th>
+                    <th>Sundays as C-off</th>
+                    <th>C-off taken</th>
+                    <th>C-off balance</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -97,6 +105,49 @@ import { AuthService } from '../../core/auth.service';
                           {{ row.ot_hours || 0 }}
                         }
                       </td>
+                      <td>
+                        @if (batch.canReview) {
+                          <input
+                            type="number"
+                            min="0"
+                            max="5"
+                            step="0.5"
+                            [attr.aria-label]="'Sundays worked for ' + row.employee_code"
+                            [(ngModel)]="row.sunday_days_worked"
+                          />
+                        } @else {
+                          {{ row.sunday_days_worked || 0 }}
+                        }
+                      </td>
+                      <td>
+                        @if (batch.canReview) {
+                          <input
+                            type="number"
+                            min="0"
+                            [max]="row.sunday_days_worked || 0"
+                            step="0.5"
+                            [attr.aria-label]="'Sundays as C-off for ' + row.employee_code"
+                            [(ngModel)]="row.sunday_coff_days"
+                          />
+                        } @else {
+                          {{ row.sunday_coff_days || 0 }}
+                        }
+                      </td>
+                      <td>
+                        @if (batch.canReview) {
+                          <input
+                            type="number"
+                            min="0"
+                            max="31"
+                            step="0.5"
+                            [attr.aria-label]="'C-off days taken for ' + row.employee_code"
+                            [(ngModel)]="row.coff_days_availed"
+                          />
+                        } @else {
+                          {{ row.coff_days_availed || 0 }}
+                        }
+                      </td>
+                      <td>{{ row.coff_balance || 0 }}</td>
                     </tr>
                   }
                 </tbody>
@@ -257,6 +308,9 @@ export class ContractorAttendanceApprovalComponent implements OnChanges, OnDestr
                   employee_code: r.employee_code,
                   days_worked: r.days_worked,
                   ot_hours: r.ot_hours || 0,
+                  sunday_days_worked: r.sunday_days_worked || 0,
+                  sunday_coff_days: r.sunday_coff_days || 0,
+                  coff_days_availed: r.coff_days_availed || 0,
                 })),
             }
           : {}),
