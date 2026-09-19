@@ -7,8 +7,8 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
-import { finalize, takeUntil } from 'rxjs/operators';
+import { Subject, from } from 'rxjs';
+import { concatMap, finalize, map, takeUntil } from 'rxjs/operators';
 import {
   ContractorEmployee,
   ContractorEmployeesApiService,
@@ -90,6 +90,24 @@ interface BulkPreviewRow {
   dto: CreateEmployeeDto;
   errors: string[];
 }
+
+interface BulkUploadResult {
+  created: number;
+  failed: number;
+  results: any[];
+}
+
+/**
+ * Rows per request, matching the server's cap on the bulk endpoint
+ * (`@ArrayMaxSize` on BulkCreateContractorEmployeesDto.rows, and the same limit
+ * again inside bulkCreate()).
+ *
+ * The server rejects an oversized body whole, so a 1,500-row sheet came back as
+ * a flat 400 with nothing imported — after a preview that had just shown all
+ * 1,500 rows as valid. Splitting here is what keeps that preview's promise:
+ * every row it passes is a row that gets uploaded.
+ */
+export const BULK_UPLOAD_BATCH_SIZE = 1000;
 
 @Component({
   selector: 'app-contractor-employees-page',
@@ -739,7 +757,12 @@ interface BulkPreviewRow {
         @if (bulkPreview.length > 0) {
 <div class="border border-gray-100 rounded-lg overflow-hidden mb-4">
           <div class="px-4 py-2 bg-gray-50 text-xs font-medium text-gray-600 flex justify-between">
-            <span>Preview — {{ bulkPreview.length }} row(s)</span>
+            <span>
+              Preview — {{ bulkPreview.length }} row(s)
+              @if (bulkBatchCount > 1) {
+<span class="text-gray-400">· uploads in {{ bulkBatchCount }} batches of {{ batchSize }}</span>
+}
+            </span>
             <span [class]="bulkErrorCount > 0 ? 'text-red-600' : 'text-green-600'">
               {{ bulkErrorCount }} error(s)
             </span>
@@ -773,6 +796,12 @@ interface BulkPreviewRow {
         </div>
 }
 
+        @if (bulkError) {
+<div class="text-sm rounded-lg p-3 mb-4 bg-red-50 text-red-700 border border-red-100">
+          <strong>Upload rejected:</strong> {{ bulkError }}
+        </div>
+}
+
         @if (bulkResult) {
 <div class="text-sm rounded-lg p-3 mb-4"
              [class.bg-green-50]="bulkResult.failed === 0"
@@ -803,7 +832,11 @@ interface BulkPreviewRow {
             @if (bulkUploading) {
 <span class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
 }
-            {{ bulkUploading ? 'Uploading…' : 'Upload ' + bulkValidCount + ' valid row(s)' }}
+            @if (bulkUploading) {
+<span>{{ bulkBatchTotal > 1 ? 'Uploading batch ' + (bulkBatchDone + 1) + ' of ' + bulkBatchTotal + '…' : 'Uploading…' }}</span>
+} @else {
+<span>Upload {{ bulkValidCount }} valid row(s)</span>
+}
           </button>
           <button type="button" (click)="closeBulk()" class="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">
             Close
@@ -883,7 +916,17 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
   bulkBranchId = '';
   bulkPreview: BulkPreviewRow[] = [];
   bulkUploading = false;
-  bulkResult: { created: number; failed: number; results: any[] } | null = null;
+  bulkResult: BulkUploadResult | null = null;
+  /** A whole-request rejection rather than a per-row failure; shown in the panel. */
+  bulkError: string | null = null;
+  bulkBatchTotal = 0;
+  bulkBatchDone = 0;
+
+  readonly batchSize = BULK_UPLOAD_BATCH_SIZE;
+
+  get bulkBatchCount(): number {
+    return Math.ceil(this.bulkValidCount / BULK_UPLOAD_BATCH_SIZE);
+  }
 
   get bulkErrorCount(): number {
     return this.bulkPreview.filter((r) => r.errors.length > 0).length;
@@ -1340,6 +1383,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     this.bulkOpen = true;
     this.bulkPreview = [];
     this.bulkResult = null;
+    this.bulkError = null;
     this.bulkBranchId =
       this.selectedBranchId ||
       (this.availableBranches.length === 1
@@ -1352,6 +1396,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     this.bulkOpen = false;
     this.bulkPreview = [];
     this.bulkResult = null;
+    this.bulkError = null;
     this.bulkUploading = false;
     this.cdr.markForCheck();
   }
@@ -1426,6 +1471,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
         });
         this.bulkPreview = this.validateBulkRows(rows);
         this.bulkResult = null;
+        this.bulkError = null;
         this.cdr.markForCheck();
       } catch (err: any) {
         this.toast.error('Parse error', err?.message || 'Could not read file.');
@@ -1439,6 +1485,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
   revalidateBulkBranch(): void {
     this.bulkPreview = this.validateBulkRows(this.bulkPreview.map(row => row.raw));
     this.bulkResult = null;
+    this.bulkError = null;
   }
 
   private validateBulkRows(rows: Record<string, any>[]): BulkPreviewRow[] {
@@ -1524,17 +1571,37 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
   submitBulk(): void {
     if (this.bulkUploading) return;
     this.revalidateBulkBranch();
-    const valid = this.bulkPreview
-      .filter((r) => r.errors.length === 0)
-      .map((r) => r.dto);
+    const valid = this.bulkPreview.filter((r) => r.errors.length === 0);
     if (valid.length === 0) {
       this.toast.error('Nothing to upload', 'All rows have validation errors.');
       return;
     }
+
+    // One request per BULK_UPLOAD_BATCH_SIZE rows, in sequence. Sequentially
+    // because every row is inserted under the same per-client advisory lock
+    // that hands out employee codes — parallel requests would queue on it
+    // anyway, and a failure part-way through would leave an unclear picture of
+    // what got in.
+    const batches: BulkPreviewRow[][] = [];
+    for (let i = 0; i < valid.length; i += BULK_UPLOAD_BATCH_SIZE) {
+      batches.push(valid.slice(i, i + BULK_UPLOAD_BATCH_SIZE));
+    }
+
+    const merged: BulkUploadResult = { created: 0, failed: 0, results: [] };
     this.bulkUploading = true;
-    this.api
-      .bulkUpload(valid, this.bulkBranchId || undefined)
+    this.bulkResult = null;
+    this.bulkError = null;
+    this.bulkBatchTotal = batches.length;
+    this.bulkBatchDone = 0;
+    const branchId = this.bulkBranchId || undefined;
+
+    from(batches)
       .pipe(
+        concatMap((batch) =>
+          this.api
+            .bulkUpload(batch.map((r) => r.dto), branchId)
+            .pipe(map((res) => ({ batch, res }))),
+        ),
         takeUntil(this.destroy$),
         finalize(() => {
           this.bulkUploading = false;
@@ -1542,25 +1609,47 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
         }),
       )
       .subscribe({
-        next: (res) => {
-          this.bulkResult = res;
-          if (res.created > 0) {
+        next: ({ batch, res }) => {
+          merged.created += res?.created ?? 0;
+          merged.failed += res?.failed ?? 0;
+          // The server numbers its results against the array it was sent, which
+          // is this batch of the rows that passed preview. Translate back to the
+          // preview index so a failure names the row of the spreadsheet.
+          for (const row of res?.results ?? []) {
+            const source = batch[row.index];
+            merged.results.push({
+              ...row,
+              index: source ? source.index : row.index,
+            });
+          }
+          this.bulkBatchDone++;
+          this.bulkResult = { ...merged, results: [...merged.results] };
+          this.cdr.markForCheck();
+        },
+        error: (err: any) => {
+          const reason = describeApiError(err, 'Server error.');
+          // Batches already accepted are committed; say so rather than let the
+          // upload read as all-or-nothing.
+          this.bulkError =
+            batches.length > 1
+              ? `Stopped at batch ${this.bulkBatchDone + 1} of ${batches.length} (${merged.created} row(s) already added): ${reason}`
+              : reason;
+          this.toast.error('Upload error', this.bulkError);
+          if (merged.created > 0) this.load();
+          this.cdr.markForCheck();
+        },
+        complete: () => {
+          if (merged.created > 0) {
             this.toast.success(
               'Uploaded',
-              `${res.created} employee(s) added` +
-                (res.failed > 0 ? `, ${res.failed} failed.` : '.'),
+              `${merged.created} employee(s) added` +
+                (merged.failed > 0 ? `, ${merged.failed} failed.` : '.'),
             );
             this.load();
           }
-          if (res.failed > 0 && res.created === 0) {
-            this.toast.error('Upload failed', `${res.failed} row(s) rejected by server.`);
+          if (merged.failed > 0 && merged.created === 0) {
+            this.toast.error('Upload failed', `${merged.failed} row(s) rejected by server.`);
           }
-        },
-        error: (err: any) => {
-          this.toast.error(
-            'Upload error',
-            describeApiError(err, 'Server error.'),
-          );
         },
       });
   }
