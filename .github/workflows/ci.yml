@@ -78,6 +78,7 @@ jobs:
           node scripts/validate-endpoint-role-options.cjs
           node -r ts-node/register scripts/test-monthly-close-db.js
           node scripts/test-payroll-reconciliation-db.js
+          node scripts/validate-contractor-punch-list.cjs
       - name: Patched dependency runtime smoke
         run: node scripts/security-dependency-smoke.cjs
       - name: Boot check (entity metadata + DB connect)

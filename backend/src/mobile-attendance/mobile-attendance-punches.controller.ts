@@ -247,14 +247,18 @@ export class MobileAttendancePunchesController {
     @Query('limit') limit?: string,
   ) {
     const clientId = requireMobileAttendanceClient(user);
-    const rows = await this.punchService.listContractorPunches(clientId, {
-      from,
-      to,
-      branchId,
-      contractorEmployeeId,
-      contractorUserId,
-      limit: limit ? Number(limit) : undefined,
-    });
+    const rows = await this.punchService.listContractorPunches(
+      clientId,
+      {
+        from,
+        to,
+        branchId,
+        contractorEmployeeId,
+        contractorUserId,
+        limit: limit ? Number(limit) : undefined,
+      },
+      mobileAttendanceBranchScope(user),
+    );
     const photosAllowed = mobileAttendanceVerificationPhotosAllowed(user);
     if (!photosAllowed) {
       return redactMobileAttendancePhotoFields(
@@ -283,7 +287,11 @@ export class MobileAttendancePunchesController {
     },
   ) {
     const clientId = requireMobileAttendanceClient(user);
-    return this.punchService.createContractorPunch(clientId, body);
+    return this.punchService.createContractorPunch(
+      clientId,
+      body,
+      mobileAttendanceBranchScope(user),
+    );
   }
 
   @ApiOperation({ summary: 'Admin — update a contractor punch' })
@@ -295,7 +303,12 @@ export class MobileAttendancePunchesController {
     @Body() body: { punchTime?: string; direction?: string },
   ) {
     const clientId = requireMobileAttendanceClient(user);
-    return this.punchService.updateContractorPunch(clientId, id, body);
+    return this.punchService.updateContractorPunch(
+      clientId,
+      id,
+      body,
+      mobileAttendanceBranchScope(user),
+    );
   }
 
   @ApiOperation({ summary: 'Admin — delete a contractor punch' })
@@ -303,6 +316,10 @@ export class MobileAttendancePunchesController {
   @Roles('CLIENT', 'ADMIN')
   deleteContractorPunch(@Param('id') id: string, @CurrentUser() user: ReqUser) {
     const clientId = requireMobileAttendanceClient(user);
-    return this.punchService.deleteContractorPunch(clientId, id);
+    return this.punchService.deleteContractorPunch(
+      clientId,
+      id,
+      mobileAttendanceBranchScope(user),
+    );
   }
 }
