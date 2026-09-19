@@ -8,8 +8,8 @@ import { createGlobalValidationPipe } from '../common/validators/global-validati
 
 describe('payroll/setup', () => {
   it('is behind the payroll configuration scope guard', () => {
-    // It had JwtAuthGuard and RolesGuard only, so any PAYROLL user could work
-    // on any client's setup by naming it in the path.
+    // The global ScopeGuard checks :clientId only; the rule and slab routes act
+    // on ids, so without this a caller's own clientId fronted anyone's rule.
     const guards = Reflect.getMetadata(GUARDS_METADATA, PayrollSetupController);
     expect(guards).toContain(PayrollConfigurationScopeGuard);
   });

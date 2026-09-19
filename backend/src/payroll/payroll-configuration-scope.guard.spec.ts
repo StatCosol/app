@@ -189,10 +189,11 @@ describe.each([
 });
 
 /**
- * payroll/setup had no scope guard at all: PAYROLL users could read and change
- * any client's setup, components, rules and slabs by putting that client's id
- * in the path. Its service acts on componentId / ruleId alone, so the guard
- * resolves their stored owner rather than trusting :clientId.
+ * payroll/setup relied on the global ScopeGuard alone. That checks the path's
+ * :clientId against the caller's assignment — but the rule and slab routes act
+ * on componentId / ruleId only, so a PAYROLL user could name their OWN client
+ * and another client's rule id and list, edit or delete that client's rules and
+ * slabs. The guard resolves each id to its stored owner instead.
  */
 describe('payroll/setup client isolation', () => {
   const C = '00000000-0000-4000-8000-00000000000c';
