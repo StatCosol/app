@@ -498,7 +498,11 @@ export class ClientEmployeesController {
     const emp = await this.svc.findById(clientId, id);
     if (emp.branchId)
       await this.branchAccess.assertBranchAccess(user.userId, emp.branchId);
-    return this.svc.createNomination(id, body);
+    return this.svc.createNomination(id, body, {
+      clientId,
+      branchId: emp.branchId ?? null,
+      userId: user.userId,
+    });
   }
 
   @ApiOperation({ summary: 'List Nominations' })
@@ -550,6 +554,7 @@ export class ClientEmployeesController {
         }>;
       }>
     ).filter((n) => n.nominationType === upperType);
+    rankNominationsForForm(typeNominations);
 
     const buffer = await buildNominationPdf(upperType, emp, typeNominations);
 
@@ -625,6 +630,7 @@ export class ClientEmployeesController {
         }>;
       }>
     ).filter((n) => n.nominationType === upperType);
+    rankNominationsForForm(typeNominations);
 
     const buffer = await buildNominationPdf(upperType, emp, typeNominations);
 
@@ -1613,4 +1619,31 @@ export class ClientEmployeesController {
     });
     return Buffer.from(await Packer.toBuffer(docxDoc));
   }
+}
+
+/**
+ * Order nominations of one type so the one a statutory form should show comes
+ * first: the PDF builder prints nominations[0].
+ *
+ * It printed the newest regardless — so an employee's newest record being an
+ * empty draft (a branch-desk save that failed between 9 May and 19 Sep, when
+ * the pipe emptied nominees) printed a blank form over an older, complete,
+ * approved one. Preference: has nominees, then APPROVED > SUBMITTED > DRAFT >
+ * anything else, then newest.
+ */
+export function rankNominationsForForm<
+  T extends {
+    status?: string;
+    members?: unknown[];
+    createdAt?: Date | string;
+  },
+>(nominations: T[]): T[] {
+  const rank: Record<string, number> = { APPROVED: 0, SUBMITTED: 1, DRAFT: 2 };
+  const time = (n: T) => (n.createdAt ? new Date(n.createdAt).getTime() : 0);
+  return nominations.sort(
+    (a, b) =>
+      Number(!(a.members?.length ?? 0)) - Number(!(b.members?.length ?? 0)) ||
+      (rank[a.status ?? ''] ?? 3) - (rank[b.status ?? ''] ?? 3) ||
+      time(b) - time(a),
+  );
 }

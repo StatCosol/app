@@ -24,10 +24,15 @@
  *   - DRAFT with no nominees → left alone. The employee can still edit a
  *     draft, and cannot submit it empty any more.
  *
- * --delete-orphans additionally deletes client/admin-side DRAFTs with no
- * nominees that a later nomination of the same type, for the same employee,
- * WITH nominees has superseded — the debris of failed attempts. Off by default:
- * deletion is not reversible.
+ * --delete-orphans additionally deletes DRAFTs with no nominees that a later
+ * nomination of the same type, for the same employee, WITH nominees has
+ * superseded — the debris of failed attempts. Off by default: deletion is not
+ * reversible.
+ *
+ * Origin is not used to pick them. The branch-desk path saved client_id NULL,
+ * but the boot patch in main.ts backfills client_id from the employee on every
+ * start, so "client_id IS NULL" stops meaning "branch desk" after one deploy.
+ * The superseded rule is safe whichever path wrote the row.
  */
 import pg from 'pg';
 import { config as loadEnv } from 'dotenv';
@@ -72,7 +77,7 @@ const SUPERSEDED = `EXISTS (
 async function survey() {
   const byStatus = await client.query(
     `SELECT n.status,
-            CASE WHEN n.client_id IS NULL THEN 'client-admin' ELSE 'ess' END AS path,
+            CASE WHEN n.submitted_at IS NULL THEN 'never-submitted' ELSE 'submitted' END AS path,
             count(*)::int AS total,
             count(*) FILTER (WHERE ${EMPTY})::int AS no_nominees,
             count(*) FILTER (WHERE ${EMPTY} AND ${SUPERSEDED})::int AS no_nominees_superseded
@@ -141,7 +146,6 @@ async function main() {
       deleted = await client.query(
         `DELETE FROM employee_nominations n
           WHERE n.created_at >= $1
-            AND n.client_id IS NULL
             AND n.status = 'DRAFT'
             AND ${EMPTY}
             AND ${SUPERSEDED}

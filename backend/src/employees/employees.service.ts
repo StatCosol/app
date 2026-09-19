@@ -705,7 +705,22 @@ export class EmployeesService {
 
   // ── Nominations ────────────────────────────────────────────
 
-  async createNomination(employeeId: string, dto: CreateEmployeeNominationDto) {
+  /**
+   * A nomination entered by the employer (branch desk / client).
+   *
+   * It used to be saved with no client, no branch and status DRAFT: invisible
+   * to every approvals queue (they filter on client and SUBMITTED), editable
+   * by the employee as if it were their own unsent draft, and only given a
+   * client when the next deploy's boot patch backfilled it. It now carries the
+   * employee's client and branch, and is recorded as APPROVED by the person
+   * who entered it — the employer's own entry is the verified record, not
+   * something awaiting the employer's approval.
+   */
+  async createNomination(
+    employeeId: string,
+    dto: CreateEmployeeNominationDto,
+    enteredBy?: { clientId: string; branchId: string | null; userId: string },
+  ) {
     if (!dto.nominationType) {
       throw new BadRequestException('nominationType is required');
     }
@@ -745,6 +760,16 @@ export class EmployeesService {
           declarationDate,
           witnessName,
           witnessAddress,
+          ...(enteredBy
+            ? {
+                clientId: enteredBy.clientId,
+                branchId: enteredBy.branchId,
+                status: 'APPROVED',
+                submittedAt: new Date(),
+                approvedAt: new Date(),
+                approvedByUserId: enteredBy.userId,
+              }
+            : {}),
         }),
       );
       if (nominees.length) {

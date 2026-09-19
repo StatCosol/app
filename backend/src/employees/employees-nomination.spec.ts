@@ -114,6 +114,27 @@ describe('EmployeesService.createNomination', () => {
     expect(saved).toEqual([]);
   });
 
+  it('records a branch-desk entry as approved, on the employee client and branch', async () => {
+    // It was saved DRAFT with no client or branch: in no approvals queue, and
+    // editable by the employee as their own unsent draft.
+    await service.createNomination(
+      'emp-1',
+      {
+        nominationType: 'PF',
+        members: [{ memberName: 'Lakshmi', sharePct: 100 }],
+      },
+      { clientId: 'client-a', branchId: 'branch-1', userId: 'desk-user' },
+    );
+    expect(saved[0]).toEqual(
+      expect.objectContaining({
+        clientId: 'client-a',
+        branchId: 'branch-1',
+        status: 'APPROVED',
+        approvedByUserId: 'desk-user',
+      }),
+    );
+  });
+
   it('does not leave a nomination behind when its nominees fail to save', async () => {
     failMembers = true;
     await expect(

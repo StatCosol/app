@@ -4,6 +4,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { ClientEmployeesService, Employee, EmployeeNomination } from '../../client/employees/client-employees.service';
+import { describeApiError } from '../../../shared/utils/api-error.util';
 import {
   ActionButtonComponent,
   StatusBadgeComponent,
@@ -204,7 +205,10 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           @if (loadingNoms) {
 <ui-loading-spinner text="Loading nominations..."></ui-loading-spinner>
 }
-          @if (!loadingNoms && nominations.length === 0) {
+          @if (!loadingNoms && nomsError) {
+<div class="text-sm text-red-600" role="alert">Could not load nominations: {{ nomsError }}</div>
+}
+          @if (!loadingNoms && !nomsError && nominations.length === 0) {
 <div class="text-sm text-gray-500">
             No nominations recorded for this employee yet.
           </div>
@@ -349,6 +353,8 @@ export class BranchEmployeeDetailComponent implements OnInit, OnDestroy {
   provisioningEss = false;
   essResult: any = null;
   nominations: EmployeeNomination[] = [];
+  /** A failed load, shown as such — it used to read as "No nominations recorded". */
+  nomsError = '';
   loadingNoms = false;
   printingNomination = '';
 
@@ -520,8 +526,11 @@ export class BranchEmployeeDetailComponent implements OnInit, OnDestroy {
       takeUntil(this.destroy$),
       finalize(() => { this.loadingNoms = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (list) => { this.nominations = list || []; },
-      error: () => { this.nominations = []; },
+      next: (list) => { this.nomsError = ''; this.nominations = list || []; },
+      error: (e) => {
+        this.nominations = [];
+        this.nomsError = describeApiError(e, 'Please try again.');
+      },
     });
   }
 
