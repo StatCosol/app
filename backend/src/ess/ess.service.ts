@@ -27,6 +27,7 @@ import {
   CreateEssNominationDto,
   ResubmitNominationDto,
   UpdateEssNominationDto,
+  NominationMemberInput,
   ApplyLeaveDto,
   CreateLeavePolicyDto,
   UpdateLeavePolicyDto,
@@ -1228,41 +1229,73 @@ export class EssService {
     // Determine status: save as DRAFT or directly SUBMITTED
     const asDraft = dto.asDraft === true;
 
-    const nom = this.nomRepo.create({
-      employeeId: empId,
-      clientId: emp.clientId,
-      branchId: emp.branchId,
-      nominationType:
-        dto.nominationType as EmployeeNominationEntity['nominationType'],
-      declarationDate: dto.declarationDate || null,
-      witnessName: dto.witnessName || null,
-      witnessAddress: dto.witnessAddress || null,
-      status: asDraft ? 'DRAFT' : 'SUBMITTED',
-      submittedAt: asDraft ? null : new Date(),
-    });
-    const saved = await this.nomRepo.save(nom);
-
-    // Save members
+    // Validate before anything is written. The header used to be saved first,
+    // so a share-total or guardian error left a nominee-less nomination behind.
     const members = this.validateNominationMembers(dto.members ?? []);
-    if (members.length) {
-      const entities = members.map((m) =>
-        this.nomMemberRepo.create({
-          nominationId: saved.id,
-          memberName: m.memberName!.trim(),
-          relationship: m.relationship || null,
-          dateOfBirth: m.dateOfBirth || null,
-          sharePct: String(m.sharePct ?? 0),
-          address: m.address || null,
-          isMinor: !!m.isMinor,
-          guardianName: m.guardianName || null,
-          guardianRelationship: m.guardianRelationship || null,
-          guardianAddress: m.guardianAddress || null,
+    if (!asDraft) await this.assertSubmittable(null, members.length);
+
+    const saved = await this.nomRepo.manager.transaction(async (em) => {
+      const nom = await em.save(
+        this.nomRepo.create({
+          employeeId: empId,
+          clientId: emp.clientId,
+          branchId: emp.branchId,
+          nominationType:
+            dto.nominationType as EmployeeNominationEntity['nominationType'],
+          declarationDate: dto.declarationDate || null,
+          witnessName: dto.witnessName || null,
+          witnessAddress: dto.witnessAddress || null,
+          status: asDraft ? 'DRAFT' : 'SUBMITTED',
+          submittedAt: asDraft ? null : new Date(),
         }),
       );
-      await this.nomMemberRepo.save(entities);
-    }
+      if (members.length)
+        await em.save(this.nominationMemberEntities(nom.id, members));
+      return nom;
+    });
 
     return { id: saved.id, status: saved.status };
+  }
+
+  /** The one place a validated nominee becomes a row. */
+  private nominationMemberEntities(
+    nominationId: string,
+    members: NominationMemberInput[],
+  ): EmployeeNominationMemberEntity[] {
+    return members.map((m) =>
+      this.nomMemberRepo.create({
+        nominationId,
+        memberName: m.memberName!.trim(),
+        relationship: m.relationship || null,
+        dateOfBirth: m.dateOfBirth || null,
+        sharePct: String(m.sharePct ?? 0),
+        address: m.address || null,
+        isMinor: !!m.isMinor,
+        guardianName: m.guardianName || null,
+        guardianRelationship: m.guardianRelationship || null,
+        guardianAddress: m.guardianAddress || null,
+      }),
+    );
+  }
+
+  /**
+   * A nomination may not reach SUBMITTED with no nominees — the state the
+   * pipe bug put nominations in from 2026-05-09 to 2026-09-19, which a branch
+   * could then approve. Satisfied by nominees in this request or, when the
+   * request sends none, by nominees already stored.
+   */
+  private async assertSubmittable(
+    nominationId: string | null,
+    incoming: number,
+  ): Promise<void> {
+    if (incoming > 0) return;
+    const stored = nominationId
+      ? await this.nomMemberRepo.count({ where: { nominationId } })
+      : 0;
+    if (!stored)
+      throw new BadRequestException(
+        'Add at least one nominee before submitting the nomination',
+      );
   }
 
   private validateNominationMembers<
@@ -1312,6 +1345,7 @@ export class EssService {
     if (nom.status !== 'DRAFT') {
       throw new BadRequestException('Only DRAFT nominations can be submitted');
     }
+    await this.assertSubmittable(nominationId, 0);
     nom.status = 'SUBMITTED';
     nom.submittedAt = new Date();
     nom.rejectionReason = null;
@@ -1336,6 +1370,9 @@ export class EssService {
       );
     }
 
+    const members = this.validateNominationMembers(dto.members ?? []);
+    await this.assertSubmittable(nominationId, members.length);
+
     // Allow updating fields on resubmit
     if (dto.witnessName !== undefined) nom.witnessName = dto.witnessName;
     if (dto.witnessAddress !== undefined)
@@ -1348,28 +1385,15 @@ export class EssService {
     nom.rejectionReason = null;
     nom.approvedAt = null;
     nom.approvedByUserId = null;
-    await this.nomRepo.save(nom);
 
-    // Replace members if provided
-    const members = this.validateNominationMembers(dto.members ?? []);
-    if (members.length) {
-      await this.nomMemberRepo.delete({ nominationId });
-      const entities = members.map((m) =>
-        this.nomMemberRepo.create({
-          nominationId,
-          memberName: m.memberName!.trim(),
-          relationship: m.relationship || null,
-          dateOfBirth: m.dateOfBirth || null,
-          sharePct: String(m.sharePct ?? 0),
-          address: m.address || null,
-          isMinor: !!m.isMinor,
-          guardianName: m.guardianName || null,
-          guardianRelationship: m.guardianRelationship || null,
-          guardianAddress: m.guardianAddress || null,
-        }),
-      );
-      await this.nomMemberRepo.save(entities);
-    }
+    await this.nomRepo.manager.transaction(async (em) => {
+      await em.save(nom);
+      // Replace members if provided
+      if (members.length) {
+        await em.delete(EmployeeNominationMemberEntity, { nominationId });
+        await em.save(this.nominationMemberEntities(nominationId, members));
+      }
+    });
 
     return { ok: true, status: 'SUBMITTED' };
   }
@@ -1391,6 +1415,10 @@ export class EssService {
       );
     }
 
+    const asDraft = dto.asDraft !== false;
+    const members = this.validateNominationMembers(dto.members ?? []);
+    if (!asDraft) await this.assertSubmittable(nominationId, members.length);
+
     if (dto.declarationDate !== undefined)
       nom.declarationDate = dto.declarationDate || null;
     if (dto.witnessName !== undefined)
@@ -1398,34 +1426,24 @@ export class EssService {
     if (dto.witnessAddress !== undefined)
       nom.witnessAddress = dto.witnessAddress || null;
 
-    const asDraft = dto.asDraft !== false;
+    // Read before the status is overwritten. This compared the NEW status with
+    // 'APPROVED' — never true — so an approved nomination sent back for review
+    // kept its old approver and approval time while it sat in the queue.
+    const wasApproved = nom.status === 'APPROVED';
     nom.status = asDraft ? 'DRAFT' : 'SUBMITTED';
     nom.submittedAt = asDraft ? null : new Date();
-    if (!asDraft && nom.status === 'APPROVED') {
+    if (wasApproved) {
       nom.approvedAt = null;
       nom.approvedByUserId = null;
     }
-    await this.nomRepo.save(nom);
 
-    const members = this.validateNominationMembers(dto.members ?? []);
-    if (members.length) {
-      await this.nomMemberRepo.delete({ nominationId });
-      const entities = members.map((m) =>
-        this.nomMemberRepo.create({
-          nominationId,
-          memberName: m.memberName!.trim(),
-          relationship: m.relationship || null,
-          dateOfBirth: m.dateOfBirth || null,
-          sharePct: String(m.sharePct ?? 0),
-          address: m.address || null,
-          isMinor: !!m.isMinor,
-          guardianName: m.guardianName || null,
-          guardianRelationship: m.guardianRelationship || null,
-          guardianAddress: m.guardianAddress || null,
-        }),
-      );
-      await this.nomMemberRepo.save(entities);
-    }
+    await this.nomRepo.manager.transaction(async (em) => {
+      await em.save(nom);
+      if (members.length) {
+        await em.delete(EmployeeNominationMemberEntity, { nominationId });
+        await em.save(this.nominationMemberEntities(nominationId, members));
+      }
+    });
 
     return { ok: true, status: nom.status };
   }
