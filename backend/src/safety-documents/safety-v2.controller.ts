@@ -20,7 +20,7 @@ import { SafetyDocumentsService } from './safety-documents.service';
 import { UploadSafetyDocumentDto } from './dto/upload-safety-document.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ReqUser } from '../access/access-scope.service';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
 
 @ApiTags('Safety Documents')
@@ -32,22 +32,30 @@ export class SafetyV2Controller {
   constructor(
     private readonly safetySvc: SafetyRequirementService,
     private readonly safetyDocsSvc: SafetyDocumentsService,
+    private readonly access: AccessScopeService,
   ) {}
 
   /** GET /api/v1/branch/:branchId/safety/required */
   @ApiOperation({ summary: 'Get Required' })
   @Get(':branchId/safety/required')
-  getRequired(@Param('branchId') branchId: string) {
+  async getRequired(
+    @CurrentUser() user: ReqUser,
+    @Param('branchId') branchId: string,
+  ) {
+    // By path alone any CLIENT/CRM user could read any company's branch.
+    await this.access.assertBranchAllowed(user, branchId);
     return this.safetySvc.getRequired(branchId);
   }
 
   /** GET /api/v1/branch/:branchId/safety/status */
   @ApiOperation({ summary: 'Get Branch Safety Status' })
   @Get(':branchId/safety/status')
-  getStatus(
+  async getStatus(
+    @CurrentUser() user: ReqUser,
     @Param('branchId') branchId: string,
     @Query('month') _month?: string,
   ) {
+    await this.access.assertBranchAllowed(user, branchId);
     // Month is accepted for compatibility with existing frontend calls.
     return this.safetySvc.getStatus(branchId);
   }
@@ -65,6 +73,9 @@ export class SafetyV2Controller {
     @CurrentUser() user: ReqUser,
   ) {
     assertSafeFile(file);
+    // The document takes the caller's clientId but the path's branch; without
+    // this a CLIENT user could file a document against another company's branch.
+    await this.access.assertBranchAllowed(user, branchId);
     const userId = user.userId || user.id;
     const clientId = user.clientId || null;
     if (!userId || !clientId) {

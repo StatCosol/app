@@ -2,12 +2,17 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EmployeeDocumentEntity } from './entities/employee-document.entity';
+import { EmployeeEntity } from './entities/employee.entity';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 
 @Injectable()
 export class EmployeeDocumentService {
   constructor(
     @InjectRepository(EmployeeDocumentEntity)
     private readonly repo: Repository<EmployeeDocumentEntity>,
+    @InjectRepository(EmployeeEntity)
+    private readonly empRepo: Repository<EmployeeEntity>,
+    private readonly access: AccessScopeService,
   ) {}
 
   async upload(params: {
@@ -44,22 +49,37 @@ export class EmployeeDocumentService {
     });
   }
 
-  async findById(id: string) {
+  /**
+   * A document the caller may act on. Looked up by id alone, this used to let
+   * any CLIENT or CRM user download, verify or delete another company's
+   * employee documents. The branch comes from the employee, so a branch user
+   * is held to their own branches too.
+   */
+  async findForUser(id: string, user: ReqUser) {
     const doc = await this.repo.findOne({ where: { id } });
     if (!doc) throw new NotFoundException('Document not found');
+    const emp = await this.empRepo.findOne({
+      where: { id: doc.employeeId },
+      select: ['id', 'branchId'],
+    });
+    await this.access.assertDocumentInScope(user, {
+      clientId: doc.clientId,
+      branchId: emp?.branchId ?? null,
+    });
     return doc;
   }
 
-  async verify(id: string, userId: string) {
-    const doc = await this.findById(id);
+  async verify(id: string, user: ReqUser) {
+    const doc = await this.findForUser(id, user);
+    const userId = user.userId;
     doc.isVerified = true;
     doc.verifiedByUserId = userId;
     doc.verifiedAt = new Date();
     return this.repo.save(doc);
   }
 
-  async remove(id: string) {
-    const doc = await this.findById(id);
+  async remove(id: string, user: ReqUser) {
+    const doc = await this.findForUser(id, user);
     await this.repo.remove(doc);
     return { deleted: true };
   }

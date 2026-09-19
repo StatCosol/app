@@ -5,7 +5,13 @@ import {
   IsUUID,
   MaxLength,
   IsEnum,
+  IsInt,
+  IsNumber,
+  Max,
+  Min,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { OmitType, PartialType } from '@nestjs/swagger';
 
 export class CreateClraPeEstablishmentDto {
   @IsUUID()
@@ -310,7 +316,18 @@ export class CreateClraWagePeriodDto {
   @IsString()
   periodTo: string;
 
+  // These two had no decorator, so the global pipe (forbidNonWhitelisted)
+  // rejected every wage period the screens tried to create.
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
   wageMonth: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
   wageYear: number;
 
   @IsOptional()
@@ -359,18 +376,24 @@ export class UpsertClraWageDto {
   @IsUUID()
   workerDeploymentId: string;
 
-  daysWorked: number;
-  basicWage: number;
-  da?: number;
-  hra?: number;
-  otWages?: number;
-  allowances?: number;
-  grossWages: number;
-  pfDeduction?: number;
-  esiDeduction?: number;
-  ptDeduction?: number;
+  // None of these had a decorator, so every wage row was rejected with
+  // "property daysWorked should not exist" and the rest.
+  @Type(() => Number) @IsNumber() @Min(0) @Max(31) daysWorked: number;
+  @Type(() => Number) @IsNumber() @Min(0) basicWage: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) da?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) hra?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) otWages?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) allowances?: number;
+  @Type(() => Number) @IsNumber() @Min(0) grossWages: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) pfDeduction?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) esiDeduction?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) ptDeduction?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
   otherDeductions?: number;
-  netWages: number;
+  @Type(() => Number) @IsNumber() netWages: number;
 }
 
 export class CreateClraRegisterRunDto {
@@ -394,3 +417,33 @@ export class CreateClraRegisterRunDto {
   @IsString()
   fileUrl?: string;
 }
+
+/*
+ * Update bodies. The PUT routes took `Partial<CreateXDto>` — a TypeScript
+ * type, not a class — so the global pipe skipped them entirely: any column
+ * could be written, including the ids that tie a record to its client.
+ * PartialType keeps every field's validation and makes it optional.
+ */
+export class UpdateClraPeEstablishmentDto extends PartialType(
+  CreateClraPeEstablishmentDto,
+) {}
+export class UpdateClraContractorDto extends PartialType(
+  CreateClraContractorDto,
+) {}
+export class UpdateClraAssignmentDto extends PartialType(
+  CreateClraAssignmentDto,
+) {}
+export class UpdateClraWorkerDto extends PartialType(CreateClraWorkerDto) {}
+export class UpdateClraDeploymentDto extends PartialType(
+  CreateClraDeploymentDto,
+) {}
+
+/**
+ * The contractor portal's worker create. It took
+ * `Omit<CreateClraWorkerDto, 'contractorId'>` — a type, so unvalidated — and
+ * spread it into the entity: a body carrying another worker's `id` turned the
+ * insert into an update of that worker, reassigned to the caller.
+ */
+export class CreateMyClraWorkerDto extends OmitType(CreateClraWorkerDto, [
+  'contractorId',
+] as const) {}

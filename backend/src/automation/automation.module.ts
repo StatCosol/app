@@ -51,9 +51,11 @@ import { ReturnsFilingGeneratorJob } from './jobs/returns-filing-generator.job';
 // Sibling modules
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AuthModule } from '../auth/auth.module';
+import { AccessModule } from '../access/access.module';
 
 @Module({
   imports: [
+    AccessModule,
     UnitsModule,
     AiModule,
     TypeOrmModule.forFeature([

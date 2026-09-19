@@ -558,7 +558,11 @@ export class PayrollProcessingController {
   @ApiOperation({ summary: 'List applicable templates for a branch' })
   @Get('register-templates/branch/:branchId')
   @Roles('PAYROLL', 'ADMIN', 'CRM')
-  listBranchTemplates(@Param('branchId') branchId: string) {
+  async listBranchTemplates(
+    @CurrentUser() user: ReqUser,
+    @Param('branchId') branchId: string,
+  ) {
+    await this.access.assertBranchAllowed(user, branchId);
     return this.register.listTemplatesForBranch(branchId);
   }
 

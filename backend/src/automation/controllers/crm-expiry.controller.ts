@@ -1,4 +1,5 @@
 import {
+  NotFoundException,
   Controller,
   Get,
   Param,
@@ -14,7 +15,8 @@ import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { ExpiryTaskService } from '../services/expiry-task.service';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
-import { ReqUser } from '../../access/access-scope.service';
+import { AccessScopeService, ReqUser } from '../../access/access-scope.service';
+import { DataSource } from 'typeorm';
 
 @ApiTags('CRM – Expiry Tasks')
 @ApiBearerAuth('JWT')
@@ -22,7 +24,11 @@ import { ReqUser } from '../../access/access-scope.service';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'CRM')
 export class CrmExpiryController {
-  constructor(private readonly expiryTaskService: ExpiryTaskService) {}
+  constructor(
+    private readonly expiryTaskService: ExpiryTaskService,
+    private readonly access: AccessScopeService,
+    private readonly ds: DataSource,
+  ) {}
 
   @ApiOperation({ summary: 'List expiry tasks for CRM' })
   @Get()
@@ -46,9 +52,17 @@ export class CrmExpiryController {
   @ApiOperation({ summary: 'Update expiry task status' })
   @Patch(':id/status')
   async updateStatus(
+    @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { status: string; notes?: string },
   ) {
+    // By id alone a CRM could change any client's expiry task.
+    const [task] = await this.ds.query(
+      `SELECT branch_id FROM registration_expiry_tasks WHERE id = $1`,
+      [id],
+    );
+    if (!task) throw new NotFoundException('Expiry task not found');
+    await this.access.assertBranchAllowed(user, task.branch_id);
     return this.expiryTaskService.updateStatus(id, body.status, body.notes);
   }
 }

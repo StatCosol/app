@@ -16,6 +16,7 @@ import { ClraWagePeriod } from './entities/clra-wage-period.entity';
 import { ClraAttendance } from './entities/clra-attendance.entity';
 import { ClraWage } from './entities/clra-wage.entity';
 import { ClraRegisterRun } from './entities/clra-register-run.entity';
+import type { ClraListScope } from './clra-access.service';
 import {
   CreateClraPeEstablishmentDto,
   CreateClraContractorDto,
@@ -72,11 +73,22 @@ export class ClraAssignmentsService {
     return this.peRepo.save(entity);
   }
 
-  async listPeEstablishments(clientId: string): Promise<ClraPeEstablishment[]> {
-    return this.peRepo.find({
-      where: { clientId, active: true },
-      order: { establishmentName: 'ASC' },
-    });
+  /**
+   * `scope` limits the list to the caller's clients (see ClraAccessService).
+   * Without it this was `where: { clientId }`, and TypeORM drops an undefined
+   * value — so a caller who left clientId off got every company's PEs.
+   */
+  async listPeEstablishments(
+    clientId?: string,
+    scope?: ClraListScope,
+  ): Promise<ClraPeEstablishment[]> {
+    const qb = this.peRepo
+      .createQueryBuilder('pe')
+      .where('pe.active = true')
+      .orderBy('pe.establishmentName', 'ASC');
+    if (clientId) qb.andWhere('pe.clientId = :clientId', { clientId });
+    if (scope && !applyPeScope(qb, 'pe', scope)) return [];
+    return qb.getMany();
   }
 
   async getPeEstablishment(id: string): Promise<ClraPeEstablishment> {
@@ -110,11 +122,40 @@ export class ClraAssignmentsService {
     return this.contractorRepo.save(entity);
   }
 
-  async listContractors(): Promise<ClraContractor[]> {
-    return this.contractorRepo.find({
-      where: { active: true },
-      order: { legalName: 'ASC' },
-    });
+  /**
+   * Contractors belong to no single client, so with a scope they are the ones
+   * assigned at one of the caller's PEs — plus, for staff who create
+   * contractors before assigning them, those not assigned anywhere yet. This
+   * listed every contractor of every company to any CLIENT user.
+   */
+  async listContractors(
+    scope?: ClraListScope,
+    includeUnassigned = false,
+  ): Promise<ClraContractor[]> {
+    const qb = this.contractorRepo
+      .createQueryBuilder('c')
+      .where('c.active = true')
+      .orderBy('c.legalName', 'ASC');
+    if (scope) {
+      if (!scope.clientIds.length && !includeUnassigned) return [];
+      const inScope = this.assignmentRepo
+        .createQueryBuilder('a')
+        .select('1')
+        .innerJoin('a.peEstablishment', 'pe')
+        .where('a.contractorId = c.id');
+      const hasScope = applyPeScope(inScope, 'pe', scope);
+      const clauses: string[] = [];
+      if (hasScope) clauses.push(`EXISTS (${inScope.getQuery()})`);
+      if (includeUnassigned)
+        clauses.push(
+          'NOT EXISTS (SELECT 1 FROM clra_contractor_assignments x WHERE x.contractor_id = c.id)',
+        );
+      if (!clauses.length) return [];
+      qb.andWhere(`(${clauses.join(' OR ')})`).setParameters(
+        inScope.getParameters(),
+      );
+    }
+    return qb.getMany();
   }
 
   async getContractor(id: string): Promise<ClraContractor> {
@@ -151,15 +192,22 @@ export class ClraAssignmentsService {
   async listAssignments(
     contractorId?: string,
     peEstablishmentId?: string,
+    scope?: ClraListScope,
   ): Promise<ClraContractorAssignment[]> {
-    const where: any = {};
-    if (contractorId) where.contractorId = contractorId;
-    if (peEstablishmentId) where.peEstablishmentId = peEstablishmentId;
-    return this.assignmentRepo.find({
-      where,
-      relations: ['contractor', 'peEstablishment'],
-      order: { startDate: 'DESC' },
-    });
+    const qb = this.assignmentRepo
+      .createQueryBuilder('a')
+      .leftJoinAndSelect('a.contractor', 'contractor')
+      .leftJoinAndSelect('a.peEstablishment', 'pe')
+      .orderBy('a.startDate', 'DESC');
+    if (contractorId)
+      qb.andWhere('a.contractorId = :contractorId', { contractorId });
+    if (peEstablishmentId)
+      qb.andWhere('a.peEstablishmentId = :peEstablishmentId', {
+        peEstablishmentId,
+      });
+    // With no filter and no scope this returned every assignment of every company.
+    if (scope && !applyPeScope(qb, 'pe', scope)) return [];
+    return qb.getMany();
   }
 
   async getAssignment(id: string): Promise<ClraContractorAssignment> {
@@ -490,4 +538,31 @@ export class ClraAssignmentsService {
     );
     return period;
   }
+}
+
+/**
+ * Narrow a query to PEs in `scope`. Returns false when the scope is empty, so
+ * the caller can answer with nothing instead of running an unfiltered query.
+ * A PE with no branch is company-wide and visible to the company's branch users.
+ */
+function applyPeScope(
+  qb: { andWhere: (sql: string, params?: object) => unknown },
+  alias: string,
+  scope: NonNullable<ClraListScope>,
+): boolean {
+  if (!scope.clientIds.length) return false;
+  qb.andWhere(`${alias}.clientId IN (:...clraScopeClients)`, {
+    clraScopeClients: scope.clientIds,
+  });
+  if (scope.branchIds) {
+    if (!scope.branchIds.length) {
+      qb.andWhere(`${alias}.branchId IS NULL`);
+    } else {
+      qb.andWhere(
+        `(${alias}.branchId IS NULL OR ${alias}.branchId IN (:...clraScopeBranches))`,
+        { clraScopeBranches: scope.branchIds },
+      );
+    }
+  }
+  return true;
 }

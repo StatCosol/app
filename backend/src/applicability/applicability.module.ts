@@ -21,9 +21,12 @@ import { ApplicabilityController } from './applicability.controller';
 import { UnitActsController } from './unit-acts.controller';
 import { ApplicabilityEngineService } from './engine/applicability-engine.service';
 import { TaskGeneratorService } from './engine/task-generator.service';
+import { ApplicabilityScopeGuard } from './applicability-scope.guard';
+import { AccessModule } from '../access/access.module';
 
 @Module({
   imports: [
+    AccessModule,
     TypeOrmModule.forFeature([
       AeUnitEntity,
       AeUnitFactsEntity,
@@ -43,7 +46,11 @@ import { TaskGeneratorService } from './engine/task-generator.service';
     ]),
   ],
   controllers: [ApplicabilityController, UnitActsController],
-  providers: [ApplicabilityEngineService, TaskGeneratorService],
+  providers: [
+    ApplicabilityScopeGuard,
+    ApplicabilityEngineService,
+    TaskGeneratorService,
+  ],
   exports: [ApplicabilityEngineService],
 })
 export class ApplicabilityModule {}

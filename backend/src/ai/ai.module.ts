@@ -25,9 +25,11 @@ import { AiCostTrackingService } from './ai-cost-tracking.service';
 import { AiAuditObservationLearningService } from './ai-audit-observation-learning.service';
 import { AiController } from './ai.controller';
 import { AuthModule } from '../auth/auth.module';
+import { AccessModule } from '../access/access.module';
 
 @Module({
   imports: [
+    AccessModule,
     AuthModule,
     TypeOrmModule.forFeature([
       AiConfigurationEntity,

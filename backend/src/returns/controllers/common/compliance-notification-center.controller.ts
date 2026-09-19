@@ -13,7 +13,38 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../../auth/roles.guard';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
-import type { ReqUser } from '../../../access/access-scope.service';
+import {
+  AccessScopeService,
+  type ReqUser,
+} from '../../../access/access-scope.service';
+import { Roles } from '../../../auth/roles.decorator';
+import {
+  IsIn,
+  IsOptional,
+  IsString,
+  IsUUID,
+  IsDateString,
+  MaxLength,
+} from 'class-validator';
+
+/**
+ * The HTTP create. It took an inline object type — unvalidated — on a
+ * controller with no @Roles, so any signed-in user (EMPLOYEE, CONTRACTOR
+ * included) could post a notification to any role. Notifications are raised by
+ * the server itself (ReturnsService); this route is now for administrators.
+ */
+export class CreateComplianceNotificationDto {
+  @IsOptional() @IsUUID() clientId?: string;
+  @IsOptional() @IsUUID() branchId?: string;
+  @IsString() @MaxLength(30) role: string;
+  @IsString() @MaxLength(60) module: string;
+  @IsString() @MaxLength(255) title: string;
+  @IsOptional() @IsString() message?: string;
+  @IsOptional() @IsIn(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']) priority?: string;
+  @IsOptional() @IsString() @MaxLength(100) entityId?: string;
+  @IsOptional() @IsString() @MaxLength(60) entityType?: string;
+  @IsOptional() @IsDateString() dueDate?: string;
+}
 import { ComplianceNotificationCenterService } from '../../services/compliance-notification-center.service';
 
 @ApiTags('Compliance Notification Center')
@@ -23,7 +54,16 @@ import { ComplianceNotificationCenterService } from '../../services/compliance-n
 export class ComplianceNotificationCenterController {
   constructor(
     private readonly notificationService: ComplianceNotificationCenterService,
+    private readonly access: AccessScopeService,
   ) {}
+
+  /** null for a global role; otherwise the clients a list may show. */
+  private async scopeClientIds(user: ReqUser): Promise<string[] | null> {
+    const scope = await this.access.getScope(user);
+    if (scope.level === 'all') return null;
+    if (scope.level === 'clients') return scope.clientIds ?? [];
+    return scope.clientId ? [scope.clientId] : [];
+  }
 
   /**
    * `role` and `clientId` used to come straight off the query string with no
@@ -46,6 +86,7 @@ export class ComplianceNotificationCenterController {
       user.roleCode,
       this.resolveClientId(user, clientId),
       branchId,
+      await this.scopeClientIds(user),
     );
   }
 
@@ -60,6 +101,7 @@ export class ComplianceNotificationCenterController {
       user.roleCode,
       this.resolveClientId(user, clientId),
       branchId,
+      await this.scopeClientIds(user),
     );
   }
 
@@ -79,27 +121,17 @@ export class ComplianceNotificationCenterController {
 
   @Patch(':id/read')
   @ApiOperation({ summary: 'Mark notification as read' })
-  async markRead(@Param('id', ParseUUIDPipe) id: string) {
-    return this.notificationService.markRead(id);
+  async markRead(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.notificationService.markRead(id, user);
   }
 
   @Post()
+  @Roles('ADMIN', 'CEO', 'CCO')
   @ApiOperation({ summary: 'Create notification entry' })
-  async create(
-    @Body()
-    body: Partial<{
-      clientId: string;
-      branchId: string;
-      role: string;
-      module: string;
-      title: string;
-      message: string;
-      priority: string;
-      entityId: string;
-      entityType: string;
-      dueDate: string;
-    }>,
-  ) {
+  async create(@Body() body: CreateComplianceNotificationDto) {
     const payload: any = { ...body };
     if (payload.dueDate) payload.dueDate = new Date(payload.dueDate);
     return this.notificationService.createNotification(payload);
