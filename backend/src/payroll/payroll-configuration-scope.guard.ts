@@ -70,6 +70,31 @@ export class PayrollConfigurationScopeGuard implements CanActivate {
     };
     if (controller.includes('client-structures')) {
       await owner('payroll_client_structures', params.id);
+    } else if (controller === 'payroll/setup') {
+      // Every route here is :clientId/…, and the service acts on componentId /
+      // ruleId alone. So the stored owner of each must be the client in the
+      // path — otherwise a caller cleared for one client edits another's rules
+      // by putting their own clientId in front of someone else's ruleId.
+      await owner('payroll_components', params.componentId);
+      if (params.ruleId != null) {
+        if (typeof params.ruleId !== 'string' || !isUUID(params.ruleId))
+          throw new BadRequestException('Invalid payroll resource ID');
+        const [rule] = await this.ds.query(
+          `SELECT r.component_id, c.client_id
+             FROM payroll_component_rules r
+             JOIN payroll_components c ON c.id = r.component_id
+            WHERE r.id = $1`,
+          [params.ruleId],
+        );
+        if (
+          !rule ||
+          (params.componentId &&
+            String(rule.component_id).toLowerCase() !==
+              String(params.componentId).toLowerCase())
+        )
+          throw new NotFoundException('Payroll resource not found');
+        addClient(rule.client_id);
+      }
     } else {
       if (route.startsWith('structures/'))
         await owner('pay_salary_structures', params.id || params.structureId);
