@@ -44,7 +44,10 @@ export class SalaryRevisionController {
   @ApiOperation({ summary: 'Find One' })
   @Get(':id')
   @Roles('CLIENT', 'ADMIN', 'PAYROLL')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.service.findById(id);
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.service.findForUser(id, user);
   }
 }

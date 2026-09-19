@@ -9,6 +9,8 @@ import {
 import { Roles } from '../auth/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 import {
   CompliancePctService,
   BranchPctRow,
@@ -27,16 +29,22 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('compliance-pct')
 export class CompliancePctController {
-  constructor(private readonly pctSvc: CompliancePctService) {}
+  constructor(
+    private readonly pctSvc: CompliancePctService,
+    private readonly access: AccessScopeService,
+  ) {}
 
   @Version('1')
   @ApiOperation({ summary: 'Branch Pct' })
   @Get('branch/:branchId')
   @Roles('CRM', 'CLIENT', 'BRANCH', 'ADMIN', 'CCO', 'CEO')
-  branchPct(
+  async branchPct(
+    @CurrentUser() user: ReqUser,
     @Param('branchId') branchId: string,
     @Query('month') month?: string,
   ): Promise<PctSummary> {
+    // Any CLIENT/BRANCH user could read another company's branch by id.
+    await this.access.assertBranchAllowed(user, branchId);
     return this.pctSvc.branchPct(branchId, month);
   }
 
@@ -45,9 +53,11 @@ export class CompliancePctController {
   @Get('branch/:branchId/weighted')
   @Roles('CRM', 'CLIENT', 'BRANCH', 'ADMIN', 'CCO', 'CEO')
   async branchWeighted(
+    @CurrentUser() user: ReqUser,
     @Param('branchId') branchId: string,
     @Query('month') month?: string,
   ): Promise<{ compliancePct: number }> {
+    await this.access.assertBranchAllowed(user, branchId);
     const pct = await this.pctSvc.branchWeightedPct(branchId, month);
     return { compliancePct: pct };
   }

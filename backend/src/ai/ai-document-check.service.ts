@@ -185,6 +185,16 @@ Assess this document and provide additional issues and suggested fixes.`;
   }
 
   /** Fetch document row from contractor_documents */
+  /** The client and branch that own a contractor document, for scope checks. */
+  async documentOwner(
+    documentId: string,
+  ): Promise<{ clientId: string | null; branchId: string | null } | null> {
+    const doc = await this.fetchDocument(documentId);
+    return doc
+      ? { clientId: doc.client_id ?? null, branchId: doc.branch_id ?? null }
+      : null;
+  }
+
   private async fetchDocument(documentId: string): Promise<DocumentRow | null> {
     const rows = await this.dataSource.query(
       `SELECT cd.id, cd.document_name, cd.document_type,
@@ -333,8 +343,18 @@ Assess this document and provide additional issues and suggested fixes.`;
     branchId?: string;
     result?: string;
     limit?: number;
+    clientIds?: string[] | null;
   }): Promise<AiDocumentCheckEntity[]> {
     const qb = this.docCheckRepo.createQueryBuilder('dc');
+    const clientIds = opts.clientIds ?? null;
+    // null = every client (global roles). Otherwise the caller's clients: with
+    // no clientId this used to return every client's rows to CRM/AUDITOR.
+    if (clientIds) {
+      if (!clientIds.length) return [];
+      qb.andWhere('dc.clientId IN (:...scopeClientIds)', {
+        scopeClientIds: clientIds,
+      });
+    }
     if (opts.clientId)
       qb.andWhere('dc.clientId = :cid', { cid: opts.clientId });
     if (opts.branchId)

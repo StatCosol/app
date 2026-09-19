@@ -141,14 +141,21 @@ export class CrmListController {
   /** CRM Renewal timeline */
   @ApiOperation({ summary: 'Renewal Timeline' })
   @Get('renewals/:id/timeline')
-  renewalTimeline(@Param('id') id: string) {
+  async renewalTimeline(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+    // By id alone: any CRM read any client's renewal history. getForCrm is the
+    // detail route's own assignment check.
+    await this.returnsWorkflow.getForCrm(user, id);
     return this.auditLogs.findCombinedTimeline('RETURN_TASK', id, 'RENEWAL');
   }
 
   /** CRM Renewal approval history */
   @ApiOperation({ summary: 'Renewal Approval History' })
   @Get('renewals/:id/approval-history')
-  renewalApprovalHistory(@Param('id') id: string) {
+  async renewalApprovalHistory(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+  ) {
+    await this.returnsWorkflow.getForCrm(user, id);
     return this.auditLogs.findApprovalHistory('RENEWAL', id);
   }
 

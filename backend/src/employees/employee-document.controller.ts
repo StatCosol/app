@@ -78,8 +78,12 @@ export class EmployeeDocumentController {
   @ApiOperation({ summary: 'Download' })
   @Get('download/:id')
   @Roles('CLIENT', 'ADMIN', 'CRM')
-  async download(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
-    const doc = await this.docService.findById(id);
+  async download(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: ReqUser,
+    @Res() res: Response,
+  ) {
+    const doc = await this.docService.findForUser(id, user);
     if (!fs.existsSync(doc.filePath)) {
       throw new BadRequestException('File not found on disk');
     }
@@ -90,13 +94,13 @@ export class EmployeeDocumentController {
   @Post(':id/verify')
   @Roles('CLIENT', 'ADMIN')
   verify(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: ReqUser) {
-    return this.docService.verify(id, user.userId);
+    return this.docService.verify(id, user);
   }
 
   @ApiOperation({ summary: 'Remove' })
   @Delete(':id')
   @Roles('CLIENT', 'ADMIN')
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.docService.remove(id);
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: ReqUser) {
+    return this.docService.remove(id, user);
   }
 }

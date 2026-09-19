@@ -754,6 +754,16 @@ export class NotificationsService {
 
     const parent = await repo.findOne({ where: { id: parentNotificationId } });
     if (!parent) throw new NotFoundException('Parent notification not found.');
+    // Anyone could reply into any notification by id, and the reply goes to
+    // the parent's sender. Same rule as the thread endpoints: a participant,
+    // or a global role.
+    if (
+      !this.canAccessThread(
+        { id: fromUser.id, roleCode: fromUser.role } as ReqUser,
+        parent,
+      )
+    )
+      throw new NotFoundException('Parent notification not found.');
 
     // reply goes back to original sender
     const saved = await repo.save(

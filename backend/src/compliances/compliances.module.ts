@@ -27,9 +27,11 @@ import { RiskMonitorCronService } from './risk-monitor-cron.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { EscalationsModule } from '../escalations/escalations.module';
 import { EmailModule } from '../email/email.module';
+import { AccessModule } from '../access/access.module';
 
 @Module({
   imports: [
+    AccessModule,
     TypeOrmModule.forFeature([
       ComplianceMasterEntity,
       ComplianceApplicabilityEntity,

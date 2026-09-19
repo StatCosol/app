@@ -30,6 +30,9 @@ import {
   UpsertClraAttendanceDto,
   UpsertClraWageDto,
   CreateClraRegisterRunDto,
+  CreateMyClraWorkerDto,
+  UpdateClraWorkerDto,
+  UpdateClraDeploymentDto,
 } from './clra-assignments.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -71,7 +74,7 @@ export class ClraContractorPortalController {
   @Post('workers')
   async createWorker(
     @CurrentUser() user: ReqUser,
-    @Body() dto: Omit<CreateClraWorkerDto, 'contractorId'>,
+    @Body() dto: CreateMyClraWorkerDto,
   ) {
     const c = await this.contractor(user);
     return this.svc.createWorker({ ...dto, contractorId: c.id });
@@ -81,7 +84,7 @@ export class ClraContractorPortalController {
   async updateWorker(
     @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: Partial<CreateClraWorkerDto>,
+    @Body() dto: UpdateClraWorkerDto,
   ) {
     const c = await this.contractor(user);
     await this.svc.assertWorkerBelongsToContractor(id, c.id);
@@ -114,10 +117,18 @@ export class ClraContractorPortalController {
   async updateDeployment(
     @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: Partial<CreateClraDeploymentDto>,
+    @Body() dto: UpdateClraDeploymentDto,
   ) {
     const c = await this.contractor(user);
     await this.svc.assertDeploymentBelongsToContractor(id, c.id);
+    // Moving a deployment is allowed only within the caller's own chain.
+    if (dto.assignmentId)
+      await this.svc.assertAssignmentBelongsToContractor(
+        dto.assignmentId,
+        c.id,
+      );
+    if (dto.workerId)
+      await this.svc.assertWorkerBelongsToContractor(dto.workerId, c.id);
     return this.svc.updateDeployment(id, dto);
   }
 

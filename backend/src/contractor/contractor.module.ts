@@ -55,6 +55,7 @@ import { MinimumWageController } from './contractor-employees/minimum-wage.contr
 import { ClraAssignmentsController } from './clra-assignments.controller';
 import { ClraContractorPortalController } from './clra-contractor-portal.controller';
 import { ClraAssignmentsService } from './clra-assignments.service';
+import { ClraAccessService } from './clra-access.service';
 import { ClraPeEstablishment } from './entities/clra-pe-establishment.entity';
 import { ClraContractor } from './entities/clra-contractor.entity';
 import { ClraContractorAssignment } from './entities/clra-contractor-assignment.entity';
@@ -153,6 +154,7 @@ import { PayrollClientSetupEntity } from '../payroll/entities/payroll-client-set
     ContractorEmployeesService,
     MinimumWageService,
     ClraAssignmentsService,
+    ClraAccessService,
     ContractorComputationService,
   ],
 })

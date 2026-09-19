@@ -7,6 +7,7 @@ import { CronLoggerService } from './services/cron-logger.service';
 import { CronLockService } from './services/cron-lock.service';
 import { ExcelExportService } from './services/excel-export.service';
 import { CronExecutionLogEntity } from './entities/cron-execution-log.entity';
+import { AccessModule } from '../access/access.module';
 
 /**
  * SharedModule provides common, cross-cutting services that have no entity
@@ -16,7 +17,7 @@ import { CronExecutionLogEntity } from './entities/cron-execution-log.entity';
  */
 @Global()
 @Module({
-  imports: [TypeOrmModule.forFeature([CronExecutionLogEntity])],
+  imports: [AccessModule, TypeOrmModule.forFeature([CronExecutionLogEntity])],
   controllers: [CompliancePctController],
   providers: [
     CompliancePctService,

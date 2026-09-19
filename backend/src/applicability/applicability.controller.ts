@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { ApplicabilityScopeGuard } from './applicability-scope.guard';
 import { Roles } from '../auth/roles.decorator';
 import { DataSource } from 'typeorm';
 
@@ -28,7 +29,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 @ApiTags('Applicability')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'ae/units', version: '1' })
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ApplicabilityScopeGuard)
 @Roles('ADMIN', 'CRM')
 export class ApplicabilityController {
   constructor(

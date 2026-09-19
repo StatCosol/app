@@ -751,7 +751,11 @@ export class AiRiskEngineService {
   }
 
   /** Get active insights */
-  async getInsights(clientId?: string, limit = 50): Promise<AiInsightEntity[]> {
+  async getInsights(
+    clientId?: string,
+    limit = 50,
+    clientIds: string[] | null = null,
+  ): Promise<AiInsightEntity[]> {
     const qb = this.insightRepo
       .createQueryBuilder('i')
       .where('i.isDismissed = false')
@@ -759,6 +763,14 @@ export class AiRiskEngineService {
 
     if (clientId) {
       qb.andWhere('i.clientId = :clientId', { clientId });
+    }
+    // null = every client (global roles). Otherwise the caller's clients: with
+    // no clientId this used to return every client's rows to CRM/AUDITOR.
+    if (clientIds) {
+      if (!clientIds.length) return [];
+      qb.andWhere('i.clientId IN (:...scopeClientIds)', {
+        scopeClientIds: clientIds,
+      });
     }
 
     return qb.orderBy('i.createdAt', 'DESC').take(limit).getMany();
