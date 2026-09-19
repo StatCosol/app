@@ -22,6 +22,13 @@ export class BranchExpiryController {
   @ApiOperation({ summary: 'List expiry tasks for branch user' })
   @Get()
   async list(@CurrentUser() user: ReqUser) {
+    // A company-wide (MASTER) user has no branch mappings, so the branch list
+    // came back empty and they saw no expiry tasks at all. Decided by user
+    // type, not by the list being empty: a BRANCH user with no mappings must
+    // still see nothing, not the whole company.
+    if (user.userType !== 'BRANCH' && user.clientId) {
+      return this.expiryTaskService.listForClient(user.clientId);
+    }
     const branchIds = await this.branchAccess.getUserBranchIds(user.userId);
     return this.expiryTaskService.listForBranch(branchIds);
   }

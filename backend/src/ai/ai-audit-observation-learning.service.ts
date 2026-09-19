@@ -231,7 +231,15 @@ export class AiAuditObservationLearningService {
     });
   }
 
-  /** Search endpoint payload: lightweight projection. */
+  /**
+   * Search endpoint payload: the reusable wording only.
+   *
+   * The library is shared across clients on purpose — approved remark wording
+   * is reused so auditors do not regenerate it. But this returned whole rows,
+   * so a CRM or auditor searching it also received the client the remark was
+   * learned from, the auditor's raw finding notes from that client's audit,
+   * and who wrote and approved it. None of that is needed to reuse a remark.
+   */
   async search(
     query: RemarkSearchInput,
   ): Promise<{ matches: Array<RemarkMatch> }> {
@@ -239,7 +247,18 @@ export class AiAuditObservationLearningService {
       ...query,
       limit: query.limit ?? 10,
     });
-    return { matches };
+    return {
+      matches: matches.map(({ remark, similarity }) => {
+        const {
+          clientId: _clientId,
+          rawFinding: _rawFinding,
+          createdBy: _createdBy,
+          approvedBy: _approvedBy,
+          ...reusable
+        } = remark;
+        return { remark: reusable as AuditRemarkMasterEntity, similarity };
+      }),
+    };
   }
 
   /** Convert raw query row to entity-shaped object. */
