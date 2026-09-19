@@ -9,6 +9,7 @@ import { PayrollClientSetupEntity } from './entities/payroll-client-setup.entity
 import { PayrollComponentEntity } from './entities/payroll-component.entity';
 import { PayrollComponentRuleEntity } from './entities/payroll-component-rule.entity';
 import { PayrollComponentSlabEntity } from './entities/payroll-component-slab.entity';
+import { SaveSlabsDto } from './dto/payroll-setup.dto';
 
 @Injectable()
 export class PayrollSetupService {
@@ -151,16 +152,50 @@ export class PayrollSetupService {
     });
   }
 
-  async saveSlabs(
-    ruleId: string,
-    body: { slabs: Partial<PayrollComponentSlabEntity>[] },
-  ) {
-    // Replace all slabs for this rule
-    await this.slabRepo.delete({ ruleId });
-    const slabs = (body.slabs || []).map((s) =>
-      this.slabRepo.create({ ...s, ruleId }),
+  /**
+   * Replace a rule's slabs. Named fields only — `id` and `ruleId` from the body
+   * are ignored — and delete + insert in one transaction, so a rejected band
+   * cannot leave the rule with no slabs at all.
+   */
+  async saveSlabs(ruleId: string, body: SaveSlabsDto) {
+    const rule = await this.ruleRepo.findOne({ where: { id: ruleId } });
+    if (!rule) throw new NotFoundException('Rule not found');
+    const component = await this.compRepo.findOne({
+      where: { id: rule.componentId },
+    });
+
+    const bands = [...(body.slabs || [])].sort(
+      (a, b) => a.fromAmount - b.fromAmount,
     );
-    return this.slabRepo.save(slabs);
+    bands.forEach((s, i) => {
+      if (s.toAmount != null && s.toAmount < s.fromAmount)
+        throw new BadRequestException(
+          `Slab ${i + 1}: toAmount is below fromAmount`,
+        );
+      const next = bands[i + 1];
+      if (next && (s.toAmount == null || s.toAmount > next.fromAmount))
+        throw new BadRequestException(
+          `Slabs overlap from ${next.fromAmount}; only the last slab may be open-ended`,
+        );
+    });
+
+    const num = (v: number | null | undefined) =>
+      v == null ? null : String(v);
+    return this.slabRepo.manager.transaction(async (em) => {
+      await em.delete(PayrollComponentSlabEntity, { ruleId });
+      return em.save(
+        bands.map((s) =>
+          this.slabRepo.create({
+            ruleId,
+            clientId: rule.clientId ?? component?.clientId ?? null,
+            fromAmount: String(s.fromAmount),
+            toAmount: num(s.toAmount),
+            slabPct: num(s.slabPct),
+            slabFixed: num(s.slabFixed),
+          }),
+        ),
+      );
+    });
   }
 
   private sanitizeSetupDto(

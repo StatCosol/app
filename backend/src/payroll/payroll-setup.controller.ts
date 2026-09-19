@@ -13,6 +13,7 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { PayrollConfigurationScopeGuard } from './payroll-configuration-scope.guard';
 import { PayrollSetupService } from './payroll-setup.service';
 import {
   UpsertPayrollSetupDto,
@@ -30,7 +31,7 @@ import { ReqUser } from '../access/access-scope.service';
 @ApiTags('Payroll')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'payroll/setup', version: '1' })
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PayrollConfigurationScopeGuard)
 @Roles('PAYROLL', 'ADMIN')
 export class PayrollSetupController {
   constructor(private readonly svc: PayrollSetupService) {}

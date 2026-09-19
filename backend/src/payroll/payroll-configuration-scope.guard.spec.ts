@@ -187,3 +187,76 @@ describe.each([
     await expect(h.run()).rejects.toThrow('same client');
   });
 });
+
+/**
+ * payroll/setup had no scope guard at all: PAYROLL users could read and change
+ * any client's setup, components, rules and slabs by putting that client's id
+ * in the path. Its service acts on componentId / ruleId alone, so the guard
+ * resolves their stored owner rather than trusting :clientId.
+ */
+describe('payroll/setup client isolation', () => {
+  const C = '00000000-0000-4000-8000-00000000000c';
+  const R = '00000000-0000-4000-8000-00000000000d';
+  const setup = (over: any = {}) =>
+    harness({
+      controller: 'payroll/setup',
+      route: ':clientId/components/:componentId/rules/:ruleId/slabs',
+      method: 'POST',
+      params: { clientId: A, componentId: C, ruleId: R },
+      ...over,
+    });
+
+  it('rejects a client outside the caller assignment', async () => {
+    await expect(setup({ params: { clientId: B } }).run()).rejects.toThrow(
+      'outside assignment',
+    );
+  });
+
+  it('rejects a rule owned by another client behind the caller own clientId', async () => {
+    const h = setup();
+    h.ds.query.mockImplementation(async (sql: string) =>
+      sql.includes('payroll_component_rules')
+        ? [{ component_id: C, client_id: B }]
+        : [{ client_id: A }],
+    );
+    await expect(h.run()).rejects.toThrow('same client');
+  });
+
+  it('rejects a rule that belongs to a different component than the path says', async () => {
+    const h = setup();
+    h.ds.query.mockImplementation(async (sql: string) =>
+      sql.includes('payroll_component_rules')
+        ? [{ component_id: ID, client_id: A }]
+        : [{ client_id: A }],
+    );
+    await expect(h.run()).rejects.toThrow('not found');
+  });
+
+  it('allows the caller own rule and checks that client', async () => {
+    const h = setup();
+    h.ds.query.mockImplementation(async (sql: string) =>
+      sql.includes('payroll_component_rules')
+        ? [{ component_id: C, client_id: A }]
+        : [{ client_id: A }],
+    );
+    await expect(h.run()).resolves.toBe(true);
+    expect(h.access.assertClientAllowed).toHaveBeenCalledWith(
+      expect.anything(),
+      A,
+    );
+  });
+
+  it('checks the path client on setup routes with no resource id', async () => {
+    const h = setup({
+      route: ':clientId',
+      method: 'GET',
+      params: { clientId: A },
+    });
+    await expect(h.run()).resolves.toBe(true);
+    expect(h.ds.query).not.toHaveBeenCalled();
+    expect(h.access.assertClientAllowed).toHaveBeenCalledWith(
+      expect.anything(),
+      A,
+    );
+  });
+});

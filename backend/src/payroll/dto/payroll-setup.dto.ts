@@ -1,11 +1,18 @@
 import {
+  ArrayMaxSize,
+  IsArray,
   IsOptional,
   IsString,
   IsBoolean,
   IsNumber,
   IsInt,
   IsIn,
+  IsUUID,
+  Max,
+  Min,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class UpsertPayrollSetupDto {
   @IsOptional() @IsBoolean() pfEnabled?: boolean;
@@ -86,8 +93,58 @@ export class UpdatePayrollRuleDto {
   @IsOptional() @IsBoolean() isActive?: boolean;
 }
 
+/**
+ * One band of a SLAB rule. Columns: numeric(14,2) amounts, numeric(8,4) pct.
+ *
+ * `id` and `ruleId` are accepted because listSlabs() returns them and a save
+ * screen will send a listed slab straight back — rejecting them would make the
+ * round trip fail. saveSlabs() ignores both: it replaces the rule's slabs and
+ * takes the rule from the path.
+ */
+export class SlabDto {
+  @IsOptional() @IsUUID() id?: string;
+  @IsOptional() @IsUUID() ruleId?: string;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(999999999999.99)
+  fromAmount: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(999999999999.99)
+  toAmount?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(9999.9999)
+  slabPct?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(999999999999.99)
+  slabFixed?: number | null;
+}
+
+/**
+ * This had no decorator, so the global pipe (forbidNonWhitelisted) rejected
+ * every request with "property slabs should not exist" — and had it not, each
+ * slab would have been spread unchecked into the entity. Nothing in the
+ * frontend calls the endpoint yet; it is fixed so the first caller works.
+ */
 export class SaveSlabsDto {
-  slabs: any[];
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => SlabDto)
+  slabs: SlabDto[];
 }
 
 export class RejectRegisterDto {
