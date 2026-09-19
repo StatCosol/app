@@ -5,7 +5,7 @@
 // the dry run writes nothing; --apply rejects only SUBMITTED/APPROVED
 // nominations with no nominees inside the bug window; drafts, nominations with
 // nominees and anything older are untouched; --delete-orphans removes only
-// superseded client-side drafts; and a second --apply changes nothing.
+// superseded empty drafts; and a second --apply changes nothing.
 const assert = require('node:assert/strict'),
   path = require('node:path'),
   { spawnSync } = require('node:child_process');
@@ -136,6 +136,11 @@ async function main() {
       employee: EMP_B,
       type: 'ESI',
     }); // empty, not superseded → kept
+    // A branch-desk draft after a deploy: the boot patch has backfilled its
+    // client_id, so origin can no longer be told from it. Superseded by #10.
+    await nomination(9, { status: 'DRAFT', created: '2026-05-20', type: 'INSURANCE', employee: EMP_B });
+    await nomination(10, { status: 'SUBMITTED', created: '2026-08-01', type: 'INSURANCE', employee: EMP_B });
+    await member(10);
     await ds.query(
       `INSERT INTO appraisal_cycle_scopes (id, cycle_id) VALUES ($1, $2)`,
       [id(951), id(950)],
@@ -170,7 +175,7 @@ async function main() {
     assert.equal(report.mode, 'dry-run');
     assert.deepEqual(
       report.affected.map((r) => r.id).sort(),
-      [id(1), id(2), id(4), id(6), id(8)].sort(),
+      [id(1), id(2), id(4), id(6), id(8), id(9)].sort(),
     );
     assert.equal(report.noNomineesBeforeWindow, 1);
     assert.equal(report.appraisalScopesAllNull, 1);
@@ -198,14 +203,17 @@ async function main() {
     assert.equal((await state(5)).status, 'SUBMITTED');
     assert.equal((await state(6)).status, 'DRAFT');
 
-    // Orphan cleanup: only the superseded client-side draft goes
+    // Orphan cleanup: only superseded empty drafts go — whether or not the boot
+    // patch has given them a client_id.
     const cleaned = repair('--apply', '--delete-orphans');
     assert.equal(cleaned.status, 0, cleaned.stderr);
     assert.deepEqual(cleaned.blocks[1], {
       rejectedForResubmission: 0,
-      orphanDraftsDeleted: 1,
+      orphanDraftsDeleted: 2,
     });
     assert.equal(await state(6), undefined);
+    assert.equal(await state(9), undefined);
+    assert.equal((await state(10)).status, 'SUBMITTED');
     assert.equal((await state(7)).status, 'DRAFT');
     assert.equal((await state(8)).status, 'DRAFT');
 
@@ -217,7 +225,7 @@ async function main() {
     });
 
     console.log(
-      'PASS: dry run writes nothing and names no one; --apply rejects only empty SUBMITTED/APPROVED nominations in the window (approval kept for audit); drafts, nominated and older rows untouched; --delete-orphans removes only superseded client-side drafts; re-running changes nothing.',
+      'PASS: dry run writes nothing and names no one; --apply rejects only empty SUBMITTED/APPROVED nominations in the window (approval kept for audit); drafts, nominated and older rows untouched; --delete-orphans removes only superseded empty drafts, backfilled client_id or not; re-running changes nothing.',
     );
   } finally {
     if (ds?.isInitialized) await ds.destroy();

@@ -498,7 +498,11 @@ export class ClientEmployeesController {
     const emp = await this.svc.findById(clientId, id);
     if (emp.branchId)
       await this.branchAccess.assertBranchAccess(user.userId, emp.branchId);
-    return this.svc.createNomination(id, body);
+    return this.svc.createNomination(id, body, {
+      clientId,
+      branchId: emp.branchId ?? null,
+      userId: user.userId,
+    });
   }
 
   @ApiOperation({ summary: 'List Nominations' })

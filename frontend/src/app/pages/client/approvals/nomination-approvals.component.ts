@@ -5,6 +5,7 @@ import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { BranchApprovalsApiService, PendingNomination } from './branch-approvals-api.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { describeApiError } from '../../../shared/utils/api-error.util';
 import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
@@ -23,7 +24,10 @@ import { PageHeaderComponent } from '../../../shared/ui';
 <div class="text-gray-500 text-sm">Loading pending nominations...</div>
 }
 
-      @if (!loading && !nominations.length) {
+      @if (!loading && loadError) {
+        <div class="text-sm text-red-600" role="alert">Could not load nomination approvals: {{ loadError }}</div>
+      }
+      @if (!loading && !loadError && !nominations.length) {
 <div
            class="bg-white border rounded-xl p-8 text-center text-gray-500">
         No pending nominations to review.
@@ -171,6 +175,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
 })
 export class NominationApprovalsComponent implements OnInit, OnDestroy {
   nominations: PendingNomination[] = [];
+  /** A failed load, shown — it used to read as an empty queue. */
+  loadError = '';
   loading = true;
   processing = new Set<string>();
   rejectId = '';
@@ -196,8 +202,12 @@ export class NominationApprovalsComponent implements OnInit, OnDestroy {
         finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
       )
       .subscribe({
-        next: (list) => { this.loading = false; this.nominations = list; },
-        error: () => { this.loading = false; this.nominations = []; },
+        next: (list) => { this.loading = false; this.loadError = ''; this.nominations = list; },
+        error: (e) => {
+          this.loading = false;
+          this.nominations = [];
+          this.loadError = describeApiError(e, 'Please try again.');
+        },
       });
   }
 

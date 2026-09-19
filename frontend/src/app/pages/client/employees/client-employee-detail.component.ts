@@ -12,6 +12,7 @@ import {
 import { EmployeeDocumentService, EmployeeDocument } from './employee-document.service';
 import { SalaryRevisionService, SalaryRevision } from './salary-revision.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { describeApiError } from '../../../shared/utils/api-error.util';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
   ActionButtonComponent,
@@ -252,7 +253,10 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
 <ui-loading-spinner text="Loading nominations..."></ui-loading-spinner>
 }
 
-          @if (!loadingNoms && nominations.length === 0) {
+          @if (!loadingNoms && nomsError) {
+<div class="text-sm text-red-600" role="alert">Could not load nominations: {{ nomsError }}</div>
+}
+          @if (!loadingNoms && !nomsError && nominations.length === 0) {
 <ui-empty-state
            
             title="No Nominations"
@@ -750,6 +754,8 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
 
   // Nominations
   nominations: EmployeeNomination[] = [];
+  /** A failed load, shown as such — it used to read as "No Nominations". */
+  nomsError = '';
   loadingNoms = false;
   showNomModal = false;
   nomForm: any = {};
@@ -1055,8 +1061,12 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
       .listNominations(this.employeeId)
       .pipe(takeUntil(this.destroy$), finalize(() => { this.loadingNoms = false; this.cdr.detectChanges(); }))
       .subscribe({
-        next: (list) => { this.loadingNoms = false; this.nominations = list; },
-        error: () => { this.loadingNoms = false; this.nominations = []; },
+        next: (list) => { this.loadingNoms = false; this.nomsError = ''; this.nominations = list; },
+        error: (e) => {
+          this.loadingNoms = false;
+          this.nominations = [];
+          this.nomsError = describeApiError(e, 'Please try again.');
+        },
       });
   }
 

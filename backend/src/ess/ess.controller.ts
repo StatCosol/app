@@ -397,7 +397,11 @@ export class BranchApprovalsController {
     }
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.svc.listPendingNominations(clientId, branchId);
+    return this.svc.listPendingNominations(
+      clientId,
+      branchId,
+      await this.branchAccess.getAllowedBranchIds(user.userId, clientId),
+    );
   }
 
   @ApiOperation({ summary: 'Approve Nomination' })
@@ -445,7 +449,11 @@ export class BranchApprovalsController {
     }
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.svc.listPendingLeaves(clientId, branchId);
+    return this.svc.listPendingLeaves(
+      clientId,
+      branchId,
+      await this.branchAccess.getAllowedBranchIds(user.userId, clientId),
+    );
   }
 
   @ApiOperation({ summary: 'Approve Leave' })
@@ -524,6 +532,10 @@ export class ClientApprovalsController {
       clientId,
       branchId,
       this.normalizeType(type),
+      await this.branchAccess.getAllowedBranchIds(
+        this.actorUserId(user),
+        clientId,
+      ),
     );
   }
 
@@ -531,7 +543,8 @@ export class ClientApprovalsController {
   @Get(':id')
   async getOne(
     @CurrentUser() user: ReqUser,
-    @Param('id') id: string,
+    // A non-uuid reached Postgres and came back a 500 "database error".
+    @Param('id', ParseUUIDPipe) id: string,
     @Query('type') type?: string,
   ) {
     const clientId = user?.clientId;

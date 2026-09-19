@@ -18,6 +18,7 @@ import {
   StatusBadgeComponent,
 } from '../../../shared/ui';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { describeApiError } from '../../../shared/utils/api-error.util';
 import {
   BranchApprovalsApiService,
   PendingLeave,
@@ -169,7 +170,12 @@ interface UnifiedApprovalItem {
             <span class="muted">{{ filteredQueue.length }} item(s)</span>
           </div>
 
-          @if (!filteredQueue.length) {
+          @if (loadErrors.length) {
+<div class="text-sm text-red-600 mb-3" role="alert">
+            @for (e of loadErrors; track e) { <div>{{ e }}</div> }
+          </div>
+}
+          @if (!filteredQueue.length && !loadErrors.length) {
 <ui-empty-state
            
             title="No pending approvals"
@@ -434,6 +440,8 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
   allCount = 0;
   leaveCount = 0;
   nominationCount = 0;
+  /** Failed loads, shown — they used to read as "No pending approvals". */
+  loadErrors: string[] = [];
   ageingCount0to3 = 0;
   ageingCount4to7 = 0;
   ageingCount8Plus = 0;
@@ -457,16 +465,25 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
 
   load(): void {
     this.loading = true;
+    this.loadErrors = [];
     const branchId = this.branchFilter.trim() || undefined;
     forkJoin({
       leaves: this.approvalsApi
         .listPendingLeaves(branchId)
-        .pipe(catchError(() => of([] as PendingLeave[]))),
+        .pipe(
+          catchError((e) => {
+            this.loadErrors.push('Could not load leave approvals: ' + describeApiError(e, 'Please try again.'));
+            return of([] as PendingLeave[]);
+          }),
+        ),
       nominations: this.approvalsApi
         .listPendingNominations(branchId)
         .pipe(
-        catchError(() => of([] as PendingNomination[])),
-      ),
+          catchError((e) => {
+            this.loadErrors.push('Could not load nomination approvals: ' + describeApiError(e, 'Please try again.'));
+            return of([] as PendingNomination[]);
+          }),
+        ),
     })
       .pipe(
         takeUntil(this.destroy$),

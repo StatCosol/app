@@ -1578,12 +1578,24 @@ export class EssService {
   }
 
   // ── Branch Approval: Nominations ─────────────────────────
-  async listPendingNominations(clientId: string, branchId?: string) {
+  async listPendingNominations(
+    clientId: string,
+    branchId?: string,
+    allowedBranchIds?: string[] | 'ALL',
+  ) {
     const qb = this.nomRepo
       .createQueryBuilder('n')
       .where('n.clientId = :clientId', { clientId })
       .andWhere('n.status = :status', { status: 'SUBMITTED' });
     if (branchId) qb.andWhere('n.branchId = :branchId', { branchId });
+    // A branch user got every branch's pending items unless the screen passed a
+    // branchId; approve/reject were already branch-checked, the list was not.
+    if (allowedBranchIds && allowedBranchIds !== 'ALL') {
+      if (!allowedBranchIds.length) return [];
+      qb.andWhere('n.branchId IN (:...allowedBranchIds)', {
+        allowedBranchIds,
+      });
+    }
     qb.orderBy('n.submittedAt', 'ASC');
     const noms = await qb.getMany();
 
@@ -1670,12 +1682,24 @@ export class EssService {
   }
 
   // ── Branch Approval: Leave Applications ──────────────────
-  async listPendingLeaves(clientId: string, branchId?: string) {
+  async listPendingLeaves(
+    clientId: string,
+    branchId?: string,
+    allowedBranchIds?: string[] | 'ALL',
+  ) {
     const qb = this.leaveAppRepo
       .createQueryBuilder('la')
       .where('la.clientId = :clientId', { clientId })
       .andWhere('la.status = :status', { status: 'SUBMITTED' });
     if (branchId) qb.andWhere('la.branchId = :branchId', { branchId });
+    // A branch user got every branch's pending items unless the screen passed a
+    // branchId; approve/reject were already branch-checked, the list was not.
+    if (allowedBranchIds && allowedBranchIds !== 'ALL') {
+      if (!allowedBranchIds.length) return [];
+      qb.andWhere('la.branchId IN (:...allowedBranchIds)', {
+        allowedBranchIds,
+      });
+    }
     qb.orderBy('la.appliedAt', 'ASC');
     const apps = await qb.getMany();
 
@@ -1702,16 +1726,17 @@ export class EssService {
     clientId: string,
     branchId?: string,
     type?: 'LEAVE' | 'NOMINATION',
+    allowedBranchIds?: string[] | 'ALL',
   ) {
     if (type === 'LEAVE') {
-      return this.listPendingLeaves(clientId, branchId);
+      return this.listPendingLeaves(clientId, branchId, allowedBranchIds);
     }
     if (type === 'NOMINATION') {
-      return this.listPendingNominations(clientId, branchId);
+      return this.listPendingNominations(clientId, branchId, allowedBranchIds);
     }
     const [leaves, nominations] = await Promise.all([
-      this.listPendingLeaves(clientId, branchId),
-      this.listPendingNominations(clientId, branchId),
+      this.listPendingLeaves(clientId, branchId, allowedBranchIds),
+      this.listPendingNominations(clientId, branchId, allowedBranchIds),
     ]);
     return { leaves, nominations };
   }
