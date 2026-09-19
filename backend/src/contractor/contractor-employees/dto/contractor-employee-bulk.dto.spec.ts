@@ -3,6 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { BulkCreateContractorEmployeesDto } from './contractor-employee-bulk.dto';
 import { validateBulkRow } from '../contractor-employees.service';
+import { GLOBAL_VALIDATION_PIPE_OPTIONS } from '../../../common/validators/global-validation-pipe';
 
 /**
  * The bulk endpoint used to take `@Body() body: { branchId?: string; rows: any[] }`.
@@ -42,11 +43,21 @@ describe('bulk upload validation', () => {
   };
 
   describe('the envelope', () => {
+    // Transform with the options production uses. This helper used to call
+    // plainToInstance with none, so it never saw implicit conversion turn each
+    // row into `[]` — it passed while the endpoint rejected every upload.
     const errorsFor = (payload: Record<string, unknown>) =>
-      validateSync(plainToInstance(BulkCreateContractorEmployeesDto, payload), {
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      }).map((e) => e.property);
+      validateSync(
+        plainToInstance(
+          BulkCreateContractorEmployeesDto,
+          payload,
+          GLOBAL_VALIDATION_PIPE_OPTIONS.transformOptions,
+        ),
+        {
+          whitelist: true,
+          forbidNonWhitelisted: true,
+        },
+      ).map((e) => e.property);
 
     it('accepts a normal upload', () => {
       expect(

@@ -5,12 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
-import {
-  ValidationPipe,
-  VersioningType,
-  Logger,
-  RequestMethod,
-} from '@nestjs/common';
+import { VersioningType, Logger, RequestMethod } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -22,6 +17,7 @@ import { JwtService } from '@nestjs/jwt';
 import { FilesService } from './files/files.service';
 import { ConfigService } from '@nestjs/config';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
+import { createGlobalValidationPipe } from './common/validators/global-validation-pipe';
 import { CacheHeaderInterceptor } from './common/interceptors/cache-header.interceptor';
 import { Logger as PinoLogger } from 'nestjs-pino';
 
@@ -42,14 +38,7 @@ async function bootstrap() {
   const config = app.get(ConfigService);
 
   // Global validation
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  );
+  app.useGlobalPipes(createGlobalValidationPipe());
 
   // Global exception filter — standardises all error responses
   app.useGlobalFilters(new GlobalExceptionFilter());

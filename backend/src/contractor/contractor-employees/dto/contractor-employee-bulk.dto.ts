@@ -222,10 +222,16 @@ export class BulkCreateContractorEmployeesDto {
    *
    * The cap matches the service's own limit; it is repeated here so an
    * oversized body is rejected before any of that work happens.
+   *
+   * @Type(() => Object) is load-bearing. Without it the global pipe's implicit
+   * conversion reads the emitted design type (a bare `Array`) and converts
+   * each row to an empty array, @IsObject rejects every one, and every upload
+   * came back 400 — see global-validation-pipe.ts.
    */
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(1000)
   @IsObject({ each: true })
+  @Type(() => Object)
   rows: Record<string, unknown>[];
 }

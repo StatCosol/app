@@ -705,38 +705,64 @@ export class EmployeesService {
 
   // ── Nominations ────────────────────────────────────────────
 
-  async createNomination(
-    employeeId: string,
-    dto: CreateEmployeeNominationDto & {
-      members?: Partial<EmployeeNominationMemberEntity>[];
-    },
-  ) {
+  async createNomination(employeeId: string, dto: CreateEmployeeNominationDto) {
     if (!dto.nominationType) {
       throw new BadRequestException('nominationType is required');
     }
+    const { members, ...header } = dto;
     const declarationDate = this.normalizeDate(dto.declarationDate);
     const witnessName = this.normalizeText(dto.witnessName);
     const witnessAddress = this.normalizeText(dto.witnessAddress);
 
-    const nom = this.nomRepo.create({
-      ...dto,
-      employeeId,
-      declarationDate,
-      witnessName,
-      witnessAddress,
-    });
-    const saved = await this.nomRepo.save(nom);
-
-    if (dto.members?.length) {
-      const members = dto.members.map((m) =>
-        this.nomMemberRepo.create({
-          ...m,
-          nominationId: saved.id,
-        } as Partial<EmployeeNominationMemberEntity>),
+    // Named fields only. Members used to be spread straight into the entity,
+    // so a nominee carrying an `id` — which the edit screens send back — would
+    // have been an upsert onto whatever row owned that id. For as long as the
+    // pipe turned every nominee into `[]` that path was dead (each save failed
+    // on member_name NOT NULL); fixing the pipe brings it back, so it is closed
+    // here first.
+    const text = (v: unknown) =>
+      typeof v === 'string' || typeof v === 'number'
+        ? this.normalizeText(String(v))
+        : null;
+    const nominees = (members ?? [])
+      .map((m) => ({ m, name: text(m.memberName) }))
+      .filter(
+        (x): x is { m: Record<string, unknown>; name: string } => !!x.name,
       );
-      await this.nomMemberRepo.save(members);
-    }
-    return saved;
+
+    // One transaction: the header used to be committed before its members were
+    // attempted, so a failed member insert left a nomination with no nominees
+    // behind — one more for every retry.
+    return this.nomRepo.manager.transaction(async (em) => {
+      const saved = await em.save(
+        this.nomRepo.create({
+          ...header,
+          employeeId,
+          declarationDate,
+          witnessName,
+          witnessAddress,
+        }),
+      );
+      if (nominees.length) {
+        await em.save(
+          nominees.map(({ m, name }) =>
+            this.nomMemberRepo.create({
+              nominationId: saved.id,
+              memberName: name,
+              relationship: text(m.relationship),
+              dateOfBirth: this.normalizeDate(text(m.dateOfBirth)),
+              sharePct: String(Number(m.sharePct) || 0),
+              address: text(m.address),
+              isMinor: m.isMinor === true,
+              guardianName: text(m.guardianName),
+              guardianRelationship: text(m.guardianRelationship),
+              guardianAddress: text(m.guardianAddress),
+            }),
+          ),
+        );
+      }
+      return saved;
+    });
   }
 
   private normalizeDate(value?: string | null): string | null {

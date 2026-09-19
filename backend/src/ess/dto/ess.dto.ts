@@ -4,9 +4,28 @@ import {
   IsNumber,
   IsBoolean,
   IsArray,
+  IsObject,
   IsDateString,
   IsNotEmpty,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+/**
+ * A nominee as the ESS forms send it. A type only: the objects are not
+ * validated field by field here, validateNominationMembers() in the service is
+ * what checks them, and the service copies these named fields and nothing else.
+ */
+export interface NominationMemberInput {
+  memberName?: string;
+  relationship?: string;
+  dateOfBirth?: string;
+  sharePct?: number;
+  address?: string;
+  isMinor?: boolean;
+  guardianName?: string;
+  guardianRelationship?: string;
+  guardianAddress?: string;
+}
 
 // ── Profile ──────────────────────────────────────────────
 export class UpdateEssProfileDto {
@@ -60,14 +79,24 @@ export class CreateEssNominationDto {
   @IsOptional() @IsString() declarationDate?: string;
   @IsOptional() @IsString() witnessName?: string;
   @IsOptional() @IsString() witnessAddress?: string;
-  @IsOptional() @IsArray() members?: any[];
+  /** Kept as sent; without @Type each nominee becomes `[]` (global-validation-pipe.ts). */
+  @IsOptional()
+  @IsArray()
+  @IsObject({ each: true })
+  @Type(() => Object)
+  members?: NominationMemberInput[];
 }
 
 export class ResubmitNominationDto {
   @IsOptional() @IsString() witnessName?: string;
   @IsOptional() @IsString() witnessAddress?: string;
   @IsOptional() @IsString() declarationDate?: string;
-  @IsOptional() @IsArray() members?: any[];
+  /** Kept as sent; without @Type each nominee becomes `[]` (global-validation-pipe.ts). */
+  @IsOptional()
+  @IsArray()
+  @IsObject({ each: true })
+  @Type(() => Object)
+  members?: NominationMemberInput[];
 }
 
 export class UpdateEssNominationDto {
@@ -75,7 +104,12 @@ export class UpdateEssNominationDto {
   @IsOptional() @IsString() declarationDate?: string;
   @IsOptional() @IsString() witnessName?: string;
   @IsOptional() @IsString() witnessAddress?: string;
-  @IsOptional() @IsArray() members?: any[];
+  /** Kept as sent; without @Type each nominee becomes `[]` (global-validation-pipe.ts). */
+  @IsOptional()
+  @IsArray()
+  @IsObject({ each: true })
+  @Type(() => Object)
+  members?: NominationMemberInput[];
 }
 
 // ── Leave ────────────────────────────────────────────────
