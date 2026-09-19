@@ -4,11 +4,13 @@ import {
   IsNotEmpty,
   IsBoolean,
   IsArray,
+  IsObject,
   IsDateString,
   IsUUID,
   IsNumber,
   IsIn,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 // ── Master Data (Department / Grade / Designation) ───────
 export class CreateMasterDataItemDto {
@@ -133,7 +135,16 @@ export class CreateEmployeeNominationDto {
   @IsOptional() @IsString() declarationDate?: string;
   @IsOptional() @IsString() witnessName?: string;
   @IsOptional() @IsString() witnessAddress?: string;
-  @IsOptional() @IsArray() members?: any[];
+  /**
+   * @Type(() => Object) keeps each nominee as the object that was sent; without
+   * it the global pipe's implicit conversion turns each one into `[]` (see
+   * global-validation-pipe.ts). The service copies named fields from each.
+   */
+  @IsOptional()
+  @IsArray()
+  @IsObject({ each: true })
+  @Type(() => Object)
+  members?: Record<string, unknown>[];
 }
 
 // ── Salary Revision ──────────────────────────────────────
