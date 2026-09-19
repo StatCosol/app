@@ -27,7 +27,10 @@ import {
   COUNTED_DECISIONS,
   PunchDirectionService,
 } from './punch-direction.service';
-import { PunchContractorAdminService } from './punch-contractor-admin.service';
+import {
+  ContractorPunchRow,
+  PunchContractorAdminService,
+} from './punch-contractor-admin.service';
 import { PunchReviewService } from './punch-review.service';
 
 // MobileFaceNet real-world same-person cosine similarity is ~0.70–0.87; 0.90 was unreachable.
@@ -724,8 +727,13 @@ export class PunchService {
       contractorUserId?: string;
       limit?: number;
     } = {},
-  ): Promise<ContractorBiometricPunchEntity[]> {
-    return this.contractorAdminService.listContractorPunches(clientId, opts);
+    branchScope?: string[] | null,
+  ): Promise<ContractorPunchRow[]> {
+    return this.contractorAdminService.listContractorPunches(
+      clientId,
+      opts,
+      branchScope,
+    );
   }
 
   async createContractorPunch(
@@ -735,26 +743,38 @@ export class PunchService {
       punchTime: string;
       direction: 'IN' | 'OUT' | 'AUTO';
     },
+    branchScope?: string[] | null,
   ): Promise<{ ok: true; id: string }> {
-    return this.contractorAdminService.createContractorPunch(clientId, body);
+    return this.contractorAdminService.createContractorPunch(
+      clientId,
+      body,
+      branchScope,
+    );
   }
 
   async updateContractorPunch(
     clientId: string,
     id: string,
     body: { punchTime?: string; direction?: string },
+    branchScope?: string[] | null,
   ): Promise<{ ok: true; id: string; punchTime: string; direction: string }> {
     return this.contractorAdminService.updateContractorPunch(
       clientId,
       id,
       body,
+      branchScope,
     );
   }
 
   async deleteContractorPunch(
     clientId: string,
     id: string,
+    branchScope?: string[] | null,
   ): Promise<{ ok: true; deleted: number }> {
-    return this.contractorAdminService.deleteContractorPunch(clientId, id);
+    return this.contractorAdminService.deleteContractorPunch(
+      clientId,
+      id,
+      branchScope,
+    );
   }
 }

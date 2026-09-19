@@ -835,6 +835,7 @@ export interface ContractorPunchRow {
   id: string;
   contractorEmployeeId: string;
   contractorEmployeeName: string | null;
+  employeeCode?: string | null;
   contractorUserId: string | null;
   contractorName: string | null;
   branchId: string | null;

@@ -157,7 +157,12 @@ import {
                 @for (r of attendanceRows; track r) {
 <tr class="hover:bg-gray-50">
                   <td class="px-4 py-2 whitespace-nowrap">{{ r.date | date: 'dd MMM yyyy' }}</td>
-                  <td class="px-4 py-2">{{ r.contractorEmployeeName || '-' }}</td>
+                  <td class="px-4 py-2">
+                    <div>{{ r.contractorEmployeeName || 'Unknown employee' }}</div>
+                    @if (r.employeeCode) {
+                      <div class="text-xs text-gray-500 font-mono">{{ r.employeeCode }}</div>
+                    }
+                  </td>
                   <td class="px-4 py-2 whitespace-nowrap">
                     {{ r.inTime ? (r.inTime | date: 'HH:mm') : '-' }}
                   </td>
@@ -176,7 +181,7 @@ import {
                       {{ r.punchCount }}
                     </span>
                   </td>
-                  <td class="px-4 py-2 text-xs text-gray-600">{{ r.source }}</td>
+                  <td class="px-4 py-2 text-xs text-gray-600">{{ sourceLabel(r.source) }}</td>
                   <td class="px-4 py-2 text-xs text-gray-600">{{ fmtScore(r.matchScore) }}</td>
                   <td class="px-4 py-2 text-xs text-gray-600">{{ fmtScore(r.livenessScore) }}</td>
                   <td class="px-4 py-2">
@@ -192,22 +197,30 @@ import {
                     }
                   </td>
                   <td class="px-4 py-2 text-right whitespace-nowrap">
-                    <button
-                      type="button"
-                      class="text-xs font-medium text-brand-600 hover:text-brand-700 disabled:text-gray-400"
-                      [disabled]="actionBusyId === r.rowKey"
-                      (click)="editRow(r)"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      class="ml-3 text-xs font-medium text-red-600 hover:text-red-700 disabled:text-gray-400"
-                      [disabled]="actionBusyId === r.rowKey"
-                      (click)="deleteRow(r)"
-                    >
-                      Delete
-                    </button>
+                    @if (r.editable) {
+                      <button
+                        type="button"
+                        class="text-xs font-medium text-brand-600 hover:text-brand-700 disabled:text-gray-400"
+                        [disabled]="actionBusyId === r.rowKey"
+                        (click)="editRow(r)"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        class="ml-3 text-xs font-medium text-red-600 hover:text-red-700 disabled:text-gray-400"
+                        [disabled]="actionBusyId === r.rowKey"
+                        (click)="deleteRow(r)"
+                      >
+                        Delete
+                      </button>
+                    } @else {
+                      <span
+                        class="text-xs text-gray-400"
+                        title="Face and device punches are reviewed in FaceDesk, not edited here"
+                        >Recorded</span
+                      >
+                    }
                   </td>
                 </tr>
 }
@@ -305,6 +318,19 @@ export class BranchContractorAttendanceComponent implements OnInit {
       });
   }
 
+  sourceLabel(source: string | null | undefined): string {
+    switch (source) {
+      case 'FACE':
+        return 'Face';
+      case 'MANUAL':
+        return 'Manual';
+      case 'DEVICE':
+        return 'Device';
+      default:
+        return '-';
+    }
+  }
+
   fmtScore(v: string | null): string {
     if (v === null || v === undefined || v === '') return '-';
     const n = Number(v);
@@ -320,7 +346,7 @@ export class BranchContractorAttendanceComponent implements OnInit {
   }
 
   async editRow(row: ContractorAttendanceRow): Promise<void> {
-    if (row.source && row.source !== 'MANUAL') {
+    if (!row.editable) {
       this.toast.error('Only manually-entered punches can be edited');
       return;
     }
@@ -398,7 +424,7 @@ export class BranchContractorAttendanceComponent implements OnInit {
   }
 
   async deleteRow(row: ContractorAttendanceRow): Promise<void> {
-    if (row.source && row.source !== 'MANUAL') {
+    if (!row.editable) {
       this.toast.error('Only manually-entered punches can be deleted');
       return;
     }
@@ -462,6 +488,11 @@ export class BranchContractorAttendanceComponent implements OnInit {
           date: first.punchTime,
           contractorEmployeeId: first.contractorEmployeeId,
           contractorEmployeeName: first.contractorEmployeeName,
+          employeeCode: first.employeeCode ?? null,
+          // The check read `row.source && row.source !== 'MANUAL'`, and the
+          // endpoint sent no source, so face punches could be edited and
+          // deleted. A row is editable only if every punch in it is manual.
+          editable: sorted.every((p) => p.source === 'MANUAL'),
           inTime,
           outTime,
           inPunchId: inPunch.id,
@@ -523,6 +554,8 @@ interface ContractorAttendanceRow {
   date: string;
   contractorEmployeeId: string;
   contractorEmployeeName: string | null;
+  employeeCode: string | null;
+  editable: boolean;
   inTime: string | null;
   outTime: string | null;
   inPunchId: string;

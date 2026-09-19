@@ -80,6 +80,7 @@ jobs:
           node scripts/test-payroll-reconciliation-db.js
           node scripts/validate-nomination-repair.cjs
           node scripts/validate-clra-scope.cjs
+          node scripts/validate-contractor-punch-list.cjs
       - name: Patched dependency runtime smoke
         run: node scripts/security-dependency-smoke.cjs
       - name: Boot check (entity metadata + DB connect)
