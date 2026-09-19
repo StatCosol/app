@@ -104,6 +104,16 @@ describe('EmployeesService.createNomination', () => {
     expect(members.map((m) => m.memberName)).toEqual(['Ravi']);
   });
 
+  it('refuses a nomination with no named nominee and writes nothing', async () => {
+    await expect(
+      service.createNomination('emp-1', {
+        nominationType: 'PF',
+        members: [{ memberName: '  ' }],
+      }),
+    ).rejects.toThrow('At least one nominee is required');
+    expect(saved).toEqual([]);
+  });
+
   it('does not leave a nomination behind when its nominees fail to save', async () => {
     failMembers = true;
     await expect(

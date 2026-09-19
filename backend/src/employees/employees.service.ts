@@ -729,6 +729,10 @@ export class EmployeesService {
       .filter(
         (x): x is { m: Record<string, unknown>; name: string } => !!x.name,
       );
+    // The screen already insists on one; this stops an API caller recreating
+    // the nominee-less nominations the pipe bug left behind.
+    if (!nominees.length)
+      throw new BadRequestException('At least one nominee is required');
 
     // One transaction: the header used to be committed before its members were
     // attempted, so a failed member insert left a nomination with no nominees
