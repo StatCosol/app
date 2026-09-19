@@ -275,8 +275,17 @@ export class AiAuditService {
   async listObservations(
     filters: { clientId?: string; auditId?: string; status?: string },
     limit = 50,
+    clientIds: string[] | null = null,
   ): Promise<AiAuditObservationEntity[]> {
     const qb = this.obsRepo.createQueryBuilder('o');
+    // null = every client (global roles). Otherwise the caller's clients: with
+    // no clientId this used to return every client's rows to CRM/AUDITOR.
+    if (clientIds) {
+      if (!clientIds.length) return [];
+      qb.andWhere('o.clientId IN (:...scopeClientIds)', {
+        scopeClientIds: clientIds,
+      });
+    }
     if (filters.clientId)
       qb.andWhere('o.clientId = :clientId', { clientId: filters.clientId });
     if (filters.auditId)

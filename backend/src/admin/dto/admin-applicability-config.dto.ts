@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsUUID,
   IsInt,
+  IsDefined,
 } from 'class-validator';
 
 // ── Compliance Items ─────────────────────────────────────
@@ -56,7 +57,8 @@ export class CreateRuleDto {
   @IsInt() priority: number;
   @IsUUID() @IsNotEmpty() targetComplianceId: string;
   @IsString() @IsNotEmpty() effect: string;
-  conditionsJson: any;
+  // Undecorated, so the global pipe rejected every rule that carried conditions.
+  @IsDefined() conditionsJson: any;
 }
 
 export class UpdateRuleDto {

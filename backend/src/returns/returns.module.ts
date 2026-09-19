@@ -16,9 +16,11 @@ import { ReturnsUploadController } from './controllers/common/returns-upload.con
 import { ComplianceNotificationCenterController } from './controllers/common/compliance-notification-center.controller';
 import { AuthModule } from '../auth/auth.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
+import { AccessModule } from '../access/access.module';
 
 @Module({
   imports: [
+    AccessModule,
     AuthModule,
     AuditLogsModule,
     TypeOrmModule.forFeature([

@@ -8,6 +8,7 @@ import {
   Query,
   HttpException,
   HttpStatus,
+  NotFoundException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Roles } from '../auth/roles.decorator';
@@ -36,7 +37,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ReqUser } from '../access/access-scope.service';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 
 @ApiTags('AI')
 @ApiBearerAuth('JWT')
@@ -54,6 +55,7 @@ export class AiController {
     private readonly branchAccess: BranchAccessService,
     private readonly costTracking: AiCostTrackingService,
     private readonly remarkLibrary: AiAuditObservationLearningService,
+    private readonly access: AccessScopeService,
   ) {}
 
   // ─── Configuration ────────────────────────────────
@@ -162,10 +164,15 @@ export class AiController {
   @Get('insights')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM')
   async getInsights(
+    @CurrentUser() user: ReqUser,
     @Query('clientId') clientId?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.riskEngine.getInsights(clientId, Number(limit) || 50);
+    return this.riskEngine.getInsights(
+      clientId,
+      Number(limit) || 50,
+      await this.scopeClientIds(user),
+    );
   }
 
   @ApiOperation({ summary: 'Dismiss Insight' })
@@ -196,18 +203,28 @@ export class AiController {
   @Get('audit/observations')
   @Roles('ADMIN', 'CCO', 'CRM', 'AUDITOR')
   async listObservations(
+    @CurrentUser() user: ReqUser,
     @Query('clientId') clientId?: string,
     @Query('auditId') auditId?: string,
     @Query('status') status?: string,
   ) {
-    return this.auditAi.listObservations({ clientId, auditId, status });
+    return this.auditAi.listObservations(
+      { clientId, auditId, status },
+      50,
+      await this.scopeClientIds(user),
+    );
   }
 
   @ApiOperation({ summary: 'Get Observation' })
   @Get('audit/observations/:id')
   @Roles('ADMIN', 'CCO', 'CRM', 'AUDITOR')
-  async getObservation(@Param('id') id: string) {
-    return this.auditAi.getObservation(id);
+  async getObservation(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+    const obs = await this.auditAi.getObservation(id);
+    await this.access.assertDocumentInScope(user, {
+      clientId: obs.clientId,
+      branchId: obs.branchId,
+    });
+    return obs;
   }
 
   @ApiOperation({ summary: 'Review Observation' })
@@ -350,6 +367,11 @@ export class AiController {
     @Param('documentId') documentId: string,
     @CurrentUser() user: ReqUser,
   ) {
+    // Outside the try: a scope refusal must reach the caller as a 403/404,
+    // not be rewrapped as "Document check failed" (500).
+    const owner = await this.docCheck.documentOwner(documentId);
+    if (!owner) throw new NotFoundException('Document not found');
+    await this.access.assertDocumentInScope(user, owner);
     try {
       return await this.docCheck.checkDocument(documentId, user?.userId);
     } catch (err: any) {
@@ -364,6 +386,7 @@ export class AiController {
   @Get('document-checks')
   @Roles('ADMIN', 'CCO', 'CRM', 'AUDITOR')
   async listDocumentChecks(
+    @CurrentUser() user: ReqUser,
     @Query('clientId') clientId?: string,
     @Query('branchId') branchId?: string,
     @Query('result') result?: string,
@@ -374,6 +397,7 @@ export class AiController {
       branchId,
       result,
       limit: Number(limit) || 50,
+      clientIds: await this.scopeClientIds(user),
     });
   }
 
@@ -464,5 +488,17 @@ export class AiController {
       month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     }
     return this.costTracking.getMonthlySummary(month, clientId);
+  }
+
+  /**
+   * The clients this caller may see, for list filters: null for global roles,
+   * otherwise the assigned (or own) clients. A clientId on the request is
+   * already checked by ScopeGuard; this covers the request that names none.
+   */
+  private async scopeClientIds(user: ReqUser): Promise<string[] | null> {
+    const scope = await this.access.getScope(user);
+    if (scope.level === 'all') return null;
+    if (scope.level === 'clients') return scope.clientIds ?? [];
+    return scope.clientId ? [scope.clientId] : [];
   }
 }

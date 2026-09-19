@@ -1,10 +1,12 @@
 import { Controller, Post, Body, Get, Query } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Roles } from '../auth/roles.decorator';
 import { TdsCalculatorService } from './services/tds-calculator.service';
 import { TdsCalculateDto } from './dto/tds-calculate.dto';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -21,6 +23,7 @@ export class TdsController {
     private readonly tds: TdsCalculatorService,
     @InjectRepository(EmployeeEntity)
     private readonly empRepo: Repository<EmployeeEntity>,
+    private readonly access: AccessScopeService,
   ) {}
 
   /** Calculate TDS for a given regime */
@@ -72,9 +75,26 @@ export class TdsController {
   @ApiOperation({ summary: 'List employees with TDS on payslip' })
   @ApiQuery({ name: 'clientId', required: false })
   @Get('eligible-employees')
-  async eligible(@Query('clientId') clientId?: string) {
+  async eligible(
+    @CurrentUser() user: ReqUser,
+    @Query('clientId') clientId?: string,
+  ) {
+    // The client filter was applied only when one was passed, so leaving it
+    // off returned every company's employees with CTC and monthly gross — and
+    // CLIENT is allowed here. The caller's scope now decides.
+    const scope = await this.access.getScope(user);
     const where: any = { isActive: true };
-    if (clientId) where.clientId = clientId;
+    if (scope.level === 'all') {
+      if (clientId) where.clientId = clientId;
+    } else if (scope.level === 'clients') {
+      const allowed = scope.clientIds ?? [];
+      if (clientId && !allowed.includes(clientId)) return this.none();
+      where.clientId = clientId ?? In(allowed.length ? allowed : ['']);
+    } else {
+      where.clientId = scope.clientId;
+      if (scope.level === 'branches')
+        where.branchId = In(scope.branchIds?.length ? scope.branchIds : ['']);
+    }
     const emps = await this.empRepo.find({
       where,
       select: ['id', 'employeeCode', 'name', 'clientId', 'ctc', 'monthlyGross'],
@@ -107,10 +127,18 @@ export class TdsController {
       }
     }
     rows.sort((a, b) => b.monthlyTds - a.monthlyTds);
+    return this.summary(emps.length, rows);
+  }
+
+  private none() {
+    return this.summary(0, []);
+  }
+
+  private summary(scanned: number, rows: any[]) {
     return {
       rule: 'New Regime FY 2025-26: std deduction ₹75,000; full 87A rebate up to taxable ₹12,00,000',
       threshold: 'Annual gross > ₹12,75,000',
-      totalEmployeesScanned: emps.length,
+      totalEmployeesScanned: scanned,
       tdsEligibleCount: rows.length,
       employees: rows,
     };

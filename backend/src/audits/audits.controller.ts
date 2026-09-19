@@ -120,26 +120,27 @@ export class CrmAuditsController {
     @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const [audit] = await this.ds.query(
-      `SELECT client_id AS "clientId", branch_id AS "branchId"
-         FROM audits
-        WHERE id = $1
-        LIMIT 1`,
-      [id],
-    );
-    if (!audit || audit.clientId !== user.clientId) {
-      throw new ForbiddenException('Audit not in client scope');
-    }
-    if (audit.branchId) {
-      await this.branchAccess.assertBranchAccess(user.userId, audit.branchId);
-    }
+    // This held the CLIENT route's check (audit.clientId === user.clientId),
+    // which is always false for a CRM — so every CRM got a 403 here — while
+    // the client route below had no check at all.
+    await this.assertCrmAudit(user, id);
     return this.auditOutputEngine.getLatestReport(id);
   }
 
   @ApiOperation({ summary: 'Report version history' })
   @Get(':id/report-history')
-  async getReportHistory(@Param('id', ParseUUIDPipe) id: string) {
+  async getReportHistory(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.assertCrmAudit(user, id);
     return this.auditOutputEngine.getReportHistory(id);
+  }
+
+  /** The audit's client must be assigned to this CRM; ADMIN sees all. */
+  private async assertCrmAudit(user: ReqUser, id: string): Promise<void> {
+    if (user.roleCode === 'ADMIN') return;
+    await this.svc.getForCrm(user, id);
   }
 
   @ApiOperation({ summary: 'Get One' })
@@ -873,7 +874,26 @@ export class ClientAuditsController {
 
   @ApiOperation({ summary: 'Latest report for an audit' })
   @Get(':id/latest-report')
-  async getLatestReport(@Param('id', ParseUUIDPipe) id: string) {
+  async getLatestReport(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    // By id alone this served any company's audit report to any CLIENT user.
+    if (user.roleCode !== 'ADMIN') {
+      const [audit] = await this.ds.query(
+        `SELECT client_id AS "clientId", branch_id AS "branchId"
+           FROM audits
+          WHERE id = $1
+          LIMIT 1`,
+        [id],
+      );
+      if (!audit || audit.clientId !== user.clientId) {
+        throw new ForbiddenException('Audit not in client scope');
+      }
+      if (audit.branchId) {
+        await this.branchAccess.assertBranchAccess(user.userId, audit.branchId);
+      }
+    }
     return this.auditOutputEngine.getLatestReport(id);
   }
 }

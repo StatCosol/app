@@ -6,12 +6,17 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SalaryRevisionEntity } from './entities/salary-revision.entity';
+import { EmployeeEntity } from './entities/employee.entity';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 
 @Injectable()
 export class SalaryRevisionService {
   constructor(
     @InjectRepository(SalaryRevisionEntity)
     private readonly repo: Repository<SalaryRevisionEntity>,
+    @InjectRepository(EmployeeEntity)
+    private readonly empRepo: Repository<EmployeeEntity>,
+    private readonly access: AccessScopeService,
   ) {}
 
   async create(
@@ -72,6 +77,24 @@ export class SalaryRevisionService {
   async findById(id: string) {
     const rev = await this.repo.findOne({ where: { id } });
     if (!rev) throw new NotFoundException('Salary revision not found');
+    return rev;
+  }
+
+  /**
+   * By id alone this served any company's salary revisions to any CLIENT or
+   * PAYROLL user. Now held to the caller's clients — and a branch user's
+   * branches, via the employee.
+   */
+  async findForUser(id: string, user: ReqUser) {
+    const rev = await this.findById(id);
+    const emp = await this.empRepo.findOne({
+      where: { id: rev.employeeId },
+      select: ['id', 'branchId'],
+    });
+    await this.access.assertDocumentInScope(user, {
+      clientId: rev.clientId,
+      branchId: emp?.branchId ?? null,
+    });
     return rev;
   }
 

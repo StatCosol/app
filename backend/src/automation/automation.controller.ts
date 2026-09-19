@@ -1,7 +1,9 @@
 import { AutomationControlService } from './control-center.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ReqUser } from '../access/access-scope.service';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
+import { DataSource } from 'typeorm';
 import {
+  NotFoundException,
   Controller,
   Get,
   Post,
@@ -37,6 +39,8 @@ export class AutomationController {
     private readonly scheduleEngine: AuditScheduleEngineService,
     private readonly expiryEngine: ExpiryEngineService,
     private readonly taskEngine: TaskEngineService,
+    private readonly access: AccessScopeService,
+    private readonly ds: DataSource,
   ) {}
 
   @ApiOperation({ summary: 'Automation engine health check' })
@@ -57,7 +61,17 @@ export class AutomationController {
   @ApiOperation({ summary: 'Trigger audit output refresh' })
   @Roles('ADMIN', 'CRM')
   @Post('triggers/audit-output/:auditId')
-  async triggerAuditRefresh(@Param('auditId', ParseUUIDPipe) auditId: string) {
+  async triggerAuditRefresh(
+    @CurrentUser() user: ReqUser,
+    @Param('auditId', ParseUUIDPipe) auditId: string,
+  ) {
+    // A CRM could regenerate any client's audit outputs by id.
+    const [audit] = await this.ds.query(
+      `SELECT client_id FROM audits WHERE id = $1`,
+      [auditId],
+    );
+    if (!audit) throw new NotFoundException('Audit not found');
+    await this.access.assertClientAllowed(user, audit.client_id);
     return this.auditOutputEngine.refreshAuditOutputs(auditId);
   }
 

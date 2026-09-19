@@ -22,9 +22,11 @@ import { MasterDataController } from './master-data.controller';
 import { AiModule } from '../ai/ai.module';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
+import { AccessModule } from '../access/access.module';
 
 @Module({
   imports: [
+    AccessModule,
     TypeOrmModule.forFeature([
       EmployeeEntity,
       EmployeeSequenceEntity,
