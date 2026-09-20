@@ -20,6 +20,7 @@ import {
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ReqUser } from '../../access/access-scope.service';
+import { NumericIdPipe } from '../../common/pipes/numeric-id.pipe';
 
 @ApiTags('Compliance')
 @ApiBearerAuth('JWT')
@@ -75,7 +76,7 @@ export class CrmComplianceTasksController {
 
   @ApiOperation({ summary: 'Detail' })
   @Get('tasks/:id')
-  detail(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+  detail(@CurrentUser() user: ReqUser, @Param('id', NumericIdPipe) id: string) {
     return this.svc.crmGetTaskDetail(user, id);
   }
 

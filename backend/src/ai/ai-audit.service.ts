@@ -1,4 +1,9 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  Optional,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { AiAuditObservationEntity } from './entities/ai-audit-observation.entity';
@@ -297,7 +302,10 @@ export class AiAuditService {
 
   /** Get a single observation */
   async getObservation(id: string): Promise<AiAuditObservationEntity> {
-    return this.obsRepo.findOneOrFail({ where: { id } });
+    const found = await this.obsRepo.findOne({ where: { id } });
+    // findOneOrFail's EntityNotFoundError surfaced as a 500.
+    if (!found) throw new NotFoundException('Observation not found');
+    return found;
   }
 }
 

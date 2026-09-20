@@ -20,15 +20,15 @@ export class AuditReportController {
   async overdue(@CurrentUser() user: ReqUser) {
     const base = `
       SELECT
-        c."clientName" AS client_name,
-        b."branchName" AS branch_name,
+        c.client_name AS client_name,
+        b.branchname AS branch_name,
         a.audit_type,
         a.due_date,
         (now()::date - a.due_date::date) AS days_overdue,
         u.email AS assigned_auditor
       FROM audits a
       JOIN client_branches b ON b.id = a.branch_id
-      JOIN clients c ON c.id = b."clientId"
+      JOIN clients c ON c.id = b.clientid
       LEFT JOIN users u ON u.id = a.assigned_auditor_id
       WHERE a.status <> 'COMPLETED'
         AND a.due_date < now()

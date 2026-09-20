@@ -86,10 +86,11 @@ export class PdfReportController {
     const tasks = await this.ds.query(
       `SELECT
          ct.id, ct.title, ct.status, ct.frequency, ct.due_date AS "dueDate",
-         ct.law_name AS "lawName",
+         cm.law_name AS "lawName",
          b.branchname AS "branchName"
        FROM compliance_tasks ct
        LEFT JOIN client_branches b ON b.id = ct.branch_id
+       LEFT JOIN compliance_master cm ON cm.id = ct.compliance_id
        WHERE ct.client_id = $1
          ${month ? "AND to_char(ct.due_date, 'YYYY-MM') = $2" : ''}
        ORDER BY ct.due_date`,

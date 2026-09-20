@@ -40,9 +40,10 @@ export class AuthController {
   @Post('login')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   login(@Body() dto: LoginDto, @Req() req: Request) {
-    const ip =
-      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-      req.ip;
+    // req.ip, not the leftmost X-Forwarded-For entry: with trust proxy set
+    // Express resolves the chain itself, and the leftmost entry is whatever
+    // the caller sent — a login log an attacker could write for you.
+    const ip = req.ip;
     const userAgent = req.headers['user-agent'] || undefined;
     return this.auth.login(dto, ip, userAgent);
   }

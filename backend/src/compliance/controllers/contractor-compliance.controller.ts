@@ -22,6 +22,7 @@ import {
   makeSafeUploadOptions,
   assertSafeFile,
 } from '../../common/safe-upload';
+import { NumericIdPipe } from '../../common/pipes/numeric-id.pipe';
 
 const fileUploadOptions = makeSafeUploadOptions({
   folder: 'compliance',
@@ -50,7 +51,7 @@ export class ContractorComplianceController {
 
   @ApiOperation({ summary: 'Detail' })
   @Get('tasks/:id')
-  detail(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+  detail(@CurrentUser() user: ReqUser, @Param('id', NumericIdPipe) id: string) {
     return this.svc.contractorGetTaskDetail(user, id);
   }
 
@@ -112,7 +113,10 @@ export class ContractorComplianceController {
 
   @ApiOperation({ summary: 'Get Doc Remarks' })
   @Get('docs/:docId/remarks')
-  getDocRemarks(@CurrentUser() user: ReqUser, @Param('docId') docId: string) {
+  getDocRemarks(
+    @CurrentUser() user: ReqUser,
+    @Param('docId', NumericIdPipe) docId: string,
+  ) {
     return this.svc.contractorGetDocRemarks(user, docId);
   }
 

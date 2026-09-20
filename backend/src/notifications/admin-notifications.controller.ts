@@ -7,6 +7,7 @@ import {
   Post,
   Query,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
@@ -35,7 +36,10 @@ export class AdminNotificationsController {
 
   @ApiOperation({ summary: 'Detail' })
   @Get(':id')
-  async detail(@Param('id') id: string) {
+  // A non-uuid reached Postgres as a 500. It also swallows any sibling route
+  // declared elsewhere under admin/notifications (e.g. /list), which now
+  // answers 400 rather than crashing.
+  async detail(@Param('id', ParseUUIDPipe) id: string) {
     return this.notificationsService.getTicketDetailForAdmin(id);
   }
 

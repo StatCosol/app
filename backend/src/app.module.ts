@@ -27,7 +27,7 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { envValidationSchema } from './config/env.validation';
 import { HealthModule } from './health/health.module';
 import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { RequestThrottlerGuard } from './common/guards/request-throttler.guard';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { ScopeGuard } from './auth/guards/scope.guard';
@@ -75,6 +75,12 @@ import { AccessModule } from './access/access.module';
 import { ListQueriesModule } from './list-queries/list-queries.module';
 import { ServiceEntitlementsModule } from './service-entitlements/service-entitlements.module';
 import { ServiceEntitlementsGuard } from './service-entitlements/service-entitlements.guard';
+
+/** An env override only counts if it parses to a positive number. */
+function positiveIntEnv(raw: string | undefined, fallback: number): number {
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
 
 @Module({
   imports: [
@@ -155,10 +161,13 @@ import { ServiceEntitlementsGuard } from './service-entitlements/service-entitle
         logging: ['error', 'warn'],
       }),
     }),
+    // Per signed-in user (see RequestThrottlerGuard), not per source address.
+    // THROTTLE_LIMIT exists so the ceiling can be raised without a code
+    // change if a legitimate heavy user starts seeing 429s.
     ThrottlerModule.forRoot([
       {
-        ttl: 60000,
-        limit: 120,
+        ttl: positiveIntEnv(process.env.THROTTLE_TTL_MS, 60000),
+        limit: positiveIntEnv(process.env.THROTTLE_LIMIT, 120),
       },
     ]),
     ScheduleModule.forRoot(),
@@ -226,7 +235,7 @@ import { ServiceEntitlementsGuard } from './service-entitlements/service-entitle
   ],
   controllers: [],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: RequestThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: ScopeGuard },
