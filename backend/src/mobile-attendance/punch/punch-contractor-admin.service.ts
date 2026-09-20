@@ -58,6 +58,14 @@ export interface ContractorPunchRow {
   decision: string;
 }
 
+/** An option in the screen's Contractor dropdown. */
+export interface ContractorForBranchRow {
+  contractorUserId: string;
+  contractorName: string | null;
+  contractorEmail: string | null;
+  employeeCount: string;
+}
+
 /**
  * A branch user's scope: null for everyone else. Manual punches were saved
  * with no branch, so the employee's branch stands in for a missing one.
@@ -150,6 +158,50 @@ export class PunchContractorAdminService {
         decision: p.decision,
       };
     });
+  }
+
+  /**
+   * The contractors to choose from, named from the users table.
+   *
+   * The screen used to build this list in the browser: it fetched every
+   * contractor employee of the branch, grouped them by contractor id, and
+   * labelled each group with the name of whichever employee came back first.
+   * So the Contractor dropdown read "Jilkari Shiva Kumar - 74 emp" — one of
+   * the 74, not the contractor — while the table below it, which joins users,
+   * showed the contractor's real name.
+   */
+  async listContractorsForBranch(
+    clientId: string,
+    opts: { branchId?: string } = {},
+    branchScope?: BranchScope,
+  ): Promise<ContractorForBranchRow[]> {
+    if (branchScope && !branchScope.length) return [];
+    const params: unknown[] = [clientId];
+    const where = [
+      'ce.client_id = $1',
+      'ce.is_active = true',
+      'ce.contractor_user_id IS NOT NULL',
+    ];
+    if (opts.branchId) {
+      params.push(opts.branchId);
+      where.push(`ce.branch_id = $${params.length}`);
+    }
+    if (branchScope) {
+      params.push(branchScope);
+      where.push(`ce.branch_id = ANY($${params.length}::uuid[])`);
+    }
+    return this.contractorPunchRepo.query(
+      `SELECT ce.contractor_user_id AS "contractorUserId",
+              u.name              AS "contractorName",
+              u.email             AS "contractorEmail",
+              COUNT(*)::text      AS "employeeCount"
+         FROM contractor_employees ce
+         LEFT JOIN users u ON u.id = ce.contractor_user_id
+        WHERE ${where.join(' AND ')}
+        GROUP BY ce.contractor_user_id, u.name, u.email
+        ORDER BY u.name NULLS LAST`,
+      params,
+    );
   }
 
   async createContractorPunch(

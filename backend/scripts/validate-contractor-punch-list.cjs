@@ -42,20 +42,26 @@ async function main() {
     });
     await ds.initialize();
     // Only the columns the list reads, from the real tables' definitions.
-    await ds.query(`CREATE TABLE users (id uuid PRIMARY KEY, name varchar NOT NULL)`);
+    await ds.query(
+      `CREATE TABLE users (id uuid PRIMARY KEY, name varchar NOT NULL, email varchar)`,
+    );
     await ds.query(`CREATE TABLE contractor_employees (
       id uuid PRIMARY KEY, client_id uuid NOT NULL, branch_id uuid NOT NULL,
       contractor_user_id uuid NOT NULL, name varchar(250) NOT NULL,
-      employee_code varchar(50))`);
+      employee_code varchar(50), is_active boolean NOT NULL DEFAULT true)`);
 
     const C = id(1), BR1 = id(11), BR2 = id(12), CU = id(21), CU2 = id(22);
-    await ds.query(`INSERT INTO users VALUES ($1,'Jilkari Shiva Kumar'),($2,'Other Contractor')`, [CU, CU2]);
+    await ds.query(
+      `INSERT INTO users VALUES ($1,'Jilkari Shiva Kumar','shiva@e2e.test'),($2,'Other Contractor',NULL)`,
+      [CU, CU2],
+    );
     await ds.query(
       `INSERT INTO contractor_employees VALUES
-        ($1,$4,$5,$6,'Ravi','SBS0001'),
-        ($2,$4,$7,$6,'Lakshmi','SBS0002'),
-        ($3,$4,$5,$8,'Other Worker','SBE0001')`,
-      [id(31), id(32), id(33), C, BR1, CU, BR2, CU2],
+        ($1,$5,$6,$7,'Ravi','SBS0001',true),
+        ($2,$5,$8,$7,'Lakshmi','SBS0002',true),
+        ($3,$5,$6,$9,'Other Worker','SBE0001',true),
+        ($4,$5,$6,$7,'Exited Worker','SBS0003',false)`,
+      [id(31), id(32), id(33), id(34), C, BR1, CU, BR2, CU2],
     );
     const repo = ds.getRepository(ContractorBiometricPunchEntity);
     const punch = (n, emp, extra) =>
@@ -82,9 +88,43 @@ async function main() {
     assert.equal(all[id(44)].source, 'DEVICE');
     assert.equal(all[id(43)].branchId, BR2); // took the employee's branch
 
-    // The contractor dropdown on the screen.
+    // Filtering by the contractor the dropdown selected.
     const mine = await svc.listContractorPunches(C, { contractorUserId: CU });
     assert.deepEqual(mine.map((r) => r.id).sort(), [id(41), id(42), id(43)]);
+
+    // The dropdown itself: the contractor's own name, not an employee's.
+    const options = await svc.listContractorsForBranch(C);
+    assert.deepEqual(
+      options.map((o) => [o.contractorName, o.employeeCount]),
+      [
+        ['Jilkari Shiva Kumar', '2'],
+        ['Other Contractor', '1'],
+      ],
+    );
+    assert.ok(
+      !options.some((o) => ['Ravi', 'Lakshmi', 'Other Worker'].includes(o.contractorName)),
+      'dropdown labelled a contractor with one of their employees',
+    );
+    assert.equal(options[0].contractorUserId, CU);
+    assert.equal(options[0].contractorEmail, 'shiva@e2e.test');
+
+    // Scoped: BR1 only, and an inactive employee is not counted.
+    assert.deepEqual(
+      (await svc.listContractorsForBranch(C, { branchId: BR1 })).map((o) => [
+        o.contractorName,
+        o.employeeCount,
+      ]),
+      [
+        ['Jilkari Shiva Kumar', '1'],
+        ['Other Contractor', '1'],
+      ],
+    );
+    assert.deepEqual(
+      (await svc.listContractorsForBranch(C, {}, [BR2])).map((o) => o.contractorName),
+      ['Jilkari Shiva Kumar'],
+    );
+    assert.deepEqual(await svc.listContractorsForBranch(C, {}, []), []);
+    assert.deepEqual(await svc.listContractorsForBranch(id(2), {}), []);
 
     // A branch user of BR1 sees BR1 only — including the branchless manual
     // punch of a BR2 employee staying out.
@@ -96,7 +136,7 @@ async function main() {
     assert.deepEqual(await svc.listContractorPunches(id(2), {}), []);
 
     console.log(
-      'PASS: contractor punches list on real Postgres — names, codes, contractor, source (face/manual/device), FaceDesk cosine as match, contractor filter, and branch scope with branchless manual punches.',
+      'PASS: contractor attendance on real Postgres — punch names, codes, contractor, source (face/manual/device), FaceDesk cosine as match, branch scope with branchless manual punches; and the Contractor dropdown named from users, counting active employees only.',
     );
   } finally {
     if (ds?.isInitialized) await ds.destroy();

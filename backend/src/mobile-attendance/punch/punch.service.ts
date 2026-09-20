@@ -28,6 +28,7 @@ import {
   PunchDirectionService,
 } from './punch-direction.service';
 import {
+  ContractorForBranchRow,
   ContractorPunchRow,
   PunchContractorAdminService,
 } from './punch-contractor-admin.service';
@@ -730,6 +731,18 @@ export class PunchService {
     branchScope?: string[] | null,
   ): Promise<ContractorPunchRow[]> {
     return this.contractorAdminService.listContractorPunches(
+      clientId,
+      opts,
+      branchScope,
+    );
+  }
+
+  async listContractorsForBranch(
+    clientId: string,
+    opts: { branchId?: string } = {},
+    branchScope?: string[] | null,
+  ): Promise<ContractorForBranchRow[]> {
+    return this.contractorAdminService.listContractorsForBranch(
       clientId,
       opts,
       branchScope,

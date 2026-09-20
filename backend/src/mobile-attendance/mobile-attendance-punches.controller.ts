@@ -234,6 +234,23 @@ export class MobileAttendancePunchesController {
     });
   }
 
+  @ApiOperation({
+    summary: 'Admin — contractors to filter the contractor punch list by',
+  })
+  @Get('contractors')
+  @Roles('CLIENT', 'ADMIN')
+  async listContractorsForBranch(
+    @CurrentUser() user: ReqUser,
+    @Query('branchId') branchId?: string,
+  ) {
+    const clientId = requireMobileAttendanceClient(user);
+    return this.punchService.listContractorsForBranch(
+      clientId,
+      { branchId },
+      mobileAttendanceBranchScope(user),
+    );
+  }
+
   @ApiOperation({ summary: 'Admin — list contractor punches with filters' })
   @Get('contractor')
   @Roles('CLIENT', 'ADMIN')
