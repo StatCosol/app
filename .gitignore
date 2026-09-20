@@ -92,3 +92,6 @@ backup-be-revisions.txt
 backup-be-secret-names.txt
 face-svc/.test-deps/
 **/__pycache__/
+
+# Local-only full-app e2e harness (throwaway DB, seeds, sweep output)
+backend/.local-e2e/

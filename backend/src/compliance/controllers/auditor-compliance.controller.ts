@@ -15,6 +15,7 @@ import { CreateReuploadRequestsDto } from '../dto/create-reupload-requests.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ReqUser } from '../../access/access-scope.service';
+import { NumericIdPipe } from '../../common/pipes/numeric-id.pipe';
 
 @ApiTags('Compliance')
 @ApiBearerAuth('JWT')
@@ -39,7 +40,7 @@ export class AuditorComplianceController {
 
   @ApiOperation({ summary: 'Detail' })
   @Get('tasks/:id')
-  detail(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+  detail(@CurrentUser() user: ReqUser, @Param('id', NumericIdPipe) id: string) {
     return this.svc.auditorGetTaskDetail(user, id);
   }
 

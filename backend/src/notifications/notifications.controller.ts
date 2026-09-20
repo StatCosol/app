@@ -18,6 +18,7 @@ import { ReplyNotificationDto } from './dto/reply-notification.dto';
 import { RaiseNotificationDto } from './dto/raise-notification.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ReqUser } from '../access/access-scope.service';
+import { NumericIdPipe } from '../common/pipes/numeric-id.pipe';
 
 @ApiTags('Notifications')
 @ApiBearerAuth('JWT')
@@ -58,7 +59,7 @@ export class NotificationsController {
   @Get('messages/:messageId/attachment')
   downloadMessageAttachment(
     @CurrentUser() user: ReqUser,
-    @Param('messageId') messageId: string,
+    @Param('messageId', NumericIdPipe) messageId: string,
     @Res() res: Response,
   ) {
     return this.svc.downloadMessageAttachmentForUser(user, messageId, res);

@@ -19,6 +19,7 @@ import { ComplianceService } from '../compliance/compliance.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { NumericIdPipe } from '../common/pipes/numeric-id.pipe';
 
 @ApiTags('Contractor')
 @ApiBearerAuth('JWT')
@@ -181,7 +182,10 @@ export class ContractorController {
 
   @ApiOperation({ summary: 'Legacy Contractor Task Detail (compat)' })
   @Get('tasks/:id')
-  getLegacyTaskDetail(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+  getLegacyTaskDetail(
+    @CurrentUser() user: ReqUser,
+    @Param('id', NumericIdPipe) id: string,
+  ) {
     return this.complianceService.contractorGetTaskDetail(user, id);
   }
 

@@ -434,7 +434,8 @@ export class PayrollReportsService {
         're.employeeCode',
         're.employeeName',
         're.clientId',
-        'MAX(re.employeeId) AS employee_id',
+        // Postgres has no max(uuid); any one id of the group serves the PAN lookup.
+        'MAX(re.employee_id::text) AS employee_id',
         'SUM(CAST(re.grossEarnings AS DECIMAL(14,2))) AS annual_gross',
         'SUM(CAST(re.totalDeductions AS DECIMAL(14,2))) AS annual_deductions',
         'SUM(CAST(re.netPay AS DECIMAL(14,2))) AS annual_net',

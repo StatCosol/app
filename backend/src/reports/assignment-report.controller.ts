@@ -18,7 +18,7 @@ export class AssignmentReportController {
   health() {
     const sql = `
       SELECT
-        c."clientName" AS client_name,
+        c.client_name AS client_name,
         ca.assignment_type,
         u.email AS assignee,
         ca.start_date,

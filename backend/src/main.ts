@@ -35,6 +35,14 @@ async function bootstrap() {
   // Wire pino as the application logger
   app.useLogger(app.get(PinoLogger));
 
+  // Requests arrive through the Azure ingress and the nginx container, both of
+  // which append to X-Forwarded-For. Without this, req.ip is the nginx
+  // container's private address for every caller, so rate limiting and the
+  // login audit trail saw one client. Trusting only private/loopback hops
+  // walks the chain from the right and stops at the first public address —
+  // the real client — without hard-coding how many proxies are in front.
+  app.set('trust proxy', ['loopback', 'linklocal', 'uniquelocal']);
+
   const config = app.get(ConfigService);
 
   // Global validation
