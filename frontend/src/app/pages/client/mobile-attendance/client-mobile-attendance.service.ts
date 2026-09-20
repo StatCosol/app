@@ -317,41 +317,18 @@ export class ClientMobileAttendanceService {
     );
   }
 
-  // ── Branch-portal contractor list (aggregated from client contractor-employees API) ──
+  // ── Branch-portal contractor list ──
+  // This used to fetch every contractor employee of the branch and group them
+  // in the browser, labelling each contractor with the name of whichever of
+  // their employees came back first — so the dropdown showed an employee's
+  // name. The server names the contractor from the users table and counts
+  // their employees, which is also one small response instead of all of them.
   listContractorsForBranch(branchId?: string): Observable<ContractorForBranchRow[]> {
-    const params: Record<string, string> = { isActive: 'true' };
+    const params: Record<string, string> = {};
     if (branchId) params['branchId'] = branchId;
-    return this.http
-      .get<{ data: Array<{ contractorUserId: string; name: string }>; total: number }>(
-        '/api/v1/client/contractor-employees',
-        { params },
-      )
-      .pipe(
-        map((res) => {
-          const counts = new Map<string, { name: string | null; count: number }>();
-          for (const row of res.data ?? []) {
-            if (!row.contractorUserId) continue;
-            const cur = counts.get(row.contractorUserId);
-            if (cur) {
-              cur.count += 1;
-            } else {
-              counts.set(row.contractorUserId, { name: row.name ?? null, count: 1 });
-            }
-          }
-          return [...counts.entries()]
-            .map(([contractorUserId, v]) => ({
-              contractorUserId,
-              contractorName: v.name,
-              contractorEmail: null,
-              employeeCount: String(v.count),
-            }))
-            .sort((a, b) =>
-              (a.contractorName ?? a.contractorUserId).localeCompare(
-                b.contractorName ?? b.contractorUserId,
-              ),
-            );
-        }),
-      );
+    return this.http.get<ContractorForBranchRow[]>(`${this.base}/punches/contractors`, {
+      params,
+    });
   }
 
   listContractorPunches(
