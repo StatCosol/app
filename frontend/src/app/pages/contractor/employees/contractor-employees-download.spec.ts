@@ -63,16 +63,26 @@ describe('Contractor worker download', () => {
     expect(component.saving).toBe(false);
   });
 
-  it('validates mandatory bulk fields and refuses numeric bank cells', () => {
+  it('validates mandatory bulk fields, and takes a numeric bank cell that kept its digits', () => {
     component.availableBranches = [{ id: 'branch-1', branchName: 'Branch 1' }] as any;
     component.bulkBranchId = 'branch-1';
     const valid = { name: 'Synthetic Worker', skillCategory: 'SKILLED', monthlySalary: 15000, aadhaar: '123456789012', pan: 'abcde1234f', bankAccount: '001234567890' };
-    const rows = component['validateBulkRows']([valid, { ...valid, bankAccount: 1234567890 }, { ...valid, aadhaar: '', pan: '', bankAccount: '' }]);
+    const rows = component['validateBulkRows']([
+      valid,
+      { ...valid, bankAccount: 1234567890 }, // Excel made a number of it, losslessly
+      { ...valid, aadhaar: '', pan: '', bankAccount: '' },
+      { ...valid, bankAccount: 1234567890123456 }, // 16 digits: Excel already corrupted it
+    ]);
     expect(rows[0].errors).toEqual([]);
     expect(rows[0].dto.bankAccount).toBe('001234567890');
     expect(rows[0].dto.pan).toBe('ABCDE1234F');
-    expect(rows[1].errors.join(' ')).toContain('as text');
+    // Accepted now — rejecting these blocked ordinary account numbers — but flagged,
+    // because a leading zero cannot be recovered from a number cell.
+    expect(rows[1].errors).toEqual([]);
+    expect(rows[1].dto.bankAccount).toBe('1234567890');
+    expect(rows[1].warnings.join(' ')).toContain('zero');
     expect(rows[2].errors).toHaveLength(3);
+    expect(rows[3].errors.join(' ')).toContain('lost digits');
   });
 
   it('preserves long account numbers and leading zeros from a CSV file', async () => {
@@ -87,7 +97,7 @@ describe('Contractor worker download', () => {
     expect(component.bulkPreview[0].dto.monthlySalary).toBe(15000);
   });
 
-  it('still rejects numeric bank cells from an Excel workbook', async () => {
+  it('takes a numeric bank cell from a real Excel workbook, flagging the lost zero', async () => {
     component.availableBranches = [{ id: 'branch-1', branchName: 'Branch 1' }] as any;
     component.bulkBranchId = 'branch-1';
     const wb = XLSX.utils.book_new();
@@ -96,7 +106,9 @@ describe('Contractor worker download', () => {
     const input = { files: [new File([bytes], 'workers.xlsx')], value: 'workers.xlsx' };
     component.onBulkFile({ target: input } as unknown as Event);
     await vi.waitFor(() => expect(component.bulkPreview).toHaveLength(1));
-    expect(component.bulkPreview[0].errors.join(' ')).toContain('as text');
+    expect(component.bulkPreview[0].errors).toEqual([]);
+    expect(component.bulkPreview[0].dto.bankAccount).toBe('1234567890');
+    expect(component.bulkPreview[0].warnings.join(' ')).toContain('zero');
   });
 
   it('blocks exports while branch data is loading, after failure, and for an empty list', async () => {

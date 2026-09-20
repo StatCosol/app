@@ -89,6 +89,8 @@ interface BulkPreviewRow {
   raw: Record<string, any>;
   dto: CreateEmployeeDto;
   errors: string[];
+  /** Accepted, but worth reading before uploading — see readIdentityCell. */
+  warnings: string[];
 }
 
 interface BulkUploadResult {
@@ -733,7 +735,8 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
         <p class="text-sm text-gray-600 mb-3">
           Upload an Excel/CSV file. Required columns: <strong>name</strong>, <strong>skillCategory</strong>
           (UNSKILLED / SEMI_SKILLED / SKILLED / HIGHLY_SKILLED).
-          Required identity fields: aadhaar, pan, bankAccount. Store these cells as text to preserve digits and leading zeros.
+          Required identity fields: aadhaar, pan, bankAccount. The template already formats these columns as text,
+          which is what keeps a leading zero on an account number; if you build your own file, format them the same way.
           Optional: gender, dateOfBirth, fatherName, phone, email, designation, department,
           dateOfJoining, monthlySalary, dailyWage, uan, esic, pfApplicable, esiApplicable, branchId, stateCode.
         </p>
@@ -763,8 +766,13 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
 <span class="text-gray-400">· uploads in {{ bulkBatchCount }} batches of {{ batchSize }}</span>
 }
             </span>
-            <span [class]="bulkErrorCount > 0 ? 'text-red-600' : 'text-green-600'">
-              {{ bulkErrorCount }} error(s)
+            <span class="flex gap-3">
+              @if (bulkWarningCount > 0) {
+<span class="text-amber-600">{{ bulkWarningCount }} warning(s)</span>
+}
+              <span [class]="bulkErrorCount > 0 ? 'text-red-600' : 'text-green-600'">
+                {{ bulkErrorCount }} error(s)
+              </span>
             </span>
           </div>
           <div class="max-h-64 overflow-y-auto">
@@ -787,7 +795,17 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                   <td class="px-2 py-1.5">{{ r.dto.skillCategory || '—' }}</td>
                   <td class="px-2 py-1.5 text-right tabular-nums">{{ r.dto.monthlySalary ?? '—' }}</td>
                   <td class="px-2 py-1.5">{{ branchName(r.dto.branchId || bulkBranchId) || '(default)' }}</td>
-                  <td class="px-2 py-1.5 text-red-600">{{ r.errors.join('; ') || '—' }}</td>
+                  <td class="px-2 py-1.5">
+                    @if (r.errors.length) {
+<span class="text-red-600">{{ r.errors.join('; ') }}</span>
+}
+                    @if (r.warnings.length) {
+<span class="text-amber-600" [class.block]="r.errors.length > 0">{{ r.warnings.join('; ') }}</span>
+}
+                    @if (!r.errors.length && !r.warnings.length) {
+<span class="text-gray-400">—</span>
+}
+                  </td>
                 </tr>
 }
               </tbody>
@@ -933,6 +951,10 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
   }
   get bulkValidCount(): number {
     return this.bulkPreview.filter((r) => r.errors.length === 0).length;
+  }
+
+  get bulkWarningCount(): number {
+    return this.bulkPreview.filter((r) => r.warnings.length > 0).length;
   }
 
   get totalActive(): number {
@@ -1449,9 +1471,41 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       branchId: this.bulkBranchId || this.selectedBranchId || '',
     };
     const ws = XLSX.utils.json_to_sheet([sample], { header: headers });
+    this.formatIdentityColumnsAsText(ws, headers);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Employees');
     XLSX.writeFile(wb, 'contractor-employees-template.xlsx');
+  }
+
+  /**
+   * Give the identity columns Excel's Text format ("@") for the rows people
+   * will type into, so an account number keeps its leading zeros and its
+   * sixteenth digit instead of becoming a number the moment it is entered.
+   * Fixing it here is better than reporting it at upload, when the digits are
+   * already gone.
+   */
+  private formatIdentityColumnsAsText(
+    ws: XLSX.WorkSheet,
+    headers: string[],
+    rows = 500,
+  ): void {
+    const TEXT_COLUMNS = ['bankAccount', 'aadhaar', 'pan', 'uan', 'esic', 'phone'];
+    const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1');
+    for (const header of TEXT_COLUMNS) {
+      const col = headers.indexOf(header);
+      if (col < 0) continue;
+      // Row 0 is the header; row 1 is the sample; format both and the blanks below.
+      for (let row = 1; row <= rows; row++) {
+        const addr = XLSX.utils.encode_cell({ r: row, c: col });
+        const cell = ws[addr] ?? { t: 's', v: '' };
+        cell.t = 's';
+        cell.z = '@';
+        ws[addr] = cell;
+      }
+      range.e.c = Math.max(range.e.c, col);
+    }
+    range.e.r = Math.max(range.e.r, rows);
+    ws['!ref'] = XLSX.utils.encode_range(range);
   }
 
   onBulkFile(ev: Event): void {
@@ -1492,6 +1546,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     const allowedSkills = SKILL_CATEGORIES.map((s) => s.value);
     return rows.map((raw, index) => {
       const errors: string[] = [];
+      const warnings: string[] = [];
       const name = String(raw['name'] ?? '').trim();
       if (!name) errors.push('Name required');
 
@@ -1538,11 +1593,11 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
         designation: raw['designation'] ? String(raw['designation']) : null,
         department: raw['department'] ? String(raw['department']) : null,
         dateOfJoining: raw['dateOfJoining'] ? String(raw['dateOfJoining']) : null,
-        bankAccount: raw['bankAccount'] == null ? null : String(raw['bankAccount']).replace(/\s+/g, ''),
-        aadhaar: raw['aadhaar'] == null ? null : String(raw['aadhaar']).replace(/\s+/g, ''),
+        bankAccount: this.readIdentityCell(raw['bankAccount'], 'bankAccount', errors, warnings, true),
+        aadhaar: this.readIdentityCell(raw['aadhaar'], 'aadhaar', errors, warnings),
         pan: raw['pan'] ? String(raw['pan']).replace(/\s+/g, '').toUpperCase() : null,
-        uan: raw['uan'] ? String(raw['uan']) : null,
-        esic: raw['esic'] ? String(raw['esic']) : null,
+        uan: this.readIdentityCell(raw['uan'], 'uan', errors, warnings),
+        esic: this.readIdentityCell(raw['esic'], 'esic', errors, warnings, true),
         pfApplicable: this.toBool(raw['pfApplicable']),
         esiApplicable: this.toBool(raw['esiApplicable']),
         stateCode: raw['stateCode'] ? String(raw['stateCode']).toUpperCase() : null,
@@ -1557,9 +1612,48 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       if (!dto.aadhaar || !/^\d{12}$/.test(dto.aadhaar)) errors.push('Aadhaar is required and must contain 12 digits');
       if (!dto.pan || !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(dto.pan)) errors.push('PAN is required (ABCDE1234F)');
       if (!dto.bankAccount || !/^[0-9]{1,40}$/.test(dto.bankAccount)) errors.push('Bank account number is required (digits only, maximum 40)');
-      if (typeof raw['bankAccount'] === 'number') errors.push('Store bankAccount as text in Excel to preserve all digits and leading zeros');
-      return { index, raw, dto, errors };
+      return { index, raw, dto, errors, warnings };
     });
+  }
+
+  /**
+   * An identity number out of a spreadsheet cell.
+   *
+   * Excel turns anything that looks like a number into one, which drops
+   * leading zeros and, past 15 significant digits, silently rewrites the tail
+   * as zeros. This used to reject every numeric bankAccount cell, so an
+   * ordinary 11-digit account typed into Excel could not be uploaded at all.
+   *
+   * The two cases are not the same. Digits Excel has already destroyed cannot
+   * be recovered here, so that is still an error. A value that survived intact
+   * is accepted, with a warning where a leading zero could have been there —
+   * we cannot tell from a number cell whether one was.
+   */
+  private readIdentityCell(
+    value: unknown,
+    field: string,
+    errors: string[],
+    warnings: string[],
+    leadingZeroPossible = false,
+  ): string | null {
+    if (value == null || value === '') return null;
+    if (typeof value === 'number') {
+      const digits = String(value);
+      // Excel keeps 15 significant digits; beyond that the cell is already wrong.
+      if (!Number.isInteger(value) || value < 0 || digits.length > 15) {
+        errors.push(
+          `${field}: Excel stored this as a number and lost digits. Format the column as Text and enter it again.`,
+        );
+        return null;
+      }
+      if (leadingZeroPossible) {
+        warnings.push(
+          `${field} came from a number cell — if it starts with a zero, Excel dropped it before upload. Format the column as Text to keep it.`,
+        );
+      }
+      return digits;
+    }
+    return String(value).replace(/\s+/g, '');
   }
 
   private toBool(v: any): boolean {
