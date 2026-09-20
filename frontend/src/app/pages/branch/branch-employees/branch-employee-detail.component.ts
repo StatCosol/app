@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
@@ -9,6 +10,9 @@ import {
   ActionButtonComponent,
   StatusBadgeComponent,
   LoadingSpinnerComponent,
+  ModalComponent,
+  FormInputComponent,
+  FormSelectComponent,
 } from '../../../shared/ui';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
@@ -18,9 +22,13 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     ActionButtonComponent,
     StatusBadgeComponent,
     LoadingSpinnerComponent,
+    ModalComponent,
+    FormInputComponent,
+    FormSelectComponent,
   ],
   template: `
     <div class="page">
@@ -201,6 +209,9 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             @if (!loadingNoms && nominations.length) {
 <span class="text-xs text-gray-500">{{ nominations.length }} record(s)</span>
 }
+            <ui-button variant="primary" size="sm" class="ml-auto" (clicked)="openNomForm()">
+              + Add Nomination
+            </ui-button>
           </div>
           @if (loadingNoms) {
 <ui-loading-spinner text="Loading nominations..."></ui-loading-spinner>
@@ -233,6 +244,71 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 }
           </div>
 }
+
+          <!-- Entering a nomination on the employee's behalf. The branch desk
+               can only reach employees of its own branch; the server records
+               the entering user and holds it to that branch. -->
+          @if (showNomModal) {
+<ui-modal title="Add Nomination" size="full" (closed)="showNomModal = false">
+            <div class="nom-form-grid">
+              <ui-form-select label="Nomination Type *" [options]="nomTypeOptions"
+                              [(ngModel)]="nomForm.nominationType"></ui-form-select>
+              <div class="form-field">
+                <label class="form-label" for="bed-declaration-date">Declaration Date</label>
+                <input autocomplete="off" id="bed-declaration-date" name="declarationDate" type="date"
+                       class="form-date-input" [(ngModel)]="nomForm.declarationDate" />
+              </div>
+              <ui-form-input label="Witness Name" [(ngModel)]="nomForm.witnessName"></ui-form-input>
+              <ui-form-input label="Witness Address" [(ngModel)]="nomForm.witnessAddress"></ui-form-input>
+            </div>
+
+            <div class="mt-4">
+              <div class="flex justify-between items-center mb-2">
+                <h4 class="text-sm font-semibold text-gray-700">Nominee Members</h4>
+                <button class="text-xs text-brand-600 hover:underline" (click)="addNomMember()">+ Add Member</button>
+              </div>
+              @for (m of nomForm.members; track m; let i = $index) {
+<div class="member-row">
+                <ui-form-input label="Name *" [(ngModel)]="m.memberName"></ui-form-input>
+                <ui-form-input label="Relationship" [(ngModel)]="m.relationship"></ui-form-input>
+                <div class="form-field">
+                  <label class="form-label" [attr.for]="'bed-nom-dob-' + i">Date of Birth</label>
+                  <input autocomplete="off" [id]="'bed-nom-dob-' + i" [name]="'nomDob' + i" type="date"
+                         class="form-date-input" [(ngModel)]="m.dateOfBirth" />
+                </div>
+                <ui-form-input label="Share %" type="number" [(ngModel)]="m.sharePct"></ui-form-input>
+                <ui-form-input class="full" label="Address" [(ngModel)]="m.address"></ui-form-input>
+                <div class="member-actions">
+                  <label class="flex items-center gap-1 text-xs">
+                    <input autocomplete="off" [id]="'bed-is-minor-' + i" [name]="'isMinor' + i"
+                           type="checkbox" [(ngModel)]="m.isMinor"> Minor (under 18)
+                  </label>
+                  @if (nomForm.members.length > 1) {
+<button class="text-xs text-red-600 hover:underline ml-auto" (click)="removeNomMember(i)">Remove</button>
+}
+                </div>
+                @if (m.isMinor) {
+<div class="guardian-block">
+                  <ui-form-input label="Guardian Name" [(ngModel)]="m.guardianName"></ui-form-input>
+                  <ui-form-input label="Guardian Relationship" [(ngModel)]="m.guardianRelationship"></ui-form-input>
+                  <ui-form-input class="full" label="Guardian Address" [(ngModel)]="m.guardianAddress"></ui-form-input>
+                </div>
+}
+              </div>
+}
+            </div>
+
+            @if (nomFormError) {
+<div class="form-error mt-2" role="alert">{{ nomFormError }}</div>
+}
+
+            <div class="form-actions">
+              <ui-button variant="secondary" (clicked)="showNomModal = false">Cancel</ui-button>
+              <ui-button variant="primary" [disabled]="savingNom" [loading]="savingNom"
+                         (clicked)="saveNomination()">Save Nomination</ui-button>
+            </div>
+          </ui-modal>
+}
         </div>
       
 }
@@ -240,6 +316,54 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
   `,
   styles: [`
     .page { max-width: 1280px; margin: 0 auto; padding: 1.5rem 1rem; }
+
+    /* Nomination entry form — matches the client portal's. */
+    .nom-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .member-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+      padding: 0.75rem;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.375rem;
+      margin-bottom: 0.75rem;
+    }
+    .member-row .full { grid-column: 1 / -1; }
+    .member-row .member-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding-top: 0.25rem;
+      border-top: 1px dashed #e5e7eb;
+    }
+    .member-row .guardian-block {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+      padding: 0.5rem;
+      margin-top: 0.25rem;
+      background: #ffffff;
+      border: 1px dashed #d1d5db;
+      border-radius: 0.375rem;
+    }
+    .member-row .guardian-block .full { grid-column: 1 / -1; }
+    .form-field { display: flex; flex-direction: column; gap: 0.25rem; }
+    .form-label { font-size: 0.875rem; font-weight: 500; color: #374151; }
+    .form-date-input {
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      color: #111827;
+      background: white;
+      height: 38px;
+    }
+    .form-date-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+    .form-error { color: #dc2626; font-size: 0.85rem; }
+    .form-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1rem; }
 
     .header-card {
       background: white;
@@ -357,6 +481,19 @@ export class BranchEmployeeDetailComponent implements OnInit, OnDestroy {
   nomsError = '';
   loadingNoms = false;
   printingNomination = '';
+
+  showNomModal = false;
+  nomForm: any = {};
+  nomFormError = '';
+  savingNom = false;
+  nomTypeOptions = [
+    { label: 'Select type', value: '' },
+    { label: 'PF Nomination', value: 'PF' },
+    { label: 'ESI Nomination', value: 'ESI' },
+    { label: 'Gratuity', value: 'GRATUITY' },
+    { label: 'Insurance', value: 'INSURANCE' },
+    { label: 'Salary', value: 'SALARY' },
+  ];
 
   constructor(
     private svc: ClientEmployeesService,
@@ -551,5 +688,75 @@ export class BranchEmployeeDetailComponent implements OnInit, OnDestroy {
       },
       error: (e) => this.toast.error(e?.error?.message || 'Failed to download nomination form'),
     });
+  }
+
+  // ── Entering a nomination for the employee ──────────────────
+  openNomForm(): void {
+    this.nomFormError = '';
+    this.nomForm = {
+      nominationType: '',
+      declarationDate: '',
+      witnessName: '',
+      witnessAddress: '',
+      members: [this.blankNomMember(100)],
+    };
+    this.showNomModal = true;
+  }
+
+  addNomMember(): void {
+    this.nomForm.members.push(this.blankNomMember(0));
+  }
+
+  private blankNomMember(sharePct: number): any {
+    return {
+      memberName: '',
+      relationship: '',
+      dateOfBirth: '',
+      sharePct,
+      address: '',
+      isMinor: false,
+      guardianName: '',
+      guardianRelationship: '',
+      guardianAddress: '',
+    };
+  }
+
+  removeNomMember(i: number): void {
+    this.nomForm.members.splice(i, 1);
+  }
+
+  saveNomination(): void {
+    if (!this.nomForm.nominationType) {
+      this.nomFormError = 'Nomination type is required';
+      return;
+    }
+    // A nomination with no nominee is the bug that made these records
+    // invisible everywhere; the server rejects it too.
+    const validMembers = this.nomForm.members.filter((m: any) => m.memberName?.trim());
+    if (validMembers.length === 0) {
+      this.nomFormError = 'At least one nominee member is required';
+      return;
+    }
+    this.savingNom = true;
+    this.nomFormError = '';
+    this.svc
+      .createNomination(this.employeeId, { ...this.nomForm, members: validMembers })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.savingNom = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.showNomModal = false;
+          this.toast.success('Nomination saved');
+          this.loadNominations();
+        },
+        error: (e) => {
+          this.nomFormError = describeApiError(e, 'Failed to save nomination');
+        },
+      });
   }
 }
