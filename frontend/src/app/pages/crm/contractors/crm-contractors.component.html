@@ -165,7 +165,7 @@
       </div>
 
       <fieldset [disabled]="quoteUploading" class="quote-editor">
-      <label>Entry method <select [(ngModel)]="quoteMode" class="form-control"><option value="excel">Upload Excel</option><option value="manual">Enter components manually</option></select></label>
+      <label>Entry method <select [(ngModel)]="quoteMode" class="form-control"><option value="excel">Upload Excel</option><option value="manual">Enter components manually</option><option value="vendor">Vendor breakup (as sent)</option></select></label>
       <div class="quote-grid">
         <label>Quotation scope<select name="quoteBranch" [(ngModel)]="quoteBranchId" class="form-control"><option value="">All assigned sites (default rate)</option>@for(branch of quoteBranches; track branch.id){<option [value]="branch.id">{{branch.branchName || branch.name}}</option>}</select></label>
         <label class="form-group">
@@ -184,23 +184,98 @@
           <label>Skill category<select [(ngModel)]="quoteSkill" class="form-control"><option value="">Select category</option><option value="UNSKILLED">Unskilled</option><option value="SEMI_SKILLED">Semi-skilled</option><option value="SKILLED">Skilled</option><option value="HIGHLY_SKILLED">Highly skilled</option></select></label>
           <label>Rounding<select [(ngModel)]="quoteRounding" class="form-control"><option value="RUPEE">Nearest rupee</option><option value="PAISE">Two decimal places</option></select></label>
         </div>
-        <p>Enter one designation at a time. Keep employee earnings, deductions, employer costs and billing fees separate. Percentage bases use earlier component codes, separated by commas. Prorated amounts are paid for payable days out of the month's working days (calendar days excluding Sundays).</p>
+        <p>Enter one designation at a time. Keep employee earnings, deductions, employer costs and billing fees separate. Percentage bases use earlier component codes, separated by commas. Formulas use earlier codes with + - * / %, IF, MIN, MAX, SUM, ROUND, ROUNDUP and FULL(code) for the full-month amount; variables DAYS, WORKING_DAYS and OT_HOURS. Use Subtotal for working lines such as derived wage or manpower cost. Untick "Billed to client" when the client is billed for an earning through a separate employer-cost line. Prorated amounts are paid for payable days out of the month's working days (calendar days excluding Sundays).</p>
         @for (c of quoteComponents; track $index) {
           <div class="quote-component">
             <strong>Component {{ $index + 1 }}</strong>
             <div class="quote-grid">
               <label>Code<input [(ngModel)]="c.code" placeholder="BASIC_DA" class="form-control" /></label>
               <label>Description<input [(ngModel)]="c.label" class="form-control" /></label>
-              <label>Category<select [(ngModel)]="c.category" class="form-control"><option value="EARNING">Employee earning</option><option value="DEDUCTION">Employee deduction</option><option value="EMPLOYER_COST">Employer cost</option><option value="BILLING_FEE">Billing fee</option></select></label>
-              <label>Calculation<select [(ngModel)]="c.method" (ngModelChange)="onQuoteMethodChange(c)" class="form-control"><option value="FIXED">Fixed amount</option><option value="PERCENT">Percentage</option><option value="HOURLY">Hourly rate</option></select></label>
-              <label>Amount / percentage<input type="number" min="0" [(ngModel)]="c.value" class="form-control" /></label>
+              <label>Category<select [(ngModel)]="c.category" class="form-control"><option value="EARNING">Employee earning</option><option value="DEDUCTION">Employee deduction</option><option value="EMPLOYER_COST">Employer cost</option><option value="BILLING_FEE">Billing fee</option><option value="SUBTOTAL">Subtotal (not paid or billed)</option></select></label>
+              <label>Calculation<select [(ngModel)]="c.method" (ngModelChange)="onQuoteMethodChange(c)" class="form-control"><option value="FIXED">Fixed amount</option><option value="PERCENT">Percentage</option><option value="HOURLY">Hourly rate</option><option value="FORMULA">Formula</option></select></label>
+              @if(c.method === 'FORMULA') {<label class="quote-formula">Formula<input [(ngModel)]="c.formula" placeholder="(BASIC_DA + LEAVE) * 8.33%" class="form-control" /></label>} @else {<label>Amount / percentage<input type="number" min="0" [(ngModel)]="c.value" class="form-control" /></label>}
               @if(c.method === 'PERCENT') {<label>Based on codes<input [(ngModel)]="c.basis" placeholder="BASIC_DA,SITE" class="form-control" /></label><label>Wage ceiling (optional)<input type="number" min="0" [(ngModel)]="c.ceiling" class="form-control" /></label>}
-              <label><input type="checkbox" [(ngModel)]="c.prorate" [disabled]="c.method !== 'FIXED'" /> Prorate by approved attendance</label>
+              <label><input type="checkbox" [(ngModel)]="c.prorate" [disabled]="c.method !== 'FIXED' && c.method !== 'FORMULA'" /> Prorate by approved attendance</label>
+              @if(c.category === 'EARNING') {<label><input type="checkbox" [(ngModel)]="c.billable" /> Billed to client</label>}
             </div>
             <button type="button" (click)="quoteComponents.splice($index, 1)">Remove component</button>
           </div>
         }
         <button type="button" [disabled]="quoteComponents.length >= 50" (click)="quoteComponents.push(newQuoteComponent())">Add component</button>
+      }
+      @if (quoteMode === 'vendor') {
+        <p>Upload the vendor's wage breakup exactly as they sent it. Each role (column or row) is read with its formulas, recalculated and compared with the vendor's own figures before anything is saved.</p>
+        <div class="quote-grid">
+          <label class="form-group">
+            <span>Vendor breakup Excel</span>
+            <input type="file" accept=".xlsx" (change)="onVendorFileSelected($event)" class="form-control" />
+          </label>
+          @if (vendorRead && vendorRead.sheets.length > 1) {
+            <label>Sheet<select [ngModel]="vendorRead.sheet" (ngModelChange)="readVendorBreakup($event)" class="form-control">
+              @for (s of vendorRead.sheets; track s) {<option [value]="s">{{ s }}</option>}
+            </select></label>
+          }
+        </div>
+        <button type="button" [disabled]="!vendorFile || vendorReading" (click)="readVendorBreakup()">{{ vendorReading ? 'Reading...' : 'Read breakup' }}</button>
+        @if (vendorRead) {
+          <p class="vendor-summary">{{ vendorDrafts.length }} role(s) found on sheet "{{ vendorRead.sheet }}". Tick the ones to import and set skill, designation (as on the workers) and effective date.</p>
+          @for (d of vendorDrafts; track d.key) {
+            <div class="vendor-quote" [class.vendor-quote--ok]="d.check?.ok" [class.vendor-quote--bad]="!d.check?.ok">
+              <div class="vendor-quote__head">
+                <label><input type="checkbox" [(ngModel)]="d.include" /> <strong>{{ d.designation || 'Column ' + d.key }}</strong> <small>({{ vendorRead.orientation === 'rows' ? 'row' : 'column' }} {{ d.key }})</small></label>
+                @if (d.check?.ok) {
+                  <span class="vendor-badge vendor-badge--ok">Matches vendor: billed {{ d.check.billingTotal | number: '1.2-2' }}@if (d.vendorTotals?.netPay) {, net pay {{ d.check.netPay | number: '1.2-2' }}}</span>
+                } @else {
+                  <span class="vendor-badge vendor-badge--bad">{{ d.check?.error || 'Differs from the vendor sheet' }}</span>
+                }
+              </div>
+              @if (d.details?.length) {
+                <p class="vendor-details">@for (x of d.details; track $index) {<span>{{ x.label ? x.label + ': ' : '' }}{{ x.value }}</span>}</p>
+              }
+              <div class="quote-grid">
+                <label>Skill category<select [(ngModel)]="d.skillCategory" (ngModelChange)="recheckVendorDraft(d)" class="form-control"><option value="">Select category</option><option value="UNSKILLED">Unskilled</option><option value="SEMI_SKILLED">Semi-skilled</option><option value="SKILLED">Skilled</option><option value="HIGHLY_SKILLED">Highly skilled</option></select></label>
+                <label>Designation<input [(ngModel)]="d.designation" class="form-control" /></label>
+                <label>Effective from<input type="date" [(ngModel)]="d.effectiveFrom" (ngModelChange)="recheckVendorDraft(d)" class="form-control" /></label>
+              </div>
+              @if (d.compliance?.length) {
+                <div class="compliance">
+                  <strong>Statutory checks</strong>
+                  @for (f of d.compliance; track $index) {<p [class.compliance--error]="f.severity === 'ERROR'" [class.compliance--warning]="f.severity !== 'ERROR'">{{ f.severity === 'ERROR' ? 'Not compliant' : 'Check' }}: {{ f.message }}</p>}
+                </div>
+              } @else if (d.compliance) {
+                <p class="compliance compliance--ok">Statutory checks passed: minimum wage, PF, ESI, bonus, PT and Labour Code wages.</p>
+              }
+              @if (d.duplicateOf) {<p class="vendor-warning">Same role and date as {{ d.duplicateOf }}; left unticked. Change the designation to import both.</p>}
+              @for (w of d.warnings; track $index) {<p class="vendor-warning">{{ w }}</p>}
+              @if (!d.check?.ok && d.check?.differences?.length) {
+                <p class="vendor-warning">Differs on: @for (x of d.check.differences; track x.code) {<span>{{ x.label }} (vendor {{ x.vendor | number: '1.2-2' }}, system {{ x.system | number: '1.2-2' }}) </span>}</p>
+              }
+              <button type="button" (click)="d.open = !d.open">{{ d.open ? 'Hide' : 'Show' }} lines ({{ d.components.length }})</button>
+              @if (d.open) {
+                <div class="vendor-lines">
+                  <table>
+                    <thead><tr><th>Line</th><th>Type</th><th>Calculation</th><th>By attendance</th><th>Billed</th><th>Vendor figure</th></tr></thead>
+                    <tbody>
+                      @for (c of d.components; track c.code) {
+                        <tr [class.vendor-line--bad]="vendorDifference(d, c.code)">
+                          <td>{{ c.label }}<br /><small>{{ c.code }} · {{ c.cell }}</small>@if (c.note) {<br /><small class="vendor-warning">{{ c.note }}</small>}</td>
+                          <td><select [(ngModel)]="c.category" (ngModelChange)="recheckVendorDraft(d)" class="form-control">
+                            <option value="EARNING">Paid to worker</option><option value="DEDUCTION">Deduction</option><option value="EMPLOYER_COST">Billed cost</option><option value="BILLING_FEE">Vendor fee</option><option value="SUBTOTAL">Working figure</option>
+                          </select></td>
+                          <td><code>{{ c.method === 'FORMULA' ? c.formula : (c.value | number: '1.0-2') }}</code></td>
+                          <td><input type="checkbox" [(ngModel)]="c.prorate" (ngModelChange)="recheckVendorDraft(d)" /></td>
+                          <td>@if (c.category === 'EARNING') {<input type="checkbox" [ngModel]="c.billable !== false" (ngModelChange)="c.billable = $event; recheckVendorDraft(d)" />}</td>
+                          <td>{{ c.vendorValue === null || c.vendorValue === undefined ? '—' : (c.vendorValue | number: '1.2-2') }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                  @if (d.excluded?.length) {<p><small>Left out: @for (x of d.excluded; track x.cell) {<span>{{ x.label }} ({{ x.cell }}) </span>}</small></p>}
+                </div>
+              }
+            </div>
+          }
+        }
       }
       <button type="button" (click)="downloadQuoteTemplate()">Download component quotation template</button>
       <div class="quote-format">
@@ -213,13 +288,14 @@
         {{ quoteUploadResult.inserted || 0 }} inserted,
         {{ quoteUploadResult.updated || 0 }} updated,
         {{ quoteUploadResult.errors || 0 }} errors
-        @for(result of quoteUploadResult.results || []; track $index){@if(result.message){<p>Row {{result.rowNumber}}: {{result.message}}</p>}}
+        @for(result of quoteUploadResult.results || []; track $index){@if(result.message){<p>Row {{result.rowNumber}}: {{result.message}}</p>}
+          @for (f of result.compliance || []; track $index) {<p [class.compliance--error]="f.severity === 'ERROR'" [class.compliance--warning]="f.severity !== 'ERROR'">{{ result.designation || result.skillCategory }}: {{ f.message }}</p>}}
       </div>
 }
 
       <div class="quote-actions">
-        <ui-button variant="primary" [disabled]="quoteUploading || (quoteMode === 'excel' && !quoteFile)" (clicked)="uploadQuote()">
-          {{ quoteUploading ? 'Uploading...' : 'Upload Quotation' }}
+        <ui-button variant="primary" [disabled]="quoteUploading || (quoteMode === 'excel' && !quoteFile) || (quoteMode === 'vendor' && !vendorDrafts.length)" (clicked)="uploadQuote()">
+          {{ quoteUploading ? 'Uploading...' : quoteMode === 'vendor' ? 'Import selected roles' : 'Upload Quotation' }}
         </ui-button>
         <ui-button variant="secondary" (clicked)="closeQuoteUpload()">Close</ui-button>
       </div>

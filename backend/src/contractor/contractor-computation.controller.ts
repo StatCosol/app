@@ -62,6 +62,15 @@ export class CrmContractorComputationController {
     return this.svc.listComputations(user, q);
   }
 
+  /** Quotations in force on a date, per head: paid, billed and the gap. */
+  @Get('quotations/comparison')
+  compareQuotations(
+    @CurrentUser() user: ReqUser,
+    @Query() q: Record<string, string>,
+  ) {
+    return this.svc.compareQuotations(user, q);
+  }
+
   @Post('quotations/upload')
   @UseInterceptors(FileInterceptor('file', excelUploadOptions))
   uploadQuotations(
@@ -76,6 +85,33 @@ export class CrmContractorComputationController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     return this.svc.uploadQuotationExcel(user, dto, file);
+  }
+
+  /** Reads a vendor's own wage breakup into draft quotations; saves nothing. */
+  @Post('quotations/vendor-sheet')
+  @UseInterceptors(FileInterceptor('file', excelUploadOptions))
+  readVendorSheet(
+    @CurrentUser() user: ReqUser,
+    @Body()
+    dto: {
+      sheet?: string;
+      clientId?: string;
+      branchId?: string;
+      contractorUserId?: string;
+    },
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.svc.readVendorBreakup(user, file, dto?.sheet, {
+      clientId: dto?.clientId,
+      branchId: dto?.branchId,
+      contractorUserId: dto?.contractorUserId,
+    });
+  }
+
+  /** Recalculates a draft after CRM changes a line; saves nothing. */
+  @Post('quotations/vendor-sheet/check')
+  checkVendorSheet(@CurrentUser() user: ReqUser, @Body() body: any) {
+    return this.svc.checkVendorBreakup(user, body);
   }
 }
 

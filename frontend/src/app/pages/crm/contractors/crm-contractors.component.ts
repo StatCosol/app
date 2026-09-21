@@ -50,17 +50,23 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
   quoteUploadFor: any = null;
   quoteFile: File | null = null;
   quoteEffectiveFrom = new Date().toISOString().slice(0, 10);
-  quoteMode: 'excel' | 'manual' = 'excel';
+  quoteMode: 'excel' | 'manual' | 'vendor' = 'excel';
+  vendorFile: File | null = null;
+  vendorReading = false;
+  vendorRead: { sheets: string[]; sheet: string; fileName: string; orientation: string } | null = null;
+  vendorDrafts: any[] = [];
   quoteDesignation = '';
   quoteSkill = '';
   quoteRounding = 'RUPEE';
   quoteComponents = [this.newQuoteComponent()];
 
   newQuoteComponent() {
-    return { code: '', label: '', category: 'EARNING', method: 'FIXED', value: 0, basis: '', ceiling: '', prorate: true };
+    return { code: '', label: '', category: 'EARNING', method: 'FIXED', value: 0, basis: '', ceiling: '', formula: '', billable: true, prorate: true };
   }
 
   onQuoteMethodChange(component: { method: string; prorate: boolean }): void {
+    // Fixed amounts are monthly figures; formulas usually build on earned
+    // amounts, so proration is opt-in for them.
     if (component.method !== 'FIXED') component.prorate = false;
   }
 
@@ -70,8 +76,9 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
     const codes = new Set<string>();
     const rows = this.quoteComponents.map(c => {
       const code = c.code.trim().toUpperCase();
-      if (!code || codes.has(code) || !Number.isFinite(c.value) || c.value < 0)
-        throw new Error('Each component needs a unique code and a non-negative amount or percentage');
+      const formula = c.method === 'FORMULA' ? c.formula.trim() : '';
+      if (!code || codes.has(code) || (c.method === 'FORMULA' ? !formula : !Number.isFinite(c.value) || c.value < 0))
+        throw new Error('Each component needs a unique code and a non-negative amount, percentage or formula');
       const basis = c.basis.split(',').map(v => v.trim().toUpperCase()).filter(Boolean);
       if (c.method === 'PERCENT' && (!basis.length || basis.some(v => !codes.has(v))))
         throw new Error('Percentage components must reference codes entered in earlier rows');
@@ -79,12 +86,106 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
       return { skill_category: this.quoteSkill, designation: this.quoteDesignation.trim(),
         effective_from: this.quoteEffectiveFrom, divisor: '', rounding: this.quoteRounding,
         component_code: code, label: c.label.trim() || code, category: c.category, method: c.method,
-        value: c.value, basis: c.method === 'PERCENT' ? basis.join(',') : '',
-        ceiling: c.ceiling, prorate: c.method === 'FIXED' && c.prorate ? 'yes' : 'no' };
+        value: c.method === 'FORMULA' ? '' : c.value, basis: c.method === 'PERCENT' ? basis.join(',') : '',
+        ceiling: c.ceiling, prorate: ['FIXED', 'FORMULA'].includes(c.method) && c.prorate ? 'yes' : 'no',
+        formula, billable: c.category === 'EARNING' && !c.billable ? 'no' : '' };
     });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Components');
     return new File([XLSX.write(wb, { type: 'array', bookType: 'xlsx' })], 'branch-quotation.xlsx');
+  }
+
+  onVendorFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.vendorFile = input.files?.[0] ?? null;
+    this.vendorRead = null;
+    this.vendorDrafts = [];
+  }
+
+  /** Reads the vendor's own breakup; each role found becomes a draft to confirm. */
+  readVendorBreakup(sheet?: string) {
+    if (!this.vendorFile || this.vendorReading) return;
+    this.vendorReading = true;
+    this.contractorApi.readVendorSheet(this.vendorFile, sheet, {
+      clientId: this.quoteUploadFor?.clientId,
+      branchId: this.quoteBranchId || undefined,
+      contractorUserId: this.quoteUploadFor?.id,
+    }).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.vendorReading = false; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: (res) => {
+        this.vendorRead = { sheets: res.sheets || [], sheet: res.sheet, fileName: res.fileName, orientation: res.orientation };
+        this.vendorDrafts = (res.quotations || []).map((q: any) => ({
+          ...q,
+          include: !q.duplicateOf,
+          open: false,
+          effectiveFrom: q.effectiveFrom || this.quoteEffectiveFrom,
+        }));
+      },
+      error: (err) => {
+        this.vendorRead = null;
+        this.vendorDrafts = [];
+        this.toast.error(err?.error?.message || 'Could not read the vendor breakup');
+      },
+    });
+  }
+
+  /** Recalculates a draft after CRM changes how a line is treated. */
+  recheckVendorDraft(draft: any) {
+    this.contractorApi.checkVendorSheet({
+      components: draft.components,
+      payDays: draft.payDays,
+      vendorTotals: draft.vendorTotals,
+      clientId: this.quoteUploadFor?.clientId,
+      branchId: this.quoteBranchId || undefined,
+      contractorUserId: this.quoteUploadFor?.id,
+      skillCategory: draft.skillCategory || undefined,
+      effectiveFrom: draft.effectiveFrom || undefined,
+    }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: ({ compliance, ...check }) => {
+        draft.check = check;
+        draft.compliance = compliance || [];
+        this.cdr.detectChanges();
+      },
+      error: (err) => this.toast.error(err?.error?.message || 'Could not recheck the quotation'),
+    });
+  }
+
+  vendorDifference(draft: any, code: string) {
+    return (draft.check?.differences || []).find((d: any) => d.code === code) || null;
+  }
+
+  /** The confirmed drafts, written in the component template the upload reads. */
+  vendorQuoteFile(): File {
+    const chosen = this.vendorDrafts.filter(d => d.include);
+    if (!chosen.length) throw new Error('Tick at least one role to import');
+    const seen = new Set<string>();
+    for (const d of chosen) {
+      const designation = String(d.designation || '').trim();
+      if (!d.skillCategory || !designation)
+        throw new Error(`Choose the skill category and designation for column ${d.key}`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d.effectiveFrom || ''))
+        throw new Error(`Choose the effective date for column ${d.key}`);
+      const id = [d.skillCategory, designation.toUpperCase(), d.effectiveFrom].join('|');
+      if (seen.has(id))
+        throw new Error(`Two ticked roles share ${designation} / ${d.skillCategory} from ${d.effectiveFrom}; change one designation or untick it`);
+      seen.add(id);
+      if (!d.check?.ok)
+        throw new Error(`Column ${d.key} does not reproduce the vendor's figures yet; review its lines or untick it`);
+    }
+    const rows = chosen.flatMap(d => d.components.map((c: any) => ({
+      skill_category: d.skillCategory, designation: String(d.designation).trim(),
+      effective_from: d.effectiveFrom, effective_to: '', divisor: '', rounding: 'PAISE',
+      component_code: c.code, label: c.label, category: c.category, method: c.method,
+      value: c.method === 'FIXED' ? c.value : '', basis: '', ceiling: '',
+      prorate: c.prorate ? 'yes' : 'no', formula: c.formula || '',
+      billable: c.category === 'EARNING' && c.billable === false ? 'no' : '',
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Components');
+    const name = (this.vendorRead?.fileName || 'vendor-breakup').replace(/\.xlsx?$/i, '');
+    return new File([XLSX.write(wb, { type: 'array', bookType: 'xlsx' })], `${name} - quotation.xlsx`);
   }
 
   quoteUploading = false;
@@ -248,6 +349,9 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
     this.quoteSkill = '';
     this.quoteRounding = 'RUPEE';
     this.quoteComponents = [this.newQuoteComponent()];
+    this.vendorFile = null;
+    this.vendorRead = null;
+    this.vendorDrafts = [];
     this.quoteBranches = [];
     this.contractorApi
       .quotationBranches(contractor.id)
@@ -285,8 +389,8 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
       this.toast.warning('Choose the quotation effective date'); return;
     }
     let file = this.quoteFile;
-    if (this.quoteMode === 'manual') {
-      try { file = this.manualQuoteFile(); }
+    if (this.quoteMode !== 'excel') {
+      try { file = this.quoteMode === 'manual' ? this.manualQuoteFile() : this.vendorQuoteFile(); }
       catch (err) { this.toast.warning((err as Error).message); return; }
     }
     if (!this.quoteUploadFor?.id || !this.quoteUploadFor?.clientId || !file) {

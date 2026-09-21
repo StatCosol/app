@@ -2,12 +2,23 @@ import { PayrollDocumentReconciliationService } from '../payroll-reconciliation/
 import {
   calculateRateCard,
   calculateRateCardSegments,
+  proratedEarningsDayRate,
+  rateCardPaysOvertime,
   validateRateCard,
 } from './contractor-rate-card';
 import {
   applyMonthDivisor,
   workingDaysInMonth,
 } from './contractor-working-days';
+import {
+  checkVendorQuotation,
+  listVendorSheets,
+  readVendorSheet,
+} from './contractor-vendor-sheet';
+import {
+  ComplianceContext,
+  quotationCompliance,
+} from './contractor-quotation-compliance';
 import {
   addDays,
   allocateCompOff,
@@ -100,6 +111,173 @@ export class ContractorComputationService {
       },
     });
     return { data, total: data.length };
+  }
+
+  /**
+   * Every quotation in force on a date, worked out per head for one full month
+   * of that month's working days, so contractors quoting in different ways can
+   * be compared on what the worker is paid, what the client is billed and the
+   * gap between them. With a branch, a branch's own quotation replaces the
+   * contractor's all-sites one, as it does in payroll.
+   */
+  async compareQuotations(user: ReqUser, q: Record<string, string>) {
+    const clientId = await this.resolveCrmClient(user, q.clientId);
+    const onDate =
+      q.onDate && this.validDate(q.onDate)
+        ? q.onDate
+        : new Date().toISOString().slice(0, 10);
+    const branchId = q.branchId || null;
+    const qb = this.quotationRepo
+      .createQueryBuilder('q')
+      .where('q.client_id = :clientId', { clientId })
+      .andWhere('q.effective_from <= :onDate', { onDate })
+      .andWhere('(q.effective_to IS NULL OR q.effective_to >= :onDate)', {
+        onDate,
+      });
+    if (branchId)
+      qb.andWhere('(q.branch_id = :branchId OR q.branch_id IS NULL)', {
+        branchId,
+      });
+    if (q.skillCategory)
+      qb.andWhere('q.skill_category = :skill', {
+        skill: this.normalizeSkill(q.skillCategory),
+      });
+    const found = await qb
+      .orderBy('q.effective_from', 'DESC')
+      .addOrderBy('q.created_at', 'DESC')
+      .getMany();
+    // The rate in force for each contractor, role and site.
+    const current = new Map<string, ContractorQuotationWageEntity>();
+    for (const quote of found) {
+      const key = [
+        quote.contractorUserId,
+        branchId ? '' : quote.branchId || '',
+        quote.skillCategory,
+        quote.designation,
+      ].join('|');
+      const held = current.get(key);
+      if (!held || (branchId && !held.branchId && quote.branchId))
+        current.set(key, quote);
+    }
+    const quotes = [...current.values()];
+    const contractorIds = [...new Set(quotes.map((x) => x.contractorUserId))];
+    const branchIds = [
+      ...new Set(quotes.map((x) => x.branchId).filter(Boolean)),
+    ] as string[];
+    const names = new Map<string, string>(
+      contractorIds.length
+        ? (
+            await this.quotationRepo.manager.query(
+              'SELECT id, name FROM users WHERE id = ANY($1)',
+              [contractorIds],
+            )
+          ).map((r: any) => [r.id, r.name])
+        : [],
+    );
+    const sites = new Map<string, string>(
+      branchIds.length
+        ? (
+            await this.quotationRepo.manager.query(
+              'SELECT id, branchname FROM client_branches WHERE id = ANY($1)',
+              [branchIds],
+            )
+          ).map((r: any) => [r.id, r.branchname])
+        : [],
+    );
+    const payDays = workingDaysInMonth(onDate.slice(0, 7));
+    const rows: Array<Record<string, any>> = [];
+    for (const quote of quotes) {
+      const base = {
+        quotationId: quote.id,
+        contractorUserId: quote.contractorUserId,
+        contractorName: names.get(quote.contractorUserId) ?? null,
+        branchId: quote.branchId,
+        branchName: quote.branchId ? (sites.get(quote.branchId) ?? null) : null,
+        skillCategory: quote.skillCategory,
+        designation: quote.designation,
+        effectiveFrom: quote.effectiveFrom,
+        dailyWage: quote.dailyWage,
+      };
+      if (!quote.rateCard) {
+        rows.push({
+          ...base,
+          hasBreakup: false,
+          basic: this.round(quote.dailyWage * payDays),
+        });
+        continue;
+      }
+      const card = { ...quote.rateCard, divisor: payDays };
+      let result: ReturnType<typeof calculateRateCard>;
+      try {
+        result = calculateRateCard(card, payDays);
+      } catch (err) {
+        rows.push({
+          ...base,
+          hasBreakup: false,
+          error: err instanceof Error ? err.message : 'Could not calculate',
+        });
+        continue;
+      }
+      const paid = this.round(result.earnings - result.unbilledEarnings);
+      const workerPaid = result.earnings;
+      rows.push({
+        ...base,
+        hasBreakup: true,
+        basic: this.round(
+          (result.amounts.BASIC_DA || 0) + (result.amounts.DA || 0),
+        ),
+        workerPaid,
+        deductions: result.deductions,
+        netPay: result.netPay,
+        employerCosts: result.employerCosts,
+        fees: result.billingFees,
+        billingTotal: result.billingTotal,
+        // What the client pays over and above what reaches the worker.
+        gap: this.round(result.billingTotal - workerPaid),
+        gapPercent: workerPaid
+          ? this.round(((result.billingTotal - workerPaid) / workerPaid) * 100)
+          : null,
+        perDay: this.round(result.billingTotal / payDays),
+        billedEarnings: paid,
+        lines: card.components
+          .filter((c) => c.category !== 'SUBTOTAL')
+          .map((c) => ({
+            code: c.code,
+            label: c.label,
+            category: c.category,
+            billable: c.category === 'EARNING' ? c.billable !== false : null,
+            amount: result.amounts[c.code] ?? 0,
+          })),
+        compliance: quotationCompliance(
+          quote.rateCard,
+          await this.complianceContext({
+            clientId,
+            branchId: quote.branchId ?? branchId,
+            contractorUserId: quote.contractorUserId,
+            skillCategory: quote.skillCategory,
+            onDate,
+            payDays,
+          }),
+        ),
+      });
+    }
+    const order = [
+      'UNSKILLED',
+      'SEMI_SKILLED',
+      'SKILLED',
+      'HIGHLY_SKILLED',
+    ] as string[];
+    rows.sort(
+      (a, b) =>
+        order.indexOf(a.skillCategory) - order.indexOf(b.skillCategory) ||
+        (a.billingTotal ?? Infinity) - (b.billingTotal ?? Infinity),
+    );
+    return {
+      onDate,
+      payDays,
+      branches: [...sites].map(([id, name]) => ({ id, name })),
+      rows,
+    };
   }
 
   async listComputations(user: ReqUser, q: Record<string, string>) {
@@ -403,12 +581,14 @@ export class ContractorComputationService {
           // Reference daily rate: BASIC_DA for the working days of the month the
           // quotation takes effect (calendar days excluding Sundays). The card
           // carries no fixed divisor; payroll runs use each wage month's days.
+          // Vendors that quote Basic and DA as separate lines have both paid
+          // as the minimum-wage rate.
           const monthDays = workingDaysInMonth(effectiveFrom.slice(0, 7));
-          dailyWage =
-            calculateRateCard(
-              applyMonthDivisor(rateCard, effectiveFrom.slice(0, 7)),
-              monthDays,
-            ).amounts.BASIC_DA / monthDays;
+          const month = calculateRateCard(
+            applyMonthDivisor(rateCard, effectiveFrom.slice(0, 7)),
+            monthDays,
+          ).amounts;
+          dailyWage = ((month.BASIC_DA || 0) + (month.DA || 0)) / monthDays;
         }
         if (!dailyWage || dailyWage <= 0)
           throw new BadRequestException('daily_wage must be greater than zero');
@@ -484,7 +664,24 @@ export class ContractorComputationService {
         results.push({
           rowNumber,
           skillCategory,
+          designation,
           outcome: 'inserted',
+          // Saved as quoted; statutory issues are reported, not refused.
+          ...(rateCard
+            ? {
+                compliance: quotationCompliance(
+                  rateCard,
+                  await this.complianceContext({
+                    clientId,
+                    branchId: dto.branchId,
+                    contractorUserId: dto.contractorUserId,
+                    skillCategory,
+                    onDate: effectiveFrom,
+                    payDays: workingDaysInMonth(effectiveFrom.slice(0, 7)),
+                  }),
+                ),
+              }
+            : {}),
         });
       } catch (err) {
         errors++;
@@ -1438,15 +1635,9 @@ export class ContractorComputationService {
     // month's working days — the basis regular payroll uses for holiday work.
     const sundayDayRate = quote?.rateCard
       ? this.round(
-          quote.rateCard.components
-            .filter(
-              (c) =>
-                c.category === 'EARNING' &&
-                c.method === 'FIXED' &&
-                c.prorate &&
-                !['BONUS', 'LEAVE'].includes(c.code),
-            )
-            .reduce((n, c) => n + c.value, 0) / workingDaysInMonth(periodMonth),
+          proratedEarningsDayRate(
+            applyMonthDivisor(quote.rateCard, periodMonth),
+          ),
         )
       : payableDailyWage;
     const sundayPay = sundayExtraPay({
@@ -1561,9 +1752,7 @@ export class ContractorComputationService {
         : [];
     if (
       calculationSegments.some(
-        (s) =>
-          s.hours > 0 &&
-          !s.quote.rateCard?.components.some((c) => c.method === 'HOURLY'),
+        (s) => s.hours > 0 && !rateCardPaysOvertime(s.quote.rateCard),
       ) ||
       (!calculationSegments.length && Number(raw.ot_hours) > 0)
     )
@@ -1651,11 +1840,20 @@ export class ContractorComputationService {
               sundayPay.amount,
           )
         : this.round(otherEarnings + sundayPay.amount),
+      // Gross leaves out bonus and leave only where the quotation pays them;
+      // a vendor that bills them as employer costs never put them in earnings.
       grossWage: cardResult
         ? this.round(
             cardResult.earnings -
-              (cardResult.amounts.BONUS || 0) -
-              (cardResult.amounts.LEAVE || 0) +
+              ['BONUS', 'LEAVE']
+                .filter((code) =>
+                  calculationSegments.some((s) =>
+                    s.quote.rateCard!.components.some(
+                      (c) => c.code === code && c.category === 'EARNING',
+                    ),
+                  ),
+                )
+                .reduce((n, code) => n + (cardResult.amounts[code] || 0), 0) +
               sundayPay.amount,
           )
         : grossWage,
@@ -2032,12 +2230,21 @@ export class ContractorComputationService {
       const prorate = text('prorate').toLowerCase();
       if (!['true', 'false', 'yes', 'no'].includes(prorate))
         throw new BadRequestException('Prorate must be yes or no');
+      const method = text('method').toUpperCase(),
+        billable = text('billable').toLowerCase();
+      if (billable && !['true', 'false', 'yes', 'no'].includes(billable))
+        throw new BadRequestException('Billable must be yes, no or blank');
       group.components.push({
         code,
         label: text('label') || code,
         category: text('category').toUpperCase(),
-        method: text('method').toUpperCase(),
-        value: this.cellNumber(row, headers, ['value']),
+        method,
+        value:
+          method === 'FORMULA' ? 0 : this.cellNumber(row, headers, ['value']),
+        ...(method === 'FORMULA'
+          ? { formula: this.formulaCell(row, headers) }
+          : {}),
+        ...(billable ? { billable: ['true', 'yes'].includes(billable) } : {}),
         basis: text('basis')
           .split(',')
           .map((v) => v.trim().toUpperCase())
@@ -2069,6 +2276,227 @@ export class ContractorComputationService {
     return normalized;
   }
 
+  /**
+   * What the statutory checks need for a quotation: the state (the branch's,
+   * else the client's), the minimum wage for the skill and the PT slabs in
+   * force on the quotation's date.
+   */
+  private async complianceContext(input: {
+    clientId?: string | null;
+    branchId?: string | null;
+    contractorUserId?: string | null;
+    skillCategory?: string | null;
+    onDate?: string | null;
+    payDays: number;
+  }): Promise<ComplianceContext> {
+    const onDate =
+      input.onDate && this.validDate(input.onDate)
+        ? input.onDate
+        : new Date().toISOString().slice(0, 10);
+    let stateCode: string | null = null;
+    if (input.branchId)
+      stateCode =
+        (await this.branchRepo.findOne({ where: { id: input.branchId } }))
+          ?.stateCode ?? null;
+    if (!stateCode && input.clientId) {
+      const [client] = await this.quotationRepo.manager.query(
+        'SELECT state FROM clients WHERE id = $1',
+        [input.clientId],
+      );
+      stateCode = client?.state ?? null;
+    }
+    let skill: ContractorWageSkill | null = null;
+    try {
+      skill = input.skillCategory
+        ? this.normalizeSkill(input.skillCategory)
+        : null;
+    } catch {
+      skill = null;
+    }
+    // Minimum wages differ by schedule of employment (housekeeping, security,
+    // packing...). As when a worker is registered: the contractor's schedule
+    // first, else the general rate — never another schedule's.
+    let scheduledEmployment: string | null = null;
+    if (input.contractorUserId && input.clientId) {
+      const [contractor] = await this.quotationRepo.manager.query(
+        `SELECT u.scheduled_employment FROM users u
+          JOIN branch_contractor bc ON bc.contractor_user_id = u.id
+         WHERE u.id = $1 AND bc.client_id = $2 LIMIT 1`,
+        [input.contractorUserId, input.clientId],
+      );
+      scheduledEmployment =
+        String(contractor?.scheduled_employment ?? '').trim() || null;
+    }
+    let minimumMonthlyWage: number | null = null;
+    if (stateCode && skill) {
+      const qb = this.minimumWageRepo
+        .createQueryBuilder('mw')
+        .where('mw.state_code = :stateCode', {
+          stateCode: stateCode.toUpperCase(),
+        })
+        .andWhere('mw.skill_category = :skill', { skill })
+        .andWhere('mw.effective_from <= :onDate', { onDate })
+        .andWhere('(mw.effective_to IS NULL OR mw.effective_to >= :onDate)', {
+          onDate,
+        });
+      if (scheduledEmployment)
+        qb.andWhere(
+          '(mw.scheduled_employment = :sched OR mw.scheduled_employment IS NULL)',
+          { sched: scheduledEmployment },
+        );
+      else qb.andWhere('mw.scheduled_employment IS NULL');
+      const row = await qb
+        .orderBy(
+          'CASE WHEN mw.scheduled_employment IS NULL THEN 1 ELSE 0 END',
+          'ASC',
+        )
+        .addOrderBy('mw.effective_from', 'DESC')
+        .getOne();
+      if (row)
+        minimumMonthlyWage = row.dailyWage
+          ? this.round(Number(row.dailyWage) * input.payDays)
+          : Number(row.monthlyWage);
+    }
+    let ptSlabs: ComplianceContext['ptSlabs'] = null;
+    if (stateCode && input.clientId) {
+      const effective = await this.stateSlab.listEffective({
+        clientId: input.clientId,
+        stateCode,
+        componentCode: 'PT',
+        asOfDate: onDate,
+      });
+      if (effective.source !== 'NONE' && effective.slabs.length)
+        ptSlabs = effective.slabs;
+    }
+    return {
+      payDays: input.payDays,
+      stateCode,
+      skillCategory: skill,
+      scheduledEmployment,
+      minimumMonthlyWage,
+      ptSlabs,
+    };
+  }
+
+  async readVendorBreakup(
+    user: ReqUser,
+    file: Express.Multer.File,
+    sheetName?: string,
+    scope: {
+      clientId?: string;
+      branchId?: string;
+      contractorUserId?: string;
+    } = {},
+  ) {
+    if (!['CRM', 'ADMIN'].includes(user.roleCode))
+      throw new ForbiddenException(
+        'Only CRM can maintain contractor wage rates',
+      );
+    const clientId = scope.clientId
+      ? await this.resolveCrmClient(user, scope.clientId)
+      : null;
+    if (!file?.buffer) throw new BadRequestException('Excel file is required');
+    const workbook = new ExcelJS.Workbook();
+    try {
+      await workbook.xlsx.load(file.buffer as any);
+    } catch {
+      throw new BadRequestException(
+        'The file could not be read. Save it as .xlsx and try again.',
+      );
+    }
+    const sheets = listVendorSheets(workbook);
+    if (!sheets.length) throw new BadRequestException('No worksheet found');
+    const sheet =
+      sheetName && sheets.includes(sheetName) ? sheetName : sheets[0];
+    const read = readVendorSheet(workbook.getWorksheet(sheet)!);
+    if (!read.quotations.length)
+      throw new BadRequestException(
+        'No wage breakup was found on this sheet: expected line labels with one column (or row) of figures per role.',
+      );
+    const quotations: Array<
+      (typeof read.quotations)[number] & {
+        compliance: ReturnType<typeof quotationCompliance>;
+      }
+    > = [];
+    for (const q of read.quotations)
+      quotations.push({
+        ...q,
+        compliance: quotationCompliance(
+          { rounding: 'PAISE', components: q.components },
+          await this.complianceContext({
+            clientId,
+            branchId: scope.branchId,
+            contractorUserId: scope.contractorUserId,
+            skillCategory: q.skillCategory,
+            onDate: q.effectiveFrom,
+            payDays: q.payDays,
+          }),
+        ),
+      });
+    return {
+      sheets,
+      sheet,
+      fileName: file.originalname,
+      orientation: read.orientation,
+      quotations,
+    };
+  }
+
+  async checkVendorBreakup(
+    user: ReqUser,
+    body: {
+      components?: unknown;
+      payDays?: unknown;
+      vendorTotals?: unknown;
+      clientId?: string;
+      branchId?: string;
+      contractorUserId?: string;
+      skillCategory?: string;
+      effectiveFrom?: string;
+    },
+  ) {
+    if (!['CRM', 'ADMIN'].includes(user.roleCode))
+      throw new ForbiddenException(
+        'Only CRM can maintain contractor wage rates',
+      );
+    const clientId = body?.clientId
+      ? await this.resolveCrmClient(user, body.clientId)
+      : null;
+    const payDays = Number(body?.payDays);
+    if (
+      !Array.isArray(body?.components) ||
+      body.components.length > 200 ||
+      !Number.isInteger(payDays) ||
+      payDays < 1 ||
+      payDays > 31
+    )
+      throw new BadRequestException('components and payDays are required');
+    const totals = (body.vendorTotals ?? {}) as any;
+    const total = (t: any) =>
+      t && typeof t === 'object'
+        ? {
+            label: String(t.label ?? ''),
+            value: Number.isFinite(Number(t.value)) ? Number(t.value) : null,
+          }
+        : null;
+    const check = checkVendorQuotation(body.components, payDays, {
+      billing: total(totals.billing),
+      netPay: total(totals.netPay),
+    });
+    const compliance = quotationCompliance(
+      { rounding: 'PAISE', components: body.components },
+      await this.complianceContext({
+        clientId,
+        branchId: body.branchId,
+        contractorUserId: body.contractorUserId,
+        skillCategory: body.skillCategory,
+        onDate: body.effectiveFrom,
+        payDays,
+      }),
+    );
+    return { ...check, compliance };
+  }
+
   async quotationTemplate() {
     const workbook = new ExcelJS.Workbook(),
       sheet = workbook.addWorksheet('Components');
@@ -2087,24 +2515,37 @@ export class ContractorComputationService {
       'basis',
       'ceiling',
       'prorate',
+      'formula',
+      'billable',
     ]);
-    for (const [designation, basic, site, bonus, leave] of [
-      ['SECURITY GUARD', 16000, 2000, 1333, 770],
-      ['ASO', 20000, 2150, 1666, 962],
+    for (const [designation, basic, site] of [
+      ['SECURITY GUARD', 16000, 2000],
+      ['ASO', 20000, 2150],
     ] as const) {
       const rows = [
         ['BASIC_DA', 'Basic + DA', 'EARNING', 'FIXED', basic, '', '', 'yes'],
         ['SITE', 'Site allowance', 'EARNING', 'FIXED', site, '', '', 'yes'],
-        ['BONUS', 'Monthly bonus', 'EARNING', 'FIXED', bonus, '', '', 'yes'],
+        [
+          'BONUS',
+          'Monthly bonus',
+          'EARNING',
+          'FORMULA',
+          '',
+          '',
+          '',
+          'no',
+          'BASIC_DA * 8.33%',
+        ],
         [
           'LEAVE',
           'Monthly leave wages',
           'EARNING',
-          'FIXED',
-          leave,
+          'FORMULA',
           '',
           '',
-          'yes',
+          '',
+          'no',
+          'BASIC_DA * 4.81%',
         ],
         [
           'PF_EMP',
@@ -2162,6 +2603,9 @@ export class ContractorComputationService {
     }
     sheet.getRow(1).font = { bold: true };
     sheet.columns.forEach((c) => (c.width = 24));
+    // Text, so Excel keeps a formula as written instead of evaluating it.
+    sheet.getColumn(15).numFmt = '@';
+    sheet.getColumn(15).width = 48;
     const notes = workbook.addWorksheet('Instructions');
     notes.getColumn(1).width = 120;
     notes.addRows([
@@ -2185,6 +2629,24 @@ export class ContractorComputationService {
       ],
       [
         'Leave divisor empty. Fixed monthly components with prorate=yes are paid as payable days / working days of the wage month (calendar days excluding Sundays). Percentage components must use prorate=no.',
+      ],
+      [
+        "method FORMULA: write the vendor's calculation in the formula column using earlier component codes, e.g. (BASIC_DA + LEAVE) * 8.33%, MIN(BASIC_DA, 15000) * 12%, IF(FULL(GROSS) > 21000, 0, GROSS * 0.75%). Leave value blank.",
+      ],
+      [
+        'Formula functions: IF, MIN, MAX, SUM, ROUND, ROUNDUP, ROUNDDOWN, ABS, AND, OR, NOT, FULL. Variables: DAYS (payable days), WORKING_DAYS (working days of the wage month), OT_HOURS.',
+      ],
+      [
+        'FULL(CODE) is the full-month amount of CODE; use it for eligibility limits such as ESI above 21,000, which depend on the monthly rate rather than a short month.',
+      ],
+      [
+        'A formula built on earlier earned amounts is already attendance-based: use prorate=no. Use prorate=yes only for a monthly figure, e.g. 1.5 * PER_DAY for leave.',
+      ],
+      [
+        'category SUBTOTAL: working lines such as per-day wage, derived wage, Sub Total or manpower cost. They are neither paid nor billed; later lines use them.',
+      ],
+      [
+        'billable (earnings only): no when the worker is paid the line but the client is billed through a separate EMPLOYER_COST line calculated differently. Blank means yes.',
       ],
     ]);
     return Buffer.from(await workbook.xlsx.writeBuffer());
@@ -2268,6 +2730,30 @@ export class ContractorComputationService {
       }
     }
     return '';
+  }
+
+  /**
+   * A quotation formula typed with a leading "=" becomes an Excel formula whose
+   * cached result is #NAME?; read the formula text itself in that case.
+   */
+  private formulaCell(row: ExcelJS.Row, headers: Map<string, number>) {
+    const col = headers.get('formula');
+    if (!col) return '';
+    const cell = row.getCell(col);
+    const value = cell.value as { formula?: string; sharedFormula?: string };
+    if (value && typeof value === 'object' && value.formula)
+      return String(value.formula);
+    // A formula filled down in Excel is stored once, on its first cell; the
+    // others only name that cell. Quotation formulas refer to component
+    // codes, not cells, so the first cell's text applies unchanged (letting
+    // Excel "slide" it would turn a code such as LWF2 into LWF3).
+    if (value && typeof value === 'object' && value.sharedFormula) {
+      const master = row.worksheet.getCell(value.sharedFormula).value as {
+        formula?: string;
+      } | null;
+      return String(master?.formula ?? '').trim();
+    }
+    return cell.text.trim();
   }
 
   private cellNumber(
