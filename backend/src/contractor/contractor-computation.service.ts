@@ -1645,11 +1645,20 @@ export class ContractorComputationService {
               sundayPay.amount,
           )
         : this.round(otherEarnings + sundayPay.amount),
+      // Gross leaves out bonus and leave only where the quotation pays them;
+      // a vendor that bills them as employer costs never put them in earnings.
       grossWage: cardResult
         ? this.round(
             cardResult.earnings -
-              (cardResult.amounts.BONUS || 0) -
-              (cardResult.amounts.LEAVE || 0) +
+              ['BONUS', 'LEAVE']
+                .filter((code) =>
+                  calculationSegments.some((s) =>
+                    s.quote.rateCard!.components.some(
+                      (c) => c.code === code && c.category === 'EARNING',
+                    ),
+                  ),
+                )
+                .reduce((n, code) => n + (cardResult.amounts[code] || 0), 0) +
               sundayPay.amount,
           )
         : grossWage,

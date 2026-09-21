@@ -373,6 +373,67 @@ describe('Sunday pay in the payroll calculation', () => {
     expect(row.netSalary).toBe(21712);
   });
 
+  it('keeps billed-only bonus and leave inside gross', async () => {
+    // A billing quotation charges bonus and leave to the client as employer
+    // costs; they were never paid, so gross must not drop them.
+    const service = calculator({
+      id: 'q',
+      dailyWage: 640,
+      effectiveFrom: '2026-01-01',
+      effectiveTo: null,
+      rateCard: {
+        rounding: 'PAISE',
+        components: [
+          {
+            code: 'BASIC_DA',
+            label: 'Basic',
+            category: 'EARNING',
+            method: 'FIXED',
+            value: 16000,
+            prorate: true,
+          },
+          {
+            code: 'SITE',
+            label: 'Site',
+            category: 'EARNING',
+            method: 'FIXED',
+            value: 2000,
+            prorate: true,
+          },
+          {
+            code: 'BONUS',
+            label: 'Bonus',
+            category: 'EMPLOYER_COST',
+            method: 'FORMULA',
+            value: 0,
+            formula: 'BASIC_DA * 8.33%',
+            prorate: false,
+          },
+          {
+            code: 'LEAVE',
+            label: 'Leave',
+            category: 'EMPLOYER_COST',
+            method: 'FORMULA',
+            value: 0,
+            formula: 'BASIC_DA * 4.81%',
+            prorate: false,
+          },
+        ],
+      },
+    });
+    const row = await service.computeOne(
+      'client',
+      'vendor',
+      'branch',
+      '2026-11',
+      null,
+      1,
+      { employee_code: 'G001', days_worked: 25 },
+    );
+    expect(row.grossWage).toBe(18000);
+    expect(row.totalEmployerContribution).toBe(2102.4);
+  });
+
   it('rejects more Sundays than fall within the employment dates', async () => {
     const service = calculator({
       id: 'q',
