@@ -44,6 +44,19 @@ export class CrmContractorsService {
     return this.http.get(`${this.baseUrl}/api/v1/crm/contractors/my-contractors`, { params });
   }
 
+  /** Reads a vendor's own wage breakup into draft quotations; saves nothing. */
+  readVendorSheet(file: File, sheet?: string): Observable<any> {
+    const form = new FormData();
+    form.append('file', file);
+    if (sheet) form.append('sheet', sheet);
+    return this.http.post(`${this.baseUrl}/api/v1/crm/contractor-computation/quotations/vendor-sheet`, form);
+  }
+
+  /** Recalculates a draft after a line is changed; saves nothing. */
+  checkVendorSheet(body: { components: any[]; payDays: number; vendorTotals: any }): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/v1/crm/contractor-computation/quotations/vendor-sheet/check`, body);
+  }
+
   uploadQuotationWages(data: {
     clientId: string;
     contractorUserId: string;

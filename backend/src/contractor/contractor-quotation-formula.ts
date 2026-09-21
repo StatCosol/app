@@ -21,7 +21,8 @@ export type FormulaNode =
   | { t: 'call'; fn: string; args: FormulaNode[] };
 
 const FUNCTIONS: Record<string, [number, number]> = {
-  IF: [3, 3],
+  // As in Excel, IF without a false value gives 0 (FALSE).
+  IF: [2, 3],
   MIN: [1, 50],
   MAX: [1, 50],
   SUM: [1, 50],
@@ -286,7 +287,11 @@ export function evaluateFormula(
       }
       case 'call': {
         if (n.fn === 'IF')
-          return ev(n.args[0]) !== 0 ? ev(n.args[1]) : ev(n.args[2]);
+          return ev(n.args[0]) !== 0
+            ? ev(n.args[1])
+            : n.args[2]
+              ? ev(n.args[2])
+              : 0;
         if (n.fn === 'FULL')
           return scope.full((n.args[0] as { name: string }).name);
         const v = n.args.map(ev);

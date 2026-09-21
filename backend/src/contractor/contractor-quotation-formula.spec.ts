@@ -57,7 +57,7 @@ describe('quotation formulas', () => {
       'process.exit()',
       'EVAL(1)',
       'B; 1',
-      'IF(1, 2)',
+      'IF(1)',
       'FULL(A + B)',
       '"text"',
       'B[0]',

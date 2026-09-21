@@ -77,6 +77,23 @@ export class CrmContractorComputationController {
   ) {
     return this.svc.uploadQuotationExcel(user, dto, file);
   }
+
+  /** Reads a vendor's own wage breakup into draft quotations; saves nothing. */
+  @Post('quotations/vendor-sheet')
+  @UseInterceptors(FileInterceptor('file', excelUploadOptions))
+  readVendorSheet(
+    @CurrentUser() user: ReqUser,
+    @Body() dto: { sheet?: string },
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.svc.readVendorBreakup(user, file, dto?.sheet);
+  }
+
+  /** Recalculates a draft after CRM changes a line; saves nothing. */
+  @Post('quotations/vendor-sheet/check')
+  checkVendorSheet(@CurrentUser() user: ReqUser, @Body() body: any) {
+    return this.svc.checkVendorBreakup(user, body);
+  }
 }
 
 @ApiTags('Contractor Computation')

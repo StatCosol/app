@@ -11,6 +11,11 @@ import {
   workingDaysInMonth,
 } from './contractor-working-days';
 import {
+  checkVendorQuotation,
+  listVendorSheets,
+  readVendorSheet,
+} from './contractor-vendor-sheet';
+import {
   addDays,
   allocateCompOff,
   COMP_OFF_VALIDITY_DAYS,
@@ -405,12 +410,14 @@ export class ContractorComputationService {
           // Reference daily rate: BASIC_DA for the working days of the month the
           // quotation takes effect (calendar days excluding Sundays). The card
           // carries no fixed divisor; payroll runs use each wage month's days.
+          // Vendors that quote Basic and DA as separate lines have both paid
+          // as the minimum-wage rate.
           const monthDays = workingDaysInMonth(effectiveFrom.slice(0, 7));
-          dailyWage =
-            calculateRateCard(
-              applyMonthDivisor(rateCard, effectiveFrom.slice(0, 7)),
-              monthDays,
-            ).amounts.BASIC_DA / monthDays;
+          const month = calculateRateCard(
+            applyMonthDivisor(rateCard, effectiveFrom.slice(0, 7)),
+            monthDays,
+          ).amounts;
+          dailyWage = ((month.BASIC_DA || 0) + (month.DA || 0)) / monthDays;
         }
         if (!dailyWage || dailyWage <= 0)
           throw new BadRequestException('daily_wage must be greater than zero');
@@ -2079,6 +2086,71 @@ export class ContractorComputationService {
         }),
       ]);
     return normalized;
+  }
+
+  async readVendorBreakup(
+    user: ReqUser,
+    file: Express.Multer.File,
+    sheetName?: string,
+  ) {
+    if (!['CRM', 'ADMIN'].includes(user.roleCode))
+      throw new ForbiddenException(
+        'Only CRM can maintain contractor wage rates',
+      );
+    if (!file?.buffer) throw new BadRequestException('Excel file is required');
+    const workbook = new ExcelJS.Workbook();
+    try {
+      await workbook.xlsx.load(file.buffer as any);
+    } catch {
+      throw new BadRequestException(
+        'The file could not be read. Save it as .xlsx and try again.',
+      );
+    }
+    const sheets = listVendorSheets(workbook);
+    if (!sheets.length) throw new BadRequestException('No worksheet found');
+    const sheet =
+      sheetName && sheets.includes(sheetName) ? sheetName : sheets[0];
+    const read = readVendorSheet(workbook.getWorksheet(sheet)!);
+    if (!read.quotations.length)
+      throw new BadRequestException(
+        'No wage breakup was found on this sheet: expected line labels with one column (or row) of figures per role.',
+      );
+    return { sheets, sheet, fileName: file.originalname, ...read };
+  }
+
+  checkVendorBreakup(
+    user: ReqUser,
+    body: {
+      components?: unknown;
+      payDays?: unknown;
+      vendorTotals?: unknown;
+    },
+  ) {
+    if (!['CRM', 'ADMIN'].includes(user.roleCode))
+      throw new ForbiddenException(
+        'Only CRM can maintain contractor wage rates',
+      );
+    const payDays = Number(body?.payDays);
+    if (
+      !Array.isArray(body?.components) ||
+      body.components.length > 200 ||
+      !Number.isInteger(payDays) ||
+      payDays < 1 ||
+      payDays > 31
+    )
+      throw new BadRequestException('components and payDays are required');
+    const totals = (body.vendorTotals ?? {}) as any;
+    const total = (t: any) =>
+      t && typeof t === 'object'
+        ? {
+            label: String(t.label ?? ''),
+            value: Number.isFinite(Number(t.value)) ? Number(t.value) : null,
+          }
+        : null;
+    return checkVendorQuotation(body.components, payDays, {
+      billing: total(totals.billing),
+      netPay: total(totals.netPay),
+    });
   }
 
   async quotationTemplate() {
