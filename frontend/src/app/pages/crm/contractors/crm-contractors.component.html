@@ -265,7 +265,7 @@
                           <td><code>{{ c.method === 'FORMULA' ? c.formula : (c.value | number: '1.0-2') }}</code></td>
                           <td><input type="checkbox" [(ngModel)]="c.prorate" (ngModelChange)="recheckVendorDraft(d)" /></td>
                           <td>@if (c.category === 'EARNING') {<input type="checkbox" [ngModel]="c.billable !== false" (ngModelChange)="c.billable = $event; recheckVendorDraft(d)" />}</td>
-                          <td>{{ c.vendorValue == null ? '—' : (c.vendorValue | number: '1.2-2') }}</td>
+                          <td>{{ c.vendorValue === null || c.vendorValue === undefined ? '—' : (c.vendorValue | number: '1.2-2') }}</td>
                         </tr>
                       }
                     </tbody>
