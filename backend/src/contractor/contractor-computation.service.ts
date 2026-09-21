@@ -2,6 +2,8 @@ import { PayrollDocumentReconciliationService } from '../payroll-reconciliation/
 import {
   calculateRateCard,
   calculateRateCardSegments,
+  proratedEarningsDayRate,
+  rateCardPaysOvertime,
   validateRateCard,
 } from './contractor-rate-card';
 import {
@@ -1438,15 +1440,9 @@ export class ContractorComputationService {
     // month's working days — the basis regular payroll uses for holiday work.
     const sundayDayRate = quote?.rateCard
       ? this.round(
-          quote.rateCard.components
-            .filter(
-              (c) =>
-                c.category === 'EARNING' &&
-                c.method === 'FIXED' &&
-                c.prorate &&
-                !['BONUS', 'LEAVE'].includes(c.code),
-            )
-            .reduce((n, c) => n + c.value, 0) / workingDaysInMonth(periodMonth),
+          proratedEarningsDayRate(
+            applyMonthDivisor(quote.rateCard, periodMonth),
+          ),
         )
       : payableDailyWage;
     const sundayPay = sundayExtraPay({
@@ -1561,9 +1557,7 @@ export class ContractorComputationService {
         : [];
     if (
       calculationSegments.some(
-        (s) =>
-          s.hours > 0 &&
-          !s.quote.rateCard?.components.some((c) => c.method === 'HOURLY'),
+        (s) => s.hours > 0 && !rateCardPaysOvertime(s.quote.rateCard),
       ) ||
       (!calculationSegments.length && Number(raw.ot_hours) > 0)
     )
@@ -2032,12 +2026,21 @@ export class ContractorComputationService {
       const prorate = text('prorate').toLowerCase();
       if (!['true', 'false', 'yes', 'no'].includes(prorate))
         throw new BadRequestException('Prorate must be yes or no');
+      const method = text('method').toUpperCase(),
+        billable = text('billable').toLowerCase();
+      if (billable && !['true', 'false', 'yes', 'no'].includes(billable))
+        throw new BadRequestException('Billable must be yes, no or blank');
       group.components.push({
         code,
         label: text('label') || code,
         category: text('category').toUpperCase(),
-        method: text('method').toUpperCase(),
-        value: this.cellNumber(row, headers, ['value']),
+        method,
+        value:
+          method === 'FORMULA' ? 0 : this.cellNumber(row, headers, ['value']),
+        ...(method === 'FORMULA'
+          ? { formula: this.formulaCell(row, headers) }
+          : {}),
+        ...(billable ? { billable: ['true', 'yes'].includes(billable) } : {}),
         basis: text('basis')
           .split(',')
           .map((v) => v.trim().toUpperCase())
@@ -2087,24 +2090,37 @@ export class ContractorComputationService {
       'basis',
       'ceiling',
       'prorate',
+      'formula',
+      'billable',
     ]);
-    for (const [designation, basic, site, bonus, leave] of [
-      ['SECURITY GUARD', 16000, 2000, 1333, 770],
-      ['ASO', 20000, 2150, 1666, 962],
+    for (const [designation, basic, site] of [
+      ['SECURITY GUARD', 16000, 2000],
+      ['ASO', 20000, 2150],
     ] as const) {
       const rows = [
         ['BASIC_DA', 'Basic + DA', 'EARNING', 'FIXED', basic, '', '', 'yes'],
         ['SITE', 'Site allowance', 'EARNING', 'FIXED', site, '', '', 'yes'],
-        ['BONUS', 'Monthly bonus', 'EARNING', 'FIXED', bonus, '', '', 'yes'],
+        [
+          'BONUS',
+          'Monthly bonus',
+          'EARNING',
+          'FORMULA',
+          '',
+          '',
+          '',
+          'no',
+          'BASIC_DA * 8.33%',
+        ],
         [
           'LEAVE',
           'Monthly leave wages',
           'EARNING',
-          'FIXED',
-          leave,
+          'FORMULA',
           '',
           '',
-          'yes',
+          '',
+          'no',
+          'BASIC_DA * 4.81%',
         ],
         [
           'PF_EMP',
@@ -2162,6 +2178,9 @@ export class ContractorComputationService {
     }
     sheet.getRow(1).font = { bold: true };
     sheet.columns.forEach((c) => (c.width = 24));
+    // Text, so Excel keeps a formula as written instead of evaluating it.
+    sheet.getColumn(15).numFmt = '@';
+    sheet.getColumn(15).width = 48;
     const notes = workbook.addWorksheet('Instructions');
     notes.getColumn(1).width = 120;
     notes.addRows([
@@ -2185,6 +2204,24 @@ export class ContractorComputationService {
       ],
       [
         'Leave divisor empty. Fixed monthly components with prorate=yes are paid as payable days / working days of the wage month (calendar days excluding Sundays). Percentage components must use prorate=no.',
+      ],
+      [
+        "method FORMULA: write the vendor's calculation in the formula column using earlier component codes, e.g. (BASIC_DA + LEAVE) * 8.33%, MIN(BASIC_DA, 15000) * 12%, IF(FULL(GROSS) > 21000, 0, GROSS * 0.75%). Leave value blank.",
+      ],
+      [
+        'Formula functions: IF, MIN, MAX, SUM, ROUND, ROUNDUP, ROUNDDOWN, ABS, AND, OR, NOT, FULL. Variables: DAYS (payable days), WORKING_DAYS (working days of the wage month), OT_HOURS.',
+      ],
+      [
+        'FULL(CODE) is the full-month amount of CODE; use it for eligibility limits such as ESI above 21,000, which depend on the monthly rate rather than a short month.',
+      ],
+      [
+        'A formula built on earlier earned amounts is already attendance-based: use prorate=no. Use prorate=yes only for a monthly figure, e.g. 1.5 * PER_DAY for leave.',
+      ],
+      [
+        'category SUBTOTAL: working lines such as per-day wage, derived wage, Sub Total or manpower cost. They are neither paid nor billed; later lines use them.',
+      ],
+      [
+        'billable (earnings only): no when the worker is paid the line but the client is billed through a separate EMPLOYER_COST line calculated differently. Blank means yes.',
       ],
     ]);
     return Buffer.from(await workbook.xlsx.writeBuffer());
@@ -2268,6 +2305,24 @@ export class ContractorComputationService {
       }
     }
     return '';
+  }
+
+  /**
+   * A quotation formula typed with a leading "=" becomes an Excel formula whose
+   * cached result is #NAME?; read the formula text itself in that case.
+   */
+  private formulaCell(row: ExcelJS.Row, headers: Map<string, number>) {
+    const col = headers.get('formula');
+    if (!col) return '';
+    const cell = row.getCell(col);
+    const value = cell.value as { formula?: string; sharedFormula?: string };
+    if (
+      value &&
+      typeof value === 'object' &&
+      (value.formula || value.sharedFormula)
+    )
+      return String(value.formula || value.sharedFormula);
+    return cell.text.trim();
   }
 
   private cellNumber(

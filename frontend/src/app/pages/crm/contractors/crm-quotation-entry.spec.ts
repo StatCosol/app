@@ -45,3 +45,26 @@ describe('Quotation editor defaults', () => {
     c.ngOnDestroy();
   });
 });
+
+describe('Formula quotation entry', () => {
+  const make = () => new CrmContractorsComponent({ quotationBranches: () => of([]) } as any, {} as any, {} as any, { markForCheck: () => {} } as any, {} as any);
+  it('writes formulas, subtotals and unbilled earnings for the upload', async () => {
+    const c = make(); c.quoteDesignation = 'HK Staff'; c.quoteSkill = 'UNSKILLED';
+    c.quoteComponents = [
+      { ...c.newQuoteComponent(), code: 'per_day', category: 'SUBTOTAL', value: 577, prorate: false },
+      { ...c.newQuoteComponent(), code: 'BASIC_DA', value: 15002 },
+      { ...c.newQuoteComponent(), code: 'LEAVE', method: 'FORMULA', formula: ' 1.5 * PER_DAY ', prorate: true, billable: false },
+      { ...c.newQuoteComponent(), code: 'BONUS', method: 'FORMULA', formula: '(BASIC_DA + LEAVE) * 8.33%', prorate: false },
+    ];
+    const wb = XLSX.read(await c.manualQuoteFile().arrayBuffer());
+    const rows = XLSX.utils.sheet_to_json<any>(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+    expect(rows[0]).toMatchObject({ component_code: 'PER_DAY', category: 'SUBTOTAL', formula: '' });
+    expect(rows[2]).toMatchObject({ method: 'FORMULA', formula: '1.5 * PER_DAY', prorate: 'yes', billable: 'no', value: '' });
+    expect(rows[3]).toMatchObject({ formula: '(BASIC_DA + LEAVE) * 8.33%', prorate: 'no', billable: '' });
+  });
+  it('requires a formula on formula lines', () => {
+    const c = make(); c.quoteDesignation = 'HK Staff'; c.quoteSkill = 'UNSKILLED';
+    c.quoteComponents = [{ ...c.newQuoteComponent(), code: 'BONUS', method: 'FORMULA', formula: '  ' }];
+    expect(() => c.manualQuoteFile()).toThrow(/formula/);
+  });
+});

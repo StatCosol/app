@@ -57,10 +57,12 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
   quoteComponents = [this.newQuoteComponent()];
 
   newQuoteComponent() {
-    return { code: '', label: '', category: 'EARNING', method: 'FIXED', value: 0, basis: '', ceiling: '', prorate: true };
+    return { code: '', label: '', category: 'EARNING', method: 'FIXED', value: 0, basis: '', ceiling: '', formula: '', billable: true, prorate: true };
   }
 
   onQuoteMethodChange(component: { method: string; prorate: boolean }): void {
+    // Fixed amounts are monthly figures; formulas usually build on earned
+    // amounts, so proration is opt-in for them.
     if (component.method !== 'FIXED') component.prorate = false;
   }
 
@@ -70,8 +72,9 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
     const codes = new Set<string>();
     const rows = this.quoteComponents.map(c => {
       const code = c.code.trim().toUpperCase();
-      if (!code || codes.has(code) || !Number.isFinite(c.value) || c.value < 0)
-        throw new Error('Each component needs a unique code and a non-negative amount or percentage');
+      const formula = c.method === 'FORMULA' ? c.formula.trim() : '';
+      if (!code || codes.has(code) || (c.method === 'FORMULA' ? !formula : !Number.isFinite(c.value) || c.value < 0))
+        throw new Error('Each component needs a unique code and a non-negative amount, percentage or formula');
       const basis = c.basis.split(',').map(v => v.trim().toUpperCase()).filter(Boolean);
       if (c.method === 'PERCENT' && (!basis.length || basis.some(v => !codes.has(v))))
         throw new Error('Percentage components must reference codes entered in earlier rows');
@@ -79,8 +82,9 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
       return { skill_category: this.quoteSkill, designation: this.quoteDesignation.trim(),
         effective_from: this.quoteEffectiveFrom, divisor: '', rounding: this.quoteRounding,
         component_code: code, label: c.label.trim() || code, category: c.category, method: c.method,
-        value: c.value, basis: c.method === 'PERCENT' ? basis.join(',') : '',
-        ceiling: c.ceiling, prorate: c.method === 'FIXED' && c.prorate ? 'yes' : 'no' };
+        value: c.method === 'FORMULA' ? '' : c.value, basis: c.method === 'PERCENT' ? basis.join(',') : '',
+        ceiling: c.ceiling, prorate: ['FIXED', 'FORMULA'].includes(c.method) && c.prorate ? 'yes' : 'no',
+        formula, billable: c.category === 'EARNING' && !c.billable ? 'no' : '' };
     });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Components');
