@@ -2741,12 +2741,18 @@ export class ContractorComputationService {
     if (!col) return '';
     const cell = row.getCell(col);
     const value = cell.value as { formula?: string; sharedFormula?: string };
-    if (
-      value &&
-      typeof value === 'object' &&
-      (value.formula || value.sharedFormula)
-    )
-      return String(value.formula || value.sharedFormula);
+    if (value && typeof value === 'object' && value.formula)
+      return String(value.formula);
+    // A formula filled down in Excel is stored once, on its first cell; the
+    // others only name that cell. Quotation formulas refer to component
+    // codes, not cells, so the first cell's text applies unchanged (letting
+    // Excel "slide" it would turn a code such as LWF2 into LWF3).
+    if (value && typeof value === 'object' && value.sharedFormula) {
+      const master = row.worksheet.getCell(value.sharedFormula).value as {
+        formula?: string;
+      } | null;
+      return String(master?.formula ?? '').trim();
+    }
     return cell.text.trim();
   }
 

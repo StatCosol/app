@@ -1,6 +1,7 @@
 import {
   calculateRateCard,
   calculateRateCardSegments,
+  proratedEarningsDayRate,
   ContractorRateCard,
   validateRateCard,
 } from './contractor-rate-card';
@@ -123,4 +124,125 @@ it('reconciles the supplied supervisor monthly wage breakup', () => {
   expect(result.earnings).toBe(24778);
   expect(result.deductions).toBe(2100);
   expect(result.netPay).toBe(22678);
+});
+
+describe('formula quotations across a mid-month revision', () => {
+  const card = (
+    basic: number,
+    pfRate: string,
+    extra: any[] = [],
+  ): ContractorRateCard => ({
+    divisor: 26,
+    rounding: 'PAISE',
+    components: [
+      {
+        code: 'BASIC_DA',
+        label: 'Basic',
+        category: 'EARNING',
+        method: 'FIXED',
+        value: basic,
+        prorate: true,
+      },
+      {
+        code: 'PF_EMP',
+        label: 'Employee PF',
+        category: 'DEDUCTION',
+        method: 'FORMULA',
+        value: 0,
+        formula: `MIN(BASIC_DA, 15000) * ${pfRate}`,
+        prorate: false,
+      },
+      ...extra,
+    ],
+  });
+
+  it('shares a formula PF ceiling across the revision', () => {
+    // 13 + 13 days: basic 8,000 + 10,000 = 18,000; PF capped at 15,000.
+    const r = calculateRateCardSegments([
+      { card: card(16000, '12%'), days: 13, hours: 0 },
+      { card: card(20000, '12%'), days: 13, hours: 0 },
+    ]);
+    expect(r.amounts.BASIC_DA).toBe(18000);
+    expect(r.amounts.PF_EMP).toBe(1800);
+  });
+
+  it('matches the whole month when nothing changes but the split', () => {
+    const whole = calculateRateCard(card(16000, '12%'), 26);
+    const split = calculateRateCardSegments([
+      { card: card(16000, '12%'), days: 10, hours: 0 },
+      { card: card(16000, '12%'), days: 16, hours: 0 },
+    ]);
+    expect(split.amounts).toEqual(whole.amounts);
+    expect(split.netPay).toBe(whole.netPay);
+  });
+
+  it('applies a changed rate only to the days it covers', () => {
+    // Below the cap: 5,000 at 12% then 5,000 at 13% = 600 + 650.
+    const r = calculateRateCardSegments([
+      { card: card(10000, '12%'), days: 13, hours: 0 },
+      { card: card(10000, '13%'), days: 13, hours: 0 },
+    ]);
+    expect(r.amounts.PF_EMP).toBe(1250);
+  });
+
+  it('judges a threshold on the month, not on each part', () => {
+    // ESI stops above 21,000 a month: 13 days at 24,000 + 13 at 20,000
+    // earn 22,000 — above the limit, although each part is below it.
+    const esi = {
+      code: 'ESI_EMP',
+      label: 'Employee ESI',
+      category: 'DEDUCTION',
+      method: 'FORMULA',
+      value: 0,
+      formula: 'IF(BASIC_DA > 21000, 0, BASIC_DA * 0.75%)',
+      prorate: false,
+    };
+    const r = calculateRateCardSegments([
+      { card: card(24000, '12%', [esi]), days: 13, hours: 0 },
+      { card: card(20000, '12%', [esi]), days: 13, hours: 0 },
+    ]);
+    expect(r.amounts.ESI_EMP).toBe(0);
+  });
+
+  it('counts attendance-derived earnings in the Sunday day rate', () => {
+    const quote = card(15600, '12%', [
+      {
+        code: 'HRA',
+        label: 'HRA',
+        category: 'EARNING',
+        method: 'FORMULA',
+        value: 0,
+        formula: 'BASIC_DA * 40%',
+        prorate: false,
+      },
+      {
+        code: 'BONUS',
+        label: 'Bonus',
+        category: 'EARNING',
+        method: 'FORMULA',
+        value: 0,
+        formula: 'BASIC_DA * 8.33%',
+        prorate: false,
+      },
+      {
+        code: 'OT',
+        label: 'Overtime',
+        category: 'EARNING',
+        method: 'FORMULA',
+        value: 0,
+        formula: '100 * OT_HOURS',
+        prorate: false,
+      },
+      {
+        code: 'UNIFORM',
+        label: 'Uniform allowance',
+        category: 'EARNING',
+        method: 'FIXED',
+        value: 260,
+        prorate: false,
+      },
+    ]);
+    // (15,600 + 6,240) / 26: bonus, overtime and a flat monthly amount excluded.
+    expect(proratedEarningsDayRate(quote)).toBe(840);
+  });
 });

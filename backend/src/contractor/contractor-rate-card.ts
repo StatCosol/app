@@ -216,12 +216,40 @@ export function rateCardPaysOvertime(card: ContractorRateCard | null) {
   );
 }
 
+/**
+ * What the earlier parts of a month (split by a dated quotation revision)
+ * have already reached, so this part is charged only the difference.
+ */
+export interface RateCardCarry {
+  /** Running totals of the lines that follow attendance. */
+  values: Record<string, number>;
+  bases: Record<string, number>;
+  days: number;
+  hours: number;
+}
+
 export function calculateRateCard(
   value: unknown,
   days: number,
   excludedCodes: string[] = [],
   overtimeHours = 0,
   options: { chargeMonthlyAmounts?: boolean } = {},
+) {
+  return calculateRateCardPart(
+    value,
+    days,
+    excludedCodes,
+    overtimeHours,
+    options,
+  ).result;
+}
+
+function calculateRateCardPart(
+  value: unknown,
+  days: number,
+  excludedCodes: string[],
+  overtimeHours: number,
+  options: { chargeMonthlyAmounts?: boolean; carry?: RateCardCarry },
 ) {
   const card = validateRateCard(value);
   if (
@@ -259,7 +287,8 @@ export function calculateRateCard(
     excludedCodes,
     options.chargeMonthlyAmounts ?? true,
     full,
-  ).result;
+    options.carry,
+  );
 }
 
 function run(
@@ -270,6 +299,7 @@ function run(
   excludedCodes: string[],
   chargeMonthlyAmounts: boolean,
   full: { values: Record<string, number> } | null,
+  carry?: RateCardCarry,
 ) {
   const factor = card.rounding === 'RUPEE' ? 1 : 100;
   const round = (n: number) =>
@@ -280,6 +310,14 @@ function run(
   // full precision the way the vendor's own sheet carries them.
   const values: Record<string, number> = {};
   const bases: Record<string, number> = {};
+  // Lines that follow attendance, as totals for the month so far (earlier
+  // parts plus this one). A line calculated from them — PF capped at 15,000,
+  // ESI above a threshold, a percentage — is worked out on those totals and
+  // this part charged the difference, so a month split by a revision comes to
+  // what the whole month would. Without a carry they equal this part's own.
+  const cumulative: Record<string, number> = {};
+  const cumulativeBases: Record<string, number> = {};
+  const before = (code: string) => carry?.values[code] ?? 0;
   const totals = {
     earnings: 0,
     deductions: 0,
@@ -288,28 +326,36 @@ function run(
     unbilledEarnings: 0,
   };
   const variables: Record<string, number> = {
-    DAYS: days,
+    DAYS: (carry?.days ?? 0) + days,
     WORKING_DAYS: card.divisor ?? 0,
-    OT_HOURS: overtimeHours,
+    OT_HOURS: (carry?.hours ?? 0) + overtimeHours,
   };
+  const read = (name: string) =>
+    name in variables && !(name in values)
+      ? variables[name]
+      : analysis.varies.has(name)
+        ? cumulative[name]
+        : values[name];
   for (const c of card.components) {
     const excluded = excludedCodes.includes(c.code);
+    const varies = analysis.varies.has(c.code);
     // A dated revision splits a month into segments; amounts that do not
     // depend on attendance are charged once, in the last segment.
     const monthlyOnly =
       !chargeMonthlyAmounts &&
       c.category !== 'SUBTOTAL' &&
-      !analysis.varies.has(c.code) &&
+      !varies &&
       c.method !== 'PERCENT';
+    // Calculated from attendance-based lines: worked out on month totals.
+    const derived =
+      varies &&
+      (c.method === 'PERCENT' || (c.method === 'FORMULA' && !c.prorate));
     let raw: number;
     if (c.method === 'FORMULA') {
       try {
         raw = evaluateFormula(analysis.trees.get(c.code)!, {
-          value: (name) =>
-            name in variables && !(name in values)
-              ? variables[name]
-              : values[name],
-          full: (name) => (full ? full.values[name] : values[name]),
+          value: read,
+          full: (name) => (full ? full.values[name] : read(name)),
         });
       } catch (e) {
         throw new BadRequestException(
@@ -322,7 +368,7 @@ function run(
       const basis =
         c.method === 'PERCENT'
           ? Math.min(
-              c.basis!.reduce((n, code) => n + values[code], 0),
+              c.basis!.reduce((n, code) => n + read(code), 0),
               c.ceiling ?? Infinity,
             )
           : 0;
@@ -332,15 +378,30 @@ function run(
           : c.method === 'HOURLY'
             ? c.value * overtimeHours
             : (basis * c.value) / 100;
-      bases[c.code] = excluded ? 0 : basis;
+      const basisTotal = excluded ? 0 : basis;
+      cumulativeBases[c.code] = basisTotal;
+      bases[c.code] = derived
+        ? basisTotal - (carry?.bases[c.code] ?? 0)
+        : basisTotal;
     }
     if (excluded || monthlyOnly) raw = 0;
     if (c.category === 'SUBTOTAL') {
-      values[c.code] = raw;
-      amounts[c.code] = paise(raw);
+      const total = derived ? raw : before(c.code) + raw;
+      const own = derived ? raw - before(c.code) : raw;
+      if (varies) cumulative[c.code] = total;
+      values[c.code] = own;
+      amounts[c.code] = paise(own);
       continue;
     }
-    const amount = round(raw);
+    let amount: number;
+    if (derived) {
+      const total = round(raw);
+      amount = round(total - before(c.code));
+      cumulative[c.code] = total;
+    } else {
+      amount = round(raw);
+      if (varies) cumulative[c.code] = round(before(c.code) + amount);
+    }
     amounts[c.code] = values[c.code] = amount;
     const bucket = {
       EARNING: 'earnings',
@@ -364,21 +425,45 @@ function run(
         totals.billingFees,
     ),
   };
-  return { result, values };
+  const next: RateCardCarry = {
+    values: { ...(carry?.values ?? {}), ...cumulative },
+    bases: {
+      ...(carry?.bases ?? {}),
+      ...Object.fromEntries(
+        Object.keys(cumulative)
+          .filter((code) => code in cumulativeBases)
+          .map((code) => [code, cumulativeBases[code]]),
+      ),
+    },
+    days: variables.DAYS,
+    hours: variables.OT_HOURS,
+  };
+  return { result, values, carry: next };
 }
 
+// Paid only on particular occasions, not part of a day's regular wage.
+const NOT_REGULAR = /bonus|leave|encash|overtime|\bot\b|arrear|gratuity/i;
+
 /**
- * One day's wage for Sunday work: the month's prorated earnings (bonus and
- * leave excluded), for a full month, divided by the month's working days.
+ * One day's wage for Sunday work: the month's regular earnings — every
+ * earning that follows attendance, prorated or calculated from one, but not
+ * bonus, leave or overtime — for a full month, divided by its working days.
  */
 export function proratedEarningsDayRate(card: ContractorRateCard) {
   const month = calculateRateCard(card, card.divisor!);
+  const { varies, trees } = analyse(card);
   const total = card.components
     .filter(
       (c) =>
         c.category === 'EARNING' &&
-        c.prorate &&
-        !['BONUS', 'LEAVE'].includes(c.code),
+        varies.has(c.code) &&
+        c.method !== 'HOURLY' &&
+        !(
+          c.method === 'FORMULA' &&
+          formulaReferences(trees.get(c.code)!).direct.has('OT_HOURS')
+        ) &&
+        !['BONUS', 'LEAVE', 'OT'].includes(c.code) &&
+        !NOT_REGULAR.test(c.label),
     )
     .reduce((n, c) => n + month.amounts[c.code], 0);
   return total / card.divisor!;
@@ -390,28 +475,29 @@ export function calculateRateCardSegments(
 ) {
   if (!segments.length)
     throw new BadRequestException('Attendance segments required');
-  const usedBases: Record<string, number> = {};
+  let carry: RateCardCarry | undefined;
   const results = segments.map((segment, index) => {
-    const card = validateRateCard(segment.card);
-    const adjusted = {
-      ...card,
-      components: card.components.map((c) => ({
-        ...c,
-        ...(c.ceiling != null
-          ? { ceiling: Math.max(0, c.ceiling - (usedBases[c.code] || 0)) }
-          : {}),
-      })),
-    };
-    const result = calculateRateCard(
-      adjusted,
+    // What the earlier parts come to under THIS revision's rules: the part is
+    // charged its own formula's difference, so a cap is shared across the
+    // month while a changed rate applies only to this part's own days.
+    const baseline = carry
+      ? calculateRateCardPart(segment.card, 0, excludedCodes, 0, {
+          chargeMonthlyAmounts: false,
+          carry,
+        }).carry
+      : undefined;
+    const part = calculateRateCardPart(
+      segment.card,
       segment.days,
       excludedCodes,
       segment.hours,
-      { chargeMonthlyAmounts: index === segments.length - 1 },
+      {
+        chargeMonthlyAmounts: index === segments.length - 1,
+        carry: baseline,
+      },
     );
-    for (const [code, base] of Object.entries(result.bases))
-      usedBases[code] = (usedBases[code] || 0) + base;
-    return result;
+    carry = part.carry;
+    return part.result;
   });
   const round = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
   const combined = {
