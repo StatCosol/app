@@ -106,7 +106,11 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
   readVendorBreakup(sheet?: string) {
     if (!this.vendorFile || this.vendorReading) return;
     this.vendorReading = true;
-    this.contractorApi.readVendorSheet(this.vendorFile, sheet).pipe(
+    this.contractorApi.readVendorSheet(this.vendorFile, sheet, {
+      clientId: this.quoteUploadFor?.clientId,
+      branchId: this.quoteBranchId || undefined,
+      contractorUserId: this.quoteUploadFor?.id,
+    }).pipe(
       takeUntil(this.destroy$),
       finalize(() => { this.vendorReading = false; this.cdr.detectChanges(); }),
     ).subscribe({
@@ -133,8 +137,17 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
       components: draft.components,
       payDays: draft.payDays,
       vendorTotals: draft.vendorTotals,
+      clientId: this.quoteUploadFor?.clientId,
+      branchId: this.quoteBranchId || undefined,
+      contractorUserId: this.quoteUploadFor?.id,
+      skillCategory: draft.skillCategory || undefined,
+      effectiveFrom: draft.effectiveFrom || undefined,
     }).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (check) => { draft.check = check; this.cdr.detectChanges(); },
+      next: ({ compliance, ...check }) => {
+        draft.check = check;
+        draft.compliance = compliance || [];
+        this.cdr.detectChanges();
+      },
       error: (err) => this.toast.error(err?.error?.message || 'Could not recheck the quotation'),
     });
   }

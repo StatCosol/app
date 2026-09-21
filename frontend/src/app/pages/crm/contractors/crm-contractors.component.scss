@@ -294,3 +294,8 @@ h4 {
 .vendor-lines th, .vendor-lines td { border-bottom: 1px solid #e5e7eb; padding: 4px 6px; text-align: left; vertical-align: top; }
 .vendor-lines code { white-space: pre-wrap; word-break: break-word; }
 .vendor-line--bad { background: #fef2f2; }
+.compliance { margin: 0.5rem 0; font-size: 0.8rem; }
+.compliance p { margin: 0.2rem 0; }
+.compliance--error { color: #b91c1c; }
+.compliance--warning { color: #b45309; }
+.compliance--ok { color: #166534; }

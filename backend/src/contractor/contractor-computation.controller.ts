@@ -83,10 +83,20 @@ export class CrmContractorComputationController {
   @UseInterceptors(FileInterceptor('file', excelUploadOptions))
   readVendorSheet(
     @CurrentUser() user: ReqUser,
-    @Body() dto: { sheet?: string },
+    @Body()
+    dto: {
+      sheet?: string;
+      clientId?: string;
+      branchId?: string;
+      contractorUserId?: string;
+    },
     @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.svc.readVendorBreakup(user, file, dto?.sheet);
+    return this.svc.readVendorBreakup(user, file, dto?.sheet, {
+      clientId: dto?.clientId,
+      branchId: dto?.branchId,
+      contractorUserId: dto?.contractorUserId,
+    });
   }
 
   /** Recalculates a draft after CRM changes a line; saves nothing. */

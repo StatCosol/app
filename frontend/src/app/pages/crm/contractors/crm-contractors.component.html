@@ -233,10 +233,18 @@
                 <p class="vendor-details">@for (x of d.details; track $index) {<span>{{ x.label ? x.label + ': ' : '' }}{{ x.value }}</span>}</p>
               }
               <div class="quote-grid">
-                <label>Skill category<select [(ngModel)]="d.skillCategory" class="form-control"><option value="">Select category</option><option value="UNSKILLED">Unskilled</option><option value="SEMI_SKILLED">Semi-skilled</option><option value="SKILLED">Skilled</option><option value="HIGHLY_SKILLED">Highly skilled</option></select></label>
+                <label>Skill category<select [(ngModel)]="d.skillCategory" (ngModelChange)="recheckVendorDraft(d)" class="form-control"><option value="">Select category</option><option value="UNSKILLED">Unskilled</option><option value="SEMI_SKILLED">Semi-skilled</option><option value="SKILLED">Skilled</option><option value="HIGHLY_SKILLED">Highly skilled</option></select></label>
                 <label>Designation<input [(ngModel)]="d.designation" class="form-control" /></label>
-                <label>Effective from<input type="date" [(ngModel)]="d.effectiveFrom" class="form-control" /></label>
+                <label>Effective from<input type="date" [(ngModel)]="d.effectiveFrom" (ngModelChange)="recheckVendorDraft(d)" class="form-control" /></label>
               </div>
+              @if (d.compliance?.length) {
+                <div class="compliance">
+                  <strong>Statutory checks</strong>
+                  @for (f of d.compliance; track $index) {<p [class.compliance--error]="f.severity === 'ERROR'" [class.compliance--warning]="f.severity !== 'ERROR'">{{ f.severity === 'ERROR' ? 'Not compliant' : 'Check' }}: {{ f.message }}</p>}
+                </div>
+              } @else if (d.compliance) {
+                <p class="compliance compliance--ok">Statutory checks passed: minimum wage, PF, ESI, bonus, PT and Labour Code wages.</p>
+              }
               @if (d.duplicateOf) {<p class="vendor-warning">Same role and date as {{ d.duplicateOf }}; left unticked. Change the designation to import both.</p>}
               @for (w of d.warnings; track $index) {<p class="vendor-warning">{{ w }}</p>}
               @if (!d.check?.ok && d.check?.differences?.length) {
@@ -280,7 +288,8 @@
         {{ quoteUploadResult.inserted || 0 }} inserted,
         {{ quoteUploadResult.updated || 0 }} updated,
         {{ quoteUploadResult.errors || 0 }} errors
-        @for(result of quoteUploadResult.results || []; track $index){@if(result.message){<p>Row {{result.rowNumber}}: {{result.message}}</p>}}
+        @for(result of quoteUploadResult.results || []; track $index){@if(result.message){<p>Row {{result.rowNumber}}: {{result.message}}</p>}
+          @for (f of result.compliance || []; track $index) {<p [class.compliance--error]="f.severity === 'ERROR'" [class.compliance--warning]="f.severity !== 'ERROR'">{{ result.designation || result.skillCategory }}: {{ f.message }}</p>}}
       </div>
 }
 

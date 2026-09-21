@@ -16,6 +16,10 @@ import {
   readVendorSheet,
 } from './contractor-vendor-sheet';
 import {
+  ComplianceContext,
+  quotationCompliance,
+} from './contractor-quotation-compliance';
+import {
   addDays,
   allocateCompOff,
   COMP_OFF_VALIDITY_DAYS,
@@ -493,7 +497,24 @@ export class ContractorComputationService {
         results.push({
           rowNumber,
           skillCategory,
+          designation,
           outcome: 'inserted',
+          // Saved as quoted; statutory issues are reported, not refused.
+          ...(rateCard
+            ? {
+                compliance: quotationCompliance(
+                  rateCard,
+                  await this.complianceContext({
+                    clientId,
+                    branchId: dto.branchId,
+                    contractorUserId: dto.contractorUserId,
+                    skillCategory,
+                    onDate: effectiveFrom,
+                    payDays: workingDaysInMonth(effectiveFrom.slice(0, 7)),
+                  }),
+                ),
+              }
+            : {}),
         });
       } catch (err) {
         errors++;
@@ -2088,15 +2109,125 @@ export class ContractorComputationService {
     return normalized;
   }
 
+  /**
+   * What the statutory checks need for a quotation: the state (the branch's,
+   * else the client's), the minimum wage for the skill and the PT slabs in
+   * force on the quotation's date.
+   */
+  private async complianceContext(input: {
+    clientId?: string | null;
+    branchId?: string | null;
+    contractorUserId?: string | null;
+    skillCategory?: string | null;
+    onDate?: string | null;
+    payDays: number;
+  }): Promise<ComplianceContext> {
+    const onDate =
+      input.onDate && this.validDate(input.onDate)
+        ? input.onDate
+        : new Date().toISOString().slice(0, 10);
+    let stateCode: string | null = null;
+    if (input.branchId)
+      stateCode =
+        (await this.branchRepo.findOne({ where: { id: input.branchId } }))
+          ?.stateCode ?? null;
+    if (!stateCode && input.clientId) {
+      const [client] = await this.quotationRepo.manager.query(
+        'SELECT state FROM clients WHERE id = $1',
+        [input.clientId],
+      );
+      stateCode = client?.state ?? null;
+    }
+    let skill: ContractorWageSkill | null = null;
+    try {
+      skill = input.skillCategory
+        ? this.normalizeSkill(input.skillCategory)
+        : null;
+    } catch {
+      skill = null;
+    }
+    // Minimum wages differ by schedule of employment (housekeeping, security,
+    // packing...). As when a worker is registered: the contractor's schedule
+    // first, else the general rate — never another schedule's.
+    let scheduledEmployment: string | null = null;
+    if (input.contractorUserId && input.clientId) {
+      const [contractor] = await this.quotationRepo.manager.query(
+        `SELECT u.scheduled_employment FROM users u
+          JOIN branch_contractor bc ON bc.contractor_user_id = u.id
+         WHERE u.id = $1 AND bc.client_id = $2 LIMIT 1`,
+        [input.contractorUserId, input.clientId],
+      );
+      scheduledEmployment =
+        String(contractor?.scheduled_employment ?? '').trim() || null;
+    }
+    let minimumMonthlyWage: number | null = null;
+    if (stateCode && skill) {
+      const qb = this.minimumWageRepo
+        .createQueryBuilder('mw')
+        .where('mw.state_code = :stateCode', {
+          stateCode: stateCode.toUpperCase(),
+        })
+        .andWhere('mw.skill_category = :skill', { skill })
+        .andWhere('mw.effective_from <= :onDate', { onDate })
+        .andWhere('(mw.effective_to IS NULL OR mw.effective_to >= :onDate)', {
+          onDate,
+        });
+      if (scheduledEmployment)
+        qb.andWhere(
+          '(mw.scheduled_employment = :sched OR mw.scheduled_employment IS NULL)',
+          { sched: scheduledEmployment },
+        );
+      else qb.andWhere('mw.scheduled_employment IS NULL');
+      const row = await qb
+        .orderBy(
+          'CASE WHEN mw.scheduled_employment IS NULL THEN 1 ELSE 0 END',
+          'ASC',
+        )
+        .addOrderBy('mw.effective_from', 'DESC')
+        .getOne();
+      if (row)
+        minimumMonthlyWage = row.dailyWage
+          ? this.round(Number(row.dailyWage) * input.payDays)
+          : Number(row.monthlyWage);
+    }
+    let ptSlabs: ComplianceContext['ptSlabs'] = null;
+    if (stateCode && input.clientId) {
+      const effective = await this.stateSlab.listEffective({
+        clientId: input.clientId,
+        stateCode,
+        componentCode: 'PT',
+        asOfDate: onDate,
+      });
+      if (effective.source !== 'NONE' && effective.slabs.length)
+        ptSlabs = effective.slabs;
+    }
+    return {
+      payDays: input.payDays,
+      stateCode,
+      skillCategory: skill,
+      scheduledEmployment,
+      minimumMonthlyWage,
+      ptSlabs,
+    };
+  }
+
   async readVendorBreakup(
     user: ReqUser,
     file: Express.Multer.File,
     sheetName?: string,
+    scope: {
+      clientId?: string;
+      branchId?: string;
+      contractorUserId?: string;
+    } = {},
   ) {
     if (!['CRM', 'ADMIN'].includes(user.roleCode))
       throw new ForbiddenException(
         'Only CRM can maintain contractor wage rates',
       );
+    const clientId = scope.clientId
+      ? await this.resolveCrmClient(user, scope.clientId)
+      : null;
     if (!file?.buffer) throw new BadRequestException('Excel file is required');
     const workbook = new ExcelJS.Workbook();
     try {
@@ -2115,21 +2246,55 @@ export class ContractorComputationService {
       throw new BadRequestException(
         'No wage breakup was found on this sheet: expected line labels with one column (or row) of figures per role.',
       );
-    return { sheets, sheet, fileName: file.originalname, ...read };
+    const quotations: Array<
+      (typeof read.quotations)[number] & {
+        compliance: ReturnType<typeof quotationCompliance>;
+      }
+    > = [];
+    for (const q of read.quotations)
+      quotations.push({
+        ...q,
+        compliance: quotationCompliance(
+          { rounding: 'PAISE', components: q.components },
+          await this.complianceContext({
+            clientId,
+            branchId: scope.branchId,
+            contractorUserId: scope.contractorUserId,
+            skillCategory: q.skillCategory,
+            onDate: q.effectiveFrom,
+            payDays: q.payDays,
+          }),
+        ),
+      });
+    return {
+      sheets,
+      sheet,
+      fileName: file.originalname,
+      orientation: read.orientation,
+      quotations,
+    };
   }
 
-  checkVendorBreakup(
+  async checkVendorBreakup(
     user: ReqUser,
     body: {
       components?: unknown;
       payDays?: unknown;
       vendorTotals?: unknown;
+      clientId?: string;
+      branchId?: string;
+      contractorUserId?: string;
+      skillCategory?: string;
+      effectiveFrom?: string;
     },
   ) {
     if (!['CRM', 'ADMIN'].includes(user.roleCode))
       throw new ForbiddenException(
         'Only CRM can maintain contractor wage rates',
       );
+    const clientId = body?.clientId
+      ? await this.resolveCrmClient(user, body.clientId)
+      : null;
     const payDays = Number(body?.payDays);
     if (
       !Array.isArray(body?.components) ||
@@ -2147,10 +2312,22 @@ export class ContractorComputationService {
             value: Number.isFinite(Number(t.value)) ? Number(t.value) : null,
           }
         : null;
-    return checkVendorQuotation(body.components, payDays, {
+    const check = checkVendorQuotation(body.components, payDays, {
       billing: total(totals.billing),
       netPay: total(totals.netPay),
     });
+    const compliance = quotationCompliance(
+      { rounding: 'PAISE', components: body.components },
+      await this.complianceContext({
+        clientId,
+        branchId: body.branchId,
+        contractorUserId: body.contractorUserId,
+        skillCategory: body.skillCategory,
+        onDate: body.effectiveFrom,
+        payDays,
+      }),
+    );
+    return { ...check, compliance };
   }
 
   async quotationTemplate() {

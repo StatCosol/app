@@ -45,15 +45,22 @@ export class CrmContractorsService {
   }
 
   /** Reads a vendor's own wage breakup into draft quotations; saves nothing. */
-  readVendorSheet(file: File, sheet?: string): Observable<any> {
+  readVendorSheet(file: File, sheet?: string, scope: { clientId?: string; branchId?: string; contractorUserId?: string } = {}): Observable<any> {
     const form = new FormData();
     form.append('file', file);
     if (sheet) form.append('sheet', sheet);
+    // The state, minimum wage and PT slab for the statutory checks.
+    if (scope.clientId) form.append('clientId', scope.clientId);
+    if (scope.branchId) form.append('branchId', scope.branchId);
+    if (scope.contractorUserId) form.append('contractorUserId', scope.contractorUserId);
     return this.http.post(`${this.baseUrl}/api/v1/crm/contractor-computation/quotations/vendor-sheet`, form);
   }
 
   /** Recalculates a draft after a line is changed; saves nothing. */
-  checkVendorSheet(body: { components: any[]; payDays: number; vendorTotals: any }): Observable<any> {
+  checkVendorSheet(body: {
+    components: any[]; payDays: number; vendorTotals: any;
+    clientId?: string; branchId?: string; contractorUserId?: string; skillCategory?: string; effectiveFrom?: string;
+  }): Observable<any> {
     return this.http.post(`${this.baseUrl}/api/v1/crm/contractor-computation/quotations/vendor-sheet/check`, body);
   }
 

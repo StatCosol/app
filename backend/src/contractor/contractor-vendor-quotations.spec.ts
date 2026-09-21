@@ -7,6 +7,10 @@ import {
   rateCardPaysOvertime,
   validateRateCard,
 } from './contractor-rate-card';
+import {
+  ComplianceContext,
+  quotationCompliance,
+} from './contractor-quotation-compliance';
 
 /**
  * Five real vendor wage breakups, each laid out and calculated differently,
@@ -293,5 +297,82 @@ describe('formula quotations in a payroll month', () => {
     const billable = packing(577, 15002, 765, 150);
     billable.components.find((c) => c.code === 'SERVICE')!.billable = false;
     expect(() => validateRateCard(billable)).toThrow('SERVICE');
+  });
+});
+
+describe('statutory checks on the vendor quotations', () => {
+  // Telangana-style PT slab and an illustrative unskilled minimum wage.
+  const ptSlabs = [
+    { fromAmount: 0, toAmount: 15000, valueAmount: 0, valuePercent: null },
+    {
+      fromAmount: 15001,
+      toAmount: 20000,
+      valueAmount: 150,
+      valuePercent: null,
+    },
+    { fromAmount: 20001, toAmount: null, valueAmount: 200, valuePercent: null },
+  ];
+  const ctx = (over: Partial<ComplianceContext> = {}): ComplianceContext => ({
+    payDays: 26,
+    stateCode: 'TS',
+    skillCategory: 'UNSKILLED',
+    minimumMonthlyWage: 13000,
+    ptSlabs,
+    ...over,
+  });
+  const rules = (card: ContractorRateCard, c = ctx()) =>
+    quotationCompliance(card, c).map((f) => `${f.severity} ${f.rule}`);
+
+  it('passes a quotation that meets every rule', () => {
+    expect(rules(packing(577, 15002, 765, 150))).toEqual([]);
+    expect(rules(packing(753, 19578, 1000, 200, 1500))).toEqual([]);
+  });
+
+  it('catches a PT figure that differs from the state slab', () => {
+    const quote = housekeeping(1500);
+    quote.components.find((c) => c.code === 'PT')!.value = 151;
+    const [finding] = quotationCompliance(quote, ctx());
+    expect(finding).toMatchObject({ rule: 'PT', severity: 'ERROR' });
+    expect(finding.message).toContain('₹150');
+  });
+
+  it('shows leave billed above what the worker is paid', () => {
+    const findings = quotationCompliance(derivedWage(15000, 1500, 150), ctx());
+    expect(findings.map((f) => f.rule)).toEqual(['BILLED_ABOVE_PAID']);
+    expect(findings[0].message).toContain('₹284.22 more per head');
+  });
+
+  it('applies the Labour Code 50% rule and the minimum wage', () => {
+    expect(rules(derivedWage(10000, 12000, 200))).toEqual([
+      'ERROR MINIMUM_WAGE',
+      'WARNING LABOUR_CODE_WAGES',
+      'WARNING BILLED_ABOVE_PAID',
+    ]);
+  });
+
+  it('flags missing worker deductions and ESI above its limit', () => {
+    expect(
+      rules(security(20000, 2150), ctx({ skillCategory: 'SKILLED' })),
+    ).toEqual(['WARNING ESI', 'WARNING PT']);
+    expect(
+      rules(security(24000, 0), ctx({ skillCategory: 'SKILLED' })),
+    ).toEqual(['WARNING ESI', 'WARNING PT']);
+    expect(
+      quotationCompliance(security(24000, 0), ctx()).find(
+        (f) => f.rule === 'ESI',
+      )!.message,
+    ).toContain('above the ESI limit');
+  });
+
+  it('says what it could not check', () => {
+    expect(
+      rules(
+        packing(577, 15002, 765, 150),
+        ctx({ minimumMonthlyWage: null, ptSlabs: null }),
+      ),
+    ).toEqual(['WARNING MINIMUM_WAGE', 'WARNING PT']);
+    const cut = packing(577, 15002, 765, 150);
+    cut.components.find((c) => c.code === 'PF_EMP')!.formula = 'BASIC_DA * 10%';
+    expect(rules(cut)).toEqual(['ERROR PF']);
   });
 });
