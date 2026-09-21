@@ -92,6 +92,10 @@ const CrmContractorComputationComponent = () =>
   import('./contractor-computation/crm-contractor-computation.component').then(
     (m) => m.CrmContractorComputationComponent,
   );
+const CrmQuotationComparisonComponent = () =>
+  import('./quotation-comparison/crm-quotation-comparison.component').then(
+    (m) => m.CrmQuotationComparisonComponent,
+  );
 const CrmClraWorkspaceComponent = () =>
   import('./clra/crm-clra-workspace.component').then((m) => m.CrmClraWorkspaceComponent);
 const NewsDetailComponent = () =>
@@ -119,6 +123,7 @@ export const CRM_ROUTES: Routes = [
               { path: 'branches', loadComponent: CrmClientBranchesComponent },
               { path: 'contractors', loadComponent: CrmContractorsComponent },
               { path: 'contractor-computation', loadComponent: CrmContractorComputationComponent },
+              { path: 'quotation-comparison', loadComponent: CrmQuotationComparisonComponent },
               { path: 'clra', loadComponent: CrmClraWorkspaceComponent },
               { path: 'compliance-tracker', loadComponent: CrmComplianceComponent },
               { path: 'documents', loadComponent: CrmDocumentsComponent },
@@ -150,6 +155,7 @@ export const CRM_ROUTES: Routes = [
       { path: 'notices', loadComponent: CrmNoticesComponent },
       { path: 'minimum-wages', loadComponent: CrmMinimumWagesComponent },
       { path: 'contractor-computation', loadComponent: CrmContractorComputationComponent },
+      { path: 'quotation-comparison', loadComponent: CrmQuotationComparisonComponent },
       { path: 'news', loadComponent: NewsDetailComponent },
       { path: 'news/:newsId', loadComponent: NewsDetailComponent },
       { path: 'profile', loadComponent: CrmProfileComponent },

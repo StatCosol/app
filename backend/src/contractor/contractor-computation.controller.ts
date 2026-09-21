@@ -62,6 +62,15 @@ export class CrmContractorComputationController {
     return this.svc.listComputations(user, q);
   }
 
+  /** Quotations in force on a date, per head: paid, billed and the gap. */
+  @Get('quotations/comparison')
+  compareQuotations(
+    @CurrentUser() user: ReqUser,
+    @Query() q: Record<string, string>,
+  ) {
+    return this.svc.compareQuotations(user, q);
+  }
+
   @Post('quotations/upload')
   @UseInterceptors(FileInterceptor('file', excelUploadOptions))
   uploadQuotations(

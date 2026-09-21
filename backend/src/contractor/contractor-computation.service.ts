@@ -113,6 +113,173 @@ export class ContractorComputationService {
     return { data, total: data.length };
   }
 
+  /**
+   * Every quotation in force on a date, worked out per head for one full month
+   * of that month's working days, so contractors quoting in different ways can
+   * be compared on what the worker is paid, what the client is billed and the
+   * gap between them. With a branch, a branch's own quotation replaces the
+   * contractor's all-sites one, as it does in payroll.
+   */
+  async compareQuotations(user: ReqUser, q: Record<string, string>) {
+    const clientId = await this.resolveCrmClient(user, q.clientId);
+    const onDate =
+      q.onDate && this.validDate(q.onDate)
+        ? q.onDate
+        : new Date().toISOString().slice(0, 10);
+    const branchId = q.branchId || null;
+    const qb = this.quotationRepo
+      .createQueryBuilder('q')
+      .where('q.client_id = :clientId', { clientId })
+      .andWhere('q.effective_from <= :onDate', { onDate })
+      .andWhere('(q.effective_to IS NULL OR q.effective_to >= :onDate)', {
+        onDate,
+      });
+    if (branchId)
+      qb.andWhere('(q.branch_id = :branchId OR q.branch_id IS NULL)', {
+        branchId,
+      });
+    if (q.skillCategory)
+      qb.andWhere('q.skill_category = :skill', {
+        skill: this.normalizeSkill(q.skillCategory),
+      });
+    const found = await qb
+      .orderBy('q.effective_from', 'DESC')
+      .addOrderBy('q.created_at', 'DESC')
+      .getMany();
+    // The rate in force for each contractor, role and site.
+    const current = new Map<string, ContractorQuotationWageEntity>();
+    for (const quote of found) {
+      const key = [
+        quote.contractorUserId,
+        branchId ? '' : quote.branchId || '',
+        quote.skillCategory,
+        quote.designation,
+      ].join('|');
+      const held = current.get(key);
+      if (!held || (branchId && !held.branchId && quote.branchId))
+        current.set(key, quote);
+    }
+    const quotes = [...current.values()];
+    const contractorIds = [...new Set(quotes.map((x) => x.contractorUserId))];
+    const branchIds = [
+      ...new Set(quotes.map((x) => x.branchId).filter(Boolean)),
+    ] as string[];
+    const names = new Map<string, string>(
+      contractorIds.length
+        ? (
+            await this.quotationRepo.manager.query(
+              'SELECT id, name FROM users WHERE id = ANY($1)',
+              [contractorIds],
+            )
+          ).map((r: any) => [r.id, r.name])
+        : [],
+    );
+    const sites = new Map<string, string>(
+      branchIds.length
+        ? (
+            await this.quotationRepo.manager.query(
+              'SELECT id, branchname FROM client_branches WHERE id = ANY($1)',
+              [branchIds],
+            )
+          ).map((r: any) => [r.id, r.branchname])
+        : [],
+    );
+    const payDays = workingDaysInMonth(onDate.slice(0, 7));
+    const rows: Array<Record<string, any>> = [];
+    for (const quote of quotes) {
+      const base = {
+        quotationId: quote.id,
+        contractorUserId: quote.contractorUserId,
+        contractorName: names.get(quote.contractorUserId) ?? null,
+        branchId: quote.branchId,
+        branchName: quote.branchId ? (sites.get(quote.branchId) ?? null) : null,
+        skillCategory: quote.skillCategory,
+        designation: quote.designation,
+        effectiveFrom: quote.effectiveFrom,
+        dailyWage: quote.dailyWage,
+      };
+      if (!quote.rateCard) {
+        rows.push({
+          ...base,
+          hasBreakup: false,
+          basic: this.round(quote.dailyWage * payDays),
+        });
+        continue;
+      }
+      const card = { ...quote.rateCard, divisor: payDays };
+      let result: ReturnType<typeof calculateRateCard>;
+      try {
+        result = calculateRateCard(card, payDays);
+      } catch (err) {
+        rows.push({
+          ...base,
+          hasBreakup: false,
+          error: err instanceof Error ? err.message : 'Could not calculate',
+        });
+        continue;
+      }
+      const paid = this.round(result.earnings - result.unbilledEarnings);
+      const workerPaid = result.earnings;
+      rows.push({
+        ...base,
+        hasBreakup: true,
+        basic: this.round(
+          (result.amounts.BASIC_DA || 0) + (result.amounts.DA || 0),
+        ),
+        workerPaid,
+        deductions: result.deductions,
+        netPay: result.netPay,
+        employerCosts: result.employerCosts,
+        fees: result.billingFees,
+        billingTotal: result.billingTotal,
+        // What the client pays over and above what reaches the worker.
+        gap: this.round(result.billingTotal - workerPaid),
+        gapPercent: workerPaid
+          ? this.round(((result.billingTotal - workerPaid) / workerPaid) * 100)
+          : null,
+        perDay: this.round(result.billingTotal / payDays),
+        billedEarnings: paid,
+        lines: card.components
+          .filter((c) => c.category !== 'SUBTOTAL')
+          .map((c) => ({
+            code: c.code,
+            label: c.label,
+            category: c.category,
+            billable: c.category === 'EARNING' ? c.billable !== false : null,
+            amount: result.amounts[c.code] ?? 0,
+          })),
+        compliance: quotationCompliance(
+          quote.rateCard,
+          await this.complianceContext({
+            clientId,
+            branchId: quote.branchId ?? branchId,
+            contractorUserId: quote.contractorUserId,
+            skillCategory: quote.skillCategory,
+            onDate,
+            payDays,
+          }),
+        ),
+      });
+    }
+    const order = [
+      'UNSKILLED',
+      'SEMI_SKILLED',
+      'SKILLED',
+      'HIGHLY_SKILLED',
+    ] as string[];
+    rows.sort(
+      (a, b) =>
+        order.indexOf(a.skillCategory) - order.indexOf(b.skillCategory) ||
+        (a.billingTotal ?? Infinity) - (b.billingTotal ?? Infinity),
+    );
+    return {
+      onDate,
+      payDays,
+      branches: [...sites].map(([id, name]) => ({ id, name })),
+      rows,
+    };
+  }
+
   async listComputations(user: ReqUser, q: Record<string, string>) {
     const clientId = await this.resolveCrmClient(user, q.clientId);
     return this.listComputationsForScope(user, { ...q, clientId });
