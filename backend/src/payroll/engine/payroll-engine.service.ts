@@ -335,6 +335,27 @@ export class PayrollEngineService {
    * employee master lacks a skill column today; admins can override by
    * configuring a NULL-skill (wildcard) row in `minimum_wages`.
    */
+  /**
+   * The state whose PT, LWF and minimum wage apply to this employee: the one
+   * they work in. A client can run one payroll across branches in several
+   * states, and each employee is due the rates of their own branch's state,
+   * so the branch they are posted to decides. Their own state_code applies
+   * only when the branch has no state, or there is no branch.
+   */
+  private async resolveWorkStateCode(
+    branchId: string | null | undefined,
+    employeeStateCode: string | null | undefined,
+    query: (sql: string, params: unknown[]) => Promise<any[]>,
+  ): Promise<string> {
+    const own = String(employeeStateCode ?? '').trim();
+    if (!branchId) return own;
+    const rows = await query(
+      'SELECT statecode FROM client_branches WHERE id=$1 LIMIT 1',
+      [branchId],
+    );
+    return String(rows?.[0]?.statecode ?? '').trim() || own;
+  }
+
   private async resolveMinWage(
     stateCode: string | null | undefined,
     onDate: string,
@@ -601,15 +622,14 @@ export class PayrollEngineService {
         employeeStateCode = employee.stateCode ?? '';
       }
     }
-    // Fallback: if employee has no state, use the branch's statecode so the
-    // preview matches the run engine (which also falls back).
-    if (!employeeStateCode && branchId) {
-      const br = await this.ds.query(
-        `SELECT statecode FROM client_branches WHERE id=$1 LIMIT 1`,
-        [branchId],
-      );
-      employeeStateCode = br?.[0]?.statecode ?? '';
-    }
+    // PT, LWF and the minimum wage are the working state's, so the branch the
+    // employee is posted to decides; their own state applies only when the
+    // branch has none, or there is no branch.
+    employeeStateCode = await this.resolveWorkStateCode(
+      branchId,
+      employeeStateCode,
+      (sql, params) => this.ds.query(sql, params),
+    );
 
     // Seed MIN_WAGE for formula use in preview as well. Honors the
     // client's labour-law schedule of employment so multi-state clients
@@ -1228,20 +1248,17 @@ export class PayrollEngineService {
       }
 
       // ── Seed MIN_WAGE for formula use (best-effort) ──────────────────
-      // Resolves the statutory minimum monthly wage by employee state +
-      // default UNSKILLED, scoped to the client's labour-law schedule of
-      // employment so multi-state clients get the right state's rate per
-      // branch. Falls back to branch state when employee has none, then to
-      // the rule-set MIN_WAGES parameter when no master row matches.
+      // Resolves the statutory minimum monthly wage for the state the person
+      // works in (the branch they are posted to; their own state only when
+      // the branch has none), scoped to the client's labour-law schedule of
+      // employment, then the rule-set MIN_WAGES parameter when no master row
+      // matches.
       if (values['MIN_WAGE'] === undefined) {
-        let mwState = emp.stateCode ?? '';
-        if (!mwState && emp.branchId) {
-          const br = await qr.manager.query(
-            `SELECT statecode FROM client_branches WHERE id=$1 LIMIT 1`,
-            [emp.branchId],
-          );
-          mwState = br?.[0]?.statecode ?? '';
-        }
+        const mwState = await this.resolveWorkStateCode(
+          emp.branchId,
+          emp.stateCode,
+          (sql, params) => qr.manager.query(sql, params),
+        );
         const runSched = await this.resolveClientScheduledEmployment(
           run.clientId,
         );
@@ -1410,25 +1427,23 @@ export class PayrollEngineService {
         );
       }
 
-      // State-based deductions (PT/LWF)
-      // If the employee's master state_code is missing, fall back to the
-      // branch's statecode so PT/LWF still apply (otherwise PT silently=0).
-      let stateCode = emp.stateCode ?? '';
-      if (!stateCode && emp.branchId) {
-        const br = await qr.manager.query(
-          `SELECT statecode FROM client_branches WHERE id=$1 LIMIT 1`,
-          [emp.branchId],
-        );
-        stateCode = br?.[0]?.statecode ?? '';
-        if (stateCode) {
-          // Backfill so subsequent reads/reports see it.
-          emp.stateCode = stateCode;
-          if (emp.employeeId) {
-            await qr.manager.query(
-              `UPDATE employees SET state_code=$1 WHERE id=$2 AND (state_code IS NULL OR state_code='')`,
-              [stateCode, emp.employeeId],
-            );
-          }
+      // State-based deductions (PT/LWF): the state the person works in — the
+      // branch they are posted to. PT is levied by that state, so a worker at
+      // a Telangana site pays Telangana PT whatever their home state says.
+      // Their own state applies only when the branch has none.
+      const stateCode = await this.resolveWorkStateCode(
+        emp.branchId,
+        emp.stateCode,
+        (sql, params) => qr.manager.query(sql, params),
+      );
+      if (stateCode && !emp.stateCode) {
+        // Backfill so subsequent reads/reports see it.
+        emp.stateCode = stateCode;
+        if (emp.employeeId) {
+          await qr.manager.query(
+            `UPDATE employees SET state_code=$1 WHERE id=$2 AND (state_code IS NULL OR state_code='')`,
+            [stateCode, emp.employeeId],
+          );
         }
       }
       if (stateCode) {
