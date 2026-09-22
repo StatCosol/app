@@ -601,9 +601,9 @@ export class BranchReportsComponent {
 
   openReport(report: ReportItem): void {
     if (
-      !report.available &&
-      !!report.key &&
-      report.modules.some((module) => this.auth.hasModule(module))
+      !report.available ||
+      !report.key ||
+      !report.modules.some((module) => this.auth.hasModule(module))
     )
       return;
     if (!report.key) return; // static reports don't have a backend endpoint yet

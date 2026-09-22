@@ -1,3 +1,4 @@
+import { CommonModule } from '@angular/common';
 import { CrmOperationalApiService } from '../../../core/crm-operational-api.service';
 import { Component } from '@angular/core';
 
@@ -9,7 +10,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
   standalone: true,
   providers: [CrmOperationalApiService],
   selector: 'app-crm-requests',
-  imports: [ThreadLayoutComponent, PageHeaderComponent],
+  imports: [CommonModule, ThreadLayoutComponent, PageHeaderComponent],
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
