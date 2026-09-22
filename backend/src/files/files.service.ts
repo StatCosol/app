@@ -190,6 +190,48 @@ export class FilesService {
       throw new ForbiddenException();
     }
 
+    let evidence: Array<{
+      clientId: string;
+      branchId: string | null;
+      contractorId: string | null;
+    }> = [];
+    try {
+      evidence = await this.cdRepo.manager.query(
+        `SELECT t.client_id AS "clientId", t.branch_id AS "branchId", t.assigned_to_user_id AS "contractorId"
+         FROM compliance_evidence e JOIN compliance_tasks t ON t.id = e.task_id
+        WHERE e.file_path = ANY($1::text[]) LIMIT 1`,
+        [filePathVariants],
+      );
+    } catch (err) {
+      if ((err as { code?: string }).code !== '42P01') throw err;
+    }
+    if (evidence[0]) {
+      const owner = evidence[0];
+      if (
+        !['ADMIN', 'CRM', 'AUDITOR', 'CLIENT', 'CONTRACTOR'].includes(
+          user.roleCode,
+        )
+      )
+        throw new ForbiddenException();
+      if (user.roleCode === 'CLIENT') {
+        await assertClientRecord(
+          this.cdRepo.manager.connection,
+          user,
+          owner.clientId,
+          owner.branchId,
+        );
+      } else {
+        if (
+          user.roleCode === 'CONTRACTOR' &&
+          owner.contractorId &&
+          owner.contractorId !== user.id
+        )
+          throw new ForbiddenException();
+        await this.scope.assertDocumentInScope(user, owner);
+      }
+      return;
+    }
+
     // 5) Everything else that is registered against an owning row.
     //
     // The four checks above are bespoke because their ownership is indirect —

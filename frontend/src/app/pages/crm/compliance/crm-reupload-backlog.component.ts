@@ -1,6 +1,7 @@
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import { CommonModule } from '@angular/common';
 import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
-import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil, finalize } from 'rxjs';
 import { ComplianceApiService } from '../../../shared/services/compliance-api.service';
@@ -13,6 +14,8 @@ interface ReuploadRow {
   id: string;
   documentId: string;
   documentType: string;
+  documentFilePath?: string | null;
+  documentFileName?: string | null;
   clientId: string;
   clientName: string;
   unitId: string;
@@ -68,7 +71,7 @@ export class CrmReuploadBacklogComponent implements OnInit, OnDestroy {
     private complianceApi: ComplianceApiService,
     private toast: ToastService,
     private cdr: ChangeDetectorRef,
-    private router: Router,
+    private protectedFiles: ProtectedFileService,
     private route: ActivatedRoute,
   ) {}
 
@@ -243,27 +246,16 @@ export class CrmReuploadBacklogComponent implements OnInit, OnDestroy {
   }
 
   isOverdue(row: ReuploadRow): boolean {
-    if (!row.deadlineDate || row.status === 'REVERIFIED') return false;
-    return new Date(row.deadlineDate) < new Date();
+    if (!row.deadlineDate || !['OPEN', 'SUBMITTED'].includes(row.status)) return false;
+    // The API evaluates date-only deadlines using the UTC calendar date.
+    return row.deadlineDate.slice(0, 10) < new Date().toISOString().slice(0, 10);
   }
 
-  deepLink(row: ReuploadRow): void {
-    switch (row.targetRole) {
-      case 'CLIENT':
-        this.router.navigate(['/crm/clients', row.clientId, 'compliance-tracker'], {
-          queryParams: { tab: 'DOCS', docId: row.documentId },
-        });
-        break;
-      case 'BRANCH':
-        this.router.navigate(['/crm/clients', row.clientId, 'compliance-tracker'], {
-          queryParams: { tab: 'DOCS', branchId: row.unitId, docId: row.documentId },
-        });
-        break;
-      case 'CONTRACTOR':
-        this.router.navigate(['/crm/clients', row.clientId, 'compliance-tracker'], {
-          queryParams: { tab: 'DOCS', docId: row.documentId },
-        });
-        break;
-    }
+  viewDocument(row: ReuploadRow): void {
+    if (!row.documentFilePath) return;
+    this.protectedFiles
+      .open(row.documentFilePath, row.documentFileName)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({ error: () => this.toast.error('Unable to open this document') });
   }
 }

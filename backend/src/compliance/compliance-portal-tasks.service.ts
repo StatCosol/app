@@ -358,7 +358,10 @@ export class CompliancePortalTasksService {
     this.assertRole(user, ['CONTRACTOR']);
     const taskIdNum = Number(taskId);
     const t = await this.loadTaskOrThrow(taskIdNum);
-    if (String(t.assignedToUserId || '') !== String(user.userId))
+    if (
+      t.assignedToUserId &&
+      String(t.assignedToUserId) !== String(user.userId)
+    )
       throw new ForbiddenException('Not your task');
 
     const scope = await this.getContractorScope(user.userId);

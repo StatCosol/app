@@ -237,3 +237,69 @@ describe('helpdesk file downloads', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });
+
+describe('monthly evidence downloads', () => {
+  function setup(
+    owner = {
+      clientId: 'client-a',
+      branchId: 'branch-a',
+      contractorId: 'contractor-a',
+    },
+  ) {
+    const empty = { findOne: jest.fn().mockResolvedValue(null) };
+    const scope = {
+      assertDocumentInScope: jest.fn(async (user: ReqUser, doc: any) => {
+        if (user.roleCode === 'CRM' && doc.clientId === 'client-a') return;
+        throw new ForbiddenException('Client not assigned');
+      }),
+    };
+    const files = {
+      ...empty,
+      manager: {
+        query: jest.fn().mockResolvedValue([owner]),
+        connection: { query: jest.fn().mockResolvedValue([]) },
+      },
+    };
+    return new FilesService(
+      empty as any,
+      empty as any,
+      empty as any,
+      files as any,
+      empty as any,
+      scope as any,
+    );
+  }
+  it('allows the assigned CRM to open the exact evidence file', async () => {
+    await expect(
+      setup().assertCanDownload(
+        actor({ roleCode: 'CRM' }),
+        'uploads/compliance/evidence.pdf',
+      ),
+    ).resolves.toBeUndefined();
+  });
+  it('denies CRM evidence from another client', async () => {
+    await expect(
+      setup({
+        clientId: 'client-b',
+        branchId: 'branch-b',
+        contractorId: 'other',
+      }).assertCanDownload(
+        actor({ roleCode: 'CRM' }),
+        'uploads/compliance/evidence.pdf',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+  it('denies a different contractor even within the same client', async () => {
+    await expect(
+      setup().assertCanDownload(
+        actor({ roleCode: 'CONTRACTOR', id: 'contractor-b' }),
+        'uploads/compliance/evidence.pdf',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+  it('denies an unmapped client branch', async () => {
+    await expect(
+      setup().assertCanDownload(actor(), 'uploads/compliance/evidence.pdf'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});

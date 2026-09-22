@@ -103,3 +103,53 @@ describe('contractor task owner isolation', () => {
     },
   );
 });
+
+describe('unclaimed contractor task reads', () => {
+  const user: any = {
+    id: 'contractor-a',
+    userId: 'contractor-a',
+    roleCode: 'CONTRACTOR',
+  };
+  function setup(clientId = 'client-a', branchId: string | null = 'branch-a') {
+    const svc = Object.create(CompliancePortalTasksService.prototype);
+    Object.assign(svc, {
+      tasks: {
+        findOne: jest.fn().mockResolvedValue({
+          id: 1,
+          clientId,
+          branchId,
+          assignedToUserId: null,
+          dueDate: '2099-01-01',
+          status: 'PENDING',
+        }),
+      },
+      users: {
+        findOne: jest.fn().mockResolvedValue({
+          clientId: 'client-a',
+          branches: [{ id: 'branch-a' }],
+        }),
+      },
+      usersService: {
+        getUserRoleCode: jest.fn().mockResolvedValue('CONTRACTOR'),
+      },
+      comments: { find: jest.fn().mockResolvedValue([]) },
+      evidence: { find: jest.fn().mockResolvedValue([]) },
+    });
+    return svc as CompliancePortalTasksService;
+  }
+  it('allows a listed unclaimed task within the contractor branch', async () => {
+    await expect(
+      setup().contractorGetTaskDetail(user, '1'),
+    ).resolves.toMatchObject({ task: { id: 1 }, comments: [], evidence: [] });
+  });
+  it('rejects an unclaimed task from a different branch', async () => {
+    await expect(
+      setup('client-a', 'branch-b').contractorGetTaskDetail(user, '1'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+  it('rejects an unclaimed task from a different client', async () => {
+    await expect(
+      setup('client-b').contractorGetTaskDetail(user, '1'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});

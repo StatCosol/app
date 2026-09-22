@@ -226,14 +226,16 @@
           {{ row.updatedAt | date: 'dd MMM yyyy HH:mm' }}
         </td>
 
-        <!-- Deep link -->
+        <!-- Exact document -->
         <td class="px-4 py-3 whitespace-nowrap text-right">
           <button
             type="button"
-            (click)="deepLink(row)"
+            (click)="viewDocument(row)"
+            [disabled]="!row.documentFilePath"
+            [title]="row.documentFilePath ? 'Open this document' : 'Document unavailable'"
             class="text-teal-600 hover:text-teal-800 text-xs font-medium hover:underline"
           >
-            View &rarr;
+            View document
           </button>
         </td>
       </tr>

@@ -1173,8 +1173,27 @@ export class ComplianceReuploadService {
       );
     }
 
+    const documents: Array<{
+      requestId: string;
+      filePath: string;
+      fileName: string;
+    }> = rows.length
+      ? await this.reuploadReqRepo.manager.query(
+          `SELECT r.id AS "requestId", e.file_path AS "filePath", e.file_name AS "fileName"
+             FROM document_reupload_requests r
+             JOIN compliance_evidence e ON e.id = r.document_id
+             JOIN compliance_tasks t ON t.id = e.task_id AND t.client_id = r.client_id
+            WHERE r.id = ANY($1::uuid[]) AND t.client_id = ANY($2::uuid[])
+              AND r.document_type = 'COMPLIANCE_EVIDENCE'`,
+          [rows.map((r) => r.id), clientIds],
+        )
+      : [];
+    const documentMap = new Map(documents.map((d) => [d.requestId, d]));
+
     const items = rows.map((r) => ({
       ...r,
+      documentFilePath: documentMap.get(r.id)?.filePath || null,
+      documentFileName: documentMap.get(r.id)?.fileName || null,
       clientName: clientMap[r.clientId] || 'N/A',
       unitName: r.unitId ? branchMap[r.unitId] || 'N/A' : 'Client Master',
     }));
