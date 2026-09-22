@@ -14,7 +14,13 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { HelpdeskService } from './helpdesk.service';
+import {
+  HelpdeskService,
+  CreateTicketDto,
+  PostMessageDto,
+  AssignTicketDto,
+  UpdateTicketStatusDto,
+} from './helpdesk.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -50,10 +56,7 @@ export class AdminHelpdeskController {
 
   @ApiOperation({ summary: 'Assign Ticket' })
   @Patch('tickets/:ticketId/assign')
-  assign(
-    @Param('ticketId') ticketId: string,
-    @Body() dto: import('./helpdesk.service').AssignTicketDto,
-  ) {
+  assign(@Param('ticketId') ticketId: string, @Body() dto: AssignTicketDto) {
     return this.svc.assignTicket(ticketId, dto);
   }
 }
@@ -62,7 +65,7 @@ function ensureDir(_dir: string) {
   // retained for backward compatibility (no longer used)
 }
 const uploadOptions = makeSafeUploadOptions({
-  folder: 'helpdesk',
+  memory: true,
   maxMb: 10,
   allowedMimes: [
     'application/pdf',
@@ -88,10 +91,7 @@ export class ClientHelpdeskController {
 
   @ApiOperation({ summary: 'Create' })
   @Post('tickets')
-  create(
-    @CurrentUser() user: ReqUser,
-    @Body() dto: import('./helpdesk.service').CreateTicketDto,
-  ) {
+  create(@CurrentUser() user: ReqUser, @Body() dto: CreateTicketDto) {
     return this.svc.createTicket(user, dto);
   }
 
@@ -139,10 +139,7 @@ export class EssHelpdeskController {
 
   @ApiOperation({ summary: 'Create ticket (PF/ESI/PAYSLIP)' })
   @Post('tickets')
-  create(
-    @CurrentUser() user: ReqUser,
-    @Body() dto: import('./helpdesk.service').CreateTicketDto,
-  ) {
+  create(@CurrentUser() user: ReqUser, @Body() dto: CreateTicketDto) {
     return this.svc.essCreateTicket(user, dto);
   }
 
@@ -165,7 +162,7 @@ export class HelpdeskMessagesController {
   postMessage(
     @CurrentUser() user: ReqUser,
     @Param('ticketId') ticketId: string,
-    @Body() dto: import('./helpdesk.service').PostMessageDto,
+    @Body() dto: PostMessageDto,
   ) {
     return this.svc.postMessage(user, ticketId, dto);
   }
@@ -199,6 +196,11 @@ export class HelpdeskMessagesController {
 export class CrmHelpdeskController {
   constructor(private readonly svc: HelpdeskService) {}
 
+  @Get('tickets/:ticketId')
+  getTicket(@CurrentUser() user: ReqUser, @Param('ticketId') ticketId: string) {
+    return this.svc.getTicket(user, ticketId);
+  }
+
   /**
    * Compatibility alias for older clients expecting:
    * GET /api/v1/crm/helpdesk
@@ -216,11 +218,9 @@ export class CrmHelpdeskController {
   }
 }
 
-// Update shared controller @Roles to include CRM
-@Roles('CLIENT', 'PF_TEAM', 'ADMIN', 'CRM')
 @Controller({ path: 'helpdesk', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('PF_TEAM', 'ADMIN', 'CRM')
+@Roles('CLIENT', 'PF_TEAM', 'ADMIN', 'CRM')
 export class HelpdeskManagementController {
   constructor(private readonly svc: HelpdeskService) {}
 
@@ -229,7 +229,7 @@ export class HelpdeskManagementController {
   updateStatus(
     @CurrentUser() user: ReqUser,
     @Param('id') id: string,
-    @Body() dto: import('./helpdesk.service').UpdateTicketStatusDto,
+    @Body() dto: UpdateTicketStatusDto,
   ) {
     return this.svc.updateTicketStatusScoped(user, id, dto);
   }

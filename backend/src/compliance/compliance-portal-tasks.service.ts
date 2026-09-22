@@ -1,4 +1,8 @@
 import {
+  applyClientBranchScope,
+  assertClientRecord,
+} from '../common/portal-client-scope';
+import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -354,6 +358,11 @@ export class CompliancePortalTasksService {
     this.assertRole(user, ['CONTRACTOR']);
     const taskIdNum = Number(taskId);
     const t = await this.loadTaskOrThrow(taskIdNum);
+    if (
+      t.assignedToUserId &&
+      String(t.assignedToUserId) !== String(user.userId)
+    )
+      throw new ForbiddenException('Not your task');
 
     const scope = await this.getContractorScope(user.userId);
     if (String(t.clientId) !== String(scope.clientId)) {
@@ -394,6 +403,8 @@ export class CompliancePortalTasksService {
     this.assertRole(user, ['CONTRACTOR']);
     const taskIdNum = Number(taskId);
     const t = await this.loadTaskOrThrow(taskIdNum);
+    if (String(t.assignedToUserId || '') !== String(user.userId))
+      throw new ForbiddenException('Not your task');
 
     const scope = await this.getContractorScope(user.userId);
     if (String(t.clientId) !== String(scope.clientId))
@@ -544,6 +555,8 @@ export class CompliancePortalTasksService {
 
     const taskIdNum = Number(taskId);
     const t = await this.loadTaskOrThrow(taskIdNum);
+    if (String(t.assignedToUserId || '') !== String(user.userId))
+      throw new ForbiddenException('Not your task');
 
     const scope = await this.getContractorScope(user.userId);
     if (String(t.clientId) !== String(scope.clientId))
@@ -601,6 +614,12 @@ export class CompliancePortalTasksService {
       String(t.assignedToUserId || '') !== String(user.userId)
     ) {
       throw new ForbiddenException('Not your branch');
+    }
+
+    if (['SUBMITTED', 'APPROVED'].includes(t.status)) {
+      throw new BadRequestException(
+        'Submitted or approved tasks cannot be changed',
+      );
     }
 
     if (!t.assignedToUserId) {
@@ -745,6 +764,13 @@ export class CompliancePortalTasksService {
 
   // ---------- Client APIs (read-only) ----------
   async clientListTasks(user: ReqUser, q: Record<string, string>) {
+    if (q.branchId)
+      await assertClientRecord(
+        this.tasks.manager.connection,
+        user,
+        user.clientId!,
+        q.branchId,
+      );
     this.assertRole(user, ['CLIENT']);
     if (!user.clientId) throw new ForbiddenException('Client missing clientId');
 
@@ -754,6 +780,7 @@ export class CompliancePortalTasksService {
         .leftJoinAndSelect('t.compliance', 'compliance')
         .leftJoinAndSelect('t.branch', 'branch')
         .where('t.clientId = :clientId', { clientId: String(user.clientId) });
+      applyClientBranchScope(qb, user, 't.branch_id');
 
       if (q.branchId)
         qb.andWhere('t.branchId = :bid', { bid: String(q.branchId) });
@@ -1161,62 +1188,63 @@ export class CompliancePortalTasksService {
     this.assertRole(user, ['CLIENT']);
     if (!user.clientId) throw new ForbiddenException('Client missing clientId');
 
-    try {
-      const taskIdNum = Number(taskId);
-      const t = await this.loadTaskOrThrow(taskIdNum);
-      if (String(t.clientId) !== String(user.clientId)) {
-        throw new ForbiddenException('Not your task');
-      }
-
-      const items = await this.mcdItems.find({ where: { taskId: taskIdNum } });
-      if (!items.length) return { data: [] };
-
-      const itemIds = items.map((i) => i.id);
-
-      // Fetch full evidence records (not just count)
-      const evidenceRecords = await this.evidence
-        .createQueryBuilder('e')
-        .select([
-          'e.id',
-          'e.mcdItemId',
-          'e.fileName',
-          'e.filePath',
-          'e.fileType',
-          'e.fileSize',
-          'e.notes',
-          'e.createdAt',
-        ])
-        .where('e.mcdItemId IN (:...itemIds)', { itemIds })
-        .orderBy('e.createdAt', 'DESC')
-        .getMany();
-
-      const evMap = new Map<number, any[]>();
-      for (const r of evidenceRecords) {
-        const key = Number(r.mcdItemId);
-        if (!evMap.has(key)) evMap.set(key, []);
-        evMap.get(key)!.push({
-          id: r.id,
-          fileName: r.fileName,
-          filePath: r.filePath,
-          fileType: r.fileType,
-          fileSize: r.fileSize,
-          notes: r.notes,
-          createdAt: r.createdAt,
-        });
-      }
-
-      const data = items.map((i) => ({
-        ...i,
-        uploadedByRole: i.uploadedByRole || null,
-        evidenceCount: evMap.get(i.id)?.length || 0,
-        evidenceFiles: evMap.get(i.id) || [],
-      }));
-
-      return { data };
-    } catch (err) {
-      // Avoid breaking client UI if table/migration missing; log once and return empty
-      return { data: [] };
+    const taskIdNum = Number(taskId);
+    const t = await this.loadTaskOrThrow(taskIdNum);
+    await assertClientRecord(
+      this.tasks.manager.connection,
+      user,
+      t.clientId,
+      t.branchId,
+    );
+    if (String(t.clientId) !== String(user.clientId)) {
+      throw new ForbiddenException('Not your task');
     }
+
+    const items = await this.mcdItems.find({ where: { taskId: taskIdNum } });
+    if (!items.length) return { data: [] };
+
+    const itemIds = items.map((i) => i.id);
+
+    // Fetch full evidence records (not just count)
+    const evidenceRecords = await this.evidence
+      .createQueryBuilder('e')
+      .select([
+        'e.id',
+        'e.mcdItemId',
+        'e.fileName',
+        'e.filePath',
+        'e.fileType',
+        'e.fileSize',
+        'e.notes',
+        'e.createdAt',
+      ])
+      .where('e.mcdItemId IN (:...itemIds)', { itemIds })
+      .orderBy('e.createdAt', 'DESC')
+      .getMany();
+
+    const evMap = new Map<number, any[]>();
+    for (const r of evidenceRecords) {
+      const key = Number(r.mcdItemId);
+      if (!evMap.has(key)) evMap.set(key, []);
+      evMap.get(key)!.push({
+        id: r.id,
+        fileName: r.fileName,
+        filePath: r.filePath,
+        fileType: r.fileType,
+        fileSize: r.fileSize,
+        notes: r.notes,
+        createdAt: r.createdAt,
+      });
+    }
+
+    const data = items.map((i) => ({
+      ...i,
+      uploadedByRole: i.uploadedByRole || null,
+      evidenceCount: evMap.get(i.id)?.length || 0,
+      evidenceFiles: evMap.get(i.id) || [],
+    }));
+
+    return { data };
   }
 
   async clientUploadEvidence(
@@ -1231,6 +1259,14 @@ export class CompliancePortalTasksService {
 
     const taskIdNum = Number(taskId);
     const t = await this.loadTaskOrThrow(taskIdNum);
+    if (['SUBMITTED', 'APPROVED'].includes(t.status))
+      throw new BadRequestException('Return the task before changing evidence');
+    await assertClientRecord(
+      this.tasks.manager.connection,
+      user,
+      t.clientId,
+      t.branchId,
+    );
 
     if (String(t.clientId) !== String(user.clientId)) {
       throw new ForbiddenException('Not your task');
@@ -1310,6 +1346,12 @@ export class CompliancePortalTasksService {
 
     const taskIdNum = Number(taskId);
     const t = await this.loadTaskOrThrow(taskIdNum);
+    await assertClientRecord(
+      this.tasks.manager.connection,
+      user,
+      t.clientId,
+      t.branchId,
+    );
 
     if (String(t.clientId) !== String(user.clientId)) {
       throw new ForbiddenException('Not your task');
@@ -1347,7 +1389,7 @@ export class CompliancePortalTasksService {
     const mcdItems = await this.mcdItems.find({ where: { taskId: taskIdNum } });
     if (mcdItems.length) {
       await this.mcdItems.update(
-        { taskId: taskIdNum, status: In(['PENDING', 'REJECTED']) },
+        { taskId: taskIdNum, status: In(['PENDING', 'REJECTED', 'RETURNED']) },
         { status: 'SUBMITTED' as McdItemStatus },
       );
     }

@@ -3,6 +3,7 @@ import {
   Injectable,
   BadRequestException,
 } from '@nestjs/common';
+import { assertClientRecord } from '../common/portal-client-scope';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { IsNull } from 'typeorm';
@@ -135,11 +136,13 @@ export class FilesService {
       const rows: Array<{
         clientId: string;
         category: string;
+        branchId: string | null;
         assignedToUserId: string | null;
         createdByUserId: string;
       }> = await this.hmfRepo.manager.query(
         `SELECT t.client_id            AS "clientId",
                 t.category             AS "category",
+                t.branch_id            AS "branchId",
                 t.assigned_to_user_id  AS "assignedToUserId",
                 t.created_by_user_id   AS "createdByUserId"
            FROM helpdesk_message_files hmf
@@ -154,8 +157,17 @@ export class FilesService {
 
       if (user.roleCode === 'ADMIN') return;
       if (user.roleCode === 'CLIENT') {
-        if (user.clientId && user.clientId === ticket.clientId) return;
-        throw new ForbiddenException();
+        await assertClientRecord(
+          this.hmfRepo.manager.connection,
+          user,
+          ticket.clientId,
+          ticket.branchId,
+        );
+        return;
+      }
+      if (user.roleCode === 'CRM') {
+        await this.scope.assertClientAllowed(user, ticket.clientId);
+        return;
       }
       if (user.roleCode === 'PF_TEAM') {
         // PF Team: PF/ESI/PAYSLIP categories only, and respect assignment
@@ -168,10 +180,56 @@ export class FilesService {
         return;
       }
       if (user.roleCode === 'EMPLOYEE') {
-        if (ticket.createdByUserId === user.id) return;
+        if (
+          ticket.createdByUserId === user.id &&
+          ticket.clientId === user.clientId
+        )
+          return;
         throw new ForbiddenException();
       }
       throw new ForbiddenException();
+    }
+
+    let evidence: Array<{
+      clientId: string;
+      branchId: string | null;
+      contractorId: string | null;
+    }> = [];
+    try {
+      evidence = await this.cdRepo.manager.query(
+        `SELECT t.client_id AS "clientId", t.branch_id AS "branchId", t.assigned_to_user_id AS "contractorId"
+         FROM compliance_evidence e JOIN compliance_tasks t ON t.id = e.task_id
+        WHERE e.file_path = ANY($1::text[]) LIMIT 1`,
+        [filePathVariants],
+      );
+    } catch (err) {
+      if ((err as { code?: string }).code !== '42P01') throw err;
+    }
+    if (evidence[0]) {
+      const owner = evidence[0];
+      if (
+        !['ADMIN', 'CRM', 'AUDITOR', 'CLIENT', 'CONTRACTOR'].includes(
+          user.roleCode,
+        )
+      )
+        throw new ForbiddenException();
+      if (user.roleCode === 'CLIENT') {
+        await assertClientRecord(
+          this.cdRepo.manager.connection,
+          user,
+          owner.clientId,
+          owner.branchId,
+        );
+      } else {
+        if (
+          user.roleCode === 'CONTRACTOR' &&
+          owner.contractorId &&
+          owner.contractorId !== user.id
+        )
+          throw new ForbiddenException();
+        await this.scope.assertDocumentInScope(user, owner);
+      }
+      return;
     }
 
     // 5) Everything else that is registered against an owning row.

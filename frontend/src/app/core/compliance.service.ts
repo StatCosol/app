@@ -11,7 +11,7 @@ export class ComplianceService {
   private contractorBase = `${this.baseUrl}/api/v1/contractor/compliance`;
   private auditorBase = `${this.baseUrl}/api/v1/auditor/compliance`;
   private crmDashboardUrl = `${this.baseUrl}/api/v1/crm/dashboard`;
-  private contractorDashboardUrl = `${this.baseUrl}/api/v1/contractor/dashboard`;
+  private contractorDashboardUrl = `${this.baseUrl}/api/v1/contractor/compliance/dashboard`;
   private clientDashboardUrl = `${this.baseUrl}/api/v1/client/dashboard`;
   private adminDashboardUrl = `${this.baseUrl}/api/v1/admin/dashboard`;
 
@@ -108,22 +108,14 @@ export class ComplianceService {
     });
   }
 
-  contractorUploadEvidence(
-    id: string,
-    file: File,
-    notes?: string,
-  ): Observable<any> {
+  contractorUploadEvidence(id: string, file: File, notes?: string): Observable<any> {
     const fd = new FormData();
     fd.append('file', file);
     if (notes) fd.append('notes', notes);
     return this.http.post(`${this.contractorBase}/tasks/${id}/evidence`, fd);
   }
 
-  uploadContractorTaskFile(
-    id: string,
-    file: File,
-    notes?: string,
-  ): Observable<any> {
+  uploadContractorTaskFile(id: string, file: File, notes?: string): Observable<any> {
     return this.contractorUploadEvidence(id, file, notes);
   }
 
@@ -151,10 +143,7 @@ export class ComplianceService {
           })),
         ]
           .filter((e: any) => !!e.at)
-          .sort(
-            (a: any, b: any) =>
-              new Date(b.at).getTime() - new Date(a.at).getTime(),
-          );
+          .sort((a: any, b: any) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
         return { taskId: id, events };
       }),
@@ -173,25 +162,15 @@ export class ComplianceService {
     });
   }
 
-  contractorReuploadUpload(
-    requestId: string,
-    file: File,
-    note?: string,
-  ): Observable<any> {
+  contractorReuploadUpload(requestId: string, file: File, note?: string): Observable<any> {
     const fd = new FormData();
     fd.append('file', file);
     if (note) fd.append('note', note);
-    return this.http.post(
-      `${this.contractorBase}/reupload-requests/${requestId}/upload`,
-      fd,
-    );
+    return this.http.post(`${this.contractorBase}/reupload-requests/${requestId}/upload`, fd);
   }
 
   contractorReuploadSubmit(requestId: string): Observable<any> {
-    return this.http.post(
-      `${this.contractorBase}/reupload-requests/${requestId}/submit`,
-      {},
-    );
+    return this.http.post(`${this.contractorBase}/reupload-requests/${requestId}/submit`, {});
   }
 
   contractorDashboard(): Observable<any> {

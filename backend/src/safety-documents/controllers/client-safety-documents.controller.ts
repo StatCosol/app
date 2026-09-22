@@ -41,7 +41,10 @@ export class ClientSafetyDocumentsController {
   async getSafetyScore(@CurrentUser() user: ReqUser) {
     const clientId = user.clientId;
     if (!clientId) return { overallScore: 0, categoryScores: [] };
-    return this.svc.getSafetyScore({ clientId });
+    return this.svc.getSafetyScore({
+      clientId,
+      branchIds: user.userType === 'MASTER' ? undefined : user.branchIds || [],
+    });
   }
 
   /** List all safety documents for the client */
@@ -79,7 +82,10 @@ export class ClientSafetyDocumentsController {
   async getExpiring(@CurrentUser() user: ReqUser) {
     const clientId = user.clientId;
     if (!clientId) return [];
-    return this.svc.getExpiringDocuments({ clientId });
+    return this.svc.getExpiringDocuments({
+      clientId,
+      branchIds: user.userType === 'MASTER' ? undefined : user.branchIds || [],
+    });
   }
 
   /** Download a safety document */

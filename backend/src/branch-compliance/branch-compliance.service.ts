@@ -1,4 +1,8 @@
 import {
+  applyClientBranchScope,
+  assertClientRecord,
+} from '../common/portal-client-scope';
+import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -378,7 +382,9 @@ export class BranchComplianceService {
 
     await this.assertBranchAccess(user, branchId);
 
-    const companyId = q.companyId || user.clientId;
+    if (q.companyId && q.companyId !== user.clientId)
+      throw new ForbiddenException('Not your company');
+    const companyId = user.clientId;
     const { year, month } = this.getPeriodFromQuery(q);
     const frequency = q.frequency || 'MONTHLY';
 
@@ -879,7 +885,9 @@ export class BranchComplianceService {
     if (!branchId) throw new BadRequestException('branchId is required');
     await this.assertBranchAccess(user, branchId);
 
-    const companyId = q.companyId || user.clientId;
+    if (q.companyId && q.companyId !== user.clientId)
+      throw new ForbiddenException('Not your company');
+    const companyId = user.clientId;
     const page = q.page || 1;
     const pageSize = q.pageSize || 50;
 
@@ -1065,13 +1073,16 @@ export class BranchComplianceService {
   // ─── Client (Master Client) view ──────────────────────────
 
   async listForClient(user: ReqUser, q: ChecklistQueryDto) {
-    const companyId = q.companyId || user.clientId;
+    if (q.companyId && q.companyId !== user.clientId)
+      throw new ForbiddenException('Not your company');
+    const companyId = user.clientId;
     if (!companyId) throw new ForbiddenException('No company associated');
 
     const qb = this.docRepo
       .createQueryBuilder('d')
       .leftJoinAndSelect('d.branch', 'branch')
       .where('d.company_id = :companyId', { companyId });
+    applyClientBranchScope(qb, user, 'd.branch_id');
 
     if (q.branchId)
       qb.andWhere('d.branch_id = :branchId', { branchId: q.branchId });
@@ -1232,7 +1243,7 @@ export class BranchComplianceService {
   }
 
   async getClientDashboardKpis(
-    _user: ReqUser,
+    user: ReqUser,
     companyId: string,
     year: number,
     month?: number,
@@ -1255,13 +1266,19 @@ export class BranchComplianceService {
        LEFT JOIN compliance_documents d
          ON d.branch_id = b.id
          AND d.period_year = $2
-         ${month ? 'AND d.period_month = $3' : ''}
+         AND ($3::int IS NULL OR d.period_month = $3)
        WHERE b.clientid = $1
+         AND ($4::uuid[] IS NULL OR b.id=ANY($4::uuid[]))
          AND b.isactive = true
          AND b.isdeleted = false
        GROUP BY b.id, b.branchname
        ORDER BY compliance_pct ASC`,
-      month ? [companyId, year, month] : [companyId, year],
+      [
+        companyId,
+        year,
+        month ?? null,
+        user.userType === 'MASTER' ? null : user.branchIds || [],
+      ],
     );
 
     // Compute overall + top/bottom 5
@@ -1399,6 +1416,7 @@ export class BranchComplianceService {
     branchId: string,
     companyId: string,
     year: number,
+    branchIds?: string[],
   ): Promise<
     Array<{ month: number; total: number; approved: number; percent: number }>
   > {
@@ -1413,10 +1431,11 @@ export class BranchComplianceService {
          AND period_year = $2
          AND frequency = 'MONTHLY'
          AND period_month IS NOT NULL
-         ${hasBranch ? 'AND branch_id = $3' : ''}
+         AND ($3::uuid IS NULL OR branch_id = $3)
+         AND ($4::uuid[] IS NULL OR branch_id=ANY($4::uuid[]))
        GROUP BY period_month
        ORDER BY period_month`,
-      hasBranch ? [companyId, year, branchId] : [companyId, year],
+      [companyId, year, hasBranch ? branchId : null, branchIds ?? null],
     );
 
     const byMonth = new Map<
@@ -1568,6 +1587,7 @@ export class BranchComplianceService {
     companyId: string,
     year: number,
     limit = 10,
+    branchIds?: string[],
   ): Promise<
     Array<{
       branchId: string;
@@ -1597,13 +1617,19 @@ export class BranchComplianceService {
          ON d.branch_id = b.id
          AND d.period_year = $2
        WHERE b.clientid = $1
+         AND ($4::uuid[] IS NULL OR b.id=ANY($4::uuid[]))
          AND b.isactive = true
          AND b.isdeleted = false
        GROUP BY b.id, b.branchname
        HAVING COUNT(d.id) > 0
        ORDER BY compliance_pct ASC
        LIMIT $3`,
-      [companyId, year, limit],
+      [
+        companyId,
+        year,
+        Math.max(1, Math.min(100, limit || 10)),
+        branchIds ?? null,
+      ],
     );
 
     return (rows || []).map(
@@ -1686,18 +1712,7 @@ export class BranchComplianceService {
   }
 
   async assertBranchAccess(user: ReqUser, branchId: string) {
-    try {
-      await this.branchAccess.assertBranchAccess(
-        user.userId ?? user.id,
-        branchId,
-      );
-    } catch {
-      // If branchAccess service isn't available, check user.branchIds
-      const ids: string[] = user.branchIds || [];
-      if (ids.length && !ids.includes(branchId)) {
-        throw new ForbiddenException('You do not have access to this branch');
-      }
-    }
+    await assertClientRecord(this.dataSource, user, user.clientId!, branchId);
   }
 
   private async findExistingDoc(

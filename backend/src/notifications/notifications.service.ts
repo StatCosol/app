@@ -1,3 +1,6 @@
+import { promises as attachmentFs } from 'fs';
+import * as attachmentPath from 'path';
+import { randomUUID } from 'crypto';
 import {
   BadRequestException,
   ForbiddenException,
@@ -30,6 +33,9 @@ type RoleCode =
 type UserCtx = { id: string; role: string };
 
 type NotificationsListQuery = {
+  clientId?: string;
+  queryType?: string;
+  q?: string;
   page?: string | number;
   limit?: string | number;
   status?: string;
@@ -285,6 +291,18 @@ export class NotificationsService {
       wheres.push(`(t.assigned_to_user_id = $1 OR t.created_by_user_id = $1)`);
     }
 
+    if (q?.clientId) {
+      params.push(q.clientId);
+      wheres.push(`t.client_id = $${params.length}`);
+    }
+    if (q?.queryType) {
+      params.push(q.queryType);
+      wheres.push(`t.query_type = $${params.length}`);
+    }
+    if (q?.q) {
+      params.push(`%${String(q.q).slice(0, 200)}%`);
+      wheres.push(`t.subject ILIKE $${params.length}`);
+    }
     if (status) {
       params.push(status);
       wheres.push(`t.status = $${params.length}`);
@@ -314,6 +332,18 @@ export class NotificationsService {
     const params: unknown[] = [user.id];
     const wheres: string[] = [`t.created_by_user_id = $1`];
 
+    if (q?.clientId) {
+      params.push(q.clientId);
+      wheres.push(`t.client_id = $${params.length}`);
+    }
+    if (q?.queryType) {
+      params.push(q.queryType);
+      wheres.push(`t.query_type = $${params.length}`);
+    }
+    if (q?.q) {
+      params.push(`%${String(q.q).slice(0, 200)}%`);
+      wheres.push(`t.subject ILIKE $${params.length}`);
+    }
     if (status) {
       params.push(status);
       wheres.push(`t.status = $${params.length}`);
@@ -437,40 +467,100 @@ export class NotificationsService {
     user: ReqUser,
     threadId: string,
     dto: ReplyNotificationDto,
+    files: Express.Multer.File[] = [],
   ) {
     const thread = await this.threadsRepo.findOne({ where: { id: threadId } });
     if (!thread) throw new NotFoundException('Notification not found');
     if (!this.canAccessThread(user, thread))
       throw new BadRequestException('Access denied');
 
-    await this.dataSource.transaction(async (manager) => {
-      const msg = manager.create(NotificationMessageEntity, {
-        notificationId: threadId,
-        senderUserId: user.id,
-        message: dto.message,
-        attachmentPath: dto.attachmentPath ?? null,
-      });
-      await manager.save(NotificationMessageEntity, msg);
-
-      thread.status = 'OPEN';
-      thread.updatedAt = new Date();
-      await manager.save(NotificationEntity, thread);
-
-      const existingRead = await manager.findOne(NotificationReadEntity, {
-        where: { notificationId: threadId, userId: user.id },
-      });
-      if (existingRead) {
-        existingRead.lastReadAt = new Date();
-        await manager.save(NotificationReadEntity, existingRead);
-      } else {
-        await manager.save(NotificationReadEntity, {
-          notificationId: threadId,
-          userId: user.id,
-          lastReadAt: new Date(),
-        });
+    if (dto.attachmentPath)
+      throw new BadRequestException(
+        'Upload the attachment using the file field',
+      );
+    if (files.length > 5)
+      throw new BadRequestException('At most five attachments are allowed');
+    const allowed = new Set([
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+    ]);
+    for (const file of files) {
+      if (
+        !file.buffer ||
+        file.buffer.length > 10 * 1024 * 1024 ||
+        !allowed.has(file.mimetype)
+      )
+        throw new BadRequestException('Invalid attachment type or size');
+    }
+    const savedPaths: string[] = [];
+    try {
+      if (files.length) {
+        const directory = attachmentPath.join(
+          'uploads',
+          'notifications',
+          thread.id,
+        );
+        await attachmentFs.mkdir(directory, { recursive: true });
+        for (const file of files) {
+          const name = attachmentPath
+            .basename(file.originalname)
+            .replace(/[^a-zA-Z0-9._-]/g, '_');
+          const relative = attachmentPath
+            .join(directory, `${randomUUID()}_${name}`)
+            .replace(/\\/g, '/');
+          await attachmentFs.writeFile(relative, file.buffer, { flag: 'wx' });
+          savedPaths.push(relative);
+        }
       }
-    });
+      await this.dataSource.transaction(async (manager) => {
+        const msg = manager.create(NotificationMessageEntity, {
+          notificationId: threadId,
+          senderUserId: user.id,
+          message: dto.message,
+          attachmentPath: savedPaths[0] ?? null,
+        });
+        await manager.save(NotificationMessageEntity, msg);
+        for (const filePath of savedPaths.slice(1)) {
+          await manager.save(
+            NotificationMessageEntity,
+            manager.create(NotificationMessageEntity, {
+              notificationId: threadId,
+              senderUserId: user.id,
+              message: 'Additional attachment',
+              attachmentPath: filePath,
+            }),
+          );
+        }
 
+        thread.status = 'OPEN';
+        thread.updatedAt = new Date();
+        await manager.save(NotificationEntity, thread);
+
+        const existingRead = await manager.findOne(NotificationReadEntity, {
+          where: { notificationId: threadId, userId: user.id },
+        });
+        if (existingRead) {
+          existingRead.lastReadAt = new Date();
+          await manager.save(NotificationReadEntity, existingRead);
+        } else {
+          await manager.save(NotificationReadEntity, {
+            notificationId: threadId,
+            userId: user.id,
+            lastReadAt: new Date(),
+          });
+        }
+      });
+    } catch (error) {
+      await Promise.all(
+        savedPaths.map((file) =>
+          attachmentFs.unlink(file).catch(() => undefined),
+        ),
+      );
+      throw error;
+    }
     return { ok: true };
   }
 
@@ -553,6 +643,11 @@ export class NotificationsService {
     threadId: string,
     dto: ReplyNotificationDto,
   ) {
+    if (dto.attachmentPath)
+      throw new BadRequestException(
+        'Upload attachments through the reply file field',
+      );
+
     const thread = await this.threadsRepo.findOne({ where: { id: threadId } });
     if (!thread) throw new NotFoundException('Notification not found');
     await this.dataSource.transaction(async (manager) => {

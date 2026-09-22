@@ -22,7 +22,7 @@ export class ContractorListController {
 
   /** Contractor documents list */
   @ApiOperation({ summary: 'List Documents' })
-  @Get('documents')
+  @Get('document-list')
   listDocuments(@CurrentUser() user: ReqUser, @Query() q: ScopedListQueryDto) {
     return this.docs.listContractorDocs(user, q);
   }

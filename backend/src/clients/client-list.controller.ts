@@ -43,7 +43,7 @@ export class ClientListController {
 
   /** Client Audits list */
   @ApiOperation({ summary: 'List Audits' })
-  @Get('audits')
+  @Get('audit-list')
   listAudits(@CurrentUser() user: ReqUser, @Query() q: ScopedListQueryDto) {
     return this.audits.list(user, q);
   }

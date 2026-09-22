@@ -5,9 +5,7 @@ import { crmClientAccessGuard } from '../../core/crm-client-access.guard';
 const CrmLayoutComponent = () =>
   import('./crm-layout/crm-layout.component').then((m) => m.CrmLayoutComponent);
 const CrmDashboardActionPageComponent = () =>
-  import('./crm-dashboard-action-page.component').then(
-    (m) => m.CrmDashboardActionPageComponent,
-  );
+  import('./crm-dashboard-action-page.component').then((m) => m.CrmDashboardActionPageComponent);
 const CrmReportsComponent = () =>
   import('./crm-reports.component').then((m) => m.CrmReportsComponent);
 const CrmClientBranchesComponent = () =>
@@ -21,7 +19,9 @@ const CrmComplianceComponent = () =>
 const CrmComplianceTasksComponent = () =>
   import('./compliance/crm-compliance-tasks.component').then((m) => m.CrmComplianceTasksComponent);
 const CrmAuditManagementPageComponent = () =>
-  import('./audits/crm-audit-management-page.component').then((m) => m.CrmAuditManagementPageComponent);
+  import('./audits/crm-audit-management-page.component').then(
+    (m) => m.CrmAuditManagementPageComponent,
+  );
 const CrmContractorsComponent = () =>
   import('./contractors/crm-contractors.component').then((m) => m.CrmContractorsComponent);
 const CrmPayrollStatusComponent = () =>
@@ -33,13 +33,17 @@ const CrmRequestsComponent = () =>
 const CrmProfileComponent = () =>
   import('./profile/crm-profile.component').then((m) => m.CrmProfileComponent);
 const CrmBranchDocsReviewComponent = () =>
-  import('./branch-docs-review/crm-branch-docs-review.component').then((m) => m.CrmBranchDocsReviewComponent);
+  import('./branch-docs-review/crm-branch-docs-review.component').then(
+    (m) => m.CrmBranchDocsReviewComponent,
+  );
 const CrmReturnsWorkspacePageComponent = () =>
   import('./returns/crm-returns-workspace-page.component').then(
     (m) => m.CrmReturnsWorkspacePageComponent,
   );
 const CrmComplianceDocsComponent = () =>
-  import('./compliance-docs/crm-compliance-docs.component').then((m) => m.CrmComplianceDocsComponent);
+  import('./compliance-docs/crm-compliance-docs.component').then(
+    (m) => m.CrmComplianceDocsComponent,
+  );
 const CrmRegistrationsComponent = () =>
   import('./registrations/crm-registrations.component').then((m) => m.CrmRegistrationsComponent);
 const CrmRegistrationsLandingComponent = () =>
@@ -51,7 +55,9 @@ const CrmUnitDocumentsComponent = () =>
 const CrmSafetyComponent = () =>
   import('./safety/crm-safety.component').then((m) => m.CrmSafetyComponent);
 const ComplianceCalendarComponent = () =>
-  import('../../shared/calendar/compliance-calendar.component').then((m) => m.ComplianceCalendarComponent);
+  import('../../shared/calendar/compliance-calendar.component').then(
+    (m) => m.ComplianceCalendarComponent,
+  );
 const SlaTrackerComponent = () =>
   import('../../shared/sla/sla-tracker.component').then((m) => m.SlaTrackerComponent);
 const HeatmapComponent = () =>
@@ -69,25 +75,15 @@ const CrmAmendmentsWorkspacePageComponent = () =>
     (m) => m.CrmAmendmentsWorkspacePageComponent,
   );
 const CrmAuditMonitoringComponent = () =>
-  import('./audits/crm-audit-monitoring.component').then(
-    (m) => m.CrmAuditMonitoringComponent,
-  );
+  import('./audits/crm-audit-monitoring.component').then((m) => m.CrmAuditMonitoringComponent);
 const CrmRepeatNcAnalyticsComponent = () =>
-  import('./audits/crm-repeat-nc-analytics.component').then(
-    (m) => m.CrmRepeatNcAnalyticsComponent,
-  );
+  import('./audits/crm-repeat-nc-analytics.component').then((m) => m.CrmRepeatNcAnalyticsComponent);
 const CrmExpiryTasksComponent = () =>
-  import('./expiry/crm-expiry-tasks.component').then(
-    (m) => m.CrmExpiryTasksComponent,
-  );
+  import('./expiry/crm-expiry-tasks.component').then((m) => m.CrmExpiryTasksComponent);
 const CrmNoticesComponent = () =>
-  import('./notices/crm-notices.component').then(
-    (m) => m.CrmNoticesComponent,
-  );
+  import('./notices/crm-notices.component').then((m) => m.CrmNoticesComponent);
 const CrmMinimumWagesComponent = () =>
-  import('./minimum-wages/crm-minimum-wages.component').then(
-    (m) => m.CrmMinimumWagesComponent,
-  );
+  import('./minimum-wages/crm-minimum-wages.component').then((m) => m.CrmMinimumWagesComponent);
 const CrmContractorComputationComponent = () =>
   import('./contractor-computation/crm-contractor-computation.component').then(
     (m) => m.CrmContractorComputationComponent,
@@ -107,8 +103,16 @@ export const CRM_ROUTES: Routes = [
     loadComponent: CrmLayoutComponent,
     canActivate: [roleGuard(['CRM', 'ADMIN'])],
     children: [
-      { path: 'my-work', loadComponent: () => import('../../shared/my-work/my-work.component').then(m => m.MyWorkComponent) },
-      { path: 'monthly-close', loadComponent: () => import('../monthly-close/monthly-close.component').then(m => m.MonthlyCloseComponent) },
+      {
+        path: 'my-work',
+        loadComponent: () =>
+          import('../../shared/my-work/my-work.component').then((m) => m.MyWorkComponent),
+      },
+      {
+        path: 'monthly-close',
+        loadComponent: () =>
+          import('../monthly-close/monthly-close.component').then((m) => m.MonthlyCloseComponent),
+      },
       // ── Top-level pages ──
       { path: 'dashboard', loadComponent: CrmDashboardActionPageComponent },
       {
@@ -164,7 +168,13 @@ export const CRM_ROUTES: Routes = [
       { path: 'heatmap', loadComponent: HeatmapComponent },
       { path: 'risk-trend', loadComponent: RiskTrendComponent },
       { path: 'escalations', loadComponent: EscalationsComponent },
-      { path: 'reupload-backlog', redirectTo: 'branch-docs-review', pathMatch: 'full' },
+      {
+        path: 'reupload-backlog',
+        loadComponent: () =>
+          import('./compliance/crm-reupload-backlog.component').then(
+            (m) => m.CrmReuploadBacklogComponent,
+          ),
+      },
 
       // ── Legacy redirects ──
       { path: 'contractors', redirectTo: 'clients', pathMatch: 'full' },

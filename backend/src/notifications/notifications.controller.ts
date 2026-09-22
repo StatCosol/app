@@ -1,3 +1,6 @@
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
+import { UseInterceptors, UploadedFiles } from '@nestjs/common';
 import {
   Body,
   Controller,
@@ -67,12 +70,21 @@ export class NotificationsController {
 
   @ApiOperation({ summary: 'Thread Reply' })
   @Post('threads/:threadId/reply')
+  @UseInterceptors(
+    FilesInterceptor(
+      'files',
+      5,
+      makeSafeUploadOptions({ memory: true, maxMb: 10 }),
+    ),
+  )
   threadReply(
     @CurrentUser() user: ReqUser,
     @Param('threadId') threadId: string,
     @Body() dto: ReplyNotificationDto,
+    @UploadedFiles() files: Express.Multer.File[],
   ) {
-    return this.svc.replyAsUser(user, threadId, dto);
+    for (const file of files ?? []) assertSafeFile(file);
+    return this.svc.replyAsUser(user, threadId, dto, files ?? []);
   }
 
   @ApiOperation({ summary: 'Close' })

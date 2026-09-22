@@ -1,4 +1,10 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  OnDestroy,
+  OnInit,
+} from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -7,7 +13,12 @@ import { catchError } from 'rxjs/operators';
 import { finalize, takeUntil } from 'rxjs/operators';
 
 import { CrmAmendmentStatus, CrmDueItemsService } from '../../../core/crm-due-items.service';
-import { DueItemRow, DueItemStatus, DueKpis, DueTab } from '../../../shared/models/crm-due-items.model';
+import {
+  DueItemRow,
+  DueItemStatus,
+  DueKpis,
+  DueTab,
+} from '../../../shared/models/crm-due-items.model';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
@@ -155,7 +166,10 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
     if (this.branchId.trim()) params['branchId'] = this.branchId.trim();
     if (this.q) params['q'] = this.q;
 
-    forkJoin([this.svc.getKpis({ month: this.month, category: 'AMENDMENT', clientId: this.clientId }), this.svc.list(params)])
+    forkJoin([
+      this.svc.getKpis({ month: this.month, category: 'AMENDMENT', clientId: this.clientId }),
+      this.svc.list(params),
+    ])
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -164,17 +178,17 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
         }),
       )
       .subscribe({
-      next: ([kpis, res]) => {
-        this.kpis = kpis;
-        this.items = res.items || [];
-        this.total = res.total;
-        this.applyView(this.selectedItem?.id || null);
-      },
-      error: () => {
-        this.toast.error('Failed to load amendments.');
-        this.cdr.markForCheck();
-      },
-    });
+        next: ([kpis, res]) => {
+          this.kpis = kpis;
+          this.items = res.items || [];
+          this.total = res.total;
+          this.applyView(this.selectedItem?.id || null);
+        },
+        error: () => {
+          this.toast.error('Failed to load amendments.');
+          this.cdr.markForCheck();
+        },
+      });
   }
 
   clearFilters(): void {
@@ -235,9 +249,13 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
   async approve(item: DueItemRow): Promise<void> {
     if (this.actionBusy || !this.canApprove(item)) return;
     if (
-      !(await this.dialog.confirm('Approve amendment', `Approve "${item.title}" for ${item.branchName}?`, {
-        confirmText: 'Approve',
-      }))
+      !(await this.dialog.confirm(
+        'Approve amendment',
+        `Approve "${item.title}" for ${item.branchName}?`,
+        {
+          confirmText: 'Approve',
+        },
+      ))
     ) {
       return;
     }
@@ -246,10 +264,14 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
 
   async reject(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    const result = await this.dialog.prompt('Reject amendment', 'Provide rejection remarks for audit trail.', {
-      placeholder: 'Reason for rejection',
-      confirmText: 'Reject',
-    });
+    const result = await this.dialog.prompt(
+      'Reject amendment',
+      'Provide rejection remarks for audit trail.',
+      {
+        placeholder: 'Reason for rejection',
+        confirmText: 'Reject',
+      },
+    );
     const remarks = (result.value || '').trim();
     if (!result.confirmed) return;
     if (!remarks) {
@@ -261,11 +283,15 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
 
   async returnForUpdate(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    const result = await this.dialog.prompt('Return amendment to branch', 'Request corrective update from branch.', {
-      placeholder: 'Message to branch',
-      defaultValue: 'Please revise amendment details and resubmit with corrected reference data.',
-      confirmText: 'Send Request',
-    });
+    const result = await this.dialog.prompt(
+      'Return amendment to branch',
+      'Request corrective update from branch.',
+      {
+        placeholder: 'Message to branch',
+        defaultValue: 'Please revise amendment details and resubmit with corrected reference data.',
+        confirmText: 'Send Request',
+      },
+    );
     const message = (result.value || '').trim();
     if (!result.confirmed) return;
     if (!message) {
@@ -295,10 +321,14 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
 
   async addComment(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    const result = await this.dialog.prompt('Add amendment comment', 'Capture follow-up comments for timeline.', {
-      placeholder: 'Comment',
-      confirmText: 'Add Comment',
-    });
+    const result = await this.dialog.prompt(
+      'Add amendment comment',
+      'Capture follow-up comments for timeline.',
+      {
+        placeholder: 'Comment',
+        confirmText: 'Add Comment',
+      },
+    );
     const comment = (result.value || '').trim();
     if (!result.confirmed) return;
     if (!comment) {
@@ -329,11 +359,16 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
 
   async sendReminder(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    const result = await this.dialog.prompt('Send amendment follow-up', 'Send reminder to branch for pending amendment.', {
-      placeholder: 'Reminder message',
-      defaultValue: 'Follow-up reminder: Please submit amendment response with supporting documents.',
-      confirmText: 'Send Reminder',
-    });
+    const result = await this.dialog.prompt(
+      'Send amendment follow-up',
+      'Record a follow-up note. This does not send an email or message.',
+      {
+        placeholder: 'Reminder message',
+        defaultValue:
+          'Follow-up reminder: Please submit amendment response with supporting documents.',
+        confirmText: 'Record Follow-up',
+      },
+    );
     const message = (result.value || '').trim();
     if (!result.confirmed) return;
     if (!message) {
@@ -353,12 +388,12 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.addEvent(item.id, 'Follow-up reminder sent', message, 'COMMENT');
-          this.toast.success('Reminder sent.');
+          this.addEvent(item.id, 'Follow-up recorded', message, 'COMMENT');
+          this.toast.success('Follow-up recorded.');
           this.loadDetail(item.id);
           this.load(this.page);
         },
-        error: () => this.toast.error('Reminder failed.'),
+        error: () => this.toast.error('Could not record follow-up.'),
       });
   }
 
@@ -452,7 +487,9 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
     return local[0]?.timestamp || '';
   }
 
-  workflowSteps(item: DueItemRow): Array<{ label: string; state: 'done' | 'active' | 'bad' | 'todo' }> {
+  workflowSteps(
+    item: DueItemRow,
+  ): Array<{ label: string; state: 'done' | 'active' | 'bad' | 'todo' }> {
     const status = this.selectedDetail?.status || this.normalizedStatus(item);
     const steps = [
       { label: 'Requested', state: 'todo' as const },
@@ -490,9 +527,14 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
     return [
       {
         label: 'Supporting evidence',
-        done: !!item.evidenceUrl || !!this.selectedDetail?.ackFilePath || !!this.selectedDetail?.challanFilePath,
+        done:
+          !!item.evidenceUrl ||
+          !!this.selectedDetail?.ackFilePath ||
+          !!this.selectedDetail?.challanFilePath,
         note:
-          item.evidenceUrl || this.selectedDetail?.ackFilePath || this.selectedDetail?.challanFilePath
+          item.evidenceUrl ||
+          this.selectedDetail?.ackFilePath ||
+          this.selectedDetail?.challanFilePath
             ? 'Evidence attached'
             : 'Awaiting documents',
       },
@@ -519,7 +561,8 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
       {
         label: 'Due date control',
         done: !!(this.selectedDetail?.dueDate || item.dueDate),
-        note: (this.selectedDetail?.dueDate || item.dueDate) ? this.dueText(item) : 'Due date missing',
+        note:
+          this.selectedDetail?.dueDate || item.dueDate ? this.dueText(item) : 'Due date missing',
       },
     ];
   }
@@ -665,7 +708,10 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
 
   private addEvent(itemId: string, title: string, note: string, kind: LocalEventKind): void {
     const current = this.localHistory[itemId] || [];
-    this.localHistory[itemId] = [...current, { title, note, kind, timestamp: new Date().toISOString() }];
+    this.localHistory[itemId] = [
+      ...current,
+      { title, note, kind, timestamp: new Date().toISOString() },
+    ];
     if (this.selectedItem?.id === itemId) {
       this.selectedTimeline = this.buildTimeline(this.selectedItem);
     }
@@ -741,7 +787,8 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
 
     timeline.push({
       title: `Current status: ${detail?.status || item.status}`,
-      timestamp: detail?.updatedAt || item.lastUpdatedAt || item.dueDate || new Date().toISOString(),
+      timestamp:
+        detail?.updatedAt || item.lastUpdatedAt || item.dueDate || new Date().toISOString(),
       kind: 'ACTION',
     });
 

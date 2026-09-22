@@ -1,29 +1,50 @@
 import {
+  IsIn,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import { randomUUID } from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
+import {
+  applyClientBranchScope,
+  assertClientRecord,
+} from '../common/portal-client-scope';
+import {
   BadRequestException,
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { HelpdeskTicketEntity } from './entities/helpdesk-ticket.entity';
 import { HelpdeskMessageEntity } from './entities/helpdesk-message.entity';
 import { HelpdeskMessageFileEntity } from './entities/helpdesk-message-file.entity';
 import { ReqUser } from '../access/access-scope.service';
 
-export type CreateTicketDto = {
-  category: string;
-  subCategory?: string | null;
-  branchId?: string | null;
-  employeeRef?: string | null;
-  priority?: string | null;
-  description: string;
-};
-
-export type PostMessageDto = { message: string };
-
-export type AssignTicketDto = { assignedToUserId: string | null };
-
-export type UpdateTicketStatusDto = { status: string };
+export class CreateTicketDto {
+  @IsString() @MinLength(1) @MaxLength(40) category: string;
+  @IsOptional() @IsString() @MaxLength(80) subCategory?: string | null;
+  @IsOptional() @IsUUID() branchId?: string | null;
+  @IsOptional() @IsString() @MaxLength(80) employeeRef?: string | null;
+  @IsOptional() @IsIn(['LOW', 'NORMAL', 'HIGH', 'CRITICAL']) priority?:
+    | string
+    | null;
+  @IsString() @MinLength(1) @MaxLength(20000) description: string;
+}
+export class PostMessageDto {
+  @IsString() @MinLength(1) @MaxLength(20000) message: string;
+}
+export class AssignTicketDto {
+  @IsOptional() @IsUUID() assignedToUserId: string | null;
+}
+export class UpdateTicketStatusDto {
+  @IsIn(['OPEN', 'IN_PROGRESS', 'AWAITING_CLIENT', 'RESOLVED', 'CLOSED'])
+  status: string;
+}
 
 export const HELP_DESK_STATUS = [
   'OPEN',
@@ -196,6 +217,7 @@ export class HelpdeskService {
       const qb = this.ticketRepo
         .createQueryBuilder('t')
         .where('t.client_id = :clientId', { clientId: user.clientId });
+      applyClientBranchScope(qb, user, 't.branch_id');
       if (q?.branchId)
         qb.andWhere('t.branch_id = :branchId', { branchId: q.branchId });
       if (q?.status) qb.andWhere('t.status = :s', { s: q.status });
@@ -246,6 +268,8 @@ export class HelpdeskService {
     if (!file) throw new BadRequestException('File is required');
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
     if (!t) throw new BadRequestException('Ticket not found');
+    if (user.roleCode === 'CLIENT')
+      await assertClientRecord(this.dataSource, user, t.clientId, t.branchId);
     if (user?.roleCode === 'CLIENT' && user.clientId !== t.clientId) {
       throw new ForbiddenException('Invalid client');
     }
@@ -258,22 +282,42 @@ export class HelpdeskService {
       this.assertPfTeamScope(t, user.id, true);
     }
     this.assertEmployeeTicketScope(t, user);
-    // Create a system message for the file upload, then attach the file
-    const message = this.msgRepo.create({
-      message: `File uploaded: ${file.originalname ?? file.filename ?? 'file'}`,
-      ticketId,
-      senderUserId: user.id,
-    });
-    const savedMsg = await this.msgRepo.save(message);
-
-    const entity = this.fileRepo.create({
-      messageId: savedMsg.id,
-      fileName: file.originalname ?? file.filename ?? 'file',
-      filePath: file.path ?? (file as { location?: string }).location ?? '',
-      fileType: file.mimetype ?? 'application/octet-stream',
-      fileSize: String(file.size ?? 0),
-    });
-    return this.fileRepo.save(entity);
+    if (!file.buffer) throw new BadRequestException('File content is required');
+    const dir = path.join(process.cwd(), 'uploads', 'helpdesk');
+    fs.mkdirSync(dir, { recursive: true });
+    const filePath = path.join(
+      dir,
+      `${randomUUID()}_${path.basename(file.originalname).replace(/[^a-zA-Z0-9._-]/g, '_')}`,
+    );
+    fs.writeFileSync(filePath, file.buffer);
+    file.path = path.relative(process.cwd(), filePath).replace(/\\/g, '/');
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        const message = manager.create(HelpdeskMessageEntity, {
+          message: `File uploaded: ${file.originalname}`,
+          ticketId,
+          senderUserId: user.id,
+        });
+        const saved = await manager.save(HelpdeskMessageEntity, message);
+        return manager.save(
+          HelpdeskMessageFileEntity,
+          manager.create(HelpdeskMessageFileEntity, {
+            messageId: saved.id,
+            fileName: file.originalname,
+            filePath: file.path,
+            fileType: file.mimetype,
+            fileSize: String(file.buffer.length),
+          }),
+        );
+      });
+    } catch (error) {
+      try {
+        fs.unlinkSync(filePath);
+      } catch {
+        /* Preserve the original persistence error. */
+      }
+      throw error;
+    }
   }
 
   async getMessages(user: ReqUser, ticketId: string) {
@@ -387,6 +431,8 @@ export class HelpdeskService {
   async getTicket(user: ReqUser, ticketId: string) {
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
     if (!t) throw new BadRequestException('Ticket not found');
+    if (user.roleCode === 'CLIENT')
+      await assertClientRecord(this.dataSource, user, t.clientId, t.branchId);
     if (user?.roleCode === 'CLIENT' && user.clientId !== t.clientId) {
       throw new ForbiddenException('Invalid client');
     }
@@ -403,9 +449,20 @@ export class HelpdeskService {
   }
 
   async clientCreateTicket(user: ReqUser, dto: CreateTicketDto) {
+    await assertClientRecord(
+      this.dataSource,
+      user,
+      user.clientId!,
+      dto.branchId,
+    );
     const category = String(dto.category || '').toUpperCase();
     const priority = String(dto.priority || 'NORMAL').toUpperCase();
-    const allowedCategories = [...PF_TEAM_CATEGORIES, 'COMPLIANCE', 'GENERIC'];
+    const allowedCategories = [
+      ...PF_TEAM_CATEGORIES,
+      'COMPLIANCE',
+      'AUDIT',
+      'GENERIC',
+    ];
     if (!allowedCategories.includes(category)) {
       throw new BadRequestException('Invalid ticket category');
     }
@@ -423,7 +480,10 @@ export class HelpdeskService {
             : 72; // NORMAL = 72h
     const slaDue = new Date(now.getTime() + hours * 60 * 60 * 1000);
     const ticket = this.ticketRepo.create({
-      ...dto,
+      subCategory: dto.subCategory,
+      branchId: dto.branchId,
+      employeeRef: dto.employeeRef,
+      description: dto.description,
       category,
       clientId: user.clientId!,
       createdByUserId: user.id,
@@ -444,6 +504,8 @@ export class HelpdeskService {
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
     if (!t) throw new BadRequestException('Ticket not found');
 
+    if (user.roleCode === 'CLIENT')
+      await assertClientRecord(this.dataSource, user, t.clientId, t.branchId);
     if (user?.roleCode === 'CLIENT' && user.clientId !== t.clientId) {
       throw new ForbiddenException('Invalid client');
     }
@@ -466,6 +528,16 @@ export class HelpdeskService {
     }
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
     if (!t) throw new BadRequestException('Ticket not found');
+    if (user.roleCode === 'CLIENT') {
+      await assertClientRecord(this.dataSource, user, t.clientId, t.branchId);
+      if (dto.status !== 'CLOSED' || t.status !== 'RESOLVED') {
+        throw new BadRequestException(
+          'Clients can close resolved tickets only',
+        );
+      }
+    } else if (!['ADMIN', 'CRM', 'PF_TEAM'].includes(user.roleCode)) {
+      throw new ForbiddenException('Access denied');
+    }
     // Scope rules:
     if (user.roleCode === 'CRM') {
       const ids = await this.crmAssignedClientIds(user.id);
@@ -518,7 +590,7 @@ export class HelpdeskService {
 
   private assertEmployeeTicketScope(t: HelpdeskTicketEntity, user: ReqUser) {
     if (user.roleCode !== 'EMPLOYEE') return;
-    if (t.createdByUserId !== user.id) {
+    if (t.createdByUserId !== user.id || t.clientId !== user.clientId) {
       throw new ForbiddenException('Not your ticket');
     }
   }
@@ -540,6 +612,8 @@ export class HelpdeskService {
   async listMessages(user: ReqUser, ticketId: string) {
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
     if (!t) throw new BadRequestException('Ticket not found');
+    if (user.roleCode === 'CLIENT')
+      await assertClientRecord(this.dataSource, user, t.clientId, t.branchId);
     if (user?.roleCode === 'CLIENT' && user.clientId !== t.clientId) {
       throw new ForbiddenException('Invalid client');
     }
@@ -556,18 +630,34 @@ export class HelpdeskService {
       .createQueryBuilder('m')
       .leftJoin('users', 'u', 'u.id = m.sender_user_id')
       .addSelect('u.name', 'senderName')
+      .leftJoin('roles', 'role', 'role.id=u.role_id')
+      .addSelect('role.code', 'senderRole')
       .where('m.ticket_id = :id', { id: ticketId });
     qb.orderBy('m.created_at', 'ASC');
     const raw = await qb.getRawAndEntities();
+    const files = raw.entities.length
+      ? await this.fileRepo.find({
+          where: { messageId: In(raw.entities.map((msg) => msg.id)) },
+        })
+      : [];
     return raw.entities.map((msg, i) => ({
       ...msg,
       senderName: raw.raw[i]?.senderName ?? null,
+      senderRole: raw.raw[i]?.senderRole ?? null,
+      attachments: files
+        .filter((f) => f.messageId === msg.id)
+        .map((f) => ({
+          name: f.fileName,
+          url: '/' + f.filePath.replace(/^\/+/, ''),
+        })),
     }));
   }
 
   async postMessage(user: ReqUser, ticketId: string, dto: PostMessageDto) {
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
     if (!t) throw new BadRequestException('Ticket not found');
+    if (user.roleCode === 'CLIENT')
+      await assertClientRecord(this.dataSource, user, t.clientId, t.branchId);
     if (user?.roleCode === 'CLIENT' && user.clientId !== t.clientId) {
       throw new ForbiddenException('Invalid client');
     }
@@ -593,7 +683,8 @@ export class HelpdeskService {
     if (!user?.id) throw new BadRequestException('Invalid user');
     const qb = this.ticketRepo
       .createQueryBuilder('t')
-      .where('t.created_by_user_id = :uid', { uid: user.id });
+      .where('t.created_by_user_id = :uid', { uid: user.id })
+      .andWhere('t.client_id = :clientId', { clientId: user.clientId });
     if (q?.status) qb.andWhere('t.status = :s', { s: q.status });
     if (q?.category) qb.andWhere('t.category = :cat', { cat: q.category });
     qb.orderBy('t.created_at', 'DESC');
@@ -640,7 +731,7 @@ export class HelpdeskService {
   async essGetTicket(user: ReqUser, ticketId: string) {
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
     if (!t) throw new BadRequestException('Ticket not found');
-    if (t.createdByUserId !== user.id) {
+    if (t.createdByUserId !== user.id || t.clientId !== user.clientId) {
       throw new ForbiddenException('Not your ticket');
     }
     return t;

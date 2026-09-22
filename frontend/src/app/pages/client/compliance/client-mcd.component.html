@@ -1,3 +1,8 @@
+@if (!canWrite) {
+  <p class="text-sm text-slate-600">
+    Company view is read-only. Branch users upload and submit monthly documents.
+  </p>
+}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
   <ui-page-header
     title="Compliance Upload Center"
@@ -10,17 +15,23 @@
     <button
       type="button"
       (click)="activeTab = 'uploads'"
-      [class]="activeTab === 'uploads'
-        ? 'px-4 py-2 text-sm font-medium text-brand-600 border-b-2 border-brand-600 -mb-px'
-        : 'px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700'">
+      [class]="
+        activeTab === 'uploads'
+          ? 'px-4 py-2 text-sm font-medium text-brand-600 border-b-2 border-brand-600 -mb-px'
+          : 'px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700'
+      "
+    >
       Monthly Uploads
     </button>
     <button
       type="button"
       (click)="activeTab = 'reupload'"
-      [class]="activeTab === 'reupload'
-        ? 'px-4 py-2 text-sm font-medium text-brand-600 border-b-2 border-brand-600 -mb-px'
-        : 'px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700'">
+      [class]="
+        activeTab === 'reupload'
+          ? 'px-4 py-2 text-sm font-medium text-brand-600 border-b-2 border-brand-600 -mb-px'
+          : 'px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700'
+      "
+    >
       Returned for Reupload
     </button>
   </div>
@@ -30,254 +41,395 @@
 
   <!-- Monthly uploads content (existing) -->
   @if (activeTab === 'uploads') {
-<div>
-  @if (hasFocusTarget()) {
-<div class="card border border-sky-200 bg-sky-50 text-sky-900">
-    <div class="text-sm font-semibold">Focused from Branch Compliance</div>
-    <div class="text-sm">{{ focusSummaryText() }}</div>
-  </div>
-}
-  <div class="card space-y-4">
-    <div class="flex flex-wrap gap-3 items-center">
-      <label class="flex items-center gap-2 text-sm text-gray-600">
-        <span class="text-gray-700 font-semibold">Branch</span>
-        <select id="cm-branch-id" name="branchId" class="form-select" [(ngModel)]="filters.branchId" (change)="loadTasks()">
-          @for (b of branches; track b) {
-<option [value]="b.id">{{ b.branchName || b.name }}</option>
-}
-        </select>
-      </label>
-      <label class="flex items-center gap-2 text-sm text-gray-600">
-        <span class="text-gray-700 font-semibold">Month</span>
-        <select id="cm-month" name="month" class="form-select" [(ngModel)]="filters.month" (change)="loadTasks()">
-          @for (m of monthOptions; track m) {
-<option [value]="m.value">{{ m.label }}</option>
-}
-        </select>
-      </label>
-      <label class="flex items-center gap-2 text-sm text-gray-600">
-        <span class="text-gray-700 font-semibold">Year</span>
-        <select id="cm-year" name="year" class="form-select" [(ngModel)]="filters.year" (change)="loadTasks()">
-          @for (y of yearOptions; track y) {
-<option [value]="y">{{ y }}</option>
-}
-        </select>
-      </label>
-    </div>
-  </div>
+    <div>
+      @if (hasFocusTarget()) {
+        <div class="card border border-sky-200 bg-sky-50 text-sky-900">
+          <div class="text-sm font-semibold">Focused from Branch Compliance</div>
+          <div class="text-sm">{{ focusSummaryText() }}</div>
+        </div>
+      }
+      <div class="card space-y-4">
+        <div class="flex flex-wrap gap-3 items-center">
+          <label class="flex items-center gap-2 text-sm text-gray-600">
+            <span class="text-gray-700 font-semibold">Branch</span>
+            <select
+              id="cm-branch-id"
+              name="branchId"
+              class="form-select"
+              [(ngModel)]="filters.branchId"
+              (change)="loadTasks()"
+            >
+              @for (b of branches; track b) {
+                <option [value]="b.id">{{ b.branchName || b.name }}</option>
+              }
+            </select>
+          </label>
+          <label class="flex items-center gap-2 text-sm text-gray-600">
+            <span class="text-gray-700 font-semibold">Month</span>
+            <select
+              id="cm-month"
+              name="month"
+              class="form-select"
+              [(ngModel)]="filters.month"
+              (change)="loadTasks()"
+            >
+              @for (m of monthOptions; track m) {
+                <option [value]="m.value">{{ m.label }}</option>
+              }
+            </select>
+          </label>
+          <label class="flex items-center gap-2 text-sm text-gray-600">
+            <span class="text-gray-700 font-semibold">Year</span>
+            <select
+              id="cm-year"
+              name="year"
+              class="form-select"
+              [(ngModel)]="filters.year"
+              (change)="loadTasks()"
+            >
+              @for (y of yearOptions; track y) {
+                <option [value]="y">{{ y }}</option>
+              }
+            </select>
+          </label>
+        </div>
+      </div>
 
-  <div class="card">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-lg font-semibold text-gray-900">MCD Checklist</h3>
-      <div class="text-sm text-gray-600">Evidence types allowed: PDF, JPG/PNG, XLSX (max 10MB)</div>
-    </div>
+      <div class="card">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-900">MCD Checklist</h3>
+          <div class="text-sm text-gray-600">
+            Evidence types allowed: PDF, JPG/PNG, XLSX (max 10MB)
+          </div>
+        </div>
 
-    @if (loading) {
-<div class="py-8">
-      <ui-loading-spinner text="Loading tasks..." size="md"></ui-loading-spinner>
-    </div>
-}
+        @if (loading) {
+          <div class="py-8">
+            <ui-loading-spinner text="Loading tasks..." size="md"></ui-loading-spinner>
+          </div>
+        }
 
-    @if (!loading && tasks.length === 0) {
-<div class="py-8">
-      <ui-empty-state title="No tasks found" description="No monthly compliance tasks for the selected period."></ui-empty-state>
-    </div>
-}
+        @if (!loading && tasks.length === 0) {
+          <div class="py-8">
+            <ui-empty-state
+              title="No tasks found"
+              description="No monthly compliance tasks for the selected period."
+            ></ui-empty-state>
+          </div>
+        }
 
-    @if (!loading && tasks.length) {
-<div class="overflow-x-auto max-h-[600px] overflow-y-auto -mx-2">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
-          <tr>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Compliance</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Branch</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Period</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Due</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Upload Window</th>
-            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">Status</th>
-            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">Evidence</th>
-            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600">Actions</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100 bg-white">
-          @for (t of tasks; track t) {
-
-            <tr [ngClass]="{ 'bg-sky-50 ring-1 ring-inset ring-sky-200': isFocusedTask(t) }">
-              <td class="px-4 py-3">
-                <div class="text-sm font-semibold text-gray-900">{{ t.complianceTitle || t.title }}</div>
-                @if (isFocusedTask(t)) {
-<div class="mt-1 text-xs font-semibold text-sky-700">Targeted item</div>
-}
-                @if (t.description) {
-<div class="text-xs text-gray-500">{{ t.description }}</div>
-}
-              </td>
-              <td class="px-4 py-3 text-sm text-gray-800">{{ t.branchName }}</td>
-              <td class="px-4 py-3 text-sm text-gray-800">{{ periodLabel(t) }}</td>
-              <td class="px-4 py-3 text-sm text-gray-700">{{ dueLabel(t) }}</td>
-              <td class="px-4 py-3 text-sm text-gray-700">
-                @if (windowDates(t); as win) {
-<div class="space-y-1">
-                  <div>{{ win.start }} → {{ win.end }}</div>
-                  <div class="text-xs font-semibold" [ngClass]="{
-                    'text-emerald-700': isWindowOpen(t),
-                    'text-amber-700': !isWindowOpen(t)
-                  }">{{ windowStatusText(t) }}</div>
-                </div>
-}
-                @if (!windowDates(t)) {
-<div class="text-xs text-gray-500">Not applicable</div>
-}
-              </td>
-              <td class="px-4 py-3 text-center">
-                <ui-status-badge [status]="t.status"></ui-status-badge>
-                @if (t.status === 'REJECTED' && t.remarks) {
-<div class="text-xs text-amber-700 bg-amber-50 rounded mt-2 px-2 py-1">{{ t.remarks }}</div>
-}
-              </td>
-              <td class="px-4 py-3 text-center text-sm text-gray-800">
-                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full" [ngClass]="{'bg-green-50 text-green-700': t.evidenceCount>0, 'bg-slate-50 text-slate-700': t.evidenceCount===0}">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m4 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {{ t.evidenceCount || 0 }} file(s)
-                </span>
-              </td>
-              <td class="px-4 py-3 text-right text-sm text-gray-800 space-y-2">
-                <div class="flex items-center gap-2 justify-end">
-                  <input type="file" class="hidden" #fileInput accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onFileSelected(t, $event)" />
-                  <ui-button
-                    variant="secondary"
-                    [disabled]="statusBlocked(t) || uploading[t.id] || !isWindowOpen(t)"
-                    (clicked)="fileInput.click()"
-                  >
-                    {{ uploading[t.id] ? 'Uploading...' : 'Upload file' }}
-                  </ui-button>
-                  <input autocomplete="off" [id]="'cm-note-' + t.id" [name]="'note_' + t.id"
-                    class="form-input w-40"
-                    placeholder="Notes (optional)"
-                    [(ngModel)]="notes[t.id]"
-                    [disabled]="statusBlocked(t)"
-                  />
-                </div>
-                <ui-button
-                  variant="primary" [fullWidth]="true"
-                    [disabled]="statusBlocked(t) || t.evidenceCount < 1 || submitting[t.id] || !isWindowOpen(t)"
-                  (clicked)="submit(t)"
-                >
-                  {{ submitting[t.id] ? 'Submitting...' : 'Submit to CRM' }}
-                </ui-button>
-              </td>
-            </tr>
-            <tr>
-              <td colspan="7" class="bg-slate-50 px-4 pb-4 pt-0">
-              <div class="text-xs text-gray-600 mb-2">Checklist items</div>
-              @if (itemsLoading[t.id]) {
-<div class="py-3">
-                <ui-loading-spinner text="Loading items..." size="sm"></ui-loading-spinner>
-              </div>
-}
-              @if (!itemsLoading[t.id] && !(items[t.id]?.length)) {
-<div class="text-xs text-gray-500">
-                No checklist items found for this task.
-              </div>
-}
-              @if (!itemsLoading[t.id] && (items[t.id]?.length)) {
-<div class="space-y-2">
-                @for (item of items[t.id]; track item) {
-<div class="bg-white border border-slate-200 rounded-lg p-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                  <div class="flex-1">
-                    <div class="text-sm font-semibold text-gray-900">{{ item.itemLabel || item.item_key }}</div>
-                    <div class="text-xs text-gray-500 flex flex-wrap gap-2 mt-1">
-                      @if (item.unitType) {
-<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700">{{ item.unitType }}</span>
-}
-                      @if (item.stateCode) {
-<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700">State: {{ item.stateCode }}</span>
-}
-                      @if (item.required === false) {
-<span class="px-2 py-0.5 rounded bg-amber-50 text-amber-700">Optional</span>
-}
-                      @if (item.uploadedByRole === 'CRM') {
-<span class="px-2 py-0.5 rounded bg-brand-100 text-brand-700 font-medium">Uploaded by CRM</span>
-}
-                      @if (item.uploadedByRole === 'CLIENT') {
-<span class="px-2 py-0.5 rounded bg-cyan-100 text-cyan-700">Uploaded by Client</span>
-}
-                    </div>
-                    @if (item.remarks) {
-<div class="text-xs text-amber-700 bg-amber-50 rounded mt-2 px-2 py-1">
-                      @if ((item.status||'').toUpperCase()==='REJECTED') {
-<strong>Rejection Reason: </strong>
-}{{ item.remarks }}
-                    </div>
-}
-                  </div>
-                  <div class="flex items-center gap-3 flex-wrap">
-                    <span class="text-xs font-semibold px-2 py-1 rounded" [ngClass]="{
-                      'bg-green-50 text-green-700': (item.status||'').toUpperCase()==='VERIFIED' || (item.status||'').toUpperCase()==='APPROVED',
-                      'bg-amber-50 text-amber-700': (item.status||'').toUpperCase()==='SUBMITTED',
-                      'bg-rose-50 text-rose-700': (item.status||'').toUpperCase()==='REJECTED',
-                      'bg-slate-100 text-slate-700': (item.status||'').toUpperCase()==='PENDING'
-                    }">{{ itemStatusLabel(item) }}</span>
-                    <span class="text-xs text-gray-600">{{ item.evidenceCount || 0 }} file(s)</span>
-                  </div>
-                  <!-- Evidence files list -->
-                  @if (item.evidenceFiles?.length) {
-<div class="w-full mt-2 space-y-1">
-                    @for (ev of item.evidenceFiles; track ev) {
-<div class="flex items-center gap-2 text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1">
-                      <svg class="w-3.5 h-3.5 text-brand-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                      </svg>
-                      <a [href]="ev.filePath" target="_blank" class="text-brand-600 hover:underline truncate flex-1" [title]="ev.fileName">{{ ev.fileName }}</a>
-                      <span class="text-gray-400 flex-shrink-0">{{ ev.createdAt | date:'shortDate' }}</span>
-                      @if (ev.notes) {
-<span class="text-gray-500 italic truncate max-w-[120px]" [title]="ev.notes">{{ ev.notes }}</span>
-}
-                    </div>
-}
-                  </div>
-}
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <!-- Block upload if CRM uploaded this item -->
-                    @if (item.uploadedByRole === 'CRM') {
-
-                      <span class="text-xs text-brand-600 font-medium">View only — Uploaded by CRM</span>
-                    
-}
-                    @if (item.uploadedByRole !== 'CRM') {
-
-                      <input type="file" class="hidden" #itemFile accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onItemFileSelected(t, item, $event)" />
-                      <ui-button
-                        variant="secondary"
-                        [disabled]="statusBlocked(t) || uploadingItem[t.id + '-' + item.id] || !isWindowOpen(t) || (item.status||'').toUpperCase()==='APPROVED' || (item.status||'').toUpperCase()==='VERIFIED'"
-                        (clicked)="itemFile.click()"
+        @if (!loading && tasks.length) {
+          <div class="overflow-x-auto max-h-[600px] overflow-y-auto -mx-2">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">
+                    Compliance
+                  </th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Branch</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Period</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Due</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">
+                    Upload Window
+                  </th>
+                  <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">Status</th>
+                  <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">
+                    Evidence
+                  </th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 bg-white">
+                @for (t of tasks; track t) {
+                  <tr [ngClass]="{ 'bg-sky-50 ring-1 ring-inset ring-sky-200': isFocusedTask(t) }">
+                    <td class="px-4 py-3">
+                      <div class="text-sm font-semibold text-gray-900">
+                        {{ t.complianceTitle || t.title }}
+                      </div>
+                      @if (isFocusedTask(t)) {
+                        <div class="mt-1 text-xs font-semibold text-sky-700">Targeted item</div>
+                      }
+                      @if (t.description) {
+                        <div class="text-xs text-gray-500">{{ t.description }}</div>
+                      }
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-800">{{ t.branchName }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-800">{{ periodLabel(t) }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-700">{{ dueLabel(t) }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-700">
+                      @if (windowDates(t); as win) {
+                        <div class="space-y-1">
+                          <div>{{ win.start }} → {{ win.end }}</div>
+                          <div
+                            class="text-xs font-semibold"
+                            [ngClass]="{
+                              'text-emerald-700': isWindowOpen(t),
+                              'text-amber-700': !isWindowOpen(t),
+                            }"
+                          >
+                            {{ windowStatusText(t) }}
+                          </div>
+                        </div>
+                      }
+                      @if (!windowDates(t)) {
+                        <div class="text-xs text-gray-500">Not applicable</div>
+                      }
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                      <ui-status-badge [status]="t.status"></ui-status-badge>
+                      @if (t.status === 'REJECTED' && t.remarks) {
+                        <div class="text-xs text-amber-700 bg-amber-50 rounded mt-2 px-2 py-1">
+                          {{ t.remarks }}
+                        </div>
+                      }
+                    </td>
+                    <td class="px-4 py-3 text-center text-sm text-gray-800">
+                      <span
+                        class="inline-flex items-center gap-1 px-2 py-1 rounded-full"
+                        [ngClass]="{
+                          'bg-green-50 text-green-700': t.evidenceCount > 0,
+                          'bg-slate-50 text-slate-700': t.evidenceCount === 0,
+                        }"
                       >
-                        {{ uploadingItem[t.id + '-' + item.id] ? 'Uploading...' : ((item.status||'').toUpperCase()==='REJECTED' ? 'Re-upload' : 'Upload') }}
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M9 12l2 2 4-4m4 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        {{ t.evidenceCount || 0 }} file(s)
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 text-right text-sm text-gray-800 space-y-2">
+                      <div class="flex items-center gap-2 justify-end">
+                        <input
+                          type="file"
+                          class="hidden"
+                          #fileInput
+                          accept=".pdf,.png,.jpg,.jpeg,.xlsx"
+                          (change)="onFileSelected(t, $event)"
+                        />
+                        <ui-button
+                          variant="secondary"
+                          [disabled]="
+                            !canWrite || statusBlocked(t) || uploading[t.id] || !isWindowOpen(t)
+                          "
+                          (clicked)="fileInput.click()"
+                        >
+                          {{ uploading[t.id] ? 'Uploading...' : 'Upload file' }}
+                        </ui-button>
+                        <input
+                          autocomplete="off"
+                          [id]="'cm-note-' + t.id"
+                          [name]="'note_' + t.id"
+                          class="form-input w-40"
+                          placeholder="Notes (optional)"
+                          [(ngModel)]="notes[t.id]"
+                          [disabled]="!canWrite || statusBlocked(t)"
+                        />
+                      </div>
+                      <ui-button
+                        variant="primary"
+                        [fullWidth]="true"
+                        [disabled]="
+                          !canWrite ||
+                          statusBlocked(t) ||
+                          t.evidenceCount < 1 ||
+                          submitting[t.id] ||
+                          !isWindowOpen(t)
+                        "
+                        (clicked)="submit(t)"
+                      >
+                        {{ submitting[t.id] ? 'Submitting...' : 'Submit to CRM' }}
                       </ui-button>
-                      <input autocomplete="off" [id]="'cm-item-note-' + t.id + '-' + item.id" [name]="'item_note_' + t.id + '_' + item.id"
-                        class="form-input w-40"
-                        placeholder="Notes (optional)"
-                        [(ngModel)]="itemNotes[t.id + '-' + item.id]"
-                        [disabled]="statusBlocked(t)"
-                      />
-                    
-}
-                  </div>
-                </div>
-}
-              </div>
-}
-            </td>
-            </tr>
-          
-}
-        </tbody>
-      </table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colspan="7" class="bg-slate-50 px-4 pb-4 pt-0">
+                      <div class="text-xs text-gray-600 mb-2">Checklist items</div>
+                      @if (itemsLoading[t.id]) {
+                        <div class="py-3">
+                          <ui-loading-spinner
+                            text="Loading items..."
+                            size="sm"
+                          ></ui-loading-spinner>
+                        </div>
+                      }
+                      @if (!itemsLoading[t.id] && !items[t.id]?.length) {
+                        <div class="text-xs text-gray-500">
+                          No checklist items found for this task.
+                        </div>
+                      }
+                      @if (!itemsLoading[t.id] && items[t.id]?.length) {
+                        <div class="space-y-2">
+                          @for (item of items[t.id]; track item) {
+                            <div
+                              class="bg-white border border-slate-200 rounded-lg p-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+                            >
+                              <div class="flex-1">
+                                <div class="text-sm font-semibold text-gray-900">
+                                  {{ item.itemLabel || item.item_key }}
+                                </div>
+                                <div class="text-xs text-gray-500 flex flex-wrap gap-2 mt-1">
+                                  @if (item.unitType) {
+                                    <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700">{{
+                                      item.unitType
+                                    }}</span>
+                                  }
+                                  @if (item.stateCode) {
+                                    <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700"
+                                      >State: {{ item.stateCode }}</span
+                                    >
+                                  }
+                                  @if (item.required === false) {
+                                    <span class="px-2 py-0.5 rounded bg-amber-50 text-amber-700"
+                                      >Optional</span
+                                    >
+                                  }
+                                  @if (item.uploadedByRole === 'CRM') {
+                                    <span
+                                      class="px-2 py-0.5 rounded bg-brand-100 text-brand-700 font-medium"
+                                      >Uploaded by CRM</span
+                                    >
+                                  }
+                                  @if (item.uploadedByRole === 'CLIENT') {
+                                    <span class="px-2 py-0.5 rounded bg-cyan-100 text-cyan-700"
+                                      >Uploaded by Client</span
+                                    >
+                                  }
+                                </div>
+                                @if (item.remarks) {
+                                  <div
+                                    class="text-xs text-amber-700 bg-amber-50 rounded mt-2 px-2 py-1"
+                                  >
+                                    @if ((item.status || '').toUpperCase() === 'REJECTED') {
+                                      <strong>Rejection Reason: </strong>
+                                    }
+                                    {{ item.remarks }}
+                                  </div>
+                                }
+                              </div>
+                              <div class="flex items-center gap-3 flex-wrap">
+                                <span
+                                  class="text-xs font-semibold px-2 py-1 rounded"
+                                  [ngClass]="{
+                                    'bg-green-50 text-green-700':
+                                      (item.status || '').toUpperCase() === 'VERIFIED' ||
+                                      (item.status || '').toUpperCase() === 'APPROVED',
+                                    'bg-amber-50 text-amber-700':
+                                      (item.status || '').toUpperCase() === 'SUBMITTED',
+                                    'bg-rose-50 text-rose-700':
+                                      (item.status || '').toUpperCase() === 'REJECTED',
+                                    'bg-slate-100 text-slate-700':
+                                      (item.status || '').toUpperCase() === 'PENDING',
+                                  }"
+                                  >{{ itemStatusLabel(item) }}</span
+                                >
+                                <span class="text-xs text-gray-600"
+                                  >{{ item.evidenceCount || 0 }} file(s)</span
+                                >
+                              </div>
+                              <!-- Evidence files list -->
+                              @if (item.evidenceFiles?.length) {
+                                <div class="w-full mt-2 space-y-1">
+                                  @for (ev of item.evidenceFiles; track ev) {
+                                    <div
+                                      class="flex items-center gap-2 text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1"
+                                    >
+                                      <svg
+                                        class="w-3.5 h-3.5 text-brand-500 flex-shrink-0"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          stroke-linecap="round"
+                                          stroke-linejoin="round"
+                                          stroke-width="2"
+                                          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                                        />
+                                      </svg>
+                                      <a
+                                        [href]="ev.filePath"
+                                        target="_blank"
+                                        class="text-brand-600 hover:underline truncate flex-1"
+                                        [title]="ev.fileName"
+                                        >{{ ev.fileName }}</a
+                                      >
+                                      <span class="text-gray-400 flex-shrink-0">{{
+                                        ev.createdAt | date: 'shortDate'
+                                      }}</span>
+                                      @if (ev.notes) {
+                                        <span
+                                          class="text-gray-500 italic truncate max-w-[120px]"
+                                          [title]="ev.notes"
+                                          >{{ ev.notes }}</span
+                                        >
+                                      }
+                                    </div>
+                                  }
+                                </div>
+                              }
+                              <div class="flex items-center gap-2 flex-wrap">
+                                <!-- Block upload if CRM uploaded this item -->
+                                @if (item.uploadedByRole === 'CRM') {
+                                  <span class="text-xs text-brand-600 font-medium"
+                                    >View only — Uploaded by CRM</span
+                                  >
+                                }
+                                @if (item.uploadedByRole !== 'CRM') {
+                                  <input
+                                    type="file"
+                                    class="hidden"
+                                    #itemFile
+                                    accept=".pdf,.png,.jpg,.jpeg,.xlsx"
+                                    (change)="onItemFileSelected(t, item, $event)"
+                                  />
+                                  <ui-button
+                                    variant="secondary"
+                                    [disabled]="
+                                      !canWrite ||
+                                      statusBlocked(t) ||
+                                      uploadingItem[t.id + '-' + item.id] ||
+                                      !isWindowOpen(t) ||
+                                      (item.status || '').toUpperCase() === 'APPROVED' ||
+                                      (item.status || '').toUpperCase() === 'VERIFIED'
+                                    "
+                                    (clicked)="itemFile.click()"
+                                  >
+                                    {{
+                                      uploadingItem[t.id + '-' + item.id]
+                                        ? 'Uploading...'
+                                        : (item.status || '').toUpperCase() === 'REJECTED'
+                                          ? 'Re-upload'
+                                          : 'Upload'
+                                    }}
+                                  </ui-button>
+                                  <input
+                                    autocomplete="off"
+                                    [id]="'cm-item-note-' + t.id + '-' + item.id"
+                                    [name]="'item_note_' + t.id + '_' + item.id"
+                                    class="form-input w-40"
+                                    placeholder="Notes (optional)"
+                                    [(ngModel)]="itemNotes[t.id + '-' + item.id]"
+                                    [disabled]="!canWrite || statusBlocked(t)"
+                                  />
+                                }
+                              </div>
+                            </div>
+                          }
+                        </div>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
     </div>
-}
-  </div>
-  </div>
-}
+  }
 </div>
