@@ -1,4 +1,10 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  OnDestroy,
+  OnInit,
+} from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -129,7 +135,10 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
     if (this.branchId.trim()) params['branchId'] = this.branchId.trim();
     if (this.q) params['q'] = this.q;
 
-    forkJoin([this.svc.getKpis({ month: this.month, category: 'RENEWAL', clientId: this.clientId }), this.svc.list(params)])
+    forkJoin([
+      this.svc.getKpis({ month: this.month, category: 'RENEWAL', clientId: this.clientId }),
+      this.svc.list(params),
+    ])
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -138,17 +147,17 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
         }),
       )
       .subscribe({
-      next: ([kpis, res]) => {
-        this.kpis = kpis;
-        this.items = res.items || [];
-        this.total = res.total;
-        this.applyView(this.selectedItem?.id || null);
-      },
-      error: () => {
-        this.toast.error('Failed to load renewals.');
-        this.cdr.markForCheck();
-      },
-    });
+        next: ([kpis, res]) => {
+          this.kpis = kpis;
+          this.items = res.items || [];
+          this.total = res.total;
+          this.applyView(this.selectedItem?.id || null);
+        },
+        error: () => {
+          this.toast.error('Failed to load renewals.');
+          this.cdr.markForCheck();
+        },
+      });
   }
 
   clearFilters(): void {
@@ -186,7 +195,9 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
           }
           this.cdr.markForCheck();
         },
-        error: () => { /* keep local timeline on failure */ },
+        error: () => {
+          /* keep local timeline on failure */
+        },
       });
   }
 
@@ -240,7 +251,13 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
 
   async approve(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    if (!(await this.dialog.confirm('Approve renewal', `Approve "${item.title}" for ${item.branchName}?`, { confirmText: 'Approve' }))) {
+    if (
+      !(await this.dialog.confirm(
+        'Approve renewal',
+        `Approve "${item.title}" for ${item.branchName}?`,
+        { confirmText: 'Approve' },
+      ))
+    ) {
       return;
     }
 
@@ -256,7 +273,12 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.addEvent(item.id, 'Renewal approved', `Approved by CRM user for ${item.branchName}`, 'ACTION');
+          this.addEvent(
+            item.id,
+            'Renewal approved',
+            `Approved by CRM user for ${item.branchName}`,
+            'ACTION',
+          );
           this.toast.success('Renewal approved.');
           this.load(this.page);
         },
@@ -266,10 +288,14 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
 
   async reject(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    const result = await this.dialog.prompt('Reject renewal', 'Provide rejection remarks for audit trail.', {
-      placeholder: 'Reason for rejection',
-      confirmText: 'Reject',
-    });
+    const result = await this.dialog.prompt(
+      'Reject renewal',
+      'Provide rejection remarks for audit trail.',
+      {
+        placeholder: 'Reason for rejection',
+        confirmText: 'Reject',
+      },
+    );
     const remarks = (result.value || '').trim();
     if (!result.confirmed) return;
     if (!remarks) {
@@ -299,11 +325,15 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
 
   async returnForUpdate(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    const result = await this.dialog.prompt('Return to branch', 'Ask branch to update renewal documents/details.', {
-      placeholder: 'Message to branch',
-      defaultValue: 'Please recheck documents and resubmit with corrections.',
-      confirmText: 'Send Request',
-    });
+    const result = await this.dialog.prompt(
+      'Return to branch',
+      'Ask branch to update renewal documents/details.',
+      {
+        placeholder: 'Message to branch',
+        defaultValue: 'Please recheck documents and resubmit with corrections.',
+        confirmText: 'Send Request',
+      },
+    );
     const message = (result.value || '').trim();
     if (!result.confirmed) return;
     if (!message) {
@@ -333,11 +363,15 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
 
   async assignOwner(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    const result = await this.dialog.prompt('Assign owner', 'Assign CRM owner for this renewal follow-up.', {
-      placeholder: 'Owner name or user ID',
-      defaultValue: item.ownerAssigned || '',
-      confirmText: 'Assign',
-    });
+    const result = await this.dialog.prompt(
+      'Assign owner',
+      'Assign CRM owner for this renewal follow-up.',
+      {
+        placeholder: 'Owner name or user ID',
+        defaultValue: item.ownerAssigned || '',
+        confirmText: 'Assign',
+      },
+    );
     const owner = (result.value || '').trim();
     if (!result.confirmed) return;
     if (!owner) {
@@ -367,11 +401,15 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
 
   async sendReminder(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    const result = await this.dialog.prompt('Send follow-up reminder', 'Send reminder to branch for pending renewal.', {
-      placeholder: 'Reminder message',
-      defaultValue: 'Follow-up reminder: Please submit pending renewal updates today.',
-      confirmText: 'Send Reminder',
-    });
+    const result = await this.dialog.prompt(
+      'Record follow-up',
+      'Record a follow-up note. This does not send an email or message.',
+      {
+        placeholder: 'Reminder message',
+        defaultValue: 'Follow-up reminder: Please submit pending renewal updates today.',
+        confirmText: 'Record Follow-up',
+      },
+    );
     const message = (result.value || '').trim();
     if (!result.confirmed) return;
     if (!message) {
@@ -391,11 +429,11 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.addEvent(item.id, 'Follow-up reminder sent', message, 'REMINDER');
-          this.toast.success('Reminder sent.');
+          this.addEvent(item.id, 'Follow-up recorded', message, 'REMINDER');
+          this.toast.success('Follow-up recorded.');
           this.load(this.page);
         },
-        error: () => this.toast.error('Reminder failed.'),
+        error: () => this.toast.error('Could not record follow-up.'),
       });
   }
 
@@ -455,10 +493,14 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
   }
 
   referenceFor(item: DueItemRow): string {
-    return `REN-${String(item.id || '').slice(0, 8).toUpperCase()}`;
+    return `REN-${String(item.id || '')
+      .slice(0, 8)
+      .toUpperCase()}`;
   }
 
-  workflowSteps(item: DueItemRow): Array<{ label: string; state: 'done' | 'active' | 'bad' | 'todo' }> {
+  workflowSteps(
+    item: DueItemRow,
+  ): Array<{ label: string; state: 'done' | 'active' | 'bad' | 'todo' }> {
     const status = item.status;
     const steps = [
       { label: 'Queued', state: 'todo' as const },
@@ -572,7 +614,10 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
 
   private addEvent(itemId: string, title: string, note: string, kind: LocalEventKind): void {
     const current = this.localHistory[itemId] || [];
-    this.localHistory[itemId] = [...current, { title, note, kind, timestamp: new Date().toISOString() }];
+    this.localHistory[itemId] = [
+      ...current,
+      { title, note, kind, timestamp: new Date().toISOString() },
+    ];
     if (this.selectedItem?.id === itemId) {
       this.selectedTimeline = this.buildTimeline(this.selectedItem);
     }
@@ -620,14 +665,16 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
     }
     if (item.lastReminderAt) {
       timeline.push({
-        title: 'Follow-up reminder sent',
+        title: 'Follow-up recorded',
         timestamp: item.lastReminderAt,
         kind: 'REMINDER',
       });
     }
 
     const local = this.localHistory[item.id] || [];
-    return [...timeline, ...local].sort((a, b) => this.timeValue(b.timestamp) - this.timeValue(a.timestamp));
+    return [...timeline, ...local].sort(
+      (a, b) => this.timeValue(b.timestamp) - this.timeValue(a.timestamp),
+    );
   }
 
   private daysToDue(item: DueItemRow): number | null {

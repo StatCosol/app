@@ -2,16 +2,30 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { tap, map } from 'rxjs/operators';
-import { Observable, throwError } from 'rxjs';
+import { Observable, throwError, Subject } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { CryptoService } from './crypto.service';
 
 /** Valid role codes returned by the backend */
-const VALID_ROLES = ['ADMIN', 'CEO', 'CCO', 'CRM', 'AUDITOR', 'CLIENT', 'CONTRACTOR', 'PAYROLL', 'PF_TEAM', 'EMPLOYEE', 'ACCOUNTS', 'SALES'] as const;
+const VALID_ROLES = [
+  'ADMIN',
+  'CEO',
+  'CCO',
+  'CRM',
+  'AUDITOR',
+  'CLIENT',
+  'CONTRACTOR',
+  'PAYROLL',
+  'PF_TEAM',
+  'EMPLOYEE',
+  'ACCOUNTS',
+  'SALES',
+] as const;
 type RoleCode = (typeof VALID_ROLES)[number];
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  readonly sessionReset$ = new Subject<void>();
   private readonly TOKEN_KEY = 'accessToken';
   private readonly REFRESH_KEY = 'refreshToken';
   private readonly USER_KEY = 'user';
@@ -19,7 +33,11 @@ export class AuthService {
   // prevents "dual logout" / multiple navigations
   private loggingOut = false;
 
-  constructor(private http: HttpClient, private router: Router, private cryptoService: CryptoService) {
+  constructor(
+    private http: HttpClient,
+    private router: Router,
+    private cryptoService: CryptoService,
+  ) {
     // Migrate any tokens from localStorage to sessionStorage (one-time)
     this.migrateFromLocalStorage();
   }
@@ -29,6 +47,7 @@ export class AuthService {
       .post<any>(`${environment.apiBaseUrl}/api/v1/auth/login`, { email, password })
       .pipe(
         tap((res) => {
+          this.sessionReset$.next();
           this.syncNativeSession(true);
           const user = res?.user || {};
           const normalizedUser = {
@@ -52,16 +71,21 @@ export class AuthService {
           if (res.encryptionKey) {
             this.cryptoService.setKey(res.encryptionKey);
           }
-        })
+        }),
       );
   }
 
   /** ESS-specific login: company code + email + password */
   essLogin(companyCode: string, email: string, password: string) {
     return this.http
-      .post<any>(`${environment.apiBaseUrl}/api/v1/auth/ess/login`, { companyCode, email, password })
+      .post<any>(`${environment.apiBaseUrl}/api/v1/auth/ess/login`, {
+        companyCode,
+        email,
+        password,
+      })
       .pipe(
         tap((res) => {
+          this.sessionReset$.next();
           const accessToken = res?.accessToken ?? res?.access_token ?? '';
           const refreshToken = res?.refreshToken ?? res?.refresh_token ?? '';
           const rawUser = res?.user ?? res?.data?.user ?? {};
@@ -69,11 +93,7 @@ export class AuthService {
           const normalizedUser = {
             ...rawUser,
             roleCode:
-              rawUser?.roleCode ??
-              rawUser?.role?.code ??
-              res?.roleCode ??
-              res?.role?.code ??
-              '',
+              rawUser?.roleCode ?? rawUser?.role?.code ?? res?.roleCode ?? res?.role?.code ?? '',
           };
 
           sessionStorage.setItem(this.TOKEN_KEY, accessToken);
@@ -86,15 +106,14 @@ export class AuthService {
             this.cryptoService.setKey(encKey);
           }
           this.syncNativeSession();
-        })
+        }),
       );
   }
 
   /** Call this from UI logout button */
   logout(reason?: string) {
     const wasEmployee =
-      this.getRoleCode() === 'EMPLOYEE' ||
-      window.location.pathname.includes('/ess/');
+      this.getRoleCode() === 'EMPLOYEE' || window.location.pathname.includes('/ess/');
 
     // Capture refresh token BEFORE clearing state
     const refreshToken = this.getRefreshToken();
@@ -104,9 +123,11 @@ export class AuthService {
 
     // Notify the backend to revoke the refresh token family (best-effort)
     if (refreshToken) {
-      this.http
-        .post(`${environment.apiBaseUrl}/api/v1/auth/logout`, { refreshToken })
-        .subscribe({ error: () => { /* best-effort */ } });
+      this.http.post(`${environment.apiBaseUrl}/api/v1/auth/logout`, { refreshToken }).subscribe({
+        error: () => {
+          /* best-effort */
+        },
+      });
     }
   }
 
@@ -130,6 +151,7 @@ export class AuthService {
 
   /** Clears all auth-related keys from storage */
   private clearAuthState(): void {
+    this.sessionReset$.next();
     this.syncNativeSession(true);
     sessionStorage.removeItem(this.TOKEN_KEY);
     sessionStorage.removeItem(this.REFRESH_KEY);
@@ -144,7 +166,8 @@ export class AuthService {
 
   /** Available only in the origin-restricted Android wrapper. Browsers remain session-only. */
   private syncNativeSession(clear = false): void {
-    const native = (window as Window & { StatcoSession?: { postMessage(value: string): void } }).StatcoSession;
+    const native = (window as Window & { StatcoSession?: { postMessage(value: string): void } })
+      .StatcoSession;
     if (!native) return;
     try {
       if (clear || this.getUser()?.roleCode !== 'EMPLOYEE') {
@@ -195,19 +218,18 @@ export class AuthService {
               JSON.stringify({
                 ...current,
                 ...res.user,
-                servicePackage:
-                  res.user.servicePackage ?? current.servicePackage ?? null,
-                enabledModules:
-                  res.user.enabledModules ?? current.enabledModules ?? [],
+                servicePackage: res.user.servicePackage ?? current.servicePackage ?? null,
+                enabledModules: res.user.enabledModules ?? current.enabledModules ?? [],
                 branchIds: res.user.branchIds ?? current.branchIds ?? [],
                 userType: res.user.userType ?? current.userType ?? null,
-                isMasterUser:
-                  res.user.isMasterUser ?? current.isMasterUser ?? false,
+                isMasterUser: res.user.isMasterUser ?? current.isMasterUser ?? false,
               }),
             );
           }
         }),
-        tap(() => { if (!this.loggingOut) this.syncNativeSession(); }),
+        tap(() => {
+          if (!this.loggingOut) this.syncNativeSession();
+        }),
         map((res) => res.accessToken),
       );
   }
@@ -379,19 +401,24 @@ export class AuthService {
           name: me?.name ?? current.name,
           email: me?.email ?? current.email,
           clientId: me?.clientId ?? current.clientId,
-          clientName: me?.clientName ?? me?.client?.name ?? current.clientName ?? current.client?.name,
-          clientLogoUrl: me?.clientLogoUrl ?? me?.client?.logoUrl ?? current.clientLogoUrl ?? current.client?.logoUrl,
+          clientName:
+            me?.clientName ?? me?.client?.name ?? current.clientName ?? current.client?.name,
+          clientLogoUrl:
+            me?.clientLogoUrl ??
+            me?.client?.logoUrl ??
+            current.clientLogoUrl ??
+            current.client?.logoUrl,
           userType,
           branchIds,
           isMasterUser:
             me?.roleCode === 'CLIENT'
-              ? (me?.isMasterUser ?? ((branchIds?.length ?? 0) === 0))
+              ? (me?.isMasterUser ?? (branchIds?.length ?? 0) === 0)
               : (me?.isMasterUser ?? current.isMasterUser ?? false),
           servicePackage: me?.servicePackage ?? current.servicePackage ?? null,
           enabledModules: me?.enabledModules ?? current.enabledModules ?? [],
         };
         sessionStorage.setItem(this.USER_KEY, JSON.stringify(merged));
-      })
+      }),
     );
   }
 
@@ -401,7 +428,7 @@ export class AuthService {
         const current = this.getUser() || {};
         const merged = { ...current, name: me?.name ?? current.name };
         sessionStorage.setItem(this.USER_KEY, JSON.stringify(merged));
-      })
+      }),
     );
   }
 
@@ -419,10 +446,10 @@ export class AuthService {
 
   /** Set a new password using the reset token from email link */
   resetPassword(token: string, newPassword: string) {
-    return this.http.post<{ ok: boolean }>(
-      `${environment.apiBaseUrl}/api/v1/auth/password/reset`,
-      { token, newPassword },
-    );
+    return this.http.post<{ ok: boolean }>(`${environment.apiBaseUrl}/api/v1/auth/password/reset`, {
+      token,
+      newPassword,
+    });
   }
 
   /**

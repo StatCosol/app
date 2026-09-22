@@ -357,6 +357,7 @@ export class SafetyDocumentsService {
       where: { id: docId, isDeleted: false },
     });
     if (!doc) throw new NotFoundException('Document not found');
+    await this.assertCrmAssigned(doc.clientId, userId);
     doc.verifiedByCrm = true;
     doc.crmVerifiedAt = new Date();
     doc.crmVerifiedBy = userId;
@@ -459,6 +460,8 @@ export class SafetyDocumentsService {
       score: number;
     }[];
   }> {
+    if (scope.branchIds && !scope.branchIds.length)
+      return { overallScore: 0, categoryScores: [] };
     // Get applicable master documents
     const masterRows = await this.repo.manager.query(
       `SELECT category, COUNT(*) as total FROM safety_document_master WHERE is_active = true AND is_mandatory = true GROUP BY category`,
@@ -615,6 +618,7 @@ export class SafetyDocumentsService {
     scope: { branchIds?: string[]; clientId?: string },
     daysAhead = 30,
   ): Promise<any[]> {
+    if (scope.branchIds && !scope.branchIds.length) return [];
     const today = new Date().toISOString().slice(0, 10);
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + daysAhead);

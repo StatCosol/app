@@ -1,71 +1,92 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  ChangeDetectorRef,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
-import { PageHeaderComponent, DataTableComponent, TableColumn, TableCellDirective, LoadingSpinnerComponent, EmptyStateComponent, StatusBadgeComponent } from '../../shared/ui';
+import {
+  PageHeaderComponent,
+  DataTableComponent,
+  TableColumn,
+  TableCellDirective,
+  LoadingSpinnerComponent,
+  EmptyStateComponent,
+  StatusBadgeComponent,
+} from '../../shared/ui';
 
 @Component({
   selector: 'app-payroll-clients',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageHeaderComponent, DataTableComponent, TableCellDirective, LoadingSpinnerComponent, EmptyStateComponent, StatusBadgeComponent],
+  imports: [
+    PageHeaderComponent,
+    DataTableComponent,
+    TableCellDirective,
+    LoadingSpinnerComponent,
+    EmptyStateComponent,
+    StatusBadgeComponent,
+  ],
   template: `
     <div class="page">
       <ui-page-header
         title="Assigned Clients"
         description="Clients assigned to your payroll processing"
-        icon="users">
+        icon="users"
+      >
       </ui-page-header>
 
       @if (loading) {
-<ui-loading-spinner text="Loading clients..." size="lg"></ui-loading-spinner>
-}
+        <ui-loading-spinner text="Loading clients..." size="lg"></ui-loading-spinner>
+      }
 
       @if (error && !loading) {
-<ui-empty-state
-       
-        title="Unable to Load Clients"
-        [description]="error">
-      </ui-empty-state>
-}
+        <ui-empty-state title="Unable to Load Clients" [description]="error"> </ui-empty-state>
+      }
 
       @if (!loading && !error && clients.length === 0) {
-<ui-empty-state
-       
-        title="No Assigned Clients"
-        description="No clients have been assigned to you yet.">
-      </ui-empty-state>
-}
+        <ui-empty-state
+          title="No Assigned Clients"
+          description="No clients have been assigned to you yet."
+        >
+        </ui-empty-state>
+      }
 
       @if (!loading && !error && clients.length > 0) {
-<ui-data-table
-       
-        [columns]="columns"
-        [data]="clients"
-        [loading]="loading"
-        [clickable]="true"
-        (rowClick)="openClient($event)"
-        emptyMessage="No assigned clients found.">
-        
-        <ng-template uiTableCell="name" let-row>
-          <div class="font-semibold text-gray-900">{{ row.name }}</div>
-          @if (row.clientCode) {
-<div class="text-xs text-gray-500 mt-0.5">Code: {{ row.clientCode }}</div>
-}
-        </ng-template>
+        <ui-data-table
+          [columns]="columns"
+          [data]="clients"
+          [loading]="loading"
+          [clickable]="true"
+          (rowClick)="openClient($event)"
+          emptyMessage="No assigned clients found."
+        >
+          <ng-template uiTableCell="name" let-row>
+            <div class="font-semibold text-gray-900">{{ row.name }}</div>
+            @if (row.clientCode) {
+              <div class="text-xs text-gray-500 mt-0.5">Code: {{ row.clientCode }}</div>
+            }
+          </ng-template>
 
-        <ng-template uiTableCell="status" let-row>
-          <ui-status-badge [status]="row.status || 'ACTIVE'"></ui-status-badge>
-        </ng-template>
-      </ui-data-table>
-}
+          <ng-template uiTableCell="status" let-row>
+            <ui-status-badge [status]="row.status || 'ACTIVE'"></ui-status-badge>
+          </ng-template>
+        </ui-data-table>
+      }
     </div>
   `,
   styles: [
     `
-      .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
+      .page {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 1rem;
+      }
     `,
   ],
 })
@@ -90,31 +111,38 @@ export class PayrollClientsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loading = true;
     this.cdr.detectChanges();
-    this.payrollApi.getAssignedClients().pipe(
-      takeUntil(this.destroy$),
-      timeout(10000),
-      finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
-    ).subscribe({
-      next: (list) => {
-        this.loading = false;
-        this.clients = list || [];
-        this.cdr.detectChanges();
+    this.payrollApi
+      .getAssignedClients()
+      .pipe(
+        takeUntil(this.destroy$),
+        timeout(10000),
+        finalize(() => {
+          this.loading = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (list) => {
+          this.loading = false;
+          this.clients = list || [];
+          this.cdr.detectChanges();
 
-        // If navigated with ?runId=..., auto-open the first client (or single client)
-        const runId = this.route.snapshot.queryParamMap.get('runId');
-        if (runId && this.clients.length >= 1) {
-          const clientId = this.route.snapshot.queryParamMap.get('clientId');
-          const client = this.clients.find(c => c.id === clientId);
-          if (client) this.openClient({ row: client, index: this.clients.indexOf(client) }, runId);
-          else this.error = 'Choose the client that owns this payroll run.';
-        }
-      },
-      error: (e) => {
-        this.loading = false;
-        this.error = `Unable to load clients. ${e?.error?.message || e?.message || ''}`;
-        this.cdr.detectChanges();
-      },
-    });
+          // If navigated with ?runId=..., auto-open the first client (or single client)
+          const runId = this.route.snapshot.queryParamMap.get('runId');
+          if (runId && this.clients.length >= 1) {
+            const clientId = this.route.snapshot.queryParamMap.get('clientId');
+            const client = this.clients.find((c) => c.id === clientId);
+            if (client)
+              this.openClient({ row: client, index: this.clients.indexOf(client) }, runId);
+            else this.error = 'Choose the client that owns this payroll run.';
+          }
+        },
+        error: (e) => {
+          this.loading = false;
+          this.error = `Unable to load clients. ${e?.error?.message || e?.message || ''}`;
+          this.cdr.detectChanges();
+        },
+      });
   }
 
   openClient(event: { row: PayrollClient; index: number }, runId?: string): void {
@@ -125,7 +153,14 @@ export class PayrollClientsComponent implements OnInit, OnDestroy {
       if (runId) {
         extras.queryParams = { runId };
       }
-      this.router.navigate(['/payroll/clients', id, 'runs'], extras);
+      this.router.navigate(
+        [
+          '/payroll/clients',
+          id,
+          runId ? 'runs' : this.route.snapshot.data['nextSection'] || 'runs',
+        ],
+        extras,
+      );
     }
   }
 

@@ -23,7 +23,7 @@ export class ComplianceCrmDashboardController {
 }
 
 // ✅ Avoid conflict with ContractorController GET /api/contractor/dashboard
-@Controller({ path: 'contractor/dashboard', version: '1' })
+@Controller({ path: 'contractor/compliance/dashboard', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CONTRACTOR')
 export class ContractorDashboardController {

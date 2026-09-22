@@ -71,7 +71,12 @@ export class ClientComplianceDocsController {
     const companyId = this.ownCompany(user);
     const year = q.year ? Number(q.year) : new Date().getFullYear();
     const limit = q.limit ? Number(q.limit) : 10;
-    return this.svc.getLowestComplianceBranches(companyId, year, limit);
+    return this.svc.getLowestComplianceBranches(
+      companyId,
+      year,
+      limit,
+      user.userType === 'MASTER' ? undefined : user.branchIds || [],
+    );
   }
 
   /** Company-wide compliance trend (aggregate across all branches) */
@@ -84,6 +89,11 @@ export class ClientComplianceDocsController {
     const companyId = this.ownCompany(user);
     const year = q.year ? Number(q.year) : new Date().getFullYear();
     // Use a special "all-branches" query — pass empty branchId
-    return this.svc.getComplianceTrend('', companyId, year);
+    return this.svc.getComplianceTrend(
+      '',
+      companyId,
+      year,
+      user.userType === 'MASTER' ? undefined : user.branchIds || [],
+    );
   }
 }

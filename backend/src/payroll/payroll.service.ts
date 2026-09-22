@@ -741,7 +741,7 @@ export class PayrollService {
   async payrollListRegistersFormatted(user: ReqUser, q: Record<string, any>) {
     return this.registersService.payrollListRegistersFormatted(user, q);
   }
-  async getPayrollSummary(user: ReqUser, _q: Record<string, any>) {
+  async getPayrollSummary(user: ReqUser, q: Record<string, any>) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (
       user.roleCode !== 'PAYROLL' &&
@@ -751,7 +751,10 @@ export class PayrollService {
       throw new ForbiddenException('Only payroll/admin/CRM allowed');
     }
 
-    const clientIds = await this.getAssignedClientIds(user);
+    const assignedClientIds = await this.getAssignedClientIds(user);
+    const clientIds = q?.clientId
+      ? assignedClientIds.filter((id) => id === q.clientId)
+      : assignedClientIds;
 
     const assignedClients = clientIds.length;
 

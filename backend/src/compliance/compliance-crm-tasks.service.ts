@@ -1,3 +1,4 @@
+import { ComplianceMcdItem } from './entities/compliance-mcd-item.entity';
 import {
   BadRequestException,
   ForbiddenException,
@@ -516,15 +517,54 @@ export class ComplianceCrmTasksService {
     if (t.status !== 'SUBMITTED')
       throw new BadRequestException('Only SUBMITTED can be APPROVED');
 
-    await this.tasks.update(
-      { id: taskIdNum },
-      {
-        status: 'APPROVED',
-        remarks: remarks ?? t.remarks ?? null,
-        approvedByUserId: user.userId,
-        approvedAt: new Date(),
-      },
-    );
+    await this.tasks.manager.transaction(async (manager) => {
+      const current = await manager.findOne(ComplianceTask, {
+        where: { id: taskIdNum },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!current || current.status !== 'SUBMITTED')
+        throw new BadRequestException('Only SUBMITTED can be APPROVED');
+      const items: Array<{
+        id: number;
+        status: string;
+        required: boolean;
+        evidence: boolean;
+      }> = await manager.query(
+        `SELECT i.id,i.status,i.required,EXISTS(SELECT 1 FROM compliance_evidence e WHERE e.mcd_item_id=i.id AND NULLIF(e.file_path,'') IS NOT NULL) AS evidence FROM compliance_mcd_items i WHERE i.task_id=$1 FOR UPDATE OF i`,
+        [taskIdNum],
+      );
+      if (
+        items.some(
+          (item) =>
+            !['SUBMITTED', 'APPROVED', 'VERIFIED'].includes(item.status) ||
+            (item.required && !item.evidence),
+        )
+      )
+        throw new BadRequestException(
+          'Submit each monthly item with its required evidence before approval',
+        );
+      if (items.length)
+        await manager.update(
+          ComplianceMcdItem,
+          { taskId: taskIdNum },
+          {
+            status: 'VERIFIED',
+            verifiedByUserId: user.userId,
+            verifiedAt: new Date(),
+            remarks: remarks ?? null,
+          },
+        );
+      await manager.update(
+        ComplianceTask,
+        { id: taskIdNum },
+        {
+          status: 'APPROVED',
+          remarks: remarks ?? current.remarks ?? null,
+          approvedByUserId: user.userId,
+          approvedAt: new Date(),
+        },
+      );
+    });
 
     // Invalidate risk cache for this branch
     if (t.branchId)

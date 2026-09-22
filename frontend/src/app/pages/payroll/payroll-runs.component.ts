@@ -346,11 +346,14 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
           const linkedRunId = this.route.snapshot.queryParamMap?.get('runId');
           if (!this.selectedRun && linkedRunId) {
-            this.selectedRun = rows.find(r => r.id === linkedRunId) || null;
-            if (!this.selectedRun) this.toast.error('The requested payroll run is not available for this client and period.');
+            this.selectedRun = rows.find((r) => r.id === linkedRunId) || null;
+            if (!this.selectedRun)
+              this.toast.error(
+                'The requested payroll run is not available for this client and period.',
+              );
           } else if (this.selectedRun) {
             const updated = this.filteredRuns.find((r) => r.id === this.selectedRun?.id);
-            this.selectedRun = updated || (this.filteredRuns[0] || null);
+            this.selectedRun = updated || this.filteredRuns[0] || null;
           } else {
             this.selectedRun = this.filteredRuns[0] || null;
           }
@@ -577,20 +580,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
-    const status = this.statusKey(run);
-    if (status === 'APPROVED') {
-      this.downloadPayslips(run);
-      return;
-    }
-    if (status === 'SUBMITTED') {
-      this.approveRun(run);
-      return;
-    }
-    if (status === 'PROCESSED') {
-      this.submitRun(run);
-      return;
-    }
-    this.approveRun(run);
+    this.downloadPayslips(run);
   }
 
   async rerunRun(run: PayrollRunItem): Promise<void> {
@@ -617,11 +607,10 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
-    const result = await this.dialog.prompt(
-      'Reject Payroll Run',
-      'Enter rejection reason:',
-      { placeholder: 'Reason', confirmText: 'Reject' },
-    );
+    const result = await this.dialog.prompt('Reject Payroll Run', 'Enter rejection reason:', {
+      placeholder: 'Reason',
+      confirmText: 'Reject',
+    });
     const reason = (result.value || '').trim();
     if (!reason) return;
     this.actionBusy = true;
@@ -640,8 +629,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
           this.toast.success('Payroll run rejected.');
           this.loadRuns();
         },
-        error: (err) =>
-          this.toast.error(err?.error?.message || 'Could not reject payroll run.'),
+        error: (err) => this.toast.error(err?.error?.message || 'Could not reject payroll run.'),
       });
   }
 
@@ -674,8 +662,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
           this.toast.success('Payroll run reverted to draft.');
           this.loadRuns();
         },
-        error: (err) =>
-          this.toast.error(err?.error?.message || 'Could not revert payroll run.'),
+        error: (err) => this.toast.error(err?.error?.message || 'Could not revert payroll run.'),
       });
   }
 
@@ -712,8 +699,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
           }
           this.loadRuns();
         },
-        error: (err) =>
-          this.toast.error(err?.error?.message || 'Could not delete payroll run.'),
+        error: (err) => this.toast.error(err?.error?.message || 'Could not delete payroll run.'),
       });
   }
 
@@ -748,7 +734,12 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           if (this.selectedRun) {
-            this.addRunEvent(this.selectedRun.id, 'IMPORT', 'Attendance uploaded', 'Attendance data imported');
+            this.addRunEvent(
+              this.selectedRun.id,
+              'IMPORT',
+              'Attendance uploaded',
+              'Attendance data imported',
+            );
           }
           this.toast.success('Attendance uploaded successfully.');
           this.importFile = null;
@@ -762,7 +753,19 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   }
 
   downloadAttendanceTemplate(): void {
-    const headers = ['Employee Code', 'Employee Name', 'Working Days', 'Payable Days', 'Approved Leave Days', 'PL Days', 'SL Days', 'OT Hours', 'Other Earnings', 'Arrears Attendance Bonus', 'Other Deductions'];
+    const headers = [
+      'Employee Code',
+      'Employee Name',
+      'Working Days',
+      'Payable Days',
+      'Approved Leave Days',
+      'PL Days',
+      'SL Days',
+      'OT Hours',
+      'Other Earnings',
+      'Arrears Attendance Bonus',
+      'Other Deductions',
+    ];
     // Pre-fill employee codes/names from the run's employee list
     const dataRows = this.runEmployees.map((emp) =>
       [emp.empCode || '', emp.employeeName || '', '', '', '', '', '', '', '', '', ''].join(','),
@@ -810,8 +813,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
           }));
         },
         error: (err) => {
-          this.leaveValidationError =
-            err?.error?.message || 'Could not load leave validation.';
+          this.leaveValidationError = err?.error?.message || 'Could not load leave validation.';
           this.leaveValidationRows = [];
         },
       });
@@ -897,8 +899,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
           }));
         },
         error: (err) => {
-          this.otValidationError =
-            err?.error?.message || 'Could not load OT validation.';
+          this.otValidationError = err?.error?.message || 'Could not load OT validation.';
           this.otValidationRows = [];
         },
       });
@@ -943,8 +944,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
             this.loadRunWorkspaceData(this.selectedRun.id, true);
           }
         },
-        error: (err) =>
-          this.toast.error(err?.error?.message || 'Could not resolve OT mismatch.'),
+        error: (err) => this.toast.error(err?.error?.message || 'Could not resolve OT mismatch.'),
       });
   }
 
@@ -996,7 +996,9 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     }
     this.bulkResolvingLeave = false;
     if (fail === 0) {
-      this.toast.success(`Resolved ${ok} leave mismatch(es) using ${source}. Reprocess the run to refresh payslips.`);
+      this.toast.success(
+        `Resolved ${ok} leave mismatch(es) using ${source}. Reprocess the run to refresh payslips.`,
+      );
     } else {
       this.toast.error(`Resolved ${ok}, failed ${fail}. See network log for details.`);
     }
@@ -1061,16 +1063,13 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
   /** Count of rows in the current filtered Leave view that still need resolution. */
   get pendingLeaveCount(): number {
-    return this.filteredLeaveValidationRows.filter(
-      (r) => r.status !== 'OK' && !r.resolved,
-    ).length;
+    return this.filteredLeaveValidationRows.filter((r) => r.status !== 'OK' && !r.resolved).length;
   }
 
   /** Count of rows in the current filtered OT view that still need resolution. */
   get pendingOtCount(): number {
-    return this.filteredOtValidationRows.filter(
-      (r) => r.status === 'MISMATCH' && !r.resolved,
-    ).length;
+    return this.filteredOtValidationRows.filter((r) => r.status === 'MISMATCH' && !r.resolved)
+      .length;
   }
 
   downloadPayslips(run: PayrollRunItem): void {
@@ -1079,7 +1078,12 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (blob) => {
-          this.addRunEvent(run.id, 'PUBLISH', 'Payslips downloaded', 'Published output downloaded as ZIP');
+          this.addRunEvent(
+            run.id,
+            'PUBLISH',
+            'Payslips downloaded',
+            'Published output downloaded as ZIP',
+          );
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
@@ -1222,7 +1226,9 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     }
     const approval = this.runApprovalStatusByRunId[run.id];
     if (approval?.submittedAt || run.submittedAt) {
-      const note = approval?.submittedByUserId ? `Submitted by ${approval.submittedByUserId}` : undefined;
+      const note = approval?.submittedByUserId
+        ? `Submitted by ${approval.submittedByUserId}`
+        : undefined;
       events.push({
         kind: 'SUBMIT',
         title: 'Run submitted',
@@ -1301,13 +1307,48 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   runGuardrails(run: PayrollRunItem | null): GuardrailItem[] {
     if (!run) return [];
     return [
-      { key: 'IMPORT', label: 'Import Input', allowed: !this.actionGuardReason(run, 'IMPORT'), reason: this.actionGuardReason(run, 'IMPORT') || 'Ready' },
-      { key: 'PROCESS', label: 'Process', allowed: !this.actionGuardReason(run, 'PROCESS'), reason: this.actionGuardReason(run, 'PROCESS') || 'Ready' },
-      { key: 'SUBMIT', label: 'Submit', allowed: !this.actionGuardReason(run, 'SUBMIT'), reason: this.actionGuardReason(run, 'SUBMIT') || 'Ready' },
-      { key: 'APPROVE', label: 'Approve', allowed: !this.actionGuardReason(run, 'APPROVE'), reason: this.actionGuardReason(run, 'APPROVE') || 'Ready' },
-      { key: 'PUBLISH', label: 'Publish', allowed: !this.actionGuardReason(run, 'PUBLISH'), reason: this.actionGuardReason(run, 'PUBLISH') || 'Ready' },
-      { key: 'RERUN', label: 'Rerun', allowed: !this.actionGuardReason(run, 'RERUN'), reason: this.actionGuardReason(run, 'RERUN') || 'Ready' },
-      { key: 'ROLLBACK', label: 'Rollback', allowed: !this.actionGuardReason(run, 'ROLLBACK'), reason: this.actionGuardReason(run, 'ROLLBACK') || 'Ready' },
+      {
+        key: 'IMPORT',
+        label: 'Import Input',
+        allowed: !this.actionGuardReason(run, 'IMPORT'),
+        reason: this.actionGuardReason(run, 'IMPORT') || 'Ready',
+      },
+      {
+        key: 'PROCESS',
+        label: 'Process',
+        allowed: !this.actionGuardReason(run, 'PROCESS'),
+        reason: this.actionGuardReason(run, 'PROCESS') || 'Ready',
+      },
+      {
+        key: 'SUBMIT',
+        label: 'Submit',
+        allowed: !this.actionGuardReason(run, 'SUBMIT'),
+        reason: this.actionGuardReason(run, 'SUBMIT') || 'Ready',
+      },
+      {
+        key: 'APPROVE',
+        label: 'Approve',
+        allowed: !this.actionGuardReason(run, 'APPROVE'),
+        reason: this.actionGuardReason(run, 'APPROVE') || 'Ready',
+      },
+      {
+        key: 'PUBLISH',
+        label: 'Publish',
+        allowed: !this.actionGuardReason(run, 'PUBLISH'),
+        reason: this.actionGuardReason(run, 'PUBLISH') || 'Ready',
+      },
+      {
+        key: 'RERUN',
+        label: 'Rerun',
+        allowed: !this.actionGuardReason(run, 'RERUN'),
+        reason: this.actionGuardReason(run, 'RERUN') || 'Ready',
+      },
+      {
+        key: 'ROLLBACK',
+        label: 'Rollback',
+        allowed: !this.actionGuardReason(run, 'ROLLBACK'),
+        reason: this.actionGuardReason(run, 'ROLLBACK') || 'Ready',
+      },
     ];
   }
 
@@ -1365,10 +1406,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     return this.statusKey(run) !== 'APPROVED';
   }
 
-  actionGuardReason(
-    run: PayrollRunItem | null,
-    action: GuardrailItem['key'],
-  ): string | null {
+  actionGuardReason(run: PayrollRunItem | null, action: GuardrailItem['key']): string | null {
     if (!run) return 'No run selected.';
     // L2: this method is called many times per row per change-detection pass
     // (every action button reads it for [disabled], [title], guardrail label,
@@ -1376,8 +1414,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     // repeated lookups inside the same CD pass don't re-run the cascade.
     const status = this.statusKey(run);
     const approval = this.runApprovalStatusByRunId[run.id];
-    const exCount =
-      this.selectedRun?.id === run.id ? this.validationExceptions().length : 0;
+    const exCount = this.selectedRun?.id === run.id ? this.validationExceptions().length : 0;
     const cacheKey = [
       run.id,
       status,
@@ -1442,8 +1479,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
     if (action === 'PUBLISH') {
       if (status === 'APPROVED') return null;
-      if (status === 'SUBMITTED' || status === 'PROCESSED') return null;
-      return 'Process and submit run before publish.';
+      return 'Payslips are available after CCO approval.';
     }
 
     if (action === 'RERUN') {
@@ -1472,7 +1508,8 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     }
 
     if (action === 'ROLLBACK') {
-      if (status !== 'REJECTED' && status !== 'APPROVED') return 'Only rejected or approved runs can be rolled back.';
+      if (status !== 'REJECTED' && status !== 'APPROVED')
+        return 'Only rejected or approved runs can be rolled back.';
       return null;
     }
 
@@ -1503,8 +1540,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
             .filter((c: PayheetComponent) => !!c.code)
             .sort(
               (a: PayheetComponent, b: PayheetComponent) =>
-                a.displayOrder - b.displayOrder ||
-                a.code.localeCompare(b.code),
+                a.displayOrder - b.displayOrder || a.code.localeCompare(b.code),
             );
           this.runEmployees = this.toArray(res).map((row: any) => ({
             employeeId: String(row?.employeeId || row?.employee_id || ''),
@@ -1593,7 +1629,8 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     const q = this.searchText.trim().toLowerCase();
     if (!q) return rows;
     return rows.filter((row) => {
-      const text = `${row.clientName || ''} ${row.status || ''} ${row.periodMonth}/${row.periodYear}`.toLowerCase();
+      const text =
+        `${row.clientName || ''} ${row.status || ''} ${row.periodMonth}/${row.periodYear}`.toLowerCase();
       return text.includes(q);
     });
   }
@@ -1607,7 +1644,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     return String(this.auth.getRoleCode() || this.auth.getUser()?.roleCode || '').toUpperCase();
   }
 
-  private canApprovePayrollRunRole(): boolean {
+  canApprovePayrollRunRole(): boolean {
     return this.currentRoleCode() === 'CCO';
   }
 
@@ -1649,12 +1686,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     return d.getFullYear();
   }
 
-  private addRunEvent(
-    runId: string,
-    kind: RunEvent['kind'],
-    title: string,
-    note?: string,
-  ): void {
+  private addRunEvent(runId: string, kind: RunEvent['kind'], title: string, note?: string): void {
     const bucket = this.runEventHistory[runId] || [];
     bucket.push({
       kind,
@@ -1666,21 +1698,14 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   }
 
   private isConsoleBusy(): boolean {
-    return (
-      this.actionBusy ||
-      this.importBusy ||
-      this.loadingRuns ||
-      this.loadingRunDetail
-    );
+    return this.actionBusy || this.importBusy || this.loadingRuns || this.loadingRunDetail;
   }
 
   // ── Add Employee to Run ─────────────────────────────────────────
   openNewEmployeeForm(): void {
     // Open the client employee registration form in a new tab so the user
     // doesn't lose their place on the payroll run workspace.
-    const url = this.router.serializeUrl(
-      this.router.createUrlTree(['/client/employees/new']),
-    );
+    const url = this.router.serializeUrl(this.router.createUrlTree(['/client/employees/new']));
     window.open(url, '_blank');
   }
 
@@ -1785,7 +1810,9 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     this.addEmpLoading = true;
     const clientId = this.selectedRun.clientId || '';
     this.http
-      .get<any>(`/api/v1/payroll/employees`, { params: { clientId, status: 'active', limit: '500' } })
+      .get<any>(`/api/v1/payroll/employees`, {
+        params: { clientId, status: 'active', limit: '500' },
+      })
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -1815,9 +1842,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     const q = (this.addEmpSearch || '').toLowerCase();
     this.addEmpFiltered = q
       ? this.addEmpAvailable.filter(
-          (e) =>
-            e.employeeCode.toLowerCase().includes(q) ||
-            e.name.toLowerCase().includes(q),
+          (e) => e.employeeCode.toLowerCase().includes(q) || e.name.toLowerCase().includes(q),
         )
       : [...this.addEmpAvailable];
   }
@@ -1839,7 +1864,10 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     const reader = new FileReader();
     reader.onload = () => {
       const text = reader.result as string;
-      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const lines = text
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean);
       // Skip header row if it contains non-code-like text
       const codes: string[] = [];
       for (const line of lines) {
@@ -1868,10 +1896,9 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
     this.addEmpUploadBusy = true;
     this.http
-      .post<any>(
-        `/api/v1/payroll/runs/${this.selectedRun.id}/add-employees`,
-        { employeeCodes: codes },
-      )
+      .post<any>(`/api/v1/payroll/runs/${this.selectedRun.id}/add-employees`, {
+        employeeCodes: codes,
+      })
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -1883,7 +1910,9 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
         next: (res) => {
           const added = res?.added?.length || 0;
           const skipped = res?.skipped?.length || 0;
-          this.toast.success(`${added} employee(s) added from file${skipped ? `, ${skipped} skipped` : ''}.`);
+          this.toast.success(
+            `${added} employee(s) added from file${skipped ? `, ${skipped} skipped` : ''}.`,
+          );
           this.addEmpFile = null;
           this.addEmpParsedCodes = [];
           this.showAddEmployeePanel = false;
@@ -1911,10 +1940,9 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
     this.addEmpBusy = true;
     this.http
-      .post<any>(
-        `/api/v1/payroll/runs/${this.selectedRun.id}/add-employees`,
-        { employeeCodes: codes },
-      )
+      .post<any>(`/api/v1/payroll/runs/${this.selectedRun.id}/add-employees`, {
+        employeeCodes: codes,
+      })
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -1961,8 +1989,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
   // ── Inline per-employee calculation check ───────────────────────
   toggleCheckEmployee(row: RunEmployeeRow): void {
-    this.checkingEmpCode =
-      this.checkingEmpCode === row.empCode ? null : row.empCode;
+    this.checkingEmpCode = this.checkingEmpCode === row.empCode ? null : row.empCode;
   }
 
   componentName(code: string): string {
@@ -1977,10 +2004,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
   /** Sum of EARNING component raw values (excludes day/info codes). */
   sumEarnings(row: RunEmployeeRow): number {
-    return this.earningComponents.reduce(
-      (s, c) => s + this.rawComponent(row, c.code),
-      0,
-    );
+    return this.earningComponents.reduce((s, c) => s + this.rawComponent(row, c.code), 0);
   }
 
   /** Sum of DEDUCTION raw values including PF_ER_FROM_EMP fold. */
@@ -2027,7 +2051,8 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     return this.payheetComponents.filter(
       (c) => c.type === 'EARNING' && !this.isDayOrInfoCode(c.code),
     );
-  }  get deductionComponents(): PayheetComponent[] {
+  }
+  get deductionComponents(): PayheetComponent[] {
     return this.payheetComponents.filter(
       (c) => c.type === 'DEDUCTION' && c.code !== 'PF_ER_FROM_EMP',
     );
@@ -2038,13 +2063,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   }
 
   private isDayOrInfoCode(code: string): boolean {
-    return [
-      'WORKED_DAYS',
-      'PAYABLE_DAYS',
-      'TOTAL_DAYS',
-      'LOP_DAYS',
-      'OT_HOURS',
-    ].includes(code);
+    return ['WORKED_DAYS', 'PAYABLE_DAYS', 'TOTAL_DAYS', 'LOP_DAYS', 'OT_HOURS'].includes(code);
   }
 
   /** Filter Preview Employees rows by free-text (employee name or code, case-insensitive). */
@@ -2085,12 +2104,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     // For employees with monthly gross >= ₹25,000 the employer PF share is
     // recovered from the employee. Surface both contributions in the single
     // employee PF deduction column so reviewers see the full deduction.
-    if (
-      code === 'PF_EMP' ||
-      code === 'PF' ||
-      code === 'PF_EMPLOYEE' ||
-      code === 'EPF_EMPLOYEE'
-    ) {
+    if (code === 'PF_EMP' || code === 'PF' || code === 'PF_EMPLOYEE' || code === 'EPF_EMPLOYEE') {
       const erFromEmp = Number(row.components?.['PF_ER_FROM_EMP'] || 0);
       return base + erFromEmp;
     }

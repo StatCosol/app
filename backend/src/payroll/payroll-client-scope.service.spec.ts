@@ -240,11 +240,13 @@ describe('Payroll client scope', () => {
         'client-itc',
         2026,
         10,
+        [],
       );
       expect(svc.getComplianceTrend).toHaveBeenCalledWith(
         '',
         'client-itc',
         2026,
+        [],
       );
     });
   });

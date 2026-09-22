@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
-import { map, tap, catchError, shareReplay } from 'rxjs/operators';
+import { map, tap, catchError, shareReplay, takeUntil } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
 
@@ -19,7 +19,9 @@ export class ClientContextService {
   constructor(
     private readonly http: HttpClient,
     private readonly auth: AuthService,
-  ) {}
+  ) {
+    this.auth.sessionReset$.subscribe(() => this.clear());
+  }
 
   /**
    * Resolve client name + code for a given clientId.
@@ -48,6 +50,7 @@ export class ClientContextService {
     }
 
     const req$ = this.http.get<any[]>(url).pipe(
+      takeUntil(this.auth.sessionReset$),
       map((items) => {
         let match: any;
         if (role === 'AUDITOR') {
@@ -60,9 +63,7 @@ export class ClientContextService {
             } as ClientContext;
           }
         }
-        match = items.find(
-          (c: any) => c.id === clientId || c.clientId === clientId,
-        );
+        match = items.find((c: any) => c.id === clientId || c.clientId === clientId);
         if (match) {
           return {
             id: clientId,

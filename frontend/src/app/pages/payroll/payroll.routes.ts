@@ -11,17 +11,13 @@ const PayrollClientsComponent = () =>
 const PayrollClientOverviewComponent = () =>
   import('./payroll-client-overview.component').then((m) => m.PayrollClientOverviewComponent);
 const PayrollRunsConsolePageComponent = () =>
-  import('./payroll-runs-console-page.component').then(
-    (m) => m.PayrollRunsConsolePageComponent,
-  );
+  import('./payroll-runs-console-page.component').then((m) => m.PayrollRunsConsolePageComponent);
 const PayrollRegistersComponent = () =>
   import('./payroll-registers.component').then((m) => m.PayrollRegistersComponent);
 const PayrollProfileComponent = () =>
   import('./payroll-profile.component').then((m) => m.PayrollProfileComponent);
 const PayrollSetupTabsPageComponent = () =>
-  import('./payroll-setup-tabs-page.component').then(
-    (m) => m.PayrollSetupTabsPageComponent,
-  );
+  import('./payroll-setup-tabs-page.component').then((m) => m.PayrollSetupTabsPageComponent);
 const PayrollPfEsiDashboardPageComponent = () =>
   import('./payroll-pf-esi-dashboard-page.component').then(
     (m) => m.PayrollPfEsiDashboardPageComponent,
@@ -33,15 +29,11 @@ const PayrollEmployeeDetailComponent = () =>
 const PayrollQueriesComponent = () =>
   import('./payroll-queries.component').then((m) => m.PayrollQueriesComponent);
 const PayrollFfLifecyclePageComponent = () =>
-  import('./payroll-ff-lifecycle-page.component').then(
-    (m) => m.PayrollFfLifecyclePageComponent,
-  );
+  import('./payroll-ff-lifecycle-page.component').then((m) => m.PayrollFfLifecyclePageComponent);
 const PayrollReportsComponent = () =>
   import('./payroll-reports.component').then((m) => m.PayrollReportsComponent);
 const PayrollRuleSetsPageComponent = () =>
-  import('./payroll-rule-sets-page.component').then(
-    (m) => m.PayrollRuleSetsPageComponent,
-  );
+  import('./payroll-rule-sets-page.component').then((m) => m.PayrollRuleSetsPageComponent);
 const PayrollStructuresBuilderPageComponent = () =>
   import('./payroll-structures-builder-page.component').then(
     (m) => m.PayrollStructuresBuilderPageComponent,
@@ -51,9 +43,7 @@ const PayrollTdsComponent = () =>
 const PayrollGratuityComponent = () =>
   import('./payroll-gratuity.component').then((m) => m.PayrollGratuityComponent);
 const ClientPayrollConfigPageComponent = () =>
-  import('./client-payroll-config-page.component').then(
-    (m) => m.ClientPayrollConfigPageComponent,
-  );
+  import('./client-payroll-config-page.component').then((m) => m.ClientPayrollConfigPageComponent);
 
 export const PAYROLL_ROUTES: Routes = [
   {
@@ -61,7 +51,11 @@ export const PAYROLL_ROUTES: Routes = [
     loadComponent: PayrollLayoutComponent,
     canActivate: [roleGuard(['PAYROLL', 'CCO'])],
     children: [
-      { path: 'my-work', loadComponent: () => import('../../shared/my-work/my-work.component').then(m => m.MyWorkComponent) },
+      {
+        path: 'my-work',
+        loadComponent: () =>
+          import('../../shared/my-work/my-work.component').then((m) => m.MyWorkComponent),
+      },
       { path: 'dashboard', loadComponent: PayrollDashboardComponent },
       {
         path: 'clients',
@@ -94,14 +88,36 @@ export const PAYROLL_ROUTES: Routes = [
       { path: 'reports', loadComponent: PayrollReportsComponent },
       { path: 'profile', loadComponent: PayrollProfileComponent },
 
+      {
+        path: 'rule-sets',
+        loadComponent: PayrollClientsComponent,
+        data: { nextSection: 'rule-sets' },
+      },
+      {
+        path: 'structures',
+        loadComponent: PayrollClientsComponent,
+        data: { nextSection: 'structures' },
+      },
       // Top-level redirects for client-scoped pages (dashboard links land here)
-      { path: 'employees', redirectTo: 'clients', pathMatch: 'full' },
-      { path: 'runs', redirectTo: 'clients', pathMatch: 'full' },
-      { path: 'pf-esi', redirectTo: 'clients', pathMatch: 'full' },
-      { path: 'queries', redirectTo: 'clients', pathMatch: 'full' },
-      { path: 'full-and-final', redirectTo: 'clients', pathMatch: 'full' },
-      { path: 'setup', redirectTo: 'clients', pathMatch: 'full' },
-      { path: 'registers', redirectTo: 'clients', pathMatch: 'full' },
+      {
+        path: 'employees',
+        loadComponent: PayrollClientsComponent,
+        data: { nextSection: 'employees' },
+      },
+      { path: 'runs', loadComponent: PayrollClientsComponent, data: { nextSection: 'runs' } },
+      { path: 'pf-esi', loadComponent: PayrollClientsComponent, data: { nextSection: 'pf-esi' } },
+      { path: 'queries', loadComponent: PayrollClientsComponent, data: { nextSection: 'queries' } },
+      {
+        path: 'full-and-final',
+        loadComponent: PayrollClientsComponent,
+        data: { nextSection: 'full-and-final' },
+      },
+      { path: 'setup', loadComponent: PayrollClientsComponent, data: { nextSection: 'setup' } },
+      {
+        path: 'registers',
+        loadComponent: PayrollClientsComponent,
+        data: { nextSection: 'registers' },
+      },
 
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],

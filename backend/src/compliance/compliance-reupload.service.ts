@@ -896,14 +896,7 @@ export class ComplianceReuploadService {
       },
     );
 
-    // Check if all reupload requests for this document's task are resolved
-    // to update the task status
-    const evidence = await this.evidence.findOne({
-      where: { id: Number(request.documentId) },
-    });
-    if (evidence?.taskId) {
-      await this.syncTaskStatusAfterReupload(evidence.taskId, user.userId);
-    }
+    // Evidence reverification closes this request; full task approval remains a CRM action.
 
     // Notify contractor of approval
     if (request.contractorUserId) {
@@ -1075,55 +1068,6 @@ export class ComplianceReuploadService {
         'notification failure (non-blocking)',
         (e as Error)?.message,
       );
-    }
-  }
-
-  // ---------- Helper: Sync task status after reupload decisions ----------
-  private async syncTaskStatusAfterReupload(
-    taskId: number,
-    approverUserId?: string,
-  ) {
-    // Find all reupload requests linked to evidence of this task
-    const taskEvidence = await this.evidence.find({
-      where: { taskId },
-      select: ['id'],
-    });
-    if (!taskEvidence.length) return;
-
-    const evidenceIds = taskEvidence.map((e) => e.id);
-
-    const openRequests = await this.reuploadReqRepo
-      .createQueryBuilder('r')
-      .where('r.documentId IN (:...ids)', { ids: evidenceIds })
-      .andWhere('r.documentType = :dt', { dt: 'COMPLIANCE_EVIDENCE' })
-      .andWhere('r.status IN (:...statuses)', {
-        statuses: ['OPEN', 'SUBMITTED'],
-      })
-      .getCount();
-
-    if (openRequests === 0) {
-      // All reupload requests resolved — mark task as APPROVED
-      const task = await this.tasks.findOne({ where: { id: taskId } });
-      if (
-        task &&
-        (task.status === 'SUBMITTED' || task.status === 'IN_PROGRESS')
-      ) {
-        await this.tasks.update(
-          { id: taskId },
-          {
-            status: 'APPROVED',
-            approvedByUserId: approverUserId ?? null,
-            approvedAt: new Date(),
-          },
-        );
-        if (task.branchId) {
-          this.riskCache
-            .invalidateBranch(task.branchId)
-            .catch((e) =>
-              this.logger.warn('riskCache invalidation failed', e?.message),
-            );
-        }
-      }
     }
   }
 

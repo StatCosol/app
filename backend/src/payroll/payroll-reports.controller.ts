@@ -1,3 +1,9 @@
+import {
+  BankReportQueryDto,
+  PeriodReportQueryDto,
+  CostReportQueryDto,
+  Form16ReportQueryDto,
+} from './dto/report-query.dto';
 import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 
@@ -23,17 +29,15 @@ export class PayrollReportsController {
   async bankStatement(
     @CurrentUser() user: ReqUser,
     @Res() res: Response,
-    @Query('runId') runId?: string,
-    @Query('clientId') clientId?: string,
-    @Query('year') year?: string,
-    @Query('month') month?: string,
+    @Query() query: BankReportQueryDto,
   ) {
+    const { runId, clientId, year, month } = query;
     const result = await this.svc.generateBankStatement(
       user,
       runId,
       clientId,
-      year ? parseInt(year, 10) : undefined,
-      month ? parseInt(month, 10) : undefined,
+      year,
+      month,
     );
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader(
@@ -49,15 +53,14 @@ export class PayrollReportsController {
   async musterRoll(
     @CurrentUser() user: ReqUser,
     @Res() res: Response,
-    @Query('clientId') clientId?: string,
-    @Query('year') year?: string,
-    @Query('month') month?: string,
+    @Query() query: PeriodReportQueryDto,
   ) {
+    const { clientId, year, month } = query;
     const result = await this.svc.generateMusterRoll(
       user,
       clientId,
-      year ? parseInt(year, 10) : undefined,
-      month ? parseInt(month, 10) : undefined,
+      year,
+      month,
     );
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader(
@@ -73,14 +76,10 @@ export class PayrollReportsController {
   async costAnalysis(
     @CurrentUser() user: ReqUser,
     @Res() res: Response,
-    @Query('clientId') clientId?: string,
-    @Query('year') year?: string,
+    @Query() query: CostReportQueryDto,
   ) {
-    const result = await this.svc.generateCostAnalysis(
-      user,
-      clientId,
-      year ? parseInt(year, 10) : undefined,
-    );
+    const { clientId, year } = query;
+    const result = await this.svc.generateCostAnalysis(user, clientId, year);
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader(
       'Content-Disposition',
@@ -95,9 +94,9 @@ export class PayrollReportsController {
   async form16(
     @CurrentUser() user: ReqUser,
     @Res() res: Response,
-    @Query('clientId') clientId?: string,
-    @Query('financialYear') financialYear?: string,
+    @Query() query: Form16ReportQueryDto,
   ) {
+    const { clientId, financialYear } = query;
     const result = await this.svc.generateForm16Summary(
       user,
       clientId,

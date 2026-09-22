@@ -67,10 +67,12 @@ export class BranchSafetyDocumentsController {
     const clientId = user.clientId!;
     const branchIds = await this.branchAccess.getUserBranchIds(userId);
 
-    if (!branchIds.length) {
+    if (!branchIds.length && user.userType !== 'MASTER')
+      throw new ForbiddenException('No assigned branches');
+    if (user.userType === 'MASTER') {
       return this.svc.getSafetyScore({ clientId });
     }
-    return this.svc.getSafetyScore({ branchIds });
+    return this.svc.getSafetyScore({ branchIds, clientId });
   }
 
   /** Upload a safety document */
@@ -94,7 +96,7 @@ export class BranchSafetyDocumentsController {
 
     // Verify the user has access to this branch
     const branchIds = await this.branchAccess.getUserBranchIds(userId);
-    if (branchIds.length > 0 && !branchIds.includes(dto.branchId)) {
+    if (user.userType !== 'MASTER' && !branchIds.includes(dto.branchId)) {
       throw new ForbiddenException('You do not have access to this branch');
     }
 
@@ -121,7 +123,9 @@ export class BranchSafetyDocumentsController {
     const branchIds = await this.branchAccess.getUserBranchIds(userId);
 
     // Master user: fetch all branches for client
-    if (!branchIds.length) {
+    if (!branchIds.length && user.userType !== 'MASTER')
+      throw new ForbiddenException('No assigned branches');
+    if (user.userType === 'MASTER') {
       const allBranches = await this.svc['repo'].manager.query(
         `SELECT id FROM client_branches WHERE clientid = $1 AND deletedat IS NULL`,
         [clientId],
@@ -149,12 +153,17 @@ export class BranchSafetyDocumentsController {
     const userId = user.id;
     const branchIds = await this.branchAccess.getUserBranchIds(userId);
 
-    if (!branchIds.length) {
+    if (!branchIds.length && user.userType !== 'MASTER')
+      throw new ForbiddenException('No assigned branches');
+    if (user.userType === 'MASTER') {
       // Master user: get all for client
       return this.svc.getExpiringDocuments({ clientId: user.clientId! });
     }
 
-    return this.svc.getExpiringDocuments({ branchIds });
+    return this.svc.getExpiringDocuments({
+      branchIds,
+      clientId: user.clientId!,
+    });
   }
 
   /** Delete a safety document */
@@ -165,7 +174,9 @@ export class BranchSafetyDocumentsController {
     const branchIds = await this.branchAccess.getUserBranchIds(userId);
 
     // Master user can delete any of their client's documents
-    if (!branchIds.length) {
+    if (!branchIds.length && user.userType !== 'MASTER')
+      throw new ForbiddenException('No assigned branches');
+    if (user.userType === 'MASTER') {
       const clientId = user.clientId;
       const allBranches = await this.svc['repo'].manager.query(
         `SELECT id FROM client_branches WHERE clientid = $1 AND deletedat IS NULL`,
