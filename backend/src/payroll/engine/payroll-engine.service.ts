@@ -178,6 +178,8 @@ export class PayrollEngineService {
 
     const errors: string[] = [];
     let processed = 0;
+    // One state lookup per branch for the whole run.
+    const branchStates = new Map<string, string>();
 
     for (const emp of runEmployees) {
       try {
@@ -190,6 +192,7 @@ export class PayrollEngineService {
           asOfDate,
           errors,
           att,
+          branchStates,
         );
         processed++;
       } catch (err) {
@@ -293,6 +296,8 @@ export class PayrollEngineService {
 
     const errors: string[] = [];
     let processed = 0;
+    // One state lookup per branch for the whole run.
+    const branchStates = new Map<string, string>();
 
     for (const emp of targets) {
       try {
@@ -305,6 +310,7 @@ export class PayrollEngineService {
           asOfDate,
           errors,
           att,
+          branchStates,
         );
         processed++;
       } catch (err) {
@@ -346,14 +352,21 @@ export class PayrollEngineService {
     branchId: string | null | undefined,
     employeeStateCode: string | null | undefined,
     query: (sql: string, params: unknown[]) => Promise<any[]>,
+    /** Branch states already read in this run, so each is read once. */
+    branchStates?: Map<string, string>,
   ): Promise<string> {
     const own = String(employeeStateCode ?? '').trim();
     if (!branchId) return own;
-    const rows = await query(
-      'SELECT statecode FROM client_branches WHERE id=$1 LIMIT 1',
-      [branchId],
-    );
-    return String(rows?.[0]?.statecode ?? '').trim() || own;
+    let branchState = branchStates?.get(branchId);
+    if (branchState === undefined) {
+      const rows = await query(
+        'SELECT statecode FROM client_branches WHERE id=$1 LIMIT 1',
+        [branchId],
+      );
+      branchState = String(rows?.[0]?.statecode ?? '').trim();
+      branchStates?.set(branchId, branchState);
+    }
+    return branchState || own;
   }
 
   private async resolveMinWage(
@@ -770,6 +783,7 @@ export class PayrollEngineService {
       weekOffs: number;
       daysOnLeave: number;
     },
+    branchStates?: Map<string, string>,
   ): Promise<void> {
     const qr = this.ds.createQueryRunner();
     await qr.connect();
@@ -1247,23 +1261,25 @@ export class PayrollEngineService {
         values['PAYABLE_DAYS'] = workedDays + holidayDays + paidLeaveDays;
       }
 
+      // The state this employee works in, read once here and used for both
+      // the minimum wage and the PT/LWF deductions below.
+      const workStateCode = await this.resolveWorkStateCode(
+        emp.branchId,
+        emp.stateCode,
+        (sql, params) => qr.manager.query(sql, params),
+        branchStates,
+      );
+
       // ── Seed MIN_WAGE for formula use (best-effort) ──────────────────
       // Resolves the statutory minimum monthly wage for the state the person
-      // works in (the branch they are posted to; their own state only when
-      // the branch has none), scoped to the client's labour-law schedule of
-      // employment, then the rule-set MIN_WAGES parameter when no master row
-      // matches.
+      // works in, scoped to the client's labour-law schedule of employment,
+      // then the rule-set MIN_WAGES parameter when no master row matches.
       if (values['MIN_WAGE'] === undefined) {
-        const mwState = await this.resolveWorkStateCode(
-          emp.branchId,
-          emp.stateCode,
-          (sql, params) => qr.manager.query(sql, params),
-        );
         const runSched = await this.resolveClientScheduledEmployment(
           run.clientId,
         );
         values['MIN_WAGE'] = await this.resolveMinWage(
-          mwState,
+          workStateCode,
           asOfDate,
           'UNSKILLED',
           runSched,
@@ -1431,11 +1447,7 @@ export class PayrollEngineService {
       // branch they are posted to. PT is levied by that state, so a worker at
       // a Telangana site pays Telangana PT whatever their home state says.
       // Their own state applies only when the branch has none.
-      const stateCode = await this.resolveWorkStateCode(
-        emp.branchId,
-        emp.stateCode,
-        (sql, params) => qr.manager.query(sql, params),
-      );
+      const stateCode = workStateCode;
       if (stateCode && !emp.stateCode) {
         // Backfill so subsequent reads/reports see it.
         emp.stateCode = stateCode;
