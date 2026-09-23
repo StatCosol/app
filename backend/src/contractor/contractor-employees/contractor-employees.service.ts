@@ -11,9 +11,16 @@ import {
   contractorPrefixCandidates,
   formatContractorEmployeeCode,
 } from './contractor-employee-code.util';
-import { DataSource, EntityManager, In, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  In,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 import {
   ContractorEmployeeEntity,
+  PENDING_DETAIL_FIELDS,
   SKILL_CATEGORIES,
   SkillCategory,
 } from './entities/contractor-employee.entity';
@@ -599,11 +606,13 @@ export class ContractorEmployeesService {
       clientId?: string;
       isActive?: boolean;
       search?: string;
+      detailsPending?: boolean;
     },
   ) {
     const qb = this.repo
       .createQueryBuilder('ce')
       .where('ce.contractorUserId = :contractorUserId', { contractorUserId });
+    this.applyDetailsPending(qb, filters?.detailsPending);
 
     if (filters?.clientId)
       qb.andWhere('ce.clientId = :clientId', { clientId: filters.clientId });
@@ -622,6 +631,22 @@ export class ContractorEmployeesService {
     return { data, total };
   }
 
+  /**
+   * Narrow a listing to workers still owing an identity detail, or to those
+   * whose record is complete. A blank column and one holding only spaces both
+   * count as missing, as they do everywhere else.
+   */
+  private applyDetailsPending(
+    qb: SelectQueryBuilder<ContractorEmployeeEntity>,
+    detailsPending?: boolean,
+  ) {
+    if (detailsPending === undefined) return;
+    const missing = PENDING_DETAIL_FIELDS.map(
+      (field) => `COALESCE(TRIM(ce.${field}), '') = ''`,
+    ).join(' OR ');
+    qb.andWhere(detailsPending ? `(${missing})` : `NOT (${missing})`);
+  }
+
   async listByBranch(
     clientId: string,
     branchId: string,
@@ -629,12 +654,14 @@ export class ContractorEmployeesService {
       contractorUserId?: string;
       isActive?: boolean;
       search?: string;
+      detailsPending?: boolean;
     },
   ) {
     const qb = this.repo
       .createQueryBuilder('ce')
       .where('ce.clientId = :clientId', { clientId })
       .andWhere('ce.branchId = :branchId', { branchId });
+    this.applyDetailsPending(qb, filters?.detailsPending);
 
     if (filters?.contractorUserId)
       qb.andWhere('ce.contractorUserId = :cuid', {

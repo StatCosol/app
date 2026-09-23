@@ -1,4 +1,5 @@
 import { Type, Transform } from 'class-transformer';
+import { blankToUndefined } from './contractor-employee.dto';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -122,33 +123,39 @@ export class BulkContractorEmployeeRowDto {
   @MaxLength(120)
   department?: string;
 
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.replace(/\s+/g, '') : value,
-  )
+  /*
+   * Blank is allowed: workers are enrolled before their documents arrive, and
+   * a rejected row leaves the worker unrecorded. The row is imported and the
+   * worker listed as details pending until the cell is filled. A cell that
+   * does carry something still has to be the right shape.
+   */
+  @IsOptional()
+  @Transform(blankToUndefined)
   @IsString()
   @Matches(/^\d{12}$/, {
-    message: 'Aadhaar is required and must contain 12 digits',
+    message: 'Aadhaar must contain 12 digits',
   })
-  aadhaar: string;
+  aadhaar?: string;
 
+  @IsOptional()
   @Transform(({ value }) =>
-    typeof value === 'string' ? value.replace(/\s+/g, '').toUpperCase() : value,
+    typeof value === 'string'
+      ? value.replace(/\s+/g, '').toUpperCase() || undefined
+      : value,
   )
   @IsString()
   @Matches(/^[A-Z]{5}[0-9]{4}[A-Z]$/, {
-    message: 'PAN is required and must use the format ABCDE1234F',
+    message: 'PAN must use the format ABCDE1234F',
   })
-  pan: string;
+  pan?: string;
 
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.replace(/\s+/g, '') : value,
-  )
+  @IsOptional()
+  @Transform(blankToUndefined)
   @IsString()
   @Matches(/^[0-9]{1,40}$/, {
-    message:
-      'Bank account number is required and must contain only digits (maximum 40)',
+    message: 'Bank account number must contain only digits (maximum 40)',
   })
-  bankAccount: string;
+  bankAccount?: string;
 
   @IsOptional()
   @IsString()

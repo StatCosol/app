@@ -216,3 +216,59 @@ describe('bulk upload validation', () => {
     });
   });
 });
+
+describe('enrolling before the documents arrive', () => {
+  const row = {
+    name: 'Ravi Kumar',
+    skillCategory: 'UNSKILLED',
+    monthlySalary: 15000,
+    dateOfJoining: '2026-01-15',
+  };
+
+  it('imports a worker with Aadhaar, PAN and bank account still to come', () => {
+    for (const blanks of [
+      {},
+      { aadhaar: '', pan: '', bankAccount: '' },
+      { aadhaar: null, pan: null, bankAccount: null },
+      { aadhaar: '   ', pan: '  ', bankAccount: ' ' },
+    ]) {
+      const result = validateBulkRow({ ...row, ...blanks });
+      expect(result).toMatchObject({ ok: true });
+      if (result.ok)
+        for (const field of ['aadhaar', 'pan', 'bankAccount'])
+          expect(result.row[field] ?? null).toBeNull();
+    }
+  });
+
+  it('still refuses a detail that is filled in wrongly', () => {
+    for (const [bad, message] of [
+      [{ aadhaar: '12345' }, 'Aadhaar must contain 12 digits'],
+      [{ pan: 'ABCD1234F' }, 'PAN must use the format ABCDE1234F'],
+      [
+        { bankAccount: '12-34-56' },
+        'Bank account number must contain only digits',
+      ],
+    ] as Array<[Record<string, string>, string]>) {
+      const result = validateBulkRow({ ...row, ...bad });
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error).toContain(message);
+    }
+  });
+
+  it('keeps a supplied detail, spaces and lower case included', () => {
+    const result = validateBulkRow({
+      ...row,
+      aadhaar: '1234 5678 9012',
+      pan: ' abcde1234f ',
+      bankAccount: ' 0012 3456 7890 ',
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      row: {
+        aadhaar: '123456789012',
+        pan: 'ABCDE1234F',
+        bankAccount: '001234567890',
+      },
+    });
+  });
+});

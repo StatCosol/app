@@ -186,6 +186,17 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
             <button type="button" class="btn btn-outline-primary" [class.active]="statusFilter === 'inactive'" [attr.aria-pressed]="statusFilter === 'inactive'" (click)="statusFilter = 'inactive'; applyFilters()">Inactive</button>
             <button type="button" class="btn btn-outline-primary" [class.active]="statusFilter === 'all'" [attr.aria-pressed]="statusFilter === 'all'" (click)="statusFilter = 'all'; applyFilters()">All</button>
           </div>
+          @if (detailsPendingCount > 0) {
+            <button
+              type="button"
+              class="btn"
+              [class.btn-warning]="onlyDetailsPending"
+              [class.btn-outline-warning]="!onlyDetailsPending"
+              [attr.aria-pressed]="onlyDetailsPending"
+              title="Workers enrolled without Aadhaar, PAN or a bank account"
+              (click)="onlyDetailsPending = !onlyDetailsPending; applyFilters()"
+            >Details pending ({{ detailsPendingCount }})</button>
+          }
         </div>
         <div class="flex gap-2 flex-wrap items-center">
           <button
@@ -324,6 +335,11 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                         class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border">
                     {{ statusLabel(emp) }}
                   </span>
+                  @if (pendingDetails(emp).length) {
+<div class="text-[10px] mt-0.5 text-amber-700" [title]="'Enrolled without ' + pendingDetails(emp).join(', ')">
+                    {{ pendingDetails(emp).join(', ') }} pending
+                  </div>
+}
                   @if (!emp.isActive && emp.dateOfExit) {
 <div class="text-[10px] text-gray-400 mt-0.5">
                     Exited {{ emp.dateOfExit | date:'dd MMM yy' }}
@@ -631,30 +647,28 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
           <div>
             <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Identity and bank details</h3>
             <div class="mb-3">
-              <label for="contract-bank-account" class="block text-sm font-medium text-gray-700 mb-1">Bank account number <span *ngIf="!editingId" class="text-red-500">*</span></label>
-              <input id="contract-bank-account" type="text" inputmode="numeric" autocomplete="off" [(ngModel)]="form.bankAccount" name="bankAccount" [required]="!editingId" maxlength="40" class="w-full rounded-lg border-gray-300 text-sm" />
+              <label for="contract-bank-account" class="block text-sm font-medium text-gray-700 mb-1">Bank account number <span class="text-gray-400 font-normal">(can follow later)</span></label>
+              <input id="contract-bank-account" type="text" inputmode="numeric" autocomplete="off" [(ngModel)]="form.bankAccount" name="bankAccount" maxlength="40" class="w-full rounded-lg border-gray-300 text-sm" />
             </div>
             <div class="space-y-3">
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Aadhaar <span *ngIf="!editingId" class="text-red-500">*</span></label>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Aadhaar <span class="text-gray-400 font-normal">(can follow later)</span></label>
                   <input
                     type="text"
                     [(ngModel)]="form.aadhaar"
                     name="aadhaar"
-                    [required]="!editingId"
                     maxlength="16"
                     placeholder="12-digit number"
                     class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
                   />
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">PAN <span *ngIf="!editingId" class="text-red-500">*</span></label>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">PAN <span class="text-gray-400 font-normal">(can follow later)</span></label>
                   <input
                     type="text"
                     [(ngModel)]="form.pan"
                     name="pan"
-                    [required]="!editingId"
                     maxlength="10"
                     placeholder="ABCDE1234F"
                     class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm uppercase"
@@ -917,6 +931,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
   formError: string | null = null;
 
   searchTerm = '';
+  onlyDetailsPending = false;
   statusFilter: 'active' | 'inactive' | 'all' = 'active';
   selectedBranchId = '';
   availableBranches: ContractorBranchItem[] = [];
@@ -944,6 +959,21 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
 
   get bulkBatchCount(): number {
     return Math.ceil(this.bulkValidCount / BULK_UPLOAD_BATCH_SIZE);
+  }
+
+  /** Identity details this worker still owes, for the badge and the filter. */
+  pendingDetails(emp: { aadhaar?: string | null; pan?: string | null; bankAccount?: string | null }): string[] {
+    const labels: Array<[keyof typeof emp, string]> = [
+      ['aadhaar', 'Aadhaar'],
+      ['pan', 'PAN'],
+      ['bankAccount', 'Bank a/c'],
+    ];
+    return labels.filter(([key]) => !String(emp?.[key] ?? '').trim()).map(([, label]) => label);
+  }
+
+  /** How many of the loaded workers still owe a detail, before any filtering. */
+  get detailsPendingCount(): number {
+    return this.allRows.filter((e) => this.pendingDetails(e).length > 0).length;
   }
 
   get bulkErrorCount(): number {
@@ -1047,6 +1077,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       if (this.statusFilter === 'active' && !e.isActive) return false;
       if (this.statusFilter === 'inactive' && e.isActive) return false;
       if (term && ![e.name, e.employeeCode].some(value => value?.toLowerCase().includes(term))) return false;
+      if (this.onlyDetailsPending && !this.pendingDetails(e).length) return false;
       return true;
     });
     this.cdr.markForCheck();
@@ -1077,6 +1108,8 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
         'PF Applicable': emp.pfApplicable ? 'Yes' : 'No',
         'ESI Applicable': emp.esiApplicable ? 'Yes' : 'No',
         Status: this.statusLabel(emp),
+        // So the office can work the list of what is still to be collected.
+        'Details Pending': this.pendingDetails(emp).join(', '),
         'Date of Exit': emp.dateOfExit || '',
         'Exit Reason': emp.exitReason || '',
       }));
@@ -1174,8 +1207,9 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
 
     // These mirror the DTO's column widths. Without them the only feedback was
     // a 400 whose body named the field, in a form that showed the raw array.
+    // Aadhaar, PAN and the bank account may be left for later — the worker is
+    // enrolled with them pending — so only what was actually typed is checked.
     const tooLong =
-      (!this.editingId && (!aadhaar || !pan || !bankAccount) && 'Aadhaar, PAN and bank account number are required.') ||
       (bankAccount && !/^[0-9]{1,40}$/.test(bankAccount) && 'Bank account number must contain only digits (maximum 40).') ||
       (aadhaar && !/^\d{12}$/.test(aadhaar) && 'Aadhaar must be 12 digits.') ||
       (pan && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan) && 'PAN must use the format ABCDE1234F.') ||
@@ -1609,9 +1643,20 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       else if (!this.availableBranches.some(b => b.id === dto.branchId)) errors.push('Branch is not assigned to you');
       if (this.bulkBranchId && rowBranch && rowBranch !== this.bulkBranchId)
         errors.push('Row branch differs from the selected upload branch');
-      if (!dto.aadhaar || !/^\d{12}$/.test(dto.aadhaar)) errors.push('Aadhaar is required and must contain 12 digits');
-      if (!dto.pan || !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(dto.pan)) errors.push('PAN is required (ABCDE1234F)');
-      if (!dto.bankAccount || !/^[0-9]{1,40}$/.test(dto.bankAccount)) errors.push('Bank account number is required (digits only, maximum 40)');
+      // Aadhaar, PAN and the bank account may follow later: a worker starts on
+      // site before their documents arrive, and refusing the row leaves them
+      // off the register altogether. A blank cell enrols the worker as details
+      // pending; a cell that holds something still has to be the right shape,
+      // so a mistyped number cannot pass for a real one.
+      const pending: string[] = [];
+      if (!dto.aadhaar) pending.push('Aadhaar');
+      else if (!/^\d{12}$/.test(dto.aadhaar)) errors.push('Aadhaar must contain 12 digits');
+      if (!dto.pan) pending.push('PAN');
+      else if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(dto.pan)) errors.push('PAN must use the format ABCDE1234F');
+      if (!dto.bankAccount) pending.push('bank account');
+      else if (!/^[0-9]{1,40}$/.test(dto.bankAccount)) errors.push('Bank account number must contain only digits (maximum 40)');
+      if (pending.length)
+        warnings.push(`Will be enrolled with ${pending.join(', ')} pending`);
       return { index, raw, dto, errors, warnings };
     });
   }

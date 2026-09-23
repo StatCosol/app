@@ -52,6 +52,12 @@ export class ContractorEmployeesController {
             ? false
             : undefined,
       search: query.search || undefined,
+      detailsPending:
+        query.detailsPending === 'true'
+          ? true
+          : query.detailsPending === 'false'
+            ? false
+            : undefined,
     });
   }
 
@@ -182,6 +188,12 @@ export class ClientContractorEmployeesController {
             ? false
             : undefined,
       search: query.search || undefined,
+      detailsPending:
+        query.detailsPending === 'true'
+          ? true
+          : query.detailsPending === 'false'
+            ? false
+            : undefined,
     });
   }
 

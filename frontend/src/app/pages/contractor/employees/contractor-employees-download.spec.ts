@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import { of } from 'rxjs';
 import * as XLSX from 'xlsx';
 import { ContractorEmployeesPageComponent } from './contractor-employees-page.component';
 import { ContractorEmployee } from '../../../core/contractor-employees-api.service';
@@ -8,11 +9,12 @@ describe('Contractor worker download', () => {
   let blobs: Blob[];
   let names: string[];
   const error = vi.fn();
+  const success = vi.fn();
   beforeEach(() => {
-    blobs = []; names = []; error.mockClear();
+    blobs = []; names = []; error.mockClear(); success.mockClear();
     type Args = ConstructorParameters<typeof ContractorEmployeesPageComponent>;
     component = new ContractorEmployeesPageComponent(
-      {} as Args[0], {} as Args[1], { error } as unknown as Args[2],
+      {} as Args[0], {} as Args[1], { error, success } as unknown as Args[2],
       {} as Args[3], { markForCheck: vi.fn() } as unknown as Args[4],
     );
     vi.spyOn(URL, 'createObjectURL').mockImplementation(blob => {
@@ -56,14 +58,29 @@ describe('Contractor worker download', () => {
     expect(component.filteredRows).toHaveLength(1);
   });
 
-  it('blocks new registration without mandatory identity and bank details', () => {
+  it('registers a worker whose identity and bank details are still to come', () => {
     component.form.name = 'Synthetic Worker';
+    component.form.branchId = 'branch-1';
+    component.availableBranches = [{ id: 'branch-1', branchName: 'Branch 1' }] as any;
+    const create = vi.fn((_dto: Record<string, unknown>) => of({ id: 'new-worker' }));
+    (component as any).api = { create, list: () => of({ data: [], total: 0 }) };
     component.saveEmployee();
-    expect(component.formError).toContain('Aadhaar, PAN and bank account number are required');
+    expect(component.formError).toBeNull();
+    expect(create).toHaveBeenCalledTimes(1);
+    const sent = create.mock.calls[0][0] as Record<string, unknown>;
+    for (const field of ['aadhaar', 'pan', 'bankAccount'])
+      expect(sent[field]).toBeNull();
+  });
+
+  it('still refuses an identity detail that is typed in wrongly', () => {
+    component.form.name = 'Synthetic Worker';
+    component.form.aadhaar = '12345';
+    component.saveEmployee();
+    expect(component.formError).toContain('Aadhaar must be 12 digits');
     expect(component.saving).toBe(false);
   });
 
-  it('validates mandatory bulk fields, and takes a numeric bank cell that kept its digits', () => {
+  it('validates bulk fields, and takes a numeric bank cell that kept its digits', () => {
     component.availableBranches = [{ id: 'branch-1', branchName: 'Branch 1' }] as any;
     component.bulkBranchId = 'branch-1';
     const valid = { name: 'Synthetic Worker', skillCategory: 'SKILLED', monthlySalary: 15000, aadhaar: '123456789012', pan: 'abcde1234f', bankAccount: '001234567890' };
@@ -81,7 +98,10 @@ describe('Contractor worker download', () => {
     expect(rows[1].errors).toEqual([]);
     expect(rows[1].dto.bankAccount).toBe('1234567890');
     expect(rows[1].warnings.join(' ')).toContain('zero');
-    expect(rows[2].errors).toHaveLength(3);
+    // Blank identity details are allowed: the worker is enrolled and the
+    // office collects them afterwards.
+    expect(rows[2].errors).toEqual([]);
+    expect(rows[2].warnings.join(' ')).toContain('Aadhaar, PAN, bank account pending');
     expect(rows[3].errors.join(' ')).toContain('lost digits');
   });
 
