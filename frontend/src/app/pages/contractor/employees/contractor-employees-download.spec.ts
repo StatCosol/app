@@ -9,11 +9,12 @@ describe('Contractor worker download', () => {
   let blobs: Blob[];
   let names: string[];
   const error = vi.fn();
+  const success = vi.fn();
   beforeEach(() => {
-    blobs = []; names = []; error.mockClear();
+    blobs = []; names = []; error.mockClear(); success.mockClear();
     type Args = ConstructorParameters<typeof ContractorEmployeesPageComponent>;
     component = new ContractorEmployeesPageComponent(
-      {} as Args[0], {} as Args[1], { error } as unknown as Args[2],
+      {} as Args[0], {} as Args[1], { error, success } as unknown as Args[2],
       {} as Args[3], { markForCheck: vi.fn() } as unknown as Args[4],
     );
     vi.spyOn(URL, 'createObjectURL').mockImplementation(blob => {
@@ -62,7 +63,7 @@ describe('Contractor worker download', () => {
     component.form.branchId = 'branch-1';
     component.availableBranches = [{ id: 'branch-1', branchName: 'Branch 1' }] as any;
     const create = vi.fn((_dto: Record<string, unknown>) => of({ id: 'new-worker' }));
-    (component as any).api = { create };
+    (component as any).api = { create, list: () => of({ data: [], total: 0 }) };
     component.saveEmployee();
     expect(component.formError).toBeNull();
     expect(create).toHaveBeenCalledTimes(1);
