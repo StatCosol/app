@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ConflictException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -174,6 +175,70 @@ export class ContractorEmployeesService {
       select: ['id', 'scheduledEmployment'],
     });
     return u?.scheduledEmployment ?? null;
+  }
+
+  /**
+   * Refuse a worker who is already on the register.
+   *
+   * Aadhaar identifies a person, so the same Aadhaar anywhere in the client is
+   * the same worker. Without one, the same name for the same contractor at the
+   * same branch is taken as the same worker — two people of that name at one
+   * site are rarer than the same person being entered twice, and the second
+   * entry can still be made once a detail tells them apart.
+   *
+   * Runs on the entity manager of the caller's transaction, so the row it is
+   * about to insert is checked under the same lock that allocates the code;
+   * checking outside it let two uploads of one file both pass and both insert.
+   *
+   * This existed from #197 and was dropped by #227 while removing helpers it
+   * used, which is how one file uploaded twice created every worker twice.
+   */
+  private async assertNoDuplicateRegistration(
+    em: EntityManager,
+    params: {
+      clientId: string;
+      branchId: string;
+      contractorUserId: string;
+      name: string;
+      aadhaar?: string | null;
+      excludeId?: string;
+    },
+  ): Promise<void> {
+    const name = String(params.name ?? '')
+      .trim()
+      .replace(/\s+/g, ' ');
+    const aadhaar = String(params.aadhaar ?? '').replace(/\D/g, '') || null;
+    const qb = em
+      .createQueryBuilder(ContractorEmployeeEntity, 'ce')
+      .where('ce.clientId = :clientId', { clientId: params.clientId })
+      .andWhere('(ce.isActive = true OR ce.status IN (:...activeStatuses))', {
+        activeStatuses: ['ACTIVE', 'PENDING_DELETE'],
+      });
+    if (params.excludeId)
+      qb.andWhere('ce.id <> :excludeId', { excludeId: params.excludeId });
+    if (aadhaar)
+      qb.andWhere(
+        "regexp_replace(COALESCE(ce.aadhaar, ''), '\\D', '', 'g') = :aadhaar",
+        { aadhaar },
+      );
+    else
+      qb.andWhere('ce.branchId = :branchId', { branchId: params.branchId })
+        .andWhere('ce.contractorUserId = :contractorUserId', {
+          contractorUserId: params.contractorUserId,
+        })
+        .andWhere('LOWER(TRIM(ce.name)) = LOWER(TRIM(:name))', { name });
+    const duplicate = await qb
+      .select(['ce.id', 'ce.name', 'ce.employeeCode'])
+      .getOne();
+    if (!duplicate) return;
+    const who = [duplicate.name, duplicate.employeeCode]
+      .filter(Boolean)
+      .join(' - ');
+    throw new ConflictException(
+      aadhaar
+        ? `This Aadhaar is already registered to ${who}`
+        : `${who} is already registered for this contractor at this branch. Add the Aadhaar to tell two workers of the same name apart.`,
+    );
   }
 
   /** Coerce DTO to entity-shape, normalizing enums & numbers. */
@@ -432,6 +497,13 @@ export class ContractorEmployeesService {
     // would let a second writer read the same MAX before this row is visible
     // and hand out the same code — which the index would not reject.
     return this.withCodeLock(clientId, async (em) => {
+      await this.assertNoDuplicateRegistration(em, {
+        clientId,
+        branchId,
+        contractorUserId,
+        name: trimmedName,
+        aadhaar: prepared.aadhaar,
+      });
       // An explicitly supplied code wins; this only fills the gap that used to
       // leave every contractor worker with a NULL code.
       const employeeCode =
@@ -474,6 +546,10 @@ export class ContractorEmployeesService {
     const results: BulkRowResult[] = [];
     let created = 0;
     let failed = 0;
+    // Repeats inside the file itself: the rows are not in the table yet, so
+    // the query below cannot see them.
+    const seenAadhaar = new Map<string, number>();
+    const seenName = new Map<string, number>();
 
     // Pre-load this contractor's allowed branches in this client so each
     // row's branchId can be validated cheaply (no per-row DB roundtrip).
@@ -546,6 +622,21 @@ export class ContractorEmployeesService {
         continue;
       }
 
+      const aadhaarKey = String(raw.aadhaar ?? '').replace(/\D/g, '');
+      const nameKey = `${branchId}|${name.toLowerCase().replace(/\s+/g, ' ')}`;
+      const earlier = aadhaarKey
+        ? seenAadhaar.get(aadhaarKey)
+        : seenName.get(nameKey);
+      if (earlier !== undefined) {
+        failed++;
+        results.push({
+          index: i,
+          ok: false,
+          error: `Same worker as row ${earlier + 1} of this file`,
+        });
+        continue;
+      }
+
       try {
         const prepared = this.prepare({ ...raw, skillCategory: skill });
 
@@ -562,6 +653,13 @@ export class ContractorEmployeesService {
         // one block for the whole upload, so a row that fails validation does
         // not burn a number and the lock is not held across the entire file.
         const saved = await this.withCodeLock(clientId, async (em) => {
+          await this.assertNoDuplicateRegistration(em, {
+            clientId,
+            branchId,
+            contractorUserId,
+            name,
+            aadhaar: prepared.aadhaar,
+          });
           const employeeCode =
             prepared.employeeCode ||
             (await this.nextEmployeeCode(em, clientId, contractorUserId));
@@ -579,6 +677,8 @@ export class ContractorEmployeesService {
           return em.save(emp);
         });
         created++;
+        if (aadhaarKey) seenAadhaar.set(aadhaarKey, i);
+        else seenName.set(nameKey, i);
         results.push({
           index: i,
           ok: true,
@@ -719,6 +819,18 @@ export class ContractorEmployeesService {
       monthlySalary: emp.monthlySalary ?? null,
       scheduledEmployment,
     });
+
+    // Filling in an Aadhaar is how a duplicate usually comes to light, so the
+    // same check runs here — against everyone but this worker.
+    if (prepared.name !== undefined || prepared.aadhaar !== undefined)
+      await this.assertNoDuplicateRegistration(this.repo.manager, {
+        clientId: emp.clientId,
+        branchId: emp.branchId,
+        contractorUserId: emp.contractorUserId,
+        name: emp.name,
+        aadhaar: emp.aadhaar,
+        excludeId: emp.id,
+      });
 
     return this.repo.save(emp);
   }

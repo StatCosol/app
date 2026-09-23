@@ -1578,6 +1578,17 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
 
   private validateBulkRows(rows: Record<string, any>[]): BulkPreviewRow[] {
     const allowedSkills = SKILL_CATEGORIES.map((s) => s.value);
+    // The same worker listed twice in one file, and workers already on the
+    // register. The server refuses both; showing it here means the file can be
+    // put right before anything is sent.
+    const seenAadhaar = new Map<string, number>();
+    const seenName = new Map<string, number>();
+    const onRegister = new Map<string, ContractorEmployee>();
+    for (const worker of this.allRows) {
+      const digits = String(worker.aadhaar ?? '').replace(/D/g, '');
+      if (digits) onRegister.set('a:' + digits, worker);
+      onRegister.set(`n:${worker.branchId}|${String(worker.name ?? '').trim().toLowerCase().replace(/s+/g, ' ')}`, worker);
+    }
     return rows.map((raw, index) => {
       const errors: string[] = [];
       const warnings: string[] = [];
@@ -1657,6 +1668,22 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       else if (!/^[0-9]{1,40}$/.test(dto.bankAccount)) errors.push('Bank account number must contain only digits (maximum 40)');
       if (pending.length)
         warnings.push(`Will be enrolled with ${pending.join(', ')} pending`);
+
+      const digits = String(dto.aadhaar ?? '').replace(/D/g, '');
+      const nameKey = `${dto.branchId}|${name.toLowerCase().replace(/s+/g, ' ')}`;
+      const twice = digits ? seenAadhaar.get(digits) : seenName.get(nameKey);
+      if (twice !== undefined) errors.push(`Same worker as row ${twice + 1} of this file`);
+      else {
+        if (digits) seenAadhaar.set(digits, index);
+        else seenName.set(nameKey, index);
+        const already = onRegister.get(digits ? 'a:' + digits : 'n:' + nameKey);
+        if (already)
+          errors.push(
+            digits
+              ? `This Aadhaar is already registered to ${already.name}${already.employeeCode ? ' (' + already.employeeCode + ')' : ''}`
+              : `${already.name}${already.employeeCode ? ' (' + already.employeeCode + ')' : ''} is already registered at this branch`,
+          );
+      }
       return { index, raw, dto, errors, warnings };
     });
   }
