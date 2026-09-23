@@ -1207,8 +1207,9 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
 
     // These mirror the DTO's column widths. Without them the only feedback was
     // a 400 whose body named the field, in a form that showed the raw array.
+    // Aadhaar, PAN and the bank account may be left for later — the worker is
+    // enrolled with them pending — so only what was actually typed is checked.
     const tooLong =
-      (!this.editingId && (!aadhaar || !pan || !bankAccount) && 'Aadhaar, PAN and bank account number are required.') ||
       (bankAccount && !/^[0-9]{1,40}$/.test(bankAccount) && 'Bank account number must contain only digits (maximum 40).') ||
       (aadhaar && !/^\d{12}$/.test(aadhaar) && 'Aadhaar must be 12 digits.') ||
       (pan && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan) && 'PAN must use the format ABCDE1234F.') ||

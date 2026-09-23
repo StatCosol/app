@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import { of } from 'rxjs';
 import * as XLSX from 'xlsx';
 import { ContractorEmployeesPageComponent } from './contractor-employees-page.component';
 import { ContractorEmployee } from '../../../core/contractor-employees-api.service';
@@ -56,10 +57,25 @@ describe('Contractor worker download', () => {
     expect(component.filteredRows).toHaveLength(1);
   });
 
-  it('blocks new registration without mandatory identity and bank details', () => {
+  it('registers a worker whose identity and bank details are still to come', () => {
     component.form.name = 'Synthetic Worker';
+    component.form.branchId = 'branch-1';
+    component.availableBranches = [{ id: 'branch-1', branchName: 'Branch 1' }] as any;
+    const create = vi.fn((_dto: Record<string, unknown>) => of({ id: 'new-worker' }));
+    (component as any).api = { create };
     component.saveEmployee();
-    expect(component.formError).toContain('Aadhaar, PAN and bank account number are required');
+    expect(component.formError).toBeNull();
+    expect(create).toHaveBeenCalledTimes(1);
+    const sent = create.mock.calls[0][0] as Record<string, unknown>;
+    for (const field of ['aadhaar', 'pan', 'bankAccount'])
+      expect(sent[field]).toBeNull();
+  });
+
+  it('still refuses an identity detail that is typed in wrongly', () => {
+    component.form.name = 'Synthetic Worker';
+    component.form.aadhaar = '12345';
+    component.saveEmployee();
+    expect(component.formError).toContain('Aadhaar must be 12 digits');
     expect(component.saving).toBe(false);
   });
 
