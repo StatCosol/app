@@ -20,6 +20,13 @@ import {
   SkillCategory,
 } from '../entities/contractor-employee.entity';
 
+/**
+ * Spaces out, and a cell left empty counts as not supplied — an empty string
+ * would otherwise fail the format check it is exempt from.
+ */
+export const blankToUndefined = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.replace(/\s+/g, '') || undefined : value;
+
 export class CreateContractorEmployeeDto {
   @IsNotEmpty()
   @IsString()
@@ -59,33 +66,43 @@ export class CreateContractorEmployeeDto {
   @IsDateString()
   dateOfJoining?: string;
 
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.replace(/\s+/g, '') : value,
-  )
+  /*
+   * Aadhaar, PAN and the bank account may be left out at enrolment.
+   *
+   * A worker is often put on site before their documents are collected, and
+   * refusing the record until then left them unrecorded — worse than holding
+   * an incomplete one. A blank cell is therefore accepted and the worker is
+   * listed as details pending (see `detailsPending` on the entity) until it is
+   * filled in; anything actually typed still has to be the right shape, so a
+   * mistyped number cannot pass as a real one.
+   */
+  @IsOptional()
+  @Transform(blankToUndefined)
   @IsString()
   @Matches(/^\d{12}$/, {
-    message: 'Aadhaar is required and must contain 12 digits',
+    message: 'Aadhaar must contain 12 digits',
   })
-  aadhaar: string;
+  aadhaar?: string;
 
+  @IsOptional()
   @Transform(({ value }) =>
-    typeof value === 'string' ? value.replace(/\s+/g, '').toUpperCase() : value,
+    typeof value === 'string'
+      ? value.replace(/\s+/g, '').toUpperCase() || undefined
+      : value,
   )
   @IsString()
   @Matches(/^[A-Z]{5}[0-9]{4}[A-Z]$/, {
-    message: 'PAN is required and must use the format ABCDE1234F',
+    message: 'PAN must use the format ABCDE1234F',
   })
-  pan: string;
+  pan?: string;
 
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.replace(/\s+/g, '') : value,
-  )
+  @IsOptional()
+  @Transform(blankToUndefined)
   @IsString()
   @Matches(/^[0-9]{1,40}$/, {
-    message:
-      'Bank account number is required and must contain only digits (maximum 40)',
+    message: 'Bank account number must contain only digits (maximum 40)',
   })
-  bankAccount: string;
+  bankAccount?: string;
 
   @IsOptional()
   @IsString()
@@ -188,10 +205,10 @@ export class CreateContractorEmployeeDto {
 }
 
 export class UpdateContractorEmployeeDto {
+  // A field left empty on the form means "leave it as it is", not "clear it",
+  // so a worker's pending details can be filled in one at a time.
   @IsOptional()
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.replace(/\s+/g, '') : value,
-  )
+  @Transform(blankToUndefined)
   @IsString()
   @Matches(/^[0-9]{1,40}$/, {
     message: 'Bank account number must contain only digits (maximum 40)',
@@ -237,16 +254,16 @@ export class UpdateContractorEmployeeDto {
   dateOfJoining?: string;
 
   @IsOptional()
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.replace(/\s+/g, '') : value,
-  )
+  @Transform(blankToUndefined)
   @IsString()
   @Matches(/^\d{12}$/, { message: 'Aadhaar must contain 12 digits' })
   aadhaar?: string;
 
   @IsOptional()
   @Transform(({ value }) =>
-    typeof value === 'string' ? value.replace(/\s+/g, '').toUpperCase() : value,
+    typeof value === 'string'
+      ? value.replace(/\s+/g, '').toUpperCase() || undefined
+      : value,
   )
   @IsString()
   @Matches(/^[A-Z]{5}[0-9]{4}[A-Z]$/, {

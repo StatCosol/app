@@ -14,7 +14,7 @@ const valid = {
   bankAccount: '001234567890',
 };
 for (const dto of [CreateContractorEmployeeDto, BulkContractorEmployeeRowDto]) {
-  describe(`${dto.name} required registration details`, () => {
+  describe(`${dto.name} registration details`, () => {
     const errors = (data: object) =>
       validateSync(
         plainToInstance<
@@ -22,11 +22,14 @@ for (const dto of [CreateContractorEmployeeDto, BulkContractorEmployeeRowDto]) {
           object
         >(dto, data),
       ).map((e) => e.property);
+    // A worker often starts before their documents are collected. Enrolling
+    // them with these blank is allowed; the record reads as details pending
+    // until each is supplied.
     for (const field of ['aadhaar', 'pan', 'bankAccount']) {
       it.each([undefined, null, '', '   '])(
-        `rejects missing ${field}: %s`,
+        `enrols with ${field} still to come: %s`,
         (value) => {
-          expect(errors({ ...valid, [field]: value })).toContain(field);
+          expect(errors({ ...valid, [field]: value })).not.toContain(field);
         },
       );
     }
@@ -67,14 +70,24 @@ it('allows an unrelated edit to an existing employee without inventing missing i
 describe('contract employee identity updates', () => {
   it.each([
     ['aadhaar', 'abc'],
-    ['aadhaar', ''],
     ['pan', '123'],
-    ['pan', '   '],
+    ['bankAccount', 'AB12'],
   ])('rejects malformed supplied %s', (field, value) => {
     const errors = validateSync(
       plainToInstance(UpdateContractorEmployeeDto, { [field]: value }),
     );
     expect(errors.map((e) => e.property)).toContain(field);
+  });
+  it.each([
+    ['aadhaar', ''],
+    ['pan', '   '],
+    ['bankAccount', ''],
+  ])('leaves %s as it is when the form posts it empty', (field) => {
+    const value = plainToInstance(UpdateContractorEmployeeDto, {
+      [field]: '',
+    }) as unknown as Record<string, unknown>;
+    expect(validateSync(value)).toHaveLength(0);
+    expect(value[field]).toBeUndefined();
   });
   it('normalizes supplied fields while keeping omitted legacy values optional', () => {
     const value = plainToInstance(UpdateContractorEmployeeDto, {

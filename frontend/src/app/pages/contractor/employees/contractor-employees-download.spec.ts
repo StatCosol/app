@@ -63,7 +63,7 @@ describe('Contractor worker download', () => {
     expect(component.saving).toBe(false);
   });
 
-  it('validates mandatory bulk fields, and takes a numeric bank cell that kept its digits', () => {
+  it('validates bulk fields, and takes a numeric bank cell that kept its digits', () => {
     component.availableBranches = [{ id: 'branch-1', branchName: 'Branch 1' }] as any;
     component.bulkBranchId = 'branch-1';
     const valid = { name: 'Synthetic Worker', skillCategory: 'SKILLED', monthlySalary: 15000, aadhaar: '123456789012', pan: 'abcde1234f', bankAccount: '001234567890' };
@@ -81,7 +81,10 @@ describe('Contractor worker download', () => {
     expect(rows[1].errors).toEqual([]);
     expect(rows[1].dto.bankAccount).toBe('1234567890');
     expect(rows[1].warnings.join(' ')).toContain('zero');
-    expect(rows[2].errors).toHaveLength(3);
+    // Blank identity details are allowed: the worker is enrolled and the
+    // office collects them afterwards.
+    expect(rows[2].errors).toEqual([]);
+    expect(rows[2].warnings.join(' ')).toContain('Aadhaar, PAN, bank account pending');
     expect(rows[3].errors.join(' ')).toContain('lost digits');
   });
 

@@ -162,3 +162,23 @@ export class ContractorEmployeeEntity {
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 }
+
+/**
+ * Identity details a worker may be enrolled without and give later.
+ *
+ * Nothing stops the worker being recorded, put on attendance or paid; the
+ * record simply reads as incomplete until each is supplied, so the office can
+ * chase what is outstanding.
+ */
+export const PENDING_DETAIL_FIELDS = ['aadhaar', 'pan', 'bankAccount'] as const;
+
+/** Which of those a worker still owes, in the order above. */
+export function pendingDetails(
+  employee: Partial<
+    Pick<ContractorEmployeeEntity, (typeof PENDING_DETAIL_FIELDS)[number]>
+  >,
+): string[] {
+  return PENDING_DETAIL_FIELDS.filter(
+    (field) => !String(employee?.[field] ?? '').trim(),
+  );
+}
