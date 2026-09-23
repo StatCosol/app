@@ -20,6 +20,12 @@ function makeService(opts: {
   const checkSalary = jest.fn().mockResolvedValue(null);
 
   const em = {
+    createQueryBuilder: jest.fn(() => {
+      const qb: any = {};
+      for (const m of ['where', 'andWhere', 'select']) qb[m] = () => qb;
+      qb.getOne = async () => undefined; // nobody registered yet
+      return qb;
+    }),
     query: jest.fn().mockResolvedValue([]),
     create: jest.fn((_entity: any, v: any) => v),
     save: jest.fn(async (v: any) => ({ id: 'new-id', ...v })),

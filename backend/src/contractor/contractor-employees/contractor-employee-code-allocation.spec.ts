@@ -269,6 +269,14 @@ describe('ContractorEmployeesService code allocation — review regressions', ()
     };
     const em = {
       query: jest.fn(run),
+      // The registration check runs on the same transaction; nobody matches
+      // here, this suite being about code allocation.
+      createQueryBuilder: jest.fn(() => {
+        const qb: any = {};
+        for (const m of ['where', 'andWhere', 'select']) qb[m] = () => qb;
+        qb.getOne = async () => undefined;
+        return qb;
+      }),
       create: jest.fn((_e: any, v: any) => v),
       save: jest.fn(async (v: any) => {
         // A marker in the same stream as the SQL, so the test can prove the row

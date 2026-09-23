@@ -86,9 +86,9 @@ describe('Contractor worker download', () => {
     const valid = { name: 'Synthetic Worker', skillCategory: 'SKILLED', monthlySalary: 15000, aadhaar: '123456789012', pan: 'abcde1234f', bankAccount: '001234567890' };
     const rows = component['validateBulkRows']([
       valid,
-      { ...valid, bankAccount: 1234567890 }, // Excel made a number of it, losslessly
-      { ...valid, aadhaar: '', pan: '', bankAccount: '' },
-      { ...valid, bankAccount: 1234567890123456 }, // 16 digits: Excel already corrupted it
+      { ...valid, name: 'Second Worker', aadhaar: '123456789013', bankAccount: 1234567890 }, // Excel made a number of it, losslessly
+      { ...valid, name: 'Third Worker', aadhaar: '', pan: '', bankAccount: '' },
+      { ...valid, name: 'Fourth Worker', aadhaar: '123456789014', bankAccount: 1234567890123456 }, // 16 digits: Excel already corrupted it
     ]);
     expect(rows[0].errors).toEqual([]);
     expect(rows[0].dto.bankAccount).toBe('001234567890');

@@ -79,10 +79,11 @@ describe('Contractor bulk upload — identity cells from Excel', () => {
 
   it('counts rows carrying a warning separately from rows with errors', () => {
     component.bulkPreview = component['validateBulkRows']([
-      row({ bankAccount: 12345678901 }), // warning: a leading zero may be gone
-      row({ bankAccount: 'AB-123' }), // error: not an account number at all
-      row({ bankAccount: '' }), // warning: enrolled with the account pending
-      row(), // clean
+      // Four different workers: a repeat of one is refused outright.
+      row({ aadhaar: '100000000001', bankAccount: 12345678901 }), // warning: a leading zero may be gone
+      row({ aadhaar: '100000000002', bankAccount: 'AB-123' }), // error: not an account number at all
+      row({ aadhaar: '100000000003', bankAccount: '' }), // warning: enrolled with the account pending
+      row({ aadhaar: '100000000004' }), // clean
     ]);
 
     expect(component.bulkWarningCount).toBe(2);
