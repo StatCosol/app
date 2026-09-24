@@ -1,3 +1,4 @@
+import { ClientCommPolicyService } from './client-comm-policy.service';
 import { Module } from '@nestjs/common';
 import { AccessModule } from '../access/access.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -20,6 +21,7 @@ import { ClientCommTemplatesService } from './client-comm-templates.service';
   ],
   controllers: [ClientContactsController],
   providers: [
+    ClientCommPolicyService,
     ClientContactsService,
     ClientCommsCronService,
     ClientCommTemplatesService,

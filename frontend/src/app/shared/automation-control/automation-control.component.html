@@ -16,6 +16,16 @@
   @if (loading()) {
     <p role="status">Loading automation settings…</p>
   }
+  <details class="panel">
+    <summary>All scheduled jobs @if (inventory(); as registry) { ({{ registry.jobs.length }}) }</summary>
+    @if (inventoryError()) { <p role="alert">{{ inventoryError() }}</p> }
+    @if (inventory(); as registry) {
+      <p>{{ registry.note }}</p>
+      <div style="overflow-x:auto"><table><thead><tr><th>Operation</th><th>Schedule</th><th>Time zone</th><th>Control</th></tr></thead><tbody>
+      @for (job of registry.jobs; track job.id) { <tr><td>{{ job.service }} / {{ job.operation }}</td><td>{{ job.schedule }}</td><td>{{ job.timeZone }}</td><td>{{ !job.enabled ? 'Disabled' : job.managedHere ? 'Rules below' : 'Module settings' }}</td></tr> }
+      </tbody></table></div>
+    }
+  </details>
   @if (overview(); as data) {
     <nav class="rules" aria-label="Automation rules">
       @for (item of data.rules; track item.key) {
@@ -377,6 +387,7 @@
             @if (run.result?.['actions']; as actions) {
               <details>
                 <summary>Gap explanations and next actions</summary>
+                <p>Reviewed {{ run.result?.['reviewedTasks'] }} of {{ run.result?.['openTasks'] }} open activities. Highest priority first; this is a partial review when work remains.</p>
                 <p class="small">{{ run.result?.['note'] }}</p>
                 @for (action of actions; track action.id) {
                   <article>

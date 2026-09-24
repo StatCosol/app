@@ -304,6 +304,22 @@ export class TaskCenterService {
       COALESCE((SELECT json_agg(x ORDER BY x.name) FROM (SELECT DISTINCT branch_id AS id,branch_name AS name,client_id AS "clientId" FROM named WHERE branch_id IS NOT NULL) x),'[]'::json) AS branches,
       COALESCE((SELECT json_agg(x.module ORDER BY x.module) FROM (SELECT DISTINCT module FROM named) x),'[]'::json) AS modules`;
     const [result] = await this.dataSource.query(sql, values);
+    const auditTasks = (result?.items || []).filter(
+      (item) => item.reference_type === 'AUDIT_NON_COMPLIANCE',
+    );
+    if (auditTasks.length) {
+      const contexts = await this.dataSource.query(
+        `SELECT t.id, a.id AS audit_id
+        FROM system_tasks t JOIN audit_non_compliances nc ON nc.id=t.reference_id
+        JOIN audits a ON a.id=nc.audit_id AND a.client_id=t.client_id
+          AND (t.branch_id IS NULL OR a.branch_id=t.branch_id)
+        WHERE t.id=ANY($1::uuid[]) AND ($2::text <> 'AUDITOR' OR a.assigned_auditor_id=$3::uuid)`,
+        [auditTasks.map((item) => item.id), scope.role, scope.userId || null],
+      );
+      for (const item of auditTasks)
+        item.audit_id =
+          contexts.find((row) => row.id === item.id)?.audit_id || null;
+    }
     return {
       ...result,
       limit: pageSize,

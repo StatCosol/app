@@ -68,6 +68,15 @@ describe('My Work browser behavior', () => {
     f.detectChanges();
     return f;
   }
+  it('routes audit and CRM filing tasks to their scoped source records', () => {
+    const f = mount(); http.expectOne(r => r.url.endsWith('/tasks/workspace')).flush(response);
+    router.url = '/auditor/my-work';
+    const item = { ...response.items[0], reference_id: 'nc', reference_type: 'AUDIT_NON_COMPLIANCE', audit_id: 'audit-a' } as any;
+    expect(f.componentInstance.workArea(item)).toBe('/auditor/audits/audit-a/workspace');
+    router.url = '/crm/my-work'; item.reference_type = 'RENEWAL_FILING'; item.reference_id = 'filing-a';
+    expect(f.componentInstance.workArea(item)).toBe('/crm/returns');
+    expect(f.componentInstance.workContext(item).filingId).toBe('filing-a'); f.destroy();
+  });
   it('renders reconciled cards, selected context and next-step guidance', () => {
     const f = mount();
     const req = http.expectOne((r) => r.url.endsWith('/tasks/workspace'));

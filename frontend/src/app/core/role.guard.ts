@@ -3,7 +3,7 @@ import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from './auth.service';
 
 export const roleGuard = (roles: string[]): CanActivateFn => {
-  return () => {
+  return (_route, state) => {
     const auth = inject(AuthService);
     const router = inject(Router);
 
@@ -13,7 +13,7 @@ export const roleGuard = (roles: string[]): CanActivateFn => {
       if (roles.includes('EMPLOYEE') || window.location.pathname.startsWith('/ess/')) {
         return router.parseUrl('/ess/login');
       }
-      return router.parseUrl('/login');
+      return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
     }
 
     const role = auth.getRoleCode();
@@ -26,7 +26,7 @@ export const roleGuard = (roles: string[]): CanActivateFn => {
         return router.parseUrl(redirectPath);
       }
       // Unknown role — go to login
-      return router.parseUrl('/login');
+      return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
     }
 
     return true;

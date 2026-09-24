@@ -51,7 +51,11 @@ export class InvoicesService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async create(dto: CreateInvoiceDto, userId: string) {
+  async create(
+    dto: CreateInvoiceDto,
+    userId: string,
+    recurringInvoiceId?: string,
+  ) {
     const client = await this.clientRepo.findOne({
       where: { id: dto.billingClientId },
     });
@@ -110,6 +114,7 @@ export class InvoicesService {
     );
 
     const invoice = this.invoiceRepo.create({
+      ...(recurringInvoiceId ? { id: recurringInvoiceId } : {}),
       tenantId: client.tenantId,
       billingClientId: dto.billingClientId,
       invoiceType: dto.invoiceType,

@@ -1,3 +1,4 @@
+import { ClientCommPolicyComponent } from './client-comm-policy.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -52,7 +53,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
 @Component({
   selector: 'app-admin-client-contacts',
   standalone: true,
-  imports: [FormsModule, PageHeaderComponent],
+  imports: [FormsModule, PageHeaderComponent, ClientCommPolicyComponent],
   template: `
     <ui-page-header
       title="Client Department Contacts"
@@ -123,6 +124,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
 
         <!-- ────── RIGHT: Contacts for selected client ────── -->
         <div class="lg:col-span-8 space-y-4">
+          @if (selectedClient(); as client) { <app-client-comm-policy [clientId]="client.id" /> }
           @if (!selectedClient()) {
 <div
            
@@ -477,13 +479,16 @@ export class AdminClientContactsComponent implements OnInit {
   }
 
   loadContacts(clientId: string): void {
+    this.contacts.set([]);
     this.loadingContacts.set(true);
     this.contactsSvc.list(clientId).subscribe({
       next: (rows) => {
+        if (this.selectedClient()?.id !== clientId) return;
         this.contacts.set(rows || []);
         this.loadingContacts.set(false);
       },
       error: () => {
+        if (this.selectedClient()?.id !== clientId) return;
         this.loadingContacts.set(false);
         this.flash('err', 'Failed to load contacts');
       },

@@ -65,6 +65,9 @@ interface Run {
 })
 export class AutomationControlComponent implements OnInit, OnDestroy {
   readonly base = `${environment.apiBaseUrl}/api/v1/automation/control-center`;
+  inventory = signal<{ jobs: { id: string; operation: string; service: string; schedule: string; timeZone: string; enabled: boolean; managedHere: boolean }[]; note: string } | null>(null);
+  inventoryError = signal('');
+  private inventoryRequest?: Subscription;
   overview = signal<Overview | null>(null);
   preview = signal<Preview | null>(null);
   runs = signal<Run[]>([]);
@@ -104,6 +107,7 @@ export class AutomationControlComponent implements OnInit, OnDestroy {
     this.refresh();
   }
   ngOnDestroy() {
+    this.inventoryRequest?.unsubscribe();
     this.previewRequest?.unsubscribe();
     this.subscriptions.unsubscribe();
   }
@@ -153,6 +157,11 @@ export class AutomationControlComponent implements OnInit, OnDestroy {
     return (this.overview()?.controls || []).filter((c) => c.rule_key === this.ruleKey);
   }
   refresh(successMessage?: string) {
+    this.inventoryRequest?.unsubscribe();
+    this.inventory.set(null);
+    this.inventoryError.set('');
+    this.inventoryRequest = this.http.get<any>(`${this.base}/inventory`).subscribe({ next: r => this.inventory.set(r), error: () => this.inventoryError.set('Job inventory is unavailable. Refresh to retry.') });
+
     this.overviewRequest?.unsubscribe();
     this.loading.set(true);
     this.error.set('');

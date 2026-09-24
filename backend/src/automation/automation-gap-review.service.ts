@@ -17,7 +17,7 @@ export class AutomationGapReviewService {
       `SELECT t.id,t.title,t.status,t.due_date,t.client_id,t.branch_id,t.assigned_role
       FROM system_tasks t LEFT JOIN clients c ON c.id=t.client_id
       WHERE t.status NOT IN ('CLOSED','CANCELLED') AND (t.client_id IS NULL OR c.is_deleted=false)
-      ORDER BY t.due_date ASC NULLS LAST,t.id`,
+      ORDER BY CASE t.priority WHEN 'CRITICAL' THEN 0 WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 ELSE 3 END,t.due_date ASC NULLS LAST,t.id`,
       [],
       scope,
     );
@@ -79,6 +79,12 @@ export class AutomationGapReviewService {
       mode,
       openTasks: rows.length,
       reviewedTasks: actions.length,
+      remainingTasks: Math.max(0, rows.length - actions.length),
+      coverage: {
+        reviewed: actions.length,
+        total: rows.length,
+        order: 'Priority, then due date',
+      },
       actions,
       note:
         mode === 'AI'

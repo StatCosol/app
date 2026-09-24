@@ -109,6 +109,7 @@ describe('Automation Control Centre browser behaviour', () => {
   function mount() {
     const f = TestBed.createComponent(AutomationControlComponent);
     f.detectChanges();
+    http.expectOne((r) => r.url.endsWith('/inventory')).flush({ jobs: [], note: 'Registered schedules only' });
     http.expectOne((r) => r.url.endsWith('/control-center')).flush(data);
     http.expectOne((r) => r.url.endsWith('/runs')).flush({ rows: [], total: 0 });
     http.expectOne((r) => r.url.endsWith('/changes')).flush([]);

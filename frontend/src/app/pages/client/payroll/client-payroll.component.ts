@@ -1,3 +1,4 @@
+import { ActivatedRoute } from '@angular/router';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -190,9 +191,20 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
     private readonly branchesSvc: ClientBranchesService,
     private readonly toast: ToastService,
     private readonly protectedFiles: ProtectedFileService,
+    private readonly route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
+    this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe(params => {
+      const month = params.get('month') || '';
+      if (/^\d{4}-(0[1-9]|1[0-2])$/.test(month) && Number(month.slice(0,4)) > 0) {
+        this.filters.periodYear = Number(month.slice(0,4));
+        this.filters.periodMonth = Number(month.slice(5));
+        this.newInput.periodYear = this.filters.periodYear;
+        this.newInput.periodMonth = this.filters.periodMonth;
+        this.recomputeWorkspace();
+      }
+    });
     this.loadBranches();
     this.loadInputs();
   }

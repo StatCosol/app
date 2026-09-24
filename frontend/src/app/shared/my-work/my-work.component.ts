@@ -172,7 +172,16 @@ export class MyWorkComponent implements OnInit, OnDestroy {
       return 'Open the assigned audit, compare the evidence with the requirement and record your finding.';
     return 'Open the work area, locate this task and complete the next permitted step. Review any outstanding remarks first.';
   }
+  workContext(item: WorkItem) {
+    return { clientId: item.client_id, branchId: item.branch_id,
+      filingId: ['COMPLIANCE_RETURN', 'RENEWAL_FILING'].includes(item.reference_type || '') ? item.reference_id : null };
+  }
   workArea(item: WorkItem): string | null {
+    if (this.portal === 'crm' && ['COMPLIANCE_RETURN', 'RENEWAL_FILING'].includes(item.reference_type || '')) return '/crm/returns';
+    if (item.reference_type === 'AUDIT_NON_COMPLIANCE' && item.audit_id) {
+      if (this.portal === 'auditor') return `/auditor/audits/${item.audit_id}/workspace`;
+      if (['branch', 'contractor'].includes(this.portal)) return `/${this.portal}/audits/${item.audit_id}/non-compliances`;
+    }
     if (this.portal === 'contractor')
       return item.module === 'PAYROLL' ? '/contractor/payroll-computation' : '/contractor/tasks';
     if (this.portal === 'auditor' && item.module === 'AUDIT') return '/auditor/audits';

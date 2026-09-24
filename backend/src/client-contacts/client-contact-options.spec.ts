@@ -34,6 +34,7 @@ describe('Client contact option ownership', () => {
       {} as ClientCommsCronService,
       {} as ClientCommTemplatesService,
       access as unknown as AccessScopeService,
+      {} as any,
     );
   });
 

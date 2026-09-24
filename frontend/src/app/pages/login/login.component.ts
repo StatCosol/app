@@ -1,3 +1,4 @@
+import { safePortalReturnUrl } from '../../shared/navigation/return-url';
 import { Component, OnDestroy, OnInit, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -97,7 +98,8 @@ export class LoginComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.router.navigateByUrl(redirectPath);
+    const requested = this.router.parseUrl(this.router.url).queryParams['returnUrl'];
+    this.router.navigateByUrl(safePortalReturnUrl(requested) || redirectPath);
   }
 
   ngOnDestroy(): void {
