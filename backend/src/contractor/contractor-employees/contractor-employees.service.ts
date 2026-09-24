@@ -226,7 +226,13 @@ export class ContractorEmployeesService {
         .andWhere('ce.contractorUserId = :contractorUserId', {
           contractorUserId: params.contractorUserId,
         })
-        .andWhere('LOWER(TRIM(ce.name)) = LOWER(TRIM(:name))', { name });
+        // The stored name is compared the same way the supplied one was
+        // prepared — runs of spaces collapsed — so "Ravi  Kumar" already on
+        // the register matches "Ravi Kumar" being entered now.
+        .andWhere(
+          "LOWER(BTRIM(regexp_replace(ce.name, '\\s+', ' ', 'g'))) = LOWER(:name)",
+          { name: name.toLowerCase() },
+        );
     const duplicate = await qb
       .select(['ce.id', 'ce.name', 'ce.employeeCode'])
       .getOne();
@@ -821,9 +827,13 @@ export class ContractorEmployeesService {
     });
 
     // Filling in an Aadhaar is how a duplicate usually comes to light, so the
-    // same check runs here — against everyone but this worker.
-    if (prepared.name !== undefined || prepared.aadhaar !== undefined)
-      await this.assertNoDuplicateRegistration(this.repo.manager, {
+    // same check runs here — against everyone but this worker. Under the
+    // client's lock and in the transaction that saves, or two edits assigning
+    // the same Aadhaar at once would each see no duplicate and both write.
+    if (prepared.name === undefined && prepared.aadhaar === undefined)
+      return this.repo.save(emp);
+    return this.withCodeLock(emp.clientId, async (em) => {
+      await this.assertNoDuplicateRegistration(em, {
         clientId: emp.clientId,
         branchId: emp.branchId,
         contractorUserId: emp.contractorUserId,
@@ -831,8 +841,8 @@ export class ContractorEmployeesService {
         aadhaar: emp.aadhaar,
         excludeId: emp.id,
       });
-
-    return this.repo.save(emp);
+      return em.save(emp);
+    });
   }
 
   async deactivate(
