@@ -30,13 +30,14 @@ export interface AuditorAuditItem {
   branchName: string;
   auditName: string;
   dueDate: string; // YYYY-MM-DD
-  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'SUBMITTED';
+  status: 'PLANNED' | 'ASSIGNED' | 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'SUBMITTED' | 'CORRECTION_PENDING' | 'REVERIFICATION_PENDING' | 'CLOSED' | 'CANCELLED';
   progressPct: number;
 }
 
 /** Observation pending closure */
 export interface AuditorObservationPending {
   observationId: string;
+  auditId?: string;
   clientId: string;
   clientName: string;
   branchId: string;
@@ -73,7 +74,7 @@ export interface AuditorReportPending {
   branchName?: string;
   auditName: string;
   dueDate: string; // YYYY-MM-DD
-  status: 'PENDING_SUBMISSION' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
+  status: AuditorAuditItem['status'];
 }
 
 /** Activity timeline item */

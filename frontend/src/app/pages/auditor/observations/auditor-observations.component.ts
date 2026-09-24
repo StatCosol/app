@@ -49,7 +49,7 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   branchResponseDraft = '';
   capaDraft = '';
 
-  readonly statusOptions = ['', 'OPEN', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
+  readonly statusOptions = ['', 'NEEDS_ACTION', 'OPEN', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
   readonly riskOptions = ['', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 
   constructor(
@@ -71,6 +71,7 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
         this.filterAuditId = query.get('auditId') || '';
         this.focusedId = query.get('observationId') || '';
         this.filterStatus = query.get('status') || '';
+        this.filterRisk = query.get('risk') || '';
         this.selected = null;
         this.loadObservations();
       });
@@ -85,7 +86,9 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   get filteredRows(): any[] {
     const q = this.filterSearch.trim().toLowerCase();
     return this.observations.filter((row) => {
-      if (this.filterStatus && this.statusKey(row.status) !== this.filterStatus) return false;
+      if (this.filterStatus === 'NEEDS_ACTION') {
+        if (!['OPEN', 'ACKNOWLEDGED', 'IN_PROGRESS'].includes(this.statusKey(row.status))) return false;
+      } else if (this.filterStatus && this.statusKey(row.status) !== this.filterStatus) return false;
       if (this.filterRisk && this.statusKey(row.risk) !== this.filterRisk) return false;
       if (!q) return true;
       const text = `${row.observation || ''} ${row.clause || ''} ${row.recommendation || ''}`.toLowerCase();
@@ -419,9 +422,9 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (rows: any) => {
           this.observations = Array.isArray(rows) ? rows : [];
-          const focused = this.observations.find(row => row.id === retainId);
+          const focused = this.filteredRows.find(row => row.id === retainId);
           if (focused) this.selectObservation(focused);
-          else if (!this.focusedId && this.observations.length) this.selectObservation(this.filteredRows[0] || this.observations[0]);
+          else if (!this.focusedId && this.filteredRows.length) this.selectObservation(this.filteredRows[0]);
           else if (this.focusedId) this.loadError = 'This observation is not available in your assigned audit scope.';
           this.focusedId = '';
 

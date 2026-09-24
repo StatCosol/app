@@ -36,4 +36,17 @@ describe('AuditXpert corrections workspace', () => {
     x.component.openEvidence('compliance/evidence.pdf'); expect(x.files.open).toHaveBeenCalledWith('compliance/evidence.pdf');
     x.component.openEvidence('https://example.invalid/private.pdf'); expect(x.files.open).toHaveBeenCalledTimes(1);
   });
+  it('shows exactly the needs-action findings and clears a hidden selection', () => {
+    const x = setup();
+    x.component.observations = ['OPEN', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'].map(status => ({ id: status, status }));
+    x.component.selectObservation(x.component.observations[4]);
+    x.component.chooseStatus('NEEDS_ACTION');
+    expect(x.component.filteredRows.map(row => row.status)).toEqual(['OPEN', 'ACKNOWLEDGED', 'IN_PROGRESS']);
+    expect(x.component.filteredRows.length).toBe(x.component.openCount);
+    expect(x.component.selected.status).toBe('OPEN');
+    x.api.list.mockReturnValue(of([{ id: 'closed', status: 'CLOSED' }]));
+    x.component.loadObservations();
+    expect(x.component.filteredRows).toEqual([]);
+    expect(x.component.selected).toBeNull();
+  });
 });

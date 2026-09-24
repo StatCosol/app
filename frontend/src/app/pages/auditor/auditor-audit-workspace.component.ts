@@ -9,7 +9,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
-import { Subject, combineLatest, of, forkJoin } from 'rxjs';
+import { Subject, combineLatest, of } from 'rxjs';
 import { catchError, finalize, takeUntil } from 'rxjs/operators';
 
 import { AuditsService } from '../../core/audits.service';
@@ -59,6 +59,7 @@ interface GuardrailItem {
 }
 
 type WorkspaceTabKey =
+  | 'findings'
   | 'info'
   | 'documents'
   | 'checklist'
@@ -146,8 +147,15 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   checklistSummary: any = {};
   loadingChecklist = false;
   newChecklistLabel = '';
+  checklistTemplate: Array<[string, string?]> = [];
+  checklistError = '';
+  checklistSavingId = '';
+  checklistRemarks: Record<string, string> = {};
+  checklistDecisions: Record<string, string> = {};
+  checklistVerified: Record<string, boolean> = {};
   addingChecklistItem = false;
-  private checklistAutoGenAttempted = false;
+  documentsError = '';
+  automationVerified: Record<string, boolean> = {};
 
   // ─── Upload Lock ────────────────────────────────
   uploadLockFrom: string = '';
@@ -178,6 +186,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
         const queryAuditId = query.get('auditId');
         const nextAuditId = paramAuditId || queryAuditId || null;
         this.initializeForAudit(nextAuditId);
+        if (query.get('tab') === 'checklist') this.activeTab = 'checklist';
       });
   }
 
@@ -238,8 +247,13 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
         meta: `${this.checklistSummary.pending || 0} pending`,
       },
       {
+        key: 'findings',
+        label: '4. Findings & Remarks',
+        meta: `${this.observations.length} findings`,
+      },
+      {
         key: 'submit',
-        label: '4. Finish Audit',
+        label: '5. Finish Audit',
         meta: this.canSubmitReviewRound ? 'Ready' : 'Blocked',
         attention: !this.canSubmitReviewRound,
       },
@@ -290,6 +304,9 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       };
     }
 
+    if (!this.checklistItems.length || this.checklistSummary.pending || this.checklistError || this.checklistItems.some(item => item.automatedRemarks && !item.automationReviewed)) {
+      return { title: 'Complete the audit checklist', detail: 'Record decisions and remarks, and verify generated suggestions for each checkpoint.', tab: 'checklist', button: 'Open checklist' };
+    }
     if (!this.hasScore) {
       return {
         title: 'Calculate the severity score',
@@ -345,11 +362,11 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   get canSubmitObservation(): boolean {
-    return !!this.auditId && this.observationForm.observation.trim().length >= 5;
+    return this.canReviewDocuments && !!this.auditId && this.observationForm.observation.trim().length >= 5;
   }
 
   get canGenerateAiDraft(): boolean {
-    return !!this.auditId && !!this.audit?.clientId && this.observationForm.observation.trim().length >= 10;
+    return this.canReviewDocuments && !!this.auditId && !!this.audit?.clientId && this.observationForm.observation.trim().length >= 10;
   }
 
   get isReportFinalized(): boolean {
@@ -934,10 +951,14 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   get canSubmitReviewRound(): boolean {
-    return this.pendingReviewCount === 0 && this.unresolvedCorrectionCount === 0;
+    return !this.loadingDocs && !this.documentsError && !this.loadingChecklist && !this.checklistError && this.checklistItems.length > 0 && !this.checklistTemplate.length && !(this.checklistSummary.pending || 0) && !this.checklistItems.some(item => item.automatedRemarks && !item.automationReviewed) && this.pendingReviewCount === 0 && this.unresolvedCorrectionCount === 0;
   }
 
   get submitReviewGuardMessage(): string | null {
+    if (this.loadingChecklist || this.checklistError) return 'Load the audit checklist successfully before submitting.';
+    if (!this.checklistItems.length || this.checklistTemplate.length || this.checklistSummary.pending) return 'Complete every audit checkpoint before submitting.';
+    if (this.checklistItems.some(item => item.automatedRemarks && !item.automationReviewed)) return 'Cross-check and save all generated checklist remarks before submitting.';
+    if (this.loadingDocs || this.documentsError) return 'Load the audit documents successfully before submitting.';
     if (this.pendingReviewCount > 0) {
       return `${this.pendingReviewCount} uploaded document(s) still need an auditor decision.`;
     }
@@ -968,6 +989,25 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
 
 
 
+  get canReviewDocuments(): boolean {
+    return ['PLANNED', 'IN_PROGRESS', 'CORRECTION_PENDING', 'REVERIFICATION_PENDING'].includes(this.statusKey(this.audit?.status));
+  }
+
+  suggestedRemarks(doc: any): string {
+    return (doc.payrollCheck?.findings || []).map((finding: any) =>
+      [finding.employeeCode, finding.field, finding.remark,
+        finding.expected != null ? 'Expected: ' + finding.expected : '',
+        finding.submitted != null ? 'Uploaded: ' + finding.submitted : ''].filter(Boolean).join(' · '),
+    ).join('; ');
+  }
+
+  useSuggestedRemarks(doc: any): void {
+    const suggestion = this.suggestedRemarks(doc);
+    if (!suggestion || !this.canReviewDocuments) return;
+    const current = this.docRemarks[doc.id] || '';
+    this.docRemarks[doc.id] = current ? `${current}\n${suggestion}` : suggestion;
+  }
+
   reconcileDocument(doc: any): void {
     if (!this.auditId || this.reviewingDocId) return;
     this.reviewingDocId = doc.id;
@@ -983,20 +1023,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (result) => {
           doc.payrollCheck = result;
-          if (result.status === 'NC' && !(this.docRemarks[doc.id] || '').trim())
-            this.docRemarks[doc.id] = result.findings
-              .map((f: any) =>
-                [
-                  f.employeeCode,
-                  f.field,
-                  f.remark,
-                  f.expected != null ? 'Expected: ' + f.expected : '',
-                  f.submitted != null ? 'Uploaded: ' + f.submitted : '',
-                ]
-                  .filter(Boolean)
-                  .join(' · '),
-              )
-              .join('; ');
+          this.automationVerified[doc.id] = false;
           this.toast.success('Payroll comparison completed: ' + result.status);
         },
         error: (err) => this.toast.error(err?.error?.message || 'Document comparison failed'),
@@ -1004,7 +1031,11 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   reviewDocument(doc: any, decision: 'COMPLIED' | 'NON_COMPLIED'): void {
-    if (!this.auditId || this.reviewingDocId) return;
+    if (!this.auditId || this.reviewingDocId || !this.canReviewDocuments) return;
+    if (doc.payrollCheck && !this.automationVerified[doc.id]) {
+      this.toast.warning('Cross-check the automated findings against the document before saving your decision.');
+      return;
+    }
     const remarks = (this.docRemarks[doc.id] || '').trim();
     if (decision === 'NON_COMPLIED' && remarks.length < 5) {
       this.toast.warning('Add at least 5 characters in remarks before rejecting a document.');
@@ -1124,6 +1155,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   loadChecklist(): void {
     if (!this.auditId) return;
     this.loadingChecklist = true;
+    this.checklistError = '';
     this.auditsApi.auditorGetChecklist(this.auditId)
       .pipe(
         takeUntil(this.destroy$),
@@ -1131,37 +1163,25 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (res: any) => {
+          const previousItems = this.checklistItems;
           this.checklistItems = res?.items || [];
           this.checklistSummary = res?.summary || {};
-          // Auto-generate checklist on first load when empty
-          if (this.checklistItems.length === 0 && !this.checklistAutoGenAttempted
-              && this.statusKey(this.audit?.status) !== 'COMPLETED'
-              && this.statusKey(this.audit?.status) !== 'CLOSED') {
-            this.checklistAutoGenAttempted = true;
-            this.autoGenerateChecklist();
+          this.checklistTemplate = res?.template || [];
+          for (const item of this.checklistItems) {
+            this.checklistRemarks[item.id] ??= item.remarks || '';
+            this.checklistDecisions[item.id] ??= item.status || 'PENDING';
+            const previous = previousItems.find(old => old.id === item.id);
+            if (previous && previous.automatedRemarks !== item.automatedRemarks) this.checklistVerified[item.id] = false;
+            this.checklistVerified[item.id] ??= !!item.automationReviewed;
           }
-        },
-        error: () => { this.checklistItems = []; },
-      });
-  }
 
-  private autoGenerateChecklist(): void {
-    if (!this.auditId) return;
-    this.auditsApi.auditorGenerateChecklist(this.auditId)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (res: any) => {
-          if (res?.created > 0) {
-            this.toast.success(`Checklist auto-generated: ${res.created} items`);
-            this.loadChecklist();
-          }
         },
-        error: () => { /* silently ignore — audit type may have no default checklist */ },
+        error: () => { this.checklistItems = []; this.checklistError = 'Checklist could not be loaded. Retry before submitting.'; },
       });
   }
 
   generateChecklist(): void {
-    if (!this.auditId) return;
+    if (!this.auditId || !this.canReviewDocuments) return;
     this.loadingChecklist = true;
     this.auditsApi.auditorGenerateChecklist(this.auditId)
       .pipe(
@@ -1178,7 +1198,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   addChecklistItem(): void {
-    if (!this.auditId || !this.newChecklistLabel.trim()) return;
+    if (!this.auditId || !this.canReviewDocuments || !this.newChecklistLabel.trim()) return;
     this.addingChecklistItem = true;
     this.auditsApi.auditorAddChecklistItem(this.auditId, { itemLabel: this.newChecklistLabel.trim() })
       .pipe(
@@ -1194,14 +1214,32 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       });
   }
 
-  updateChecklistStatus(item: any, status: string): void {
-    if (!this.auditId) return;
-    this.auditsApi.auditorUpdateChecklistItem(this.auditId, item.id, { status })
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => { this.loadChecklist(); },
-        error: (err) => this.toast.error(err?.error?.message || 'Failed to update'),
-      });
+  saveChecklistItem(item: any): void {
+    if (!this.auditId || !this.canReviewDocuments || this.checklistSavingId) return;
+    const status = this.checklistDecisions[item.id] || item.status;
+    const remarks = (this.checklistRemarks[item.id] || '').trim();
+    if (['NON_COMPLIED', 'NOT_APPLICABLE'].includes(status) && remarks.length < 5) {
+      this.toast.warning('Write a reason for non-compliance or non-applicability.'); return;
+    }
+    if (item.automatedRemarks && ['COMPLIED', 'NON_COMPLIED', 'NOT_APPLICABLE'].includes(status) && !this.checklistVerified[item.id]) {
+      this.toast.warning('Review and confirm the generated remarks first.'); return;
+    }
+    this.checklistSavingId = item.id;
+    this.auditsApi.auditorUpdateChecklistItem(this.auditId, item.id, {
+      status, remarks, automationReviewed: !!this.checklistVerified[item.id],
+    }).pipe(takeUntil(this.destroy$), finalize(() => { this.checklistSavingId = ''; this.cdr.markForCheck(); })).subscribe({
+      next: () => {
+        delete this.checklistRemarks[item.id]; delete this.checklistDecisions[item.id]; delete this.checklistVerified[item.id];
+        this.toast.success('Checklist decision and remarks saved'); this.loadChecklist();
+      },
+      error: err => this.toast.error(err?.error?.message || 'Checklist could not be saved. Your draft has been kept.'),
+    });
+  }
+
+  useChecklistSuggestion(item: any): void {
+    if (!this.canReviewDocuments || !item.automatedRemarks) return;
+    const draft = this.checklistRemarks[item.id] || '';
+    this.checklistRemarks[item.id] = draft ? `${draft}\n${item.automatedRemarks}` : item.automatedRemarks;
   }
 
   deleteChecklistItem(item: any): void {
@@ -1214,22 +1252,10 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       });
   }
 
-  markAllPendingNA(): void {
-    if (!this.auditId) return;
-    const pendingItems = this.checklistItems.filter((i: any) => i.status === 'PENDING');
-    if (!pendingItems.length) return;
-    const calls = pendingItems.map((item: any) =>
-      this.auditsApi.auditorUpdateChecklistItem(this.auditId!, item.id, { status: 'NOT_APPLICABLE' })
-    );
-    forkJoin(calls).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => { this.loadChecklist(); },
-      error: (err) => this.toast.error(err?.error?.message || 'Failed to update'),
-    });
-  }
-
-  private loadAuditDocuments(): void {
+  loadAuditDocuments(): void {
     if (!this.auditId) return;
     this.loadingDocs = true;
+    this.documentsError = '';
     this.auditsApi
       .auditorListAuditDocuments(this.auditId)
       .pipe(
@@ -1245,11 +1271,17 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
           this.contractorDocuments = res?.contractorDocuments || [];
           // Combined list for scoring counts
           this.auditDocuments = [...this.branchDocuments, ...this.contractorDocuments];
+          for (const doc of this.auditDocuments) {
+            if (this.docRemarks[doc.id] === undefined || ['APPROVED', 'REJECTED'].includes(doc.status)) {
+              this.docRemarks[doc.id] = doc.reviewNotes || '';
+            }
+          }
         },
         error: () => {
           this.branchDocuments = [];
           this.contractorDocuments = [];
           this.auditDocuments = [];
+          this.documentsError = 'Documents could not be loaded. Retry before reviewing or submitting.';
         },
       });
   }
@@ -1267,7 +1299,15 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.reportStage = null;
     this.reportUpdatedAt = null;
     this.aiDraft = null;
-    this.checklistAutoGenAttempted = false;
+    this.checklistItems = []; this.checklistSummary = {}; this.checklistTemplate = [];
+    this.checklistRemarks = {}; this.checklistDecisions = {}; this.checklistVerified = {}; this.checklistError = '';
+    this.docRemarks = {};
+    this.correctedRemarks = {};
+    this.automationVerified = {};
+    this.branchDocuments = [];
+    this.contractorDocuments = [];
+    this.documentsError = '';
+    this.activeTab = 'documents';
     this.uploadLockFrom = '';
     this.uploadLockUntil = '';
     this.loading = true;

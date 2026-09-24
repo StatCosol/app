@@ -38,6 +38,8 @@ import { AutomationModule } from '../automation/automation.module';
 import { EmailModule } from '../email/email.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { AccessModule } from '../access/access.module';
+import { AuditEntryController } from './audit-entry.controller';
+import { AuditEntryService } from './audit-entry.service';
 
 @Module({
   imports: [
@@ -63,6 +65,7 @@ import { AccessModule } from '../access/access.module';
     forwardRef(() => AutomationModule),
   ],
   controllers: [
+    AuditEntryController,
     // Register the static KPI routes before the legacy /audits/:id alias.
     AuditKpiController,
     CrmAuditsController,
@@ -75,6 +78,7 @@ import { AccessModule } from '../access/access.module';
     AuditorObservationsController,
   ],
   providers: [
+    AuditEntryService,
     AuditsService,
     AuditorObservationsService,
     AuditNcService,

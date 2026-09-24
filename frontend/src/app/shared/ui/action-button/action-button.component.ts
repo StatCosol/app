@@ -1,6 +1,6 @@
 import { Component, HostBinding, Input, Output, EventEmitter , ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Params, RouterModule } from '@angular/router';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'warning' | 'outline' | 'ghost';
 export type ButtonSize = 'sm' | 'md' | 'lg';
@@ -15,6 +15,7 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
     @if (routerLink) {
 
       <a [routerLink]="disabled || loading ? null : routerLink"
+         [queryParams]="queryParams"
          [attr.aria-disabled]="disabled || loading"
          [attr.aria-busy]="loading"
          [attr.tabindex]="disabled || loading ? -1 : null"
@@ -73,6 +74,7 @@ export class ActionButtonComponent {
   @Input() loading = false;
   @Input() fullWidth = false;
   @Input() routerLink?: string | any[];
+  @Input() queryParams: Params | null = null;
 
   @Output() clicked = new EventEmitter<MouseEvent>();
 

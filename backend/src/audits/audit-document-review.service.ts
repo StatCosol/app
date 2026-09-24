@@ -156,14 +156,42 @@ export class AuditDocumentReviewService {
       );
     }
 
+    // An upstream approval (or a review in another audit) is not this auditor's
+    // decision. Restore only the latest review belonging to this audit/file.
+    const reviews = await this.docReviewRepo.find({
+      where: { auditId },
+      order: { version: 'DESC' },
+    });
+    const withAuditReview = (documents: Array<Record<string, unknown>>) =>
+      documents.map((doc) => {
+        const review = reviews.find(
+          (row) =>
+            row.documentId === doc.id && row.sourceTable === doc.sourceTable,
+        );
+        return {
+          ...doc,
+          id: doc.id,
+          uploadStatus: doc.status,
+          status: review
+            ? review.complianceMark === 'COMPLIED'
+              ? 'APPROVED'
+              : review.complianceMark === 'NON_COMPLIED'
+                ? 'REJECTED'
+                : 'NOT_APPLICABLE'
+            : 'SUBMITTED',
+          reviewNotes: review?.auditorRemark || '',
+          reviewedAt: review?.reviewedAt || null,
+          reviewedByUserId: review?.reviewedBy || null,
+        };
+      });
     return {
       auditId,
       auditType: audit.auditType,
       branchId: audit.branchId,
       contractorUserId: audit.contractorUserId,
       periodCode: audit.periodCode,
-      branchDocuments: branchDocs,
-      contractorDocuments: contractorDocs,
+      branchDocuments: withAuditReview(branchDocs),
+      contractorDocuments: withAuditReview(contractorDocs),
     };
   }
 
@@ -181,6 +209,34 @@ export class AuditDocumentReviewService {
     if (!audit) throw new NotFoundException('Audit not found');
     if (audit.assignedAuditorId !== user.userId) {
       throw new ForbiddenException('Not your audit');
+    }
+    if (
+      ![
+        'PLANNED',
+        'IN_PROGRESS',
+        'CORRECTION_PENDING',
+        'REVERIFICATION_PENDING',
+      ].includes(audit.status)
+    ) {
+      throw new BadRequestException(
+        'This audit is read-only at its current stage',
+      );
+    }
+    if (
+      sourceTable &&
+      !['branch_documents', 'contractor_documents'].includes(sourceTable)
+    ) {
+      throw new BadRequestException('Invalid document source');
+    }
+    const documents = await this.listDocumentsForAudit(user, auditId);
+    const scopedDocuments =
+      sourceTable === 'branch_documents'
+        ? documents.branchDocuments
+        : documents.contractorDocuments;
+    if (!scopedDocuments.some((doc) => doc.id === docId)) {
+      throw new ForbiddenException(
+        'Document is not in this audit branch, contractor and period',
+      );
     }
 
     const statusMap: Record<string, string> = {
@@ -482,11 +538,14 @@ export class AuditDocumentReviewService {
     const checklistStatus =
       decision === 'COMPLIED' ? 'COMPLIED' : 'NON_COMPLIED';
     matched.status = checklistStatus;
-    matched.remarks = remarks
-      ? remarks.slice(0, 500)
-      : decision === 'COMPLIED'
+    const suggestion =
+      remarks ||
+      (decision === 'COMPLIED'
         ? 'Document approved by auditor'
-        : matched.remarks;
+        : 'Document marked non-compliant');
+    if (matched.automatedRemarks !== suggestion)
+      matched.automationReviewed = false;
+    matched.automatedRemarks = suggestion;
     matched.reviewedBy = reviewerUserId;
     matched.reviewedAt = new Date();
     matched.linkedDocId = docId;

@@ -17,6 +17,7 @@
       description="See what needs attention first, continue active audits, and return to corrections without hunting through multiple screens."
       icon="clipboard-check">
     </ui-page-header>
+  <div class="mb-4"><ui-button variant="primary" [routerLink]="['/auditor/conduct-audit']">Conduct Audit</ui-button></div>
 
     <div class="card dashboard-priority mb-6">
       <div>
@@ -393,7 +394,7 @@
             <div class="flex flex-col gap-1.5 w-24">
               <ui-button variant="secondary" size="sm" [fullWidth]="true" (clicked)="followUpObservation(row)">Follow-up</ui-button>
               <ui-button variant="primary" size="sm" [fullWidth]="true" (clicked)="updateObservation(row)">Update</ui-button>
-              <ui-button variant="secondary" size="sm" [fullWidth]="true" (clicked)="closeObservation(row)">Close</ui-button>
+              <ui-button variant="secondary" size="sm" [fullWidth]="true" (clicked)="closeObservation(row)">Review closure</ui-button>
             </div>
           </ng-template>
         </ui-data-table>

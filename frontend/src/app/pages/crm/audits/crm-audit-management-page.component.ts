@@ -198,12 +198,17 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   readonly auditTypes = [
     { value: 'CONTRACTOR', label: 'Contractor Audit' },
     { value: 'FACTORY', label: 'Factory Audit' },
-    { value: 'SHOPS_ESTABLISHMENT', label: 'Branch Compliance Audit' },
+    { value: 'SAFETY', label: 'Safety Audit' },
+    { value: 'TRANSPORT', label: 'Transport Audit' },
+    { value: 'WAREHOUSE', label: 'Warehouse Audit' },
+    { value: 'E_MARKETING', label: 'E-marketing Audit' },
+    { value: 'OTHER', label: 'Other Audit' },
+    { value: 'SHOPS_ESTABLISHMENT', label: 'Shops & Establishments Audit' },
     { value: 'LABOUR_EMPLOYMENT', label: 'Labour Law Audit' },
     { value: 'FSSAI', label: 'FSSAI Audit' },
     { value: 'HR', label: 'HR Audit' },
     { value: 'PAYROLL', label: 'Payroll Audit' },
-    { value: 'GAP', label: 'Other Audit' },
+    { value: 'GAP', label: 'Gap Audit' },
   ];
 
   constructor(

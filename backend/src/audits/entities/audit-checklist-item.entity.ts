@@ -40,6 +40,12 @@ export class AuditChecklistItemEntity {
   @Column({ type: 'text', nullable: true })
   remarks: string | null;
 
+  @Column({ name: 'automated_remarks', type: 'text', nullable: true })
+  automatedRemarks: string | null;
+
+  @Column({ name: 'automation_reviewed', type: 'boolean', default: false })
+  automationReviewed: boolean;
+
   @Column({ name: 'reviewed_by', type: 'uuid', nullable: true })
   reviewedBy: string | null;
 

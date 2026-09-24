@@ -91,12 +91,17 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     { value: null, label: 'All Types' },
     { value: 'CONTRACTOR', label: 'Contractor Audit' },
     { value: 'FACTORY', label: 'Factory Audit' },
-    { value: 'SHOPS_ESTABLISHMENT', label: 'Branch Compliance Audit' },
+    { value: 'SAFETY', label: 'Safety Audit' },
+    { value: 'TRANSPORT', label: 'Transport Audit' },
+    { value: 'WAREHOUSE', label: 'Warehouse Audit' },
+    { value: 'E_MARKETING', label: 'E-marketing Audit' },
+    { value: 'OTHER', label: 'Other Audit' },
+    { value: 'SHOPS_ESTABLISHMENT', label: 'Shops & Establishments Audit' },
     { value: 'LABOUR_EMPLOYMENT', label: 'Labour Law Audit' },
     { value: 'FSSAI', label: 'FSSAI Audit' },
     { value: 'HR', label: 'HR Audit' },
     { value: 'PAYROLL', label: 'Payroll Audit' },
-    { value: 'GAP', label: 'Other Audit' },
+    { value: 'GAP', label: 'Gap Audit' },
   ];
 
   // Summary KPIs (from new AuditXpert dashboard API)
@@ -437,7 +442,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     this.loadMyAudits();
   }
 
-  /** Phase 1 — Load actionable audits (PLANNED + IN_PROGRESS + REVERIFICATION_PENDING)
+  /** Load active audits, including correction and reverification follow-up
    *  for the Quick Audit Selector dropdown. */
   loadActionableAudits(): void {
     const params = { ...this.buildFilterParams(), tab: 'ACTIVE', limit: '500' };
@@ -550,7 +555,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
 
   getAuditActionLabel(audit: AuditorAuditItem): string {
     const status = this.statusKey(audit.status);
-    if (status === 'NOT_STARTED') return 'Start Audit';
+    if (['PLANNED', 'ASSIGNED', 'NOT_STARTED'].includes(status)) return 'Start Audit';
     if (status === 'IN_PROGRESS') return 'Continue Audit';
     if (status === 'SUBMITTED') return 'View Submission';
     return 'Open Workspace';
@@ -558,7 +563,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
 
   getAuditHint(audit: AuditorAuditItem): string {
     const status = this.statusKey(audit.status);
-    if (status === 'NOT_STARTED') return 'Ready to begin review.';
+    if (['PLANNED', 'ASSIGNED', 'NOT_STARTED'].includes(status)) return 'Ready to begin review.';
     if (status === 'IN_PROGRESS') return 'Continue document review and findings.';
     if (status === 'SUBMITTED') return 'Submitted and waiting for downstream review.';
     if (status === 'COMPLETED') return 'Audit cycle is complete.';
@@ -581,54 +586,34 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     const labels: Record<string, string> = {
       CONTRACTOR: 'Contractor Audit',
       FACTORY: 'Factory Audit',
-      SHOPS_ESTABLISHMENT: 'Branch Compliance Audit',
+      SAFETY: 'Safety Audit',
+      TRANSPORT: 'Transport Audit',
+      WAREHOUSE: 'Warehouse Audit',
+      E_MARKETING: 'E-marketing Audit',
+      OTHER: 'Other Audit',
+      SHOPS_ESTABLISHMENT: 'Shops & Establishments Audit',
       LABOUR_EMPLOYMENT: 'Labour Law Audit',
       FSSAI: 'FSSAI Audit',
       HR: 'HR Audit',
       PAYROLL: 'Payroll Audit',
-      GAP: 'Other Audit',
+      GAP: 'Gap Audit',
     };
     return labels[key] || this.formatStatus(key);
   }
 
-  /** Follow-up on observation */
+  /** Open the assigned correction workflow; verification requires evidence and notes. */
   followUpObservation(obs: AuditorObservationPending): void {
-    this.observationsService.update(obs.observationId, { status: 'FOLLOW_UP' }).pipe(
-      takeUntil(this.destroy$),
-      timeout(10000),
-    ).subscribe({
-      next: () => {
-        this.toast.success('Follow-up sent for: ' + obs.title);
-        this.loadObservations();
-      },
-      error: () => this.toast.error('Failed to send follow-up'),
-    });
+    this.updateObservation(obs);
   }
 
-  /** Update observation status */
   updateObservation(obs: AuditorObservationPending): void {
-    this.router.navigate(['/auditor/observations'], { queryParams: { observationId: obs.observationId } });
+    this.router.navigate(['/auditor/observations'], {
+      queryParams: { auditId: obs.auditId, observationId: obs.observationId },
+    });
   }
 
-  /** Close observation */
-  async closeObservation(obs: AuditorObservationPending): Promise<void> {
-    const ok = await this.dialog.confirm(
-      'Close Observation',
-      `Close observation "${obs.title}"? This action cannot be undone.`,
-      { variant: 'danger', confirmText: 'Close' },
-    );
-    if (!ok) return;
-    this.observationsService.update(obs.observationId, { status: 'CLOSED' }).pipe(
-      takeUntil(this.destroy$),
-      timeout(10000),
-    ).subscribe({
-      next: () => {
-        this.toast.success('Observation closed: ' + obs.title);
-        this.loadObservations();
-        this.loadSummary();
-      },
-      error: () => this.toast.error('Failed to close observation'),
-    });
+  closeObservation(obs: AuditorObservationPending): void {
+    this.updateObservation(obs);
   }
 
   /** Remind for pending evidence */

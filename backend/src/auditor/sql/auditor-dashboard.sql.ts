@@ -5,6 +5,11 @@
  * Uses positional parameters ($1, $2, etc.) for PostgreSQL
  */
 
+// Keep the queue and summary aligned with the audit workflow. ASSIGNED is
+// retained for older records created before PLANNED became the initial status.
+const ACTIVE_AUDIT_STATUSES =
+  "'PLANNED','ASSIGNED','IN_PROGRESS','CORRECTION_PENDING','REVERIFICATION_PENDING'";
+
 /**
  * C1) GET /api/auditor/dashboard/summary
  * Parameters: $1=auditorUserId (JWT), $2=clientId, $3=fromDate, $4=toDate, $5=windowDays
@@ -32,9 +37,9 @@ reports AS (
   WHERE a.status = 'COMPLETED'
 )
 SELECT
-  (SELECT COUNT(*) FROM my_audits WHERE status IN ('ASSIGNED','IN_PROGRESS')) AS assigned_audits_count,
-  (SELECT COUNT(*) FROM my_audits WHERE status IN ('ASSIGNED','IN_PROGRESS') AND due_date < CURRENT_DATE) AS overdue_audits_count,
-  (SELECT COUNT(*) FROM my_audits WHERE status IN ('ASSIGNED','IN_PROGRESS')
+  (SELECT COUNT(*) FROM my_audits WHERE status IN (${ACTIVE_AUDIT_STATUSES})) AS assigned_audits_count,
+  (SELECT COUNT(*) FROM my_audits WHERE status IN (${ACTIVE_AUDIT_STATUSES}) AND due_date < CURRENT_DATE) AS overdue_audits_count,
+  (SELECT COUNT(*) FROM my_audits WHERE status IN (${ACTIVE_AUDIT_STATUSES})
      AND due_date >= CURRENT_DATE
      AND due_date < (CURRENT_DATE + ($5::int || ' days')::interval)
   ) AS due_soon_audits_count,
@@ -73,12 +78,12 @@ LEFT JOIN clients c ON c.id = a.client_id
 LEFT JOIN client_branches b ON b.id = a.branch_id
 WHERE
   (
-    ($6::text = 'ACTIVE' AND a.status IN ('ASSIGNED','IN_PROGRESS'))
-    OR ($6::text = 'OVERDUE' AND a.status IN ('ASSIGNED','IN_PROGRESS') AND a.due_date < CURRENT_DATE)
-    OR ($6::text = 'DUE_SOON' AND a.status IN ('ASSIGNED','IN_PROGRESS')
+    ($6::text = 'ACTIVE' AND a.status IN (${ACTIVE_AUDIT_STATUSES}))
+    OR ($6::text = 'OVERDUE' AND a.status IN (${ACTIVE_AUDIT_STATUSES}) AND a.due_date < CURRENT_DATE)
+    OR ($6::text = 'DUE_SOON' AND a.status IN (${ACTIVE_AUDIT_STATUSES})
         AND a.due_date >= CURRENT_DATE
         AND a.due_date < (CURRENT_DATE + ($5::int || ' days')::interval))
-    OR ($6::text = 'COMPLETED' AND a.status IN ('COMPLETED','SUBMITTED'))
+    OR ($6::text = 'COMPLETED' AND a.status IN ('COMPLETED','SUBMITTED','CLOSED'))
   )
 ORDER BY a.due_date ASC, a.updated_at DESC
 LIMIT $7 OFFSET $8;

@@ -53,9 +53,10 @@ export const AUDITOR_ROUTES: Routes = [
     children: [
       { path: 'my-work', loadComponent: () => import('../../shared/my-work/my-work.component').then(m => m.MyWorkComponent) },
       { path: 'dashboard', loadComponent: AuditorDashboardComponent },
+      { path: 'conduct-audit', loadComponent: () => import('./auditor-entry.component').then(m => m.AuditorEntryComponent) },
       { path: 'audits/:auditId/workspace', loadComponent: AuditorAuditCockpitPageComponent },
       { path: 'audits', loadComponent: AuditorAuditsComponent },
-      { path: 'audit-workspace', redirectTo: 'audits', pathMatch: 'full' },
+      { path: 'audit-workspace', redirectTo: 'conduct-audit', pathMatch: 'full' },
       { path: 'observations', loadComponent: AuditorObservationsVerificationPageComponent },
       { path: 'contractor-payroll', loadComponent: ContractorPayrollComputationPageComponent, data: { portal: 'auditor' } },
       { path: 'reverification', redirectTo: 'observations', pathMatch: 'full' },

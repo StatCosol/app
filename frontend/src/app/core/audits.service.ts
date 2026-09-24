@@ -30,6 +30,14 @@ export class AuditsService {
 
   constructor(private http: HttpClient) {}
 
+  auditorEntryOptions(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/api/v1/auditor/audit-entry/options`);
+  }
+
+  auditorStartEntry(payload: { clientId: string; branchId: string; auditType: string; periodCode: string; contractorUserId?: string }): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/v1/auditor/audit-entry`, payload);
+  }
+
   // CRM: create/schedule an audit
   crmCreateAudit(payload: any): Observable<any> {
     return this.http.post(this.crmBase, payload);
