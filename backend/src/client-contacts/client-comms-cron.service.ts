@@ -1,3 +1,6 @@
+import { ClientCommPolicyService } from './client-comm-policy.service';
+import { CronLockService } from '../common/services/cron-lock.service';
+import { operationalDate } from '../common/operational-date';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -34,13 +37,15 @@ export class ClientCommsCronService {
     private readonly contacts: ClientContactsService,
     private readonly email: EmailService,
     private readonly templates: ClientCommTemplatesService,
+    private readonly policies: ClientCommPolicyService,
+    private readonly locks: CronLockService,
   ) {}
 
   // -----------------------------------------------------------------------
-  // 1st of every month at 09:00 IST → ask payroll dept of each client to
+  // Daily at 09:00 IST, on each client's configured day (default 1st), ask payroll to
   // share payroll inputs for the month.
   // -----------------------------------------------------------------------
-  @Cron('0 0 9 1 * *', { timeZone: 'Asia/Kolkata' })
+  @Cron('0 0 9 * * *', { timeZone: 'Asia/Kolkata' })
   async cronPayrollInputRequest() {
     try {
       const r = await this.runPayrollInputRequest({ triggeredBy: 'CRON' });
@@ -53,10 +58,10 @@ export class ClientCommsCronService {
   }
 
   // -----------------------------------------------------------------------
-  // 16th of every month at 09:00 IST → ask each client's contractor users
+  // Daily at 09:05 IST, on each client's configured day (default 16th), ask contractor users
   // (CC: contractor-compliance dept contacts) to upload MCD data.
   // -----------------------------------------------------------------------
-  @Cron('0 0 9 16 * *', { timeZone: 'Asia/Kolkata' })
+  @Cron('0 5 9 * * *', { timeZone: 'Asia/Kolkata' })
   async cronMcdDataRequest() {
     try {
       const r = await this.runMcdDataRequest({ triggeredBy: 'CRON' });
@@ -72,17 +77,41 @@ export class ClientCommsCronService {
   // PAYROLL INPUT REQUEST
   // =======================================================================
   async runPayrollInputRequest(opts: RunOptions) {
+    return (
+      (await this.locks.runExclusive('client-comms:PAYROLL_INPUT_REQUEST', () =>
+        this.runPayrollInputRequestLocked(opts),
+      )) ?? this.buildSummary([])
+    );
+  }
+  private async runPayrollInputRequestLocked(opts: RunOptions) {
     // We collect inputs for the *previous* (completed) month.
     // e.g. cron on 1-May → request April inputs.
     const runDateMonth = this.firstOfMonth(opts.runMonth || new Date());
     const month = this.addMonths(runDateMonth, -1);
     const monthLabel = this.monthLabel(month);
-    const deadline = this.addDays(runDateMonth, 6); // 7th of current (run) month
-    const portalUrl = this.portalUrl('/client/payroll/inputs');
+    const portalUrl = this.portalUrl(
+      '/client/payroll?month=' + this.toMonthKey(month),
+    );
 
     const clients = await this.eligiblePayrollClients(opts.onlyClientId);
     const results: RunResultEntry[] = [];
     for (const c of clients) {
+      const policy = await this.policies.get(c.id, 'PAYROLL_INPUT_REQUEST');
+      const runDay = Number(
+        operationalDate(opts.runMonth || new Date()).slice(8),
+      );
+      if (!policy.enabled || (!opts.manual && policy.requestDay !== runDay)) {
+        results.push({
+          clientId: c.id,
+          clientName: c.name,
+          status: 'SKIPPED',
+          reason: !policy.enabled
+            ? 'Disabled for this client'
+            : 'Not the configured request day',
+        });
+        continue;
+      }
+      const deadline = this.addDays(runDateMonth, policy.deadlineDay - 1);
       const recipients = await this.contacts.getActiveEmails(c.id, 'PAYROLL');
       if (!recipients.length) {
         await this.recordRun({
@@ -165,17 +194,41 @@ export class ClientCommsCronService {
   // MCD DATA REQUEST (to contractor users; CC contractor-compliance dept)
   // =======================================================================
   async runMcdDataRequest(opts: RunOptions) {
+    return (
+      (await this.locks.runExclusive('client-comms:MCD_REQUEST', () =>
+        this.runMcdDataRequestLocked(opts),
+      )) ?? this.buildSummary([])
+    );
+  }
+  private async runMcdDataRequestLocked(opts: RunOptions) {
     // We request MCD data for the *previous* (completed) month.
     // e.g. cron on 16-May → request April MCD data.
     const runDateMonth = this.firstOfMonth(opts.runMonth || new Date());
     const month = this.addMonths(runDateMonth, -1);
     const monthLabel = this.monthLabel(month);
-    const deadline = this.addDays(runDateMonth, 24); // 25th of current (run) month
-    const portalUrl = this.portalUrl('/contractor/mcd/upload');
+    const portalUrl = this.portalUrl(
+      '/contractor/tasks?month=' + this.toMonthKey(month),
+    );
 
     const clients = await this.eligibleContractorClients(opts.onlyClientId);
     const results: RunResultEntry[] = [];
     for (const c of clients) {
+      const policy = await this.policies.get(c.id, 'MCD_REQUEST');
+      const runDay = Number(
+        operationalDate(opts.runMonth || new Date()).slice(8),
+      );
+      if (!policy.enabled || (!opts.manual && policy.requestDay !== runDay)) {
+        results.push({
+          clientId: c.id,
+          clientName: c.name,
+          status: 'SKIPPED',
+          reason: !policy.enabled
+            ? 'Disabled for this client'
+            : 'Not the configured request day',
+        });
+        continue;
+      }
+      const deadline = this.addDays(runDateMonth, policy.deadlineDay - 1);
       const contractorEmails = await this.activeContractorEmails(c.id);
       const ccEmails = await this.contacts.getActiveEmails(
         c.id,
@@ -408,28 +461,39 @@ export class ClientCommsCronService {
 
   // ---------------------------------------------------------------- utilities
   private firstOfMonth(d: Date): Date {
-    const x = new Date(d.getFullYear(), d.getMonth(), 1);
+    const x = new Date(operationalDate(d).slice(0, 7) + '-01T00:00:00Z');
     return x;
   }
   private addDays(d: Date, days: number): Date {
     const x = new Date(d);
-    x.setDate(x.getDate() + days);
+    x.setUTCDate(x.getUTCDate() + days);
     return x;
   }
   private addMonths(d: Date, months: number): Date {
-    const x = new Date(d.getFullYear(), d.getMonth() + months, 1);
+    const x = new Date(
+      Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + months, 1),
+    );
     return x;
   }
   private monthLabel(d: Date): string {
-    return d.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+    return d.toLocaleString('en-IN', {
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
   }
   private dateLabel(d: Date): string {
     return d.toLocaleDateString('en-IN', {
+      timeZone: 'UTC',
       day: '2-digit',
       month: 'short',
       year: 'numeric',
     });
   }
+  private toMonthKey(date: Date): string {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+
   private portalUrl(path: string): string {
     return portalUrl(path);
   }

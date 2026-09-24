@@ -7,8 +7,9 @@ import {
 } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
-import { Subject, combineLatest } from 'rxjs';
+import { RouterModule, ActivatedRoute } from '@angular/router';
+import { Subject, combineLatest, Subscription } from 'rxjs';
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import { finalize, takeUntil } from 'rxjs/operators';
 
 import { AuditorObservationsService } from '../../../core/auditor-observations.service';
@@ -20,13 +21,16 @@ type ObservationAction = 'ACKNOWLEDGE' | 'RESOLVE' | 'VERIFY' | 'REOPEN';
 @Component({
   standalone: true,
   selector: 'app-auditor-observations',
-  imports: [FormsModule],
+  imports: [FormsModule, RouterModule],
   templateUrl: './auditor-observations.component.html',
   styleUrls: ['./auditor-observations.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AuditorObservationsComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
+  private listRequest?: Subscription;
+  private focusedId = '';
+  loadError = '';
 
   loading = true;
   busy = false;
@@ -54,6 +58,7 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
     private readonly route: ActivatedRoute,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
+    private readonly protectedFiles: ProtectedFileService,
   ) {}
 
   ngOnInit(): void {
@@ -64,11 +69,15 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(([_, query]) => {
         this.filterAuditId = query.get('auditId') || '';
+        this.focusedId = query.get('observationId') || '';
+        this.filterStatus = query.get('status') || '';
+        this.selected = null;
         this.loadObservations();
       });
   }
 
   ngOnDestroy(): void {
+    this.listRequest?.unsubscribe();
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -81,11 +90,14 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
       if (!q) return true;
       const text = `${row.observation || ''} ${row.clause || ''} ${row.recommendation || ''}`.toLowerCase();
       return text.includes(q);
+    }).sort((a,b) => {
+      const priority: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+      return (priority[this.statusKey(a.risk)] ?? 4) - (priority[this.statusKey(b.risk)] ?? 4) || String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
     });
   }
 
   get openCount(): number {
-    return this.observations.filter((o) => ['OPEN', 'ACKNOWLEDGED'].includes(this.statusKey(o.status))).length;
+    return this.observations.filter((o) => ['OPEN', 'ACKNOWLEDGED', 'IN_PROGRESS'].includes(this.statusKey(o.status))).length;
   }
 
   get verificationPendingCount(): number {
@@ -142,6 +154,10 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   }
 
   applyFilters(): void {
+    if (!this.filteredRows.some(row => row.id === this.selected?.id)) {
+      this.selected = null;
+      if (this.filteredRows.length) this.selectObservation(this.filteredRows[0]);
+    }
     this.cdr.markForCheck();
   }
 
@@ -149,6 +165,19 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
     this.filterStatus = '';
     this.filterRisk = '';
     this.filterSearch = '';
+    this.applyFilters();
+  }
+
+  chooseStatus(status: string): void {
+    this.filterStatus = status;
+    this.applyFilters();
+  }
+
+  nextObservation(): void {
+    const rows = this.filteredRows;
+    if (!rows.length) return;
+    const index = rows.findIndex(row => row.id === this.selected?.id);
+    this.selectObservation(rows[(index + 1) % rows.length]);
   }
 
   selectObservation(row: any): void {
@@ -159,7 +188,7 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   }
 
   saveCapaDetails(): void {
-    if (!this.selected || this.busy) return;
+    if (!this.selected || this.busy || this.loading || this.statusKey(this.selected.status) === 'CLOSED') return;
     this.busy = true;
     this.observationsApi
       .update(this.selected.id, {
@@ -288,13 +317,16 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
     return [];
   }
 
-  evidenceUrl(path: string): string {
-    const value = String(path || '');
-    if (!value) return '#';
-    if (/^https?:\/\//i.test(value)) return value;
-    const base = (window as any)?.location?.origin || '';
-    const normalized = value.replace(/\\/g, '/').replace(/^\/+/, '');
-    return `${base}/${normalized}`;
+  openEvidence(path: string): void {
+    // Use the authenticated, ownership-checked endpoint; never a raw public link.
+    if (/^https?:/i.test(path)) {
+      try { if (new URL(path).origin !== window.location.origin) {
+        this.toast.warning('External evidence links require review.'); return;
+      } } catch { return; }
+    }
+    this.protectedFiles.open(path).pipe(takeUntil(this.destroy$)).subscribe({
+      error: () => this.toast.error('Evidence could not be opened or access was denied'),
+    });
   }
 
   ageClass(row: any): string {
@@ -369,8 +401,13 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   }
 
   loadObservations(afterLoad?: () => void): void {
+    this.listRequest?.unsubscribe();
+    const retainId = this.focusedId || this.selected?.id;
+    this.selected = null;
+    this.observations = [];
+    this.loadError = '';
     this.loading = true;
-    this.observationsApi
+    this.listRequest = this.observationsApi
       .list(this.filterAuditId || undefined)
       .pipe(
         takeUntil(this.destroy$),
@@ -382,13 +419,18 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (rows: any) => {
           this.observations = Array.isArray(rows) ? rows : [];
-          if (!this.selected && this.observations.length) {
-            this.selectObservation(this.observations[0]);
-          }
+          const focused = this.observations.find(row => row.id === retainId);
+          if (focused) this.selectObservation(focused);
+          else if (!this.focusedId && this.observations.length) this.selectObservation(this.filteredRows[0] || this.observations[0]);
+          else if (this.focusedId) this.loadError = 'This observation is not available in your assigned audit scope.';
+          this.focusedId = '';
+
           if (afterLoad) afterLoad();
         },
         error: (err) => {
           this.observations = [];
+          this.selected = null;
+          this.loadError = 'Observations could not be loaded. Retry before taking action.';
           this.toast.error(err?.error?.message || 'Failed to load observations');
         },
       });
@@ -435,6 +477,7 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   }
 
   private actionGuardReason(action: ObservationAction): string | null {
+    if (this.loading || this.busy) return 'Wait for the current request to finish.';
     if (!this.selected) return 'Select an observation first.';
 
     const status = this.statusKey(this.selected.status) || 'OPEN';
@@ -445,7 +488,7 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
     }
 
     if (action === 'RESOLVE') {
-      if (!['OPEN', 'ACKNOWLEDGED'].includes(status)) {
+      if (!['OPEN', 'ACKNOWLEDGED', 'IN_PROGRESS'].includes(status)) {
         return `Only OPEN/ACKNOWLEDGED observations can be resolved (current: ${status}).`;
       }
       return null;

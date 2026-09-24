@@ -11,6 +11,8 @@ export interface WorkItem {
   branch_name: string | null;
   due_date: string | null;
   overdue: boolean;
+  reference_type?: string | null;
+  audit_id?: string | null;
   reference_id: string | null;
 }
 export interface WorkResult {

@@ -128,7 +128,7 @@
               @if (workArea(item); as area) {
                 <a
                   [routerLink]="area"
-                  [queryParams]="{ clientId: item.client_id, branchId: item.branch_id }"
+                  [queryParams]="workContext(item)"
                   >Open work area →</a
                 >
               }

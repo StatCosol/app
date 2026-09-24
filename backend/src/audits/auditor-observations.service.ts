@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { AuditObservationEntity } from './entities/audit-observation.entity';
 import { AuditObservationCategoryEntity } from './entities/audit-observation-category.entity';
 import { AuditEntity } from './entities/audit.entity';
@@ -75,10 +75,15 @@ export class AuditorObservationsService {
       await this.assignmentsService.getAssignedClientsForAuditor(user.userId);
     const clientIds = assignments.map((c: { id: string }) => c.id);
 
-    if (clientIds.length === 0) return [];
-
+    // Match getOne/export: explicit audit assignment wins over client assignment.
+    // Legacy unassigned audits remain available only for assigned clients.
     const audits = await this.auditRepo.find({
-      where: clientIds.map((clientId) => ({ clientId })),
+      where: [
+        { assignedAuditorId: user.userId },
+        ...(clientIds.length
+          ? [{ clientId: In(clientIds), assignedAuditorId: IsNull() }]
+          : []),
+      ],
     });
     const auditIds = audits.map((a) => a.id);
 
@@ -182,6 +187,26 @@ export class AuditorObservationsService {
   ) {
     const observation = await this.getOne(user, id);
 
+    const current = String(observation.status || 'OPEN').toUpperCase();
+    if (current === 'CLOSED') {
+      throw new BadRequestException(
+        'Reopen the observation with a reason before editing it',
+      );
+    }
+    if (dto.status !== undefined && dto.status !== current) {
+      const transitions: Record<string, string[]> = {
+        OPEN: ['ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED'],
+        ACKNOWLEDGED: ['IN_PROGRESS', 'RESOLVED'],
+        IN_PROGRESS: ['RESOLVED'],
+        RESOLVED: [],
+      };
+      if (!(transitions[current] || []).includes(dto.status)) {
+        throw new BadRequestException(
+          'Invalid status transition; use verification or reopen with a reason',
+        );
+      }
+    }
+
     if (dto.observation !== undefined)
       observation.observation = dto.observation;
     if (dto.consequences !== undefined)
@@ -228,12 +253,13 @@ export class AuditorObservationsService {
   async verifyClosure(user: ReqUser, id: string, remarks?: string) {
     const observation = await this.getOne(user, id);
     const currentStatus = String(observation.status || '').toUpperCase();
-    if (!['RESOLVED', 'ACKNOWLEDGED'].includes(currentStatus)) {
+    if (currentStatus !== 'RESOLVED') {
       throw new BadRequestException(
-        `Only RESOLVED or ACKNOWLEDGED observations can be verified. Current: ${currentStatus || 'OPEN'}`,
+        `Only RESOLVED observations can be verified. Current: ${currentStatus || 'OPEN'}`,
       );
     }
 
+    this.assertReason(remarks);
     observation.status = 'CLOSED';
     if (remarks?.trim()) {
       observation.elaboration = this.mergeRemarks(
@@ -262,6 +288,7 @@ export class AuditorObservationsService {
       );
     }
 
+    this.assertReason(remarks);
     observation.status = 'OPEN';
     if (remarks?.trim()) {
       observation.elaboration = this.mergeRemarks(
@@ -279,6 +306,14 @@ export class AuditorObservationsService {
         );
     }
     return saved;
+  }
+
+  private assertReason(remarks?: string) {
+    if (!remarks || remarks.trim().length < 5 || remarks.length > 2000) {
+      throw new BadRequestException(
+        'A reason of 5 to 2000 characters is required',
+      );
+    }
   }
 
   private mergeRemarks(existing: string | null, next: string): string {

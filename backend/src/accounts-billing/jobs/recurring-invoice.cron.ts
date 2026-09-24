@@ -1,8 +1,11 @@
+import { createHash } from 'node:crypto';
+import { operationalDate } from '../../common/operational-date';
+import { InvoiceStatus, MailStatus } from '../enums';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, LessThanOrEqual, Repository } from 'typeorm';
-import { RecurringInvoiceConfig, BillingClient } from '../entities';
+import { RecurringInvoiceConfig, BillingClient, Invoice } from '../entities';
 import { BillingFrequency, InvoiceType } from '../enums';
 import { InvoicesService } from '../services/invoices.service';
 import { InvoiceEmailService } from '../services/invoice-email.service';
@@ -14,8 +17,7 @@ import { CronLockService } from '../../common/services/cron-lock.service';
  * creates an invoice, marks it APPROVED, emails it to the client's billingEmail,
  * then advances `next_run_date` by the configured frequency.
  *
- * Schedule: 09:00 server time on the 1st of every month.
- * Container apps run UTC; 09:00 UTC = 14:30 IST. Acceptable for "1st of month" runs.
+ * Schedule: 09:00 Asia/Kolkata on the 1st of every month.
  */
 @Injectable()
 export class RecurringInvoiceCron {
@@ -52,7 +54,7 @@ export class RecurringInvoiceCron {
     failed: number;
     skippedNoEmail: number;
   }> {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = operationalDate();
     this.log.log(`Recurring invoice run starting for date=${today}`);
 
     const configs = await this.configRepo.find({
@@ -120,81 +122,92 @@ export class RecurringInvoiceCron {
       }
     }
 
-    // 1) Create invoice
-    const invoice = await this.invoicesService.create(
-      {
-        billingClientId: cfg.billingClientId,
-        invoiceType: InvoiceType.TAX_INVOICE,
-        invoiceDate: today,
-        items: [
-          {
-            serviceDescription:
-              cfg.serviceDescription || cfg.invoiceName || 'Monthly Services',
-            quantity: 1,
-            rate: Number(cfg.defaultAmount),
-            gstRate: Number(cfg.defaultGstRate ?? 18),
-          } as any,
-        ],
-      } as any,
-      cfg.createdBy,
-    );
-
-    // 2) Auto-approve so it leaves DRAFT
-    try {
-      await this.invoicesService.approve(invoice.id, cfg.createdBy);
-    } catch (e) {
-      this.log.warn(
-        `Auto-approve failed for invoice ${invoice.id}: ${(e as Error).message}`,
+    // A stable primary key protects a committed invoice across crashes/retries.
+    // This only applies to new recurring runs; existing records are not rewritten.
+    const invoiceId = recurringInvoiceId(cfg.id, cfg.nextRunDate);
+    let invoice = await this.ds
+      .getRepository(Invoice)
+      .findOne({ where: { id: invoiceId } });
+    if (!invoice) {
+      invoice = await this.invoicesService.create(
+        {
+          billingClientId: cfg.billingClientId,
+          invoiceType: InvoiceType.TAX_INVOICE,
+          invoiceDate: today,
+          items: [
+            {
+              serviceDescription:
+                cfg.serviceDescription || cfg.invoiceName || 'Monthly Services',
+              quantity: 1,
+              rate: Number(cfg.defaultAmount),
+              gstRate: Number(cfg.defaultGstRate ?? 18),
+            },
+          ],
+        },
+        cfg.createdBy,
+        invoiceId,
       );
     }
-
-    // 3) Email to client billingEmail (if available)
-    const toEmail = client.billingEmail;
-    let result: 'ok' | 'no_email' = 'ok';
-    if (!toEmail) {
-      this.log.warn(
-        `Config ${cfg.id} client has no billingEmail - invoice created but not emailed`,
+    if (invoice.billingClientId !== cfg.billingClientId) {
+      throw new Error('Recurring invoice client mismatch');
+    }
+    if (invoice.invoiceStatus === InvoiceStatus.CANCELLED) {
+      throw new Error(
+        'Recurring invoice was cancelled; review its schedule before continuing',
       );
-      result = 'no_email';
-    } else {
-      await this.invoiceEmailService.sendInvoice(
+    }
+    // Preserve the configured recurring workflow, but never email after failed approval.
+    if (invoice.invoiceStatus === InvoiceStatus.DRAFT) {
+      await this.invoicesService.approve(invoice.id, cfg.createdBy);
+    }
+    if (invoice.mailStatus !== MailStatus.SENT) {
+      if (!client.billingEmail) return 'no_email';
+      const delivery = await this.invoiceEmailService.sendInvoice(
         invoice.id,
         {
-          toEmail,
+          toEmail: client.billingEmail,
           ccEmail: client.ccEmail || undefined,
           bccEmail: client.bccEmail || undefined,
-        } as any,
+        },
         cfg.createdBy,
       );
+      if (!delivery.success)
+        throw new Error(
+          'Invoice created; email delivery failed. Retry reuses this invoice.',
+        );
     }
 
     // 4) Advance next_run_date
     cfg.nextRunDate = this.advance(cfg.nextRunDate, cfg.frequency);
     await this.configRepo.save(cfg);
-    return result;
+    return 'ok';
   }
 
   private advance(fromIso: string, freq: BillingFrequency): string {
-    const d = new Date(fromIso + 'T00:00:00');
-    switch (freq) {
-      case BillingFrequency.MONTHLY:
-        d.setMonth(d.getMonth() + 1);
-        break;
-      case BillingFrequency.QUARTERLY:
-        d.setMonth(d.getMonth() + 3);
-        break;
-      case BillingFrequency.HALF_YEARLY:
-        d.setMonth(d.getMonth() + 6);
-        break;
-      case BillingFrequency.YEARLY:
-        d.setFullYear(d.getFullYear() + 1);
-        break;
-      case BillingFrequency.ONE_TIME:
-      default:
-        // No further runs
-        d.setFullYear(d.getFullYear() + 100);
-        break;
-    }
-    return d.toISOString().slice(0, 10);
+    return advanceRecurringDate(fromIso, freq);
   }
+}
+
+export function recurringInvoiceId(configId: string, period: string): string {
+  const hash = createHash('sha256')
+    .update('statco-recurring:v1:' + configId + ':' + period)
+    .digest('hex');
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-5${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+}
+
+export function advanceRecurringDate(
+  fromIso: string,
+  freq: BillingFrequency,
+): string {
+  const [year, month, day] = fromIso.split('-').map(Number);
+  const months =
+    { MONTHLY: 1, QUARTERLY: 3, HALF_YEARLY: 6, YEARLY: 12, ONE_TIME: 1200 }[
+      freq
+    ] ?? 1200;
+  const target = new Date(Date.UTC(year, month - 1 + months, 1));
+  const last = new Date(
+    Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  target.setUTCDate(Math.min(day, last));
+  return target.toISOString().slice(0, 10);
 }

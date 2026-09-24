@@ -13,6 +13,10 @@ export class CrmReturnsService {
     return this.http.get<any[]>(`${this.baseUrl}/api/v1/crm/returns/filings`, { params });
   }
 
+  getFiling(id: string): Observable<any> {
+    return this.http.get(`${this.baseUrl}/api/v1/crm/returns/filings/${id}`);
+  }
+
   createFiling(dto: any): Observable<any> {
     return this.http.post(`${this.baseUrl}/api/v1/crm/returns/filings`, dto);
   }

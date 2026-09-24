@@ -1,4 +1,8 @@
 import {
+  ClientCommPolicyService,
+  ClientCommPolicyDto,
+} from './client-comm-policy.service';
+import {
   Body,
   Controller,
   Delete,
@@ -49,7 +53,28 @@ export class ClientContactsController {
     private readonly cron: ClientCommsCronService,
     private readonly templates: ClientCommTemplatesService,
     private readonly access: AccessScopeService,
+    private readonly policies: ClientCommPolicyService,
   ) {}
+
+  @Get('client/:clientId/policies')
+  async communicationPolicies(
+    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.access.assertCcoClientAllowed(user, clientId);
+    return this.policies.list(clientId);
+  }
+
+  @Patch('client/:clientId/policies')
+  @Roles('ADMIN')
+  async saveCommunicationPolicy(
+    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Body() dto: ClientCommPolicyDto,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.access.assertCcoClientAllowed(user, clientId);
+    return this.policies.save(clientId, dto, user.userId);
+  }
 
   @ApiOperation({ summary: 'List supported departments' })
   @Get('departments')
@@ -219,8 +244,8 @@ export class ClientContactsController {
       portalUrl:
         dto?.portalUrl ||
         (ct === 'PAYROLL_INPUT_REQUEST'
-          ? portalUrl('/client/payroll/inputs')
-          : portalUrl('/contractor/mcd/upload')),
+          ? portalUrl('/client/payroll')
+          : portalUrl('/contractor/tasks')),
     };
     // If caller passed un-saved drafts, render those; otherwise pull from DB/default.
     if (dto?.subjectTemplate || dto?.bodyTemplate) {

@@ -1,3 +1,5 @@
+import { DiscoveryModule } from '@nestjs/core';
+import { ScheduledJobInventoryController } from './scheduled-job-inventory.controller';
 import { AiModule } from '../ai/ai.module';
 import { AutomationGapReviewService } from './automation-gap-review.service';
 import { UnitsModule } from '../units/units.module';
@@ -55,6 +57,7 @@ import { AccessModule } from '../access/access.module';
 
 @Module({
   imports: [
+    DiscoveryModule,
     AccessModule,
     UnitsModule,
     AiModule,
@@ -70,6 +73,7 @@ import { AccessModule } from '../access/access.module';
     AuthModule,
   ],
   controllers: [
+    ScheduledJobInventoryController,
     AutomationControlController,
     AutomationController,
     AuditScheduleAutomationController,

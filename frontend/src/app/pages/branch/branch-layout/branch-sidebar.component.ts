@@ -3,7 +3,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
-import { Subject, of } from 'rxjs';
+import { Subject, of, forkJoin } from 'rxjs';
 import { filter, takeUntil, catchError } from 'rxjs/operators';
 import { AuthService } from '../../../core/auth.service';
 import { BranchComplianceDocService, SidebarBadges } from '../../../core/branch-compliance-doc.service';
@@ -546,16 +546,21 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
   private loadBadges(): void {
     if (!this.auth.hasModule('EMPLOYEE_COMPLIANCE')) return;
 
-    const ids = this.auth.getBranchIds();
-    const branchId = ids.length ? String(ids[0]) : '';
-    if (!branchId) return;
-
-    this.complianceDocs
-      .getSidebarBadges({ branchId, year: new Date().getFullYear() })
+    const ids = [...new Set(this.auth.getBranchIds().map(String))];
+    if (!ids.length) return;
+    forkJoin(ids.map(branchId => this.complianceDocs.getSidebarBadges({ branchId, year: new Date().getFullYear() })))
       .pipe(takeUntil(this.destroy$), catchError(() => of(null)))
-      .subscribe((badges) => {
-        if (!badges) return;
-        this.badges = badges;
+      .subscribe(rows => {
+        if (!rows) return;
+        const totals = {} as SidebarBadges;
+        for (const key of ['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY'] as const) {
+          totals[key] = { overdue: 0, reupload: 0 };
+          for (const row of rows) {
+            totals[key].overdue += Number(row[key]?.overdue || 0);
+            totals[key].reupload += Number(row[key]?.reupload || 0);
+          }
+        }
+        this.badges = totals;
         this.applyBadges();
       });
   }
@@ -665,7 +670,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
     }
 
     // Apply aggregate badge to periodic uploads child
-    const uploadsChild = complianceGroup.children.find(c => c.route.endsWith('/uploads/monthly'));
+    const uploadsChild = complianceGroup.children.find(c => c.route === '/branch/uploads');
     if (uploadsChild) {
       uploadsChild.badge = totalBadges > 0 ? totalBadges : undefined;
     }
@@ -722,7 +727,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
       { label: 'Dashboard',              route: '/branch/dashboard',           icon: this.svg('M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6') },
 
       { label: 'My Work',              route: '/branch/my-work',           icon: this.svg('M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6') },
-      { label: 'Monthly close', route: '/branch/monthly-close', icon: this.svg('M9 12l2 2 4-4M5 3h14v18H5z') },
+      { label: 'Monthly Review', route: '/branch/monthly-close', icon: this.svg('M9 12l2 2 4-4M5 3h14v18H5z') },
       {
         label: 'Compliance',
         route: '',
@@ -731,7 +736,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
         children: [
           { label: 'Compliance Dashboard', route: '/branch/compliance/status',       icon: this.svg('M3 13h4v8H3v-8zm7-5h4v13h-4V8zm7-5h4v18h-4V3z') },
           { label: 'Monthly Compliance',   route: '/branch/compliance/monthly',      icon: this.svg('M8 7V3m8 4V3M4 11h16M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
-          { label: 'Periodic Uploads',     route: '/branch/uploads',                 icon: this.svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12') },
+          { label: 'Periodic Uploads (all assigned branches)',     route: '/branch/uploads',                 icon: this.svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12') },
           { label: 'Compliance Items',     route: '/branch/compliance-items',        icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
           { label: 'Compliance Calendar',  route: '/branch/calendar',                icon: this.svg('M8 7V3m8 4V3M4 11h16M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Registrations',        route: '/branch/registrations',           icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },

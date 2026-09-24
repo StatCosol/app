@@ -1,4 +1,8 @@
 import {
+  CreateObservationDto,
+  ObservationReasonDto,
+} from './dto/create-observation.dto';
+import {
   Controller,
   Get,
   Post,
@@ -52,19 +56,7 @@ export class AuditorObservationsController {
 
   @ApiOperation({ summary: 'Create' })
   @Post()
-  create(
-    @CurrentUser() user: ReqUser,
-    @Body()
-    dto: {
-      auditId: string;
-      categoryId?: string;
-      observation: string;
-      consequences?: string;
-      complianceRequirements?: string;
-      elaboration?: string;
-      evidenceFilePaths?: string[];
-    },
-  ) {
+  create(@CurrentUser() user: ReqUser, @Body() dto: CreateObservationDto) {
     return this.service.create(user, dto);
   }
 
@@ -89,7 +81,7 @@ export class AuditorObservationsController {
   verify(
     @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: { remarks?: string },
+    @Body() dto: ObservationReasonDto,
   ) {
     return this.service.verifyClosure(user, id, dto?.remarks);
   }
@@ -99,7 +91,7 @@ export class AuditorObservationsController {
   reopen(
     @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: { remarks?: string },
+    @Body() dto: ObservationReasonDto,
   ) {
     return this.service.reopen(user, id, dto?.remarks);
   }

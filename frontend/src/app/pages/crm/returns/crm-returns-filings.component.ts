@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { Subject, Subscription } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 
@@ -120,6 +120,9 @@ export class CrmReturnsFilingsComponent implements OnInit, OnDestroy {
   filings: ReturnFiling[] = [];
   filteredFilings: ReturnFiling[] = [];
   branchPendingRows: BranchPendingRow[] = [];
+  private linkedFilingId = '';
+  private listRequest?: Subscription;
+  private linkedRequest?: Subscription;
   selected: ReturnFiling | null = null;
   selectedTimeline: TimelineEvent[] = [];
 
@@ -212,6 +215,7 @@ export class CrmReturnsFilingsComponent implements OnInit, OnDestroy {
     private readonly complianceContext: ComplianceContextService,
     private readonly returnsAutomation: ReturnsAutomationService,
     private readonly protectedFiles: ProtectedFileService,
+    private readonly route: ActivatedRoute,
   ) {
     const now = new Date().getFullYear();
     for (let year = now; year >= now - 4; year -= 1) {
@@ -231,6 +235,17 @@ export class CrmReturnsFilingsComponent implements OnInit, OnDestroy {
         this.loadFilings();
       }
     });
+    this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe(params => {
+      this.linkedRequest?.unsubscribe();
+      const id = params.get('filingId') || '';
+      this.linkedFilingId = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id) ? id : '';
+      if (this.linkedFilingId) {
+        this.clientFilter = params.get('clientId') || '';
+        this.branchFilter = params.get('branchId') || '';
+        this.statusFilter = ''; this.periodYearFilter = ''; this.periodMonthFilter = '';
+        this.loadFilings();
+      }
+    });
   }
 
   goBack(): void {
@@ -239,6 +254,8 @@ export class CrmReturnsFilingsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.contextSub?.unsubscribe();
+    this.listRequest?.unsubscribe();
+    this.linkedRequest?.unsubscribe();
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -248,6 +265,10 @@ export class CrmReturnsFilingsComponent implements OnInit, OnDestroy {
   }
 
   loadFilings(): void {
+    this.listRequest?.unsubscribe();
+    this.linkedRequest?.unsubscribe();
+    this.selected = null;
+    this.selectedTimeline = [];
     this.loading = true;
     const params: Record<string, string> = {};
     if (this.clientFilter) params['clientId'] = this.clientFilter;
@@ -257,7 +278,7 @@ export class CrmReturnsFilingsComponent implements OnInit, OnDestroy {
     if (this.periodMonthFilter) params['periodMonth'] = this.periodMonthFilter;
     if (this.lawTypeFilter) params['lawType'] = this.lawTypeFilter;
 
-    this.crmReturns
+    this.listRequest = this.crmReturns
       .listFilings(params)
       .pipe(
         takeUntil(this.destroy$),
@@ -271,6 +292,7 @@ export class CrmReturnsFilingsComponent implements OnInit, OnDestroy {
           this.filings = (rows || []) as ReturnFiling[];
           this.rebuildDropdownOptions();
           this.applyFilters();
+          this.focusLinkedFiling();
         },
         error: (err) => {
           this.filings = [];
@@ -281,6 +303,26 @@ export class CrmReturnsFilingsComponent implements OnInit, OnDestroy {
           this.toast.error(err?.error?.message || 'Failed to load returns workspace');
         },
       });
+  }
+
+  private focusLinkedFiling(): void {
+    const id = this.linkedFilingId;
+    if (!id) return;
+    this.selected = null;
+    this.linkedRequest = this.crmReturns.getFiling(id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: row => {
+        if (id !== this.linkedFilingId) return;
+        this.linkedFilingId = '';
+        this.selectFiling(row);
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.selected = null;
+        this.linkedFilingId = '';
+        this.toast.error('The linked filing is unavailable or outside your assigned clients.');
+        this.cdr.markForCheck();
+      },
+    });
   }
 
   loadReturnTypes(): void {
@@ -946,31 +988,9 @@ export class CrmReturnsFilingsComponent implements OnInit, OnDestroy {
   }
 
   private loadAndReselect(id: string): void {
-    this.loading = true;
-    const params: Record<string, string> = {};
-    if (this.clientFilter) params['clientId'] = this.clientFilter;
-    if (this.statusFilter) params['status'] = this.statusFilter;
-    if (this.branchFilter) params['branchId'] = this.branchFilter;
-    if (this.periodYearFilter) params['periodYear'] = this.periodYearFilter;
-    if (this.periodMonthFilter) params['periodMonth'] = this.periodMonthFilter;
-
-    this.crmReturns
-      .listFilings(params)
-      .pipe(
-        takeUntil(this.destroy$),
-        finalize(() => {
-          this.loading = false;
-          this.cdr.markForCheck();
-        }),
-      )
-      .subscribe({
-        next: (rows) => {
-          this.filings = (rows || []) as ReturnFiling[];
-          this.rebuildDropdownOptions();
-          this.applyFilters();
-          this.hydrateSelection(id);
-        },
-      });
+    if (this.selected?.id !== id) return;
+    this.linkedFilingId = id;
+    this.loadFilings();
   }
 
   private buildTimeline(row: ReturnFiling): TimelineEvent[] {
