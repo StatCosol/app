@@ -72,11 +72,9 @@ function groupsSql(present) {
     : 'false';
   return `
   SELECT
-    COALESCE(
-      NULLIF(regexp_replace(COALESCE(ce.aadhaar, ''), '\\D', '', 'g'), ''),
-      'name:' || ce.contractor_user_id || ':' || ce.branch_id || ':' ||
-        lower(btrim(regexp_replace(ce.name, '\\s+', ' ', 'g')))
-    ) AS person,
+    NULLIF(regexp_replace(COALESCE(ce.aadhaar, ''), '\\D', '', 'g'), '') AS aadhaar_key,
+    'name:' || ce.contractor_user_id || ':' || ce.branch_id || ':' ||
+      lower(btrim(regexp_replace(ce.name, '\\s+', ' ', 'g'))) AS name_key,
     ce.client_id,
     ce.id, ce.employee_code, ce.name, ce.branch_id, ce.created_at,
     ce.aadhaar, ce.pan, ce.bank_account, ce.punch_code,
@@ -88,6 +86,76 @@ function groupsSql(present) {
     AND ($1::uuid IS NULL OR ce.client_id = $1)
   ORDER BY ce.created_at ASC, ce.employee_code ASC
 `;
+}
+
+/**
+ * The copies of one person, linked on either signal.
+ *
+ * Keying on "Aadhaar, or failing that the name" misses the common case since
+ * identity details became optional at enrolment (#680): the same person
+ * entered once with an Aadhaar and once without keys two different ways and
+ * the copies never meet. So records are linked when they share an Aadhaar,
+ * and also when they share a name under one contractor at one branch.
+ *
+ * Linking by name is only safe while the Aadhaar numbers do not contradict
+ * it. Two workers really can share a name at one branch, and a blank record
+ * between them would chain them together — and then the "duplicate" deleted
+ * would be a different person. Where a name group holds more than one Aadhaar
+ * number, nothing in it is linked or touched; it is reported for the office
+ * to settle.
+ */
+function groupWorkers(rows) {
+  const parent = new Map();
+  const find = (id) => {
+    while (parent.get(id) !== id) {
+      parent.set(id, parent.get(parent.get(id)));
+      id = parent.get(id);
+    }
+    return id;
+  };
+  const union = (a, b) => {
+    const ra = find(a), rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+  for (const r of rows) parent.set(r.id, r.id);
+
+  const byAadhaar = new Map(), byName = new Map();
+  for (const r of rows) {
+    if (r.aadhaar_key) {
+      const key = r.client_id + '|' + r.aadhaar_key;
+      if (!byAadhaar.has(key)) byAadhaar.set(key, []);
+      byAadhaar.get(key).push(r);
+    }
+    const nameKey = r.client_id + '|' + r.name_key;
+    if (!byName.has(nameKey)) byName.set(nameKey, []);
+    byName.get(nameKey).push(r);
+  }
+  // One Aadhaar is one person, whatever the name was typed as.
+  for (const group of byAadhaar.values())
+    for (const r of group) union(r.id, group[0].id);
+
+  const ambiguous = [];
+  for (const group of byName.values()) {
+    if (group.length < 2) continue;
+    const numbers = new Set(group.map((r) => r.aadhaar_key).filter(Boolean));
+    if (numbers.size > 1) {
+      ambiguous.push(group);
+      continue;
+    }
+    for (const r of group) union(r.id, group[0].id);
+  }
+
+  const ambiguousIds = new Set(ambiguous.flat().map((r) => r.id));
+  const components = new Map();
+  for (const r of rows) {
+    const root = find(r.id);
+    if (!components.has(root)) components.set(root, []);
+    components.get(root).push(r);
+  }
+  const groups = [...components.values()].filter(
+    (g) => g.length > 1 && !g.some((r) => ambiguousIds.has(r.id)),
+  );
+  return { groups, ambiguous };
 }
 
 /**
@@ -159,13 +227,13 @@ async function referencesTo(db, worker) {
         'Neither enrolment table is installed here, so no face can be read. The oldest copy is kept instead.\n',
       );
     const { rows } = await db.query(groupsSql(present), [clientId]);
-    const groups = new Map();
-    for (const r of rows) {
-      const key = r.client_id + '|' + r.person;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(r);
+    const { groups: duplicated, ambiguous } = groupWorkers(rows);
+    for (const group of ambiguous) {
+      console.log(
+        `${group[0].name} — ${group.length} records share this name at one branch but carry different Aadhaar numbers, so which copies are the same person cannot be told apart here. None are touched; sort the Aadhaar numbers out first.`,
+      );
     }
-    const duplicated = [...groups.values()].filter((g) => g.length > 1);
+    if (ambiguous.length) console.log('');
     if (!duplicated.length) {
       console.log('No contractor worker is registered more than once.');
       return;
@@ -182,7 +250,8 @@ async function referencesTo(db, worker) {
       const why = keep.face_enrolled
         ? 'face enrolled'
         : `registered ${keep.created_at.toISOString().slice(0, 10)}`;
-      console.log(`${keep.name}  (keeping ${keep.employee_code || keep.id}, ${why})`);
+      const shown = String(keep.name).trim().replace(/\s+/g, ' ');
+      console.log(`${shown}  (keeping ${keep.employee_code || keep.id}, ${why})`);
       for (const extra of extras) {
         const refs = await referencesTo(db, extra);
         // Details the copy holds and the kept record does not: worth moving
