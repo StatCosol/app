@@ -29,7 +29,48 @@ const apply = args.includes('--apply');
 const clientArg = args[args.indexOf('--client') + 1];
 const clientId = args.includes('--client') ? clientArg : null;
 
-const GROUPS = `
+/**
+ * A face the kiosk can already match: FaceDesk, or the older mobile enrolment.
+ *
+ * Either module may not be installed, and a missing table cannot be guarded
+ * inside the statement: PostgreSQL resolves every relation named in it while
+ * parsing, long before a CASE branch is evaluated, so the query would fail
+ * with "relation does not exist" whatever the guard said. The tables are
+ * looked up first instead and the query built from the ones that are there.
+ */
+const FACE_SOURCES = [
+  {
+    table: 'facedesk_employee_face_profiles',
+    exists: `EXISTS (
+        SELECT 1 FROM facedesk_employee_face_profiles p
+         WHERE p.employee_id = ce.id AND p.subject_type = 'CONTRACTOR'
+           AND p.enrollment_status = 'ENROLLED')`,
+  },
+  {
+    table: 'contractor_face_enrollments',
+    exists: `EXISTS (
+        SELECT 1 FROM contractor_face_enrollments e
+         WHERE e.contractor_employee_id = ce.id AND e.is_active IS TRUE)`,
+  },
+];
+
+async function faceSourcesPresent(db) {
+  const present = [];
+  for (const source of FACE_SOURCES) {
+    const { rows } = await db.query('SELECT to_regclass($1) IS NOT NULL AS present', [
+      'public.' + source.table,
+    ]);
+    if (rows[0].present) present.push(source);
+  }
+  return present;
+}
+
+function groupsSql(present) {
+  // No enrolment table at all: nobody is enrolled, and the oldest is kept.
+  const faceEnrolled = present.length
+    ? present.map((s) => s.exists).join('\n      OR ')
+    : 'false';
+  return `
   SELECT
     COALESCE(
       NULLIF(regexp_replace(COALESCE(ce.aadhaar, ''), '\\D', '', 'g'), ''),
@@ -39,27 +80,15 @@ const GROUPS = `
     ce.client_id,
     ce.id, ce.employee_code, ce.name, ce.branch_id, ce.created_at,
     ce.aadhaar, ce.pan, ce.bank_account, ce.punch_code,
-    -- A face the kiosk can already match: FaceDesk, or the older mobile
-    -- enrolment. to_regclass keeps this working where one is not installed.
     (
-      CASE WHEN to_regclass('public.facedesk_employee_face_profiles') IS NULL THEN false
-      ELSE EXISTS (
-        SELECT 1 FROM facedesk_employee_face_profiles p
-         WHERE p.employee_id = ce.id AND p.subject_type = 'CONTRACTOR'
-           AND p.enrollment_status = 'ENROLLED')
-      END
-      OR
-      CASE WHEN to_regclass('public.contractor_face_enrollments') IS NULL THEN false
-      ELSE EXISTS (
-        SELECT 1 FROM contractor_face_enrollments e
-         WHERE e.contractor_employee_id = ce.id AND e.is_active IS TRUE)
-      END
+      ${faceEnrolled}
     ) AS face_enrolled
   FROM contractor_employees ce
   WHERE (ce.is_active IS TRUE OR ce.status IN ('ACTIVE', 'PENDING_DELETE'))
     AND ($1::uuid IS NULL OR ce.client_id = $1)
   ORDER BY ce.created_at ASC, ce.employee_code ASC
 `;
+}
 
 /**
  * Anything pointing at this worker, so a copy in use is never deleted.
@@ -124,7 +153,12 @@ async function referencesTo(db, worker) {
   });
   await db.connect();
   try {
-    const { rows } = await db.query(GROUPS, [clientId]);
+    const present = await faceSourcesPresent(db);
+    if (!present.length)
+      console.log(
+        'Neither enrolment table is installed here, so no face can be read. The oldest copy is kept instead.\n',
+      );
+    const { rows } = await db.query(groupsSql(present), [clientId]);
     const groups = new Map();
     for (const r of rows) {
       const key = r.client_id + '|' + r.person;
