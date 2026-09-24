@@ -20,7 +20,11 @@ const uuid = n => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
       CREATE TABLE branch_contractor(client_id uuid,branch_id uuid,contractor_user_id uuid);
       CREATE TABLE audits(id uuid PRIMARY KEY,audit_code varchar(20) UNIQUE,client_id uuid,branch_id uuid,contractor_user_id uuid,
         frequency text,audit_type text,period_year int,period_code text,assigned_auditor_id uuid,created_by_user_id uuid,status text,created_at timestamp,updated_at timestamp);
+      CREATE TABLE contractor_required_documents(contractor_user_id uuid,client_id uuid,doc_type text,is_required boolean);
+      CREATE TABLE audit_checklist_items(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),audit_id uuid,item_label text,doc_type text,is_required boolean,sort_order int,status text,remarks text);
     `);
+    const migration = require('node:fs').readFileSync(require('node:path').join(__dirname,'../migrations/20260924_audit_checklist_remarks.sql'),'utf8');
+    await db.exec(migration); await db.exec(migration);
     for (const n of [10,20,30]) await db.query("INSERT INTO clients VALUES($1,$2,'ACTIVE',FALSE)",[uuid(n),`Synthetic client ${n}`]);
     for (const [id,client] of [[11,10],[12,10],[21,20],[22,20],[31,30]])
       await db.query('INSERT INTO client_branches VALUES($1,$2,$3,TRUE,FALSE)',[uuid(id),uuid(client),`Synthetic branch ${id}`]);
@@ -53,8 +57,21 @@ const uuid = n => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
     await assert.rejects(service.start({...user,roleCode:'CRM'},input),/Auditor access/);
     const branchAudit=await service.start(user,{clientId:uuid(20),branchId:uuid(21),auditType:'FACTORY',periodCode:'2026-09'});
     assert.equal(branchAudit.created,true);
+    const factoryRows=(await db.query('SELECT * FROM audit_checklist_items WHERE audit_id=$1',[branchAudit.auditId])).rows;
+    assert.equal(factoryRows.length,options.checklistTemplates.FACTORY.length);
+    await db.query("UPDATE audit_checklist_items SET remarks='Auditor retained note' WHERE id=$1",[factoryRows[0].id]);
+    await service.start(user,{clientId:uuid(20),branchId:uuid(21),auditType:'FACTORY',periodCode:'2026-09'});
+    assert.equal((await db.query('SELECT remarks FROM audit_checklist_items WHERE id=$1',[factoryRows[0].id])).rows[0].remarks,'Auditor retained note');
+    for (const auditType of options.auditTypes.filter(t=>!['CONTRACTOR','FACTORY'].includes(t))) {
+      const started=await service.start(user,{clientId:uuid(20),branchId:uuid(21),auditType,periodCode:'2026-09'});
+      const rows=(await db.query('SELECT * FROM audit_checklist_items WHERE audit_id=$1',[started.auditId])).rows;
+      assert.equal(rows.length,options.checklistTemplates[auditType].length);
+      assert.ok(rows.length>0); assert.equal(rows[0].automation_reviewed,false);
+      assert.equal(rows[0].item_label,options.checklistTemplates[auditType][0][0]);
+    }
+    assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM audit_checklist_items WHERE audit_id=$1',[first.auditId])).rows[0].n,6);
     await db.query('DELETE FROM client_assignments_current');
     await assert.rejects(service.start(user,input),/not assigned/);
-    console.log('PASS: client/branch assignment scope, expired/unassigned denial, contractor mapping, period/type validation, existing-audit reuse, and assignment recheck.');
+    console.log('PASS: client/branch assignment scope, expired/unassigned denial, contractor mapping, period/type validation, existing-audit reuse, assignment recheck, all 13 type templates, repeat-start remark preservation, and idempotent schema migration.');
   } finally { await db.close(); }
 })().catch(error=>{console.error(error);process.exitCode=1;});

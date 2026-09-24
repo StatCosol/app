@@ -40,6 +40,13 @@
         <div class="md:col-span-2 action-row"><button class="btn btn-primary" type="submit" [disabled]="!canStart">{{ busy ? 'Opening audit…' : 'Start / Continue Audit' }}</button></div>
       </form>
     </section>
+    @if (selectedChecklist.length) {
+      <section class="card">
+        <header class="section-head"><h2>{{ typeLabel(auditType) }} checklist</h2><span>{{ selectedChecklist.length }} sample checkpoints</span></header>
+        <p class="section-intro">The selected audit type loads its checklist when you start. Contractor checklists use the standard monthly documents plus the CRM-configured requirements. Add site-specific items and mark non-applicable items with a reason.</p>
+        <ol class="list-decimal pl-6 space-y-2">@for (item of selectedChecklist; track item[0]) { <li>{{ item[0] }}</li> }</ol>
+      </section>
+    }
     <section class="summary-grid">
       <article class="card"><h2>2. Review documents</h2><p>Open the uploads for the chosen branch, contractor and period. Compare available automated checks with the source document.</p></article>
       <article class="card"><h2>3. Record remarks</h2><p>Write remarks against each document, verify suggested findings, and record the compliance decision.</p></article>

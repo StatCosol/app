@@ -6,7 +6,7 @@ describe('Conduct Audit entry', () => {
     const api = { auditorEntryOptions: vi.fn(() => of({
       clients: [{ id: 'client', name: 'Synthetic company' }],
       branches: [{ id: 'branch-a', clientId: 'client' }, { id: 'branch-b', clientId: 'client' }],
-      contractors: [{ id: 'contractor', clientId: 'client', branchId: 'branch-a' }], auditTypes: ['CONTRACTOR','FACTORY'],
+      contractors: [{ id: 'contractor', clientId: 'client', branchId: 'branch-a' }], auditTypes: ['CONTRACTOR','FACTORY','SAFETY'], checklistTemplates: { FACTORY: [['Factory licences']], SAFETY: [['Emergency exits'], ['PPE']] },
     })), auditorStartEntry: vi.fn(() => of({ auditId: 'audit' }) as any) };
     const router = { navigate: vi.fn() };
     const component = new AuditorEntryComponent(api as any, router as any, { markForCheck: vi.fn() } as any);
@@ -20,7 +20,7 @@ describe('Conduct Audit entry', () => {
     expect(api.auditorStartEntry).toHaveBeenCalledTimes(1);
     expect(api.auditorStartEntry).toHaveBeenCalledWith({ clientId:'client',branchId:'branch-a',auditType:'CONTRACTOR',periodCode:'2026-08',contractorUserId:'contractor' });
     request.next({ auditId:'existing-audit' }); request.complete();
-    expect(router.navigate).toHaveBeenCalledWith(['/auditor/audits','existing-audit','workspace']);
+    expect(router.navigate).toHaveBeenCalledWith(['/auditor/audits','existing-audit','workspace'], { queryParams: { tab: 'checklist' } });
   });
   it('clears contractor selection when scope changes and requires a matching contractor', () => {
     const { component:c } = setup(); expect(c.canStart).toBe(true);
@@ -28,6 +28,13 @@ describe('Conduct Audit entry', () => {
     c.contractorUserId='contractor'; expect(c.canStart).toBe(false);
     c.auditType='FACTORY'; c.changeType(); expect(c.canStart).toBe(true);
     c.changeClient(); expect(c.branchId).toBe(''); expect(c.canStart).toBe(false);
+  });
+  it('changes the checklist preview with the selected audit type', () => {
+    const { component:c } = setup();
+    c.auditType='SAFETY'; c.changeType();
+    expect(c.selectedChecklist).toEqual([['Emergency exits'], ['PPE']]);
+    c.auditType='FACTORY'; c.changeType();
+    expect(c.selectedChecklist).toEqual([['Factory licences']]);
   });
   it('keeps selections after an error and validates the period', () => {
     const { component:c, api } = setup(); api.auditorStartEntry.mockReturnValue(throwError(() => new Error('offline')));

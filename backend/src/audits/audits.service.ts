@@ -30,6 +30,7 @@ import { AuditOutputEngineService } from '../automation/services/audit-output-en
 import { ReqUser } from '../access/access-scope.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AuditNcService } from './audit-nc.service';
+import { auditChecklistEntries } from './audit-checklist-template.helpers';
 import { AuditChecklistService } from './audit-checklist.service';
 import { AuditAuditorDashboardService } from './audit-auditor-dashboard.service';
 import { AuditReportService } from './audit-report.service';
@@ -642,6 +643,7 @@ export class AuditsService implements OnModuleInit {
     }
 
     if (targetStatus === 'COMPLETED') {
+      await this.assertChecklistReviewed(auditId);
       const latestReport = await this.reportService.getLatestReportRow(auditId);
       const reportStatus = String(latestReport?.status || '').toUpperCase();
       const reportFinalized = ['SUBMITTED', 'APPROVED', 'PUBLISHED'].includes(
@@ -1078,6 +1080,22 @@ export class AuditsService implements OnModuleInit {
   async listNcsForVendor(user: ReqUser, auditId: string) {
     return this.ncService.listNcsForVendor(user, auditId);
   }
+  private async assertChecklistReviewed(auditId: string): Promise<void> {
+    const items = await this.checklistRepo.find({ where: { auditId } });
+    if (
+      !items.length ||
+      items.some(
+        (item) =>
+          ['PENDING', 'UPLOADED'].includes(item.status) ||
+          (item.automatedRemarks && !item.automationReviewed),
+      )
+    ) {
+      throw new BadRequestException(
+        'Complete the audit checklist and verify generated remarks before submitting',
+      );
+    }
+  }
+
   async submitAudit(user: ReqUser, auditId: string, finalRemark?: string) {
     this.assertAuditor(user);
     const audit = await this.repo.findOne({ where: { id: auditId } });
@@ -1088,6 +1106,8 @@ export class AuditsService implements OnModuleInit {
     if (audit.status === 'COMPLETED' || audit.status === 'CLOSED') {
       throw new BadRequestException('Audit already completed/closed');
     }
+
+    await this.assertChecklistReviewed(auditId);
 
     // Calculate score from document compliance (both branch + contractor docs)
     // Branch documents that were reviewed for this audit
@@ -1243,11 +1263,18 @@ export class AuditsService implements OnModuleInit {
       total: items.length,
       complied: items.filter((i) => i.status === 'COMPLIED').length,
       nonComplied: items.filter((i) => i.status === 'NON_COMPLIED').length,
-      pending: items.filter((i) => i.status === 'PENDING').length,
+      pending: items.filter((i) => ['PENDING', 'UPLOADED'].includes(i.status))
+        .length,
       notApplicable: items.filter((i) => i.status === 'NOT_APPLICABLE').length,
     };
 
-    return { items, summary };
+    return {
+      items,
+      summary,
+      template: items.length
+        ? []
+        : await auditChecklistEntries(audit, this.dataSource),
+    };
   }
 
   async addChecklistItem(
@@ -1265,6 +1292,18 @@ export class AuditsService implements OnModuleInit {
     if (!audit) throw new NotFoundException('Audit not found');
     if (audit.assignedAuditorId !== user.userId) {
       throw new ForbiddenException('Not your audit');
+    }
+    if (
+      ![
+        'PLANNED',
+        'IN_PROGRESS',
+        'CORRECTION_PENDING',
+        'REVERIFICATION_PENDING',
+      ].includes(audit.status)
+    ) {
+      throw new BadRequestException(
+        'This audit is read-only at its current stage',
+      );
     }
 
     const item = this.checklistRepo.create({
@@ -1286,6 +1325,7 @@ export class AuditsService implements OnModuleInit {
     body: {
       status?: string;
       remarks?: string;
+      automationReviewed?: boolean;
       linkedDocId?: string;
       linkedDocTable?: string;
     },
@@ -1297,11 +1337,45 @@ export class AuditsService implements OnModuleInit {
       throw new ForbiddenException('Not your audit');
     }
 
+    if (
+      ![
+        'PLANNED',
+        'IN_PROGRESS',
+        'CORRECTION_PENDING',
+        'REVERIFICATION_PENDING',
+      ].includes(audit.status)
+    ) {
+      throw new BadRequestException(
+        'This audit is read-only at its current stage',
+      );
+    }
     const item = await this.checklistRepo.findOne({
       where: { id: itemId, auditId },
     });
     if (!item) throw new NotFoundException('Checklist item not found');
 
+    const nextStatus = body.status || item.status;
+    const remark = body.remarks === undefined ? item.remarks : body.remarks;
+    if (
+      ['NON_COMPLIED', 'NOT_APPLICABLE'].includes(nextStatus) &&
+      (!remark || remark.trim().length < 5)
+    ) {
+      throw new BadRequestException(
+        'Add remarks explaining non-compliance or non-applicability',
+      );
+    }
+    const verified = body.automationReviewed ?? item.automationReviewed;
+    if (
+      item.automatedRemarks &&
+      ['COMPLIED', 'NON_COMPLIED', 'NOT_APPLICABLE'].includes(nextStatus) &&
+      !verified
+    ) {
+      throw new BadRequestException(
+        'Review the generated remarks before confirming this checklist decision',
+      );
+    }
+    if (body.automationReviewed !== undefined)
+      item.automationReviewed = body.automationReviewed;
     if (body.status) {
       const validStatuses = [
         'PENDING',
@@ -1323,7 +1397,7 @@ export class AuditsService implements OnModuleInit {
         item.reviewedAt = new Date();
       }
     }
-    if (body.remarks !== undefined) item.remarks = body.remarks;
+    if (body.remarks !== undefined) item.remarks = body.remarks.trim();
     if (body.linkedDocId) {
       item.linkedDocId = body.linkedDocId;
       item.linkedDocTable = body.linkedDocTable || 'contractor_documents';
@@ -1339,6 +1413,18 @@ export class AuditsService implements OnModuleInit {
     if (!audit) throw new NotFoundException('Audit not found');
     if (audit.assignedAuditorId !== user.userId) {
       throw new ForbiddenException('Not your audit');
+    }
+    if (
+      ![
+        'PLANNED',
+        'IN_PROGRESS',
+        'CORRECTION_PENDING',
+        'REVERIFICATION_PENDING',
+      ].includes(audit.status)
+    ) {
+      throw new BadRequestException(
+        'This audit is read-only at its current stage',
+      );
     }
 
     const result = await this.checklistRepo.delete({ id: itemId, auditId });

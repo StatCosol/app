@@ -538,11 +538,14 @@ export class AuditDocumentReviewService {
     const checklistStatus =
       decision === 'COMPLIED' ? 'COMPLIED' : 'NON_COMPLIED';
     matched.status = checklistStatus;
-    matched.remarks = remarks
-      ? remarks.slice(0, 500)
-      : decision === 'COMPLIED'
+    const suggestion =
+      remarks ||
+      (decision === 'COMPLIED'
         ? 'Document approved by auditor'
-        : matched.remarks;
+        : 'Document marked non-compliant');
+    if (matched.automatedRemarks !== suggestion)
+      matched.automationReviewed = false;
+    matched.automatedRemarks = suggestion;
     matched.reviewedBy = reviewerUserId;
     matched.reviewedAt = new Date();
     matched.linkedDocId = docId;

@@ -280,162 +280,8 @@
 }
 
     @if (activeTab === 'checklist') {
-
-      <section class="card mb-5">
-        <header class="section-head">
-          <h2>Audit Checklist</h2>
-          <span>{{ checklistSummary.total || 0 }} items &middot; {{ checklistSummary.complied || 0 }} complied &middot; {{ checklistSummary.nonComplied || 0 }} non-complied &middot; {{ checklistSummary.pending || 0 }} pending</span>
-        </header>
-
-        <div class="bg-brand-50 border border-brand-200 rounded-lg px-4 py-3 mb-4 flex items-start gap-2.5">
-          <span class="text-lg leading-none">ℹ️</span>
-          <div class="text-xs text-brand-800 leading-relaxed">
-            <strong>How this works:</strong> When you <strong>Approve or Reject a document</strong> in the Documents tab, the matching checklist item updates automatically — no double entry needed.
-            Items still showing <em>Pending</em> either have no uploaded document or couldn't be matched automatically — use the buttons to mark them manually.
-          </div>
-        </div>
-
-        @if (loadingChecklist) {
-<div class="loader">Loading checklist...</div>
-}
-
-        @if (!loadingChecklist && checklistItems.length === 0) {
-<div class="py-3">
-          <p class="text-sm text-gray-500 mb-2.5">No checklist items yet. Auto-generate based on audit type or add manually.</p>
-          <button type="button" class="btn btn-primary text-xs" (click)="generateChecklist()">
-            Auto-Generate Checklist
-          </button>
-        </div>
-}
-
-        @if (!loadingChecklist && checklistItems.length > 0) {
-<div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th class="w-10">#</th>
-                  <th>Item</th>
-                  <th>Status</th>
-                  <th class="w-44">Remarks</th>
-                  <th class="text-right w-56">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (item of checklistItems; track item; let i = $index) {
-<tr>
-                  <td>{{ i + 1 }}</td>
-                  <td>
-                    <span class="strong">{{ item.itemLabel }}</span>
-                    @if (item.isRequired) {
-<span class="text-red-600 text-[10px] ml-1">*</span>
-}
-                    @if (item.linkedDocId) {
-<span class="block text-[10px] text-brand-500 mt-0.5">📄 Auto-verified from document review</span>
-}
-                  </td>
-                  <td>
-                    <span [ngClass]="{
-                      'bg-emerald-100 text-emerald-800': item.status === 'COMPLIED',
-                      'bg-red-100 text-red-800': item.status === 'NON_COMPLIED',
-                      'bg-gray-200 text-gray-700': item.status === 'NOT_APPLICABLE',
-                      'bg-amber-100 text-amber-800': item.status !== 'COMPLIED' && item.status !== 'NON_COMPLIED' && item.status !== 'NOT_APPLICABLE'
-                    }" class="px-2 py-0.5 rounded-full text-[11px] font-semibold">
-                      {{ formatLabel(item.status) }}
-                    </span>
-                  </td>
-                  <td class="text-xs text-gray-500">{{ item.remarks || '' }}</td>
-                  <td class="text-right whitespace-nowrap">
-                    <!-- Auto-verified items: show subtle override buttons only -->
-                    @if (item.linkedDocId) {
-
-                      <span class="text-[10px] text-brand-500 mr-1.5">Auto-marked</span>
-                      @if (item.status !== 'COMPLIED') {
-<button
-                       
-                        type="button"
-                        class="btn btn-primary text-[10px] px-2 py-0.5 mr-0.5"
-                        (click)="updateChecklistStatus(item, 'COMPLIED')">OK</button>
-}
-                      @if (item.status !== 'NON_COMPLIED') {
-<button
-                       
-                        type="button"
-                        class="text-[10px] px-2 py-0.5 mr-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer"
-                        (click)="updateChecklistStatus(item, 'NON_COMPLIED')">Not OK</button>
-}
-                      <button
-                        type="button"
-                        class="text-[10px] px-2 py-0.5 bg-transparent text-red-600 border border-red-600 rounded cursor-pointer"
-                        (click)="deleteChecklistItem(item)">Delete</button>
-                    
-} @else {
-
-                      @if (item.status !== 'COMPLIED') {
-<button
-                       
-                        type="button"
-                        class="btn btn-primary text-[10px] px-2 py-0.5 mr-0.5"
-                        (click)="updateChecklistStatus(item, 'COMPLIED')">OK</button>
-}
-                      @if (item.status !== 'NON_COMPLIED') {
-<button
-                       
-                        type="button"
-                        class="text-[10px] px-2 py-0.5 mr-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer"
-                        (click)="updateChecklistStatus(item, 'NON_COMPLIED')">Not OK</button>
-}
-                      @if (item.status !== 'NOT_APPLICABLE') {
-<button
-                       
-                        type="button"
-                        class="text-[10px] px-2 py-0.5 mr-0.5 bg-gray-400 text-white border border-gray-400 rounded cursor-pointer"
-                        (click)="updateChecklistStatus(item, 'NOT_APPLICABLE')">N/A</button>
-}
-                      <button
-                        type="button"
-                        class="text-[10px] px-2 py-0.5 bg-transparent text-red-600 border border-red-600 rounded cursor-pointer"
-                        (click)="deleteChecklistItem(item)">Delete</button>
-                    
-}
-                    <!-- Manual items: full action buttons -->
-                    
-                  </td>
-                </tr>
-}
-              </tbody>
-            </table>
-          </div>
-        </div>
-}
-
-        <div class="flex gap-2 items-center mt-2.5 pt-2.5 border-t border-gray-200">
-          <input
-            type="text"
-            [(ngModel)]="newChecklistLabel"
-            placeholder="Add checklist item..."
-            class="text-xs px-2.5 py-1.5 border border-gray-300 rounded-md flex-1"
-            (keyup.enter)="addChecklistItem()" />
-          <button
-            type="button"
-            class="btn btn-primary text-[11px] px-3 py-1"
-            [disabled]="addingChecklistItem || !newChecklistLabel.trim()"
-            (click)="addChecklistItem()">
-            Add
-          </button>
-          @if (checklistSummary.pending > 0) {
-<button
-           
-            type="button"
-            class="text-[11px] px-3 py-1 bg-gray-400 text-white border border-gray-400 rounded cursor-pointer"
-            (click)="markAllPendingNA()">
-            Mark all Pending as N/A
-          </button>
-}
-        </div>
-      </section>
-    
-}
+      <ng-container [ngTemplateOutlet]="auditChecklist"></ng-container>
+    }
 
     @if (activeTab === 'documents') {
       @if (documentsError) { <div role="alert" class="card">{{ documentsError }} <button type="button" class="btn btn-secondary" (click)="loadAuditDocuments()">Retry documents</button></div> }
@@ -675,116 +521,7 @@
         
       </section>
 
-      <!-- Checklist panel inline in Documents tab -->
-      <section class="card mb-5">
-        <header class="section-head">
-          <h2>Compliance Checklist</h2>
-          <span>{{ checklistSummary.total || 0 }} items &middot; {{ checklistSummary.complied || 0 }} complied &middot; {{ checklistSummary.nonComplied || 0 }} non-complied &middot; {{ checklistSummary.pending || 0 }} pending</span>
-        </header>
-
-        <div class="bg-brand-50 border border-brand-200 rounded-lg px-4 py-3 mb-4 flex items-start gap-2.5">
-          <span class="text-lg leading-none">ℹ️</span>
-          <div class="text-xs text-brand-800 leading-relaxed">
-            Approving or Rejecting a document above <strong>automatically updates the matching checklist item</strong>. Items still <em>Pending</em> have no matched document — mark them manually here.
-          </div>
-        </div>
-
-        @if (loadingChecklist) {
-<div class="loader">Loading checklist...</div>
-}
-
-        @if (!loadingChecklist && checklistItems.length === 0) {
-<div class="py-2">
-          <p class="text-[13px] text-gray-500 mb-2">No checklist items yet.</p>
-          <button type="button" class="btn btn-primary text-xs" (click)="generateChecklist()">
-            Auto-Generate Checklist
-          </button>
-        </div>
-}
-
-        @if (!loadingChecklist && checklistItems.length > 0) {
-<div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th class="w-8">#</th>
-                  <th>Item</th>
-                  <th>Status</th>
-                  <th class="w-40">Remarks</th>
-                  <th class="text-right w-48">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (item of checklistItems; track item; let i = $index) {
-<tr>
-                  <td>{{ i + 1 }}</td>
-                  <td>
-                    <span class="strong">{{ item.itemLabel }}</span>
-                    @if (item.isRequired) {
-<span class="text-red-600 text-[10px] ml-1">*</span>
-}
-                    @if (item.linkedDocId) {
-<span class="block text-[10px] text-brand-500 mt-0.5">📄 Auto-verified from document review</span>
-}
-                  </td>
-                  <td>
-                    <span
-                      [ngClass]="{
-                        'bg-emerald-100 text-emerald-800': item.status === 'COMPLIED',
-                        'bg-red-100 text-red-800': item.status === 'NON_COMPLIED',
-                        'bg-gray-200 text-gray-700': item.status === 'NOT_APPLICABLE',
-                        'bg-amber-100 text-amber-800': item.status !== 'COMPLIED' && item.status !== 'NON_COMPLIED' && item.status !== 'NOT_APPLICABLE'
-                      }"
-                      class="px-2 py-0.5 rounded-full text-[11px] font-semibold">
-                      {{ formatLabel(item.status) }}
-                    </span>
-                  </td>
-                  <td class="text-xs text-gray-500">{{ item.remarks || '' }}</td>
-                  <td class="text-right whitespace-nowrap">
-                    @if (item.linkedDocId) {
-
-                      <span class="text-[10px] text-brand-500 mr-1.5">Auto-marked</span>
-                      @if (item.status !== 'COMPLIED') {
-<button type="button" class="btn btn-primary text-[10px] px-2 py-0.5 mr-0.5" (click)="updateChecklistStatus(item, 'COMPLIED')">OK</button>
-}
-                      @if (item.status !== 'NON_COMPLIED') {
-<button type="button" class="text-[10px] px-2 py-0.5 mr-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer" (click)="updateChecklistStatus(item, 'NON_COMPLIED')">Not OK</button>
-}
-                    
-} @else {
-
-                      @if (item.status !== 'COMPLIED') {
-<button type="button" class="btn btn-primary text-[10px] px-2 py-0.5 mr-0.5" (click)="updateChecklistStatus(item, 'COMPLIED')">OK</button>
-}
-                      @if (item.status !== 'NON_COMPLIED') {
-<button type="button" class="text-[10px] px-2 py-0.5 mr-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer" (click)="updateChecklistStatus(item, 'NON_COMPLIED')">Not OK</button>
-}
-                      @if (item.status !== 'NOT_APPLICABLE') {
-<button type="button" class="text-[10px] px-2 py-0.5 bg-gray-400 text-white border border-gray-400 rounded cursor-pointer" (click)="updateChecklistStatus(item, 'NOT_APPLICABLE')">N/A</button>
-}
-                    
-}
-                    
-                  </td>
-                </tr>
-}
-              </tbody>
-            </table>
-          </div>
-          @if (checklistSummary.pending > 0) {
-<div class="mt-2.5 pt-2.5 border-t border-gray-200">
-            <button
-              type="button"
-              class="text-[11px] px-3 py-1 bg-gray-400 text-white border border-gray-400 rounded cursor-pointer"
-              (click)="markAllPendingNA()">
-              Mark all Pending as N/A
-            </button>
-          </div>
-}
-        </div>
-}
-      </section>
+      <ng-container [ngTemplateOutlet]="auditChecklist"></ng-container>
 
       @if (filteredEvidenceRows.length > 0) {
 <section class="card mb-5">
@@ -1290,3 +1027,41 @@
   
 }
 </div>
+
+<ng-template #auditChecklist>
+  <section class="card mb-5">
+    <header class="section-head"><h2>{{ formatLabel(audit?.auditType) }} Audit Checklist</h2><span>{{ checklistSummary.total || 0 }} checkpoints · {{ checklistSummary.pending || 0 }} pending</span></header>
+    <p class="section-intro">Review each checkpoint for this site. Record your decision and remarks. Generated remarks are suggestions; cross-check them before confirming.</p>
+    @if (loadingChecklist) { <p role="status">Loading checklist…</p> }
+    @if (checklistError) { <div role="alert">{{ checklistError }} <button type="button" class="btn btn-secondary" (click)="loadChecklist()">Retry checklist</button></div> }
+    @if (!loadingChecklist && !checklistItems.length && !checklistError) {
+      <ol class="list-decimal pl-6 mb-4">@for (item of checklistTemplate; track item[0]) { <li>{{ item[0] }}</li> }</ol>
+      <button type="button" class="btn btn-primary" [disabled]="!canReviewDocuments" (click)="generateChecklist()">Load type checklist</button>
+    }
+    @if (checklistItems.length) {
+      <div class="table-wrap"><table>
+        <thead><tr><th>Checkpoint</th><th>Generated remarks</th><th>Auditor remarks</th><th>Decision</th><th>Save</th></tr></thead>
+        <tbody>@for (item of checklistItems; track item.id) {
+          <tr>
+            <td><strong>{{ item.itemLabel }}</strong>@if (item.linkedDocId) { <p class="minor">Linked to document review</p> }</td>
+            <td>
+              @if (item.automatedRemarks) {
+                <p class="whitespace-pre-wrap">{{ item.automatedRemarks }}</p>
+                <button type="button" class="link" [disabled]="!canReviewDocuments || !!checklistSavingId" (click)="useChecklistSuggestion(item)">Copy to my remarks</button>
+                <label class="block mt-2"><input type="checkbox" [(ngModel)]="checklistVerified[item.id]" [disabled]="!canReviewDocuments || !!checklistSavingId" /> Generated remarks reviewed</label>
+              } @else { <span class="minor">No generated remarks. Inspect the evidence and record your findings.</span> }
+            </td>
+            <td><textarea rows="3" [attr.aria-label]="'Auditor remarks for ' + item.itemLabel" [(ngModel)]="checklistRemarks[item.id]" [disabled]="!canReviewDocuments || !!checklistSavingId" placeholder="Your observations, evidence checked and reason for the decision" class="min-w-[200px] w-full border border-slate-300 rounded p-2"></textarea></td>
+            <td><select [attr.aria-label]="'Decision for ' + item.itemLabel" [(ngModel)]="checklistDecisions[item.id]" [disabled]="!canReviewDocuments || !!checklistSavingId">
+              <option value="PENDING">Pending review</option><option value="UPLOADED">Evidence uploaded</option><option value="COMPLIED">Complied</option><option value="NON_COMPLIED">Non-complied</option><option value="NOT_APPLICABLE">Not applicable</option>
+            </select></td>
+            <td><button type="button" class="btn btn-primary" [disabled]="!canReviewDocuments || !!checklistSavingId" (click)="saveChecklistItem(item)">{{ checklistSavingId === item.id ? 'Saving…' : 'Save review' }}</button></td>
+          </tr>
+        }</tbody>
+      </table></div>
+    }
+    @if (canReviewDocuments) {
+      <div class="flex gap-2 items-center mt-4"><label class="flex-1">Additional checkpoint<input type="text" [(ngModel)]="newChecklistLabel" placeholder="Add a site-specific checkpoint" class="block w-full border border-slate-300 rounded p-2" /></label><button type="button" class="btn btn-secondary" [disabled]="addingChecklistItem || !newChecklistLabel.trim()" (click)="addChecklistItem()">Add checkpoint</button></div>
+    }
+  </section>
+</ng-template>

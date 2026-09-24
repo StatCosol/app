@@ -40,10 +40,14 @@ describe('Audit document review scope and remarks', () => {
       find: jest.fn().mockResolvedValue(reviews),
       save: jest.fn(),
     };
+    const checklistRepo = {
+      find: jest.fn().mockResolvedValue([]),
+      save: jest.fn(),
+    };
     const service = new AuditDocumentReviewService(
       repo as any,
       {} as any,
-      {} as any,
+      checklistRepo as any,
       reviewRepo as any,
       {} as any,
       { query } as any,
@@ -52,8 +56,36 @@ describe('Audit document review scope and remarks', () => {
       {} as any,
       {} as any,
     );
-    return { service, repo, query, reviewRepo };
+    return { service, repo, query, reviewRepo, checklistRepo };
   }
+  it('stores linked document suggestions separately from manual checkpoint remarks', async () => {
+    const { service, query, checklistRepo } = setup();
+    query.mockResolvedValue([{ docType: 'PF_CHALLAN', fileName: 'pf.pdf' }]);
+    const item = {
+      itemLabel: 'PF Challan',
+      docType: 'PF_CHALLAN',
+      status: 'PENDING',
+      remarks: 'My saved observation',
+      automatedRemarks: 'Old suggestion',
+      automationReviewed: true,
+    };
+    checklistRepo.find.mockResolvedValue([item]);
+    await (service as any).autoLinkChecklistItem(
+      'audit',
+      'doc',
+      'contractor_documents',
+      'COMPLIED',
+      'New document remark',
+      'auditor',
+    );
+    expect(checklistRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        remarks: 'My saved observation',
+        automatedRemarks: 'New document remark',
+        automationReviewed: false,
+      }),
+    );
+  });
   it('restores this audit remark and requires review of upstream-approved uploads', async () => {
     const { service, query } = setup([
       {

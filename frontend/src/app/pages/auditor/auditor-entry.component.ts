@@ -19,6 +19,8 @@ export class AuditorEntryComponent implements OnInit, OnDestroy {
   branches: Array<{ id: string; clientId: string; name: string }> = [];
   contractors: Array<{ id: string; clientId: string; branchId: string; name: string }> = [];
   auditTypes: string[] = [];
+  checklistTemplates: Record<string, Array<[string, string?]>> = {};
+  get selectedChecklist() { return this.checklistTemplates[this.auditType] || []; }
   clientId = '';
   branchId = '';
   auditType = '';
@@ -38,6 +40,7 @@ export class AuditorEntryComponent implements OnInit, OnDestroy {
       next: data => {
         this.clients = data.clients || []; this.branches = data.branches || [];
         this.contractors = data.contractors || []; this.auditTypes = data.auditTypes || [];
+        this.checklistTemplates = data.checklistTemplates || {};
       },
       error: () => { this.error = 'Audit options could not be loaded. Please retry.'; },
     });
@@ -49,7 +52,7 @@ export class AuditorEntryComponent implements OnInit, OnDestroy {
   changeBranch(): void { this.contractorUserId = ''; }
   changeType(): void { this.contractorUserId = ''; }
   typeLabel(value: string): string {
-    const labels: Record<string, string> = { CONTRACTOR: 'Contractor audit', FACTORY: 'Factory audit',
+    const labels: Record<string, string> = { CONTRACTOR: 'Contractor audit', SAFETY: 'Safety Audit', TRANSPORT: 'Transport Audit', WAREHOUSE: 'Warehouse Audit', E_MARKETING: 'E-marketing Audit', OTHER: 'Other Audit', FACTORY: 'Factory audit',
       SHOPS_ESTABLISHMENT: 'Shops & establishment audit', LABOUR_EMPLOYMENT: 'Labour & employment audit',
       FSSAI: 'FSSAI audit', HR: 'HR audit', PAYROLL: 'Payroll audit', GAP: 'Gap audit' };
     return labels[value] || value;
@@ -66,7 +69,7 @@ export class AuditorEntryComponent implements OnInit, OnDestroy {
     this.api.auditorStartEntry({ clientId: this.clientId, branchId: this.branchId, auditType: this.auditType,
       periodCode: this.periodCode, ...(this.auditType === 'CONTRACTOR' ? { contractorUserId: this.contractorUserId } : {}),
     }).pipe(takeUntil(this.destroy$), finalize(() => { this.busy = false; this.cdr.markForCheck(); })).subscribe({
-      next: result => { void this.router.navigate(['/auditor/audits', result.auditId, 'workspace']); },
+      next: result => { void this.router.navigate(['/auditor/audits', result.auditId, 'workspace'], { queryParams: { tab: 'checklist' } }); },
       error: err => { this.error = err?.error?.message || 'The audit could not be opened. Your selections have been kept; retry when ready.'; },
     });
   }

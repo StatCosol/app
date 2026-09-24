@@ -29,6 +29,7 @@ import {
   AssignAuditorDto,
   SaveReportDraftDto,
 } from './dto/audit-query.dto';
+import { UpdateAuditChecklistDto } from './dto/update-audit-checklist.dto';
 import { OpenAuditWorkspaceDto } from './dto/open-audit-workspace.dto';
 import { BranchAccessService } from '../auth/branch-access.service';
 import { AuditorAssignmentGuard } from '../assignments/auditor-assignment.guard';
@@ -567,13 +568,7 @@ export class AuditorAuditsController {
     @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Param('itemId', ParseUUIDPipe) itemId: string,
-    @Body()
-    body: {
-      status?: string;
-      remarks?: string;
-      linkedDocId?: string;
-      linkedDocTable?: string;
-    },
+    @Body() body: UpdateAuditChecklistDto,
   ) {
     return this.svc.updateChecklistItem(user, id, itemId, body);
   }

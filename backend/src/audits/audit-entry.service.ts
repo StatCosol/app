@@ -7,6 +7,8 @@ import { DataSource } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { ReqUser } from '../access/access-scope.service';
 import { AuditType } from '../common/enums';
+import { ensureAuditChecklist } from './audit-checklist-template.helpers';
+import { AUDIT_CHECKLIST_TEMPLATES } from './audit-checklist-templates';
 import { StartAuditEntryDto } from './dto/start-audit-entry.dto';
 
 // A branch assignment grants that branch only. A current client assignment
@@ -63,6 +65,7 @@ export class AuditEntryService {
       branches,
       contractors,
       auditTypes: Object.values(AuditType),
+      checklistTemplates: AUDIT_CHECKLIST_TEMPLATES,
     };
   }
 
@@ -137,12 +140,23 @@ export class AuditEntryService {
           dto.contractorUserId || null,
         ],
       );
-      if (existing.length)
+      if (existing.length) {
+        if (
+          [
+            'PLANNED',
+            'IN_PROGRESS',
+            'CORRECTION_PENDING',
+            'REVERIFICATION_PENDING',
+          ].includes(existing[0].status)
+        ) {
+          await ensureAuditChecklist(manager, { ...dto, id: existing[0].id });
+        }
         return {
           auditId: existing[0].id,
           auditCode: existing[0].auditCode,
           created: false,
         };
+      }
       const id = randomUUID();
       const year = Number(dto.periodCode.slice(0, 4));
       // Separate prefix avoids interfering with the CRM's sequential AUD codes.
@@ -164,6 +178,7 @@ export class AuditEntryService {
           auditorId,
         ],
       );
+      await ensureAuditChecklist(manager, { ...dto, id });
       return { auditId: id, auditCode: code, created: true };
     });
   }

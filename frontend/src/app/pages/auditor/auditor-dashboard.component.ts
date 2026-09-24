@@ -91,12 +91,17 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     { value: null, label: 'All Types' },
     { value: 'CONTRACTOR', label: 'Contractor Audit' },
     { value: 'FACTORY', label: 'Factory Audit' },
-    { value: 'SHOPS_ESTABLISHMENT', label: 'Branch Compliance Audit' },
+    { value: 'SAFETY', label: 'Safety Audit' },
+    { value: 'TRANSPORT', label: 'Transport Audit' },
+    { value: 'WAREHOUSE', label: 'Warehouse Audit' },
+    { value: 'E_MARKETING', label: 'E-marketing Audit' },
+    { value: 'OTHER', label: 'Other Audit' },
+    { value: 'SHOPS_ESTABLISHMENT', label: 'Shops & Establishments Audit' },
     { value: 'LABOUR_EMPLOYMENT', label: 'Labour Law Audit' },
     { value: 'FSSAI', label: 'FSSAI Audit' },
     { value: 'HR', label: 'HR Audit' },
     { value: 'PAYROLL', label: 'Payroll Audit' },
-    { value: 'GAP', label: 'Other Audit' },
+    { value: 'GAP', label: 'Gap Audit' },
   ];
 
   // Summary KPIs (from new AuditXpert dashboard API)
@@ -581,12 +586,17 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     const labels: Record<string, string> = {
       CONTRACTOR: 'Contractor Audit',
       FACTORY: 'Factory Audit',
-      SHOPS_ESTABLISHMENT: 'Branch Compliance Audit',
+      SAFETY: 'Safety Audit',
+      TRANSPORT: 'Transport Audit',
+      WAREHOUSE: 'Warehouse Audit',
+      E_MARKETING: 'E-marketing Audit',
+      OTHER: 'Other Audit',
+      SHOPS_ESTABLISHMENT: 'Shops & Establishments Audit',
       LABOUR_EMPLOYMENT: 'Labour Law Audit',
       FSSAI: 'FSSAI Audit',
       HR: 'HR Audit',
       PAYROLL: 'Payroll Audit',
-      GAP: 'Other Audit',
+      GAP: 'Gap Audit',
     };
     return labels[key] || this.formatStatus(key);
   }
