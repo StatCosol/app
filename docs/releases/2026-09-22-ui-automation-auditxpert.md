@@ -1,6 +1,6 @@
 # UI, automation and AuditXpert update
 
-Base: main at `c2f10dce488cf44f4d3ed22ae2ccf12539050614` (includes the separately merged contractor enrollment update #680).
+Base: main at `280ab23830e5cd83493ab0a749bef27cebc1beba` (retains separately merged contractor updates #680, #681 and #682).
 
 ## Changes
 
@@ -26,7 +26,7 @@ Default request-email dates are operational reminders, not statutory or payroll 
 
 ## Verification
 
-- Local backend: 240 passing suites, 1,824 passing tests; database boot test intentionally skips without a configured database.
+- Local backend: 241 passing suites, 1,831 passing tests; database boot test intentionally skips without a configured database.
 - Local backend and frontend production builds and lint checks pass; 92 frontend logic tests pass.
 - Synthetic PostgreSQL-compatible database checks pass for repeat-safe additive migration, unchanged employee fixtures, policy isolation/version conflicts, assigned audit links and foreign/corrupted reference denial. The same check is registered in CI against PostgreSQL.
 - Route inventory: 377 routes, 73 central menu entries, no broken central menu destinations or template parse errors.
