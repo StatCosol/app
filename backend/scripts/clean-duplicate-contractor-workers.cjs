@@ -8,9 +8,13 @@
  *
  * Two workers are the same person when they share an Aadhaar within a client,
  * or — with no Aadhaar — the same name under the same contractor at the same
- * branch. The oldest record is kept, being the one attendance and payroll are
- * most likely to point at; a copy that something already references is left in
- * place and reported rather than deleted.
+ * branch.
+ *
+ * The record kept is the one whose face is enrolled, since that is what the
+ * kiosk matches a punch to and re-enrolling a face is work on site. Where no
+ * copy is enrolled, the oldest is kept, being the one attendance and payroll
+ * are most likely to point at. Either way a copy that something already
+ * references is left in place and reported rather than deleted.
  *
  *   node scripts/clean-duplicate-contractor-workers.cjs                 # report only
  *   node scripts/clean-duplicate-contractor-workers.cjs --client <uuid> # one client
@@ -34,7 +38,23 @@ const GROUPS = `
     ) AS person,
     ce.client_id,
     ce.id, ce.employee_code, ce.name, ce.branch_id, ce.created_at,
-    ce.aadhaar, ce.pan, ce.bank_account, ce.punch_code
+    ce.aadhaar, ce.pan, ce.bank_account, ce.punch_code,
+    -- A face the kiosk can already match: FaceDesk, or the older mobile
+    -- enrolment. to_regclass keeps this working where one is not installed.
+    (
+      CASE WHEN to_regclass('public.facedesk_employee_face_profiles') IS NULL THEN false
+      ELSE EXISTS (
+        SELECT 1 FROM facedesk_employee_face_profiles p
+         WHERE p.employee_id = ce.id AND p.subject_type = 'CONTRACTOR'
+           AND p.enrollment_status = 'ENROLLED')
+      END
+      OR
+      CASE WHEN to_regclass('public.contractor_face_enrollments') IS NULL THEN false
+      ELSE EXISTS (
+        SELECT 1 FROM contractor_face_enrollments e
+         WHERE e.contractor_employee_id = ce.id AND e.is_active IS TRUE)
+      END
+    ) AS face_enrolled
   FROM contractor_employees ce
   WHERE (ce.is_active IS TRUE OR ce.status IN ('ACTIVE', 'PENDING_DELETE'))
     AND ($1::uuid IS NULL OR ce.client_id = $1)
@@ -64,6 +84,15 @@ async function referencesTo(db, worker) {
     );
     if (hit.length) found.push(r.table_name);
   }
+  // A delete request names the worker by target_entity_id, which no column
+  // name would reveal; deleting under it would strand the request.
+  const { rows: approvals } = await db.query(
+    `SELECT 1 FROM approval_requests
+      WHERE target_entity_type = 'CONTRACTOR_EMPLOYEE'
+        AND target_entity_id = $1::uuid LIMIT 1`,
+    [worker.id],
+  );
+  if (approvals.length) found.push('approval_requests');
   if (!worker.employee_code) return found;
   const { rows: byCode } = await db.query(
     `SELECT c.table_name
@@ -107,17 +136,32 @@ async function referencesTo(db, worker) {
       console.log('No contractor worker is registered more than once.');
       return;
     }
-    let removable = 0, referenced = 0, removed = 0;
+    let removable = 0, referenced = 0, removed = 0, manyEnrolled = 0, enrolledKept = 0;
     console.log(`${duplicated.length} worker(s) registered more than once:\n`);
     for (const group of duplicated) {
-      const [keep, ...extras] = group;
-      console.log(`${keep.name}  (keeping ${keep.employee_code || keep.id}, registered ${keep.created_at.toISOString().slice(0, 10)})`);
+      // The enrolled face wins; otherwise the oldest, the group already being
+      // in registration order.
+      const enrolled = group.filter((r) => r.face_enrolled);
+      if (enrolled.length > 1) manyEnrolled++;
+      const keep = enrolled[0] ?? group[0];
+      const extras = group.filter((r) => r !== keep);
+      const why = keep.face_enrolled
+        ? 'face enrolled'
+        : `registered ${keep.created_at.toISOString().slice(0, 10)}`;
+      console.log(`${keep.name}  (keeping ${keep.employee_code || keep.id}, ${why})`);
       for (const extra of extras) {
         const refs = await referencesTo(db, extra);
         // Details the copy holds and the kept record does not: worth moving
         // over before the copy goes.
         const extraOnly = ['aadhaar', 'pan', 'bank_account', 'punch_code']
           .filter((f) => String(extra[f] ?? '').trim() && !String(keep[f] ?? '').trim());
+        // Two enrolled faces for one person: removing either loses a face the
+        // kiosk matches, so both stay and the office decides.
+        if (extra.face_enrolled) {
+          enrolledKept++;
+          console.log(`   keep too: ${extra.employee_code || extra.id} — a face is enrolled against this one as well`);
+          continue;
+        }
         if (refs.length) {
           referenced++;
           console.log(`   keep too: ${extra.employee_code || extra.id} — referenced by ${refs.join(', ')}`);
@@ -134,8 +178,14 @@ async function referencesTo(db, worker) {
       }
     }
     console.log(
-      `\n${removable} copy(ies) can be removed, ${referenced} left in place because something references them.`,
+      `\n${removable} copy(ies) can be removed, ${referenced} left in place because something references them` +
+        (enrolledKept ? `, ${enrolledKept} because a face is enrolled against them too` : '') +
+        '.',
     );
+    if (manyEnrolled)
+      console.log(
+        `${manyEnrolled} worker(s) carry an enrolled face on more than one record. Both are kept: the kiosk matches either, so remove one only after deciding which face to keep.`,
+      );
     console.log(apply ? `${removed} removed.` : 'Nothing was changed. Re-run with --apply to remove them.');
   } finally {
     await db.end();

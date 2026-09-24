@@ -1585,9 +1585,13 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     const seenName = new Map<string, number>();
     const onRegister = new Map<string, ContractorEmployee>();
     for (const worker of this.allRows) {
-      const digits = String(worker.aadhaar ?? '').replace(/D/g, '');
+      // Only those still on the register: the server lets a worker who has
+      // left be taken on again, so the preview must not call that a duplicate.
+      if (!(worker.isActive || ['ACTIVE', 'PENDING_DELETE'].includes(String(worker.status ?? ''))))
+        continue;
+      const digits = String(worker.aadhaar ?? '').replace(/\D/g, '');
       if (digits) onRegister.set('a:' + digits, worker);
-      onRegister.set(`n:${worker.branchId}|${String(worker.name ?? '').trim().toLowerCase().replace(/s+/g, ' ')}`, worker);
+      onRegister.set(`n:${worker.branchId}|${String(worker.name ?? '').trim().toLowerCase().replace(/\s+/g, ' ')}`, worker);
     }
     return rows.map((raw, index) => {
       const errors: string[] = [];
@@ -1669,8 +1673,8 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       if (pending.length)
         warnings.push(`Will be enrolled with ${pending.join(', ')} pending`);
 
-      const digits = String(dto.aadhaar ?? '').replace(/D/g, '');
-      const nameKey = `${dto.branchId}|${name.toLowerCase().replace(/s+/g, ' ')}`;
+      const digits = String(dto.aadhaar ?? '').replace(/\D/g, '');
+      const nameKey = `${dto.branchId}|${name.toLowerCase().replace(/\s+/g, ' ')}`;
       const twice = digits ? seenAadhaar.get(digits) : seenName.get(nameKey);
       if (twice !== undefined) errors.push(`Same worker as row ${twice + 1} of this file`);
       else {

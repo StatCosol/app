@@ -41,7 +41,7 @@ describe('Contractor bulk upload — the same worker twice', () => {
 
   it('refuses a worker already on the register, naming them', () => {
     component.allRows = [
-      { id: '1', name: 'Ravi Kumar', employeeCode: 'SBS0007', branchId: 'branch-1', aadhaar: '100000000001' },
+      { id: '1', name: 'Ravi Kumar', employeeCode: 'SBS0007', branchId: 'branch-1', aadhaar: '100000000001', isActive: true, status: 'ACTIVE' },
     ] as any;
     const [byAadhaar] = component['validateBulkRows']([row({ name: 'Someone Else' })]);
     expect(byAadhaar.errors.join(' ')).toContain('This Aadhaar is already registered to Ravi Kumar (SBS0007)');
@@ -49,9 +49,33 @@ describe('Contractor bulk upload — the same worker twice', () => {
     expect(byName.errors.join(' ')).toContain('Ravi Kumar (SBS0007) is already registered at this branch');
   });
 
+  it('tells apart names that differ only by a letter, and matches those differing by spacing', () => {
+    // A key built on the letter "s" instead of whitespace made Das and Dass
+    // the same worker, and left "Ravi  Kumar" and "Ravi Kumar" different.
+    const distinct = component['validateBulkRows']([
+      row({ name: 'Anil Das', aadhaar: '' }),
+      row({ name: 'Anil Dass', aadhaar: '' }),
+    ]);
+    expect(distinct.every((r) => r.errors.length === 0)).toBe(true);
+    const spaced = component['validateBulkRows']([
+      row({ name: 'Ravi Kumar', aadhaar: '' }),
+      row({ name: 'Ravi  Kumar', aadhaar: '' }),
+    ]);
+    expect(spaced[1].errors.join(' ')).toContain('Same worker as row 1');
+  });
+
+  it('lets a worker who has left be taken on again', () => {
+    component.allRows = [
+      { id: '1', name: 'Ravi Kumar', employeeCode: 'SBS0007', branchId: 'branch-1', aadhaar: '100000000001', isActive: false, status: 'LEFT' },
+    ] as any;
+    expect(component['validateBulkRows']([row()])[0].errors).toEqual([]);
+    component.allRows[0].status = 'PENDING_DELETE';
+    expect(component['validateBulkRows']([row()])[0].errors.join(' ')).toContain('already registered');
+  });
+
   it('lets two different workers through', () => {
     component.allRows = [
-      { id: '1', name: 'Someone Else', employeeCode: 'SBS0001', branchId: 'branch-1', aadhaar: '100000000009' },
+      { id: '1', name: 'Someone Else', employeeCode: 'SBS0001', branchId: 'branch-1', aadhaar: '100000000009', isActive: true, status: 'ACTIVE' },
     ] as any;
     const rows = component['validateBulkRows']([row(), row({ name: 'Sita Devi', aadhaar: '100000000002' })]);
     expect(rows.every((r) => r.errors.length === 0)).toBe(true);
