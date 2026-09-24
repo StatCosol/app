@@ -66,7 +66,9 @@ describe('refusing a worker who is already registered', () => {
     const sql = svc.qb.conditions.join(' ');
     expect(sql).toContain('ce.branchId');
     expect(sql).toContain('ce.contractorUserId');
-    expect(sql).toContain('LOWER(TRIM(ce.name))');
+    // The stored name is normalised the same way the supplied one is.
+    expect(sql).toContain('regexp_replace(ce.name');
+    expect(svc.qb.params.name).toBe('ravi kumar');
   });
 
   it('lets a worker through when nobody matches, and ignores those who have left', async () => {
@@ -85,5 +87,77 @@ describe('refusing a worker who is already registered', () => {
     });
     expect(svc.qb.conditions.join(' ')).toContain('ce.id <> :excludeId');
     expect(svc.qb.params.excludeId).toBe('self');
+  });
+});
+
+describe('an edit that assigns an identity', () => {
+  const build = (over: any = {}) => {
+    const svc: any = Object.create(ContractorEmployeesService.prototype);
+    const calls: string[] = [];
+    const qb: any = {};
+    for (const m of ['where', 'andWhere', 'select']) qb[m] = () => qb;
+    qb.getOne = async () => over.duplicate;
+    const em = {
+      // withCodeLock takes the advisory lock on this manager first.
+      query: async () => [],
+      createQueryBuilder: () => {
+        calls.push('CHECK');
+        return qb;
+      },
+      save: async (v: any) => {
+        calls.push('SAVE');
+        return v;
+      },
+    };
+    svc.calls = calls;
+    svc.dataSource = {
+      transaction: async (cb: any) => {
+        calls.push('LOCKED');
+        return cb(em);
+      },
+    };
+    svc.repo = {
+      findOne: async () => ({
+        id: 'self',
+        clientId: 'client',
+        branchId: 'branch',
+        contractorUserId: 'contractor',
+        name: 'Ravi Kumar',
+        skillCategory: 'UNSKILLED',
+      }),
+      manager: em,
+      save: async (v: any) => {
+        calls.push('SAVE_UNLOCKED');
+        return v;
+      },
+    };
+    svc.minWage = { validateSalary: async () => ({ ok: true }) };
+    svc.userRepo = { findOne: async () => ({ scheduledEmployment: null }) };
+    svc.branchRepo = {
+      findOne: async () => ({ id: 'branch', stateCode: 'TS' }),
+    };
+    return svc;
+  };
+
+  it('checks and saves under the same lock, so two edits cannot both pass', async () => {
+    const svc = build();
+    await svc.update('self', 'contractor', { aadhaar: '123456789012' });
+    expect(svc.calls).toEqual(['LOCKED', 'CHECK', 'SAVE']);
+  });
+
+  it('refuses an identity that belongs to someone else', async () => {
+    const svc = build({
+      duplicate: { id: 'other', name: 'Ravi Kumar', employeeCode: 'SBS0007' },
+    });
+    await expect(
+      svc.update('self', 'contractor', { aadhaar: '123456789012' }),
+    ).rejects.toThrow('already registered');
+    expect(svc.calls).not.toContain('SAVE');
+  });
+
+  it('does not take the lock for an edit that touches neither name nor identity', async () => {
+    const svc = build();
+    await svc.update('self', 'contractor', { designation: 'Supervisor' });
+    expect(svc.calls).toEqual(['SAVE_UNLOCKED']);
   });
 });
