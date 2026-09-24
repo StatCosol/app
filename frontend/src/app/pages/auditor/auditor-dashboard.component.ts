@@ -437,7 +437,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     this.loadMyAudits();
   }
 
-  /** Phase 1 — Load actionable audits (PLANNED + IN_PROGRESS + REVERIFICATION_PENDING)
+  /** Load active audits, including correction and reverification follow-up
    *  for the Quick Audit Selector dropdown. */
   loadActionableAudits(): void {
     const params = { ...this.buildFilterParams(), tab: 'ACTIVE', limit: '500' };
@@ -550,7 +550,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
 
   getAuditActionLabel(audit: AuditorAuditItem): string {
     const status = this.statusKey(audit.status);
-    if (status === 'NOT_STARTED') return 'Start Audit';
+    if (['PLANNED', 'ASSIGNED', 'NOT_STARTED'].includes(status)) return 'Start Audit';
     if (status === 'IN_PROGRESS') return 'Continue Audit';
     if (status === 'SUBMITTED') return 'View Submission';
     return 'Open Workspace';
@@ -558,7 +558,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
 
   getAuditHint(audit: AuditorAuditItem): string {
     const status = this.statusKey(audit.status);
-    if (status === 'NOT_STARTED') return 'Ready to begin review.';
+    if (['PLANNED', 'ASSIGNED', 'NOT_STARTED'].includes(status)) return 'Ready to begin review.';
     if (status === 'IN_PROGRESS') return 'Continue document review and findings.';
     if (status === 'SUBMITTED') return 'Submitted and waiting for downstream review.';
     if (status === 'COMPLETED') return 'Audit cycle is complete.';
@@ -591,44 +591,19 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     return labels[key] || this.formatStatus(key);
   }
 
-  /** Follow-up on observation */
+  /** Open the assigned correction workflow; verification requires evidence and notes. */
   followUpObservation(obs: AuditorObservationPending): void {
-    this.observationsService.update(obs.observationId, { status: 'FOLLOW_UP' }).pipe(
-      takeUntil(this.destroy$),
-      timeout(10000),
-    ).subscribe({
-      next: () => {
-        this.toast.success('Follow-up sent for: ' + obs.title);
-        this.loadObservations();
-      },
-      error: () => this.toast.error('Failed to send follow-up'),
-    });
+    this.updateObservation(obs);
   }
 
-  /** Update observation status */
   updateObservation(obs: AuditorObservationPending): void {
-    this.router.navigate(['/auditor/observations'], { queryParams: { observationId: obs.observationId } });
+    this.router.navigate(['/auditor/observations'], {
+      queryParams: { auditId: obs.auditId, observationId: obs.observationId },
+    });
   }
 
-  /** Close observation */
-  async closeObservation(obs: AuditorObservationPending): Promise<void> {
-    const ok = await this.dialog.confirm(
-      'Close Observation',
-      `Close observation "${obs.title}"? This action cannot be undone.`,
-      { variant: 'danger', confirmText: 'Close' },
-    );
-    if (!ok) return;
-    this.observationsService.update(obs.observationId, { status: 'CLOSED' }).pipe(
-      takeUntil(this.destroy$),
-      timeout(10000),
-    ).subscribe({
-      next: () => {
-        this.toast.success('Observation closed: ' + obs.title);
-        this.loadObservations();
-        this.loadSummary();
-      },
-      error: () => this.toast.error('Failed to close observation'),
-    });
+  closeObservation(obs: AuditorObservationPending): void {
+    this.updateObservation(obs);
   }
 
   /** Remind for pending evidence */

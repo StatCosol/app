@@ -1,0 +1,49 @@
+<div class="page-wrap">
+  <header class="page-head card">
+    <div><h1>Conduct Audit</h1><p>Select the audit scope, review uploaded documents, and record your verified remarks.</p></div>
+    <a class="btn btn-secondary" routerLink="/auditor/audits">Assigned audits</a>
+  </header>
+  @if (error) { <div class="card" role="alert">{{ error }} @if (!busy) { <button class="btn btn-ghost" type="button" (click)="load()">Reload options</button> }</div> }
+  @if (loading) { <div class="card" role="status">Loading your assigned clients and branches…</div> }
+  @if (!loading) {
+    <section class="card">
+      <header class="section-head"><h2>1. Select audit scope</h2></header>
+      <p class="section-intro">Choose an assigned client and branch. An existing audit for the same scope and month will open so you can continue your work.</p>
+      @if (!clients.length && !error) { <p>No active branch assignments are available. Ask your CRM or administrator to assign a client or branch. Existing scheduled audits remain available under Assigned audits.</p> }
+      <form (ngSubmit)="start()" class="grid gap-4 md:grid-cols-2">
+        <label class="notes-box">Client
+          <select name="clientId" [(ngModel)]="clientId" (ngModelChange)="changeClient()" [disabled]="busy" required>
+            <option value="">Select client</option>@for (client of clients; track client.id) { <option [value]="client.id">{{ client.name }}</option> }
+          </select>
+        </label>
+        <label class="notes-box">Audit type
+          <select name="auditType" [(ngModel)]="auditType" (ngModelChange)="changeType()" [disabled]="busy" required>
+            <option value="">Select audit type</option>@for (type of auditTypes; track type) { <option [value]="type">{{ typeLabel(type) }}</option> }
+          </select>
+        </label>
+        <label class="notes-box">Audit period (month)
+          <input type="month" name="periodCode" [(ngModel)]="periodCode" [disabled]="busy" required />
+        </label>
+        <label class="notes-box">Branch / unit
+          <select name="branchId" [(ngModel)]="branchId" (ngModelChange)="changeBranch()" [disabled]="!clientId || busy" required>
+            <option value="">Select branch</option>@for (branch of branchOptions; track branch.id) { <option [value]="branch.id">{{ branch.name }}</option> }
+          </select>
+        </label>
+        @if (auditType === 'CONTRACTOR') {
+          <label class="notes-box">Contractor
+            <select name="contractorUserId" [(ngModel)]="contractorUserId" [disabled]="!branchId || busy" required>
+              <option value="">Select contractor</option>@for (contractor of contractorOptions; track contractor.id) { <option [value]="contractor.id">{{ contractor.name }}</option> }
+            </select>
+            @if (branchId && !contractorOptions.length) { <span>No active contractor is linked to this branch. Ask your CRM to check the contractor mapping.</span> }
+          </label>
+        }
+        <div class="md:col-span-2 action-row"><button class="btn btn-primary" type="submit" [disabled]="!canStart">{{ busy ? 'Opening audit…' : 'Start / Continue Audit' }}</button></div>
+      </form>
+    </section>
+    <section class="summary-grid">
+      <article class="card"><h2>2. Review documents</h2><p>Open the uploads for the chosen branch, contractor and period. Compare available automated checks with the source document.</p></article>
+      <article class="card"><h2>3. Record remarks</h2><p>Write remarks against each document, verify suggested findings, and record the compliance decision.</p></article>
+      <article class="card"><h2>4. Complete the audit</h2><p>Resolve corrections, finish the checklist and findings, then prepare the audit report.</p></article>
+    </section>
+  }
+</div>

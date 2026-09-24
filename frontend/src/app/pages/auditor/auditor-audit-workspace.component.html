@@ -1,7 +1,7 @@
 <div class="page-wrap">
   <header class="page-head card">
     <div>
-      <h1>Audit Review Workspace</h1>
+      <h1>Conduct Audit · Document Review</h1>
       <p>Work from left to right: review uploads, recheck corrections if needed, capture findings, and submit only when the audit is fully cleared.</p>
     </div>
     @if (hasAuditContext) {
@@ -10,7 +10,7 @@
       [inline]="true"
       [clientName]="audit?.client?.clientName || ''"
       [clientCode]="audit?.client?.clientCode || ''"
-      [badges]="[{ label: 'Audit', value: audit?.auditCode || '' }, { label: 'Branch', value: audit?.branch?.branchName || '' }]">
+      [badges]="[{ label: 'Audit', value: audit?.auditCode || '' }, { label: 'Branch', value: audit?.branch?.branchName || '' }, { label: 'Type', value: formatLabel(audit?.auditType) }, { label: 'Period', value: audit?.periodCode || '' }, { label: 'Contractor', value: audit?.contractorUser?.name || '' }]">
     </ui-client-context-strip>
 }
   </header>
@@ -438,6 +438,8 @@
 }
 
     @if (activeTab === 'documents') {
+      @if (documentsError) { <div role="alert" class="card">{{ documentsError }} <button type="button" class="btn btn-secondary" (click)="loadAuditDocuments()">Retry documents</button></div> }
+      @if (!canReviewDocuments) { <p class="card">This audit is {{ formatLabel(audit?.status) }}. Document decisions are read-only.</p> }
 
       @if (branchDocuments.length > 0) {
 <section class="card mb-5">
@@ -479,13 +481,14 @@
                   </span>
                 </td>
                 <td>
-                  <input
-                    type="text"
+                  <textarea
+                    rows="3"
                     [ngModel]="docRemarks[doc.id] || ''"
                     (ngModelChange)="docRemarks[doc.id] = $event"
-                    placeholder="Remarks (required on rejection)..."
+                    placeholder="Write your verified remarks (required for non-compliance)"
+                    [attr.aria-label]="'Auditor remarks for ' + (doc.title || doc.fileName)"
                     class="text-xs px-2 py-1 border border-gray-300 rounded-md w-full min-w-[100px]"
-                    [disabled]="doc.status === 'APPROVED' || doc.status === 'REJECTED'" />
+                    [disabled]="!canReviewDocuments || doc.status === 'APPROVED' || doc.status === 'REJECTED' || reviewingDocId === doc.id"></textarea>
                 </td>
                 <td class="text-right whitespace-nowrap">
                   <button type="button" class="link" (click)="openEvidenceFile(getDocDownloadUrl(doc), doc.fileName || doc.title)">View</button>
@@ -494,7 +497,7 @@
                    
                     type="button"
                     class="btn btn-primary text-[11px] px-2 py-0.5 mr-0.5"
-                    [disabled]="reviewingDocId === doc.id"
+                    [disabled]="!canReviewDocuments || reviewingDocId === doc.id"
                     (click)="reviewDocument(doc, 'COMPLIED')">Approve</button>
 }
                   @if (doc.status !== 'APPROVED' && doc.status !== 'REJECTED') {
@@ -502,7 +505,7 @@
                    
                     type="button"
                     class="text-[11px] px-2 py-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer"
-                    [disabled]="reviewingDocId === doc.id"
+                    [disabled]="!canReviewDocuments || reviewingDocId === doc.id"
                     (click)="reviewDocument(doc, 'NON_COMPLIED')">Reject</button>
 }
                   @if (doc.status === 'APPROVED') {
@@ -590,10 +593,10 @@
                 <td>{{ doc.branchName || '-' }}</td>
                 <td>{{ doc.docType || '-' }}
  @if (doc.sourceTable === 'contractor_documents') {
-  <button type="button" class="link" (click)="reconcileDocument(doc)" [disabled]="reviewingDocId === doc.id">Compare with payroll</button>
+  <button type="button" class="link" (click)="reconcileDocument(doc)" [disabled]="!canReviewDocuments || reviewingDocId === doc.id">Compare with payroll</button>
   <p class="minor">Scanned English PDFs: up to 5 pages and 10 MB. Review larger or unclear documents manually.</p>
   @if (doc.payrollCheck) {
-   <details><summary>Payroll: {{ doc.payrollCheck.status }}</summary><p>Comparison checks extracted employee rows. Verify the document period, establishment and payment coverage before marking complied.</p>
+   <details open><summary>Automated comparison: {{ doc.payrollCheck.status }} — verify before deciding</summary><p>Comparison checks extracted employee rows. Verify the document period, establishment and payment coverage before marking complied.</p>
     @if (doc.payrollCheck.ocr) {
       <p>Scanned PDF: {{ doc.payrollCheck.ocr.rows }} candidate rows. OCR suggestions require manual verification.</p>
       @for (page of doc.payrollCheck.ocr.pages; track page.page) {
@@ -607,7 +610,9 @@
      </p>
     }
    </details>
-  }
+   @if (suggestedRemarks(doc)) { <button type="button" class="link" [disabled]="!canReviewDocuments" (click)="useSuggestedRemarks(doc)">Use suggested remarks</button> }
+   <label class="block text-xs mt-2"><input type="checkbox" [(ngModel)]="automationVerified[doc.id]" [disabled]="!canReviewDocuments" /> I cross-checked these findings against the source document</label>
+  } @else { <p class="minor">No automated comparison yet. Run Compare with payroll where applicable, or review manually.</p> }
  }
 </td>
                 <td>
@@ -616,13 +621,14 @@
                   </span>
                 </td>
                 <td>
-                  <input
-                    type="text"
+                  <textarea
+                    rows="3"
                     [ngModel]="docRemarks[doc.id] || ''"
                     (ngModelChange)="docRemarks[doc.id] = $event"
-                    placeholder="Remarks (required on rejection)..."
+                    placeholder="Write your verified remarks (required for non-compliance)"
+                    [attr.aria-label]="'Auditor remarks for ' + (doc.title || doc.fileName)"
                     class="text-xs px-2 py-1 border border-gray-300 rounded-md w-full min-w-[120px]"
-                    [disabled]="doc.status === 'APPROVED' || doc.status === 'REJECTED'" />
+                    [disabled]="!canReviewDocuments || doc.status === 'APPROVED' || doc.status === 'REJECTED' || reviewingDocId === doc.id"></textarea>
                 </td>
                 <td class="text-right whitespace-nowrap">
                   <button type="button" class="link" (click)="openEvidenceFile(getDocDownloadUrl(doc), doc.fileName || doc.title)">View</button>
@@ -631,7 +637,7 @@
                    
                     type="button"
                     class="btn btn-primary text-[11px] px-2.5 py-0.5 mr-1"
-                    [disabled]="reviewingDocId === doc.id"
+                    [disabled]="!canReviewDocuments || reviewingDocId === doc.id"
                     (click)="reviewDocument(doc, 'COMPLIED')">
                     Approve
                   </button>
@@ -641,7 +647,7 @@
                    
                     type="button"
                     class="text-[11px] px-2.5 py-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer"
-                    [disabled]="reviewingDocId === doc.id"
+                    [disabled]="!canReviewDocuments || reviewingDocId === doc.id"
                     (click)="reviewDocument(doc, 'NON_COMPLIED')">
                     Reject
                   </button>
@@ -986,6 +992,8 @@
 }
       </section>
 
+    }
+    @if (activeTab === 'findings') {
       <section class="card mb-5">
         <header class="section-head">
           <h2>Findings And Observations</h2>

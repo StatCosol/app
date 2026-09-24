@@ -59,6 +59,7 @@ export const APP_MENUS: MenuItem[] = [
   // AUDITOR (AuditXpert)
   { label: 'Dashboard', route: '/auditor/dashboard', roles: ['AUDITOR'] },
   { label: 'Audits', route: '/auditor/audits', roles: ['AUDITOR'] },
+  { label: 'Conduct Audit', route: '/auditor/conduct-audit', roles: ['AUDITOR'] },
   { label: 'Observations', route: '/auditor/observations', roles: ['AUDITOR'] },
   { label: 'Reports', route: '/auditor/reports', roles: ['AUDITOR'] },
   { label: 'Notifications', route: '/auditor/notifications', roles: ['AUDITOR'] },

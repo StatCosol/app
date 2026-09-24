@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subject, of } from 'rxjs';
 import { takeUntil, finalize, catchError } from 'rxjs/operators';
@@ -44,10 +44,15 @@ export class AuditorReportsComponent implements OnInit, OnDestroy {
 
   statusOptions: SelectOption[] = [
     { value: '', label: 'All Statuses' },
-    { value: 'PENDING_SUBMISSION', label: 'Pending Submission' },
+    { value: 'PLANNED', label: 'Planned' },
+    { value: 'ASSIGNED', label: 'Assigned (legacy)' },
+    { value: 'IN_PROGRESS', label: 'In Progress' },
+    { value: 'COMPLETED', label: 'Completed / Pending Submission' },
     { value: 'SUBMITTED', label: 'Submitted' },
-    { value: 'APPROVED', label: 'Approved' },
-    { value: 'REJECTED', label: 'Rejected' },
+    { value: 'CORRECTION_PENDING', label: 'Correction Pending' },
+    { value: 'REVERIFICATION_PENDING', label: 'Reverification Pending' },
+    { value: 'CLOSED', label: 'Closed' },
+    { value: 'CANCELLED', label: 'Cancelled' },
   ];
 
   exporting = new Set<string>();
@@ -57,6 +62,7 @@ export class AuditorReportsComponent implements OnInit, OnDestroy {
     private observationsService: AuditorObservationsService,
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
+    private route: ActivatedRoute,
   ) {}
 
   ngOnDestroy(): void {
@@ -65,6 +71,12 @@ export class AuditorReportsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe(params => {
+      const requested = params.get('status') || '';
+      const status = requested === 'PENDING_SUBMISSION' ? 'COMPLETED' : requested;
+      this.statusFilter = this.statusOptions.some(option => option.value === status) ? status : '';
+      this.applyFilter();
+    });
     this.load();
   }
 
@@ -93,7 +105,7 @@ export class AuditorReportsComponent implements OnInit, OnDestroy {
       branchName: row?.branchName ?? row?.branch_name ?? '',
       auditName: row?.auditName ?? row?.audit_name ?? row?.auditCode ?? row?.audit_code ?? 'Audit',
       dueDate: row?.dueDate ?? row?.due_date ?? '',
-      status: row?.status ?? 'PENDING_SUBMISSION',
+      status: row?.status ?? '',
     };
   }
 
@@ -149,16 +161,6 @@ export class AuditorReportsComponent implements OnInit, OnDestroy {
     return this.exporting.has(auditId);
   }
 
-  getStatusVariant(status: string): string {
-    switch (status) {
-      case 'PENDING_SUBMISSION': return 'warning';
-      case 'SUBMITTED': return 'info';
-      case 'APPROVED': return 'success';
-      case 'REJECTED': return 'error';
-      default: return 'default';
-    }
-  }
-
   countByStatus(status: string): number {
     return this.reports.filter(r => r.status === status).length;
   }
@@ -169,7 +171,7 @@ export class AuditorReportsComponent implements OnInit, OnDestroy {
   }
 
   exportAll(): void {
-    const pending = this.filteredReports.filter(r => r.status !== 'APPROVED');
+    const pending = this.filteredReports;
     if (!pending.length) {
       return;
     }
