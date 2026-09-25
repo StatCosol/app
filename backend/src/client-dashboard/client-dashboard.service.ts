@@ -116,9 +116,7 @@ export class ClientDashboardService {
         'e.date_of_joining as dateOfJoining',
       ])
       .andWhere(`e.${registeredColumn} = TRUE`)
-      .andWhere(
-        `NULLIF(BTRIM(COALESCE(e.${numberColumn}, '')), '') IS NULL`,
-      )
+      .andWhere(`NULLIF(BTRIM(COALESCE(e.${numberColumn}, '')), '') IS NULL`)
       .getRawMany();
     return rows.map(
       (r: {
