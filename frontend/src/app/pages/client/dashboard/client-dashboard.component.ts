@@ -149,11 +149,27 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
 
   // Safe fallbacks so template accessors stay non-null/defined
   get pfSummary() {
-    return this.pfEsiSummary?.pf ?? { registered: 0, notRegisteredApplicable: 0, pendingEmployees: [] };
+    return (
+      this.pfEsiSummary?.pf ?? {
+        registered: 0,
+        notRegisteredApplicable: 0,
+        pendingEmployees: [],
+        registeredWithoutNumber: 0,
+        missingNumberEmployees: [],
+      }
+    );
   }
 
   get esiSummary() {
-    return this.pfEsiSummary?.esi ?? { registered: 0, notRegisteredApplicable: 0, pendingEmployees: [] };
+    return (
+      this.pfEsiSummary?.esi ?? {
+        registered: 0,
+        notRegisteredApplicable: 0,
+        pendingEmployees: [],
+        registeredWithoutNumber: 0,
+        missingNumberEmployees: [],
+      }
+    );
   }
 
   readonly palette = {

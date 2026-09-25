@@ -124,13 +124,12 @@ describe('ClientDashboardService', () => {
 
     await svc.getPfEsiSummary(clientUser, { month: '2026-02' } as any);
 
-    const registeredClauses = clauses.filter(
-      (c) => /_registered = TRUE/.test(c) && !/FALSE|IS NULL/.test(c),
+    const registeredClauses = clauses.filter((c) =>
+      /_registered = TRUE/.test(c),
     );
-    expect(registeredClauses).toEqual([
-      'e.pf_registered = TRUE',
-      'e.esi_registered = TRUE',
-    ]);
+    expect(registeredClauses).toContain('e.pf_registered = TRUE');
+    expect(registeredClauses).toContain('e.esi_registered = TRUE');
+    // Whatever asks about registration must not also ask about applicability.
     for (const clause of registeredClauses)
       expect(clause).not.toMatch(/_applicable/);
     // The pending counts stay scoped to who it currently applies to.

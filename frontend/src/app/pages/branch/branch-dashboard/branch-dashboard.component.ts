@@ -56,6 +56,10 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
 
   // PF/ESI detail
   pfRegistered = 0;
+  /** Registered but with no UAN — no return can be filed for them. */
+  pfNoNumber = 0;
+  /** Registered but with no ESIC number. */
+  esiNoNumber = 0;
   pfNotRegistered = 0;
   pfPendingEmployees: any[] = [];
   esiRegistered = 0;
@@ -211,11 +215,13 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
         this.pfNotRegistered = pfEsi?.pf?.notRegisteredApplicable || 0;
         this.pfPending = this.pfNotRegistered;
         this.pfPendingEmployees = pfEsi?.pf?.pendingEmployees || [];
+        this.pfNoNumber = pfEsi?.pf?.registeredWithoutNumber || 0;
 
         this.esiRegistered = pfEsi?.esi?.registered || 0;
         this.esiNotRegistered = pfEsi?.esi?.notRegisteredApplicable || 0;
         this.esicPending = this.esiNotRegistered;
         this.esiPendingEmployees = pfEsi?.esi?.pendingEmployees || [];
+        this.esiNoNumber = pfEsi?.esi?.registeredWithoutNumber || 0;
 
         // Compliance
         this.compliancePercent = hasEmployeeCompliance ? (kpis?.compliance?.overallPercent || 0) : 0;
