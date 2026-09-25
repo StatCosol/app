@@ -83,8 +83,33 @@ describe('FaceDeskAdminService contractor review flow', () => {
     expect(sql).toContain(
       'COALESCE(me.name, mc.name) AS "matchedEmployeeName"',
     );
+    // The subject is joined by id, so one whose profile has been removed
+    // still resolves to a name instead of showing a bare uuid.
+    expect(sql).toContain('ON nc.id = da.new_employee_id');
+    expect(sql).toContain('ON mc.id = da.matched_employee_id');
+    // But where a profile exists its subject_type still picks the roster: an
+    // employee and a contractor worker may share a uuid, and without this the
+    // employee-first COALESCE answers for a CONTRACTOR alert and newBranchId
+    // scopes it to the wrong worker's branch.
     expect(sql).toContain(
-      `np.subject_type = 'CONTRACTOR' AND nc.id = da.new_employee_id`,
+      `AND (np.subject_type = 'CONTRACTOR' OR np.subject_type IS NULL)`,
+    );
+    expect(sql).toContain(
+      `AND (np.subject_type = 'EMPLOYEE' OR np.subject_type IS NULL)`,
+    );
+    expect(sql).toContain(
+      `AND (mp.subject_type = 'CONTRACTOR' OR mp.subject_type IS NULL)`,
+    );
+    expect(sql).toContain(
+      `AND (mp.subject_type = 'EMPLOYEE' OR mp.subject_type IS NULL)`,
+    );
+    // A contractor worker carries an employee code too, so reading it only
+    // from the employees table left every contractor row without one.
+    expect(sql).toContain(
+      'COALESCE(ne.employee_code, nc.employee_code) AS "newEmployeeCode"',
+    );
+    expect(sql).toContain(
+      'COALESCE(me.employee_code, mc.employee_code) AS "matchedEmployeeCode"',
     );
     // Photo availability comes from the samples table (profiles has no photo
     // column) — must not reference a non-existent np.photo_url / mp.photo_url.
