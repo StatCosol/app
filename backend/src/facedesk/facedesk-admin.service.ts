@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -479,14 +480,48 @@ export class FaceDeskAdminService {
     );
   }
 
+  /**
+   * The branch of the enrollment an alert was raised against.
+   *
+   * Resolved the same way the list resolves it: the subject's own branch,
+   * falling back to the profile's, since an alert can name an employee or a
+   * contractor worker.
+   */
+  private async alertBranchId(clientId: string, newEmployeeId: string) {
+    const rows: Array<{ branchId: string | null }> =
+      await this.dupeRepo.manager.query(
+        `SELECT COALESCE(ne.branch_id, nc.branch_id, np.branch_id) AS "branchId"
+           FROM facedesk_employee_face_profiles np
+           LEFT JOIN employees ne
+             ON np.subject_type = 'EMPLOYEE' AND ne.id = np.employee_id
+            AND ne.client_id = np.client_id
+           LEFT JOIN contractor_employees nc
+             ON np.subject_type = 'CONTRACTOR' AND nc.id = np.employee_id
+            AND nc.client_id = np.client_id
+          WHERE np.client_id = $1 AND np.employee_id = $2
+          LIMIT 1`,
+        [clientId, newEmployeeId],
+      );
+    return rows[0]?.branchId ?? null;
+  }
+
   async actOnDuplicate(
     clientId: string,
     alertId: string,
     actorId: string,
     dto: DuplicateActionDto,
+    allowedBranchIds: string[] | null = null,
   ) {
     const alert = await this.dupeRepo.findOne({ where: { alertId, clientId } });
     if (!alert) throw new NotFoundException('Alert not found');
+    // A branch verifier decides alerts raised at their own branches. They are
+    // the only role shown the two faces, so withholding the decision from them
+    // left it with someone who cannot see what they are deciding.
+    if (allowedBranchIds) {
+      const branchId = await this.alertBranchId(clientId, alert.newEmployeeId);
+      if (!branchId || !allowedBranchIds.includes(branchId))
+        throw new ForbiddenException('Alert belongs to another branch');
+    }
     if (alert.status !== 'PENDING') {
       throw new BadRequestException(`Alert already ${alert.status}`);
     }

@@ -607,6 +607,61 @@ describe('FaceDeskAdminService.actOnDuplicate — resolution by detection band',
     expect(patch.enrollmentStatus).toBeUndefined();
   });
 
+  // The branch verifier is the only role shown the two faces, so they are the
+  // one who can actually judge the match. Refusing them the decision left 9
+  // alerts pending on production that nobody able to see them could clear.
+  it('lets a branch verifier decide an alert raised at their own branch', async () => {
+    const { service, dupeRepo } = makeService();
+    dupeRepo.findOne.mockResolvedValue(alert('REVIEW'));
+    dupeRepo.manager.query.mockResolvedValue([{ branchId: 'b1' }]);
+
+    await service.actOnDuplicate(
+      'c1',
+      'a1',
+      'branch-user',
+      { action: 'FALSE_ALERT' } as any,
+      ['b1', 'b2'],
+    );
+
+    expect(dupeRepo.update).toHaveBeenCalledWith(
+      { alertId: 'a1' },
+      expect.objectContaining({
+        status: 'FALSE_ALERT',
+        reviewedBy: 'branch-user',
+      }),
+    );
+  });
+
+  it('refuses a branch verifier an alert raised at another branch', async () => {
+    const { service, dupeRepo } = makeService();
+    dupeRepo.findOne.mockResolvedValue(alert('REVIEW'));
+    dupeRepo.manager.query.mockResolvedValue([{ branchId: 'b9' }]);
+
+    await expect(
+      service.actOnDuplicate(
+        'c1',
+        'a1',
+        'branch-user',
+        { action: 'APPROVE' } as any,
+        ['b1'],
+      ),
+    ).rejects.toThrow('another branch');
+    expect(dupeRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('still lets a company admin decide any alert', async () => {
+    const { service, dupeRepo } = makeService();
+    dupeRepo.findOne.mockResolvedValue(alert('REVIEW'));
+
+    await service.actOnDuplicate('c1', 'a1', 'admin', {
+      action: 'APPROVE',
+    } as any);
+
+    expect(dupeRepo.update).toHaveBeenCalled();
+    // No scope means no branch lookup at all.
+    expect(dupeRepo.manager.query).not.toHaveBeenCalled();
+  });
+
   // The whole point of the review band: confirming the duplicate must stop it
   // being usable. Leaving it ENROLLED would let a confirmed duplicate punch.
   it('REVIEW + REJECT revokes the enrollment', async () => {
