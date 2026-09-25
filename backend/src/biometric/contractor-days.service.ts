@@ -63,7 +63,7 @@ export class ContractorDaysService {
     from: string,
     to: string,
     contractorUserId?: string,
-    branchId?: string,
+    branchId?: string | string[],
   ): Promise<ContractorDaysSummary> {
     const params: unknown[] = [
       clientId,
@@ -77,13 +77,21 @@ export class ContractorDaysService {
       contractorFilter = `AND ce.contractor_user_id = $${params.length}`;
     }
 
-    if (branchId) {
-      params.push(branchId);
+    // One branch or several: a branch-scoped user is assigned every branch
+    // they cover, so restricting to a single one would hide their own workers.
+    const branchIds = Array.isArray(branchId)
+      ? branchId
+      : branchId
+        ? [branchId]
+        : [];
+    if (branchIds.length) {
+      params.push(branchIds);
       contractorFilter +=
-        ' AND p.branch_id=$' +
+        ' AND p.branch_id = ANY($' +
         params.length +
-        ' AND ce.branch_id=$' +
-        params.length;
+        '::uuid[]) AND ce.branch_id = ANY($' +
+        params.length +
+        '::uuid[])';
     }
 
     // A day is worked if the person punched at all that day. Counting distinct

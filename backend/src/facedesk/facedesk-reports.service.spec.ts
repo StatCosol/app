@@ -238,15 +238,27 @@ describe('FaceDeskReportsService.workedHoursSummary', () => {
 describe('FaceDeskReportsService — the kiosk is not employees only', () => {
   const makeService = () => {
     const dataSource = { query: jest.fn().mockResolvedValue([]) };
+    // unpayable is a SUBSET of rows, not a separate list — the worker with
+    // no code appears in both.
+    const uncoded = {
+      contractorEmployeeId: 'b',
+      employeeCode: null,
+      employeeName: 'No Code',
+      daysWorked: 3,
+    };
     const summarise = jest.fn().mockResolvedValue({
       from: 'f',
       to: 't',
       rows: [
-        { employeeCode: 'SSR0139', employeeName: 'Jetha', daysWorked: 12 },
+        {
+          contractorEmployeeId: 'a',
+          employeeCode: 'SSR0139',
+          employeeName: 'Jetha',
+          daysWorked: 12,
+        },
+        uncoded,
       ],
-      unpayable: [
-        { employeeCode: null, employeeName: 'No Code', daysWorked: 3 },
-      ],
+      unpayable: [uncoded],
     });
     const service = new FaceDeskReportsService(
       dataSource as any,
@@ -298,17 +310,76 @@ describe('FaceDeskReportsService — the kiosk is not employees only', () => {
     expect(summarise).toHaveBeenCalled();
     expect(rows).toEqual([
       {
+        contractorEmployeeId: 'a',
         employeeCode: 'SSR0139',
         employeeName: 'Jetha',
         daysWorked: 12,
         payable: true,
       },
       {
+        contractorEmployeeId: 'b',
         employeeCode: null,
         employeeName: 'No Code',
         daysWorked: 3,
         payable: false,
       },
     ]);
+  });
+});
+
+describe('FaceDeskReportsService.contractorDays — scope and payability', () => {
+  const summaryOf = (rows: any[], unpayable: any[]) =>
+    jest.fn().mockResolvedValue({ from: 'f', to: 't', rows, unpayable });
+
+  const build = (summarise: jest.Mock) =>
+    new FaceDeskReportsService(
+      { query: jest.fn().mockResolvedValue([]) } as any,
+      {} as any,
+      { getEffective: jest.fn().mockResolvedValue({}) } as any,
+      { summarise } as any,
+    );
+
+  // The report carries names, codes, punch dates and days worked, so a
+  // branch-scoped user must not receive another branch's workers.
+  it('passes the caller branch scope to the summary', async () => {
+    const summarise = summaryOf([], []);
+    await build(summarise).contractorDays('c1', { branchIds: ['b1', 'b2'] });
+    expect(summarise).toHaveBeenCalledWith(
+      'c1',
+      expect.any(String),
+      expect.any(String),
+      undefined,
+      ['b1', 'b2'],
+    );
+  });
+
+  it('returns nothing when the caller is scoped to no branch at all', async () => {
+    const summarise = summaryOf([{ contractorEmployeeId: 'x' }], []);
+    const rows = await build(summarise).contractorDays('c1', { branchIds: [] });
+    expect(rows).toEqual([]);
+    expect(summarise).not.toHaveBeenCalled();
+  });
+
+  // unpayable is a subset of rows, so appending it listed those workers
+  // twice — once payable, once not — in a report wages are paid from.
+  it('flags each worker once, never twice', async () => {
+    const withCode = {
+      contractorEmployeeId: 'a',
+      employeeCode: 'SSR1',
+      daysWorked: 5,
+    };
+    const without = {
+      contractorEmployeeId: 'b',
+      employeeCode: null,
+      daysWorked: 3,
+    };
+    const rows = await build(
+      summaryOf([withCode, without], [without]),
+    ).contractorDays('c1', {});
+    expect(rows).toEqual([
+      { ...withCode, payable: true },
+      { ...without, payable: false },
+    ]);
+    expect(rows.filter((r) => r.contractorEmployeeId === 'b')).toHaveLength(1);
   });
 });

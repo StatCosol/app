@@ -70,6 +70,11 @@ export class FaceDeskReportsService {
         FROM contractor_biometric_punches p
         JOIN contractor_employees ce ON ce.id = p.contractor_employee_id
        WHERE p.client_id = $1 AND p.punch_time >= $2 AND p.punch_time < $3
+         -- A punch still awaiting face review, or refused at it, is not
+         -- attendance. Counting it would credit a day that never passed
+         -- review, and would drop the worker out of the absent report.
+         -- Same gate ContractorDaysService applies to the wage sheet.
+         AND p.decision IN ('AUTO', 'REVIEW_APPROVED')
     )`;
 
   private branchClause(
@@ -376,11 +381,26 @@ export class FaceDeskReportsService {
    */
   async contractorDays(clientId: string, opts: ReportRange) {
     const { from, to } = this.range(opts);
-    const summary = await this.contractorDaysSvc.summarise(clientId, from, to);
-    return [
-      ...summary.rows.map((r) => ({ ...r, payable: true })),
-      ...summary.unpayable.map((r) => ({ ...r, payable: false })),
-    ];
+    // A branch-scoped user sees their own branches' workers and no others:
+    // this report carries names, codes, punch dates and days worked.
+    if (opts.branchIds?.length === 0) return [];
+    const summary = await this.contractorDaysSvc.summarise(
+      clientId,
+      from,
+      to,
+      undefined,
+      opts.branchIds,
+    );
+    // unpayable is a subset of rows, not a separate list, so the flag is
+    // derived per row — concatenating the two emitted each of those workers
+    // twice, once payable and once not.
+    const unpayable = new Set(
+      summary.unpayable.map((r) => r.contractorEmployeeId),
+    );
+    return summary.rows.map((r) => ({
+      ...r,
+      payable: !unpayable.has(r.contractorEmployeeId),
+    }));
   }
 
   async failedAttempts(clientId: string, opts: ReportRange) {
