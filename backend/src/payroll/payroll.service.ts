@@ -904,14 +904,16 @@ export class PayrollService {
         'e.pf_applicable = TRUE AND (e.pf_registered = FALSE OR e.pf_registered IS NULL)',
       );
     } else if (q?.pfStatus === 'REGISTERED') {
-      qb.andWhere('e.pf_applicable = TRUE AND e.pf_registered = TRUE');
+      // Registered is registered, whether or not this month's wages make PF
+      // applicable; asking for both hid everyone who has crossed a ceiling.
+      qb.andWhere('e.pf_registered = TRUE');
     }
     if (q?.esiStatus === 'PENDING') {
       qb.andWhere(
         'e.esi_applicable = TRUE AND (e.esi_registered = FALSE OR e.esi_registered IS NULL)',
       );
     } else if (q?.esiStatus === 'REGISTERED') {
-      qb.andWhere('e.esi_applicable = TRUE AND e.esi_registered = TRUE');
+      qb.andWhere('e.esi_registered = TRUE');
     }
 
     const total = await qb.getCount();

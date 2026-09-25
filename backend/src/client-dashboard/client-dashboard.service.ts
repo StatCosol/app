@@ -112,9 +112,14 @@ export class ClientDashboardService {
       });
     }
 
+    // Registration is a fact about the employee; applicability is a wage test
+    // that changes month to month. Someone registered whose pay has since
+    // risen past the ESI ceiling stays registered and covered to the end of
+    // the contribution period, so counting only the applicable ones drops
+    // them from the figure — 10 of Vedha's 30 ESI registrations, in practice.
     const pfRegistered = await baseQb
       .clone()
-      .andWhere('e.pf_applicable = TRUE AND e.pf_registered = TRUE')
+      .andWhere('e.pf_registered = TRUE')
       .getCount();
 
     const pfPendingRows = await baseQb
@@ -157,7 +162,7 @@ export class ClientDashboardService {
 
     const esiRegistered = await baseQb
       .clone()
-      .andWhere('e.esi_applicable = TRUE AND e.esi_registered = TRUE')
+      .andWhere('e.esi_registered = TRUE')
       .getCount();
 
     const esiPendingRows = await baseQb
