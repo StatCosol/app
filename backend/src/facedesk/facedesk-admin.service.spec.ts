@@ -83,13 +83,25 @@ describe('FaceDeskAdminService contractor review flow', () => {
     expect(sql).toContain(
       'COALESCE(me.name, mc.name) AS "matchedEmployeeName"',
     );
-    // The subject is joined by id alone. Keying the join off the profile's
-    // subject_type meant a matched subject whose profile had been removed
-    // resolved to no name at all, and the screen showed a bare uuid.
+    // The subject is joined by id, so one whose profile has been removed
+    // still resolves to a name instead of showing a bare uuid.
     expect(sql).toContain('ON nc.id = da.new_employee_id');
     expect(sql).toContain('ON mc.id = da.matched_employee_id');
-    expect(sql).not.toMatch(
-      /subject_type = '(EMPLOYEE|CONTRACTOR)' AND [nm][ec]\.id/,
+    // But where a profile exists its subject_type still picks the roster: an
+    // employee and a contractor worker may share a uuid, and without this the
+    // employee-first COALESCE answers for a CONTRACTOR alert and newBranchId
+    // scopes it to the wrong worker's branch.
+    expect(sql).toContain(
+      `AND (np.subject_type = 'CONTRACTOR' OR np.subject_type IS NULL)`,
+    );
+    expect(sql).toContain(
+      `AND (np.subject_type = 'EMPLOYEE' OR np.subject_type IS NULL)`,
+    );
+    expect(sql).toContain(
+      `AND (mp.subject_type = 'CONTRACTOR' OR mp.subject_type IS NULL)`,
+    );
+    expect(sql).toContain(
+      `AND (mp.subject_type = 'EMPLOYEE' OR mp.subject_type IS NULL)`,
     );
     // A contractor worker carries an employee code too, so reading it only
     // from the employees table left every contractor row without one.

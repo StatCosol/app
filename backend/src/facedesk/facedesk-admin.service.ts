@@ -465,23 +465,33 @@ export class FaceDeskAdminService {
          -- subject_type. A matched subject whose profile has since been
          -- removed still has a name, and keying off the profile left the
          -- screen showing a bare uuid nobody could judge the alert against.
-         -- Ids are uuids, so at most one of the two tables can match.
+         --
+         -- Where a profile does exist its subject_type still decides which
+         -- roster to read, because an employee and a contractor worker may
+         -- share a uuid (see getPendingEmployees). Dropping that would let
+         -- the employee-first COALESCE answer for a CONTRACTOR alert, and
+         -- newBranchId feeds the branch filter, so the alert would be scoped
+         -- to the wrong worker's branch.
          LEFT JOIN facedesk_employee_face_profiles np
            ON np.client_id = da.client_id AND np.employee_id = da.new_employee_id
          LEFT JOIN employees ne
            ON ne.id = da.new_employee_id
           AND ne.client_id = da.client_id
+          AND (np.subject_type = 'EMPLOYEE' OR np.subject_type IS NULL)
          LEFT JOIN contractor_employees nc
            ON nc.id = da.new_employee_id
           AND nc.client_id = da.client_id
+          AND (np.subject_type = 'CONTRACTOR' OR np.subject_type IS NULL)
          LEFT JOIN facedesk_employee_face_profiles mp
            ON mp.client_id = da.client_id AND mp.employee_id = da.matched_employee_id
          LEFT JOIN employees me
            ON me.id = da.matched_employee_id
           AND me.client_id = da.client_id
+          AND (mp.subject_type = 'EMPLOYEE' OR mp.subject_type IS NULL)
          LEFT JOIN contractor_employees mc
            ON mc.id = da.matched_employee_id
           AND mc.client_id = da.client_id
+          AND (mp.subject_type = 'CONTRACTOR' OR mp.subject_type IS NULL)
         WHERE da.client_id = $1 AND da.status = $2 ${branchFilter}
         ORDER BY da.created_at DESC
         LIMIT 200`,
