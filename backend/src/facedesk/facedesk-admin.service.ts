@@ -434,13 +434,17 @@ export class FaceDeskAdminService {
               da.reviewed_at AS "reviewedAt",
               da.admin_remarks AS "adminRemarks",
               da.created_at AS "createdAt",
-              np.subject_type AS "newSubjectType",
+              COALESCE(np.subject_type,
+                CASE WHEN ne.id IS NOT NULL THEN 'EMPLOYEE'
+                     WHEN nc.id IS NOT NULL THEN 'CONTRACTOR' END) AS "newSubjectType",
               COALESCE(ne.name, nc.name) AS "newEmployeeName",
-              ne.employee_code AS "newEmployeeCode",
+              COALESCE(ne.employee_code, nc.employee_code) AS "newEmployeeCode",
               COALESCE(ne.branch_id, nc.branch_id, np.branch_id) AS "newBranchId",
-              mp.subject_type AS "matchedSubjectType",
+              COALESCE(mp.subject_type,
+                CASE WHEN me.id IS NOT NULL THEN 'EMPLOYEE'
+                     WHEN mc.id IS NOT NULL THEN 'CONTRACTOR' END) AS "matchedSubjectType",
               COALESCE(me.name, mc.name) AS "matchedEmployeeName",
-              me.employee_code AS "matchedEmployeeCode",
+              COALESCE(me.employee_code, mc.employee_code) AS "matchedEmployeeCode",
               COALESCE(me.branch_id, mc.branch_id, mp.branch_id) AS "matchedBranchId",
               -- Only advertise a viewable face when the photo endpoint can
               -- actually serve it, or the "View face" link 404s.
@@ -457,21 +461,26 @@ export class FaceDeskAdminService {
                  WHERE s.profile_id = mp.profile_id AND s.image_path IS NOT NULL
               )) AS "hasMatchedPhoto"
          FROM facedesk_face_duplicate_alerts da
+         -- The name is looked up by id alone, not through the profile's
+         -- subject_type. A matched subject whose profile has since been
+         -- removed still has a name, and keying off the profile left the
+         -- screen showing a bare uuid nobody could judge the alert against.
+         -- Ids are uuids, so at most one of the two tables can match.
          LEFT JOIN facedesk_employee_face_profiles np
            ON np.client_id = da.client_id AND np.employee_id = da.new_employee_id
          LEFT JOIN employees ne
-           ON np.subject_type = 'EMPLOYEE' AND ne.id = da.new_employee_id
+           ON ne.id = da.new_employee_id
           AND ne.client_id = da.client_id
          LEFT JOIN contractor_employees nc
-           ON np.subject_type = 'CONTRACTOR' AND nc.id = da.new_employee_id
+           ON nc.id = da.new_employee_id
           AND nc.client_id = da.client_id
          LEFT JOIN facedesk_employee_face_profiles mp
            ON mp.client_id = da.client_id AND mp.employee_id = da.matched_employee_id
          LEFT JOIN employees me
-           ON mp.subject_type = 'EMPLOYEE' AND me.id = da.matched_employee_id
+           ON me.id = da.matched_employee_id
           AND me.client_id = da.client_id
          LEFT JOIN contractor_employees mc
-           ON mp.subject_type = 'CONTRACTOR' AND mc.id = da.matched_employee_id
+           ON mc.id = da.matched_employee_id
           AND mc.client_id = da.client_id
         WHERE da.client_id = $1 AND da.status = $2 ${branchFilter}
         ORDER BY da.created_at DESC
