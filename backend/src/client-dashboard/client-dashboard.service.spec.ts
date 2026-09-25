@@ -94,6 +94,50 @@ describe('ClientDashboardService', () => {
     expect(employeesRepo.createQueryBuilder).toHaveBeenCalled();
   });
 
+  it('counts someone registered whose pay has left them out of the wage ceiling', async () => {
+    // A rise past the ESI ceiling makes an employee no longer applicable while
+    // they stay registered and covered. Requiring both hid them from the
+    // figure, so the registered counts must not mention applicability.
+    const clauses: string[] = [];
+    const recording: any = {
+      where: () => recording,
+      andWhere: (c: string) => {
+        clauses.push(c);
+        return recording;
+      },
+      select: () => recording,
+      clone: () => recording,
+      getCount: jest.fn(async () => 0),
+      getRawMany: jest.fn(async () => []),
+    };
+    const employeesRepo: any = {
+      createQueryBuilder: jest.fn(() => recording),
+    };
+    const svc = new ClientDashboardService(
+      employeesRepo,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      mockUsersService as any,
+    );
+
+    await svc.getPfEsiSummary(clientUser, { month: '2026-02' } as any);
+
+    const registeredClauses = clauses.filter((c) =>
+      /_registered = TRUE/.test(c),
+    );
+    expect(registeredClauses).toContain('e.pf_registered = TRUE');
+    expect(registeredClauses).toContain('e.esi_registered = TRUE');
+    // Whatever asks about registration must not also ask about applicability.
+    for (const clause of registeredClauses)
+      expect(clause).not.toMatch(/_applicable/);
+    // The pending counts stay scoped to who it currently applies to.
+    expect(
+      clauses.some((c) => /pf_applicable = TRUE/.test(c) && /FALSE/.test(c)),
+    ).toBe(true);
+  });
+
   it('computes contractor upload percent with top/bottom lists', async () => {
     // branch_contractor returns contractor IDs + names (source of truth)
     const bcRows = [{ contractorId: 'cA', name: 'ACME' }];

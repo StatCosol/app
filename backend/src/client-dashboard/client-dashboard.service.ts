@@ -4,7 +4,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { ContractorDocumentEntity } from '../contractor/entities/contractor-document.entity';
 import { ContractorRequiredDocumentEntity } from '../contractor/entities/contractor-required-document.entity';
@@ -95,6 +95,44 @@ export class ClientDashboardService {
     return diff > 0 ? diff : 0;
   }
 
+  /**
+   * Employees marked registered who carry no number for it.
+   *
+   * A registration without a UAN or an ESIC number cannot be filed against,
+   * and because the row counts as registered it never appears in the pending
+   * list either — so it sits unnoticed until a return is rejected.
+   */
+  private async registeredWithoutNumber(
+    baseQb: SelectQueryBuilder<EmployeeEntity>,
+    registeredColumn: 'pf_registered' | 'esi_registered',
+    numberColumn: 'uan' | 'esic',
+  ) {
+    const rows = await baseQb
+      .clone()
+      .select([
+        'e.id as id',
+        'e.employee_code as employeeCode',
+        'e.name as name',
+        'e.date_of_joining as dateOfJoining',
+      ])
+      .andWhere(`e.${registeredColumn} = TRUE`)
+      .andWhere(`NULLIF(BTRIM(COALESCE(e.${numberColumn}, '')), '') IS NULL`)
+      .getRawMany();
+    return rows.map(
+      (r: {
+        id: string;
+        employeeCode: string;
+        name: string;
+        dateOfJoining: string | null;
+      }) => ({
+        employeeId: r.id,
+        empCode: r.employeeCode,
+        name: r.name || '',
+        dateOfJoining: r.dateOfJoining || null,
+      }),
+    );
+  }
+
   async getPfEsiSummary(user: ReqUser, dto: ClientDashboardQueryDto) {
     const scope = await this.resolveScope(user, dto.branchId);
     const cacheKey = `pfesi:${scope.clientId}:${scope.branchIds.join(',')}`;
@@ -112,9 +150,14 @@ export class ClientDashboardService {
       });
     }
 
+    // Registration is a fact about the employee; applicability is a wage test
+    // that changes month to month. Someone registered whose pay has since
+    // risen past the ESI ceiling stays registered and covered to the end of
+    // the contribution period, so counting only the applicable ones drops
+    // them from the figure — 10 of Vedha's 30 ESI registrations, in practice.
     const pfRegistered = await baseQb
       .clone()
-      .andWhere('e.pf_applicable = TRUE AND e.pf_registered = TRUE')
+      .andWhere('e.pf_registered = TRUE')
       .getCount();
 
     const pfPendingRows = await baseQb
@@ -157,7 +200,7 @@ export class ClientDashboardService {
 
     const esiRegistered = await baseQb
       .clone()
-      .andWhere('e.esi_applicable = TRUE AND e.esi_registered = TRUE')
+      .andWhere('e.esi_registered = TRUE')
       .getCount();
 
     const esiPendingRows = await baseQb
@@ -198,16 +241,34 @@ export class ClientDashboardService {
       }),
     );
 
+    // Marked registered but carrying no number. They count as done and drop
+    // out of the pending list, yet no return can be filed for them, so
+    // nothing would ever surface them again.
+    const pfMissingNumber = await this.registeredWithoutNumber(
+      baseQb,
+      'pf_registered',
+      'uan',
+    );
+    const esiMissingNumber = await this.registeredWithoutNumber(
+      baseQb,
+      'esi_registered',
+      'esic',
+    );
+
     const result = {
       pf: {
         registered: pfRegistered,
         notRegisteredApplicable: pfPending.length,
         pendingEmployees: pfPending,
+        registeredWithoutNumber: pfMissingNumber.length,
+        missingNumberEmployees: pfMissingNumber,
       },
       esi: {
         registered: esiRegistered,
         notRegisteredApplicable: esiPending.length,
         pendingEmployees: esiPending,
+        registeredWithoutNumber: esiMissingNumber.length,
+        missingNumberEmployees: esiMissingNumber,
       },
     };
     this.setCache(cacheKey, result);

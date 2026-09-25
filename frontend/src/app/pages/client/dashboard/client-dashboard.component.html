@@ -514,6 +514,11 @@
             @if (!pfSummary.pendingEmployees.length) {
 <p class="mini-kpi-sub">All PF applicable employees are registered.</p>
 }
+            @if (pfSummary.registeredWithoutNumber) {
+              <p class="mini-kpi-sub text-amber-600">
+                {{ pfSummary.registeredWithoutNumber }} registered without a UAN — no return can be filed for them.
+              </p>
+            }
           </div>
         </div>
 }
@@ -546,6 +551,11 @@
             @if (!esiSummary.pendingEmployees.length) {
 <p class="mini-kpi-sub">All ESI applicable employees are registered.</p>
 }
+            @if (esiSummary.registeredWithoutNumber) {
+              <p class="mini-kpi-sub text-amber-600">
+                {{ esiSummary.registeredWithoutNumber }} registered without an ESIC number — no return can be filed for them.
+              </p>
+            }
           </div>
         </div>
 }

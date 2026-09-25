@@ -25,16 +25,28 @@ export type EsiPendingEmployee = {
 /** @deprecated Use PfPendingEmployee or EsiPendingEmployee instead */
 export type PendingEmployee = PfPendingEmployee | EsiPendingEmployee;
 
+/** Marked registered but carrying no UAN or ESIC number. */
+export type MissingNumberEmployee = {
+  employeeId: string;
+  empCode: string;
+  name: string;
+  dateOfJoining: string | null;
+};
+
 export type PfEsiSummaryResponse = {
   pf: {
     registered: number;
     notRegisteredApplicable: number;
     pendingEmployees: PfPendingEmployee[];
+    registeredWithoutNumber: number;
+    missingNumberEmployees: MissingNumberEmployee[];
   };
   esi: {
     registered: number;
     notRegisteredApplicable: number;
     pendingEmployees: EsiPendingEmployee[];
+    registeredWithoutNumber: number;
+    missingNumberEmployees: MissingNumberEmployee[];
   };
 };
 

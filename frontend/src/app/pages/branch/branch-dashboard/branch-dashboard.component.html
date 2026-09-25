@@ -151,6 +151,11 @@
             <span class="mx-1.5 text-slate-300">|</span>
             <span class="text-red-500">Pending: {{ pfNotRegistered }}</span>
           </div>
+          @if (pfNoNumber > 0) {
+            <p class="mt-1 text-xs text-amber-600">
+              {{ pfNoNumber }} registered without a UAN
+            </p>
+          }
         </div>
       </div>
 }
@@ -171,6 +176,11 @@
             <span class="mx-1.5 text-slate-300">|</span>
             <span class="text-red-500">Pending: {{ esiNotRegistered }}</span>
           </div>
+          @if (esiNoNumber > 0) {
+            <p class="mt-1 text-xs text-amber-600">
+              {{ esiNoNumber }} registered without an ESIC number
+            </p>
+          }
         </div>
       </div>
 }
