@@ -25,7 +25,6 @@ import {
   facedeskVerificationPhotosAllowed,
   requireFaceDeskBranchVerifier,
   requireFaceDeskClient,
-  requireFaceDeskClientAdmin,
 } from './facedesk-controller.helpers';
 
 @ApiTags('FaceDesk V2')
@@ -73,11 +72,15 @@ export class FaceDeskAdminController {
     @Param('alertId') alertId: string,
     @Body() dto: DuplicateActionDto,
   ) {
+    // A branch verifier may decide alerts at their own branches; the service
+    // checks the alert's branch against that scope. A company admin passes a
+    // null scope and may decide any of them.
     return this.admin.actOnDuplicate(
-      requireFaceDeskClientAdmin(user),
+      requireFaceDeskClient(user),
       alertId,
       user.id,
       dto,
+      facedeskBranchScope(user),
     );
   }
 
