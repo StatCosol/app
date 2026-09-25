@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { BiometricService } from '../biometric/biometric.service';
 import { FaceDeskSettingsService } from './facedesk-settings.service';
+import { ContractorDaysService } from '../biometric/contractor-days.service';
 
 const DEFAULT_SHIFT_START = process.env.FD_SHIFT_START ?? '09:30';
 const DEFAULT_SHIFT_END = process.env.FD_SHIFT_END ?? '18:00';
@@ -28,6 +29,7 @@ export class FaceDeskReportsService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly biometric: BiometricService,
     private readonly settings: FaceDeskSettingsService,
+    private readonly contractorDaysSvc: ContractorDaysService,
   ) {}
 
   private range(opts: ReportRange): { from: string; to: string } {
@@ -36,6 +38,44 @@ export class FaceDeskReportsService {
       opts.from ?? new Date(Date.now() - 30 * 86_400_000).toISOString();
     return { from, to };
   }
+
+  /**
+   * Every punch the kiosk took for this client in the range, whichever roster
+   * the subject belongs to.
+   *
+   * Employees land in facedesk_attendance_logs; contractor workers land in
+   * contractor_biometric_punches. Reading only the first left these reports
+   * describing a kiosk without its contractors — on the live register that is
+   * 533 contractor punches against 443 employee ones, at a site where 95 of
+   * the enrolled subjects are contractors.
+   *
+   * A contractor punch has no review gate: it is written once the face is
+   * matched, so there is no status to filter on. Employee punches keep theirs.
+   *
+   * Takes $1 = clientId, $2 = from, $3 = to; filter branches on kp.branch_id.
+   */
+  private static readonly KIOSK_PUNCHES = `
+    kiosk_punch AS (
+      SELECT a.employee_id AS subject_id, 'EMPLOYEE' AS subject_type,
+             e.employee_code, e.name AS subject_name, a.branch_id,
+             a.punch_time, a.punch_type, a.confidence_score AS confidence
+        FROM facedesk_attendance_logs a
+        JOIN employees e ON e.id = a.employee_id
+       WHERE a.client_id = $1 AND a.punch_time >= $2 AND a.punch_time < $3
+         AND a.attendance_status IN ('MARKED','APPROVED')
+      UNION ALL
+      SELECT p.contractor_employee_id, 'CONTRACTOR',
+             ce.employee_code, ce.name, p.branch_id,
+             p.punch_time, p.direction, p.match_score
+        FROM contractor_biometric_punches p
+        JOIN contractor_employees ce ON ce.id = p.contractor_employee_id
+       WHERE p.client_id = $1 AND p.punch_time >= $2 AND p.punch_time < $3
+         -- A punch still awaiting face review, or refused at it, is not
+         -- attendance. Counting it would credit a day that never passed
+         -- review, and would drop the worker out of the absent report.
+         -- Same gate ContractorDaysService applies to the wage sheet.
+         AND p.decision IN ('AUTO', 'REVIEW_APPROVED')
+    )`;
 
   private branchClause(
     params: unknown[],
@@ -52,17 +92,16 @@ export class FaceDeskReportsService {
   async dailyAttendance(clientId: string, opts: ReportRange) {
     const { from, to } = this.range(opts);
     const params: unknown[] = [clientId, from, to];
-    const branch = this.branchClause(params, opts.branchIds, 'a.branch_id');
+    const branch = this.branchClause(params, opts.branchIds, 'kp.branch_id');
     return this.dataSource.query(
-      `SELECT a.attendance_id AS "attendanceId", e.employee_code AS "employeeCode",
-              e.name AS "employeeName", a.branch_id AS "branchId",
-              a.punch_type AS "punchType", a.punch_time AS "punchTime",
-              a.confidence_score AS "confidence", a.attendance_status AS "status"
-         FROM facedesk_attendance_logs a
-         JOIN employees e ON e.id = a.employee_id
-        WHERE a.client_id = $1 AND a.punch_time >= $2 AND a.punch_time < $3
-          AND a.attendance_status IN ('MARKED','APPROVED') ${branch}
-        ORDER BY a.punch_time DESC LIMIT 5000`,
+      `WITH ${FaceDeskReportsService.KIOSK_PUNCHES}
+        SELECT kp.employee_code AS "employeeCode", kp.subject_name AS "employeeName",
+               kp.subject_type AS "subjectType", kp.branch_id AS "branchId",
+               kp.punch_type AS "punchType", kp.punch_time AS "punchTime",
+               kp.confidence AS "confidence"
+          FROM kiosk_punch kp
+         WHERE TRUE ${branch}
+         ORDER BY kp.punch_time DESC LIMIT 5000`,
       params,
     );
   }
@@ -71,19 +110,19 @@ export class FaceDeskReportsService {
   async employeeSummary(clientId: string, opts: ReportRange) {
     const { from, to } = this.range(opts);
     const params: unknown[] = [clientId, from, to];
-    const branch = this.branchClause(params, opts.branchIds, 'a.branch_id');
+    const branch = this.branchClause(params, opts.branchIds, 'kp.branch_id');
     return this.dataSource.query(
-      `SELECT e.employee_code AS "employeeCode", e.name AS "employeeName",
-              a.branch_id AS "branchId",
-              date_trunc('day', a.punch_time) AS "day",
-              min(a.punch_time) AS "firstIn", max(a.punch_time) AS "lastOut",
-              count(*)::int AS "punches"
-         FROM facedesk_attendance_logs a
-         JOIN employees e ON e.id = a.employee_id
-        WHERE a.client_id = $1 AND a.punch_time >= $2 AND a.punch_time < $3
-          AND a.attendance_status IN ('MARKED','APPROVED') ${branch}
-        GROUP BY e.employee_code, e.name, a.branch_id, date_trunc('day', a.punch_time)
-        ORDER BY "day" DESC, e.employee_code ASC LIMIT 5000`,
+      `WITH ${FaceDeskReportsService.KIOSK_PUNCHES}
+        SELECT kp.employee_code AS "employeeCode", kp.subject_name AS "employeeName",
+               kp.subject_type AS "subjectType", kp.branch_id AS "branchId",
+               date_trunc('day', kp.punch_time) AS "day",
+               min(kp.punch_time) AS "firstIn", max(kp.punch_time) AS "lastOut",
+               count(*)::int AS "punches"
+          FROM kiosk_punch kp
+         WHERE TRUE ${branch}
+         GROUP BY kp.employee_code, kp.subject_name, kp.subject_type, kp.branch_id,
+                  date_trunc('day', kp.punch_time)
+         ORDER BY "day" DESC, kp.employee_code ASC LIMIT 5000`,
       params,
     );
   }
@@ -99,7 +138,7 @@ export class FaceDeskReportsService {
   async workedHoursSummary(clientId: string, opts: ReportRange) {
     const { from, to } = this.range(opts);
     const params: unknown[] = [clientId, from, to];
-    const branch = this.branchClause(params, opts.branchIds, 'a.branch_id');
+    const branch = this.branchClause(params, opts.branchIds, 'kp.branch_id');
     const rows = await this.dataSource.query<
       Array<{
         employeeCode: string;
@@ -114,20 +153,22 @@ export class FaceDeskReportsService {
         reviewDecision: 'APPROVED' | 'HALF_DAY' | 'REJECTED' | null;
       }>
     >(
-      `WITH punches AS (
-         SELECT a.employee_id, a.branch_id, a.punch_time, a.punch_type,
-                (a.punch_time AT TIME ZONE 'Asia/Kolkata')::date AS biz_day,
-                LEAD(a.punch_time) OVER w AS next_time,
-                LEAD(a.punch_type) OVER w AS next_type
-           FROM facedesk_attendance_logs a
-          WHERE a.client_id = $1 AND a.punch_time >= $2 AND a.punch_time < $3
-            AND a.attendance_status IN ('MARKED','APPROVED') ${branch}
+      `WITH ${FaceDeskReportsService.KIOSK_PUNCHES},
+       punches AS (
+         SELECT kp.subject_id, kp.subject_type, kp.employee_code, kp.subject_name,
+                kp.branch_id, kp.punch_time, kp.punch_type,
+                (kp.punch_time AT TIME ZONE 'Asia/Kolkata')::date AS biz_day,
+                LEAD(kp.punch_time) OVER w AS next_time,
+                LEAD(kp.punch_type) OVER w AS next_type
+           FROM kiosk_punch kp
+          WHERE TRUE ${branch}
          WINDOW w AS (
-           PARTITION BY a.employee_id, (a.punch_time AT TIME ZONE 'Asia/Kolkata')::date
-           ORDER BY a.punch_time
+           PARTITION BY kp.subject_id, (kp.punch_time AT TIME ZONE 'Asia/Kolkata')::date
+           ORDER BY kp.punch_time
          )
        )
-       SELECT e.employee_code AS "employeeCode", e.name AS "employeeName",
+       SELECT p.employee_code AS "employeeCode", p.subject_name AS "employeeName",
+              p.subject_type AS "subjectType",
               b.branch_name AS "branchName", p.biz_day AS "day",
               count(*)::int AS "punches",
               min(p.punch_time) AS "firstIn", max(p.punch_time) AS "lastOut",
@@ -140,12 +181,12 @@ export class FaceDeskReportsService {
               ) AS "punchList",
               dr.decision AS "reviewDecision"
          FROM punches p
-         JOIN employees e ON e.id = p.employee_id
          LEFT JOIN branches b ON b.id = p.branch_id
          LEFT JOIN facedesk_day_reviews dr
-           ON dr.client_id = $1 AND dr.employee_id = p.employee_id AND dr.work_date = p.biz_day
-        GROUP BY e.employee_code, e.name, b.branch_name, p.biz_day, dr.decision
-        ORDER BY p.biz_day DESC, e.employee_code ASC LIMIT 5000`,
+           ON dr.client_id = $1 AND dr.employee_id = p.subject_id AND dr.work_date = p.biz_day
+        GROUP BY p.employee_code, p.subject_name, p.subject_type, b.branch_name,
+                 p.biz_day, dr.decision
+        ORDER BY p.biz_day DESC, p.employee_code ASC LIMIT 5000`,
       params,
     );
     return rows.map((r) => this.decorateWorkedDay(r));
@@ -208,15 +249,19 @@ export class FaceDeskReportsService {
   async branchSummary(clientId: string, opts: ReportRange) {
     const { from, to } = this.range(opts);
     const params: unknown[] = [clientId, from, to];
-    const branch = this.branchClause(params, opts.branchIds, 'branch_id');
+    const branch = this.branchClause(params, opts.branchIds, 'kp.branch_id');
     return this.dataSource.query(
-      `SELECT branch_id AS "branchId",
-              count(DISTINCT employee_id)::int AS "employees",
-              count(*)::int AS "punches"
-         FROM facedesk_attendance_logs
-        WHERE client_id = $1 AND punch_time >= $2 AND punch_time < $3
-          AND attendance_status IN ('MARKED','APPROVED') ${branch}
-        GROUP BY branch_id ORDER BY "punches" DESC`,
+      `WITH ${FaceDeskReportsService.KIOSK_PUNCHES}
+        SELECT kp.branch_id AS "branchId",
+               count(DISTINCT kp.subject_id)::int AS "people",
+               count(DISTINCT kp.subject_id) FILTER (WHERE kp.subject_type = 'EMPLOYEE')::int
+                 AS "employees",
+               count(DISTINCT kp.subject_id) FILTER (WHERE kp.subject_type = 'CONTRACTOR')::int
+                 AS "contractors",
+               count(*)::int AS "punches"
+          FROM kiosk_punch kp
+         WHERE TRUE ${branch}
+         GROUP BY kp.branch_id ORDER BY "punches" DESC`,
       params,
     );
   }
@@ -246,7 +291,7 @@ export class FaceDeskReportsService {
   ) {
     const { from, to } = this.range(opts);
     const params: unknown[] = [clientId, from, to];
-    const branch = this.branchClause(params, opts.branchIds, 'a.branch_id');
+    const branch = this.branchClause(params, opts.branchIds, 'kp.branch_id');
     const rows = await this.dataSource.query<
       Array<{
         employeeCode: string;
@@ -256,14 +301,15 @@ export class FaceDeskReportsService {
         lastOut: Date;
       }>
     >(
-      `SELECT e.employee_code AS "employeeCode", e.name AS "employeeName",
-              date_trunc('day', a.punch_time) AS "day",
-              min(a.punch_time) AS "firstIn", max(a.punch_time) AS "lastOut"
-         FROM facedesk_attendance_logs a
-         JOIN employees e ON e.id = a.employee_id
-        WHERE a.client_id = $1 AND a.punch_time >= $2 AND a.punch_time < $3
-          AND a.attendance_status IN ('MARKED','APPROVED') ${branch}
-        GROUP BY e.employee_code, e.name, date_trunc('day', a.punch_time)`,
+      `WITH ${FaceDeskReportsService.KIOSK_PUNCHES}
+        SELECT kp.employee_code AS "employeeCode", kp.subject_name AS "employeeName",
+               kp.subject_type AS "subjectType",
+               date_trunc('day', kp.punch_time) AS "day",
+               min(kp.punch_time) AS "firstIn", max(kp.punch_time) AS "lastOut"
+          FROM kiosk_punch kp
+         WHERE TRUE ${branch}
+         GROUP BY kp.employee_code, kp.subject_name, kp.subject_type,
+                  date_trunc('day', kp.punch_time)`,
       params,
     );
     const { shiftStart, shiftEnd } = await this.shiftBounds(clientId);
@@ -275,27 +321,86 @@ export class FaceDeskReportsService {
     );
   }
 
-  /** Enrolled employees with no approved punch in range. */
+  /**
+   * Enrolled subjects with no punch in range — contractor workers included,
+   * since an absent contractor is the one the site most needs to hear about.
+   */
   async absent(clientId: string, opts: ReportRange) {
     const { from, to } = this.range(opts);
     const params: unknown[] = [clientId, from, to];
-    const branch = this.branchClause(params, opts.branchIds, 'e.branch_id');
+    const branch = this.branchClause(
+      params,
+      opts.branchIds,
+      'enrolled.branch_id',
+    );
     return this.dataSource.query(
-      `SELECT e.employee_code AS "employeeCode", e.name AS "employeeName",
-              e.branch_id AS "branchId"
-         FROM employees e
-         JOIN facedesk_employee_face_profiles p
-           ON p.employee_id = e.id AND p.enrollment_status = 'ENROLLED'
-        WHERE e.client_id = $1 AND e.is_active = true ${branch}
-          AND NOT EXISTS (
-            SELECT 1 FROM facedesk_attendance_logs a
-             WHERE a.employee_id = e.id AND a.client_id = e.client_id
-               AND a.punch_time >= $2 AND a.punch_time < $3
-               AND a.attendance_status IN ('MARKED','APPROVED')
-          )
-        ORDER BY e.employee_code ASC`,
+      `WITH ${FaceDeskReportsService.KIOSK_PUNCHES},
+       enrolled AS (
+         SELECT e.id AS subject_id, 'EMPLOYEE' AS subject_type,
+                e.employee_code, e.name AS subject_name, e.branch_id
+           FROM employees e
+           JOIN facedesk_employee_face_profiles p
+             ON p.employee_id = e.id AND p.client_id = e.client_id
+            AND p.subject_type = 'EMPLOYEE' AND p.enrollment_status = 'ENROLLED'
+          WHERE e.client_id = $1 AND e.is_active = true
+         UNION ALL
+         SELECT ce.id, 'CONTRACTOR', ce.employee_code, ce.name, ce.branch_id
+           FROM contractor_employees ce
+           JOIN facedesk_employee_face_profiles p
+             ON p.employee_id = ce.id AND p.client_id = ce.client_id
+            AND p.subject_type = 'CONTRACTOR' AND p.enrollment_status = 'ENROLLED'
+          WHERE ce.client_id = $1
+            AND (ce.is_active IS TRUE OR ce.status IN ('ACTIVE', 'PENDING_DELETE'))
+       )
+        SELECT enrolled.employee_code AS "employeeCode",
+               enrolled.subject_name AS "employeeName",
+               enrolled.subject_type AS "subjectType",
+               enrolled.branch_id AS "branchId"
+          FROM enrolled
+         WHERE TRUE ${branch}
+           AND NOT EXISTS (
+             SELECT 1 FROM kiosk_punch kp WHERE kp.subject_id = enrolled.subject_id
+           )
+         ORDER BY enrolled.employee_code ASC`,
       params,
     );
+  }
+
+  /**
+   * Days worked per contractor worker, from the punches this kiosk took.
+   *
+   * The client pays these workers, so the figure their wages are computed
+   * from belongs in front of them. contractor-days has always produced it and
+   * the CLIENT role has always been allowed to read it — but nothing in the
+   * product called that endpoint, so the number existed and no one could see
+   * it.
+   *
+   * Workers holding attendance but no employee_code cannot be matched to a
+   * wage line, so they come back flagged rather than quietly left out: those
+   * are the ones who would otherwise go unpaid.
+   */
+  async contractorDays(clientId: string, opts: ReportRange) {
+    const { from, to } = this.range(opts);
+    // A branch-scoped user sees their own branches' workers and no others:
+    // this report carries names, codes, punch dates and days worked.
+    if (opts.branchIds?.length === 0) return [];
+    const summary = await this.contractorDaysSvc.summarise(
+      clientId,
+      from,
+      to,
+      undefined,
+      opts.branchIds,
+    );
+    // unpayable is a subset of rows, not a separate list, so the flag is
+    // derived per row — concatenating the two emitted each of those workers
+    // twice, once payable and once not.
+    const unpayable = new Set(
+      summary.unpayable.map((r) => r.contractorEmployeeId),
+    );
+    return summary.rows.map((r) => ({
+      ...r,
+      payable: !unpayable.has(r.contractorEmployeeId),
+    }));
   }
 
   async failedAttempts(clientId: string, opts: ReportRange) {

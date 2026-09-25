@@ -129,6 +129,27 @@ export class FaceDeskReportsController {
     );
   }
 
+  @ApiOperation({
+    summary: 'Days worked per contractor worker, from kiosk punches',
+    description:
+      'The figure contractor wages are computed from. A report, not an ' +
+      'auto-post: a human signs the sheet before it feeds a computation run. ' +
+      'Workers with attendance but no employee_code come back flagged ' +
+      'payable=false, since nothing can match them to a wage line.',
+  })
+  @Get('reports/contractor-days')
+  @Roles('CLIENT', 'ADMIN')
+  reportContractorDays(
+    @CurrentUser() user: ReqUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reports.contractorDays(
+      requireFaceDeskClient(user),
+      facedeskReportRange(user, from, to),
+    );
+  }
+
   @ApiOperation({ summary: 'Failed face attempts report' })
   @Get('reports/failed')
   @Roles('CLIENT', 'ADMIN')

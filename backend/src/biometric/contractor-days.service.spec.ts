@@ -105,14 +105,14 @@ describe('ContractorDaysService', () => {
     );
     const [sql, params] = query.mock.calls[0];
     expect(sql).toContain('ce.contractor_user_id = $5');
-    expect(sql).toContain('p.branch_id=$6');
+    expect(sql).toContain('p.branch_id = ANY($6::uuid[])');
     expect(params).toEqual([
       'client-1',
       '2026-08-01',
       '2026-08-31',
       '330',
       'contractor-a',
-      'branch-a',
+      ['branch-a'],
     ]);
   });
 
@@ -133,5 +133,24 @@ describe('ContractorDaysService', () => {
         days_worked: 22,
       },
     ]);
+  });
+});
+
+describe('ContractorDaysService — branch scope', () => {
+  // A branch-scoped user covers every branch they are assigned, so binding a
+  // single one would hide their own workers while still leaking none.
+  it('accepts several branches at once', async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const service = new ContractorDaysService({
+      manager: { query },
+    } as any);
+    await service.summarise('client-1', '2026-08-01', '2026-08-31', undefined, [
+      'branch-a',
+      'branch-b',
+    ]);
+    const [sql, params] = query.mock.calls[0];
+    expect(sql).toContain('p.branch_id = ANY($5::uuid[])');
+    expect(sql).toContain('ce.branch_id = ANY($5::uuid[])');
+    expect(params[4]).toEqual(['branch-a', 'branch-b']);
   });
 });

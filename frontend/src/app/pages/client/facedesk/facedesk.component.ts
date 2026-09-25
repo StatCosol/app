@@ -477,6 +477,7 @@ type Tab =
             <option value="late">Late coming</option>
             <option value="early">Early going</option>
             <option value="absent">Absent</option>
+            <option value="contractor-days">Contractor days worked</option>
             <option value="failed">Failed attempts</option>
             <option value="duplicates">Duplicates</option>
             <option value="pending-enrollment">Pending enrollment</option>

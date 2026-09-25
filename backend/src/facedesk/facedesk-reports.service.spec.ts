@@ -29,6 +29,7 @@ describe('FaceDeskReportsService.pushToPayroll', () => {
           .fn()
           .mockResolvedValue({ shiftStartTime: null, shiftEndTime: null }),
       } as any,
+      { summarise: jest.fn() } as any,
     );
 
     const res = await service.pushToPayroll('c1', {
@@ -71,6 +72,7 @@ describe('FaceDeskReportsService.pushToPayroll', () => {
           .fn()
           .mockResolvedValue({ shiftStartTime: null, shiftEndTime: null }),
       } as any,
+      { summarise: jest.fn() } as any,
     );
     const res = await service.pushToPayroll('c1', {});
     expect(res).toEqual({ pushed: 0, received: 0 });
@@ -89,6 +91,7 @@ describe('FaceDeskReportsService.failedAttempts', () => {
           .fn()
           .mockResolvedValue({ shiftStartTime: null, shiftEndTime: null }),
       } as any,
+      { summarise: jest.fn() } as any,
     );
 
     await service.failedAttempts('c1', {
@@ -120,6 +123,7 @@ describe('FaceDeskReportsService.failedAttempts', () => {
           .fn()
           .mockResolvedValue({ shiftStartTime: null, shiftEndTime: null }),
       } as any,
+      { summarise: jest.fn() } as any,
     );
 
     await service.failedAttempts('c1', { branchIds: [] });
@@ -135,6 +139,7 @@ describe('FaceDeskReportsService.workedHoursSummary', () => {
       dataSource as any,
       {} as any,
       { getEffective: jest.fn() } as any,
+      { summarise: jest.fn() } as any,
     );
     return { service, dataSource };
   };
@@ -227,5 +232,154 @@ describe('FaceDeskReportsService.workedHoursSummary', () => {
       dayUnit: 0.5,
       workedHours: '4:00',
     });
+  });
+});
+
+describe('FaceDeskReportsService — the kiosk is not employees only', () => {
+  const makeService = () => {
+    const dataSource = { query: jest.fn().mockResolvedValue([]) };
+    // unpayable is a SUBSET of rows, not a separate list — the worker with
+    // no code appears in both.
+    const uncoded = {
+      contractorEmployeeId: 'b',
+      employeeCode: null,
+      employeeName: 'No Code',
+      daysWorked: 3,
+    };
+    const summarise = jest.fn().mockResolvedValue({
+      from: 'f',
+      to: 't',
+      rows: [
+        {
+          contractorEmployeeId: 'a',
+          employeeCode: 'SSR0139',
+          employeeName: 'Jetha',
+          daysWorked: 12,
+        },
+        uncoded,
+      ],
+      unpayable: [uncoded],
+    });
+    const service = new FaceDeskReportsService(
+      dataSource as any,
+      {} as any,
+      { getEffective: jest.fn().mockResolvedValue({}) } as any,
+      { summarise } as any,
+    );
+    return { service, dataSource, summarise };
+  };
+
+  // Contractor punches live in their own table. Reading only the attendance
+  // logs left these reports describing a kiosk without its contractors.
+  it.each([
+    ['dailyAttendance'],
+    ['employeeSummary'],
+    ['workedHoursSummary'],
+    ['branchSummary'],
+  ])('%s reads contractor punches as well as employee ones', async (method) => {
+    const { service, dataSource } = makeService();
+    await (service as any)[method]('c1', {});
+    const [sql] = dataSource.query.mock.calls[0];
+    expect(sql).toContain('contractor_biometric_punches');
+    expect(sql).toContain('facedesk_attendance_logs');
+  });
+
+  it('counts an enrolled contractor who never punched as absent', async () => {
+    const { service, dataSource } = makeService();
+    await service.absent('c1', {});
+    const [sql] = dataSource.query.mock.calls[0];
+    expect(sql).toContain('contractor_employees ce');
+    expect(sql).toContain(`p.subject_type = 'CONTRACTOR'`);
+  });
+
+  // Payroll is deliberately left alone: contractor punches reach payroll
+  // through their own pipeline, so pushing them here would pay twice.
+  it('does not push contractor punches into payroll', async () => {
+    const { service, dataSource } = makeService();
+    await service.pushToPayroll('c1', {});
+    const [sql] = dataSource.query.mock.calls[0];
+    expect(sql).toContain('facedesk_attendance_logs');
+    expect(sql).not.toContain('contractor_biometric_punches');
+  });
+
+  // The client pays these workers, so the number their wages come from has to
+  // be visible; those with no employee_code are the ones who go unpaid.
+  it('returns days worked, flagging who cannot be matched to a wage line', async () => {
+    const { service, summarise } = makeService();
+    const rows = await service.contractorDays('c1', {});
+    expect(summarise).toHaveBeenCalled();
+    expect(rows).toEqual([
+      {
+        contractorEmployeeId: 'a',
+        employeeCode: 'SSR0139',
+        employeeName: 'Jetha',
+        daysWorked: 12,
+        payable: true,
+      },
+      {
+        contractorEmployeeId: 'b',
+        employeeCode: null,
+        employeeName: 'No Code',
+        daysWorked: 3,
+        payable: false,
+      },
+    ]);
+  });
+});
+
+describe('FaceDeskReportsService.contractorDays — scope and payability', () => {
+  const summaryOf = (rows: any[], unpayable: any[]) =>
+    jest.fn().mockResolvedValue({ from: 'f', to: 't', rows, unpayable });
+
+  const build = (summarise: jest.Mock) =>
+    new FaceDeskReportsService(
+      { query: jest.fn().mockResolvedValue([]) } as any,
+      {} as any,
+      { getEffective: jest.fn().mockResolvedValue({}) } as any,
+      { summarise } as any,
+    );
+
+  // The report carries names, codes, punch dates and days worked, so a
+  // branch-scoped user must not receive another branch's workers.
+  it('passes the caller branch scope to the summary', async () => {
+    const summarise = summaryOf([], []);
+    await build(summarise).contractorDays('c1', { branchIds: ['b1', 'b2'] });
+    expect(summarise).toHaveBeenCalledWith(
+      'c1',
+      expect.any(String),
+      expect.any(String),
+      undefined,
+      ['b1', 'b2'],
+    );
+  });
+
+  it('returns nothing when the caller is scoped to no branch at all', async () => {
+    const summarise = summaryOf([{ contractorEmployeeId: 'x' }], []);
+    const rows = await build(summarise).contractorDays('c1', { branchIds: [] });
+    expect(rows).toEqual([]);
+    expect(summarise).not.toHaveBeenCalled();
+  });
+
+  // unpayable is a subset of rows, so appending it listed those workers
+  // twice — once payable, once not — in a report wages are paid from.
+  it('flags each worker once, never twice', async () => {
+    const withCode = {
+      contractorEmployeeId: 'a',
+      employeeCode: 'SSR1',
+      daysWorked: 5,
+    };
+    const without = {
+      contractorEmployeeId: 'b',
+      employeeCode: null,
+      daysWorked: 3,
+    };
+    const rows = await build(
+      summaryOf([withCode, without], [without]),
+    ).contractorDays('c1', {});
+    expect(rows).toEqual([
+      { ...withCode, payable: true },
+      { ...without, payable: false },
+    ]);
+    expect(rows.filter((r) => r.contractorEmployeeId === 'b')).toHaveLength(1);
   });
 });
