@@ -87,6 +87,37 @@ async function referencesTo(db, worker) {
     [worker.id],
   );
   if (approvals.length) found.push('approval_requests');
+  // FaceDesk names a worker by a polymorphic employee_id rather than a
+  // contractor_employee_id, so the scan above cannot see its profiles,
+  // samples, attendance logs, reviews or corrections. A worker whose profile
+  // is BLOCKED or DEACTIVATED reads as unenrolled and would otherwise be
+  // deleted, leaving that face data — and the punches behind it — pointing at
+  // a worker who no longer exists. Only tables that qualify the id by
+  // subject_type, or FaceDesk's own, are read this way: an employee_id
+  // elsewhere belongs to the permanent employees table, not to this worker.
+  const { rows: polymorphic } = await db.query(
+    `SELECT c.table_name,
+            EXISTS (
+              SELECT 1 FROM information_schema.columns s
+               WHERE s.table_schema = c.table_schema AND s.table_name = c.table_name
+                 AND s.column_name = 'subject_type') AS has_subject
+       FROM information_schema.columns c
+      WHERE c.table_schema = 'public' AND c.column_name = 'employee_id'
+        AND (c.table_name LIKE 'facedesk%'
+             OR EXISTS (
+               SELECT 1 FROM information_schema.columns s
+                WHERE s.table_schema = c.table_schema AND s.table_name = c.table_name
+                  AND s.column_name = 'subject_type'))`,
+  );
+  for (const r of polymorphic) {
+    const { rows: hit } = await db.query(
+      `SELECT 1 FROM "${r.table_name}"
+        WHERE employee_id = $1${r.has_subject ? " AND subject_type = 'CONTRACTOR'" : ''}
+        LIMIT 1`,
+      [worker.id],
+    );
+    if (hit.length) found.push(r.table_name);
+  }
   if (!worker.employee_code) return [...new Set(found)];
   const { rows: byCode } = await db.query(
     `SELECT c.table_name
@@ -154,31 +185,60 @@ async function referencesTo(db, worker) {
     console.log(`  ${enrolled.length} with a face enrolled — kept`);
     console.log(`  ${spared.length} named on --keep — kept`);
     console.log(`  ${targets.length} with no face enrolled — to remove\n`);
-    if (missing.length)
-      console.log(
-        `--keep names ${missing.join(', ')}, which no active worker of this contractor holds. Check the code before going further.\n`,
+    // A code on --keep that matches nobody is a typo or a stale value, and the
+    // worker it was meant to spare is sitting in targets right now. Warning
+    // and carrying on would delete exactly the person this flag exists to
+    // protect, so nothing runs until the list is right.
+    if (missing.length) {
+      console.error(
+        `--keep names ${missing.join(', ')}, which no active worker of this contractor holds.\n` +
+          'Nothing has been read further. Correct the code — the worker it was meant to spare\n' +
+          'is otherwise in the list to remove.',
       );
+      process.exit(1);
+    }
 
     let removed = 0;
     const blocked = [];
+    const enrolledMeanwhile = [];
     for (const worker of targets) {
       const refs = await referencesTo(db, worker);
       if (refs.length) {
         blocked.push({ worker, refs });
         continue;
       }
-      console.log(`   remove: ${worker.employee_code || worker.id} — ${worker.name}`);
       if (apply) {
-        await db.query('DELETE FROM contractor_employees WHERE id = $1', [worker.id]);
+        // The client enrols while this runs, and every worker ahead of this
+        // one costs a dozen reference queries, so minutes can pass between
+        // reading the list and reaching this row. Re-test enrolment as part
+        // of the delete itself: a face enrolled in that window means the row
+        // no longer matches and survives.
+        const { rowCount } = await db.query(
+          `DELETE FROM contractor_employees ce WHERE ce.id = $1 AND NOT (${enrolledSql})`,
+          [worker.id],
+        );
+        if (!rowCount) {
+          enrolledMeanwhile.push(worker);
+          console.log(
+            `   keep: ${worker.employee_code || worker.id} — ${worker.name} — a face was enrolled while this ran`,
+          );
+          continue;
+        }
         removed++;
       }
+      console.log(`   remove: ${worker.employee_code || worker.id} — ${worker.name}`);
     }
     for (const { worker, refs } of blocked)
       console.log(
         `   keep: ${worker.employee_code || worker.id} — ${worker.name} — referenced by ${refs.join(', ')}`,
       );
     console.log(
-      `\n${targets.length - blocked.length} can be removed, ${blocked.length} left in place because something references them.`,
+      `\n${targets.length - blocked.length - enrolledMeanwhile.length} can be removed, ` +
+        `${blocked.length} left in place because something references them` +
+        (enrolledMeanwhile.length
+          ? `, ${enrolledMeanwhile.length} because a face was enrolled while this ran`
+          : '') +
+        '.',
     );
     console.log(apply ? `${removed} removed.` : 'Nothing was changed. Re-run with --apply to remove them.');
   } finally {
