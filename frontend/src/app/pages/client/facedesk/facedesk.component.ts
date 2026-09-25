@@ -330,13 +330,9 @@ type Tab =
               <td>{{ (+a.similarityScore).toFixed(3) }}</td>
               <td>{{ a.createdAt | date: 'dd MMM, HH:mm' }}</td>
               <td class="right nowrap">
-                @if (!branchMode) {
-                  <button class="link green" (click)="dupeAction(a, 'APPROVE')">Approve</button>
-                  <button class="link red" (click)="dupeAction(a, 'REJECT')">Reject</button>
-                  <button class="link gray" (click)="dupeAction(a, 'FALSE_ALERT')">False</button>
-                } @else {
-                  <span class="text-xs text-gray-500">View only</span>
-                }
+                <button class="link green" (click)="dupeAction(a, 'APPROVE')">Approve</button>
+                <button class="link red" (click)="dupeAction(a, 'REJECT')">Reject</button>
+                <button class="link gray" (click)="dupeAction(a, 'FALSE_ALERT')">False</button>
               </td>
             </tr>
 }
