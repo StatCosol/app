@@ -251,6 +251,41 @@ export class MobileAttendancePunchesController {
     );
   }
 
+  @ApiOperation({ summary: 'Admin — export contractor attendance to Excel' })
+  @Get('contractor/export.xlsx')
+  @Roles('CLIENT', 'ADMIN')
+  async exportContractorAttendance(
+    @CurrentUser() user: ReqUser,
+    @Res() res: Response,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('branchId') branchId?: string,
+    @Query('contractorEmployeeId') contractorEmployeeId?: string,
+    @Query('contractorUserId') contractorUserId?: string,
+  ) {
+    const clientId = requireMobileAttendanceClient(user);
+    const file = await this.punchService.exportContractorAttendance(
+      clientId,
+      {
+        from,
+        to,
+        branchId,
+        contractorEmployeeId,
+        contractorUserId,
+      },
+      mobileAttendanceBranchScope(user),
+    );
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${file.fileName}"`,
+    );
+    res.send(file.buffer);
+  }
+
   @ApiOperation({ summary: 'Admin — list contractor punches with filters' })
   @Get('contractor')
   @Roles('CLIENT', 'ADMIN')

@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as ExcelJS from 'exceljs';
 import { Repository } from 'typeorm';
 import { ContractorBiometricPunchEntity } from './contractor-punch.entity';
 
@@ -64,6 +65,11 @@ export interface ContractorForBranchRow {
   contractorName: string | null;
   contractorEmail: string | null;
   employeeCount: string;
+}
+
+export interface ContractorAttendanceExport {
+  buffer: Buffer;
+  fileName: string;
 }
 
 /**
@@ -158,6 +164,71 @@ export class PunchContractorAdminService {
         decision: p.decision,
       };
     });
+  }
+
+  async exportContractorAttendance(
+    clientId: string,
+    opts: {
+      from?: string;
+      to?: string;
+      branchId?: string;
+      contractorEmployeeId?: string;
+      contractorUserId?: string;
+    } = {},
+    branchScope?: BranchScope,
+  ): Promise<ContractorAttendanceExport> {
+    const punches = await this.listContractorPunches(
+      clientId,
+      { ...opts, limit: undefined },
+      branchScope,
+    );
+    const rows = this.toAttendanceExportRows(punches);
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'StatCo';
+    workbook.created = new Date();
+
+    const sheet = workbook.addWorksheet('Contractor Attendance');
+    sheet.columns = [
+      { header: 'Date', key: 'date', width: 14 },
+      { header: 'Contractor', key: 'contractor', width: 28 },
+      { header: 'Employee Code', key: 'employeeCode', width: 16 },
+      { header: 'Employee Name', key: 'employeeName', width: 28 },
+      { header: 'In Time', key: 'inTime', width: 12 },
+      { header: 'Out Time', key: 'outTime', width: 12 },
+      { header: 'Hours', key: 'hours', width: 10 },
+      { header: 'Punches', key: 'punches', width: 10 },
+      { header: 'Source', key: 'source', width: 12 },
+      { header: 'Match %', key: 'match', width: 10 },
+      { header: 'Liveness %', key: 'liveness', width: 12 },
+      { header: 'Photo Evidence', key: 'photoEvidence', width: 18 },
+      { header: 'Punch IDs', key: 'punchIds', width: 42 },
+    ];
+
+    const header = sheet.getRow(1);
+    header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    header.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF0F766E' },
+    };
+    header.alignment = { vertical: 'middle', horizontal: 'center' };
+
+    rows.forEach((row) => sheet.addRow(row));
+    sheet.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: 1, column: sheet.columns.length },
+    };
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+    const contractorName =
+      rows[0]?.contractor || opts.contractorUserId || 'contractor';
+    const rangeLabel =
+      `${this.safeFilePart(opts.from?.slice(0, 10) || 'from')}-to-` +
+      `${this.safeFilePart(opts.to?.slice(0, 10) || 'to')}`;
+    return {
+      buffer: Buffer.from(await workbook.xlsx.writeBuffer()),
+      fileName: `contractor-attendance-${this.safeFilePart(contractorName)}-${rangeLabel}.xlsx`,
+    };
   }
 
   /**
@@ -303,5 +374,108 @@ export class PunchContractorAdminService {
     if (!branchScope) return;
     if (!branchId || !branchScope.includes(branchId))
       throw new NotFoundException('Contractor punch not found');
+  }
+
+  private toAttendanceExportRows(rows: ContractorPunchRow[]) {
+    const groups = new Map<string, ContractorPunchRow[]>();
+    for (const punch of rows) {
+      const key = `${punch.contractorEmployeeId}|${this.dayKey(punch.punchTime)}`;
+      const bucket = groups.get(key) ?? [];
+      bucket.push(punch);
+      groups.set(key, bucket);
+    }
+
+    return Array.from(groups.values())
+      .map((group) => {
+        const sorted = [...group].sort(
+          (a, b) =>
+            new Date(a.punchTime).getTime() - new Date(b.punchTime).getTime(),
+        );
+        const first = sorted[0];
+        const last = sorted[sorted.length - 1];
+        const inPunch = sorted.find((p) => p.direction === 'IN') ?? first;
+        const outPunch =
+          [...sorted].reverse().find((p) => p.direction === 'OUT') ??
+          (sorted.length > 1 ? last : null);
+        return {
+          date: this.dayKey(first.punchTime),
+          contractor: first.contractorName ?? '',
+          employeeCode: first.employeeCode ?? '',
+          employeeName: first.contractorEmployeeName ?? 'Unknown employee',
+          inTime: this.timeValue(inPunch?.punchTime ?? null),
+          outTime: this.timeValue(outPunch?.punchTime ?? null),
+          hours: this.hoursBetween(
+            inPunch?.punchTime ?? null,
+            outPunch?.punchTime ?? null,
+          ),
+          punches: sorted.length,
+          source: this.sourceLabel(last.source),
+          match: this.percentValue(last.matchScore),
+          liveness: this.percentValue(last.livenessScore),
+          photoEvidence: sorted.some((p) => !!p.photoUrl)
+            ? 'Available in app'
+            : '',
+          punchIds: sorted.map((p) => p.id).join(', '),
+          sortDate: first.punchTime,
+        };
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime() ||
+          String(a.employeeName).localeCompare(String(b.employeeName)),
+      )
+      .map(({ sortDate: _sortDate, ...row }) => row);
+  }
+
+  private dayKey(value: Date): string {
+    const year = value.getFullYear();
+    const month = `${value.getMonth() + 1}`.padStart(2, '0');
+    const day = `${value.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private timeValue(value: Date | null): string {
+    if (!value) return '';
+    const hour = `${value.getHours()}`.padStart(2, '0');
+    const minute = `${value.getMinutes()}`.padStart(2, '0');
+    return `${hour}:${minute}`;
+  }
+
+  private hoursBetween(start: Date | null, end: Date | null): string {
+    if (!start || !end) return '';
+    const ms = end.getTime() - start.getTime();
+    if (!Number.isFinite(ms) || ms <= 0) return '';
+    return Number(ms / 36e5).toFixed(2);
+  }
+
+  private percentValue(value: number | null): number | string {
+    if (value === null || value === undefined) return '';
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '';
+    return Number((n * 100).toFixed(0));
+  }
+
+  private sourceLabel(source: ContractorPunchSource): string {
+    switch (source) {
+      case 'FACE':
+        return 'Face';
+      case 'MANUAL':
+        return 'Manual';
+      case 'DEVICE':
+        return 'Device';
+      default:
+        return '';
+    }
+  }
+
+  private safeFilePart(value: string): string {
+    return (
+      value
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 48) || 'contractor'
+    );
   }
 }

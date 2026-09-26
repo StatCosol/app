@@ -11,6 +11,7 @@ import {
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
+import { downloadBlob } from '../../../shared/utils/download-blob';
 import {
   ClientMobileAttendanceService,
   ContractorForBranchRow,
@@ -99,14 +100,24 @@ import {
             </span>
 }
           </h3>
-          <button
-            type="button"
-            class="text-sm text-brand-600 hover:text-brand-700"
-            [disabled]="loadingPunches"
-            (click)="loadPunches()"
-          >
-            Refresh
-          </button>
+          <div class="flex items-center gap-3">
+            <button
+              type="button"
+              class="text-sm font-medium text-brand-600 hover:text-brand-700 disabled:text-gray-400"
+              [disabled]="loadingPunches || exporting || !contractorUserId"
+              (click)="downloadAttendance()"
+            >
+              {{ exporting ? 'Preparing...' : 'Download Excel' }}
+            </button>
+            <button
+              type="button"
+              class="text-sm text-brand-600 hover:text-brand-700 disabled:text-gray-400"
+              [disabled]="loadingPunches"
+              (click)="loadPunches()"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
 
         @if (loadingPunches) {
@@ -245,6 +256,7 @@ export class BranchContractorAttendanceComponent implements OnInit {
   loadingContractors = false;
   loadingPunches = false;
   actionBusyId = '';
+  exporting = false;
 
   constructor(
     private svc: ClientMobileAttendanceService,
@@ -343,6 +355,39 @@ export class BranchContractorAttendanceComponent implements OnInit {
     this.protectedFile.open(row.photoUrl, 'contractor-punch.jpg').subscribe({
       error: () => this.toast.error('Could not open photo'),
     });
+  }
+
+  downloadAttendance(): void {
+    if (!this.contractorUserId || this.exporting) return;
+    this.exporting = true;
+    this.svc
+      .exportContractorAttendance({
+        contractorUserId: this.contractorUserId,
+        from: this.from ? `${this.from}T00:00:00.000Z` : undefined,
+        to: this.to ? `${this.to}T23:59:59.999Z` : undefined,
+      })
+      .pipe(
+        finalize(() => {
+          this.exporting = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (blob) => {
+          const contractor = this.contractors.find(
+            (c) => c.contractorUserId === this.contractorUserId,
+          );
+          const contractorName =
+            contractor?.contractorName || contractor?.contractorEmail || 'contractor';
+          const fileName = `contractor-attendance-${this.safeFilePart(contractorName)}-${this.from || 'from'}-to-${this.to || 'to'}.xlsx`;
+          void downloadBlob(blob, fileName)
+            .then(() => this.toast.success('Attendance download started'))
+            .catch(() => this.toast.error('Could not save attendance download'));
+        },
+        error: () => {
+          this.toast.error('Could not download attendance');
+        },
+      });
   }
 
   async editRow(row: ContractorAttendanceRow): Promise<void> {
@@ -525,6 +570,15 @@ export class BranchContractorAttendanceComponent implements OnInit {
     const ms = new Date(end).getTime() - new Date(start).getTime();
     if (!Number.isFinite(ms) || ms <= 0) return '-';
     return (ms / 36e5).toFixed(2);
+  }
+
+  private safeFilePart(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48) || 'contractor';
   }
 
   private timeValue(iso: string | null): string {

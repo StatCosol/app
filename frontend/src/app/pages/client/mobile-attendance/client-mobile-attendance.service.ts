@@ -354,6 +354,29 @@ export class ClientMobileAttendanceService {
     return this.http.get<ContractorPunchRow[]>(`${this.base}/punches/contractor${qs}`);
   }
 
+  exportContractorAttendance(
+    opts: {
+      from?: string;
+      to?: string;
+      branchId?: string;
+      contractorEmployeeId?: string;
+      contractorUserId?: string;
+    } = {},
+  ): Observable<Blob> {
+    const parts: string[] = [];
+    if (opts.from) parts.push(`from=${encodeURIComponent(opts.from)}`);
+    if (opts.to) parts.push(`to=${encodeURIComponent(opts.to)}`);
+    if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
+    if (opts.contractorEmployeeId)
+      parts.push(`contractorEmployeeId=${encodeURIComponent(opts.contractorEmployeeId)}`);
+    if (opts.contractorUserId)
+      parts.push(`contractorUserId=${encodeURIComponent(opts.contractorUserId)}`);
+    const qs = parts.length ? `?${parts.join('&')}` : '';
+    return this.http.get(`${this.base}/punches/contractor/export.xlsx${qs}`, {
+      responseType: 'blob',
+    });
+  }
+
   // ── Admin face-failure audit (Phase 4d step 7) ──
   updateContractorPunch(
     id: string,
