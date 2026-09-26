@@ -147,9 +147,9 @@ import {
 }
 
           @if (contractorUserId && attendanceRows.length) {
-<div class="overflow-x-auto">
+<div class="max-h-[600px] overflow-auto">
             <table class="min-w-full text-sm">
-              <thead class="bg-gray-50 text-left text-xs font-medium text-gray-600 uppercase">
+              <thead class="sticky top-0 z-10 bg-gray-50 text-left text-xs font-medium text-gray-600 uppercase">
                 <tr>
                   <th class="px-4 py-2">Date</th>
                   <th class="px-4 py-2">Employee</th>
