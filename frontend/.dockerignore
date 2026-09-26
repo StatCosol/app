@@ -2,5 +2,7 @@ node_modules/
 dist/
 .angular/
 coverage/
+**/__screenshots__/
+.vitest-attachments/
 .env
 *.log

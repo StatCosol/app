@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
+import * as XLSX from 'xlsx';
 import {
   EmptyStateComponent,
   LoadingSpinnerComponent,
@@ -99,14 +100,24 @@ import {
             </span>
 }
           </h3>
-          <button
-            type="button"
-            class="text-sm text-brand-600 hover:text-brand-700"
-            [disabled]="loadingPunches"
-            (click)="loadPunches()"
-          >
-            Refresh
-          </button>
+          <div class="flex items-center gap-3">
+            <button
+              type="button"
+              class="text-sm font-medium text-brand-600 hover:text-brand-700 disabled:text-gray-400"
+              [disabled]="loadingPunches || exporting || !attendanceRows.length"
+              (click)="downloadAttendance()"
+            >
+              {{ exporting ? 'Preparing...' : 'Download Excel' }}
+            </button>
+            <button
+              type="button"
+              class="text-sm text-brand-600 hover:text-brand-700 disabled:text-gray-400"
+              [disabled]="loadingPunches"
+              (click)="loadPunches()"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
 
         @if (loadingPunches) {
@@ -245,6 +256,7 @@ export class BranchContractorAttendanceComponent implements OnInit {
   loadingContractors = false;
   loadingPunches = false;
   actionBusyId = '';
+  exporting = false;
 
   constructor(
     private svc: ClientMobileAttendanceService,
@@ -343,6 +355,59 @@ export class BranchContractorAttendanceComponent implements OnInit {
     this.protectedFile.open(row.photoUrl, 'contractor-punch.jpg').subscribe({
       error: () => this.toast.error('Could not open photo'),
     });
+  }
+
+  downloadAttendance(): void {
+    if (!this.attendanceRows.length || this.exporting) return;
+    this.exporting = true;
+    this.cdr.markForCheck();
+    try {
+      const contractor = this.contractors.find((c) => c.contractorUserId === this.contractorUserId);
+      const contractorName = contractor?.contractorName || contractor?.contractorEmail || 'contractor';
+      const rows = this.attendanceRows.map((row) => ({
+        Date: this.localDayKey(row.date),
+        Contractor: contractorName,
+        'Employee Code': row.employeeCode || '',
+        'Employee Name': row.contractorEmployeeName || 'Unknown employee',
+        'In Time': row.inTime ? this.timeValue(row.inTime) : '',
+        'Out Time': row.outTime ? this.timeValue(row.outTime) : '',
+        Hours: row.hours === '-' ? '' : row.hours,
+        Punches: row.punchCount,
+        Source: this.sourceLabel(row.source),
+        'Match %': this.percentValue(row.matchScore),
+        'Liveness %': this.percentValue(row.livenessScore),
+        Photo: row.photoUrl || '',
+      }));
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      worksheet['!cols'] = [
+        { wch: 12 },
+        { wch: 28 },
+        { wch: 16 },
+        { wch: 28 },
+        { wch: 10 },
+        { wch: 10 },
+        { wch: 10 },
+        { wch: 10 },
+        { wch: 12 },
+        { wch: 10 },
+        { wch: 12 },
+        { wch: 48 },
+      ];
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendance');
+      const from = this.from || this.localDayKey(this.attendanceRows[this.attendanceRows.length - 1].date);
+      const to = this.to || this.localDayKey(this.attendanceRows[0].date);
+      XLSX.writeFile(
+        workbook,
+        `contractor-attendance-${this.safeFilePart(contractorName)}-${from}-to-${to}.xlsx`,
+      );
+      this.toast.success('Attendance download started');
+    } catch {
+      this.toast.error('Could not download attendance');
+    } finally {
+      this.exporting = false;
+      this.cdr.markForCheck();
+    }
   }
 
   async editRow(row: ContractorAttendanceRow): Promise<void> {
@@ -525,6 +590,22 @@ export class BranchContractorAttendanceComponent implements OnInit {
     const ms = new Date(end).getTime() - new Date(start).getTime();
     if (!Number.isFinite(ms) || ms <= 0) return '-';
     return (ms / 36e5).toFixed(2);
+  }
+
+  private percentValue(v: string | null): number | string {
+    if (v === null || v === undefined || v === '') return '';
+    const n = Number(v);
+    if (!Number.isFinite(n)) return v;
+    return Number((n * 100).toFixed(0));
+  }
+
+  private safeFilePart(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48) || 'contractor';
   }
 
   private timeValue(iso: string | null): string {
