@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -38,6 +39,10 @@ const EDITABLE_STATUSES = new Set([
 
       @if (!loadingInvoice && !lockedStatus) {
 <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-6">
+        @if (saveError) {
+          <div role="alert" class="border border-red-200 bg-red-50 text-red-800 rounded-lg p-3 text-sm break-words">{{ saveError }}</div>
+        }
+        <fieldset [disabled]="saving" class="min-w-0 space-y-6">
         <!-- Header Section -->
         <div class="bg-white rounded-xl border p-6 space-y-4">
           <h2 class="text-lg font-semibold text-slate-700">Invoice Details</h2>
@@ -62,7 +67,10 @@ const EDITABLE_STATUSES = new Set([
             </div>
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Invoice Date *</label>
-              <input formControlName="invoiceDate" type="date" class="w-full px-3 py-2 border rounded-lg text-sm">
+              <input formControlName="invoiceDate" type="date" [min]="isUnchangedLegacyDate ? '' : minInvoiceDate" [max]="isUnchangedLegacyDate ? '' : maxInvoiceDate" class="w-full px-3 py-2 border rounded-lg text-sm">
+              @if (form.get('invoiceDate')?.hasError('financialYear')) {
+                <p role="alert" class="text-red-700 text-xs mt-1">Invoice date must remain in financial year {{ financialYear }}.</p>
+              }
             </div>
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Due Date</label>
@@ -169,6 +177,7 @@ const EDITABLE_STATUSES = new Set([
             {{ saving ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save Changes' : 'Create Invoice') }}
           </button>
         </div>
+        </fieldset>
       </form>
 }
     </div>
@@ -180,6 +189,12 @@ export class BillingCreateInvoiceComponent implements OnInit {
   selectedClient: BillingClient | null = null;
   invoiceTypes = INVOICE_TYPES;
   saving = false;
+  saveError = '';
+  financialYear = '';
+  minInvoiceDate = '';
+  maxInvoiceDate = '';
+  private originalInvoiceDate: string | null = null;
+  private readonly destroyRef = inject(DestroyRef);
 
   invoiceId: string | null = null;
   isEditMode = false;
@@ -205,7 +220,7 @@ export class BillingCreateInvoiceComponent implements OnInit {
       items: this.fb.array([this.newItem()]),
     });
 
-    this.svc.getActiveClients().subscribe({
+    this.svc.getActiveClients().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (c) => (this.clients = c || []),
       error: (e) => { console.error('[billing] active clients load failed', e); this.clients = []; },
     });
@@ -214,11 +229,11 @@ export class BillingCreateInvoiceComponent implements OnInit {
     if (this.invoiceId) {
       this.isEditMode = true;
       this.loadingInvoice = true;
-      this.svc.getInvoice(this.invoiceId).subscribe({
+      this.svc.getInvoice(this.invoiceId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: (inv) => {
           this.loadingInvoice = false;
-          if (!EDITABLE_STATUSES.has(inv.invoiceStatus)) {
-            this.lockedStatus = inv.invoiceStatus;
+          if (!EDITABLE_STATUSES.has(inv.invoiceStatus) || inv.paymentStatus !== 'UNPAID' || Number(inv.amountReceived) > 0) {
+            this.lockedStatus = Number(inv.amountReceived) > 0 ? 'payment recorded' : inv.paymentStatus !== 'UNPAID' ? inv.paymentStatus : inv.invoiceStatus;
             return;
           }
           this.itemsArray.clear();
@@ -226,11 +241,15 @@ export class BillingCreateInvoiceComponent implements OnInit {
             this.itemsArray.push(
               this.fb.group({
                 serviceDescription: [item.serviceDescription, Validators.required],
+                serviceCode: [item.serviceCode],
+                periodFrom: [item.periodFrom],
+                periodTo: [item.periodTo],
+                sequence: [item.sequence],
                 sacCode: [item.sacCode || ''],
-                quantity: [item.quantity, [Validators.required, Validators.min(1)]],
-                rate: [item.rate, [Validators.required, Validators.min(0)]],
-                discountAmount: [item.discountAmount || 0],
-                gstRate: [item.gstRate ?? 18],
+                quantity: [Number(item.quantity), [Validators.required, Validators.min(1)]],
+                rate: [Number(item.rate), [Validators.required, Validators.min(0)]],
+                discountAmount: [Number(item.discountAmount ?? 0), [Validators.required, Validators.min(0)]],
+                gstRate: [Number(item.gstRate ?? 18), [Validators.required, Validators.min(0), Validators.max(100)]],
                 isReimbursement: [item.isReimbursement || false],
               }),
             );
@@ -247,6 +266,16 @@ export class BillingCreateInvoiceComponent implements OnInit {
             remarks: inv.remarks || '',
           });
           this.selectedClient = inv.billingClient || null;
+          this.form.get('invoiceType')!.disable();
+          this.financialYear = inv.financialYear;
+          this.originalInvoiceDate = inv.invoiceDate;
+          const startYear = Number(inv.financialYear.split('-')[0]);
+          this.minInvoiceDate = `${startYear}-04-01`;
+          this.maxInvoiceDate = `${startYear + 1}-03-31`;
+          this.form.get('invoiceDate')!.addValidators(control =>
+            control.value && control.value !== this.originalInvoiceDate && (control.value < this.minInvoiceDate || control.value > this.maxInvoiceDate)
+              ? { financialYear: true } : null);
+          this.form.get('invoiceDate')!.updateValueAndValidity();
         },
         error: (e) => {
           this.loadingInvoice = false;
@@ -261,14 +290,20 @@ export class BillingCreateInvoiceComponent implements OnInit {
     return this.form.get('items') as FormArray;
   }
 
+  get isUnchangedLegacyDate(): boolean {
+    const date = this.form.get('invoiceDate')?.value;
+    return !!date && date === this.originalInvoiceDate &&
+      (date < this.minInvoiceDate || date > this.maxInvoiceDate);
+  }
+
   newItem(): FormGroup {
     return this.fb.group({
       serviceDescription: ['', Validators.required],
       sacCode: [''],
       quantity: [1, [Validators.required, Validators.min(1)]],
       rate: [0, [Validators.required, Validators.min(0)]],
-      discountAmount: [0],
-      gstRate: [18],
+      discountAmount: [0, [Validators.required, Validators.min(0)]],
+      gstRate: [Number(this.selectedClient?.defaultGstRate ?? 18), [Validators.required, Validators.min(0), Validators.max(100)]],
       isReimbursement: [false],
     });
   }
@@ -289,7 +324,7 @@ export class BillingCreateInvoiceComponent implements OnInit {
     } else {
       // Restore the client default (or fall back to 18%) when toggled off.
       ctrl.patchValue({
-        gstRate: this.selectedClient?.defaultGstRate ?? 18,
+        gstRate: Number(this.selectedClient?.defaultGstRate ?? 18),
       });
     }
   }
@@ -302,7 +337,7 @@ export class BillingCreateInvoiceComponent implements OnInit {
       this.itemsArray.controls.forEach((ctrl) => {
         // Don't overwrite the GST rate of a govt-fee line.
         if (!ctrl.value.isReimbursement) {
-          ctrl.patchValue({ gstRate: this.selectedClient!.defaultGstRate });
+          ctrl.patchValue({ gstRate: Number(this.selectedClient!.defaultGstRate ?? 18) });
         }
       });
     }
@@ -318,17 +353,29 @@ export class BillingCreateInvoiceComponent implements OnInit {
   }
 
   onSubmit(): void {
-    if (this.form.invalid) return;
+    if (this.saving || this.loadingInvoice || this.lockedStatus) return;
+    this.saveError = '';
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      this.saveError = 'Check the invoice date and required line-item values.';
+      return;
+    }
     this.saving = true;
+    const payload = { ...this.form.value, dueDate: this.form.value.dueDate || null };
     const request = this.isEditMode && this.invoiceId
-      ? this.svc.updateInvoice(this.invoiceId, this.form.value)
-      : this.svc.createInvoice(this.form.value);
-    request.subscribe({
+      ? this.svc.updateInvoice(this.invoiceId, payload)
+      : this.svc.createInvoice(payload);
+    request.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (inv) => {
         this.saving = false;
         this.router.navigate(['/accounts/invoices', inv.id]);
       },
-      error: () => (this.saving = false),
+      error: (error) => {
+        this.saving = false;
+        const message = error?.error?.message;
+        this.saveError = Array.isArray(message) ? message.join('. ')
+          : typeof message === 'string' ? message : 'Unable to save invoice. Please try again.';
+      },
     });
   }
 
