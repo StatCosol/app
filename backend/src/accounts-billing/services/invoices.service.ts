@@ -85,7 +85,7 @@ export class InvoicesService {
         .findOne({ where: {} });
       const supplierStateCode = settings?.stateCode || '36';
       const clientStateCode = client.stateCode;
-      const gstRate = client.defaultGstRate || settings?.defaultGstRate || 18;
+      const gstRate = client.defaultGstRate ?? settings?.defaultGstRate ?? 18;
 
       const intraState = this.calcService.isIntraState(
         supplierStateCode,
@@ -429,13 +429,19 @@ export class InvoicesService {
             'Invoices with recorded payments or that are cancelled are locked for editing.',
         );
       }
-      if (invoice.paymentStatus !== PaymentStatus.UNPAID) {
+      if (
+        invoice.paymentStatus !== PaymentStatus.UNPAID ||
+        Number(invoice.amountReceived) > 0
+      ) {
         throw new BadRequestException(
           'Invoice has recorded payments and cannot be edited. Reverse the payments first.',
         );
       }
 
-      const client = dto.billingClientId
+      const clientChanged =
+        dto.billingClientId != null &&
+        dto.billingClientId !== invoice.billingClientId;
+      const client = clientChanged
         ? await manager
             .getRepository(BillingClient)
             .findOne({ where: { id: dto.billingClientId } })
@@ -446,16 +452,29 @@ export class InvoicesService {
         .getRepository(BillingSetting)
         .findOne({ where: {} });
       const supplierStateCode = settings?.stateCode || '36';
-      const clientStateCode = client.stateCode;
-      const gstRate = client.defaultGstRate || settings?.defaultGstRate || 18;
+      const clientStateCode = clientChanged
+        ? client.stateCode
+        : (invoice.stateCode ?? client.stateCode);
+      const savedGstRate =
+        Number(invoice.cgstRate) +
+        Number(invoice.sgstRate) +
+        Number(invoice.igstRate);
+      const gstRate =
+        clientChanged && dto.items
+          ? (client.defaultGstRate ?? settings?.defaultGstRate ?? 18)
+          : savedGstRate;
 
-      const intraState = this.calcService.isIntraState(
-        supplierStateCode,
-        clientStateCode,
-      );
+      // Master-data edits must not change an existing invoice's tax treatment.
+      const intraState =
+        !clientChanged && savedGstRate > 0
+          ? Number(invoice.igstRate) === 0
+          : this.calcService.isIntraState(supplierStateCode, clientStateCode);
 
       const invoiceDate = dto.invoiceDate || invoice.invoiceDate;
       const items = dto.items;
+      if (items && !items.length) {
+        throw new BadRequestException('Invoice must contain at least one item');
+      }
 
       const oldStatus = invoice.invoiceStatus;
       const before = {
@@ -471,9 +490,12 @@ export class InvoicesService {
       invoice.dueDate =
         dto.dueDate !== undefined ? dto.dueDate : invoice.dueDate;
       invoice.placeOfSupply =
-        dto.placeOfSupply ?? invoice.placeOfSupply ?? client.placeOfSupply;
-      invoice.stateCode = clientStateCode;
-      invoice.gstin = client.gstin;
+        dto.placeOfSupply ??
+        (clientChanged ? client.placeOfSupply : invoice.placeOfSupply);
+      if (clientChanged) {
+        invoice.stateCode = clientStateCode;
+        invoice.gstin = client.gstin;
+      }
       invoice.remarks =
         dto.remarks !== undefined ? dto.remarks : invoice.remarks;
       invoice.purchaseOrderNumber =
@@ -503,19 +525,6 @@ export class InvoicesService {
           };
         });
 
-        const totals = this.calcService.calculateInvoiceTotals(
-          itemResults.map((r) => ({
-            amount: r.amount,
-            discountAmount: r.discountAmount,
-            taxableAmount: r.taxableAmount,
-            gstAmount: r.gstAmount,
-            lineTotal: r.lineTotal,
-          })),
-          gstRate,
-          intraState,
-        );
-        Object.assign(invoice, totals);
-
         // Replace the line items wholesale rather than trying to diff/merge —
         // simpler and avoids stale rows lingering when items are removed.
         if (invoice.items?.length) {
@@ -540,6 +549,22 @@ export class InvoicesService {
             sequence: r.sequence || idx + 1,
           }),
         );
+      }
+
+      if (items || clientChanged) {
+        const totals = this.calcService.calculateInvoiceTotals(
+          // PostgreSQL numeric columns arrive as strings on retained items.
+          invoice.items.map((item) => ({
+            amount: Number(item.amount),
+            discountAmount: Number(item.discountAmount),
+            taxableAmount: Number(item.taxableAmount),
+            gstAmount: Number(item.gstAmount),
+            lineTotal: Number(item.lineTotal),
+          })),
+          gstRate,
+          intraState,
+        );
+        Object.assign(invoice, totals);
       }
 
       const saved = await invoiceRepo.save(invoice);

@@ -70,6 +70,7 @@ export class BillingCalculationService {
       subTotal,
       discountTotal,
       taxableValue,
+      totalGst,
       cgstRate,
       cgstAmount,
       sgstRate,

@@ -58,6 +58,7 @@ describe('BillingCalculationService', () => {
     it('splits GST into equal CGST/SGST for an intra-state supply', () => {
       const t = svc.calculateInvoiceTotals([item], 18, true);
       expect(t.taxableValue).toBe(400);
+      expect(t.totalGst).toBe(72);
       expect(t.cgstRate).toBe(9);
       expect(t.sgstRate).toBe(9);
       expect(t.cgstAmount).toBe(36);
@@ -70,6 +71,7 @@ describe('BillingCalculationService', () => {
     it('uses IGST for an inter-state supply', () => {
       const t = svc.calculateInvoiceTotals([item], 18, false);
       expect(t.igstRate).toBe(18);
+      expect(t.totalGst).toBe(72);
       expect(t.igstAmount).toBe(72);
       expect(t.cgstAmount).toBe(0);
       expect(t.sgstAmount).toBe(0);
@@ -100,6 +102,7 @@ describe('BillingCalculationService', () => {
       };
       const t = svc.calculateInvoiceTotals([oddGst], 18, true);
       expect(+(t.cgstAmount + t.sgstAmount).toFixed(2)).toBe(60.01);
+      expect(t.totalGst).toBe(60.01);
     });
   });
 });
