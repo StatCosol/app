@@ -1,5 +1,5 @@
 import { defaultPayslipLayout, validatePayslipLayout } from './payslip-layout';
-import { PayrollService } from '../payroll.service';
+import { PayrollClientConfigService } from '../payroll-client-config.service';
 import { PayrollClientPayslipLayoutEntity } from '../entities/payroll-client-payslip-layout.entity';
 
 describe('Payslip layout contract', () => {
@@ -102,14 +102,17 @@ describe('Payslip layout persistence scope', () => {
       ),
     };
     const transaction = jest.fn(async (callback) => callback(manager));
-    const service = Object.assign(Object.create(PayrollService.prototype), {
-      layoutRepo: { ...repo, manager: { transaction } },
-      scopeService: scope,
-      getClientEffectiveComponents: jest.fn().mockResolvedValue([
-        { code: 'BASIC', enabled: true },
-        { code: 'DISABLED', enabled: false },
-      ]),
-    });
+    const service = Object.assign(
+      Object.create(PayrollClientConfigService.prototype),
+      {
+        layoutRepo: { ...repo, manager: { transaction } },
+        scopeService: scope,
+        getClientEffectiveComponents: jest.fn().mockResolvedValue([
+          { code: 'BASIC', enabled: true },
+          { code: 'DISABLED', enabled: false },
+        ]),
+      },
+    );
     return { service, repo, scope, history, manager, transaction };
   }
   const user = { id: 'payroll', roleCode: 'PAYROLL' };

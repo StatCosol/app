@@ -3,6 +3,7 @@ const { randomUUID } = require('node:crypto');
 const { DataSource } = require('typeorm');
 const { PGlite } = require('./auditxpert-test-db.cjs');
 const { PayrollService } = require('../dist/src/payroll/payroll.service');
+const { PayrollClientConfigService } = require('../dist/src/payroll/payroll-client-config.service');
 const { PayrollClientPayslipLayoutEntity } = require('../dist/src/payroll/entities/payroll-client-payslip-layout.entity');
 const { PayrollConfigAuditEntity } = require('../dist/src/payroll/entities/payroll-config-audit.entity');
 const { defaultPayslipLayout } = require('../dist/src/payroll/utils/payslip-layout');
@@ -21,11 +22,12 @@ async function main() {
     const clientId = randomUUID(); const user = { id: randomUUID(), roleCode: 'PAYROLL' };
     const repo = ds.getRepository(PayrollClientPayslipLayoutEntity);
     const historyRepo = ds.getRepository(PayrollConfigAuditEntity);
-    const service = Object.assign(Object.create(PayrollService.prototype), {
+    const clientConfigService = Object.assign(Object.create(PayrollClientConfigService.prototype), {
       layoutRepo: repo,
       scopeService: { assertPayrollAccessToClient: async (_user, requested) => { if (requested !== clientId) throw new Error('Outside client scope'); } },
       getClientEffectiveComponents: async () => [{ code: 'BASIC', enabled: true }],
     });
+    const service = Object.assign(Object.create(PayrollService.prototype), { clientConfigService });
     const first = defaultPayslipLayout(); first.settings.enabled = true; first.sections[0].title = 'First layout';
     const second = defaultPayslipLayout(); second.sections[0].title = 'Second layout';
     await Promise.all([first, second].map(layout => service.saveClientPayslipLayout(user, clientId, { layout })));
