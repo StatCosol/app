@@ -10,6 +10,7 @@ const { InvoicesService } = require('../dist/src/accounts-billing/services/invoi
 const { InvoicePaymentsService } = require('../dist/src/accounts-billing/services/invoice-payments.service');
 const { BillingCalculationService } = require('../dist/src/accounts-billing/services/billing-calculation.service');
 const { BillingNumberService } = require('../dist/src/accounts-billing/services/billing-number.service');
+const { BillingReportsService } = require('../dist/src/accounts-billing/services/billing-reports.service');
 
 async function main() {
   const db = new PGlite();
@@ -290,6 +291,75 @@ async function main() {
     await seedNumber('BIG/2627/9999999999999999999999999999999999999999');
     await assert.rejects(invoices().create(createDto, userId), error => error.status === 400 && /exceeded 9999/.test(error.message));
     console.log('PASS: 6 controlled numbering races, recurring retry preservation, numeric legacy ordering, creation rollback, sequence exhaustion and financial-year rollover.');
+
+    const reports = new BillingReportsService(repo(entities.Invoice));
+    const dashboardBefore = await invoices().getDashboardStats();
+    const reportClient = await repo(entities.BillingClient).save({
+      tenantId: client.tenantId, billingCode: 'REPORT', legalName: 'Synthetic Report Client',
+      billingEmail: 'report@example.invalid', stateCode: '36', stateName: 'Telangana', billingAddress: 'Test only',
+    });
+    const reportRows = [];
+    for (const [status, type, total, received] of [
+      [InvoiceStatus.APPROVED, InvoiceType.TAX_INVOICE, 100, 0],
+      [InvoiceStatus.PARTIALLY_PAID, InvoiceType.TAX_INVOICE, 200, 50],
+      [InvoiceStatus.PAID, InvoiceType.TAX_INVOICE, 300, 300],
+      [InvoiceStatus.OVERDUE, InvoiceType.TAX_INVOICE, 400, 0],
+      [InvoiceStatus.DRAFT, InvoiceType.TAX_INVOICE, 500, 0],
+      [InvoiceStatus.CANCELLED, InvoiceType.TAX_INVOICE, 600, 0],
+      [InvoiceStatus.GENERATED, InvoiceType.PROFORMA, 700, 0],
+      [InvoiceStatus.GENERATED, InvoiceType.CREDIT_NOTE, 800, 0],
+      [InvoiceStatus.APPROVED, InvoiceType.TAX_INVOICE, 0, 0],
+    ]) {
+      const paymentStatus = received === 0 ? PaymentStatus.UNPAID
+        : received === total ? PaymentStatus.PAID : PaymentStatus.PARTIALLY_PAID;
+      reportRows.push(await repo(entities.Invoice).save({
+        tenantId: client.tenantId, billingClientId: reportClient.id, createdBy: userId,
+        invoiceNumber: `REPORT/${reportRows.length + 1}`, invoiceType: type, invoiceStatus: status,
+        invoiceDate: '2026-09-27', financialYear: '2026-27', dueDate: '2026-09-01',
+        grandTotal: total, taxableValue: total, amountReceived: received, balanceOutstanding: total - received,
+        paymentStatus,
+        items: [1, 2].map(sequence => ({ serviceDescription: `Sample ${sequence}`, sequence,
+          quantity: 1, rate: total / 2, amount: total / 2, taxableAmount: total / 2, lineTotal: total / 2 })),
+      }));
+    }
+    const dashboardAfter = await invoices().getDashboardStats();
+    for (const [key, expected] of Object.entries({
+      totalInvoices: 9, draftCount: 1, approvedCount: 2, pendingPaymentCount: 3,
+      paidCount: 1, overdueCount: 1, totalBilled: 1000, totalReceived: 350, totalOutstanding: 650,
+    })) assert.equal(Number(dashboardAfter[key]) - Number(dashboardBefore[key]), expected, key);
+
+    const reportQuery = { clientId: reportClient.id, fromDate: '2026-09-27', toDate: '2026-09-27' };
+    const summary = await reports.getReport({ ...reportQuery, reportType: 'CLIENT_SUMMARY' });
+    assert.equal(summary.rows.length, 1);
+    assert.equal(summary.summary.invoiceCount, 5);
+    assert.equal(summary.summary.billedAmount, 1000);
+    assert.equal(summary.summary.receivedAmount, 350);
+    assert.equal(summary.summary.outstandingAmount, 650);
+    assert.equal(summary.rows[0].invoiceCount, 5, 'Item joins must not duplicate invoices');
+    assert.equal(summary.rows[0].billedAmount, 1000);
+    const outstanding = await reports.getReport({ ...reportQuery, reportType: 'OUTSTANDING' });
+    assert.equal(outstanding.rows.length, 3);
+    assert.equal(outstanding.summary.outstandingAmount, 650);
+    const paid = await reports.getReport({ ...reportQuery, reportType: 'PAID' });
+    assert.equal(paid.rows.length, 1);
+    assert.equal(paid.summary.receivedAmount, 300);
+    const gst = await reports.getReport({ ...reportQuery, reportType: 'GST_DETAIL' });
+    assert.equal(gst.rows.length, 10);
+    assert.equal(gst.summary.invoiceCount, 5);
+    assert.equal(gst.summary.billedAmount, 1000);
+    const register = await reports.getReport({ ...reportQuery, reportType: 'INVOICE_REGISTER' });
+    assert.equal(register.rows.length, 9, 'Document register must retain drafts, cancellations, proformas and credit notes');
+    for (const reportType of ['CLIENT_SUMMARY', 'OUTSTANDING', 'PAID', 'GST_DETAIL']) {
+      const draftOnly = await reports.getReport({ ...reportQuery, reportType, invoiceStatus: 'DRAFT' });
+      assert.equal(draftOnly.rows.length, 0, `${reportType} must not override its issued-invoice scope`);
+      assert.equal(draftOnly.summary.billedAmount, 0);
+    }
+    await invoices().cancel(reportRows[0].id);
+    const afterCancellation = await invoices().getDashboardStats();
+    assert.equal(Number(afterCancellation.totalBilled), Number(dashboardAfter.totalBilled) - 100);
+    assert.equal(Number(afterCancellation.totalOutstanding), Number(dashboardAfter.totalOutstanding) - 100);
+    assert.equal((await reports.getReport({ ...reportQuery, reportType: 'OUTSTANDING' })).rows.length, 2);
+    console.log('PASS: mixed-status dashboard/report reconciliation, complete document register, multi-item invoice counts, zero balances, filter intersections and cancellation updates.');
   } finally {
     if (ds?.isInitialized) await ds.destroy();
     await db.close();

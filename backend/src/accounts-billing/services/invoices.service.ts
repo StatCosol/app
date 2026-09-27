@@ -17,6 +17,7 @@ import {
   InvoiceType,
   PaymentStatus,
   MailStatus,
+  ISSUED_INVOICE_STATUSES,
 } from '../enums';
 import { ConvertProformaDto, CreateInvoiceDto, UpdateInvoiceDto } from '../dto';
 import { BillingCalculationService } from './billing-calculation.service';
@@ -638,18 +639,24 @@ export class InvoicesService {
   }
 
   async getDashboardStats() {
+    const issuedTaxInvoice =
+      'inv.invoice_type = :taxInvoice AND inv.invoice_status IN (:...issuedStatuses)';
     const stats = await this.invoiceRepo
       .createQueryBuilder('inv')
+      .setParameters({
+        taxInvoice: InvoiceType.TAX_INVOICE,
+        issuedStatuses: ISSUED_INVOICE_STATUSES,
+      })
       .select([
         'COUNT(*) as "totalInvoices"',
         'COUNT(*) FILTER (WHERE inv.invoice_status = \'DRAFT\') as "draftCount"',
         'COUNT(*) FILTER (WHERE inv.invoice_status = \'APPROVED\') as "approvedCount"',
-        "COUNT(*) FILTER (WHERE inv.invoice_type != 'PROFORMA' AND (inv.payment_status = 'UNPAID' OR inv.payment_status = 'PARTIALLY_PAID')) as \"pendingPaymentCount\"",
-        "COUNT(*) FILTER (WHERE inv.invoice_type != 'PROFORMA' AND inv.payment_status = 'PAID') as \"paidCount\"",
-        'COUNT(*) FILTER (WHERE inv.invoice_status = \'OVERDUE\') as "overdueCount"',
-        'COALESCE(SUM(inv.grand_total) FILTER (WHERE inv.invoice_type != \'PROFORMA\'), 0) as "totalBilled"',
-        'COALESCE(SUM(inv.amount_received) FILTER (WHERE inv.invoice_type != \'PROFORMA\'), 0) as "totalReceived"',
-        'COALESCE(SUM(inv.balance_outstanding) FILTER (WHERE inv.invoice_type != \'PROFORMA\'), 0) as "totalOutstanding"',
+        `COUNT(*) FILTER (WHERE ${issuedTaxInvoice} AND inv.payment_status IN ('UNPAID', 'PARTIALLY_PAID') AND inv.balance_outstanding > 0) as "pendingPaymentCount"`,
+        `COUNT(*) FILTER (WHERE ${issuedTaxInvoice} AND inv.payment_status = 'PAID') as "paidCount"`,
+        `COUNT(*) FILTER (WHERE ${issuedTaxInvoice} AND inv.invoice_status = 'OVERDUE') as "overdueCount"`,
+        `COALESCE(SUM(inv.grand_total) FILTER (WHERE ${issuedTaxInvoice}), 0) as "totalBilled"`,
+        `COALESCE(SUM(inv.amount_received) FILTER (WHERE ${issuedTaxInvoice}), 0) as "totalReceived"`,
+        `COALESCE(SUM(inv.balance_outstanding) FILTER (WHERE ${issuedTaxInvoice}), 0) as "totalOutstanding"`,
       ])
       .getRawOne();
 

@@ -17,6 +17,7 @@ describe('InvoicesService Proforma conversion', () => {
       take: jest.fn().mockReturnThis(),
       getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
       select: jest.fn().mockReturnThis(),
+      setParameters: jest.fn().mockReturnThis(),
       getRawOne: jest.fn().mockResolvedValue({}),
     };
     const invoiceRepo = {
@@ -50,7 +51,17 @@ describe('InvoicesService Proforma conversion', () => {
     );
     const selectCalls = queryBuilder.select.mock.calls;
     const dashboardColumns = selectCalls[selectCalls.length - 1][0].join(' ');
-    expect(dashboardColumns).toContain("invoice_type != 'PROFORMA'");
+    expect(dashboardColumns).toContain('invoice_type = :taxInvoice');
+    expect(dashboardColumns).toContain(
+      'invoice_status IN (:...issuedStatuses)',
+    );
+    expect(queryBuilder.setParameters).toHaveBeenCalledWith({
+      taxInvoice: InvoiceType.TAX_INVOICE,
+      issuedStatuses: expect.not.arrayContaining([
+        InvoiceStatus.DRAFT,
+        InvoiceStatus.CANCELLED,
+      ]),
+    });
   });
 
   it('creates one separately numbered Tax Invoice with Proforma and PO references', async () => {

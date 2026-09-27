@@ -129,4 +129,103 @@ describe('BillingReportsService', () => {
     expect(data.getRow(3).getCell(13).formula).toContain('SUBTOTAL(109');
     expect(exported.fileName).toMatch(/^gst-detail-\d{4}-\d{2}-\d{2}\.xlsx$/);
   });
+
+  it.each(['GST_DETAIL', 'CLIENT_SUMMARY', 'OUTSTANDING', 'PAID'])(
+    'uses issued Tax Invoices for %s even with a draft status filter',
+    async (reportType) => {
+      const { service, qb } = setup();
+      await service.getReport({ reportType, invoiceStatus: 'DRAFT' });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'inv.invoice_type = :taxInvoice',
+        {
+          taxInvoice: InvoiceType.TAX_INVOICE,
+        },
+      );
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'inv.invoice_status IN (:...issuedStatuses)',
+        {
+          issuedStatuses: [
+            InvoiceStatus.APPROVED,
+            InvoiceStatus.GENERATED,
+            InvoiceStatus.EMAILED,
+            InvoiceStatus.PARTIALLY_PAID,
+            InvoiceStatus.PAID,
+            InvoiceStatus.OVERDUE,
+          ],
+        },
+      );
+    },
+  );
+
+  it('keeps the document register available for every type and status', async () => {
+    const { service, qb } = setup();
+    await service.getReport({ reportType: 'INVOICE_REGISTER' });
+    expect(qb.andWhere).not.toHaveBeenCalled();
+  });
+
+  it('does not sum repeated invoice totals or rates in a multi-line GST export', async () => {
+    const { service, qb } = setup();
+    qb.getMany.mockResolvedValue([
+      {
+        ...invoice,
+        items: [1, 2].map((sequence) => ({
+          ...invoice.items[0],
+          sequence,
+          rate: 500,
+          taxableAmount: 500,
+          gstAmount: 90,
+          lineTotal: 590,
+        })),
+      },
+    ]);
+    const report = await service.getReport({ reportType: 'GST_DETAIL' });
+    expect(report.rows).toHaveLength(2);
+    expect(report.summary.billedAmount).toBe(1180);
+    const { buffer } = await service.exportReport({ reportType: 'GST_DETAIL' });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer as any);
+    const data = workbook.getWorksheet('Report Data')!;
+    const headers = data.getRow(1).values as unknown[];
+    const footer = data.getRow(4);
+    expect(data.getRow(2).getCell(headers.indexOf('Invoice Total')).value).toBe(
+      1180,
+    );
+    expect(data.getRow(3).getCell(headers.indexOf('Invoice Total')).value).toBe(
+      1180,
+    );
+    expect(footer.getCell(headers.indexOf('Invoice Total')).value).toBeNull();
+    expect(footer.getCell(headers.indexOf('Rate')).value).toBeNull();
+    expect(footer.getCell(headers.indexOf('Line Total')).formula).toContain(
+      'SUBTOTAL(109',
+    );
+    expect(footer.getCell(headers.indexOf('Taxable Value')).formula).toContain(
+      'SUBTOTAL(109',
+    );
+    const billed: unknown[] = [];
+    workbook.getWorksheet('Summary')!.eachRow((row) => {
+      if (row.getCell(1).value === 'Billed Amount')
+        billed.push(row.getCell(2).value);
+    });
+    expect(billed).toEqual([1180]);
+  });
+
+  it('totals outstanding currency without summing overdue days', async () => {
+    const { service } = setup();
+    const { buffer } = await service.exportReport({
+      reportType: 'OUTSTANDING',
+    });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer as any);
+    const data = workbook.getWorksheet('Report Data')!;
+    const headers = data.getRow(1).values as unknown[];
+    expect(
+      data.getRow(3).getCell(headers.indexOf('Overdue Days')).value,
+    ).toBeNull();
+    expect(
+      data.getRow(3).getCell(headers.indexOf('Outstanding')).formula,
+    ).toContain('SUBTOTAL(109');
+    expect(
+      data.getRow(3).getCell(headers.indexOf('Invoice Total')).formula,
+    ).toContain('SUBTOTAL(109');
+  });
 });
