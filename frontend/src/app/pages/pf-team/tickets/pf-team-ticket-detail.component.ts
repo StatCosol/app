@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PfTeamApiService, HdTicket, HdMessage } from '../pf-team-api.service';
+import { AuthService } from '../../../core/auth.service';
 
 @Component({
   selector: 'app-pf-team-ticket-detail',
@@ -66,11 +67,17 @@ import { PfTeamApiService, HdTicket, HdMessage } from '../pf-team-api.service';
       <!-- Status Update -->
       <div class="bg-white rounded-xl border border-gray-200 p-6">
         <h2 class="text-sm font-semibold text-gray-900 mb-3">Update Status</h2>
+        @if (!canManage) {
+          <p class="text-sm text-amber-700 mb-3">Awaiting administrator assignment.</p>
+        }
+        @if (actionError) {
+          <p role="alert" class="text-sm text-red-700 mb-3">{{ actionError }}</p>
+        }
         <div class="flex flex-wrap items-center gap-2">
           @for (s of statuses; track s) {
 <button
                   (click)="changeStatus(s)"
-                  [disabled]="ticket.status === s || updatingStatus"
+                  [disabled]="!canChangeStatus(s) || updatingStatus"
                   class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   [class]="ticket.status === s ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-300 text-gray-700 hover:bg-gray-50'">
             {{ s.replace('_', ' ') }}
@@ -100,13 +107,14 @@ import { PfTeamApiService, HdTicket, HdMessage } from '../pf-team-api.service';
         <div class="flex gap-2">
           <input autocomplete="off" id="pttd-new-message" name="newMessage"
             [(ngModel)]="newMessage"
+            [disabled]="!canManage || sendingMessage"
             (keydown.enter)="postMessage()"
             placeholder="Type a message…"
             class="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
           />
           <button
             (click)="postMessage()"
-            [disabled]="!newMessage.trim() || sendingMessage"
+            [disabled]="!canManage || !newMessage.trim() || sendingMessage"
             class="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
             Send
           </button>
@@ -138,9 +146,19 @@ export class PfTeamTicketDetailComponent implements OnInit {
   sendingMessage = false;
   updatingStatus = false;
   error = '';
-  statuses = ['OPEN', 'IN_PROGRESS', 'AWAITING_CLIENT', 'RESOLVED', 'CLOSED'];
+  actionError = '';
+  statuses = ['OPEN', 'IN_PROGRESS', 'AWAITING_CLIENT', 'RESOLVED'];
 
-  constructor(private route: ActivatedRoute, private api: PfTeamApiService) {}
+  constructor(private route: ActivatedRoute, private api: PfTeamApiService, private auth: AuthService) {}
+
+  get canManage(): boolean {
+    return !!this.ticket?.assignedToUserId && this.ticket.assignedToUserId === this.auth.getUser()?.id;
+  }
+
+  canChangeStatus(status: string): boolean {
+    return this.canManage && this.statuses.includes(status) && this.ticket?.status !== status &&
+      !(this.ticket?.status === 'OPEN' && status === 'RESOLVED');
+  }
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
@@ -162,7 +180,8 @@ export class PfTeamTicketDetailComponent implements OnInit {
   }
 
   postMessage(): void {
-    if (!this.ticket || !this.newMessage.trim() || this.sendingMessage) return;
+    if (!this.ticket || !this.canManage || !this.newMessage.trim() || this.sendingMessage) return;
+    this.actionError = '';
     this.sendingMessage = true;
     this.api.postMessage(this.ticket.id, this.newMessage.trim()).subscribe({
       next: () => {
@@ -170,19 +189,26 @@ export class PfTeamTicketDetailComponent implements OnInit {
         this.sendingMessage = false;
         this.loadMessages();
       },
-      error: () => (this.sendingMessage = false),
+      error: (err) => {
+        this.sendingMessage = false;
+        this.actionError = typeof err?.error?.message === 'string' ? err.error.message : 'Message could not be sent. Please retry.';
+      },
     });
   }
 
   changeStatus(status: string): void {
-    if (!this.ticket || this.updatingStatus) return;
+    if (!this.ticket || !this.canChangeStatus(status) || this.updatingStatus) return;
+    this.actionError = '';
     this.updatingStatus = true;
     this.api.updateStatus(this.ticket.id, status).subscribe({
       next: (updated) => {
         this.ticket!.status = updated.status ?? status;
         this.updatingStatus = false;
       },
-      error: () => (this.updatingStatus = false),
+      error: (err) => {
+        this.updatingStatus = false;
+        this.actionError = typeof err?.error?.message === 'string' ? err.error.message : 'Status could not be updated. Please retry.';
+      },
     });
   }
 

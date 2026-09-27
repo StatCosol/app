@@ -96,6 +96,12 @@ jobs:
           node scripts/verify-audit-entry.cjs ./auditxpert-test-db.cjs
           node scripts/verify-auditor-dashboard.cjs ./auditxpert-test-db.cjs
           node scripts/verify-payslip-layout-db.cjs
+      - name: Helpdesk PostgreSQL regressions
+        env:
+          AUDITXPERT_TEST_PORT: 5432
+          AUDITXPERT_TEST_USER: postgres
+          AUDITXPERT_TEST_PASSWORD: postgres
+        run: node scripts/verify-helpdesk-db.cjs
       - name: Patched dependency runtime smoke
         run: node scripts/security-dependency-smoke.cjs
       - name: Payslip PDF layout regressions
