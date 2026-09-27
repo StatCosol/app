@@ -9,6 +9,8 @@ describe('AI payroll anomaly scan integrity', () => {
   let checks: any[][];
   let client: any[];
   let run: any[];
+  let manager: any;
+  let transactionalRepo: any;
   beforeEach(() => {
     client = [{ id: 'company' }];
     run = [{ id: 'canonical-run' }];
@@ -25,6 +27,17 @@ describe('AI payroll anomaly scan integrity', () => {
       create: jest.fn((value) => value),
       save: jest.fn(async (value) => value),
     };
+    transactionalRepo = {
+      create: jest.fn((value) => value),
+      save: jest.fn(async (value) => value),
+    };
+    manager = {
+      query: jest.fn(async (sql: string) =>
+        sql.includes('FROM clients') ? client : run,
+      ),
+      getRepository: jest.fn(() => transactionalRepo),
+    };
+    db.transaction = jest.fn(async (_isolation, callback) => callback(manager));
     service = new AiPayrollAnomalyService(repo, db, {} as any);
   });
 
@@ -93,7 +106,8 @@ describe('AI payroll anomaly scan integrity', () => {
       expect(new Set(result.map((row) => row.anomalyType)).size).toBe(4);
       for (const row of result)
         expect(row.payrollRunId).toBe(input ? 'canonical-run' : null);
-      expect(repo.save).toHaveBeenCalledTimes(1);
+      expect(transactionalRepo.save).toHaveBeenCalledTimes(1);
+      expect(repo.save).not.toHaveBeenCalled();
     },
   );
 
@@ -113,15 +127,70 @@ describe('AI payroll anomaly scan integrity', () => {
       );
       expect(repo.create).not.toHaveBeenCalled();
       expect(repo.save).not.toHaveBeenCalled();
+      expect(db.transaction).not.toHaveBeenCalled();
     },
   );
 
   it('propagates a persistence failure instead of returning detected findings', async () => {
     checks[0] = [{ employee_id: 'employee' }];
-    repo.save.mockRejectedValue(new Error('save failed'));
+    transactionalRepo.save.mockRejectedValue(new Error('save failed'));
     await expect(service.detectAnomalies('company')).rejects.toThrow(
       'save failed',
     );
+  });
+
+  it.each([true, false])(
+    'rejects a company deleted during scanning, even with no findings (%s)',
+    async (hasFindings) => {
+      if (hasFindings) checks[0] = [{ employee_id: 'employee' }];
+      manager.query.mockResolvedValue([]);
+      await expect(service.detectAnomalies('company')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(manager.query).toHaveBeenCalledWith(
+        'SELECT id FROM clients WHERE id = $1 AND is_deleted = false FOR SHARE',
+        ['company'],
+      );
+      expect(transactionalRepo.save).not.toHaveBeenCalled();
+      expect(repo.save).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects a run removed or reassigned during scanning before saving', async () => {
+    checks[0] = [{ employee_id: 'employee' }];
+    manager.query.mockResolvedValueOnce(client).mockResolvedValueOnce([]);
+    await expect(service.detectAnomalies('company', 'run')).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(manager.query).toHaveBeenLastCalledWith(
+      'SELECT id FROM payroll_runs WHERE id = $1 AND client_id = $2 FOR SHARE',
+      ['canonical-run', 'company'],
+    );
+    expect(transactionalRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('uses the locked transaction repository and explicit READ COMMITTED isolation', async () => {
+    checks[0] = [{ employee_id: 'employee' }];
+    await service.detectAnomalies('company', 'run');
+    expect(db.transaction).toHaveBeenCalledWith(
+      'READ COMMITTED',
+      expect.any(Function),
+    );
+    expect(manager.query).toHaveBeenCalledTimes(2);
+    expect(manager.query.mock.invocationCallOrder[1]).toBeLessThan(
+      transactionalRepo.save.mock.invocationCallOrder[0],
+    );
+    expect(transactionalRepo.save).toHaveBeenCalledTimes(1);
+    expect(repo.create).not.toHaveBeenCalled();
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('propagates a transaction failure instead of reporting a successful scan', async () => {
+    db.transaction.mockRejectedValue(new Error('transaction failed'));
+    await expect(service.detectAnomalies('company')).rejects.toThrow(
+      'transaction failed',
+    );
+    expect(repo.save).not.toHaveBeenCalled();
   });
 });
 

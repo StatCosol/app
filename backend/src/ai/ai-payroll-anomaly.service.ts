@@ -205,13 +205,31 @@ export class AiPayrollAnomalyService {
       });
     }
 
-    // Save all anomalies
-    if (anomalies.length > 0) {
-      const entities = anomalies.map((a) => this.anomalyRepo.create(a));
-      return this.anomalyRepo.save(entities);
-    }
+    // Keep ownership valid through commit without locking during the scans.
+    // FOR SHARE also blocks non-key updates such as a client's soft-delete flag.
+    return this.dataSource.transaction('READ COMMITTED', async (manager) => {
+      const [currentClient] = await manager.query(
+        'SELECT id FROM clients WHERE id = $1 AND is_deleted = false FOR SHARE',
+        [clientId],
+      );
+      if (!currentClient) throw new NotFoundException('Company not found');
 
-    return [];
+      if (runId) {
+        const [currentRun] = await manager.query(
+          'SELECT id FROM payroll_runs WHERE id = $1 AND client_id = $2 FOR SHARE',
+          [runId, clientId],
+        );
+        if (!currentRun) {
+          throw new BadRequestException(
+            'Payroll run does not belong to the selected company',
+          );
+        }
+      }
+
+      if (anomalies.length === 0) return [];
+      const repo = manager.getRepository(AiPayrollAnomalyEntity);
+      return repo.save(anomalies.map((anomaly) => repo.create(anomaly)));
+    });
   }
 
   /** List anomalies for a client */

@@ -12,6 +12,28 @@ const { PayrollRunEmployeeEntity } = require('../dist/src/payroll/entities/payro
 const { EmployeeStatutoryEntity } = require('../dist/src/employees/entities/employee-statutory.entity');
 const { EmployeeEntity } = require('../dist/src/employees/entities/employee.entity');
 
+function afterScans(ds, callback) {
+  let scans = 0;
+  return {
+    query: async (sql, params) => {
+      const rows = await ds.query(sql, params);
+      if (sql.includes('FROM employees') && ++scans === 4) await callback();
+      return rows;
+    },
+    transaction: ds.transaction.bind(ds),
+  };
+}
+
+async function waitForBlock(ds, waitingPid, blockingPid) {
+  const deadline = Date.now() + 10000;
+  do {
+    const [row] = await ds.query('SELECT $2::int = ANY(pg_blocking_pids($1)) AS blocked', [waitingPid, blockingPid]);
+    if (row.blocked) return;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  } while (Date.now() < deadline);
+  assert.fail('Expected the company deletion to wait on the scan transaction lock');
+}
+
 async function main() {
   const db = new PGlite();
   let ds;
@@ -86,6 +108,76 @@ async function main() {
     assert.equal(companyResults.length, 12);
     for (const row of companyResults) assert.equal(row.payrollRunId, null);
 
+    const beforeRaces = await anomalyRepo.count();
+    for (const selectedRun of [run.id, empty.id]) {
+      const racing = new AiPayrollAnomalyService(anomalyRepo, afterScans(ds, async () => {
+        // An independent connection commits the same flag transition as softDelete.
+        await ds.getRepository(ClientEntity).update(a.id, { isDeleted: true });
+      }), {});
+      try {
+        await assert.rejects(racing.detectAnomalies(a.id, selectedRun), error => error.status === 404);
+        assert.equal(await anomalyRepo.count(), beforeRaces);
+      } finally {
+        await ds.getRepository(ClientEntity).update(a.id, { isDeleted: false });
+      }
+    }
+
+    const reassigned = new AiPayrollAnomalyService(anomalyRepo, afterScans(ds, async () => {
+      await runRepo.update(run.id, { clientId: b.id });
+    }), {});
+    try {
+      await assert.rejects(reassigned.detectAnomalies(a.id, run.id), error => error.status === 400);
+      assert.equal(await anomalyRepo.count(), beforeRaces);
+    } finally {
+      await runRepo.update(run.id, { clientId: a.id });
+    }
+
+    // Opposite ordering: once validation has locked the live company, deletion
+    // must wait until the findings commit. Observe PostgreSQL blocking, not timing.
+    const deleter = ds.createQueryRunner();
+    let deletion;
+    let deletionError;
+    try {
+      await deleter.connect();
+      await deleter.startTransaction();
+      await deleter.query("SET LOCAL statement_timeout = '15s'");
+      const [{ pid: deletePid }] = await deleter.query('SELECT pg_backend_pid() AS pid');
+      const locked = new AiPayrollAnomalyService(anomalyRepo, {
+        query: ds.query.bind(ds),
+        transaction: (isolation, callback) => ds.transaction(isolation, async manager => callback({
+          query: manager.query.bind(manager),
+          getRepository: entity => {
+            const repo = manager.getRepository(entity);
+            return {
+              create: repo.create.bind(repo),
+              save: async entities => {
+                const [{ pid: scanPid }] = await manager.query('SELECT pg_backend_pid() AS pid');
+                deletion = deleter.query('UPDATE clients SET is_deleted = true WHERE id = $1', [a.id])
+                  .catch(error => { deletionError = error; });
+                await waitForBlock(ds, deletePid, scanPid);
+                const saved = await repo.save(entities);
+                const [owner] = await manager.query('SELECT is_deleted FROM clients WHERE id = $1', [a.id]);
+                assert.equal(owner.is_deleted, false);
+                return saved;
+              },
+            };
+          },
+        })),
+      }, {});
+      const saved = await locked.detectAnomalies(a.id, run.id);
+      assert.equal(saved.length, 8);
+      await deletion;
+      if (deletionError) throw deletionError;
+      await deleter.commitTransaction();
+      assert.equal(await anomalyRepo.count(), beforeRaces + 8);
+      assert.equal((await ds.getRepository(ClientEntity).findOneByOrFail({ id: a.id })).isDeleted, true);
+    } finally {
+      await deletion;
+      if (deleter.isTransactionActive) await deleter.rollbackTransaction();
+      await deleter.release();
+      await ds.getRepository(ClientEntity).update(a.id, { isDeleted: false });
+    }
+
     const beforeFailure = await anomalyRepo.count();
     // The first rule finds results, but the second cannot complete: no partial save.
     await db.exec('DROP TABLE employee_statutory');
@@ -94,7 +186,7 @@ async function main() {
     await ds.getRepository(ClientEntity).update(a.id, { isDeleted: true });
     await assert.rejects(service.detectAnomalies(a.id, run.id), error => error.status === 404);
     assert.equal(await anomalyRepo.count(), beforeFailure);
-    console.log('PASS: AI anomaly ownership, uppercase UUIDs, run membership/code fallback, all result references, current-schema failure and late-query failure without partial writes.');
+    console.log('PASS: AI anomaly ownership, uppercase UUIDs, run membership/code fallback, all result references, concurrent deletion/reassignment rejection, deletion blocked until findings commit, current-schema failure and late-query failure without partial writes.');
   } finally {
     if (ds?.isInitialized) await ds.destroy();
     await db.close();

@@ -3,6 +3,7 @@
 ## Summary
 
 - Reject missing/deleted companies and missing/foreign-company payroll runs before scanning or saving findings.
+- Revalidate the live company and optional run under `FOR SHARE` locks in a short `READ COMMITTED` transaction after scanning, and save through that transaction's repository. A deletion/reassignment committed during scanning is rejected, including when there are no findings. A conflicting change started after final validation waits until the findings commit.
 - Compare UUID references in PostgreSQL, accepting uppercase equivalents and persisting the canonical run ID.
 - Restrict optional run-selected checks to same-company run members. Imported members without employee IDs can match by same-company employee code; explicit IDs remain authoritative.
 - Preserve the selected run reference on all four finding types.
@@ -21,7 +22,7 @@ Existing rule thresholds, statutory applicability, wage-base versus contribution
 
 ## Verification
 
-- Backend: 2,226 tests passed across 266 suites; one existing suite/test skipped.
+- Backend: 2,231 tests passed across 266 suites after the concurrent-ownership follow-up; one existing suite/test skipped.
 - Angular: 548 tests passed across 88 files, including eight new anomaly-form tests and a rendered TestBed assertion for locked inputs and visible errors.
 - Separate frontend service runner: 93 tests passed across 17 files.
 - Backend and production frontend builds passed. Existing Sass deprecation warnings remain.
@@ -31,6 +32,14 @@ Existing rule thresholds, statutory applicability, wage-base versus contribution
 - Real local PostgreSQL/TypeORM test passed: missing/deleted/foreign owners, uppercase UUIDs, selected-run membership, imported code fallback, empty runs, all four stored run references, and failed scans without partial writes.
 - The PostgreSQL test first reproduces the missing-column failure against an employee-table fixture without those unsupported columns. It then adds salary columns **only in the disposable test database** to exercise compatibility-path filtering and persistence. This does not establish that the current application schema supports successful salary scans.
 - All data is synthetic. The UUID-named test database was dropped and the temporary local PostgreSQL cluster stopped after testing.
+
+### Concurrent Ownership Review Follow-up
+
+- The initial check alone did not protect the save from concurrent soft deletion. Final validation and persistence now share a transaction and row locks; the four scan queries remain outside that transaction to avoid holding company locks while scanning.
+- `FOR SHARE`, rather than `FOR KEY SHARE`, is intentional: soft deletion updates a non-key column. The company and optional run locks remain held until commit, including through the transaction-scoped repository save.
+- Forty-eight focused AI tests passed, including five added cases for deleted owners with/without findings, changed run ownership, transaction-scoped persistence and transaction failures. Backend build and changed-file lint passed.
+- The required PostgreSQL regression also passed: an independent connection commits deletion after the final scan query and before persistence, with no findings inserted; reassigned run ownership is rejected; and the opposite ordering observes `pg_blocking_pids` to prove deletion waits while the validation/save transaction holds the company lock. The test exercises the soft-delete flag transition, not the full client-retention cascade.
+- Frontend files are unchanged by this follow-up; the 548 Angular and 93 service test results above are from the original PR verification.
 
 ## Scope And Release
 
