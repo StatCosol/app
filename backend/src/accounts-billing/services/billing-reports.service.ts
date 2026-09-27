@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as ExcelJS from 'exceljs';
 import { Repository } from 'typeorm';
 import { Invoice } from '../entities';
-import { InvoiceStatus, InvoiceType, PaymentStatus } from '../enums';
+import { ISSUED_INVOICE_STATUSES, InvoiceType, PaymentStatus } from '../enums';
 
 export type BillingReportType =
   | 'GST_DETAIL'
@@ -47,15 +47,6 @@ const REPORT_TYPES = new Set<BillingReportType>([
   'OUTSTANDING',
   'PAID',
 ]);
-
-const ISSUED_STATUSES = [
-  InvoiceStatus.APPROVED,
-  InvoiceStatus.GENERATED,
-  InvoiceStatus.EMAILED,
-  InvoiceStatus.PARTIALLY_PAID,
-  InvoiceStatus.PAID,
-  InvoiceStatus.OVERDUE,
-];
 
 @Injectable()
 export class BillingReportsService {
@@ -114,42 +105,26 @@ export class BillingReportsService {
       );
     }
 
-    if (reportType === 'GST_DETAIL') {
+    // The document register includes drafts/cancellations; financial reports
+    // share the same issued Tax Invoice scope as the dashboard amounts.
+    if (reportType !== 'INVOICE_REGISTER') {
       qb.andWhere('inv.invoice_type = :taxInvoice', {
         taxInvoice: InvoiceType.TAX_INVOICE,
       }).andWhere('inv.invoice_status IN (:...issuedStatuses)', {
-        issuedStatuses: ISSUED_STATUSES,
+        issuedStatuses: ISSUED_INVOICE_STATUSES,
       });
-    } else if (reportType === 'CLIENT_SUMMARY') {
-      qb.andWhere('inv.invoice_type = :taxInvoice', {
-        taxInvoice: InvoiceType.TAX_INVOICE,
-      }).andWhere('inv.invoice_status != :cancelled', {
-        cancelled: InvoiceStatus.CANCELLED,
-      });
-    } else if (reportType === 'OUTSTANDING') {
-      qb.andWhere('inv.invoice_type = :taxInvoice', {
-        taxInvoice: InvoiceType.TAX_INVOICE,
-      })
-        .andWhere('inv.invoice_status != :cancelled', {
-          cancelled: InvoiceStatus.CANCELLED,
-        })
-        .andWhere('inv.payment_status IN (:...openPaymentStatuses)', {
-          openPaymentStatuses: [
-            PaymentStatus.UNPAID,
-            PaymentStatus.PARTIALLY_PAID,
-          ],
-        })
-        .andWhere('inv.balance_outstanding > 0');
+    }
+    if (reportType === 'OUTSTANDING') {
+      qb.andWhere('inv.payment_status IN (:...openPaymentStatuses)', {
+        openPaymentStatuses: [
+          PaymentStatus.UNPAID,
+          PaymentStatus.PARTIALLY_PAID,
+        ],
+      }).andWhere('inv.balance_outstanding > 0');
     } else if (reportType === 'PAID') {
-      qb.andWhere('inv.invoice_type = :taxInvoice', {
-        taxInvoice: InvoiceType.TAX_INVOICE,
-      })
-        .andWhere('inv.invoice_status != :cancelled', {
-          cancelled: InvoiceStatus.CANCELLED,
-        })
-        .andWhere('inv.payment_status = :paid', {
-          paid: PaymentStatus.PAID,
-        });
+      qb.andWhere('inv.payment_status = :paid', {
+        paid: PaymentStatus.PAID,
+      });
     }
 
     const invoices = await qb.getMany();
@@ -521,7 +496,12 @@ export class BillingReportsService {
         fgColor: { argb: 'FFE8F0F8' },
       };
       report.columns.forEach((column, index) => {
-        if (column.type === 'currency' || column.type === 'number') {
+        // Rates, aging days and repeated per-invoice context are not additive.
+        // Unique invoice totals remain available on the Summary worksheet.
+        if (
+          (column.type === 'currency' || column.type === 'number') &&
+          !['rate', 'invoiceTotal', 'overdueDays'].includes(column.key)
+        ) {
           const letter = sheet.getColumn(index + 1).letter;
           totalRow.getCell(index + 1).value = {
             formula: `SUBTOTAL(109,${letter}2:${letter}${lastDataRow})`,

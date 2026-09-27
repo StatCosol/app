@@ -8,3 +8,12 @@ export enum InvoiceStatus {
   OVERDUE = 'OVERDUE',
   CANCELLED = 'CANCELLED',
 }
+
+export const ISSUED_INVOICE_STATUSES = [
+  InvoiceStatus.APPROVED,
+  InvoiceStatus.GENERATED,
+  InvoiceStatus.EMAILED,
+  InvoiceStatus.PARTIALLY_PAID,
+  InvoiceStatus.PAID,
+  InvoiceStatus.OVERDUE,
+];
