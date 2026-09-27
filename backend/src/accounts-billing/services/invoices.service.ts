@@ -438,6 +438,23 @@ export class InvoicesService {
         );
       }
 
+      if (dto.invoiceType != null && dto.invoiceType !== invoice.invoiceType) {
+        throw new BadRequestException(
+          'Invoice type cannot change after a number has been assigned. Create a new invoice or use Proforma conversion.',
+        );
+      }
+      if (dto.invoiceDate != null && dto.invoiceDate !== invoice.invoiceDate) {
+        const date = new Date(dto.invoiceDate);
+        if (
+          !Number.isFinite(date.getTime()) ||
+          this.numberService.getFinancialYear(date) !== invoice.financialYear
+        ) {
+          throw new BadRequestException(
+            `Invoice date must remain in financial year ${invoice.financialYear}. Create a new invoice for a different financial year.`,
+          );
+        }
+      }
+
       const clientChanged =
         dto.billingClientId != null &&
         dto.billingClientId !== invoice.billingClientId;
@@ -485,7 +502,6 @@ export class InvoicesService {
 
       invoice.billingClientId = client.id;
       invoice.billingClient = client;
-      invoice.invoiceType = dto.invoiceType ?? invoice.invoiceType;
       invoice.invoiceDate = invoiceDate;
       invoice.dueDate =
         dto.dueDate !== undefined ? dto.dueDate : invoice.dueDate;
@@ -502,9 +518,6 @@ export class InvoicesService {
         dto.purchaseOrderNumber !== undefined
           ? dto.purchaseOrderNumber.trim() || null
           : invoice.purchaseOrderNumber;
-      invoice.financialYear = this.numberService.getFinancialYear(
-        new Date(invoiceDate),
-      );
 
       if (items && items.length) {
         const itemResults = items.map((item) => {

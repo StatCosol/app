@@ -447,6 +447,25 @@ async function main() {
     await repo(entities.Invoice).update(editable.id, { amountReceived: 20 });
     await assert.rejects(invoices().update(editable.id, { remarks: 'Must not save' }, userId), error => error.status === 400);
     console.log('PASS: saved billing snapshots, client-only GST re-splitting, mixed-rate and reimbursement lines, full edit payloads, zero GST, empty items, stale payment status and reassignment rollback.');
+
+    const numbered = await invoices().create(createDto, userId);
+    const originalNumbered = await read(numbered.id);
+    for (const dto of [
+      { invoiceType: InvoiceType.PROFORMA }, { invoiceType: InvoiceType.CREDIT_NOTE },
+      { invoiceDate: '2026-03-31' }, { invoiceDate: '2027-04-01' },
+    ]) {
+      await assert.rejects(invoices().update(numbered.id, { ...dto, items: editItems }, userId), error => error.status === 400);
+      assert.deepEqual(await read(numbered.id), originalNumbered, 'Rejected identity edits must not alter invoice or items');
+      assert.equal(await repo(entities.InvoiceAuditLog).countBy({ invoiceId: numbered.id }), 0);
+    }
+    for (const invoiceDate of ['2026-04-01', '2027-03-31']) {
+      await invoices().update(numbered.id, { invoiceDate, invoiceType: InvoiceType.TAX_INVOICE }, userId);
+      const saved = await read(numbered.id);
+      assert.equal(saved.invoiceNumber, numbered.invoiceNumber);
+      assert.equal(saved.financialYear, '2026-27');
+      assert.equal(saved.invoiceDate, invoiceDate);
+    }
+    console.log('PASS: invoice type/year identity guards, no-write rejection and same-financial-year date boundaries.');
   } finally {
     if (ds?.isInitialized) await ds.destroy();
     await db.close();
