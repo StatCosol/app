@@ -10,6 +10,7 @@ import { ContractorBiometricPunchEntity } from './contractor-punch.entity';
 
 /** Manual punches and FaceDesk web punches both carry this device id. */
 const NO_DEVICE = '00000000-0000-0000-0000-000000000000';
+const EXPORT_TIME_ZONE = 'Asia/Kolkata';
 
 export type ContractorPunchSource = 'FACE' | 'MANUAL' | 'DEVICE';
 
@@ -177,9 +178,10 @@ export class PunchContractorAdminService {
     } = {},
     branchScope?: BranchScope,
   ): Promise<ContractorAttendanceExport> {
+    const range = this.kolkataExportRange(opts);
     const punches = await this.listContractorPunches(
       clientId,
-      { ...opts, limit: undefined },
+      { ...opts, ...range, limit: undefined },
       branchScope,
     );
     const rows = this.toAttendanceExportRows(punches);
@@ -428,16 +430,28 @@ export class PunchContractorAdminService {
   }
 
   private dayKey(value: Date): string {
-    const year = value.getFullYear();
-    const month = `${value.getMonth() + 1}`.padStart(2, '0');
-    const day = `${value.getDate()}`.padStart(2, '0');
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: EXPORT_TIME_ZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(value);
+    const year = parts.find((p) => p.type === 'year')?.value ?? '';
+    const month = parts.find((p) => p.type === 'month')?.value ?? '';
+    const day = parts.find((p) => p.type === 'day')?.value ?? '';
     return `${year}-${month}-${day}`;
   }
 
   private timeValue(value: Date | null): string {
     if (!value) return '';
-    const hour = `${value.getHours()}`.padStart(2, '0');
-    const minute = `${value.getMinutes()}`.padStart(2, '0');
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: EXPORT_TIME_ZONE,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(value);
+    const hour = parts.find((p) => p.type === 'hour')?.value ?? '00';
+    const minute = parts.find((p) => p.type === 'minute')?.value ?? '00';
     return `${hour}:${minute}`;
   }
 
@@ -477,5 +491,38 @@ export class PunchContractorAdminService {
         .replace(/^-+|-+$/g, '')
         .slice(0, 48) || 'contractor'
     );
+  }
+
+  private kolkataExportRange(opts: { from?: string; to?: string }): {
+    from?: string;
+    to?: string;
+  } {
+    return {
+      from: this.kolkataStartOfDayUtc(opts.from),
+      to: this.kolkataEndOfDayUtc(opts.to),
+    };
+  }
+
+  private kolkataStartOfDayUtc(value?: string): string | undefined {
+    const day = this.isoDayPart(value);
+    if (!day) return value;
+    const [year, month, date] = day.split('-').map(Number);
+    return new Date(
+      Date.UTC(year, month - 1, date, -5, -30, 0, 0),
+    ).toISOString();
+  }
+
+  private kolkataEndOfDayUtc(value?: string): string | undefined {
+    const day = this.isoDayPart(value);
+    if (!day) return value;
+    const [year, month, date] = day.split('-').map(Number);
+    return new Date(
+      Date.UTC(year, month - 1, date + 1, -5, -30, 0, -1),
+    ).toISOString();
+  }
+
+  private isoDayPart(value?: string): string | null {
+    const match = /^(\d{4}-\d{2}-\d{2})/.exec(value ?? '');
+    return match?.[1] ?? null;
   }
 }
