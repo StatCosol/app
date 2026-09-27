@@ -30,9 +30,12 @@ export class InvoicePdfService {
     return pdfPath;
   }
 
-  async generatePdfBuffer(
-    invoiceId: string,
-  ): Promise<{ buffer: Buffer; fileName: string; pdfPath: string }> {
+  async generatePdfBuffer(invoiceId: string): Promise<{
+    buffer: Buffer;
+    fileName: string;
+    pdfPath: string;
+    invoice: Invoice;
+  }> {
     const invoice = await this.invoicesService.findOne(invoiceId);
     const settings =
       (await this.settingsRepo.findOne({ where: {} })) ||
@@ -60,7 +63,7 @@ export class InvoicePdfService {
       this.log.warn(`Could not update pdfPath: ${(err as Error).message}`);
     }
     this.log.log(`PDF generated: ${pdfPath} (${buffer.length} bytes)`);
-    return { buffer, fileName, pdfPath };
+    return { buffer, fileName, pdfPath, invoice };
   }
 
   private buildPdfBuffer(

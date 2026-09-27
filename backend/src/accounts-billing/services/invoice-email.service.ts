@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -27,18 +27,13 @@ export class InvoiceEmailService {
     dto: SendInvoiceEmailDto,
     userId: string,
   ) {
-    const invoice = await this.invoicesService.findOne(invoiceId);
-
-    // Always generate fresh PDF buffer for the attachment
-    const { buffer: pdfBuffer, fileName: pdfFileName } =
-      await this.pdfService.generatePdfBuffer(invoiceId);
-    if (!invoice.pdfPath) {
-      try {
-        await this.pdfService.generatePdf(invoiceId);
-      } catch {
-        /* best effort persist */
-      }
-    }
+    // Build the email from the same snapshot as its attachment, even if edited
+    // while the PDF is rendering. Generation already persists the PDF once.
+    const {
+      buffer: pdfBuffer,
+      fileName: pdfFileName,
+      invoice,
+    } = await this.pdfService.generatePdfBuffer(invoiceId);
 
     const references = [
       invoice.proformaReferenceNumber
