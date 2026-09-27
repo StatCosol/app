@@ -19,6 +19,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { DataSource } from 'typeorm';
 import { AuditsService } from './audits.service';
+import { AuditNcUploadCleanupInterceptor } from './audit-nc-upload-cleanup.interceptor';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -30,6 +31,7 @@ import {
   SaveReportDraftDto,
 } from './dto/audit-query.dto';
 import { UpdateAuditChecklistDto } from './dto/update-audit-checklist.dto';
+import { ReviewCorrectedDocumentDto } from './dto/review-corrected-document.dto';
 import { OpenAuditWorkspaceDto } from './dto/open-audit-workspace.dto';
 import { BranchAccessService } from '../auth/branch-access.service';
 import { AuditorAssignmentGuard } from '../assignments/auditor-assignment.guard';
@@ -233,6 +235,15 @@ export class CrmAuditsController {
   ) {
     return this.svc.holdReportForCrm(user, id, body?.remarks);
   }
+
+  @ApiOperation({ summary: 'Release report hold (CRM)' })
+  @Post(':id/report/release-hold')
+  releaseReportHold(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.svc.releaseReportHoldForCrm(user, id);
+  }
 }
 
 @Controller({ path: 'auditor/audits', version: '1' })
@@ -348,7 +359,7 @@ export class AuditorAuditsController {
   async reviewCorrectedDoc(
     @CurrentUser() user: ReqUser,
     @Param('ncId', ParseUUIDPipe) ncId: string,
-    @Body() body: { decision: 'COMPLIED' | 'NON_COMPLIED'; remark?: string },
+    @Body() body: ReviewCorrectedDocumentDto,
   ) {
     return this.svc.reviewCorrectedDocument(
       user,
@@ -947,7 +958,10 @@ export class ContractorAuditNcController {
 
   @ApiOperation({ summary: 'Upload corrected file for an NC' })
   @Post(':ncId/upload')
-  @UseInterceptors(FileInterceptor('file', auditNcUploadOptions))
+  @UseInterceptors(
+    FileInterceptor('file', auditNcUploadOptions),
+    AuditNcUploadCleanupInterceptor,
+  )
   async uploadCorrected(
     @CurrentUser() user: ReqUser,
     @Param('ncId', ParseUUIDPipe) ncId: string,
@@ -986,7 +1000,10 @@ export class BranchAuditNcController {
 
   @ApiOperation({ summary: 'Upload corrected file for an NC' })
   @Post(':ncId/upload')
-  @UseInterceptors(FileInterceptor('file', auditNcUploadOptions))
+  @UseInterceptors(
+    FileInterceptor('file', auditNcUploadOptions),
+    AuditNcUploadCleanupInterceptor,
+  )
   async uploadCorrected(
     @CurrentUser() user: ReqUser,
     @Param('ncId', ParseUUIDPipe) ncId: string,

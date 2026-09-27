@@ -64,7 +64,7 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   get canEdit(): boolean {
-    return !!this.draft && this.draft.stage === 'DRAFT';
+    return !!this.draft && !this.draft.held && this.draft.stage === 'DRAFT';
   }
 
   get selectedCount(): number {
@@ -84,7 +84,7 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   get canReopen(): boolean {
-    return !!this.draft && this.draft.stage === 'FINAL';
+    return !!this.draft && !this.draft.held && this.draft.stage === 'FINAL';
   }
 
   get reportGuardrails(): Array<{ label: string; passed: boolean; detail: string }> {
@@ -355,6 +355,8 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
       reportId: report?.reportId || null,
       auditId: report?.auditId || this.auditId,
       stage: report?.stage === 'FINAL' ? 'FINAL' : 'DRAFT',
+      held: report?.held === true,
+      holdRemarks: report?.holdRemarks || null,
       version: report?.version === 'CLIENT' ? 'CLIENT' : 'INTERNAL',
       executiveSummary: report?.executiveSummary || '',
       scope: report?.scope || '',

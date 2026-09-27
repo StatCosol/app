@@ -10,6 +10,8 @@ export interface AuditorReportDraft {
   reportId: string | null;
   auditId: string;
   stage: AuditorReportStage;
+  held?: boolean;
+  holdRemarks?: string | null;
   version: AuditorReportVersion;
   executiveSummary: string;
   scope: string;
@@ -104,6 +106,10 @@ export class AuditsService {
     return this.http.post(`${this.crmBase}/${id}/report/hold`, {
       remarks: remarks || null,
     });
+  }
+
+  crmReleaseReportHold(id: string): Observable<any> {
+    return this.http.post(`${this.crmBase}/${id}/report/release-hold`, {});
   }
 
   // Auditor: list assigned audits with optional filters
