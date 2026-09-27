@@ -83,6 +83,44 @@ describe('AI audit observation reference integrity', () => {
     expectNoGeneration();
   });
 
+  it.each([
+    [
+      'AABBCCDD-1122-4334-8556-ABCDEF012345',
+      'aabbccdd-1122-4334-8556-abcdef012345',
+    ],
+    [
+      'AaBbCcDd-1122-4334-8556-AbCdEf012345',
+      'aabbccdd-1122-4334-8556-abcdef012345',
+    ],
+    [
+      'aabbccdd-1122-4334-8556-abcdef012345',
+      'AABBCCDD-1122-4334-8556-ABCDEF012345',
+    ],
+  ])(
+    'accepts equivalent UUIDs regardless of case: %s / %s',
+    async (branchId, storedBranchId) => {
+      rows.audit = [{ branch_id: storedBranchId }];
+      const result = await service.generateObservation({
+        ...input,
+        auditId: 'ABCDEF01-1122-4334-8556-ABCDEF012345',
+        branchId,
+      });
+      expect(result.branchId).toBe(storedBranchId);
+      expect(repo.save).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('still rejects different UUIDs when the request uses uppercase', async () => {
+    rows.audit = [{ branch_id: 'aabbccdd-1122-4334-8556-abcdef012345' }];
+    await expect(
+      service.generateObservation({
+        ...input,
+        branchId: 'AABBCCDD-1122-4334-8556-ABCDEF012346',
+      }),
+    ).rejects.toThrow('Branch does not match the selected audit');
+    expectNoGeneration();
+  });
+
   it.each([undefined, 'branch'])(
     'rejects a missing, deleted or foreign branch, including an inferred branch (%s)',
     async (branchId) => {

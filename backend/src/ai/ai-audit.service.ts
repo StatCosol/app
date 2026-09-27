@@ -62,7 +62,10 @@ export class AiAuditService {
           'Audit does not belong to the selected company',
         );
       if (audit.branch_id) {
-        if (branchId && branchId !== audit.branch_id) {
+        if (
+          branchId &&
+          branchId.toLowerCase() !== audit.branch_id.toLowerCase()
+        ) {
           throw new BadRequestException(
             'Branch does not match the selected audit',
           );

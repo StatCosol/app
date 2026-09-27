@@ -6,6 +6,7 @@ Follow-up to merged PR #706. This closes the audit-reference gap recorded in the
 
 - Generation previously accepted an arbitrary audit ID alongside an authorized company ID. It now requires the audit to belong to that company before consulting the learning library, calling a provider or saving a record.
 - A branch-scoped audit now supplies its stored branch when the request omits one. An explicit conflicting branch is rejected. The resolved branch must belong to the company and must not be deleted.
+- UUID review follow-up: branch equality is case-insensitive. Uppercase/mixed-case requests remain equivalent to PostgreSQL's lowercase UUID representation, while different UUID values still reject.
 - Missing/deleted companies and unavailable database context fail closed instead of generating observations against empty placeholder context.
 - The provider context now receives the branch name through the correct query alias.
 - Whitespace-only findings are rejected; accepted finding text is trimmed consistently by the UI and service.
@@ -22,12 +23,12 @@ Follow-up to merged PR #706. This closes the audit-reference gap recorded in the
 
 ## Verification
 
-- 29 targeted backend tests passed across generation/reference, HTTP error and existing AI scope suites.
+- 33 targeted backend tests passed across generation/reference, UUID casing, HTTP error and existing AI scope suites.
 - Five Angular generation-form tests passed: trim/duplicate clicks, rejection/correction/retry, missing-message fallback and whitespace-only findings.
 - Real PostgreSQL and TypeORM checks passed for cross-company/missing audit, explicit/inferred branch integrity, valid saved observations, standalone/company-wide compatibility and deleted owners. Rejections leave the saved row count and provider-call count unchanged.
 - The database test creates and drops a UUID-named disposable database on loopback only, using the existing test adapter. Real client/observation entity metadata is used; audit/branch lookup tables are minimal schema fixtures, not a production migration rehearsal.
 - Six release-check regressions passed; the new database script is required in CI. Module graph checks found no orphan services/controllers or missing delegate targets.
-- Full backend suite: 265 suites / 2,208 tests passed; one existing suite/test remains skipped.
+- Full backend suite before the UUID review correction: 265 suites / 2,208 tests passed; one existing suite/test remains skipped. The correction was rechecked with the 33 focused tests, lint, build and real PostgreSQL uppercase-ID save/rejection fixtures; full CI reruns on the pushed commit.
 - Full Angular suite: 87 files / 540 tests passed, including the new page specification through normal discovery.
 - Backend and production frontend builds, changed-backend ESLint and frontend lint passed. Existing Sass deprecation warnings remain. Fresh CI status is reported separately from these local results.
 

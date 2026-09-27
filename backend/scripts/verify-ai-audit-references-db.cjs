@@ -30,7 +30,9 @@ async function main() {
       { clientCode: 'TEST-A', clientName: 'Synthetic company A' },
       { clientCode: 'TEST-B', clientName: 'Synthetic company B' },
     ]);
-    const [branchA, branchB, otherA, auditA, auditB, companyAudit] = Array.from({ length: 6 }, () => randomUUID());
+    const branchA = 'aabbccdd-1122-4334-8556-abcdef012345';
+    const auditA = 'abcdef01-1122-4334-8556-abcdef012345';
+    const [branchB, otherA, auditB, companyAudit] = Array.from({ length: 4 }, () => randomUUID());
     for (const [id, clientId, name, state] of [
       [branchA, clients[0].id, 'Branch A', 'TS'],
       [branchB, clients[1].id, 'Branch B', 'KA'],
@@ -46,6 +48,7 @@ async function main() {
     for (const changes of [
       { auditId: auditB }, { auditId: randomUUID() },
       { branchId: otherA }, { branchId: branchB },
+      { auditId: auditA.toUpperCase(), branchId: otherA.toUpperCase() },
       { auditId: undefined, branchId: branchB },
       { auditId: undefined, branchId: randomUUID() },
     ]) await assert.rejects(service.generateObservation({ ...input, ...changes }), error => error.status === 400);
@@ -60,6 +63,10 @@ async function main() {
     assert.equal(saved.applicableState, 'TS');
     assert.equal(saved.findingDescription, 'Synthetic finding');
     await service.generateObservation({ ...input, branchId: branchA });
+    const uppercase = await service.generateObservation({ ...input, auditId: auditA.toUpperCase(), branchId: branchA.toUpperCase() });
+    const canonical = await repo.findOneByOrFail({ id: uppercase.id });
+    assert.equal(canonical.auditId, auditA);
+    assert.equal(canonical.branchId, branchA);
     const company = await service.generateObservation({ ...input, auditId: companyAudit });
     assert.equal(company.branchId, null);
     const specific = await service.generateObservation({ ...input, auditId: companyAudit, branchId: otherA });
