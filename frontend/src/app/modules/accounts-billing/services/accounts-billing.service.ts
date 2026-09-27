@@ -5,7 +5,7 @@ import { environment } from '../../../../environments/environment';
 import {
   BillingClient, Invoice, InvoicePayment, InvoiceEmailLog,
   BillingSetting, DashboardStats, PagedResult,
-  BillingReportResult,
+  BillingReportResult, InvoiceEmailResult,
 } from '../models/billing.models';
 
 @Injectable({ providedIn: 'root' })
@@ -108,8 +108,8 @@ export class AccountsBillingService {
     });
   }
 
-  sendInvoiceEmail(invoiceId: string, data: any): Observable<any> {
-    return this.http.post(`${this.base}/invoices/${invoiceId}/send-email`, data);
+  sendInvoiceEmail(invoiceId: string, data: any): Observable<InvoiceEmailResult> {
+    return this.http.post<InvoiceEmailResult>(`${this.base}/invoices/${invoiceId}/send-email`, data);
   }
 
   getEmailLogs(params?: Record<string, string>): Observable<PagedResult<InvoiceEmailLog>> {
