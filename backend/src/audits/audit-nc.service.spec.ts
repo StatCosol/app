@@ -71,13 +71,15 @@ describe('Audit correction lifecycle', () => {
     };
     const transaction = jest.fn(async (callback) => callback(manager));
     const ncEngine = { closeNc: jest.fn(), createTaskForNc: jest.fn() };
+    const outputEngine = { refreshAuditOutputs: jest.fn() };
+    const auditLogs = { log: jest.fn() };
     const service: AuditNcService = Object.assign(
       Object.create(AuditNcService.prototype),
       {
         dataSource: { transaction },
         ncEngine,
-        auditOutputEngine: { refreshAuditOutputs: jest.fn() },
-        auditLogs: { log: jest.fn() },
+        auditOutputEngine: outputEngine,
+        auditLogs,
       },
     );
     return {
@@ -92,8 +94,44 @@ describe('Audit correction lifecycle', () => {
       manager,
       transaction,
       ncEngine,
+      outputEngine,
+      auditLogs,
     };
   }
+
+  it('preserves the saved correction, attempts independent hooks, and records warnings', async () => {
+    const t = setup();
+    t.ncEngine.closeNc.mockRejectedValue(
+      new Error('private SQL or document content'),
+    );
+    const result = await t.service.reviewCorrectedDocument(
+      auditor,
+      'nc',
+      'COMPLIED',
+    );
+    expect(result.status).toBe('ACCEPTED');
+    expect(result.warnings).toEqual([
+      expect.stringContaining('NC task closure failed'),
+    ]);
+    expect(JSON.stringify(result)).not.toContain('private SQL');
+    expect(t.outputEngine.refreshAuditOutputs).toHaveBeenCalledWith('audit');
+    expect(t.auditLogs.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta: { auditId: 'audit', followUpWarnings: result.warnings },
+      }),
+    );
+  });
+
+  it('reports a logging failure without falsely failing a committed upload', async () => {
+    const t = setup();
+    t.nc.status = 'NC_RAISED';
+    t.auditLogs.log.mockRejectedValue(new Error('logging unavailable'));
+    const result = await t.service.uploadCorrectedFile(vendor, 'nc', file);
+    expect(result.status).toBe('REUPLOADED');
+    expect(result.warnings).toEqual([
+      expect.stringContaining('Audit activity logging failed'),
+    ]);
+  });
 
   it.each(['INVALID', '', undefined, null, 42])(
     'validates review decision %s at HTTP and service boundaries',

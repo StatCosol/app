@@ -1089,12 +1089,13 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
         }),
       )
       .subscribe({
-        next: () => {
+        next: (result) => {
           this.toast.success(
             decision === 'COMPLIED'
               ? 'Corrected document approved'
               : 'Corrected document rejected with remarks',
           );
+          for (const warning of result?.warnings || []) this.toast.warning(warning);
           delete this.correctedRemarks[nc.id];
           this.loadAuditDocuments();
           this.loadNonCompliances();

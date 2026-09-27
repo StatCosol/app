@@ -23,6 +23,7 @@ import { jsonToExcelBuffer } from '../common/utils/excel.util';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { transitionGovernedReport } from '../audits/report-governance';
 
 @ApiTags('Admin')
 @ApiBearerAuth('JWT')
@@ -688,23 +689,12 @@ export class AdminReportsController {
       [id],
     );
     if (!existing.length) throw new NotFoundException('Audit report not found');
-    if (existing[0].held_at)
-      throw new BadRequestException('Release the report hold first');
-    if (existing[0].status !== 'SUBMITTED')
-      throw new BadRequestException('Only SUBMITTED reports can be approved');
-
-    const changed = await this.dataSource.query(
-      `WITH changed AS (UPDATE audit_reports
-       SET status = 'APPROVED',
-           approved_by_user_id = $1,
-           approved_date = CURRENT_DATE,
-           updated_at = NOW()
-       WHERE id = $2 AND status = 'SUBMITTED' AND held_at IS NULL
-       RETURNING id) SELECT id FROM changed`,
-      [user?.userId || user?.id || null, id],
+    await transitionGovernedReport(
+      this.dataSource,
+      existing[0],
+      'approve',
+      user?.userId || user?.id || null,
     );
-    if (!changed.length)
-      throw new BadRequestException('Report changed; reload before continuing');
     return { ok: true, message: 'Report approved' };
   }
 
@@ -720,22 +710,11 @@ export class AdminReportsController {
       [id],
     );
     if (!existing.length) throw new NotFoundException('Audit report not found');
-    if (existing[0].held_at)
-      throw new BadRequestException('Release the report hold first');
-    if (existing[0].status !== 'APPROVED')
-      throw new BadRequestException('Only APPROVED reports can be published');
-
-    const changed = await this.dataSource.query(
-      `WITH changed AS (UPDATE audit_reports
-       SET status = 'PUBLISHED',
-           published_date = CURRENT_DATE,
-           updated_at = NOW()
-       WHERE id = $1 AND status = 'APPROVED' AND held_at IS NULL
-       RETURNING id) SELECT id FROM changed`,
-      [id],
+    await transitionGovernedReport(
+      this.dataSource,
+      existing[0],
+      'publishAdmin',
     );
-    if (!changed.length)
-      throw new BadRequestException('Report changed; reload before continuing');
     return { ok: true, message: 'Report published' };
   }
 

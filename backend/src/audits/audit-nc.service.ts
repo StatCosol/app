@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   Optional,
 } from '@nestjs/common';
@@ -391,36 +392,43 @@ export class AuditNcService {
       return nc;
     });
 
-    // ── Automation hooks ──
-    try {
-      if (decision === 'COMPLIED') {
-        await this.ncEngine.closeNc(ncId);
-        // Recalculate score + report after this NC acceptance
-        await this.auditOutputEngine.refreshAuditOutputs(nc.auditId);
-      } else {
-        // Re-raised NC → create a new system task
-        await this.ncEngine.createTaskForNc(ncId);
-      }
-    } catch {
-      // Non-critical automation hooks
+    const warnings: string[] = [];
+    if (decision === 'COMPLIED') {
+      await this.runFollowUp(ncId, 'NC task closure', warnings, () =>
+        this.ncEngine.closeNc(ncId),
+      );
+      await this.runFollowUp(ncId, 'Audit report refresh', warnings, () =>
+        this.auditOutputEngine.refreshAuditOutputs(nc.auditId),
+      );
+    } else {
+      await this.runFollowUp(ncId, 'NC task creation', warnings, () =>
+        this.ncEngine.createTaskForNc(ncId),
+      );
     }
 
-    // Phase 5: emit NC review log
-    try {
-      await this.auditLogs?.log({
-        entityType: 'AUDIT_NC',
-        entityId: ncId,
-        action: decision === 'COMPLIED' ? 'NC_ACCEPTED' : 'NC_REJECTED',
-        performedBy: user.userId,
-        performedRole: user.roleCode || null,
-        reason: remark || null,
-        meta: { auditId: nc.auditId },
-      });
-    } catch {
-      /* non-critical */
-    }
+    await this.runFollowUp(
+      ncId,
+      'Audit activity logging',
+      warnings,
+      async () => {
+        await this.auditLogs?.log({
+          entityType: 'AUDIT_NC',
+          entityId: ncId,
+          action: decision === 'COMPLIED' ? 'NC_ACCEPTED' : 'NC_REJECTED',
+          performedBy: user.userId,
+          performedRole: user.roleCode || null,
+          reason: remark || null,
+          meta: { auditId: nc.auditId, followUpWarnings: [...warnings] },
+        });
+      },
+    );
 
-    return { ncId, status: nc.status, decision };
+    return {
+      ncId,
+      status: nc.status,
+      decision,
+      ...(warnings.length ? { warnings } : {}),
+    };
   }
 
   /** Phase 5 — Repeat-NC analytics for a client across all audits. */
@@ -565,19 +573,48 @@ export class AuditNcService {
       }
       return { nc, resub };
     });
+    const warnings: string[] = [];
+    await this.runFollowUp(
+      ncId,
+      'Audit activity logging',
+      warnings,
+      async () => {
+        await this.auditLogs?.log({
+          entityType: 'AUDIT_NC',
+          entityId: result.nc.id,
+          action: 'NC_REUPLOADED',
+          performedBy: user.userId || user.id,
+          performedRole: user.roleCode || null,
+          meta: { auditId: result.nc.auditId, fileName: file.originalname },
+        });
+      },
+    );
+    return {
+      resubmissionId: result.resub.id,
+      status: result.nc.status,
+      ...(warnings.length ? { warnings } : {}),
+    };
+  }
+
+  private async runFollowUp(
+    ncId: string,
+    operation: string,
+    warnings: string[],
+    run: () => Promise<unknown>,
+  ) {
     try {
-      await this.auditLogs?.log({
-        entityType: 'AUDIT_NC',
-        entityId: result.nc.id,
-        action: 'NC_REUPLOADED',
-        performedBy: user.userId || user.id,
-        performedRole: user.roleCode || null,
-        meta: { auditId: result.nc.auditId, fileName: file.originalname },
-      });
+      await run();
     } catch {
-      /* non-critical */
+      // The correction is committed. Do not invite a duplicate submission or
+      // expose document contents, SQL parameters, or credentials in diagnostics.
+      Logger.error(
+        { event: 'AUDIT_NC_FOLLOW_UP_FAILED', ncId, operation },
+        AuditNcService.name,
+      );
+      warnings.push(
+        `${operation} failed. The correction was saved; contact an administrator.`,
+      );
     }
-    return { resubmissionId: result.resub.id, status: result.nc.status };
   }
 
   private assertCorrectionOpen(audit: AuditEntity) {

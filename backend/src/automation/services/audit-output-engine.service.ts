@@ -105,6 +105,7 @@ export class AuditOutputEngineService {
     version: number;
     generatedAt: Date;
     pdfBuffer: Buffer | null;
+    publishable: boolean;
   }> {
     const audit = await this.auditRepo.findOne({
       where: { id: auditId },
@@ -112,21 +113,12 @@ export class AuditOutputEngineService {
     });
     if (!audit) throw new NotFoundException('Audit not found');
 
-    // Count existing report versions
-    const versionRows = await this.dataSource.query(
-      `SELECT COALESCE(MAX(version_no), 0)::int AS max_version
-       FROM document_versions
-       WHERE document_id = (SELECT id::bigint FROM audits WHERE id = $1 LIMIT 1)
-         AND document_type = 'AUDIT_REPORT'`,
-      [auditId],
-    );
-    const nextVersion = (versionRows[0]?.max_version ?? 0) + 1;
-
     // Fetch the latest audit_reports record
     const reportRows = await this.dataSource.query(
       `SELECT ar.executive_summary, ar.scope, ar.methodology,
               ar.findings, ar.recommendations, ar.version AS report_version,
-              ar.selected_observation_ids, ar.finalized_at, ar.updated_at
+              ar.selected_observation_ids, ar.finalized_at, ar.updated_at, ar.version_no,
+              ar.status, ar.held_at
        FROM audit_reports ar
        WHERE ar.audit_id = $1
        ORDER BY ar.updated_at DESC, ar.created_at DESC
@@ -134,6 +126,9 @@ export class AuditOutputEngineService {
       [auditId],
     );
     const report = reportRows[0] ?? null;
+    // Audit IDs are UUIDs; document_versions.document_id is a legacy bigint.
+    // Rendering an existing report must not invent a new persisted version.
+    const nextVersion = report?.version_no ?? 0;
 
     if (!report) {
       this.logger.warn(
@@ -144,6 +139,7 @@ export class AuditOutputEngineService {
         version: nextVersion,
         generatedAt: new Date(),
         pdfBuffer: null,
+        publishable: false,
       };
     }
 
@@ -204,9 +200,8 @@ export class AuditOutputEngineService {
         `PDF generated for audit ${auditId}, version ${nextVersion}, ${pdfBuffer.length} bytes`,
       );
     } catch (err: any) {
-      this.logger.error(
-        `PDF generation failed for audit ${auditId}: ${err.message}`,
-      );
+      this.logger.error(`PDF generation failed for audit ${auditId}`);
+      throw err;
     }
 
     return {
@@ -214,6 +209,7 @@ export class AuditOutputEngineService {
       version: nextVersion,
       generatedAt: new Date(),
       pdfBuffer,
+      publishable: report.status === 'PUBLISHED' && !report.held_at,
     };
   }
 
@@ -265,10 +261,11 @@ export class AuditOutputEngineService {
         clientId: audit.clientId,
         branchId: audit.branchId || undefined,
       });
-    } catch {
+    } catch (error) {
       this.logger.warn(
         `Failed to publish audit ${auditId} updates to CRM/Client`,
       );
+      throw error;
     }
   }
 
@@ -284,11 +281,12 @@ export class AuditOutputEngineService {
   }> {
     const score = await this.calculateAuditScore(auditId);
     const report = await this.generateReportVersion(auditId);
-    await this.publishToCrmAndClient(auditId);
+    if (report.pdfBuffer && report.publishable)
+      await this.publishToCrmAndClient(auditId);
 
     // Push to notification center
     const audit = await this.auditRepo.findOne({ where: { id: auditId } });
-    if (audit) {
+    if (audit && report.pdfBuffer && report.publishable) {
       await this.automationNotification.sendAuditReportReady({
         auditId,
         auditCode: audit.auditCode || auditId.slice(0, 8),
