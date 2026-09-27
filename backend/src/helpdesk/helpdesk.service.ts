@@ -15,11 +15,12 @@ import {
 } from '../common/portal-client-scope';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { Repository, DataSource, In, IsNull } from 'typeorm';
 import { HelpdeskTicketEntity } from './entities/helpdesk-ticket.entity';
 import { HelpdeskMessageEntity } from './entities/helpdesk-message.entity';
 import { HelpdeskMessageFileEntity } from './entities/helpdesk-message-file.entity';
@@ -179,6 +180,11 @@ export class HelpdeskService {
 
   /** Admin: assign ticket to a user */
   async assignTicket(ticketId: string, dto: AssignTicketDto) {
+    if (dto?.assignedToUserId === undefined) {
+      throw new BadRequestException(
+        'assignedToUserId required; use null to unassign',
+      );
+    }
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
     if (!t) throw new BadRequestException('Ticket not found');
     if (dto.assignedToUserId) {
@@ -199,15 +205,40 @@ export class HelpdeskService {
       ) {
         throw new BadRequestException('PF tickets must be assigned to PF Team');
       }
+      if (!(PF_TEAM_CATEGORIES as readonly string[]).includes(t.category)) {
+        if (!['ADMIN', 'CRM'].includes(assignee.roleCode)) {
+          throw new BadRequestException(
+            'This ticket requires an admin or assigned CRM',
+          );
+        }
+        if (assignee.roleCode === 'CRM') {
+          const clientIds = await this.crmAssignedClientIds(assignee.id);
+          if (!clientIds.includes(t.clientId)) {
+            throw new BadRequestException(
+              'Assignee is not assigned to this client',
+            );
+          }
+        }
+      }
     }
-    t.assignedToUserId = dto.assignedToUserId;
-    if (t.status === 'OPEN' && dto.assignedToUserId) {
-      t.status = 'IN_PROGRESS';
-    }
-    return this.ticketRepo.save(t);
+    return this.saveTicketChange(t, {
+      assignedToUserId: dto.assignedToUserId,
+      ...(t.status === 'OPEN' && dto.assignedToUserId
+        ? { status: 'IN_PROGRESS' }
+        : {}),
+    });
   }
 
   async listTickets(user: ReqUser, q: Record<string, string>) {
+    if (
+      !user?.id ||
+      !['CLIENT', 'CRM', 'PF_TEAM', 'ADMIN'].includes(user.roleCode)
+    ) {
+      throw new ForbiddenException('Access denied');
+    }
+    if (user.roleCode === 'CLIENT' && !user.clientId) {
+      throw new ForbiddenException('Client context required');
+    }
     // For CRM users, scope to their assigned clients
     if (user?.roleCode === 'CRM') {
       return this.crmListTickets(user, q);
@@ -499,22 +530,7 @@ export class HelpdeskService {
     ticketId: string,
     dto: UpdateTicketStatusDto,
   ) {
-    if (!(HELP_DESK_STATUS as readonly string[]).includes(dto.status))
-      throw new BadRequestException('Invalid status');
-    const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
-    if (!t) throw new BadRequestException('Ticket not found');
-
-    if (user.roleCode === 'CLIENT')
-      await assertClientRecord(this.dataSource, user, t.clientId, t.branchId);
-    if (user?.roleCode === 'CLIENT' && user.clientId !== t.clientId) {
-      throw new ForbiddenException('Invalid client');
-    }
-    if (user?.roleCode === 'PF_TEAM') {
-      this.assertPfTeamScope(t, user.id, true);
-      this.assertPfStatusTransition(t.status, dto.status);
-    }
-    t.status = dto.status;
-    return this.ticketRepo.save(t);
+    return this.updateTicketStatusScoped(user, ticketId, dto);
   }
 
   async updateTicketStatusScoped(
@@ -522,6 +538,12 @@ export class HelpdeskService {
     ticketId: string,
     dto: UpdateTicketStatusDto,
   ) {
+    if (
+      !user?.id ||
+      !['CLIENT', 'ADMIN', 'CRM', 'PF_TEAM'].includes(user.roleCode)
+    ) {
+      throw new ForbiddenException('Access denied');
+    }
     if (!dto?.status) throw new BadRequestException('status required');
     if (!(HELP_DESK_STATUS as readonly string[]).includes(dto.status)) {
       throw new BadRequestException('Invalid status');
@@ -549,8 +571,31 @@ export class HelpdeskService {
       this.assertPfStatusTransition(t.status, dto.status);
     }
     // ADMIN allowed unconditionally
-    t.status = dto.status;
-    return this.ticketRepo.save(t);
+    return this.saveTicketChange(t, { status: dto.status });
+  }
+
+  private async saveTicketChange(
+    ticket: HelpdeskTicketEntity,
+    patch: Partial<Pick<HelpdeskTicketEntity, 'status' | 'assignedToUserId'>>,
+  ) {
+    // Reject stale authorization/workflow decisions and update only the intended fields.
+    const result = await this.ticketRepo.update(
+      {
+        id: ticket.id,
+        clientId: ticket.clientId,
+        branchId: ticket.branchId ?? IsNull(),
+        category: ticket.category,
+        status: ticket.status,
+        assignedToUserId: ticket.assignedToUserId ?? IsNull(),
+      },
+      patch,
+    );
+    if (result.affected !== 1) {
+      throw new ConflictException(
+        'Ticket changed. Reload it before trying again.',
+      );
+    }
+    return this.ticketRepo.findOne({ where: { id: ticket.id } });
   }
 
   /**

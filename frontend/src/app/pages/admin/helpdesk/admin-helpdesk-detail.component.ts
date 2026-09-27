@@ -59,13 +59,16 @@ import { PageHeaderComponent } from '../../../shared/ui';
       </div>
 
       <!-- Status Update -->
+      @if (actionError) {
+        <p role="alert" class="text-sm text-red-700">{{ actionError }}</p>
+      }
       <div class="bg-white rounded-xl border border-gray-200 p-6">
         <h2 class="text-sm font-semibold text-gray-900 mb-3">Update Status</h2>
         <div class="flex flex-wrap items-center gap-2">
           @for (s of statuses; track s) {
 <button
                   (click)="changeStatus(s)"
-                  [disabled]="ticket.status === s || updatingStatus"
+                  [disabled]="ticket.status === s || updatingStatus || assigning"
                   class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   [class]="ticket.status === s ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-300 text-gray-700 hover:bg-gray-50'">
             {{ s.replace('_', ' ') }}
@@ -77,7 +80,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
       <!-- Assignment -->
       <div class="bg-white rounded-xl border border-gray-200 p-6">
         <h2 class="text-sm font-semibold text-gray-900 mb-3">Assignment</h2>
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-3">
           <div class="flex-1">
             <p class="text-sm text-gray-600">
               <span class="font-medium">Currently assigned to:</span>
@@ -86,22 +89,23 @@ import { PageHeaderComponent } from '../../../shared/ui';
               </span>
             </p>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
             <select id="ahd-assign-user-id" name="assignUserId" [(ngModel)]="assignUserId"
-                   class="text-sm border border-gray-300 rounded-lg px-3 py-2 w-72 focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+                   [disabled]="assigning || updatingStatus"
+                   class="text-sm border border-gray-300 rounded-lg px-3 py-2 w-72 max-w-full focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
               <option value="">Select a user…</option>
               @for (u of assignableUsers; track u) {
 <option [value]="u.id">{{ u.name }} ({{ u.roleCode }}{{ u.email ? ' – ' + u.email : '' }})</option>
 }
             </select>
             <button (click)="assignTicket()"
-                    [disabled]="!assignUserId.trim() || assigning"
+                    [disabled]="!assignUserId.trim() || assigning || updatingStatus"
                     class="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               Assign
             </button>
             @if (ticket.assignedToUserId) {
 <button (click)="unassignTicket()"
-                    [disabled]="assigning"
+                    [disabled]="assigning || updatingStatus"
                     class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               Unassign
             </button>
@@ -174,11 +178,13 @@ export class AdminHelpdeskDetailComponent implements OnInit, OnDestroy {
   assigning = false;
   assignUserId = '';
   users: UserDto[] = [];
-  assignableUsers: UserDto[] = [];
-  // External roles must NOT be able to receive helpdesk ticket assignments
-  // External / self-service roles must NOT be able to receive helpdesk ticket assignments
-  private readonly externalRoles = new Set(['CLIENT', 'CONTRACTOR', 'EMPLOYEE', 'ESS']);
+  get assignableUsers(): UserDto[] {
+    if (!this.ticket) return [];
+    const roles = ['PF', 'ESI', 'PAYSLIP'].includes(this.ticket.category) ? ['PF_TEAM'] : ['ADMIN', 'CRM'];
+    return this.users.filter(user => user.isActive !== false && roles.includes(user.roleCode));
+  }
   error = '';
+  actionError = '';
   statuses = ['OPEN', 'IN_PROGRESS', 'AWAITING_CLIENT', 'RESOLVED', 'CLOSED'];
 
   constructor(
@@ -200,6 +206,8 @@ export class AdminHelpdeskDetailComponent implements OnInit, OnDestroy {
         return;
       }
       this.error = '';
+      this.actionError = '';
+      this.assignUserId = '';
       this.ticket = null;
       this.api.getTicket(id).subscribe({
         next: (t) => {
@@ -226,7 +234,6 @@ export class AdminHelpdeskDetailComponent implements OnInit, OnDestroy {
     this.usersApi.listUsersSimple().subscribe({
       next: (list) => {
         this.users = list || [];
-        this.assignableUsers = this.users.filter(u => !this.externalRoles.has((u.roleCode || '').toUpperCase()));
         this.cdr.markForCheck();
         this.cdr.detectChanges();
       },
@@ -264,40 +271,58 @@ export class AdminHelpdeskDetailComponent implements OnInit, OnDestroy {
   }
 
   changeStatus(status: string): void {
-    if (!this.ticket || this.updatingStatus) return;
+    if (!this.ticket || this.updatingStatus || this.assigning) return;
+    this.actionError = '';
     this.updatingStatus = true;
     this.api.updateStatus(this.ticket.id, status).subscribe({
       next: (updated) => {
         this.ticket!.status = updated.status ?? status;
         this.updatingStatus = false;
       },
-      error: () => (this.updatingStatus = false),
+      error: (err) => {
+        this.updatingStatus = false;
+        this.actionError = typeof err?.error?.message === 'string' ? err.error.message : 'Status could not be updated. Please retry.';
+        this.cdr.markForCheck();
+      },
     });
   }
 
   assignTicket(): void {
-    if (!this.ticket || !this.assignUserId.trim() || this.assigning) return;
+    if (!this.ticket || !this.assignableUsers.some(user => user.id === this.assignUserId.trim()) || this.assigning || this.updatingStatus) return;
+    this.actionError = '';
+    const assigneeName = this.assignableUsers.find(user => user.id === this.assignUserId.trim())?.name;
     this.assigning = true;
     this.api.assignTicket(this.ticket.id, this.assignUserId.trim()).subscribe({
       next: (updated) => {
         this.ticket!.assignedToUserId = updated.assignedToUserId;
+        this.ticket!.assigneeName = assigneeName ?? null;
         this.ticket!.status = updated.status;
         this.assignUserId = '';
         this.assigning = false;
       },
-      error: () => (this.assigning = false),
+      error: (err) => {
+        this.assigning = false;
+        this.actionError = typeof err?.error?.message === 'string' ? err.error.message : 'Ticket could not be assigned. Please retry.';
+        this.cdr.markForCheck();
+      },
     });
   }
 
   unassignTicket(): void {
-    if (!this.ticket || this.assigning) return;
+    if (!this.ticket || this.assigning || this.updatingStatus) return;
+    this.actionError = '';
     this.assigning = true;
     this.api.assignTicket(this.ticket.id, null).subscribe({
       next: () => {
         this.ticket!.assignedToUserId = null;
+        this.ticket!.assigneeName = null;
         this.assigning = false;
       },
-      error: () => (this.assigning = false),
+      error: (err) => {
+        this.assigning = false;
+        this.actionError = typeof err?.error?.message === 'string' ? err.error.message : 'Assignment could not be removed. Please retry.';
+        this.cdr.markForCheck();
+      },
     });
   }
 
