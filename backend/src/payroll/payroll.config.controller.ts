@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
   UseGuards,
@@ -17,6 +18,7 @@ import { SaveClientPayslipLayoutDto } from './dto/save-client-payslip-layout.dto
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { PayrollClientScopeService } from './payroll-client-scope.service';
 
 @ApiTags('Payroll')
 @ApiBearerAuth('JWT')
@@ -27,6 +29,7 @@ export class PayrollConfigController {
   constructor(
     private readonly svc: PayrollService,
     private readonly auditService: PayrollConfigAuditService,
+    private readonly scope: PayrollClientScopeService,
   ) {}
 
   // Effective components = component master + per-client override
@@ -69,11 +72,13 @@ export class PayrollConfigController {
 
   @ApiOperation({ summary: 'Get Config Audit' })
   @Get(':clientId/config-audit')
-  getConfigAudit(
-    @Param('clientId') clientId: string,
+  async getConfigAudit(
+    @CurrentUser() user: ReqUser,
+    @Param('clientId', new ParseUUIDPipe()) clientId: string,
     @Query('entityType') entityType?: string,
     @Query('limit') limit?: string,
   ) {
+    await this.scope.assertPayrollAccessToClient(user, clientId);
     return this.auditService.getHistory(clientId, {
       entityType,
       limit: limit ? Number(limit) : undefined,

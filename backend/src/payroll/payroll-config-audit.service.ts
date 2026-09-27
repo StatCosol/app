@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PayrollConfigAuditEntity } from './entities/payroll-config-audit.entity';
@@ -37,6 +37,12 @@ export class PayrollConfigAuditService {
     clientId: string,
     options?: { entityType?: string; limit?: number },
   ) {
+    const limit = options?.limit ?? 100;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 500) {
+      throw new BadRequestException(
+        'limit must be an integer between 1 and 500',
+      );
+    }
     const qb = this.repo
       .createQueryBuilder('a')
       .where('a.client_id = :clientId', { clientId })
@@ -45,7 +51,7 @@ export class PayrollConfigAuditService {
     if (options?.entityType) {
       qb.andWhere('a.entity_type = :et', { et: options.entityType });
     }
-    qb.limit(options?.limit ?? 100);
+    qb.limit(limit);
 
     return qb.getMany();
   }

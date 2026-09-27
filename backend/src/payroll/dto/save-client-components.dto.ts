@@ -5,6 +5,8 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Min,
+  ArrayMaxSize,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
@@ -16,28 +18,30 @@ export class ClientComponentOverrideItemDto {
 
   @IsOptional()
   @IsBoolean()
-  enabled?: boolean;
+  enabled?: boolean | null;
 
   @IsOptional()
   @IsInt()
-  displayOrder?: number;
+  @Min(0)
+  displayOrder?: number | null;
 
   @IsOptional()
   @IsBoolean()
-  showOnPayslip?: boolean;
+  showOnPayslip?: boolean | null;
 
   @IsOptional()
   @IsString()
   @MaxLength(200)
-  labelOverride?: string;
+  labelOverride?: string | null;
 
   @IsOptional()
   @IsString()
-  formulaOverride?: string;
+  formulaOverride?: string | null;
 }
 
 export class SaveClientComponentsDto {
   @IsArray()
+  @ArrayMaxSize(500)
   @ValidateNested({ each: true })
   @Type(() => ClientComponentOverrideItemDto)
   items: ClientComponentOverrideItemDto[];

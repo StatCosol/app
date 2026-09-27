@@ -16,6 +16,9 @@
   }
 
   <div class="head-controls">
+    @if (view === 'list' || view === 'overrides') {
+      <button type="button" class="btn btn-secondary" [disabled]="!selectedClientId || saving" (click)="openHistory()">Override History</button>
+    }
     @if (view === 'list') {
 <button type="button" class="btn btn-secondary"
             [disabled]="!selectedClientId" (click)="openOverrides()">⚙ Per-Client Overrides</button>
@@ -36,7 +39,14 @@
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <!-- LIST VIEW                                                              -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  @if (!loading && selectedClientId && view === 'list') {
+  @if (!loading && structuresError && view === 'list') {
+    <div role="alert" class="empty-state">
+      Payroll structures could not be loaded.
+      <button type="button" class="btn btn-secondary" (click)="loadStructures()">Retry</button>
+    </div>
+  }
+
+  @if (!loading && !structuresError && selectedClientId && view === 'list') {
 
     <section class="summary-grid">
       <article class="summary-card">
@@ -752,7 +762,11 @@
 <div class="loader" style="margin-top:12px;">Loading components...</div>
 }
 
-      @if (!overridesLoading && !overrides.length) {
+      @if (!overridesLoading && overridesError) {
+        <div role="alert" class="empty-state">Components could not be loaded. <button type="button" class="btn btn-secondary" (click)="loadOverrides()">Retry</button></div>
+      }
+
+      @if (!overridesLoading && !overridesError && !overrides.length) {
 <div class="empty-state" style="margin-top:12px;">
         No active payroll components found. Ask Admin to seed master components first.
       </div>
@@ -840,4 +854,36 @@
     </section>
   
 }
+  @if (view === 'history') {
+    <section aria-label="Override history">
+      <h2 class="text-lg font-semibold">Override History</h2>
+      @if (historyLoading) {
+        <div class="loader">Loading history...</div>
+      } @else if (historyError) {
+        <div role="alert" class="empty-state">History could not be loaded. <button type="button" class="btn btn-secondary" (click)="openHistory()">Retry</button></div>
+      } @else if (!history.length) {
+        <p>No recorded override changes.</p>
+      } @else {
+        <p>Recent changes: {{ history.length }}</p>
+        <div class="table-wrap" style="max-height:32rem; overflow:auto;">
+          <table>
+            <thead><tr><th>Date</th><th>Action</th><th>Details</th></tr></thead>
+            <tbody>
+              @for (entry of history; track entry.id) {
+                <tr>
+                  <td>{{ entry.createdAt | date:'dd MMM yyyy, HH:mm':'+0530' }} IST</td>
+                  <td>{{ entry.action }}</td>
+                  <td><details><summary>{{ entry.description || 'Component override' }}</summary>
+                    @for (change of historyChanges(entry); track change.label) {
+                      <p style="white-space:normal; overflow-wrap:anywhere;"><strong>{{ change.label }}:</strong> {{ change.before }} &rarr; {{ change.after }}</p>
+                    }
+                  </details></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
 </div>
