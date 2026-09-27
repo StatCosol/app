@@ -15,6 +15,10 @@ No kiosk, APK, attendance, face-capture, production data, migrations or permissi
   Do not silently rewrite a legacy financial year during a remarks-only update.
 - Disable document-type selection in the edit form and constrain the invoice date
   to its assigned year. Creation still permits all existing document types.
+- Review correction: exempt the exact originally loaded legacy date from both
+  the Angular year validator and native date-input bounds. Remarks-only edits
+  remain possible without repairing history; any different out-of-year date is
+  still rejected. Clearing the date remains invalid.
 - Match the backend payment lock in the form, including a positive received amount
   with a stale UNPAID label.
 - Normalize PostgreSQL numeric strings when loading editable line values and client
@@ -30,6 +34,11 @@ No kiosk, APK, attendance, face-capture, production data, migrations or permissi
 - Full backend suite: 2,092 passed across 253 suites, one existing test/suite skipped.
 - Full Angular browser suite: 522 passed across 85 files, including 18 new invoice
   editor tests and the existing 31 invoice-detail component tests.
+- After the legacy-date review correction, the focused invoice-editor browser
+  suite passed all 22 tests, including four new legacy-date cases. These cover
+  both sides of the year boundary, native input validity, remarks-only saves,
+  rejection of another out-of-year date, in-year changes and exact restoration.
+  The full suite above was run before this focused follow-up.
 - Separate frontend Node suite: 92 passed across 16 files.
 - Frontend production build and lint passed. Existing Sass deprecation warnings remain.
 - Desktop (1440 px) and mobile (390 px) screenshots inspected; edit controls and

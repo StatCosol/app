@@ -67,7 +67,7 @@ const EDITABLE_STATUSES = new Set([
             </div>
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Invoice Date *</label>
-              <input formControlName="invoiceDate" type="date" [min]="minInvoiceDate" [max]="maxInvoiceDate" class="w-full px-3 py-2 border rounded-lg text-sm">
+              <input formControlName="invoiceDate" type="date" [min]="isUnchangedLegacyDate ? '' : minInvoiceDate" [max]="isUnchangedLegacyDate ? '' : maxInvoiceDate" class="w-full px-3 py-2 border rounded-lg text-sm">
               @if (form.get('invoiceDate')?.hasError('financialYear')) {
                 <p role="alert" class="text-red-700 text-xs mt-1">Invoice date must remain in financial year {{ financialYear }}.</p>
               }
@@ -193,6 +193,7 @@ export class BillingCreateInvoiceComponent implements OnInit {
   financialYear = '';
   minInvoiceDate = '';
   maxInvoiceDate = '';
+  private originalInvoiceDate: string | null = null;
   private readonly destroyRef = inject(DestroyRef);
 
   invoiceId: string | null = null;
@@ -267,11 +268,12 @@ export class BillingCreateInvoiceComponent implements OnInit {
           this.selectedClient = inv.billingClient || null;
           this.form.get('invoiceType')!.disable();
           this.financialYear = inv.financialYear;
+          this.originalInvoiceDate = inv.invoiceDate;
           const startYear = Number(inv.financialYear.split('-')[0]);
           this.minInvoiceDate = `${startYear}-04-01`;
           this.maxInvoiceDate = `${startYear + 1}-03-31`;
           this.form.get('invoiceDate')!.addValidators(control =>
-            control.value && (control.value < this.minInvoiceDate || control.value > this.maxInvoiceDate)
+            control.value && control.value !== this.originalInvoiceDate && (control.value < this.minInvoiceDate || control.value > this.maxInvoiceDate)
               ? { financialYear: true } : null);
           this.form.get('invoiceDate')!.updateValueAndValidity();
         },
@@ -286,6 +288,12 @@ export class BillingCreateInvoiceComponent implements OnInit {
 
   get itemsArray(): FormArray {
     return this.form.get('items') as FormArray;
+  }
+
+  get isUnchangedLegacyDate(): boolean {
+    const date = this.form.get('invoiceDate')?.value;
+    return !!date && date === this.originalInvoiceDate &&
+      (date < this.minInvoiceDate || date > this.maxInvoiceDate);
   }
 
   newItem(): FormGroup {

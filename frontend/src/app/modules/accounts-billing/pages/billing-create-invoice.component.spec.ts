@@ -71,6 +71,35 @@ it.each(['2026-04-01', '2027-03-31'])('allows dates at either end of the assigne
   c.form.patchValue({ invoiceDate }); c.onSubmit(); expect(api.updateInvoice).toHaveBeenCalledTimes(1);
 });
 
+it.each(['2026-03-31', '2027-04-01'])('allows an unchanged legacy date for a remarks-only edit: %s', async invoiceDate => {
+  const { create, api } = await setup({ invoiceDate }); const f = create(); const c = f.componentInstance;
+  const date = f.nativeElement.querySelector('[formControlName="invoiceDate"]') as HTMLInputElement;
+  expect(c.form.valid).toBe(true);
+  expect(date.checkValidity()).toBe(true);
+  expect(date.min).toBe(''); expect(date.max).toBe('');
+  c.form.patchValue({ remarks: 'Legacy date left unchanged' }); c.onSubmit();
+  expect(api.updateInvoice).toHaveBeenCalledExactlyOnceWith('sample', expect.objectContaining({
+    invoiceDate, remarks: 'Legacy date left unchanged',
+  }));
+});
+
+it.each(['2026-03-31', '2027-04-01'])('restricts changes from a legacy date while allowing its exact restoration: %s', async invoiceDate => {
+  const { create, api } = await setup({ invoiceDate }); const f = create(); const c = f.componentInstance;
+  const date = f.nativeElement.querySelector('[formControlName="invoiceDate"]') as HTMLInputElement;
+  c.form.patchValue({ invoiceDate: '2027-04-02' }); f.detectChanges(); c.onSubmit();
+  expect(c.form.get('invoiceDate')!.hasError('financialYear')).toBe(true);
+  expect(date.min).toBe('2026-04-01'); expect(date.max).toBe('2027-03-31');
+  expect(date.checkValidity()).toBe(false);
+  expect(api.updateInvoice).not.toHaveBeenCalled();
+  c.form.patchValue({ invoiceDate: '2026-09-27' }); f.detectChanges();
+  expect(c.form.valid).toBe(true); expect(date.checkValidity()).toBe(true);
+  c.form.patchValue({ invoiceDate: '' }); f.detectChanges();
+  expect(c.form.invalid).toBe(true);
+  c.form.patchValue({ invoiceDate }); f.detectChanges(); c.onSubmit();
+  expect(c.form.valid).toBe(true); expect(date.checkValidity()).toBe(true);
+  expect(api.updateInvoice).toHaveBeenCalledExactlyOnceWith('sample', expect.objectContaining({ invoiceDate }));
+});
+
 it.each([
   { invoiceStatus: 'CANCELLED' }, { invoiceStatus: 'PAID' },
   { paymentStatus: 'PARTIALLY_PAID' }, { amountReceived: '40.00' as any },
