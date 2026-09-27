@@ -218,8 +218,9 @@ export class AiController {
     try {
       return await this.auditAi.generateObservation(dto);
     } catch (err: any) {
+      if (err instanceof HttpException) throw err;
       throw new HttpException(
-        err?.message || 'Observation generation failed',
+        'Observation generation failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
