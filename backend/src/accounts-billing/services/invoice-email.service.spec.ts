@@ -9,6 +9,7 @@ jest.mock('fs', () => ({
   ...jest.requireActual('fs'),
   existsSync: jest.fn(() => true),
   writeFileSync: jest.fn(),
+  unlinkSync: jest.fn(),
 }));
 
 describe('Invoice email snapshot consistency', () => {
@@ -162,7 +163,9 @@ describe('Invoice email snapshot consistency', () => {
     const result = await x.pdf.generatePdfBuffer('sample');
     expect(result.invoice).toBe(x.render.mock.calls[0][0]);
     expect(result.fileName).toBe('TEST-2627-0001.pdf');
-    expect(result.pdfPath).toBe('/uploads/invoices/TEST-2627-0001.pdf');
+    expect(result.pdfPath).toMatch(
+      /^\/uploads\/invoices\/sample-[\da-f-]+\.pdf$/,
+    );
     expect(result.buffer).toEqual(Buffer.from(JSON.stringify(result.invoice)));
   });
 
@@ -243,5 +246,53 @@ describe('Invoice email snapshot consistency', () => {
       }),
     );
     expect(x.invoices.updateMailStatus).not.toHaveBeenCalled();
+  });
+
+  it('does not overwrite the same disk file on concurrent renders', async () => {
+    const x = setup();
+    const [first, second] = await Promise.all([
+      x.pdf.generatePdfBuffer('sample'),
+      x.pdf.generatePdfBuffer('sample'),
+    ]);
+    expect(first.pdfPath).not.toBe(second.pdfPath);
+    expect(first.fileName).toBe(second.fileName);
+    expect(fs.writeFileSync).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Buffer),
+      { flag: 'wx' },
+    );
+  });
+
+  it('removes only its unregistered file and refuses delivery after a stale-snapshot rejection', async () => {
+    const x = setup();
+    x.invoices.updatePdfPath.mockRejectedValue(new Error('Invoice changed'));
+    await expect(
+      x.service.sendInvoice(
+        'sample',
+        { toEmail: 'recipient@example.invalid' },
+        'actor',
+      ),
+    ).rejects.toThrow('Invoice changed');
+    expect(fs.unlinkSync).toHaveBeenCalledWith(
+      (fs.writeFileSync as jest.Mock).mock.calls[0][0],
+    );
+    expect(x.email.send).not.toHaveBeenCalled();
+  });
+
+  it('does not register a PDF or send mail when disk writing fails', async () => {
+    const x = setup();
+    (fs.writeFileSync as jest.Mock).mockImplementationOnce(() => {
+      throw new Error('disk full');
+    });
+    await expect(
+      x.service.sendInvoice(
+        'sample',
+        { toEmail: 'recipient@example.invalid' },
+        'actor',
+      ),
+    ).rejects.toThrow('disk full');
+    expect(x.invoices.updatePdfPath).not.toHaveBeenCalled();
+    expect(x.email.send).not.toHaveBeenCalled();
+    expect(fs.unlinkSync).toHaveBeenCalled();
   });
 });

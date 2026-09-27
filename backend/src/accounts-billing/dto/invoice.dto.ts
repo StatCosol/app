@@ -6,6 +6,7 @@ import {
   IsDateString,
   IsNotEmpty,
   IsArray,
+  ArrayMinSize,
   ValidateNested,
   IsBoolean,
   Min,
@@ -37,7 +38,7 @@ export class CreateInvoiceItemDto {
   @IsDateString()
   periodTo?: string;
 
-  @IsNumber({ maxDecimalPlaces: 4 })
+  @IsNumber({ maxDecimalPlaces: 2 })
   @IsPositive()
   quantity: number;
 
@@ -95,6 +96,7 @@ export class CreateInvoiceDto {
   purchaseOrderNumber?: string;
 
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateInvoiceItemDto)
   items: CreateInvoiceItemDto[];
@@ -133,6 +135,7 @@ export class UpdateInvoiceDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateInvoiceItemDto)
   items?: CreateInvoiceItemDto[];

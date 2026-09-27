@@ -4,18 +4,27 @@ import { Roles } from '../auth/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
+import { OperationalScopeService } from '../access/operational-scope.service';
 
 @ApiTags('Reports')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'reports/assignments', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AssignmentReportController {
-  constructor(private readonly ds: DataSource) {}
+  constructor(
+    private readonly ds: DataSource,
+    private readonly scope: OperationalScopeService,
+  ) {}
 
   @Roles('ADMIN', 'CEO', 'CCO')
   @ApiOperation({ summary: 'Health' })
   @Get('health')
-  health() {
+  async health(@CurrentUser() user: ReqUser) {
+    const scope = await this.scope.resolve(user);
+    const clientIds =
+      scope.level === 'clients' ? (scope.clientIds ?? []) : null;
     const sql = `
       SELECT
         c.client_name AS client_name,
@@ -33,9 +42,10 @@ export class AssignmentReportController {
       FROM client_assignments_current ca
       JOIN clients c ON c.id = ca.client_id
       JOIN users u ON u.id = ca.assigned_to_user_id
+      ${clientIds !== null ? 'WHERE c.id = ANY($1::uuid[])' : ''}
       ORDER BY days_past_due DESC
     `;
 
-    return this.ds.query(sql);
+    return this.ds.query(sql, clientIds !== null ? [clientIds] : []);
   }
 }

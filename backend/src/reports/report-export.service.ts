@@ -33,7 +33,7 @@ export class ReportExportService {
     ws.views = [{ state: 'frozen', ySplit: 1 }];
   }
 
-  async exportComplianceCoverage(res: Response) {
+  async exportComplianceCoverage(res: Response, clientIds: string[] | null) {
     return this.sendWorkbook(res, 'compliance-coverage.xlsx', async (wb) => {
       const ws = wb.addWorksheet('Coverage');
       this.header(ws, [
@@ -56,7 +56,9 @@ export class ReportExportService {
             total_compliances,
             compliance_percent
          FROM vw_compliance_coverage
+         ${clientIds !== null ? 'WHERE "clientId" = ANY($1::uuid[])' : ''}
          ORDER BY client_name, branch_name`,
+        clientIds !== null ? [clientIds] : [],
       );
 
       rows.forEach((r: Record<string, unknown>) => ws.addRow(r));
@@ -64,7 +66,7 @@ export class ReportExportService {
     });
   }
 
-  async exportOverdueAudits(res: Response) {
+  async exportOverdueAudits(res: Response, clientIds: string[] | null) {
     return this.sendWorkbook(res, 'overdue-audits.xlsx', async (wb) => {
       const ws = wb.addWorksheet('Overdue Audits');
       this.header(ws, [
@@ -88,9 +90,11 @@ export class ReportExportService {
          JOIN client_branches b ON b.id = a.branch_id
          JOIN clients c ON c.id = b.clientid
          LEFT JOIN users u ON u.id = a.assigned_auditor_id
-         WHERE a.status <> 'COMPLETED'
-           AND a.due_date < now()
+         WHERE a.status NOT IN ('COMPLETED', 'CLOSED', 'CANCELLED')
+           AND a.due_date < CURRENT_DATE
+           ${clientIds !== null ? 'AND c.id = ANY($1::uuid[])' : ''}
          ORDER BY days_overdue DESC`,
+        clientIds !== null ? [clientIds] : [],
       );
 
       rows.forEach((r: Record<string, unknown>) => ws.addRow(r));
@@ -98,7 +102,7 @@ export class ReportExportService {
     });
   }
 
-  async exportAssignmentHealth(res: Response) {
+  async exportAssignmentHealth(res: Response, clientIds: string[] | null) {
     return this.sendWorkbook(res, 'assignment-health.xlsx', async (wb) => {
       const ws = wb.addWorksheet('Assignments');
       this.header(ws, [
@@ -129,7 +133,9 @@ export class ReportExportService {
          FROM client_assignments_current ca
          JOIN clients c ON c.id = ca.client_id
          JOIN users u ON u.id = ca.assigned_to_user_id
+         ${clientIds !== null ? 'WHERE c.id = ANY($1::uuid[])' : ''}
          ORDER BY days_past_due DESC`,
+        clientIds !== null ? [clientIds] : [],
       );
 
       rows.forEach((r: Record<string, unknown>) => ws.addRow(r));

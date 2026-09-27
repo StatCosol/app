@@ -18,6 +18,7 @@ import { SalaryRevisionService } from './salary-revision.service';
 import { SalaryRevisionController } from './salary-revision.controller';
 import { EmployeeDocumentService } from './employee-document.service';
 import { EmployeeDocumentController } from './employee-document.controller';
+import { EmployeeDocumentUploadGuard } from './employee-document-upload.guard';
 import { MasterDataController } from './master-data.controller';
 import { AiModule } from '../ai/ai.module';
 import { AuthModule } from '../auth/auth.module';
@@ -55,6 +56,7 @@ import { AccessModule } from '../access/access.module';
     EmployeeBulkImportService,
     SalaryRevisionService,
     EmployeeDocumentService,
+    EmployeeDocumentUploadGuard,
   ],
   exports: [
     EmployeesService,

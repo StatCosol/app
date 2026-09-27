@@ -110,6 +110,12 @@ jobs:
           AUDITXPERT_TEST_USER: postgres
           AUDITXPERT_TEST_PASSWORD: postgres
         run: node scripts/verify-billing-transactions.cjs
+      - name: Consolidated permission and report PostgreSQL regressions
+        env:
+          AUDITXPERT_TEST_PORT: 5432
+          AUDITXPERT_TEST_USER: postgres
+          AUDITXPERT_TEST_PASSWORD: postgres
+        run: node scripts/verify-consolidated-scope-db.cjs
       - name: Payslip PDF layout regressions
         run: node scripts/verify-payslip-layout.cjs
       - name: Boot check (entity metadata + DB connect)

@@ -6,13 +6,17 @@ import { RolesGuard } from '../auth/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ReqUser } from '../access/access-scope.service';
+import { OperationalScopeService } from '../access/operational-scope.service';
 
 @ApiTags('Reports')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'reports/audits', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AuditReportController {
-  constructor(private readonly ds: DataSource) {}
+  constructor(
+    private readonly ds: DataSource,
+    private readonly scope: OperationalScopeService,
+  ) {}
 
   @Roles('ADMIN', 'CEO', 'CCO', 'AUDITOR')
   @ApiOperation({ summary: 'Overdue' })
@@ -30,8 +34,8 @@ export class AuditReportController {
       JOIN client_branches b ON b.id = a.branch_id
       JOIN clients c ON c.id = b.clientid
       LEFT JOIN users u ON u.id = a.assigned_auditor_id
-      WHERE a.status <> 'COMPLETED'
-        AND a.due_date < now()
+      WHERE a.status NOT IN ('COMPLETED', 'CLOSED', 'CANCELLED')
+        AND a.due_date < CURRENT_DATE
     `;
 
     const params: unknown[] = [];
@@ -40,6 +44,12 @@ export class AuditReportController {
     if (user?.roleCode === 'AUDITOR') {
       sql += ' AND a.assigned_auditor_id = $1';
       params.push(user.id);
+    } else {
+      const scope = await this.scope.resolve(user);
+      if (scope.level === 'clients') {
+        sql += ' AND c.id = ANY($1::uuid[])';
+        params.push(scope.clientIds ?? []);
+      }
     }
 
     sql += ' ORDER BY days_overdue DESC';

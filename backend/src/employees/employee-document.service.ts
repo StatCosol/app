@@ -15,20 +15,26 @@ export class EmployeeDocumentService {
     private readonly access: AccessScopeService,
   ) {}
 
-  async upload(params: {
-    clientId: string;
-    employeeId: string;
-    docType: string;
-    docName: string;
-    fileName: string;
-    filePath: string;
-    fileSize: number;
-    mimeType?: string;
-    uploadedByUserId: string;
-    expiryDate?: string;
-  }) {
+  async upload(
+    user: ReqUser,
+    params: {
+      employeeId: string;
+      docType: string;
+      docName: string;
+      fileName: string;
+      filePath: string;
+      fileSize: number;
+      mimeType?: string;
+      uploadedByUserId: string;
+      expiryDate?: string;
+    },
+  ) {
+    const employee = await this.assertCanAccessEmployee(
+      params.employeeId,
+      user,
+    );
     const entity = this.repo.create({
-      clientId: params.clientId,
+      clientId: employee.clientId,
       employeeId: params.employeeId,
       docType: params.docType,
       docName: params.docName,
@@ -42,9 +48,20 @@ export class EmployeeDocumentService {
     return this.repo.save(entity);
   }
 
-  async listForEmployee(clientId: string, employeeId: string) {
+  async assertCanAccessEmployee(employeeId: string, user: ReqUser) {
+    const employee = await this.empRepo.findOne({
+      where: { id: employeeId },
+      select: ['id', 'clientId', 'branchId'],
+    });
+    if (!employee) throw new NotFoundException('Employee not found');
+    await this.access.assertDocumentInScope(user, employee);
+    return employee;
+  }
+
+  async listForEmployee(user: ReqUser, employeeId: string) {
+    const employee = await this.assertCanAccessEmployee(employeeId, user);
     return this.repo.find({
-      where: { clientId, employeeId },
+      where: { clientId: employee.clientId, employeeId },
       order: { createdAt: 'DESC' },
     });
   }
@@ -59,12 +76,13 @@ export class EmployeeDocumentService {
     const doc = await this.repo.findOne({ where: { id } });
     if (!doc) throw new NotFoundException('Document not found');
     const emp = await this.empRepo.findOne({
-      where: { id: doc.employeeId },
+      where: { id: doc.employeeId, clientId: doc.clientId },
       select: ['id', 'branchId'],
     });
+    if (!emp) throw new NotFoundException('Document employee not found');
     await this.access.assertDocumentInScope(user, {
       clientId: doc.clientId,
-      branchId: emp?.branchId ?? null,
+      branchId: emp.branchId,
     });
     return doc;
   }

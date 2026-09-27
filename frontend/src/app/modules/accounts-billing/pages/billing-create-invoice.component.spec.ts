@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import { Subject, of, throwError } from 'rxjs';
+import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { BillingCreateInvoiceComponent } from './billing-create-invoice.component';
@@ -21,6 +21,7 @@ const sample = (overrides: Partial<Invoice> = {}): Invoice => ({
 
 async function setup(overrides: Partial<Invoice> = {}, edit = true) {
   const invoice = sample(overrides);
+  const params = new BehaviorSubject(convertToParamMap(edit ? { id: 'sample' } : {}));
   const api = {
     getInvoice: vi.fn(() => of(invoice)),
     getActiveClients: vi.fn(() => of([invoice.billingClient!])),
@@ -30,7 +31,7 @@ async function setup(overrides: Partial<Invoice> = {}, edit = true) {
   await TestBed.configureTestingModule({
     imports: [BillingCreateInvoiceComponent],
     providers: [provideRouter([]),
-      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap(edit ? { id: 'sample' } : {}) } } },
+      { provide: ActivatedRoute, useValue: { paramMap: params } },
       { provide: AccountsBillingService, useValue: api },
     ],
   }).compileComponents();
@@ -40,7 +41,7 @@ async function setup(overrides: Partial<Invoice> = {}, edit = true) {
     fixture.detectChanges();
     return fixture;
   };
-  return { api, navigate, create };
+  return { api, navigate, create, params };
 }
 
 afterEach(() => { vi.restoreAllMocks(); TestBed.resetTestingModule(); });
@@ -150,6 +151,51 @@ it('does not navigate after the edit component has been destroyed', async () => 
   const { create, api, navigate } = await setup(); const pending = new Subject<Invoice>(); api.updateInvoice.mockReturnValue(pending);
   const f = create(); f.componentInstance.onSubmit(); f.destroy(); pending.next(sample());
   expect(navigate).not.toHaveBeenCalled();
+});
+
+it('loads reused routes without letting an old response overwrite the new invoice', async () => {
+  const { create, api, params } = await setup(); const first = new Subject<Invoice>();
+  api.getInvoice.mockReturnValueOnce(first);
+  const f = create();
+  api.getInvoice.mockReturnValueOnce(of(sample({ id: 'second', remarks: 'Second invoice' })));
+  params.next(convertToParamMap({ id: 'second' })); first.next(sample({ remarks: 'Old invoice' }));
+  expect(f.componentInstance.invoiceId).toBe('second');
+  expect(f.componentInstance.form.value.remarks).toBe('Second invoice');
+  params.next(convertToParamMap({}));
+  expect(f.componentInstance.isEditMode).toBe(false); expect(f.componentInstance.form.get('invoiceType')!.enabled).toBe(true);
+  expect(f.componentInstance.minInvoiceDate).toBe('');
+});
+
+it('ignores a late save result after changing invoice routes', async () => {
+  const { create, api, params, navigate } = await setup(); const pending = new Subject<Invoice>();
+  api.updateInvoice.mockReturnValueOnce(pending); const c = create().componentInstance;
+  c.onSubmit(); params.next(convertToParamMap({ id: 'second' })); pending.next(sample());
+  expect(navigate).not.toHaveBeenCalled(); expect(c.saving).toBe(false);
+});
+
+it('retains the current inactive client even when the active-client request completes later', async () => {
+  const { create, api } = await setup(); const clients = new Subject<any[]>(); api.getActiveClients.mockReturnValueOnce(clients);
+  const f = create(); clients.next([]); f.detectChanges();
+  const select = f.nativeElement.querySelector('[formControlName="billingClientId"]') as HTMLSelectElement;
+  expect(select.value).toBe('client'); expect(f.componentInstance.clientOptions.map(c => c.id)).toEqual(['client']);
+});
+
+it('shows an invoice load failure and recovers through retry', async () => {
+  const { create, api } = await setup(); api.getInvoice.mockReturnValueOnce(throwError(() => new Error('offline')));
+  const f = create(); f.componentInstance.onSubmit(); expect(api.updateInvoice).not.toHaveBeenCalled();
+  expect(f.nativeElement.textContent).toContain('Unable to load invoice');
+  f.componentInstance.loadInvoice('sample'); f.detectChanges(); expect(f.nativeElement.querySelector('form')).not.toBeNull();
+});
+
+it.each([{ quantity: 0.001 }, { rate: 1.001 }, { discountAmount: 201 }])('blocks unsupported precision and excessive discounts: %j', async value => {
+  const { create, api } = await setup(); const c = create().componentInstance;
+  c.itemsArray.at(0).patchValue(value); c.onSubmit(); expect(api.updateInvoice).not.toHaveBeenCalled();
+});
+
+it('accepts fractional quantities at the database precision', async () => {
+  const { create, api } = await setup(); const c = create().componentInstance;
+  c.itemsArray.at(0).patchValue({ quantity: 0.25 }); c.onSubmit();
+  expect(api.updateInvoice).toHaveBeenCalledTimes(1); expect(c.calcLineTotal(0)).toBe('29.50');
 });
 
 it.each([390, 1440])('keeps edit controls and long server errors within the %ipx viewport', async width => {

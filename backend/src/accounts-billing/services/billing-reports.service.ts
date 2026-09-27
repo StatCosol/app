@@ -90,7 +90,8 @@ export class BillingReportsService {
     }
     if (query.sacCode?.trim()) {
       qb.andWhere(
-        '(item.sac_code ILIKE :sacCode OR client.default_sac_code ILIKE :sacCode)',
+        `EXISTS (SELECT 1 FROM invoice_items matched WHERE matched.invoice_id = inv.id
+          AND COALESCE(NULLIF(matched.sac_code, ''), client.default_sac_code) ILIKE :sacCode)`,
         { sacCode: `%${query.sacCode.trim()}%` },
       );
     }
@@ -98,9 +99,9 @@ export class BillingReportsService {
       qb.andWhere(
         `(inv.invoice_number ILIKE :search
           OR client.legal_name ILIKE :search
-          OR client.gstin ILIKE :search
-          OR item.service_description ILIKE :search
-          OR item.sac_code ILIKE :search)`,
+          OR inv.gstin ILIKE :search
+          OR EXISTS (SELECT 1 FROM invoice_items matched WHERE matched.invoice_id = inv.id
+            AND (matched.service_description ILIKE :search OR matched.sac_code ILIKE :search)))`,
         { search: `%${query.search.trim()}%` },
       );
     }
@@ -176,7 +177,7 @@ export class BillingReportsService {
             invoiceDate: invoice.invoiceDate,
             financialYear: invoice.financialYear,
             clientName: invoice.billingClient?.legalName || '',
-            clientGstin: invoice.billingClient?.gstin || invoice.gstin || '',
+            clientGstin: invoice.gstin || '',
             placeOfSupply:
               invoice.placeOfSupply ||
               invoice.billingClient?.placeOfSupply ||

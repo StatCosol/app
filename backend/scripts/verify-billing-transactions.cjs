@@ -466,6 +466,32 @@ async function main() {
       assert.equal(saved.invoiceDate, invoiceDate);
     }
     console.log('PASS: invoice type/year identity guards, no-write rejection and same-financial-year date boundaries.');
+
+    const pdfInvoice = await seed();
+    const oldSnapshot = await read(pdfInvoice.id);
+    await invoices().updatePdfPath(pdfInvoice.id, '/uploads/invoices/old.pdf', oldSnapshot);
+    const rendered = await read(pdfInvoice.id);
+    await invoices().update(pdfInvoice.id, { remarks: 'Changed after rendering' }, userId);
+    assert.equal((await read(pdfInvoice.id)).pdfPath, null, 'Editing must revoke the registered old PDF path');
+    await assert.rejects(invoices().updatePdfPath(pdfInvoice.id, '/uploads/invoices/stale.pdf', rendered), error => error.status === 409);
+    assert.equal((await read(pdfInvoice.id)).pdfPath, null);
+    await invoices().updatePdfPath(pdfInvoice.id, '/uploads/invoices/current.pdf', await read(pdfInvoice.id));
+    assert.equal((await read(pdfInvoice.id)).pdfPath, '/uploads/invoices/current.pdf');
+    const prior = await read(pdfInvoice.id);
+    await assert.rejects(invoices().update(pdfInvoice.id, { items: [{ serviceDescription: 'Too precise', quantity: 0.001, rate: 100 }] }, userId), error => error.status === 400);
+    assert.deepEqual(await read(pdfInvoice.id), prior);
+
+    const filtered = await invoices().create({ ...createDto, items: [
+      { serviceDescription: 'Unique filter match', sacCode: 'MATCH', quantity: 1, rate: 100, gstRate: 18 },
+      { serviceDescription: 'Other line', sacCode: 'OTHER', quantity: 1, rate: 200, gstRate: 18 },
+    ] }, userId);
+    await invoices().approve(filtered.id, userId);
+    for (const filter of [{ search: 'Unique filter match' }, { sacCode: 'MATCH' }]) {
+      const result = await reports.getReport({ reportType: 'GST_DETAIL', ...filter });
+      assert.equal(result.rows.length, 2, 'Invoice selection must keep all lines for reconcilable totals');
+      assert.equal(result.rows.reduce((sum, row) => sum + row.lineTotal, 0), result.summary.billedAmount);
+    }
+    console.log('PASS: stale PDF publication rejection, edit-time path invalidation, precision rollback and complete filtered invoice lines.');
   } finally {
     if (ds?.isInitialized) await ds.destroy();
     await db.close();

@@ -14,7 +14,15 @@ export class LegitxScopeService {
     user: ReqUser,
     query: { clientId?: string; branchId?: string },
   ) {
-    const scope = await this.access.getScope(user);
+    const scope =
+      user.roleCode === 'CCO'
+        ? {
+            level: 'clients' as const,
+            clientIds: await this.access.getCcoClientIds(
+              user.userId || user.id,
+            ),
+          }
+        : await this.access.getScope(user);
     let clientId = scope.clientId || user.clientId || query.clientId || null;
     if (query.clientId && clientId && query.clientId !== clientId)
       throw new ForbiddenException('Company not in scope');

@@ -12,12 +12,14 @@ import { ReportExportService } from './report-export.service';
 import { ReportExportController } from './report-export.controller';
 import { PdfReportService } from './pdf-report.service';
 import { PdfReportController } from './pdf-report.controller';
+import { AccessModule } from '../access/access.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([ComplianceTask]),
     AssignmentsModule,
     AuthModule,
+    AccessModule,
   ],
   providers: [ReportsService, ReportExportService, PdfReportService],
   controllers: [

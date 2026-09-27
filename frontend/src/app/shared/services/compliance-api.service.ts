@@ -114,7 +114,7 @@ export class ComplianceApiService {
   clientUploadEvidence(taskId: string, file: File, note?: string) {
     const fd = new FormData();
     fd.append('file', file);
-    if (note) fd.append('note', note);
+    if (note) fd.append('notes', note);
     return this.http.post(this.v1(`client/compliance/tasks/${taskId}/evidence`), fd);
   }
 

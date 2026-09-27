@@ -240,7 +240,7 @@ export class Invoice {
   purchaseOrderNumber: string | null;
 
   @Column({ name: 'pdf_path', type: 'text', nullable: true })
-  pdfPath: string;
+  pdfPath: string | null;
 
   @Column({
     name: 'converted_from_proforma_id',

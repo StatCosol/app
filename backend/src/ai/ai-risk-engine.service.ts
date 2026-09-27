@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { AiRiskAssessmentEntity } from './entities/ai-risk-assessment.entity';
@@ -712,6 +712,7 @@ export class AiRiskEngineService {
   async getHighRiskClients(
     limit = 20,
     includeAll = false,
+    clientIds: string[] | null = null,
   ): Promise<
     Array<{
       id: string;
@@ -729,22 +730,27 @@ export class AiRiskEngineService {
   > {
     const levelFilter = includeAll
       ? ''
-      : `WHERE ra.risk_level IN ('HIGH', 'CRITICAL')`;
+      : `WHERE latest.risk_level IN ('HIGH', 'CRITICAL')`;
 
     // Get the latest assessment per client ordered by risk score
     const results = await this.dataSource.query(
       `
-      SELECT DISTINCT ON (client_id)
+      WITH latest AS (
+      SELECT DISTINCT ON (ra.client_id)
         ra.id, ra.client_id, ra.risk_score, ra.risk_level, ra.summary,
         ra.inspection_probability, ra.penalty_exposure_min, ra.penalty_exposure_max,
         ra.created_at, c.client_name, c.client_code
       FROM ai_risk_assessments ra
       JOIN clients c ON c.id = ra.client_id
-      ${levelFilter}
+      ${clientIds !== null ? 'WHERE ra.client_id = ANY($2::uuid[])' : ''}
       ORDER BY ra.client_id, ra.created_at DESC
+      )
+      SELECT * FROM latest
+      ${levelFilter}
+      ORDER BY risk_score DESC, client_id
       LIMIT $1
     `,
-      [limit],
+      clientIds !== null ? [limit, clientIds] : [limit],
     );
 
     return results.sort((a, b) => b.risk_score - a.risk_score);
@@ -777,6 +783,12 @@ export class AiRiskEngineService {
   }
 
   /** Dismiss an insight */
+  async getInsight(id: string): Promise<AiInsightEntity> {
+    const insight = await this.insightRepo.findOneBy({ id });
+    if (!insight) throw new NotFoundException('Insight not found');
+    return insight;
+  }
+
   async dismissInsight(insightId: string, userId: string): Promise<void> {
     await this.insightRepo.update(insightId, {
       isDismissed: true,
@@ -785,11 +797,16 @@ export class AiRiskEngineService {
   }
 
   /** Get risk summary across all clients */
-  async getPlatformRiskSummary(): Promise<Record<string, unknown>> {
-    const summary = await this.dataSource.query(`
+  async getPlatformRiskSummary(
+    clientIds: string[] | null = null,
+  ): Promise<Record<string, unknown>> {
+    const params = clientIds !== null ? [clientIds] : [];
+    const summary = await this.dataSource.query(
+      `
       WITH latest AS (
         SELECT DISTINCT ON (client_id) *
         FROM ai_risk_assessments
+        ${clientIds !== null ? 'WHERE client_id = ANY($1::uuid[])' : ''}
         ORDER BY client_id, created_at DESC
       )
       SELECT
@@ -802,14 +819,20 @@ export class AiRiskEngineService {
         ROUND(SUM(penalty_exposure_min), 0) as total_exposure_min,
         ROUND(SUM(penalty_exposure_max), 0) as total_exposure_max
       FROM latest
-    `);
+    `,
+      params,
+    );
 
-    const insightCounts = await this.dataSource.query(`
+    const insightCounts = await this.dataSource.query(
+      `
       SELECT severity, COUNT(*) as cnt
       FROM ai_insights
       WHERE is_dismissed = FALSE AND (valid_until IS NULL OR valid_until > NOW())
+      ${clientIds !== null ? 'AND client_id = ANY($1::uuid[])' : ''}
       GROUP BY severity
-    `);
+    `,
+      params,
+    );
 
     return {
       ...(summary[0] || {}),

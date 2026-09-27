@@ -59,8 +59,18 @@ export class ApplicabilityScopeGuard implements CanActivate {
     if (!unitId && req.method === 'POST') {
       if (body.tenantId)
         await this.access.assertClientAllowed(user, this.uuid(body.tenantId));
-      if (body.branchId)
-        await this.access.assertBranchAllowed(user, this.uuid(body.branchId));
+      if (body.branchId) {
+        const branchId = this.uuid(body.branchId);
+        await this.access.assertBranchAllowed(user, branchId);
+        const [branch] = await this.ds.query(
+          `SELECT id FROM client_branches WHERE id = $1 AND clientid = $2 AND isdeleted = false`,
+          [branchId, this.uuid(body.tenantId)],
+        );
+        if (!branch)
+          throw new BadRequestException(
+            'Branch does not belong to the unit tenant',
+          );
+      }
     }
     return true;
   }

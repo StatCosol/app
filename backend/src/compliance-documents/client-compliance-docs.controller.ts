@@ -33,14 +33,19 @@ export class ClientComplianceDocsController {
     @CurrentUser() user: ReqUser,
     @Query() query: Record<string, string>,
   ) {
-    return this.svc.listForClient(user.clientId!, user.id, {
-      branchId: query.branchId,
-      category: query.category,
-      subCategory: query.subCategory,
-      periodYear: query.periodYear ? +query.periodYear : undefined,
-      periodMonth: query.periodMonth ? +query.periodMonth : undefined,
-      search: query.search,
-    });
+    return this.svc.listForClient(
+      user.clientId!,
+      user.id,
+      {
+        branchId: query.branchId,
+        category: query.category,
+        subCategory: query.subCategory,
+        periodYear: query.periodYear ? +query.periodYear : undefined,
+        periodMonth: query.periodMonth ? +query.periodMonth : undefined,
+        search: query.search,
+      },
+      user.userType,
+    );
   }
 
   /** Get document categories catalog */
@@ -71,6 +76,7 @@ export class ClientComplianceDocsController {
         user.id,
         'CLIENT',
         user.clientId!,
+        user.userType,
       );
     res.setHeader(
       'Content-Disposition',
@@ -95,6 +101,11 @@ export class ClientComplianceDocsController {
     @CurrentUser() user: ReqUser,
     @Body() dto: UpdateCompanySettingsDto,
   ) {
-    return this.svc.updateCompanySettings(user.clientId!, user.id, dto);
+    return this.svc.updateCompanySettings(
+      user.clientId!,
+      user.id,
+      dto,
+      user.userType,
+    );
   }
 }

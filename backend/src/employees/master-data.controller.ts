@@ -23,7 +23,7 @@ import {
 } from './dto/employees.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ReqUser } from '../access/access-scope.service';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Employees')
 @ApiBearerAuth('JWT')
@@ -31,12 +31,19 @@ import { ReqUser } from '../access/access-scope.service';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CLIENT', 'ADMIN', 'CRM', 'PAYROLL')
 export class MasterDataController {
-  constructor(private readonly ds: DataSource) {}
+  constructor(
+    private readonly ds: DataSource,
+    private readonly access: AccessScopeService,
+  ) {}
 
   /** Resolve clientId: use query param if provided, else fall back to JWT clientId */
-  private resolveClientId(user: ReqUser, queryClientId?: string): string {
+  private async resolveClientId(
+    user: ReqUser,
+    queryClientId?: string,
+  ): Promise<string> {
     const clientId = queryClientId || user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
+    await this.access.assertClientAllowed(user, clientId);
     return clientId;
   }
 
@@ -47,7 +54,7 @@ export class MasterDataController {
     @CurrentUser() user: ReqUser,
     @Query('clientId') qClientId?: string,
   ) {
-    const clientId = this.resolveClientId(user, qClientId);
+    const clientId = await this.resolveClientId(user, qClientId);
     return this.ds
       .getRepository(DepartmentEntity)
       .find({ where: { clientId }, order: { name: 'ASC' } });
@@ -60,7 +67,7 @@ export class MasterDataController {
     @Body() body: CreateMasterDataItemDto,
     @Query('clientId') qClientId?: string,
   ) {
-    const clientId = this.resolveClientId(user, qClientId);
+    const clientId = await this.resolveClientId(user, qClientId);
     const repo = this.ds.getRepository(DepartmentEntity);
     try {
       return await repo.save(
@@ -83,7 +90,7 @@ export class MasterDataController {
     @Body() body: UpdateMasterDataItemDto,
     @Query('clientId') qClientId?: string,
   ) {
-    const clientId = this.resolveClientId(user, qClientId);
+    const clientId = await this.resolveClientId(user, qClientId);
     const repo = this.ds.getRepository(DepartmentEntity);
     const row = await repo.findOneBy({ id, clientId });
     if (!row) throw new BadRequestException('Department not found');
@@ -100,7 +107,7 @@ export class MasterDataController {
     @CurrentUser() user: ReqUser,
     @Query('clientId') qClientId?: string,
   ) {
-    const clientId = this.resolveClientId(user, qClientId);
+    const clientId = await this.resolveClientId(user, qClientId);
     return this.ds
       .getRepository(GradeEntity)
       .find({ where: { clientId }, order: { name: 'ASC' } });
@@ -113,7 +120,7 @@ export class MasterDataController {
     @Body() body: CreateMasterDataItemDto,
     @Query('clientId') qClientId?: string,
   ) {
-    const clientId = this.resolveClientId(user, qClientId);
+    const clientId = await this.resolveClientId(user, qClientId);
     const repo = this.ds.getRepository(GradeEntity);
     try {
       return await repo.save(
@@ -136,7 +143,7 @@ export class MasterDataController {
     @Body() body: UpdateMasterDataItemDto,
     @Query('clientId') qClientId?: string,
   ) {
-    const clientId = this.resolveClientId(user, qClientId);
+    const clientId = await this.resolveClientId(user, qClientId);
     const repo = this.ds.getRepository(GradeEntity);
     const row = await repo.findOneBy({ id, clientId });
     if (!row) throw new BadRequestException('Grade not found');
@@ -153,7 +160,7 @@ export class MasterDataController {
     @CurrentUser() user: ReqUser,
     @Query('clientId') qClientId?: string,
   ) {
-    const clientId = this.resolveClientId(user, qClientId);
+    const clientId = await this.resolveClientId(user, qClientId);
     return this.ds
       .getRepository(DesignationEntity)
       .find({ where: { clientId }, order: { name: 'ASC' } });
@@ -166,7 +173,7 @@ export class MasterDataController {
     @Body() body: CreateMasterDataItemDto,
     @Query('clientId') qClientId?: string,
   ) {
-    const clientId = this.resolveClientId(user, qClientId);
+    const clientId = await this.resolveClientId(user, qClientId);
     const repo = this.ds.getRepository(DesignationEntity);
     try {
       return await repo.save(
@@ -189,7 +196,7 @@ export class MasterDataController {
     @Body() body: UpdateMasterDataItemDto,
     @Query('clientId') qClientId?: string,
   ) {
-    const clientId = this.resolveClientId(user, qClientId);
+    const clientId = await this.resolveClientId(user, qClientId);
     const repo = this.ds.getRepository(DesignationEntity);
     const row = await repo.findOneBy({ id, clientId });
     if (!row) throw new BadRequestException('Designation not found');

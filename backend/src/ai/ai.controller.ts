@@ -9,6 +9,7 @@ import {
   HttpException,
   HttpStatus,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Roles } from '../auth/roles.decorator';
@@ -104,6 +105,7 @@ export class AiController {
     @Body() dto: RunRiskAssessmentDto,
     @CurrentUser() user: ReqUser,
   ) {
+    await this.assertClientScope(user, dto.clientId);
     try {
       return await this.riskEngine.runAssessment(
         dto.clientId,
@@ -121,7 +123,11 @@ export class AiController {
   @ApiOperation({ summary: 'Get Client Risk' })
   @Get('risk/client/:clientId')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM')
-  async getClientRisk(@Param('clientId') clientId: string) {
+  async getClientRisk(
+    @Param('clientId') clientId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.assertClientScope(user, clientId);
     const latest = await this.riskEngine.getLatestAssessment(clientId);
     if (!latest)
       return {
@@ -135,9 +141,11 @@ export class AiController {
   @Get('risk/client/:clientId/history')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM')
   async getClientRiskHistory(
+    @CurrentUser() user: ReqUser,
     @Param('clientId') clientId: string,
     @Query('limit') limit?: string,
   ) {
+    await this.assertClientScope(user, clientId);
     return this.riskEngine.getAssessmentHistory(clientId, Number(limit) || 10);
   }
 
@@ -145,18 +153,25 @@ export class AiController {
   @Get('risk/high-risk')
   @Roles('ADMIN', 'CEO', 'CCO')
   async getHighRiskClients(
+    @CurrentUser() user: ReqUser,
     @Query('limit') limit?: string,
     @Query('includeAll') includeAll?: string,
   ) {
     const all = includeAll === 'true' || includeAll === '1';
-    return this.riskEngine.getHighRiskClients(Number(limit) || 20, all);
+    return this.riskEngine.getHighRiskClients(
+      Number(limit) || 20,
+      all,
+      await this.scopeClientIds(user),
+    );
   }
 
   @ApiOperation({ summary: 'Get Platform Risk Summary' })
   @Get('risk/summary')
   @Roles('ADMIN', 'CEO', 'CCO')
-  async getPlatformRiskSummary() {
-    return this.riskEngine.getPlatformRiskSummary();
+  async getPlatformRiskSummary(@CurrentUser() user: ReqUser) {
+    return this.riskEngine.getPlatformRiskSummary(
+      await this.scopeClientIds(user),
+    );
   }
 
   // ─── Insights ─────────────────────────────────────
@@ -179,6 +194,12 @@ export class AiController {
   @Put('insights/:id/dismiss')
   @Roles('ADMIN', 'CEO', 'CCO')
   async dismissInsight(@Param('id') id: string, @CurrentUser() user: ReqUser) {
+    const insight = await this.riskEngine.getInsight(id);
+    if (insight.clientId) await this.assertClientScope(user, insight.clientId);
+    else if (user.roleCode !== 'ADMIN' && user.roleCode !== 'CEO')
+      throw new ForbiddenException(
+        'Only platform administrators can dismiss global insights',
+      );
     await this.riskEngine.dismissInsight(id, user.userId);
     return { success: true };
   }
@@ -188,7 +209,12 @@ export class AiController {
   @Post('audit/generate-observation')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Roles('AUDITOR', 'ADMIN', 'CCO')
-  async generateAuditObservation(@Body() dto: GenerateAuditObservationDto) {
+  async generateAuditObservation(
+    @Body() dto: GenerateAuditObservationDto,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.assertClientScope(user, dto.clientId);
+    if (dto.branchId) await this.assertBranchScope(user, dto.branchId);
     try {
       return await this.auditAi.generateObservation(dto);
     } catch (err: any) {
@@ -224,6 +250,8 @@ export class AiController {
       clientId: obs.clientId,
       branchId: obs.branchId,
     });
+    if (user.roleCode === 'CCO')
+      await this.access.assertCcoClientAllowed(user, obs.clientId);
     return obs;
   }
 
@@ -235,6 +263,14 @@ export class AiController {
     @Body() dto: ReviewObservationDto,
     @CurrentUser() user: ReqUser,
   ) {
+    const observation = await this.auditAi.getObservation(id);
+    await this.access.assertDocumentInScope(user, {
+      clientId: observation.clientId,
+      branchId: observation.branchId,
+    });
+    if (user.roleCode === 'CCO') {
+      await this.access.assertCcoClientAllowed(user, observation.clientId);
+    }
     return this.auditAi.reviewObservation(
       id,
       user.userId,
@@ -271,7 +307,11 @@ export class AiController {
   @Post('payroll/detect-anomalies')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Roles('ADMIN', 'CEO', 'CCO', 'PAYROLL')
-  async detectPayrollAnomalies(@Body() dto: DetectPayrollAnomaliesDto) {
+  async detectPayrollAnomalies(
+    @Body() dto: DetectPayrollAnomaliesDto,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.assertClientScope(user, dto.clientId);
     try {
       return await this.payrollAi.detectAnomalies(
         dto.clientId,
@@ -289,17 +329,23 @@ export class AiController {
   @Get('payroll/anomalies/:clientId')
   @Roles('ADMIN', 'CEO', 'CCO', 'PAYROLL')
   async listAnomalies(
+    @CurrentUser() user: ReqUser,
     @Param('clientId') clientId: string,
     @Query('status') status?: string,
     @Query('type') anomalyType?: string,
   ) {
+    await this.assertClientScope(user, clientId);
     return this.payrollAi.listAnomalies(clientId, { status, anomalyType });
   }
 
   @ApiOperation({ summary: 'Get Anomaly Summary' })
   @Get('payroll/anomaly-summary/:clientId')
   @Roles('ADMIN', 'CEO', 'CCO', 'PAYROLL')
-  async getAnomalySummary(@Param('clientId') clientId: string) {
+  async getAnomalySummary(
+    @Param('clientId') clientId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.assertClientScope(user, clientId);
     return this.payrollAi.getAnomalySummary(clientId);
   }
 
@@ -311,6 +357,9 @@ export class AiController {
     @Body() dto: ResolveAnomalyDto,
     @CurrentUser() user: ReqUser,
   ) {
+    const anomaly = await this.payrollAi.getAnomaly(id);
+    await this.access.assertDocumentInScope(user, anomaly);
+    await this.assertClientScope(user, anomaly.clientId);
     return this.payrollAi.resolveAnomaly(
       id,
       user.userId,
@@ -323,10 +372,11 @@ export class AiController {
   @ApiOperation({ summary: 'Get Ai Dashboard' })
   @Get('dashboard')
   @Roles('ADMIN', 'CEO', 'CCO')
-  async getAiDashboard() {
+  async getAiDashboard(@CurrentUser() user: ReqUser) {
+    const clientIds = await this.scopeClientIds(user);
     const [riskSummary, insights] = await Promise.all([
-      this.riskEngine.getPlatformRiskSummary(),
-      this.riskEngine.getInsights(undefined, 10),
+      this.riskEngine.getPlatformRiskSummary(clientIds),
+      this.riskEngine.getInsights(undefined, 10, clientIds),
     ]);
     return {
       riskSummary,
@@ -372,6 +422,11 @@ export class AiController {
     const owner = await this.docCheck.documentOwner(documentId);
     if (!owner) throw new NotFoundException('Document not found');
     await this.access.assertDocumentInScope(user, owner);
+    if (user.roleCode === 'CCO') {
+      if (!owner.clientId)
+        throw new ForbiddenException('Document has no assigned company');
+      await this.access.assertCcoClientAllowed(user, owner.clientId);
+    }
     try {
       return await this.docCheck.checkDocument(documentId, user?.userId);
     } catch (err: any) {
@@ -410,6 +465,7 @@ export class AiController {
     @Body() dto: BranchRiskAssessmentDto,
     @CurrentUser() user: ReqUser,
   ) {
+    await this.assertBranchScope(user, dto.branchId);
     try {
       return await this.riskEngine.runBranchAssessment({
         branchId: dto.branchId,
@@ -434,6 +490,7 @@ export class AiController {
     @Query('year') yearStr: string,
     @Query('month') monthStr: string,
   ) {
+    await this.assertBranchScope(user, branchId);
     if (user.roleCode === 'CLIENT' || user.roleCode === 'BRANCH') {
       await this.branchAccess.assertBranchAccess(user.userId, branchId);
     }
@@ -496,9 +553,23 @@ export class AiController {
    * already checked by ScopeGuard; this covers the request that names none.
    */
   private async scopeClientIds(user: ReqUser): Promise<string[] | null> {
+    if (user.roleCode === 'CCO')
+      return this.access.getCcoClientIds(user.userId ?? user.id);
     const scope = await this.access.getScope(user);
     if (scope.level === 'all') return null;
     if (scope.level === 'clients') return scope.clientIds ?? [];
     return scope.clientId ? [scope.clientId] : [];
+  }
+
+  private async assertClientScope(user: ReqUser, clientId: string) {
+    await this.access.assertClientAllowed(user, clientId);
+    if (user.roleCode === 'CCO')
+      await this.access.assertCcoClientAllowed(user, clientId);
+  }
+
+  private async assertBranchScope(user: ReqUser, branchId: string) {
+    await this.access.assertBranchAllowed(user, branchId);
+    if (user.roleCode === 'CCO')
+      await this.access.assertCcoBranchAllowed(user, branchId);
   }
 }
