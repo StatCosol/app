@@ -186,6 +186,110 @@ async function main() {
       assert.equal(await repo(entities.InvoiceAuditLog).countBy({ invoiceId: invoice.id }), 0);
     }
     console.log('PASS: 9 overlapping billing operations and 2 failure rollbacks on disposable PostgreSQL using real TypeORM repositories.');
+
+    const createDto = {
+      billingClientId: client.id, invoiceType: InvoiceType.TAX_INVOICE,
+      invoiceDate: '2026-09-27', items: edit.items,
+    };
+    const convertDto = { purchaseOrderNumber: 'SYNTHETIC-PO', invoiceDate: '2026-09-27' };
+    async function concurrentNumbers(first, second) {
+      let savedFirst;
+      const result = await overlap(
+        async source => { savedFirst = await first(invoices(source)); return savedFirst; }, second,
+      );
+      assert.ifError(result.error);
+      assert.notEqual(savedFirst.invoiceNumber, result.value.invoiceNumber);
+      assert.notEqual(savedFirst.id, result.value.id);
+      assert.equal(Number(result.value.invoiceNumber.split('/').at(-1)),
+        Number(savedFirst.invoiceNumber.split('/').at(-1)) + 1);
+      return [savedFirst, result.value];
+    }
+    const manualPair = await concurrentNumbers(
+      service => service.create(createDto, userId), () => invoices().create(createDto, userId),
+    );
+    assert.deepEqual(manualPair.map(row => row.invoiceNumber), ['STSINV/2627/0001', 'STSINV/2627/0002']);
+
+    const proforma = await invoices().create({ ...createDto, invoiceType: InvoiceType.PROFORMA }, userId);
+    const conversionPair = await concurrentNumbers(
+      service => service.convertProformaToTaxInvoice(proforma.id, convertDto, userId),
+      () => invoices().create(createDto, userId),
+    );
+    assert.equal(conversionPair[0].convertedFromProformaId, proforma.id);
+    const [p2, p3] = await Promise.all([1, 2].map(() => invoices().create({
+      ...createDto, invoiceType: InvoiceType.PROFORMA,
+    }, userId)));
+    await concurrentNumbers(
+      service => service.convertProformaToTaxInvoice(p2.id, convertDto, userId),
+      () => invoices().convertProformaToTaxInvoice(p3.id, convertDto, userId),
+    );
+
+    await concurrentNumbers(
+      service => service.create(createDto, userId, randomUUID()),
+      () => invoices().create(createDto, userId),
+    );
+    const recurringId = randomUUID();
+    let recurring;
+    const retry = await overlap(
+      async source => { recurring = await invoices(source).create(createDto, userId, recurringId); return recurring; },
+      () => invoices().create({ ...createDto, items: [{ ...edit.items[0], rate: 999 }] }, userId, recurringId),
+    );
+    assert.ifError(retry.error);
+    assert.equal(retry.value.id, recurringId);
+    assert.equal(retry.value.invoiceNumber, recurring.invoiceNumber);
+    assert.equal(Number(retry.value.grandTotal), 200);
+    assert.equal(retry.value.items.length, 1);
+    await invoices().approve(recurringId, userId);
+    await record(payments(), recurringId, 200);
+    const paidRecurring = await read(recurringId);
+    await invoices().create(createDto, userId, recurringId);
+    assert.deepEqual(await read(recurringId), paidRecurring, 'Recurring retry must preserve paid invoice and items');
+    await assert.rejects(invoices().create({ ...createDto, billingClientId: randomUUID() }, userId, recurringId),
+      error => error.status === 400 && /client mismatch/.test(error.message));
+
+    const settings = await repo(entities.BillingSetting).save({
+      tenantId: client.tenantId, legalName: 'Synthetic supplier', gstin: '', pan: '',
+      address: 'Test only', stateCode: '36', stateName: 'Telangana',
+      invoicePrefix: 'S-T/S', proformaPrefix: 'STS',
+    });
+    const shared = await concurrentNumbers(
+      service => service.create(createDto, userId),
+      () => invoices().create({ ...createDto, invoiceType: InvoiceType.PROFORMA }, userId),
+    );
+    assert.deepEqual(shared.map(row => row.invoiceNumber), ['STS/2627/0001', 'STS/2627/0002']);
+
+    async function setPrefix(prefix) { await repo(entities.BillingSetting).update(settings.id, { invoicePrefix: prefix }); }
+    async function seedNumber(invoiceNumber) {
+      const row = await seed();
+      await repo(entities.Invoice).update(row.id, { invoiceNumber });
+      return row.id;
+    }
+    await setPrefix('LEG');
+    const legacyNumbers = ['LEG/2627/9', 'LEG/2627/0010', 'LEG/2627/9999-DRAFT', 'LEG/2627/not-a-sequence'];
+    const legacyIds = [];
+    for (const number of legacyNumbers) legacyIds.push(await seedNumber(number));
+    assert.equal((await invoices().create(createDto, userId)).invoiceNumber, 'LEG/2627/0011');
+    for (let i = 0; i < legacyIds.length; i++) assert.equal((await read(legacyIds[i])).invoiceNumber, legacyNumbers[i]);
+
+    await setPrefix('FAIL');
+    const beforeCount = await repo(entities.Invoice).count();
+    const beforeItems = await repo(entities.InvoiceItem).count();
+    await assert.rejects(invoices().create({ ...createDto, items: [{ ...edit.items[0], serviceDescription: null }] }, userId),
+      error => error.code === '23502');
+    assert.equal(await repo(entities.Invoice).count(), beforeCount);
+    assert.equal(await repo(entities.InvoiceItem).count(), beforeItems);
+    assert.equal((await invoices().create(createDto, userId)).invoiceNumber, 'FAIL/2627/0001');
+
+    await setPrefix('CAP');
+    await seedNumber('CAP/2627/9998');
+    assert.equal((await invoices().create({ ...createDto, invoiceDate: '2027-03-31' }, userId)).invoiceNumber, 'CAP/2627/9999');
+    const cappedCount = await repo(entities.Invoice).count();
+    await assert.rejects(invoices().create(createDto, userId), error => error.status === 400 && /exceeded 9999/.test(error.message));
+    assert.equal(await repo(entities.Invoice).count(), cappedCount);
+    assert.equal((await invoices().create({ ...createDto, invoiceDate: '2027-04-01' }, userId)).invoiceNumber, 'CAP/2728/0001');
+    await setPrefix('BIG');
+    await seedNumber('BIG/2627/9999999999999999999999999999999999999999');
+    await assert.rejects(invoices().create(createDto, userId), error => error.status === 400 && /exceeded 9999/.test(error.message));
+    console.log('PASS: 6 controlled numbering races, recurring retry preservation, numeric legacy ordering, creation rollback, sequence exhaustion and financial-year rollover.');
   } finally {
     if (ds?.isInitialized) await ds.destroy();
     await db.close();
