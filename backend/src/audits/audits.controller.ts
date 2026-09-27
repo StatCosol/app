@@ -19,6 +19,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { DataSource } from 'typeorm';
 import { AuditsService } from './audits.service';
+import { AuditNcUploadCleanupInterceptor } from './audit-nc-upload-cleanup.interceptor';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -957,7 +958,10 @@ export class ContractorAuditNcController {
 
   @ApiOperation({ summary: 'Upload corrected file for an NC' })
   @Post(':ncId/upload')
-  @UseInterceptors(FileInterceptor('file', auditNcUploadOptions))
+  @UseInterceptors(
+    FileInterceptor('file', auditNcUploadOptions),
+    AuditNcUploadCleanupInterceptor,
+  )
   async uploadCorrected(
     @CurrentUser() user: ReqUser,
     @Param('ncId', ParseUUIDPipe) ncId: string,
@@ -996,7 +1000,10 @@ export class BranchAuditNcController {
 
   @ApiOperation({ summary: 'Upload corrected file for an NC' })
   @Post(':ncId/upload')
-  @UseInterceptors(FileInterceptor('file', auditNcUploadOptions))
+  @UseInterceptors(
+    FileInterceptor('file', auditNcUploadOptions),
+    AuditNcUploadCleanupInterceptor,
+  )
   async uploadCorrected(
     @CurrentUser() user: ReqUser,
     @Param('ncId', ParseUUIDPipe) ncId: string,

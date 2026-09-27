@@ -363,3 +363,16 @@ textarea:focus {
     gap: 0.18rem;
   }
 }
+.report-hold {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-left: 3px solid #b45309;
+  color: #78350f;
+  background: #fffbeb;
+  overflow-wrap: anywhere;
+
+  p {
+    margin: 4px 0 0;
+    white-space: pre-wrap;
+  }
+}

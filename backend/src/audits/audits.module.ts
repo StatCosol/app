@@ -10,6 +10,7 @@ import { AuditNonComplianceEntity } from './entities/audit-non-compliance.entity
 import { AuditResubmissionEntity } from './entities/audit-resubmission.entity';
 import { AuditsService } from './audits.service';
 import { AuditNcService } from './audit-nc.service';
+import { AuditNcUploadCleanupInterceptor } from './audit-nc-upload-cleanup.interceptor';
 import { AuditChecklistService } from './audit-checklist.service';
 import { AuditAuditorDashboardService } from './audit-auditor-dashboard.service';
 import { AuditReportService } from './audit-report.service';
@@ -82,6 +83,7 @@ import { AuditEntryService } from './audit-entry.service';
     AuditsService,
     AuditorObservationsService,
     AuditNcService,
+    AuditNcUploadCleanupInterceptor,
     AuditChecklistService,
     AuditAuditorDashboardService,
     AuditReportService,

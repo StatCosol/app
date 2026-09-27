@@ -17,16 +17,24 @@ No kiosk/APK, face-capture, attendance, payroll or production-data changes are i
 
 ## Validation
 
-- Backend: 245 suites passed; 1,917 tests passed, one existing skipped test. Includes 46 new correction/report regression tests.
-- Auditor and CRM browser tests: six files, 27 tests passed. Includes six new CRM hold tests.
-- CRM held-report screenshots inspected at 390 and 1440 pixels, including long notes and the release action.
+- Backend: 247 suites passed; 1,938 tests passed, one existing skipped test. Includes 67 new correction/report/admin/upload regression tests.
+- Auditor and CRM browser tests: seven files, 32 tests passed. Includes 11 new hold tests.
+- CRM and auditor held-report screenshots inspected at 390 and 1440 pixels, including long notes, disabled reopening and the CRM release action.
 - Fictional sample-data workflow rerun: 42 passed, zero failed. Covers report draft/PDF/governance, submissions, scoring, findings, correction retries, tenant scope, HTTP validation and rollback. Original failed results remain separate from post-fix results in the local review artifacts.
-- Real PostgreSQL/TypeORM regression script: nine checks passed, including simultaneous uploads, simultaneous reviews, last-NC closure, transactional rollback, a concurrent report hold, and HTTP hold/release routing and permissions.
+- Real PostgreSQL/TypeORM regression script: 11 checks passed, including simultaneous uploads, simultaneous reviews, last-NC closure, transactional rollback, concurrent CRM/admin report holds, and HTTP hold/release routing and permissions.
 - Existing audit-entry and auditor-dashboard SQL integration scripts passed against disposable local PostgreSQL databases.
 - Backend and production frontend builds passed. Changed-file backend/frontend lint and module-wiring checks passed.
 - Existing Sass deprecation and Angular readiness-list tracking warnings remain outside this change.
 
 Tests use fictional records. External delivery/automation hooks and login identity are stubbed in the focused integration checks; these are not a full production login, email-delivery or deployment test. The TypeORM concurrency script uses minimal audit-only fixture schemas.
+
+## PR Review Follow-Up
+
+- Admin approval and publication now check the persisted hold and conditionally update only an unheld report in the expected state. Real database tests cover holds added between the read and write; HTTP tests confirm admin actions resume only after CRM releases the hold.
+- Both contractor and branch correction-upload routes run a cleanup interceptor after disk-backed Multer. Failed validation, missing/unauthorized/closed NCs, failed transactions and duplicate requests remove the rejected request's file. Cleanup is confined to the audit-NC upload directory; accepted files remain. HTTP tests use actual temporary disk uploads. Cleanup errors are logged without hiding the original request error.
+- Auditor report normalization preserves held/holdRemarks. The builder displays the reason and disables reopening while held; a refreshed release restores the existing flow.
+
+These follow-ups require no additional migration beyond the hold migration already included.
 
 ## Reproduction
 

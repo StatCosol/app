@@ -10,6 +10,8 @@ export interface AuditorReportDraft {
   reportId: string | null;
   auditId: string;
   stage: AuditorReportStage;
+  held?: boolean;
+  holdRemarks?: string | null;
   version: AuditorReportVersion;
   executiveSummary: string;
   scope: string;

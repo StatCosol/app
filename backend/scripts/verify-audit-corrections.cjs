@@ -5,6 +5,9 @@ const { randomUUID } = require('node:crypto');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 const { Client } = require('pg');
+const {
+  AdminReportsController,
+} = require('../dist/src/admin/admin-reports.controller');
 const { DataSource, EntitySchema } = require('typeorm');
 const { AuditNcService } = require('../dist/src/audits/audit-nc.service');
 const {
@@ -335,7 +338,40 @@ async function main() {
       'SUBMITTED',
     );
   });
-  await test('HTTP hold/release routing, role guards and corrected-review validation', async () => {
+  for (const action of ['approve', 'publish']) {
+    await test(`admin ${action} rejects a concurrent CRM hold`, async () => {
+      const status = action === 'approve' ? 'SUBMITTED' : 'APPROVED';
+      const [report] = await ds.query(
+        'INSERT INTO audit_reports(audit_id,status) VALUES($1,$2) RETURNING id',
+        [auditId, status],
+      );
+      const controller = new AdminReportsController({
+        query: async (sql, params) => {
+          if (sql.startsWith('WITH changed'))
+            await ds.query(
+              'UPDATE audit_reports SET held_at=NOW() WHERE id=$1',
+              [report.id],
+            );
+          return ds.query(sql, params);
+        },
+      });
+      await assert.rejects(
+        action === 'approve'
+          ? controller.approveAuditReport(report.id, crm)
+          : controller.publishAuditReport(report.id),
+        /Report changed/,
+      );
+      assert.equal(
+        (
+          await ds.query('SELECT status FROM audit_reports WHERE id=$1', [
+            report.id,
+          ])
+        )[0].status,
+        status,
+      );
+    });
+  }
+  await test('HTTP hold/release routing, admin transitions, role guards and corrected-review validation', async () => {
     const { Test } = require('@nestjs/testing');
     const { VersioningType } = require('@nestjs/common');
     const request = require('supertest');
@@ -363,7 +399,11 @@ async function main() {
       onModuleInit: async () => {},
     });
     const module = await Test.createTestingModule({
-      controllers: [CrmAuditsController, AuditorAuditsController],
+      controllers: [
+        CrmAuditsController,
+        AuditorAuditsController,
+        AdminReportsController,
+      ],
       providers: [
         { provide: AuditsService, useValue: facade },
         { provide: DataSource, useValue: ds },
@@ -378,11 +418,13 @@ async function main() {
       .overrideGuard(JwtAuthGuard)
       .useValue({
         canActivate(context) {
-          context.switchToHttp().getRequest().user =
-            context.switchToHttp().getRequest().headers['x-test-role'] ===
-            'AUDITOR'
+          const req = context.switchToHttp().getRequest();
+          req.user =
+            req.headers['x-test-role'] === 'AUDITOR'
               ? auditor
-              : crm;
+              : req.headers['x-test-role'] === 'ADMIN'
+                ? { ...crm, roleCode: 'ADMIN' }
+                : crm;
           return true;
         },
       })
@@ -409,6 +451,12 @@ async function main() {
         true,
       );
       await request(server).post(`${base}/report/approve`).send({}).expect(400);
+      const reportId = (await ds.query('SELECT id FROM audit_reports'))[0].id;
+      const adminBase = `/api/v1/admin/reports/audit-reports/${reportId}`;
+      await request(server)
+        .patch(`${adminBase}/approve`)
+        .set('x-test-role', 'ADMIN')
+        .expect(400);
       await request(server)
         .post(`${base}/report/release-hold`)
         .set('x-test-role', 'AUDITOR')
@@ -423,6 +471,26 @@ async function main() {
         ).body.held,
         false,
       );
+      await request(server)
+        .patch(`${adminBase}/approve`)
+        .set('x-test-role', 'ADMIN')
+        .expect(200);
+      await request(server)
+        .post(`${base}/report/hold`)
+        .send({ remarks: 'Hold before publication' })
+        .expect(201);
+      await request(server)
+        .patch(`${adminBase}/publish`)
+        .set('x-test-role', 'ADMIN')
+        .expect(400);
+      await request(server)
+        .post(`${base}/report/release-hold`)
+        .send({})
+        .expect(201);
+      await request(server)
+        .patch(`${adminBase}/publish`)
+        .set('x-test-role', 'ADMIN')
+        .expect(200);
       for (const body of [
         {},
         { decision: 'INVALID' },
