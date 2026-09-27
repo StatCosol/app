@@ -317,13 +317,14 @@ export class AuditorAiAuditComponent implements OnInit, OnDestroy {
   }
 
   generate(): void {
-    if (!this.genForm.clientId || !this.genForm.findingDescription) return;
+    const findingDescription = this.genForm.findingDescription.trim();
+    if (this.generating || !this.genForm.clientId || !findingDescription) return;
     this.generating = true;
     this.cdr.markForCheck();
 
     const params: any = {
       clientId: this.genForm.clientId,
-      findingDescription: this.genForm.findingDescription,
+      findingDescription,
     };
     if (this.genForm.auditId) params.auditId = this.genForm.auditId;
     if (this.genForm.findingType) params.findingType = this.genForm.findingType;
@@ -346,8 +347,9 @@ export class AuditorAiAuditComponent implements OnInit, OnDestroy {
           this.toast.success('Observation generated successfully!');
           this.cdr.markForCheck();
         },
-        error: () => {
-          this.toast.error('Failed to generate observation.');
+        error: (err) => {
+          const message = err?.error?.message;
+          this.toast.error(typeof message === 'string' && message ? message : 'Failed to generate observation.');
           this.cdr.markForCheck();
         },
       });

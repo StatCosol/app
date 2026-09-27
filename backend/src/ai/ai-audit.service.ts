@@ -3,6 +3,7 @@ import {
   Logger,
   Optional,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -34,28 +35,57 @@ export class AiAuditService {
     const {
       auditId,
       clientId,
-      branchId,
-      findingDescription,
+      branchId: requestedBranchId,
+      findingDescription: rawDescription,
       findingType,
       applicableState,
     } = params;
+    const findingDescription = rawDescription.trim();
+    if (!findingDescription)
+      throw new BadRequestException('Finding description is required');
 
-    // Gather context
-    const clientInfo = await this.dataSource
-      .query(
-        `SELECT c.client_name, c.client_code FROM clients c WHERE c.id = $1`,
-        [clientId],
-      )
-      .catch(() => [{}]);
+    // Resolve linked records before a library lookup, provider call or write.
+    const clientInfo = await this.dataSource.query(
+      `SELECT client_name, client_code FROM clients WHERE id = $1 AND is_deleted = false`,
+      [clientId],
+    );
+    if (!clientInfo.length) throw new NotFoundException('Company not found');
+
+    let branchId = requestedBranchId;
+    if (auditId) {
+      const [audit] = await this.dataSource.query(
+        `SELECT branch_id FROM audits WHERE id = $1 AND client_id = $2`,
+        [auditId, clientId],
+      );
+      if (!audit)
+        throw new BadRequestException(
+          'Audit does not belong to the selected company',
+        );
+      if (audit.branch_id) {
+        if (
+          branchId &&
+          branchId.toLowerCase() !== audit.branch_id.toLowerCase()
+        ) {
+          throw new BadRequestException(
+            'Branch does not match the selected audit',
+          );
+        }
+        branchId = audit.branch_id;
+      }
+    }
 
     const branchInfo = branchId
-      ? await this.dataSource
-          .query(
-            `SELECT b.branchname, b.statecode, b.city FROM client_branches b WHERE b.id = $1`,
-            [branchId],
-          )
-          .catch(() => [{}])
-      : [{}];
+      ? await this.dataSource.query(
+          `SELECT branchname AS branch_name, statecode, city FROM client_branches
+           WHERE id = $1 AND clientid = $2 AND isdeleted = false`,
+          [branchId, clientId],
+        )
+      : [];
+    if (branchId && !branchInfo.length) {
+      throw new BadRequestException(
+        'Branch does not belong to the selected company',
+      );
+    }
 
     const state = applicableState || branchInfo[0]?.statecode || 'India';
 
