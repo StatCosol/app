@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Subject, Subscription, takeUntil } from 'rxjs';
 
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -16,35 +17,35 @@ import { ToastService } from '../../../shared/toast/toast.service';
 <div class="p-6 space-y-6">
       <!-- Header -->
       <div class="flex items-center justify-between flex-wrap gap-4">
-        <div>
+        <div class="min-w-0 max-w-full break-words">
           <a routerLink="/accounts/invoices" class="text-brand-600 text-sm hover:underline">&larr; Back to Invoices</a>
           <h1 class="text-2xl font-bold text-slate-800 mt-1">{{ invoice.invoiceNumber }}</h1>
           <p class="text-sm text-slate-500">{{ invoice.invoiceType.replace('_',' ') }} &middot; {{ invoice.invoiceDate }}</p>
         </div>
         <div class="flex gap-2 flex-wrap">
           @if (invoice.invoiceStatus === 'DRAFT') {
-<button (click)="approve()"
+<button (click)="approve()" [disabled]="actionBusy"
                   class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">Approve</button>
 }
-          @if (isEditable()) {
+          @if (isEditable() && !actionBusy) {
 <a [routerLink]="['/accounts/invoices', invoice.id, 'edit']"
                   class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50">Edit</a>
 }
-          @if (invoice.invoiceType === 'PROFORMA' && invoice.invoiceStatus !== 'CANCELLED') {
+          @if (canConvert()) {
 <button (click)="openTaxInvoiceConversion()"
-                  [disabled]="convertingProforma"
+                  [disabled]="actionBusy"
                   class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50">
             {{ invoice.convertedInvoice ? 'View Tax Invoice' : 'Generate Tax Invoice' }}
           </button>
 }
-          <button (click)="generatePdf()" [disabled]="generatingPdf"
+          <button (click)="generatePdf()" [disabled]="actionBusy"
                   class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700">
             {{ generatingPdf ? 'Generating...' : 'Generate PDF' }}
           </button>
-          <button (click)="showEmailModal = true"
+          <button (click)="showEmailModal = true" [disabled]="actionBusy"
                   class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700">Send Email</button>
-          @if (invoice.invoiceStatus !== 'CANCELLED' && invoice.invoiceStatus !== 'PAID') {
-<button (click)="cancel()"
+          @if (canCancel()) {
+<button (click)="cancel()" [disabled]="actionBusy"
                   class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700">Cancel</button>
 }
         </div>
@@ -60,7 +61,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
         }
         <span class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">Mail: {{ invoice.mailStatus }}</span>
         @if (invoice.pdfPath) {
-<button (click)="generatePdf()" type="button"
+<button (click)="generatePdf()" type="button" [disabled]="actionBusy"
            class="px-3 py-1 rounded-full text-xs font-semibold bg-brand-100 text-brand-700 hover:underline">View PDF</button>
 }
       </div>
@@ -173,9 +174,9 @@ import { ToastService } from '../../../shared/toast/toast.service';
       <div class="bg-white rounded-xl border p-6 space-y-4">
         <div class="flex items-center justify-between">
           <h3 class="text-lg font-semibold text-slate-700">Payments</h3>
-          @if (invoice.invoiceType !== 'PROFORMA' && invoice.paymentStatus !== 'PAID' && invoice.invoiceStatus !== 'CANCELLED') {
-<button
-                  (click)="showPaymentModal = true"
+          @if (canRecordPayment()) {
+<button [disabled]="actionBusy"
+                  (click)="openPayment()"
                   class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700">+ Record Payment</button>
 }
         </div>
@@ -216,7 +217,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
       <!-- Payment Modal -->
       @if (showConversionModal) {
 <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <div class="p-6 border-b flex items-center justify-between">
             <div>
               <h2 class="text-lg font-bold">Generate Tax Invoice</h2>
@@ -255,7 +256,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
           <div class="p-6 border-t flex justify-end gap-3">
             <button (click)="showConversionModal = false" class="px-4 py-2 border rounded-lg text-sm">Cancel</button>
             <button (click)="submitTaxInvoiceConversion()"
-                    [disabled]="convertingProforma || !conversionForm.purchaseOrderNumber.trim() || !conversionForm.invoiceDate"
+                    [disabled]="actionBusy || !conversionForm.purchaseOrderNumber.trim() || !conversionForm.invoiceDate"
                     class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50">
               {{ convertingProforma ? 'Generating...' : 'Generate Tax Invoice' }}
             </button>
@@ -267,7 +268,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
       <!-- Payment Modal -->
       @if (showPaymentModal) {
 <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <div class="p-6 border-b flex items-center justify-between">
             <h2 class="text-lg font-bold">Record Payment</h2>
             <button (click)="showPaymentModal = false" class="text-slate-400 hover:text-slate-600">&times;</button>
@@ -278,8 +279,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
               <input [(ngModel)]="payForm.paymentDate" type="date" class="w-full px-3 py-2 border rounded-lg text-sm">
             </div>
             <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Amount Received *</label>
-              <input [(ngModel)]="payForm.amountReceived" type="number" class="w-full px-3 py-2 border rounded-lg text-sm">
+              <label class="block text-xs font-medium text-slate-600 mb-1">Amount Settled (including deductions) *</label>
+              <input [(ngModel)]="payForm.amountReceived" type="number" min="0.01" step="0.01" class="w-full px-3 py-2 border rounded-lg text-sm">
             </div>
             <div class="grid grid-cols-2 gap-4">
               <div>
@@ -310,7 +311,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
           </div>
           <div class="p-6 border-t flex justify-end gap-3">
             <button (click)="showPaymentModal = false" class="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-            <button (click)="submitPayment()" [disabled]="savingPayment"
+            <button (click)="submitPayment()" [disabled]="actionBusy"
                     class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">
               {{ savingPayment ? 'Saving...' : 'Save Payment' }}
             </button>
@@ -322,7 +323,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
       <!-- Email Modal -->
       @if (showEmailModal) {
 <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <div class="p-6 border-b flex items-center justify-between">
             <h2 class="text-lg font-bold">Send Invoice Email</h2>
             <button (click)="showEmailModal = false" class="text-slate-400 hover:text-slate-600">&times;</button>
@@ -352,7 +353,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
           </div>
           <div class="p-6 border-t flex justify-end gap-3">
             <button (click)="showEmailModal = false" class="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-            <button (click)="submitEmail()" [disabled]="sendingEmail"
+            <button (click)="submitEmail()" [disabled]="actionBusy"
                     class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700">
               {{ sendingEmail ? 'Sending...' : 'Send' }}
             </button>
@@ -372,6 +373,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 }
           @if (loadError) {
 <p class="text-red-500">Could not load this invoice. It may have been deleted or you may not have access.</p>
+<button (click)="loadInvoice(invoiceId)" class="mt-3 px-4 py-2 border rounded-lg text-sm">Retry invoice</button>
 }
         </div>
       </div>
@@ -381,11 +383,18 @@ import { ToastService } from '../../../shared/toast/toast.service';
     
   `,
 })
-export class BillingInvoiceViewComponent implements OnInit {
+export class BillingInvoiceViewComponent implements OnInit, OnDestroy {
   invoice: Invoice | null = null;
   payments: InvoicePayment[] = [];
   paymentModes = PAYMENT_MODES;
   loadError = false;
+  invoiceId = '';
+  approving = false;
+  cancelling = false;
+  private contextVersion = 0;
+  private readonly contextChanged = new Subject<void>();
+  private routeSubscription?: Subscription;
+  private loadSubscription?: Subscription;
 
   showPaymentModal = false;
   savingPayment = false;
@@ -413,13 +422,32 @@ export class BillingInvoiceViewComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id')!;
-    this.loadInvoice(id);
+    this.routeSubscription = this.route.paramMap.subscribe(params => {
+      this.contextVersion++;
+      this.contextChanged.next();
+      this.approving = this.cancelling = this.savingPayment = false;
+      this.generatingPdf = this.sendingEmail = this.convertingProforma = false;
+      this.showPaymentModal = this.showEmailModal = this.showConversionModal = false;
+      this.invoiceId = params.get('id') || '';
+      this.loadInvoice(this.invoiceId);
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.contextVersion++;
+    this.contextChanged.next();
+    this.contextChanged.complete();
+    this.routeSubscription?.unsubscribe();
+    this.loadSubscription?.unsubscribe();
   }
 
   loadInvoice(id: string): void {
+    this.loadSubscription?.unsubscribe();
+    this.invoice = null;
+    this.payments = [];
     this.loadError = false;
-    this.svc.getInvoice(id).subscribe({
+    if (!id) { this.loadError = true; return; }
+    this.loadSubscription = this.svc.getInvoice(id).subscribe({
       next: (inv) => {
         if (!inv) { this.loadError = true; return; }
         this.invoice = inv;
@@ -432,30 +460,44 @@ export class BillingInvoiceViewComponent implements OnInit {
   }
 
   approve(): void {
-    if (!this.invoice) return;
-    this.svc.approveInvoice(this.invoice.id).subscribe((inv) => {
-      this.invoice = inv;
+    if (!this.invoice || this.invoice.invoiceStatus !== 'DRAFT' || this.actionBusy) return;
+    this.approving = true;
+    this.svc.approveInvoice(this.invoice.id).pipe(takeUntil(this.contextChanged)).subscribe({
+      next: (inv) => { this.approving = false; this.invoice = inv; },
+      error: (e) => { this.approving = false; this.reportError(e, 'Could not approve invoice'); },
     });
   }
 
   async cancel(): Promise<void> {
-    if (!this.invoice) return;
-    const ok = await this.dialog.confirm(
+    if (!this.invoice || !this.canCancel() || this.actionBusy) return;
+    const id = this.invoice.id;
+    const version = this.contextVersion;
+    this.cancelling = true;
+    let ok: boolean;
+    try {
+      ok = await this.dialog.confirm(
       'Cancel Invoice',
       'Cancel this invoice?',
       { confirmText: 'Cancel Invoice', variant: 'danger' },
-    );
-    if (!ok) return;
-    this.svc.cancelInvoice(this.invoice.id).subscribe((inv) => {
-      this.invoice = inv;
+      );
+    } catch (e) {
+      if (version === this.contextVersion) { this.cancelling = false; this.reportError(e, 'Could not confirm cancellation'); }
+      return;
+    }
+    if (version !== this.contextVersion) return;
+    if (!ok || !this.canCancel()) { this.cancelling = false; return; }
+    this.svc.cancelInvoice(id).pipe(takeUntil(this.contextChanged)).subscribe({
+      next: (inv) => { this.cancelling = false; this.invoice = inv; },
+      error: (e) => { this.cancelling = false; this.reportError(e, 'Could not cancel invoice'); },
     });
   }
 
   generatePdf(): void {
-    if (!this.invoice) return;
+    if (!this.invoice || this.actionBusy) return;
+    const id = this.invoice.id;
     this.generatingPdf = true;
     const invNum = this.invoice.invoiceNumber;
-    this.svc.generatePdf(this.invoice.id).subscribe({
+    this.svc.generatePdf(id).pipe(takeUntil(this.contextChanged)).subscribe({
       next: (blob: Blob) => {
         this.generatingPdf = false;
         try {
@@ -473,7 +515,7 @@ export class BillingInvoiceViewComponent implements OnInit {
         } catch (e) {
           console.error('[billing] PDF open failed', e);
         }
-        this.loadInvoice(this.invoice!.id);
+        this.loadInvoice(id);
       },
       error: (e) => {
         this.generatingPdf = false;
@@ -484,7 +526,7 @@ export class BillingInvoiceViewComponent implements OnInit {
   }
 
   openTaxInvoiceConversion(): void {
-    if (!this.invoice) return;
+    if (!this.invoice || !this.canConvert() || this.actionBusy) return;
     if (this.invoice.convertedInvoice) {
       this.router.navigate([
         '/accounts/invoices',
@@ -509,6 +551,7 @@ export class BillingInvoiceViewComponent implements OnInit {
   submitTaxInvoiceConversion(): void {
     if (
       !this.invoice ||
+      !this.canConvert() || this.actionBusy ||
       !this.conversionForm.purchaseOrderNumber.trim() ||
       !this.conversionForm.invoiceDate
     ) {
@@ -523,7 +566,7 @@ export class BillingInvoiceViewComponent implements OnInit {
         invoiceDate: this.conversionForm.invoiceDate,
         dueDate: this.conversionForm.dueDate || undefined,
       })
-      .subscribe({
+      .pipe(takeUntil(this.contextChanged)).subscribe({
         next: (taxInvoice) => {
           this.convertingProforma = false;
           this.showConversionModal = false;
@@ -545,23 +588,34 @@ export class BillingInvoiceViewComponent implements OnInit {
 
   resetPayForm(): void {
     this.payForm = {
-      paymentDate: new Date().toISOString().split('T')[0],
-      amountReceived: this.invoice?.balanceOutstanding || 0,
+      paymentDate: this.localDate(new Date()),
+      amountReceived: Number(this.invoice?.balanceOutstanding || 0),
       tdsAmount: 0, otherDeduction: 0,
       paymentMode: 'BANK_TRANSFER', referenceNumber: '', remarks: '',
     };
   }
 
   submitPayment(): void {
-    if (!this.invoice) return;
+    if (!this.invoice || !this.canRecordPayment() || this.actionBusy) return;
+    const amount = Number(this.payForm.amountReceived);
+    const tds = Number(this.payForm.tdsAmount ?? 0);
+    const deduction = Number(this.payForm.otherDeduction ?? 0);
+    if (!this.payForm.paymentDate || ![amount, tds, deduction].every(value =>
+      Number.isFinite(value) && value >= 0 && Math.abs(value * 100 - Math.round(value * 100)) < 0.000001,
+    ) || amount <= tds + deduction || amount - Number(this.invoice.balanceOutstanding) > 0.01) {
+      this.toast.error('Enter a payment date and valid amounts. Deductions must be below the settled amount, which cannot exceed the balance.');
+      return;
+    }
+    const id = this.invoice.id;
     this.savingPayment = true;
-    this.svc.recordPayment(this.invoice.id, this.payForm).subscribe({
+    this.svc.recordPayment(id, { ...this.payForm, amountReceived: amount, tdsAmount: tds, otherDeduction: deduction })
+      .pipe(takeUntil(this.contextChanged)).subscribe({
       next: () => {
         this.savingPayment = false;
         this.showPaymentModal = false;
-        this.loadInvoice(this.invoice!.id);
+        this.loadInvoice(id);
       },
-      error: () => (this.savingPayment = false),
+      error: (e) => { this.savingPayment = false; this.reportError(e, 'Could not record payment'); },
     });
   }
 
@@ -590,15 +644,21 @@ export class BillingInvoiceViewComponent implements OnInit {
   }
 
   submitEmail(): void {
-    if (!this.invoice) return;
+    if (!this.invoice || this.actionBusy) return;
+    const id = this.invoice.id;
     this.sendingEmail = true;
-    this.svc.sendInvoiceEmail(this.invoice.id, this.emailForm).subscribe({
-      next: () => {
+    this.svc.sendInvoiceEmail(id, this.emailForm).pipe(takeUntil(this.contextChanged)).subscribe({
+      next: (result) => {
         this.sendingEmail = false;
+        if (!result?.success) {
+          this.toast.error(result?.error || 'Invoice email was not sent');
+          return;
+        }
         this.showEmailModal = false;
-        this.loadInvoice(this.invoice!.id);
+        this.toast.success('Invoice email sent');
+        this.loadInvoice(id);
       },
-      error: () => (this.sendingEmail = false),
+      error: (e) => { this.sendingEmail = false; this.reportError(e, 'Could not send invoice email'); },
     });
   }
 
@@ -615,6 +675,37 @@ export class BillingInvoiceViewComponent implements OnInit {
       editableStatuses.includes(this.invoice.invoiceStatus) &&
       this.invoice.paymentStatus === 'UNPAID'
     );
+  }
+
+  get actionBusy(): boolean {
+    return this.approving || this.cancelling || this.savingPayment || this.sendingEmail || this.generatingPdf || this.convertingProforma;
+  }
+
+  canCancel(): boolean {
+    return !!this.invoice && !['CANCELLED', 'PAID', 'PARTIALLY_PAID'].includes(this.invoice.invoiceStatus)
+      && this.invoice.paymentStatus === 'UNPAID' && Number(this.invoice.amountReceived) === 0;
+  }
+
+  canRecordPayment(): boolean {
+    return !!this.invoice && this.invoice.invoiceType !== 'PROFORMA'
+      && !['DRAFT', 'CANCELLED', 'PAID'].includes(this.invoice.invoiceStatus)
+      && this.invoice.paymentStatus !== 'PAID' && Number(this.invoice.balanceOutstanding) > 0;
+  }
+
+  canConvert(): boolean {
+    return !!this.invoice && this.invoice.invoiceType === 'PROFORMA'
+      && (!!this.invoice.convertedInvoice || (this.invoice.invoiceStatus !== 'CANCELLED' && this.invoice.paymentStatus === 'UNPAID'));
+  }
+
+  openPayment(): void {
+    if (!this.canRecordPayment() || this.actionBusy) return;
+    this.resetPayForm();
+    this.showPaymentModal = true;
+  }
+
+  private reportError(error: any, fallback: string): void {
+    const message = error?.error?.message;
+    this.toast.error(Array.isArray(message) ? message.join('. ') : message || fallback);
   }
 
   private localDate(date: Date): string {

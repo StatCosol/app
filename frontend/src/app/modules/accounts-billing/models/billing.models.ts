@@ -100,6 +100,10 @@ export interface InvoicePayment {
   invoice?: Invoice;
 }
 
+export type InvoiceEmailResult =
+  | { success: true; messageId?: string }
+  | { success: false; error: string };
+
 export interface InvoiceEmailLog {
   id: string;
   invoiceId: string | null;
