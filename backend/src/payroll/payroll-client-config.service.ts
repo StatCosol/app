@@ -13,6 +13,10 @@ import { PayrollComponentMasterEntity } from './entities/payroll-component-maste
 import { PayrollClientComponentOverrideEntity } from './entities/payroll-client-component-override.entity';
 import { PayrollClientPayslipLayoutEntity } from './entities/payroll-client-payslip-layout.entity';
 import { PayrollConfigAuditEntity } from './entities/payroll-config-audit.entity';
+import {
+  defaultPayslipLayout,
+  validatePayslipLayout,
+} from './utils/payslip-layout';
 
 @Injectable()
 export class PayrollClientConfigService {
@@ -174,37 +178,7 @@ export class PayrollClientConfigService {
     });
     if (row?.layoutJson) return row.layoutJson;
 
-    // default layout if none stored
-    return {
-      sections: [
-        {
-          key: 'EARNINGS',
-          title: 'Earnings',
-          rows: [],
-          totals: [
-            { type: 'TOTAL', key: 'GROSS_EARNINGS', label: 'Gross Earnings' },
-          ],
-        },
-        {
-          key: 'DEDUCTIONS',
-          title: 'Deductions',
-          rows: [],
-          totals: [
-            {
-              type: 'TOTAL',
-              key: 'TOTAL_DEDUCTIONS',
-              label: 'Total Deductions',
-            },
-          ],
-        },
-        {
-          key: 'SUMMARY',
-          title: 'Summary',
-          rows: [{ type: 'TOTAL', key: 'NET_PAY', label: 'Net Pay' }],
-        },
-      ],
-      settings: { showRates: false, showUnits: false, currency: 'INR' },
-    };
+    return defaultPayslipLayout();
   }
 
   async saveClientPayslipLayout(
@@ -223,49 +197,38 @@ export class PayrollClientConfigService {
 
     // Validate: ensure component codes exist for this client
     const effective = await this.getClientEffectiveComponents(user, clientId);
-    const codeSet = new Set(effective.map((x) => x.code));
+    const codeSet = new Set(
+      effective.filter((x) => x.enabled).map((x) => x.code),
+    );
+    const layout = validatePayslipLayout(
+      dto.layout,
+      dto.layout.settings?.enabled === true ? codeSet : undefined,
+    );
 
-    const sections = dto.layout?.sections;
-    if (!Array.isArray(sections))
-      throw new BadRequestException('layout.sections must be array');
-
-    for (const s of sections) {
-      const rows = s?.rows ?? [];
-      if (!Array.isArray(rows))
-        throw new BadRequestException('section.rows must be array');
-
-      for (const r of rows) {
-        if (r?.type === 'COMPONENT') {
-          const code = String(r.code || '').trim();
-          if (!code)
-            throw new BadRequestException('COMPONENT row must have code');
-          if (!codeSet.has(code)) {
-            throw new BadRequestException(
-              `Component code not enabled for client: ${code}`,
-            );
-          }
-        }
-      }
-    }
-
-    const existing = await this.layoutRepo.findOne({
-      where: { clientId },
+    await this.layoutRepo.manager.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        `payroll-config:${clientId}`,
+      ]);
+      const repo = manager.getRepository(PayrollClientPayslipLayoutEntity);
+      const existing = await repo.findOne({ where: { clientId } });
+      const oldValues = existing ? { ...existing } : null;
+      const saved = await repo.save(
+        existing
+          ? Object.assign(existing, { layoutJson: layout, isActive: true })
+          : repo.create({ clientId, layoutJson: layout, isActive: true }),
+      );
+      await manager.getRepository(PayrollConfigAuditEntity).save({
+        clientId,
+        userId: user.id,
+        action: existing ? 'UPDATE' : 'CREATE',
+        entityType: 'PayrollClientPayslipLayout',
+        entityId: saved.id,
+        oldValues,
+        newValues: { ...saved },
+        description: 'Payslip layout configuration',
+      });
     });
 
-    if (existing) {
-      existing.layoutJson = dto.layout;
-      existing.isActive = true;
-      await this.layoutRepo.save(existing);
-    } else {
-      await this.layoutRepo.save(
-        this.layoutRepo.create({
-          clientId,
-          layoutJson: dto.layout,
-          isActive: true,
-        }),
-      );
-    }
-
-    return dto.layout;
+    return layout;
   }
 }

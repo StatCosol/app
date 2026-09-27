@@ -16,6 +16,9 @@
   }
 
   <div class="head-controls">
+    @if (view === 'list') {
+      <button type="button" class="btn btn-secondary" [disabled]="!selectedClientId" (click)="view = 'layout'">Payslip Layout</button>
+    }
     @if (view === 'list' || view === 'overrides') {
       <button type="button" class="btn btn-secondary" [disabled]="!selectedClientId || saving" (click)="openHistory()">Override History</button>
     }
@@ -35,6 +38,10 @@
   @if (loading) {
 <div class="loader">Loading...</div>
 }
+
+  @if (view === 'layout' && selectedClientId) {
+    <app-payslip-layout-editor [clientId]="selectedClientId" />
+  }
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <!-- LIST VIEW                                                              -->

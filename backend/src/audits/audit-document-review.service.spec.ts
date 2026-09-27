@@ -1,4 +1,5 @@
 import { AuditDocumentReviewService } from './audit-document-review.service';
+import { Logger } from '@nestjs/common';
 
 describe('Audit document review scope and remarks', () => {
   const audit = {
@@ -58,6 +59,52 @@ describe('Audit document review scope and remarks', () => {
     );
     return { service, repo, query, reviewRepo, checklistRepo };
   }
+  it('logs notification failure without leaking sensitive error details or failing the saved review', async () => {
+    const h = setup();
+    h.query.mockRejectedValue(new Error('private recipient and SQL details'));
+    const warning = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+    try {
+      await expect(
+        (h.service as any).notifyAuditRejection(
+          audit,
+          'Sensitive document',
+          'Private remarks',
+        ),
+      ).resolves.toBeUndefined();
+      expect(warning).toHaveBeenCalledWith(
+        {
+          event: 'AUDIT_DOCUMENT_FOLLOW_UP_FAILED',
+          auditId: 'audit',
+          operation: 'Rejection notification',
+        },
+        AuditDocumentReviewService.name,
+      );
+      expect(JSON.stringify(warning.mock.calls)).not.toMatch(
+        /private|Sensitive/i,
+      );
+    } finally {
+      warning.mockRestore();
+    }
+  });
+  it('uses the client branch table to resolve the rejection notification', async () => {
+    const h = setup();
+    h.query
+      .mockResolvedValueOnce([
+        { email: 'sample@example.invalid', branch_name: 'Sample branch' },
+      ])
+      .mockResolvedValue([]);
+    const sendAuditRejection = jest.fn();
+    (h.service as any).rejectionMail = { sendAuditRejection };
+    await (h.service as any).notifyAuditRejection(
+      audit,
+      'Sample document',
+      'Sample remark',
+    );
+    expect(h.query.mock.calls[0][0]).toContain('LEFT JOIN client_branches');
+    expect(sendAuditRejection).toHaveBeenCalledWith(
+      expect.objectContaining({ branchName: 'Sample branch' }),
+    );
+  });
   it('stores linked document suggestions separately from manual checkpoint remarks', async () => {
     const { service, query, checklistRepo } = setup();
     query.mockResolvedValue([{ docType: 'PF_CHALLAN', fileName: 'pf.pdf' }]);

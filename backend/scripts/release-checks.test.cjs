@@ -1,0 +1,25 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const yaml = require('js-yaml');
+const root = path.resolve(__dirname, '../..');
+const ci = yaml.load(fs.readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8'));
+
+test('the payroll release check executes workflow assertions, not an echo', () => {
+  const job = ci.jobs['payroll-transition-smoke'];
+  assert.ok(job.steps.some(s => s.run === 'npm ci'));
+  const command = job.steps.find(s => s.name === 'Payroll transition smoke check').run;
+  assert.match(command, /jest.*--runTestsByPath.*payroll-approval.service.spec.ts/);
+  assert.doesNotMatch(command, /echo|passWithNoTests|\|\|\s*true/);
+});
+
+test('audit database regression failures block CI', () => {
+  const step = ci.jobs.backend.steps.find(s => s.run?.includes('node scripts/verify-audit-corrections.cjs'));
+  assert.ok(step);
+  assert.notEqual(step['continue-on-error'], true);
+  assert.equal(Number(step.env.AUDITXPERT_TEST_PORT), 5432);
+  assert.equal(step.env.AUDITXPERT_TEST_USER, ci.jobs.backend.services.postgres.env.POSTGRES_USER);
+  assert.match(step.run, /verify-audit-entry.cjs/);
+  assert.match(step.run, /verify-auditor-dashboard.cjs/);
+});

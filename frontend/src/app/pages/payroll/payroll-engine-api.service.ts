@@ -311,6 +311,14 @@ export class PayrollEngineApiService {
     return this.http.get<EffectiveComponent[]>(`${this.cfgBase}/${clientId}/components-effective`);
   }
 
+  getPayslipLayout(clientId: string): Observable<PayslipLayout> {
+    return this.http.get<PayslipLayout>(`${this.cfgBase}/${clientId}/payslip-layout`);
+  }
+
+  savePayslipLayout(clientId: string, layout: PayslipLayout): Observable<PayslipLayout> {
+    return this.http.post<PayslipLayout>(`${this.cfgBase}/${clientId}/payslip-layout`, { layout });
+  }
+
   getConfigHistory(clientId: string): Observable<PayrollConfigHistoryEntry[]> {
     return this.http.get<PayrollConfigHistoryEntry[]>(`${this.cfgBase}/${clientId}/config-audit`, {
       params: { limit: '100', entityType: 'PayrollClientComponentOverride' },
@@ -329,6 +337,14 @@ export class PayrollEngineApiService {
 }
 
 // ── Per-client override types ─────────────────────────────────────────────────
+
+export type PayslipLayoutRow =
+  | { type: 'COMPONENT'; code: string; label: string }
+  | { type: 'TOTAL'; key: 'GROSS_EARNINGS' | 'TOTAL_DEDUCTIONS' | 'NET_PAY'; label: string };
+export interface PayslipLayout {
+  sections: { key: 'EARNINGS' | 'DEDUCTIONS' | 'SUMMARY'; title: string; rows: PayslipLayoutRow[]; totals?: PayslipLayoutRow[] }[];
+  settings: { enabled?: boolean; showRates: boolean; showUnits: boolean; currency: string };
+}
 
 export type EffectiveComponent = {
   componentId: string;

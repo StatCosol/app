@@ -135,10 +135,8 @@ export class NonComplianceEngineService {
         `Auto-closed audit schedule ${schedRows[0].id} — all NCs resolved for audit ${auditId}`,
       );
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'unknown';
-      this.logger.warn(
-        `tryCloseAuditSchedule failed for audit ${auditId}: ${errMsg}`,
-      );
+      this.logger.warn(`tryCloseAuditSchedule failed for audit ${auditId}`);
+      throw err;
     }
   }
 

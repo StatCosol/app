@@ -23,6 +23,7 @@ import { jsonToExcelBuffer } from '../common/utils/excel.util';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { transitionGovernedReport } from '../audits/report-governance';
 
 @ApiTags('Admin')
 @ApiBearerAuth('JWT')
@@ -684,21 +685,15 @@ export class AdminReportsController {
     @CurrentUser() user: ReqUser,
   ) {
     const existing = await this.dataSource.query(
-      'SELECT id, status FROM audit_reports WHERE id = $1',
+      'SELECT id, status, held_at FROM audit_reports WHERE id = $1',
       [id],
     );
     if (!existing.length) throw new NotFoundException('Audit report not found');
-    if (existing[0].status !== 'SUBMITTED')
-      throw new BadRequestException('Only SUBMITTED reports can be approved');
-
-    await this.dataSource.query(
-      `UPDATE audit_reports
-       SET status = 'APPROVED',
-           approved_by_user_id = $1,
-           approved_date = CURRENT_DATE,
-           updated_at = NOW()
-       WHERE id = $2`,
-      [user?.userId || user?.id || null, id],
+    await transitionGovernedReport(
+      this.dataSource,
+      existing[0],
+      'approve',
+      user?.userId || user?.id || null,
     );
     return { ok: true, message: 'Report approved' };
   }
@@ -711,20 +706,14 @@ export class AdminReportsController {
   @Patch('audit-reports/:id/publish')
   async publishAuditReport(@Param('id', ParseUUIDPipe) id: string) {
     const existing = await this.dataSource.query(
-      'SELECT id, status FROM audit_reports WHERE id = $1',
+      'SELECT id, status, held_at FROM audit_reports WHERE id = $1',
       [id],
     );
     if (!existing.length) throw new NotFoundException('Audit report not found');
-    if (existing[0].status !== 'APPROVED')
-      throw new BadRequestException('Only APPROVED reports can be published');
-
-    await this.dataSource.query(
-      `UPDATE audit_reports
-       SET status = 'PUBLISHED',
-           published_date = CURRENT_DATE,
-           updated_at = NOW()
-       WHERE id = $1`,
-      [id],
+    await transitionGovernedReport(
+      this.dataSource,
+      existing[0],
+      'publishAdmin',
     );
     return { ok: true, message: 'Report published' };
   }

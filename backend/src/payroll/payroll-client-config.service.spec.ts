@@ -1,10 +1,12 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PayrollClientConfigService } from './payroll-client-config.service';
 import { PayrollService } from './payroll.service';
+import { PayrollClientPayslipLayoutEntity } from './entities/payroll-client-payslip-layout.entity';
+import { defaultPayslipLayout } from './utils/payslip-layout';
 
 const user = { id: 'user', roleCode: 'PAYROLL' } as any;
 const clientId = 'client';
-const layout = { sections: [], settings: { currency: 'INR' } };
+const layout = defaultPayslipLayout();
 type ConfigurationOperation = (...args: any[]) => Promise<unknown>;
 
 function harness() {
@@ -16,8 +18,17 @@ function harness() {
   const layouts = {
     findOne: jest.fn().mockResolvedValue(null),
     create: jest.fn((row) => row),
-    save: jest.fn(async (row) => row),
+    save: jest.fn(async (row) => ({ id: 'saved-layout', ...row })),
   };
+  const history = { save: jest.fn().mockResolvedValue(undefined) };
+  const manager = {
+    query: jest.fn().mockResolvedValue(undefined),
+    getRepository: jest.fn((entity) =>
+      entity === PayrollClientPayslipLayoutEntity ? layouts : history,
+    ),
+  };
+  const transaction = jest.fn(async (callback) => callback(manager));
+  Object.assign(layouts, { manager: { transaction } });
   const scope = {
     assertPayrollAccessToClient: jest.fn().mockResolvedValue(undefined),
   };
@@ -27,7 +38,16 @@ function harness() {
     layouts as any,
     scope as any,
   );
-  return { service, master, overrides, layouts, scope };
+  return {
+    service,
+    master,
+    overrides,
+    layouts,
+    scope,
+    history,
+    manager,
+    transaction,
+  };
 }
 
 const operations = [
@@ -198,6 +218,7 @@ describe('payroll layout configuration', () => {
       'SUMMARY',
     ]);
     expect(first.settings).toEqual({
+      enabled: false,
       showRates: false,
       showUnits: false,
       currency: 'INR',
@@ -209,16 +230,49 @@ describe('payroll layout configuration', () => {
 
   it.each([
     [{}, 'layout required'],
-    [{ layout: {} }, 'layout.sections must be array'],
-    [{ layout: { sections: [{ rows: {} }] } }, 'section.rows must be array'],
     [
-      { layout: { sections: [{ rows: [{ type: 'COMPONENT' }] }] } },
-      'COMPONENT row must have code',
+      { layout: {} },
+      'Layout requires earnings, deductions and summary sections',
     ],
     [
       {
         layout: {
-          sections: [{ rows: [{ type: 'COMPONENT', code: 'UNKNOWN' }] }],
+          ...layout,
+          sections: layout.sections.map((section, index) =>
+            index === 0 ? { ...section, rows: {} } : section,
+          ),
+        },
+      },
+      'Each section supports at most 50 rows',
+    ],
+    [
+      {
+        layout: {
+          ...layout,
+          sections: layout.sections.map((section, index) =>
+            index === 0
+              ? { ...section, rows: [{ type: 'COMPONENT', label: 'Broken' }] }
+              : section,
+          ),
+        },
+      },
+      'Component code must contain',
+    ],
+    [
+      {
+        layout: {
+          ...layout,
+          settings: { ...layout.settings, enabled: true },
+          sections: layout.sections.map((section, index) =>
+            index === 0
+              ? {
+                  ...section,
+                  rows: [
+                    { type: 'COMPONENT', code: 'UNKNOWN', label: 'Unknown' },
+                  ],
+                }
+              : section,
+          ),
         },
       },
       'Component code not enabled',
@@ -229,6 +283,7 @@ describe('payroll layout configuration', () => {
       h.service.saveClientPayslipLayout(user, clientId, dto as any),
     ).rejects.toThrow(message);
     expect(h.layouts.save).not.toHaveBeenCalled();
+    expect(h.transaction).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -240,19 +295,33 @@ describe('payroll layout configuration', () => {
       const h = harness();
       h.layouts.findOne.mockResolvedValue(existing);
       h.master.find.mockResolvedValue([{ id: 'basic', code: 'BASIC' }]);
-      const value = {
-        sections: [
-          {
-            rows: [
-              { type: 'COMPONENT', code: 'BASIC' },
-              { type: 'TOTAL', key: 'NET_PAY' },
-            ],
-          },
-        ],
-      };
+      const oldValues = existing ? { ...existing } : null;
+      const value = defaultPayslipLayout();
+      value.settings.enabled = true;
+      value.sections[0].rows = [
+        { type: 'COMPONENT', code: 'BASIC', label: 'Basic' },
+      ];
       await expect(
         h.service.saveClientPayslipLayout(user, clientId, { layout: value }),
-      ).resolves.toBe(value);
+      ).resolves.toEqual(value);
+      expect(h.transaction).toHaveBeenCalledTimes(1);
+      expect(h.manager.query).toHaveBeenCalledWith(
+        'SELECT pg_advisory_xact_lock(hashtext($1))',
+        [`payroll-config:${clientId}`],
+      );
+      expect(h.history.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientId,
+          userId: user.id,
+          action: existing ? 'UPDATE' : 'CREATE',
+          entityId: 'saved-layout',
+          oldValues,
+          newValues: expect.objectContaining({
+            layoutJson: value,
+            isActive: true,
+          }),
+        }),
+      );
       expect(h.layouts.save).toHaveBeenCalledWith(
         expect.objectContaining({
           clientId,

@@ -11,6 +11,7 @@ import { AssignmentsService } from '../assignments/assignments.service';
 import { generateAuditReportPdfBuffer } from './utils/report-pdf';
 import { AuditEntity } from './entities/audit.entity';
 import { AuditObservationEntity } from './entities/audit-observation.entity';
+import { transitionGovernedReport } from './report-governance';
 
 @Injectable()
 export class AuditReportService {
@@ -71,6 +72,9 @@ export class AuditReportService {
         auditId: audit.id,
         stage: 'NOT_STARTED',
         status: null,
+        held: false,
+        holdRemarks: null,
+        heldAt: null,
         updatedAt: null,
         finalizedAt: null,
       };
@@ -86,6 +90,9 @@ export class AuditReportService {
       auditId: audit.id,
       stage,
       status,
+      held: !!latestReport.held_at,
+      holdRemarks: latestReport.hold_remarks || null,
+      heldAt: latestReport.held_at || null,
       updatedAt: latestReport.updated_at || null,
       finalizedAt: latestReport.finalized_at || null,
     };
@@ -93,38 +100,13 @@ export class AuditReportService {
 
   async getReportStatusForCrm(user: ReqUser, id: string) {
     const audit = await this.getForCrm(user, id);
-    const latestReport = await this.getLatestReportRow(id);
-    if (!latestReport) {
-      return {
-        auditId: audit.id,
-        stage: 'NOT_STARTED',
-        status: null,
-        updatedAt: null,
-        finalizedAt: null,
-      };
-    }
-
-    const status = String(latestReport.status || '').toUpperCase();
-    const stage =
-      status === 'DRAFT'
-        ? 'DRAFT'
-        : ['SUBMITTED', 'APPROVED', 'PUBLISHED'].includes(status)
-          ? 'FINAL'
-          : 'NOT_STARTED';
-
-    return {
-      auditId: audit.id,
-      stage,
-      status,
-      updatedAt: latestReport.updated_at || null,
-      finalizedAt: latestReport.finalized_at || null,
-    };
+    return this.buildReportStatus(audit);
   }
 
   async approveReportForCrm(user: ReqUser, auditId: string, remarks?: string) {
     const audit = await this.getForCrm(user, auditId);
     const rows = await this.dataSource.query(
-      `SELECT id, status
+      `SELECT id, status, held_at
        FROM audit_reports
        WHERE audit_id = $1
        ORDER BY updated_at DESC, created_at DESC
@@ -136,23 +118,12 @@ export class AuditReportService {
       throw new BadRequestException('No report draft found for this audit');
     }
 
-    const status = String(current.status || '').toUpperCase();
-    if (status !== 'SUBMITTED') {
-      throw new BadRequestException(
-        `Only SUBMITTED reports can be approved. Current status: ${status}`,
-      );
-    }
-
-    await this.dataSource.query(
-      `UPDATE audit_reports
-       SET status = 'APPROVED',
-           approved_by_user_id = $2,
-           approved_date = CURRENT_DATE,
-           updated_at = NOW()
-       WHERE id = $1`,
-      [current.id, user.userId],
+    await transitionGovernedReport(
+      this.dataSource,
+      current,
+      'approve',
+      user.userId,
     );
-
     return {
       auditId: audit.id,
       reportId: current.id,
@@ -164,7 +135,7 @@ export class AuditReportService {
   async publishReportForCrm(user: ReqUser, auditId: string, remarks?: string) {
     const audit = await this.getForCrm(user, auditId);
     const rows = await this.dataSource.query(
-      `SELECT id, status
+      `SELECT id, status, held_at
        FROM audit_reports
        WHERE audit_id = $1
        ORDER BY updated_at DESC, created_at DESC
@@ -176,24 +147,12 @@ export class AuditReportService {
       throw new BadRequestException('No report draft found for this audit');
     }
 
-    const status = String(current.status || '').toUpperCase();
-    if (!['SUBMITTED', 'APPROVED'].includes(status)) {
-      throw new BadRequestException(
-        `Only SUBMITTED/APPROVED reports can be published. Current status: ${status}`,
-      );
-    }
-
-    await this.dataSource.query(
-      `UPDATE audit_reports
-       SET status = 'PUBLISHED',
-           approved_by_user_id = COALESCE(approved_by_user_id, $2),
-           approved_date = COALESCE(approved_date, CURRENT_DATE),
-           published_date = CURRENT_DATE,
-           updated_at = NOW()
-       WHERE id = $1`,
-      [current.id, user.userId],
+    await transitionGovernedReport(
+      this.dataSource,
+      current,
+      'publishCrm',
+      user.userId,
     );
-
     return {
       auditId: audit.id,
       reportId: current.id,
@@ -209,7 +168,7 @@ export class AuditReportService {
     }
 
     const rows = await this.dataSource.query(
-      `SELECT id, status
+      `SELECT id, status, held_at
        FROM audit_reports
        WHERE audit_id = $1
        ORDER BY updated_at DESC, created_at DESC
@@ -233,12 +192,15 @@ export class AuditReportService {
       ? "status = 'DRAFT', finalized_at = NULL, updated_at = NOW()"
       : "status = 'DRAFT', updated_at = NOW()";
 
-    await this.dataSource.query(
-      `UPDATE audit_reports
-       SET ${draftSet}
-       WHERE id = $1`,
+    const changed = await this.dataSource.query(
+      `WITH changed AS (UPDATE audit_reports
+       SET ${draftSet}, held_at = NULL, held_by_user_id = NULL, hold_remarks = NULL
+       WHERE id = $1 AND status IN ('SUBMITTED', 'APPROVED')
+       RETURNING id) SELECT id FROM changed`,
       [current.id],
     );
+    if (!changed.length)
+      throw new BadRequestException('Report changed; reload before continuing');
 
     return {
       auditId: audit.id,
@@ -252,7 +214,7 @@ export class AuditReportService {
   async holdReportForCrm(user: ReqUser, auditId: string, remarks?: string) {
     const audit = await this.getForCrm(user, auditId);
     const rows = await this.dataSource.query(
-      `SELECT id, status
+      `SELECT id, status, held_at
        FROM audit_reports
        WHERE audit_id = $1
        ORDER BY updated_at DESC, created_at DESC
@@ -271,18 +233,45 @@ export class AuditReportService {
       );
     }
 
-    await this.dataSource.query(
-      `UPDATE audit_reports SET updated_at = NOW() WHERE id = $1`,
-      [current.id],
+    if (
+      remarks != null &&
+      (typeof remarks !== 'string' || remarks.length > 2000)
+    ) {
+      throw new BadRequestException(
+        'Hold notes must be at most 2000 characters',
+      );
+    }
+    const changed = await this.dataSource.query(
+      `WITH changed AS (UPDATE audit_reports
+       SET held_at = COALESCE(held_at, NOW()), held_by_user_id = $2,
+           hold_remarks = $3, updated_at = NOW()
+       WHERE id = $1 AND status IN ('SUBMITTED', 'APPROVED')
+       RETURNING id) SELECT id FROM changed`,
+      [current.id, user.userId || user.id, remarks?.trim() || null],
     );
-
+    if (!changed.length)
+      throw new BadRequestException('Report changed; reload before continuing');
     return {
       auditId: audit.id,
       reportId: current.id,
       status,
       held: true,
-      remarks: remarks || null,
+      remarks: remarks?.trim() || null,
     };
+  }
+
+  async releaseReportHoldForCrm(user: ReqUser, auditId: string) {
+    await this.getForCrm(user, auditId);
+    await this.dataSource.query(
+      `UPDATE audit_reports
+       SET held_at = NULL, held_by_user_id = NULL, hold_remarks = NULL, updated_at = NOW()
+       WHERE id = (
+         SELECT id FROM audit_reports WHERE audit_id = $1
+         ORDER BY updated_at DESC, created_at DESC LIMIT 1
+       ) AND held_at IS NOT NULL AND status IN ('SUBMITTED', 'APPROVED')`,
+      [auditId],
+    );
+    return this.getReportStatusForCrm(user, auditId);
   }
 
   async getReportForAuditor(user: ReqUser, auditId: string) {
@@ -308,6 +297,8 @@ export class AuditReportService {
          ar.audit_id AS "auditId",
          ar.report_type AS "reportType",
          ar.status AS "status",
+         ar.held_at AS "heldAt",
+         ar.hold_remarks AS "holdRemarks",
          ar.executive_summary AS "executiveSummary",
          ${scopeSelect}
          ${methodologySelect}
@@ -344,9 +335,13 @@ export class AuditReportService {
     },
   ) {
     const audit = await this.ensureAuditorAuditAccess(user, auditId);
-    if (String(audit.status || '').toUpperCase() === 'COMPLETED') {
+    if (
+      ['COMPLETED', 'CLOSED', 'CANCELLED'].includes(
+        String(audit.status || '').toUpperCase(),
+      )
+    ) {
       throw new BadRequestException(
-        'Cannot edit report after audit completion',
+        'Cannot edit report after audit completion or closure',
       );
     }
 
@@ -363,7 +358,7 @@ export class AuditReportService {
     const availableCols = await this.getAuditReportColumnsAvailability();
 
     const existingRows = await this.dataSource.query(
-      `SELECT id, status
+      `SELECT id, status, held_at
        FROM audit_reports
        WHERE audit_id = $1
        ORDER BY updated_at DESC, created_at DESC
@@ -482,12 +477,16 @@ export class AuditReportService {
   async finalizeReportForAuditor(user: ReqUser, auditId: string) {
     const audit = await this.ensureAuditorAuditAccess(user, auditId);
     const availableCols = await this.getAuditReportColumnsAvailability();
-    if (String(audit.status || '').toUpperCase() === 'COMPLETED') {
-      throw new BadRequestException('Audit is already completed');
+    if (
+      ['COMPLETED', 'CLOSED', 'CANCELLED'].includes(
+        String(audit.status || '').toUpperCase(),
+      )
+    ) {
+      throw new BadRequestException('Audit is already completed or closed');
     }
 
     const existingRows = await this.dataSource.query(
-      `SELECT id, status
+      `SELECT id, status, held_at
        FROM audit_reports
        WHERE audit_id = $1
        ORDER BY updated_at DESC, created_at DESC
@@ -506,7 +505,7 @@ export class AuditReportService {
         [auditId, userId || null],
       );
       const postInsert = await this.dataSource.query(
-        `SELECT id, status
+        `SELECT id, status, held_at
          FROM audit_reports
          WHERE audit_id = $1
          ORDER BY updated_at DESC, created_at DESC
@@ -543,14 +542,18 @@ export class AuditReportService {
   async reopenReportForAuditor(user: ReqUser, auditId: string) {
     const audit = await this.ensureAuditorAuditAccess(user, auditId);
     const availableCols = await this.getAuditReportColumnsAvailability();
-    if (String(audit.status || '').toUpperCase() === 'COMPLETED') {
+    if (
+      ['COMPLETED', 'CLOSED', 'CANCELLED'].includes(
+        String(audit.status || '').toUpperCase(),
+      )
+    ) {
       throw new BadRequestException(
-        'Cannot reopen report after audit completion',
+        'Cannot reopen report after audit completion or closure',
       );
     }
 
     const existingRows = await this.dataSource.query(
-      `SELECT id, status
+      `SELECT id, status, held_at
        FROM audit_reports
        WHERE audit_id = $1
        ORDER BY updated_at DESC, created_at DESC
@@ -562,6 +565,8 @@ export class AuditReportService {
       throw new NotFoundException('Audit report draft not found');
     }
 
+    if (existing.held_at)
+      throw new BadRequestException('Release the report hold first');
     const status = String(existing.status || '').toUpperCase();
     if (status === 'DRAFT') {
       return this.getReportForAuditor(user, auditId);
@@ -579,12 +584,15 @@ export class AuditReportService {
       ? "status = 'DRAFT', finalized_at = NULL, updated_at = NOW()"
       : "status = 'DRAFT', updated_at = NOW()";
 
-    await this.dataSource.query(
-      `UPDATE audit_reports
+    const changed = await this.dataSource.query(
+      `WITH changed AS (UPDATE audit_reports
        SET ${reopenSet}
-       WHERE id = $1`,
+       WHERE id = $1 AND held_at IS NULL AND status = 'SUBMITTED'
+       RETURNING id) SELECT id FROM changed`,
       [existing.id],
     );
+    if (!changed.length)
+      throw new BadRequestException('Report changed; reload before continuing');
 
     return this.getReportForAuditor(user, auditId);
   }
@@ -667,6 +675,8 @@ export class AuditReportService {
       auditId?: string;
       reportType?: string;
       status?: string;
+      heldAt?: Date | string | null;
+      holdRemarks?: string | null;
       executiveSummary?: string;
       scope?: string;
       methodology?: string;
@@ -683,6 +693,8 @@ export class AuditReportService {
         reportId: null,
         auditId,
         stage: 'DRAFT',
+        held: false,
+        holdRemarks: null,
         version: 'INTERNAL',
         executiveSummary: '',
         scope: '',
@@ -723,6 +735,8 @@ export class AuditReportService {
       reportId: row.reportId || null,
       auditId: row.auditId || auditId,
       stage,
+      held: !!row.heldAt,
+      holdRemarks: row.holdRemarks || null,
       version,
       executiveSummary: row.executiveSummary || '',
       scope: row.scope || '',
@@ -737,6 +751,8 @@ export class AuditReportService {
 
   async getLatestReportRow(auditId: string): Promise<{
     status?: string;
+    held_at?: string | null;
+    hold_remarks?: string | null;
     updated_at?: string | null;
     finalized_at?: string | null;
   } | null> {

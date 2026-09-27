@@ -22,6 +22,15 @@
 
   @if (!loading && draft; as model) {
 
+    @if (model.held) {
+<section class="report-hold" role="status" aria-label="Report hold">
+      <strong>On hold</strong>
+      @if (model.holdRemarks) {
+<p>{{ model.holdRemarks }}</p>
+}
+    </section>
+}
+
     <section class="summary-grid">
       <article class="summary-card">
         <span class="label">Audit</span>

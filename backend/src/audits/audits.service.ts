@@ -586,6 +586,10 @@ export class AuditsService implements OnModuleInit {
   async holdReportForCrm(user: ReqUser, auditId: string, remarks?: string) {
     return this.reportService.holdReportForCrm(user, auditId, remarks);
   }
+
+  async releaseReportHoldForCrm(user: ReqUser, auditId: string) {
+    return this.reportService.releaseReportHoldForCrm(user, auditId);
+  }
   // ─── Audit Status Transitions ──────────────────────────────────
   private static readonly ALLOWED_TRANSITIONS: Record<string, string[]> = {
     PLANNED: ['IN_PROGRESS', 'CANCELLED'],
