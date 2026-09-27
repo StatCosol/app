@@ -6,7 +6,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ReqUser } from '../access/access-scope.service';
 import { NonComplianceEngineService } from '../automation/services/non-compliance-engine.service';
 import { AuditOutputEngineService } from '../automation/services/audit-output-engine.service';
@@ -260,99 +260,136 @@ export class AuditNcService {
     remark?: string,
   ) {
     this.assertAuditor(user);
-    const nc = await this.ncRepo.findOne({ where: { id: ncId } });
-    if (!nc) throw new NotFoundException('Non-compliance not found');
-
-    const audit = await this.repo.findOne({ where: { id: nc.auditId } });
-    if (!audit || audit.assignedAuditorId !== user.userId) {
-      throw new ForbiddenException('Not your audit');
+    if (!['COMPLIED', 'NON_COMPLIED'].includes(decision)) {
+      throw new BadRequestException('Invalid review decision');
+    }
+    if (
+      remark != null &&
+      (typeof remark !== 'string' || remark.length > 2000)
+    ) {
+      throw new BadRequestException(
+        'Review remarks must be at most 2000 characters',
+      );
     }
     if (decision === 'NON_COMPLIED' && (!remark || remark.trim().length < 5)) {
       throw new BadRequestException(
         'Remarks of at least 5 characters are required when rejecting a corrected document',
       );
     }
-
-    if (decision === 'COMPLIED') {
-      nc.status = 'ACCEPTED';
-      nc.closedAt = new Date();
-    } else {
-      nc.status = 'NC_RAISED'; // re-raise
-      audit.status = 'CORRECTION_PENDING';
-    }
-    nc.remark = remark || nc.remark;
-    await this.ncRepo.save(nc);
-
-    // Update the latest resubmission record
-    const latestResub = await this.resubRepo.findOne({
-      where: { nonComplianceId: ncId },
-      order: { resubmittedAt: 'DESC' },
-    });
-    if (latestResub) {
-      latestResub.finalMark = decision;
-      latestResub.auditorRemark = remark || null;
-      latestResub.reviewedBy = user.userId;
-      latestResub.reviewedAt = new Date();
-      await this.resubRepo.save(latestResub);
-    }
-
-    // Also update the original document status
-    if (nc.documentId && nc.sourceTable) {
-      const statusMap: Record<string, string> = {
-        COMPLIED: 'APPROVED',
-        NON_COMPLIED: 'REJECTED',
-      };
-      if (nc.sourceTable === 'branch_documents') {
-        await this.dataSource.query(
-          `UPDATE branch_documents SET status = $1, remarks = $2, reviewed_by = $3, reviewed_at = NOW() WHERE id = $4`,
-          [statusMap[decision], remark || null, user.userId, nc.documentId],
-        );
-      } else {
-        await this.dataSource.query(
-          `UPDATE contractor_documents SET status = $1, review_notes = $2, reviewed_by_user_id = $3, reviewed_at = NOW() WHERE id = $4`,
-          [statusMap[decision], remark || null, user.userId, nc.documentId],
+    const nc = await this.dataSource.transaction(async (manager) => {
+      const { nc, audit } = await this.lockNcForUpdate(manager, ncId);
+      if (audit.assignedAuditorId !== (user.userId || user.id)) {
+        throw new ForbiddenException('Not your audit');
+      }
+      this.assertCorrectionOpen(audit);
+      if (!['REUPLOADED', 'REVERIFICATION_PENDING'].includes(nc.status)) {
+        throw new BadRequestException(
+          'A corrected upload is required before review',
         );
       }
-    }
+      const ncRepo = manager.getRepository(AuditNonComplianceEntity);
+      const auditRepo = manager.getRepository(AuditEntity);
+      const resubRepo = manager.getRepository(AuditResubmissionEntity);
+      const docReviewRepo = manager.getRepository(AuditDocumentReviewEntity);
+      const latestResub = await resubRepo.findOne({
+        where: { nonComplianceId: ncId },
+        order: { resubmittedAt: 'DESC', createdAt: 'DESC', id: 'DESC' },
+      });
+      if (
+        !latestResub?.filePath ||
+        latestResub.finalMark ||
+        latestResub.reviewedAt
+      ) {
+        throw new BadRequestException(
+          'An unreviewed corrected upload is required',
+        );
+      }
+      if (
+        nc.sourceTable &&
+        !['branch_documents', 'contractor_documents'].includes(nc.sourceTable)
+      ) {
+        throw new BadRequestException('Invalid document source');
+      }
+      if (decision === 'COMPLIED') {
+        nc.status = 'ACCEPTED';
+        nc.closedAt = new Date();
+      } else {
+        nc.status = 'NC_RAISED'; // re-raise
+        audit.status = 'CORRECTION_PENDING';
+        nc.closedAt = null;
+        await auditRepo.save(audit);
+      }
+      nc.remark = remark || nc.remark;
+      await ncRepo.save(nc);
 
-    // Create a new review record for the corrected version
-    if (nc.documentId) {
-      const tbl = nc.sourceTable || 'contractor_documents';
-      const prevReview = await this.docReviewRepo.findOne({
-        where: {
+      // Update the latest resubmission record
+      if (latestResub) {
+        latestResub.finalMark = decision;
+        latestResub.auditorRemark = remark || null;
+        latestResub.reviewedBy = user.userId;
+        latestResub.reviewedAt = new Date();
+        await resubRepo.save(latestResub);
+      }
+
+      // Also update the original document status
+      if (nc.documentId && nc.sourceTable) {
+        const statusMap: Record<string, string> = {
+          COMPLIED: 'APPROVED',
+          NON_COMPLIED: 'REJECTED',
+        };
+        if (nc.sourceTable === 'branch_documents') {
+          await manager.query(
+            `UPDATE branch_documents SET status = $1, remarks = $2, reviewed_by = $3, reviewed_at = NOW() WHERE id = $4`,
+            [statusMap[decision], remark || null, user.userId, nc.documentId],
+          );
+        } else {
+          await manager.query(
+            `UPDATE contractor_documents SET status = $1, review_notes = $2, reviewed_by_user_id = $3, reviewed_at = NOW() WHERE id = $4`,
+            [statusMap[decision], remark || null, user.userId, nc.documentId],
+          );
+        }
+      }
+
+      // Create a new review record for the corrected version
+      if (nc.documentId) {
+        const tbl = nc.sourceTable || 'contractor_documents';
+        const prevReview = await docReviewRepo.findOne({
+          where: {
+            auditId: nc.auditId,
+            documentId: nc.documentId,
+            sourceTable: tbl,
+          },
+          order: { version: 'DESC' },
+        });
+        const reviewRecord = docReviewRepo.create({
           auditId: nc.auditId,
           documentId: nc.documentId,
           sourceTable: tbl,
-        },
-        order: { version: 'DESC' },
-      });
-      const reviewRecord = this.docReviewRepo.create({
-        auditId: nc.auditId,
-        documentId: nc.documentId,
-        sourceTable: tbl,
-        complianceMark: decision,
-        auditorRemark: remark || null,
-        version: prevReview ? prevReview.version + 1 : 1,
-        reviewedBy: user.userId,
-        reviewedAt: new Date(),
-      });
-      await this.docReviewRepo.save(reviewRecord);
-    }
+          complianceMark: decision,
+          auditorRemark: remark || null,
+          version: prevReview ? prevReview.version + 1 : 1,
+          reviewedBy: user.userId,
+          reviewedAt: new Date(),
+        });
+        await docReviewRepo.save(reviewRecord);
+      }
 
-    // Check if all NCs for this audit are resolved — auto-transition to CLOSED
-    const openNcs = await this.ncRepo.count({
-      where: { auditId: nc.auditId },
+      // Check if all NCs for this audit are resolved — auto-transition to CLOSED
+      const openNcs = await ncRepo.count({
+        where: { auditId: nc.auditId },
+      });
+      const closedNcs = await ncRepo.count({
+        where: [
+          { auditId: nc.auditId, status: 'ACCEPTED' },
+          { auditId: nc.auditId, status: 'CLOSED' },
+        ],
+      });
+      if (openNcs > 0 && openNcs === closedNcs) {
+        audit.status = 'CLOSED';
+        await auditRepo.save(audit);
+      }
+      return nc;
     });
-    const closedNcs = await this.ncRepo.count({
-      where: [
-        { auditId: nc.auditId, status: 'ACCEPTED' },
-        { auditId: nc.auditId, status: 'CLOSED' },
-      ],
-    });
-    if (openNcs > 0 && openNcs === closedNcs) {
-      audit.status = 'CLOSED';
-      await this.repo.save(audit);
-    }
 
     // ── Automation hooks ──
     try {
@@ -494,51 +531,76 @@ export class AuditNcService {
       size: number;
     },
   ) {
-    const nc = await this.ncRepo.findOne({ where: { id: ncId } });
-    if (!nc) throw new NotFoundException('Non-compliance not found');
-    if (nc.requestedToUserId !== user.userId)
-      throw new ForbiddenException('Not your NC');
-
-    const resub = this.resubRepo.create({
-      auditId: nc.auditId,
-      nonComplianceId: ncId,
-      documentId: nc.documentId,
-      sourceTable: nc.sourceTable,
-      filePath: file.path,
-      fileName: file.originalname,
-      mimeType: file.mimetype,
-      fileSize: file.size,
-      resubmittedBy: user.userId,
+    const result = await this.dataSource.transaction(async (manager) => {
+      const { nc, audit } = await this.lockNcForUpdate(manager, ncId);
+      if (nc.requestedToUserId !== (user.userId || user.id)) {
+        throw new ForbiddenException('Not your NC');
+      }
+      this.assertCorrectionOpen(audit);
+      if (!['NC_RAISED', 'AWAITING_REUPLOAD'].includes(nc.status)) {
+        throw new BadRequestException(
+          'This NC is not awaiting a corrected upload',
+        );
+      }
+      if (!file?.path)
+        throw new BadRequestException('A corrected file is required');
+      const resubRepo = manager.getRepository(AuditResubmissionEntity);
+      const resub = resubRepo.create({
+        auditId: nc.auditId,
+        nonComplianceId: ncId,
+        documentId: nc.documentId,
+        sourceTable: nc.sourceTable,
+        filePath: file.path,
+        fileName: file.originalname,
+        mimeType: file.mimetype,
+        fileSize: file.size,
+        resubmittedBy: user.userId || user.id,
+      });
+      await resubRepo.save(resub);
+      nc.status = 'REUPLOADED';
+      await manager.getRepository(AuditNonComplianceEntity).save(nc);
+      if (['CORRECTION_PENDING', 'SUBMITTED'].includes(audit.status)) {
+        audit.status = 'REVERIFICATION_PENDING';
+        await manager.getRepository(AuditEntity).save(audit);
+      }
+      return { nc, resub };
     });
-    await this.resubRepo.save(resub);
-
-    nc.status = 'REUPLOADED';
-    await this.ncRepo.save(nc);
-
-    // Phase 5: emit log
     try {
       await this.auditLogs?.log({
         entityType: 'AUDIT_NC',
-        entityId: nc.id,
+        entityId: result.nc.id,
         action: 'NC_REUPLOADED',
-        performedBy: user.userId,
+        performedBy: user.userId || user.id,
         performedRole: user.roleCode || null,
-        meta: { auditId: nc.auditId, fileName: file.originalname },
+        meta: { auditId: result.nc.auditId, fileName: file.originalname },
       });
     } catch {
       /* non-critical */
     }
+    return { resubmissionId: result.resub.id, status: result.nc.status };
+  }
 
-    // Update audit status to REVERIFICATION_PENDING if it was CORRECTION_PENDING
-    const audit = await this.repo.findOne({ where: { id: nc.auditId } });
-    if (
-      audit &&
-      (audit.status === 'CORRECTION_PENDING' || audit.status === 'SUBMITTED')
-    ) {
-      audit.status = 'REVERIFICATION_PENDING';
-      await this.repo.save(audit);
+  private assertCorrectionOpen(audit: AuditEntity) {
+    if (['COMPLETED', 'CLOSED', 'CANCELLED'].includes(audit.status)) {
+      throw new BadRequestException('This audit is closed for corrections');
     }
+  }
 
-    return { resubmissionId: resub.id, status: nc.status };
+  private async lockNcForUpdate(manager: EntityManager, ncId: string) {
+    const ncRepo = manager.getRepository(AuditNonComplianceEntity);
+    const candidate = await ncRepo.findOne({ where: { id: ncId } });
+    if (!candidate) throw new NotFoundException('Non-compliance not found');
+    // Lock the audit first to serialize decisions across all its NCs.
+    const audit = await manager.getRepository(AuditEntity).findOne({
+      where: { id: candidate.auditId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!audit) throw new NotFoundException('Audit not found');
+    const nc = await ncRepo.findOne({
+      where: { id: ncId, auditId: audit.id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!nc) throw new NotFoundException('Non-compliance not found');
+    return { nc, audit };
   }
 }

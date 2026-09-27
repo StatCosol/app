@@ -106,6 +106,10 @@ export class AuditsService {
     });
   }
 
+  crmReleaseReportHold(id: string): Observable<any> {
+    return this.http.post(`${this.crmBase}/${id}/report/release-hold`, {});
+  }
+
   // Auditor: list assigned audits with optional filters
   auditorListAudits(params: any): Observable<any> {
     let p = new HttpParams();

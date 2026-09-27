@@ -99,6 +99,9 @@ interface ReportStatusResponse {
   stage?: 'NOT_STARTED' | 'DRAFT' | 'FINAL';
   status?: string | null;
   updatedAt?: string | null;
+  held?: boolean;
+  holdRemarks?: string | null;
+  heldAt?: string | null;
 }
 
 interface ContractorOption {
@@ -919,7 +922,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
 
   approveReport(): void {
     const id = this.currentAudit?.id;
-    if (!id || this.governanceBusy) return;
+    if (!id || this.governanceBusy || this.latestReportStatus?.held) return;
     this.governanceBusy = true;
     this.auditsService.crmApproveReport(id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
@@ -938,7 +941,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
 
   publishReport(): void {
     const id = this.currentAudit?.id;
-    if (!id || this.governanceBusy) return;
+    if (!id || this.governanceBusy || this.latestReportStatus?.held) return;
     this.governanceBusy = true;
     this.auditsService.crmPublishReport(id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
@@ -1001,6 +1004,25 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
       },
       error: (e: any) => {
         this.toast.error(e?.error?.message || 'Failed to hold report');
+        this.governanceBusy = false;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  releaseReportHold(): void {
+    const id = this.currentAudit?.id;
+    if (!id || this.governanceBusy || !this.latestReportStatus?.held) return;
+    this.governanceBusy = true;
+    this.auditsService.crmReleaseReportHold(id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => {
+        this.toast.success('Report hold released');
+        this.governanceBusy = false;
+        this.loadAuditInsights(id);
+        this.cdr.markForCheck();
+      },
+      error: (e: any) => {
+        this.toast.error(e?.error?.message || 'Failed to release report hold');
         this.governanceBusy = false;
         this.cdr.markForCheck();
       },

@@ -325,7 +325,7 @@
 }
 
       @if (currentAudit; as audit) {
-<div class="card">
+<div class="card min-w-0" aria-label="Report status">
         <h3 class="text-base font-semibold text-gray-900 mb-3">Report Status</h3>
         <div class="flex items-center justify-between gap-2 mb-2">
           <span [class]="reportPhaseClass">{{ reportPhase }}</span>
@@ -339,6 +339,14 @@
         @if (latestReportStatus?.status) {
 <div class="text-xs text-gray-500 mb-1">
           Status: {{ latestReportStatus?.status }}
+        </div>
+}
+        @if (latestReportStatus?.held) {
+<div class="text-sm text-amber-800 mb-2" role="status">
+          <strong>On hold</strong>
+          @if (latestReportStatus?.holdRemarks) {
+<p class="mt-1 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{{ latestReportStatus?.holdRemarks }}</p>
+}
         </div>
 }
         @if (latestReportStatus?.updatedAt) {
@@ -359,7 +367,7 @@
 <button type="button"
             class="status-action-btn status-action-btn--primary"
            
-            [disabled]="governanceBusy"
+            [disabled]="governanceBusy || latestReportStatus?.held"
             (click)="approveReport()">
             ✓ Approve
           </button>
@@ -368,7 +376,7 @@
 <button type="button"
             class="status-action-btn status-action-btn--primary"
            
-            [disabled]="governanceBusy"
+            [disabled]="governanceBusy || latestReportStatus?.held"
             (click)="publishReport()">
             ↑ Publish
           </button>
@@ -382,13 +390,19 @@
             ← Send Back
           </button>
 }
-          @if (latestReportStatus?.status !== 'PUBLISHED') {
+          @if (!latestReportStatus?.held && (latestReportStatus?.status === 'SUBMITTED' || latestReportStatus?.status === 'APPROVED')) {
 <button type="button"
             class="status-action-btn status-action-btn--danger"
            
             [disabled]="governanceBusy"
             (click)="holdReport()">
             ⏸ Hold
+          </button>
+}
+          @if (latestReportStatus?.held) {
+<button type="button" class="status-action-btn"
+            [disabled]="governanceBusy" (click)="releaseReportHold()">
+            Release Hold
           </button>
 }
         </div>

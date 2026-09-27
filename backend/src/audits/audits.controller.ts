@@ -30,6 +30,7 @@ import {
   SaveReportDraftDto,
 } from './dto/audit-query.dto';
 import { UpdateAuditChecklistDto } from './dto/update-audit-checklist.dto';
+import { ReviewCorrectedDocumentDto } from './dto/review-corrected-document.dto';
 import { OpenAuditWorkspaceDto } from './dto/open-audit-workspace.dto';
 import { BranchAccessService } from '../auth/branch-access.service';
 import { AuditorAssignmentGuard } from '../assignments/auditor-assignment.guard';
@@ -233,6 +234,15 @@ export class CrmAuditsController {
   ) {
     return this.svc.holdReportForCrm(user, id, body?.remarks);
   }
+
+  @ApiOperation({ summary: 'Release report hold (CRM)' })
+  @Post(':id/report/release-hold')
+  releaseReportHold(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.svc.releaseReportHoldForCrm(user, id);
+  }
 }
 
 @Controller({ path: 'auditor/audits', version: '1' })
@@ -348,7 +358,7 @@ export class AuditorAuditsController {
   async reviewCorrectedDoc(
     @CurrentUser() user: ReqUser,
     @Param('ncId', ParseUUIDPipe) ncId: string,
-    @Body() body: { decision: 'COMPLIED' | 'NON_COMPLIED'; remark?: string },
+    @Body() body: ReviewCorrectedDocumentDto,
   ) {
     return this.svc.reviewCorrectedDocument(
       user,
