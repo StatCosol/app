@@ -3,7 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { PayrollConfigController } from './payroll.config.controller';
 import { PayrollConfigAuditService } from './payroll-config-audit.service';
-import { PayrollService } from './payroll.service';
+import { PayrollClientConfigService } from './payroll-client-config.service';
 import { PayrollClientComponentOverrideEntity } from './entities/payroll-client-component-override.entity';
 import { SaveComponentOverridesDto } from './dto/payroll-config.dto';
 
@@ -91,12 +91,15 @@ describe('payroll component override persistence', () => {
       ),
     };
     const transaction = jest.fn(async (callback) => callback(manager));
-    const service = Object.assign(Object.create(PayrollService.prototype), {
-      scopeService: { assertPayrollAccessToClient: jest.fn() },
-      compRepo: { find: jest.fn().mockResolvedValue([{ id: 'component' }]) },
-      overrideRepo: { manager: { transaction } },
-      getClientEffectiveComponents: jest.fn().mockResolvedValue([]),
-    });
+    const service = Object.assign(
+      Object.create(PayrollClientConfigService.prototype),
+      {
+        scopeService: { assertPayrollAccessToClient: jest.fn() },
+        compRepo: { find: jest.fn().mockResolvedValue([{ id: 'component' }]) },
+        overrideRepo: { manager: { transaction } },
+        getClientEffectiveComponents: jest.fn().mockResolvedValue([]),
+      },
+    );
     const save = (items: any[]) =>
       service.saveClientComponentOverrides(
         { id: 'user', roleCode: 'PAYROLL' },

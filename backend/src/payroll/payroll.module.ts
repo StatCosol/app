@@ -111,6 +111,7 @@ import { PayrollApprovalService } from './payroll-approval.service';
 import { PayrollApprovalController } from './payroll-approval.controller';
 // Config audit trail
 import { PayrollConfigAuditEntity } from './entities/payroll-config-audit.entity';
+import { PayrollClientConfigService } from './payroll-client-config.service';
 import { PayrollConfigAuditService } from './payroll-config-audit.service';
 // Gratuity
 import { GratuityCalculatorService } from './services/gratuity-calculator.service';
@@ -242,6 +243,7 @@ import { AccessModule } from '../access/access.module';
     PayrollReconciliationService,
     PayrollService,
     PayrollClientScopeService,
+    PayrollClientConfigService,
     PayrollQueryService,
     PayrollFnfService,
     PayrollRegistersService,

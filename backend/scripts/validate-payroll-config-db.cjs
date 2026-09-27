@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { Client } = require('pg');
 const { DataSource, Table } = require('typeorm');
 const { PayrollService } = require('../dist/src/payroll/payroll.service');
+const { PayrollClientConfigService } = require('../dist/src/payroll/payroll-client-config.service');
 const { PayrollComponentMasterEntity } = require('../dist/src/payroll/entities/payroll-component-master.entity');
 const { PayrollClientComponentOverrideEntity } = require('../dist/src/payroll/entities/payroll-client-component-override.entity');
 const { PayrollConfigAuditEntity } = require('../dist/src/payroll/entities/payroll-config-audit.entity');
@@ -29,10 +30,11 @@ async function main() {
     const audit = ds.getRepository(PayrollConfigAuditEntity);
     await master.save({ id: id(1), code: 'BASIC', name: 'Basic', componentType: 'EARNING', defaultFormula: 'GROSS * 0.5' });
     await overrides.save({ clientId: id(2), componentId: id(1), enabled: false, displayOrder: 7, labelOverride: 'Original', formulaOverride: 'GROSS * 0.4' });
-    const service = Object.assign(Object.create(PayrollService.prototype), {
+    const clientConfigService = Object.assign(Object.create(PayrollClientConfigService.prototype), {
       compRepo: master, overrideRepo: overrides,
       scopeService: { assertPayrollAccessToClient: async () => {} },
     });
+    const service = Object.assign(Object.create(PayrollService.prototype), { clientConfigService });
     const user = { id: id(3), roleCode: 'PAYROLL' };
     const save = patch => service.saveClientComponentOverrides(user, id(2), { items: [{ componentId: id(1), ...patch }] });
     await Promise.all([save({ labelOverride: 'Updated' }), save({ showOnPayslip: false })]);
