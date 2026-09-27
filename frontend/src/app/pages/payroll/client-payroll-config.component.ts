@@ -26,6 +26,7 @@ import { PayrollApiService, PayrollClient } from './payroll-api.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
 import { PageHeaderComponent } from '../../shared/ui';
+import { PayslipLayoutEditorComponent } from './payslip-layout-editor.component';
 
 /* ── Default form helpers ──────────────────────────────────────────────────── */
 
@@ -113,7 +114,7 @@ const INDIAN_STATES = [
 @Component({
   selector: 'app-client-payroll-config',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, ClientContextStripComponent, PageHeaderComponent],
+  imports: [CommonModule, FormsModule, RouterLink, ClientContextStripComponent, PageHeaderComponent, PayslipLayoutEditorComponent],
   templateUrl: './client-payroll-config.component.html',
   styleUrls: ['./client-payroll-config.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -131,7 +132,7 @@ export class ClientPayrollConfigComponent implements OnInit, OnDestroy {
   selectedStructure: ClientStructure | null = null;
 
   // View mode
-  view: 'list' | 'form' | 'detail' | 'overrides' | 'history' = 'list';
+  view: 'list' | 'form' | 'detail' | 'overrides' | 'history' | 'layout' = 'list';
   structuresError = false;
   overridesError = false;
   history: PayrollConfigHistoryEntry[] = [];

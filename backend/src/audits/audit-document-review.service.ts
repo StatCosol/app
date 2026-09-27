@@ -20,8 +20,6 @@ import { AuditListingService } from './audit-listing.service';
 
 @Injectable()
 export class AuditDocumentReviewService {
-  private readonly logger = new Logger(AuditDocumentReviewService.name);
-
   constructor(
     @InjectRepository(AuditEntity)
     private readonly repo: Repository<AuditEntity>,
@@ -389,11 +387,19 @@ export class AuditDocumentReviewService {
       try {
         await this.ncEngine.createTaskForNc(nc.id);
       } catch {
-        // non-critical: task creation failure should not break the review
+        Logger.warn(
+          {
+            event: 'AUDIT_DOCUMENT_FOLLOW_UP_FAILED',
+            auditId,
+            ncId: nc.id,
+            operation: 'NC task creation',
+          },
+          AuditDocumentReviewService.name,
+        );
       }
 
       // Item #7: notify the contractor with NC + Solution mail (best-effort).
-      this.notifyAuditRejection(audit, docName, remarks).catch(() => undefined);
+      void this.notifyAuditRejection(audit, docName, remarks);
     }
 
     // If previously NON_COMPLIED and now COMPLIED, close the NC + task
@@ -409,10 +415,15 @@ export class AuditDocumentReviewService {
       for (const openNc of openNcs) {
         try {
           await this.ncEngine.closeNc(openNc.id);
-        } catch (e: unknown) {
-          this.logger.warn(
-            `Best-effort NC close failed for ${openNc.id}`,
-            (e as Error)?.message,
+        } catch {
+          Logger.warn(
+            {
+              event: 'AUDIT_DOCUMENT_FOLLOW_UP_FAILED',
+              auditId,
+              ncId: openNc.id,
+              operation: 'NC task closure',
+            },
+            AuditDocumentReviewService.name,
           );
         }
       }
@@ -439,7 +450,15 @@ export class AuditDocumentReviewService {
         user.userId,
       );
     } catch {
-      // Non-critical: don't fail the review if checklist sync fails
+      Logger.warn(
+        {
+          event: 'AUDIT_DOCUMENT_FOLLOW_UP_FAILED',
+          auditId,
+          documentId: docId,
+          operation: 'Checklist sync',
+        },
+        AuditDocumentReviewService.name,
+      );
     }
 
     // ── Auto-create observation when rejecting a document ─────────
@@ -454,7 +473,15 @@ export class AuditDocumentReviewService {
           audit,
         );
       } catch {
-        // Non-critical
+        Logger.warn(
+          {
+            event: 'AUDIT_DOCUMENT_FOLLOW_UP_FAILED',
+            auditId,
+            documentId: docId,
+            operation: 'Observation creation',
+          },
+          AuditDocumentReviewService.name,
+        );
       }
     }
 
@@ -626,7 +653,7 @@ export class AuditDocumentReviewService {
         `SELECT u.email AS email,
                 b.branchname AS branch_name
            FROM users u
-           LEFT JOIN branches b ON b.id = $2::uuid
+           LEFT JOIN client_branches b ON b.id = $2::uuid
           WHERE u.id = $1::uuid AND u.deleted_at IS NULL
           LIMIT 1`,
         [audit.contractorUserId, audit.branchId || null],
@@ -646,7 +673,14 @@ export class AuditDocumentReviewService {
             auditorCc = [aEmail];
           }
         } catch {
-          // cc is best-effort
+          Logger.warn(
+            {
+              event: 'AUDIT_DOCUMENT_FOLLOW_UP_FAILED',
+              auditId: audit.id,
+              operation: 'Auditor notification recipient lookup',
+            },
+            AuditDocumentReviewService.name,
+          );
         }
       }
 
@@ -663,7 +697,14 @@ export class AuditDocumentReviewService {
         solution: remarks ?? null,
       });
     } catch {
-      // swallow
+      Logger.warn(
+        {
+          event: 'AUDIT_DOCUMENT_FOLLOW_UP_FAILED',
+          auditId: audit.id,
+          operation: 'Rejection notification',
+        },
+        AuditDocumentReviewService.name,
+      );
     }
   }
 }

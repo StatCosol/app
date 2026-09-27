@@ -12,6 +12,18 @@ import { ProtectedFileService } from '../../shared/files/services/protected-file
 import { of, throwError } from 'rxjs';
 
 describe('Auditor contractor OCR evidence', () => {
+  it('shows follow-up warnings after a successful correction review', () => {
+    const toast = { success: vi.fn(), warning: vi.fn(), error: vi.fn() };
+    const api = { auditorReviewCorrectedDoc: vi.fn(() => of({ warnings: ['Audit report refresh failed. The correction was saved; contact an administrator.'] })) };
+    const c = new AuditorAuditWorkspaceComponent({} as any, {} as any, api as any, {} as any, {} as any, {} as any, toast as any, {} as any, { markForCheck: vi.fn() } as any, {} as any);
+    vi.spyOn(c, 'loadAuditDocuments').mockImplementation(() => {});
+    vi.spyOn(c as any, 'loadNonCompliances').mockImplementation(() => {});
+    vi.spyOn(c as any, 'refreshCockpit').mockImplementation(() => {});
+    c.reviewCorrectedDocument({ id: 'nc' }, 'COMPLIED');
+    expect(toast.success).toHaveBeenCalledWith('Corrected document approved');
+    expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining('correction was saved'));
+    expect(toast.error).not.toHaveBeenCalled();
+  });
   afterEach(() => { vi.restoreAllMocks(); TestBed.resetTestingModule(); });
   it('renders OCR excerpts and guidance in the contractor row, never the branch row', async () => {
     vi.spyOn(AuditorAuditWorkspaceComponent.prototype, 'ngOnInit').mockImplementation(() => {});

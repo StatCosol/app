@@ -52,7 +52,10 @@ jobs:
       - name: Deep module check
         run: npm run deep-module-check
       - name: Module checker regressions
-        run: node --test scripts/deep-module-check.test.js scripts/deployment-gate.test.js
+        run: node --test scripts/deep-module-check.test.js scripts/deployment-gate.test.js scripts/release-checks.test.cjs
+      - name: Local smoke script safety regressions
+        shell: pwsh
+        run: ../scripts/test-auditxpert-smoke.ps1
       - name: Unit tests
         run: npm test
       - name: Automation PostgreSQL regressions
@@ -83,8 +86,20 @@ jobs:
           node scripts/validate-clra-scope.cjs
           node scripts/validate-contractor-punch-list.cjs
           node scripts/validate-report-queries.cjs
+      - name: Audit correction and report governance PostgreSQL regressions
+        env:
+          AUDITXPERT_TEST_PORT: 5432
+          AUDITXPERT_TEST_USER: postgres
+          AUDITXPERT_TEST_PASSWORD: postgres
+        run: |
+          node scripts/verify-audit-corrections.cjs
+          node scripts/verify-audit-entry.cjs ./auditxpert-test-db.cjs
+          node scripts/verify-auditor-dashboard.cjs ./auditxpert-test-db.cjs
+          node scripts/verify-payslip-layout-db.cjs
       - name: Patched dependency runtime smoke
         run: node scripts/security-dependency-smoke.cjs
+      - name: Payslip PDF layout regressions
+        run: node scripts/verify-payslip-layout.cjs
       - name: Boot check (entity metadata + DB connect)
         # Boots a TypeORM DataSource with every entity against Postgres, so a bad
         # column type (e.g. an untyped `string | null` reflecting as Object) is
@@ -189,5 +204,15 @@ jobs:
     runs-on: ubuntu-latest
     needs: [backend]
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
       - name: Payroll transition smoke check
-        run: echo "payroll-transition-smoke ok"
+        working-directory: backend
+        run: npx jest --runInBand --runTestsByPath src/payroll/payroll-approval.service.spec.ts src/payroll/payroll-configuration-scope.guard.spec.ts src/payroll/reconciliation/payroll-reconciliation.service.spec.ts

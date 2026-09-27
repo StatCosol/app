@@ -11,6 +11,7 @@ import { AssignmentsService } from '../assignments/assignments.service';
 import { generateAuditReportPdfBuffer } from './utils/report-pdf';
 import { AuditEntity } from './entities/audit.entity';
 import { AuditObservationEntity } from './entities/audit-observation.entity';
+import { transitionGovernedReport } from './report-governance';
 
 @Injectable()
 export class AuditReportService {
@@ -117,28 +118,12 @@ export class AuditReportService {
       throw new BadRequestException('No report draft found for this audit');
     }
 
-    if (current.held_at)
-      throw new BadRequestException('Release the report hold first');
-    const status = String(current.status || '').toUpperCase();
-    if (status !== 'SUBMITTED') {
-      throw new BadRequestException(
-        `Only SUBMITTED reports can be approved. Current status: ${status}`,
-      );
-    }
-
-    const changed = await this.dataSource.query(
-      `WITH changed AS (UPDATE audit_reports
-       SET status = 'APPROVED',
-           approved_by_user_id = $2,
-           approved_date = CURRENT_DATE,
-           updated_at = NOW()
-       WHERE id = $1 AND held_at IS NULL AND status = 'SUBMITTED'
-       RETURNING id) SELECT id FROM changed`,
-      [current.id, user.userId],
+    await transitionGovernedReport(
+      this.dataSource,
+      current,
+      'approve',
+      user.userId,
     );
-
-    if (!changed.length)
-      throw new BadRequestException('Report changed; reload before continuing');
     return {
       auditId: audit.id,
       reportId: current.id,
@@ -162,29 +147,12 @@ export class AuditReportService {
       throw new BadRequestException('No report draft found for this audit');
     }
 
-    if (current.held_at)
-      throw new BadRequestException('Release the report hold first');
-    const status = String(current.status || '').toUpperCase();
-    if (!['SUBMITTED', 'APPROVED'].includes(status)) {
-      throw new BadRequestException(
-        `Only SUBMITTED/APPROVED reports can be published. Current status: ${status}`,
-      );
-    }
-
-    const changed = await this.dataSource.query(
-      `WITH changed AS (UPDATE audit_reports
-       SET status = 'PUBLISHED',
-           approved_by_user_id = COALESCE(approved_by_user_id, $2),
-           approved_date = COALESCE(approved_date, CURRENT_DATE),
-           published_date = CURRENT_DATE,
-           updated_at = NOW()
-       WHERE id = $1 AND held_at IS NULL AND status IN ('SUBMITTED', 'APPROVED')
-       RETURNING id) SELECT id FROM changed`,
-      [current.id, user.userId],
+    await transitionGovernedReport(
+      this.dataSource,
+      current,
+      'publishCrm',
+      user.userId,
     );
-
-    if (!changed.length)
-      throw new BadRequestException('Report changed; reload before continuing');
     return {
       auditId: audit.id,
       reportId: current.id,
