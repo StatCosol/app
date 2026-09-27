@@ -32,6 +32,12 @@ production data, kiosk, APK, face-capture or attendance changes.
   screenshots for invoice actions and the payment dialog.
 - All 92 frontend service/utility tests passed. Billing component tests are
   discovered by the Angular runner rather than the Node-only service runner.
+- Review follow-up: separated `vitest.angular.config.ts` (Angular browser runner)
+  from `vitest.config.ts` (Node service runner). The installed Angular CLI ignores
+  Vitest's include setting, but the separate files remove that shared-config
+  ambiguity. The unfiltered `npm test -- --watch=false --reporters=verbose` run
+  passed all 84 files / 504 tests, explicitly including all 31 billing component
+  tests. The separate Node run still passed all 16 files / 92 tests.
 - Complete production frontend build and frontend lint passed. Existing Sass
   deprecation warnings remain.
 - No real emails sent, payments recorded or client data accessed. Backend tests

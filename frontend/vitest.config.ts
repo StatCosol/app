@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     // Vitest-native specs executed in CI via `npm run test:unit`.
-    // Angular TestBed specs continue to use `ng test`.
+    // Angular TestBed uses vitest.angular.config.ts and CLI test discovery.
     include: [
       'src/app/core/session-isolation.spec.ts',
       'src/app/pages/crm/compliance/crm-reupload-backlog.component.spec.ts',
@@ -14,11 +14,5 @@ export default defineConfig({
       // Pure/logic specs (utils, validators, pipes) — no Angular TestBed needed.
       'src/app/shared/**/*.spec.ts',
     ],
-    browser: {
-      api: {
-        host: '127.0.0.1',
-        port: 51204,
-      },
-    },
   },
 });
