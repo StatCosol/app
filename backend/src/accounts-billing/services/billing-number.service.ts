@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { Invoice } from '../entities';
@@ -20,8 +20,8 @@ export class BillingNumberService {
   ) {}
 
   getFinancialYear(date: Date): string {
-    const month = date.getMonth();
-    const year = date.getFullYear();
+    const month = date.getUTCMonth();
+    const year = date.getUTCFullYear();
     if (month >= 3) {
       return `${year}-${String(year + 1).slice(2)}`;
     }
@@ -51,30 +51,35 @@ export class BillingNumberService {
   async generateInvoiceNumber(
     invoiceType: InvoiceType,
     invoiceDate: string,
-    manager?: EntityManager,
+    manager: EntityManager,
   ): Promise<string> {
     const date = new Date(invoiceDate);
+    if (!manager?.queryRunner?.isTransactionActive) {
+      throw new BadRequestException(
+        'Invoice number allocation requires an active transaction',
+      );
+    }
+    if (!Number.isFinite(date.getTime())) {
+      throw new BadRequestException('Invalid invoice date');
+    }
     const fy = this.getFinancialYear(date);
     const prefix = normalizeInvoicePrefix(
       await this.getPrefix(invoiceType, manager),
     );
     const fullPrefix = `${prefix}/${compactFinancialYear(fy)}/`;
 
-    const invoiceRepo = manager
-      ? manager.getRepository(Invoice)
-      : this.invoiceRepo;
-    const lastInvoice = await invoiceRepo
-      .createQueryBuilder('inv')
-      .where('inv.invoice_number LIKE :prefix', { prefix: `${fullPrefix}%` })
-      .orderBy('inv.invoiceNumber', 'DESC')
-      .getOne();
-
-    let nextSeq = 1;
-    if (lastInvoice) {
-      const parts = lastInvoice.invoiceNumber.split('/');
-      const lastNum = parseInt(parts[parts.length - 1], 10);
-      if (!isNaN(lastNum)) nextSeq = lastNum + 1;
-    }
+    // Hold the series lock until the caller commits the invoice and its items.
+    // Shared normalized prefixes must share a lock, regardless of invoice type.
+    await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      `billing-invoice:${fullPrefix}`,
+    ]);
+    const [row] = await manager.query(
+      `SELECT COALESCE(MAX(CASE WHEN invoice_number ~ $1
+        THEN split_part(invoice_number, '/', 3)::numeric END), 0)::text AS maximum
+       FROM invoices WHERE invoice_number LIKE $2`,
+      [`^${fullPrefix}[0-9]+$`, `${fullPrefix}%`],
+    );
+    const nextSeq = Number(row.maximum) + 1;
 
     return buildInvoiceNumber(prefix, fy, nextSeq);
   }

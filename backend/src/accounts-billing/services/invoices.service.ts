@@ -56,104 +56,126 @@ export class InvoicesService {
     userId: string,
     recurringInvoiceId?: string,
   ) {
-    const client = await this.clientRepo.findOne({
-      where: { id: dto.billingClientId },
-    });
-    if (!client) throw new NotFoundException('Billing client not found');
+    return this.dataSource.transaction(async (manager) => {
+      const invoiceRepo = manager.getRepository(Invoice);
+      const itemRepo = manager.getRepository(InvoiceItem);
+      if (recurringInvoiceId) {
+        // A retry must return the committed recurring invoice, never save over it.
+        await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+          `billing-recurring:${recurringInvoiceId}`,
+        ]);
+        const existing = await invoiceRepo.findOne({
+          where: { id: recurringInvoiceId },
+        });
+        if (existing) {
+          if (existing.billingClientId !== dto.billingClientId) {
+            throw new BadRequestException('Recurring invoice client mismatch');
+          }
+          return existing;
+        }
+      }
+      const client = await manager.getRepository(BillingClient).findOne({
+        where: { id: dto.billingClientId },
+      });
+      if (!client) throw new NotFoundException('Billing client not found');
 
-    const settings = await this.settingsRepo.findOne({ where: {} });
-    const supplierStateCode = settings?.stateCode || '36';
-    const clientStateCode = client.stateCode;
-    const gstRate = client.defaultGstRate || settings?.defaultGstRate || 18;
+      const settings = await manager
+        .getRepository(BillingSetting)
+        .findOne({ where: {} });
+      const supplierStateCode = settings?.stateCode || '36';
+      const clientStateCode = client.stateCode;
+      const gstRate = client.defaultGstRate || settings?.defaultGstRate || 18;
 
-    const intraState = this.calcService.isIntraState(
-      supplierStateCode,
-      clientStateCode,
-    );
+      const intraState = this.calcService.isIntraState(
+        supplierStateCode,
+        clientStateCode,
+      );
 
-    const invoiceNumber = await this.numberService.generateInvoiceNumber(
-      dto.invoiceType,
-      dto.invoiceDate,
-    );
-    const financialYear = this.numberService.getFinancialYear(
-      new Date(dto.invoiceDate),
-    );
+      const invoiceNumber = await this.numberService.generateInvoiceNumber(
+        dto.invoiceType,
+        dto.invoiceDate,
+        manager,
+      );
+      const financialYear = this.numberService.getFinancialYear(
+        new Date(dto.invoiceDate),
+      );
 
-    const dueDate = dto.dueDate ? dto.dueDate : null;
+      const dueDate = dto.dueDate ? dto.dueDate : null;
 
-    const itemResults = dto.items.map((item) => {
-      // Reimbursement / pass-through line items (e.g. statutory / government
-      // fees that we collect on the client's behalf) are not a supply by us
-      // and therefore do not attract GST. Force the GST rate to 0 so the
-      // line is added to subtotal but contributes nothing to taxable value.
-      const isReimbursement = item.isReimbursement || false;
-      const itemGstRate = isReimbursement ? 0 : (item.gstRate ?? gstRate);
-      return {
-        ...item,
-        isReimbursement,
-        gstRate: itemGstRate,
-        ...this.calcService.calculateItem({
-          quantity: item.quantity,
-          rate: item.rate,
-          discountAmount: item.discountAmount,
+      const itemResults = dto.items.map((item) => {
+        // Reimbursement / pass-through line items (e.g. statutory / government
+        // fees that we collect on the client's behalf) are not a supply by us
+        // and therefore do not attract GST. Force the GST rate to 0 so the
+        // line is added to subtotal but contributes nothing to taxable value.
+        const isReimbursement = item.isReimbursement || false;
+        const itemGstRate = isReimbursement ? 0 : (item.gstRate ?? gstRate);
+        return {
+          ...item,
+          isReimbursement,
           gstRate: itemGstRate,
-        }),
-      };
-    });
+          ...this.calcService.calculateItem({
+            quantity: item.quantity,
+            rate: item.rate,
+            discountAmount: item.discountAmount,
+            gstRate: itemGstRate,
+          }),
+        };
+      });
 
-    const totals = this.calcService.calculateInvoiceTotals(
-      itemResults.map((r) => ({
-        amount: r.amount,
-        discountAmount: r.discountAmount,
-        taxableAmount: r.taxableAmount,
-        gstAmount: r.gstAmount,
-        lineTotal: r.lineTotal,
-      })),
-      gstRate,
-      intraState,
-    );
-
-    const invoice = this.invoiceRepo.create({
-      ...(recurringInvoiceId ? { id: recurringInvoiceId } : {}),
-      tenantId: client.tenantId,
-      billingClientId: dto.billingClientId,
-      invoiceType: dto.invoiceType,
-      invoiceNumber,
-      invoiceDate: dto.invoiceDate,
-      dueDate,
-      financialYear,
-      placeOfSupply: dto.placeOfSupply || client.placeOfSupply,
-      stateCode: clientStateCode,
-      gstin: client.gstin,
-      ...totals,
-      invoiceStatus: InvoiceStatus.DRAFT,
-      paymentStatus: PaymentStatus.UNPAID,
-      mailStatus: MailStatus.NOT_SENT,
-      remarks: dto.remarks,
-      purchaseOrderNumber: dto.purchaseOrderNumber?.trim() || null,
-      createdBy: userId,
-      items: itemResults.map((r, idx) =>
-        this.itemRepo.create({
-          serviceCode: r.serviceCode,
-          serviceDescription: r.serviceDescription,
-          sacCode: r.sacCode || settings?.defaultSacCode,
-          periodFrom: r.periodFrom,
-          periodTo: r.periodTo,
-          quantity: r.quantity,
-          rate: r.rate,
+      const totals = this.calcService.calculateInvoiceTotals(
+        itemResults.map((r) => ({
           amount: r.amount,
           discountAmount: r.discountAmount,
           taxableAmount: r.taxableAmount,
-          gstRate: r.gstRate,
           gstAmount: r.gstAmount,
           lineTotal: r.lineTotal,
-          isReimbursement: r.isReimbursement || false,
-          sequence: r.sequence || idx + 1,
-        }),
-      ),
-    });
+        })),
+        gstRate,
+        intraState,
+      );
 
-    return this.invoiceRepo.save(invoice);
+      const invoice = invoiceRepo.create({
+        ...(recurringInvoiceId ? { id: recurringInvoiceId } : {}),
+        tenantId: client.tenantId,
+        billingClientId: dto.billingClientId,
+        invoiceType: dto.invoiceType,
+        invoiceNumber,
+        invoiceDate: dto.invoiceDate,
+        dueDate,
+        financialYear,
+        placeOfSupply: dto.placeOfSupply || client.placeOfSupply,
+        stateCode: clientStateCode,
+        gstin: client.gstin,
+        ...totals,
+        invoiceStatus: InvoiceStatus.DRAFT,
+        paymentStatus: PaymentStatus.UNPAID,
+        mailStatus: MailStatus.NOT_SENT,
+        remarks: dto.remarks,
+        purchaseOrderNumber: dto.purchaseOrderNumber?.trim() || null,
+        createdBy: userId,
+        items: itemResults.map((r, idx) =>
+          itemRepo.create({
+            serviceCode: r.serviceCode,
+            serviceDescription: r.serviceDescription,
+            sacCode: r.sacCode || settings?.defaultSacCode,
+            periodFrom: r.periodFrom,
+            periodTo: r.periodTo,
+            quantity: r.quantity,
+            rate: r.rate,
+            amount: r.amount,
+            discountAmount: r.discountAmount,
+            taxableAmount: r.taxableAmount,
+            gstRate: r.gstRate,
+            gstAmount: r.gstAmount,
+            lineTotal: r.lineTotal,
+            isReimbursement: r.isReimbursement || false,
+            sequence: r.sequence || idx + 1,
+          }),
+        ),
+      });
+
+      return invoiceRepo.save(invoice);
+    });
   }
 
   async findAll(query: {
