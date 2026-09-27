@@ -9,7 +9,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subject, forkJoin, of } from 'rxjs';
-import { catchError, finalize, takeUntil } from 'rxjs/operators';
+import { finalize, switchMap, map, takeUntil } from 'rxjs/operators';
 
 import {
   PayrollEngineApiService,
@@ -20,6 +20,7 @@ import {
   CalculatePayrollResult,
   EffectiveComponent,
   ComponentOverridePayload,
+  PayrollConfigHistoryEntry,
 } from './payroll-engine-api.service';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
 import { ToastService } from '../../shared/toast/toast.service';
@@ -130,7 +131,12 @@ export class ClientPayrollConfigComponent implements OnInit, OnDestroy {
   selectedStructure: ClientStructure | null = null;
 
   // View mode
-  view: 'list' | 'form' | 'detail' | 'overrides' = 'list';
+  view: 'list' | 'form' | 'detail' | 'overrides' | 'history' = 'list';
+  structuresError = false;
+  overridesError = false;
+  history: PayrollConfigHistoryEntry[] = [];
+  historyLoading = false;
+  historyError = false;
 
   // Per-client component overrides
   overrides: EffectiveComponent[] = [];
@@ -226,32 +232,30 @@ export class ClientPayrollConfigComponent implements OnInit, OnDestroy {
 
   loadStructures(): void {
     this.loading = true;
+    this.structuresError = false;
+    this.structures = [];
     this.cdr.markForCheck();
     this.engineApi.listClientStructures(this.selectedClientId)
-      .pipe(takeUntil(this.destroy$), finalize(() => { this.loading = false; this.cdr.markForCheck(); }))
+      .pipe(
+        switchMap(data => {
+          const active = (data ?? []).filter(s => !!s.isActive);
+          return active.length ? of(active) : this.loadLegacyStructures();
+        }),
+        takeUntil(this.destroy$),
+        finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
+      )
       .subscribe({
-        next: (data) => {
-          const normalized = (data ?? []).filter((s) => !!s.isActive);
-          if (normalized.length) {
-            this.structures = normalized;
-            return;
-          }
-
-          // Fallback: legacy payroll-engine clients may have active structures/rules
-          // in pay_salary_structures/pay_rule_sets but not in payroll_client_structures.
-          this.loadLegacyStructures();
-        },
-        error: () => { this.toast.error('Failed to load structures'); },
+        next: (data) => { this.structures = data; },
+        error: () => { this.structuresError = true; this.toast.error('Failed to load structures'); },
       });
   }
 
-  private loadLegacyStructures(): void {
-    forkJoin({
-      structures: this.engineApi.listStructures(this.selectedClientId).pipe(catchError(() => of([]))),
-      ruleSets: this.engineApi.listRuleSets(this.selectedClientId).pipe(catchError(() => of([]))),
+  private loadLegacyStructures() {
+    return forkJoin({
+      structures: this.engineApi.listStructures(this.selectedClientId),
+      ruleSets: this.engineApi.listRuleSets(this.selectedClientId),
     })
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(({ structures, ruleSets }) => {
+      .pipe(map(({ structures, ruleSets }) => {
         const ruleById = new Map((ruleSets || []).map((r) => [r.id, r]));
 
         const activeStructures = (structures || []).filter((s) => !!s.isActive);
@@ -278,12 +282,8 @@ export class ClientPayrollConfigComponent implements OnInit, OnDestroy {
           };
         });
 
-        this.structures = mapped;
-        if (!mapped.length) {
-          this.toast.info('No active structures found for this client in either new or legacy payroll configuration.');
-        }
-        this.cdr.markForCheck();
-      });
+        return mapped;
+      }));
   }
 
   /* ── List helpers ────────────────────────────────────────────────────────── */
@@ -555,6 +555,9 @@ export class ClientPayrollConfigComponent implements OnInit, OnDestroy {
 
   loadOverrides(): void {
     this.overridesLoading = true;
+    this.overridesError = false;
+    this.overrides = [];
+    this.overrideEdits = {};
     this.overrideDirty.clear();
     this.cdr.markForCheck();
     this.engineApi.getEffectiveComponents(this.selectedClientId)
@@ -573,7 +576,7 @@ export class ClientPayrollConfigComponent implements OnInit, OnDestroy {
           }
           this.cdr.markForCheck();
         },
-        error: () => { this.toast.error('Failed to load effective components'); },
+        error: () => { this.overridesError = true; this.toast.error('Failed to load effective components'); },
       });
   }
 
@@ -589,6 +592,7 @@ export class ClientPayrollConfigComponent implements OnInit, OnDestroy {
   get overridesDirtyCount(): number { return this.overrideDirty.size; }
 
   saveOverrides(): void {
+    if (this.saving || this.overridesLoading || this.overridesError) return;
     if (!this.overrideDirty.size) {
       this.toast.info('No changes to save');
       return;
@@ -601,19 +605,20 @@ export class ClientPayrollConfigComponent implements OnInit, OnDestroy {
       const payload: ComponentOverridePayload = { componentId: id };
 
       const trimLabel = (e.labelOverride ?? '').trim();
-      // Only send labelOverride if it differs from the master code-derived name AND is non-empty
-      if (trimLabel && trimLabel !== original.code) {
-        payload.labelOverride = trimLabel;
+      if (trimLabel !== (original.name ?? '')) {
+        payload.labelOverride = trimLabel || null;
       }
 
       const trimFormula = (e.formulaOverride ?? '').trim();
-      if (trimFormula) payload.formulaOverride = trimFormula;
+      if (trimFormula !== (original.formula ?? '')) payload.formulaOverride = trimFormula || null;
 
-      if (e.displayOrder != null && !Number.isNaN(Number(e.displayOrder))) {
-        payload.displayOrder = Number(e.displayOrder);
+      if (e.displayOrder != null && (!Number.isInteger(Number(e.displayOrder)) || Number(e.displayOrder) < 0)) {
+        this.toast.error('Display order must be a non-negative whole number');
+        return;
       }
+      if (e.displayOrder !== original.displayOrder) payload.displayOrder = e.displayOrder == null ? null : Number(e.displayOrder);
 
-      payload.showOnPayslip = !!e.showOnPayslip;
+      if (!!e.showOnPayslip !== !!original.showOnPayslip) payload.showOnPayslip = !!e.showOnPayslip;
       items.push(payload);
     }
 
@@ -642,6 +647,31 @@ export class ClientPayrollConfigComponent implements OnInit, OnDestroy {
   }
 
   trackOverride(_i: number, c: EffectiveComponent): string { return c.componentId; }
+
+  historyChanges(entry: PayrollConfigHistoryEntry): { label: string; before: unknown; after: unknown }[] {
+    const fields: Record<string, string> = {
+      enabled: 'Enabled', displayOrder: 'Display order', showOnPayslip: 'On payslip',
+      labelOverride: 'Label', formulaOverride: 'Formula',
+    };
+    const display = (value: unknown) => value == null ? 'Default' : typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value;
+    return Object.entries(fields)
+      .filter(([key]) => (entry.oldValues?.[key] ?? null) !== (entry.newValues?.[key] ?? null))
+      .map(([key, label]) => ({ label, before: display(entry.oldValues?.[key]), after: display(entry.newValues?.[key]) }));
+  }
+
+  openHistory(): void {
+    if (!this.selectedClientId) return;
+    this.view = 'history';
+    this.historyLoading = true;
+    this.historyError = false;
+    this.history = [];
+    this.engineApi.getConfigHistory(this.selectedClientId)
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.historyLoading = false; this.cdr.markForCheck(); }))
+      .subscribe({
+        next: rows => { this.history = rows; },
+        error: () => { this.historyError = true; },
+      });
+  }
 
   /* ── Preview helpers ────────────────────────────────────────────────────── */
 

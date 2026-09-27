@@ -311,6 +311,12 @@ export class PayrollEngineApiService {
     return this.http.get<EffectiveComponent[]>(`${this.cfgBase}/${clientId}/components-effective`);
   }
 
+  getConfigHistory(clientId: string): Observable<PayrollConfigHistoryEntry[]> {
+    return this.http.get<PayrollConfigHistoryEntry[]>(`${this.cfgBase}/${clientId}/config-audit`, {
+      params: { limit: '100', entityType: 'PayrollClientComponentOverride' },
+    });
+  }
+
   saveComponentOverrides(
     clientId: string,
     items: ComponentOverridePayload[],
@@ -341,11 +347,21 @@ export type EffectiveComponent = {
 export type ComponentOverridePayload = {
   componentId: string;
   enabled?: boolean;
-  displayOrder?: number;
+  displayOrder?: number | null;
   showOnPayslip?: boolean;
-  labelOverride?: string;
-  formulaOverride?: string;
+  labelOverride?: string | null;
+  formulaOverride?: string | null;
 };
+
+export interface PayrollConfigHistoryEntry {
+  id: string;
+  createdAt: string;
+  userId: string;
+  action: string;
+  description: string | null;
+  oldValues: Record<string, unknown> | null;
+  newValues: Record<string, unknown> | null;
+}
 
 // ── Client Structure types ────────────────────────────────────────────────────
 

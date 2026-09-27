@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import * as ExcelJS from 'exceljs';
 import { PayrollClientAssignmentEntity } from './entities/payroll-client-assignment.entity';
 import { PayrollInputEntity } from './entities/payroll-input.entity';
@@ -71,6 +71,7 @@ import { PayrollRegistersService } from './payroll-registers.service';
 import { PayrollInputService } from './payroll-input.service';
 import { PayrollRunsService } from './payroll-runs.service';
 import { PayrollPayslipsService } from './payroll-payslips.service';
+import { PayrollConfigAuditEntity } from './entities/payroll-config-audit.entity';
 
 @Injectable()
 export class PayrollService {
@@ -1269,32 +1270,64 @@ export class PayrollService {
     const items = dto?.items ?? [];
     if (!Array.isArray(items)) throw new BadRequestException('items required');
 
-    for (const it of items) {
-      const existing = await this.overrideRepo.findOne({
-        where: { clientId, componentId: it.componentId },
-      });
-
-      const patch: Partial<PayrollClientComponentOverrideEntity> = {
-        enabled: it.enabled ?? null,
-        displayOrder: it.displayOrder ?? null,
-        showOnPayslip: it.showOnPayslip ?? null,
-        labelOverride: it.labelOverride?.trim?.() ?? null,
-        formulaOverride: it.formulaOverride ?? null,
-      };
-
-      if (existing) {
-        Object.assign(existing, patch);
-        await this.overrideRepo.save(existing);
-      } else {
-        await this.overrideRepo.save(
-          this.overrideRepo.create({
-            clientId,
-            componentId: it.componentId,
-            ...patch,
-          }),
-        );
-      }
+    const ids = [...new Set(items.map((item) => item.componentId))];
+    const componentCodes = new Map<string, string>();
+    if (ids.length !== items.length) {
+      throw new BadRequestException('Duplicate component overrides');
     }
+    if (ids.length) {
+      const components = await this.compRepo.find({ where: { id: In(ids) } });
+      if (components.length !== ids.length) {
+        throw new BadRequestException('Unknown payroll component');
+      }
+      for (const component of components)
+        componentCodes.set(component.id, component.code);
+    }
+
+    await this.overrideRepo.manager.transaction(async (manager) => {
+      // Serialize edits for this client and commit the history with the changes.
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        `payroll-config:${clientId}`,
+      ]);
+      const repo = manager.getRepository(PayrollClientComponentOverrideEntity);
+      for (const it of items) {
+        const existing = await repo.findOne({
+          where: { clientId, componentId: it.componentId },
+        });
+
+        const patch: Partial<PayrollClientComponentOverrideEntity> = {};
+        if (it.enabled !== undefined) patch.enabled = it.enabled;
+        if (it.displayOrder !== undefined) patch.displayOrder = it.displayOrder;
+        if (it.showOnPayslip !== undefined)
+          patch.showOnPayslip = it.showOnPayslip;
+        if (it.labelOverride !== undefined)
+          patch.labelOverride = it.labelOverride?.trim() || null;
+        if (it.formulaOverride !== undefined)
+          patch.formulaOverride = it.formulaOverride?.trim() || null;
+        if (!Object.keys(patch).length) continue;
+        const oldValues = existing ? { ...existing } : null;
+
+        const saved = await repo.save(
+          existing
+            ? Object.assign(existing, patch)
+            : repo.create({
+                clientId,
+                componentId: it.componentId,
+                ...patch,
+              }),
+        );
+        await manager.getRepository(PayrollConfigAuditEntity).save({
+          clientId,
+          userId: user.id,
+          action: existing ? 'UPDATE' : 'CREATE',
+          entityType: 'PayrollClientComponentOverride',
+          entityId: saved.id,
+          oldValues,
+          newValues: { ...saved },
+          description: `Component override: ${componentCodes.get(it.componentId)}`,
+        });
+      }
+    });
 
     return this.getClientEffectiveComponents(user, clientId);
   }
