@@ -7,6 +7,7 @@ import { AdminHelpdeskDetailComponent } from './admin-helpdesk-detail.component'
 import { AdminHelpdeskApiService } from './admin-helpdesk-api.service';
 import { AdminUsersApi } from '../../../core/api/admin-users.api';
 import { AuthService } from '../../../core/auth.service';
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import { PfTeamTicketDetailComponent } from '../../pf-team/tickets/pf-team-ticket-detail.component';
 import { PfTeamApiService } from '../../pf-team/pf-team-api.service';
 
@@ -38,6 +39,7 @@ async function setup(pf = false, ticket = { ...baseTicket } as any) {
       { provide: PfTeamApiService, useValue: api },
       { provide: AdminUsersApi, useValue: { listUsersSimple: () => of(users) } },
       { provide: AuthService, useValue: { getUser: () => ({ id: 'pf' }) } },
+      { provide: ProtectedFileService, useValue: { download: vi.fn(() => of(undefined)) } },
     ],
   }).compileComponents();
   const f = pf ? TestBed.createComponent(PfTeamTicketDetailComponent) : TestBed.createComponent(AdminHelpdeskDetailComponent);

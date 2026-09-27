@@ -22,9 +22,9 @@ import { PageHeaderComponent } from '../../../shared/ui';
       </ui-page-header>
 
       <!-- Load error banner -->
-      @if (loadError) {
-<div class="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm">
-        <span>{{ loadError }}</span>
+      @if (loadError || statsError) {
+<div role="alert" class="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm">
+        <span>{{ loadError || statsError }}</span>
         <button type="button" (click)="loadError = ''; loadStats(); loadTickets()"
                 class="text-xs px-2 py-1 border border-red-300 rounded hover:bg-red-100">Retry</button>
       </div>
@@ -151,7 +151,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
                 <td class="px-4 py-3 text-gray-500 whitespace-nowrap">{{ t.createdAt | date:'dd MMM yyyy' }}</td>
               </tr>
 }
-              @if (tickets.length === 0 && !loading) {
+              @if (tickets.length === 0 && !loading && !loadError) {
 <tr>
                 <td colspan="9" class="px-4 py-12 text-center text-gray-400">No tickets found</td>
               </tr>
@@ -169,24 +169,24 @@ import { PageHeaderComponent } from '../../../shared/ui';
 
         <!-- Pagination -->
         @if (totalTickets > pageSize) {
-<div class="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
+<div class="flex flex-wrap gap-3 items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
           <p class="text-sm text-gray-600">
             Showing {{ (currentPage - 1) * pageSize + 1 }}–{{ currentPage * pageSize > totalTickets ? totalTickets : currentPage * pageSize }}
             of {{ totalTickets }}
           </p>
-          <div class="flex gap-1">
-            <button (click)="goToPage(currentPage - 1)" [disabled]="currentPage <= 1"
+          <div class="flex flex-wrap gap-1">
+            <button (click)="goToPage(currentPage - 1)" [disabled]="loading || currentPage <= 1"
                     class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
               ← Prev
             </button>
             @for (p of pageNumbers; track p) {
-<button (click)="goToPage(p)"
+<button (click)="goToPage(p)" [disabled]="loading"
                     class="px-3 py-1.5 text-sm border rounded-lg transition-colors"
                     [class]="p === currentPage ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-300 hover:bg-gray-100'">
               {{ p }}
             </button>
 }
-            <button (click)="goToPage(currentPage + 1)" [disabled]="currentPage >= totalPages"
+            <button (click)="goToPage(currentPage + 1)" [disabled]="loading || currentPage >= totalPages"
                     class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
               Next →
             </button>
@@ -202,6 +202,7 @@ export class AdminHelpdeskComponent implements OnInit, OnDestroy {
   tickets: HdTicket[] = [];
   loading = false;
   loadError = '';
+  statsError = '';
 
   // Filters
   searchTerm = '';
@@ -218,6 +219,8 @@ export class AdminHelpdeskComponent implements OnInit, OnDestroy {
 
   private searchTimeout: any;
   private routerSub?: Subscription;
+  private ticketRequest?: Subscription;
+  private statsRequest?: Subscription;
 
   constructor(
     private api: AdminHelpdeskApiService,
@@ -241,6 +244,8 @@ export class AdminHelpdeskComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.routerSub?.unsubscribe();
+    this.ticketRequest?.unsubscribe();
+    this.statsRequest?.unsubscribe();
     clearTimeout(this.searchTimeout);
   }
 
@@ -271,20 +276,22 @@ export class AdminHelpdeskComponent implements OnInit, OnDestroy {
   }
 
   goToPage(page: number): void {
-    if (page < 1 || page > this.totalPages) return;
+    if (this.loading || page < 1 || page > this.totalPages) return;
     this.currentPage = page;
     this.loadTickets();
   }
 
   loadStats(): void {
-    this.api.getStats().subscribe({
+    this.statsRequest?.unsubscribe();
+    this.statsError = '';
+    this.statsRequest = this.api.getStats().subscribe({
       next: (s) => {
         this.stats = s;
         this.cdr.markForCheck();
         this.cdr.detectChanges();
       },
       error: (err) => {
-        this.loadError = this.formatError(err, 'Failed to load helpdesk stats');
+        this.statsError = this.formatError(err, 'Failed to load helpdesk stats');
         this.cdr.markForCheck();
         this.cdr.detectChanges();
       },
@@ -292,8 +299,11 @@ export class AdminHelpdeskComponent implements OnInit, OnDestroy {
   }
 
   loadTickets(): void {
+    this.ticketRequest?.unsubscribe();
     this.loading = true;
-    this.api
+    this.loadError = '';
+    this.tickets = [];
+    this.ticketRequest = this.api
       .listTickets({
         page: this.currentPage,
         limit: this.pageSize,
@@ -304,9 +314,14 @@ export class AdminHelpdeskComponent implements OnInit, OnDestroy {
       })
       .subscribe({
         next: (res) => {
-          this.tickets = res.data;
           this.totalTickets = res.total;
           this.totalPages = Math.ceil(res.total / this.pageSize) || 1;
+          if (this.currentPage > this.totalPages) {
+            this.currentPage = this.totalPages;
+            this.loadTickets();
+            return;
+          }
+          this.tickets = res.data;
           this.buildPageNumbers();
           this.loading = false;
           this.loadError = '';
@@ -315,6 +330,9 @@ export class AdminHelpdeskComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           this.loading = false;
+          this.totalTickets = 0;
+          this.totalPages = 1;
+          this.pageNumbers = [];
           this.loadError = this.formatError(err, 'Failed to load tickets');
           this.cdr.markForCheck();
           this.cdr.detectChanges();
