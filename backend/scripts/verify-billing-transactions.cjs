@@ -360,6 +360,93 @@ async function main() {
     assert.equal(Number(afterCancellation.totalOutstanding), Number(dashboardAfter.totalOutstanding) - 100);
     assert.equal((await reports.getReport({ ...reportQuery, reportType: 'OUTSTANDING' })).rows.length, 2);
     console.log('PASS: mixed-status dashboard/report reconciliation, complete document register, multi-item invoice counts, zero balances, filter intersections and cancellation updates.');
+
+    await setPrefix('EDIT');
+    await repo(entities.BillingClient).update(client.id, {
+      stateCode: '36', gstin: '36SYNTHETIC', placeOfSupply: 'Telangana', defaultGstRate: 18,
+    });
+    const otherClient = await repo(entities.BillingClient).save({
+      tenantId: client.tenantId, billingCode: 'EDIT', legalName: 'Synthetic replacement client',
+      billingEmail: 'edit@example.invalid', stateCode: '29', stateName: 'Karnataka',
+      placeOfSupply: 'Karnataka', gstin: '29SYNTHETIC', defaultGstRate: 0, billingAddress: 'Test only',
+    });
+    const editItems = [
+      { serviceDescription: 'Standard service', quantity: 2, rate: 100, gstRate: 18 },
+      { serviceDescription: 'Reduced-rate service', quantity: 1, rate: 100, gstRate: 5 },
+      { serviceDescription: 'Reimbursement', quantity: 1, rate: 50, gstRate: 18, isReimbursement: true },
+    ];
+    const editable = await invoices().create({ ...createDto, items: editItems }, userId);
+    assert.equal(Number(editable.totalGst), 41, 'Header GST must include all line GST');
+    assert.equal(Number(editable.grandTotal), 391);
+    const originalLines = (await read(editable.id)).items;
+    await repo(entities.BillingClient).update(client.id, {
+      stateCode: '27', gstin: '27CHANGED', placeOfSupply: 'Maharashtra', defaultGstRate: 12,
+    });
+    await invoices().update(editable.id, { billingClientId: client.id, remarks: 'Metadata only' }, userId);
+    let edited = await read(editable.id);
+    assert.equal(edited.stateCode, '36');
+    assert.equal(edited.gstin, '36SYNTHETIC');
+    assert.equal(edited.placeOfSupply, 'Telangana');
+    assert.deepEqual(edited.items, originalLines);
+    assert.equal(Number(edited.cgstAmount), 20.5);
+    assert.equal(Number(edited.igstAmount), 0);
+
+    await invoices().update(editable.id, { billingClientId: otherClient.id }, userId);
+    edited = await read(editable.id);
+    assert.equal(edited.stateCode, '29');
+    assert.equal(edited.gstin, '29SYNTHETIC');
+    assert.equal(edited.placeOfSupply, 'Karnataka');
+    assert.equal(Number(edited.igstAmount), 41);
+    assert.equal(Number(edited.cgstAmount), 0);
+    assert.equal(Number(edited.sgstAmount), 0);
+    assert.equal(Number(edited.totalGst), 41);
+    assert.equal(Number(edited.grandTotal), 391);
+    assert.equal(Number(edited.balanceOutstanding), 391);
+    assert.deepEqual(edited.items, originalLines, 'Client-only edit preserves negotiated line rates and item identities');
+
+    // A complete edit-form payload must not refresh tax snapshots from masters.
+    await repo(entities.BillingClient).update(otherClient.id, { stateCode: '36', gstin: '36CHANGED' });
+    await repo(entities.BillingSetting).update(settings.id, { stateCode: '29' });
+    await invoices().update(editable.id, { billingClientId: otherClient.id, items: editItems }, userId);
+    edited = await read(editable.id);
+    assert.equal(edited.stateCode, '29');
+    assert.equal(edited.gstin, '29SYNTHETIC');
+    assert.equal(Number(edited.igstAmount), 41);
+    assert.equal(Number(edited.cgstAmount), 0);
+    assert.equal(Number(edited.totalGst), 41);
+    await repo(entities.BillingSetting).update(settings.id, { stateCode: '36' });
+    await invoices().update(editable.id, { billingClientId: client.id }, userId);
+    await invoices().update(editable.id, { billingClientId: otherClient.id }, userId);
+    edited = await read(editable.id);
+    assert.equal(Number(edited.cgstAmount), 20.5, 'Returning to an intrastate client restores split GST');
+    assert.equal(Number(edited.sgstAmount), 20.5);
+    assert.equal(Number(edited.igstAmount), 0);
+
+    const beforeRejected = await read(editable.id);
+    await assert.rejects(invoices().update(editable.id, { items: [] }, userId), error => error.status === 400);
+    assert.deepEqual(await read(editable.id), beforeRejected);
+    const beforeAuditCount = await repo(entities.InvoiceAuditLog).countBy({ invoiceId: editable.id });
+    await db.exec("ALTER TABLE invoice_audit_logs ADD CONSTRAINT reject_client_edit CHECK (action <> 'EDIT') NOT VALID");
+    try {
+      await assert.rejects(invoices().update(editable.id, { billingClientId: client.id }, userId), error => error.code === '23514');
+      assert.deepEqual(await read(editable.id), beforeRejected, 'Failed client reassignment rolls back snapshots and totals together');
+      assert.equal(await repo(entities.InvoiceAuditLog).countBy({ invoiceId: editable.id }), beforeAuditCount);
+    } finally {
+      await db.exec('ALTER TABLE invoice_audit_logs DROP CONSTRAINT reject_client_edit');
+    }
+    await invoices().update(editable.id, { billingClientId: client.id }, userId);
+    const zeroItems = [{ serviceDescription: 'Zero-rated service', quantity: 1, rate: 100 }];
+    await invoices().update(editable.id, { billingClientId: otherClient.id, items: zeroItems }, userId);
+    edited = await read(editable.id);
+    assert.equal(Number(edited.totalGst), 0);
+    assert.equal(Number(edited.grandTotal), 100);
+    assert.equal(Number(edited.items[0].gstRate), 0);
+    const zeroCreated = await invoices().create({ ...createDto, billingClientId: otherClient.id, items: zeroItems }, userId);
+    assert.equal(Number(zeroCreated.totalGst), 0);
+    assert.equal(Number(zeroCreated.grandTotal), 100);
+    await repo(entities.Invoice).update(editable.id, { amountReceived: 20 });
+    await assert.rejects(invoices().update(editable.id, { remarks: 'Must not save' }, userId), error => error.status === 400);
+    console.log('PASS: saved billing snapshots, client-only GST re-splitting, mixed-rate and reimbursement lines, full edit payloads, zero GST, empty items, stale payment status and reassignment rollback.');
   } finally {
     if (ds?.isInitialized) await ds.destroy();
     await db.close();
