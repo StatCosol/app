@@ -401,7 +401,7 @@ export class ComplianceCrmTasksService {
       }
       if (q.q) {
         qb.andWhere(
-          '(compliance.name ILIKE :search OR t.taskCode ILIKE :search)',
+          '(compliance.complianceName ILIKE :search OR compliance.code ILIKE :search OR t.title ILIKE :search)',
           { search: `%${q.q}%` },
         );
       }

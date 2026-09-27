@@ -39,3 +39,11 @@ test('billing transaction regressions run against CI PostgreSQL and block failur
   assert.equal(Number(step.env.AUDITXPERT_TEST_PORT), 5432);
   assert.equal(step.env.AUDITXPERT_TEST_USER, ci.jobs.backend.services.postgres.env.POSTGRES_USER);
 });
+
+test('consolidated scope database regressions are required in CI', () => {
+  const step = ci.jobs.backend.steps.find(s => s.run === 'node scripts/verify-consolidated-scope-db.cjs');
+  assert.ok(step);
+  assert.notEqual(step['continue-on-error'], true);
+  assert.equal(Number(step.env.AUDITXPERT_TEST_PORT), 5432);
+  assert.equal(step.env.AUDITXPERT_TEST_USER, ci.jobs.backend.services.postgres.env.POSTGRES_USER);
+});

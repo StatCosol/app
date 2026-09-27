@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 
 interface ItemCalc {
   quantity: number;
@@ -18,8 +18,30 @@ interface ItemResult {
 @Injectable()
 export class BillingCalculationService {
   calculateItem(item: ItemCalc): ItemResult {
+    const values = [
+      item.quantity,
+      item.rate,
+      item.discountAmount ?? 0,
+      item.gstRate ?? 0,
+    ].map(Number);
+    if (
+      values.some(
+        (value) =>
+          !Number.isFinite(value) ||
+          value < 0 ||
+          Math.abs(value * 100 - Math.round(value * 100)) > 1e-7,
+      ) ||
+      values[0] <= 0 ||
+      values[3] > 100
+    ) {
+      throw new BadRequestException(
+        'Invoice line values must use at most two decimal places, positive quantity and GST between 0 and 100.',
+      );
+    }
     const amount = +(item.quantity * item.rate).toFixed(2);
     const discountAmount = +(item.discountAmount || 0);
+    if (discountAmount > amount)
+      throw new BadRequestException('Line discount cannot exceed its amount.');
     const taxableAmount = +(amount - discountAmount).toFixed(2);
     const gstRate = item.gstRate || 0;
     const gstAmount = +((taxableAmount * gstRate) / 100).toFixed(2);

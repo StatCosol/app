@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
@@ -22,6 +23,7 @@ import {
 import { ConvertProformaDto, CreateInvoiceDto, UpdateInvoiceDto } from '../dto';
 import { BillingCalculationService } from './billing-calculation.service';
 import { BillingNumberService } from './billing-number.service';
+import { invoicePdfSnapshot } from '../utils/invoice-pdf-snapshot';
 
 // Invoices can only be edited while they're still moving through the
 // pre-payment workflow. Once money has been received or the invoice has
@@ -75,6 +77,8 @@ export class InvoicesService {
           return existing;
         }
       }
+      if (!dto.items?.length)
+        throw new BadRequestException('Invoice must contain at least one item');
       const client = await manager.getRepository(BillingClient).findOne({
         where: { id: dto.billingClientId },
       });
@@ -501,6 +505,7 @@ export class InvoicesService {
       };
 
       invoice.billingClientId = client.id;
+      invoice.pdfPath = null;
       invoice.billingClient = client;
       invoice.invoiceDate = invoiceDate;
       invoice.dueDate =
@@ -640,9 +645,23 @@ export class InvoicesService {
     return this.findOne(id);
   }
 
-  async updatePdfPath(id: string, pdfPath: string) {
+  async updatePdfPath(id: string, pdfPath: string, renderedInvoice?: Invoice) {
     await this.dataSource.transaction(async (manager) => {
       const invoice = await this.lockInvoice(manager, id);
+      if (renderedInvoice) {
+        const current = await manager.getRepository(Invoice).findOne({
+          where: { id },
+          relations: ['billingClient', 'items'],
+        });
+        if (
+          !current ||
+          invoicePdfSnapshot(current) !== invoicePdfSnapshot(renderedInvoice)
+        ) {
+          throw new ConflictException(
+            'Invoice changed while its PDF was generated. Please try again.',
+          );
+        }
+      }
 
       // Status transitions to GENERATED only from DRAFT or APPROVED. Once an
       // invoice has been GENERATED, EMAILED, PARTIALLY_PAID, PAID, OVERDUE

@@ -145,8 +145,11 @@ export class ComplianceDocumentsService {
     clientId: string,
     userId: string,
     filters: ListComplianceDocumentsDto,
+    userType?: string | null,
   ): Promise<ComplianceDocLibraryEntity[]> {
-    const isMaster = await this.branchAccess.isMasterUser(userId);
+    if (!clientId) throw new ForbiddenException('Client scope is required');
+    const isMaster =
+      userType !== 'BRANCH' && (await this.branchAccess.isMasterUser(userId));
     const qb = this.baseQuery(clientId, filters);
 
     if (!isMaster) {
@@ -220,6 +223,7 @@ export class ComplianceDocumentsService {
     userId: string,
     userRole: string,
     clientId?: string,
+    userType?: string | null,
   ): Promise<{ absolutePath: string; fileName: string; mimeType: string }> {
     const doc = await this.docRepo.findOne({
       where: { id: docId, isDeleted: false },
@@ -230,10 +234,14 @@ export class ComplianceDocumentsService {
     if (userRole === 'CLIENT') {
       if (doc.clientId !== clientId)
         throw new ForbiddenException('Access denied');
-      const isMaster = await this.branchAccess.isMasterUser(userId);
+      const isMaster =
+        userType !== 'BRANCH' && (await this.branchAccess.isMasterUser(userId));
       if (!isMaster) {
         // Branch user checks
         const branchIds = await this.branchAccess.getUserBranchIds(userId);
+        if (!branchIds.length) {
+          throw new ForbiddenException('Branch scope is required');
+        }
         if (doc.branchId && !branchIds.includes(doc.branchId)) {
           throw new ForbiddenException('Access denied to this branch document');
         }
@@ -324,7 +332,17 @@ export class ComplianceDocumentsService {
     clientId: string,
     userId: string,
     dto: UpdateCompanySettingsDto,
+    userType?: string | null,
   ): Promise<Record<string, unknown>> {
+    if (
+      !clientId ||
+      userType === 'BRANCH' ||
+      !(await this.branchAccess.isMasterUser(userId))
+    ) {
+      throw new ForbiddenException(
+        'Only a client master can update company settings',
+      );
+    }
     let row = await this.settingsRepo.findOne({ where: { clientId } });
     if (!row) {
       row = this.settingsRepo.create({

@@ -9,7 +9,6 @@ import {
   Query,
   NotFoundException,
   ParseUUIDPipe,
-  BadRequestException,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -113,9 +112,19 @@ export class NewsController {
   /** Single news item (for detail page) */
   @ApiOperation({ summary: 'Get news item by id' })
   @Get(':id')
-  async getOne(@Param('id', ParseUUIDPipe) id: string) {
+  async getOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: ReqUser,
+  ) {
     const item = await this.newsService.findOne(id);
-    if (!item) throw new NotFoundException('News item not found');
+    if (
+      !item ||
+      (user.roleCode !== 'ADMIN' &&
+        (!item.isActive ||
+          (item.expiresAt !== null && item.expiresAt <= new Date())))
+    ) {
+      throw new NotFoundException('News item not found');
+    }
     return item;
   }
 

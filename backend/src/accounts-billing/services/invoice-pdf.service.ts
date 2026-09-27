@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
+import { randomUUID } from 'crypto';
 import PDFDocument from 'pdfkit';
 import { BillingSetting, Invoice } from '../entities';
 import { InvoicesService } from './invoices.service';
@@ -30,9 +31,12 @@ export class InvoicePdfService {
     return pdfPath;
   }
 
-  async generatePdfBuffer(
-    invoiceId: string,
-  ): Promise<{ buffer: Buffer; fileName: string; pdfPath: string }> {
+  async generatePdfBuffer(invoiceId: string): Promise<{
+    buffer: Buffer;
+    fileName: string;
+    pdfPath: string;
+    invoice: Invoice;
+  }> {
     const invoice = await this.invoicesService.findOne(invoiceId);
     const settings =
       (await this.settingsRepo.findOne({ where: {} })) ||
@@ -44,23 +48,30 @@ export class InvoicePdfService {
     }
 
     const fileName = `${invoice.invoiceNumber.replace(/[/\\]/g, '-')}.pdf`;
-    const filePath = path.join(uploadsDir, fileName);
+    const storedName = `${invoice.id}-${randomUUID()}.pdf`;
+    const filePath = path.join(uploadsDir, storedName);
 
     const buffer = await this.buildPdfBuffer(invoice, settings);
+    const pdfPath = `/uploads/invoices/${storedName}`;
     try {
-      fs.writeFileSync(filePath, buffer);
+      fs.writeFileSync(filePath, buffer, { flag: 'wx' });
+      await this.invoicesService.updatePdfPath(invoiceId, pdfPath, invoice);
     } catch (err) {
-      this.log.warn(`Could not persist PDF to disk: ${(err as Error).message}`);
-    }
-
-    const pdfPath = `/uploads/invoices/${fileName}`;
-    try {
-      await this.invoicesService.updatePdfPath(invoiceId, pdfPath);
-    } catch (err) {
-      this.log.warn(`Could not update pdfPath: ${(err as Error).message}`);
+      // This request owns this unique path; never remove an older invoice file.
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (cleanupError) {
+          if ((cleanupError as NodeJS.ErrnoException).code !== 'ENOENT')
+            this.log.warn(
+              `Could not clean up unregistered invoice PDF for ${invoiceId}`,
+            );
+        }
+      }
+      throw err;
     }
     this.log.log(`PDF generated: ${pdfPath} (${buffer.length} bytes)`);
-    return { buffer, fileName, pdfPath };
+    return { buffer, fileName, pdfPath, invoice };
   }
 
   private buildPdfBuffer(

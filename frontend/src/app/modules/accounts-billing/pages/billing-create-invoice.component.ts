@@ -1,10 +1,11 @@
 import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subject, takeUntil } from 'rxjs';
 
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { AccountsBillingService } from '../services/accounts-billing.service';
-import { BillingClient, INVOICE_TYPES } from '../models/billing.models';
+import { BillingClient, InvoiceItem, INVOICE_TYPES } from '../models/billing.models';
 
 // Mirrors the backend's EDITABLE_STATUSES guard (invoices.service.ts) —
 // once an invoice has a recorded payment or is cancelled its figures are
@@ -37,7 +38,13 @@ const EDITABLE_STATUSES = new Set([
       </div>
 }
 
-      @if (!loadingInvoice && !lockedStatus) {
+      @if (loadError) {
+        <div role="alert" class="text-red-800 p-3">{{ loadError }} <button type="button" (click)="loadInvoice(invoiceId)">Retry</button></div>
+      }
+      @if (clientsError) {
+        <div role="alert" class="text-red-800 p-3">{{ clientsError }} <button type="button" (click)="loadClients()">Retry</button></div>
+      }
+      @if (!loadingInvoice && !lockedStatus && !loadError) {
 <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-6">
         @if (saveError) {
           <div role="alert" class="border border-red-200 bg-red-50 text-red-800 rounded-lg p-3 text-sm break-words">{{ saveError }}</div>
@@ -51,7 +58,7 @@ const EDITABLE_STATUSES = new Set([
               <label class="block text-xs font-medium text-slate-600 mb-1">Billing Client *</label>
               <select formControlName="billingClientId" (change)="onClientChange()" class="w-full px-3 py-2 border rounded-lg text-sm">
                 <option value="">Select Client</option>
-                @for (c of clients; track c) {
+                @for (c of clientOptions; track c.id) {
 <option [value]="c.id">{{ c.legalName }} ({{ c.billingCode }})</option>
 }
               </select>
@@ -139,16 +146,16 @@ const EDITABLE_STATUSES = new Set([
                     <input formControlName="sacCode" class="w-full px-2 py-1.5 border rounded text-sm">
                   </td>
                   <td class="px-3 py-2">
-                    <input formControlName="quantity" type="number" min="1" class="w-full px-2 py-1.5 border rounded text-sm text-right">
+                    <input formControlName="quantity" type="number" min="0.01" step="0.01" class="w-full px-2 py-1.5 border rounded text-sm text-right">
                   </td>
                   <td class="px-3 py-2">
-                    <input formControlName="rate" type="number" min="0" class="w-full px-2 py-1.5 border rounded text-sm text-right">
+                    <input formControlName="rate" type="number" min="0" step="0.01" class="w-full px-2 py-1.5 border rounded text-sm text-right">
                   </td>
                   <td class="px-3 py-2">
-                    <input formControlName="discountAmount" type="number" min="0" class="w-full px-2 py-1.5 border rounded text-sm text-right">
+                    <input formControlName="discountAmount" type="number" min="0" step="0.01" class="w-full px-2 py-1.5 border rounded text-sm text-right">
                   </td>
                   <td class="px-3 py-2">
-                    <input formControlName="gstRate" type="number" min="0" class="w-full px-2 py-1.5 border rounded text-sm text-right" [readonly]="item.value.isReimbursement">
+                    <input formControlName="gstRate" type="number" min="0" max="100" step="0.01" class="w-full px-2 py-1.5 border rounded text-sm text-right" [readonly]="item.value.isReimbursement">
                   </td>
                   <td class="px-3 py-2 text-center">
                     <input formControlName="isReimbursement" type="checkbox" class="h-4 w-4" (change)="onReimbursementToggle(i)" title="Tick for government / statutory fees passed through to the client. No GST will be charged on this line.">
@@ -195,6 +202,9 @@ export class BillingCreateInvoiceComponent implements OnInit {
   maxInvoiceDate = '';
   private originalInvoiceDate: string | null = null;
   private readonly destroyRef = inject(DestroyRef);
+  private readonly contextChanged = new Subject<void>();
+  loadError = '';
+  clientsError = '';
 
   invoiceId: string | null = null;
   isEditMode = false;
@@ -209,27 +219,51 @@ export class BillingCreateInvoiceComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.loadClients();
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => this.loadInvoice(params.get('id')));
+  }
+
+  loadClients(): void {
+    this.clientsError = '';
+    this.svc.getActiveClients().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: clients => { this.clients = clients || []; },
+      error: () => { this.clientsError = 'Unable to load billing clients.'; },
+    });
+  }
+
+  get clientOptions(): BillingClient[] {
+    return this.selectedClient && !this.clients.some(client => client.id === this.selectedClient!.id)
+      ? [...this.clients, this.selectedClient] : this.clients;
+  }
+
+  loadInvoice(id: string | null): void {
+    this.contextChanged.next();
+    this.invoiceId = id;
+    this.isEditMode = !!id;
+    this.saving = false;
+    this.saveError = '';
+    this.loadError = '';
+    this.lockedStatus = null;
+    this.selectedClient = null;
+    this.originalInvoiceDate = null;
+    this.financialYear = this.minInvoiceDate = this.maxInvoiceDate = '';
+    this.loadingInvoice = !!id;
+    const today = new Date();
+    const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     this.form = this.fb.group({
       billingClientId: ['', Validators.required],
       invoiceType: ['TAX_INVOICE', Validators.required],
-      invoiceDate: [new Date().toISOString().split('T')[0], Validators.required],
+      invoiceDate: [localDate, Validators.required],
       dueDate: [''],
       placeOfSupply: [''],
-      purchaseOrderNumber: [''],
+      purchaseOrderNumber: ['', Validators.maxLength(100)],
       remarks: [''],
-      items: this.fb.array([this.newItem()]),
+      items: this.fb.array([this.newItem()], Validators.required),
     });
-
-    this.svc.getActiveClients().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (c) => (this.clients = c || []),
-      error: (e) => { console.error('[billing] active clients load failed', e); this.clients = []; },
-    });
-
-    this.invoiceId = this.route.snapshot.paramMap.get('id');
     if (this.invoiceId) {
       this.isEditMode = true;
       this.loadingInvoice = true;
-      this.svc.getInvoice(this.invoiceId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      this.svc.getInvoice(this.invoiceId).pipe(takeUntil(this.contextChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
         next: (inv) => {
           this.loadingInvoice = false;
           if (!EDITABLE_STATUSES.has(inv.invoiceStatus) || inv.paymentStatus !== 'UNPAID' || Number(inv.amountReceived) > 0) {
@@ -238,21 +272,7 @@ export class BillingCreateInvoiceComponent implements OnInit {
           }
           this.itemsArray.clear();
           (inv.items || []).forEach((item) => {
-            this.itemsArray.push(
-              this.fb.group({
-                serviceDescription: [item.serviceDescription, Validators.required],
-                serviceCode: [item.serviceCode],
-                periodFrom: [item.periodFrom],
-                periodTo: [item.periodTo],
-                sequence: [item.sequence],
-                sacCode: [item.sacCode || ''],
-                quantity: [Number(item.quantity), [Validators.required, Validators.min(1)]],
-                rate: [Number(item.rate), [Validators.required, Validators.min(0)]],
-                discountAmount: [Number(item.discountAmount ?? 0), [Validators.required, Validators.min(0)]],
-                gstRate: [Number(item.gstRate ?? 18), [Validators.required, Validators.min(0), Validators.max(100)]],
-                isReimbursement: [item.isReimbursement || false],
-              }),
-            );
+            this.itemsArray.push(this.newItem(item));
           });
           if (!this.itemsArray.length) this.itemsArray.push(this.newItem());
 
@@ -277,10 +297,9 @@ export class BillingCreateInvoiceComponent implements OnInit {
               ? { financialYear: true } : null);
           this.form.get('invoiceDate')!.updateValueAndValidity();
         },
-        error: (e) => {
+        error: () => {
           this.loadingInvoice = false;
-          console.error('[billing] invoice load failed', e);
-          this.lockedStatus = 'unavailable';
+          this.loadError = 'Unable to load invoice.';
         },
       });
     }
@@ -296,16 +315,18 @@ export class BillingCreateInvoiceComponent implements OnInit {
       (date < this.minInvoiceDate || date > this.maxInvoiceDate);
   }
 
-  newItem(): FormGroup {
+  newItem(item?: InvoiceItem): FormGroup {
+    const decimal = [Validators.required, Validators.min(0), Validators.pattern(/^\d+(\.\d{1,2})?$/)];
     return this.fb.group({
-      serviceDescription: ['', Validators.required],
-      sacCode: [''],
-      quantity: [1, [Validators.required, Validators.min(1)]],
-      rate: [0, [Validators.required, Validators.min(0)]],
-      discountAmount: [0, [Validators.required, Validators.min(0)]],
-      gstRate: [Number(this.selectedClient?.defaultGstRate ?? 18), [Validators.required, Validators.min(0), Validators.max(100)]],
-      isReimbursement: [false],
-    });
+      serviceDescription: [item?.serviceDescription || '', Validators.required],
+      serviceCode: [item?.serviceCode], periodFrom: [item?.periodFrom], periodTo: [item?.periodTo], sequence: [item?.sequence],
+      sacCode: [item?.sacCode || ''],
+      quantity: [Number(item?.quantity ?? 1), [...decimal, Validators.min(0.01)]],
+      rate: [Number(item?.rate ?? 0), decimal],
+      discountAmount: [Number(item?.discountAmount ?? 0), decimal],
+      gstRate: [Number(item?.gstRate ?? this.selectedClient?.defaultGstRate ?? 18), [...decimal, Validators.max(100)]],
+      isReimbursement: [item?.isReimbursement || false],
+    }, { validators: group => Number(group.value.discountAmount) > Number((group.value.quantity * group.value.rate).toFixed(2)) ? { excessDiscount: true } : null });
   }
 
   addItem(): void {
@@ -331,7 +352,7 @@ export class BillingCreateInvoiceComponent implements OnInit {
 
   onClientChange(): void {
     const id = this.form.value.billingClientId;
-    this.selectedClient = this.clients.find((c) => c.id === id) || null;
+    this.selectedClient = this.clientOptions.find((c) => c.id === id) || null;
     if (this.selectedClient) {
       this.form.patchValue({ placeOfSupply: this.selectedClient.placeOfSupply || this.selectedClient.stateName });
       this.itemsArray.controls.forEach((ctrl) => {
@@ -345,15 +366,15 @@ export class BillingCreateInvoiceComponent implements OnInit {
 
   calcLineTotal(i: number): string {
     const item = this.itemsArray.at(i).value;
-    const amount = (item.quantity || 0) * (item.rate || 0);
-    const taxable = amount - (item.discountAmount || 0);
+    const amount = Number(((item.quantity || 0) * (item.rate || 0)).toFixed(2));
+    const taxable = Number((amount - (item.discountAmount || 0)).toFixed(2));
     const gstRate = item.isReimbursement ? 0 : (item.gstRate || 0);
-    const gst = (taxable * gstRate) / 100;
+    const gst = Number(((taxable * gstRate) / 100).toFixed(2));
     return (taxable + gst).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   onSubmit(): void {
-    if (this.saving || this.loadingInvoice || this.lockedStatus) return;
+    if (this.saving || this.loadingInvoice || this.lockedStatus || this.loadError) return;
     this.saveError = '';
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -365,7 +386,7 @@ export class BillingCreateInvoiceComponent implements OnInit {
     const request = this.isEditMode && this.invoiceId
       ? this.svc.updateInvoice(this.invoiceId, payload)
       : this.svc.createInvoice(payload);
-    request.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    request.pipe(takeUntil(this.contextChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (inv) => {
         this.saving = false;
         this.router.navigate(['/accounts/invoices', inv.id]);

@@ -1,10 +1,21 @@
-import { Controller, Get, Param, Query, Res, Version } from '@nestjs/common';
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Query,
+  Res,
+  Version,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { Roles } from '../auth/roles.decorator';
 import { PdfReportService } from './pdf-report.service';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
+import { OperationalScopeService } from '../access/operational-scope.service';
 
 /**
  * /api/v1/reports/pdf
@@ -18,6 +29,7 @@ export class PdfReportController {
   constructor(
     private readonly pdf: PdfReportService,
     @InjectDataSource() private ds: DataSource,
+    private readonly scope: OperationalScopeService,
   ) {}
 
   /* ── Compliance Summary (per client) ── */
@@ -27,10 +39,12 @@ export class PdfReportController {
   @Get('compliance/:clientId')
   @Roles('CRM', 'CLIENT', 'ADMIN', 'CCO', 'CEO')
   async complianceSummary(
+    @CurrentUser() user: ReqUser,
     @Param('clientId') clientId: string,
     @Query('month') month: string | undefined,
     @Res() res: Response,
   ): Promise<void> {
+    await this.assertCompanyReportAccess(user, clientId);
     const name = await this.clientName(clientId);
     const buf = await this.pdf.complianceSummary(clientId, month, name);
     this.streamPdf(res, buf, `compliance-summary-${clientId}.pdf`);
@@ -60,10 +74,12 @@ export class PdfReportController {
   @Get('risk-heatmap/:clientId')
   @Roles('CRM', 'CLIENT', 'ADMIN', 'CCO', 'CEO')
   async riskHeatmap(
+    @CurrentUser() user: ReqUser,
     @Param('clientId') clientId: string,
     @Query('month') month: string | undefined,
     @Res() res: Response,
   ): Promise<void> {
+    await this.assertCompanyReportAccess(user, clientId);
     const name = await this.clientName(clientId);
     const buf = await this.pdf.riskHeatmap(clientId, month, name);
     this.streamPdf(res, buf, `risk-heatmap-${clientId}.pdf`);
@@ -76,10 +92,12 @@ export class PdfReportController {
   @Get('dtss/:clientId')
   @Roles('CRM', 'CLIENT', 'ADMIN', 'CCO', 'CEO')
   async dtss(
+    @CurrentUser() user: ReqUser,
     @Param('clientId') clientId: string,
     @Query('month') month: string,
     @Res() res: Response,
   ): Promise<void> {
+    await this.assertCompanyReportAccess(user, clientId);
     const name = await this.clientName(clientId);
 
     // Fetch tasks for the month
@@ -107,6 +125,16 @@ export class PdfReportController {
   }
 
   /* ──────── helpers ──────── */
+
+  private async assertCompanyReportAccess(user: ReqUser, clientId: string) {
+    const scope = await this.scope.resolve(user, clientId);
+    // These generators aggregate every branch and cannot produce a scoped PDF.
+    if (scope.level === 'branches') {
+      throw new ForbiddenException(
+        'Company-wide reports require company access',
+      );
+    }
+  }
 
   private async clientName(clientId: string): Promise<string> {
     const rows = await this.ds.query(

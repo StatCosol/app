@@ -6,26 +6,29 @@ import { RolesGuard } from '../auth/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ReqUser } from '../access/access-scope.service';
+import { OperationalScopeService } from '../access/operational-scope.service';
 
 @ApiTags('Reports')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'reports/compliance', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ComplianceReportController {
-  constructor(private readonly ds: DataSource) {}
+  constructor(
+    private readonly ds: DataSource,
+    private readonly scope: OperationalScopeService,
+  ) {}
 
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM')
   @ApiOperation({ summary: 'Summary' })
   @Get()
   async summary(@CurrentUser() user: ReqUser) {
-    const role = user?.roleCode;
+    const scope = await this.scope.resolve(user);
     const params: unknown[] = [];
     let sql = 'SELECT * FROM vw_compliance_coverage';
 
-    if (role === 'CRM') {
-      sql +=
-        ' WHERE "clientId" IN (SELECT client_id FROM client_assignments_current WHERE assignment_type = $1 AND assigned_to_user_id = $2)';
-      params.push('CRM', user.id);
+    if (scope.level === 'clients') {
+      sql += ' WHERE "clientId" = ANY($1::uuid[])';
+      params.push(scope.clientIds ?? []);
     }
 
     sql += ' ORDER BY "clientName", "branchName"';

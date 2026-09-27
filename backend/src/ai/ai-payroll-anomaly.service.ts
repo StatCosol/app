@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { AiPayrollAnomalyEntity } from './entities/ai-payroll-anomaly.entity';
@@ -205,6 +205,12 @@ export class AiPayrollAnomalyService {
   }
 
   /** Resolve an anomaly */
+  async getAnomaly(id: string): Promise<AiPayrollAnomalyEntity> {
+    const anomaly = await this.anomalyRepo.findOneBy({ id });
+    if (!anomaly) throw new NotFoundException('Anomaly not found');
+    return anomaly;
+  }
+
   async resolveAnomaly(
     id: string,
     resolvedBy: string,

@@ -11,6 +11,7 @@ import {
   UseGuards,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
@@ -40,6 +41,7 @@ import {
 } from '../common/utils/pdf-helpers';
 import { buildNominationPdf } from './utils/statutory-nomination-pdf';
 import { ClientEntity } from '../clients/entities/client.entity';
+import { BranchEntity } from '../branches/entities/branch.entity';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
@@ -58,6 +60,38 @@ export class ClientEmployeesController {
     private readonly ds: DataSource,
   ) {}
 
+  private async allowedBranches(user: ReqUser): Promise<string[] | 'ALL'> {
+    const ids = await this.branchAccess.getUserBranchIds(user.userId);
+    return user.userType === 'BRANCH' ||
+      user.roleCode === 'BRANCH_DESK' ||
+      ids.length
+      ? ids
+      : 'ALL';
+  }
+
+  private async assertEmployeeBranch(user: ReqUser, branchId: string | null) {
+    const allowed = await this.allowedBranches(user);
+    if (allowed !== 'ALL' && (!branchId || !allowed.includes(branchId))) {
+      throw new ForbiddenException(
+        'You do not have access to this employee branch',
+      );
+    }
+  }
+
+  private async assertDestinationBranch(
+    user: ReqUser,
+    branchId: string | null,
+  ) {
+    await this.assertEmployeeBranch(user, branchId);
+    if (!branchId) return;
+    const branch = await this.ds.getRepository(BranchEntity).findOne({
+      where: { id: branchId, clientId: user.clientId!, isDeleted: false },
+      select: ['id'],
+    });
+    if (!branch)
+      throw new BadRequestException('Branch does not belong to this client');
+  }
+
   @ApiOperation({ summary: 'Create' })
   @Post()
   async create(@CurrentUser() user: ReqUser, @Body() body: CreateEmployeeDto) {
@@ -65,18 +99,17 @@ export class ClientEmployeesController {
     if (!clientId) throw new BadRequestException('Client context required');
 
     // Branch user → forced branchId; master user → branchId from body
-    const allowedBranches = await this.branchAccess.getUserBranchIds(
-      user.userId,
-    );
+    const allowedBranches = await this.allowedBranches(user);
     let branchId = body.branchId || null;
-    const isBranchUser = allowedBranches.length > 0;
-    if (isBranchUser) {
+    const isBranchUser = allowedBranches !== 'ALL';
+    if (allowedBranches !== 'ALL') {
       // Branch user: force to their first branch (or validate the supplied one)
       if (branchId && !allowedBranches.includes(branchId)) {
         throw new BadRequestException('You do not have access to this branch');
       }
-      branchId = branchId || allowedBranches[0];
+      branchId = branchId || allowedBranches[0] || null;
     }
+    await this.assertDestinationBranch(user, branchId);
     return this.svc.create(clientId, branchId, body, isBranchUser);
   }
 
@@ -90,10 +123,8 @@ export class ClientEmployeesController {
     if (!clientId) throw new BadRequestException('Client context required');
 
     // Branch user → restrict to allowed branches only
-    const allowed = await this.branchAccess.getAllowedBranchIds(
-      user.userId,
-      clientId,
-    );
+    const allowed = await this.allowedBranches(user);
+    if (allowed !== 'ALL' && !allowed.length) return { data: [], total: 0 };
     let branchId = query.branchId || undefined;
     if (allowed !== 'ALL') {
       // If branchId specified, verify it's allowed
@@ -131,10 +162,10 @@ export class ClientEmployeesController {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
 
-    const allowed = await this.branchAccess.getAllowedBranchIds(
-      user.userId,
-      clientId,
-    );
+    const allowed = await this.allowedBranches(user);
+    if (allowed !== 'ALL' && !allowed.length) {
+      throw new ForbiddenException('No employee branches assigned');
+    }
     let branchId = query.branchId || undefined;
     if (allowed !== 'ALL') {
       if (branchId && !allowed.includes(branchId))
@@ -247,10 +278,10 @@ export class ClientEmployeesController {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
 
-    const allowed = await this.branchAccess.getAllowedBranchIds(
-      user.userId,
-      clientId,
-    );
+    const allowed = await this.allowedBranches(user);
+    if (allowed !== 'ALL' && !allowed.length) {
+      throw new ForbiddenException('No employee branches assigned');
+    }
     const filters: any = { isActive: true, limit: 10000, offset: 0 };
     if (allowed !== 'ALL') {
       filters.branchIds = allowed;
@@ -314,8 +345,7 @@ export class ClientEmployeesController {
     if (!clientId) throw new BadRequestException('Client context required');
     const emp = await this.svc.findById(clientId, id);
     // Enforce branch access
-    if (emp.branchId)
-      await this.branchAccess.assertBranchAccess(user.userId, emp.branchId);
+    await this.assertEmployeeBranch(user, emp.branchId);
     return emp;
   }
 
@@ -329,8 +359,10 @@ export class ClientEmployeesController {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     const emp = await this.svc.findById(clientId, id);
-    if (emp.branchId)
-      await this.branchAccess.assertBranchAccess(user.userId, emp.branchId);
+    await this.assertEmployeeBranch(user, emp.branchId);
+    if (body.branchId !== undefined) {
+      await this.assertDestinationBranch(user, body.branchId || null);
+    }
     return this.svc.update(clientId, id, body);
   }
 
@@ -344,8 +376,7 @@ export class ClientEmployeesController {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     const emp = await this.svc.findById(clientId, id);
-    if (emp.branchId)
-      await this.branchAccess.assertBranchAccess(user.userId, emp.branchId);
+    await this.assertEmployeeBranch(user, emp.branchId);
     return this.svc.deactivate(clientId, id, body.exitReason, body.dateOfExit);
   }
 
@@ -354,6 +385,8 @@ export class ClientEmployeesController {
   async hardDelete(@CurrentUser() user: ReqUser, @Param('id') id: string) {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
+    const emp = await this.svc.findById(clientId, id);
+    await this.assertEmployeeBranch(user, emp.branchId);
     await this.svc.hardDelete(clientId, id);
     return { deleted: true };
   }
@@ -364,8 +397,8 @@ export class ClientEmployeesController {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     // Only master/client users (non-branch) can approve
-    const allowed = await this.branchAccess.getUserBranchIds(user.userId);
-    if (allowed.length > 0) {
+    const allowed = await this.allowedBranches(user);
+    if (allowed !== 'ALL') {
       throw new BadRequestException(
         'Only client admin users can approve employees',
       );
@@ -379,8 +412,8 @@ export class ClientEmployeesController {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     // Only master/client users (non-branch) can reject
-    const allowed = await this.branchAccess.getUserBranchIds(user.userId);
-    if (allowed.length > 0) {
+    const allowed = await this.allowedBranches(user);
+    if (allowed !== 'ALL') {
       throw new BadRequestException(
         'Only client admin users can reject employees',
       );
@@ -399,8 +432,7 @@ export class ClientEmployeesController {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     const emp = await this.svc.findById(clientId, id);
-    if (emp.branchId)
-      await this.branchAccess.assertBranchAccess(user.userId, emp.branchId);
+    await this.assertEmployeeBranch(user, emp.branchId);
 
     if (!emp.email)
       throw new BadRequestException('Employee must have an email address');
@@ -459,6 +491,7 @@ export class ClientEmployeesController {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     const emp = await this.svc.findById(clientId, id);
+    await this.assertEmployeeBranch(user, emp.branchId);
     if (!emp.email)
       throw new BadRequestException('Employee has no email address');
 
@@ -496,8 +529,7 @@ export class ClientEmployeesController {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     const emp = await this.svc.findById(clientId, id);
-    if (emp.branchId)
-      await this.branchAccess.assertBranchAccess(user.userId, emp.branchId);
+    await this.assertEmployeeBranch(user, emp.branchId);
     return this.svc.createNomination(id, body, {
       clientId,
       branchId: emp.branchId ?? null,
@@ -511,8 +543,7 @@ export class ClientEmployeesController {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     const emp = await this.svc.findById(clientId, id);
-    if (emp.branchId)
-      await this.branchAccess.assertBranchAccess(user.userId, emp.branchId);
+    await this.assertEmployeeBranch(user, emp.branchId);
     return this.svc.listNominations(id);
   }
 
@@ -527,8 +558,7 @@ export class ClientEmployeesController {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     const emp = await this.svc.findById(clientId, id);
-    if (emp.branchId)
-      await this.branchAccess.assertBranchAccess(user.userId, emp.branchId);
+    await this.assertEmployeeBranch(user, emp.branchId);
 
     // Generate statutory-format PDF using employee + nomination data
     const upperType = (formType || '').toUpperCase();
@@ -584,8 +614,7 @@ export class ClientEmployeesController {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     const emp = await this.svc.findById(clientId, id);
-    if (emp.branchId)
-      await this.branchAccess.assertBranchAccess(user.userId, emp.branchId);
+    await this.assertEmployeeBranch(user, emp.branchId);
     return this.svc.listGeneratedForms(id);
   }
 
@@ -602,8 +631,7 @@ export class ClientEmployeesController {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     const emp = await this.svc.findById(clientId, id);
-    if (emp.branchId)
-      await this.branchAccess.assertBranchAccess(user.userId, emp.branchId);
+    await this.assertEmployeeBranch(user, emp.branchId);
 
     const upperType = (formType || '').toUpperCase();
     if (!upperType) throw new BadRequestException('Form type is required');
@@ -656,9 +684,7 @@ export class ClientEmployeesController {
     if (!clientId) throw new BadRequestException('Client context required');
 
     const emp = await this.svc.findById(clientId, id);
-    if (emp.branchId) {
-      await this.branchAccess.assertBranchAccess(user.userId, emp.branchId);
-    }
+    await this.assertEmployeeBranch(user, emp.branchId);
 
     const client = await this.ds.getRepository(ClientEntity).findOne({
       where: { id: clientId },

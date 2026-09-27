@@ -11,6 +11,25 @@ describe('BillingCalculationService', () => {
   });
 
   describe('calculateItem', () => {
+    it.each([
+      { quantity: 0, rate: 100 },
+      { quantity: 0.001, rate: 100 },
+      { quantity: 1, rate: 100.001 },
+      { quantity: 1, rate: 100, discountAmount: 101 },
+      { quantity: 1, rate: 100, gstRate: 101 },
+      { quantity: 1, rate: Infinity },
+    ])(
+      'rejects values that cannot be persisted or produce a negative line: %j',
+      (item) => {
+        expect(() => svc.calculateItem(item)).toThrow();
+      },
+    );
+
+    it('accepts fractional quantities at stored precision', () => {
+      expect(
+        svc.calculateItem({ quantity: 0.25, rate: 100, gstRate: 18 }),
+      ).toMatchObject({ amount: 25, gstAmount: 4.5, lineTotal: 29.5 });
+    });
     it('computes a simple line with no discount or GST', () => {
       expect(svc.calculateItem({ quantity: 2, rate: 100 })).toEqual({
         amount: 200,

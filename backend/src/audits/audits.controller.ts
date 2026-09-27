@@ -68,6 +68,9 @@ export class AuditKpiController {
     @Query('from') from: string,
     @Query('to') to: string,
   ) {
+    if (user.roleCode === 'CRM' || user.roleCode === 'AUDITOR') {
+      await this.accessScope.assertBranchAllowed(user, branchId);
+    }
     if (user.roleCode === 'CLIENT' || user.roleCode === 'BRANCH') {
       await this.branchAccess.assertBranchAccess(user.userId, branchId);
     }
@@ -84,6 +87,9 @@ export class AuditKpiController {
     @Param('branchId', ParseUUIDPipe) branchId: string,
     @Param('periodCode') periodCode: string,
   ) {
+    if (user.roleCode === 'CRM' || user.roleCode === 'AUDITOR') {
+      await this.accessScope.assertBranchAllowed(user, branchId);
+    }
     if (user.roleCode === 'CLIENT' || user.roleCode === 'BRANCH') {
       await this.branchAccess.assertBranchAccess(user.userId, branchId);
     }

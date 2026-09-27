@@ -14,11 +14,13 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as fs from 'fs';
+import * as path from 'path';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { EmployeeDocumentService } from './employee-document.service';
+import { EmployeeDocumentUploadGuard } from './employee-document-upload.guard';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
@@ -34,6 +36,7 @@ export class EmployeeDocumentController {
   @ApiOperation({ summary: 'File Interceptor' })
   @Post(':employeeId/upload')
   @Roles('CLIENT', 'ADMIN', 'CRM')
+  @UseGuards(EmployeeDocumentUploadGuard)
   @UseInterceptors(
     FileInterceptor(
       'file',
@@ -48,21 +51,38 @@ export class EmployeeDocumentController {
     @Body('expiryDate') expiryDate: string | undefined,
     @CurrentUser() user: ReqUser,
   ) {
-    assertSafeFile(file);
-    if (!docType) throw new BadRequestException('docType is required');
-
-    return this.docService.upload({
-      clientId: user.clientId!,
-      employeeId,
-      docType,
-      docName: docName || file.originalname,
-      fileName: file.filename,
-      filePath: file.path,
-      fileSize: file.size,
-      mimeType: file.mimetype,
-      uploadedByUserId: user.userId,
-      expiryDate,
-    });
+    try {
+      assertSafeFile(file);
+      if (!docType) throw new BadRequestException('docType is required');
+      return await this.docService.upload(user, {
+        employeeId,
+        docType,
+        docName: docName || file.originalname,
+        fileName: file.filename,
+        filePath: file.path,
+        fileSize: file.size,
+        mimeType: file.mimetype,
+        uploadedByUserId: user.userId,
+        expiryDate,
+      });
+    } catch (error) {
+      const root = path.resolve('uploads', 'employee-documents');
+      const relative = file?.path
+        ? path.relative(root, path.resolve(file.path))
+        : '';
+      if (
+        relative &&
+        !relative.startsWith('..') &&
+        !path.isAbsolute(relative)
+      ) {
+        try {
+          await fs.promises.unlink(path.resolve(root, relative));
+        } catch {
+          /* Preserve the original rejection. */
+        }
+      }
+      throw error;
+    }
   }
 
   @ApiOperation({ summary: 'List' })
@@ -72,7 +92,7 @@ export class EmployeeDocumentController {
     @Param('employeeId', ParseUUIDPipe) employeeId: string,
     @CurrentUser() user: ReqUser,
   ) {
-    return this.docService.listForEmployee(user.clientId!, employeeId);
+    return this.docService.listForEmployee(user, employeeId);
   }
 
   @ApiOperation({ summary: 'Download' })
