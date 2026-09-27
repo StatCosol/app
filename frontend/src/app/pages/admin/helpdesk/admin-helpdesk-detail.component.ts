@@ -6,11 +6,12 @@ import { Subscription } from 'rxjs';
 import { AdminHelpdeskApiService, HdTicket, HdMessage } from './admin-helpdesk-api.service';
 import { AdminUsersApi, UserDto } from '../../../core/api/admin-users.api';
 import { PageHeaderComponent } from '../../../shared/ui';
+import { HelpdeskAttachmentsComponent } from '../../../shared/helpdesk/helpdesk-attachments.component';
 
 @Component({
   selector: 'app-admin-helpdesk-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, PageHeaderComponent],
+  imports: [CommonModule, RouterModule, FormsModule, PageHeaderComponent, HelpdeskAttachmentsComponent],
   template: `
     @if (ticket) {
 <div class="space-y-6">
@@ -118,7 +119,13 @@ import { PageHeaderComponent } from '../../../shared/ui';
       <div class="bg-white rounded-xl border border-gray-200 p-6">
         <h2 class="text-sm font-semibold text-gray-900 mb-4">Messages ({{ messages.length }})</h2>
 
-        @if (messages.length === 0) {
+        @if (messagesLoading) { <p role="status" class="text-sm text-gray-500">Loading messages...</p> }
+        @if (messagesError) {
+          <div role="alert" class="text-sm text-red-700 mb-3">{{ messagesError }}
+            <button type="button" (click)="loadMessages()" class="underline ml-2">Retry messages</button>
+          </div>
+        }
+        @if (messages.length === 0 && !messagesLoading && !messagesError) {
 <div class="text-sm text-gray-400 text-center py-4">No messages yet</div>
 }
 
@@ -130,6 +137,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
               <span class="text-xs text-gray-400">{{ m.createdAt | date:'dd MMM yyyy, HH:mm' }}</span>
             </div>
             <p class="text-sm text-gray-800 whitespace-pre-wrap">{{ m.message }}</p>
+            <app-helpdesk-attachments [attachments]="m.attachments || []" />
           </div>
 }
         </div>
@@ -164,6 +172,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
     @if (error) {
 <div class="text-center py-20">
       <p class="text-red-500 text-sm">{{ error }}</p>
+      <button type="button" (click)="loadTicket()" class="text-sm underline mt-2">Retry ticket</button>
       <a routerLink="/admin/helpdesk" class="text-sm text-brand-600 hover:underline mt-2 inline-block">← Back to tickets</a>
     </div>
 }
@@ -172,6 +181,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
 export class AdminHelpdeskDetailComponent implements OnInit, OnDestroy {
   ticket: HdTicket | null = null;
   messages: HdMessage[] = [];
+  messagesLoading = false;
+  messagesError = '';
   newMessage = '';
   sendingMessage = false;
   updatingStatus = false;
@@ -195,86 +206,124 @@ export class AdminHelpdeskDetailComponent implements OnInit, OnDestroy {
   ) {}
 
   private paramSub?: Subscription;
+  private ticketId = '';
+  private contextRequests = new Subscription();
+  private messageRequest?: Subscription;
+  private usersRequest?: Subscription;
 
   ngOnInit(): void {
     // React to paramMap changes (in case the component is reused across detail routes)
     this.paramSub = this.route.paramMap.subscribe((pm) => {
       const id = pm.get('id');
-      if (!id) {
-        this.error = 'Ticket id missing';
-        this.cdr.detectChanges();
-        return;
-      }
-      this.error = '';
-      this.actionError = '';
-      this.assignUserId = '';
-      this.ticket = null;
-      this.api.getTicket(id).subscribe({
-        next: (t) => {
-          this.ticket = t;
-          this.loadMessages();
-          this.cdr.markForCheck();
-          this.cdr.detectChanges();
-        },
-        error: (err) => {
-          if (err?.status === 0) {
-            this.error = 'Network error — unable to reach server. Please retry.';
-          } else if (err?.status === 401 || err?.status === 403) {
-            this.error = 'Session expired or access denied. Please refresh and sign in again.';
-          } else if (err?.status === 404) {
-            this.error = 'Ticket not found';
-          } else {
-            this.error = `Failed to load ticket${err?.error?.message ? ': ' + err.error.message : '.'}`;
-          }
-          this.cdr.markForCheck();
-          this.cdr.detectChanges();
-        },
-      });
+      this.ticketId = id || '';
+      this.loadTicket();
     });
-    this.usersApi.listUsersSimple().subscribe({
+    this.usersRequest = this.usersApi.listUsersSimple().subscribe({
       next: (list) => {
         this.users = list || [];
         this.cdr.markForCheck();
         this.cdr.detectChanges();
       },
-      error: () => {},
+      error: () => {
+        this.actionError = 'Assignees could not be loaded. Please reload the page.';
+        this.cdr.markForCheck();
+      },
     });
+  }
+
+  loadTicket(): void {
+    this.contextRequests.unsubscribe();
+    this.contextRequests = new Subscription();
+    this.messageRequest?.unsubscribe();
+    this.ticket = null;
+    this.messages = [];
+    this.messagesError = '';
+    this.messagesLoading = false;
+    this.newMessage = '';
+    this.sendingMessage = this.updatingStatus = this.assigning = false;
+    const id = this.ticketId;
+    if (!id) {
+      this.error = 'Ticket id missing';
+      this.cdr.detectChanges();
+      return;
+    }
+    this.error = '';
+    this.actionError = '';
+    this.assignUserId = '';
+    this.contextRequests.add(this.api.getTicket(id).subscribe({
+      next: (t) => {
+        this.ticket = t;
+        this.loadMessages();
+        this.cdr.markForCheck();
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        if (err?.status === 0) {
+          this.error = 'Network error — unable to reach server. Please retry.';
+        } else if (err?.status === 401 || err?.status === 403) {
+          this.error = 'Session expired or access denied. Please refresh and sign in again.';
+        } else if (err?.status === 404) {
+          this.error = 'Ticket not found';
+        } else {
+          this.error = `Failed to load ticket${err?.error?.message ? ': ' + err.error.message : '.'}`;
+        }
+        this.cdr.markForCheck();
+        this.cdr.detectChanges();
+      },
+    }));
   }
 
   ngOnDestroy(): void {
     this.paramSub?.unsubscribe();
+    this.contextRequests.unsubscribe();
+    this.messageRequest?.unsubscribe();
+    this.usersRequest?.unsubscribe();
   }
 
-  private loadMessages(): void {
+  loadMessages(): void {
     if (!this.ticket) return;
-    this.api.getMessages(this.ticket.id).subscribe({
+    this.messageRequest?.unsubscribe();
+    this.messages = [];
+    this.messagesLoading = true;
+    this.messagesError = '';
+    this.messageRequest = this.api.getMessages(this.ticket.id).subscribe({
       next: (msgs) => {
         this.messages = msgs;
+        this.messagesLoading = false;
         this.cdr.markForCheck();
         this.cdr.detectChanges();
       },
-      error: () => {},
+      error: () => {
+        this.messagesLoading = false;
+        this.messagesError = 'Messages could not be loaded.';
+        this.cdr.markForCheck();
+      },
     });
   }
 
   postMessage(): void {
     if (!this.ticket || !this.newMessage.trim() || this.sendingMessage) return;
     this.sendingMessage = true;
-    this.api.postMessage(this.ticket.id, this.newMessage.trim()).subscribe({
+    this.actionError = '';
+    this.contextRequests.add(this.api.postMessage(this.ticket.id, this.newMessage.trim()).subscribe({
       next: () => {
         this.newMessage = '';
         this.sendingMessage = false;
         this.loadMessages();
       },
-      error: () => (this.sendingMessage = false),
-    });
+      error: () => {
+        this.sendingMessage = false;
+        this.actionError = 'Message could not be sent. Please retry.';
+        this.cdr.markForCheck();
+      },
+    }));
   }
 
   changeStatus(status: string): void {
     if (!this.ticket || this.updatingStatus || this.assigning) return;
     this.actionError = '';
     this.updatingStatus = true;
-    this.api.updateStatus(this.ticket.id, status).subscribe({
+    this.contextRequests.add(this.api.updateStatus(this.ticket.id, status).subscribe({
       next: (updated) => {
         this.ticket!.status = updated.status ?? status;
         this.updatingStatus = false;
@@ -284,7 +333,7 @@ export class AdminHelpdeskDetailComponent implements OnInit, OnDestroy {
         this.actionError = typeof err?.error?.message === 'string' ? err.error.message : 'Status could not be updated. Please retry.';
         this.cdr.markForCheck();
       },
-    });
+    }));
   }
 
   assignTicket(): void {
@@ -292,7 +341,7 @@ export class AdminHelpdeskDetailComponent implements OnInit, OnDestroy {
     this.actionError = '';
     const assigneeName = this.assignableUsers.find(user => user.id === this.assignUserId.trim())?.name;
     this.assigning = true;
-    this.api.assignTicket(this.ticket.id, this.assignUserId.trim()).subscribe({
+    this.contextRequests.add(this.api.assignTicket(this.ticket.id, this.assignUserId.trim()).subscribe({
       next: (updated) => {
         this.ticket!.assignedToUserId = updated.assignedToUserId;
         this.ticket!.assigneeName = assigneeName ?? null;
@@ -305,14 +354,14 @@ export class AdminHelpdeskDetailComponent implements OnInit, OnDestroy {
         this.actionError = typeof err?.error?.message === 'string' ? err.error.message : 'Ticket could not be assigned. Please retry.';
         this.cdr.markForCheck();
       },
-    });
+    }));
   }
 
   unassignTicket(): void {
     if (!this.ticket || this.assigning || this.updatingStatus) return;
     this.actionError = '';
     this.assigning = true;
-    this.api.assignTicket(this.ticket.id, null).subscribe({
+    this.contextRequests.add(this.api.assignTicket(this.ticket.id, null).subscribe({
       next: () => {
         this.ticket!.assignedToUserId = null;
         this.ticket!.assigneeName = null;
@@ -323,7 +372,7 @@ export class AdminHelpdeskDetailComponent implements OnInit, OnDestroy {
         this.actionError = typeof err?.error?.message === 'string' ? err.error.message : 'Assignment could not be removed. Please retry.';
         this.cdr.markForCheck();
       },
-    });
+    }));
   }
 
   isSlaBreach(): boolean {

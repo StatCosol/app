@@ -81,9 +81,20 @@ export class HelpdeskService {
 
   /** Admin: paginated + searchable ticket list */
   async adminListTickets(q: Record<string, string>) {
-    const page = Math.max(Number(q?.page) || 1, 1);
-    const limit = Math.min(Math.max(Number(q?.limit) || 20, 1), 100);
+    const page = q?.page === undefined ? 1 : Number(q.page);
+    const requestedLimit = q?.limit === undefined ? 20 : Number(q.limit);
+    if (
+      !Number.isSafeInteger(page) ||
+      page < 1 ||
+      !Number.isSafeInteger(requestedLimit) ||
+      requestedLimit < 1
+    ) {
+      throw new BadRequestException('page and limit must be positive integers');
+    }
+    const limit = Math.min(requestedLimit, 100);
     const offset = (page - 1) * limit;
+    if (!Number.isSafeInteger(offset))
+      throw new BadRequestException('Page is out of range');
 
     const qb = this.ticketRepo
       .createQueryBuilder('t')
@@ -108,7 +119,7 @@ export class HelpdeskService {
       );
     }
 
-    qb.orderBy('t.created_at', 'DESC');
+    qb.orderBy('t.created_at', 'DESC').addOrderBy('t.id', 'DESC');
 
     const total = await qb.getCount();
     const raw = await qb.offset(offset).limit(limit).getRawAndEntities();

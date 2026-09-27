@@ -6,6 +6,10 @@ const { PGlite } = require('./auditxpert-test-db.cjs');
 const { HelpdeskService } = require('../dist/src/helpdesk/helpdesk.service');
 const { HelpdeskTicketEntity } = require('../dist/src/helpdesk/entities/helpdesk-ticket.entity');
 const { ClientEntity } = require('../dist/src/clients/entities/client.entity');
+const { HelpdeskMessageEntity } = require('../dist/src/helpdesk/entities/helpdesk-message.entity');
+const { HelpdeskMessageFileEntity } = require('../dist/src/helpdesk/entities/helpdesk-message-file.entity');
+const { FilesService } = require('../dist/src/files/files.service');
+const { AccessScopeService } = require('../dist/src/access/access-scope.service');
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
 async function main() {
@@ -23,13 +27,13 @@ async function main() {
     await ds.initialize();
     const runner = ds.createQueryRunner();
     try {
-      for (const entity of [ClientEntity, HelpdeskTicketEntity]) {
+      for (const entity of [ClientEntity, HelpdeskTicketEntity, HelpdeskMessageEntity, HelpdeskMessageFileEntity]) {
         await runner.createTable(Table.create(ds.getMetadata(entity), ds.driver), true, false);
       }
     } finally { await runner.release(); }
     await db.exec(`
       CREATE TABLE roles(id uuid PRIMARY KEY, code text);
-      CREATE TABLE users(id uuid PRIMARY KEY, role_id uuid, deleted_at timestamptz, is_active boolean DEFAULT true);
+      CREATE TABLE users(id uuid PRIMARY KEY, role_id uuid, name text DEFAULT 'Sample user', deleted_at timestamptz, is_active boolean DEFAULT true);
       CREATE TABLE client_assignments_current(client_id uuid, assigned_to_user_id uuid, assignment_type text);
       CREATE TABLE client_branches(id uuid PRIMARY KEY, clientid uuid, isactive boolean DEFAULT true, isdeleted boolean DEFAULT false);
       CREATE TABLE user_branches(user_id uuid, branch_id uuid);
@@ -41,7 +45,9 @@ async function main() {
     await db.query('INSERT INTO user_branches VALUES($1,$2)', [id(14), id(30)]);
 
     const repo = ds.getRepository(HelpdeskTicketEntity);
-    const service = new HelpdeskService(repo, {}, {}, ds);
+    const messages = ds.getRepository(HelpdeskMessageEntity);
+    const attachments = ds.getRepository(HelpdeskMessageFileEntity);
+    const service = new HelpdeskService(repo, messages, attachments, ds);
     const pf = { id: id(11), roleCode: 'PF_TEAM' };
     const admin = { id: id(10), roleCode: 'ADMIN' };
     const client = { id: id(14), clientId: id(20), roleCode: 'CLIENT', userType: 'MASTER' };
@@ -93,7 +99,45 @@ async function main() {
     );
     assert.ok(['CLOSED', 'OPEN'].includes(closed.status));
     assert.equal(await repo.count(), 2);
+    // Attachment metadata and downloads must resolve to the same owning ticket.
+    await repo.update(seed.id, { category: 'PF', assignedToUserId: pf.id });
+    const message = await messages.save({ ticketId: seed.id, senderUserId: pf.id, message: 'Sample attachment' });
+    const stored = { messageId: message.id, fileName: 'sample report.pdf', filePath: 'uploads/helpdesk/sample report.pdf', fileType: 'application/pdf', fileSize: '10' };
+    await attachments.save(stored);
+    const thread = await service.getMessages(client, seed.id);
+    assert.deepEqual(thread[0].attachments, [{ name: stored.fileName, url: '/' + stored.filePath }]);
+    const empty = { findOne: async () => null };
+    const scope = new AccessScopeService({ manager: ds.manager }, {}, {}, {}, {});
+    const files = new FilesService(empty, empty, attachments, empty, empty, scope);
+    const employee = { id: client.id, roleCode: 'EMPLOYEE', clientId: client.clientId };
+    for (const actor of [admin, client, { ...client, userType: 'BRANCH' }, pf, employee, { id: id(12), roleCode: 'CRM' }]) {
+      await files.assertCanDownload(actor, 'helpdesk/sample report.pdf');
+    }
+    for (const actor of [{ ...client, clientId: id(21) }, { ...client, id: id(99), userType: 'BRANCH' }, { ...employee, id: id(13) }, { ...employee, clientId: id(21) }, { ...pf, id: id(99) }, { id: id(99), roleCode: 'CRM' }]) {
+      await assert.rejects(files.assertCanDownload(actor, stored.filePath), error => error.getStatus() === 403);
+    }
+    await repo.update(seed.id, { assignedToUserId: null });
+    await assert.rejects(files.assertCanDownload(pf, stored.filePath), error => error.getStatus() === 403);
+    await db.query('DELETE FROM user_branches WHERE user_id=$1', [client.id]);
+    await assert.rejects(files.assertCanDownload({ ...client, userType: 'BRANCH' }, stored.filePath), error => error.getStatus() === 403);
+    await db.query('DELETE FROM client_assignments_current WHERE assigned_to_user_id=$1', [id(12)]);
+    await assert.rejects(files.assertCanDownload({ id: id(12), roleCode: 'CRM' }, stored.filePath), error => error.getStatus() === 403);
+
+    // Equal timestamps must not cause records to move between pages of an unchanged dataset.
+    const timestamp = new Date('2026-09-27T00:00:00Z');
+    await repo.save(Array.from({ length: 123 }, (_, i) => ({ ...seed, id: id(100 + i), createdAt: timestamp, description: 'Pagination fixture' })));
+    const seen = [];
+    for (let page = 1; page <= 8; page++) {
+      const result = await service.adminListTickets({ page: String(page), limit: '17', search: 'Pagination fixture' });
+      assert.equal(result.total, 123);
+      seen.push(...result.data.map(ticket => ticket.id));
+    }
+    assert.equal(seen.length, 123);
+    assert.equal(new Set(seen).size, 123);
+    assert.deepEqual(seen, Array.from({ length: 123 }, (_, i) => id(222 - i)));
+    assert.equal((await service.adminListTickets({ limit: '999' })).data.length, 100);
     console.log('PASS: client/branch isolation, PF queue scope, assignee eligibility, concurrent reassignment/status conflicts, and client closure race');
+    console.log('PASS: attachment ownership, current branch/CRM membership, employee isolation, and all 123 tied-date tickets across pages');
   } finally {
     if (ds?.isInitialized) await ds.destroy();
     await db.close();

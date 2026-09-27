@@ -25,6 +25,7 @@ export interface HdTicket {
 }
 
 export interface HdMessage {
+  attachments?: { name: string; url: string }[];
   id: string;
   ticketId: string;
   senderUserId: string;

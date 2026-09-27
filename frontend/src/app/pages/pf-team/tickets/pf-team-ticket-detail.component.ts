@@ -1,14 +1,16 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PfTeamApiService, HdTicket, HdMessage } from '../pf-team-api.service';
 import { AuthService } from '../../../core/auth.service';
+import { Subscription } from 'rxjs';
+import { HelpdeskAttachmentsComponent } from '../../../shared/helpdesk/helpdesk-attachments.component';
 
 @Component({
   selector: 'app-pf-team-ticket-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [CommonModule, RouterModule, FormsModule, HelpdeskAttachmentsComponent],
   template: `
     @if (ticket) {
 <div class="space-y-6">
@@ -90,7 +92,13 @@ import { AuthService } from '../../../core/auth.service';
       <div class="bg-white rounded-xl border border-gray-200 p-6">
         <h2 class="text-sm font-semibold text-gray-900 mb-4">Messages ({{ messages.length }})</h2>
 
-        @if (messages.length === 0) {
+        @if (messagesLoading) { <p role="status" class="text-sm text-gray-500">Loading messages...</p> }
+        @if (messagesError) {
+          <div role="alert" class="text-sm text-red-700 mb-3">{{ messagesError }}
+            <button type="button" (click)="loadMessages()" class="underline ml-2">Retry messages</button>
+          </div>
+        }
+        @if (messages.length === 0 && !messagesLoading && !messagesError) {
 <div class="text-sm text-gray-400 text-center py-4">No messages yet</div>
 }
 
@@ -98,6 +106,7 @@ import { AuthService } from '../../../core/auth.service';
           @for (m of messages; track m) {
 <div class="p-3 rounded-lg bg-gray-50 border border-gray-100">
             <p class="text-sm text-gray-800 whitespace-pre-wrap">{{ m.message }}</p>
+            <app-helpdesk-attachments [attachments]="m.attachments || []" [disabled]="!canManage" />
             <p class="text-xs text-gray-400 mt-1">{{ m.createdAt | date:'dd MMM yyyy, HH:mm' }}</p>
           </div>
 }
@@ -134,14 +143,21 @@ import { AuthService } from '../../../core/auth.service';
     @if (error) {
 <div class="text-center py-20">
       <p class="text-red-500 text-sm">{{ error }}</p>
+      <button type="button" (click)="loadTicket()" class="text-sm underline mt-2">Retry ticket</button>
       <a routerLink="/pf-team/tickets" class="text-sm text-brand-600 hover:underline mt-2 inline-block">← Back to tickets</a>
     </div>
 }
   `,
 })
-export class PfTeamTicketDetailComponent implements OnInit {
+export class PfTeamTicketDetailComponent implements OnInit, OnDestroy {
   ticket: HdTicket | null = null;
   messages: HdMessage[] = [];
+  messagesLoading = false;
+  messagesError = '';
+  private ticketId = '';
+  private paramSub?: Subscription;
+  private contextRequests = new Subscription();
+  private messageRequest?: Subscription;
   newMessage = '';
   sendingMessage = false;
   updatingStatus = false;
@@ -161,21 +177,49 @@ export class PfTeamTicketDetailComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id')!;
-    this.api.getTicket(id).subscribe({
+    this.paramSub = this.route.paramMap.subscribe(params => {
+      this.ticketId = params.get('id') || '';
+      this.loadTicket();
+    });
+  }
+
+  loadTicket(): void {
+    this.contextRequests.unsubscribe();
+    this.contextRequests = new Subscription();
+    this.messageRequest?.unsubscribe();
+    this.ticket = null;
+    this.messages = [];
+    this.messagesError = '';
+    this.messagesLoading = false;
+    this.error = '';
+    this.actionError = '';
+    this.newMessage = '';
+    this.sendingMessage = this.updatingStatus = false;
+    if (!this.ticketId) { this.error = 'Ticket id missing'; return; }
+    this.contextRequests.add(this.api.getTicket(this.ticketId).subscribe({
       next: (t) => {
         this.ticket = t;
         this.loadMessages();
       },
-      error: () => (this.error = 'Ticket not found'),
-    });
+      error: () => (this.error = 'Ticket could not be loaded or access was denied.'),
+    }));
   }
 
-  private loadMessages(): void {
+  ngOnDestroy(): void {
+    this.paramSub?.unsubscribe();
+    this.contextRequests.unsubscribe();
+    this.messageRequest?.unsubscribe();
+  }
+
+  loadMessages(): void {
     if (!this.ticket) return;
-    this.api.getMessages(this.ticket.id).subscribe({
-      next: (msgs) => (this.messages = msgs),
-      error: () => {},
+    this.messageRequest?.unsubscribe();
+    this.messages = [];
+    this.messagesLoading = true;
+    this.messagesError = '';
+    this.messageRequest = this.api.getMessages(this.ticket.id).subscribe({
+      next: (msgs) => { this.messages = msgs; this.messagesLoading = false; },
+      error: () => { this.messagesLoading = false; this.messagesError = 'Messages could not be loaded.'; },
     });
   }
 
@@ -183,7 +227,7 @@ export class PfTeamTicketDetailComponent implements OnInit {
     if (!this.ticket || !this.canManage || !this.newMessage.trim() || this.sendingMessage) return;
     this.actionError = '';
     this.sendingMessage = true;
-    this.api.postMessage(this.ticket.id, this.newMessage.trim()).subscribe({
+    this.contextRequests.add(this.api.postMessage(this.ticket.id, this.newMessage.trim()).subscribe({
       next: () => {
         this.newMessage = '';
         this.sendingMessage = false;
@@ -193,14 +237,14 @@ export class PfTeamTicketDetailComponent implements OnInit {
         this.sendingMessage = false;
         this.actionError = typeof err?.error?.message === 'string' ? err.error.message : 'Message could not be sent. Please retry.';
       },
-    });
+    }));
   }
 
   changeStatus(status: string): void {
     if (!this.ticket || !this.canChangeStatus(status) || this.updatingStatus) return;
     this.actionError = '';
     this.updatingStatus = true;
-    this.api.updateStatus(this.ticket.id, status).subscribe({
+    this.contextRequests.add(this.api.updateStatus(this.ticket.id, status).subscribe({
       next: (updated) => {
         this.ticket!.status = updated.status ?? status;
         this.updatingStatus = false;
@@ -209,7 +253,7 @@ export class PfTeamTicketDetailComponent implements OnInit {
         this.updatingStatus = false;
         this.actionError = typeof err?.error?.message === 'string' ? err.error.message : 'Status could not be updated. Please retry.';
       },
-    });
+    }));
   }
 
   isSlaBreach(): boolean {
