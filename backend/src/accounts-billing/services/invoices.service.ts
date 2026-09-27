@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import {
   Invoice,
   InvoiceItem,
@@ -389,190 +389,226 @@ export class InvoicesService {
   }
 
   async update(id: string, dto: UpdateInvoiceDto, userId: string) {
-    const invoice = await this.invoiceRepo.findOne({
-      where: { id },
-      relations: ['billingClient', 'items'],
-    });
-    if (!invoice) throw new NotFoundException('Invoice not found');
-
-    if (!EDITABLE_STATUSES.has(invoice.invoiceStatus)) {
-      throw new BadRequestException(
-        `Invoice cannot be edited once it is ${invoice.invoiceStatus}. ` +
-          'Invoices with recorded payments or that are cancelled are locked for editing.',
-      );
-    }
-    if (invoice.paymentStatus !== PaymentStatus.UNPAID) {
-      throw new BadRequestException(
-        'Invoice has recorded payments and cannot be edited. Reverse the payments first.',
-      );
-    }
-
-    const client = dto.billingClientId
-      ? await this.clientRepo.findOne({ where: { id: dto.billingClientId } })
-      : invoice.billingClient;
-    if (!client) throw new NotFoundException('Billing client not found');
-
-    const settings = await this.settingsRepo.findOne({ where: {} });
-    const supplierStateCode = settings?.stateCode || '36';
-    const clientStateCode = client.stateCode;
-    const gstRate = client.defaultGstRate || settings?.defaultGstRate || 18;
-
-    const intraState = this.calcService.isIntraState(
-      supplierStateCode,
-      clientStateCode,
-    );
-
-    const invoiceDate = dto.invoiceDate || invoice.invoiceDate;
-    const items = dto.items;
-
-    const oldStatus = invoice.invoiceStatus;
-    const before = {
-      invoiceNumber: invoice.invoiceNumber,
-      grandTotal: invoice.grandTotal,
-      itemCount: invoice.items?.length || 0,
-    };
-
-    invoice.billingClientId = client.id;
-    invoice.billingClient = client;
-    invoice.invoiceType = dto.invoiceType ?? invoice.invoiceType;
-    invoice.invoiceDate = invoiceDate;
-    invoice.dueDate = dto.dueDate !== undefined ? dto.dueDate : invoice.dueDate;
-    invoice.placeOfSupply =
-      dto.placeOfSupply ?? invoice.placeOfSupply ?? client.placeOfSupply;
-    invoice.stateCode = clientStateCode;
-    invoice.gstin = client.gstin;
-    invoice.remarks = dto.remarks !== undefined ? dto.remarks : invoice.remarks;
-    invoice.purchaseOrderNumber =
-      dto.purchaseOrderNumber !== undefined
-        ? dto.purchaseOrderNumber.trim() || null
-        : invoice.purchaseOrderNumber;
-    invoice.financialYear = this.numberService.getFinancialYear(
-      new Date(invoiceDate),
-    );
-
-    if (items && items.length) {
-      const itemResults = items.map((item) => {
-        // Reimbursement / pass-through line items (e.g. statutory / government
-        // fees) never attract GST — force the rate to 0.
-        const isReimbursement = item.isReimbursement || false;
-        const itemGstRate = isReimbursement ? 0 : (item.gstRate ?? gstRate);
-        return {
-          ...item,
-          isReimbursement,
-          gstRate: itemGstRate,
-          ...this.calcService.calculateItem({
-            quantity: item.quantity,
-            rate: item.rate,
-            discountAmount: item.discountAmount,
-            gstRate: itemGstRate,
-          }),
-        };
+    await this.dataSource.transaction(async (manager) => {
+      const invoiceRepo = manager.getRepository(Invoice);
+      const itemRepo = manager.getRepository(InvoiceItem);
+      const auditLogRepo = manager.getRepository(InvoiceAuditLog);
+      await this.lockInvoice(manager, id);
+      const invoice = await invoiceRepo.findOne({
+        where: { id },
+        relations: ['billingClient', 'items'],
       });
+      if (!invoice) throw new NotFoundException('Invoice not found');
 
-      const totals = this.calcService.calculateInvoiceTotals(
-        itemResults.map((r) => ({
-          amount: r.amount,
-          discountAmount: r.discountAmount,
-          taxableAmount: r.taxableAmount,
-          gstAmount: r.gstAmount,
-          lineTotal: r.lineTotal,
-        })),
-        gstRate,
-        intraState,
-      );
-      Object.assign(invoice, totals);
-
-      // Replace the line items wholesale rather than trying to diff/merge —
-      // simpler and avoids stale rows lingering when items are removed.
-      if (invoice.items?.length) {
-        await this.itemRepo.remove(invoice.items);
+      if (!EDITABLE_STATUSES.has(invoice.invoiceStatus)) {
+        throw new BadRequestException(
+          `Invoice cannot be edited once it is ${invoice.invoiceStatus}. ` +
+            'Invoices with recorded payments or that are cancelled are locked for editing.',
+        );
       }
-      invoice.items = itemResults.map((r, idx) =>
-        this.itemRepo.create({
-          serviceCode: r.serviceCode,
-          serviceDescription: r.serviceDescription,
-          sacCode: r.sacCode || settings?.defaultSacCode,
-          periodFrom: r.periodFrom,
-          periodTo: r.periodTo,
-          quantity: r.quantity,
-          rate: r.rate,
-          amount: r.amount,
-          discountAmount: r.discountAmount,
-          taxableAmount: r.taxableAmount,
-          gstRate: r.gstRate,
-          gstAmount: r.gstAmount,
-          lineTotal: r.lineTotal,
-          isReimbursement: r.isReimbursement || false,
-          sequence: r.sequence || idx + 1,
+      if (invoice.paymentStatus !== PaymentStatus.UNPAID) {
+        throw new BadRequestException(
+          'Invoice has recorded payments and cannot be edited. Reverse the payments first.',
+        );
+      }
+
+      const client = dto.billingClientId
+        ? await manager
+            .getRepository(BillingClient)
+            .findOne({ where: { id: dto.billingClientId } })
+        : invoice.billingClient;
+      if (!client) throw new NotFoundException('Billing client not found');
+
+      const settings = await manager
+        .getRepository(BillingSetting)
+        .findOne({ where: {} });
+      const supplierStateCode = settings?.stateCode || '36';
+      const clientStateCode = client.stateCode;
+      const gstRate = client.defaultGstRate || settings?.defaultGstRate || 18;
+
+      const intraState = this.calcService.isIntraState(
+        supplierStateCode,
+        clientStateCode,
+      );
+
+      const invoiceDate = dto.invoiceDate || invoice.invoiceDate;
+      const items = dto.items;
+
+      const oldStatus = invoice.invoiceStatus;
+      const before = {
+        invoiceNumber: invoice.invoiceNumber,
+        grandTotal: invoice.grandTotal,
+        itemCount: invoice.items?.length || 0,
+      };
+
+      invoice.billingClientId = client.id;
+      invoice.billingClient = client;
+      invoice.invoiceType = dto.invoiceType ?? invoice.invoiceType;
+      invoice.invoiceDate = invoiceDate;
+      invoice.dueDate =
+        dto.dueDate !== undefined ? dto.dueDate : invoice.dueDate;
+      invoice.placeOfSupply =
+        dto.placeOfSupply ?? invoice.placeOfSupply ?? client.placeOfSupply;
+      invoice.stateCode = clientStateCode;
+      invoice.gstin = client.gstin;
+      invoice.remarks =
+        dto.remarks !== undefined ? dto.remarks : invoice.remarks;
+      invoice.purchaseOrderNumber =
+        dto.purchaseOrderNumber !== undefined
+          ? dto.purchaseOrderNumber.trim() || null
+          : invoice.purchaseOrderNumber;
+      invoice.financialYear = this.numberService.getFinancialYear(
+        new Date(invoiceDate),
+      );
+
+      if (items && items.length) {
+        const itemResults = items.map((item) => {
+          // Reimbursement / pass-through line items (e.g. statutory / government
+          // fees) never attract GST — force the rate to 0.
+          const isReimbursement = item.isReimbursement || false;
+          const itemGstRate = isReimbursement ? 0 : (item.gstRate ?? gstRate);
+          return {
+            ...item,
+            isReimbursement,
+            gstRate: itemGstRate,
+            ...this.calcService.calculateItem({
+              quantity: item.quantity,
+              rate: item.rate,
+              discountAmount: item.discountAmount,
+              gstRate: itemGstRate,
+            }),
+          };
+        });
+
+        const totals = this.calcService.calculateInvoiceTotals(
+          itemResults.map((r) => ({
+            amount: r.amount,
+            discountAmount: r.discountAmount,
+            taxableAmount: r.taxableAmount,
+            gstAmount: r.gstAmount,
+            lineTotal: r.lineTotal,
+          })),
+          gstRate,
+          intraState,
+        );
+        Object.assign(invoice, totals);
+
+        // Replace the line items wholesale rather than trying to diff/merge —
+        // simpler and avoids stale rows lingering when items are removed.
+        if (invoice.items?.length) {
+          await itemRepo.remove(invoice.items);
+        }
+        invoice.items = itemResults.map((r, idx) =>
+          itemRepo.create({
+            serviceCode: r.serviceCode,
+            serviceDescription: r.serviceDescription,
+            sacCode: r.sacCode || settings?.defaultSacCode,
+            periodFrom: r.periodFrom,
+            periodTo: r.periodTo,
+            quantity: r.quantity,
+            rate: r.rate,
+            amount: r.amount,
+            discountAmount: r.discountAmount,
+            taxableAmount: r.taxableAmount,
+            gstRate: r.gstRate,
+            gstAmount: r.gstAmount,
+            lineTotal: r.lineTotal,
+            isReimbursement: r.isReimbursement || false,
+            sequence: r.sequence || idx + 1,
+          }),
+        );
+      }
+
+      const saved = await invoiceRepo.save(invoice);
+
+      await auditLogRepo.save(
+        auditLogRepo.create({
+          invoiceId: id,
+          action: 'EDIT',
+          oldStatus,
+          newStatus: saved.invoiceStatus,
+          changedBy: userId,
+          payload: {
+            before,
+            after: {
+              invoiceNumber: saved.invoiceNumber,
+              grandTotal: saved.grandTotal,
+              itemCount: saved.items?.length || 0,
+            },
+          },
         }),
       );
-    }
-
-    const saved = await this.invoiceRepo.save(invoice);
-
-    await this.auditLogRepo.save(
-      this.auditLogRepo.create({
-        invoiceId: id,
-        action: 'EDIT',
-        oldStatus,
-        newStatus: saved.invoiceStatus,
-        changedBy: userId,
-        payload: {
-          before,
-          after: {
-            invoiceNumber: saved.invoiceNumber,
-            grandTotal: saved.grandTotal,
-            itemCount: saved.items?.length || 0,
-          },
-        },
-      }),
-    );
-
+    });
     return this.findOne(id);
   }
 
   async approve(id: string, userId: string) {
-    const invoice = await this.findOne(id);
-    if (invoice.invoiceStatus !== InvoiceStatus.DRAFT) {
-      throw new BadRequestException('Only DRAFT invoices can be approved');
-    }
-    invoice.invoiceStatus = InvoiceStatus.APPROVED;
-    invoice.approvedBy = userId;
-    invoice.approvedAt = new Date();
-    return this.invoiceRepo.save(invoice);
+    await this.dataSource.transaction(async (manager) => {
+      const invoice = await this.lockInvoice(manager, id);
+      if (invoice.invoiceStatus !== InvoiceStatus.DRAFT) {
+        throw new BadRequestException('Only DRAFT invoices can be approved');
+      }
+      await manager.getRepository(Invoice).update(id, {
+        invoiceStatus: InvoiceStatus.APPROVED,
+        approvedBy: userId,
+        approvedAt: new Date(),
+      });
+    });
+    return this.findOne(id);
   }
 
   async cancel(id: string) {
-    const invoice = await this.findOne(id);
-    if (invoice.invoiceStatus === InvoiceStatus.PAID) {
-      throw new BadRequestException('Cannot cancel a fully paid invoice');
-    }
-    if (invoice.invoiceStatus === InvoiceStatus.PARTIALLY_PAID) {
-      throw new BadRequestException(
-        'Cannot cancel an invoice with recorded payments. Reverse the payments first.',
-      );
-    }
-    invoice.invoiceStatus = InvoiceStatus.CANCELLED;
-    return this.invoiceRepo.save(invoice);
+    await this.dataSource.transaction(async (manager) => {
+      const invoice = await this.lockInvoice(manager, id);
+      if (invoice.invoiceStatus === InvoiceStatus.PAID) {
+        throw new BadRequestException('Cannot cancel a fully paid invoice');
+      }
+      if (
+        invoice.invoiceStatus === InvoiceStatus.PARTIALLY_PAID ||
+        invoice.paymentStatus !== PaymentStatus.UNPAID ||
+        Number(invoice.amountReceived) > 0
+      ) {
+        throw new BadRequestException(
+          'Cannot cancel an invoice with recorded payments. Reverse the payments first.',
+        );
+      }
+      await manager.getRepository(Invoice).update(id, {
+        invoiceStatus: InvoiceStatus.CANCELLED,
+      });
+    });
+    return this.findOne(id);
   }
 
   async updatePdfPath(id: string, pdfPath: string) {
-    const invoice = await this.invoiceRepo.findOne({ where: { id } });
+    await this.dataSource.transaction(async (manager) => {
+      const invoice = await this.lockInvoice(manager, id);
+
+      // Status transitions to GENERATED only from DRAFT or APPROVED. Once an
+      // invoice has been GENERATED, EMAILED, PARTIALLY_PAID, PAID, OVERDUE
+      // or CANCELLED, regenerating / re-emailing / re-downloading the PDF
+      // must not silently regress its workflow status.
+      const allowGeneratedTransition =
+        invoice.invoiceStatus === InvoiceStatus.DRAFT ||
+        invoice.invoiceStatus === InvoiceStatus.APPROVED;
+
+      const update: Partial<Invoice> = { pdfPath };
+      if (allowGeneratedTransition) {
+        update.invoiceStatus = InvoiceStatus.GENERATED;
+      }
+      await manager.getRepository(Invoice).update(id, update);
+    });
+  }
+
+  private async lockInvoice(manager: EntityManager, id: string) {
+    // Lock the parent before loading eager items; joined relations cannot be
+    // locked safely by PostgreSQL. Payments use this same parent-row lock.
+    const invoice = await manager.getRepository(Invoice).findOne({
+      where: { id },
+      lock: { mode: 'pessimistic_write' },
+      loadEagerRelations: false,
+    });
     if (!invoice) throw new NotFoundException('Invoice not found');
-
-    // Status transitions to GENERATED only from DRAFT or APPROVED. Once an
-    // invoice has been GENERATED, EMAILED, PARTIALLY_PAID, PAID, OVERDUE
-    // or CANCELLED, regenerating / re-emailing / re-downloading the PDF
-    // must not silently regress its workflow status.
-    const allowGeneratedTransition =
-      invoice.invoiceStatus === InvoiceStatus.DRAFT ||
-      invoice.invoiceStatus === InvoiceStatus.APPROVED;
-
-    const update: Partial<Invoice> = { pdfPath };
-    if (allowGeneratedTransition) {
-      update.invoiceStatus = InvoiceStatus.GENERATED;
-    }
-    await this.invoiceRepo.update(id, update);
+    return invoice;
   }
 
   async updateMailStatus(id: string, mailStatus: MailStatus) {

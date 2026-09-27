@@ -104,6 +104,12 @@ jobs:
         run: node scripts/verify-helpdesk-db.cjs
       - name: Patched dependency runtime smoke
         run: node scripts/security-dependency-smoke.cjs
+      - name: Billing transaction PostgreSQL regressions
+        env:
+          AUDITXPERT_TEST_PORT: 5432
+          AUDITXPERT_TEST_USER: postgres
+          AUDITXPERT_TEST_PASSWORD: postgres
+        run: node scripts/verify-billing-transactions.cjs
       - name: Payslip PDF layout regressions
         run: node scripts/verify-payslip-layout.cjs
       - name: Boot check (entity metadata + DB connect)

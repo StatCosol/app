@@ -184,3 +184,119 @@ describe('InvoicesService Proforma conversion', () => {
     expect(transactionAuditRepo.save).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('InvoicesService locked transitions', () => {
+  function setup(overrides: Record<string, unknown> = {}) {
+    const invoice = {
+      id: 'invoice-id',
+      invoiceStatus: InvoiceStatus.APPROVED,
+      paymentStatus: PaymentStatus.UNPAID,
+      amountReceived: 0,
+      ...overrides,
+    };
+    const repository = {
+      findOne: jest.fn().mockResolvedValue(invoice),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
+    const manager = { getRepository: jest.fn().mockReturnValue(repository) };
+    const dataSource = {
+      transaction: jest.fn(async (callback) => callback(manager)),
+    };
+    const service = new InvoicesService(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      dataSource as any,
+    );
+    jest.spyOn(service, 'findOne').mockResolvedValue(invoice as any);
+    return { service, repository, dataSource };
+  }
+
+  it('approves only under the parent-row lock without resaving relations', async () => {
+    const { service, repository, dataSource } = setup({
+      invoiceStatus: InvoiceStatus.DRAFT,
+    });
+    await service.approve('invoice-id', 'approver');
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(repository.findOne).toHaveBeenCalledWith({
+      where: { id: 'invoice-id' },
+      lock: { mode: 'pessimistic_write' },
+      loadEagerRelations: false,
+    });
+    expect(repository.update).toHaveBeenCalledWith('invoice-id', {
+      invoiceStatus: InvoiceStatus.APPROVED,
+      approvedBy: 'approver',
+      approvedAt: expect.any(Date),
+    });
+  });
+
+  it.each([
+    InvoiceStatus.CANCELLED,
+    InvoiceStatus.APPROVED,
+    InvoiceStatus.PAID,
+  ])(
+    'rejects approval after the locked state becomes %s',
+    async (invoiceStatus) => {
+      const { service, repository } = setup({ invoiceStatus });
+      await expect(service.approve('invoice-id', 'approver')).rejects.toThrow(
+        'Only DRAFT',
+      );
+      expect(repository.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { invoiceStatus: InvoiceStatus.PAID },
+    { invoiceStatus: InvoiceStatus.PARTIALLY_PAID },
+    { paymentStatus: PaymentStatus.PARTIALLY_PAID },
+    { amountReceived: '40.00' },
+  ])('rejects cancellation with recorded money: %j', async (overrides) => {
+    const { service, repository } = setup(overrides);
+    await expect(service.cancel('invoice-id')).rejects.toThrow('Cannot cancel');
+    expect(repository.update).not.toHaveBeenCalled();
+  });
+
+  it('cancels an unpaid invoice using a status-only update', async () => {
+    const { service, repository } = setup();
+    await service.cancel('invoice-id');
+    expect(repository.update).toHaveBeenCalledWith('invoice-id', {
+      invoiceStatus: InvoiceStatus.CANCELLED,
+    });
+  });
+
+  it.each(Object.values(InvoiceStatus))(
+    'preserves PDF transition rules for %s',
+    async (invoiceStatus) => {
+      const { service, repository } = setup({ invoiceStatus });
+      await service.updatePdfPath('invoice-id', 'invoice.pdf');
+      const transitions = [
+        InvoiceStatus.DRAFT,
+        InvoiceStatus.APPROVED,
+      ].includes(invoiceStatus);
+      expect(repository.update).toHaveBeenCalledWith('invoice-id', {
+        pdfPath: 'invoice.pdf',
+        ...(transitions ? { invoiceStatus: InvoiceStatus.GENERATED } : {}),
+      });
+    },
+  );
+
+  it.each(['approve', 'cancel', 'updatePdfPath', 'update'] as const)(
+    '%s returns not found without writing when the locked invoice is missing',
+    async (operation) => {
+      const { service, repository } = setup();
+      repository.findOne.mockResolvedValue(null);
+      const request =
+        operation === 'update'
+          ? service.update('missing', {}, 'actor')
+          : operation === 'cancel'
+            ? service.cancel('missing')
+            : service[operation]('missing', 'value');
+      await expect(request).rejects.toThrow('Invoice not found');
+      expect(repository.update).not.toHaveBeenCalled();
+    },
+  );
+});
