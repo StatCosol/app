@@ -25,6 +25,10 @@ import {
   addPageNumbers,
 } from '../../common/utils/pdf-helpers';
 import { loadLogoBuffer } from '../utils/payslip-pdf';
+import {
+  renderPayslipLayout,
+  validatePayslipLayout,
+} from '../utils/payslip-layout';
 
 @Injectable()
 export class PayslipGeneratorService {
@@ -147,7 +151,7 @@ export class PayslipGeneratorService {
     );
 
     const layout = await this.layoutRepo.findOne({
-      where: { clientId: run.clientId },
+      where: { clientId: run.clientId, isActive: true },
     });
 
     const buffer = await this.renderPayslipPdf({
@@ -536,194 +540,213 @@ export class PayslipGeneratorService {
 
     const netPay = Number(valueMap.get('NET_PAY') ?? runEmp.netPay ?? 0);
 
-    // ── Draw Table ──
-    const tableX = startX;
-    const tableWidth = pageWidth;
-    const halfWidth = tableWidth / 2;
-    const col1X = tableX; // "Earnings" label
-    const col3X = tableX + halfWidth; // "Deductions" label
-    const rowHeight = 24;
-    const cellPadX = 6;
-    const cellPadY = 7;
-    let tY = doc.y;
-
-    const drawCellBorders = (x: number, y: number, w: number, h: number) => {
-      doc.strokeColor('#000000').lineWidth(0.5).rect(x, y, w, h).stroke();
-    };
-
-    // Helper to draw a row with 4 cells
-    const drawRow = (
-      label1: string,
-      val1: string,
-      label2: string,
-      val2: string,
-      y: number,
-      bold = false,
-    ) => {
-      const labelW = halfWidth - 80;
-      const amtW = 80;
-      drawCellBorders(col1X, y, labelW, rowHeight);
-      drawCellBorders(col1X + labelW, y, amtW, rowHeight);
-      drawCellBorders(col3X, y, labelW, rowHeight);
-      drawCellBorders(col3X + labelW, y, amtW, rowHeight);
-
-      const fs = bold ? 10 : 9;
-      doc.fontSize(fs).fillColor('#000000');
-      if (bold) doc.font('Helvetica-Bold');
-      else doc.font('Helvetica');
-      doc.text(label1, col1X + cellPadX, y + cellPadY, {
-        width: labelW - cellPadX * 2,
-      });
-      doc
-        .fontSize(fs)
-        .fillColor('#000000')
-        .text(val1, col1X + labelW + cellPadX, y + cellPadY, {
-          width: amtW - cellPadX * 2,
-          align: 'right',
-        });
-      doc
-        .fontSize(fs)
-        .fillColor('#000000')
-        .text(label2, col3X + cellPadX, y + cellPadY, {
-          width: labelW - cellPadX * 2,
-        });
-      doc
-        .fontSize(fs)
-        .fillColor('#000000')
-        .text(val2, col3X + labelW + cellPadX, y + cellPadY, {
-          width: amtW - cellPadX * 2,
-          align: 'right',
-        });
-      doc.font('Helvetica');
-    };
-
-    // Header row
-    drawRow('Earnings', 'Amount', 'Deductions', 'Amount', tY, true);
-    tY += rowHeight;
-
-    // Row 1: Basic / PF
-    drawRow(
-      'Basic',
-      this.formatCurrency(basic),
-      'PF',
-      this.formatCurrency(pfAmt),
-      tY,
-    );
-    tY += rowHeight;
-
-    // Row 2: HRA / ESI
-    drawRow(
-      'HRA',
-      this.formatCurrency(hra),
-      'ESI',
-      this.formatCurrency(esiAmt),
-      tY,
-    );
-    tY += rowHeight;
-
-    // Row 3: Others / PT
-    drawRow(
-      'Others',
-      this.formatCurrency(others),
-      'PT',
-      this.formatCurrency(ptAmt),
-      tY,
-    );
-    tY += rowHeight;
-
-    // Att. Bonus row — paired with PF Employer if applicable
-    if (attBonus > 0 || pfErFromEmpAmt > 0) {
-      drawRow(
-        attBonus > 0 ? 'Att. Bonus' : '',
-        attBonus > 0 ? this.formatCurrency(attBonus) : '',
-        pfErFromEmpAmt > 0 ? 'PF Employer' : '',
-        pfErFromEmpAmt > 0 ? this.formatCurrency(pfErFromEmpAmt) : '',
-        tY,
-      );
-      tY += rowHeight;
-    }
-
-    // Other Earnings (explicit user-entered amount or gross-residual)
-    if (otherEarningsRow > 0) {
-      drawRow(
-        otherEarningsLabel,
-        this.formatCurrency(otherEarningsRow),
-        '',
-        '',
-        tY,
-      );
-      tY += rowHeight;
-    }
-
-    // Arrear / Att. Bonus row when present (separate from Att. Bonus)
-    if (arrearAttBonus > 0) {
-      drawRow(
-        'Arrear / Att. Bonus',
-        this.formatCurrency(arrearAttBonus),
-        '',
-        '',
-        tY,
-      );
-      tY += rowHeight;
-    }
-
-    // OT Amount is included inside the Other Earnings row above; no separate row.
-
-    // Other Deductions (user-supplied) on the deductions side
-    if (otherDeductions > 0) {
-      drawRow(
-        '',
-        '',
-        otherDeductionsLabel,
-        this.formatCurrency(otherDeductions),
-        tY,
-      );
-      tY += rowHeight;
-    }
-
-    // Row 4: Gross / Total Deduction
-    drawRow(
-      'Gross',
-      this.formatCurrency(gross + otAmount),
-      'Total Deduction',
-      this.formatCurrency(totalDeduction),
-      tY,
-      true,
-    );
-    tY += rowHeight;
-
-    // Row 5: Net Pay (spans full width)
-    const netLabelW = halfWidth - 80;
-    const netAmtW = 80;
-    // Draw 3 cells: label, first amount area, rest blank
-    drawCellBorders(col1X, tY, netLabelW, rowHeight);
-    drawCellBorders(col1X + netLabelW, tY, netAmtW, rowHeight);
-    drawCellBorders(col3X, tY, halfWidth, rowHeight);
-
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(10)
-      .fillColor('#000000')
-      .text('Net Pay', col1X + cellPadX, tY + cellPadY, {
-        width: netLabelW - cellPadX * 2,
-      });
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(10)
-      .fillColor('#000000')
-      .text(
-        this.formatCurrency(netPay),
-        col1X + netLabelW + cellPadX,
-        tY + cellPadY,
+    const customLayout =
+      params.layout?.isActive &&
+      params.layout.layoutJson?.settings?.enabled === true;
+    if (customLayout) {
+      renderPayslipLayout(
+        doc,
+        validatePayslipLayout(params.layout!.layoutJson),
+        valueMap,
         {
-          width: netAmtW - cellPadX * 2,
-          align: 'right',
+          GROSS_EARNINGS: Number(runEmp.grossEarnings),
+          TOTAL_DEDUCTIONS: Number(runEmp.totalDeductions),
+          NET_PAY: Number(runEmp.netPay),
         },
       );
-    doc.font('Helvetica');
-    tY += rowHeight;
+      // Keep the contributions, signature and tax note together where possible.
+      if (doc.y + 210 > doc.page.height - doc.page.margins.bottom)
+        doc.addPage();
+    } else {
+      // ── Draw Table ──
+      const tableX = startX;
+      const tableWidth = pageWidth;
+      const halfWidth = tableWidth / 2;
+      const col1X = tableX; // "Earnings" label
+      const col3X = tableX + halfWidth; // "Deductions" label
+      const rowHeight = 24;
+      const cellPadX = 6;
+      const cellPadY = 7;
+      let tY = doc.y;
 
-    doc.y = tY + 20;
+      const drawCellBorders = (x: number, y: number, w: number, h: number) => {
+        doc.strokeColor('#000000').lineWidth(0.5).rect(x, y, w, h).stroke();
+      };
+
+      // Helper to draw a row with 4 cells
+      const drawRow = (
+        label1: string,
+        val1: string,
+        label2: string,
+        val2: string,
+        y: number,
+        bold = false,
+      ) => {
+        const labelW = halfWidth - 80;
+        const amtW = 80;
+        drawCellBorders(col1X, y, labelW, rowHeight);
+        drawCellBorders(col1X + labelW, y, amtW, rowHeight);
+        drawCellBorders(col3X, y, labelW, rowHeight);
+        drawCellBorders(col3X + labelW, y, amtW, rowHeight);
+
+        const fs = bold ? 10 : 9;
+        doc.fontSize(fs).fillColor('#000000');
+        if (bold) doc.font('Helvetica-Bold');
+        else doc.font('Helvetica');
+        doc.text(label1, col1X + cellPadX, y + cellPadY, {
+          width: labelW - cellPadX * 2,
+        });
+        doc
+          .fontSize(fs)
+          .fillColor('#000000')
+          .text(val1, col1X + labelW + cellPadX, y + cellPadY, {
+            width: amtW - cellPadX * 2,
+            align: 'right',
+          });
+        doc
+          .fontSize(fs)
+          .fillColor('#000000')
+          .text(label2, col3X + cellPadX, y + cellPadY, {
+            width: labelW - cellPadX * 2,
+          });
+        doc
+          .fontSize(fs)
+          .fillColor('#000000')
+          .text(val2, col3X + labelW + cellPadX, y + cellPadY, {
+            width: amtW - cellPadX * 2,
+            align: 'right',
+          });
+        doc.font('Helvetica');
+      };
+
+      // Header row
+      drawRow('Earnings', 'Amount', 'Deductions', 'Amount', tY, true);
+      tY += rowHeight;
+
+      // Row 1: Basic / PF
+      drawRow(
+        'Basic',
+        this.formatCurrency(basic),
+        'PF',
+        this.formatCurrency(pfAmt),
+        tY,
+      );
+      tY += rowHeight;
+
+      // Row 2: HRA / ESI
+      drawRow(
+        'HRA',
+        this.formatCurrency(hra),
+        'ESI',
+        this.formatCurrency(esiAmt),
+        tY,
+      );
+      tY += rowHeight;
+
+      // Row 3: Others / PT
+      drawRow(
+        'Others',
+        this.formatCurrency(others),
+        'PT',
+        this.formatCurrency(ptAmt),
+        tY,
+      );
+      tY += rowHeight;
+
+      // Att. Bonus row — paired with PF Employer if applicable
+      if (attBonus > 0 || pfErFromEmpAmt > 0) {
+        drawRow(
+          attBonus > 0 ? 'Att. Bonus' : '',
+          attBonus > 0 ? this.formatCurrency(attBonus) : '',
+          pfErFromEmpAmt > 0 ? 'PF Employer' : '',
+          pfErFromEmpAmt > 0 ? this.formatCurrency(pfErFromEmpAmt) : '',
+          tY,
+        );
+        tY += rowHeight;
+      }
+
+      // Other Earnings (explicit user-entered amount or gross-residual)
+      if (otherEarningsRow > 0) {
+        drawRow(
+          otherEarningsLabel,
+          this.formatCurrency(otherEarningsRow),
+          '',
+          '',
+          tY,
+        );
+        tY += rowHeight;
+      }
+
+      // Arrear / Att. Bonus row when present (separate from Att. Bonus)
+      if (arrearAttBonus > 0) {
+        drawRow(
+          'Arrear / Att. Bonus',
+          this.formatCurrency(arrearAttBonus),
+          '',
+          '',
+          tY,
+        );
+        tY += rowHeight;
+      }
+
+      // OT Amount is included inside the Other Earnings row above; no separate row.
+
+      // Other Deductions (user-supplied) on the deductions side
+      if (otherDeductions > 0) {
+        drawRow(
+          '',
+          '',
+          otherDeductionsLabel,
+          this.formatCurrency(otherDeductions),
+          tY,
+        );
+        tY += rowHeight;
+      }
+
+      // Row 4: Gross / Total Deduction
+      drawRow(
+        'Gross',
+        this.formatCurrency(gross + otAmount),
+        'Total Deduction',
+        this.formatCurrency(totalDeduction),
+        tY,
+        true,
+      );
+      tY += rowHeight;
+
+      // Row 5: Net Pay (spans full width)
+      const netLabelW = halfWidth - 80;
+      const netAmtW = 80;
+      // Draw 3 cells: label, first amount area, rest blank
+      drawCellBorders(col1X, tY, netLabelW, rowHeight);
+      drawCellBorders(col1X + netLabelW, tY, netAmtW, rowHeight);
+      drawCellBorders(col3X, tY, halfWidth, rowHeight);
+
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(10)
+        .fillColor('#000000')
+        .text('Net Pay', col1X + cellPadX, tY + cellPadY, {
+          width: netLabelW - cellPadX * 2,
+        });
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(10)
+        .fillColor('#000000')
+        .text(
+          this.formatCurrency(netPay),
+          col1X + netLabelW + cellPadX,
+          tY + cellPadY,
+          {
+            width: netAmtW - cellPadX * 2,
+            align: 'right',
+          },
+        );
+      doc.font('Helvetica');
+      tY += rowHeight;
+
+      doc.y = tY + 20;
+    }
 
     // ── Employer Contributions ──
     // When PF_ER_FROM_EMP > 0 the employer PF is already deducted from the
