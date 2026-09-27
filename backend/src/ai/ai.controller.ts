@@ -319,8 +319,9 @@ export class AiController {
         dto.payrollRunId,
       );
     } catch (err: any) {
+      if (err instanceof HttpException) throw err;
       throw new HttpException(
-        err?.message || 'Anomaly detection failed',
+        'Anomaly detection could not be completed. Please retry or contact support.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

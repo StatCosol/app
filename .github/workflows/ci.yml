@@ -122,6 +122,12 @@ jobs:
           AUDITXPERT_TEST_USER: postgres
           AUDITXPERT_TEST_PASSWORD: postgres
         run: node scripts/verify-ai-audit-references-db.cjs
+      - name: AI payroll anomaly integrity PostgreSQL regressions
+        env:
+          AUDITXPERT_TEST_PORT: 5432
+          AUDITXPERT_TEST_USER: postgres
+          AUDITXPERT_TEST_PASSWORD: postgres
+        run: node scripts/verify-ai-payroll-anomalies-db.cjs
       - name: Payslip PDF layout regressions
         run: node scripts/verify-payslip-layout.cjs
       - name: Boot check (entity metadata + DB connect)

@@ -57,6 +57,7 @@ import {
           <div class="flex-1">
             <label class="block text-sm font-medium text-gray-700 mb-1" for="ap-detect-client-id">Client *</label>
             <select id="ap-detect-client-id" name="detectClientId" [(ngModel)]="detectClientId"
+                    [disabled]="detecting"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
               <option value="">Select client</option>
               @for (c of clients; track c) {
@@ -67,6 +68,7 @@ import {
           <div class="flex-1">
             <label class="block text-sm font-medium text-gray-700 mb-1" for="ap-detect-run-id">Payroll Run ID (optional)</label>
             <input autocomplete="off" id="ap-detect-run-id" name="detectRunId" type="text" [(ngModel)]="detectRunId" placeholder="Optional run UUID"
+                   [disabled]="detecting"
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500" />
           </div>
           <ui-button variant="primary" [disabled]="!detectClientId || detecting" (clicked)="detect()">
@@ -76,6 +78,10 @@ import {
         </div>
       </div>
 }
+
+      @if (detectionError) {
+        <p role="alert" class="mb-6 text-sm text-red-700">{{ detectionError }}</p>
+      }
 
       <!-- Summary Cards -->
       @if (anomalySummary) {
@@ -190,7 +196,7 @@ import {
       </div>
 }
 
-      @if (!loading && anomalies.length === 0 && detectedAnomalies.length === 0) {
+      @if (!loading && !detecting && !detectionError && anomalies.length === 0 && detectedAnomalies.length === 0) {
 <div>
         <ui-empty-state
           title="No Anomalies"
@@ -206,6 +212,7 @@ export class AiPayrollComponent implements OnInit, OnDestroy {
 
   loading = false;
   detecting = false;
+  detectionError = '';
   showDetectPanel = false;
   detectClientId = '';
   detectRunId = '';
@@ -255,11 +262,15 @@ export class AiPayrollComponent implements OnInit, OnDestroy {
   }
 
   detect(): void {
-    if (!this.detectClientId) return;
+    if (!this.detectClientId || this.detecting) return;
     this.detecting = true;
+    this.detectionError = '';
+    const clientId = this.detectClientId;
+    const runId = this.detectRunId.trim() || undefined;
+    this.detectedAnomalies = [];
     this.cdr.markForCheck();
 
-    this.ai.detectPayrollAnomalies(this.detectClientId, this.detectRunId || undefined)
+    this.ai.detectPayrollAnomalies(clientId, runId)
       .pipe(
         takeUntil(this.destroy$),
         timeout(20000),
@@ -270,18 +281,21 @@ export class AiPayrollComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (anomalies) => {
+          if (this.detectClientId !== clientId) return;
           this.detectedAnomalies = anomalies ?? [];
           this.showDetectPanel = false;
           if (anomalies.length > 0) {
             this.toast.success(`Found ${anomalies.length} anomalies!`);
           } else {
-            this.toast.success('No anomalies detected — payroll looks clean!');
+            this.toast.success('No anomalies found by the completed checks.');
           }
-          this.loadClientAnomalies(this.detectClientId);
+          this.loadClientAnomalies(clientId);
           this.cdr.markForCheck();
         },
-        error: () => {
-          this.toast.error('Anomaly detection failed.');
+        error: (error) => {
+          const message = error?.error?.message;
+          this.detectionError = typeof message === 'string' ? message : 'Anomaly detection failed.';
+          this.toast.error(this.detectionError);
           this.cdr.markForCheck();
         },
       });

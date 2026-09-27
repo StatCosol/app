@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { AiPayrollAnomalyEntity } from './entities/ai-payroll-anomaly.entity';
@@ -13,34 +17,59 @@ export class AiPayrollAnomalyService {
     private readonly _aiCore: AiCoreService,
   ) {}
 
-  /** Detect payroll anomalies for a client/run using rule-based + AI analysis */
+  /** Check current employee data, optionally restricted to a run's members. */
   async detectAnomalies(
     clientId: string,
     payrollRunId?: string,
   ): Promise<AiPayrollAnomalyEntity[]> {
+    const [client] = await this.dataSource.query(
+      'SELECT id FROM clients WHERE id = $1 AND is_deleted = false',
+      [clientId],
+    );
+    if (!client) throw new NotFoundException('Company not found');
+
+    let runId: string | null = null;
+    if (payrollRunId) {
+      const [run] = await this.dataSource.query(
+        'SELECT id FROM payroll_runs WHERE id = $1 AND client_id = $2',
+        [payrollRunId, clientId],
+      );
+      if (!run) {
+        throw new BadRequestException(
+          'Payroll run does not belong to the selected company',
+        );
+      }
+      runId = run.id;
+    }
+
+    const runScope = `AND ($2::uuid IS NULL OR EXISTS (
+      SELECT 1 FROM payroll_run_employees pre
+      WHERE pre.run_id = $2 AND pre.client_id = e.client_id
+        AND (pre.employee_id = e.id OR
+          (pre.employee_id IS NULL AND pre.employee_code = e.employee_code))
+    ))`;
     const anomalies: Partial<AiPayrollAnomalyEntity>[] = [];
 
     // 1. Min wage violations
-    const minWageViolations = await this.dataSource
-      .query(
-        `
+    const minWageViolations = await this.dataSource.query(
+      `
       SELECT e.id as employee_id, e.name, e.basic_salary, e.gross_salary,
              b.id as branch_id, b.statecode
       FROM employees e
       LEFT JOIN client_branches b ON b.id = e.branch_id
       WHERE e.client_id = $1 AND e.is_active = TRUE
+        ${runScope}
         AND e.basic_salary IS NOT NULL AND e.basic_salary < 8000
     `,
-        [clientId],
-      )
-      .catch(() => []);
+      [clientId, runId],
+    );
 
     for (const emp of minWageViolations) {
       anomalies.push({
         clientId,
         branchId: emp.branch_id,
         employeeId: emp.employee_id,
-        payrollRunId: payrollRunId || null,
+        payrollRunId: runId,
         anomalyType: 'MIN_WAGE_VIOLATION',
         severity: 'HIGH',
         description: `Employee ${emp.name} — Basic salary ₹${emp.basic_salary} may be below minimum wage threshold for ${emp.statecode || 'the state'}.`,
@@ -55,9 +84,8 @@ export class AiPayrollAnomalyService {
     }
 
     // 2. PF wage-base mismatch against statutory employee details
-    const pfMismatches = await this.dataSource
-      .query(
-        `
+    const pfMismatches = await this.dataSource.query(
+      `
       SELECT e.id as employee_id, e.name,
              e.basic_salary,
              esd.pf_uan, esd.pf_member_id, esd.pf_wages,
@@ -68,20 +96,20 @@ export class AiPayrollAnomalyService {
       LEFT JOIN employee_statutory esd ON esd.employee_id = e.id
       LEFT JOIN client_branches b ON b.id = e.branch_id
       WHERE e.client_id = $1 AND e.is_active = TRUE
+        ${runScope}
         AND esd.pf_wages IS NOT NULL
         AND e.basic_salary IS NOT NULL
         AND ABS(esd.pf_wages::numeric - e.basic_salary::numeric) > 100
     `,
-        [clientId],
-      )
-      .catch(() => []);
+      [clientId, runId],
+    );
 
     for (const emp of pfMismatches) {
       anomalies.push({
         clientId,
         branchId: emp.branch_id,
         employeeId: emp.employee_id,
-        payrollRunId: payrollRunId || null,
+        payrollRunId: runId,
         anomalyType: 'PF_CONTRIBUTION_MISMATCH',
         severity: 'MEDIUM',
         description: `Employee ${emp.name} — PF contribution mismatch: Employee ₹${emp.employee_pf_contribution} vs Employer ₹${emp.employer_pf_contribution}.`,
@@ -99,22 +127,21 @@ export class AiPayrollAnomalyService {
     }
 
     // 3. Suspicious salary changes (>30% change)
-    const salarySpikes = await this.dataSource
-      .query(
-        `
+    const salarySpikes = await this.dataSource.query(
+      `
       SELECT e.id as employee_id, e.name,
              e.basic_salary, e.gross_salary,
              b.id as branch_id
       FROM employees e
       LEFT JOIN client_branches b ON b.id = e.branch_id
       WHERE e.client_id = $1 AND e.is_active = TRUE
+        ${runScope}
         AND e.gross_salary IS NOT NULL AND e.gross_salary > 0
         AND e.basic_salary IS NOT NULL
         AND (e.basic_salary::numeric / NULLIF(e.gross_salary::numeric, 0)) < 0.3
     `,
-        [clientId],
-      )
-      .catch(() => []);
+      [clientId, runId],
+    );
 
     for (const emp of salarySpikes) {
       anomalies.push({
@@ -122,6 +149,7 @@ export class AiPayrollAnomalyService {
         branchId: emp.branch_id,
         employeeId: emp.employee_id,
         anomalyType: 'SUSPICIOUS_SALARY_STRUCTURE',
+        payrollRunId: runId,
         severity: 'MEDIUM',
         description: `Employee ${emp.name} — Basic salary (₹${emp.basic_salary}) is less than 30% of gross (₹${emp.gross_salary}). May be structured to minimize PF contributions.`,
         details: {
@@ -135,9 +163,8 @@ export class AiPayrollAnomalyService {
     }
 
     // 4. Employees without PF/ESI registration
-    const unregistered = await this.dataSource
-      .query(
-        `
+    const unregistered = await this.dataSource.query(
+      `
       SELECT e.id as employee_id, e.name,
              COALESCE(esd.pf_uan, esd.pf_member_id) AS pf_number,
              esd.esi_ip_number AS esi_number,
@@ -146,6 +173,7 @@ export class AiPayrollAnomalyService {
       LEFT JOIN employee_statutory esd ON esd.employee_id = e.id
       LEFT JOIN client_branches b ON b.id = e.branch_id
       WHERE e.client_id = $1 AND e.is_active = TRUE
+        ${runScope}
         AND e.date_of_joining < NOW() - INTERVAL '30 days'
         AND (
           COALESCE(esd.pf_uan, esd.pf_member_id) IS NULL
@@ -154,9 +182,8 @@ export class AiPayrollAnomalyService {
           OR esd.esi_ip_number = ''
         )
     `,
-        [clientId],
-      )
-      .catch(() => []);
+      [clientId, runId],
+    );
 
     for (const emp of unregistered) {
       const missing: string[] = [];
@@ -167,6 +194,7 @@ export class AiPayrollAnomalyService {
         branchId: emp.branch_id,
         employeeId: emp.employee_id,
         anomalyType: 'MISSING_STATUTORY_REGISTRATION',
+        payrollRunId: runId,
         severity: 'HIGH',
         description: `Employee ${emp.name} — Missing ${missing.join(' & ')} registration. Joined ${emp.date_of_joining?.toISOString?.()?.split('T')[0] || 'over 30 days ago'}.`,
         details: {
