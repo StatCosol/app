@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
+const { readFileSync } = require('node:fs');
+const { join } = require('node:path');
 const { setTimeout: delay } = require('node:timers/promises');
 require('reflect-metadata');
 const { DataSource } = require('typeorm');
@@ -11,6 +13,7 @@ const { InvoicePaymentsService } = require('../dist/src/accounts-billing/service
 const { BillingCalculationService } = require('../dist/src/accounts-billing/services/billing-calculation.service');
 const { BillingNumberService } = require('../dist/src/accounts-billing/services/billing-number.service');
 const { BillingReportsService } = require('../dist/src/accounts-billing/services/billing-reports.service');
+const { InvoiceDeliveryService } = require('../dist/src/accounts-billing/services/invoice-delivery.service');
 
 async function main() {
   const db = new PGlite();
@@ -31,6 +34,7 @@ async function main() {
       extra: { options: '-c statement_timeout=10000 -c lock_timeout=8000' },
     });
     await ds.initialize();
+    await ds.query(readFileSync(join(__dirname, '../migrations/20260929_invoice_delivery_recovery.sql'), 'utf8'));
     const repo = (entity) => ds.getRepository(entity);
     const invoices = (source = ds) => new InvoicesService(
       repo(entities.Invoice), repo(entities.InvoiceItem), repo(entities.BillingClient),
@@ -492,6 +496,40 @@ async function main() {
       assert.equal(result.rows.reduce((sum, row) => sum + row.lineTotal, 0), result.summary.billedAmount);
     }
     console.log('PASS: stale PDF publication rejection, edit-time path invalidation, precision rollback and complete filtered invoice lines.');
+
+    const deliveries = new InvoiceDeliveryService(ds);
+    async function prepareDelivery() {
+      const inv = await seed();
+      const originalPath = `/uploads/invoices/${inv.id}-original.pdf`;
+      await invoices().updatePdfPath(inv.id, originalPath, await read(inv.id));
+      const { job } = await deliveries.begin(inv.id, randomUUID(), 'synthetic-fingerprint', {
+        invoiceId: inv.id, toEmail: 'sample@example.invalid', subject: 'Sample',
+        body: 'Synthetic invoice', sentStatus: 'NOT_SENT', sentBy: userId,
+      });
+      await deliveries.start(job, originalPath, 'Sample', 'Synthetic invoice');
+      return { inv, job, originalPath };
+    }
+    for (const status of ['SENDING', 'UNKNOWN', 'ACCEPTED']) {
+      const { inv, job, originalPath } = await prepareDelivery();
+      if (status === 'UNKNOWN') await deliveries.uncertain(job.id);
+      if (status === 'ACCEPTED') await ds.query("UPDATE invoice_deliveries SET status='ACCEPTED',accepted_at=now() WHERE id=$1", [job.id]);
+      await invoices().updatePdfPath(inv.id, `/uploads/invoices/${inv.id}-download.pdf`, await read(inv.id));
+      assert.equal((await read(inv.id)).pdfPath, originalPath, `${status} must retain its registered attachment identity`);
+      if (status === 'ACCEPTED') await deliveries.reconcile(job.id);
+      else await deliveries.accepted(job.id, 'synthetic-receipt');
+      assert.equal((await read(inv.id)).mailStatus, 'SENT');
+      await invoices().updatePdfPath(inv.id, `/uploads/invoices/${inv.id}-later.pdf`, await read(inv.id));
+      assert.equal((await read(inv.id)).pdfPath, `/uploads/invoices/${inv.id}-later.pdf`);
+      assert.equal((await read(inv.id)).mailStatus, 'SENT', 'Later downloads must retain the accepted mail status');
+    }
+    const changedDelivery = await prepareDelivery();
+    await invoices().update(changedDelivery.inv.id, { remarks: 'Actual edit during SMTP' }, userId);
+    const editedPath = `/uploads/invoices/${changedDelivery.inv.id}-edited.pdf`;
+    await invoices().updatePdfPath(changedDelivery.inv.id, editedPath, await read(changedDelivery.inv.id));
+    await deliveries.accepted(changedDelivery.job.id, 'old-snapshot-receipt');
+    assert.equal((await read(changedDelivery.inv.id)).pdfPath, editedPath);
+    assert.equal((await read(changedDelivery.inv.id)).mailStatus, 'NOT_SENT');
+    console.log('PASS: concurrent downloads preserve in-flight attachment identity, receipts mark unchanged invoices sent, and actual edits remain unsent.');
   } finally {
     if (ds?.isInitialized) await ds.destroy();
     await db.close();
